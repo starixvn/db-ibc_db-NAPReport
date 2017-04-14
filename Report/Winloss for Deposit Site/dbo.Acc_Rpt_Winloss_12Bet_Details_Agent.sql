@@ -1,0 +1,181 @@
+﻿ALTER PROCEDURE [dbo].[Acc_Rpt_Winloss_12Bet_Details_Agent]  
+ @CustID		INT=0,  
+ @FromDate		SMALLDATETIME,  
+ @ToDate		SMALLDATETIME,   
+ @showSB		BIT=1,  
+ @showHR		BIT=0,  
+ @BalanceUpDay	SMALLDATETIME  
+AS  
+/*  Created: Henry  
+	Date: 2009-12-01  
+    Task : Winloss Report for 12BET (Agent) 
+    DB: DB052.bodb02  
+   
+    Revisions:  
+    -- 20100526@Henry: Change to use StatusID instead of Status in WHERE statement
+  
+ Param's Explanation:  
+  + @CustID: SuperID  
+  
+*/  
+BEGIN  
+ SET NOCOUNT ON  
+
+ CREATE TABLE #SAgWinLoss (  
+	  winlostdate	DATETIME,  
+	  CustID		INT,   --Recommend
+	  SRecommend	INT,  
+	  TurnOver		MONEY,   
+	  GrossComm		MONEY,   
+	  Winlost		MONEY,  
+	  Comm			MONEY,   
+	  AWinlost		MONEY,   
+	  AComm			MONEY,   
+	  Company		MONEY) 
+ DECLARE @TmpCond		TABLE( sporttype INT, bettype INT)  
+ DECLARE @TmpCondSumWL	TABLE( sporttype INT, bettype INT)  
+ DECLARE @tmp12BETSAg	TABLE( custID INT PRIMARY KEY) 
+
+ IF @custID = 0 
+ BEGIN
+	INSERT INTO @tmp12BETSAg(custID) SELECT custID FROM dbo.f_DepSuperByCurrency('12bet')
+ END
+ ELSE 
+ BEGIN
+	INSERT INTO @tmp12BETSAg(custID) VALUES(@custID)
+ END 
+  
+ IF @ShowSB = 1  
+ BEGIN  
+	  --Bettrans  
+	INSERT INTO @TmpCond(Sporttype, Bettype)  
+	SELECT 0 AS sporttype, typeid FROM bettype (NOLOCK)  
+	WHERE typeid < 31 
+	--Sum_winloss  
+	INSERT INTO @TmpCondSumWL(sporttype, bettype)  
+	VALUES(0,0)  
+ END  
+  
+ IF @ShowHR = 1  
+ BEGIN  
+	--Bettrans  
+	INSERT INTO @TmpCond(Sporttype, Bettype)  
+	SELECT 151, 31 UNION ALL SELECT 151, 32 UNION ALL SELECT 151, 33 UNION ALL 
+	SELECT 151, 41 UNION ALL SELECT 151, 42 UNION ALL SELECT 151, 43 
+
+	--Sum_winloss  
+	INSERT INTO @TmpCondSumWL(sporttype, bettype)  
+	VALUES(151,0)  
+ END  
+  
+ IF @Todate >= @BalanceUpDay   
+ BEGIN   
+  INSERT INTO #SAgWinLoss  
+  SELECT   
+    b.winlostdate,  
+    b.recommend,  
+    b.srecommend,   
+    SUM(CASE WHEN b.liveawayscore = 0 and b.bettype in(33,43) THEN b.stake/2 ELSE b.stake END) AS turnover,   
+    SUM(acomm/(1-apositiontaking-mpositiontaking)) AS GrossComm,  
+    SUM(b.winlost - b.actual_stake) AS Winlost,  
+    SUM(b.playercomm) Comm,  
+    SUM(b.swinlost + b.mwinlost + b.awinlost)AWinlost,  
+    SUM(b.scomm - b.playercomm) Acomm,  
+    - SUM(b.swinlost + b.mwinlost + b.awinlost + b.winlost - b.actual_stake + b.scomm) Company  
+   
+  FROM	dbo.bettrans b WITH (NOLOCK)   
+		INNER JOIN @TmpCond t ON b.bettype = t.bettype  
+  WHERE b.winlostdate BETWEEN @FromDate AND @ToDate AND  
+	b.bettype < 99 AND  
+	b.ruben=1 AND   
+    --b.status NOT IN ('VOID', 'REJECT', 'Refund') AND  
+    b.statusID NOT IN (101, 102, 103) AND
+    SRecommend IN ( SELECT custid FROM @tmp12BETSAg)    
+  GROUP BY   
+    b.winlostdate, b.recommend,b.srecommend
+    
+  IF @BalanceUpDay < @FromDate  
+   SELECT @BalanceUpDay=@FromDate  
+  
+  INSERT INTO #SAgWinLoss  
+  SELECT b.winlostdate,   
+    b.recommend,   
+    b.srecommend,  
+    SUM(b.turnover),     
+    SUM(b.grosscomm) AS GrossComm,  
+    SUM(b.winlost),  
+    SUM(b.playercomm),  
+    SUM(b.swinlost + b.mwinlost + b.awinlost),  
+    SUM(b.scomm - b.playercomm),  
+    - SUM(b.swinlost + b.mwinlost + b.awinlost + b.winlost + b.scomm)   
+  
+  FROM	dbo.sum_winloss b WITH (NOLOCK)   
+		INNER JOIN @TmpCondSumWL t ON b.sporttype = t.sporttype AND b.bettype = 0
+  WHERE b.winlostdate BETWEEN @BalanceUpDay AND @todate  
+		AND b.roleid = 2   
+		AND b.SRecommend IN ( SELECT custid FROM @tmp12BETSAg) 
+  GROUP BY b.winlostdate, b.recommend, b.srecommend  
+ END  
+  
+ IF @FromDate < @BalanceUpDay   
+ BEGIN  
+  IF @ToDate >= DATEADD(dd, -1, @BalanceUpDay)  
+   SELECT @ToDate = DATEADD(dd, -1, @BalanceUpDay)  
+    
+  INSERT INTO #SAgWinLoss  
+  SELECT b.winlostdate,  
+    b.recommend,   
+    b.srecommend,   
+    SUM(b.turnover),     
+    SUM(b.grosscomm) AS GrossComm,  
+    SUM(b.winlost),  
+    SUM(b.playercomm),  
+    SUM(b.swinlost + b.mwinlost + b.awinlost),  
+    SUM(b.scomm - b.playercomm),  
+    - SUM(b.swinlost + b.mwinlost + b.awinlost + b.winlost + b.scomm)     
+  FROM  bodb_Summary.dbo.Sum_WinLoss_Old b WITH(NOLOCK)   
+		INNER JOIN @TmpCondSumWL t ON b.sporttype = t.sporttype AND b.bettype = 0
+  WHERE  
+		b.Winlostdate BETWEEN @FromDate AND @ToDate  
+		AND b.roleid = 2   
+		AND b.SRecommend IN ( SELECT custid FROM @tmp12BETSAg) 
+  GROUP BY b.winlostdate, b.recommend, b.srecommend
+ END  
+ 
+  
+ SELECT   
+   c.username,  
+   w.custid,  
+   SUM(TurnOver)		AS Turnover,   
+   sum(GrossComm)		AS GrossComm,  
+   SUM(Winlost)			AS Winlost,  
+   SUM(Comm)			AS Comm,  
+   SUM(AWinlost)		AS AWinlost,  
+   SUM(AComm)			AS AComm,  
+   SUM(Company)			AS Company,  
+   --BaseUSD  
+   SUM(TurnOver*h.USDRate)  AS TurnoverUSD,  
+   SUM(GrossComm*h.USDRate) AS GrossCommUSD,  
+   SUM(Winlost*h.USDRate)	AS WinlostUSD,  
+   SUM(Comm*h.USDRate)		AS CommUSD,  
+   SUM(AWinlost*h.USDRate)  AS AWinlostUSD,  
+   SUM(AComm*h.USDRate)		AS ACommUSD,  
+   SUM(Company*h.USDRate)	AS CompanyUSD,  
+   --BaseRM  
+   SUM(TurnOver*h.actualrate)	AS TurnoverRM,   
+   sum(GrossComm*h.actualrate)	AS GrossCommRM,  
+   SUM(Winlost*h.actualrate)	AS WinlostRM,  
+   SUM(Comm*h.actualrate)		AS CommRM,  
+   SUM(AWinlost*h.actualrate)	AS AWinlostRM,  
+   SUM(AComm*h.actualrate)		AS ACommRM,  
+   SUM(Company*h.actualrate)	AS CompanyRM       
+ FROM	#SAgWinLoss w   
+		INNER JOIN Exchange_History h WITH (NOLOCK) ON w.winlostdate = h.winlostdate AND w.srecommend = h.srecommend12BET  
+		INNER JOIN Customer c WITH(NOLOCK) ON w.custid = c.custid
+ GROUP BY w.custid, c.username  
+ DROP TABLE #SAgWinLoss
+END    
+GO
+GRANT EXECUTE ON [dbo].[Acc_Rpt_Winloss_12Bet_Details_Agent] TO [bodbAdminNet]
+GO
+GRANT VIEW DEFINITION ON [dbo].[Acc_Rpt_Winloss_12Bet_Details_Agent] TO [vnteam]

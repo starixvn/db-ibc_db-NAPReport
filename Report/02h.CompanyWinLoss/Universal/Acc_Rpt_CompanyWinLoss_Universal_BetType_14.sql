@@ -1,0 +1,100 @@
+IF EXISTS
+(
+    SELECT *
+    FROM sys.objects
+    WHERE object_id = OBJECT_ID(N'[dbo].[Acc_Rpt_CompanyWinLoss_Universal_BetType_14]')
+          AND type IN(N'P', N'PC')
+)
+    DROP PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_Universal_BetType_14];
+GO
+CREATE PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_Universal_BetType_14] @StartDate SMALLDATETIME,
+                                                                  @EndDate   SMALLDATETIME,
+                                                                  @ProductId INT,
+                                                                  @SportType INT           = 0,
+                                                                  @IsLive    INT           = 2
+AS
+
+/*	
+Creator: 20160222@Franklin
+Task:  Casino Integration Improvement - Implement Company Winloss By Products report [#48448]
+DB: DBACC/bodb02
+
+Revisions: 
+	 - 20160222@Franklin: Initialize Company Win Loss Report - Universal
+	 - 20160923@Percy:
+		1. Add params @Sporttype to support by Sporttype [RedmineID: #63460]
+		2. Using local variable to prevent bad parameter sniffing [RedmineID: #64573]
+Example: 
+EXEC [Acc_Rpt_CompanyWinLoss_Universal_BetType_14] @StartDate='2016-09-13', @EndDate='2020-01-01', @ProductId = 15, @SportType = 0
+		
+*/
+
+     BEGIN
+         SET NOCOUNT ON;
+         DECLARE @FDate SMALLDATETIME, @TDate SMALLDATETIME, @ProID INT, @Sport INT;
+         SELECT @FDate = @StartDate,
+                @TDate = @EndDate,
+                @ProID = @ProductId,
+                @Sport = @SportType;
+         BEGIN --#SportBetType     
+             DECLARE @isTest BIT= 0;
+             SELECT @isTest = dbo.f_CheckSPVersion(@@PROCID);
+             CREATE TABLE #SportBetType
+             (BetType     INT,
+              BetTypeName NVARCHAR(50)
+             );
+             INSERT INTO #SportBetType
+                    SELECT b.typeid,
+                           b.typenamee
+                    FROM dbo.f_SportBetTypeMatrix_Sel(@ProID, @Sport, 0, 2, '', '', @isTest) s
+                         INNER JOIN BetType b WITH (NOLOCK) ON s.BetType = b.typeid;
+         END;
+         BEGIN -- #DepositSuper
+
+             CREATE TABLE #DepositSuper
+             (CustId INT PRIMARY KEY
+             );
+             INSERT INTO #DepositSuper
+                    SELECT CustId
+                    FROM f_DepSuper_1('All');
+         END;
+         BEGIN -- Query
+
+             SELECT sb.BetType AS GroupId,
+                    sb.BetTypeName AS GroupName,
+                    CASE
+                        WHEN dep.CustId IS NULL
+                        THEN 'Credit'
+                        ELSE 'Deposit'
+                    END AS RowName,
+                    SUM((winlost - actual_stake) * actualrate) AS MemberWinLoss,
+                    SUM((awinlost + mwinlost + swinlost) * actualrate) AS SMAWinLoss,
+                    SUM(scomm * actualrate) Commission,
+                    SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm) * actualrate) AS RealIncome,
+                    SUM((1 - tpositiontaking) * ABS(stake) * actualrate) AS RealTurnover
+             FROM bettrans14 AS b WITH (NOLOCK)
+                  INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
+                  LEFT JOIN #DepositSuper AS dep ON b.srecommend = dep.CustId
+             WHERE b.winlostdate = @FDate
+                   AND (@IsLive = 2
+                        OR b.liveindicator = @IsLive)
+                   AND b.ruben = 1
+                   AND b.statusID IN(111, 112, 113)
+             GROUP BY sb.BetType,
+                      sb.BetTypeName,
+                      CASE
+                          WHEN dep.CustId IS NULL
+                          THEN 'Credit'
+                          ELSE 'Deposit'
+                      END
+             ORDER BY GroupName,
+                      RowName;
+         END;
+         DROP TABLE #SportBetType;
+         DROP TABLE #DepositSuper;
+     END;
+GO
+GRANT EXECUTE ON [dbo].[Acc_Rpt_CompanyWinLoss_Universal_BetType_14] TO [bodbAdminNet];
+GO
+GRANT VIEW DEFINITION ON [dbo].[Acc_Rpt_CompanyWinLoss_Universal_BetType_14] TO [vnteam];
+GO

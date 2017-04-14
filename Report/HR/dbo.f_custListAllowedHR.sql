@@ -1,0 +1,75 @@
+﻿ALTER FUNCTION [dbo].[f_custListAllowedHR]
+(	@site VARCHAR(5))
+RETURNS @custList TABLE(	custid INT PRIMARY KEY)
+AS
+/*	Created: Jamie
+	Date: 2009-10-08 
+	Task: Get the super list allowed to bet on 12BET/Mansion88/Fun88  
+	DB: DB02.BODB02, DB06.BODB02 
+
+	Param's Explanation: 
+		+ @site: 12BET, MS88, AB88 
+		+ superIDs: 
+			---=== 12BET Super ===---------
+				12BETSuperGBP	836212
+				12BETSuperRM	836218
+				12BETSuperRMB	836226
+				12BETSuperUS$	791080
+				12BETSuperEURO	791081
+				12BETSuperTB    836203	
+				12BETSuperIN	1813575
+			-------------------------------
+			-- === Mansion88 Super  ===---
+				MS88SuperEURO	1573960
+				MS88SuperGBP	1573975
+				MS88SuperHK$	1574024
+				MS88SuperRM		1574028
+				MS88SuperRMB	1574008
+				MS88SuperSD$	1574036
+				MS88SuperTB		1573967
+				MS88SuperUS$	1573954
+			----======================----
+			-- === Fun88 Super  ===-------
+				AB88SuperEURO	932167
+				AB88SuperRMB	932253
+				AB88SuperTB		932181
+				AB88SuperUS$	932063
+			---====================-------
+
+*/
+BEGIN
+	IF @site ='12BET'
+	BEGIN
+		INSERT INTO @custList(custid)
+		SELECT	836212	
+		UNION ALL SELECT 836218
+		UNION ALL SELECT 836226
+		UNION ALL SELECT 791080
+		UNION ALL SELECT 791081
+		UNION ALL SELECT 836203
+		UNION ALL SELECT 1813575
+	END
+	ELSE IF @site ='MS88'
+	BEGIN
+		INSERT INTO @custList(custid)
+		SELECT	1573960	
+		UNION ALL SELECT 1573975
+		UNION ALL SELECT 1574024
+		UNION ALL SELECT 1574028
+		UNION ALL SELECT 1574008
+		UNION ALL SELECT 1574036
+		UNION ALL SELECT 1573967
+		UNION ALL SELECT 1573954
+	END
+	ELSE IF @site='AB88'
+	BEGIN
+		INSERT INTO @custList(custid)
+		SELECT	932167	
+		UNION ALL SELECT 932253
+		UNION ALL SELECT 932181
+		UNION ALL SELECT 932063
+	END 
+	RETURN
+END 
+GO
+GRANT VIEW DEFINITION ON [dbo].[f_custListAllowedHR] TO [vnteam]
