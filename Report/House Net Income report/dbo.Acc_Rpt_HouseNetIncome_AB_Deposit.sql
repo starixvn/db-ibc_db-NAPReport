@@ -11,6 +11,7 @@ AS
     DB:			DBEXT/bodb02  
    
     Revisions:  
+		- 20170505@Harper: Change formula for Currency Play [RedmineID: #76156]
 	
 	Param's Explanation:   
 
@@ -197,7 +198,7 @@ BEGIN
 	SELECT 'FullRange', 
 			(SELECT CASE WHEN SUM(AmountToCompany) < 0 THEN 0 ELSE SUM(WLFeeApplied) END FROM #FeeData),
 			(SELECT AmountDailyBased FROM paySupplier),
-			(SELECT AmountDailyBased - AmountDailySystem FROM paySupplier)
+			(SELECT AmountDailySystem - AmountDailyBased FROM paySupplier)
 
 	DECLARE @tmpDate DATE, @DateList VARCHAR(200)
 	SELECT @tmpDate = @FDate
@@ -208,7 +209,7 @@ BEGIN
 		SELECT CONVERT(VARCHAR(2), @tmpDate, 106), 
 				(SELECT SUM(AmountToCompany) FROM #TempDataAB WHERE rptDate = @tmpDate),
 				(SELECT SUM(AmountDailyBased) FROM @DailyPayAmt WHERE RptDate = @tmpDate),
-				(SELECT SUM(AmountDailyBased - AmountDailySystem) FROM @DailyPayAmt WHERE RptDate = @tmpDate)
+				(SELECT SUM(AmountDailySystem - AmountDailyBased) FROM @DailyPayAmt WHERE RptDate = @tmpDate)
 
 		SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate)
 	END
