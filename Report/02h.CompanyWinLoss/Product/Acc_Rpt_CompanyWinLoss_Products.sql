@@ -1,5 +1,6 @@
 USE [bodb02]
 GO
+
 ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_Products]
 	 @StartDate SMALLDATETIME,
       @EndDate   SMALLDATETIME
@@ -18,6 +19,7 @@ AS
 		- 20161130@Percy: Integrate Fishing World [RedmineID: #67757]
 		- 20161213@Sophia: Remove parameter @winlostdate, use @StartDate to obtain parameter sniffing [RedmindID: #68634]
 		- 20160112@Percy: Change Extra PT formula [RedmineID: #70208]
+		- 20170323@Percy: Integrate Cash Out [RemineID: #73419]
 	Explanation's Param:
 	
 */
@@ -41,7 +43,7 @@ BEGIN
 		RefTable,
 		CasinoType
     FROM dbo.f_SportBettypeMatrix_Sel (0, 0, 0, 2, '', '', @isTest)
-
+	WHERE bettype NOT IN (911, 912) -- remove Cash Out
 	 
 	--- End Sport Bettype Matrix------
 	
@@ -593,7 +595,7 @@ BEGIN
 	LEFT JOIN #ExtraPT_Sel e 
 		ON  b.srecommend = e.superID 
 			AND e.ProductID = b.ProductId	
-	WHERE	b.ProductId IN (5,8,15,23) ---Virtual Sports, Keno, Colossus Bets, NG2 (3rd)
+	WHERE	b.ProductId IN (5,8,15,23,25) ---Virtual Sports, Keno, Colossus Bets, NG2 (3rd), CashOut
 			--- OR b.ProductId IN (4,11,12,13)    -----SLI, AG Casino, Gold Deluxe, MGC Live casino  (liveCasino)
 			--- OR b.ProductId IN (6, 14) --- Macau (Casino)
 			OR b.CasinoType IN (1,2)
@@ -700,6 +702,7 @@ BEGIN
 	,(12, 15, 'Colossus Bets')
 	,(13, 23, 'NG2')
 	,(14, 24, 'Fishing World')
+	,(15, 25, 'Cash Out')
 
 		
 	INSERT INTO @ProductOrder (DisplayOrder, ProductId, ProductName, Site)

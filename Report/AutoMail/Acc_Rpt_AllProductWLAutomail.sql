@@ -29,6 +29,7 @@ AS
 		- 20161222@Percy: Apply Fishing World [RedmineID: #65734]
 		- 20161227@Percy: Clean up code Cockfighting [RedmineID: #69446]
 		- 20170213@Percy: Remove SLI [RedmineID: #70036]
+		- 20170323@Percy: Apply Cash Out [RedmineID: #72164]
 		 
 	Param's Explanation:
 	
@@ -207,8 +208,8 @@ BEGIN
 	BEGIN 	
 		INSERT INTO #TempCustTrans
 		SELECT DISTINCT custid = CASE 
-							WHEN ((bettype <= 999 AND bettype NOT IN (9,10,29,31,32,33,71,72) AND (bettype NOT BETWEEN 81 AND 120) AND (bettype NOT BETWEEN 801 AND 899) AND (bettype NOT BETWEEN 901 AND 904)) OR bettype BETWEEN 1301 AND 1334) AND liveindicator =1 AND Sporttype <> 44 THEN 6911909
-							WHEN ((bettype <= 999 AND bettype NOT IN (9,10,29,31,32,33,71,72) AND (bettype NOT BETWEEN 81 AND 120) AND (bettype NOT BETWEEN 801 AND 899) AND (bettype NOT BETWEEN 901 AND 904)) OR bettype BETWEEN 1301 AND 1334) AND liveindicator =0 AND Sporttype <> 44 THEN 6911911
+							WHEN ((bettype <= 999 AND bettype NOT IN (9,10,29,31,32,33,71,72) AND (bettype NOT BETWEEN 81 AND 120) AND (bettype NOT BETWEEN 801 AND 899) AND (bettype NOT BETWEEN 901 AND 904) AND (bettype NOT BETWEEN 911 AND 914)) OR bettype BETWEEN 1301 AND 1334) AND liveindicator =1 AND Sporttype <> 44 THEN 6911909
+							WHEN ((bettype <= 999 AND bettype NOT IN (9,10,29,31,32,33,71,72) AND (bettype NOT BETWEEN 81 AND 120) AND (bettype NOT BETWEEN 801 AND 899) AND (bettype NOT BETWEEN 901 AND 904) AND (bettype NOT BETWEEN 911 AND 914)) OR bettype BETWEEN 1301 AND 1334) AND liveindicator =0 AND Sporttype <> 44 THEN 6911911
 							WHEN bettype IN(9,29 ) THEN 6911913
 							WHEN bettype = 10 THEN 6911914
 							WHEN bettype IN (71,72) OR bettype BETWEEN 2101 AND 2399 THEN 6911916
@@ -232,6 +233,7 @@ BEGIN
 							WHEN bettype BETWEEN 4001 AND 7999 THEN 21535688
 							WHEN bettype BETWEEN 2501 AND 2699 THEN 23765766
 							WHEN bettype BETWEEN 1011 AND 1020 THEN 24569216
+							WHEN bettype BETWEEN 911 AND 914 THEN 25477229
 						END
 		FROM bodb_report.dbo.rptWinLost b WITH(NOLOCK)
 		WHERE b.winlostdate = @_todate
@@ -240,8 +242,8 @@ BEGIN
 	BEGIN 
 		INSERT INTO #TempCustTrans
 		SELECT DISTINCT custid = CASE 
-							WHEN ((bettype <= 999 AND bettype NOT IN (9,10,29,31,32,33,71,72) AND (bettype NOT BETWEEN 81 AND 120) AND (bettype NOT BETWEEN 801 AND 899) AND (bettype NOT BETWEEN 901 AND 904)) OR bettype BETWEEN 1301 AND 1334) AND liveindicator =1  AND Sporttype <> 44 THEN 9398886
-							WHEN ((bettype <= 999 AND bettype NOT IN (9,10,29,31,32,33,71,72) AND (bettype NOT BETWEEN 81 AND 120) AND (bettype NOT BETWEEN 801 AND 899) AND (bettype NOT BETWEEN 901 AND 904)) OR bettype BETWEEN 1301 AND 1334) AND liveindicator =0  AND Sporttype <> 44 THEN 12005466
+							WHEN ((bettype <= 999 AND bettype NOT IN (9,10,29,31,32,33,71,72) AND (bettype NOT BETWEEN 81 AND 120) AND (bettype NOT BETWEEN 801 AND 899) AND (bettype NOT BETWEEN 901 AND 904) AND (bettype NOT BETWEEN 911 AND 914)) OR bettype BETWEEN 1301 AND 1334) AND liveindicator =1  AND Sporttype <> 44 THEN 9398886
+							WHEN ((bettype <= 999 AND bettype NOT IN (9,10,29,31,32,33,71,72) AND (bettype NOT BETWEEN 81 AND 120) AND (bettype NOT BETWEEN 801 AND 899) AND (bettype NOT BETWEEN 901 AND 904) AND (bettype NOT BETWEEN 911 AND 914)) OR bettype BETWEEN 1301 AND 1334) AND liveindicator =0  AND Sporttype <> 44 THEN 12005466
 							WHEN bettype IN(9,29 ) THEN 12005470
 							WHEN bettype = 10 THEN 12005483
 							WHEN bettype IN (71,72) OR bettype BETWEEN 2101 AND 2399 THEN 12017095
@@ -265,6 +267,7 @@ BEGIN
 							WHEN bettype BETWEEN 4001 AND 7999 THEN 21526102
 							WHEN bettype BETWEEN 2501 AND 2699 THEN 23766923
 							WHEN bettype BETWEEN 1011 AND 1020 THEN 24567778
+							WHEN bettype BETWEEN 911 AND 914 THEN 25440545
 						END
 		FROM bodb_report.dbo.rptWinLost b WITH(NOLOCK)
 		WHERE b.winlostdate = @_todate
@@ -302,20 +305,8 @@ BEGIN
 	DROP TABLE #TempCustTrans
 
 END
-
-
-
-
-GO
-
-SET QUOTED_IDENTIFIER OFF 
-GO
-SET ANSI_NULLS ON 
-GO
-
-
 GO 
- GRANT VIEW DEFINITION ON [dbo].[Acc_Rpt_AllProductWLAutomail] TO [vnteam]
+GRANT VIEW DEFINITION ON [dbo].[Acc_Rpt_AllProductWLAutomail] TO [vnteam]
 GO 
- GRANT EXECUTE ON [dbo].[Acc_Rpt_AllProductWLAutomail] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[Acc_Rpt_AllProductWLAutomail] TO [bodbAdminNet]
 GO 

@@ -29,175 +29,75 @@ AS
 		- 20160909@Robert: Offer Colossus Bets for Cash Model (#63144)
 		- 20161022@Jim:move table to bodb_licenseereport [RedmineID :#60449]
 		- 20161129@Robert: NAP Reports - Integrate Fishing World Product [RedmindID: #67757]
-
+		- 20160323@Percy: Refactor code aplly new products [RedmineID: #73328]
 */
 
 BEGIN
 	SET NOCOUNT ON
+
+	DECLARE @isTest BIT
+	SELECT  @isTest = dbo.f_CheckSPVersion(@@PROCID)
+
 	DECLARE @FromDateTmp DATE, @ToDateTmp DATE, @LicenseeName VARCHAR(50)
-	SELECT @FromDateTmp = @FromDate, @ToDateTmp = @ToDate
+	SELECT  @FromDateTmp = @FromDate, @ToDateTmp = @ToDate
+
+	SELECT  @ProductPrefix = ISNULL(@ProductPrefix, '')
+
+	DECLARE @ProductId INT
+	SELECT  @ProductId = ProductId FROM dbo.Products WITH(NOLOCK) WHERE ProductPrefix = @ProductPrefix
 	
 	DECLARE @SAgWinLoss TABLE (CustId INT, CompanyWL MONEY) 
 	DECLARE @Super AS TABLE (custid INT, currency TINYINT)
 	DECLARE @BetTypeList TABLE(BetType SMALLINT)
-	DECLARE @SportTypeList TABLE(SportType SMALLINT, IsBA BIT)
+	DECLARE @SportTypeList TABLE(SportType SMALLINT, IsBA BIT DEFAULT (0))
+
+	DECLARE @ExcludeBettype TABLE (bettype SMALLINT)
+	INSERT INTO @ExcludeBettype (bettype)
+	VALUES (901), (902), (911), (912) -- always exclude
+
+	IF @ProductPrefix <> '' -- get detail product not in bettrade, Cash Out
+	BEGIN
+		INSERT INTO @ExcludeBettype(bettype)
+		VALUES (903), (904), (913), (914)
+	END
 
 	SELECT @LicenseeName = LicenseeName
 	FROM bodb_Licensee.dbo.Licensees (NOLOCK) WHERE LicenseeID = @LicenseeID
 
-	IF @ProductPrefix = 'SB'
+	IF @ProductPrefix IN ('SB', 'BA') -- sportbook
     BEGIN
-	   INSERT INTO @SportTypeList(SportType, IsBA)
-	   VALUES(0, 0)
-    END
-	ELSE IF @ProductPrefix = 'BA'
-    BEGIN
-	   INSERT INTO @SportTypeList(SportType, IsBA)
-	   VALUES(0, 1)
-    END
-	ELSE IF @ProductPrefix = 'RB'
-    BEGIN
-	   INSERT INTO @SportTypeList(SportType, IsBA)
-	   VALUES(151, 0)
+		INSERT INTO @SportTypeList(SportType)
+		VALUES (0)
 
+		IF @ProductPrefix = 'BA'
+		BEGIN
+			UPDATE @SportTypeList
+			SET IsBA = 1
+			WHERE SportType = 0
+		END
+
+		INSERT INTO @BetTypeList(BetType)
+		SELECT DISTINCT BetType
+		FROM dbo.f_SportBettypeMatrix_Sel(1, 0, 0, 2, '', '', @isTest)
+		WHERE BetType NOT BETWEEN 901 AND 904
+    END
+	ELSE IF @ProductPrefix = 'BT' -- bettrade
+	BEGIN
 	   INSERT INTO @BetTypeList(BetType)
-	   SELECT typeid
-	   FROM bodb02.dbo.bettype WITH (NOLOCK)
-	   WHERE typeid IN (31, 32, 33, 41, 42, 43)
+	   VALUES (903), (904) -- don't include 901, 902
     END
-	ELSE IF @ProductPrefix = 'NG'
-    BEGIN
-	   INSERT INTO @SportTypeList(SportType, IsBA)
-	   VALUES(161, 0)
+	ELSE
+	BEGIN
+		INSERT INTO @SportTypeList(SportType)
+		SELECT DISTINCT SportType
+		FROM dbo.SportBettypeMatrix WITH(NOLOCK)
+		WHERE ProductID = @ProductId
 
-	   INSERT INTO @BetTypeList(BetType)
-	   SELECT typeid
-	   FROM bodb02.dbo.bettype WITH (NOLOCK)
-	   WHERE typeid BETWEEN 81 AND 120
-
-    END
-	ELSE IF @ProductPrefix = 'LC'
-    BEGIN
-	   INSERT INTO @SportTypeList(SportType, IsBA)
-	   VALUES(162, 0)
-
-	   INSERT INTO @BetTypeList(BetType)
-	   SELECT typeid
-	   FROM bodb02.dbo.bettype WITH (NOLOCK)
-	   WHERE typeid BETWEEN 1101 AND 1199
-
-    END
-	ELSE IF @ProductPrefix = 'VS'
-    BEGIN
-	   INSERT INTO @SportTypeList(SportType, IsBA)
-	   VALUES(180, 0)
-	   
-	   INSERT INTO @BetTypeList(BetType)
-	   SELECT typeid
-	   FROM bodb02.dbo.bettype WITH (NOLOCK)
-	   WHERE typeid BETWEEN 1201 AND 1299
-    END
-	ELSE IF @ProductPrefix = 'CS'
-    BEGIN
-	   INSERT INTO @SportTypeList(SportType, IsBA)
-	   VALUES(251, 0), (208, 0), (209, 0), (210, 0)
-
-	   INSERT INTO @BetTypeList(BetType)
-	   SELECT typeid
-	   FROM bodb02.dbo.bettype WITH (NOLOCK)
-	   WHERE typeid IN (71, 72)
-			OR typeid BETWEEN 2101 AND 2399
-
-    END
-	ELSE IF @ProductPrefix = 'KN'
-    BEGIN
-	   INSERT INTO @SportTypeList(SportType, IsBA)
-	   VALUES(202, 0)
-	   
-	   INSERT INTO @BetTypeList(BetType)
-	   SELECT typeid
-	   FROM bodb02.dbo.bettype WITH (NOLOCK)
-	   WHERE typeid BETWEEN 1501 AND 1599
-    END
-	ELSE IF @ProductPrefix = 'GD'
-    BEGIN
-	   INSERT INTO @SportTypeList(SportType, IsBA)
-	   VALUES(255, 0)
-
-	   INSERT INTO @BetTypeList(BetType)
-	   VALUES(1700)
-
-    END
-	ELSE IF @ProductPrefix = 'AGC'
-    BEGIN
-	   INSERT INTO @SportTypeList(SportType, IsBA)
-	   VALUES(250, 0)
-
-	   INSERT INTO @BetTypeList(BetType)
-	   VALUES(1800)
-
-    END
-	ELSE IF @ProductPrefix = 'VG'
-    BEGIN
-	   INSERT INTO @SportTypeList(SportType, IsBA)
-	   VALUES(249, 0)
-
-	   INSERT INTO @BetTypeList(BetType)
-	   VALUES(1900)
-
-    END
-	ELSE IF @ProductPrefix = 'MGCLC'
-    BEGIN
-	   INSERT INTO @SportTypeList(SportType, IsBA)
-	   VALUES(203, 0)
-
-	   INSERT INTO @BetTypeList(BetType)
-	   SELECT typeid
-	   FROM bodb02.dbo.bettype WITH (NOLOCK)
-	   WHERE typeid BETWEEN 2001 AND 2007
-
-    END
-	ELSE IF @ProductPrefix = 'MGCRNG'
-    BEGIN
-	   INSERT INTO @SportTypeList(SportType, IsBA)
-	   VALUES(205, 0)
-
-	   INSERT INTO @BetTypeList(BetType)
-	   SELECT typeid
-	   FROM bodb02.dbo.bettype WITH (NOLOCK)
-	   WHERE typeid BETWEEN 2008 AND 2009
-
-    END
-    ELSE IF @ProductPrefix = 'VB'
-    BEGIN
-	   INSERT INTO @SportTypeList(SportType, IsBA)
-	   VALUES(212, 0)
-
-	   INSERT INTO @BetTypeList(BetType)
-	   SELECT typeid
-	   FROM bodb02.dbo.bettype WITH (NOLOCK)
-	   WHERE typeid BETWEEN 4001 AND 7999
-    END
-	ELSE IF @ProductPrefix = 'CB'
-    BEGIN
-	   INSERT INTO @SportTypeList(SportType, IsBA)	   
-	   SELECT 204, 0
-
-	   INSERT INTO @BetTypeList(BetType)
-	   SELECT typeid
-	   FROM bodb02.dbo.bettype WITH (NOLOCK)
-	   WHERE typeid = 18000
-    END
-    ELSE IF @ProductPrefix = 'FW'
-    BEGIN
-	   INSERT INTO @SportTypeList(SportType, IsBA)
-	   VALUES(219, 0)
-
-	   INSERT INTO @BetTypeList(BetType)
-	   SELECT typeid
-	   FROM bodb02.dbo.bettype WITH (NOLOCK)
-	   WHERE typeid BETWEEN 1011 AND 1020
-    END
+		INSERT INTO @BetTypeList(BetType)
+		SELECT DISTINCT BetType
+		FROM dbo.f_SportBettypeMatrix_Sel(@ProductId, 0, 0, 2, '', '', @isTest)
+		WHERE BetType NOT IN (911, 912) -- for Cash Out
+	END
 	
 	INSERT INTO @Super(custid, currency)
 	SELECT DISTINCT CustID, currency
@@ -206,59 +106,7 @@ BEGIN
 		
 	IF @ToDate > @MoveBetsDay
 	BEGIN
-		IF @ProductPrefix = 'SB'--for SB
-		BEGIN
-			INSERT INTO @SAgWinLoss(CustId, CompanyWL)
-			SELECT b.srecommend
-				, - SUM(ISNULL(swinlost, 0) + ISNULL(mwinlost, 0) + ISNULL(awinlost, 0) + ISNULL(winlost, 0) - ISNULL(actual_stake, 0) + ISNULL(scomm, 0))
-			FROM dbo.bettrans b WITH (NOLOCK, INDEX = IX_srecommend)
-				INNER JOIN @Super s ON b.srecommend = s.custid AND b.currency = s.currency
-			WHERE b.winlostdate BETWEEN @FromDateTmp AND @ToDateTmp
-				AND (bettype < 31 OR bettype BETWEEN 121 AND 999 OR bettype BETWEEN 1301 AND 1399)
-				AND b.bettype NOT IN (901, 902, 903, 904)
-				AND b.statusid IN (111, 112, 113)
-				AND b.apositiontaking <> 0
-			GROUP BY b.srecommend
-		END
-		ELSE IF @ProductPrefix = 'BA' --for BA
-		BEGIN
-			INSERT INTO @SAgWinLoss(CustId, CompanyWL)
-			SELECT b.srecommend
-				, - SUM(ISNULL(swinlost, 0) + ISNULL(mwinlost, 0) + ISNULL(awinlost, 0) + ISNULL(winlost, 0) - ISNULL(actual_stake, 0) + ISNULL(scomm, 0))
-			FROM dbo.bettrans b WITH (NOLOCK, INDEX = IX_srecommend)
-				INNER JOIN @Super s ON b.srecommend = s.custid AND b.currency = s.currency
-			WHERE b.winlostdate BETWEEN @FromDateTmp AND @ToDateTmp
-				AND (bettype < 31 OR bettype BETWEEN 121 AND 999 OR bettype BETWEEN 1301 AND 1399)
-				AND b.bettype NOT IN (901, 902, 903, 904)
-				AND b.statusid IN (111, 112, 113)
-				AND b.apositiontaking = 0
-			GROUP BY b.srecommend
-		END
-		ELSE IF @ProductPrefix IN ('RB', 'VS', 'NG', 'KN', 'CS', 'LC', 'GD', 'AGC', 'VG', 'MGCLC', 'MGCRNG', 'VB', 'FW')
-		BEGIN
-			INSERT INTO @SAgWinLoss(CustId, CompanyWL)
-			SELECT b.srecommend
-				, - SUM(ISNULL(swinlost, 0) + ISNULL(mwinlost, 0) + ISNULL(awinlost, 0) + ISNULL(winlost, 0) - ISNULL(actual_stake, 0) + ISNULL(scomm, 0))
-			FROM dbo.bettrans b WITH (NOLOCK, INDEX = IX_srecommend)
-				INNER JOIN @Super s ON b.srecommend = s.custid AND b.currency = s.currency
-				INNER JOIN @BetTypeList bt ON b.bettype = bt.bettype
-			WHERE b.winlostdate BETWEEN @FromDateTmp AND @ToDateTmp
-				AND b.statusid IN (111, 112, 113)
-			GROUP BY b.srecommend
-		END
-		ELSE IF @ProductPrefix = 'BT'
-		BEGIN
-			INSERT INTO @SAgWinLoss(CustId, CompanyWL)
-			SELECT b.srecommend
-				, - SUM(ISNULL(swinlost, 0) + ISNULL(mwinlost, 0) + ISNULL(awinlost, 0) + ISNULL(winlost, 0) - ISNULL(actual_stake, 0) + ISNULL(scomm, 0))
-			FROM dbo.bettrans b WITH (NOLOCK, INDEX = IX_srecommend)
-				INNER JOIN @Super s ON b.srecommend = s.custid AND b.currency = s.currency
-			WHERE b.winlostdate BETWEEN @FromDateTmp AND @ToDateTmp
-				AND b.statusid IN (111, 112, 113)
-				AND b.bettype IN (903, 904)
-			GROUP BY b.srecommend
-		END
-		ELSE IF ISNULL(@ProductPrefix, '') = '' --for all products
+		IF @ProductPrefix = '' -- get all products
 		BEGIN
 			INSERT INTO @SAgWinLoss(CustId, CompanyWL)
 			SELECT b.srecommend
@@ -267,12 +115,27 @@ BEGIN
 				INNER JOIN @Super s ON b.srecommend = s.custid AND b.currency = s.currency
 			WHERE b.winlostdate BETWEEN @FromDateTmp AND @ToDateTmp
 				AND b.bettype < 19999
-				AND b.bettype NOT IN (901, 902)
+				AND NOT EXISTS (SELECT 1 FROM @ExcludeBettype e WHERE b.bettype = e.bettype)
 				AND b.statusid IN (111, 112, 113)
 			GROUP BY b.srecommend
 		END
-
-		--select * from @SAgWinLoss
+		ELSE
+		BEGIN
+			INSERT INTO @SAgWinLoss(CustId, CompanyWL)
+			SELECT b.srecommend
+				, - SUM(ISNULL(swinlost, 0) + ISNULL(mwinlost, 0) + ISNULL(awinlost, 0) + ISNULL(winlost, 0) - ISNULL(actual_stake, 0) + ISNULL(scomm, 0))
+			FROM dbo.bettrans b WITH (NOLOCK, INDEX = IX_srecommend)
+				INNER JOIN @Super s ON b.srecommend = s.custid AND b.currency = s.currency
+			WHERE b.winlostdate BETWEEN @FromDateTmp AND @ToDateTmp
+				AND EXISTS (SELECT 1 FROM @BetTypeList bt WHERE b.bettype = bt.bettype)
+				AND b.statusid IN (111, 112, 113)
+				AND (
+					@ProductPrefix NOT IN ('SB', 'BA')
+					OR (@ProductPrefix = 'SB' AND b.apositiontaking <> 0)
+					OR (@ProductPrefix = 'BA' AND b.apositiontaking = 0)
+				)
+			GROUP BY b.srecommend
+		END
 	END
 
 	IF @FromDateTmp <= @MoveBetsDay 
@@ -280,9 +143,23 @@ BEGIN
 		IF @ToDateTmp >= @MoveBetsDay
 			SET @ToDateTmp = @MoveBetsDay
 
-		IF ISNULL(@ProductPrefix, '') <> ''
+		IF @ProductPrefix = '' -- get all product
 		BEGIN
-			IF @ProductPrefix IN ('BT')
+			INSERT INTO @SAgWinLoss(custid, CompanyWL)
+			SELECT b.srecommend
+				, - SUM(ISNULL(b.swinlost, 0) + ISNULL(b.mwinlost, 0) + ISNULL(b.awinlost, 0) + ISNULL(b.winlost, 0) + ISNULL(b.scomm, 0)) AS Company
+			FROM bodb_licenseereport.dbo.rptLicWinloss2 b WITH (NOLOCK)
+				INNER JOIN @Super s ON b.srecommend = s.custid AND b.currency = s.currency
+			WHERE b.winlostdate BETWEEN @FromDateTmp AND @ToDateTmp
+				AND b.RoleId = 4
+				AND b.BetType < 19999
+				AND b.statusid IN (111, 112, 113, 114, 115)
+				AND NOT EXISTS (SELECT 1 FROM @ExcludeBettype e WHERE b.bettype = e.bettype)
+			GROUP BY b.srecommend
+		END
+		ELSE
+		BEGIN
+			IF @ProductPrefix IN ('BT', 'CO')
 			BEGIN
 				INSERT INTO @SAgWinLoss(custid, CompanyWL)
 				SELECT b.srecommend
@@ -291,7 +168,7 @@ BEGIN
 					INNER JOIN @Super s ON b.srecommend = s.custid AND b.currency = s.currency
 				WHERE b.winlostdate BETWEEN @FromDateTmp AND @ToDateTmp
 					AND b.RoleId = 4
-					AND b.bettype IN (903, 904)
+					AND EXISTS (SELECT 1 FROM @BetTypeList bt WHERE b.bettype = bt.BetType)
 					AND b.statusid IN (111, 112, 113, 114, 115)
 				GROUP BY b.srecommend
 			END
@@ -306,26 +183,11 @@ BEGIN
 				WHERE b.winlostdate BETWEEN @FromDateTmp AND @ToDateTmp
 					AND b.RoleId = 4
 					AND b.statusid IN (111, 112, 113, 114, 115)
-					AND b.bettype NOT IN (901,902,903,904)
+					AND NOT EXISTS (SELECT 1 FROM @ExcludeBettype e WHERE b.bettype = e.BetType)
 				GROUP BY b.srecommend
 			END
 		END
-		ELSE -- get all
-		BEGIN
-			INSERT INTO @SAgWinLoss(custid, CompanyWL)
-			SELECT b.srecommend
-				, - SUM(ISNULL(b.swinlost, 0) + ISNULL(b.mwinlost, 0) + ISNULL(b.awinlost, 0) + ISNULL(b.winlost, 0) + ISNULL(b.scomm, 0)) AS Company
-			FROM bodb_licenseereport.dbo.rptLicWinloss2 b WITH (NOLOCK)
-				INNER JOIN @Super s ON b.srecommend = s.custid AND b.currency = s.currency
-			WHERE b.winlostdate BETWEEN @FromDateTmp AND @ToDateTmp
-				AND b.RoleId = 4
-				AND b.BetType < 19999
-				AND b.statusid IN (111, 112, 113, 114, 115)
-				AND b.bettype NOT IN (901,902)
-			GROUP BY b.srecommend
-		END
 	END
-		--select * from @SAgWinLoss
 
 	--show result
 	SELECT ROW_NUMBER() OVER(ORDER BY UserName) AS RowId
@@ -339,12 +201,9 @@ END
 GO
 GRANT EXECUTE ON [dbo].[Acc_Rpt_CompanyWinloss] TO [bodbLicenseeNet] AS [dbo]
 GO
-
 GRANT EXECUTE ON [dbo].[Acc_Rpt_CompanyWinloss] TO [bodbAdminNet] AS [dbo]
 GO
-
 GRANT EXECUTE ON [dbo].[Acc_Rpt_CompanyWinloss] TO [vnteam] AS [dbo]
 GO
-
 GRANT VIEW DEFINITION ON [dbo].[Acc_Rpt_CompanyWinloss] TO [vnteam] AS [dbo]
 GO

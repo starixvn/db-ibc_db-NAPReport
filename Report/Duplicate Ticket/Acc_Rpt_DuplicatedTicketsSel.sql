@@ -30,6 +30,7 @@ Revisions:
 						4	Virtual Sports
 						5   Metric Gaming - Superlive
 						6   BetTrade (check the refno)
+	- 20170424@Percy: Don't check dummy account of Cash Out [RedmineID: #73419]
 Param's Explanation:
 	- @CheckTime : The time we consider how long the job fails (Compared the last run with the current time).
 				   Because job recurs every 30s, so we set @CheckTime = 1 minute as default
@@ -91,7 +92,8 @@ BEGIN
 				and custid > 0
 				and recommend NOT IN (5707545,52466) -- exclude members under BARM,8RM
 				and currency NOT IN (20, 27, 28)
-				And statusID NOT IN (101,102)			
+				And statusID NOT IN (101,102)
+				AND NOT EXISTS (SELECT TOP 1 1 FROM bodb02.dbo.TradeCust t WITH (NOLOCK) WHERE b.custid = t.custid AND t.VendorID = 14)
 			GROUP BY b.custid, 
 					b.odds, 
 					b.stake, 

@@ -307,6 +307,7 @@ BEGIN
 				 WHEN recommend = 5707545 THEN 2 ELSE 0
 				 END		
 		-- End Allbet
+		
 		UPDATE bodb_Report.dbo.rptWinlost
 		SET SportType = CASE
 			WHEN leaguename LIKE '%NFL%' AND l.sporttype = 2 THEN 3
@@ -517,7 +518,7 @@ BEGIN
 				    INNER JOIN @SportBettype sb on b.bettype = sb.Bettype
 			WHERE
 				(b.bettype < 19999 and b.bettype not in (29,31,32,33))
-				AND sb.ProductID NOT IN (6, 17, 21, 22)
+				AND sb.ProductID NOT IN (6, 17, 21, 22, 24)
 				AND winlostdate = @winlostdate
 				AND statusID NOT IN (101, 102,103,121) ----('VOID','REJECT','DONE','REFUND')
 				AND ruben = 1
