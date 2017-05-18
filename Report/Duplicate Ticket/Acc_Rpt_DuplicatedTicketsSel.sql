@@ -31,6 +31,9 @@ Revisions:
 						5   Metric Gaming - Superlive
 						6   BetTrade (check the refno)
 	- 20170424@Percy: Don't check dummy account of Cash Out [RedmineID: #73419]
+	- 20170518@Percy:
+		1. New request of Cash Out - Check bettype 911 [RedmineID: #73419]
+		2. Remove SLI
 Param's Explanation:
 	- @CheckTime : The time we consider how long the job fails (Compared the last run with the current time).
 				   Because job recurs every 30s, so we set @CheckTime = 1 minute as default
@@ -41,13 +44,14 @@ BEGIN
 	SET NOCOUNT ON
 
 	----Get Sport Bettype Matrix------
-	DECLARE @SportBettype TABLE(ProductID INT, Bettype INT,EventType INT,SubProduct VARCHAR(500))
-	INSERT INTO @SportBettype (ProductID  , Bettype  ,EventType  ,SubProduct)
-	EXEC bodb02.dbo.Acc_SportBettypeMatrix_Sel @mode = 5
+	DECLARE @isTest BIT = 0
+	SELECT  @isTest = dbo.f_CheckSPVersion(@@PROCID)
 
-	DELETE  @SportBettype 
-	WHERE	ProductID NOT IN (1, 3, 4, 5) 
-			OR bettype IN (500) ----, 901, 902, 903, 904)
+	DECLARE @bettype TABLE (bettype INT)
+	INSERT INTO @bettype (bettype)
+	SELECT bettype
+	FROM bodb02.dbo.f_SportBettypeMatrix_Sel (0, 0, 0, 2, '', '', @isTest)
+	WHERE ProductID IN (1, 3, 5, 25) AND BetType NOT IN (500, 912, 913, 914) 
 
 	---- ** 1. Check the transdate of LastTransID and current time  ** ----
 	DECLARE @LastTransDate DATETIME	
@@ -82,7 +86,7 @@ BEGIN
 					CASE WHEN b.Bettype IN (901,902,903,904) THEN b.RefNo ELSE 0 END as RefNo	
 			INTO #TempData
 			FROM bodb02.dbo.bettrans b WITH(NOLOCK)
-				INNER JOIN @SportBettype s ON s.bettype = b.bettype
+				INNER JOIN @bettype s ON s.bettype = b.bettype
 				INNER JOIN _match m ON b.matchid = m.mID
 			WHERE b.bettype < 19000							
 				and custid not in (50057,879241,103873, 851668, 878902) --betdaq
