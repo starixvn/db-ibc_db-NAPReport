@@ -272,7 +272,7 @@ BEGIN
 		GROUP BY f.RptDate3rd
 	)
 	UPDATE r
-	SET r.PayToSupplier = m.PayToSupplierByDate
+	SET r.PayToSupplier = (-1) * m.PayToSupplierByDate
 	FROM AmtByDate m 
 		INNER JOIN #FinalResult r ON r.RptDate = m.RptDate3rd	
 		
@@ -302,7 +302,7 @@ BEGIN
 		FROM sums s
 	)
 	UPDATE #FinalResult
-	SET PayToSupplier = (SELECT SUM(PayToSupplier) FROM AmtByMonth)
+	SET PayToSupplier = (SELECT (-1) * SUM(PayToSupplier) FROM AmtByMonth)
 	WHERE RptDate LIKE 'FullRange'
 
 	---------------------------------------------------- Select the output -------------------------------------------------------
