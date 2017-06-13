@@ -16,7 +16,7 @@ AS
 		- 20150529@Jim: add Metric Gaming
 		- 20150728@Jim: apply Bettrade (Feature #38815)
 		- 20160819@Robert: Add Bet Trade Winloss bettype=904 (#62630)
-		- 20170612@Percy: check bettype of Cash Out [RedmineID: #73419]
+		- 20170612@Percy: check bettype of Cash Out [RedmineID: #78160]
 */
 
 BEGIN

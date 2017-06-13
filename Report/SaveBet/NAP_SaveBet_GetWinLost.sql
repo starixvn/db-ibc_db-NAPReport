@@ -18,7 +18,7 @@ AS
 		- 20150728@Jim: apply Bettrade (Feature #38815)
 		- 20160125@Robert: Cricket - Integrate to Accounting Reports [#50274]
 		- 20160819@Robert: Add Bet Trade Winloss bettype=904 (#62630)
-		- 20170612@Percy: check bettype of Cash Out [RedmineID: #73419]
+		- 20170612@Percy: check bettype of Cash Out [RedmineID: #78160]
 */
 
 BEGIN

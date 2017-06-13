@@ -22,7 +22,7 @@ AS
 		- 20160810@Percy: return homeid, awayid [RedmineID: #53523]
 		- 20160819@Robert: Add Bet Trade Winloss bettype=904 (#62630)
 		- 20170323@Percy: return betid [RedmineID: #72900]
-		- 20170612@Percy: check bettype of Cash Out [RedmineID: #73419]
+		- 20170612@Percy: check bettype of Cash Out [RedmineID: #78160]
 */
 
 -- original is Dot_Admin_cteamlist
