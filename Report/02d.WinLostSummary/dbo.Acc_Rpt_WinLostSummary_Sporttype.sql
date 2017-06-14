@@ -33,6 +33,7 @@ AS
 			- 20160916@Robert: Integrate new product NG2 [RedmindID: #63460]
 			- 20161129@Robert: NAP Reports - Integrate Fishing World Product [RedmindID: #67757]
 			- 20170323@Robert: NAP Reports - Integrate Cash out [RedmindID: #73419]
+			- 20170615@Tom: NAP Reports - Integrate Keno Lottery [RedmindID: #78184]
         Parameter's Explanation:
     */
 
@@ -379,13 +380,17 @@ AS
                 GROUP BY b.bettype;
          INSERT INTO #TempData
                 -- Keno
-                SELECT 202 sporttype,
+                SELECT CASE WHEN s.ProductId = 8 THEN 202 
+				    WHEN s.ProductId = 28 THEN 220 
+					END   sporttype,
                        b.bettype,
                        b.liveindicator,
                        ibc,
                        0 AS IsHedge,
                        '' status,
-                       7 AS OrderKey,
+                       CASE WHEN s.ProductId = 8 THEN 7 
+				    WHEN s.ProductId = 28 THEN 17
+					END AS OrderKey,
                        17 AS SortKey,
                        ISNULL(SUM(realWinlost), 0) AS realWinlost,
                        ISNULL(SUM(realPosition), 0) AS realPosition,
@@ -399,8 +404,9 @@ AS
                                                    AND b.liveindicator = s.liveindicator
                 WHERE b.winlostdate BETWEEN @_fromdate AND @_todate
                       --and bettype BETWEEN 1501 AND 1599
-                      AND s.ProductId = 8
+                      AND s.ProductId IN (8,28)
                 GROUP BY sporttype,
+					s.ProductId,
                          b.liveindicator,
                          ibc,
                          b.bettype;
