@@ -1,6 +1,6 @@
-/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBACC-bodb_ACC" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
 
-USE [bodb02]
+USE [bodb_ACC]
 GO
 
 ALTER PROCEDURE [dbo].[NAP_SaveBet_GetTurnOver]
@@ -11,7 +11,7 @@ AS
 	Created by: Dom
 	Date:2014-05-05
 	Task: Turnover Report 
-	DB: DBACC.bodb02
+	DB: DBACC.bodb_ACC
 	
 	Revisions:
 		- 20150728@Jim: apply Bettrade (Feature #38815)
