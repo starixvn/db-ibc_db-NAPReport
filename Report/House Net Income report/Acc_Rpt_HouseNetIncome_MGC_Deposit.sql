@@ -14,6 +14,7 @@ AS
 	
 	Param's Explanation:   
 		- 20160315@Harper: PayToSupplier using GMT +0 [RedmindID: #67062]
+		- 20170518@Harper: Fixing PayToSupplier [RedmineID: #76695]
 
 	EXEC Acc_Rpt_HouseNetIncome_MGC_Deposit_xtest '20161201', '20161210'
 */  

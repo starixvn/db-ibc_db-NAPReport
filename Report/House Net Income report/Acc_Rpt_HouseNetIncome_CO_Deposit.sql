@@ -11,6 +11,7 @@ AS
     DB:			DBEXT.bodb02  
    
     Revisions:  
+		- 20170518@Harper: Create new SP for House Daily Winloss [RedmineID: #76695]
 	
 	Param's Explanation:   
 
