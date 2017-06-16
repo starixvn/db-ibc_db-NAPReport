@@ -14,6 +14,7 @@ AS
 	
 	Param's Explanation:   
 		- 20160315@Harper: PayToSupplier using GMT +0 [RedmindID: #67062]
+		- 20170518@Harper: Fixing PayToSupplier [RedmineID: #76695]
 
 	EXEC Acc_Rpt_HouseNetIncome_MGC_Deposit_xtest '20161201', '20161210'
 */  
@@ -272,7 +273,7 @@ BEGIN
 		GROUP BY f.RptDate3rd
 	)
 	UPDATE r
-	SET r.PayToSupplier = m.PayToSupplierByDate
+	SET r.PayToSupplier = (-1) * m.PayToSupplierByDate
 	FROM AmtByDate m 
 		INNER JOIN #FinalResult r ON r.RptDate = m.RptDate3rd	
 		
@@ -302,7 +303,7 @@ BEGIN
 		FROM sums s
 	)
 	UPDATE #FinalResult
-	SET PayToSupplier = (SELECT SUM(PayToSupplier) FROM AmtByMonth)
+	SET PayToSupplier = (SELECT (-1) * SUM(PayToSupplier) FROM AmtByMonth)
 	WHERE RptDate LIKE 'FullRange'
 
 	---------------------------------------------------- Select the output -------------------------------------------------------
