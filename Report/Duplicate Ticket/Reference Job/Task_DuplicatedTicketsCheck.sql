@@ -25,6 +25,9 @@ AS
 						5   Metric Gaming - Superlive
 						6   BetTrade (check the refno)
 		- 20170424@Percy: Don't check dummy account of Cash Out [RedmineID: #73419]
+		- 20170518@Percy:
+			1. New request of Cash Out - Check bettype 911 [RedmineID: #73419]
+			2. Remove SLI
 	Param's Explanation:
 
 */
@@ -43,21 +46,12 @@ BEGIN
 	DECLARE @isTest BIT = 0
 	SELECT  @isTest = dbo.f_CheckSPVersion(@@PROCID)
  
-	CREATE TABLE #SportBettype (ProductID INT, Bettype INT,EventType INT, SubProduct VARCHAR(500), RefTable TINYINT, CasinoType TINYINT)
-	INSERT INTO #SportBettype ( ProductID, Bettype, EventType, SubProduct, RefTable, CasinoType)
-	SELECT ProductID,
-        Bettype,
-        EventType,
-        SubProduct,
-		RefTable,
-		CasinoType
-    FROM bodb02.dbo.f_SportBettypeMatrix_Sel (0, 0, 0, 2, '', '', @isTest)
-
-	DELETE  #SportBettype 
-	WHERE	ProductID NOT IN (1, 3, 4, 5) 	
+	DECLARE @bettype TABLE (bettype INT)
+	INSERT INTO @bettype (bettype)
+	SELECT bettype
+	FROM bodb02.dbo.f_SportBettypeMatrix_Sel (0, 0, 0, 2, '', '', @isTest)
+	WHERE ProductID IN (1, 3, 5, 25) AND BetType NOT IN (500, 912, 913, 914) 	
 	--- End Sport Bettype Matrix------
-	
-
 
  	; WITH AllTicket AS(	 
 	SELECT  b.custid, 
@@ -70,7 +64,7 @@ BEGIN
 			b.ip,
 			CASE WHEN b.Bettype IN (901,902,903,904) THEN b.RefNo ELSE 0 END as RefNo
 	FROM	bodb02.dbo.bettrans b WITH(NOLOCK , Index = PK_bettrans)
-		INNER JOIN #SportBettype s ON s.bettype = b.bettype
+		INNER JOIN @bettype s ON s.bettype = b.bettype
 	WHERE	b.TransID BETWEEN @TransId - 5000 AND @MaxTransId
 			----AND b.bettype < 19000			
 			AND b.matchid > 0
