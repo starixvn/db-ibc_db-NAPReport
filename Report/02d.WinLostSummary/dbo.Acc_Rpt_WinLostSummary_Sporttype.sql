@@ -33,7 +33,8 @@ AS
 			- 20160916@Robert: Integrate new product NG2 [RedmindID: #63460]
 			- 20161129@Robert: NAP Reports - Integrate Fishing World Product [RedmindID: #67757]
 			- 20170323@Robert: NAP Reports - Integrate Cash out [RedmindID: #73419]
-			- 20170615@Tom: NAP Reports - Integrate Keno Lottery [RedmindID: #78184]
+			- 20170615@Tom: NAP Reports - Integrate Keno Lottery [RedmindID: #78184] 
+					      NAP Reports - Integrate Betradar Virtual Sports[RedmindID: #78495] 
         Parameter's Explanation:
     */
 
@@ -382,6 +383,7 @@ AS
                 -- Keno
                 SELECT CASE WHEN s.ProductId = 8 THEN 202 
 				    WHEN s.ProductId = 28 THEN 220 
+				    ELSE b.SportType
 					END   sporttype,
                        b.bettype,
                        b.liveindicator,
@@ -390,6 +392,7 @@ AS
                        '' status,
                        CASE WHEN s.ProductId = 8 THEN 7 
 				    WHEN s.ProductId = 28 THEN 17
+				    ELSE 17
 					END AS OrderKey,
                        17 AS SortKey,
                        ISNULL(SUM(realWinlost), 0) AS realWinlost,
@@ -404,9 +407,14 @@ AS
                                                    AND b.liveindicator = s.liveindicator
                 WHERE b.winlostdate BETWEEN @_fromdate AND @_todate
                       --and bettype BETWEEN 1501 AND 1599
-                      AND s.ProductId IN (8,28)
-                GROUP BY sporttype,
-					s.ProductId,
+                      AND s.ProductId IN (8,27,28)
+                GROUP BY CASE WHEN s.ProductId = 8 THEN 202 
+				    WHEN s.ProductId = 28 THEN 220 
+				    ELSE b.SportType
+					END,
+					CASE WHEN s.ProductId = 8 THEN 7 
+				    WHEN s.ProductId = 28 THEN 17
+				    ELSE 17 END,
                          b.liveindicator,
                          ibc,
                          b.bettype;
@@ -817,7 +825,7 @@ AS
                       ibc,
                       0 AS IsHedge,
                       '' status,
-                      18 AS OrderKey,
+                      180 AS OrderKey,
                       17 AS SortKey,
                       ISNULL(SUM(realWinlost), 0) AS realWinlost,
                       ISNULL(SUM(realPosition), 0) AS realPosition,
