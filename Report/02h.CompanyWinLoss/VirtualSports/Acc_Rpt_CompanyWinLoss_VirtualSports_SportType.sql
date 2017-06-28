@@ -8,7 +8,8 @@ IF EXISTS
     DROP PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_VirtualSports_SportType];
 GO
 CREATE PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_VirtualSports_SportType] @StartDate SMALLDATETIME,
-                                                                        @EndDate   SMALLDATETIME
+                                                                        @EndDate   SMALLDATETIME,
+                                                                        @ProductId SMALLINT
 AS
 
 /*
@@ -34,7 +35,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSports_SportType]	@StartDate='2016-01-01', @
          INSERT INTO #SportBetType
                 SELECT s.BetType,
                        s.EventType
-                FROM dbo.f_SportBetTypeMatrix_Sel(5, 0, 0, 2, '', '', @isTest) s;
+                FROM dbo.f_SportBetTypeMatrix_Sel(@ProductId, 0, 0, 2, '', '', @isTest) s;
      END;
      BEGIN -- #DepositSuper
 

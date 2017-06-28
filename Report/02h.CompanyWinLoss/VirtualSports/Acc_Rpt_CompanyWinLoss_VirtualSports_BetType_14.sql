@@ -9,6 +9,7 @@ IF EXISTS
 GO
 CREATE PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_VirtualSports_BetType_14] @StartDate SMALLDATETIME,
                                                                       @EndDate   SMALLDATETIME,
+                                                                      @ProductId SMALLINT,
                                                                       @SportType SMALLINT
 AS
  
@@ -38,7 +39,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSports_BetType_14] @StartDate='2016-01-01', 
                 SELECT b.typeid,
                        b.typenamee,
                        s.EventType
-                FROM dbo.f_SportBetTypeMatrix_Sel(5, @SportType, 0, 2, '', '', @isTest) s
+                FROM dbo.f_SportBetTypeMatrix_Sel(@ProductId, @SportType, 0, 2, '', '', @isTest) s
                      INNER JOIN BetType b WITH (NOLOCK) ON s.BetType = b.typeid;
      END;
      BEGIN -- #DepositSuper
