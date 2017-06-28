@@ -50,7 +50,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_MatchDetail_14] @StartDate='2
                        SUM((1 - tpositiontaking) * ABS(b.stake) * actualrate)
                 FROM bettrans14 AS b WITH (nolock)
                      INNER JOIN match14 AS m WITH (nolock) ON b.MatchId = m.MatchId
-                     INNER JOIN bodb_Account.dbo.league AS l WITH (NOLOCK) ON m.LeagueId = l.LeagueId
+                     INNER JOIN dbo.league AS l WITH (NOLOCK) ON m.LeagueId = l.leagueid
                 WHERE b.winlostdate = @StartDate
                       AND b.BetType = @BetType
                       AND m.SportType = @SportType
@@ -73,7 +73,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_MatchDetail_14] @StartDate='2
                 d.Commission AS Commission,
                 d.RealIncome AS RealIncome,
                 d.RealTurnover AS RealTurnover
-         FROM #Data;
+         FROM #Data d;
      END;
      DROP TABLE #Data;
 GO
