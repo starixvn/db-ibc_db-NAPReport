@@ -385,7 +385,7 @@ AS
 				    WHEN s.ProductId = 28 THEN 220 
 				    ELSE b.SportType
 					END   sporttype,
-                       b.bettype,
+                       CASE WHEN s.ProductId = 27 THEN 0 ELSE b.bettype END bettype,
                        b.liveindicator,
                        ibc,
                        0 AS IsHedge,
@@ -417,7 +417,7 @@ AS
 				    ELSE 17 END,
                          b.liveindicator,
                          ibc,
-                         b.bettype;
+                         CASE WHEN s.ProductId = 27 THEN 0 ELSE b.bettype END;
          INSERT INTO #TempData
                 --Live casino
                 SELECT 162 AS sporttype,
