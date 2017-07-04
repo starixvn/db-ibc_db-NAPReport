@@ -28,6 +28,7 @@ AS
 		- 20170518@Percy:
 			1. New request of Cash Out - Check bettype 911 [RedmineID: #73419]
 			2. Remove SLI
+	     - 20170704@Tom: Integrate Betradar Virtual Sports(#78495)
 	Param's Explanation:
 
 */
@@ -50,7 +51,7 @@ BEGIN
 	INSERT INTO @bettype (bettype)
 	SELECT bettype
 	FROM bodb02.dbo.f_SportBettypeMatrix_Sel (0, 0, 0, 2, '', '', @isTest)
-	WHERE ProductID IN (1, 3, 5, 25) AND BetType NOT IN (500, 912, 913, 914) 	
+	WHERE ProductID IN (1, 3, 5, 25,27) AND BetType NOT IN (500, 912, 913, 914) 	
 	--- End Sport Bettype Matrix------
 
  	; WITH AllTicket AS(	 
