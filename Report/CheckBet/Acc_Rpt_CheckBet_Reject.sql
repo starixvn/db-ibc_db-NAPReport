@@ -20,6 +20,7 @@ AS
 		- 20160819@Robert: Add Bet Trade Winloss bettype=904 (#62630)
 		- 20160830@Robert: Enhance System/Mix Parlay [RedmineID: #63022]
 		- 20161206@Percy: Integrate Fast Market [RedmineID: #56803]
+		- 20170704@Robert: Integrate Betradar Virtual Sports Product [RedmineID: #78495]
 	Param's explanation:		
 	
 */
@@ -49,7 +50,7 @@ Begin
         and bt.custid<>98632
 		and (bt.status<>b.status) 
 		and b.currency <> 20
-		AND s.productID IN ( 1,2,3,5)
+		AND s.productID IN ( 1, 2, 3, 5, 27)
 		/*and (
 				bt.bettype < 31  or bt.bettype between 121 AND 999 or bt.bettype between 1301 AND 1399 --sportbook
 				OR bt.bettype BETWEEN 81 AND 120 --number game					
