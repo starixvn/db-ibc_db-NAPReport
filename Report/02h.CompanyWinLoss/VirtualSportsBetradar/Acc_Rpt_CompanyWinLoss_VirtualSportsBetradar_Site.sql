@@ -1,3 +1,5 @@
+USE [bodb02] 
+GO
 IF EXISTS
 (
     SELECT *
@@ -22,6 +24,7 @@ DB: DBACC/bodb02
 
 Revisions:
 - 20160301@Jacob: Initialize Company Win Loss Report
+- 20170720@Franklin: Add Betradar Virtual Sports (78495)
 
 Example: 
 EXEC [Acc_Rpt_CompanyWinLoss_VirtualSports_Site] @StartDate='2016-01-01', @EndDate='2020-01-01', @SportType = 180, @BetType = 1203, @Site = 'Credit'

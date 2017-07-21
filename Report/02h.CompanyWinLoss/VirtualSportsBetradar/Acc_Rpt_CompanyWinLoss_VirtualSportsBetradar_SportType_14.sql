@@ -21,6 +21,8 @@ DB: DBACC/bodb02
 
 Revisions:
 - 20160301@Jacob: Initialize Company Win Loss Report
+- 20170720@Franklin: Add Betradar Virtual Sports (78495)
+
 Example:
 EXEC [Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_SportType_14]	@StartDate='2016-01-01', @EndDate='2020-01-01'
 */
