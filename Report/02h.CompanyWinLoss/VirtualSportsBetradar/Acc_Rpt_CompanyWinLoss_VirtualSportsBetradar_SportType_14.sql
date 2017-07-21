@@ -127,7 +127,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_SportType_14]	@StartDate='201
      END;
      BEGIN -- Query
 
-         SELECT s.SportType AS GroupId,
+         SELECT d.SportType AS GroupId,
                 s.SportName AS GroupName,
                 d.Site AS RowName,
                 SUM(d.MemberWinLoss) AS MemberWinLoss,
@@ -137,7 +137,9 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_SportType_14]	@StartDate='201
                 SUM(d.RealTurnover) AS RealTurnover
          FROM #Data AS d
               INNER JOIN Sports AS s WITH (NOLOCK) ON d.SportType = s.SportType
-         GROUP BY d.SportType
+         GROUP BY d.SportType,
+                  s.SportName,
+                  d.Site
          ORDER BY GroupName,
                   RowName;
      END;
