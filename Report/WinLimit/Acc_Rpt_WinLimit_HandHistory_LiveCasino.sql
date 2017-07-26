@@ -1,6 +1,4 @@
-USE [bodb02]
-GO
-
+/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_Rpt_WinLimit_HandHistory_LiveCasino]
 	@CustID INT,
 	@ReachedDate DATETIME,
@@ -12,7 +10,8 @@ AS
 	DB:			DBACC.bodb02
 
 	Revisions:
-
+		- 20170725@Sophia: Change Datatype of TransID [Redmine: #73545]
+		
 	Param's Explanation:
 		@CustID: Customer that reach Win Limit
 		@ReachedDate: date that user reach win limit
@@ -26,7 +25,7 @@ BEGIN
 
 	DECLARE @TmpLiveCasino TABLE
 	(	
-		Transid			INT,
+		Transid			BIGINT,
 		Bettype			SMALLINT,
 		GameCode		NVARCHAR(50),
 		Brand			VARCHAR(5),
@@ -147,8 +146,4 @@ BEGIN
 	ORDER BY t.GameCode
 
 END
-GO
-GRANT EXECUTE ON [dbo].[Acc_Rpt_WinLimit_HandHistory_LiveCasino] TO [bodbAdminNet]
-GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_Rpt_WinLimit_HandHistory_LiveCasino] TO [vnteam]
-GO
+GO 
