@@ -29,6 +29,7 @@ AS
 	
 	Revision:
 		- 20170227@Percy: support search multiple username [RedmineID: #71342]
+		- 20170726@Cherry: Integrate Betradar Virtual Sports (#78495)
 
 	Param's Explanation:
 		- @username:  + Search by keyword, member only
@@ -229,7 +230,7 @@ BEGIN
 
 	DELETE s
 	FROM #SportBettype s
-	WHERE s.ProductID NOT IN (3, 5) -- NumberGame, Virtual Sport
+	WHERE s.ProductID NOT IN (3, 5, 27) -- NumberGame, Virtual Sport
 		AND NOT EXISTS (SELECT b.Bettype FROM #tmp_BetType b WHERE b.Bettype = s.Bettype)
 	-- End Sport Bettype Matrix
 
@@ -532,7 +533,7 @@ BEGIN
 		GROUP BY b.recommend, CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END, b.currency		
 	END
 
-	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID IN (3, 4, 5))
+	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID IN (3, 4, 5, 27))
 	BEGIN
 		-- 3. NumberGame - Live Casino - Virtual Sport (Soccer)
 		INSERT INTO #Data
@@ -577,7 +578,7 @@ BEGIN
 		FROM  #tmp_bettrans b
 			INNER JOIN dbo.match m WITH (NOLOCK) ON m.matchid = b.matchid
 		WHERE b.EvenType = 1
-			AND b.ProductID IN (3, 4, 5)
+			AND b.ProductID IN (3, 4, 5, 27)
 			AND (
 				(b.ProductID = 3 AND (@LeagueId = '' OR (EXISTS (SELECT 1 FROM #tmp_LeagueID l WHERE l.LeagueID = m.leagueid)))) OR
 				(b.ProductID = 4 AND (@GameTableId = '' OR (EXISTS (SELECT 1 FROM #tmp_GameTableID g WHERE g.GameTableID = m.leagueid)))) OR
