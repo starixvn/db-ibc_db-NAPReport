@@ -35,7 +35,7 @@ AS
 	  + @BalanceUpDay: The day of moving bets to battransbk
 	  + @CustID: SuperID
 	  + {251: Casino (include : 251, 208, 209, 210), 151:Racing, 252:Bingo, 161:Number Game, 162:Live Casino, 180:Virtual Sports, 202:Keno,  -1 : Metric Gaming - Superlive}
-			220: Lottery, 190: Betradar Virtual Sports
+			220: Lottery
   
 */  
 BEGIN
@@ -90,8 +90,7 @@ BEGIN
 		AND (
 			b.bettype BETWEEN 31 AND CASE WHEN @sportType=151 THEN 49 ELSE 0 END
 			OR b.bettype BETWEEN 81 AND (CASE WHEN @sportType=161 THEN 120 ELSE 0 END)
-			OR b.bettype BETWEEN 1101 AND (CASE WHEN @sportType=162 THEN 1199 ELSE 0 END)
-			OR b.bettype BETWEEN 1201 AND (CASE WHEN @sportType=180 THEN 1299 ELSE 0 END)			
+			OR b.bettype BETWEEN 1101 AND (CASE WHEN @sportType=162 THEN 1199 ELSE 0 END)			
 			OR b.bettype BETWEEN 801 AND (CASE WHEN @sportType= -1 AND b.StatusID <> 0 THEN 806 ELSE 0 END)
 			OR b.bettype BETWEEN 1501 AND (CASE WHEN @sportType=202 AND b.StatusID <> 0 THEN 1599 ELSE 0 END)
 			OR b.bettype BETWEEN 73 AND (CASE WHEN @sportType= 252 THEN 73 ELSE 0 END)
@@ -99,7 +98,7 @@ BEGIN
 			OR b.bettype BETWEEN 18000 AND (CASE WHEN @sportType= 204 THEN 18005 ELSE 0 END) -- Colossus Bet
 			OR b.bettype BETWEEN 2501 AND (CASE WHEN @SportType = 213 AND b.StatusID <> 0 THEN 2699 ELSE 0 END) -- NG2	
 			OR b.bettype BETWEEN 1021 AND CASE WHEN @sportType = 220 THEN 1049 ELSE 0 END --Loterry
-			OR b.bettype BETWEEN 2700 AND CASE WHEN @sportType = 190 THEN 2799 ELSE 0 END --Betradar Virtual Sports						
+			OR (@sportType=180 AND (b.bettype BETWEEN 1201 AND 1299 OR b.bettype BETWEEN 2700 AND 2799)) --Virtual Sports and Betradar Virtual Sports						
 		) 
 		AND ( 
 				----b.status IN ('WON','LOSE','DRAW','running') 
@@ -294,13 +293,13 @@ BEGIN
 			LEFT JOIN CustEnableKeno ce ON ce.CustID = av.custid    
 		WHERE ce.CustID IS NULL
 	END
-	IF @sportType IN (211,212,213,219,220,180,190)
+	IF @sportType IN (211,212,213,219,220,180)
     BEGIN
 		DECLARE @bitmapOrder TABLE (bitmapOrder TINYINT)
 		INSERT INTO @bitmapOrder (bitmapOrder)
 		SELECT bitmapOrder 
 		FROM dbo.ProductStatusProfile WITH(NOLOCK) 
-		WHERE Sporttype = CASE WHEN @SportType = 190 THEN 180 ELSE @SportType END
+		WHERE Sporttype = @SportType 
 	    
 		INSERT INTO #FiltedDownlineAcc
 		SELECT ci.custid,
