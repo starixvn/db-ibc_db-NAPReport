@@ -73,6 +73,8 @@ BEGIN
 			SELECT 9 -- mix parlay
 			UNION ALL
 			SELECT 29 -- system parlay
+			UNION ALL
+			SELECT 2799 -- mixparlay of Radar VS (productid = 27)
 			)
 			SELECT  b.custid, 
 					b.odds, 
