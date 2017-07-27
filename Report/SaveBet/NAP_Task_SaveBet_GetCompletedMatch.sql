@@ -15,15 +15,18 @@ AS
 
 BEGIN
 	
-	DECLARE @movebetdate DATETIME
-	SELECT  @movebetdate = max(winlostdate) 
+	DECLARE @movebetdate DATETIME, @CurentDate DATETIME  
+     
+	SELECT  @CurentDate = CONVERT(VARCHAR(10), GETDATE(), 120)
+
+	SELECT  @movebetdate = MAX(winlostdate)
     FROM    bodb02.dbo.bettrans14 WITH(NOLOCK)
 
 	INSERT INTO MatchList(MatchID,EventDate,EventStatus,JobFinished,JobGenerated,SportType,LeagueID,MatchCode,HomeID,AwayID)
 	SELECT MatchID,EventDate,EventStatus,0,0,sporttype,leagueid,MatchCode,HomeID,AwayID
 	FROM bodb02.dbo.match WITH(NOLOCK)
 	WHERE matchid NOT IN (select matchlist.MatchID from MatchList WHERE match.eventdate BETWEEN @movebetdate AND GETDATE()) 
-		AND eventdate BETWEEN DATEADD(DD,-1,GETDATE()) AND GETDATE()
+		AND eventdate BETWEEN DATEADD(DD, -1, @CurentDate) AND @CurentDate
 		AND eventstatus = 'completed'
 		AND (
 			sporttype < 99
