@@ -1,6 +1,5 @@
-USE [bodb_ACC]
+USE [bodb_ACC];
 GO
-
 ALTER PROCEDURE [dbo].[NAP_Task_SaveBet_GetCompletedMatch]
 AS
 
@@ -11,16 +10,17 @@ AS
 	DB: DBACC.bodb_ACC
 	
 	Revisions:
-	   - 20170704@Robert: Integrate Betradar Virtual Sports Product [RedmineID: #78495]
+		- 20170704@Robert: Integrate Betradar Virtual Sports Product [RedmineID: #78495]
 */
 
      BEGIN
-         DECLARE @movebetdate DATETIME;
-	DECLARE @movebetdate DATETIME, @CurentDate DATETIME  
-     
-	SELECT  @CurentDate = CONVERT(VARCHAR(10), GETDATE(), 120)
-
-	SELECT  @movebetdate = MAX(winlostdate)
+         DECLARE @movebetdate DATETIME, @CurentDate DATETIME;
+         SELECT @CurentDate = CONVERT( VARCHAR(10), GETDATE(), 120);
+         SELECT @movebetdate = MAX(eventdate)
+         FROM bodb02.dbo.match14 WITH (NOLOCK);
+         INSERT INTO dbo.MatchList
+         (MatchID,
+          EventDate,
           EventStatus,
           JobFinished,
           JobGenerated,
@@ -42,20 +42,14 @@ AS
                        AwayID
                 FROM bodb02.dbo.match WITH (NOLOCK)
                 WHERE matchid NOT IN
-		AND eventdate BETWEEN DATEADD(DD, -1, @CurentDate) AND @CurentDate
+                (
                     SELECT matchlist.MatchID
                     FROM MatchList
                     WHERE match.eventdate BETWEEN @movebetdate AND GETDATE()
                 )
-                      AND matchid IN
-                (
-                    SELECT DISTINCT
-                           matchID
-                    FROM bodb02.dbo.bettrans WITH (NOLOCK)
-                )
-		AND eventstatus = 'completed'
-		AND (
-			sporttype < 99
-			OR sporttype IN (180,186)
-		)
+                      AND eventdate BETWEEN DATEADD(DD, -1, @CurentDate) AND @CurentDate
+                      AND eventstatus = 'completed'
+                      AND (sporttype < 99
+                           OR sporttype IN(180, 186, 190, 191));
+     END;
 GO
