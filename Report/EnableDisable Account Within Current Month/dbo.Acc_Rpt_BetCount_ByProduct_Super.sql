@@ -98,7 +98,7 @@ BEGIN
 			OR b.bettype BETWEEN 18000 AND (CASE WHEN @sportType= 204 THEN 18005 ELSE 0 END) -- Colossus Bet
 			OR b.bettype BETWEEN 2501 AND (CASE WHEN @SportType = 213 AND b.StatusID <> 0 THEN 2699 ELSE 0 END) -- NG2	
 			OR b.bettype BETWEEN 1021 AND CASE WHEN @sportType = 220 THEN 1049 ELSE 0 END --Loterry
-			OR (@sportType=180 AND (b.bettype BETWEEN 1201 AND 1299 OR b.bettype BETWEEN 2700 AND 2799)) --Virtual Sports and Betradar Virtual Sports						
+			OR (@sportType=180 AND (b.bettype BETWEEN 1201 AND 1299 OR b.bettype BETWEEN 2700 AND 2899)) --Virtual Sports and Betradar Virtual Sports						
 		) 
 		AND ( 
 				----b.status IN ('WON','LOSE','DRAW','running') 
@@ -162,7 +162,6 @@ BEGIN
 							b.bettype BETWEEN 31 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' =151 THEN 49 ELSE 0 END
 							OR b.bettype BETWEEN 81 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' =161 THEN 120 ELSE 0 END)
 							OR b.bettype BETWEEN 1101 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' =162 THEN 1199 ELSE 0 END)
-							OR b.bettype BETWEEN 1201 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' =180 THEN 1299 ELSE 0 END)
 							OR b.bettype BETWEEN 2101 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' =251 THEN 2399 ELSE 0 END) 
 							OR b.bettype BETWEEN 801 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' = -1 THEN 806 ELSE 0 END)
 							OR b.bettype BETWEEN 1501 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' =202 THEN 1599 ELSE 0 END)
@@ -174,7 +173,7 @@ BEGIN
 							OR b.bettype BETWEEN 2501  AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 213 THEN 2699 ELSE 0 END) -- NG2
 							OR b.bettype BETWEEN 1011  AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 219 THEN 1020 ELSE 0 END) -- Fishing World
 							OR b.bettype BETWEEN 1021 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' = 220 THEN 1049 ELSE 0 END --Loterry
-							OR b.bettype BETWEEN 2700 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' = 190 THEN 2799 ELSE 0 END --Betradar Virtual Sports				
+							OR (' + CONVERT(VARCHAR(5),@sportType) +' =180 AND (b.bettype BETWEEN 1201 AND 1299 OR b.bettype BETWEEN 2700 AND 2899)) --Virtual Sports				
 						) 
 						AND b.status IN (3  ---DRAW
 										,12	---HALF LOSE
