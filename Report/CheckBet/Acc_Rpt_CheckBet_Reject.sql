@@ -100,6 +100,14 @@ Begin
 		   '' as matchcode,
 		   'match' as type
 	
+	UNION ALL
+	SELECT 2799 as matchid,
+		   0 as homeid,
+		   0 as awayid,
+		   '' as matchcode,
+		   'match' as type
+
+	
 	--Check ticket of sport book, racing, numbergame, virtual sports but Casino, P2P, Live CS, Bingo
 	select  bt.transid, 
 			bt.transdate,
