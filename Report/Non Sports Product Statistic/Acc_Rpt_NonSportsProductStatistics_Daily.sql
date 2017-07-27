@@ -31,6 +31,7 @@ AS
 	Original: Acc_Rpt_CasinoGameStatistics_GameType_bettrans
 	Revisions:
 		- 20170227@Percy: support search multiple username [RedmineID: #71342]
+		- 20170726@Cherry: Integrate Betradar Virtual Sports (#78495)
 
 	Param's Explanation:
 			 - @username:  + Search by keyword, member only
@@ -347,6 +348,12 @@ SET NOCOUNT ON
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 			)
+			AND (s.ProductID <> 27 OR (s.ProductID = 27 AND s.EventType = 1) 
+				OR (EXISTS (SELECT 1 FROM dbo.bettransm bm WITH (NOLOCK)
+									INNER JOIN dbo.match m WITH (NOLOCK) ON bm.matchid = m.matchid 
+									INNER JOIN #tmpSporttype st ON m.sporttype = st.Sporttype
+								WHERE bm.refno = b.refno))
+			)
 		GROUP BY  b.WinlostDate,  b.Currency, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END
 		 
 
@@ -445,7 +452,7 @@ SET NOCOUNT ON
 				ON s.Bettype = b.GameId 
 		WHERE b.WinlostDate = @WLDate
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
-			AND s.ProductID NOT IN (3,4,5)   --- NumberGame, SLI-Live Casino, Virtual Sport 
+			AND s.ProductID NOT IN (3,4,5,27)   --- NumberGame, SLI-Live Casino, Virtual Sport 
 			AND s.RefTable = 2
 			AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
 			AND (b.currency = @currency OR @currency IN (0,-1)) 			
@@ -594,7 +601,6 @@ SET NOCOUNT ON
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 			)
 		GROUP BY  b.WinlostDate,  b.Currency, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END
-
 
 ---Get CurrencyName
 		UPDATE  R   

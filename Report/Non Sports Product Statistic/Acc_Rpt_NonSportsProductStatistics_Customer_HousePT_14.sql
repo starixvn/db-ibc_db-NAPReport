@@ -28,6 +28,7 @@ AS
 	Task: Risk and Control - Non-Sport Game Statistics Report - Report by Super/Master/Agent/Username - Drilldown House PT (1-tpositiontaking)
 
 	Revisions:
+		- 20170726@Cherry: Integrate Betradar Virtual Sports (#78495)
 
 	Param's Explanation:
 		- @ProductID: string filter by Product 
@@ -195,6 +196,12 @@ BEGIN
 						OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 						OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 					)
+					AND (s.ProductID <> 27 OR (s.ProductID = 27 AND s.EvenType = 1) 
+						OR (EXISTS (SELECT 1 FROM dbo.bettransm bm WITH (NOLOCK)
+									INNER JOIN dbo.match m WITH (NOLOCK) ON bm.matchid = m.matchid 
+									INNER JOIN #tmp_SportType st ON m.sporttype = st.Sporttype
+								WHERE bm.refno = b.refno))
+					)
 				GROUP BY s.EvenType, b.matchid, s.ProductID
 			END
 
@@ -309,6 +316,12 @@ BEGIN
 						OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 						OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 					)
+					AND (s.ProductID <> 27 OR (s.ProductID = 27 AND s.EvenType = 1) 
+						OR (EXISTS (SELECT 1 FROM dbo.bettransm bm WITH (NOLOCK)
+									INNER JOIN dbo.match m WITH (NOLOCK) ON bm.matchid = m.matchid 
+									INNER JOIN #tmp_SportType st ON m.sporttype = st.Sporttype
+								WHERE bm.refno = b.refno))
+					)
 				GROUP BY s.EvenType, b.matchid, s.ProductID
 			END
 
@@ -382,7 +395,7 @@ BEGIN
 		END
 	
 		--- Check condition 
-		IF EXISTS (SELECT TOP 1 1 FROM #SportBettype WHERE ProductID NOT IN (3, 4, 5)) -- NG, SLI-Live Casino, Virtual Sport
+		IF EXISTS (SELECT TOP 1 1 FROM #SportBettype WHERE ProductID NOT IN (3, 4, 5, 27)) -- NG, SLI-Live Casino, Virtual Sport
 		BEGIN		
 			INSERT INTO #Data
 			(
@@ -401,7 +414,7 @@ BEGIN
 				ProductID,
 				SUM(HousePT) AS HousePT
 			FROM  #tmp_bettrans
-			WHERE ProductID NOT IN (3, 4, 5)
+			WHERE ProductID NOT IN (3, 4, 5, 27)
 			GROUP BY ProductID
 		END
 
@@ -456,6 +469,35 @@ BEGIN
 				AND (@Sporttype = '' OR (EXISTS(SELECT 1 FROM #tmp_SportType st WHERE st.Sporttype = r.SportType)))			  
 			GROUP BY b.ProductID
 		END
+		
+		IF EXISTS (SELECT TOP 1 1 FROM #SportBettype WHERE ProductID = 27) -- Betradar Virtual Sport
+		BEGIN		
+			INSERT INTO #Data
+			(
+				BetCount,
+				TotalBets, TotalBetsBase,
+				TotalWins, TotalWinsBase,
+				ProductID,
+				HousePT
+			)
+			SELECT
+				SUM(BetCount) AS BetCount,
+				SUM(TotalBets) AS TotalBets,
+				SUM(TotalBetsBase) AS TotalBetsBase,
+				SUM(TotalWins) AS TotalWins,
+				SUM(TotalWinsBase) AS TotalWinsBase,
+				ProductID,
+				SUM(HousePT) AS HousePT
+			FROM  #tmp_bettrans b
+			WHERE b.ProductID = 27
+				AND (b.EvenType = 0 OR
+					(EXISTS (SELECT 1 FROM dbo.match m WITH (NOLOCK)
+									INNER JOIN #tmp_SportType st ON m.Sporttype = st.sporttype
+							 WHERE b.Matchid = m.matchid))
+				)	
+			GROUP BY b.ProductID
+		END
+			
 	END
 
 	-- Return Data

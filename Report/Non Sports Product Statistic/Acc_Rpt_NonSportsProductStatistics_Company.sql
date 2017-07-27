@@ -367,10 +367,16 @@ BEGIN
 			OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 			OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 		)
+		AND (s.ProductID <> 27 OR (s.ProductID = 27 AND s.EvenType = 1) 
+			OR (EXISTS (SELECT 1 FROM dbo.bettransm bm WITH (NOLOCK)
+									INNER JOIN dbo.match m WITH (NOLOCK) ON bm.matchid = m.matchid 
+									INNER JOIN #tmp_SportType st ON m.sporttype = st.Sporttype
+								WHERE bm.refno = b.refno))
+		)
 	GROUP BY b.recommend, CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END, b.currency, s.RefTable, s.EvenType, b.matchid, s.ProductID	
 
 	--- Check condition 
-	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID NOT IN (3, 4, 5)) -- NG, SLI-Live Casino, Virtual Sport
+	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID NOT IN (3, 4, 5, 27)) -- NG, SLI-Live Casino, Virtual Sport
 	BEGIN		
 		-- 1. By bettype for normal product
 		INSERT INTO #Data
@@ -413,7 +419,9 @@ BEGIN
 				- SUM(CompanyCommBase) AS CompanyCommBase
 
 		FROM  #tmp_bettrans b
-		WHERE b.RefTable IN (0, 3) AND b.ProductID NOT IN (3, 4, 5)
+		WHERE b.RefTable IN (0, 3) 
+			AND b.ProductID NOT IN (3, 4, 5, 27)
+
 		GROUP BY b.recommend, b.custid, b.CurrencyID
 		
 		-- 2a. By Bettype for Casino Product
@@ -533,7 +541,7 @@ BEGIN
 		GROUP BY b.recommend, CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END, b.currency		
 	END
 
-	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID IN (3, 4, 5, 27))
+	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID IN (3, 4, 5))
 	BEGIN
 		-- 3. NumberGame - Live Casino - Virtual Sport (Soccer)
 		INSERT INTO #Data
@@ -578,7 +586,7 @@ BEGIN
 		FROM  #tmp_bettrans b
 			INNER JOIN dbo.match m WITH (NOLOCK) ON m.matchid = b.matchid
 		WHERE b.EvenType = 1
-			AND b.ProductID IN (3, 4, 5, 27)
+			AND b.ProductID IN (3, 4, 5)
 			AND (
 				(b.ProductID = 3 AND (@LeagueId = '' OR (EXISTS (SELECT 1 FROM #tmp_LeagueID l WHERE l.LeagueID = m.leagueid)))) OR
 				(b.ProductID = 4 AND (@GameTableId = '' OR (EXISTS (SELECT 1 FROM #tmp_GameTableID g WHERE g.GameTableID = m.leagueid)))) OR
@@ -631,6 +639,58 @@ BEGIN
 		WHERE b.ProductID = 5
 			AND b.EvenType = 3
 			AND (@Sporttype = '' OR (EXISTS(SELECT 1 FROM #tmp_SportType st WHERE st.Sporttype = r.SportType)))			  
+		GROUP BY b.recommend, b.custid, b.CurrencyID
+	END
+	
+	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID = 27)
+	BEGIN
+		-- Betradar Virtual Sport 
+		INSERT INTO #Data
+				( recommend ,
+				  CustID ,
+				  BetCount ,
+				  CurrencyID ,
+				  TotalBets ,
+				  TotalBetsBase ,
+				  TotalWins ,
+				  TotalWinsBase ,
+				  TotalRefund ,
+				  TotalRefundBase ,
+				  CompanyTurnOver ,
+				  CompanyTurnOverBase ,
+				  CompanyGrossIncome ,
+				  CompanyGrossIncomeBase ,
+				  CompanyComm ,
+				  CompanyCommBase
+				)	
+		SELECT	b.recommend, b.custid,
+				SUM( BetCount ) AS BetCount, b.CurrencyID,
+
+				SUM(TotalBets) AS TotalBets,
+				SUM(TotalBetsBase)  AS TotalBetsBase,
+
+				SUM(TotalWins) AS TotalWins,
+				SUM(TotalWinsBase) AS TotalWinsBase,
+
+				SUM(TotalRefund) AS TotalRefund,
+				SUM(TotalRefundBase) AS TotalRefundBase,
+
+				SUM(CompanyTurnover) AS CompanyTurnover,	
+				SUM(CompanyTurnoverBase) AS CompanyTurnoverBase,		
+								
+				- SUM(CompanyGrossIncome) AS CompanyGrossIncome,
+				- SUM(CompanyGrossIncomeBase) AS CompanyGrossIncomeBase,
+
+				- SUM(CompanyComm) AS CompanyComm,
+				- SUM(CompanyCommBase) AS CompanyCommBase
+
+		FROM  #tmp_bettrans b
+		WHERE b.ProductID = 27
+			AND (b.EvenType = 0 OR
+				(EXISTS (SELECT 1 FROM dbo.match m WITH (NOLOCK)
+								INNER JOIN #tmp_SportType st ON m.Sporttype = st.sporttype
+						 WHERE b.Matchid = m.matchid))
+			)	
 		GROUP BY b.recommend, b.custid, b.CurrencyID
 	END
 
