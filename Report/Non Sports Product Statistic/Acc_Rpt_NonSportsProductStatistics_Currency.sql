@@ -231,7 +231,7 @@ BEGIN
 
 	DELETE s
 	FROM #SportBettype s
-	WHERE s.ProductID NOT IN (3, 5) -- NumberGame, Virtual Sport
+	WHERE s.ProductID NOT IN (3, 5, 27) -- NumberGame, Virtual Sport
 		AND NOT EXISTS (SELECT b.Bettype FROM #tmp_BetType b WHERE b.Bettype = s.Bettype)
 	-- End Sport Bettype Matrix
 

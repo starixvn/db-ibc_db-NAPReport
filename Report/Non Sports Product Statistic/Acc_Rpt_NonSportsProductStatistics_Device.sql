@@ -29,6 +29,7 @@ AS
 	
 	Revision:
 		- 20170227@Percy: support search multiple username [RedmineID: #71342]
+		- 20170726@Cherry: Integrate Betradar Virtual Sports (#78495)
 
 	Param's Explanation:
 		- @username:  + Search by keyword, member only
@@ -222,7 +223,7 @@ BEGIN
 
 	DELETE s
 	FROM #SportBettype s
-	WHERE s.ProductID NOT IN (3, 5) -- NumberGame, Virtual Sport
+	WHERE s.ProductID NOT IN (3, 5, 27) -- NumberGame, Virtual Sport
 		AND NOT EXISTS (SELECT b.Bettype FROM #tmp_BetType b WHERE b.Bettype = s.Bettype)
 	-- End Sport Bettype Matrix	
 	
@@ -330,10 +331,16 @@ BEGIN
 			OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 			OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 		)
+		AND (s.ProductID <> 27 OR (s.ProductID = 27 AND s.EvenType = 1) 
+			OR (EXISTS (SELECT 1 FROM dbo.bettransm bm WITH (NOLOCK)
+									INNER JOIN dbo.match m WITH (NOLOCK) ON bm.matchid = m.matchid 
+									INNER JOIN #tmp_SportType st ON m.sporttype = st.Sporttype
+								WHERE bm.refno = b.refno))
+		)
 	GROUP BY s.ProductID, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, b.currency, s.RefTable, s.EvenType, b.matchid, b.betfrom	
 
 	--- Check condition 
-	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID NOT IN (3, 4, 5)) -- NG, SLI-Live Casino, Virtual Sport
+	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID NOT IN (3, 4, 5, 27)) -- NG, SLI-Live Casino, Virtual Sport
 	BEGIN		
 		-- 1. By bettype for normal product
 		INSERT INTO #Data
@@ -376,7 +383,7 @@ BEGIN
 				- SUM(CompanyCommBase) AS CompanyCommBase
 
 		FROM  #tmp_bettrans b
-		WHERE b.RefTable IN (0, 3) AND b.ProductID NOT IN (3, 4, 5)
+		WHERE b.RefTable IN (0, 3) AND b.ProductID NOT IN (3, 4, 5, 27)
 		GROUP BY b.Betfrom, b.custid, b.CurrencyID
 		
 		-- 2a. By Bettype for Casino Product
@@ -596,6 +603,58 @@ BEGIN
 		GROUP BY b.Betfrom, b.custid, b.CurrencyID
 	END
 
+	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID = 27)
+	BEGIN
+		-- Betradar Virtual Sport 
+		INSERT INTO #Data
+				( Betfrom ,
+				  CustID ,
+				  BetCount ,
+				  CurrencyID ,
+				  TotalBets ,
+				  TotalBetsBase ,
+				  TotalWins ,
+				  TotalWinsBase ,
+				  TotalRefund ,
+				  TotalRefundBase ,
+				  CompanyTurnOver ,
+				  CompanyTurnOverBase ,
+				  CompanyGrossIncome ,
+				  CompanyGrossIncomeBase ,
+				  CompanyComm ,
+				  CompanyCommBase
+				)	
+		SELECT	b.Betfrom, b.custid,
+				SUM( BetCount ) AS BetCount, b.CurrencyID,
+
+				SUM(TotalBets) AS TotalBets,
+				SUM(TotalBetsBase)  AS TotalBetsBase,
+
+				SUM(TotalWins) AS TotalWins,
+				SUM(TotalWinsBase) AS TotalWinsBase,
+
+				SUM(TotalRefund) AS TotalRefund,
+				SUM(TotalRefundBase) AS TotalRefundBase,
+
+				SUM(CompanyTurnover) AS CompanyTurnover,	
+				SUM(CompanyTurnoverBase) AS CompanyTurnoverBase,		
+								
+				- SUM(CompanyGrossIncome) AS CompanyGrossIncome,
+				- SUM(CompanyGrossIncomeBase) AS CompanyGrossIncomeBase,
+
+				- SUM(CompanyComm) AS CompanyComm,
+				- SUM(CompanyCommBase) AS CompanyCommBase
+
+		FROM  #tmp_bettrans b
+		WHERE b.ProductID = 27
+			AND (b.EvenType = 0 OR
+				(EXISTS (SELECT 1 FROM dbo.match m WITH (NOLOCK)
+								INNER JOIN #tmp_SportType st ON m.Sporttype = st.sporttype
+						 WHERE b.Matchid = m.matchid))
+			)	
+		GROUP BY b.Betfrom, b.custid, b.CurrencyID
+	END
+	
 	-- Get Currency name
 	UPDATE d
 	SET d.Currency = e.currency

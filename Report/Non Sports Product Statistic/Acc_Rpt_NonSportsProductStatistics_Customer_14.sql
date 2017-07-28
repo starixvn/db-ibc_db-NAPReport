@@ -178,7 +178,7 @@ BEGIN
 	FROM
 		dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '', @isTest) s
 		INNER JOIN #tmp_ProductID p ON s.ProductID = p.ProductID
-	WHERE p.ProductID IN (3, 5) -- Number Game, Virtual Sport (input @bettype = '')
+	WHERE p.ProductID IN (3, 5, 27) -- Number Game, Virtual Sport (input @bettype = '')
 
 	DROP TABLE #tmp_ProductID
 	DROP TABLE #tmp_BetType
@@ -538,8 +538,8 @@ BEGIN
 					OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 				)
 				AND (s.ProductID <> 27 OR (s.ProductID = 27 AND s.EvenType = 1) 
-					OR (EXISTS (SELECT 1 FROM dbo.bettransm bm WITH (NOLOCK)
-									INNER JOIN dbo.match m WITH (NOLOCK) ON bm.matchid = m.matchid 
+					OR (EXISTS (SELECT 1 FROM dbo.bettransm14 bm WITH (NOLOCK)
+									INNER JOIN dbo.match14 m WITH (NOLOCK) ON bm.matchid = m.matchid 
 									INNER JOIN #tmp_SportType st ON m.sporttype = st.Sporttype
 								WHERE bm.refno = b.refno))
 				)
@@ -1078,7 +1078,7 @@ BEGIN
 		FROM  #tmp_bettrans b
 		WHERE b.ProductID = 27
 			AND (b.EvenType = 0 OR
-				(EXISTS (SELECT 1 FROM dbo.match m WITH (NOLOCK)
+				(EXISTS (SELECT 1 FROM dbo.match14 m WITH (NOLOCK)
 								INNER JOIN #tmp_SportType st ON m.Sporttype = st.sporttype
 						 WHERE b.Matchid = m.matchid))
 			)	

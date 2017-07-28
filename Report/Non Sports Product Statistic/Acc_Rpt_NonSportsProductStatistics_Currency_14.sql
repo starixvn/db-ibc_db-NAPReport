@@ -237,7 +237,7 @@ BEGIN
 
 	DELETE s
 	FROM #SportBettype s
-	WHERE s.ProductID NOT IN (3, 5) -- NumberGame, Virtual Sport
+	WHERE s.ProductID NOT IN (3, 5, 27) -- NumberGame, Virtual Sport
 		AND NOT EXISTS (SELECT b.Bettype FROM #tmp_BetType b WHERE b.Bettype = s.Bettype)
 	-- End Sport Bettype Matrix
 
@@ -356,8 +356,8 @@ BEGIN
 			)
 		AND (@DrillDownCurrency = 0 OR b.currency = @DrillDownCurrency)
 		AND (s.ProductID <> 27 OR (s.ProductID = 27 AND s.EvenType = 1) 
-			OR (EXISTS (SELECT 1 FROM dbo.bettransm bm WITH (NOLOCK)
-									INNER JOIN dbo.match m WITH (NOLOCK) ON bm.matchid = m.matchid 
+			OR (EXISTS (SELECT 1 FROM dbo.bettransm14 bm WITH (NOLOCK)
+									INNER JOIN dbo.match14 m WITH (NOLOCK) ON bm.matchid = m.matchid 
 									INNER JOIN #tmp_SportType st ON m.sporttype = st.Sporttype
 								WHERE bm.refno = b.refno))
 		)
@@ -675,7 +675,7 @@ BEGIN
 		FROM  #tmp_bettrans b
 		WHERE b.ProductID = 27
 			AND (b.EvenType = 0 OR
-				(EXISTS (SELECT 1 FROM dbo.match m WITH (NOLOCK)
+				(EXISTS (SELECT 1 FROM dbo.match14 m WITH (NOLOCK)
 								INNER JOIN #tmp_SportType st ON m.Sporttype = st.sporttype
 						 WHERE b.Matchid = m.matchid))
 			)	
