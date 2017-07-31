@@ -29,6 +29,7 @@ AS
 	
 	Revision:
 		- 20170227@Percy: support search multiple username [RedmineID: #71342]
+		- 20170726@Cherry: Integrate Betradar Virtual Sports (#78495)
 
 	Param's Explanation:
 		- @username:  + Search by keyword, member only
@@ -223,7 +224,7 @@ BEGIN
 
 	DELETE s
 	FROM #SportBettype s
-	WHERE s.ProductID NOT IN (3, 5) -- NumberGame, Virtual Sport
+	WHERE s.ProductID NOT IN (3, 5, 27) -- NumberGame, Virtual Sport
 		AND NOT EXISTS (SELECT b.Bettype FROM #tmp_BetType b WHERE b.Bettype = s.Bettype)
 	-- End Sport Bettype Matrix
 
@@ -232,7 +233,7 @@ BEGIN
 	SET s.TypeName = b.typenamee
 	FROM #SportBettype s
 		INNER JOIN dbo.bettype b ON s.Bettype = b.typeid
-	WHERE s.ProductID NOT IN (3, 5, 6) -- NG, Virtual Sport, RNG Casino
+	WHERE s.ProductID NOT IN (3, 5, 6, 27) -- NG, Virtual Sport, RNG Casino
 	-- End Sport Type/League/GameType
 
 	-- Get Site	
@@ -323,10 +324,16 @@ BEGIN
 			SUM(scomm) AS CompanyComm,
 			SUM(scomm *actualrate) AS CompanyCommBase,
 
-			s.RefTable, s.EvenType, b.matchid, s.ProductID
+			s.RefTable, s.EvenType, 
+			CASE WHEN s.ProductID = 27 AND s.EvenType = 0 THEN bm.sporttype ELSE b.matchid END matchid, 
+			s.ProductID
 
 	FROM  dbo.bettrans b WITH (NOLOCK)
 		INNER JOIN #SportBettype s ON s.Bettype = b.bettype
+		LEFT JOIN (SELECT DISTINCT bm.refno, m.sporttype
+					FROM dbo.bettransm bm WITH (NOLOCK)
+						INNER JOIN dbo .match m WITH (NOLOCK) ON bm.matchid = m.matchid
+					WHERE m.sporttype IN (190, 191)) bm ON b.refno = bm.refno
 	WHERE b.winlostdate = @WLDate
 		AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
 		AND ((b.currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
@@ -341,10 +348,11 @@ BEGIN
 			OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 			OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 		)
-	GROUP BY b.bettype, s.TypeName, CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END, b.currency, s.RefTable, s.EvenType, b.matchid, s.ProductID
+	GROUP BY b.bettype, s.TypeName, CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END, b.currency, s.RefTable, s.EvenType, 
+		CASE WHEN s.ProductID = 27 AND s.EvenType = 0 THEN bm.sporttype ELSE b.matchid END, s.ProductID
 
 	--- Check condition 
-	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID NOT IN (3, 4, 5)) -- NG, SLI-Live Casino, Virtual Sport
+	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID NOT IN (3, 4, 5, 27)) -- NG, SLI-Live Casino, Virtual Sport
 	BEGIN		
 		-- 1. By bettype for normal product
 		INSERT INTO #Data
@@ -388,7 +396,7 @@ BEGIN
 				- SUM(CompanyCommBase) AS CompanyCommBase
 
 		FROM  #tmp_bettrans b
-		WHERE b.RefTable IN (0, 3) AND b.ProductID NOT IN (3, 4, 5)
+		WHERE b.RefTable IN (0, 3) AND b.ProductID NOT IN (3, 4, 5, 27)
 		GROUP BY b.Bettype, b.BettypeName, b.custid, b.CurrencyID
 		
 		-- 2a. By Bettype for Casino Product
@@ -614,6 +622,62 @@ BEGIN
 			AND (@Sporttype = '' OR (EXISTS(SELECT 1 FROM #tmp_SportType st WHERE st.Sporttype = r.SportType)))			  
 		GROUP BY r.SportType, b.custid, b.CurrencyID
 	END
+	
+	--Betradar Virtual Sports
+	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID = 27)
+	BEGIN
+		INSERT INTO #Data
+					( Bettype ,
+					  BettypeName,
+					  CustID ,
+					  BetCount ,
+					  CurrencyID ,
+					  TotalBets ,
+					  TotalBetsBase ,
+					  TotalWins ,
+					  TotalWinsBase ,
+					  TotalRefund ,
+					  TotalRefundBase ,
+					  CompanyTurnOver ,
+					  CompanyTurnOverBase ,
+					  CompanyGrossIncome ,
+					  CompanyGrossIncomeBase ,
+					  CompanyComm ,
+					  CompanyCommBase
+					)	
+			SELECT	CASE WHEN b.EvenType = 0 THEN b.Matchid ELSE m.sporttype END AS Bettype, 
+					'' AS BettypeName,
+					b.custid,
+					SUM( BetCount ) AS BetCount, b.CurrencyID,
+
+					SUM(TotalBets) AS TotalBets,
+					SUM(TotalBetsBase)  AS TotalBetsBase,
+
+					SUM(TotalWins) AS TotalWins,
+					SUM(TotalWinsBase) AS TotalWinsBase,
+
+					SUM(TotalRefund) AS TotalRefund,
+					SUM(TotalRefundBase) AS TotalRefundBase,
+
+					SUM(CompanyTurnover) AS CompanyTurnover,	
+					SUM(CompanyTurnoverBase) AS CompanyTurnoverBase,		
+									
+					- SUM(CompanyGrossIncome) AS CompanyGrossIncome,
+					- SUM(CompanyGrossIncomeBase) AS CompanyGrossIncomeBase,
+
+					- SUM(CompanyComm) AS CompanyComm,
+					- SUM(CompanyCommBase) AS CompanyCommBase
+
+			FROM  #tmp_bettrans b
+				LEFT JOIN dbo.match m WITH (NOLOCK) ON m.matchid = b.matchid
+			WHERE b.ProductID = 27
+				AND (
+					(b.EvenType = 0) OR
+					(b.EvenType = 1 AND m.matchid IS NOT NULL) 
+				)	
+			GROUP BY CASE WHEN b.EvenType = 0 THEN b.Matchid ELSE m.sporttype END, 
+					b.custid, b.CurrencyID
+	END
 
 	-- Get Currency name
 	UPDATE d
@@ -643,7 +707,7 @@ BEGIN
 		FROM #Data d 
 			INNER JOIN dbo.league l WITH (NOLOCK) ON d.Bettype = l.leagueid
 	END
-	ELSE IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID = 5)
+	ELSE IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID IN (5,27))
 	BEGIN
 		UPDATE d
 		SET d.BettypeName = s.SportName

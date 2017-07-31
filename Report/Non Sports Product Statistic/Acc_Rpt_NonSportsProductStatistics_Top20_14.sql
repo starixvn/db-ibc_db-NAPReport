@@ -32,6 +32,7 @@ AS
 
 	Revisions:
 		- 20170227@Percy: support search multiple username [RedmineID: #71342]
+		- 20170726@Cherry: Integrate Betradar Virtual Sports (#78495)
 
 	Param's Explanation:
 		- @username: search keyword
@@ -181,7 +182,7 @@ BEGIN
 	FROM
 		dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '', @isTest) s
 		INNER JOIN #tmp_ProductID p ON s.ProductID = p.ProductID
-	WHERE p.ProductID IN (3, 5) -- Number Game, Virtual Sport (input @bettype = '')
+	WHERE p.ProductID IN (3, 5, 27) -- Number Game, Virtual Sport (input @bettype = '')
 
 	DROP TABLE #tmp_ProductID
 	DROP TABLE #tmp_BetType
@@ -417,6 +418,12 @@ BEGIN
 					OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 					OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 				)
+				AND (s.ProductID <> 27 OR (s.ProductID = 27 AND s.EvenType = 1) 
+					OR (EXISTS (SELECT 1 FROM dbo.bettransm14 bm WITH (NOLOCK)
+									INNER JOIN dbo.match14 m WITH (NOLOCK) ON bm.matchid = m.matchid 
+									INNER JOIN #tmp_SportType st ON m.sporttype = st.Sporttype
+								WHERE bm.refno = b.refno))
+				)
 			GROUP BY b.srecommend, b.mrecommend, b.recommend, b.custid, b.currency, s.EvenType, b.matchid, s.ProductID, CASE WHEN statusID = 103 THEN 103 ELSE 112 END
 		END
 
@@ -602,6 +609,12 @@ BEGIN
 					OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 					OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 				)
+				AND (s.ProductID <> 27 OR (s.ProductID = 27 AND s.EvenType = 1) 
+					OR (EXISTS (SELECT 1 FROM dbo.bettransm14 bm WITH (NOLOCK)
+									INNER JOIN dbo.match14 m WITH (NOLOCK) ON bm.matchid = m.matchid 
+									INNER JOIN #tmp_SportType st ON m.sporttype = st.Sporttype
+								WHERE bm.refno = b.refno))
+				)
 			GROUP BY b.srecommend, b.mrecommend, b.recommend, b.custid, b.currency, s.EvenType, b.matchid, s.ProductID, CASE WHEN statusID = 103 THEN 103 ELSE 112 END
 		END
 
@@ -752,7 +765,7 @@ BEGIN
 		statusID TINYINT
 	)
 	--- Check condition 
-	IF EXISTS (SELECT TOP 1 1 FROM #tmp_bettrans WHERE ProductID NOT IN (3, 4, 5)) -- NG, SLI-Live Casino, Virtual Sport
+	IF EXISTS (SELECT TOP 1 1 FROM #tmp_bettrans WHERE ProductID NOT IN (3, 4, 5, 27)) -- NG, SLI-Live Casino, Virtual Sport
 	BEGIN		
 		INSERT INTO #Data
 		(
@@ -797,7 +810,7 @@ BEGIN
 			SUM(HousePT) AS HousePT,
 			statusID
 		FROM  #tmp_bettrans
-		WHERE ProductID NOT IN (3, 4, 5)
+		WHERE ProductID NOT IN (3, 4, 5, 27)
 		GROUP BY srecommend, mrecommend, recommend, custid, CurrencyID, ProductID, statusID
 	END
 
@@ -905,6 +918,61 @@ BEGIN
 		GROUP BY b.srecommend, b.mrecommend, b.recommend, b.custid, b.CurrencyID, b.ProductID, statusID
 	END
 
+	IF EXISTS (SELECT TOP 1 1 FROM #SportBettype WHERE ProductID = 27)
+	BEGIN
+		-- Betradar Virtual Sport 
+		INSERT INTO #Data
+		(
+			srecommend,
+			mrecommend,
+			recommend,
+			custid,
+			BetCount,
+			CurrencyID,
+			ProductID,
+			TotalBets,
+			TotalBetsBase,
+			TotalWins,
+			TotalWinsBase,
+			CompanyTurnover,
+			CompanyTurnoverBase,
+			CompanyGrossIncome,
+			CompanyGrossIncomeBase,
+			CompanyComm,
+			CompanyCommBase,
+			HousePT,
+			statusID
+		)
+		SELECT
+			srecommend,
+			mrecommend,
+			recommend,
+			custid,
+			SUM(BetCount) AS BetCount,
+			CurrencyID,
+			ProductID,
+			SUM(TotalBets) AS TotalBets,
+			SUM(TotalBetsBase) AS TotalBetsBase,
+			SUM(TotalWins) AS TotalWins,
+			SUM(TotalWinsBase) AS TotalWinsBase,
+			SUM(CompanyTurnover) AS CompanyTurnover,
+			SUM(CompanyTurnoverBase) AS CompanyTurnoverBase,
+			- SUM(CompanyGrossIncome) AS CompanyGrossIncome,
+			- SUM(CompanyGrossIncomeBase) AS CompanyGrossIncomeBase,
+			- SUM(CompanyComm) AS CompanyComm,
+			- SUM(CompanyCommBase) AS CompanyCommBase,
+			SUM(HousePT) AS HousePT,
+			statusID
+		FROM  #tmp_bettrans b
+		WHERE b.ProductID = 27
+			AND (b.EvenType = 0 OR
+				(EXISTS (SELECT 1 FROM dbo.match14 m WITH (NOLOCK)
+								INNER JOIN #tmp_SportType st ON m.Sporttype = st.sporttype
+						 WHERE b.Matchid = m.matchid))
+			)	
+		GROUP BY b.srecommend, b.mrecommend, b.recommend, b.custid, b.CurrencyID, b.ProductID, statusID
+	END
+	
 	CREATE TABLE #tmp_Result
 	( 
 		custid BIGINT,
