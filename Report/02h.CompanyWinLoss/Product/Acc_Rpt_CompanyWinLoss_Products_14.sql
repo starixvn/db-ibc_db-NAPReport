@@ -20,6 +20,7 @@ AS
 		- 20161213@Sophia: Remove parameter @winlostdate, use @StartDate to obtain parameter sniffing [RedmindID: #68634]
 		- 20160112@Percy: Change Extra PT formula [RedmineID: #70208]
 		- 20170323@Percy: Integrate Cash Out [RemineID: #73419]
+		- 20170720@Franklin: Integrate Lottery and Betradar Virtual Sports (#78184)
 	Explanation's Param:
 	
 */
