@@ -10,7 +10,7 @@ AS
 	
 	Revisions:
 		- 20170215@Percy: Integrate Fishing World [RedmineID: #71616]
-		- 20170626@Cherry: Integrate Keno Lottery and Betradar Virtual Sports (#78184, #78495)
+		- 20170626@Cherry: Integrate Keno Lottery and Virtual Sports 2 (#78184, #78495)
 
 	Param Explaination:
 		* Live Casino:
@@ -26,9 +26,10 @@ AS
 					Macau
 					Macau Games
 		* Number Game
-
 		* Virtual Sports
 		* Keno
+		* Lottery
+		* Virtual Sports 2
 
 */
 

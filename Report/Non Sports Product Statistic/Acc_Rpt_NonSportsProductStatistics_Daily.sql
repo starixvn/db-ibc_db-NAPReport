@@ -245,7 +245,7 @@ SET NOCOUNT ON
 
 	DELETE	s
 	FROM	#SportBettype s
-	WHERE	s.ProductID NOT IN (3, 5, 27)   ---- NumberGame , Virtual Sports
+	WHERE	s.ProductID NOT IN (3, 5, 27)   ---- NumberGame , Virtual Sports, Virtual Sports 2
 			AND NOT EXISTS (SELECT Bettype FROM #tmpBetType b WHERE b.Bettype = s.Bettype)
 
 
@@ -293,9 +293,9 @@ SET NOCOUNT ON
 					
 	END	 
 
- 
-	---------------------------------------------- 
-	---1. By bettype for normal Product
+	IF EXISTS (SELECT 1 FROM #tmpProductID WHERE ProductID NOT IN (3, 4, 5, 27))
+	BEGIN
+		---1. By bettype for normal Product
 		INSERT INTO #Data (  ReportBy, CustId,
 							   BetCount, CurrencyId , 
 							   TotalBets, TotalBetsBase, 
@@ -333,7 +333,7 @@ SET NOCOUNT ON
 				ON s.Bettype = b.bettype 
 		WHERE b.WinlostDate = @WLDate
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
-			AND s.ProductID NOT IN (3,4,5,27)   --- NumberGame, SLI-Live Casino, Virtual Sport 
+			AND s.ProductID NOT IN (3,4,5,27)   --- NumberGame, SLI-Live Casino, Virtual Sport, Virtual Sports 2
 			AND s.RefTable IN (0,3)
 			AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
 			AND (b.currency = @currency OR @currency IN (0,-1)) 			
@@ -350,7 +350,6 @@ SET NOCOUNT ON
 			)
 		GROUP BY  b.WinlostDate,  b.Currency, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END
 		 
-
 		---1b. By bettype for Casino Product
 		INSERT INTO #Data (  ReportBy, CustId,
 							   BetCount, CurrencyId , 
@@ -389,7 +388,7 @@ SET NOCOUNT ON
 				ON s.Bettype = b.GameId 
 		WHERE b.WinlostDate = @WLDate
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
-			AND s.ProductID NOT IN (3,4,5,27)   --- NumberGame, SLI-Live Casino, Virtual Sport 
+			AND s.ProductID NOT IN (3,4,5,27)   --- NumberGame, SLI-Live Casino, Virtual Sport, Virtual Sports 2 
 			AND s.RefTable = 1
 			AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
 			AND (b.currency = @currency OR @currency IN (0,-1)) 			
@@ -405,9 +404,7 @@ SET NOCOUNT ON
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 			)
 		GROUP BY  b.WinlostDate,  b.Currency, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END
-
 		 
-
 		---1b. By bettype for Casino Product
 		INSERT INTO #Data (  ReportBy, CustId,
 							   BetCount, CurrencyId , 
@@ -446,7 +443,7 @@ SET NOCOUNT ON
 				ON s.Bettype = b.GameId 
 		WHERE b.WinlostDate = @WLDate
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
-			AND s.ProductID NOT IN (3,4,5,27)   --- NumberGame, SLI-Live Casino, Virtual Sport 
+			AND s.ProductID NOT IN (3,4,5,27)   --- NumberGame, SLI-Live Casino, Virtual Sport, Virtual Sports 2 
 			AND s.RefTable = 2
 			AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
 			AND (b.currency = @currency OR @currency IN (0,-1)) 			
@@ -462,8 +459,11 @@ SET NOCOUNT ON
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 			)
 		GROUP BY  b.WinlostDate,  b.Currency, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END
-
-	----2. NumberGame & Live Casino & VirtualSport (Soccer) 
+	END
+	
+	IF EXISTS (SELECT 1 FROM #tmpProductID WHERE ProductID IN (3, 4, 5))
+	BEGIN
+		----2. NumberGame & Live Casino & VirtualSport (Soccer) 
 		INSERT INTO #Data ( ReportBy, CustID,   
 						BetCount, CurrencyId , 
 						TotalBets, TotalBetsBase, 
@@ -534,7 +534,6 @@ SET NOCOUNT ON
 			)
 		GROUP BY  b.WinlostDate,  b.Currency, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END
 
-
 	----3.  VirtualSport (HR) 
 		INSERT INTO #Data ( ReportBy, CustID,   
 						BetCount, CurrencyId , 
@@ -595,8 +594,11 @@ SET NOCOUNT ON
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 			)
 		GROUP BY  b.WinlostDate,  b.Currency, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END
+	END
 		
-		-- Betradar Virtual Sports
+	IF EXISTS (SELECT 1 FROM #tmpProductID WHERE ProductID = 27)
+	BEGIN
+		-- Virtual Sports 2
 		INSERT INTO #Data ( ReportBy, CustID,   
 						BetCount, CurrencyId , 
 						TotalBets, TotalBetsBase, 
@@ -657,6 +659,7 @@ SET NOCOUNT ON
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 			)
 		GROUP BY  b.WinlostDate,  b.Currency, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END
+	END
 
 ---Get CurrencyName
 		UPDATE  R   
