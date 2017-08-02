@@ -704,7 +704,7 @@ BEGIN
 	,(13, 23, 'NG2')
 	,(14, 24, 'Fishing World')
 	,(15, 25, 'Cash Out')
-	,(16, 27, 'Betradar Virtual Sports')
+	,(16, 27, 'Virtual Sports 2')
      ,(17, 28, 'Lottery')
 
 		
