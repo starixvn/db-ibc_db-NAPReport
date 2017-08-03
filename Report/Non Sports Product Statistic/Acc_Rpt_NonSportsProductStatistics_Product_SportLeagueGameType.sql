@@ -224,7 +224,7 @@ BEGIN
 
 	DELETE s
 	FROM #SportBettype s
-	WHERE s.ProductID NOT IN (3, 5, 27) -- NumberGame, Virtual Sport
+	WHERE s.ProductID NOT IN (3, 5, 27) -- NumberGame, Virtual Sports, Virtual Sports 2
 		AND NOT EXISTS (SELECT b.Bettype FROM #tmp_BetType b WHERE b.Bettype = s.Bettype)
 	-- End Sport Bettype Matrix
 
@@ -233,7 +233,7 @@ BEGIN
 	SET s.TypeName = b.typenamee
 	FROM #SportBettype s
 		INNER JOIN dbo.bettype b ON s.Bettype = b.typeid
-	WHERE s.ProductID NOT IN (3, 5, 6, 27) -- NG, Virtual Sport, RNG Casino
+	WHERE s.ProductID NOT IN (3, 5, 6, 27) -- NG, Virtual Sports, RNG Casino, Virtual Sports 2
 	-- End Sport Type/League/GameType
 
 	-- Get Site	
@@ -352,7 +352,7 @@ BEGIN
 		CASE WHEN s.ProductID = 27 AND s.EvenType = 0 THEN bm.sporttype ELSE b.matchid END, s.ProductID
 
 	--- Check condition 
-	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID NOT IN (3, 4, 5, 27)) -- NG, SLI-Live Casino, Virtual Sport
+	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID NOT IN (3, 4, 5, 27)) -- NG, SLI-Live Casino, Virtual Sports, Virtual Sports 2
 	BEGIN		
 		-- 1. By bettype for normal product
 		INSERT INTO #Data
@@ -623,7 +623,7 @@ BEGIN
 		GROUP BY r.SportType, b.custid, b.CurrencyID
 	END
 	
-	--Betradar Virtual Sports
+	-- Virtual Sports 2
 	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID = 27)
 	BEGIN
 		INSERT INTO #Data

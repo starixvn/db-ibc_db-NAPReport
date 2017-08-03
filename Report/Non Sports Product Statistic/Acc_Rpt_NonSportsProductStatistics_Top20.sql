@@ -182,7 +182,7 @@ BEGIN
 	FROM
 		dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '', @isTest) s
 		INNER JOIN #tmp_ProductID p ON s.ProductID = p.ProductID
-	WHERE p.ProductID IN (3, 5, 27) -- Number Game, Virtual Sport (input @bettype = '')
+	WHERE p.ProductID IN (3, 5, 27) -- Number Game, Virtual Sports, Virtual Sports 2
 
 	DROP TABLE #tmp_ProductID
 	DROP TABLE #tmp_BetType
@@ -765,7 +765,7 @@ BEGIN
 		statusID TINYINT
 	)
 	--- Check condition 
-	IF EXISTS (SELECT TOP 1 1 FROM #tmp_bettrans WHERE ProductID NOT IN (3, 4, 5, 27)) -- NG, SLI-Live Casino, Virtual Sport
+	IF EXISTS (SELECT TOP 1 1 FROM #tmp_bettrans WHERE ProductID NOT IN (3, 4, 5, 27)) -- NG, SLI-Live Casino, Virtual Sports, Virtual Sports 2
 	BEGIN		
 		INSERT INTO #Data
 		(
@@ -814,7 +814,7 @@ BEGIN
 		GROUP BY srecommend, mrecommend, recommend, custid, CurrencyID, ProductID, statusID
 	END
 
-	IF EXISTS (SELECT TOP 1 1 FROM #SportBettype WHERE ProductID IN (3, 4, 5)) -- NG, SLI-Live Casino, Virtual Sport
+	IF EXISTS (SELECT TOP 1 1 FROM #SportBettype WHERE ProductID IN (3, 4, 5)) -- NG, SLI-Live Casino, Virtual Sports
 	BEGIN		
 		INSERT INTO #Data
 		(
@@ -920,7 +920,7 @@ BEGIN
 
 	IF EXISTS (SELECT TOP 1 1 FROM #SportBettype WHERE ProductID = 27)
 	BEGIN
-		-- Betradar Virtual Sport 
+		-- Virtual Sports 2
 		INSERT INTO #Data
 		(
 			srecommend,
