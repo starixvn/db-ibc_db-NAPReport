@@ -333,7 +333,8 @@ BEGIN
 		LEFT JOIN (SELECT DISTINCT bm.refno, m.sporttype
 					FROM dbo.bettransm14 bm WITH (NOLOCK)
 						INNER JOIN dbo.match14 m WITH (NOLOCK) ON bm.matchid = m.matchid
-					WHERE m.sporttype IN (190, 191)) bm ON b.refno = bm.refno
+						INNER JOIN #tmp_SportType st ON m.sporttype = st.Sporttype
+					) bm ON b.refno = bm.refno
 	WHERE b.winlostdate = @WLDate
 		AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
 		AND ((b.currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
@@ -672,8 +673,8 @@ BEGIN
 				LEFT JOIN dbo.match14 m WITH (NOLOCK) ON m.matchid = b.matchid
 			WHERE b.ProductID = 27
 				AND (
-					(b.EvenType = 0) OR
-					(b.EvenType = 1 AND m.matchid IS NOT NULL) 
+					(b.EvenType = 0 AND EXISTS(SELECT 1 FROM #tmp_SportType st WHERE st.Sporttype = b.Matchid))
+					OR (m.matchid IS NOT NULL AND EXISTS(SELECT 1 FROM #tmp_SportType st WHERE st.Sporttype = m.sporttype))
 				)	
 			GROUP BY CASE WHEN b.EvenType = 0 THEN b.Matchid ELSE m.sporttype END, 
 					b.custid, b.CurrencyID
