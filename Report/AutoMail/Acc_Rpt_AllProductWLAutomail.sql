@@ -1,3 +1,4 @@
+/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 USE [bodb02]
 GO
 
@@ -30,6 +31,7 @@ AS
 		- 20161227@Percy: Clean up code Cockfighting [RedmineID: #69446]
 		- 20170213@Percy: Remove SLI [RedmineID: #70036]
 		- 20170323@Percy: Apply Cash Out [RedmineID: #72164]
+		- 20170706@Percy: Apply Betradar VS and Keno Lottery [RedmineID: #79521]
 		 
 	Param's Explanation:
 	
@@ -217,6 +219,7 @@ BEGIN
 							WHEN bettype BETWEEN 81 AND 120 THEN 6911918
 							WHEN bettype IN (31,32,33) THEN 6911919							
 							WHEN bettype BETWEEN 1201 AND 1299 THEN 8158305
+							WHEN bettype BETWEEN 2700 AND 2899 THEN 26513859
 							WHEN bettype BETWEEN 1501 AND 1599 THEN 14054918
 							WHEN bettype IN (31,32,33) THEN 7723121
 							WHEN bettype BETWEEN 1800 AND 1899 THEN 18188766
@@ -234,6 +237,7 @@ BEGIN
 							WHEN bettype BETWEEN 2501 AND 2699 THEN 23765766
 							WHEN bettype BETWEEN 1011 AND 1020 THEN 24569216
 							WHEN bettype BETWEEN 911 AND 914 THEN 25477229
+							WHEN bettype BETWEEN 1021 AND 1049 THEN 26513853
 						END
 		FROM bodb_report.dbo.rptWinLost b WITH(NOLOCK)
 		WHERE b.winlostdate = @_todate
@@ -251,6 +255,7 @@ BEGIN
 							WHEN bettype BETWEEN 81 AND 120 THEN 13062600
 							WHEN bettype IN (31,32,33) THEN 13062602
 							WHEN bettype BETWEEN 1201 AND 1299 THEN 13062615
+							WHEN bettype BETWEEN 2700 AND 2899 THEN 26433297
 							WHEN bettype BETWEEN 1501 AND 1599 THEN 13062664
 							WHEN bettype IN (31,32,33) THEN 13062630
 							WHEN bettype BETWEEN 1800 AND 1899 THEN 18254399
@@ -268,6 +273,7 @@ BEGIN
 							WHEN bettype BETWEEN 2501 AND 2699 THEN 23766923
 							WHEN bettype BETWEEN 1011 AND 1020 THEN 24567778
 							WHEN bettype BETWEEN 911 AND 914 THEN 25440545
+							WHEN bettype BETWEEN 1021 AND 1049 THEN 26433298
 						END
 		FROM bodb_report.dbo.rptWinLost b WITH(NOLOCK)
 		WHERE b.winlostdate = @_todate
@@ -305,8 +311,4 @@ BEGIN
 	DROP TABLE #TempCustTrans
 
 END
-GO 
-GRANT VIEW DEFINITION ON [dbo].[Acc_Rpt_AllProductWLAutomail] TO [vnteam]
-GO 
-GRANT EXECUTE ON [dbo].[Acc_Rpt_AllProductWLAutomail] TO [bodbAdminNet]
-GO 
+GO
