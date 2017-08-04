@@ -41,19 +41,13 @@ SET NOCOUNT ON
 	FROM	dbo.league WITH (NOLOCK)
 	WHERE	sporttype = 161 
 		 
-	--- ProductID = 5 - Virtual Sports get Sporttype
+	--- ProductID = 5, 27 - Virtual Sports, Virtual Sports 2 get Sporttype
 	INSERT INTO #SportBettype (ProductId, TypeId, TypeName)
-	SELECT	5 as ProductId,
-			Sporttype as TypeId ,
-			SportName as TypeName
-	FROM	dbo.Sports WITH (NOLOCK)
-	WHERE	sporttype BETWEEN 180 AND 186	
-	UNION --ProductID = 27 - Betradar Virtual Sports
-	SELECT	27 as ProductId,
-			Sporttype as TypeId ,
-			SportName as TypeName
-	FROM	dbo.Sports WITH (NOLOCK)
-	WHERE	sporttype BETWEEN 190 AND 196	 
+	SELECT DISTINCT sb.ProductID, sb.SportType, s.SportName
+	FROM dbo.SportBettypeMatrix sb WITH (NOLOCK)
+		INNER JOIN dbo.Sports s WITH (NOLOCK) ON sb.SportType = s.SportType 
+	WHERE sb.ProductID IN (5,27)
+		AND (sb.IsTest = 0 OR sb.IsTest = @isTest)		
 	
 	SELECT	* 
 	FROM	#SportBettype
