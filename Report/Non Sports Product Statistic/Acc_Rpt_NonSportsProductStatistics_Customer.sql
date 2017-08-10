@@ -537,13 +537,74 @@ BEGIN
 					OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 					OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 				)
-				AND (s.ProductID <> 27 OR (s.ProductID = 27 AND s.EvenType = 1) 
-					OR (EXISTS (SELECT 1 FROM dbo.bettransm bm WITH (NOLOCK)
+				AND b.bettype <> 2799
+			GROUP BY b.srecommend, b.mrecommend, b.recommend, b.custid, b.currency, s.EvenType, b.matchid, s.ProductID, CASE WHEN statusID = 103 THEN 103 ELSE 112 END
+			
+			--Mix Parlay Virtual Sport 2
+			INSERT INTO #tmp_bettrans
+			(
+				srecommend,
+				mrecommend,
+				recommend,
+				custid,
+				BetCount,
+				CurrencyID,
+				TotalBets,
+				TotalBetsBase,
+				TotalWins,
+				TotalWinsBase,
+				CompanyTurnover,
+				CompanyTurnoverBase,
+				CompanyGrossIncome,
+				CompanyGrossIncomeBase,
+				CompanyComm,
+				CompanyCommBase,
+				EvenType, Matchid, ProductID,
+				HousePT,
+				statusID
+			)
+			SELECT
+				b.srecommend,
+				b.mrecommend,
+				b.recommend,
+				b.custid,
+				COUNT(b.transid) AS BetCount,
+				b.currency,
+				SUM(actual_stake) AS TotalBets,
+				SUM(actual_stake * actualrate) AS TotalBetsBase,
+				SUM(winlost) AS TotalWins,
+				SUM(winlost * actualrate) AS TotalWinsBase,
+				SUM((1- b.tpositiontaking) * b.stake) AS CompanyTurnover,
+				SUM((1- b.tpositiontaking) * b.stake * actualrate) AS CompanyTurnoverBase,
+				SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)) AS CompanyGrossIncome,
+				SUM((winlost - actual_stake + awinlost + mwinlost + swinlost) * actualrate) AS CompanyGrossIncomeBase,
+				SUM(scomm) AS CompanyComm,
+				SUM(scomm *actualrate) AS CompanyCommBase,
+				s.EvenType, b.matchid, s.ProductID,
+				SUM(1 - b.tpositiontaking) AS HousePT,
+				CASE WHEN statusID = 103 THEN 103 ELSE 112 END AS statusID
+			FROM  dbo.bettrans b WITH (NOLOCK)
+				INNER JOIN #tmp_MemIDs m ON b.custid = m.CustID
+				INNER JOIN #SportBettype s ON s.Bettype = b.bettype
+			WHERE b.winlostdate = @WLDate
+				AND b.matchid = 2799
+				AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
+				AND s.RefTable IN (0, 3)
+				AND ((b.currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
+				AND (b.currency = @Currency OR @Currency IN (0, -1))
+				AND (EXISTS (SELECT 1 FROM #tmp_Devide d WHERE d.Betfrom = b.betfrom) OR @Device = '')
+				AND (
+					@HousePTType = 0
+					OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
+					OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
+				)
+				AND b.bettype = 2799
+				AND EXISTS (SELECT 1 FROM dbo.bettransm bm WITH (NOLOCK)
 									INNER JOIN dbo.match m WITH (NOLOCK) ON bm.matchid = m.matchid 
 									INNER JOIN #tmp_SportType st ON m.sporttype = st.Sporttype
-								WHERE bm.refno = b.refno))
-				)
+								WHERE bm.refno = b.refno)				
 			GROUP BY b.srecommend, b.mrecommend, b.recommend, b.custid, b.currency, s.EvenType, b.matchid, s.ProductID, CASE WHEN statusID = 103 THEN 103 ELSE 112 END
+			
 		END
 
 		IF EXISTS (SELECT TOP 1 1 FROM #SportBettype WHERE RefTable = 1) -- bettransRnG

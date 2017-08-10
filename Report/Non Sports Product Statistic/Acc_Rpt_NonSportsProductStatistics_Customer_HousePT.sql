@@ -196,12 +196,45 @@ BEGIN
 						OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 						OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 					)
-					AND (s.ProductID <> 27 OR (s.ProductID = 27 AND s.EvenType = 1) 
-						OR (EXISTS (SELECT 1 FROM dbo.bettransm bm WITH (NOLOCK)
+					AND b.bettype <> 2799
+				GROUP BY s.EvenType, b.matchid, s.ProductID
+				
+				--Mix Parlay Virtual Sport 2
+				INSERT INTO #tmp_bettrans
+				(
+					BetCount,
+					TotalBets, TotalBetsBase,
+					TotalWins, TotalWinsBase,
+					EvenType, Matchid, ProductID,
+					HousePT
+				)
+				SELECT
+					COUNT(b.transid) AS BetCount,
+					SUM(actual_stake) AS TotalBets,
+					SUM(actual_stake * actualrate) AS TotalBetsBase,
+					SUM(winlost) AS TotalWins,
+					SUM(winlost * actualrate) AS TotalWinsBase,
+					s.EvenType, b.matchid, s.ProductID,
+					SUM(1 - b.tpositiontaking) AS HousePT
+				FROM  dbo.bettrans b WITH (NOLOCK)
+					INNER JOIN #SportBettype s ON s.Bettype = b.bettype
+				WHERE b.winlostdate = @WLDate
+					AND b.custid = @CID
+					AND b.matchid = 2799
+					AND b.statusID IN (111, 112, 113) -- won/lose/draw tickets
+					AND s.RefTable IN (0, 3)
+					AND ((b.currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
+					AND (EXISTS (SELECT 1 FROM #tmp_Devide d WHERE d.Betfrom = b.betfrom) OR @Device = '')
+					AND (
+						@HousePTType = 0
+						OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
+						OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
+					)
+					AND b.bettype = 2799
+					AND EXISTS (SELECT 1 FROM dbo.bettransm bm WITH (NOLOCK)
 									INNER JOIN dbo.match m WITH (NOLOCK) ON bm.matchid = m.matchid 
 									INNER JOIN #tmp_SportType st ON m.sporttype = st.Sporttype
-								WHERE bm.refno = b.refno))
-					)
+								WHERE bm.refno = b.refno)					
 				GROUP BY s.EvenType, b.matchid, s.ProductID
 			END
 
@@ -316,12 +349,45 @@ BEGIN
 						OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 						OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 					)
-					AND (s.ProductID <> 27 OR (s.ProductID = 27 AND s.EvenType = 1) 
-						OR (EXISTS (SELECT 1 FROM dbo.bettransm bm WITH (NOLOCK)
+					AND b.bettype <> 2799
+				GROUP BY s.EvenType, b.matchid, s.ProductID
+				
+				--Mix Parlay Virtual Sport 2
+				INSERT INTO #tmp_bettrans
+				(
+					BetCount,
+					TotalBets, TotalBetsBase,
+					TotalWins, TotalWinsBase,
+					EvenType, matchid, ProductID,
+					HousePT
+				)
+				SELECT
+					COUNT(b.transid) AS BetCount,
+					SUM(actual_stake) AS TotalBets,
+					SUM(actual_stake * actualrate) AS TotalBetsBase,
+					SUM(winlost) AS TotalWins,
+					SUM(winlost * actualrate) AS TotalWinsBase,
+					s.EvenType, b.matchid, s.ProductID,
+					SUM(1 - b.tpositiontaking) AS HousePT
+				FROM  dbo.bettrans b WITH (NOLOCK)
+					INNER JOIN #SportBettype s ON s.Bettype = b.bettype
+					INNER JOIN #tmp_MemIDs m ON b.custid = m.CustID
+				WHERE b.winlostdate = @WLDate
+					AND b.statusID IN (111, 112, 113) -- won/lose/draw tickets
+					AND b.matchid = 2799
+					AND s.RefTable IN (0, 3)
+					AND ((b.currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
+					AND (EXISTS (SELECT 1 FROM #tmp_Devide d WHERE d.Betfrom = b.betfrom) OR @Device = '')
+					AND (
+						@HousePTType = 0
+						OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
+						OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
+					)
+					AND b.bettype = 2799
+					AND EXISTS (SELECT 1 FROM dbo.bettransm bm WITH (NOLOCK)
 									INNER JOIN dbo.match m WITH (NOLOCK) ON bm.matchid = m.matchid 
 									INNER JOIN #tmp_SportType st ON m.sporttype = st.Sporttype
-								WHERE bm.refno = b.refno))
-					)
+								WHERE bm.refno = b.refno)					
 				GROUP BY s.EvenType, b.matchid, s.ProductID
 			END
 
