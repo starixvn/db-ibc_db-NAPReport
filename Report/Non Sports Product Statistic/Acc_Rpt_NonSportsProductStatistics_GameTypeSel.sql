@@ -10,6 +10,7 @@ AS
  
 	Revisions:	
 		- 20170215@Percy: Integrate Fishing World [RedmineID: #71616]
+		- 20170626@Cherry: Integrate Keno Lottery and Betradar Virtual Sports (#78184, #78495)
 */
  
 BEGIN
@@ -28,7 +29,7 @@ SET NOCOUNT ON
 	FROM	dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '', @isTest) s
 	INNER JOIN dbo.Bettype b ON s.Bettype = B.TypeId 
 	WHERE  CasinoType IN (1,2) 
-		   OR ProductID IN (8, 24) 	 
+		   OR ProductID IN (8, 24, 28) 	 
 
 	
 	--- ProductID = 3 - Number Game get LeagueId
@@ -40,13 +41,13 @@ SET NOCOUNT ON
 	FROM	dbo.league WITH (NOLOCK)
 	WHERE	sporttype = 161 
 		 
-	--- ProductID = 5 - Virtual Sports get Sporttype
+	--- ProductID = 5, 27 - Virtual Sports, Virtual Sports 2 get Sporttype
 	INSERT INTO #SportBettype (ProductId, TypeId, TypeName)
-	SELECT	5 as ProductId,
-			Sporttype as TypeId ,
-			SportName as TypeName
-	FROM	dbo.Sports WITH (NOLOCK)
-	WHERE	sporttype BETWEEN 180 AND 186	 
+	SELECT DISTINCT sb.ProductID, sb.SportType, s.SportName
+	FROM dbo.SportBettypeMatrix sb WITH (NOLOCK)
+		INNER JOIN dbo.Sports s WITH (NOLOCK) ON sb.SportType = s.SportType 
+	WHERE sb.ProductID IN (5,27)
+		AND (sb.IsTest = 0 OR sb.IsTest = @isTest)		
 	
 	SELECT	* 
 	FROM	#SportBettype

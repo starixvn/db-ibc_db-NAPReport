@@ -10,6 +10,7 @@ AS
 	
 	Revisions:
 		- 20170215@Percy: Integrate Fishing World [RedmineID: #71616]
+		- 20170626@Cherry: Integrate Keno Lottery and Virtual Sports 2 (#78184, #78495)
 
 	Param Explaination:
 		* Live Casino:
@@ -25,9 +26,10 @@ AS
 					Macau
 					Macau Games
 		* Number Game
-
 		* Virtual Sports
 		* Keno
+		* Lottery
+		* Virtual Sports 2
 
 */
 
@@ -37,7 +39,7 @@ SET NOCOUNT ON
 	SELECT ProductId, CASE WHEN ProductId = 4 THEN 'SLI' ELSE ProductName END AS ProductName, CasinoType
 	FROM  dbo.Products WITH (NOLOCK)
 	WHERE CasinoType IN (1,2) 
-		 OR ProductID IN (3, 5, 8, 24)
+		 OR ProductID IN (3, 5, 8, 24, 27, 28)
 	ORDER BY ProductName 
 
 END 

@@ -28,6 +28,7 @@ AS
 	Task: Risk and Control - Non-Sport Game Statistics Report - Report by Super/Master/Agent/Username - Drilldown House PT (1-tpositiontaking)
 
 	Revisions:
+		- 20170726@Cherry: Integrate Betradar Virtual Sports (#78495)
 
 	Param's Explanation:
 		- @ProductID: string filter by Product 
@@ -110,7 +111,7 @@ BEGIN
 	FROM
 		dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '', @isTest) s
 		INNER JOIN #tmp_ProductID p ON s.ProductID = p.ProductID
-	WHERE p.ProductID IN (3, 5) -- Number Game, Virtual Sport (input @bettype = '')
+	WHERE p.ProductID IN (3, 5, 27) -- Number Game, Virtual Sports, Virtual Sports 2
 
 	DROP TABLE #tmp_ProductID
 	DROP TABLE #tmp_BetType
@@ -195,6 +196,45 @@ BEGIN
 						OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 						OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 					)
+					AND b.bettype <> 2799
+				GROUP BY s.EvenType, b.matchid, s.ProductID
+				
+				--Mix Parlay Virtual Sport 2
+				INSERT INTO #tmp_bettrans
+				(
+					BetCount,
+					TotalBets, TotalBetsBase,
+					TotalWins, TotalWinsBase,
+					EvenType, Matchid, ProductID,
+					HousePT
+				)
+				SELECT
+					COUNT(b.transid) AS BetCount,
+					SUM(actual_stake) AS TotalBets,
+					SUM(actual_stake * actualrate) AS TotalBetsBase,
+					SUM(winlost) AS TotalWins,
+					SUM(winlost * actualrate) AS TotalWinsBase,
+					s.EvenType, b.matchid, s.ProductID,
+					SUM(1 - b.tpositiontaking) AS HousePT
+				FROM  dbo.bettrans b WITH (NOLOCK)
+					INNER JOIN #SportBettype s ON s.Bettype = b.bettype
+				WHERE b.winlostdate = @WLDate
+					AND b.custid = @CID
+					AND b.matchid = 2799
+					AND b.statusID IN (111, 112, 113) -- won/lose/draw tickets
+					AND s.RefTable IN (0, 3)
+					AND ((b.currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
+					AND (EXISTS (SELECT 1 FROM #tmp_Devide d WHERE d.Betfrom = b.betfrom) OR @Device = '')
+					AND (
+						@HousePTType = 0
+						OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
+						OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
+					)
+					AND b.bettype = 2799
+					AND EXISTS (SELECT 1 FROM dbo.bettransm bm WITH (NOLOCK)
+									INNER JOIN dbo.match m WITH (NOLOCK) ON bm.matchid = m.matchid 
+									INNER JOIN #tmp_SportType st ON m.sporttype = st.Sporttype
+								WHERE bm.refno = b.refno)					
 				GROUP BY s.EvenType, b.matchid, s.ProductID
 			END
 
@@ -309,6 +349,45 @@ BEGIN
 						OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 						OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 					)
+					AND b.bettype <> 2799
+				GROUP BY s.EvenType, b.matchid, s.ProductID
+				
+				--Mix Parlay Virtual Sport 2
+				INSERT INTO #tmp_bettrans
+				(
+					BetCount,
+					TotalBets, TotalBetsBase,
+					TotalWins, TotalWinsBase,
+					EvenType, matchid, ProductID,
+					HousePT
+				)
+				SELECT
+					COUNT(b.transid) AS BetCount,
+					SUM(actual_stake) AS TotalBets,
+					SUM(actual_stake * actualrate) AS TotalBetsBase,
+					SUM(winlost) AS TotalWins,
+					SUM(winlost * actualrate) AS TotalWinsBase,
+					s.EvenType, b.matchid, s.ProductID,
+					SUM(1 - b.tpositiontaking) AS HousePT
+				FROM  dbo.bettrans b WITH (NOLOCK)
+					INNER JOIN #SportBettype s ON s.Bettype = b.bettype
+					INNER JOIN #tmp_MemIDs m ON b.custid = m.CustID
+				WHERE b.winlostdate = @WLDate
+					AND b.statusID IN (111, 112, 113) -- won/lose/draw tickets
+					AND b.matchid = 2799
+					AND s.RefTable IN (0, 3)
+					AND ((b.currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
+					AND (EXISTS (SELECT 1 FROM #tmp_Devide d WHERE d.Betfrom = b.betfrom) OR @Device = '')
+					AND (
+						@HousePTType = 0
+						OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
+						OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
+					)
+					AND b.bettype = 2799
+					AND EXISTS (SELECT 1 FROM dbo.bettransm bm WITH (NOLOCK)
+									INNER JOIN dbo.match m WITH (NOLOCK) ON bm.matchid = m.matchid 
+									INNER JOIN #tmp_SportType st ON m.sporttype = st.Sporttype
+								WHERE bm.refno = b.refno)					
 				GROUP BY s.EvenType, b.matchid, s.ProductID
 			END
 
@@ -382,7 +461,7 @@ BEGIN
 		END
 	
 		--- Check condition 
-		IF EXISTS (SELECT TOP 1 1 FROM #SportBettype WHERE ProductID NOT IN (3, 4, 5)) -- NG, SLI-Live Casino, Virtual Sport
+		IF EXISTS (SELECT TOP 1 1 FROM #SportBettype WHERE ProductID NOT IN (3, 4, 5, 27)) -- NG, SLI-Live Casino, Virtual Sports, Virtual Sports 2
 		BEGIN		
 			INSERT INTO #Data
 			(
@@ -401,11 +480,11 @@ BEGIN
 				ProductID,
 				SUM(HousePT) AS HousePT
 			FROM  #tmp_bettrans
-			WHERE ProductID NOT IN (3, 4, 5)
+			WHERE ProductID NOT IN (3, 4, 5, 27)
 			GROUP BY ProductID
 		END
 
-		IF EXISTS (SELECT TOP 1 1 FROM #SportBettype WHERE ProductID IN (3, 4, 5)) -- NG, SLI-Live Casino, Virtual Sport
+		IF EXISTS (SELECT TOP 1 1 FROM #SportBettype WHERE ProductID IN (3, 4, 5)) -- NG, SLI-Live Casino, Virtual Sports
 		BEGIN		
 			INSERT INTO #Data
 			(
@@ -456,6 +535,35 @@ BEGIN
 				AND (@Sporttype = '' OR (EXISTS(SELECT 1 FROM #tmp_SportType st WHERE st.Sporttype = r.SportType)))			  
 			GROUP BY b.ProductID
 		END
+		
+		IF EXISTS (SELECT TOP 1 1 FROM #SportBettype WHERE ProductID = 27) -- Virtual Sports 2
+		BEGIN		
+			INSERT INTO #Data
+			(
+				BetCount,
+				TotalBets, TotalBetsBase,
+				TotalWins, TotalWinsBase,
+				ProductID,
+				HousePT
+			)
+			SELECT
+				SUM(BetCount) AS BetCount,
+				SUM(TotalBets) AS TotalBets,
+				SUM(TotalBetsBase) AS TotalBetsBase,
+				SUM(TotalWins) AS TotalWins,
+				SUM(TotalWinsBase) AS TotalWinsBase,
+				ProductID,
+				SUM(HousePT) AS HousePT
+			FROM  #tmp_bettrans b
+			WHERE b.ProductID = 27
+				AND (b.EvenType = 0 OR
+					(EXISTS (SELECT 1 FROM dbo.match m WITH (NOLOCK)
+									INNER JOIN #tmp_SportType st ON m.Sporttype = st.sporttype
+							 WHERE b.Matchid = m.matchid))
+				)
+			GROUP BY b.ProductID	
+		END
+		
 	END
 
 	-- Return Data
