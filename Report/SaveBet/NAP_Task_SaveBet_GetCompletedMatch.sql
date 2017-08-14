@@ -14,6 +14,8 @@ AS
 */
 
      BEGIN
+	    SET NOCOUNT ON;
+
          DECLARE @movebetdate DATETIME, @CurentDate DATETIME;
          SELECT @CurentDate = CONVERT( VARCHAR(10), GETDATE(), 120);
          SELECT @movebetdate = MAX(eventdate)
