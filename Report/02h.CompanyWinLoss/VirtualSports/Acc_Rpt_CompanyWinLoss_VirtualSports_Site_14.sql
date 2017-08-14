@@ -33,7 +33,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSports_Site_14] @StartDate='2016-01-01', @En
          SELECT @isTest = dbo.f_CheckSPVersion(@@PROCID);
          DECLARE @EventType INT;
          SELECT @EventType = s.EventType
-         FROM dbo.f_SportBetTypeMatrix_Sel(5, @SportType, @BetType, 2, '', '', @isTest) s;
+         FROM dbo.f_SportBetTypeMatrix_Sel(0, @SportType, @BetType, 2, '', '', @isTest) s;
      END;
      BEGIN -- #Agent
 

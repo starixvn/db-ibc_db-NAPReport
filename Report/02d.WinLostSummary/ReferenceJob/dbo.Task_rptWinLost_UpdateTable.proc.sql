@@ -279,6 +279,7 @@ BEGIN
 			winlostdate, sm.matchid, b.bettype, liveindicator, status,
 			case when recommend = 52466 then 1 when recommend = 5707545 then 2 else 0 end
 
+
 		-- calculate RNG casino products from bettransRnG
 		INSERT INTO bodb_Report.dbo.rptWinlost
 			(
@@ -322,6 +323,7 @@ BEGIN
 		GROUP BY
 			winlostdate, b.gameID, status,
 			case when recommend = 52466 then 1 when recommend = 5707545 then 2 else 0 end
+
 
 		-- calculate Live casino products from bettransLC
 		INSERT INTO bodb_Report.dbo.rptWinlost
@@ -376,6 +378,8 @@ BEGIN
 			CASE WHEN recommend = 52466   THEN 1 
 				 WHEN recommend = 5707545 THEN 2 ELSE 0
 				 END		
+
+
 
 		-- Update Sport
 
@@ -553,6 +557,7 @@ BEGIN
 				case when recommend = 52466 then 1 when recommend = 5707545 then 2 else 0 end,
 				CASE WHEN betteam = N'1' THEN 1 ELSE 0 END
 			
+
 			-- calculate Sportbooks + other products in bettrans (exclude products of bettransRng + bettransLC) 
 			INSERT INTO bodb_Report.dbo.rptWinlost
 				(
@@ -600,6 +605,7 @@ BEGIN
 				CASE WHEN b.bettype = 1003 THEN b.betdaqid ELSE matchid END, 
 				b.bettype, liveindicator, status,
 				case when recommend = 52466 then 1 when recommend = 5707545 then 2 else 0 end
+
 		    
 			 -- calculate Virtual Sports Parlay
 			 INSERT INTO bodb_Report.dbo.rptWinlost
@@ -652,6 +658,7 @@ BEGIN
 				winlostdate, sm.matchid, b.bettype, liveindicator, status,
 				case when recommend = 52466 then 1 when recommend = 5707545 then 2 else 0 end
 
+
 			 -- calculate RNG casino products from bettransRnG
 			 INSERT INTO bodb_Report.dbo.rptWinlost
 			 (
@@ -695,6 +702,7 @@ BEGIN
 			GROUP BY
 				winlostdate, b.gameID, status,
 				case when recommend = 52466 then 1 when recommend = 5707545 then 2 else 0 end
+
 
 			-- calculate Live casino products from bettransLC
 			INSERT INTO bodb_Report.dbo.rptWinlost
@@ -749,6 +757,7 @@ BEGIN
 				CASE WHEN recommend = 52466   THEN 1 
 					 WHEN recommend = 5707545 THEN 2 ELSE 0
 					 END
+
 			
 			-- Update Sport
 

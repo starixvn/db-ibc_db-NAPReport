@@ -29,12 +29,13 @@ AS
 			1. Integrate new product NG2 [RedmindID: #63460]
 			2. Clean code of Cockfighting
 		- 20161129@Robert: NAP Reports - Integrate Fishing World Product [RedmindID: #67757]  
+		- 20170627@Cherry: Integrate Lottery and Betradar Virtual Sports (#78184, 78495)
 	Param's Explanation:  
 	  + @MoveBetsDay: The day of moving bets to battrans14
 	  + @BalanceUpDay: The day of moving bets to battransbk
 	  + @CustID: SuperID
 	  + {251: Casino (include : 251, 208, 209, 210), 151:Racing, 252:Bingo, 161:Number Game, 162:Live Casino, 180:Virtual Sports, 202:Keno,  -1 : Metric Gaming - Superlive}
-
+			220: Lottery
   
 */  
 BEGIN
@@ -89,14 +90,15 @@ BEGIN
 		AND (
 			b.bettype BETWEEN 31 AND CASE WHEN @sportType=151 THEN 49 ELSE 0 END
 			OR b.bettype BETWEEN 81 AND (CASE WHEN @sportType=161 THEN 120 ELSE 0 END)
-			OR b.bettype BETWEEN 1101 AND (CASE WHEN @sportType=162 THEN 1199 ELSE 0 END)
-			OR b.bettype BETWEEN 1201 AND (CASE WHEN @sportType=180 THEN 1299 ELSE 0 END)			
+			OR b.bettype BETWEEN 1101 AND (CASE WHEN @sportType=162 THEN 1199 ELSE 0 END)			
 			OR b.bettype BETWEEN 801 AND (CASE WHEN @sportType= -1 AND b.StatusID <> 0 THEN 806 ELSE 0 END)
 			OR b.bettype BETWEEN 1501 AND (CASE WHEN @sportType=202 AND b.StatusID <> 0 THEN 1599 ELSE 0 END)
 			OR b.bettype BETWEEN 73 AND (CASE WHEN @sportType= 252 THEN 73 ELSE 0 END)
 			OR b.bettype BETWEEN 1701 AND (CASE WHEN @sportType= 255 THEN 1703 ELSE 0 END) -- GoldDeluxe
 			OR b.bettype BETWEEN 18000 AND (CASE WHEN @sportType= 204 THEN 18005 ELSE 0 END) -- Colossus Bet
-			OR b.bettype BETWEEN 2501 AND (CASE WHEN @SportType = 213 AND b.StatusID <> 0 THEN 2699 ELSE 0 END) -- NG2						
+			OR b.bettype BETWEEN 2501 AND (CASE WHEN @SportType = 213 AND b.StatusID <> 0 THEN 2699 ELSE 0 END) -- NG2	
+			OR b.bettype BETWEEN 1021 AND CASE WHEN @sportType = 220 THEN 1049 ELSE 0 END --Loterry
+			OR (@sportType=180 AND (b.bettype BETWEEN 1201 AND 1299 OR b.bettype BETWEEN 2700 AND 2899)) --Virtual Sports and Betradar Virtual Sports						
 		) 
 		AND ( 
 				----b.status IN ('WON','LOSE','DRAW','running') 
@@ -160,7 +162,6 @@ BEGIN
 							b.bettype BETWEEN 31 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' =151 THEN 49 ELSE 0 END
 							OR b.bettype BETWEEN 81 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' =161 THEN 120 ELSE 0 END)
 							OR b.bettype BETWEEN 1101 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' =162 THEN 1199 ELSE 0 END)
-							OR b.bettype BETWEEN 1201 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' =180 THEN 1299 ELSE 0 END)
 							OR b.bettype BETWEEN 2101 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' =251 THEN 2399 ELSE 0 END) 
 							OR b.bettype BETWEEN 801 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' = -1 THEN 806 ELSE 0 END)
 							OR b.bettype BETWEEN 1501 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' =202 THEN 1599 ELSE 0 END)
@@ -171,6 +172,8 @@ BEGIN
 							OR b.bettype BETWEEN 4001  AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 212 THEN 7999 ELSE 0 END) -- Voidbridge
 							OR b.bettype BETWEEN 2501  AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 213 THEN 2699 ELSE 0 END) -- NG2
 							OR b.bettype BETWEEN 1011  AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 219 THEN 1020 ELSE 0 END) -- Fishing World
+							OR b.bettype BETWEEN 1021 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' = 220 THEN 1049 ELSE 0 END --Loterry
+							OR (' + CONVERT(VARCHAR(5),@sportType) +' =180 AND (b.bettype BETWEEN 1201 AND 1299 OR b.bettype BETWEEN 2700 AND 2899)) --Virtual Sports				
 						) 
 						AND b.status IN (3  ---DRAW
 										,12	---HALF LOSE
@@ -220,12 +223,11 @@ BEGIN
 		FROM dbo.custInfo ci WITH(NOLOCK)
 		JOIN #AvailableMember av ON av.CustID = ci.custid               
 	END
-	IF @sportType IN (-1,255,180,204)
+	IF @sportType IN (-1,255,204)
     BEGIN            
 		INSERT INTO #FiltedDownlineAcc
 		SELECT ci.custid,
-			CASE WHEN @sportType = 180 THEN  ci.DisableVirtualSports
-				 WHEN @sportType = -1  THEN  ci.DisableSuperLive
+			CASE WHEN @sportType = -1  THEN  ci.DisableSuperLive
 				 WHEN @sportType = 255 THEN  ci.DisableGoldDeluxe
 				 WHEN @sportType = 204 THEN  ci.DisableColossusBet
 				 END ,
@@ -290,11 +292,13 @@ BEGIN
 			LEFT JOIN CustEnableKeno ce ON ce.CustID = av.custid    
 		WHERE ce.CustID IS NULL
 	END
-	IF @sportType IN (211,212,213,219)
+	IF @sportType IN (211,212,213,219,220,180)
     BEGIN
 		DECLARE @bitmapOrder TABLE (bitmapOrder TINYINT)
 		INSERT INTO @bitmapOrder (bitmapOrder)
-		SELECT bitmapOrder FROM dbo.ProductStatusProfile WITH(NOLOCK) WHERE Sporttype = @SportType
+		SELECT bitmapOrder 
+		FROM dbo.ProductStatusProfile WITH(NOLOCK) 
+		WHERE Sporttype = @SportType 
 	    
 		INSERT INTO #FiltedDownlineAcc
 		SELECT ci.custid,
