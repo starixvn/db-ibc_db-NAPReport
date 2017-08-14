@@ -29,7 +29,6 @@ AS
 	
 	Revision:
 		- 20170227@Percy: support search multiple username [RedmineID: #71342]
-		- 20170726@Cherry: Integrate Betradar Virtual Sports (#78495)
 
 	Param's Explanation:
 		- @username:  + Search by keyword, member only
@@ -230,7 +229,7 @@ BEGIN
 
 	DELETE s
 	FROM #SportBettype s
-	WHERE s.ProductID NOT IN (3, 5, 27) -- NumberGame, Virtual Sport, Virtual Sport 2
+	WHERE s.ProductID NOT IN (3, 5) -- NumberGame, Virtual Sport
 		AND NOT EXISTS (SELECT b.Bettype FROM #tmp_BetType b WHERE b.Bettype = s.Bettype)
 	-- End Sport Bettype Matrix
 
@@ -367,80 +366,10 @@ BEGIN
 			OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 			OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 		)
-		AND b.bettype <> 2799 AND b.matchid >= 0
-	GROUP BY b.recommend, CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END, b.currency, s.RefTable, s.EvenType, b.matchid, s.ProductID	
-	
-	--Mix Parlay Virtual Sports 2
-	INSERT INTO #tmp_bettrans
-	        ( recommend ,
-	          CustID ,
-	          BetCount ,
-	          CurrencyID ,
-	          TotalBets ,
-	          TotalBetsBase ,
-	          TotalWins ,
-	          TotalWinsBase ,
-	          TotalRefund ,
-	          TotalRefundBase ,
-	          CompanyTurnOver ,
-	          CompanyTurnOverBase ,
-	          CompanyGrossIncome ,
-	          CompanyGrossIncomeBase ,
-	          CompanyComm ,
-	          CompanyCommBase,
-			  RefTable,
-			  EvenType,
-			  Matchid,
-			  ProductID
-	        )	
-	SELECT b.recommend, CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END AS custid,
-				COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS BetCount, b.currency,
-
-				SUM(CASE WHEN b.statusID IN (103) THEN 0 ELSE actual_stake END) AS TotalBets,
-				SUM((CASE WHEN b.statusID IN (103) THEN 0 ELSE actual_stake END) * actualrate)  AS TotalBetsBase,
-
-				SUM(CASE WHEN b.statusID IN (103) THEN 0 ELSE winlost END) AS TotalWins,
-				SUM((CASE WHEN b.statusID IN (103) THEN 0 ELSE winlost END) * actualrate) AS TotalWinsBase,
-
-				SUM(CASE WHEN b.statusID IN (103) THEN actual_stake ELSE 0 END) AS TotalRefund,
-				SUM((CASE WHEN b.statusID IN (103) THEN actual_stake ELSE 0 END)  * actualrate) AS TotalRefundBase,
-
-				SUM(CASE WHEN b.statusID IN (103) THEN 0 ELSE (1- b.tpositiontaking) * b.stake END) AS CompanyTurnover,	
-				SUM((CASE WHEN b.statusID IN (103) THEN 0 ELSE (1- b.tpositiontaking) * b.stake END) * actualrate) AS CompanyTurnoverBase,		
-								
-				SUM(winlost - actual_stake + awinlost + mwinlost + swinlost) AS CompanyGrossIncome,
-				SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeBase,
-
-				SUM(scomm) AS CompanyComm,
-				SUM(scomm *actualrate) AS CompanyCommBase,
-
-				s.RefTable, s.EvenType, b.matchid, s.ProductID
-
-	FROM  dbo.bettrans b WITH (NOLOCK)
-		INNER JOIN #SportBettype s ON s.Bettype = b.bettype
-	WHERE b.winlostdate = @WLDate
-		AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
-		AND ((b.currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
-		AND (b.currency = @Currency OR @Currency IN (0, -1))
-		AND (EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid) OR @Username = '')
-		AND (EXISTS (SELECT 1 FROM #tmp_Devide d WHERE d.Betfrom = b.betfrom) OR @Device = '')
-		AND ( @Site = 'ALL'
-				  OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
-		)
-		AND (
-			@HousePTType = 0
-			OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
-			OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
-		)
-		AND b.bettype = 2799 AND b.matchid = 2799
-		AND EXISTS (SELECT 1 FROM dbo.bettransm bm WITH (NOLOCK)
-									INNER JOIN dbo.match m WITH (NOLOCK) ON bm.matchid = m.matchid 
-									INNER JOIN #tmp_SportType st ON m.sporttype = st.Sporttype
-								WHERE bm.refno = b.refno)		
 	GROUP BY b.recommend, CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END, b.currency, s.RefTable, s.EvenType, b.matchid, s.ProductID	
 
 	--- Check condition 
-	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID NOT IN (3, 4, 5, 27)) -- NG, SLI-Live Casino, Virtual Sport, Virtual Sport 2
+	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID NOT IN (3, 4, 5)) -- NG, SLI-Live Casino, Virtual Sport
 	BEGIN		
 		-- 1. By bettype for normal product
 		INSERT INTO #Data
@@ -483,9 +412,7 @@ BEGIN
 				- SUM(CompanyCommBase) AS CompanyCommBase
 
 		FROM  #tmp_bettrans b
-		WHERE b.RefTable IN (0, 3) 
-			AND b.ProductID NOT IN (3, 4, 5, 27)
-
+		WHERE b.RefTable IN (0, 3) AND b.ProductID NOT IN (3, 4, 5)
 		GROUP BY b.recommend, b.custid, b.CurrencyID
 		
 		-- 2a. By Bettype for Casino Product
@@ -703,58 +630,6 @@ BEGIN
 		WHERE b.ProductID = 5
 			AND b.EvenType = 3
 			AND (@Sporttype = '' OR (EXISTS(SELECT 1 FROM #tmp_SportType st WHERE st.Sporttype = r.SportType)))			  
-		GROUP BY b.recommend, b.custid, b.CurrencyID
-	END
-	
-	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID = 27)
-	BEGIN
-		-- Betradar Virtual Sport 
-		INSERT INTO #Data
-				( recommend ,
-				  CustID ,
-				  BetCount ,
-				  CurrencyID ,
-				  TotalBets ,
-				  TotalBetsBase ,
-				  TotalWins ,
-				  TotalWinsBase ,
-				  TotalRefund ,
-				  TotalRefundBase ,
-				  CompanyTurnOver ,
-				  CompanyTurnOverBase ,
-				  CompanyGrossIncome ,
-				  CompanyGrossIncomeBase ,
-				  CompanyComm ,
-				  CompanyCommBase
-				)	
-		SELECT	b.recommend, b.custid,
-				SUM( BetCount ) AS BetCount, b.CurrencyID,
-
-				SUM(TotalBets) AS TotalBets,
-				SUM(TotalBetsBase)  AS TotalBetsBase,
-
-				SUM(TotalWins) AS TotalWins,
-				SUM(TotalWinsBase) AS TotalWinsBase,
-
-				SUM(TotalRefund) AS TotalRefund,
-				SUM(TotalRefundBase) AS TotalRefundBase,
-
-				SUM(CompanyTurnover) AS CompanyTurnover,	
-				SUM(CompanyTurnoverBase) AS CompanyTurnoverBase,		
-								
-				- SUM(CompanyGrossIncome) AS CompanyGrossIncome,
-				- SUM(CompanyGrossIncomeBase) AS CompanyGrossIncomeBase,
-
-				- SUM(CompanyComm) AS CompanyComm,
-				- SUM(CompanyCommBase) AS CompanyCommBase
-
-		FROM  #tmp_bettrans b
-		WHERE b.ProductID = 27
-			AND (b.EvenType = 0 OR
-				(EXISTS (SELECT 1 FROM dbo.match m WITH (NOLOCK)
-								INNER JOIN #tmp_SportType st ON m.Sporttype = st.sporttype
-						 WHERE b.Matchid = m.matchid))
-			)	
 		GROUP BY b.recommend, b.custid, b.CurrencyID
 	END
 
