@@ -19,6 +19,7 @@ Revisions:
 	- 20160325@Jim: Exclude Bettrade [hotfix #54691]
 	- 20160607@Jim:Add More Actions of Settlement to Daily Turnover Report (#57781)
 	- 20160819@Robert: Add Bet Trade Winloss bettype=904 (#62630)
+	- 20170815@Tom: Add some bettype missing (#81287)
 Param's Explanation:
 
 */
@@ -202,7 +203,7 @@ BEGIN
 		Agent_Virtual = Agent_Virtual * -1,
 		IBC_Actual = IBC_Actual * -1,
 		IBC_Virtual =IBC_Virtual  * -1
-	WHERE actionid  IN (-1,-2,103,109,110,111,112,126,135,149,150,153,154,166,167)
+	WHERE actionid  IN (-1,-2,103,109,110,111,112,126,135,149,150,153,154,166,167,191)
 	
 	SELECT DISTINCT
 			c.CustID	
@@ -250,7 +251,7 @@ BEGIN
 	END
 
 
-	DROP TABLE #temp		
+	DROP TABLE #temp
 	DROP TABLE #tmpUserLog
 	DROP TABLE #tmpCust
 END
