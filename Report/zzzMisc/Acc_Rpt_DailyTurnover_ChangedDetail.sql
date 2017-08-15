@@ -203,7 +203,7 @@ BEGIN
 		Agent_Virtual = Agent_Virtual * -1,
 		IBC_Actual = IBC_Actual * -1,
 		IBC_Virtual =IBC_Virtual  * -1
-	WHERE actionid  IN (-1,-2,103,109,110,111,112,126,135,149,150,153,154,166,167,191)
+	WHERE actionid  IN (-1,-2,103,109,110,111,112,126,135,149,150,153,154,166,167,190,191)
 	
 	SELECT DISTINCT
 			c.CustID	
