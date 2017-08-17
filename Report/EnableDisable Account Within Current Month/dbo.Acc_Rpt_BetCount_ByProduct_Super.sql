@@ -30,6 +30,7 @@ AS
 			2. Clean code of Cockfighting
 		- 20161129@Robert: NAP Reports - Integrate Fishing World Product [RedmindID: #67757]  
 		- 20170627@Cherry: Integrate Lottery and Betradar Virtual Sports (#78184, 78495)
+		- 20170808@Cherry: Integrate RNG Tablet Games (#78424)
 	Param's Explanation:  
 	  + @MoveBetsDay: The day of moving bets to battrans14
 	  + @BalanceUpDay: The day of moving bets to battransbk
@@ -115,7 +116,7 @@ BEGIN
 			FROM dbo.bettransRNG b WITH(NOLOCK)
 			WHERE b.winlostdate BETWEEN @TempFromDate AND @CurrentDate
 			AND (
-					b.gameID BETWEEN 2101 AND CASE WHEN @sportType=251 THEN 2399 ELSE 0 END 	
+					(@sportType=251 AND (b.gameID BETWEEN 2101 AND 2399 OR b.gameID BETWEEN 2901 AND 2999))
 					OR b.gameID BETWEEN 4001 AND CASE WHEN @sportType=212 THEN 7999 ELSE 0 END 	
 					OR b.gameID BETWEEN 1011 AND CASE WHEN @sportType=219 THEN 1020 ELSE 0 END -- Fishing World			
 				) 
@@ -162,7 +163,7 @@ BEGIN
 							b.bettype BETWEEN 31 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' =151 THEN 49 ELSE 0 END
 							OR b.bettype BETWEEN 81 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' =161 THEN 120 ELSE 0 END)
 							OR b.bettype BETWEEN 1101 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' =162 THEN 1199 ELSE 0 END)
-							OR b.bettype BETWEEN 2101 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' =251 THEN 2399 ELSE 0 END) 
+							OR (' + CONVERT(VARCHAR(5),@sportType) +' = 251 AND (b.bettype BETWEEN 2101 AND 2399 OR b.bettype BETWEEN 2901 AND 2999)) --RNG Casino
 							OR b.bettype BETWEEN 801 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' = -1 THEN 806 ELSE 0 END)
 							OR b.bettype BETWEEN 1501 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' =202 THEN 1599 ELSE 0 END)
 							OR b.bettype BETWEEN 73 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' = 252 THEN 73 ELSE 0 END)
