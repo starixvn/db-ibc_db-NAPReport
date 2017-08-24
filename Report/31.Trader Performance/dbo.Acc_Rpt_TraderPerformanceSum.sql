@@ -14,6 +14,7 @@ AS
 	Task: Trader Performance Report - Sum - bettrans
 
 	Revisions:
+		- 20170818@Cherry: Remove bettype 2, 12 in Soccer (#78011)
 
 	Param's Explanation:
 		@IsSoccer:
@@ -68,10 +69,10 @@ BEGIN
 	)
 
 	INSERT INTO #ExtraPTSportbook
-	SELECT SuperId, SUM(ExtraPT) AS ExtraPT, FromDate, ToDate
+	SELECT SuperId, SUM(ExtraPT) AS ExtraPT, MIN(FromDate), MAX(ToDate)
 	FROM
 	(
-		SELECT DISTINCT SuperId, ExtraPT, FromDate, ToDate
+		SELECT SuperId, ExtraPT, FromDate, ToDate
 		FROM bodb_ACC.dbo.Acc_GroupExtraPTSetting WITH (NOLOCK)
 		WHERE
 			(
@@ -80,7 +81,7 @@ BEGIN
 			)
 			AND ProductId = 1 AND Sporttype = 0 AND SubProduct = ''
 	) A
-	GROUP BY SuperId, FromDate, ToDate
+	GROUP BY SuperId
 
 	IF @IsSoccer = 1
 	BEGIN
@@ -93,8 +94,8 @@ BEGIN
 				WHEN (a.bettype = 2 AND a.operatortype = 2) THEN 8
 				WHEN (a.bettype = 3 AND a.operatortype = 1) THEN 5
 				WHEN (a.bettype = 3 AND a.operatortype = 2) THEN 15
-				WHEN (a.bettype = 4 AND a.operatortype = 1) THEN 2
-				WHEN (a.bettype = 4 AND a.operatortype = 2) THEN 12        
+				--WHEN (a.bettype = 4 AND a.operatortype = 1) THEN 2
+				--WHEN (a.bettype = 4 AND a.operatortype = 2) THEN 12        
 			ELSE 0 END,
 			CASE
 				WHEN leaguename LIKE '%SPECIFIC 15 MINS%' AND t.teamname LIKE '%No.of Corners%' THEN 6
@@ -228,7 +229,11 @@ BEGIN
 	WHERE
 		statusID NOT IN (101, 102, 103, 121, 111)
 		AND ruben = 1
-		AND bettype IN (1, 3, 7, 8, 5, 15, 2, 12, 124, 125)
+		AND ((@IsSoccer = 1 AND bettype IN (1, 3, 7, 8, 5, 15, 124, 125)
+				AND EXISTS(SELECT 1 FROM dbo.match m WHERE m.matchid = b.matchid AND m.sporttype = 1))
+			OR (@IsSoccer = 0 AND bettype IN (1, 3, 7, 8, 5, 15, 2, 12, 124, 125)
+				AND EXISTS(SELECT 1 FROM dbo.match m WHERE m.matchid = b.matchid AND m.sporttype NOT IN (1, 161)))
+			)
 		AND winlostdate BETWEEN @FromDate AND @ToDate
 		AND liveindicator = 1
 		AND currency <> 20
@@ -510,7 +515,8 @@ BEGIN
 			SUM(CASE WHEN b.bettype = 5 AND OUtype = 8 THEN bet ELSE 0 END) AS bet_10min1x2,
 			SUM(CASE WHEN b.bettype IN (3, 8) AND OUtype = 9 THEN bet ELSE 0 END) AS bet_SingleTeamOU
 		FROM #bettrans b      
-			INNER JOIN #tmpData t ON b.matchid = t.matchid AND t.bettype = 0     
+			LEFT JOIN #tmpData t ON b.matchid = t.matchid AND (b.bettype = t.bettype OR t.bettype = 0)
+		WHERE t.bettype IS NULL OR t.bettype = 0				
 	) AS A
 	ORDER BY username
     
