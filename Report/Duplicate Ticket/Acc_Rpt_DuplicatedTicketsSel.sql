@@ -35,6 +35,7 @@ Revisions:
 		1. New request of Cash Out - Check bettype 911 [RedmineID: #73419]
 		2. Remove SLI
 	- 20170704@Tom: Integrate Betradar Virtual Sports(#78495)
+	- 20170828@Kean: Integrate Lucky 3(#82191)
 Param's Explanation:
 	- @CheckTime : The time we consider how long the job fails (Compared the last run with the current time).
 				   Because job recurs every 30s, so we set @CheckTime = 1 minute as default
@@ -52,7 +53,7 @@ BEGIN
 	INSERT INTO @bettype (bettype)
 	SELECT bettype
 	FROM bodb02.dbo.f_SportBettypeMatrix_Sel (0, 0, 0, 2, '', '', @isTest)
-	WHERE ProductID IN (1, 3, 5, 25,27) AND BetType NOT IN (500, 912, 913, 914) 
+	WHERE ProductID IN (1, 3, 5, 25, 26, 27) AND BetType NOT IN (500, 912, 913, 914) 
 
 	---- ** 1. Check the transdate of LastTransID and current time  ** ----
 	DECLARE @LastTransDate DATETIME	
