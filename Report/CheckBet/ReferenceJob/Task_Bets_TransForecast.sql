@@ -21,7 +21,7 @@ AS
 		- 20170424@Percy: apply Cash Out [RedmineID: #73419]
 		- 20170704@Robert: Integrate Betradar Virtual Sports Product [Redmine: #78495]
 		- 20170814@Tom: Enhance performance
-
+		- 20170828@Robert: Integrate Lucky3 product into NAP Acc Reports [RedmineID: #78214]
 	Param's Explanation:
 */
 BEGIN
@@ -48,7 +48,8 @@ BEGIN
       bettype,
       currency,
       custid,
-      winlostdate
+      winlostdate,
+	 transdesc
      )
             SELECT transid,
                    hdp1,
@@ -74,13 +75,14 @@ BEGIN
                    b.bettype,
                    currency,
                    custid,
-                   winlostdate
+                   winlostdate,
+			    case when b.bettype = 1600 then transdesc else NULL end as transdesc
             FROM bodb02.dbo.bettrans b WITH (NOLOCK)
             WHERE transid > @transid
 				AND b.bettype IN (
 						SELECT  Bettype                       
 							FROM bodb02.dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '', @isTest)
-							WHERE ProductID IN(1, 2, 3, 5, 25, 27)							
+							WHERE ProductID IN(1, 2, 3, 5, 25, 26, 27)							
 							AND SubProduct NOT IN('BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss')
 				   )
 	OPTION (MAXDOP 8);
