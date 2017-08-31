@@ -14,6 +14,7 @@ SET NOCOUNT ON
 		- 20130801@Johnson: Separate win loss by credit/deposit site(1: credit, 2: deposit)			
 		- 20150108@Dom: Apply sport bettype matrix
 		- 20151120@Percy: Change column name (to match DW) [RedmineID: #46576]
+		- 20170831@Cherry: Extend data type of Sporttype (#73545)
 */
 	
 	----Get Sport Bettype Matrix------
@@ -24,7 +25,7 @@ SET NOCOUNT ON
 	DECLARE @tmpIBCFee TABLE(partnerID int,IBCFee bit)
 
 	DECLARE @CommSetting TABLE (matchid int primary key,
-						sporttype tinyint,
+						sporttype int,
 						IBCFee			bit,
 						ToteCommWin		smallmoney,
 						ToteCommPlace	smallmoney,

@@ -12,11 +12,13 @@ AS
 	Date: 2016-08-26
 	DB: DBACC.bodb02
 	Task: Get Sport of Parlay by Refno
+	Revision:
+		- 20170831@Cherry: Extend data type of Sporttype (#73545)
 */
 BEGIN
 	
-	DECLARE @Sporttype SMALLINT
-	DECLARE @Sport TABLE (Sporttype TINYINT)
+	DECLARE @Sporttype INT
+	DECLARE @Sport TABLE (Sporttype INT)
 	
 	INSERT INTO @Sport (Sporttype)
 	SELECT DISTINCT m.sporttype

@@ -31,6 +31,7 @@ SET NOCOUNT ON
 		- 20150525@Sophia: Apply Metric Gaming - SuperLive and revise Sport Betype Matrix [#35359] 
 		- 20150723@Sophia: Exclude data of Bettrade [#38815]	
 		- 20160819@Robert: Add Bet Trade Winloss bettype=904 (#62630)		
+		- 20170831@Cherry: Extend data type of Sporttype (#73545)
 	
 */
 	--Declare @temp table to contain all matches based on @winlostdate
@@ -46,7 +47,7 @@ SET NOCOUNT ON
 			OR EventType NOT IN (1,2)
 
 
-	DECLARE @Match TABLE (matchid int, sporttype tinyint, type varchar(10), primary key(matchid, type))
+	DECLARE @Match TABLE (matchid int, sporttype int, type varchar(10), primary key(matchid, type))
 	CREATE TABLE #DepAgent (custid int primary key)
 	
 	INSERT INTO #DepAgent 
