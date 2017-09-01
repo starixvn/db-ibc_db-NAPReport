@@ -30,6 +30,7 @@ AS
 	Revision:
 		- 20170227@Percy: support search multiple username [RedmineID: #71342]
 		- 20170726@Cherry: Integrate Betradar Virtual Sports (#78495)
+		- 20170815@Cherry: Non-Sport Statistics Phase 5 (#71923)
 
 	Param's Explanation:
 		- @username:  + Search by keyword, member only
@@ -937,9 +938,9 @@ BEGIN
 			SUM(b.TotalBetsBase) TotalBets,
 			SUM(b.TotalWinsBase) TotalWins,
 			SUM(b.TotalRefundBase) TotalRefund,
-			SUM(b.CompanyTurnOverBase) CompanyTurnOver,
-			SUM(b.CompanyGrossIncomeBase) CompanyGrossIncome,
-			SUM(b.CompanyCommBase) CompanyComm
+			SUM(b.CompanyTurnOverBase) HouseTurnOver,
+			SUM(b.CompanyGrossIncomeBase) HouseGrossIncome,
+			SUM(b.CompanyCommBase) HouseComm
 		FROM #Data b
 			INNER JOIN #Result c ON (@Currency = -1 OR c.CurrencyId = b.CurrencyId) AND c.Device = b.Device
 			INNER JOIN #tmp_DeviceGroup d ON c.DeviceGroup = d.DeviceGroup
@@ -955,9 +956,9 @@ BEGIN
 			SUM(b.TotalBetsBase) TotalBets,
 			SUM(b.TotalWinsBase) TotalWins,
 			SUM(b.TotalRefundBase) TotalRefund,
-			SUM(b.CompanyTurnOverBase) CompanyTurnOver,
-			SUM(b.CompanyGrossIncomeBase) CompanyGrossIncome,
-			SUM(b.CompanyCommBase) CompanyComm
+			SUM(b.CompanyTurnOverBase) HouseTurnOver,
+			SUM(b.CompanyGrossIncomeBase) HouseGrossIncome,
+			SUM(b.CompanyCommBase) HouseComm
 		FROM #Data b
 			INNER JOIN  #Result c ON (@Currency = -1 OR c.CurrencyId = b.CurrencyId) AND b.Device = c.Device
 	END
@@ -973,9 +974,9 @@ BEGIN
 			SUM(b.TotalBetsBase) TotalBets,
 			SUM(b.TotalWinsBase) TotalWins,
 			SUM(b.TotalRefundBase) TotalRefund,
-			SUM(b.CompanyTurnOverBase) CompanyTurnOver,
-			SUM(b.CompanyGrossIncomeBase) CompanyGrossIncome,
-			SUM(b.CompanyCommBase) CompanyComm
+			SUM(b.CompanyTurnOverBase) HouseTurnOver,
+			SUM(b.CompanyGrossIncomeBase) HouseGrossIncome,
+			SUM(b.CompanyCommBase) HouseComm
 		FROM #Data b
 			INNER JOIN  #Result c ON (@Currency = -1 OR c.CurrencyId = b.CurrencyId) AND b.Device = c.Device
 	END

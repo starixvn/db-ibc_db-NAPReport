@@ -21,7 +21,8 @@ ALTER PROCEDURE [dbo].[Acc_Rpt_NonSportsProductStatistics_Top20_14]
 	@HousePTType	SMALLINT = 0,
 	@HousePTValue   MONEY = 0,
 	@IsDrillDown	BIT = 0,
-	@IsGrandTotal	BIT = 0
+	@RoleID			TINYINT = 1,
+	@SortColumnName	VARCHAR(50) = 'GameIncome'
 AS
 
 /*
@@ -33,6 +34,7 @@ AS
 	Revisions:
 		- 20170227@Percy: support search multiple username [RedmineID: #71342]
 		- 20170726@Cherry: Integrate Betradar Virtual Sports (#78495)
+		- 20170815@Cherry: support top 20 by super, master, agent, username (#71923)
 
 	Param's Explanation:
 		- @username: search keyword
@@ -61,6 +63,9 @@ AS
 		- @HousePTValue: Value to compare with 1-tpositiontaking
 		- @IsDrillDown: associated link
 		- @IsGrandTotal: drilldown grandtotal
+		- @RoleID: 1=Username, 2=Agent, 3=Master, 4=Super
+		- @SortType: Sort by Column
+		1: BetCount, 2: TotalBets, 3: Game Income, 4: Game Payout, 5: Turnover, 6: Gross Income, 7: Comm, 8: Net Income
 */
 
 BEGIN
@@ -68,9 +73,9 @@ BEGIN
 
 	DECLARE @CustList VARCHAR(MAX)
 
-	IF (@TopType <> 0 OR @IsDrillDown <> 1) AND CHARINDEX(',', @Username) <> 0
+	IF CHARINDEX(',', @Username) <> 0
 	BEGIN
-		EXEC dbo.Acc_CustomerSelCustByUsernameList @Username = @Username, @RoleId = 1, @CustList = @CustList OUTPUT
+		EXEC dbo.Acc_CustomerSelCustByUsernameList @Username = @Username, @RoleId = @RoleId, @CustList = @CustList OUTPUT
 
 		IF @CustList IS NULL -- invalid username
 		BEGIN
@@ -92,11 +97,12 @@ BEGIN
 					NULL AS CompanyTurnover,
 					NULL AS CompanyGrossIncome,
 					NULL AS CompanyComm,
-					NULL AS HousePositionTaking
+					NULL AS HousePositionTaking,
+					NULL AS SiteName
 			) A
 
 			-- GrandTotal
-			IF @IsGrandTotal = 1 OR @TopType <> 0 OR @IsDrillDown = 1
+			IF @TopType <> 0 AND @IsDrillDown = 1
 			BEGIN
 				SELECT
 					NULL AS ReportBy,
@@ -198,37 +204,37 @@ BEGIN
 	
 	CREATE TABLE #CustUser (CustID INT, roleID TINYINT)
 	
-	IF @TopType = 0 AND @IsDrillDown = 1 -- click associated accounts link
+	IF @IsDrillDown = 1 AND @TopType = 0
 	BEGIN
-		INSERT INTO #CustUser (CustID, roleID)
-		SELECT custid, roleid FROM dbo.Customer c WITH(NOLOCK)
-		WHERE EXISTS (SELECT 1 FROM dbo.strSplit(@Username, ',') u WHERE u.val = c.username)
-
+		SELECT @CID = custid FROM dbo.Customer WITH(NOLOCK) WHERE username = @Username AND roleid = @RoleID
 		SELECT @IsFilterCust = 1
 	END
-	ELSE IF @Username <> ''
+	ELSE
 	BEGIN
-		IF @CustList IS NOT NULL
+		IF @Username <> ''
 		BEGIN
-			INSERT INTO #CustUser (CustID)
-			SELECT val FROM dbo.strSplit(@CustList, ',')
-		END
-		ELSE
-		BEGIN
-			INSERT INTO #CustUser (CustID)
-			SELECT custid
-			FROM dbo.Customer WITH(NOLOCK)
-			WHERE username LIKE @Username + '%' AND roleid = 1
-
-			IF @Username NOT LIKE '%[^0-9]%' AND LEN(@Username) < 10
+			IF @CustList IS NOT NULL
 			BEGIN
-			INSERT INTO #CustUser (CustID)
-			SELECT cu.custid FROM dbo.Customer cu WITH(NOLOCK) WHERE cu.custid = @Username AND cu.roleid = 1
-				AND NOT EXISTS (SELECT 1 FROM #CustUser c WHERE cu.custid = c.custid)
+				INSERT INTO #CustUser (CustID)
+				SELECT val FROM dbo.strSplit(@CustList, ',')
 			END
-		END
+			ELSE
+			BEGIN
+				INSERT INTO #CustUser (CustID)
+				SELECT custid
+				FROM dbo.Customer WITH(NOLOCK)
+				WHERE username LIKE @Username + '%' AND roleid = @RoleID 
 
-		SELECT @IsFilterCust = 1
+				IF @Username NOT LIKE '%[^0-9]%' AND LEN(@Username) < 10
+				BEGIN
+				INSERT INTO #CustUser (CustID)
+				SELECT cu.custid FROM dbo.Customer cu WITH(NOLOCK) WHERE cu.custid = @Username AND cu.roleid = @RoleID
+					AND NOT EXISTS (SELECT 1 FROM #CustUser c WHERE cu.custid = c.custid)
+				END
+			END
+
+			SELECT @IsFilterCust = 1
+		END
 	END
 
 	IF @Site <> 'ALL'
@@ -261,29 +267,91 @@ BEGIN
 		BEGIN
 			IF @IsDrillDown = 0 OR @TopType <> 0
 			BEGIN
-				INSERT INTO #tmp_MemIDs (CustID, roleID)
-				SELECT c.custid, 1
-				FROM
-					dbo.Customer c WITH (NOLOCK)
-					INNER JOIN #CustUser cu ON c.custid = cu.CustID
-				WHERE c.roleid = 1
-					AND EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.srecommend = tc.srecommend)
+				IF @RoleID = 1
+				BEGIN
+					INSERT INTO #tmp_MemIDs (CustID, roleID)
+					SELECT c.custid, 1
+					FROM
+						dbo.Customer c WITH (NOLOCK)
+						INNER JOIN #CustUser cu ON c.custid = cu.CustID
+					WHERE c.roleid = 1
+						AND EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.srecommend = tc.srecommend)
+						AND NOT EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE c.custId = m.CustID)
+				END
+				IF @RoleID = 2
+				BEGIN
+					INSERT INTO #tmp_MemIDs (CustID, roleID)
+					SELECT c.custid, 1
+					FROM
+						dbo.Customer c WITH (NOLOCK)
+						INNER JOIN #CustUser cu ON c.recommend = cu.CustID
+					WHERE c.roleid = 1
+						AND EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.srecommend = tc.srecommend)
+						AND NOT EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE c.custId = m.CustID)
+				END
+				
+				IF @RoleID = 3
+				BEGIN
+					INSERT INTO #tmp_MemIDs (CustID, roleID)
+					SELECT c.custid, 1
+					FROM
+						dbo.Customer c WITH (NOLOCK)
+						INNER JOIN #CustUser cu ON c.mrecommend = cu.CustID
+					WHERE c.roleid = 1
+						AND EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.srecommend = tc.srecommend)
+						AND NOT EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE c.custId = m.CustID)
+				END
+				
+				IF @RoleID = 4
+				BEGIN
+					INSERT INTO #tmp_MemIDs (CustID, roleID)
+					SELECT c.custid, 1
+					FROM
+						dbo.Customer c WITH (NOLOCK)
+						INNER JOIN #CustUser cu ON c.srecommend = cu.CustID
+					WHERE c.roleid = 1
+						AND EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.srecommend = tc.srecommend)
+						AND NOT EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE c.custId = m.CustID)
+				END
 			END
-			ELSE
+			ELSE -- @IsDrillDown = 1 and @TopType = 0
 			BEGIN
-				INSERT INTO #tmp_MemIDs (CustID, roleID)
-				SELECT c.custid, 1
-				FROM
-					dbo.Customer c WITH (NOLOCK)
-					INNER JOIN #CustUser cu ON
-						(
-							(c.custid = cu.CustID AND cu.roleID = 1)
-							OR (c.recommend = cu.CustID AND cu.roleID = 2)
-							OR (c.mrecommend = cu.CustID AND cu.roleID = 3)
-							OR (c.srecommend = cu.CustID AND cu.roleID = 4)
-						)
-				WHERE c.roleid = 1
-					AND EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.srecommend = tc.srecommend)
+				IF @RoleID = 1
+				BEGIN
+					INSERT INTO #tmp_MemIDs (CustID, roleID)
+					SELECT custid, 1
+					FROM
+						dbo.Customer c WITH (NOLOCK)
+					WHERE c.custid = @CID AND roleid = 1
+						AND EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.srecommend = tc.srecommend)
+				END
+				ELSE IF @RoleID = 2
+				BEGIN
+					INSERT INTO #tmp_MemIDs (CustID, roleID)
+					SELECT custid, 1
+					FROM
+						dbo.Customer c WITH (NOLOCK)
+					WHERE c.recommend = @CID AND roleid = 1
+						AND EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.srecommend = tc.srecommend)
+				END
+				ELSE IF @RoleID = 3
+				BEGIN
+					INSERT INTO #tmp_MemIDs (CustID, roleID)
+					SELECT custid, 1
+					FROM
+						dbo.Customer c WITH (NOLOCK)
+					WHERE c.mrecommend = @CID AND roleid = 1
+						AND EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.srecommend = tc.srecommend)
+				END
+				ELSE IF @RoleID = 4
+				BEGIN
+					INSERT INTO #tmp_MemIDs (CustID, roleID)
+					SELECT custid, 1
+					FROM
+						dbo.Customer c WITH (NOLOCK)
+					WHERE c.srecommend = @CID AND roleid = 1
+						AND EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.srecommend = tc.srecommend)
+				END
 			END
 		END
 		ELSE -- @Username = ''
@@ -304,27 +372,80 @@ BEGIN
 
 			IF @IsDrillDown = 0 OR @TopType <> 0
 			BEGIN
-				INSERT INTO #tmp_MemIDs (CustID, roleID)
-				SELECT c.custid, 1
-				FROM
-					dbo.Customer c WITH (NOLOCK)
-					INNER JOIN #CustUser cu ON c.custid = cu.CustID
-				WHERE c.roleid = 1
+				IF @RoleID = 1
+				BEGIN
+					INSERT INTO #tmp_MemIDs (CustID, roleID)
+					SELECT c.custid, 1
+					FROM
+						dbo.Customer c WITH (NOLOCK)
+						INNER JOIN #CustUser cu ON c.custid = cu.CustID
+					WHERE c.roleid = 1
+						AND NOT EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE c.custId = m.CustID)
+				END
+				
+				IF @RoleID = 2
+				BEGIN
+					INSERT INTO #tmp_MemIDs (CustID, roleID)
+					SELECT c.custid, 1
+					FROM
+						dbo.Customer c WITH (NOLOCK)
+						INNER JOIN #CustUser cu ON c.recommend = cu.CustID
+					WHERE c.roleid = 1
+						AND NOT EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE c.custId = m.CustID)
+				END
+				
+				IF @RoleID = 3
+				BEGIN
+					INSERT INTO #tmp_MemIDs (CustID, roleID)
+					SELECT c.custid, 1
+					FROM
+						dbo.Customer c WITH (NOLOCK)
+						INNER JOIN #CustUser cu ON c.mrecommend = cu.CustID
+					WHERE c.roleid = 1
+						AND NOT EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE c.custId = m.CustID)
+				END
+				
+				IF @RoleID = 4
+				BEGIN
+					INSERT INTO #tmp_MemIDs (CustID, roleID)
+					SELECT c.custid, 1
+					FROM
+						dbo.Customer c WITH (NOLOCK)
+						INNER JOIN #CustUser cu ON c.srecommend = cu.CustID
+					WHERE c.roleid = 1
+						AND NOT EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE c.custId = m.CustID)
+				END
 			END
-			ELSE
+			ELSE -- @IsDrillDown = 1
 			BEGIN
-				INSERT INTO #tmp_MemIDs (CustID, roleID)
-				SELECT c.custid, 1
-				FROM
-					dbo.Customer c WITH (NOLOCK)
-					INNER JOIN #CustUser cu ON
-						(
-							(c.custid = cu.CustID AND cu.roleID = 1)
-							OR (c.recommend = cu.CustID AND cu.roleID = 2)
-							OR (c.mrecommend = cu.CustID AND cu.roleID = 3)
-							OR (c.srecommend = cu.CustID AND cu.roleID = 4)
-						)
-				WHERE c.roleid = 1
+				IF @RoleID = 1
+					BEGIN
+					INSERT INTO #tmp_MemIDs (CustID, roleID)
+					SELECT custid, 1
+					FROM dbo.Customer WITH (NOLOCK)
+					WHERE custid = @CID AND roleid = 1
+				END
+				ELSE IF @RoleID = 2
+					BEGIN
+					INSERT INTO #tmp_MemIDs (CustID, roleID)
+					SELECT custid, 1
+					FROM dbo.Customer WITH (NOLOCK)
+					WHERE recommend = @CID AND roleid = 1
+				END
+				ELSE IF @RoleID = 3
+					BEGIN
+					INSERT INTO #tmp_MemIDs (CustID, roleID)
+					SELECT custid, 1
+					FROM dbo.Customer WITH (NOLOCK)
+					WHERE mrecommend = @CID AND roleid = 1
+				END
+				ELSE IF @RoleID = 4
+					BEGIN
+					INSERT INTO #tmp_MemIDs (CustID, roleID)
+					SELECT custid, 1
+					FROM dbo.Customer WITH (NOLOCK)
+					WHERE srecommend = @CID AND roleid = 1
+				END
 			END
 		END
 	END
@@ -1038,7 +1159,7 @@ BEGIN
 			AND (@Sporttype = '' OR (EXISTS(SELECT 1 FROM #tmp_SportType st WHERE st.Sporttype = r.SportType)))			  
 		GROUP BY b.srecommend, b.mrecommend, b.recommend, b.custid, b.CurrencyID, b.ProductID, statusID
 	END
-
+	
 	IF EXISTS (SELECT TOP 1 1 FROM #SportBettype WHERE ProductID = 27)
 	BEGIN
 		-- Virtual Sports 2 
@@ -1093,7 +1214,7 @@ BEGIN
 			)	
 		GROUP BY b.srecommend, b.mrecommend, b.recommend, b.custid, b.CurrencyID, b.ProductID, statusID
 	END
-	
+
 	CREATE TABLE #tmp_Result
 	( 
 		custid BIGINT,
@@ -1112,19 +1233,39 @@ BEGIN
 		CompanyTurnoverBase MONEY,
 		CompanyGrossIncomeBase MONEY,
 		CompanyCommBase MONEY,
-		HousePT SMALLMONEY
+		HousePT SMALLMONEY,
+		GamePayout MONEY,
+		CompanyNetIncome MONEY, 
+		GameIncome MONEY
 	)
 
 	-- Return Data
-	IF @TopType = 0 AND @IsDrillDown = 1 -- click associated accounts link
+	IF @RoleID IN (1,2,3,4) 
 	BEGIN
-		CREATE NONCLUSTERED INDEX IX_SMA ON #Data (srecommend, mrecommend, recommend, CustID)
+		IF @IsDrillDown = 1 AND @TopType = 0
+		BEGIN
+			SELECT @RoleID = @RoleID - 1
+		END
+
+		IF @RoleID = 1
+			CREATE NONCLUSTERED INDEX IX_custid ON #Data (custId)
+		ELSE IF @RoleID = 2
+			CREATE NONCLUSTERED INDEX IX_recommend ON #Data (recommend)
+		ELSE IF @RoleID = 3
+			CREATE NONCLUSTERED INDEX IX_mrecommend ON #Data (mrecommend)
+		ELSE
+			CREATE NONCLUSTERED INDEX IX_srecommend ON #Data (srecommend)
 
 		IF @Currency = -1
 		BEGIN
 			;WITH Result AS (
 				SELECT
-					c.custid,
+					CASE @roleID
+						WHEN 1 THEN custid
+						WHEN 2 THEN recommend
+						WHEN 3 THEN mrecommend
+						WHEN 4 THEN srecommend
+						END AS custid,
 					SUM(CASE statusID WHEN 103 THEN 0 ELSE BetCount END) AS BetCount,
 					CurrencyID,
 					ProductID,
@@ -1141,15 +1282,13 @@ BEGIN
 					SUM(CASE statusID WHEN 103 THEN 0 ELSE CompanyGrossIncomeBase END) AS CompanyGrossIncomeBase,
 					SUM(CASE statusID WHEN 103 THEN 0 ELSE CompanyCommBase END) AS CompanyCommBase,
 					SUM(CASE statusID WHEN 103 THEN 0 ELSE HousePT END) AS HousePT
-				FROM #Data d
-					INNER JOIN #CustUser c
-						ON c.CustID = CASE c.roleID
-										WHEN 1 THEN d.custid
-										WHEN 2 THEN d.recommend
-										WHEN 3 THEN d.mrecommend
-										WHEN 4 THEN d.srecommend
-										END
-				GROUP BY c.custid, CurrencyID, ProductID
+				FROM #Data
+				GROUP BY CASE @roleID
+						WHEN 1 THEN custid
+						WHEN 2 THEN recommend
+						WHEN 3 THEN mrecommend
+						WHEN 4 THEN srecommend
+						END, CurrencyID, ProductID
 			)
 			INSERT INTO #tmp_Result
 			(
@@ -1195,147 +1334,12 @@ BEGIN
 		BEGIN
 			;WITH Result AS (
 				SELECT
-					c.custid,
-					SUM(CASE statusID WHEN 103 THEN 0 ELSE BetCount END) AS BetCount,
-					CurrencyID,
-					ProductID,
-					SUM(CASE statusID WHEN 103 THEN 0 ELSE TotalBets END) AS TotalBets,
-					SUM(CASE statusID WHEN 103 THEN 0 ELSE TotalWins END) AS TotalWins,
-					SUM(CASE statusID WHEN 112 THEN 0 ELSE TotalBets END) AS TotalRefund,
-					SUM(CASE statusID WHEN 103 THEN 0 ELSE CompanyTurnover END) AS CompanyTurnover,		
-					SUM(CASE statusID WHEN 103 THEN 0 ELSE CompanyGrossIncome END) AS CompanyGrossIncome,
-					SUM(CASE statusID WHEN 103 THEN 0 ELSE CompanyComm END) AS CompanyComm,
-					SUM(CASE statusID WHEN 103 THEN 0 ELSE TotalBetsBase END)  AS TotalBetsBase,
-					SUM(CASE statusID WHEN 103 THEN 0 ELSE TotalWinsBase END) AS TotalWinsBase,
-					SUM(CASE statusID WHEN 112 THEN 0 ELSE TotalBetsBase END) AS TotalRefundBase,
-					SUM(CASE statusID WHEN 103 THEN 0 ELSE CompanyTurnoverBase END) AS CompanyTurnoverBase,		
-					SUM(CASE statusID WHEN 103 THEN 0 ELSE CompanyGrossIncomeBase END) AS CompanyGrossIncomeBase,
-					SUM(CASE statusID WHEN 103 THEN 0 ELSE CompanyCommBase END) AS CompanyCommBase,
-					SUM(CASE statusID WHEN 103 THEN 0 ELSE HousePT END) AS HousePT
-				FROM #Data d
-					INNER JOIN #CustUser c
-						ON c.CustID = CASE c.roleID
-										WHEN 1 THEN d.custid
-										WHEN 2 THEN d.recommend
-										WHEN 3 THEN d.mrecommend
-										WHEN 4 THEN d.srecommend
-										END
-				GROUP BY c.custid, CurrencyID, ProductID
-			)
-			INSERT INTO #tmp_Result
-			(
-				custid,
-				BetCount,
-				CurrencyID,
-				ProductID,
-				TotalBets,
-				TotalWins,
-				TotalRefund,
-				CompanyTurnover,
-				CompanyGrossIncome,
-				CompanyComm,
-				TotalBetsBase,
-				TotalWinsBase,
-				TotalRefundBase,
-				CompanyTurnoverBase,
-				CompanyGrossIncomeBase,
-				CompanyCommBase,
-				HousePT
-			)
-			SELECT
-				custid,
-				BetCount,
-				CurrencyID,
-				ProductID,
-				TotalBets,
-				TotalWins,
-				TotalRefund,
-				CompanyTurnover,
-				CompanyGrossIncome,
-				CompanyComm,
-				TotalBetsBase,
-				TotalWinsBase,
-				TotalRefundBase,
-				CompanyTurnoverBase,
-				CompanyGrossIncomeBase,
-				CompanyCommBase,
-				HousePT
-			FROM Result
-		END
-	END
-	ELSE
-	BEGIN
-		CREATE NONCLUSTERED INDEX IX_custid ON #Data (custId)
-
-		IF @Currency = -1
-		BEGIN
-			;WITH Result AS (
-				SELECT
-					custid,
-					SUM(CASE statusID WHEN 103 THEN 0 ELSE BetCount END) AS BetCount,
-					CurrencyID,
-					ProductID,
-					SUM(CASE statusID WHEN 103 THEN 0 ELSE TotalBetsBase END) AS TotalBets,
-					SUM(CASE statusID WHEN 103 THEN 0 ELSE TotalWinsBase END) AS TotalWins,
-					SUM(CASE statusID WHEN 112 THEN 0 ELSE TotalBetsBase END) AS TotalRefund,
-					SUM(CASE statusID WHEN 103 THEN 0 ELSE CompanyTurnoverBase END) AS CompanyTurnover,		
-					SUM(CASE statusID WHEN 103 THEN 0 ELSE CompanyGrossIncomeBase END) AS CompanyGrossIncome,
-					SUM(CASE statusID WHEN 103 THEN 0 ELSE CompanyCommBase END) AS CompanyComm,
-					SUM(CASE statusID WHEN 103 THEN 0 ELSE TotalBetsBase END)  AS TotalBetsBase,
-					SUM(CASE statusID WHEN 103 THEN 0 ELSE TotalWinsBase END) AS TotalWinsBase,
-					SUM(CASE statusID WHEN 112 THEN 0 ELSE TotalBetsBase END) AS TotalRefundBase,
-					SUM(CASE statusID WHEN 103 THEN 0 ELSE CompanyTurnoverBase END) AS CompanyTurnoverBase,		
-					SUM(CASE statusID WHEN 103 THEN 0 ELSE CompanyGrossIncomeBase END) AS CompanyGrossIncomeBase,
-					SUM(CASE statusID WHEN 103 THEN 0 ELSE CompanyCommBase END) AS CompanyCommBase,
-					SUM(CASE statusID WHEN 103 THEN 0 ELSE HousePT END) AS HousePT
-				FROM #Data
-				GROUP BY custid, CurrencyID, ProductID
-			)
-			INSERT INTO #tmp_Result
-			(
-				custid,
-				BetCount,
-				CurrencyID,
-				ProductID,
-				TotalBets,
-				TotalWins,
-				TotalRefund,
-				CompanyTurnover,
-				CompanyGrossIncome,
-				CompanyComm,
-				TotalBetsBase,
-				TotalWinsBase,
-				TotalRefundBase,
-				CompanyTurnoverBase,
-				CompanyGrossIncomeBase,
-				CompanyCommBase,
-				HousePT
-			)
-			SELECT
-				custid,
-				BetCount,
-				CurrencyID,
-				ProductID,
-				TotalBets,
-				TotalWins,
-				TotalRefund,
-				CompanyTurnover,
-				CompanyGrossIncome,
-				CompanyComm,
-				TotalBetsBase,
-				TotalWinsBase,
-				TotalRefundBase,
-				CompanyTurnoverBase,
-				CompanyGrossIncomeBase,
-				CompanyCommBase,
-				HousePT
-			FROM Result
-		END
-		ELSE
-		BEGIN
-			;WITH Result AS (
-				SELECT
-					custid,
+					CASE @roleID
+						WHEN 1 THEN custid
+						WHEN 2 THEN recommend
+						WHEN 3 THEN mrecommend
+						WHEN 4 THEN srecommend
+						END AS custid,
 					SUM(CASE statusID WHEN 103 THEN 0 ELSE BetCount END) AS BetCount,
 					CurrencyID,
 					ProductID,
@@ -1353,7 +1357,12 @@ BEGIN
 					SUM(CASE statusID WHEN 103 THEN 0 ELSE CompanyCommBase END) AS CompanyCommBase,
 					SUM(CASE statusID WHEN 103 THEN 0 ELSE HousePT END) AS HousePT
 				FROM #Data
-				GROUP BY custid, CurrencyID, ProductID
+				GROUP BY CASE @roleID
+						WHEN 1 THEN custid
+						WHEN 2 THEN recommend
+						WHEN 3 THEN mrecommend
+						WHEN 4 THEN srecommend
+						END, CurrencyID, ProductID
 			)
 			INSERT INTO #tmp_Result
 			(
@@ -1395,8 +1404,13 @@ BEGIN
 				HousePT
 			FROM Result
 		END
-	END
+	END	
 
+	UPDATE #tmp_Result
+	SET GamePayout = CASE WHEN TotalBets = 0 THEN 0 ELSE TotalWins/TotalBets END,
+		CompanyNetIncome = CompanyGrossIncome + CompanyComm,
+		GameIncome = TotalBets - TotalWins
+		
 	CREATE TABLE #tmp_Result2
 	( 
 		custid BIGINT,
@@ -1414,7 +1428,10 @@ BEGIN
 		CompanyTurnoverBase MONEY,
 		CompanyGrossIncomeBase MONEY,
 		CompanyCommBase MONEY,
-		HousePT SMALLMONEY
+		HousePT SMALLMONEY,
+		GamePayout MONEY,
+		CompanyNetIncome MONEY, 
+		GameIncome MONEY
 	)
 
 	INSERT INTO #tmp_Result2
@@ -1434,7 +1451,10 @@ BEGIN
 		CompanyTurnoverBase,
 		CompanyGrossIncomeBase,
 		CompanyCommBase,
-		HousePT
+		HousePT,
+		GamePayout,
+		CompanyNetIncome, 
+		GameIncome 
 	)
 	SELECT
 		custid,
@@ -1452,7 +1472,10 @@ BEGIN
 		SUM(CompanyTurnoverBase) AS CompanyTurnoverBase,
 		SUM(CompanyGrossIncomeBase) AS CompanyGrossIncomeBase,
 		SUM(CompanyCommBase) AS CompanyCommBase,
-		AVG(CASE WHEN BetCount = 0 THEN NULL ELSE HousePT/BetCount END) AS HousePT
+		AVG(CASE WHEN BetCount = 0 THEN NULL ELSE HousePT/BetCount END) AS HousePT,
+		SUM(GamePayout) GamePayout,
+		SUM(CompanyNetIncome) CompanyNetIncome, 
+		SUM(GameIncome) GameIncome
 	FROM #tmp_Result
 	GROUP BY custid, CurrencyID
 	HAVING
@@ -1504,49 +1527,7 @@ BEGIN
 		HousePT SMALLMONEY
 	)
 
-	-- Detail
-	IF @IsGrandTotal = 1 -- drill down grandtotal
-	BEGIN
-		SELECT
-			SUM(r.BetCount) AS BetCount,
-			COUNT(DISTINCT r.custid) - @TotalRefundCust AS NoOfPlayers,
-			e.exchangeid AS CurrencyId,
-			e.currency AS Currency,
-			SUM(r.TotalBets) AS TotalBets,
-			SUM(r.TotalWins) AS TotalWins,
-			SUM(r.TotalRefund) AS TotalRefund,
-			SUM(r.CompanyTurnover) AS CompanyTurnover,
-			SUM(r.CompanyGrossIncome) AS CompanyGrossIncome,
-			SUM(r.CompanyComm) AS CompanyComm
-		FROM #tmp_Result2 r
-			INNER JOIN dbo.Exchange e WITH(NOLOCK) ON r.CurrencyID = e.exchangeid
-		GROUP BY e.exchangeid, e.currency
-		ORDER BY e.currency
-	END
-	ELSE IF @TopType = 0 AND @IsDrillDown = 1 -- click associated accounts link
-	BEGIN
-		SELECT
-			c.custid AS ReportById,
-			c.username AS ReportBy,
-			c.roleid AS RoleId,
-			CASE c.roleid WHEN 1 THEN 'Member' WHEN 2 THEN 'Agent' WHEN 3 THEN 'Master' WHEN 4 THEN 'Super' END AS RoleName,
-			SUM(r.BetCount) AS BetCount,
-			e.exchangeid AS CurrencyId,
-			e.currency AS Currency,
-			SUM(r.TotalBets) AS TotalBets,
-			SUM(r.TotalWins) AS TotalWins,
-			SUM(r.TotalRefund) AS TotalRefund,
-			SUM(r.CompanyTurnover) AS CompanyTurnover,
-			SUM(r.CompanyGrossIncome) AS CompanyGrossIncome,
-			SUM(r.CompanyComm) AS CompanyComm,
-			AVG(r.HousePT) AS HousePositionTaking
-		FROM #tmp_Result2 r
-			INNER JOIN dbo.Exchange e WITH(NOLOCK) ON r.CurrencyID = e.exchangeid
-			INNER JOIN dbo.Customer c WITH(NOLOCK) ON r.custId = c.custid
-		GROUP BY c.custid, c.username, c.roleid, e.exchangeid, e.currency
-		ORDER BY c.username
-	END
-	ELSE
+	-- Detail	
 	BEGIN
 		;WITH Result_1 AS (
 			SELECT
@@ -1565,13 +1546,38 @@ BEGIN
 				SUM(CompanyTurnoverBase) AS CompanyTurnoverBase,		
 				SUM(CompanyGrossIncomeBase) AS CompanyGrossIncomeBase,
 				SUM(CompanyCommBase) AS CompanyCommBase,
-				AVG(HousePT) AS HousePT
+				AVG(HousePT) AS HousePT,
+				SUM(GamePayout) GamePayout,
+				SUM(CompanyNetIncome) CompanyNetIncome, 
+				SUM(GameIncome) GameIncome
 			FROM #tmp_Result2
 			GROUP BY custid, CurrencyID
 		), Result AS (
 			SELECT *,
-				RANK() OVER(ORDER BY TotalBets - TotalWins) AS RowNum1,
-				RANK() OVER(ORDER BY TotalWins - TotalBets) AS RowNum2
+				CASE WHEN @SortColumnName = 'BetCount' THEN RANK() OVER(ORDER BY BetCount DESC) 
+				WHEN @SortColumnName = 'TotalBets' THEN RANK() OVER(ORDER BY TotalBets DESC)
+				WHEN @SortColumnName = 'TotalWins' THEN RANK() OVER(ORDER BY TotalWins DESC)
+				WHEN @SortColumnName = 'TotalRefund' THEN RANK() OVER(ORDER BY TotalRefund DESC)
+				WHEN @SortColumnName = 'GameIncome' THEN RANK() OVER(ORDER BY GameIncome)
+				WHEN @SortColumnName = 'GamePayout' THEN RANK() OVER(ORDER BY GamePayout DESC)
+				WHEN @SortColumnName = 'HouseTurnOver' THEN RANK() OVER(ORDER BY CompanyTurnOver DESC)
+				WHEN @SortColumnName = 'HouseGrossIncome' THEN RANK() OVER(ORDER BY CompanyGrossIncome DESC)
+				WHEN @SortColumnName = 'HouseComm' THEN RANK() OVER(ORDER BY CompanyComm)
+				WHEN @SortColumnName = 'HouseNetIncome' THEN RANK() OVER(ORDER BY CompanyNetIncome DESC)
+				WHEN @SortColumnName = 'HousePositionTaking' THEN RANK() OVER(ORDER BY HousePT DESC)
+				END AS RowNum1,
+				CASE WHEN @SortColumnName = 'BetCount' THEN RANK() OVER(ORDER BY BetCount) 
+				WHEN @SortColumnName = 'TotalBets' THEN RANK() OVER(ORDER BY TotalBets)
+				WHEN @SortColumnName = 'TotalWins' THEN RANK() OVER(ORDER BY TotalWins)
+				WHEN @SortColumnName = 'TotalRefund' THEN RANK() OVER(ORDER BY TotalRefund)
+				WHEN @SortColumnName = 'GameIncome' THEN RANK() OVER(ORDER BY GameIncome DESC)
+				WHEN @SortColumnName = 'GamePayout' THEN RANK() OVER(ORDER BY GamePayout)
+				WHEN @SortColumnName = 'HouseTurnOver' THEN RANK() OVER(ORDER BY CompanyTurnOver)
+				WHEN @SortColumnName = 'HouseGrossIncome' THEN RANK() OVER(ORDER BY CompanyGrossIncome)
+				WHEN @SortColumnName = 'HouseComm' THEN RANK() OVER(ORDER BY CompanyComm DESC)
+				WHEN @SortColumnName = 'HouseNetIncome' THEN RANK() OVER(ORDER BY CompanyNetIncome)
+				WHEN @SortColumnName = 'HousePositionTaking' THEN RANK() OVER(ORDER BY HousePT)
+				END AS RowNum2
 			FROM Result_1
 		)
 		INSERT INTO #Result
@@ -1596,8 +1602,8 @@ BEGIN
 			HousePT
 		)
 		SELECT
-			CASE WHEN TotalBets < TotalWins THEN 1 ELSE 2 END AS TopType,
-			CASE WHEN TotalBets < TotalWins THEN RowNum1 ELSE RowNum2 END AS RowNum,
+			CASE WHEN RowNum1 <= 20 THEN 1 ELSE 2 END AS TopType,
+			CASE WHEN RowNum1 <= 20 THEN RowNum1 ELSE RowNum2 END AS RowNum,
 			custid,
 			BetCount,
 			CurrencyID,
@@ -1616,8 +1622,8 @@ BEGIN
 			HousePT
 		FROM Result
 		WHERE
-			((@TopType = 0 OR @TopType = 1) AND TotalBets < TotalWins AND RowNum1 <= 20)
-			OR ((@TopType = 0 OR @TopType = 2) AND TotalBets > TotalWins AND RowNum2 <= 20)
+			((@TopType = 0 OR @TopType = 1) AND RowNum1 <= 20)	
+			OR ((@TopType = 0 OR @TopType = 2) AND RowNum2 <= 20)	
 
 		SELECT  @TotalRefundCust = 0
 		SELECT  @TotalRefundCust = COUNT(DISTINCT custid)
@@ -1636,7 +1642,7 @@ BEGIN
 		IF @TopType = 0
 		BEGIN
 			SELECT
-				CASE r.TopType WHEN 1 THEN 'Winners' ELSE 'Losers' END AS TopType,
+				CASE r.TopType WHEN 1 THEN 'Top 20' ELSE 'Bottom 20' END AS TopType,
 				c.custid AS ReportById,
 				c.username AS ReportBy,
 				c.roleid AS RoleId,
@@ -1647,17 +1653,19 @@ BEGIN
 				r.TotalBets,
 				r.TotalWins,
 				r.TotalRefund,
-				r.CompanyTurnover,
-				r.CompanyGrossIncome,
-				r.CompanyComm,
-				r.HousePT AS HousePositionTaking
+				r.CompanyTurnover AS HouseTurnover,
+				r.CompanyGrossIncome AS HouseGrossIncome,
+				r.CompanyComm AS HouseComm,
+				r.HousePT AS HousePositionTaking,
+				CASE WHEN c.roleid = 1 THEN a.site ELSE c.site END AS SiteName
 			FROM #Result r
 				INNER JOIN dbo.Exchange e WITH(NOLOCK) ON r.CurrencyID = e.exchangeid
 				INNER JOIN dbo.Customer c WITH(NOLOCK) ON r.custId = c.custid
+				LEFT JOIN dbo.Customer a WITH(NOLOCK) ON a.custid = c.recommend 
 			ORDER BY r.TopType, r.RowNum, c.username
 
 			SELECT
-				CASE TopType WHEN 1 THEN 'Top 20 Winners' ELSE 'Top 20 Losers' END AS ReportBy,
+				CASE TopType WHEN 1 THEN 'Top 20' ELSE 'Bottom 20' END AS ReportBy,
 				TopType AS ReportById,
 				SUM(BetCount) AS BetCount,
 				@Currency AS CurrencyId,
@@ -1665,11 +1673,11 @@ BEGIN
 				SUM(TotalBetsBase) AS TotalBets,
 				SUM(TotalWinsBase) AS TotalWins,
 				SUM(TotalRefundBase) AS TotalRefund,
-				SUM(CompanyTurnoverBase) AS CompanyTurnover,
-				SUM(CompanyGrossIncomeBase) AS CompanyGrossIncome,
-				SUM(CompanyCommBase) AS CompanyComm
+				SUM(CompanyTurnoverBase) AS HouseTurnover,
+				SUM(CompanyGrossIncomeBase) AS HouseGrossIncome,
+				SUM(CompanyCommBase) AS HouseComm
 			FROM #Result
-			GROUP BY CASE TopType WHEN 1 THEN 'Top 20 Winners' ELSE 'Top 20 Losers' END, TopType
+			GROUP BY CASE TopType WHEN 1 THEN 'Top 20' ELSE 'Bottom 20' END, TopType
 			ORDER BY TopType
 		END
 		ELSE
@@ -1688,7 +1696,7 @@ BEGIN
 					)
 			)
 			SELECT
-				CASE @TopType WHEN 1 THEN 'Top 20 Winners' ELSE 'Top 20 Losers' END AS ReportBy,
+				CASE @TopType WHEN 1 THEN 'Top 20' ELSE 'Bottom 20' END AS ReportBy,
 				@TopType AS ReportById,
 				BetCount,
 				NoOfPlayers - ISNULL(c.RefundCust, 0) AS NoOfPlayers,
@@ -1697,9 +1705,9 @@ BEGIN
 				TotalBets,
 				TotalWins,
 				TotalRefund,
-				CompanyTurnover,
-				CompanyGrossIncome,
-				CompanyComm
+				CompanyTurnover AS HouseTurnover,
+				CompanyGrossIncome AS HouseGrossIncome,
+				CompanyComm AS HouseComm
 			FROM (
 				SELECT
 					SUM(BetCount) AS BetCount,
@@ -1717,12 +1725,12 @@ BEGIN
 				GROUP BY e.exchangeid, e.currency
 			) A
 			LEFT JOIN CTE c ON A.CurrencyID = c.CurrencyID 
-				ORDER BY CASE @TopType WHEN 1 THEN TotalBets - TotalWins ELSE TotalWins - TotalBets END
+				ORDER BY Currency
 		END
 	END
 
 	-- GrandTotal
-	IF @IsGrandTotal = 1 OR @TopType <> 0 OR @IsDrillDown = 1
+	IF @TopType <> 0 AND @IsDrillDown = 1
 	BEGIN
 		SELECT
 			'GrandTotal' AS ReportBy,
@@ -1733,9 +1741,9 @@ BEGIN
 			SUM(TotalBetsBase) AS TotalBets,
 			SUM(TotalWinsBase) AS TotalWins,
 			SUM(TotalRefundBase) AS TotalRefund,
-			SUM(CompanyTurnoverBase) AS CompanyTurnover,		
-			SUM(CompanyGrossIncomeBase) AS CompanyGrossIncome,
-			SUM(CompanyCommBase) AS CompanyComm
+			SUM(CompanyTurnoverBase) AS HouseTurnover,		
+			SUM(CompanyGrossIncomeBase) AS HouseGrossIncome,
+			SUM(CompanyCommBase) AS HouseComm
 		FROM #Result
 	END
 

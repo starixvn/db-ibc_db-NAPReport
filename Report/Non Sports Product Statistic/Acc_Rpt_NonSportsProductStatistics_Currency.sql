@@ -30,6 +30,7 @@ AS
 	Revision:
 		- 20170227@Percy: support search multiple username [RedmineID: #71342]
 		- 20170726@Cherry: Integrate Betradar Virtual Sports (#78495)
+		- 20170815@Cherry: Non-Sport Statistics Phase 5 (#71923)
 
 	Param's Explanation:
 		- @Username:  + Search by keyword, member only
@@ -350,8 +351,8 @@ BEGIN
 			)
 		AND (@DrillDownCurrency = 0 OR b.currency = @DrillDownCurrency)
 		AND b.bettype <> 2799 AND b.matchid >= 0
-	GROUP BY b.recommend, CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END, b.currency, s.RefTable, s.EvenType, b.matchid, s.ProductID
-	
+	GROUP BY b.recommend, CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END, b.currency, s.RefTable, s.EvenType, b.matchid, s.ProductID	
+
 	--Mix Parlay Virtual Sports 2
 	INSERT INTO #tmp_bettrans
 	        ( recommend ,
@@ -420,7 +421,7 @@ BEGIN
 									INNER JOIN dbo.match m WITH (NOLOCK) ON bm.matchid = m.matchid 
 									INNER JOIN #tmp_SportType st ON m.sporttype = st.Sporttype
 								WHERE bm.refno = b.refno)			
-	GROUP BY b.recommend, CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END, b.currency, s.RefTable, s.EvenType, b.matchid, s.ProductID		
+	GROUP BY b.recommend, CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END, b.currency, s.RefTable, s.EvenType, b.matchid, s.ProductID	
 
 	--- Check condition 
 	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID NOT IN (3, 4, 5, 27)) -- NG, SLI-Live Casino, Virtual Sports, Virtual Sports 2
@@ -688,7 +689,7 @@ BEGIN
 			AND (@Sporttype = '' OR (EXISTS(SELECT 1 FROM #tmp_SportType st WHERE st.Sporttype = r.SportType)))			  
 		GROUP BY b.recommend, b.custid, b.CurrencyID
 	END
-	
+
 	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID = 27)
 	BEGIN
 		-- Betradar Virtual Sport 
@@ -916,9 +917,9 @@ BEGIN
 			TotalBets,
 			TotalWins,
 			TotalRefund,
-			CompanyTurnOver,
-			CompanyGrossIncome,
-			CompanyComm
+			CompanyTurnOver AS HouseTurnOver,
+			CompanyGrossIncome AS HouseGrossIncome,
+			CompanyComm AS HouseComm
 		FROM #ResultByCurrency
 		ORDER BY Currency
 
@@ -930,9 +931,9 @@ BEGIN
 			SUM(b.TotalBetsBase) AS TotalBets,
 			SUM(b.TotalWinsBase) AS TotalWins,
 			SUM(b.TotalRefundBase) AS TotalRefund,
-			SUM(b.CompanyTurnOverBase) AS CompanyTurnOver,
-			SUM(b.CompanyGrossIncomeBase) AS CompanyGrossIncome,
-			SUM(b.CompanyCommBase) AS CompanyComm
+			SUM(b.CompanyTurnOverBase) AS HouseTurnOver,
+			SUM(b.CompanyGrossIncomeBase) AS HouseGrossIncome,
+			SUM(b.CompanyCommBase) AS HouseComm
 		FROM #Data b
 			INNER JOIN #ResultByCurrency c ON b.CurrencyID = c.CurrencyID
 	END
@@ -945,9 +946,9 @@ BEGIN
 			TotalBets,
 			TotalWins,
 			TotalRefund,
-			CompanyTurnOver,
-			CompanyGrossIncome,
-			CompanyComm
+			CompanyTurnOver AS HouseTurnOver,
+			CompanyGrossIncome AS HouseGrossIncome,
+			CompanyComm AS HouseComm
 		FROM #ResultByCompany
 		ORDER BY SiteName
 
@@ -958,9 +959,9 @@ BEGIN
 			SUM(b.TotalBetsBase) AS TotalBets,
 			SUM(b.TotalWinsBase) AS TotalWins,
 			SUM(b.TotalRefundBase) AS TotalRefund,
-			SUM(b.CompanyTurnOverBase) AS CompanyTurnOver,
-			SUM(b.CompanyGrossIncomeBase) AS CompanyGrossIncome,
-			SUM(b.CompanyCommBase) AS CompanyComm
+			SUM(b.CompanyTurnOverBase) AS HouseTurnOver,
+			SUM(b.CompanyGrossIncomeBase) AS HouseGrossIncome,
+			SUM(b.CompanyCommBase) AS HouseComm
 		FROM #Data b			
 		WHERE EXISTS ( SELECT 1 
 					   FROM #recommend c INNER JOIN #ResultByCompany s ON c.SiteName = s.SiteName 
