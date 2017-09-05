@@ -135,6 +135,7 @@ SET NOCOUNT ON
 	CREATE TABLE #Result ( [Hour] tinyint,  
 						   NoOfPlayers INT, 
 						   BetCount INT, 
+						   Currency VARCHAR(50),
 						   TotalBets MONEY, 
 						   TotalWins MONEY, 
 						   GamePayout MONEY,
@@ -706,10 +707,11 @@ SET NOCOUNT ON
 		
 	IF @Currency = -1  
 	BEGIN 		
-		INSERT INTO #Result ([Hour], NoOfPlayers, BetCount,	TotalBets, TotalWins, GamePayout, TotalRefund, CompanyTurnover, CompanyGrossIncome, CompanyComm)							
+		INSERT INTO #Result ([Hour], NoOfPlayers, BetCount,	Currency, TotalBets, TotalWins, GamePayout, TotalRefund, CompanyTurnover, CompanyGrossIncome, CompanyComm)							
 		SELECT  [Hour], 
 				COUNT(DISTINCT CustID) AS NoOfPlayers, 
 				SUM(BetCount) AS BetCount ,
+				'RM' Currency,
 				SUM(TotalBetsRM) AS TotalBets, 
 				SUM(TotalWinsRM) AS TotalWins,
 				CASE WHEN SUM(ISNULL(TotalBetsRM,0)) = 0 THEN NULL ELSE SUM(TotalWinsRM)/SUM(TotalBetsRM) END AS GamePayout,
@@ -733,6 +735,7 @@ SET NOCOUNT ON
 		a.Description AS ReportBy, 
 		NoOfPlayers, 
 		BetCount, 
+		Currency,
 		TotalBets, 
 		TotalWins, 
 		GamePayout, 
