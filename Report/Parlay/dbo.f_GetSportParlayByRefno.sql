@@ -17,8 +17,8 @@ AS
 */
 BEGIN
 	
-	DECLARE @Sporttype INT
-	DECLARE @Sport TABLE (Sporttype INT)
+	DECLARE @Sporttype SMALLINT
+	DECLARE @Sport TABLE (Sporttype SMALLINT)
 	
 	INSERT INTO @Sport (Sporttype)
 	SELECT DISTINCT m.sporttype
