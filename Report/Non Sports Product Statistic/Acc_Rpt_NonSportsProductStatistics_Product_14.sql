@@ -31,6 +31,7 @@ AS
 	Revisions:
 		- 20170215@Percy: Remove hardcode product to support Fishing World [RedmineID: #71616]
 		- 20170726@Cherry: Integrate Betradar Virtual Sports (#78495)
+		- 20170815@Cherry: Non-Sport Statistics Phase 5 (#71923)
 
 	Param's Explanation:
 		- @username:  + Search by keyword, member only
@@ -887,9 +888,9 @@ BEGIN
 				TotalBets,
 				TotalWins,
 				TotalRefund,
-				CompanyTurnOver,
-				CompanyGrossIncome,
-				CompanyComm 
+				CompanyTurnOver AS HouseTurnOver,
+				CompanyGrossIncome AS HouseGrossIncome,
+				CompanyComm AS HouseComm 
 			FROM #Result
 			ORDER BY ProductName, Currency
 		END
@@ -904,9 +905,9 @@ BEGIN
 				CASE WHEN @Currency = -1 THEN SUM(b.TotalBetsBase) ELSE SUM(b.TotalBets) END AS TotalBets,
 				CASE WHEN @Currency = -1 THEN SUM(b.TotalWinsBase) ELSE SUM(b.TotalWins) END AS TotalWins,
 				CASE WHEN @Currency = -1 THEN SUM(b.TotalRefundBase) ELSE SUM(b.TotalRefund) END AS TotalRefund,
-				CASE WHEN @Currency = -1 THEN SUM(b.CompanyTurnOverBase) ELSE SUM(b.CompanyTurnOver) END AS CompanyTurnOver,
-				CASE WHEN @Currency = -1 THEN SUM(b.CompanyGrossIncomeBase) ELSE SUM(b.CompanyGrossIncome) END AS CompanyGrossIncome,
-				CASE WHEN @Currency = -1 THEN SUM(b.CompanyCommBase) ELSE SUM(b.CompanyComm) END AS CompanyComm
+				CASE WHEN @Currency = -1 THEN SUM(b.CompanyTurnOverBase) ELSE SUM(b.CompanyTurnOver) END AS HouseTurnOver,
+				CASE WHEN @Currency = -1 THEN SUM(b.CompanyGrossIncomeBase) ELSE SUM(b.CompanyGrossIncome) END AS HouseGrossIncome,
+				CASE WHEN @Currency = -1 THEN SUM(b.CompanyCommBase) ELSE SUM(b.CompanyComm) END AS HouseComm
 		
 			FROM #Data b	
 				INNER JOIN #Result r ON (@Currency = -1 OR b.CurrencyID = r.CurrencyID) AND b.ProductName = r.ProductName	
@@ -925,9 +926,9 @@ BEGIN
 				CASE WHEN @Currency = -1 THEN SUM(b.TotalBetsBase) ELSE SUM(b.TotalBets) END AS TotalBets,
 				CASE WHEN @Currency = -1 THEN SUM(b.TotalWinsBase) ELSE SUM(b.TotalWins) END AS TotalWins,
 				CASE WHEN @Currency = -1 THEN SUM(b.TotalRefundBase) ELSE SUM(b.TotalRefund) END AS TotalRefund,
-				CASE WHEN @Currency = -1 THEN SUM(b.CompanyTurnOverBase) ELSE SUM(b.CompanyTurnOver) END AS CompanyTurnOver,
-				CASE WHEN @Currency = -1 THEN SUM(b.CompanyGrossIncomeBase) ELSE SUM(b.CompanyGrossIncome) END AS CompanyGrossIncome,
-				CASE WHEN @Currency = -1 THEN SUM(b.CompanyCommBase) ELSE SUM(b.CompanyComm) END AS CompanyComm
+				CASE WHEN @Currency = -1 THEN SUM(b.CompanyTurnOverBase) ELSE SUM(b.CompanyTurnOver) END AS HouseTurnOver,
+				CASE WHEN @Currency = -1 THEN SUM(b.CompanyGrossIncomeBase) ELSE SUM(b.CompanyGrossIncome) END AS HouseGrossIncome,
+				CASE WHEN @Currency = -1 THEN SUM(b.CompanyCommBase) ELSE SUM(b.CompanyComm) END AS HouseComm
 		
 		FROM #Data b	
 			INNER JOIN #Result r ON (@Currency = -1 OR b.CurrencyID = r.CurrencyID) AND b.ProductName = r.ProductName	
@@ -945,9 +946,9 @@ BEGIN
         SUM(d.TotalBetsBase) TotalBets,
         SUM(d.TotalWinsBase) TotalWins,
         SUM(d.TotalRefundBase) TotalRefund,
-        SUM(d.CompanyTurnOverBase) CompanyTurnOver,
-		SUM(d.CompanyGrossIncomeBase) CompanyGrossIncome,
-		SUM(d.CompanyCommBase) CompanyComm
+        SUM(d.CompanyTurnOverBase) HouseTurnOver,
+		SUM(d.CompanyGrossIncomeBase) HouseGrossIncome,
+		SUM(d.CompanyCommBase) HouseComm
     FROM #Result r
 		INNER JOIN #Data d ON (r.CurrencyID = -1 OR r.CurrencyID = d.CurrencyID) AND r.ProductID = d.ProductID
 

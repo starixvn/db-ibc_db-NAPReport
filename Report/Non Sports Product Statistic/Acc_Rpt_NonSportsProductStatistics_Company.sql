@@ -30,6 +30,7 @@ AS
 	Revision:
 		- 20170227@Percy: support search multiple username [RedmineID: #71342]
 		- 20170726@Cherry: Integrate Betradar Virtual Sports (#78495)
+		- 20170815@Cherry: Non-Sport Statistics Phase 5 (#71923)
 
 	Param's Explanation:
 		- @username:  + Search by keyword, member only
@@ -230,7 +231,7 @@ BEGIN
 
 	DELETE s
 	FROM #SportBettype s
-	WHERE s.ProductID NOT IN (3, 5, 27) -- NumberGame, Virtual Sport, Virtual Sport 2
+	WHERE s.ProductID NOT IN (3, 5, 27) -- NumberGame, Virtual Sports, Virtual Sport 2
 		AND NOT EXISTS (SELECT b.Bettype FROM #tmp_BetType b WHERE b.Bettype = s.Bettype)
 	-- End Sport Bettype Matrix
 
@@ -369,7 +370,7 @@ BEGIN
 		)
 		AND b.bettype <> 2799 AND b.matchid >= 0
 	GROUP BY b.recommend, CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END, b.currency, s.RefTable, s.EvenType, b.matchid, s.ProductID	
-	
+
 	--Mix Parlay Virtual Sports 2
 	INSERT INTO #tmp_bettrans
 	        ( recommend ,
@@ -440,7 +441,7 @@ BEGIN
 	GROUP BY b.recommend, CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END, b.currency, s.RefTable, s.EvenType, b.matchid, s.ProductID	
 
 	--- Check condition 
-	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID NOT IN (3, 4, 5, 27)) -- NG, SLI-Live Casino, Virtual Sport, Virtual Sport 2
+	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID NOT IN (3, 4, 5, 27)) -- NG, SLI-Live Casino, Virtual Sports, Virtual Sport 2
 	BEGIN		
 		-- 1. By bettype for normal product
 		INSERT INTO #Data
@@ -483,9 +484,7 @@ BEGIN
 				- SUM(CompanyCommBase) AS CompanyCommBase
 
 		FROM  #tmp_bettrans b
-		WHERE b.RefTable IN (0, 3) 
-			AND b.ProductID NOT IN (3, 4, 5, 27)
-
+		WHERE b.RefTable IN (0, 3) AND b.ProductID NOT IN (3, 4, 5, 27)
 		GROUP BY b.recommend, b.custid, b.CurrencyID
 		
 		-- 2a. By Bettype for Casino Product
@@ -708,7 +707,7 @@ BEGIN
 	
 	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID = 27)
 	BEGIN
-		-- Betradar Virtual Sport 
+		-- Virtual Sports 2 
 		INSERT INTO #Data
 				( recommend ,
 				  CustID ,
@@ -1007,9 +1006,9 @@ BEGIN
 					TotalBets,
 					TotalWins,
 					TotalRefund,
-					CompanyTurnOver,
-					CompanyGrossIncome,
-					CompanyComm
+					CompanyTurnOver AS HouseTurnOver,
+					CompanyGrossIncome AS HouseGrossIncome,
+					CompanyComm AS HouseComm
 			FROM #Result
 			ORDER BY IsDeposit, SiteName, Currency
 		END
@@ -1024,9 +1023,9 @@ BEGIN
 				CASE WHEN @Currency = -1 THEN SUM(b.TotalBetsBase) ELSE SUM(b.TotalBets) END AS TotalBets,
 				CASE WHEN @Currency = -1 THEN SUM(b.TotalWinsBase) ELSE SUM(b.TotalWins) END AS TotalWins,
 				CASE WHEN @Currency = -1 THEN SUM(b.TotalRefundBase) ELSE SUM(b.TotalRefund) END AS TotalRefund,
-				CASE WHEN @Currency = -1 THEN SUM(b.CompanyTurnOverBase) ELSE SUM(b.CompanyTurnOver) END AS CompanyTurnOver,
-				CASE WHEN @Currency = -1 THEN SUM(b.CompanyGrossIncomeBase) ELSE SUM(b.CompanyGrossIncome) END AS CompanyGrossIncome,
-				CASE WHEN @Currency = -1 THEN SUM(b.CompanyCommBase) ELSE SUM(b.CompanyComm) END AS CompanyComm
+				CASE WHEN @Currency = -1 THEN SUM(b.CompanyTurnOverBase) ELSE SUM(b.CompanyTurnOver) END AS HouseTurnOver,
+				CASE WHEN @Currency = -1 THEN SUM(b.CompanyGrossIncomeBase) ELSE SUM(b.CompanyGrossIncome) END AS HouseGrossIncome,
+				CASE WHEN @Currency = -1 THEN SUM(b.CompanyCommBase) ELSE SUM(b.CompanyComm) END AS HouseComm
 		FROM #Data b	
 			INNER JOIN #Result r ON (@Currency = -1 OR b.CurrencyID = r.CurrencyID) AND b.SiteName = r.SiteName	
 		GROUP BY b.CurrencyID , b.Currency	
@@ -1044,9 +1043,9 @@ BEGIN
 				CASE WHEN @Currency = -1 THEN SUM(b.TotalBetsBase) ELSE SUM(b.TotalBets) END AS TotalBets,
 				CASE WHEN @Currency = -1 THEN SUM(b.TotalWinsBase) ELSE SUM(b.TotalWins) END AS TotalWins,
 				CASE WHEN @Currency = -1 THEN SUM(b.TotalRefundBase) ELSE SUM(b.TotalRefund) END AS TotalRefund,
-				CASE WHEN @Currency = -1 THEN SUM(b.CompanyTurnOverBase) ELSE SUM(b.CompanyTurnOver) END AS CompanyTurnOver,
-				CASE WHEN @Currency = -1 THEN SUM(b.CompanyGrossIncomeBase) ELSE SUM(b.CompanyGrossIncome) END AS CompanyGrossIncome,
-				CASE WHEN @Currency = -1 THEN SUM(b.CompanyCommBase) ELSE SUM(b.CompanyComm) END AS CompanyComm
+				CASE WHEN @Currency = -1 THEN SUM(b.CompanyTurnOverBase) ELSE SUM(b.CompanyTurnOver) END AS HouseTurnOver,
+				CASE WHEN @Currency = -1 THEN SUM(b.CompanyGrossIncomeBase) ELSE SUM(b.CompanyGrossIncome) END AS HouseGrossIncome,
+				CASE WHEN @Currency = -1 THEN SUM(b.CompanyCommBase) ELSE SUM(b.CompanyComm) END AS HouseComm
 		
 		FROM #Data b	
 			INNER JOIN #Result r ON (@Currency = -1 OR b.CurrencyID = r.CurrencyID) AND b.SiteName = r.SiteName	
@@ -1067,9 +1066,9 @@ BEGIN
 			SUM(b.TotalBetsBase) TotalBets,
 			SUM(b.TotalWinsBase) TotalWins,
 			SUM(b.TotalRefundBase) TotalRefund,
-			SUM(b.CompanyTurnOverBase) CompanyTurnOver,
-			SUM(b.CompanyGrossIncomeBase) CompanyGrossIncome,
-			SUM(b.CompanyCommBase) CompanyComm
+			SUM(b.CompanyTurnOverBase) HouseTurnOver,
+			SUM(b.CompanyGrossIncomeBase) HouseGrossIncome,
+			SUM(b.CompanyCommBase) HouseComm
 		FROM #Data b
 			INNER JOIN  #Result c ON (@Currency = -1 OR c.CurrencyId = b.CurrencyId) AND c.SiteName = b.SiteName
 		GROUP BY c.isDeposit,
@@ -1085,9 +1084,9 @@ BEGIN
 			SUM(b.TotalBetsBase) TotalBets,
 			SUM(b.TotalWinsBase) TotalWins,
 			SUM(b.TotalRefundBase) TotalRefund,
-			SUM(b.CompanyTurnOverBase) CompanyTurnOver,
-			SUM(b.CompanyGrossIncomeBase) CompanyGrossIncome,
-			SUM(b.CompanyCommBase) CompanyComm
+			SUM(b.CompanyTurnOverBase) HouseTurnOver,
+			SUM(b.CompanyGrossIncomeBase) HouseGrossIncome,
+			SUM(b.CompanyCommBase) HouseComm
 		FROM #Data b
 			INNER JOIN  #Result c ON (@Currency = -1 OR c.CurrencyId = b.CurrencyId) AND b.SiteName = c.SiteName
 	END
@@ -1105,9 +1104,9 @@ BEGIN
 				SUM(b.TotalBetsBase) TotalBets,
 				SUM(b.TotalWinsBase) TotalWins,
 				SUM(b.TotalRefundBase) TotalRefund,
-				SUM(b.CompanyTurnOverBase) CompanyTurnOver,
-				SUM(b.CompanyGrossIncomeBase) CompanyGrossIncome,
-				SUM(b.CompanyCommBase) CompanyComm
+				SUM(b.CompanyTurnOverBase) HouseTurnOver,
+				SUM(b.CompanyGrossIncomeBase) HouseGrossIncome,
+				SUM(b.CompanyCommBase) HouseComm
 			FROM #Data b
 				INNER JOIN  #Result c ON (b.SiteName = c.SiteName) AND (@Currency = -1 OR b.CurrencyID = c.CurrencyID)
 		END
@@ -1123,9 +1122,9 @@ BEGIN
 				SUM(b.TotalBetsBase) TotalBets,
 				SUM(b.TotalWinsBase) TotalWins,
 				SUM(b.TotalRefundBase) TotalRefund,
-				SUM(b.CompanyTurnOverBase) CompanyTurnOver,
-				SUM(b.CompanyGrossIncomeBase) CompanyGrossIncome,
-				SUM(b.CompanyCommBase) CompanyComm
+				SUM(b.CompanyTurnOverBase) HouseTurnOver,
+				SUM(b.CompanyGrossIncomeBase) HouseGrossIncome,
+				SUM(b.CompanyCommBase) HouseComm
 			FROM #Data b
 				INNER JOIN  #Result c ON b.SiteName = c.SiteName AND (@Currency = -1 OR b.CurrencyID = c.CurrencyID)
 		END

@@ -34,6 +34,7 @@ AS
 		- 20170215@Percy: Remove hardcode product to support Fishing World [RedmineID: #71616]
 		- 20170227@Percy: support search multiple username [RedmineID: #71342]
 		- 20170726@Cherry: Integrate Betradar Virtual Sports (#78495)
+		- 20170815@Cherry: Non-Sport Statistics Phase 5 (#71923)
 
 	Param's Explanation:
 		- @username: search keyword
@@ -91,7 +92,8 @@ BEGIN
 					NULL AS CompanyTurnover,
 					NULL AS CompanyGrossIncome,
 					NULL AS CompanyComm,
-					NULL AS HousePositionTaking
+					NULL AS HousePositionTaking,
+					NULL AS SiteName
 			) A
 
 			-- Grand Total
@@ -526,7 +528,7 @@ BEGIN
 				INNER JOIN #tmp_MemIDs m ON b.custid = m.CustID
 				INNER JOIN #SportBettype s ON s.Bettype = b.bettype
 			WHERE b.winlostdate = @WLDate
-				AND b.matchid >= 0
+				AND b.matchid >= 0 AND b.bettype <> 2799
 				AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
 				AND s.RefTable IN (0, 3)
 				AND ((b.currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
@@ -537,9 +539,8 @@ BEGIN
 					OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 					OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 				)
-				AND b.bettype <> 2799
 			GROUP BY b.srecommend, b.mrecommend, b.recommend, b.custid, b.currency, s.EvenType, b.matchid, s.ProductID, CASE WHEN statusID = 103 THEN 103 ELSE 112 END
-			
+		
 			--Mix Parlay Virtual Sport 2
 			INSERT INTO #tmp_bettrans
 			(
@@ -586,8 +587,7 @@ BEGIN
 			FROM  dbo.bettrans14 b WITH (NOLOCK)
 				INNER JOIN #tmp_MemIDs m ON b.custid = m.CustID
 				INNER JOIN #SportBettype s ON s.Bettype = b.bettype
-			WHERE b.winlostdate = @WLDate
-				AND b.matchid = 2799
+			WHERE b.winlostdate = @WLDate				
 				AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
 				AND s.RefTable IN (0, 3)
 				AND ((b.currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
@@ -598,12 +598,13 @@ BEGIN
 					OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 					OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 				)
-				AND b.bettype = 2799
+				AND b.matchid = 2799 AND b.bettype = 2799
 				AND EXISTS (SELECT 1 FROM dbo.bettransm14 bm WITH (NOLOCK)
 									INNER JOIN dbo.match14 m WITH (NOLOCK) ON bm.matchid = m.matchid 
 									INNER JOIN #tmp_SportType st ON m.sporttype = st.Sporttype
 								WHERE bm.refno = b.refno)				
 			GROUP BY b.srecommend, b.mrecommend, b.recommend, b.custid, b.currency, s.EvenType, b.matchid, s.ProductID, CASE WHEN statusID = 103 THEN 103 ELSE 112 END
+		
 		END
 
 		IF EXISTS (SELECT TOP 1 1 FROM #SportBettype WHERE RefTable = 1) -- bettransRnG14
@@ -778,7 +779,7 @@ BEGIN
 				INNER JOIN #SportBettype s ON s.Bettype = b.bettype
 			WHERE b.winlostdate = @WLDate
 				AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
-				AND b.matchid >= 0
+				AND b.matchid >= 0 AND b.bettype <> 2799
 				AND s.RefTable IN (0, 3)
 				AND ((b.currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
 				AND (b.currency = @Currency OR @Currency IN (0, -1))
@@ -788,13 +789,71 @@ BEGIN
 					OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 					OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 				)
-				AND (s.ProductID <> 27 OR (s.ProductID = 27 AND s.EvenType = 1) 
-					OR (EXISTS (SELECT 1 FROM dbo.bettransm14 bm WITH (NOLOCK)
+			GROUP BY b.srecommend, b.mrecommend, b.recommend, b.custid, b.currency, s.EvenType, b.matchid, s.ProductID, CASE WHEN statusID = 103 THEN 103 ELSE 112 END
+		
+			--Mix Parlay Virtual Sports 2
+			INSERT INTO #tmp_bettrans
+			(
+				srecommend,
+				mrecommend,
+				recommend,
+				custid,
+				BetCount,
+				CurrencyID,
+				TotalBets,
+				TotalBetsBase,
+				TotalWins,
+				TotalWinsBase,
+				CompanyTurnover,
+				CompanyTurnoverBase,
+				CompanyGrossIncome,
+				CompanyGrossIncomeBase,
+				CompanyComm,
+				CompanyCommBase,
+				EvenType, matchid, ProductID,
+				HousePT,
+				statusID
+			)
+			SELECT
+				b.srecommend,
+				b.mrecommend,
+				b.recommend,
+				b.custid,
+				COUNT(b.transid) AS BetCount,
+				b.currency,
+				SUM(actual_stake) AS TotalBets,
+				SUM(actual_stake * actualrate) AS TotalBetsBase,
+				SUM(winlost) AS TotalWins,
+				SUM(winlost * actualrate) AS TotalWinsBase,
+				SUM((1- b.tpositiontaking) * b.stake) AS CompanyTurnover,
+				SUM((1- b.tpositiontaking) * b.stake * actualrate) AS CompanyTurnoverBase,
+				SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)) AS CompanyGrossIncome,
+				SUM((winlost - actual_stake + awinlost + mwinlost + swinlost) * actualrate) AS CompanyGrossIncomeBase,
+				SUM(scomm) AS CompanyComm,
+				SUM(scomm *actualrate) AS CompanyCommBase,
+				s.EvenType, b.matchid, s.ProductID,
+				SUM(1 - b.tpositiontaking) AS HousePT,
+				CASE WHEN statusID = 103 THEN 103 ELSE 112 END AS statusID
+			FROM  dbo.bettrans14 b WITH (NOLOCK)
+				INNER JOIN #SportBettype s ON s.Bettype = b.bettype
+			WHERE b.winlostdate = @WLDate
+				AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
+				AND b.matchid = 2799 AND b.bettype = 2799
+				AND s.RefTable IN (0, 3)
+				AND ((b.currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
+				AND (b.currency = @Currency OR @Currency IN (0, -1))
+				AND (EXISTS (SELECT 1 FROM #tmp_Devide d WHERE d.Betfrom = b.betfrom) OR @Device = '')
+				AND (
+					@HousePTType = 0
+					OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
+					OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
+				)
+				AND EXISTS (SELECT 1 FROM dbo.bettransm14 bm WITH (NOLOCK)
 									INNER JOIN dbo.match14 m WITH (NOLOCK) ON bm.matchid = m.matchid 
 									INNER JOIN #tmp_SportType st ON m.sporttype = st.Sporttype
-								WHERE bm.refno = b.refno))
-				)
+								WHERE bm.refno = b.refno)
 			GROUP BY b.srecommend, b.mrecommend, b.recommend, b.custid, b.currency, s.EvenType, b.matchid, s.ProductID, CASE WHEN statusID = 103 THEN 103 ELSE 112 END
+		
 		END
 
 		IF EXISTS (SELECT TOP 1 1 FROM #SportBettype WHERE RefTable = 1) -- bettransRnG14
@@ -993,7 +1052,7 @@ BEGIN
 		GROUP BY srecommend, mrecommend, recommend, custid, CurrencyID, ProductID, statusID
 	END
 
-	IF EXISTS (SELECT TOP 1 1 FROM #SportBettype WHERE ProductID IN (3, 4, 5)) -- NG, SLI-Live Casino, Virtual Sports, Virtual Sports 2
+	IF EXISTS (SELECT TOP 1 1 FROM #SportBettype WHERE ProductID IN (3, 4, 5)) -- NG, SLI-Live Casino, Virtual Sport
 	BEGIN		
 		INSERT INTO #Data
 		(
@@ -1096,8 +1155,8 @@ BEGIN
 			AND (@Sporttype = '' OR (EXISTS(SELECT 1 FROM #tmp_SportType st WHERE st.Sporttype = r.SportType)))			  
 		GROUP BY b.srecommend, b.mrecommend, b.recommend, b.custid, b.CurrencyID, b.ProductID, statusID
 	END
-	
-	IF EXISTS (SELECT TOP 1 1 FROM #SportBettype WHERE ProductID = 27) -- NG, SLI-Live Casino, Virtual Sport
+
+	IF EXISTS (SELECT TOP 1 1 FROM #SportBettype WHERE ProductID = 27) -- Virtual Sports 2
 	BEGIN		
 		INSERT INTO #Data
 		(
@@ -1583,13 +1642,15 @@ BEGIN
 			r.TotalBets,
 			r.TotalWins,
 			r.TotalRefund,
-			r.CompanyTurnover,
-			r.CompanyGrossIncome,
-			r.CompanyComm,
-			r.HousePT AS HousePositionTaking
+			r.CompanyTurnover AS HouseTurnover,
+			r.CompanyGrossIncome AS HouseGrossIncome,
+			r.CompanyComm AS HouseComm,
+			r.HousePT AS HousePositionTaking,
+			CASE WHEN c.roleid = 1 THEN a.site ELSE c.site END AS SiteName
 		FROM #Result r
 			INNER JOIN dbo.Exchange e WITH(NOLOCK) ON r.CurrencyID = e.exchangeid
-			INNER JOIN dbo.Customer c WITH(NOLOCK) ON r.custId = c.custid
+			LEFT JOIN dbo.Customer c WITH(NOLOCK) ON r.custId = c.custid
+			LEFT JOIN dbo.Customer a WITH(NOLOCK) ON a.custid = c.recommend 
 		ORDER BY c.username
 	END
 	ELSE IF @RoleID = 0
@@ -1605,13 +1666,15 @@ BEGIN
 			r.TotalBetsBase AS TotalBets,
 			r.TotalWinsBase AS TotalWins,
 			r.TotalRefundBase AS TotalRefund,
-			r.CompanyTurnoverBase AS CompanyTurnover,
-			r.CompanyGrossIncomeBase AS CompanyGrossIncome,
-			r.CompanyCommBase AS CompanyComm,
-			r.HousePT AS HousePositionTaking
+			r.CompanyTurnoverBase AS HouseTurnover,
+			r.CompanyGrossIncomeBase AS HouseGrossIncome,
+			r.CompanyCommBase AS HouseComm,
+			r.HousePT AS HousePositionTaking,
+			CASE WHEN c.roleid = 1 THEN a.site ELSE c.site END AS SiteName
 		FROM #Result r
 			INNER JOIN dbo.Exchange e WITH(NOLOCK) ON r.CurrencyID = e.exchangeid
-			INNER JOIN dbo.Customer c WITH(NOLOCK) ON r.custId = c.custid
+			LEFT JOIN dbo.Customer c WITH(NOLOCK) ON r.custId = c.custid
+			LEFT JOIN dbo.Customer a WITH(NOLOCK) ON a.custid = c.recommend 
 		ORDER BY c.username
 	END
 	ELSE
@@ -1624,9 +1687,9 @@ BEGIN
 			SUM(r.TotalBets) AS TotalBets,
 			SUM(r.TotalWins) AS TotalWins,
 			SUM(r.TotalRefund) AS TotalRefund,
-			SUM(r.CompanyTurnover) AS CompanyTurnover,
-			SUM(r.CompanyGrossIncome) AS CompanyGrossIncome,
-			SUM(r.CompanyComm) AS CompanyComm
+			SUM(r.CompanyTurnover) AS HouseTurnover,
+			SUM(r.CompanyGrossIncome) AS HouseGrossIncome,
+			SUM(r.CompanyComm) AS HouseComm
 		FROM #Result r
 			INNER JOIN dbo.Exchange e WITH(NOLOCK) ON r.CurrencyID = e.exchangeid
 		GROUP BY e.exchangeid, e.currency
@@ -1643,9 +1706,9 @@ BEGIN
 		SUM(TotalBetsBase)  AS TotalBets,
 		SUM(TotalWinsBase) AS TotalWins,
 		SUM(TotalRefundBase) AS TotalRefund,
-		SUM(CompanyTurnoverBase) AS CompanyTurnover,		
-		SUM(CompanyGrossIncomeBase) AS CompanyGrossIncome,
-		SUM(CompanyCommBase) AS CompanyComm
+		SUM(CompanyTurnoverBase) AS HouseTurnover,		
+		SUM(CompanyGrossIncomeBase) AS HouseGrossIncome,
+		SUM(CompanyCommBase) AS HouseComm
 	FROM #Result
 
 	DROP TABLE #Data
