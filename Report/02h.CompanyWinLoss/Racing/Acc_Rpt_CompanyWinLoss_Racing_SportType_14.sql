@@ -19,6 +19,7 @@ DB: DBACC/bodb02
 
 Revisions:
 - 20160301@Jacob: Initialize Company Win Loss Report
+- 20170831@Cherry: Extend data type of Sporttype (#73545)
 	
 Example: 
 EXEC [Acc_Rpt_CompanyWinLoss_Racing_SportType_14] @StartDate='2016-01-01', @EndDate='2020-01-01'
@@ -94,7 +95,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Racing_SportType_14] @StartDate='2016-01-01', @EndD
          CREATE TABLE #CommSetting
          (MatchId       INT PRIMARY KEY,
           IBCFee        BIT,
-          sporttype     TINYINT,
+          sporttype     INT,
           ToteCommWin   SMALLMONEY,
           ToteCommPlace SMALLMONEY,
           ToteCommWP    SMALLMONEY,

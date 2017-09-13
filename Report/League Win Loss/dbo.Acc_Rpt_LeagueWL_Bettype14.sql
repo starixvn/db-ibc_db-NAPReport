@@ -26,6 +26,7 @@ AS
 		-- 20150723@Sophia: Exclude data of Bettrade [#38815]	
 		-- 20150922@Jim: offer MO	
 		-- 20160819@Robert: Add Bet Trade Winloss bettype=904 (#62630)
+		- 20170831@Cherry: Extend data type of Sporttype (#73545)
 		Explanation's Param:
 			- @winlostdate: the date want to view report
 			- @leagueid   : the leagueid want to view report
@@ -45,7 +46,7 @@ BEGIN
 	
 	 
 	--Declare @temp table to contain all matches based on @winlostdate
-	DECLARE @Match TABLE (matchid INT, sporttype tinyINT, leagueid INT, matchcode VARCHAR(50), type varchar(10), primary key(matchid, type))
+	DECLARE @Match TABLE (matchid INT, sporttype INT, leagueid INT, matchcode VARCHAR(50), type varchar(10), primary key(matchid, type))
 	INSERT INTO @Match 
 	SELECT	m.matchid, 
 			l.sporttype,
