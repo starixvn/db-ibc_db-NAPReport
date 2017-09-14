@@ -225,25 +225,6 @@ BEGIN
 		AND m.sporttype = 1
 	GROUP BY b.matchid, bettype
 
-	--INSERT INTO #tmpData
-	--SELECT DISTINCT NULL, NULL, 
-	--		m.leagueid,
-	--		m.matchid,
-	--		m.homeid,
-	--		m.awayid,
-	--		m.eventdate,
-	--		m.hthomescore,
-	--		m.htawayscore,
-	--		m.finalhomescore,
-	--		m.finalawayscore,
-	--		b.bettype,
-	--		m.isNeutral
-	--FROM #bettrans b
-	--	LEFT JOIN #tmpData t ON b.matchid = t.matchid AND b.bettype = t.bettype AND t.bettype <> 0
-	--	INNER JOIN dbo.match m WITH (NOLOCK) ON b.matchid = m.matchid
-	--	INNER JOIN dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid  
-	--WHERE t.bettype IS NULL
-
 	-- Return Data
 	INSERT INTO #Result (custid, username, eventdate, leagueid, matchid, maxbet, 
 						homeid, awayid, IsNeutral, 
