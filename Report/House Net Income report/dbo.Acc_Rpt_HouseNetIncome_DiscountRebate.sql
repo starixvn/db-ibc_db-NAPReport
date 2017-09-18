@@ -1,5 +1,4 @@
-USE bodb02
-GO
+/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
 
 ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_DiscountRebate]
 	@FromDate DATE,
@@ -16,6 +15,7 @@ AS
 		- 20160922@Harper - #64527 - Cannot calculate the Rebate of Keno and Number Game
 		- 20161024@Harper - #65699 - HAIFA - Apply new charge rate discount for HNI report
 		- 20170323@Harper - #67065 - Add more product to calculate discount & rebate
+		- 20170825@Harper - #79612 - Add VS2 to caculate Discount
 	Param's Explanation:   
 */  
 BEGIN  
@@ -113,7 +113,7 @@ BEGIN
 				SUM(-ISNULL(b.MemberWL, 0) * e.Rate)	
 		FROM	bodb_LicenseeReport.dbo.rpt_BettingByProduct b WITH (NOLOCK)
 				INNER JOIN #Exchange e ON b.rptDate = e.ExchangeDate AND b.CurrencyId = e.ExchangeID	
-				INNER JOIN bodb_licensee.dbo.LA_f_ChargeInfo(@PartyIDs, @FDate, @TDate, 'SB,VS', 'OA', 1) ci
+				INNER JOIN bodb_licensee.dbo.LA_f_ChargeInfo(@PartyIDs, @FDate, @TDate, 'SB,VS,VS2', 'OA', 1) ci
 					ON ci.LicenseeID = b.SiteID	
 					AND ci.ProductID = b.ProductID
 					AND (b.rptDate BETWEEN ci.Fromdate AND ci.Todate)
