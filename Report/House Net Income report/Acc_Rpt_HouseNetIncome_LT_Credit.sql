@@ -152,4 +152,6 @@ GO
 
 GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_LT_Credit] TO [bodbAdminNet]
 GO
+GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_LT_Credit] TO [dwrs]
+GO
 GRANT VIEW definition ON [dbo].[Acc_Rpt_HouseNetIncome_LT_Credit] TO [vnteam]
