@@ -1,6 +1,6 @@
 USE [bodb_CustomerLog]
 GO
-/****** Object:  StoredProcedure [dbo].[Acc_Rpt_AdminUpdateCredit]    Script Date: 9/14/2017 2:41:38 PM ******/
+/****** Object:  StoredProcedure [dbo].[Acc_Rpt_AdminUpdateCredit]    Script Date: 9/20/2017 2:03:55 PM ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
@@ -20,7 +20,7 @@ AS
     Param's Explanation:
 		 @Username:  member's username
 		 @FromDate, @ToDate: date range
-  Example: exec Acc_Rpt_AdminUpdateCredit @username = '', @FromDate = '2017-09-12 00:00:00.000', @ToDate = '2017-09-16 03:40:01.383';
+  Example: exec Acc_Rpt_AdminUpdateCredit @username = '', @FromDate = '2017-09-12 00:00:00.000', @ToDate = '2017-09-16 00:00:00.000';
 */  
 BEGIN
 	SET NOCOUNT ON
@@ -102,8 +102,8 @@ BEGIN
 		LEFT JOIN #CustGroup mhl ON mhl.groupid = mca.groupid 
 		LEFT JOIN #CustGroup ahl ON ahl.groupid = aca.groupid 
 		LEFT JOIN #CustGroup hl  ON hl.groupid = ca.groupid 
-	WHERE  ul.logdate BETWEEN @FromDate and @ToDate
-		AND ul.OldValue <> ul.NewValue AND (@Username = '' OR  ul.custid = @CustID)
+	WHERE  ul.logdate >= @FromDate AND ul.logdate < DATEADD(d,1,@ToDate) 
+		AND ISNULL(ul.OldValue,0) <> ISNULL(ul.NewValue,0) AND (@Username = '' OR  ul.custid = @CustID)
 		AND c.currency NOT IN (20,27,28)
 	ORDER BY ul.logdate ASC
 
