@@ -1,4 +1,4 @@
-/*<info serverAlias="DBWH-bodb_dwrs" executers="bodbAdminNet,dwrs" viewers="vnteam" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBDWH-bodb_dwrs" executers="bodbAdminNet,dwrs" viewers="vnteam" isFunction="0" isNested="0"></info>*/
 
 ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_VS2_Credit]
 	@FromDate DATE,
@@ -6,7 +6,7 @@ ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_VS2_Credit]
 AS  
 /*  Created: 20170825@Harper  
     Task : House month-to-date Net Income report for Virtual Sports 2 (VS2) [RedmineID: #79612]
-    DB: DBWH/bodb_dwrs  
+    DB: DBDWH/bodb_dwrs  
    
     Revisions: 
 		- 20170825@Harper: Create new SP for VS2
