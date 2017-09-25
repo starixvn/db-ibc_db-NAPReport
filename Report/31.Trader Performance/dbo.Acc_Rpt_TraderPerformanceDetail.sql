@@ -15,6 +15,7 @@ AS
 
 	Revisions:
 		- 20170818@Cherry: Remove bettype 2, 12 in Soccer (#78011)
+		- 20170925@Kean: Update formula of ExtraPT
 		
 	Param's Explanation:
 		@IsSoccer:
@@ -87,7 +88,7 @@ BEGIN
 	UNION SELECT 	12, 8
 
 	INSERT INTO #ExtraPTSportbook
-	SELECT SuperId, SUM(ExtraPT) AS ExtraPT, MIN(FromDate), MAX(ToDate)
+	SELECT SuperId, SUM(ExtraPT) AS ExtraPT, FromDate, ToDate
 	FROM
 	(
 		SELECT SuperId, ExtraPT, FromDate, ToDate
@@ -99,7 +100,7 @@ BEGIN
 			)
 			AND ProductId = 1 AND Sporttype = 0 AND SubProduct = ''
 	) A
-	GROUP BY SuperId
+	GROUP BY SuperId, FromDate, ToDate
 
 	IF @IsSoccer = 1
 	BEGIN
@@ -118,14 +119,12 @@ BEGIN
 			m.finalawayscore,
 			CASE 
 				WHEN (operatortype = 1) AND (bettype = 1 OR bettype = 5) THEN 1
-				--WHEN operatortype = 1 AND bettype = 4 THEN 2
 				WHEN operatortype = 1 AND bettype = 2 THEN 3
 				WHEN operatortype = 1 AND bettype = 3 THEN 5
 				WHEN operatortype = 2 AND bettype = 1 THEN 7
 				WHEN operatortype = 2 AND bettype = 2 THEN 8
-				--WHEN operatortype = 2 AND bettype = 4 THEN 12
 				WHEN operatortype = 2 AND bettype = 3 THEN 15
-				ELSE 0 END bettype,
+			END bettype,
 			m.isNeutral,
 			CASE 
 				WHEN leaguename LIKE '%SPECIFIC 15 MINS%' AND t.teamname LIKE '%No.of Corners%' THEN 6
@@ -211,7 +210,7 @@ BEGIN
 				WHEN operatortype = 2 AND bettype = 2 THEN 8
 				WHEN operatortype = 2 AND bettype = 4 THEN 12
 				WHEN operatortype = 2 AND bettype = 3 THEN 15
-				ELSE 0 END bettype
+			END bettype
 			,m.isNeutral
 			,0
 		FROM dbo.Dot_admin_Assignment_Operator a WITH (NOLOCK)
@@ -251,6 +250,16 @@ BEGIN
 			AND m.matchcode NOT LIKE '%hedge%'
 			AND a.matchid IS NULL
 	END
+	
+	INSERT INTO #tmpData (custid, username, leagueid, matchid, homeid, awayid, eventdate, hthomescore, htawayscore, fthomescore, ftawayscore, bettype, IsNeutral, OUtype)
+	SELECT DISTINCT custid, username, leagueid, matchid, homeid, awayid, eventdate, hthomescore, htawayscore, fthomescore, ftawayscore, 124 bettype, IsNeutral, OUtype
+	FROM #tmpData
+	WHERE bettype = 5
+	
+	INSERT INTO #tmpData (custid, username, leagueid, matchid, homeid, awayid, eventdate, hthomescore, htawayscore, fthomescore, ftawayscore, bettype, IsNeutral, OUtype)
+	SELECT DISTINCT custid, username, leagueid, matchid, homeid, awayid, eventdate, hthomescore, htawayscore, fthomescore, ftawayscore, 125 bettype, IsNeutral, OUtype
+	FROM #tmpData
+	WHERE bettype = 15
 
 	INSERT INTO @temp_maxbet(matchid, custid, maxbet)
 	SELECT t.matchid, t.custid, MAX(maxbet)
@@ -276,11 +285,11 @@ BEGIN
 		-SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm) * virtualrate) AS winlost,
 		SUM(scomm * actualrate) AS comm,
 		SUM(CASE 
-				WHEN bettype IN (5, 15) THEN ABS(stake) * (1 - tpositiontaking - ISNULL(ExtraPT, 0)) * virtualrate
+				WHEN bettype IN (5, 15) THEN ABS(stake) * (CASE WHEN tpositiontaking = 1 THEN 0 ELSE 1 - tpositiontaking - ISNULL(ExtraPT, 0) END) * virtualrate
 				WHEN bettype IN (1, 2, 3, 7, 8, 12, 124, 125)
-					THEN (CASE WHEN modds = 0.25 OR modds = - 0.25 THEN stake/2 ELSE stake END) * (1 - tpositiontaking- ISNULL(ExtraPT, 0)) * virtualrate
+					THEN (CASE WHEN modds = 0.25 OR modds = - 0.25 THEN stake/2 ELSE stake END) * (CASE WHEN tpositiontaking = 1 THEN 0 ELSE 1 - tpositiontaking- ISNULL(ExtraPT, 0) END) * virtualrate
 				ELSE 0 END) AS stake_AfterExtraPT,
-		-SUM((winlost - actual_stake + CASE WHEN tpositiontaking = 1 THEN 0 ELSE scomm/(1 - tpositiontaking) END) * virtualrate * ISNULL(e.ExtraPT, 0)) AS memberwinlost_ExtraPT,
+		-SUM(CASE WHEN tpositiontaking = 1 THEN 0 ELSE (winlost - actual_stake + scomm/(1 - tpositiontaking)) * virtualrate * ISNULL(e.ExtraPT, 0) END) AS memberwinlost_ExtraPT,
 		COUNT(1) AS bet
 	FROM dbo.bettrans b WITH (NOLOCK)
 		LEFT JOIN #ExtraPTSportbook e ON b.srecommend = e.superId AND b.winlostdate BETWEEN e.FromDate AND e.ToDate
@@ -296,6 +305,33 @@ BEGIN
 		AND liveindicator = 1
 		AND currency <> 20
 	GROUP BY matchid, bettype
+	
+	INSERT INTO #tmpData (custid, username, leagueid, matchid, homeid, awayid, eventdate, hthomescore, htawayscore, fthomescore, ftawayscore, bettype, IsNeutral, OUtype)
+	SELECT
+			NULL custid,
+			NULL username,
+			m.leagueid,
+			m.matchid,
+			m.homeid,
+			m.awayid,
+			m.eventdate,
+			m.hthomescore,
+			m.htawayscore,
+			m.finalhomescore,
+			m.finalawayscore,
+			a.bettype,
+			m.isNeutral,
+			0
+		FROM #bettrans a WITH (NOLOCK)
+			LEFT JOIN #tmpData d ON a.matchid = d.matchid AND (a.bettype = d.bettype OR d.bettype = 0)
+			INNER JOIN dbo.match m WITH (NOLOCK) ON a.matchid = m.matchid
+			INNER JOIN dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid
+		WHERE m.eventdate BETWEEN @FromDate AND @ToDate
+			AND m.eventstatus = 'completed'
+			AND ((@IsSoccer = 1 AND m.sporttype = 1)
+				OR (@IsSoccer = 0 AND m.sporttype NOT IN (1, 161)))
+			AND m.matchcode NOT LIKE '%hedge%'
+			AND d.bettype IS NULL
 
 	-- Return Data
 	SELECT
@@ -319,36 +355,34 @@ BEGIN
 		comm_1sthdp + comm_hdp + comm_1stou + comm_ou + comm_1x2 + comm_1st1x2 + comm_oe + comm_1stoe + comm_1stNoOfCorners +comm_NoOfCorners + comm_15minhdp + comm_15minOU + comm_15min1x2 + comm_1stTotalBookings + comm_TotalBookings + comm_NextCorner
 		+ comm_NextBooking + comm_15minCorners + comm_15minTotalBookings + comm_10minHdp + comm_10minOU + comm_10min1x2 + comm_SingleTeamOU AS overall_com,  
    
-		(winlost_1sthdp)/(CASE WHEN ISNULL(ROUND(stake_1sthdp,4),0) = 0 THEN 1 ELSE stake_1sthdp END) AS margin_1sthdp,  
-		(winlost_hdp)/(CASE WHEN ISNULL(ROUND(stake_hdp,4),0) = 0 THEN 1 ELSE stake_hdp END) AS margin_hdp,  
-		(winlost_1stou)/(CASE WHEN ISNULL(ROUND(stake_1stou,4),0) = 0 THEN 1 ELSE stake_1stou END) AS margin_1stou,  
-		(winlost_ou)/(CASE WHEN ISNULL(ROUND(stake_ou,4),0) = 0 THEN 1 ELSE stake_ou END) AS margin_ou,  
-		(winlost_1x2)/(CASE WHEN ISNULL(ROUND(stake_1x2,4),0) = 0 THEN 1 ELSE stake_1x2 END) AS margin_1x2,  
-		(winlost_1st1x2)/(CASE WHEN ISNULL(ROUND(stake_1st1x2,4),0) = 0 THEN 1 ELSE stake_1st1x2 END) AS margin_1st1x2,  
-		(winlost_oe)/(CASE WHEN ISNULL(ROUND(stake_oe,4),0) = 0 THEN 1 ELSE stake_oe END) AS margin_oe,  
-		(winlost_1stoe)/(CASE WHEN ISNULL(ROUND(stake_1stoe,4),0) = 0 THEN 1 ELSE stake_1stoe END) AS margin_1stoe,  
-		(winlost_1stNoOfCorners)/(CASE WHEN ISNULL(ROUND(stake_1stNoOfCorners,4),0) = 0 THEN 1 ELSE stake_1stNoOfCorners END) AS margin_1stNoOfCorners,  
-		(winlost_NoOfCorners)/(CASE WHEN ISNULL(ROUND(stake_NoOfCorners,4),0) = 0 THEN 1 ELSE stake_NoOfCorners END) AS margin_NoOfCorners,  
-		(winlost_15minhdp)/(CASE WHEN ISNULL(ROUND(stake_15minhdp,4),0) = 0 THEN 1 ELSE stake_15minhdp END) AS margin_15minhdp,  
-		(winlost_15minOU)/(CASE WHEN ISNULL(ROUND(stake_15minOU,4),0) = 0 THEN 1 ELSE stake_15minOU END) AS margin_15minOU,  
-		(winlost_15min1x2)/(CASE WHEN ISNULL(ROUND(stake_15min1x2,4),0) = 0 THEN 1 ELSE stake_15min1x2 END) AS margin_15min1x2,  
-		(winlost_1stTotalBookings)/(CASE WHEN ISNULL(ROUND(stake_1stTotalBookings,4),0) = 0 THEN 1 ELSE stake_1stTotalBookings END) AS margin_1stTotalBookings,  
-		(winlost_TotalBookings)/(CASE WHEN ISNULL(ROUND(stake_TotalBookings,4),0) = 0 THEN 1 ELSE stake_TotalBookings END) AS margin_TotalBookings,  
-		(winlost_NextCorner)/(CASE WHEN ISNULL(ROUND(stake_NextCorner,4),0) = 0 THEN 1 ELSE stake_NextCorner END) AS margin_NextCorner,  
-		(winlost_NextBooking)/(CASE WHEN ISNULL(ROUND(stake_NextBooking,4),0) = 0 THEN 1 ELSE stake_NextBooking END) AS margin_NextBooking,  
-		(winlost_15minCorners)/(CASE WHEN ISNULL(ROUND(stake_15minCorners,4),0) = 0 THEN 1 ELSE stake_15minCorners END) AS margin_15minCorners, 
-		(winlost_15minTotalBookings)/(CASE WHEN ISNULL(ROUND(stake_15minTotalBookings,4),0) = 0 THEN 1 ELSE stake_15minTotalBookings END) AS margin_15minTotalBookings,  
-		(winlost_10minHdp)/(CASE WHEN ISNULL(ROUND(stake_10minHdp,4),0) = 0 THEN 1 ELSE stake_10minHdp END) AS margin_10minHdp,
-		(winlost_10minOU)/(CASE WHEN ISNULL(ROUND(stake_10minOU,4),0) = 0 THEN 1 ELSE stake_10minOU END) AS margin_10minOU,
-		(winlost_10min1x2)/(CASE WHEN ISNULL(ROUND(stake_10min1x2,4),0) = 0 THEN 1 ELSE stake_10min1x2 END) AS margin_10min1x2,
-		(winlost_SingleTeamOU)/(CASE WHEN ISNULL(ROUND(stake_SingleTeamOU,4),0) = 0 THEN 1 ELSE stake_SingleTeamOU END) AS margin_SingleTeamOU,
-   
-		(winlost_1sthdp + winlost_hdp + winlost_1stou + winlost_ou + winlost_1x2 + winlost_1st1x2 + winlost_oe + winlost_1stoe + winlost_1stNoOfCorners + winlost_NoOfCorners + winlost_15minhdp + winlost_15minOU + winlost_15min1x2 + winlost_1stTotalBookings + winlost_TotalBookings + winlost_NextCorner
-		+ winlost_NextBooking + winlost_15minCorners + winlost_15minTotalBookings + winlost_10minHdp + winlost_10minOU + winlost_10min1x2 + winlost_SingleTeamOU)
-		/(CASE WHEN ROUND((ISNULL(stake_1sthdp,0) + ISNULL(stake_hdp,0) + ISNULL(stake_1stou,0) + ISNULL(stake_ou,0) + ISNULL(stake_1x2,0) + ISNULL(stake_1st1x2,0) + ISNULL(stake_oe,0) + ISNULL(stake_1stoe,0) + ISNULL(stake_1stNoOfCorners,0) + ISNULL(stake_NoOfCorners,0) + ISNULL(stake_15minhdp,0) + ISNULL(stake_15minOU,0) + ISNULL(stake_15min1x2,0) + ISNULL(stake_1stTotalBookings,0) + ISNULL(stake_TotalBookings,0)+ ISNULL(stake_NextCorner,0)
-										+ ISNULL(stake_NextBooking,0) + ISNULL(stake_15minCorners,0) + ISNULL(stake_15minTotalBookings,0) + ISNULL(stake_10minHdp,0) + ISNULL(stake_10minOU,0) + ISNULL(stake_10min1x2,0) + ISNULL(stake_SingleTeamOU,0)),4) = 0 THEN 1   
-		ELSE (ISNULL(stake_1sthdp,0) + ISNULL(stake_hdp,0) + ISNULL(stake_1stou,0) +ISNULL(stake_ou,0) + ISNULL(stake_1x2,0) + ISNULL(stake_1st1x2,0) + ISNULL(stake_oe,0)+ ISNULL(stake_1stoe,0)+ ISNULL(stake_1stNoOfCorners,0) +ISNULL(stake_NoOfCorners,0)+ ISNULL(stake_15minhdp,0) + ISNULL(stake_15minOU,0) + ISNULL(stake_15min1x2,0)  + ISNULL(stake_1stTotalBookings,0) + ISNULL(stake_TotalBookings,0) + ISNULL(stake_NextCorner,0) 
-										+ ISNULL(stake_NextBooking,0) + ISNULL(stake_15minCorners,0) + ISNULL(stake_15minTotalBookings,0) + ISNULL(stake_10minHdp,0) + ISNULL(stake_10minOU,0) + ISNULL(stake_10min1x2,0) + ISNULL(stake_SingleTeamOU,0)) END) AS overall_margin,  
+		CASE WHEN ISNULL(ROUND(stake_1sthdp,4),0) = 0 THEN 0 ELSE winlost_1sthdp/stake_1sthdp END AS margin_1sthdp,  
+		CASE WHEN ISNULL(ROUND(stake_hdp,4),0) = 0 THEN 0 ELSE winlost_hdp/stake_hdp END AS margin_hdp,  
+		CASE WHEN ISNULL(ROUND(stake_1stou,4),0) = 0 THEN 0 ELSE winlost_1stou/stake_1stou END AS margin_1stou,  
+		CASE WHEN ISNULL(ROUND(stake_ou,4),0) = 0 THEN 0 ELSE winlost_ou/stake_ou END AS margin_ou,  
+		CASE WHEN ISNULL(ROUND(stake_1x2,4),0) = 0 THEN 0 ELSE winlost_1x2/stake_1x2 END AS margin_1x2,  
+		CASE WHEN ISNULL(ROUND(stake_1st1x2,4),0) = 0 THEN 0 ELSE winlost_1st1x2/stake_1st1x2 END AS margin_1st1x2,  
+		CASE WHEN ISNULL(ROUND(stake_oe,4),0) = 0 THEN 0 ELSE winlost_oe/stake_oe END AS margin_oe,  
+		CASE WHEN ISNULL(ROUND(stake_1stoe,4),0) = 0 THEN 0 ELSE winlost_1stoe/stake_1stoe END AS margin_1stoe,  
+		CASE WHEN ISNULL(ROUND(stake_1stNoOfCorners,4),0) = 0 THEN 0 ELSE winlost_1stNoOfCorners/stake_1stNoOfCorners END AS margin_1stNoOfCorners,  
+		CASE WHEN ISNULL(ROUND(stake_NoOfCorners,4),0) = 0 THEN 0 ELSE winlost_NoOfCorners/stake_NoOfCorners END AS margin_NoOfCorners,  
+		CASE WHEN ISNULL(ROUND(stake_15minhdp,4),0) = 0 THEN 0 ELSE winlost_15minhdp/stake_15minhdp END AS margin_15minhdp,  
+		CASE WHEN ISNULL(ROUND(stake_15minOU,4),0) = 0 THEN 0 ELSE winlost_15minOU/stake_15minOU END AS margin_15minOU,  
+		CASE WHEN ISNULL(ROUND(stake_15min1x2,4),0) = 0 THEN 0 ELSE winlost_15min1x2/stake_15min1x2 END AS margin_15min1x2,  
+		CASE WHEN ISNULL(ROUND(stake_1stTotalBookings,4),0) = 0 THEN 0 ELSE winlost_1stTotalBookings/stake_1stTotalBookings END AS margin_1stTotalBookings,  
+		CASE WHEN ISNULL(ROUND(stake_TotalBookings,4),0) = 0 THEN 0 ELSE winlost_TotalBookings/stake_TotalBookings END AS margin_TotalBookings,  
+		CASE WHEN ISNULL(ROUND(stake_NextCorner,4),0) = 0 THEN 0 ELSE winlost_NextCorner/stake_NextCorner END AS margin_NextCorner,  
+		CASE WHEN ISNULL(ROUND(stake_NextBooking,4),0) = 0 THEN 0 ELSE winlost_NextBooking/stake_NextBooking END AS margin_NextBooking,  
+		CASE WHEN ISNULL(ROUND(stake_15minCorners,4),0) = 0 THEN 0 ELSE winlost_15minCorners/stake_15minCorners END AS margin_15minCorners, 
+		CASE WHEN ISNULL(ROUND(stake_15minTotalBookings,4),0) = 0 THEN 0 ELSE winlost_15minTotalBookings/stake_15minTotalBookings END AS margin_15minTotalBookings,  
+		CASE WHEN ISNULL(ROUND(stake_10minHdp,4),0) = 0 THEN 0 ELSE winlost_10minHdp/stake_10minHdp END AS margin_10minHdp,
+		CASE WHEN ISNULL(ROUND(stake_10minOU,4),0) = 0 THEN 0 ELSE winlost_10minOU/stake_10minOU END AS margin_10minOU,
+		CASE WHEN ISNULL(ROUND(stake_10min1x2,4),0) = 0 THEN 0 ELSE winlost_10min1x2/stake_10min1x2 END AS margin_10min1x2,
+		CASE WHEN ISNULL(ROUND(stake_SingleTeamOU,4),0) = 0 THEN 0 ELSE winlost_SingleTeamOU/stake_SingleTeamOU END AS margin_SingleTeamOU,
+		CASE WHEN ROUND((ISNULL(stake_1sthdp,0) + ISNULL(stake_hdp,0) + ISNULL(stake_1stou,0) + ISNULL(stake_ou,0) + ISNULL(stake_1x2,0) + ISNULL(stake_1st1x2,0) + ISNULL(stake_oe,0) + ISNULL(stake_1stoe,0) + ISNULL(stake_1stNoOfCorners,0) + ISNULL(stake_NoOfCorners,0) + ISNULL(stake_15minhdp,0) + ISNULL(stake_15minOU,0) + ISNULL(stake_15min1x2,0) + ISNULL(stake_1stTotalBookings,0) + ISNULL(stake_TotalBookings,0)+ ISNULL(stake_NextCorner,0)
+										+ ISNULL(stake_NextBooking,0) + ISNULL(stake_15minCorners,0) + ISNULL(stake_15minTotalBookings,0) + ISNULL(stake_10minHdp,0) + ISNULL(stake_10minOU,0) + ISNULL(stake_10min1x2,0) + ISNULL(stake_SingleTeamOU,0)),4) = 0 THEN 0   
+		ELSE (winlost_1sthdp + winlost_hdp + winlost_1stou + winlost_ou + winlost_1x2 + winlost_1st1x2 + winlost_oe + winlost_1stoe + winlost_1stNoOfCorners + winlost_NoOfCorners + winlost_15minhdp + winlost_15minOU + winlost_15min1x2 + winlost_1stTotalBookings + winlost_TotalBookings + winlost_NextCorner) 
+		/((ISNULL(stake_1sthdp,0) + ISNULL(stake_hdp,0) + ISNULL(stake_1stou,0) +ISNULL(stake_ou,0) + ISNULL(stake_1x2,0) + ISNULL(stake_1st1x2,0) + ISNULL(stake_oe,0)+ ISNULL(stake_1stoe,0)+ ISNULL(stake_1stNoOfCorners,0) +ISNULL(stake_NoOfCorners,0)+ ISNULL(stake_15minhdp,0) + ISNULL(stake_15minOU,0) + ISNULL(stake_15min1x2,0)  + ISNULL(stake_1stTotalBookings,0) + ISNULL(stake_TotalBookings,0) + ISNULL(stake_NextCorner,0) 
+										+ ISNULL(stake_NextBooking,0) + ISNULL(stake_15minCorners,0) + ISNULL(stake_15minTotalBookings,0) + ISNULL(stake_10minHdp,0) + ISNULL(stake_10minOU,0) + ISNULL(stake_10min1x2,0) + ISNULL(stake_SingleTeamOU,0))) END AS overall_margin ,   
      
 		bet_hdp, bet_ou, bet_1sthdp, bet_1stou, bet_1x2, bet_1st1x2, bet_oe, bet_1stoe, bet_1stNoOfCorners, bet_NoOfCorners, bet_15minhdp, bet_15minOU, bet_15min1x2, bet_1stTotalBookings, bet_TotalBookings, bet_NextCorner,
 		bet_NextBooking, bet_15minCorners, bet_15minTotalBookings, bet_10minHdp, bet_10minOU, bet_10min1x2, bet_SingleTeamOU,  
@@ -454,7 +488,7 @@ BEGIN
 			SUM(CASE WHEN b.bettype = 5 AND OUtype = 8 THEN bet ELSE 0 END) AS bet_10min1x2,
 			SUM(CASE WHEN b.bettype IN (3, 8) AND OUtype = 9 THEN bet ELSE 0 END) AS bet_SingleTeamOU
 		FROM #bettrans b
-			INNER JOIN #tmpData t ON b.matchid = t.matchid AND (b.bettype = t.bettype OR (b.bettype = 124 AND t.bettype = 5) OR (b.bettype = 125 AND t.bettype = 15))
+			INNER JOIN #tmpData t ON b.matchid = t.matchid AND b.bettype = t.bettype AND t.custid IS NOT NULL
 		GROUP BY t.custid, t.username, t.eventdate, t.leagueid, t.matchid, t.homeid, t.awayid, t.hthomescore, t.htawayscore, t.fthomescore, t.ftawayscore, t.IsNeutral
 		
 		UNION ALL  
@@ -556,8 +590,7 @@ BEGIN
 			SUM(CASE WHEN b.bettype = 5 AND OUtype = 8 THEN bet ELSE 0 END) AS bet_10min1x2,
 			SUM(CASE WHEN b.bettype IN (3, 8) AND OUtype = 9 THEN bet ELSE 0 END) AS bet_SingleTeamOU
 		FROM #bettrans b      
-			LEFT JOIN #tmpData t ON b.matchid = t.matchid AND (b.bettype = t.bettype OR t.bettype = 0)
-		WHERE t.bettype IS NULL OR t.bettype = 0
+			INNER JOIN #tmpData t ON b.matchid = t.matchid AND (b.bettype = t.bettype OR t.bettype = 0) AND t.custid IS NULL
 		GROUP BY t.eventdate, t.leagueid, t.matchid, t.homeid, t.awayid, t.hthomescore, t.htawayscore, t.fthomescore, t.ftawayscore, t.IsNeutral
 	) AS A
 		LEFT JOIN @temp_maxbet t ON a.matchid = t.matchid AND a.custid = t.custid

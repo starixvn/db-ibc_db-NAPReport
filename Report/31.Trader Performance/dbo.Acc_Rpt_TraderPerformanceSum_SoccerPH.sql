@@ -13,6 +13,7 @@ AS
 	Task: Trader Performance Report - Sum - SoccerPH - bettrans
 
 	Revisions:
+		- 20170925@Kean: Update formula of ExtraPT
 
 	Param's Explanation:
 
@@ -94,10 +95,10 @@ BEGIN
 	
 	DELETE m
 	FROM #BettypeMapping m
-	WHERE m.TicketBettype NOT IN (SELECT typeid FROM bodb02.dbo.bettype)
+	WHERE m.TicketBettype NOT IN (SELECT typeid FROM bodb02.dbo.bettype WITH (NOLOCK))
 
 	INSERT INTO #ExtraPTSportbook
-	SELECT SuperId, SUM(ExtraPT) AS ExtraPT, MIN(FromDate), MAX(ToDate)
+	SELECT SuperId, SUM(ExtraPT) AS ExtraPT, FromDate, ToDate
 	FROM
 	(
 		SELECT SuperId, ExtraPT, FromDate, ToDate
@@ -109,7 +110,7 @@ BEGIN
 			)
 			AND ProductId = 1 AND Sporttype = 0 AND SubProduct = ''
 	) A
-	GROUP BY SuperId
+	GROUP BY SuperId, FromDate, ToDate
 
 	INSERT INTO #tmpData
 	SELECT DISTINCT a.operatorid, username, m.matchID,  
@@ -140,27 +141,7 @@ BEGIN
 		AND m.sporttype = 1
 		AND m.matchcode NOT LIKE '%hedge%'
 		AND a.matchid IS NULL
-
-	INSERT INTO #userMatch (custid, nMatch, Major, Minor1, Minor2, Minor3, Others) 
-	SELECT
-		custid,
-		ISNULL(Major, 0) + ISNULL(Minor1, 0) + ISNULL(Minor2, 0) + ISNULL(Minor3, 0) + ISNULL(Others, 0) AS nMatch,
-		ISNULL(Major, 0), ISNULL(Minor1, 0), ISNULL(Minor2, 0), ISNULL(Minor3, 0) ,ISNULL(Others, 0)
-	FROM
-	(
-		SELECT t.custid, ISNULL(t.category, 'Others') AS category, COUNT(DISTINCT t.matchID) AS cntMatch
-		FROM #tmpData t  
-			INNER JOIN dbo.bettrans b WITH (NOLOCK) ON b.matchid = t.matchid AND b.bettype = t.bettype 
-		WHERE b.liveindicator = 1
-			AND b.statusID NOT IN (101, 102, 103, 121, 111)   
-			AND b.currency <> 20
-		GROUP BY t.custid, ISNULL(t.category,'Others')
-	) AS s
-	PIVOT
-	(
-		SUM(s.cntMatch) FOR category IN (Major, Minor1, Minor2, Minor3, Others)
-	) p
-
+		
 	INSERT INTO #bettrans
 	SELECT
 		b.matchid,
@@ -168,8 +149,8 @@ BEGIN
 		SUM((CASE WHEN modds = 0.25 OR modds = - 0.25 THEN stake/2 ELSE stake END) * (1 - tpositiontaking) * virtualrate) AS stake,
 		-SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm) * virtualrate) AS winlost,
 		SUM(scomm * actualrate) AS comm,
-		SUM((CASE WHEN modds = 0.25 OR modds = - 0.25 THEN stake/2 ELSE stake END) * (1 - tpositiontaking- ISNULL(ExtraPT, 0)) * virtualrate) AS stake_AfterExtraPT,
-		-SUM((winlost - actual_stake + CASE WHEN tpositiontaking = 1 THEN 0 ELSE scomm/(1 - tpositiontaking) END) * virtualrate * ISNULL(e.ExtraPT, 0)) AS memberwinlost_ExtraPT,
+		SUM((CASE WHEN modds = 0.25 OR modds = - 0.25 THEN stake/2 ELSE stake END) * (CASE WHEN tpositiontaking = 1 THEN 0 ELSE 1 - tpositiontaking- ISNULL(ExtraPT, 0) END) * virtualrate) AS stake_AfterExtraPT,
+		-SUM(CASE WHEN tpositiontaking = 1 THEN 0 ELSE (winlost - actual_stake + scomm/(1 - tpositiontaking)) * virtualrate * ISNULL(e.ExtraPT, 0) END) AS memberwinlost_ExtraPT,
 		COUNT(1) AS bet
 	FROM dbo.bettrans b WITH (NOLOCK)
 		INNER JOIN dbo.match m WITH (NOLOCK) ON b.matchid = m.matchid 
@@ -181,17 +162,34 @@ BEGIN
 		AND winlostdate BETWEEN @FromDate AND @ToDate
 		AND liveindicator = 1
 		AND currency <> 20
+		AND m.eventdate BETWEEN @FromDate AND @ToDate
+		AND m.eventstatus = 'completed'
 		AND m.sporttype = 1
+		AND m.matchcode NOT LIKE '%hedge%'
 	GROUP BY b.matchid, bettype
 
+	INSERT INTO #userMatch (custid, nMatch, Major, Minor1, Minor2, Minor3, Others) 
+	SELECT
+		ISNULL(custid,0),
+		ISNULL(Major, 0) + ISNULL(Minor1, 0) + ISNULL(Minor2, 0) + ISNULL(Minor3, 0) + ISNULL(Others, 0) AS nMatch,
+		ISNULL(Major, 0), ISNULL(Minor1, 0), ISNULL(Minor2, 0), ISNULL(Minor3, 0) ,ISNULL(Others, 0)
+	FROM
+	(
+		SELECT t.custid, ISNULL(t.category, 'Others') AS category, COUNT(DISTINCT t.matchID) AS cntMatch
+		FROM #tmpData t  
+			INNER JOIN #bettrans b ON b.matchid = t.matchid AND b.bettype = t.bettype AND t.custid IS NOT NULL
+		GROUP BY t.custid, ISNULL(t.category,'Others')
+	) AS s
+	PIVOT
+	(
+		SUM(s.cntMatch) FOR category IN (Major, Minor1, Minor2, Minor3, Others)
+	) p
+	
 	;WITH CTE AS
 	(  
 		SELECT ISNULL(t.category, 'Others') AS category, COUNT(DISTINCT t.matchID) AS countOrphan
 		FROM #tmpData t
-			INNER JOIN dbo.bettrans b WITH (NOLOCK) ON b.matchid = t.matchid AND t.bettype = 0  
-		WHERE b.liveindicator = 1
-			AND b.statusID NOT IN (101, 102, 103, 121, 111)
-			AND b.currency <> 20
+			INNER JOIN #bettrans b ON b.matchid = t.matchid AND t.custid IS NULL 
 		GROUP BY ISNULL(t.category, 'Others')
 	)
 	SELECT
@@ -210,40 +208,56 @@ BEGIN
 			SUM(ISNULL(stake_AfterExtraPT,0)) AS Stake,			
 			SUM(ISNULL(bet,0)) AS BetCount, 
 			SUM(ISNULL(comm,0)) AS Commission  			    			  			
-	FROM #tmpData t   
+	FROM #tmpData t  
 		LEFT JOIN #bettrans b ON b.matchid = t.matchid AND b.bettype = t.bettype 
 		INNER JOIN dbo.bettype bt WITH (NOLOCK) ON t.bettype = bt.typeid 
 		INNER JOIN #userMatch um ON um.custid = t.custid			
-	GROUP BY t.custid, t.username, um.nMatch, um.Major, um.Minor1, um.Minor2, um.Minor3, um.Others, bt.typeid, bt.typenamee			
+	GROUP BY t.custid, t.username, um.nMatch, um.Major, um.Minor1, um.Minor2, um.Minor3, um.Others, bt.typeid, bt.typenamee				
 	
 	INSERT INTO #Result (custid, username, matchno, Major, Minor1, Minor2, Minor3, Others, Bettype, BettypeName, Winlost, Stake, BetCount, Commission)
 	SELECT 0, '(unassigned)', ISNULL(@countMajorOrphan, 0) + ISNULL(@countMinor1Orphan, 0) + ISNULL(@countMinor2Orphan, 0) + ISNULL(@countMinor3Orphan, 0) + ISNULL(@countOthersOrphan, 0) AS matchno, ISNULL(@countMajorOrphan, 0) Major, ISNULL(@countMinor1Orphan, 0), ISNULL(@countMinor2Orphan, 0), ISNULL(@countMinor3Orphan, 0), ISNULL(@countOthersOrphan, 0),
 			bt.typeid AS Bettype, bt.typenamee AS BettypeName,
-			SUM(stake_AfterExtraPT) AS Stake,			
-			SUM(winlost - memberwinlost_ExtraPT) AS Winlost,  			 
-			SUM(comm) AS Commission,  			    
-			SUM(bet) AS BetCount  			
+			SUM(winlost - memberwinlost_ExtraPT) AS Winlost,  		
+			SUM(stake_AfterExtraPT) AS Stake,	
+			SUM(bet) AS BetCount,						 
+			SUM(comm) AS Commission  			    						
 	FROM #bettrans b 
 		INNER JOIN dbo.bettype bt WITH (NOLOCK) ON b.bettype = bt.typeid      
 		LEFT JOIN #tmpData t ON b.matchid = t.matchid AND (b.bettype = t.bettype OR t.bettype = 0)
 	WHERE (t.bettype IS NULL OR t.bettype = 0) AND t.matchid IS NOT NULL	
 	GROUP BY bt.typeid, bt.typenamee
 	
-	INSERT INTO #Result (custid, username, matchno, Major, Minor1, Minor2, Minor3, Others, Bettype, BettypeName, Winlost, Stake, BetCount, Commission)
-	SELECT 0, '(unassigned)', ISNULL(@countMajorOrphan, 0) + ISNULL(@countMinor1Orphan, 0) + ISNULL(@countMinor2Orphan, 0) + ISNULL(@countMinor3Orphan, 0) + ISNULL(@countOthersOrphan, 0) AS matchno, ISNULL(@countMajorOrphan, 0) Major, ISNULL(@countMinor1Orphan, 0), ISNULL(@countMinor2Orphan, 0), ISNULL(@countMinor3Orphan, 0), ISNULL(@countOthersOrphan, 0),
-			bt.typeid, bt.typenamee AS BettypeName,
-			0 AS Stake,			
-			0 AS Winlost,  			 
-			0 AS Commission,  			    
-			0 AS BetCount  			
-	FROM #BettypeMapping bm
-		INNER JOIN dbo.bettype bt WITH (NOLOCK) ON bm.TicketBettype = bt.typeid 
-		LEFT JOIN #Result s ON s.custid = 0 AND bt.typeid = s.Bettype      
-	WHERE s.Bettype IS NULL
-	GROUP BY bt.typeid, bt.typenamee
+	IF (SELECT COUNT(*) FROM #Result WHERE custid = 0) > 0
+	BEGIN
+		INSERT INTO #Result (custid, username, matchno, Major, Minor1, Minor2, Minor3, Others, Bettype, BettypeName, Winlost, Stake, BetCount, Commission)
+		SELECT 0, '(unassigned)', ISNULL(@countMajorOrphan, 0) + ISNULL(@countMinor1Orphan, 0) + ISNULL(@countMinor2Orphan, 0) + ISNULL(@countMinor3Orphan, 0) + ISNULL(@countOthersOrphan, 0) AS matchno, ISNULL(@countMajorOrphan, 0) Major, ISNULL(@countMinor1Orphan, 0), ISNULL(@countMinor2Orphan, 0), ISNULL(@countMinor3Orphan, 0), ISNULL(@countOthersOrphan, 0),
+				bt.typeid, bt.typenamee AS BettypeName,
+				0 AS Winlost, 
+				0 AS Stake,	
+				0 AS BetCount,					 			 
+				0 AS Commission			    			 			
+		FROM #BettypeMapping bm
+			INNER JOIN dbo.bettype bt WITH (NOLOCK) ON bm.TicketBettype = bt.typeid 
+			LEFT JOIN #Result s ON s.custid = 0 AND bt.typeid = s.Bettype      
+		WHERE s.Bettype IS NULL
+		GROUP BY bt.typeid, bt.typenamee
+	END
+	
+	IF (SELECT COUNT(*) FROM #Result) = 0
+	BEGIN
+		INSERT INTO #Result (custid, username, matchno, Major, Minor1, Minor2, Minor3, Others, Bettype, BettypeName, Winlost, Stake, BetCount, Commission)
+		SELECT 0, '(unassigned)', ISNULL(@countMajorOrphan, 0) + ISNULL(@countMinor1Orphan, 0) + ISNULL(@countMinor2Orphan, 0) + ISNULL(@countMinor3Orphan, 0) + ISNULL(@countOthersOrphan, 0) AS matchno, ISNULL(@countMajorOrphan, 0) Major, ISNULL(@countMinor1Orphan, 0), ISNULL(@countMinor2Orphan, 0), ISNULL(@countMinor3Orphan, 0), ISNULL(@countOthersOrphan, 0),
+				bt.typeid, bt.typenamee AS BettypeName,
+				0 AS Winlost, 
+				0 AS Stake,	
+				0 AS BetCount,					 			 
+				0 AS Commission			    			 			
+		FROM #BettypeMapping bm
+			INNER JOIN dbo.bettype bt WITH (NOLOCK) ON bm.TicketBettype = bt.typeid 
+	END
 	
 	UPDATE #Result
-	SET Margin = Winlost/(CASE WHEN ISNULL(ROUND(Stake,4),0) = 0 THEN 1 ELSE Stake END)
+	SET Margin = CASE WHEN ISNULL(ROUND(Stake,4),0) = 0 THEN 0 ELSE Winlost/Stake END
 	
 	INSERT INTO #Result (custid, username, matchno, Major, Minor1, Minor2, Minor3, Others, Bettype, BettypeName, Winlost, Stake, BetCount, Margin, Commission)			
 	SELECT custid, username, matchno, Major, Minor1, Minor2, Minor3, Others, Bettype, BettypeName, Winlost, Stake, BetCount, Margin, Commission
@@ -264,7 +278,7 @@ BEGIN
 		GROUP BY custid, username, matchno, Major, Minor1, Minor2, Minor3, Others
 		UNION ALL
 		SELECT custid, username, matchno, Major, Minor1, Minor2, Minor3, Others, 400000 AS Bettype, 'Overall_Margin %' AS BettypeName, 
-			0 AS Winlost, 0 AS Stake, 0 AS BetCount, SUM(Margin) AS Margin, 0 AS Commission
+			0 AS Winlost, 0 AS Stake, 0 AS BetCount, CASE WHEN SUM(Stake) = 0 THEN 0 ELSE SUM(Winlost)/SUM(Stake) END AS Margin, 0 AS Commission
 		FROM #Result 
 		GROUP BY custid, username, matchno, Major, Minor1, Minor2, Minor3, Others
 		UNION ALL
