@@ -77,7 +77,7 @@ BEGIN
 	WHERE aa.isgroupheadline = 1
 
 	-- Result
-	SELECT  DATEPART(year,ul.logdate) Year, DATEPART(month,ul.logdate) Month, CONVERT(DATETIME2(0), ul.logdate) [LogDate],
+	SELECT  DATEPART(year,ul.logdate) Year, DATEPART(month,ul.logdate) Month, ul.logdate [LogDate],
 			na.groupname Department, na.username Admin, c.username [Username], 
 			CASE c.roleid WHEN 4 THEN 'Super'
 						  WHEN 3 THEN 'Master'
