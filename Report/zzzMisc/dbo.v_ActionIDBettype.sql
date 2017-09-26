@@ -10,7 +10,7 @@ AS
 
 	Revisions:
 	   20170815@Tom: Add some bettype missing (#81287)
-	   20170926@Tom: Add New Bet Types with Decimal Odds only (#83778)
+	   20170926@Kean: Add New Bet Types with Decimal Odds only (#83778)
 */
 
     SELECT 100 AS ActionID
