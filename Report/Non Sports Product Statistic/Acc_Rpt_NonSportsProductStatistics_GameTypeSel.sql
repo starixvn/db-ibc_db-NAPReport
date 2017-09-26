@@ -11,6 +11,7 @@ AS
 	Revisions:	
 		- 20170215@Percy: Integrate Fishing World [RedmineID: #71616]
 		- 20170626@Cherry: Integrate Keno Lottery and Betradar Virtual Sports (#78184, #78495)
+		- 20170926@Cherry: Integrate Lucky 3 (#83101)
 */
  
 BEGIN
@@ -29,7 +30,7 @@ SET NOCOUNT ON
 	FROM	dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '', @isTest) s
 	INNER JOIN dbo.Bettype b ON s.Bettype = B.TypeId 
 	WHERE  CasinoType IN (1,2) 
-		   OR ProductID IN (8, 24, 28) 	 
+		   OR ProductID IN (8, 24, 26, 28) 	 
 
 	
 	--- ProductID = 3 - Number Game get LeagueId
