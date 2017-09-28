@@ -10,7 +10,7 @@ AS
     DB: DBEXT/bodb02  
    
     Revisions: 
-		- 20170905@Harper: Create new SP for LT		
+		- 20170905@Harper: Create new SP for LT	[RedmineID: #79612]	
 		
 	Param's Explanation:   
 */   
@@ -196,7 +196,3 @@ BEGIN
 	DROP TABLE #FinalResult
 END
 GO
-
-GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_LT_Deposit] TO [bodbAdminNet]
-GO
-GRANT VIEW definition ON [dbo].[Acc_Rpt_HouseNetIncome_LT_Deposit] TO vnteam

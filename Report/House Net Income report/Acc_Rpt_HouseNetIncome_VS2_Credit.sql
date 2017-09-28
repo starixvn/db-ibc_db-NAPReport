@@ -9,7 +9,7 @@ AS
     DB: DBDWH/bodb_dwrs  
    
     Revisions: 
-		- 20170825@Harper: Create new SP for VS2
+		- 20170825@Harper: Create new SP for VS2 [RedmineID: #79612]
 		
 	Param's Explanation:   
 */  
@@ -156,9 +156,3 @@ BEGIN
 	DROP TABLE #FinalResult
 END
 GO
-
-GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_VS2_Credit] TO [bodbAdminNet]
-GO
-GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_VS2_Credit] TO [dwrs]
-GO
-GRANT VIEW definition ON [dbo].[Acc_Rpt_HouseNetIncome_VS2_Credit] TO [vnteam]

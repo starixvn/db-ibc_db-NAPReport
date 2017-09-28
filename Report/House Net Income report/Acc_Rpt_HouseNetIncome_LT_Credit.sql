@@ -10,7 +10,7 @@ AS
     DB: DBWH/bodb_dwrs  
    
     Revisions: 
-		- 20170905@Harper: Create new SP for LT		
+		- 20170905@Harper: Create new SP for LT [RedmineID: #79612]
 		
 	Param's Explanation:   
 */   
@@ -149,9 +149,3 @@ BEGIN
 	DROP TABLE #FinalResult
 END
 GO
-
-GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_LT_Credit] TO [bodbAdminNet]
-GO
-GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_LT_Credit] TO [dwrs]
-GO
-GRANT VIEW definition ON [dbo].[Acc_Rpt_HouseNetIncome_LT_Credit] TO [vnteam]
