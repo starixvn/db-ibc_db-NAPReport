@@ -84,8 +84,13 @@ BEGIN
 						  WHEN 2 THEN 'Agent'
 						  WHEN 1 THEN 'Member'
 			ELSE '' END Level,
-			ISNULL(shl.username,ISNULL(mhl.username,ISNULL(ahl.username,hl.username))) AS Headline,
-			s.username  Super, m.username  Master, a.username  Agent,
+			ISNULL(shl.username,ISNULL(mhl.username,ISNULL(ahl.username,hl.username))) AS Headline
+			, CASE WHEN c.roleid < 4 THEN s.username  
+				 ELSE NULL END Super
+			,CASE WHEN c.roleid < 3 THEN m.username
+				 ELSE NULL END Master 
+			, CASE WHEN c.roleid < 2 THEN  a.username 
+				 ELSE NULL END Agent
 			case when ul.OldValue IS NULL then 0 else ul.OldValue end OldValue, 
 			ul.NewValue, ul.doing Remark
 	FROM bodb_CustomerLog.dbo.UserLog_Credit ul WITH (NOLOCK)
