@@ -4,7 +4,8 @@ USE [bodb_ACC]
 GO
 
 ALTER PROCEDURE [dbo].[NAP_SaveBet_GetJob]
-	@MatchID INT = 0
+	@MatchID INT = 0,
+	@GroupSports INT = 0
 AS
 
 /*
@@ -14,14 +15,29 @@ AS
 	DB: DBACC.BODB_ACC
 	
 	Revisions:
+	   2017.10.02@Tom-Add @GroupSports Parameter Input
+		  0: Sportbook-Soccer
+		  1: Sportbook-OtherSport
+		  2: 3rd Sports
 		
 */
 
 BEGIN
+    SET NOCOUNT ON;
+
 	IF @matchid =0
 		SELECT JobID,s.LiveIndicator,s.Bettype,s.TypeName,ml.MatchID,s.JobType,ml.EventDate FROM ServiceJob s WITH(NOLOCK)
 		INNER JOIN (
-			SELECT TOP 1 * FROM MatchList ml WITH(NOLOCK) WHERE JobGenerated = 1 AND JobFinished = 0 ORDER BY EventDate ASC
+			SELECT TOP 1 ml.* 
+			 FROM MatchList ml WITH(NOLOCK) 
+				    LEFT JOIN bodb02.dbo.match m WITH(NOLOCK)	ON ml.MatchID = m.MatchID
+				    LEFT JOIN bodb02.dbo.match14 m14 WITH(NOLOCK)	ON ml.MatchID = m14.MatchID
+				WHERE JobGenerated = 1 AND JobFinished = 0 
+				    AND (
+					   (@GroupSports = 0 AND (m.sporttype = 1 OR m14.sporttype = 1 ))
+					   OR (@GroupSports = 1 AND ((m.sporttype > 1 AND m.sporttype <= 99) OR (m14.sporttype > 1 AND m14.sporttype <= 99) ))
+					   OR (@GroupSports = 2 AND ((m.sporttype > 99) OR (m14.sporttype > 99) ))
+					   ) 
 		) ml ON ml.MatchID = s.MatchID
 	ELSE
 			SELECT JobID,s.LiveIndicator,s.Bettype,s.TypeName,ml.MatchID,s.JobType,ml.EventDate FROM ServiceJob s WITH(NOLOCK)
