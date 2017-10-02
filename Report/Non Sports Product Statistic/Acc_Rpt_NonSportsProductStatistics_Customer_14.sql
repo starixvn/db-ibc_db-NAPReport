@@ -35,6 +35,7 @@ AS
 		- 20170227@Percy: support search multiple username [RedmineID: #71342]
 		- 20170726@Cherry: Integrate Betradar Virtual Sports (#78495)
 		- 20170815@Cherry: Non-Sport Statistics Phase 5 (#71923)
+		- 20171002@Cherry: Modify Associated Accounts Code Logic (#84002)
 
 	Param's Explanation:
 		- @username: search keyword
@@ -1627,6 +1628,50 @@ BEGIN
 			AND SUM(CompanyComm) = 0
 		)
 	SELECT  @TotalRefundCust = ISNULL(@TotalRefundCust, 0)
+
+	IF @RoleID = 0 --Click Associated Accounts
+	BEGIN
+		INSERT INTO #Result
+		(
+			custid,
+			BetCount,
+			CurrencyID,
+			TotalBets,
+			TotalWins,
+			TotalRefund,
+			CompanyTurnover,
+			CompanyGrossIncome,
+			CompanyComm,
+			TotalBetsBase,
+			TotalWinsBase,
+			TotalRefundBase,
+			CompanyTurnoverBase,
+			CompanyGrossIncomeBase,
+			CompanyCommBase,
+			HousePT
+		)
+		SELECT
+			c.CustID,
+			0 BetCount,
+			cust.currency,
+			0 TotalBets,
+			0 TotalWins,
+			0 TotalRefund,
+			0 CompanyTurnover,
+			0 CompanyGrossIncome,
+			0 CompanyComm,
+			0 TotalBetsBase,
+			0 TotalWinsBase,
+			0 TotalRefundBase,
+			0 CompanyTurnoverBase,
+			0 CompanyGrossIncomeBase,
+			0 CompanyCommBase,
+			0 HousePT
+		FROM #CustUser c
+			LEFT JOIN #Result d ON c.CustID = d.custid 
+			INNER JOIN dbo.Customer cust WITH(NOLOCK) ON c.CustID = cust.custid 
+		WHERE d.custid IS NULL
+	END
 
 	-- Detail
 	IF @IsGrandTotal = 0
