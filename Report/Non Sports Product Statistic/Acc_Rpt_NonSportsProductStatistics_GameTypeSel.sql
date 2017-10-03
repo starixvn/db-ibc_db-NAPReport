@@ -12,6 +12,7 @@ AS
 		- 20170215@Percy: Integrate Fishing World [RedmineID: #71616]
 		- 20170626@Cherry: Integrate Keno Lottery and Betradar Virtual Sports (#78184, #78495)
 		- 20170926@Cherry: Integrate Lucky 3 (#83101)
+		- 20171003@Cherry: Add Number Game Bettype (#83101)
 */
  
 BEGIN
@@ -23,36 +24,46 @@ SET NOCOUNT ON
 	DECLARE @isTest BIT = 0
 	SELECT  @isTest = dbo.f_CheckSPVersion(@@PROCID)
  
-	CREATE TABLE #SportBettype (ProductId INT, TypeId INT, TypeName NVARCHAR(1000), IsTest BIT DEFAULT(0))
+	CREATE TABLE #SportBettype (ProductId INT, TypeId INT, TypeName NVARCHAR(1000), IsTest BIT DEFAULT(0), IsNumberGameBettype BIT)
  
-	INSERT INTO #SportBettype (ProductID, TypeId, TypeName)
-	SELECT	s.ProductID, s.Bettype as TypeId, b.typenamee AS TypeName
+	INSERT INTO #SportBettype (ProductID, TypeId, TypeName, IsNumberGameBettype)
+	SELECT	s.ProductID, s.Bettype as TypeId, b.typenamee AS TypeName, 0 AS IsNumberGameBettype
 	FROM	dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '', @isTest) s
-	INNER JOIN dbo.Bettype b ON s.Bettype = B.TypeId 
+		INNER JOIN dbo.Bettype b ON s.Bettype = B.TypeId 
 	WHERE  CasinoType IN (1,2) 
 		   OR ProductID IN (8, 24, 26, 28) 	 
 
 	
 	--- ProductID = 3 - Number Game get LeagueId
-	INSERT INTO #SportBettype (ProductId, TypeId, TypeName, IsTest)
+	INSERT INTO #SportBettype (ProductId, TypeId, TypeName, IsTest, IsNumberGameBettype)
 	SELECT  3 as ProductId,
 			leagueid as TypeId ,
 			leaguename as TypeName,
-			IsTest
+			IsTest,
+			0 AS IsNumberGameBettype
 	FROM	dbo.league WITH (NOLOCK)
 	WHERE	sporttype = 161 
 		 
 	--- ProductID = 5, 27 - Virtual Sports, Virtual Sports 2 get Sporttype
-	INSERT INTO #SportBettype (ProductId, TypeId, TypeName)
-	SELECT DISTINCT sb.ProductID, sb.SportType, s.SportName
+	INSERT INTO #SportBettype (ProductId, TypeId, TypeName, IsNumberGameBettype)
+	SELECT DISTINCT sb.ProductID, sb.SportType, s.SportName, 0 AS IsNumberGameBettype
 	FROM dbo.SportBettypeMatrix sb WITH (NOLOCK)
 		INNER JOIN dbo.Sports s WITH (NOLOCK) ON sb.SportType = s.SportType 
 	WHERE sb.ProductID IN (5,27)
-		AND (sb.IsTest = 0 OR sb.IsTest = @isTest)		
+		AND (sb.IsTest = 0 OR sb.IsTest = @isTest)	
+		
+	-- ProductID = 3 - Number Game get Bettype
+	INSERT INTO #SportBettype (ProductID, TypeId, TypeName, IsNumberGameBettype)
+	SELECT	s.ProductID, s.Bettype as TypeId, b.typenamee AS TypeName, 1 AS IsNumberGameBettype
+	FROM	dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '', @isTest) s
+		INNER JOIN dbo.Bettype b ON s.Bettype = B.TypeId 
+	WHERE s.ProductID = 3
 	
 	SELECT	* 
 	FROM	#SportBettype
 	ORDER BY ProductId, TypeName
+	
+	DROP TABLE #SportBettype
 
 END
 
