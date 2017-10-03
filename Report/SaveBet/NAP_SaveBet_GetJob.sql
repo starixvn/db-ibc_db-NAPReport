@@ -28,7 +28,7 @@ BEGIN
 	IF @matchid =0
 		SELECT JobID,s.LiveIndicator,s.Bettype,s.TypeName,ml.MatchID,s.JobType,ml.EventDate FROM ServiceJob s WITH(NOLOCK)
 		INNER JOIN (
-			SELECT TOP 1 ml.* 
+			SELECT TOP 1 ml.EventDate , ml.MatchID
 			 FROM MatchList ml WITH(NOLOCK) 
 				    LEFT JOIN bodb02.dbo.match m WITH(NOLOCK)	ON ml.MatchID = m.MatchID
 				    LEFT JOIN bodb02.dbo.match14 m14 WITH(NOLOCK)	ON ml.MatchID = m14.MatchID
@@ -38,6 +38,7 @@ BEGIN
 					   OR (@GroupSports = 1 AND ((m.sporttype > 1 AND m.sporttype <= 99) OR (m14.sporttype > 1 AND m14.sporttype <= 99) ))
 					   OR (@GroupSports = 2 AND ((m.sporttype > 99) OR (m14.sporttype > 99) ))
 					   ) 
+				ORDER BY ml.MatchID
 		) ml ON ml.MatchID = s.MatchID
 	ELSE
 			SELECT JobID,s.LiveIndicator,s.Bettype,s.TypeName,ml.MatchID,s.JobType,ml.EventDate FROM ServiceJob s WITH(NOLOCK)
