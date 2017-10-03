@@ -29,16 +29,14 @@ BEGIN
 		SELECT JobID,s.LiveIndicator,s.Bettype,s.TypeName,ml.MatchID,s.JobType,ml.EventDate FROM ServiceJob s WITH(NOLOCK)
 		INNER JOIN (
 			SELECT TOP 1 ml.EventDate , ml.MatchID
-			 FROM MatchList ml WITH(NOLOCK) 
-				    LEFT JOIN bodb02.dbo.match m WITH(NOLOCK)	ON ml.MatchID = m.MatchID
-				    LEFT JOIN bodb02.dbo.match14 m14 WITH(NOLOCK)	ON ml.MatchID = m14.MatchID
+			 FROM MatchList ml WITH(NOLOCK) 				  
 				WHERE JobGenerated = 1 AND JobFinished = 0 
 				    AND (
-					   (@GroupSports = 0 AND (m.sporttype = 1 OR m14.sporttype = 1 ))
-					   OR (@GroupSports = 1 AND ((m.sporttype > 1 AND m.sporttype <= 99) OR (m14.sporttype > 1 AND m14.sporttype <= 99) ))
-					   OR (@GroupSports = 2 AND ((m.sporttype > 99) OR (m14.sporttype > 99) ))
+					   (@GroupSports = 0 AND (ml.sporttype = 1))
+					   OR (@GroupSports = 1 AND ml.sporttype > 1 AND ml.SportType <100)
+					   OR (@GroupSports = 2 AND ml.sporttype > 99)
 					   ) 
-				ORDER BY ml.MatchID
+				ORDER BY ml.EventDate ASC
 		) ml ON ml.MatchID = s.MatchID
 	ELSE
 			SELECT JobID,s.LiveIndicator,s.Bettype,s.TypeName,ml.MatchID,s.JobType,ml.EventDate FROM ServiceJob s WITH(NOLOCK)
