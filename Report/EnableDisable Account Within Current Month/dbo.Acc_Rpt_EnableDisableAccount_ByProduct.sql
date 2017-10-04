@@ -69,7 +69,7 @@ BEGIN
 	END
 
 	DECLARE @bitmap TINYINT -- using for sporttype that has 1 setting
-	IF @SportType IN (212, 213, 219, 220, 180)
+	IF @SportType IN (212, 213, 219, 220, 180, 160) -- Macau Games, NG2, Fishing World, Virtual Sports, Lottery, Lucky 3
 	BEGIN
 		SELECT  @bitmap = bitmapOrder 
 		FROM dbo.ProductStatusProfile WITH(NOLOCK) 
