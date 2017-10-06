@@ -31,6 +31,7 @@ AS
 		- 20170227@Percy: support search multiple username [RedmineID: #71342]
 		- 20170726@Cherry: Integrate Betradar Virtual Sports (#78495)
 		- 20170815@Cherry: Non-Sport Statistics Phase 5 (#71923)
+		- 20171006@Cherry: Add filter of Number Game Bettype (#83101)
 
 	Param's Explanation:
 		- @Username:  + Search by keyword, member only
@@ -149,7 +150,7 @@ BEGIN
 
 	CREATE TABLE #tmp_ProductID		(ProductID INT)
 	CREATE TABLE #tmp_BetType		(Bettype INT)
-	CREATE TABLE #tmp_LeagueID		(LeagueID INT)
+	CREATE TABLE #tmp_LeagueID		(LeagueID INT, Bettype INT)
 	CREATE TABLE #tmp_SportType		(Sporttype INT)
 	CREATE TABLE #tmp_GameTableID	(GameTableID INT)
 	CREATE TABLE #tmp_Devide		(Betfrom NVARCHAR(2))
@@ -169,6 +170,11 @@ BEGIN
 		SELECT val FROM dbo.strSplit(@BetType, ',')
 	END
 
+	DECLARE @splitter1 char(1) = ',', @splitter2 char(1) = '-',
+		@league int, @bettypeid int,
+		@start int, @leaguebettype nvarchar(4000), 
+		@charindex1 int, @charindex2 int
+
 	IF @LeagueId <> ''
 	BEGIN
 		INSERT INTO #tmp_LeagueID (LeagueID)
@@ -177,8 +183,22 @@ BEGIN
 
 	IF @Sporttype <> ''
 	BEGIN
-		INSERT INTO #tmp_SportType (Sporttype)
-		SELECT val FROM dbo.strSplit(@Sporttype, ',')
+		IF substring (@LeagueID, len(@LeagueID), 1) <> @splitter1
+			SET @LeagueID = @LeagueID + @splitter1
+		SET @start = 1
+		SET @charindex1 = charindex(@splitter1, @LeagueID, @start)
+		SET @charindex2 = charindex(@splitter2, @LeagueID, @start)
+
+		WHILE (@charindex1 <> 0)
+		BEGIN
+			SET @leaguebettype = substring(@LeagueID, @start, @charindex1 - @start)       
+			SET @charindex2 = charindex(@splitter2, @leaguebettype, 1)
+			SET @league = substring(@leaguebettype, 1, @charindex2 - 1)
+			SET @bettypeid = substring(@leaguebettype, @charindex2 + 1, LEN(@leaguebettype))
+			INSERT INTO #tmp_LeagueID(LeagueID, Bettype) VALUES (@league, @bettypeid)
+			SET @start = @charindex1 +1
+			SET @charindex1 = charindex(@splitter1, @LeagueID, @start)          
+		END
 	END
 
 	IF @GameTableId <> ''
@@ -278,7 +298,7 @@ BEGIN
 
 	------------------------------------------II. Get Real Data For Report ------------------------------------------------------
 	-- Select temp data of bettrans
-	CREATE TABLE #tmp_bettrans ( recommend INT, CustID INT,
+	CREATE TABLE #tmp_bettrans ( recommend INT, CustID INT, Bettype INT,
 						 BetCount BIGINT, CurrencyID INT, Currency NVARCHAR(50),
 						 TotalBets MONEY, TotalBetsBase MONEY,
 						 TotalWins MONEY, TotalWinsBase MONEY,
@@ -291,6 +311,7 @@ BEGIN
 	INSERT INTO #tmp_bettrans
 	        ( recommend ,
 	          CustID ,
+	          Bettype,
 	          BetCount ,
 	          CurrencyID ,
 	          TotalBets ,
@@ -310,7 +331,7 @@ BEGIN
 			  Matchid,
 			  ProductID
 	        )	
-	SELECT b.recommend, CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END AS custid,
+	SELECT b.recommend, CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END AS custid, b.bettype,
 				COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS BetCount, b.currency,
 
 				SUM(CASE WHEN b.statusID IN (103) THEN 0 ELSE actual_stake END) AS TotalBets,
@@ -351,12 +372,13 @@ BEGIN
 			)
 		AND (@DrillDownCurrency = 0 OR b.currency = @DrillDownCurrency)
 		AND b.bettype <> 2799 AND b.matchid >= 0
-	GROUP BY b.recommend, CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END, b.currency, s.RefTable, s.EvenType, b.matchid, s.ProductID	
+	GROUP BY b.recommend, CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END, b.bettype, b.currency, s.RefTable, s.EvenType, b.matchid, s.ProductID	
 
 	--Mix Parlay Virtual Sports 2
 	INSERT INTO #tmp_bettrans
 	        ( recommend ,
 	          CustID ,
+	          Bettype,
 	          BetCount ,
 	          CurrencyID ,
 	          TotalBets ,
@@ -376,7 +398,7 @@ BEGIN
 			  Matchid,
 			  ProductID
 	        )	
-	SELECT b.recommend, CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END AS custid,
+	SELECT b.recommend, CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END AS custid, b.bettype,
 				COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS BetCount, b.currency,
 
 				SUM(CASE WHEN b.statusID IN (103) THEN 0 ELSE actual_stake END) AS TotalBets,
@@ -421,7 +443,7 @@ BEGIN
 									INNER JOIN dbo.match m WITH (NOLOCK) ON bm.matchid = m.matchid 
 									INNER JOIN #tmp_SportType st ON m.sporttype = st.Sporttype
 								WHERE bm.refno = b.refno)			
-	GROUP BY b.recommend, CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END, b.currency, s.RefTable, s.EvenType, b.matchid, s.ProductID	
+	GROUP BY b.recommend, CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END, b.bettype, b.currency, s.RefTable, s.EvenType, b.matchid, s.ProductID	
 
 	--- Check condition 
 	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID NOT IN (3, 4, 5, 27)) -- NG, SLI-Live Casino, Virtual Sports, Virtual Sports 2
@@ -636,7 +658,7 @@ BEGIN
 		WHERE b.EvenType = 1
 			AND b.ProductID IN (3, 4, 5)
 			AND (
-				(b.ProductID = 3 AND (@LeagueId = '' OR (EXISTS (SELECT 1 FROM #tmp_LeagueID l WHERE l.LeagueID = m.leagueid)))) OR
+				(b.ProductID = 3 AND (@LeagueId = '' OR (EXISTS (SELECT 1 FROM #tmp_LeagueID l WHERE l.LeagueID = m.leagueid AND l.Bettype = b.Bettype)))) OR
 				(b.ProductID = 4 AND (@GameTableId = '' OR (EXISTS (SELECT 1 FROM #tmp_GameTableID g WHERE g.GameTableID = m.leagueid)))) OR
 				(b.ProductID = 5 AND (@Sporttype = '' OR (EXISTS (SELECT 1 FROM #tmp_SportType st WHERE st.Sporttype = m.sporttype))))
 			)	

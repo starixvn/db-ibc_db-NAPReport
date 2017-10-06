@@ -29,6 +29,7 @@ AS
 
 	Revisions:
 		- 20170726@Cherry: Integrate Betradar Virtual Sports (#78495)
+		- 20171006@Cherry: Add filter of Number Game Bettype (#83101)
 
 	Param's Explanation:
 		- @ProductID: string filter by Product 
@@ -50,7 +51,7 @@ BEGIN
 
 	CREATE TABLE #tmp_ProductID		(ProductID TINYINT)
 	CREATE TABLE #tmp_BetType		(Bettype SMALLINT)
-	CREATE TABLE #tmp_LeagueID		(LeagueID INT)
+	CREATE TABLE #tmp_LeagueID		(LeagueID INT, Bettype INT)
 	CREATE TABLE #tmp_SportType		(Sporttype SMALLINT)
 	CREATE TABLE #tmp_GameTableID	(GameTableID INT)
 	CREATE TABLE #tmp_Devide		(Betfrom NVARCHAR(2))
@@ -67,11 +68,30 @@ BEGIN
 		INSERT INTO #tmp_BetType (Bettype)
 		SELECT val FROM dbo.strSplit(@BetType, ',')
 	END
+	
+	DECLARE @splitter1 char(1) = ',', @splitter2 char(1) = '-',
+		@league int, @bettypeid int,
+		@start int, @leaguebettype nvarchar(4000), 
+		@charindex1 int, @charindex2 int
 
 	IF @LeagueId <> ''
 	BEGIN
-		INSERT INTO #tmp_LeagueID (LeagueID)
-		SELECT val FROM dbo.strSplit(@LeagueId, ',')
+		IF substring (@LeagueID, len(@LeagueID), 1) <> @splitter1
+			SET @LeagueID = @LeagueID + @splitter1
+		SET @start = 1
+		SET @charindex1 = charindex(@splitter1, @LeagueID, @start)
+		SET @charindex2 = charindex(@splitter2, @LeagueID, @start)
+
+		WHILE (@charindex1 <> 0)
+		BEGIN
+			SET @leaguebettype = substring(@LeagueID, @start, @charindex1 - @start)       
+			SET @charindex2 = charindex(@splitter2, @leaguebettype, 1)
+			SET @league = substring(@leaguebettype, 1, @charindex2 - 1)
+			SET @bettypeid = substring(@leaguebettype, @charindex2 + 1, LEN(@leaguebettype))
+			INSERT INTO #tmp_LeagueID(LeagueID, Bettype) VALUES (@league, @bettypeid)
+			SET @start = @charindex1 +1
+			SET @charindex1 = charindex(@splitter1, @LeagueID, @start)          
+		END
 	END
 
 	IF @Sporttype <> ''
@@ -146,7 +166,7 @@ BEGIN
 		BetCount BIGINT,
 		TotalBets MONEY, TotalBetsBase MONEY,
 		TotalWins MONEY, TotalWinsBase MONEY,
-		EvenType INT DEFAULT (-1), Matchid INT DEFAULT (-1), ProductID INT,
+		EvenType INT DEFAULT (-1), Matchid INT DEFAULT (-1), ProductID INT, Bettype INT,
 		HousePT SMALLMONEY
 	)
 	
@@ -171,7 +191,7 @@ BEGIN
 					BetCount,
 					TotalBets, TotalBetsBase,
 					TotalWins, TotalWinsBase,
-					EvenType, Matchid, ProductID,
+					EvenType, Matchid, ProductID, Bettype,
 					HousePT
 				)
 				SELECT
@@ -180,7 +200,7 @@ BEGIN
 					SUM(actual_stake * actualrate) AS TotalBetsBase,
 					SUM(winlost) AS TotalWins,
 					SUM(winlost * actualrate) AS TotalWinsBase,
-					s.EvenType, b.matchid, s.ProductID,
+					s.EvenType, b.matchid, s.ProductID, b.bettype,
 					SUM(1 - b.tpositiontaking) AS HousePT
 				FROM  dbo.bettrans14 b WITH (NOLOCK)
 					INNER JOIN #SportBettype s ON s.Bettype = b.bettype
@@ -197,7 +217,7 @@ BEGIN
 						OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 					)
 					AND b.bettype <> 2799
-				GROUP BY s.EvenType, b.matchid, s.ProductID
+				GROUP BY s.EvenType, b.matchid, s.ProductID, b.bettype
 				
 				--Mix Parlay Virtual Sport 2
 				INSERT INTO #tmp_bettrans
@@ -205,7 +225,7 @@ BEGIN
 					BetCount,
 					TotalBets, TotalBetsBase,
 					TotalWins, TotalWinsBase,
-					EvenType, Matchid, ProductID,
+					EvenType, Matchid, ProductID, Bettype,
 					HousePT
 				)
 				SELECT
@@ -214,7 +234,7 @@ BEGIN
 					SUM(actual_stake * actualrate) AS TotalBetsBase,
 					SUM(winlost) AS TotalWins,
 					SUM(winlost * actualrate) AS TotalWinsBase,
-					s.EvenType, b.matchid, s.ProductID,
+					s.EvenType, b.matchid, s.ProductID, b.bettype,
 					SUM(1 - b.tpositiontaking) AS HousePT
 				FROM  dbo.bettrans14 b WITH (NOLOCK)
 					INNER JOIN #SportBettype s ON s.Bettype = b.bettype
@@ -235,7 +255,7 @@ BEGIN
 									INNER JOIN dbo.match14 m WITH (NOLOCK) ON bm.matchid = m.matchid 
 									INNER JOIN #tmp_SportType st ON m.sporttype = st.Sporttype
 								WHERE bm.refno = b.refno)					
-				GROUP BY s.EvenType, b.matchid, s.ProductID
+				GROUP BY s.EvenType, b.matchid, s.ProductID, b.bettype 
 			END
 
 			IF EXISTS (SELECT TOP 1 1 FROM #SportBettype WHERE RefTable = 1) -- bettransRnG
@@ -245,7 +265,7 @@ BEGIN
 					BetCount,
 					TotalBets, TotalBetsBase,
 					TotalWins, TotalWinsBase,
-					ProductID,
+					ProductID, Bettype,
 					HousePT
 				)
 				SELECT
@@ -254,7 +274,7 @@ BEGIN
 					SUM(actual_stake * actualrate) AS TotalBetsBase,
 					SUM(winlost) AS TotalWins,
 					SUM(winlost * actualrate) AS TotalWinsBase,
-					s.ProductID,
+					s.ProductID, b.gameID,
 					SUM(1 - b.tpositiontaking) AS HousePT
 				FROM dbo.bettransRnG14 b WITH (NOLOCK)
 					INNER JOIN #SportBettype s ON s.Bettype = b.gameID
@@ -269,7 +289,7 @@ BEGIN
 						OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 						OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 					)
-				GROUP BY s.ProductID
+				GROUP BY s.ProductID, b.gameID 
 			END
 		
 			IF EXISTS (SELECT TOP 1 1 FROM #SportBettype WHERE RefTable = 2) -- bettransLC
@@ -279,7 +299,7 @@ BEGIN
 					BetCount,
 					TotalBets, TotalBetsBase,
 					TotalWins, TotalWinsBase,
-					ProductID,
+					ProductID, Bettype,
 					HousePT
 				)
 				SELECT
@@ -288,7 +308,7 @@ BEGIN
 					SUM(actual_stake * actualrate) AS TotalBetsBase,
 					SUM(winlost) AS TotalWins,
 					SUM(winlost * actualrate) AS TotalWinsBase,
-					s.ProductID,
+					s.ProductID, b.gameID,
 					SUM(1 - b.tpositiontaking) AS HousePT
 				FROM dbo.bettransLC14 b WITH (NOLOCK)
 					INNER JOIN #SportBettype s ON s.Bettype = b.gameID
@@ -303,7 +323,7 @@ BEGIN
 						OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 						OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 					)
-				GROUP BY b.srecommend, b.mrecommend, b.recommend, b.custid, b.currency, s.ProductID
+				GROUP BY b.srecommend, b.mrecommend, b.recommend, b.custid, b.currency, s.ProductID, b.gameID 
 			END
 		END
 		ELSE -- roleID > 1
@@ -324,7 +344,7 @@ BEGIN
 					BetCount,
 					TotalBets, TotalBetsBase,
 					TotalWins, TotalWinsBase,
-					EvenType, matchid, ProductID,
+					EvenType, matchid, ProductID, Bettype,
 					HousePT
 				)
 				SELECT
@@ -333,7 +353,7 @@ BEGIN
 					SUM(actual_stake * actualrate) AS TotalBetsBase,
 					SUM(winlost) AS TotalWins,
 					SUM(winlost * actualrate) AS TotalWinsBase,
-					s.EvenType, b.matchid, s.ProductID,
+					s.EvenType, b.matchid, s.ProductID, b.bettype,
 					SUM(1 - b.tpositiontaking) AS HousePT
 				FROM  dbo.bettrans14 b WITH (NOLOCK)
 					INNER JOIN #SportBettype s ON s.Bettype = b.bettype
@@ -355,7 +375,7 @@ BEGIN
 									INNER JOIN #tmp_SportType st ON m.sporttype = st.Sporttype
 								WHERE bm.refno = b.refno))
 					)
-				GROUP BY s.EvenType, b.matchid, s.ProductID
+				GROUP BY s.EvenType, b.matchid, s.ProductID, b.bettype 
 			END
 
 			IF EXISTS (SELECT TOP 1 1 FROM #SportBettype WHERE RefTable = 1) -- bettransRnG
@@ -365,7 +385,7 @@ BEGIN
 					BetCount,
 					TotalBets, TotalBetsBase,
 					TotalWins, TotalWinsBase,
-					ProductID,
+					ProductID, Bettype,
 					HousePT
 				)
 				SELECT
@@ -374,7 +394,7 @@ BEGIN
 					SUM(actual_stake * actualrate) AS TotalBetsBase,
 					SUM(winlost) AS TotalWins,
 					SUM(winlost * actualrate) AS TotalWinsBase,
-					s.ProductID,
+					s.ProductID, b.gameID,
 					SUM(1 - b.tpositiontaking) AS HousePT
 				FROM dbo.bettransRnG14 b WITH (NOLOCK)
 					INNER JOIN #SportBettype s ON s.Bettype = b.gameID
@@ -389,7 +409,7 @@ BEGIN
 						OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 						OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 					)
-				GROUP BY s.ProductID
+				GROUP BY s.ProductID, b.gameID 
 			END
 
 			IF EXISTS (SELECT TOP 1 1 FROM #SportBettype WHERE RefTable = 2) -- bettransLC
@@ -399,7 +419,7 @@ BEGIN
 					BetCount,
 					TotalBets, TotalBetsBase,
 					TotalWins, TotalWinsBase,
-					ProductID,
+					ProductID, Bettype,
 					HousePT
 				)
 				SELECT
@@ -408,7 +428,7 @@ BEGIN
 					SUM(actual_stake * actualrate) AS TotalBetsBase,
 					SUM(winlost) AS TotalWins,
 					SUM(winlost * actualrate) AS TotalWinsBase,
-					s.ProductID,
+					s.ProductID, b.gameID,
 					SUM(1 - b.tpositiontaking) AS HousePT
 				FROM dbo.bettransLC14 b WITH (NOLOCK)
 					INNER JOIN #SportBettype s ON s.Bettype = b.gameID
@@ -423,7 +443,7 @@ BEGIN
 						OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 						OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 					)
-				GROUP BY s.ProductID
+				GROUP BY s.ProductID, b.gameID 
 			END
 		END
 	
@@ -473,7 +493,7 @@ BEGIN
 				INNER JOIN dbo.match14 m WITH (NOLOCK) ON m.matchid = b.matchid
 			WHERE ProductID IN (3, 4, 5) AND b.EvenType = 1
 				AND (
-					(b.ProductID = 3 AND (@LeagueId = '' OR (EXISTS (SELECT 1 FROM #tmp_LeagueID l WHERE l.LeagueID = m.leagueid)))) OR
+					(b.ProductID = 3 AND (@LeagueId = '' OR (EXISTS (SELECT 1 FROM #tmp_LeagueID l WHERE l.LeagueID = m.leagueid AND l.Bettype = b.Bettype)))) OR
 					(b.ProductID = 4 AND (@GameTableId = '' OR (EXISTS (SELECT 1 FROM #tmp_GameTableID g WHERE g.GameTableID = m.leagueid)))) OR
 					(b.ProductID = 5 AND (@Sporttype = '' OR (EXISTS (SELECT 1 FROM #tmp_SportType st WHERE st.Sporttype = m.sporttype))))
 				)

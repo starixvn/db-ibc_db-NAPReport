@@ -35,6 +35,7 @@ AS
 	Original: Acc_Rpt_NonSportsProductStatistics_Daily
 	Revisions:	
 		- 20170927@Cherry: Integrate Lucky 3 (#83101)
+		- 20171006@Cherry: Add filter of Number Game Bettype (#83101)
 
 	Param's Explanation:
 			 - @username:  + Search by keyword, member only
@@ -156,7 +157,7 @@ SET NOCOUNT ON
         Bettype INT
     )
 	CREATE TABLE #tmpLeagueId (
-        LeagueId INT
+        LeagueId INT, Bettype INT
     )  
 	CREATE TABLE #tmpSporttype (
         Sporttype INT
@@ -195,10 +196,29 @@ SET NOCOUNT ON
 		SELECT val FROM [dbo].strSplit(@Bettype, ',')
 	END
 
+	DECLARE @splitter1 char(1) = ',', @splitter2 char(1) = '-',
+		@league int, @bettypeid int,
+		@start int, @leaguebettype nvarchar(4000), 
+		@charindex1 int, @charindex2 int
+
 	IF @LeagueId <> ''
-    BEGIN
-		INSERT INTO #tmpLeagueId (LeagueId)
-		SELECT val FROM [dbo].strSplit(@LeagueId, ',')
+	BEGIN
+		IF substring (@LeagueID, len(@LeagueID), 1) <> @splitter1
+			SET @LeagueID = @LeagueID + @splitter1
+		SET @start = 1
+		SET @charindex1 = charindex(@splitter1, @LeagueID, @start)
+		SET @charindex2 = charindex(@splitter2, @LeagueID, @start)
+
+		WHILE (@charindex1 <> 0)
+		BEGIN
+			SET @leaguebettype = substring(@LeagueID, @start, @charindex1 - @start)       
+			SET @charindex2 = charindex(@splitter2, @leaguebettype, 1)
+			SET @league = substring(@leaguebettype, 1, @charindex2 - 1)
+			SET @bettypeid = substring(@leaguebettype, @charindex2 + 1, LEN(@leaguebettype))
+			INSERT INTO #tmp_LeagueID(LeagueID, Bettype) VALUES (@league, @bettypeid)
+			SET @start = @charindex1 +1
+			SET @charindex1 = charindex(@splitter1, @LeagueID, @start)          
+		END
 	END
 
 	IF @Sporttype <> ''
@@ -533,7 +553,7 @@ SET NOCOUNT ON
 			AND s.Eventtype = 1
 			AND (
 					(
-						(EXISTS (SELECT 1 From #tmpLeagueId l WHERE l.LeagueId = m.leagueid) AND s.ProductID = 3)
+						(EXISTS (SELECT 1 From #tmpLeagueId l WHERE l.LeagueId = m.leagueid AND l.Bettype = b.bettype) AND s.ProductID = 3)
 						OR (@LeagueId = '' AND s.ProductID = 3)
 					)
 				OR (
