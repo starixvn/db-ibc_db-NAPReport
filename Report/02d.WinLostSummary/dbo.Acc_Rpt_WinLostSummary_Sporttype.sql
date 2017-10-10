@@ -1,5 +1,12 @@
-﻿USE [bodb_Report];
+﻿USE [bodb_Report]
 GO
+/****** Object:  StoredProcedure [dbo].[Acc_Rpt_WinlostSummary_Sporttype]    Script Date: 10/10/2017 05:57:59 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+/****** Object:  Stored Procedure dbo.Acc_Rpt_WinlostSummary_Sporttype    Script Date: 10/10/2017 12:32:17 AM ******/
+/****** Object:  Stored Procedure dbo.Acc_Rpt_WinlostSummary_Sporttype    Script Date: 10/5/2017 2:25:33 PM ******/
 ALTER PROCEDURE [dbo].[Acc_Rpt_WinlostSummary_Sporttype] @fromdate DATETIME,
                                                          @todate   DATETIME
 AS
@@ -35,6 +42,8 @@ AS
 			- 20170323@Robert: NAP Reports - Integrate Cash out [RedmindID: #73419]
 			- 20170615@Tom: NAP Reports - Integrate Keno Lottery [RedmindID: #78184] 
 					      NAP Reports - Integrate Betradar Virtual Sports[RedmindID: #78495] 
+			- 20170816@Logan:  NAP Reports - Integrate Lucky 3 [RedmindID: #81733]
+
         Parameter's Explanation:
     */
 
@@ -48,7 +57,7 @@ AS
           Bettype       INT,
           EventType     INT,
           SubProduct    VARCHAR(500),
-          SortKey       TINYINT,
+          SortKey       INT,
           liveindicator BIT
          );
          INSERT INTO @SportBettype
@@ -146,8 +155,8 @@ AS
           ibc              INT,
           IsHedge          BIT,
           status           VARCHAR(10),
-          OrderKey         TINYINT,
-          SortKey          TINYINT,
+          OrderKey         INT,
+          SortKey          INT,
           realWinlost      MONEY,
           realPosition     MONEY,
           realCommission   MONEY,
@@ -379,45 +388,6 @@ AS
                       --AND bettype = 73
                       AND s.ProductId = 7
                 GROUP BY b.bettype;
-         INSERT INTO #TempData
-                -- Keno
-                SELECT CASE WHEN s.ProductId = 8 THEN 202 
-				    WHEN s.ProductId = 28 THEN 220 
-				    ELSE b.SportType
-					END   sporttype,
-                       CASE WHEN s.ProductId = 27 THEN 0 ELSE b.bettype END bettype,
-                       b.liveindicator,
-                       ibc,
-                       0 AS IsHedge,
-                       '' status,
-                       CASE WHEN s.ProductId = 8 THEN 7 
-				    WHEN s.ProductId = 28 THEN 17
-				    ELSE 17
-					END AS OrderKey,
-                       17 AS SortKey,
-                       ISNULL(SUM(realWinlost), 0) AS realWinlost,
-                       ISNULL(SUM(realPosition), 0) AS realPosition,
-                       ISNULL(SUM(realcommission), 0) AS realCommission,
-                       ISNULL(SUM(realLineTotal), 0) AS realLineTotal,
-                       ISNULL(SUM(virtualLineTotal), 0) AS virtualLineTotal,
-                       ISNULL(SUM(realTurnover), 0) AS realTurnover,
-                       ISNULL(SUM(virtualTurnover), 0) AS virtualTurnover
-                FROM dbo.rptWinlost b WITH (NOLOCK)
-                     INNER JOIN @SportBettype s ON s.Bettype = b.bettype
-                                                   AND b.liveindicator = s.liveindicator
-                WHERE b.winlostdate BETWEEN @_fromdate AND @_todate
-                      --and bettype BETWEEN 1501 AND 1599
-                      AND s.ProductId IN (8,27,28)
-                GROUP BY CASE WHEN s.ProductId = 8 THEN 202 
-				    WHEN s.ProductId = 28 THEN 220 
-				    ELSE b.SportType
-					END,
-					CASE WHEN s.ProductId = 8 THEN 7 
-				    WHEN s.ProductId = 28 THEN 17
-				    ELSE 17 END,
-                         b.liveindicator,
-                         ibc,
-                         CASE WHEN s.ProductId = 27 THEN 0 ELSE b.bettype END;
          INSERT INTO #TempData
                 --Live casino
                 SELECT 162 AS sporttype,
@@ -825,7 +795,7 @@ AS
                       ibc,
                       0 AS IsHedge,
                       '' status,
-                      180 AS OrderKey,
+                      18000 AS OrderKey,
                       17 AS SortKey,
                       ISNULL(SUM(realWinlost), 0) AS realWinlost,
                       ISNULL(SUM(realPosition), 0) AS realPosition,
@@ -842,7 +812,42 @@ AS
                       AND b.bettype IN(913, 914)
                 GROUP BY b.liveindicator,
                          ibc;	
-	
+         INSERT INTO #TempData
+                -- Keno
+                SELECT CASE WHEN s.ProductId = 8 THEN 202 
+				    WHEN s.ProductId = 28 THEN 220 
+				    ELSE b.SportType
+					END   sporttype,
+                       CASE WHEN s.ProductId = 27 THEN 0 ELSE b.bettype END bettype,
+                       b.liveindicator,
+                       ibc,
+                       0 AS IsHedge,
+                       '' status,
+                       CASE WHEN s.ProductId = 8 THEN 7				    
+				    ELSE s.ProductId
+					END AS OrderKey,
+                       17 AS SortKey,
+                       ISNULL(SUM(realWinlost), 0) AS realWinlost,
+                       ISNULL(SUM(realPosition), 0) AS realPosition,
+                       ISNULL(SUM(realcommission), 0) AS realCommission,
+                       ISNULL(SUM(realLineTotal), 0) AS realLineTotal,
+                       ISNULL(SUM(virtualLineTotal), 0) AS virtualLineTotal,
+                       ISNULL(SUM(realTurnover), 0) AS realTurnover,
+                       ISNULL(SUM(virtualTurnover), 0) AS virtualTurnover
+                FROM dbo.rptWinlost b WITH (NOLOCK)
+                     INNER JOIN @SportBettype s ON s.Bettype = b.bettype
+                                                   AND b.liveindicator = s.liveindicator
+                WHERE b.winlostdate BETWEEN @_fromdate AND @_todate
+                      AND s.ProductId NOT IN (1,2,3,4,5,6,7,9,11,12,13,14,15,17,19,21,22,23,24,25)
+                GROUP BY CASE WHEN s.ProductId = 8 THEN 202 
+				    WHEN s.ProductId = 28 THEN 220 
+				    ELSE b.SportType
+					END,
+					CASE WHEN s.ProductId = 8 THEN 7
+				    ELSE s.ProductId  END,
+                         b.liveindicator,
+                         ibc,
+                         CASE WHEN s.ProductId = 27 THEN 0 ELSE b.bettype END;	
          -- Result --
          CREATE TABLE #Result
          (sporttype        INT,
@@ -851,8 +856,8 @@ AS
           ibc              TINYINT,
           IsHedge          BIT,
           status           NVARCHAR(20),
-          OrderKey         TINYINT,
-          SortKey          TINYINT,
+          OrderKey         INT,
+          SortKey          INT,
           realWinlost      MONEY,
           realPosition     MONEY,
           realCommission   MONEY,
