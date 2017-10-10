@@ -36,7 +36,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSports_Site_14] @StartDate='2016-01-01', @En
          SELECT @isTest = dbo.f_CheckSPVersion(@@PROCID);
          DECLARE @EventType INT;
          SELECT @EventType = s.EventType
-         FROM dbo.f_SportBetTypeMatrix_Sel(0, @SportType, @BetType, 2, '', '', @isTest) s;
+         FROM dbo.f_SportBetTypeMatrix_Sel(27, @SportType, @BetType, 2, '', '', @isTest) s;
      END;
      BEGIN -- #Agent
 
@@ -107,8 +107,8 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSports_Site_14] @StartDate='2016-01-01', @En
                     SELECT DISTINCT
                            bm.refno,
                            m.sporttype
-                    FROM bodb02.dbo.bettransm bm WITH (NOLOCK)
-                         INNER JOIN bodb02.dbo.match m WITH (NOLOCK) ON bm.matchid = m.matchid
+                    FROM bodb02.dbo.bettransm14 bm WITH (NOLOCK)
+                         INNER JOIN bodb02.dbo.match14 m WITH (NOLOCK) ON bm.matchid = m.matchid
                   ) bsm ON b.refno = bsm.refno
                   INNER JOIN #Agent AS dep ON b.recommend = dep.CustId
              WHERE b.winlostdate = @StartDate
