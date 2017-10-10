@@ -27,6 +27,7 @@ AS
 			2. Clean code of Cockfighting
 		- 20161129@Robert: NAP Reports - Integrate Fishing World Product [RedmindID: #67757]  
 		- 20170627@Cherry: Integrate Lottery and Betradar Virtual Sports (#78184, 78495)
+		- 20170825@Cherry: Integrate Lucky 3 (#78214)
 
 	Param's Explanation:  
 	  + @ListCurrency: The specified date used as one of the filter criterias, if its value is 'all' then no need to be filtered by currency
@@ -68,7 +69,7 @@ BEGIN
 	END
 
 	DECLARE @bitmap TINYINT -- using for sporttype that has 1 setting
-	IF @SportType IN (212, 213, 219, 220, 180)
+	IF @SportType IN (212, 213, 219, 220, 180, 160) -- Macau Games, NG2, Fishing World, Virtual Sports, Lottery, Lucky 3
 	BEGIN
 		SELECT  @bitmap = bitmapOrder 
 		FROM dbo.ProductStatusProfile WITH(NOLOCK) 
@@ -97,7 +98,7 @@ BEGIN
 												CROSS APPLY @bitmapOrder b
 												CROSS APPLY f_CustSetting_ProductStatusSel(cps.bitmapIsDisabled, b.bitmapOrder) f
 											WHERE custid = ci.custid)
-			WHEN @SportType IN (212, 213, 219, 220, 180) THEN (SELECT CASE (SELECT value FROM dbo.f_CustSetting_ProductStatusSel(bitmapIsDisabled, @bitmap)) WHEN 0 THEN 0 ELSE 1 END 
+			WHEN @SportType IN (212, 213, 219, 220, 180, 160) THEN (SELECT CASE (SELECT value FROM dbo.f_CustSetting_ProductStatusSel(bitmapIsDisabled, @bitmap)) WHEN 0 THEN 0 ELSE 1 END 
 										FROM CustProductStatus
 										WHERE custid = ci.custid)
 		END
@@ -415,8 +416,8 @@ BEGIN
 						GROUP BY fda.CustID
 						) A ON fda.CustID = A.CustID
 	END
-	-- Macau Games, NG2, Fishing World, Virtual Sports, Lottery
-	IF @sportType IN (212, 213, 219, 220, 180)
+	-- Macau Games, NG2, Fishing World, Virtual Sports, Lottery, Lucky 3
+	IF @sportType IN (212, 213, 219, 220, 180, 160)
     BEGIN      
 		INSERT INTO #FiltedDownlineAcc
 		SELECT sup.CustID,

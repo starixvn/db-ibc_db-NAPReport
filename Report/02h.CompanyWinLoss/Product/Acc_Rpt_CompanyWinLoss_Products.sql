@@ -21,6 +21,7 @@ AS
 		- 20160112@Percy: Change Extra PT formula [RedmineID: #70208]
 		- 20170323@Percy: Integrate Cash Out [RemineID: #73419]
 		- 20170720@Franklin: Integrate Lottery and Betradar Virtual Sports (#78184)
+		- 20170825@Franklin: Integrate Lucky 3 (#78214)
 	Explanation's Param:
 	
 */
@@ -596,7 +597,7 @@ BEGIN
 	LEFT JOIN #ExtraPT_Sel e 
 		ON  b.srecommend = e.superID 
 			AND e.ProductID = b.ProductId	
-	WHERE	b.ProductId IN (5,8,15,23,25,27,28) ---Virtual Sports, Keno, Colossus Bets, NG2 (3rd), CashOut, Betradar Virtual Sports, Lottery
+	WHERE	b.ProductId IN (5,8,15,23,25,26,27,28) ---Virtual Sports, Keno, Colossus Bets, NG2 (3rd), CashOut, Betradar Virtual Sports, Lottery, Lucky 3
 			--- OR b.ProductId IN (4,11,12,13)    -----SLI, AG Casino, Gold Deluxe, MGC Live casino  (liveCasino)
 			--- OR b.ProductId IN (6, 14) --- Macau (Casino)
 			OR b.CasinoType IN (1,2)
@@ -706,6 +707,7 @@ BEGIN
 	,(15, 25, 'Cash Out')
 	,(16, 27, 'Virtual Sports 2')
      ,(17, 28, 'Lottery')
+     ,(18, 26, 'Lucky 3')
 
 		
 	INSERT INTO @ProductOrder (DisplayOrder, ProductId, ProductName, Site)

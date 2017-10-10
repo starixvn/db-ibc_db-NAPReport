@@ -21,6 +21,7 @@ AS
 		- 20160830@Robert: Enhance System/Mix Parlay [RedmineID: #63022]
 		- 20161206@Percy: Integrate Fast Market [RedmineID: #56803]
 		- 20170704@Robert: Integrate Betradar Virtual Sports Product [RedmineID: #78495]
+		- 20170828@Robert: Integrate Lucky3 product into NAP Acc Reports [RedmineID: #78214]
 	Param's explanation:		
 	
 */
@@ -50,14 +51,7 @@ Begin
         and bt.custid<>98632
 		and (bt.status<>b.status) 
 		and b.currency <> 20
-		AND s.productID IN ( 1, 2, 3, 5, 27)
-		/*and (
-				bt.bettype < 31  or bt.bettype between 121 AND 999 or bt.bettype between 1301 AND 1399 --sportbook
-				OR bt.bettype BETWEEN 81 AND 120 --number game					
-				OR bt.bettype IN (31,32,33,41,42,43) --racing
-				OR bt.bettype BETWEEN 1201 AND 1299 --virtual sports
-			)
-		*/	
+		AND s.productID IN ( 1, 2, 3, 5, 26, 27)		
 
 	DECLARE @Match TABLE (matchid int, homeid int, awayid int, matchcode nvarchar(50), type varchar(10))
 	
@@ -118,7 +112,7 @@ Begin
 			bt.Username,
 			bt.stake, 			
 			bt.odds, 			
-			bt.betteam, 			
+			CASE WHEN s.ProductID = 26 THEN bt.transdesc ELSE bt.betteam END betteam, 			
 			m.homeid,
 			m.awayid,
 			m.matchcode,
@@ -129,7 +123,7 @@ Begin
 			bt.tpositiontaking, 
 			bt.status as NewStatus, 
 			b.status as OldStatus,
-			c.username as Creator
+			c.username as Creator			
 	from bodb02.dbo.bettrans bt with (NOLOCK)
 		inner join dbo.betsreject b with (nolock) on bt.transid=b.transid
 		inner join bodb02.dbo.custinfo c with (nolock) on bt.creator = c.custid

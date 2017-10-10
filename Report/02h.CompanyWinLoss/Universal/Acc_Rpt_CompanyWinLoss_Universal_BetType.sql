@@ -24,6 +24,7 @@ Revisions:
 	 - 20160923@Percy:
 		1. Add params @Sporttype to support by Sporttype [RedmineID: #63460]
 		2. Using local variable to prevent bad parameter sniffing [RedmineID: #64573]
+	- 20170825@Franklin: Integrate Lucky 3 (#78214)
 Example: 
 EXEC [Acc_Rpt_CompanyWinLoss_Universal_BetType] @StartDate='2016-09-13', @EndDate='2020-01-01', @ProductId = 15, @SportType = 0
 		
