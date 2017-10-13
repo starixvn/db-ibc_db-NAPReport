@@ -22,6 +22,7 @@ AS
 		- 20170323@Percy: Integrate Cash Out [RemineID: #73419]
 		- 20170720@Franklin: Integrate Lottery and Betradar Virtual Sports (#78184)
 		- 20170825@Franklin: Integrate Lucky 3 (#78214)
+		- 20171013@Franklin: ExtraPT Setting - DB Restructure (#84802)
 	Explanation's Param:
 	
 */
@@ -115,7 +116,7 @@ BEGIN
 			
 	INSERT INTO #ExtraPT_Sel (ProductID, Sporttype, SubProduct, SuperID, ExtraPT) 
 	SELECT	ProductID, SportType, SubProduct, SuperId, SUM(ExtraPT) AS ExtraPT 
-	FROM	bodb_ACC.dbo.Acc_GroupExtraPTSetting a WITH (NOLOCK)
+	FROM	bodb02.dbo.Acc_GroupExtraPTSetting a WITH (NOLOCK)
 	WHERE	@StartDate BETWEEN FromDate AND Todate
 	GROUP BY ProductID, SportType, SubProduct, SuperId
 
