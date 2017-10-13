@@ -551,8 +551,8 @@ SET NOCOUNT ON
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
 			AND s.ProductID IN (3,4,5,26) --- NumberGame, SLI-Live Casino, VirtualSport, Lucky 3
 			AND s.Eventtype = 1
-			AND (
-					(
+			AND (	s.ProductID = 26
+				OR	(
 						(EXISTS (SELECT 1 From #tmpLeagueId l WHERE l.LeagueId = m.leagueid AND l.Bettype = b.bettype) AND s.ProductID = 3)
 						OR (@LeagueId = '' AND s.ProductID = 3)
 					)
