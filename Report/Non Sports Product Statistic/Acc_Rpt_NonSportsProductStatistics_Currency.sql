@@ -197,22 +197,8 @@ BEGIN
 
 	IF @Sporttype <> ''
 	BEGIN
-		IF substring (@LeagueID, len(@LeagueID), 1) <> @splitter1
-			SET @LeagueID = @LeagueID + @splitter1
-		SET @start = 1
-		SET @charindex1 = charindex(@splitter1, @LeagueID, @start)
-		SET @charindex2 = charindex(@splitter2, @LeagueID, @start)
-
-		WHILE (@charindex1 <> 0)
-		BEGIN
-			SET @leaguebettype = substring(@LeagueID, @start, @charindex1 - @start)       
-			SET @charindex2 = charindex(@splitter2, @leaguebettype, 1)
-			SET @league = substring(@leaguebettype, 1, @charindex2 - 1)
-			SET @bettypeid = substring(@leaguebettype, @charindex2 + 1, LEN(@leaguebettype))
-			INSERT INTO #tmp_LeagueID(LeagueID, Bettype) VALUES (@league, @bettypeid)
-			SET @start = @charindex1 +1
-			SET @charindex1 = charindex(@splitter1, @LeagueID, @start)          
-		END
+		INSERT INTO #tmp_SportType (Sporttype)
+		SELECT val FROM dbo.strSplit(@Sporttype, ',')
 	END
 
 	IF @GameTableId <> ''
