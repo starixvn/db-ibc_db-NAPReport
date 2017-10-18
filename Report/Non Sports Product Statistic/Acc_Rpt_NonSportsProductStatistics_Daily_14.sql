@@ -138,36 +138,15 @@ SET NOCOUNT ON
 						   CompanyComm MONEY,  CompanyCommBase MONEY
 						   )
 	
-	CREATE TABLE #Temp_MemIDs (
-        CustID int
-    )
-	CREATE TABLE #tmpProductID (
-        ProductID int
-    )  
-    CREATE TABLE #tmpBetType (
-        Bettype INT
-    )
-	CREATE TABLE #tmpLeagueId (
-        LeagueId INT, Bettype INT
-    )  
-	CREATE TABLE #tmpSporttype (
-        Sporttype INT
-    )
-	CREATE TABLE #tmpGameTableId (
-        GameTableID INT
-    )
-	CREATE TABLE #tmpAllDepSuper (
-        Srecommend INT
-    )
-	CREATE TABLE #tmpSiteSuper (
-        Srecommend INT
-    )
-	CREATE TABLE #tmpSite (
-        Site VARCHAR(50)
-    )
-	CREATE TABLE #tmpDevice (
-        Betfrom NVARCHAR(2)
-    )
+	CREATE TABLE #Temp_MemIDs (CustID int)
+	CREATE TABLE #tmpProductID (ProductID int)  
+    CREATE TABLE #tmpBetType (Bettype INT)
+	CREATE TABLE #tmpLeagueId (LeagueId INT, Bettype INT)  
+	CREATE TABLE #tmpSporttype (Sporttype INT)
+	CREATE TABLE #tmpGameTableId (GameTableID INT)
+	CREATE TABLE #tmp_Site (Site VARCHAR(50))	
+	CREATE TABLE #tmp_Company (SiteName VARCHAR(50), Srecommend INT)
+	CREATE TABLE #tmpDevice (Betfrom NVARCHAR(2))
 
 	IF @ProductID <> ''
     BEGIN
@@ -271,47 +250,29 @@ SET NOCOUNT ON
 
 	--- End Sport Bettype Matrix------
 
-	------Get Site
-	SELECT @IsMBC = 0
-	SELECT @IsSite = 0
-
 	IF @Site <> 'ALL'
-	BEGIN 
+	BEGIN
+		INSERT INTO #tmp_Site (Site)
+		SELECT RTRIM(LTRIM(val)) FROM dbo.strSplit(@Site, ',')
 
-		INSERT INTO #tmpSite (Site)
-		SELECT RTRIM(LTRIM(val)) FROM [dbo].strSplit(@Site, ',')
-		
-		----Specific Site
-		IF EXISTS (SELECT 1 FROM #tmpSite WHERE Site NOT IN ('MBC Group'))
-		BEGIN 
-			SELECT @IsSite = 1
-
-			INSERT INTO #tmpSiteSuper (Srecommend)
-			SELECT	f.custid 
-			FROM	#tmpSite s
-			CROSS APPLY f_DepSuper_1(s.Site) f		 
+		IF EXISTS (SELECT 1 FROM #tmp_Site WHERE Site NOT IN ('MBC Group')) -- Deposit Or Credit Drill Down
+		BEGIN	
+			INSERT INTO #tmp_Company (SiteName, Srecommend)
+			SELECT s.Site, c.srecommend
+			FROM #tmp_Site s
+				INNER JOIN dbo.Customer c WITH (NOLOCK) ON s.Site = c.site
+			WHERE c.roleid = 4
 		END
 
-
-		-- If 'MBC Group' : Credit Site only, so get the Srecommend of Deposit to exclude later  	
-		IF EXISTS (SELECT 1 FROM #tmpSite WHERE Site IN ('MBC Group'))					
-		BEGIN 
-
-			SELECT @IsMBC = 1   
-
-			INSERT INTO #tmpAllDepSuper (Srecommend)
-			SELECT custid FROM f_DepSuper_1('ALL')
-			
-			IF @IsSite = 1
-			BEGIN 				
-				DELETE A
-				FROM  #tmpAllDepSuper A
-				INNER JOIN #tmpSiteSuper S
-					ON A.Srecommend = S.Srecommend
-			END 			
-		END
-					
-	END	 
+		IF EXISTS (SELECT 1 FROM #tmp_Site WHERE Site IN ('MBC Group'))					
+		BEGIN
+			INSERT INTO #tmp_Company (SiteName, Srecommend)
+			SELECT c.site, c.srecommend
+			FROM dbo.Customer c WITH (NOLOCK)
+			WHERE c.roleid = 4
+				AND NOT EXISTS (SELECT 1 FROM dbo.f_DepSuper_1('ALL') f WHERE c.srecommend = f.CustID)
+		END			
+	END	 	 
 
 	IF EXISTS (SELECT 1 FROM #tmpProductID WHERE ProductID NOT IN (3, 4, 5, 27))
 	BEGIN
@@ -360,14 +321,13 @@ SET NOCOUNT ON
 			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
 			AND (EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom) OR @Device = '')
 			AND ( @Site = 'ALL'
-				  OR (EXISTS (SELECT 1 From #tmpSiteSuper s WHERE s.srecommend = b.srecommend) AND @IsSite = 1)
-				  OR (NOT EXISTS (SELECT 1 From #tmpAllDepSuper d WHERE d.srecommend = b.srecommend) AND @IsMBC = 1)
-			)
+				  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.srecommend = b.srecommend))
+				)
 			AND (
 				@HousePTType = 0
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
-			)
+				)
 		GROUP BY  b.WinlostDate,  b.Currency, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END
 		 
 		---1b. By bettype for Casino Product
@@ -415,14 +375,13 @@ SET NOCOUNT ON
 			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
 			AND (EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom) OR @Device = '')
 			AND ( @Site = 'ALL'
-				  OR (EXISTS (SELECT 1 From #tmpSiteSuper s WHERE s.srecommend = b.srecommend) AND @IsSite = 1)
-				  OR (NOT EXISTS (SELECT 1 From #tmpAllDepSuper d WHERE d.srecommend = b.srecommend) AND @IsMBC = 1)
-			)
+				  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.srecommend = b.srecommend))
+				)
 			AND (
 				@HousePTType = 0
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
-			)
+				)
 		GROUP BY  b.WinlostDate,  b.Currency, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END
 
 		---1b. By bettype for Casino Product
@@ -470,14 +429,13 @@ SET NOCOUNT ON
 			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
 			AND (EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom) OR @Device = '')
 			AND ( @Site = 'ALL'
-				  OR (EXISTS (SELECT 1 From #tmpSiteSuper s WHERE s.srecommend = b.srecommend) AND @IsSite = 1)
-				  OR (NOT EXISTS (SELECT 1 From #tmpAllDepSuper d WHERE d.srecommend = b.srecommend) AND @IsMBC = 1)
-			)
+				  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.srecommend = b.srecommend))
+				)
 			AND (
 				@HousePTType = 0
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
-			)
+				)
 		GROUP BY  b.WinlostDate,  b.Currency, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END
 	END
 
@@ -544,14 +502,13 @@ SET NOCOUNT ON
 			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
 			AND (EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom) OR @Device = '')
 			AND ( @Site = 'ALL'
-				  OR (EXISTS (SELECT 1 From #tmpSiteSuper s WHERE s.srecommend = b.srecommend) AND @IsSite = 1)
-				  OR (NOT EXISTS (SELECT 1 From #tmpAllDepSuper d WHERE d.srecommend = b.srecommend) AND @IsMBC = 1)
-			)
+				  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.srecommend = b.srecommend))
+				)
 			AND (
 				@HousePTType = 0
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
-			)
+				)
 		GROUP BY  b.WinlostDate,  b.Currency, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END
 
 		----3.  VirtualSport (HR) 
@@ -605,14 +562,13 @@ SET NOCOUNT ON
 			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
 			AND (EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom) OR @Device = '')
 			AND ( @Site = 'ALL'
-				  OR (EXISTS (SELECT 1 From #tmpSiteSuper s WHERE s.srecommend = b.srecommend) AND @IsSite = 1)
-				  OR (NOT EXISTS (SELECT 1 From #tmpAllDepSuper d WHERE d.srecommend = b.srecommend) AND @IsMBC = 1)
-			)
+				  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.srecommend = b.srecommend))
+				)
 			AND (
 				@HousePTType = 0
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
-			)
+				)
 		GROUP BY  b.WinlostDate,  b.Currency, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END
 	END
 	
@@ -670,14 +626,13 @@ SET NOCOUNT ON
 			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
 			AND (EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom) OR @Device = '')
 			AND ( @Site = 'ALL'
-				  OR (EXISTS (SELECT 1 From #tmpSiteSuper s WHERE s.srecommend = b.srecommend) AND @IsSite = 1)
-				  OR (NOT EXISTS (SELECT 1 From #tmpAllDepSuper d WHERE d.srecommend = b.srecommend) AND @IsMBC = 1)
-			)
+				  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.srecommend = b.srecommend))
+				)
 			AND (
 				@HousePTType = 0
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
-			)
+				)
 		GROUP BY  b.WinlostDate,  b.Currency, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END
 	END
 
@@ -834,14 +789,13 @@ SET NOCOUNT ON
 	DROP TABLE #Result
 	DROP TABLE #SportBettype
 	DROP TABLE #Temp_MemIDs
-	DROP TABLE #tmpAllDepSuper
 	DROP TABLE #tmpBetType
 	DROP TABLE #tmpDevice
 	DROP TABLE #tmpGameTableId
 	DROP TABLE #tmpLeagueId
 	DROP TABLE #tmpProductID
-	DROP TABLE #tmpSite
-	DROP TABLE #tmpSiteSuper
+	DROP TABLE #tmp_Site
+	DROP TABLE #tmp_Company
 	DROP TABLE #tmpSporttype
 
 
