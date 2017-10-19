@@ -1,3 +1,5 @@
+/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
+
 USE bodb02
 GO
 
@@ -74,7 +76,7 @@ BEGIN
 
 	INSERT INTO #TempDataCO (rptDate, MemberWL)
 	SELECT b.rptDate,
-		SUM((ISNULL(b.MemberWL, 0) + ISNULL(b.GrossWL, 0)) * 2 * e.Rate) AS MemberWL -- For CO: don't need * 50%
+		SUM((ISNULL(b.MemberWL, 0) + ISNULL(b.GrossWL, 0)) * e.Rate) AS MemberWL -- For CO: get 100%
 	FROM bodb_LicenseeReport.dbo.rpt_BettingByProduct b WITH (NOLOCK)
 		INNER JOIN #ExchangeOANDA e ON e.ExchangeDate = b.rptDate AND e.ExchangeID = b.CurrencyId
 		INNER JOIN (SELECT DISTINCT ProductID, LicenseeId, FromDate, ToDate, Bettype 
