@@ -14,8 +14,9 @@ AS
    
     Revisions:  
 		- 20170518@Harper: Create new SP for House Daily Winloss [RedmineID: #76695]
+		- 20171019@Harper: Change for CO 100% [RedmineID: #84331]
 	
-	Param's Explanation:   
+	Param's Explanation:   		
 
 	EXEC Acc_Rpt_HouseNetIncome_CO_Deposit '20161230', '20161230'
 */  
