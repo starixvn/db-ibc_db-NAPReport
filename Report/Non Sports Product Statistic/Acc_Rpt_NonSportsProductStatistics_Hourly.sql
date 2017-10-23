@@ -34,6 +34,8 @@ AS
 	DB:		DBACC/bodb02
 	Original: Acc_Rpt_NonSportsProductStatistics_Daily
 	Revisions:	
+		- 20170927@Cherry: Integrate Lucky 3 (#83101)
+		- 20171006@Cherry: Add filter of Number Game Bettype (#83101)
 
 	Param's Explanation:
 			 - @username:  + Search by keyword, member only
@@ -155,7 +157,7 @@ SET NOCOUNT ON
         Bettype INT
     )
 	CREATE TABLE #tmpLeagueId (
-        LeagueId INT
+        LeagueId INT, Bettype INT
     )  
 	CREATE TABLE #tmpSporttype (
         Sporttype INT
@@ -194,10 +196,29 @@ SET NOCOUNT ON
 		SELECT val FROM [dbo].strSplit(@Bettype, ',')
 	END
 
+	DECLARE @splitter1 char(1) = ',', @splitter2 char(1) = '-',
+		@league int, @bettypeid int,
+		@start int, @leaguebettype nvarchar(4000), 
+		@charindex1 int, @charindex2 int
+
 	IF @LeagueId <> ''
-    BEGIN
-		INSERT INTO #tmpLeagueId (LeagueId)
-		SELECT val FROM [dbo].strSplit(@LeagueId, ',')
+	BEGIN
+		IF substring (@LeagueID, len(@LeagueID), 1) <> @splitter1
+			SET @LeagueID = @LeagueID + @splitter1
+		SET @start = 1
+		SET @charindex1 = charindex(@splitter1, @LeagueID, @start)
+		SET @charindex2 = charindex(@splitter2, @LeagueID, @start)
+
+		WHILE (@charindex1 <> 0)
+		BEGIN
+			SET @leaguebettype = substring(@LeagueID, @start, @charindex1 - @start)       
+			SET @charindex2 = charindex(@splitter2, @leaguebettype, 1)
+			SET @league = substring(@leaguebettype, 1, @charindex2 - 1)
+			SET @bettypeid = substring(@leaguebettype, @charindex2 + 1, LEN(@leaguebettype))
+			INSERT INTO #tmpLeagueID(LeagueID, Bettype) VALUES (@league, @bettypeid)
+			SET @start = @charindex1 +1
+			SET @charindex1 = charindex(@splitter1, @LeagueID, @start)          
+		END
 	END
 
 	IF @Sporttype <> ''
@@ -353,7 +374,7 @@ SET NOCOUNT ON
 				ON s.Bettype = b.bettype 
 		WHERE b.WinlostDate = @WLDate
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
-			AND s.ProductID NOT IN (3,4,5,27)   --- NumberGame, SLI-Live Casino, Virtual Sports, Virtual Sports 2
+			AND s.ProductID NOT IN (3,4,5,27,26)   --- NumberGame, SLI-Live Casino, Virtual Sports, Virtual Sports 2, Lucky 3
 			AND s.RefTable IN (0,3)
 			AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
 			AND (b.currency = @currency OR @currency IN (0,-1)) 			
@@ -408,7 +429,7 @@ SET NOCOUNT ON
 				ON s.Bettype = b.GameId 
 		WHERE b.WinlostDate = @WLDate
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
-			AND s.ProductID NOT IN (3,4,5,27)   --- NumberGame, SLI-Live Casino, Virtual Sports, Virtual Sports 2  
+			AND s.ProductID NOT IN (3,4,5,27,26)   --- NumberGame, SLI-Live Casino, Virtual Sports, Virtual Sports 2, Lucky 3
 			AND s.RefTable = 1
 			AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
 			AND (b.currency = @currency OR @currency IN (0,-1)) 			
@@ -465,7 +486,7 @@ SET NOCOUNT ON
 				ON s.Bettype = b.GameId 
 		WHERE b.WinlostDate = @WLDate
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
-			AND s.ProductID NOT IN (3,4,5)   --- NumberGame, SLI-Live Casino, Virtual Sport 
+			AND s.ProductID NOT IN (3,4,5,27,26)   --- NumberGame, SLI-Live Casino, Virtual Sport, Virtual Sport 2, Lucky 3 
 			AND s.RefTable = 2
 			AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
 			AND (b.currency = @currency OR @currency IN (0,-1)) 			
@@ -484,7 +505,7 @@ SET NOCOUNT ON
 					ELSE  DATEPART(HOUR, b.transdate) END, 
 					CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END
 
-	----2. NumberGame & Live Casino & VirtualSport (Soccer) 
+	----2. NumberGame & Live Casino & VirtualSport (Soccer) & Lucky 3 
 		INSERT INTO #Data (  [Hour] ,  
 						   CustId ,
 						   BetCount ,
@@ -496,7 +517,7 @@ SET NOCOUNT ON
 						   CompanyCommRM 							   
 					   )
 	
-		SELECT  CASE WHEN b.bettype BETWEEN 81 AND 120 THEN	--Number Game
+		SELECT  CASE WHEN s.ProductID IN (3, 26) THEN	--Number Game, Lucky 3
 					CASE WHEN DATEDIFF(dd, m.kickofftime, b.winlostdate) = 1 and DATEPART(HOUR, m.kickofftime) = 23 
 						THEN 0 --kickoff at 23PM and settled on the next day then convert to 0 AM 
 					ELSE  DATEPART(HOUR, m.kickofftime) 
@@ -524,17 +545,15 @@ SET NOCOUNT ON
 				- SUM(scomm *actualrate) AS CompanyCommRM
 				
 		FROM  dbo.Bettrans b WITH (NOLOCK)
-			INNER JOIN #SportBettype s 
-				ON s.Bettype = b.bettype 
-			INNER JOIN Match m WITH (NOLOCK) 
-				ON m.MatchId = b.matchid
+			INNER JOIN #SportBettype s ON s.Bettype = b.bettype 
+			INNER JOIN Match m WITH (NOLOCK) ON m.MatchId = b.matchid
 		WHERE b.WinlostDate = @WLDate
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
-			AND s.ProductID IN (3,4,5) --- NumberGame, SLI-Live Casino, VirtualSport
+			AND s.ProductID IN (3,4,5,26) --- NumberGame, SLI-Live Casino, VirtualSport, Lucky 3
 			AND s.Eventtype = 1
-			AND (
-					(
-						(EXISTS (SELECT 1 From #tmpLeagueId l WHERE l.LeagueId = m.leagueid) AND s.ProductID = 3)
+			AND (	s.ProductID = 26
+				OR	(
+						(EXISTS (SELECT 1 From #tmpLeagueId l WHERE l.LeagueId = m.leagueid AND l.Bettype = b.bettype) AND s.ProductID = 3)
 						OR (@LeagueId = '' AND s.ProductID = 3)
 					)
 				OR (
@@ -559,7 +578,7 @@ SET NOCOUNT ON
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 			)
-		GROUP BY CASE WHEN b.bettype BETWEEN 81 AND 120 THEN	
+		GROUP BY CASE WHEN s.ProductID IN (3, 26) THEN	
 					CASE WHEN DATEDIFF(dd, m.kickofftime, b.winlostdate) = 1 and DATEPART(HOUR, m.kickofftime) = 23 
 						THEN 0 
 					ELSE  DATEPART(HOUR, m.kickofftime) 

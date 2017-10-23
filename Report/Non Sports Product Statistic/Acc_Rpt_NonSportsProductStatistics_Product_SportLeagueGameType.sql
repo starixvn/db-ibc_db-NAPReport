@@ -31,6 +31,7 @@ AS
 		- 20170227@Percy: support search multiple username [RedmineID: #71342]
 		- 20170726@Cherry: Integrate Betradar Virtual Sports (#78495)
 		- 20170815@Cherry: Non-Sport Statistics Phase 5 (#71923)
+		- 20171006@Cherry: Add filter of Number Game Bettype (#83101)
 
 	Param's Explanation:
 		- @username:  + Search by keyword, member only
@@ -139,7 +140,7 @@ BEGIN
 
 	CREATE TABLE #tmp_ProductID		(ProductID INT)
 	CREATE TABLE #tmp_BetType		(Bettype INT)
-	CREATE TABLE #tmp_LeagueID		(LeagueID INT)
+	CREATE TABLE #tmp_LeagueID		(LeagueID INT, Bettype INT)
 	CREATE TABLE #tmp_SportType		(Sporttype INT)
 	CREATE TABLE #tmp_GameTableID	(GameTableID INT)
 	CREATE TABLE #tmp_Devide		(Betfrom NVARCHAR(2))
@@ -162,10 +163,29 @@ BEGIN
 		SELECT val FROM dbo.strSplit(@BetType, ',')
 	END
 
+	DECLARE @splitter1 char(1) = ',', @splitter2 char(1) = '-',
+		@league int, @bettypeid int,
+		@start int, @leaguebettype nvarchar(4000), 
+		@charindex1 int, @charindex2 int
+
 	IF @LeagueId <> ''
 	BEGIN
-		INSERT INTO #tmp_LeagueID (LeagueID)
-		SELECT val FROM dbo.strSplit(@LeagueId, ',')
+		IF substring (@LeagueID, len(@LeagueID), 1) <> @splitter1
+			SET @LeagueID = @LeagueID + @splitter1
+		SET @start = 1
+		SET @charindex1 = charindex(@splitter1, @LeagueID, @start)
+		SET @charindex2 = charindex(@splitter2, @LeagueID, @start)
+
+		WHILE (@charindex1 <> 0)
+		BEGIN
+			SET @leaguebettype = substring(@LeagueID, @start, @charindex1 - @start)       
+			SET @charindex2 = charindex(@splitter2, @leaguebettype, 1)
+			SET @league = substring(@leaguebettype, 1, @charindex2 - 1)
+			SET @bettypeid = substring(@leaguebettype, @charindex2 + 1, LEN(@leaguebettype))
+			INSERT INTO #tmp_LeagueID(LeagueID, Bettype) VALUES (@league, @bettypeid)
+			SET @start = @charindex1 +1
+			SET @charindex1 = charindex(@splitter1, @LeagueID, @start)          
+		END
 	END
 
 	IF @Sporttype <> ''
@@ -637,7 +657,7 @@ BEGIN
 			INNER JOIN dbo.match m WITH (NOLOCK) ON m.matchid = b.matchid
 		WHERE b.EvenType = 1 AND b.ProductID IN (3,4,5)
 			AND (
-				(b.ProductID = 3 AND (@LeagueId = '' OR (EXISTS (SELECT 1 FROM #tmp_LeagueID l WHERE l.LeagueID = m.leagueid)))) OR
+				(b.ProductID = 3 AND (@LeagueId = '' OR (EXISTS (SELECT 1 FROM #tmp_LeagueID l WHERE l.LeagueID = m.leagueid AND l.Bettype = b.Bettype)))) OR
 				(b.ProductID = 4 AND (@GameTableId = '' OR (EXISTS (SELECT 1 FROM #tmp_GameTableID g WHERE g.GameTableID = m.leagueid)))) OR
 				(b.ProductID = 5 AND (@Sporttype = '' OR (EXISTS (SELECT 1 FROM #tmp_SportType st WHERE st.Sporttype = m.sporttype))))
 			)	
