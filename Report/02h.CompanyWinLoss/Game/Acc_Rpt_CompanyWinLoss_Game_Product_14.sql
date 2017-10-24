@@ -22,7 +22,8 @@ Revisions:
 	- 20160222@Franklin: Initialize Company Win Loss Report
 	- 20160720@Sophia: . Revise SP
 					   . Not use @EndDate because we get only one day on (bettrans/bettrans14 range)
-	- 20160112@Percy: Change Extra PT formula [RedmineID: #70208]
+	- 20160112@Percy: Change Extra PT formula [RedmineID: #70208].
+	- 20171013@Franklin: ExtraPT Setting - DB Restructure (#84802)
 
 Example:
 EXEC [Acc_Rpt_CompanyWinLoss_Game_Product_14] @EndDate='2020-01-01',@StartDate='2017-01-05', @CasinoType = 1
@@ -76,7 +77,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_Product_14] @EndDate='2020-01-01',@StartDate='
                 SELECT ProductID,
                        SuperId,
                        SUM(ExtraPT) AS ExtraPT
-                FROM bodb_ACC.dbo.Acc_GroupExtraPTSetting a WITH (NOLOCK)
+                FROM bodb02.dbo.Acc_GroupExtraPTSetting a WITH (NOLOCK)
                 WHERE @StartDate BETWEEN FromDate AND Todate
                 GROUP BY ProductID,
                          SuperId;
