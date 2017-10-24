@@ -30,6 +30,7 @@ Revision:
 	- 20160916@Robert: Integrate new product NG2 [RedmindID: #63460]
 	- 20161129@Robert: NAP Reports - Integrate Fishing World Product [RedmindID: #67757]
 	- 20170615@Tom: NAP Reports - Integrate Betradar Virtual Sports[RedmindID: #78495] 
+	- 20171020@Dominic: Integrate Bullfighting - #81664
 */
 
 BEGIN	
@@ -393,8 +394,18 @@ BEGIN
 		FROM match m with (nolock)
 			inner join league l with (nolock) ON m.leagueid = l.leagueid
 		WHERE bodb_Report.dbo.rptWinlost.matchid = m.matchid
+		AND bettype IN (SELECT bettype FROM bodb02.dbo.SportBettypeMatrix (NOLOCK) WHERE EventType <> 5)
 		AND m.eventdate = @winlostdate AND bodb_Report.dbo.rptWinlost.winlostdate = @winlostdate
 		AND bodb_Report.dbo.rptWinlost.bettype not in (10,31,32,33) --20120626@Elodie: exclude outright from sportbook
+
+		--3rd Product
+		UPDATE bodb_Report.dbo.rptWinlost
+		SET SportType = l.sporttype
+		FROM Match3rd m with (nolock)
+			inner join League3rd l with (nolock) ON m.League3rdId = l.League3rdId
+		WHERE bodb_Report.dbo.rptWinlost.matchid = m.Match3rdId
+		AND bettype IN (SELECT bettype FROM bodb02.dbo.SportBettypeMatrix (NOLOCK) WHERE EventType = 5)
+		AND m.eventdate = @winlostdate AND bodb_Report.dbo.rptWinlost.winlostdate = @winlostdate
 
 		UPDATE bodb_Report.dbo.rptWinlost
 		SET SportType = CASE
@@ -771,9 +782,19 @@ BEGIN
 			FROM match14 m with (nolock)
 				inner join league l with (nolock) ON m.leagueid = l.leagueid
 			WHERE bodb_Report.dbo.rptWinlost.matchid = m.matchid
+			AND bettype IN (SELECT bettype FROM bodb02.dbo.SportBettypeMatrix (NOLOCK) WHERE EventType <> 5)
 			AND m.eventdate = @winlostdate AND bodb_Report.dbo.rptWinlost.winlostdate = @winlostdate
 			AND bodb_Report.dbo.rptWinlost.bettype not in (10,31,32,33) --20120626@Elodie: exclude outright from sportbook
 			
+			--3rd Product
+			UPDATE bodb_Report.dbo.rptWinlost
+			SET SportType = l.sporttype
+			FROM Match3rd14 m with (nolock)
+				inner join League3rd l with (nolock) ON m.League3rdId = l.League3rdId
+			WHERE bodb_Report.dbo.rptWinlost.matchid = m.Match3rdId
+			AND bettype IN (SELECT bettype FROM bodb02.dbo.SportBettypeMatrix (NOLOCK) WHERE EventType = 5)
+			AND m.eventdate = @winlostdate AND bodb_Report.dbo.rptWinlost.winlostdate = @winlostdate
+
 			UPDATE bodb_Report.dbo.rptWinlost
 			SET SportType = CASE
 				WHEN leaguename LIKE '%NFL%' AND l.sporttype = 2 THEN 3
