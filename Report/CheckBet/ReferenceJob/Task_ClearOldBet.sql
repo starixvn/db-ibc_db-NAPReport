@@ -41,7 +41,7 @@ BEGIN
 		5: Match3rd
 	*/
 
-	DELETE #m WHERE EventType=0 --Parlay
+	
 	DELETE #m FROM bodb02.dbo.match m WHERE #m.matchid = m.matchid AND #m.EventType=1
 	DELETE #m FROM bodb02.dbo.outright m WHERE #m.matchid = m.orid AND #m.EventType=2
 	DELETE #m FROM bodb02.dbo.VSOutright m WHERE #m.matchid = m.EventID AND #m.EventType=3
@@ -53,7 +53,7 @@ BEGIN
 	DECLARE @FDate DATETIME, @TDate DATETIME
 	SELECT @FDate=MIN(winlostdate)
 	FROM bets (NOLOCK)
-	WHERE bettype IN (SELECT Bettype FROM #BetEventType WHERE Eventtype=0)
+	WHERE matchid IN (SELECT matchid FROM #m WHERE Eventtype=0)
 
 	SELECT @TDate=MAX(eventdate)
 	FROM bodb02.dbo.match14 (NOLOCK)
@@ -74,14 +74,18 @@ BEGIN
 	END
 
 	--------------------EventType <> 0------------------------
+	DELETE #m WHERE EventType=0
+
 	DECLARE @matchid int
 	DECLARE @EventType TINYINT
 
 	UPDATE TOP(1) #m
-	SET @matchid= ISNULL(#m.matchid,-1)
-		,@EventType= ISNULL(#m.EventType,-1)
+	SET @matchid= #m.matchid
+		,@EventType= #m.EventType
 		,IsDeleted=1
 	WHERE IsDeleted=0
+
+	IF @@ROWCOUNT = 0 SELECT @matchid = -1
 
 	WHILE(@matchid <> -1)
 	BEGIN
@@ -100,5 +104,7 @@ BEGIN
 			,@EventType= ISNULL(#m.EventType,-1)
 			,IsDeleted=1
 		WHERE IsDeleted=0
+
+		IF @@ROWCOUNT = 0 SELECT @matchid = -1
 	END
 END
