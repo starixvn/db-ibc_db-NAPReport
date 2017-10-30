@@ -62,13 +62,11 @@ BEGIN
 	BEGIN
 		DELETE main
 		FROM bets main
-		INNER JOIN #BetEventType m ON m.Bettype=main.bettype
-		WHERE winlostdate=@FDate AND m.Eventtype=0
+		WHERE winlostdate=@FDate AND matchid IN (SELECT matchid FROM #m WHERE Eventtype=0)
 
 		DELETE main
 		FROM betsReject main
-		INNER JOIN #BetEventType m ON m.Bettype=main.bettype
-		WHERE winlostdate=@FDate AND m.Eventtype=0
+		WHERE winlostdate=@FDate AND matchid IN (SELECT matchid FROM #m WHERE Eventtype=0)
 
 		SELECT @FDate = DATEADD(DAY,1,@FDate)
 	END
