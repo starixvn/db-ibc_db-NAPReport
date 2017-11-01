@@ -36,6 +36,7 @@ AS
 	Revisions:	
 		- 20170927@Cherry: Integrate Lucky 3 (#83101)
 		- 20171006@Cherry: Add filter of Number Game Bettype (#83101)
+		- 20171024@Cherry: Remove GamePayout (#85103)
 
 	Param's Explanation:
 			 - @username:  + Search by keyword, member only
@@ -757,7 +758,6 @@ SET NOCOUNT ON
 		Currency,
 		TotalBets, 
 		TotalWins, 
-		GamePayout,
 		TotalRefund, 
 		CompanyTurnover AS HouseTurnover, 
 		CompanyGrossIncome AS HouseGrossIncome, 
