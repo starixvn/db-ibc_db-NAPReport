@@ -60,13 +60,23 @@ BEGIN
 
 	WHILE(@FDate <= @TDate)
 	BEGIN
-		DELETE main
-		FROM bets main
-		WHERE winlostdate=@FDate AND matchid IN (SELECT matchid FROM #m WHERE Eventtype=0)
+		WHILE(1=1)
+		BEGIN
+			DELETE TOP(20000) main
+			FROM bets main
+			WHERE winlostdate=@FDate AND matchid IN (SELECT matchid FROM #m WHERE Eventtype=0)
 
-		DELETE main
-		FROM betsReject main
-		WHERE winlostdate=@FDate AND matchid IN (SELECT matchid FROM #m WHERE Eventtype=0)
+			IF @@ROWCOUNT < 20000 BREAK;
+		END
+
+		WHILE(1=1)
+		BEGIN
+			DELETE TOP(20000) main
+			FROM betsReject main
+			WHERE winlostdate=@FDate AND matchid IN (SELECT matchid FROM #m WHERE Eventtype=0)
+
+			IF @@ROWCOUNT < 20000 BREAK;
+		END
 
 		SELECT @FDate = DATEADD(DAY,1,@FDate)
 	END
@@ -87,15 +97,25 @@ BEGIN
 
 	WHILE(@matchid <> -1)
 	BEGIN
-		DELETE main
-		FROM bets main
-		INNER JOIN #BetEventType m ON m.Bettype=main.bettype
-		WHERE matchid = @matchid AND m.Eventtype=@EventType
+		WHILE(1=1)
+		BEGIN
+			DELETE TOP(20000) main
+			FROM bets main
+			INNER JOIN #BetEventType m ON m.Bettype=main.bettype
+			WHERE matchid = @matchid AND m.Eventtype=@EventType
 
-		DELETE main
-		FROM betsReject main
-		INNER JOIN #BetEventType m ON m.Bettype=main.bettype
-		WHERE matchid = @matchid AND m.Eventtype=@EventType
+			IF @@ROWCOUNT < 20000 BREAK;
+		END
+
+		WHILE(1=1)
+		BEGIN
+			DELETE TOP(20000) main
+			FROM betsReject main
+			INNER JOIN #BetEventType m ON m.Bettype=main.bettype
+			WHERE matchid = @matchid AND m.Eventtype=@EventType
+
+			IF @@ROWCOUNT < 20000 BREAK;
+		END
 
 		UPDATE TOP(1) #m
 		SET @matchid= ISNULL(#m.matchid,-1)
