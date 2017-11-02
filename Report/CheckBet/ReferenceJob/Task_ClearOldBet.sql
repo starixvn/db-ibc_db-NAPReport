@@ -46,7 +46,7 @@ BEGIN
 	DELETE #m FROM bodb02.dbo.outright m WHERE #m.matchid = m.orid AND #m.EventType=2
 	DELETE #m FROM bodb02.dbo.VSOutright m WHERE #m.matchid = m.EventID AND #m.EventType=3
 	DELETE #m FROM bodb02.dbo.VSRaceInfo m WHERE #m.matchid = m.EventID AND #m.EventType=3
-	DELETE #m FROM bodb02.dbo.Match3rd m WHERE #m.matchid = m.Match3rdId AND #m.EventType=5
+	--DELETE #m FROM bodb02.dbo.Match3rd m WHERE #m.matchid = m.Match3rdId AND #m.EventType=5
 
 
 	--------------------EventType = 0------------------------

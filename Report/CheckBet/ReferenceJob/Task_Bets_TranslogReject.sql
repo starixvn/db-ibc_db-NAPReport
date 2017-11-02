@@ -5,7 +5,7 @@ GO
 SET ANSI_NULLS ON 
 GO
 
-CREATE PROCEDURE [dbo].[Task_Bets_TranslogReject]
+ALTER PROCEDURE [dbo].[Task_Bets_TranslogReject]
 AS
 
 /*
@@ -22,9 +22,9 @@ BEGIN
  DECLARE @isTest BIT= 0;
  SELECT @isTest = dbo.f_CheckSPVersion(@@PROCID);		 
  
- DECLARE @transID_bt BIGINT;
+ DECLARE @translogID BIGINT;
  
- SELECT @transID_bt = MIN(translogid)		 
+ SELECT @translogID = MIN(translogid)		 
  FROM bodb02.dbo.translog WITH(NOLOCK)
  
  INSERT INTO [dbo].betsReject_Translog
@@ -74,11 +74,11 @@ SELECT [translogid]
 		SELECT translogid
 		FROM dbo.betsReject_Translog r WITH (NOLOCK)
 		WHERE r.[translogid] = b.[translogid]
-			  AND r.[translogid] >= @transID_bt
+			  AND r.[translogid] >= @translogID
 	)
 	AND b.statusID IN(101, 102)
 	AND b.gameID IN (
-		SELECT  Bettype                       
+					SELECT  Bettype                       
 					FROM bodb02.dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '', @isTest)
 					WHERE ProductID IN(30)
 		   )
