@@ -29,9 +29,11 @@ EXEC [Acc_Rpt_CompanyWinLoss_Bullfighting_MatchDetail] @SportType=207, @BetType=
      SET NOCOUNT ON;
     BEGIN
         CREATE TABLE #Data( LeagueId      INT,
-                            LeagueName    NVARCHAR(50),
+                            LeagueCode    NVARCHAR(50),
                             MatchId       INT,
                             MatchCode     NVARCHAR(50),
+                            HomeId        INT,
+                            AwayId        INT,
                             MemberWinLoss MONEY,
                             SMAWinLoss    MONEY,
                             Commission    MONEY,
@@ -39,9 +41,11 @@ EXEC [Acc_Rpt_CompanyWinLoss_Bullfighting_MatchDetail] @SportType=207, @BetType=
                             RealTurnover  MONEY );
         INSERT INTO #Data
                SELECT m.League3rdId,
-                      l.LeagueCode + '-' + l.LeagueName,
+                      l.LeagueCode,
                       m.Match3rdId,
                       m.MatchNo,
+                      m.HomeId,
+                      m.AwayId,
                       SUM(( winlost - actual_stake ) * actualrate),
                       SUM(( awinlost + mwinlost + swinlost ) * actualrate),
                       SUM(scomm * actualrate),
@@ -59,14 +63,19 @@ EXEC [Acc_Rpt_CompanyWinLoss_Bullfighting_MatchDetail] @SportType=207, @BetType=
                GROUP BY m.Match3rdId,
                         m.MatchNo,
                         m.League3rdId,
-                        l.LeagueCode + '-' + l.LeagueName
+                        l.LeagueCode,
+                        m.HomeId,
+                        m.AwayId
                ORDER BY m.League3rdId,
                         m.MatchNo;
     END;
     BEGIN -- Query
-        SELECT d.leaguename AS GroupName,
-               d.LeagueId AS GroupId,
-               d.MatchCode AS RowName,
+        SELECT d.LeagueId AS LeagueId,
+               d.LeagueCode AS LeagueCode,
+               d.MatchId AS MatchId,
+               d.MatchCode AS MatchCode,
+               d.HomeId AS HomeId,
+               d.AwayId AS AwayId,
                d.MemberWinLoss AS MemberWinLoss,
                d.SMAWinLoss AS SMAWinLoss,
                d.Commission AS Commission,
