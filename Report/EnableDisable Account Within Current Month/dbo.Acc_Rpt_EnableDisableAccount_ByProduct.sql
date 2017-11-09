@@ -2,7 +2,7 @@ USE [bodb02]
 GO
  
 ALTER PROCEDURE [dbo].[Acc_Rpt_EnableDisableAccount_ByProduct]
-	@ListCurrency	NVARCHAR(150)	= 'all', 
+	@ListCurrency	VARCHAR(8000)	= 'all', 
 	@SportType		INT,
 	@ShowEnabled	BIT				=	1,
 	@ShowDisabled	BIT				=	1
@@ -28,6 +28,7 @@ AS
 		- 20161129@Robert: NAP Reports - Integrate Fishing World Product [RedmindID: #67757]  
 		- 20170627@Cherry: Integrate Lottery and Betradar Virtual Sports (#78184, 78495)
 		- 20170825@Cherry: Integrate Lucky 3 (#78214)
+		- 20171109@Kean: HotFix #86404 - List of Currencies is passed incorrectly
 
 	Param's Explanation:  
 	  + @ListCurrency: The specified date used as one of the filter criterias, if its value is 'all' then no need to be filtered by currency
