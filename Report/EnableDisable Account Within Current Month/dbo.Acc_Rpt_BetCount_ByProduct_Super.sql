@@ -1,5 +1,11 @@
 USE [bodb02]
 GO
+/****** Object:  StoredProcedure [dbo].[Acc_Rpt_BetCount_ByProduct_Super]    Script Date: 11/10/2017 9:34:58 AM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+/****** Object:  Stored Procedure dbo.Acc_Rpt_BetCount_ByProduct_Super    Script Date: 10/31/2017 10:25:16 AM ******/
  
 ALTER PROCEDURE [dbo].[Acc_Rpt_BetCount_ByProduct_Super]
 	@MoveBetsDay	SMALLDATETIME,
@@ -32,12 +38,13 @@ AS
 		- 20170627@Cherry: Integrate Lottery and Betradar Virtual Sports (#78184, 78495)
 		- 20170808@Cherry: Integrate RNG Tablet Games (#78424)
 		- 20170825@Cherry: Integrate Lucky 3 (#78214)
+		- 20171030@Kean: Integrate Bullfighting (#85712)
 	Param's Explanation:  
 	  + @MoveBetsDay: The day of moving bets to battrans14
 	  + @BalanceUpDay: The day of moving bets to battransbk
 	  + @CustID: SuperID
 	  + {251: Casino (include : 251, 208, 209, 210), 151:Racing, 252:Bingo, 161:Number Game, 162:Live Casino, 180:Virtual Sports, 202:Keno,  -1 : Metric Gaming - Superlive}
-			220: Lottery, 160: Lucky 3
+			220: Lottery, 160: Lucky 3, 207: Bullfighting
   
 */  
 BEGIN
@@ -101,7 +108,8 @@ BEGIN
 			OR b.bettype BETWEEN 2501 AND (CASE WHEN @SportType = 213 AND b.StatusID <> 0 THEN 2699 ELSE 0 END) -- NG2	
 			OR b.bettype BETWEEN 1021 AND CASE WHEN @sportType = 220 THEN 1049 ELSE 0 END --Loterry
 			OR (@sportType=180 AND (b.bettype BETWEEN 1201 AND 1299 OR b.bettype BETWEEN 2700 AND 2899)) --Virtual Sports and Betradar Virtual Sports	
-			OR b.bettype BETWEEN 1600 AND CASE WHEN @sportType = 160 THEN 1610 ELSE 0 END --Lucky 3					
+			OR b.bettype BETWEEN 1600 AND CASE WHEN @sportType = 160 THEN 1610 ELSE 0 END --Lucky 3
+			OR (@sportType = 207 AND b.bettype = 1004) --Bullfighting
 		) 
 		AND ( 
 				----b.status IN ('WON','LOSE','DRAW','running') 
@@ -177,7 +185,8 @@ BEGIN
 							OR b.bettype BETWEEN 1011  AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 219 THEN 1020 ELSE 0 END) -- Fishing World
 							OR b.bettype BETWEEN 1021 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' = 220 THEN 1049 ELSE 0 END --Loterry
 							OR (' + CONVERT(VARCHAR(5),@sportType) +' =180 AND (b.bettype BETWEEN 1201 AND 1299 OR b.bettype BETWEEN 2700 AND 2899)) --Virtual Sports		
-							OR b.bettype BETWEEN 1600 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' = 160 THEN 1610 ELSE 0 END --Lucky 3		
+							OR b.bettype BETWEEN 1600 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' = 160 THEN 1610 ELSE 0 END --Lucky 3
+							OR (' + CONVERT(VARCHAR(5),@sportType) +' = 207 AND b.bettype = 1004) --Bullfighting						
 						) 
 						AND b.status IN (3  ---DRAW
 										,12	---HALF LOSE
@@ -286,7 +295,7 @@ BEGIN
 			LEFT JOIN CustEnableKeno ce ON ce.CustID = av.custid    
 		WHERE ce.CustID IS NULL
 	END
-	IF @sportType IN (211,212,213,219,220,180,160)
+	IF @sportType IN (211,212,213,219,220,180,160,207)
     BEGIN
 		DECLARE @bitmapOrder TABLE (bitmapOrder TINYINT)
 		INSERT INTO @bitmapOrder (bitmapOrder)

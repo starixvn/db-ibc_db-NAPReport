@@ -1,5 +1,11 @@
 USE [bodb02]
 GO
+/****** Object:  StoredProcedure [dbo].[Acc_Rpt_EnableDisableAccount_ByProduct]    Script Date: 11/10/2017 9:32:47 AM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+/****** Object:  Stored Procedure dbo.Acc_Rpt_EnableDisableAccount_ByProduct    Script Date: 10/31/2017 10:25:15 AM ******/
  
 ALTER PROCEDURE [dbo].[Acc_Rpt_EnableDisableAccount_ByProduct]
 	@ListCurrency	VARCHAR(8000)	= 'all', 
@@ -28,6 +34,7 @@ AS
 		- 20161129@Robert: NAP Reports - Integrate Fishing World Product [RedmindID: #67757]  
 		- 20170627@Cherry: Integrate Lottery and Betradar Virtual Sports (#78184, 78495)
 		- 20170825@Cherry: Integrate Lucky 3 (#78214)
+		- 20171030@Kean: Integrate Bullfighting (#85712)
 		- 20171109@Kean: HotFix #86404 - List of Currencies is passed incorrectly
 
 	Param's Explanation:  
@@ -70,7 +77,7 @@ BEGIN
 	END
 
 	DECLARE @bitmap TINYINT -- using for sporttype that has 1 setting
-	IF @SportType IN (212, 213, 219, 220, 180, 160) -- Macau Games, NG2, Fishing World, Virtual Sports, Lottery, Lucky 3
+	IF @SportType IN (212, 213, 219, 220, 180, 160, 207) -- Macau Games, NG2, Fishing World, Virtual Sports, Lottery, Lucky 3, Bullfighting
 	BEGIN
 		SELECT  @bitmap = bitmapOrder 
 		FROM dbo.ProductStatusProfile WITH(NOLOCK) 
@@ -99,7 +106,7 @@ BEGIN
 												CROSS APPLY @bitmapOrder b
 												CROSS APPLY f_CustSetting_ProductStatusSel(cps.bitmapIsDisabled, b.bitmapOrder) f
 											WHERE custid = ci.custid)
-			WHEN @SportType IN (212, 213, 219, 220, 180, 160) THEN (SELECT CASE (SELECT value FROM dbo.f_CustSetting_ProductStatusSel(bitmapIsDisabled, @bitmap)) WHEN 0 THEN 0 ELSE 1 END 
+			WHEN @SportType IN (212, 213, 219, 220, 180, 160, 207) THEN (SELECT CASE (SELECT value FROM dbo.f_CustSetting_ProductStatusSel(bitmapIsDisabled, @bitmap)) WHEN 0 THEN 0 ELSE 1 END 
 										FROM CustProductStatus
 										WHERE custid = ci.custid)
 		END
@@ -417,8 +424,8 @@ BEGIN
 						GROUP BY fda.CustID
 						) A ON fda.CustID = A.CustID
 	END
-	-- Macau Games, NG2, Fishing World, Virtual Sports, Lottery, Lucky 3
-	IF @sportType IN (212, 213, 219, 220, 180, 160)
+	-- Macau Games, NG2, Fishing World, Virtual Sports, Lottery, Lucky 3, Bullfighting
+	IF @sportType IN (212, 213, 219, 220, 180, 160, 207)
     BEGIN      
 		INSERT INTO #FiltedDownlineAcc
 		SELECT sup.CustID,
