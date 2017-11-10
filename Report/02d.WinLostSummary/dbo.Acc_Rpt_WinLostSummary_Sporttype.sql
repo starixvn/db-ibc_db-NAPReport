@@ -1,12 +1,11 @@
 ﻿USE [bodb_Report]
 GO
-/****** Object:  StoredProcedure [dbo].[Acc_Rpt_WinlostSummary_Sporttype]    Script Date: 10/10/2017 05:57:59 ******/
+
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
-/****** Object:  Stored Procedure dbo.Acc_Rpt_WinlostSummary_Sporttype    Script Date: 10/10/2017 12:32:17 AM ******/
-/****** Object:  Stored Procedure dbo.Acc_Rpt_WinlostSummary_Sporttype    Script Date: 10/5/2017 2:25:33 PM ******/
+
 ALTER PROCEDURE [dbo].[Acc_Rpt_WinlostSummary_Sporttype] @fromdate DATETIME,
                                                          @todate   DATETIME
 AS
@@ -43,6 +42,7 @@ AS
 			- 20170615@Tom: NAP Reports - Integrate Keno Lottery [RedmindID: #78184] 
 					      NAP Reports - Integrate Betradar Virtual Sports[RedmindID: #78495] 
 			- 20170816@Logan:  NAP Reports - Integrate Lucky 3 [RedmindID: #81733]
+			- 20171110@Robert: NAP Reports - Integrate Bullfighting [RedmindID: #85383]
 
         Parameter's Explanation:
     */
@@ -189,7 +189,10 @@ AS
                         SELECT m.orid AS matchid,
                                m.matchcode
                         FROM bodb02.dbo.Outright(nolock) m
-                        WHERE m.eventdate BETWEEN @f_date AND @t_date;
+                        WHERE m.eventdate BETWEEN @f_date AND @t_date
+				    UNION ALL
+				    SELECT Match3rdId, MatchNo FROM bodb02.dbo.Match3rd(nolock)
+				    WHERE EventDate BETWEEN @f_date AND @t_date
              END;
          IF @_fromdate <= @movebetdate
              BEGIN
@@ -207,7 +210,10 @@ AS
                         SELECT m.orid AS matchid,
                                m.matchcode
                         FROM bodb02.dbo.Outright14(nolock) m
-                        WHERE m.eventdate BETWEEN @f_date AND @t_date;
+                        WHERE m.eventdate BETWEEN @f_date AND @t_date
+				    UNION ALL
+				    SELECT Match3rdId, MatchNo FROM bodb02.dbo.Match3rd14(nolock)
+				    WHERE EventDate BETWEEN @f_date AND @t_date
              END;
          IF @_fromdate < @balanceupdate
              BEGIN
@@ -225,7 +231,10 @@ AS
                         SELECT m.orid AS matchid,
                                m.matchcode
                         FROM bodb_archive.dbo.Outright_bk(nolock) m
-                        WHERE m.eventdate BETWEEN @f_date AND @t_date;
+                        WHERE m.eventdate BETWEEN @f_date AND @t_date
+				    UNION ALL
+				    SELECT Match3rdId, MatchNo FROM bodb_Archive.dbo.Match3rd_bk (nolock)
+				    WHERE EventDate BETWEEN @f_date AND @t_date
              END;
          INSERT INTO #TempData
                 SELECT CASE s.SubProduct
@@ -813,7 +822,7 @@ AS
                 GROUP BY b.liveindicator,
                          ibc;	
          INSERT INTO #TempData
-                -- Keno
+                -- Keno and others
                 SELECT CASE WHEN s.ProductId = 8 THEN 202 
 				    WHEN s.ProductId = 28 THEN 220 
 				    ELSE b.SportType
@@ -847,7 +856,7 @@ AS
 				    ELSE s.ProductId  END,
                          b.liveindicator,
                          ibc,
-                         CASE WHEN s.ProductId = 27 THEN 0 ELSE b.bettype END;	
+                         CASE WHEN s.ProductId = 27 THEN 0 ELSE b.bettype END;			  
          -- Result --
          CREATE TABLE #Result
          (sporttype        INT,
