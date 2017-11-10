@@ -71,12 +71,12 @@ BEGIN
 	SELECT @FirstDate = CONVERT(VARCHAR(25),DATEADD(dd,-(DAY(@CurrentDate)-1),@CurrentDate),101)   --- First date of the month
     
     --Get running Keno, Colossus Bet, Bullfighting, Lottery, MG-Superlive
-    IF @sportType IN( 202,204,207,220,-1)                       
+    IF @sportType IN (202,204,207,220,-1)                       
     BEGIN
 		INSERT INTO #AvailableMember
 		SELECT tl.custid,tl.[status],COUNT(1) 
 		FROM dbo.translog tl WITH(NOLOCK)
-		WHERE (tl.productID IN (202, 204,207,220)
+		WHERE (tl.productID IN (202,204,207,220)
 			  OR tl.GameID BETWEEN 801 AND 806
 			)
 			AND tl.srecommend = @CustID
