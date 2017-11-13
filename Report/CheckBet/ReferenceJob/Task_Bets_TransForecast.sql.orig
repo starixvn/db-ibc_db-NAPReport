@@ -1,12 +1,12 @@
 USE BK;
 GO
-
-SET QUOTED_IDENTIFIER ON 
+SET QUOTED_IDENTIFIER ON;
 GO
-SET ANSI_NULLS ON 
+SET ANSI_NULLS ON;
 GO
 
 /****** Object:  Stored Procedure dbo.Task_Bets_TransForecast    Script Date: 8/14/2017 11:01:47 AM ******/
+
 ALTER PROCEDURE [dbo].[Task_Bets_TransForecast] @transid BIGINT
 AS
 
@@ -21,12 +21,9 @@ AS
 		- 20170424@Percy: apply Cash Out [RedmineID: #73419]
 		- 20170704@Robert: Integrate Betradar Virtual Sports Product [Redmine: #78495]
 		- 20170814@Tom: Enhance performance
-		- 20170828@Robert: Integrate Lucky3 product into NAP Acc Reports [RedmineID: #78214]
 <<<<<<< HEAD
+		- 20170828@Robert: Integrate Lucky3 product into NAP Acc Reports [RedmineID: #78214]
 		- 20171122@Dominic: Exclude Metric Superlive from this job
-=======
-		- 20171110@Robert: NAP Reports - Integrate Bullfighting [RedmindID: #85383]
->>>>>>> 85712_BullfightingNAP_Report - check bets
 	Param's Explanation:
 */
 BEGIN
@@ -87,24 +84,89 @@ BEGIN
 				AND b.bettype IN (
 						SELECT  Bettype                       
 							FROM bodb02.dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '', @isTest)
-<<<<<<< HEAD
 							WHERE ProductID IN(1, 2, 3, 5, 25, 26, 27)							
 							AND SubProduct NOT IN('BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss', 'MG-SuperLive')
-=======
-							WHERE ProductID IN(1, 2, 3, 5, 25, 26, 27, 30)							
-							AND SubProduct NOT IN('BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss')
->>>>>>> 85712_BullfightingNAP_Report - check bets
 				   )
 	OPTION (MAXDOP 8);
 END
 GO
+=======
+		- 20170828@Robert: Integrate Lucky3 product into NAP Acc Reports [RedmineID: #78214]		
+	Param's Explanation:
+*/
+>>>>>>> 85712_BullfightingNAP_Report - check bets
 
-SET QUOTED_IDENTIFIER OFF 
+     BEGIN
+         SET NOCOUNT ON;
+         DECLARE @isTest BIT= 0;
+         SELECT @isTest = dbo.f_CheckSPVersion(@@PROCID);
+         INSERT INTO dbo.bets
+         (transid,
+          hdp1,
+          hdp2,
+          odds,
+          stake,
+          status,
+          livehomescore,
+          liveawayscore,
+          liveindicator,
+          betteam,
+          tpositiontaking,
+          matchid,
+          oddsid,
+          ruben,
+          bettype,
+          currency,
+          custid,
+          winlostdate,
+          transdesc
+         )
+                SELECT transid,
+                       hdp1,
+                       hdp2,
+                       odds,
+                       CASE
+                           WHEN betdaqid <> 0
+                                OR ExtraInfo IS NULL
+                           THEN stake
+                           WHEN ExtraInfo LIKE '%p25%'
+                           THEN ISNULL(CAST(('<xml>'+ExtraInfo+'</xml>') AS XML).value('data(/xml/p25/@s)[1]', 'MONEY'), 0)
+                           ELSE stake
+                       END AS stake,
+                       status,
+                       livehomescore,
+                       liveawayscore,
+                       liveindicator,
+                       betteam,
+                       tpositiontaking,
+                       matchid,
+                       oddsid,
+                       ruben,
+                       b.bettype,
+                       currency,
+                       custid,
+                       winlostdate,
+                       CASE
+                           WHEN b.bettype = 1600
+                           THEN transdesc
+                           ELSE NULL
+                       END AS transdesc
+                FROM bodb02.dbo.bettrans b WITH (NOLOCK)
+                WHERE transid > @transid
+                      AND b.bettype IN
+                (
+                    SELECT Bettype
+                    FROM bodb02.dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '', @isTest)
+                    WHERE ProductID IN(1, 2, 3, 5, 25, 26, 27)
+                    AND SubProduct NOT IN('BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss')
+                )
+                OPTION(MAXDOP 8);
+     END;
 GO
-SET ANSI_NULLS ON 
+SET QUOTED_IDENTIFIER OFF;
 GO
-
-
-GO 
- GRANT VIEW DEFINITION ON [dbo].[Task_Bets_TransForecast] TO [vnteam]
-GO 
+SET ANSI_NULLS ON;
+GO
+GO
+GRANT VIEW DEFINITION ON [dbo].[Task_Bets_TransForecast] TO [vnteam];
+GO
