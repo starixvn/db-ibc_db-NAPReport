@@ -40,6 +40,7 @@ AS
 		- 20170825@Cherry: Integrate Lucky 3 (#78214)
 		- 20171030@Kean: Integrate Bullfighting (#85712)
 		- 20171110@Kean: Should count the running tickets from translogs table (#86319)
+		- 20171113@Kean:  (#86319) Include GoldDeluxe for counting of running tickets from translog table(#86319)
 	Param's Explanation:  
 	  + @MoveBetsDay: The day of moving bets to battrans14
 	  + @BalanceUpDay: The day of moving bets to battransbk
@@ -70,13 +71,13 @@ BEGIN
 	SELECT @CurrentDate = CAST(GETDATE() AS DATE)
 	SELECT @FirstDate = CONVERT(VARCHAR(25),DATEADD(dd,-(DAY(@CurrentDate)-1),@CurrentDate),101)   --- First date of the month
     
-    --Get running Keno, Colossus Bet, Bullfighting, Lottery, MG-Superlive
-    IF @sportType IN (202,204,207,220,-1)                       
+    --Get running Keno, Colossus Bet, Bullfighting, Lottery, GoldDeluxe, MG-Superlive
+    IF @sportType IN (202,204,207,220,255,-1)                       
     BEGIN
 		INSERT INTO #AvailableMember
 		SELECT tl.custid,tl.[status],COUNT(1) 
 		FROM dbo.translog tl WITH(NOLOCK)
-		WHERE (tl.productID IN (202,204,207,220)
+		WHERE (tl.productID IN (202,204,207,220,255)
 			  OR tl.GameID BETWEEN 801 AND 806
 			)
 			AND tl.srecommend = @CustID
