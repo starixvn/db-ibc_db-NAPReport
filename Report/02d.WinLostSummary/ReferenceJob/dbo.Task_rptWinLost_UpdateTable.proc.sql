@@ -34,6 +34,8 @@ Revision:
 */
 
 BEGIN	
+	SET NOCOUNT ON;
+
 	DECLARE @CommSetting TABLE
 	(	MatchID			int,
 		IBCFee			bit,

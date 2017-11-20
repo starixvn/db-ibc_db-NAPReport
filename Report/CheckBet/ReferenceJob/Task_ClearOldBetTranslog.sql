@@ -48,11 +48,9 @@ BEGIN
 
 	--------------------EventType = 5------------------------
 	DECLARE @matchid int
-	DECLARE @EventType TINYINT
 
 	UPDATE TOP(1) #m
 	SET @matchid= #m.matchid
-		,@EventType= #m.EventType
 		,IsDeleted=1
 	WHERE IsDeleted=0
 
@@ -64,8 +62,7 @@ BEGIN
 		BEGIN
 			DELETE TOP(20000) main
 			FROM bets_Translog main
-			INNER JOIN #BetEventType m ON m.Bettype=main.gameID
-			WHERE eventID = @matchid AND m.Eventtype=@EventType
+			WHERE eventID = @matchid
 
 			IF @@ROWCOUNT < 20000 BREAK;
 		END
@@ -74,15 +71,13 @@ BEGIN
 		BEGIN
 			DELETE TOP(20000) main
 			FROM betsReject_Translog main
-			INNER JOIN #BetEventType m ON m.Bettype=main.gameID
-			WHERE eventID = @matchid AND m.Eventtype=@EventType
+			WHERE eventID = @matchid
 
 			IF @@ROWCOUNT < 20000 BREAK;
 		END
 
 		UPDATE TOP(1) #m
 		SET @matchid= ISNULL(#m.matchid,-1)
-			,@EventType= ISNULL(#m.EventType,-1)
 			,IsDeleted=1
 		WHERE IsDeleted=0
 
