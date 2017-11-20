@@ -24,11 +24,11 @@ BEGIN
 
 	CREATE UNIQUE CLUSTERED INDEX PK_BetEvent ON #BetEventType(Bettype,Eventtype)
 
-	CREATE TABLE #m (matchid int, EventType TINYINT, IsDeleted BIT)
+	CREATE TABLE #m (matchid int, EventType TINYINT)
 	CREATE UNIQUE CLUSTERED INDEX PK_Match ON #m(matchid,EventType)
 
-	INSERT INTO #m(matchid,EventType,IsDeleted)
-	SELECT DISTINCT matchid,Eventtype,0
+	INSERT INTO #m(matchid,EventType)
+	SELECT DISTINCT matchid,Eventtype
 	FROM bets b(nolock)
 	INNER JOIN #BetEventType m ON m.Bettype=b.bettype
 
@@ -84,40 +84,21 @@ BEGIN
 	--------------------EventType <> 0------------------------
 	DELETE #m WHERE EventType=0
 
-	DECLARE @matchid int
-
-	UPDATE TOP(1) #m
-	SET @matchid= #m.matchid
-		,IsDeleted=1
-	WHERE IsDeleted=0
-
-	IF @@ROWCOUNT = 0 SELECT @matchid = -1
-
-	WHILE(@matchid <> -1)
+	WHILE(1=1)
 	BEGIN
-		WHILE(1=1)
-		BEGIN
-			DELETE TOP(20000) main
-			FROM bets main
-			WHERE matchid = @matchid
+		DELETE TOP(20000) main
+		FROM bets main
+		WHERE matchid IN (SELECT matchid FROM #m)
 
-			IF @@ROWCOUNT < 20000 BREAK;
-		END
+		IF @@ROWCOUNT < 20000 BREAK;
+	END
 
-		WHILE(1=1)
-		BEGIN
-			DELETE TOP(20000) main
-			FROM betsReject main
-			WHERE matchid = @matchid
+	WHILE(1=1)
+	BEGIN
+		DELETE TOP(20000) main
+		FROM betsReject main
+		WHERE matchid IN (SELECT matchid FROM #m)
 
-			IF @@ROWCOUNT < 20000 BREAK;
-		END
-
-		UPDATE TOP(1) #m
-		SET @matchid= ISNULL(#m.matchid,-1)
-			,IsDeleted=1
-		WHERE IsDeleted=0
-
-		IF @@ROWCOUNT = 0 SELECT @matchid = -1
+		IF @@ROWCOUNT < 20000 BREAK;
 	END
 END

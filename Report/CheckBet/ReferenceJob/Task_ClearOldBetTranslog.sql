@@ -46,41 +46,21 @@ BEGIN
 	DELETE #m FROM bodb02.dbo.Match3rd m WHERE #m.matchid = m.Match3rdId AND #m.EventType=5
 
 
-	--------------------EventType = 5------------------------
-	DECLARE @matchid int
-
-	UPDATE TOP(1) #m
-	SET @matchid= #m.matchid
-		,IsDeleted=1
-	WHERE IsDeleted=0
-
-	IF @@ROWCOUNT = 0 SELECT @matchid = -1
-
-	WHILE(@matchid <> -1)
+	WHILE(1=1)
 	BEGIN
-		WHILE(1=1)
-		BEGIN
-			DELETE TOP(20000) main
-			FROM bets_Translog main
-			WHERE eventID = @matchid
+		DELETE TOP(20000) main
+		FROM bets_Translog main
+		WHERE eventID IN (SELECT matchid FROM #m)
 
-			IF @@ROWCOUNT < 20000 BREAK;
-		END
+		IF @@ROWCOUNT < 20000 BREAK;
+	END
 
-		WHILE(1=1)
-		BEGIN
-			DELETE TOP(20000) main
-			FROM betsReject_Translog main
-			WHERE eventID = @matchid
+	WHILE(1=1)
+	BEGIN
+		DELETE TOP(20000) main
+		FROM betsReject_Translog main
+		WHERE eventID IN (SELECT matchid FROM #m)
 
-			IF @@ROWCOUNT < 20000 BREAK;
-		END
-
-		UPDATE TOP(1) #m
-		SET @matchid= ISNULL(#m.matchid,-1)
-			,IsDeleted=1
-		WHERE IsDeleted=0
-
-		IF @@ROWCOUNT = 0 SELECT @matchid = -1
+		IF @@ROWCOUNT < 20000 BREAK;
 	END
 END
