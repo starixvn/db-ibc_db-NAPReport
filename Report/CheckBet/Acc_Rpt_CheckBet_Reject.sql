@@ -155,7 +155,7 @@ Begin
 	where b.bettype NOT IN (SELECT bettype FROM #SportBettype WHERE (ProductID=5 AND EventType =3))
 	--betsReject_Translog
 	UNION ALL
-	select  bt.transid, 
+	select  bt.refno transid, 
 			bt.transdate,
 			bt.CurrencyName,
 			bt.bettype,
@@ -209,7 +209,7 @@ Begin
 		INNER JOIN #SportBettype s on s.bettype = b.bettype
 		inner JOIN #Match m on bt.oddsid = m.matchid AND m.EventType = s.EventType	
 	where (s.ProductID=5 AND s.EventType =3)
-	ORDER BY bt.transid		
+	ORDER BY transid		
 	
 	DROP TABLE #tmp	 	
 END
