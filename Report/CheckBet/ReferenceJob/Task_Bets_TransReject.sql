@@ -20,6 +20,7 @@ Revisions:
 	- 20170704@Robert: Integrate Betradar Virtual Sports Product [Redmine: #78495]
 	- 20170814@Tom: Enhance performance
 	- 20170828@Robert: Integrate Lucky3 product into NAP Acc Reports [RedmineID: #78214]
+	- 20171122@Dominic: Exclude Metric Superlive from this job
 
 Param's Explanation:
 */
@@ -87,7 +88,7 @@ WHERE NOT EXISTS
 		SELECT  Bettype                       
 					FROM bodb02.dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '', @isTest)
 					WHERE ProductID IN(1, 2, 3, 5, 25, 26, 27)
-					AND SubProduct NOT IN('BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss')
+					AND SubProduct NOT IN('BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss', 'MG-SuperLive')
 		   )
   OPTION (MAXDOP 8);
 END;

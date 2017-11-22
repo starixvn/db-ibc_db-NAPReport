@@ -43,6 +43,7 @@ BEGIN
 		5: Match3rd
 	*/
 
+	DELETE #m FROM bodb02.dbo.match m WHERE #m.matchid = m.matchid AND #m.EventType=1
 	DELETE #m FROM bodb02.dbo.Match3rd m WHERE #m.matchid = m.Match3rdId AND #m.EventType=5
 
 
