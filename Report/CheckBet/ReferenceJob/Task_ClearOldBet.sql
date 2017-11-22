@@ -28,7 +28,7 @@ BEGIN
 	CREATE UNIQUE CLUSTERED INDEX PK_Match ON #m(matchid,EventType)
 
 	INSERT INTO #m(matchid,EventType)
-	SELECT DISTINCT matchid,Eventtype
+	SELECT DISTINCT CASE WHEN EventType=3 THEN oddsid ELSE matchid END,Eventtype
 	FROM bets b(nolock)
 	INNER JOIN #BetEventType m ON m.Bettype=b.bettype
 
@@ -44,8 +44,7 @@ BEGIN
 	
 	DELETE #m FROM bodb02.dbo.match m WHERE #m.matchid = m.matchid AND #m.EventType=1
 	DELETE #m FROM bodb02.dbo.outright m WHERE #m.matchid = m.orid AND #m.EventType=2
-	DELETE #m FROM bodb02.dbo.VSOutright m WHERE #m.matchid = m.EventID AND #m.EventType=3
-	DELETE #m FROM bodb02.dbo.VSRaceInfo m WHERE #m.matchid = m.EventID AND #m.EventType=3
+	DELETE #m FROM bodb02.dbo.VSOutright m WHERE #m.matchid = m.Orid AND #m.EventType=3
 	--DELETE #m FROM bodb02.dbo.Match3rd m WHERE #m.matchid = m.Match3rdId AND #m.EventType=5
 
 
@@ -88,7 +87,9 @@ BEGIN
 	BEGIN
 		DELETE TOP(20000) main
 		FROM bets main
-		WHERE matchid IN (SELECT matchid FROM #m)
+		INNER JOIN #BetEventType m ON main.bettype=m.Bettype
+		WHERE (Eventtype <> 3 AND matchid IN (SELECT matchid FROM #m WHERE Eventtype <> 3))
+		OR (Eventtype = 3 AND oddsid IN (SELECT matchid FROM #m WHERE Eventtype = 3))
 
 		IF @@ROWCOUNT < 20000 BREAK;
 	END
@@ -97,7 +98,9 @@ BEGIN
 	BEGIN
 		DELETE TOP(20000) main
 		FROM betsReject main
-		WHERE matchid IN (SELECT matchid FROM #m)
+		INNER JOIN #BetEventType m ON main.bettype=m.Bettype
+		WHERE (Eventtype <> 3 AND matchid IN (SELECT matchid FROM #m WHERE Eventtype <> 3))
+		OR (Eventtype = 3 AND oddsid IN (SELECT matchid FROM #m WHERE Eventtype = 3))
 
 		IF @@ROWCOUNT < 20000 BREAK;
 	END
