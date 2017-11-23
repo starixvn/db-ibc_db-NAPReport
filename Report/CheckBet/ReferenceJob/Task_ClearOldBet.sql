@@ -10,7 +10,7 @@ AS
 /* 
 	DB: DBBET/BK
 	Revisions:
-		- 20171027@Dominic: Integrate Bullfighting #85382,HotFix #85757
+		- 20171027@Dominic: HotFix #85757
 	Param's Explanation:
 */
 BEGIN
