@@ -94,7 +94,7 @@ BEGIN
 	BEGIN
 		DELETE TOP(20000) main
 		FROM bets main
-		WHERE matchid IN (SELECT matchid FROM #m WHERE Eventtype <> 3)
+		WHERE matchid IN (SELECT matchid FROM #m WHERE Eventtype = 3)
 		AND oddsid IN (SELECT oddsid FROM #m WHERE Eventtype = 3)
 
 		IF @@ROWCOUNT < 20000 BREAK;
@@ -113,7 +113,7 @@ BEGIN
 	BEGIN
 		DELETE TOP(20000) main
 		FROM betsReject main
-		WHERE matchid IN (SELECT matchid FROM #m WHERE Eventtype <> 3)
+		WHERE matchid IN (SELECT matchid FROM #m WHERE Eventtype = 3)
 		AND oddsid IN (SELECT oddsid FROM #m WHERE Eventtype = 3)
 
 		IF @@ROWCOUNT < 20000 BREAK;
