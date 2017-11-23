@@ -24,11 +24,11 @@ BEGIN
 
 	CREATE UNIQUE CLUSTERED INDEX PK_BetEvent ON #BetEventType(Bettype,Eventtype)
 
-	CREATE TABLE #m (matchid int, EventType TINYINT)
-	CREATE UNIQUE CLUSTERED INDEX PK_Match ON #m(matchid,EventType)
+	CREATE TABLE #m (matchid int, EventType TINYINT, oddsid INT)
+	CREATE CLUSTERED INDEX PK_Match ON #m(matchid,EventType)
 
-	INSERT INTO #m(matchid,EventType)
-	SELECT DISTINCT CASE WHEN EventType=3 THEN oddsid ELSE matchid END,Eventtype
+	INSERT INTO #m(matchid,EventType,oddsid)
+	SELECT DISTINCT matchid,Eventtype,CASE WHEN EventType=3 THEN oddsid ELSE 1 END
 	FROM bets b(nolock)
 	INNER JOIN #BetEventType m ON m.Bettype=b.bettype
 
@@ -44,9 +44,7 @@ BEGIN
 	
 	DELETE #m FROM bodb02.dbo.match m WHERE #m.matchid = m.matchid AND #m.EventType=1
 	DELETE #m FROM bodb02.dbo.outright m WHERE #m.matchid = m.orid AND #m.EventType=2
-	DELETE #m FROM bodb02.dbo.VSOutright m WHERE #m.matchid = m.Orid AND #m.EventType=3
-	--DELETE #m FROM bodb02.dbo.Match3rd m WHERE #m.matchid = m.Match3rdId AND #m.EventType=5
-
+	DELETE #m FROM bodb02.dbo.VSOutright m WHERE #m.oddsid = m.Orid AND #m.EventType=3
 
 	--------------------EventType = 0------------------------
 	DECLARE @FDate DATETIME, @TDate DATETIME
@@ -87,9 +85,17 @@ BEGIN
 	BEGIN
 		DELETE TOP(20000) main
 		FROM bets main
-		INNER JOIN #BetEventType m ON main.bettype=m.Bettype
-		WHERE (Eventtype <> 3 AND matchid IN (SELECT matchid FROM #m WHERE Eventtype <> 3))
-		OR (Eventtype = 3 AND oddsid IN (SELECT matchid FROM #m WHERE Eventtype = 3))
+		WHERE matchid IN (SELECT matchid FROM #m WHERE Eventtype <> 3)
+
+		IF @@ROWCOUNT < 20000 BREAK;
+	END
+
+	WHILE(1=1)
+	BEGIN
+		DELETE TOP(20000) main
+		FROM bets main
+		WHERE matchid IN (SELECT matchid FROM #m WHERE Eventtype <> 3)
+		AND oddsid IN (SELECT oddsid FROM #m WHERE Eventtype = 3)
 
 		IF @@ROWCOUNT < 20000 BREAK;
 	END
@@ -98,9 +104,17 @@ BEGIN
 	BEGIN
 		DELETE TOP(20000) main
 		FROM betsReject main
-		INNER JOIN #BetEventType m ON main.bettype=m.Bettype
-		WHERE (Eventtype <> 3 AND matchid IN (SELECT matchid FROM #m WHERE Eventtype <> 3))
-		OR (Eventtype = 3 AND oddsid IN (SELECT matchid FROM #m WHERE Eventtype = 3))
+		WHERE matchid IN (SELECT matchid FROM #m WHERE Eventtype <> 3)
+
+		IF @@ROWCOUNT < 20000 BREAK;
+	END
+
+	WHILE(1=1)
+	BEGIN
+		DELETE TOP(20000) main
+		FROM betsReject main
+		WHERE matchid IN (SELECT matchid FROM #m WHERE Eventtype <> 3)
+		AND oddsid IN (SELECT oddsid FROM #m WHERE Eventtype = 3)
 
 		IF @@ROWCOUNT < 20000 BREAK;
 	END
