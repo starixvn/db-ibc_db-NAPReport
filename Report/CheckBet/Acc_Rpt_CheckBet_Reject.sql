@@ -174,7 +174,10 @@ Begin
 			bt.Username,
 			bt.stake, 			
 			bt.odds, 			
-			bt.betteam, 			
+			CASE 
+				WHEN s.ProductID = 30 THEN bt.betteam
+				WHEN s.SubProduct IN ('MG-SuperLive') THEN SUBSTRING(bt.transdesc,11,CHARINDEX(';bettypetime',bt.transdesc)-11)
+			END betteam, 			
 			m.homeid,
 			m.awayid,
 			m.matchcode,
