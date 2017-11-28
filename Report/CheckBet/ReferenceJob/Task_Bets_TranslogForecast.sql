@@ -69,8 +69,7 @@ BEGIN
 		AND b.gameID IN (
 					SELECT  Bettype                       
 					FROM bodb02.dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '', @isTest)
-					WHERE ProductID IN(30)	
-						OR (ProductID = 1 AND SubProduct='MG-SuperLive')
+					WHERE ProductID IN(30)
 			)
 	OPTION (MAXDOP 8);
 END
