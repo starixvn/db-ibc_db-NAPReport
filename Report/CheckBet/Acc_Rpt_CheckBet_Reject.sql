@@ -39,7 +39,7 @@ Begin
 	FROM bodb02.dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '', @isTest)
 	
 	DELETE	#SportBettype  
-	WHERE	SubProduct IN ( 'BT-Sold','BT-Bought','BT-Comm', 'BT-Winloss') 
+	WHERE	SubProduct IN ( 'BT-Sold','BT-Bought','BT-Comm', 'BT-Winloss', 'MG-SuperLive') 
 
 
 	CREATE TABLE #tmp(transid BIGINT, bettype INT)
