@@ -209,7 +209,8 @@ Begin
 		INNER JOIN #SportBettype s on s.bettype = b.bettype
 		inner JOIN #Match m on bt.oddsid = m.matchid AND m.EventType = s.EventType	
 	where (s.ProductID=5 AND s.EventType =3)
-	ORDER BY transid		
+	ORDER BY transid
+	OPTION(RECOMPILE)		
 	
 	DROP TABLE #tmp	 	
 END
