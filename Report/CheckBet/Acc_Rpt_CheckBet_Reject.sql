@@ -22,7 +22,7 @@ AS
 		- 20161206@Percy: Integrate Fast Market [RedmineID: #56803]
 		- 20170704@Robert: Integrate Betradar Virtual Sports Product [RedmineID: #78495]
 		- 20170828@Robert: Integrate Lucky3 product into NAP Acc Reports [RedmineID: #78214]
-		- 20171120@Dominic: Integrate Bullfighting product into NAP Acc Reports [RedmineID: #85382], and bug fix for Metric Gaming
+		- 20171120@Dominic: Integrate Bullfighting product into NAP Acc Reports [RedmineID: #85382]
 	Param's explanation:		
 	
 */
@@ -54,7 +54,6 @@ Begin
 		and (bt.status<>b.status) 
 		and b.currency <> 20
 		AND s.productID IN ( 1, 2, 3, 5, 26, 27)	
-		AND s.SubProduct NOT IN ('MG-SuperLive')
 			
 	INSERT INTO #tmp(transid, bettype)
 	SELECT b.translogid, b.gameID
@@ -64,10 +63,7 @@ Begin
     WHERE  bt.winlostdate = @winlostdate
 			AND bt.custid<>98632
 			AND b.currency <> 20
-			AND (
-				sb.ProductID = 30 --Bullfighting
-				OR sb.SubProduct IN ('MG-SuperLive')--Metric
-			)
+			AND sb.ProductID IN(30)
 			AND b.status <> bt.status
 
 	CREATE TABLE #Match (matchid int, homeid int, awayid int, matchcode nvarchar(50), EventType TINYINT)
@@ -156,15 +152,7 @@ Begin
 		inner join bodb02.dbo.custinfo c with (nolock) on bt.creator = c.custid
 		INNER JOIN #SportBettype s on s.bettype = b.bettype
 		inner JOIN #Match m on b.matchid = m.matchid AND m.EventType = s.EventType
-	where b.bettype NOT IN (
-			SELECT bettype 
-			FROM #SportBettype 
-			WHERE (
-					(ProductID=5 AND EventType =3) 
-					OR ProductID=30
-					OR SubProduct IN ('MG-SuperLive')
-			)
-		)
+	where b.bettype NOT IN (SELECT bettype FROM #SportBettype WHERE (ProductID=5 AND EventType =3))
 	--betsReject_Translog
 	UNION ALL
 	select  bt.refno transid, 
@@ -174,10 +162,7 @@ Begin
 			bt.Username,
 			bt.stake, 			
 			bt.odds, 			
-			CASE 
-				WHEN s.ProductID = 30 THEN bt.betteam
-				WHEN s.SubProduct IN ('MG-SuperLive') THEN SUBSTRING(bt.transdesc,11,CHARINDEX(';bettypetime',bt.transdesc)-11)
-			END betteam, 			
+			bt.betteam, 			
 			m.homeid,
 			m.awayid,
 			m.matchcode,
@@ -195,7 +180,7 @@ Begin
 		inner join bodb02.dbo.custinfo c with (nolock) on bt.creator = c.custid
 		INNER JOIN #SportBettype s on s.bettype = b.gameID
 		inner JOIN #Match m on bt.matchid = m.matchid AND m.EventType = s.EventType	
-	where s.ProductID=30 OR SubProduct IN ('MG-SuperLive')	
+	where s.ProductID=30	
 	-- Virtual HR
 	UNION ALL
 	select  bt.transid, 
