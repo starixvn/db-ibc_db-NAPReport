@@ -26,11 +26,11 @@ BEGIN
 
 	CREATE UNIQUE CLUSTERED INDEX PK_BetEvent ON #BetEventType(Bettype,Eventtype)
 
-	CREATE TABLE #m (matchid int, EventType TINYINT, IsDeleted BIT)
+	CREATE TABLE #m (matchid int, EventType TINYINT)
 	CREATE UNIQUE CLUSTERED INDEX PK_Match ON #m(matchid,EventType)
 
-	INSERT INTO #m(matchid,EventType,IsDeleted)
-	SELECT DISTINCT eventID,Eventtype,0
+	INSERT INTO #m(matchid,EventType)
+	SELECT DISTINCT eventID,Eventtype
 	FROM bets_Translog b(nolock)
 	INNER JOIN #BetEventType m ON m.Bettype=b.gameID
 
