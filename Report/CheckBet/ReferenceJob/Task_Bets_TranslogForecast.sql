@@ -6,7 +6,7 @@ GO
 SET ANSI_NULLS ON 
 GO
 
-ALTER PROCEDURE [dbo].[Task_Bets_TranslogForecast] @translogid BIGINT
+ALTER PROCEDURE [dbo].[Task_Bets_TranslogForecast]
 AS
 
 /*
@@ -18,60 +18,78 @@ AS
 	Param's Explanation:
 */
 BEGIN
-	 SET NOCOUNT ON;
+	SET NOCOUNT ON;
 	
-     DECLARE @isTest BIT= 0;
-     SELECT @isTest = dbo.f_CheckSPVersion(@@PROCID);
-    
-     INSERT INTO [dbo].[bets_Translog]
-           ([translogid]
-           ,[custid]
-           ,[transdate]
-           ,[odds]
-           ,[stake]
-           ,[status]
-           ,[tpositiontaking]
-           ,[winlostdate]
-           ,[currency]
-           ,[transdesc]
-           ,[productID]
-           ,[gameID]
-           ,[eventID]
-           ,[vendorID]
-           ,[GameId3rd]
-           ,[TranId3rd]
-           ,[custom1]
-           ,[custom2]
-           ,[custom3]
-           ,[LiveIndicator])
-    SELECT [translogid]
-		  ,[custid]
-		  ,[transdate]
-		  ,[odds]
-		  ,[stake]
-		  ,[status]
-		  ,[tpositiontaking]
-		  ,[winlostdate]
-		  ,[currency]
-		  ,[transdesc]
-		  ,[productID]
-		  ,[gameID]
-		  ,[eventID]
-		  ,[vendorID]
-		  ,[GameId3rd]
-		  ,[TranId3rd]
-		  ,[custom1]
-		  ,[custom2]
-		  ,[custom3]
-		  ,[LiveIndicator]
-    FROM bodb02.dbo.translog b WITH (NOLOCK)
-    WHERE translogid > @translogid
-		AND b.gameID IN (
-					SELECT  Bettype                       
-					FROM bodb02.dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '', @isTest)
-					WHERE ProductID IN(30)
-			)
+	DECLARE @isTest BIT= 0;
+	SELECT @isTest = dbo.f_CheckSPVersion(@@PROCID);
+
+	DECLARE @translogid BIGINT
+
+	--Get previous MaxTranslogID value
+	SELECT @translogid = [VValue] 
+	FROM bodb02.dbo.SystemSettings (NOLOCK)
+	WHERE [VName] = 'CB-Translog-Forecast'
+     
+	DECLARE @MaxTransID BIGINT
+
+	SELECT @MaxTransID = MAX(TranslogID)
+	FROM bodb02.dbo.translog (NOLOCK)
+
+	INSERT INTO [dbo].[bets_Translog]
+		([translogid]
+		,[custid]
+		,[transdate]
+		,[odds]
+		,[stake]
+		,[status]
+		,[tpositiontaking]
+		,[winlostdate]
+		,[currency]
+		,[transdesc]
+		,[productID]
+		,[gameID]
+		,[eventID]
+		,[vendorID]
+		,[GameId3rd]
+		,[TranId3rd]
+		,[custom1]
+		,[custom2]
+		,[custom3]
+		,[LiveIndicator])
+	SELECT [translogid]
+		,[custid]
+		,[transdate]
+		,[odds]
+		,[stake]
+		,[status]
+		,[tpositiontaking]
+		,[winlostdate]
+		,[currency]
+		,[transdesc]
+		,[productID]
+		,[gameID]
+		,[eventID]
+		,[vendorID]
+		,[GameId3rd]
+		,[TranId3rd]
+		,[custom1]
+		,[custom2]
+		,[custom3]
+		,[LiveIndicator]
+	FROM bodb02.dbo.translog b WITH (NOLOCK)
+	WHERE translogid > @translogid AND translogid <= @MaxTransID
+	AND b.gameID IN (
+				SELECT  Bettype                       
+				FROM bodb02.dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '', @isTest)
+				WHERE ProductID IN(30)
+		)
 	OPTION (MAXDOP 8);
+
+	--Update MaxTranslogID for the next run
+	UPDATE bodb02.dbo.SystemSettings
+	SET [VValue] = @MaxTransID
+	WHERE [VName] = 'CB-Translog-Forecast'
+
 END
 GO
 
