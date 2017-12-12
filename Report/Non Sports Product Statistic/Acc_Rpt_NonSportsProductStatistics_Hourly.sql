@@ -25,7 +25,8 @@ ALTER PROCEDURE [dbo].[Acc_Rpt_NonSportsProductStatistics_Hourly]
 	@GameIncomeType	SMALLINT = 0,
 	@GameIncomeValue MONEY = NULL,	 
 	@HousePTType	SMALLINT = 0,
-	@HousePTValue   MONEY = 0
+	@HousePTValue   MONEY = 0,
+	@UsernameDrillDown	BIT = 0
 
 AS
 /*
@@ -37,6 +38,7 @@ AS
 		- 20170927@Cherry: Integrate Lucky 3 (#83101)
 		- 20171006@Cherry: Add filter of Number Game Bettype (#83101)
 		- 20171024@Cherry: Remove GamePayout (#85103)
+		- 20171208@Cherry: Add param @UsernameDrillDown (#87888)
 
 	Param's Explanation:
 			 - @username:  + Search by keyword, member only
@@ -62,6 +64,7 @@ AS
 				-1 : is <=
 			 - @HousePTValue : Value to compare with @HousePTType
 			 - @IsDrillDown: If click on Grand Total or on the Grid of column Currency
+			 - @UsernameDrillDown = 1 if drilldown from Member
 				
 	Query exam: 
 
@@ -249,16 +252,26 @@ SET NOCOUNT ON
 		END
 		ELSE
 		BEGIN
-			INSERT INTO #Temp_MemIDs (CustID)
-			SELECT custid
-			FROM dbo.Customer WITH(NOLOCK)
-			WHERE username LIKE @Username + '%' AND roleid = 1
-
-			IF @Username NOT LIKE '%[^0-9]%' AND LEN(@Username) < 10
+			IF @UsernameDrillDown = 0 
 			BEGIN
-			INSERT INTO #Temp_MemIDs (CustID)
-			SELECT cu.custid FROM dbo.Customer cu WITH(NOLOCK) WHERE cu.custid = @Username AND cu.roleid = 1
-				AND NOT EXISTS (SELECT 1 FROM #Temp_MemIDs c WHERE cu.custid = c.custid)
+				INSERT INTO #Temp_MemIDs (CustID)
+				SELECT custid
+				FROM dbo.Customer WITH(NOLOCK)
+				WHERE username LIKE @Username + '%' AND roleid = 1
+
+				IF @Username NOT LIKE '%[^0-9]%' AND LEN(@Username) < 10
+				BEGIN
+				INSERT INTO #Temp_MemIDs (CustID)
+				SELECT cu.custid FROM dbo.Customer cu WITH(NOLOCK) WHERE cu.custid = @Username AND cu.roleid = 1
+					AND NOT EXISTS (SELECT 1 FROM #Temp_MemIDs c WHERE cu.custid = c.custid)
+				END
+			END
+			ELSE	--@UsernameDrillDown = 1
+			BEGIN
+				INSERT INTO #Temp_MemIDs (CustID)
+				SELECT custid
+				FROM dbo.Customer WITH(NOLOCK)
+				WHERE username = @Username AND roleid = 1
 			END
 		END
 	END
