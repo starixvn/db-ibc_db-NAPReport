@@ -334,7 +334,7 @@ BEGIN
 	BEGIN
 		INSERT INTO @MuayThaiData
 		SELECT	b.rptDate,
-				SUM(ISNULL(b.AdjustedCustomerWL * (-@ShareRate) * e.Rate, 0) + ISNULL(b.AdjustedCommShare * e.Rate, 0)) AmtDueMuayThai
+				SUM(ISNULL(b.AdjustedCustomerWL * e.Rate * (-@ShareRate), 0) + ISNULL(b.AdjustedCommShare * e.Rate, 0)) AmtDueMuayThai
 		FROM	bodb_LicenseeReport.dbo.rpt_BettingBySport b WITH (NOLOCK)
 				INNER JOIN @PartyChargeInfo p ON b.ProductID = p.ProductID 
 												AND b.SiteID = p.LicenseeId
