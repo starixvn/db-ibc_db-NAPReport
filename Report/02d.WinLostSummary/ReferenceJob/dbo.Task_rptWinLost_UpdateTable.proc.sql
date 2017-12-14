@@ -31,6 +31,7 @@ Revision:
 	- 20161129@Robert: NAP Reports - Integrate Fishing World Product [RedmindID: #67757]
 	- 20170615@Tom: NAP Reports - Integrate Betradar Virtual Sports[RedmindID: #78495] 
 	- 20171020@Dominic: Integrate Bullfighting - #81664
+	- 20171214@Kean: Integrate Exchange - #88221
 */
 
 BEGIN	
@@ -66,7 +67,7 @@ BEGIN
     UPDATE sb
     SET sb.SportType = s.SportType
     FROM @SportBettype sb
-	   INNER JOIN SportBettypeMatrix s WITH(NOLOCK) ON sb.BetType = s.BetType AND s.ProductID IN (23) -- NG2
+	   INNER JOIN SportBettypeMatrix s WITH(NOLOCK) ON sb.BetType = s.BetType AND s.ProductID IN (23, 31) -- NG2, Exchange
 
 	SELECT distinct winlostdate cnt FROM bettrans with (nolock) WHERE winlostdate = @winlostdate AND bettype < 19999
 	IF @@ROWCOUNT = 1
@@ -437,12 +438,12 @@ BEGIN
 		AND bodb_Report.dbo.rptWinlost.winlostdate = @winlostdate
 		AND bodb_Report.dbo.rptWinlost.bettype in (1231, 1232, 1233, 1237, 1238)			
 
-		--NG2
+		--NG2, Exchange
 		UPDATE rpt
 		SET rpt.SportType = sb.SportType
 		FROM bodb_Report.dbo.rptWinlost rpt WITH(NOLOCK)
 		  INNER JOIN @SportBettype sb on  rpt.bettype = sb.Bettype
-		WHERE sb.ProductID IN (23) 
+		WHERE sb.ProductID IN (23,31) 
 		AND rpt.winlostdate =  @winlostdate
 	END
 	ELSE
@@ -825,12 +826,12 @@ BEGIN
 			AND bodb_Report.dbo.rptWinlost.winlostdate = @winlostdate
 			AND bodb_Report.dbo.rptWinlost.bettype in (1231, 1232, 1233, 1237, 1238)	
 
-		     --NG2 & Fishing World
+		     --NG2 & Fishing World & Exchange
 		    UPDATE rpt
 		    SET rpt.SportType = sb.SportType
 		    FROM bodb_Report.dbo.rptWinlost rpt WITH(NOLOCK)
 			 INNER JOIN @SportBettype sb on  rpt.bettype = sb.Bettype
-		    WHERE sb.ProductID IN (23, 24) 
+		    WHERE sb.ProductID IN (23, 24, 31) 
 		    AND rpt.winlostdate =  @winlostdate
 		END
 	END
