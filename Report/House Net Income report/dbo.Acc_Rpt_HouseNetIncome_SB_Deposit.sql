@@ -1,5 +1,4 @@
-USE bodb02
-GO
+/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
 
 ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_SB_Deposit]
 	@FromDate DATE,
@@ -14,6 +13,8 @@ AS
     Revisions:
 		- 20161022@Jim:move table to bodb_licenseereport [RedmineID :#60449]
 		- 20161024@Harper - #65699: HAIFA - Apply new charge rate discount for HNI report
+		- 20171206@Harper - Update Pay To MuayThai amount due to include Parlay data [RedmineID: #83193]
+
 	Param's Explanation:   
 */  
 BEGIN  
@@ -305,20 +306,47 @@ BEGIN
 	FROM	bodb_licensee.dbo.LA_f_ChargeInfo(@PartyIds, @FDate, @TDate, 'SB', 'OA', 0)
 
 	DECLARE @MuayThaiData TABLE (rptDate DATE, AmtDueMuayThai MONEY)
-	INSERT INTO @MuayThaiData
-	SELECT	b.rptDate,
-			SUM(ISNULL(b.WLShare * e.Rate, 0) + ISNULL(b.CommShare * e.Rate, 0)) AmtDueMuayThai
-	FROM	bodb_LicenseeReport.dbo.rpt_BettingBySport b WITH (NOLOCK)
-			INNER JOIN @PartyChargeInfo p ON b.ProductID = p.ProductID 
-											AND b.SiteID = p.LicenseeId
-											AND b.rptDate BETWEEN p.FromDate AND p.ToDate
-			INNER JOIN #ExchangeOANDA e ON e.ExchangeDate = b.rptDate AND e.ExchangeID = b.CurrencyId
-	WHERE	b.rptDate BETWEEN @FDate AND @TDate
-			AND (b.CurrencyID <> 20)
-			AND b.StatusId BETWEEN 111 AND 113
-			AND b.customercategory NOT IN (27, 28)
-			AND b.SportType = 44 -- Muay Thai
-	GROUP BY b.rptdate
+	DECLARE @ShareRate MONEY = 0.03
+	DECLARE @CutOfDate		SMALLDATETIME,
+			@TmpFromDate	SMALLDATETIME,
+			@TmpToDate		SMALLDATETIME 
+
+	SELECT @CutOfDate = '2017-09-30' -- New formula when caculate muaythai ticket be applied	
+
+	IF @FDate < @CutOfDate -- Old Data: incase when handle script by hand for regen past email
+	BEGIN
+		INSERT INTO @MuayThaiData
+		SELECT	b.rptDate,
+				SUM(ISNULL(b.WLShare * e.Rate, 0) + ISNULL(b.CommShare * e.Rate, 0)) AmtDueMuayThai
+		FROM	bodb_LicenseeReport.dbo.rpt_BettingBySport b WITH (NOLOCK)
+				INNER JOIN @PartyChargeInfo p ON b.ProductID = p.ProductID 
+												AND b.SiteID = p.LicenseeId
+												AND b.rptDate BETWEEN p.FromDate AND p.ToDate
+				INNER JOIN #ExchangeOANDA e ON e.ExchangeDate = b.rptDate AND e.ExchangeID = b.CurrencyId
+		WHERE	b.rptDate BETWEEN @FDate AND @TDate
+				AND (b.CurrencyID <> 20)
+				AND b.StatusId BETWEEN 111 AND 113
+				AND b.customercategory NOT IN (27, 28)
+				AND b.SportType = 44 -- Muay Thai
+		GROUP BY b.rptdate
+	END
+	ELSE
+	BEGIN
+		INSERT INTO @MuayThaiData
+		SELECT	b.rptDate,
+				SUM(ISNULL(b.AdjustedCustomerWL * e.Rate * (-@ShareRate), 0) + ISNULL(b.AdjustedCommShare * e.Rate, 0)) AmtDueMuayThai
+		FROM	bodb_LicenseeReport.dbo.rpt_BettingBySport b WITH (NOLOCK)
+				INNER JOIN @PartyChargeInfo p ON b.ProductID = p.ProductID 
+												AND b.SiteID = p.LicenseeId
+												AND b.rptDate BETWEEN p.FromDate AND p.ToDate
+				INNER JOIN #ExchangeOANDA e ON e.ExchangeDate = b.rptDate AND e.ExchangeID = b.CurrencyId
+		WHERE	b.rptDate BETWEEN @FDate AND @TDate
+				AND (b.CurrencyID <> 20)
+				AND b.StatusId BETWEEN 111 AND 113
+				AND b.customercategory NOT IN (27, 28)
+				AND b.SportType = 44 -- Muay Thai
+		GROUP BY b.rptdate
+	END
 
 	-- Update Full range value
 	UPDATE #FinalResult 
