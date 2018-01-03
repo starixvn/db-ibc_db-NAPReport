@@ -826,12 +826,12 @@ BEGIN
 			AND bodb_Report.dbo.rptWinlost.winlostdate = @winlostdate
 			AND bodb_Report.dbo.rptWinlost.bettype in (1231, 1232, 1233, 1237, 1238)	
 
-		     --NG2 & Fishing World & Exchange
+		     --NG2 & Exchange
 		    UPDATE rpt
 		    SET rpt.SportType = sb.SportType
 		    FROM bodb_Report.dbo.rptWinlost rpt WITH(NOLOCK)
 			 INNER JOIN @SportBettype sb on  rpt.bettype = sb.Bettype
-		    WHERE sb.ProductID IN (23, 24, 31) 
+		    WHERE sb.ProductID IN (23, 31) 
 		    AND rpt.winlostdate =  @winlostdate
 		END
 	END
