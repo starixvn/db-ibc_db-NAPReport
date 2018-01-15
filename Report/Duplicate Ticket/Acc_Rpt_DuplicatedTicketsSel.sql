@@ -36,6 +36,7 @@ Revisions:
 		2. Remove SLI
 	- 20170704@Tom: Integrate Betradar Virtual Sports(#78495)
 	- 20170828@Kean: Integrate Lucky 3(#82191)
+	- 20180115@Tom:  Cashout tickets from separated original tickets are considered as dupplicated tickets (#89256)
 Param's Explanation:
 	- @CheckTime : The time we consider how long the job fails (Compared the last run with the current time).
 				   Because job recurs every 30s, so we set @CheckTime = 1 minute as default
@@ -87,7 +88,7 @@ BEGIN
 					b.winlostdate, 
 					b.matchid,
 					b.ip,
-					CASE WHEN b.Bettype IN (901,902,903,904) THEN b.RefNo ELSE 0 END as RefNo	
+					CASE WHEN b.Bettype IN (901,902,903,904,911) THEN b.RefNo ELSE 0 END as RefNo	
 			INTO #TempData
 			FROM bodb02.dbo.bettrans b WITH(NOLOCK)
 				INNER JOIN @bettype s ON s.bettype = b.bettype
@@ -112,7 +113,7 @@ BEGIN
 					b.winlostdate, 
 					b.matchid,
 					b.ip,
-					CASE WHEN b.Bettype IN (901,902,903,904) THEN b.RefNo ELSE 0 END	
+					CASE WHEN b.Bettype IN (901,902,903,904,911) THEN b.RefNo ELSE 0 END	
 			HAVING COUNT(*) > 1
 			option (maxdop 4)
 			--------------------------------------------------------
@@ -129,7 +130,7 @@ BEGIN
 					AND b.winlostdate = t.winlostdate
 					AND b.matchid = t.matchid
 					AND b.ip = t.ip
-					AND CASE WHEN b.bettype IN (901,902,903,904) THEN b.RefNo ELSE 0 END = CASE WHEN t.bettype IN (901,902,903,904) THEN t.RefNo ELSE 0 END
+					AND CASE WHEN b.bettype IN (901,902,903,904,911) THEN b.RefNo ELSE 0 END = CASE WHEN t.bettype IN (901,902,903,904,911) THEN t.RefNo ELSE 0 END
 				INNER JOIN bodb02.dbo.bettype bt with(nolock) on bt.typeid = b.bettype
 			WHERE b.custid IN (SELECT DISTINCT custid FROM #TempData)
 				AND b.statusID NOT IN (101,102)

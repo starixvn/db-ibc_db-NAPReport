@@ -30,6 +30,7 @@ AS
 			2. Remove SLI
 	     - 20170704@Tom: Integrate Betradar Virtual Sports(#78495)
 		 - 20170828@Kean: Integrate Lucky 3(#82191)
+		 - 20180115@Tom:  Cashout tickets from separated original tickets are considered as dupplicated tickets (#89256)
 	Param's Explanation:
 
 */
@@ -64,7 +65,7 @@ BEGIN
 			b.winlostdate, 
 			b.matchid,
 			b.ip,
-			CASE WHEN b.Bettype IN (901,902,903,904) THEN b.RefNo ELSE 0 END as RefNo
+			CASE WHEN b.Bettype IN (901,902,903,904,911) THEN b.RefNo ELSE 0 END as RefNo
 	FROM	bodb02.dbo.bettrans b WITH(NOLOCK , Index = PK_bettrans)
 		INNER JOIN @bettype s ON s.bettype = b.bettype
 	WHERE	b.TransID BETWEEN @TransId - 5000 AND @MaxTransId
@@ -114,7 +115,7 @@ BEGIN
 			AND b.winlostdate = t.winlostdate
 			AND b.matchid = t.matchid
 			AND b.ip = t.ip
-			AND CASE WHEN b.bettype IN (901,902,903,904) THEN b.RefNo ELSE 0 END = CASE WHEN t.bettype IN (901,902,903,904) THEN t.RefNo ELSE 0 END  
+			AND CASE WHEN b.bettype IN (901,902,903,904,911) THEN b.RefNo ELSE 0 END = CASE WHEN t.bettype IN (901,902,903,904,911) THEN t.RefNo ELSE 0 END  
 	WHERE NOT EXISTS (SELECT 1 FROM dbo.DuplicatedTicket d WITH (NOLOCK) WHERE d.TransID = b.TransId)	
 	DROP TABLE #TempData
 	
