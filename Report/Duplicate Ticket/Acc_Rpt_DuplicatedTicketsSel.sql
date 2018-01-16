@@ -118,7 +118,7 @@ BEGIN
 			option (maxdop 4)
 			--------------------------------------------------------
 
-			SELECT b.custid, b.odds, b.stake, b.balance, b.status, b.statusID, b.bettype, b.winlostdate, b.username, b.transid as refno, b.transdate as bettime, bt.typenamee as typename 
+			SELECT b.custid, b.odds, b.stake, b.balance, b.status, b.statusID, b.bettype, b.winlostdate, b.username, b.transid as refno,b.refno as refnoGroup,  b.transdate as bettime, bt.typenamee as typename 
 			FROM bodb02.dbo.bettrans b WITH(NOLOCK)
 				INNER JOIN #TempData t ON b.custid = t.custid 
 					AND b.odds = t.odds
@@ -135,7 +135,7 @@ BEGIN
 			WHERE b.custid IN (SELECT DISTINCT custid FROM #TempData)
 				AND b.statusID NOT IN (101,102)
 				AND b.bettype NOT IN (500) -- exclude 500 - charged commission
-			ORDER BY b.custid, b.odds, b.stake, b.balance, b.bettype, b.winlostdate, b.Username, b.transid, b.transdate, b.status, b.statusID
+			ORDER BY b.custid, b.odds, b.stake, b.balance, b.bettype, b.winlostdate, b.Username,b.refno, b.transid, b.transdate, b.status, b.statusID
 
 			DROP TABLE #TempData			
 
@@ -147,7 +147,7 @@ BEGIN
 		SELECT @DateFrom = DATEADD(dd, 0, DATEDIFF(dd, 0, @Date) ) -- get begin of the day (just in case param input time also)
 		 
 
-		SELECT	b.custid, b.odds, b.stake, b.balance, b.status, b.statusID, b.bettype, b.winlostdate, b.username, b.transid as refno, b.transdate as bettime, bt.typenamee as typename 
+		SELECT	b.custid, b.odds, b.stake, b.balance, b.status, b.statusID, b.bettype, b.winlostdate, b.username, b.transid as refno,b.refno as refnoGroup, b.transdate as bettime, bt.typenamee as typename 
 		FROM	dbo.DuplicatedTicket t WITH (NOLOCK)	
 			INNER JOIN bodb02.dbo.Bettrans b WITH (NOLOCK)	
 					ON b.TransID = t.TransID
@@ -157,7 +157,7 @@ BEGIN
 			AND t.Transdate < DATEADD(dd, 1, DATEDIFF(dd, 0, @DateFrom))
 			AND b.statusID NOT IN (101,102)
 			AND b.bettype NOT IN (500) -- exclude 500 - charged commission
-		ORDER BY b.custid, b.odds, b.stake, b.balance, b.bettype, b.winlostdate, b.Username, b.transid, b.transdate, b.status, b.statusID 
+		ORDER BY b.custid, b.odds, b.stake, b.balance, b.bettype, b.winlostdate, b.Username,b.refno, b.transid, b.transdate, b.status, b.statusID 
 
 
 	END
