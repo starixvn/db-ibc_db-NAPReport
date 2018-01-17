@@ -14,6 +14,7 @@ AS
 		- 20170926@Cherry: Integrate Lucky 3 (#83101)
 		- 20171003@Cherry: Add Number Game Bettype (#83101)
 		- 20171116@Cherry: Integrate Bullfighting (#85946)
+		- 20180116@Cherry: Integrate OneRNG Jackpot, except bettype (2199, 2399, 2999)
 */
  
 BEGIN
@@ -30,9 +31,10 @@ SET NOCOUNT ON
 	INSERT INTO #SportBettype (ProductID, TypeId, TypeName, GameType)
 	SELECT	s.ProductID, s.Bettype as TypeId, b.typenamee AS TypeName, 2 AS GameType
 	FROM	dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '', @isTest) s
-		INNER JOIN dbo.Bettype b ON s.Bettype = B.TypeId 
+		INNER JOIN dbo.Bettype b ON s.Bettype = b.TypeId 
 	WHERE  CasinoType IN (1,2) 
 		   OR ProductID IN (8, 24, 26, 28, 30) 	 
+		   AND b.TypeId NOT IN (2199, 2399, 2999)
 
 	
 	--- ProductID = 3 - Number Game get LeagueId
