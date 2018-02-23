@@ -42,6 +42,7 @@ AS
 					   NAP Reports - Integrate Betradar Virtual Sports[RedmindID: #78495] 
 		  - 20170816@Logan:  NAP Reports - Integrate Lucky 3 [RedmindID: #81733]
 		  - 20171110@Robert: NAP Reports - Integrate Bullfighting [RedmindID: #85383]
+		  - 2018.02.27@Tom: Integrate Colossus Bets - Free Play Integration (#90774)
 
 
 
@@ -798,7 +799,7 @@ AS
                        b.bettype,
                        b.liveindicator,
                        ibc,
-                       0 AS IsHedge,
+                       b.exrisk AS IsHedge,
                        '' status,
                        16 AS OrderKey,
                        17 AS SortKey,
@@ -817,7 +818,8 @@ AS
                 GROUP BY sporttype,
                          b.bettype,
                          b.liveindicator,
-                         ibc;
+                         ibc,
+						 b.exrisk;
          INSERT INTO #TempData
                 SELECT sporttype,
                        b.bettype,
