@@ -1,3 +1,6 @@
+USE bodb02
+GO
+
 IF EXISTS( SELECT *
            FROM sys.objects
            WHERE object_id = OBJECT_ID(N'[dbo].[Acc_Rpt_CompanyWinLoss_ColossusBet_BetType_14]')
@@ -23,10 +26,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_ColossusBet_BetType_14] @StartDate='2016-09-13', @E
 
     BEGIN
         SET NOCOUNT ON;
-        DECLARE @FDate SMALLDATETIME,
-                @TDate SMALLDATETIME;
-        SELECT @FDate = @StartDate,
-               @TDate = @EndDate;
+
         BEGIN --#SportBetType     
             DECLARE @isTest BIT = 0;
             SELECT @isTest = dbo.f_CheckSPVersion( @@PROCID );
@@ -51,7 +51,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_ColossusBet_BetType_14] @StartDate='2016-09-13', @E
                                  CASE
                                      WHEN b.BetType = 18000
                                       AND ISNULL(b.currency2, 0) = 1
-                                     THEN 'Colossus Bets (Free Play)'
+                                     THEN sb.BetTypeName + ' (Free Play)'
                                      ELSE sb.BetTypeName
                                  END AS GroupName,
                                         CASE
@@ -67,14 +67,15 @@ EXEC [Acc_Rpt_CompanyWinLoss_ColossusBet_BetType_14] @StartDate='2016-09-13', @E
             FROM bettrans14 AS b WITH ( NOLOCK )
                  INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
                  LEFT JOIN #DepositSuper AS dep ON b.srecommend = dep.CustId
-            WHERE b.winlostdate = @FDate
-              AND b.ruben = 1
+            WHERE b.winlostdate = @StartDate
+			  AND b.BetType = 18000
+              AND b.ruben = 1			  
               AND b.statusID IN( 111, 112, 113 )
             GROUP BY sb.BetType,
                         CASE
                             WHEN b.BetType = 18000
                              AND ISNULL(b.currency2, 0) = 1
-                            THEN 'Colossus Bets (Free Play)'
+                            THEN sb.BetTypeName + ' (Free Play)'
                             ELSE sb.BetTypeName
                         END,
                         CASE

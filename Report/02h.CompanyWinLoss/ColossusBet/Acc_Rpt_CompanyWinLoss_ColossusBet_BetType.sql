@@ -1,3 +1,6 @@
+USE bodb02
+GO
+
 IF EXISTS( SELECT *
            FROM sys.objects
            WHERE object_id = OBJECT_ID(N'[dbo].[Acc_Rpt_CompanyWinLoss_ColossusBet_BetType]')
@@ -23,12 +26,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_ColossusBet_BetType] @StartDate='2016-09-13', @EndD
 
     BEGIN
         SET NOCOUNT ON;
-        DECLARE @FDate SMALLDATETIME,
-                @TDate SMALLDATETIME,
-                @ProID INT,
-                @Sport INT;
-        SELECT @FDate = @StartDate,
-               @TDate = @EndDate;
+
         BEGIN --#SportBetType     
             DECLARE @isTest BIT = 0;
             SELECT @isTest = dbo.f_CheckSPVersion( @@PROCID );
@@ -53,7 +51,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_ColossusBet_BetType] @StartDate='2016-09-13', @EndD
                                  CASE
                                      WHEN b.BetType = 18000
                                       AND ISNULL(b.currency2, 0) = 1
-                                     THEN 'Colossus Bets (Free Play)'
+                                     THEN sb.BetTypeName + ' (Free Play)'
                                      ELSE sb.BetTypeName
                                  END AS GroupName,
                                         CASE
@@ -69,14 +67,15 @@ EXEC [Acc_Rpt_CompanyWinLoss_ColossusBet_BetType] @StartDate='2016-09-13', @EndD
             FROM bettrans AS b WITH ( NOLOCK )
                  INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
                  LEFT JOIN #DepositSuper AS dep ON b.srecommend = dep.CustId
-            WHERE b.winlostdate = @FDate
+            WHERE b.winlostdate = @StartDate
+			  AND b.BetType = 18000
               AND b.ruben = 1
               AND b.statusID IN( 111, 112, 113 )
             GROUP BY sb.BetType,
                         CASE
                             WHEN b.BetType = 18000
                              AND ISNULL(b.currency2, 0) = 1
-                            THEN 'Colossus Bets (Free Play)'
+                                     THEN sb.BetTypeName + ' (Free Play)'
                             ELSE sb.BetTypeName
                         END,
                         CASE
@@ -90,6 +89,8 @@ EXEC [Acc_Rpt_CompanyWinLoss_ColossusBet_BetType] @StartDate='2016-09-13', @EndD
         DROP TABLE #SportBetType;
         DROP TABLE #DepositSuper;
     END;
+
+
 GO
 GRANT EXECUTE ON [dbo].[Acc_Rpt_CompanyWinLoss_ColossusBet_BetType] TO [bodbAdminNet];
 GO
