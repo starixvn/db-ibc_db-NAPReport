@@ -64,11 +64,10 @@ EXEC [Acc_Rpt_CompanyWinLoss_ColossusBet_BetType] @StartDate='2016-09-13', @EndD
                    SUM(scomm * actualrate) Commission,
                    SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm ) * actualrate) AS RealIncome,
                    SUM(( 1 - tpositiontaking ) * ABS(stake) * actualrate) AS RealTurnover
-            FROM bettrans AS b WITH ( NOLOCK )
+            FROM dbo.bettrans AS b WITH ( NOLOCK )
                  INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
                  LEFT JOIN #DepositSuper AS dep ON b.srecommend = dep.CustId
             WHERE b.winlostdate = @StartDate
-			  AND b.BetType = 18000
               AND b.ruben = 1
               AND b.statusID IN( 111, 112, 113 )
             GROUP BY sb.BetType,
