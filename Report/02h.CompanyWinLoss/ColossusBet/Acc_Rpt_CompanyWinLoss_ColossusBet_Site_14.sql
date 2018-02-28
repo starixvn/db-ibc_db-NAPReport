@@ -62,7 +62,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_ColossusBet_Site_14] @StartDate='2016-01-01', @EndD
                SUM(scomm * actualrate) Commission,
                SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm ) * actualrate) AS RealIncome,
                SUM(( 1 - tpositiontaking ) * ABS(stake) * actualrate) AS RealTurnover
-        FROM bettrans14 AS b WITH ( NOLOCK )
+        FROM dbo.bettrans14 AS b WITH ( NOLOCK )
              INNER JOIN #Agent AS dep ON b.recommend = dep.CustId
         WHERE b.winlostdate = @StartDate
           AND (( @IsFreePlay = 1
