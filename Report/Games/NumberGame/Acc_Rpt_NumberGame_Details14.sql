@@ -1,9 +1,17 @@
-﻿ALTER PROCEDURE [dbo].[Acc_Rpt_NumberGame_Details14]
+﻿USE [bodb02]
+GO
+/****** Object:  StoredProcedure [dbo].[Acc_Rpt_NumberGame_Details14]    Script Date: 3/1/2018 3:31:58 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+ALTER PROCEDURE [dbo].[Acc_Rpt_NumberGame_Details14]
 	@winlostdate	datetime,
 	@liveindicator	bit = NULL,
 	@bettype		int,
-    @SiteID	VARCHAR(500) = '',
-    @Currency VARCHAR(500) = ''	
+    @SiteID	VARCHAR(8000) = '',
+    @Currency VARCHAR(8000) = '',
+	@TrialData	BIT = 0 -- 1 : Get trial data, 0 Don't get trial data	
 AS
 
 /*	Creator: Viet
@@ -21,6 +29,7 @@ AS
 		- 20121121@Dan: optimize performance (create #tmpAge instead of @tmpAg, use index when searching agent, create index after inserting) 
         - 20130123@Daniel: Change link server alias
 		- 20150319@Tom: Get Data by Effective Licensee (#31687)
+		- 20180301@Kean: Missing number game data of some licensee (91266)
 
     Param usage:
 		- @SiteID:
@@ -78,7 +87,7 @@ SELECT LicenseeID
 	,LicenseeName
 	,FromDate
 	,ToDate
-FROM dbo.[NAP_f_GetAffectedDateLicensee](1,@siteid,1, @winlostdate, @winlostdate, 1, 18, 3, 'NG')
+FROM dbo.[NAP_f_GetAffectedDateLicensee](1,@siteid,1, @winlostdate, @winlostdate, 1, 18, 3, 'NG', @TrialData)
 
 IF EXISTS (SELECT 1 FROM @tmpSite WHERE siteid = -1)--IBCGroup   
 BEGIN  	
@@ -172,7 +181,3 @@ ELSE
 	    m.leagueid,--leaguename,
 	    m.matchcode	
 
-GO
-GRANT EXECUTE ON [dbo].[Acc_Rpt_NumberGame_Details14] TO [bodbAdminNet]
-GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_Rpt_NumberGame_Details14] TO [vnteam]
