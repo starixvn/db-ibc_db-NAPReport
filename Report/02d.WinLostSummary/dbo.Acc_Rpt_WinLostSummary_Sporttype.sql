@@ -168,6 +168,7 @@ AS
           liveindicator    BIT,
           ibc              INT,
           IsHedge          BIT,
+          IsFreePlay       TinyINT DEFAULT(0),
           status           VARCHAR(10),
           OrderKey         INT,
           SortKey          INT,
@@ -271,7 +272,21 @@ AS
                          BetType BetTypeID,
                          EventType
                   FROM bodb02.dbo.SportBettypeMatrix(NOLOCK))
-              INSERT INTO #TempData
+              INSERT INTO #TempData(sporttype,
+					  bettype,
+					  liveindicator,
+					  ibc    ,
+					  IsHedge      ,
+					  status       ,
+					  OrderKey     ,
+					  SortKey,
+					  realWinlost,
+					  realPosition     ,
+					  realCommission   ,
+					  realLineTotal    ,
+					  virtualLineTotal ,
+					  realTurnover     ,
+					  virtualTurnover  )
                      SELECT CASE s.SubProduct
                                 WHEN 'MG-SuperLive'
                                 THEN-1
@@ -350,7 +365,21 @@ AS
                          BetType BetTypeID,
                          EventType
                   FROM bodb02.dbo.SportBettypeMatrix(NOLOCK))
-              INSERT INTO #TempData
+              INSERT INTO #TempData(sporttype,
+					  bettype,
+					  liveindicator,
+					  ibc    ,
+					  IsHedge      ,
+					  status       ,
+					  OrderKey     ,
+					  SortKey,
+					  realWinlost,
+					  realPosition     ,
+					  realCommission   ,
+					  realLineTotal    ,
+					  virtualLineTotal ,
+					  realTurnover     ,
+					  virtualTurnover  )
 
                      -- bettrade
 
@@ -389,7 +418,21 @@ AS
                                   ELSE 0
                               END,
                               s.SortKey;
-         INSERT INTO #TempData
+         INSERT INTO #TempData(sporttype,
+					  bettype,
+					  liveindicator,
+					  ibc    ,
+					  IsHedge      ,
+					  status       ,
+					  OrderKey     ,
+					  SortKey,
+					  realWinlost,
+					  realPosition     ,
+					  realCommission   ,
+					  realLineTotal    ,
+					  virtualLineTotal ,
+					  realTurnover     ,
+					  virtualTurnover  )
 
                 --Casino
 
@@ -422,7 +465,21 @@ AS
                                                    AND b.liveindicator = s.liveindicator
                 WHERE b.winlostdate BETWEEN @_fromdate AND @_todate
                       AND s.ProductId = 6;
-         INSERT INTO #TempData
+         INSERT INTO #TempData(sporttype,
+					  bettype,
+					  liveindicator,
+					  ibc    ,
+					  IsHedge      ,
+					  status       ,
+					  OrderKey     ,
+					  SortKey,
+					  realWinlost,
+					  realPosition     ,
+					  realCommission   ,
+					  realLineTotal    ,
+					  virtualLineTotal ,
+					  realTurnover     ,
+					  virtualTurnover  )
 
                 --Bingo
 
@@ -447,7 +504,21 @@ AS
                 WHERE b.winlostdate BETWEEN @_fromdate AND @_todate
                       AND s.ProductId = 7
                 GROUP BY b.bettype;
-         INSERT INTO #TempData
+         INSERT INTO #TempData(sporttype,
+					  bettype,
+					  liveindicator,
+					  ibc    ,
+					  IsHedge      ,
+					  status       ,
+					  OrderKey     ,
+					  SortKey,
+					  realWinlost,
+					  realPosition     ,
+					  realCommission   ,
+					  realLineTotal    ,
+					  virtualLineTotal ,
+					  realTurnover     ,
+					  virtualTurnover  )
 
                 --Live casino
 
@@ -472,7 +543,21 @@ AS
                 WHERE b.winlostdate BETWEEN @_fromdate AND @_todate
                       AND s.ProductId = 4
                 GROUP BY b.bettype;
-         INSERT INTO #TempData
+         INSERT INTO #TempData(sporttype,
+					  bettype,
+					  liveindicator,
+					  ibc    ,
+					  IsHedge      ,
+					  status       ,
+					  OrderKey     ,
+					  SortKey,
+					  realWinlost,
+					  realPosition     ,
+					  realCommission   ,
+					  realLineTotal    ,
+					  virtualLineTotal ,
+					  realTurnover     ,
+					  virtualTurnover  )
                 SELECT 97, -- mix parlay
 
                        9 AS bettype,
@@ -495,7 +580,21 @@ AS
                            OR (bettype = 29
                                AND exrisk = 1))
                 GROUP BY status;
-         INSERT INTO #TempData
+         INSERT INTO #TempData(sporttype,
+					  bettype,
+					  liveindicator,
+					  ibc    ,
+					  IsHedge      ,
+					  status       ,
+					  OrderKey     ,
+					  SortKey,
+					  realWinlost,
+					  realPosition     ,
+					  realCommission   ,
+					  realLineTotal    ,
+					  virtualLineTotal ,
+					  realTurnover     ,
+					  virtualTurnover  )
                 SELECT 98, --system parlay
 
                        29 AS bettype,
@@ -517,7 +616,21 @@ AS
                       AND bettype = 29
                       AND exrisk <> 1
                 GROUP BY status;
-         INSERT INTO #TempData
+         INSERT INTO #TempData(sporttype,
+					  bettype,
+					  liveindicator,
+					  ibc    ,
+					  IsHedge      ,
+					  status       ,
+					  OrderKey     ,
+					  SortKey,
+					  realWinlost,
+					  realPosition     ,
+					  realCommission   ,
+					  realLineTotal    ,
+					  virtualLineTotal ,
+					  realTurnover     ,
+					  virtualTurnover  )
 
                 --racing
 
@@ -542,7 +655,21 @@ AS
                 WHERE b.winlostdate BETWEEN @_fromdate AND @_todate
                       AND s.ProductId = 2
                 GROUP BY sporttype;
-         INSERT INTO #TempData
+         INSERT INTO #TempData(sporttype,
+					  bettype,
+					  liveindicator,
+					  ibc    ,
+					  IsHedge      ,
+					  status       ,
+					  OrderKey     ,
+					  SortKey,
+					  realWinlost,
+					  realPosition     ,
+					  realCommission   ,
+					  realLineTotal    ,
+					  virtualLineTotal ,
+					  realTurnover     ,
+					  virtualTurnover  )
 
                 --virtual sports
 
@@ -567,7 +694,21 @@ AS
                 WHERE winlostdate BETWEEN @_fromdate AND @_todate
                       AND s.ProductId = 5
                 GROUP BY sporttype;
-         INSERT INTO #TempData
+         INSERT INTO #TempData(sporttype,
+					  bettype,
+					  liveindicator,
+					  ibc    ,
+					  IsHedge      ,
+					  status       ,
+					  OrderKey     ,
+					  SortKey,
+					  realWinlost,
+					  realPosition     ,
+					  realCommission   ,
+					  realLineTotal    ,
+					  virtualLineTotal ,
+					  realTurnover     ,
+					  virtualTurnover  )
 
                 -- HR Fixed Odds
 
@@ -593,7 +734,21 @@ AS
                          bettype,
                          b.liveindicator,
                          ibc;
-         INSERT INTO #TempData
+         INSERT INTO #TempData(sporttype,
+					  bettype,
+					  liveindicator,
+					  ibc    ,
+					  IsHedge      ,
+					  status       ,
+					  OrderKey     ,
+					  SortKey,
+					  realWinlost,
+					  realPosition     ,
+					  realCommission   ,
+					  realLineTotal    ,
+					  virtualLineTotal ,
+					  realTurnover     ,
+					  virtualTurnover  )
 
                 -- GD
 
@@ -621,7 +776,21 @@ AS
                          b.bettype,
                          b.liveindicator,
                          ibc;
-         INSERT INTO #TempData
+         INSERT INTO #TempData(sporttype,
+					  bettype,
+					  liveindicator,
+					  ibc    ,
+					  IsHedge      ,
+					  status       ,
+					  OrderKey     ,
+					  SortKey,
+					  realWinlost,
+					  realPosition     ,
+					  realCommission   ,
+					  realLineTotal    ,
+					  virtualLineTotal ,
+					  realTurnover     ,
+					  virtualTurnover  )
 
                 -- Micro Gaming LC
 
@@ -649,7 +818,21 @@ AS
                          b.bettype,
                          b.liveindicator,
                          ibc;
-         INSERT INTO #TempData
+         INSERT INTO #TempData(sporttype,
+					  bettype,
+					  liveindicator,
+					  ibc    ,
+					  IsHedge      ,
+					  status       ,
+					  OrderKey     ,
+					  SortKey,
+					  realWinlost,
+					  realPosition     ,
+					  realCommission   ,
+					  realLineTotal    ,
+					  virtualLineTotal ,
+					  realTurnover     ,
+					  virtualTurnover  )
 
                 -- Micro Gaming RNG
 
@@ -677,7 +860,21 @@ AS
                          b.bettype,
                          b.liveindicator,
                          ibc;
-         INSERT INTO #TempData
+         INSERT INTO #TempData(sporttype,
+					  bettype,
+					  liveindicator,
+					  ibc    ,
+					  IsHedge      ,
+					  status       ,
+					  OrderKey     ,
+					  SortKey,
+					  realWinlost,
+					  realPosition     ,
+					  realCommission   ,
+					  realLineTotal    ,
+					  virtualLineTotal ,
+					  realTurnover     ,
+					  virtualTurnover  )
 
                 --- AG Casino
 
@@ -705,7 +902,21 @@ AS
                          b.bettype,
                          b.liveindicator,
                          ibc;
-         INSERT INTO #TempData
+         INSERT INTO #TempData(sporttype,
+					  bettype,
+					  liveindicator,
+					  ibc    ,
+					  IsHedge      ,
+					  status       ,
+					  OrderKey     ,
+					  SortKey,
+					  realWinlost,
+					  realPosition     ,
+					  realCommission   ,
+					  realLineTotal    ,
+					  virtualLineTotal ,
+					  realTurnover     ,
+					  virtualTurnover  )
 
                 --	VegasGame aka Macau
 
@@ -733,7 +944,21 @@ AS
                          b.bettype,
                          b.liveindicator,
                          ibc;
-         INSERT INTO #TempData
+         INSERT INTO #TempData(sporttype,
+					  bettype,
+					  liveindicator,
+					  ibc    ,
+					  IsHedge      ,
+					  status       ,
+					  OrderKey     ,
+					  SortKey,
+					  realWinlost,
+					  realPosition     ,
+					  realCommission   ,
+					  realLineTotal    ,
+					  virtualLineTotal ,
+					  realTurnover     ,
+					  virtualTurnover  )
 
                 -- allbet section 
 
@@ -766,7 +991,21 @@ AS
 
          -- Macau Games section 
 
-         INSERT INTO #TempData
+         INSERT INTO #TempData(sporttype,
+					  bettype,
+					  liveindicator,
+					  ibc    ,
+					  IsHedge      ,
+					  status       ,
+					  OrderKey     ,
+					  SortKey,
+					  realWinlost,
+					  realPosition     ,
+					  realCommission   ,
+					  realLineTotal    ,
+					  virtualLineTotal ,
+					  realTurnover     ,
+					  virtualTurnover  )
                 SELECT 212 sporttype,
                        b.bettype,
                        b.liveindicator,
@@ -791,7 +1030,22 @@ AS
                          b.bettype,
                          b.liveindicator,
                          ibc;
-         INSERT INTO #TempData
+         INSERT INTO #TempData(sporttype,
+					  bettype,
+					  liveindicator,
+					  ibc    ,
+					  IsHedge      ,
+					  IsFreePlay,
+					  status       ,
+					  OrderKey     ,
+					  SortKey,
+					  realWinlost,
+					  realPosition     ,
+					  realCommission   ,
+					  realLineTotal    ,
+					  virtualLineTotal ,
+					  realTurnover     ,
+					  virtualTurnover  )
 
                 --	ColossusBet
 
@@ -799,7 +1053,8 @@ AS
                        b.bettype,
                        b.liveindicator,
                        ibc,
-                       b.exrisk AS IsHedge,
+                       0 isHedge,
+					   b.exrisk AS IsFreePlay,
                        '' status,
                        16 AS OrderKey,
                        17 AS SortKey,
@@ -820,7 +1075,21 @@ AS
                          b.liveindicator,
                          ibc,
 						 b.exrisk;
-         INSERT INTO #TempData
+         INSERT INTO #TempData(sporttype,
+					  bettype,
+					  liveindicator,
+					  ibc    ,
+					  IsHedge      ,
+					  status       ,
+					  OrderKey     ,
+					  SortKey,
+					  realWinlost,
+					  realPosition     ,
+					  realCommission   ,
+					  realLineTotal    ,
+					  virtualLineTotal ,
+					  realTurnover     ,
+					  virtualTurnover  )
                 SELECT sporttype,
                        b.bettype,
                        b.liveindicator,
@@ -873,7 +1142,21 @@ AS
                          b.liveindicator,
                          ibc
                 ORDER BY OrderKey ASC;
-         INSERT INTO #TempData
+         INSERT INTO #TempData(sporttype,
+					  bettype,
+					  liveindicator,
+					  ibc    ,
+					  IsHedge      ,
+					  status       ,
+					  OrderKey     ,
+					  SortKey,
+					  realWinlost,
+					  realPosition     ,
+					  realCommission   ,
+					  realLineTotal    ,
+					  virtualLineTotal ,
+					  realTurnover     ,
+					  virtualTurnover  )
 
                 --	Cashout
 
@@ -900,7 +1183,21 @@ AS
                       AND b.bettype IN(913, 914)
                 GROUP BY b.liveindicator,
                          ibc;
-         INSERT INTO #TempData
+         INSERT INTO #TempData(sporttype,
+					  bettype,
+					  liveindicator,
+					  ibc    ,
+					  IsHedge      ,
+					  status       ,
+					  OrderKey     ,
+					  SortKey,
+					  realWinlost,
+					  realPosition     ,
+					  realCommission   ,
+					  realLineTotal    ,
+					  virtualLineTotal ,
+					  realTurnover     ,
+					  virtualTurnover  )
 
                 -- Keno and others
 
@@ -966,6 +1263,7 @@ AS
           liveindicator    BIT,
           ibc              TINYINT,
           IsHedge          BIT,
+          IsFreePlay       TINYINT DEFAULT(0),
           status           NVARCHAR(20),
           OrderKey         INT,
           SortKey          INT,
@@ -982,7 +1280,21 @@ AS
 
          -- 8RM, BARM
 
-         INSERT INTO #Result
+         INSERT INTO #Result(sporttype,
+          bettype,
+          liveindicator,
+          ibc,
+          IsHedge,
+          status,
+          OrderKey,
+          SortKey,
+          realWinlost,
+          realPosition,
+          realCommission,
+          realLineTotal,
+          virtualLineTotal,
+          realTurnover,
+          virtualTurnover)
                 SELECT sporttype,
                        bettype,
                        liveindicator,
@@ -1012,12 +1324,28 @@ AS
 
          -- Hegde match, Normal match
 
-         INSERT INTO #Result
+         INSERT INTO #Result(sporttype,
+				  bettype,
+				  liveindicator,
+				  ibc,
+				  IsHedge,
+				  IsFreePlay,
+				  status,
+				  OrderKey,
+				  SortKey,
+				  realWinlost,
+				  realPosition,
+				  realCommission,
+				  realLineTotal,
+				  virtualLineTotal,
+				  realTurnover,
+				  virtualTurnover)
                 SELECT sporttype,
                        bettype,
                        liveindicator,
                        0 AS ibc,
                        IsHedge,
+					   IsFreePlay,
                        status,
                        OrderKey,
                        SortKey,
@@ -1033,6 +1361,7 @@ AS
                          bettype,
                          liveindicator,
                          IsHedge,
+					     IsFreePlay,
                          status,
                          OrderKey,
                          SortKey;
@@ -1041,6 +1370,7 @@ AS
                 liveindicator,
                 ibc,
                 IsHedge,
+				IsFreePlay,
                 status,
                 OrderKey,
                 SortKey,
@@ -1057,6 +1387,7 @@ AS
                   liveindicator,
                   ibc,
                   IsHedge,
+				  IsFreePlay,
                   status,
                   OrderKey,
                   SortKey
