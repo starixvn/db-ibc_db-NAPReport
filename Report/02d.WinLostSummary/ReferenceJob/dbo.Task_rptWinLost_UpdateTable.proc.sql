@@ -32,6 +32,7 @@ Revision:
 	- 20170615@Tom: NAP Reports - Integrate Betradar Virtual Sports[RedmindID: #78495] 
 	- 20171020@Dominic: Integrate Bullfighting - #81664
 	- 20171214@Kean: Integrate Exchange - #88221
+	- 2018.02.27@Tom: Integrate Colossus Bets - Free Play Integration (#90774)
 */
 
 BEGIN	
@@ -217,7 +218,8 @@ BEGIN
 			sum((case when b.bettype = 1000 then -1*(odds-scomm) else winlost-actual_stake+awinlost+mwinlost+swinlost+scomm end)*actualrate) realLineTotal,
 			sum((1-tpositiontaking)*CASE WHEN b.bettype IN (71,73,1000) THEN 0 WHEN b.bettype IN (1700,1800,1900) THEN stake ELSE abs(stake) END*virtualrate) as virtualTurnover,
 			sum((winlost-actual_stake+awinlost+mwinlost+swinlost+scomm)*virtualrate) as virtualLineTotal,
-			0 SportType, 0 exrisk
+			0 SportType,			
+			CASE WHEN b.Bettype = 18000 AND ISNULL(b.currency2,0) = 1 THEN 1 ELSE 0 END exrisk
 		FROM
 			bettrans b with (nolock)
 			inner join @SportBettype sb on b.bettype = sb.Bettype
@@ -230,7 +232,8 @@ BEGIN
 			AND currency <> 20
 		GROUP BY
 			winlostdate, matchid, b.bettype, liveindicator, status,
-			case when recommend = 52466 then 1 when recommend = 5707545 then 2 else 0 end
+			case when recommend = 52466 then 1 when recommend = 5707545 then 2 else 0 end,
+			CASE WHEN b.Bettype = 18000 AND ISNULL(b.currency2,0) = 1 THEN 1 ELSE 0 END
 	    
 	     -- calculate Virtual Sports Parlay
 		INSERT INTO bodb_Report.dbo.rptWinlost
@@ -603,7 +606,8 @@ BEGIN
 				sum((case when b.bettype = 1000 then -1*(odds-scomm) else winlost-actual_stake+awinlost+mwinlost+swinlost+scomm end)*actualrate) realLineTotal,
 				sum((1-tpositiontaking)*CASE WHEN b.bettype IN (71,73,1000) THEN 0 WHEN b.bettype IN (1700,1800,1900) THEN stake ELSE abs(stake) END*virtualrate) as virtualTurnover,
 				sum((winlost-actual_stake+awinlost+mwinlost+swinlost+scomm)*virtualrate) as virtualLineTotal,
-				0 SportType, 0 exrisk
+				0 SportType,
+				CASE WHEN b.Bettype = 18000 AND ISNULL(b.currency2,0) = 1 THEN 1 ELSE 0 END exrisk
 			 FROM
 				bettrans14 b with (nolock)
 				    INNER JOIN @SportBettype sb on b.bettype = sb.Bettype
@@ -618,7 +622,8 @@ BEGIN
 				winlostdate, 
 				CASE WHEN b.bettype = 1003 THEN b.betdaqid ELSE matchid END, 
 				b.bettype, liveindicator, status,
-				case when recommend = 52466 then 1 when recommend = 5707545 then 2 else 0 end
+				case when recommend = 52466 then 1 when recommend = 5707545 then 2 else 0 end,
+				CASE WHEN b.Bettype = 18000 AND ISNULL(b.currency2,0) = 1 THEN 1 ELSE 0 END
 
 		    
 			 -- calculate Virtual Sports Parlay
