@@ -35,6 +35,7 @@ Revisions:
 	- 20160615@Sophia: Change READPAST to ROWLOCK because of the Deadlock [Redmind: #59254]
 	- 20160819@Robert: Add Bet Trade Winloss bettype=904 (#62630)
 	- 20161129@Robert: NAP Reports - Integrate Fishing World Product [RedmindID: #67757]
+	- 2018.03.19@Franklin: Integrate  ONE RNG Jackpot (#91712)
 
 Parameters explain:
 	- @Products: instead of all @showXXX parameters, have xml structure
@@ -313,7 +314,14 @@ CREATE CLUSTERED INDEX IDX_Bettype_bettype_ProductID ON #tmpBettype(bettype,Prod
 		SELECT b.custid,
 			 CASE WHEN t.IsNoVirtual = 1 THEN 0 ELSE CASE WHEN b.virtualrate-b.actualrate < 0 THEN -1 WHEN b.virtualrate-b.actualrate > 0 THEN 1 ELSE 0 END END VirtualRateType,  
 			 SUM(ABS(stake)*(1 - tpositiontaking)) Turnover,
-			 SUM(swinlost + mwinlost + awinlost + winlost-actual_stake) Winloss,
+			 SUM(swinlost + mwinlost + awinlost + (
+				    CASE
+					   WHEN t.bettype IN( 2198, 2398, 2998 )
+					   THEN b.ContributionRate * b.BetStake
+					   WHEN t.bettype IN( 2199, 2399, 2999 )
+					   THEN 0
+					   ELSE winlost - actual_stake
+				    END)) Winloss,
 			 SUM(scomm) commission,  
 			 SUM(swinlost + mwinlost + awinlost + winlost-actual_stake+scomm) total, 
 			 SUM(ABS(stake)*(1 - tpositiontaking)*actualrate) TurnoverRM,

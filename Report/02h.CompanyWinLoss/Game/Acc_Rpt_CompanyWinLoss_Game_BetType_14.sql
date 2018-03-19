@@ -22,6 +22,7 @@ Revisions:
 - 20160222@Franklin: Initialize Company Win Loss Report
 - 20160720@Sophia: . Revise SP
 				   . Not use @EndDate because we get only one day on (bettrans/bettrans14 range) 
+- 2018.03.19@Franklin: Integrate  ONE RNG Jackpot (#91712)
 
 Example:
 EXEC [Acc_Rpt_CompanyWinLoss_Game_BetType_14] @EndDate='2020-01-01',@StartDate='2016-01-01',@ProductId=6
@@ -118,7 +119,11 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_BetType_14] @EndDate='2020-01-01',@StartDate='
                            SUM((winlost - actual_stake) * actualrate) MemberWinLoss,
                            SUM((awinlost + mwinlost + swinlost) * actualrate) SMAWinLoss,
                            SUM(scomm * actualrate) Commission,
-                           SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm) * actualrate) RealIncome,
+                           SUM((
+						CASE 
+						    WHEN  b.gameId IN (2198, 2398, 2998) THEN b.ContributionRate*b.BetStake
+						    WHEN  b.gameId IN (2199, 2399, 2999) THEN 0
+						    ELSE winlost-actual_stake END + awinlost + mwinlost + swinlost + scomm) * actualrate) AS RealIncome,
                            SUM((1 - tpositiontaking) * ABS(stake) * actualrate) RealTurnover
                     FROM bettransRnG14 b WITH (NOLOCK)
                          INNER JOIN #SportBetType sb ON sb.BetType = b.gameID

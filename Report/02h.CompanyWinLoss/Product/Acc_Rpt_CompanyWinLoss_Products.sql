@@ -25,6 +25,7 @@ AS
 		- 20171013@Franklin: ExtraPT Setting - DB Restructure (#84802)
 		- 20171102@Franklin: Bullfighting(#85382)
 		- 20171211@Franklin: Exchange(#86456)
+		- 2018.03.19@Franklin: Integrate  ONE RNG Jackpot (#91712)
 	Explanation's Param:
 	
 */
@@ -121,7 +122,36 @@ BEGIN
 	FROM	bodb02.dbo.Acc_GroupExtraPTSetting a WITH (NOLOCK)
 	WHERE	@StartDate BETWEEN FromDate AND Todate
 	GROUP BY ProductID, SportType, SubProduct, SuperId
-
+	
+		
+	----------------------	Casino WinLoss -------------------------------------
+    CREATE TABLE #CasinoWinLoss( ProductId      INT,
+						   RealWinLoss    MONEY,
+						   VirtualWinLoss MONEY );
+    INSERT INTO #CasinoWinLoss
+	 SELECT s.ProductId,
+			   SUM(( CASE
+					   WHEN s.bettype IN( 2198, 2398, 2998 )
+					   THEN b.ContributionRate * b.BetStake
+					   WHEN s.bettype IN( 2199, 2399, 2999 )
+					   THEN 0
+					   ELSE winlost - actual_stake
+				    END ) * actualrate),
+			   SUM(( CASE
+					   WHEN s.bettype IN( 2198, 2398, 2998 )
+					   THEN b.ContributionRate * b.BetStake
+					   WHEN s.bettype IN( 2199, 2399, 2999 )
+					   THEN 0
+					   ELSE winlost - actual_stake
+				    END ) * virtualrate)
+	 FROM dbo.bettransRNG b WITH ( NOLOCK )
+			 INNER JOIN #SportBettype s ON b.gameid = s.bettype
+	 WHERE winlostdate = @StartDate
+		   AND s.ProductID IN( 6 ) 	---- OW RNG(6)
+		   AND s.RefTable = 1  --- Use Table BettransRNG
+		   AND b.statusID IN( 111, 112, 113 )
+	 GROUP BY s.ProductID;
+     ----------------------End Casino WinLoss -------------------------------------
 	
 	----------------------	Racing -------------------------------------
 	 DECLARE @RBWinlost TABLE(
@@ -382,8 +412,16 @@ BEGIN
 			SUM((awinlost+mwinlost+swinlost)*virtualrate) position_virtualrate,	
 			SUM(scomm*actualrate) commission_actualrate,
 			SUM(scomm*virtualrate) commission_virtualrate,
-			SUM((winlost-actual_stake+awinlost+mwinlost+swinlost+scomm)*actualrate) LineTotal_actualrate,
-			SUM((winlost-actual_stake+awinlost+mwinlost+swinlost+scomm)*virtualrate) LineTotal_virtualrate,
+			SUM((
+			 CASE 
+				WHEN  s.Bettype IN (2198, 2398, 2998) THEN b.ContributionRate*b.BetStake
+				WHEN  s.Bettype IN (2199, 2399, 2999) THEN 0
+				ELSE winlost-actual_stake END +awinlost+mwinlost+swinlost+scomm)*actualrate) LineTotal_actualrate,
+			SUM((
+			 CASE 
+				WHEN  s.Bettype IN (2198, 2398, 2998) THEN b.ContributionRate*b.BetStake
+				WHEN  s.Bettype IN (2199, 2399, 2999) THEN 0
+				ELSE winlost-actual_stake END +awinlost+mwinlost+swinlost+scomm)*virtualrate) LineTotal_virtualrate,
 			SUM((1-tpositiontaking)*ABS(b.stake)*actualrate) turnover_actualrate, 
 			SUM((1-tpositiontaking)*ABS(b.stake)*virtualrate) turnover_virtualrate,
 			SUM((CASE WHEN b.tpositiontaking = 1 THEN 0 ELSE b.scomm/(1-b.tpositiontaking) END)*b.actualrate) grosscomm_actualrate,
@@ -627,9 +665,10 @@ BEGIN
 			SUM(LineTotal_virtualrate) AS VirtualLineTotal,
 			SUM(turnover_actualrate) RealTurnover,
 			SUM(turnover_virtualrate) VirtualTurnover,
-			SUM(CASE ISNULL(e.ExtraPT,0) WHEN 0 THEN 0 ELSE (winlost_actualrate)* e.ExtraPT END) AS ExtraPT,
-			SUM(CASE ISNULL(e.ExtraPT,0) WHEN 0 THEN 0 ELSE (winlost_actualrate + grosscomm_actualrate)* e.ExtraPT END) AS NewExtraPT
-	FROM	#srcDetail b			
+			SUM(CASE ISNULL(e.ExtraPT,0) WHEN 0 THEN 0 ELSE (CASE WHEN b.ProductId IN(6) THEN cwl.RealWinLoss ELSE winlost_actualrate END)* e.ExtraPT END) AS ExtraPT,
+			SUM(CASE ISNULL(e.ExtraPT,0) WHEN 0 THEN 0 ELSE (CASE WHEN b.ProductId IN(6) THEN cwl.RealWinLoss ELSE winlost_actualrate END + grosscomm_actualrate)* e.ExtraPT END) AS NewExtraPT
+	FROM	#srcDetail b
+	LEFT JOIN #CasinoWinLoss cwl ON cwl.ProductId = b.ProductId			
 	LEFT JOIN #ExtraPT_Sel e 
 		ON  b.srecommend = e.superID 
 			AND e.ProductID = b.ProductId	
@@ -765,8 +804,7 @@ BEGIN
 	DROP TABLE #Match
 	DROP TABLE #Result	
 	DROP TABLE #SportBettype
-	
-	
+	DROP TABLE #CasinoWinLoss 
 END
 
 GO 

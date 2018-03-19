@@ -118,7 +118,11 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_BetType] @EndDate='2020-01-01',@StartDate='201
                            SUM((winlost - actual_stake) * actualrate) MemberWinLoss,
                            SUM((awinlost + mwinlost + swinlost) * actualrate) SMAWinLoss,
                            SUM(scomm * actualrate) Commission,
-                           SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm) * actualrate) RealIncome,
+                           SUM((
+					    CASE 
+						    WHEN  b.gameId IN (2198, 2398, 2998) THEN b.ContributionRate*b.BetStake
+						    WHEN  b.gameId IN (2199, 2399, 2999) THEN 0
+						    ELSE winlost-actual_stake END + awinlost + mwinlost + swinlost + scomm) * actualrate) AS RealIncome,
                            SUM((1 - tpositiontaking) * ABS(stake) * actualrate) RealTurnover
                     FROM bettransRNG b WITH (NOLOCK)
                          INNER JOIN #SportBetType sb ON sb.BetType = b.gameID
