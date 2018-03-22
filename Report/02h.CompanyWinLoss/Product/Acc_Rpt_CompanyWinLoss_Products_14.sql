@@ -130,17 +130,13 @@ BEGIN
     INSERT INTO #CasinoWinLoss
 	 SELECT s.ProductId,
 			   SUM(( CASE
-					   WHEN s.bettype IN( 2198, 2398, 2998 )
-					   THEN b.ContributionRate * b.BetStake
-					   WHEN s.bettype IN( 2199, 2399, 2999 )
-					   THEN 0
+					   WHEN s.bettype IN( 2198, 2398, 2998 ) THEN b.ContributionRate * b.BetStake
+					   WHEN s.bettype IN( 2199, 2399, 2999 ) THEN 0
 					   ELSE winlost - actual_stake
 				    END ) * actualrate),
 			   SUM(( CASE
-					   WHEN s.bettype IN( 2198, 2398, 2998 )
-					   THEN b.ContributionRate * b.BetStake
-					   WHEN s.bettype IN( 2199, 2399, 2999 )
-					   THEN 0
+					   WHEN s.bettype IN( 2198, 2398, 2998 ) THEN b.ContributionRate * b.BetStake
+					   WHEN s.bettype IN( 2199, 2399, 2999 ) THEN 0
 					   ELSE winlost - actual_stake
 				    END ) * virtualrate)
 	 FROM dbo.bettransRnG14 b WITH ( NOLOCK )
@@ -416,16 +412,14 @@ BEGIN
 			SUM((awinlost+mwinlost+swinlost)*virtualrate) position_virtualrate,	
 			SUM(scomm*actualrate) commission_actualrate,
 			SUM(scomm*virtualrate) commission_virtualrate,
-			SUM((
-			 CASE 
-				WHEN  s.Bettype IN (2198, 2398, 2998) THEN b.ContributionRate*b.BetStake
-				WHEN  s.Bettype IN (2199, 2399, 2999) THEN 0
-				ELSE winlost-actual_stake END +awinlost+mwinlost+swinlost+scomm)*actualrate) LineTotal_actualrate,
-			SUM((
-			 CASE 
-				WHEN  s.Bettype IN (2198, 2398, 2998) THEN b.ContributionRate*b.BetStake
-				WHEN  s.Bettype IN (2199, 2399, 2999) THEN 0
-				ELSE winlost-actual_stake END +awinlost+mwinlost+swinlost+scomm)*virtualrate) LineTotal_virtualrate,
+			SUM((CASE WHEN s.Bettype IN (2199, 2399, 2999) THEN 0
+					  WHEN s.Bettype IN (2198, 2398, 2998) THEN b.ContributionRate * b.BetStake + awinlost + mwinlost + swinlost + scomm
+					  ELSE winlost - actual_stake + awinlost + mwinlost + swinlost + scomm
+				 END) * actualrate) LineTotal_actualrate,
+			SUM((CASE WHEN s.Bettype IN (2199, 2399, 2999) THEN 0
+					  WHEN s.Bettype IN (2198, 2398, 2998) THEN b.ContributionRate * b.BetStake + awinlost + mwinlost + swinlost + scomm
+					  ELSE winlost - actual_stake + awinlost + mwinlost + swinlost + scomm
+				 END) * virtualrate) LineTotal_virtualrate,
 			SUM((1-tpositiontaking)*ABS(b.stake)*actualrate) turnover_actualrate, 
 			SUM((1-tpositiontaking)*ABS(b.stake)*virtualrate) turnover_virtualrate,
 			SUM((CASE WHEN b.tpositiontaking = 1 THEN 0 ELSE b.scomm/(1-b.tpositiontaking) END)*b.actualrate) grosscomm_actualrate,

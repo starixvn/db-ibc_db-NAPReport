@@ -1,3 +1,5 @@
+USE [bodb02]
+GO
 IF EXISTS
 (
     SELECT *
@@ -124,11 +126,10 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_Site] @BetType = 2101,@EndDate='2020-01-01',@S
                            SUM((winlost - actual_stake) * actualrate) AS MemberWinLoss,
                            SUM((awinlost + mwinlost + swinlost) * actualrate) AS SMAWinLoss,
                            SUM(scomm * actualrate) Commission,
-                           SUM((
-					   CASE 
-						  WHEN  b.gameId IN (2198, 2398, 2998) THEN b.ContributionRate*b.BetStake
-						  WHEN  b.gameId IN (2199, 2399, 2999) THEN 0
-						  ELSE winlost-actual_stake END + awinlost + mwinlost + swinlost + scomm) * actualrate) AS RealIncome,
+                           SUM((CASE WHEN b.gameId IN (2198, 2398, 2998) THEN b.ContributionRate*b.BetStake + awinlost + mwinlost + swinlost + scomm
+									 WHEN b.gameId IN (2199, 2399, 2999) THEN 0
+									 ELSE winlost - actual_stake  + awinlost + mwinlost + swinlost + scomm 
+								END) * actualrate) AS RealIncome,
                            SUM((1 - tpositiontaking) * ABS(stake) * actualrate) AS RealTurnover
                     FROM bettransRNG b WITH (NOLOCK)
                          JOIN #Agent dep ON b.recommend = dep.custid

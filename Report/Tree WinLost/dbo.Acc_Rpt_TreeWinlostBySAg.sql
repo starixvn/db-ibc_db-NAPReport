@@ -300,20 +300,25 @@ CREATE CLUSTERED INDEX IDX_Bettype_bettype_ProductID ON #tmpBettype(bettype,Prod
 		SELECT b.mrecommend,
 			 CASE WHEN t.IsNoVirtual = 1 THEN 0 ELSE CASE WHEN b.virtualrate-b.actualrate < 0 THEN -1 WHEN b.virtualrate-b.actualrate > 0 THEN 1 ELSE 0 END END VirtualRateType,  
 			 SUM(ABS(stake)*(1 - tpositiontaking)) Turnover,
-			 SUM(swinlost + mwinlost + awinlost + (
-				    CASE
-					   WHEN t.bettype IN( 2198, 2398, 2998 )
-					   THEN b.ContributionRate * b.BetStake
-					   WHEN t.bettype IN( 2199, 2399, 2999 )
-					   THEN 0
-					   ELSE winlost - actual_stake
-				    END)) Winloss,
+			 SUM(CASE WHEN t.bettype IN(2199, 2399, 2999) THEN 0 --Progressive Jackpot
+					  WHEN t.bettype IN(2198, 2398, 2998) THEN (b.ContributionRate * b.BetStake) + swinlost + mwinlost + awinlost --Jackpot Contribution
+					  ELSE swinlost + mwinlost + awinlost + winlost - actual_stake
+				 END) Winloss, 
 			 SUM(scomm) commission,  
-			 SUM(swinlost + mwinlost + awinlost + winlost-actual_stake+scomm) total, 
+			 SUM(CASE WHEN t.bettype IN(2199, 2399, 2999) THEN 0 --Progressive Jackpot
+					  WHEN t.bettype IN(2198, 2398, 2998) THEN (b.ContributionRate * b.BetStake) + swinlost + mwinlost + awinlost + scomm --Jackpot Contribution
+					  ELSE swinlost + mwinlost + awinlost + winlost - actual_stake + scomm
+				 END) total, 
 			 SUM(ABS(stake)*(1 - tpositiontaking)*actualrate) TurnoverRM,
 			 SUM(ABS(stake)*(1 - tpositiontaking)*(CASE WHEN t.IsNoVirtual = 0 THEN b.virtualrate ELSE actualrate END)) TurnoverIBCVirtual,
-			 SUM((swinlost + mwinlost + awinlost + winlost-actual_stake+scomm)*actualrate)  TotalRM,
-			 SUM((swinlost + mwinlost + awinlost + winlost-actual_stake+scomm)*(CASE WHEN t.IsNoVirtual = 0 THEN b.virtualrate ELSE actualrate END)) Virtual_Total
+			 SUM(CASE WHEN t.bettype IN(2199, 2399, 2999) THEN 0 --Progressive Jackpot
+					  WHEN t.bettype IN(2198, 2398, 2998) THEN ((b.ContributionRate * b.BetStake) + swinlost + mwinlost + awinlost + scomm) * actualrate
+					  ELSE (swinlost + mwinlost + awinlost + winlost - actual_stake + scomm) * actualrate
+				  END) TotalRM,
+			 SUM((CASE WHEN t.bettype IN(2199, 2399, 2999) THEN 0 --Progressive Jackpot
+						WHEN t.bettype IN(2198, 2398, 2998) THEN (b.ContributionRate * b.BetStake) + swinlost + mwinlost + awinlost + scomm --Jackpot Contribution
+						ELSE swinlost + mwinlost + awinlost + winlost - actual_stake + scomm END)
+					*(CASE WHEN t.IsNoVirtual = 0 THEN b.virtualrate ELSE actualrate END)) Virtual_Total
 		FROM bettransRNG b WITH(ROWLOCK) 
 			INNER JOIN #tmpBettype t ON t.bettype = b.gameID
 		WHERE winlostdate BETWEEN @FromDate AND @ToDate
