@@ -325,6 +325,7 @@ BEGIN
 					  WHEN sb.Bettype IN(2198, 2398, 2998) THEN (b.ContributionRate * b.BetStake) + awinlost + mwinlost + swinlost + scomm
 				      ELSE winlost - actual_stake + awinlost + mwinlost + swinlost + scomm 
 				 END) * virtualrate) virtualLineTotal,
+
 			0 SportType, 0 exrisk
 		FROM
 			bettransRnG b with (nolock)
