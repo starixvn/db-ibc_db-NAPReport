@@ -161,16 +161,19 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_Product] @EndDate='2020-01-01',@StartDate='201
                            SUM((winlost - actual_stake) * actualrate) MemberWinLoss,
                            SUM((awinlost + mwinlost + swinlost) * actualrate) SMAWinLoss,
                            SUM(scomm * actualrate) Commission,
-                           SUM((CASE WHEN b.gameId IN (2198, 2398, 2998) THEN b.ContributionRate*b.BetStake + awinlost + mwinlost + swinlost + scomm
+                           SUM((CASE WHEN b.gameId IN (2198, 2398, 2998) THEN b.ContributionRate * b.BetStake + awinlost + mwinlost + swinlost + scomm
 									 WHEN b.gameId IN (2199, 2399, 2999) THEN 0
 									 ELSE winlost - actual_stake  + awinlost + mwinlost + swinlost + scomm 
 								END) * actualrate) AS RealIncome,
                            SUM((1 - tpositiontaking) * ABS(stake) * actualrate) RealTurnover,
-                           SUM((winlost - actual_stake) * actualrate * ISNULL(e.ExtraPT, 0)) AS ExtraPT,
-						   SUM((CASE
-                                   WHEN tpositiontaking = 1
-                                   THEN winlost - actual_stake
-                                   ELSE winlost - actual_stake + scomm / (1 - tpositiontaking)
+                           SUM((CASE WHEN b.gameId IN (2198, 2398, 2998) THEN b.ContributionRate * b.BetStake 
+									 WHEN b.gameId IN (2199, 2399, 2999) THEN 0
+									 ELSE winlost - actual_stake END) * actualrate * ISNULL(e.ExtraPT, 0)) AS ExtraPT,
+						   SUM((CASE WHEN b.gameId IN (2199, 2399, 2999) THEN 0
+								     WHEN tpositiontaking = 1 AND b.gameId IN (2198, 2398, 2998) THEN b.ContributionRate * b.BetStake 
+									 WHEN tpositiontaking = 1 AND b.gameId NOT IN (2198, 2398, 2998) THEN winlost - actual_stake 
+									 WHEN tpositiontaking <> 1 AND b.gameId IN (2198, 2398, 2998) THEN b.ContributionRate * b.BetStake  + scomm / (1 - tpositiontaking)
+									 ELSE winlost - actual_stake + scomm / (1 - tpositiontaking) 
                                END * ISNULL(e.ExtraPT, 0)) * actualrate) AS NewExtraPT
                     FROM bettransRNG b WITH (NOLOCK)
                          INNER JOIN #SportBetType sb ON sb.BetType = b.gameID
