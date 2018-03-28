@@ -39,6 +39,7 @@ AS
 		- 20171006@Cherry: Add filter of Number Game Bettype (#83101)
 		- 20171024@Cherry: Remove GamePayout (#85103)
 		- 20171208@Cherry: Add param @UsernameDrillDown (#87888)
+		- 20180328@Cherry: Integrate One RNG Jackpot (#89459)
 
 	Param's Explanation:
 			 - @username:  + Search by keyword, member only
@@ -424,7 +425,7 @@ SET NOCOUNT ON
 					ELSE  DATEPART(HOUR, b.transdate) END AS [Hour], 
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
 
-				COUNT(CASE WHEN StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount, 
+				COUNT(CASE WHEN StatusID IN (111,112,113) AND b.gameID NOT IN (2198, 2398, 2998) THEN b.TransId ELSE NULL END) AS BetCount, 
 
 				SUM((CASE WHEN b.statusID IN (103) THEN 0 ELSE actual_stake END) * actualrate)  AS TotalBetsRM,
 
@@ -434,7 +435,8 @@ SET NOCOUNT ON
 
 				SUM((CASE WHEN b.statusID IN (103) THEN 0 ELSE (1- b.tpositiontaking) * b.stake END) * actualrate) AS CompanyTurnoverRM,		
 								
-				- SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeRM,
+				- SUM((CASE WHEN b.gameID IN (2198, 2398, 2998) THEN b.ContributionRate * b.BetStake + awinlost + mwinlost + swinlost
+							ELSE winlost - actual_stake + awinlost + mwinlost + swinlost END)* actualrate) AS CompanyGrossIncomeRM,
 
 				- SUM(scomm *actualrate) AS CompanyCommRM
 				

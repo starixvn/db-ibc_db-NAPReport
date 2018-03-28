@@ -37,6 +37,7 @@ AS
 		- 20170815@Cherry: Non-Sport Statistics Phase 5 (#71923)
 		- 20171002@Cherry: Modify Associated Accounts Code Logic (#84002)
 		- 20171006@Cherry: Add filter of Number Game Bettype (#83101)
+		- 20180328@Cherry: Integrate One RNG Jackpot (#89459)
 
 	Param's Explanation:
 		- @username: search keyword
@@ -664,7 +665,7 @@ BEGIN
 				b.recommend,
 				b.custid,
 				b.gameID,
-				COUNT(b.transid) AS BetCount,
+				COUNT(CASE WHEN b.gameID NOT IN (2198, 2398, 2998) THEN b.transid ELSE NULL END) AS BetCount,
 				b.currency,
 				SUM(actual_stake) AS TotalBets,
 				SUM(actual_stake * actualrate) AS TotalBetsBase,
@@ -672,8 +673,10 @@ BEGIN
 				SUM(winlost * actualrate) AS TotalWinsBase,
 				SUM((1- b.tpositiontaking) * b.stake) AS CompanyTurnover,
 				SUM((1- b.tpositiontaking) * b.stake * actualrate) AS CompanyTurnoverBase,
-				SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)) AS CompanyGrossIncome,
-				SUM((winlost - actual_stake + awinlost + mwinlost + swinlost) * actualrate) AS CompanyGrossIncomeBase,
+				SUM(CASE WHEN b.gameID IN (2198, 2398, 2998) THEN b.ContributionRate * b.BetStake + awinlost + mwinlost + swinlost
+						 ELSE winlost - actual_stake + awinlost + mwinlost + swinlost END) AS CompanyGrossIncome,
+				SUM((CASE WHEN b.gameID IN (2198, 2398, 2998) THEN b.ContributionRate * b.BetStake + awinlost + mwinlost + swinlost
+						  ELSE winlost - actual_stake + awinlost + mwinlost + swinlost END) * actualrate) AS CompanyGrossIncomeBase,
 				SUM(scomm) AS CompanyComm,
 				SUM(scomm *actualrate) AS CompanyCommBase,
 				s.ProductID,
@@ -920,7 +923,7 @@ BEGIN
 				b.recommend,
 				b.custid,
 				b.gameID,
-				COUNT(b.transid) AS BetCount,
+				COUNT(CASE WHEN b.gameID NOT IN (2198, 2398, 2998) THEN b.transid ELSE NULL END) AS BetCount,
 				b.currency,
 				SUM(actual_stake) AS TotalBets,
 				SUM(actual_stake * actualrate) AS TotalBetsBase,
@@ -928,8 +931,10 @@ BEGIN
 				SUM(winlost * actualrate) AS TotalWinsBase,
 				SUM((1- b.tpositiontaking) * b.stake) AS CompanyTurnover,
 				SUM((1- b.tpositiontaking) * b.stake * actualrate) AS CompanyTurnoverBase,
-				SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)) AS CompanyGrossIncome,
-				SUM((winlost - actual_stake + awinlost + mwinlost + swinlost) * actualrate) AS CompanyGrossIncomeBase,
+				SUM(CASE WHEN b.gameID IN (2198, 2398, 2998) THEN b.ContributionRate * b.BetStake + awinlost + mwinlost + swinlost
+						 ELSE winlost - actual_stake + awinlost + mwinlost + swinlost END) AS CompanyGrossIncome,
+				SUM((CASE WHEN b.gameID IN (2198, 2398, 2998) THEN b.ContributionRate * b.BetStake + awinlost + mwinlost + swinlost
+						  ELSE winlost - actual_stake + awinlost + mwinlost + swinlost END) * actualrate) AS CompanyGrossIncomeBase,
 				SUM(scomm) AS CompanyComm,
 				SUM(scomm *actualrate) AS CompanyCommBase,
 				s.ProductID,
