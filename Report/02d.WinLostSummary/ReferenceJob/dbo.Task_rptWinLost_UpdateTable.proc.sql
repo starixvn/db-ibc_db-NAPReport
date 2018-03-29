@@ -713,19 +713,15 @@ BEGIN
 				sum((winlost-actual_stake)* actualrate)  realWinlost,
 				sum((awinlost+mwinlost+swinlost)* actualrate) realPos,
 				sum((scomm) * actualrate) realComm,
-				sum(((CASE
-					    WHEN sb.Bettype IN( 2198, 2398, 2998 )
-					    THEN b.ContributionRate * b.BetStake
-					    WHEN sb.Bettype IN( 2199, 2399, 2999 )
-					    THEN 0
-					    ELSE winlost - actual_stake END)+awinlost+mwinlost+swinlost+scomm)*actualrate) realLineTotal,
+				sum((CASE WHEN sb.Bettype IN(2199, 2399, 2999) THEN 0
+					      WHEN sb.Bettype IN(2198, 2398, 2998) THEN b.ContributionRate * b.BetStake	+ awinlost + mwinlost + swinlost + scomm				    
+					      ELSE winlost - actual_stake + awinlost + mwinlost + swinlost + scomm 
+					 END)* actualrate) realLineTotal,
 				sum((1-tpositiontaking)*abs(stake)*virtualrate) as virtualTurnover,
-				sum(((CASE
-					    WHEN sb.Bettype IN( 2198, 2398, 2998 )
-					    THEN b.ContributionRate * b.BetStake
-					    WHEN sb.Bettype IN( 2199, 2399, 2999 )
-					    THEN 0
-					    ELSE winlost - actual_stake END)+awinlost+mwinlost+swinlost+scomm)*virtualrate) as virtualLineTotal,
+				sum((CASE WHEN sb.Bettype IN(2199, 2399, 2999) THEN 0
+					      WHEN sb.Bettype IN(2198, 2398, 2998) THEN b.ContributionRate * b.BetStake	+ awinlost + mwinlost + swinlost + scomm				    
+					      ELSE winlost - actual_stake + awinlost + mwinlost + swinlost + scomm 
+					 END) * virtualrate) as virtualLineTotal,
 				0 SportType, 0 exrisk
 			FROM
 				bettransRnG14 b with (nolock)
