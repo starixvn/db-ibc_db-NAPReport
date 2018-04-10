@@ -109,7 +109,7 @@ BEGIN
 
 	-- Apply discount & rebate
 	;WITH t AS(
-			SELECT SUM(s.AmountToCompany) Total, s.PartyId,d.DiscountGroupId
+			SELECT SUM(s.AmountToCompany) Total, s.PartyId, d.DiscountGroupId
 			FROM #FeeData s
 			INNER JOIN (SELECT DISTINCT DiscountGroupId,PartyId,ProductId FROM #DiscountGroup WHERE DiscountGroupType = 1) AS d
 				ON s.PartyId=d.PartyId AND s.ProductId=d.ProductId

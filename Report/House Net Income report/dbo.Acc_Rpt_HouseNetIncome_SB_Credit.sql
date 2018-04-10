@@ -16,6 +16,7 @@ AS
 		- 20160922@Harper - #64429 - Edit status ID
 		- 20180126@Harper - HDWL Letstalk - Implement Chart of SB margin [#RedmineID: 89632]
 		- 20180131@Harper - Fix Daily HAIFA data [#RedmineID: 90263]
+		- 20180410@Harper - Fix ISNULL for Extra TO [#RedmineID: 93379]
 
 	Param's Explanation: 
 	
@@ -54,8 +55,8 @@ BEGIN
 
 	WHILE @tmpDate <= @TDate
 	BEGIN
-		INSERT INTO #FinalResult (RptDate, HouseWL, ExtraPT, TurnOver)
-		SELECT CONVERT(VARCHAR(2), @tmpDate, 106), 0, 0, 0
+		INSERT INTO #FinalResult (RptDate, HouseWL, ExtraPT, TurnOver, ExtraTO)
+		SELECT CONVERT(VARCHAR(2), @tmpDate, 106), 0, 0, 0, 0
 
 		SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate)
 	END
@@ -117,8 +118,8 @@ BEGIN
 		GROUP BY b.rptDate
 	)
 	UPDATE f
-	SET HouseWL = f.HouseWL + wl.HouseWL,
-		f.TurnOver = f.TurnOver + wl.TurnOver + t.TurnOver - f.ExtraTO
+	SET HouseWL = ISNULL(f.HouseWL, 0) + ISNULL(wl.HouseWL, 0),
+		f.TurnOver = ISNULL(f.TurnOver, 0) + ISNULL(wl.TurnOver, 0) + ISNULL(t.TurnOver, 0) - ISNULL(f.ExtraTO, 0)
 	FROM #FinalResult f
 		INNER JOIN #TmpHouseWL wl ON CONVERT(VARCHAR(2), wl.rptDate, 106) = f.RptDate
 		INNER JOIN TurnOver t ON CONVERT(VARCHAR(2), t.rptDate, 106) = f.RptDate
