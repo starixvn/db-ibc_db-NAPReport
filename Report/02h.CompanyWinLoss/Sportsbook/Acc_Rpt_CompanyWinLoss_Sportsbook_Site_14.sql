@@ -22,6 +22,7 @@ DB: DBACC/bodb02
 
 Revisions:
 - 20160301@Jacob: Initialize Company Win Loss Report
+- 20180413@Franklin: hotfix [#93594]
 
 Parameters:
 @IsLive: 2 - ALL. 0 - Non-Live. 1 - Live

@@ -24,6 +24,7 @@ Revisions:
 - 20160222@Franklin: Initialize Company Win Loss Report
 - 20160720@Sophia: . Revise SP
 				   . Not use @EndDate because we get only one day on (bettrans/bettrans14 range) 
+- 2018.03.19@Franklin: Integrate  ONE RNG Jackpot (#91712)
 
 Example:
 EXEC [Acc_Rpt_CompanyWinLoss_Game_BetType] @EndDate='2020-01-01',@StartDate='2016-01-01',@ProductId=6
