@@ -161,7 +161,7 @@ BEGIN
 	-- Rate for PayToSupplier
 	;WITH rate3rd AS (
 		SELECT DISTINCT	ci.IsDeposit, ci.ProductID, ci.DI_Rate, ci.Fromdate, ci.ToDate, p.PartyID
-		FROM	bodb_licensee.dbo.LA_f_ChargeInfo3rd(@FDate, @TDate, 'FW', 'OA') ci	
+		FROM	bodb_licensee.dbo.LA_f_ChargeInfo3rd(@FDate, @TDate, 'VS', 'OA') ci	
 				INNER JOIN @tmpParty p ON p.ParentID = ci.PartyID	
 	)
 	INSERT INTO @DailyPayAmt (rptDate, IsDeposit, Amount, LicenseeWL, VSRate)
