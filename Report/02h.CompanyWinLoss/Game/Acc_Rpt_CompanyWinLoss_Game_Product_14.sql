@@ -1,15 +1,13 @@
 USE [bodb02]
 GO
-IF EXISTS
-(
-    SELECT *
-    FROM sys.objects
-    WHERE object_id = OBJECT_ID(N'[dbo].[Acc_Rpt_CompanyWinLoss_Game_Product_14]')
-          AND type IN(N'P', N'PC')
-)
-    DROP PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_Game_Product_14];
+/****** Object:  StoredProcedure [dbo].[Acc_Rpt_CompanyWinLoss_Game_Product_14]    Script Date: 4/18/2018 3:29:37 AM ******/
+SET ANSI_NULLS ON
 GO
-CREATE PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_Game_Product_14] @StartDate  SMALLDATETIME,
+SET QUOTED_IDENTIFIER ON
+GO
+/****** Object:  Stored Procedure dbo.Acc_Rpt_CompanyWinLoss_Game_Product_14    Script Date: 4/18/2018 12:16:56 AM ******/
+/****** Object:  Stored Procedure dbo.Acc_Rpt_CompanyWinLoss_Game_Product_14    Script Date: 4/13/2018 2:47:18 PM ******/
+ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_Game_Product_14] @StartDate  SMALLDATETIME,
                                                              @EndDate    SMALLDATETIME,
                                                              @CasinoType INT
 AS
@@ -167,12 +165,13 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_Product_14] @EndDate='2020-01-01',@StartDate='
 								END) * actualrate) AS RealIncome,
                            SUM((1 - tpositiontaking) * ABS(stake) * actualrate) RealTurnover,
                            SUM((winlost - actual_stake) * actualrate * ISNULL(e.ExtraPT, 0)) AS ExtraPT,
-						   SUM((CASE WHEN b.gameId IN (2199, 2399, 2999) THEN 0
-								     WHEN tpositiontaking = 1 AND b.gameId IN (2198, 2398, 2998) THEN b.ContributionRate * b.BetStake 
-									 WHEN tpositiontaking = 1 AND b.gameId NOT IN (2198, 2398, 2998) THEN winlost - actual_stake 
-									 WHEN tpositiontaking <> 1 AND b.gameId IN (2198, 2398, 2998) THEN b.ContributionRate * b.BetStake  + scomm / (1 - tpositiontaking)
-									 ELSE winlost - actual_stake + scomm / (1 - tpositiontaking) 
-                                END * ISNULL(e.ExtraPT, 0)) * actualrate) AS NewExtraPT
+						   SUM((
+								CASE WHEN tpositiontaking = 1 THEN 0  
+									WHEN b.gameId IN (2199, 2399, 2999) THEN 0 --Progressive Jackpot
+									WHEN b.gameId IN (2198, 2398, 2998) THEN ContributionRate * BetStake + 1.0 * scomm/(1 - tpositiontaking) --Jackpot Contribution
+									ELSE winlost - actual_stake + 1.0 * scomm/(1 - tpositiontaking) 
+									END 
+								) * ISNULL(e.ExtraPT, 0) * actualrate ) AS NewExtraPT						   
                     FROM bettransRnG14 b WITH (NOLOCK)
                          INNER JOIN #SportBetType sb ON sb.BetType = b.gameID
                          LEFT JOIN #DepositSuper dep ON b.srecommend = dep.custid
@@ -251,8 +250,3 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_Product_14] @EndDate='2020-01-01',@StartDate='
      DROP TABLE #SportBetType;
      DROP TABLE #DepositSuper;
      DROP TABLE #Data;
-GO
-GRANT EXECUTE ON [dbo].[Acc_Rpt_CompanyWinLoss_Game_Product_14] TO [bodbAdminNet];
-GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_Rpt_CompanyWinLoss_Game_Product_14] TO [vnteam];
-GO
