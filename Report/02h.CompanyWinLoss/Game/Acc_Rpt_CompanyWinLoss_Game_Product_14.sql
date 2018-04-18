@@ -1,3 +1,5 @@
+USE [bodb02]
+GO
 IF EXISTS
 (
     SELECT *
@@ -24,6 +26,7 @@ Revisions:
 					   . Not use @EndDate because we get only one day on (bettrans/bettrans14 range)
 	- 20160112@Percy: Change Extra PT formula [RedmineID: #70208].
 	- 20171013@Franklin: ExtraPT Setting - DB Restructure (#84802)
+	- 2018.03.19@Franklin: Integrate  ONE RNG Jackpot (#91712)
 
 Example:
 EXEC [Acc_Rpt_CompanyWinLoss_Game_Product_14] @EndDate='2020-01-01',@StartDate='2017-01-05', @CasinoType = 1
@@ -158,14 +161,18 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_Product_14] @EndDate='2020-01-01',@StartDate='
                            SUM((winlost - actual_stake) * actualrate) MemberWinLoss,
                            SUM((awinlost + mwinlost + swinlost) * actualrate) SMAWinLoss,
                            SUM(scomm * actualrate) Commission,
-                           SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm) * actualrate) RealIncome,
+                           SUM((CASE WHEN b.gameId IN (2198, 2398, 2998) THEN b.ContributionRate*b.BetStake + awinlost + mwinlost + swinlost + scomm
+									 WHEN b.gameId IN (2199, 2399, 2999) THEN 0
+									 ELSE winlost - actual_stake  + awinlost + mwinlost + swinlost + scomm 
+								END) * actualrate) AS RealIncome,
                            SUM((1 - tpositiontaking) * ABS(stake) * actualrate) RealTurnover,
                            SUM((winlost - actual_stake) * actualrate * ISNULL(e.ExtraPT, 0)) AS ExtraPT,
-						   SUM((CASE
-                                   WHEN tpositiontaking = 1
-                                   THEN winlost - actual_stake
-                                   ELSE winlost - actual_stake + scomm / (1 - tpositiontaking)
-                               END * ISNULL(e.ExtraPT, 0)) * actualrate) AS NewExtraPT
+						   SUM((CASE WHEN b.gameId IN (2199, 2399, 2999) THEN 0
+								     WHEN tpositiontaking = 1 AND b.gameId IN (2198, 2398, 2998) THEN b.ContributionRate * b.BetStake 
+									 WHEN tpositiontaking = 1 AND b.gameId NOT IN (2198, 2398, 2998) THEN winlost - actual_stake 
+									 WHEN tpositiontaking <> 1 AND b.gameId IN (2198, 2398, 2998) THEN b.ContributionRate * b.BetStake  + scomm / (1 - tpositiontaking)
+									 ELSE winlost - actual_stake + scomm / (1 - tpositiontaking) 
+                                END * ISNULL(e.ExtraPT, 0)) * actualrate) AS NewExtraPT
                     FROM bettransRnG14 b WITH (NOLOCK)
                          INNER JOIN #SportBetType sb ON sb.BetType = b.gameID
                          LEFT JOIN #DepositSuper dep ON b.srecommend = dep.custid

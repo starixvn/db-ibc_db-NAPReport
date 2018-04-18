@@ -41,6 +41,7 @@ AS
 		- 20171030@Kean: Integrate Bullfighting (#85712)
 		- 20171110@Kean: Should count the running tickets from translogs table (#86319)
 		- 20171113@Kean:  (#86319) Include GoldDeluxe for counting of running tickets from translog table(#86319)
+		- 2018.03.19@Franklin: Integrate  ONE RNG Jackpot (#91712)
 	Param's Explanation:  
 	  + @MoveBetsDay: The day of moving bets to battrans14
 	  + @BalanceUpDay: The day of moving bets to battransbk
@@ -124,7 +125,9 @@ BEGIN
 		IF @sportType IN (251, 212, 219)
 		BEGIN
 			INSERT INTO #AvailableMember
-			SELECT b.custid,b.[status],COUNT(1) 
+			SELECT b.custid,
+					b.[status],
+					COUNT(1) BetCount
 			FROM dbo.bettransRNG b WITH(NOLOCK)
 			WHERE b.winlostdate BETWEEN @TempFromDate AND @CurrentDate
 			AND (
@@ -136,6 +139,7 @@ BEGIN
 					b.statusId IN (111,112,113,0) 
 				)	
 			AND b.srecommend = @CustID
+			AND b.gameID NOT IN (2198, 2398, 2998, 2199, 2399, 2999)
 			GROUP BY b.custid,b.[status]
 		END	
 

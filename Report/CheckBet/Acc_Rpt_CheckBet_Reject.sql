@@ -23,6 +23,7 @@ AS
 		- 20170704@Robert: Integrate Betradar Virtual Sports Product [RedmineID: #78495]
 		- 20170828@Robert: Integrate Lucky3 product into NAP Acc Reports [RedmineID: #78214]
 		- 20171120@Dominic: Integrate Bullfighting product into NAP Acc Reports [RedmineID: #85382]
+		- 20180316@Franklin: Integrate FM2 [#91341] 
 	Param's explanation:		
 	
 */
@@ -145,7 +146,8 @@ Begin
 			bt.tpositiontaking, 
 			bt.status as NewStatus, 
 			b.status as OldStatus,
-			c.username as Creator			
+			c.username as Creator,
+			bt.oddsspread AS OddsSpread			
 	from bodb02.dbo.bettrans bt with (NOLOCK)
 		inner join dbo.betsreject b with (nolock) on bt.transid=b.transid
 		INNER JOIN #tmp t ON bt.transid = t.transid AND bt.bettype = t.bettype
@@ -173,7 +175,8 @@ Begin
 			bt.tpositiontaking, 
 			bt.status as NewStatus, 
 			b.status as OldStatus,
-			c.username as Creator
+			c.username as Creator,
+			bt.oddsspread AS OddsSpread
 	from bodb02.dbo.bettrans bt with (NOLOCK)
 		inner join dbo.BetsReject_Translog b with (nolock) on bt.refno=b.translogid AND bt.matchid=b.eventID
 		INNER JOIN #tmp t ON b.translogid = t.transid AND bt.bettype = t.bettype
@@ -201,7 +204,8 @@ Begin
 			bt.tpositiontaking, 
 			bt.status as NewStatus, 
 			b.status as OldStatus,
-			c.username as Creator
+			c.username as Creator,
+			bt.oddsspread AS OddsSpread
 	from bodb02.dbo.bettrans bt with (NOLOCK)
 		inner join dbo.betsreject b with (nolock) on bt.transid=b.transid
 		INNER JOIN #tmp t ON bt.transid = t.transid AND bt.bettype = t.bettype
