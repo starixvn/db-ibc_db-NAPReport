@@ -1,5 +1,12 @@
 USE [bodb02]
 GO
+/****** Object:  StoredProcedure [dbo].[Acc_Rpt_CompanyWinLoss_Products_14]    Script Date: 4/18/2018 3:17:03 AM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+/****** Object:  Stored Procedure dbo.Acc_Rpt_CompanyWinLoss_Products_14    Script Date: 4/18/2018 12:16:54 AM ******/
+/****** Object:  Stored Procedure dbo.Acc_Rpt_CompanyWinLoss_Products_14    Script Date: 4/13/2018 2:47:17 PM ******/
 
 ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_Products_14]
 	 @StartDate SMALLDATETIME,
@@ -86,6 +93,7 @@ BEGIN
 						turnover_actualrate MONEY,
 						turnover_virtualrate MONEY,
 						grosscomm_actualrate MONEY,
+						WinlossForExtraPT_actualrate MONEY,
 						ProductId INT,
 						CasinoType TINYINT
 					)
@@ -121,40 +129,7 @@ BEGIN
 	SELECT	ProductID, SportType, SubProduct, SuperId, SUM(ExtraPT) AS ExtraPT 
 	FROM	bodb02.dbo.Acc_GroupExtraPTSetting a WITH (NOLOCK)
 	WHERE	@StartDate BETWEEN FromDate AND Todate
-	GROUP BY ProductID, SportType, SubProduct, SuperId
-	
-	----------------------	Casino WinLoss -------------------------------------
-    CREATE TABLE #CasinoWinLoss( srecommend INT,
-						   ProductId      INT,
-						   CasinoType TINYINT,
-						   RealWinLoss    MONEY,
-						   VirtualWinLoss MONEY
-						    );
-    INSERT INTO #CasinoWinLoss
-	 SELECT b.srecommend,
-              s.ProductId,
-              s.CasinoType,
-			   SUM(( CASE
-					   WHEN s.bettype IN( 2198, 2398, 2998 ) THEN b.ContributionRate * b.BetStake
-					   WHEN s.bettype IN( 2199, 2399, 2999 ) THEN 0
-					   ELSE winlost - actual_stake
-				    END ) * actualrate),
-			   SUM(( CASE
-					   WHEN s.bettype IN( 2198, 2398, 2998 ) THEN b.ContributionRate * b.BetStake
-					   WHEN s.bettype IN( 2199, 2399, 2999 ) THEN 0
-					   ELSE winlost - actual_stake
-				    END ) * virtualrate)
-	 FROM dbo.bettransRnG14 b WITH ( NOLOCK )
-			 INNER JOIN #SportBettype s ON b.gameid = s.bettype
-	 WHERE winlostdate = @StartDate
-		   AND s.ProductID IN( 6 ) 	---- OW RNG(6)
-		   AND s.RefTable = 1  --- Use Table BettransRNG
-		   AND b.statusID IN( 111, 112, 113 )
-	  GROUP BY b.srecommend,
-                s.ProductID,
-                s.CasinoType;
-     ----------------------End Casino WinLoss -------------------------------------
-
+	GROUP BY ProductID, SportType, SubProduct, SuperId	
 	
 	----------------------	Racing -------------------------------------
 	 DECLARE @RBWinlost TABLE(
@@ -410,7 +385,7 @@ BEGIN
 	----3. Get from Detail table ----------
 	-- Get bettransRNG data	
 	INSERT INTO #srcDetail (srecommend ,site , winlost_actualrate , winlost_virtualrate , position_actualrate , position_virtualrate , commission_actualrate , commission_virtualrate , 
-							Linetotal_actualrate , Linetotal_virtualrate , turnover_actualrate , turnover_virtualrate, grosscomm_actualrate, ProductId, CasinoType)
+							Linetotal_actualrate , Linetotal_virtualrate , turnover_actualrate , turnover_virtualrate, grosscomm_actualrate, WinlossForExtraPT_actualrate, ProductId, CasinoType)
 	SELECT	b.srecommend,
 			1 as site,			
 			SUM((winlost-actual_stake)*actualrate) winlost_actualrate,
@@ -429,7 +404,14 @@ BEGIN
 				 END) * virtualrate) LineTotal_virtualrate,
 			SUM((1-tpositiontaking)*ABS(b.stake)*actualrate) turnover_actualrate, 
 			SUM((1-tpositiontaking)*ABS(b.stake)*virtualrate) turnover_virtualrate,
-			SUM((CASE WHEN b.tpositiontaking = 1 THEN 0 ELSE b.scomm/(1-b.tpositiontaking) END)*b.actualrate) grosscomm_actualrate,
+			SUM((CASE WHEN b.tpositiontaking = 1 THEN 0 ELSE b.scomm/(1-b.tpositiontaking) END)*b.actualrate) grosscomm_actualrate,			
+			SUM((CASE WHEN tpositiontaking = 1 THEN 0  
+				WHEN b.gameId IN (2199, 2399, 2999) THEN 0 --Progressive Jackpot
+				WHEN b.gameId IN (2198, 2398, 2998) THEN (ContributionRate * BetStake)  --Jackpot Contribution
+				ELSE winlost - actual_stake
+				END 
+				) *  b.actualrate
+			) AS WinlossForExtraPT_actualrate,
 			s.ProductID, s.CasinoType
 	FROM bettransRnG14 b WITH(NOLOCK)
 		INNER JOIN #SportBettype s ON b.gameid = s.bettype	
@@ -442,7 +424,7 @@ BEGIN
 	 	 
 	-- Get bettransLC Data
 	INSERT INTO #srcDetail (srecommend ,site, winlost_actualrate , winlost_virtualrate , position_actualrate , position_virtualrate , commission_actualrate , commission_virtualrate , 
-							Linetotal_actualrate , Linetotal_virtualrate , turnover_actualrate , turnover_virtualrate, grosscomm_actualrate, ProductId, CasinoType)
+							Linetotal_actualrate , Linetotal_virtualrate , turnover_actualrate , turnover_virtualrate, grosscomm_actualrate, WinlossForExtraPT_actualrate, ProductId, CasinoType)
 	SELECT	
 			b.srecommend,
 			1 as site, 	
@@ -457,6 +439,10 @@ BEGIN
 			SUM((1-tpositiontaking)*ABS(b.stake)*actualrate) turnover_actualrate, 
 			SUM((1-tpositiontaking)*ABS(b.stake)*virtualrate) turnover_virtualrate,
 			SUM((CASE WHEN b.tpositiontaking = 1 THEN 0 ELSE b.scomm/(1-b.tpositiontaking) END)*b.actualrate) grosscomm_actualrate,
+			SUM(CASE WHEN tpositiontaking = 1 THEN 0  								
+				ELSE winlost - actual_stake
+				END *  b.actualrate
+			) AS WinlossForExtraPT_actualrate,
 			s.ProductID, s.CasinoType
 	FROM bettransLC14 b WITH(NOLOCK)	
 		INNER JOIN #SportBettype s ON b.gameid = s.bettype
@@ -669,11 +655,11 @@ BEGIN
 			SUM(LineTotal_actualrate) AS RealLineTotal,
 			SUM(LineTotal_virtualrate) AS VirtualLineTotal,
 			SUM(turnover_actualrate) RealTurnover,
-			SUM(turnover_virtualrate) VirtualTurnover,
-				SUM(CASE ISNULL(e.ExtraPT,0) WHEN 0 THEN 0 ELSE (CASE WHEN b.ProductId IN(6) THEN cwl.RealWinLoss ELSE winlost_actualrate END)* e.ExtraPT END) AS ExtraPT,
-			SUM(CASE ISNULL(e.ExtraPT,0) WHEN 0 THEN 0 ELSE (CASE WHEN b.ProductId IN(6) THEN cwl.RealWinLoss ELSE winlost_actualrate END + grosscomm_actualrate)* e.ExtraPT END) AS NewExtraPT
-	FROM	#srcDetail b	
-	LEFT JOIN #CasinoWinLoss cwl ON cwl.ProductId = b.ProductId					
+			SUM(turnover_virtualrate) VirtualTurnover,						
+			SUM(CASE ISNULL(e.ExtraPT,0) WHEN 0 THEN 0 ELSE (winlost_actualrate)* e.ExtraPT END) AS ExtraPT,			
+			SUM( (b.WinlossForExtraPT_actualrate + grosscomm_actualrate) *  ISNULL(e.ExtraPT,0)) AS NewExtraPT
+
+	FROM	#srcDetail b		
 	LEFT JOIN #ExtraPT_Sel e 
 		ON  b.srecommend = e.superID 
 			AND e.ProductID = b.ProductId	
@@ -807,12 +793,5 @@ BEGIN
 	DROP TABLE #ExtraPT_Sel
 	DROP TABLE #Match
 	DROP TABLE #Result	
-	DROP TABLE #SportBettype
-     DROP TABLE #CasinoWinLoss 
+	DROP TABLE #SportBettype   
 END
-
-GO 
-GRANT VIEW DEFINITION ON [dbo].[Acc_Rpt_CompanyWinLoss_Products_14] TO [vnteam]
-GO 
-GRANT EXECUTE ON [dbo].[Acc_Rpt_CompanyWinLoss_Products_14] TO [bodbAdminNet]
-GO 
