@@ -125,28 +125,39 @@ BEGIN
 	
 		
 	----------------------	Casino WinLoss -------------------------------------
-    CREATE TABLE #CasinoWinLoss( ProductId      INT,
+    CREATE TABLE #CasinoWinLoss( srecommend INT,
+						   ProductId      INT,
+						   CasinoType TINYINT,
 						   RealWinLoss    MONEY,
-						   VirtualWinLoss MONEY );
+						   VirtualWinLoss MONEY
+						    );
     INSERT INTO #CasinoWinLoss
-	 SELECT s.ProductId,
-			   SUM(( CASE
-					   WHEN s.bettype IN( 2198, 2398, 2998 ) THEN b.ContributionRate * b.BetStake
-					   WHEN s.bettype IN( 2199, 2399, 2999 ) THEN 0
-					   ELSE winlost - actual_stake
-				     END ) * actualrate) RealWinLoss,
-			   SUM(( CASE
-					   WHEN s.bettype IN( 2198, 2398, 2998 ) THEN b.ContributionRate * b.BetStake
-					   WHEN s.bettype IN( 2199, 2399, 2999 ) THEN 0
-					   ELSE winlost - actual_stake
-				     END ) * virtualrate) VirtualWinLoss
-	 FROM dbo.bettransRNG b WITH ( NOLOCK )
-			 INNER JOIN #SportBettype s ON b.gameid = s.bettype
-	 WHERE winlostdate = @StartDate
-		   AND s.ProductID IN( 6 ) 	---- OW RNG(6)
-		   AND s.RefTable = 1  --- Use Table BettransRNG
-		   AND b.statusID IN( 111, 112, 113 )
-	 GROUP BY s.ProductID;
+       SELECT b.srecommend,
+              s.ProductId,
+              s.CasinoType,
+              SUM(( CASE
+                        WHEN s.bettype IN( 2198, 2398, 2998 )
+                        THEN b.ContributionRate * b.BetStake
+                        WHEN s.bettype IN( 2199, 2399, 2999 )
+                        THEN 0
+                        ELSE winlost - actual_stake
+                    END ) * actualrate) RealWinLoss,
+              SUM(( CASE
+                        WHEN s.bettype IN( 2198, 2398, 2998 )
+                        THEN b.ContributionRate * b.BetStake
+                        WHEN s.bettype IN( 2199, 2399, 2999 )
+                        THEN 0
+                        ELSE winlost - actual_stake
+                    END ) * virtualrate) VirtualWinLoss
+       FROM dbo.bettransRNG b WITH ( NOLOCK )
+            INNER JOIN #SportBettype s ON b.gameid = s.bettype
+       WHERE winlostdate = @StartDate
+         AND s.ProductID IN( 6 ) 	---- OW RNG(6)
+         AND s.RefTable = 1  --- Use Table BettransRNG
+         AND b.statusID IN( 111, 112, 113 )
+       GROUP BY b.srecommend,
+                s.ProductID,
+                s.CasinoType;
      ----------------------End Casino WinLoss -------------------------------------
 	
 	----------------------	Racing -------------------------------------
