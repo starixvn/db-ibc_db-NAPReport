@@ -1,17 +1,15 @@
-IF EXISTS
-(
-    SELECT *
-    FROM sys.objects
-    WHERE object_id = OBJECT_ID(N'[dbo].[Acc_Rpt_CompanyWinLoss_FishingWorld_BetType_14]')
-          AND type IN(N'P', N'PC')
-)
-    DROP PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_FishingWorld_BetType_14];
+IF EXISTS( SELECT *
+           FROM sys.objects
+           WHERE object_id = OBJECT_ID(N'[dbo].[Acc_Rpt_CompanyWinLoss_FishingWorld_BetType_14]')
+             AND type IN( N'P', N'PC' ))
+DROP PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_FishingWorld_BetType_14];
 GO
-CREATE PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_FishingWorld_BetType_14] @StartDate SMALLDATETIME,
-                                                                     @EndDate   SMALLDATETIME,
-                                                                     @ProductId INT           = 24,
-                                                                     @SportType INT           = 0,
-                                                                     @IsLive    INT           = 2
+CREATE PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_FishingWorld_BetType_14]
+       @StartDate SMALLDATETIME,
+       @EndDate   SMALLDATETIME,
+       @ProductId INT = 24,
+       @SportType INT = 0,
+       @IsLive    INT = 2
 AS
 
 
@@ -34,59 +32,82 @@ EXEC [Acc_Rpt_CompanyWinLoss_FishingWorld_BetType_14] @EndDate='2020-01-01',@Sta
 */
 
      SET NOCOUNT ON;
-     BEGIN --#SportBetType     
-         DECLARE @isTest BIT= 0;
-         SELECT @isTest = dbo.f_CheckSPVersion(@@PROCID);
-         CREATE TABLE #SportBetType
-         (BetType     INT,
-          BetTypeName NVARCHAR(50)
-         );
-         INSERT INTO #SportBetType
-                SELECT BetType,
-                       b.typenamee
-                FROM dbo.f_SportBetTypeMatrix_Sel(24, 0, 0, 2, '', '', @isTest) s
-                     INNER JOIN BetType b WITH (NOLOCK) ON b.typeid = s.BetType;
-     END;
-     BEGIN -- #DepositSuper
+    BEGIN --#SportBetType     
+        DECLARE @isTest BIT = 0;
+        SELECT @isTest = dbo.f_CheckSPVersion( @@PROCID );
+        CREATE TABLE #SportBetType( BetType     INT,
+                                    BetTypeName NVARCHAR(50));
+        INSERT INTO #SportBetType
+               SELECT BetType,
+                      b.typenamee
+               FROM dbo.f_SportBetTypeMatrix_Sel( 24, 0, 0, 2, '', '', @isTest ) s
+                    INNER JOIN BetType b WITH ( NOLOCK ) ON b.typeid = s.BetType;
+    END;
+    BEGIN -- #DepositSuper
 
-         CREATE TABLE #DepositSuper
-         (CustId INT PRIMARY KEY
-         );
-         INSERT INTO #DepositSuper
-                SELECT CustId
-                FROM f_DepSuper_1('All');
-     END;
-     BEGIN -- Query
+        CREATE TABLE #DepositSuper( CustId INT PRIMARY KEY );
+        INSERT INTO #DepositSuper
+               SELECT CustId
+               FROM f_DepSuper_1( 'All' );
+    END;
+    BEGIN ---- Extra PT 
+        CREATE TABLE #ExtraPT_Sel( SuperID INT,
+                                   ExtraPT DECIMAL(9, 8));
+        INSERT INTO #ExtraPT_Sel
+               ( SuperID,
+                 ExtraPT
+               )
+               SELECT SuperId,
+                      SUM(ExtraPT) AS ExtraPT
+               FROM bodb02.dbo.Acc_GroupExtraPTSetting a WITH ( NOLOCK )
+               WHERE @StartDate BETWEEN FromDate AND Todate
+                 AND a.ProductId = 24
+               GROUP BY SuperId;
+    END;
+    BEGIN -- Query
 
-         SELECT sb.BetType AS GroupId,
-                sb.BetTypeName AS GroupName,
-                CASE
-                    WHEN dep.CustId IS NULL
-                    THEN 'Credit'
-                    ELSE 'Deposit'
-                END AS RowName,
-                SUM((winlost - actual_stake) * actualrate) MemberWinLoss,
-                SUM((awinlost + mwinlost + swinlost) * actualrate) SMAWinLoss,
-                SUM(scomm * actualrate) Commission,
-                SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm) * actualrate) RealIncome,
-                SUM((1 - tpositiontaking) * ABS(stake) * actualrate) RealTurnover
-         FROM bettransRnG14 b WITH (NOLOCK)
-              INNER JOIN #SportBetType sb ON sb.BetType = b.gameID
-              LEFT JOIN #DepositSuper dep ON b.srecommend = dep.custid
-         WHERE b.winlostdate = @StartDate
-               AND b.statusID IN(111, 112, 113)
-         GROUP BY sb.BetType,
-                  sb.BetTypeName,
-                  CASE
-                      WHEN dep.CustId IS NULL
-                      THEN 'Credit'
-                      ELSE 'Deposit'
-                  END
-         ORDER BY GroupName,
-                  RowName;
-     END;
-     DROP TABLE #SportBetType;
-     DROP TABLE #DepositSuper;
+        SELECT sb.BetType AS GroupId,
+               sb.BetTypeName AS GroupName,
+                                 CASE
+                                     WHEN dep.CustId IS NULL
+                                     THEN 'Credit'
+                                     ELSE 'Deposit'
+                                 END AS RowName,
+               SUM(( winlost - actual_stake ) * actualrate) MemberWinLoss,
+               SUM(( awinlost + mwinlost + swinlost ) * actualrate) SMAWinLoss,
+               SUM(scomm * actualrate) Commission,
+               SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - ( CASE
+                                                                                             WHEN tpositiontaking = 1
+                                                                                             THEN 0
+                                                                                             ELSE winlost - actual_stake + b.scomm / 1 - b.tpositiontaking
+                                                                                         END ) * e.ExtraPT ) * actualrate) RealIncome,
+               SUM(CASE
+                       WHEN tpositiontaking = 1
+                       THEN 0
+                       ELSE( 1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * ABS(b.stake) * CASE
+                                                                                                WHEN virtualrate / actualrate - 1 > 0
+                                                                                                THEN virtualrate
+                                                                                                ELSE actualrate
+                                                                                            END
+                   END) RealTurnover
+        FROM bettransRnG14 b WITH ( NOLOCK )
+             INNER JOIN #SportBetType sb ON sb.BetType = b.gameID
+             LEFT JOIN #DepositSuper dep ON b.srecommend = dep.custid
+             LEFT JOIN #ExtraPT_Sel e ON e.SuperID = b.srecommend
+        WHERE b.winlostdate = @StartDate
+          AND b.statusID IN( 111, 112, 113 )
+        GROUP BY sb.BetType,
+                 sb.BetTypeName,
+                    CASE
+                        WHEN dep.CustId IS NULL
+                        THEN 'Credit'
+                        ELSE 'Deposit'
+                    END
+        ORDER BY GroupName,
+                 RowName;
+    END;
+        DROP TABLE #SportBetType;
+        DROP TABLE #DepositSuper;
 GO
 GRANT EXECUTE ON [dbo].[Acc_Rpt_CompanyWinLoss_FishingWorld_BetType_14] TO [bodbAdminNet];
 GO

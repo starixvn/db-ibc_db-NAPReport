@@ -28,6 +28,19 @@ EXEC [Acc_Rpt_CompanyWinLoss_Bullfighting_MatchDetail] @SportType=207, @BetType=
 
      SET NOCOUNT ON;
     BEGIN
+        CREATE TABLE #ExtraPT_Sel( SuperID INT,
+                                   ExtraPT DECIMAL(9, 8));
+        INSERT INTO #ExtraPT_Sel
+               ( SuperID,
+                 ExtraPT
+               )
+               SELECT SuperId,
+                      SUM(ExtraPT) AS ExtraPT
+               FROM bodb02.dbo.Acc_GroupExtraPTSetting a WITH ( NOLOCK )
+               WHERE @StartDate BETWEEN FromDate AND Todate
+                 AND a.ProductId = 30
+                 AND a.Sporttype = @SportType
+               GROUP BY SuperId;
         CREATE TABLE #Data( LeagueId      INT,
                             LeagueCode    NVARCHAR(50),
                             MatchId       INT,
@@ -49,11 +62,24 @@ EXEC [Acc_Rpt_CompanyWinLoss_Bullfighting_MatchDetail] @SportType=207, @BetType=
                       SUM(( winlost - actual_stake ) * actualrate),
                       SUM(( awinlost + mwinlost + swinlost ) * actualrate),
                       SUM(scomm * actualrate),
-                      SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm ) * actualrate),
-                      SUM(( 1 - tpositiontaking ) * ABS(b.stake) * actualrate)
+                      SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - ( CASE
+                                                                                                    WHEN tpositiontaking = 1
+                                                                                                    THEN 0
+                                                                                                    ELSE winlost - actual_stake + b.scomm / 1 - b.tpositiontaking
+                                                                                                END ) * e.ExtraPT ) * actualrate),
+                      SUM(CASE
+                              WHEN tpositiontaking = 1
+                              THEN 0
+                              ELSE( 1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * ABS(b.stake) * CASE
+                                                                                                       WHEN virtualrate / actualrate - 1 > 0
+                                                                                                       THEN virtualrate
+                                                                                                       ELSE actualrate
+                                                                                                   END
+                          END)
                FROM bettrans AS b WITH ( nolock )
                     INNER JOIN Match3rd AS m WITH ( nolock ) ON b.MatchId = m.Match3rdId
                     INNER JOIN dbo.League3rd AS l WITH ( NOLOCK ) ON m.League3rdId = l.League3rdId
+                    LEFT JOIN #ExtraPT_Sel e ON e.SuperID = b.srecommend
                WHERE b.winlostdate = @StartDate
                  AND b.BetType = @BetType
                  AND m.SportType = @SportType
