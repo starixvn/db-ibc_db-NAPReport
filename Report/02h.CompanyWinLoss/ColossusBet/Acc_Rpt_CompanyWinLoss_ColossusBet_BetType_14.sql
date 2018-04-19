@@ -78,7 +78,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_ColossusBet_BetType_14] @StartDate='2016-09-13', @E
                                                                                                  WHEN tpositiontaking = 1
                                                                                                  THEN 0
                                                                                                  ELSE winlost - actual_stake + b.scomm / 1 - b.tpositiontaking
-                                                                                             END ) * e.ExtraPT ) * actualrate) AS RealIncome,
+                                                                                             END ) * ISNULL(e.ExtraPT, 0) ) * actualrate) AS RealIncome,
                    SUM(CASE
                            WHEN tpositiontaking = 1
                            THEN 0

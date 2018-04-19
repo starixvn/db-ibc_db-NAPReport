@@ -77,7 +77,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_CashOut_Site] @StartDate='2016-08-24', @EndDate='20
                                                                                              WHEN tpositiontaking = 1
                                                                                              THEN 0
                                                                                              ELSE winlost - actual_stake + b.scomm / 1 - b.tpositiontaking
-                                                                                         END ) * e.ExtraPT ) * actualrate) AS RealIncome,
+                                                                                         END ) * ISNULL(e.ExtraPT, 0) ) * actualrate) AS RealIncome,
                SUM(CASE
                        WHEN tpositiontaking = 1
                        THEN 0

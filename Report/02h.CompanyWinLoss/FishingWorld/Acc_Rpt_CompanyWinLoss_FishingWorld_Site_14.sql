@@ -91,7 +91,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_FishingWorld_Site_14] @BetType = 1011,@EndDate='202
                                                                                              WHEN tpositiontaking = 1
                                                                                              THEN 0
                                                                                              ELSE winlost - actual_stake + b.scomm / 1 - b.tpositiontaking
-                                                                                         END ) * e.ExtraPT ) * actualrate) AS RealIncome,
+                                                                                         END ) * ISNULL(e.ExtraPT, 0) ) * actualrate) AS RealIncome,
                SUM(CASE
                        WHEN tpositiontaking = 1
                        THEN 0

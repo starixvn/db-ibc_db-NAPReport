@@ -46,6 +46,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Bettrade_BetType] @StartDate='2016-01-01', @EndDate
                WHERE @StartDate BETWEEN FromDate AND Todate
                  AND a.ProductId = 1
                  AND a.SubProduct IN( 'BT-Comm', 'BT-Winloss' )
+				 and a.Sporttype = 0
                GROUP BY SuperId;
     END;
     BEGIN -- #DepositSuper
@@ -71,7 +72,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Bettrade_BetType] @StartDate='2016-01-01', @EndDate
                                                                                              WHEN tpositiontaking = 1
                                                                                              THEN 0
                                                                                              ELSE winlost - actual_stake + b.scomm / 1 - b.tpositiontaking
-                                                                                         END ) * e.ExtraPT ) * actualrate) AS RealIncome,
+                                                                                         END ) * ISNULL(e.ExtraPT,0) ) * actualrate) AS RealIncome,
                SUM(CASE
                        WHEN tpositiontaking = 1
                        THEN 0
