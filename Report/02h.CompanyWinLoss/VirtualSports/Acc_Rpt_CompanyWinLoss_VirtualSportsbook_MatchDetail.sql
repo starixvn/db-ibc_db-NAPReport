@@ -26,6 +26,22 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSportsbook_MatchDetail] @StartDate='2016-01-
 */
 
      SET NOCOUNT ON;
+
+	 BEGIN ---- Extra PT 
+        CREATE TABLE #ExtraPT_Sel( SuperID INT,
+                                   ExtraPT DECIMAL(9, 8));
+        INSERT INTO #ExtraPT_Sel
+               ( SuperID,
+                 ExtraPT
+               )
+               SELECT SuperId,
+                      SUM(ExtraPT) AS ExtraPT
+               FROM bodb02.dbo.Acc_GroupExtraPTSetting a WITH ( NOLOCK )
+               WHERE @StartDate BETWEEN FromDate AND Todate
+                 AND a.ProductId = 5
+               GROUP BY SuperId;
+    END;
+
      SELECT m.MatchId,
             m.MatchCode,
             m.HomeId,
@@ -34,10 +50,23 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSportsbook_MatchDetail] @StartDate='2016-01-
             SUM((winlost - actual_stake) * actualrate) MemberWinLoss,
             SUM((awinlost + mwinlost + swinlost) * actualrate) AS SMAWinLoss,
             SUM(scomm * actualrate) Commission,
-            SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm) * actualrate) AS RealIncome,
-            SUM((1 - tpositiontaking) * ABS(b.stake) * actualrate) AS RealTurnover
+            SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - ( CASE
+                                                                                                    WHEN tpositiontaking = 1
+                                                                                                    THEN 0
+                                                                                                    ELSE winlost - actual_stake + b.scomm / ( 1 - b.tpositiontaking )
+                                                                                                END ) * ISNULL(e.ExtraPT, 0)) * actualrate) AS RealIncome,
+                       SUM(CASE
+                              WHEN tpositiontaking = 1
+                              THEN 0
+                              ELSE( 1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * ABS(b.stake) * CASE
+                                                                                                       WHEN virtualrate / actualrate - 1 > 0
+                                                                                                       THEN virtualrate
+                                                                                                       ELSE actualrate
+                                                                                                   END
+                          END) AS RealTurnover
      FROM bettrans AS b WITH (nolock)
           INNER JOIN match AS m WITH (nolock) ON b.MatchId = m.MatchId
+		  LEFT JOIN #ExtraPT_Sel e ON e.SuperID = b.srecommend
      WHERE b.winlostdate = @StartDate
            AND b.BetType = @BetType
            AND m.SportType = @SportType
@@ -54,6 +83,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSportsbook_MatchDetail] @StartDate='2016-01-
               m.HomeId,
               m.AwayId;
 
+	DROP TABLE #ExtraPT_Sel;
 -------------------
 
 GO

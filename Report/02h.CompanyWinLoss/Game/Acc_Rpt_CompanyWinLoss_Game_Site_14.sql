@@ -146,7 +146,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_Site_14] @BetType = 2101,@EndDate='2020-01-01'
                                                 THEN b.ContributionRate * b.BetStake + awinlost + mwinlost + swinlost + scomm - ( CASE
                                                                                                                                       WHEN tpositiontaking = 1
                                                                                                                                       THEN 0
-                                                                                                                                      ELSE winlost - actual_stake + b.scomm / ( 1 - b.tpositiontaking )
+                                                                                                                                      ELSE b.ContributionRate * b.BetStake + b.scomm / ( 1 - b.tpositiontaking )
                                                                                                                                   END ) * ISNULL(e.ExtraPT, 0)
                                                 WHEN b.gameId IN( 2199, 2399, 2999 )
                                                 THEN 0

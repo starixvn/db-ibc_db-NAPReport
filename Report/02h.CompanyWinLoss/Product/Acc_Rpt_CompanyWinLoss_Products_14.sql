@@ -775,16 +775,24 @@ AS
                               THEN 0
                               ELSE ABS(stake) * virtualrate
                           END) AS stake_virtualrate,
-                      SUM(CASE
+                      SUM((CASE
+                              WHEN b.tpositiontaking = 1
+                                THEN 0
+							  WHEN b.gameId IN( 2199, 2399, 2999 )
+                                THEN 0 --Progressive Jackpot
+                              WHEN b.gameId IN( 2198, 2398, 2998 )
+                                THEN ContributionRate * BetStake  --Jackpot Contribution
+                              ELSE winlost - actual_stake
+                          END) * actualrate) AS extra_winloss_actualrate,
+                      SUM((CASE
                               WHEN b.tpositiontaking = 1
                               THEN 0
-                              ELSE(( winlost - actual_stake ) * actualrate )
-                          END) AS extra_winloss_actualrate,
-                      SUM(CASE
-                              WHEN b.tpositiontaking = 1
-                              THEN 0
-                              ELSE(( winlost - actual_stake ) * virtualrate )
-                          END) AS extra_winloss_virtualrate
+							  WHEN b.gameId IN( 2199, 2399, 2999 )
+                                THEN 0 --Progressive Jackpot
+                              WHEN b.gameId IN( 2198, 2398, 2998 )
+                                THEN ContributionRate * BetStake  --Jackpot Contribution
+                              ELSE winlost - actual_stake
+                          END) * virtualrate ) AS extra_winloss_virtualrate
                FROM bettransRnG14 b WITH ( NOLOCK )
                     INNER JOIN #SportBettype s ON b.gameid = s.bettype
                WHERE winlostdate = @StartDate

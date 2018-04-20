@@ -63,6 +63,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_MetricGaming_MatchDetail] @EndDate='2020-01-01',@St
                WHERE @StartDate BETWEEN FromDate AND Todate
                  AND a.ProductId = 1
                  AND a.SubProduct IN( 'MG-SuperLive' )
+				 AND a.Sporttype = 0
                GROUP BY SuperId;
     END;
     BEGIN -- #Data
