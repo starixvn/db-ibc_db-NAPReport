@@ -23,6 +23,7 @@ DB: DBACC/bodb02
 Revisions:
 - 20160301@Jacob: Initialize Company Win Loss Report
 - 20180413@Franklin: hotfix [#93594]
+- 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
 
 Parameters:
 @IsLive: 2 - ALL. 0 - Non-Live. 1 - Live
@@ -103,6 +104,21 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Site_14] @StartDate='2016-01-01', @EndDa
                    INNER JOIN sports sp WITH ( nolock ) ON l.sporttype = sp.sporttype
                WHERE sp.sporttype = @sporttype;
     END;
+    BEGIN ---- Extra PT 
+        CREATE TABLE #ExtraPT_Sel( SuperID INT,
+                                   ExtraPT DECIMAL(9, 8));
+        INSERT INTO #ExtraPT_Sel
+               ( SuperID,
+                 ExtraPT
+               )
+               SELECT SuperId,
+                      SUM(ExtraPT) AS ExtraPT
+               FROM bodb02.dbo.Acc_GroupExtraPTSetting a WITH ( NOLOCK )
+               WHERE @StartDate BETWEEN FromDate AND Todate
+                 AND a.ProductId = 1
+                 AND a.SubProduct NOT IN( 'MG-SuperLive', 'BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss' )
+               GROUP BY SuperId;
+    END;
     BEGIN -- #Data
 
         CREATE TABLE #Data( RowName         NVARCHAR(50),
@@ -120,13 +136,38 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Site_14] @StartDate='2016-01-01', @EndDa
                       SUM(( winlost - actual_stake ) * actualrate) MemberWinLoss,
                       SUM(( awinlost + mwinlost + swinlost ) * actualrate) AS SMAWinLoss,
                       SUM(scomm * actualrate) Commission,
-                      SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm ) * actualrate) RealIncome,
-                      SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm ) * virtualrate) VirtualIncome,
-                      SUM(( 1 - tpositiontaking ) * ABS(stake) * actualrate) RealTurnover,
-                      SUM(( 1 - tpositiontaking ) * ABS(stake) * virtualrate) VirtualTurnover
+                      SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - ( CASE
+                                                                                                    WHEN tpositiontaking = 1
+                                                                                                    THEN 0
+                                                                                                    ELSE winlost - actual_stake + b.scomm / ( 1 - b.tpositiontaking )
+                                                                                                END ) * ISNULL(e.ExtraPT, 0)) * actualrate) RealIncome,
+                      SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost - CASE
+                                                                                          WHEN tpositiontaking = 1
+                                                                                          THEN 0
+                                                                                          ELSE( winlost - actual_stake ) * ISNULL(e.ExtraPT, 0)
+                                                                                      END ) * virtualrate + ( scomm - ( CASE
+                                                                                                                            WHEN tpositiontaking = 1
+                                                                                                                            THEN 0
+                                                                                                                            ELSE b.scomm / ( 1 - b.tpositiontaking )
+                                                                                                                        END ) * ISNULL(e.ExtraPT, 0)) * actualrate) VirtualIncome,
+                      SUM(CASE
+                              WHEN tpositiontaking = 1
+                              THEN 0
+                              ELSE( 1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * ABS(b.stake) * CASE
+                                                                                                       WHEN virtualrate / actualrate - 1 > 0
+                                                                                                       THEN virtualrate
+                                                                                                       ELSE actualrate
+                                                                                                   END
+                          END) RealTurnover,
+                      SUM(CASE
+                              WHEN tpositiontaking = 1
+                              THEN 0
+                              ELSE( 1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * ABS(b.stake) * virtualrate
+                          END) VirtualTurnover
                FROM bettrans14 b WITH ( NOLOCK )
                     INNER JOIN #Agent ag ON b.recommend = ag.custid
                     INNER JOIN #Match m ON b.MatchId = m.MatchId
+                    LEFT JOIN #ExtraPT_Sel e ON e.SuperID = b.srecommend
                WHERE b.winlostdate = @StartDate
                  AND b.BetType = @BetType
                  AND ( @IsLive > 1
@@ -158,6 +199,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Site_14] @StartDate='2016-01-01', @EndDa
         DROP TABLE #Agent;
         DROP TABLE #Match;
         DROP TABLE #Data;
+        DROP TABLE #ExtraPT_Sel;
 GO
 GRANT EXECUTE ON [dbo].[Acc_Rpt_CompanyWinLoss_Sportsbook_Site_14] TO [bodbAdminNet];
 GO
