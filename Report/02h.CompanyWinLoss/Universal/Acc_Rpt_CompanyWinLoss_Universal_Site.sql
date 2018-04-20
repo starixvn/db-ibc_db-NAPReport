@@ -1,17 +1,15 @@
-IF EXISTS
-(
-    SELECT *
-    FROM sys.objects
-    WHERE object_id = OBJECT_ID(N'[dbo].[Acc_Rpt_CompanyWinLoss_Universal_Site]')
-          AND type IN(N'P', N'PC')
-)
-    DROP PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_Universal_Site];
+IF EXISTS( SELECT *
+           FROM sys.objects
+           WHERE object_id = OBJECT_ID(N'[dbo].[Acc_Rpt_CompanyWinLoss_Universal_Site]')
+             AND type IN( N'P', N'PC' ))
+DROP PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_Universal_Site];
 GO
-CREATE PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_Universal_Site] @StartDate SMALLDATETIME,
-                                                               @EndDate   SMALLDATETIME,
-                                                               @BetType   INT,
-                                                               @Site      NVARCHAR(50),
-                                                               @IsLive    INT           = 2
+CREATE PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_Universal_Site]
+       @StartDate SMALLDATETIME,
+       @EndDate   SMALLDATETIME,
+       @BetType   INT,
+       @Site      NVARCHAR(50),
+       @IsLive    INT = 2
 AS
 
 /*
@@ -22,6 +20,7 @@ DB: DBACC/bodb02
 Revisions: 	 
 	 - 20160222@Robert: Improve Company Win Loss Report - Universal Product
 	 - 20161001@Jacob: Integrate new product NG2 - #63460	
+	 - 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
 Parameter's Explanation:
 	- @Site: credit, deposit	
 Example: 
@@ -31,61 +30,102 @@ EXEC [Acc_Rpt_CompanyWinLoss_Universal_Site] @StartDate='2016-01-01', @EndDate='
 */
 
      SET NOCOUNT ON;
-     BEGIN -- #Agent
+    BEGIN -- #Agent
 
-         CREATE TABLE #Agent
-         (CustId INT PRIMARY KEY,
-          Site   NVARCHAR(50)
-         );
-         IF @Site = 'Deposit'
-             BEGIN
-                 INSERT INTO #Agent
-                        SELECT c.CustId,
-                               Site
-                        FROM customer AS c WITH (NOLOCK)
-                        WHERE c.RoleID = 2
-                              AND EXISTS
-                        (
-                            SELECT 1
-                            FROM f_DepSuper_1('All') dep
-                            WHERE c.srecommend = dep.CustId
-                        );
-             END;
-         ELSE
-             BEGIN
-                 INSERT INTO #Agent
-                        SELECT c.CustId,
-                               Site
-                        FROM customer AS c WITH (NOLOCK)
-                        WHERE c.RoleID = 2
-                              AND NOT EXISTS
-                        (
-                            SELECT 1
-                            FROM f_DepSuper_1('All') dep
-                            WHERE c.srecommend = dep.CustId
-                        );
-             END;
-     END;
-     BEGIN -- Query
+        CREATE TABLE #Agent( CustId INT PRIMARY KEY,
+                             Site   NVARCHAR(50));
+        IF @Site = 'Deposit'
+            BEGIN
+                INSERT INTO #Agent
+                       SELECT c.CustId,
+                              Site
+                       FROM customer AS c WITH ( NOLOCK )
+                       WHERE c.RoleID = 2
+                         AND EXISTS( 
+                                     SELECT 1
+                                     FROM f_DepSuper_1( 'All' ) dep
+                                     WHERE c.srecommend = dep.CustId );
+            END;
+        ELSE
+            BEGIN
+                INSERT INTO #Agent
+                       SELECT c.CustId,
+                              Site
+                       FROM customer AS c WITH ( NOLOCK )
+                       WHERE c.RoleID = 2
+                         AND NOT EXISTS( 
+                                         SELECT 1
+                                         FROM f_DepSuper_1( 'All' ) dep
+                                         WHERE c.srecommend = dep.CustId );
+            END;
+    END;
+    BEGIN
+        ------Get Sport Bettype Matrix------
+        -- Check SP Version	 
+        DECLARE @isTest BIT = 0;
+        SELECT @isTest = dbo.f_CheckSPVersion( @@PROCID );
+        CREATE TABLE #SportBettype( ProductID INT,
+                                    Bettype   INT );
+        INSERT INTO #SportBettype
+               ( ProductID,
+                 Bettype
+               )
+               SELECT ProductID,
+                      Bettype
+               FROM dbo.f_SportBettypeMatrix_Sel( 0, 0, 0, 2, '', '', @isTest )
+               WHERE bettype = @BetType;
+        --- End Sport Bettype Matrix------
+    END;
+    BEGIN ---- Extra PT 
+        CREATE TABLE #ExtraPT_Sel( SuperID INT,
+                                   ExtraPT DECIMAL(9, 8));
+        INSERT INTO #ExtraPT_Sel
+               ( SuperID,
+                 ExtraPT
+               )
+               SELECT SuperId,
+                      SUM(ExtraPT) AS ExtraPT
+               FROM bodb02.dbo.Acc_GroupExtraPTSetting a WITH ( NOLOCK )
+                    INNER JOIN #SportBettype sb ON sb.ProductID = a.ProductId
+               WHERE @StartDate BETWEEN FromDate AND Todate
+               GROUP BY SuperId;
+    END;
+    BEGIN -- Query
 
-         SELECT Site AS RowName,
-                SUM((winlost - actual_stake) * actualrate) AS MemberWinLoss,
-                SUM((awinlost + mwinlost + swinlost) * actualrate) AS SMAWinLoss,
-                SUM(scomm * actualrate) Commission,
-                SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm) * actualrate) AS RealIncome,
-                SUM((1 - tpositiontaking) * ABS(stake) * actualrate) AS RealTurnover
-         FROM bettrans AS b WITH (NOLOCK)
-              INNER JOIN #Agent AS dep ON b.recommend = dep.CustId
-         WHERE b.winlostdate = @StartDate
-               AND (@IsLive = 2
-                    OR b.liveindicator = @IsLive)
-               AND b.BetType = @BetType
-               AND b.ruben = 1
-               AND b.statusID IN(111, 112, 113)
-         GROUP BY Site
-         ORDER BY RowName;
-     END;
-     DROP TABLE #Agent;
+        SELECT Site AS RowName,
+               SUM(( winlost - actual_stake ) * actualrate) AS MemberWinLoss,
+               SUM(( awinlost + mwinlost + swinlost ) * actualrate) AS SMAWinLoss,
+               SUM(scomm * actualrate) Commission,
+               SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - ( CASE
+                                                                                             WHEN tpositiontaking = 1
+                                                                                             THEN 0
+                                                                                             ELSE winlost - actual_stake + b.scomm / ( 1 - b.tpositiontaking )
+                                                                                         END ) * ISNULL(e.ExtraPT, 0)) * actualrate) AS RealIncome,
+               SUM(CASE
+                       WHEN tpositiontaking = 1
+                       THEN 0
+                       ELSE( 1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * ABS(b.stake) * CASE
+                                                                                                WHEN virtualrate / actualrate - 1 > 0
+                                                                                                THEN virtualrate
+                                                                                                ELSE actualrate
+                                                                                            END
+                   END) AS RealTurnover
+        FROM bettrans AS b WITH ( NOLOCK )
+             INNER JOIN #Agent AS dep ON b.recommend = dep.CustId
+             LEFT JOIN #ExtraPT_Sel e ON e.SuperID = b.srecommend
+        WHERE b.winlostdate = @StartDate
+          AND ( @IsLive = 2
+             OR b.liveindicator = @IsLive
+              )
+          AND b.BetType = @BetType
+          AND b.ruben = 1
+          AND b.statusID IN( 111, 112, 113 )
+        GROUP BY Site
+        ORDER BY RowName;
+    END;
+        DROP TABLE #Agent;
+        DROP TABLE #ExtraPT_Sel;
+        DROP TABLE #SportBettype;
 GO
 GRANT EXECUTE ON [dbo].[Acc_Rpt_CompanyWinLoss_Universal_Site] TO [bodbAdminNet];
 GO
