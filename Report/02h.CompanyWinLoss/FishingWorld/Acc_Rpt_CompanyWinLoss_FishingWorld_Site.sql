@@ -20,6 +20,7 @@ DB: DBACC/bodb02
 
 Revisions:
     20161201@Jacob: Integrate Fishing World Product [#67757]
+    - 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
 Parameters:
     @IsLive: Jacob add this dummy parameter to make it consistent with [Acc_Rpt_CompanyWinLoss_Universal_Site]
 
@@ -90,8 +91,8 @@ EXEC [Acc_Rpt_CompanyWinLoss_FishingWorld_Site] @BetType = 1011,@EndDate='2020-0
                SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - ( CASE
                                                                                              WHEN tpositiontaking = 1
                                                                                              THEN 0
-                                                                                             ELSE winlost - actual_stake + b.scomm / 1 - b.tpositiontaking
-                                                                                         END ) * ISNULL(e.ExtraPT, 0) ) * actualrate) AS RealIncome,
+                                                                                             ELSE winlost - actual_stake + b.scomm / ( 1 - b.tpositiontaking )
+                                                                                         END ) * ISNULL(e.ExtraPT, 0)) * actualrate) AS RealIncome,
                SUM(CASE
                        WHEN tpositiontaking = 1
                        THEN 0
@@ -112,6 +113,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_FishingWorld_Site] @BetType = 1011,@EndDate='2020-0
     END;
         DROP TABLE #SportBetType;
         DROP TABLE #Agent;
+        DROP TABLE #ExtraPT_Sel;
 GO
 GRANT EXECUTE ON [dbo].[Acc_Rpt_CompanyWinLoss_FishingWorld_Site] TO [bodbAdminNet];
 GO

@@ -17,6 +17,8 @@ DB: DBACC/bodb02
 
 Revisions:
 - 20160224@Franklin: Initialize Company Win Loss Report
+- 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
+
 Example: 
 EXEC [Acc_Rpt_CompanyWinLoss_Bettrade_BetType_14] @StartDate='2016-01-01', @EndDate='2020-01-01'
 */
@@ -46,6 +48,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Bettrade_BetType_14] @StartDate='2016-01-01', @EndD
                WHERE @StartDate BETWEEN FromDate AND Todate
                  AND a.ProductId = 1
                  AND a.SubProduct IN( 'BT-Comm', 'BT-Winloss' )
+                 AND a.Sporttype = 0
                GROUP BY SuperId;
     END;
     BEGIN -- #DepositSuper
@@ -70,8 +73,8 @@ EXEC [Acc_Rpt_CompanyWinLoss_Bettrade_BetType_14] @StartDate='2016-01-01', @EndD
                SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - ( CASE
                                                                                              WHEN tpositiontaking = 1
                                                                                              THEN 0
-                                                                                             ELSE winlost - actual_stake + b.scomm / 1 - b.tpositiontaking
-                                                                                         END ) * ISNULL(e.ExtraPT, 0) ) * actualrate) AS RealIncome,
+                                                                                             ELSE winlost - actual_stake + b.scomm / ( 1 - b.tpositiontaking )
+                                                                                         END ) * ISNULL(e.ExtraPT, 0)) * actualrate) AS RealIncome,
                SUM(CASE
                        WHEN tpositiontaking = 1
                        THEN 0
@@ -98,6 +101,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Bettrade_BetType_14] @StartDate='2016-01-01', @EndD
     END;
         DROP TABLE #SportBetType;
         DROP TABLE #DepositSuper;
+        DROP TABLE #ExtraPT_Sel;
 GO
 GRANT EXECUTE ON [dbo].[Acc_Rpt_CompanyWinLoss_Bettrade_BetType_14] TO [bodbAdminNet];
 GO

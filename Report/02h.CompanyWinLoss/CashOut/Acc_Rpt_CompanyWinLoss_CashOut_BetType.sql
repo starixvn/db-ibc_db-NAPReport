@@ -14,6 +14,8 @@ Creator: 20170418@Jacob
 DB: DBACC/bodb02
 Revisions: 	 
     - 20170418@Jacob: Integrate Cash Out - Redmine:#73419		
+    - 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
+    
 Parameter's Explanation:
 	- @Site: credit, deposit	
 Example: 
@@ -58,8 +60,8 @@ EXEC [Acc_Rpt_CompanyWinLoss_CashOut_BetType] @StartDate='2016-01-01', @EndDate=
                SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - ( CASE
                                                                                              WHEN tpositiontaking = 1
                                                                                              THEN 0
-                                                                                             ELSE winlost - actual_stake + b.scomm / 1 - b.tpositiontaking
-                                                                                         END ) * ISNULL(e.ExtraPT, 0) ) * actualrate) AS RealIncome,
+                                                                                             ELSE winlost - actual_stake + b.scomm / ( 1 - b.tpositiontaking )
+                                                                                         END ) * ISNULL(e.ExtraPT, 0)) * actualrate) AS RealIncome,
                SUM(CASE
                        WHEN tpositiontaking = 1
                        THEN 0
@@ -85,6 +87,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_CashOut_BetType] @StartDate='2016-01-01', @EndDate=
                  RowName;
     END;
         DROP TABLE #DepositSuper;
+        DROP TABLE #ExtraPT_Sel;
 GO
 GRANT EXECUTE ON [dbo].[Acc_Rpt_CompanyWinLoss_CashOut_BetType] TO [bodbAdminNet];
 GO

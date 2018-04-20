@@ -18,6 +18,8 @@ DB: DBACC/bodb02
 Revisions: 	 
     - 20160222@Robert: Improve Company Win Loss Report - Bettrade Product
     - 20160818@Jacob: Integrate bettype-904 (BT-Winloss) - Redmine:#62630		
+    - 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
+
 Parameter's Explanation:
 	- @Site: credit, deposit	
 Example: 
@@ -89,8 +91,8 @@ EXEC [Acc_Rpt_CompanyWinLoss_Bettrade_Site] @StartDate='2016-08-24', @EndDate='2
                SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - ( CASE
                                                                                              WHEN tpositiontaking = 1
                                                                                              THEN 0
-                                                                                             ELSE winlost - actual_stake + b.scomm / 1 - b.tpositiontaking
-                                                                                         END ) * ISNULL(e.ExtraPT,0) ) * actualrate) AS RealIncome,
+                                                                                             ELSE winlost - actual_stake + b.scomm / ( 1 - b.tpositiontaking )
+                                                                                         END ) * ISNULL(e.ExtraPT, 0)) * actualrate) AS RealIncome,
                SUM(CASE
                        WHEN tpositiontaking = 1
                        THEN 0
@@ -112,6 +114,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Bettrade_Site] @StartDate='2016-08-24', @EndDate='2
     END;
         DROP TABLE #Agent;
         DROP TABLE #SportBetType;
+        DROP TABLE #ExtraPT_Sel;
 GO
 GRANT EXECUTE ON [dbo].[Acc_Rpt_CompanyWinLoss_Bettrade_Site] TO [bodbAdminNet];
 GO

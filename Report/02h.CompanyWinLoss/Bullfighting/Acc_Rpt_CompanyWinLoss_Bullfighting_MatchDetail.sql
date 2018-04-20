@@ -21,6 +21,7 @@ DB: DBACC/bodb02
 
 Revisions:
 - 20171102@Franklin: Bullfighting(#85382)
+- 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
 
 Example:
 EXEC [Acc_Rpt_CompanyWinLoss_Bullfighting_MatchDetail] @SportType=207, @BetType=1004, @StartDate='2017-11-01', @EndDate='2018-12-31'
@@ -65,8 +66,8 @@ EXEC [Acc_Rpt_CompanyWinLoss_Bullfighting_MatchDetail] @SportType=207, @BetType=
                       SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - ( CASE
                                                                                                     WHEN tpositiontaking = 1
                                                                                                     THEN 0
-                                                                                                    ELSE winlost - actual_stake + b.scomm / 1 - b.tpositiontaking
-                                                                                                END ) * ISNULL(e.ExtraPT, 0) ) * actualrate),
+                                                                                                    ELSE winlost - actual_stake + b.scomm / ( 1 - b.tpositiontaking )
+                                                                                                END ) * ISNULL(e.ExtraPT, 0)) * actualrate),
                       SUM(CASE
                               WHEN tpositiontaking = 1
                               THEN 0
@@ -109,6 +110,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Bullfighting_MatchDetail] @SportType=207, @BetType=
                d.RealTurnover AS RealTurnover
         FROM #Data d;
     END;
+        DROP TABLE #ExtraPT_Sel;
         DROP TABLE #Data;
 GO
 GRANT EXECUTE ON [dbo].[Acc_Rpt_CompanyWinLoss_Bullfighting_MatchDetail] TO [bodbAdminNet];

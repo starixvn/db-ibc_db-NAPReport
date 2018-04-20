@@ -17,6 +17,7 @@ Task:  Integrate Colossus Bets - Free Play Integration (#90774)
 DB: DBACC/bodb02
 
 Revisions: 
+- 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
 	
 Example: 
 EXEC [Acc_Rpt_CompanyWinLoss_ColossusBet_BetType] @StartDate='2016-09-13', @EndDate='2020-01-01'
@@ -77,8 +78,8 @@ EXEC [Acc_Rpt_CompanyWinLoss_ColossusBet_BetType] @StartDate='2016-09-13', @EndD
                    SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - ( CASE
                                                                                                  WHEN tpositiontaking = 1
                                                                                                  THEN 0
-                                                                                                 ELSE winlost - actual_stake + b.scomm / 1 - b.tpositiontaking
-                                                                                             END ) * ISNULL(e.ExtraPT, 0) ) * actualrate) AS RealIncome,
+                                                                                                 ELSE winlost - actual_stake + b.scomm / ( 1 - b.tpositiontaking )
+                                                                                             END ) * ISNULL(e.ExtraPT, 0)) * actualrate) AS RealIncome,
                    SUM(CASE
                            WHEN tpositiontaking = 1
                            THEN 0
@@ -112,6 +113,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_ColossusBet_BetType] @StartDate='2016-09-13', @EndD
         END;
         DROP TABLE #SportBetType;
         DROP TABLE #DepositSuper;
+        DROP TABLE #ExtraPT_Sel;
     END;
 GO
 GRANT EXECUTE ON [dbo].[Acc_Rpt_CompanyWinLoss_ColossusBet_BetType] TO [bodbAdminNet];
