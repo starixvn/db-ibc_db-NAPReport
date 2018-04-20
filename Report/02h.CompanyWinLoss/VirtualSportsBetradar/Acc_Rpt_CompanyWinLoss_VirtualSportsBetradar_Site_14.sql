@@ -27,7 +27,7 @@ Revisions:
 - 20170720@Franklin: Add Betradar Virtual Sports (78495)
 
 Example: 
-EXEC [Acc_Rpt_CompanyWinLoss_VirtualSports_Site_14] @StartDate='2016-01-01', @EndDate='2020-01-01', @SportType = 180, @BetType = 1203, @Site = 'Credit'
+EXEC [Acc_Rpt_CompanyWinLoss_VirtualSports_Site] @StartDate='2016-01-01', @EndDate='2020-01-01', @SportType = 180, @BetType = 1203, @Site = 'Credit'
 */
 
      SET NOCOUNT ON;
@@ -73,17 +73,44 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSports_Site_14] @StartDate='2016-01-01', @En
                         );
              END;
      END;
-     IF @EventType = 1 
+	 BEGIN ---- Extra PT 
+        CREATE TABLE #ExtraPT_Sel( SuperID INT,
+                                   ExtraPT DECIMAL(9, 8));
+        INSERT INTO #ExtraPT_Sel
+               ( SuperID,
+                 ExtraPT
+               )
+               SELECT SuperId,
+                      SUM(ExtraPT) AS ExtraPT
+               FROM bodb02.dbo.Acc_GroupExtraPTSetting a WITH ( NOLOCK )
+               WHERE @StartDate BETWEEN FromDate AND Todate
+                 AND a.ProductId = 27
+               GROUP BY SuperId;
+    END;
+	 IF @EventType = 1
          BEGIN
              SELECT Site RowName,
                     SUM((winlost - actual_stake) * actualrate) AS MemberWinLoss,
                     SUM((awinlost + mwinlost + swinlost) * actualrate) AS SMAWinLoss,
                     SUM(scomm * actualrate) Commission,
-                    SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm) * actualrate) AS RealIncome,
-                    SUM((1 - tpositiontaking) * ABS(stake) * actualrate) AS RealTurnover
+                    SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - ( CASE
+                                                                                                    WHEN tpositiontaking = 1
+                                                                                                    THEN 0
+                                                                                                    ELSE winlost - actual_stake + b.scomm / ( 1 - b.tpositiontaking )
+                                                                                                END ) * ISNULL(e.ExtraPT, 0)) * actualrate) AS RealIncome,
+                    SUM(CASE
+                              WHEN tpositiontaking = 1
+                              THEN 0
+                              ELSE( 1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * ABS(b.stake) * CASE
+                                                                                                       WHEN virtualrate / actualrate - 1 > 0
+                                                                                                       THEN virtualrate
+                                                                                                       ELSE actualrate
+                                                                                                   END
+                          END) AS RealTurnover
              FROM bettrans14 AS b WITH (NOLOCK)
                   INNER JOIN match14 AS m WITH (NOLOCK) ON b.MatchId = m.MatchId
                   INNER JOIN #Agent AS dep ON b.recommend = dep.CustId
+				  LEFT JOIN #ExtraPT_Sel e ON e.SuperID = b.srecommend
              WHERE b.winlostdate = @StartDate
                    AND b.BetType = @BetType
                    AND m.sporttype = @SportType
@@ -93,24 +120,37 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSports_Site_14] @StartDate='2016-01-01', @En
              GROUP BY Site
              ORDER BY RowName;
          END;
-     ELSE -- Mix Parlay
-         BEGIN
-             SELECT Site AS RowName,
+     ELSE
+		BEGIN
+             SELECT Site RowName,
                     SUM((winlost - actual_stake) * actualrate) AS MemberWinLoss,
                     SUM((awinlost + mwinlost + swinlost) * actualrate) AS SMAWinLoss,
                     SUM(scomm * actualrate) Commission,
-                    SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm) * actualrate) AS RealIncome,
-                    SUM((1 - tpositiontaking) * ABS(stake) * actualrate) AS RealTurnover
+                    SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - ( CASE
+                                                                                                    WHEN tpositiontaking = 1
+                                                                                                    THEN 0
+                                                                                                    ELSE winlost - actual_stake + b.scomm / ( 1 - b.tpositiontaking )
+                                                                                                END ) * ISNULL(e.ExtraPT, 0)) * actualrate) AS RealIncome,
+                    SUM(CASE
+                              WHEN tpositiontaking = 1
+                              THEN 0
+                              ELSE( 1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * ABS(b.stake) * CASE
+                                                                                                       WHEN virtualrate / actualrate - 1 > 0
+                                                                                                       THEN virtualrate
+                                                                                                       ELSE actualrate
+                                                                                                   END
+                          END) AS RealTurnover
              FROM bettrans14 AS b WITH (NOLOCK)
                   INNER JOIN 
                   (
                     SELECT DISTINCT
                            bm.refno,
                            m.sporttype
-                    FROM bodb02.dbo.bettransm14 bm WITH (NOLOCK)
-                         INNER JOIN bodb02.dbo.match14 m WITH (NOLOCK) ON bm.matchid = m.matchid
+                    FROM dbo.bettransm14 bm WITH (NOLOCK)
+                         INNER JOIN dbo.match14 m WITH (NOLOCK) ON bm.matchid = m.matchid
                   ) bsm ON b.refno = bsm.refno
                   INNER JOIN #Agent AS dep ON b.recommend = dep.CustId
+				  LEFT JOIN #ExtraPT_Sel e ON e.SuperID = b.srecommend
              WHERE b.winlostdate = @StartDate
                    AND b.BetType = @BetType
                    AND bsm.sporttype = @SportType
@@ -119,7 +159,9 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSports_Site_14] @StartDate='2016-01-01', @En
                    AND b.statusID IN(111, 112, 113)
              GROUP BY Site
              ORDER BY RowName;
-         END;
+         END;          
+     
+	 DROP TABLE #ExtraPT_Sel;                 
      DROP TABLE #Agent;
 GO
 GRANT EXECUTE ON [dbo].[Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_Site_14] TO [bodbAdminNet];

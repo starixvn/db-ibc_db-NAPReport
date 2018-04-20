@@ -10,8 +10,8 @@ IF EXISTS
     DROP PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_BetType_14];
 GO
 CREATE PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_BetType_14] @StartDate SMALLDATETIME,
-                                                                                 @EndDate   SMALLDATETIME,
-                                                                                 @SportType SMALLINT
+                                                                              @EndDate   SMALLDATETIME,
+                                                                              @SportType SMALLINT
 AS
  
 /*
@@ -53,6 +53,20 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_BetType_14] @StartDate='2016-
                 SELECT CustId
                 FROM f_DepSuper_1('All');
      END;
+	 BEGIN ---- Extra PT 
+        CREATE TABLE #ExtraPT_Sel( SuperID INT,
+                                   ExtraPT DECIMAL(9, 8));
+        INSERT INTO #ExtraPT_Sel
+               ( SuperID,
+                 ExtraPT
+               )
+               SELECT SuperId,
+                      SUM(ExtraPT) AS ExtraPT
+               FROM bodb02.dbo.Acc_GroupExtraPTSetting a WITH ( NOLOCK )
+               WHERE @StartDate BETWEEN FromDate AND Todate
+                 AND a.ProductId = 27
+               GROUP BY SuperId;
+    END;
      BEGIN -- #Data
 
          CREATE TABLE #Data
@@ -76,11 +90,24 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_BetType_14] @StartDate='2016-
                        SUM((winlost - actual_stake) * actualrate),
                        SUM((awinlost + mwinlost + swinlost) * actualrate),
                        SUM(scomm * actualrate),
-                       SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm) * actualrate),
-                       SUM((1 - tpositiontaking) * ABS(stake) * actualrate)
+                       SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - ( CASE
+                                                                                                    WHEN tpositiontaking = 1
+                                                                                                    THEN 0
+                                                                                                    ELSE winlost - actual_stake + b.scomm / ( 1 - b.tpositiontaking )
+                                                                                                END ) * ISNULL(e.ExtraPT, 0)) * actualrate),
+                       SUM(CASE
+                              WHEN tpositiontaking = 1
+                              THEN 0
+                              ELSE( 1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * ABS(b.stake) * CASE
+                                                                                                       WHEN virtualrate / actualrate - 1 > 0
+                                                                                                       THEN virtualrate
+                                                                                                       ELSE actualrate
+                                                                                                   END
+                          END)
                 FROM bettrans14 AS b WITH (NOLOCK)
                      INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
                      LEFT JOIN #DepositSuper AS dep ON b.srecommend = dep.CustId
+					 LEFT JOIN #ExtraPT_Sel e ON e.SuperID = b.srecommend
                      INNER JOIN match14 AS m WITH (NOLOCK) ON b.MatchId = m.MatchId
                 WHERE b.winlostdate = @StartDate
                       AND sb.EventType = 1
@@ -106,19 +133,32 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_BetType_14] @StartDate='2016-
                        SUM((b.winlost - b.actual_stake) * b.actualrate),
                        SUM((b.awinlost + b.mwinlost + b.swinlost) * b.actualrate),
                        SUM(b.scomm * b.actualrate),
-                       SUM((b.winlost - b.actual_stake + b.awinlost + b.mwinlost + b.swinlost + b.scomm) * b.actualrate),
-                       SUM((1 - b.tpositiontaking) * ABS(b.stake) * b.actualrate)
+                       SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - ( CASE
+                                                                                                    WHEN tpositiontaking = 1
+                                                                                                    THEN 0
+                                                                                                    ELSE winlost - actual_stake + b.scomm / ( 1 - b.tpositiontaking )
+                                                                                                END ) * ISNULL(e.ExtraPT, 0)) * actualrate),
+                       SUM(CASE
+                              WHEN tpositiontaking = 1
+                              THEN 0
+                              ELSE( 1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * ABS(b.stake) * CASE
+                                                                                                       WHEN virtualrate / actualrate - 1 > 0
+                                                                                                       THEN virtualrate
+                                                                                                       ELSE actualrate
+                                                                                                   END
+                          END)
                 FROM bettrans14 AS b WITH (NOLOCK)
                      INNER JOIN
                 (
                     SELECT DISTINCT
                            bm.refno,
                            m.sporttype
-                    FROM bodb02.dbo.bettransm14 bm WITH (NOLOCK)
-                         INNER JOIN bodb02.dbo.match14 m WITH (NOLOCK) ON bm.matchid = m.matchid
+                    FROM dbo.bettransm14 bm WITH (NOLOCK)
+                         INNER JOIN dbo.match14 m WITH (NOLOCK) ON bm.matchid = m.matchid
                 ) bsm ON b.refno = bsm.refno
                      INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
                      LEFT JOIN #DepositSuper AS dep ON b.srecommend = dep.CustId
+					 LEFT JOIN #ExtraPT_Sel e ON e.SuperID = b.srecommend
                 WHERE b.winlostdate = @StartDate
                       AND bsm.sporttype = @SportType
                       AND sb.EventType = 0
@@ -151,6 +191,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_BetType_14] @StartDate='2016-
      END;
      DROP TABLE #SportBetType;
      DROP TABLE #DepositSuper;
+	 DROP TABLE #ExtraPT_Sel;
      DROP TABLE #Data;
 GO
 GRANT EXECUTE ON [dbo].[Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_BetType_14] TO [bodbAdminNet];

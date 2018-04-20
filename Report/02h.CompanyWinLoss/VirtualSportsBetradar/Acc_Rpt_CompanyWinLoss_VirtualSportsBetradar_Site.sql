@@ -146,8 +146,8 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSports_Site] @StartDate='2016-01-01', @EndDa
                     SELECT DISTINCT
                            bm.refno,
                            m.sporttype
-                    FROM bodb02.dbo.bettransm bm WITH (NOLOCK)
-                         INNER JOIN bodb02.dbo.match m WITH (NOLOCK) ON bm.matchid = m.matchid
+                    FROM dbo.bettransm bm WITH (NOLOCK)
+                         INNER JOIN dbo.match m WITH (NOLOCK) ON bm.matchid = m.matchid
                   ) bsm ON b.refno = bsm.refno
                   INNER JOIN #Agent AS dep ON b.recommend = dep.CustId
 				  LEFT JOIN #ExtraPT_Sel e ON e.SuperID = b.srecommend

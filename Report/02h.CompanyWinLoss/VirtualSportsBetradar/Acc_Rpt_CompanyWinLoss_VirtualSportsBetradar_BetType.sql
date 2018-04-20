@@ -153,8 +153,8 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_BetType] @StartDate='2016-01-
                     SELECT DISTINCT
                            bm.refno,
                            m.sporttype
-                    FROM bodb02.dbo.bettransm bm WITH (NOLOCK)
-                         INNER JOIN bodb02.dbo.match m WITH (NOLOCK) ON bm.matchid = m.matchid
+                    FROM dbo.bettransm bm WITH (NOLOCK)
+                         INNER JOIN dbo.match m WITH (NOLOCK) ON bm.matchid = m.matchid
                 ) bsm ON b.refno = bsm.refno
                      INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
                      LEFT JOIN #DepositSuper AS dep ON b.srecommend = dep.CustId
