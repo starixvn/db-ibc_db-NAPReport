@@ -25,6 +25,7 @@ DB: DBACC/bodb02
 Revisions:
 - 20160301@Jacob: Initialize Company Win Loss Report
 - 20170720@Franklin: Add Betradar Virtual Sports (78495)
+- 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
 
 Example: 
 EXEC [Acc_Rpt_CompanyWinLoss_VirtualSports_Site] @StartDate='2016-01-01', @EndDate='2020-01-01', @SportType = 180, @BetType = 1203, @Site = 'Credit'
@@ -75,17 +76,19 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSports_Site] @StartDate='2016-01-01', @EndDa
      END;
 	 BEGIN ---- Extra PT 
         CREATE TABLE #ExtraPT_Sel( SuperID INT,
+								   Sporttype  INT,
                                    ExtraPT DECIMAL(9, 8));
-        INSERT INTO #ExtraPT_Sel
+            INSERT INTO #ExtraPT_Sel
                ( SuperID,
+			     Sporttype,
                  ExtraPT
                )
-               SELECT SuperId,
+               SELECT SuperId,Sporttype,
                       SUM(ExtraPT) AS ExtraPT
                FROM bodb02.dbo.Acc_GroupExtraPTSetting a WITH ( NOLOCK )
                WHERE @StartDate BETWEEN FromDate AND Todate
                  AND a.ProductId = 27
-               GROUP BY SuperId;
+               GROUP BY SuperId,Sporttype;
     END;
 	 IF @EventType = 1
          BEGIN

@@ -23,6 +23,8 @@ Revisions:
 - 20160301@Jacob: Initialize Company Win Loss Report
 - 20170720@Franklin: Add Betradar Virtual Sports (78495)
 - 20180323@Franklin: Betradar Virtual Sports (phase 2) (91098)
+- 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
+
 Example: 
 EXEC [Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_MatchDetail_14] @StartDate='2016-01-01', @EndDate='2020-01-01', @SportType = 190, @BetType = 2700
 */
@@ -30,17 +32,19 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_MatchDetail_14] @StartDate='2
      SET NOCOUNT ON;
 	 BEGIN ---- Extra PT 
         CREATE TABLE #ExtraPT_Sel( SuperID INT,
+								   Sporttype  INT,
                                    ExtraPT DECIMAL(9, 8));
-        INSERT INTO #ExtraPT_Sel
+            INSERT INTO #ExtraPT_Sel
                ( SuperID,
+			     Sporttype,
                  ExtraPT
                )
-               SELECT SuperId,
+               SELECT SuperId,Sporttype,
                       SUM(ExtraPT) AS ExtraPT
                FROM bodb02.dbo.Acc_GroupExtraPTSetting a WITH ( NOLOCK )
                WHERE @StartDate BETWEEN FromDate AND Todate
                  AND a.ProductId = 27
-               GROUP BY SuperId;
+               GROUP BY SuperId,Sporttype;
     END;
     BEGIN
         CREATE TABLE #Data( LeagueId      INT,

@@ -73,18 +73,20 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_LiveNonLive_14] @EndDate='2020-01-01',@Start
     END;
     BEGIN ---- Extra PT 
         CREATE TABLE #ExtraPT_Sel( SuperID INT,
+								   Sporttype  INT,
                                    ExtraPT DECIMAL(9, 8));
         INSERT INTO #ExtraPT_Sel
                ( SuperID,
+			     Sporttype,
                  ExtraPT
                )
-               SELECT SuperId,
+               SELECT SuperId,Sporttype,
                       SUM(ExtraPT) AS ExtraPT
                FROM bodb02.dbo.Acc_GroupExtraPTSetting a WITH ( NOLOCK )
                WHERE @StartDate BETWEEN FromDate AND Todate
                  AND a.ProductId = 1
                  AND a.SubProduct NOT IN( 'MG-SuperLive', 'BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss' )
-               GROUP BY SuperId;
+               GROUP BY SuperId,Sporttype;
     END;
     BEGIN -- #Data
 
@@ -147,6 +149,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_LiveNonLive_14] @EndDate='2020-01-01',@Start
                     INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
                     LEFT JOIN #DepositSuper AS dep ON b.srecommend = dep.CustId
                     LEFT JOIN #ExtraPT_Sel e ON e.SuperID = b.srecommend
+												AND e.Sporttype = 0
                     INNER JOIN #Match m ON b.MatchId = m.MatchId
                WHERE b.winlostdate = @StartDate
                  AND m.type = CASE
@@ -212,6 +215,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_LiveNonLive_14] @EndDate='2020-01-01',@Start
                FROM bettrans14 AS b WITH ( NOLOCK )
                     INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
                     LEFT JOIN #ExtraPT_Sel e ON e.SuperID = b.srecommend
+												AND e.Sporttype = 0
                     INNER JOIN #Match m ON b.MatchId = m.MatchId
                WHERE b.recommend = 5707545
                  AND b.winlostdate = @StartDate
@@ -357,6 +361,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_LiveNonLive_14] @EndDate='2020-01-01',@Start
                     INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
                     INNER JOIN #Match m ON b.MatchId = m.MatchId
                     LEFT JOIN #ExtraPT_Sel e ON e.SuperID = b.srecommend
+												AND e.Sporttype = 0
                WHERE b.winlostdate = @StartDate
                  AND m.type = CASE
                                   WHEN b.BetType = 10

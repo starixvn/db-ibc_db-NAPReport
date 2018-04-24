@@ -59,17 +59,19 @@ EXEC [Acc_Rpt_CompanyWinLoss_Universal_BetType_14] @StartDate='2016-09-13', @End
         END;
         BEGIN ---- Extra PT 
             CREATE TABLE #ExtraPT_Sel( SuperID INT,
-                                       ExtraPT DECIMAL(9, 8));
+								   Sporttype  INT,
+                                   ExtraPT DECIMAL(9, 8));
             INSERT INTO #ExtraPT_Sel
-                   ( SuperID,
-                     ExtraPT
-                   )
-                   SELECT SuperId,
-                          SUM(ExtraPT) AS ExtraPT
-                   FROM bodb02.dbo.Acc_GroupExtraPTSetting a WITH ( NOLOCK )
+               ( SuperID,
+			     Sporttype,
+                 ExtraPT
+               )
+               SELECT SuperId,Sporttype,
+                      SUM(ExtraPT) AS ExtraPT
+               FROM bodb02.dbo.Acc_GroupExtraPTSetting a WITH ( NOLOCK )
                    WHERE @StartDate BETWEEN FromDate AND Todate
                      AND a.ProductId = @ProID
-                   GROUP BY SuperId;
+                GROUP BY SuperId,Sporttype;
         END;
         BEGIN -- Query
 

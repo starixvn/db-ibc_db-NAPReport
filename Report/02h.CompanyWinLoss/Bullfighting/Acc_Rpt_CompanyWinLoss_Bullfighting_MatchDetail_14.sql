@@ -40,7 +40,6 @@ EXEC [Acc_Rpt_CompanyWinLoss_Bullfighting_MatchDetail_14] @SportType=207, @BetTy
                FROM bodb02.dbo.Acc_GroupExtraPTSetting a WITH ( NOLOCK )
                WHERE @StartDate BETWEEN FromDate AND Todate
                  AND a.ProductId = 30
-                 AND a.Sporttype = @SportType
                GROUP BY SuperId;
         CREATE TABLE #Data( LeagueId      INT,
                             LeagueCode    NVARCHAR(50),

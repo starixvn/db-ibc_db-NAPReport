@@ -80,6 +80,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Bettrade_Site_14] @StartDate='2016-08-24', @EndDate
                WHERE @StartDate BETWEEN FromDate AND Todate
                  AND a.ProductId = 1
                  AND a.SubProduct IN( 'BT-Comm', 'BT-Winloss' )
+				 AND a.Sporttype = 0
                GROUP BY SuperId;
     END;
     BEGIN -- Query

@@ -52,17 +52,19 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSports_BetType_14] @StartDate='2016-01-01', 
      END;
 	 BEGIN ---- Extra PT 
         CREATE TABLE #ExtraPT_Sel( SuperID INT,
+								   Sporttype  INT,
                                    ExtraPT DECIMAL(9, 8));
-        INSERT INTO #ExtraPT_Sel
+            INSERT INTO #ExtraPT_Sel
                ( SuperID,
+			     Sporttype,
                  ExtraPT
                )
-               SELECT SuperId,
+               SELECT SuperId,Sporttype,
                       SUM(ExtraPT) AS ExtraPT
                FROM bodb02.dbo.Acc_GroupExtraPTSetting a WITH ( NOLOCK )
                WHERE @StartDate BETWEEN FromDate AND Todate
                  AND a.ProductId = 5
-               GROUP BY SuperId;
+               GROUP BY SuperId,Sporttype;
     END;
      IF EXISTS -- Virtual Sportsbook
      (

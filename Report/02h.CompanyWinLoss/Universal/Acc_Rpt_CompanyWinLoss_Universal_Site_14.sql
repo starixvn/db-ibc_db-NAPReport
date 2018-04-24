@@ -65,30 +65,37 @@ EXEC [Acc_Rpt_CompanyWinLoss_Universal_Site_14] @StartDate='2016-01-01', @EndDat
         DECLARE @isTest BIT = 0;
         SELECT @isTest = dbo.f_CheckSPVersion( @@PROCID );
         CREATE TABLE #SportBettype( ProductID INT,
-                                    Bettype   INT );
+                                    Bettype   INT,
+									SportType INT);
         INSERT INTO #SportBettype
                ( ProductID,
-                 Bettype
+                 Bettype,
+				 SportType
                )
-               SELECT ProductID,
-                      Bettype
-               FROM dbo.f_SportBettypeMatrix_Sel( 0, 0, 0, 2, '', '', @isTest )
-               WHERE bettype = @BetType;
+               SELECT s.ProductID,
+                      s.Bettype,
+					  t.SportType
+               FROM dbo.f_SportBettypeMatrix_Sel( 0, 0, 0, 2, '', '', 1 ) s
+			   INNER JOIN dbo.SportBettypeMatrix t WITH ( NOLOCK ) ON t.BetType = s.BetType
+                                                                       AND t.ProductId = s.ProductId
+               WHERE s.bettype = @BetType;
         --- End Sport Bettype Matrix------
     END;
     BEGIN ---- Extra PT 
         CREATE TABLE #ExtraPT_Sel( SuperID INT,
+								   Sporttype  INT,
                                    ExtraPT DECIMAL(9, 8));
-        INSERT INTO #ExtraPT_Sel
+            INSERT INTO #ExtraPT_Sel
                ( SuperID,
+			     Sporttype,
                  ExtraPT
                )
-               SELECT SuperId,
+               SELECT SuperId, a.Sporttype,
                       SUM(ExtraPT) AS ExtraPT
                FROM bodb02.dbo.Acc_GroupExtraPTSetting a WITH ( NOLOCK )
                     INNER JOIN #SportBettype sb ON sb.ProductID = a.ProductId
                WHERE @StartDate BETWEEN FromDate AND Todate
-               GROUP BY SuperId;
+               GROUP BY SuperId, a.Sporttype;
     END;
     BEGIN -- Query
 

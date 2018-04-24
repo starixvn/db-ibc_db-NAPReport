@@ -98,28 +98,32 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Site] @StartDate='2016-01-01', @EndDate=
                           LeagueId,
                           'outright' AS type
                    FROM outright WITH ( nolock )
-                   WHERE @BetType = 10
-                     AND EventDate = @StartDate ) m
+                   WHERE @BetType = 10 
+				   AND EventDate = @StartDate ) m
                    INNER JOIN league l WITH ( nolock ) ON m.LeagueId = l.LeagueId
                    INNER JOIN sports sp WITH ( nolock ) ON l.sporttype = sp.sporttype
                WHERE sp.sporttype = @sporttype;
     END;
     BEGIN ---- Extra PT 
         CREATE TABLE #ExtraPT_Sel( SuperID INT,
+								   Sporttype  INT,
                                    ExtraPT DECIMAL(9, 8));
         INSERT INTO #ExtraPT_Sel
                ( SuperID,
+			     Sporttype,
                  ExtraPT
                )
-               SELECT SuperId,
+               SELECT SuperId,Sporttype,
                       SUM(ExtraPT) AS ExtraPT
                FROM bodb02.dbo.Acc_GroupExtraPTSetting a WITH ( NOLOCK )
                WHERE @StartDate BETWEEN FromDate AND Todate
                  AND a.ProductId = 1
                  AND a.SubProduct NOT IN( 'MG-SuperLive', 'BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss' )
-               GROUP BY SuperId;
+               GROUP BY SuperId,Sporttype;
     END;
     BEGIN -- #Data
+	DECLARE @sport INT = 0;
+    SELECT @sport = CASE WHEN @SportType = 44 THEN 44 ELSE 0 END
 
         CREATE TABLE #Data( RowName         NVARCHAR(50),
                             MemberWinLoss   MONEY,
@@ -168,6 +172,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Site] @StartDate='2016-01-01', @EndDate=
                     INNER JOIN #Agent ag ON b.recommend = ag.custid
                     INNER JOIN #Match m ON b.MatchId = m.MatchId
                     LEFT JOIN #ExtraPT_Sel e ON e.SuperID = b.srecommend
+											  AND e.Sporttype = @sport
                WHERE b.winlostdate = @StartDate
                  AND b.BetType = @BetType
                  AND ( @IsLive > 1

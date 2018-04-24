@@ -78,19 +78,20 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_SportType] @EndDate='2020-01-01',@Start
     END;
     BEGIN ---- Extra PT 
         CREATE TABLE #ExtraPT_Sel( SuperID INT,
+								   Sporttype  INT,
                                    ExtraPT DECIMAL(9, 8));
         INSERT INTO #ExtraPT_Sel
                ( SuperID,
+			     Sporttype,
                  ExtraPT
                )
-               SELECT SuperId,
+               SELECT SuperId,Sporttype,
                       SUM(ExtraPT) AS ExtraPT
                FROM bodb02.dbo.Acc_GroupExtraPTSetting a WITH ( NOLOCK )
                WHERE @StartDate BETWEEN FromDate AND Todate
                  AND a.ProductId = 1
-                 AND a.Sporttype IN( 0, 44 )
                  AND a.SubProduct = ''
-               GROUP BY SuperId;
+               GROUP BY SuperId,Sporttype;
     END;
     BEGIN -- #Data
 
@@ -147,9 +148,10 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_SportType] @EndDate='2020-01-01',@Start
                           END) AS VirtualTurnover
                FROM bettrans AS b WITH ( NOLOCK )
                     INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
+					INNER JOIN #Match AS m ON b.MatchId = m.MatchId
                     LEFT JOIN #DepositSuper AS dep ON b.srecommend = dep.CustId
                     LEFT JOIN #ExtraPT_Sel e ON e.SuperID = b.srecommend
-                    INNER JOIN #Match AS m ON b.MatchId = m.MatchId
+											 AND e.Sporttype = (CASE WHEN m.sporttype = 44 THEN 44 ELSE 0 END)
                WHERE b.winlostdate = @StartDate
                  AND ( @IsLive > 1
                     OR b.liveindicator = @IsLive
@@ -210,6 +212,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_SportType] @EndDate='2020-01-01',@Start
                     INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
                     INNER JOIN #Match AS m ON b.MatchId = m.MatchId
                     LEFT JOIN #ExtraPT_Sel e ON e.SuperID = b.srecommend
+											 AND e.Sporttype = (CASE WHEN m.sporttype = 44 THEN 44 ELSE 0 END)
                WHERE b.recommend = 5707545
                  AND b.winlostdate = @StartDate
                  AND ( @IsLive > 1
@@ -350,9 +353,10 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_SportType] @EndDate='2020-01-01',@Start
                           END) AS VirtualTurnover
                FROM bettrans AS b WITH ( NOLOCK )
                     INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
+                    INNER JOIN #Match AS m ON b.MatchId = m.MatchId
                     LEFT JOIN #DepositSuper AS dep ON b.srecommend = dep.CustId
                     LEFT JOIN #ExtraPT_Sel e ON e.SuperID = b.srecommend
-                    INNER JOIN #Match AS m ON b.MatchId = m.MatchId
+											 AND e.Sporttype = (CASE WHEN m.sporttype = 44 THEN 44 ELSE 0 END)
                WHERE b.winlostdate = @StartDate
                  AND ( @IsLive > 1
                     OR b.liveindicator = @IsLive
