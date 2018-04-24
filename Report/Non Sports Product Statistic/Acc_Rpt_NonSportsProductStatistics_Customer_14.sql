@@ -680,7 +680,7 @@ BEGIN
 				SUM(scomm) AS CompanyComm,
 				SUM(scomm *actualrate) AS CompanyCommBase,
 				s.ProductID,
-				SUM(1 - b.tpositiontaking) AS HousePT,
+				SUM(CASE WHEN b.gameID IN (2198, 2398, 2998) THEN 0 ELSE 1 - b.tpositiontaking END) AS HousePT,
 				CASE WHEN statusID = 103 THEN 103 ELSE 112 END AS statusID
 			FROM dbo.bettransRnG14 b WITH (NOLOCK)
 				INNER JOIN #tmp_MemIDs m ON b.custid = m.CustID
@@ -939,7 +939,7 @@ BEGIN
 				SUM(scomm) AS CompanyComm,
 				SUM(scomm *actualrate) AS CompanyCommBase,
 				s.ProductID,
-				SUM(1 - b.tpositiontaking) AS HousePT,
+				SUM(CASE WHEN b.gameID IN (2198, 2398, 2998) THEN 0 ELSE 1 - b.tpositiontaking END) AS HousePT,
 				CASE WHEN statusID = 103 THEN 103 ELSE 112 END AS statusID
 			FROM dbo.bettransRnG14 b WITH (NOLOCK)
 				INNER JOIN #SportBettype s ON s.Bettype = b.gameID
