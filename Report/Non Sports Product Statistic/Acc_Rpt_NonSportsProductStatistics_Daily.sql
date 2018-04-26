@@ -34,6 +34,7 @@ AS
 		- 20170726@Cherry: Integrate Betradar Virtual Sports (#78495)
 		- 20170815@Cherry: Non-Sport Statistics Phase 5 (#71923)
 		- 20171006@Cherry: Add filter of Number Game Bettype (#83101)
+		- 20180328@Cherry: Integrate One RNG Jackpot (#89459)
 
 	Param's Explanation:
 			 - @username:  + Search by keyword, member only
@@ -345,7 +346,7 @@ SET NOCOUNT ON
 		SELECT  CONVERT(VARCHAR(20),b.WinlostDate,107) AS ReportBy,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
 
-				COUNT(CASE WHEN StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount, b.Currency, 
+				COUNT(CASE WHEN StatusID IN (111,112,113) AND b.gameID NOT IN (2198, 2398, 2998) THEN b.TransId ELSE NULL END) AS BetCount, b.Currency, 
 
 				SUM(CASE WHEN b.statusID IN (103) THEN 0 ELSE actual_stake END) AS TotalBets,
 				SUM((CASE WHEN b.statusID IN (103) THEN 0 ELSE actual_stake END) * actualrate)  AS TotalBetsBase,
@@ -359,8 +360,10 @@ SET NOCOUNT ON
 				SUM(CASE WHEN b.statusID IN (103) THEN 0 ELSE (1- b.tpositiontaking) * b.stake END) AS CompanyTurnover,	
 				SUM((CASE WHEN b.statusID IN (103) THEN 0 ELSE (1- b.tpositiontaking) * b.stake END) * actualrate) AS CompanyTurnoverBase,		
 								
-				- SUM(winlost - actual_stake + awinlost + mwinlost + swinlost) AS CompanyGrossIncome,
-				- SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeBase,
+				- SUM(CASE WHEN b.gameID IN (2198, 2398, 2998) THEN b.ContributionRate * b.BetStake + awinlost + mwinlost + swinlost
+						   ELSE winlost - actual_stake + awinlost + mwinlost + swinlost END) AS CompanyGrossIncome,
+				- SUM((CASE WHEN b.gameID IN (2198, 2398, 2998) THEN b.ContributionRate * b.BetStake + awinlost + mwinlost + swinlost
+							ELSE winlost - actual_stake + awinlost + mwinlost + swinlost END)* actualrate) AS CompanyGrossIncomeBase,
 
 				- SUM(scomm) AS CompanyComm,
 				- SUM(scomm *actualrate) AS CompanyCommBase

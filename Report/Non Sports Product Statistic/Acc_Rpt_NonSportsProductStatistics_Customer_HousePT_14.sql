@@ -30,6 +30,7 @@ AS
 	Revisions:
 		- 20170726@Cherry: Integrate Betradar Virtual Sports (#78495)
 		- 20171006@Cherry: Add filter of Number Game Bettype (#83101)
+		- 20180328@Cherry: Integrate One RNG Jackpot (#89459)
 
 	Param's Explanation:
 		- @ProductID: string filter by Product 
@@ -269,13 +270,13 @@ BEGIN
 					HousePT
 				)
 				SELECT
-					COUNT(b.transid) AS BetCount,
+					COUNT(CASE WHEN b.gameID IN (2198, 2398, 2998) THEN NULL ELSE b.transid END) AS BetCount,
 					SUM(actual_stake) AS TotalBets,
 					SUM(actual_stake * actualrate) AS TotalBetsBase,
 					SUM(winlost) AS TotalWins,
 					SUM(winlost * actualrate) AS TotalWinsBase,
 					s.ProductID, b.gameID,
-					SUM(1 - b.tpositiontaking) AS HousePT
+					SUM(CASE WHEN b.gameID IN (2198, 2398, 2998) THEN 0 ELSE 1 - b.tpositiontaking END) AS HousePT
 				FROM dbo.bettransRnG14 b WITH (NOLOCK)
 					INNER JOIN #SportBettype s ON s.Bettype = b.gameID
 				WHERE b.winlostdate = @WLDate
@@ -389,13 +390,13 @@ BEGIN
 					HousePT
 				)
 				SELECT
-					COUNT(b.transid) AS BetCount,
+					COUNT(CASE WHEN b.gameID IN (2198, 2398, 2998) THEN NULL ELSE b.transid END) AS BetCount,
 					SUM(actual_stake) AS TotalBets,
 					SUM(actual_stake * actualrate) AS TotalBetsBase,
 					SUM(winlost) AS TotalWins,
 					SUM(winlost * actualrate) AS TotalWinsBase,
 					s.ProductID, b.gameID,
-					SUM(1 - b.tpositiontaking) AS HousePT
+					SUM(CASE WHEN b.gameID IN (2198, 2398, 2998) THEN 0 ELSE 1 - b.tpositiontaking END) AS HousePT
 				FROM dbo.bettransRnG14 b WITH (NOLOCK)
 					INNER JOIN #SportBettype s ON s.Bettype = b.gameID
 					INNER JOIN #tmp_MemIDs m ON b.custid = m.CustID

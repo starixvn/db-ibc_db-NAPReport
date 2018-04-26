@@ -36,6 +36,7 @@ AS
 		- 20170726@Cherry: Integrate Betradar Virtual Sports (#78495)
 		- 20170815@Cherry: support top 20 by super, master, agent, username (#71923)
 		- 20171006@Cherry: Add filter of Number Game Bettype (#83101)
+		- 20180328@Cherry: Integrate One RNG Jackpot (#89459)
 
 	Param's Explanation:
 		- @username: search keyword
@@ -665,7 +666,7 @@ BEGIN
 				b.recommend,
 				b.custid,
 				b.gameID,
-				COUNT(b.transid) AS BetCount,
+				COUNT(CASE WHEN b.gameID NOT IN (2198, 2398, 2998) THEN b.transid ELSE NULL END) AS BetCount,
 				b.currency,
 				SUM(actual_stake) AS TotalBets,
 				SUM(actual_stake * actualrate) AS TotalBetsBase,
@@ -673,12 +674,14 @@ BEGIN
 				SUM(winlost * actualrate) AS TotalWinsBase,
 				SUM((1- b.tpositiontaking) * b.stake) AS CompanyTurnover,
 				SUM((1- b.tpositiontaking) * b.stake * actualrate) AS CompanyTurnoverBase,
-				SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)) AS CompanyGrossIncome,
-				SUM((winlost - actual_stake + awinlost + mwinlost + swinlost) * actualrate) AS CompanyGrossIncomeBase,
+				SUM(CASE WHEN b.gameID IN (2198, 2398, 2998) THEN b.ContributionRate * b.BetStake + awinlost + mwinlost + swinlost
+						  ELSE winlost - actual_stake + awinlost + mwinlost + swinlost END) AS CompanyGrossIncome,
+				SUM((CASE WHEN b.gameID IN (2198, 2398, 2998) THEN b.ContributionRate * b.BetStake + awinlost + mwinlost + swinlost
+						  ELSE winlost - actual_stake + awinlost + mwinlost + swinlost END) * actualrate) AS CompanyGrossIncomeBase,
 				SUM(scomm) AS CompanyComm,
 				SUM(scomm *actualrate) AS CompanyCommBase,
 				s.ProductID,
-				SUM(1 - b.tpositiontaking) AS HousePT,
+				SUM(CASE WHEN b.gameID IN (2198, 2398, 2998) THEN 0 ELSE 1 - b.tpositiontaking END) AS HousePT,
 				CASE WHEN statusID = 103 THEN 103 ELSE 112 END AS statusID
 			FROM dbo.bettransRnG14 b WITH (NOLOCK)
 				INNER JOIN #tmp_MemIDs m ON b.custid = m.CustID
@@ -924,7 +927,7 @@ BEGIN
 				b.recommend,
 				b.custid,
 				b.gameID,
-				COUNT(b.transid) AS BetCount,
+				COUNT(CASE WHEN b.gameID NOT IN (2198, 2398, 2998) THEN b.transid ELSE NULL END) AS BetCount,
 				b.currency,
 				SUM(actual_stake) AS TotalBets,
 				SUM(actual_stake * actualrate) AS TotalBetsBase,
@@ -932,12 +935,14 @@ BEGIN
 				SUM(winlost * actualrate) AS TotalWinsBase,
 				SUM((1- b.tpositiontaking) * b.stake) AS CompanyTurnover,
 				SUM((1- b.tpositiontaking) * b.stake * actualrate) AS CompanyTurnoverBase,
-				SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)) AS CompanyGrossIncome,
-				SUM((winlost - actual_stake + awinlost + mwinlost + swinlost) * actualrate) AS CompanyGrossIncomeBase,
+				SUM(CASE WHEN b.gameID IN (2198, 2398, 2998) THEN b.ContributionRate * b.BetStake + awinlost + mwinlost + swinlost
+						 ELSE winlost - actual_stake + awinlost + mwinlost + swinlost END) AS CompanyGrossIncome,
+				SUM((CASE WHEN b.gameID IN (2198, 2398, 2998) THEN b.ContributionRate * b.BetStake + awinlost + mwinlost + swinlost
+						  ELSE winlost - actual_stake + awinlost + mwinlost + swinlost END) * actualrate) AS CompanyGrossIncomeBase,
 				SUM(scomm) AS CompanyComm,
 				SUM(scomm *actualrate) AS CompanyCommBase,
 				s.ProductID,
-				SUM(1 - b.tpositiontaking) AS HousePT,
+				SUM(CASE WHEN b.gameID IN (2198, 2398, 2998) THEN 0 ELSE 1 - b.tpositiontaking END) AS HousePT,
 				CASE WHEN statusID = 103 THEN 103 ELSE 112 END AS statusID
 			FROM dbo.bettransRnG14 b WITH (NOLOCK)
 				INNER JOIN #SportBettype s ON s.Bettype = b.gameID
