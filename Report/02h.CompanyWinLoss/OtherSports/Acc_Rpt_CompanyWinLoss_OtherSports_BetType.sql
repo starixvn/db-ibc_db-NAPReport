@@ -103,6 +103,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_BetType] @EndDate='2020-01-01',@StartDa
                             Commission      MONEY,
                             RealIncome      MONEY,
                             VirtualIncome   MONEY,
+							VarianceIncome  MONEY,
                             RealTurnover    MONEY,
                             VirtualTurnover MONEY );
     END;
@@ -132,6 +133,11 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_BetType] @EndDate='2020-01-01',@StartDa
                                                                                                                             THEN 0
                                                                                                                             ELSE b.scomm / ( 1 - b.tpositiontaking )
                                                                                                                         END ) * ISNULL(e.ExtraPT, 0)) * actualrate) AS VirtualIncome,
+					  SUM((winlost - actual_stake + awinlost + mwinlost + swinlost - CASE
+                                                                                          WHEN tpositiontaking = 1
+                                                                                          THEN 0
+                                                                                          ELSE( winlost - actual_stake ) * ISNULL(e.ExtraPT, 0)
+                                                                                      END) * (actualrate - virtualrate)) VarianceIncome,
                       SUM(CASE
                               WHEN tpositiontaking = 1
                               THEN 0
@@ -193,6 +199,11 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_BetType] @EndDate='2020-01-01',@StartDa
                                                                                                                             THEN 0
                                                                                                                             ELSE b.scomm / ( 1 - b.tpositiontaking )
                                                                                                                         END ) * ISNULL(e.ExtraPT, 0)) * actualrate) AS VirtualIncome,
+					  SUM((winlost - actual_stake + awinlost + mwinlost + swinlost - CASE
+                                                                                          WHEN tpositiontaking = 1
+                                                                                          THEN 0
+                                                                                          ELSE( winlost - actual_stake ) * ISNULL(e.ExtraPT, 0)
+                                                                                      END) * (actualrate - virtualrate)) VarianceIncome,
                       SUM(CASE
                               WHEN tpositiontaking = 1
                               THEN 0
@@ -234,6 +245,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_BetType] @EndDate='2020-01-01',@StartDa
                  Commission,
                  RealIncome,
                  VirtualIncome,
+				 VarianceIncome,
                  RealTurnover,
                  VirtualTurnover
                )
@@ -245,6 +257,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_BetType] @EndDate='2020-01-01',@StartDa
                       0 AS Commission,
                       0 AS RealIncome,
                       0 AS VirtualIncome,
+					  0 AS VarianceIncome,
                       0 AS RealTurnover,
                       0 AS VirtualTurnover
                FROM(
@@ -284,6 +297,11 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_BetType] @EndDate='2020-01-01',@StartDa
                                                                  WHEN c.RowName = 'Credit'
                                                                  THEN-ISNULL(d.VirtualIncome, 0)
                                                                  ELSE ISNULL(d.VirtualIncome, 0)
+                                                             END,
+              c.VarianceIncome = ISNULL(c.VarianceIncome, 0) + CASE
+                                                                 WHEN c.RowName = 'Credit'
+                                                                 THEN-ISNULL(d.VarianceIncome, 0)
+                                                                 ELSE ISNULL(d.VarianceIncome, 0)
                                                              END,
               c.RealTurnover = ISNULL(c.RealTurnover, 0) + CASE
                                                                WHEN c.RowName = 'Credit'
@@ -335,6 +353,11 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_BetType] @EndDate='2020-01-01',@StartDa
                                                                                                                              THEN 0
                                                                                                                              ELSE b.scomm / ( 1 - b.tpositiontaking )
                                                                                                                          END ) * ISNULL(e.ExtraPT, 0)) * actualrate) AS VirtualIncome,
+					  -SUM((winlost - actual_stake + awinlost + mwinlost + swinlost - CASE
+                                                                                          WHEN tpositiontaking = 1
+                                                                                          THEN 0
+                                                                                          ELSE( winlost - actual_stake ) * ISNULL(e.ExtraPT, 0)
+                                                                                      END) * (actualrate - virtualrate)) VarianceIncome,
                       SUM(CASE
                               WHEN tpositiontaking = 1
                               THEN 0
@@ -384,7 +407,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_BetType] @EndDate='2020-01-01',@StartDa
                d.Commission AS Commission,
                d.RealIncome AS RealIncome,
                d.VirtualIncome AS VirtualIncome,
-               d.RealIncome - d.VirtualIncome AS VarianceIncome,
+               d.VarianceIncome AS VarianceIncome,
                d.RealTurnover AS RealTurnover,
                d.VirtualTurnover AS VirtualTurnover
         FROM #Data AS d

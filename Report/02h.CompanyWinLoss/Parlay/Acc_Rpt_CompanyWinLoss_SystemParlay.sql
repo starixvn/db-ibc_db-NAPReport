@@ -34,19 +34,21 @@ EXEC [Acc_Rpt_CompanyWinLoss_SystemParlay] @EndDate='2020-01-01',@StartDate='201
     END;
     BEGIN ---- Extra PT 
         CREATE TABLE #ExtraPT_Sel( SuperID INT,
+								   Sporttype  INT,
                                    ExtraPT DECIMAL(9, 8));
         INSERT INTO #ExtraPT_Sel
                ( SuperID,
+			     Sporttype,
                  ExtraPT
                )
-               SELECT SuperId,
+               SELECT SuperId,Sporttype,
                       SUM(ExtraPT) AS ExtraPT
                FROM bodb02.dbo.Acc_GroupExtraPTSetting a WITH ( NOLOCK )
                WHERE @StartDate BETWEEN FromDate AND Todate
                  AND a.ProductId = 1
                  AND a.Sporttype = 0
                  AND a.SubProduct = ''
-               GROUP BY SuperId;
+               GROUP BY SuperId,Sporttype;
     END;
     BEGIN -- #Data
 
@@ -57,6 +59,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_SystemParlay] @EndDate='2020-01-01',@StartDate='201
                             Commission      MONEY,
                             RealIncome      MONEY,
                             VirtualIncome   MONEY,
+							VarianceIncome  MONEY,
                             RealTurnover    MONEY,
                             VirtualTurnover MONEY );
     END;
@@ -90,6 +93,11 @@ EXEC [Acc_Rpt_CompanyWinLoss_SystemParlay] @EndDate='2020-01-01',@StartDate='201
                                                                                                                                     THEN 0
                                                                                                                                     ELSE b.scomm / ( 1 - b.tpositiontaking )
                                                                                                                                 END ) * ISNULL(e.ExtraPT, 0)) * actualrate) VirtualIncome,
+							  SUM((winlost - actual_stake + awinlost + mwinlost + swinlost - CASE
+                                                                                          WHEN tpositiontaking = 1
+                                                                                          THEN 0
+                                                                                          ELSE( winlost - actual_stake ) * ISNULL(e.ExtraPT, 0)
+                                                                                      END) * (actualrate - virtualrate)) VarianceIncome,
                               SUM(CASE
                                       WHEN tpositiontaking = 1
                                       THEN 0
@@ -153,6 +161,11 @@ EXEC [Acc_Rpt_CompanyWinLoss_SystemParlay] @EndDate='2020-01-01',@StartDate='201
                                                                                                                                     THEN 0
                                                                                                                                     ELSE b.scomm / ( 1 - b.tpositiontaking )
                                                                                                                                 END ) * ISNULL(e.ExtraPT, 0)) * actualrate) VirtualIncome,
+							  SUM((winlost - actual_stake + awinlost + mwinlost + swinlost - CASE
+                                                                                          WHEN tpositiontaking = 1
+                                                                                          THEN 0
+                                                                                          ELSE( winlost - actual_stake ) * ISNULL(e.ExtraPT, 0)
+                                                                                      END) * (actualrate - virtualrate)) VarianceIncome,
                               SUM(CASE
                                       WHEN tpositiontaking = 1
                                       THEN 0
@@ -217,6 +230,11 @@ EXEC [Acc_Rpt_CompanyWinLoss_SystemParlay] @EndDate='2020-01-01',@StartDate='201
                                                                                                                                     THEN 0
                                                                                                                                     ELSE b.scomm / ( 1 - b.tpositiontaking )
                                                                                                                                 END ) * ISNULL(e.ExtraPT, 0)) * actualrate) VirtualIncome,
+							  SUM((winlost - actual_stake + awinlost + mwinlost + swinlost - CASE
+                                                                                          WHEN tpositiontaking = 1
+                                                                                          THEN 0
+                                                                                          ELSE( winlost - actual_stake ) * ISNULL(e.ExtraPT, 0)
+                                                                                      END) * (actualrate - virtualrate)) VarianceIncome,
                               SUM(CASE
                                       WHEN tpositiontaking = 1
                                       THEN 0
@@ -262,7 +280,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_SystemParlay] @EndDate='2020-01-01',@StartDate='201
                d.Commission AS Commission,
                d.RealIncome AS RealIncome,
                d.VirtualIncome AS VirtualIncome,
-               d.RealIncome - d.VirtualIncome AS VarianceIncome,
+               d.VarianceIncome AS VarianceIncome,
                d.RealTurnover AS RealTurnover,
                d.VirtualTurnover AS VirtualTurnover
         FROM #Data AS d

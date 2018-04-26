@@ -65,6 +65,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_MetricGaming_LiveNonLive] @EndDate='2020-01-01',@St
                             Commission      MONEY,
                             RealIncome      MONEY,
                             VirtualIncome   MONEY,
+							VarianceIncome  MONEY,
                             RealTurnover    MONEY,
                             VirtualTurnover MONEY );
     END;
@@ -98,6 +99,11 @@ EXEC [Acc_Rpt_CompanyWinLoss_MetricGaming_LiveNonLive] @EndDate='2020-01-01',@St
                                                                                                                             THEN 0
                                                                                                                             ELSE b.scomm / ( 1 - b.tpositiontaking )
                                                                                                                         END ) * ISNULL(e.ExtraPT, 0)) * actualrate) AS VirtualIncome,
+					  SUM((winlost - actual_stake + awinlost + mwinlost + swinlost - CASE
+                                                                                          WHEN tpositiontaking = 1
+                                                                                          THEN 0
+                                                                                          ELSE( winlost - actual_stake ) * ISNULL(e.ExtraPT, 0)
+                                                                                      END) * (actualrate - virtualrate)) VarianceIncome,
                       SUM(CASE
                               WHEN tpositiontaking = 1
                               THEN 0
@@ -141,7 +147,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_MetricGaming_LiveNonLive] @EndDate='2020-01-01',@St
                d.Commission AS Commission,
                d.RealIncome AS RealIncome,
                d.VirtualIncome AS VirtualIncome,
-               d.RealIncome - d.VirtualIncome AS VarianceIncome,
+               d.VarianceIncome AS VarianceIncome,
                d.RealTurnover AS RealTurnover,
                d.VirtualTurnover AS VirtualTurnover
         FROM #Data AS d
