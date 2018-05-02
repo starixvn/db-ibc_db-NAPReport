@@ -16,8 +16,7 @@ AS
     Revisions:
 		- 20161022@Jim:move table to bodb_licenseereport [RedmineID :#60449]
 		- 20161024@Harper - #65699: HAIFA - Apply new charge rate discount for HNI report
-		- 20171206@Harper - Update Pay To MuayThai amount due to include Parlay data [RedmineID: #83193]
-		- 20180126@Harper - HDWL Letstalk - Implement Chart of SB margin [#RedmineID: 89632]
+		- 20171206@Harper - Update Pay To MuayThai amount due to include Parlay data [RedmineID: #83193]		
 		- 20180131@Harper - Fix Daily HAIFA data [#RedmineID: 90263]
 
 	Param's Explanation:   
@@ -131,21 +130,20 @@ BEGIN
 			ProductId		TINYINT,
 			AmountToCompany MONEY,
 			IsApplyMinFee	BIT,
-			DiscountAmount	MONEY,
-			TurnOver		MONEY)
+			DiscountAmount	MONEY
+			)
 
-	INSERT INTO #TempDataSB (PartyId,rptDate,CurrencyId,WinLoss,AComm,ProductId,AmountToCompany, IsApplyMinFee, DiscountAmount, TurnOver)
+	INSERT INTO #TempDataSB (PartyId,rptDate,CurrencyId,WinLoss,AComm,ProductId,AmountToCompany, IsApplyMinFee, DiscountAmount)
 	(
 		SELECT	p.PartyId,
 				b.rptDate,
 				b.CurrencyID,
-				SUM(CASE WHEN b.customercategory NOT IN (27, 28) THEN ISNULL(b.MemberWL, 0) ELSE 0 END * e.Rate),
-				SUM(CASE WHEN b.customercategory NOT IN (27, 28) THEN ISNULL(b.CommissionA, 0) ELSE 0 END * e.Rate),
+				SUM(ISNULL(b.MemberWL, 0) * e.Rate),
+				SUM(ISNULL(b.CommissionA, 0) * e.Rate),
 				p.ProductId,
-				SUM(CASE WHEN b.customercategory NOT IN (27, 28) THEN -ISNULL(b.MemberWL, 0) ELSE 0 END * p.Rate * e.Rate),
+				SUM(-ISNULL(b.MemberWL, 0) * p.Rate * e.Rate),
 				1 AS IsApplyMinFee,
-				SUM(CASE WHEN b.customercategory NOT IN (27, 28) THEN -ISNULL(b.MemberWL, 0) ELSE 0 END * ISNULL(d.Rate, 0) * p.Rate * e.Rate),
-				SUM(ISNULL(b.Turnover, 0) * p.Rate * e.Rate) - SUM(ISNULL(b.Turnover, 0) * ISNULL(d.Rate, 0) * p.Rate * e.Rate)
+				SUM(-ISNULL(b.MemberWL, 0) * ISNULL(d.Rate, 0) * e.Rate)
 		FROM	bodb_LicenseeReport.dbo.rpt_BettingByProduct b WITH (NOLOCK)
 				INNER JOIN #Exchange e ON b.rptDate = e.ExchangeDate AND b.CurrencyId = e.ExchangeID
 				INNER JOIN @PartyChargeInfo p ON	b.ProductId = p.ProductID 
@@ -155,7 +153,7 @@ BEGIN
 				LEFT JOIN #DiscountGroup d ON d.PartyId = p.PartyId AND d.ProductId = p.ProductID
 		WHERE	b.rptDate BETWEEN @FDate AND @TDate
 				AND b.CurrencyID <> 20
-				--AND b.customercategory NOT IN (27, 28)
+				AND b.customercategory NOT IN (27, 28)
 				AND b.Bettype NOT IN (901,902,903,904)
 				AND b.StatusId NOT IN (-1, 103) -- Exclude Reject , Void, Refund
 		GROUP BY b.rptdate, b.SiteId, p.PartyId,b.CurrencyID, p.ProductId--, e.Rate, d.Rate
@@ -170,20 +168,16 @@ BEGIN
 		MinFee				MONEY,
 		BAComm				MONEY,
 		PayToMuayThai		MONEY,
-		PayToMetricGaming	MONEY,
-		TurnOver			MONEY
+		PayToMetricGaming	MONEY
 	)
 
 	DECLARE @BAComm MONEY = 0, @BAWinloss MONEY = 0
 	SELECT	@BAComm = ISNULL(-SUM(AComm), 0),
 			@BAWinloss = ISNULL(SUM(AmountToCompany), 0)
-	FROM #FeeData WHERE ProductId = 3
+	FROM #FeeData WHERE ProductId = 3	
 
-	DECLARE @TurnOver MONEY = 0
-	SELECT @TurnOver = ISNULL(SUM(TurnOver), 0) FROM #TempDataSB WHERE ProductId IN (0, 3)
-
-	INSERT INTO #FinalResult (rptDate, LicenseeWL, DiscountWL, MinFee, BAComm, PayToMuayThai, PayToMetricGaming, TurnOver)
-	SELECT 'FullRange', ISNULL(SUM(WLFeeApplied) + @BAWinloss, 0), 0, ISNULL(SUM(MinFeeApplied), 0), ISNULL(@BAComm, 0), 0, 0, @TurnOver
+	INSERT INTO #FinalResult (rptDate, LicenseeWL, DiscountWL, MinFee, BAComm, PayToMuayThai, PayToMetricGaming)
+	SELECT 'FullRange', ISNULL(SUM(WLFeeApplied) + @BAWinloss, 0), 0, ISNULL(SUM(MinFeeApplied), 0), ISNULL(@BAComm, 0), 0, 0
 	FROM #FeeData
 	WHERE ProductID = 0
 
@@ -192,14 +186,13 @@ BEGIN
 
 	WHILE @tmpDate <= @TDate
 	BEGIN
-		INSERT INTO #FinalResult (RptDate, LicenseeWL, DiscountWL, MinFee, BAComm, PayToMuayThai, PayToMetricGaming, TurnOver)
+		INSERT INTO #FinalResult (RptDate, LicenseeWL, DiscountWL, MinFee, BAComm, PayToMuayThai, PayToMetricGaming)
 		SELECT CONVERT(VARCHAR(2), @tmpDate, 106), 
 			(SELECT ISNULL(SUM(AmountToCompany), 0) FROM #TempDataSB WHERE ProductId IN (0, 3) AND rptDate = @tmpDate), -- LicenseeWL + BA Winloss
 			(SELECT -ISNULL(SUM(DiscountAmount), 0) FROM #TempDataSB WHERE ProductId = 0 AND rptDate = @tmpDate),
 			0 AS MinFee,
 			(SELECT ISNULL(-SUM(AComm), 0) FROM #TempDataSB WHERE ProductId = 3 AND rptDate = @tmpDate), -- BA Commission
-			0, 0,
-			(SELECT ISNULL(SUM(TurnOver), 0) FROM #TempDataSB WHERE ProductId IN (0, 3) AND rptDate = @tmpDate) -- TurnOver
+			0, 0
 
 		SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate)
 	END
@@ -402,9 +395,7 @@ BEGIN
 							'UNION ALL' + CHAR(13) +
 							'SELECT ''SB'', 5, ''BA Commission'', BAComm' + CHAR(13) +
 							'UNION ALL' + CHAR(13) +
-							'SELECT ''SB'', 6, ''Pay to Muay Thai'', PayToMuayThai' + CHAR(13) +
-							'UNION ALL' + CHAR(13) +
-							'SELECT ''SB'', 8, ''Turn Over'', TurnOver' + CHAR(13) +
+							'SELECT ''SB'', 6, ''Pay to Muay Thai'', PayToMuayThai' + CHAR(13) +							
 							'UNION ALL' + CHAR(13) +
 							'SELECT ''SB'', 7, ''Pay to Metric Gaming'', PayToMetricGaming) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
 					'PIVOT' + CHAR(13) +

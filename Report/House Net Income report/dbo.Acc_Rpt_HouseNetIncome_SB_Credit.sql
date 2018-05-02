@@ -1,5 +1,3 @@
-/*<info serverAlias="DBWH-bodb_dwrs" executers="bodbAdminNet,dwrs" viewers="vnteam" isFunction="0" isNested="0"></info>*/
-
 USE bodb_dwrs
 GO
 
@@ -14,14 +12,7 @@ AS
    
     Revisions:
 		- 20160922@Harper - #64429 - Edit status ID
-		- 20180126@Harper - HDWL Letstalk - Implement Chart of SB margin [#RedmineID: 89632]
-		- 20180131@Harper - Fix Daily HAIFA data [#RedmineID: 90263]
-		- 20180410@Harper - Fix ISNULL for Extra TO [#RedmineID: 93379]
-
-	Param's Explanation: 
-	
-	EXEC Acc_Rpt_HouseNetIncome_SB_Credit '2017-12-01', '2017-12-31'
-  
+	Param's Explanation:   
 */  
 BEGIN  
 	SET NOCOUNT ON  
@@ -45,9 +36,7 @@ BEGIN
 	CREATE TABLE #FinalResult (
 		RptDate		VARCHAR(10),
 		HouseWL		MONEY,
-		ExtraPT		MONEY,
-		TurnOver	MONEY,
-		ExtraTO		MONEY
+		ExtraPT		MONEY
 	)
 
 	DECLARE @tmpDate DATE, @DateList VARCHAR(200) = '[FullRange]'
@@ -55,8 +44,8 @@ BEGIN
 
 	WHILE @tmpDate <= @TDate
 	BEGIN
-		INSERT INTO #FinalResult (RptDate, HouseWL, ExtraPT, TurnOver, ExtraTO)
-		SELECT CONVERT(VARCHAR(2), @tmpDate, 106), 0, 0, 0, 0
+		INSERT INTO #FinalResult (RptDate, HouseWL, ExtraPT)
+		SELECT CONVERT(VARCHAR(2), @tmpDate, 106), 0, 0
 
 		SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate)
 	END
@@ -72,8 +61,8 @@ BEGIN
 	-- Daily Extra PT
 	;WITH ExtraPT AS
 	(
-		SELECT b.rptDate, SUM(b.ExtraWLAfterComm_RM) AS ExtraPT, SUM(b.ExtraTO_RM) AS ExtraTO
-		FROM bodb_account.dbo.rptExtraPTBySite b WITH (NOLOCK)
+		SELECT b.rptDate, SUM(b.extraWinloss) AS ExtraPT
+		FROM bodb_account.dbo.rptGroupWinloss b WITH (NOLOCK)
 			INNER JOIN #SportBettypeMatrix sb ON sb.Bettype = b.bettype
 		WHERE	rptdate BETWEEN @FDate AND @TDate 
 				AND sb.ProductID = 1
@@ -81,18 +70,16 @@ BEGIN
 		GROUP BY b.rptDate
 	)
 	UPDATE f
-	SET f.ExtraPT = e.ExtraPT,
-		f.ExtraTO = e.ExtraTO
+	SET ExtraPT = e.ExtraPT
 	FROM #FinalResult f
 		INNER JOIN ExtraPT e ON CONVERT(VARCHAR(2), e.rptDate, 106) = f.RptDate
 
 	-- House WL
-	CREATE TABLE #TmpHouseWL (rptDate DATE, HouseWL MONEY, TurnOver MONEY)
-	INSERT INTO #TmpHouseWL (rptDate, HouseWL, TurnOver)
+	CREATE TABLE #TmpHouseWL (rptDate DATE, HouseWL MONEY)
+	INSERT INTO #TmpHouseWL (rptDate, HouseWL)
 	SELECT 
 		b.rptDate,
-		ISNULL(-SUM((winlossP+winlossS+winlossM+winlossA+commissionS) * ex.rate),0) HouseWL,
-		ISNULL(SUM(b.TurnoverIBC * ex.Rate), 0) TurnOver
+		ISNULL(-SUM((winlossP+winlossS+winlossM+winlossA+commissionS)*ex.rate),0) HouseWL
 	FROM bodb_Account.dbo.mcSiteDaily b WITH(NOLOCK)
 		INNER JOIN #exchange ex ON b.rptdate = ex.exchangedate AND b.currencyid = ex.ExchangeID
 		INNER JOIN #SportBettypeMatrix sb ON sb.Bettype = b.bettype AND Sb.ProductID = 1
@@ -104,29 +91,14 @@ BEGIN
 	GROUP BY b.rptDate
 	OPTION (RECOMPILE)
 
-	;WITH TurnOver AS
-	(	SELECT b.rptDate
-			,ISNULL(SUM(b.TurnoverIBC * ex.Rate), 0) TurnOver
-		FROM bodb_Account.dbo.mcSiteDaily b WITH ( NOLOCK )  
-            INNER JOIN #exchange ex ON b.rptdate = ex.exchangedate AND b.currencyid = ex.ExchangeID
-			INNER JOIN #SportBettypeMatrix sb ON sb.Bettype = b.bettype AND Sb.ProductID = 1
-            LEFT JOIN bodb_Account.dbo.League l WITH ( NOLOCK ) ON b.LeagueId = l.LeagueId  
-        WHERE b.rptDate BETWEEN @FDate AND @TDate  
-            AND b.status <> 14  
-            AND b.SiteId IN( -2, -4 )              
-            AND sb.EventType IN( 1, 2, 4 )  
-		GROUP BY b.rptDate
-	)
 	UPDATE f
-	SET HouseWL = ISNULL(f.HouseWL, 0) + ISNULL(wl.HouseWL, 0),
-		f.TurnOver = ISNULL(f.TurnOver, 0) + ISNULL(wl.TurnOver, 0) + ISNULL(t.TurnOver, 0) - ISNULL(f.ExtraTO, 0)
+	SET HouseWL = f.HouseWL + wl.HouseWL
 	FROM #FinalResult f
 		INNER JOIN #TmpHouseWL wl ON CONVERT(VARCHAR(2), wl.rptDate, 106) = f.RptDate
-		INNER JOIN TurnOver t ON CONVERT(VARCHAR(2), t.rptDate, 106) = f.RptDate
 
 	-- FullRange amount
-	INSERT INTO #FinalResult (RptDate, HouseWL, ExtraPT, TurnOver)
-	SELECT 'FullRange', SUM(HouseWL), SUM(ExtraPT), SUM(TurnOver)
+	INSERT INTO #FinalResult (RptDate, HouseWL, ExtraPT)
+	SELECT 'FullRange', SUM(HouseWL), SUM(ExtraPT)
 	FROM #FinalResult
 
 	---------------------------------------------------- Select the output -------------------------------------------------------
@@ -136,9 +108,7 @@ BEGIN
 							'CROSS APPLY' + CHAR(13) +
 							'(SELECT ''SB'', 1, ''House Income'', HouseWL' + CHAR(13) +
 							'UNION ALL' + CHAR(13) +
-							'SELECT ''SB'', 3, ''Extra PT'', ExtraPT' + CHAR(13) +							
-							'UNION ALL' + CHAR(13) +
-							'SELECT ''SB'', 8, ''Turn Over'', TurnOver) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
+							'SELECT ''SB'', 3, ''Extra PT'', ExtraPT) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
 					'PIVOT' + CHAR(13) +
 					'(' + CHAR(13) +
 						'MAX(value)' + CHAR(13) +
