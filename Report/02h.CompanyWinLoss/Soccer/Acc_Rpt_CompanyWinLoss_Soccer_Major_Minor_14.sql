@@ -56,30 +56,34 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_14] @EndDate='2020-01-01',@Start
     END;
     BEGIN -- #Match
 
-        CREATE TABLE #Match( MatchId   INT,
-                             MatchCode NVARCHAR(50),
-                             type      VARCHAR(10),
-                             PRIMARY KEY( MatchId, type ));
+         CREATE TABLE #Match
+         (MatchId   INT,
+          MatchCode NVARCHAR(50),
+          type      VARCHAR(10),
+          PRIMARY KEY(MatchId, type)
+         );
         INSERT INTO #Match
-               SELECT m.MatchId,
-                      m.MatchCode,
-                      m.type
-               FROM(
-                   SELECT MatchId,
-                          LeagueId,
-                          MatchCode,
-                          'match' AS type
-                   FROM match14 WITH ( NOLOCK )
-                   WHERE EventDate = @StartDate
-                   UNION ALL
-                   SELECT orid,
-                          LeagueId,
-                          MatchCode,
-                          'outright' AS type
-                   FROM outright14 WITH ( NOLOCK )
-                   WHERE EventDate = @StartDate ) m
-                   INNER JOIN league l WITH ( NOLOCK ) ON m.LeagueId = l.LeagueId
-               WHERE l.sporttype = 1;
+                SELECT m.MatchId,
+                       m.MatchCode,
+                       m.type
+                FROM
+                (
+                    SELECT MatchId,
+                           LeagueId,
+                           MatchCode,
+                           'match' AS type
+                    FROM match14 WITH (NOLOCK)
+                    WHERE EventDate = @StartDate
+                    UNION ALL
+                    SELECT orid,
+                           LeagueId,
+                           MatchCode,
+                           'outright' AS type
+                    FROM outright14 WITH (NOLOCK)
+                    WHERE EventDate = @StartDate
+                ) m
+                INNER JOIN league l WITH (NOLOCK) ON m.LeagueId = l.LeagueId
+                WHERE l.sporttype = 1;
     END;
     BEGIN ---- Extra PT 
         CREATE TABLE #ExtraPT_Sel( SuperID INT,

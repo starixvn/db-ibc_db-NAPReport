@@ -215,7 +215,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_MatchDetail_14] @EndDate='2020-01-01',@S
                FROM bettrans14 b WITH ( NOLOCK )
                     INNER JOIN #Match m ON b.MatchId = m.MatchId
                     LEFT JOIN #ExtraPT_Sel e ON e.SuperID = b.srecommend
-											  AND e.Sporttype = @sport
+											AND e.Sporttype = @sport
                WHERE b.winlostdate = @StartDate
                  AND b.BetType = @BetType
                  AND ( @IsLive > 1

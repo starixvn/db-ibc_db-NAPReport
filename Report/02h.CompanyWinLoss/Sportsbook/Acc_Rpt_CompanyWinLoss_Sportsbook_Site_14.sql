@@ -98,8 +98,8 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Site_14] @StartDate='2016-01-01', @EndDa
                           LeagueId,
                           'outright' AS type
                    FROM outright14 WITH ( nolock )
-                   WHERE @BetType = 10
-                     AND EventDate = @StartDate ) m
+                   WHERE @BetType = 10 
+				   AND EventDate = @StartDate ) m
                    INNER JOIN league l WITH ( nolock ) ON m.LeagueId = l.LeagueId
                    INNER JOIN sports sp WITH ( nolock ) ON l.sporttype = sp.sporttype
                WHERE sp.sporttype = @sporttype;

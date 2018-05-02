@@ -257,7 +257,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_BetType_14] @EndDate='2020-01-01',@Star
                       0 AS Commission,
                       0 AS RealIncome,
                       0 AS VirtualIncome,
-					  0  AS VarianceIncome,
+					  0 AS VarianceIncome,
                       0 AS RealTurnover,
                       0 AS VirtualTurnover
                FROM(
@@ -298,7 +298,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_BetType_14] @EndDate='2020-01-01',@Star
                                                                  THEN-ISNULL(d.VirtualIncome, 0)
                                                                  ELSE ISNULL(d.VirtualIncome, 0)
                                                              END,
-			  c.VarianceIncome = ISNULL(c.VarianceIncome, 0) + CASE
+              c.VarianceIncome = ISNULL(c.VarianceIncome, 0) + CASE
                                                                  WHEN c.RowName = 'Credit'
                                                                  THEN-ISNULL(d.VarianceIncome, 0)
                                                                  ELSE ISNULL(d.VarianceIncome, 0)
