@@ -425,7 +425,14 @@ BEGIN
 		) [TOVariance-],
 		SUM(CASE WHEN [TurnoverIBC_RM] = 0 THEN 0 ELSE [TurnoverIBC_RM] - [ExtraTO_RM] END 
 				* ABS([VarianceVR]) 
-		) [TOVarianceTotal]
+		) [TOVarianceTotal],
+		(100.0 * SUM(- ( 
+			   [WinlossIBC_RM] - [ExtraWL_RM] 
+			) 
+			* [VarianceVR]
+		)) / SUM(CASE WHEN [TurnoverIBC_RM] = 0 THEN 0 ELSE [TurnoverIBC_RM] - [ExtraTO_RM] END 
+				* ABS([VarianceVR]) 
+		) [VarianceMargin]
 	FROM #TmpResultAll
 	GROUP BY currency
 
