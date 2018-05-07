@@ -47,3 +47,9 @@ BEGIN
 	WHERE pvs.isActive = 1
 	ORDER BY username, sporttype, islive DESC, bettype
 END
+
+GO 
+ GRANT VIEW DEFINITION ON [dbo].[Acc_Rpt_TreeWinlostBulkGetVR] TO [vnteam]
+GO 
+ GRANT EXECUTE ON [dbo].[Acc_Rpt_TreeWinlostBulkGetVR] TO [bodbAdminNet]
+GO 
