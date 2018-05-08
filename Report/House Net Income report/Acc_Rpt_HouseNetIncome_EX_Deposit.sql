@@ -12,10 +12,11 @@ AS
    
     Revisions:  
 		- 20180115@Harper: Create new SP [RedmineID: #89006]
+		- 20180508@Harper: Change PayToSupplier term of Exchange product [RedmineID: #94403]
 
 	Param's Explanation:   
 
-	EXEC Acc_Rpt_HouseNetIncome_EX_Deposit '20180101', '20180120'
+	EXEC Acc_Rpt_HouseNetIncome_EX_Deposit_UAT2 '20180501', '20180520'
 */  
 BEGIN  
 	SET NOCOUNT ON  
@@ -54,7 +55,7 @@ BEGIN
 	INSERT INTO @PartyChargeInfo(PartyId, LicenseeId, ParentID, Rate, Fromdate, Todate, ProductID)
 	(
 		SELECT	ci.PartyID, ci.LicenseeID, p.ParentID, ci.DI_Rate, ci.Fromdate, ci.ToDate, ci.ProductID
-		FROM	bodb_licensee.dbo.LA_f_ChargeInfo(@PartyIDs, @FDate, @TDate, 'BX', 'OA', 1) ci	
+		FROM	bodb_licensee.dbo.LA_f_ChargeInfo_UAT2(@PartyIDs, @FDate, @TDate, 'BX', 'OA', 1) ci	
 			INNER JOIN @TmpPartyList p ON ci.PartyID = p.PartyID	
 		WHERE	DI_Rate > 0 AND ci.ChargeType = 1 -- get PT
 	)
@@ -62,8 +63,8 @@ BEGIN
 	INSERT INTO @PartyCharge3rdInfo( LicenseeId, Rate, FromDate, ToDate, ProductID )	
 	(
 		SELECT DISTINCT p.LicenseeID, ci.DI_Rate, ci.Fromdate, ci.ToDate, ci.ProductID
-		FROM	bodb_licensee.dbo.LA_f_ChargeInfo3rd(@FDate, @TDate, 'BX', 'OA') ci	
-			INNER JOIN @PartyChargeInfo p ON p.ParentID = ci.PartyID	
+		FROM	bodb_licensee.dbo.LA_f_ChargeInfo3rd_UAT2(@FDate, @TDate, 'BX', 'OA') ci	
+			INNER JOIN @PartyChargeInfo p ON (CASE WHEN ci.IsParent = 1 THEN p.ParentID ELSE p.PartyId END) = ci.PartyID	
 		WHERE ci.ChargeType = 1 AND ci.IsDeposit = 1
 	)
 	-- End Region
