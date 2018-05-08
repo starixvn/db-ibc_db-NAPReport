@@ -64,11 +64,21 @@ BEGIN
 	(
 		SELECT DISTINCT p.LicenseeID, ci.DI_Rate, ci.Fromdate, ci.ToDate, ci.ProductID
 		FROM	bodb_licensee.dbo.LA_f_ChargeInfo3rd_UAT2(@FDate, @TDate, 'BX', 'OA') ci	
-			INNER JOIN @PartyChargeInfo p ON (CASE WHEN ci.IsParent = 1 THEN p.ParentID ELSE p.PartyId END) = ci.PartyID	
+			INNER JOIN @PartyChargeInfo p ON ci.IsParent = 0 AND p.PartyID = ci.PartyId		
 		WHERE ci.ChargeType = 1 AND ci.IsDeposit = 1
 	)
-	-- End Region
 
+	INSERT INTO @PartyCharge3rdInfo( LicenseeId, Rate, FromDate, ToDate, ProductID )	
+	(
+		SELECT DISTINCT p.LicenseeID, ci.DI_Rate, ci.Fromdate, ci.ToDate, ci.ProductID
+		FROM	bodb_licensee.dbo.LA_f_ChargeInfo3rd_UAT2(@FDate, @TDate, 'BX', 'OA') ci	
+			INNER JOIN @PartyChargeInfo p ON ci.IsParent = 1 AND p.ParentID = ci.PartyId		
+		WHERE ci.ChargeType = 1 AND ci.IsDeposit = 1
+			AND NOT EXISTS (SELECT 1 FROM @PartyCharge3rdInfo ci WHERE ci.LicenseeId = p.LicenseeId)
+	)
+	
+	-- End Region
+	
 	-- Region: Get Exchange
 	CREATE	TABLE #ExchangeOANDA (ExchangeDate DATE, ExchangeID INT, Rate FLOAT)	
 	
