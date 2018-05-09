@@ -406,7 +406,17 @@ BEGIN
 						) 
 						* [VarianceVR]
 					)) / SUM(CASE WHEN [TurnoverIBC_RM] = 0 THEN 0 ELSE [TurnoverIBC_RM] - [ExtraTO_RM] END * ABS([VarianceVR]))
-			END [VarianceMargin]
+			END [VarianceMargin],
+			CASE 
+				WHEN SUM(CASE WHEN [TurnoverIBC] = 0 THEN 0 ELSE [TurnoverIBC_RM] - [ExtraTO_RM] END * ([VarianceVR] + 1)) = 0
+					THEN NULL
+				 ELSE
+					(100.0 * SUM(( 
+					   ( [WinlossIBC_RM] - [ExtraWL_RM] ) * ( [VarianceVR] +1 ) 
+					   + ([CommissionS_RM] - [ExtraComm_RM]) * CASE WHEN [VarianceVR] < 0 THEN [VarianceVR] +1 ELSE 1 END
+					))) 
+					/ SUM(CASE WHEN [TurnoverIBC] = 0 THEN 0 ELSE [TurnoverIBC_RM] - [ExtraTO_RM] END * ([VarianceVR] + 1))
+			END [VirtualWLMargin]
 		FROM #TmpResultAll b
 		INNER JOIN custinfo ca WITH(NOLOCK) ON b.recommend = ca.custid
 		GROUP BY b.recommend,ca.username,ISNULL(ca.virtualmultiplier,1)
