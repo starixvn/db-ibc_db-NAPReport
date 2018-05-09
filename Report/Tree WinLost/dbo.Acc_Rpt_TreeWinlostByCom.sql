@@ -393,27 +393,7 @@ BEGIN
 		) [TOVariance-],
 		SUM(CASE WHEN [TurnoverIBC_RM] = 0 THEN 0 ELSE [TurnoverIBC_RM] - [ExtraTO_RM] END 
 				* ABS([VarianceVR]) 
-		) [TOVarianceTotal],
-		CASE 
-			WHEN SUM(CASE WHEN [TurnoverIBC_RM] = 0 THEN 0 ELSE [TurnoverIBC_RM] - [ExtraTO_RM] END * ABS([VarianceVR])) = 0
-				THEN NULL
-				ELSE
-				(100.0 * SUM(- ( 
-						[WinlossIBC_RM] - [ExtraWL_RM] 
-					) 
-					* [VarianceVR]
-				)) / SUM(CASE WHEN [TurnoverIBC_RM] = 0 THEN 0 ELSE [TurnoverIBC_RM] - [ExtraTO_RM] END * ABS([VarianceVR]))
-		END [VarianceMargin],
-		CASE 
-			WHEN SUM(CASE WHEN [TurnoverIBC] = 0 THEN 0 ELSE [TurnoverIBC_RM] - [ExtraTO_RM] END * ([VarianceVR] + 1)) = 0
-				THEN NULL
-				ELSE
-				(100.0 * SUM(( 
-					( [WinlossIBC_RM] - [ExtraWL_RM] ) * ( [VarianceVR] +1 ) 
-					+ ([CommissionS_RM] - [ExtraComm_RM]) * CASE WHEN [VarianceVR] < 0 THEN [VarianceVR] +1 ELSE 1 END
-				))) 
-				/ SUM(CASE WHEN [TurnoverIBC] = 0 THEN 0 ELSE [TurnoverIBC_RM] - [ExtraTO_RM] END * ([VarianceVR] + 1))
-		END [VirtualWLMargin]
+		) [TOVarianceTotal]
 	FROM #TmpResultAll b
 	INNER JOIN custinfo cs WITH(NOLOCK) ON b.srecommend = cs.custid
 	GROUP BY b.srecommend,ISNULL(cs.virtualmultiplier,1),cs.username
