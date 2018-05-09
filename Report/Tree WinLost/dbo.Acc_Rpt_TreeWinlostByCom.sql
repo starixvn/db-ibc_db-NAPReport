@@ -340,7 +340,7 @@ BEGIN
 			CASE WHEN [TurnoverIBC] = 0 THEN 0 ELSE [TurnoverIBC] - [ExtraTO] END 
 			* CASE WHEN [VarianceVR] > 0 THEN [VarianceVR] + 1 ELSE 1 END
 		) Turnover,
-		SUM(- ([ExtraWL] + [ExtraComm])) ExtraAmount, 
+		SUM(([ExtraWL] + [ExtraComm])) ExtraAmount, 
 		SUM(( [WinlossIBC] - [ExtraWL])) Winloss, 
 		SUM([CommissionS]) Commission, 
 		SUM(( [WinlossIBC] - [ExtraWL] + [CommissionS] -[ExtraComm] )) total,
@@ -353,11 +353,12 @@ BEGIN
 		SUM (( [WinlossIBC_RM] - [ExtraWL_RM] + [CommissionS_RM] -[ExtraComm_RM] ) ) TotalRM,
 		SUM(( 
 		   ( [WinlossIBC_RM] - [ExtraWL_RM] ) * ( [VarianceVR] +1 ) 
-		   + [CommissionS_RM] - [ExtraComm_RM] 
+		   + ([CommissionS_RM] - [ExtraComm_RM]) * CASE WHEN [VarianceVR] < 0 THEN [VarianceVR] +1 ELSE 1 END
 		) ) Virtual_Total,
 		SUM(CASE WHEN [VarianceVR] > 0 THEN (
 			- ( 
 			   [WinlossIBC_RM] - [ExtraWL_RM] 
+			   + CASE WHEN [VarianceVR] < 0 THEN [CommissionS_RM] - [ExtraComm_RM] ELSE 0 END
 			) 
 			* [VarianceVR]
 			)
@@ -366,6 +367,7 @@ BEGIN
 		SUM(CASE WHEN [VarianceVR] < 0 THEN (
 			- ( 
 			   [WinlossIBC_RM] - [ExtraWL_RM] 
+			   + CASE WHEN [VarianceVR] < 0 THEN [CommissionS_RM] - [ExtraComm_RM] ELSE 0 END
 			) 
 			* [VarianceVR]
 			)
@@ -373,6 +375,7 @@ BEGIN
 		) [WLVariance-],
 		SUM(- ( 
 			   [WinlossIBC_RM] - [ExtraWL_RM] 
+			   + CASE WHEN [VarianceVR] < 0 THEN [CommissionS_RM] - [ExtraComm_RM] ELSE 0 END
 			) 
 			* [VarianceVR]
 		) [WLVarianceTotal],
@@ -391,13 +394,16 @@ BEGIN
 		SUM(CASE WHEN [TurnoverIBC_RM] = 0 THEN 0 ELSE [TurnoverIBC_RM] - [ExtraTO_RM] END 
 				* ABS([VarianceVR]) 
 		) [TOVarianceTotal],
-		(100.0 * SUM(- ( 
-			   [WinlossIBC_RM] - [ExtraWL_RM] 
-			) 
-			* [VarianceVR]
-		)) / SUM(CASE WHEN [TurnoverIBC_RM] = 0 THEN 0 ELSE [TurnoverIBC_RM] - [ExtraTO_RM] END 
-				* ABS([VarianceVR]) 
-		) [VarianceMargin]
+		CASE 
+			WHEN SUM(CASE WHEN [TurnoverIBC_RM] = 0 THEN 0 ELSE [TurnoverIBC_RM] - [ExtraTO_RM] END * ABS([VarianceVR])) = 0
+				THEN NULL
+				ELSE
+				(100.0 * SUM(- ( 
+						[WinlossIBC_RM] - [ExtraWL_RM] 
+					) 
+					* [VarianceVR]
+				)) / SUM(CASE WHEN [TurnoverIBC_RM] = 0 THEN 0 ELSE [TurnoverIBC_RM] - [ExtraTO_RM] END * ABS([VarianceVR]))
+		END [VarianceMargin]
 	FROM #TmpResultAll b
 	INNER JOIN custinfo cs WITH(NOLOCK) ON b.srecommend = cs.custid
 	GROUP BY b.srecommend,ISNULL(cs.virtualmultiplier,1),cs.username
