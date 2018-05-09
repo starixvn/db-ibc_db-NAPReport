@@ -1,7 +1,7 @@
 USE [bodb02]
 GO
 
-CREATE PROCEDURE [dbo].[Acc_Rpt_TreeWinlostBulkGetVR]
+ALTER PROCEDURE [dbo].[Acc_Rpt_TreeWinlostBulkGetVR]
 	@CustIDs NVARCHAR(MAX)
 AS
 /*  
