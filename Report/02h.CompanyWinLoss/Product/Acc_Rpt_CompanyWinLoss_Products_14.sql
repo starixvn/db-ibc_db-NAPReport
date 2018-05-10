@@ -1,10 +1,11 @@
-USE [bodb02];
+USE [bodb02]
 GO
-/****** Object:  StoredProcedure [dbo].[Acc_Rpt_CompanyWinLoss_Products_14]    Script Date: 4/26/2018 11:19:50 AM ******/
+/****** Object:  StoredProcedure [dbo].[Acc_Rpt_CompanyWinLoss_Products_14]    Script Date: 5/9/2018 12:43:06 PM ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
+/****** Object:  Stored Procedure dbo.Acc_Rpt_CompanyWinLoss_Products_14    Script Date: 5/2/2018 9:36:29 AM ******/
 ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_Products_14]
       @StartDate SMALLDATETIME,
       @EndDate   SMALLDATETIME
@@ -80,6 +81,8 @@ AS
                            Linetotal_virtualrate     MONEY,
 						   Linetotal_variance        MONEY,
                            grosscomm_actualrate      MONEY,
+						   grosscomm_virtualrate     MONEY,
+						   grosscomm_variance        MONEY,
                            ProductId                 INT,
                            CasinoType                TINYINT,
                            turnover_actualrate       MONEY,
@@ -95,8 +98,10 @@ AS
                                  commission_actualrate        MONEY,
                                  Linetotal_actualrate         MONEY,
                                  Linetotal_virtualrate        MONEY,
-								 Linetotal_variance        MONEY,
+								 Linetotal_variance           MONEY,
                                  grosscomm_actualrate         MONEY,
+								 grosscomm_virtualrate        MONEY,
+								 grosscomm_variance           MONEY,
                                  WinlossForExtraPT_actualrate MONEY,
                                  ProductId                    INT,
                                  CasinoType                   TINYINT,
@@ -370,6 +375,8 @@ AS
                  Linetotal_virtualrate,
 				 Linetotal_variance,
                  grosscomm_actualrate,
+				 grosscomm_virtualrate,
+				 grosscomm_variance,
                  ProductId,
                  turnover_actualrate,
                  turnover_virtualrate,
@@ -391,13 +398,23 @@ AS
                       SUM(( awinlost + mwinlost + swinlost ) * actualrate) position_actualrate,
                       SUM(scomm * actualrate) commission_actualrate,
                       SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm ) * actualrate) LineTotal_actualrate,
-                      SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost ) * virtualrate + scomm * actualrate) LineTotal_virtualrate,
-					  SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost) * (actualrate - virtualrate)) Linetotal_variance,
+                      SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost ) * virtualrate 
+								+ scomm * CASE WHEN b.virtualrate < b.actualrate THEN b.virtualrate ELSE b.actualrate END) LineTotal_virtualrate,
+					  SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost
+								+ CASE WHEN b.virtualrate < b.actualrate THEN b.scomm ELSE 0 END) * (actualrate - virtualrate)) Linetotal_variance,
                       SUM(( CASE
                                 WHEN b.tpositiontaking = 1
                                 THEN 0
                                 ELSE b.scomm / ( 1 - b.tpositiontaking )
                             END ) * b.actualrate) grosscomm_actualrate,
+					  SUM(( CASE
+                                WHEN b.tpositiontaking = 1
+                                THEN 0
+                                ELSE b.scomm / ( 1 - b.tpositiontaking )
+                            END ) * CASE WHEN b.virtualrate < b.actualrate THEN b.virtualrate ELSE b.actualrate END) grosscomm_virtualrate,
+					  SUM((CASE WHEN b.virtualrate < b.actualrate 
+							   THEN  (CASE WHEN b.tpositiontaking = 1 THEN 0 ELSE b.scomm / ( 1 - b.tpositiontaking ) END)
+							   ELSE 0 END) * (actualrate - virtualrate)) grosscomm_variance,
                       1 AS ProductId,
                       SUM(CASE
                               WHEN b.tpositiontaking = 1
@@ -473,6 +490,8 @@ AS
                  Linetotal_virtualrate,
 				 Linetotal_variance,
                  grosscomm_actualrate,
+				 grosscomm_virtualrate,
+				 grosscomm_variance,
                  ProductId,
                  turnover_actualrate,
                  turnover_virtualrate,
@@ -494,13 +513,23 @@ AS
                       SUM(( awinlost + mwinlost + swinlost ) * actualrate) position_actualrate,
                       SUM(scomm * actualrate) commission_actualrate,
                       SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm ) * actualrate) LineTotal_actualrate,
-                      SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost ) * virtualrate + scomm * actualrate) LineTotal_virtualrate,
-					  SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost) * (actualrate - virtualrate)) Linetotal_variance,
+                      SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost ) * virtualrate 
+								+ scomm * CASE WHEN b.virtualrate < b.actualrate THEN b.virtualrate ELSE b.actualrate END) LineTotal_virtualrate,
+					  SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost
+								+ CASE WHEN b.virtualrate < b.actualrate THEN b.scomm ELSE 0 END) * (actualrate - virtualrate)) Linetotal_variance,
                       SUM(( CASE
                                 WHEN b.tpositiontaking = 1
                                 THEN 0
                                 ELSE b.scomm / ( 1 - b.tpositiontaking )
                             END ) * b.actualrate) grosscomm_actualrate,
+					  SUM(( CASE
+                                WHEN b.tpositiontaking = 1
+                                THEN 0
+                                ELSE b.scomm / ( 1 - b.tpositiontaking )
+                            END ) * CASE WHEN b.virtualrate < b.actualrate THEN b.virtualrate ELSE b.actualrate END) grosscomm_virtualrate,
+					  SUM((CASE WHEN b.virtualrate < b.actualrate 
+							   THEN  (CASE WHEN b.tpositiontaking = 1 THEN 0 ELSE b.scomm / ( 1 - b.tpositiontaking ) END)
+							   ELSE 0 END) * (actualrate - virtualrate)) grosscomm_variance,
                       1 AS ProductId,
                       SUM(CASE
                               WHEN b.tpositiontaking = 1
@@ -574,6 +603,8 @@ AS
               c.LineTotal_virtualrate = c.LineTotal_virtualrate - d.LineTotal_virtualrate,
 			  c.Linetotal_variance = c.Linetotal_variance - d.Linetotal_variance,
               c.grosscomm_actualrate = c.grosscomm_actualrate - d.grosscomm_actualrate,
+			  c.grosscomm_virtualrate = c.grosscomm_virtualrate - d.grosscomm_virtualrate,
+			  c.grosscomm_variance = c.grosscomm_variance - d.grosscomm_variance,
               c.turnover_actualrate = c.turnover_actualrate - d.turnover_actualrate,
               c.turnover_virtualrate = c.turnover_virtualrate - d.turnover_virtualrate,
               c.stake_actualrate = c.stake_actualrate - d.stake_actualrate,
@@ -600,6 +631,8 @@ AS
                  Linetotal_virtualrate,
 				 Linetotal_variance,
                  grosscomm_actualrate,
+				 grosscomm_virtualrate,
+				 grosscomm_variance,
                  ProductId,
                  CasinoType,
                  turnover_actualrate,
@@ -616,13 +649,23 @@ AS
                       SUM(( awinlost + mwinlost + swinlost ) * actualrate) position_actualrate,
                       SUM(scomm * actualrate) commission_actualrate,
                       SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm ) * actualrate) LineTotal_actualrate,
-                      SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost ) * virtualrate + scomm * actualrate) LineTotal_virtualrate,
-					  SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost) * (actualrate - virtualrate)) Linetotal_variance,
+                      SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost ) * virtualrate 
+								+ scomm * CASE WHEN b.virtualrate < b.actualrate THEN b.virtualrate ELSE b.actualrate END) LineTotal_virtualrate,
+					  SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost
+								+ CASE WHEN b.virtualrate < b.actualrate THEN b.scomm ELSE 0 END) * (actualrate - virtualrate)) Linetotal_variance,
                       SUM(( CASE
                                 WHEN b.tpositiontaking = 1
                                 THEN 0
                                 ELSE b.scomm / ( 1 - b.tpositiontaking )
                             END ) * b.actualrate) grosscomm_actualrate,
+					  SUM(( CASE
+                                WHEN b.tpositiontaking = 1
+                                THEN 0
+                                ELSE b.scomm / ( 1 - b.tpositiontaking )
+                            END ) * CASE WHEN b.virtualrate < b.actualrate THEN b.virtualrate ELSE b.actualrate END) grosscomm_virtualrate,
+					  SUM((CASE WHEN b.virtualrate < b.actualrate 
+							   THEN  (CASE WHEN b.tpositiontaking = 1 THEN 0 ELSE b.scomm / ( 1 - b.tpositiontaking ) END)
+							   ELSE 0 END) * (actualrate - virtualrate)) grosscomm_variance,
                                                   CASE s.SubProduct
                                                       WHEN 'MG-SuperLive'
                                                       THEN-1
@@ -722,6 +765,8 @@ AS
                  Linetotal_virtualrate,
 				 Linetotal_variance,
                  grosscomm_actualrate,
+				 grosscomm_virtualrate,
+				 grosscomm_variance,
                  WinlossForExtraPT_actualrate,
                  ProductId,
                  CasinoType,
@@ -750,19 +795,28 @@ AS
                                 WHEN s.Bettype IN( 2198, 2398, 2998 )
                                 THEN b.ContributionRate * b.BetStake + awinlost + mwinlost + swinlost
                                 ELSE winlost - actual_stake + awinlost + mwinlost + swinlost
-                            END ) * virtualrate + scomm * actualrate) LineTotal_virtualrate,
-                      SUM(( CASE
+                            END ) * virtualrate 
+							      + scomm * CASE WHEN b.virtualrate < b.actualrate THEN b.virtualrate ELSE b.actualrate END) LineTotal_virtualrate,
+                      SUM((( CASE
                                 WHEN s.Bettype IN( 2199, 2399, 2999 )
                                 THEN 0
                                 WHEN s.Bettype IN( 2198, 2398, 2998 )
                                 THEN b.ContributionRate * b.BetStake + awinlost + mwinlost + swinlost
                                 ELSE winlost - actual_stake + awinlost + mwinlost + swinlost
-                            END ) * (actualrate - virtualrate)) Linetotal_variance,
+                            END ) + CASE WHEN b.virtualrate < b.actualrate THEN b.scomm ELSE 0 END) * (actualrate - virtualrate)) Linetotal_variance,
                       SUM(( CASE
                                 WHEN b.tpositiontaking = 1
                                 THEN 0
                                 ELSE b.scomm / ( 1 - b.tpositiontaking )
                             END ) * b.actualrate) grosscomm_actualrate,
+					  SUM(( CASE
+                                WHEN b.tpositiontaking = 1
+                                THEN 0
+                                ELSE b.scomm / ( 1 - b.tpositiontaking )
+                            END ) * CASE WHEN b.virtualrate < b.actualrate THEN b.virtualrate ELSE b.actualrate END) grosscomm_virtualrate,
+					  SUM((CASE WHEN b.virtualrate < b.actualrate 
+							   THEN  (CASE WHEN b.tpositiontaking = 1 THEN 0 ELSE b.scomm / ( 1 - b.tpositiontaking ) END)
+							   ELSE 0 END) * (actualrate - virtualrate)) grosscomm_variance,
                       SUM(( CASE
                                 WHEN tpositiontaking = 1
                                 THEN 0
@@ -842,6 +896,8 @@ AS
                  Linetotal_virtualrate,
 				 Linetotal_variance,
                  grosscomm_actualrate,
+				 grosscomm_virtualrate,
+				 grosscomm_variance,
                  WinlossForExtraPT_actualrate,
                  ProductId,
                  CasinoType,
@@ -858,13 +914,23 @@ AS
                       SUM(( awinlost + mwinlost + swinlost ) * actualrate) position_actualrate,
                       SUM(scomm * actualrate) commission_actualrate,
                       SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm ) * actualrate) LineTotal_actualrate,
-                      SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost ) * virtualrate + scomm * actualrate) LineTotal_virtualrate,
-					  SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost) * (actualrate - virtualrate)) Linetotal_variance,
+                      SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost ) * virtualrate 
+								+ scomm * CASE WHEN b.virtualrate < b.actualrate THEN b.virtualrate ELSE b.actualrate END) LineTotal_virtualrate,
+					  SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost
+								+ CASE WHEN b.virtualrate < b.actualrate THEN b.scomm ELSE 0 END) * (actualrate - virtualrate)) Linetotal_variance,
                       SUM(( CASE
                                 WHEN b.tpositiontaking = 1
                                 THEN 0
                                 ELSE b.scomm / ( 1 - b.tpositiontaking )
                             END ) * b.actualrate) grosscomm_actualrate,
+					  SUM(( CASE
+                                WHEN b.tpositiontaking = 1
+                                THEN 0
+                                ELSE b.scomm / ( 1 - b.tpositiontaking )
+                            END ) * CASE WHEN b.virtualrate < b.actualrate THEN b.virtualrate ELSE b.actualrate END) grosscomm_virtualrate,
+					  SUM((CASE WHEN b.virtualrate < b.actualrate 
+							   THEN  (CASE WHEN b.tpositiontaking = 1 THEN 0 ELSE b.scomm / ( 1 - b.tpositiontaking ) END)
+							   ELSE 0 END) * (actualrate - virtualrate)) grosscomm_variance,
                       SUM(CASE
                               WHEN tpositiontaking = 1
                               THEN 0
@@ -960,8 +1026,8 @@ AS
                       SUM(position_actualrate) AS Position,
                       SUM(commission_actualrate) AS Commission,
                       SUM(LineTotal_actualrate - (( extra_winloss_actualrate + grosscomm_actualrate ) * ISNULL(e.ExtraPT, 0))) AS RealLineTotal,
-                      SUM(Linetotal_virtualrate - (( extra_winloss_virtualrate + grosscomm_actualrate ) * ISNULL(e.ExtraPT, 0))) AS VirtualLineTotal,
-					  SUM(Linetotal_variance - (extra_winloss_actualrate - extra_winloss_virtualrate) * ISNULL(e.ExtraPT, 0)) AS VarianceIncome,
+                      SUM(Linetotal_virtualrate - (( extra_winloss_virtualrate + grosscomm_virtualrate ) * ISNULL(e.ExtraPT, 0))) AS VirtualLineTotal,
+					  SUM(Linetotal_variance - (extra_winloss_actualrate - extra_winloss_virtualrate) * ISNULL(e.ExtraPT, 0) - grosscomm_variance * ISNULL(e.ExtraPT, 0)) AS VarianceIncome,
                       SUM(turnover_actualrate - ISNULL(e.ExtraPT, 0) * stake_actualrate) AS RealTurnover,
                       SUM(turnover_virtualrate - ISNULL(e.ExtraPT, 0) * stake_virtualrate) AS VirtualTurnover,
                       SUM(CASE ISNULL(e.ExtraPT, 0)
@@ -1015,8 +1081,8 @@ AS
                       SUM(ISNULL(b.position_actualrate, 0)) Position,
                       SUM(ISNULL(commission_actualrate, 0)) Commission,
                       SUM(ISNULL(LineTotal_actualrate - (( extra_winloss_actualrate + grosscomm_actualrate ) * ISNULL(e.ExtraPT, 0)), 0)) AS RealLineTotal,
-                      SUM(ISNULL(Linetotal_virtualrate - (( extra_winloss_virtualrate + grosscomm_actualrate ) * ISNULL(e.ExtraPT, 0)), 0)) AS VirtualLineTotal,
-					  SUM(Linetotal_variance - (extra_winloss_actualrate - extra_winloss_virtualrate) * ISNULL(e.ExtraPT, 0)) AS VarianceIncome,
+                      SUM(Linetotal_virtualrate - (( extra_winloss_virtualrate + grosscomm_virtualrate ) * ISNULL(e.ExtraPT, 0))) AS VirtualLineTotal,
+					  SUM(Linetotal_variance - (extra_winloss_actualrate - extra_winloss_virtualrate) * ISNULL(e.ExtraPT, 0) - grosscomm_variance * ISNULL(e.ExtraPT, 0)) AS VarianceIncome,
                       SUM(turnover_actualrate - ISNULL(e.ExtraPT, 0) * stake_actualrate) AS RealTurnover,
                       SUM(turnover_virtualrate - ISNULL(e.ExtraPT, 0) * stake_virtualrate) AS VirtualTurnover,
                       SUM(CASE ISNULL(e.ExtraPT, 0)
@@ -1061,8 +1127,8 @@ AS
                       SUM(position_actualrate) Position,
                       SUM(commission_actualrate) Commission,
                       SUM(LineTotal_actualrate - (( extra_winloss_actualrate + grosscomm_actualrate ) * ISNULL(e.ExtraPT, 0))) AS RealLineTotal,
-                      SUM(Linetotal_virtualrate - (( extra_winloss_virtualrate + grosscomm_actualrate ) * ISNULL(e.ExtraPT, 0))) AS VirtualLineTotal,
-					  SUM(Linetotal_variance - (extra_winloss_actualrate - extra_winloss_virtualrate) * ISNULL(e.ExtraPT, 0)) AS VarianceIncome,
+                      SUM(Linetotal_virtualrate - (( extra_winloss_virtualrate + grosscomm_virtualrate ) * ISNULL(e.ExtraPT, 0))) AS VirtualLineTotal,
+					  SUM(Linetotal_variance - (extra_winloss_actualrate - extra_winloss_virtualrate) * ISNULL(e.ExtraPT, 0) - grosscomm_variance * ISNULL(e.ExtraPT, 0)) AS VarianceIncome,
                       SUM(turnover_actualrate - ISNULL(e.ExtraPT, 0) * stake_actualrate) AS RealTurnover,
                       SUM(turnover_virtualrate - ISNULL(e.ExtraPT, 0) * stake_virtualrate) AS VirtualTurnover,
                       SUM(CASE ISNULL(e.ExtraPT, 0)
@@ -1106,8 +1172,8 @@ AS
                       SUM(position_actualrate) Position,
                       SUM(commission_actualrate) Commission,
                       SUM(LineTotal_actualrate - (( extra_winloss_actualrate + grosscomm_actualrate ) * ISNULL(e.ExtraPT, 0))) AS RealLineTotal,
-                      SUM(Linetotal_virtualrate - (( extra_winloss_virtualrate + grosscomm_actualrate ) * ISNULL(e.ExtraPT, 0))) AS VirtualLineTotal,
-					  SUM(Linetotal_variance - (extra_winloss_actualrate - extra_winloss_virtualrate) * ISNULL(e.ExtraPT, 0)) AS VarianceIncome,
+                      SUM(Linetotal_virtualrate - (( extra_winloss_virtualrate + grosscomm_virtualrate ) * ISNULL(e.ExtraPT, 0))) AS VirtualLineTotal,
+					  SUM(Linetotal_variance - (extra_winloss_actualrate - extra_winloss_virtualrate) * ISNULL(e.ExtraPT, 0) - grosscomm_variance * ISNULL(e.ExtraPT, 0)) AS VarianceIncome,
                       SUM(turnover_actualrate - ISNULL(e.ExtraPT, 0) * stake_actualrate) AS RealTurnover,
                       SUM(turnover_virtualrate - ISNULL(e.ExtraPT, 0) * stake_virtualrate) AS VirtualTurnover,
                       SUM(CASE ISNULL(e.ExtraPT, 0)
@@ -1178,8 +1244,8 @@ AS
                       SUM(ISNULL(b.position_actualrate, 0)) Position,
                       0 AS Commission,
                       SUM(ISNULL(LineTotal_actualrate - (( extra_winloss_actualrate + grosscomm_actualrate ) * ISNULL(e.ExtraPT, 0)), 0)) AS RealLineTotal,
-                      SUM(ISNULL(Linetotal_virtualrate - (( extra_winloss_virtualrate + grosscomm_actualrate ) * ISNULL(e.ExtraPT, 0)), 0)) AS VirtualLineTotal,
-					  SUM(ISNULL(Linetotal_variance - (extra_winloss_actualrate - extra_winloss_virtualrate) * ISNULL(e.ExtraPT, 0), 0)) AS VarianceIncome,
+                      SUM(Linetotal_virtualrate - (( extra_winloss_virtualrate + grosscomm_virtualrate ) * ISNULL(e.ExtraPT, 0))) AS VirtualLineTotal,
+					  SUM(Linetotal_variance - (extra_winloss_actualrate - extra_winloss_virtualrate) * ISNULL(e.ExtraPT, 0) - grosscomm_variance * ISNULL(e.ExtraPT, 0)) AS VarianceIncome,
                       0 AS RealTurnover,
                       0 AS VirtualTurnover,
                       SUM(CASE ISNULL(e.ExtraPT, 0)
@@ -1237,8 +1303,8 @@ AS
                SUM(position_actualrate) Position,
                SUM(commission_actualrate) Commission,
                SUM(LineTotal_actualrate - (( extra_winloss_actualrate + grosscomm_actualrate ) * ISNULL(e.ExtraPT, 0))) AS RealLineTotal,
-               SUM(Linetotal_virtualrate - (( extra_winloss_virtualrate + grosscomm_actualrate ) * ISNULL(e.ExtraPT, 0))) AS VirtualLineTotal,
-			   SUM(Linetotal_variance - (extra_winloss_actualrate - extra_winloss_virtualrate) * ISNULL(e.ExtraPT, 0)) AS VarianceIncome,
+               SUM(Linetotal_virtualrate - (( extra_winloss_virtualrate + grosscomm_virtualrate ) * ISNULL(e.ExtraPT, 0))) AS VirtualLineTotal,
+			   SUM(Linetotal_variance - (extra_winloss_actualrate - extra_winloss_virtualrate) * ISNULL(e.ExtraPT, 0) - grosscomm_variance * ISNULL(e.ExtraPT, 0)) AS VarianceIncome,
                SUM(turnover_actualrate - ISNULL(e.ExtraPT, 0) * stake_actualrate) AS RealTurnover,
                SUM(turnover_virtualrate - ISNULL(e.ExtraPT, 0) * stake_virtualrate) AS VirtualTurnover,
                SUM(CASE ISNULL(e.ExtraPT, 0)
@@ -1297,8 +1363,8 @@ AS
                SUM(position_actualrate) Position,
                SUM(commission_actualrate) Commission,
                SUM(LineTotal_actualrate - (( extra_winloss_actualrate + grosscomm_actualrate ) * ISNULL(e.ExtraPT, 0))) AS RealLineTotal,
-               SUM(Linetotal_virtualrate - (( extra_winloss_virtualrate + grosscomm_actualrate ) * ISNULL(e.ExtraPT, 0))) AS VirtualLineTotal,
-			   SUM(Linetotal_variance - (extra_winloss_actualrate - extra_winloss_virtualrate) * ISNULL(e.ExtraPT, 0)) AS VarianceIncome,
+               SUM(Linetotal_virtualrate - (( extra_winloss_virtualrate + grosscomm_virtualrate ) * ISNULL(e.ExtraPT, 0))) AS VirtualLineTotal,
+			   SUM(Linetotal_variance - (extra_winloss_actualrate - extra_winloss_virtualrate) * ISNULL(e.ExtraPT, 0) - grosscomm_variance * ISNULL(e.ExtraPT, 0)) AS VarianceIncome,
                SUM(turnover_actualrate - ISNULL(e.ExtraPT, 0) * stake_actualrate) AS RealTurnover,
                SUM(turnover_virtualrate - ISNULL(e.ExtraPT, 0) * stake_virtualrate) AS VirtualTurnover,
                SUM(CASE ISNULL(e.ExtraPT, 0)
@@ -1493,8 +1559,3 @@ AS
         DROP TABLE #Result;
         DROP TABLE #SportBettype;
     END;
-GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_Rpt_CompanyWinLoss_Products_14] TO [vnteam];
-GO
-GRANT EXECUTE ON [dbo].[Acc_Rpt_CompanyWinLoss_Products_14] TO [bodbAdminNet];
-GO

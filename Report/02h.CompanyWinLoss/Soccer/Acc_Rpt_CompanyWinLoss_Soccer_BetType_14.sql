@@ -174,19 +174,19 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_BetType_14] @EndDate='2020-01-01',@StartDate
                                                                                                     ELSE winlost - actual_stake + b.scomm / ( 1 - b.tpositiontaking )
                                                                                                 END ) * ISNULL(e.ExtraPT, 0)) * actualrate) AS RealIncome,
                       SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost - CASE
-                                                                                          WHEN tpositiontaking = 1
-                                                                                          THEN 0
-                                                                                          ELSE( winlost - actual_stake ) * ISNULL(e.ExtraPT, 0)
-                                                                                      END ) * virtualrate + ( scomm - ( CASE
-                                                                                                                            WHEN tpositiontaking = 1
-                                                                                                                            THEN 0
-                                                                                                                            ELSE b.scomm / ( 1 - b.tpositiontaking )
-                                                                                                                        END ) * ISNULL(e.ExtraPT, 0)) * actualrate) AS VirtualIncome,
-					  SUM((winlost - actual_stake + awinlost + mwinlost + swinlost - CASE
-                                                                                          WHEN tpositiontaking = 1
-                                                                                          THEN 0
-                                                                                          ELSE( winlost - actual_stake ) * ISNULL(e.ExtraPT, 0)
-                                                                                      END) * (actualrate - virtualrate)) VarianceIncome,
+                                                                                    WHEN tpositiontaking = 1
+                                                                                    THEN 0
+                                                                                    ELSE( winlost - actual_stake ) * ISNULL(e.ExtraPT, 0)
+                                                                                END ) * virtualrate + ( scomm - ( CASE
+                                                                                                                    WHEN tpositiontaking = 1
+                                                                                                                    THEN 0
+                                                                                                                    ELSE b.scomm / ( 1 - b.tpositiontaking )
+                                                                                                                END ) * ISNULL(e.ExtraPT, 0)
+																										) * actualrate * CASE WHEN virtualrate < actualrate THEN virtualrate / actualrate ELSE 1 END 
+					) VirtualIncome,
+					SUM((winlost - actual_stake + awinlost + mwinlost + swinlost - CASE WHEN tpositiontaking = 1 THEN 0 ELSE( winlost - actual_stake ) * ISNULL(e.ExtraPT, 0) END
+					+ CASE WHEN virtualrate < actualrate THEN (b.scomm -  (CASE WHEN tpositiontaking = 1 THEN 0 ELSE b.scomm / (1 - b.tpositiontaking) END) * ISNULL(e.ExtraPT, 0)) ELSE 0 END															  
+																				) * (actualrate - virtualrate)) VarianceIncome,
                       SUM(CASE
                               WHEN tpositiontaking = 1
                               THEN 0
@@ -251,19 +251,19 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_BetType_14] @EndDate='2020-01-01',@StartDate
                                                                                                     ELSE winlost - actual_stake + b.scomm / ( 1 - b.tpositiontaking )
                                                                                                 END ) * ISNULL(e.ExtraPT, 0)) * actualrate) AS RealIncome,
                       SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost - CASE
-                                                                                          WHEN tpositiontaking = 1
-                                                                                          THEN 0
-                                                                                          ELSE( winlost - actual_stake ) * ISNULL(e.ExtraPT, 0)
-                                                                                      END ) * virtualrate + ( scomm - ( CASE
-                                                                                                                            WHEN tpositiontaking = 1
-                                                                                                                            THEN 0
-                                                                                                                            ELSE b.scomm / ( 1 - b.tpositiontaking )
-                                                                                                                        END ) * ISNULL(e.ExtraPT, 0)) * actualrate) AS VirtualIncome,
-					  SUM((winlost - actual_stake + awinlost + mwinlost + swinlost - CASE
-                                                                                          WHEN tpositiontaking = 1
-                                                                                          THEN 0
-                                                                                          ELSE( winlost - actual_stake ) * ISNULL(e.ExtraPT, 0)
-                                                                                      END) * (actualrate - virtualrate)) VarianceIncome,
+                                                                                    WHEN tpositiontaking = 1
+                                                                                    THEN 0
+                                                                                    ELSE( winlost - actual_stake ) * ISNULL(e.ExtraPT, 0)
+                                                                                END ) * virtualrate + ( scomm - ( CASE
+                                                                                                                    WHEN tpositiontaking = 1
+                                                                                                                    THEN 0
+                                                                                                                    ELSE b.scomm / ( 1 - b.tpositiontaking )
+                                                                                                                END ) * ISNULL(e.ExtraPT, 0)
+																										) * actualrate * CASE WHEN virtualrate < actualrate THEN virtualrate / actualrate ELSE 1 END 
+					) VirtualIncome,
+					SUM((winlost - actual_stake + awinlost + mwinlost + swinlost - CASE WHEN tpositiontaking = 1 THEN 0 ELSE( winlost - actual_stake ) * ISNULL(e.ExtraPT, 0) END
+					+ CASE WHEN virtualrate < actualrate THEN (b.scomm -  (CASE WHEN tpositiontaking = 1 THEN 0 ELSE b.scomm / (1 - b.tpositiontaking) END) * ISNULL(e.ExtraPT, 0)) ELSE 0 END															  
+																				) * (actualrate - virtualrate)) VarianceIncome,
                       SUM(CASE
                               WHEN tpositiontaking = 1
                               THEN 0
@@ -418,19 +418,19 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_BetType_14] @EndDate='2020-01-01',@StartDate
                                                                                                      ELSE winlost - actual_stake + b.scomm / ( 1 - b.tpositiontaking )
                                                                                                  END ) * ISNULL(e.ExtraPT, 0)) * actualrate) AS RealIncome,
                       -SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost - CASE
-                                                                                           WHEN tpositiontaking = 1
-                                                                                           THEN 0
-                                                                                           ELSE( winlost - actual_stake ) * ISNULL(e.ExtraPT, 0)
-                                                                                       END ) * virtualrate + ( scomm - ( CASE
-                                                                                                                             WHEN tpositiontaking = 1
-                                                                                                                             THEN 0
-                                                                                                                             ELSE b.scomm / ( 1 - b.tpositiontaking )
-                                                                                                                         END ) * ISNULL(e.ExtraPT, 0)) * actualrate) AS VirtualIncome,
-					  -SUM((winlost - actual_stake + awinlost + mwinlost + swinlost - CASE
-                                                                                          WHEN tpositiontaking = 1
-                                                                                          THEN 0
-                                                                                          ELSE( winlost - actual_stake ) * ISNULL(e.ExtraPT, 0)
-                                                                                      END) * (actualrate - virtualrate)) VarianceIncome,
+                                                                                    WHEN tpositiontaking = 1
+                                                                                    THEN 0
+                                                                                    ELSE( winlost - actual_stake ) * ISNULL(e.ExtraPT, 0)
+                                                                                END ) * virtualrate + ( scomm - ( CASE
+                                                                                                                    WHEN tpositiontaking = 1
+                                                                                                                    THEN 0
+                                                                                                                    ELSE b.scomm / ( 1 - b.tpositiontaking )
+                                                                                                                END ) * ISNULL(e.ExtraPT, 0)
+																										) * actualrate * CASE WHEN virtualrate < actualrate THEN virtualrate / actualrate ELSE 1 END 
+					) VirtualIncome,
+					-SUM((winlost - actual_stake + awinlost + mwinlost + swinlost - CASE WHEN tpositiontaking = 1 THEN 0 ELSE( winlost - actual_stake ) * ISNULL(e.ExtraPT, 0) END
+					+ CASE WHEN virtualrate < actualrate THEN (b.scomm -  (CASE WHEN tpositiontaking = 1 THEN 0 ELSE b.scomm / (1 - b.tpositiontaking) END) * ISNULL(e.ExtraPT, 0)) ELSE 0 END															  
+																				) * (actualrate - virtualrate)) VarianceIncome,
                       SUM(CASE
                               WHEN tpositiontaking = 1
                               THEN 0
