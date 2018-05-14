@@ -35,6 +35,7 @@ Revision:
 	- 2018.02.27@Tom: Integrate Colossus Bets - Free Play Integration (#90774)
 	- 20180319@Cherry: Integrate ONE RNG Jackpot (#91712)
 	- 20180507@Tom: Include Exchange Bettype into group bettypes no need ABS() Turnover data (#94736)
+	- 20180411@Cherry: Integrate Pragmatic (#92642)
 */
 
 BEGIN	
@@ -70,7 +71,7 @@ BEGIN
     UPDATE sb
     SET sb.SportType = s.SportType
     FROM @SportBettype sb
-	   INNER JOIN SportBettypeMatrix s WITH(NOLOCK) ON sb.BetType = s.BetType AND s.ProductID IN (23, 31) -- NG2, Exchange
+	   INNER JOIN SportBettypeMatrix s WITH(NOLOCK) ON sb.BetType = s.BetType AND s.ProductID IN (23, 31, 32) -- NG2, Exchange, Pragmatic
 
 	SELECT distinct winlostdate cnt FROM bettrans with (nolock) WHERE winlostdate = @winlostdate AND bettype < 19999
 	IF @@ROWCOUNT = 1
@@ -227,7 +228,7 @@ BEGIN
 			inner join @SportBettype sb on b.bettype = sb.Bettype
 		WHERE
 			(b.bettype < 19999 and b.bettype not in (29,31,32,33,1003,2799))
-			AND sb.ProductID NOT IN (6, 17, 21, 22, 24)
+			AND sb.ProductID NOT IN (6, 17, 21, 22, 24, 32)
 			AND winlostdate = @winlostdate
 			AND statusID NOT IN (101, 102,103,121) --('VOID','REJECT','DONE','REFUND')
 			AND ruben = 1
@@ -332,7 +333,7 @@ BEGIN
 			bettransRnG b with (nolock)
 			inner join @SportBettype sb on b.gameID = sb.Bettype
 		WHERE
-			sb.ProductID IN (6, 17, 22, 24) -- MBC-RNG Casino, Microgaming-RNG Casino, Voidbridge, Fishing World
+			sb.ProductID IN (6, 17, 22, 24, 32) -- MBC-RNG Casino, Microgaming-RNG Casino, Voidbridge, Fishing World, Pragmatic
 			AND winlostdate = @winlostdate
 			AND statusID NOT IN (0, 1, 101, 102,103,121) --('VOID','REJECT','DONE','REFUND')			
 			AND currency <> 20
@@ -450,12 +451,12 @@ BEGIN
 		AND bodb_Report.dbo.rptWinlost.winlostdate = @winlostdate
 		AND bodb_Report.dbo.rptWinlost.bettype in (1231, 1232, 1233, 1237, 1238)			
 
-		--NG2, Exchange
+		--NG2, Exchange, Pragmatic
 		UPDATE rpt
 		SET rpt.SportType = sb.SportType
 		FROM bodb_Report.dbo.rptWinlost rpt WITH(NOLOCK)
 		  INNER JOIN @SportBettype sb on  rpt.bettype = sb.Bettype
-		WHERE sb.ProductID IN (23,31) 
+		WHERE sb.ProductID IN (23,31,32) 
 		AND rpt.winlostdate =  @winlostdate
 	END
 	ELSE
@@ -622,7 +623,7 @@ BEGIN
 				    INNER JOIN @SportBettype sb on b.bettype = sb.Bettype
 			 WHERE
 				(b.bettype < 19999 and b.bettype not in (29,31,32,33,2799))
-				AND sb.ProductID NOT IN (6, 17, 21, 22, 24)
+				AND sb.ProductID NOT IN (6, 17, 21, 22, 24, 32)
 				AND winlostdate = @winlostdate
 				AND statusID NOT IN (101, 102,103,121) ----('VOID','REJECT','DONE','REFUND')
 				AND ruben = 1
@@ -729,7 +730,7 @@ BEGIN
 				bettransRnG14 b with (nolock)
 				    INNER JOIN @SportBettype sb on b.gameID = sb.Bettype
 			WHERE
-				sb.ProductID IN (6, 17, 22,24)
+				sb.ProductID IN (6, 17, 22, 24, 32)
 				AND winlostdate = @winlostdate
 				AND statusID NOT IN (0, 1, 101, 102,103,121) ----('VOID','REJECT','DONE','REFUND')
 				AND currency <> 20
@@ -846,12 +847,12 @@ BEGIN
 			AND bodb_Report.dbo.rptWinlost.winlostdate = @winlostdate
 			AND bodb_Report.dbo.rptWinlost.bettype in (1231, 1232, 1233, 1237, 1238)	
 
-		     --NG2 & Exchange
+		     --NG2 & Exchange, Pragmatic
 		    UPDATE rpt
 		    SET rpt.SportType = sb.SportType
 		    FROM bodb_Report.dbo.rptWinlost rpt WITH(NOLOCK)
 			 INNER JOIN @SportBettype sb on  rpt.bettype = sb.Bettype
-		    WHERE sb.ProductID IN (23, 31) 
+		    WHERE sb.ProductID IN (23, 31, 32) 
 		    AND rpt.winlostdate =  @winlostdate
 		END
 	END
