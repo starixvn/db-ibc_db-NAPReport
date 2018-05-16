@@ -352,11 +352,6 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_LiveNonLive] @EndDate='2020-01-01',@StartDat
                                                                                                      THEN 0
                                                                                                      ELSE winlost - actual_stake + b.scomm / ( 1 - b.tpositiontaking )
                                                                                                  END ) * ISNULL(e.ExtraPT, 0)) * actualrate) AS RealIncome,
-                      -SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - ( CASE
-                                                                                                     WHEN tpositiontaking = 1
-                                                                                                     THEN 0
-                                                                                                     ELSE winlost - actual_stake + b.scomm / ( 1 - b.tpositiontaking )
-                                                                                                 END ) * ISNULL(e.ExtraPT, 0)) * actualrate) AS RealIncome,
                       -SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost - CASE
                                                                                     WHEN tpositiontaking = 1
                                                                                     THEN 0
