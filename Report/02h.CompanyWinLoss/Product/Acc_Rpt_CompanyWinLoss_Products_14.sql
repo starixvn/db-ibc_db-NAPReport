@@ -102,7 +102,6 @@ AS
                                  grosscomm_actualrate         MONEY,
 								 grosscomm_virtualrate        MONEY,
 								 grosscomm_variance           MONEY,
-                                 WinlossForExtraPT_actualrate MONEY,
                                  ProductId                    INT,
                                  CasinoType                   TINYINT,
                                  turnover_actualrate          MONEY,
@@ -767,7 +766,6 @@ AS
                  grosscomm_actualrate,
 				 grosscomm_virtualrate,
 				 grosscomm_variance,
-                 WinlossForExtraPT_actualrate,
                  ProductId,
                  CasinoType,
                  turnover_actualrate,
@@ -817,15 +815,6 @@ AS
 					  SUM((CASE WHEN b.virtualrate < b.actualrate 
 							   THEN  (CASE WHEN b.tpositiontaking = 1 THEN 0 ELSE b.scomm / ( 1 - b.tpositiontaking ) END)
 							   ELSE 0 END) * (actualrate - virtualrate)) grosscomm_variance,
-                      SUM(( CASE
-                                WHEN tpositiontaking = 1
-                                THEN 0
-                                WHEN b.gameId IN( 2199, 2399, 2999 )
-                                THEN 0 --Progressive Jackpot
-                                WHEN b.gameId IN( 2198, 2398, 2998 )
-                                THEN( ContributionRate * BetStake )  --Jackpot Contribution
-                                ELSE winlost - actual_stake
-                            END ) * b.actualrate) AS WinlossForExtraPT_actualrate,
                       s.ProductID,
                       s.CasinoType,
                       SUM(CASE
@@ -898,7 +887,6 @@ AS
                  grosscomm_actualrate,
 				 grosscomm_virtualrate,
 				 grosscomm_variance,
-                 WinlossForExtraPT_actualrate,
                  ProductId,
                  CasinoType,
                  turnover_actualrate,
@@ -931,11 +919,6 @@ AS
 					  SUM((CASE WHEN b.virtualrate < b.actualrate 
 							   THEN  (CASE WHEN b.tpositiontaking = 1 THEN 0 ELSE b.scomm / ( 1 - b.tpositiontaking ) END)
 							   ELSE 0 END) * (actualrate - virtualrate)) grosscomm_variance,
-                      SUM(CASE
-                              WHEN tpositiontaking = 1
-                              THEN 0
-                              ELSE winlost - actual_stake
-                          END * b.actualrate) AS WinlossForExtraPT_actualrate,
                       s.ProductID,
                       s.CasinoType,
                       SUM(CASE
@@ -1038,7 +1021,7 @@ AS
                       SUM(CASE ISNULL(e.ExtraPT, 0)
                               WHEN 0
                               THEN 0
-                              ELSE( winlost_actualrate + grosscomm_actualrate ) * e.ExtraPT
+                              ELSE( extra_winloss_actualrate + grosscomm_actualrate ) * e.ExtraPT
                           END) AS NewExtraPT
                FROM #src b
                     LEFT JOIN #ExtraPT_Sel e ON b.srecommend = e.superID
@@ -1093,7 +1076,7 @@ AS
                       SUM(CASE ISNULL(e.ExtraPT, 0)
                               WHEN 0
                               THEN 0
-                              ELSE( winlost_actualrate + grosscomm_actualrate ) * e.ExtraPT
+                              ELSE( extra_winloss_actualrate + grosscomm_actualrate ) * e.ExtraPT
                           END) AS NewExtraPT
                FROM #src b
                     LEFT JOIN #ExtraPT_Sel e ON b.srecommend = e.superID
@@ -1139,7 +1122,7 @@ AS
                       SUM(CASE ISNULL(e.ExtraPT, 0)
                               WHEN 0
                               THEN 0
-                              ELSE( winlost_actualrate + grosscomm_actualrate ) * e.ExtraPT
+                              ELSE( extra_winloss_actualrate + grosscomm_actualrate ) * e.ExtraPT
                           END) AS NewExtraPT
                FROM #src b
                     LEFT JOIN #ExtraPT_Sel e ON b.srecommend = e.superID
@@ -1184,7 +1167,7 @@ AS
                       SUM(CASE ISNULL(e.ExtraPT, 0)
                               WHEN 0
                               THEN 0
-                              ELSE( winlost_actualrate + grosscomm_actualrate ) * e.ExtraPT
+                              ELSE( extra_winloss_actualrate + grosscomm_actualrate ) * e.ExtraPT
                           END) AS NewExtraPT
                FROM #src b
                     LEFT JOIN #ExtraPT_Sel e ON b.srecommend = e.superID
@@ -1256,7 +1239,7 @@ AS
                       SUM(CASE ISNULL(e.ExtraPT, 0)
                               WHEN 0
                               THEN 0
-                              ELSE( winlost_actualrate + grosscomm_actualrate ) * e.ExtraPT
+                              ELSE( extra_winloss_actualrate + grosscomm_actualrate ) * e.ExtraPT
                           END) AS NewExtraPT
                FROM #src b
                     LEFT JOIN #ExtraPT_Sel e ON b.srecommend = e.superID
@@ -1315,7 +1298,7 @@ AS
                SUM(CASE ISNULL(e.ExtraPT, 0)
                        WHEN 0
                        THEN 0
-                       ELSE( winlost_actualrate + grosscomm_actualrate ) * e.ExtraPT
+                       ELSE( extra_winloss_actualrate + grosscomm_actualrate ) * e.ExtraPT
                    END) AS NewExtraPT
                FROM #src b
                     LEFT JOIN #ExtraPT_Sel e ON b.srecommend = e.superID
@@ -1372,7 +1355,7 @@ AS
                        THEN 0
                        ELSE( winlost_actualrate ) * e.ExtraPT
                    END) AS ExtraPT,
-               SUM(( b.WinlossForExtraPT_actualrate + grosscomm_actualrate ) * ISNULL(e.ExtraPT, 0)) AS NewExtraPT
+               SUM(( b.extra_winloss_actualrate + grosscomm_actualrate ) * ISNULL(e.ExtraPT, 0)) AS NewExtraPT
                FROM #srcDetail b
                     LEFT JOIN #ExtraPT_Sel e ON b.srecommend = e.superID
                                             AND e.ProductID = b.ProductId
