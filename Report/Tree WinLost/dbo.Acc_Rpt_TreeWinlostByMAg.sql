@@ -38,6 +38,7 @@ Revisions:
 	- 20160819@Robert: Add Bet Trade Winloss bettype=904 (#62630)
 	- 20161129@Robert: NAP Reports - Integrate Fishing World Product [RedmindID: #67757]
 	- 2018.03.19@Franklin: Integrate  ONE RNG Jackpot (#91712)
+	- 20180411@Franklin: Integrate Pragmatic (#92642)
 */  
 
 SET NOCOUNT ON
@@ -330,7 +331,7 @@ CREATE CLUSTERED INDEX IDX_Bettype_bettype_ProductID ON #tmpBettype(bettype,Prod
 		FROM bettransRNG b WITH(ROWLOCK) 
 			INNER JOIN #tmpBettype t ON t.bettype = b.gameID 
 		WHERE winlostdate BETWEEN @FromDate AND @ToDate
-		AND t.ProductID IN (6, 17, 22, 24)
+		AND t.ProductID IN (6, 17, 22, 24, 32)
 		   AND b.statusID NOT IN (0, 1, 101, 102, 103)   
 		   and b.currency <> 20
 		   and b.mrecommend = @mrecommend
@@ -355,7 +356,7 @@ SELECT b.recommend,
 FROM bettrans b WITH(ROWLOCK) 
 	INNER JOIN #tmpBettype t ON t.bettype = b.bettype 	
 WHERE winlostdate BETWEEN @FromDate AND @ToDate
-    AND t.ProductID NOT IN (2, 6, 9, 17, 21, 22, 24)
+    AND t.ProductID NOT IN (2, 6, 9, 17, 21, 22, 24, 32)
     and b.ruben = 1  
     AND b.statusID NOT IN (101, 102, 103)   
     and b.currency <> 20
@@ -455,6 +456,7 @@ DROP TABLE #TmpResultAll
 	@showBI =1,  
 	@showVS = 1
 */
+
 GO
 
 SET QUOTED_IDENTIFIER OFF 

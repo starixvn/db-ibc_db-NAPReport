@@ -36,6 +36,7 @@ AS
 		- 20170825@Cherry: Integrate Lucky 3 (#78214)
 		- 20171030@Kean: Integrate Bullfighting (#85712)
 		- 20171109@Kean: HotFix #86404 - List of Currencies is passed incorrectly
+		- 20180411@Franklin: Integrate Pragmatic (#92642)
 
 	Param's Explanation:  
 	  + @ListCurrency: The specified date used as one of the filter criterias, if its value is 'all' then no need to be filtered by currency
