@@ -3,23 +3,24 @@
 USE bodb02
 GO
 
-ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_MGC_Deposit]
+ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_MGC_Deposit]
 	@FromDate DATE,
 	@ToDate	DATE
 AS  
-/*  
-	Created:	20161206@Harper  
-    Task :		House month-to-date Net Income report for MicroGaming
-    DB:			DBEXT/bodb02  
+/*  	
+	Created:		20180126@Harper 
+	Description:	HDWL Letstalk - Implement Chart of NonSport product margin
+    Source :		Acc_Rpt_HouseNetIncome_MGC_Deposit
+    DB:				DBEXT/bodb02  
    
-    Revisions:  
-	
+    Revisions:
+		- 20180126@Harper - HDWL Letstalk - Implement Chart of NonSport product margin [#RedmineID: 89632]
+		
 	Param's Explanation:   
-		- 20160315@Harper: PayToSupplier using GMT +0 [RedmindID: #67062]
-		- 20170518@Harper: Fixing PayToSupplier [RedmineID: #76695]
 
-	EXEC Acc_Rpt_HouseNetIncome_MGC_Deposit_xtest '20161201', '20161210'
-*/  
+	Acc_Rpt_HouseNetIncome_MarginChart_MGC_Deposit '2018-04-01', '2018-04-30'
+  
+*/ 
 BEGIN  
 	SET NOCOUNT ON  
 
@@ -119,19 +120,22 @@ BEGIN
 		LicenseeWinLoss		MONEY,
 		LicenseeNetWin		MONEY,
 		ProgresCont			MONEY,		
-		HouseIncomeDaily	MONEY)
+		HouseIncomeDaily	MONEY,
+		TurnOver			MONEY)
 
 	INSERT INTO #TempDataMGC (RptDate, BettypeRef, GameTypeName, PartyId, CurrencyId, ProductId,
-							 LicenseeWinLoss, LicenseeNetWin, ProgresCont, HouseIncomeDaily)
+							 LicenseeWinLoss, LicenseeNetWin, ProgresCont, HouseIncomeDaily, TurnOver)
 	SELECT d.RptDate, d.BetTypeRef, d.GameTypeName, pci.PartyId, d.CurrencyId, d.ProductId,			
 			SUM(LicenseeWinLoss) AS LicenseeWinLoss,
 			SUM(LicenseeWinLoss - ProgresCont) AS LicenseeNetWin,
 			SUM(ProgresCont) AS ProgresCont,
-			SUM((LicenseeWinLoss - ProgresCont) * pci.Rate * e.Rate) AS HouseIncomeDaily
+			SUM((LicenseeWinLoss - ProgresCont) * pci.Rate * e.Rate) AS HouseIncomeDaily,
+			SUM((Turnover) * pci.Rate * e.Rate) AS TurnOver
 	FROM (
 			SELECT rpt.RptDate, SiteId, pr.ProductId, pr.BettypeRef, pr.GameTypeName, CurrencyId, 				
 				-SUM(ISNULL(Winloss, 0)) AS LicenseeWinLoss,
-				CASE WHEN pr.ProductId = 17 THEN SUM(ISNULL(ProgressiveContribution, 0)) ELSE 0 END  AS ProgresCont -- IF RNG: Contr <> 0, else = 0
+				CASE WHEN pr.ProductId = 17 THEN SUM(ISNULL(ProgressiveContribution, 0)) ELSE 0 END  AS ProgresCont, -- IF RNG: Contr <> 0, else = 0
+				SUM(ISNULL(rpt.Turnover, 0)) AS TurnOver
 			FROM bodb_LicenseeReport.dbo.rpt_ThirdPartyWL_ExtraGMT rpt WITH (NOLOCK)
 				INNER JOIN @ProductsRef pr ON rpt.BetTypeId = pr.BettypeId
 			WHERE rpt.RptDate BETWEEN @FromDate AND @ToDate
@@ -180,18 +184,19 @@ BEGIN
 	CREATE TABLE #FinalResult (
 		RptDate				VARCHAR(10),
 		LicenseeWL			MONEY,
-		PayToSupplier		MONEY
+		PayToSupplier		MONEY,
+		TurnOver			MONEY
 	)
 
-	DECLARE @HouseNetIncome MONEY
-	SELECT @HouseNetIncome = SUM(CASE WHEN s.SumByProduct <= 0 THEN 0 ELSE s.SumByProduct END) 
-	FROM ( 
-			SELECT SUM (HouseIncomeDaily) AS SumByProduct 
-			FROM #TempDataMGC GROUP BY ProductId, BettypeRef
-		) s
+	--DECLARE @HouseNetIncome MONEY
+	--SELECT @HouseNetIncome = SUM(CASE WHEN s.SumByProduct <= 0 THEN 0 ELSE s.SumByProduct END) 
+	--FROM ( 
+	--		SELECT SUM (HouseIncomeDaily) AS SumByProduct 
+	--		FROM #TempDataMGC GROUP BY ProductId, BettypeRef
+	--	) s
 									   								
-	INSERT INTO #FinalResult (RptDate, LicenseeWL)
-	SELECT 'FullRange', @HouseNetIncome	
+	INSERT INTO #FinalResult (RptDate, LicenseeWL, PayToSupplier, TurnOver)
+	SELECT 'FullRange', 0, 0, 0	
 
 	-- Processing daily data
 	DECLARE @tmpDate DATE, @DateList VARCHAR(200)
@@ -199,9 +204,9 @@ BEGIN
 
 	WHILE @tmpDate <= @TDate
 	BEGIN
-		INSERT INTO #FinalResult (RptDate, LicenseeWL)
-		SELECT CONVERT(VARCHAR(2), @tmpDate, 106), 
-			(SELECT ISNULL(SUM(HouseIncomeDaily), 0) FROM #TempDataMGC WHERE RptDate = @tmpDate) -- LicenseeWL		
+		INSERT INTO #FinalResult (RptDate, LicenseeWL, TurnOver)
+		SELECT CONVERT(VARCHAR(2), @tmpDate, 106), ISNULL(SUM(HouseIncomeDaily), 0), SUM(ISNULL(TurnOver, 0)) 
+			FROM #TempDataMGC WHERE RptDate = @tmpDate
 
 		SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate)
 	END
@@ -280,33 +285,33 @@ BEGIN
 		INNER JOIN #FinalResult r ON r.RptDate = m.RptDate3rd	
 		
 	-- Monthly
-	; WITH sums AS 
-				(	SELECT b.BettypeRef
-						, SUM(b.LicenseeNetWin * e.MYR) AS LicenseeNetWin
-						, ci.Rate, ci.FromDate, ci.ToDate, ci.MinAmount, ci.MaxAmount, ci.ChargeType
-					FROM #TempDataMGC3rd b
-						INNER JOIN #ExchangeOANDA e ON e.ExchangeDate = b.RptDate3rd AND e.ExchangeID = b.CurrencyId
-						INNER JOIN @ProductChargeInfo ci ON b.RptDate3rd BETWEEN ci.FromDate AND ci.ToDate AND b.BettypeRef = ci.BettypeRef	
-					GROUP BY b.BettypeRef, ci.Rate, ci.FromDate, ci.ToDate, ci.MinAmount, ci.MaxAmount, ci.ChargeType
-				),
-	AmtByMonth AS
-	(
-		SELECT s.BettypeRef,
-			CASE 
-					WHEN (ChargeType = 4 AND (s.LicenseeNetWin BETWEEN s.MinAmount AND s.MaxAmount)) 
-					THEN CASE 						
-							WHEN MinAmount = 0 THEN s.LicenseeNetWin * s.Rate
-							WHEN MinAmount > 0 THEN ((s.LicenseeNetWin - MinAmount) * Rate) + (s.MinAmount * 0.1)
-							ELSE 0 END
-					ELSE 0 END +
-				CASE 
-					WHEN ChargeType = 1 AND s.LicenseeNetWin > 0 THEN s.LicenseeNetWin * Rate ELSE 0 END
-				AS PayToSupplier
-		FROM sums s
-	)
-	UPDATE #FinalResult
-	SET PayToSupplier = (SELECT (-1) * SUM(PayToSupplier) FROM AmtByMonth)
-	WHERE RptDate LIKE 'FullRange'
+	--; WITH sums AS 
+	--			(	SELECT b.BettypeRef
+	--					, SUM(b.LicenseeNetWin * e.MYR) AS LicenseeNetWin
+	--					, ci.Rate, ci.FromDate, ci.ToDate, ci.MinAmount, ci.MaxAmount, ci.ChargeType
+	--				FROM #TempDataMGC3rd b
+	--					INNER JOIN #ExchangeOANDA e ON e.ExchangeDate = b.RptDate3rd AND e.ExchangeID = b.CurrencyId
+	--					INNER JOIN @ProductChargeInfo ci ON b.RptDate3rd BETWEEN ci.FromDate AND ci.ToDate AND b.BettypeRef = ci.BettypeRef	
+	--				GROUP BY b.BettypeRef, ci.Rate, ci.FromDate, ci.ToDate, ci.MinAmount, ci.MaxAmount, ci.ChargeType
+	--			),
+	--AmtByMonth AS
+	--(
+	--	SELECT s.BettypeRef,
+	--		CASE 
+	--				WHEN (ChargeType = 4 AND (s.LicenseeNetWin BETWEEN s.MinAmount AND s.MaxAmount)) 
+	--				THEN CASE 						
+	--						WHEN MinAmount = 0 THEN s.LicenseeNetWin * s.Rate
+	--						WHEN MinAmount > 0 THEN ((s.LicenseeNetWin - MinAmount) * Rate) + (s.MinAmount * 0.1)
+	--						ELSE 0 END
+	--				ELSE 0 END +
+	--			CASE 
+	--				WHEN ChargeType = 1 AND s.LicenseeNetWin > 0 THEN s.LicenseeNetWin * Rate ELSE 0 END
+	--			AS PayToSupplier
+	--	FROM sums s
+	--)
+	--UPDATE #FinalResult
+	--SET PayToSupplier = (SELECT (-1) * SUM(PayToSupplier) FROM AmtByMonth)
+	--WHERE RptDate LIKE 'FullRange'
 
 	---------------------------------------------------- Select the output -------------------------------------------------------
 	DECLARE @SQL VARCHAR(1000)
@@ -314,6 +319,8 @@ BEGIN
 					'FROM	(SELECT ProductCode, [Order], [RptDate], Figure, ISNULL(value, 0) value FROM #FinalResult' + CHAR(13) +
 							'CROSS APPLY' + CHAR(13) +
 							'(SELECT ''MGC'', 1, ''House Income'', LicenseeWL' + CHAR(13) +
+							'UNION ALL' + CHAR(13) +
+							'SELECT ''MGC'', 8, ''Turn Over'', TurnOver' + CHAR(13) +
 							'UNION ALL' + CHAR(13) +
 							'SELECT ''MGC'', 4, ''Pay to supplier'', PayToSupplier) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
 					'PIVOT' + CHAR(13) +
@@ -334,7 +341,7 @@ BEGIN
 END
 GO
 
-GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_MGC_Deposit] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].Acc_Rpt_HouseNetIncome_MarginChart_MGC_Deposit TO [bodbAdminNet]
 GO
-GRANT VIEW definition ON [dbo].[Acc_Rpt_HouseNetIncome_MGC_Deposit] TO vnteam
+GRANT VIEW definition ON [dbo].Acc_Rpt_HouseNetIncome_MarginChart_MGC_Deposit TO vnteam
 GO

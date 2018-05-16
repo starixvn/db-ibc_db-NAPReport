@@ -1,21 +1,26 @@
+/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
+
 USE bodb02
 GO
 
-ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_NG_Deposit]
+ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_NG_Deposit]
 	@FromDate DATE,
 	@ToDate	DATE
 AS  
-/*  
-	Created: Victor  
-	Date: 2016-08-15  
-    Task : House month-to-date Net Income report
-    DB: DBEXT/bodb02  
+/*  	
+	Created:		20180126@Harper 
+	Description:	HDWL Letstalk - Implement Chart of NonSport product margin
+    Source :		Acc_Rpt_HouseNetIncome_GD_Deposit
+    DB:				DBEXT/bodb02  
    
-    Revisions:  
-		- 20160909@Harper - #63853 - Return wrong data Pay to Supplier
-		- 20160922@Harper - #63926 - Remove IsApplyMinFee
+    Revisions:
+		- 20180126@Harper - HDWL Letstalk - Implement Chart of NonSport product margin [#RedmineID: 89632]
+		
 	Param's Explanation:   
-*/  
+
+	Acc_Rpt_HouseNetIncome_MarginChart_NG_Deposit '2018-04-01', '2018-04-30'
+  
+*/
 BEGIN  
 	SET NOCOUNT ON  
 
@@ -80,8 +85,10 @@ BEGIN
 			WinLoss			MONEY,
 			AComm			MONEY,
 			ProductId		TINYINT,
-			AmountToCompany MONEY)
-	INSERT INTO #TempDataNG (PartyId,rptDate,CurrencyId,WinLoss,AComm,ProductId,AmountToCompany)
+			AmountToCompany MONEY,
+			TurnOver		MONEY)
+
+	INSERT INTO #TempDataNG (PartyId,rptDate,CurrencyId,WinLoss,AComm,ProductId,AmountToCompany,TurnOver)
 	(
 		SELECT	p.PartyId,
 				b.rptDate,
@@ -89,7 +96,8 @@ BEGIN
 				SUM(ISNULL(b.MemberWL, 0)) * e.Rate,
 				SUM(ISNULL(b.CommissionA, 0)) * e.Rate,
 				p.ProductId,
-				SUM(-ISNULL(b.MemberWL, 0) * p.Rate) * e.Rate
+				SUM(-ISNULL(b.MemberWL, 0) * p.Rate) * e.Rate,
+				SUM(ISNULL(b.Turnover, 0) * p.Rate) * e.Rate
 		FROM	bodb_LicenseeReport.dbo.rpt_BettingByProduct b WITH (NOLOCK)
 				INNER JOIN #Exchange e ON b.rptDate = e.ExchangeDate AND b.CurrencyId = e.ExchangeID
 				INNER JOIN @PartyChargeInfo p ON	b.ProductId = p.ProductID 
@@ -106,38 +114,45 @@ BEGIN
 	CREATE NONCLUSTERED INDEX Idx_InvoiceData ON #TempDataNG (PartyId, ProductId)
 
 	-- Region: Result
-	CREATE TABLE #FeeData (
-		PartyId			INT,
-		ProductID		INT,
-		AComm			MONEY,
-		MinFeeApplied	MONEY,
-		WLFeeApplied	MONEY,
-		AmountToCompany	MONEY
-	)
+	--CREATE TABLE #FeeData (
+	--	PartyId			INT,
+	--	ProductID		INT,
+	--	AComm			MONEY,
+	--	MinFeeApplied	MONEY,
+	--	WLFeeApplied	MONEY,
+	--	AmountToCompany	MONEY
+	--)
 
-	INSERT INTO #FeeData(PartyId, ProductID, AComm, MinFeeApplied, WLFeeApplied, AmountToCompany)
-	EXEC dbo.Acc_Rpt_HouseNetIncome_LicenseeFee @FromDate = @FDate, @ToDate = @TDate, @Products = 'NG'
+	--INSERT INTO #FeeData(PartyId, ProductID, AComm, MinFeeApplied, WLFeeApplied, AmountToCompany)
+	--EXEC dbo.Acc_Rpt_HouseNetIncome_LicenseeFee @FromDate = @FDate, @ToDate = @TDate, @Products = 'NG'
 
 	CREATE TABLE #FinalResult (
 		RptDate				VARCHAR(10),
 		LicenseeWL			MONEY,
-		PayToSupplier		MONEY
+		PayToSupplier		MONEY,
+		TurnOver			MONEY
 	)
 
-	INSERT INTO #FinalResult (rptDate, LicenseeWL, PayToSupplier)
-	SELECT 'FullRange', ISNULL(SUM(AmountToCompany), 0), -0.4 * ISNULL(SUM(AmountToCompany), 0)
-	FROM #FeeData
-	WHERE ProductID = 2
+	--INSERT INTO #FinalResult (rptDate, LicenseeWL, PayToSupplier)
+	--SELECT 'FullRange', ISNULL(SUM(AmountToCompany), 0), -0.4 * ISNULL(SUM(AmountToCompany), 0)
+	--FROM #FeeData
+	--WHERE ProductID = 2
+
+	INSERT INTO #FinalResult (rptDate, LicenseeWL, PayToSupplier, TurnOver)
+	SELECT 'FullRange', 0, 0, 0
 
 	DECLARE @tmpDate DATE, @DateList VARCHAR(200)
 	SELECT @tmpDate = @FDate
 
 	WHILE @tmpDate <= @TDate
 	BEGIN
-		INSERT INTO #FinalResult (RptDate, LicenseeWL, PayToSupplier)
+		INSERT INTO #FinalResult (RptDate, LicenseeWL, PayToSupplier, TurnOver)
 		SELECT CONVERT(VARCHAR(2), @tmpDate, 106), 
-		(SELECT ISNULL(SUM(AmountToCompany), 0) FROM #TempDataNG WHERE ProductId = 2 AND rptDate = @tmpDate), -- LicenseeWL
-		(SELECT -0.4 * SUM(AmountToCompany) FROM #TempDataNG WHERE rptDate = @tmpDate)  
+				ISNULL(SUM(AmountToCompany), 0) , -- LicenseeWL
+				-0.4 * SUM(AmountToCompany),
+				SUM(TurnOver)
+		FROM #TempDataNG 
+		WHERE rptDate = @tmpDate AND ProductId = 2  
 
 		SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate)
 	END
@@ -151,6 +166,8 @@ BEGIN
 					'FROM	(SELECT ProductCode, [Order], [RptDate], Figure, ISNULL(value, 0) value FROM #FinalResult' + CHAR(13) +
 							'CROSS APPLY' + CHAR(13) +
 							'(SELECT ''NG'', 1, ''House Income'', LicenseeWL' + CHAR(13) +
+							'UNION ALL' + CHAR(13) +
+							'SELECT ''NG'', 8, ''Turn Over'', TurnOver' + CHAR(13) +
 							'UNION ALL' + CHAR(13) +
 							'SELECT ''NG'', 4, ''Pay to supplier'', PayToSupplier) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
 					'PIVOT' + CHAR(13) +
@@ -166,11 +183,12 @@ BEGIN
 	DROP TABLE #Exchange
 	DROP TABLE #ExchangeOANDA
 	DROP TABLE #TempDataNG
-	DROP TABLE #FeeData
+	--DROP TABLE #FeeData
 	DROP TABLE #FinalResult
 END
 GO
 
-GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_NG_Deposit] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_NG_Deposit] TO [bodbAdminNet]
 GO
-GRANT VIEW definition ON [dbo].[Acc_Rpt_HouseNetIncome_NG_Deposit] TO vnteam
+GRANT VIEW definition ON [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_NG_Deposit] TO vnteam
+GO

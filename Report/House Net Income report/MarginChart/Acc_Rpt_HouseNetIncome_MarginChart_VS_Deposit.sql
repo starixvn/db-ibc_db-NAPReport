@@ -1,23 +1,26 @@
+/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
+
 USE bodb02
 GO
 
-ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_VS_Deposit]
+ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_VS_Deposit]
 	@FromDate DATE,
 	@ToDate	DATE
 AS  
-/*  
-	Created: Victor  
-	Date: 2016-08-15  
-    Task : House month-to-date Net Income report
-    DB: DBEXT/bodb02  
+/*  	
+	Created:		20180126@Harper 
+	Description:	HDWL Letstalk - Implement Chart of NonSport product margin
+    Source :		Acc_Rpt_HouseNetIncome_VS_Deposit
+    DB:				DBEXT/bodb02  
    
-    Revisions: 
-		- 20160915@Harper - #64211 - Rebate and Discount should be included when calculating the Pay to Suplplier
-		- 20160919@Harper - #64338 - PayToSupplier of FullMonth is incorrect
-		- 20160923@Harper - #64582 - PayToSupplier should use ExchangeOANDA
-		- 20161024@Harper - #65699: HAIFA - Apply new charge rate discount for HNI report
+    Revisions:
+		- 20180126@Harper - HDWL Letstalk - Implement Chart of NonSport product margin [#RedmineID: 89632]
+		
 	Param's Explanation:   
-*/  
+
+	Acc_Rpt_HouseNetIncome_MarginChart_VS_Deposit '2018-04-01', '2018-04-30'
+  
+*/ 
 BEGIN  
 	SET NOCOUNT ON  
 
@@ -100,8 +103,10 @@ BEGIN
 			AComm			MONEY,
 			ProductId		TINYINT,
 			AmountToCompany MONEY,
-			DiscountAmount	MONEY)
-	INSERT INTO #TempDataVS (PartyId,rptDate,CurrencyId,WinLoss,AComm,ProductId,AmountToCompany, DiscountAmount)
+			DiscountAmount	MONEY,
+			TurnOver		MONEY)
+
+	INSERT INTO #TempDataVS (PartyId,rptDate,CurrencyId,WinLoss,AComm,ProductId,AmountToCompany, DiscountAmount, TurnOver)
 	(
 		SELECT	p.PartyId,
 				b.rptDate,
@@ -110,7 +115,8 @@ BEGIN
 				SUM(ISNULL(b.CommissionA, 0)) * e.Rate,
 				p.ProductId,
 				SUM(-ISNULL(b.MemberWL, 0) * p.Rate) * e.Rate,
-				SUM(-ISNULL(b.MemberWL, 0)) * ISNULL(d.Rate, 0) * e.Rate 
+				SUM(-ISNULL(b.MemberWL, 0)) * ISNULL(d.Rate, 0) * e.Rate,
+				SUM(ISNULL(b.Turnover, 0)) * ISNULL(d.Rate, 0) * e.Rate
 		FROM	bodb_LicenseeReport.dbo.rpt_BettingByProduct b WITH (NOLOCK)
 				INNER JOIN #Exchange e ON b.rptDate = e.ExchangeDate AND b.CurrencyId = e.ExchangeID
 				INNER JOIN @PartyChargeInfo p ON	b.ProductId = p.ProductID 
@@ -128,23 +134,25 @@ BEGIN
 	CREATE NONCLUSTERED INDEX Idx_InvoiceData ON #TempDataVS (PartyId, ProductId)
 
 	-- Region: Result
-	CREATE TABLE #FeeData (
-		PartyId			INT,
-		ProductID		INT,
-		AComm			MONEY,
-		MinFeeApplied	MONEY,
-		WLFeeApplied	MONEY,
-		AmountToCompany	MONEY
-	)
+	--CREATE TABLE #FeeData (
+	--	PartyId			INT,
+	--	ProductID		INT,
+	--	AComm			MONEY,
+	--	MinFeeApplied	MONEY,
+	--	WLFeeApplied	MONEY,
+	--	AmountToCompany	MONEY,
+	--	TurnOver		MONEY
+	--)
 
-	INSERT INTO #FeeData(PartyId, ProductID, AComm, MinFeeApplied, WLFeeApplied, AmountToCompany)
-	EXEC dbo.Acc_Rpt_HouseNetIncome_LicenseeFee @FromDate = @FDate, @ToDate = @TDate, @Products = 'VS'
+	--INSERT INTO #FeeData(PartyId, ProductID, AComm, MinFeeApplied, WLFeeApplied, AmountToCompany)
+	--EXEC dbo.Acc_Rpt_HouseNetIncome_LicenseeFee @FromDate = @FDate, @ToDate = @TDate, @Products = 'VS'
 
 	CREATE TABLE #FinalResult (
 		RptDate				VARCHAR(10),
 		LicenseeWL			MONEY,
 		DiscountWL			MONEY,
-		PayToSupplier		MONEY
+		PayToSupplier		MONEY,
+		TurnOver			MONEY
 	)
 
 	DECLARE @DailyPayAmt TABLE (rptDate DATE, IsDeposit BIT, Amount MONEY, LicenseeWL MONEY, VSRate FLOAT)
@@ -156,21 +164,25 @@ BEGIN
 		INNER JOIN #ExchangeOANDA oanda ON d.rptDate = oanda.ExchangeDate AND d.CurrencyId = oanda.ExchangeID
 	GROUP BY d.rptDate, p.IsDeposit, p.VSRate
 
-	INSERT INTO #FinalResult (rptDate, LicenseeWL, DiscountWL, PayToSupplier)
-	SELECT 'FullRange', ISNULL(SUM(WLFeeApplied), 0), 0, -1 * (SELECT VSRate * CASE WHEN SUM(LicenseeWL) < 0 THEN 0 ELSE SUM(LicenseeWL) END FROM @DailyPayAmt GROUP BY VSRate)
-	FROM #FeeData
-	WHERE ProductID = 5
+	--INSERT INTO #FinalResult (rptDate, LicenseeWL, DiscountWL, PayToSupplier)
+	--SELECT 'FullRange', ISNULL(SUM(WLFeeApplied), 0), 0, -1 * (SELECT VSRate * CASE WHEN SUM(LicenseeWL) < 0 THEN 0 ELSE SUM(LicenseeWL) END FROM @DailyPayAmt GROUP BY VSRate)
+	--FROM #FeeData
+	--WHERE ProductID = 5
+
+	INSERT INTO #FinalResult (rptDate, LicenseeWL, DiscountWL, PayToSupplier, TurnOver)
+	SELECT 'FullRange', 0, 0, 0, 0	
 
 	DECLARE @tmpDate DATE, @DateList VARCHAR(200)
 	SELECT @tmpDate = @FDate
 
 	WHILE @tmpDate <= @TDate
 	BEGIN
-		INSERT INTO #FinalResult (RptDate, LicenseeWL, DiscountWL, PayToSupplier)
+		INSERT INTO #FinalResult (RptDate, LicenseeWL, DiscountWL, PayToSupplier, TurnOver)
 		SELECT CONVERT(VARCHAR(2), @tmpDate, 106), 
 			(SELECT ISNULL(SUM(AmountToCompany), 0) FROM #TempDataVS WHERE ProductId = 5 AND rptDate = @tmpDate), -- LicenseeWL
 			(SELECT -ISNULL(SUM(DiscountAmount), 0) FROM #TempDataVS WHERE ProductId = 5 AND rptDate = @tmpDate), -- DiscountWL
-			(SELECT ISNULL(SUM(Amount), 0) FROM @DailyPayAmt WHERE rptDate = @tmpDate)
+			(SELECT ISNULL(SUM(Amount), 0) FROM @DailyPayAmt WHERE rptDate = @tmpDate),
+			(SELECT ISNULL(SUM(TurnOver), 0) FROM #TempDataVS WHERE ProductId = 5 AND rptDate = @tmpDate) -- TurnOver
 
 		SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate)
 	END
@@ -187,6 +199,8 @@ BEGIN
 							'UNION ALL' + CHAR(13) +
 							'SELECT ''VS'', 3, ''Rebate & Discount'', DiscountWL' + CHAR(13) +
 							'UNION ALL' + CHAR(13) +
+							'SELECT ''VS'', 8, ''Turn Over'', TurnOver' + CHAR(13) +
+							'UNION ALL' + CHAR(13) +
 							'SELECT ''VS'', 4, ''Pay to supplier'', PayToSupplier) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
 					'PIVOT' + CHAR(13) +
 					'(' + CHAR(13) +
@@ -201,12 +215,13 @@ BEGIN
 	DROP TABLE #Exchange
 	DROP TABLE #ExchangeOANDA
 	DROP TABLE #TempDataVS
-	DROP TABLE #FeeData
+	--DROP TABLE #FeeData
 	DROP TABLE #DiscountGroup
 	DROP TABLE #FinalResult
 END
 GO
 
-GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_VS_Deposit] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_VS_Deposit] TO [bodbAdminNet]
 GO
-GRANT VIEW definition ON [dbo].[Acc_Rpt_HouseNetIncome_VS_Deposit] TO vnteam
+GRANT VIEW definition ON [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_VS_Deposit] TO vnteam
+GO
