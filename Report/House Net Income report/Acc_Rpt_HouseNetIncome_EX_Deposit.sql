@@ -16,7 +16,7 @@ AS
 
 	Param's Explanation:   
 
-	EXEC Acc_Rpt_HouseNetIncome_EX_Deposit_UAT2 '20180501', '20180520'
+	EXEC Acc_Rpt_HouseNetIncome_EX_Deposit '20180501', '20180520'
 */  
 BEGIN  
 	SET NOCOUNT ON  
@@ -55,7 +55,7 @@ BEGIN
 	INSERT INTO @PartyChargeInfo(PartyId, LicenseeId, ParentID, Rate, Fromdate, Todate, ProductID)
 	(
 		SELECT	ci.PartyID, ci.LicenseeID, p.ParentID, ci.DI_Rate, ci.Fromdate, ci.ToDate, ci.ProductID
-		FROM	bodb_licensee.dbo.LA_f_ChargeInfo_UAT2(@PartyIDs, @FDate, @TDate, 'BX', 'OA', 1) ci	
+		FROM	bodb_licensee.dbo.LA_f_ChargeInfo(@PartyIDs, @FDate, @TDate, 'BX', 'OA', 1) ci	
 			INNER JOIN @TmpPartyList p ON ci.PartyID = p.PartyID	
 		WHERE	DI_Rate > 0 AND ci.ChargeType = 1 -- get PT
 	)
@@ -63,7 +63,7 @@ BEGIN
 	INSERT INTO @PartyCharge3rdInfo( LicenseeId, Rate, FromDate, ToDate, ProductID )	
 	(
 		SELECT DISTINCT p.LicenseeID, ci.DI_Rate, ci.Fromdate, ci.ToDate, ci.ProductID
-		FROM	bodb_licensee.dbo.LA_f_ChargeInfo3rd_UAT2(@FDate, @TDate, 'BX', 'OA') ci	
+		FROM	bodb_licensee.dbo.LA_f_ChargeInfo3rd(@FDate, @TDate, 'BX', 'OA') ci	
 			INNER JOIN @PartyChargeInfo p ON ci.IsParent = 0 AND p.PartyID = ci.PartyId		
 		WHERE ci.ChargeType = 1 AND ci.IsDeposit = 1
 	)
@@ -71,7 +71,7 @@ BEGIN
 	INSERT INTO @PartyCharge3rdInfo( LicenseeId, Rate, FromDate, ToDate, ProductID )	
 	(
 		SELECT DISTINCT p.LicenseeID, ci.DI_Rate, ci.Fromdate, ci.ToDate, ci.ProductID
-		FROM	bodb_licensee.dbo.LA_f_ChargeInfo3rd_UAT2(@FDate, @TDate, 'BX', 'OA') ci	
+		FROM	bodb_licensee.dbo.LA_f_ChargeInfo3rd(@FDate, @TDate, 'BX', 'OA') ci	
 			INNER JOIN @PartyChargeInfo p ON ci.IsParent = 1 AND p.ParentID = ci.PartyId		
 		WHERE ci.ChargeType = 1 AND ci.IsDeposit = 1
 			AND NOT EXISTS (SELECT 1 FROM @PartyCharge3rdInfo ci WHERE ci.LicenseeId = p.LicenseeId)
