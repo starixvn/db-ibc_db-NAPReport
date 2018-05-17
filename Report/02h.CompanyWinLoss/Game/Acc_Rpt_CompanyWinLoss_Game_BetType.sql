@@ -99,7 +99,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_BetType] @EndDate='2020-01-01',@StartDate='201
                               SUM(CASE
                                       WHEN tpositiontaking = 1
                                       THEN 0
-                                      ELSE( 1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * ABS(b.stake) * CASE
+                                      ELSE( 1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * b.stake * CASE
                                                                                                                WHEN virtualrate / actualrate - 1 > 0
                                                                                                                THEN virtualrate
                                                                                                                ELSE actualrate
@@ -155,7 +155,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_BetType] @EndDate='2020-01-01',@StartDate='201
                                       SUM(CASE
                                               WHEN tpositiontaking = 1
                                               THEN 0
-                                              ELSE( 1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * ABS(b.stake) * CASE
+                                              ELSE( 1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * b.stake * CASE
                                                                                                                        WHEN virtualrate / actualrate - 1 > 0
                                                                                                                        THEN virtualrate
                                                                                                                        ELSE actualrate
@@ -200,7 +200,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_BetType] @EndDate='2020-01-01',@StartDate='201
                                               SUM(CASE
                                                       WHEN tpositiontaking = 1
                                                       THEN 0
-                                                      ELSE( 1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * ABS(b.stake) * CASE
+                                                      ELSE( 1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * b.stake * CASE
                                                                                                                                WHEN virtualrate / actualrate - 1 > 0
                                                                                                                                THEN virtualrate
                                                                                                                                ELSE actualrate

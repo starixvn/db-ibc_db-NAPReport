@@ -97,7 +97,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Bettrade_Site] @StartDate='2016-08-24', @EndDate='2
                SUM(CASE
                        WHEN tpositiontaking = 1
                        THEN 0
-                       ELSE( 1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * ABS(b.stake) * CASE
+                       ELSE( 1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * b.stake * CASE
                                                                                                 WHEN virtualrate / actualrate - 1 > 0
                                                                                                 THEN virtualrate
                                                                                                 ELSE actualrate
