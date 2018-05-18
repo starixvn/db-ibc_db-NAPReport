@@ -56,6 +56,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_SystemParlay] @EndDate='2020-01-01',@StartDate='201
                             RowName         NVARCHAR(50),
                             MemberWinLoss   MONEY,
                             SMAWinLoss      MONEY,
+							ExtraPT         MONEY,
                             Commission      MONEY,
                             RealIncome      MONEY,
                             VirtualIncome   MONEY,
@@ -78,6 +79,11 @@ EXEC [Acc_Rpt_CompanyWinLoss_SystemParlay] @EndDate='2020-01-01',@StartDate='201
                               'System Parlay(' + status + ')' AS RowName,
                               SUM(( winlost - actual_stake ) * actualrate) MemberWinLost,
                               SUM(( awinlost + mwinlost + swinlost ) * actualrate) AS SMAWinLoss,
+							  SUM((CASE
+									  WHEN b.tpositiontaking = 1
+									  THEN 0
+									  ELSE(winlost - actual_stake ) + b.scomm / ( 1 - b.tpositiontaking )
+								  END) * ISNULL(e.ExtraPT, 0) * actualrate) AS ExtraPT,
                               SUM(scomm * actualrate) Commission,
                               SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - ( CASE
                                                                                                             WHEN tpositiontaking = 1
@@ -146,6 +152,11 @@ EXEC [Acc_Rpt_CompanyWinLoss_SystemParlay] @EndDate='2020-01-01',@StartDate='201
                               'System Parlay(' + status + ')' AS RowName,
                               SUM(( winlost - actual_stake ) * actualrate) MemberWinLost,
                               SUM(( awinlost + mwinlost + swinlost ) * actualrate) AS SMAWinLoss,
+							  SUM((CASE
+									  WHEN b.tpositiontaking = 1
+									  THEN 0
+									  ELSE(winlost - actual_stake ) + b.scomm / ( 1 - b.tpositiontaking )
+								  END) * ISNULL(e.ExtraPT, 0) * actualrate) AS ExtraPT,
                               SUM(scomm * actualrate) Commission,
                               SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - ( CASE
                                                                                                             WHEN tpositiontaking = 1
@@ -215,6 +226,11 @@ EXEC [Acc_Rpt_CompanyWinLoss_SystemParlay] @EndDate='2020-01-01',@StartDate='201
                               'System Parlay(' + status + ')' AS RowName,
                               SUM(( winlost - actual_stake ) * actualrate) MemberWinLost,
                               SUM(( awinlost + mwinlost + swinlost ) * actualrate) AS SMAWinLoss,
+							  SUM((CASE
+									  WHEN b.tpositiontaking = 1
+									  THEN 0
+									  ELSE(winlost - actual_stake ) + b.scomm / ( 1 - b.tpositiontaking )
+								  END) * ISNULL(e.ExtraPT, 0) * actualrate) AS ExtraPT,
                               SUM(scomm * actualrate) Commission,
                               SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - ( CASE
                                                                                                             WHEN tpositiontaking = 1
@@ -277,6 +293,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_SystemParlay] @EndDate='2020-01-01',@StartDate='201
                d.RowName AS RowName,
                d.MemberWinLoss AS MemberWinLoss,
                d.SMAWinLoss AS SMAWinLoss,
+			   -d.ExtraPT AS ExtraPT,
                d.Commission AS Commission,
                d.RealIncome AS RealIncome,
                d.VirtualIncome AS VirtualIncome,

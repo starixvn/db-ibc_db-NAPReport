@@ -1,10 +1,12 @@
-IF EXISTS( SELECT *
-           FROM sys.objects
-           WHERE object_id = OBJECT_ID(N'[dbo].[Acc_Rpt_CompanyWinLoss_Sportsbook_MatchDetail]')
-             AND type IN( N'P', N'PC' ))
-DROP PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_Sportsbook_MatchDetail];
+USE [bodb02]
 GO
-CREATE PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_Sportsbook_MatchDetail]
+/****** Object:  StoredProcedure [dbo].[Acc_Rpt_CompanyWinLoss_Sportsbook_MatchDetail]    Script Date: 5/9/2018 12:43:06 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+/****** Object:  Stored Procedure dbo.Acc_Rpt_CompanyWinLoss_Sportsbook_MatchDetail    Script Date: 5/2/2018 9:36:29 AM ******/
+ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_Sportsbook_MatchDetail]
        @StartDate SMALLDATETIME,
        @EndDate   SMALLDATETIME,
        @SportType SMALLINT = 1,
@@ -93,6 +95,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_MatchDetail] @EndDate='2020-01-01',@Star
                             AwayId          INT,
                             MemberWinLoss   MONEY,
                             SMAWinLoss      MONEY,
+							ExtraPT       MONEY,
                             Commission      MONEY,
                             RealIncome      MONEY,
                             VirtualIncome   MONEY,
@@ -111,6 +114,11 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_MatchDetail] @EndDate='2020-01-01',@Star
                       m.AwayId,
                       SUM(( winlost - actual_stake ) * actualrate) MemberWinLoss,
                       SUM(( awinlost + mwinlost + swinlost ) * actualrate) AS SMAWinLoss,
+					  SUM((CASE
+                              WHEN b.tpositiontaking = 1
+                              THEN 0
+                              ELSE(winlost - actual_stake ) + b.scomm / ( 1 - b.tpositiontaking )
+                          END) * ISNULL(e.ExtraPT, 0) * actualrate) AS ExtraPT,
                       SUM(scomm * actualrate) Commission,
                       SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - ( CASE
                                                                                                     WHEN tpositiontaking = 1
@@ -179,6 +187,11 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_MatchDetail] @EndDate='2020-01-01',@Star
                       0 AwayId,
                       -SUM(( winlost - actual_stake ) * actualrate) MemberWinLoss,
                       -SUM(( awinlost + mwinlost + swinlost ) * actualrate) AS SMAWinLoss,
+					  SUM((CASE
+                              WHEN b.tpositiontaking = 1
+                              THEN 0
+                              ELSE(winlost - actual_stake ) + b.scomm / ( 1 - b.tpositiontaking )
+                          END) * ISNULL(e.ExtraPT, 0) * actualrate) AS ExtraPT,
                       SUM(scomm * actualrate) Commission,
                       -SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - ( CASE
                                                                                                      WHEN tpositiontaking = 1
@@ -242,6 +255,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_MatchDetail] @EndDate='2020-01-01',@Star
                d.AwayId,
                d.MemberWinLoss AS MemberWinLoss,
                d.SMAWinLoss AS SMAWinLoss,
+			   -d.ExtraPT AS ExtraPT,
                d.Commission AS Commission,
                d.RealIncome AS RealIncome,
                d.VirtualIncome AS VirtualIncome,

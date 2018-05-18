@@ -1,12 +1,12 @@
-USE bodb02;
+USE [bodb02]
 GO
-IF EXISTS( SELECT *
-           FROM sys.objects
-           WHERE object_id = OBJECT_ID(N'[dbo].[Acc_Rpt_CompanyWinLoss_ColossusBet_BetType]')
-             AND type IN( N'P', N'PC' ))
-DROP PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_ColossusBet_BetType];
+/****** Object:  StoredProcedure [dbo].[Acc_Rpt_CompanyWinLoss_ColossusBet_BetType]    Script Date: 5/9/2018 12:43:06 PM ******/
+SET ANSI_NULLS ON
 GO
-CREATE PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_ColossusBet_BetType]
+SET QUOTED_IDENTIFIER ON
+GO
+/****** Object:  Stored Procedure dbo.Acc_Rpt_CompanyWinLoss_ColossusBet_BetType    Script Date: 5/2/2018 9:36:29 AM ******/
+ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_ColossusBet_BetType]
        @StartDate SMALLDATETIME,
        @EndDate   SMALLDATETIME
 AS
@@ -74,6 +74,11 @@ EXEC [Acc_Rpt_CompanyWinLoss_ColossusBet_BetType] @StartDate='2016-09-13', @EndD
                                         END AS RowName,
                    SUM(( winlost - actual_stake ) * actualrate) AS MemberWinLoss,
                    SUM(( awinlost + mwinlost + swinlost ) * actualrate) AS SMAWinLoss,
+				   -SUM((CASE
+                              WHEN b.tpositiontaking = 1
+                              THEN 0
+                              ELSE(winlost - actual_stake ) + b.scomm / ( 1 - b.tpositiontaking )
+                          END) * ISNULL(e.ExtraPT, 0) * actualrate) AS ExtraPT,
                    SUM(scomm * actualrate) Commission,
                    SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - ( CASE
                                                                                                  WHEN tpositiontaking = 1
