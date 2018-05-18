@@ -1,15 +1,12 @@
-USE [bodb02] 
+USE [bodb02]
 GO
-IF EXISTS
-(
-    SELECT *
-    FROM sys.objects
-    WHERE object_id = OBJECT_ID(N'[dbo].[Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_Site_14]')
-          AND type IN(N'P', N'PC')
-)
-    DROP PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_Site_14];
+/****** Object:  StoredProcedure [dbo].[Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_Site_14]    Script Date: 5/9/2018 12:43:06 PM ******/
+SET ANSI_NULLS ON
 GO
-CREATE PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_Site_14] @StartDate SMALLDATETIME,
+SET QUOTED_IDENTIFIER ON
+GO
+/****** Object:  Stored Procedure dbo.Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_Site_14    Script Date: 5/2/2018 9:36:29 AM ******/
+ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_Site_14] @StartDate SMALLDATETIME,
                                                                    @EndDate   SMALLDATETIME,
                                                                    @SportType SMALLINT,
                                                                    @BetType   INT,
@@ -28,7 +25,7 @@ Revisions:
 - 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
 
 Example: 
-EXEC [Acc_Rpt_CompanyWinLoss_VirtualSports_Site] @StartDate='2016-01-01', @EndDate='2020-01-01', @SportType = 180, @BetType = 1203, @Site = 'Credit'
+EXEC [Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_Site_14] @StartDate='2016-01-01', @EndDate='2020-01-01', @SportType = 180, @BetType = 1203, @Site = 'Credit'
 */
 
      SET NOCOUNT ON;
@@ -95,6 +92,11 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSports_Site] @StartDate='2016-01-01', @EndDa
              SELECT Site RowName,
                     SUM((winlost - actual_stake) * actualrate) AS MemberWinLoss,
                     SUM((awinlost + mwinlost + swinlost) * actualrate) AS SMAWinLoss,
+					-SUM((CASE
+                              WHEN b.tpositiontaking = 1
+                              THEN 0
+                              ELSE(winlost - actual_stake ) + b.scomm / ( 1 - b.tpositiontaking )
+                          END) * ISNULL(e.ExtraPT, 0) * actualrate) AS ExtraPT,
                     SUM(scomm * actualrate) Commission,
                     SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - ( CASE
                                                                                                     WHEN tpositiontaking = 1
@@ -104,7 +106,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSports_Site] @StartDate='2016-01-01', @EndDa
                     SUM(CASE
                               WHEN tpositiontaking = 1
                               THEN 0
-                              ELSE( 1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * ABS(b.stake) * CASE
+                              ELSE( 1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * b.stake * CASE
                                                                                                        WHEN virtualrate / actualrate - 1 > 0
                                                                                                        THEN virtualrate
                                                                                                        ELSE actualrate
@@ -128,6 +130,11 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSports_Site] @StartDate='2016-01-01', @EndDa
              SELECT Site RowName,
                     SUM((winlost - actual_stake) * actualrate) AS MemberWinLoss,
                     SUM((awinlost + mwinlost + swinlost) * actualrate) AS SMAWinLoss,
+					-SUM((CASE
+                              WHEN b.tpositiontaking = 1
+                              THEN 0
+                              ELSE(winlost - actual_stake ) + b.scomm / ( 1 - b.tpositiontaking )
+                          END) * ISNULL(e.ExtraPT, 0) * actualrate) AS ExtraPT,
                     SUM(scomm * actualrate) Commission,
                     SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - ( CASE
                                                                                                     WHEN tpositiontaking = 1
@@ -137,7 +144,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSports_Site] @StartDate='2016-01-01', @EndDa
                     SUM(CASE
                               WHEN tpositiontaking = 1
                               THEN 0
-                              ELSE( 1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * ABS(b.stake) * CASE
+                              ELSE( 1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * b.stake * CASE
                                                                                                        WHEN virtualrate / actualrate - 1 > 0
                                                                                                        THEN virtualrate
                                                                                                        ELSE actualrate

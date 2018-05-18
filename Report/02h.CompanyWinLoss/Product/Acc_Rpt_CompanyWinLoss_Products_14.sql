@@ -75,11 +75,11 @@ AS
                            site                      TINYINT,
                            Sporttype                 INT,
                            winlost_actualrate        MONEY,
-                           position_actualrate       MONEY,
+                           SMAWinloss				 MONEY,
                            commission_actualrate     MONEY,
-                           Linetotal_actualrate      MONEY,
-                           Linetotal_virtualrate     MONEY,
-						   Linetotal_variance        MONEY,
+                           HouseWinloss_actualrate      MONEY,
+                           HouseWinloss_virtualrate     MONEY,
+						   HouseWinloss_variance        MONEY,
                            grosscomm_actualrate      MONEY,
 						   grosscomm_virtualrate     MONEY,
 						   grosscomm_variance        MONEY,
@@ -89,16 +89,16 @@ AS
                            turnover_virtualrate      MONEY,
                            stake_actualrate          MONEY,
                            stake_virtualrate         MONEY,
-                           extra_winloss_actualrate  MONEY,
+                           WinlossForExtraPT_actualrate  MONEY,
                            extra_winloss_virtualrate MONEY );
         CREATE TABLE #srcDetail( srecommend                   INT,
                                  site                         TINYINT,
                                  winlost_actualrate           MONEY,
-                                 position_actualrate          MONEY,
+                                 SMAWinloss					  MONEY,
                                  commission_actualrate        MONEY,
-                                 Linetotal_actualrate         MONEY,
-                                 Linetotal_virtualrate        MONEY,
-								 Linetotal_variance           MONEY,
+                                 HouseWinloss_actualrate         MONEY,
+                                 HouseWinloss_virtualrate        MONEY,
+								 HouseWinloss_variance           MONEY,
                                  grosscomm_actualrate         MONEY,
 								 grosscomm_virtualrate        MONEY,
 								 grosscomm_variance           MONEY,
@@ -108,7 +108,7 @@ AS
                                  turnover_virtualrate         MONEY,
                                  stake_actualrate             MONEY,
                                  stake_virtualrate            MONEY,
-                                 extra_winloss_actualrate     MONEY,
+                                 WinlossForExtraPT_actualrate     MONEY,
                                  extra_winloss_virtualrate    MONEY );
         CREATE TABLE #Result( DisplayOrder     INT,
                               ProductId        INT,
@@ -117,8 +117,8 @@ AS
                               winlost          MONEY,
                               Position         MONEY,
                               Commission       MONEY,
-                              RealLineTotal    MONEY,
-                              VirtualLineTotal MONEY,
+                              RealHouseWinloss    MONEY,
+                              VirtualHouseWinloss MONEY,
 							  VarianceIncome   MONEY,
                               RealTurnover     MONEY,
                               VirtualTurnover  MONEY,
@@ -165,8 +165,7 @@ AS
                                   winlost   MONEY,
                                   pos       MONEY,
                                   comm      MONEY,
-								  VarianceIncome MONEY,
-                                  Linetotal MONEY,
+                                  HouseWinloss MONEY,
                                   turnover  MONEY );	
 
 
@@ -248,8 +247,7 @@ AS
                  winlost,
                  pos,
                  comm,
-				 VarianceIncome,
-                 Linetotal,
+                 HouseWinloss,
                  turnover
                )
                SELECT CASE
@@ -260,8 +258,6 @@ AS
                       SUM(( b.winlost - b.actual_stake ) * b.actualrate) AS winlost,
                       SUM(( b.awinlost + b.mwinlost + b.swinlost ) * b.actualrate) AS pos,
                       SUM(b.scomm * b.actualrate) AS comm,
-					  -- Variance Income
-					  -SUM((case when b.bettype = 33 then bm.WLIBC else -(b.winlost -b.actual_stake)*isnull(b.oddsspread,0) end) * b.actualrate * (b.virtualrate/b.actualrate -1)) as Variance,
                       -( SUM(( CASE
                                    WHEN b.bettype = 33
                                    THEN bm.WLIBC
@@ -286,7 +282,7 @@ AS
                                      THEN bm.TOPhum * cs.ToteCommWP
                                      ELSE 0
                                  END ) * b.actualrate) --commIncomeIBC
-                         - SUM(b.scomm * b.actualrate)) AS realLinetotal,
+                         - SUM(b.scomm * b.actualrate)) AS realHouseWinloss,
                       SUM(CASE
                               WHEN b.bettype = 33
                               THEN bm.TOIBC * b.actualrate
@@ -368,11 +364,11 @@ AS
                  site,
                  SportType,
                  winlost_actualrate,
-                 position_actualrate,
+                 SMAWinloss,
                  commission_actualrate,
-                 Linetotal_actualrate,
-                 Linetotal_virtualrate,
-				 Linetotal_variance,
+                 HouseWinloss_actualrate,
+                 HouseWinloss_virtualrate,
+				 HouseWinloss_variance,
                  grosscomm_actualrate,
 				 grosscomm_virtualrate,
 				 grosscomm_variance,
@@ -381,7 +377,7 @@ AS
                  turnover_virtualrate,
                  stake_actualrate,
                  stake_virtualrate,
-                 extra_winloss_actualrate,
+                 WinlossForExtraPT_actualrate,
                  extra_winloss_virtualrate
                )
                SELECT srecommend,
@@ -394,13 +390,13 @@ AS
                                ELSE 2
                            END AS SportType,
                       SUM(( winlost - actual_stake ) * actualrate) winlost_actualrate,
-                      SUM(( awinlost + mwinlost + swinlost ) * actualrate) position_actualrate,
+                      SUM(( awinlost + mwinlost + swinlost ) * actualrate) SMAWinloss,
                       SUM(scomm * actualrate) commission_actualrate,
-                      SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm ) * actualrate) LineTotal_actualrate,
+                      SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm ) * actualrate) HouseWinloss_actualrate,
                       SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost ) * virtualrate 
-								+ scomm * CASE WHEN b.virtualrate < b.actualrate THEN b.virtualrate ELSE b.actualrate END) LineTotal_virtualrate,
+								+ scomm * CASE WHEN b.virtualrate < b.actualrate THEN b.virtualrate ELSE b.actualrate END) HouseWinloss_virtualrate,
 					  SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost
-								+ CASE WHEN b.virtualrate < b.actualrate THEN b.scomm ELSE 0 END) * (actualrate - virtualrate)) Linetotal_variance,
+								+ CASE WHEN b.virtualrate < b.actualrate THEN b.scomm ELSE 0 END) * (actualrate - virtualrate)) HouseWinloss_variance,
                       SUM(( CASE
                                 WHEN b.tpositiontaking = 1
                                 THEN 0
@@ -415,20 +411,13 @@ AS
 							   THEN  (CASE WHEN b.tpositiontaking = 1 THEN 0 ELSE b.scomm / ( 1 - b.tpositiontaking ) END)
 							   ELSE 0 END) * (actualrate - virtualrate)) grosscomm_variance,
                       1 AS ProductId,
-                      SUM(CASE
-                              WHEN b.tpositiontaking = 1
-                              THEN 0
-                              ELSE( 1 - b.tpositiontaking ) * ABS(stake) * CASE
+                      SUM(( 1 - b.tpositiontaking ) * ABS(stake) * CASE
                                                                                WHEN virtualrate / actualrate - 1 > 0
                                                                                THEN virtualrate
                                                                                ELSE actualrate
                                                                            END
-                          END) AS turnover_actualrate,
-                      SUM(CASE
-                              WHEN b.tpositiontaking = 1
-                              THEN 0
-                              ELSE( 1 - b.tpositiontaking ) * ABS(stake) * virtualrate
-                          END) AS turnover_virtualrate,
+                          ) AS turnover_actualrate,
+                      SUM(( 1 - b.tpositiontaking ) * ABS(stake) * virtualrate) AS turnover_virtualrate,
                       SUM(CASE
                               WHEN b.tpositiontaking = 1
                               THEN 0
@@ -447,7 +436,7 @@ AS
                               WHEN b.tpositiontaking = 1
                               THEN 0
                               ELSE(( winlost - actual_stake ) * actualrate )
-                          END) AS extra_winloss_actualrate,
+                          END) AS WinlossForExtraPT_actualrate,
                       SUM(CASE
                               WHEN b.tpositiontaking = 1
                               THEN 0
@@ -483,11 +472,11 @@ AS
                  site,
                  SportType,
                  winlost_actualrate,
-                 position_actualrate,
+                 SMAWinloss,
                  commission_actualrate,
-                 Linetotal_actualrate,
-                 Linetotal_virtualrate,
-				 Linetotal_variance,
+                 HouseWinloss_actualrate,
+                 HouseWinloss_virtualrate,
+				 HouseWinloss_variance,
                  grosscomm_actualrate,
 				 grosscomm_virtualrate,
 				 grosscomm_variance,
@@ -496,7 +485,7 @@ AS
                  turnover_virtualrate,
                  stake_actualrate,
                  stake_virtualrate,
-                 extra_winloss_actualrate,
+                 WinlossForExtraPT_actualrate,
                  extra_winloss_virtualrate
                )
                SELECT 2 AS srecommend,
@@ -509,13 +498,13 @@ AS
                                ELSE 2
                            END AS SportType,
                       SUM(( winlost - actual_stake ) * actualrate) winlost_actualrate,
-                      SUM(( awinlost + mwinlost + swinlost ) * actualrate) position_actualrate,
+                      SUM(( awinlost + mwinlost + swinlost ) * actualrate) SMAWinloss,
                       SUM(scomm * actualrate) commission_actualrate,
-                      SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm ) * actualrate) LineTotal_actualrate,
+                      SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm ) * actualrate) HouseWinloss_actualrate,
                       SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost ) * virtualrate 
-								+ scomm * CASE WHEN b.virtualrate < b.actualrate THEN b.virtualrate ELSE b.actualrate END) LineTotal_virtualrate,
+								+ scomm * CASE WHEN b.virtualrate < b.actualrate THEN b.virtualrate ELSE b.actualrate END) HouseWinloss_virtualrate,
 					  SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost
-								+ CASE WHEN b.virtualrate < b.actualrate THEN b.scomm ELSE 0 END) * (actualrate - virtualrate)) Linetotal_variance,
+								+ CASE WHEN b.virtualrate < b.actualrate THEN b.scomm ELSE 0 END) * (actualrate - virtualrate)) HouseWinloss_variance,
                       SUM(( CASE
                                 WHEN b.tpositiontaking = 1
                                 THEN 0
@@ -530,20 +519,13 @@ AS
 							   THEN  (CASE WHEN b.tpositiontaking = 1 THEN 0 ELSE b.scomm / ( 1 - b.tpositiontaking ) END)
 							   ELSE 0 END) * (actualrate - virtualrate)) grosscomm_variance,
                       1 AS ProductId,
-                      SUM(CASE
-                              WHEN b.tpositiontaking = 1
-                              THEN 0
-                              ELSE( 1 - b.tpositiontaking ) * ABS(stake) * CASE
+                      SUM(( 1 - b.tpositiontaking ) * ABS(stake) * CASE
                                                                                WHEN virtualrate / actualrate - 1 > 0
                                                                                THEN virtualrate
                                                                                ELSE actualrate
                                                                            END
-                          END) AS turnover_actualrate,
-                      SUM(CASE
-                              WHEN b.tpositiontaking = 1
-                              THEN 0
-                              ELSE( 1 - b.tpositiontaking ) * ABS(stake) * virtualrate
-                          END) AS turnover_virtualrate,
+                          ) AS turnover_actualrate,
+                      SUM(( 1 - b.tpositiontaking ) * ABS(stake) * virtualrate) AS turnover_virtualrate,
                       SUM(CASE
                               WHEN b.tpositiontaking = 1
                               THEN 0
@@ -562,7 +544,7 @@ AS
                               WHEN b.tpositiontaking = 1
                               THEN 0
                               ELSE(( winlost - actual_stake ) * actualrate )
-                          END) AS extra_winloss_actualrate,
+                          END) AS WinlossForExtraPT_actualrate,
                       SUM(CASE
                               WHEN b.tpositiontaking = 1
                               THEN 0
@@ -596,11 +578,11 @@ AS
         ----- Minus data of BARM 
         UPDATE c
           SET c.winlost_actualrate = c.winlost_actualrate - d.winlost_actualrate,
-              c.position_actualrate = c.position_actualrate - d.position_actualrate,
+              c.SMAWinloss = c.SMAWinloss - d.SMAWinloss,
               c.commission_actualrate = c.commission_actualrate - d.commission_actualrate,
-              c.LineTotal_actualrate = c.LineTotal_actualrate - d.LineTotal_actualrate,
-              c.LineTotal_virtualrate = c.LineTotal_virtualrate - d.LineTotal_virtualrate,
-			  c.Linetotal_variance = c.Linetotal_variance - d.Linetotal_variance,
+              c.HouseWinloss_actualrate = c.HouseWinloss_actualrate - d.HouseWinloss_actualrate,
+              c.HouseWinloss_virtualrate = c.HouseWinloss_virtualrate - d.HouseWinloss_virtualrate,
+			  c.HouseWinloss_variance = c.HouseWinloss_variance - d.HouseWinloss_variance,
               c.grosscomm_actualrate = c.grosscomm_actualrate - d.grosscomm_actualrate,
 			  c.grosscomm_virtualrate = c.grosscomm_virtualrate - d.grosscomm_virtualrate,
 			  c.grosscomm_variance = c.grosscomm_variance - d.grosscomm_variance,
@@ -608,7 +590,7 @@ AS
               c.turnover_virtualrate = c.turnover_virtualrate - d.turnover_virtualrate,
               c.stake_actualrate = c.stake_actualrate - d.stake_actualrate,
               c.stake_virtualrate = c.stake_virtualrate - d.stake_virtualrate,
-              c.extra_winloss_actualrate = c.extra_winloss_actualrate - d.extra_winloss_actualrate,
+              c.WinlossForExtraPT_actualrate = c.WinlossForExtraPT_actualrate - d.WinlossForExtraPT_actualrate,
               c.extra_winloss_virtualrate = c.extra_winloss_virtualrate - d.extra_winloss_virtualrate
         FROM #src c
              INNER JOIN #src d ON c.srecommend = d.srecommend
@@ -624,11 +606,11 @@ AS
                  site,
                  SportType,
                  winlost_actualrate,
-                 position_actualrate,
+                 SMAWinloss,
                  commission_actualrate,
-                 Linetotal_actualrate,
-                 Linetotal_virtualrate,
-				 Linetotal_variance,
+                 HouseWinloss_actualrate,
+                 HouseWinloss_virtualrate,
+				 HouseWinloss_variance,
                  grosscomm_actualrate,
 				 grosscomm_virtualrate,
 				 grosscomm_variance,
@@ -638,20 +620,20 @@ AS
                  turnover_virtualrate,
                  stake_actualrate,
                  stake_virtualrate,
-                 extra_winloss_actualrate,
+                 WinlossForExtraPT_actualrate,
                  extra_winloss_virtualrate
                )
                SELECT srecommend,
                       1 AS site,
                       0 AS SportType,
                       SUM(( winlost - actual_stake ) * actualrate) winlost_actualrate,
-                      SUM(( awinlost + mwinlost + swinlost ) * actualrate) position_actualrate,
+                      SUM(( awinlost + mwinlost + swinlost ) * actualrate) SMAWinloss,
                       SUM(scomm * actualrate) commission_actualrate,
-                      SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm ) * actualrate) LineTotal_actualrate,
+                      SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm ) * actualrate) HouseWinloss_actualrate,
                       SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost ) * virtualrate 
-								+ scomm * CASE WHEN b.virtualrate < b.actualrate THEN b.virtualrate ELSE b.actualrate END) LineTotal_virtualrate,
+								+ scomm * CASE WHEN b.virtualrate < b.actualrate THEN b.virtualrate ELSE b.actualrate END) HouseWinloss_virtualrate,
 					  SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost
-								+ CASE WHEN b.virtualrate < b.actualrate THEN b.scomm ELSE 0 END) * (actualrate - virtualrate)) Linetotal_variance,
+								+ CASE WHEN b.virtualrate < b.actualrate THEN b.scomm ELSE 0 END) * (actualrate - virtualrate)) HouseWinloss_variance,
                       SUM(( CASE
                                 WHEN b.tpositiontaking = 1
                                 THEN 0
@@ -680,39 +662,26 @@ AS
                                                            END
                                                   END AS ProductID,
                       s.CasinoType,
+                      SUM(( 1 - b.tpositiontaking ) * (CASE WHEN s.productID = 1 THEN ABS(stake) ELSE stake END)
+													* CASE WHEN virtualrate / actualrate - 1 > 0 THEN virtualrate ELSE actualrate END
+                          ) AS turnover_actualrate,
+                      SUM(( 1 - b.tpositiontaking ) * (CASE WHEN s.productID = 1 THEN ABS(stake) ELSE stake END) * virtualrate) AS turnover_virtualrate,
                       SUM(CASE
                               WHEN b.tpositiontaking = 1
                               THEN 0
-                              ELSE( 1 - b.tpositiontaking ) * ABS(stake) * CASE
-                                                                               WHEN virtualrate / actualrate - 1 > 0
-                                                                               THEN virtualrate
-                                                                               ELSE actualrate
-                                                                           END
-                          END) AS turnover_actualrate,
-                      SUM(CASE
-                              WHEN b.tpositiontaking = 1
-                              THEN 0
-                              ELSE( 1 - b.tpositiontaking ) * ABS(stake) * virtualrate
-                          END) AS turnover_virtualrate,
-                      SUM(CASE
-                              WHEN b.tpositiontaking = 1
-                              THEN 0
-                              ELSE ABS(stake) * CASE
-                                                    WHEN virtualrate / actualrate - 1 > 0
-                                                    THEN virtualrate
-                                                    ELSE actualrate
-                                                END
+                              ELSE (CASE WHEN s.productID = 1 THEN ABS(stake) ELSE stake END) 
+								   * CASE WHEN virtualrate / actualrate - 1 > 0 THEN virtualrate ELSE actualrate END
                           END) AS stake_actualrate,
                       SUM(CASE
                               WHEN b.tpositiontaking = 1
                               THEN 0
-                              ELSE ABS(stake) * virtualrate
+                              ELSE (CASE WHEN s.productID = 1 THEN ABS(stake) ELSE stake END) * virtualrate
                           END) AS stake_virtualrate,
                       SUM(CASE
                               WHEN b.tpositiontaking = 1
                               THEN 0
                               ELSE(( winlost - actual_stake ) * actualrate )
-                          END) AS extra_winloss_actualrate,
+                          END) AS WinlossForExtraPT_actualrate,
                       SUM(CASE
                               WHEN b.tpositiontaking = 1
                               THEN 0
@@ -758,11 +727,11 @@ AS
                ( srecommend,
                  site,
                  winlost_actualrate,
-                 position_actualrate,
+                 SMAWinloss,
                  commission_actualrate,
-                 Linetotal_actualrate,
-                 Linetotal_virtualrate,
-				 Linetotal_variance,
+                 HouseWinloss_actualrate,
+                 HouseWinloss_virtualrate,
+				 HouseWinloss_variance,
                  grosscomm_actualrate,
 				 grosscomm_virtualrate,
 				 grosscomm_variance,
@@ -772,13 +741,13 @@ AS
                  turnover_virtualrate,
                  stake_actualrate,
                  stake_virtualrate,
-                 extra_winloss_actualrate,
+                 WinlossForExtraPT_actualrate,
                  extra_winloss_virtualrate
                )
                SELECT b.srecommend,
                       1 AS site,
                       SUM(( winlost - actual_stake ) * actualrate) winlost_actualrate,
-                      SUM(( awinlost + mwinlost + swinlost ) * actualrate) position_actualrate,
+                      SUM(( awinlost + mwinlost + swinlost ) * actualrate) SMAWinloss,
                       SUM(scomm * actualrate) commission_actualrate,
                       SUM(( CASE
                                 WHEN s.Bettype IN( 2199, 2399, 2999 )
@@ -786,7 +755,7 @@ AS
                                 WHEN s.Bettype IN( 2198, 2398, 2998 )
                                 THEN b.ContributionRate * b.BetStake + awinlost + mwinlost + swinlost + scomm
                                 ELSE winlost - actual_stake + awinlost + mwinlost + swinlost + scomm
-                            END ) * actualrate) LineTotal_actualrate,
+                            END ) * actualrate) HouseWinloss_actualrate,
                       SUM(( CASE
                                 WHEN s.Bettype IN( 2199, 2399, 2999 )
                                 THEN 0
@@ -794,14 +763,14 @@ AS
                                 THEN b.ContributionRate * b.BetStake + awinlost + mwinlost + swinlost
                                 ELSE winlost - actual_stake + awinlost + mwinlost + swinlost
                             END ) * virtualrate 
-							      + scomm * CASE WHEN b.virtualrate < b.actualrate THEN b.virtualrate ELSE b.actualrate END) LineTotal_virtualrate,
+							      + scomm * CASE WHEN b.virtualrate < b.actualrate THEN b.virtualrate ELSE b.actualrate END) HouseWinloss_virtualrate,
                       SUM((( CASE
                                 WHEN s.Bettype IN( 2199, 2399, 2999 )
                                 THEN 0
                                 WHEN s.Bettype IN( 2198, 2398, 2998 )
                                 THEN b.ContributionRate * b.BetStake + awinlost + mwinlost + swinlost
                                 ELSE winlost - actual_stake + awinlost + mwinlost + swinlost
-                            END ) + CASE WHEN b.virtualrate < b.actualrate THEN b.scomm ELSE 0 END) * (actualrate - virtualrate)) Linetotal_variance,
+                            END ) + CASE WHEN b.virtualrate < b.actualrate THEN b.scomm ELSE 0 END) * (actualrate - virtualrate)) HouseWinloss_variance,
                       SUM(( CASE
                                 WHEN b.tpositiontaking = 1
                                 THEN 0
@@ -817,33 +786,17 @@ AS
 							   ELSE 0 END) * (actualrate - virtualrate)) grosscomm_variance,
                       s.ProductID,
                       s.CasinoType,
+                      SUM(( 1 - b.tpositiontaking ) * stake * CASE WHEN virtualrate / actualrate - 1 > 0 THEN virtualrate ELSE actualrate END) AS turnover_actualrate,
+                      SUM(( 1 - b.tpositiontaking ) * stake * virtualrate) AS turnover_virtualrate,
                       SUM(CASE
                               WHEN b.tpositiontaking = 1
                               THEN 0
-                              ELSE( 1 - b.tpositiontaking ) * ABS(stake) * CASE
-                                                                               WHEN virtualrate / actualrate - 1 > 0
-                                                                               THEN virtualrate
-                                                                               ELSE actualrate
-                                                                           END
-                          END) AS turnover_actualrate,
-                      SUM(CASE
-                              WHEN b.tpositiontaking = 1
-                              THEN 0
-                              ELSE( 1 - b.tpositiontaking ) * ABS(stake) * virtualrate
-                          END) AS turnover_virtualrate,
-                      SUM(CASE
-                              WHEN b.tpositiontaking = 1
-                              THEN 0
-                              ELSE ABS(stake) * CASE
-                                                    WHEN virtualrate / actualrate - 1 > 0
-                                                    THEN virtualrate
-                                                    ELSE actualrate
-                                                END
+                              ELSE stake * CASE WHEN virtualrate / actualrate - 1 > 0 THEN virtualrate ELSE actualrate END
                           END) AS stake_actualrate,
                       SUM(CASE
                               WHEN b.tpositiontaking = 1
                               THEN 0
-                              ELSE ABS(stake) * virtualrate
+                              ELSE stake * virtualrate
                           END) AS stake_virtualrate,
                       SUM((CASE
                               WHEN b.tpositiontaking = 1
@@ -853,7 +806,7 @@ AS
                               WHEN b.gameId IN( 2198, 2398, 2998 )
                                 THEN ContributionRate * BetStake  --Jackpot Contribution
                               ELSE winlost - actual_stake
-                          END) * actualrate) AS extra_winloss_actualrate,
+                          END) * actualrate) AS WinlossForExtraPT_actualrate,
                       SUM((CASE
                               WHEN b.tpositiontaking = 1
                               THEN 0
@@ -879,11 +832,11 @@ AS
                ( srecommend,
                  site,
                  winlost_actualrate,
-                 position_actualrate,
+                 SMAWinloss,
                  commission_actualrate,
-                 Linetotal_actualrate,
-                 Linetotal_virtualrate,
-				 Linetotal_variance,
+                 HouseWinloss_actualrate,
+                 HouseWinloss_virtualrate,
+				 HouseWinloss_variance,
                  grosscomm_actualrate,
 				 grosscomm_virtualrate,
 				 grosscomm_variance,
@@ -893,19 +846,19 @@ AS
                  turnover_virtualrate,
                  stake_actualrate,
                  stake_virtualrate,
-                 extra_winloss_actualrate,
+                 WinlossForExtraPT_actualrate,
                  extra_winloss_virtualrate
                )
                SELECT b.srecommend,
                       1 AS site,
                       SUM(( winlost - actual_stake ) * actualrate) winlost_actualrate,
-                      SUM(( awinlost + mwinlost + swinlost ) * actualrate) position_actualrate,
+                      SUM(( awinlost + mwinlost + swinlost ) * actualrate) SMAWinloss,
                       SUM(scomm * actualrate) commission_actualrate,
-                      SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm ) * actualrate) LineTotal_actualrate,
+                      SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm ) * actualrate) HouseWinloss_actualrate,
                       SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost ) * virtualrate 
-								+ scomm * CASE WHEN b.virtualrate < b.actualrate THEN b.virtualrate ELSE b.actualrate END) LineTotal_virtualrate,
+								+ scomm * CASE WHEN b.virtualrate < b.actualrate THEN b.virtualrate ELSE b.actualrate END) HouseWinloss_virtualrate,
 					  SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost
-								+ CASE WHEN b.virtualrate < b.actualrate THEN b.scomm ELSE 0 END) * (actualrate - virtualrate)) Linetotal_variance,
+								+ CASE WHEN b.virtualrate < b.actualrate THEN b.scomm ELSE 0 END) * (actualrate - virtualrate)) HouseWinloss_variance,
                       SUM(( CASE
                                 WHEN b.tpositiontaking = 1
                                 THEN 0
@@ -921,39 +874,23 @@ AS
 							   ELSE 0 END) * (actualrate - virtualrate)) grosscomm_variance,
                       s.ProductID,
                       s.CasinoType,
+                      SUM(( 1 - b.tpositiontaking ) * stake * CASE WHEN virtualrate / actualrate - 1 > 0 THEN virtualrate ELSE actualrate END) AS turnover_actualrate,
+                      SUM(( 1 - b.tpositiontaking ) * stake * virtualrate) AS turnover_virtualrate,
                       SUM(CASE
                               WHEN b.tpositiontaking = 1
                               THEN 0
-                              ELSE( 1 - b.tpositiontaking ) * ABS(stake) * CASE
-                                                                               WHEN virtualrate / actualrate - 1 > 0
-                                                                               THEN virtualrate
-                                                                               ELSE actualrate
-                                                                           END
-                          END) AS turnover_actualrate,
-                      SUM(CASE
-                              WHEN b.tpositiontaking = 1
-                              THEN 0
-                              ELSE( 1 - b.tpositiontaking ) * ABS(stake) * virtualrate
-                          END) AS turnover_virtualrate,
-                      SUM(CASE
-                              WHEN b.tpositiontaking = 1
-                              THEN 0
-                              ELSE ABS(stake) * CASE
-                                                    WHEN virtualrate / actualrate - 1 > 0
-                                                    THEN virtualrate
-                                                    ELSE actualrate
-                                                END
+                              ELSE stake * CASE WHEN virtualrate / actualrate - 1 > 0 THEN virtualrate ELSE actualrate END
                           END) AS stake_actualrate,
                       SUM(CASE
                               WHEN b.tpositiontaking = 1
                               THEN 0
-                              ELSE ABS(stake) * virtualrate
+                              ELSE stake * virtualrate
                           END) AS stake_virtualrate,
                       SUM(CASE
                               WHEN b.tpositiontaking = 1
                               THEN 0
                               ELSE(( winlost - actual_stake ) * actualrate )
-                          END) AS extra_winloss_actualrate,
+                          END) AS WinlossForExtraPT_actualrate,
                       SUM(CASE
                               WHEN b.tpositiontaking = 1
                               THEN 0
@@ -990,8 +927,8 @@ AS
                  winlost,
                  Position,
                  Commission,
-                 RealLineTotal,
-                 VirtualLineTotal,
+                 RealHouseWinloss,
+                 VirtualHouseWinloss,
 				 VarianceIncome,
                  RealTurnover,
                  VirtualTurnover,
@@ -1006,11 +943,11 @@ AS
                       END AS ProductID,
                       site,
                       SUM(winLost_actualrate) AS winlost,
-                      SUM(position_actualrate) AS Position,
+                      SUM(SMAWinloss) AS Position,
                       SUM(commission_actualrate) AS Commission,
-                      SUM(LineTotal_actualrate - (( extra_winloss_actualrate + grosscomm_actualrate ) * ISNULL(e.ExtraPT, 0))) AS RealLineTotal,
-                      SUM(Linetotal_virtualrate - (( extra_winloss_virtualrate + grosscomm_virtualrate ) * ISNULL(e.ExtraPT, 0))) AS VirtualLineTotal,
-					  SUM(Linetotal_variance - (extra_winloss_actualrate - extra_winloss_virtualrate) * ISNULL(e.ExtraPT, 0) - grosscomm_variance * ISNULL(e.ExtraPT, 0)) AS VarianceIncome,
+                      SUM(HouseWinloss_actualrate - (( WinlossForExtraPT_actualrate + grosscomm_actualrate ) * ISNULL(e.ExtraPT, 0))) AS RealHouseWinloss,
+                      SUM(HouseWinloss_virtualrate - (( extra_winloss_virtualrate + grosscomm_virtualrate ) * ISNULL(e.ExtraPT, 0))) AS VirtualHouseWinloss,
+					  SUM(HouseWinloss_variance - (WinlossForExtraPT_actualrate - extra_winloss_virtualrate) * ISNULL(e.ExtraPT, 0) - grosscomm_variance * ISNULL(e.ExtraPT, 0)) AS VarianceIncome,
                       SUM(turnover_actualrate - ISNULL(e.ExtraPT, 0) * stake_actualrate) AS RealTurnover,
                       SUM(turnover_virtualrate - ISNULL(e.ExtraPT, 0) * stake_virtualrate) AS VirtualTurnover,
                       SUM(CASE ISNULL(e.ExtraPT, 0)
@@ -1021,7 +958,7 @@ AS
                       SUM(CASE ISNULL(e.ExtraPT, 0)
                               WHEN 0
                               THEN 0
-                              ELSE( extra_winloss_actualrate + grosscomm_actualrate ) * e.ExtraPT
+                              ELSE( WinlossForExtraPT_actualrate + grosscomm_actualrate ) * e.ExtraPT
                           END) AS NewExtraPT
                FROM #src b
                     LEFT JOIN #ExtraPT_Sel e ON b.srecommend = e.superID
@@ -1050,8 +987,8 @@ AS
                  winlost,
                  Position,
                  Commission,
-                 RealLineTotal,
-                 VirtualLineTotal,
+                 RealHouseWinloss,
+                 VirtualHouseWinloss,
 				 VarianceIncome,
                  RealTurnover,
                  VirtualTurnover,
@@ -1061,11 +998,11 @@ AS
                SELECT b.ProductID,
                       site,
                       SUM(ISNULL(b.winlost_actualrate, 0)) WinLost,
-                      SUM(ISNULL(b.position_actualrate, 0)) Position,
+                      SUM(ISNULL(b.SMAWinloss, 0)) Position,
                       SUM(ISNULL(commission_actualrate, 0)) Commission,
-                      SUM(ISNULL(LineTotal_actualrate - (( extra_winloss_actualrate + grosscomm_actualrate ) * ISNULL(e.ExtraPT, 0)), 0)) AS RealLineTotal,
-                      SUM(Linetotal_virtualrate - (( extra_winloss_virtualrate + grosscomm_virtualrate ) * ISNULL(e.ExtraPT, 0))) AS VirtualLineTotal,
-					  SUM(Linetotal_variance - (extra_winloss_actualrate - extra_winloss_virtualrate) * ISNULL(e.ExtraPT, 0) - grosscomm_variance * ISNULL(e.ExtraPT, 0)) AS VarianceIncome,
+                      SUM(ISNULL(HouseWinloss_actualrate - (( WinlossForExtraPT_actualrate + grosscomm_actualrate ) * ISNULL(e.ExtraPT, 0)), 0)) AS RealHouseWinloss,
+                      SUM(HouseWinloss_virtualrate - (( extra_winloss_virtualrate + grosscomm_virtualrate ) * ISNULL(e.ExtraPT, 0))) AS VirtualHouseWinloss,
+					  SUM(HouseWinloss_variance - (WinlossForExtraPT_actualrate - extra_winloss_virtualrate) * ISNULL(e.ExtraPT, 0) - grosscomm_variance * ISNULL(e.ExtraPT, 0)) AS VarianceIncome,
                       SUM(turnover_actualrate - ISNULL(e.ExtraPT, 0) * stake_actualrate) AS RealTurnover,
                       SUM(turnover_virtualrate - ISNULL(e.ExtraPT, 0) * stake_virtualrate) AS VirtualTurnover,
                       SUM(CASE ISNULL(e.ExtraPT, 0)
@@ -1076,7 +1013,7 @@ AS
                       SUM(CASE ISNULL(e.ExtraPT, 0)
                               WHEN 0
                               THEN 0
-                              ELSE( extra_winloss_actualrate + grosscomm_actualrate ) * e.ExtraPT
+                              ELSE( WinlossForExtraPT_actualrate + grosscomm_actualrate ) * e.ExtraPT
                           END) AS NewExtraPT
                FROM #src b
                     LEFT JOIN #ExtraPT_Sel e ON b.srecommend = e.superID
@@ -1096,8 +1033,8 @@ AS
                  winlost,
                  Position,
                  Commission,
-                 RealLineTotal,
-                 VirtualLineTotal,
+                 RealHouseWinloss,
+                 VirtualHouseWinloss,
 				 VarianceIncome,
                  RealTurnover,
                  VirtualTurnover,
@@ -1107,11 +1044,11 @@ AS
                SELECT b.ProductId,
                       site,
                       SUM(winlost_actualrate) WinLost,
-                      SUM(position_actualrate) Position,
+                      SUM(SMAWinloss) Position,
                       SUM(commission_actualrate) Commission,
-                      SUM(LineTotal_actualrate - (( extra_winloss_actualrate + grosscomm_actualrate ) * ISNULL(e.ExtraPT, 0))) AS RealLineTotal,
-                      SUM(Linetotal_virtualrate - (( extra_winloss_virtualrate + grosscomm_virtualrate ) * ISNULL(e.ExtraPT, 0))) AS VirtualLineTotal,
-					  SUM(Linetotal_variance - (extra_winloss_actualrate - extra_winloss_virtualrate) * ISNULL(e.ExtraPT, 0) - grosscomm_variance * ISNULL(e.ExtraPT, 0)) AS VarianceIncome,
+                      SUM(HouseWinloss_actualrate - (( WinlossForExtraPT_actualrate + grosscomm_actualrate ) * ISNULL(e.ExtraPT, 0))) AS RealHouseWinloss,
+                      SUM(HouseWinloss_virtualrate - (( extra_winloss_virtualrate + grosscomm_virtualrate ) * ISNULL(e.ExtraPT, 0))) AS VirtualHouseWinloss,
+					  SUM(HouseWinloss_variance - (WinlossForExtraPT_actualrate - extra_winloss_virtualrate) * ISNULL(e.ExtraPT, 0) - grosscomm_variance * ISNULL(e.ExtraPT, 0)) AS VarianceIncome,
                       SUM(turnover_actualrate - ISNULL(e.ExtraPT, 0) * stake_actualrate) AS RealTurnover,
                       SUM(turnover_virtualrate - ISNULL(e.ExtraPT, 0) * stake_virtualrate) AS VirtualTurnover,
                       SUM(CASE ISNULL(e.ExtraPT, 0)
@@ -1122,7 +1059,7 @@ AS
                       SUM(CASE ISNULL(e.ExtraPT, 0)
                               WHEN 0
                               THEN 0
-                              ELSE( extra_winloss_actualrate + grosscomm_actualrate ) * e.ExtraPT
+                              ELSE( WinlossForExtraPT_actualrate + grosscomm_actualrate ) * e.ExtraPT
                           END) AS NewExtraPT
                FROM #src b
                     LEFT JOIN #ExtraPT_Sel e ON b.srecommend = e.superID
@@ -1141,8 +1078,8 @@ AS
                  winlost,
                  Position,
                  Commission,
-                 RealLineTotal,
-                 VirtualLineTotal,
+                 RealHouseWinloss,
+                 VirtualHouseWinloss,
 				 VarianceIncome,
                  RealTurnover,
                  VirtualTurnover,
@@ -1152,11 +1089,11 @@ AS
                SELECT b.ProductId,
                       site,
                       SUM(winlost_actualrate) WinLost,
-                      SUM(position_actualrate) Position,
+                      SUM(SMAWinloss) Position,
                       SUM(commission_actualrate) Commission,
-                      SUM(LineTotal_actualrate - (( extra_winloss_actualrate + grosscomm_actualrate ) * ISNULL(e.ExtraPT, 0))) AS RealLineTotal,
-                      SUM(Linetotal_virtualrate - (( extra_winloss_virtualrate + grosscomm_virtualrate ) * ISNULL(e.ExtraPT, 0))) AS VirtualLineTotal,
-					  SUM(Linetotal_variance - (extra_winloss_actualrate - extra_winloss_virtualrate) * ISNULL(e.ExtraPT, 0) - grosscomm_variance * ISNULL(e.ExtraPT, 0)) AS VarianceIncome,
+                      SUM(HouseWinloss_actualrate - (( WinlossForExtraPT_actualrate + grosscomm_actualrate ) * ISNULL(e.ExtraPT, 0))) AS RealHouseWinloss,
+                      SUM(HouseWinloss_virtualrate - (( extra_winloss_virtualrate + grosscomm_virtualrate ) * ISNULL(e.ExtraPT, 0))) AS VirtualHouseWinloss,
+					  SUM(HouseWinloss_variance - (WinlossForExtraPT_actualrate - extra_winloss_virtualrate) * ISNULL(e.ExtraPT, 0) - grosscomm_variance * ISNULL(e.ExtraPT, 0)) AS VarianceIncome,
                       SUM(turnover_actualrate - ISNULL(e.ExtraPT, 0) * stake_actualrate) AS RealTurnover,
                       SUM(turnover_virtualrate - ISNULL(e.ExtraPT, 0) * stake_virtualrate) AS VirtualTurnover,
                       SUM(CASE ISNULL(e.ExtraPT, 0)
@@ -1167,7 +1104,7 @@ AS
                       SUM(CASE ISNULL(e.ExtraPT, 0)
                               WHEN 0
                               THEN 0
-                              ELSE( extra_winloss_actualrate + grosscomm_actualrate ) * e.ExtraPT
+                              ELSE( WinlossForExtraPT_actualrate + grosscomm_actualrate ) * e.ExtraPT
                           END) AS NewExtraPT
                FROM #src b
                     LEFT JOIN #ExtraPT_Sel e ON b.srecommend = e.superID
@@ -1184,8 +1121,8 @@ AS
                  winlost,
                  Position,
                  Commission,
-                 RealLineTotal,
-                 VirtualLineTotal,
+                 RealHouseWinloss,
+                 VirtualHouseWinloss,
 				 VarianceIncome,
                  RealTurnover,
                  VirtualTurnover,
@@ -1197,9 +1134,9 @@ AS
                       WinLost,
                       Pos AS Position,
                       Comm AS Commission,
-                      LineTotal AS RealLineTotal,
-                      LineTotal AS VirtualLineTotal,
-					  VarianceIncome AS VarianceIncome,
+                      HouseWinloss AS RealHouseWinloss,
+                      HouseWinloss AS VirtualHouseWinloss,
+					  0 AS VarianceIncome,
                       turnover AS RealTurnover,
                       0 VirtualTurnover,
                       0 ExtraPT,
@@ -1213,8 +1150,8 @@ AS
                  winlost,
                  Position,
                  Commission,
-                 RealLineTotal,
-                 VirtualLineTotal,
+                 RealHouseWinloss,
+                 VirtualHouseWinloss,
 				 VarianceIncome,
                  RealTurnover,
                  VirtualTurnover,
@@ -1224,11 +1161,11 @@ AS
                SELECT b.ProductId,
                       site,
                       SUM(ISNULL(b.winlost_actualrate, 0)) WinLost,
-                      SUM(ISNULL(b.position_actualrate, 0)) Position,
+                      SUM(ISNULL(b.SMAWinloss, 0)) Position,
                       0 AS Commission,
-                      SUM(ISNULL(LineTotal_actualrate - (( extra_winloss_actualrate + grosscomm_actualrate ) * ISNULL(e.ExtraPT, 0)), 0)) AS RealLineTotal,
-                      SUM(Linetotal_virtualrate - (( extra_winloss_virtualrate + grosscomm_virtualrate ) * ISNULL(e.ExtraPT, 0))) AS VirtualLineTotal,
-					  SUM(Linetotal_variance - (extra_winloss_actualrate - extra_winloss_virtualrate) * ISNULL(e.ExtraPT, 0) - grosscomm_variance * ISNULL(e.ExtraPT, 0)) AS VarianceIncome,
+                      SUM(ISNULL(HouseWinloss_actualrate - (( WinlossForExtraPT_actualrate + grosscomm_actualrate ) * ISNULL(e.ExtraPT, 0)), 0)) AS RealHouseWinloss,
+                      SUM(HouseWinloss_virtualrate - (( extra_winloss_virtualrate + grosscomm_virtualrate ) * ISNULL(e.ExtraPT, 0))) AS VirtualHouseWinloss,
+					  SUM(HouseWinloss_variance - (WinlossForExtraPT_actualrate - extra_winloss_virtualrate) * ISNULL(e.ExtraPT, 0) - grosscomm_variance * ISNULL(e.ExtraPT, 0)) AS VarianceIncome,
                       0 AS RealTurnover,
                       0 AS VirtualTurnover,
                       SUM(CASE ISNULL(e.ExtraPT, 0)
@@ -1239,7 +1176,7 @@ AS
                       SUM(CASE ISNULL(e.ExtraPT, 0)
                               WHEN 0
                               THEN 0
-                              ELSE( extra_winloss_actualrate + grosscomm_actualrate ) * e.ExtraPT
+                              ELSE( WinlossForExtraPT_actualrate + grosscomm_actualrate ) * e.ExtraPT
                           END) AS NewExtraPT
                FROM #src b
                     LEFT JOIN #ExtraPT_Sel e ON b.srecommend = e.superID
@@ -1261,8 +1198,8 @@ AS
                  winlost,
                  Position,
                  Commission,
-                 RealLineTotal,
-                 VirtualLineTotal,
+                 RealHouseWinloss,
+                 VirtualHouseWinloss,
 				 VarianceIncome,
                  RealTurnover,
                  VirtualTurnover,
@@ -1283,11 +1220,11 @@ AS
                END AS ProductId,
                site,
                SUM(winlost_actualrate) WinLost,
-               SUM(position_actualrate) Position,
+               SUM(SMAWinloss) Position,
                SUM(commission_actualrate) Commission,
-               SUM(LineTotal_actualrate - (( extra_winloss_actualrate + grosscomm_actualrate ) * ISNULL(e.ExtraPT, 0))) AS RealLineTotal,
-               SUM(Linetotal_virtualrate - (( extra_winloss_virtualrate + grosscomm_virtualrate ) * ISNULL(e.ExtraPT, 0))) AS VirtualLineTotal,
-			   SUM(Linetotal_variance - (extra_winloss_actualrate - extra_winloss_virtualrate) * ISNULL(e.ExtraPT, 0) - grosscomm_variance * ISNULL(e.ExtraPT, 0)) AS VarianceIncome,
+               SUM(HouseWinloss_actualrate - (( WinlossForExtraPT_actualrate + grosscomm_actualrate ) * ISNULL(e.ExtraPT, 0))) AS RealHouseWinloss,
+               SUM(HouseWinloss_virtualrate - (( extra_winloss_virtualrate + grosscomm_virtualrate ) * ISNULL(e.ExtraPT, 0))) AS VirtualHouseWinloss,
+			   SUM(HouseWinloss_variance - (WinlossForExtraPT_actualrate - extra_winloss_virtualrate) * ISNULL(e.ExtraPT, 0) - grosscomm_variance * ISNULL(e.ExtraPT, 0)) AS VarianceIncome,
                SUM(turnover_actualrate - ISNULL(e.ExtraPT, 0) * stake_actualrate) AS RealTurnover,
                SUM(turnover_virtualrate - ISNULL(e.ExtraPT, 0) * stake_virtualrate) AS VirtualTurnover,
                SUM(CASE ISNULL(e.ExtraPT, 0)
@@ -1298,7 +1235,7 @@ AS
                SUM(CASE ISNULL(e.ExtraPT, 0)
                        WHEN 0
                        THEN 0
-                       ELSE( extra_winloss_actualrate + grosscomm_actualrate ) * e.ExtraPT
+                       ELSE( WinlossForExtraPT_actualrate + grosscomm_actualrate ) * e.ExtraPT
                    END) AS NewExtraPT
                FROM #src b
                     LEFT JOIN #ExtraPT_Sel e ON b.srecommend = e.superID
@@ -1321,8 +1258,8 @@ AS
                  winlost,
                  Position,
                  Commission,
-                 RealLineTotal,
-                 VirtualLineTotal,
+                 RealHouseWinloss,
+                 VirtualHouseWinloss,
 				 VarianceIncome,
                  RealTurnover,
                  VirtualTurnover,
@@ -1343,11 +1280,11 @@ AS
                END AS ProductId,
                site,
                SUM(winlost_actualrate) WinLost,
-               SUM(position_actualrate) Position,
+               SUM(SMAWinloss) Position,
                SUM(commission_actualrate) Commission,
-               SUM(LineTotal_actualrate - (( extra_winloss_actualrate + grosscomm_actualrate ) * ISNULL(e.ExtraPT, 0))) AS RealLineTotal,
-               SUM(Linetotal_virtualrate - (( extra_winloss_virtualrate + grosscomm_virtualrate ) * ISNULL(e.ExtraPT, 0))) AS VirtualLineTotal,
-			   SUM(Linetotal_variance - (extra_winloss_actualrate - extra_winloss_virtualrate) * ISNULL(e.ExtraPT, 0) - grosscomm_variance * ISNULL(e.ExtraPT, 0)) AS VarianceIncome,
+               SUM(HouseWinloss_actualrate - (( WinlossForExtraPT_actualrate + grosscomm_actualrate ) * ISNULL(e.ExtraPT, 0))) AS RealHouseWinloss,
+               SUM(HouseWinloss_virtualrate - (( extra_winloss_virtualrate + grosscomm_virtualrate ) * ISNULL(e.ExtraPT, 0))) AS VirtualHouseWinloss,
+			   SUM(HouseWinloss_variance - (WinlossForExtraPT_actualrate - extra_winloss_virtualrate) * ISNULL(e.ExtraPT, 0) - grosscomm_variance * ISNULL(e.ExtraPT, 0)) AS VarianceIncome,
                SUM(turnover_actualrate - ISNULL(e.ExtraPT, 0) * stake_actualrate) AS RealTurnover,
                SUM(turnover_virtualrate - ISNULL(e.ExtraPT, 0) * stake_virtualrate) AS VirtualTurnover,
                SUM(CASE ISNULL(e.ExtraPT, 0)
@@ -1355,7 +1292,7 @@ AS
                        THEN 0
                        ELSE( winlost_actualrate ) * e.ExtraPT
                    END) AS ExtraPT,
-               SUM(( b.extra_winloss_actualrate + grosscomm_actualrate ) * ISNULL(e.ExtraPT, 0)) AS NewExtraPT
+               SUM(( b.WinlossForExtraPT_actualrate + grosscomm_actualrate ) * ISNULL(e.ExtraPT, 0)) AS NewExtraPT
                FROM #srcDetail b
                     LEFT JOIN #ExtraPT_Sel e ON b.srecommend = e.superID
                                             AND e.ProductID = b.ProductId
@@ -1379,8 +1316,8 @@ AS
                  winlost,
                  Position,
                  Commission,
-                 RealLineTotal,
-                 VirtualLineTotal,
+                 RealHouseWinloss,
+                 VirtualHouseWinloss,
 				 VarianceIncome,
                  RealTurnover,
                  VirtualTurnover,
@@ -1401,8 +1338,8 @@ AS
                       -SUM(winlost - actual_stake) WinLost,
                       -SUM(awinlost + mwinlost + swinlost) Position,
                       SUM(scomm) Commission,
-                      -SUM(winlost - actual_stake + awinlost + mwinlost + swinlost + scomm) RealLineTotal,
-                      -SUM(winlost - actual_stake + awinlost + mwinlost + swinlost + scomm) VirtualLineTotal,
+                      -SUM(winlost - actual_stake + awinlost + mwinlost + swinlost + scomm) RealHouseWinloss,
+                      -SUM(winlost - actual_stake + awinlost + mwinlost + swinlost + scomm) VirtualHouseWinloss,
 					  0 AS VarianceIncome,
                       SUM(( 1 - tpositiontaking ) * ABS(stake)) RealTurnover,
                       SUM(( 1 - tpositiontaking ) * ABS(stake)) VirtualTurnover,
@@ -1506,8 +1443,8 @@ AS
                SUM(d.winlost) AS MemberWinLoss,
                SUM(d.Position) AS SMAWinLoss,
                SUM(d.Commission) AS Commission,
-               SUM(d.RealLineTotal) AS RealIncome,
-               SUM(d.VirtualLineTotal) AS VirtualIncome,
+               SUM(d.RealHouseWinloss) AS RealIncome,
+               SUM(d.VirtualHouseWinloss) AS VirtualIncome,
                SUM(d.VarianceIncome) AS VarianceIncome,
                SUM(d.RealTurnover) AS RealTurnover,
                SUM(d.VirtualTurnover) AS VirtualTurnover,

@@ -1,10 +1,12 @@
-IF EXISTS( SELECT *
-           FROM sys.objects
-           WHERE object_id = OBJECT_ID(N'[dbo].[Acc_Rpt_CompanyWinLoss_Sportsbook_Outright_MatchDetail_14]')
-             AND type IN( N'P', N'PC' ))
-DROP PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_Sportsbook_Outright_MatchDetail_14];
+USE [bodb02]
 GO
-CREATE PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_Sportsbook_Outright_MatchDetail_14]
+/****** Object:  StoredProcedure [dbo].[Acc_Rpt_CompanyWinLoss_Sportsbook_Outright_MatchDetail_14]    Script Date: 5/9/2018 12:43:06 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+/****** Object:  Stored Procedure dbo.Acc_Rpt_CompanyWinLoss_Sportsbook_Outright_MatchDetail_14    Script Date: 5/2/2018 9:36:29 AM ******/
+ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_Sportsbook_Outright_MatchDetail_14]
        @StartDate SMALLDATETIME,
        @EndDate   SMALLDATETIME,
        @SportType SMALLINT = 1
@@ -46,6 +48,8 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Outright_MatchDetail_14] @EndDate='2020-
         CREATE TABLE #ExtraPT_Sel( SuperID INT,
 								   Sporttype  INT,
                                    ExtraPT DECIMAL(9, 8));
+		DECLARE @sport BIT = 0;
+        SELECT @sport = CASE WHEN @SportType = 44 THEN 44 ELSE 0 END
         INSERT INTO #ExtraPT_Sel
                ( SuperID,
 			     Sporttype,
@@ -57,11 +61,11 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Outright_MatchDetail_14] @EndDate='2020-
                WHERE @StartDate BETWEEN FromDate AND Todate
                  AND a.ProductId = 1
                  AND a.SubProduct NOT IN( 'MG-SuperLive', 'BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss' )
+				 AND a.Sporttype = @sport
                GROUP BY SuperId,Sporttype;
     END;
     BEGIN -- #Data
-	 DECLARE @sport BIT = 0;
-     SELECT @sport = CASE WHEN @SportType = 44 THEN 44 ELSE 0 END
+	 
 
         CREATE TABLE #Data( MatchId         INT,
                             MatchCode       VARCHAR(100),
@@ -69,6 +73,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Outright_MatchDetail_14] @EndDate='2020-
                             LeagueId        INT,
                             MemberWinLoss   MONEY,
                             SMAWinLoss      MONEY,
+							ExtraPT         MONEY,
                             Commission      MONEY,
                             RealIncome      MONEY,
                             VirtualIncome   MONEY,
@@ -86,6 +91,11 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Outright_MatchDetail_14] @EndDate='2020-
                       m.LeagueId,
                       SUM(( winlost - actual_stake ) * actualrate) MemberWinLoss,
                       SUM(( awinlost + mwinlost + swinlost ) * actualrate) AS SMAWinLoss,
+					  SUM((CASE
+                              WHEN b.tpositiontaking = 1
+                              THEN 0
+                              ELSE(winlost - actual_stake ) + b.scomm / ( 1 - b.tpositiontaking )
+                          END) * ISNULL(e.ExtraPT, 0) * actualrate) AS ExtraPT,
                       SUM(scomm * actualrate) Commission,
                       SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - ( CASE
                                                                                                     WHEN tpositiontaking = 1
@@ -123,7 +133,6 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Outright_MatchDetail_14] @EndDate='2020-
                FROM bettrans14 b WITH ( nolock )
                     INNER JOIN #Match m WITH ( nolock ) ON b.MatchId = m.MatchId
                     LEFT JOIN #ExtraPT_Sel e ON e.SuperID = b.srecommend
-											  AND e.Sporttype = @sport
                WHERE b.winlostdate = @StartDate
                  AND b.BetType = 10
                  AND b.ruben = 1
@@ -146,6 +155,11 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Outright_MatchDetail_14] @EndDate='2020-
                       0 LeagueId,
                       -SUM(( winlost - actual_stake ) * actualrate) MemberWinLoss,
                       -SUM(( awinlost + mwinlost + swinlost ) * actualrate) AS SMAWinLoss,
+					  SUM((CASE
+                              WHEN b.tpositiontaking = 1
+                              THEN 0
+                              ELSE(winlost - actual_stake ) + b.scomm / ( 1 - b.tpositiontaking )
+                          END) * ISNULL(e.ExtraPT, 0) * actualrate) AS ExtraPT,
                       SUM(scomm * actualrate) Commission,
                       -SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - ( CASE
                                                                                                      WHEN tpositiontaking = 1
@@ -183,7 +197,6 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Outright_MatchDetail_14] @EndDate='2020-
                FROM bettrans14 b WITH ( NOLOCK )
                     INNER JOIN #Match m ON b.MatchId = m.MatchId
                     LEFT JOIN #ExtraPT_Sel e ON e.SuperID = b.srecommend
-											  AND e.Sporttype = @sport
                WHERE b.winlostdate = @StartDate
                  AND b.BetType = 10
                  AND b.ruben = 1
@@ -204,6 +217,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Outright_MatchDetail_14] @EndDate='2020-
                d.LeagueId,
                d.MemberWinLoss AS MemberWinLoss,
                d.SMAWinLoss AS SMAWinLoss,
+			   -d.ExtraPT AS ExtraPT,
                d.Commission AS Commission,
                d.RealIncome AS RealIncome,
                d.VirtualIncome AS VirtualIncome,

@@ -1,10 +1,12 @@
-IF EXISTS( SELECT *
-           FROM sys.objects
-           WHERE object_id = OBJECT_ID(N'[dbo].[Acc_Rpt_CompanyWinLoss_Universal_Site_14]')
-             AND type IN( N'P', N'PC' ))
-DROP PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_Universal_Site_14];
+USE [bodb02]
 GO
-CREATE PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_Universal_Site_14]
+/****** Object:  StoredProcedure [dbo].[Acc_Rpt_CompanyWinLoss_Universal_Site_14]    Script Date: 5/9/2018 12:43:06 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+/****** Object:  Stored Procedure dbo.Acc_Rpt_CompanyWinLoss_Universal_Site_14    Script Date: 5/2/2018 9:36:29 AM ******/
+ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_Universal_Site_14]
        @StartDate SMALLDATETIME,
        @EndDate   SMALLDATETIME,
        @BetType   INT,
@@ -64,21 +66,13 @@ EXEC [Acc_Rpt_CompanyWinLoss_Universal_Site_14] @StartDate='2016-01-01', @EndDat
         -- Check SP Version	 
         DECLARE @isTest BIT = 0;
         SELECT @isTest = dbo.f_CheckSPVersion( @@PROCID );
-        CREATE TABLE #SportBettype( ProductID INT,
-                                    Bettype   INT,
-									SportType INT);
-        INSERT INTO #SportBettype
-               ( ProductID,
-                 Bettype,
-				 SportType
-               )
-               SELECT s.ProductID,
-                      s.Bettype,
-					  t.SportType
-               FROM dbo.f_SportBettypeMatrix_Sel( 0, 0, 0, 2, '', '', 1 ) s
-			   INNER JOIN dbo.SportBettypeMatrix t WITH ( NOLOCK ) ON t.BetType = s.BetType
-                                                                       AND t.ProductId = s.ProductId
-               WHERE s.bettype = @BetType;
+		DECLARE @ProductID INT;
+       
+        SELECT DISTINCT @ProductID = s.ProductID
+        FROM dbo.f_SportBettypeMatrix_Sel( 0, 0, 0, 2, '', '', 1 ) s
+		INNER JOIN dbo.SportBettypeMatrix t WITH ( NOLOCK ) ON t.BetType = s.BetType
+                                                                AND t.ProductId = s.ProductId
+        WHERE s.bettype = @BetType;
         --- End Sport Bettype Matrix------
     END;
     BEGIN ---- Extra PT 
@@ -93,8 +87,8 @@ EXEC [Acc_Rpt_CompanyWinLoss_Universal_Site_14] @StartDate='2016-01-01', @EndDat
                SELECT SuperId, a.Sporttype,
                       SUM(ExtraPT) AS ExtraPT
                FROM bodb02.dbo.Acc_GroupExtraPTSetting a WITH ( NOLOCK )
-                    INNER JOIN #SportBettype sb ON sb.ProductID = a.ProductId
                WHERE @StartDate BETWEEN FromDate AND Todate
+			   AND a.ProductId = @ProductID
                GROUP BY SuperId, a.Sporttype;
     END;
     BEGIN -- Query
@@ -102,6 +96,11 @@ EXEC [Acc_Rpt_CompanyWinLoss_Universal_Site_14] @StartDate='2016-01-01', @EndDat
         SELECT Site AS RowName,
                SUM(( winlost - actual_stake ) * actualrate) AS MemberWinLoss,
                SUM(( awinlost + mwinlost + swinlost ) * actualrate) AS SMAWinLoss,
+			   -SUM((CASE
+                              WHEN b.tpositiontaking = 1
+                              THEN 0
+                              ELSE(winlost - actual_stake ) + b.scomm / ( 1 - b.tpositiontaking )
+                          END) * ISNULL(e.ExtraPT, 0) * actualrate) AS ExtraPT,
                SUM(scomm * actualrate) Commission,
                SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - ( CASE
                                                                                              WHEN tpositiontaking = 1
@@ -111,7 +110,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Universal_Site_14] @StartDate='2016-01-01', @EndDat
                SUM(CASE
                        WHEN tpositiontaking = 1
                        THEN 0
-                       ELSE( 1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * ABS(b.stake) * CASE
+                       ELSE( 1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * b.stake * CASE
                                                                                                 WHEN virtualrate / actualrate - 1 > 0
                                                                                                 THEN virtualrate
                                                                                                 ELSE actualrate
@@ -132,7 +131,6 @@ EXEC [Acc_Rpt_CompanyWinLoss_Universal_Site_14] @StartDate='2016-01-01', @EndDat
     END;
         DROP TABLE #Agent;
         DROP TABLE #ExtraPT_Sel;
-        DROP TABLE #SportBettype;
 GO
 GRANT EXECUTE ON [dbo].[Acc_Rpt_CompanyWinLoss_Universal_Site_14] TO [bodbAdminNet];
 GO
