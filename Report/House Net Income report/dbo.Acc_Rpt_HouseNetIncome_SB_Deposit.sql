@@ -18,6 +18,7 @@ AS
 		- 20161024@Harper - #65699: HAIFA - Apply new charge rate discount for HNI report
 		- 20171206@Harper - Update Pay To MuayThai amount due to include Parlay data [RedmineID: #83193]		
 		- 20180131@Harper - Fix Daily HAIFA data [#RedmineID: 90263]
+		- 20180518@Harper - Hot Fix Daily HAIFA data [#RedmineID: 95399]
 
 	Param's Explanation:   
 
@@ -143,7 +144,7 @@ BEGIN
 				p.ProductId,
 				SUM(-ISNULL(b.MemberWL, 0) * p.Rate * e.Rate),
 				1 AS IsApplyMinFee,
-				SUM(-ISNULL(b.MemberWL, 0) * ISNULL(d.Rate, 0) * e.Rate)
+				SUM(-ISNULL(b.MemberWL, 0) * p.Rate * ISNULL(d.Rate, 0) * e.Rate)
 		FROM	bodb_LicenseeReport.dbo.rpt_BettingByProduct b WITH (NOLOCK)
 				INNER JOIN #Exchange e ON b.rptDate = e.ExchangeDate AND b.CurrencyId = e.ExchangeID
 				INNER JOIN @PartyChargeInfo p ON	b.ProductId = p.ProductID 
