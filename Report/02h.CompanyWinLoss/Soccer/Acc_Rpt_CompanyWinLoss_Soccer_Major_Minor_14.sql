@@ -65,7 +65,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_14_Kean] @EndDate='2020-01-01',@
           PRIMARY KEY(MatchId, type)
          );
         INSERT INTO #Match
-                SELECT m.MatchId,
+                SELECT DISTINCT m.MatchId,
                        m.MatchCode,
                        m.type
                 FROM

@@ -101,7 +101,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_BetType] @EndDate='2020-01-01',@StartDate='2
                              type      VARCHAR(10),
                              PRIMARY KEY( MatchId, type ));
         INSERT INTO #Match
-               SELECT m.MatchId,
+               SELECT DISTINCT m.MatchId,
                       m.MatchCode,
                       m.type
                FROM(

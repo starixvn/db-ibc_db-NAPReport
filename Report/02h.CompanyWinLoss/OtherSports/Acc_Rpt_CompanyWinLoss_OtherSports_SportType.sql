@@ -56,7 +56,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_SportType] @EndDate='2020-01-01',@Start
                              SportName NVARCHAR(50),
                              PRIMARY KEY( MatchId, type ));
         INSERT INTO #Match
-               SELECT m.MatchId,
+               SELECT DISTINCT m.MatchId,
                       m.type,
                       s.sporttype,
                       s.sportname

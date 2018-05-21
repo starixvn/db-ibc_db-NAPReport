@@ -78,7 +78,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Site_14] @StartDate='2016-01-01', @EndDa
                              type    VARCHAR(10),
                              PRIMARY KEY( MatchId, type ));
         INSERT INTO #Match
-               SELECT m.MatchId,
+               SELECT DISTINCT m.MatchId,
                       m.type
                FROM(
                    SELECT MatchId,
