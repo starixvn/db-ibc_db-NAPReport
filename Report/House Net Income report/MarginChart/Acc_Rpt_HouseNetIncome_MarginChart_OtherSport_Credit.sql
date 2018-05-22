@@ -41,12 +41,11 @@ BEGIN
 		RptDate				VARCHAR(10),
 		HouseWL				MONEY,
 		ExtraPT				MONEY,
-		TurnOver			MONEY,
-		ExtraTO				MONEY	
+		TurnOver			MONEY		
 	)
 
-	INSERT INTO #FinalResult (RptDate, HouseWL, ExtraPT, TurnOver, ExtraTO)
-	SELECT 'FullRange', 0, 0, 0, 0
+	INSERT INTO #FinalResult (RptDate, HouseWL, ExtraPT, TurnOver)
+	SELECT 'FullRange', 0, 0, 0
 
 	-- Date list to draw chart
 	DECLARE @tmpDate DATE, @DateList VARCHAR(200)
@@ -54,8 +53,8 @@ BEGIN
 
 	WHILE @tmpDate <= @TDate
 	BEGIN
-		INSERT INTO #FinalResult (RptDate, HouseWL, ExtraPT, TurnOver, ExtraTO)
-		SELECT CONVERT(VARCHAR(2), @tmpDate, 106), 0, 0, 0, 0
+		INSERT INTO #FinalResult (RptDate, HouseWL, ExtraPT, TurnOver)
+		SELECT CONVERT(VARCHAR(2), @tmpDate, 106), 0, 0, 0
 
 		SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate)
 	END
@@ -67,42 +66,20 @@ BEGIN
 
 	INSERT INTO #SportBettypeMatrix (ProductID, Bettype, EventType, SubProduct)
 	SELECT ProductID, BetType, EventType, SubProduct FROM bodb02.dbo.f_SportBettypeMatrix_Sel(1,0,0,2,'','SB',0) WHERE SubProduct NOT IN ('MG-SuperLive','BT-Sold','BT-Bought','BT-Comm', 'BT-Winloss')
-
-	-- Daily Extra PT
-	;WITH ExtraPT AS
-	(
-		SELECT b.rptDate, SUM(b.ExtraWLAfterComm_RM) AS ExtraPT, SUM(b.ExtraTO_RM) AS ExtraTO
-		FROM bodb_account.dbo.rptExtraPTBySite b WITH (NOLOCK)
-			INNER JOIN #SportBettypeMatrix sb ON sb.Bettype = b.bettype
-		WHERE	rptdate BETWEEN @FDate AND @TDate 
-				AND sb.ProductID = 1
-				AND sb.EventType IN( 1, 2, 4 )
-				AND b.statusid <> 14
-				AND EXISTS( 
-							SELECT TOP 1 1
-							FROM bodb_Account.dbo.League l  WITH(NOLOCK)
-							WHERE b.LeagueId = l.LeagueId
-								AND l.sportid > 1)
-		GROUP BY b.rptDate
-	)
-	UPDATE f
-	SET f.ExtraPT = e.ExtraPT,
-		f.ExtraTO = e.ExtraTO
-	FROM #FinalResult f
-		INNER JOIN ExtraPT e ON CONVERT(VARCHAR(2), e.rptDate, 106) = f.RptDate
-
+	
 	-- House WL of Other Sport
-	CREATE TABLE #TmpHouseWL (rptDate DATE, HouseWL MONEY, TurnOver MONEY)
-	INSERT INTO #TmpHouseWL (rptDate, HouseWL, TurnOver)
+	CREATE TABLE #TmpHouseWL (rptDate DATE, HouseWL MONEY, TurnOver MONEY, ExtraPT MONEY)
+	INSERT INTO #TmpHouseWL (rptDate, HouseWL, TurnOver, ExtraPT)
 	SELECT 
 		b.rptDate,
 		ISNULL(-SUM(CASE WHEN b.SiteID NOT IN (-2, -4)THEN (winlossP + winlossS + winlossM + winlossA + commissionS) ELSE 0 END * ex.rate), 0) HouseWL,
-		ISNULL(SUM(b.TurnoverIBC * ex.Rate), 0) TurnOver
-	FROM bodb_Account.dbo.mcSiteDaily b WITH(NOLOCK)
+		SUM((ISNULL(b.TurnoverIBC , 0) - ISNULL(b.ExtraTO, 0)) * ex.Rate) AS TurnOver,
+		SUM(ISNULL(b.ExtraWL, 0) * ex.Rate) AS ExtraPT
+	FROM bodb_Account.dbo.FactSiteWinloss b WITH(NOLOCK)
 		INNER JOIN #exchange ex ON b.rptdate = ex.exchangedate AND b.currencyid = ex.ExchangeID	
 	WHERE 
 		b.rptDate BETWEEN @FDate AND @TDate 
-		AND b.status <> 14	
+		--AND b.status <> 14	
 		AND EXISTS( 
 					SELECT TOP 1 1
 					FROM #SportBettypeMatrix AS sb
@@ -119,8 +96,9 @@ BEGIN
 	OPTION (RECOMPILE)
 	
 	UPDATE f
-	SET HouseWL = ISNULL(f.HouseWL, 0) + ISNULL(wl.HouseWL, 0),
-		f.TurnOver = ISNULL(f.TurnOver, 0) + ISNULL(wl.TurnOver, 0) - ISNULL(f.ExtraTO, 0)
+	SET f.HouseWL = ISNULL(f.HouseWL, 0) + ISNULL(wl.HouseWL, 0),
+		f.TurnOver = ISNULL(f.TurnOver, 0) + ISNULL(wl.TurnOver, 0),
+		f.ExtraPT = ISNULL(f.ExtraPT, 0) + ISNULL(wl.ExtraPT, 0)
 	FROM #FinalResult f
 		INNER JOIN #TmpHouseWL wl ON CONVERT(VARCHAR(2), wl.rptDate, 106) = f.RptDate		
 				
