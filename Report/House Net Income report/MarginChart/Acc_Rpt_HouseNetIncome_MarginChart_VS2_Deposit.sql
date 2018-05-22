@@ -1,5 +1,6 @@
 /*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
-
+USE bodb02
+GO
 
 ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_VS2_Deposit]
 	@FromDate DATE,
@@ -213,4 +214,8 @@ BEGIN
 	DROP TABLE #DiscountGroup
 	DROP TABLE #FinalResult
 END
+GO
+GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_VS2_Deposit] TO [bodbAdminNet]
+GO
+GRANT VIEW definition ON [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_VS2_Deposit] TO [vnteam]
 GO

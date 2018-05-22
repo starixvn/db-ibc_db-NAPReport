@@ -27,19 +27,17 @@ BEGIN
 	DECLARE @FDate DATE, @TDate DATE
 	SELECT @FDate = @FromDate, @TDate = @ToDate
 
-	-- Region: Active licensees
-	DECLARE @TmpPartyList AS TABLE (PartyID INT, PartyName VARCHAR(200), BrandName VARCHAR(200), ParentID INT)
-	INSERT INTO @TmpPartyList
-	EXECUTE bodb_licensee..LA_PartyListSel  
+	-- Region: Active licensees	
 
 	DECLARE @tmpParty TABLE (PartyID INT, IsDeposit BIT, LicenseeID INT, ParentID INT, Rate FLOAT, ChargeType INT)
-	INSERT INTO @tmpParty( PartyID , IsDeposit , LicenseeID)	
+	INSERT INTO @tmpParty( PartyID , IsDeposit , LicenseeID, ParentID)	
 	SELECT DISTINCT p.PartyID, pd.IsDeposit,
 		CASE 
 			WHEN ISNULL(pd.IsDeposit, 0) = 1 
 			THEN p.OldRefID 
 			ELSE lb.LabelID 
-		END AS LicenseeID
+		END AS LicenseeID,
+		ci.ToParty
 	FROM bodb_licensee.dbo.OAS_Party p WITH (NOLOCK)
 		INNER JOIN bodb_licensee.dbo.OAS_PartyDetail pd WITH (NOLOCK) ON p.PartyID = pd.PartyID
 		INNER JOIN bodb_licensee.dbo.OAS_ChargeInfo ci WITH (NOLOCK) ON ci.FromParty = p.PartyID
@@ -51,11 +49,6 @@ BEGIN
 			OR (ci.ToDate BETWEEN @FDate AND @TDate)
 			OR (ci.FromDate < @FDate AND @TDate < ci.ToDate))	
 	
-	UPDATE p
-	SET p.ParentID = pa.ParentID
-	FROM @tmpParty p
-		INNER JOIN @TmpPartyList pa ON pa.PartyID = p.PartyID
-
 	DECLARE @PartyIDs VARCHAR(1000)
 	SELECT	@PartyIDs = COALESCE(@PartyIDs + ',', '') + CONVERT(VARCHAR(10), PartyId) FROM @tmpParty WHERE IsDeposit = 1
 	-- End region

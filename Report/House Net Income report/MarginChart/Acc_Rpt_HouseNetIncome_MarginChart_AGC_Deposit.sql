@@ -27,16 +27,11 @@ BEGIN
 	DECLARE @FDate DATE, @TDate DATE
 	SELECT @FDate = @FromDate, @TDate = @ToDate
 
-	-- Region: Active licensees
-	DECLARE @TempPartyList AS TABLE(PartyId	INT, PartyName VARCHAR(200), BranchName	VARCHAR(200), ParentId INT)
-	
-	INSERT INTO @TempPartyList
-	EXECUTE bodb_licensee.dbo.LA_PartyListSel
-	
+	-- Region: Active licensees	
 	DECLARE @tmpParty TABLE (PartyID INT, IsDeposit BIT, ParentID INT, AGCRate FLOAT)
 
-	INSERT INTO @tmpParty (PartyID, IsDeposit)	
-	SELECT DISTINCT ci.FromParty, pd.IsDeposit
+	INSERT INTO @tmpParty (PartyID, IsDeposit, ParentID)	
+	SELECT DISTINCT ci.FromParty, pd.IsDeposit, ci.ToParty
 	FROM bodb_licensee.dbo.OAS_Party p WITH (NOLOCK)
 		INNER JOIN bodb_licensee.dbo.OAS_PartyDetail pd WITH (NOLOCK) ON pd.PartyID = p.PartyID
 		INNER JOIN bodb_licensee.dbo.OAS_ChargeInfo ci WITH (NOLOCK) ON p.PartyID = ci.FromParty
@@ -52,11 +47,6 @@ BEGIN
 	DECLARE @PartyIDs VARCHAR(1000)
 	SELECT	@PartyIDs = COALESCE(@PartyIDs + ',', '') + CONVERT(VARCHAR(10), PartyId) FROM @tmpParty
 	-- End region
-
-	UPDATE p
-	SET p.ParentID = f.ParentId
-	FROM @tmpParty p
-		INNER JOIN @TempPartyList f ON p.PartyID = f.PartyID
 
 	-- Region: ChargeInfo
 	DECLARE @PartyChargeInfo AS TABLE (

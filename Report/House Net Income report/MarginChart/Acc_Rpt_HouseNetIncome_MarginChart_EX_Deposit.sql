@@ -28,12 +28,22 @@ BEGIN
 	SELECT @FDate = @FromDate, @TDate = @ToDate	
 	
 	-- Region: Active licensees
-	DECLARE @TmpPartyList AS TABLE (PartyID INT, PartyName VARCHAR(200), BrandName VARCHAR(200), ParentID INT)
-	INSERT INTO @TmpPartyList
-	EXECUTE bodb_licensee..LA_PartyListSel 
+
+	DECLARE @tmpParty TABLE (PartyID INT, IsDeposit BIT, ParentID INT)
+	INSERT INTO @tmpParty (PartyID, IsDeposit, ParentID)
+	SELECT DISTINCT ci.FromParty, pd.IsDeposit, ci.ToParty
+	FROM bodb_licensee.dbo.OAS_Party p WITH (NOLOCK)
+		INNER JOIN bodb_licensee.dbo.OAS_PartyDetail pd WITH (NOLOCK) ON pd.PartyID = p.PartyID
+		INNER JOIN bodb_licensee.dbo.OAS_ChargeInfo ci WITH (NOLOCK) ON p.PartyID = ci.FromParty
+		INNER JOIN bodb_licensee.dbo.LA_ChargeInfo_SystemMapping map ON map.ChargeID = ci.ChargeID and map.SystemID = 2
+	WHERE	p.PartyType = 1 AND pd.IsDeposit = 1
+			AND ci.ProductId = 5 -- VS
+			AND ((ci.FromDate BETWEEN @FDate AND @TDate)
+				OR (ci.ToDate BETWEEN @FDate AND @TDate)
+				OR (ci.FromDate < @FDate AND @TDate < ci.ToDate))
 
 	DECLARE @PartyIDs VARCHAR(1000)
-	SELECT	@PartyIDs = COALESCE(@PartyIDs + ',', '') + CONVERT(VARCHAR(10), PartyId) FROM @TmpPartyList WHERE ParentID <> 999 -- Credit
+	SELECT	@PartyIDs = COALESCE(@PartyIDs + ',', '') + CONVERT(VARCHAR(10), PartyId) FROM @tmpParty
 	-- End region
 	
 	-- Region: Get Licensees has charge rate
@@ -59,7 +69,7 @@ BEGIN
 	(
 		SELECT	ci.PartyID, ci.LicenseeID, p.ParentID, ci.DI_Rate, ci.Fromdate, ci.ToDate, ci.ProductID
 		FROM	bodb_licensee.dbo.LA_f_ChargeInfo(@PartyIDs, @FDate, @TDate, 'BX', 'OA', 1) ci	
-			INNER JOIN @TmpPartyList p ON ci.PartyID = p.PartyID	
+			INNER JOIN @tmpParty p ON ci.PartyID = p.PartyID	
 		WHERE	DI_Rate > 0 AND ci.ChargeType = 1 -- get PT
 	)
 	
