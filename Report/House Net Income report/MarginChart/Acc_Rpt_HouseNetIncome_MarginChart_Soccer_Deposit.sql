@@ -56,8 +56,8 @@ BEGIN
 	SELECT ExchangeDate, ExchangeID, BaseCurrencyRate
 	FROM bodb02.dbo.LA_f_ExchangeDailySel(@FDate, @TDate, 'MYR')
 	-- End region	
-
-	---------------------------------------------------- Pay to Metric Gaming -------------------------------------------------------
+	
+	---------------------------------------------------- Pay to Metric Gaming ----------------------------------------------------
 	
 	-- Region: Get Party list, including credit licensees	
 	DECLARE @tmpParty TABLE (PartyID INT, IsDeposit BIT)
