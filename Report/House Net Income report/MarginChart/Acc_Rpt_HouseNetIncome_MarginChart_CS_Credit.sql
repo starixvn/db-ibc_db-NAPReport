@@ -71,7 +71,7 @@ BEGIN
 	INSERT INTO #TmpHouseWL (rptDate, HouseWL, TurnOver, ExtraPT)
 	SELECT 
 		b.rptDate,
-		ISNULL(-SUM((b.WinlossIBC)*ex.rate),0) HouseWL,
+		ISNULL(-SUM((b.WinlossIBC + b.CommissionS)*ex.rate),0) HouseWL,
 		SUM((ISNULL(b.TurnoverIBC, 0) - ISNULL(b.ExtraTO, 0)) * ex.Rate) AS TurnOver,
 		SUM((ISNULL(b.ExtraWL, 0) + ISNULL(b.ExtraComm, 0)) * ex.Rate) AS ExtraPT
 	FROM bodb_Account.dbo.FactSiteWinloss b WITH(NOLOCK)
