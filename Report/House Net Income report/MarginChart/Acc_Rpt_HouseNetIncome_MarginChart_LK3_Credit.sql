@@ -70,7 +70,7 @@ BEGIN
 	INSERT INTO #TmpHouseWLLK3 (rptDate, HouseWL, TurnOver)
 	SELECT 
 		b.rptDate,
-		-SUM(ISNULL((winlossP+winlossS+winlossM+winlossA+commissionS) ,0)*ex.rate) AS HouseWL,
+		-SUM(ISNULL((b.WinlossIBC) ,0)*ex.rate) AS HouseWL,
 		SUM((ISNULL(b.TurnoverIBC, 0) - ISNULL(b.ExtraTO, 0)) * ex.Rate) AS TurnOver
 	FROM bodb_Account.dbo.FactSiteWinloss b WITH(NOLOCK)
 		INNER JOIN #exchange ex ON b.rptdate = ex.exchangedate AND b.currencyid = ex.ExchangeID

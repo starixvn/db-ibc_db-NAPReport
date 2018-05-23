@@ -83,10 +83,10 @@ BEGIN
 	INSERT INTO #TmpHouseWL (rptDate, HouseWL, MemberWLOANDA, TurnOver, ExtraPT)
 	SELECT 
 		b.rptDate,
-		ISNULL(-SUM((winlossP+winlossS+winlossM+winlossA+commissionS) * ex.rate),0) HouseWL,
+		ISNULL(-SUM((b.WinlossIBC) * ex.rate),0) HouseWL,
 		ISNULL(SUM((winlossP) * oanda.BaseCurrencyRate),0) MemberWLOANDA,
 		SUM((ISNULL(b.TurnoverIBC, 0) - ISNULL(b.ExtraTO, 0)) * ex.Rate) AS TurnOver,
-		SUM(ISNULL(b.ExtraWL, 0) * ex.Rate) AS ExtraPT
+		SUM((ISNULL(b.ExtraWL, 0) + ISNULL(b.ExtraComm, 0)) * ex.Rate) AS ExtraPT
 	FROM bodb_Account.dbo.FactSiteWinloss b WITH(NOLOCK)
 		INNER JOIN #exchange ex ON b.rptdate = ex.exchangedate AND b.currencyid = ex.ExchangeID
 		INNER JOIN ##ExchangeOANDA oanda ON b.rptdate = oanda.exchangedate AND b.currencyid = oanda.ExchangeID
