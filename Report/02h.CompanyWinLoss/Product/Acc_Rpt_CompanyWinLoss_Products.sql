@@ -1,6 +1,6 @@
 USE [bodb02]
 GO
-/****** Object:  StoredProcedure [dbo].[Acc_Rpt_CompanyWinLoss_Products]    Script Date: 5/22/2018 8:44:26 AM ******/
+/****** Object:  StoredProcedure [dbo].[Acc_Rpt_CompanyWinLoss_Products]    Script Date: 5/22/2018 8:51:28 AM ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
@@ -71,6 +71,28 @@ AS
                WHERE bettype NOT IN( 911, 912 ); -- remove Cash Out
         --- End Sport Bettype Matrix------
 
+		CREATE TABLE #tmp_src( 
+						   srecommend				    INT,
+						   bettype					    INT,
+                           site                         TINYINT,
+                           Sporttype                    INT,
+                           winlost_actualrate           MONEY,
+                           SMAWinloss				    MONEY,
+                           commission_actualrate        MONEY,
+                           HouseWinloss_actualrate      MONEY,
+                           HouseWinloss_virtualrate     MONEY,
+						   HouseWinloss_variance        MONEY,
+                           grosscomm_actualrate         DECIMAL(19,6),
+						   grosscomm_virtualrate        DECIMAL(19,6),
+						   grosscomm_variance           DECIMAL(19,6),
+                           ProductId                    INT,
+                           CasinoType                   TINYINT,
+                           turnover_actualrate          MONEY,
+                           turnover_virtualrate         MONEY,
+                           stake_actualrate             MONEY,
+                           stake_virtualrate            MONEY,
+                           WinlossForExtraPT_actualrate  MONEY,
+                           WinlossForExtraPT_virtualrate MONEY);
 
         CREATE TABLE #src( srecommend                INT,
                            site                      TINYINT,
@@ -141,26 +163,12 @@ AS
                                    SuperID    INT,
                                    ExtraPT    DECIMAL(9, 8));
         INSERT INTO #ExtraPT_Sel
-               ( ProductID,
-                 Sporttype,
-                 SubProduct,
-                 SuperID,
-                 ExtraPT
-               )
-               SELECT ProductID,
-                      SportType,
-                      SubProduct,
-                      SuperId,
-                      SUM(ExtraPT) AS ExtraPT
+               ( ProductID, Sporttype, SubProduct, SuperID, ExtraPT)
+               SELECT ProductID, SportType, SubProduct, SuperId, SUM(ExtraPT) AS ExtraPT
                FROM bodb02.dbo.Acc_GroupExtraPTSetting a WITH ( NOLOCK )
                WHERE @StartDate BETWEEN FromDate AND Todate
-               GROUP BY ProductID,
-                        SportType,
-                        SubProduct,
-                        SuperId;
+               GROUP BY ProductID, SportType, SubProduct, SuperId;
 	
-		
-        
         ----------------------	Racing -------------------------------------
         DECLARE @RBWinlost TABLE( site      TINYINT,
                                   winlost   MONEY,
@@ -359,37 +367,20 @@ AS
         CREATE CLUSTERED INDEX CIX_MatchID ON #Match( MatchID, [Type] );
 	
         --------------------------------------------------------------------------------
-        ---1. Sportsbook only and outright (not Parlay)
-        INSERT INTO #src
-               ( srecommend,
-                 site,
-                 SportType,
-                 winlost_actualrate,
-                 SMAWinloss,
-                 commission_actualrate,
-                 HouseWinloss_actualrate,
-                 HouseWinloss_virtualrate,
-				 HouseWinloss_variance,
-                 grosscomm_actualrate,
-				 grosscomm_virtualrate,
-				 grosscomm_variance,
-                 ProductId,
-                 turnover_actualrate,
-                 turnover_virtualrate,
-                 stake_actualrate,
-                 stake_virtualrate,
-                 WinlossForExtraPT_actualrate,
-                 WinlossForExtraPT_virtualrate
+        ---1. Sportsbook only and outright
+        INSERT INTO #tmp_src
+               ( srecommend,bettype,site,SportType,
+                 winlost_actualrate,SMAWinloss,commission_actualrate,
+                 HouseWinloss_actualrate,HouseWinloss_virtualrate,HouseWinloss_variance,
+                 grosscomm_actualrate,grosscomm_virtualrate,grosscomm_variance,
+                 ProductId,turnover_actualrate,turnover_virtualrate,stake_actualrate,stake_virtualrate,
+                 WinlossForExtraPT_actualrate,WinlossForExtraPT_virtualrate
                )
                SELECT srecommend,
+			          b.bettype,
                       1 AS site,
-                           CASE
-                               WHEN m.sporttype = 44
-                               THEN 44
-                               WHEN m.Sporttype = 1
-                               THEN 1
-                               ELSE 2
-                           END AS SportType,
+                    CASE WHEN m.sporttype = 44 THEN 44
+                        WHEN m.Sporttype = 1 THEN 1 ELSE 2 END AS SportType,
                       SUM(( winlost - actual_stake ) * actualrate) winlost_actualrate,
                       SUM(( awinlost + mwinlost + swinlost ) * actualrate) SMAWinloss,
                       SUM(scomm * actualrate) commission_actualrate,
@@ -413,7 +404,7 @@ AS
 							   ELSE 0 END) * (actualrate - virtualrate)) grosscomm_variance,
                       1 AS ProductId,
                       SUM(( 1 - b.tpositiontaking ) * ABS(stake) * CASE
-                                                                               WHEN virtualrate / actualrate - 1 > 0
+                                                                               WHEN virtualrate > actualrate
                                                                                THEN virtualrate
                                                                                ELSE actualrate
                                                                            END
@@ -423,7 +414,7 @@ AS
                               WHEN b.tpositiontaking = 1
                               THEN 0
                               ELSE ABS(stake) * CASE
-                                                    WHEN virtualrate / actualrate - 1 > 0
+                                                    WHEN virtualrate > actualrate
                                                     THEN virtualrate
                                                     ELSE actualrate
                                                 END
@@ -444,50 +435,52 @@ AS
                               ELSE(( winlost - actual_stake ) * virtualrate )
                           END) AS WinlossForExtraPT_virtualrate
                FROM bettrans b WITH ( NOLOCK )
-                    INNER JOIN #SportBettype s ON b.bettype = s.bettype
                     INNER JOIN #Match m ON b.MatchId = m.MatchId
+											AND  m.type = (CASE WHEN b.bettype = 10 THEN 1 ELSE 0 END)
                WHERE winlostdate = @StartDate
-                 AND b.bettype < 19001
+				 AND b.ruben = 1
                  AND b.statusID IN( 111, 112, 113 )
-                 AND b.ruben = 1
-                 AND m.type = CASE
-                                  WHEN b.bettype = 10
-                                  THEN 1
-                                  ELSE 0
-                              END
-                 AND s.productID = 1
-                 AND s.EventType IN( 1, 2 )
-                 AND s.SubProduct NOT IN( 'MG-SuperLive', 'BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss' )
-               GROUP BY srecommend,
+               GROUP BY srecommend,b.bettype,
                         CASE
-                            WHEN m.sporttype = 44
-                            THEN 44
-                            WHEN m.Sporttype = 1
-                            THEN 1
-                            ELSE 2
-                        END;
-				 
+                            WHEN m.sporttype = 44 THEN 44
+                            WHEN m.Sporttype = 1 THEN 1 ELSE 2 END
+				OPTION (RECOMPILE)
+
+       -----------Remove betype of MertricGaming and Bettrade
+		DELETE #tmp_src
+		WHERE bettype NOT IN (
+				   SELECT bettype FROM #SportBettype s
+				   WHERE s.productID = 1
+				   AND s.EventType IN (1,2)
+				   AND s.SubProduct NOT IN ('MG-SuperLive','BT-Sold','BT-Bought','BT-Comm','BT-Winloss') 
+		)
+
+		------Soccer and Other Sports
+		INSERT INTO #src
+               ( srecommend,site,SportType,ProductId,
+                 winlost_actualrate,SMAWinloss,commission_actualrate,
+                 HouseWinloss_actualrate,HouseWinloss_virtualrate,HouseWinloss_variance,
+                 grosscomm_actualrate,grosscomm_virtualrate,grosscomm_variance,
+                 turnover_actualrate,turnover_virtualrate,stake_actualrate,stake_virtualrate,
+                 WinlossForExtraPT_actualrate,WinlossForExtraPT_virtualrate
+               )
+			   SELECT srecommend,site,SportType,ProductId,
+                 SUM(winlost_actualrate), SUM(SMAWinloss), SUM(commission_actualrate),
+                 SUM(HouseWinloss_actualrate), SUM(HouseWinloss_virtualrate), SUM(HouseWinloss_variance),
+                 SUM(grosscomm_actualrate), SUM(grosscomm_virtualrate), SUM(grosscomm_variance),
+                 SUM(turnover_actualrate),SUM(turnover_virtualrate),SUM(stake_actualrate),SUM(stake_virtualrate),
+                 SUM(WinlossForExtraPT_actualrate),SUM(WinlossForExtraPT_virtualrate)
+			   FROM #tmp_src
+			   GROUP BY srecommend,site,SportType,ProductId
+			      		 
         ------ BARM (only)
         INSERT INTO #src
-               ( srecommend,
-                 site,
-                 SportType,
-                 winlost_actualrate,
-                 SMAWinloss,
-                 commission_actualrate,
-                 HouseWinloss_actualrate,
-                 HouseWinloss_virtualrate,
-				 HouseWinloss_variance,
-                 grosscomm_actualrate,
-				 grosscomm_virtualrate,
-				 grosscomm_variance,
-                 ProductId,
-                 turnover_actualrate,
-                 turnover_virtualrate,
-                 stake_actualrate,
-                 stake_virtualrate,
-                 WinlossForExtraPT_actualrate,
-                 WinlossForExtraPT_virtualrate
+               ( srecommend,site,SportType,
+                 winlost_actualrate,SMAWinloss,commission_actualrate,
+                 HouseWinloss_actualrate,HouseWinloss_virtualrate,HouseWinloss_variance,
+                 grosscomm_actualrate,grosscomm_virtualrate,grosscomm_variance,
+                 ProductId,turnover_actualrate,turnover_virtualrate,stake_actualrate,stake_virtualrate,
+                 WinlossForExtraPT_actualrate,WinlossForExtraPT_virtualrate
                )
                SELECT 2 AS srecommend,
                       2 AS site,
@@ -521,7 +514,7 @@ AS
 							   ELSE 0 END) * (actualrate - virtualrate)) grosscomm_variance,
                       1 AS ProductId,
                       SUM(( 1 - b.tpositiontaking ) * ABS(stake) * CASE
-                                                                               WHEN virtualrate / actualrate - 1 > 0
+                                                                               WHEN virtualrate > actualrate
                                                                                THEN virtualrate
                                                                                ELSE actualrate
                                                                            END
@@ -531,7 +524,7 @@ AS
                               WHEN b.tpositiontaking = 1
                               THEN 0
                               ELSE ABS(stake) * CASE
-                                                    WHEN virtualrate / actualrate - 1 > 0
+                                                    WHEN virtualrate > actualrate
                                                     THEN virtualrate
                                                     ELSE actualrate
                                                 END
@@ -601,26 +594,13 @@ AS
           AND d.Site = 2;
 								 
 
-        ---2. Not Sportsbook and not have detail table yet ; and special Sportsbook : Parlay, Metric gaming, Bettrade 
+        ---2. Not Sportsbook and not have detail table yet ; and special Sportsbook : Parlay, Metric gaming, Bettrade
         INSERT INTO #src
-               ( srecommend,
-                 site,
-                 SportType,
-                 winlost_actualrate,
-                 SMAWinloss,
-                 commission_actualrate,
-                 HouseWinloss_actualrate,
-                 HouseWinloss_virtualrate,
-				 HouseWinloss_variance,
-                 grosscomm_actualrate,
-				 grosscomm_virtualrate,
-				 grosscomm_variance,
-                 ProductId,
-                 CasinoType,
-                 turnover_actualrate,
-                 turnover_virtualrate,
-                 stake_actualrate,
-                 stake_virtualrate,
+               ( srecommend,site,SportType,
+                 winlost_actualrate,SMAWinloss,commission_actualrate,
+                 HouseWinloss_actualrate,HouseWinloss_virtualrate,HouseWinloss_variance,
+                 grosscomm_actualrate,grosscomm_virtualrate,grosscomm_variance,
+                 ProductId,CasinoType,turnover_actualrate,turnover_virtualrate,stake_actualrate,stake_virtualrate,
                  WinlossForExtraPT_actualrate,
                  WinlossForExtraPT_virtualrate
                )
@@ -649,29 +629,21 @@ AS
 							   THEN  (CASE WHEN b.tpositiontaking = 1 THEN 0 ELSE b.scomm / ( 1 - b.tpositiontaking ) END)
 							   ELSE 0 END) * (actualrate - virtualrate)) grosscomm_variance,
                                                   CASE s.SubProduct
-                                                      WHEN 'MG-SuperLive'
-                                                      THEN-1
-                                                      WHEN 'BT-Comm'
-                                                      THEN-2
-                                                      WHEN 'BT-Winloss'
-                                                      THEN-2
-                                                      ELSE CASE
-                                                               WHEN s.EventType = 0
-                                                                AND ProductID = 1
-                                                               THEN-3
-                                                               ELSE s.ProductID
-                                                           END
+                                                      WHEN 'MG-SuperLive' THEN-1
+                                                      WHEN 'BT-Comm' THEN-2
+                                                      WHEN 'BT-Winloss' THEN-2
+                                                      ELSE CASE WHEN s.EventType = 0 AND ProductID = 1 THEN-3 ELSE s.ProductID END
                                                   END AS ProductID,
                       s.CasinoType,
                       SUM(( 1 - b.tpositiontaking ) * (CASE WHEN s.productID = 1 THEN ABS(stake) ELSE stake END)
-													* CASE WHEN virtualrate / actualrate - 1 > 0 THEN virtualrate ELSE actualrate END
+													* CASE WHEN virtualrate > actualrate THEN virtualrate ELSE actualrate END
                           ) AS turnover_actualrate,
                       SUM(( 1 - b.tpositiontaking ) * (CASE WHEN s.productID = 1 THEN ABS(stake) ELSE stake END) * virtualrate) AS turnover_virtualrate,
                       SUM(CASE
                               WHEN b.tpositiontaking = 1
                               THEN 0
                               ELSE (CASE WHEN s.productID = 1 THEN ABS(stake) ELSE stake END) 
-								   * CASE WHEN virtualrate / actualrate - 1 > 0 THEN virtualrate ELSE actualrate END
+								   * CASE WHEN virtualrate > actualrate THEN virtualrate ELSE actualrate END
                           END) AS stake_actualrate,
                       SUM(CASE
                               WHEN b.tpositiontaking = 1
@@ -691,59 +663,29 @@ AS
                FROM bettrans b WITH ( NOLOCK )
                     INNER JOIN #SportBettype s ON b.bettype = s.bettype
                WHERE winlostdate = @StartDate
-                 AND b.bettype < 19001
                  AND b.statusID IN( 111, 112, 113 )
                  AND b.ruben = 1
-                 AND ( ----s.productID NOT IN (1,6,17,22,21) ---- OW RNG(6), Microgaming - RNG Casino (17), Voidbridge (22),  Allbet (21)	
-                     ( s.productID <> 1
-                   AND s.RefTable NOT IN( 1, 2 )
-                     )  ------ not have data detail in bettransRNG and BettransLC 
-                  OR ( s.productID = 1
-                   AND s.SubProduct IN( 'MG-SuperLive', 'BT-Comm', 'BT-Winloss' )
-                     ) ---Metric Gaming - Superlive , Bettrade
-                  OR ( s.productID = 1
-                   AND s.EventType = 0
-                     ) ----Palay
-                     )
+                 AND (( s.productID <> 1 AND s.RefTable NOT IN( 1, 2 ))
+						  OR (s.productID = 1 AND s.SubProduct IN( 'MG-SuperLive', 'BT-Comm', 'BT-Winloss' ))
+						  OR (s.productID = 1 AND s.EventType = 0))
                GROUP BY srecommend,
                         CASE s.SubProduct
-                            WHEN 'MG-SuperLive'
-                            THEN-1
-                            WHEN 'BT-Comm'
-                            THEN-2
-                            WHEN 'BT-Winloss'
-                            THEN-2
-                            ELSE CASE
-                                     WHEN s.EventType = 0
-                                      AND ProductID = 1
-                                     THEN-3
-                                     ELSE s.ProductID
-                                 END
+                            WHEN 'MG-SuperLive' THEN-1
+                            WHEN 'BT-Comm' THEN-2
+                            WHEN 'BT-Winloss' THEN-2
+                            ELSE CASE WHEN s.EventType = 0 AND ProductID = 1 THEN-3 ELSE s.ProductID END
                         END,
                         s.CasinoType;   
 
         ----3. Get from Detail table ----------
         -- Get bettransRNG data	
         INSERT INTO #srcDetail
-               ( srecommend,
-                 site,
-                 winlost_actualrate,
-                 SMAWinloss,
-                 commission_actualrate,
-                 HouseWinloss_actualrate,
-                 HouseWinloss_virtualrate,
-				 HouseWinloss_variance,
-                 grosscomm_actualrate,
-				 grosscomm_virtualrate,
-				 grosscomm_variance,
-                 ProductId,
-                 CasinoType,
-                 turnover_actualrate,
-                 turnover_virtualrate,
-                 stake_actualrate,
-                 stake_virtualrate,
-                 WinlossForExtraPT_actualrate,
-                 WinlossForExtraPT_virtualrate
+               ( srecommend,site,
+				 winlost_actualrate,SMAWinloss,commission_actualrate,
+                 HouseWinloss_actualrate,HouseWinloss_virtualrate,HouseWinloss_variance,
+                 grosscomm_actualrate,grosscomm_virtualrate,grosscomm_variance,
+                 ProductId,CasinoType,turnover_actualrate,turnover_virtualrate,stake_actualrate,stake_virtualrate,
+                 WinlossForExtraPT_actualrate,WinlossForExtraPT_virtualrate
                )
                SELECT b.srecommend,
                       1 AS site,
@@ -787,12 +729,12 @@ AS
 							   ELSE 0 END) * (actualrate - virtualrate)) grosscomm_variance,
                       s.ProductID,
                       s.CasinoType,
-                      SUM(( 1 - b.tpositiontaking ) * stake * CASE WHEN virtualrate / actualrate - 1 > 0 THEN virtualrate ELSE actualrate END) AS turnover_actualrate,
+                      SUM(( 1 - b.tpositiontaking ) * stake * CASE WHEN virtualrate > actualrate THEN virtualrate ELSE actualrate END) AS turnover_actualrate,
                       SUM(( 1 - b.tpositiontaking ) * stake * virtualrate) AS turnover_virtualrate,
                       SUM(CASE
                               WHEN b.tpositiontaking = 1
                               THEN 0
-                              ELSE stake * CASE WHEN virtualrate / actualrate - 1 > 0 THEN virtualrate ELSE actualrate END
+                              ELSE stake * CASE WHEN virtualrate > actualrate THEN virtualrate ELSE actualrate END
                           END) AS stake_actualrate,
                       SUM(CASE
                               WHEN b.tpositiontaking = 1
@@ -830,25 +772,12 @@ AS
 	 	 
         -- Get bettransLC Data
         INSERT INTO #srcDetail
-               ( srecommend,
-                 site,
-                 winlost_actualrate,
-                 SMAWinloss,
-                 commission_actualrate,
-                 HouseWinloss_actualrate,
-                 HouseWinloss_virtualrate,
-				 HouseWinloss_variance,
-                 grosscomm_actualrate,
-				 grosscomm_virtualrate,
-				 grosscomm_variance,
-                 ProductId,
-                 CasinoType,
-                 turnover_actualrate,
-                 turnover_virtualrate,
-                 stake_actualrate,
-                 stake_virtualrate,
-                 WinlossForExtraPT_actualrate,
-                 WinlossForExtraPT_virtualrate
+               ( srecommend,site,
+                 winlost_actualrate,SMAWinloss,commission_actualrate,
+                 HouseWinloss_actualrate,HouseWinloss_virtualrate,HouseWinloss_variance,
+                 grosscomm_actualrate,grosscomm_virtualrate,grosscomm_variance,
+                 ProductId,CasinoType,turnover_actualrate,turnover_virtualrate,stake_actualrate,stake_virtualrate,
+                 WinlossForExtraPT_actualrate,WinlossForExtraPT_virtualrate
                )
                SELECT b.srecommend,
                       1 AS site,
@@ -875,12 +804,12 @@ AS
 							   ELSE 0 END) * (actualrate - virtualrate)) grosscomm_variance,
                       s.ProductID,
                       s.CasinoType,
-                      SUM(( 1 - b.tpositiontaking ) * stake * CASE WHEN virtualrate / actualrate - 1 > 0 THEN virtualrate ELSE actualrate END) AS turnover_actualrate,
+                      SUM(( 1 - b.tpositiontaking ) * stake * CASE WHEN virtualrate > actualrate THEN virtualrate ELSE actualrate END) AS turnover_actualrate,
                       SUM(( 1 - b.tpositiontaking ) * stake * virtualrate) AS turnover_virtualrate,
                       SUM(CASE
                               WHEN b.tpositiontaking = 1
                               THEN 0
-                              ELSE stake * CASE WHEN virtualrate / actualrate - 1 > 0 THEN virtualrate ELSE actualrate END
+                              ELSE stake * CASE WHEN virtualrate > actualrate THEN virtualrate ELSE actualrate END
                           END) AS stake_actualrate,
                       SUM(CASE
                               WHEN b.tpositiontaking = 1
@@ -1473,6 +1402,7 @@ AS
                  site
         ORDER BY DisplayOrder ASC,
                  site;
+        DROP TABLE #tmp_src;
         DROP TABLE #src;
         DROP TABLE #srcDetail;
         DROP TABLE #DepSuper;
