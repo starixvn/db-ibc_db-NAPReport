@@ -100,9 +100,9 @@ AS
                            winlost_actualrate        MONEY,
                            SMAWinloss				 MONEY,
                            commission_actualrate     MONEY,
-                           HouseWinloss_actualrate      MONEY,
-                           HouseWinloss_virtualrate     MONEY,
-						   HouseWinloss_variance        MONEY,
+                           HouseWinloss_actualrate   MONEY,
+                           HouseWinloss_virtualrate  MONEY,
+						   HouseWinloss_variance     MONEY,
                            grosscomm_actualrate      MONEY,
 						   grosscomm_virtualrate     MONEY,
 						   grosscomm_variance        MONEY,
@@ -114,14 +114,38 @@ AS
                            stake_virtualrate         MONEY,
                            WinlossForExtraPT_actualrate  MONEY,
                            WinlossForExtraPT_virtualrate MONEY );
+
+		CREATE TABLE #tmp_srcDetail(srecommend                 INT,
+									bettype					   INT,
+                                 site                          TINYINT,
+                                 winlost_actualrate            MONEY,
+								 winlost_virtualrate           MONEY,
+								 winlost_jackpot_actualrate    MONEY,
+								 winlost_jackpot_virtualrate   MONEY,
+                                 SMAWinloss_actualrate		   MONEY,
+								 SMAWinloss_virtualrate		   MONEY,
+                                 commission_actualrate         MONEY,
+								 commission_virtualrate        MONEY,
+								 commission_variance           MONEY,
+                                 grosscomm_actualrate          DECIMAL(19,6),
+								 grosscomm_virtualrate         DECIMAL(19,6),
+								 grosscomm_variance            DECIMAL(19,6),
+                                 turnover_actualrate           MONEY,
+                                 turnover_virtualrate          MONEY,
+                                 stake_actualrate              MONEY,
+                                 stake_virtualrate             MONEY,
+								 WinlossForExtraPT_actualrate  MONEY,
+								 WinlossForExtraPT_virtualrate MONEY,
+								 WinlossJackpotForExtraPT_actualrate  MONEY,
+								 WinlossJackpotForExtraPT_virtualrate MONEY);
         CREATE TABLE #srcDetail( srecommend                   INT,
                                  site                         TINYINT,
                                  winlost_actualrate           MONEY,
                                  SMAWinloss					  MONEY,
                                  commission_actualrate        MONEY,
-                                 HouseWinloss_actualrate         MONEY,
-                                 HouseWinloss_virtualrate        MONEY,
-								 HouseWinloss_variance           MONEY,
+                                 HouseWinloss_actualrate      MONEY,
+                                 HouseWinloss_virtualrate     MONEY,
+								 HouseWinloss_variance        MONEY,
                                  grosscomm_actualrate         MONEY,
 								 grosscomm_virtualrate        MONEY,
 								 grosscomm_variance           MONEY,
@@ -677,43 +701,24 @@ AS
                         END,
                         s.CasinoType;   
 
-        ----3. Get from Detail table ----------
-        -- Get bettransRNG data	
-        INSERT INTO #srcDetail
-               ( srecommend,site,
-				 winlost_actualrate,SMAWinloss,commission_actualrate,
-                 HouseWinloss_actualrate,HouseWinloss_virtualrate,HouseWinloss_variance,
-                 grosscomm_actualrate,grosscomm_virtualrate,grosscomm_variance,
-                 ProductId,CasinoType,turnover_actualrate,turnover_virtualrate,stake_actualrate,stake_virtualrate,
-                 WinlossForExtraPT_actualrate,WinlossForExtraPT_virtualrate
-               )
-               SELECT b.srecommend,
-                      1 AS site,
+		-- Get bettransRNG data
+	     INSERT INTO #tmp_srcDetail
+               ( srecommend, bettype,site,
+                winlost_actualrate, winlost_virtualrate, winlost_jackpot_actualrate, winlost_jackpot_virtualrate,
+                SMAWinloss_actualrate, SMAWinloss_virtualrate, commission_actualrate, commission_virtualrate, commission_variance,
+                grosscomm_actualrate, grosscomm_virtualrate, grosscomm_variance,
+                turnover_actualrate, turnover_virtualrate, stake_actualrate, stake_virtualrate,
+				WinlossForExtraPT_actualrate, WinlossForExtraPT_virtualrate, WinlossJackpotForExtraPT_actualrate, WinlossJackpotForExtraPT_virtualrate)
+               SELECT b.srecommend, b.gameID AS bettype, 1 AS site,
                       SUM(( winlost - actual_stake ) * actualrate) winlost_actualrate,
-                      SUM(( awinlost + mwinlost + swinlost ) * actualrate) SMAWinloss,
+					  SUM(( winlost - actual_stake ) * virtualrate) winlost_virtualrate,
+					  SUM(( b.ContributionRate * b.BetStake ) * actualrate) winlost_jackpot_actualrate,
+					  SUM(( b.ContributionRate * b.BetStake ) * virtualrate) winlost_jackpot_virtualrate,
+                      SUM(( awinlost + mwinlost + swinlost ) * actualrate) SMAWinloss_actualrate,
+					  SUM(( awinlost + mwinlost + swinlost ) * virtualrate) SMAWinloss_virtualrate,
                       SUM(scomm * actualrate) commission_actualrate,
-                      SUM(( CASE
-                                WHEN s.Bettype IN( 2199, 2399, 2999 )
-                                THEN 0
-                                WHEN s.Bettype IN( 2198, 2398, 2998 )
-                                THEN b.ContributionRate * b.BetStake + awinlost + mwinlost + swinlost + scomm
-                                ELSE winlost - actual_stake + awinlost + mwinlost + swinlost + scomm
-                            END ) * actualrate) HouseWinloss_actualrate,
-                      SUM(( CASE
-                                WHEN s.Bettype IN( 2199, 2399, 2999 )
-                                THEN 0
-                                WHEN s.Bettype IN( 2198, 2398, 2998 )
-                                THEN b.ContributionRate * b.BetStake + awinlost + mwinlost + swinlost
-                                ELSE winlost - actual_stake + awinlost + mwinlost + swinlost
-                            END ) * virtualrate 
-							      + scomm * CASE WHEN b.virtualrate < b.actualrate THEN b.virtualrate ELSE b.actualrate END) HouseWinloss_virtualrate,
-                      SUM((( CASE
-                                WHEN s.Bettype IN( 2199, 2399, 2999 )
-                                THEN 0
-                                WHEN s.Bettype IN( 2198, 2398, 2998 )
-                                THEN b.ContributionRate * b.BetStake + awinlost + mwinlost + swinlost
-                                ELSE winlost - actual_stake + awinlost + mwinlost + swinlost
-                            END ) + CASE WHEN b.virtualrate < b.actualrate THEN b.scomm ELSE 0 END) * (actualrate - virtualrate)) HouseWinloss_variance,
+					  SUM(scomm * CASE WHEN b.virtualrate < b.actualrate THEN b.virtualrate ELSE b.actualrate END) commission_virtualrate,
+					  SUM((CASE WHEN b.virtualrate < b.actualrate THEN b.scomm ELSE 0 END) * (actualrate - virtualrate)) commission_variance,
                       SUM(( CASE
                                 WHEN b.tpositiontaking = 1
                                 THEN 0
@@ -727,8 +732,6 @@ AS
 					  SUM((CASE WHEN b.virtualrate < b.actualrate 
 							   THEN  (CASE WHEN b.tpositiontaking = 1 THEN 0 ELSE b.scomm / ( 1 - b.tpositiontaking ) END)
 							   ELSE 0 END) * (actualrate - virtualrate)) grosscomm_variance,
-                      s.ProductID,
-                      s.CasinoType,
                       SUM(( 1 - b.tpositiontaking ) * stake * CASE WHEN virtualrate > actualrate THEN virtualrate ELSE actualrate END) AS turnover_actualrate,
                       SUM(( 1 - b.tpositiontaking ) * stake * virtualrate) AS turnover_virtualrate,
                       SUM(CASE
@@ -741,54 +744,47 @@ AS
                               THEN 0
                               ELSE stake * virtualrate
                           END) AS stake_virtualrate,
-                      SUM((CASE
-                              WHEN b.tpositiontaking = 1
-                                THEN 0
-							  WHEN b.gameId IN( 2199, 2399, 2999 )
-                                THEN 0 --Progressive Jackpot
-                              WHEN b.gameId IN( 2198, 2398, 2998 )
-                                THEN ContributionRate * BetStake  --Jackpot Contribution
-                              ELSE winlost - actual_stake
-                          END) * actualrate) AS WinlossForExtraPT_actualrate,
-                      SUM((CASE
+					 SUM(CASE
                               WHEN b.tpositiontaking = 1
                               THEN 0
-							  WHEN b.gameId IN( 2199, 2399, 2999 )
-                                THEN 0 --Progressive Jackpot
-                              WHEN b.gameId IN( 2198, 2398, 2998 )
-                                THEN ContributionRate * BetStake  --Jackpot Contribution
-                              ELSE winlost - actual_stake
-                          END) * virtualrate ) AS WinlossForExtraPT_virtualrate
+                              ELSE(( winlost - actual_stake ) * actualrate )
+                          END) AS WinlossForExtraPT_actualrate,
+                      SUM(CASE
+                              WHEN b.tpositiontaking = 1
+                              THEN 0
+                              ELSE(( winlost - actual_stake ) * virtualrate )
+                          END) AS WinlossForExtraPT_virtualrate,
+					  SUM(CASE
+                              WHEN b.tpositiontaking = 1
+                              THEN 0
+                              ELSE(( b.ContributionRate * b.BetStake ) * actualrate )
+                          END) AS WinlossJackpotForExtraPT_actualrate,
+                      SUM(CASE
+                              WHEN b.tpositiontaking = 1
+                              THEN 0
+                              ELSE(( b.ContributionRate * b.BetStake ) * virtualrate )
+                          END) AS WinlossJackpotForExtraPT_virtualrate
                FROM bettransRnG14 b WITH ( NOLOCK )
-                    INNER JOIN #SportBettype s ON b.gameid = s.bettype
                WHERE winlostdate = @StartDate
-                     ----AND s.ProductID IN (6,17,22) 	---- OW RNG(6), Microgaming - RNG Casino (17), Voidbridge (22)
-                 AND s.RefTable = 1  --- Use Table BettransRNG
                  AND b.statusID IN( 111, 112, 113 )
-               GROUP BY b.srecommend,
-                        s.ProductID,
-                        s.CasinoType;
-			 
-	 	 
-        -- Get bettransLC Data
-        INSERT INTO #srcDetail
-               ( srecommend,site,
-                 winlost_actualrate,SMAWinloss,commission_actualrate,
-                 HouseWinloss_actualrate,HouseWinloss_virtualrate,HouseWinloss_variance,
-                 grosscomm_actualrate,grosscomm_virtualrate,grosscomm_variance,
-                 ProductId,CasinoType,turnover_actualrate,turnover_virtualrate,stake_actualrate,stake_virtualrate,
-                 WinlossForExtraPT_actualrate,WinlossForExtraPT_virtualrate
-               )
-               SELECT b.srecommend,
-                      1 AS site,
+               GROUP BY b.srecommend,b.gameID
+			   OPTION (RECOMPILE)
+		-- Get bettransLC data
+        INSERT INTO #tmp_srcDetail
+               ( srecommend, bettype, site,
+                winlost_actualrate, winlost_virtualrate,
+                SMAWinloss_actualrate, SMAWinloss_virtualrate, commission_actualrate, commission_virtualrate, commission_variance,
+                grosscomm_actualrate, grosscomm_virtualrate, grosscomm_variance,
+                turnover_actualrate, turnover_virtualrate, stake_actualrate, stake_virtualrate,
+				WinlossForExtraPT_actualrate, WinlossForExtraPT_virtualrate)
+               SELECT b.srecommend, b.gameID AS bettype, 1 AS site,
                       SUM(( winlost - actual_stake ) * actualrate) winlost_actualrate,
-                      SUM(( awinlost + mwinlost + swinlost ) * actualrate) SMAWinloss,
+					  SUM(( winlost - actual_stake ) * virtualrate) winlost_virtualrate,
+                      SUM(( awinlost + mwinlost + swinlost ) * actualrate) SMAWinloss_actualrate,
+					  SUM(( awinlost + mwinlost + swinlost ) * virtualrate) SMAWinloss_virtualrate,
                       SUM(scomm * actualrate) commission_actualrate,
-                      SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm ) * actualrate) HouseWinloss_actualrate,
-                      SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost ) * virtualrate 
-								+ scomm * CASE WHEN b.virtualrate < b.actualrate THEN b.virtualrate ELSE b.actualrate END) HouseWinloss_virtualrate,
-					  SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost
-								+ CASE WHEN b.virtualrate < b.actualrate THEN b.scomm ELSE 0 END) * (actualrate - virtualrate)) HouseWinloss_variance,
+					  SUM(scomm * CASE WHEN b.virtualrate < b.actualrate THEN b.virtualrate ELSE b.actualrate END) commission_virtualrate,
+					  SUM((CASE WHEN b.virtualrate < b.actualrate THEN b.scomm ELSE 0 END) * (actualrate - virtualrate)) commission_variance,
                       SUM(( CASE
                                 WHEN b.tpositiontaking = 1
                                 THEN 0
@@ -802,8 +798,6 @@ AS
 					  SUM((CASE WHEN b.virtualrate < b.actualrate 
 							   THEN  (CASE WHEN b.tpositiontaking = 1 THEN 0 ELSE b.scomm / ( 1 - b.tpositiontaking ) END)
 							   ELSE 0 END) * (actualrate - virtualrate)) grosscomm_variance,
-                      s.ProductID,
-                      s.CasinoType,
                       SUM(( 1 - b.tpositiontaking ) * stake * CASE WHEN virtualrate > actualrate THEN virtualrate ELSE actualrate END) AS turnover_actualrate,
                       SUM(( 1 - b.tpositiontaking ) * stake * virtualrate) AS turnover_virtualrate,
                       SUM(CASE
@@ -816,7 +810,7 @@ AS
                               THEN 0
                               ELSE stake * virtualrate
                           END) AS stake_virtualrate,
-                      SUM(CASE
+						SUM(CASE
                               WHEN b.tpositiontaking = 1
                               THEN 0
                               ELSE(( winlost - actual_stake ) * actualrate )
@@ -827,11 +821,72 @@ AS
                               ELSE(( winlost - actual_stake ) * virtualrate )
                           END) AS WinlossForExtraPT_virtualrate
                FROM bettransLC14 b WITH ( NOLOCK )
-                    INNER JOIN #SportBettype s ON b.gameid = s.bettype
                WHERE winlostdate = @StartDate
-                     ----AND s.ProductID = 21  ---- AllBet (21)
-                 AND s.RefTable = 2  --- Use Table BettransLC
                  AND b.statusID IN( 111, 112, 113 )
+               GROUP BY b.srecommend, b.gameID
+			    OPTION (RECOMPILE)
+
+        ----3. Get from Temporary Detail table ----------
+        INSERT INTO #srcDetail
+               ( srecommend,site,
+				 winlost_actualrate,SMAWinloss,commission_actualrate,
+                 HouseWinloss_actualrate,HouseWinloss_virtualrate,HouseWinloss_variance,
+                 grosscomm_actualrate,grosscomm_virtualrate,grosscomm_variance,
+                 ProductId,CasinoType,turnover_actualrate,turnover_virtualrate,stake_actualrate,stake_virtualrate,
+                 WinlossForExtraPT_actualrate,WinlossForExtraPT_virtualrate
+               )
+               SELECT b.srecommend,
+                      1 AS site,
+                      SUM(b.winlost_actualrate) winlost_actualrate,
+                      SUM(b.SMAWinloss_actualrate) SMAWinloss,
+                      SUM(b.commission_actualrate) commission_actualrate,
+                      SUM(CASE
+                                WHEN s.Bettype IN( 2199, 2399, 2999 )
+                                THEN 0
+                                WHEN s.Bettype IN( 2198, 2398, 2998 )
+                                THEN b.winlost_jackpot_actualrate + b.SMAWinloss_actualrate + b.commission_actualrate
+                                ELSE b.winlost_actualrate + b.SMAWinloss_actualrate + b.commission_actualrate
+                            END) HouseWinloss_actualrate,
+                      SUM(( CASE
+                                WHEN s.Bettype IN( 2199, 2399, 2999 )
+                                THEN 0
+                                WHEN s.Bettype IN( 2198, 2398, 2998 )
+                                THEN b.winlost_jackpot_virtualrate + b.SMAWinloss_virtualrate
+                                ELSE b.winlost_virtualrate + b.SMAWinloss_virtualrate
+                            END ) + b.commission_virtualrate) HouseWinloss_virtualrate,
+                      SUM(( CASE
+                                WHEN s.Bettype IN( 2199, 2399, 2999 )
+                                THEN 0
+                                WHEN s.Bettype IN( 2198, 2398, 2998 )
+                                THEN b.winlost_jackpot_actualrate - winlost_jackpot_virtualrate  + b.SMAWinloss_actualrate - b.SMAWinloss_virtualrate
+                                ELSE b.winlost_actualrate - b.winlost_virtualrate + b.SMAWinloss_actualrate - b.SMAWinloss_virtualrate
+                            END ) + b.grosscomm_variance) HouseWinloss_variance,
+                      SUM(grosscomm_actualrate) grosscomm_actualrate,
+					  SUM(grosscomm_virtualrate) grosscomm_virtualrate,
+					  SUM(grosscomm_variance) grosscomm_variance,
+                      s.ProductID,
+                      s.CasinoType,
+                      SUM(turnover_actualrate) AS turnover_actualrate,
+                      SUM(turnover_virtualrate) AS turnover_virtualrate,
+                      SUM(stake_actualrate) AS stake_actualrate,
+                      SUM(stake_virtualrate) AS stake_virtualrate,
+                      SUM(CASE
+							  WHEN b.Bettype IN( 2199, 2399, 2999 )
+                                THEN 0 --Progressive Jackpot
+                              WHEN b.Bettype IN( 2198, 2398, 2998 )
+                                THEN WinlossJackpotForExtraPT_actualrate  --Jackpot Contribution
+                              ELSE WinlossForExtraPT_actualrate
+                          END) AS WinlossForExtraPT_actualrate,
+                      SUM(CASE
+							  WHEN b.Bettype IN( 2199, 2399, 2999 )
+                                THEN 0 --Progressive Jackpot
+                              WHEN b.Bettype IN( 2198, 2398, 2998 )
+                                THEN WinlossJackpotForExtraPT_virtualrate  --Jackpot Contribution
+                              ELSE WinlossForExtraPT_virtualrate
+                          END) AS WinlossForExtraPT_virtualrate
+               FROM #tmp_srcDetail b WITH ( NOLOCK )
+                    INNER JOIN #SportBettype s ON b.bettype = s.bettype
+				WHERE s.RefTable IN (1,2)
                GROUP BY b.srecommend,
                         s.ProductID,
                         s.CasinoType;
@@ -1403,6 +1458,7 @@ AS
         ORDER BY DisplayOrder ASC,
                  site;
         DROP TABLE #tmp_src;
+		DROP TABLE #tmp_srcDetail;
         DROP TABLE #src;
         DROP TABLE #srcDetail;
         DROP TABLE #DepSuper;

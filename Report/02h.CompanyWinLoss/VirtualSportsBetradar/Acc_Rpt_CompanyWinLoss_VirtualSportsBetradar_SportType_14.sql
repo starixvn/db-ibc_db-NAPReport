@@ -102,7 +102,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_SportType_14]	@StartDate='201
                               WHEN tpositiontaking = 1
                               THEN 0
                               ELSE( 1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * b.stake * CASE
-                                                                                                       WHEN virtualrate / actualrate - 1 > 0
+                                                                                                       WHEN virtualrate > actualrate
                                                                                                        THEN virtualrate
                                                                                                        ELSE actualrate
                                                                                                    END
@@ -150,7 +150,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_SportType_14]	@StartDate='201
                               WHEN tpositiontaking = 1
                               THEN 0
                               ELSE( 1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * b.stake * CASE
-                                                                                                       WHEN virtualrate / actualrate - 1 > 0
+                                                                                                       WHEN virtualrate > actualrate
                                                                                                        THEN virtualrate
                                                                                                        ELSE actualrate
                                                                                                    END

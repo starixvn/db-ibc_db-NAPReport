@@ -89,7 +89,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_ColossusBet_Site_14] @StartDate='2016-01-01', @EndD
                        WHEN tpositiontaking = 1
                        THEN 0
                        ELSE( 1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * b.stake * CASE
-                                                                                                WHEN virtualrate / actualrate - 1 > 0
+                                                                                                WHEN virtualrate > actualrate
                                                                                                 THEN virtualrate
                                                                                                 ELSE actualrate
                                                                                             END

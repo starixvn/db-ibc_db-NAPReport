@@ -174,7 +174,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Site_14] @StartDate='2016-01-01', @EndDa
                               WHEN tpositiontaking = 1
                               THEN 0
                               ELSE( 1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * ABS(b.stake) * CASE
-                                                                                                       WHEN virtualrate / actualrate - 1 > 0
+                                                                                                       WHEN virtualrate > actualrate
                                                                                                        THEN virtualrate
                                                                                                        ELSE actualrate
                                                                                                    END

@@ -77,7 +77,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Bullfighting_MatchDetail_14] @SportType=207, @BetTy
                               WHEN tpositiontaking = 1
                               THEN 0
                               ELSE( 1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * b.stake * CASE
-                                                                                                       WHEN virtualrate / actualrate - 1 > 0
+                                                                                                       WHEN virtualrate > actualrate
                                                                                                        THEN virtualrate
                                                                                                        ELSE actualrate
                                                                                                    END
