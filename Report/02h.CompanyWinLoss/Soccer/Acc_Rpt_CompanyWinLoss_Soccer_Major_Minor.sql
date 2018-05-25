@@ -105,7 +105,18 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_Kean] @EndDate='2020-01-01',@Sta
                GROUP BY SuperId,Sporttype;
     END;
     BEGIN -- #Data
-
+	CREATE TABLE #tmp_Data( srecommend      INT,
+                            bettype         INT,
+							liveindicator   BIT,
+                            MemberWinLoss   MONEY,
+                            SMAWinLoss      MONEY,
+							ExtraPT         MONEY,
+                            Commission      MONEY,
+                            RealIncome      MONEY,
+                            VirtualIncome   MONEY,
+							VarianceIncome  MONEY,
+                            RealTurnover    MONEY,
+                            VirtualTurnover MONEY );
         CREATE TABLE #Data( GroupName       NVARCHAR(50),
                             RowName         NVARCHAR(50),
                             MemberWinLoss   MONEY,
@@ -119,17 +130,8 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_Kean] @EndDate='2020-01-01',@Sta
                             VirtualTurnover MONEY );
     END;
     BEGIN -- Major AND Minor
-        INSERT INTO #Data
-               SELECT CASE
-                          WHEN sb.IsMajor = 1
-                          THEN 'Soccer-Major Bet Types'
-                          ELSE 'Soccer-Minor Bet Types'
-                      END,
-                      CASE
-                          WHEN dep.CustId IS NULL
-                          THEN 'Credit'
-                          ELSE 'Deposit'
-                      END AS RowName,
+	INSERT INTO #tmp_Data
+               SELECT srecommend, bettype,liveindicator,
                       SUM(( winlost - actual_stake ) * actualrate) MemberWinLoss,
                       SUM(( awinlost + mwinlost + swinlost ) * actualrate) AS SMAWinLoss,
 					  SUM((CASE
@@ -172,15 +174,11 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_Kean] @EndDate='2020-01-01',@Sta
                               ELSE( 1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * ABS(b.stake) * virtualrate
                           END) AS VirtualTurnover
                FROM bettrans AS b WITH ( NOLOCK )
-                    INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
-                    LEFT JOIN #DepositSuper AS dep ON b.srecommend = dep.CustId
                     INNER JOIN #Match m ON b.MatchId = m.MatchId
                     LEFT JOIN #ExtraPT_Sel e ON e.SuperID = b.srecommend
 												AND e.Sporttype = 0
                WHERE b.winlostdate = @StartDate
-                 AND ( @IsLive > 1
-                    OR b.liveIndicator = @IsLive
-                     )
+                 
                  AND m.type = CASE
                                   WHEN b.BetType = 10
                                   THEN 'outright'
@@ -188,6 +186,33 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_Kean] @EndDate='2020-01-01',@Sta
                               END
                  AND b.ruben = 1
                  AND b.statusID IN( 111, 112, 113 )
+               GROUP BY srecommend, bettype, liveindicator
+			   OPTION (RECOMPILE);
+
+        INSERT INTO #Data
+               SELECT CASE
+                          WHEN sb.IsMajor = 1
+                          THEN 'Soccer-Major Bet Types'
+                          ELSE 'Soccer-Minor Bet Types'
+                      END,
+                      CASE
+                          WHEN dep.CustId IS NULL
+                          THEN 'Credit'
+                          ELSE 'Deposit'
+                      END AS RowName,
+                      SUM(MemberWinLoss) MemberWinLoss,
+                      SUM(SMAWinLoss) AS SMAWinLoss,
+					  SUM(ExtraPT) AS ExtraPT,
+                      SUM(Commission) Commission,
+                      SUM(RealIncome) AS RealIncome,
+                      SUM(VirtualIncome) VirtualIncome,
+					  SUM(VarianceIncome) VarianceIncome,
+                      SUM(RealTurnover) AS RealTurnover,
+                      SUM(VirtualTurnover) AS VirtualTurnover
+               FROM #tmp_Data AS b WITH ( NOLOCK )
+                    INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
+                    LEFT JOIN #DepositSuper AS dep ON b.srecommend = dep.CustId
+               WHERE @IsLive > 1 OR b.liveIndicator = @IsLive
                GROUP BY CASE
                             WHEN sb.IsMajor = 1
                             THEN 'Soccer-Major Bet Types'
@@ -459,7 +484,8 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_Kean] @EndDate='2020-01-01',@Sta
         DROP TABLE #SportBetType;
         DROP TABLE #DepositSuper;
         DROP TABLE #ExtraPT_Sel;
-        DROP TABLE #Data;
+		DROP TABLE #Data;
+        DROP TABLE #tmp_Data;
         DROP TABLE #Match;
 GO
 GRANT EXECUTE ON [dbo].[Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor] TO [bodbAdminNet];
