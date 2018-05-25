@@ -93,7 +93,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_FishingWorld_BetType] @EndDate='2020-01-01',@StartD
                        WHEN tpositiontaking = 1
                        THEN 0
                        ELSE( 1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * b.stake * CASE
-                                                                                                WHEN virtualrate / actualrate - 1 > 0
+                                                                                                WHEN virtualrate > actualrate
                                                                                                 THEN virtualrate
                                                                                                 ELSE actualrate
                                                                                             END
