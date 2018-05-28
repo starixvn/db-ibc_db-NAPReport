@@ -94,6 +94,18 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_BetType_14] @EndDate='2020-01-01',@Star
                GROUP BY SuperId,Sporttype;
     END;
     BEGIN -- #Data
+	CREATE TABLE #tmp_Data( srecommend      INT,
+                            bettype			INT,
+							liveindicator   BIT,
+                            MemberWinLoss   MONEY,
+                            SMAWinLoss      MONEY,
+							ExtraPT         MONEY,
+                            Commission      MONEY,
+                            RealIncome      MONEY,
+                            VirtualIncome   MONEY,
+							VarianceIncome  MONEY,
+                            RealTurnover    MONEY,
+                            VirtualTurnover MONEY );
 
         CREATE TABLE #Data( GroupId         INT,
                             GroupName       NVARCHAR(50),
@@ -109,14 +121,10 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_BetType_14] @EndDate='2020-01-01',@Star
                             VirtualTurnover MONEY );
     END;
     BEGIN -- BetType
-        INSERT INTO #Data
-               SELECT sb.BetType GroupId,
-                      sb.BetTypeName GroupName,
-                                     CASE
-                                         WHEN dep.CustId IS NULL
-                                         THEN 'Credit'
-                                         ELSE 'Deposit'
-                                     END AS RowName,
+	INSERT INTO #tmp_Data
+               SELECT srecommend,
+						bettype,
+						liveindicator,
                       SUM(( winlost - actual_stake ) * actualrate) MemberWinLoss,
                       SUM(( awinlost + mwinlost + swinlost ) * actualrate) AS SMAWinLoss,
 					  SUM((CASE
@@ -159,14 +167,9 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_BetType_14] @EndDate='2020-01-01',@Star
                               ELSE( 1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * ABS(b.stake) * virtualrate
                           END) AS VirtualTurnover
                FROM bettrans14 AS b WITH ( NOLOCK )
-                    INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
-                    LEFT JOIN #DepositSuper AS dep ON b.srecommend = dep.CustId
-                    LEFT JOIN #ExtraPT_Sel e ON e.SuperID = b.srecommend
                     INNER JOIN #Match AS m ON b.MatchId = m.MatchId
+                    LEFT JOIN #ExtraPT_Sel e ON e.SuperID = b.srecommend
                WHERE b.winlostdate = @StartDate
-                 AND ( @IsLive > 1
-                    OR b.liveindicator = @IsLive
-                     )
                  AND m.type = CASE
                                   WHEN b.BetType = 10
                                   THEN 'outright'
@@ -174,6 +177,32 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_BetType_14] @EndDate='2020-01-01',@Star
                               END
                  AND b.ruben = 1
                  AND b.statusID IN( 111, 112, 113 )
+               GROUP BY srecommend,
+						bettype,
+						liveindicator
+				OPTION (RECOMPILE);
+
+        INSERT INTO #Data
+               SELECT sb.BetType GroupId,
+                      sb.BetTypeName GroupName,
+                                     CASE
+                                         WHEN dep.CustId IS NULL
+                                         THEN 'Credit'
+                                         ELSE 'Deposit'
+                                     END AS RowName,
+                      SUM(MemberWinLoss) MemberWinLoss,
+                      SUM(SMAWinLoss) AS SMAWinLoss,
+					  SUM(ExtraPT) AS ExtraPT,
+                      SUM(Commission) Commission,
+                      SUM(RealIncome) AS RealIncome,
+                      SUM(VirtualIncome) VirtualIncome,
+					  SUM(VarianceIncome) VarianceIncome,
+                      SUM(RealTurnover) AS RealTurnover,
+                      SUM(VirtualTurnover) AS VirtualTurnover
+               FROM #tmp_Data AS b WITH ( NOLOCK )
+                    INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
+                    LEFT JOIN #DepositSuper AS dep ON b.srecommend = dep.CustId
+               WHERE @IsLive > 1 OR b.liveindicator = @IsLive 
                GROUP BY sb.BetType,
                         sb.BetTypeName,
                            CASE
@@ -443,6 +472,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_BetType_14] @EndDate='2020-01-01',@Star
         DROP TABLE #Match;
         DROP TABLE #ExtraPT_Sel;
         DROP TABLE #Data;
+		DROP TABLE #tmp_Data;
 GO
 GRANT EXECUTE ON [dbo].[Acc_Rpt_CompanyWinLoss_OtherSports_BetType_14] TO [bodbAdminNet];
 GO
