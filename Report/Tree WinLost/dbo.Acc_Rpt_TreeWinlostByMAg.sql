@@ -246,6 +246,7 @@ BEGIN
 		and b.mrecommend = @mrecommend
 	GROUP BY b.recommend ,
 		CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(5,2))
+	OPTION(RECOMPILE)
 
 
 	INSERT INTO #TmpResultAll
@@ -292,6 +293,7 @@ BEGIN
 		and b.mrecommend = @mrecommend
 	GROUP BY b.recommend ,
 		CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(5,2))
+	OPTION(RECOMPILE)
 
 	INSERT INTO #TmpResultAll
 	SELECT b.recommend,
@@ -335,6 +337,7 @@ BEGIN
 		and b.mrecommend = @mrecommend
 	GROUP BY b.recommend ,
 		CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(5,2))
+	OPTION(RECOMPILE)
 
 	SELECT b.recommend,
 			ca.username, 

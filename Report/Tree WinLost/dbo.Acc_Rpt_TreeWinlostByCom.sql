@@ -245,6 +245,7 @@ BEGIN
 		and b.currency = @currency
 	GROUP BY b.srecommend,
 			CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(5,2))
+	OPTION(RECOMPILE)
 
 
 	INSERT INTO #TmpResultAll
@@ -290,6 +291,7 @@ BEGIN
 	   and b.currency = @currency
 	GROUP BY b.srecommend ,		
 			CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(5,2))
+	OPTION(RECOMPILE)
 
 	INSERT INTO #TmpResultAll
 	SELECT b.srecommend,	
@@ -332,6 +334,7 @@ BEGIN
 	   and b.currency = @currency
 	GROUP BY b.srecommend ,		
 			CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(5,2))
+	OPTION(RECOMPILE)
 
 	SELECT b.srecommend,
 		cs.UserName,

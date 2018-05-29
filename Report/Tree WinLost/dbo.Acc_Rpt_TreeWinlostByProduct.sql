@@ -260,6 +260,7 @@ BEGIN
 		and b.currency <> 20
 	GROUP BY b.currency,
 		CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(5,2))
+	OPTION(RECOMPILE)
 	
 	---get data from bettransLC
 	INSERT INTO #TmpResultAll 
@@ -303,6 +304,7 @@ BEGIN
 		and b.currency <> 20
 	GROUP BY b.currency,
 		CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(5,2))
+	OPTION(RECOMPILE)
 	
 	--Get data from bettrans
 	INSERT INTO #TmpResultAll  
@@ -348,6 +350,7 @@ BEGIN
 		and b.currency <> 20
 	GROUP BY b.currency,
 		CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(5,2))
+	OPTION(RECOMPILE)
 
 	SELECT	@TurnOver_8RM     = -SUM(ABS(stake)*(1 - tpositiontaking)*actualrate),
 			@Total_8RM        = -SUM((swinlost + mwinlost + awinlost + winlost-actual_stake+scomm)*actualrate),    
