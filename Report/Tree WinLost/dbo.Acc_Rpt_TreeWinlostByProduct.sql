@@ -50,9 +50,6 @@ Revisions:
 BEGIN  
   
 	SET NOCOUNT ON
-
-	DECLARE @FDate DATETIME, @TDate DATETIME
-	SELECT  @FDate = @FromDate, @TDate = @ToDate
   
 	DECLARE @tmpIBCFee TABLE(partnerID int,IBCFee bit)  
 	DECLARE @CommSetting TABLE (MatchID int, IBCFee bit, ToteCommWin smallmoney, ToteCommPlace smallmoney, ToteCommWP smallmoney, ToteFee smallmoney )
@@ -254,7 +251,7 @@ BEGIN
 				AND expt.SubProduct = pb.SubProduct
 				AND expt.Sporttype = 0
 				AND b.winlostdate BETWEEN expt.FromDate AND expt.ToDate
-	WHERE winlostdate BETWEEN @FDate AND @TDate  
+	WHERE winlostdate BETWEEN CAST(@FromDate AS SMALLDATETIME) AND CAST(@ToDate  AS SMALLDATETIME)
 		  AND t.ProductID in (6, 17, 22, 24, 32)
 		AND b.statusID NOT IN (0, 1, 101, 102, 103,121)     
 		and b.currency <> 20
@@ -298,7 +295,7 @@ BEGIN
 				AND expt.SubProduct = pb.SubProduct
 				AND expt.Sporttype = 0
 				AND b.winlostdate BETWEEN expt.FromDate AND expt.ToDate
-	WHERE winlostdate BETWEEN @FDate AND @TDate	
+	WHERE winlostdate BETWEEN CAST(@FromDate AS SMALLDATETIME) AND CAST(@ToDate  AS SMALLDATETIME)
 	     AND t.ProductID = 21	
 		AND b.statusID NOT IN (0, 1, 101, 102, 103,121)     
 		and b.currency <> 20
@@ -343,7 +340,7 @@ BEGIN
 				AND expt.SubProduct = pb.SubProduct
 				AND expt.Sporttype = ISNULL(m44.SportType,0)
 				AND b.winlostdate BETWEEN expt.FromDate AND expt.ToDate
-	WHERE winlostdate BETWEEN @FDate AND @TDate
+	WHERE winlostdate BETWEEN CAST(@FromDate AS SMALLDATETIME) AND CAST(@ToDate  AS SMALLDATETIME)
 	     AND t.ProductID NOT IN (2, 6, 9, 17, 21, 22, 24, 32)
 		AND b.ruben = 1    
 		AND b.statusID NOT IN (101, 102, 103,121)     
@@ -359,7 +356,7 @@ BEGIN
 		INNER JOIN #tmpBettype t on t.bettype = b.bettype
 	WHERE recommend = 52466 AND    
 		ruben=1 AND    
-		winlostdate  between @FDate and @TDate   AND   
+		winlostdate BETWEEN CAST(@FromDate AS SMALLDATETIME) AND CAST(@ToDate  AS SMALLDATETIME)   AND   
 		b.statusID NOT IN (101, 102, 103,121)
 
 	SELECT	@TurnOver_BARM = -SUM(ABS(stake)*(1 - tpositiontaking)*actualrate),
@@ -369,7 +366,7 @@ BEGIN
 		INNER JOIN #tmpBettype t on t.bettype = b.bettype   
 	WHERE recommend = 5707545 AND    
 		ruben=1 AND    
-		winlostdate  between @FDate and @TDate  AND  
+		winlostdate BETWEEN CAST(@FromDate AS SMALLDATETIME) AND CAST(@ToDate  AS SMALLDATETIME)  AND  
 		b.statusID NOT IN (101, 102, 103,121)
 		
 	---record set main data

@@ -239,7 +239,7 @@ BEGIN
 				AND expt.SubProduct = pb.SubProduct
 				AND expt.Sporttype = 0
 				AND b.winlostdate BETWEEN expt.FromDate AND expt.ToDate
-	WHERE winlostdate BETWEEN @FromDate AND @ToDate
+	WHERE winlostdate BETWEEN CAST(@FromDate AS SMALLDATETIME) AND CAST(@ToDate  AS SMALLDATETIME)
 		AND t.ProductID IN (6, 17, 22, 24, 32)
 		AND b.statusID NOT IN (0, 1, 101, 102, 103)   
 		and b.currency <> 20
@@ -285,7 +285,7 @@ BEGIN
 				AND expt.SubProduct = pb.SubProduct
 				AND expt.Sporttype = ISNULL(m44.SportType,0)
 				AND b.winlostdate BETWEEN expt.FromDate AND expt.ToDate	
-	WHERE winlostdate BETWEEN @FromDate AND @ToDate
+	WHERE wwinlostdate BETWEEN CAST(@FromDate AS SMALLDATETIME) AND CAST(@ToDate  AS SMALLDATETIME)
     AND t.ProductID NOT IN (2, 6, 9, 17, 21, 22, 24, 32)
 		and b.ruben = 1  
 		AND b.statusID NOT IN (101, 102, 103)   
@@ -330,7 +330,7 @@ BEGIN
 				AND expt.SubProduct = pb.SubProduct
 				AND expt.Sporttype = 0
 				AND b.winlostdate BETWEEN expt.FromDate AND expt.ToDate 
-	WHERE winlostdate BETWEEN @FromDate AND @ToDate   
+	WHERE winlostdate BETWEEN CAST(@FromDate AS SMALLDATETIME) AND CAST(@ToDate  AS SMALLDATETIME)
 		AND t.ProductID = 21	
 		AND b.statusID NOT IN (0, 1, 101, 102, 103)   
 		and b.currency <> 20
