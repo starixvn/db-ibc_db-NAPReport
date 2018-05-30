@@ -324,7 +324,7 @@ BEGIN
 		,SUM(scomm* actualrate)  CommissionS_RM
 		,SUM(CASE WHEN tpositiontaking = 1  THEN 0 
 			  ELSE (winlost - actual_stake) * CAST(ISNULL(ExtraPT,0) AS [decimal](10, 8))
-		 END)  ExtraWL_RM
+		 END* actualrate)  ExtraWL_RM
 		 ,SUM(CASE 
 				WHEN tpositiontaking = 1 THEN 0 
 				ELSE CASE WHEN pb.ProductID = 1 THEN abs(stake) ELSE stake END *  CAST(ISNULL(ExtraPT,0) AS [decimal](10, 8))
@@ -349,7 +349,7 @@ BEGIN
 		CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(5,2))
 	OPTION(RECOMPILE)
 
-	SELECT	@TurnOver_8RM     = -SUM(ABS(stake)*(1 - tpositiontaking)*actualrate),
+	SELECT	@TurnOver_8RM     = SUM(ABS(stake)*(1 - tpositiontaking)*actualrate),
 			@Total_8RM        = -SUM((swinlost + mwinlost + awinlost + winlost-actual_stake+scomm)*actualrate),    
 			@VirtualTotal_8RM = -SUM((swinlost + mwinlost + awinlost + winlost-actual_stake+scomm)*(CASE WHEN t.IsNoVirtual = 0 THEN b.virtualrate ELSE actualrate END))  		
 	FROM bettrans b WITH(NOLOCK)    
@@ -359,7 +359,7 @@ BEGIN
 		winlostdate BETWEEN CAST(@FromDate AS SMALLDATETIME) AND CAST(@ToDate  AS SMALLDATETIME)   AND   
 		b.statusID NOT IN (101, 102, 103,121)
 
-	SELECT	@TurnOver_BARM = -SUM(ABS(stake)*(1 - tpositiontaking)*actualrate),
+	SELECT	@TurnOver_BARM = SUM(ABS(stake)*(1 - tpositiontaking)*actualrate),
 			@Total_BARM = -SUM((swinlost + mwinlost + awinlost + winlost-actual_stake+scomm)*actualrate),    
 			@VirtualTotal_BARM = -SUM((swinlost + mwinlost + awinlost + winlost-actual_stake+scomm)*(CASE WHEN t.IsNoVirtual = 0 THEN b.virtualrate ELSE actualrate END))		
 	FROM bettrans b WITH(NOLOCK)   

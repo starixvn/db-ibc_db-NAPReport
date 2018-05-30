@@ -275,7 +275,7 @@ BEGIN
 		,SUM(scomm* actualrate)  CommissionS_RM
 		,SUM(CASE WHEN tpositiontaking = 1  THEN 0 
 			  ELSE (winlost - actual_stake) * CAST(ISNULL(ExtraPT,0) AS [decimal](10, 8))
-		 END)  ExtraWL_RM
+		 END* actualrate)  ExtraWL_RM
 		 ,SUM(CASE 
 				WHEN tpositiontaking = 1 THEN 0 
 				ELSE CASE WHEN pb.ProductID = 1 THEN abs(stake) ELSE stake END *  CAST(ISNULL(ExtraPT,0) AS [decimal](10, 8))
