@@ -285,7 +285,7 @@ BEGIN
 				AND expt.SubProduct = pb.SubProduct
 				AND expt.Sporttype = ISNULL(m44.SportType,0)
 				AND b.winlostdate BETWEEN expt.FromDate AND expt.ToDate	
-	WHERE wwinlostdate BETWEEN CAST(@FromDate AS SMALLDATETIME) AND CAST(@ToDate  AS SMALLDATETIME)
+	WHERE winlostdate BETWEEN CAST(@FromDate AS SMALLDATETIME) AND CAST(@ToDate  AS SMALLDATETIME)
     AND t.ProductID NOT IN (2, 6, 9, 17, 21, 22, 24, 32)
 		and b.ruben = 1  
 		AND b.statusID NOT IN (101, 102, 103)   
