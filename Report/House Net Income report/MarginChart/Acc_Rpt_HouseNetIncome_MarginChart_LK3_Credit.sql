@@ -71,7 +71,7 @@ BEGIN
 	SELECT 
 		b.rptDate,
 		-SUM(ISNULL((b.WinlossIBC + b.CommissionS) ,0)*ex.rate) AS HouseWL,
-		SUM((ISNULL(b.TurnoverIBC, 0) - ISNULL(b.ExtraTO, 0)) * ex.Rate) AS TurnOver
+		SUM((CASE WHEN TurnoverIBC = 0 THEN 0  ELSE TurnoverIBC - ExtraTO END ) * ( CASE WHEN VarianceVR > 0 THEN( VarianceVR + 1 ) ELSE 1 END ) * ex.Rate) AS TurnOver
 	FROM bodb_Account.dbo.FactSiteWinloss b WITH(NOLOCK)
 		INNER JOIN #exchange ex ON b.rptdate = ex.exchangedate AND b.currencyid = ex.ExchangeID
 		INNER JOIN #SportBettypeMatrix sb ON sb.Bettype = b.bettype
@@ -80,7 +80,7 @@ BEGIN
 		b.rptDate BETWEEN @FDate AND @TDate 
 		AND s.isDeposit = 0 -- Credit data only
 		AND Sb.ProductID = 26
-		--AND b.status <> 14
+		AND b.TicketStatus NOT IN (-1,18,9,10,14)
 	GROUP BY b.rptDate
 	OPTION (RECOMPILE)
 
