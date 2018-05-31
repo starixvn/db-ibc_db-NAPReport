@@ -70,7 +70,7 @@ BEGIN
 	SELECT 
 		b.rptDate,
 		ISNULL(-SUM((b.WinlossIBC + b.CommissionS)*ex.rate),0) HouseWL,
-		SUM((ISNULL(b.TurnoverIBC, 0) - ISNULL(b.ExtraTO, 0)) * ex.Rate) AS TurnOver,
+		SUM((CASE WHEN TurnoverIBC = 0 THEN 0  ELSE TurnoverIBC - ExtraTO END ) * ( CASE WHEN VarianceVR > 0 THEN( VarianceVR + 1 ) ELSE 1 END ) * ex.Rate) AS TurnOver,
 		SUM((ISNULL(b.ExtraWL, 0) + ISNULL(b.ExtraComm, 0)) * ex.Rate) AS ExtraPT
 	FROM bodb_Account.dbo.FactSiteWinloss b WITH(NOLOCK)
 		INNER JOIN #exchange ex ON b.rptdate = ex.exchangedate AND b.currencyid = ex.ExchangeID
@@ -80,7 +80,7 @@ BEGIN
 		b.rptDate BETWEEN @FDate AND @TDate 
 		AND s.isDeposit = 0 -- Credit data only
 		AND Sb.ProductID = 21 -- AB in Products table
-		--AND b.status <> 14
+		AND b.TicketStatus NOT IN (-1,18,9,10,14)
 	GROUP BY b.rptDate
 	OPTION (RECOMPILE)
 	

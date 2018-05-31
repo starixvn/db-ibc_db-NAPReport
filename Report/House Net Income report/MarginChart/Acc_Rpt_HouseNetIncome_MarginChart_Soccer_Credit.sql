@@ -72,15 +72,15 @@ BEGIN
 	INSERT INTO #TmpHouseWL (rptDate, HouseWL, TurnOver, ExtraPT)
 	SELECT 
 		b.rptDate,
-		ISNULL(-SUM(CASE WHEN b.SiteID NOT IN (-2, -4)THEN (b.WinlossIBC + b.CommissionS) ELSE 0 END * ex.rate), 0) HouseWL,
-		SUM((ISNULL(b.TurnoverIBC, 0) - ISNULL(b.ExtraTO, 0)) * ex.Rate) AS TurnOver,
+		ISNULL(-SUM(CASE WHEN b.SiteID NOT IN (-2, -4)THEN (b.WinlossIBC + b.CommissionS) ELSE 0 END * ex.rate), 0) HouseWL,		
+		SUM((CASE WHEN TurnoverIBC = 0 THEN 0  ELSE TurnoverIBC - ExtraTO END ) * ( CASE WHEN VarianceVR > 0 THEN( VarianceVR + 1 ) ELSE 1 END ) * ex.Rate),                          
 		SUM((ISNULL(b.ExtraWL, 0) + ISNULL(b.ExtraComm, 0)) * ex.Rate) AS ExtraPT
 	FROM bodb_Account.dbo.FactSiteWinloss b WITH(NOLOCK)
 		INNER JOIN #exchange ex ON b.rptdate = ex.exchangedate AND b.currencyid = ex.ExchangeID		
 		INNER JOIN #SportBettypeMatrix s ON b.bettype = s.Bettype -- Get all data of SB		
 	WHERE 
 		b.rptDate BETWEEN @FDate AND @TDate 
-		--AND b.status <> 14	
+		AND b.TicketStatus NOT IN (-1,18,9,10,14)	
 		AND (
 				b.bettype IN (9, 29) -- Parlay
 				OR (s.EventType IN (1, 2, 4) AND s.SubProduct = 'MG-SuperLive') -- Metrix Gaming
