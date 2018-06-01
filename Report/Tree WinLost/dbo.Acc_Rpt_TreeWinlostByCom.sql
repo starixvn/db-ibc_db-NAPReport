@@ -251,7 +251,7 @@ BEGIN
 	INSERT INTO #TmpResultAll
 	SELECT b.srecommend,	
 		CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(5,2)) AS VarianceVR,  
-		SUM(ABS(stake)*(1 - tpositiontaking)) TurnoverIBC,
+		SUM(CASE WHEN pb.ProductID = 1 THEN abs(stake) ELSE stake END*(1 - tpositiontaking)) TurnoverIBC,
 		SUM(swinlost + mwinlost + awinlost + winlost-actual_stake) WinlossIBC,  
 		SUM(scomm) CommissionS
 		,SUM(CASE WHEN tpositiontaking = 1  THEN 0 
