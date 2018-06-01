@@ -137,7 +137,8 @@ BEGIN
 	UPDATE f
 	SET HouseWL = f.HouseWL + wl.HouseWL,
 		ExtraPT = f.ExtraPT + wl.ExtraPT,
-		TurnOver = f.TurnOver + wl.TurnOver
+		TurnOver = f.TurnOver + wl.TurnOver,
+		PayToSupplier = f.PayToSupplier + wl.PayToSupplier
 	FROM #FinalResult f
 		INNER JOIN totalcte wl ON CONVERT(VARCHAR(2), wl.rptDate, 106) = f.RptDate
 			
