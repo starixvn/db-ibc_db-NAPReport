@@ -200,6 +200,11 @@ BEGIN
 		FROM #TicketData b
 			INNER JOIN #ChargeRate r ON b.SiteID = r.LicenseeId
 		WHERE b.SettledDate BETWEEN r.FromDate AND r.ToDate
+		
+		--- Delete unused data because of bettrans_exchange does not has data , but Sum_winloss_Exchange still has data with 0 ( case void or refund) 
+		DELETE #TicketData 
+		WHERE ISNULL(Turnover,0) = 0 AND ISNULL(Winlost,0) = 0 AND ISNULL(WinLostA,0) = 0 AND ISNULL(CommissionP,0) = 0
+			   AND ISNULL(CommissionA,0) = 0 AND ISNULL(BetCount,0) = 0 				
 				  
 		INSERT INTO #tmpWinlost 
 			(Winlostdate, 
