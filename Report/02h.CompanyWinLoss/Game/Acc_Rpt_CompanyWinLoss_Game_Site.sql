@@ -25,6 +25,7 @@ Revisions:
 				   . Not use @EndDate because we get only one day on (bettrans/bettrans14 range) 
 - 2018.03.19@Franklin: Integrate  ONE RNG Jackpot (#91712)
 - 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
+- 2018.06.04@Dominic: Force to recompile (#96143)
 				   
 Example:
 EXEC [Acc_Rpt_CompanyWinLoss_Game_Site] @BetType = 2101,@EndDate='2020-01-01',@Site = 'Credit',@StartDate='2016-01-01'
@@ -134,7 +135,8 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_Site] @BetType = 2101,@EndDate='2020-01-01',@S
                          AND b.BetType = @BetType
                          AND b.ruben = 1
                          AND b.statusID IN( 111, 112, 113 )
-                       GROUP BY dep.Site;
+                       GROUP BY dep.Site
+					   OPTION(RECOMPILE)
             END;
                 IF EXISTS -- bettransRNG
                 ( SELECT 1
@@ -188,7 +190,8 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_Site] @BetType = 2101,@EndDate='2020-01-01',@S
                                WHERE b.winlostdate = @StartDate
                                  AND b.gameId = @BetType
                                  AND b.statusID IN( 111, 112, 113 )
-                               GROUP BY dep.Site;
+                               GROUP BY dep.Site
+							   OPTION(RECOMPILE)
                     END;
                         IF EXISTS -- bettransLC
                         ( SELECT 1
@@ -228,7 +231,8 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_Site] @BetType = 2101,@EndDate='2020-01-01',@S
                                        WHERE b.winlostdate = @StartDate
                                          AND b.gameId = @BetType
                                          AND b.statusID IN( 111, 112, 113 )
-                                       GROUP BY dep.Site;
+                                       GROUP BY dep.Site
+									   OPTION(RECOMPILE)
                             END;
     BEGIN -- Query
 
