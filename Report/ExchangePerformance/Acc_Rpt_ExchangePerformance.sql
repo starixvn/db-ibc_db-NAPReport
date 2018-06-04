@@ -31,9 +31,9 @@ BEGIN
 							 MemberCount INT, 
 							 BetCount INT, 
 							 TurnOver MONEY,
-							 MemberWinloss MONEY, 
+							 MemberWinLoss MONEY, 
 							 MemberCommission MONEY,
-							 LicenseeWinloss MONEY, 
+							 LicenseeWinLoss MONEY, 
 							 LicenseeCommission MONEY,
 							 PayToSupplier MONEY)
 	
@@ -275,9 +275,9 @@ BEGIN
 			MemberCount, 
 			BetCount, 
 			TurnOver,
-			MemberWinloss,
+			MemberWinLoss,
 			MemberCommission,
-			LicenseeWinloss,
+			LicenseeWinLoss,
 			LicenseeCommission,
 			PayToSupplier)
 	SELECT  l.LicenseeName,
@@ -300,11 +300,16 @@ BEGIN
 			MemberCount, 
 			BetCount, 
 			TurnOver,
-			MemberWinloss,
+			MemberWinLoss,
 			MemberCommission,
-			LicenseeWinloss,
+			MemberWinLoss + MemberCommission AS MemberTotal,
+			LicenseeWinLoss,
 			LicenseeCommission,
-			PayToSupplier
+			LicenseeWinLoss + LicenseeCommission AS LicenseeTotal,
+			-(MemberWinLoss + LicenseeWinLoss) AS CompanyWinLoss,
+			-(MemberCommission + LicenseeCommission) AS CompanyCommission,
+			PayToSupplier,
+			-(MemberWinLoss + LicenseeWinLoss + MemberCommission + LicenseeCommission + PayToSupplier) AS CompanyNetIncome
 	FROM #tmpResult 
 	
 	-- #EndRegion: Return data		
