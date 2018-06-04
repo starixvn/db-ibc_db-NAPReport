@@ -200,10 +200,6 @@ BEGIN
 		FROM #TicketData b
 			INNER JOIN #ChargeRate r ON b.SiteID = r.LicenseeId
 		WHERE b.SettledDate BETWEEN r.FromDate AND r.ToDate
-
-		DELETE #TicketData 
-			WHERE ISNULL(Turnover,0) = 0 AND ISNULL(Winlost,0) = 0 AND ISNULL(WinLostA,0) = 0 AND ISNULL(CommissionP,0) = 0 AND ISNULL(CommissionA,0) = 0 
-				  AND ISNULL(BetCount,0) = 0 AND ISNULL(eventType,-1) = -1 AND ISNULL(EventTypeName, 'Invalid') = 'Invalid'
 				  
 		INSERT INTO #tmpWinlost 
 			(Winlostdate, 
@@ -231,9 +227,9 @@ BEGIN
 		FROM #TicketData d	
 		GROUP BY SettledDate, SiteID, EventType, Custid, CurrencyID		
 	END
-	-- #EndRegion: Get data has not been moved to sum table yet(yesterday and today)
+	-- End of Get data has not been moved to sum table yet(yesterday and today)
 
-	-- #Region: Handle Data	from Sum Table
+	-- Handle Data	from Sum Table
 	BEGIN
 		
 		INSERT INTO #tmpWinlost 
@@ -268,7 +264,7 @@ BEGIN
 		GROUP BY Winlostdate, SiteID, Sporttype, Custid, Currency
 				
 	END
-	-- #EndRegion: Handle Data	from Sum Table
+	-- #End of Handle Data	from Sum Table
 	
 	INSERT INTO #tmpResult
 			(LicenseeName, 
@@ -295,7 +291,7 @@ BEGIN
 		LEFT JOIN #ChargeRate3rd c ON t.SiteId = c.LicenseeId AND t.Winlostdate BETWEEN c.FromDate AND c.ToDate
 	GROUP BY LicenseeName
 		
-	-- #Region: Return data
+	-- Return data
 	SELECT  LicenseeName, 
 			MemberCount, 
 			BetCount, 
@@ -312,7 +308,7 @@ BEGIN
 			-(MemberWinLoss + LicenseeWinLoss + MemberCommission + LicenseeCommission + PayToSupplier) AS CompanyNetIncome
 	FROM #tmpResult 
 	
-	-- #EndRegion: Return data		
+	-- #End of Return data		
 	
 	DROP TABLE #tmpResult
 	DROP TABLE #tmpSport
