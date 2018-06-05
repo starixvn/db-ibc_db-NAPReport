@@ -148,16 +148,13 @@ BEGIN
 	END
 
 	---- Extra PT 
-	CREATE TABLE #ExtraPT(FromDate DATETIME, ToDate DATETIME, ProductID INT,Sporttype INT ,SubProduct VARCHAR(500),SuperID INT,ExtraPT DECIMAL(9,8))
+	CREATE TABLE #ExtraPT(ProductID INT,Sporttype INT ,SubProduct VARCHAR(500),SuperID INT,ExtraPT DECIMAL(9,8))
 			
-	INSERT INTO #ExtraPT (FromDate, ToDate, ProductID, Sporttype, SubProduct, SuperID, ExtraPT) 
-	SELECT	FromDate, ToDate, ProductID, SportType, SubProduct, SuperId, SUM(ExtraPT) AS ExtraPT 
+	INSERT INTO #ExtraPT (ProductID, Sporttype, SubProduct, SuperID, ExtraPT) 
+	SELECT	ProductID, SportType, SubProduct, SuperId, SUM(ExtraPT) AS ExtraPT 
 	FROM	bodb02.dbo.Acc_GroupExtraPTSetting a WITH (NOLOCK)
-	WHERE	(
-				@FromDate BETWEEN FromDate AND ToDate
-				OR @ToDate BETWEEN FromDate AND ToDate
-			)
-	GROUP BY ProductID, SportType, SubProduct, SuperId, FromDate, ToDate
+	WHERE	@FromDate BETWEEN FromDate AND ToDate
+	GROUP BY ProductID, SportType, SubProduct, SuperId
 
 	CREATE TABLE #Match44(MatchID INT PRIMARY KEY, SportType INT)
 
@@ -238,7 +235,6 @@ BEGIN
 				AND expt.ProductID = pb.ProductID
 				AND expt.SubProduct = pb.SubProduct
 				AND expt.Sporttype = 0
-				AND b.winlostdate BETWEEN expt.FromDate AND expt.ToDate
 	WHERE winlostdate BETWEEN CAST(@FromDate AS SMALLDATETIME) AND CAST(@ToDate  AS SMALLDATETIME)
 		   AND t.ProductID in (6, 17, 22, 24, 32)
 		AND b.statusID NOT IN (0, 1, 101, 102, 103)   
@@ -283,7 +279,6 @@ BEGIN
 				AND expt.ProductID = pb.ProductID
 				AND expt.SubProduct = pb.SubProduct
 				AND expt.Sporttype = ISNULL(m44.SportType,0)
-				AND b.winlostdate BETWEEN expt.FromDate AND expt.ToDate
 	WHERE winlostdate BETWEEN CAST(@FromDate AS SMALLDATETIME) AND CAST(@ToDate  AS SMALLDATETIME)
    AND t.ProductID NOT IN (2, 6, 9, 17, 21, 22, 24, 32) -- execule Racing, P2P, AllBet	
 	   and b.ruben = 1  
@@ -327,7 +322,6 @@ BEGIN
 				AND expt.ProductID = pb.ProductID
 				AND expt.SubProduct = pb.SubProduct
 				AND expt.Sporttype = 0
-				AND b.winlostdate BETWEEN expt.FromDate AND expt.ToDate
 	WHERE winlostdate BETWEEN CAST(@FromDate AS SMALLDATETIME) AND CAST(@ToDate  AS SMALLDATETIME)
 	   AND t.ProductID IN (21) -- AllBet	
 	   AND b.statusID NOT IN (0, 1, 101, 102, 103)   
