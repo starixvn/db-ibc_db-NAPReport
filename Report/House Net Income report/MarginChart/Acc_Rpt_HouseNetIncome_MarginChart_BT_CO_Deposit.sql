@@ -3,22 +3,22 @@
 USE bodb02
 GO
 
-ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_BT_Deposit]
+ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_BT_CO_Deposit]
 	@FromDate DATE,
 	@ToDate	DATE
 AS  
 /*  	
 	Created:		20180126@Harper 
 	Description:	HDWL Letstalk - Implement Chart of NonSport product margin
-    Source :		Acc_Rpt_HouseNetIncome_BT_Deposit
+    Source :		Acc_Rpt_HouseNetIncome_CO_Deposit
     DB:				DBEXT/bodb02  
    
     Revisions:
-		- 20180126@Harper - HDWL Letstalk - Implement Chart of NonSport product margin [#RedmineID: 89632]
+		- 20180126@Harper - HDWL Letstalk - Implement Chart of NonSport product margin (Bettrade + Cashout) [#RedmineID: 89632]
 		
 	Param's Explanation:   
 
-	Acc_Rpt_HouseNetIncome_MarginChart_BT_Deposit '2018-04-01', '2018-04-30'
+	Acc_Rpt_HouseNetIncome_MarginChart_CO_Deposit '2018-04-01', '2018-04-30'
   
 */   
 BEGIN  
@@ -39,7 +39,7 @@ BEGIN
 			INNER JOIN bodb_licensee.dbo.OAS_ChargeInfo ci WITH (NOLOCK) ON ci.FromParty = p.PartyID
 			INNER JOIN bodb_licensee.dbo.LA_ChargeInfo_SystemMapping map WITH (NOLOCK) ON map.ChargeID = ci.ChargeID AND map.SystemID = 2 -- LA
 		WHERE p.PartyType = 1 -- Licensee
-			AND ci.ProductID = 13 -- BT
+			AND ci.ProductID IN (13, 25) -- Bettrade + Cashout
 			AND pd.IsDeposit = 1
 			AND ((ci.FromDate BETWEEN @FDate AND @TDate) OR (ci.ToDate BETWEEN @FDate AND @TDate)
 				OR (ci.FromDate < @FDate AND @TDate < ci.ToDate))
@@ -59,7 +59,7 @@ BEGIN
 	INSERT INTO @PartyChargeInfo(PartyId, LicenseeId, IsDeposit, ProductID, Rate, Fromdate, Todate, Bettype)
 	(
 		SELECT	ci.PartyID, ci.LicenseeID, ci.isDeposit, ci.ProductID, ci.DI_Rate, ci.Fromdate, ci.ToDate, ISNULL(sbr.Bettype, ci.Bettype)
-		FROM	bodb_licensee.dbo.LA_f_ChargeInfo(@PartyIDs, @FDate, @TDate, 'BT', 'OA', 1) ci
+		FROM	bodb_licensee.dbo.LA_f_ChargeInfo(@PartyIDs, @FDate, @TDate, 'BT,CO', 'OA', 1) ci
 			LEFT JOIN bodb_licensee..Sport_Bettype_Reference sbr WITH(NOLOCK) ON sbr.BettypeRef = ci.Bettype
 		WHERE	DI_Rate > 0 AND ProductId <> 1 --exclude RB
 	)
@@ -72,15 +72,13 @@ BEGIN
 	FROM bodb02.dbo.LA_f_ExchangeDailySel(@FDate, @TDate, 'MYR')
 
 	-- Get Sum data
-	CREATE TABLE #TempDataBT (
+	CREATE TABLE #TempDataBTCO (
 			rptDate		DATETIME,
-			MemberWL	MONEY,
-			TurnOver	MONEY)
+			MemberWL	MONEY)
 
-	INSERT INTO #TempDataBT (rptDate, MemberWL, TurnOver)
+	INSERT INTO #TempDataBTCO (rptDate, MemberWL)
 	SELECT b.rptDate,
-		SUM((ISNULL(b.MemberWL, 0) + ISNULL(b.GrossWL, 0)) * e.Rate) AS MemberWL,
-		0 
+		SUM((ISNULL(b.MemberWL, 0) + ISNULL(b.GrossWL, 0)) * e.Rate) AS MemberWL -- For CO: get 100%
 	FROM bodb_LicenseeReport.dbo.rpt_BettingByProduct b WITH (NOLOCK)
 		INNER JOIN #ExchangeOANDA e ON e.ExchangeDate = b.rptDate AND e.ExchangeID = b.CurrencyId
 		INNER JOIN (SELECT DISTINCT ProductID, LicenseeId, FromDate, ToDate, Bettype 
@@ -89,10 +87,10 @@ BEGIN
 													AND (b.rptDate BETWEEN ci.FromDate AND ci.ToDate)
 													AND (ci.Bettype = -1 OR ci.Bettype = b.Bettype)
 	WHERE b.rptDate BETWEEN @FDate AND @TDate
-		AND b.Bettype IN (903, 904) -- don't need to follow formula in LA Sys
+		AND b.Bettype IN (903, 904, 913, 914) -- don't need to follow formula in LA Sys
 		AND b.CurrencyId <> 20
 		AND b.StatusId NOT IN (-1, 101, 102, 103)
-		AND b.CustomerCategory IN (1001, 1002)
+		AND b.CustomerCategory IN (1001, 1002, 1003, 1004)
 	GROUP BY b.rptDate
 
 	CREATE TABLE #FinalResult (
@@ -102,13 +100,13 @@ BEGIN
 		TurnOver			MONEY
 	)
 
-	--INSERT INTO #FinalResult (rptDate, MemberWL, PayToSupplier)
-	--SELECT 'FullRange', -SUM(MemberWL), 0
-	--FROM #TempDataBT
+	--INSERT INTO #FinalResult (rptDate, MemberWL, PayToSupplier, TurnOver)
+	--SELECT 'FullRange', -SUM(MemberWL), 0, 0
+	--FROM #TempDataCO
 
 	INSERT INTO #FinalResult (rptDate, MemberWL, PayToSupplier, TurnOver)
-	SELECT 'FullRange', 0, 0, 0	
-
+	SELECT 'FullRange', 0, 0, 0
+	
 	DECLARE @tmpDate DATE, @DateList VARCHAR(200)
 	SELECT @tmpDate = @FDate
 
@@ -116,7 +114,7 @@ BEGIN
 	BEGIN
 		INSERT INTO #FinalResult (RptDate, MemberWL, PayToSupplier, TurnOver)
 		SELECT CONVERT(VARCHAR(2), @tmpDate, 106), 
-			(SELECT ISNULL(-SUM(MemberWL), 0) FROM #TempDataBT WHERE rptDate = @tmpDate), -- LicenseeWL
+			(SELECT ISNULL(-SUM(MemberWL), 0) FROM #TempDataBTCO WHERE rptDate = @tmpDate), -- LicenseeWL
 			0, -- PayToSupplier
 			0 -- TurnOver
 		SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate)
@@ -129,9 +127,9 @@ BEGIN
 	SELECT @SQL =	'SELECT * ' + CHAR(13) +
 					'FROM	(SELECT ProductCode, [Order], [RptDate], Figure, ISNULL(value, 0) value FROM #FinalResult' + CHAR(13) +
 							'CROSS APPLY' + CHAR(13) +
-							'(SELECT ''BT'', 8, ''Turn Over'', TurnOver' + CHAR(13) +
+							'(SELECT ''BTCO'', 8, ''Turn Over'', TurnOver' + CHAR(13) +
 							'UNION ALL' + CHAR(13) +
-							'SELECT ''BT'', 1, ''House Income'', MemberWL' + CHAR(13) +
+							'SELECT ''BTCO'', 1, ''House Income'', MemberWL' + CHAR(13) +
 							') c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
 					'PIVOT' + CHAR(13) +
 					'(' + CHAR(13) +
@@ -143,12 +141,7 @@ BEGIN
 
 	-- Region: Drop tmp table
 	DROP TABLE #ExchangeOANDA
-	DROP TABLE #TempDataBT
+	DROP TABLE #TempDataBTCO
 	DROP TABLE #FinalResult
 END
-GO
-
-GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_BT_Deposit] TO [bodbAdminNet]
-GO
-GRANT VIEW definition ON [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_BT_Deposit] TO vnteam
 GO

@@ -26,6 +26,9 @@ BEGIN
 	DECLARE @FDate DATE, @TDate DATE
 	SELECT @FDate = @FromDate, @TDate = @ToDate
 
+	IF OBJECT_ID('tempdb..##FinalResult', 'U') IS NOT NULL
+		DROP TABLE ##FinalResult
+
 	DECLARE @DynamicTable VARCHAR(1000), @SumValue VARCHAR(1000)
 	SET @DynamicTable = 'CREATE TABLE ##FinalResult (ProductCode VARCHAR(50), [Order] TINYINT, Figure NVARCHAR(100), FullRange MONEY, '
 	SET @SumValue = 'SELECT ''NonSport'' AS ProductCode, [Order], Figure, SUM(FullRange) AS FullRange '
@@ -49,17 +52,9 @@ BEGIN
 	
 	EXEC (@DynamicTable)
 	
-	-- 14. EX
+	-- 13. EX
 	INSERT INTO ##FinalResult
 	EXEC Acc_Rpt_HouseNetIncome_MarginChart_EX_Deposit @FromDate = @FDate, @ToDate = @TDate
-	
-	-- 13. LT
-	INSERT INTO ##FinalResult
-	EXEC Acc_Rpt_HouseNetIncome_MarginChart_LT_Deposit @FromDate = @FDate, @ToDate = @TDate
-
-	-- 12. CO
-	INSERT INTO ##FinalResult
-	EXEC Acc_Rpt_HouseNetIncome_MarginChart_CO_Deposit @FromDate = @FDate, @ToDate = @TDate
 
 	-- 11. GD
 	INSERT INTO ##FinalResult
@@ -81,9 +76,9 @@ BEGIN
 	INSERT INTO ##FinalResult
 	EXEC Acc_Rpt_HouseNetIncome_MarginChart_CB @FromDate = @FDate, @ToDate = @TDate
 
-	-- 6. BT
+	-- 6. BT + CO
 	INSERT INTO ##FinalResult
-	EXEC Acc_Rpt_HouseNetIncome_MarginChart_BT_Deposit @FromDate = @FDate, @ToDate = @TDate
+	EXEC Acc_Rpt_HouseNetIncome_MarginChart_BT_CO_Deposit @FromDate = @FDate, @ToDate = @TDate
 
 	-- 5. Microgaming
 	INSERT INTO ##FinalResult
@@ -93,9 +88,9 @@ BEGIN
 	INSERT INTO ##FinalResult
 	EXEC Acc_Rpt_HouseNetIncome_MarginChart_AGC_Deposit @FromDate = @FDate, @ToDate = @TDate
 
-	-- 3. KN
+	-- 3. KN + LT
 	INSERT INTO ##FinalResult
-	EXEC Acc_Rpt_HouseNetIncome_MarginChart_KN_Deposit @FromDate = @FDate, @ToDate = @TDate
+	EXEC Acc_Rpt_HouseNetIncome_MarginChart_KN_LT_Deposit @FromDate = @FDate, @ToDate = @TDate
 
 	-- 2. CS
 	INSERT INTO ##FinalResult
