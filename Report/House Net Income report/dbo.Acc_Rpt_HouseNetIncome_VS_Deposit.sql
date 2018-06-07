@@ -164,15 +164,15 @@ BEGIN
 		FROM	bodb_licensee.dbo.LA_f_ChargeInfo3rd(@FDate, @TDate, 'VS', 'OA') ci	
 				INNER JOIN @tmpParty p ON p.ParentID = ci.PartyID	
 	)
-	INSERT INTO @DailyPayAmt (rptDate, IsDeposit, Amount, LicenseeWL, VSRate)
-	SELECT d.rptDate, p.IsDeposit, SUM(d.WinLoss * oanda.Rate * p.DI_Rate), SUM(-d.WinLoss * oanda.Rate), p.DI_Rate
+	INSERT INTO @DailyPayAmt (rptDate, IsDeposit, Amount, LicenseeWL)
+	SELECT d.rptDate, p.IsDeposit, SUM(d.WinLoss * oanda.Rate * p.DI_Rate), SUM(-d.WinLoss * oanda.Rate)
 	FROM #TempDataVS d
 		INNER JOIN rate3rd p ON p.PartyID = d.PartyId AND d.rptDate BETWEEN p.Fromdate AND p.Todate
 		INNER JOIN #ExchangeOANDA oanda ON d.rptDate = oanda.ExchangeDate AND d.CurrencyId = oanda.ExchangeID
-	GROUP BY d.rptDate, p.IsDeposit, p.DI_Rate
+	GROUP BY d.rptDate, p.IsDeposit
 
 	INSERT INTO #FinalResult (rptDate, LicenseeWL, DiscountWL, PayToSupplier)
-	SELECT 'FullRange', ISNULL(SUM(WLFeeApplied), 0), 0, -1 * (SELECT VSRate * CASE WHEN SUM(LicenseeWL) < 0 THEN 0 ELSE SUM(LicenseeWL) END FROM @DailyPayAmt GROUP BY VSRate)
+	SELECT 'FullRange', ISNULL(SUM(WLFeeApplied), 0), 0, (SELECT CASE WHEN SUM(LicenseeWL) < 0 THEN 0 ELSE SUM(Amount) END FROM @DailyPayAmt)
 	FROM #FeeData
 	WHERE ProductID = 5
 
