@@ -156,27 +156,21 @@ BEGIN
 	CREATE TABLE #FinalResult (
 		RptDate				VARCHAR(10),
 		LicenseeWL			MONEY,
-		PayToSupplier		MONEY,
-		TurnOver			MONEY
-	)
+		PayToSupplier		MONEY
+	)	
 
-	--INSERT INTO #FinalResult (rptDate, LicenseeWL, PayToSupplier)
-	--SELECT 'FullRange', SUM(r.Commission + r.CashInShare), 0
-	--FROM #ResultByDate r
-
-	INSERT INTO #FinalResult (rptDate, LicenseeWL, PayToSupplier, TurnOver)
-	SELECT 'FullRange', 0, 0, 0
+	INSERT INTO #FinalResult (rptDate, LicenseeWL, PayToSupplier)
+	SELECT 'FullRange', 0, 0
 	
 	DECLARE @tmpDate DATE, @DateList VARCHAR(200)
 	SELECT @tmpDate = @FDate
 
 	WHILE @tmpDate <= @TDate
 	BEGIN
-		INSERT INTO #FinalResult (RptDate, LicenseeWL, PayToSupplier, TurnOver)
+		INSERT INTO #FinalResult (RptDate, LicenseeWL, PayToSupplier)
 		SELECT CONVERT(VARCHAR(2), @tmpDate, 106), 
 			(SELECT ISNULL(SUM(Commission + CashInShare), 0) FROM #ResultByDate WHERE rptDate = @tmpDate), -- LicenseeWL
-			0, -- PayToSupplier
-			(SELECT ISNULL(SUM(TurnOver), 0) FROM #TempDataCB WHERE rptDate = @tmpDate) -- TurnOver
+			0 -- PayToSupplier	
 
 		SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate)
 	END
@@ -189,9 +183,7 @@ BEGIN
 	SELECT @SQL =	'SELECT * ' + CHAR(13) +
 					'FROM	(SELECT ProductCode, [Order], [RptDate], Figure, ISNULL(value, 0) value FROM #FinalResult' + CHAR(13) +
 							'CROSS APPLY' + CHAR(13) +
-							'(SELECT ''CB'', 8, ''Turn Over'', TurnOver' + CHAR(13) +
-							'UNION ALL' + CHAR(13) +
-							'SELECT ''CB'', 1, ''House Income'', LicenseeWL' + CHAR(13) +
+							'(SELECT ''CB'', 1, ''House Income'', LicenseeWL' + CHAR(13) +
 							') c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
 					'PIVOT' + CHAR(13) +
 					'(' + CHAR(13) +

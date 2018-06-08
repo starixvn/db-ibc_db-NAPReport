@@ -96,10 +96,9 @@ BEGIN
 			WinLoss			MONEY,
 			AComm			MONEY,
 			ProductId		TINYINT,
-			AmountToCompany MONEY,
-			TurnOver		MONEY)
+			AmountToCompany MONEY)
 
-	INSERT INTO #TempDataKNLT (PartyId,rptDate,CurrencyId,WinLoss,AComm,ProductId,AmountToCompany,TurnOver)
+	INSERT INTO #TempDataKNLT (PartyId,rptDate,CurrencyId,WinLoss,AComm,ProductId,AmountToCompany)
 	(
 		SELECT	p.PartyId,
 				b.rptDate,
@@ -107,8 +106,7 @@ BEGIN
 				SUM(ISNULL(b.MemberWL, 0)),
 				SUM(ISNULL(b.CommissionA, 0)) * e.Rate,
 				p.ProductId,
-				SUM(-ISNULL(b.MemberWL, 0) * p.Rate) * e.Rate,
-				SUM(ISNULL(b.Turnover, 0) * p.Rate) * e.Rate
+				SUM(-ISNULL(b.MemberWL, 0) * p.Rate) * e.Rate
 		FROM	bodb_LicenseeReport.dbo.rpt_BettingByProduct b WITH (NOLOCK)
 				INNER JOIN #Exchange e ON b.rptDate = e.ExchangeDate AND b.CurrencyId = e.ExchangeID
 				INNER JOIN @PartyChargeInfo p ON	b.ProductId = p.ProductID 
@@ -127,8 +125,7 @@ BEGIN
 	CREATE TABLE #FinalResult (
 		RptDate				VARCHAR(10),
 		LicenseeWL			MONEY,
-		PayToSupplier		MONEY,
-		TurnOver			MONEY
+		PayToSupplier		MONEY
 	)
 	
 	DECLARE @DailyPayAmt TABLE (rptDate DATE, PartyGroup VARCHAR(20), Amount MONEY, LicenseeWL MONEY, KNRate FLOAT)
@@ -140,20 +137,18 @@ BEGIN
 		INNER JOIN #ExchangeOANDA oanda ON d.rptDate = oanda.ExchangeDate AND d.CurrencyId = oanda.ExchangeID
 	GROUP BY d.rptDate, p.PartyGroup, p.Rate3rd
 	
-	INSERT INTO #FinalResult (rptDate, LicenseeWL, PayToSupplier, TurnOver)
-	SELECT 'FullRange', 0, 0, 0
+	INSERT INTO #FinalResult (rptDate, LicenseeWL, PayToSupplier)
+	SELECT 'FullRange', 0, 0
 
 	DECLARE @tmpDate DATE, @DateList VARCHAR(200)
 	SELECT @tmpDate = @FDate
 
 	WHILE @tmpDate <= @TDate
 	BEGIN
-		INSERT INTO #FinalResult (RptDate, LicenseeWL, PayToSupplier, TurnOver)
+		INSERT INTO #FinalResult (RptDate, LicenseeWL, PayToSupplier)
 		SELECT CONVERT(VARCHAR(2), @tmpDate, 106), 
 			(SELECT ISNULL(SUM(AmountToCompany), 0) FROM #TempDataKNLT WHERE rptDate = @tmpDate), -- LicenseeWL
-			(SELECT ISNULL(SUM(Amount), 0) FROM @DailyPayAmt WHERE rptDate = @tmpDate),
-			(SELECT ISNULL(SUM(TurnOver), 0) FROM #TempDataKNLT WHERE rptDate = @tmpDate) -- TurnOver
-
+			(SELECT ISNULL(SUM(Amount), 0) FROM @DailyPayAmt WHERE rptDate = @tmpDate)			
 		SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate)
 	END
 
@@ -165,9 +160,7 @@ BEGIN
 	SELECT @SQL =	'SELECT * ' + CHAR(13) +
 					'FROM	(SELECT ProductCode, [Order], [RptDate], Figure, ISNULL(value, 0) value FROM #FinalResult' + CHAR(13) +
 							'CROSS APPLY' + CHAR(13) +
-							'(SELECT ''KNLT'', 1, ''House Income'', LicenseeWL' + CHAR(13) +
-							'UNION ALL' + CHAR(13) +
-							'SELECT ''KNLT'', 8, ''Turn Over'', TurnOver' + CHAR(13) +
+							'(SELECT ''KNLT'', 1, ''House Income'', LicenseeWL' + CHAR(13) +							
 							'UNION ALL' + CHAR(13) +
 							'SELECT ''KNLT'', 4, ''Pay to supplier'', PayToSupplier) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
 					'PIVOT' + CHAR(13) +

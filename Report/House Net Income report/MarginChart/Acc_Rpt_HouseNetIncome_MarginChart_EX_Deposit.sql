@@ -109,10 +109,9 @@ BEGIN
 			AComm			MONEY,
 			PComm			MONEY,			
 			AmountToCompany MONEY,
-			PayToSupplier	MONEY,
-			TurnOver		MONEY)
+			PayToSupplier	MONEY)
 
-	INSERT INTO #TempDataEX (PartyId, rptDate, CurrencyId, MemberWL, AComm, PComm, ProductId, AmountToCompany, PayToSupplier, TurnOver)
+	INSERT INTO #TempDataEX (PartyId, rptDate, CurrencyId, MemberWL, AComm, PComm, ProductId, AmountToCompany, PayToSupplier)
 	(
 		SELECT	p.PartyId,
 				b.rptDate,
@@ -122,8 +121,7 @@ BEGIN
 				SUM(ISNULL(b.CommissionP, 0) * e.Rate) ,
 				b.ProductId,
 				SUM(-ISNULL(b.MemberWL, 0) * p.Rate * e.Rate),
-				SUM(ISNULL(b.MemberWL, 0) * rd.Rate * e.Rate),
-				SUM(ISNULL(b.Turnover, 0) * p.Rate * e.Rate)
+				SUM(ISNULL(b.MemberWL, 0) * rd.Rate * e.Rate)
 		FROM	bodb_LicenseeReport.dbo.rpt_BettingByProduct b WITH (NOLOCK)
 				INNER JOIN #ExchangeOANDA e ON b.rptDate = e.ExchangeDate AND b.CurrencyId = e.ExchangeID				
 				INNER JOIN @PartyChargeInfo p ON	b.ProductId = p.ProductID 
@@ -142,27 +140,25 @@ BEGIN
 	CREATE TABLE #FinalResult (
 		RptDate				VARCHAR(10),
 		LicenseeWL			MONEY,
-		PayToSupplier		MONEY,
-		TurnOver			MONEY
+		PayToSupplier		MONEY
 	)
 
 	--INSERT INTO #FinalResult (rptDate, LicenseeWL, PayToSupplier)
 	--SELECT 'FullRange', SUM(AmountToCompany) - SUM(AComm + PComm), SUM(PayToSupplier) + SUM(AComm + PComm)
 	--FROM #TempDataEX
 
-	INSERT INTO #FinalResult (rptDate, LicenseeWL, PayToSupplier, TurnOver)
-	SELECT 'FullRange', 0, 0, 0
+	INSERT INTO #FinalResult (rptDate, LicenseeWL, PayToSupplier)
+	SELECT 'FullRange', 0, 0
 
 	DECLARE @tmpDate DATE, @DateList VARCHAR(200)
 	SELECT @tmpDate = @FDate
 
 	WHILE @tmpDate <= @TDate
 	BEGIN
-		INSERT INTO #FinalResult (RptDate, LicenseeWL, PayToSupplier, TurnOver)
+		INSERT INTO #FinalResult (RptDate, LicenseeWL, PayToSupplier)
 		SELECT CONVERT(VARCHAR(2), @tmpDate, 106), 
 			SUM(AmountToCompany) - SUM(AComm + PComm),
-			SUM(PayToSupplier) + SUM(AComm + PComm),
-			SUM(TurnOver)
+			SUM(PayToSupplier) + SUM(AComm + PComm)			
 		FROM #TempDataEX 
 		WHERE rptDate = @tmpDate
 			
@@ -176,9 +172,7 @@ BEGIN
 	SELECT @SQL =	'SELECT * ' + CHAR(13) +
 					'FROM	(SELECT ProductCode, [Order], [RptDate], Figure, ISNULL(value, 0) value FROM #FinalResult' + CHAR(13) +
 							'CROSS APPLY' + CHAR(13) +
-							'(SELECT ''EX'', 1, ''House Income'', LicenseeWL' + CHAR(13) +
-							'UNION ALL' + CHAR(13) +
-							'SELECT ''EX'', 8, ''Turn Over'', TurnOver' + CHAR(13) +
+							'(SELECT ''EX'', 1, ''House Income'', LicenseeWL' + CHAR(13) +							
 							'UNION ALL' + CHAR(13) +
 							'SELECT ''EX'', 4, ''Pay to supplier'', PayToSupplier) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
 					'PIVOT' + CHAR(13) +

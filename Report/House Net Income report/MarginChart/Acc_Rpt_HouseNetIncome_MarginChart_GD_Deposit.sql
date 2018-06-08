@@ -93,10 +93,9 @@ BEGIN
 			MemberWL		MONEY,
 			AComm			MONEY,
 			ProductId		TINYINT,
-			AmountToCompany MONEY,
-			TurnOver		MONEY)
+			AmountToCompany MONEY)
 
-	INSERT INTO #TempDataGD (PartyId,rptDate,CurrencyId,MemberWL,AComm,ProductId,AmountToCompany,TurnOver)
+	INSERT INTO #TempDataGD (PartyId,rptDate,CurrencyId,MemberWL,AComm,ProductId,AmountToCompany)
 	(
 		SELECT	p.PartyId,
 				b.rptDate,
@@ -104,8 +103,7 @@ BEGIN
 				SUM(ISNULL(b.MemberWL, 0)),
 				SUM(ISNULL(b.CommissionA, 0)) * e.Rate,
 				p.ProductId,
-				SUM(-ISNULL(b.MemberWL, 0) * p.Rate) * e.Rate,
-				SUM(ISNULL(b.Turnover, 0) * p.Rate) * e.Rate
+				SUM(-ISNULL(b.MemberWL, 0) * p.Rate) * e.Rate
 		FROM	bodb_LicenseeReport.dbo.rpt_BettingByProduct b WITH (NOLOCK)
 				INNER JOIN #Exchange e ON b.rptDate = e.ExchangeDate AND b.CurrencyId = e.ExchangeID				
 				INNER JOIN @PartyChargeInfo p ON	b.ProductId = p.ProductID 
@@ -126,8 +124,7 @@ BEGIN
 	CREATE TABLE #FinalResult (
 		RptDate				VARCHAR(10),
 		LicenseeWL			MONEY,
-		PayToSupplier		MONEY,
-		TurnOver			MONEY
+		PayToSupplier		MONEY
 	)
 
 	-- Pay to Supplier for Credit + Deposit
@@ -163,48 +160,19 @@ BEGIN
 				AND b.customercategory NOT IN (27, 28)
 				AND b.StatusId NOT IN (-1, 101, 102, 103) -- Exclude Reject , Void, Refund				
 	GROUP BY b.RptDate, p.IsDeposit			
-
-	--CREATE TABLE #FeeData (
-	--	PartyId			INT,
-	--	ProductID		INT,
-	--	AComm			MONEY,
-	--	MinFeeApplied	MONEY,
-	--	WLFeeApplied	MONEY,
-	--	AmountToCompany	MONEY
-	--)
-
-	--INSERT INTO #FeeData(PartyId, ProductID, AComm, MinFeeApplied, WLFeeApplied, AmountToCompany)
-	--EXEC dbo.Acc_Rpt_HouseNetIncome_LicenseeFee @FromDate = @FDate, @ToDate = @TDate, @Products = 'GD'
-	
-	--DECLARE @PayToSupplier MONEY
-	--SET @PayToSupplier = (SELECT SUM (CASE WHEN pay.IsDeposit = 1 OR (pay.IsDeposit = 0 AND pay.IsBeforeDec2016 = 1) THEN
-	--										CASE WHEN pay.PayToSupplier > 0 THEN 0 ELSE pay.PayToSupplier END
-	--										ELSE pay.PayToSupplier END)
-	--							FROM(
-	--									SELECT IsDeposit, IsBeforeDec2016, 
-	--											SUM(AmountDaily) AS PayToSupplier
-	--									FROM @DailyPayAmt
-	--									GROUP BY IsDeposit, IsBeforeDec2016
-	--								)pay
-	--					)
-	--INSERT INTO #FinalResult (rptDate, LicenseeWL, PayToSupplier)
-	--SELECT 'FullRange', 
-	--		(SELECT CASE WHEN SUM(AmountToCompany) < 0 THEN 0 ELSE SUM(WLFeeApplied) END FROM #FeeData),
-	--		@PayToSupplier
-
-	INSERT INTO #FinalResult (rptDate, LicenseeWL, PayToSupplier, TurnOver)
-	SELECT 'FullRange', 0,0,0
+		
+	INSERT INTO #FinalResult (rptDate, LicenseeWL, PayToSupplier)
+	SELECT 'FullRange', 0,0
 			
 	DECLARE @tmpDate DATE, @DateList VARCHAR(200)
 	SELECT @tmpDate = @FDate
 
 	WHILE @tmpDate <= @TDate
 	BEGIN
-		INSERT INTO #FinalResult (RptDate, LicenseeWL, PayToSupplier, TurnOver)
+		INSERT INTO #FinalResult (RptDate, LicenseeWL, PayToSupplier)
 		SELECT CONVERT(VARCHAR(2), @tmpDate, 106), 
 				(SELECT SUM(AmountToCompany) FROM #TempDataGD WHERE rptDate = @tmpDate),
-				(SELECT SUM(AmountDaily) FROM @DailyPayAmt WHERE RptDate = @tmpDate),
-				(SELECT SUM(TurnOver) FROM #TempDataGD WHERE rptDate = @tmpDate)
+				(SELECT SUM(AmountDaily) FROM @DailyPayAmt WHERE RptDate = @tmpDate)				
 
 		SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate)
 	END
@@ -217,9 +185,7 @@ BEGIN
 	SELECT @SQL =	'SELECT * ' + CHAR(13) +
 					'FROM	(SELECT ProductCode, [Order], [RptDate], Figure, ISNULL(value, 0) value FROM #FinalResult' + CHAR(13) +
 							'CROSS APPLY' + CHAR(13) +
-							'(SELECT ''GD'', 1, ''House Income'', LicenseeWL' + CHAR(13) +
-							'UNION ALL' + CHAR(13) +
-							'SELECT ''GD'', 8, ''Turn Over'', TurnOver' + CHAR(13) +
+							'(SELECT ''GD'', 1, ''House Income'', LicenseeWL' + CHAR(13) +							
 							'UNION ALL' + CHAR(13) +
 							'SELECT ''GD'', 4, ''Pay to supplier'', PayToSupplier) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
 					'PIVOT' + CHAR(13) +

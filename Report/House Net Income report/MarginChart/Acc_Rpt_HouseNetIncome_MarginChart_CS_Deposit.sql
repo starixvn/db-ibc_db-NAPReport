@@ -85,10 +85,9 @@ BEGIN
 			WinLoss			MONEY,
 			AComm			MONEY,
 			ProductId		TINYINT,
-			AmountToCompany MONEY,
-			TurnOver		MONEY)
+			AmountToCompany MONEY)
 
-	INSERT INTO #TempDataCS (PartyId,rptDate,CurrencyId,WinLoss,AComm,ProductId,AmountToCompany, TurnOver)
+	INSERT INTO #TempDataCS (PartyId,rptDate,CurrencyId,WinLoss,AComm,ProductId,AmountToCompany)
 	(
 		SELECT	p.PartyId,
 				b.rptDate,
@@ -96,8 +95,7 @@ BEGIN
 				SUM(ISNULL(b.MemberWL, 0)) * e.Rate,
 				SUM(ISNULL(b.CommissionA, 0)) * e.Rate,
 				p.ProductId,
-				SUM(-ISNULL(b.MemberWL, 0) * p.Rate) * e.Rate,
-				SUM(ISNULL(b.Turnover, 0) * p.Rate) * e.Rate
+				SUM(-ISNULL(b.MemberWL, 0) * p.Rate) * e.Rate
 		FROM	bodb_LicenseeReport.dbo.rpt_BettingByProduct b WITH (NOLOCK)
 				INNER JOIN #Exchange e ON b.rptDate = e.ExchangeDate AND b.CurrencyId = e.ExchangeID
 				INNER JOIN @PartyChargeInfo p ON	b.ProductId = p.ProductID 
@@ -112,28 +110,14 @@ BEGIN
 	)
 
 	CREATE NONCLUSTERED INDEX Idx_InvoiceData ON #TempDataCS (PartyId, ProductId)
-
-	-- Region: Result
-	--CREATE TABLE #FeeData (
-	--	PartyId			INT,
-	--	ProductID		INT,
-	--	AComm			MONEY,
-	--	MinFeeApplied	MONEY,
-	--	WLFeeApplied	MONEY,
-	--	AmountToCompany	MONEY
-	--)
-
-	--INSERT INTO #FeeData(PartyId, ProductID, AComm, MinFeeApplied, WLFeeApplied, AmountToCompany)
-	--EXEC dbo.Acc_Rpt_HouseNetIncome_LicenseeFee @FromDate = @FDate, @ToDate = @TDate, @Products = 'CS'
-
+		
 	CREATE TABLE #FinalResult (
 		RptDate				VARCHAR(10),
-		LicenseeWL			MONEY,		
-		TurnOver			MONEY
+		LicenseeWL			MONEY		
 	)
 
-	INSERT INTO #FinalResult (rptDate, LicenseeWL, TurnOver)
-	SELECT 'FullRange', 0, 0
+	INSERT INTO #FinalResult (rptDate, LicenseeWL)
+	SELECT 'FullRange', 0
 
 	--INSERT INTO #FinalResult (rptDate, LicenseeWL)
 	--SELECT 'FullRange', ISNULL(SUM(WLFeeApplied), 0)
@@ -145,10 +129,9 @@ BEGIN
 
 	WHILE @tmpDate <= @TDate
 	BEGIN
-		INSERT INTO #FinalResult (RptDate, LicenseeWL, TurnOver)
+		INSERT INTO #FinalResult (RptDate, LicenseeWL)
 		SELECT CONVERT(VARCHAR(2), @tmpDate, 106), 
-			(SELECT ISNULL(SUM(AmountToCompany), 0) FROM #TempDataCS WHERE ProductId = 6 AND rptDate = @tmpDate), -- LicenseeWL
-			(SELECT ISNULL(SUM(TurnOver), 0) FROM #TempDataCS WHERE ProductId = 6 AND rptDate = @tmpDate) -- TurnOver
+			(SELECT ISNULL(SUM(AmountToCompany), 0) FROM #TempDataCS WHERE ProductId = 6 AND rptDate = @tmpDate) -- LicenseeWL			
 
 		SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate)
 	END
@@ -161,9 +144,7 @@ BEGIN
 	SELECT @SQL =	'SELECT * ' + CHAR(13) +
 					'FROM	(SELECT ProductCode, [Order], [RptDate], Figure, ISNULL(value, 0) value FROM #FinalResult' + CHAR(13) +
 							'CROSS APPLY' + CHAR(13) +
-							'(SELECT ''CS'', 8, ''Turn Over'', TurnOver' + CHAR(13) +
-							'UNION ALL' + CHAR(13) +
-							'SELECT ''CS'', 1, ''House Income'', LicenseeWL) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
+							'(SELECT ''CS'', 1, ''House Income'', LicenseeWL) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
 					'PIVOT' + CHAR(13) +
 					'(' + CHAR(13) +
 						'MAX(value)' + CHAR(13) +
