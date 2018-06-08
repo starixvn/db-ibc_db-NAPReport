@@ -120,22 +120,19 @@ BEGIN
 		LicenseeWinLoss		MONEY,
 		LicenseeNetWin		MONEY,
 		ProgresCont			MONEY,		
-		HouseIncomeDaily	MONEY,
-		TurnOver			MONEY)
+		HouseIncomeDaily	MONEY)
 
 	INSERT INTO #TempDataMGC (RptDate, BettypeRef, GameTypeName, PartyId, CurrencyId, ProductId,
-							 LicenseeWinLoss, LicenseeNetWin, ProgresCont, HouseIncomeDaily, TurnOver)
+							 LicenseeWinLoss, LicenseeNetWin, ProgresCont, HouseIncomeDaily)
 	SELECT d.RptDate, d.BetTypeRef, d.GameTypeName, pci.PartyId, d.CurrencyId, d.ProductId,			
 			SUM(LicenseeWinLoss) AS LicenseeWinLoss,
 			SUM(LicenseeWinLoss - ProgresCont) AS LicenseeNetWin,
 			SUM(ProgresCont) AS ProgresCont,
-			SUM((LicenseeWinLoss - ProgresCont) * pci.Rate * e.Rate) AS HouseIncomeDaily,
-			SUM((Turnover) * pci.Rate * e.Rate) AS TurnOver
+			SUM((LicenseeWinLoss - ProgresCont) * pci.Rate * e.Rate) AS HouseIncomeDaily			
 	FROM (
 			SELECT rpt.RptDate, SiteId, pr.ProductId, pr.BettypeRef, pr.GameTypeName, CurrencyId, 				
 				-SUM(ISNULL(Winloss, 0)) AS LicenseeWinLoss,
-				CASE WHEN pr.ProductId = 17 THEN SUM(ISNULL(ProgressiveContribution, 0)) ELSE 0 END  AS ProgresCont, -- IF RNG: Contr <> 0, else = 0
-				SUM(ISNULL(rpt.Turnover, 0)) AS TurnOver
+				CASE WHEN pr.ProductId = 17 THEN SUM(ISNULL(ProgressiveContribution, 0)) ELSE 0 END  AS ProgresCont -- IF RNG: Contr <> 0, else = 0
 			FROM bodb_LicenseeReport.dbo.rpt_ThirdPartyWL_ExtraGMT rpt WITH (NOLOCK)
 				INNER JOIN @ProductsRef pr ON rpt.BetTypeId = pr.BettypeId
 			WHERE rpt.RptDate BETWEEN @FromDate AND @ToDate
@@ -184,19 +181,11 @@ BEGIN
 	CREATE TABLE #FinalResult (
 		RptDate				VARCHAR(10),
 		LicenseeWL			MONEY,
-		PayToSupplier		MONEY,
-		TurnOver			MONEY
-	)
-
-	--DECLARE @HouseNetIncome MONEY
-	--SELECT @HouseNetIncome = SUM(CASE WHEN s.SumByProduct <= 0 THEN 0 ELSE s.SumByProduct END) 
-	--FROM ( 
-	--		SELECT SUM (HouseIncomeDaily) AS SumByProduct 
-	--		FROM #TempDataMGC GROUP BY ProductId, BettypeRef
-	--	) s
+		PayToSupplier		MONEY		
+	)	
 									   								
-	INSERT INTO #FinalResult (RptDate, LicenseeWL, PayToSupplier, TurnOver)
-	SELECT 'FullRange', 0, 0, 0	
+	INSERT INTO #FinalResult (RptDate, LicenseeWL, PayToSupplier)
+	SELECT 'FullRange', 0, 0
 
 	-- Processing daily data
 	DECLARE @tmpDate DATE, @DateList VARCHAR(200)
@@ -204,8 +193,8 @@ BEGIN
 
 	WHILE @tmpDate <= @TDate
 	BEGIN
-		INSERT INTO #FinalResult (RptDate, LicenseeWL, TurnOver)
-		SELECT CONVERT(VARCHAR(2), @tmpDate, 106), ISNULL(SUM(HouseIncomeDaily), 0), SUM(ISNULL(TurnOver, 0)) 
+		INSERT INTO #FinalResult (RptDate, LicenseeWL)
+		SELECT CONVERT(VARCHAR(2), @tmpDate, 106), ISNULL(SUM(HouseIncomeDaily), 0) 
 			FROM #TempDataMGC WHERE RptDate = @tmpDate
 
 		SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate)
@@ -318,9 +307,7 @@ BEGIN
 	SELECT @SQL =	'SELECT * ' + CHAR(13) +
 					'FROM	(SELECT ProductCode, [Order], [RptDate], Figure, ISNULL(value, 0) value FROM #FinalResult' + CHAR(13) +
 							'CROSS APPLY' + CHAR(13) +
-							'(SELECT ''MGC'', 1, ''House Income'', LicenseeWL' + CHAR(13) +
-							'UNION ALL' + CHAR(13) +
-							'SELECT ''MGC'', 8, ''Turn Over'', TurnOver' + CHAR(13) +
+							'(SELECT ''MGC'', 1, ''House Income'', LicenseeWL' + CHAR(13) +							
 							'UNION ALL' + CHAR(13) +
 							'SELECT ''MGC'', 4, ''Pay to supplier'', PayToSupplier) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
 					'PIVOT' + CHAR(13) +

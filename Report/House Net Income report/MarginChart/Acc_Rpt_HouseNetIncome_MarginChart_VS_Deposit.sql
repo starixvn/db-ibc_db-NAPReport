@@ -28,7 +28,12 @@ BEGIN
 	SELECT @FDate = @FromDate, @TDate = @ToDate
 
 	-- Region: Active licensees
-	DECLARE @tmpParty TABLE (PartyID INT, IsDeposit BIT, VSRate FLOAT)
+	DECLARE @TmpPartyList AS TABLE (PartyID INT, PartyName VARCHAR(200), BrandName VARCHAR(200), ParentID INT)
+	INSERT INTO @TmpPartyList
+	EXECUTE bodb_licensee..LA_PartyListSel  
+
+	DECLARE @tmpParty TABLE (PartyID INT, IsDeposit BIT, VSRate FLOAT, ParentID INT)
+
 	INSERT INTO @tmpParty (PartyID, IsDeposit, VSRate)
 	SELECT DISTINCT ci.FromParty, pd.IsDeposit, 0
 	FROM bodb_licensee.dbo.OAS_Party p WITH (NOLOCK)
@@ -41,12 +46,14 @@ BEGIN
 				OR (ci.ToDate BETWEEN @FDate AND @TDate)
 				OR (ci.FromDate < @FDate AND @TDate < ci.ToDate))
 
+	UPDATE p
+	SET p.ParentID = pa.ParentID
+	FROM @tmpParty p
+		INNER JOIN @TmpPartyList pa ON pa.PartyID = p.PartyID
+
 	DECLARE @PartyIDs VARCHAR(1000)
 	SELECT	@PartyIDs = COALESCE(@PartyIDs + ',', '') + CONVERT(VARCHAR(10), PartyId) FROM @tmpParty
-
 	
-	UPDATE @tmpParty 
-	SET VSRate = 0.075
 	-- End region
 
 	DECLARE @PartyChargeInfo AS TABLE (
@@ -103,10 +110,9 @@ BEGIN
 			AComm			MONEY,
 			ProductId		TINYINT,
 			AmountToCompany MONEY,
-			DiscountAmount	MONEY,
-			TurnOver		MONEY)
+			DiscountAmount	MONEY)
 
-	INSERT INTO #TempDataVS (PartyId,rptDate,CurrencyId,WinLoss,AComm,ProductId,AmountToCompany, DiscountAmount, TurnOver)
+	INSERT INTO #TempDataVS (PartyId,rptDate,CurrencyId,WinLoss,AComm,ProductId,AmountToCompany, DiscountAmount)
 	(
 		SELECT	p.PartyId,
 				b.rptDate,
@@ -115,8 +121,7 @@ BEGIN
 				SUM(ISNULL(b.CommissionA, 0)) * e.Rate,
 				p.ProductId,
 				SUM(-ISNULL(b.MemberWL, 0) * p.Rate) * e.Rate,
-				SUM(-ISNULL(b.MemberWL, 0)) * ISNULL(d.Rate, 0) * e.Rate,
-				SUM(ISNULL(b.Turnover, 0)) * ISNULL(d.Rate, 0) * e.Rate
+				SUM(-ISNULL(b.MemberWL, 0)) * ISNULL(d.Rate, 0) * e.Rate				
 		FROM	bodb_LicenseeReport.dbo.rpt_BettingByProduct b WITH (NOLOCK)
 				INNER JOIN #Exchange e ON b.rptDate = e.ExchangeDate AND b.CurrencyId = e.ExchangeID
 				INNER JOIN @PartyChargeInfo p ON	b.ProductId = p.ProductID 
@@ -132,57 +137,42 @@ BEGIN
 	)
 
 	CREATE NONCLUSTERED INDEX Idx_InvoiceData ON #TempDataVS (PartyId, ProductId)
-
-	-- Region: Result
-	--CREATE TABLE #FeeData (
-	--	PartyId			INT,
-	--	ProductID		INT,
-	--	AComm			MONEY,
-	--	MinFeeApplied	MONEY,
-	--	WLFeeApplied	MONEY,
-	--	AmountToCompany	MONEY,
-	--	TurnOver		MONEY
-	--)
-
-	--INSERT INTO #FeeData(PartyId, ProductID, AComm, MinFeeApplied, WLFeeApplied, AmountToCompany)
-	--EXEC dbo.Acc_Rpt_HouseNetIncome_LicenseeFee @FromDate = @FDate, @ToDate = @TDate, @Products = 'VS'
-
+	
 	CREATE TABLE #FinalResult (
 		RptDate				VARCHAR(10),
 		LicenseeWL			MONEY,
 		DiscountWL			MONEY,
-		PayToSupplier		MONEY,
-		TurnOver			MONEY
+		PayToSupplier		MONEY
 	)
 
 	DECLARE @DailyPayAmt TABLE (rptDate DATE, IsDeposit BIT, Amount MONEY, LicenseeWL MONEY, VSRate FLOAT)
 	
-	INSERT INTO @DailyPayAmt (rptDate, IsDeposit, Amount, LicenseeWL, VSRate)
-	SELECT d.rptDate, p.IsDeposit, SUM(d.WinLoss * oanda.Rate * p.VSRate), SUM(-d.WinLoss * oanda.Rate), p.VSRate
+	-- Rate for PayToSupplier
+	;WITH rate3rd AS (
+		SELECT DISTINCT	ci.IsDeposit, ci.ProductID, ci.DI_Rate, ci.Fromdate, ci.ToDate, p.PartyID
+		FROM	bodb_licensee.dbo.LA_f_ChargeInfo3rd(@FDate, @TDate, 'VS', 'OA') ci	
+				INNER JOIN @tmpParty p ON p.ParentID = ci.PartyID	
+	)
+	INSERT INTO @DailyPayAmt (rptDate, IsDeposit, Amount, LicenseeWL)
+	SELECT d.rptDate, p.IsDeposit, SUM(d.WinLoss * oanda.Rate * p.DI_Rate), SUM(-d.WinLoss * oanda.Rate)
 	FROM #TempDataVS d
-		INNER JOIN @tmpParty p ON p.PartyID = d.PartyId
+		INNER JOIN rate3rd p ON p.PartyID = d.PartyId AND d.rptDate BETWEEN p.Fromdate AND p.Todate
 		INNER JOIN #ExchangeOANDA oanda ON d.rptDate = oanda.ExchangeDate AND d.CurrencyId = oanda.ExchangeID
-	GROUP BY d.rptDate, p.IsDeposit, p.VSRate
-
-	--INSERT INTO #FinalResult (rptDate, LicenseeWL, DiscountWL, PayToSupplier)
-	--SELECT 'FullRange', ISNULL(SUM(WLFeeApplied), 0), 0, -1 * (SELECT VSRate * CASE WHEN SUM(LicenseeWL) < 0 THEN 0 ELSE SUM(LicenseeWL) END FROM @DailyPayAmt GROUP BY VSRate)
-	--FROM #FeeData
-	--WHERE ProductID = 5
-
-	INSERT INTO #FinalResult (rptDate, LicenseeWL, DiscountWL, PayToSupplier, TurnOver)
-	SELECT 'FullRange', 0, 0, 0, 0	
+	GROUP BY d.rptDate, p.IsDeposit
+		
+	INSERT INTO #FinalResult (rptDate, LicenseeWL, DiscountWL, PayToSupplier)
+	SELECT 'FullRange', 0, 0, 0
 
 	DECLARE @tmpDate DATE, @DateList VARCHAR(200)
 	SELECT @tmpDate = @FDate
 
 	WHILE @tmpDate <= @TDate
 	BEGIN
-		INSERT INTO #FinalResult (RptDate, LicenseeWL, DiscountWL, PayToSupplier, TurnOver)
+		INSERT INTO #FinalResult (RptDate, LicenseeWL, DiscountWL, PayToSupplier)
 		SELECT CONVERT(VARCHAR(2), @tmpDate, 106), 
 			(SELECT ISNULL(SUM(AmountToCompany), 0) FROM #TempDataVS WHERE ProductId = 5 AND rptDate = @tmpDate), -- LicenseeWL
 			(SELECT -ISNULL(SUM(DiscountAmount), 0) FROM #TempDataVS WHERE ProductId = 5 AND rptDate = @tmpDate), -- DiscountWL
-			(SELECT ISNULL(SUM(Amount), 0) FROM @DailyPayAmt WHERE rptDate = @tmpDate),
-			(SELECT ISNULL(SUM(TurnOver), 0) FROM #TempDataVS WHERE ProductId = 5 AND rptDate = @tmpDate) -- TurnOver
+			(SELECT ISNULL(SUM(Amount), 0) FROM @DailyPayAmt WHERE rptDate = @tmpDate)		
 
 		SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate)
 	END
@@ -197,9 +187,7 @@ BEGIN
 							'CROSS APPLY' + CHAR(13) +
 							'(SELECT ''VS'', 1, ''House Income'', LicenseeWL' + CHAR(13) +
 							'UNION ALL' + CHAR(13) +
-							'SELECT ''VS'', 3, ''Rebate & Discount'', DiscountWL' + CHAR(13) +
-							'UNION ALL' + CHAR(13) +
-							'SELECT ''VS'', 8, ''Turn Over'', TurnOver' + CHAR(13) +
+							'SELECT ''VS'', 3, ''Rebate & Discount'', DiscountWL' + CHAR(13) +							
 							'UNION ALL' + CHAR(13) +
 							'SELECT ''VS'', 4, ''Pay to supplier'', PayToSupplier) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
 					'PIVOT' + CHAR(13) +

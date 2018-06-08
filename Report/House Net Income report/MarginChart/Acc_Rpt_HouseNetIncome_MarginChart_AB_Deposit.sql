@@ -99,10 +99,9 @@ BEGIN
 			MemberWL		MONEY,
 			AComm			MONEY,
 			ProductId		TINYINT,
-			AmountToCompany MONEY,
-			TurnOver		MONEY)
+			AmountToCompany MONEY)
 
-	INSERT INTO #TempDataAB (PartyId,rptDate,CurrencyId,MemberWL,AComm,ProductId,AmountToCompany,TurnOver)
+	INSERT INTO #TempDataAB (PartyId,rptDate,CurrencyId,MemberWL,AComm,ProductId,AmountToCompany)
 	(
 		SELECT	p.PartyId,
 				b.rptDate,
@@ -110,8 +109,7 @@ BEGIN
 				SUM(ISNULL(b.MemberWL, 0)),
 				SUM(ISNULL(b.CommissionA, 0)) * e.Rate,
 				p.ProductId,
-				SUM(-ISNULL(b.MemberWL, 0) * p.Rate) * e.Rate,
-				SUM(ISNULL(b.Turnover, 0) * p.Rate) * e.Rate
+				SUM(-ISNULL(b.MemberWL, 0) * p.Rate) * e.Rate
 		FROM	bodb_LicenseeReport.dbo.rpt_BettingByProduct b WITH (NOLOCK)
 				INNER JOIN #Exchange e ON b.rptDate = e.ExchangeDate AND b.CurrencyId = e.ExchangeID				
 				INNER JOIN @PartyChargeInfo p ON	b.ProductId = p.ProductID 
@@ -132,8 +130,7 @@ BEGIN
 		RptDate				VARCHAR(10),
 		LicenseeWL			MONEY,
 		PayToSupplier		MONEY,
-		CurrencyPlay		MONEY,
-		TurnOver			MONEY
+		CurrencyPlay		MONEY
 	)
 
 	-- Pay to Supplier for Credit + Deposit (GMT +8)
@@ -172,53 +169,21 @@ BEGIN
 	FROM PayToSupplierDaily p
 		INNER JOIN #ExchangeOANDA oe ON oe.ExchangeDate = p.RptDate3rd AND oe.ExchangeID = p.CurrencyId
 		INNER JOIN #ExchangeOANDA pe ON pe.ExchangeDate = p.RptDate3rd AND pe.ExchangeID = p.PlayCurrency	
-
-	--CREATE TABLE #FeeData (
-	--	PartyId			INT,
-	--	ProductID		INT,
-	--	AComm			MONEY,
-	--	MinFeeApplied	MONEY,
-	--	WLFeeApplied	MONEY,
-	--	AmountToCompany	MONEY
-	--)
-
-	--INSERT INTO #FeeData(PartyId, ProductID, AComm, MinFeeApplied, WLFeeApplied, AmountToCompany)
-	--EXEC dbo.Acc_Rpt_HouseNetIncome_LicenseeFee @FromDate = @FDate, @ToDate = @TDate, @Products = 'AB'
+				
 	
-	--DECLARE @TurnOver MONEY = 0
-	--SELECT @TurnOver = ISNULL(SUM(TurnOver), 0) FROM #TempDataAB
-
-	--;WITH paySupplier AS
-	--(
-	--	SELECT SUM (CASE WHEN AmountDailyBased > 0 AND IsDeposit = 1 THEN 0 ELSE AmountDailyBased END) AS AmountDailyBased,
-	--		   SUM (CASE WHEN AmountDailySystem > 0 AND IsDeposit = 1 THEN 0 ELSE AmountDailySystem END) AS AmountDailySystem	
-	--	FROM (	
-	--			SELECT SUM(AmountDailyBased) AS AmountDailyBased, IsDeposit, SUM(AmountDailySystem) AS AmountDailySystem
-	--			FROM @DailyPayAmt
-	--			GROUP BY IsDeposit
-	--		) s
-	--)					
-	--INSERT INTO #FinalResult (rptDate, LicenseeWL, PayToSupplier, CurrencyPlay, TurnOver)
-	--SELECT 'FullRange', 
-	--		(SELECT CASE WHEN SUM(AmountToCompany) < 0 THEN 0 ELSE SUM(WLFeeApplied) END FROM #FeeData),
-	--		(SELECT AmountDailyBased FROM paySupplier),
-	--		(SELECT AmountDailySystem - AmountDailyBased FROM paySupplier),
-	--		@TurnOver
-
-	INSERT INTO #FinalResult (rptDate, LicenseeWL, PayToSupplier, CurrencyPlay, TurnOver)
-	SELECT 'FullRange', 0, 0, 0, 0
+	INSERT INTO #FinalResult (rptDate, LicenseeWL, PayToSupplier, CurrencyPlay)
+	SELECT 'FullRange', 0, 0, 0
 
 	DECLARE @tmpDate DATE, @DateList VARCHAR(200)
 	SELECT @tmpDate = @FDate
 
 	WHILE @tmpDate <= @TDate
 	BEGIN
-		INSERT INTO #FinalResult (RptDate, LicenseeWL, PayToSupplier, CurrencyPlay, TurnOver)
+		INSERT INTO #FinalResult (RptDate, LicenseeWL, PayToSupplier, CurrencyPlay)
 		SELECT CONVERT(VARCHAR(2), @tmpDate, 106), 
 				(SELECT SUM(AmountToCompany) FROM #TempDataAB WHERE rptDate = @tmpDate),
 				(SELECT SUM(AmountDailyBased) FROM @DailyPayAmt WHERE RptDate = @tmpDate),
-				(SELECT SUM(AmountDailySystem - AmountDailyBased) FROM @DailyPayAmt WHERE RptDate = @tmpDate),
-				(SELECT SUM(TurnOver) FROM #TempDataAB WHERE rptDate = @tmpDate)
+				(SELECT SUM(AmountDailySystem - AmountDailyBased) FROM @DailyPayAmt WHERE RptDate = @tmpDate)
 
 		SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate)
 	END
@@ -233,9 +198,7 @@ BEGIN
 							'CROSS APPLY' + CHAR(13) +
 							'(SELECT ''AB'', 1, ''House Income'', LicenseeWL' + CHAR(13) +
 							'UNION ALL' + CHAR(13) +
-							'SELECT ''AB'', 4, ''Pay to supplier'', PayToSupplier' + CHAR(13) +
-							'UNION ALL' + CHAR(13) +
-							'SELECT ''AB'', 8, ''Turn Over'', TurnOver' + CHAR(13) +
+							'SELECT ''AB'', 4, ''Pay to supplier'', PayToSupplier' + CHAR(13) +							
 							'UNION ALL' + CHAR(13) +
 							'SELECT ''AB'', 5, ''Currency Play'', CurrencyPlay ) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
 					'PIVOT' + CHAR(13) +

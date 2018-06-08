@@ -99,10 +99,9 @@ BEGIN
 			AComm			MONEY,
 			ProductId		TINYINT,
 			AmountToCompany MONEY,
-			DiscountAmount	MONEY,
-			TurnOver		MONEY)
+			DiscountAmount	MONEY)
 
-	INSERT INTO #TempDataVS2 (PartyId,rptDate,CurrencyId,WinLoss,AComm,ProductId,AmountToCompany, DiscountAmount, TurnOver)
+	INSERT INTO #TempDataVS2 (PartyId,rptDate,CurrencyId,WinLoss,AComm,ProductId,AmountToCompany, DiscountAmount)
 	(
 		SELECT	p.PartyId,
 				b.rptDate,
@@ -111,8 +110,7 @@ BEGIN
 				SUM(ISNULL(b.CommissionA, 0)) * e.Rate,
 				p.ProductId,
 				SUM(-ISNULL(b.MemberWL, 0) * p.Rate) * e.Rate,
-				SUM(-ISNULL(b.MemberWL, 0)) * ISNULL(d.Rate, 0) * e.Rate,
-				SUM(ISNULL(b.Turnover, 0)) * ISNULL(d.Rate, 0) * e.Rate  
+				SUM(-ISNULL(b.MemberWL, 0)) * ISNULL(d.Rate, 0) * e.Rate
 		FROM	bodb_LicenseeReport.dbo.rpt_BettingByProduct b WITH (NOLOCK)
 				INNER JOIN #Exchange e ON b.rptDate = e.ExchangeDate AND b.CurrencyId = e.ExchangeID
 				INNER JOIN @PartyChargeInfo p ON	b.ProductId = p.ProductID 
@@ -127,27 +125,13 @@ BEGIN
 		GROUP BY b.rptdate, b.SiteId, p.PartyId,b.CurrencyID, p.ProductId, e.Rate, d.Rate
 	)
 
-	CREATE NONCLUSTERED INDEX Idx_InvoiceData ON #TempDataVS2 (PartyId, ProductId)
-
-	-- Region: Result
-	--CREATE TABLE #FeeData (
-	--	PartyId			INT,
-	--	ProductID		INT,
-	--	AComm			MONEY,
-	--	MinFeeApplied	MONEY,
-	--	WLFeeApplied	MONEY,
-	--	AmountToCompany	MONEY
-	--)
-
-	--INSERT INTO #FeeData(PartyId, ProductID, AComm, MinFeeApplied, WLFeeApplied, AmountToCompany)
-	--EXEC dbo.Acc_Rpt_HouseNetIncome_LicenseeFee @FromDate = @FDate, @ToDate = @TDate, @Products = 'VS2'
+	CREATE NONCLUSTERED INDEX Idx_InvoiceData ON #TempDataVS2 (PartyId, ProductId)	
 
 	CREATE TABLE #FinalResult (
 		RptDate				VARCHAR(10),
 		LicenseeWL			MONEY,
 		DiscountWL			MONEY,
-		PayToSupplier		MONEY,
-		TurnOver			MONEY
+		PayToSupplier		MONEY
 	)
 
 	DECLARE @DailyPayAmt TABLE (rptDate DATE, IsDeposit BIT, Amount MONEY, LicenseeWL MONEY, VSRate FLOAT)
@@ -158,26 +142,20 @@ BEGIN
 		INNER JOIN @tmpParty p ON p.PartyID = d.PartyId
 		INNER JOIN #ExchangeOANDA oanda ON d.rptDate = oanda.ExchangeDate AND d.CurrencyId = oanda.ExchangeID
 	GROUP BY d.rptDate, p.IsDeposit, p.VSRate
-
-	--INSERT INTO #FinalResult (rptDate, LicenseeWL, DiscountWL, PayToSupplier)
-	--SELECT 'FullRange', ISNULL(SUM(WLFeeApplied), 0), 0, -1 * (SELECT VSRate * CASE WHEN SUM(LicenseeWL) < 0 THEN 0 ELSE SUM(LicenseeWL) END FROM @DailyPayAmt GROUP BY VSRate)
-	--FROM #FeeData
-	--WHERE ProductID = 27
-
-	INSERT INTO #FinalResult (rptDate, LicenseeWL, DiscountWL, PayToSupplier, TurnOver)
-	SELECT 'FullRange', 0, 0, 0, 0
+	
+	INSERT INTO #FinalResult (rptDate, LicenseeWL, DiscountWL, PayToSupplier)
+	SELECT 'FullRange', 0, 0, 0
 	
 	DECLARE @tmpDate DATE, @DateList VARCHAR(200)
 	SELECT @tmpDate = @FDate
 
 	WHILE @tmpDate <= @TDate
 	BEGIN
-		INSERT INTO #FinalResult (RptDate, LicenseeWL, DiscountWL, PayToSupplier, TurnOver)
+		INSERT INTO #FinalResult (RptDate, LicenseeWL, DiscountWL, PayToSupplier)
 		SELECT CONVERT(VARCHAR(2), @tmpDate, 106), 
 			(SELECT ISNULL(SUM(AmountToCompany), 0) FROM #TempDataVS2 WHERE ProductId = 27 AND rptDate = @tmpDate), -- LicenseeWL
 			(SELECT -ISNULL(SUM(DiscountAmount), 0) FROM #TempDataVS2 WHERE ProductId = 27 AND rptDate = @tmpDate), -- DiscountWL
-			(SELECT ISNULL(SUM(Amount), 0) FROM @DailyPayAmt WHERE rptDate = @tmpDate),
-			(SELECT ISNULL(SUM(TurnOver), 0) FROM #TempDataVS2 WHERE ProductId = 27 AND rptDate = @tmpDate) -- DiscountWL
+			(SELECT ISNULL(SUM(Amount), 0) FROM @DailyPayAmt WHERE rptDate = @tmpDate)
 
 		SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate)
 	END
@@ -192,9 +170,7 @@ BEGIN
 							'CROSS APPLY' + CHAR(13) +
 							'(SELECT ''VS2'', 1, ''House Income'', LicenseeWL' + CHAR(13) +
 							'UNION ALL' + CHAR(13) +
-							'SELECT ''VS2'', 3, ''Rebate & Discount'', DiscountWL' + CHAR(13) +
-							'UNION ALL' + CHAR(13) +
-							'SELECT ''VS2'', 8, ''Turn Over'', TurnOver' + CHAR(13) +
+							'SELECT ''VS2'', 3, ''Rebate & Discount'', DiscountWL' + CHAR(13) +							
 							'UNION ALL' + CHAR(13) +
 							'SELECT ''VS2'', 4, ''Pay to supplier'', PayToSupplier) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
 					'PIVOT' + CHAR(13) +

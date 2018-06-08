@@ -88,18 +88,16 @@ BEGIN
 			CurrencyId		INT,
 			WinLoss			MONEY,	
 			LicenseeWL		MONEY,
-			AmountToCompany MONEY,
-			TurnOver		MONEY)
+			AmountToCompany MONEY)
 
-	INSERT INTO #TempDataAGC (PartyId, RptDate, CurrencyId, WinLoss, LicenseeWL, AmountToCompany, TurnOver)
+	INSERT INTO #TempDataAGC (PartyId, RptDate, CurrencyId, WinLoss, LicenseeWL, AmountToCompany)
 	(
 		SELECT	p.PartyId,
 				b.rptdate,
 				b.CurrencyID,
 				SUM(ISNULL(b.MemberWL, 0)),
 				SUM(-ISNULL(b.MemberWL, 0)),
-				SUM(-ISNULL(b.MemberWL, 0) * p.Rate * e.Rate),
-				SUM(ISNULL(b.Turnover, 0) * p.Rate * e.Rate)
+				SUM(-ISNULL(b.MemberWL, 0) * p.Rate * e.Rate)
 		FROM	bodb_LicenseeReport.dbo.rpt_BettingByProduct b WITH (NOLOCK)
 				INNER JOIN #Exchange e ON b.rptDate = e.ExchangeDate AND b.CurrencyId = e.ExchangeID
 				INNER JOIN @PartyChargeInfo p ON	b.ProductId = p.ProductID 
@@ -140,8 +138,7 @@ BEGIN
 	CREATE TABLE #FinalResult (
 		RptDate			VARCHAR(10),
 		LicenseeWL			MONEY,
-		PayToSupplier		MONEY,
-		TurnOver			MONEY
+		PayToSupplier		MONEY
 	)
 	
 	-- Pay to Supplier using OANDA rate (CurrencyID = 2 => MYR)
@@ -155,47 +152,18 @@ BEGIN
 		INNER JOIN #ExchangeOANDA oanda ON d.RptDate = oanda.ExchangeDate AND d.CurrencyId = oanda.ExchangeID
 	GROUP BY d.RptDate, p.ParentID, p.AGCRate
 	
-	-- For monthly value
-	--DECLARE @PayToSupplier MONEY
-	--SET @PayToSupplier = (	SELECT SUM(PayForEach)
-	--						FROM (
-	--								SELECT ParentID, AGCRate * CASE WHEN SUM(LicenseeWL) < 0 THEN 0 ELSE SUM(LicenseeWL) END AS PayForEach 
-	--								FROM @DailyPayAmt 
-	--								GROUP BY ParentID, AGCRate
-	--							 ) AS t )
-	
-	--DECLARE @TurnOver MONEY = 0
-	--SELECT @TurnOver = ISNULL(SUM(TurnOver), 0) FROM #TempDataAGC
-
-	--CREATE TABLE #FeeData (
-	--	PartyId			INT,
-	--	ProductID		INT,
-	--	AComm			MONEY,
-	--	MinFeeApplied	MONEY,
-	--	WLFeeApplied	MONEY,
-	--	AmountToCompany	MONEY
-	--)
-
-	--INSERT INTO #FeeData(PartyId, ProductID, AComm, MinFeeApplied, WLFeeApplied, AmountToCompany)
-	--EXEC dbo.Acc_Rpt_HouseNetIncome_LicenseeFee @FromDate = @FDate, @ToDate = @TDate, @Products = 'AGC'
-							
-	--INSERT INTO #FinalResult (RptDate, LicenseeWL, PayToSupplier, TurnOver)
-	--SELECT 'FullRange', ISNULL(SUM(WLFeeApplied), 0), (-1) * @PayToSupplier, @TurnOver
-	--FROM #FeeData	
-
-	INSERT INTO #FinalResult (RptDate, LicenseeWL, PayToSupplier, TurnOver)
-	SELECT 'FullRange', 0, 0, 0
+	INSERT INTO #FinalResult (RptDate, LicenseeWL, PayToSupplier)
+	SELECT 'FullRange', 0, 0
 
 	DECLARE @tmpDate DATE, @DateList VARCHAR(200)
 	SELECT @tmpDate = @FDate
 
 	WHILE @tmpDate <= @TDate
 	BEGIN
-		INSERT INTO #FinalResult (RptDate, LicenseeWL, PayToSupplier, TurnOver)
+		INSERT INTO #FinalResult (RptDate, LicenseeWL, PayToSupplier)
 		SELECT CONVERT(VARCHAR(2), @tmpDate, 106), 
 			(SELECT ISNULL(SUM(AmountToCompany), 0) FROM #TempDataAGC WHERE RptDate = @tmpDate),	-- LicenseeWL
-			(SELECT ISNULL(SUM(AmountDaily), 0) FROM @DailyPayAmt WHERE RptDate = @tmpDate),		-- PayToSupplier
-			(SELECT ISNULL(SUM(TurnOver), 0) FROM #TempDataAGC WHERE RptDate = @tmpDate)			-- TurnOver
+			(SELECT ISNULL(SUM(AmountDaily), 0) FROM @DailyPayAmt WHERE RptDate = @tmpDate)		-- PayToSupplier			
 
 		SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate)
 	END
@@ -208,9 +176,7 @@ BEGIN
 	SELECT @SQL =	'SELECT * ' + CHAR(13) +
 					'FROM	(SELECT ProductCode, [Order], [RptDate], Figure, ISNULL(value, 0) value FROM #FinalResult' + CHAR(13) +
 							'CROSS APPLY' + CHAR(13) +
-							'(SELECT ''AGC'', 1, ''House Income'', LicenseeWL' + CHAR(13) +
-							'UNION ALL' + CHAR(13) +
-							'SELECT ''AGC'', 8, ''Turn Over'', TurnOver' + CHAR(13) +
+							'(SELECT ''AGC'', 1, ''House Income'', LicenseeWL' + CHAR(13) +							
 							'UNION ALL' + CHAR(13) +
 							'SELECT ''AGC'', 4, ''Pay to supplier'', PayToSupplier) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
 					'PIVOT' + CHAR(13) +

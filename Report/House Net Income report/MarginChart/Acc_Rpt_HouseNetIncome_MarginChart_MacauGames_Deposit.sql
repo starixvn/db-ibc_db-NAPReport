@@ -85,10 +85,9 @@ BEGIN
 			MemberWL		MONEY,
 			AComm			MONEY,
 			ProductId		TINYINT,
-			AmountToCompany MONEY,
-			TurnOver		MONEY)
+			AmountToCompany MONEY)
 
-	INSERT INTO #TempDataVB (PartyId,rptDate,CurrencyId,MemberWL,AComm,ProductId,AmountToCompany,TurnOver)
+	INSERT INTO #TempDataVB (PartyId,rptDate,CurrencyId,MemberWL,AComm,ProductId,AmountToCompany)
 	(
 		SELECT	p.PartyId,
 				b.rptDate,
@@ -96,8 +95,7 @@ BEGIN
 				SUM(ISNULL(b.MemberWL, 0) * oa.Rate),
 				SUM(ISNULL(b.CommissionA, 0)) * e.Rate,
 				p.ProductId,
-				SUM(-ISNULL(b.MemberWL, 0) * p.Rate) * e.Rate,
-				SUM(ISNULL(b.Turnover, 0) * p.Rate) * e.Rate
+				SUM(-ISNULL(b.MemberWL, 0) * p.Rate) * e.Rate
 		FROM	bodb_LicenseeReport.dbo.rpt_BettingByProduct b WITH (NOLOCK)
 				INNER JOIN #Exchange e ON b.rptDate = e.ExchangeDate AND b.CurrencyId = e.ExchangeID
 				INNER JOIN #ExchangeOANDA oa ON b.rptDate = oa.ExchangeDate AND b.CurrencyId = oa.ExchangeID
@@ -119,8 +117,7 @@ BEGIN
 	CREATE TABLE #FinalResult (
 		RptDate				VARCHAR(10),
 		LicenseeWL			MONEY,
-		PayToSupplier		MONEY,
-		TurnOver			MONEY
+		PayToSupplier		MONEY
 	)
 
 	--INSERT INTO #FinalResult (rptDate, LicenseeWL, PayToSupplier)
@@ -128,20 +125,18 @@ BEGIN
 	--		0.035 * CASE WHEN SUM(MemberWL) > 0 THEN 0 ELSE SUM(MemberWL) END
 	--FROM #TempDataVB
 
-	INSERT INTO #FinalResult (rptDate, LicenseeWL, PayToSupplier, TurnOver)
-	SELECT 'FullRange', 0, 0, 0
-			
+	INSERT INTO #FinalResult (rptDate, LicenseeWL, PayToSupplier)
+	SELECT 'FullRange', 0, 0			
 
 	DECLARE @tmpDate DATE, @DateList VARCHAR(200)
 	SELECT @tmpDate = @FDate
 
 	WHILE @tmpDate <= @TDate
 	BEGIN
-		INSERT INTO #FinalResult (RptDate, LicenseeWL, PayToSupplier, TurnOver)
+		INSERT INTO #FinalResult (RptDate, LicenseeWL, PayToSupplier)
 		SELECT CONVERT(VARCHAR(2), @tmpDate, 106), 
 				SUM(AmountToCompany), -- LicenseeWL
-				0.035 * SUM(MemberWL), -- PayToSupplier
-				SUM(TurnOver) -- TurnOver
+				0.035 * SUM(MemberWL) -- PayToSupplier				
 		FROM #TempDataVB 
 		WHERE rptDate = @tmpDate
 
@@ -156,9 +151,7 @@ BEGIN
 	SELECT @SQL =	'SELECT * ' + CHAR(13) +
 					'FROM	(SELECT ProductCode, [Order], [RptDate], Figure, ISNULL(value, 0) value FROM #FinalResult' + CHAR(13) +
 							'CROSS APPLY' + CHAR(13) +
-							'(SELECT ''VB'', 1, ''House Income'', LicenseeWL' + CHAR(13) +
-							'UNION ALL' + CHAR(13) +
-							'SELECT ''VB'', 8, ''Turn Over'', TurnOver' + CHAR(13) +
+							'(SELECT ''VB'', 1, ''House Income'', LicenseeWL' + CHAR(13) +							
 							'UNION ALL' + CHAR(13) +
 							'SELECT ''VB'', 4, ''Pay to supplier'', PayToSupplier) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
 					'PIVOT' + CHAR(13) +
