@@ -337,8 +337,8 @@ BEGIN
 			CASE WHEN [TurnoverIBC] = 0 THEN 0 ELSE [TurnoverIBC] - [ExtraTO] END 
 			* CASE WHEN [VarianceVR] > 0 THEN [VarianceVR] + 1 ELSE 1 END
 		) Turnover,
-		SUM(([ExtraWL] + [ExtraComm])) ExtraAmount, 
-		SUM(( [WinlossIBC] - [ExtraWL])) Winloss, 
+		-SUM(([ExtraWL] + [ExtraComm])) ExtraAmount, 
+		SUM(([WinlossIBC])) Winloss,  
 		SUM([CommissionS]) Commission, 
 		SUM(( [WinlossIBC] - [ExtraWL] + [CommissionS] -[ExtraComm] )) total,
 		SUM(CASE WHEN [TurnoverIBC_RM] = 0 THEN 0 ELSE [TurnoverIBC_RM] - [ExtraTO_RM] END 
