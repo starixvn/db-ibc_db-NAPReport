@@ -78,7 +78,7 @@ BEGIN
 
 	INSERT INTO #PayToSupplierRate( ProductID, Rate )
 	VALUES  (8, 0.03), (28, 0.03), (22, 0.02), (5, 0.01), (27, 0.01)
-			, (3, 0.4), (23, 0.5)
+			, (3, 0.4), (23, 0.5), (26, 0.4)
 
 	-- Sport - Bettype Matrix
 	CREATE TABLE #SportBettypeMatrix (ProductID INT, Bettype INT, EventType INT, SubProduct VARCHAR(500))
@@ -139,18 +139,18 @@ BEGIN
 		INNER JOIN #PayToSupplierRate r ON b.ProductID = r.ProductID
 	WHERE b.ProductID IN (5, 8, 22, 27, 28) -- Need caculate based on oanda rate
 
-	-- NG, NG2
+	-- NG, NG2, LK3
 	UPDATE b
 	SET b.PayToSupplier = - (b.HouseWL + ExtraPT) * r.Rate
 	FROM #TmpHouseWL b		
 		INNER JOIN #PayToSupplierRate r ON b.ProductID = r.ProductID
-	WHERE b.ProductID IN (3, 23)
+	WHERE b.ProductID IN (3, 23, 26)
 
 	-- Final Return
 	;WITH totalcte AS (
 						SELECT rptDate
-							, SUM(HouseWL) AS HouseWL, SUM(ExtraPT) AS ExtraPT
-							, SUM(TurnOver) AS TurnOver, SUM(PayToSupplier) AS PayToSupplier
+							, SUM(ISNULL(HouseWL, 0)) AS HouseWL, SUM(ISNULL(ExtraPT, 0)) AS ExtraPT
+							, SUM(ISNULL(TurnOver, 0)) AS TurnOver, SUM(ISNULL(PayToSupplier, 0)) AS PayToSupplier
 						FROM #TmpHouseWL
 						GROUP BY rptDate
 					)
