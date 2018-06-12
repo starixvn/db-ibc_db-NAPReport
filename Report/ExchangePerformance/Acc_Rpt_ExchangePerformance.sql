@@ -325,7 +325,7 @@ BEGIN
 	DROP TABLE #TicketData
 	DROP TABLE #DetailData
 	DROP TABLE #tmpWinlost
-	DROP TABLE #ExchangeOANDA
+	DROP TABLE #ExchangeRate
 
 END
 
