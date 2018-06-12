@@ -87,9 +87,9 @@ BEGIN
 								BetCount INT )		
 								
 	-- Region: Get Exchange
-	CREATE	TABLE #ExchangeOANDA (ExchangeDate DATE, ExchangeID INT, Rate FLOAT)	
+	CREATE	TABLE #ExchangeRate (ExchangeDate DATE, ExchangeID INT, Rate FLOAT)	
 	
-	INSERT INTO #ExchangeOANDA (ExchangeDate, ExchangeID, Rate)
+	INSERT INTO #ExchangeRate (ExchangeDate, ExchangeID, Rate)
 	SELECT ExchangeDate, ExchangeID, ActualRate
 	FROM bodb02.dbo.ExchangeDailyOanda
 	WHERE ExchangeDate BETWEEN @FromDate AND @ToDate 
@@ -292,7 +292,7 @@ BEGIN
 			SUM(CASE WHEN c.Rate IS NULL THEN 0 ELSE -(Winlost * c.Rate + CommissionP + CommissionA) * e.Rate END) PayToSupplier
 	FROM #tmpWinlost t
 		INNER JOIN #tmpLicensee l ON t.SiteId = l.LicenseeId		
-		INNER JOIN #ExchangeOANDA e ON t.Currency = e.ExchangeID AND t.Winlostdate = e.ExchangeDate	
+		INNER JOIN #ExchangeRate e ON t.Currency = e.ExchangeID AND t.Winlostdate = e.ExchangeDate	
 		LEFT JOIN #ChargeRate3rd c ON t.SiteId = c.LicenseeId AND t.Winlostdate BETWEEN c.FromDate AND c.ToDate
 	GROUP BY LicenseeName
 		
