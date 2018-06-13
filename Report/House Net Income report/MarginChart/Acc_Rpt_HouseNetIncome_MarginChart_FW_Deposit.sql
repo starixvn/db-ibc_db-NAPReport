@@ -18,7 +18,7 @@ AS
 		
 	Param's Explanation:   
 
-	Acc_Rpt_HouseNetIncome_MarginChart_FW_Deposit '2018-04-01', '2018-04-30'
+	Acc_Rpt_HouseNetIncome_MarginChart_FW_Deposit '2018-06-08', '2018-06-08'
   
 */  
 BEGIN  
@@ -27,35 +27,27 @@ BEGIN
 	DECLARE @FDate DATE, @TDate DATE
 	SELECT @FDate = @FromDate, @TDate = @ToDate
 
-	-- Region: Active licensees
-	DECLARE @TmpPartyList AS TABLE (PartyID INT, PartyName VARCHAR(200), BrandName VARCHAR(200), ParentID INT)
-	INSERT INTO @TmpPartyList
-	EXECUTE bodb_licensee..LA_PartyListSel  
-
+	-- Region: Active licensees	
 	DECLARE @tmpParty TABLE (PartyID INT, IsDeposit BIT, LicenseeID INT, ParentID INT, Rate FLOAT, ChargeType INT)
-	INSERT INTO @tmpParty( PartyID , IsDeposit , LicenseeID)	
+	INSERT INTO @tmpParty( PartyID , IsDeposit , LicenseeID, ParentID)	
 	SELECT DISTINCT p.PartyID, pd.IsDeposit,
 		CASE 
 			WHEN ISNULL(pd.IsDeposit, 0) = 1 
 			THEN p.OldRefID 
 			ELSE lb.LabelID 
-		END AS LicenseeID
+		END AS LicenseeID,
+		CASE WHEN ISNULL(pd.IsDeposit, 0) = 0 THEN 999 ELSE ci.ToParty	END -- credit
 	FROM bodb_licensee.dbo.OAS_Party p WITH (NOLOCK)
 		INNER JOIN bodb_licensee.dbo.OAS_PartyDetail pd WITH (NOLOCK) ON p.PartyID = pd.PartyID
 		INNER JOIN bodb_licensee.dbo.OAS_ChargeInfo ci WITH (NOLOCK) ON ci.FromParty = p.PartyID
 		INNER JOIN bodb_licensee.dbo.LA_ChargeInfo_SystemMapping map WITH (NOLOCK) ON map.ChargeID = ci.ChargeID AND map.SystemID = 2 -- LA
 		LEFT JOIN bodb_licensee.dbo.Labels lb WITH (NOLOCK) ON p.OldRefID = lb.LicenseeID
 	WHERE p.PartyType = 1 -- Licensee
-		AND ci.ProductID = 24 -- FW		
+		AND ci.ProductID = 24 -- FW				
 		AND ((ci.FromDate BETWEEN @FDate AND @TDate) 
 			OR (ci.ToDate BETWEEN @FDate AND @TDate)
 			OR (ci.FromDate < @FDate AND @TDate < ci.ToDate))	
 	
-	UPDATE p
-	SET p.ParentID = pa.ParentID
-	FROM @tmpParty p
-		INNER JOIN @TmpPartyList pa ON pa.PartyID = p.PartyID
-
 	DECLARE @PartyIDs VARCHAR(1000)
 	SELECT	@PartyIDs = COALESCE(@PartyIDs + ',', '') + CONVERT(VARCHAR(10), PartyId) FROM @tmpParty WHERE IsDeposit = 1
 	-- End region
