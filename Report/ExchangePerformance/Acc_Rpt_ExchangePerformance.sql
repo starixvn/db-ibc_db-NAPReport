@@ -91,7 +91,7 @@ BEGIN
 	
 	INSERT INTO #ExchangeRate (ExchangeDate, ExchangeID, Rate)
 	SELECT ExchangeDate, ExchangeID, ActualRate
-	FROM bodb02.dbo.ExchangeDailyOanda
+	FROM bodb02.dbo.ExchangeDailyOanda WITH (NOLOCK)
 	WHERE ExchangeDate BETWEEN @FromDate AND @ToDate 
 	-- End Region						)
     
@@ -102,7 +102,7 @@ BEGIN
 	INSERT INTO #tmpLicensee (LicenseeId, LicenseeName)
 	SELECT s.val, l.LicenseeName
 	FROM [dbo].strSplit(@LicenseeId, ',') s
-		INNER JOIN bodb_Licensee.dbo.Licensees l ON s.val = l.LicenseeID		
+		INNER JOIN bodb_Licensee.dbo.Licensees l WITH (NOLOCK) ON s.val = l.LicenseeID		
 	
 	INSERT INTO #tmpWinLostDate (WinLostDate, StartWLDate, EndWLDate)
 	SELECT DISTINCT WinlostDate, WinlostDate, DATEADD(Day, 1, WinlostDate)
