@@ -114,7 +114,7 @@ BEGIN
 	DELETE FROM #SportBettypeMatrix
 
 	INSERT INTO #SportBettypeMatrix (ProductID, Bettype, EventType, SubProduct)
-	SELECT ProductID, BetType, EventType, SubProduct FROM bodb02.dbo.f_SportBettypeMatrix_Sel(0,0,0,2,'','NG,CS,KN,LT,AGC,MGCLC,MGCRNG,BT,CO,CB,VB,AB,FW,GD,EX,VS,VS2',0)
+	SELECT ProductID, BetType, EventType, SubProduct FROM bodb02.dbo.f_SportBettypeMatrix_Sel(0,0,0,2,'','NG,CS,KN,LT,AGC,MGCLC,MGCRNG,BT,CO,CB,VB,AB,FW,GD,BX,VS,VS2',0)
 	
 	INSERT INTO #TmpHouseWL (rptDate, ProductID, CurrencyID, TurnOver)
 	SELECT 
