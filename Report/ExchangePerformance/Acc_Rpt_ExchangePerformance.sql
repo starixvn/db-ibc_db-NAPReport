@@ -41,38 +41,11 @@ BEGIN
     
     CREATE TABLE #tmpLicensee (LicenseeId INT, LicenseeName VARCHAR(50))
     
-    CREATE TABLE #tmpWinLostDate (WinLostDate DATE, StartWLDate DATETIME, EndWLDate DATETIME)
-    
     CREATE TABLE #ChargeRate (PartyId INT, LicenseeId INT, ParentID INT, Rate MONEY, FromDate DATE, ToDate DATE)
     
     CREATE TABLE #ChargeRate3rd (LicenseeId INT, Rate MONEY, FromDate DATE, ToDate DATE)
     
-    CREATE TABLE #tmpPartyList (PartyID INT, PartyName VARCHAR(200), BrandName VARCHAR(200), ParentID INT)
-    
-    CREATE TABLE #TicketData (	SettledDate		DATE,
-								Custid			INT,	
-								SiteID			INT,							
-								CurrencyID		INT,
-								UserID			VARCHAR(20),
-								EventID			INT,
-								MarketID		VARCHAR(50),							
-								Turnover		MONEY,							
-								Winlost			MONEY,	
-								WinLostA		MONEY,					
-								BetCount		INT,
-								CommissionP		MONEY,
-								CommissionA		MONEY,
-								EventTypeName   Nvarchar(50), 
-								EventType 		SMALLINT
-							 )
-							
-	CREATE TABLE #DetailData (	UserID			VARCHAR(20),
-								EventID			INT,
-								MarketID		VARCHAR(50),					
-								BetCount		INT,
-								EventTypeName   NVARCHAR(50),
-								EventType 		SMALLINT
-							 )	
+    CREATE TABLE #tmpPartyList (PartyID INT, PartyName VARCHAR(200), BrandName VARCHAR(200), ParentID INT)       
     
     CREATE TABLE #tmpWinlost(	Winlostdate DATE,
 								SiteId INT,
@@ -103,12 +76,6 @@ BEGIN
 	SELECT s.val, l.LicenseeName
 	FROM [dbo].strSplit(@LicenseeId, ',') s
 		INNER JOIN bodb_Licensee.dbo.Licensees l WITH (NOLOCK) ON s.val = l.LicenseeID		
-	
-	INSERT INTO #tmpWinLostDate (WinLostDate, StartWLDate, EndWLDate)
-	SELECT DISTINCT WinlostDate, WinlostDate, DATEADD(Day, 1, WinlostDate)
-	FROM bodb_3rdProduct.dbo.Product3rd_SummarizedDateHistory WITH (NOLOCK)
-	WHERE WinlostDate >= @FromDate AND WinlostDate <= @ToDate 
-		AND SumToThirdPartyDate IS NULL
 
 	INSERT INTO #tmpPartyList
 	EXECUTE bodb_licensee.dbo.LA_PartyListSel 
@@ -144,95 +111,7 @@ BEGIN
 		FROM	bodb_licensee.dbo.LA_f_ChargeInfo3rd(@FromDate, @ToDate, 'BX', 'OA') ci	
 			INNER JOIN #ChargeRate p ON (CASE WHEN ci.IsParent = 1 THEN p.ParentID ELSE p.PartyId END) = ci.PartyID	
 		WHERE ci.ChargeType = 1 AND ci.IsDeposit = 1
-	)
-
-	-- Get data has not been moved to sum table yet(yesterday and today)
-	IF EXISTS (SELECT 1 FROM #tmpWinLostDate)
-	BEGIN		
-		SELECT @FDate = MIN(WinLostDate), @TDate = MAX(WinLostDate)
-		FROM #tmpWinLostDate
-	
-		INSERT INTO #TicketData (SettledDate, Custid, SiteID, CurrencyID, UserID, EventID, MarketID
-									, Turnover, Winlost, CommissionP, CommissionA)
-		SELECT b.settledDate, b.CustID, ISNULL(site.SiteID,-1) as SiteId, b.Currency, b.userId, b.eventID, b.marketID
-			, SUM(ISNULL(b.stakeTotal,0) * 1/b.ExVirtualRate) Turnover, SUM(ISNULL(b.marketTotal,0) * 1/b.ExVirtualRate) Winlost
-			, SUM(ISNULL(b.commission,0) * 1/b.ExVirtualRate) CommissionP, SUM(ISNULL(b.agentCommission,0) * 1/b.ExVirtualRate) CommissionA			
-		FROM bodb_3rdProduct.dbo.Sum_winloss_Exchange b WITH (NOLOCK)
-			INNER JOIN bodb02.dbo.Customer c WITH (NOLOCK) ON c.Custid = b.CustID AND c.roleid = 1
-			INNER JOIN bodb02.dbo.customer ag WITH (NOLOCK) ON c.recommend = ag.custid AND ag.roleid = 2
-			INNER JOIN bodb02.dbo.Site ibcsite WITH (NOLOCK) ON ag.site=ibcsite.site
-			INNER JOIN bodb_licensee.dbo.view_site_list [site] WITH (NOLOCK) ON ibcsite.siteid=site.IbcSiteID
-		WHERE CONVERT(DATE, b.settledDate) BETWEEN @FDate AND @TDate
-			AND b.Currency <> 20
-			AND EXISTS (SELECT 1 FROM #tmpLicensee l WHERE l.LicenseeId = [site].SiteID)
-		GROUP BY b.settledDate, b.CustID, ISNULL(site.SiteID,-1), b.currency, b.ExVirtualRate, b.userId, b.eventID, b.marketID
-
-		INSERT INTO #DetailData
-			( UserID ,
-			EventID ,
-			MarketID ,
-			BetCount, 
-			EventType, 
-			EventTypeName )			
-		SELECT d.userId, 
-			d.eventID, 
-			d.marketID,
-			COUNT(*) AS Betcount,
-			d.eventType, 
-			d.EventTypeName
-		FROM bodb_3rdProduct.dbo.Bettrans_Exchange d WITH (NOLOCK)
-			INNER JOIN #tmpSport s ON d.eventType = s.SportID
-			INNER JOIN #TicketData b ON d.userId = b.userId AND d.eventID = b.eventID AND d.marketID = b.marketID
-		WHERE d.betstatus = 'Settled'				
-		GROUP BY d.userId, d.eventID, d.marketID, d.eventType, d.EventTypeName
-		
-		UPDATE b
-		SET b.BetCount = ISNULL(d.BetCount, 0),
-			b.EventType = ISNULL(d.eventType,-1),
-			b.EventTypeName = ISNULL(d.EventTypeName, 'Invalid')
-		FROM #TicketData b
-			INNER JOIN #DetailData d ON d.userId = b.userId AND d.eventID = b.eventID AND d.marketID = b.marketID
-			
-		DELETE #TicketData WHERE EventType = -1
-		
-		UPDATE b
-		SET b.WinLostA = - (ISNULL(Winlost, 0)) * (1 - ISNULL(r.Rate, 0))
-		FROM #TicketData b
-			INNER JOIN #ChargeRate r ON b.SiteID = r.LicenseeId
-		WHERE b.SettledDate BETWEEN r.FromDate AND r.ToDate
-		
-		--- Delete unused data because of bettrans_exchange does not has data , but Sum_winloss_Exchange still has data with 0 ( case void or refund) 
-		DELETE #TicketData 
-		WHERE ISNULL(Turnover,0) = 0 AND ISNULL(Winlost,0) = 0 AND ISNULL(WinLostA,0) = 0 AND ISNULL(CommissionP,0) = 0
-			   AND ISNULL(CommissionA,0) = 0 AND ISNULL(BetCount,0) = 0 				
-				  
-		INSERT INTO #tmpWinlost 
-			(Winlostdate, 
-			SiteId,
-			Sporttype,
-			Custid, 			
-			Currency,
-			Turnover,			
-			Winlost,
-			WinLostA,
-			CommissionP,
-			CommissionA,
-			BetCount)
-		SELECT SettledDate, 
-			SiteID,
-			EventType,
-			Custid, 			 
-			CurrencyID, 
-			SUM(ISNULL(turnover, 0)) Turnover, 
-			SUM(ISNULL(Winlost, 0)) Winlost, 
-			SUM(ISNULL(WinLostA, 0)) WinLostA,			
-			SUM(ISNULL(CommissionP, 0)) CommissionP, 
-			SUM(ISNULL(CommissionA, 0)) CommissionA, 
-			SUM(ISNULL(BetCount, 0)) BetCount
-		FROM #TicketData d	
-		GROUP BY SettledDate, SiteID, EventType, Custid, CurrencyID		
-	END
-	-- End of Get data has not been moved to sum table yet(yesterday and today)
+	)	
 
 	-- Handle Data	from Sum Table
 	BEGIN
@@ -262,8 +141,7 @@ BEGIN
 			SUM(ISNULL(BetCount, 0)) BetCount
 		FROM bodb_LicenseeReport.dbo.rptDepWinlost_ThirdParty_Performance b WITH (NOLOCK)
 		WHERE Winlostdate BETWEEN @FromDate AND @ToDate 
-			AND b.ProductId = 31 
-			AND NOT EXISTS (SELECT 1 FROM #tmpWinLostDate r WHERE b.Winlostdate = r.WinLostDate)		
+			AND b.ProductId = 31 	
 			AND EXISTS (SELECT 1 FROM #tmpSport s WHERE b.Sporttype	= s.SportID)	
 			AND EXISTS (SELECT 1 FROM #tmpLicensee l WHERE b.SiteId = l.LicenseeId)
 		GROUP BY Winlostdate, SiteID, Sporttype, Custid, Currency
@@ -311,19 +189,15 @@ BEGIN
 			-(MemberCommission + LicenseeCommission) AS CompanyCommission,
 			PayToSupplier,
 			-(MemberWinLoss + LicenseeWinLoss + MemberCommission + LicenseeCommission + PayToSupplier) AS CompanyNetIncome
-	FROM #tmpResult 
-	
+	FROM #tmpResult 	
 	-- #End of Return data		
 	
 	DROP TABLE #tmpResult
 	DROP TABLE #tmpSport
 	DROP TABLE #tmpLicensee
-	DROP TABLE #tmpWinLostDate
 	DROP TABLE #ChargeRate
 	DROP TABLE #ChargeRate3rd
 	DROP TABLE #tmpPartyList
-	DROP TABLE #TicketData
-	DROP TABLE #DetailData
 	DROP TABLE #tmpWinlost
 	DROP TABLE #ExchangeRate
 
