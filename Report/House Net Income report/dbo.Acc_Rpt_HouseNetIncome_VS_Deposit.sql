@@ -1,3 +1,5 @@
+/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
+
 USE bodb02
 GO
 
@@ -16,6 +18,8 @@ AS
 		- 20160919@Harper - #64338 - PayToSupplier of FullMonth is incorrect
 		- 20160923@Harper - #64582 - PayToSupplier should use ExchangeOANDA
 		- 20161024@Harper - #65699: HAIFA - Apply new charge rate discount for HNI report
+		- 20180327@Harper - #91291 - Virtual Sports - Change of commercial terms between company and provider
+
 	Param's Explanation:   
 */  
 BEGIN  
@@ -25,7 +29,12 @@ BEGIN
 	SELECT @FDate = @FromDate, @TDate = @ToDate
 
 	-- Region: Active licensees
-	DECLARE @tmpParty TABLE (PartyID INT, IsDeposit BIT, VSRate FLOAT)
+	DECLARE @TmpPartyList AS TABLE (PartyID INT, PartyName VARCHAR(200), BrandName VARCHAR(200), ParentID INT)
+	INSERT INTO @TmpPartyList
+	EXECUTE bodb_licensee..LA_PartyListSel  
+
+	DECLARE @tmpParty TABLE (PartyID INT, IsDeposit BIT, VSRate FLOAT, ParentID INT)
+
 	INSERT INTO @tmpParty (PartyID, IsDeposit, VSRate)
 	SELECT DISTINCT ci.FromParty, pd.IsDeposit, 0
 	FROM bodb_licensee.dbo.OAS_Party p WITH (NOLOCK)
@@ -38,12 +47,14 @@ BEGIN
 				OR (ci.ToDate BETWEEN @FDate AND @TDate)
 				OR (ci.FromDate < @FDate AND @TDate < ci.ToDate))
 
+	UPDATE p
+	SET p.ParentID = pa.ParentID
+	FROM @tmpParty p
+		INNER JOIN @TmpPartyList pa ON pa.PartyID = p.PartyID
+
 	DECLARE @PartyIDs VARCHAR(1000)
 	SELECT	@PartyIDs = COALESCE(@PartyIDs + ',', '') + CONVERT(VARCHAR(10), PartyId) FROM @tmpParty
-
 	
-	UPDATE @tmpParty 
-	SET VSRate = 0.075
 	-- End region
 
 	DECLARE @PartyChargeInfo AS TABLE (
@@ -149,15 +160,21 @@ BEGIN
 
 	DECLARE @DailyPayAmt TABLE (rptDate DATE, IsDeposit BIT, Amount MONEY, LicenseeWL MONEY, VSRate FLOAT)
 	
-	INSERT INTO @DailyPayAmt (rptDate, IsDeposit, Amount, LicenseeWL, VSRate)
-	SELECT d.rptDate, p.IsDeposit, SUM(d.WinLoss * oanda.Rate * p.VSRate), SUM(-d.WinLoss * oanda.Rate), p.VSRate
+	-- Rate for PayToSupplier
+	;WITH rate3rd AS (
+		SELECT DISTINCT	ci.IsDeposit, ci.ProductID, ci.DI_Rate, ci.Fromdate, ci.ToDate, p.PartyID
+		FROM	bodb_licensee.dbo.LA_f_ChargeInfo3rd(@FDate, @TDate, 'VS', 'OA') ci	
+				INNER JOIN @tmpParty p ON p.ParentID = ci.PartyID	
+	)
+	INSERT INTO @DailyPayAmt (rptDate, IsDeposit, Amount, LicenseeWL)
+	SELECT d.rptDate, p.IsDeposit, SUM(d.WinLoss * oanda.Rate * p.DI_Rate), SUM(-d.WinLoss * oanda.Rate)
 	FROM #TempDataVS d
-		INNER JOIN @tmpParty p ON p.PartyID = d.PartyId
+		INNER JOIN rate3rd p ON p.PartyID = d.PartyId AND d.rptDate BETWEEN p.Fromdate AND p.Todate
 		INNER JOIN #ExchangeOANDA oanda ON d.rptDate = oanda.ExchangeDate AND d.CurrencyId = oanda.ExchangeID
-	GROUP BY d.rptDate, p.IsDeposit, p.VSRate
+	GROUP BY d.rptDate, p.IsDeposit
 
 	INSERT INTO #FinalResult (rptDate, LicenseeWL, DiscountWL, PayToSupplier)
-	SELECT 'FullRange', ISNULL(SUM(WLFeeApplied), 0), 0, -1 * (SELECT VSRate * CASE WHEN SUM(LicenseeWL) < 0 THEN 0 ELSE SUM(LicenseeWL) END FROM @DailyPayAmt GROUP BY VSRate)
+	SELECT 'FullRange', ISNULL(SUM(WLFeeApplied), 0), 0, (SELECT CASE WHEN SUM(LicenseeWL) < 0 THEN 0 ELSE SUM(Amount) END FROM @DailyPayAmt)
 	FROM #FeeData
 	WHERE ProductID = 5
 
@@ -206,7 +223,3 @@ BEGIN
 	DROP TABLE #FinalResult
 END
 GO
-
-GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_VS_Deposit] TO [bodbAdminNet]
-GO
-GRANT VIEW definition ON [dbo].[Acc_Rpt_HouseNetIncome_VS_Deposit] TO vnteam
