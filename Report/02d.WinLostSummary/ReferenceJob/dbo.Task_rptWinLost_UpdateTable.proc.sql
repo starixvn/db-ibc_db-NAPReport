@@ -36,6 +36,7 @@ Revision:
 	- 20180319@Cherry: Integrate ONE RNG Jackpot (#91712)
 	- 20180507@Tom: Include Exchange Bettype into group bettypes no need ABS() Turnover data (#94736)
 	- 20180411@Cherry: Integrate Pragmatic (#92642)
+	- 201806185@Tom: Update Logic Bettrans14 (bettype 29) (#97061)
 */
 
 BEGIN	
@@ -59,8 +60,8 @@ BEGIN
 
 	DECLARE @isTest BIT= 0;
      SELECT @isTest = dbo.f_CheckSPVersion(@@PROCID);
-	DECLARE @SportBettype TABLE(ProductID INT, Bettype INT,EventType INT,SubProduct VARCHAR(500), SportType INT) -- using Sporttype column for NG2 (NG2 has not matchid)
-	INSERT INTO @SportBettype
+	CREATE TABLE #SportBettype(ProductID INT, Bettype INT,EventType INT,SubProduct VARCHAR(500), SportType INT) -- using Sporttype column for NG2 (NG2 has not matchid)
+	INSERT INTO #SportBettype
 	SELECT ProductID,
               Bettype,
               EventType,
@@ -70,7 +71,7 @@ BEGIN
 
     UPDATE sb
     SET sb.SportType = s.SportType
-    FROM @SportBettype sb
+    FROM #SportBettype sb
 	   INNER JOIN SportBettypeMatrix s WITH(NOLOCK) ON sb.BetType = s.BetType AND s.ProductID IN (23, 31, 32) -- NG2, Exchange, Pragmatic
 
 	SELECT distinct winlostdate cnt FROM bettrans with (nolock) WHERE winlostdate = @winlostdate AND bettype < 19999
@@ -225,7 +226,7 @@ BEGIN
 			CASE WHEN b.Bettype = 18000 AND ISNULL(b.currency2,0) = 1 THEN 1 ELSE 0 END exrisk
 		FROM
 			bettrans b with (nolock)
-			inner join @SportBettype sb on b.bettype = sb.Bettype
+			inner join #SportBettype sb on b.bettype = sb.Bettype
 		WHERE
 			(b.bettype < 19999 and b.bettype not in (29,31,32,33,1003,2799))
 			AND sb.ProductID NOT IN (6, 17, 21, 22, 24, 32)
@@ -274,7 +275,7 @@ BEGIN
 			 LEFT JOIN (
 				SELECT refno,MIN(matchid) matchid
 				FROM dbo.bettransm b (NOLOCK)
-				    inner join @SportBettype sb on b.bettype = sb.Bettype
+				    inner join #SportBettype sb on b.bettype = sb.Bettype
 				WHERE sb.ProductID IN (27)
 				GROUP BY refno
 			 ) sm	ON b.refno = sm.refno
@@ -331,7 +332,7 @@ BEGIN
 			0 SportType, 0 exrisk
 		FROM
 			bettransRnG b with (nolock)
-			inner join @SportBettype sb on b.gameID = sb.Bettype
+			inner join #SportBettype sb on b.gameID = sb.Bettype
 		WHERE
 			sb.ProductID IN (6, 17, 22, 24, 32) -- MBC-RNG Casino, Microgaming-RNG Casino, Voidbridge, Fishing World, Pragmatic
 			AND winlostdate = @winlostdate
@@ -381,7 +382,7 @@ BEGIN
 			0 exrisk
 		FROM
 			dbo.bettransLC b WITH (NOLOCK)
-			 INNER JOIN @SportBettype sb on b.gameID = sb.Bettype
+			 INNER JOIN #SportBettype sb on b.gameID = sb.Bettype
 		WHERE
 			sb.ProductID = 21
 			AND winlostdate = @winlostdate
@@ -455,7 +456,7 @@ BEGIN
 		UPDATE rpt
 		SET rpt.SportType = sb.SportType
 		FROM bodb_Report.dbo.rptWinlost rpt WITH(NOLOCK)
-		  INNER JOIN @SportBettype sb on  rpt.bettype = sb.Bettype
+		  INNER JOIN #SportBettype sb on  rpt.bettype = sb.Bettype
 		WHERE sb.ProductID IN (23,31,32) 
 		AND rpt.winlostdate =  @winlostdate
 	END
@@ -560,7 +561,7 @@ BEGIN
 				matchid, 
 				b.bettype, liveindicator, Status,
 				case when recommend = 52466 then 1 when recommend = 5707545 then 2 else 0 end ibc,
-				sum(abs(stake)*actualrate) as realturnover,
+				sum((1-tpositiontaking)*abs(stake)*actualrate) as realturnover,
 				sum((winlost-actual_stake)* actualrate)  realWinlost,
 				sum((awinlost+mwinlost+swinlost)* actualrate) realPos,
 				sum((scomm) * actualrate) realComm,
@@ -620,7 +621,7 @@ BEGIN
 				CASE WHEN b.Bettype = 18000 AND ISNULL(b.currency2,0) = 1 THEN 1 ELSE 0 END exrisk
 			 FROM
 				bettrans14 b with (nolock)
-				    INNER JOIN @SportBettype sb on b.bettype = sb.Bettype
+				    INNER JOIN #SportBettype sb on b.bettype = sb.Bettype
 			 WHERE
 				(b.bettype < 19999 and b.bettype not in (29,31,32,33,2799))
 				AND sb.ProductID NOT IN (6, 17, 21, 22, 24, 32)
@@ -672,7 +673,7 @@ BEGIN
 				LEFT JOIN (
 				    SELECT refno,MIN(matchid) matchid
 				    FROM dbo.bettransm14 b (NOLOCK)
-					   inner join @SportBettype sb on b.bettype = sb.Bettype
+					   inner join #SportBettype sb on b.bettype = sb.Bettype
 				    WHERE sb.ProductID IN (27)
 				    GROUP BY refno
 				) sm	ON b.refno = sm.refno
@@ -728,7 +729,7 @@ BEGIN
 				0 SportType, 0 exrisk
 			FROM
 				bettransRnG14 b with (nolock)
-				    INNER JOIN @SportBettype sb on b.gameID = sb.Bettype
+				    INNER JOIN #SportBettype sb on b.gameID = sb.Bettype
 			WHERE
 				sb.ProductID IN (6, 17, 22, 24, 32)
 				AND winlostdate = @winlostdate
@@ -778,7 +779,7 @@ BEGIN
 				0 exrisk
 			FROM
 				dbo.bettransLC14 b WITH (NOLOCK)
-				    INNER JOIN @SportBettype sb on b.gameID = sb.Bettype
+				    INNER JOIN #SportBettype sb on b.gameID = sb.Bettype
 			WHERE
 				sb.ProductID = 21
 				AND winlostdate = @winlostdate
@@ -850,14 +851,15 @@ BEGIN
 		     --NG2 & Exchange, Pragmatic
 		    UPDATE rpt
 		    SET rpt.SportType = sb.SportType
-		    FROM bodb_Report.dbo.rptWinlost rpt WITH(NOLOCK)
-			 INNER JOIN @SportBettype sb on  rpt.bettype = sb.Bettype
+		    FROM bodb_Report.dbo.rptWinlost rpt
+			 INNER JOIN #SportBettype sb on  rpt.bettype = sb.Bettype
 		    WHERE sb.ProductID IN (23, 31, 32) 
 		    AND rpt.winlostdate =  @winlostdate
 		END
 	END
 	
 	DROP TABLE #bettransm
+	DROP TABLE #SportBettype
 END
 GO 
  GRANT VIEW DEFINITION ON [dbo].[Task_rptWinLost_UpdateTable] TO [vnteam]
