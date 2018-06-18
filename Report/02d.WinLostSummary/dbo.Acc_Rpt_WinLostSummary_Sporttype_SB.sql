@@ -23,6 +23,7 @@ AS
 			- 20160504@Robert: Win Loss Summary (2d) - Cannot drilldown to match win loss detail from Number Game product [RedmineID: #56989]
 			- 20160819@Robert: Add Bet Trade Winloss bettype=904 (#62630)
 			- 20170323@Robert: NAP Reports - Integrate Cash out [RedmindID: #73419]
+			- 20180618@Tom: Fix Duplicate data when match have hedge (#97073)
 
 
         Parameter's Explanation:
@@ -627,7 +628,7 @@ AS
       awayid    INT
      );
      INSERT INTO @HedgeMatch
-            SELECT eventdate,
+            SELECT DISTINCT eventdate,
                    matchid,
                    matchcode,
                    leagueid,
