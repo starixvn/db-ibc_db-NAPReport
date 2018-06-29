@@ -17,6 +17,7 @@ AS
 		- 20130402@Dom.Cao: add turnoverp
 		- 20130805@Johnson: filter by site
 		- 20160826@Percy: Enhance System/Mix Parlay [RedmineID: #63022]
+		- 20180629@Franklin: Apply new concept for Virtual & Extra PT [RedmineID: #97163]
 	Parameter's Explanation:
 		- Combinations: Bettrans.betcheck is stored the number of selection by format 'm4', 'm3' ...
 		- LiveType (Livehomescore):
@@ -62,21 +63,20 @@ BEGIN
 				WHEN 29 THEN CASE WHEN RAND() + 1 > 0 AND CONVERT(INT, hdp2) < 6 THEN 'm' + CONVERT(VARCHAR(10), CONVERT(INT, hdp2)) ELSE 'm6' END END AS Combinations, 
 			livehomescore as LiveType,
 			[status], 
-			sum((winlost-actual_stake)*actualrate) WinLost, -- Member WinLoss
-			SUM(stake*actualrate) turnoverp, -- Member Turnover
-			count(1) BetCount,
-			sum((awinlost+mwinlost+swinlost)*actualrate) Position, -- SMA WinLoss
-			sum(scomm*actualrate) Commission,	
-			SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - ( CASE
-                                                                                             WHEN tpositiontaking = 1
-                                                                                             THEN 0
-                                                                                             ELSE( winlost - actual_stake ) * ISNULL(e.ExtraPT, 0)
-                                                                                         END ) - ( CASE
-                                                                                                       WHEN tpositiontaking = 1
-                                                                                                       THEN 0
-                                                                                                       ELSE scomm * ISNULL(e.ExtraPT, 0) / 1 - tpositiontaking
-                                                                                                   END )) * actualrate) LineTotal, -- Real House Income
-			sum(CASE
+			SUM((winlost-actual_stake)*actualrate) MemberWinLoss, -- Member WinLoss
+			SUM(stake*actualrate) MemberTurnOver, -- Member Turnover
+			COUNT(1) BetCount,
+			SUM((awinlost+mwinlost+swinlost)*actualrate) SMAWinloss, -- SMA WinLoss
+			-SUM(( CASE
+                         WHEN tpositiontaking = 1
+                         THEN 0
+                         ELSE( winlost - actual_stake ) + scomm / ( 1 - tpositiontaking )
+                     END ) * ISNULL(e.ExtraPT, 0) * actualrate) AS ExtraPT,
+			SUM(scomm*actualrate) Commission,	
+			SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - ( CASE WHEN tpositiontaking = 1 THEN 0
+                                                                                           ELSE winlost - actual_stake + scomm / ( 1 - tpositiontaking )
+                                                                                      END ) * ISNULL(e.ExtraPT, 0)) * actualrate) RealIncome, -- Real House Income
+			SUM(CASE
                        WHEN tpositiontaking = 1
                        THEN 0
                        ELSE( 1 - tpositiontaking - ISNULL(e.ExtraPT, 0)) * ABS(stake) * CASE
@@ -84,12 +84,7 @@ BEGIN
                                                                                             THEN virtualrate
                                                                                             ELSE actualrate
                                                                                         END
-                    END) Turnover, -- Real House Turnover
-               SUM(( CASE
-                         WHEN tpositiontaking = 1
-                         THEN 0
-                         ELSE( winlost - actual_stake ) + scomm / ( 1 - tpositiontaking )
-                     END ) * ISNULL(e.ExtraPT, 0) * actualrate) AS ExtraPT
+                    END) RealTurnover -- Real House Turnover
 	FROM	bettrans WITH (NOLOCK)
 	LEFT JOIN #ExtraPT_Sel e ON e.SuperID = srecommend AND e.OnDate = winlostdate
 	WHERE
@@ -131,20 +126,19 @@ BEGIN
 				END AS Combinations, 
 			livehomescore as LiveType,
 			[status], 
-			sum((winlost-actual_stake)*actualrate) WinLost, -- Member WinLoss
-			SUM(stake*actualrate) turnoverp, -- Member Turnover
-			count(1) BetCount,
-			sum((awinlost+mwinlost+swinlost)*actualrate) Position, -- SMA WinLoss
-			sum(scomm*actualrate) Commission,	
-			SUM(( CASE
+			SUM((winlost-actual_stake)*actualrate) MemberWinLoss, -- Member WinLoss
+			SUM(stake*actualrate) MemberTurnOver, -- Member Turnover
+			COUNT(1) BetCount,
+			SUM((awinlost+mwinlost+swinlost)*actualrate) SMAWinloss, -- SMA WinLoss
+			-SUM(( CASE
                          WHEN tpositiontaking = 1
                          THEN 0
-                         ELSE( 1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * ABS(b.stake) * CASE
-                                                                                                  WHEN virtualrate > actualrate
-                                                                                                  THEN virtualrate
-                                                                                                  ELSE actualrate
-                                                                                              END
-                    END ) * actualrate) LineTotal, -- Real House Income
+                         ELSE( winlost - actual_stake ) + scomm / ( 1 - tpositiontaking )
+                     END ) * ISNULL(e.ExtraPT, 0) * actualrate) AS ExtraPT,
+			SUM(scomm*actualrate) Commission,	
+			SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - ( CASE WHEN tpositiontaking = 1 THEN 0
+                                                                                           ELSE winlost - actual_stake + scomm / ( 1 - tpositiontaking )
+                                                                                      END ) * ISNULL(e.ExtraPT, 0)) * actualrate) RealIncome, -- Real House Income
 			SUM(CASE
                        WHEN tpositiontaking = 1
                        THEN 0
@@ -153,12 +147,7 @@ BEGIN
                                                                                             THEN virtualrate
                                                                                             ELSE actualrate
                                                                                         END
-                    END) Turnover, -- Real House Turnover
-               SUM(( CASE
-                         WHEN tpositiontaking = 1
-                         THEN 0
-                         ELSE( winlost - actual_stake ) + scomm / ( 1 - tpositiontaking )
-                     END ) * ISNULL(e.ExtraPT, 0) * actualrate) AS ExtraPT
+                    END) RealTurnover -- Real House Turnover
 	FROM	bettrans b WITH (NOLOCK)
 		LEFT JOIN #ExtraPT_Sel e ON e.SuperID = srecommend AND e.OnDate = winlostdate
 		INNER JOIN #DepAgent ag ON b.recommend = ag.custid

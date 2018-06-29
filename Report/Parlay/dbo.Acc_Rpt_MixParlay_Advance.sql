@@ -28,6 +28,7 @@ AS
 		- 20121217@Lukas: exclude UUS currency
 		- 20130805@Johnson: filter by sites
 		- 20160826@Percy: Enhance System/Mix Parlay [RedmineID: #63022]
+		- 20180629@Franklin: Apply new concept for Virtual & Extra PT [RedmineID: #97163]
 	Parameter's Explanation:
 		-@site:
 			0: all sites
@@ -36,7 +37,19 @@ AS
 */
 SET NOCOUNT ON
 
-CREATE TABLE #MixParlay (Refno BIGINT, LiveType SMALLINT, SportType SMALLINT, [status] NVARCHAR(20), WinLost FLOAT, turnoverp FLOAT, Position FLOAT, Commission FLOAT, LineTotal FLOAT, Turnover FLOAT, ExtraPT FLOAT)
+CREATE TABLE #MixParlay (
+			Refno BIGINT,
+			LiveType SMALLINT,
+			SportType SMALLINT,
+			[status] NVARCHAR(20),
+			MemberWinLoss FLOAT,
+			MemberTurnOver FLOAT,
+			SMAWinloss FLOAT,
+			ExtraPT FLOAT,
+			Commission FLOAT,
+			RealIncome FLOAT,
+			RealTurnover FLOAT
+			)
 BEGIN ---- Extra PT 
     DECLARE @datestart DATE = @FromDate
     DECLARE @dateend DATE = @ToDate
@@ -63,36 +76,39 @@ BEGIN ---- Extra PT
 END;
 IF @site = 0
 BEGIN
-	INSERT INTO #MixParlay
+	INSERT INTO #MixParlay (
+						Refno,
+						LiveType,
+						SportType,
+						[status],
+						MemberWinLoss,
+						MemberTurnOver,
+						SMAWinloss,
+						ExtraPT,
+						Commission,
+						RealIncome,
+						RealTurnover)
 	SELECT 
 			Refno, livehomescore as LiveType, liveawayscore AS SportType, [status], 
-			(winlost-actual_stake)*actualrate WinLost, -- Member WinLoss
-			stake*actualrate turnoverp, -- Member Turnover
-			(awinlost+mwinlost+swinlost)*actualrate Position, -- SMA WinLoss
-			scomm*actualrate Commission,	
-			( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - ( CASE
-                                                                                         WHEN tpositiontaking = 1
-                                                                                         THEN 0
-                                                                                         ELSE( winlost - actual_stake ) * ISNULL(e.ExtraPT, 0)
-																	   END ) - ( CASE
-																			    WHEN tpositiontaking = 1
-																			    THEN 0
-																			    ELSE scomm * ISNULL(e.ExtraPT, 0) / 1 - bettrans.tpositiontaking
-																			 END )) * actualrate LineTotal, -- Real House Income
-			CASE
-                   WHEN tpositiontaking = 1
-                   THEN 0
-                   ELSE( 1 - tpositiontaking - ISNULL(e.ExtraPT, 0)) * ABS(stake) * CASE
-                                                                                        WHEN virtualrate > actualrate
-                                                                                        THEN virtualrate
-                                                                                        ELSE actualrate
-                                                                                    END
-                END Turnover, -- Real House Turnover	
-                CASE
-                     WHEN tpositiontaking = 1
-                     THEN 0
+			(winlost - actual_stake) * actualrate MemberWinLoss, -- Member WinLoss
+			stake * actualrate MemberTurnOver, -- Member Turnover
+			(awinlost + mwinlost + swinlost) * actualrate SMAWinloss, -- SMA WinLoss
+			-(CASE WHEN tpositiontaking = 1 THEN 0
                      ELSE( winlost - actual_stake ) + scomm / ( 1 - tpositiontaking )
-                END * ISNULL(e.ExtraPT, 0) * actualrate AS ExtraPT
+                END * ISNULL(e.ExtraPT, 0) * actualrate) AS ExtraPT,
+			scomm * actualrate Commission,	
+			(winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - ( CASE WHEN tpositiontaking = 1 THEN 0
+                                                                                           ELSE winlost - actual_stake + scomm / ( 1 - tpositiontaking )
+                                                                                      END ) * ISNULL(e.ExtraPT, 0)) * actualrate AS RealIncome, -- Real House Income
+			(CASE
+                       WHEN tpositiontaking = 1
+                       THEN 0
+                       ELSE( 1 - tpositiontaking - ISNULL(e.ExtraPT, 0)) * ABS(stake) * CASE
+                                                                                            WHEN virtualrate > actualrate
+                                                                                            THEN virtualrate
+                                                                                            ELSE actualrate
+                                                                                        END
+                    END) AS RealTurnover -- Real House Turnover
 	FROM	bettrans WITH (NOLOCK)
 	LEFT JOIN #ExtraPT_Sel e ON e.SuperID = srecommend AND e.OnDate = winlostdate
 	WHERE
@@ -120,36 +136,39 @@ ELSE BEGIN
 	UNION
 	SELECT 5707545 WHERE @site =2 --BARM
 		
-	INSERT INTO #MixParlay
+	INSERT INTO #MixParlay (
+						Refno,
+						LiveType,
+						SportType,
+						[status],
+						MemberWinLoss,
+						MemberTurnOver,
+						SMAWinloss,
+						ExtraPT,
+						Commission,
+						RealIncome,
+						RealTurnover)
 	SELECT 
-			Refno, livehomescore as LiveType, liveawayscore AS SportType, [status], 
-			(winlost-actual_stake)*actualrate WinLost, -- Member WinLoss
-			stake*actualrate turnoverp, -- Member Turnover
-			(awinlost+mwinlost+swinlost)*actualrate Position, -- SMA WinLoss
-			scomm*actualrate Commission,	
-			( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - ( CASE
-                                                                                         WHEN tpositiontaking = 1
-                                                                                         THEN 0
-                                                                                         ELSE( winlost - actual_stake ) * ISNULL(e.ExtraPT, 0)
-																	   END ) - ( CASE
-																			    WHEN tpositiontaking = 1
-																			    THEN 0
-																			    ELSE scomm * ISNULL(e.ExtraPT, 0) / 1 - bettrans.tpositiontaking
-																			 END )) * actualrate LineTotal, -- Real  House Income
-			CASE
-                   WHEN tpositiontaking = 1
-                   THEN 0
-                   ELSE( 1 - tpositiontaking - ISNULL(e.ExtraPT, 0)) * ABS(stake) * CASE
-                                                                                        WHEN virtualrate > actualrate
-                                                                                        THEN virtualrate
-                                                                                        ELSE actualrate
-                                                                                    END
-                END Turnover, -- Real House Turnover
-                CASE
-				 WHEN tpositiontaking = 1
-				 THEN 0
-				 ELSE( winlost - actual_stake ) + scomm / ( 1 - tpositiontaking )
-                END  * ISNULL(e.ExtraPT, 0) * actualrate AS ExtraPT
+			Refno, livehomescore AS LiveType, liveawayscore AS SportType, [status], 
+			(winlost - actual_stake) * actualrate AS MemberWinLoss, -- Member WinLoss
+			stake * actualrate AS MemberTurnOver, -- Member Turnover
+			(awinlost + mwinlost + swinlost) * actualrate AS SMAWinloss, -- SMA WinLoss
+			-(CASE WHEN tpositiontaking = 1 THEN 0
+				   ELSE( winlost - actual_stake ) + scomm / ( 1 - tpositiontaking )
+                END  * ISNULL(e.ExtraPT, 0) * actualrate) AS ExtraPT,
+			scomm * actualrate AS Commission,	
+			( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - ( CASE WHEN tpositiontaking = 1 THEN 0
+                                                                                           ELSE winlost - actual_stake + scomm / ( 1 - tpositiontaking )
+                                                                                      END ) * ISNULL(e.ExtraPT, 0)) * actualrate AS RealIncome, -- Real House Income
+			(CASE
+                       WHEN tpositiontaking = 1
+                       THEN 0
+                       ELSE( 1 - tpositiontaking - ISNULL(e.ExtraPT, 0)) * ABS(stake) * CASE
+                                                                                            WHEN virtualrate > actualrate
+                                                                                            THEN virtualrate
+                                                                                            ELSE actualrate
+                                                                                        END
+                    END) AS RealTurnover -- Real House Turnover
 	FROM	bettrans WITH (NOLOCK)
 		LEFT JOIN #ExtraPT_Sel e ON e.SuperID = srecommend AND e.OnDate = winlostdate
 		INNER JOIN #DepAgent ag ON bettrans.recommend = ag.custid
@@ -186,7 +205,13 @@ SELECT  @max_sporttype = MAX(Sporttype) FROM dbo.Sports WITH(NOLOCK)
 ; WITH Result AS (
 	SELECT
 		9 AS bettype, LiveType, ISNULL(os.SportType, mp.SportType) SportType, [status],
-		SUM(WinLost) WinLost, SUM(turnoverp) turnoverp, SUM(Position) Position, SUM(Commission) Commission, SUM(LineTotal) LineTotal, SUM(Turnover) Turnover, SUM(ExtraPT) ExtraPT
+		SUM(mp.MemberWinLoss) MemberWinLoss, 
+		SUM(mp.MemberTurnOver) MemberTurnOver,
+		SUM(mp.SMAWinloss) SMAWinloss,
+		SUM(mp.ExtraPT) ExtraPT,
+		SUM(mp.Commission) Commission,
+		SUM(mp.RealIncome) RealIncome,
+		SUM(mp.RealTurnover) RealTurnover
 	FROM #MixParlay mp
 		LEFT JOIN #OtherSport os ON mp.Refno = os.Refno
 	GROUP BY LiveType, ISNULL(os.SportType, mp.SportType), [status]
