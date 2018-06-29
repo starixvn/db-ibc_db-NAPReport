@@ -36,20 +36,65 @@ AS
 */
 SET NOCOUNT ON
 
-CREATE TABLE #MixParlay (Refno BIGINT, LiveType SMALLINT, SportType SMALLINT, [status] NVARCHAR(20), WinLost FLOAT, turnoverp FLOAT, Position FLOAT, Commission FLOAT, LineTotal FLOAT, Turnover FLOAT)
+CREATE TABLE #MixParlay (Refno BIGINT, LiveType SMALLINT, SportType SMALLINT, [status] NVARCHAR(20), WinLost FLOAT, turnoverp FLOAT, Position FLOAT, Commission FLOAT, LineTotal FLOAT, Turnover FLOAT, ExtraPT FLOAT)
+BEGIN ---- Extra PT 
+    DECLARE @datestart DATE = @FromDate
+    DECLARE @dateend DATE = @ToDate
+    DECLARE @onDate DATE = @datestart
+     
+    CREATE TABLE #ExtraPT_Sel( OnDate DATETIME, SuperID INT,
+							    ExtraPT DECIMAL(9, 8));
+       
+    WHILE (@onDate <= @dateend)
+    BEGIN
+	INSERT INTO #ExtraPT_Sel (OnDate, SuperID, ExtraPT)
+			 SELECT @onDate, SuperId,
+				    SUM(ExtraPT) AS ExtraPT
+			 FROM bodb02.dbo.Acc_GroupExtraPTSetting a WITH ( NOLOCK )
+			 WHERE @onDate BETWEEN FromDate AND Todate
+				AND a.ProductId = 1
+				AND a.Sporttype = 0
+				AND a.SubProduct = ''
+			 GROUP BY SuperId,Sporttype;
 
+	SELECT @onDate = DATEADD(DD, 1, @onDate)
+    END
+    CREATE UNIQUE CLUSTERED INDEX PK_tblExtraPT ON #ExtraPT_Sel(OnDate,SuperID)
+END;
 IF @site = 0
 BEGIN
 	INSERT INTO #MixParlay
 	SELECT 
 			Refno, livehomescore as LiveType, liveawayscore AS SportType, [status], 
-			(winlost-actual_stake)*actualrate WinLost,
-			stake*actualrate turnoverp,
-			(awinlost+mwinlost+swinlost)*actualrate Position,
+			(winlost-actual_stake)*actualrate WinLost, -- Member WinLoss
+			stake*actualrate turnoverp, -- Member Turnover
+			(awinlost+mwinlost+swinlost)*actualrate Position, -- SMA WinLoss
 			scomm*actualrate Commission,	
-			(winlost-actual_stake+awinlost+mwinlost+swinlost+scomm)*actualrate LineTotal,
-			(1-tpositiontaking)*(ABS(stake)*actualrate) Turnover	
+			( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - ( CASE
+                                                                                         WHEN tpositiontaking = 1
+                                                                                         THEN 0
+                                                                                         ELSE( winlost - actual_stake ) * ISNULL(e.ExtraPT, 0)
+																	   END ) - ( CASE
+																			    WHEN tpositiontaking = 1
+																			    THEN 0
+																			    ELSE scomm * ISNULL(e.ExtraPT, 0) / 1 - bettrans.tpositiontaking
+																			 END )) * actualrate LineTotal, -- Real House Income
+			CASE
+                   WHEN tpositiontaking = 1
+                   THEN 0
+                   ELSE( 1 - tpositiontaking - ISNULL(e.ExtraPT, 0)) * ABS(stake) * CASE
+                                                                                        WHEN virtualrate > actualrate
+                                                                                        THEN virtualrate
+                                                                                        ELSE actualrate
+                                                                                    END
+                END Turnover, -- Real House Turnover	
+                CASE
+                     WHEN tpositiontaking = 1
+                     THEN 0
+                     ELSE( winlost - actual_stake ) + scomm / ( 1 - tpositiontaking )
+                END * ISNULL(e.ExtraPT, 0) * actualrate AS ExtraPT
 	FROM	bettrans WITH (NOLOCK)
+	LEFT JOIN #ExtraPT_Sel e ON e.SuperID = srecommend AND e.OnDate = winlostdate
 	WHERE
 			ruben=1 AND
 			bettype IN (9, 29) AND matchid IN (9, 29) AND -- prevent page split
@@ -78,13 +123,35 @@ ELSE BEGIN
 	INSERT INTO #MixParlay
 	SELECT 
 			Refno, livehomescore as LiveType, liveawayscore AS SportType, [status], 
-			(winlost-actual_stake)*actualrate WinLost,
-			stake*actualrate turnoverp,
-			(awinlost+mwinlost+swinlost)*actualrate Position,
+			(winlost-actual_stake)*actualrate WinLost, -- Member WinLoss
+			stake*actualrate turnoverp, -- Member Turnover
+			(awinlost+mwinlost+swinlost)*actualrate Position, -- SMA WinLoss
 			scomm*actualrate Commission,	
-			(winlost-actual_stake+awinlost+mwinlost+swinlost+scomm)*actualrate LineTotal,
-			(1-tpositiontaking)*(ABS(stake)*actualrate) Turnover	
+			( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - ( CASE
+                                                                                         WHEN tpositiontaking = 1
+                                                                                         THEN 0
+                                                                                         ELSE( winlost - actual_stake ) * ISNULL(e.ExtraPT, 0)
+																	   END ) - ( CASE
+																			    WHEN tpositiontaking = 1
+																			    THEN 0
+																			    ELSE scomm * ISNULL(e.ExtraPT, 0) / 1 - bettrans.tpositiontaking
+																			 END )) * actualrate LineTotal, -- Real  House Income
+			CASE
+                   WHEN tpositiontaking = 1
+                   THEN 0
+                   ELSE( 1 - tpositiontaking - ISNULL(e.ExtraPT, 0)) * ABS(stake) * CASE
+                                                                                        WHEN virtualrate > actualrate
+                                                                                        THEN virtualrate
+                                                                                        ELSE actualrate
+                                                                                    END
+                END Turnover, -- Real House Turnover
+                CASE
+				 WHEN tpositiontaking = 1
+				 THEN 0
+				 ELSE( winlost - actual_stake ) + scomm / ( 1 - tpositiontaking )
+                END  * ISNULL(e.ExtraPT, 0) * actualrate AS ExtraPT
 	FROM	bettrans WITH (NOLOCK)
+		LEFT JOIN #ExtraPT_Sel e ON e.SuperID = srecommend AND e.OnDate = winlostdate
 		INNER JOIN #DepAgent ag ON bettrans.recommend = ag.custid
 	WHERE
 			ruben=1 AND
@@ -119,7 +186,7 @@ SELECT  @max_sporttype = MAX(Sporttype) FROM dbo.Sports WITH(NOLOCK)
 ; WITH Result AS (
 	SELECT
 		9 AS bettype, LiveType, ISNULL(os.SportType, mp.SportType) SportType, [status],
-		SUM(WinLost) WinLost, SUM(turnoverp) turnoverp, SUM(Position) Position, SUM(Commission) Commission, SUM(LineTotal) LineTotal, SUM(Turnover) Turnover
+		SUM(WinLost) WinLost, SUM(turnoverp) turnoverp, SUM(Position) Position, SUM(Commission) Commission, SUM(LineTotal) LineTotal, SUM(Turnover) Turnover, SUM(ExtraPT) ExtraPT
 	FROM #MixParlay mp
 		LEFT JOIN #OtherSport os ON mp.Refno = os.Refno
 	GROUP BY LiveType, ISNULL(os.SportType, mp.SportType), [status]
@@ -138,6 +205,7 @@ ORDER BY s.RN, r.LiveType, r.[status]
 
 DROP TABLE #MixParlay
 DROP TABLE #OtherSport
+DROP TABLE #ExtraPT_Sel
 
 GO
 GRANT EXECUTE ON [dbo].[Acc_Rpt_MixParlay_Advance] TO [bodbAdminNet]
