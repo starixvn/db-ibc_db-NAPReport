@@ -37,7 +37,7 @@ Revision:
 	- 20180507@Tom: Include Exchange Bettype into group bettypes no need ABS() Turnover data (#94736)
 	- 20180411@Cherry: Integrate Pragmatic (#92642)
 	- 201806185@Tom: Update Logic Bettrans14 (bettype 29) (#97061)
-	- 201806185@Tom: remove ASB on Turnover IBC with Non SB Products(#97696)
+	- 20180702@Tom: remove ASB on Turnover IBC with Non SB Products(#97696)
 */
 
 BEGIN	
