@@ -37,6 +37,7 @@ Revision:
 	- 20180507@Tom: Include Exchange Bettype into group bettypes no need ABS() Turnover data (#94736)
 	- 20180411@Cherry: Integrate Pragmatic (#92642)
 	- 201806185@Tom: Update Logic Bettrans14 (bettype 29) (#97061)
+	- 201806185@Tom: remove ASB on Turnover IBC with Non SB Products(#97696)
 */
 
 BEGIN	
@@ -193,6 +194,11 @@ BEGIN
 			CASE WHEN betteam = N'1' THEN 1 ELSE 0 END
 
 		-- calculate Sportbooks + other products in bettrans (exclude products of bettransRng + bettransLC) 
+		;WITH CTE_bettype_eventtype(BetTypeID,EventType,ProductID) AS (
+			SELECT DISTINCT BetType BetTypeID,EventType,ProductID
+			FROM bodb02.dbo.SportBettypeMatrix (NOLOCK)
+			WHERE ProductID = 1
+			)
 		INSERT INTO bodb_Report.dbo.rptWinlost
 			(
 				[winlostdate]
@@ -215,18 +221,19 @@ BEGIN
 			winlostdate,
 			matchid, b.bettype, liveindicator, Status,
 			case when recommend = 52466 then 1 when recommend = 5707545 then 2 else 0 end as ibc,
-			sum(case when b.bettype IN (71,73,1000) then 0 else (1-tpositiontaking)*CASE WHEN b.bettype IN (1700,1800,1900,8000) THEN stake ELSE abs(stake) END*actualrate end) as realturnover,
+			sum(case when b.bettype IN (71,73,1000) then 0 else (1-tpositiontaking)*CASE WHEN CTE_bettype_eventtype.ProductID = 1 THEN abs(stake) ELSE stake END*actualrate end) as realturnover,
 			sum((winlost-actual_stake)* actualrate)  realWinlost,
 			sum((awinlost+mwinlost+swinlost)* actualrate) realPos,
 			sum((scomm) * actualrate) realComm,
 			sum((case when b.bettype = 1000 then -1*(odds-scomm) else winlost-actual_stake+awinlost+mwinlost+swinlost+scomm end)*actualrate) realLineTotal,
-			sum((1-tpositiontaking)*CASE WHEN b.bettype IN (71,73,1000) THEN 0 WHEN b.bettype IN (1700,1800,1900,8000) THEN stake ELSE abs(stake) END*virtualrate) as virtualTurnover,
+			sum((1-tpositiontaking)*CASE WHEN b.bettype IN (71,73,1000) THEN 0 WHEN CTE_bettype_eventtype.ProductID = 1 THEN abs(stake) ELSE stake END*virtualrate) as virtualTurnover,
 			sum((winlost-actual_stake+awinlost+mwinlost+swinlost+scomm)*virtualrate) as virtualLineTotal,
 			0 SportType,			
 			CASE WHEN b.Bettype = 18000 AND ISNULL(b.currency2,0) = 1 THEN 1 ELSE 0 END exrisk
 		FROM
 			bettrans b with (nolock)
 			inner join #SportBettype sb on b.bettype = sb.Bettype
+			LEFT JOIN CTE_bettype_eventtype ON CTE_bettype_eventtype.BetTypeID=b.bettype
 		WHERE
 			(b.bettype < 19999 and b.bettype not in (29,31,32,33,1003,2799))
 			AND sb.ProductID NOT IN (6, 17, 21, 22, 24, 32)
@@ -262,12 +269,12 @@ BEGIN
 			winlostdate,
 			sm.matchid, b.bettype, liveindicator, Status,
 			case when recommend = 52466 then 1 when recommend = 5707545 then 2 else 0 end as ibc,
-			sum((1-tpositiontaking)*abs(stake)*actualrate) as realturnover,
+			sum((1-tpositiontaking)*stake*actualrate) as realturnover,
 			sum((winlost-actual_stake)* actualrate)  realWinlost,
 			sum((awinlost+mwinlost+swinlost)* actualrate) realPos,
 			sum((scomm) * actualrate) realComm,
 			sum((case when b.bettype = 1000 then -1*(odds-scomm) else winlost-actual_stake+awinlost+mwinlost+swinlost+scomm end)*actualrate) realLineTotal,
-			sum((1-tpositiontaking)*abs(stake)*virtualrate) as virtualTurnover,
+			sum((1-tpositiontaking)*stake*virtualrate) as virtualTurnover,
 			sum((winlost-actual_stake+awinlost+mwinlost+swinlost+scomm)*virtualrate) as virtualLineTotal,
 			0 SportType, 0 exrisk
 		FROM
@@ -315,7 +322,7 @@ BEGIN
 			winlostdate,
 			0 matchid, b.gameID, 0 liveindicator, Status,
 			case when recommend = 52466 then 1 when recommend = 5707545 then 2 else 0 end as ibc,
-			sum((1-tpositiontaking)*abs(stake)*actualrate) as realturnover,
+			sum((1-tpositiontaking)*stake*actualrate) as realturnover,
 			sum((winlost-actual_stake)* actualrate)  realWinlost,
 			sum((awinlost+mwinlost+swinlost)* actualrate) realPos,
 			sum((scomm) * actualrate) realComm,
@@ -323,7 +330,7 @@ BEGIN
 					  WHEN sb.Bettype IN(2198, 2398, 2998) THEN (b.ContributionRate * b.BetStake) + awinlost + mwinlost + swinlost + scomm
 				      ELSE winlost - actual_stake + awinlost + mwinlost + swinlost + scomm 
 				 END) * actualrate) realLineTotal,
-			sum((1-tpositiontaking)*abs(stake)*virtualrate) as virtualTurnover,
+			sum((1-tpositiontaking)*stake*virtualrate) as virtualTurnover,
 			sum((CASE WHEN sb.Bettype IN(2199, 2399, 2999) THEN 0
 					  WHEN sb.Bettype IN(2198, 2398, 2998) THEN (b.ContributionRate * b.BetStake) + awinlost + mwinlost + swinlost + scomm
 				      ELSE winlost - actual_stake + awinlost + mwinlost + swinlost + scomm 
@@ -371,12 +378,12 @@ BEGIN
 			CASE WHEN recommend = 52466   THEN 1 
 				 WHEN recommend = 5707545 THEN 2 ELSE 0
 				 END AS ibc,
-			SUM((1-tpositiontaking)*ABS(stake)*actualrate) as realturnover,
+			SUM((1-tpositiontaking)*stake*actualrate) as realturnover,
 			SUM((winlost-actual_stake)* actualrate)  realWinlost,
 			SUM((awinlost+mwinlost+swinlost)* actualrate) realPos,
 			SUM((scomm) * actualrate) realComm,
 			SUM((winlost-actual_stake+awinlost+mwinlost+swinlost+scomm)*actualrate) realLineTotal,
-			SUM((1-tpositiontaking)*ABS(stake)*virtualrate) as virtualTurnover,
+			SUM((1-tpositiontaking)*stake*virtualrate) as virtualTurnover,
 			SUM((winlost-actual_stake+awinlost+mwinlost+swinlost+scomm)*virtualrate) as virtualLineTotal,
 			211 SportType,
 			0 exrisk
@@ -587,6 +594,11 @@ BEGIN
 			
 
 			-- calculate Sportbooks + other products in bettrans (exclude products of bettransRng + bettransLC) 
+			;WITH CTE_bettype_eventtype(BetTypeID,EventType,ProductID) AS (
+				SELECT DISTINCT BetType BetTypeID,EventType,ProductID
+				FROM bodb02.dbo.SportBettypeMatrix (NOLOCK)
+				WHERE ProductID = 1
+				)
 			INSERT INTO bodb_Report.dbo.rptWinlost
 				(
 					[winlostdate]
@@ -610,18 +622,19 @@ BEGIN
 				CASE WHEN b.bettype = 1003 THEN b.betdaqid ELSE matchid END matchid, 
 				b.bettype, liveindicator, Status,
 				case when recommend = 52466 then 1 when recommend = 5707545 then 2 else 0 end ibc,
-				sum(case when b.bettype IN (71,73,1000) then 0 else (1-tpositiontaking)*CASE WHEN b.bettype IN (1700,1800,1900,8000) THEN stake ELSE abs(stake) END*actualrate end) as realturnover,
+				sum(case when b.bettype IN (71,73,1000) then 0 else (1-tpositiontaking)*CASE WHEN CTE_bettype_eventtype.ProductID = 1 THEN abs(stake) ELSE stake END*actualrate end) as realturnover,
 				sum((winlost-actual_stake)* actualrate)  realWinlost,
 				sum((awinlost+mwinlost+swinlost)* actualrate) realPos,
 				sum((scomm) * actualrate) realComm,
 				sum((case when b.bettype = 1000 then -1*(odds-scomm) else winlost-actual_stake+awinlost+mwinlost+swinlost+scomm end)*actualrate) realLineTotal,
-				sum((1-tpositiontaking)*CASE WHEN b.bettype IN (71,73,1000) THEN 0 WHEN b.bettype IN (1700,1800,1900,8000) THEN stake ELSE abs(stake) END*virtualrate) as virtualTurnover,
+				sum((1-tpositiontaking)*CASE WHEN b.bettype IN (71,73,1000) THEN 0 WHEN CTE_bettype_eventtype.ProductID = 1 THEN abs(stake) ELSE stake END*virtualrate) as virtualTurnover,
 				sum((winlost-actual_stake+awinlost+mwinlost+swinlost+scomm)*virtualrate) as virtualLineTotal,
 				0 SportType,
 				CASE WHEN b.Bettype = 18000 AND ISNULL(b.currency2,0) = 1 THEN 1 ELSE 0 END exrisk
 			 FROM
 				bettrans14 b with (nolock)
 				    INNER JOIN #SportBettype sb on b.bettype = sb.Bettype
+					LEFT JOIN CTE_bettype_eventtype ON CTE_bettype_eventtype.BetTypeID=b.bettype
 			 WHERE
 				(b.bettype < 19999 and b.bettype not in (29,31,32,33,2799))
 				AND sb.ProductID NOT IN (6, 17, 21, 22, 24, 32)
@@ -660,12 +673,12 @@ BEGIN
 				winlostdate,
 				sm.matchid, b.bettype, liveindicator, Status,
 				case when recommend = 52466 then 1 when recommend = 5707545 then 2 else 0 end as ibc,
-				sum((1-tpositiontaking)*abs(stake)*actualrate) as realturnover,
+				sum((1-tpositiontaking)*stake*actualrate) as realturnover,
 				sum((winlost-actual_stake)* actualrate)  realWinlost,
 				sum((awinlost+mwinlost+swinlost)* actualrate) realPos,
 				sum((scomm) * actualrate) realComm,
 				sum((case when b.bettype = 1000 then -1*(odds-scomm) else winlost-actual_stake+awinlost+mwinlost+swinlost+scomm end)*actualrate) realLineTotal,
-				sum((1-tpositiontaking)*abs(stake)*virtualrate) as virtualTurnover,
+				sum((1-tpositiontaking)*stake*virtualrate) as virtualTurnover,
 				sum((winlost-actual_stake+awinlost+mwinlost+swinlost+scomm)*virtualrate) as virtualLineTotal,
 				0 SportType, 0 exrisk
 			 FROM
@@ -713,7 +726,7 @@ BEGIN
 				winlostdate,
 				0 matchid, b.gameID, 0 liveindicator, Status,
 				case when recommend = 52466 then 1 when recommend = 5707545 then 2 else 0 end ibc,
-				sum((1-tpositiontaking)*abs(stake)*actualrate) as realturnover,
+				sum((1-tpositiontaking)*stake*actualrate) as realturnover,
 				sum((winlost-actual_stake)* actualrate)  realWinlost,
 				sum((awinlost+mwinlost+swinlost)* actualrate) realPos,
 				sum((scomm) * actualrate) realComm,
@@ -721,7 +734,7 @@ BEGIN
 					      WHEN sb.Bettype IN(2198, 2398, 2998) THEN b.ContributionRate * b.BetStake	+ awinlost + mwinlost + swinlost + scomm				    
 					      ELSE winlost - actual_stake + awinlost + mwinlost + swinlost + scomm 
 					 END)* actualrate) realLineTotal,
-				sum((1-tpositiontaking)*abs(stake)*virtualrate) as virtualTurnover,
+				sum((1-tpositiontaking)*stake*virtualrate) as virtualTurnover,
 				sum((CASE WHEN sb.Bettype IN(2199, 2399, 2999) THEN 0
 					      WHEN sb.Bettype IN(2198, 2398, 2998) THEN b.ContributionRate * b.BetStake	+ awinlost + mwinlost + swinlost + scomm				    
 					      ELSE winlost - actual_stake + awinlost + mwinlost + swinlost + scomm 
@@ -768,12 +781,12 @@ BEGIN
 				CASE WHEN recommend = 52466   THEN 1 
 					 WHEN recommend = 5707545 THEN 2 ELSE 0
 					 END AS ibc,
-				SUM((1-tpositiontaking)*ABS(stake)*actualrate) as realturnover,
+				SUM((1-tpositiontaking)*stake*actualrate) as realturnover,
 				SUM((winlost-actual_stake)* actualrate)  realWinlost,
 				SUM((awinlost+mwinlost+swinlost)* actualrate) realPos,
 				SUM((scomm) * actualrate) realComm,
 				SUM((winlost-actual_stake+awinlost+mwinlost+swinlost+scomm)*actualrate) realLineTotal,
-				SUM((1-tpositiontaking)*ABS(stake)*virtualrate) as virtualTurnover,
+				SUM((1-tpositiontaking)*stake*virtualrate) as virtualTurnover,
 				SUM((winlost-actual_stake+awinlost+mwinlost+swinlost+scomm)*virtualrate) as virtualLineTotal,
 				211 SportType,
 				0 exrisk
