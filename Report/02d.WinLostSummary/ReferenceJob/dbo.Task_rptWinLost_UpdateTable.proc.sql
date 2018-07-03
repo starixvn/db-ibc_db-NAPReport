@@ -194,11 +194,6 @@ BEGIN
 			CASE WHEN betteam = N'1' THEN 1 ELSE 0 END
 
 		-- calculate Sportbooks + other products in bettrans (exclude products of bettransRng + bettransLC) 
-		;WITH CTE_bettype_eventtype(BetTypeID,EventType,ProductID) AS (
-			SELECT DISTINCT BetType BetTypeID,EventType,ProductID
-			FROM bodb02.dbo.SportBettypeMatrix (NOLOCK)
-			WHERE ProductID = 1
-			)
 		INSERT INTO bodb_Report.dbo.rptWinlost
 			(
 				[winlostdate]
@@ -221,19 +216,18 @@ BEGIN
 			winlostdate,
 			matchid, b.bettype, liveindicator, Status,
 			case when recommend = 52466 then 1 when recommend = 5707545 then 2 else 0 end as ibc,
-			sum(case when b.bettype IN (71,73,1000) then 0 else (1-tpositiontaking)*CASE WHEN CTE_bettype_eventtype.ProductID = 1 THEN abs(stake) ELSE stake END*actualrate end) as realturnover,
+			sum(case when b.bettype IN (71,73,1000) then 0 else (1-tpositiontaking)*CASE WHEN sb.ProductID = 1 THEN abs(stake) ELSE stake END*actualrate end) as realturnover,
 			sum((winlost-actual_stake)* actualrate)  realWinlost,
 			sum((awinlost+mwinlost+swinlost)* actualrate) realPos,
 			sum((scomm) * actualrate) realComm,
 			sum((case when b.bettype = 1000 then -1*(odds-scomm) else winlost-actual_stake+awinlost+mwinlost+swinlost+scomm end)*actualrate) realLineTotal,
-			sum((1-tpositiontaking)*CASE WHEN b.bettype IN (71,73,1000) THEN 0 WHEN CTE_bettype_eventtype.ProductID = 1 THEN abs(stake) ELSE stake END*virtualrate) as virtualTurnover,
+			sum((1-tpositiontaking)*CASE WHEN b.bettype IN (71,73,1000) THEN 0 WHEN sb.ProductID = 1 THEN abs(stake) ELSE stake END*virtualrate) as virtualTurnover,
 			sum((winlost-actual_stake+awinlost+mwinlost+swinlost+scomm)*virtualrate) as virtualLineTotal,
 			0 SportType,			
 			CASE WHEN b.Bettype = 18000 AND ISNULL(b.currency2,0) = 1 THEN 1 ELSE 0 END exrisk
 		FROM
 			bettrans b with (nolock)
 			inner join #SportBettype sb on b.bettype = sb.Bettype
-			LEFT JOIN CTE_bettype_eventtype ON CTE_bettype_eventtype.BetTypeID=b.bettype
 		WHERE
 			(b.bettype < 19999 and b.bettype not in (29,31,32,33,1003,2799))
 			AND sb.ProductID NOT IN (6, 17, 21, 22, 24, 32)
@@ -593,12 +587,7 @@ BEGIN
 				CASE WHEN betteam = N'1' THEN 1 ELSE 0 END
 			
 
-			-- calculate Sportbooks + other products in bettrans (exclude products of bettransRng + bettransLC) 
-			;WITH CTE_bettype_eventtype(BetTypeID,EventType,ProductID) AS (
-				SELECT DISTINCT BetType BetTypeID,EventType,ProductID
-				FROM bodb02.dbo.SportBettypeMatrix (NOLOCK)
-				WHERE ProductID = 1
-				)
+			-- calculate Sportbooks + other products in bettrans (exclude products of bettransRng + bettransLC)
 			INSERT INTO bodb_Report.dbo.rptWinlost
 				(
 					[winlostdate]
@@ -622,19 +611,18 @@ BEGIN
 				CASE WHEN b.bettype = 1003 THEN b.betdaqid ELSE matchid END matchid, 
 				b.bettype, liveindicator, Status,
 				case when recommend = 52466 then 1 when recommend = 5707545 then 2 else 0 end ibc,
-				sum(case when b.bettype IN (71,73,1000) then 0 else (1-tpositiontaking)*CASE WHEN CTE_bettype_eventtype.ProductID = 1 THEN abs(stake) ELSE stake END*actualrate end) as realturnover,
+				sum(case when b.bettype IN (71,73,1000) then 0 else (1-tpositiontaking)*CASE WHEN sb.ProductID = 1 THEN abs(stake) ELSE stake END*actualrate end) as realturnover,
 				sum((winlost-actual_stake)* actualrate)  realWinlost,
 				sum((awinlost+mwinlost+swinlost)* actualrate) realPos,
 				sum((scomm) * actualrate) realComm,
 				sum((case when b.bettype = 1000 then -1*(odds-scomm) else winlost-actual_stake+awinlost+mwinlost+swinlost+scomm end)*actualrate) realLineTotal,
-				sum((1-tpositiontaking)*CASE WHEN b.bettype IN (71,73,1000) THEN 0 WHEN CTE_bettype_eventtype.ProductID = 1 THEN abs(stake) ELSE stake END*virtualrate) as virtualTurnover,
+				sum((1-tpositiontaking)*CASE WHEN b.bettype IN (71,73,1000) THEN 0 WHEN sb.ProductID = 1 THEN abs(stake) ELSE stake END*virtualrate) as virtualTurnover,
 				sum((winlost-actual_stake+awinlost+mwinlost+swinlost+scomm)*virtualrate) as virtualLineTotal,
 				0 SportType,
 				CASE WHEN b.Bettype = 18000 AND ISNULL(b.currency2,0) = 1 THEN 1 ELSE 0 END exrisk
 			 FROM
 				bettrans14 b with (nolock)
 				    INNER JOIN #SportBettype sb on b.bettype = sb.Bettype
-					LEFT JOIN CTE_bettype_eventtype ON CTE_bettype_eventtype.BetTypeID=b.bettype
 			 WHERE
 				(b.bettype < 19999 and b.bettype not in (29,31,32,33,2799))
 				AND sb.ProductID NOT IN (6, 17, 21, 22, 24, 32)
