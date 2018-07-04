@@ -44,7 +44,7 @@ CREATE TABLE #MixParlay (
 			[status] NVARCHAR(20),
 			MemberWinLoss FLOAT,
 			MemberTurnOver FLOAT,
-			SMAWinloss FLOAT,
+			SMAWinLoss FLOAT,
 			ExtraPT FLOAT,
 			Commission FLOAT,
 			RealIncome FLOAT,
@@ -83,7 +83,7 @@ BEGIN
 						[status],
 						MemberWinLoss,
 						MemberTurnOver,
-						SMAWinloss,
+						SMAWinLoss,
 						ExtraPT,
 						Commission,
 						RealIncome,
@@ -92,7 +92,7 @@ BEGIN
 			Refno, livehomescore as LiveType, liveawayscore AS SportType, [status], 
 			(winlost - actual_stake) * actualrate MemberWinLoss, -- Member WinLoss
 			stake * actualrate MemberTurnOver, -- Member Turnover
-			(awinlost + mwinlost + swinlost) * actualrate SMAWinloss, -- SMA WinLoss
+			(awinlost + mwinlost + swinlost) * actualrate SMAWinLoss, -- SMA WinLoss
 			-(CASE WHEN tpositiontaking = 1 THEN 0
                      ELSE( winlost - actual_stake ) + scomm / ( 1 - tpositiontaking )
                 END * ISNULL(e.ExtraPT, 0) * actualrate) AS ExtraPT,
@@ -143,7 +143,7 @@ ELSE BEGIN
 						[status],
 						MemberWinLoss,
 						MemberTurnOver,
-						SMAWinloss,
+						SMAWinLoss,
 						ExtraPT,
 						Commission,
 						RealIncome,
@@ -152,7 +152,7 @@ ELSE BEGIN
 			Refno, livehomescore AS LiveType, liveawayscore AS SportType, [status], 
 			(winlost - actual_stake) * actualrate AS MemberWinLoss, -- Member WinLoss
 			stake * actualrate AS MemberTurnOver, -- Member Turnover
-			(awinlost + mwinlost + swinlost) * actualrate AS SMAWinloss, -- SMA WinLoss
+			(awinlost + mwinlost + swinlost) * actualrate AS SMAWinLoss, -- SMA WinLoss
 			-(CASE WHEN tpositiontaking = 1 THEN 0
 				   ELSE( winlost - actual_stake ) + scomm / ( 1 - tpositiontaking )
                 END  * ISNULL(e.ExtraPT, 0) * actualrate) AS ExtraPT,
@@ -207,7 +207,7 @@ SELECT  @max_sporttype = MAX(Sporttype) FROM dbo.Sports WITH(NOLOCK)
 		9 AS bettype, LiveType, ISNULL(os.SportType, mp.SportType) SportType, [status],
 		SUM(mp.MemberWinLoss) MemberWinLoss, 
 		SUM(mp.MemberTurnOver) MemberTurnOver,
-		SUM(mp.SMAWinloss) SMAWinloss,
+		SUM(mp.SMAWinloss) SMAWinLoss,
 		SUM(mp.ExtraPT) ExtraPT,
 		SUM(mp.Commission) Commission,
 		SUM(mp.RealIncome) RealIncome,

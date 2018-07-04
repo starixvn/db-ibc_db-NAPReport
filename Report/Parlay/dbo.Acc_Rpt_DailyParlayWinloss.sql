@@ -66,7 +66,7 @@ BEGIN
 			SUM((winlost-actual_stake)*actualrate) MemberWinLoss, -- Member WinLoss
 			SUM(stake*actualrate) MemberTurnOver, -- Member Turnover
 			COUNT(1) BetCount,
-			SUM((awinlost+mwinlost+swinlost)*actualrate) SMAWinloss, -- SMA WinLoss
+			SUM((awinlost+mwinlost+swinlost)*actualrate) SMAWinLoss, -- SMA WinLoss
 			-SUM(( CASE
                          WHEN tpositiontaking = 1
                          THEN 0
@@ -129,7 +129,7 @@ BEGIN
 			SUM((winlost-actual_stake)*actualrate) MemberWinLoss, -- Member WinLoss
 			SUM(stake*actualrate) MemberTurnOver, -- Member Turnover
 			COUNT(1) BetCount,
-			SUM((awinlost+mwinlost+swinlost)*actualrate) SMAWinloss, -- SMA WinLoss
+			SUM((awinlost+mwinlost+swinlost)*actualrate) SMAWinLoss, -- SMA WinLoss
 			-SUM(( CASE
                          WHEN tpositiontaking = 1
                          THEN 0
