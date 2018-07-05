@@ -37,11 +37,21 @@ Revision:
 	- 20180507@Tom: Include Exchange Bettype into group bettypes no need ABS() Turnover data (#94736)
 	- 20180411@Cherry: Integrate Pragmatic (#92642)
 	- 201806185@Tom: Update Logic Bettrans14 (bettype 29) (#97061)
-	- 20180702@Tom: remove ASB on Turnover IBC with Non SB Products(#97696)
+	- 20180702@Tom: add condition generate data BalanceUpDay AND MoveBetsDay
 */
 
 BEGIN	
 	SET NOCOUNT ON;
+
+	DECLARE @MoveBetsDay SMALLDATETIME
+	DECLARE @BalanceUpDay SMALLDATETIME
+	
+	SELECT TOP 1 @BalanceUpDay  = winlostdate
+	FROM Bettrans WITH (NOLOCK)
+	WHERE bettype = 20000 AND matchid = 0 AND custid = 3 
+	
+	SELECT @MoveBetsDay = max(eventdate)
+	FROM [bodb02].dbo.match14 WITH (NOLOCK)
 
 	DECLARE @CommSetting TABLE
 	(	MatchID			int,
@@ -75,8 +85,9 @@ BEGIN
     FROM #SportBettype sb
 	   INNER JOIN SportBettypeMatrix s WITH(NOLOCK) ON sb.BetType = s.BetType AND s.ProductID IN (23, 31, 32) -- NG2, Exchange, Pragmatic
 
-	SELECT distinct winlostdate cnt FROM bettrans with (nolock) WHERE winlostdate = @winlostdate AND bettype < 19999
-	IF @@ROWCOUNT = 1
+	--SELECT distinct winlostdate cnt FROM bettrans with (nolock) WHERE winlostdate = @winlostdate AND bettype < 19999
+	--IF @@ROWCOUNT = 1
+	IF @winlostdate > @MoveBetsDay
 	BEGIN				
 		DELETE FROM bodb_Report.dbo.rptWinlost
 		WHERE winlostdate = @winlostdate
@@ -461,7 +472,7 @@ BEGIN
 		WHERE sb.ProductID IN (23,31,32) 
 		AND rpt.winlostdate =  @winlostdate
 	END
-	ELSE
+	ELSE IF @winlostdate BETWEEN @BalanceUpDay AND @MoveBetsDay 
 	BEGIN -- check from BetTrans14
 		SELECT distinct winlostdate FROM bettrans14 with (nolock) WHERE winlostdate = @winlostdate AND bettype < 19999
 
