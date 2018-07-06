@@ -37,6 +37,7 @@ Revisions:
 	- 20170704@Tom: Integrate Betradar Virtual Sports(#78495)
 	- 20170828@Kean: Integrate Lucky 3(#82191)
 	- 20180115@Tom:  Cashout tickets from separated original tickets are considered as dupplicated tickets (#89256)
+	- 20180706@Tom: Add output transdesc column(#97859)
 Param's Explanation:
 	- @CheckTime : The time we consider how long the job fails (Compared the last run with the current time).
 				   Because job recurs every 30s, so we set @CheckTime = 1 minute as default
@@ -118,7 +119,7 @@ BEGIN
 			option (maxdop 4)
 			--------------------------------------------------------
 
-			SELECT b.custid, b.odds, b.stake, b.balance, b.status, b.statusID, b.bettype, b.winlostdate, b.username, b.transid as refno,b.refno as refnoGroup,  b.transdate as bettime, bt.typenamee as typename 
+			SELECT b.custid, b.odds, b.stake, b.balance, b.status, b.statusID, b.bettype, b.winlostdate, b.username, b.transid as refno,b.refno as refnoGroup,  b.transdate as bettime, bt.typenamee as typename ,b.transdesc
 			FROM bodb02.dbo.bettrans b WITH(NOLOCK)
 				INNER JOIN #TempData t ON b.custid = t.custid 
 					AND b.odds = t.odds
@@ -147,7 +148,7 @@ BEGIN
 		SELECT @DateFrom = DATEADD(dd, 0, DATEDIFF(dd, 0, @Date) ) -- get begin of the day (just in case param input time also)
 		 
 
-		SELECT	b.custid, b.odds, b.stake, b.balance, b.status, b.statusID, b.bettype, b.winlostdate, b.username, b.transid as refno,b.refno as refnoGroup, b.transdate as bettime, bt.typenamee as typename 
+		SELECT	b.custid, b.odds, b.stake, b.balance, b.status, b.statusID, b.bettype, b.winlostdate, b.username, b.transid as refno,b.refno as refnoGroup, b.transdate as bettime, bt.typenamee as typename ,b.transdesc
 		FROM	dbo.DuplicatedTicket t WITH (NOLOCK)	
 			INNER JOIN bodb02.dbo.Bettrans b WITH (NOLOCK)	
 					ON b.TransID = t.TransID
