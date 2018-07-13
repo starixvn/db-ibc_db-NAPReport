@@ -1,6 +1,6 @@
 USE [bodb02]
 GO
-/****** Object:  StoredProcedure [dbo].[Task_rptWinLost_UpdateTable]    Script Date: 7/12/2018 5:48:55 AM ******/
+/****** Object:  StoredProcedure [dbo].[Task_rptWinLost_UpdateTable]    Script Date: 7/13/2018 1:43:42 AM ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
@@ -43,8 +43,7 @@ Revision:
 	- 20180507@Tom: Include Exchange Bettype into group bettypes no need ABS() Turnover data (#94736)
 	- 20180411@Cherry: Integrate Pragmatic (#92642)
 	- 201806185@Tom: Update Logic Bettrans14 (bettype 29) (#97061)
-	- 20180702@Tom: add condition generate data BalanceUpDay AND MoveBetsDay
-	- 20180712@Dan: avoid wrong data due to pagesplit (allocation scan)
+	- 20180702@Tom: add condition generate data BalanceUpDay AND MoveBetsDay	
 */
 
 BEGIN	
@@ -244,7 +243,7 @@ BEGIN
 			0 SportType,			
 			CASE WHEN b.Bettype = 18000 AND ISNULL(b.currency2,0) = 1 THEN 1 ELSE 0 END exrisk
 		FROM
-			bettrans b --with (nolock)
+			bettrans b with (nolock)
 			inner join #SportBettype sb on b.bettype = sb.Bettype
 		WHERE
 			(b.bettype < 19999 and b.bettype not in (29,31,32,33,1003,2799))
