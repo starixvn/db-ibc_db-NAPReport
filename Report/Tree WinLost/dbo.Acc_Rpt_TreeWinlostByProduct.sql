@@ -103,34 +103,12 @@ BEGIN
 	   END;
 
     CREATE TABLE #Product(
-	    ProductID       INT
-	  , IsNoTurnover    BIT
-	  , IsNoVirtual     BIT);
+	    ProductID    INT);
 
-    DECLARE @DocHandler    INT;
-
-    BEGIN TRY
-	   EXEC sp_xml_preparedocument
-		   @DocHandler OUTPUT
-		 , @Products;
-
-	   INSERT INTO #Product(ProductID
-					  , IsNoTurnover
-					  , IsNoVirtual)
-			SELECT ProductID
-				, IsNoTurnover
-				, IsNoVirtual
-			FROM OPENXML(@DocHandler, '/ROOT/Product', 1) WITH(ProductID    INT, IsNoTurnover BIT, IsNoVirtual BIT) AS Data;
-
-	   EXEC sp_xml_removedocument
-		   @DocHandler;
-    END TRY
-    BEGIN CATCH
-	   SELECT ErrCode = 100
-		   , ErrMsg = N'Paramter invalid.';
-
-	   RETURN;
-    END CATCH;
+    INSERT INTO #Product(ProductID)
+		 SELECT val
+		 FROM strSplit
+			 (@Products, ',');
 
     IF OBJECT_ID('tempdb..#tmpBettype') IS NOT NULL
 	   BEGIN
@@ -138,10 +116,8 @@ BEGIN
 	   END;
 
     CREATE TABLE #tmpBettype(
-	    ProductID       INT
-	  , bettype         INT
-	  , IsNoTurnover    BIT
-	  , IsNoVirtual     BIT);
+	    ProductID    INT
+	  , bettype      INT);
 
     IF EXISTS
 		    (
@@ -150,23 +126,15 @@ BEGIN
 			   WHERE p.ProductID = -1
 		    )
 	   BEGIN
-		  WITH tblP(ProductID
-				, IsNoTurnover
-				, IsNoVirtual)
+		  WITH tblP(ProductID)
 			  AS (
 			  SELECT 1 AS ProductID
-				  , IsNoTurnover
-				  , IsNoVirtual
 			  FROM #Product AS tblP
 			  WHERE tblP.ProductID = -1)
 			  INSERT INTO #tmpBettype(ProductID
-							    , bettype
-							    , IsNoTurnover
-							    , IsNoVirtual)
+							    , bettype)
 				    SELECT tblS.ProductID
 					    , tblS.bettype
-					    , tblP.IsNoTurnover
-					    , tblP.IsNoVirtual
 				    FROM tblP
 					  , @SportBettype AS tblS
 				    WHERE tblS.ProductID = 1
@@ -181,13 +149,9 @@ BEGIN
 		    )
 	   BEGIN
 		  INSERT INTO #tmpBettype(ProductID
-						    , bettype
-						    , IsNoTurnover
-						    , IsNoVirtual)
+						    , bettype)
 			    SELECT tblP.ProductID
 				    , tblS.bettype
-				    , tblP.IsNoTurnover
-				    , tblP.IsNoVirtual
 			    FROM @SportBettype AS tblS
 				   INNER JOIN #Product AS tblP ON tblS.ProductID = tblP.ProductID
 			    WHERE tblP.ProductID = 1
@@ -258,13 +222,9 @@ BEGIN
 		 WHERE sb.BetType NOT IN(901, 902, 911, 912);
 
     INSERT INTO #tmpBettype(ProductID
-					 , bettype
-					 , IsNoTurnover
-					 , IsNoVirtual)
+					 , bettype)
 		 SELECT tblP.ProductID
 			 , tblS.bettype
-			 , tblP.IsNoTurnover
-			 , tblP.IsNoVirtual
 		 FROM @SportBettype AS tblS
 			INNER JOIN #Product AS tblP ON tblS.ProductID = tblP.ProductID
 		 WHERE tblP.ProductID <> 1;
@@ -472,11 +432,7 @@ BEGIN
 
     SELECT @TurnOver_8RM = SUM(ABS(stake) * (1 - tpositiontaking) * actualrate)
 	    , @Total_8RM = -SUM((swinlost + mwinlost + awinlost + winlost - actual_stake + scomm) * actualrate)
-	    , @VirtualTotal_8RM = -SUM((swinlost + mwinlost + awinlost + winlost - actual_stake + scomm) * CASE
-																					   WHEN t.IsNoVirtual = 0
-																					   THEN b.virtualrate
-																					   ELSE actualrate
-																				    END)
+	    , @VirtualTotal_8RM = -SUM((swinlost + mwinlost + awinlost + winlost - actual_stake + scomm) * actualrate)
     FROM bettrans AS b WITH (NOLOCK)
 	   INNER JOIN #tmpBettype AS t ON t.bettype = b.bettype
     WHERE recommend = 52466
@@ -486,11 +442,7 @@ BEGIN
 
     SELECT @TurnOver_BARM = SUM(ABS(stake) * (1 - tpositiontaking) * actualrate)
 	    , @Total_BARM = -SUM((swinlost + mwinlost + awinlost + winlost - actual_stake + scomm) * actualrate)
-	    , @VirtualTotal_BARM = -SUM((swinlost + mwinlost + awinlost + winlost - actual_stake + scomm) * CASE
-																					    WHEN t.IsNoVirtual = 0
-																					    THEN b.virtualrate
-																					    ELSE actualrate
-																					END)
+	    , @VirtualTotal_BARM = -SUM((swinlost + mwinlost + awinlost + winlost - actual_stake + scomm) * actualrate)
     FROM bettrans AS b WITH (NOLOCK)
 	   INNER JOIN #tmpBettype AS t ON t.bettype = b.bettype
     WHERE recommend = 5707545
