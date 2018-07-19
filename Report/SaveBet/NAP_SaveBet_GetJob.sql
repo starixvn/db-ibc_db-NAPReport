@@ -19,36 +19,40 @@ AS
 		  0: Sportbook-Soccer
 		  1: Sportbook-OtherSport
 		  2: 3rd Sports
+	   20180719@Tom:Enhance_the_flow_get_Virtual_Sport(98520)
 		
 */
 
 BEGIN
     SET NOCOUNT ON;
+	SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+
+	DECLARE @imsGenerateTime INT=1000*60*60; --60 minutes
 
 	IF @matchid =0
-		SELECT JobID,s.LiveIndicator,s.Bettype,s.TypeName,ml.MatchID,s.JobType,ml.EventDate FROM ServiceJob s WITH(NOLOCK)
-		INNER JOIN (
-			SELECT TOP 1 ml.EventDate , ml.MatchID
-			 FROM MatchList ml WITH(NOLOCK) 				  
-				WHERE JobGenerated = 1 AND JobFinished = 0 
-				    AND (
-					   (@GroupSports = 0 AND (ml.sporttype = 1))
-					   OR (@GroupSports = 1 AND ml.sporttype > 1 AND ml.SportType <100)
-					   OR (@GroupSports = 2 AND ml.sporttype > 99)
-					   ) 
-				ORDER BY ml.EventDate ASC
-		) ml ON ml.MatchID = s.MatchID
-	ELSE
-			SELECT JobID,s.LiveIndicator,s.Bettype,s.TypeName,ml.MatchID,s.JobType,ml.EventDate FROM ServiceJob s WITH(NOLOCK)
-		INNER JOIN (
-			SELECT TOP 1 * FROM MatchList ml WITH(NOLOCK) WHERE ml.MatchID = @MatchID
-		) ml ON ml.MatchID = s.MatchID
+		BEGIN
+			;WITH CTE_MatchList
+			AS (
+			SELECT TOP 1  MatchID,GenerateTime
+			FROM dbo.MatchList ml WITH(ROWLOCK) 				  
+			WHERE JobGenerated = 1 AND JobFinished = 0 AND (GenerateTime IS NULL OR DATEDIFF(ms,GenerateTime,GETDATE())>@imsGenerateTime)
+						AND (
+							(@GroupSports = 0 AND (ml.sporttype = 1))
+							OR (@GroupSports = 1 AND ml.sporttype > 1 AND ml.SportType <100)
+							OR (@GroupSports = 2 AND ml.sporttype > 99)
+							) 
+			ORDER BY ml.EventDate ASC
+			)
+			UPDATE CTE_MatchList WITH(ROWLOCK,UPDLOCK)
+			SET GenerateTime=GETDATE()
+				,@MatchID = MatchID;
+		END;
 
+	SELECT JobID,s.LiveIndicator,s.Bettype,s.TypeName,ml.MatchID,s.JobType,ml.EventDate 
+	FROM dbo.ServiceJob s WITH(NOLOCK)
+		INNER JOIN (
+			SELECT TOP 1 * FROM dbo.MatchList ml WITH(NOLOCK) WHERE ml.MatchID = @MatchID
+		) ml ON ml.MatchID = s.MatchID;
 
-	/*
-	SELECT JobID,s.LiveIndicator,s.Bettype,s.TypeName,ml.MatchID,s.JobType,ml.EventDate FROM ServiceJob s WITH(NOLOCK)
-	INNER JOIN (
-		SELECT  * FROM MatchList ml WITH(NOLOCK) WHERE JobGenerated = 1 AND JobFinished = 0 and ml.MatchID=8786329
-	) ml ON ml.MatchID = s.MatchID*/
 END
 GO
