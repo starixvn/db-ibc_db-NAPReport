@@ -132,6 +132,28 @@ BEGIN
 		    (
 			   SELECT TOP 1 1
 			   FROM #Product AS P
+			   WHERE p.ProductID = -2
+		    )
+	   BEGIN
+		  WITH tblP(ProductID)
+			  AS (
+			  SELECT-2 AS ProductID
+			  FROM #Product AS tblP
+			  WHERE tblP.ProductID = -2)
+			  INSERT INTO #tmpBettype(ProductID
+							    , bettype)
+				    SELECT tblP.ProductID
+					    , tblS.bettype
+				    FROM tblP
+					  , @SportBettype AS tblS
+				    WHERE tblS.ProductID = 1
+						AND tblS.SubProduct IN('BT-Comm', 'BT-Winloss');
+	   END;
+
+    IF EXISTS
+		    (
+			   SELECT TOP 1 1
+			   FROM #Product AS P
 			   WHERE p.ProductID = 1
 		    )
 	   BEGIN
@@ -142,7 +164,7 @@ BEGIN
 			    FROM @SportBettype AS tblS
 				   INNER JOIN #Product AS tblP ON tblS.ProductID = tblP.ProductID
 			    WHERE tblP.ProductID = 1
-					AND tblS.SubProduct NOT IN('MG-SuperLive', 'BT-Sold', 'BT-Bought');
+					AND tblS.SubProduct NOT IN('MG-SuperLive', 'BT-Comm', 'BT-Winloss');
 	   END;
 /*-- Extra PT */
 
