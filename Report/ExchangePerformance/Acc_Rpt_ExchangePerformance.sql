@@ -25,7 +25,7 @@ AS
 BEGIN
 	SET NOCOUNT ON
 	
-	DECLARE @PartyList VARCHAR(4000), @FDate DATE, @TDate DATE
+	DECLARE @PartyList VARCHAR(4000)
 
 	CREATE TABLE #tmpResult (LicenseeName VARCHAR(50), 
 							 MemberCount INT, 
@@ -45,6 +45,10 @@ BEGIN
     
     CREATE TABLE #ChargeRate3rd (LicenseeId INT, Rate MONEY, FromDate DATE, ToDate DATE)
     
+    CREATE TABLE #tmpChargeDate (LicenseeId INT, FromDate DATE, ToDate DATE)
+    
+    CREATE TABLE #tmpRate3rd (PartyId INT, Rate MONEY, FromDate DATE, ToDate DATE, IsParent BIT)
+    
     CREATE TABLE #tmpPartyList (PartyID INT, PartyName VARCHAR(200), BrandName VARCHAR(200), ParentID INT)       
     
     CREATE TABLE #tmpWinlost(	Winlostdate DATE,
@@ -59,7 +63,7 @@ BEGIN
 								CommissionA MONEY,
 								BetCount INT )		
 								
-	-- Region: Get Exchange
+	-- Region: Get ExchangeRate
 	CREATE	TABLE #ExchangeRate (ExchangeDate DATE, ExchangeID INT, Rate FLOAT)	
 	
 	INSERT INTO #ExchangeRate (ExchangeDate, ExchangeID, Rate)
@@ -87,6 +91,7 @@ BEGIN
 			INNER JOIN bodb_licensee.dbo.OAS_Party p WITH(NOLOCK) ON c.FromParty = p.PartyID
 			INNER JOIN #tmpLicensee l ON p.OldRefID = l.LicenseeId 
 		WHERE ProductId = 31
+			AND p.PartyType = 1
 		GROUP BY FromParty
 	)tmp
 	
@@ -105,13 +110,57 @@ BEGIN
 	WHERE DI_Rate > 0 AND ChargeType = 1
 	
 	-- Get charge rate for 3rd
-	INSERT INTO #ChargeRate3rd(LicenseeId, Rate, FromDate, ToDate)	
+	
+	INSERT INTO #tmpRate3rd (PartyId, Rate, FromDate, ToDate, IsParent)
+	SELECT ci.PartyID, ci.DI_Rate, ci.Fromdate, ci.ToDate, ci.IsParent 
+	FROM	bodb_licensee.dbo.LA_f_ChargeInfo3rd(@FromDate, @ToDate, 'BX', 'OA') ci	
+	WHERE ci.ChargeType = 1 AND ci.IsDeposit = 1
+	
+	INSERT INTO #ChargeRate3rd( LicenseeId, Rate, FromDate, ToDate)	
 	(
-		SELECT DISTINCT p.LicenseeID, ci.DI_Rate, ci.Fromdate, ci.ToDate
-		FROM	bodb_licensee.dbo.LA_f_ChargeInfo3rd(@FromDate, @ToDate, 'BX', 'OA') ci	
-			INNER JOIN #ChargeRate p ON (CASE WHEN ci.IsParent = 1 THEN p.ParentID ELSE p.PartyId END) = ci.PartyID	
-		WHERE ci.ChargeType = 1 AND ci.IsDeposit = 1
+		SELECT DISTINCT p.LicenseeID, ci.Rate, ci.Fromdate, ci.ToDate
+		FROM #tmpRate3rd ci
+			INNER JOIN #ChargeRate p ON ci.IsParent = 0 AND p.PartyID = ci.PartyId		
+	)
+	
+	INSERT INTO #tmpChargeDate (LicenseeId, FromDate, ToDate)
+	SELECT LicenseeID, DATEADD(DAY, -1, MIN(FromDate)), DATEADD(DAY, 1, MAX(ToDate))
+	FROM #ChargeRate3rd
+	GROUP BY LicenseeID
+
+	INSERT INTO #ChargeRate3rd( LicenseeId, Rate, FromDate, ToDate)	
+	(
+		SELECT DISTINCT p.LicenseeID, ci.Rate, 
+				CASE WHEN ci.Fromdate BETWEEN c.FromDate AND c.ToDate THEN c.ToDate ELSE ci.FromDate END FromDate, 
+				CASE WHEN c.FromDate BETWEEN ci.FromDate AND ci.ToDate THEN c.FromDate ELSE ci.ToDate END ToDate
+		FROM	#tmpRate3rd ci	
+			INNER JOIN #ChargeRate p ON ci.IsParent = 1 AND p.ParentID = ci.PartyId	
+			INNER JOIN #tmpChargeDate c ON c.LicenseeId = p.LicenseeId 
+		WHERE EXISTS (SELECT 1 FROM #ChargeRate3rd c3 WHERE c3.LicenseeId = p.LicenseeID)	
+			AND NOT EXISTS (SELECT 1 FROM #tmpRate3rd r WHERE r.FromDate BETWEEN c.FromDate AND c.ToDate AND r.ToDate BETWEEN c.FromDate AND c.ToDate 
+															AND r.PartyId = ci.PartyId AND r.Rate = ci.Rate)		
 	)	
+
+	INSERT INTO #ChargeRate3rd( LicenseeId, Rate, FromDate, ToDate)	
+	(
+		SELECT DISTINCT p.LicenseeID, ci.Rate, DATEADD(DAY, 1, c3.ToDate) FromDate, ci.ToDate
+		FROM	#tmpRate3rd ci	
+			INNER JOIN #ChargeRate p ON ci.IsParent = 1 AND p.ParentID = ci.PartyId	
+			INNER JOIN (SELECT LicenseeID, MAX(ToDate) ToDate
+						FROM #ChargeRate3rd 
+						GROUP BY LicenseeID) c3 ON c3.LicenseeId = p.LicenseeId
+		WHERE c3.ToDate BETWEEN ci.FromDate AND ci.ToDate
+			AND c3.ToDate < @ToDate 	
+	)
+	
+	INSERT INTO #ChargeRate3rd( LicenseeId, Rate, FromDate, ToDate)	
+	(
+		SELECT DISTINCT p.LicenseeID, ci.Rate, ci.Fromdate, ci.ToDate
+		FROM	#tmpRate3rd ci	
+			INNER JOIN #ChargeRate p ON ci.IsParent = 1 AND p.ParentID = ci.PartyId	
+		WHERE NOT EXISTS (SELECT 1 FROM #ChargeRate3rd c3 WHERE c3.LicenseeId = p.LicenseeID)	
+	)
+	--End get charge rate for 3rd
 
 	-- Handle Data	from Sum Table
 	BEGIN
@@ -200,8 +249,12 @@ BEGIN
 	DROP TABLE #tmpPartyList
 	DROP TABLE #tmpWinlost
 	DROP TABLE #ExchangeRate
+	DROP TABLE #tmpChargeDate
+	DROP TABLE #tmpRate3rd
 
 END
+
+
 
 GO
 GRANT EXECUTE ON [dbo].[Acc_Rpt_ExchangePerformance] TO [bodbAdminNet];
