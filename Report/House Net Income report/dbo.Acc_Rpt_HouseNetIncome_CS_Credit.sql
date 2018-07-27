@@ -1,3 +1,5 @@
+/*<info serverAlias="DBWH-bodb_dwrs" executers="dwrs" viewers="vnteam" isFunction="0" isNested="0"></info>*/
+
 USE bodb_dwrs
 GO
 
@@ -10,7 +12,9 @@ AS
     Task : House month-to-date Net Income report
     DB: DBWH/bodb_dwrs  
    
-    Revisions:
+    Revisions:		
+		- 20180619@Harper: Update formula for RNG to remove data of JP [RedmineID: #94403]
+
 	Param's Explanation:   
 */  
 BEGIN  
@@ -30,6 +34,7 @@ BEGIN
 	FROM bodb_account.dbo.tbl_Currency_Daily WITH (NOLOCK) 
 	WHERE ExchangeDate BETWEEN @FDate AND @TDate
 
+	CREATE CLUSTERED INDEX [PK_tmp_CurrencyDaily] ON #Exchange( ExchangeDate, ExchangeID )
 	-- End region
 
 	CREATE TABLE #FinalResult (
@@ -56,43 +61,42 @@ BEGIN
 
 	INSERT INTO #SportBettypeMatrix (ProductID, Bettype, EventType, SubProduct)
 	SELECT ProductID, BetType, EventType, SubProduct FROM bodb02.dbo.f_SportBettypeMatrix_Sel(6,0,0,2,'','CS',0)
-
-	-- Daily Extra PT
-	;WITH ExtraPT AS
-	(
-		SELECT b.rptDate, SUM(b.extraWinloss) AS ExtraPT
-		FROM bodb_account.dbo.rptGroupWinloss b WITH (NOLOCK)
-			INNER JOIN #SportBettypeMatrix sb ON sb.Bettype = b.bettype
-		WHERE	rptdate BETWEEN @FDate AND @TDate 
-				AND sb.ProductID = 6
-				AND b.statusid <> 14
-		GROUP BY b.rptDate
-	)
-	UPDATE f
-	SET ExtraPT = e.ExtraPT
-	FROM #FinalResult f
-		INNER JOIN ExtraPT e ON CONVERT(VARCHAR(2), e.rptDate, 106) = f.RptDate
-
+	
 	-- House WL
-	CREATE TABLE #TmpHouseWL (rptDate DATE, HouseWL MONEY)
-	INSERT INTO #TmpHouseWL (rptDate, HouseWL)
+	CREATE TABLE #TmpHouseWL (rptDate DATE, HouseWL MONEY, ExtraPT MONEY, DiffContribution DECIMAL(19, 8))
+
+	INSERT INTO #TmpHouseWL (rptDate, HouseWL, ExtraPT)
 	SELECT 
 		b.rptDate,
-		ISNULL(-SUM((winlossP+winlossS+winlossM+winlossA+commissionS)*ex.rate),0) HouseWL
-	FROM bodb_Account.dbo.mcSiteDaily b WITH(NOLOCK)
+		-SUM((b.WinlossIBC + commissionS) * ex.rate) HouseWL,
+		SUM((b.ExtraWL + b.ExtraComm) * ex.Rate)  AS ExtraPT
+	FROM bodb_Account.dbo.FactSiteWinloss b WITH(NOLOCK)
 		INNER JOIN #exchange ex ON b.rptdate = ex.exchangedate AND b.currencyid = ex.ExchangeID
-		INNER JOIN #SportBettypeMatrix sb ON sb.Bettype = b.bettype
-		INNER JOIN bodb_Account.dbo.tbl_Site s WITH (NOLOCK) ON s.siteid = b.SiteID
+		INNER JOIN #SportBettypeMatrix sb ON sb.Bettype = b.bettype		
 	WHERE 
-		b.rptDate BETWEEN @FDate AND @TDate 
-		AND s.isDeposit = 0 -- Credit data only
-		AND Sb.ProductID = 6
-		AND b.status <> 14
+		b.rptDate BETWEEN @FDate AND @TDate 	
+		AND b.TicketStatus NOT IN (-1,18,9,10,14)
+		AND SiteID IN (SELECT SiteID FROM bodb_Account.dbo.tbl_Site WHERE isDeposit = 0 )-- Credit data only
 	GROUP BY b.rptDate
 	OPTION (RECOMPILE)
 
+	-- Caculate the diffence value for Jackpot Contribution for Deposit site
+	--INSERT INTO #TmpHouseWL (rptDate, DiffContribution)
+	--SELECT 
+	--	b.rptDate,
+	--	SUM((b.WinlossIBC - b.WinlossS - b.WinlossM)* ex.Rate)	-- ContributionRate * betStake + awinlost
+	--FROM bodb_Account.dbo.FactSiteWinloss b WITH(NOLOCK)
+	--	INNER JOIN #exchange ex ON b.rptdate = ex.exchangedate AND b.currencyid = ex.ExchangeID		
+	--WHERE 
+	--	b.rptDate BETWEEN @FDate AND @TDate 		
+	--	AND b.BetType IN (2198, 2398, 2998) -- Jackpot Contribution
+	--	AND b.TicketStatus NOT IN (-1,18,9,10,14)
+	--	AND SiteID IN (SELECT SiteID FROM bodb_Account.dbo.tbl_Site WHERE isDeposit = 1 )-- Deposit data only
+	--GROUP BY b.rptDate	
+
 	UPDATE f
-	SET HouseWL = f.HouseWL + wl.HouseWL
+	SET HouseWL = f.HouseWL + ISNULL(wl.HouseWL, 0) + ISNULL(wl.DiffContribution, 0),
+		ExtraPT = f.ExtraPT + ISNULL(wl.ExtraPT, 0)
 	FROM #FinalResult f
 		INNER JOIN #TmpHouseWL wl ON CONVERT(VARCHAR(2), wl.rptDate, 106) = f.RptDate
 
@@ -125,7 +129,3 @@ BEGIN
 	DROP TABLE #FinalResult
 END
 GO
-
-GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_CS_Credit] TO [bodbAdminNet]
-GO
-GRANT VIEW definition ON [dbo].[Acc_Rpt_HouseNetIncome_CS_Credit] TO vnteam
