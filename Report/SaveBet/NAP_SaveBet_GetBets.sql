@@ -23,6 +23,7 @@ AS
 		- 20160819@Robert: Add Bet Trade Winloss bettype=904 (#62630)
 		- 20170323@Percy: return betid [RedmineID: #72900]
 		- 20170612@Percy: check bettype of Cash Out [RedmineID: #78160]
+		- 20180719@Tom:Enhance_the_flow_get_Virtual_Sport(98520)
 */
 
 -- original is Dot_Admin_cteamlist
@@ -48,7 +49,7 @@ BEGIN
 	RETURN
 END 
 
-DECLARE @homeid INT, @awayid INT
+DECLARE @homeid INT, @awayid INT,@EventDate SMALLDATETIME
 SELECT  @homeid = homeid, @awayid = awayid FROM bodb02.dbo.match WITH(NOLOCK) WHERE matchid = @matchid
 
 IF @homeid IS NOT NULL
@@ -64,7 +65,7 @@ BEGIN
 			WHEN b.status = 'void' THEN '(void) ' + cr.username
 			WHEN b.custid <> b.creator THEN cr.username
 			ELSE '' END creator, 
-		c.username,
+		b.username,
 		b.odds, 
 		b.CurrencyName Currency, 
 		b.stake,
@@ -84,7 +85,7 @@ BEGIN
 		,b.betid
 	FROM 
 	bodb02.dbo.bettrans b with (nolock)
-	INNER JOIN bodb02.dbo.customer c with (nolock) ON b.custid = c.custid
+	--INNER JOIN bodb02.dbo.customer c with (nolock) ON b.custid = c.custid
 	INNER JOIN bodb02.dbo.customer cr with (nolock) ON b.creator = cr.custid
 	LEFT JOIN @MetricBettype t ON b.bettype = t.bettype
 	--INNER JOIN bettype bt with(nolock) ON b.bettype = bt.typeid
@@ -101,7 +102,7 @@ BEGIN
 END
 ELSE
 BEGIN
-	SELECT  @homeid = homeid, @awayid = awayid FROM bodb02.dbo.match14 WITH(NOLOCK) WHERE matchid = @matchid
+	SELECT  @homeid = homeid, @awayid = awayid,@EventDate = eventdate FROM bodb02.dbo.match14 WITH(NOLOCK) WHERE matchid = @matchid
 	SELECT
 		0 positiontaking, 
 		0 comm,
@@ -113,7 +114,7 @@ BEGIN
 			WHEN b.status = 'void' THEN '(void) ' + cr.username
 			WHEN b.custid <> b.creator THEN cr.username
 			ELSE '' END creator, 
-		c.username,
+		b.username,
 		b.odds, 
 		b.currencyname Currency, 
 		b.stake,
@@ -133,12 +134,12 @@ BEGIN
 		,b.betid
 	FROM 
 	bodb02.dbo.bettrans14 b with (nolock)
-	INNER JOIN bodb02.dbo.customer c with (nolock) ON b.custid = c.custid
+	--INNER JOIN bodb02.dbo.customer c with (nolock) ON b.custid = c.custid
 	INNER JOIN bodb02.dbo.customer cr with (nolock) ON b.creator = cr.custid
 	LEFT JOIN @MetricBettype t ON b.bettype = t.bettype
 	--INNER JOIN bettype bt with(nolock) ON b.bettype = bt.typeid
-	WHERE
-		b.matchid = @matchid 
+	WHERE b.winlostdate = @EventDate
+		AND b.matchid = @matchid 
 		AND b.bettype = @bettype
 		AND b.liveindicator = @liveindicator
 --AND b.bettype in (1,2,3,4,5,6,7,8,12,15,20)
