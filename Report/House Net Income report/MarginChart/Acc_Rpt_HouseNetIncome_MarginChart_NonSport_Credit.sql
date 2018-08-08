@@ -4,8 +4,9 @@ USE bodb_dwrs
 GO
 
 ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_NonSport_Credit]
-	@FromDate DATE,
-	@ToDate	DATE
+	@FromDate	DATE,
+	@ToDate		DATE,
+	@ProductList VARCHAR(MAX) = ''
 AS  
 /*  	
 	Created:		20180126@Harper 
@@ -14,8 +15,11 @@ AS
    
     Revisions:
 		- 20180126@Harper - HDWL Letstalk - Implement Chart of NonSport product margin [#RedmineID: 89632]
-		
+		- 20180806@Harper - DHWL Margin Chart - Create new message notification to NSD group based on Product List [#RedmineID: 98611]
+
 	Param's Explanation:   
+		- @ProductList: '' - default value when get all product
+						'GD,AB,AGC,MGCLC,MGCRNG,CS,VB,PP,NG,VS,KN,LT,FW,VS2,CB' - if group is NSD Group
 
 	EXEC Acc_Rpt_HouseNetIncome_MarginChart_NonSport_Credit '2018-05-01', '2018-05-31'
   
@@ -25,7 +29,10 @@ BEGIN
 
 	DECLARE @FDate DATE, @TDate DATE
 	SELECT @FDate = @FromDate, @TDate = @ToDate
-	
+
+	DECLARE @Credit VARCHAR(MAX) = 'KN,LT,VB,VS,VS2,NG,CS,NG2,AB,FW,GD,LK3,CB'
+	DECLARE @Deposit VARCHAR(MAX) = 'NG,CS,KN,LT,AGC,MGCLC,MGCRNG,BT,CO,CB,VB,AB,FW,GD,BX,VS,VS2'
+		
 	-- Region: Get exchange rate info
 	CREATE	TABLE #Exchange			(ExchangeDate DATE, ExchangeID INT, Rate FLOAT)
 	CREATE	TABLE #ExchangeOANDA	(ExchangeDate DATE, ExchangeID INT, Rate FLOAT)
@@ -34,6 +41,14 @@ BEGIN
 	SELECT ExchangeDate, Currency, Rate
 	FROM bodb_account.dbo.tbl_Currency_Daily WITH (NOLOCK) 
 	WHERE ExchangeDate BETWEEN @FDate AND @TDate
+
+	-- Get Product List
+	IF LEN(ISNULL(@ProductList, '')) > 0 
+	BEGIN
+		SELECT val AS ProductPrefix
+		INTO #tmpProduct
+		FROM dbo.strSplit(@ProductList, ',')
+	END
 
 	CREATE CLUSTERED INDEX [PK_tmp_CurrencyDaily] ON #Exchange( ExchangeDate, ExchangeID )
 
@@ -84,8 +99,11 @@ BEGIN
 	CREATE TABLE #SportBettypeMatrix (ProductID INT, Bettype INT, EventType INT, SubProduct VARCHAR(500))
 
 	INSERT INTO #SportBettypeMatrix (ProductID, Bettype, EventType, SubProduct)
-	SELECT ProductID, BetType, EventType, SubProduct FROM bodb02.dbo.f_SportBettypeMatrix_Sel(0,0,0,2,'','KN,LT,VB,VS,VS2,NG,CS,NG2,AB,FW,GD,LK3,CB',0)
-	
+	SELECT ProductID, BetType, EventType, SubProduct 
+	FROM bodb02.dbo.f_SportBettypeMatrix_Sel(0,0,0,2,'',@Credit,0) sel
+	WHERE @ProductList = '' 
+		OR EXISTS (SELECT 1 FROM #tmpProduct p WHERE sel.ProductPrefix = p.ProductPrefix) 
+
 	-- House WL
 	CREATE TABLE #TmpHouseWL (rptDate DATE, ProductID INT, CurrencyID INT, HouseWL MONEY, MemberWL MONEY, MemberWLReal MONEY, MemberWLOANDA MONEY, PayToSupplier MONEY, TurnOver MONEY, ExtraPT MONEY)
 	
@@ -110,12 +128,14 @@ BEGIN
 	OPTION (RECOMPILE)
 
 	-- Select TO for Deposit Site
-
 	DELETE FROM #SportBettypeMatrix
 
 	INSERT INTO #SportBettypeMatrix (ProductID, Bettype, EventType, SubProduct)
-	SELECT ProductID, BetType, EventType, SubProduct FROM bodb02.dbo.f_SportBettypeMatrix_Sel(0,0,0,2,'','NG,CS,KN,LT,AGC,MGCLC,MGCRNG,BT,CO,CB,VB,AB,FW,GD,BX,VS,VS2',0)
-	
+	SELECT ProductID, BetType, EventType, SubProduct 
+	FROM bodb02.dbo.f_SportBettypeMatrix_Sel(0,0,0,2,'',@Deposit,0) sel
+	WHERE @ProductList = '' 
+		OR EXISTS (SELECT 1 FROM #tmpProduct p WHERE sel.ProductPrefix = p.ProductPrefix) 
+
 	INSERT INTO #TmpHouseWL (rptDate, ProductID, CurrencyID, TurnOver)
 	SELECT 
 		b.rptDate,

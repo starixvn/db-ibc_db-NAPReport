@@ -4,8 +4,9 @@ USE bodb02
 GO
 
 ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_NonSport_Deposit]
-	@FromDate DATE,
-	@ToDate	DATE
+	@FromDate		DATE,
+	@ToDate			DATE,
+	@ProductList	VARCHAR(MAX) = ''
 AS  
 /*  	
 	Created:		20180126@Harper 
@@ -14,8 +15,11 @@ AS
    
     Revisions:
 		- 20180126@Harper - HDWL Letstalk - Implement Chart of NonSport product margin [#RedmineID: 89632]
-		
+		- 20180806@Harper - DHWL Margin Chart - Create new message notification to NSD group based on Product List [#RedmineID: 98611]
+
 	Param's Explanation:   
+		- @ProductList: '' - default value when get all product
+						'GD,AB,AGC,MGCLC,MGCRNG,CS,VB,PP,NG,VS,KN,LT,FW,VS2,CB' - if group is NSD Group
 
 	Acc_Rpt_HouseNetIncome_MarginChart_NonSport_Deposit '2018-05-01', '2018-05-17'
   
@@ -26,12 +30,26 @@ BEGIN
 	DECLARE @FDate DATE, @TDate DATE
 	SELECT @FDate = @FromDate, @TDate = @ToDate
 
-	IF OBJECT_ID('tempdb..##FinalResult', 'U') IS NOT NULL
-		DROP TABLE ##FinalResult
+	DECLARE @DefaulProductList VARCHAR(MAX) = 'EX,GD,FW,AB,VB,CB,BT,CO,MGCLC,MGCRNG,AGC,KN,LT,CS,NG'
 
-	DECLARE @DynamicTable VARCHAR(1000), @SumValue VARCHAR(1000)
-	SET @DynamicTable = 'CREATE TABLE ##FinalResult (ProductCode VARCHAR(50), [Order] TINYINT, Figure NVARCHAR(100), FullRange MONEY, '
+	-- Select ProductList
+	SELECT @ProductList = CASE WHEN LEN(ISNULL(@ProductList, '')) > 0  THEN @ProductList ELSE @DefaulProductList END
+
+	IF LEN(ISNULL(@ProductList, '')) > 0 
+	BEGIN
+		SELECT val AS ProductPrefix
+		INTO #tmpProduct
+		FROM dbo.strSplit(@ProductList, ',')
+	END
+
+	DECLARE @SQL VARCHAR(MAX)
+	SELECT @SQL = '-- Create Temp Table Final Return Data ' + CHAR(13)
+
+	
+	DECLARE @SumValue VARCHAR(1000)	
 	SET @SumValue = 'SELECT ''NonSport'' AS ProductCode, [Order], Figure, SUM(FullRange) AS FullRange '
+
+	SELECT @SQL = @SQL + 'CREATE TABLE #MarginChartResult (ProductCode VARCHAR(50), [Order] TINYINT, Figure NVARCHAR(100), FullRange MONEY, ' + CHAR(13)
 			
 	DECLARE @tmpDate DATE, @date VARCHAR(5)
 	SELECT @tmpDate = @FDate
@@ -41,73 +59,105 @@ BEGIN
 		
 		SELECT @date = CONVERT(VARCHAR(2), @tmpDate, 106)
 
-		SELECT @DynamicTable = @DynamicTable + '[' + @date + ']' + ' MONEY, '
+		SELECT @SQL = @SQL + '[' + @date + ']' + ' MONEY, '
 		SELECT @SumValue = @SumValue + ', SUM(' + '[' + @date + ']' + ') AS ' + + '[' + @date + ']'
 
 		SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate)
 	END
 
-	SELECT @DynamicTable = LEFT(@DynamicTable, DATALENGTH(@DynamicTable) -2) + ')'	
-	SELECT @SumValue = @SumValue + ' FROM ##FinalResult GROUP BY [Order], Figure ORDER BY [Order]'
+	SELECT @SQL = LEFT(@SQL, DATALENGTH(@SQL) -2) + ')'	+ CHAR(13)
+	SELECT @SumValue = @SumValue + ' FROM #MarginChartResult GROUP BY [Order], Figure ORDER BY [Order]'
 	
-	EXEC (@DynamicTable)
+	--EXEC (@DynamicTable)
 	
-	-- 13. EX
-	INSERT INTO ##FinalResult
-	EXEC Acc_Rpt_HouseNetIncome_MarginChart_EX_Deposit @FromDate = @FDate, @ToDate = @TDate
+	-- 12. EX
+	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'EX')
+	BEGIN
+		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
+							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_EX_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
+	END	
 
 	-- 11. GD
-	INSERT INTO ##FinalResult
-	EXEC Acc_Rpt_HouseNetIncome_MarginChart_GD_Deposit @FromDate = @FDate, @ToDate = @TDate
+	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'GD')
+	BEGIN
+		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
+							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_GD_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
+	END	
 
 	-- 10. FW
-	INSERT INTO ##FinalResult
-	EXEC Acc_Rpt_HouseNetIncome_MarginChart_FW_Deposit @FromDate = @FDate, @ToDate = @TDate
+	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'FW')
+	BEGIN
+		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
+							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_FW_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
+	END	
 
 	-- 9. AB
-	INSERT INTO ##FinalResult
-	EXEC Acc_Rpt_HouseNetIncome_MarginChart_AB_Deposit @FromDate = @FDate, @ToDate = @TDate
+	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'AB')
+	BEGIN
+		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
+							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_AB_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
+	END	
 
 	-- 8. Macau Game
-	INSERT INTO ##FinalResult
-	EXEC Acc_Rpt_HouseNetIncome_MarginChart_MacauGames_Deposit @FromDate = @FDate, @ToDate = @TDate
+	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'VB')
+	BEGIN
+		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
+							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_MacauGames_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
+	END	
 
 	-- 7. CB
-	INSERT INTO ##FinalResult
-	EXEC Acc_Rpt_HouseNetIncome_MarginChart_CB @FromDate = @FDate, @ToDate = @TDate
+	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'CB')
+	BEGIN
+		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
+							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_CB @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
+	END
 
 	-- 6. BT + CO
-	INSERT INTO ##FinalResult
-	EXEC Acc_Rpt_HouseNetIncome_MarginChart_BT_CO_Deposit @FromDate = @FDate, @ToDate = @TDate
-
+	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix IN ('BT', 'CO'))
+	BEGIN
+		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
+							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_BT_CO_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
+	END
+	
 	-- 5. Microgaming
-	INSERT INTO ##FinalResult
-	EXEC Acc_Rpt_HouseNetIncome_MarginChart_MGC_Deposit @FromDate = @FDate, @ToDate = @TDate	
+	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix IN ('MGCLC', 'MGCRNG'))
+	BEGIN
+		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
+							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_MGC_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
+	END	
 
 	-- 4. AGC
-	INSERT INTO ##FinalResult
-	EXEC Acc_Rpt_HouseNetIncome_MarginChart_AGC_Deposit @FromDate = @FDate, @ToDate = @TDate
+	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'AGC')
+	BEGIN
+		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
+							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_AGC_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
+	END	
 
 	-- 3. KN + LT
-	INSERT INTO ##FinalResult
-	EXEC Acc_Rpt_HouseNetIncome_MarginChart_KN_LT_Deposit @FromDate = @FDate, @ToDate = @TDate
+	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix IN ('KN', 'LT'))
+	BEGIN
+		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
+							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_KN_LT_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
+	END	
 
 	-- 2. CS
-	INSERT INTO ##FinalResult
-	EXEC Acc_Rpt_HouseNetIncome_MarginChart_CS_Deposit @FromDate = @FDate, @ToDate = @TDate
+	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'CS')
+	BEGIN
+		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
+							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_CS_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
+	END	
 
 	-- 1. NG
-	INSERT INTO ##FinalResult
-	EXEC Acc_Rpt_HouseNetIncome_MarginChart_NG_Deposit @FromDate = @FDate, @ToDate = @TDate
+	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'NG')
+	BEGIN
+		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
+							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_NG_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
+	END
 		
-	EXEC (@SumValue)
-
-	-- Region: Drop tmp table	
-	DROP TABLE ##FinalResult
+	-- Region: Return final result
+	SELECT @SQL = @SQL + @SumValue + CHAR(13)
+	SELECT @SQL = @SQL + 'DROP TABLE #MarginChartResult' + CHAR(13)
+	
+	EXEC (@SQL)	
 END
-GO
-
-GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_NonSport_Deposit] TO [bodbAdminNet]
-GO
-GRANT VIEW definition ON [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_NonSport_Deposit] TO vnteam
 GO
