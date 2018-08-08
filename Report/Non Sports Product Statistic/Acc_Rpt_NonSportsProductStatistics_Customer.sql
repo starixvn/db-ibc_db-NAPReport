@@ -38,6 +38,7 @@ AS
 		- 20171002@Cherry: Modify Associated Accounts Code Logic (#84002)
 		- 20171006@Cherry: Add filter of Number Game Bettype (#83101)
 		- 20180328@Cherry: Integrate One RNG Jackpot (#89459)
+		- 20180808@Cherry: Integrate Poker Games (#97809)
 
 	Param's Explanation:
 		- @username: search keyword
@@ -534,14 +535,17 @@ BEGIN
 				b.recommend,
 				b.custid,
 				b.bettype,
-				COUNT(b.transid) AS BetCount,
+				CASE WHEN s.ProductID = 33 THEN SUM(b.betid)  -- Poker Games
+					 ELSE COUNT(b.transid) END AS BetCount,
 				b.currency,
 				SUM(actual_stake) AS TotalBets,
 				SUM(actual_stake * actualrate) AS TotalBetsBase,
 				SUM(winlost) AS TotalWins,
 				SUM(winlost * actualrate) AS TotalWinsBase,
-				SUM((1- b.tpositiontaking) * b.stake) AS CompanyTurnover,
-				SUM((1- b.tpositiontaking) * b.stake * actualrate) AS CompanyTurnoverBase,
+				SUM(CASE WHEN s.ProductID = 33 THEN 0  -- Poker Games
+						ELSE (1- b.tpositiontaking) * b.stake END) AS CompanyTurnover,
+				SUM(CASE WHEN s.ProductID = 33 THEN 0  -- Poker Games
+						ELSE (1- b.tpositiontaking) * b.stake * actualrate END) AS CompanyTurnoverBase,
 				SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)) AS CompanyGrossIncome,
 				SUM((winlost - actual_stake + awinlost + mwinlost + swinlost) * actualrate) AS CompanyGrossIncomeBase,
 				SUM(scomm) AS CompanyComm,
@@ -795,14 +799,17 @@ BEGIN
 				b.recommend,
 				b.custid,
 				b.bettype ,
-				COUNT(b.transid) AS BetCount,
+				CASE WHEN s.ProductID = 33 THEN SUM(b.betid)  -- Poker Games
+					ELSE COUNT(b.transid) END AS BetCount,
 				b.currency,
 				SUM(actual_stake) AS TotalBets,
 				SUM(actual_stake * actualrate) AS TotalBetsBase,
 				SUM(winlost) AS TotalWins,
 				SUM(winlost * actualrate) AS TotalWinsBase,
-				SUM((1- b.tpositiontaking) * b.stake) AS CompanyTurnover,
-				SUM((1- b.tpositiontaking) * b.stake * actualrate) AS CompanyTurnoverBase,
+				SUM(CASE WHEN s.ProductID = 33 THEN 0  -- Poker Games
+						ELSE (1- b.tpositiontaking) * b.stake END) AS CompanyTurnover,
+				SUM(CASE WHEN s.ProductID = 33 THEN 0  -- Poker Games
+						ELSE (1- b.tpositiontaking) * b.stake * actualrate END) AS CompanyTurnoverBase,
 				SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)) AS CompanyGrossIncome,
 				SUM((winlost - actual_stake + awinlost + mwinlost + swinlost) * actualrate) AS CompanyGrossIncomeBase,
 				SUM(scomm) AS CompanyComm,
