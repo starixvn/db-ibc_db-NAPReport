@@ -336,7 +336,7 @@ SET NOCOUNT ON
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 				)
-		GROUP BY  b.WinlostDate,  b.Currency, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END
+		GROUP BY  s.ProductID, b.WinlostDate,  b.Currency, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END
 		 
 		---1b. By bettype for Casino Product
 		INSERT INTO #Data (  ReportBy, CustId,

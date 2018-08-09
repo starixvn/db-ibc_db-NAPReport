@@ -15,6 +15,7 @@ AS
 		- 20171003@Cherry: Add Number Game Bettype (#83101)
 		- 20171116@Cherry: Integrate Bullfighting (#85946)
 		- 20180116@Cherry: Integrate OneRNG Jackpot, except bettype (2199, 2399, 2999)
+		- 20180808@Cherry: Integrate Poker Games (#97809)
 */
  
 BEGIN
@@ -33,7 +34,7 @@ SET NOCOUNT ON
 	FROM	dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '', @isTest) s
 		INNER JOIN dbo.Bettype b ON s.Bettype = b.TypeId 
 	WHERE  CasinoType IN (1,2) 
-		   OR ProductID IN (8, 24, 26, 28, 30) 	 
+		   OR ProductID IN (8, 24, 26, 28, 30, 33) 	 
 		   AND b.TypeId NOT IN (2199, 2399, 2999)
 
 	
