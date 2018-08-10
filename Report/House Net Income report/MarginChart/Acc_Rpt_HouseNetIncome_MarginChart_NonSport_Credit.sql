@@ -36,6 +36,7 @@ BEGIN
 	-- Region: Get exchange rate info
 	CREATE	TABLE #Exchange			(ExchangeDate DATE, ExchangeID INT, Rate FLOAT)
 	CREATE	TABLE #ExchangeOANDA	(ExchangeDate DATE, ExchangeID INT, Rate FLOAT)
+	CREATE	TABLE #tmpProduct		(ProductPrefix VARCHAR(20))
 
 	INSERT INTO #Exchange(ExchangeDate, ExchangeID, Rate)
 	SELECT ExchangeDate, Currency, Rate
@@ -43,10 +44,11 @@ BEGIN
 	WHERE ExchangeDate BETWEEN @FDate AND @TDate
 
 	-- Get Product List
+	
 	IF LEN(ISNULL(@ProductList, '')) > 0 
 	BEGIN
-		SELECT val AS ProductPrefix
-		INTO #tmpProduct
+		INSERT INTO #tmpProduct ( ProductPrefix )		
+		SELECT val AS ProductPrefix		
 		FROM dbo.strSplit(@ProductList, ',')
 	END
 
@@ -101,7 +103,7 @@ BEGIN
 	INSERT INTO #SportBettypeMatrix (ProductID, Bettype, EventType, SubProduct)
 	SELECT ProductID, BetType, EventType, SubProduct 
 	FROM bodb02.dbo.f_SportBettypeMatrix_Sel(0,0,0,2,'',@Credit,0) sel
-	WHERE @ProductList = '' 
+	WHERE ISNULL(@ProductList, '') = ''
 		OR EXISTS (SELECT 1 FROM #tmpProduct p WHERE sel.ProductPrefix = p.ProductPrefix) 
 
 	-- House WL
@@ -133,7 +135,7 @@ BEGIN
 	INSERT INTO #SportBettypeMatrix (ProductID, Bettype, EventType, SubProduct)
 	SELECT ProductID, BetType, EventType, SubProduct 
 	FROM bodb02.dbo.f_SportBettypeMatrix_Sel(0,0,0,2,'',@Deposit,0) sel
-	WHERE @ProductList = '' 
+	WHERE ISNULL(@ProductList, '') = ''
 		OR EXISTS (SELECT 1 FROM #tmpProduct p WHERE sel.ProductPrefix = p.ProductPrefix) 
 
 	INSERT INTO #TmpHouseWL (rptDate, ProductID, CurrencyID, TurnOver)
