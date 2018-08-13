@@ -15,7 +15,7 @@ AS
 /*
 Creator: Kean
 Date: 2018-08-13
-Task:  Improve performance Sp to drilldown OtherSports [#99524]
+Task:  Improve performance Sp to drilldown MetricGaming [#99524]
 DB: DBACC/bodb02
 
 Revisions:
@@ -229,6 +229,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_MetricGaming_BetType_LiveStatus] @EndDate='2018-08-
         DROP TABLE #DepositSuper;
         DROP TABLE #ExtraPT_Sel;
         DROP TABLE #Data;
+		DROP TABLE #tmp_Data;
 GO
 GRANT EXECUTE ON [dbo].[Acc_Rpt_CompanyWinLoss_MetricGaming_BetType_LiveStatus] TO [bodbAdminNet];
 GO
