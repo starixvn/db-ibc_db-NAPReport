@@ -1,3 +1,5 @@
+/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+
 USE [bodb02]
 GO
 /****** Object:  StoredProcedure [dbo].[Acc_Rpt_CompanyWinLoss_Products]    Script Date: 5/22/2018 8:51:28 AM ******/

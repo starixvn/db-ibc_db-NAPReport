@@ -1,12 +1,5 @@
-IF EXISTS
-(
-    SELECT *
-    FROM sys.objects
-    WHERE object_id = OBJECT_ID(N'[dbo].[Acc_Rpt_CompanyWinLoss_Racing_BetType]')
-          AND type IN(N'P', N'PC')
-)
-    DROP PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_Racing_BetType];
-GO
+/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+
 CREATE PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_Racing_BetType] @StartDate SMALLDATETIME,
                                                                @EndDate   SMALLDATETIME,
                                                                @SportType SMALLINT
