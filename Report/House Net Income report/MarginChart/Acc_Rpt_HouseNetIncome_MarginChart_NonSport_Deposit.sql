@@ -16,12 +16,13 @@ AS
     Revisions:
 		- 20180126@Harper - HDWL Letstalk - Implement Chart of NonSport product margin [#RedmineID: 89632]
 		- 20180806@Harper - DHWL Margin Chart - Create new message notification to NSD group based on Product List [#RedmineID: 98611]
+		- 20180813@Harper - DHWL Non-sports Margin Chart - Integrate OneRNG Jackpot & Pragmatic [#RedmineID: 97562]
 
 	Param's Explanation:   
 		- @ProductList: '' - default value when get all product
 						'GD,AB,AGC,MGCLC,MGCRNG,CS,VB,PP,NG,VS,KN,LT,FW,VS2,CB' - if group is NSD Group
 
-	Acc_Rpt_HouseNetIncome_MarginChart_NonSport_Deposit '2018-05-01', '2018-05-17'
+	Acc_Rpt_HouseNetIncome_MarginChart_NonSport_Deposit '2018-07-01', '2018-07-30'
   
 */ 
 BEGIN  
@@ -74,6 +75,10 @@ BEGIN
 	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'EX')
 	BEGIN
 		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
+	-- 14. PP
+	INSERT INTO ##FinalResult
+	EXEC Acc_Rpt_HouseNetIncome_MarginChart_PP_Deposit @FromDate = @FDate, @ToDate = @TDate
+
 							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_EX_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
 	END	
 
