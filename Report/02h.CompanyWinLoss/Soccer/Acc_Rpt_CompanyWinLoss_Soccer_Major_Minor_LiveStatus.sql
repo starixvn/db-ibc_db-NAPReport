@@ -207,7 +207,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus] @EndDate='2018-07-31
 					  SUM(VarianceIncome) VarianceIncome,
                       SUM(RealTurnover) AS RealTurnover,
                       SUM(VirtualTurnover) AS VirtualTurnover
-               FROM #tmp_Data AS b WITH ( NOLOCK )
+               FROM #tmp_Data AS b
                     INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
                     LEFT JOIN #DepositSuper AS dep ON b.srecommend = dep.CustId
                WHERE @IsLive > 1 OR b.liveIndicator = @IsLive
@@ -245,7 +245,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus] @EndDate='2018-07-31
 					  SUM(VarianceIncome) VarianceIncome,
                       SUM(RealTurnover) AS RealTurnover,
                       SUM(VirtualTurnover) AS VirtualTurnover
-               FROM #tmp_Data AS b WITH ( NOLOCK )
+               FROM #tmp_Data AS b
                     INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
                     LEFT JOIN #DepositSuper AS dep ON b.srecommend = dep.CustId
                GROUP BY liveindicator,
