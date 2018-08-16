@@ -38,6 +38,7 @@ Revisions:
 	- 20180411@Franklin: Integrate Pragmatic (#92642)
 	- 20180504@Dominic: Apply new VR concepts - Redminde:#94213
 	- 20180711@Robert: NAP Report - Add Cash Out & Bettrade into Tree Win Loss report [RedmindID: #98005]
+	- 20480815@Robert: Integrate Poker Games into NAP Report [RedmindID: #97830]
 */
 
 BEGIN
@@ -316,6 +317,8 @@ BEGIN
 			 , SUM(CASE
 					 WHEN pb.ProductID = 1
 					 THEN ABS(stake)
+					 WHEN pb.ProductID = 33
+					 THEN 0
 					 ELSE stake
 				  END * (1 - tpositiontaking)) AS                                            TurnoverIBC
 			 , SUM(swinlost + mwinlost + awinlost + winlost - actual_stake) AS                WinlossIBC
@@ -323,6 +326,8 @@ BEGIN
 			 , SUM(CASE
 					 WHEN tpositiontaking = 1
 					 THEN 0
+					 WHEN pb.ProductID = 33
+					 THEN(-1) * b.oddsspread * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(10, 8))
 					 ELSE(winlost - actual_stake) * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(10, 8))
 				  END) AS                                                                    ExtraWL
 			 , SUM(CASE
@@ -331,21 +336,33 @@ BEGIN
 					 ELSE CASE
 							WHEN pb.ProductID = 1
 							THEN ABS(stake)
+							WHEN pb.ProductID = 33
+							THEN 0
 							ELSE stake
 						 END * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(10, 8))
 				  END) AS                                                                    ExtraTO
 			 , CAST(SUM(CASE
 						 WHEN tpositiontaking = 1
 						 THEN 0
+						 WHEN pb.ProductID = 33
+						 THEN(-1) * b.oddsspread * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(10, 8))
 						 ELSE scomm * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(10, 8)) / (1 - tpositiontaking)
 					  END) AS DECIMAL(19, 6)) AS                                            ExtraComm
 /*RM*/
-			 , SUM(ABS(stake) * (1 - tpositiontaking) * actualrate) AS                        TurnoverIBC_RM
+			 , SUM(CASE
+					 WHEN pb.ProductID = 1
+					 THEN ABS(stake)
+					 WHEN pb.ProductID = 33
+					 THEN 0
+					 ELSE stake
+				  END * (1 - tpositiontaking) * actualrate) AS                               TurnoverIBC_RM
 			 , SUM((swinlost + mwinlost + awinlost + winlost - actual_stake) * actualrate) AS WinlossIBC_RM
 			 , SUM(scomm * actualrate) AS                                                     CommissionS_RM
 			 , SUM(CASE
 					 WHEN tpositiontaking = 1
 					 THEN 0
+					 WHEN pb.ProductID = 33
+					 THEN(-1) * b.oddsspread * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(10, 8))
 					 ELSE(winlost - actual_stake) * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(10, 8))
 				  END * actualrate) AS                                                       ExtraWL_RM
 			 , SUM(CASE
@@ -354,12 +371,16 @@ BEGIN
 					 ELSE CASE
 							WHEN pb.ProductID = 1
 							THEN ABS(stake)
+							WHEN pb.ProductID = 33
+							THEN 0
 							ELSE stake
 						 END * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(10, 8))
 				  END * actualrate) AS                                                       ExtraTO_RM
 			 , CAST(SUM(CASE
 						 WHEN tpositiontaking = 1
 						 THEN 0
+						 WHEN pb.ProductID = 33
+						 THEN(-1) * b.oddsspread * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(10, 8))
 						 ELSE scomm * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(10, 8)) / (1 - tpositiontaking)
 					  END * actualrate) AS DECIMAL(19, 6)) AS                               ExtraComm_RM
 		 FROM bettrans AS b WITH (ROWLOCK)
