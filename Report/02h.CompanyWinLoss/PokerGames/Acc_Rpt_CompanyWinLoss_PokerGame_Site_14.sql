@@ -1,0 +1,121 @@
+USE [bodb02]
+GO
+
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_PokerGames_Site_14]
+       @StartDate SMALLDATETIME,
+       @EndDate   SMALLDATETIME,
+       @BetType   INT,
+       @Site      NVARCHAR(50),
+       @IsLive    INT = 2
+AS
+
+/*
+Creator: 20180824@Cherry
+Task:  Poker Games Integration - Implement Company Winloss By Products report [#97830]
+DB: DBACC/bodb02
+
+Revisions: 	 
+	
+Parameter's Explanation:
+	- @Site: credit, deposit	
+	
+Example: 
+EXEC [Acc_Rpt_CompanyWinLoss_PokerGames_Site_14] @StartDate='2018-08-21', @EndDate='2018-08-21', @Site = 'Credit', @BetType = 1404
+
+*/
+
+     SET NOCOUNT ON;
+    BEGIN -- #Agent
+
+        CREATE TABLE #Agent( CustId INT PRIMARY KEY,
+                             Site   NVARCHAR(50));
+        IF @Site = 'Deposit'
+            BEGIN
+                INSERT INTO #Agent
+                       SELECT c.CustId,
+                              Site
+                       FROM customer AS c WITH ( NOLOCK )
+                       WHERE c.RoleID = 2
+                         AND EXISTS( 
+                                     SELECT 1
+                                     FROM f_DepSuper_1( 'All' ) dep
+                                     WHERE c.srecommend = dep.CustId );
+            END;
+        ELSE
+            BEGIN
+                INSERT INTO #Agent
+                       SELECT c.CustId,
+                              Site
+                       FROM customer AS c WITH ( NOLOCK )
+                       WHERE c.RoleID = 2
+                         AND NOT EXISTS( 
+                                         SELECT 1
+                                         FROM f_DepSuper_1( 'All' ) dep
+                                         WHERE c.srecommend = dep.CustId );
+            END;
+    END;
+    BEGIN
+        ------Get Sport Bettype Matrix------
+        -- Check SP Version	 
+        DECLARE @isTest BIT = 0;
+        SELECT @isTest = dbo.f_CheckSPVersion( @@PROCID );
+		DECLARE @ProductID INT;
+       
+        SELECT DISTINCT @ProductID = s.ProductID
+        FROM dbo.f_SportBettypeMatrix_Sel( 0, 0, 0, 2, '', '', 1 ) s
+		INNER JOIN dbo.SportBettypeMatrix t WITH ( NOLOCK ) ON t.BetType = s.BetType
+                                                                AND t.ProductId = s.ProductId
+        WHERE s.bettype = @BetType;
+        --- End Sport Bettype Matrix------
+    END;
+    BEGIN ---- Extra PT 
+        CREATE TABLE #ExtraPT_Sel( SuperID INT,
+								   Sporttype  INT,
+                                   ExtraPT DECIMAL(9, 8));
+            INSERT INTO #ExtraPT_Sel
+               ( SuperID,
+			     Sporttype,
+                 ExtraPT
+               )
+               SELECT SuperId, a.Sporttype,
+                      SUM(ExtraPT) AS ExtraPT
+               FROM bodb02.dbo.Acc_GroupExtraPTSetting a WITH ( NOLOCK )
+               WHERE @StartDate BETWEEN FromDate AND Todate
+			   AND a.ProductId = @ProductID
+               GROUP BY SuperId, a.Sporttype;
+    END;
+    BEGIN -- Query
+
+        SELECT Site AS RowName,
+               SUM(( winlost - actual_stake ) * actualrate) AS MemberWinLoss,
+               SUM(( awinlost + mwinlost + swinlost ) * actualrate) AS SMAWinLoss,
+			   -SUM((-b.oddsspread) * ISNULL(e.ExtraPT, 0) * actualrate) AS ExtraPT,
+               SUM(scomm * actualrate) Commission,
+               SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm 
+							- (-b.oddsspread) * ISNULL(e.ExtraPT, 0)) * actualrate) AS RealIncome,
+               0 AS RealTurnover
+        FROM bettrans14 AS b WITH ( NOLOCK )
+             INNER JOIN #Agent AS dep ON b.recommend = dep.CustId
+             LEFT JOIN #ExtraPT_Sel e ON e.SuperID = b.srecommend
+        WHERE b.winlostdate = @StartDate
+          AND ( @IsLive = 2
+             OR b.liveindicator = @IsLive
+              )
+          AND b.BetType = @BetType
+          AND b.ruben = 1
+          AND b.statusID IN( 111, 112, 113 )
+        GROUP BY Site
+        ORDER BY RowName;
+    END;
+        DROP TABLE #Agent;
+        DROP TABLE #ExtraPT_Sel;
+GO
+GRANT EXECUTE ON [dbo].[Acc_Rpt_CompanyWinLoss_PokerGames_Site_14] TO [bodbAdminNet];
+GO
+GRANT VIEW DEFINITION ON [dbo].[Acc_Rpt_CompanyWinLoss_PokerGames_Site_14] TO [vnteam];
+GO
