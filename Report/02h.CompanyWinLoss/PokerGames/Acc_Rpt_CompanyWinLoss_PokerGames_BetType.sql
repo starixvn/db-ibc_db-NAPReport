@@ -1,3 +1,5 @@
+/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
+
 USE [bodb02]
 GO
 
@@ -6,7 +8,7 @@ GO
 SET QUOTED_IDENTIFIER ON
 GO
 
-ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_PokerGames_BetType_14]
+ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_PokerGames_BetType]
        @StartDate SMALLDATETIME,
        @EndDate   SMALLDATETIME,
        @ProductId INT = 33,
@@ -22,7 +24,7 @@ DB: DBACC/bodb02
 Revisions: 
 	 
 Example: 
-EXEC [Acc_Rpt_CompanyWinLoss_PokerGames_BetType_14] @StartDate='2018-08-21', @EndDate='2018-08-21', @ProductId = 33, @SportType = 0
+EXEC [Acc_Rpt_CompanyWinLoss_PokerGames_BetType] @StartDate='2018-08-21', @EndDate='2018-08-21', @ProductId = 33, @SportType = 0
 		
 */
 
@@ -81,9 +83,9 @@ EXEC [Acc_Rpt_CompanyWinLoss_PokerGames_BetType_14] @StartDate='2018-08-21', @En
                    SUM(( awinlost + mwinlost + swinlost ) * actualrate) AS SMAWinLoss,
 				   -SUM((-b.oddsspread) * ISNULL(e.ExtraPT, 0) * actualrate) AS ExtraPT,
                    SUM(scomm * actualrate) Commission,
-                   SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - ( -b.oddsspread ) * ISNULL(e.ExtraPT, 0)) * actualrate) AS RealIncome,
+                   SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - (-b.oddsspread) * ISNULL(e.ExtraPT, 0)) * actualrate) AS RealIncome,
                    0 AS RealTurnover
-            FROM bettrans14 AS b WITH ( NOLOCK )
+            FROM bettrans AS b WITH ( NOLOCK )
                  INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
                  LEFT JOIN #DepositSuper AS dep ON b.srecommend = dep.CustId
                  LEFT JOIN #ExtraPT_Sel e ON e.SuperID = b.srecommend
@@ -108,7 +110,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_PokerGames_BetType_14] @StartDate='2018-08-21', @En
         DROP TABLE #ExtraPT_Sel;
     END;
 GO
-GRANT EXECUTE ON [dbo].[Acc_Rpt_CompanyWinLoss_PokerGames_BetType_14] TO [bodbAdminNet];
+GRANT EXECUTE ON [dbo].[Acc_Rpt_CompanyWinLoss_PokerGames_BetType] TO [bodbAdminNet];
 GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_Rpt_CompanyWinLoss_PokerGames_BetType_14] TO [vnteam];
+GRANT VIEW DEFINITION ON [dbo].[Acc_Rpt_CompanyWinLoss_PokerGames_BetType] TO [vnteam];
 GO
