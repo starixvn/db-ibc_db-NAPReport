@@ -34,7 +34,6 @@ Revisions:
 	- 20171013@Franklin: ExtraPT Setting - DB Restructure (#84802)
 	- 2018.03.19@Franklin: Integrate  ONE RNG Jackpot (#91712)
 	- 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
-	- 20180816@Cherry: Integrate Poker Games (#97830)
 
 Example:
 EXEC [Acc_Rpt_CompanyWinLoss_Game_Product] @EndDate='2020-01-01',@StartDate='2017-01-05', @CasinoType = 1
@@ -114,20 +113,25 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_Product] @EndDate='2020-01-01',@StartDate='201
                               SUM(( winlost - actual_stake ) * actualrate) AS MemberWinLoss,
                               SUM(( awinlost + mwinlost + swinlost ) * actualrate) AS SMAWinLoss,
                               SUM(scomm * actualrate) Commission,
-                              SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm 
-									- ( CASE WHEN tpositiontaking = 1 THEN 0
-                                             WHEN sb.ProductID = 33 THEN -b.oddsspread  -- Poker Games          
-                                             ELSE winlost - actual_stake + b.scomm / ( 1 - b.tpositiontaking )
-                                        END ) * ISNULL(e.ExtraPT, 0)) * actualrate) AS RealIncome,
-                              SUM(CASE WHEN tpositiontaking = 1 THEN 0
-                                       WHEN sb.ProductID = 33 THEN 0  -- Poker Games
-                                       ELSE( 1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * b.stake * CASE WHEN virtualrate > actualrate THEN virtualrate
-                                                                                                            ELSE actualrate END
+                              SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - ( CASE
+                                                                                                            WHEN tpositiontaking = 1
+                                                                                                            THEN 0
+                                                                                                            ELSE winlost - actual_stake + b.scomm / ( 1 - b.tpositiontaking )
+                                                                                                        END ) * ISNULL(e.ExtraPT, 0)) * actualrate) AS RealIncome,
+                              SUM(CASE
+                                      WHEN tpositiontaking = 1
+                                      THEN 0
+                                      ELSE( 1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * b.stake * CASE
+                                                                                                               WHEN virtualrate > actualrate
+                                                                                                               THEN virtualrate
+                                                                                                               ELSE actualrate
+                                                                                                           END
                                   END) AS RealTurnover,
                               SUM(( winlost - actual_stake ) * actualrate * ISNULL(e.ExtraPT, 0)) AS ExtraPT,
-                              SUM(( CASE WHEN tpositiontaking = 1 THEN winlost - actual_stake
-										 WHEN sb.ProductID = 33 THEN -b.oddsspread  -- Poker Games
-                                         ELSE winlost - actual_stake + scomm / ( 1 - tpositiontaking )
+                              SUM(( CASE
+                                        WHEN tpositiontaking = 1
+                                        THEN winlost - actual_stake
+                                        ELSE winlost - actual_stake + scomm / ( 1 - tpositiontaking )
                                     END * ISNULL(e.ExtraPT, 0)) * actualrate) AS NewExtraPT
                        FROM bettrans AS b WITH ( NOLOCK )
                             INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType

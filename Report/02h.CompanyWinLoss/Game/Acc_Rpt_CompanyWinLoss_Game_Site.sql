@@ -28,7 +28,6 @@ Revisions:
 - 2018.03.19@Franklin: Integrate  ONE RNG Jackpot (#91712)
 - 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
 - 2018.06.04@Dominic: Force to recompile (#96143)
-- 20180816@Cherry: Integrate Poker Games (#97830)
 				   
 Example:
 EXEC [Acc_Rpt_CompanyWinLoss_Game_Site] @BetType = 2101,@EndDate='2020-01-01',@Site = 'Credit',@StartDate='2016-01-01'
@@ -109,20 +108,25 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_Site] @BetType = 2101,@EndDate='2020-01-01',@S
                        SELECT dep.Site RowName,
                               SUM(( winlost - actual_stake ) * actualrate) AS MemberWinLoss,
                               SUM(( awinlost + mwinlost + swinlost ) * actualrate) AS SMAWinLoss,
-							  SUM((CASE WHEN b.tpositiontaking = 1 THEN 0
-									    WHEN b.bettype between 1401 and 1499 THEN -b.oddsspread  -- Poker Games
-									    ELSE(winlost - actual_stake ) + b.scomm / ( 1 - b.tpositiontaking )
+							  SUM((CASE
+									  WHEN b.tpositiontaking = 1
+									  THEN 0
+									  ELSE(winlost - actual_stake ) + b.scomm / ( 1 - b.tpositiontaking )
 								  END) * ISNULL(e.ExtraPT, 0) * actualrate) AS ExtraPT,
                               SUM(scomm * actualrate) Commission,
-                              SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm 
-									- ( CASE WHEN tpositiontaking = 1 THEN 0
-                                             WHEN b.bettype between 1401 and 1499 THEN -b.oddsspread  -- Poker Games                      
-                                             ELSE winlost - actual_stake + b.scomm / ( 1 - b.tpositiontaking )
-                                        END ) * ISNULL(e.ExtraPT, 0)) * actualrate) AS RealIncome,
-                              SUM(CASE WHEN tpositiontaking = 1 THEN 0
-                                       WHEN b.bettype between 1401 and 1499 THEN 0  -- Poker Games
-                                       ELSE( 1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * b.stake * CASE WHEN virtualrate > actualrate THEN virtualrate
-                                                                                                            ELSE actualrate END
+                              SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - ( CASE
+                                                                                                            WHEN tpositiontaking = 1
+                                                                                                            THEN 0
+                                                                                                            ELSE winlost - actual_stake + b.scomm / ( 1 - b.tpositiontaking )
+                                                                                                        END ) * ISNULL(e.ExtraPT, 0)) * actualrate) AS RealIncome,
+                              SUM(CASE
+                                      WHEN tpositiontaking = 1
+                                      THEN 0
+                                      ELSE( 1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * b.stake * CASE
+                                                                                                               WHEN virtualrate > actualrate
+                                                                                                               THEN virtualrate
+                                                                                                               ELSE actualrate
+                                                                                                           END
                                   END) AS RealTurnover
                        FROM bettrans AS b WITH ( NOLOCK )
                             INNER JOIN #Agent AS dep ON b.recommend = dep.CustId
