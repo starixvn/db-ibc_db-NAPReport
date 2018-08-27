@@ -1185,8 +1185,7 @@ AS
 				( 17, 24, 'Fishing World' ),
 				( 18, 26, 'Lucky 3' ),
 				( 19, 30, 'Bullfighting' ),
-				( 20, 31, 'Exchange' ),
-				( 21, 2, 'Racing' );
+				( 20, 31, 'Exchange' );
 
         INSERT INTO @ProductOrder
                ( DisplayOrder,
