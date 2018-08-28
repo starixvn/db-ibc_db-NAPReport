@@ -551,7 +551,7 @@ BEGIN
 				SUM(scomm) AS CompanyComm,
 				SUM(scomm *actualrate) AS CompanyCommBase,
 				s.EvenType, b.matchid, s.ProductID,
-				SUM(1 - b.tpositiontaking) AS HousePT,
+				SUM(1 - b.tpositiontaking) AS HousePT, 
 				CASE WHEN statusID = 103 THEN 103 ELSE 112 END AS statusID
 			FROM  dbo.bettrans b WITH (NOLOCK)
 				INNER JOIN #tmp_MemIDs m ON b.custid = m.CustID
@@ -1521,7 +1521,8 @@ BEGIN
 		SUM(CompanyTurnoverBase) AS CompanyTurnoverBase,
 		SUM(CompanyGrossIncomeBase) AS CompanyGrossIncomeBase,
 		SUM(CompanyCommBase) AS CompanyCommBase,
-		AVG(CASE WHEN BetCount = 0 THEN NULL ELSE HousePT/BetCount END) AS HousePT,
+		AVG(CASE WHEN ProductID = 33 THEN 1  -- Poker Games 
+				 WHEN BetCount = 0 THEN NULL ELSE HousePT/BetCount END) AS HousePT,
 		SUM(GamePayout) GamePayout,
 		SUM(CompanyNetIncome) CompanyNetIncome, 
 		SUM(GameIncome) GameIncome

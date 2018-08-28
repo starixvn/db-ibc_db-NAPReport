@@ -623,7 +623,9 @@ BEGIN
 			)
 			SELECT
 				p.ProductName AS Product,
-			HousePT/BetCount AS HousePositionTaking
+				CASE WHEN c.ProductID = 33 THEN 1  -- Poker Games
+					 WHEN BetCount = 0 THEN NULL
+					 ELSE HousePT/BetCount END AS HousePositionTaking
 			FROM CTE c
 				INNER JOIN dbo.Products p WITH(NOLOCK) ON c.ProductID = p.ProductID
 			ORDER BY p.ProductName
@@ -641,7 +643,9 @@ BEGIN
 		)
 		SELECT
 			p.ProductName AS Product,
-			HousePT/BetCount AS HousePositionTaking
+			CASE WHEN c.ProductID = 33 THEN 1  -- Poker Games
+				 WHEN BetCount = 0 THEN NULL
+				 ELSE HousePT/BetCount END AS HousePositionTaking
 		FROM CTE c
 			INNER JOIN dbo.Products p WITH(NOLOCK) ON c.ProductID = p.ProductID
 		ORDER BY p.ProductName
