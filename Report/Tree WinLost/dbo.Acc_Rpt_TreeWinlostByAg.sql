@@ -331,9 +331,8 @@ BEGIN
 			 , SUM(scomm) AS                                                                  CommissionS
 			 , SUM(CASE
 					 WHEN tpositiontaking = 1
+						 OR pb.ProductID = 33
 					 THEN 0
-					 WHEN pb.ProductID = 33
-					 THEN(-1) * b.oddsspread * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(10, 8))
 					 ELSE(winlost - actual_stake) * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(10, 8))
 				  END) AS                                                                    ExtraWL
 			 , SUM(CASE
@@ -366,9 +365,8 @@ BEGIN
 			 , SUM(scomm * actualrate) AS                                                     CommissionS_RM
 			 , SUM(CASE
 					 WHEN tpositiontaking = 1
+						 OR pb.ProductID = 33
 					 THEN 0
-					 WHEN pb.ProductID = 33
-					 THEN(-1) * b.oddsspread * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(10, 8))
 					 ELSE(winlost - actual_stake) * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(10, 8))
 				  END * actualrate) AS                                                       ExtraWL_RM
 			 , SUM(CASE
