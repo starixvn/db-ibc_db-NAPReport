@@ -31,6 +31,7 @@ AS
 		- 20170726@Cherry: Integrate Betradar Virtual Sports (#78495)
 		- 20171006@Cherry: Add filter of Number Game Bettype (#83101)
 		- 20180328@Cherry: Integrate One RNG Jackpot (#89459)
+		- 20180808@Cherry: Integrate Poker Games (#97809)
 
 	Param's Explanation:
 		- @ProductID: string filter by Product 
@@ -196,7 +197,8 @@ BEGIN
 					Bettype, HousePT
 				)
 				SELECT
-					COUNT(b.transid) AS BetCount,
+					CASE WHEN s.ProductID = 33 THEN SUM(b.betid)  -- Poker Games
+						 ELSE COUNT(b.transid) END AS BetCount,
 					SUM(actual_stake) AS TotalBets,
 					SUM(actual_stake * actualrate) AS TotalBetsBase,
 					SUM(winlost) AS TotalWins,
@@ -349,7 +351,8 @@ BEGIN
 					HousePT
 				)
 				SELECT
-					COUNT(b.transid) AS BetCount,
+					CASE WHEN s.ProductID = 33 THEN SUM(b.betid)  -- Poker Games
+						 ELSE COUNT(b.transid) END AS BetCount,
 					SUM(actual_stake) AS TotalBets,
 					SUM(actual_stake * actualrate) AS TotalBetsBase,
 					SUM(winlost) AS TotalWins,
@@ -620,7 +623,9 @@ BEGIN
 			)
 			SELECT
 				p.ProductName AS Product,
-			HousePT/BetCount AS HousePositionTaking
+				CASE WHEN c.ProductID = 33 THEN 1  -- Poker Games
+					 WHEN BetCount = 0 THEN NULL
+					 ELSE HousePT/BetCount END AS HousePositionTaking
 			FROM CTE c
 				INNER JOIN dbo.Products p WITH(NOLOCK) ON c.ProductID = p.ProductID
 			ORDER BY p.ProductName
@@ -638,7 +643,9 @@ BEGIN
 		)
 		SELECT
 			p.ProductName AS Product,
-			HousePT/BetCount AS HousePositionTaking
+			CASE WHEN c.ProductID = 33 THEN 1  -- Poker Games
+				 WHEN BetCount = 0 THEN NULL
+				 ELSE HousePT/BetCount END AS HousePositionTaking
 		FROM CTE c
 			INNER JOIN dbo.Products p WITH(NOLOCK) ON c.ProductID = p.ProductID
 		ORDER BY p.ProductName
