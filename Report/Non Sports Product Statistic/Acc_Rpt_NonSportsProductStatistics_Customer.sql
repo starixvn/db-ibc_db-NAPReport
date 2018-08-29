@@ -1649,7 +1649,8 @@ BEGIN
 		SUM(CompanyTurnoverBase) AS CompanyTurnoverBase,
 		SUM(CompanyGrossIncomeBase) AS CompanyGrossIncomeBase,
 		SUM(CompanyCommBase) AS CompanyCommBase,
-		AVG(CASE WHEN BetCount = 0 THEN NULL ELSE HousePT/BetCount END) AS HousePT
+		AVG(CASE WHEN ProductID = 33 THEN 1 --Poker Games
+				 WHEN BetCount = 0 THEN NULL ELSE HousePT/BetCount END) AS HousePT
 	FROM #tmp_Result
 	GROUP BY custid, CurrencyID
 	HAVING
