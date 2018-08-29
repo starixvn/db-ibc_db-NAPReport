@@ -11,7 +11,7 @@ AS
     DB: DBWH/bodb_dwrs  
    
     Revisions: 
-		- 20180829@Harper: Implement new product Pocker Games [RedmineID: #79612]
+		- 20180829@Harper: Implement new product Pocker Games [RedmineID: #100426]
 
 	Param's Explanation:   
 
@@ -73,7 +73,7 @@ BEGIN
 	CREATE TABLE #SportBettypeMatrix (ProductID INT, Bettype INT, EventType INT, SubProduct VARCHAR(500))
 
 	INSERT INTO #SportBettypeMatrix (ProductID, Bettype, EventType, SubProduct)
-	SELECT ProductID, BetType, EventType, SubProduct FROM bodb02.dbo.f_SportBettypeMatrix_Sel(6,0,0,2,'','PG',0)
+	SELECT ProductID, BetType, EventType, SubProduct FROM bodb02.dbo.f_SportBettypeMatrix_Sel(33,0,0,2,'','PG',0)
 	
 	-- House WL
 	CREATE TABLE #TmpHouseWL (rptDate DATE, HouseWL MONEY, ExtraPT MONEY, PartnerFee MONEY)
