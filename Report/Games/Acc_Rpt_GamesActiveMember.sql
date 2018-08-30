@@ -27,6 +27,7 @@ AS
 	- 20160223@Robert: Add new range bettype for Allbet Live Casino #50921
 	- 20160411@Robert: Integrate Voidbridge Credit - Single Wallet model [RedmineID: #55589]
 	- 20160916@Robert: Integrate new product NG2 [RedmindID: #63460]
+	- 20180830@Cherry: Integrate Poker Games (#97830)
 	 
 Param's Explanation: 
 	+ @ProductList : string, collect ProductID seperate by comma ',' .Eg: @ProductList ='0,3,4,6,7'	
@@ -51,7 +52,7 @@ SELECT VAL FROM  dbo.strSplit(@ProductList,',')
 INSERT INTO @Product (ProductID,ProductPrefix)
 SELECT ProductID,ProductPrefix
 FROM dbo.Products WITH (NOLOCK)
-WHERE ProductID IN (3,6,7,8,4,11,12,13,21,22,23)
+WHERE ProductID IN (3,6,7,8,4,11,12,13,21,22,23,33)
 UNION ALL
 SELECT ProductID,ProductPrefix    -- ORDER BY 13, 17
 FROM dbo.Products WITH (NOLOCK)
