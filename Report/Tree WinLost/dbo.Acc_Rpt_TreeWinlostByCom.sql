@@ -187,6 +187,32 @@ BEGIN
 			   , SubProduct
 			   , SuperId;
 
+
+    CREATE TABLE #ExtraComm(
+	    ProductID        INT
+	  , Sporttype        INT
+	  , SubProduct       VARCHAR(500)
+	  , SuperID          INT
+	  , ExtraCommRate    DECIMAL(9, 8));
+
+    INSERT INTO #ExtraComm(ProductID
+					, Sporttype
+					, SubProduct
+					, SuperID
+					, ExtraCommRate)
+		 SELECT ProductID
+			 , SportType
+			 , SubProduct
+			 , SuperId
+			 , SUM(ExtraCommRate) AS ExtraCommRate
+		 FROM bodb02.dbo.Acc_GroupExtraCommRateSetting AS a WITH (NOLOCK)
+		 WHERE @FromDate BETWEEN FromDate AND ToDate
+			  AND SubProduct NOT IN('BT-Sold', 'BT-Bought', 'CO-Cashout', 'CO-Bought')
+		 GROUP BY ProductID
+			   , SportType
+			   , SubProduct
+			   , SuperId;
+
     CREATE TABLE #Match44(
 	    MatchID      INT
 	    PRIMARY KEY
@@ -253,18 +279,18 @@ BEGIN
 					 WHEN b.gameID IN(2199, 2399, 2999)
 					 THEN 0 /*Progressive Jackpot*/
 					 WHEN b.gameID IN(2198, 2398, 2998)
-					 THEN(b.ContributionRate * b.BetStake) * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(10, 8)) /*Jackpot Contribution*/
-					 ELSE(winlost - actual_stake) * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(10, 8))
+					 THEN(b.ContributionRate * b.BetStake) * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 4)) /*Jackpot Contribution*/
+					 ELSE(winlost - actual_stake) * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 4))
 				  END) AS                                                ExtraWL
 			 , SUM(CASE
 					 WHEN tpositiontaking = 1
 					 THEN 0
-					 ELSE stake * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(10, 8))
+					 ELSE stake * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 4))
 				  END) AS                                                ExtraTO
 			 , CAST(SUM(CASE
 						 WHEN tpositiontaking = 1
 						 THEN 0
-						 ELSE scomm * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(10, 8)) / (1 - tpositiontaking)
+						 ELSE scomm * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 4)) / (1 - tpositiontaking)
 					  END) AS DECIMAL(19, 6)) AS                        ExtraComm
 /*RM*/
 			 , SUM(stake * (1 - tpositiontaking) * actualrate) AS         TurnoverIBC_RM
@@ -282,18 +308,18 @@ BEGIN
 					 WHEN b.gameID IN(2199, 2399, 2999)
 					 THEN 0 /*Progressive Jackpot*/
 					 WHEN b.gameID IN(2198, 2398, 2998)
-					 THEN(b.ContributionRate * b.BetStake) * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(10, 8)) /*Jackpot Contribution*/
-					 ELSE(winlost - actual_stake) * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(10, 8))
+					 THEN(b.ContributionRate * b.BetStake) * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 4)) /*Jackpot Contribution*/
+					 ELSE(winlost - actual_stake) * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 4))
 				  END * actualrate) AS                                   ExtraWL_RM
 			 , SUM(CASE
 					 WHEN tpositiontaking = 1
 					 THEN 0
-					 ELSE stake * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(10, 8))
+					 ELSE stake * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 4))
 				  END * actualrate) AS                                   ExtraTO_RM
 			 , CAST(SUM(CASE
 						 WHEN tpositiontaking = 1
 						 THEN 0
-						 ELSE scomm * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(10, 8)) / (1 - tpositiontaking)
+						 ELSE scomm * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 4)) / (1 - tpositiontaking)
 					  END * actualrate) AS DECIMAL(19, 6)) AS           ExtraComm_RM
 		 FROM bettransRNG AS b WITH (ROWLOCK)
 			INNER JOIN #tmpBettype AS t ON t.bettype = b.gameID
@@ -324,9 +350,14 @@ BEGIN
 			 , SUM(scomm) AS                                                                  CommissionS
 			 , SUM(CASE
 					 WHEN tpositiontaking = 1
-						 OR pb.ProductID = 33
 					 THEN 0
-					 ELSE(winlost - actual_stake) * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(10, 8))
+					 WHEN pb.ProductID = 33
+					 THEN CASE
+							WHEN tpositiontaking = 1
+							THEN 0
+							ELSE(CAST(ISNULL(transid2, 0) AS DECIMAL(19, 4)) / 10000.0) * ExtraPT
+						 END
+					 ELSE(winlost - actual_stake) * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 4))
 				  END) AS                                                                    ExtraWL
 			 , SUM(CASE
 					 WHEN tpositiontaking = 1
@@ -337,14 +368,14 @@ BEGIN
 							WHEN pb.ProductID = 33
 							THEN 0
 							ELSE stake
-						 END * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(10, 8))
+						 END * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 4))
 				  END) AS                                                                    ExtraTO
 			 , CAST(SUM(CASE
 						 WHEN tpositiontaking = 1
 						 THEN 0
 						 WHEN pb.ProductID = 33
-						 THEN(-1) * b.oddsspread * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(10, 8))
-						 ELSE scomm * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(10, 8)) / (1 - tpositiontaking)
+						 THEN(-1) * b.oddsspread * CAST(ISNULL(ExtraCommRate, 0) AS DECIMAL(19, 4))
+						 ELSE scomm * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 4)) / (1 - tpositiontaking)
 					  END) AS DECIMAL(19, 6)) AS                                            ExtraComm
 /*RM*/
 			 , SUM(CASE
@@ -358,9 +389,14 @@ BEGIN
 			 , SUM(scomm * actualrate) AS                                                     CommissionS_RM
 			 , SUM(CASE
 					 WHEN tpositiontaking = 1
-						 OR pb.ProductID = 33
 					 THEN 0
-					 ELSE(winlost - actual_stake) * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(10, 8))
+					 WHEN pb.ProductID = 33
+					 THEN CASE
+							WHEN tpositiontaking = 1
+							THEN 0
+							ELSE(CAST(ISNULL(transid2, 0) AS DECIMAL(19, 4)) / 10000.0) * ExtraPT
+						 END
+					 ELSE(winlost - actual_stake) * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 4))
 				  END * actualrate) AS                                                       ExtraWL_RM
 			 , SUM(CASE
 					 WHEN tpositiontaking = 1
@@ -371,14 +407,14 @@ BEGIN
 							WHEN pb.ProductID = 33
 							THEN 0
 							ELSE stake
-						 END * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(10, 8))
+						 END * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 4))
 				  END * actualrate) AS                                                       ExtraTO_RM
 			 , CAST(SUM(CASE
 						 WHEN tpositiontaking = 1
 						 THEN 0
 						 WHEN pb.ProductID = 33
-						 THEN(-1) * b.oddsspread * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(10, 8))
-						 ELSE scomm * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(10, 8)) / (1 - tpositiontaking)
+						 THEN(-1) * b.oddsspread * CAST(ISNULL(ExtraCommRate, 0) AS DECIMAL(19, 4))
+						 ELSE scomm * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 4)) / (1 - tpositiontaking)
 					  END * actualrate) AS DECIMAL(19, 6)) AS                               ExtraComm_RM
 		 FROM bettrans AS b WITH (ROWLOCK)
 			INNER JOIN #tmpBettype AS t ON t.bettype = b.bettype
@@ -388,6 +424,10 @@ BEGIN
 									AND expt.ProductID = pb.ProductID
 									AND expt.SubProduct = pb.SubProduct
 									AND expt.Sporttype = ISNULL(m44.SportType, 0)
+			LEFT JOIN #ExtraComm AS excomm ON excomm.SuperID = b.srecommend
+									    AND excomm.ProductID = pb.ProductID
+									    AND excomm.SubProduct = pb.SubProduct
+									    AND excomm.Sporttype = ISNULL(m44.SportType, 0)
 		 WHERE winlostdate BETWEEN CAST(@FromDate AS SMALLDATETIME) AND CAST(@ToDate AS SMALLDATETIME)
 			  AND t.ProductID NOT IN(2, 6, 9, 17, 21, 22, 24, 32) /* execule Racing, P2P, AllBet	*/
 			  AND b.ruben = 1
@@ -405,17 +445,17 @@ BEGIN
 			 , SUM(CASE
 					 WHEN tpositiontaking = 1
 					 THEN 0
-					 ELSE(winlost - actual_stake) * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(10, 8))
+					 ELSE(winlost - actual_stake) * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 4))
 				  END) AS                                                                    ExtraWL
 			 , SUM(CASE
 					 WHEN tpositiontaking = 1
 					 THEN 0
-					 ELSE stake * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(10, 8))
+					 ELSE stake * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 4))
 				  END) AS                                                                    ExtraTO
 			 , CAST(SUM(CASE
 						 WHEN tpositiontaking = 1
 						 THEN 0
-						 ELSE scomm * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(10, 8)) / (1 - tpositiontaking)
+						 ELSE scomm * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 4)) / (1 - tpositiontaking)
 					  END) AS DECIMAL(19, 6)) AS                                            ExtraComm
 /*RM*/
 			 , SUM(stake * (1 - tpositiontaking) * actualrate) AS                             TurnoverIBC_RM
@@ -424,17 +464,17 @@ BEGIN
 			 , SUM(CASE
 					 WHEN tpositiontaking = 1
 					 THEN 0
-					 ELSE(winlost - actual_stake) * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(10, 8))
+					 ELSE(winlost - actual_stake) * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 4))
 				  END * actualrate) AS                                                       ExtraWL_RM
 			 , SUM(CASE
 					 WHEN tpositiontaking = 1
 					 THEN 0
-					 ELSE stake * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(10, 8))
+					 ELSE stake * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 4))
 				  END * actualrate) AS                                                       ExtraTO_RM
 			 , CAST(SUM(CASE
 						 WHEN tpositiontaking = 1
 						 THEN 0
-						 ELSE scomm * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(10, 8)) / (1 - tpositiontaking)
+						 ELSE scomm * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 4)) / (1 - tpositiontaking)
 					  END * actualrate) AS DECIMAL(19, 6)) AS                               ExtraComm_RM
 		 FROM bettransLC AS b WITH (ROWLOCK)
 			INNER JOIN #tmpBettype AS t ON t.bettype = b.gameID
@@ -541,6 +581,7 @@ BEGIN
 
     DROP TABLE #TmpResultAll;
     DROP TABLE #ExtraPT;
+    DROP TABLE #ExtraComm;
     DROP TABLE #ProductBettype;
     DROP TABLE #Match44;
     DROP TABLE #Product;
