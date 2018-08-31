@@ -30,12 +30,12 @@ AS
 		- 20171030@Kean: Integrate Bullfighting (#85712)
 		- 20171109@Kean: HotFix #86404 - List of Currencies is passed incorrectly
 		- 20180411@Franklin: Integrate Pragmatic (#92642)
-		- 20180815@Robert: Integrate Poker Games into NAP Report (#97830)
+		- 20180831@Cherry: Integrate Poker Games into NAP Report (#97830)
 
 	Param's Explanation:  
 	  + @ListCurrency: The specified date used as one of the filter criterias, if its value is 'all' then no need to be filtered by currency
 	  + {251:Casino (include: 251, 208, 209, 210), 151:Racing,252:Bingo,161:Number Game,162:Live Casino,180:Virtual Sports,202:Keno}
-			220: Lottery
+			220: Lottery, 163: Poker Games
 */
 
 BEGIN
@@ -68,7 +68,7 @@ BEGIN
     DECLARE @bitmapOrder TABLE(
 	    bitmapOrder    TINYINT); /* using for sporttype that has many settings*/
 
-    IF @SportType = 211
+    IF @SportType IN (211, 163)  -- Allbet, Poker Games
 	   BEGIN
 		  INSERT INTO @bitmapOrder(bitmapOrder)
 			    SELECT bitmapOrder
@@ -78,7 +78,7 @@ BEGIN
 
     DECLARE @bitmap    TINYINT; /* using for sporttype that has 1 setting*/
 
-    IF @SportType IN(212, 213, 219, 220, 180, 160, 207, 163) /* Macau Games, NG2, Fishing World, Virtual Sports, Lottery, Lucky 3, Bullfighting*/
+    IF @SportType IN(212, 213, 219, 220, 180, 160, 207) /* Macau Games, NG2, Fishing World, Virtual Sports, Lottery, Lucky 3, Bullfighting*/
 
 	   BEGIN
 		  SELECT @bitmap = bitmapOrder
@@ -120,7 +120,7 @@ BEGIN
 				  THEN ci.DisableSuperLive
 				  WHEN @sportType = 204
 				  THEN ci.DisableColossusBet
-				  WHEN @SportType = 211
+				  WHEN @SportType IN (211, 163)
 				  THEN
 					  (
 						 SELECT CASE MIN(CONVERT(INT, f.value))
@@ -134,7 +134,7 @@ BEGIN
 							 (cps.bitmapIsDisabled, b.bitmapOrder) AS f
 						 WHERE custid = ci.custid
 					  )
-				  WHEN @SportType IN(212, 213, 219, 220, 180, 160, 207, 163)
+				  WHEN @SportType IN(212, 213, 219, 220, 180, 160, 207)
 				  THEN
 					  (
 						 SELECT CASE(SELECT value
@@ -503,9 +503,9 @@ BEGIN
 											  AND ci.roleid = 1
 			    WHERE ci.Enabled = 1;
 	   END;
-/* Allbet, Macau Games, NG2*/
+/* Allbet, Macau Games, NG2, Poker Games*/
 
-    IF @sportType IN(211)
+    IF @sportType IN (211, 163)
 	   BEGIN
 		  INSERT INTO #FiltedDownlineAcc
 			    SELECT sup.CustID
@@ -565,7 +565,7 @@ BEGIN
 	   END;
 /* Macau Games, NG2, Fishing World, Virtual Sports, Lottery, Lucky 3, Bullfighting*/
 
-    IF @sportType IN(212, 213, 219, 220, 180, 160, 207, 163)
+    IF @sportType IN(212, 213, 219, 220, 180, 160, 207)
 	   BEGIN
 		  INSERT INTO #FiltedDownlineAcc
 			    SELECT sup.CustID
