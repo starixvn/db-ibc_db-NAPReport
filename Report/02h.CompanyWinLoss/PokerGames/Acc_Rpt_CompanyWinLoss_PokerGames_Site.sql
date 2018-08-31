@@ -22,7 +22,7 @@ Task:  Poker Games Integration - Implement Company Winloss By Products report [#
 DB: DBACC/bodb02
 
 Revisions: 	 
-	 
+	 - 20180831@Kean: Integrate Insurance Of Poker Games (#97830)
 Parameter's Explanation:
 	- @Site: credit, deposit	
 	
@@ -90,20 +90,37 @@ EXEC [Acc_Rpt_CompanyWinLoss_PokerGames_Site] @StartDate='2018-08-21', @EndDate=
                WHERE @StartDate BETWEEN FromDate AND Todate
 			   AND a.ProductId = @ProductID
                GROUP BY SuperId, a.Sporttype;
+		-- Extra Comm
+		CREATE TABLE #ExtraComm_Sel( SuperID INT,
+								   Sporttype  INT,
+                                   ExtraComm DECIMAL(9, 8));
+            INSERT INTO #ExtraComm_Sel
+               ( SuperID,
+			     Sporttype,
+                 ExtraComm
+               )
+               SELECT SuperId, a.Sporttype,
+                      SUM(ExtraCommRate) AS ExtraComm
+               FROM bodb02.dbo.Acc_GroupExtraCommRateSetting a WITH ( NOLOCK )
+               WHERE @StartDate BETWEEN FromDate AND Todate
+			   AND a.ProductId = @ProductID
+               GROUP BY SuperId, a.Sporttype;
     END;
     BEGIN -- Query
 
         SELECT Site AS RowName,
                SUM(( winlost - actual_stake ) * actualrate) AS MemberWinLoss,
                SUM(( awinlost + mwinlost + swinlost ) * actualrate) AS SMAWinLoss,
-			   -SUM((-b.oddsspread) * ISNULL(e.ExtraPT, 0) * actualrate) AS ExtraPT,
+			   -SUM(((-b.oddsspread) * ISNULL(e.ExtraPT, 0) + (ISNULL(b.transid2, 0) * 1.0/10000) * ISNULL(c.ExtraComm, 0))* actualrate) AS ExtraPT,
                SUM(scomm * actualrate) Commission,
                SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm 
-							- ( -b.oddsspread ) * ISNULL(e.ExtraPT, 0)) * actualrate) AS RealIncome,
+							- ( -b.oddsspread ) * ISNULL(e.ExtraPT, 0)
+							- (ISNULL(b.transid2, 0) * 1.0/10000) * ISNULL(c.ExtraComm, 0)) * actualrate) AS RealIncome,
                0 AS RealTurnover
         FROM bettrans AS b WITH ( NOLOCK )
              INNER JOIN #Agent AS dep ON b.recommend = dep.CustId
              LEFT JOIN #ExtraPT_Sel e ON e.SuperID = b.srecommend
+			 LEFT JOIN #ExtraComm_Sel c ON c.SuperID = b.srecommend
         WHERE b.winlostdate = @StartDate
           AND ( @IsLive = 2
              OR b.liveindicator = @IsLive
@@ -116,6 +133,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_PokerGames_Site] @StartDate='2018-08-21', @EndDate=
     END;
         DROP TABLE #Agent;
         DROP TABLE #ExtraPT_Sel;
+		DROP TABLE #ExtraComm_Sel;
 GO
 GRANT EXECUTE ON [dbo].[Acc_Rpt_CompanyWinLoss_PokerGames_Site] TO [bodbAdminNet];
 GO
