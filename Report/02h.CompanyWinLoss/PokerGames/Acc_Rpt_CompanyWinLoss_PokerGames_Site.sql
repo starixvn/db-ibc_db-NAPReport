@@ -111,11 +111,11 @@ EXEC [Acc_Rpt_CompanyWinLoss_PokerGames_Site] @StartDate='2018-08-21', @EndDate=
         SELECT Site AS RowName,
                SUM(( winlost - actual_stake ) * actualrate) AS MemberWinLoss,
                SUM(( awinlost + mwinlost + swinlost ) * actualrate) AS SMAWinLoss,
-			   -SUM(((-b.oddsspread) * ISNULL(e.ExtraPT, 0) + (ISNULL(b.transid2, 0) * 1.0/10000) * ISNULL(c.ExtraComm, 0))* actualrate) AS ExtraPT,
+			   -SUM(((-b.oddsspread) * ISNULL(c.ExtraComm, 0) + (ISNULL(b.transid2, 0) * 1.0/10000) * ISNULL(e.ExtraPT, 0))* actualrate) AS ExtraPT,
                SUM(scomm * actualrate) Commission,
                SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm 
-							- ( -b.oddsspread ) * ISNULL(e.ExtraPT, 0)
-							- (ISNULL(b.transid2, 0) * 1.0/10000) * ISNULL(c.ExtraComm, 0)) * actualrate) AS RealIncome,
+							- ( -b.oddsspread ) * ISNULL(c.ExtraComm, 0)
+							- (ISNULL(b.transid2, 0) * 1.0/10000) * ISNULL(e.ExtraPT, 0)) * actualrate) AS RealIncome,
                0 AS RealTurnover
         FROM bettrans AS b WITH ( NOLOCK )
              INNER JOIN #Agent AS dep ON b.recommend = dep.CustId
