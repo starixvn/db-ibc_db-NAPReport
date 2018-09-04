@@ -361,7 +361,7 @@ BEGIN
 					 THEN CASE
 							WHEN tpositiontaking = 1
 							THEN 0
-							ELSE(CAST(ISNULL(transid2, 0) AS DECIMAL(19, 8)) / 10000.0) * ExtraPT
+							ELSE(CAST(ISNULL(transid2, 0) AS DECIMAL(19, 8)) / 10000.0) * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 8))
 						 END
 					 ELSE(winlost - actual_stake) * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 8))
 				  END) AS                                                                    ExtraWL
@@ -400,7 +400,7 @@ BEGIN
 					 THEN CASE
 							WHEN tpositiontaking = 1
 							THEN 0
-							ELSE(CAST(ISNULL(transid2, 0) AS DECIMAL(19, 8)) / 10000.0) * ExtraPT
+							ELSE(CAST(ISNULL(transid2, 0) AS DECIMAL(19, 8)) / 10000.0) * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 8))
 						 END
 					 ELSE(winlost - actual_stake) * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 8))
 				  END * actualrate) AS                                                       ExtraWL_RM
