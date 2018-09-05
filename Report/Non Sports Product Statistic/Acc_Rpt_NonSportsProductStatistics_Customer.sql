@@ -500,6 +500,7 @@ BEGIN
 		EvenType INT DEFAULT (-1), Matchid INT DEFAULT (-1), ProductID INT,
 		HousePT SMALLMONEY,
 		statusID TINYINT,
+		RowNum INT
 	)
 
 	IF @IsFilterCust = 1 -- has filter custid
@@ -527,7 +528,8 @@ BEGIN
 				CompanyCommBase,
 				EvenType, Matchid, ProductID,
 				HousePT,
-				statusID
+				statusID,
+				RowNum
 			)
 			SELECT
 				b.srecommend,
@@ -552,7 +554,8 @@ BEGIN
 				SUM(scomm *actualrate) AS CompanyCommBase,
 				s.EvenType, b.matchid, s.ProductID,
 				SUM(1 - b.tpositiontaking) AS HousePT,
-				CASE WHEN statusID = 103 THEN 103 ELSE 112 END AS statusID
+				CASE WHEN statusID = 103 THEN 103 ELSE 112 END AS statusID,
+				COUNT(b.transid) AS RowNum
 			FROM  dbo.bettrans b WITH (NOLOCK)
 				INNER JOIN #tmp_MemIDs m ON b.custid = m.CustID
 				INNER JOIN #SportBettype s ON s.Bettype = b.bettype
@@ -791,7 +794,8 @@ BEGIN
 				CompanyCommBase,
 				EvenType, matchid, ProductID,
 				HousePT,
-				statusID
+				statusID,
+				RowNum
 			)
 			SELECT
 				b.srecommend,
@@ -816,7 +820,8 @@ BEGIN
 				SUM(scomm *actualrate) AS CompanyCommBase,
 				s.EvenType, b.matchid, s.ProductID,
 				SUM(1 - b.tpositiontaking) AS HousePT,
-				CASE WHEN statusID = 103 THEN 103 ELSE 112 END AS statusID
+				CASE WHEN statusID = 103 THEN 103 ELSE 112 END AS statusID,
+				COUNT(b.transid) AS RowNum
 			FROM  dbo.bettrans b WITH (NOLOCK)
 				INNER JOIN #SportBettype s ON s.Bettype = b.bettype
 			WHERE b.winlostdate = @WLDate
@@ -1049,7 +1054,8 @@ BEGIN
 		CompanyComm MONEY,
 		CompanyCommBase MONEY,
 		HousePT SMALLMONEY,
-		statusID TINYINT
+		statusID TINYINT,
+		RowNum INT
 	)
 	--- Check condition 
 	IF EXISTS (SELECT TOP 1 1 FROM #tmp_bettrans WHERE ProductID NOT IN (3, 4, 5, 27)) -- NG, SLI-Live Casino, Virtual Sports, Virtual Sports 2
@@ -1074,7 +1080,8 @@ BEGIN
 			CompanyComm,
 			CompanyCommBase,
 			HousePT,
-			statusID
+			statusID,
+			RowNum 
 		)
 		SELECT
 			srecommend,
@@ -1095,7 +1102,8 @@ BEGIN
 			- SUM(CompanyComm) AS CompanyComm,
 			- SUM(CompanyCommBase) AS CompanyCommBase,
 			SUM(HousePT) AS HousePT,
-			statusID
+			statusID,
+			SUM(RowNum) AS RowNum
 		FROM  #tmp_bettrans
 		WHERE ProductID NOT IN (3, 4, 5, 27)
 		GROUP BY srecommend, mrecommend, recommend, custid, CurrencyID, ProductID, statusID
@@ -1279,7 +1287,8 @@ BEGIN
 		CompanyTurnoverBase MONEY,
 		CompanyGrossIncomeBase MONEY,
 		CompanyCommBase MONEY,
-		HousePT SMALLMONEY
+		HousePT SMALLMONEY,
+		RowNum INT
 	)
 
 	-- Return Data
@@ -1324,7 +1333,8 @@ BEGIN
 					SUM(CASE statusID WHEN 103 THEN 0 ELSE CompanyTurnoverBase END) AS CompanyTurnoverBase,		
 					SUM(CASE statusID WHEN 103 THEN 0 ELSE CompanyGrossIncomeBase END) AS CompanyGrossIncomeBase,
 					SUM(CASE statusID WHEN 103 THEN 0 ELSE CompanyCommBase END) AS CompanyCommBase,
-					SUM(CASE statusID WHEN 103 THEN 0 ELSE HousePT END) AS HousePT
+					SUM(CASE statusID WHEN 103 THEN 0 ELSE HousePT END) AS HousePT,
+					SUM(CASE statusID WHEN 103 THEN 0 ELSE RowNum END) AS RowNum
 				FROM #Data
 				GROUP BY CASE @roleID
 						WHEN 1 THEN custid
@@ -1351,7 +1361,8 @@ BEGIN
 				CompanyTurnoverBase,
 				CompanyGrossIncomeBase,
 				CompanyCommBase,
-				HousePT
+				HousePT,
+				RowNum 
 			)
 			SELECT
 				custid,
@@ -1370,7 +1381,8 @@ BEGIN
 				CompanyTurnoverBase,
 				CompanyGrossIncomeBase,
 				CompanyCommBase,
-				HousePT
+				HousePT,
+				RowNum
 			FROM Result
 		END
 		ELSE
@@ -1398,7 +1410,8 @@ BEGIN
 					SUM(CASE statusID WHEN 103 THEN 0 ELSE CompanyTurnoverBase END) AS CompanyTurnoverBase,		
 					SUM(CASE statusID WHEN 103 THEN 0 ELSE CompanyGrossIncomeBase END) AS CompanyGrossIncomeBase,
 					SUM(CASE statusID WHEN 103 THEN 0 ELSE CompanyCommBase END) AS CompanyCommBase,
-					SUM(CASE statusID WHEN 103 THEN 0 ELSE HousePT END) AS HousePT
+					SUM(CASE statusID WHEN 103 THEN 0 ELSE HousePT END) AS HousePT,
+					SUM(CASE statusID WHEN 103 THEN 0 ELSE RowNum END) AS RowNum
 				FROM #Data
 				GROUP BY CASE @roleID
 						WHEN 1 THEN custid
@@ -1425,7 +1438,8 @@ BEGIN
 				CompanyTurnoverBase,
 				CompanyGrossIncomeBase,
 				CompanyCommBase,
-				HousePT
+				HousePT,
+				RowNum
 			)
 			SELECT
 				custid,
@@ -1444,7 +1458,8 @@ BEGIN
 				CompanyTurnoverBase,
 				CompanyGrossIncomeBase,
 				CompanyCommBase,
-				HousePT
+				HousePT,
+				RowNum
 			FROM Result
 		END
 	END
@@ -1470,7 +1485,8 @@ BEGIN
 					SUM(CASE statusID WHEN 103 THEN 0 ELSE CompanyTurnoverBase END) AS CompanyTurnoverBase,		
 					SUM(CASE statusID WHEN 103 THEN 0 ELSE CompanyGrossIncomeBase END) AS CompanyGrossIncomeBase,
 					SUM(CASE statusID WHEN 103 THEN 0 ELSE CompanyCommBase END) AS CompanyCommBase,
-					SUM(CASE statusID WHEN 103 THEN 0 ELSE HousePT END) AS HousePT
+					SUM(CASE statusID WHEN 103 THEN 0 ELSE HousePT END) AS HousePT,
+					SUM(CASE statusID WHEN 103 THEN 0 ELSE RowNum END) AS RowNum
 				FROM #Data d
 					INNER JOIN #CustUser c
 						ON c.CustID = CASE c.roleID
@@ -1499,7 +1515,8 @@ BEGIN
 				CompanyTurnoverBase,
 				CompanyGrossIncomeBase,
 				CompanyCommBase,
-				HousePT
+				HousePT,
+				RowNum
 			)
 			SELECT
 				custid,
@@ -1518,7 +1535,8 @@ BEGIN
 				CompanyTurnoverBase,
 				CompanyGrossIncomeBase,
 				CompanyCommBase,
-				HousePT
+				HousePT,
+				RowNum
 			FROM Result
 		END
 		ELSE
@@ -1541,7 +1559,8 @@ BEGIN
 					SUM(CASE statusID WHEN 103 THEN 0 ELSE CompanyTurnoverBase END) AS CompanyTurnoverBase,		
 					SUM(CASE statusID WHEN 103 THEN 0 ELSE CompanyGrossIncomeBase END) AS CompanyGrossIncomeBase,
 					SUM(CASE statusID WHEN 103 THEN 0 ELSE CompanyCommBase END) AS CompanyCommBase,
-					SUM(CASE statusID WHEN 103 THEN 0 ELSE HousePT END) AS HousePT
+					SUM(CASE statusID WHEN 103 THEN 0 ELSE HousePT END) AS HousePT,
+					SUM(CASE statusID WHEN 103 THEN 0 ELSE RowNum END) AS RowNum
 				FROM #Data d
 					INNER JOIN #CustUser c
 						ON c.CustID = CASE c.roleID
@@ -1570,7 +1589,8 @@ BEGIN
 				CompanyTurnoverBase,
 				CompanyGrossIncomeBase,
 				CompanyCommBase,
-				HousePT
+				HousePT,
+				RowNum
 			)
 			SELECT
 				custid,
@@ -1589,7 +1609,8 @@ BEGIN
 				CompanyTurnoverBase,
 				CompanyGrossIncomeBase,
 				CompanyCommBase,
-				HousePT
+				HousePT,
+				RowNum
 			FROM Result
 		END
 	END
@@ -1649,8 +1670,9 @@ BEGIN
 		SUM(CompanyTurnoverBase) AS CompanyTurnoverBase,
 		SUM(CompanyGrossIncomeBase) AS CompanyGrossIncomeBase,
 		SUM(CompanyCommBase) AS CompanyCommBase,
-		AVG(CASE WHEN ProductID = 33 THEN 1 --Poker Games
-				 WHEN BetCount = 0 THEN NULL ELSE HousePT/BetCount END) AS HousePT
+		AVG(CASE WHEN ProductID = 33 THEN HousePT/RowNum --Poker Games
+				 WHEN BetCount = 0 THEN NULL 
+				 ELSE HousePT/BetCount END) AS HousePT				 
 	FROM #tmp_Result
 	GROUP BY custid, CurrencyID
 	HAVING

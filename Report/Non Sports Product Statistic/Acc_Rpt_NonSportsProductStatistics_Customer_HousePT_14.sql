@@ -169,7 +169,8 @@ BEGIN
 		TotalBets MONEY, TotalBetsBase MONEY,
 		TotalWins MONEY, TotalWinsBase MONEY,
 		EvenType INT DEFAULT (-1), Matchid INT DEFAULT (-1), ProductID INT, Bettype INT,
-		HousePT SMALLMONEY
+		HousePT SMALLMONEY,
+		RowNum INT
 	)
 	
 	-- Get data
@@ -179,7 +180,8 @@ BEGIN
 		TotalBets MONEY, TotalBetsBase MONEY,
 		TotalWins MONEY, TotalWinsBase MONEY,
 		ProductID INT,
-		HousePT SMALLMONEY
+		HousePT SMALLMONEY,
+		RowNum INT
 	)
 
 	IF @CID <> -1
@@ -194,7 +196,7 @@ BEGIN
 					TotalBets, TotalBetsBase,
 					TotalWins, TotalWinsBase,
 					EvenType, Matchid, ProductID, Bettype,
-					HousePT
+					HousePT, RowNum
 				)
 				SELECT
 					CASE WHEN s.ProductID = 33 THEN SUM(b.betid)  -- Poker Games
@@ -204,7 +206,8 @@ BEGIN
 					SUM(winlost) AS TotalWins,
 					SUM(winlost * actualrate) AS TotalWinsBase,
 					s.EvenType, b.matchid, s.ProductID, b.bettype,
-					SUM(1 - b.tpositiontaking) AS HousePT
+					SUM(1 - b.tpositiontaking) AS HousePT,
+					COUNT(b.transid) AS RowNum
 				FROM  dbo.bettrans14 b WITH (NOLOCK)
 					INNER JOIN #SportBettype s ON s.Bettype = b.bettype
 				WHERE b.winlostdate = @WLDate
@@ -348,7 +351,7 @@ BEGIN
 					TotalBets, TotalBetsBase,
 					TotalWins, TotalWinsBase,
 					EvenType, matchid, ProductID, Bettype,
-					HousePT
+					HousePT, RowNum
 				)
 				SELECT
 					CASE WHEN s.ProductID = 33 THEN SUM(b.betid)  -- Poker Games
@@ -358,7 +361,8 @@ BEGIN
 					SUM(winlost) AS TotalWins,
 					SUM(winlost * actualrate) AS TotalWinsBase,
 					s.EvenType, b.matchid, s.ProductID, b.bettype,
-					SUM(1 - b.tpositiontaking) AS HousePT
+					SUM(1 - b.tpositiontaking) AS HousePT,
+					COUNT(b.transid) AS RowNum
 				FROM  dbo.bettrans14 b WITH (NOLOCK)
 					INNER JOIN #SportBettype s ON s.Bettype = b.bettype
 					INNER JOIN #tmp_MemIDs m ON b.custid = m.CustID
@@ -460,7 +464,8 @@ BEGIN
 				TotalBets, TotalBetsBase,
 				TotalWins, TotalWinsBase,
 				ProductID,
-				HousePT
+				HousePT,
+				RowNum
 			)
 			SELECT
 				SUM(BetCount) AS BetCount,
@@ -469,7 +474,8 @@ BEGIN
 				SUM(TotalWins) AS TotalWins,
 				SUM(TotalWinsBase) AS TotalWinsBase,
 				ProductID,
-				SUM(HousePT) AS HousePT
+				SUM(HousePT) AS HousePT,
+				SUM(RowNum) AS RowNum
 			FROM  #tmp_bettrans
 			WHERE ProductID NOT IN (3, 4, 5, 27)
 			GROUP BY ProductID
@@ -584,13 +590,14 @@ BEGIN
 				SELECT
 					SUM(BetCount) AS BetCount,
 					ProductID,
-					SUM(HousePT) AS HousePT
+					SUM(HousePT) AS HousePT,
+					SUM(RowNum) AS RowNum
 				FROM #Data
 				GROUP BY ProductID
 			)
 			SELECT
 				p.ProductName AS Product,
-				CASE WHEN c.ProductID = 33 THEN 1  -- Poker Games
+				CASE WHEN c.ProductID = 33 THEN HousePT/RowNum  -- Poker Games
 					 WHEN BetCount = 0 THEN NULL
 					 ELSE HousePT/BetCount END AS HousePositionTaking
 			FROM CTE c
@@ -604,13 +611,14 @@ BEGIN
 			SELECT
 				SUM(BetCount) AS BetCount,
 				ProductID,
-				SUM(HousePT) AS HousePT
+				SUM(HousePT) AS HousePT,
+				SUM(RowNum) AS RowNum
 			FROM #Data
 			GROUP BY ProductID
 		)
 		SELECT
 			p.ProductName AS Product,
-			CASE WHEN c.ProductID = 33 THEN 1  -- Poker Games
+			CASE WHEN c.ProductID = 33 THEN HousePT/RowNum  -- Poker Games
 				 WHEN BetCount = 0 THEN NULL
 				 ELSE HousePT/BetCount END AS HousePositionTaking
 		FROM CTE c
