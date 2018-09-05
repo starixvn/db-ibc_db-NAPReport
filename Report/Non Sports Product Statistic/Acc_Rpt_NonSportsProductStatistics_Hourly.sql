@@ -1,3 +1,5 @@
+/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
+
 USE bodb02
 GO
 
@@ -798,16 +800,3 @@ SET NOCOUNT ON
 
 END 
 
-GO
-
-SET QUOTED_IDENTIFIER OFF 
-GO
-SET ANSI_NULLS ON 
-GO
-
-
-GO 
- GRANT VIEW DEFINITION ON [dbo].[Acc_Rpt_NonSportsProductStatistics_Hourly] TO [vnteam]
-GO 
- GRANT EXECUTE ON [dbo].[Acc_Rpt_NonSportsProductStatistics_Hourly] TO [bodbAdminNet]
-GO 

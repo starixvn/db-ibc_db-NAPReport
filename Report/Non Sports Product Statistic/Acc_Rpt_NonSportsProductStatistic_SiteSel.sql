@@ -1,3 +1,5 @@
+/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
+
 USE bodb02
 GO 
  
@@ -61,9 +63,3 @@ SET NOCOUNT ON
 	DROP TABLE #tmpProductID
 END 
  
-
-GO
-GRANT EXECUTE ON [dbo].[Acc_Rpt_NonSportsProductStatistic_SiteSel] TO [bodbAdminNet]
-GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_Rpt_NonSportsProductStatistic_SiteSel] TO [vnteam]
-GO

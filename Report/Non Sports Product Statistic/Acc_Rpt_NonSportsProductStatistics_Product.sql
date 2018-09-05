@@ -1,3 +1,5 @@
+/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
+
 USE bodb02
 GO
 
@@ -995,9 +997,4 @@ BEGIN
 	DROP TABLE #tmp_SportType
 	DROP TABLE #tmp_bettrans
 END
-GO
 
-GRANT EXECUTE ON [dbo].[Acc_Rpt_NonSportsProductStatistics_Product] TO [bodbAdminNet];
-GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_Rpt_NonSportsProductStatistics_Product] TO [vnteam];
-GO

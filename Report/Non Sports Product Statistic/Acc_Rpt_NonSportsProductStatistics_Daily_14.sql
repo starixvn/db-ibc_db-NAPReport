@@ -1,3 +1,5 @@
+/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
+
 Use BODB02
 GO 
 
@@ -807,8 +809,3 @@ SET NOCOUNT ON
 
 
 END 
-GO 
- 
-GRANT EXECUTE ON [dbo].[Acc_Rpt_NonSportsProductStatistics_Daily_14] TO [bodbAdminNet]
-GO
-GRANT VIEW definition ON [dbo].[Acc_Rpt_NonSportsProductStatistics_Daily_14] TO [vnteam]
