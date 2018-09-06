@@ -68,6 +68,7 @@ BEGIN
 					
 	INSERT INTO #ExchangeOANDA(ExchangeDate, ExchangeID, Rate)
 	EXECUTE (@OpenQuery)
+	
 	-- End region
 
 	CREATE TABLE #FinalResult (
@@ -189,13 +190,13 @@ BEGIN
 					
 	INSERT INTO #ChargeInfo3rd(ProductID, Rate, FromDate, ToDate, MinAmount, MaxAmount, BaseCurrencyId)
 	EXECUTE (@OpenQueryCharge)
-
+	
 	UPDATE ci
 	SET MinAmount = MinAmount * ex.Rate,
 		MaxAmount = MaxAmount * ex.Rate
 	FROM #ChargeInfo3rd ci
 		INNER JOIN #ExchangeOANDA ex ON ci.BaseCurrencyId = ex.ExchangeID AND ex.ExchangeDate = @TDate	
-
+	
 	-- PayToSupplier
 	; WITH WLAmount AS
 	(
@@ -222,14 +223,14 @@ BEGIN
 	),
 	AmtByDate AS
 	(
-		SELECT m.rptDate, SUM(AmtByRange) AS AmtByDate	
+		SELECT m.FullDate, SUM(AmtByRange) AS AmtByDate	
 		FROM PayToSupplier m
-		GROUP BY m.rptDate
-	)
+		GROUP BY m.FullDate
+	)	
 	UPDATE r
 	SET r.PayToSupplier = - AmtByDate
 	FROM AmtByDate m
-		INNER JOIN #TmpHouseWL r ON r.RptDate = m.rptDate		
+		INNER JOIN #TmpHouseWL r ON r.RptDate = m.FullDate		
 	WHERE ProductID = 32	
 	-- END: Pay To Supplier for PP product
 	
