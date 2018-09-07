@@ -201,7 +201,7 @@ BEGIN
 	; WITH WLAmount AS
 	(
 		SELECT CONVERT(VARCHAR(2), RptDate, 106) rptDate,
-			rptDate FullDate, SUM(MemberWL) AS MemberWL
+			rptDate FullDate, SUM(- MemberWL * oanda.Rate) AS MemberWL
 		FROM #TmpHouseWL b
 			INNER JOIN #ExchangeOANDA oanda ON b.rptDate = oanda.ExchangeDate AND b.CurrencyId = oanda.ExchangeID
 		WHERE b.ProductID = 32
@@ -223,15 +223,14 @@ BEGIN
 	),
 	AmtByDate AS
 	(
-		SELECT m.FullDate, SUM(AmtByRange) AS AmtByDate	
+		SELECT m.rptDate, SUM(AmtByRange) AS AmtByDate	
 		FROM PayToSupplier m
-		GROUP BY m.FullDate
+		GROUP BY m.rptDate
 	)	
 	UPDATE r
 	SET r.PayToSupplier = - AmtByDate
 	FROM AmtByDate m
-		INNER JOIN #TmpHouseWL r ON r.RptDate = m.FullDate		
-	WHERE ProductID = 32	
+		INNER JOIN #FinalResult r ON r.RptDate = m.rptDate			
 	-- END: Pay To Supplier for PP product
 	
 	-- Final Return
