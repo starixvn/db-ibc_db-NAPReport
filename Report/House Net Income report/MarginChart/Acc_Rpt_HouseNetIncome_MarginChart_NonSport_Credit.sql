@@ -16,6 +16,7 @@ AS
     Revisions:
 		- 20180126@Harper - HDWL Letstalk - Implement Chart of NonSport product margin [#RedmineID: 89632]
 		- 20180806@Harper - DHWL Margin Chart - Create new message notification to NSD group based on Product List [#RedmineID: 98611]
+		- 20180813@Harper - DHWL Non-sports Margin Chart - Integrate OneRNG Jackpot & Pragmatic [#RedmineID: 97562]
 
 	Param's Explanation:   
 		- @ProductList: '' - default value when get all product
@@ -30,8 +31,8 @@ BEGIN
 	DECLARE @FDate DATE, @TDate DATE
 	SELECT @FDate = @FromDate, @TDate = @ToDate
 
-	DECLARE @Credit VARCHAR(MAX) = 'KN,LT,VB,VS,VS2,NG,CS,NG2,AB,FW,GD,LK3,CB'
-	DECLARE @Deposit VARCHAR(MAX) = 'NG,CS,KN,LT,AGC,MGCLC,MGCRNG,BT,CO,CB,VB,AB,FW,GD,BX,VS,VS2'
+	DECLARE @Credit VARCHAR(MAX) = 'KN,LT,VB,VS,VS2,NG,CS,NG2,AB,FW,GD,LK3,CB,PP'
+	DECLARE @Deposit VARCHAR(MAX) = 'NG,CS,KN,LT,AGC,MGCLC,MGCRNG,BT,CO,CB,VB,AB,FW,GD,BX,VS,VS2,PP'
 		
 	-- Region: Get exchange rate info
 	CREATE	TABLE #Exchange			(ExchangeDate DATE, ExchangeID INT, Rate FLOAT)
@@ -67,6 +68,7 @@ BEGIN
 					
 	INSERT INTO #ExchangeOANDA(ExchangeDate, ExchangeID, Rate)
 	EXECUTE (@OpenQuery)
+	
 	-- End region
 
 	CREATE TABLE #FinalResult (
@@ -160,7 +162,7 @@ BEGIN
 		INNER JOIN #ExchangeOANDA oanda ON b.rptDate = oanda.ExchangeDate AND b.CurrencyId = oanda.ExchangeID
 		INNER JOIN #PayToSupplierRate r ON b.ProductID = r.ProductID
 	WHERE b.ProductID IN (5, 8, 22, 27, 28) -- Need caculate based on oanda rate
-
+	
 	-- NG, NG2, LK3
 	UPDATE b
 	SET b.PayToSupplier = - (b.HouseWL + ExtraPT) * r.Rate
@@ -168,11 +170,76 @@ BEGIN
 		INNER JOIN #PayToSupplierRate r ON b.ProductID = r.ProductID
 	WHERE b.ProductID IN (3, 23, 26)
 
+	-- PayToSupplier for PP Product	
+	CREATE TABLE #ChargeInfo3rd (ProductID INT, Rate MONEY, FromDate SMALLDATETIME, ToDate SMALLDATETIME, MinAmount MONEY, MaxAmount MONEY, BaseCurrencyId INT)
+	
+	DECLARE @OpenQueryCharge NVARCHAR(1000)
+	SELECT @OpenQueryCharge = N'SELECT * ' 
+						+ N'FROM OPENQUERY(DBLIC, '
+						+ N'''SELECT DISTINCT ci.ProductID, ci.DI_Rate, ci.Fromdate, ci.Todate, c.MinAmount, c.MaxAmount, c.BaseCurrencyId '
+						+ N'FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd('''''
+						+ CAST(@FDate AS NVARCHAR(50)) + ''''''
+						+ N','''''
+						+ CAST(@TDate AS NVARCHAR(50)) + ''''''
+						+ N',''''PP'''''
+						+ N',''''OA'''''	
+						+ N') ci '
+						+ N'INNER JOIN bodb_licensee.dbo.OAS_ChargeInfo c WITH (NOLOCK) ON ci.ChargeID = c.ChargeID '
+						+ N'WHERE ci.ChargeType = 1 AND ci.IsDeposit = 0'
+						+ N''')'
+					
+	INSERT INTO #ChargeInfo3rd(ProductID, Rate, FromDate, ToDate, MinAmount, MaxAmount, BaseCurrencyId)
+	EXECUTE (@OpenQueryCharge)
+	
+	UPDATE ci
+	SET MinAmount = MinAmount * ex.Rate,
+		MaxAmount = MaxAmount * ex.Rate
+	FROM #ChargeInfo3rd ci
+		INNER JOIN #ExchangeOANDA ex ON ci.BaseCurrencyId = ex.ExchangeID AND ex.ExchangeDate = @TDate	
+	
+	-- PayToSupplier
+	; WITH WLAmount AS
+	(
+		SELECT CONVERT(VARCHAR(2), RptDate, 106) rptDate,
+			rptDate FullDate, SUM(- MemberWL * oanda.Rate) AS MemberWL
+		FROM #TmpHouseWL b
+			INNER JOIN #ExchangeOANDA oanda ON b.rptDate = oanda.ExchangeDate AND b.CurrencyId = oanda.ExchangeID
+		WHERE b.ProductID = 32
+		GROUP BY CONVERT(VARCHAR(2), RptDate, 106), rptDate
+	),
+	PayToSupplier AS
+	(
+		SELECT wl.*, ci.MinAmount, ci.MaxAmount, ci.Rate, 
+			CASE 
+				WHEN (MemberWL < 0 AND ci.MinAmount = 0) OR (MemberWL >= ci.MinAmount) THEN 
+					CASE 
+						WHEN MemberWL > MaxAmount THEN ci.MaxAmount - ci.MinAmount
+						ELSE MemberWL - ci.MinAmount
+					END
+				ELSE 0
+			END * ci.Rate AS AmtByRange
+		FROM WLAmount wl
+			INNER JOIN #ChargeInfo3rd ci ON wl.FullDate BETWEEN ci.FromDate AND ci.ToDate
+	),
+	AmtByDate AS
+	(
+		SELECT m.rptDate, SUM(AmtByRange) AS AmtByDate	
+		FROM PayToSupplier m
+		GROUP BY m.rptDate
+	)	
+	UPDATE r
+	SET r.PayToSupplier = - AmtByDate
+	FROM AmtByDate m
+		INNER JOIN #FinalResult r ON r.RptDate = m.rptDate			
+	-- END: Pay To Supplier for PP product
+	
 	-- Final Return
 	;WITH totalcte AS (
 						SELECT rptDate
-							, SUM(ISNULL(HouseWL, 0)) AS HouseWL, SUM(ISNULL(ExtraPT, 0)) AS ExtraPT
-							, SUM(ISNULL(TurnOver, 0)) AS TurnOver, SUM(ISNULL(PayToSupplier, 0)) AS PayToSupplier
+							, SUM(ISNULL(HouseWL, 0))		AS HouseWL
+							, SUM(ISNULL(ExtraPT, 0))		AS ExtraPT
+							, SUM(ISNULL(TurnOver, 0))		AS TurnOver
+							, SUM(ISNULL(PayToSupplier, 0)) AS PayToSupplier
 						FROM #TmpHouseWL
 						GROUP BY rptDate
 					)
