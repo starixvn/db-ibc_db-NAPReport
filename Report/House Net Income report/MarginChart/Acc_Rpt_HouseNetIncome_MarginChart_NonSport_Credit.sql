@@ -17,6 +17,7 @@ AS
 		- 20180126@Harper - HDWL Letstalk - Implement Chart of NonSport product margin [#RedmineID: 89632]
 		- 20180806@Harper - DHWL Margin Chart - Create new message notification to NSD group based on Product List [#RedmineID: 98611]
 		- 20180813@Harper - DHWL Non-sports Margin Chart - Integrate OneRNG Jackpot & Pragmatic [#RedmineID: 97562]
+		- 20180912@Harper - DHWL Non-sports Margin Chart - Integrate Pocker Games [#RedmineID: 100426]
 
 	Param's Explanation:   
 		- @ProductList: '' - default value when get all product
@@ -31,7 +32,7 @@ BEGIN
 	DECLARE @FDate DATE, @TDate DATE
 	SELECT @FDate = @FromDate, @TDate = @ToDate
 
-	DECLARE @Credit VARCHAR(MAX) = 'KN,LT,VB,VS,VS2,NG,CS,NG2,AB,FW,GD,LK3,CB,PP'
+	DECLARE @Credit VARCHAR(MAX) = 'KN,LT,VB,VS,VS2,NG,CS,NG2,AB,FW,GD,LK3,CB,PP,PG'
 	DECLARE @Deposit VARCHAR(MAX) = 'NG,CS,KN,LT,AGC,MGCLC,MGCRNG,BT,CO,CB,VB,AB,FW,GD,BX,VS,VS2,PP'
 		
 	-- Region: Get exchange rate info
@@ -109,9 +110,11 @@ BEGIN
 		OR EXISTS (SELECT 1 FROM #tmpProduct p WHERE sel.ProductPrefix = p.ProductPrefix) 
 
 	-- House WL
-	CREATE TABLE #TmpHouseWL (rptDate DATE, ProductID INT, CurrencyID INT, HouseWL MONEY, MemberWL MONEY, MemberWLReal MONEY, MemberWLOANDA MONEY, PayToSupplier MONEY, TurnOver MONEY, ExtraPT MONEY)
+	CREATE TABLE #TmpHouseWL (rptDate DATE, ProductID INT, CurrencyID INT, HouseWL MONEY
+								, MemberWL MONEY, MemberWLReal MONEY, MemberWLOANDA MONEY
+								, PayToSupplier MONEY, TurnOver MONEY, ExtraPT MONEY, PartnerFee MONEY)
 	
-	INSERT INTO #TmpHouseWL (rptDate, ProductID, CurrencyID, HouseWL, MemberWL, MemberWLReal, TurnOver, ExtraPT)
+	INSERT INTO #TmpHouseWL (rptDate, ProductID, CurrencyID, HouseWL, MemberWL, MemberWLReal, TurnOver, ExtraPT, PartnerFee)
 	SELECT 
 		b.rptDate,
 		sb.ProductID,
@@ -120,7 +123,8 @@ BEGIN
 		CASE WHEN sb.ProductID = 15 THEN 0 ELSE SUM(b.WinlossP) END AS MemberWL,
 		CASE WHEN sb.ProductID = 15 THEN 0 ELSE SUM(b.WinlossP * ex.Rate) END AS MemberWLReal,		
 		SUM((CASE WHEN TurnoverIBC = 0 THEN 0  ELSE TurnoverIBC - ExtraTO END ) * ( CASE WHEN VarianceVR > 0 THEN( VarianceVR + 1 ) ELSE 1 END ) * ex.Rate) AS TurnOver,
-		CASE WHEN sb.ProductID = 15 THEN 0 ELSE SUM((b.ExtraWL + b.ExtraComm) * ex.Rate) END AS ExtraPT
+		CASE WHEN sb.ProductID = 15 THEN 0 ELSE SUM((b.ExtraWL + b.ExtraComm) * ex.Rate) END AS ExtraPT,
+		CASE WHEN sb.ProductID = 33 THEN -SUM(b.PartnerFee) ELSE 0 END AS PartnerFee -- Pocker Game
 	FROM bodb_Account.dbo.FactSiteWinloss b WITH(NOLOCK)
 		INNER JOIN #exchange ex ON b.rptdate = ex.exchangedate AND b.currencyid = ex.ExchangeID		
 		INNER JOIN #SportBettypeMatrix sb ON sb.Bettype = b.bettype
@@ -162,6 +166,13 @@ BEGIN
 		INNER JOIN #ExchangeOANDA oanda ON b.rptDate = oanda.ExchangeDate AND b.CurrencyId = oanda.ExchangeID
 		INNER JOIN #PayToSupplierRate r ON b.ProductID = r.ProductID
 	WHERE b.ProductID IN (5, 8, 22, 27, 28) -- Need caculate based on oanda rate
+
+	-- OANDA Rate: PG
+	UPDATE b
+	SET b.PayToSupplier = b.PartnerFee * oanda.Rate
+	FROM #TmpHouseWL b
+		INNER JOIN #ExchangeOANDA oanda ON b.rptDate = oanda.ExchangeDate AND b.CurrencyId = oanda.ExchangeID		
+	WHERE b.ProductID IN (33) -- Need caculate based on oanda rate
 	
 	-- NG, NG2, LK3
 	UPDATE b
