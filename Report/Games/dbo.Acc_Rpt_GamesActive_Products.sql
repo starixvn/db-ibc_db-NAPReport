@@ -17,7 +17,6 @@ AS
 	- 20160916@Robert:
 		1. Integrate new product NG2 [RedmindID: #63460]
 		2. Remove Cockfighting - ProductID = 19
-	- 20180830@Cherry: Integrate Poker Games (#97830)
 */
 SELECT
 	CONVERT(INT,-1) ProductID
@@ -27,7 +26,7 @@ SELECT
 	ProductID
 	,ProductName
 FROM dbo.Products WITH (NOLOCK)
-WHERE ProductID IN (3,6,7,8,4,11,12,13,17,14,15,21,22,23,33)
+WHERE ProductID IN (3,6,7,8,4,11,12,13,17,14,15,21,22,23)
 
 GO
 GRANT ALTER ON [dbo].[Acc_Rpt_GamesActive_Products] TO [bodbAdminNet] AS [dbo]
