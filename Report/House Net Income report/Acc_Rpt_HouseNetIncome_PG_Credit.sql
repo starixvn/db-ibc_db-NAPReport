@@ -83,7 +83,7 @@ BEGIN
 		b.rptDate,
 		-SUM((b.WinlossIBC + commissionS) * ex.rate) HouseWL,
 		SUM((b.ExtraWL + b.ExtraComm) * ex.Rate)  AS ExtraPT,
-		-SUM(b.PartnerFee * oanda.Rate) AS PartnerFee
+		SUM((-b.PartnerFee - PartnerWinloss) * oanda.Rate) AS PartnerFee
 	FROM bodb_Account.dbo.FactSiteWinloss b WITH(NOLOCK)
 		INNER JOIN #exchange ex ON b.rptdate = ex.exchangedate AND b.currencyid = ex.ExchangeID
 		INNER JOIN #ExchangeOANDA oanda ON b.rptdate = oanda.exchangedate AND b.currencyid = oanda.ExchangeID

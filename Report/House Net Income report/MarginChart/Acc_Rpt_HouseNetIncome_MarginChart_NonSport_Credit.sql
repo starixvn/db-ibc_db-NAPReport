@@ -124,7 +124,7 @@ BEGIN
 		CASE WHEN sb.ProductID = 15 THEN 0 ELSE SUM(b.WinlossP * ex.Rate) END AS MemberWLReal,		
 		SUM((CASE WHEN TurnoverIBC = 0 THEN 0  ELSE TurnoverIBC - ExtraTO END ) * ( CASE WHEN VarianceVR > 0 THEN( VarianceVR + 1 ) ELSE 1 END ) * ex.Rate) AS TurnOver,
 		CASE WHEN sb.ProductID = 15 THEN 0 ELSE SUM((b.ExtraWL + b.ExtraComm) * ex.Rate) END AS ExtraPT,
-		CASE WHEN sb.ProductID = 33 THEN -SUM(b.PartnerFee) ELSE 0 END AS PartnerFee -- Pocker Game
+		CASE WHEN sb.ProductID = 33 THEN SUM(-b.PartnerFee - PartnerWinloss) ELSE 0 END AS PartnerFee -- Pocker Game
 	FROM bodb_Account.dbo.FactSiteWinloss b WITH(NOLOCK)
 		INNER JOIN #exchange ex ON b.rptdate = ex.exchangedate AND b.currencyid = ex.ExchangeID		
 		INNER JOIN #SportBettypeMatrix sb ON sb.Bettype = b.bettype
