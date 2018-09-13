@@ -2,13 +2,12 @@
 
 USE [bodb02]
 GO
-/****** Object:  StoredProcedure [dbo].[Acc_Rpt_CompanyWinLoss_Products]    Script Date: 5/22/2018 8:51:28 AM ******/
+
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
-/****** Object:  Stored Procedure dbo.Acc_Rpt_CompanyWinLoss_Products    Script Date: 5/21/2018 9:03:23 AM ******/
-/****** Object:  Stored Procedure dbo.Acc_Rpt_CompanyWinLoss_Products    Script Date: 5/2/2018 9:36:29 AM ******/
+
 ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_Products]
       @StartDate SMALLDATETIME,
       @EndDate   SMALLDATETIME
@@ -36,6 +35,9 @@ AS
 		- 20171211@Franklin: Exchange(#86456)
 		- 2018.03.19@Franklin: Integrate  ONE RNG Jackpot (#91712)
 		- 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
+		- 20180816@Cherry: Integrate Poker Games (#97830)
+		- 20180824@Jacob: Integrate Poker Games (#97830) - Remove Racing
+		- 20180831@Kean: Integrate Insurance Of Poker Games (#97830)
 	Explanation's Param:
 	
 */
@@ -194,177 +196,21 @@ AS
                FROM bodb02.dbo.Acc_GroupExtraPTSetting a WITH ( NOLOCK )
                WHERE @StartDate BETWEEN FromDate AND Todate
                GROUP BY ProductID, SportType, SubProduct, SuperId;
-	
-        ----------------------	Racing -------------------------------------
-        DECLARE @RBWinlost TABLE( site      TINYINT,
-                                  winlost   MONEY,
-                                  pos       MONEY,
-                                  comm      MONEY,
-                                  HouseWinloss MONEY,
-                                  turnover  MONEY );	
 
-
-        ---insert company's comm setting that is recieved from Phumelela into this temp table.
-        DECLARE @tmpIBCFee TABLE( partnerID INT,
-                                  IBCFee    BIT );
-        DECLARE @CommSetting TABLE( MatchId       INT,
-                                    IBCFee        BIT,
-                                    ToteCommWin   SMALLMONEY,
-                                    ToteCommPlace SMALLMONEY,
-                                    ToteCommWP    SMALLMONEY,
-                                    ToteFee       SMALLMONEY );
-        INSERT INTO @tmpIBCFee
-               ( partnerID,
-                 IBCFee
-               )
-               SELECT 1,
-                      1 --RACE-PHU
-               UNION ALL
-               SELECT 2,
-                      0 --RACE-ATRUK
-               UNION ALL
-               SELECT 3,
-                      0 --RACE-ATRIRL
-               UNION ALL
-               SELECT 4,
-                      0 --RACE-RUK
-               UNION ALL
-               SELECT 5,
-                      1 --RACE-TABCORP
-               UNION ALL
-               SELECT 6,
-                      1 --RACE-TABCORPNSW
-               UNION ALL
-               SELECT 101,
-                      1 --GREY-DTOTEUK
-               UNION ALL
-               SELECT 102,
-                      1 --GREY-DTOTEIRL
-               UNION ALL
-               SELECT 103,
-                      1 --GREY-TABCORP
-               UNION ALL
-               SELECT 104,
-                      1 --GREY-TABCORPNSW
-               UNION ALL
-               SELECT 201,
-                      1 --HAR-TABCORP
-               UNION ALL
-               SELECT 202,
-                      1; --HAR-TABCORPNSW	
-
-
-        INSERT INTO @CommSetting
-               ( MatchId,
-                 IBCFee,
-                 ToteCommWin,
-                 ToteCommPlace,
-                 ToteCommWP,
-                 ToteFee
-               )
-               SELECT DISTINCT o.orid AS MatchId,
-                               t.IBCFee,
-                               p.ToteCommWin,
-                               p.ToteCommPlace,
-                               ( p.ToteCommWin + p.ToteCommPlace ) / 2 ToteCommWP,
-                               p.ToteFee
-               FROM outright o WITH ( NOLOCK )
-                    INNER JOIN LeagueDetail p WITH ( NOLOCK ) ON o.LeagueId = p.LeagueId
-                                                             AND p.programDate = o.programDate
-                    INNER JOIN RacingMeeting r WITH ( NOLOCK ) ON r.meetingID = p.LeagueId
-                    INNER JOIN @tmpIBCFee t ON r.partnerID = t.partnerID
-               WHERE o.EventDate = @StartDate;
+		---- Extra Comm for PokerGame Insurance
+        CREATE TABLE #ExtraComm_Sel( ProductID  INT,
+                                   Sporttype  INT,
+                                   SubProduct VARCHAR(100),
+                                   SuperID    INT,
+                                   ExtraComm    DECIMAL(9, 8));
+        INSERT INTO #ExtraComm_Sel
+               ( ProductID, Sporttype, SubProduct, SuperID, ExtraComm)
+               SELECT ProductID, SportType, SubProduct, SuperId, SUM(ExtraCommRate) AS ExtraComm
+               FROM bodb02.dbo.Acc_GroupExtraCommRateSetting a WITH ( NOLOCK )
+               WHERE @StartDate BETWEEN FromDate AND Todate
+               GROUP BY ProductID, SportType, SubProduct, SuperId;
 	
 	
-        ----------------------------------- 
-        INSERT INTO @RBWinlost
-               ( site,
-                 winlost,
-                 pos,
-                 comm,
-                 HouseWinloss,
-                 turnover
-               )
-               SELECT CASE
-                          WHEN dep.custid IS NULL
-                          THEN 1
-                          ELSE 2
-                      END AS site,
-                      SUM(( b.winlost - b.actual_stake ) * b.actualrate) AS winlost,
-                      SUM(( b.awinlost + b.mwinlost + b.swinlost ) * b.actualrate) AS pos,
-                      SUM(b.scomm * b.actualrate) AS comm,
-                      -( SUM(( CASE
-                                   WHEN b.bettype = 33
-                                   THEN bm.WLIBC
-                                   ELSE-( b.winlost - b.actual_stake ) * ISNULL(b.oddsspread, 0)
-                               END ) * b.actualrate) - SUM(CASE
-                                                               WHEN cs.IBCFee = 0
-                                                               THEN 0
-                                                               ELSE( CASE
-                                                                         WHEN b.bettype = 33
-                                                                         THEN bm.TOPhum
-                                                                         WHEN b.bettype IN( 31, 32 )
-                                                                         THEN b.actual_stake * ( 1 - b.tpositiontaking - ISNULL(b.oddsspread, 0))
-                                                                         ELSE 0
-                                                                     END ) * b.actualrate * cs.ToteFee
-                                                           END) --FeeDue2 
-                         + SUM(( CASE b.bettype
-                                     WHEN 31
-                                     THEN b.actual_stake * cs.ToteCommWin * ( 1 - b.tpositiontaking - ISNULL(oddsspread, 0))
-                                     WHEN 32
-                                     THEN b.actual_stake * cs.ToteCommPlace * ( 1 - b.tpositiontaking - ISNULL(oddsspread, 0))
-                                     WHEN 33
-                                     THEN bm.TOPhum * cs.ToteCommWP
-                                     ELSE 0
-                                 END ) * b.actualrate) --commIncomeIBC
-                         - SUM(b.scomm * b.actualrate)) AS realHouseWinloss,
-                      SUM(CASE
-                              WHEN b.bettype = 33
-                              THEN bm.TOIBC * b.actualrate
-                              ELSE b.actual_stake * ISNULL(oddsspread, 0) * b.actualrate
-                          END) AS turnover
-               FROM bettrans b WITH ( nolock )
-                    INNER JOIN @CommSetting AS cs ON b.MatchId = cs.MatchId
-                    LEFT JOIN( 
-                               SELECT refno,
-                                      SUM(CASE
-                                              WHEN bm.bettype = 32
-                                               AND liveawayscore = 0
-                                              THEN 0
-                                              ELSE stake * ISNULL(oddsspread, 0)
-                                          END) TOIBC,
-                                      -SUM(( winlost - stake ) * ISNULL(oddsspread, 0)) WLIBC,
-                                      SUM(CASE
-                                              WHEN bm.bettype = 32
-                                               AND liveawayscore = 0
-                                              THEN 0
-                                              WHEN bm.bettype = 31
-                                                OR ( bm.bettype = 32
-                                                 AND liveawayscore <> 0
-                                                   )
-                                              THEN stake * ( 1 - tpositiontaking - ISNULL(oddsspread, 0))
-                                              ELSE 0
-                                          END) TOPhum
-                               FROM bettransm bm WITH ( nolock )
-                                    INNER JOIN #SportBettype s ON s.Bettype = bm.bettype
-                               WHERE s.ProductID = 2
-                               GROUP BY refno ) bm ON b.transid = bm.refno
-                    INNER JOIN #SportBettype s ON s.Bettype = b.bettype
-                    LEFT JOIN( 
-                               SELECT custid
-                               FROM #DepSuper ) dep ON b.srecommend = dep.custid
-               WHERE b.ruben = 1
-                 AND s.ProductID = 2
-                 AND b.MatchId > 0
-                 AND b.winlostdate = @StartDate
-                 AND b.statusID IN( 111, 112, 113 )
-               GROUP BY CASE
-                            WHEN dep.custid IS NULL
-                            THEN 1
-                            ELSE 2
-                        END;
-
-        -------------------------------------- End of Racing -------------------------------------------------
         CREATE TABLE #Match( MatchId   INT,
                              sporttype SMALLINT,
                              [type]    TINYINT );--, primary key(MatchId, type))
@@ -628,7 +474,7 @@ AS
                  grosscomm_actualrate,grosscomm_virtualrate,grosscomm_variance,
                  ProductId,CasinoType,turnover_actualrate,turnover_virtualrate,stake_actualrate,stake_virtualrate,
                  WinlossForExtraPT_actualrate,
-                 WinlossForExtraPT_virtualrate
+				 WinlossForExtraPT_virtualrate
                )
                SELECT srecommend,
                       1 AS site,
@@ -641,50 +487,49 @@ AS
 								+ scomm * CASE WHEN b.virtualrate < b.actualrate THEN b.virtualrate ELSE b.actualrate END) HouseWinloss_virtualrate,
 					  SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost
 								+ CASE WHEN b.virtualrate < b.actualrate THEN b.scomm ELSE 0 END) * (actualrate - virtualrate)) HouseWinloss_variance,
-                      SUM(( CASE
-                                WHEN b.tpositiontaking = 1
-                                THEN 0
-                                ELSE b.scomm / ( 1 - b.tpositiontaking )
+                      SUM(( CASE WHEN b.tpositiontaking = 1 THEN 0
+                                 WHEN s.ProductID = 33 THEN -b.oddsspread  -- Poker Games
+                                 ELSE b.scomm / ( 1 - b.tpositiontaking )
                             END ) * b.actualrate) grosscomm_actualrate,
-					  SUM(( CASE
-                                WHEN b.tpositiontaking = 1
-                                THEN 0
-                                ELSE b.scomm / ( 1 - b.tpositiontaking )
+					  SUM(( CASE WHEN b.tpositiontaking = 1 THEN 0
+                                 WHEN s.ProductID = 33 THEN -b.oddsspread  -- Poker Games
+                                 ELSE b.scomm / ( 1 - b.tpositiontaking )
                             END ) * CASE WHEN b.virtualrate < b.actualrate THEN b.virtualrate ELSE b.actualrate END) grosscomm_virtualrate,
 					  SUM((CASE WHEN b.virtualrate < b.actualrate 
-							   THEN  (CASE WHEN b.tpositiontaking = 1 THEN 0 ELSE b.scomm / ( 1 - b.tpositiontaking ) END)
+							   THEN  (CASE WHEN b.tpositiontaking = 1 THEN 0 
+											WHEN s.ProductID = 33 THEN -b.oddsspread  -- Poker Games
+											ELSE b.scomm / ( 1 - b.tpositiontaking ) END)
 							   ELSE 0 END) * (actualrate - virtualrate)) grosscomm_variance,
-                                                  CASE s.SubProduct
-                                                      WHEN 'MG-SuperLive' THEN-1
-                                                      WHEN 'BT-Comm' THEN-2
-                                                      WHEN 'BT-Winloss' THEN-2
-                                                      ELSE CASE WHEN s.EventType = 0 AND ProductID = 1 THEN-3 ELSE s.ProductID END
-                                                  END AS ProductID,
+                      CASE s.SubProduct
+                          WHEN 'MG-SuperLive' THEN-1
+                          WHEN 'BT-Comm' THEN-2
+                          WHEN 'BT-Winloss' THEN-2
+                          ELSE CASE WHEN s.EventType = 0 AND ProductID = 1 THEN-3 ELSE s.ProductID END
+                      END AS ProductID,
                       s.CasinoType,
-                      SUM(( 1 - b.tpositiontaking ) * (CASE WHEN s.productID = 1 THEN ABS(stake) ELSE stake END)
-													* CASE WHEN virtualrate > actualrate THEN virtualrate ELSE actualrate END
-                          ) AS turnover_actualrate,
-                      SUM(( 1 - b.tpositiontaking ) * (CASE WHEN s.productID = 1 THEN ABS(stake) ELSE stake END) * virtualrate) AS turnover_virtualrate,
-                      SUM(CASE
-                              WHEN b.tpositiontaking = 1
-                              THEN 0
-                              ELSE (CASE WHEN s.productID = 1 THEN ABS(stake) ELSE stake END) 
+                      SUM(CASE WHEN s.ProductID = 33 THEN 0  -- Poker Games
+								ELSE ( 1 - b.tpositiontaking ) * (CASE WHEN s.productID = 1 THEN ABS(stake) ELSE stake END)
+													* CASE WHEN virtualrate > actualrate THEN virtualrate ELSE actualrate END 
+                          END) AS turnover_actualrate,
+                      SUM(CASE WHEN s.ProductID = 33 THEN 0  -- Poker Games
+							   ELSE( 1 - b.tpositiontaking ) * (CASE WHEN s.productID = 1 THEN ABS(stake) ELSE stake END) * virtualrate
+						  END) AS turnover_virtualrate,
+                      SUM(CASE WHEN b.tpositiontaking = 1 THEN 0
+							   WHEN s.ProductID = 33 THEN 0  -- Poker Games
+                               ELSE (CASE WHEN s.productID = 1 THEN ABS(stake) ELSE stake END) 
 								   * CASE WHEN virtualrate > actualrate THEN virtualrate ELSE actualrate END
                           END) AS stake_actualrate,
-                      SUM(CASE
-                              WHEN b.tpositiontaking = 1
-                              THEN 0
-                              ELSE (CASE WHEN s.productID = 1 THEN ABS(stake) ELSE stake END) * virtualrate
+                      SUM(CASE WHEN b.tpositiontaking = 1 THEN 0
+							   WHEN s.ProductID = 33 THEN 0  -- Poker Games
+                               ELSE (CASE WHEN s.productID = 1 THEN ABS(stake) ELSE stake END) * virtualrate
                           END) AS stake_virtualrate,
-                      SUM(CASE
-                              WHEN b.tpositiontaking = 1
-                              THEN 0
-                              ELSE(( winlost - actual_stake ) * actualrate )
+                      SUM(CASE WHEN b.tpositiontaking = 1 THEN 0
+							   WHEN s.ProductID = 33 THEN (ISNULL(b.transid2, 0) * 1.0/10000) * actualrate  -- Insurance Of Poker Games
+                               ELSE(( winlost - actual_stake ) * actualrate )
                           END) AS WinlossForExtraPT_actualrate,
-                      SUM(CASE
-                              WHEN b.tpositiontaking = 1
-                              THEN 0
-                              ELSE(( winlost - actual_stake ) * virtualrate )
+                      SUM(CASE WHEN b.tpositiontaking = 1 THEN 0
+							   WHEN s.ProductID = 33 THEN (ISNULL(b.transid2, 0) * 1.0/10000) * virtualrate  -- Insurance Of Poker Games
+                               ELSE(( winlost - actual_stake ) * virtualrate )
                           END) AS WinlossForExtraPT_virtualrate
                FROM bettrans b WITH ( NOLOCK )
                     INNER JOIN #SportBettype s ON b.bettype = s.bettype
@@ -1101,35 +946,7 @@ AS
                         site;
 
 
-        ---Racing
-        INSERT INTO #Result
-               ( ProductId,
-                 site,
-                 winlost,
-                 Position,
-                 Commission,
-                 RealHouseWinloss,
-                 VirtualHouseWinloss,
-				 VarianceIncome,
-                 RealTurnover,
-                 VirtualTurnover,
-                 ExtraPT,
-                 NewExtraPT
-               )
-               SELECT 2 AS ProductId,
-                      site,
-                      WinLost,
-                      Pos AS Position,
-                      Comm AS Commission,
-                      HouseWinloss AS RealHouseWinloss,
-                      HouseWinloss AS VirtualHouseWinloss,
-					  0 AS VarianceIncome,
-                      turnover AS RealTurnover,
-                      0 VirtualTurnover,
-                      0 ExtraPT,
-                      0 NewExtraPT
-               FROM @RBWinlost;
-
+       
         ---bettrade
         INSERT INTO #Result
                ( ProductId,
@@ -1178,7 +995,46 @@ AS
                         b.ProductId;
 
         ------------------------------------------
-        ---Live casino and Casino and 3rd Party
+		---For Poker Games
+        INSERT INTO #Result
+               ( ProductId,
+                 site,
+                 winlost,
+                 Position,
+                 Commission,
+                 RealHouseWinloss,
+                 VirtualHouseWinloss,
+				 VarianceIncome,
+                 RealTurnover,
+                 VirtualTurnover,
+                 ExtraPT,
+                 NewExtraPT
+               )
+               SELECT b.ProductId AS ProductId,
+               site,
+               SUM(winlost_actualrate) WinLost,
+               SUM(SMAWinloss) Position,
+               SUM(commission_actualrate) Commission,
+               SUM(HouseWinloss_actualrate - (WinlossForExtraPT_actualrate * ISNULL(e.ExtraPT, 0) + b.grosscomm_actualrate * ISNULL(c.ExtraComm, 0))) AS RealHouseWinloss,
+               SUM(HouseWinloss_virtualrate - (WinlossForExtraPT_virtualrate * ISNULL(e.ExtraPT, 0) + b.grosscomm_virtualrate * ISNULL(c.ExtraComm, 0))) AS VirtualHouseWinloss,
+			   SUM(HouseWinloss_variance - (WinlossForExtraPT_actualrate - WinlossForExtraPT_virtualrate) * ISNULL(e.ExtraPT, 0) - grosscomm_variance * ISNULL(c.ExtraComm, 0)) AS VarianceIncome,
+               SUM(turnover_actualrate - ISNULL(e.ExtraPT, 0) * stake_actualrate) AS RealTurnover,
+               SUM(turnover_virtualrate - ISNULL(e.ExtraPT, 0) * stake_virtualrate) AS VirtualTurnover,
+               SUM(CASE ISNULL(e.ExtraPT, 0)
+                       WHEN 0
+                       THEN 0
+                       ELSE( winlost_actualrate ) * e.ExtraPT
+                   END) AS ExtraPT,
+               SUM(WinlossForExtraPT_actualrate * ISNULL(e.ExtraPT, 0) +  grosscomm_actualrate * ISNULL(c.ExtraComm, 0)) AS NewExtraPT
+               FROM #src b
+                    LEFT JOIN #ExtraPT_Sel e ON b.srecommend = e.superID
+                                            AND e.ProductID = b.ProductId
+					LEFT JOIN #ExtraComm_Sel c ON b.srecommend = c.superID
+                                            AND b.ProductId = c.ProductID
+               WHERE b.ProductId = 33
+               GROUP BY site,
+                        b.ProductId;
+        ---Live casino and Casino and 3rd Party exclude Poker Games
         INSERT INTO #Result
                ( ProductId,
                  site,
@@ -1194,9 +1050,6 @@ AS
                  NewExtraPT
                )
                SELECT	
-               --CASE WHEN b.ProductId IN (14) THEN 6   ---- Casino
-               --	ELSE CASE WHEN  b.ProductId IN (4,11,12,13) THEN 4  ---Live Casino
-               --		ELSE b.ProductId END END AS ProductId  ,
 
                CASE
                    WHEN b.CasinoType = 1
@@ -1227,9 +1080,7 @@ AS
                FROM #src b
                     LEFT JOIN #ExtraPT_Sel e ON b.srecommend = e.superID
                                             AND e.ProductID = b.ProductId
-               WHERE b.ProductId IN( 5, 8, 15, 23, 25, 26, 27, 28, 30, 31 ) ---Virtual Sports, Keno, Colossus Bets, NG2 (3rd), CashOut, Betradar Virtual Sports, Lottery, Lucky 3, Bullfighting, Exchange
-                     --- OR b.ProductId IN (4,11,12,13)    -----SLI, AG Casino, Gold Deluxe, MGC Live casino  (liveCasino)
-                     --- OR b.ProductId IN (6, 14) --- Macau (Casino)
+               WHERE b.ProductId IN( 5, 8, 15, 23, 25, 26, 27, 28, 30, 31) ---Virtual Sports, Keno, Colossus Bets, NG2 (3rd), CashOut, Betradar Virtual Sports, Lottery, Lucky 3, Bullfighting, Exchange
                   OR b.CasinoType IN( 1, 2 )
                GROUP BY site,
                         CASE
@@ -1254,9 +1105,6 @@ AS
                  NewExtraPT
                )
                SELECT	
-               --CASE WHEN b.ProductId IN (6,17,22) THEN 6  --- Casino
-               --	ELSE 4	--- Live Casino
-               --	END AS ProductId,	
 						
                CASE
                    WHEN b.CasinoType = 1
@@ -1284,7 +1132,6 @@ AS
                     LEFT JOIN #ExtraPT_Sel e ON b.srecommend = e.superID
                                             AND e.ProductID = b.ProductId
                WHERE b.ProductId IN( 24 ) -- Fishing World
-                     ---OR  b.ProductId IN (6,17,22) --- OW RNG + Microgaming - RNG Casino, Macau Games (Casino)
                   OR b.CasinoType IN( 1, 2 )
                GROUP BY site,
                         CASE
@@ -1380,18 +1227,18 @@ AS
 				( 6, 3, 'Number Game' ),
 				( 7, 4, 'Live Casino' ),
 				( 8, 6, 'Casino' ),
-				( 9, 5, 'Virtual Sports' ),
-				( 10, 27, 'Virtual Sports 2' ),
-				( 11, 28, 'Lottery' ),
-				( 12, 23, 'NG2' ),
-				( 13, -2, 'Bettrade' ),
-				( 14, 25, 'Cash Out' ),
-				( 15, 15, 'Colossus Bets' ),
-				( 16, 24, 'Fishing World' ),
-				( 17, 26, 'Lucky 3' ),
-				( 18, 30, 'Bullfighting' ),
-				( 19, 31, 'Exchange' ),
-				( 20, 2, 'Racing' );
+				( 9, 33, 'Poker Games'),
+				( 10, 5, 'Virtual Sports' ),
+				( 11, 27, 'Virtual Sports 2' ),
+				( 12, 28, 'Lottery' ),
+				( 13, 23, 'NG2' ),
+				( 14, -2, 'Bettrade' ),
+				( 15, 25, 'Cash Out' ),
+				( 16, 15, 'Colossus Bets' ),
+				( 17, 24, 'Fishing World' ),
+				( 18, 26, 'Lucky 3' ),
+				( 19, 30, 'Bullfighting' ),
+				( 20, 31, 'Exchange' );
 
         INSERT INTO @ProductOrder
                ( DisplayOrder,
@@ -1465,6 +1312,7 @@ AS
         DROP TABLE #srcDetail;
         DROP TABLE #DepSuper;
         DROP TABLE #ExtraPT_Sel;
+		DROP TABLE #ExtraComm_Sel;
         DROP TABLE #Match;
         DROP TABLE #Result;
         DROP TABLE #SportBettype;
