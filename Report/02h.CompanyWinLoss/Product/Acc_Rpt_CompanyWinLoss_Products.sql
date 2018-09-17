@@ -38,6 +38,8 @@ AS
 		- 20180816@Cherry: Integrate Poker Games (#97830)
 		- 20180824@Jacob: Integrate Poker Games (#97830) - Remove Racing
 		- 20180831@Kean: Integrate Insurance Of Poker Games (#97830)
+		- 20180917@Robert: House WL by Product - Poker Games should be last index (#101618)
+
 	Explanation's Param:
 	
 */
@@ -1226,8 +1228,7 @@ AS
 				( 5, 8, 'Keno' ),
 				( 6, 3, 'Number Game' ),
 				( 7, 4, 'Live Casino' ),
-				( 8, 6, 'Casino' ),
-				( 9, 33, 'Poker Games'),
+				( 8, 6, 'Casino' ),				
 				( 10, 5, 'Virtual Sports' ),
 				( 11, 27, 'Virtual Sports 2' ),
 				( 12, 28, 'Lottery' ),
@@ -1238,7 +1239,8 @@ AS
 				( 17, 24, 'Fishing World' ),
 				( 18, 26, 'Lucky 3' ),
 				( 19, 30, 'Bullfighting' ),
-				( 20, 31, 'Exchange' );
+				( 20, 31, 'Exchange' ),
+				( 21, 33, 'Poker Games');
 
         INSERT INTO @ProductOrder
                ( DisplayOrder,
