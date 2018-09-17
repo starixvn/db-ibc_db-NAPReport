@@ -1,3 +1,5 @@
+/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
+
 USE bodb02
 GO
 
@@ -15,6 +17,8 @@ AS
 		- 20160916@Harper - #64211 - Add (-1) when caculate value for PayToSupplier
 		- 20160923@Harper - #64582 - PayToSupplier should use ExchangeOANDA
 		- 20160926@Harper - #64744 - Full Range should be SUM from 2 Keno Rate
+		- 20180917@Harper - #101314 - Commercial Terms change for Keno & Lottery (0.05 => 0.03)
+
 	Param's Explanation:   
 */  
 BEGIN  
@@ -31,7 +35,7 @@ BEGIN
 		INNER JOIN bodb_licensee.dbo.OAS_PartyDetail pd WITH (NOLOCK) ON pd.PartyID = p.PartyID
 		INNER JOIN bodb_licensee.dbo.OAS_ChargeInfo ci WITH (NOLOCK) ON p.PartyID = ci.FromParty
 		INNER JOIN bodb_licensee.dbo.LA_ChargeInfo_SystemMapping map ON map.ChargeID = ci.ChargeID and map.SystemID = 2
-	WHERE	p.PartyType = 1
+	WHERE	p.PartyType = 1 AND pd.IsDeposit = 1 -- Deposit data only
 			AND ci.ProductId = 8 -- KN
 			AND ((ci.FromDate BETWEEN @FDate AND @TDate)
 				OR (ci.ToDate BETWEEN @FDate AND @TDate)
@@ -46,7 +50,7 @@ BEGIN
 						ELSE 'Licensees'
 					 END,
 		KNRate = CASE 					
-					WHEN IsDeposit = 1 AND PartyID = 14 THEN 0.03
+					WHEN (IsDeposit = 1 AND PartyID = 14) OR (@FDate >= '2018-08-01') THEN 0.03
 					ELSE 0.05
 				 END
 	-- End region
@@ -67,8 +71,7 @@ BEGIN
 		FROM	bodb_licensee.dbo.LA_f_ChargeInfo(@PartyIDs, @FDate, @TDate, 'KN', 'OA', 1) ci
 			LEFT JOIN bodb_licensee..Sport_Bettype_Reference sbr WITH(NOLOCK) ON sbr.BettypeRef = ci.Bettype
 		WHERE	DI_Rate > 0 AND ProductId <> 1 --exclude RB
-	)
-
+	)	
 	-- End region
 
 	-- Region: Get exchange rate info
