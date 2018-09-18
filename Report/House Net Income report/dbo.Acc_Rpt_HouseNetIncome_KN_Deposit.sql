@@ -30,7 +30,7 @@ BEGIN
 	-- Region: Active licensees
 	DECLARE @tmpParty TABLE (PartyID INT, IsDeposit BIT, PartyGroup VARCHAR(20), KNRate FLOAT)
 	INSERT INTO @tmpParty (PartyID, IsDeposit, PartyGroup, KNRate)
-	SELECT DISTINCT ci.FromParty, pd.IsDeposit , '', 0.05
+	SELECT DISTINCT ci.FromParty, pd.IsDeposit , '', 0
 	FROM bodb_licensee.dbo.OAS_Party p WITH (NOLOCK)
 		INNER JOIN bodb_licensee.dbo.OAS_PartyDetail pd WITH (NOLOCK) ON pd.PartyID = p.PartyID
 		INNER JOIN bodb_licensee.dbo.OAS_ChargeInfo ci WITH (NOLOCK) ON p.PartyID = ci.FromParty
