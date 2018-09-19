@@ -947,7 +947,7 @@ BEGIN
 				dbo.bettrans14 b with (nolock) 
 				 LEFT JOIN (
 					SELECT refno,MIN(matchid) matchid
-					FROM dbo.bettransm b (NOLOCK)
+					FROM dbo.bettransm14 b (NOLOCK)
 						inner join #SportBettype sb on b.bettype = sb.Bettype
 					WHERE sb.ProductID IN (27)
 					GROUP BY refno
