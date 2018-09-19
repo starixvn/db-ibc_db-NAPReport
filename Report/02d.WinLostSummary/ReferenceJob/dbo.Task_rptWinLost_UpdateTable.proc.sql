@@ -45,6 +45,7 @@ Revision:
 	- 201806185@Tom: Update Logic Bettrans14 (bettype 29) (#97061)
 	- 20180702@Tom: add condition generate data BalanceUpDay AND MoveBetsDay	
 	- 20180807@Dominic: Integrate Poker Games - #97830
+	- 20180920@Tom: modify SP to avoid allocation order scan (#101646)
 */
 
 BEGIN	
@@ -78,7 +79,7 @@ BEGIN
 
 	DECLARE @isTest BIT= 0;
      SELECT @isTest = dbo.f_CheckSPVersion(@@PROCID);
-	CREATE TABLE #SportBettype(ProductID INT, Bettype INT,EventType INT,SubProduct VARCHAR(500), SportType INT) -- using Sporttype column for NG2 (NG2 has not matchid)
+	CREATE TABLE #SportBettype(ProductID INT, Bettype SMALLINT,EventType INT,SubProduct VARCHAR(500), SportType INT) -- using Sporttype column for NG2 (NG2 has not matchid)
 	INSERT INTO #SportBettype
 	SELECT ProductID,
               Bettype,
@@ -188,7 +189,10 @@ BEGIN
 			)	
 		SELECT
 			winlostdate,
-			matchid, b.bettype, liveindicator, Status,
+			matchid, b.bettype, liveindicator,
+			CASE WHEN StatusID = 111 THEN 'DRAW' 
+				WHEN StatusID = 112 THEN 'WON' 
+				WHEN StatusID = 113 THEN 'LOSE' END  Status,
 			case when recommend = 52466 then 1 when recommend = 5707545 then 2 else 0 end as ibc,
 			sum((1-tpositiontaking)*abs(stake)*actualrate) as realturnover,
 			sum((winlost-actual_stake)* actualrate)  realWinlost,
@@ -207,11 +211,14 @@ BEGIN
 			AND ruben = 1
 			AND currency <> 20
 		GROUP BY
-			winlostdate, matchid, b.bettype, liveindicator, status,
+			winlostdate, matchid, b.bettype, liveindicator, 
+			CASE WHEN StatusID = 111 THEN 'DRAW' 
+				WHEN StatusID = 112 THEN 'WON' 
+				WHEN StatusID = 113 THEN 'LOSE' END ,
 			case when recommend = 52466 then 1 when recommend = 5707545 then 2 else 0 end,
 			CASE WHEN betteam = N'1' THEN 1 ELSE 0 END
 
-		-- calculate Sportbooks + other products in bettrans (exclude products of bettransRng + bettransLC) 
+		--other products in bettrans (exclude products of Sportbook + Colosusbet + bettransRng + bettransLC ) 
 		INSERT INTO bodb_Report.dbo.rptWinlost
 			(
 				[winlostdate]
@@ -232,8 +239,11 @@ BEGIN
 			)	
 		SELECT
 			winlostdate,
-			matchid, b.bettype, liveindicator, Status,
-			case when recommend = 52466 then 1 when recommend = 5707545 then 2 else 0 end as ibc,
+			matchid, b.bettype, liveindicator,  
+			CASE WHEN StatusID = 111 THEN 'DRAW' 
+				WHEN StatusID = 112 THEN 'WON' 
+				WHEN StatusID = 113 THEN 'LOSE' END Status,
+			0 as ibc,
 			sum(case 
 					when b.bettype IN (71,73,1000) then 0 
 					when sb.ProductID = 33 THEN 0 --Poker Games
@@ -252,21 +262,130 @@ BEGIN
 			END*virtualrate) as virtualTurnover,
 			sum((winlost-actual_stake+awinlost+mwinlost+swinlost+scomm)*virtualrate) as virtualLineTotal,
 			0 SportType,			
-			CASE WHEN b.Bettype = 18000 AND ISNULL(b.currency2,0) = 1 THEN 1 ELSE 0 END exrisk
+			0 exrisk
 		FROM
 			bettrans b with (nolock)
 			inner join #SportBettype sb on b.bettype = sb.Bettype
 		WHERE
 			(b.bettype < 19999 and b.bettype not in (29,31,32,33,1003,2799))
-			AND sb.ProductID NOT IN (6, 17, 21, 22, 24, 32)
+			AND sb.ProductID NOT IN (1,15, 6, 17, 21, 22, 24, 32)
 			AND winlostdate = @winlostdate
-			AND statusID NOT IN (101, 102,103,121) --('VOID','REJECT','DONE','REFUND')
+			AND statusID IN (111,112,113) --(/Won/lose/Draw)
 			AND ruben = 1
 			AND currency <> 20
 		GROUP BY
-			winlostdate, matchid, b.bettype, liveindicator, status,
-			case when recommend = 52466 then 1 when recommend = 5707545 then 2 else 0 end,
-			CASE WHEN b.Bettype = 18000 AND ISNULL(b.currency2,0) = 1 THEN 1 ELSE 0 END
+			winlostdate, matchid, b.bettype, liveindicator,  
+			CASE WHEN StatusID = 111 THEN 'DRAW' 
+				WHEN StatusID = 112 THEN 'WON' 
+				WHEN StatusID = 113 THEN 'LOSE' END;
+
+		--Colosusbet
+		INSERT INTO bodb_Report.dbo.rptWinlost
+			(
+				[winlostdate]
+			   ,[matchid]
+			   ,[bettype]
+			   ,[liveindicator]
+			   ,[Status]
+			   ,[IBC]
+			   ,[RealTurnover]
+			   ,[RealWinLost]
+			   ,[RealPosition]
+			   ,[RealCommission]
+			   ,[RealLineTotal]
+			   ,[VirtualTurnover]
+			   ,[VirtualLineTotal]
+			   ,[SportType]
+			   ,[exrisk]
+			)	
+		SELECT
+			winlostdate,
+			matchid, b.bettype, liveindicator, 
+			CASE WHEN StatusID = 111 THEN 'DRAW' 
+				WHEN StatusID = 112 THEN 'WON' 
+				WHEN StatusID = 113 THEN 'LOSE' END Status,
+			0 as ibc,
+			sum((1-tpositiontaking)*stake*actualrate) as realturnover,
+			sum((winlost-actual_stake)* actualrate)  realWinlost,
+			sum((awinlost+mwinlost+swinlost)* actualrate) realPos,
+			sum((scomm) * actualrate) realComm,
+			sum((case when b.bettype = 1000 then -1*(odds-scomm) else winlost-actual_stake+awinlost+mwinlost+swinlost+scomm end)*actualrate) realLineTotal,
+			sum((1-tpositiontaking)*stake*virtualrate) as virtualTurnover,
+			sum((winlost-actual_stake+awinlost+mwinlost+swinlost+scomm)*virtualrate) as virtualLineTotal,
+			0 SportType,			
+			CASE WHEN b.Bettype = 18000 AND ISNULL(b.currency2,0) = 1 THEN 1 ELSE 0 END exrisk
+		FROM
+			bettrans b with (nolock)
+		WHERE
+			EXISTS(SELECT TOP 1 1 FROM #SportBettype sb 
+						WHERE sb.ProductID =  15
+							AND sb.Bettype = b.bettype
+							)
+			AND winlostdate = @winlostdate
+			AND statusID IN (111,112,113) --(/Won/lose/Draw)
+			AND ruben = 1
+			AND currency <> 20
+		GROUP BY
+			winlostdate, matchid, b.bettype, liveindicator,
+			CASE WHEN StatusID = 111 THEN 'DRAW' 
+				WHEN StatusID = 112 THEN 'WON' 
+				WHEN StatusID = 113 THEN 'LOSE' END,
+			CASE WHEN b.Bettype = 18000 AND ISNULL(b.currency2,0) = 1 THEN 1 ELSE 0 END	;
+
+		-- calculate Sportbooks
+		INSERT INTO bodb_Report.dbo.rptWinlost
+			(
+				[winlostdate]
+			   ,[matchid]
+			   ,[bettype]
+			   ,[liveindicator]
+			   ,[Status]
+			   ,[IBC]
+			   ,[RealTurnover]
+			   ,[RealWinLost]
+			   ,[RealPosition]
+			   ,[RealCommission]
+			   ,[RealLineTotal]
+			   ,[VirtualTurnover]
+			   ,[VirtualLineTotal]
+			   ,[SportType]
+			   ,[exrisk]
+			)	
+		SELECT
+			winlostdate,
+			matchid, b.bettype, liveindicator, 
+			CASE WHEN StatusID = 111 THEN 'DRAW' 
+				WHEN StatusID = 112 THEN 'WON' 
+				WHEN StatusID = 113 THEN 'LOSE' END Status,
+			case when recommend = 52466 then 1 when recommend = 5707545 then 2 else 0 end as ibc,
+			sum((1-tpositiontaking)*abs(stake)*actualrate) as realturnover,
+			sum((winlost-actual_stake)* actualrate)  realWinlost,
+			sum((awinlost+mwinlost+swinlost)* actualrate) realPos,
+			sum((scomm) * actualrate) realComm,
+			sum((case when b.bettype = 1000 then -1*(odds-scomm) else winlost-actual_stake+awinlost+mwinlost+swinlost+scomm end)*actualrate) realLineTotal,
+			sum((1-tpositiontaking)*abs(stake)*virtualrate) as virtualTurnover,
+			sum((winlost-actual_stake+awinlost+mwinlost+swinlost+scomm)*virtualrate) as virtualLineTotal,
+			0 SportType,			
+			0 exrisk
+		FROM
+			bettrans b with (nolock)
+		WHERE
+			EXISTS(SELECT TOP 1 1 FROM #SportBettype sb 
+						WHERE sb.ProductID =  1
+							AND sb.Bettype = b.bettype
+							AND sb.bettype not in (29)
+							)
+			----(b.bettype < 19999 and b.bettype not in (29,31,32,33,1003,2799))
+			AND winlostdate = @winlostdate
+			AND statusID IN (111,112,113) --(/Won/lose/Draw)
+			AND ruben = 1
+			AND currency <> 20
+		GROUP BY
+			winlostdate, matchid, b.bettype, liveindicator, 
+			CASE WHEN StatusID = 111 THEN 'DRAW' 
+				WHEN StatusID = 112 THEN 'WON' 
+				WHEN StatusID = 113 THEN 'LOSE' END,
+			case when recommend = 52466 then 1 when recommend = 5707545 then 2 else 0 end
 	    
 	     -- calculate Virtual Sports Parlay
 		INSERT INTO bodb_Report.dbo.rptWinlost
@@ -289,8 +408,11 @@ BEGIN
 			)	
 		SELECT
 			winlostdate,
-			sm.matchid, b.bettype, liveindicator, Status,
-			case when recommend = 52466 then 1 when recommend = 5707545 then 2 else 0 end as ibc,
+			sm.matchid, b.bettype, liveindicator,
+			CASE WHEN StatusID = 111 THEN 'DRAW' 
+				WHEN StatusID = 112 THEN 'WON' 
+				WHEN StatusID = 113 THEN 'LOSE' END Status,
+			0 as ibc,
 			sum((1-tpositiontaking)*stake*actualrate) as realturnover,
 			sum((winlost-actual_stake)* actualrate)  realWinlost,
 			sum((awinlost+mwinlost+swinlost)* actualrate) realPos,
@@ -316,9 +438,10 @@ BEGIN
 			AND ruben = 1
 			AND currency <> 20
 		GROUP BY
-			winlostdate, sm.matchid, b.bettype, liveindicator, status,
-			case when recommend = 52466 then 1 when recommend = 5707545 then 2 else 0 end
-
+			winlostdate, sm.matchid, b.bettype, liveindicator, 
+			CASE WHEN StatusID = 111 THEN 'DRAW' 
+				WHEN StatusID = 112 THEN 'WON' 
+				WHEN StatusID = 113 THEN 'LOSE' END
 
 		-- calculate RNG casino products from bettransRnG
 		INSERT INTO bodb_Report.dbo.rptWinlost
@@ -342,8 +465,11 @@ BEGIN
 
 		 SELECT
 			winlostdate,
-			0 matchid, b.gameID, 0 liveindicator, Status,
-			case when recommend = 52466 then 1 when recommend = 5707545 then 2 else 0 end as ibc,
+			0 matchid, b.gameID, 0 liveindicator,
+			CASE WHEN StatusID = 111 THEN 'DRAW' 
+				WHEN StatusID = 112 THEN 'WON' 
+				WHEN StatusID = 113 THEN 'LOSE' END  Status,
+			0 as ibc,
 			sum((1-tpositiontaking)*stake*actualrate) as realturnover,
 			sum((winlost-actual_stake)* actualrate)  realWinlost,
 			sum((awinlost+mwinlost+swinlost)* actualrate) realPos,
@@ -368,9 +494,10 @@ BEGIN
 			AND statusID NOT IN (0, 1, 101, 102,103,121) --('VOID','REJECT','DONE','REFUND')			
 			AND currency <> 20
 		GROUP BY
-			winlostdate, b.gameID, status,
-			case when recommend = 52466 then 1 when recommend = 5707545 then 2 else 0 end
-
+			winlostdate, b.gameID, 
+			CASE WHEN StatusID = 111 THEN 'DRAW' 
+				WHEN StatusID = 112 THEN 'WON' 
+				WHEN StatusID = 113 THEN 'LOSE' END;
 
 		-- calculate Live casino products from bettransLC
 		INSERT INTO bodb_Report.dbo.rptWinlost
@@ -395,11 +522,11 @@ BEGIN
 			winlostdate,
 			b.productID,
 			gameID,
-			0 asliveindicator,
-			Status,
-			CASE WHEN recommend = 52466   THEN 1 
-				 WHEN recommend = 5707545 THEN 2 ELSE 0
-				 END AS ibc,
+			0 as liveindicator,			
+			CASE WHEN StatusID = 111 THEN 'DRAW' 
+				WHEN StatusID = 112 THEN 'WON' 
+				WHEN StatusID = 113 THEN 'LOSE' END Status,
+			0 ibc,
 			SUM((1-tpositiontaking)*stake*actualrate) as realturnover,
 			SUM((winlost-actual_stake)* actualrate)  realWinlost,
 			SUM((awinlost+mwinlost+swinlost)* actualrate) realPos,
@@ -420,13 +547,10 @@ BEGIN
 		GROUP BY
 			winlostdate,
 			b.productID,
-			gameID,
-			status,
-			CASE WHEN recommend = 52466   THEN 1 
-				 WHEN recommend = 5707545 THEN 2 ELSE 0
-				 END		
-
-
+			gameID,			
+			CASE WHEN StatusID = 111 THEN 'DRAW' 
+				WHEN StatusID = 112 THEN 'WON' 
+				WHEN StatusID = 113 THEN 'LOSE' END;
 
 		-- Update Sport
 
@@ -584,12 +708,14 @@ BEGIN
 				   ,[VirtualLineTotal]
 				   ,[SportType]
 				   ,[exrisk]
-				)				
+				)	
 			SELECT
 				winlostdate,
-				matchid, 
-				b.bettype, liveindicator, Status,
-				case when recommend = 52466 then 1 when recommend = 5707545 then 2 else 0 end ibc,
+				matchid, b.bettype, liveindicator,
+				CASE WHEN StatusID = 111 THEN 'DRAW' 
+					WHEN StatusID = 112 THEN 'WON' 
+					WHEN StatusID = 113 THEN 'LOSE' END  Status,
+				case when recommend = 52466 then 1 when recommend = 5707545 then 2 else 0 end as ibc,
 				sum((1-tpositiontaking)*abs(stake)*actualrate) as realturnover,
 				sum((winlost-actual_stake)* actualrate)  realWinlost,
 				sum((awinlost+mwinlost+swinlost)* actualrate) realPos,
@@ -599,23 +725,22 @@ BEGIN
 				sum((winlost-actual_stake+awinlost+mwinlost+swinlost+scomm)*virtualrate) as virtualLineTotal,
 				0 SportType,
 				CASE WHEN betteam = N'1' THEN 1 ELSE 0 END exrisk
-			FROM
-				bettrans14 b with (nolock)
+			FROM dbo.bettrans14 b with (nolock)
 			WHERE
 				bettype = 29
 				AND winlostdate = @winlostdate
-				AND statusID NOT IN (101, 102,103,121) ----('VOID','REJECT','DONE','REFUND')
+				AND statusID NOT IN (101, 102,103,121) --('VOID','REJECT','DONE','REFUND')
 				AND ruben = 1
 				AND currency <> 20
 			GROUP BY
-				winlostdate, 
-				matchid, 
-				b.bettype, liveindicator, status,
+				winlostdate, matchid, b.bettype, liveindicator, 
+				CASE WHEN StatusID = 111 THEN 'DRAW' 
+					WHEN StatusID = 112 THEN 'WON' 
+					WHEN StatusID = 113 THEN 'LOSE' END ,
 				case when recommend = 52466 then 1 when recommend = 5707545 then 2 else 0 end,
 				CASE WHEN betteam = N'1' THEN 1 ELSE 0 END
-			
 
-			-- calculate Sportbooks + other products in bettrans (exclude products of bettransRng + bettransLC)
+			--other products in bettrans (exclude products of Sportbook + Colosusbet + bettransRng + bettransLC ) 
 			INSERT INTO bodb_Report.dbo.rptWinlost
 				(
 					[winlostdate]
@@ -633,12 +758,14 @@ BEGIN
 				   ,[VirtualLineTotal]
 				   ,[SportType]
 				   ,[exrisk]
-				)				
-			 SELECT
+				)	
+			SELECT
 				winlostdate,
-				CASE WHEN b.bettype = 1003 THEN b.betdaqid ELSE matchid END matchid, 
-				b.bettype, liveindicator, Status,
-				case when recommend = 52466 then 1 when recommend = 5707545 then 2 else 0 end ibc,
+				matchid, b.bettype, liveindicator,  
+				CASE WHEN StatusID = 111 THEN 'DRAW' 
+					WHEN StatusID = 112 THEN 'WON' 
+					WHEN StatusID = 113 THEN 'LOSE' END Status,
+				0 as ibc,
 				sum(case 
 						when b.bettype IN (71,73,1000) then 0 
 						when sb.ProductID = 33 THEN 0 --Poker Games
@@ -649,56 +776,165 @@ BEGIN
 				sum((scomm) * actualrate) realComm,
 				sum((case when b.bettype = 1000 then -1*(odds-scomm) else winlost-actual_stake+awinlost+mwinlost+swinlost+scomm end)*actualrate) realLineTotal,
 				sum((1-tpositiontaking)
-					*CASE 
-						WHEN b.bettype IN (71,73,1000) THEN 0 
-						WHEN sb.ProductID = 33 THEN 0 --Poker Games
-						WHEN sb.ProductID = 1 THEN abs(stake) 
-						ELSE stake 
+						*CASE 
+								WHEN b.bettype IN (71,73,1000) THEN 0 
+								when sb.ProductID = 33 THEN 0 --Poker Games
+								WHEN sb.ProductID = 1 THEN abs(stake) 
+								ELSE stake 
 				END*virtualrate) as virtualTurnover,
 				sum((winlost-actual_stake+awinlost+mwinlost+swinlost+scomm)*virtualrate) as virtualLineTotal,
-				0 SportType,
-				CASE WHEN b.Bettype = 18000 AND ISNULL(b.currency2,0) = 1 THEN 1 ELSE 0 END exrisk
-			 FROM
-				bettrans14 b with (nolock)
-				    INNER JOIN #SportBettype sb on b.bettype = sb.Bettype
-			 WHERE
-				(b.bettype < 19999 and b.bettype not in (29,31,32,33,2799))
-				AND sb.ProductID NOT IN (6, 17, 21, 22, 24, 32)
+				0 SportType,			
+				0 exrisk
+			FROM
+				dbo.bettrans14 b with (nolock)
+				inner join #SportBettype sb on b.bettype = sb.Bettype
+			WHERE
+				(b.bettype < 19999 and b.bettype not in (29,31,32,33,1003,2799))
+				AND sb.ProductID NOT IN (1,15, 6, 17, 21, 22, 24, 32)
 				AND winlostdate = @winlostdate
-				AND statusID NOT IN (101, 102,103,121) ----('VOID','REJECT','DONE','REFUND')
+				AND statusID IN (111,112,113) --(/Won/lose/Draw)
 				AND ruben = 1
 				AND currency <> 20
-			 GROUP BY
-				winlostdate, 
-				CASE WHEN b.bettype = 1003 THEN b.betdaqid ELSE matchid END, 
-				b.bettype, liveindicator, status,
-				case when recommend = 52466 then 1 when recommend = 5707545 then 2 else 0 end,
-				CASE WHEN b.Bettype = 18000 AND ISNULL(b.currency2,0) = 1 THEN 1 ELSE 0 END
+			GROUP BY
+				winlostdate, matchid, b.bettype, liveindicator,  
+				CASE WHEN StatusID = 111 THEN 'DRAW' 
+					WHEN StatusID = 112 THEN 'WON' 
+					WHEN StatusID = 113 THEN 'LOSE' END;
 
-		    
-			 -- calculate Virtual Sports Parlay
-			 INSERT INTO bodb_Report.dbo.rptWinlost
-			 (
-				[winlostdate]
-			   ,[matchid]
-			   ,[bettype]
-			   ,[liveindicator]
-			   ,[Status]
-			   ,[IBC]
-			   ,[RealTurnover]
-			   ,[RealWinLost]
-			   ,[RealPosition]
-			   ,[RealCommission]
-			   ,[RealLineTotal]
-			   ,[VirtualTurnover]
-			   ,[VirtualLineTotal]
-			   ,[SportType]
-			   ,[exrisk]
-			)
-			 SELECT
+			--Colosusbet
+			INSERT INTO bodb_Report.dbo.rptWinlost
+				(
+					[winlostdate]
+				   ,[matchid]
+				   ,[bettype]
+				   ,[liveindicator]
+				   ,[Status]
+				   ,[IBC]
+				   ,[RealTurnover]
+				   ,[RealWinLost]
+				   ,[RealPosition]
+				   ,[RealCommission]
+				   ,[RealLineTotal]
+				   ,[VirtualTurnover]
+				   ,[VirtualLineTotal]
+				   ,[SportType]
+				   ,[exrisk]
+				)	
+			SELECT
 				winlostdate,
-				sm.matchid, b.bettype, liveindicator, Status,
+				matchid, b.bettype, liveindicator, 
+				CASE WHEN StatusID = 111 THEN 'DRAW' 
+					WHEN StatusID = 112 THEN 'WON' 
+					WHEN StatusID = 113 THEN 'LOSE' END Status,
+				0 as ibc,
+				sum((1-tpositiontaking)*stake*actualrate) as realturnover,
+				sum((winlost-actual_stake)* actualrate)  realWinlost,
+				sum((awinlost+mwinlost+swinlost)* actualrate) realPos,
+				sum((scomm) * actualrate) realComm,
+				sum((case when b.bettype = 1000 then -1*(odds-scomm) else winlost-actual_stake+awinlost+mwinlost+swinlost+scomm end)*actualrate) realLineTotal,
+				sum((1-tpositiontaking)*stake*virtualrate) as virtualTurnover,
+				sum((winlost-actual_stake+awinlost+mwinlost+swinlost+scomm)*virtualrate) as virtualLineTotal,
+				0 SportType,			
+				CASE WHEN b.Bettype = 18000 AND ISNULL(b.currency2,0) = 1 THEN 1 ELSE 0 END exrisk
+			FROM
+				dbo.bettrans14 b with (nolock)
+			WHERE
+				EXISTS(SELECT TOP 1 1 FROM #SportBettype sb 
+							WHERE sb.ProductID =  15
+								AND sb.Bettype = b.bettype
+								)
+				AND winlostdate = @winlostdate
+				AND statusID IN (111,112,113) --(/Won/lose/Draw)
+				AND ruben = 1
+				AND currency <> 20
+			GROUP BY
+				winlostdate, matchid, b.bettype, liveindicator,
+				CASE WHEN StatusID = 111 THEN 'DRAW' 
+					WHEN StatusID = 112 THEN 'WON' 
+					WHEN StatusID = 113 THEN 'LOSE' END,
+				CASE WHEN b.Bettype = 18000 AND ISNULL(b.currency2,0) = 1 THEN 1 ELSE 0 END	;
+
+			-- calculate Sportbooks
+			INSERT INTO bodb_Report.dbo.rptWinlost
+				(
+					[winlostdate]
+				   ,[matchid]
+				   ,[bettype]
+				   ,[liveindicator]
+				   ,[Status]
+				   ,[IBC]
+				   ,[RealTurnover]
+				   ,[RealWinLost]
+				   ,[RealPosition]
+				   ,[RealCommission]
+				   ,[RealLineTotal]
+				   ,[VirtualTurnover]
+				   ,[VirtualLineTotal]
+				   ,[SportType]
+				   ,[exrisk]
+				)	
+			SELECT
+				winlostdate,
+				matchid, b.bettype, liveindicator, 
+				CASE WHEN StatusID = 111 THEN 'DRAW' 
+					WHEN StatusID = 112 THEN 'WON' 
+					WHEN StatusID = 113 THEN 'LOSE' END Status,
 				case when recommend = 52466 then 1 when recommend = 5707545 then 2 else 0 end as ibc,
+				sum((1-tpositiontaking)*abs(stake)*actualrate) as realturnover,
+				sum((winlost-actual_stake)* actualrate)  realWinlost,
+				sum((awinlost+mwinlost+swinlost)* actualrate) realPos,
+				sum((scomm) * actualrate) realComm,
+				sum((case when b.bettype = 1000 then -1*(odds-scomm) else winlost-actual_stake+awinlost+mwinlost+swinlost+scomm end)*actualrate) realLineTotal,
+				sum((1-tpositiontaking)*abs(stake)*virtualrate) as virtualTurnover,
+				sum((winlost-actual_stake+awinlost+mwinlost+swinlost+scomm)*virtualrate) as virtualLineTotal,
+				0 SportType,			
+				0 exrisk
+			FROM
+				dbo.bettrans14 b with (nolock)
+			WHERE
+				EXISTS(SELECT TOP 1 1 FROM #SportBettype sb 
+							WHERE sb.ProductID =  1
+								AND sb.Bettype = b.bettype
+								AND sb.bettype not in (29)
+								)
+				----(b.bettype < 19999 and b.bettype not in (29,31,32,33,1003,2799))
+				AND winlostdate = @winlostdate
+				AND statusID IN (111,112,113) --(/Won/lose/Draw)
+				AND ruben = 1
+				AND currency <> 20
+			GROUP BY
+				winlostdate, matchid, b.bettype, liveindicator, 
+				CASE WHEN StatusID = 111 THEN 'DRAW' 
+					WHEN StatusID = 112 THEN 'WON' 
+					WHEN StatusID = 113 THEN 'LOSE' END,
+				case when recommend = 52466 then 1 when recommend = 5707545 then 2 else 0 end
+	    
+			 -- calculate Virtual Sports Parlay
+			INSERT INTO bodb_Report.dbo.rptWinlost
+				(
+					[winlostdate]
+				   ,[matchid]
+				   ,[bettype]
+				   ,[liveindicator]
+				   ,[Status]
+				   ,[IBC]
+				   ,[RealTurnover]
+				   ,[RealWinLost]
+				   ,[RealPosition]
+				   ,[RealCommission]
+				   ,[RealLineTotal]
+				   ,[VirtualTurnover]
+				   ,[VirtualLineTotal]
+				   ,[SportType]
+				   ,[exrisk]
+				)	
+			SELECT
+				winlostdate,
+				sm.matchid, b.bettype, liveindicator,
+				CASE WHEN StatusID = 111 THEN 'DRAW' 
+					WHEN StatusID = 112 THEN 'WON' 
+					WHEN StatusID = 113 THEN 'LOSE' END Status,
+				0 as ibc,
 				sum((1-tpositiontaking)*stake*actualrate) as realturnover,
 				sum((winlost-actual_stake)* actualrate)  realWinlost,
 				sum((awinlost+mwinlost+swinlost)* actualrate) realPos,
@@ -707,77 +943,83 @@ BEGIN
 				sum((1-tpositiontaking)*stake*virtualrate) as virtualTurnover,
 				sum((winlost-actual_stake+awinlost+mwinlost+swinlost+scomm)*virtualrate) as virtualLineTotal,
 				0 SportType, 0 exrisk
-			 FROM
-			    bettrans14 b with (nolock) 
-				LEFT JOIN (
-				    SELECT refno,MIN(matchid) matchid
-				    FROM dbo.bettransm14 b (NOLOCK)
-					   inner join #SportBettype sb on b.bettype = sb.Bettype
-				    WHERE sb.ProductID IN (27)
-				    GROUP BY refno
-				) sm	ON b.refno = sm.refno
-			 WHERE
-				(b.bettype =2799 )
+			FROM
+				dbo.bettrans14 b with (nolock) 
+				 LEFT JOIN (
+					SELECT refno,MIN(matchid) matchid
+					FROM dbo.bettransm b (NOLOCK)
+						inner join #SportBettype sb on b.bettype = sb.Bettype
+					WHERE sb.ProductID IN (27)
+					GROUP BY refno
+				 ) sm	ON b.refno = sm.refno
+			WHERE
+				(b.bettype =2799)
 				AND sm.refno IS NOT NULL
 				AND winlostdate = @winlostdate
 				AND statusID NOT IN (101, 102,103,121) --('VOID','REJECT','DONE','REFUND')
 				AND ruben = 1
 				AND currency <> 20
-			 GROUP BY
-				winlostdate, sm.matchid, b.bettype, liveindicator, status,
-				case when recommend = 52466 then 1 when recommend = 5707545 then 2 else 0 end
+			GROUP BY
+				winlostdate, sm.matchid, b.bettype, liveindicator, 
+				CASE WHEN StatusID = 111 THEN 'DRAW' 
+					WHEN StatusID = 112 THEN 'WON' 
+					WHEN StatusID = 113 THEN 'LOSE' END
 
-
-			 -- calculate RNG casino products from bettransRnG
-			 INSERT INTO bodb_Report.dbo.rptWinlost
-			 (
-				[winlostdate]
-				,[matchid]
-				,[bettype]
-				,[liveindicator]
-				,[Status]
-				,[IBC]
-				,[RealTurnover]
-				,[RealWinLost]
-				,[RealPosition]
-				,[RealCommission]
-				,[RealLineTotal]
-				,[VirtualTurnover]
-				,[VirtualLineTotal]
-				,[SportType]
-				,[exrisk]
-			 )
+			-- calculate RNG casino products from bettransRnG
+			INSERT INTO bodb_Report.dbo.rptWinlost
+				(
+					[winlostdate]
+				   ,[matchid]
+				   ,[bettype]
+				   ,[liveindicator]
+				   ,[Status]
+				   ,[IBC]
+				   ,[RealTurnover]
+				   ,[RealWinLost]
+				   ,[RealPosition]
+				   ,[RealCommission]
+				   ,[RealLineTotal]
+				   ,[VirtualTurnover]
+				   ,[VirtualLineTotal]
+				   ,[SportType]
+				   ,[exrisk]
+				)	
 
 			 SELECT
 				winlostdate,
-				0 matchid, b.gameID, 0 liveindicator, Status,
-				case when recommend = 52466 then 1 when recommend = 5707545 then 2 else 0 end ibc,
+				0 matchid, b.gameID, 0 liveindicator,
+				CASE WHEN StatusID = 111 THEN 'DRAW' 
+					WHEN StatusID = 112 THEN 'WON' 
+					WHEN StatusID = 113 THEN 'LOSE' END  Status,
+				0 as ibc,
 				sum((1-tpositiontaking)*stake*actualrate) as realturnover,
 				sum((winlost-actual_stake)* actualrate)  realWinlost,
 				sum((awinlost+mwinlost+swinlost)* actualrate) realPos,
 				sum((scomm) * actualrate) realComm,
 				sum((CASE WHEN sb.Bettype IN(2199, 2399, 2999) THEN 0
-					      WHEN sb.Bettype IN(2198, 2398, 2998) THEN b.ContributionRate * b.BetStake	+ awinlost + mwinlost + swinlost + scomm				    
-					      ELSE winlost - actual_stake + awinlost + mwinlost + swinlost + scomm 
-					 END)* actualrate) realLineTotal,
+						  WHEN sb.Bettype IN(2198, 2398, 2998) THEN (b.ContributionRate * b.BetStake) + awinlost + mwinlost + swinlost + scomm
+						  ELSE winlost - actual_stake + awinlost + mwinlost + swinlost + scomm 
+					 END) * actualrate) realLineTotal,
 				sum((1-tpositiontaking)*stake*virtualrate) as virtualTurnover,
 				sum((CASE WHEN sb.Bettype IN(2199, 2399, 2999) THEN 0
-					      WHEN sb.Bettype IN(2198, 2398, 2998) THEN b.ContributionRate * b.BetStake	+ awinlost + mwinlost + swinlost + scomm				    
-					      ELSE winlost - actual_stake + awinlost + mwinlost + swinlost + scomm 
-					 END) * virtualrate) as virtualLineTotal,
+						  WHEN sb.Bettype IN(2198, 2398, 2998) THEN (b.ContributionRate * b.BetStake) + awinlost + mwinlost + swinlost + scomm
+						  ELSE winlost - actual_stake + awinlost + mwinlost + swinlost + scomm 
+					 END) * virtualrate) virtualLineTotal,
+
 				0 SportType, 0 exrisk
 			FROM
-				bettransRnG14 b with (nolock)
-				    INNER JOIN #SportBettype sb on b.gameID = sb.Bettype
+				dbo.bettransRnG14 b with (nolock)
+				inner join #SportBettype sb on b.gameID = sb.Bettype
 			WHERE
-				sb.ProductID IN (6, 17, 22, 24, 32)
+				sb.ProductID IN (6, 17, 22, 24, 32) -- MBC-RNG Casino, Microgaming-RNG Casino, Voidbridge, Fishing World, Pragmatic
 				AND winlostdate = @winlostdate
-				AND statusID NOT IN (0, 1, 101, 102,103,121) ----('VOID','REJECT','DONE','REFUND')
+				AND statusID NOT IN (0, 1, 101, 102,103,121) --('VOID','REJECT','DONE','REFUND')			
 				AND currency <> 20
 			GROUP BY
-				winlostdate, b.gameID, status,
-				case when recommend = 52466 then 1 when recommend = 5707545 then 2 else 0 end
-
+				winlostdate, b.gameID, 
+				CASE WHEN StatusID = 111 THEN 'DRAW' 
+					WHEN StatusID = 112 THEN 'WON' 
+					WHEN StatusID = 113 THEN 'LOSE' END;
 
 			-- calculate Live casino products from bettransLC
 			INSERT INTO bodb_Report.dbo.rptWinlost
@@ -797,16 +1039,16 @@ BEGIN
 				   ,[VirtualLineTotal]
 				   ,[SportType]
 				   ,[exrisk]
-				)		
+				)
 			SELECT
 				winlostdate,
 				b.productID,
 				gameID,
-				0 asliveindicator,
-				Status,
-				CASE WHEN recommend = 52466   THEN 1 
-					 WHEN recommend = 5707545 THEN 2 ELSE 0
-					 END AS ibc,
+				0 as liveindicator,			
+				CASE WHEN StatusID = 111 THEN 'DRAW' 
+					WHEN StatusID = 112 THEN 'WON' 
+					WHEN StatusID = 113 THEN 'LOSE' END Status,
+				0 ibc,
 				SUM((1-tpositiontaking)*stake*actualrate) as realturnover,
 				SUM((winlost-actual_stake)* actualrate)  realWinlost,
 				SUM((awinlost+mwinlost+swinlost)* actualrate) realPos,
@@ -818,21 +1060,19 @@ BEGIN
 				0 exrisk
 			FROM
 				dbo.bettransLC14 b WITH (NOLOCK)
-				    INNER JOIN #SportBettype sb on b.gameID = sb.Bettype
+				 INNER JOIN #SportBettype sb on b.gameID = sb.Bettype
 			WHERE
 				sb.ProductID = 21
 				AND winlostdate = @winlostdate
-				AND statusID IN (111,112,113) --(/Won/lose/Draw)
+				AND statusID   IN (111,112,113) --(/Won/lose/Draw)
 				AND currency <> 20
 			GROUP BY
 				winlostdate,
 				b.productID,
-				gameID,
-				status,
-				CASE WHEN recommend = 52466   THEN 1 
-					 WHEN recommend = 5707545 THEN 2 ELSE 0
-					 END
-
+				gameID,			
+				CASE WHEN StatusID = 111 THEN 'DRAW' 
+					WHEN StatusID = 112 THEN 'WON' 
+					WHEN StatusID = 113 THEN 'LOSE' END;
 			
 			-- Update Sport
 
