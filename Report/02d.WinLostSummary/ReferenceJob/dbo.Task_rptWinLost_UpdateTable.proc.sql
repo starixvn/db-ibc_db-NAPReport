@@ -1,11 +1,11 @@
 USE [bodb02]
 GO
-/****** Object:  StoredProcedure [dbo].[Task_rptWinLost_UpdateTable]    Script Date: 7/13/2018 1:43:42 AM ******/
+
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
-/****** Object:  Stored Procedure dbo.Task_rptWinLost_UpdateTable    Script Date: 7/5/2018 5:25:08 PM ******/
+
 
 ALTER PROCEDURE [dbo].[Task_rptWinLost_UpdateTable]
 	@winlostdate smalldatetime
@@ -161,7 +161,7 @@ BEGIN
 		WHERE
 			bettype in (31,32,33)
 			AND winlostdate = @winlostdate
-			AND statusID NOT IN (101,102,103,121)--('VOID','REJECT','DONE','REFUND')
+			AND b.statusID IN (111,112,113) --(/Won/lose/Draw)
 			AND ruben = 1
 			AND currency <> 20
 		GROUP BY
@@ -207,7 +207,7 @@ BEGIN
 		WHERE
 			bettype = 29
 			AND winlostdate = @winlostdate
-			AND statusID NOT IN (101, 102,103,121) --('VOID','REJECT','DONE','REFUND')
+			AND b.statusID IN (111,112,113) --(/Won/lose/Draw)
 			AND ruben = 1
 			AND currency <> 20
 		GROUP BY
@@ -434,7 +434,7 @@ BEGIN
 			(b.bettype =2799)
 			AND sm.refno IS NOT NULL
 			AND winlostdate = @winlostdate
-			AND statusID NOT IN (101, 102,103,121) --('VOID','REJECT','DONE','REFUND')
+			AND b.statusID IN (111,112,113) --(/Won/lose/Draw)
 			AND ruben = 1
 			AND currency <> 20
 		GROUP BY
@@ -491,7 +491,7 @@ BEGIN
 		WHERE
 			sb.ProductID IN (6, 17, 22, 24, 32) -- MBC-RNG Casino, Microgaming-RNG Casino, Voidbridge, Fishing World, Pragmatic
 			AND winlostdate = @winlostdate
-			AND statusID NOT IN (0, 1, 101, 102,103,121) --('VOID','REJECT','DONE','REFUND')			
+			AND b.statusID IN (111,112,113) --(/Won/lose/Draw)	
 			AND currency <> 20
 		GROUP BY
 			winlostdate, b.gameID, 
@@ -683,7 +683,7 @@ BEGIN
 			WHERE
 				bettype in (31,32,33)
 				AND winlostdate = @winlostdate
-				AND statusID NOT IN (101,102,103,121)--('VOID','REJECT','DONE','REFUND')
+				AND b.statusID IN (111,112,113) --(/Won/lose/Draw)
 				AND ruben = 1
 				AND currency <> 20
 			GROUP BY
@@ -729,7 +729,7 @@ BEGIN
 			WHERE
 				bettype = 29
 				AND winlostdate = @winlostdate
-				AND statusID NOT IN (101, 102,103,121) --('VOID','REJECT','DONE','REFUND')
+				AND b.statusID IN (111,112,113) --(/Won/lose/Draw)
 				AND ruben = 1
 				AND currency <> 20
 			GROUP BY
@@ -956,7 +956,7 @@ BEGIN
 				(b.bettype =2799)
 				AND sm.refno IS NOT NULL
 				AND winlostdate = @winlostdate
-				AND statusID NOT IN (101, 102,103,121) --('VOID','REJECT','DONE','REFUND')
+				AND b.statusID IN (111,112,113) --(/Won/lose/Draw)
 				AND ruben = 1
 				AND currency <> 20
 			GROUP BY
@@ -1013,7 +1013,7 @@ BEGIN
 			WHERE
 				sb.ProductID IN (6, 17, 22, 24, 32) -- MBC-RNG Casino, Microgaming-RNG Casino, Voidbridge, Fishing World, Pragmatic
 				AND winlostdate = @winlostdate
-				AND statusID NOT IN (0, 1, 101, 102,103,121) --('VOID','REJECT','DONE','REFUND')			
+				AND b.statusID IN (111,112,113) --(/Won/lose/Draw)	
 				AND currency <> 20
 			GROUP BY
 				winlostdate, b.gameID, 
