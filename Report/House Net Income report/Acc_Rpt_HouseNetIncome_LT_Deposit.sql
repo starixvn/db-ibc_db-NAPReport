@@ -1,5 +1,6 @@
 /*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
-
+USE bodb02
+GO
 
 ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_LT_Deposit]
 	@FromDate DATE,
@@ -11,8 +12,10 @@ AS
    
     Revisions: 
 		- 20170905@Harper: Create new SP for LT	[RedmineID: #79612]	
-		
+		- 20180917@Harper - #101314 - Commercial Terms change for Keno & Lottery (0.05 => 0.03)
+
 	Param's Explanation:   
+		EXEC Acc_Rpt_HouseNetIncome_LT_Deposit '2018-07-01', '2018-07-30'
 */   
 BEGIN  
 	SET NOCOUNT ON  
@@ -23,12 +26,12 @@ BEGIN
 	-- Region: Active licensees
 	DECLARE @tmpParty TABLE (PartyID INT, IsDeposit BIT, PartyGroup VARCHAR(20), LTRate FLOAT)
 	INSERT INTO @tmpParty (PartyID, IsDeposit, PartyGroup, LTRate)
-	SELECT DISTINCT ci.FromParty, pd.IsDeposit , '', 0.05
+	SELECT DISTINCT ci.FromParty, pd.IsDeposit , '', 0
 	FROM bodb_licensee.dbo.OAS_Party p WITH (NOLOCK)
 		INNER JOIN bodb_licensee.dbo.OAS_PartyDetail pd WITH (NOLOCK) ON pd.PartyID = p.PartyID
 		INNER JOIN bodb_licensee.dbo.OAS_ChargeInfo ci WITH (NOLOCK) ON p.PartyID = ci.FromParty
 		INNER JOIN bodb_licensee.dbo.LA_ChargeInfo_SystemMapping map ON map.ChargeID = ci.ChargeID and map.SystemID = 2
-	WHERE	p.PartyType = 1
+	WHERE	p.PartyType = 1 AND pd.IsDeposit = 1 -- Deposit data only
 			AND ci.ProductId = 28 -- LT
 			AND ((ci.FromDate BETWEEN @FDate AND @TDate)
 				OR (ci.ToDate BETWEEN @FDate AND @TDate)
@@ -43,9 +46,9 @@ BEGIN
 						ELSE 'Licensees'
 					 END,
 		LTRate = CASE 					
-					WHEN IsDeposit = 1 AND PartyID = 14 THEN 0.03
+					WHEN (IsDeposit = 1 AND PartyID = 14) OR (@FDate >= '2018-08-01') THEN 0.03
 					ELSE 0.05
-				 END
+				 END	
 	-- End region
 
 	DECLARE @PartyChargeInfo AS TABLE (
@@ -64,8 +67,7 @@ BEGIN
 		FROM	bodb_licensee.dbo.LA_f_ChargeInfo(@PartyIDs, @FDate, @TDate, 'LT', 'OA', 1) ci
 			LEFT JOIN bodb_licensee..Sport_Bettype_Reference sbr WITH(NOLOCK) ON sbr.BettypeRef = ci.Bettype
 		WHERE	DI_Rate > 0 AND ProductId <> 1 --exclude RB
-	)
-
+	)	
 	-- End region
 
 	-- Region: Get exchange rate info

@@ -15,10 +15,11 @@ AS
    
     Revisions:
 		- 20180126@Harper - HDWL Letstalk - Implement Chart of NonSport product margin (Keno + Lottery) [#RedmineID: 89632]
-		
+		- 20180917@Harper - #101314 - Commercial Terms change for Keno & Lottery (0.05 => 0.03)
+
 	Param's Explanation:   
 
-	Acc_Rpt_HouseNetIncome_MarginChart_KN_Deposit '2018-04-01', '2018-04-30'
+	Acc_Rpt_HouseNetIncome_MarginChart_KN_Deposit '2018-08-01', '2018-08-30'
   
 */ 
 BEGIN  
@@ -30,12 +31,12 @@ BEGIN
 	-- Region: Active licensees
 	DECLARE @tmpParty TABLE (PartyID INT, IsDeposit BIT, PartyGroup VARCHAR(20), Rate3rd FLOAT)
 	INSERT INTO @tmpParty (PartyID, IsDeposit, PartyGroup, Rate3rd)
-	SELECT DISTINCT ci.FromParty, pd.IsDeposit , '', 0.05
+	SELECT DISTINCT ci.FromParty, pd.IsDeposit , '', 0
 	FROM bodb_licensee.dbo.OAS_Party p WITH (NOLOCK)
 		INNER JOIN bodb_licensee.dbo.OAS_PartyDetail pd WITH (NOLOCK) ON pd.PartyID = p.PartyID
 		INNER JOIN bodb_licensee.dbo.OAS_ChargeInfo ci WITH (NOLOCK) ON p.PartyID = ci.FromParty
 		INNER JOIN bodb_licensee.dbo.LA_ChargeInfo_SystemMapping map ON map.ChargeID = ci.ChargeID and map.SystemID = 2
-	WHERE	p.PartyType = 1
+	WHERE	p.PartyType = 1 AND pd.IsDeposit = 1 -- Deposit data only
 			AND ci.ProductId IN (8, 28) -- KN + LT
 			AND ((ci.FromDate BETWEEN @FDate AND @TDate)
 				OR (ci.ToDate BETWEEN @FDate AND @TDate)
@@ -50,7 +51,7 @@ BEGIN
 						ELSE 'Licensees'
 					 END,
 		Rate3rd = CASE 					
-					WHEN IsDeposit = 1 AND PartyID = 14 THEN 0.03
+					WHEN (IsDeposit = 1 AND PartyID = 14) OR (@FDate >= '2018-08-01') THEN 0.03
 					ELSE 0.05
 				 END
 	-- End region
@@ -175,8 +176,7 @@ BEGIN
 	-- Region: Drop tmp table
 	DROP TABLE #Exchange
 	DROP TABLE #ExchangeOANDA
-	DROP TABLE #TempDataKNLT
-	--DROP TABLE #FeeData
+	DROP TABLE #TempDataKNLT	
 	DROP TABLE #FinalResult
 END
 GO
