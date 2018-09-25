@@ -3,6 +3,7 @@
 ALTER PROCEDURE Acc_Rpt_CompanyWinLoss_Soccer_Minor_Bettypes
 	@StartDate    SMALLDATETIME
    , @EndDate      SMALLDATETIME
+   , @IsLive       INT           = 2
 AS
 /*
 Creator: Robert
@@ -20,25 +21,50 @@ Example:
 */
 
 SET NOCOUNT ON;
-BEGIN /* #SportBetType	*/
+BEGIN /*#SportBetType     */
 
     DECLARE @isTest    BIT = 0;
     SELECT @isTest = dbo.f_CheckSPVersion
 		 (@@PROCID);
     CREATE TABLE #SportBetType(
-	    BetType    INT
-	  , IsMajor    BIT);
+	    BetType    INT);
     INSERT INTO #SportBetType
-		 SELECT BetType
-			 , 0
-		 FROM bodb02.dbo.f_SportBetTypeMatrix_Sel
-			 (1, 1, 0, 2, '', '', @isTest)
-		 WHERE SubProduct NOT IN('MG-SuperLive', 'BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss')
-			  AND EventType IN(1, 2, 4)
-			  AND BetType NOT IN(1, 3, 7, 8, 122, 123, 151, 301, 302, 303, 304); /*-- '2,5,6,12,15,24,25,28,121,126' : this is Major bettypes but with the Soccer - Minor Report, it will include these bettypes too*/
+		 SELECT s.BetType
+		 FROM dbo.f_SportBetTypeMatrix_Sel
+			 (1, 1, 0, 2, '', '', @isTest) AS s
+		 WHERE EventType IN(1, 2)
+			  AND SubProduct NOT IN('MG-SuperLive', 'BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss')
+			  AND bettype NOT IN(1, 3, 7, 8, 122, 123, 151, 301, 302, 303, 304);
+END;
+BEGIN /* Bet Type*/
+
+    DECLARE @BetType TABLE(
+	    BetType         INT
+	    PRIMARY KEY
+	  , BetTypeName     NVARCHAR(50)
+	  , DisplayOrder    INT IDENTITY(1, 1));
+    INSERT INTO @BetType(BetType)
+    VALUES
+		 (2),
+		 (5),
+		 (4),
+		 (6),
+		 (10);
+    INSERT INTO @BetType(BetType)
+		 SELECT typeid
+		 FROM BetType AS b WITH (NOLOCK)
+			INNER JOIN #SportBetType AS sb ON sb.BetType = b.typeid
+		 WHERE b.typeid > 10
+			  AND b.typeid NOT IN(301, 302, 303, 304);
+
+    UPDATE b
+		 SET
+			b.BetTypeName = bt.typenamee
+    FROM @BetType b
+	   INNER JOIN BetType
+	    (NOLOCK) bt ON b.BetType = bt.typeid;
 END;
 BEGIN /* #DepositSuper*/
-
 
     CREATE TABLE #DepositSuper(
 	    CustId    INT
@@ -49,7 +75,6 @@ BEGIN /* #DepositSuper*/
 			 ('All');
 END;
 BEGIN /* #Match*/
-
 
     CREATE TABLE #Match(
 	    MatchId      INT
@@ -67,17 +92,17 @@ BEGIN /* #Match*/
 					, LeagueId
 					, MatchCode
 					, 'match' AS type
-				FROM Match WITH (NOLOCK)
+				FROM dbo.Match WITH (NOLOCK)
 				WHERE EventDate = @StartDate
 				UNION ALL
 				SELECT orid
 					, LeagueId
 					, MatchCode
 					, 'outright' AS type
-				FROM outright WITH (NOLOCK)
+				FROM dbo.outright WITH (NOLOCK)
 				WHERE EventDate = @StartDate
 			 ) AS m
-			INNER JOIN league AS l WITH (NOLOCK) ON m.LeagueId = l.LeagueId
+			INNER JOIN dbo.league AS l WITH (NOLOCK) ON m.LeagueId = l.LeagueId
 		 WHERE l.sporttype = 1;
 END;
 BEGIN /*-- Extra PT */
@@ -105,35 +130,55 @@ BEGIN /* #Data*/
 	    srecommend         INT
 	  , bettype            INT
 	  , liveindicator      BIT
-	  , MemberWinLoss      MONEY
-	  , SMAWinLoss         MONEY
-	  , ExtraPT            MONEY
-	  , Commission         MONEY
-	  , RealIncome         MONEY
-	  , VirtualIncome      MONEY
-	  , VarianceIncome     MONEY
-	  , RealTurnover       MONEY
-	  , VirtualTurnover    MONEY);
+	  , isHedgeMatch       BIT
+	  , MemberWinLoss      DECIMAL(19, 6)
+	  , SMAWinLoss         DECIMAL(19, 6)
+	  , ExtraPT            DECIMAL(19, 6)
+	  , Commission         DECIMAL(19, 6)
+	  , RealIncome         DECIMAL(19, 6)
+	  , VirtualIncome      DECIMAL(19, 6)
+	  , VarianceIncome     DECIMAL(19, 6)
+	  , RealTurnover       DECIMAL(19, 6)
+	  , VirtualTurnover    DECIMAL(19, 6));
+
     CREATE TABLE #Data(
 	    GroupId            INT
 	  , GroupName          NVARCHAR(50)
+	  , DisplayOrder       INT
 	  , RowName            NVARCHAR(50)
-	  , MemberWinLoss      MONEY
-	  , SMAWinLoss         MONEY
-	  , ExtraPT            MONEY
-	  , Commission         MONEY
-	  , RealIncome         MONEY
-	  , VirtualIncome      MONEY
-	  , VarianceIncome     MONEY
-	  , RealTurnover       MONEY
-	  , VirtualTurnover    MONEY);
+	  , MemberWinLoss      DECIMAL(19, 6)
+	  , SMAWinLoss         DECIMAL(19, 6)
+	  , ExtraPT            DECIMAL(19, 6)
+	  , Commission         DECIMAL(19, 6)
+	  , RealIncome         DECIMAL(19, 6)
+	  , VirtualIncome      DECIMAL(19, 6)
+	  , VarianceIncome     DECIMAL(19, 6)
+	  , RealTurnover       DECIMAL(19, 6)
+	  , VirtualTurnover    DECIMAL(19, 6));
 END;
-BEGIN /*Minor*/
+BEGIN /* Bet Type*/
 
-    INSERT INTO #tmp_Data
+    INSERT INTO #tmp_Data(srecommend
+				    , bettype
+				    , liveindicator
+				    , isHedgeMatch
+				    , MemberWinLoss
+				    , SMAWinLoss
+				    , ExtraPT
+				    , Commission
+				    , RealIncome
+				    , VirtualIncome
+				    , VarianceIncome
+				    , RealTurnover
+				    , VirtualTurnover)
 		 SELECT srecommend
 			 , bettype
 			 , liveindicator
+			 , CASE
+				  WHEN m.MatchCode LIKE '%hedge%'
+				  THEN 1
+				  ELSE 0
+			   END AS                                                                                                                                          isHedgeMatch
 			 , SUM((winlost - actual_stake) * actualrate) AS                                                                                                   MemberWinLoss
 			 , SUM((awinlost + mwinlost + swinlost) * actualrate) AS                                                                                           SMAWinLoss
 			 , SUM(CASE
@@ -187,7 +232,7 @@ BEGIN /*Minor*/
 					 THEN 0
 					 ELSE(1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * ABS(b.stake) * virtualrate
 				  END) AS                                                                                                                                     VirtualTurnover
-		 FROM bettrans AS b WITH (NOLOCK)
+		 FROM dbo.bettrans AS b WITH (NOLOCK)
 			INNER JOIN #Match AS m ON b.MatchId = m.MatchId
 			LEFT JOIN #ExtraPT_Sel AS e ON e.SuperID = b.srecommend
 									 AND e.Sporttype = 0
@@ -201,11 +246,21 @@ BEGIN /*Minor*/
 			  AND b.statusID IN(111, 112, 113)
 		 GROUP BY srecommend
 			   , bettype
-			   , liveindicator OPTION(RECOMPILE);
+			   , liveindicator
+			   , CASE
+				    WHEN m.MatchCode LIKE '%hedge%'
+				    THEN 1
+				    ELSE 0
+				END OPTION(RECOMPILE);
 
     INSERT INTO #Data
-		 SELECT sb.IsMajor AS           GroupId
-			 , 'Soccer-Minor Bet Types'
+		 SELECT sb.BetType AS           GroupId
+			 , CASE
+				  WHEN b.isHedgeMatch = 1
+				  THEN sb.BetTypeName+' (hedge)'
+				  ELSE sb.BetTypeName
+			   END AS                  GroupName
+			 , sb.DisplayOrder
 			 , CASE
 				  WHEN dep.CustId IS NULL
 				  THEN 'Credit'
@@ -220,22 +275,34 @@ BEGIN /*Minor*/
 			 , SUM(VarianceIncome) AS  VarianceIncome
 			 , SUM(RealTurnover) AS    RealTurnover
 			 , SUM(VirtualTurnover) AS VirtualTurnover
-		 FROM #tmp_Data AS b
-			INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
+		 FROM #tmp_Data AS b WITH (NOLOCK)
+			INNER JOIN @BetType AS sb ON sb.BetType = b.BetType
 			LEFT JOIN #DepositSuper AS dep ON b.srecommend = dep.CustId
-		 GROUP BY sb.IsMajor
+		 WHERE @IsLive > 1
+			  OR b.liveindicator = @IsLive
+		 GROUP BY sb.BetType
+			   , CASE
+				    WHEN b.isHedgeMatch = 1
+				    THEN sb.BetTypeName+' (hedge)'
+				    ELSE sb.BetTypeName
+				END
+			   , sb.DisplayOrder
 			   , CASE
 				    WHEN dep.CustId IS NULL
 				    THEN 'Credit'
 				    ELSE 'Deposit'
 				END;
 END;
-BEGIN /* Sophia
-        ---- BARM (site only)			 */
+BEGIN /* BARM (site only)*/
 
     INSERT INTO #Data
-		 SELECT sb.IsMajor AS                                                                                                                                   GroupId
-			 , 'Soccer-Minor Bet Types'
+		 SELECT sb.BetType AS                                                                                                                                   GroupId
+			 , CASE
+				  WHEN m.MatchCode LIKE '%hedge%'
+				  THEN sb.BetTypeName+' (hedge)'
+				  ELSE sb.BetTypeName
+			   END AS                                                                                                                                          GroupName
+			 , sb.DisplayOrder
 			 , 'BARM' AS                                                                                                                                       RowName
 			 , SUM((winlost - actual_stake) * actualrate) AS                                                                                                   MemberWinLoss
 			 , SUM((awinlost + mwinlost + swinlost) * actualrate) AS                                                                                           SMAWinLoss
@@ -290,13 +357,16 @@ BEGIN /* Sophia
 					 THEN 0
 					 ELSE(1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * ABS(b.stake) * virtualrate
 				  END) AS                                                                                                                                     VirtualTurnover
-		 FROM bettrans AS b WITH (NOLOCK)
-			INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
+		 FROM dbo.bettrans AS b WITH (NOLOCK)
+			INNER JOIN @BetType AS sb ON sb.BetType = b.BetType
 			INNER JOIN #Match AS m ON b.MatchId = m.MatchId
 			LEFT JOIN #ExtraPT_Sel AS e ON e.SuperID = b.srecommend
 									 AND e.Sporttype = 0
 		 WHERE b.recommend = 5707545
 			  AND b.winlostdate = @StartDate
+			  AND
+				 (@IsLive > 1
+				  OR b.liveindicator = @IsLive)
 			  AND m.type = CASE
 						    WHEN b.BetType = 10
 						    THEN 'outright'
@@ -304,11 +374,18 @@ BEGIN /* Sophia
 						END
 			  AND b.ruben = 1
 			  AND b.statusID IN(111, 112, 113)
-		 GROUP BY sb.IsMajor;
+		 GROUP BY sb.BetType
+			   , CASE
+				    WHEN m.MatchCode LIKE '%hedge%'
+				    THEN sb.BetTypeName+' (hedge)'
+				    ELSE sb.BetTypeName
+				END
+			   , sb.DisplayOrder;
 /*- set data default for 'Deposit' if there is no data*/
 
     INSERT INTO #Data(GroupId
 				, GroupName
+				, DisplayOrder
 				, RowName
 				, MemberWinLoss
 				, SMAWinLoss
@@ -321,6 +398,7 @@ BEGIN /* Sophia
 				, VirtualTurnover)
 		 SELECT GroupId
 			 , GroupName
+			 , DisplayOrder
 			 , 'Deposit' AS RowName
 			 , 0 AS         MemberWinLoss
 			 , 0 AS         SMAWinLoss
@@ -335,11 +413,13 @@ BEGIN /* Sophia
 			 (
 				SELECT GroupId
 					, GroupName
+					, DisplayOrder
 				FROM #Data
 				WHERE RowName = 'BARM'
 				EXCEPT
 				SELECT GroupId
 					, GroupName
+					, DisplayOrder
 				FROM #Data
 				WHERE RowName = 'Deposit'
 			 ) AS D;
@@ -406,8 +486,9 @@ BEGIN /* RM   */
 
 
     INSERT INTO #Data
-		 SELECT 0 AS                                                                                                                                             GroupId
-			 , 'RM' AS                                                                                                                                          GroupName
+		 SELECT 0
+			 , 'RM'
+			 , 10000000
 			 , CASE
 				  WHEN b.recommend = 52466
 				  THEN '8RM Total'
@@ -469,11 +550,14 @@ BEGIN /* RM   */
 					 ELSE(1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * ABS(b.stake) * virtualrate
 				  END) AS                                                                                                                                      VirtualTurnover
 		 FROM bettrans AS b WITH (NOLOCK)
-			INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
+			INNER JOIN @BetType AS sb ON sb.BetType = b.BetType
 			INNER JOIN #Match AS m ON b.MatchId = m.MatchId
 			LEFT JOIN #ExtraPT_Sel AS e ON e.SuperID = b.srecommend
 									 AND e.Sporttype = 0
 		 WHERE b.winlostdate = @StartDate
+			  AND
+				 (@IsLive > 1
+				  OR b.liveindicator = @IsLive)
 			  AND m.type = CASE
 						    WHEN b.BetType = 10
 						    THEN 'outright'
@@ -495,6 +579,7 @@ BEGIN /* Query*/
 
     SELECT d.GroupId AS         GroupId
 	    , d.GroupName AS       GroupName
+	    , d.DisplayOrder
 	    , d.RowName AS         RowName
 	    , d.MemberWinLoss AS   MemberWinLoss
 	    , d.SMAWinLoss AS      SMAWinLoss
@@ -506,15 +591,20 @@ BEGIN /* Query*/
 	    , d.RealTurnover AS    RealTurnover
 	    , d.VirtualTurnover AS VirtualTurnover
     FROM #Data AS d
-    ORDER BY GroupName ASC
-		 , RowName;
+    ORDER BY CASE
+			  WHEN d.GroupName LIKE '%(hedge)%'
+			  THEN 1
+			  ELSE 0
+		   END
+		 , d.DisplayOrder
+		 , d.RowName;
 END;
 DROP TABLE #SportBetType;
 DROP TABLE #DepositSuper;
+DROP TABLE #Match;
 DROP TABLE #ExtraPT_Sel;
 DROP TABLE #Data;
 DROP TABLE #tmp_Data;
-DROP TABLE #Match;
 GO
 
 GRANT EXECUTE ON dbo.Acc_Rpt_CompanyWinLoss_Soccer_Minor_Bettypes TO [bodbAdminNet];
