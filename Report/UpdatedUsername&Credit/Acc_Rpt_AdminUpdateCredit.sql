@@ -1,10 +1,4 @@
-USE [bodb_CustomerLog]
-GO
-/****** Object:  StoredProcedure [dbo].[Acc_Rpt_AdminUpdateCredit]    Script Date: 9/20/2017 2:03:55 PM ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
+/*<info serverAlias="DBLOG-bodb_CustomerLog" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_Rpt_AdminUpdateCredit]
 @Username VARCHAR(50) = '',
 @FromDate	DATETIME,
@@ -12,10 +6,11 @@ ALTER PROCEDURE [dbo].[Acc_Rpt_AdminUpdateCredit]
 AS
 /*  Created: Kean  
 	Date: 2017-09-15  
-    Task : View log admin update credit (#83033)
+    Task : View log admin update credit (#83033),
     DB: DBLOG/bodb_CustomerLog
    
     Revisions: 
+		- 20181003@Helen: Get Code from PRO + HOTFIX alias should be DBPOL instead of DBONUSER  [Redmine:102596]
     
     Param's Explanation:
 		 @Username:  member's username
@@ -24,7 +19,9 @@ AS
 */  
 BEGIN
 	SET NOCOUNT ON
+
 	DECLARE @CustID INT
+	 
 --Contain temporary table
 	IF OBJECT_ID('tempdb..#NAPadmin') IS NOT NULL
 	BEGIN
@@ -65,8 +62,8 @@ BEGIN
 	INSERT INTO #NAPadmin (custid, username, groupname)
 	SELECT t.custid, t.username, g.GroupName
 	FROM #AdminGroup t
-		LEFT JOIN DBONUSER.bodb02.dbo.acccustomer_1 a WITH (NOLOCK) ON t.custid = a.custid
-		LEFT JOIN DBONUSER.bodb02.dbo.Acc_groupInfo_1 g WITH (NOLOCK) ON a.groupID = g.groupID AND g.groupname NOT LIKE 'acc%' 
+		LEFT JOIN DBPOL.NAP_userControl.dbo.acccustomer a WITH (NOLOCK) ON t.custid = a.custid
+		LEFT JOIN DBPOL.NAP_userControl.dbo.Acc_groupInfo g WITH (NOLOCK) ON a.groupID = g.groupID AND g.groupname NOT LIKE 'acc%' 
 	WHERE g.groupname IS NOT NULL
 
 	-- Customer with group
@@ -91,7 +88,7 @@ BEGIN
 				 ELSE NULL END Master 
 			, CASE WHEN c.roleid < 2 THEN  a.username 
 				 ELSE NULL END Agent
-			case when ul.OldValue IS NULL then 0 else ul.OldValue end OldValue, 
+			,case when ul.OldValue IS NULL then 0 else ul.OldValue end OldValue, 
 			ul.NewValue, ul.doing Remark
 	FROM bodb_CustomerLog.dbo.UserLog_Credit ul WITH (NOLOCK)
 		INNER JOIN  #NAPadmin AS na  ON ul.userid = na.custid
@@ -117,7 +114,6 @@ BEGIN
 	DROP TABLE #AdminGroup
 
 END
-
 GO
 GRANT EXECUTE ON [dbo].[Acc_Rpt_AdminUpdateCredit] TO [bodbAdminNet]
 GO
