@@ -36,6 +36,7 @@ AS
 		- 20171006@Cherry: Add filter of Number Game Bettype (#83101)
 		- 20180328@Cherry: Integrate One RNG Jackpot (#89459)
 		- 20180808@Cherry: Integrate Poker Games (#97809)
+		- 20181017@Cherry: Integrate NG2 (#102229)
 
 	Param's Explanation:
 		- @username:  + Search by keyword, member only
@@ -812,7 +813,7 @@ BEGIN
 		FROM #Data d 
 			INNER JOIN dbo.Sports s WITH (NOLOCK) ON d.Bettype = s.SportType
 	END
-	ELSE IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID = 6)
+	ELSE IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID IN (6,23))
 	BEGIN
 		UPDATE d
 		SET d.BettypeName = s.SportName
