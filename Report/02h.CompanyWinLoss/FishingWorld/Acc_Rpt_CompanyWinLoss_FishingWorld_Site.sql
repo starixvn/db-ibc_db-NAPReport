@@ -56,7 +56,7 @@ BEGIN /* #Agent*/
     CREATE TABLE #Agent(
 	    CustId    INT
 	    PRIMARY KEY
-	  , Site      NVARCHAR(50));
+	  , Site      VARCHAR(50));
     IF @Site = 'Deposit'
 	   BEGIN
 		  INSERT INTO #Agent
