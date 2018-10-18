@@ -250,8 +250,16 @@ BEGIN
 
 	DELETE s
 	FROM #SportBettype s
-	WHERE s.ProductID NOT IN (3, 5, 27) -- NumberGame, Virtual Sports, Virtual Sports 2
+	WHERE s.ProductID NOT IN (3, 5, 27, 23) -- NumberGame, Virtual Sports, Virtual Sports 2, NG2
 		AND NOT EXISTS (SELECT b.Bettype FROM #tmp_BetType b WHERE b.Bettype = s.Bettype)
+		
+	DELETE s
+	FROM #SportBettype s
+	WHERE s.ProductID = 23 --NG2
+		AND NOT EXISTS (SELECT b.Bettype 
+						FROM #tmp_SportType st INNER JOIN bodb02.dbo.SportBettypeMatrix b WITH(NOLOCK) ON st.Sporttype = b.SportType 
+						WHERE b.BetType = s.Bettype AND (b.IsTest = 0 OR b.IsTest = @isTest))
+	
 	-- End Sport Bettype Matrix
 
 	-- Handle Sport Type/League/GameType		

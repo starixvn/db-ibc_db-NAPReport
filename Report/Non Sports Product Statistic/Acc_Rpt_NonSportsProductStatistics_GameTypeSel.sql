@@ -35,7 +35,7 @@ SET NOCOUNT ON
 	FROM	dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '', @isTest) s
 		INNER JOIN dbo.Bettype b ON s.Bettype = b.TypeId 
 	WHERE  CasinoType IN (1,2) 
-		   OR ProductID IN (8, 15, 23, 24, 26, 28, 3, 30, 33) 	 
+		   OR ProductID IN (8, 15, 24, 26, 28, 3, 30, 33) 	 
 		   AND b.TypeId NOT IN (2199, 2399, 2999)
 	
 	--- ProductID = 3 - Number Game get LeagueId
