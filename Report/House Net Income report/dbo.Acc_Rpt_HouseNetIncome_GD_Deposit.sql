@@ -69,7 +69,7 @@ BEGIN
 				 (ci.FromDate BETWEEN @FDate AND @TDate
 				  OR ci.ToDate BETWEEN @FDate AND @TDate
 				  OR ci.FromDate < @FDate
-					AND @TDate < ci.ToDate);
+				  AND @TDate < ci.ToDate);
 
     UPDATE p
 		 SET
@@ -121,7 +121,7 @@ BEGIN
 		 );
     /* End region
 
-		Region: Get exchange rate info*/
+					 Region: Get exchange rate info*/
 
     CREATE TABLE #Exchange(
 	    ExchangeDate    DATE
@@ -212,6 +212,7 @@ BEGIN
 	    RptDate            DATE
 	  , IsDeposit          INT
 	  , IsBeforeDec2016    TINYINT
+	  , LicenseeID         INT
 	  , AmountDaily        MONEY);
 
     DECLARE @CommissionRate    FLOAT;
@@ -238,6 +239,7 @@ BEGIN
 	    INSERT INTO @DailyPayAmt(RptDate
 						  , IsDeposit
 						  , IsBeforeDec2016
+						  , LicenseeID
 						  , AmountDaily)
 			 SELECT b.RptDate
 				 , p.IsDeposit
@@ -246,10 +248,16 @@ BEGIN
 					  THEN 1
 					  ELSE 0
 				   END
+				 , p.LicenseeID
 				 , SUM(CASE
 						 WHEN p.ChargeType IN(1, 9)
 						 THEN b.MemberWL * oanda.Rate * p.DI_Rate
-						 ELSE(b.MemberWL + b.ValidBetAmount * @CommissionRate) * oanda.Rate * p.DI_Rate
+						 ELSE(b.MemberWL + CASE
+										   WHEN p.IsDeposit = 1
+											   AND b.StatusId = 103
+										   THEN 0
+										   ELSE b.ValidBetAmount
+									    END * @CommissionRate) * oanda.Rate * p.DI_Rate
 					  END)
 			 FROM bodb_LicenseeReport.dbo.rpt_BettingByProduct AS b WITH (NOLOCK)
 				INNER JOIN rate3rd AS p ON p.LicenseeID = b.SiteID
@@ -260,9 +268,12 @@ BEGIN
 			 WHERE b.rptDate BETWEEN @FDate AND @TDate
 				  AND b.CurrencyID <> 20
 				  AND b.customercategory NOT IN(27, 28)
-				  AND b.StatusId NOT IN(-1, 101, 102, 103) /* Exclude Reject , Void, Refund				*/
+				  AND b.StatusId NOT IN(-1, 101, 102) /* Exclude Reject , Void*/
 			 GROUP BY b.RptDate
-				   , p.IsDeposit;			
+				   , p.IsDeposit
+				   , p.LicenseeID;		
+
+				   
 
     CREATE TABLE #FeeData(
 	    PartyId            INT
@@ -284,13 +295,12 @@ BEGIN
 	  , @Products = 'GD';
 
     DECLARE @PayToSupplier    MONEY;
-
     SET @PayToSupplier =
 	   (
 		  SELECT SUM(CASE
 					  WHEN pay.IsDeposit = 1
 						  OR pay.IsDeposit = 0
-							AND pay.IsBeforeDec2016 = 1
+						  AND pay.IsBeforeDec2016 = 1
 					  THEN CASE
 							 WHEN pay.PayToSupplier > 0
 							 THEN 0
@@ -302,7 +312,16 @@ BEGIN
 			  (
 				 SELECT IsDeposit
 					 , IsBeforeDec2016
-					 , SUM(AmountDaily) AS PayToSupplier
+					 , SUM(CASE
+							 WHEN IsDeposit = 1
+							 THEN CASE
+									WHEN AmountDaily > 0
+									THEN 0
+									ELSE AmountDaily
+								 END
+							 WHEN IsDeposit = 0
+							 THEN AmountDaily
+						  END) AS PayToSupplier
 				 FROM @DailyPayAmt
 				 GROUP BY IsDeposit
 					   , IsBeforeDec2016
@@ -376,6 +395,7 @@ BEGIN
 	DROP TABLE #ExchangeOANDA
 	DROP TABLE #TempDataGD
 	DROP TABLE #FinalResult
+	DROP TABLE #FeeData
 END
 GO
 
