@@ -68,7 +68,7 @@ BEGIN
 				 (ci.FromDate BETWEEN @FDate AND @TDate
 				  OR ci.ToDate BETWEEN @FDate AND @TDate
 				  OR ci.FromDate < @FDate
-					AND @TDate < ci.ToDate);
+				  AND @TDate < ci.ToDate);
 
     UPDATE p
 		 SET
@@ -120,7 +120,7 @@ BEGIN
 		 );
     /* End region
 
-		Region: Get exchange rate info*/
+				  Region: Get exchange rate info*/
 
     CREATE TABLE #Exchange(
 	    ExchangeDate    DATE
@@ -210,6 +210,7 @@ BEGIN
     DECLARE @DailyPayAmt TABLE(
 	    RptDate        DATE
 	  , IsDeposit      INT
+	  , LicenseeID     INT
 	  , AmountDaily    MONEY);
 
     WITH rate3rd
@@ -227,9 +228,11 @@ BEGIN
 		   INNER JOIN @tmpParty AS p ON p.ParentID = ci.PartyID)
 	    INSERT INTO @DailyPayAmt(RptDate
 						  , IsDeposit
+						  , LicenseeID
 						  , AmountDaily)
 			 SELECT b.RptDate3rd
 				 , p.IsDeposit
+				 , p.LicenseeID
 				 , SUM(b.Winloss * oanda.Rate * p.DI_Rate)
 			 FROM bodb_LicenseeReport.dbo.rpt_ThirdPartyWL_ExtraGMT AS b WITH (NOLOCK)
 				INNER JOIN rate3rd AS p ON p.LicenseeID = b.SiteID
@@ -241,7 +244,8 @@ BEGIN
 				  AND b.CurrencyID <> 20
 				  AND b.StatusId NOT IN(-1, 101, 102, 103) /* Exclude Reject , Void, Refund				*/
 			 GROUP BY b.RptDate3rd
-				   , p.IsDeposit;	
+				   , p.IsDeposit
+				   , p.LicenseeID;	
 
     CREATE TABLE #FeeData(
 	    PartyId            INT
@@ -263,7 +267,6 @@ BEGIN
 	  , @Products = 'FW';
 
     DECLARE @PayToSupplier    MONEY;
-
     SET @PayToSupplier =
 	   (
 		  SELECT SUM(CASE
@@ -273,9 +276,10 @@ BEGIN
 				   END)
 		  FROM
 			  (
-				 SELECT SUM(AmountDaily) AS AmountDaily
+				 SELECT LicenseeID
+					 , SUM(AmountDaily) AS AmountDaily
 				 FROM @DailyPayAmt
-				 GROUP BY IsDeposit
+				 GROUP BY LicenseeID
 			  ) AS s
 	   );
 
@@ -324,6 +328,7 @@ BEGIN
     SELECT @DateList = COALESCE(@DateList+',', '')+'['+CONVERT(VARCHAR(10), RptDate)+']'
     FROM #FinalResult;
     /* End region*/
+
 	---------------------------------------------------- Select the output -------------------------------------------------------
 	DECLARE @SQL VARCHAR(1000)
 	SELECT @SQL =	'SELECT * ' + CHAR(13) +
@@ -346,6 +351,7 @@ BEGIN
 	DROP TABLE #ExchangeOANDA
 	DROP TABLE #TempDataFW
 	DROP TABLE #FinalResult
+	DROP TABLE #FeeData
 END
 GO
 

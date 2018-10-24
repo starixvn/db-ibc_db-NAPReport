@@ -18,6 +18,10 @@ AS
 	Param's Explanation:   
 
 	EXEC Acc_Rpt_HouseNetIncome_GD_Deposit '20161115', '20161115'   
+	Note:
+	   20181023Robert: remove the checking
+		  - Credit licensees before Dec-16: Member WL x 2%; 0 if Member WL > 0.
+		  - Credit licensees after Dec-16: (Member WL + Valid Bet Amt x 1%) x 3.5%
 */  
 BEGIN  
     SET NOCOUNT ON;
@@ -121,7 +125,7 @@ BEGIN
 		 );
     /* End region
 
-					 Region: Get exchange rate info*/
+								  Region: Get exchange rate info*/
 
     CREATE TABLE #Exchange(
 	    ExchangeDate    DATE
@@ -209,11 +213,10 @@ BEGIN
     /* Pay to Supplier for Credit + Deposit*/
 
     DECLARE @DailyPayAmt TABLE(
-	    RptDate            DATE
-	  , IsDeposit          INT
-	  , IsBeforeDec2016    TINYINT
-	  , LicenseeID         INT
-	  , AmountDaily        MONEY);
+	    RptDate        DATE
+	  , IsDeposit      INT
+	  , LicenseeID     INT
+	  , AmountDaily    MONEY);
 
     DECLARE @CommissionRate    FLOAT;
 
@@ -238,16 +241,10 @@ BEGIN
 	    WHERE ci.ChargeType IN(1, 9, 10))
 	    INSERT INTO @DailyPayAmt(RptDate
 						  , IsDeposit
-						  , IsBeforeDec2016
 						  , LicenseeID
 						  , AmountDaily)
 			 SELECT b.RptDate
 				 , p.IsDeposit
-				 , CASE
-					  WHEN b.rptDate <= '2016-12-31'
-					  THEN 1
-					  ELSE 0
-				   END
 				 , p.LicenseeID
 				 , SUM(CASE
 						 WHEN p.ChargeType IN(1, 9)
@@ -271,9 +268,7 @@ BEGIN
 				  AND b.StatusId NOT IN(-1, 101, 102) /* Exclude Reject , Void*/
 			 GROUP BY b.RptDate
 				   , p.IsDeposit
-				   , p.LicenseeID;		
-
-				   
+				   , p.LicenseeID;						   
 
     CREATE TABLE #FeeData(
 	    PartyId            INT
@@ -294,38 +289,43 @@ BEGIN
 	  , @ToDate = @TDate
 	  , @Products = 'GD';
 
+    DECLARE @tlbPayToSupplier TABLE(
+	    IsDeposit        INT
+	  , PayToSupplier    MONEY);
+
+    INSERT INTO @tlbPayToSupplier(IsDeposit
+						  , PayToSupplier)
+		 SELECT pay_Sub.IsDeposit
+			 , SUM(CASE
+					 WHEN pay_Sub.IsDeposit = 1
+					 THEN CASE
+							WHEN pay_Sub.PayToSupplier > 0
+							THEN 0
+							ELSE pay_Sub.PayToSupplier
+						 END
+					 ELSE pay_Sub.PayToSupplier
+				  END) AS PayToSupplier
+		 FROM
+			 (
+				SELECT LicenseeID
+					, IsDeposit
+					, SUM(AmountDaily) AS PayToSupplier
+				FROM @DailyPayAmt
+				GROUP BY LicenseeID
+					  , IsDeposit
+			 ) AS pay_Sub
+		 GROUP BY pay_Sub.IsDeposit;
+
     DECLARE @PayToSupplier    MONEY;
+
     SET @PayToSupplier =
 	   (
 		  SELECT SUM(CASE
-					  WHEN pay.IsDeposit = 1
-						  OR pay.IsDeposit = 0
-						  AND pay.IsBeforeDec2016 = 1
-					  THEN CASE
-							 WHEN pay.PayToSupplier > 0
-							 THEN 0
-							 ELSE pay.PayToSupplier
-						  END
+					  WHEN pay.PayToSupplier > 0
+					  THEN 0
 					  ELSE pay.PayToSupplier
 				   END)
-		  FROM
-			  (
-				 SELECT IsDeposit
-					 , IsBeforeDec2016
-					 , SUM(CASE
-							 WHEN IsDeposit = 1
-							 THEN CASE
-									WHEN AmountDaily > 0
-									THEN 0
-									ELSE AmountDaily
-								 END
-							 WHEN IsDeposit = 0
-							 THEN AmountDaily
-						  END) AS PayToSupplier
-				 FROM @DailyPayAmt
-				 GROUP BY IsDeposit
-					   , IsBeforeDec2016
-			  ) AS pay
+		  FROM @tlbPayToSupplier AS pay
 	   );
 
     INSERT INTO #FinalResult(rptDate
