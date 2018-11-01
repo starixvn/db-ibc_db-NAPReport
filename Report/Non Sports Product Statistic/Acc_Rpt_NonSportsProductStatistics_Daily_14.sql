@@ -38,6 +38,7 @@ AS
 		- 20171006@Cherry: Add filter of Number Game Bettype (#83101)
 		- 20180328@Cherry: Integrate One RNG Jackpot (#89459)
 		- 20180808@Cherry: Integrate Poker Games (#97809)
+		- 20181018@Cherry: Integrate NG2 (#102229)
 
 	Param's Explanation:
 			 - @username:  + Search by keyword, member only
@@ -248,9 +249,15 @@ SET NOCOUNT ON
 
 	DELETE	s
 	FROM	#SportBettype s
-	WHERE	s.ProductID NOT IN (3, 5, 27)   ---- NumberGame , Virtual Sports, Virtual Sports 2
+	WHERE	s.ProductID NOT IN (3, 5, 27, 23)   ---- NumberGame , Virtual Sports, Virtual Sports 2, NG2
 			AND NOT EXISTS (SELECT Bettype FROM #tmpBetType b WHERE b.Bettype = s.Bettype)
 
+	DELETE s
+	FROM #SportBettype s
+	WHERE s.ProductID = 23 --NG2
+		AND NOT EXISTS (SELECT b.Bettype 
+						FROM #tmpSportType st INNER JOIN bodb02.dbo.SportBettypeMatrix b WITH(NOLOCK) ON st.Sporttype = b.SportType 
+						WHERE b.BetType = s.Bettype AND (b.IsTest = 0 OR b.IsTest = @isTest))
 
 	--- End Sport Bettype Matrix------
 

@@ -34,6 +34,7 @@ AS
 		- 20171006@Cherry: Add filter of Number Game Bettype (#83101)
 		- 20180328@Cherry: Integrate One RNG Jackpot (#89459)
 		- 20180808@Cherry: Integrate Poker Games (#97809)
+		- 20181018@Cherry: Integrate NG2 (#102229)
 
 	Param's Explanation:
 		- @ProductID: string filter by Product 
@@ -136,6 +137,14 @@ BEGIN
 		dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '', @isTest) s
 		INNER JOIN #tmp_ProductID p ON s.ProductID = p.ProductID
 	WHERE p.ProductID IN (3, 5, 27) -- Number Game, Virtual Sports, Virtual Sports 2
+	
+	INSERT INTO #SportBettype (ProductID, Bettype, EvenType, RefTable)
+	SELECT s.ProductID, s.BetType, s.EventType, s.RefTable
+	FROM bodb02.dbo.SportBettypeMatrix s WITH(NOLOCK) 
+		INNER JOIN #tmp_ProductID p ON s.ProductID = p.ProductID
+		INNER JOIN #tmp_SportType t ON s.SportType = t.Sporttype 
+	WHERE p.ProductID = 23 --NG2
+		AND (s.IsTest = 0 OR s.IsTest = @isTest)
 
 	DROP TABLE #tmp_ProductID
 	DROP TABLE #tmp_BetType

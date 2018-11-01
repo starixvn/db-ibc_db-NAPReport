@@ -1,7 +1,4 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
-
-USE bodb02	
-GO 
  
 ALTER PROCEDURE [dbo].[Acc_Rpt_NonSportsProductStatistics_GameTypeSel]
 AS
@@ -18,6 +15,7 @@ AS
 		- 20171116@Cherry: Integrate Bullfighting (#85946)
 		- 20180116@Cherry: Integrate OneRNG Jackpot, except bettype (2199, 2399, 2999)
 		- 20180808@Cherry: Integrate Poker Games (#97809)
+		- 20181004@Cherry: Integrate ColosusBet and NG2 (#102229)
 */
  
 BEGIN
@@ -31,14 +29,14 @@ SET NOCOUNT ON
  
 	CREATE TABLE #SportBettype (ProductId INT, TypeId INT, TypeName NVARCHAR(1000), IsTest BIT DEFAULT(0), GameType TINYINT) --GameType: SportType=1, Bettype=2, League=3
  
+    -- Get Bettype
 	INSERT INTO #SportBettype (ProductID, TypeId, TypeName, GameType)
 	SELECT	s.ProductID, s.Bettype as TypeId, b.typenamee AS TypeName, 2 AS GameType
 	FROM	dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '', @isTest) s
 		INNER JOIN dbo.Bettype b ON s.Bettype = b.TypeId 
 	WHERE  CasinoType IN (1,2) 
-		   OR ProductID IN (8, 24, 26, 28, 30, 33) 	 
+		   OR ProductID IN (8, 15, 24, 26, 28, 3, 30, 33) 	 
 		   AND b.TypeId NOT IN (2199, 2399, 2999)
-
 	
 	--- ProductID = 3 - Number Game get LeagueId
 	INSERT INTO #SportBettype (ProductId, TypeId, TypeName, IsTest, GameType)
@@ -50,20 +48,14 @@ SET NOCOUNT ON
 	FROM	dbo.league WITH (NOLOCK)
 	WHERE	sporttype = 161 
 		 
-	--- ProductID = 5, 27 - Virtual Sports, Virtual Sports 2 get Sporttype
+	--- ProductID = 5, 27, 23 - Virtual Sports, Virtual Sports, NG2 get Sporttype
 	INSERT INTO #SportBettype (ProductId, TypeId, TypeName, GameType)
 	SELECT DISTINCT sb.ProductID, sb.SportType, s.SportName, 1 AS GameType
 	FROM dbo.SportBettypeMatrix sb WITH (NOLOCK)
 		INNER JOIN dbo.Sports s WITH (NOLOCK) ON sb.SportType = s.SportType 
-	WHERE sb.ProductID IN (5,27)
+	WHERE sb.ProductID IN (5, 27, 23)
 		AND (sb.IsTest = 0 OR sb.IsTest = @isTest)	
 		
-	-- ProductID = 3 - Number Game get Bettype
-	INSERT INTO #SportBettype (ProductID, TypeId, TypeName, GameType)
-	SELECT	s.ProductID, s.Bettype as TypeId, b.typenamee AS TypeName, 2 AS GameType
-	FROM	dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '', @isTest) s
-		INNER JOIN dbo.Bettype b ON s.Bettype = B.TypeId 
-	WHERE s.ProductID = 3
 	
 	SELECT	* 
 	FROM	#SportBettype
