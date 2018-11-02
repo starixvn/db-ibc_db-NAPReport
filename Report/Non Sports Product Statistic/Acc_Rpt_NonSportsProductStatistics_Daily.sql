@@ -121,8 +121,8 @@ SET NOCOUNT ON
 		END
 	END
 
-	DECLARE @WLDate DATETIME , @IsMBC BIT, @IsSite BIT
-	SELECT @WLDate = @WinlostDate
+	DECLARE @WLDate SMALLDATETIME , @IsMBC BIT, @IsSite BIT
+	SELECT @WLDate = CAST(@WinlostDate AS SMALLDATETIME)
 
 	CREATE TABLE #Data (   ReportBy NVARCHAR(1000),  CustId INT,
 						   BetCount INT, CurrencyId INT, Currency NVARCHAR(50), 
