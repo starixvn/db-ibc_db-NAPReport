@@ -1,17 +1,13 @@
-﻿USE [bodb02]
+﻿/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [bodb02]
 GO
-/****** Object:  StoredProcedure [dbo].[Acc_Rpt_NumberGame]    Script Date: 3/1/2018 3:18:52 PM ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
+
 ALTER PROCEDURE [dbo].[Acc_Rpt_NumberGame]
 	@winlostdate datetime,
     @SiteID	VARCHAR(8000) = '',
     @Currency VARCHAR(8000) = '',
     @LiveIndicator bit = NULL,
 	@TrialData	BIT = 0 -- 1 : Get trial data, 0 Don't get trial data
-    
 AS
 
 /*	Creator: Viet
@@ -33,6 +29,7 @@ AS
 		- 20130917@Kathy: Fix currency's value
 		- 20150319@Tom: Get Data by Effective Licensee (#31687)
 		- 20180301@Kean: Missing number game data of some licensee (91266)
+		- 20181031@Percy: Remove linked-server DBLIC [RedmineID: #103660]
 		
     Param usage:
 		- @SiteID:
@@ -87,35 +84,6 @@ SELECT LicenseeID
 	,ToDate
 FROM dbo.[NAP_f_GetAffectedDateLicensee](1,@siteid,1, @winlostdate, @winlostdate, 1, 18, 3, 'NG', @TrialData)
 
---SELECT @licenseeCnt_db = count(distinct sl.LicenseeID)
---FROM DBLIC.bodb_Licensee.dbo.LicenseeProduct3rd lp WITH(NOLOCK)
---	INNER JOIN DBLIC.bodb_Licensee.dbo.SystemLicensee sl WITH(NOLOCK) ON lp.LicenseeID = sl.LicenseeID
---WHERE sl.IsActive = 1
---	and lp.LicenseeID <> 18 -- exclude i7, since it's in IBC already
---	and lp.ProductID = 2 --NG
---	and sl.SystemID = 3
- 
---IF EXISTS (SELECT 1 FROM @tmpSite WHERE SiteID = 0) OR @licenseeCnt_db = @licencseeCnt-- ALL Site
---BEGIN
---    SELECT			        
---	        b.bettype bettype,
---	        sum((winlost-actual_stake)*actualrate) WinLost,
---	        sum((awinlost+mwinlost+swinlost)*actualrate) Position,
---	        sum(scomm*actualrate) Commission,	
---	        sum((winlost-actual_stake+awinlost+mwinlost+swinlost+scomm)*actualrate) LineTotal,
---	        sum((winlost-actual_stake+awinlost+mwinlost+swinlost+scomm)*virtualrate) VirtualLineTotal,
---	        sum((1-tpositiontaking)*stake*actualrate) Turnover
---    FROM dbo.bettrans b WITH (NOLOCK)
---		INNER JOIN dbo.match m with(nolock) on b.matchid = m.matchid and m.sporttype = 161 and m.eventdate = @winlostdate
---    WHERE b.bettype BETWEEN 81 AND 120		
---	        AND b.ruben = 1
---	        AND b.statusID not in (101,102,103,121)
---            AND b.Currency IN (SELECT t.currency FROM @tmpCurrency t)
---            and b.liveindicator = CASE WHEN @LiveIndicator IS NULL THEN b.liveindicator ELSE @LiveIndicator END									
---    GROUP BY b.Bettype
---    ORDER BY b.Bettype
---END
---ELSE
 BEGIN
 	CREATE TABLE #supers(custID INT)
 	IF EXISTS (SELECT 1 FROM @tmpSite WHERE siteid = -1)--IBCGroup   
@@ -135,7 +103,7 @@ BEGIN
 			INSERT INTO #supers (custID)
 			SELECT s.custid
 			FROM dbo.Dep_CustSuper s with(nolock)
-				INNER JOIN DBLIC.bodb_Licensee.dbo.Licensees l with(nolock) on s.site = l.licenseename
+				INNER JOIN bodb_Licensee.dbo.Licensees l with(nolock) on s.site = l.licenseename
 			WHERE (@currency = '' OR currency in (SELECT t.currency FROM @tmpCurrency t))
 				--AND l.licenseeID in (SELECT siteid FROM @tmpSite)
 				AND l.licenseeID in (SELECT licenseeID FROM @tmpLscActive)

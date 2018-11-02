@@ -1,27 +1,22 @@
-/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
-
-USE bodb02
-GO 
+/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [bodb02]
+GO
  
 ALTER PROCEDURE [dbo].[Acc_Rpt_NonSportsProductStatistic_SiteSel]
-	@ProductID		VARCHAR(MAX)=''
+	@ProductID VARCHAR(MAX) = ''
 AS
 /*
 	Created by: 20160908@Sophia.Nguyen
-	Task : Get Company dropdown by ProductId [Redmine: #62430]
-	DB: DBACC/bodb02
+	Task: Get Company dropdown by ProductId [Redmine: #62430]
+	DB: DBACC.bodb02
 	
 	Revisions:
 		- 20170215@Percy: Integrate Fishing World [RedmineID: #71616]
-
-	Param Explaination:
-
-
+		- 20181031@Percy: Remove linked-server DBLIC [RedmineID: #103660]
 */
 
 BEGIN
-SET NOCOUNT ON
- 
+	SET NOCOUNT ON
 	
 	CREATE TABLE #tmpProductID (
 			ProductID int
