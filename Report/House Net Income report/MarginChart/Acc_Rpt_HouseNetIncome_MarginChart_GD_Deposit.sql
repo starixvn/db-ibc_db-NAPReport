@@ -23,7 +23,7 @@ AS
   
 */
 BEGIN  
-    SET NOCOUNT ON  
+    SET NOCOUNT ON;
 
     DECLARE @FDate    DATE
 		, @TDate    DATE;
@@ -69,7 +69,7 @@ BEGIN
 				 (ci.FromDate BETWEEN @FDate AND @TDate
 				  OR ci.ToDate BETWEEN @FDate AND @TDate
 				  OR ci.FromDate < @FDate
-					AND @TDate < ci.ToDate);
+				  AND @TDate < ci.ToDate);
 
     DECLARE @PartyIDs    VARCHAR(1000);
 
@@ -115,7 +115,7 @@ BEGIN
 		 );
     /* End region
 
-		Region: Get exchange rate info*/
+		    Region: Get exchange rate info*/
 
     CREATE TABLE #Exchange(
 	    ExchangeDate    DATE
@@ -243,7 +243,12 @@ BEGIN
 				 , SUM(CASE
 						 WHEN p.ChargeType IN(1, 9)
 						 THEN b.MemberWL * oanda.Rate * p.DI_Rate
-						 ELSE(b.MemberWL + b.ValidBetAmount * @CommissionRate) * oanda.Rate * p.DI_Rate
+						 ELSE(b.MemberWL + CASE
+										   WHEN p.IsDeposit = 1
+											   AND b.StatusId = 103
+										   THEN 0
+										   ELSE b.ValidBetAmount
+									    END * @CommissionRate) * oanda.Rate * p.DI_Rate
 					  END)
 			 FROM bodb_LicenseeReport.dbo.rpt_BettingByProduct AS b WITH (NOLOCK)
 				INNER JOIN rate3rd AS p ON p.LicenseeID = b.SiteID
@@ -254,7 +259,7 @@ BEGIN
 			 WHERE b.rptDate BETWEEN @FDate AND @TDate
 				  AND b.CurrencyID <> 20
 				  AND b.customercategory NOT IN(27, 28)
-				  AND b.StatusId NOT IN(-1, 101, 102, 103) /* Exclude Reject , Void, Refund				*/
+				  AND b.StatusId NOT IN(-1, 101, 102) /* Exclude Reject , Void 				*/
 			 GROUP BY b.RptDate
 				   , p.IsDeposit;
 
