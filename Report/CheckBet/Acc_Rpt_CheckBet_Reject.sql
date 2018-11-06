@@ -24,6 +24,8 @@ AS
 		- 20170828@Robert: Integrate Lucky3 product into NAP Acc Reports [RedmineID: #78214]
 		- 20171120@Dominic: Integrate Bullfighting product into NAP Acc Reports [RedmineID: #85382]
 		- 20180316@Franklin: Integrate FM2 [#91341] 
+		- 20181105@Patrick: DB052 indexes revolution [RedmineID: #103572]
+
 	Param's explanation:		
 	
 */
@@ -50,7 +52,7 @@ Begin
     FROM bodb02.dbo.bettrans bt WITH (nolock) 
         INNER join dbo.betsReject b WITH (nolock) ON bt.transid=b.transid        
 		INNER JOIN #SportBettype s on s.bettype = b.bettype
-    WHERE bt.winlostdate=@winlostdate
+    WHERE b.winlostdate=@winlostdate
         and bt.custid<>98632
 		and (bt.status<>b.status) 
 		and b.currency <> 20
