@@ -119,8 +119,7 @@ BEGIN
 				 AND ProductId <> 1 /*exclude RB */
 		 );
     /* End region
-
-				  Region: Get exchange rate info*/
+	   Region: Get exchange rate info*/
 
     CREATE TABLE #Exchange(
 	    ExchangeDate    DATE
@@ -195,7 +194,7 @@ BEGIN
 				  , b.CurrencyID
 				  , p.ProductId
 				  , e.Rate
-		 );
+		 );		 
 
     CREATE NONCLUSTERED INDEX Idx_InvoiceData ON #TempDataFW(PartyId, ProductId);
     /* Region: Result	*/
@@ -211,41 +210,71 @@ BEGIN
 	    RptDate        DATE
 	  , IsDeposit      INT
 	  , LicenseeID     INT
+	  , CompanyId      INT
 	  , AmountDaily    MONEY);
 
-    WITH rate3rd
-	    AS (
-	    SELECT DISTINCT
-			 ci.IsDeposit
-		    , ci.ProductID
-		    , ci.DI_Rate
-		    , ci.Fromdate
-		    , ci.ToDate
-		    , ci.ChargeType
-		    , p.LicenseeID
-	    FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd
-		    (@FDate, @TDate, 'FW', 'OA') AS ci
-		   INNER JOIN @tmpParty AS p ON p.ParentID = ci.PartyID)
-	    INSERT INTO @DailyPayAmt(RptDate
-						  , IsDeposit
-						  , LicenseeID
-						  , AmountDaily)
-			 SELECT b.RptDate3rd
-				 , p.IsDeposit
-				 , p.LicenseeID
-				 , SUM(b.Winloss * oanda.Rate * p.DI_Rate)
-			 FROM bodb_LicenseeReport.dbo.rpt_ThirdPartyWL_ExtraGMT AS b WITH (NOLOCK)
-				INNER JOIN rate3rd AS p ON p.LicenseeID = b.SiteID
-									  AND b.RptDate3rd BETWEEN p.FromDate AND p.ToDate
-				INNER JOIN #ExchangeOANDA AS oanda ON b.RptDate3rd = oanda.ExchangeDate
-											   AND b.CurrencyId = oanda.ExchangeID
-			 WHERE b.RptDate3rd BETWEEN @FDate AND @TDate
-				  AND b.Bettypeid BETWEEN 1011 AND 1020 /* FW*/
-				  AND b.CurrencyID <> 20
-				  AND b.StatusId NOT IN(-1, 101, 102, 103) /* Exclude Reject , Void, Refund				*/
-			 GROUP BY b.RptDate3rd
-				   , p.IsDeposit
-				   , p.LicenseeID;	
+
+    DECLARE @PartyChargeInfo_3rd TABLE(
+	    IsDeposit     INT
+	  , ProductID     INT
+	  , DI_Rate       MONEY
+	  , Fromdate      SMALLDATETIME
+	  , ToDate        SMALLDATETIME
+	  , ChargeType    INT
+	  , LicenseeID    INT);
+
+    INSERT INTO @PartyChargeInfo_3rd(IsDeposit
+							, ProductID
+							, DI_Rate
+							, Fromdate
+							, ToDate
+							, ChargeType
+							, LicenseeID)
+		 SELECT DISTINCT
+			   ci.IsDeposit
+			 , ci.ProductID
+			 , ci.DI_Rate
+			 , ci.Fromdate
+			 , ci.ToDate
+			 , ci.ChargeType
+			 , p.LicenseeID
+		 FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd
+			 (@FDate, @TDate, 'FW', 'OA') AS ci
+			INNER JOIN @tmpParty AS p ON p.ParentID = ci.PartyID;
+		   
+    UPDATE c_3rd
+		 SET
+			c_3rd.Fromdate = c.FromDate
+		   , c_3rd.ToDate = c.ToDate
+    FROM @PartyChargeInfo_3rd c_3rd
+	   INNER JOIN @PartyChargeInfo c ON c_3rd.LicenseeID = c.LicenseeId; 
+
+    INSERT INTO @DailyPayAmt(RptDate
+					  , IsDeposit
+					  , LicenseeID
+					  , AmountDaily)
+		 SELECT b.RptDate3rd
+			 , p.IsDeposit
+			 , p.LicenseeID
+			 , SUM(b.Winloss * oanda.Rate * p.DI_Rate)
+		 FROM bodb_LicenseeReport.dbo.rpt_ThirdPartyWL_ExtraGMT AS b WITH (NOLOCK)
+			INNER JOIN @PartyChargeInfo_3rd AS p ON p.LicenseeID = b.SiteID
+											AND b.RptDate3rd BETWEEN p.FromDate AND p.ToDate
+			INNER JOIN #ExchangeOANDA AS oanda ON b.RptDate3rd = oanda.ExchangeDate
+										   AND b.CurrencyId = oanda.ExchangeID
+		 WHERE b.RptDate3rd BETWEEN @FDate AND @TDate
+			  AND b.Bettypeid BETWEEN 1011 AND 1020 /* FW*/
+			  AND b.CurrencyID <> 20
+			  AND b.StatusId NOT IN(-1, 101, 102, 103) /* Exclude Reject , Void, Refund				*/
+		 GROUP BY b.RptDate3rd
+			   , p.IsDeposit
+			   , p.LicenseeID;	
+
+    UPDATE d
+		 SET
+			d.CompanyId = l.LicenseeID
+    FROM @DailyPayAmt d
+	   INNER JOIN bodb_Licensee.dbo.labels l WITH (NOLOCK) ON d.LicenseeID = l.LabelID;
 
     CREATE TABLE #FeeData(
 	    PartyId            INT
@@ -266,21 +295,52 @@ BEGIN
 	  , @ToDate = @TDate
 	  , @Products = 'FW';
 
+    DECLARE @tlbPayToSupplier TABLE(
+	    LicenseeId       INT
+	  , CompanyId        INT
+	  , IsDeposit        INT
+	  , PayToSupplier    MONEY);	  
+
+    INSERT INTO @tlbPayToSupplier(LicenseeID
+						  , CompanyId
+						  , IsDeposit
+						  , PayToSupplier)
+		 SELECT pay_Sub.LicenseeID
+			 , pay_Sub.CompanyId
+			 , pay_Sub.IsDeposit
+			 , pay_Sub.PayToSupplier
+		 FROM
+			 (
+				SELECT LicenseeID
+					, CompanyId
+					, IsDeposit
+					, SUM(AmountDaily) AS PayToSupplier
+				FROM @DailyPayAmt
+				WHERE IsDeposit = 1
+				GROUP BY LicenseeID
+					  , CompanyId
+					  , IsDeposit
+				UNION ALL
+				SELECT 0 AS                LicenseeID
+					, CompanyId
+					, IsDeposit
+					, SUM(AmountDaily) AS PayToSupplier
+				FROM @DailyPayAmt
+				WHERE IsDeposit = 0
+				GROUP BY CompanyId
+					  , IsDeposit
+			 ) AS pay_Sub;
+
     DECLARE @PayToSupplier    MONEY;
+
     SET @PayToSupplier =
 	   (
 		  SELECT SUM(CASE
-					  WHEN AmountDaily > 0
+					  WHEN pay.PayToSupplier > 0
 					  THEN 0
-					  ELSE AmountDaily
+					  ELSE pay.PayToSupplier
 				   END)
-		  FROM
-			  (
-				 SELECT LicenseeID
-					 , SUM(AmountDaily) AS AmountDaily
-				 FROM @DailyPayAmt
-				 GROUP BY LicenseeID
-			  ) AS s
+		  FROM @tlbPayToSupplier AS pay
 	   );
 
     INSERT INTO #FinalResult(rptDate
