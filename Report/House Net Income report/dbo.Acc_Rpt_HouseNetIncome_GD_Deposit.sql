@@ -125,7 +125,7 @@ BEGIN
 		 );
     /* End region
 
-								  Region: Get exchange rate info*/
+										Region: Get exchange rate info*/
 
     CREATE TABLE #Exchange(
 	    ExchangeDate    DATE
@@ -215,7 +215,8 @@ BEGIN
     DECLARE @DailyPayAmt TABLE(
 	    RptDate        DATE
 	  , IsDeposit      INT
-	  , LicenseeID     INT
+	  , LicenseeId     INT
+	  , CompanyId      INT
 	  , AmountDaily    MONEY);
 
     DECLARE @CommissionRate    FLOAT;
@@ -268,7 +269,14 @@ BEGIN
 				  AND b.StatusId NOT IN(-1, 101, 102) /* Exclude Reject , Void*/
 			 GROUP BY b.RptDate
 				   , p.IsDeposit
-				   , p.LicenseeID;						   
+				   , p.LicenseeID;		
+
+    UPDATE d
+		 SET
+			d.CompanyId = l.LicenseeID
+    FROM @DailyPayAmt d
+	   INNER JOIN bodb_Licensee.dbo.labels l WITH (NOLOCK) ON d.LicenseeID = l.LabelID;
+    				   				   
 
     CREATE TABLE #FeeData(
 	    PartyId            INT
@@ -290,31 +298,41 @@ BEGIN
 	  , @Products = 'GD';
 
     DECLARE @tlbPayToSupplier TABLE(
-	    IsDeposit        INT
-	  , PayToSupplier    MONEY);
+	    LicenseeId       INT
+	  , CompanyId        INT
+	  , IsDeposit        INT
+	  , PayToSupplier    MONEY);	  
 
-    INSERT INTO @tlbPayToSupplier(IsDeposit
+    INSERT INTO @tlbPayToSupplier(LicenseeID
+						  , CompanyId
+						  , IsDeposit
 						  , PayToSupplier)
-		 SELECT pay_Sub.IsDeposit
-			 , SUM(CASE
-					 WHEN pay_Sub.IsDeposit = 1
-					 THEN CASE
-							WHEN pay_Sub.PayToSupplier > 0
-							THEN 0
-							ELSE pay_Sub.PayToSupplier
-						 END
-					 ELSE pay_Sub.PayToSupplier
-				  END) AS PayToSupplier
+		 SELECT pay_Sub.LicenseeID
+			 , pay_Sub.CompanyId
+			 , pay_Sub.IsDeposit
+			 , pay_Sub.PayToSupplier
 		 FROM
 			 (
 				SELECT LicenseeID
+					, CompanyId
 					, IsDeposit
 					, SUM(AmountDaily) AS PayToSupplier
 				FROM @DailyPayAmt
+				WHERE IsDeposit = 1
 				GROUP BY LicenseeID
+					  , CompanyId
 					  , IsDeposit
-			 ) AS pay_Sub
-		 GROUP BY pay_Sub.IsDeposit;
+				UNION ALL
+				SELECT 0 AS                LicenseeID
+					, CompanyId
+					, IsDeposit
+					, SUM(AmountDaily) AS PayToSupplier
+				FROM @DailyPayAmt
+				WHERE IsDeposit = 0
+				GROUP BY CompanyId
+					  , IsDeposit
+			 ) AS pay_Sub;
+
 
     DECLARE @PayToSupplier    MONEY;
 
