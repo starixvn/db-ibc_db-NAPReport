@@ -69,7 +69,7 @@ BEGIN
 				 (ci.FromDate BETWEEN @FDate AND @TDate
 				  OR ci.ToDate BETWEEN @FDate AND @TDate
 				  OR ci.FromDate < @FDate
-					AND @TDate < ci.ToDate);
+				  AND @TDate < ci.ToDate);
 
     DECLARE @PartyIDs    VARCHAR(1000);
 
@@ -115,7 +115,7 @@ BEGIN
 		 );
     /* End region
 
-		Region: Get exchange rate info*/
+		    Region: Get exchange rate info*/
 
     CREATE TABLE #Exchange(
 	    ExchangeDate    DATE
@@ -207,36 +207,60 @@ BEGIN
 	  , IsDeposit      INT
 	  , AmountDaily    MONEY);
 
-    WITH rate3rd
-	    AS (
-	    SELECT DISTINCT
-			 ci.IsDeposit
-		    , ci.ProductID
-		    , ci.DI_Rate
-		    , ci.Fromdate
-		    , ci.ToDate
-		    , ci.ChargeType
-		    , p.LicenseeID
-	    FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd
-		    (@FDate, @TDate, 'FW', 'OA') AS ci
-		   INNER JOIN @tmpParty AS p ON p.ParentID = ci.PartyID)
-	    INSERT INTO @DailyPayAmt(RptDate
-						  , IsDeposit
-						  , AmountDaily)
-			 SELECT b.RptDate3rd
-				 , p.IsDeposit
-				 , SUM(b.Winloss * oanda.Rate * p.DI_Rate)
-			 FROM bodb_LicenseeReport.dbo.rpt_ThirdPartyWL_ExtraGMT AS b WITH (NOLOCK)
-				INNER JOIN rate3rd AS p ON p.LicenseeID = b.SiteID
-									  AND b.RptDate3rd BETWEEN p.FromDate AND p.ToDate
-				INNER JOIN #ExchangeOANDA AS oanda ON b.RptDate3rd = oanda.ExchangeDate
-											   AND b.CurrencyId = oanda.ExchangeID
-			 WHERE b.RptDate3rd BETWEEN @FDate AND @TDate
-				  AND b.Bettypeid BETWEEN 1011 AND 1020 /* FW*/
-				  AND b.CurrencyID <> 20
-				  AND b.StatusId NOT IN(-1, 101, 102, 103) /* Exclude Reject , Void, Refund				*/
-			 GROUP BY b.RptDate3rd
-				   , p.IsDeposit;		
+    DECLARE @PartyChargeInfo_3rd TABLE(
+	    IsDeposit     INT
+	  , ProductID     INT
+	  , DI_Rate       MONEY
+	  , Fromdate      SMALLDATETIME
+	  , ToDate        SMALLDATETIME
+	  , ChargeType    INT
+	  , LicenseeID    INT);
+    /*WITH rate3rd
+		   AS (*/
+
+    INSERT INTO @PartyChargeInfo_3rd(IsDeposit
+							, ProductID
+							, DI_Rate
+							, Fromdate
+							, ToDate
+							, ChargeType
+							, LicenseeID)
+		 SELECT DISTINCT
+			   ci.IsDeposit
+			 , ci.ProductID
+			 , ci.DI_Rate
+			 , ci.Fromdate
+			 , ci.ToDate
+			 , ci.ChargeType
+			 , p.LicenseeID
+		 FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd
+			 (@FDate, @TDate, 'FW', 'OA') AS ci
+			INNER JOIN @tmpParty AS p ON p.ParentID = ci.PartyID;
+
+    UPDATE c_3rd
+		 SET
+			c_3rd.Fromdate = c.FromDate
+		   , c_3rd.ToDate = c.ToDate
+    FROM @PartyChargeInfo_3rd c_3rd
+	   INNER JOIN @PartyChargeInfo c ON c_3rd.LicenseeID = c.LicenseeId;
+
+    INSERT INTO @DailyPayAmt(RptDate
+					  , IsDeposit
+					  , AmountDaily)
+		 SELECT b.RptDate3rd
+			 , p.IsDeposit
+			 , SUM(b.Winloss * oanda.Rate * p.DI_Rate)
+		 FROM bodb_LicenseeReport.dbo.rpt_ThirdPartyWL_ExtraGMT AS b WITH (NOLOCK)
+			INNER JOIN @PartyChargeInfo_3rd AS p ON p.LicenseeID = b.SiteID
+											AND b.RptDate3rd BETWEEN p.FromDate AND p.ToDate
+			INNER JOIN #ExchangeOANDA AS oanda ON b.RptDate3rd = oanda.ExchangeDate
+										   AND b.CurrencyId = oanda.ExchangeID
+		 WHERE b.RptDate3rd BETWEEN @FDate AND @TDate
+			  AND b.Bettypeid BETWEEN 1011 AND 1020 /* FW*/
+			  AND b.CurrencyID <> 20
+			  AND b.StatusId NOT IN(-1, 101, 102, 103) /* Exclude Reject , Void, Refund				*/
+		 GROUP BY b.RptDate3rd
+			   , p.IsDeposit;		
 
     INSERT INTO #FinalResult(rptDate
 					  , LicenseeWL
