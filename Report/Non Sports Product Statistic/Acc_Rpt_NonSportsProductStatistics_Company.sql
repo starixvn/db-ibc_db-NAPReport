@@ -382,10 +382,10 @@ BEGIN
 			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE RefTable IN (0, 3) AND ProductID NOT IN (3, 4, 5, 27, 33))
 			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
-			AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
-			AND (b.currency = @currency OR @currency IN (0,-1)) 
-			AND (EXISTS (SELECT 1 From #tmp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
-			AND (EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom) OR @Device = '')
+			AND (@ExcludeTest = 0 OR (b.Currency <> 20 AND @ExcludeTest = 1))
+			AND (@currency IN (0,-1) OR b.currency = @currency) 
+			AND (@Username = '' OR EXISTS (SELECT 1 From #tmp_MemIDs m WHERE m.CustID = b.custId))
+			AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
 				)
@@ -439,10 +439,10 @@ BEGIN
 		WHERE b.winlostdate = @WLDate
 			AND b.gameID IN (SELECT Bettype FROM #SportBettype WHERE Bettype NOT IN (2198, 2398, 2998) AND RefTable = 1)
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets	
-			AND ((b.currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
-			AND (b.currency = @Currency OR @Currency IN (0, -1))	
-			AND (EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid) OR @Username = '')
-			AND (EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom) OR @Device = '')
+			AND (@ExcludeTest = 0 OR (b.Currency <> 20 AND @ExcludeTest = 1))
+			AND (@currency IN (0,-1) OR b.currency = @currency) 
+			AND (@Username = '' OR EXISTS (SELECT 1 From #tmp_MemIDs m WHERE m.CustID = b.custId))
+			AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
 			)
@@ -495,10 +495,10 @@ BEGIN
 		WHERE b.winlostdate = @WLDate
 			AND b.gameID IN (2198, 2398, 2998)
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets	
-			AND ((b.currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
-			AND (b.currency = @Currency OR @Currency IN (0, -1))	
-			AND (EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid) OR @Username = '')
-			AND (EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom) OR @Device = '')
+			AND (@ExcludeTest = 0 OR (b.Currency <> 20 AND @ExcludeTest = 1))
+			AND (@currency IN (0,-1) OR b.currency = @currency) 
+			AND (@Username = '' OR EXISTS (SELECT 1 From #tmp_MemIDs m WHERE m.CustID = b.custId))
+			AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
 			)
@@ -552,10 +552,10 @@ BEGIN
 		WHERE b.winlostdate = @WLDate
 			AND b.gameID IN (SELECT Bettype FROM #SportBettype WHERE RefTable = 2)
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
-			AND ((b.currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
-			AND (b.currency = @Currency OR @Currency IN (0, -1))			
-			AND (EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid) OR @Username = '')
-			AND (EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom) OR @Device = '')
+			AND (@ExcludeTest = 0 OR (b.Currency <> 20 AND @ExcludeTest = 1))
+			AND (@currency IN (0,-1) OR b.currency = @currency) 
+			AND (@Username = '' OR EXISTS (SELECT 1 From #tmp_MemIDs m WHERE m.CustID = b.custId))
+			AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
 			)
@@ -616,10 +616,10 @@ BEGIN
 			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 33)
 			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
-			AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
-			AND (b.currency = @currency OR @currency IN (0,-1)) 
-			AND (EXISTS (SELECT 1 From #tmp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
-			AND (EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom) OR @Device = '')
+			AND (@ExcludeTest = 0 OR (b.Currency <> 20 AND @ExcludeTest = 1))
+			AND (@currency IN (0,-1) OR b.currency = @currency) 
+			AND (@Username = '' OR EXISTS (SELECT 1 From #tmp_MemIDs m WHERE m.CustID = b.custId))
+			AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
 				)
@@ -680,10 +680,10 @@ BEGIN
 			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
 			AND EXISTS (SELECT 1 FROM Match m WITH (NOLOCK) INNER JOIN #tmp_LeagueID l ON m.leagueid = l.LeagueID WHERE m.matchid = b.matchid  AND l.Bettype = b.bettype)
-			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
-			AND (@Currency IN (0, -1) OR b.currency = @Currency)	
-			AND (@Username = '' OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
-			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
+			AND (@ExcludeTest = 0 OR (b.Currency <> 20 AND @ExcludeTest = 1))
+			AND (@currency IN (0,-1) OR b.currency = @currency) 
+			AND (@Username = '' OR EXISTS (SELECT 1 From #tmp_MemIDs m WHERE m.CustID = b.custId))
+			AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
 				)
