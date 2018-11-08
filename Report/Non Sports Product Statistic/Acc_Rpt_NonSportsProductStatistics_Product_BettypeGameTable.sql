@@ -30,13 +30,14 @@ AS
 	DB		: DBACC/bodb02
 	
 	Revision:
-		- 20170227@Percy: support search multiple username [RedmineID: #71342]
-		- 20170726@Cherry: Integrate Betradar Virtual Sports (#78495)
-		- 20170815@Cherry: Non-Sport Statistics Phase 5 (#71923)
-		- 20171006@Cherry: Add filter of Number Game Bettype (#83101)
-		- 20180328@Cherry: Integrate One RNG Jackpot (#89459)
-		- 20180808@Cherry: Integrate Poker Games (#97809)
-		- 20181018@Cherry: Integrate NG2 (#102229)
+		20170227@Percy: support search multiple username [RedmineID: #71342]
+		20170726@Cherry: Integrate Betradar Virtual Sports (#78495)
+		20170815@Cherry: Non-Sport Statistics Phase 5 (#71923)
+		20171006@Cherry: Add filter of Number Game Bettype (#83101)
+		20180328@Cherry: Integrate One RNG Jackpot (#89459)
+		20180808@Cherry: Integrate Poker Games (#97809)
+		20181018@Cherry: Integrate NG2 (#102229)
+		20181108@Cherry: Improve performance (#101547)
 
 	Param's Explanation:
 		- @username:  + Search by keyword, member only
@@ -119,8 +120,8 @@ BEGIN
 		END
 	END
 	
-	DECLARE @WLDate DATETIME
-	SELECT @WLDate = @WinlostDate
+	DECLARE @WLDate SMALLDATETIME
+	SELECT @WLDate = CAST(@WinlostDate AS SMALLDATETIME)
 
 	CREATE TABLE #Data ( Bettype INT, BettypeName NVARCHAR(1000), CustID INT,
 						 BetCount INT, CurrencyID INT, Currency NVARCHAR(50),
@@ -148,7 +149,7 @@ BEGIN
 	CREATE TABLE #tmp_LeagueID		(LeagueID INT, Bettype INT)
 	CREATE TABLE #tmp_SportType		(Sporttype INT)
 	CREATE TABLE #tmp_GameTableID	(GameTableID INT)
-	CREATE TABLE #tmp_Devide		(Betfrom NVARCHAR(2))
+	CREATE TABLE #tmp_Device		(Betfrom NVARCHAR(2))
 	CREATE TABLE #tmp_Site			(Site VARCHAR(50))
 	CREATE TABLE #tmp_MemIDs		(CustID INT)
 
@@ -202,10 +203,19 @@ BEGIN
 		SELECT val FROM dbo.strSplit(@GameTableId, ',')
 	END
 
+	CREATE TABLE #Device (Betfrom NVARCHAR(2))
 	IF @Device <> ''
 	BEGIN
-		INSERT INTO #tmp_Devide (Betfrom)
+		INSERT INTO #tmp_Device (Betfrom)
 		SELECT val FROM dbo.strSplit(@Device, ',')
+		
+		INSERT INTO #Device (Betfrom)
+		SELECT Betfrom
+		FROM DBWH.bodb_Account.dbo.tbl_Betfrom
+		WHERE betfrom NOT IN ('t', 'b')
+		
+		IF NOT EXISTS(SELECT 1 FROM #Device d LEFT JOIN #tmp_Device t ON t.Betfrom = d.Betfrom WHERE t.Betfrom IS NULL) 
+			SET @Device = ''
 	END
 	-- End Info from Pars list
 
@@ -277,6 +287,7 @@ BEGIN
 
 	-- Get Site	
 	CREATE TABLE #tmp_Company (SiteName VARCHAR(50), Srecommend INT, isDeposit BIT)
+	CREATE TABLE #DepositSuper (CustId INT)
 
 	IF @Site <> 'ALL'
 	BEGIN
@@ -295,11 +306,16 @@ BEGIN
 
 		IF EXISTS (SELECT 1 FROM #tmp_Site WHERE Site IN ('MBC Group'))					
 		BEGIN
+			INSERT INTO #DepositSuper
+			SELECT CustId
+			FROM f_DepSuper_1( 'All' )
+		
 			INSERT INTO #tmp_Company (SiteName, Srecommend, isDeposit)
 			SELECT c.site, c.srecommend, 0
 			FROM dbo.Customer c WITH (NOLOCK)
+				LEFT JOIN #DepositSuper d ON c.srecommend = d.CustId 
 			WHERE c.roleid = 4
-				AND NOT EXISTS (SELECT 1 FROM dbo.f_DepSuper_1('ALL') f WHERE c.srecommend = f.CustID)
+				AND d.CustId IS NULL
 		END			
 	END
 	-- Don't need to handle 'ALL' site, because with this case we will get all ticket
@@ -997,7 +1013,7 @@ BEGIN
 	DROP TABLE #SportBettype
 	DROP TABLE #tmp_BetType
 	DROP TABLE #tmp_Company
-	DROP TABLE #tmp_Devide
+	DROP TABLE #tmp_Device
 	DROP TABLE #tmp_GameTableID
 	DROP TABLE #tmp_LeagueID
 	DROP TABLE #tmp_MemIDs

@@ -37,11 +37,12 @@ AS
 	DB:		DBACC/bodb02
 	Original: Acc_Rpt_NonSportsProductStatistics_Daily
 	Revisions:	
-		- 20170927@Cherry: Integrate Lucky 3 (#83101)
-		- 20171006@Cherry: Add filter of Number Game Bettype (#83101)
-		- 20171024@Cherry: Remove GamePayout (#85103)
-		- 20171208@Cherry: Add param @UsernameDrillDown (#87888)
-		- 20180328@Cherry: Integrate One RNG Jackpot (#89459)
+		20170927@Cherry: Integrate Lucky 3 (#83101)
+		20171006@Cherry: Add filter of Number Game Bettype (#83101)
+		20171024@Cherry: Remove GamePayout (#85103)
+		20171208@Cherry: Add param @UsernameDrillDown (#87888)
+		20180328@Cherry: Integrate One RNG Jackpot (#89459)
+		20181108@Cherry: Improve performance (#101547)
 
 	Param's Explanation:
 			 - @username:  + Search by keyword, member only
@@ -127,8 +128,8 @@ SET NOCOUNT ON
 		END
 	END
 
-	DECLARE @WLDate DATETIME , @IsMBC BIT, @IsSite BIT
-	SELECT @WLDate = @WinlostDate
+	DECLARE @WLDate SMALLDATETIME , @IsMBC BIT, @IsSite BIT
+	SELECT @WLDate = CAST(@WinlostDate AS SMALLDATETIME)
 
 	CREATE TABLE #Data (   [Hour] tinyint,  
 						   CustId INT,
@@ -240,10 +241,19 @@ SET NOCOUNT ON
 		SELECT val FROM [dbo].strSplit(@GameTableID, ',')
 	END
 
+	CREATE TABLE #Device (Betfrom NVARCHAR(2))
 	IF @Device <> ''
     BEGIN
 		INSERT INTO #tmpDevice (Betfrom)
 		SELECT val FROM [dbo].strSplit(@Device, ',')
+		
+		INSERT INTO #Device (Betfrom)
+		SELECT Betfrom
+		FROM DBWH.bodb_Account.dbo.tbl_Betfrom
+		WHERE betfrom NOT IN ('t', 'b')
+		
+		IF NOT EXISTS(SELECT 1 FROM #Device d LEFT JOIN #tmpDevice t ON t.Betfrom = d.Betfrom WHERE t.Betfrom IS NULL) 
+			SET @Device = ''
 	END
 	
 	IF @Username <> ''
@@ -354,9 +364,7 @@ SET NOCOUNT ON
 	END	 
 
  
-	---------------------------------------------- 
-	---1. By bettype for normal Product
-		INSERT INTO #Data ( [Hour] ,  
+	INSERT INTO #Data ( [Hour] ,  
 						   CustId ,
 						   BetCount ,
 						   TotalBetsRM ,
@@ -387,12 +395,10 @@ SET NOCOUNT ON
 				- SUM(scomm *actualrate) AS CompanyCommRM
 				
 		FROM  dbo.Bettrans14 b WITH (NOLOCK)
-			INNER JOIN #SportBettype s 
-				ON s.Bettype = b.bettype 
 		WHERE b.WinlostDate = @WLDate
+			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE RefTable IN (0,3) AND ProductID NOT IN (3,4,5,27,26))
+			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
-			AND s.ProductID NOT IN (3,4,5,27,26)   --- NumberGame, SLI-Live Casino, Virtual Sports, Virtual Sports 2, Lucky 3
-			AND s.RefTable IN (0,3)
 			AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
 			AND (b.currency = @currency OR @currency IN (0,-1)) 			
 			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
@@ -427,7 +433,7 @@ SET NOCOUNT ON
 					ELSE  DATEPART(HOUR, b.transdate) END AS [Hour], 
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
 
-				COUNT(CASE WHEN StatusID IN (111,112,113) AND b.gameID NOT IN (2198, 2398, 2998) THEN b.TransId ELSE NULL END) AS BetCount, 
+				COUNT(CASE WHEN StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount, 
 
 				SUM((CASE WHEN b.statusID IN (103) THEN 0 ELSE actual_stake END) * actualrate)  AS TotalBetsRM,
 
@@ -437,18 +443,15 @@ SET NOCOUNT ON
 
 				SUM((CASE WHEN b.statusID IN (103) THEN 0 ELSE (1- b.tpositiontaking) * b.stake END) * actualrate) AS CompanyTurnoverRM,		
 								
-				- SUM((CASE WHEN b.gameID IN (2198, 2398, 2998) THEN b.ContributionRate * b.BetStake + awinlost + mwinlost + swinlost
-							ELSE winlost - actual_stake + awinlost + mwinlost + swinlost END)* actualrate) AS CompanyGrossIncomeRM,
+				- SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeRM,
 
 				- SUM(scomm *actualrate) AS CompanyCommRM
 				
 		FROM  dbo.BettransRNG14 b WITH (NOLOCK)
-			INNER JOIN #SportBettype s 
-				ON s.Bettype = b.GameId 
+		
 		WHERE b.WinlostDate = @WLDate
+			AND b.GameId IN (SELECT Bettype FROM #SportBettype WHERE RefTable = 1)
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
-			AND s.ProductID NOT IN (3,4,5,27,26)   --- NumberGame, SLI-Live Casino, Virtual Sports, Virtual Sports 2, Lucky 3
-			AND s.RefTable = 1
 			AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
 			AND (b.currency = @currency OR @currency IN (0,-1)) 			
 			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
@@ -466,7 +469,55 @@ SET NOCOUNT ON
 					ELSE  DATEPART(HOUR, b.transdate) END, 
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END
 
-		 
+	    INSERT INTO #Data (  [Hour] ,  
+						   CustId ,
+						   BetCount ,
+						   TotalBetsRM ,
+						   TotalWinsRM , 
+						   TotalRefundRM ,
+						   CompanyTurnoverRM , 
+						   CompanyGrossIncomeRM , 
+						   CompanyCommRM 								   
+							)
+	
+		SELECT  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 THEN 0
+					ELSE  DATEPART(HOUR, b.transdate) END AS [Hour], 
+				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
+
+				0 AS BetCount, 
+
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 ELSE actual_stake END) * actualrate)  AS TotalBetsRM,
+
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 ELSE winlost END) * actualrate) AS TotalWinsRM,
+
+				SUM((CASE WHEN b.statusID IN (103) THEN actual_stake ELSE 0 END)  * actualrate) AS TotalRefundRM,
+
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 ELSE (1- b.tpositiontaking) * b.stake END) * actualrate) AS CompanyTurnoverRM,		
+								
+				- SUM((b.ContributionRate * b.BetStake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeRM,
+
+				- SUM(scomm *actualrate) AS CompanyCommRM
+				
+		FROM  dbo.BettransRNG14 b WITH (NOLOCK)
+		WHERE b.WinlostDate = @WLDate
+			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
+			AND b.GameId IN (2198, 2398, 2998)
+			AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
+			AND (b.currency = @currency OR @currency IN (0,-1)) 			
+			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
+			AND (EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom) OR @Device = '')
+			AND ( @Site = 'ALL'
+				  OR (EXISTS (SELECT 1 From #tmpSiteSuper s WHERE s.srecommend = b.srecommend) AND @IsSite = 1)
+				  OR (NOT EXISTS (SELECT 1 From #tmpAllDepSuper d WHERE d.srecommend = b.srecommend) AND @IsMBC = 1)
+			)
+			AND (
+				@HousePTType = 0
+				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
+				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
+			)
+		GROUP BY  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 THEN 0
+					ELSE  DATEPART(HOUR, b.transdate) END, 
+				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END
 
 		---1b. By bettype for Casino Product
 		INSERT INTO #Data (  [Hour] ,  
@@ -500,12 +551,9 @@ SET NOCOUNT ON
 				- SUM(scomm *actualrate) AS CompanyCommRM
 				
 		FROM  dbo.BettransLC14 b WITH (NOLOCK)
-			INNER JOIN #SportBettype s 
-				ON s.Bettype = b.GameId 
 		WHERE b.WinlostDate = @WLDate
+			AND b.GameId IN (SELECT Bettype FROM #SportBettype WHERE RefTable = 2)
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
-			AND s.ProductID NOT IN (3,4,5,27,26)   --- NumberGame, SLI-Live Casino, Virtual Sports, Virtual Sports 2, Lucky 3 
-			AND s.RefTable = 2
 			AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
 			AND (b.currency = @currency OR @currency IN (0,-1)) 			
 			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
@@ -523,7 +571,7 @@ SET NOCOUNT ON
 					ELSE  DATEPART(HOUR, b.transdate) END, 
 					CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END
 
-	----2. NumberGame & Live Casino & VirtualSport (Soccer) & Lucky 3 
+	---- Lucky 3 
 		INSERT INTO #Data (  [Hour] ,  
 						   CustId ,
 						   BetCount ,
@@ -535,16 +583,9 @@ SET NOCOUNT ON
 						   CompanyCommRM 							   
 					   )
 	
-		SELECT  CASE WHEN s.ProductID IN (3, 26) THEN	--Number Game, Lucky 3
-					CASE WHEN DATEDIFF(dd, m.kickofftime, b.winlostdate) = 1 and DATEPART(HOUR, m.kickofftime) = 23 
+		SELECT  CASE WHEN DATEDIFF(dd, m.kickofftime, b.winlostdate) = 1 and DATEPART(HOUR, m.kickofftime) = 23 
 						THEN 0 --kickoff at 23PM and settled on the next day then convert to 0 AM 
 					ELSE  DATEPART(HOUR, m.kickofftime) 
-					END 
-				ELSE	--Casino, Virtual Sports and Keno
-					CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 
-						THEN 0 --bet at 23PM then convert to 0 AM 
-					ELSE  DATEPART(HOUR, b.transdate) 
-					END
 				END AS [Hour],	
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
 
@@ -563,26 +604,11 @@ SET NOCOUNT ON
 				- SUM(scomm *actualrate) AS CompanyCommRM
 				
 		FROM  dbo.Bettrans14 b WITH (NOLOCK)
-			INNER JOIN #SportBettype s ON s.Bettype = b.bettype 
-			INNER JOIN Match14 m WITH (NOLOCK) ON m.MatchId = b.matchid
+			INNER JOIN dbo.match14 m WITH (NOLOCK) ON b.matchid = m.matchid
 		WHERE b.WinlostDate = @WLDate
-			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
-			AND s.ProductID IN (3,4,5,26) --- NumberGame, SLI-Live Casino, VirtualSport, Lucky 3
-			AND s.Eventtype = 1
-			AND (	s.ProductID = 26
-				OR	(
-						(EXISTS (SELECT 1 From #tmpLeagueId l WHERE l.LeagueId = m.leagueid AND l.Bettype = b.bettype) AND s.ProductID = 3)
-						OR (@LeagueId = '' AND s.ProductID = 3)
-					)
-				OR (
-						(EXISTS (SELECT 1 From #tmpGameTableId g WHERE g.GameTableID = m.leagueid) AND s.ProductID = 4)
-						OR (@GameTableId = '' AND s.ProductID = 4)
-					)
-				OR (
-						(EXISTS (SELECT 1 From #tmpSporttype sp WHERE sp.Sporttype = m.sporttype) AND s.ProductID = 5)
-						OR (@Sporttype = '' AND s.ProductID = 5)
-					)
-				)
+			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 26)
+			AND b.ruben = 1
+			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets			
 			AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
 			AND (b.currency = @currency OR @currency IN (0,-1)) 			
 			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
@@ -596,20 +622,181 @@ SET NOCOUNT ON
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 			)
-		GROUP BY CASE WHEN s.ProductID IN (3, 26) THEN	
-					CASE WHEN DATEDIFF(dd, m.kickofftime, b.winlostdate) = 1 and DATEPART(HOUR, m.kickofftime) = 23 
-						THEN 0 
+		GROUP BY CASE WHEN DATEDIFF(dd, m.kickofftime, b.winlostdate) = 1 and DATEPART(HOUR, m.kickofftime) = 23 
+						THEN 0 --kickoff at 23PM and settled on the next day then convert to 0 AM 
+					ELSE  DATEPART(HOUR, m.kickofftime)  END,
+				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END
+				
+	---- NumberGame 
+		INSERT INTO #Data (  [Hour] ,  
+						   CustId ,
+						   BetCount ,
+						   TotalBetsRM ,
+						   TotalWinsRM , 
+						   TotalRefundRM ,
+						   CompanyTurnoverRM , 
+						   CompanyGrossIncomeRM , 
+						   CompanyCommRM 							   
+					   )
+	
+		SELECT  CASE WHEN DATEDIFF(dd, m.kickofftime, b.winlostdate) = 1 and DATEPART(HOUR, m.kickofftime) = 23 
+						THEN 0 --kickoff at 23PM and settled on the next day then convert to 0 AM 
 					ELSE  DATEPART(HOUR, m.kickofftime) 
-					END 
-				ELSE	--Casino, Virtual Sports and Keno
-					CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 
-						THEN 0 
+				END AS [Hour],	
+				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
+
+				COUNT(CASE WHEN StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount, 
+
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 ELSE actual_stake END) * actualrate)  AS TotalBetsRM,
+
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 ELSE winlost END) * actualrate) AS TotalWinsRM,
+
+				SUM((CASE WHEN b.statusID IN (103) THEN actual_stake ELSE 0 END)  * actualrate) AS TotalRefundRM,
+
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 ELSE (1- b.tpositiontaking) * b.stake END) * actualrate) AS CompanyTurnoverRM,		
+								
+				- SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeRM,
+
+				- SUM(scomm *actualrate) AS CompanyCommRM
+				
+		FROM  dbo.Bettrans14 b WITH (NOLOCK)	
+			INNER JOIN dbo.match14 m WITH (NOLOCK) ON b.matchid = m.matchid		
+		WHERE b.WinlostDate = @WLDate
+			AND b.bettype in (SELECT Bettype FROM #SportBettype WHERE ProductID = 3)
+			AND b.ruben = 1
+			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
+			AND EXISTS (SELECT 1 FROM #tmpLeagueID l WHERE m.leagueid = l.LeagueID AND l.Bettype = b.bettype)
+			AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
+			AND (b.currency = @currency OR @currency IN (0,-1)) 			
+			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
+			AND (EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom) OR @Device = '')
+			AND ( @Site = 'ALL'
+				  OR (EXISTS (SELECT 1 From #tmpSiteSuper s WHERE s.srecommend = b.srecommend) AND @IsSite = 1)
+				  OR (NOT EXISTS (SELECT 1 From #tmpAllDepSuper d WHERE d.srecommend = b.srecommend) AND @IsMBC = 1)
+			)
+			AND (
+				@HousePTType = 0
+				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
+				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
+			)
+		GROUP BY CASE WHEN DATEDIFF(dd, m.kickofftime, b.winlostdate) = 1 and DATEPART(HOUR, m.kickofftime) = 23 
+						THEN 0 --kickoff at 23PM and settled on the next day then convert to 0 AM 
+					ELSE  DATEPART(HOUR, m.kickofftime) END,
+				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END
+				
+	---- Live Casino 
+		INSERT INTO #Data (  [Hour] ,  
+						   CustId ,
+						   BetCount ,
+						   TotalBetsRM ,
+						   TotalWinsRM , 
+						   TotalRefundRM ,
+						   CompanyTurnoverRM , 
+						   CompanyGrossIncomeRM , 
+						   CompanyCommRM 							   
+					   )
+	
+		SELECT  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 
+						THEN 0 --bet at 23PM then convert to 0 AM 
 					ELSE  DATEPART(HOUR, b.transdate) 
-					END
-				END,
+				END AS [Hour],	
+				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
+
+				COUNT(CASE WHEN StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount, 
+
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 ELSE actual_stake END) * actualrate)  AS TotalBetsRM,
+
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 ELSE winlost END) * actualrate) AS TotalWinsRM,
+
+				SUM((CASE WHEN b.statusID IN (103) THEN actual_stake ELSE 0 END)  * actualrate) AS TotalRefundRM,
+
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 ELSE (1- b.tpositiontaking) * b.stake END) * actualrate) AS CompanyTurnoverRM,		
+								
+				- SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeRM,
+
+				- SUM(scomm *actualrate) AS CompanyCommRM
+				
+		FROM  dbo.Bettrans14 b WITH (NOLOCK)
+		WHERE b.WinlostDate = @WLDate
+			AND b.bettype in (SELECT Bettype FROM #SportBettype WHERE ProductID = 4)
+			AND b.ruben = 1
+			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
+			AND EXISTS (SELECT 1 FROM Match14 m WITH (NOLOCK) INNER JOIN #tmpGameTableId g ON g.GameTableID = m.LeagueID WHERE m.matchid = b.matchid)
+			AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
+			AND (b.currency = @currency OR @currency IN (0,-1)) 			
+			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
+			AND (EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom) OR @Device = '')
+			AND ( @Site = 'ALL'
+				  OR (EXISTS (SELECT 1 From #tmpSiteSuper s WHERE s.srecommend = b.srecommend) AND @IsSite = 1)
+				  OR (NOT EXISTS (SELECT 1 From #tmpAllDepSuper d WHERE d.srecommend = b.srecommend) AND @IsMBC = 1)
+			)
+			AND (
+				@HousePTType = 0
+				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
+				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
+			)
+		GROUP BY CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 
+						THEN 0 --bet at 23PM then convert to 0 AM 
+					ELSE  DATEPART(HOUR, b.transdate) END,
+				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END
+				
+	---- VirtualSport (Soccer)
+		INSERT INTO #Data (  [Hour] ,  
+						   CustId ,
+						   BetCount ,
+						   TotalBetsRM ,
+						   TotalWinsRM , 
+						   TotalRefundRM ,
+						   CompanyTurnoverRM , 
+						   CompanyGrossIncomeRM , 
+						   CompanyCommRM 							   
+					   )
+	
+		SELECT  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 
+						THEN 0 --bet at 23PM then convert to 0 AM 
+					ELSE  DATEPART(HOUR, b.transdate) 
+				END AS [Hour],	
+				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
+
+				COUNT(CASE WHEN StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount, 
+
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 ELSE actual_stake END) * actualrate)  AS TotalBetsRM,
+
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 ELSE winlost END) * actualrate) AS TotalWinsRM,
+
+				SUM((CASE WHEN b.statusID IN (103) THEN actual_stake ELSE 0 END)  * actualrate) AS TotalRefundRM,
+
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 ELSE (1- b.tpositiontaking) * b.stake END) * actualrate) AS CompanyTurnoverRM,		
+								
+				- SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeRM,
+
+				- SUM(scomm *actualrate) AS CompanyCommRM
+				
+		FROM  dbo.Bettrans14 b WITH (NOLOCK)
+		WHERE b.WinlostDate = @WLDate
+			AND b.bettype in (SELECT Bettype FROM #SportBettype WHERE ProductID = 5 AND Eventtype = 1)
+			AND b.ruben = 1
+			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
+			AND EXISTS (SELECT 1 FROM Match14 m WITH (NOLOCK) INNER JOIN #tmpSporttype sp ON sp.Sporttype = m.sporttype WHERE m.matchid = b.matchid)			
+			AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
+			AND (b.currency = @currency OR @currency IN (0,-1)) 			
+			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
+			AND (EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom) OR @Device = '')
+			AND ( @Site = 'ALL'
+				  OR (EXISTS (SELECT 1 From #tmpSiteSuper s WHERE s.srecommend = b.srecommend) AND @IsSite = 1)
+				  OR (NOT EXISTS (SELECT 1 From #tmpAllDepSuper d WHERE d.srecommend = b.srecommend) AND @IsMBC = 1)
+			)
+			AND (
+				@HousePTType = 0
+				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
+				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
+			)
+		GROUP BY CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 
+						THEN 0 --bet at 23PM then convert to 0 AM 
+					ELSE  DATEPART(HOUR, b.transdate) END,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END
 
-	----3.  VirtualSport (HR) 
+	----  VirtualSport (HR) 
 		INSERT INTO #Data (  [Hour] ,  
 						   CustId ,
 						   BetCount ,
@@ -642,18 +829,11 @@ SET NOCOUNT ON
 				- SUM(scomm *actualrate) AS CompanyCommRM
 				
 		FROM  dbo.Bettrans14 b WITH (NOLOCK)
-			INNER JOIN #SportBettype s 
-				ON s.Bettype = b.bettype 
-			INNER JOIN VSRaceInfo r WITH (NOLOCK) 
-				ON r.EventId = b.matchid
 		WHERE b.WinlostDate = @WLDate
+			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 5 AND Eventtype = 3)
+			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
-			AND s.ProductID = 5 --- VirtualSport (HR)
-			AND s.Eventtype = 3
-			AND (	
-					EXISTS (SELECT 1 From #tmpSporttype sp WHERE sp.Sporttype = r.sporttype)
-					OR @Sporttype = ''
-				)
+			AND EXISTS (SELECT 1 From VSRaceInfo r WITH (NOLOCK) INNER JOIN #tmpSporttype sp ON sp.Sporttype = r.sporttype WHERE r.EventID = b.matchid)
 			AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
 			AND (b.currency = @currency OR @currency IN (0,-1)) 			
 			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
@@ -670,8 +850,9 @@ SET NOCOUNT ON
 		GROUP BY  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 THEN 0 
 				ELSE  DATEPART(HOUR, b.transdate) END,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END
-			 
+				
 		--VirtualSports 2
+		CREATE TABLE #tmp_bettransm (refno BIGINT)
 		INSERT INTO #Data (  [Hour] ,  
 						   CustId ,
 						   BetCount ,
@@ -703,19 +884,73 @@ SET NOCOUNT ON
 
 				- SUM(scomm *actualrate) AS CompanyCommRM
 				
-		FROM  dbo.Bettrans14 b WITH (NOLOCK)
-			INNER JOIN #SportBettype s ON s.Bettype = b.bettype 			
+		FROM  dbo.Bettrans14 b WITH (NOLOCK)			
 		WHERE b.WinlostDate = @WLDate
+			AND b.bettype in (SELECT Bettype FROM #SportBettype WHERE ProductID = 27 AND EventType = 1)
+			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
-			AND s.ProductID = 27
-			AND ((b.bettype <> 2799 AND b.matchid >= 0 AND EXISTS(SELECT 1 FROM dbo.match14 m WITH (NOLOCK) 
-														INNER JOIN #tmpSporttype st ON m.sporttype = st.Sporttype 
-											WHERE m.matchid = b.matchid))
-				OR (b.bettype = 2799 AND b.matchid = 2799 AND EXISTS(SELECT 1 FROM dbo.bettransm14 bm WITH(NOLOCK)
-														INNER JOIN dbo.match14 m WITH(NOLOCK) ON bm.matchid = m.matchid 
-														INNER JOIN #tmpSporttype st ON m.sporttype = st.Sporttype 
-												WHERE bm.refno = b.refno))	
-				)
+			AND EXISTS(SELECT 1 FROM dbo.match14 m WITH (NOLOCK) 
+									INNER JOIN #tmpSporttype st ON m.sporttype = st.Sporttype 
+								WHERE m.matchid = b.matchid)
+			AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
+			AND (b.currency = @currency OR @currency IN (0,-1)) 			
+			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
+			AND (EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom) OR @Device = '')
+			AND ( @Site = 'ALL'
+				  OR (EXISTS (SELECT 1 From #tmpSiteSuper s WHERE s.srecommend = b.srecommend) AND @IsSite = 1)
+				  OR (NOT EXISTS (SELECT 1 From #tmpAllDepSuper d WHERE d.srecommend = b.srecommend) AND @IsMBC = 1)
+			)
+			AND (
+				@HousePTType = 0
+				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
+				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
+			)
+		GROUP BY CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 THEN 0 
+					ELSE  DATEPART(HOUR, b.transdate) END,
+				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END
+				
+		INSERT INTO #tmp_bettransm (refno)
+		SELECT bm.refno FROM dbo.bettransm bm WITH(NOLOCK)
+					INNER JOIN dbo.match m WITH(NOLOCK) ON bm.matchid = m.matchid 
+					INNER JOIN #tmpSporttype st ON m.sporttype = st.Sporttype
+					
+		INSERT INTO #Data (  [Hour] ,  
+						   CustId ,
+						   BetCount ,
+						   TotalBetsRM ,
+						   TotalWinsRM , 
+						   TotalRefundRM ,
+						   CompanyTurnoverRM , 
+						   CompanyGrossIncomeRM , 
+						   CompanyCommRM 							   
+					   )
+	
+		SELECT  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 THEN 0 
+					ELSE  DATEPART(HOUR, b.transdate) 
+				END AS [Hour],	
+				
+				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
+
+				COUNT(CASE WHEN StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount, 
+
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 ELSE actual_stake END) * actualrate)  AS TotalBetsRM,
+
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 ELSE winlost END) * actualrate) AS TotalWinsRM,
+
+				SUM((CASE WHEN b.statusID IN (103) THEN actual_stake ELSE 0 END)  * actualrate) AS TotalRefundRM,
+
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 ELSE (1- b.tpositiontaking) * b.stake END) * actualrate) AS CompanyTurnoverRM,		
+								
+				- SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeRM,
+
+				- SUM(scomm *actualrate) AS CompanyCommRM
+				
+		FROM  dbo.Bettrans14 b WITH (NOLOCK)			
+		WHERE b.WinlostDate = @WLDate
+			AND b.bettype in (SELECT Bettype FROM #SportBettype WHERE ProductID = 27 AND EventType = 0)
+			AND b.ruben = 1
+			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
+			AND EXISTS(SELECT 1 FROM #tmp_bettransm bm WHERE bm.refno = b.refno)
 			AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
 			AND (b.currency = @currency OR @currency IN (0,-1)) 			
 			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
@@ -796,7 +1031,8 @@ SET NOCOUNT ON
 	DROP TABLE #tmpSite
 	DROP TABLE #tmpSiteSuper
 	DROP TABLE #tmpSporttype
-
+	DROP TABLE #tmp_bettransm
+	DROP TABLE #Device 
 
 END 
 
