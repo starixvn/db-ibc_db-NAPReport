@@ -843,7 +843,7 @@ SET NOCOUNT ON
 		GROUP BY  b.WinlostDate,  b.Currency, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END
 		
 		INSERT INTO #tmp_bettransm (refno)
-		SELECT bm.refno FROM dbo.bettransm14 bm WITH(NOLOCK)
+		SELECT DISTINCT bm.refno FROM dbo.bettransm14 bm WITH(NOLOCK)
 					INNER JOIN dbo.match14 m WITH(NOLOCK) ON bm.matchid = m.matchid 
 					INNER JOIN #tmpSporttype st ON m.sporttype = st.Sporttype
 					

@@ -880,7 +880,7 @@ BEGIN
 	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID = 27)  
 	BEGIN
 		INSERT INTO #tmp_bettransm (refno)
-		SELECT bm.refno FROM dbo.bettransm bm WITH(NOLOCK)
+		SELECT DISTINCT bm.refno FROM dbo.bettransm bm WITH(NOLOCK)
 					INNER JOIN dbo.match m WITH(NOLOCK) ON bm.matchid = m.matchid 
 					INNER JOIN #tmp_Sporttype st ON m.sporttype = st.Sporttype
 					
