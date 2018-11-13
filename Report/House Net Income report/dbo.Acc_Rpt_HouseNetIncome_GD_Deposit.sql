@@ -14,6 +14,7 @@ AS
    
     Revisions:  
 	   - 20181019@Robert: DHWL & Margin Chart Email Letstalk - Change GD Formula for Credit and Deposit[#103476]
+	   - 20181113@Robert: DHWL Email/Letstalk/Margin Chart - Integrate Bidme & Sicbo[#104145]
 
 	Param's Explanation:   
 
