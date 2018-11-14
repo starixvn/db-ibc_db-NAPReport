@@ -1,27 +1,22 @@
-/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
-
-USE bodb02
-GO 
+/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [bodb02]
+GO
  
 ALTER PROCEDURE [dbo].[Acc_Rpt_NonSportsProductStatistic_SiteSel]
-	@ProductID		VARCHAR(MAX)=''
+	@ProductID VARCHAR(MAX) = ''
 AS
 /*
 	Created by: 20160908@Sophia.Nguyen
-	Task : Get Company dropdown by ProductId [Redmine: #62430]
-	DB: DBACC/bodb02
+	Task: Get Company dropdown by ProductId [Redmine: #62430]
+	DB: DBACC.bodb02
 	
 	Revisions:
 		- 20170215@Percy: Integrate Fishing World [RedmineID: #71616]
-
-	Param Explaination:
-
-
+		- 20181031@Percy: Remove linked-server DBLIC [RedmineID: #103660]
 */
 
 BEGIN
-SET NOCOUNT ON
- 
+	SET NOCOUNT ON
 	
 	CREATE TABLE #tmpProductID (
 			ProductID int
@@ -51,10 +46,10 @@ SET NOCOUNT ON
 	SELECT DISTINCT l.Licenseename as Site, l.LicenseeId As OrderId,  1 AS SortID 				
 	FROM
 		dbo.Products b WITH (NOLOCK) 
-		INNER JOIN DBLIC.bodb_Licensee.dbo.Product3rd p WITH (NOLOCK) ON p.ProductPrefix = b.ProductPrefix
-		INNER JOIN DBLIC.bodb_Licensee.dbo.LicenseeProduct3rd lp WITH (NOLOCK) ON lp.productid = p.productid
-		INNER JOIN DBLIC.bodb_Licensee.dbo.Licensees l WITH (NOLOCK) ON l.licenseeid = lp.licenseeid
-		INNER JOIN DBLIC.bodb_Licensee.dbo.SystemLicensee s WITH (NOLOCK) ON s.licenseeid = l.licenseeid
+		INNER JOIN bodb_Licensee.dbo.Product3rd p WITH (NOLOCK) ON p.ProductPrefix = b.ProductPrefix
+		INNER JOIN bodb_Licensee.dbo.LicenseeProduct3rd lp WITH (NOLOCK) ON lp.productid = p.productid
+		INNER JOIN bodb_Licensee.dbo.Licensees l WITH (NOLOCK) ON l.licenseeid = lp.licenseeid
+		INNER JOIN bodb_Licensee.dbo.SystemLicensee s WITH (NOLOCK) ON s.licenseeid = l.licenseeid
 		INNER JOIN #tmpProductID m ON b.ProductID=m.ProductID
 	WHERE s.systemId = 3 AND l.IsDeposit = 1
 	GROUP BY l.LicenseeID, l.Licenseename
@@ -62,4 +57,4 @@ SET NOCOUNT ON
 
 	DROP TABLE #tmpProductID
 END 
- 
+GO

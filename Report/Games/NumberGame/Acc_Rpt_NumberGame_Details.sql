@@ -1,10 +1,7 @@
-﻿USE [bodb02]
+﻿/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE [bodb02]
 GO
-/****** Object:  StoredProcedure [dbo].[Acc_Rpt_NumberGame_Details]    Script Date: 3/1/2018 3:24:00 PM ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
+
 ALTER PROCEDURE [dbo].[Acc_Rpt_NumberGame_Details]
 	@winlostdate	datetime,
 	@liveindicator	bit = NULL,
@@ -29,6 +26,7 @@ AS
         - 20130123@Daniel: Change link server alias
 		- 20150319@Tom: Get Data by Effective Licensee (#31687)
 		- 20180301@Kean: Missing number game data of some licensee (91266)
+		- 20181031@Percy: Remove linked-server DBLIC [RedmineID: #103660]
 
     Param usage:
 		- @SiteID:
@@ -91,7 +89,7 @@ IF EXISTS (SELECT 1 FROM @tmpSite WHERE siteid = -1)--IBCGroup
 BEGIN  	
 		INSERT INTO #tmpAg
 		SELECT custID FROM customer ci WITH (NOLOCK)
-		WHERE ci.custid NOT IN(SELECT custid from DBLIC.bodb_Licensee.dbo.LicenseeCust WITH (NOLOCK))
+		WHERE ci.custid NOT IN(SELECT custid from bodb_Licensee.dbo.LicenseeCust WITH (NOLOCK))
 			AND ci.roleid = 2
 			AND (@Currency = '' OR ci.Currency IN (SELECT ISNULL(t.currency,ci.currency) FROM @tmpCurrency t)	)
 END  
@@ -100,7 +98,7 @@ IF EXISTS( SELECT TOP 1 1 FROM @tmpLscActive WHERE licenseeID > 0)
 --IF EXISTS( SELECT 1 FROM @tmpSite WHERE siteid > 0)--Licensee   
 BEGIN  
     INSERT INTO #tmpAg
-    SELECT custID FROM DBLIC.bodb_Licensee.dbo.LicenseeCust lc with (nolock) 
+    SELECT custID FROM bodb_Licensee.dbo.LicenseeCust lc with (nolock) 
     WHERE LicenseeID IN (SELECT licenseeID FROM @tmpLscActive WHERE licenseeID > 0)
         AND roleid = 2
         AND (@Currency = '' OR lc.Currency IN (SELECT ISNULL(t.currency,lc.currency) FROM @tmpCurrency t))

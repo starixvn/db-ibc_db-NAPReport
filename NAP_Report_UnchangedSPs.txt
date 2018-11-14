@@ -1,1 +1,1 @@
-Report\House Net Income report\MarginChart\Acc_Rpt_HouseNetIncome_MarginChart_NonSport_Deposit.sql
+Report\Games\NumberGame\Acc_Rpt_GetLicenseesByProduct.sql
