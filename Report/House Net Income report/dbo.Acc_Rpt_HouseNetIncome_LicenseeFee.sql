@@ -98,7 +98,8 @@ BEGIN
 	  , Rate          MONEY
 	  , FromDate      SMALLDATETIME
 	  , ToDate        SMALLDATETIME
-	  , Bettype       INT);
+	  , Bettype       INT
+	  , ChargeType    TINYINT);
 
     INSERT INTO @PartyChargeInfo(PartyId
 						 , LicenseeId
@@ -107,7 +108,8 @@ BEGIN
 						 , Rate
 						 , Fromdate
 						 , Todate
-						 , Bettype)
+						 , Bettype
+						 , ChargeType)
 		 (
 			SELECT ci.PartyID
 				, ci.LicenseeID
@@ -117,6 +119,7 @@ BEGIN
 				, ci.Fromdate
 				, ci.ToDate
 				, ISNULL(sbr.Bettype, ci.Bettype)
+				, ci.ChargeType
 			FROM bodb_licensee.dbo.LA_f_ChargeInfo
 				(@PartyIDs, @FDate, @TDate, @Products, 'OA', 1) AS ci
 			    LEFT JOIN bodb_licensee..Sport_Bettype_Reference AS sbr WITH (NOLOCK) ON sbr.BettypeRef = ci.Bettype
@@ -221,7 +224,6 @@ BEGIN
 		 );
 /* End region*/
 
-
     UPDATE m
 		 SET
 			m.FeeAmount = m.FeeAmount * e.Rate
@@ -251,6 +253,37 @@ BEGIN
 			SELECT p.PartyId
 				, b.rptDate
 				, b.CurrencyID
+				, SUM(ISNULL(b.MemberWL, 0)) * e.Rate AS           WinLoss
+				, SUM(ISNULL(b.CommissionA, 0)) * e.Rate AS        AComm
+				, p.ProductId
+				, SUM(-ISNULL(b.MemberWL, 0) * p.Rate) * e.Rate AS AmountToCompany
+				, 1 AS                                             IsApplyMinFee
+			FROM bodb_LicenseeReport.dbo.rpt_BettingByProduct AS b WITH (NOLOCK)
+			    INNER JOIN #Exchange AS e ON b.rptDate = e.ExchangeDate
+									   AND b.CurrencyId = e.ExchangeID
+			    INNER JOIN @PartyChargeInfo AS p ON b.ProductId = p.ProductID
+											AND p.LicenseeId = b.SiteId
+											AND b.rptDate BETWEEN p.FromDate AND p.ToDate
+											AND
+											    (p.Bettype = -1
+												OR p.Bettype = b.Bettype)
+			WHERE b.rptDate BETWEEN @FDate AND @TDate
+				 AND b.CurrencyID <> 20
+				 AND b.customercategory NOT IN(27, 28)
+				 AND b.Bettype NOT IN(901, 902, 903, 904)
+				 AND b.StatusId NOT IN(-1, 103) /* Exclude Reject , Void, Refund*/
+				 AND b.Bettype = -1
+				 AND p.ChargeType <> 12
+			GROUP BY b.rptdate
+				  , b.SiteId
+				  , p.PartyId
+				  , b.CurrencyID
+				  , p.ProductId
+				  , e.Rate
+			UNION ALL
+			SELECT p.PartyId
+				, b.rptDate
+				, b.CurrencyID
 				, SUM(ISNULL(b.MemberWL, 0)) * e.Rate
 				, SUM(ISNULL(b.CommissionA, 0)) * e.Rate
 				, p.ProductId
@@ -270,6 +303,8 @@ BEGIN
 				 AND b.customercategory NOT IN(27, 28)
 				 AND b.Bettype NOT IN(901, 902, 903, 904)
 				 AND b.StatusId NOT IN(-1, 103) /* Exclude Reject , Void, Refund*/
+				 AND b.Bettype = 1706
+				 AND p.ChargeType = 12
 			GROUP BY b.rptdate
 				  , b.SiteId
 				  , p.PartyId
