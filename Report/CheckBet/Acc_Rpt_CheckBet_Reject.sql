@@ -24,6 +24,7 @@ AS
 		- 20170828@Robert: Integrate Lucky3 product into NAP Acc Reports [RedmineID: #78214]
 		- 20171120@Dominic: Integrate Bullfighting product into NAP Acc Reports [RedmineID: #85382]
 		- 20180316@Franklin: Integrate FM2 [#91341] 
+		- 20181107@Jacob: Add New Status "Result Pending" and "Under Settlement"  RedmineId: #104013
 	Param's explanation:		
 	
 */
@@ -67,15 +68,16 @@ Begin
 			AND sb.ProductID IN(30)
 			AND b.status <> bt.status
 
-	CREATE TABLE #Match (matchid int, homeid int, awayid int, matchcode nvarchar(50), EventType TINYINT)
+	CREATE TABLE #Match (matchid int, homeid int, awayid int, matchcode nvarchar(50), EventType TINYINT, SettlementStatus TINYINT)
 	CREATE UNIQUE CLUSTERED INDEX IX_matchid_type ON #Match(matchid, EventType)
 	
-	INSERT INTO #Match(matchid, homeid, awayid, matchcode, EventType)
+	INSERT INTO #Match(matchid, homeid, awayid, matchcode, EventType, SettlementStatus)
 	SELECT	matchid,
 			homeid,
 			awayid,
 			matchcode,
-			1 AS EventType
+			1 AS EventType,
+			SettlementStatus
 	FROM bodb02.dbo.match with (NOLOCK) where eventdate = @winlostdate
 
 	UNION ALL
@@ -83,7 +85,8 @@ Begin
 			homeid,
 			awayid,
 			MatchNo AS matchcode,
-			5 as EventType
+			5 as EventType,
+			0 AS SettlementStatus
 	FROM bodb02.dbo.Match3rd with (NOLOCK) where eventdate = @winlostdate
 		
 	UNION ALL	
@@ -91,7 +94,8 @@ Begin
 			0 as homeid,
 			teamid as awayid,
 			matchcode,
-			2 as EventType
+			2 as EventType,
+			0 AS SettlementStatus
 	FROM bodb02.dbo.outright with (NOLOCK) where eventdate = @winlostdate
 	
 	UNION ALL	
@@ -99,7 +103,8 @@ Begin
 			0 as homeid,
 			RacerID as awayid,
 			convert(NVARCHAR(50), RacerNum) matchcode,
-			3 as EventType
+			3 as EventType,
+			0 AS SettlementStatus
 	FROM bodb02.dbo.VSOutright with (NOLOCK) where eventdate = @winlostdate
 
 	-- Support Mix Parlay, System Parlay
@@ -108,21 +113,23 @@ Begin
 		   0 as homeid,
 		   0 as awayid,
 		   '' as matchcode,
-		   0 as EventType
-
+		   0 as EventType,
+		   0 AS SettlementStatus
 	UNION ALL
 	SELECT 29 as matchid,
 		   0 as homeid,
 		   0 as awayid,
 		   '' as matchcode,
-		   0 as EventType
+		   0 as EventType,
+		   0 AS SettlementStatus
 	
 	UNION ALL
 	SELECT 2799 as matchid,
 		   0 as homeid,
 		   0 as awayid,
 		   '' as matchcode,
-		   0 as EventType
+		   0 as EventType,
+		   0 AS SettlementStatus
 
 	
 	--Check ticket of sport book, racing, numbergame, virtual sports but Casino, P2P, Live CS, Bingo
@@ -147,7 +154,8 @@ Begin
 			bt.status as NewStatus, 
 			b.status as OldStatus,
 			c.username as Creator,
-			bt.oddsspread AS OddsSpread			
+			bt.oddsspread AS OddsSpread,
+			m.SettlementStatus		
 	from bodb02.dbo.bettrans bt with (NOLOCK)
 		inner join dbo.betsreject b with (nolock) on bt.transid=b.transid
 		INNER JOIN #tmp t ON bt.transid = t.transid AND bt.bettype = t.bettype
@@ -176,7 +184,8 @@ Begin
 			bt.status as NewStatus, 
 			b.status as OldStatus,
 			c.username as Creator,
-			bt.oddsspread AS OddsSpread
+			bt.oddsspread AS OddsSpread,
+			m.SettlementStatus
 	from bodb02.dbo.bettrans bt with (NOLOCK)
 		inner join dbo.BetsReject_Translog b with (nolock) on bt.refno=b.translogid AND bt.matchid=b.eventID
 		INNER JOIN #tmp t ON b.translogid = t.transid AND bt.bettype = t.bettype
@@ -205,7 +214,8 @@ Begin
 			bt.status as NewStatus, 
 			b.status as OldStatus,
 			c.username as Creator,
-			bt.oddsspread AS OddsSpread
+			bt.oddsspread AS OddsSpread,
+			m.SettlementStatus
 	from bodb02.dbo.bettrans bt with (NOLOCK)
 		inner join dbo.betsreject b with (nolock) on bt.transid=b.transid
 		INNER JOIN #tmp t ON bt.transid = t.transid AND bt.bettype = t.bettype
