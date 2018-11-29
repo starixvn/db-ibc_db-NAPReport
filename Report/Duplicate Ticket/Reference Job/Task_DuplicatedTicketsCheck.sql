@@ -122,7 +122,7 @@ BEGIN
 			AND b.matchid = t.matchid
 			AND b.ip = t.ip
 			AND CASE WHEN b.bettype IN (901,902,903,904,911) THEN b.RefNo ELSE 0 END = CASE WHEN t.bettype IN (901,902,903,904,911) THEN t.RefNo ELSE 0 END  
-			AND t.WalletType = ISNULL(b.WalletType,-1)
+			AND t.WalletType = ISNULL(CAST(b.WalletType AS SMALLINT),-1)
 	WHERE NOT EXISTS (SELECT 1 FROM dbo.DuplicatedTicket d WITH (NOLOCK) WHERE d.TransID = b.TransId)	
 	DROP TABLE #TempData
 	
