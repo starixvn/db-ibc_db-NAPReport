@@ -46,7 +46,7 @@ SET NOCOUNT ON
 			IsTest,
 			3 AS GameType
 	FROM	dbo.league WITH (NOLOCK)
-	WHERE	sporttype = 161 
+	WHERE	sporttype IN (161, 164) 
 		 
 	--- ProductID = 5, 27, 23 - Virtual Sports, Virtual Sports, NG2 get Sporttype
 	INSERT INTO #SportBettype (ProductId, TypeId, TypeName, GameType)
