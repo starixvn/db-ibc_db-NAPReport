@@ -1,3 +1,4 @@
+/*<info serverAlias="DBRPT-bodb_report" executers="bodbAdminNet" viewers="vnteam" isFunction="0"></info>*/
 USE [bodb_report] 
 GO
 
@@ -38,6 +39,7 @@ Revisions:
 	- 20170828@Kean: Integrate Lucky 3(#82191)
 	- 20180115@Tom:  Cashout tickets from separated original tickets are considered as dupplicated tickets (#89256)
 	- 20180706@Tom: Add output transdesc column(#97859)
+	- 20181129@Dominic: Check WalletType (HotFix #105532)
 Param's Explanation:
 	- @CheckTime : The time we consider how long the job fails (Compared the last run with the current time).
 				   Because job recurs every 30s, so we set @CheckTime = 1 minute as default
@@ -89,7 +91,8 @@ BEGIN
 					b.winlostdate, 
 					b.matchid,
 					b.ip,
-					CASE WHEN b.Bettype IN (901,902,903,904,911) THEN b.RefNo ELSE 0 END as RefNo	
+					CASE WHEN b.Bettype IN (901,902,903,904,911) THEN b.RefNo ELSE 0 END as RefNo,
+					ISNULL(b.WalletType,-1)	WalletType
 			INTO #TempData
 			FROM bodb02.dbo.bettrans b WITH(NOLOCK)
 				INNER JOIN @bettype s ON s.bettype = b.bettype
@@ -114,7 +117,8 @@ BEGIN
 					b.winlostdate, 
 					b.matchid,
 					b.ip,
-					CASE WHEN b.Bettype IN (901,902,903,904,911) THEN b.RefNo ELSE 0 END	
+					CASE WHEN b.Bettype IN (901,902,903,904,911) THEN b.RefNo ELSE 0 END,	
+					ISNULL(b.WalletType,-1)
 			HAVING COUNT(*) > 1
 			option (maxdop 4)
 			--------------------------------------------------------

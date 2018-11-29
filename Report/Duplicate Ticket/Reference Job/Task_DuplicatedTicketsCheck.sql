@@ -1,3 +1,5 @@
+/*<info serverAlias="DBRPT-bodb_report" executers="" viewers="vnteam" isFunction="0"></info>*/
+
 USE [bodb_report]
 GO
 
@@ -31,6 +33,7 @@ AS
 	     - 20170704@Tom: Integrate Betradar Virtual Sports(#78495)
 		 - 20170828@Kean: Integrate Lucky 3(#82191)
 		 - 20180115@Tom:  Cashout tickets from separated original tickets are considered as dupplicated tickets (#89256)
+		 - 20181129@Dominic: Check WalletType (HotFix #105532)
 	Param's Explanation:
 
 */
@@ -65,7 +68,8 @@ BEGIN
 			b.winlostdate, 
 			b.matchid,
 			b.ip,
-			CASE WHEN b.Bettype IN (901,902,903,904,911) THEN b.RefNo ELSE 0 END as RefNo
+			CASE WHEN b.Bettype IN (901,902,903,904,911) THEN b.RefNo ELSE 0 END as RefNo,
+			ISNULL(WalletType,-1) WalletType
 	FROM	bodb02.dbo.bettrans b WITH(NOLOCK , Index = PK_bettrans)
 		INNER JOIN @bettype s ON s.bettype = b.bettype
 	WHERE	b.TransID BETWEEN @TransId - 5000 AND @MaxTransId
@@ -87,7 +91,8 @@ BEGIN
 			b.winlostdate, 
 			b.matchid,
 			b.ip,
-			b.RefNo		
+			b.RefNo,		
+			b.WalletType
 	INTO	#TempData
 	FROM	AllTicket b							
 	GROUP BY	b.custid, 
@@ -98,7 +103,8 @@ BEGIN
 				b.winlostdate, 
 				b.matchid,
 				b.ip,
-				b.RefNo
+				b.RefNo,
+				b.WalletType
 	HAVING COUNT(*) > 1
 	 
 
@@ -116,6 +122,7 @@ BEGIN
 			AND b.matchid = t.matchid
 			AND b.ip = t.ip
 			AND CASE WHEN b.bettype IN (901,902,903,904,911) THEN b.RefNo ELSE 0 END = CASE WHEN t.bettype IN (901,902,903,904,911) THEN t.RefNo ELSE 0 END  
+			AND t.WalletType = ISNULL(b.WalletType,-1)
 	WHERE NOT EXISTS (SELECT 1 FROM dbo.DuplicatedTicket d WITH (NOLOCK) WHERE d.TransID = b.TransId)	
 	DROP TABLE #TempData
 	
