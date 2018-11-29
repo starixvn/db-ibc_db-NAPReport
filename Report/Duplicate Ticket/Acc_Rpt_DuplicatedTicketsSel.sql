@@ -92,7 +92,7 @@ BEGIN
 					b.matchid,
 					b.ip,
 					CASE WHEN b.Bettype IN (901,902,903,904,911) THEN b.RefNo ELSE 0 END as RefNo,
-					ISNULL(b.WalletType,-1)	WalletType
+					ISNULL(CAST(b.WalletType AS SMALLINT),-1)	WalletType
 			INTO #TempData
 			FROM bodb02.dbo.bettrans b WITH(NOLOCK)
 				INNER JOIN @bettype s ON s.bettype = b.bettype
@@ -118,7 +118,7 @@ BEGIN
 					b.matchid,
 					b.ip,
 					CASE WHEN b.Bettype IN (901,902,903,904,911) THEN b.RefNo ELSE 0 END,	
-					ISNULL(b.WalletType,-1)
+					ISNULL(CAST(b.WalletType AS SMALLINT),-1)
 			HAVING COUNT(*) > 1
 			option (maxdop 4)
 			--------------------------------------------------------
