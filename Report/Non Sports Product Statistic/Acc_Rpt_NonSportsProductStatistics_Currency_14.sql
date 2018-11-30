@@ -168,7 +168,6 @@ BEGIN
 	CREATE TABLE #tmp_Device		(Betfrom NVARCHAR(2))
 	CREATE TABLE #tmp_Site			(Site VARCHAR(50))
 	CREATE TABLE #tmp_MemIDs		(CustID INT)
-	CREATE TABLE #Device			(Betfrom NVARCHAR(2))
 
 	-- Get Info from Pars list
 	IF @ProductId <> ''
@@ -224,14 +223,6 @@ BEGIN
 	BEGIN
 		INSERT INTO #tmp_Device (Betfrom)
 		SELECT val FROM dbo.strSplit(@Device, ',')
-		
-		INSERT INTO #Device (Betfrom)
-		SELECT Betfrom
-		FROM DBWH.bodb_Account.dbo.tbl_Betfrom
-		WHERE betfrom NOT IN ('t', 'b')
-		
-		IF NOT EXISTS(SELECT 1 FROM #Device d LEFT JOIN #tmp_Device t ON t.Betfrom = d.Betfrom WHERE t.Betfrom IS NULL) 
-			SET @Device = ''
 	END
 	-- End Info from Pars list
 
