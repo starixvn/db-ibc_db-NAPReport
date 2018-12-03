@@ -195,16 +195,10 @@ BEGIN
 		SELECT val FROM dbo.strSplit(@GameTableId, ',')
 	END
 
-	CREATE TABLE #Device (Betfrom NVARCHAR(2), DeviceName NVARCHAR(50), DeviceGroup NVARCHAR(50))
 	IF @Device <> ''
 	BEGIN
 		INSERT INTO #tmp_Device (Betfrom)
 		SELECT val FROM dbo.strSplit(@Device, ',')
-		
-		INSERT INTO #Device (Betfrom, DeviceName, DeviceGroup)
-		SELECT Betfrom, fullname, DeviceGroup
-		FROM DBWH.bodb_Account.dbo.tbl_Betfrom
-		WHERE betfrom NOT IN ('t', 'b')
 	END
 	-- End Info from Pars list
 
@@ -990,10 +984,14 @@ BEGIN
 	
 	-- Get Device
 	UPDATE d
-	SET d.Device = CASE WHEN d.Betfrom IN ('i', 'f') THEN 'Internet' ELSE e.DeviceName END,
-		d.DeviceGroup = e.DeviceGroup,
-		d.Betfrom = CASE WHEN d.Betfrom IN ('i','f') THEN 'i,f' ELSE d.Betfrom END
-	FROM #Data d LEFT JOIN #Device e ON d.Betfrom = e.Betfrom  
+	SET d.Device = CASE WHEN d.Betfrom IN ('i', 'f') THEN 'Internet' ELSE f.fullname END,
+		d.DeviceGroup = f.DeviceGroup
+	FROM #Data d
+		INNER JOIN DBWH.bodb_Account.dbo.tbl_Betfrom f ON f.betfrom = d.Betfrom
+
+	UPDATE d
+	SET d.Betfrom = CASE WHEN d.Betfrom IN ('i','f') THEN 'i,f' ELSE d.Betfrom END
+	FROM #Data d
 	-- End Device
 	------------------------------------------III. Drill down data ------------------------------------------------------
 	
@@ -1253,7 +1251,6 @@ BEGIN
 	DROP TABLE #tmp_Site
 	DROP TABLE #tmp_SportType
 	DROP TABLE #tmp_bettransm
-	DROP TABLE #Device
 	DROP TABLE #DepositSuper
 END
 
