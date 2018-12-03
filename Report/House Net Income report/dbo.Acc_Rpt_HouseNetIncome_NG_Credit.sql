@@ -1,3 +1,5 @@
+/*<info serverAlias="DBWH-bodb_dwrs" executers="dwrs" viewers="" isFunction="0" isNested="0"></info>*/
+
 USE bodb_dwrs
 GO
 
@@ -11,100 +13,165 @@ AS
     DB: DBWH/bodb_dwrs  
    
     Revisions:
-		- 20160922@Harper - #64429 - Edit status ID
+		- 20160922@Harper: #64429 - Edit status ID
+		- 20181202@Robert: #104579 - House Net Income Email/Letstalk/Margin Chart - Integrate Happy 5
 	Param's Explanation:   
 */  
 BEGIN  
-	SET NOCOUNT ON  
+    SET NOCOUNT ON;
 
-	DECLARE @FDate DATE, @TDate DATE
-	SELECT @FDate = @FromDate, @TDate = @ToDate
-	
-	-- Region: Get exchange rate info
-	CREATE	TABLE #Exchange (
-			ExchangeDate	DATE,
-			ExchangeID		INT,
-			Rate			FLOAT)
+    DECLARE @FDate    DATE
+		, @TDate    DATE;
 
-	INSERT INTO #Exchange(ExchangeDate, ExchangeID, Rate)
-	SELECT ExchangeDate, Currency, Rate
-	FROM bodb_account.dbo.tbl_Currency_Daily WITH (NOLOCK) 
-	WHERE ExchangeDate BETWEEN @FDate AND @TDate
+    SELECT @FDate = @FromDate
+	    , @TDate = @ToDate;
+    /* Region: Get exchange rate info*/
 
-	-- End region
+    CREATE TABLE #Exchange(
+	    ExchangeDate    DATE
+	  , ExchangeID      INT
+	  , Rate            FLOAT);
 
-	CREATE TABLE #FinalResult (
-		RptDate		VARCHAR(10),
-		HouseWL		MONEY,
-		ExtraPT		MONEY,
-		PayToSupplier MONEY
-	)
+    INSERT INTO #Exchange(ExchangeDate
+				    , ExchangeID
+				    , Rate)
+		 SELECT ExchangeDate
+			 , Currency
+			 , Rate
+		 FROM bodb_account.dbo.tbl_Currency_Daily WITH (NOLOCK)
+		 WHERE ExchangeDate BETWEEN @FDate AND @TDate;
 
-	DECLARE @tmpDate DATE, @DateList VARCHAR(200) = '[FullRange]'
-	SELECT @tmpDate = @FDate
+    CREATE NONCLUSTERED INDEX IX_Exchange_ExchangeDate_ExchangeID ON #Exchange(ExchangeDate, ExchangeID);
+    /* End region*/
 
-	WHILE @tmpDate <= @TDate
-	BEGIN
-		INSERT INTO #FinalResult (RptDate, HouseWL, ExtraPT, PayToSupplier)
-		SELECT CONVERT(VARCHAR(2), @tmpDate, 106), 0, 0, 0
 
-		SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate)
-	END
+    CREATE TABLE #FinalResult(
+	    RptDate          VARCHAR(10)
+	  , HouseWL          MONEY
+	  , ExtraPT          MONEY
+	  , PayToSupplier    MONEY);
 
-	SELECT @DateList = COALESCE(@DateList + ',', '') + '[' + CONVERT(VARCHAR(10), RptDate) + ']' FROM #FinalResult 
+    DECLARE @tmpDate     DATE
+		, @DateList    VARCHAR(200) = '[FullRange]';
 
-	-- Sport - Bettype Matrix
-	CREATE TABLE #SportBettypeMatrix (ProductID INT, Bettype INT, EventType INT, SubProduct VARCHAR(500))
+    SELECT @tmpDate = @FDate;
 
-	INSERT INTO #SportBettypeMatrix (ProductID, Bettype, EventType, SubProduct)
-	SELECT ProductID, BetType, EventType, SubProduct FROM bodb02.dbo.f_SportBettypeMatrix_Sel(3,0,0,2,'','NG',0)
+    WHILE @tmpDate <= @TDate
+	   BEGIN
+		  INSERT INTO #FinalResult(RptDate
+							, HouseWL
+							, ExtraPT
+							, PayToSupplier)
+			    SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
+				    , 0
+				    , 0
+				    , 0;
 
-	-- Daily Extra PT
-	;WITH ExtraPT AS
-	(
-		SELECT b.rptDate, SUM(b.extraWinloss) AS ExtraPT
-		FROM bodb_account.dbo.rptGroupWinloss b WITH (NOLOCK)
-			INNER JOIN #SportBettypeMatrix sb ON sb.Bettype = b.bettype
-		WHERE	rptdate BETWEEN @FDate AND @TDate 
-				AND sb.ProductID = 3
-				AND b.statusid <> 14
-		GROUP BY b.rptDate
-	)
-	UPDATE f
-	SET ExtraPT = e.ExtraPT
-	FROM #FinalResult f
-		INNER JOIN ExtraPT e ON CONVERT(VARCHAR(2), e.rptDate, 106) = f.RptDate
+		  SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate);
+	   END;
 
-	-- House WL
-	CREATE TABLE #TmpHouseWL (rptDate DATE, HouseWL MONEY)
-	INSERT INTO #TmpHouseWL (rptDate, HouseWL)
-	SELECT 
-		b.rptDate,
-		ISNULL(-SUM((winlossP+winlossS+winlossM+winlossA+commissionS)*ex.rate),0) HouseWL
-	FROM bodb_Account.dbo.mcSiteDaily b WITH(NOLOCK)
-		INNER JOIN #exchange ex ON b.rptdate = ex.exchangedate AND b.currencyid = ex.ExchangeID
-		INNER JOIN #SportBettypeMatrix sb ON sb.Bettype = b.bettype
-		INNER JOIN bodb_Account.dbo.tbl_Site s WITH (NOLOCK) ON s.siteid = b.SiteID
-	WHERE 
-		b.rptDate BETWEEN @FDate AND @TDate 
-		AND s.isDeposit = 0 -- Credit data only
-		AND Sb.ProductID = 3
-		AND b.status <> 14
-	GROUP BY b.rptDate
-	OPTION (RECOMPILE)
+    SELECT @DateList = COALESCE(@DateList+',', '')+'['+CONVERT(VARCHAR(10), RptDate)+']'
+    FROM #FinalResult;
+    /* Sport - Bettype Matrix*/
 
-	UPDATE f
-	SET HouseWL = f.HouseWL + wl.HouseWL
-	FROM #FinalResult f
-		INNER JOIN #TmpHouseWL wl ON CONVERT(VARCHAR(2), wl.rptDate, 106) = f.RptDate
+    CREATE TABLE #SportBettypeMatrix(
+	    ProductID     INT
+	  , Bettype       INT
+	  , EventType     INT
+	  , SubProduct    VARCHAR(500));
 
-	-- FullRange amount
-	INSERT INTO #FinalResult (RptDate, HouseWL, ExtraPT, PayToSupplier)
-	SELECT 'FullRange', SUM(HouseWL), SUM(ExtraPT), 0
-	FROM #FinalResult
+    INSERT INTO #SportBettypeMatrix(ProductID
+						    , Bettype
+						    , EventType
+						    , SubProduct)
+		 SELECT DISTINCT
+			   ProductID
+			 , Bettype
+			 , EventType
+			 , SubProduct
+		 FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)
+		 WHERE ProductID = 3
+			  AND SportType <> 164;
 
-	UPDATE #FinalResult 
-	SET PayToSupplier = -(HouseWL + ExtraPT)*0.4
+    CREATE NONCLUSTERED INDEX IX_SportBettypeMatrix_ProductID ON #SportBettypeMatrix(Bettype);
+    /* Daily Extra PT*/
+
+    WITH ExtraPT
+	    AS (
+	    SELECT b.rptDate
+		    , SUM(b.extraWinloss) AS ExtraPT
+	    FROM bodb_account.dbo.rptGroupWinloss AS b WITH (NOLOCK)
+		   INNER JOIN #SportBettypeMatrix AS sb ON sb.Bettype = b.bettype
+	    WHERE rptdate BETWEEN @FDate AND @TDate
+			AND sb.ProductID = 3
+			AND b.statusid <> 14
+	    GROUP BY b.rptDate)
+	    UPDATE f
+			 SET
+				ExtraPT = e.ExtraPT
+	    FROM #FinalResult f
+		   INNER JOIN ExtraPT e ON CONVERT(VARCHAR(2), e.rptDate, 106) = f.RptDate;
+    /* House WL*/
+
+    CREATE TABLE #RawData(
+	    SiteId     INT
+	  , RptDate    DATE
+	  , HouseWL    MONEY);
+
+    CREATE TABLE #TmpHouseWL(
+	    rptDate    DATE
+	  , HouseWL    MONEY);
+
+
+    INSERT INTO #RawData(SiteId
+				   , rptDate
+				   , HouseWL)
+		 SELECT b.SiteID
+			 , b.rptDate
+			 , ISNULL(-SUM((winlossP + winlossS + winlossM + winlossA + commissionS) * ex.rate), 0) AS HouseWL
+		 FROM bodb_Account.dbo.FactSiteWinloss AS b WITH (NOLOCK)
+			INNER JOIN #exchange AS ex ON b.rptdate = ex.exchangedate
+									AND b.currencyid = ex.ExchangeID
+			INNER JOIN #SportBettypeMatrix AS sb ON sb.Bettype = b.bettype
+		 WHERE b.rptDate BETWEEN @FDate AND @TDate
+			  AND Sb.ProductID = 3
+			  AND b.TicketStatus <> 14
+		 GROUP BY b.SiteID
+			   , b.rptDate OPTION(RECOMPILE);
+
+    CREATE NONCLUSTERED INDEX IX_RawData ON #RawData(SiteId, rptDate);
+
+    INSERT INTO #TmpHouseWL(rptDate
+					 , HouseWL)
+		 SELECT b.rptDate
+			 , SUM(HouseWL)
+		 FROM #RawData AS b WITH (NOLOCK)
+			INNER JOIN bodb_Account.dbo.tbl_Site AS s WITH (NOLOCK) ON s.siteid = b.SiteID
+		 WHERE s.isDeposit = 0 /* Credit data only*/
+		 GROUP BY b.rptDate OPTION(RECOMPILE);
+    
+    CREATE NONCLUSTERED INDEX IX_TmpHouseWL ON #TmpHouseWL(rptDate);
+
+    UPDATE f
+		 SET
+			HouseWL = f.HouseWL + wl.HouseWL
+    FROM #FinalResult f
+	   INNER JOIN #TmpHouseWL wl ON CONVERT(VARCHAR(2), wl.rptDate, 106) = f.RptDate;
+    /* FullRange amount*/
+
+    INSERT INTO #FinalResult(RptDate
+					  , HouseWL
+					  , ExtraPT
+					  , PayToSupplier)
+		 SELECT 'FullRange'
+			 , SUM(HouseWL)
+			 , SUM(ExtraPT)
+			 , 0
+		 FROM #FinalResult;
+
+    UPDATE #FinalResult
+		 SET
+			PayToSupplier = -(HouseWL + ExtraPT) * 0.4;
 
 	---------------------------------------------------- Select the output -------------------------------------------------------
 	DECLARE @SQL VARCHAR(1000)
@@ -130,9 +197,9 @@ BEGIN
 	DROP TABLE #TmpHouseWL
 	DROP TABLE #Exchange
 	DROP TABLE #FinalResult
+	DROP TABLE #RawData
 END
 GO
 
-GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_NG_Credit] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_NG_Credit] TO [dwrs]
 GO
-GRANT VIEW definition ON [dbo].[Acc_Rpt_HouseNetIncome_NG_Credit] TO vnteam
