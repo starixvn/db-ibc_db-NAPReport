@@ -428,7 +428,7 @@ BEGIN
 				  CompanyCommBase
 				)
 		SELECT	b.Betfrom, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
-				NULL AS BetCount, b.currency, 
+				0 AS BetCount, b.currency, 
 
 				SUM(CASE WHEN b.statusID IN (103) THEN 0 ELSE actual_stake END) AS TotalBets,
 				SUM((CASE WHEN b.statusID IN (103) THEN 0 ELSE actual_stake END) * actualrate)  AS TotalBetsBase,
