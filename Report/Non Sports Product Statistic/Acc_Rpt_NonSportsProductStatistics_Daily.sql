@@ -434,7 +434,7 @@ SET NOCOUNT ON
 				- SUM(scomm *actualrate) AS CompanyCommBase
 		FROM  dbo.BettransRNG b WITH (NOLOCK)
 		WHERE b.WinlostDate = @WLDate
-			AND b.gameID IN (2198, 2398, 2998)
+			AND b.gameID IN (SELECT Bettype FROM #SportBettype WHERE Bettype IN (2198, 2398, 2998))
 			AND b.statusID IN (111, 112, 113, 103) 
 			AND (@ExcludeTest = 0 OR (b.Currency <> 20 AND @ExcludeTest = 1))
 			AND (@currency IN (0,-1) OR b.currency = @currency) 
