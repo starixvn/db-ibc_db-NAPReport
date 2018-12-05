@@ -1,9 +1,10 @@
-/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
 ALTER PROCEDURE dbo.Acc_Rpt_HouseNetIncome_LicenseeFee
-	@FromDate    DATE
-   , @ToDate      DATE
-   , @Products    VARCHAR(100)
+	@FromDate      DATE
+   , @ToDate        DATE
+   , @Products      VARCHAR(100)
+   , @SubProduct    VARCHAR(100) = ''
 AS
 /*  
 	Created: Victor  
@@ -13,6 +14,7 @@ AS
    
     Revisions:
 	   - 20181113@Robert: DHWL Email/Letstalk/Margin Chart - Integrate Bidme & Sicbo[#104145]
+	   - 20181202@Robert: #104579 - House Net Income Email/Letstalk/Margin Chart - Integrate Happy 5
 	Param's Explanation:   
 */
 
@@ -33,6 +35,8 @@ BEGIN
 		 FROM dbo.Lrf_f_StringSplit
 			 (@Products, ',') AS pl
 			LEFT JOIN bodb_licensee.dbo.Product3rd AS p WITH (NOLOCK) ON p.ProductPrefix = pl.val;
+
+
 
     DECLARE @FDate    DATE
 		, @TDate    DATE;
@@ -272,7 +276,12 @@ BEGIN
 				 AND b.customercategory NOT IN(27, 28)
 				 AND b.Bettype NOT IN(901, 902, 903, 904)
 				 AND b.StatusId NOT IN(-1, 103) /* Exclude Reject , Void, Refund*/
-				 AND b.Bettype = -1
+				 AND b.Bettype = CASE
+								 WHEN @Products = 'NG'
+									 AND @SubProduct = 'HP5'
+								 THEN 8101
+								 ELSE-1
+							  END
 				 AND p.ChargeType <> 12
 			GROUP BY b.rptdate
 				  , b.SiteId
@@ -312,6 +321,7 @@ BEGIN
 				  , p.ProductId
 				  , e.Rate
 		 );
+
 
     CREATE NONCLUSTERED INDEX Idx_InvoiceData ON #TempData(PartyId, ProductId);
 /*  Minimum fee is calculated for all currencies that licensee offer. There is no minimum fee when data display individual currency.*/
@@ -561,7 +571,5 @@ BEGIN
     DROP TABLE #SumByProducts;
 END;
 GO
-
-GRANT VIEW DEFINITION ON dbo.Acc_Rpt_HouseNetIncome_LicenseeFee TO vnteam;
 
 GRANT EXECUTE ON dbo.Acc_Rpt_HouseNetIncome_LicenseeFee TO [bodbAdminNet];
