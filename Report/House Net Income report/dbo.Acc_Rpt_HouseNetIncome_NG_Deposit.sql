@@ -92,7 +92,7 @@ BEGIN
 		 );
     /* End region
 
-		    Region: Get exchange rate info*/
+					 Region: Get exchange rate info*/
 
     CREATE TABLE #Exchange(
 	    ExchangeDate    DATE
@@ -125,27 +125,15 @@ BEGIN
 
 
     CREATE TABLE #TempDataNG(
-	    PartyId            INT
-	  , rptDate            DATETIME
-	  , CurrencyId         INT
-	  , WinLoss            MONEY
-	  , AComm              MONEY
+	    rptDate            DATETIME
 	  , ProductId          TINYINT
 	  , AmountToCompany    MONEY);
 
-    INSERT INTO #TempDataNG(PartyId
-					 , rptDate
-					 , CurrencyId
-					 , WinLoss
-					 , AComm
+    INSERT INTO #TempDataNG(rptDate
 					 , ProductId
 					 , AmountToCompany)
 		 (
-			SELECT p.PartyId
-				, b.rptDate
-				, b.CurrencyID
-				, SUM(ISNULL(b.MemberWL, 0)) * e.Rate
-				, SUM(ISNULL(b.CommissionA, 0)) * e.Rate
+			SELECT b.rptDate
 				, p.ProductId
 				, SUM(-ISNULL(b.MemberWL, 0) * p.Rate) * e.Rate
 			FROM bodb_LicenseeReport.dbo.rpt_BettingByProduct AS b WITH (NOLOCK)
@@ -161,15 +149,11 @@ BEGIN
 				 AND b.CurrencyID <> 20
 				 AND b.customercategory NOT IN(27, 28)
 				 AND b.StatusId NOT IN(-1, 103) /* Exclude Reject , Void, Refund*/
+				 AND b.Bettype = -1
 			GROUP BY b.rptdate
-				  , b.SiteId
-				  , p.PartyId
-				  , b.CurrencyID
 				  , p.ProductId
 				  , e.Rate
 		 );
-
-    CREATE NONCLUSTERED INDEX Idx_InvoiceData ON #TempDataNG(PartyId, ProductId);
     /* Region: Result*/
 
     CREATE TABLE #FeeData(
@@ -236,7 +220,6 @@ BEGIN
     SELECT @DateList = COALESCE(@DateList+',', '')+'['+CONVERT(VARCHAR(10), RptDate)+']'
     FROM #FinalResult;
     /* End region*/
-
 	---------------------------------------------------- Select the output -------------------------------------------------------
 	DECLARE @SQL VARCHAR(1000)
 	SELECT @SQL =	'SELECT * ' + CHAR(13) +
@@ -264,5 +247,4 @@ END
 GO
 
 GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_NG_Deposit] TO [bodbAdminNet]
-GO
-GRANT VIEW definition ON [dbo].[Acc_Rpt_HouseNetIncome_NG_Deposit] TO vnteam
+
