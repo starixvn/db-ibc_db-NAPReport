@@ -278,7 +278,7 @@ BEGIN
 				 AND b.StatusId NOT IN(-1, 103) /* Exclude Reject , Void, Refund*/
 				 AND b.Bettype = CASE
 								 WHEN @Products = 'NG'
-									 AND @SubProduct = 'HP5'
+									 AND @SubProduct = 'H5'
 								 THEN 8101
 								 ELSE-1
 							  END
@@ -560,7 +560,7 @@ BEGIN
 	    , AComm
 	    , MinFeeApplied
 	    , WLFeeApplied
-	    , AmountToCompany
+	    , AmountToCompany	    
     FROM #SumByProducts;
 /* End region
 
