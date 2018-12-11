@@ -94,40 +94,26 @@ BEGIN
 			  AND SportType <> 164;
 
     CREATE NONCLUSTERED INDEX IX_SportBettypeMatrix_ProductID ON #SportBettypeMatrix(Bettype);
-    /* Daily Extra PT*/
-
-    WITH ExtraPT
-	    AS (
-	    SELECT b.rptDate
-		    , SUM(b.extraWinloss) AS ExtraPT
-	    FROM bodb_account.dbo.rptGroupWinloss AS b WITH (NOLOCK)
-		   INNER JOIN #SportBettypeMatrix AS sb ON sb.Bettype = b.bettype
-	    WHERE rptdate BETWEEN @FDate AND @TDate
-			AND sb.ProductID = 3
-			AND b.statusid <> 14
-	    GROUP BY b.rptDate)
-	    UPDATE f
-			 SET
-				ExtraPT = e.ExtraPT
-	    FROM #FinalResult f
-		   INNER JOIN ExtraPT e ON CONVERT(VARCHAR(2), e.rptDate, 106) = f.RptDate;
-    /* House WL*/
 
     CREATE TABLE #RawData(
 	    SiteId     INT
 	  , RptDate    DATE
+	  , ExtraPT    MONEY
 	  , HouseWL    MONEY);
 
     CREATE TABLE #TmpHouseWL(
 	    rptDate    DATE
+	  , ExtraPT    MONEY
 	  , HouseWL    MONEY);
 
 
     INSERT INTO #RawData(SiteId
 				   , rptDate
+				   , ExtraPT
 				   , HouseWL)
 		 SELECT b.SiteID
 			 , b.rptDate
+			 , ISNULL(SUM((b.ExtraWL + b.ExtraComm) * ex.rate), 0) AS                                  ExtraPT
 			 , ISNULL(-SUM((winlossP + winlossS + winlossM + winlossA + commissionS) * ex.rate), 0) AS HouseWL
 		 FROM bodb_Account.dbo.FactSiteWinloss AS b WITH (NOLOCK)
 			INNER JOIN #exchange AS ex ON b.rptdate = ex.exchangedate
@@ -142,19 +128,22 @@ BEGIN
     CREATE NONCLUSTERED INDEX IX_RawData ON #RawData(SiteId, rptDate);
 
     INSERT INTO #TmpHouseWL(rptDate
+					 , ExtraPT
 					 , HouseWL)
 		 SELECT b.rptDate
+			 , SUM(ExtraPT)
 			 , SUM(HouseWL)
 		 FROM #RawData AS b WITH (NOLOCK)
 			INNER JOIN bodb_Account.dbo.tbl_Site AS s WITH (NOLOCK) ON s.siteid = b.SiteID
 		 WHERE s.isDeposit = 0 /* Credit data only*/
 		 GROUP BY b.rptDate OPTION(RECOMPILE);
-    
+
     CREATE NONCLUSTERED INDEX IX_TmpHouseWL ON #TmpHouseWL(rptDate);
 
     UPDATE f
 		 SET
-			HouseWL = f.HouseWL + wl.HouseWL
+			ExtraPT = f.ExtraPT + wl.ExtraPT
+		   , HouseWL = f.HouseWL + wl.HouseWL
     FROM #FinalResult f
 	   INNER JOIN #TmpHouseWL wl ON CONVERT(VARCHAR(2), wl.rptDate, 106) = f.RptDate;
     /* FullRange amount*/
@@ -172,7 +161,6 @@ BEGIN
     UPDATE #FinalResult
 		 SET
 			PayToSupplier = -(HouseWL + ExtraPT) * 0.4;
-
 	---------------------------------------------------- Select the output -------------------------------------------------------
 	DECLARE @SQL VARCHAR(1000)
 	SELECT @SQL =	'SELECT * ' + CHAR(13) +
