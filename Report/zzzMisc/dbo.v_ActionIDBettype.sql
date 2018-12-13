@@ -1,3 +1,5 @@
+/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="1" isFunction="0" isNested="1"></info>*/
+
 USE bodb02;
 GO
 
@@ -13,6 +15,7 @@ AS
 	   20170926@Kean: Add New Bet Types with Decimal Odds only (#83778)
 	   20171020@Kean: Integrate PH AIO phase 3 (#85279)
 	   20180427@Robert: Incorporate 2 new bettypes of Asian 1x2 HDP (#94233)
+	   20181101@Franklin: Incorporate E-Sports (#100635)
 */
 
     SELECT 100 AS ActionID
@@ -120,6 +123,15 @@ AS
 	    SELECT val AS strbettye
 	    FROM bodb02.dbo.strSplit('601,602,603,605,608,609,610,611,612,614,615,616,617',',')
 	    ) b --Calculate All- Basketball
+	    
+    UNION ALL
+
+    SELECT 100 AS ActionID
+	    ,strbettye
+    FROM (
+	    SELECT val AS strbettye
+	    FROM bodb02.dbo.strSplit('9001',',')
+	    ) b --Calculate All- E-Sports
 
     UNION ALL
 
@@ -312,6 +324,15 @@ AS
 
     UNION ALL
 
+    SELECT 103 AS ActionID
+	    ,strbettye
+    FROM (
+	    SELECT val AS strbettye
+	    FROM bodb02.dbo.strSplit('9001',',')
+	    ) b --Undo Settlement- E-Sports
+	    
+    UNION ALL
+
     SELECT 109 AS ActionID
 	    ,strbettye
     FROM (
@@ -418,6 +439,15 @@ AS
 	    FROM bodb02.dbo.strSplit('7,8,12,15,21,30,125,126,129,136,138,143,151,165,167,179,181,182,188,191,303,304,403,404,410,411,412,414,426,427,453,456,457,459,463,464,466',',')
 	    ) b --Refund All- Soccer and Others (1H)
 
+    UNION ALL
+
+    SELECT 109 AS ActionID
+	    ,strbettye
+    FROM (
+	    SELECT val AS strbettye
+	    FROM bodb02.dbo.strSplit('9001',',')
+	    ) b --Refund All- E-Sports
+	    
     UNION ALL
 
     SELECT 110 AS ActionID
@@ -888,12 +918,30 @@ AS
 
     UNION ALL
 
+    SELECT 189 AS ActionID
+	    ,strbettye
+    FROM (
+	    SELECT val AS strbettye
+	    FROM bodb02.dbo.strSplit('9002, 9003, 9004, 9005, 9006, 9007, 9008, 9009, 9010, 9011, 9012, 9013, 9014, 9015, 9016, 9017, 9018, 9019, 9020, 9021, 9022, 9023, 9024, 9025, 9026, 9027, 9028, 9029, 9030, 9031, 9032, 9033, 9034, 9035, 9036, 9037, 9038, 9039, 9040, 9041, 9042, 9043, 9044, 9045, 9046, 9047, 9048, 9049, 9050, 9051, 9052, 9053, 9054, 9055, 9056, 9057, 9058, 9059, 9060, 9061, 9062, 9063, 9064, 9065, 9066, 9067, 9068, 9069, 9070, 9071, 9072, 9073, 9074, 9075, 9076, 9077, 9078, 9079, 9080, 9081, 9082, 9083, 9084, 9085, 9086',',')
+	    ) b --Early Settlement- Calculate E-Sports early settled
+
+    UNION ALL
+
     SELECT 190 AS ActionID
 	    ,strbettye
     FROM (
 	    SELECT val AS strbettye
 	    FROM bodb02.dbo.strSplit('604,606,607,613',',')
 	    ) b --Early Settlement- Uncalculate- Basketball early settled
+
+    UNION ALL
+
+    SELECT 190 AS ActionID
+	    ,strbettye
+    FROM (
+	    SELECT val AS strbettye
+	    FROM bodb02.dbo.strSplit('9002, 9003, 9004, 9005, 9006, 9007, 9008, 9009, 9010, 9011, 9012, 9013, 9014, 9015, 9016, 9017, 9018, 9019, 9020, 9021, 9022, 9023, 9024, 9025, 9026, 9027, 9028, 9029, 9030, 9031, 9032, 9033, 9034, 9035, 9036, 9037, 9038, 9039, 9040, 9041, 9042, 9043, 9044, 9045, 9046, 9047, 9048, 9049, 9050, 9051, 9052, 9053, 9054, 9055, 9056, 9057, 9058, 9059, 9060, 9061, 9062, 9063, 9064, 9065, 9066, 9067, 9068, 9069, 9070, 9071, 9072, 9073, 9074, 9075, 9076, 9077, 9078, 9079, 9080, 9081, 9082, 9083, 9084, 9085, 9086',',')
+	    ) b --Early Settlement- Uncalculate - E-Sports early settled
 
     UNION ALL
 
@@ -904,7 +952,14 @@ AS
 	    FROM bodb02.dbo.strSplit('604,606,607,613',',')
 	    ) b --Early Settlement- Refund- Basketball early settled
 
+    UNION ALL
 
+    SELECT 191 AS ActionID
+	    ,strbettye
+    FROM (
+	    SELECT val AS strbettye
+	    FROM bodb02.dbo.strSplit('9002, 9003, 9004, 9005, 9006, 9007, 9008, 9009, 9010, 9011, 9012, 9013, 9014, 9015, 9016, 9017, 9018, 9019, 9020, 9021, 9022, 9023, 9024, 9025, 9026, 9027, 9028, 9029, 9030, 9031, 9032, 9033, 9034, 9035, 9036, 9037, 9038, 9039, 9040, 9041, 9042, 9043, 9044, 9045, 9046, 9047, 9048, 9049, 9050, 9051, 9052, 9053, 9054, 9055, 9056, 9057, 9058, 9059, 9060, 9061, 9062, 9063, 9064, 9065, 9066, 9067, 9068, 9069, 9070, 9071, 9072, 9073, 9074, 9075, 9076, 9077, 9078, 9079, 9080, 9081, 9082, 9083, 9084, 9085, 9086',',')
+	    ) b --Early Settlement- Refund - E-Sports early settled
 
 
 GO
