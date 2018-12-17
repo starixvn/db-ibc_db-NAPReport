@@ -1,4 +1,6 @@
-﻿ALTER PROCEDURE [dbo].[Acc_Rpt_LeagueWL_Bettype]
+﻿/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+
+ALTER PROCEDURE [dbo].[Acc_Rpt_LeagueWL_Bettype]
 	@winlostdate	DATETIME,
 	@leagueid INT,
 	@sporttype INT
@@ -9,7 +11,7 @@ AS
 		Task: view winlost of company by bettype
 		DB: DB06.bodb02	
 			
-		History:			
+		Revisions:			
 		-- 20100526@Henry: Change to use StatusID instead of Status in WHERE statement
 		-- 20100820@Lukas: Add new bet type: 1st Money Line (only for baseball game) bettypeID = 21
 		-- 20110824@Elly: - Correct Turnover of sports book since Sep 01, 2011
@@ -27,7 +29,7 @@ AS
 		-- 20150922@Jim: offer MO		
 		-- 20160819@Robert: Add Bet Trade Winloss bettype=904 (#62630)
 		- 20170831@Cherry: Extend data type of Sporttype (#73545)
-
+        - 20181214@Jacob: Include ESports Bet Type #100635
 		Explanation's Param:
 			- @winlostdate: the date want to view report
 			- @leagueid   : the leagueid want to view report
@@ -118,7 +120,7 @@ Declare @tmpBettype table (	Bettype	INT primary key, DisplayOrder	int)
 		FROM bettype b WITH(NOLOCK)
 			INNER JOIN @SportBettype s 
 				ON b.typeid = s.Bettype
-		WHERE (typeid > 10 AND typeid < 31) OR (typeid BETWEEN 121 AND 999 and b.typeid NOT IN (301,302,303,304))  OR typeid BETWEEN 1301 AND 1334
+		WHERE (typeid > 10 AND typeid < 31) OR (typeid BETWEEN 121 AND 999 and b.typeid NOT IN (301,302,303,304))  OR typeid BETWEEN 1301 AND 1334 OR typeid BETWEEN 9001 AND 9399
 
 	SELECT		
 			b.liveindicator,
@@ -181,8 +183,4 @@ Declare @tmpBettype table (	Bettype	INT primary key, DisplayOrder	int)
 			AND m.type = CASE WHEN b.bettype = 10 THEN 'outright' ELSE 'match' END -- 20120628@Elodie: check case of matchid = orid				
 	GROUP BY b.liveindicator
 END
-
 GO
-GRANT EXECUTE ON [dbo].[Acc_Rpt_LeagueWL_Bettype] TO [bodbAdminNet]
-GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_Rpt_LeagueWL_Bettype] TO [vnteam]
