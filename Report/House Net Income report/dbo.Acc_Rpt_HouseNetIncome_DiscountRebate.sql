@@ -206,17 +206,7 @@ BEGIN
 	  , AComm              MONEY
 	  , MinFeeApplied      MONEY
 	  , WLFeeApplied       MONEY
-	  , AmountToCompany    MONEY
-	  , SubProduct         VARCHAR(10) DEFAULT '');
-
-    CREATE TABLE #FeeData_Sub(
-	    PartyId            INT
-	  , ProductId          INT
-	  , AComm              MONEY
-	  , MinFeeApplied      MONEY
-	  , WLFeeApplied       MONEY
-	  , AmountToCompany    MONEY
-	  , SubProduct         VARCHAR(10) DEFAULT '');
+	  , AmountToCompany    MONEY);
 
     INSERT INTO #FeeData(PartyId
 				   , ProductId
@@ -228,41 +218,6 @@ BEGIN
 	    @FromDate = @FDate
 	  , @ToDate = @TDate
 	  , @Products = @ProductList;
-
-    INSERT INTO #FeeData_Sub(PartyId
-					  , ProductId
-					  , AComm
-					  , MinFeeApplied
-					  , WLFeeApplied
-					  , AmountToCompany)
-    EXEC dbo.Acc_Rpt_HouseNetIncome_LicenseeFee
-	    @FromDate = @FDate
-	  , @ToDate = @TDate
-	  , @Products = 'NG'
-	  , @SubProduct = 'H5';
-
-
-    UPDATE #FeeData_Sub
-		 SET
-			SubProduct = 'H5';
-
-    INSERT INTO #FeeData(PartyId
-				   , ProductId
-				   , AComm
-				   , MinFeeApplied
-				   , WLFeeApplied
-				   , AmountToCompany
-				   , SubProduct)
-		 (
-			SELECT PartyId
-				, ProductId
-				, AComm
-				, MinFeeApplied
-				, WLFeeApplied
-				, AmountToCompany
-				, SubProduct
-			FROM #FeeData_Sub
-		 );
 /* Apply discount & rebate*/
 
     WITH t
@@ -297,9 +252,6 @@ BEGIN
 	  , Figure         VARCHAR(200)
 	  , FullRange      MONEY);
 
-
-
-
     INSERT INTO #RebateDiscount(ProductId
 						, ProductCode
 						, [Order]
@@ -332,7 +284,6 @@ BEGIN
 			LEFT JOIN #DiscountGroup AS r ON s.PartyId = r.PartyId
 									   AND r.ProductId = s.ProductId
 									   AND r.DiscountGroupType = 2 /* rebate = 2*/
-		 WHERE s.SubProduct = ''
 		 GROUP BY s.ProductId
 			   , CASE
 				    WHEN s.ProductId = 0
@@ -346,27 +297,6 @@ BEGIN
 				    THEN 4
 				    ELSE 3
 				END
-		 UNION ALL
-		 SELECT s.ProductId
-			 , s.SubProduct AS        ProductCode
-			 , 3 AS                   [Order]
-			 , 'Rebate & Discount' AS Figure
-			 , -SUM(CASE
-					  WHEN s.AmountToCompany < 0
-					  THEN 0
-					  ELSE s.AmountToCompany * (ISNULL(d.Rate, 0) + (1 - ISNULL(d.Rate, 0)) * ISNULL(r.Rate, 0))
-				   END) AS           FullRange
-		 FROM #FeeData AS s
-			LEFT JOIN bodb_licensee.dbo.Product3rd AS p ON p.Productid = s.ProductId
-			LEFT JOIN #DiscountGroup AS d ON s.PartyId = d.PartyId
-									   AND d.ProductId = s.ProductId
-									   AND d.DiscountGroupType = 1 /* discount = 1*/
-			LEFT JOIN #DiscountGroup AS r ON s.PartyId = r.PartyId
-									   AND r.ProductId = s.ProductId
-									   AND r.DiscountGroupType = 2 /* rebate = 2*/
-		 WHERE s.SubProduct = 'H5'
-		 GROUP BY s.ProductId
-			   , s.SubProduct
 		 UNION ALL
 /* For Product that have discount group type = 3, discount based on Licensee WL*/
 		 SELECT s.ProductId
@@ -458,12 +388,10 @@ BEGIN
     DROP TABLE #DiscountGroupHeader;
     DROP TABLE #DiscountGroup;
     DROP TABLE #FeeData;
-    DROP TABLE #FeeData_Sub;
     DROP TABLE #RebateDiscount;
     DROP TABLE #TempDataWL;
 END;
 GO
 
 GRANT EXECUTE ON dbo.Acc_Rpt_HouseNetIncome_DiscountRebate TO [bodbAdminNet];
-
 GO
