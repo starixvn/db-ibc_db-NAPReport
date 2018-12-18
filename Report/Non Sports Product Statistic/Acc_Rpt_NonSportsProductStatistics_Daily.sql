@@ -204,10 +204,19 @@ SET NOCOUNT ON
 		SELECT val FROM [dbo].strSplit(@GameTableID, ',')
 	END
 
+	CREATE TABLE #Device (Betfrom NVARCHAR(2))
 	IF @Device <> ''
     BEGIN
 		INSERT INTO #tmpDevice (Betfrom)
 		SELECT val FROM [dbo].strSplit(@Device, ',')
+		
+		INSERT INTO #Device (Betfrom)
+		SELECT Betfrom
+		FROM DBWH.bodb_Account.dbo.tbl_Betfrom
+		WHERE betfrom NOT IN ('t', 'b')
+
+		IF NOT EXISTS(SELECT 1 FROM #Device d LEFT JOIN #tmp_Device t ON t.Betfrom = d.Betfrom WHERE t.Betfrom IS NULL) 
+			SET @Device = ''
 	END
 	
 	IF @Username <> ''
@@ -1055,5 +1064,6 @@ SET NOCOUNT ON
 	DROP TABLE #tmpSporttype
 	DROP TABLE #tmp_bettransm 
 	DROP TABLE #DepositSuper  
+	DROP TABLE #Device
 
 END  
