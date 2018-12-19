@@ -358,7 +358,6 @@ BEGIN
 		FROM dbo.Bettrans14 b WITH (NOLOCK) 
 		WHERE b.WinlostDate = @WLDate
 			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE RefTable IN (0, 3) AND ProductID NOT IN (3, 4, 5, 27, 33))
-			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) 
 			AND (@ExcludeTest = 0 OR (b.Currency <> 20 AND @ExcludeTest = 1))
 			AND (@currency IN (0,-1) OR b.currency = @currency) 
@@ -594,7 +593,6 @@ BEGIN
 		FROM dbo.Bettrans14 b WITH (NOLOCK) 
 		WHERE b.WinlostDate = @WLDate
 			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 33)
-			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) 
 			AND (@ExcludeTest = 0 OR (b.Currency <> 20 AND @ExcludeTest = 1))
 			AND (@currency IN (0,-1) OR b.currency = @currency) 
@@ -658,7 +656,6 @@ BEGIN
 			INNER JOIN Match14 m WITH (NOLOCK) ON m.matchid = b.matchid
 		WHERE b.WinlostDate = @WLDate
 			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 3)
-			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) 
 			AND EXISTS (SELECT 1 FROM #tmp_LeagueID l WHERE m.leagueid = l.LeagueID AND l.Bettype = b.bettype)
 			AND (@ExcludeTest = 0 OR (b.Currency <> 20 AND @ExcludeTest = 1))
@@ -722,7 +719,6 @@ BEGIN
 		FROM dbo.Bettrans14 b WITH (NOLOCK) 
 		WHERE b.WinlostDate = @WLDate
 			AND b.bettype in (SELECT Bettype FROM #SportBettype WHERE ProductID = 4)
-			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) 
 			AND EXISTS (SELECT 1 FROM Match14 m WITH (NOLOCK) INNER JOIN #tmp_GameTableId g ON g.GameTableID = m.LeagueID WHERE m.matchid = b.matchid)
 			AND (@ExcludeTest = 0 OR (b.Currency <> 20 AND @ExcludeTest = 1))
@@ -787,7 +783,6 @@ BEGIN
 			INNER JOIN dbo.match14 m WITH (NOLOCK) ON b.matchid = m.matchid
 		WHERE b.WinlostDate = @WLDate
 			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 5 AND EvenType = 1)
-			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) 
 			AND EXISTS (SELECT 1 FROM #tmp_Sporttype sp WHERE sp.Sporttype = m.sporttype)
 			AND (@ExcludeTest = 0 OR (b.Currency <> 20 AND @ExcludeTest = 1))
@@ -848,7 +843,6 @@ BEGIN
 			INNER JOIN VSRaceInfo r WITH (NOLOCK) ON b.matchid = r.EventID 
 		WHERE b.WinlostDate = @WLDate
 			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 5 AND EvenType = 3)
-			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) 
 			AND (@Sporttype = '' OR
 				EXISTS (SELECT 1 From #tmp_Sporttype sp WHERE sp.Sporttype = r.sporttype)					
@@ -921,7 +915,6 @@ BEGIN
 			INNER JOIN dbo.match14 m WITH (NOLOCK) ON b.matchid = m.matchid 
 		WHERE b.WinlostDate = @WLDate
 			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 27 AND EvenType = 1)
-			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) 
 			AND EXISTS(SELECT 1 FROM #tmp_Sporttype st WHERE m.sporttype = st.Sporttype)
 			AND (@ExcludeTest = 0 OR (b.Currency <> 20 AND @ExcludeTest = 1))
@@ -982,7 +975,6 @@ BEGIN
 			INNER JOIN #tmp_bettransm bm ON b.refno = bm.refno 
 		WHERE b.WinlostDate = @WLDate
 			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 27 AND EvenType = 0)
-			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) 
 			AND (@ExcludeTest = 0 OR (b.Currency <> 20 AND @ExcludeTest = 1))
 			AND (@currency IN (0,-1) OR b.currency = @currency) 
