@@ -3,8 +3,9 @@
 ALTER PROCEDURE dbo.Acc_Rpt_WinlostSummary_Sporttype_NG
 	@fromdate         DATETIME
    , @todate           DATETIME
-   , @bettype          INT
-   , @liveindicator    BIT
+   , @SportType        SMALLINT = 0
+   , @bettype          INT      = 0
+   , @liveindicator    BIT      = 0
 AS
 /*
         Created: Robert
@@ -40,23 +41,25 @@ BEGIN
 	  , virtualLineTotal    MONEY
 	  , isNeutral           BIT
 	  , orderkey            TINYINT);
-    DECLARE @isTest    BIT = 0;
-    SELECT @isTest = dbo.f_CheckSPVersion
-		 (@@PROCID);
+
     DECLARE @SportBettype TABLE(
 	    ProductID     INT
 	  , Bettype       INT
 	  , EventType     INT
 	  , SubProduct    VARCHAR(500));
     INSERT INTO @SportBettype
-		 SELECT ProductID
+		 SELECT DISTINCT
+			   ProductID
 			 , Bettype
 			 , EventType
 			 , SubProduct
-		 FROM bodb02.dbo.f_SportBettypeMatrix_Sel
-			 (0, 0, 0, 2, '', '', @isTest)
-		 WHERE ProductID = 3;
-
+		 FROM bodb02.dbo.SportBettypeMatrix
+		 WHERE ProductID = 3
+			  AND SportType = CASE
+							  WHEN @bettype = 0
+							  THEN SportType
+							  ELSE @SportType
+						   END;
 
     DECLARE @movebetdate    DATETIME
 		, @f_date         DATETIME
@@ -70,7 +73,6 @@ BEGIN
 			 ELSE
 		  SELECT @f_date = @fromdate;
 		  SELECT @t_date = @todate;
-
 
 		  INSERT INTO @RPT(eventdate
 					  , matchid
@@ -134,7 +136,6 @@ BEGIN
 			 ELSE
 		  SELECT @t_date = @movebetdate;
 		  SELECT @f_date = @fromdate;
-
 
 		  INSERT INTO @RPT(eventdate
 					  , matchid

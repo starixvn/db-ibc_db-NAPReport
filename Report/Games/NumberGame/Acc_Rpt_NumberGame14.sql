@@ -1,19 +1,20 @@
 ﻿/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
-USE [bodb02]
+
+USE [bodb02];
 GO
 
-ALTER PROCEDURE [dbo].[Acc_Rpt_NumberGame14]
-	@winlostdate datetime,
-    @SiteID	VARCHAR(8000) = '',
-    @Currency VARCHAR(8000) = '',
-	@LiveIndicator bit = NULL,
-	@TrialData	BIT = 0 -- 1 : Get trial data, 0 Don't get trial data
+ALTER PROCEDURE dbo.Acc_Rpt_NumberGame14
+	@winlostdate      DATETIME
+   , @SiteID           VARCHAR(8000) = ''
+   , @Currency         VARCHAR(8000) = ''
+   , @LiveIndicator    BIT           = NULL
+   , @TrialData        BIT           = 0 /* 1 : Get trial data, 0 Don't get trial data*/
 AS
 /*
 	Creator: Viet
 	Date: 2010-12-10
 	Task: Number Game WinLost Summary report
-	DB: DBRPT/bodb02
+	DB: DBACC.bodb02
 		
 	Revisions:
 		- 16Dec2010@Viet: Correct Turnover's value
@@ -44,111 +45,148 @@ AS
 			+ 0: Non-Live
 			+ 1: Live	  				
 */
-SET NOCOUNT ON
 
---DECLARE @tmpAg TABLE(custID INT PRIMARY KEY) 
-DECLARE	@tmpCurrency TABLE(currency INT)
-DECLARE	@tmpSite TABLE(siteid INT)
-
-CREATE TABLE #tmpAg(custID INT)
-
---CREATE INDEX IX_tmpAg_CustID ON #tmpAg(CustID)
-
-
-INSERT INTO @tmpCurrency
-	SELECT val
-	FROM strSPlit(@currency,',')
-	
-UPDATE @tmpCurrency
-SET currency = NULL
-WHERE currency = 0 -- ALL currency
-
-INSERT INTO @tmpSite
-	SELECT val 
-	FROM strSPlit(@siteid,',')
-
-IF @siteid = ''
-	INSERT INTO @tmpSite
-		SELECT -1 
-	
-DECLARE @tmpLscActive TABLE (
-		LicenseeID INT
-		,LicenseeName VARCHAR(100)
-		,FromDate SMALLDATETIME
-		,ToDate SMALLDATETIME
-		)
-
-INSERT INTO @tmpLscActive (
-	LicenseeID
-	,LicenseeName
-	,FromDate
-	,ToDate
-	)
-SELECT LicenseeID
-	,LicenseeName
-	,FromDate
-	,ToDate
-FROM dbo.[NAP_f_GetAffectedDateLicensee](1,@siteid,1, @winlostdate, @winlostdate, 1, 18, 3, 'NG', @TrialData)
-
-IF EXISTS (SELECT 1 FROM @tmpSite WHERE siteid = -1)--IBCGroup   
-BEGIN  	
-		INSERT INTO #tmpAg
-		SELECT custID FROM customer ci WITH (NOLOCK)
-		WHERE ci.custid NOT IN(SELECT custid from bodb_Licensee.dbo.LicenseeCust WITH (NOLOCK))
-			AND ci.roleid = 2
-			AND (@currency = '' OR ci.Currency IN (SELECT ISNULL(t.currency,ci.currency) FROM @tmpCurrency t))
-END  
-
-IF EXISTS( SELECT TOP 1 1 FROM @tmpLscActive WHERE licenseeID > 0)
---IF EXISTS( SELECT 1 FROM @tmpSite WHERE siteid > 0)--Licensee   
 BEGIN
-    INSERT INTO #tmpAg
-    SELECT custID FROM bodb_Licensee.dbo.LicenseeCust lc with (nolock) 
-    WHERE LicenseeID IN (SELECT licenseeID FROM @tmpLscActive WHERE licenseeID > 0)
-        AND roleid = 2
-        AND (@currency = '' OR lc.Currency IN (SELECT ISNULL(t.currency,lc.currency) FROM @tmpCurrency t))
-END    
--- only create index after inserting data to not affect performance when inserting
-CREATE INDEX IX_tmpAg_CustID ON #tmpAg(CustID)
+    SET NOCOUNT ON;
 
-/*
-IF EXISTS (SELECT 1 FROM @tmpSite WHERE SiteID = 0)-- ALL Site
-    SELECT		
-	        b.bettype bettype,
-	        sum((winlost-actual_stake)*actualrate) WinLost,
-	        sum((awinlost+mwinlost+swinlost)*actualrate) Position,
-	        sum(scomm*actualrate) Commission,	
-	        sum((winlost-actual_stake+awinlost+mwinlost+swinlost+scomm)*actualrate) LineTotal,
-	        sum((winlost-actual_stake+awinlost+mwinlost+swinlost+scomm)*virtualrate) VirtualLineTotal,
-	        sum((1-tpositiontaking)*stake*actualrate) Turnover
-    FROM	bettrans14 b WITH (NOLOCK)
-    WHERE	b.winlostdate = @winlostdate
-	        AND b.bettype BETWEEN 81 AND 120	
-	        AND b.ruben = 1		
-	        AND b.statusID not in (101,102,103,121)
-            AND b.Currency IN (SELECT ISNULL(t.currency,b.currency) FROM @tmpCurrency t)
-            and b.liveindicator = CASE  WHEN @LiveIndicator IS NULL THEN b.liveindicator ELSE @LiveIndicator END									
-    GROUP BY b.Bettype
-    ORDER BY b.Bettype
-ELSE
-*/
-    SELECT		
-	        b.bettype bettype,
-	        sum((winlost-actual_stake)*actualrate) WinLost,
-	        sum((awinlost+mwinlost+swinlost)*actualrate) Position,
-	        sum(scomm*actualrate) Commission,	
-	        sum((winlost-actual_stake+awinlost+mwinlost+swinlost+scomm)*actualrate) LineTotal,
-	        sum((winlost-actual_stake+awinlost+mwinlost+swinlost+scomm)*virtualrate) VirtualLineTotal,
-	        sum((1-tpositiontaking)*stake*actualrate) Turnover
-    FROM	bettrans14 b WITH (NOLOCK)
-    WHERE	b.winlostdate = @winlostdate
-	        AND b.bettype BETWEEN 81 AND 120		
-	        AND b.ruben = 1		
-	        AND b.statusID not in (101,102,103,121)
-	        AND recommend IN(SELECT custid FROM #tmpAg)
-	        and b.liveindicator = CASE  WHEN @LiveIndicator IS NULL THEN b.liveindicator ELSE @LiveIndicator END									
-    GROUP BY b.Bettype
-    ORDER BY b.Bettype
-    
-DROP TABLE #tmpAg
+    DECLARE @tmpCurrency TABLE(
+	    currency    INT);
+    DECLARE @tmpSite TABLE(
+	    siteid    INT);
 
+    CREATE TABLE #tmpAg(
+	    custID    INT);
+
+    INSERT INTO @tmpCurrency
+		 SELECT val
+		 FROM strSPlit
+			 (@currency, ',');
+
+    UPDATE @tmpCurrency
+		 SET
+			currency = NULL
+    WHERE currency = 0; /* ALL currency*/
+
+    INSERT INTO @tmpSite
+		 SELECT val
+		 FROM strSPlit
+			 (@siteid, ',');
+
+    IF @siteid = ''
+	   INSERT INTO @tmpSite
+			SELECT-1;
+
+    DECLARE @tmpLscActive TABLE(
+	    LicenseeID      INT
+	  , LicenseeName    VARCHAR(100)
+	  , FromDate        SMALLDATETIME
+	  , ToDate          SMALLDATETIME);
+
+    INSERT INTO @tmpLscActive(LicenseeID
+					   , LicenseeName
+					   , FromDate
+					   , ToDate)
+		 SELECT LicenseeID
+			 , LicenseeName
+			 , FromDate
+			 , ToDate
+		 FROM dbo.NAP_f_GetAffectedDateLicensee
+			 (1, @siteid, 1, @winlostdate, @winlostdate, 1, 18, 3, 'NG', @TrialData);
+
+    CREATE TABLE #Bettype(
+	    Bettype    SMALLINT);
+
+    INSERT INTO #Bettype(Bettype)
+		 SELECT DISTINCT
+			   sb.BetType
+		 FROM SportBettypeMatrix AS sb WITH (NOLOCK)
+		 WHERE ProductID = 3;
+
+    CREATE NONCLUSTERED INDEX IX_Bettype ON #Bettype(Bettype);
+
+    IF EXISTS
+		    (
+			   SELECT 1
+			   FROM @tmpSite
+			   WHERE siteid = -1
+		    )/*IBCGroup   */
+
+	   BEGIN
+		  INSERT INTO #tmpAg
+			    SELECT custID
+			    FROM customer AS ci WITH (NOLOCK)
+			    WHERE ci.custid NOT IN
+								  (
+									 SELECT custid
+									 FROM bodb_Licensee.dbo.LicenseeCust WITH (NOLOCK)
+								  )
+					AND ci.roleid = 2
+					AND
+					    (@currency = ''
+						OR ci.Currency IN
+									   (
+										  SELECT ISNULL(t.currency, ci.currency)
+										  FROM @tmpCurrency AS t
+									   ));
+	   END;
+
+    IF EXISTS
+		    (
+			   SELECT TOP 1 1
+			   FROM @tmpLscActive
+			   WHERE licenseeID > 0
+		    )
+
+	   BEGIN
+		  INSERT INTO #tmpAg
+			    SELECT custID
+			    FROM bodb_Licensee.dbo.LicenseeCust AS lc WITH (nolock)
+			    WHERE LicenseeID IN
+							    (
+								   SELECT licenseeID
+								   FROM @tmpLscActive
+								   WHERE licenseeID > 0
+							    )
+					AND roleid = 2
+					AND
+					    (@currency = ''
+						OR lc.Currency IN
+									   (
+										  SELECT ISNULL(t.currency, lc.currency)
+										  FROM @tmpCurrency AS t
+									   ));
+	   END;
+
+    CREATE INDEX IX_tmpAg_CustID ON #tmpAg(CustID);
+
+    SELECT b.bettype AS                                                                            bettype
+	    , SUM((winlost - actual_stake) * actualrate) AS                                           WinLost
+	    , SUM((awinlost + mwinlost + swinlost) * actualrate) AS                                   Position
+	    , SUM(scomm * actualrate) AS                                                              Commission
+	    , SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm) * actualrate) AS  LineTotal
+	    , SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm) * virtualrate) AS VirtualLineTotal
+	    , SUM((1 - tpositiontaking) * stake * actualrate) AS                                      Turnover
+    FROM bettrans14 AS b WITH (NOLOCK)
+	   INNER JOIN #Bettype AS bt ON b.bettype = bt.BetType
+    WHERE b.winlostdate = @winlostdate
+		AND b.ruben = 1
+		AND b.statusID NOT IN(101, 102, 103, 121)
+		AND recommend IN
+					  (
+						 SELECT custid FROM #tmpAg
+					  )
+		AND b.liveindicator = CASE
+							 WHEN @LiveIndicator IS NULL
+							 THEN b.liveindicator
+							 ELSE @LiveIndicator
+						  END
+    GROUP BY b.Bettype
+    ORDER BY b.Bettype;
+
+    DROP TABLE #tmpAg;
+    DROP TABLE #Bettype;
+END;
+GO
+
+GRANT EXECUTE ON dbo.Acc_Rpt_NumberGame14 TO [bodbAdminNet];
+GO

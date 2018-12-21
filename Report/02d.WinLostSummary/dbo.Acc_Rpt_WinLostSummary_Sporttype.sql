@@ -1357,6 +1357,7 @@ BEGIN
 		 , SortKey
     ORDER BY OrderKey
 		 , SortKey
+		 , sporttype
 		 , liveindicator;
     DROP TABLE #TempMatch;
     DROP TABLE #TempData;
