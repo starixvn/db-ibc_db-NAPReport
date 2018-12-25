@@ -1,11 +1,10 @@
 ﻿/*<info serverAlias="DBRPT-bodb_Report" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
 ALTER PROCEDURE dbo.Acc_Rpt_WinlostSummary_Sporttype_NG
-	@fromdate         DATETIME
-   , @todate           DATETIME
-   , @SportType        SMALLINT = 0
-   , @bettype          INT      = 0
-   , @liveindicator    BIT      = 0
+	@fromdate     DATETIME
+   , @todate       DATETIME
+   , @SportType    SMALLINT = 0
+   , @bettype      INT      = 0
 AS
 /*
         Created: Robert
@@ -95,7 +94,7 @@ BEGIN
 				    , matchcode
 				    , homeid
 				    , awayid
-				    , b.liveindicator
+				    , 0 AS liveindicator
 				    , b.bettype
 				    , m.leagueid
 				    , ISNULL(SUM(realWinlost), 0)
@@ -110,13 +109,6 @@ BEGIN
 				   INNER JOIN bodb02.dbo.match AS m WITH (NOLOCK) ON b.matchid = m.matchid
 				   INNER JOIN @SportBettype AS sb ON sb.Bettype = b.bettype
 			    WHERE winlostdate BETWEEN @f_date AND @t_date
-					AND CASE
-						   WHEN @bettype = 0
-						   THEN 1
-						   WHEN liveindicator = @liveindicator
-						   THEN 1
-						   ELSE 0
-					    END = 1
 					AND m.matchcode NOT LIKE '%hedge%'
 					AND B.IBC = 0
 			    GROUP BY eventdate
@@ -124,7 +116,6 @@ BEGIN
 					 , matchcode
 					 , homeid
 					 , awayid
-					 , liveindicator
 					 , b.bettype
 					 , leagueid
 					 , isNeutral;
@@ -158,7 +149,7 @@ BEGIN
 				    , matchcode
 				    , homeid
 				    , awayid
-				    , b.liveindicator
+				    , 0 AS liveindicator
 				    , b.bettype
 				    , m.leagueid
 				    , ISNULL(SUM(realWinlost), 0)
@@ -173,13 +164,6 @@ BEGIN
 				   INNER JOIN bodb02.dbo.match14 AS m WITH (NOLOCK) ON b.matchid = m.matchid
 				   INNER JOIN @SportBettype AS sb ON sb.Bettype = b.bettype
 			    WHERE winlostdate BETWEEN @f_date AND @t_date
-					AND CASE
-						   WHEN @bettype = 0
-						   THEN 1
-						   WHEN liveindicator = @liveindicator
-						   THEN 1
-						   ELSE 0
-					    END = 1
 					AND m.matchcode NOT LIKE '%hedge%'
 					AND B.IBC = 0
 			    GROUP BY eventdate
@@ -187,7 +171,6 @@ BEGIN
 					 , matchcode
 					 , homeid
 					 , awayid
-					 , liveindicator
 					 , b.bettype
 					 , leagueid
 					 , isNeutral;

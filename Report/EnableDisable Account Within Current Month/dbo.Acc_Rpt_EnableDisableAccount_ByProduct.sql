@@ -1,4 +1,4 @@
-/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
 ALTER PROCEDURE dbo.Acc_Rpt_EnableDisableAccount_ByProduct
 	@ListCurrency    VARCHAR(8000) = 'all'
@@ -31,6 +31,7 @@ AS
 		- 20171109@Kean: HotFix #86404 - List of Currencies is passed incorrectly
 		- 20180411@Franklin: Integrate Pragmatic (#92642)
 		- 20180831@Cherry: Integrate Poker Games into NAP Report (#97830)
+		- 20181219@Robert: NAP Report - Add new sporttype for Happy 5 (#104253) 
 
 	Param's Explanation:  
 	  + @ListCurrency: The specified date used as one of the filter criterias, if its value is 'all' then no need to be filtered by currency
@@ -68,7 +69,8 @@ BEGIN
     DECLARE @bitmapOrder TABLE(
 	    bitmapOrder    TINYINT); /* using for sporttype that has many settings*/
 
-    IF @SportType IN (211, 163)  -- Allbet, Poker Games
+    IF @SportType IN(211, 163)  /* Allbet, Poker Games*/
+
 	   BEGIN
 		  INSERT INTO @bitmapOrder(bitmapOrder)
 			    SELECT bitmapOrder
@@ -94,7 +96,7 @@ BEGIN
 			 , CASE
 				  WHEN @sportType = 151
 				  THEN ci.Disable151_AU&ci.Disable152_AU&ci.Disable152_UK&ci.Disable153_AU&ci.DisableHorseRacing&ci.DisableOpenTote
-				  WHEN @sportType = 161
+				  WHEN @sportType IN(161)
 				  THEN ci.DisableNumber
 				  WHEN @sportType = 202
 				  THEN CASE
@@ -120,7 +122,7 @@ BEGIN
 				  THEN ci.DisableSuperLive
 				  WHEN @sportType = 204
 				  THEN ci.DisableColossusBet
-				  WHEN @SportType IN (211, 163)
+				  WHEN @SportType IN(211, 163)
 				  THEN
 					  (
 						 SELECT CASE MIN(CONVERT(INT, f.value))
@@ -233,7 +235,7 @@ BEGIN
 											  AND ci.roleid = 1
 			    WHERE ci.Enabled = 1;
 	   END;
-    IF @sportType = 161
+    IF @sportType IN(161)
 	   BEGIN
 		  INSERT INTO #FiltedDownlineAcc
 			    SELECT sup.CustID
@@ -505,7 +507,7 @@ BEGIN
 	   END;
 /* Allbet, Macau Games, NG2, Poker Games*/
 
-    IF @sportType IN (211, 163)
+    IF @sportType IN(211, 163)
 	   BEGIN
 		  INSERT INTO #FiltedDownlineAcc
 			    SELECT sup.CustID
@@ -701,7 +703,4 @@ END;
 GO
 
 GRANT EXECUTE ON dbo.Acc_Rpt_EnableDisableAccount_ByProduct TO [bodbAdminNet] AS [dbo];
-GO
-
-GRANT VIEW DEFINITION ON dbo.Acc_Rpt_EnableDisableAccount_ByProduct TO [vnteam] AS [dbo];
 GO

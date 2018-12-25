@@ -1,11 +1,4 @@
-USE [bodb02]
-GO
-/****** Object:  StoredProcedure [dbo].[Acc_Rpt_BetCount_ByProduct_Super]    Script Date: 11/10/2017 9:34:58 AM ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-/****** Object:  Stored Procedure dbo.Acc_Rpt_BetCount_ByProduct_Super    Script Date: 10/31/2017 10:25:16 AM ******/
+/*<info serverAlias="DBAGE-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
  
 ALTER PROCEDURE [dbo].[Acc_Rpt_BetCount_ByProduct_Super]
 	@MoveBetsDay	SMALLDATETIME,
@@ -44,6 +37,7 @@ AS
 		- 2018.03.19@Franklin: Integrate  ONE RNG Jackpot (#91712)
 		- 20180411@Franklin: Integrate Pragmatic (#92642)
 		- 20180816@Cherry: Integrate Poker Games (#97830)
+		- 20181219@Robert: NAP Report - Add new sporttype for Happy 5 (#104253) 
 	Param's Explanation:  
 	  + @MoveBetsDay: The day of moving bets to battrans14
 	  + @BalanceUpDay: The day of moving bets to battransbk
@@ -105,6 +99,7 @@ BEGIN
 		AND (
 			b.bettype BETWEEN 31 AND CASE WHEN @sportType=151 THEN 49 ELSE 0 END
 			OR b.bettype BETWEEN 81 AND (CASE WHEN @sportType=161 THEN 120 ELSE 0 END)
+			OR b.bettype BETWEEN 8101 AND (CASE WHEN @sportType=161 THEN 8120 ELSE 0 END)
 			OR b.bettype BETWEEN 1101 AND (CASE WHEN @sportType=162 THEN 1199 ELSE 0 END)			
 			OR b.bettype BETWEEN 801 AND (CASE WHEN @sportType= -1 AND b.StatusID <> 0 THEN 806 ELSE 0 END)
 			OR b.bettype BETWEEN 1501 AND (CASE WHEN @sportType=202 AND b.StatusID <> 0 THEN 1599 ELSE 0 END)
@@ -182,6 +177,7 @@ BEGIN
 						AND (
 							b.bettype BETWEEN 31 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' =151 THEN 49 ELSE 0 END
 							OR b.bettype BETWEEN 81 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' =161 THEN 120 ELSE 0 END)
+							OR b.bettype BETWEEN 8101 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' =161 THEN 8120 ELSE 0 END)
 							OR b.bettype BETWEEN 1101 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' =162 THEN 1199 ELSE 0 END)
 							OR (' + CONVERT(VARCHAR(5),@sportType) +' = 251 AND (b.bettype BETWEEN 2101 AND 2399 OR b.bettype BETWEEN 2901 AND 2999)) --RNG Casino
 							OR b.bettype BETWEEN 801 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' = -1 THEN 806 ELSE 0 END)
@@ -227,7 +223,7 @@ BEGIN
 		FROM dbo.custInfo ci WITH(NOLOCK)
 		JOIN #AvailableMember av ON av.CustID = ci.custid                 
 	END
-	IF @sportType = 161
+	IF @sportType IN (161)
     BEGIN            
 		INSERT INTO #FiltedDownlineAcc
 		SELECT ci.custid,
@@ -342,7 +338,6 @@ BEGIN
 
 END
 GO 
-GRANT VIEW DEFINITION ON [dbo].[Acc_Rpt_BetCount_ByProduct_Super] TO [vnteam]
-GO 
+
 GRANT EXECUTE ON [dbo].[Acc_Rpt_BetCount_ByProduct_Super] TO [bodbAdminNet]
 GO

@@ -55,7 +55,6 @@ BEGIN
 	    currency    INT);
     DECLARE @tmpSite TABLE(
 	    siteid    INT);
-
     DECLARE @licenseeCnt_db    INT
 		, @licencseeCnt      INT;
 
@@ -105,15 +104,16 @@ BEGIN
 
     CREATE NONCLUSTERED INDEX IX_Bettype ON #Bettype(Bettype);
 
-
     CREATE TABLE #supers(
 	    custID    INT);
+
     IF EXISTS
 		    (
 			   SELECT 1
 			   FROM @tmpSite
 			   WHERE siteid = -1
-		    )/*IBCGroup   */
+		    ) /*IBCGroup   */
+
 
 	   BEGIN
 		  INSERT INTO #supers(custID)
@@ -143,8 +143,8 @@ BEGIN
 	   BEGIN
 		  INSERT INTO #supers(custID)
 			    SELECT s.custid
-			    FROM dbo.Dep_CustSuper AS s WITH (nolock)
-				   INNER JOIN bodb_Licensee.dbo.Licensees AS l WITH (nolock) ON s.site = l.licenseename
+			    FROM dbo.Dep_CustSuper AS s WITH (NOLOCK)
+				   INNER JOIN bodb_Licensee.dbo.Licensees AS l WITH (NOLOCK) ON s.site = l.licenseename
 			    WHERE
 				    (@currency = ''
 					OR currency IN
@@ -169,8 +169,7 @@ BEGIN
 	    , SUM((1 - tpositiontaking) * stake * actualrate) AS                                      Turnover
     FROM dbo.bettrans AS b WITH (NOLOCK)
 	   INNER JOIN #Bettype AS bt ON b.bettype = bt.Bettype
-	   INNER JOIN dbo.match AS m WITH (nolock) ON b.matchid = m.matchid
-										 AND m.sporttype = 161
+	   INNER JOIN dbo.match AS m WITH (NOLOCK) ON b.matchid = m.matchid									
 										 AND m.eventdate = @winlostdate
     WHERE b.ruben = 1
 		AND b.statusID NOT IN(101, 102, 103, 121)
@@ -188,8 +187,8 @@ BEGIN
     ORDER BY bt.SportType
 		 , b.Bettype;
 
-
     DROP TABLE #supers;
+
     DROP TABLE #Bettype;
 END;
 GO

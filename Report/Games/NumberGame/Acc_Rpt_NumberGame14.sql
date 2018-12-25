@@ -29,6 +29,7 @@ AS
 		- 20150319@Tom: Get Data by Effective Licensee (#31687)
 		- 20180301@Kean: Missing number game data of some licensee (91266)
 		- 20181031@Percy: Remove linked-server DBLIC [RedmineID: #103660]
+		- 20181219@Robert: NAP Report - Add new sporttype for Happy 5 (#104253) 
 
     Param usage:
 		- @SiteID:
@@ -94,11 +95,14 @@ BEGIN
 			 (1, @siteid, 1, @winlostdate, @winlostdate, 1, 18, 3, 'NG', @TrialData);
 
     CREATE TABLE #Bettype(
-	    Bettype    SMALLINT);
+	    SportType    SMALLINT
+	  , Bettype      SMALLINT);
 
-    INSERT INTO #Bettype(Bettype)
+    INSERT INTO #Bettype(SportType
+				   , Bettype)
 		 SELECT DISTINCT
-			   sb.BetType
+			   sb.SportType
+			 , sb.BetType
 		 FROM SportBettypeMatrix AS sb WITH (NOLOCK)
 		 WHERE ProductID = 3;
 
@@ -159,7 +163,8 @@ BEGIN
 
     CREATE INDEX IX_tmpAg_CustID ON #tmpAg(CustID);
 
-    SELECT b.bettype AS                                                                            bettype
+    SELECT bt.SportType
+	    , b.bettype AS                                                                            bettype
 	    , SUM((winlost - actual_stake) * actualrate) AS                                           WinLost
 	    , SUM((awinlost + mwinlost + swinlost) * actualrate) AS                                   Position
 	    , SUM(scomm * actualrate) AS                                                              Commission
@@ -180,7 +185,8 @@ BEGIN
 							 THEN b.liveindicator
 							 ELSE @LiveIndicator
 						  END
-    GROUP BY b.Bettype
+    GROUP BY bt.SportType
+		 , b.Bettype
     ORDER BY b.Bettype;
 
     DROP TABLE #tmpAg;

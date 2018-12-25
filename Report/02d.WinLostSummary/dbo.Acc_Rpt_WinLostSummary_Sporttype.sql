@@ -303,7 +303,11 @@ BEGIN
 					  THEN b.bettype
 					  ELSE 19999
 				   END AS                              bettype
-				 , b.liveindicator
+				 , CASE
+					  WHEN s.ProductID = 3
+					  THEN 0
+					  ELSE b.liveindicator
+				   END AS                              liveindicator
 				 , ibc
 				 , CASE
 					  WHEN m.matchcode LIKE '%Hedge%'
@@ -346,7 +350,11 @@ BEGIN
 					    THEN b.bettype
 					    ELSE 19999
 					END
-				   , b.liveindicator
+				   , CASE
+					    WHEN s.ProductID = 3
+					    THEN 0
+					    ELSE b.liveindicator
+					END
 				   , ibc
 				   , CASE
 					    WHEN b.bettype IN(1, 3, 7, 8)
