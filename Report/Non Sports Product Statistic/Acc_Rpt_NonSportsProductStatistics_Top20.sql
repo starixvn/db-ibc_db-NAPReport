@@ -554,7 +554,7 @@ BEGIN
 			b.srecommend,
 			b.mrecommend,
 			b.recommend,
-			CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END AS custid,
+			b.custid,
 			b.bettype,
 			COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS BetCount,
 			b.currency CurrencyID,
@@ -586,7 +586,7 @@ BEGIN
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) 
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
 			)			
-		GROUP BY b.srecommend, b.mrecommend, b.recommend, CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END, b.bettype, b.currency
+		GROUP BY b.srecommend, b.mrecommend, b.recommend, b.custid, b.bettype, b.currency
 	
 		INSERT INTO #tmp_bettrans
 		(
@@ -616,7 +616,7 @@ BEGIN
 			b.srecommend,
 			b.mrecommend,
 			b.recommend,
-			CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END AS custid,
+			b.custid,
 			b.gameID,
 			COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS BetCount,
 			b.currency CurrencyID,
@@ -647,7 +647,7 @@ BEGIN
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) 
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
 			)			
-		GROUP BY b.srecommend, b.mrecommend, b.recommend, CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END, b.gameID, b.currency
+		GROUP BY b.srecommend, b.mrecommend, b.recommend, b.custid, b.gameID, b.currency
 		
 		INSERT INTO #tmp_bettrans
 		(
@@ -677,7 +677,7 @@ BEGIN
 			b.srecommend,
 			b.mrecommend,
 			b.recommend,
-			CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END AS custid,
+			b.custid,
 			b.gameID,
 			0 AS BetCount,
 			b.currency CurrencyID,
@@ -708,7 +708,7 @@ BEGIN
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) 
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
 			)			
-		GROUP BY b.srecommend, b.mrecommend, b.recommend, CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END, b.gameID, b.currency
+		GROUP BY b.srecommend, b.mrecommend, b.recommend, b.custid, b.gameID, b.currency
 		
 		INSERT INTO #tmp_bettrans
 		(
@@ -738,7 +738,7 @@ BEGIN
 			b.srecommend,
 			b.mrecommend,
 			b.recommend,
-			CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END AS custid,
+			b.custid,
 			b.gameID,
 			COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS BetCount,
 			b.currency CurrencyID,
@@ -769,7 +769,7 @@ BEGIN
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) 
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
 			)			
-		GROUP BY b.srecommend, b.mrecommend, b.recommend, CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END, b.gameID, b.currency
+		GROUP BY b.srecommend, b.mrecommend, b.recommend, b.custid, b.gameID, b.currency
 		
 	END
 	
@@ -804,7 +804,7 @@ BEGIN
 			b.srecommend,
 			b.mrecommend,
 			b.recommend,
-			CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END AS custid,
+			b.custid,
 			b.bettype,
 			SUM(CASE WHEN b.statusID IN (111, 112, 113) THEN b.betid ELSE 0 END) AS BetCount,
 			b.currency CurrencyID,
@@ -836,7 +836,7 @@ BEGIN
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) 
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
 			)			
-		GROUP BY b.srecommend, b.mrecommend, b.recommend, CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END, b.bettype, b.currency
+		GROUP BY b.srecommend, b.mrecommend, b.recommend, b.custid, b.bettype, b.currency
 	END
 	
 	-- Number Game
@@ -870,7 +870,7 @@ BEGIN
 			b.srecommend,
 			b.mrecommend,
 			b.recommend,
-			CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END AS custid,
+			b.custid,
 			b.bettype,
 			COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS BetCount,
 			b.currency CurrencyID,
@@ -903,7 +903,7 @@ BEGIN
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) 
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
 			)			
-		GROUP BY b.srecommend, b.mrecommend, b.recommend, CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END, b.bettype, b.currency
+		GROUP BY b.srecommend, b.mrecommend, b.recommend, b.custid, b.bettype, b.currency
 	END
 	
 	-- Live Casino
@@ -937,7 +937,7 @@ BEGIN
 			b.srecommend,
 			b.mrecommend,
 			b.recommend,
-			CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END AS custid,
+			b.custid,
 			b.bettype,
 			COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS BetCount,
 			b.currency CurrencyID,
@@ -970,7 +970,7 @@ BEGIN
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) 
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
 			)			
-		GROUP BY b.srecommend, b.mrecommend, b.recommend, CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END, b.bettype, b.currency
+		GROUP BY b.srecommend, b.mrecommend, b.recommend, b.custid, b.bettype, b.currency
 	END
 	
 	-- Virtual Sports
@@ -1004,7 +1004,7 @@ BEGIN
 			b.srecommend,
 			b.mrecommend,
 			b.recommend,
-			CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END AS custid,
+			b.custid,
 			b.bettype,
 			COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS BetCount,
 			b.currency CurrencyID,
@@ -1037,7 +1037,7 @@ BEGIN
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) 
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
 			)			
-		GROUP BY b.srecommend, b.mrecommend, b.recommend, CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END, b.bettype, b.currency
+		GROUP BY b.srecommend, b.mrecommend, b.recommend, b.custid, b.bettype, b.currency
 		
 		INSERT INTO #tmp_bettrans
 		(
@@ -1067,7 +1067,7 @@ BEGIN
 			b.srecommend,
 			b.mrecommend,
 			b.recommend,
-			CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END AS custid,
+			b.custid,
 			b.bettype,
 			COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS BetCount,
 			b.currency CurrencyID,
@@ -1101,7 +1101,7 @@ BEGIN
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) 
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
 			)			
-		GROUP BY b.srecommend, b.mrecommend, b.recommend, CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END, b.bettype, b.currency
+		GROUP BY b.srecommend, b.mrecommend, b.recommend, b.custid, b.bettype, b.currency
 	END
 	
 	-- Virtual Sports 2
@@ -1141,7 +1141,7 @@ BEGIN
 			b.srecommend,
 			b.mrecommend,
 			b.recommend,
-			CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END AS custid,
+			b.custid,
 			b.bettype,
 			COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS BetCount,
 			b.currency CurrencyID,
@@ -1174,7 +1174,7 @@ BEGIN
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) 
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
 			)			
-		GROUP BY b.srecommend, b.mrecommend, b.recommend, CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END, b.bettype, b.currency
+		GROUP BY b.srecommend, b.mrecommend, b.recommend, b.custid, b.bettype, b.currency
 		
 		INSERT INTO #tmp_bettrans
 		(
@@ -1204,7 +1204,7 @@ BEGIN
 			b.srecommend,
 			b.mrecommend,
 			b.recommend,
-			CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END AS custid,
+			b.custid,
 			b.bettype,
 			COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS BetCount,
 			b.currency CurrencyID,
@@ -1237,7 +1237,7 @@ BEGIN
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) 
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
 			)			
-		GROUP BY b.srecommend, b.mrecommend, b.recommend, CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END, b.bettype, b.currency
+		GROUP BY b.srecommend, b.mrecommend, b.recommend, b.custid, b.bettype, b.currency
 	END
 
 	-- Get data
