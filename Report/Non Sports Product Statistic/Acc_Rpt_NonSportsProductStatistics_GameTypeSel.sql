@@ -46,8 +46,8 @@ SET NOCOUNT ON
 			leaguename as TypeName,
 			IsTest,
 			3 AS GameType
-	FROM	dbo.league WITH (NOLOCK)
-	WHERE	sporttype IN (161, 164) 
+	FROM	dbo.league l WITH (NOLOCK)
+	WHERE	EXISTS (SELECT TOP 1 1 FROM dbo.SportBettypeMatrix s (NOLOCK) WHERE l.sporttype = s.SportType AND s.ProductID = 3)
 		 
 	--- ProductID = 5, 27, 23 - Virtual Sports, Virtual Sports, NG2 get Sporttype
 	INSERT INTO #SportBettype (ProductId, TypeId, TypeName, GameType)
