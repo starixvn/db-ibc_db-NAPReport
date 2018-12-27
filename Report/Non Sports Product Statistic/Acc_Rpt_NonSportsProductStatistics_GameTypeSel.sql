@@ -8,14 +8,15 @@ AS
 	DB: DBACC/bodb02
  
 	Revisions:	
-		- 20170215@Percy: Integrate Fishing World [RedmineID: #71616]
-		- 20170626@Cherry: Integrate Keno Lottery and Betradar Virtual Sports (#78184, #78495)
-		- 20170926@Cherry: Integrate Lucky 3 (#83101)
-		- 20171003@Cherry: Add Number Game Bettype (#83101)
-		- 20171116@Cherry: Integrate Bullfighting (#85946)
-		- 20180116@Cherry: Integrate OneRNG Jackpot, except bettype (2199, 2399, 2999)
-		- 20180808@Cherry: Integrate Poker Games (#97809)
-		- 20181004@Cherry: Integrate ColosusBet and NG2 (#102229)
+		20170215@Percy: Integrate Fishing World [RedmineID: #71616]
+		20170626@Cherry: Integrate Keno Lottery and Betradar Virtual Sports (#78184, #78495)
+		20170926@Cherry: Integrate Lucky 3 (#83101)
+		20171003@Cherry: Add Number Game Bettype (#83101)
+		20171116@Cherry: Integrate Bullfighting (#85946)
+		20180116@Cherry: Integrate OneRNG Jackpot, except bettype (2199, 2399, 2999)
+		20180808@Cherry: Integrate Poker Games (#97809)
+		20181004@Cherry: Integrate ColosusBet and NG2 (#102229)
+		20181130@Cherry: Integrate Happy 5 (#103498)
 */
  
 BEGIN
@@ -45,8 +46,8 @@ SET NOCOUNT ON
 			leaguename as TypeName,
 			IsTest,
 			3 AS GameType
-	FROM	dbo.league WITH (NOLOCK)
-	WHERE	sporttype = 161 
+	FROM	dbo.league l WITH (NOLOCK)
+	WHERE	EXISTS (SELECT TOP 1 1 FROM dbo.SportBettypeMatrix s (NOLOCK) WHERE l.sporttype = s.SportType AND s.ProductID = 3)
 		 
 	--- ProductID = 5, 27, 23 - Virtual Sports, Virtual Sports, NG2 get Sporttype
 	INSERT INTO #SportBettype (ProductId, TypeId, TypeName, GameType)
