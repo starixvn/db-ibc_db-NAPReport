@@ -21,10 +21,7 @@ AS
 */
 
      SET NOCOUNT ON;
-         BEGIN 
-
-/* #Agent*/
-
+         BEGIN -- #Agent
 
              CREATE TABLE #Agent
                           (CustId INT
@@ -60,10 +57,8 @@ AS
 );
                  END;
          END;
-         BEGIN
-
-/*----Get Sport Bettype Matrix------
-         Check SP Version	 */
+         BEGIN --Get Sport Bettype Matrix
+         -- Check SP Version	 
 
              DECLARE @isTest BIT= 0;
              SELECT @isTest = dbo.f_CheckSPVersion(@@PROCID);
@@ -74,13 +69,8 @@ AS
                   INNER JOIN dbo.SportBettypeMatrix AS t WITH (NOLOCK) ON t.BetType = s.BetType
                                                                           AND t.ProductId = s.ProductId
              WHERE s.bettype = @BetType;
-
-/*- End Sport Bettype Matrix------*/
-
          END;
-         BEGIN 
-
-/*-- Extra PT */
+         BEGIN -- Extra PT
 
              CREATE TABLE #ExtraPT_Sel
                           (SuperID   INT,
@@ -101,9 +91,7 @@ AS
                     GROUP BY SuperId,
                              a.Sporttype;
          END;
-         BEGIN 
-
-/* Query*/
+         BEGIN  -- Query
 
 
              SELECT Site AS RowName,
