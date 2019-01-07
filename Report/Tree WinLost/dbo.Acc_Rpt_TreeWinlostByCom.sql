@@ -39,6 +39,7 @@ Revisions:
 	- 20180504@Dominic: Apply new VR concepts - Redminde:#94213
 	- 20180711@Robert: NAP Report - Add Cash Out & Bettrade into Tree Win Loss report [RedmindID: #98005]
 	- 20480815@Robert: Integrate Poker Games into NAP Report [RedmindID: #97830]
+	- 20190107@Kean: Use NoLock hint to bettransRNG and bettransLC [RedmindID: #107415]
 */
 
 BEGIN
@@ -321,7 +322,7 @@ BEGIN
 						 THEN 0
 						 ELSE scomm * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 8)) / (1 - tpositiontaking)
 					  END * actualrate) AS DECIMAL(19, 6)) AS           ExtraComm_RM
-		 FROM bettransRNG AS b WITH (ROWLOCK)
+		 FROM bettransRNG AS b WITH (NOLOCK)
 			INNER JOIN #tmpBettype AS t ON t.bettype = b.gameID
 			INNER JOIN #ProductBettype AS pb ON pb.Bettype = b.gameID
 			LEFT JOIN #ExtraPT AS expt ON expt.SuperID = b.srecommend
@@ -476,7 +477,7 @@ BEGIN
 						 THEN 0
 						 ELSE scomm * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 8)) / (1 - tpositiontaking)
 					  END * actualrate) AS DECIMAL(19, 6)) AS                               ExtraComm_RM
-		 FROM bettransLC AS b WITH (ROWLOCK)
+		 FROM bettransLC AS b WITH (NOLOCK)
 			INNER JOIN #tmpBettype AS t ON t.bettype = b.gameID
 			INNER JOIN #ProductBettype AS pb ON pb.Bettype = b.gameID
 			LEFT JOIN #ExtraPT AS expt ON expt.SuperID = b.srecommend
