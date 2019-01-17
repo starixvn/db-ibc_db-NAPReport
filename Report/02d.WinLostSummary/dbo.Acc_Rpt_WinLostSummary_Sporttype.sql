@@ -39,6 +39,7 @@ AS
 		  - 20171110@Robert: NAP Reports - Integrate Bullfighting [RedmindID: #85383]
 		  - 2018.02.27@Tom: Integrate Colossus Bets - Free Play Integration (#90774)
 		  - 20181219@Robert: NAP Report - Add new sporttype for Happy 5 (#104253) 
+		  - 20190117@Robert: Video Poker - Integrate into NAP Reports (#107706)
 
         Parameter's Explanation:
 
@@ -296,38 +297,38 @@ BEGIN
 					  WHEN 'MG-SuperLive'
 					  THEN-1
 					  ELSE b.sporttype
-				   END AS                              sporttype
+				   END AS sporttype
 				 , CASE
 					  WHEN b.bettype IN(1, 3, 7, 8, 301, 302, 303, 304)
 						  OR b.bettype BETWEEN 801 AND 899
 					  THEN b.bettype
 					  ELSE 19999
-				   END AS                              bettype
+				   END AS bettype
 				 , CASE
 					  WHEN s.ProductID = 3
 					  THEN 0
 					  ELSE b.liveindicator
-				   END AS                              liveindicator
+				   END AS liveindicator
 				 , ibc
 				 , CASE
 					  WHEN m.matchcode LIKE '%Hedge%'
 					  THEN 1
 					  ELSE 0
-				   END AS                              IsHedge
-				 , '' AS                               status
+				   END AS IsHedge
+				 , '' AS status
 				 , CASE s.SubProduct
 					  WHEN 'MG-SuperLive'
 					  THEN 2
 					  ELSE 1
-				   END AS                              OrderKey
+				   END AS OrderKey
 				 , s.SortKey
-				 , ISNULL(SUM(realWinlost), 0) AS      realWinlost
-				 , ISNULL(SUM(realPosition), 0) AS     realPosition
-				 , ISNULL(SUM(realcommission), 0) AS   realCommission
-				 , ISNULL(SUM(realLineTotal), 0) AS    realLineTotal
+				 , ISNULL(SUM(realWinlost), 0) AS realWinlost
+				 , ISNULL(SUM(realPosition), 0) AS realPosition
+				 , ISNULL(SUM(realcommission), 0) AS realCommission
+				 , ISNULL(SUM(realLineTotal), 0) AS realLineTotal
 				 , ISNULL(SUM(virtualLineTotal), 0) AS virtualLineTotal
-				 , ISNULL(SUM(realTurnover), 0) AS     realTurnover
-				 , ISNULL(SUM(virtualTurnover), 0) AS  virtualTurnover
+				 , ISNULL(SUM(realTurnover), 0) AS realTurnover
+				 , ISNULL(SUM(virtualTurnover), 0) AS virtualTurnover
 			 FROM dbo.rptWinlost AS b WITH (NOLOCK)
 				INNER JOIN CTE_bettype_eventtype ON CTE_bettype_eventtype.BetTypeID = b.bettype
 				INNER JOIN #TempMatch AS m ON m.matchid = b.matchid
@@ -396,25 +397,25 @@ BEGIN
 					    , realTurnover
 					    , virtualTurnover)
 /* bettrade*/
-			 SELECT-2 AS                               sporttype
-				, 903 AS                              bettype
-				, 1 AS                                liveindicator
+			 SELECT-2 AS sporttype
+				, 903 AS bettype
+				, 1 AS liveindicator
 				, ibc
 				, CASE
 					 WHEN ISNULL(m.matchcode, '') LIKE '%Hedge%'
 					 THEN 1
 					 ELSE 0
-				  END AS                              IsHedge
-				, '' AS                               status
-				, 15 AS                               OrderKey
+				  END AS IsHedge
+				, '' AS status
+				, 15 AS OrderKey
 				, s.SortKey
-				, ISNULL(SUM(realWinlost), 0) AS      realWinlost
-				, ISNULL(SUM(realPosition), 0) AS     realPosition
-				, ISNULL(SUM(realcommission), 0) AS   realCommission
-				, ISNULL(SUM(realLineTotal), 0) AS    realLineTotal
+				, ISNULL(SUM(realWinlost), 0) AS realWinlost
+				, ISNULL(SUM(realPosition), 0) AS realPosition
+				, ISNULL(SUM(realcommission), 0) AS realCommission
+				, ISNULL(SUM(realLineTotal), 0) AS realLineTotal
 				, ISNULL(SUM(virtualLineTotal), 0) AS virtualLineTotal
-				, ISNULL(SUM(realTurnover), 0) AS     realTurnover
-				, ISNULL(SUM(virtualTurnover), 0) AS  virtualTurnover
+				, ISNULL(SUM(realTurnover), 0) AS realTurnover
+				, ISNULL(SUM(virtualTurnover), 0) AS virtualTurnover
 			 FROM dbo.rptWinlost AS b WITH (NOLOCK)
 				INNER JOIN CTE_bettype_eventtype ON CTE_bettype_eventtype.BetTypeID = b.bettype
 				LEFT JOIN #TempMatch AS m ON m.matchid = b.matchid
@@ -447,14 +448,14 @@ BEGIN
 				    , realTurnover
 				    , virtualTurnover)
 /*Casino*/
-		 SELECT 251 AS                           sporttype
-			 , 71 AS                            bettype
-			 , 0 AS                             liveindicator
-			 , 0 AS                             ibc
-			 , 0 AS                             IsHedge
-			 , '' AS                            status
-			 , 5 AS                             OrderKey
-			 , 17 AS                            SortKey
+		 SELECT 251 AS sporttype
+			 , 71 AS bettype
+			 , 0 AS liveindicator
+			 , 0 AS ibc
+			 , 0 AS IsHedge
+			 , '' AS status
+			 , 5 AS OrderKey
+			 , 17 AS SortKey
 			 , ISNULL(SUM(realWinlost), 0)
 			 , ISNULL(SUM(realPosition), 0)
 			 , ISNULL(SUM(realCommission), 0)
@@ -464,12 +465,12 @@ BEGIN
 						   WHEN b.bettype = 71
 						   THEN 0
 						   ELSE realTurnover
-					    END), 0) AS           realTurnover
+					    END), 0) AS realTurnover
 			 , ISNULL(SUM(CASE
 						   WHEN b.bettype = 71
 						   THEN 0
 						   ELSE realTurnover
-					    END), 0) AS           virtualTurnover
+					    END), 0) AS virtualTurnover
 		 FROM dbo.rptWinlost AS b WITH (NOLOCK)
 			INNER JOIN @SportBettype AS s ON s.Bettype = b.bettype
 									   AND b.liveindicator = s.liveindicator
@@ -491,21 +492,21 @@ BEGIN
 				    , realTurnover
 				    , virtualTurnover)
 /*Bingo*/
-		 SELECT 252 AS                           sporttype
+		 SELECT 252 AS sporttype
 			 , b.bettype
-			 , 0 AS                             liveindicator
-			 , 0 AS                             ibc
-			 , 0 AS                             IsHedge
-			 , '' AS                            status
-			 , 6 AS                             OrderKey
-			 , 17 AS                            SortKey
+			 , 0 AS liveindicator
+			 , 0 AS ibc
+			 , 0 AS IsHedge
+			 , '' AS status
+			 , 6 AS OrderKey
+			 , 17 AS SortKey
 			 , ISNULL(SUM(realWinlost), 0)
 			 , ISNULL(SUM(realPosition), 0)
 			 , ISNULL(SUM(realCommission), 0)
 			 , ISNULL(SUM(realLineTotal), 0)
 			 , ISNULL(SUM(realLineTotal), 0) AS virtualLineTotal
-			 , 0 AS                             realTurnover
-			 , NULL AS                          virtualTurnover
+			 , 0 AS realTurnover
+			 , NULL AS virtualTurnover
 		 FROM dbo.rptWinlost AS b WITH (NOLOCK)
 			INNER JOIN @SportBettype AS s ON s.Bettype = b.bettype
 									   AND b.liveindicator = s.liveindicator
@@ -528,21 +529,21 @@ BEGIN
 				    , realTurnover
 				    , virtualTurnover)
 /*Live casino*/
-		 SELECT 162 AS                           sporttype
+		 SELECT 162 AS sporttype
 			 , b.bettype
-			 , 0 AS                             liveindicator
-			 , 0 AS                             ibc
-			 , 0 AS                             IsHedge
-			 , '' AS                            status
-			 , 8 AS                             OrderKey
-			 , 17 AS                            SortKey
+			 , 0 AS liveindicator
+			 , 0 AS ibc
+			 , 0 AS IsHedge
+			 , '' AS status
+			 , 8 AS OrderKey
+			 , 17 AS SortKey
 			 , ISNULL(SUM(realWinlost), 0)
 			 , ISNULL(SUM(realPosition), 0)
 			 , ISNULL(SUM(realCommission), 0)
 			 , ISNULL(SUM(realLineTotal), 0)
 			 , ISNULL(SUM(realLineTotal), 0) AS virtualLineTotal
 			 , ISNULL(SUM(realTurnover), 0)
-			 , ISNULL(SUM(realTurnover), 0) AS  virtualTurnover
+			 , ISNULL(SUM(realTurnover), 0) AS virtualTurnover
 		 FROM dbo.rptWinlost AS b WITH (NOLOCK)
 			INNER JOIN @SportBettype AS s ON s.Bettype = b.bettype
 									   AND b.liveindicator = s.liveindicator
@@ -565,12 +566,12 @@ BEGIN
 				    , realTurnover
 				    , virtualTurnover)
 		 SELECT 97 /* mix parlay*/
-			 , 9 AS  bettype
-			 , 0 AS  liveindicator
-			 , 0 AS  ibc
-			 , 0 AS  IsHedge
+			 , 9 AS bettype
+			 , 0 AS liveindicator
+			 , 0 AS ibc
+			 , 0 AS IsHedge
 			 , status
-			 , 3 AS  OrderKey
+			 , 3 AS OrderKey
 			 , 17 AS SortKey
 			 , ISNULL(SUM(realWinlost), 0)
 			 , ISNULL(SUM(realPosition), 0)
@@ -603,11 +604,11 @@ BEGIN
 				    , virtualTurnover)
 		 SELECT 98 /*system parlay*/
 			 , 29 AS bettype
-			 , 0 AS  liveindicator
-			 , 0 AS  ibc
-			 , 0 AS  IsHedge
+			 , 0 AS liveindicator
+			 , 0 AS ibc
+			 , 0 AS IsHedge
 			 , status
-			 , 4 AS  OrderKey
+			 , 4 AS OrderKey
 			 , 17 AS SortKey
 			 , ISNULL(SUM(realWinlost), 0)
 			 , ISNULL(SUM(realPosition), 0)
@@ -638,20 +639,20 @@ BEGIN
 				    , virtualTurnover)
 /*racing*/
 		 SELECT sporttype
-			 , 0 AS                             bettype
-			 , 0 AS                             liveindicator
-			 , 0 AS                             ibc
-			 , 0 AS                             IsHedge
-			 , '' AS                            status
-			 , 14 AS                            OrderKey
-			 , 17 AS                            SortKey
+			 , 0 AS bettype
+			 , 0 AS liveindicator
+			 , 0 AS ibc
+			 , 0 AS IsHedge
+			 , '' AS status
+			 , 14 AS OrderKey
+			 , 17 AS SortKey
 			 , ISNULL(SUM(realWinlost), 0)
 			 , ISNULL(SUM(realPosition), 0)
 			 , ISNULL(SUM(realCommission), 0)
 			 , ISNULL(SUM(realLineTotal), 0)
 			 , ISNULL(SUM(realLineTotal), 0) AS virtualLineTotal
-			 , 0 AS                             realTurnover
-			 , 0 AS                             virtualTurnover
+			 , 0 AS realTurnover
+			 , 0 AS virtualTurnover
 		 FROM rptWinlost AS b WITH (NOLOCK)
 			INNER JOIN @SportBettype AS s ON s.Bettype = b.bettype
 									   AND b.liveindicator = s.liveindicator
@@ -675,20 +676,20 @@ BEGIN
 				    , virtualTurnover)
 /*virtual sports*/
 		 SELECT sporttype
-			 , 0 AS                             bettype
-			 , 0 AS                             liveindicator
-			 , 0 AS                             ibc
-			 , 0 AS                             IsHedge
-			 , '' AS                            status
-			 , 15 AS                            OrderKey
-			 , 17 AS                            SortKey
+			 , 0 AS bettype
+			 , 0 AS liveindicator
+			 , 0 AS ibc
+			 , 0 AS IsHedge
+			 , '' AS status
+			 , 15 AS OrderKey
+			 , 17 AS SortKey
 			 , ISNULL(SUM(realWinlost), 0)
 			 , ISNULL(SUM(realPosition), 0)
 			 , ISNULL(SUM(realCommission), 0)
 			 , ISNULL(SUM(realLineTotal), 0)
 			 , ISNULL(SUM(realLineTotal), 0) AS virtualLineTotal
 			 , ISNULL(SUM(realTurnover), 0)
-			 , ISNULL(SUM(realTurnover), 0) AS  virtualTurnover
+			 , ISNULL(SUM(realTurnover), 0) AS virtualTurnover
 		 FROM rptWinlost AS b WITH (NOLOCK)
 			INNER JOIN @SportBettype AS s ON s.Bettype = b.bettype
 									   AND b.liveindicator = s.liveindicator
@@ -715,17 +716,17 @@ BEGIN
 			 , bettype
 			 , b.liveindicator
 			 , ibc
-			 , 0 AS                                IsHedge
-			 , '' AS                               status
-			 , 1 AS                                OrderKey
-			 , 17 AS                               SortKey
-			 , ISNULL(SUM(realWinlost), 0) AS      realWinlost
-			 , ISNULL(SUM(realPosition), 0) AS     realPosition
-			 , ISNULL(SUM(realcommission), 0) AS   realCommission
-			 , ISNULL(SUM(realLineTotal), 0) AS    realLineTotal
+			 , 0 AS IsHedge
+			 , '' AS status
+			 , 1 AS OrderKey
+			 , 17 AS SortKey
+			 , ISNULL(SUM(realWinlost), 0) AS realWinlost
+			 , ISNULL(SUM(realPosition), 0) AS realPosition
+			 , ISNULL(SUM(realcommission), 0) AS realCommission
+			 , ISNULL(SUM(realLineTotal), 0) AS realLineTotal
 			 , ISNULL(SUM(virtualLineTotal), 0) AS virtualLineTotal
-			 , ISNULL(SUM(realTurnover), 0) AS     realTurnover
-			 , ISNULL(SUM(virtualTurnover), 0) AS  virtualTurnover
+			 , ISNULL(SUM(realTurnover), 0) AS realTurnover
+			 , ISNULL(SUM(virtualTurnover), 0) AS virtualTurnover
 		 FROM rptWinlost AS b WITH (NOLOCK)
 		 WHERE winlostdate BETWEEN @_fromdate AND @_todate
 			  AND sporttype = 154
@@ -749,21 +750,21 @@ BEGIN
 				    , realTurnover
 				    , virtualTurnover)
 /* GD*/
-		 SELECT 255 AS                              sporttype
+		 SELECT 255 AS sporttype
 			 , b.bettype
 			 , b.liveindicator
 			 , ibc
-			 , 0 AS                                IsHedge
-			 , '' AS                               status
-			 , 9 AS                                OrderKey
-			 , 17 AS                               SortKey
-			 , ISNULL(SUM(realWinlost), 0) AS      realWinlost
-			 , ISNULL(SUM(realPosition), 0) AS     realPosition
-			 , ISNULL(SUM(realcommission), 0) AS   realCommission
-			 , ISNULL(SUM(realLineTotal), 0) AS    realLineTotal
+			 , 0 AS IsHedge
+			 , '' AS status
+			 , 9 AS OrderKey
+			 , 17 AS SortKey
+			 , ISNULL(SUM(realWinlost), 0) AS realWinlost
+			 , ISNULL(SUM(realPosition), 0) AS realPosition
+			 , ISNULL(SUM(realcommission), 0) AS realCommission
+			 , ISNULL(SUM(realLineTotal), 0) AS realLineTotal
 			 , ISNULL(SUM(virtualLineTotal), 0) AS virtualLineTotal
-			 , ISNULL(SUM(realTurnover), 0) AS     realTurnover
-			 , ISNULL(SUM(virtualTurnover), 0) AS  virtualTurnover
+			 , ISNULL(SUM(realTurnover), 0) AS realTurnover
+			 , ISNULL(SUM(virtualTurnover), 0) AS virtualTurnover
 		 FROM rptWinlost AS b WITH (NOLOCK)
 			INNER JOIN @SportBettype AS s ON s.Bettype = b.bettype
 									   AND b.liveindicator = s.liveindicator
@@ -789,21 +790,21 @@ BEGIN
 				    , realTurnover
 				    , virtualTurnover)
 /* Micro Gaming LC*/
-		 SELECT 203 AS                              sporttype
+		 SELECT 203 AS sporttype
 			 , b.bettype
 			 , b.liveindicator
 			 , ibc
-			 , 0 AS                                IsHedge
-			 , '' AS                               status
-			 , 10 AS                               OrderKey
-			 , 17 AS                               SortKey
-			 , ISNULL(SUM(realWinlost), 0) AS      realWinlost
-			 , ISNULL(SUM(realPosition), 0) AS     realPosition
-			 , ISNULL(SUM(realcommission), 0) AS   realCommission
-			 , ISNULL(SUM(realLineTotal), 0) AS    realLineTotal
+			 , 0 AS IsHedge
+			 , '' AS status
+			 , 10 AS OrderKey
+			 , 17 AS SortKey
+			 , ISNULL(SUM(realWinlost), 0) AS realWinlost
+			 , ISNULL(SUM(realPosition), 0) AS realPosition
+			 , ISNULL(SUM(realcommission), 0) AS realCommission
+			 , ISNULL(SUM(realLineTotal), 0) AS realLineTotal
 			 , ISNULL(SUM(virtualLineTotal), 0) AS virtualLineTotal
-			 , ISNULL(SUM(realTurnover), 0) AS     realTurnover
-			 , ISNULL(SUM(virtualTurnover), 0) AS  virtualTurnover
+			 , ISNULL(SUM(realTurnover), 0) AS realTurnover
+			 , ISNULL(SUM(virtualTurnover), 0) AS virtualTurnover
 		 FROM rptWinlost AS b WITH (NOLOCK)
 			INNER JOIN @SportBettype AS s ON s.Bettype = b.bettype
 									   AND b.liveindicator = s.liveindicator
@@ -829,21 +830,21 @@ BEGIN
 				    , realTurnover
 				    , virtualTurnover)
 /* Micro Gaming RNG*/
-		 SELECT 205 AS                              sporttype
+		 SELECT 205 AS sporttype
 			 , b.bettype
 			 , b.liveindicator
 			 , ibc
-			 , 0 AS                                IsHedge
-			 , '' AS                               status
-			 , 10 AS                               OrderKey
-			 , 17 AS                               SortKey
-			 , ISNULL(SUM(realWinlost), 0) AS      realWinlost
-			 , ISNULL(SUM(realPosition), 0) AS     realPosition
-			 , ISNULL(SUM(realcommission), 0) AS   realCommission
-			 , ISNULL(SUM(realLineTotal), 0) AS    realLineTotal
+			 , 0 AS IsHedge
+			 , '' AS status
+			 , 10 AS OrderKey
+			 , 17 AS SortKey
+			 , ISNULL(SUM(realWinlost), 0) AS realWinlost
+			 , ISNULL(SUM(realPosition), 0) AS realPosition
+			 , ISNULL(SUM(realcommission), 0) AS realCommission
+			 , ISNULL(SUM(realLineTotal), 0) AS realLineTotal
 			 , ISNULL(SUM(virtualLineTotal), 0) AS virtualLineTotal
-			 , ISNULL(SUM(realTurnover), 0) AS     realTurnover
-			 , ISNULL(SUM(virtualTurnover), 0) AS  virtualTurnover
+			 , ISNULL(SUM(realTurnover), 0) AS realTurnover
+			 , ISNULL(SUM(virtualTurnover), 0) AS virtualTurnover
 		 FROM rptWinlost AS b WITH (NOLOCK)
 			INNER JOIN @SportBettype AS s ON s.Bettype = b.bettype
 									   AND b.liveindicator = s.liveindicator
@@ -869,21 +870,21 @@ BEGIN
 				    , realTurnover
 				    , virtualTurnover)
 /*- AG Casino*/
-		 SELECT 250 AS                              sporttype
+		 SELECT 250 AS sporttype
 			 , b.bettype
 			 , b.liveindicator
 			 , ibc
-			 , 0 AS                                IsHedge
-			 , '' AS                               status
-			 , 11 AS                               OrderKey
-			 , 17 AS                               SortKey
-			 , ISNULL(SUM(realWinlost), 0) AS      realWinlost
-			 , ISNULL(SUM(realPosition), 0) AS     realPosition
-			 , ISNULL(SUM(realcommission), 0) AS   realCommission
-			 , ISNULL(SUM(realLineTotal), 0) AS    realLineTotal
+			 , 0 AS IsHedge
+			 , '' AS status
+			 , 11 AS OrderKey
+			 , 17 AS SortKey
+			 , ISNULL(SUM(realWinlost), 0) AS realWinlost
+			 , ISNULL(SUM(realPosition), 0) AS realPosition
+			 , ISNULL(SUM(realcommission), 0) AS realCommission
+			 , ISNULL(SUM(realLineTotal), 0) AS realLineTotal
 			 , ISNULL(SUM(virtualLineTotal), 0) AS virtualLineTotal
-			 , ISNULL(SUM(realTurnover), 0) AS     realTurnover
-			 , ISNULL(SUM(virtualTurnover), 0) AS  virtualTurnover
+			 , ISNULL(SUM(realTurnover), 0) AS realTurnover
+			 , ISNULL(SUM(virtualTurnover), 0) AS virtualTurnover
 		 FROM rptWinlost AS b WITH (NOLOCK)
 			INNER JOIN @SportBettype AS s ON s.Bettype = b.bettype
 									   AND b.liveindicator = s.liveindicator
@@ -909,21 +910,21 @@ BEGIN
 				    , realTurnover
 				    , virtualTurnover)
 /*	VegasGame aka Macau*/
-		 SELECT 249 AS                              sporttype
+		 SELECT 249 AS sporttype
 			 , b.bettype
 			 , b.liveindicator
 			 , ibc
-			 , 0 AS                                IsHedge
-			 , '' AS                               status
-			 , 12 AS                               OrderKey
-			 , 17 AS                               SortKey
-			 , ISNULL(SUM(realWinlost), 0) AS      realWinlost
-			 , ISNULL(SUM(realPosition), 0) AS     realPosition
-			 , ISNULL(SUM(realcommission), 0) AS   realCommission
-			 , ISNULL(SUM(realLineTotal), 0) AS    realLineTotal
+			 , 0 AS IsHedge
+			 , '' AS status
+			 , 12 AS OrderKey
+			 , 17 AS SortKey
+			 , ISNULL(SUM(realWinlost), 0) AS realWinlost
+			 , ISNULL(SUM(realPosition), 0) AS realPosition
+			 , ISNULL(SUM(realcommission), 0) AS realCommission
+			 , ISNULL(SUM(realLineTotal), 0) AS realLineTotal
 			 , ISNULL(SUM(virtualLineTotal), 0) AS virtualLineTotal
-			 , ISNULL(SUM(realTurnover), 0) AS     realTurnover
-			 , ISNULL(SUM(virtualTurnover), 0) AS  virtualTurnover
+			 , ISNULL(SUM(realTurnover), 0) AS realTurnover
+			 , ISNULL(SUM(virtualTurnover), 0) AS virtualTurnover
 		 FROM rptWinlost AS b WITH (NOLOCK)
 			INNER JOIN @SportBettype AS s ON s.Bettype = b.bettype
 									   AND b.liveindicator = s.liveindicator
@@ -949,21 +950,21 @@ BEGIN
 				    , realTurnover
 				    , virtualTurnover)
 /* allbet section */
-		 SELECT 211 AS                              sporttype
+		 SELECT 211 AS sporttype
 			 , b.bettype
 			 , b.liveindicator
 			 , ibc
-			 , 0 AS                                IsHedge
-			 , '' AS                               status
-			 , 13 AS                               OrderKey
-			 , 17 AS                               SortKey
-			 , ISNULL(SUM(realWinlost), 0) AS      realWinlost
-			 , ISNULL(SUM(realPosition), 0) AS     realPosition
-			 , ISNULL(SUM(realcommission), 0) AS   realCommission
-			 , ISNULL(SUM(realLineTotal), 0) AS    realLineTotal
+			 , 0 AS IsHedge
+			 , '' AS status
+			 , 13 AS OrderKey
+			 , 17 AS SortKey
+			 , ISNULL(SUM(realWinlost), 0) AS realWinlost
+			 , ISNULL(SUM(realPosition), 0) AS realPosition
+			 , ISNULL(SUM(realcommission), 0) AS realCommission
+			 , ISNULL(SUM(realLineTotal), 0) AS realLineTotal
 			 , ISNULL(SUM(virtualLineTotal), 0) AS virtualLineTotal
-			 , ISNULL(SUM(realTurnover), 0) AS     realTurnover
-			 , ISNULL(SUM(virtualTurnover), 0) AS  virtualTurnover
+			 , ISNULL(SUM(realTurnover), 0) AS realTurnover
+			 , ISNULL(SUM(virtualTurnover), 0) AS virtualTurnover
 		 FROM rptWinlost AS b WITH (NOLOCK)
 			INNER JOIN @SportBettype AS s ON s.Bettype = b.bettype
 									   AND b.liveindicator = s.liveindicator
@@ -991,21 +992,21 @@ BEGIN
 				    , virtualLineTotal
 				    , realTurnover
 				    , virtualTurnover)
-		 SELECT 212 AS                              sporttype
+		 SELECT 212 AS sporttype
 			 , b.bettype
 			 , b.liveindicator
 			 , ibc
-			 , 0 AS                                IsHedge
-			 , '' AS                               status
-			 , 13 AS                               OrderKey
-			 , 17 AS                               SortKey
-			 , ISNULL(SUM(realWinlost), 0) AS      realWinlost
-			 , ISNULL(SUM(realPosition), 0) AS     realPosition
-			 , ISNULL(SUM(realcommission), 0) AS   realCommission
-			 , ISNULL(SUM(realLineTotal), 0) AS    realLineTotal
+			 , 0 AS IsHedge
+			 , '' AS status
+			 , 13 AS OrderKey
+			 , 17 AS SortKey
+			 , ISNULL(SUM(realWinlost), 0) AS realWinlost
+			 , ISNULL(SUM(realPosition), 0) AS realPosition
+			 , ISNULL(SUM(realcommission), 0) AS realCommission
+			 , ISNULL(SUM(realLineTotal), 0) AS realLineTotal
 			 , ISNULL(SUM(virtualLineTotal), 0) AS virtualLineTotal
-			 , ISNULL(SUM(realTurnover), 0) AS     realTurnover
-			 , ISNULL(SUM(virtualTurnover), 0) AS  virtualTurnover
+			 , ISNULL(SUM(realTurnover), 0) AS realTurnover
+			 , ISNULL(SUM(virtualTurnover), 0) AS virtualTurnover
 		 FROM rptWinlost AS b WITH (NOLOCK)
 			INNER JOIN @SportBettype AS s ON s.Bettype = b.bettype
 									   AND b.liveindicator = s.liveindicator
@@ -1032,22 +1033,22 @@ BEGIN
 				    , realTurnover
 				    , virtualTurnover)
 /*	ColossusBet*/
-		 SELECT 204 AS                              sporttype
+		 SELECT 204 AS sporttype
 			 , b.bettype
 			 , b.liveindicator
 			 , ibc
-			 , 0 AS                                isHedge
-			 , b.exrisk AS                         IsFreePlay
-			 , '' AS                               status
-			 , 16 AS                               OrderKey
-			 , 17 AS                               SortKey
-			 , ISNULL(SUM(realWinlost), 0) AS      realWinlost
-			 , ISNULL(SUM(realPosition), 0) AS     realPosition
-			 , ISNULL(SUM(realcommission), 0) AS   realCommission
-			 , ISNULL(SUM(realLineTotal), 0) AS    realLineTotal
+			 , 0 AS isHedge
+			 , b.exrisk AS IsFreePlay
+			 , '' AS status
+			 , 16 AS OrderKey
+			 , 17 AS SortKey
+			 , ISNULL(SUM(realWinlost), 0) AS realWinlost
+			 , ISNULL(SUM(realPosition), 0) AS realPosition
+			 , ISNULL(SUM(realcommission), 0) AS realCommission
+			 , ISNULL(SUM(realLineTotal), 0) AS realLineTotal
 			 , ISNULL(SUM(virtualLineTotal), 0) AS virtualLineTotal
-			 , ISNULL(SUM(realTurnover), 0) AS     realTurnover
-			 , ISNULL(SUM(virtualTurnover), 0) AS  virtualTurnover
+			 , ISNULL(SUM(realTurnover), 0) AS realTurnover
+			 , ISNULL(SUM(virtualTurnover), 0) AS virtualTurnover
 		 FROM rptWinlost AS b WITH (NOLOCK)
 			INNER JOIN @SportBettype AS s ON s.Bettype = b.bettype
 									   AND b.liveindicator = s.liveindicator
@@ -1077,17 +1078,17 @@ BEGIN
 			 , b.bettype
 			 , b.liveindicator
 			 , ibc
-			 , 0 AS                                IsHedge
-			 , '' AS                               status
-			 , 17 AS                               OrderKey
-			 , 17 AS                               SortKey
-			 , ISNULL(SUM(realWinlost), 0) AS      realWinlost
-			 , ISNULL(SUM(realPosition), 0) AS     realPosition
-			 , ISNULL(SUM(realcommission), 0) AS   realCommission
-			 , ISNULL(SUM(realLineTotal), 0) AS    realLineTotal
+			 , 0 AS IsHedge
+			 , '' AS status
+			 , 17 AS OrderKey
+			 , 17 AS SortKey
+			 , ISNULL(SUM(realWinlost), 0) AS realWinlost
+			 , ISNULL(SUM(realPosition), 0) AS realPosition
+			 , ISNULL(SUM(realcommission), 0) AS realCommission
+			 , ISNULL(SUM(realLineTotal), 0) AS realLineTotal
 			 , ISNULL(SUM(virtualLineTotal), 0) AS virtualLineTotal
-			 , ISNULL(SUM(realTurnover), 0) AS     realTurnover
-			 , ISNULL(SUM(virtualTurnover), 0) AS  virtualTurnover
+			 , ISNULL(SUM(realTurnover), 0) AS realTurnover
+			 , ISNULL(SUM(virtualTurnover), 0) AS virtualTurnover
 		 FROM rptWinlost AS b WITH (NOLOCK)
 			INNER JOIN @SportBettype AS s ON s.Bettype = b.bettype
 									   AND b.liveindicator = s.liveindicator
@@ -1099,21 +1100,21 @@ BEGIN
 			   , ibc
 /*Fish World*/
 		 UNION ALL
-		 SELECT 219 AS                              sporttype
+		 SELECT 219 AS sporttype
 			 , b.bettype
 			 , b.liveindicator
 			 , ibc
-			 , 0 AS                                IsHedge
-			 , '' AS                               status
-			 , 17 AS                               OrderKey
-			 , 17 AS                               SortKey
-			 , ISNULL(SUM(realWinlost), 0) AS      realWinlost
-			 , ISNULL(SUM(realPosition), 0) AS     realPosition
-			 , ISNULL(SUM(realcommission), 0) AS   realCommission
-			 , ISNULL(SUM(realLineTotal), 0) AS    realLineTotal
+			 , 0 AS IsHedge
+			 , '' AS status
+			 , 17 AS OrderKey
+			 , 17 AS SortKey
+			 , ISNULL(SUM(realWinlost), 0) AS realWinlost
+			 , ISNULL(SUM(realPosition), 0) AS realPosition
+			 , ISNULL(SUM(realcommission), 0) AS realCommission
+			 , ISNULL(SUM(realLineTotal), 0) AS realLineTotal
 			 , ISNULL(SUM(virtualLineTotal), 0) AS virtualLineTotal
-			 , ISNULL(SUM(realTurnover), 0) AS     realTurnover
-			 , ISNULL(SUM(virtualTurnover), 0) AS  virtualTurnover
+			 , ISNULL(SUM(realTurnover), 0) AS realTurnover
+			 , ISNULL(SUM(virtualTurnover), 0) AS virtualTurnover
 		 FROM rptWinlost AS b WITH (NOLOCK)
 			INNER JOIN @SportBettype AS s ON s.Bettype = b.bettype
 									   AND b.liveindicator = s.liveindicator
@@ -1139,21 +1140,21 @@ BEGIN
 				    , realTurnover
 				    , virtualTurnover)
 /*	Cashout*/
-		 SELECT-3 AS                               sporttype
-			, 913 AS                              bettype
+		 SELECT-3 AS sporttype
+			, 913 AS bettype
 			, b.liveindicator
 			, ibc
-			, 0 AS                                IsHedge
-			, '' AS                               status
-			, 18000 AS                            OrderKey
-			, 17 AS                               SortKey
-			, ISNULL(SUM(realWinlost), 0) AS      realWinlost
-			, ISNULL(SUM(realPosition), 0) AS     realPosition
-			, ISNULL(SUM(realcommission), 0) AS   realCommission
-			, ISNULL(SUM(realLineTotal), 0) AS    realLineTotal
+			, 0 AS IsHedge
+			, '' AS status
+			, 18000 AS OrderKey
+			, 17 AS SortKey
+			, ISNULL(SUM(realWinlost), 0) AS realWinlost
+			, ISNULL(SUM(realPosition), 0) AS realPosition
+			, ISNULL(SUM(realcommission), 0) AS realCommission
+			, ISNULL(SUM(realLineTotal), 0) AS realLineTotal
 			, ISNULL(SUM(virtualLineTotal), 0) AS virtualLineTotal
-			, ISNULL(SUM(realTurnover), 0) AS     realTurnover
-			, ISNULL(SUM(virtualTurnover), 0) AS  virtualTurnover
+			, ISNULL(SUM(realTurnover), 0) AS realTurnover
+			, ISNULL(SUM(virtualTurnover), 0) AS virtualTurnover
 		 FROM rptWinlost AS b WITH (NOLOCK)
 			INNER JOIN @SportBettype AS s ON s.Bettype = b.bettype
 									   AND b.liveindicator = s.liveindicator
@@ -1183,30 +1184,33 @@ BEGIN
 				  THEN 202
 				  WHEN s.ProductId = 28
 				  THEN 220
+				  WHEN s.ProductId = 33
+					  AND b.SportType = 165
+				  THEN 163
 				  ELSE b.SportType
-			   END AS                              sporttype
+			   END AS sporttype
 			 , CASE
 				  WHEN s.ProductId = 27
 				  THEN 0
 				  ELSE b.bettype
-			   END AS                              bettype
+			   END AS bettype
 			 , b.liveindicator
 			 , ibc
-			 , 0 AS                                IsHedge
-			 , '' AS                               status
+			 , 0 AS IsHedge
+			 , '' AS status
 			 , CASE
 				  WHEN s.ProductId = 8
 				  THEN 7
 				  ELSE s.ProductId
-			   END AS                              OrderKey
-			 , 17 AS                               SortKey
-			 , ISNULL(SUM(realWinlost), 0) AS      realWinlost
-			 , ISNULL(SUM(realPosition), 0) AS     realPosition
-			 , ISNULL(SUM(realcommission), 0) AS   realCommission
-			 , ISNULL(SUM(realLineTotal), 0) AS    realLineTotal
+			   END AS OrderKey
+			 , 17 AS SortKey
+			 , ISNULL(SUM(realWinlost), 0) AS realWinlost
+			 , ISNULL(SUM(realPosition), 0) AS realPosition
+			 , ISNULL(SUM(realcommission), 0) AS realCommission
+			 , ISNULL(SUM(realLineTotal), 0) AS realLineTotal
 			 , ISNULL(SUM(virtualLineTotal), 0) AS virtualLineTotal
-			 , ISNULL(SUM(realTurnover), 0) AS     realTurnover
-			 , ISNULL(SUM(virtualTurnover), 0) AS  virtualTurnover
+			 , ISNULL(SUM(realTurnover), 0) AS realTurnover
+			 , ISNULL(SUM(virtualTurnover), 0) AS virtualTurnover
 		 FROM dbo.rptWinlost AS b WITH (NOLOCK)
 			INNER JOIN @SportBettype AS s ON s.Bettype = b.bettype
 									   AND b.liveindicator = s.liveindicator
@@ -1217,6 +1221,9 @@ BEGIN
 				    THEN 202
 				    WHEN s.ProductId = 28
 				    THEN 220
+				    WHEN s.ProductId = 33
+					    AND b.SportType = 165
+				    THEN 163
 				    ELSE b.SportType
 				END
 			   , CASE
@@ -1273,17 +1280,17 @@ BEGIN
 			 , bettype
 			 , liveindicator
 			 , ibc
-			 , 0 AS                     IsHedge
+			 , 0 AS IsHedge
 			 , status
 			 , OrderKey
 			 , SortKey
-			 , SUM(realWinlost) AS      realWinlost
-			 , SUM(realPosition) AS     realPosition
-			 , SUM(realCommission) AS   realCommission
-			 , SUM(realLineTotal) AS    realLineTotal
+			 , SUM(realWinlost) AS realWinlost
+			 , SUM(realPosition) AS realPosition
+			 , SUM(realCommission) AS realCommission
+			 , SUM(realLineTotal) AS realLineTotal
 			 , SUM(virtualLineTotal) AS virtualLineTotal
-			 , SUM(realTurnover) AS     realTurnover
-			 , SUM(virtualTurnover) AS  virtualTurnover
+			 , SUM(realTurnover) AS realTurnover
+			 , SUM(virtualTurnover) AS virtualTurnover
 		 FROM #TempData
 		 WHERE ibc IN(1, 2)
 		 GROUP BY sporttype
@@ -1315,19 +1322,19 @@ BEGIN
 		 SELECT sporttype
 			 , bettype
 			 , liveindicator
-			 , 0 AS                     ibc
+			 , 0 AS ibc
 			 , IsHedge
 			 , IsFreePlay
 			 , status
 			 , OrderKey
 			 , SortKey
-			 , SUM(realWinlost) AS      realWinlost
-			 , SUM(realPosition) AS     realPosition
-			 , SUM(realCommission) AS   realCommission
-			 , SUM(realLineTotal) AS    realLineTotal
+			 , SUM(realWinlost) AS realWinlost
+			 , SUM(realPosition) AS realPosition
+			 , SUM(realCommission) AS realCommission
+			 , SUM(realLineTotal) AS realLineTotal
 			 , SUM(virtualLineTotal) AS virtualLineTotal
-			 , SUM(realTurnover) AS     realTurnover
-			 , SUM(virtualTurnover) AS  virtualTurnover
+			 , SUM(realTurnover) AS realTurnover
+			 , SUM(virtualTurnover) AS virtualTurnover
 		 FROM #TempData
 		 GROUP BY sporttype
 			   , bettype
@@ -1346,13 +1353,13 @@ BEGIN
 	    , status
 	    , OrderKey
 	    , SortKey
-	    , SUM(realWinlost) AS      realWinlost
-	    , SUM(realPosition) AS     realPosition
-	    , SUM(realCommission) AS   realCommission
-	    , SUM(realLineTotal) AS    realLineTotal
+	    , SUM(realWinlost) AS realWinlost
+	    , SUM(realPosition) AS realPosition
+	    , SUM(realCommission) AS realCommission
+	    , SUM(realLineTotal) AS realLineTotal
 	    , SUM(virtualLineTotal) AS virtualLineTotal
-	    , SUM(realTurnover) AS     realTurnover
-	    , SUM(virtualTurnover) AS  virtualTurnover
+	    , SUM(realTurnover) AS realTurnover
+	    , SUM(virtualTurnover) AS virtualTurnover
     FROM #Result
     GROUP BY sporttype
 		 , bettype
@@ -1366,7 +1373,8 @@ BEGIN
     ORDER BY OrderKey
 		 , SortKey
 		 , sporttype
-		 , liveindicator;
+		 , liveindicator
+		 , bettype;
     DROP TABLE #TempMatch;
     DROP TABLE #TempData;
     DROP TABLE #Result;
