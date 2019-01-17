@@ -38,6 +38,7 @@ AS
 		20180808@Cherry: Integrate Poker Games (#97809)
 		20181018@Cherry: Integrate NG2 (#102229)
 		20181108@Cherry: Improve performance (#101547)
+		20190117@Cherry: Enhance index temp table (#108056)
 
 	Param's Explanation:
 		- @username:  + Search by keyword, member only
