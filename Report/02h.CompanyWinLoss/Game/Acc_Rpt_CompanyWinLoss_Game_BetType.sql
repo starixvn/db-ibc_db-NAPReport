@@ -45,6 +45,8 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_BetType] @EndDate='2020-01-01',@StartDate='201
                       RefTable
                FROM dbo.f_SportBetTypeMatrix_Sel( @ProductId, 0, 0, 2, '', '', @isTest ) s
                     INNER JOIN BetType b WITH ( NOLOCK ) ON b.typeid = s.BetType;
+
+		CREATE CLUSTERED INDEX CIX_BetType ON #SportBetType( BetType, RefTable );
     END;
     BEGIN -- #DepositSuper
 
