@@ -1,3 +1,4 @@
+/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 USE [bodb02]
 GO
 
@@ -17,35 +18,36 @@ Created : 2007-01-29 01:30
 Task : update summary for winlost report
 DB: DBACC/bodb02
 Revision:
-	- 20110516@Lukas: re-arrange bettype
-	- 20120420@Hurri: add tickets of member under agent BARM into IBC winlost
-	- 20120626@Elodie: exclude outright, HR from sportbook ( in case of matchid = orid)
-	- 20130620@Johnson: copy data to rptWinlost2
-	- 20130822@Johnson: change to use rptWinlost instead rptWinlost2
-	- 20130917@Johnson: correct real turnover of racing formula
-	- 20131203@Daniel: exclude UUS tickets to avoid zero data inserted
-	- 20151216@Percy: support new product - Cockfighting [Redmine: #49027]
-	- 20160225@Jim: offer  Allbet Live Casino [Redmine:#50921)]
-	- 20160411@Robert: Integrate Voidbridge Credit - Single Wallet model, using sportype bettype matrix function and change the way to get data MBC-RNG Casino, Microgaming-RNG Casino from bettransRNG instead bettrans [RedmineID: #55589]
-	- 20160830@Percy:
+	20110516@Lukas: re-arrange bettype
+	20120420@Hurri: add tickets of member under agent BARM into IBC winlost
+	20120626@Elodie: exclude outright, HR from sportbook ( in case of matchid = orid)
+	20130620@Johnson: copy data to rptWinlost2
+	20130822@Johnson: change to use rptWinlost instead rptWinlost2
+	20130917@Johnson: correct real turnover of racing formula
+	20131203@Daniel: exclude UUS tickets to avoid zero data inserted
+	20151216@Percy: support new product - Cockfighting [Redmine: #49027]
+	20160225@Jim: offer  Allbet Live Casino [Redmine:#50921)]
+	20160411@Robert: Integrate Voidbridge Credit - Single Wallet model, using sportype bettype matrix function and change the way to get data MBC-RNG Casino, Microgaming-RNG Casino from bettransRNG instead bettrans [RedmineID: #55589]
+	20160830@Percy:
 		1. Using exrisk column to indicate what is System Parlay or Mix parlay of Combo Parlay [RedmineID: #63022]
 			- Mix Parlay:	     (bettrans.bettype 29 AND bettrans.betteam = '1')  ---> rptWinLost.bettype = 29 AND rptWinLost.exrisk = 1 
 														 OR (bettrans.Bettype = 9) ---> rptWinLost.bettype =  9 AND rptWinLost.exrisk = 0 
 			- System Parlay:	(bettrans.bettype 29 and bettrans.betteam <> '1')  ---> rptWinLost.bettype = 29 AND rptWinLost.exrisk = 0 
 		2. Remove condition: bettrans.bettype = 29 and bettrans.betid > 0
-	- 20160916@Robert: Integrate new product NG2 [RedmindID: #63460]
-	- 20161129@Robert: NAP Reports - Integrate Fishing World Product [RedmindID: #67757]
-	- 20170615@Tom: NAP Reports - Integrate Betradar Virtual Sports[RedmindID: #78495] 
-	- 20171020@Dominic: Integrate Bullfighting - #81664
-	- 20171214@Kean: Integrate Exchange - #88221
-	- 2018.02.27@Tom: Integrate Colossus Bets - Free Play Integration (#90774)
-	- 20180319@Cherry: Integrate ONE RNG Jackpot (#91712)
-	- 20180507@Tom: Include Exchange Bettype into group bettypes no need ABS() Turnover data (#94736)
-	- 20180411@Cherry: Integrate Pragmatic (#92642)
-	- 201806185@Tom: Update Logic Bettrans14 (bettype 29) (#97061)
-	- 20180702@Tom: add condition generate data BalanceUpDay AND MoveBetsDay	
-	- 20180807@Dominic: Integrate Poker Games - #97830
-	- 20180920@Tom: modify SP to avoid allocation order scan (#101646)
+	20160916@Robert: Integrate new product NG2 [RedmindID: #63460]
+	20161129@Robert: NAP Reports - Integrate Fishing World Product [RedmindID: #67757]
+	20170615@Tom: NAP Reports - Integrate Betradar Virtual Sports[RedmindID: #78495] 
+	20171020@Dominic: Integrate Bullfighting - #81664
+	20171214@Kean: Integrate Exchange - #88221
+	2018.02.27@Tom: Integrate Colossus Bets - Free Play Integration (#90774)
+	20180319@Cherry: Integrate ONE RNG Jackpot (#91712)
+	20180507@Tom: Include Exchange Bettype into group bettypes no need ABS() Turnover data (#94736)
+	20180411@Cherry: Integrate Pragmatic (#92642)
+	201806185@Tom: Update Logic Bettrans14 (bettype 29) (#97061)
+	20180702@Tom: add condition generate data BalanceUpDay AND MoveBetsDay	
+	20180807@Dominic: Integrate Poker Games - #97830
+	20180920@Tom: modify SP to avoid allocation order scan (#101646)
+	20190116@Cherry: Integrate Video Poker Games (#107706)
 */
 
 BEGIN	
