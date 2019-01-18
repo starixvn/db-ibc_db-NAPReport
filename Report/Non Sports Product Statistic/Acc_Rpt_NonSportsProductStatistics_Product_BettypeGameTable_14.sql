@@ -38,6 +38,7 @@ AS
 		20180808@Cherry: Integrate Poker Games (#97809)
 		20181018@Cherry: Integrate NG2 (#102229)
 		20181108@Cherry: Improve performance (#101547)
+		20190117@Cherry: Enhance index temp table (#108056)
 
 	Param's Explanation:
 		- @username:  + Search by keyword, member only
@@ -321,6 +322,12 @@ BEGIN
 	-- Don't need to handle 'ALL' site, because with this case we will get all ticket
 
 	CREATE NONCLUSTERED INDEX Idx_SrecommendID ON #tmp_Company (Srecommend)
+	
+	CREATE CLUSTERED INDEX IX_SportBettype ON #SportBettype (ProductID, Bettype, EvenType, RefTable)
+    
+    CREATE CLUSTERED INDEX IX_SportType ON #tmp_SportType (Sporttype)
+    
+    CREATE CLUSTERED INDEX IX_LeagueID ON #tmp_LeagueID (LeagueID, Bettype)
 	-- End Site	
 
 	------------------------------------------II. Get Real Data For Report ------------------------------------------------------
@@ -669,7 +676,7 @@ BEGIN
 		WHERE b.WinlostDate = @WLDate
 			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 3)
 			AND b.statusID IN (111, 112, 113, 103) 
-			AND EXISTS (SELECT 1 FROM Match14 m WITH (NOLOCK) INNER JOIN #tmp_LeagueID l ON m.leagueid = l.LeagueID WHERE m.matchid = b.matchid AND l.Bettype = b.bettype)
+			AND EXISTS (SELECT 1 FROM Match14 m WITH (NOLOCK) JOIN #tmp_LeagueID l ON m.leagueid = l.LeagueID WHERE m.matchid = b.matchid AND l.Bettype = b.bettype)
 			AND (@ExcludeTest = 0 OR (b.Currency <> 20 AND @ExcludeTest = 1))
 			AND (@currency IN (0,-1) OR b.currency = @currency) 
 			AND (@Username = '' OR EXISTS (SELECT 1 From #tmp_MemIDs m WHERE m.CustID = b.custId))
@@ -926,9 +933,8 @@ BEGIN
 		WHERE b.WinlostDate = @WLDate
 			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 27 AND EvenType = 1)
 			AND b.statusID IN (111, 112, 113, 103) 
-			AND EXISTS(SELECT 1 FROM dbo.match14 m WITH (NOLOCK) 
-									INNER JOIN #tmp_Sporttype st ON m.sporttype = st.Sporttype 
-								WHERE m.matchid = b.matchid)
+			AND b.matchid IN (SELECT m.matchid FROM dbo.match14 m WITH (NOLOCK) 
+								WHERE m.sporttype IN (SELECT Sporttype FROM #tmp_Sporttype))
 			AND (@ExcludeTest = 0 OR (b.Currency <> 20 AND @ExcludeTest = 1))
 			AND (@currency IN (0,-1) OR b.currency = @currency) 
 			AND (@Username = '' OR EXISTS (SELECT 1 From #tmp_MemIDs m WHERE m.CustID = b.custId))
