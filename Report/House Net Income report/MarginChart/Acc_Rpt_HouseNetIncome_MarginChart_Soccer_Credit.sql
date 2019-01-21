@@ -1,11 +1,8 @@
-/*<info serverAlias="DBWH-bodb_dwrs" executers="dwrs" viewers="vnteam" isFunction="0" isNested="0"></info>*/
-
-USE bodb_dwrs
-GO
+/*<info serverAlias="DBWH-bodb_dwrs" executers="dwrs" viewers="" isFunction="0" isNested="0"></info>*/
 
 ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_Soccer_Credit]
-	@FromDate DATE,
-	@ToDate	DATE
+	@FromDate DATE ,
+	@ToDate	DATE 
 AS  
 /*  	
 	Created: 20180126@Harper 
@@ -15,6 +12,7 @@ AS
    
     Revisions:
 		- 20180126@Harper - HDWL Letstalk - Implement Chart of SB margin Soccer [#RedmineID: 89632]
+		- 20190121@Robert: Letstalk Margin Charts - Separate Letstalk group for credit & Deposit (Soccer & Other Sports) [#108220]
 		
 	Param's Explanation:   
 
@@ -26,15 +24,6 @@ BEGIN
 
 	DECLARE @FDate DATE, @TDate DATE
 	SELECT @FDate = @FromDate, @TDate = @ToDate
-	
-	-- Region: Get exchange rate info
-	CREATE	TABLE #Exchange	(ExchangeDate DATE, ExchangeID INT, Rate FLOAT)		
-
-	INSERT INTO #Exchange(ExchangeDate, ExchangeID, Rate)
-	SELECT ExchangeDate, Currency, Rate
-	FROM bodb_account.dbo.tbl_Currency_Daily WITH (NOLOCK) 
-	WHERE ExchangeDate BETWEEN @FDate AND @TDate	
-	-- End region		
 
 	-- Region: Handle data of Soccer
 	CREATE TABLE #FinalResult (
@@ -59,46 +48,22 @@ BEGIN
 		SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate)		
 	END
 
-	SELECT @DateList = COALESCE(@DateList + ',', '') + '[' + CONVERT(VARCHAR(10), RptDate) + ']' FROM #FinalResult 
-		
-	-- Sport - Bettype Matrix
-	CREATE TABLE #SportBettypeMatrix (ProductID INT, Bettype INT, EventType INT, SubProduct VARCHAR(500))
+	SELECT @DateList = COALESCE(@DateList + ',', '') + '[' + CONVERT(VARCHAR(10), RptDate) + ']' FROM #FinalResult 	
+	
+	CREATE TABLE #TmpHouseWL (rptDate varchar(10), HouseWL MONEY, TurnOver MONEY, ExtraPT MONEY)
+	INSERT INTO #TmpHouseWL (rptDate, HouseWL, ExtraPT, TurnOver)	
+	    EXEC Acc_Rpt_HouseNetIncome_MarginChart_Soccer_Sub
+	    @FDate
+	  , @TDate
+	  , @isDeposit = 0
+	
 
-	INSERT INTO #SportBettypeMatrix (ProductID, Bettype, EventType, SubProduct)
-	SELECT ProductID, BetType, EventType, SubProduct FROM bodb02.dbo.f_SportBettypeMatrix_Sel(1,0,0,2,'','SB',0) WHERE SubProduct NOT IN ('BT-Sold','BT-Bought','BT-Comm', 'BT-Winloss')
-	
-	-- House WL of Soccer + Parlay + Metrix Gaming
-	CREATE TABLE #TmpHouseWL (rptDate DATE, HouseWL MONEY, TurnOver MONEY, ExtraPT MONEY)
-	INSERT INTO #TmpHouseWL (rptDate, HouseWL, TurnOver, ExtraPT)
-	SELECT 
-		b.rptDate,
-		ISNULL(-SUM(CASE WHEN b.SiteID NOT IN (-2, -4)THEN (b.WinlossIBC + b.CommissionS) ELSE 0 END * ex.rate), 0) HouseWL,		
-		SUM((CASE WHEN TurnoverIBC = 0 THEN 0  ELSE TurnoverIBC - ExtraTO END ) * ( CASE WHEN VarianceVR > 0 THEN( VarianceVR + 1 ) ELSE 1 END ) * ex.Rate),                          
-		SUM((ISNULL(b.ExtraWL, 0) + ISNULL(b.ExtraComm, 0)) * ex.Rate) AS ExtraPT
-	FROM bodb_Account.dbo.FactSiteWinloss b WITH(NOLOCK)
-		INNER JOIN #exchange ex ON b.rptdate = ex.exchangedate AND b.currencyid = ex.ExchangeID		
-		INNER JOIN #SportBettypeMatrix s ON b.bettype = s.Bettype -- Get all data of SB		
-	WHERE 
-		b.rptDate BETWEEN @FDate AND @TDate 
-		AND b.TicketStatus NOT IN (-1,18,9,10,14)	
-		AND (
-				b.bettype IN (9, 29) -- Parlay
-				OR (s.EventType IN (1, 2, 4) AND s.SubProduct = 'MG-SuperLive') -- Metrix Gaming
-				OR (s.EventType IN (1, 2, 4) AND s.SubProduct <> 'MG-SuperLive' 
-					AND EXISTS (SELECT 1 
-								FROM bodb_Account.dbo.League l  WITH(NOLOCK)
-								WHERE b.LeagueId = l.LeagueId AND l.sportid = 1)
-								) -- Soccer
-			)
-	GROUP BY b.rptDate	
-	OPTION (RECOMPILE)
-	
 	UPDATE f
 	SET f.HouseWL = ISNULL(f.HouseWL, 0) + ISNULL(wl.HouseWL, 0),
 		f.TurnOver = ISNULL(f.TurnOver, 0) + ISNULL(wl.TurnOver, 0),
 		f.ExtraPT = ISNULL(f.ExtraPT, 0) + ISNULL(wl.ExtraPT, 0)
 	FROM #FinalResult f
-		INNER JOIN #TmpHouseWL wl ON CONVERT(VARCHAR(2), wl.rptDate, 106) = f.RptDate		
+		INNER JOIN #TmpHouseWL wl ON wl.rptDate = f.RptDate		
 	
 	---------------------------------------------------- Select the output -------------------------------------------------------
 	DECLARE @SQL VARCHAR(1000)
@@ -118,16 +83,11 @@ BEGIN
 					'ORDER BY [Order]'
 
 	EXEC(@SQL)
-
-	-- Drop tmp table
-	DROP TABLE #SportBettypeMatrix
-	DROP TABLE #TmpHouseWL
-	DROP TABLE #Exchange
+		
+	DROP TABLE #TmpHouseWL	
 	DROP TABLE #FinalResult
 END
 GO
 
 GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_Soccer_Credit] TO [dwrs]
-GO
-GRANT VIEW definition ON [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_Soccer_Credit] TO vnteam
 GO
