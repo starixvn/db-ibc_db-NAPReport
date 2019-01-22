@@ -81,13 +81,14 @@ BEGIN
 
 	DECLARE @isTest BIT= 0;
      SELECT @isTest = dbo.f_CheckSPVersion(@@PROCID);
-	CREATE TABLE #SportBettype(ProductID INT, Bettype SMALLINT,EventType INT,SubProduct VARCHAR(500), SportType INT) -- using Sporttype column for NG2 (NG2 has not matchid)
+	CREATE TABLE #SportBettype(ProductID INT, Bettype SMALLINT,EventType INT,SubProduct VARCHAR(500), SportType INT, RefTable INT) -- using Sporttype column for NG2 (NG2 has not matchid)
 	INSERT INTO #SportBettype
 	SELECT ProductID,
               Bettype,
               EventType,
               SubProduct,
-		    0 SportType
+		    0 SportType,
+		    RefTable 
      FROM dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '', @isTest)
 
     UPDATE sb
@@ -271,6 +272,7 @@ BEGIN
 		WHERE
 			(b.bettype < 19999 and b.bettype not in (29,31,32,33,1003,2799))
 			AND sb.ProductID NOT IN (1,15, 6, 17, 21, 22, 24, 32)
+			AND sb.RefTable = 0
 			AND winlostdate = @winlostdate
 			AND statusID IN (111,112,113) --(/Won/lose/Draw)
 			AND ruben = 1
@@ -491,7 +493,8 @@ BEGIN
 			bettransRnG b with (nolock)
 			inner join #SportBettype sb on b.gameID = sb.Bettype
 		WHERE
-			sb.ProductID IN (6, 17, 22, 24, 32) -- MBC-RNG Casino, Microgaming-RNG Casino, Voidbridge, Fishing World, Pragmatic
+			sb.ProductID IN (6, 17, 22, 24, 32, 33) -- MBC-RNG Casino, Microgaming-RNG Casino, Voidbridge, Fishing World, Pragmatic, Video Poker Games
+			AND sb.RefTable = 1
 			AND winlostdate = @winlostdate
 			AND b.statusID IN (111,112,113) --(/Won/lose/Draw)	
 			AND currency <> 20
@@ -793,6 +796,7 @@ BEGIN
 			WHERE
 				(b.bettype < 19999 and b.bettype not in (29,31,32,33,1003,2799))
 				AND sb.ProductID NOT IN (1,15, 6, 17, 21, 22, 24, 32)
+				AND sb.RefTable = 0
 				AND winlostdate = @winlostdate
 				AND statusID IN (111,112,113) --(/Won/lose/Draw)
 				AND ruben = 1
@@ -1013,7 +1017,8 @@ BEGIN
 				dbo.bettransRnG14 b with (nolock)
 				inner join #SportBettype sb on b.gameID = sb.Bettype
 			WHERE
-				sb.ProductID IN (6, 17, 22, 24, 32) -- MBC-RNG Casino, Microgaming-RNG Casino, Voidbridge, Fishing World, Pragmatic
+				sb.ProductID IN (6, 17, 22, 24, 32, 33) -- MBC-RNG Casino, Microgaming-RNG Casino, Voidbridge, Fishing World, Pragmatic, Video Poker Games
+				AND sb.RefTable = 1
 				AND winlostdate = @winlostdate
 				AND b.statusID IN (111,112,113) --(/Won/lose/Draw)	
 				AND currency <> 20
