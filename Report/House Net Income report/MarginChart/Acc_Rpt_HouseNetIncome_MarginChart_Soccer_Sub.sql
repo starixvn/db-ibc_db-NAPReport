@@ -22,12 +22,12 @@ AS
 
 BEGIN
     SET NOCOUNT ON;
-
     DECLARE @FDate    DATE
 		, @TDate    DATE;
+
     SELECT @FDate = @FromDate
 	    , @TDate = @ToDate;
--- Region: Get exchange rate info
+
     CREATE TABLE #Exchange(
 	    ExchangeDate    DATE
 	  , ExchangeID      INT
@@ -41,45 +41,7 @@ BEGIN
 			 , Rate
 		 FROM bodb_account.dbo.tbl_Currency_Daily WITH (NOLOCK)
 		 WHERE ExchangeDate BETWEEN @FDate AND @TDate;
--- End region		
 
--- Region: Handle data of Soccer
-    CREATE TABLE #FinalResult(
-	    RptDate     VARCHAR(10)
-	  , HouseWL     MONEY
-	  , ExtraPT     MONEY
-	  , TurnOver    MONEY);
-
-    INSERT INTO #FinalResult(rptDate
-					  , HouseWL
-					  , ExtraPT
-					  , TurnOver)
-		 SELECT 'FullRange'
-			 , 0
-			 , 0
-			 , 0;
--- Date list to draw chart
-    DECLARE @tmpDate     DATE
-		, @DateList    VARCHAR(200);
-    SELECT @tmpDate = @FDate;
-
-    WHILE @tmpDate <= @TDate
-	   BEGIN
-		  INSERT INTO #FinalResult(RptDate
-							, HouseWL
-							, ExtraPT
-							, TurnOver)
-			    SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
-				    , 0
-				    , 0
-				    , 0;
-
-		  SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate);
-	   END;
-
-    SELECT @DateList = COALESCE(@DateList+',', '')+'['+CONVERT(VARCHAR(10), RptDate)+']'
-    FROM #FinalResult;
--- Sport - Bettype Matrix
     CREATE TABLE #SportBettypeMatrix(
 	    ProductID     INT
 	  , Bettype       INT
@@ -98,17 +60,18 @@ BEGIN
 			 (1, 0, 0, 2, '', 'SB', 0)
 		 WHERE SubProduct NOT IN('BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss');
 -- House WL of Soccer + Parlay + Metrix Gaming
-    CREATE TABLE #TmpHouseWL(
+    CREATE TABLE #TmpData(
 	    SiteId      INT
 	  , rptDate     DATE
 	  , HouseWL     MONEY
 	  , TurnOver    MONEY
 	  , ExtraPT     MONEY);
-    INSERT INTO #TmpHouseWL(SiteId
-					 , rptDate
-					 , HouseWL
-					 , TurnOver
-					 , ExtraPT)
+
+    INSERT INTO #TmpData(SiteId
+				   , rptDate
+				   , HouseWL
+				   , TurnOver
+				   , ExtraPT)
 		 SELECT b.SiteID
 			 , b.rptDate
 			 , ISNULL(-SUM(CASE
@@ -130,12 +93,15 @@ BEGIN
 			INNER JOIN #exchange AS ex ON b.rptdate = ex.exchangedate
 									AND b.currencyid = ex.ExchangeID
 			INNER JOIN #SportBettypeMatrix AS s ON b.bettype = s.Bettype -- Get all data of SB		
+
 		 WHERE b.rptDate BETWEEN @FDate AND @TDate
 			  AND b.TicketStatus NOT IN(-1, 18, 9, 10, 14)
 			  AND
 				 (b.bettype IN(9, 29) -- Parlay
+
 				  OR s.EventType IN(1, 2, 4)
 				  AND s.SubProduct = 'MG-SuperLive' -- Metrix Gaming
+
 				  OR s.EventType IN(1, 2, 4)
 				  AND s.SubProduct <> 'MG-SuperLive'
 				  AND EXISTS
@@ -145,6 +111,7 @@ BEGIN
 							  WHERE b.LeagueId = l.LeagueId
 								   AND l.sportid = 1
 						   ) -- Soccer
+
 			  )
 		 GROUP BY b.SiteID
 			   , b.rptDate OPTION(RECOMPILE);
@@ -153,7 +120,7 @@ BEGIN
 	    , SUM(t.HouseWL) AS HouseWL
 	    , SUM(t.ExtraPT) AS ExtraPT
 	    , SUM(t.TurnOver) AS TurnOver
-    FROM #TmpHouseWL AS t
+    FROM #TmpData AS t
 	   LEFT JOIN bodb_Account.dbo.tbl_Site AS s WITH (NOLOCK) ON t.SiteId = s.siteid
     WHERE s.isDeposit = @IsDeposit
 		OR @IsDeposit = 0
@@ -163,15 +130,10 @@ BEGIN
     GROUP BY isnull(s.isDeposit, 0)
 		 , CONVERT(VARCHAR(2), t.rptDate, 106)
     ORDER BY CONVERT(VARCHAR(2), t.rptDate, 106);
--- Drop tmp table
+
+
     DROP TABLE #SportBettypeMatrix;
-    DROP TABLE #TmpHouseWL;
+    DROP TABLE #TmpData;
     DROP TABLE #Exchange;
-    DROP TABLE #FinalResult;
 END;
-GO
-
-GRANT EXECUTE ON dbo.Acc_Rpt_HouseNetIncome_MarginChart_Soccer_Sub TO [bodbAdminNet];
-
-GRANT EXECUTE ON dbo.Acc_Rpt_HouseNetIncome_MarginChart_Soccer_Sub TO [dwrs];
 GO
