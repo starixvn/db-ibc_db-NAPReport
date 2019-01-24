@@ -40,6 +40,7 @@ Revisions:
 	- 20180711@Robert: NAP Report - Add Cash Out & Bettrade into Tree Win Loss report [RedmindID: #98005]
 	- 20480815@Robert: Integrate Poker Games into NAP Report [RedmindID: #97830]
 	- 20190107@Kean: Use NoLock hint to bettransRNG and bettransLC [RedmindID: #107415]
+	- 20190117@Robert: Video Poker - Integrate into NAP Reports (#107706)
 */
 
 BEGIN
@@ -329,7 +330,7 @@ BEGIN
 									AND expt.SubProduct = pb.SubProduct
 									AND expt.Sporttype = 0
 		 WHERE winlostdate BETWEEN CAST(@FromDate AS SMALLDATETIME) AND CAST(@ToDate AS SMALLDATETIME)
-			  AND t.ProductID IN(6, 17, 22, 24, 32)
+			  AND t.ProductID IN(6, 17, 22, 24, 32, 33)
 			  AND b.statusID NOT IN(0, 1, 101, 102, 103)
 			  AND b.currency <> 20
 			  AND b.mrecommend = @mrecommend
@@ -431,6 +432,7 @@ BEGIN
 									    AND excomm.Sporttype = ISNULL(m44.SportType, 0)
 		 WHERE winlostdate BETWEEN CAST(@FromDate AS SMALLDATETIME) AND CAST(@ToDate AS SMALLDATETIME)
 			  AND t.ProductID NOT IN(2, 6, 9, 17, 21, 22, 24, 32)
+			  AND b.bettype = CASE WHEN t.ProductID = 33 AND t.bettype = 1901 THEN 0 ELSE b.bettype END
 			  AND b.ruben = 1
 			  AND b.statusID NOT IN(101, 102, 103)
 			  AND b.currency <> 20

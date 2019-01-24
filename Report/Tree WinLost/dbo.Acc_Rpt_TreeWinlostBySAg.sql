@@ -1,4 +1,4 @@
-﻿/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
+﻿/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
 ALTER PROCEDURE dbo.Acc_Rpt_TreeWinlostBySAg
 	@FromDate      DATETIME
@@ -39,6 +39,7 @@ Revisions:
 	- 20180711@Robert: NAP Report - Add Cash Out & Bettrade into Tree Win Loss report [RedmindID: #98005]
 	- 20480815@Robert: Integrate Poker Games into NAP Report [RedmindID: #97830]
 	- 20190107@Kean: Use NoLock hint to bettransRNG and bettransLC [RedmindID: #107415]
+	- 20190117@Robert: Video Poker - Integrate into NAP Reports (#107706)
 */
 
 BEGIN
@@ -329,7 +330,7 @@ BEGIN
 									AND expt.SubProduct = pb.SubProduct
 									AND expt.Sporttype = 0
 		 WHERE winlostdate BETWEEN CAST(@FromDate AS SMALLDATETIME) AND CAST(@ToDate AS SMALLDATETIME)
-			  AND t.ProductID IN(6, 17, 22, 24, 32)
+			  AND t.ProductID IN(6, 17, 22, 24, 32, 33)
 			  AND b.statusID NOT IN(0, 1, 101, 102, 103)
 			  AND b.currency <> 20
 			  AND b.srecommend = @srecommend
@@ -432,6 +433,7 @@ BEGIN
 									    AND excomm.Sporttype = ISNULL(m44.SportType, 0)
 		 WHERE winlostdate BETWEEN CAST(@FromDate AS SMALLDATETIME) AND CAST(@ToDate AS SMALLDATETIME)
 			  AND t.ProductID NOT IN(2, 6, 9, 17, 21, 22, 24, 32) /* excule AllBet	*/
+			  AND b.bettype = CASE WHEN t.ProductID = 33 AND t.bettype = 1901 THEN 0 ELSE b.bettype END
 			  AND b.ruben = 1
 			  AND b.statusID NOT IN(101, 102, 103)
 			  AND b.currency <> 20
@@ -594,18 +596,6 @@ BEGIN
 END;
 
 
-GO
-
-SET QUOTED_IDENTIFIER OFF; 
-GO
-
-SET ANSI_NULLS ON; 
-GO
-
-
-GO
-
-GRANT VIEW DEFINITION ON dbo.Acc_Rpt_TreeWinlostBySAg TO [vnteam];
 GO
 
 GRANT EXECUTE ON dbo.Acc_Rpt_TreeWinlostBySAg TO [bodbAdminNet];
