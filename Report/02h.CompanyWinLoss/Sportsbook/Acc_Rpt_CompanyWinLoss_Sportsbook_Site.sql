@@ -31,6 +31,7 @@ Revisions:
 - 20180413@Franklin: hotfix [#93594]
 - 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
 - 20181018@Robert: Fix performance issue on House Win Loss by Product [#103309]
+- 2019.04.01@Kean: Improve performance for House Win Loss by Product (#106315)
 
 Parameters:
 @IsLive: 2 - ALL. 0 - Non-Live. 1 - Live
@@ -88,18 +89,31 @@ END;
 BEGIN /* Match*/
 
     CREATE TABLE #Match(
-	    MatchId    INT
-	  , type       VARCHAR(10)
-	  , PRIMARY KEY(MatchId, type));
-    INSERT INTO #Match
+	    MatchId    INT PRIMARY KEY );
+	IF @BetType = 10
+	BEGIN
+		INSERT INTO #Match
 		 SELECT DISTINCT
 			   m.MatchId
-			 , m.type
 		 FROM
 			 (
-				SELECT MatchId
+				SELECT orid AS MatchId
 					, LeagueId
-					, 'match' AS type
+				FROM outright WITH (nolock)
+				WHERE @BetType = 10
+					 AND EventDate = @StartDate
+			 ) AS m
+			INNER JOIN league AS l WITH (nolock) ON m.LeagueId = l.LeagueId
+		 WHERE l.sporttype = @sporttype;
+	END
+	ELSE
+	BEGIN
+		INSERT INTO #Match
+		 SELECT DISTINCT
+			   m.MatchId
+		 FROM
+			 (
+				SELECT MatchId, LeagueId
 				FROM Match WITH (nolock)
 				WHERE @BetType <> 10
 					 AND EventDate = @StartDate
@@ -108,18 +122,10 @@ BEGIN /* Match*/
 						 OR @IsHedge = 1
 						 AND MatchCode LIKE '%Hedge%'
 						 OR @IsHedge = 0
-						 AND MatchCode NOT LIKE '%Hedge%')
-				UNION ALL
-				SELECT orid
-					, LeagueId
-					, 'outright' AS type
-				FROM outright WITH (nolock)
-				WHERE @BetType = 10
-					 AND EventDate = @StartDate
-			 ) AS m
+						 AND MatchCode NOT LIKE '%Hedge%')) AS m
 			INNER JOIN league AS l WITH (nolock) ON m.LeagueId = l.LeagueId
-			INNER JOIN sports AS sp WITH (nolock) ON l.sporttype = sp.sporttype
-		 WHERE sp.sporttype = @sporttype;
+		 WHERE l.sporttype = @sporttype;
+	END
 END;
 BEGIN /*-- Extra PT */
 
@@ -229,14 +235,10 @@ BEGIN /* INSERT INTO #Data*/
 			  AND
 				 (@IsLive > 1
 				  OR b.liveindicator = @IsLive)
-			  AND m.type = CASE
-						    WHEN b.BetType = 10
-						    THEN 'outright'
-						    ELSE 'match'
-						END
 			  AND b.ruben = 1
 			  AND b.statusID IN(111, 112, 113)
-		 GROUP BY ag.site;
+		 GROUP BY ag.site
+		 OPTION (RECOMPILE)
 END;
 BEGIN /* Query*/
 

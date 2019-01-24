@@ -26,6 +26,7 @@ Revisions:
 				   . Not use @EndDate because we get only one day on (bettrans/bettrans14 range) 
 - 2018.03.19@Franklin: Integrate  ONE RNG Jackpot (#91712)
 - 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
+- 2019.04.01@Kean: Improve performance for House Win Loss by Product (#106315)
 
 Example:
 EXEC [Acc_Rpt_CompanyWinLoss_Game_BetType] @EndDate='2020-01-01',@StartDate='2016-01-01',@ProductId=6
@@ -44,6 +45,8 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_BetType] @EndDate='2020-01-01',@StartDate='201
                       RefTable
                FROM dbo.f_SportBetTypeMatrix_Sel( @ProductId, 0, 0, 2, '', '', @isTest ) s
                     INNER JOIN BetType b WITH ( NOLOCK ) ON b.typeid = s.BetType;
+
+		CREATE CLUSTERED INDEX CIX_BetType ON #SportBetType( BetType, RefTable );
     END;
     BEGIN -- #DepositSuper
 
@@ -191,7 +194,8 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_BetType] @EndDate='2020-01-01',@StartDate='201
                                                WHEN dep.CustId IS NULL
                                                THEN 'Credit'
                                                ELSE 'Deposit'
-                                           END;
+                                           END
+										   OPTION (RECOMPILE);
                     END;
                         IF EXISTS -- bettransLC
                         ( SELECT 1
@@ -241,7 +245,8 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_BetType] @EndDate='2020-01-01',@StartDate='201
                                                        WHEN dep.CustId IS NULL
                                                        THEN 'Credit'
                                                        ELSE 'Deposit'
-                                                   END;
+                                                   END
+												   OPTION (RECOMPILE);
                             END;
     BEGIN -- Query
 
