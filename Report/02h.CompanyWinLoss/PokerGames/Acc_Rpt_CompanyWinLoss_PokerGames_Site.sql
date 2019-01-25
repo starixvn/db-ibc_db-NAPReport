@@ -213,7 +213,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_PokerGames_Site] @StartDate='2018-08-21', @EndDate=
         SELECT d.RowName,
                d.MemberWinLoss,
                d.SMAWinLoss,
-               -d.ExtraPT,
+               -d.ExtraPT AS ExtraPT,
                d.Commission,
                d.RealIncome,
                d.RealTurnover
