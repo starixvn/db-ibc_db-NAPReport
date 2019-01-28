@@ -1148,7 +1148,3 @@ BEGIN
 	DROP TABLE #SportBettype
 END
 GO 
- GRANT VIEW DEFINITION ON [dbo].[Task_rptWinLost_UpdateTable] TO [vnteam]
-GO 
- GRANT EXECUTE ON [dbo].[Task_rptWinLost_UpdateTable] TO [bodbAdminNet]
-GO
