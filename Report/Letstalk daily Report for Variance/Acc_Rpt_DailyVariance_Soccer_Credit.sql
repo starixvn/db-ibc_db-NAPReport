@@ -7,12 +7,13 @@ ALTER PROCEDURE [dbo].[Acc_Rpt_DailyVariance_Soccer_Credit]
 	@FromDate DATE,
 	@ToDate	DATE
 AS  
-/*  Created: Kean  
+/*  Creator: Kean  
 	Date: 2019-01-28  
-    Task : Letstalk daily Report for Variance - Credit
+    Task : Letstalk daily Report for Variance Soccer - Credit
     DB: DBWH/bodb_dwrs  
    
     Revisions:
+	- 20190128@Kean: Initialize Letstalk daily Report for Variance
 		
 	Param's Explanation:   
 */  
