@@ -13,7 +13,7 @@ AS
     DB: DBWH/bodb_dwrs  
    
     Revisions:
-	- 20190128@Kean: Initialize Letstalk daily Report for Variance
+	- 20190128@Kean: Initialize Letstalk daily Report for Variance (#108438)
 		
 	Param's Explanation:   
 */  
