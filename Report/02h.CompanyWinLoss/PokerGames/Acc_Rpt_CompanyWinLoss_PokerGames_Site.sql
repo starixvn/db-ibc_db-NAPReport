@@ -145,7 +145,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_PokerGames_Site] @StartDate='2018-08-21', @EndDate=
                        SELECT Site,
                               SUM(( winlost - actual_stake ) * actualrate),
                               SUM(( awinlost + mwinlost + swinlost ) * actualrate),
-                              -SUM((( -b.oddsspread ) * ISNULL(c.ExtraComm, 0) + ( ISNULL(b.transid2, 0) * 1.0 / 10000 ) * ISNULL(e.ExtraPT, 0)) * actualrate),
+                              SUM((( -b.oddsspread ) * ISNULL(c.ExtraComm, 0) + ( ISNULL(b.transid2, 0) * 1.0 / 10000 ) * ISNULL(e.ExtraPT, 0)) * actualrate),
                               SUM(scomm * actualrate),
                               SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - ( -b.oddsspread ) * ISNULL(c.ExtraComm, 0) - ( ISNULL(b.transid2, 0) * 1.0 / 10000 ) * ISNULL(e.ExtraPT, 0)) * actualrate),
                               0
