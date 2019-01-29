@@ -1,7 +1,4 @@
-/*<info serverAlias="DBWH-bodb_dwrs" executers="dwrs" viewers="vnteam" isFunction="0" isNested="0"></info>*/
-
-USE bodb_dwrs
-GO
+/*<info serverAlias="DBWH-bodb_dwrs" executers="dwrs" viewers="" isFunction="0" isNested="0"></info>*/
 
 ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_NonSport_Credit]
 	@FromDate	DATE,
@@ -18,6 +15,7 @@ AS
 		- 20180806@Harper - DHWL Margin Chart - Create new message notification to NSD group based on Product List [#RedmineID: 98611]
 		- 20180813@Harper - DHWL Non-sports Margin Chart - Integrate OneRNG Jackpot & Pragmatic [#RedmineID: 97562]
 		- 20180912@Harper - DHWL Non-sports Margin Chart - Integrate Pocker Games [#RedmineID: 100426]
+		- 20190121@Robert: Letstalk Margin Charts - Separate Letstalk group for credit & Deposit (Soccer & Other Sports) [#108220]		
 
 	Param's Explanation:   
 		- @ProductList: '' - default value when get all product
@@ -32,8 +30,7 @@ BEGIN
 	DECLARE @FDate DATE, @TDate DATE
 	SELECT @FDate = @FromDate, @TDate = @ToDate
 
-	DECLARE @Credit VARCHAR(MAX) = 'KN,LT,VB,VS,VS2,NG,CS,NG2,AB,FW,GD,LK3,CB,PP,PG'
-	DECLARE @Deposit VARCHAR(MAX) = 'NG,CS,KN,LT,AGC,MGCLC,MGCRNG,BT,CO,CB,VB,AB,FW,GD,BX,VS,VS2,PP'
+	DECLARE @Credit VARCHAR(MAX) = 'KN,LT,VB,VS,VS2,NG,CS,NG2,AB,FW,GD,LK3,CB,PP,PG'	
 		
 	-- Region: Get exchange rate info
 	CREATE	TABLE #Exchange			(ExchangeDate DATE, ExchangeID INT, Rate FLOAT)
@@ -134,30 +131,6 @@ BEGIN
 		AND SiteID IN (SELECT SiteID FROM bodb_Account.dbo.tbl_Site WHERE isDeposit = 0 )-- Credit data only
 	GROUP BY b.rptDate, sb.ProductID, b.CurrencyID
 	OPTION (RECOMPILE)
-
-	-- Select TO for Deposit Site
-	DELETE FROM #SportBettypeMatrix
-
-	INSERT INTO #SportBettypeMatrix (ProductID, Bettype, EventType, SubProduct)
-	SELECT ProductID, BetType, EventType, SubProduct 
-	FROM bodb02.dbo.f_SportBettypeMatrix_Sel(0,0,0,2,'',@Deposit,0) sel
-	WHERE ISNULL(@ProductList, '') = ''
-		OR EXISTS (SELECT 1 FROM #tmpProduct p WHERE sel.ProductPrefix = p.ProductPrefix) 
-
-	INSERT INTO #TmpHouseWL (rptDate, ProductID, CurrencyID, TurnOver)
-	SELECT 
-		b.rptDate,
-		sb.ProductID,
-		b.CurrencyID,			
-		SUM((CASE WHEN TurnoverIBC = 0 THEN 0  ELSE TurnoverIBC - ExtraTO END ) * ( CASE WHEN VarianceVR > 0 THEN( VarianceVR + 1 ) ELSE 1 END ) * ex.Rate) AS TurnOver
-	FROM bodb_Account.dbo.FactSiteWinloss b WITH(NOLOCK)
-		INNER JOIN #exchange ex ON b.rptdate = ex.exchangedate AND b.currencyid = ex.ExchangeID		
-		INNER JOIN #SportBettypeMatrix sb ON sb.Bettype = b.bettype
-	WHERE 
-		b.rptDate BETWEEN @FDate AND @TDate 	
-		AND b.TicketStatus NOT IN (-1,18,9,10,14)
-		AND SiteID IN (SELECT SiteID FROM bodb_Account.dbo.tbl_Site WHERE isDeposit = 1 )-- Deposit data only
-	GROUP BY b.rptDate, sb.ProductID, b.CurrencyID	
 	
 	-- OANDA Rate: KN + LT + MacauGame + VS + VS2
 	UPDATE b
@@ -293,5 +266,8 @@ BEGIN
 	DROP TABLE #Exchange
 	DROP TABLE #ExchangeOANDA
 	DROP TABLE #FinalResult
+	DROP TABLE #tmpProduct
+	DROP TABLE #PayToSupplierRate
+	DROP TABLE #ChargeInfo3rd
 END
 GO
