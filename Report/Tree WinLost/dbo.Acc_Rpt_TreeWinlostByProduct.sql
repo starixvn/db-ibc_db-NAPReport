@@ -507,7 +507,7 @@ BEGIN
 									    AND excomm.Sporttype = ISNULL(m44.SportType, 0)
 		 WHERE winlostdate BETWEEN CAST(@FromDate AS SMALLDATETIME) AND CAST(@ToDate AS SMALLDATETIME)
 			  AND t.ProductID NOT IN(2, 6, 9, 17, 21, 22, 24, 32)
-			  AND b.bettype = CASE WHEN t.ProductID = 33 AND t.bettype = 1901 THEN 0 ELSE b.bettype END
+			  AND b.bettype = CASE WHEN t.ProductID = 33 AND t.bettype between 1901 and 1999 THEN 0 ELSE b.bettype END
 			  AND b.ruben = 1
 			  AND b.statusID NOT IN(101, 102, 103, 121)
 			  AND b.currency <> 20
