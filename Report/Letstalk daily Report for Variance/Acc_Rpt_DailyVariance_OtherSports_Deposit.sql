@@ -79,7 +79,7 @@ BEGIN
 	INSERT INTO #TmpHouseWL (rptDate, VarianceWL, VarianceTO)
 	SELECT 
 		b.rptDate,
-		-SUM((b.WinlossIBC - b.ExtraWL
+		SUM((b.WinlossIBC - b.ExtraWL
 								+ CASE WHEN b.VarianceVR < 0 THEN (b.CommissionS - b.ExtraComm) ELSE 0 END) * b.VarianceVR * ex.Rate) [Variance Winloss],
 		SUM((CASE WHEN b.TurnoverIBC = 0 THEN 0 ELSE b.TurnoverIBC - b.ExtraTO END) * ABS(b.VarianceVR) * ex.Rate) [Variance Turnover]
 	FROM bodb_Account.dbo.FactSiteWinloss AS b WITH ( NOLOCK )
