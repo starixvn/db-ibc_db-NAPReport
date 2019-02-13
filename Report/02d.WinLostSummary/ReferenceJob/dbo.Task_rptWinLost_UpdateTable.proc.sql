@@ -553,13 +553,22 @@ BEGIN
 			WHEN (leaguename LIKE '%NHL%' OR leaguename LIKE '%hockey%') AND l.sporttype = 2 THEN 4
 			ELSE l.sporttype END
 			, exrisk = m.exrisk
-			,bodb_Report.dbo.rptWinlost.matchid = CASE WHEN bodb_Report.dbo.rptWinlost.bettype = 2799 THEN 0 ELSE bodb_Report.dbo.rptWinlost.matchid END
 		FROM match m with (nolock)
 			inner join league l with (nolock) ON m.leagueid = l.leagueid
 		WHERE bodb_Report.dbo.rptWinlost.matchid = m.matchid
-		AND bettype IN (SELECT bettype FROM bodb02.dbo.SportBettypeMatrix (NOLOCK) WHERE EventType <> 5)
-		AND m.eventdate = @winlostdate AND bodb_Report.dbo.rptWinlost.winlostdate = @winlostdate
-		AND bodb_Report.dbo.rptWinlost.bettype not in (10,31,32,33) --20120626@Elodie: exclude outright from sportbook
+			AND bettype IN (SELECT bettype FROM bodb02.dbo.SportBettypeMatrix (NOLOCK) WHERE EventType <> 5)
+			AND m.eventdate = @winlostdate AND bodb_Report.dbo.rptWinlost.winlostdate = @winlostdate
+			AND bodb_Report.dbo.rptWinlost.bettype not in (10,31,32,33,2799) 
+
+		UPDATE bodb_Report.dbo.rptWinlost
+		SET SportType = l.sporttype 
+			, exrisk = m.exrisk
+			,bodb_Report.dbo.rptWinlost.matchid = 0
+		FROM match m with (nolock)
+			inner join league l with (nolock) ON m.leagueid = l.leagueid
+		WHERE bodb_Report.dbo.rptWinlost.matchid = m.matchid
+			AND bodb_Report.dbo.rptWinlost.winlostdate = @winlostdate
+			AND bodb_Report.dbo.rptWinlost.bettype = 2799
 
 		--3rd Product
 		UPDATE bodb_Report.dbo.rptWinlost
@@ -1076,13 +1085,22 @@ BEGIN
 				WHEN (leaguename LIKE '%NHL%' OR leaguename LIKE '%hockey%') AND l.sporttype = 2 THEN 4
 				ELSE l.sporttype END
 				,exrisk = m.exrisk				
-				,bodb_Report.dbo.rptWinlost.matchid = CASE WHEN bodb_Report.dbo.rptWinlost.bettype = 2799 THEN 0 ELSE bodb_Report.dbo.rptWinlost.matchid END
 			FROM match14 m with (nolock)
 				inner join league l with (nolock) ON m.leagueid = l.leagueid
 			WHERE bodb_Report.dbo.rptWinlost.matchid = m.matchid
-			AND bettype IN (SELECT bettype FROM bodb02.dbo.SportBettypeMatrix (NOLOCK) WHERE EventType <> 5)
-			AND m.eventdate = @winlostdate AND bodb_Report.dbo.rptWinlost.winlostdate = @winlostdate
-			AND bodb_Report.dbo.rptWinlost.bettype not in (10,31,32,33) --20120626@Elodie: exclude outright from sportbook
+				AND bettype IN (SELECT bettype FROM bodb02.dbo.SportBettypeMatrix (NOLOCK) WHERE EventType <> 5)
+				AND m.eventdate = @winlostdate AND bodb_Report.dbo.rptWinlost.winlostdate = @winlostdate
+				AND bodb_Report.dbo.rptWinlost.bettype not in (10,31,32,33,2799) 
+			
+			UPDATE bodb_Report.dbo.rptWinlost
+			SET SportType = l.sporttype 
+				,exrisk = m.exrisk
+				,bodb_Report.dbo.rptWinlost.matchid = 0
+			FROM match14 m with (nolock)
+				inner join league l with (nolock) ON m.leagueid = l.leagueid
+			WHERE bodb_Report.dbo.rptWinlost.matchid = m.matchid
+				AND bodb_Report.dbo.rptWinlost.winlostdate = @winlostdate
+				AND bodb_Report.dbo.rptWinlost.bettype = 2799
 			
 			--3rd Product
 			UPDATE bodb_Report.dbo.rptWinlost
