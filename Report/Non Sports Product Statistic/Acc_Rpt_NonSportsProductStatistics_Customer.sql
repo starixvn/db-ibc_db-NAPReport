@@ -44,6 +44,7 @@ AS
 		20180808@Cherry: Integrate Poker Games (#97809)
 		20181018@Cherry: Integrate NG2 (#102229)
 		20181108@Cherry: Improve performance (#101547)
+		20190214@Cherry: Integrate Video Poker Games (#108735)
 
 	Param's Explanation:
 		- @username: search keyword
@@ -497,6 +498,11 @@ BEGIN
 	DROP TABLE #tmp_Site
 	DROP TABLE #tmp_Company
 	-- End Get Site --
+	
+	CREATE CLUSTERED INDEX IX_SportBettype ON #SportBettype (ProductID, Bettype, EvenType, RefTable)  
+	CREATE CLUSTERED INDEX IX_SportType ON #tmp_SportType (Sporttype)    
+	CREATE CLUSTERED INDEX IX_LeagueID ON #tmp_LeagueID (LeagueID, Bettype)
+	CREATE CLUSTERED INDEX IX_GameTableID ON #tmp_GameTableId (GameTableID)
 
 	-- Select temp data of bettrans, bettransRnG, bettransLC
 	CREATE TABLE #tmp_bettrans
@@ -824,7 +830,7 @@ BEGIN
 			COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS RowNum			
 		FROM  dbo.bettrans b WITH (NOLOCK)
 		WHERE b.winlostdate = @WLDate				
-			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 33)
+			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 33 AND RefTable = 0)
 			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) 
 			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
@@ -960,7 +966,8 @@ BEGIN
 			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 4)
 			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) 
-			AND EXISTS (SELECT 1 FROM Match m WITH (NOLOCK) INNER JOIN #tmp_GameTableId g ON g.GameTableID = m.LeagueID WHERE m.matchid = b.matchid)
+			AND b.matchid IN (SELECT matchid FROM match WITH (NOLOCK)
+								WHERE LeagueID IN (SELECT GameTableID FROM #tmp_GameTableId))
 			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
 			AND (@Currency IN (0, -1) OR b.currency = @Currency)	
 			AND (@IsFilterCust = 0 OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
@@ -1027,7 +1034,8 @@ BEGIN
 			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 5 AND EvenType = 1)
 			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) 
-			AND EXISTS (SELECT 1 FROM Match m WITH (NOLOCK) INNER JOIN #tmp_Sporttype sp ON sp.Sporttype = m.sporttype WHERE m.matchid = b.matchid)			
+			AND b.matchid IN (SELECT matchid FROM dbo.match WITH (NOLOCK)
+								WHERE sporttype IN (SELECT Sporttype FROM #tmp_Sporttype))	
 			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
 			AND (@Currency IN (0, -1) OR b.currency = @Currency)	
 			AND (@IsFilterCust = 0 OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
@@ -1086,12 +1094,14 @@ BEGIN
 			SUM(CASE WHEN b.statusID IN (103) THEN 0 ELSE 1 - b.tpositiontaking END) AS HousePT,
 			COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS RowNum			
 		FROM  dbo.bettrans b WITH (NOLOCK)
-			INNER JOIN VSRaceInfo r WITH (NOLOCK) ON r.EventId = b.matchid
 		WHERE b.winlostdate = @WLDate				
 			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 5 AND EvenType = 3)
 			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) 
-			AND EXISTS (SELECT 1 From #tmp_Sporttype sp WHERE sp.Sporttype = r.sporttype)	
+			AND (@Sporttype = '' OR
+				b.matchid IN (SELECT EventId FROM VSRaceInfo WITH (NOLOCK) 
+								WHERE sporttype IN (SELECT Sporttype FROM #tmp_Sporttype))				
+				)
 			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
 			AND (@Currency IN (0, -1) OR b.currency = @Currency)	
 			AND (@IsFilterCust = 0 OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
@@ -1164,7 +1174,8 @@ BEGIN
 			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 27 AND EvenType = 1)
 			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) 
-			AND EXISTS(SELECT 1 FROM dbo.match m WITH (NOLOCK) INNER JOIN #tmp_Sporttype st ON m.sporttype = st.Sporttype WHERE m.matchid = b.matchid)		
+			AND b.matchid IN (SELECT m.matchid FROM dbo.match m WITH (NOLOCK) 
+								WHERE m.sporttype IN (SELECT Sporttype FROM #tmp_Sporttype))	
 			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
 			AND (@Currency IN (0, -1) OR b.currency = @Currency)	
 			AND (@IsFilterCust = 0 OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
@@ -1227,7 +1238,7 @@ BEGIN
 			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 27 AND EvenType = 0)
 			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) 
-			AND EXISTS(SELECT 1 FROM #tmp_bettransm bm WHERE bm.refno = b.refno)		
+			AND b.refno IN (SELECT refno FROM #tmp_bettransm)		
 			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
 			AND (@Currency IN (0, -1) OR b.currency = @Currency)	
 			AND (@IsFilterCust = 0 OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
