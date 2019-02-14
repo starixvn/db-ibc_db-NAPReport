@@ -38,6 +38,7 @@ AS
 		- 20180411@Franklin: Integrate Pragmatic (#92642)
 		- 20180816@Cherry: Integrate Poker Games (#97830)
 		- 20181219@Robert: NAP Report - Add new sporttype for Happy 5 (#104253) 
+		- 20190128@Robert: Video Poker - Integrate into NAP Reports[#107706]
 	Param's Explanation:  
 	  + @MoveBetsDay: The day of moving bets to battrans14
 	  + @BalanceUpDay: The day of moving bets to battransbk
@@ -111,7 +112,7 @@ BEGIN
 			OR (@sportType=180 AND (b.bettype BETWEEN 1201 AND 1299 OR b.bettype BETWEEN 2700 AND 2899)) --Virtual Sports and Betradar Virtual Sports	
 			OR b.bettype BETWEEN 1600 AND CASE WHEN @sportType = 160 THEN 1610 ELSE 0 END --Lucky 3
 			OR (@sportType = 207 AND b.bettype = 1004) --Bullfighting
-			OR b.bettype BETWEEN 1401 AND CASE WHEN @sportType = 163 THEN 1499 ELSE 0 END --Poker Games
+			OR b.bettype BETWEEN 1401 AND CASE WHEN @sportType = 163 THEN 1499 ELSE 0 END --Poker Games			
 		) 
 		AND ( 
 				----b.status IN ('WON','LOSE','DRAW','running') 
@@ -121,7 +122,7 @@ BEGIN
 		GROUP BY b.custid,b.[status], b.bettype
 		
 		-- Get data from bettransRnG
-		IF @sportType IN (251, 212, 219)
+		IF @sportType IN (251, 212, 219, 163)
 		BEGIN
 			INSERT INTO #AvailableMember
 			SELECT b.custid,
@@ -133,6 +134,7 @@ BEGIN
 					(@sportType=251 AND (b.gameID BETWEEN 2101 AND 2399 OR b.gameID BETWEEN 2901 AND 2999))
 					OR b.gameID BETWEEN 4001 AND CASE WHEN @sportType=212 THEN 4300 ELSE 0 END 	--Macau Games and Pragmatic
 					OR b.gameID BETWEEN 1011 AND CASE WHEN @sportType=219 THEN 1020 ELSE 0 END -- Fishing World			
+					OR b.gameID BETWEEN 1901 AND CASE WHEN @sportType=163 THEN 1999 ELSE 0 END -- RNG Poker Games [Video Poker]
 				) 
 			AND (
 					b.statusId IN (111,112,113,0) 
@@ -174,7 +176,8 @@ BEGIN
 				SELECT b.custid,''''SETTLED'''',SUM(b.BetCount)
 				FROM bodb_account.dbo.mcCustBettingDaily b WITH (NOLOCK)					 
 				WHERE	b.rptDate BETWEEN '''''+ CONVERT(VARCHAR(10),@FirstDate, 121)+ ''''' AND '''''+  CONVERT(VARCHAR(10),@TempToDate, 121)  + '''''
-						AND (
+						AND 
+						(
 							b.bettype BETWEEN 31 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' =151 THEN 49 ELSE 0 END
 							OR b.bettype BETWEEN 81 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' =161 THEN 120 ELSE 0 END)
 							OR b.bettype BETWEEN 8101 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' =161 THEN 8120 ELSE 0 END)
@@ -194,6 +197,7 @@ BEGIN
 							OR b.bettype BETWEEN 1600 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' = 160 THEN 1610 ELSE 0 END --Lucky 3
 							OR (' + CONVERT(VARCHAR(5),@sportType) +' = 207 AND b.bettype = 1004) --Bullfighting	
 							OR b.bettype BETWEEN 1401 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' = 163 THEN 1499 ELSE 0 END --Poker Games			
+							OR b.bettype BETWEEN 1901 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' = 163 THEN 1999 ELSE 0 END --RNG Poker Games [Video Poker]
 						) 
 						AND b.status IN (3  ---DRAW
 										,12	---HALF LOSE

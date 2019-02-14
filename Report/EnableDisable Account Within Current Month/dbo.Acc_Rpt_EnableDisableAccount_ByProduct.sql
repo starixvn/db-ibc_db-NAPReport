@@ -32,6 +32,7 @@ AS
 		- 20180411@Franklin: Integrate Pragmatic (#92642)
 		- 20180831@Cherry: Integrate Poker Games into NAP Report (#97830)
 		- 20181219@Robert: NAP Report - Add new sporttype for Happy 5 (#104253) 
+		- 20190128@Robert: Video Poker - Integrate into NAP Reports[#107706]
 
 	Param's Explanation:  
 	  + @ListCurrency: The specified date used as one of the filter criterias, if its value is 'all' then no need to be filtered by currency
@@ -76,6 +77,14 @@ BEGIN
 			    SELECT bitmapOrder
 			    FROM dbo.ProductStatusProfile WITH (NOLOCK)
 			    WHERE Sporttype = @SportType;
+
+		  IF @SportType = 163
+			 BEGIN
+				INSERT INTO @bitmapOrder(bitmapOrder)
+					  SELECT bitmapOrder
+					  FROM dbo.ProductStatusProfile WITH (NOLOCK)
+					  WHERE Sporttype = 165;
+			 END;
 	   END;
 
     DECLARE @bitmap    TINYINT; /* using for sporttype that has 1 setting*/
@@ -640,13 +649,13 @@ BEGIN
 
     SELECT cust.custid
 	    , cust.username
-	    , sp.SuperStatus AS               IsDisable
+	    , sp.SuperStatus AS IsDisable
 	    , e.currency
-	    , ISNULL(rs.MasterEnabled, 0) AS  MasterEnabled
+	    , ISNULL(rs.MasterEnabled, 0) AS MasterEnabled
 	    , ISNULL(rs.MasterDisabled, 0) AS MasterDisabled
-	    , ISNULL(rs.AgentEnabled, 0) AS   AgentEnabled
-	    , ISNULL(rs.AgentDisabled, 0) AS  AgentDisabled
-	    , ISNULL(rs.MemberEnabled, 0) AS  MemberEnabled
+	    , ISNULL(rs.AgentEnabled, 0) AS AgentEnabled
+	    , ISNULL(rs.AgentDisabled, 0) AS AgentDisabled
+	    , ISNULL(rs.MemberEnabled, 0) AS MemberEnabled
 	    , ISNULL(rs.MemberDisabled, 0) AS MemberDisabled
     FROM #FiltedCreditSuper AS sp
 	   JOIN dbo.Customer AS cust WITH (NOLOCK) ON cust.custid = sp.CustID

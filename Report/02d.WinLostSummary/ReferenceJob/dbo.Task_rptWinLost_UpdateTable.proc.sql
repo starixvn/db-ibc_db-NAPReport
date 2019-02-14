@@ -1,14 +1,7 @@
-USE [bodb02]
-GO
-
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-
+/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
 ALTER PROCEDURE [dbo].[Task_rptWinLost_UpdateTable]
-	@winlostdate smalldatetime
+	@winlostdate smalldatetime 
 AS
 /*
 Name : rpt_WinLost_UpdateTable
@@ -46,6 +39,7 @@ Revision:
 	- 20180702@Tom: add condition generate data BalanceUpDay AND MoveBetsDay	
 	- 20180807@Dominic: Integrate Poker Games - #97830
 	- 20180920@Tom: modify SP to avoid allocation order scan (#101646)
+	- 20190117@Robert: Video Poker - Integrate into NAP Reports (#107706)
 */
 
 BEGIN	
@@ -86,15 +80,13 @@ BEGIN
               EventType,
               SubProduct,
 		    0 SportType
-     FROM dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '', @isTest)
+     FROM dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '', @isTest)		
 
     UPDATE sb
     SET sb.SportType = s.SportType
     FROM #SportBettype sb
 	   INNER JOIN SportBettypeMatrix s WITH(NOLOCK) ON sb.BetType = s.BetType AND s.ProductID IN (23, 31, 32, 33) -- NG2, Exchange, Pragmatic, Poker Games
-
-	--SELECT distinct winlostdate cnt FROM bettrans with (nolock) WHERE winlostdate = @winlostdate AND bettype < 19999
-	--IF @@ROWCOUNT = 1
+	
 	IF @winlostdate > @MoveBetsDay
 	BEGIN				
 		DELETE FROM bodb_Report.dbo.rptWinlost
@@ -268,11 +260,12 @@ BEGIN
 			inner join #SportBettype sb on b.bettype = sb.Bettype
 		WHERE
 			(b.bettype < 19999 and b.bettype not in (29,31,32,33,1003,2799))
-			AND sb.ProductID NOT IN (1,15, 6, 17, 21, 22, 24, 32)
+			AND sb.ProductID NOT IN (1,15, 6, 17, 21, 22, 24, 32)			
 			AND winlostdate = @winlostdate
 			AND statusID IN (111,112,113) --(/Won/lose/Draw)
 			AND ruben = 1
 			AND currency <> 20
+			AND sb.SportType <> 165
 		GROUP BY
 			winlostdate, matchid, b.bettype, liveindicator,  
 			CASE WHEN StatusID = 111 THEN 'DRAW' 
@@ -489,7 +482,7 @@ BEGIN
 			bettransRnG b with (nolock)
 			inner join #SportBettype sb on b.gameID = sb.Bettype
 		WHERE
-			sb.ProductID IN (6, 17, 22, 24, 32) -- MBC-RNG Casino, Microgaming-RNG Casino, Voidbridge, Fishing World, Pragmatic
+			sb.ProductID IN (6, 17, 22, 24, 32, 33) -- MBC-RNG Casino, Microgaming-RNG Casino, Voidbridge, Fishing World, Pragmatic			
 			AND winlostdate = @winlostdate
 			AND b.statusID IN (111,112,113) --(/Won/lose/Draw)	
 			AND currency <> 20
@@ -560,13 +553,22 @@ BEGIN
 			WHEN (leaguename LIKE '%NHL%' OR leaguename LIKE '%hockey%') AND l.sporttype = 2 THEN 4
 			ELSE l.sporttype END
 			, exrisk = m.exrisk
-			,bodb_Report.dbo.rptWinlost.matchid = CASE WHEN bodb_Report.dbo.rptWinlost.bettype = 2799 THEN 0 ELSE bodb_Report.dbo.rptWinlost.matchid END
 		FROM match m with (nolock)
 			inner join league l with (nolock) ON m.leagueid = l.leagueid
 		WHERE bodb_Report.dbo.rptWinlost.matchid = m.matchid
-		AND bettype IN (SELECT bettype FROM bodb02.dbo.SportBettypeMatrix (NOLOCK) WHERE EventType <> 5)
-		AND m.eventdate = @winlostdate AND bodb_Report.dbo.rptWinlost.winlostdate = @winlostdate
-		AND bodb_Report.dbo.rptWinlost.bettype not in (10,31,32,33) --20120626@Elodie: exclude outright from sportbook
+			AND bettype IN (SELECT bettype FROM bodb02.dbo.SportBettypeMatrix (NOLOCK) WHERE EventType <> 5)
+			AND m.eventdate = @winlostdate AND bodb_Report.dbo.rptWinlost.winlostdate = @winlostdate
+			AND bodb_Report.dbo.rptWinlost.bettype not in (10,31,32,33,2799) 
+
+		UPDATE bodb_Report.dbo.rptWinlost
+		SET SportType = l.sporttype 
+			, exrisk = m.exrisk
+			,bodb_Report.dbo.rptWinlost.matchid = 0
+		FROM match m with (nolock)
+			inner join league l with (nolock) ON m.leagueid = l.leagueid
+		WHERE bodb_Report.dbo.rptWinlost.matchid = m.matchid
+			AND bodb_Report.dbo.rptWinlost.winlostdate = @winlostdate
+			AND bodb_Report.dbo.rptWinlost.bettype = 2799
 
 		--3rd Product
 		UPDATE bodb_Report.dbo.rptWinlost
@@ -791,6 +793,7 @@ BEGIN
 			WHERE
 				(b.bettype < 19999 and b.bettype not in (29,31,32,33,1003,2799))
 				AND sb.ProductID NOT IN (1,15, 6, 17, 21, 22, 24, 32)
+				AND sb.SportType <> 165
 				AND winlostdate = @winlostdate
 				AND statusID IN (111,112,113) --(/Won/lose/Draw)
 				AND ruben = 1
@@ -1011,7 +1014,7 @@ BEGIN
 				dbo.bettransRnG14 b with (nolock)
 				inner join #SportBettype sb on b.gameID = sb.Bettype
 			WHERE
-				sb.ProductID IN (6, 17, 22, 24, 32) -- MBC-RNG Casino, Microgaming-RNG Casino, Voidbridge, Fishing World, Pragmatic
+				sb.ProductID IN (6, 17, 22, 24, 32, 33) -- MBC-RNG Casino, Microgaming-RNG Casino, Voidbridge, Fishing World, Pragmatic				
 				AND winlostdate = @winlostdate
 				AND b.statusID IN (111,112,113) --(/Won/lose/Draw)	
 				AND currency <> 20
@@ -1082,13 +1085,22 @@ BEGIN
 				WHEN (leaguename LIKE '%NHL%' OR leaguename LIKE '%hockey%') AND l.sporttype = 2 THEN 4
 				ELSE l.sporttype END
 				,exrisk = m.exrisk				
-				,bodb_Report.dbo.rptWinlost.matchid = CASE WHEN bodb_Report.dbo.rptWinlost.bettype = 2799 THEN 0 ELSE bodb_Report.dbo.rptWinlost.matchid END
 			FROM match14 m with (nolock)
 				inner join league l with (nolock) ON m.leagueid = l.leagueid
 			WHERE bodb_Report.dbo.rptWinlost.matchid = m.matchid
-			AND bettype IN (SELECT bettype FROM bodb02.dbo.SportBettypeMatrix (NOLOCK) WHERE EventType <> 5)
-			AND m.eventdate = @winlostdate AND bodb_Report.dbo.rptWinlost.winlostdate = @winlostdate
-			AND bodb_Report.dbo.rptWinlost.bettype not in (10,31,32,33) --20120626@Elodie: exclude outright from sportbook
+				AND bettype IN (SELECT bettype FROM bodb02.dbo.SportBettypeMatrix (NOLOCK) WHERE EventType <> 5)
+				AND m.eventdate = @winlostdate AND bodb_Report.dbo.rptWinlost.winlostdate = @winlostdate
+				AND bodb_Report.dbo.rptWinlost.bettype not in (10,31,32,33,2799) 
+			
+			UPDATE bodb_Report.dbo.rptWinlost
+			SET SportType = l.sporttype 
+				,exrisk = m.exrisk
+				,bodb_Report.dbo.rptWinlost.matchid = 0
+			FROM match14 m with (nolock)
+				inner join league l with (nolock) ON m.leagueid = l.leagueid
+			WHERE bodb_Report.dbo.rptWinlost.matchid = m.matchid
+				AND bodb_Report.dbo.rptWinlost.winlostdate = @winlostdate
+				AND bodb_Report.dbo.rptWinlost.bettype = 2799
 			
 			--3rd Product
 			UPDATE bodb_Report.dbo.rptWinlost
@@ -1140,8 +1152,8 @@ BEGIN
 	DROP TABLE #bettransm
 	DROP TABLE #SportBettype
 END
+
+
 GO 
- GRANT VIEW DEFINITION ON [dbo].[Task_rptWinLost_UpdateTable] TO [vnteam]
-GO 
- GRANT EXECUTE ON [dbo].[Task_rptWinLost_UpdateTable] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[Task_rptWinLost_UpdateTable] TO [bodbAdminNet]
 GO
