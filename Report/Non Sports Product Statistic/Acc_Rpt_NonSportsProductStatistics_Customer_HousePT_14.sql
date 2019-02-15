@@ -30,11 +30,12 @@ AS
 	Task: Risk and Control - Non-Sport Game Statistics Report - Report by Super/Master/Agent/Username - Drilldown House PT (1-tpositiontaking)
 
 	Revisions:
-		- 20170726@Cherry: Integrate Betradar Virtual Sports (#78495)
-		- 20171006@Cherry: Add filter of Number Game Bettype (#83101)
-		- 20180328@Cherry: Integrate One RNG Jackpot (#89459)
-		- 20180808@Cherry: Integrate Poker Games (#97809)
-		- 20181018@Cherry: Integrate NG2 (#102229)
+		20170726@Cherry: Integrate Betradar Virtual Sports (#78495)
+		20171006@Cherry: Add filter of Number Game Bettype (#83101)
+		20180328@Cherry: Integrate One RNG Jackpot (#89459)
+		20180808@Cherry: Integrate Poker Games (#97809)
+		20181018@Cherry: Integrate NG2 (#102229)
+		20190214@Cherry: Integrate Video Poker Games (#108735)
 
 	Param's Explanation:
 		- @ProductID: string filter by Product 
@@ -467,7 +468,7 @@ BEGIN
 		END
 	
 		--- Check condition 
-		IF EXISTS (SELECT TOP 1 1 FROM #SportBettype WHERE ProductID NOT IN (3, 4, 5, 27)) -- NG, SLI-Live Casino, Virtual Sports, Virtual Sports 2
+		IF EXISTS (SELECT TOP 1 1 FROM #SportBettype WHERE ProductID NOT IN (3, 4, 5, 27, 33)) -- NG, SLI-Live Casino, Virtual Sports, Virtual Sports 2, Poker Games
 		BEGIN		
 			INSERT INTO #Data
 			(
@@ -488,8 +489,34 @@ BEGIN
 				SUM(HousePT) AS HousePT,
 				SUM(RowNum) AS RowNum
 			FROM  #tmp_bettrans
-			WHERE ProductID NOT IN (3, 4, 5, 27)
+			WHERE ProductID NOT IN (3, 4, 5, 27, 33)
 			GROUP BY ProductID
+		END
+		
+		IF EXISTS (SELECT TOP 1 1 FROM #SportBettype WHERE ProductID = 33) -- Poker Games
+		BEGIN		
+			INSERT INTO #Data
+			(
+				BetCount,
+				TotalBets, TotalBetsBase,
+				TotalWins, TotalWinsBase,
+				ProductID,
+				HousePT,
+				RowNum
+			)
+			SELECT
+				SUM(BetCount) AS BetCount,
+				SUM(TotalBets) AS TotalBets,
+				SUM(TotalBetsBase) AS TotalBetsBase,
+				SUM(TotalWins) AS TotalWins,
+				SUM(TotalWinsBase) AS TotalWinsBase,
+				b.ProductID,
+				SUM(HousePT) AS HousePT,
+				SUM(CASE WHEN s.RefTable = 0 THEN RowNum ELSE BetCount END) AS RowNum
+			FROM  #tmp_bettrans b
+				INNER JOIN #SportBettype s ON b.Bettype = s.Bettype				
+			WHERE b.ProductID = 33
+			GROUP BY b.ProductID
 		END
 
 		IF EXISTS (SELECT TOP 1 1 FROM #SportBettype WHERE ProductID IN (3, 4, 5)) -- NG, SLI-Live Casino, Virtual Sport
