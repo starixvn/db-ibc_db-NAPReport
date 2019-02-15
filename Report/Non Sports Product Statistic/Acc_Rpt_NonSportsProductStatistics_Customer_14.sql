@@ -530,7 +530,7 @@ BEGIN
 		RowNum INT
 	)
 
-	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID NOT IN (3, 4, 5, 27, 33)) -- NG, SLI-Live Casino, Virtual Sports, Virtual Sports 2, Poker Games
+	--  ProductID NOT IN (3, 4, 5, 27, 33)) -- NG, SLI-Live Casino, Virtual Sports, Virtual Sports 2, Poker Games
 	BEGIN
 		INSERT INTO #tmp_bettrans
 		(

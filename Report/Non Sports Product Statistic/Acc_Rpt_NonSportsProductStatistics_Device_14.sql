@@ -305,7 +305,7 @@ BEGIN
 	CREATE CLUSTERED INDEX IX_GameTableID ON #tmp_GameTableId (GameTableID)
 
 	------------------------------------------II. Get Real Data For Report ------------------------------------------------------
-	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID NOT IN (3, 4, 5, 27, 33)) -- NG, SLI-Live Casino, Virtual Sports, Virtual Sports 2, Poker Games
+	-- ProductID NOT IN (3, 4, 5, 27, 33)) -- NG, SLI-Live Casino, Virtual Sports, Virtual Sports 2, Poker Games
 	BEGIN		
 		-- 1. By bettype for normal product
 		INSERT INTO #Data
@@ -367,7 +367,7 @@ BEGIN
 				)
 		GROUP BY b.Betfrom, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, b.Currency
 		
-		-- 2a. By Bettype for Casino Product
+		-- 2a. By Bettype for Casino Product & Video Poker Games
 		INSERT INTO #Data
 				( Betfrom ,
 				  CustID ,

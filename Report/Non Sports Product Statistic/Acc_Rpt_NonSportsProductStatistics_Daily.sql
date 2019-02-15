@@ -308,7 +308,7 @@ SET NOCOUNT ON
 	CREATE CLUSTERED INDEX IX_LeagueID ON #tmpLeagueID (LeagueID, Bettype)
 	CREATE CLUSTERED INDEX IX_GameTableID ON #tmpGameTableId (GameTableID)
 
-	IF EXISTS (SELECT 1 FROM #tmpProductID WHERE ProductID NOT IN (3, 4, 5, 27, 33))
+	-- ProductID NOT IN (3, 4, 5, 27, 33))
 	BEGIN
 		---1. By bettype for normal Product
 		INSERT INTO #Data (  ReportBy, CustId,
@@ -364,7 +364,7 @@ SET NOCOUNT ON
 				)
 		GROUP BY  b.WinlostDate, b.Currency, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END
 		 
-		---1b. By bettype for Casino Product
+		---1b. By bettype for Casino Product & Video Poker Games
 		INSERT INTO #Data (  ReportBy, CustId,
 							   BetCount, CurrencyId , 
 							   TotalBets, TotalBetsBase, 

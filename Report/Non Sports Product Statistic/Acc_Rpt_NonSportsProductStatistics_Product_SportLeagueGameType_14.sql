@@ -318,7 +318,7 @@ BEGIN
 
 	------------------------------------------II. Get Real Data For Report ------------------------------------------------------
 	--- Check condition 
-	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID NOT IN (3, 4, 5, 27, 33)) -- NG, SLI-Live Casino, Virtual Sports, Virtual Sports 2, Poker Games
+	-- ProductID NOT IN (3, 4, 5, 27, 33)) -- NG, SLI-Live Casino, Virtual Sports, Virtual Sports 2, Poker Games
 	BEGIN		
 		-- 1. By bettype for normal product
 		INSERT INTO #Data
