@@ -26,6 +26,7 @@ DB: DBACC/bodb02
 Revisions:
 - 20160301@Jacob: Initialize Company Win Loss Report
 - 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
+- 20190220@Dominic: Recompile exec plan to avoid parameter sniffing
 
 Parameters:
 @IsLive: 2 - ALL. 0 - Non-Live. 1 - Live
@@ -171,7 +172,8 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_MatchDetail] @EndDate='2020-01-01',@Star
                         m.HomeId,
                         m.AwayId,
                         m.EventDate,
-                        m.LeagueId;
+                        m.LeagueId
+				OPTION(RECOMPILE)
     END;
     BEGIN -- RM
 
@@ -243,7 +245,8 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_MatchDetail] @EndDate='2020-01-01',@Star
                             WHEN b.recommend = 52466
                             THEN '8RM Total'
                             ELSE 'BARM Total'
-                        END;
+                        END
+				OPTION(RECOMPILE)
     END;
     BEGIN -- Query
 
