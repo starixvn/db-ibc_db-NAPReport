@@ -1,5 +1,4 @@
-USE bodb02
-GO
+/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
 ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_MGC_Deposit]
 	@FromDate DATE,
@@ -11,7 +10,8 @@ AS
     DB:			DBEXT/bodb02  
    
     Revisions:  
-	
+	   - 20190222@Robert: #109196 - House Net Income - Arrange Email notification for Licensee Figures
+
 	Param's Explanation:   
 		- 20160315@Harper: PayToSupplier using GMT +0 [RedmindID: #67062]
 		- 20170518@Harper: Fixing PayToSupplier [RedmineID: #76695]
@@ -74,7 +74,7 @@ BEGIN
 				OR (cis.FromDate < @FDate AND @TDate < cis.ToDate))
 
 	DECLARE @PartyIDs VARCHAR(1000)
-	SELECT	@PartyIDs = COALESCE(@PartyIDs + ',', '') + CONVERT(VARCHAR(10), PartyId) FROM @tmpParty
+	SELECT	@PartyIDs = COALESCE(@PartyIDs + ',', '') + CONVERT(VARCHAR(10), PartyId) FROM @tmpParty where IsDeposit = 1
 	-- End region	
 
 	-- Region: ChargeInfo	
@@ -330,9 +330,4 @@ BEGIN
 	DROP TABLE #FinalResult
 	DROP TABLE #TempDataMGC3rd
 END
-GO
-
-GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_MGC_Deposit] TO [bodbAdminNet]
-GO
-GRANT VIEW definition ON [dbo].[Acc_Rpt_HouseNetIncome_MGC_Deposit] TO vnteam
 GO
