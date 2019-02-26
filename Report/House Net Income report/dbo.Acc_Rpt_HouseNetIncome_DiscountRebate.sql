@@ -1,8 +1,8 @@
 /*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
 ALTER PROCEDURE dbo.Acc_Rpt_HouseNetIncome_DiscountRebate
-	@FromDate    DATE
-   , @ToDate      DATE
+	@FromDate    DATE 
+   , @ToDate      DATE 
 AS
 /*  
 	Created: Victor  
@@ -17,6 +17,8 @@ AS
 		- 20170323@Harper - #67065 - Add more product to calculate discount & rebate
 		- 20170825@Harper - #79612 - Add VS2 to caculate Discount
 		- 20181202@Robert: #104579 - House Net Income Email/Letstalk/Margin Chart - Integrate Happy 5
+		- 20190214@Robert: #97564 - House Net Income & Margin Charts - Apply new changing on discount and update calculation formula for related products
+
 	Param's Explanation:   
 */
 
@@ -27,20 +29,6 @@ BEGIN
 		, @TDate    DATE;
     SELECT @FDate = @FromDate
 	    , @TDate = @ToDate;
-
-    CREATE TABLE #Exchange(
-	    ExchangeDate    DATE
-	  , ExchangeID      INT
-	  , Rate            FLOAT);
-
-    INSERT INTO #Exchange(ExchangeDate
-				    , ExchangeID
-				    , Rate)
-		 SELECT ExchangeDate
-			 , Currency
-			 , Rate
-		 FROM DBWH.bodb_account.dbo.tbl_Currency_Daily WITH (NOLOCK)
-		 WHERE ExchangeDate BETWEEN @FDate AND @TDate;
 
     CREATE TABLE #DiscountGroupHeader(
 	    DiscountGroupId      INT
@@ -148,102 +136,52 @@ BEGIN
 		   FROM #DiscountGroup AS d
 			  LEFT JOIN bodb_licensee.dbo.Product3rd AS p WITH (NOLOCK) ON p.Productid = d.ProductId
 	    ) AS t;
-/* Region: GEt Winloss data*/
 
     DECLARE @PartyIDs    VARCHAR(1000);
     SELECT @PartyIDs = COALESCE(@PartyIDs+',', '')+CONVERT(VARCHAR(10), PartyId)
-    FROM #DiscountGroup
-    WHERE DiscountGroupType = 3;
+    FROM
+	    (
+		   SELECT DISTINCT
+				PartyId
+		   FROM #DiscountGroup
+	    ) AS PartyIds;
 
-    CREATE TABLE #TempDataWL(
-	    PartyId       INT
-	  , ProductId     TINYINT
-	  , LicenseeWL    MONEY);
-    INSERT INTO #TempDataWL(PartyId
+    CREATE TABLE #TmpData_LA(
+	    PartyId              INT
+	  , ProductId            INT
+	  , Winloss              MONEY
+	  , Fee                  MONEY
+	  , NegativeFee          MONEY
+	  , Minfee               MONEY
+	  , IsChargedByMinFee    BIT
+	  , Discount             MONEY
+	  , DiscountRate         MONEY
+	  , DiscountRemark       NVARCHAR(MAX)
+	  , Rebate               MONEY
+	  , RebateRate           MONEY
+	  , RebateRemark         VARCHAR(MAX));
+
+    INSERT INTO #TmpData_LA(PartyId
 					 , ProductId
-					 , LicenseeWL)
-		 (
-			SELECT ci.PartyId
-				, b.ProductId
-				, SUM(-ISNULL(b.MemberWL, 0) * e.Rate)
-			FROM bodb_LicenseeReport.dbo.rpt_BettingByProduct AS b WITH (NOLOCK)
-			    INNER JOIN #Exchange AS e ON b.rptDate = e.ExchangeDate
-									   AND b.CurrencyId = e.ExchangeID
-			    INNER JOIN bodb_licensee.dbo.LA_f_ChargeInfo
-				(@PartyIDs, @FDate, @TDate, 'SB,VS,VS2', 'OA', 1) AS ci ON ci.LicenseeID = b.SiteID
-															    AND ci.ProductID = b.ProductID
-															    AND b.rptDate BETWEEN ci.Fromdate AND ci.Todate
-															    AND
-																   (b.Bettype = -1
-																    OR b.Bettype = ci.Bettype)
-			WHERE b.rptDate BETWEEN @FDate AND @TDate
-				 AND b.CurrencyID <> 20
-				 AND b.customercategory NOT IN(27, 28)
-				 AND b.Bettype NOT IN(901, 902, 903, 904)
-				 AND b.StatusId NOT IN(-1, 103) /* Exclude Reject , Void, Refund*/
-			GROUP BY ci.PartyId
-				  , b.ProductId
-		 );
+					 , Winloss
+					 , Fee
+					 , NegativeFee
+					 , Minfee
+					 , IsChargedByMinFee
+					 , Discount
+					 , DiscountRate
+					 , DiscountRemark
+					 , Rebate
+					 , RebateRate
+					 , RebateRemark)
+    EXEC bodb_licensee.dbo.LA_AmountToCompanySel
+	    @FromDate = @FromDate
+	  , @ToDate = @ToDate
+	  , @PartyIds = @PartyIDs
+	  , @ProductCodes = @ProductList
+	  , @BaseCurrency = 'MYR'
+	  , @CurrencyId = 0;
 
-    CREATE NONCLUSTERED INDEX Idx_InvoiceData ON #TempDataWL(PartyId, ProductId);
-/* End Region
-	
-	 Convert discount amount to base currency*/
-
-    UPDATE d
-		 SET
-			d.FromAmount = d.FromAmount * e.Rate
-		   , d.ToAmount = d.ToAmount * e.Rate
-    FROM #DiscountGroup d
-	   INNER JOIN #Exchange e ON e.ExchangeDate = @TDate
-						    AND d.BaseCurrency = e.ExchangeID
-						    AND d.DiscountGroupType = 1; /* discount = 1*/
-
-
-    CREATE TABLE #FeeData(
-	    PartyId            INT
-	  , ProductId          INT
-	  , AComm              MONEY
-	  , MinFeeApplied      MONEY
-	  , WLFeeApplied       MONEY
-	  , AmountToCompany    MONEY);
-
-    INSERT INTO #FeeData(PartyId
-				   , ProductId
-				   , AComm
-				   , MinFeeApplied
-				   , WLFeeApplied
-				   , AmountToCompany)
-    EXEC dbo.Acc_Rpt_HouseNetIncome_LicenseeFee
-	    @FromDate = @FDate
-	  , @ToDate = @TDate
-	  , @Products = @ProductList;
-/* Apply discount & rebate*/
-
-    WITH t
-	    AS (
-	    SELECT SUM(s.AmountToCompany) AS Total
-		    , s.PartyId
-		    , d.DiscountGroupId
-	    FROM #FeeData AS s
-		   INNER JOIN
-		    (
-			   SELECT DISTINCT
-					DiscountGroupId
-				   , PartyId
-				   , ProductId
-			   FROM #DiscountGroup
-			   WHERE DiscountGroupType = 1
-		    ) AS d ON s.PartyId = d.PartyId
-				    AND s.ProductId = d.ProductId
-	    GROUP BY s.PartyId
-			 , d.DiscountGroupId)
-	    DELETE d
-	    FROM #DiscountGroup d
-		   INNER JOIN t ON t.DiscountGroupId = d.DiscountGroupId
-					    AND t.PartyId = d.PartyId
-	    WHERE d.DiscountGroupType = 1
-			AND t.Total NOT BETWEEN d.FromAmount AND d.ToAmount;
 
     CREATE TABLE #RebateDiscount(
 	    ProductId      INT
@@ -264,65 +202,16 @@ BEGIN
 				  WHEN s.ProductId IN(14, 17)
 				  THEN 'MGC'
 				  ELSE p.ProductPrefix
-			   END AS                 ProductCode
+			   END AS ProductCode
 			 , CASE
 				  WHEN s.ProductId = 0
 				  THEN 4
 				  ELSE 3
-			   END AS                 [Order]
+			   END AS [Order]
 			 , 'Rebate & Discount' AS Figure
-			 , -SUM(CASE
-					  WHEN s.AmountToCompany < 0
-					  THEN 0
-					  ELSE s.AmountToCompany * (ISNULL(d.Rate, 0) + (1 - ISNULL(d.Rate, 0)) * ISNULL(r.Rate, 0))
-				   END) AS           FullRange
-		 FROM #FeeData AS s
+			 , -SUM(s.Rebate + s.Discount) AS FullRange
+		 FROM #TmpData_LA AS s
 			LEFT JOIN bodb_licensee.dbo.Product3rd AS p ON p.Productid = s.ProductId
-			LEFT JOIN #DiscountGroup AS d ON s.PartyId = d.PartyId
-									   AND d.ProductId = s.ProductId
-									   AND d.DiscountGroupType = 1 /* discount = 1*/
-			LEFT JOIN #DiscountGroup AS r ON s.PartyId = r.PartyId
-									   AND r.ProductId = s.ProductId
-									   AND r.DiscountGroupType = 2 /* rebate = 2*/
-		 GROUP BY s.ProductId
-			   , CASE
-				    WHEN s.ProductId = 0
-				    THEN 'SB'
-				    WHEN s.ProductId IN(14, 17)
-				    THEN 'MGC'
-				    ELSE p.ProductPrefix
-				END
-			   , CASE
-				    WHEN s.ProductId = 0
-				    THEN 4
-				    ELSE 3
-				END
-		 UNION ALL
-/* For Product that have discount group type = 3, discount based on Licensee WL*/
-		 SELECT s.ProductId
-			 , CASE
-				  WHEN s.ProductId = 0
-				  THEN 'SB'
-				  WHEN s.ProductId IN(14, 17)
-				  THEN 'MGC'
-				  ELSE p.ProductPrefix
-			   END AS                 ProductCode
-			 , CASE
-				  WHEN s.ProductId = 0
-				  THEN 4
-				  ELSE 3
-			   END AS                 [Order]
-			 , 'Rebate & Discount' AS Figure
-			 , -SUM(CASE
-					  WHEN s.LicenseeWL < 0
-					  THEN 0
-					  ELSE s.LicenseeWL * ISNULL(d.Rate, 0)
-				   END) AS           FullRange
-		 FROM #TempDataWL AS s
-			LEFT JOIN bodb_licensee.dbo.Product3rd AS p ON p.Productid = s.ProductId
-			LEFT JOIN #DiscountGroup AS d ON s.PartyId = d.PartyId
-									   AND d.ProductId = s.ProductId
-									   AND d.DiscountGroupType = 3
 		 GROUP BY s.ProductId
 			   , CASE
 				    WHEN s.ProductId = 0
@@ -342,28 +231,28 @@ BEGIN
 				  WHEN ProductId IN(14, 17)
 				  THEN 'MGC'
 				  ELSE ProductPrefix
-			   END AS                 ProductCode
-			 , 3 AS                   [Order]
+			   END AS ProductCode
+			 , 3 AS [Order]
 			 , 'Rebate & Discount' AS Figure
-			 , 0 AS                   FullRange
+			 , 0 AS FullRange
 		 FROM bodb_licensee.dbo.Product3rd WITH (NOLOCK)
 		 WHERE Productid NOT IN
 						    (
 							   SELECT DISTINCT
 									ProductID
-							   FROM #FeeData
+							   FROM #TmpData_LA
 						    )
 			  AND Productid IN(2, 4, 5, 6, 8, 14, 17, 12, 22, 11, 21, 24)
 		 UNION ALL
 		 SELECT 0
-			 , 'SB' AS                ProductCode
-			 , 4 AS                   [Order]
+			 , 'SB' AS ProductCode
+			 , 4 AS [Order]
 			 , 'Rebate & Discount' AS Figure
-			 , 0 AS                   FullRange
+			 , 0 AS FullRange
 		 WHERE NOT EXISTS
 					   (
 						  SELECT 1
-						  FROM #FeeData
+						  FROM #TmpData_LA
 						  WHERE ProductId = 0
 					   );
     SELECT r.ProductCode
@@ -377,19 +266,16 @@ BEGIN
     UNION ALL
 /* NG & LC need to inlude Rebate Discount value to PayToSupplier*/
     SELECT r.ProductCode
-	    , 4 AS                             [Order]
-	    , 'Pay to supplier' AS             Figure
+	    , 4 AS [Order]
+	    , 'Pay to supplier' AS Figure
 	    , ISNULL(r.FullRange, 0) * -0.4 AS FullRange
     FROM #RebateDiscount AS r
     WHERE r.ProductId IN(2, 4); /* NG, LC*/
 
-
-    DROP TABLE #Exchange;
     DROP TABLE #DiscountGroupHeader;
     DROP TABLE #DiscountGroup;
-    DROP TABLE #FeeData;
     DROP TABLE #RebateDiscount;
-    DROP TABLE #TempDataWL;
+    DROP TABLE #TmpData_LA;
 END;
 GO
 
