@@ -1,11 +1,11 @@
-/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
 USE bodb02
 GO
 
 ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_SB_Deposit]
 	@FromDate DATE,
-	@ToDate	DATE
+	@ToDate	DATE	
 AS  
 /*  
 	Created: Victor  
@@ -19,8 +19,12 @@ AS
 		- 20171206@Harper - Update Pay To MuayThai amount due to include Parlay data [RedmineID: #83193]		
 		- 20180131@Harper - Fix Daily HAIFA data [#RedmineID: 90263]
 		- 20180518@Harper - Hot Fix Daily HAIFA data [#RedmineID: 95399]
+		- 20190222@Robert: #109196 - House Net Income - Arrange Email notification for Licensee Figures
 
-	Param's Explanation:   
+	Param's Explanation:  
+		  - DepositType  
+				    = 0 All
+				    = 1 Deposit Only 
 
 	EXEC Acc_Rpt_HouseNetIncome_SB_Deposit '2017-12-01', '2017-12-31'
 */  
@@ -204,12 +208,12 @@ BEGIN
 	---------------------------------------------------- Pay to Metric Gaming -------------------------------------------------------
 	-- Get Party list, including credit licensees
 	SET @PartyIDs = NULL
-	SELECT	@PartyIDs = COALESCE(@PartyIDs + ',', '') + CONVERT(VARCHAR(10), PartyId) FROM @tmpParty
+	SELECT	@PartyIDs = COALESCE(@PartyIDs + ',', '') + CONVERT(VARCHAR(10), PartyId) FROM @tmpParty  WHERE IsDeposit = 1
 
 	DELETE FROM @PartyChargeInfo
 	INSERT INTO @PartyChargeInfo(PartyId, LicenseeId, IsDeposit, ProductID, Rate, Fromdate, Todate)
 	SELECT	PartyID, LicenseeID, isDeposit, ProductID, DI_Rate, Fromdate, Todate
-	FROM	bodb_licensee.dbo.LA_f_ChargeInfo(@PartyIds, @FDate, @TDate, 'SB', 'OA', 0)
+	FROM	bodb_licensee.dbo.LA_f_ChargeInfo(@PartyIds, @FDate, @TDate, 'SB', 'OA', 0) ci
 	WHERE	DI_Rate > 0
 
 	CREATE TABLE #MetricGamingData (LicenseeID INT, PartyID INT, RptDate DATE, CurrencyID INT, LicenseeWL MONEY, AmtLicensee MONEY)
@@ -418,14 +422,3 @@ BEGIN
 	DROP TABLE #MetricGamingData
 END
 GO
-
-SET QUOTED_IDENTIFIER OFF 
-GO
-SET ANSI_NULLS ON 
-GO
-
-GO 
- GRANT VIEW DEFINITION ON [dbo].[Acc_Rpt_HouseNetIncome_SB_Deposit] TO [vnteam]
-GO 
- GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_SB_Deposit] TO [bodbAdminNet]
-GO 
