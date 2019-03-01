@@ -1,3 +1,5 @@
+/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+
 USE [bodb02]
 GO
 
@@ -17,7 +19,8 @@ AS
 	Description: Nap Report - Exchange Performance
 	DB: DBEXT.bodb02 
 	Revisions: 
-		- 20180529@Cherry: Nap Report - Exchange Performance report [RedmineID: #93582]
+		20180529@Cherry: Nap Report - Exchange Performance report [RedmineID: #93582]
+		20190228@Cherry: Exclude test tickets UUS (#109491)
 
 	Param's Explanation:  
  
@@ -191,6 +194,7 @@ BEGIN
 		FROM bodb_LicenseeReport.dbo.rptDepWinlost_ThirdParty_Performance b WITH (NOLOCK)
 		WHERE Winlostdate BETWEEN @FromDate AND @ToDate 
 			AND b.ProductId = 31 	
+			AND b.Currency <> 20
 			AND EXISTS (SELECT 1 FROM #tmpSport s WHERE b.Sporttype	= s.SportID)	
 			AND EXISTS (SELECT 1 FROM #tmpLicensee l WHERE b.SiteId = l.LicenseeId)
 		GROUP BY Winlostdate, SiteID, Sporttype, Custid, Currency
@@ -255,7 +259,3 @@ BEGIN
 END
 
 GO
-GRANT EXECUTE ON [dbo].[Acc_Rpt_ExchangePerformance] TO [bodbAdminNet];
-GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_Rpt_ExchangePerformance] TO [vnteam];
-GO	
