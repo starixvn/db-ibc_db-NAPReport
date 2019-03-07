@@ -1,13 +1,5 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
-USE [bodb02]
-GO
-/****** Object:  StoredProcedure [dbo].[Acc_Rpt_CompanyWinLoss_Sportsbook_MatchDetail]    Script Date: 5/9/2018 12:43:06 PM ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-/****** Object:  Stored Procedure dbo.Acc_Rpt_CompanyWinLoss_Sportsbook_MatchDetail    Script Date: 5/2/2018 9:36:29 AM ******/
 ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_Sportsbook_MatchDetail]
        @StartDate SMALLDATETIME,
        @EndDate   SMALLDATETIME,
@@ -27,7 +19,7 @@ Revisions:
 - 20160301@Jacob: Initialize Company Win Loss Report
 - 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
 - 20190220@Dominic: Recompile exec plan to avoid parameter sniffing
-
+- 20190313@Jacob: Integrate BetBuilder (#109822)
 Parameters:
 @IsLive: 2 - ALL. 0 - Non-Live. 1 - Live
 @IsHedge: 2 - ALL. 0 - Non-Hedge. 1 - Hedge
@@ -82,13 +74,11 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_MatchDetail] @EndDate='2020-01-01',@Star
                FROM bodb02.dbo.Acc_GroupExtraPTSetting a WITH ( NOLOCK )
                WHERE @StartDate BETWEEN FromDate AND Todate
                  AND a.ProductId = 1
-                 AND a.SubProduct NOT IN( 'MG-SuperLive', 'BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss' )
+                 AND a.SubProduct NOT IN( 'MG-SuperLive', 'BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss', 'Bet Builder' )
 				 AND a.Sporttype = @sport
                GROUP BY SuperId,Sporttype;
     END;
-    BEGIN -- #Data
-	
-
+    BEGIN -- #Data	
         CREATE TABLE #Data( MatchId         INT,
                             MatchCode       VARCHAR(100),
                             IsNeutral       BIT,
@@ -274,8 +264,4 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_MatchDetail] @EndDate='2020-01-01',@Star
         DROP TABLE #Match;
         DROP TABLE #ExtraPT_Sel;
         DROP TABLE #Data;
-GO
-GRANT EXECUTE ON [dbo].[Acc_Rpt_CompanyWinLoss_Sportsbook_MatchDetail] TO [bodbAdminNet];
-GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_Rpt_CompanyWinLoss_Sportsbook_MatchDetail] TO [vnteam];
 GO

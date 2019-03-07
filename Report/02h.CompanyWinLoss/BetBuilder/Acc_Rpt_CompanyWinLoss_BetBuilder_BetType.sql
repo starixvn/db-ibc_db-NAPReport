@@ -1,4 +1,3 @@
-
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
 
@@ -7,13 +6,13 @@ ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_BetBuilder_BetType] @StartDate SMA
 AS
 
 /*
-Creator: Kean
-Date: 2018-08-13
-Task:  Improve performance Sp to drilldown MetricGaming [#99524]
+Creator: Jacob
+Date: 2019-03-13
+Task:  Integrate BetBuilder (#109822)
 DB: DBACC/bodb02
 
 Revisions:
-- 20190308@Jacob: Integrate BetBuilder (#109822)
+- 20190313@Jacob: Integrate BetBuilder (#109822)
 Parameters:
 
 Example:
