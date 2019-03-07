@@ -21,7 +21,7 @@ Task:  Improve performance Sp to drilldown Soccer [#99524]
 DB: DBACC/bodb02
 
 Revisions:
-
+- 20190308@Jacob: Integrate BetBuilder (#109822)
 Parameters:
 @IsLive: 2 - ALL. 0 - Non-Live. 1 - Live
 Example:
@@ -41,7 +41,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus] @EndDate='2018-07-31
                SELECT BetType,
                       0
                FROM bodb02.dbo.f_SportBetTypeMatrix_Sel( 1, 1, 0, 2, '', '', @isTest )
-               WHERE SubProduct NOT IN( 'MG-SuperLive', 'BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss' )
+               WHERE SubProduct NOT IN( 'MG-SuperLive', 'BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss', 'Bet Builder' )
                  AND EventType IN( 1, 2 );
         UPDATE #SportBetType
           SET IsMajor = 1
@@ -99,7 +99,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus] @EndDate='2018-07-31
                FROM bodb02.dbo.Acc_GroupExtraPTSetting a WITH ( NOLOCK )
                WHERE @StartDate BETWEEN FromDate AND Todate
                  AND a.ProductId = 1
-                 AND a.SubProduct NOT IN( 'MG-SuperLive', 'BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss' )
+                 AND a.SubProduct NOT IN( 'MG-SuperLive', 'BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss', 'Bet Builder' )
                GROUP BY SuperId,Sporttype;
     END;
     BEGIN -- #Data

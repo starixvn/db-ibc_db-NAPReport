@@ -26,7 +26,7 @@ Revisions:
 - 20160720@Sophia: . Revise SP
 				   . Not use @EndDate because we get only one day on (bettrans/bettrans14 range) 
 - 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
-
+- 20190308@Jacob: Integrate BetBuilder (#109822)
 
 Parameters:
 @IsLive: 2 - ALL. 0 - Non-Live. 1 - Live
@@ -43,7 +43,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_BetType] @EndDate='2020-01-01',@StartDate='2
         INSERT INTO #SportBetType
                SELECT s.BetType
                FROM dbo.f_SportBetTypeMatrix_Sel( 1, 1, 0, 2, '', '', @isTest ) s
-               WHERE SubProduct NOT IN( 'MG-SuperLive', 'BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss' )
+               WHERE SubProduct NOT IN( 'MG-SuperLive', 'BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss', 'Bet Builder' )
                  AND EventType IN( 1, 2 );
     END;
     BEGIN -- Bet Type
@@ -137,7 +137,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_BetType] @EndDate='2020-01-01',@StartDate='2
                FROM bodb02.dbo.Acc_GroupExtraPTSetting a WITH ( NOLOCK )
                WHERE @StartDate BETWEEN FromDate AND Todate
                  AND a.ProductId = 1
-                 AND a.SubProduct NOT IN( 'MG-SuperLive', 'BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss' )
+                 AND a.SubProduct NOT IN( 'MG-SuperLive', 'BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss', 'Bet Builder' )
                GROUP BY SuperId,Sporttype;
     END;
     BEGIN -- #Data
