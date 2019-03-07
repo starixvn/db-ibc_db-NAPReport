@@ -12,7 +12,8 @@ Task:  2h Soccer Minor Bettype [#100617]
 DB: DBACC/bodb02
 
 Revisions:
-    - 20180920@Robert: Apply new concept for Virtual & Extra PT on 2h Soccer Minor Bettype [#100617]
+    20180920@Robert: Apply new concept for Virtual & Extra PT on 2h Soccer Minor Bettype [#100617]
+    20190308@Cherry: Integrate Bet Builder (#109822)
 
 Parameters:
 
@@ -33,7 +34,7 @@ BEGIN /*#SportBetType     */
 		 FROM dbo.f_SportBetTypeMatrix_Sel
 			 (1, 1, 0, 2, '', '', @isTest) AS s
 		 WHERE EventType IN(1, 2)
-			  AND SubProduct NOT IN('MG-SuperLive', 'BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss')
+			  AND SubProduct NOT IN('MG-SuperLive', 'BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss', 'Bet Builder')
 			  AND bettype NOT IN(1, 3, 7, 8, 122, 123, 151, 301, 302, 303, 304);
 END;
 BEGIN /* Bet Type*/
@@ -610,5 +611,3 @@ GO
 GRANT EXECUTE ON dbo.Acc_Rpt_CompanyWinLoss_Soccer_Minor_Bettypes TO [bodbAdminNet];
 GO
 
-GRANT VIEW DEFINITION ON dbo.Acc_Rpt_CompanyWinLoss_Soccer_Minor_Bettypes TO [vnteam];
-GO
