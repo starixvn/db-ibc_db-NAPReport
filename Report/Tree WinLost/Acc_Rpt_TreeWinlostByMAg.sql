@@ -185,7 +185,7 @@ BEGIN
 			    FROM @SportBettype AS tblS
 				   INNER JOIN #Product AS tblP ON tblS.ProductID = tblP.ProductID
 			    WHERE tblP.ProductID = 1
-					AND tblS.SubProduct NOT IN('MG-SuperLive', 'BT-Comm', 'BT-Winloss');
+					AND tblS.SubProduct NOT IN('MG-SuperLive', 'BT-Comm', 'BT-Winloss', 'Bet Builder');
 	   END;
 /*-- Extra PT */
 
