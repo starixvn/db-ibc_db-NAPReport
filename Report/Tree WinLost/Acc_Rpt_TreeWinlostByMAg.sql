@@ -1,73 +1,56 @@
-﻿/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
+﻿/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 
-ALTER PROCEDURE dbo.Acc_Rpt_TreeWinlostByProduct
-	@FromDate             DATETIME
-   , @ToDate               DATETIME
-   , @Products             VARCHAR(4000)
-/* 8RM account*/
-   , @TurnOver_8RM         MONEY         = 0 OUTPUT
-   , @Total_8RM            MONEY         = 0 OUTPUT
-   , @VirtualTotal_8RM     MONEY         = 0 OUTPUT
-/* BARM account*/
-   , @TurnOver_BARM        MONEY         = 0 OUTPUT
-   , @Total_BARM           MONEY         = 0 OUTPUT
-   , @VirtualTotal_BARM    MONEY         = 0 OUTPUT
+ALTER PROCEDURE dbo.Acc_Rpt_TreeWinlostByMAg
+	@FromDate      DATETIME
+   , @ToDate        DATETIME
+   , @mrecommend    INT
+   , @Products      VARCHAR(4000) /* instead of all @showXXX parameters*/
 AS
-/*    
-Created by: Scott    
-Date: 2012-12-14   
-Task : Report Tree Win Lost    
-DB: DBACC.bodb02    
-Original SP:     
-Revisions:    
-	- 20130115@Scott : fix bug sum total of poker sporttype
-	- 20130122@Scott : Does not use #bettrans14,query data direct bettrans14
-	- 20130418@Scott : Update formula turnover of Racing
-	- 20130702@Dom.Cao: Add Vanriance (+\-)
-	- 20140304@TomVo: 
+/*  
+Created by: Scott  
+Date: 2012-12-14 
+Task : Report Tree Win Lost  
+DB: DBACC.bodb02  
+Original SP:   
+Revisions:  
+	20130115@Scott : fix bug sum total of poker sporttype
+	20130418@Scott : Update formula turnover of Racing
+	20130702@Dom.Cao: Add Vanriance (+\-)
+	20140304@TomVo: 
 		Change Name Server (DB06) to Alias Server (DBACC)
 		Add Keno Sport (202) -Bettype : 1501 - 1599
-	- 20150529@Jim: add more parameter @ShowGD,@ShowMGSL and apply sport-bettype matrix 	
-	- 20150710@Jim: Super Balance fix and Microgaming integration (Feature #38168)
-	- 20150723@Jim: Apply Bettrade [#38815]
-	- 20150828@Jim: support Colossus Bet (#42608)
-	- 20151111@Percy: Change the sport type: MGC_LC-RNG to LC and RNG [RedmineID: #46576]
-	- 20151214@Percy: 1. Add new product: Cockfighting [Redmine: #49027]
+	20151226@Johnson: Separate virtual rate by sporttype, bettype [Redmine: #25840]	
+	20150529@Jim: add more parameter @ShowGD,@ShowMGSL and apply sport-bettype matrix 	
+	20150710@Jim: Super Balance fix and Microgaming integration (Feature #38168)	
+	20150723@Jim: Apply Bettrade [#38815]			
+	20150828@Jim: support Colossus Bet (#42608)
+	20151110@Billy : Change to new Virtual Rate structure - [Redmine: #47355]
+	20151111@Percy: Change the sport type: MGC_LC-RNG to LC and RNG [RedmineID: #46576]
+	20151214@Percy: 1. Add new product: Cockfighting [Redmine: #49027]
 					  2. Change input parameters
-	- 20160118@Percy: Calculate turnover for RNG Casino [Redmine: #49134]
-	- 20160223@Robert: Add new range bettype for Allbet Live Casino #50921
-	- 20160411@Robert: Integrate Voidbridge Credit - Single Wallet model [RedmineID: #55589]
-	- 20160615@Sophia: Change READPAST to ROWLOCK because of the Deadlock [Redmind: #59254]
-	- 20160819@Robert: Add Bet Trade Winloss bettype=904 (#62630)
-	- 20160916@Robert: Integrate new product NG2 [RedmindID: #63460]
-	- 20161129@Robert: NAP Reports - Integrate Fishing World Product [RedmindID: #67757]
-	- 2018.03.19@Franklin: Integrate  ONE RNG Jackpot (#91712)
-	- 20180411@Franklin: Integrate Pragmatic (#92642)
-	- 20180504@Dominic: Apply new VR concepts - Redminde:#94213
-	- 20180711@Robert: NAP Report - Add Cash Out & Bettrade into Tree Win Loss report [RedmindID: #98005]
-	- 20480815@Robert: Integrate Poker Games into NAP Report [RedmindID: #97830]
-	- 20190107@Kean: Use NoLock hint to bettransRNG and bettransLC [RedmindID: #107415]
-	- 20190117@Robert: Video Poker - Integrate into NAP Reports [RedmindID: #107706]
-
+	20160118@Percy: Calculate turnover for RNG Casino [Redmine: #49134]
+	20160223@Robert: Add new range bettype for Allbet Live Casino #50921
+	20160411@Robert: Integrate Voidbridge Credit - Single Wallet model [RedmineID: #55589]
+	20160615@Sophia: Change READPAST to ROWLOCK because of the Deadlock [Redmind: #59254]
+	20160819@Robert: Add Bet Trade Winloss bettype=904 (#62630)
+	20161129@Robert: NAP Reports - Integrate Fishing World Product [RedmindID: #67757]
+	2018.03.19@Franklin: Integrate  ONE RNG Jackpot (#91712)
+	20180411@Franklin: Integrate Pragmatic (#92642)
+	20180504@Dominic: Apply new VR concepts - Redminde:#94213
+	20180711@Robert: NAP Report - Add Cash Out & Bettrade into Tree Win Loss report [RedmindID: #98005]
+	20480815@Robert: Integrate Poker Games into NAP Report [RedmindID: #97830]
+	20190107@Kean: Use NoLock hint to bettransRNG and bettransLC [RedmindID: #107415]
+	20190117@Robert: Video Poker - Integrate into NAP Reports (#107706)
+	20190311@Cherry: Integrate Bet Builder (#109822)
+	
 */
 
 BEGIN
 
     SET NOCOUNT ON;
 
-    DECLARE @tmpIBCFee TABLE(
-	    partnerID    INT
-	  , IBCFee       BIT);
-    DECLARE @CommSetting TABLE(
-	    MatchID          INT
-	  , IBCFee           BIT
-	  , ToteCommWin      SMALLMONEY
-	  , ToteCommPlace    SMALLMONEY
-	  , ToteCommWP       SMALLMONEY
-	  , ToteFee          SMALLMONEY);
-
     CREATE TABLE #TmpResultAll(
-	    Currency          TINYINT
+	    recommend         INT
 	  , VarianceVR        DECIMAL(5, 2)
 	  , TurnoverIBC       DECIMAL(19, 6)
 	  , WinlossIBC        DECIMAL(19, 6)
@@ -99,7 +82,6 @@ BEGIN
 		 FROM dbo.f_SportBettypeMatrix_Sel
 			 (0, 0, 0, 2, '', '', @isTest) AS sb
 		 WHERE sb.BetType NOT IN(901, 902, 911, 912);
-
 
     IF OBJECT_ID('tempdb..#Product') IS NOT NULL
 	   BEGIN
@@ -165,6 +147,28 @@ BEGIN
 					  , @SportBettype AS tblS
 				    WHERE tblS.ProductID = 1
 						AND tblS.SubProduct IN('BT-Comm', 'BT-Winloss');
+	   END;
+	   
+	IF EXISTS
+		    (
+			   SELECT TOP 1 1
+			   FROM #Product AS P
+			   WHERE p.ProductID = -3
+		    )
+	   BEGIN
+		  WITH tblP(ProductID)
+			  AS (
+			  SELECT 1 AS ProductID
+			  FROM #Product AS tblP
+			  WHERE tblP.ProductID = -3)
+			  INSERT INTO #tmpBettype(ProductID
+							    , bettype)
+				    SELECT tblS.ProductID
+					    , tblS.bettype
+				    FROM tblP
+					  , @SportBettype AS tblS
+				    WHERE tblS.ProductID = 1
+						AND tblS.SubProduct IN('Bet Builder');
 	   END;
 
     IF EXISTS
@@ -281,10 +285,9 @@ BEGIN
 		 WHERE tblP.ProductID <> 1;
 
     CREATE CLUSTERED INDEX IDX_Bettype_bettype_ProductID ON #tmpBettype(bettype, ProductID);
-/*Get data from bettransRNG*/
 
     INSERT INTO #TmpResultAll
-		 SELECT b.currency
+		 SELECT b.recommend
 			 , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(5, 2)) AS VarianceVR
 			 , SUM(stake * (1 - tpositiontaking)) AS                      TurnoverIBC
 			 , SUM(CASE
@@ -352,69 +355,15 @@ BEGIN
 									AND expt.Sporttype = 0
 		 WHERE winlostdate BETWEEN CAST(@FromDate AS SMALLDATETIME) AND CAST(@ToDate AS SMALLDATETIME)
 			  AND t.ProductID IN(6, 17, 22, 24, 32, 33)
-			  AND b.statusID NOT IN(0, 1, 101, 102, 103, 121)
+			  AND b.statusID NOT IN(0, 1, 101, 102, 103)
 			  AND b.currency <> 20
-		 GROUP BY b.currency
+			  AND b.mrecommend = @mrecommend
+		 GROUP BY b.recommend
 			   , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(5, 2)) OPTION(RECOMPILE);
-/*-get data from bettransLC*/
+
 
     INSERT INTO #TmpResultAll
-		 SELECT b.currency
-			 , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(5, 2)) AS                     VarianceVR
-			 , SUM(stake * (1 - tpositiontaking)) AS                                          TurnoverIBC
-			 , SUM(swinlost + mwinlost + awinlost + winlost - actual_stake) AS                WinlossIBC
-			 , SUM(scomm) AS                                                                  CommissionS
-			 , SUM(CASE
-					 WHEN tpositiontaking = 1
-					 THEN 0
-					 ELSE(winlost - actual_stake) * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 8))
-				  END) AS                                                                    ExtraWL
-			 , SUM(CASE
-					 WHEN tpositiontaking = 1
-					 THEN 0
-					 ELSE stake * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 8))
-				  END) AS                                                                    ExtraTO
-			 , CAST(SUM(CASE
-						 WHEN tpositiontaking = 1
-						 THEN 0
-						 ELSE scomm * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 8)) / (1 - tpositiontaking)
-					  END) AS DECIMAL(19, 6)) AS                                            ExtraComm
-/*RM*/
-			 , SUM(stake * (1 - tpositiontaking) * actualrate) AS                             TurnoverIBC_RM
-			 , SUM((swinlost + mwinlost + awinlost + winlost - actual_stake) * actualrate) AS WinlossIBC_RM
-			 , SUM(scomm * actualrate) AS                                                     CommissionS_RM
-			 , SUM(CASE
-					 WHEN tpositiontaking = 1
-					 THEN 0
-					 ELSE(winlost - actual_stake) * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 8))
-				  END * actualrate) AS                                                       ExtraWL_RM
-			 , SUM(CASE
-					 WHEN tpositiontaking = 1
-					 THEN 0
-					 ELSE stake * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 8))
-				  END * actualrate) AS                                                       ExtraTO_RM
-			 , CAST(SUM(CASE
-						 WHEN tpositiontaking = 1
-						 THEN 0
-						 ELSE scomm * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 8)) / (1 - tpositiontaking)
-					  END * actualrate) AS DECIMAL(19, 6)) AS                               ExtraComm_RM
-		 FROM bettransLC AS b WITH (NOLOCK)
-			INNER JOIN #tmpBettype AS t ON t.bettype = b.gameID
-			INNER JOIN #ProductBettype AS pb ON pb.Bettype = b.gameID
-			LEFT JOIN #ExtraPT AS expt ON expt.SuperID = b.srecommend
-									AND expt.ProductID = pb.ProductID
-									AND expt.SubProduct = pb.SubProduct
-									AND expt.Sporttype = 0
-		 WHERE winlostdate BETWEEN CAST(@FromDate AS SMALLDATETIME) AND CAST(@ToDate AS SMALLDATETIME)
-			  AND t.ProductID = 21
-			  AND b.statusID NOT IN(0, 1, 101, 102, 103, 121)
-			  AND b.currency <> 20
-		 GROUP BY b.currency
-			   , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(5, 2)) OPTION(RECOMPILE);
-/*Get data from bettrans*/
-
-    INSERT INTO #TmpResultAll
-		 SELECT b.currency
+		 SELECT b.recommend
 			 , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(5, 2)) AS                     VarianceVR
 			 , SUM(CASE
 					 WHEN pb.ProductID = 1
@@ -509,33 +458,70 @@ BEGIN
 			  AND t.ProductID NOT IN(2, 6, 9, 17, 21, 22, 24, 32)
 			  AND b.bettype = CASE WHEN t.ProductID = 33 AND t.bettype between 1901 and 1999 THEN 0 ELSE b.bettype END
 			  AND b.ruben = 1
-			  AND b.statusID NOT IN(101, 102, 103, 121)
+			  AND b.statusID NOT IN(101, 102, 103)
 			  AND b.currency <> 20
-		 GROUP BY b.currency
+			  AND b.mrecommend = @mrecommend
+		 GROUP BY b.recommend
 			   , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(5, 2)) OPTION(RECOMPILE);
 
-    SELECT @TurnOver_8RM = SUM(ABS(stake) * (1 - tpositiontaking) * actualrate)
-	    , @Total_8RM = -SUM((swinlost + mwinlost + awinlost + winlost - actual_stake + scomm) * actualrate)
-	    , @VirtualTotal_8RM = -SUM((swinlost + mwinlost + awinlost + winlost - actual_stake + scomm) * actualrate)
-    FROM bettrans AS b WITH (NOLOCK)
-	   INNER JOIN #tmpBettype AS t ON t.bettype = b.bettype
-    WHERE recommend = 52466
-		AND ruben = 1
-		AND winlostdate BETWEEN CAST(@FromDate AS SMALLDATETIME) AND CAST(@ToDate AS SMALLDATETIME)
-		AND b.statusID NOT IN(101, 102, 103, 121);
+    INSERT INTO #TmpResultAll
+		 SELECT b.recommend
+			 , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(5, 2)) AS                     VarianceVR
+			 , SUM(stake * (1 - tpositiontaking)) AS                                          TurnoverIBC
+			 , SUM(swinlost + mwinlost + awinlost + winlost - actual_stake) AS                WinlossIBC
+			 , SUM(scomm) AS                                                                  CommissionS
+			 , SUM(CASE
+					 WHEN tpositiontaking = 1
+					 THEN 0
+					 ELSE(winlost - actual_stake) * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 8))
+				  END) AS                                                                    ExtraWL
+			 , SUM(CASE
+					 WHEN tpositiontaking = 1
+					 THEN 0
+					 ELSE stake * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 8))
+				  END) AS                                                                    ExtraTO
+			 , CAST(SUM(CASE
+						 WHEN tpositiontaking = 1
+						 THEN 0
+						 ELSE scomm * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 8)) / (1 - tpositiontaking)
+					  END) AS DECIMAL(19, 6)) AS                                            ExtraComm
+/*RM*/
+			 , SUM(stake * (1 - tpositiontaking) * actualrate) AS                             TurnoverIBC_RM
+			 , SUM((swinlost + mwinlost + awinlost + winlost - actual_stake) * actualrate) AS WinlossIBC_RM
+			 , SUM(scomm * actualrate) AS                                                     CommissionS_RM
+			 , SUM(CASE
+					 WHEN tpositiontaking = 1
+					 THEN 0
+					 ELSE(winlost - actual_stake) * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 8))
+				  END * actualrate) AS                                                       ExtraWL_RM
+			 , SUM(CASE
+					 WHEN tpositiontaking = 1
+					 THEN 0
+					 ELSE stake * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 8))
+				  END * actualrate) AS                                                       ExtraTO_RM
+			 , CAST(SUM(CASE
+						 WHEN tpositiontaking = 1
+						 THEN 0
+						 ELSE scomm * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 8)) / (1 - tpositiontaking)
+					  END * actualrate) AS DECIMAL(19, 6)) AS                               ExtraComm_RM
+		 FROM bettransLC AS b WITH (NOLOCK)
+			INNER JOIN #tmpBettype AS t ON t.bettype = b.gameID
+			INNER JOIN #ProductBettype AS pb ON pb.Bettype = b.gameID
+			LEFT JOIN #ExtraPT AS expt ON expt.SuperID = b.srecommend
+									AND expt.ProductID = pb.ProductID
+									AND expt.SubProduct = pb.SubProduct
+									AND expt.Sporttype = 0
+		 WHERE winlostdate BETWEEN CAST(@FromDate AS SMALLDATETIME) AND CAST(@ToDate AS SMALLDATETIME)
+			  AND t.ProductID = 21
+			  AND b.statusID NOT IN(0, 1, 101, 102, 103)
+			  AND b.currency <> 20
+			  AND b.mrecommend = @mrecommend
+		 GROUP BY b.recommend
+			   , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(5, 2)) OPTION(RECOMPILE);
 
-    SELECT @TurnOver_BARM = SUM(ABS(stake) * (1 - tpositiontaking) * actualrate)
-	    , @Total_BARM = -SUM((swinlost + mwinlost + awinlost + winlost - actual_stake + scomm) * actualrate)
-	    , @VirtualTotal_BARM = -SUM((swinlost + mwinlost + awinlost + winlost - actual_stake + scomm) * actualrate)
-    FROM bettrans AS b WITH (NOLOCK)
-	   INNER JOIN #tmpBettype AS t ON t.bettype = b.bettype
-    WHERE recommend = 5707545
-		AND ruben = 1
-		AND winlostdate BETWEEN CAST(@FromDate AS SMALLDATETIME) AND CAST(@ToDate AS SMALLDATETIME)
-		AND b.statusID NOT IN(101, 102, 103, 121);
-/*-record set main data*/
-
-    SELECT currency
+    SELECT b.recommend
+	    , ca.username
+	    , ISNULL(ca.virtualmultiplier, 1) AS                                                              EnableVirtualrate
 	    , SUM(CASE
 			    WHEN TurnoverIBC = 0
 			    THEN 0
@@ -615,8 +601,12 @@ BEGIN
 			    THEN 0
 			    ELSE TurnoverIBC_RM - ExtraTO_RM
 			END * ABS(VarianceVR)) AS                                                                   TOVarianceTotal
-    FROM #TmpResultAll
-    GROUP BY currency;
+    FROM #TmpResultAll AS b
+	   INNER JOIN custinfo AS ca WITH (NOLOCK) ON b.recommend = ca.custid
+    GROUP BY b.recommend
+		 , ca.username
+		 , ISNULL(ca.virtualmultiplier, 1)
+    ORDER BY username;
 
     DROP TABLE #TmpResultAll;
     DROP TABLE #ExtraPT;
@@ -630,8 +620,13 @@ END;
 
 GO
 
-GRANT VIEW DEFINITION ON dbo.Acc_Rpt_TreeWinlostByProduct TO [vnteam];
+SET QUOTED_IDENTIFIER OFF; 
 GO
 
-GRANT EXECUTE ON dbo.Acc_Rpt_TreeWinlostByProduct TO [bodbAdminNet];
+SET ANSI_NULLS ON; 
+GO
+
+GO
+
+GRANT EXECUTE ON dbo.Acc_Rpt_TreeWinlostByMAg TO [bodbAdminNet];
 GO
