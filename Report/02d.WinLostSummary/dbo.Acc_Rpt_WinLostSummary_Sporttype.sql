@@ -297,8 +297,8 @@ BEGIN
 					    , realTurnover
 					    , virtualTurnover)
 			 SELECT CASE s.SubProduct
-					  WHEN 'MG-SuperLive'
-					  THEN-1
+					  WHEN 'MG-SuperLive' THEN -1
+					  WHEN 'Bet Builder' THEN -38
 					  ELSE b.sporttype
 				   END AS sporttype
 				 , CASE
@@ -344,8 +344,8 @@ BEGIN
 					  AND s.SubProduct NOT IN('BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss')
 					  OR s.ProductID = 3) /* SB or NG, exclude bettrade*/
 			 GROUP BY CASE s.SubProduct
-					    WHEN 'MG-SuperLive'
-					    THEN-1
+					    WHEN 'MG-SuperLive' THEN -1
+					    WHEN 'Bet Builder' THEN -38
 					    ELSE b.sporttype
 					END
 				   , CASE
