@@ -5,7 +5,8 @@ GO
 
 ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_SB_Deposit]
 	@FromDate DATE,
-	@ToDate	DATE	
+	@ToDate	DATE,
+	@DepositType    SMALLINT = 0	
 AS  
 /*  
 	Created: Victor  
@@ -20,6 +21,7 @@ AS
 		- 20180131@Harper - Fix Daily HAIFA data [#RedmineID: 90263]
 		- 20180518@Harper - Hot Fix Daily HAIFA data [#RedmineID: 95399]
 		- 20190222@Robert: #109196 - House Net Income - Arrange Email notification for Licensee Figures
+		- 20190308@Robert: 109770 - House Net Income - Change formula for MTD values and add old month data into a new sheet
 
 	Param's Explanation:  
 		  - DepositType  
@@ -208,7 +210,7 @@ BEGIN
 	---------------------------------------------------- Pay to Metric Gaming -------------------------------------------------------
 	-- Get Party list, including credit licensees
 	SET @PartyIDs = NULL
-	SELECT	@PartyIDs = COALESCE(@PartyIDs + ',', '') + CONVERT(VARCHAR(10), PartyId) FROM @tmpParty  WHERE IsDeposit = 1
+	SELECT	@PartyIDs = COALESCE(@PartyIDs + ',', '') + CONVERT(VARCHAR(10), PartyId) FROM @tmpParty  WHERE IsDeposit = CASE WHEN @DepositType = 0 THEN IsDeposit ELSE @DepositType END
 
 	DELETE FROM @PartyChargeInfo
 	INSERT INTO @PartyChargeInfo(PartyId, LicenseeId, IsDeposit, ProductID, Rate, Fromdate, Todate)

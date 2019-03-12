@@ -1,11 +1,12 @@
-/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
 USE bodb02
 GO
 
 ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_GD_Deposit]
 	@FromDate DATE,
-	@ToDate	DATE
+	@ToDate	DATE,
+	@DepositType    SMALLINT = 0
 AS  
 /*  
 	Created:	20170213@Harper  
@@ -15,8 +16,12 @@ AS
     Revisions:  
 	   - 20181019@Robert: DHWL & Margin Chart Email Letstalk - Change GD Formula for Credit and Deposit[#103476]
 	   - 20181113@Robert: DHWL Email/Letstalk/Margin Chart - Integrate Bidme & Sicbo[#104145]
+	   - 20190308@Robert: 109770 - House Net Income - Change formula for MTD values and add old month data into a new sheet
 
 	Param's Explanation:   
+	- DepositType  
+				    = 0 All
+				    = 1 Deposit Only
 
 	EXEC Acc_Rpt_HouseNetIncome_GD_Deposit '20161115', '20161115'   
 	Note:
@@ -128,7 +133,7 @@ BEGIN
 				 AND ProductId <> 1 /*exclude RB */
 		 );
     /* End region
-				Region: Get exchange rate info*/
+				    Region: Get exchange rate info*/
 
     CREATE TABLE #Exchange(
 	    ExchangeDate    DATE
@@ -258,7 +263,12 @@ BEGIN
 		 FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd
 			 (@FDate, @TDate, 'GD', 'OA') AS ci
 			INNER JOIN @tmpParty AS p ON p.ParentID = ci.PartyID
-		 WHERE ci.ChargeType IN(1, 9, 10, 12);
+		 WHERE ci.ChargeType IN(1, 9, 10, 12)
+			  AND ci.IsDeposit = CASE
+								WHEN @DepositType = 0
+								THEN ci.IsDeposit
+								ELSE @DepositType
+							 END;
 
     UPDATE c_3rd
 		 SET
@@ -373,7 +383,7 @@ BEGIN
 					  , CompanyId
 					  , IsDeposit
 				UNION ALL
-				SELECT 0 AS                LicenseeID
+				SELECT 0 AS LicenseeID
 					, CompanyId
 					, IsDeposit
 					, SUM(AmountDaily) AS PayToSupplier
@@ -468,6 +478,4 @@ BEGIN
 END
 GO
 
-GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_GD_Deposit] TO [bodbAdminNet]
-GO
-GRANT VIEW definition ON [dbo].[Acc_Rpt_HouseNetIncome_GD_Deposit] TO vnteam
+
