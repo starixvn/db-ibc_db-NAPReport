@@ -121,7 +121,7 @@ BEGIN /*-- Extra PT */
 		 FROM bodb02.dbo.Acc_GroupExtraPTSetting AS a WITH (NOLOCK)
 		 WHERE @StartDate BETWEEN FromDate AND Todate
 			  AND a.ProductId = 1
-			  AND a.SubProduct NOT IN('MG-SuperLive', 'BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss')
+			  AND a.SubProduct NOT IN('MG-SuperLive', 'BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss', 'Bet Builder')
 		 GROUP BY SuperId
 			   , Sporttype;
 END;
