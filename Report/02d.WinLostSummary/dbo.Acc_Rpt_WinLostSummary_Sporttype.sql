@@ -320,8 +320,8 @@ BEGIN
 				   END AS IsHedge
 				 , '' AS status
 				 , CASE s.SubProduct
-					  WHEN 'MG-SuperLive'
-					  THEN 2
+					  WHEN 'MG-SuperLive' THEN 2
+					  WHEN 'Bet Builder' THEN 3
 					  ELSE 1
 				   END AS OrderKey
 				 , s.SortKey
@@ -371,8 +371,8 @@ BEGIN
 					    ELSE 0
 					END
 				   , CASE s.SubProduct
-					    WHEN 'MG-SuperLive'
-					    THEN 2
+					    WHEN 'MG-SuperLive' THEN 2
+					    WHEN 'Bet Builder' THEN 3
 					    ELSE 1
 					END
 				   , s.SortKey;				   	
