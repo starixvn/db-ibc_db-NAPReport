@@ -43,6 +43,7 @@ AS
 		20171208@Cherry: Add param @UsernameDrillDown (#87888)
 		20180328@Cherry: Integrate One RNG Jackpot (#89459)
 		20181108@Cherry: Improve performance (#101547)
+		20190314@Cherry: Integrate Video Poker Games (#108735)
 
 	Param's Explanation:
 			 - @username:  + Search by keyword, member only
@@ -449,7 +450,7 @@ SET NOCOUNT ON
 		FROM  dbo.BettransRNG14 b WITH (NOLOCK)
 		
 		WHERE b.WinlostDate = @WLDate
-			AND b.GameId IN (SELECT Bettype FROM #SportBettype WHERE RefTable = 1)
+			AND b.GameId IN (SELECT Bettype FROM #SportBettype WHERE RefTable = 1 AND Bettype NOT IN (2198, 2398, 2998))
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
 			AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
 			AND (b.currency = @currency OR @currency IN (0,-1)) 			
