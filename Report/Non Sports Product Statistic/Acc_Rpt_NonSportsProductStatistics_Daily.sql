@@ -40,6 +40,7 @@ AS
 		20180808@Cherry: Integrate Poker Games (#97809)
 		20181018@Cherry: Integrate NG2 (#102229)
 		20181108@Cherry: Improve performance (#101547)
+		20190214@Cherry: Integrate Video Poker Games (#108735)
 
 	Param's Explanation:
 			 - @username:  + Search by keyword, member only
@@ -301,8 +302,13 @@ SET NOCOUNT ON
 				AND s.CustId IS NULL
 		END			
 	END	 
+	
+	CREATE CLUSTERED INDEX IX_SportBettype ON #SportBettype (ProductID, Bettype, EventType, RefTable)  
+	CREATE CLUSTERED INDEX IX_SportType ON #tmpSportType (Sporttype)    
+	CREATE CLUSTERED INDEX IX_LeagueID ON #tmpLeagueID (LeagueID, Bettype)
+	CREATE CLUSTERED INDEX IX_GameTableID ON #tmpGameTableId (GameTableID)
 
-	IF EXISTS (SELECT 1 FROM #tmpProductID WHERE ProductID NOT IN (3, 4, 5, 27, 33))
+	-- ProductID NOT IN (3, 4, 5, 27, 33))
 	BEGIN
 		---1. By bettype for normal Product
 		INSERT INTO #Data (  ReportBy, CustId,
@@ -358,7 +364,7 @@ SET NOCOUNT ON
 				)
 		GROUP BY  b.WinlostDate, b.Currency, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END
 		 
-		---1b. By bettype for Casino Product
+		---1b. By bettype for Casino Product & Video Poker Games
 		INSERT INTO #Data (  ReportBy, CustId,
 							   BetCount, CurrencyId , 
 							   TotalBets, TotalBetsBase, 
@@ -547,7 +553,7 @@ SET NOCOUNT ON
 				- SUM(scomm *actualrate) AS CompanyCommBase
 		FROM  dbo.Bettrans b WITH (NOLOCK)
 		WHERE b.WinlostDate = @WLDate
-			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 33)
+			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 33  AND RefTable = 0)
 			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) 
 			AND (@ExcludeTest = 0 OR (b.Currency <> 20 AND @ExcludeTest = 1))
@@ -659,7 +665,8 @@ SET NOCOUNT ON
 			AND b.bettype in (SELECT Bettype FROM #SportBettype WHERE ProductID = 4)
 			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) 
-			AND EXISTS (SELECT 1 FROM Match m WITH (NOLOCK) INNER JOIN #tmpGameTableId g ON g.GameTableID = m.LeagueID WHERE m.matchid = b.matchid)
+			AND b.matchid IN (SELECT matchid FROM match WITH (NOLOCK)
+								WHERE LeagueID IN (SELECT GameTableID FROM #tmpGameTableId))
 			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
 			AND (@Currency IN (0, -1) OR b.currency = @Currency)	
 			AND (@Username = '' OR EXISTS (SELECT 1 FROM #Temp_MemIDs m WHERE m.CustID = b.custid))
@@ -714,7 +721,8 @@ SET NOCOUNT ON
 			AND b.bettype in (SELECT Bettype FROM #SportBettype WHERE ProductID = 5)
 			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) 
-			AND EXISTS (SELECT 1 FROM Match m WITH (NOLOCK) INNER JOIN #tmpSporttype sp ON sp.Sporttype = m.sporttype WHERE m.matchid = b.matchid)	
+			AND b.matchid IN (SELECT matchid FROM dbo.match WITH (NOLOCK)
+								WHERE sporttype IN (SELECT Sporttype FROM #tmpSporttype))
 			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
 			AND (@Currency IN (0, -1) OR b.currency = @Currency)	
 			AND (@Username = '' OR EXISTS (SELECT 1 FROM #Temp_MemIDs m WHERE m.CustID = b.custid))
@@ -763,14 +771,15 @@ SET NOCOUNT ON
 				- SUM(scomm) AS CompanyComm,
 				- SUM(scomm *actualrate) AS CompanyCommBase
 		FROM  dbo.Bettrans b WITH (NOLOCK)
-			INNER JOIN VSRaceInfo r WITH (NOLOCK) ON r.EventId = b.matchid
+
 		WHERE b.WinlostDate = @WLDate
 			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 5 AND EventType = 3)
 			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) 
 			AND (@Sporttype = '' OR
-					EXISTS (SELECT 1 From #tmpSporttype sp WHERE sp.Sporttype = r.sporttype)					
-				)
+				b.matchid IN (SELECT EventId FROM VSRaceInfo WITH (NOLOCK) 
+								WHERE sporttype IN (SELECT Sporttype FROM #tmpSporttype))				
+				)		
 			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
 			AND (@Currency IN (0, -1) OR b.currency = @Currency)	
 			AND (@Username = '' OR EXISTS (SELECT 1 FROM #Temp_MemIDs m WHERE m.CustID = b.custid))
@@ -826,9 +835,8 @@ SET NOCOUNT ON
 			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 27 AND EventType = 1)
 			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) 
-			AND EXISTS(SELECT 1 FROM dbo.match m WITH (NOLOCK) 
-									INNER JOIN #tmpSporttype st ON m.sporttype = st.Sporttype 
-								WHERE m.matchid = b.matchid)
+			AND b.matchid IN (SELECT m.matchid FROM dbo.match m WITH (NOLOCK) 
+								WHERE m.sporttype IN (SELECT Sporttype FROM #tmpSporttype))
 			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
 			AND (@Currency IN (0, -1) OR b.currency = @Currency)	
 			AND (@Username = '' OR EXISTS (SELECT 1 FROM #Temp_MemIDs m WHERE m.CustID = b.custid))
@@ -885,7 +893,7 @@ SET NOCOUNT ON
 			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 27 AND EventType = 0)
 			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) 
-			AND EXISTS(SELECT 1 FROM #tmp_bettransm bm WHERE bm.refno = b.refno)
+			AND b.refno IN (SELECT refno FROM #tmp_bettransm)
 			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
 			AND (@Currency IN (0, -1) OR b.currency = @Currency)	
 			AND (@Username = '' OR EXISTS (SELECT 1 FROM #Temp_MemIDs m WHERE m.CustID = b.custid))

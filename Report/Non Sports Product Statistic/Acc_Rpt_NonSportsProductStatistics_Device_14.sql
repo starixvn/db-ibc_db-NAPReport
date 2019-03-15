@@ -38,6 +38,7 @@ AS
 		20180808@Cherry: Integrate Poker Games (#97809)
 		20181018@Cherry: Integrate NG2 (#102229)
 		20181108@Cherry: Improve performance (#101547)
+		20190214@Cherry: Integrate Video Poker Games (#108735)
 
 	Param's Explanation:
 		- @username:  + Search by keyword, member only
@@ -297,9 +298,14 @@ BEGIN
 
 	CREATE NONCLUSTERED INDEX Idx_SrecommendID ON #tmp_Company (Srecommend)
 	-- End Site	
+	
+	CREATE CLUSTERED INDEX IX_SportBettype ON #SportBettype (ProductID, Bettype, EvenType, RefTable)  
+	CREATE CLUSTERED INDEX IX_SportType ON #tmp_SportType (Sporttype)    
+	CREATE CLUSTERED INDEX IX_LeagueID ON #tmp_LeagueID (LeagueID, Bettype)
+	CREATE CLUSTERED INDEX IX_GameTableID ON #tmp_GameTableId (GameTableID)
 
 	------------------------------------------II. Get Real Data For Report ------------------------------------------------------
-	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID NOT IN (3, 4, 5, 27, 33)) -- NG, SLI-Live Casino, Virtual Sports, Virtual Sports 2, Poker Games
+	-- ProductID NOT IN (3, 4, 5, 27, 33)) -- NG, SLI-Live Casino, Virtual Sports, Virtual Sports 2, Poker Games
 	BEGIN		
 		-- 1. By bettype for normal product
 		INSERT INTO #Data
@@ -361,7 +367,7 @@ BEGIN
 				)
 		GROUP BY b.Betfrom, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, b.Currency
 		
-		-- 2a. By Bettype for Casino Product
+		-- 2a. By Bettype for Casino Product & Video Poker Games
 		INSERT INTO #Data
 				( Betfrom ,
 				  CustID ,
@@ -578,7 +584,7 @@ BEGIN
 
 		FROM  dbo.Bettrans14 b WITH (NOLOCK) 
 		WHERE b.WinlostDate = @WLDate
-			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 33)
+			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 33 AND RefTable = 0)
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
 			AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
 			AND (b.currency = @currency OR @currency IN (0,-1)) 
@@ -705,7 +711,8 @@ BEGIN
 		WHERE b.WinlostDate = @WLDate
 			AND b.bettype in (SELECT Bettype FROM #SportBettype WHERE ProductID = 4)
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
-			AND EXISTS (SELECT 1 FROM Match14 m WITH (NOLOCK) INNER JOIN #tmp_GameTableId g ON g.GameTableID = m.LeagueID WHERE m.matchid = b.matchid)
+			AND b.matchid IN (SELECT matchid FROM match14 WITH (NOLOCK)
+								WHERE LeagueID IN (SELECT GameTableID FROM #tmp_GameTableId))
 			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
 			AND (@Currency IN (0, -1) OR b.currency = @Currency)	
 			AND (@Username = '' OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
@@ -768,7 +775,8 @@ BEGIN
 		WHERE b.WinlostDate = @WLDate
 			AND b.bettype in (SELECT Bettype FROM #SportBettype WHERE ProductID = 5 AND EvenType = 1)
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
-			AND EXISTS (SELECT 1 FROM Match14 m WITH (NOLOCK) INNER JOIN #tmp_Sporttype sp ON sp.Sporttype = m.sporttype WHERE m.matchid = b.matchid)			
+			AND b.matchid IN (SELECT matchid FROM dbo.match14 WITH (NOLOCK)
+								WHERE sporttype IN (SELECT Sporttype FROM #tmp_Sporttype))		
 			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
 			AND (@Currency IN (0, -1) OR b.currency = @Currency)	
 			AND (@Username = '' OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
@@ -825,13 +833,13 @@ BEGIN
 				- SUM(scomm) AS CompanyComm,
 				- SUM(scomm *actualrate) AS CompanyCommBase
 		FROM  dbo.Bettrans14 b WITH (NOLOCK)
-			INNER JOIN VSRaceInfo r WITH (NOLOCK) ON r.EventId = b.matchid
 		WHERE b.WinlostDate = @WLDate
 			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 5 AND Eventype = 3)
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
 			AND (@Sporttype = '' OR
-					EXISTS (SELECT 1 From #tmp_Sporttype sp WHERE sp.Sporttype = r.sporttype)					
-				)
+				b.matchid IN (SELECT EventId FROM VSRaceInfo WITH (NOLOCK) 
+								WHERE sporttype IN (SELECT Sporttype FROM #tmp_Sporttype))				
+				)	
 			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
 			AND (@Currency IN (0, -1) OR b.currency = @Currency)	
 			AND (@Username = '' OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
@@ -900,9 +908,8 @@ BEGIN
 		WHERE b.WinlostDate = @WLDate
 			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 27 AND Eventype = 1)
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
-			AND EXISTS(SELECT 1 FROM dbo.match14 m WITH (NOLOCK) 
-									INNER JOIN #tmp_Sporttype st ON m.sporttype = st.Sporttype 
-								WHERE m.matchid = b.matchid)
+			AND b.matchid IN (SELECT m.matchid FROM dbo.match14 m WITH (NOLOCK) 
+								WHERE m.sporttype IN (SELECT Sporttype FROM #tmp_Sporttype))
 			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
 			AND (@Currency IN (0, -1) OR b.currency = @Currency)	
 			AND (@Username = '' OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
@@ -961,7 +968,7 @@ BEGIN
 		WHERE b.WinlostDate = @WLDate
 			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 27 AND Eventype = 0)
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
-			AND EXISTS(SELECT 1 FROM #tmp_bettransm bm WHERE bm.refno = b.refno)
+			AND b.refno IN (SELECT refno FROM #tmp_bettransm)
 			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
 			AND (@Currency IN (0, -1) OR b.currency = @Currency)	
 			AND (@Username = '' OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
