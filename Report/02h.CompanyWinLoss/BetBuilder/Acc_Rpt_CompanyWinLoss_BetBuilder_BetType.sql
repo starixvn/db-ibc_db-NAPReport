@@ -1,3 +1,4 @@
+
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
 
@@ -71,19 +72,45 @@ EXEC [Acc_Rpt_CompanyWinLoss_BetBuilder_BetType] @EndDate='2019-03-03',@StartDat
                         THEN 'Credit'
                         ELSE 'Deposit'
                     END AS RowName,
-                    SUM((winlost - actual_stake) * actualrate) AS MemberWinLoss,
+                    SUM((winlost - actual_stake) * actualrate) MemberWinLoss,
                     SUM((awinlost + mwinlost + swinlost) * actualrate) AS SMAWinLoss,
-                    -SUM((CASE
-                              WHEN b.tpositiontaking = 1
-                              THEN 0
-                              ELSE(winlost - actual_stake) + b.scomm / (1 - b.tpositiontaking)
-                          END) * ISNULL(e.ExtraPT, 0) * actualrate) AS ExtraPT,
+                    SUM((CASE
+                             WHEN b.tpositiontaking = 1
+                             THEN 0
+                             ELSE(winlost - actual_stake) + b.scomm / (1 - b.tpositiontaking)
+                         END) * ISNULL(e.ExtraPT, 0) * actualrate) AS ExtraPT,
                     SUM(scomm * actualrate) Commission,
                     SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - (CASE
                                                                                                 WHEN tpositiontaking = 1
                                                                                                 THEN 0
                                                                                                 ELSE winlost - actual_stake + b.scomm / (1 - b.tpositiontaking)
                                                                                             END) * ISNULL(e.ExtraPT, 0)) * actualrate) AS RealIncome,
+                    SUM((winlost - actual_stake + awinlost + mwinlost + swinlost - CASE
+                                                                                       WHEN tpositiontaking = 1
+                                                                                       THEN 0
+                                                                                       ELSE(winlost - actual_stake) * ISNULL(e.ExtraPT, 0)
+                                                                                   END) * virtualrate + (scomm - (CASE
+                                                                                                                      WHEN tpositiontaking = 1
+                                                                                                                      THEN 0
+                                                                                                                      ELSE b.scomm / (1 - b.tpositiontaking)
+                                                                                                                  END) * ISNULL(e.ExtraPT, 0)) * actualrate * CASE
+                                                                                                                                                                  WHEN virtualrate < actualrate
+                                                                                                                                                                  THEN virtualrate / actualrate
+                                                                                                                                                                  ELSE 1
+                                                                                                                                                              END) VirtualIncome,
+                    SUM((winlost - actual_stake + awinlost + mwinlost + swinlost - CASE
+                                                                                       WHEN tpositiontaking = 1
+                                                                                       THEN 0
+                                                                                       ELSE(winlost - actual_stake) * ISNULL(e.ExtraPT, 0)
+                                                                                   END + CASE
+                                                                                             WHEN virtualrate < actualrate
+                                                                                             THEN(b.scomm - (CASE
+                                                                                                                 WHEN tpositiontaking = 1
+                                                                                                                 THEN 0
+                                                                                                                 ELSE b.scomm / (1 - b.tpositiontaking)
+                                                                                                             END) * ISNULL(e.ExtraPT, 0))
+                                                                                             ELSE 0
+                                                                                         END) * (actualrate - virtualrate)) VarianceIncome,
                     SUM(CASE
                             WHEN tpositiontaking = 1
                             THEN 0
@@ -92,7 +119,12 @@ EXEC [Acc_Rpt_CompanyWinLoss_BetBuilder_BetType] @EndDate='2019-03-03',@StartDat
                                                                                                     THEN virtualrate
                                                                                                     ELSE actualrate
                                                                                                 END
-                        END) AS RealTurnover
+                        END) AS RealTurnover,
+                    SUM(CASE
+                            WHEN tpositiontaking = 1
+                            THEN 0
+                            ELSE(1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * ABS(b.stake) * virtualrate
+                        END) AS VirtualTurnover
              FROM bettrans AS b WITH (NOLOCK)
                   INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
                   LEFT JOIN #DepositSuper AS dep ON b.srecommend = dep.CustId
