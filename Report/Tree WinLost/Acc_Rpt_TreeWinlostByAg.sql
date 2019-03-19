@@ -57,7 +57,7 @@ BEGIN
 
     CREATE TABLE #TmpResultAll(
 	    custid            INT
-	  , VarianceVR        DECIMAL(19, 6)
+	  , VarianceVR        DECIMAL(5, 2)
 	  , TurnoverIBC       DECIMAL(19, 6)
 	  , WinlossIBC        DECIMAL(19, 6)
 	  , CommissionS       DECIMAL(19, 6)
@@ -294,7 +294,7 @@ BEGIN
 
     INSERT INTO #TmpResultAll
 		 SELECT b.custid
-			 , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(19, 6)) AS VarianceVR
+			 , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(5, 2)) AS VarianceVR
 			 , SUM(stake * (1 - tpositiontaking)) AS                      TurnoverIBC
 			 , SUM(CASE
 					 WHEN t.bettype IN(2199, 2399, 2999)
@@ -365,12 +365,12 @@ BEGIN
 			  AND b.currency <> 20
 			  AND b.recommend = @recommend
 		 GROUP BY b.custid
-			   , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(19, 6)) OPTION(RECOMPILE);
+			   , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(5, 2)) OPTION(RECOMPILE);
 
 
     INSERT INTO #TmpResultAll
 		 SELECT b.custid
-			 , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(19, 6)) AS                     VarianceVR
+			 , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(5, 2)) AS                     VarianceVR
 			 , SUM(CASE
 					 WHEN pb.ProductID = 1
 					 THEN ABS(stake)
@@ -468,11 +468,11 @@ BEGIN
 			  AND b.currency <> 20
 			  AND b.recommend = @recommend
 		 GROUP BY b.custid
-			   , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(19, 6)) OPTION(RECOMPILE);
+			   , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(5, 2)) OPTION(RECOMPILE);
 
     INSERT INTO #TmpResultAll
 		 SELECT b.custid
-			 , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(19, 6)) AS                     VarianceVR
+			 , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(5, 2)) AS                     VarianceVR
 			 , SUM(stake * (1 - tpositiontaking)) AS                                          TurnoverIBC
 			 , SUM(swinlost + mwinlost + awinlost + winlost - actual_stake) AS                WinlossIBC
 			 , SUM(scomm) AS                                                                  CommissionS
@@ -523,7 +523,7 @@ BEGIN
 			  AND b.currency <> 20
 			  AND b.recommend = @recommend
 		 GROUP BY b.custid
-			   , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(19, 6)) OPTION(RECOMPILE);
+			   , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(5, 2)) OPTION(RECOMPILE);
 
 
     SELECT b.custid
