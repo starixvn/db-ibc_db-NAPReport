@@ -39,6 +39,7 @@ AS
 		- 20180816@Cherry: Integrate Poker Games (#97830)
 		- 20181219@Robert: NAP Report - Add new sporttype for Happy 5 (#104253) 
 		- 20190128@Robert: Video Poker - Integrate into NAP Reports[#107706]
+		- 20190308@Robert: #109822 - NAP Report - Integrate Bet Builder
 	Param's Explanation:  
 	  + @MoveBetsDay: The day of moving bets to battrans14
 	  + @BalanceUpDay: The day of moving bets to battransbk
@@ -119,6 +120,7 @@ BEGIN
 				b.statusId IN (111,112,113,0) 
 			)	
 		AND b.srecommend = @CustID
+		AND b.bettype NOT IN (38)
 		GROUP BY b.custid,b.[status], b.bettype
 		
 		-- Get data from bettransRnG
@@ -199,6 +201,7 @@ BEGIN
 							OR b.bettype BETWEEN 1401 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' = 163 THEN 1499 ELSE 0 END --Poker Games			
 							OR b.bettype BETWEEN 1901 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' = 163 THEN 1999 ELSE 0 END --RNG Poker Games [Video Poker]
 						) 
+						AND b.bettype NOT IN (38)
 						AND b.status IN (3  ---DRAW
 										,12	---HALF LOSE
 										,13	---HALF WON
