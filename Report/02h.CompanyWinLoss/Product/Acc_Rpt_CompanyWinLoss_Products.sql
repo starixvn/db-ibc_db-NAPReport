@@ -39,6 +39,7 @@ AS
 		- 20180917@Robert: House WL by Product - Poker Games should be last index (#101618)
 	     - 20190121@Franklin: Integrate Poker Games (#107706)
 		- 20190308@Jacob: Integrate BetBuilder (#109822)
+		- 20190326@Robert: #109981 - NAP Report - Integrate Promotion Prize
 
 	Explanation's Param:
 	
@@ -1011,14 +1012,14 @@ AS
                       SUM(b.SMAWinloss_actualrate) SMAWinloss,
                       SUM(b.commission_actualrate) commission_actualrate,
                       SUM(CASE
-                              WHEN s.Bettype IN( 2199, 2399, 2999 )
+                              WHEN s.Bettype IN( 2199, 2399, 2999, 4300 )
                               THEN 0
                               WHEN s.Bettype IN( 2198, 2398, 2998 )
                               THEN b.winlost_jackpot_actualrate + b.SMAWinloss_actualrate + b.commission_actualrate
                               ELSE b.winlost_actualrate + b.SMAWinloss_actualrate + b.commission_actualrate
                           END) HouseWinloss_actualrate,
                       SUM(( CASE
-                                WHEN s.Bettype IN( 2199, 2399, 2999 )
+                                WHEN s.Bettype IN( 2199, 2399, 2999, 4300 )
                                 THEN 0
                                 WHEN s.Bettype IN( 2198, 2398, 2998 )
                                 THEN b.winlost_jackpot_virtualrate + b.SMAWinloss_virtualrate

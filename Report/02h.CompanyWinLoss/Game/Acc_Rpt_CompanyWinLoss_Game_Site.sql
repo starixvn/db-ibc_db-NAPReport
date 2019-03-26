@@ -31,6 +31,7 @@ Revisions:
 - 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
 - 2018.06.04@Dominic: Force to recompile (#96143)
 - 20181018@Robert: Fix performance issue on House Win Loss by Product [#103309]
+- 20190326@Robert: #109981 - NAP Report - Integrate Promotion Prize
 				   
 Example:
 EXEC [Acc_Rpt_CompanyWinLoss_Game_Site] @BetType = 2101,@EndDate='2020-01-01',@Site = 'Credit',@StartDate='2016-01-01'
@@ -178,7 +179,7 @@ IF EXISTS /* bettransRNG*/
 							    THEN 0
 							    ELSE b.ContributionRate * b.BetStake + b.scomm / (1 - b.tpositiontaking)
 							END * ISNULL(e.ExtraPT, 0)
-						WHEN b.gameId IN(2199, 2399, 2999)
+						WHEN b.gameId IN(2199, 2399, 2999, 4300)
 						THEN 0
 						ELSE CASE
 							    WHEN tpositiontaking = 1
@@ -194,7 +195,7 @@ IF EXISTS /* bettransRNG*/
 																						    THEN 0
 																						    ELSE b.ContributionRate * b.BetStake + b.scomm / (1 - b.tpositiontaking)
 																						END * ISNULL(e.ExtraPT, 0)
-						WHEN b.gameId IN(2199, 2399, 2999)
+						WHEN b.gameId IN(2199, 2399, 2999, 4300)
 						THEN 0
 						ELSE winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - CASE
 																					WHEN tpositiontaking = 1

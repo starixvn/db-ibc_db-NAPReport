@@ -27,6 +27,7 @@ Revisions:
 - 2018.03.19@Franklin: Integrate  ONE RNG Jackpot (#91712)
 - 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
 - 2019.04.01@Kean: Improve performance for House Win Loss by Product (#106315)
+- 20190326@Robert: #109981 - NAP Report - Integrate Promotion Prize
 
 Example:
 EXEC [Acc_Rpt_CompanyWinLoss_Game_BetType] @EndDate='2020-01-01',@StartDate='2016-01-01',@ProductId=6
@@ -151,7 +152,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_BetType] @EndDate='2020-01-01',@StartDate='201
                                                 WHEN b.gameId IN( 2198, 2398, 2998 )
                                                 THEN (CASE WHEN tpositiontaking = 1 THEN 0 ELSE b.ContributionRate * b.BetStake + b.scomm / ( 1 - b.tpositiontaking )
 													  END ) * ISNULL(e.ExtraPT, 0)
-                                                WHEN b.gameId IN( 2199, 2399, 2999 )
+                                                WHEN b.gameId IN( 2199, 2399, 2999, 4300 )
                                                 THEN 0
                                                 ELSE (CASE WHEN tpositiontaking = 1 THEN 0 ELSE winlost - actual_stake + b.scomm / ( 1 - b.tpositiontaking )
                                                       END ) * ISNULL(e.ExtraPT, 0)
@@ -164,7 +165,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_BetType] @EndDate='2020-01-01',@StartDate='201
                                                                                                                                       THEN 0
                                                                                                                                       ELSE b.ContributionRate * b.BetStake + b.scomm / ( 1 - b.tpositiontaking )
                                                                                                                                   END ) * ISNULL(e.ExtraPT, 0)
-                                                WHEN b.gameId IN( 2199, 2399, 2999 )
+                                                WHEN b.gameId IN( 2199, 2399, 2999, 4300 )
                                                 THEN 0
                                                 ELSE winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - ( CASE
                                                                                                                              WHEN tpositiontaking = 1

@@ -34,6 +34,7 @@ Revisions:
 	- 20171013@Franklin: ExtraPT Setting - DB Restructure (#84802)
 	- 2018.03.19@Franklin: Integrate  ONE RNG Jackpot (#91712)
 	- 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
+	- 20190326@Robert: #109981 - NAP Report - Integrate Promotion Prize
 
 Example:
 EXEC [Acc_Rpt_CompanyWinLoss_Game_Product] @EndDate='2020-01-01',@StartDate='2017-01-05', @CasinoType = 1
@@ -173,7 +174,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_Product] @EndDate='2020-01-01',@StartDate='201
                                                                                                                                       THEN 0
                                                                                                                                       ELSE b.ContributionRate * b.BetStake + b.scomm / ( 1 - b.tpositiontaking )
                                                                                                                                   END ) * ISNULL(e.ExtraPT, 0)
-                                                WHEN b.gameId IN( 2199, 2399, 2999 )
+                                                WHEN b.gameId IN( 2199, 2399, 2999, 4300 )
                                                 THEN 0
                                                 ELSE winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - ( CASE
                                                                                                                              WHEN tpositiontaking = 1
@@ -195,14 +196,14 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_Product] @EndDate='2020-01-01',@StartDate='201
                                                 THEN 0
                                                 WHEN b.gameId IN( 2198, 2398, 2998 )
                                                 THEN b.ContributionRate * b.BetStake
-                                                WHEN b.gameId IN( 2199, 2399, 2999 )
+                                                WHEN b.gameId IN( 2199, 2399, 2999, 4300 )
                                                 THEN 0
                                                 ELSE winlost - actual_stake
                                             END ) * actualrate * ISNULL(e.ExtraPT, 0)) AS ExtraPT,
                                       SUM(( CASE
                                                 WHEN tpositiontaking = 1
                                                 THEN 0
-                                                WHEN b.gameId IN( 2199, 2399, 2999 )
+                                                WHEN b.gameId IN( 2199, 2399, 2999, 4300 )
                                                 THEN 0 --Progressive Jackpot
                                                 WHEN b.gameId IN( 2198, 2398, 2998 )
                                                 THEN ContributionRate * BetStake + 1.0 * scomm / ( 1 - tpositiontaking ) --Jackpot Contribution
