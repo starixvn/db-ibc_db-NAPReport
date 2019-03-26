@@ -1,7 +1,7 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
 ALTER PROCEDURE [dbo].[Task_rptWinLost_UpdateTable]
-	@winlostdate smalldatetime 
+	@winlostdate smalldatetime  
 AS
 /*
 Name : rpt_WinLost_UpdateTable
@@ -40,6 +40,7 @@ Revision:
 	- 20180807@Dominic: Integrate Poker Games - #97830
 	- 20180920@Tom: modify SP to avoid allocation order scan (#101646)
 	- 20190117@Robert: Video Poker - Integrate into NAP Reports (#107706)
+	- 20190326@Robert: #109981 - NAP Report - Integrate Promotion Prize
 */
 
 BEGIN	
@@ -237,7 +238,7 @@ BEGIN
 				WHEN StatusID = 113 THEN 'LOSE' END Status,
 			0 as ibc,
 			sum(case 
-					when b.bettype IN (71,73,1000) then 0 
+					when b.bettype IN (71 , 73, 1000) then 0 
 					when sb.ProductID = 33 THEN 0 --Poker Games
 					else (1-tpositiontaking)*CASE WHEN sb.ProductID = 1 THEN abs(stake) ELSE stake END*actualrate 
 			end) as realturnover,
@@ -467,12 +468,12 @@ BEGIN
 			sum((winlost-actual_stake)* actualrate)  realWinlost,
 			sum((awinlost+mwinlost+swinlost)* actualrate) realPos,
 			sum((scomm) * actualrate) realComm,
-			sum((CASE WHEN sb.Bettype IN(2199, 2399, 2999) THEN 0
+			sum((CASE WHEN sb.Bettype IN(2199, 2399, 2999, 4300) THEN 0
 					  WHEN sb.Bettype IN(2198, 2398, 2998) THEN (b.ContributionRate * b.BetStake) + awinlost + mwinlost + swinlost + scomm
 				      ELSE winlost - actual_stake + awinlost + mwinlost + swinlost + scomm 
 				 END) * actualrate) realLineTotal,
 			sum((1-tpositiontaking)*stake*virtualrate) as virtualTurnover,
-			sum((CASE WHEN sb.Bettype IN(2199, 2399, 2999) THEN 0
+			sum((CASE WHEN sb.Bettype IN(2199, 2399, 2999, 4300) THEN 0
 					  WHEN sb.Bettype IN(2198, 2398, 2998) THEN (b.ContributionRate * b.BetStake) + awinlost + mwinlost + swinlost + scomm
 				      ELSE winlost - actual_stake + awinlost + mwinlost + swinlost + scomm 
 				 END) * virtualrate) virtualLineTotal,
@@ -999,12 +1000,12 @@ BEGIN
 				sum((winlost-actual_stake)* actualrate)  realWinlost,
 				sum((awinlost+mwinlost+swinlost)* actualrate) realPos,
 				sum((scomm) * actualrate) realComm,
-				sum((CASE WHEN sb.Bettype IN(2199, 2399, 2999) THEN 0
+				sum((CASE WHEN sb.Bettype IN(2199, 2399, 2999, 4300) THEN 0
 						  WHEN sb.Bettype IN(2198, 2398, 2998) THEN (b.ContributionRate * b.BetStake) + awinlost + mwinlost + swinlost + scomm
 						  ELSE winlost - actual_stake + awinlost + mwinlost + swinlost + scomm 
 					 END) * actualrate) realLineTotal,
 				sum((1-tpositiontaking)*stake*virtualrate) as virtualTurnover,
-				sum((CASE WHEN sb.Bettype IN(2199, 2399, 2999) THEN 0
+				sum((CASE WHEN sb.Bettype IN(2199, 2399, 2999, 4300) THEN 0
 						  WHEN sb.Bettype IN(2198, 2398, 2998) THEN (b.ContributionRate * b.BetStake) + awinlost + mwinlost + swinlost + scomm
 						  ELSE winlost - actual_stake + awinlost + mwinlost + swinlost + scomm 
 					 END) * virtualrate) virtualLineTotal,
@@ -1153,7 +1154,3 @@ BEGIN
 	DROP TABLE #SportBettype
 END
 
-
-GO 
-GRANT EXECUTE ON [dbo].[Task_rptWinLost_UpdateTable] TO [bodbAdminNet]
-GO
