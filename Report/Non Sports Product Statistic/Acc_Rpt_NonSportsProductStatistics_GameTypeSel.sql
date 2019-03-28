@@ -1,4 +1,4 @@
-/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
  
 ALTER PROCEDURE [dbo].[Acc_Rpt_NonSportsProductStatistics_GameTypeSel]
 AS
@@ -17,6 +17,7 @@ AS
 		20180808@Cherry: Integrate Poker Games (#97809)
 		20181004@Cherry: Integrate ColosusBet and NG2 (#102229)
 		20181130@Cherry: Integrate Happy 5 (#103498)
+		20190328@Cherry: Integrate Promotion Prize (#109203)
 */
  
 BEGIN
@@ -37,7 +38,7 @@ SET NOCOUNT ON
 		INNER JOIN dbo.Bettype b ON s.Bettype = b.TypeId 
 	WHERE  CasinoType IN (1,2) 
 		   OR ProductID IN (8, 15, 24, 26, 28, 3, 30, 33) 	 
-		   AND b.TypeId NOT IN (2199, 2399, 2999)
+		   AND b.TypeId NOT IN (2199, 2399, 2999, 4300)
 	
 	--- ProductID = 3 - Number Game get LeagueId
 	INSERT INTO #SportBettype (ProductId, TypeId, TypeName, IsTest, GameType)
