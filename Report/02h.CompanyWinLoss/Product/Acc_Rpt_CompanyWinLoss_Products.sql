@@ -38,6 +38,7 @@ AS
 		- 20180831@Kean: Integrate Insurance Of Poker Games (#97830)
 		- 20180917@Robert: House WL by Product - Poker Games should be last index (#101618)
 	     - 20190121@Franklin: Integrate Poker Games (#107706)
+		- 20190308@Jacob: Integrate BetBuilder (#109822)
 
 	Explanation's Param:
 	
@@ -381,13 +382,13 @@ AS
                           END
                OPTION( RECOMPILE );
 
-        -----------Remove betype of MertricGaming and Bettrade
+        -----------Remove betype of MertricGaming and Bettrade AND Bet Builder
         DELETE #tmp_src
         WHERE bettype NOT IN( SELECT bettype
                               FROM #SportBettype s
                               WHERE s.productID = 1
                                 AND s.EventType IN( 1, 2 )
-                                AND s.SubProduct NOT IN( 'MG-SuperLive', 'BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss' ));
+                                AND s.SubProduct NOT IN( 'MG-SuperLive', 'BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss', 'Bet Builder' ));
 
         ------Soccer and Other Sports
         INSERT INTO #src
@@ -550,7 +551,7 @@ AS
                               END
                  AND s.productID = 1
                  AND s.EventType IN( 1, 2 )
-                 AND s.SubProduct NOT IN( 'MG-SuperLive', 'BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss' )
+                 AND s.SubProduct NOT IN( 'MG-SuperLive', 'BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss', 'Bet Builder' )
                GROUP BY CASE
                             WHEN m.sporttype = 44
                             THEN 44
@@ -585,7 +586,7 @@ AS
           AND d.Site = 2;
 								 
 
-        ---2. Not Sportsbook and not have detail table yet ; and special Sportsbook : Parlay, Metric gaming, Bettrade
+        ---2. Not Sportsbook and not have detail table yet ; and special Sportsbook : Parlay, Metric gaming, Bettrade, Bet Builder
         INSERT INTO #src
                ( srecommend,
                  site,
@@ -661,6 +662,8 @@ AS
                                                                       THEN-2
                                                                       WHEN 'BT-Winloss'
                                                                       THEN-2
+																	  WHEN 'Bet Builder'
+                                                                      THEN-6
                                                                       ELSE CASE
                                                                                WHEN s.EventType = 0
                                                                                 AND ProductID = 1
@@ -740,7 +743,7 @@ AS
                     AND s.RefTable NOT IN( 1, 2 )
                       )
                    OR ( s.productID = 1
-                    AND s.SubProduct IN( 'MG-SuperLive', 'BT-Comm', 'BT-Winloss' )
+                    AND s.SubProduct IN( 'MG-SuperLive', 'BT-Comm', 'BT-Winloss', 'Bet Builder' )
                       )
                    OR ( s.productID = 1
                     AND s.EventType = 0
@@ -754,6 +757,8 @@ AS
                             THEN-2
                             WHEN 'BT-Winloss'
                             THEN-2
+							WHEN 'Bet Builder'
+                            THEN-6
                             ELSE CASE
                                      WHEN s.EventType = 0
                                       AND ProductID = 1
@@ -1174,7 +1179,51 @@ AS
                WHERE b.ProductId = -1
                GROUP BY b.ProductId,
                         site; 
-
+	   
+	   ----BET BUILDER
+        INSERT INTO #Result
+               ( ProductId,
+                 site,
+                 winlost,
+                 Position,
+                 Commission,
+                 RealHouseWinloss,
+                 VirtualHouseWinloss,
+                 VarianceIncome,
+                 RealTurnover,
+                 VirtualTurnover,
+                 ExtraPT,
+                 NewExtraPT
+               )
+               SELECT b.ProductID,
+                      site,
+                      SUM(ISNULL(b.winlost_actualrate, 0)) WinLost,
+                      SUM(ISNULL(b.SMAWinloss, 0)) Position,
+                      SUM(ISNULL(commission_actualrate, 0)) Commission,
+                      SUM(ISNULL(HouseWinloss_actualrate - (( WinlossForExtraPT_actualrate + grosscomm_actualrate ) * ISNULL(e.ExtraPT, 0)), 0)) AS RealHouseWinloss,
+                      SUM(HouseWinloss_virtualrate - (( WinlossForExtraPT_virtualrate + grosscomm_virtualrate ) * ISNULL(e.ExtraPT, 0))) AS VirtualHouseWinloss,
+                      SUM(HouseWinloss_variance - ( WinlossForExtraPT_actualrate - WinlossForExtraPT_virtualrate ) * ISNULL(e.ExtraPT, 0) - grosscomm_variance * ISNULL(e.ExtraPT, 0)) AS VarianceIncome,
+                      SUM(turnover_actualrate - ISNULL(e.ExtraPT, 0) * stake_actualrate) AS RealTurnover,
+                      SUM(turnover_virtualrate - ISNULL(e.ExtraPT, 0) * stake_virtualrate) AS VirtualTurnover,
+                      SUM(CASE ISNULL(e.ExtraPT, 0)
+                              WHEN 0
+                              THEN 0
+                              ELSE( winlost_actualrate ) * e.ExtraPT
+                          END) AS ExtraPT,
+                      SUM(CASE ISNULL(e.ExtraPT, 0)
+                              WHEN 0
+                              THEN 0
+                              ELSE( WinlossForExtraPT_actualrate + grosscomm_actualrate ) * e.ExtraPT
+                          END) AS NewExtraPT
+               FROM #src b
+                    LEFT JOIN #ExtraPT_Sel e ON b.srecommend = e.superID
+                                            AND b.ProductId = -6
+                                            AND e.ProductID = 1
+                                            AND e.Sporttype = 0
+                                            AND e.SubProduct = 'Bet Builder'
+               WHERE b.ProductId = -6
+               GROUP BY b.ProductId,
+                        site; 
 	
         --- Parlay			 
         INSERT INTO #Result
@@ -1544,7 +1593,7 @@ AS
                               END
                  AND s.productID = 1
                  AND s.EventType IN( 1, 2 )
-                 AND s.SubProduct NOT IN( 'MG-SuperLive', 'BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss' )
+                 AND s.SubProduct NOT IN( 'MG-SuperLive', 'BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss', 'Bet Builder' )
                GROUP BY CASE
                             WHEN m.Sporttype = 1
                             THEN-98
@@ -1573,10 +1622,11 @@ AS
               ( 2, -4, 'Other Sports' ),
               ( 3, -3, 'Parlay' ),
               ( 4, -1, 'Metric Gaming - Superlive' ),
-              ( 5, 8, 'Keno' ),
-              ( 6, 3, 'Number Game' ),
-              ( 7, 4, 'Live Casino' ),
-              ( 8, 6, 'Casino' ),
+		    ( 5, -6, 'Bet Builder' ),
+              ( 6, 8, 'Keno' ),
+              ( 7, 3, 'Number Game' ),
+              ( 8, 4, 'Live Casino' ),
+              ( 9, 6, 'Casino' ),
               ( 10, 5, 'Virtual Sports' ),
               ( 11, 27, 'Virtual Sports 2' ),
               ( 12, 28, 'Lottery' ),

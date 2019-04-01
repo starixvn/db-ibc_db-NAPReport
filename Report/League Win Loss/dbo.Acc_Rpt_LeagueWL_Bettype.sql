@@ -12,24 +12,25 @@ AS
 		DB: DB06.bodb02	
 			
 		Revisions:			
-		-- 20100526@Henry: Change to use StatusID instead of Status in WHERE statement
-		-- 20100820@Lukas: Add new bet type: 1st Money Line (only for baseball game) bettypeID = 21
-		-- 20110824@Elly: - Correct Turnover of sports book since Sep 01, 2011
-		-- 20110826@Lukas: Modify to get bettype automatically
-		-- 20111202@Sophia: . Add new range for sportbook from 121 to 999
-							. Remove @NegativeBetEffectiveDate
-		-- 20120412@Hurri: Get win lost of agent 'BARM'
-		-- 20120530@Elodie: Change formula of 8RM/BARM winloss
-		-- 20120628@Elodie: Check case of matchid = orid
-							Expand the size of match code to varchar(50)
-		-- 20121009@Elodie: Add 34 new bettypes of Tennis (1301 -> 1334)
-		-- 20121112@Elodie: Use stake field to calculate TurnOver instead of actual_stake
-		-- 20150526@Sophia: Apply Sport Bettype Matrix [#34486]
-		-- 20150723@Sophia: Exclude data of Bettrade [#38815]	
-		-- 20150922@Jim: offer MO		
-		-- 20160819@Robert: Add Bet Trade Winloss bettype=904 (#62630)
-		- 20170831@Cherry: Extend data type of Sporttype (#73545)
-        - 20181214@Jacob: Include ESports Bet Type #100635
+			 20100526@Henry: Change to use StatusID instead of Status in WHERE statement
+			 20100820@Lukas: Add new bet type: 1st Money Line (only for baseball game) bettypeID = 21
+			 20110824@Elly: - Correct Turnover of sports book since Sep 01, 2011
+			 20110826@Lukas: Modify to get bettype automatically
+			 20111202@Sophia: . Add new range for sportbook from 121 to 999
+								. Remove @NegativeBetEffectiveDate
+			 20120412@Hurri: Get win lost of agent 'BARM'
+			 20120530@Elodie: Change formula of 8RM/BARM winloss
+			 20120628@Elodie: Check case of matchid = orid
+								Expand the size of match code to varchar(50)
+			 20121009@Elodie: Add 34 new bettypes of Tennis (1301 -> 1334)
+			 20121112@Elodie: Use stake field to calculate TurnOver instead of actual_stake
+			 20150526@Sophia: Apply Sport Bettype Matrix [#34486]
+			 20150723@Sophia: Exclude data of Bettrade [#38815]	
+			 20150922@Jim: offer MO		
+			 20160819@Robert: Add Bet Trade Winloss bettype=904 (#62630)
+			 20170831@Cherry: Extend data type of Sporttype (#73545)
+			 20181214@Jacob: Include ESports Bet Type #100635
+			 20190312@Cherry: Integrate Bet Builder (#109822)
 		Explanation's Param:
 			- @winlostdate: the date want to view report
 			- @leagueid   : the leagueid want to view report
@@ -93,34 +94,15 @@ Declare @tmpBettype table (	Bettype	INT primary key, DisplayOrder	int)
 	UNION ALL
 	Select 6,  9 --'Total Goal',
 	UNION ALL 
-	Select 10, 10 --'Outright',
-	
---	UNION ALL
---	SELECT 11,  11 --'Total Corners',
---	UNION ALL
---	SELECT 12,  12 --'1st Odd/Even',
---	UNION ALL
---	SELECT 13,  13 --'Clean Sheet',
---	UNION ALL
---	SELECT 14, 14 --'First Goal/Last Goal', 
---	UNION ALL
---	SELECT 15, 15 --'1st 1X2', 
---	UNION ALL
---	SELECT 16,  16 --'HT/FT',
---	UNION ALL
---	SELECT 20,  20 -- 'Money Line',
---	UNION ALL
---	SELECT 21, 21 -- '1st Money Line'
---	UNION ALL 
---	SELECT 22, 22 -- 'Next Goal',
-
+	Select 10, 10 --'Outright',	
 
 	INSERT INTO @tmpBettype
-		SELECT typeid, typeid
-		FROM bettype b WITH(NOLOCK)
-			INNER JOIN @SportBettype s 
-				ON b.typeid = s.Bettype
-		WHERE (typeid > 10 AND typeid < 31) OR (typeid BETWEEN 121 AND 999 and b.typeid NOT IN (301,302,303,304))  OR typeid BETWEEN 1301 AND 1334 OR typeid BETWEEN 9001 AND 9399
+	SELECT typeid, typeid
+	FROM bettype b WITH(NOLOCK)
+		INNER JOIN @SportBettype s 
+			ON b.typeid = s.Bettype
+		LEFT JOIN @tmpBettype t ON s.Bettype = t.Bettype
+	WHERE typeid > 10 AND t.Bettype IS NULL
 
 	SELECT		
 			b.liveindicator,

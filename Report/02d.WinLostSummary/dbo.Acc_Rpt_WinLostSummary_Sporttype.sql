@@ -11,35 +11,36 @@ AS
         Task: summary winlost by sporttype
         DB: DBRPT/bodb_Report
         Revisions:
-            - 20130822@Johnson: change to use rptWinlost instead rptWinlost2
-            - 20131206@Kathy: Add HR Fixed Odds (154) [Redmine:#6505]
-		  - 20140327@Dom: Add Keno
-		  - 20150525@Jim: apply sport& bettype matrix and also support GoldDeluxe & Metric Gaming (#35359 & #28309 )
-		  - 20150710@Jim: Super Balance fix and Microgaming integration (feature #38168 )
-		  - 20150723@Jim: Apply Bettrade [#38815]
-		  - 20150828@Jim: support Colossus Bet (#42608)
-		  - 20150921@Jim: support MO (#41935)
-		  - 20151020@Sophia: Fix bug missing Outright data [#30661]
-		  - 20151111@Percy: Change the sport type: MGC_LC-RNG to LC and RNG [RedmineID: #46576]
-		  - 20151210@Percy: Add new product: Cockfighting Sabong [Redmine: #49027]
-		  - 20160112@Percy: Expand new bettype for RNG Casino [Redmine: #49134]
-		  - 20160225@Jim: offer  Allbet Live Casino [Redmine:#50921)]
-		  - 20160411@Robert: Integrate Voidbridge Credit - Single Wallet model, using sporttype, bettye matrix function, change the way to get data Microgaming-RNG Casino from bettransRNG instead bettrans [RedmineID: #55589]
-		  - 20160819@Robert: Add Bet Trade Winloss bettype=904 (#62630)
-		  - 20160830@Robert: Enhance System/Mix Parlay [RedmineID: #63022]
-		  - 20160913@Percy: [RedmineID: #59840]
+          20130822@Johnson: change to use rptWinlost instead rptWinlost2
+          20131206@Kathy: Add HR Fixed Odds (154) [Redmine:#6505]
+		  20140327@Dom: Add Keno
+		  20150525@Jim: apply sport& bettype matrix and also support GoldDeluxe & Metric Gaming (#35359 & #28309 )
+		  20150710@Jim: Super Balance fix and Microgaming integration (feature #38168 )
+		  20150723@Jim: Apply Bettrade [#38815]
+		  20150828@Jim: support Colossus Bet (#42608)
+		  20150921@Jim: support MO (#41935)
+		  20151020@Sophia: Fix bug missing Outright data [#30661]
+		  20151111@Percy: Change the sport type: MGC_LC-RNG to LC and RNG [RedmineID: #46576]
+		  20151210@Percy: Add new product: Cockfighting Sabong [Redmine: #49027]
+		  20160112@Percy: Expand new bettype for RNG Casino [Redmine: #49134]
+		  20160225@Jim: offer  Allbet Live Casino [Redmine:#50921)]
+		  20160411@Robert: Integrate Voidbridge Credit - Single Wallet model, using sporttype, bettye matrix function, change the way to get data Microgaming-RNG Casino from bettransRNG instead bettrans [RedmineID: #55589]
+		  20160819@Robert: Add Bet Trade Winloss bettype=904 (#62630)
+		  20160830@Robert: Enhance System/Mix Parlay [RedmineID: #63022]
+		  20160913@Percy: [RedmineID: #59840]
 			 1. Include hedge match of 8RM account 
 			 2. Left join #TempMatch to include data bettrade
-		  - 20160916@Robert: Integrate new product NG2 [RedmindID: #63460]
-		  - 20161129@Robert: NAP Reports - Integrate Fishing World Product [RedmindID: #67757]
-		  - 20170323@Robert: NAP Reports - Integrate Cash out [RedmindID: #73419]
-		  - 20170615@Tom: NAP Reports - Integrate Keno Lottery [RedmindID: #78184] 
+		  20160916@Robert: Integrate new product NG2 [RedmindID: #63460]
+		  20161129@Robert: NAP Reports - Integrate Fishing World Product [RedmindID: #67757]
+		  20170323@Robert: NAP Reports - Integrate Cash out [RedmindID: #73419]
+		  20170615@Tom: NAP Reports - Integrate Keno Lottery [RedmindID: #78184] 
 					   NAP Reports - Integrate Betradar Virtual Sports[RedmindID: #78495] 
-		  - 20170816@Logan:  NAP Reports - Integrate Lucky 3 [RedmindID: #81733]
-		  - 20171110@Robert: NAP Reports - Integrate Bullfighting [RedmindID: #85383]
-		  - 2018.02.27@Tom: Integrate Colossus Bets - Free Play Integration (#90774)
-		  - 20181219@Robert: NAP Report - Add new sporttype for Happy 5 (#104253) 
-		  - 20190117@Robert: Video Poker - Integrate into NAP Reports (#107706)
+		  20170816@Logan:  NAP Reports - Integrate Lucky 3 [RedmindID: #81733]
+		  20171110@Robert: NAP Reports - Integrate Bullfighting [RedmindID: #85383]
+		  2018.02.27@Tom: Integrate Colossus Bets - Free Play Integration (#90774)
+		  20181219@Robert: NAP Report - Add new sporttype for Happy 5 (#104253) 
+		  20190117@Robert: Video Poker - Integrate into NAP Reports (#107706)
+		  20190308@Cherry: Integrate Bet Builder (#109822)
 
         Parameter's Explanation:
 
@@ -138,7 +139,9 @@ BEGIN
 					    WHEN Bettype = 304
 						    AND liveindicator = 1
 					    THEN 16
-					    ELSE 17
+					    WHEN Bettype = 38
+					    THEN 17
+					    ELSE 18
 					END;
     DECLARE @_fromdate    DATETIME
 		, @_todate      DATETIME;
@@ -294,12 +297,12 @@ BEGIN
 					    , realTurnover
 					    , virtualTurnover)
 			 SELECT CASE s.SubProduct
-					  WHEN 'MG-SuperLive'
-					  THEN-1
+					  WHEN 'MG-SuperLive' THEN -1
+					  WHEN 'Bet Builder' THEN -38
 					  ELSE b.sporttype
 				   END AS sporttype
 				 , CASE
-					  WHEN b.bettype IN(1, 3, 7, 8, 301, 302, 303, 304)
+					  WHEN b.bettype IN(1, 3, 7, 8, 301, 302, 303, 304, 38)
 						  OR b.bettype BETWEEN 801 AND 899
 					  THEN b.bettype
 					  ELSE 19999
@@ -317,8 +320,8 @@ BEGIN
 				   END AS IsHedge
 				 , '' AS status
 				 , CASE s.SubProduct
-					  WHEN 'MG-SuperLive'
-					  THEN 2
+					  WHEN 'MG-SuperLive' THEN 2
+					  WHEN 'Bet Builder' THEN 3
 					  ELSE 1
 				   END AS OrderKey
 				 , s.SortKey
@@ -341,12 +344,12 @@ BEGIN
 					  AND s.SubProduct NOT IN('BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss')
 					  OR s.ProductID = 3) /* SB or NG, exclude bettrade*/
 			 GROUP BY CASE s.SubProduct
-					    WHEN 'MG-SuperLive'
-					    THEN-1
+					    WHEN 'MG-SuperLive' THEN -1
+					    WHEN 'Bet Builder' THEN -38
 					    ELSE b.sporttype
 					END
 				   , CASE
-					    WHEN b.bettype IN(1, 3, 7, 8, 301, 302, 303, 304)
+					    WHEN b.bettype IN(1, 3, 7, 8, 301, 302, 303, 304, 38)
 						    OR b.bettype BETWEEN 801 AND 899
 					    THEN b.bettype
 					    ELSE 19999
@@ -368,11 +371,12 @@ BEGIN
 					    ELSE 0
 					END
 				   , CASE s.SubProduct
-					    WHEN 'MG-SuperLive'
-					    THEN 2
+					    WHEN 'MG-SuperLive' THEN 2
+					    WHEN 'Bet Builder' THEN 3
 					    ELSE 1
 					END
-				   , s.SortKey;
+				   , s.SortKey;				   	
+				   
     WITH CTE_bettype_eventtype(BetTypeID
 					    , EventType)
 	    AS (

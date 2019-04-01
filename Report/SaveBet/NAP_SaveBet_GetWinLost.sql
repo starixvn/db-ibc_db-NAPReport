@@ -1,4 +1,4 @@
-/*<info serverAlias="DBACC-bodb_ACC" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBACC-bodb_ACC" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
 USE [bodb_ACC]
 GO
@@ -19,6 +19,7 @@ AS
 		- 20160125@Robert: Cricket - Integrate to Accounting Reports [#50274]
 		- 20160819@Robert: Add Bet Trade Winloss bettype=904 (#62630)
 		- 20170612@Percy: check bettype of Cash Out [RedmineID: #78160]
+		- 20190308@Robert: #109822 - NAP Report - Integrate Bet Builder
 */
 
 BEGIN
@@ -58,7 +59,7 @@ BEGIN
 			matchid = @matchid 
 			AND bettype NOT IN(SELECT bettype FROM bodb02.dbo.f_VSHorseRacingByBettype())
 			AND bettype NOT IN (901,902,903,904)
-			AND bettype NOT IN (911,912,913,914)
+			AND bettype NOT IN (911,912,913,914, 38)
 		GROUP BY
 			bettype, liveindicator
 	) b
@@ -92,7 +93,7 @@ BEGIN
 			AND status NOT IN ('void','reject')
 			AND b.bettype NOT IN(SELECT bettype FROM bodb02.dbo.f_VSHorseRacingByBettype())
 			AND b.bettype NOT IN (901,902,903,904)
-			AND b.bettype NOT IN (911,912,913,914)
+			AND b.bettype NOT IN (911,912,913,914, 38)
 		GROUP BY
 			bettype, liveindicator
 	) t ON b.bettype = t.bettype AND b.liveindicator = t.liveindicator
@@ -133,7 +134,7 @@ BEGIN
 			matchid = @matchid
 			AND bettype NOT IN(SELECT bettype FROM bodb02.dbo.f_VSHorseRacingByBettype())
 			AND bettype NOT IN (901,902,903,904)
-			AND bettype NOT IN (911,912,913,914)
+			AND bettype NOT IN (911,912,913,914, 38)
 		GROUP BY
 			bettype, liveindicator
 	) b
@@ -167,7 +168,7 @@ BEGIN
 			AND status NOT IN ('void','reject')
 			AND bettype NOT IN(SELECT bettype FROM bodb02.dbo.f_VSHorseRacingByBettype())
 			AND bettype NOT IN (901,902,903,904)
-			AND bettype NOT IN (911,912,913,914)
+			AND bettype NOT IN (911,912,913,914, 38)
 		GROUP BY
 			bettype, liveindicator
 	) t ON b.bettype = t.bettype AND b.liveindicator = t.liveindicator

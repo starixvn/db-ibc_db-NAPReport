@@ -1,4 +1,4 @@
-﻿/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
+﻿/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 
 ALTER PROCEDURE dbo.Acc_Rpt_TreeWinlostByCom
 	@FromDate    DATETIME
@@ -13,34 +13,35 @@ Task : Report Tree Win Lost
 DB: DBACC.bodb02  
 Original SP:   
 Revisions:  
-	-20130115@Scott : fix bug sum total of poker sporttype
-	-20130418@Scott : Update formula turnover of Racing
-	-20130702@Dom.Cao: Add Vanriance (+\-)
-	-20140304@TomVo: 
+	20130115@Scott : fix bug sum total of poker sporttype
+	20130418@Scott : Update formula turnover of Racing
+	20130702@Dom.Cao: Add Vanriance (+\-)
+	20140304@TomVo: 
 		Change Name Server (DB06) to Alias Server (DBACC)
 		Add Keno Sport (202) -Bettype : 1501 - 1599
-	- 20151226@Johnson: Separate virtual rate by sporttype, bettype [Redmine: #25840]	
-	- 20150529@Jim: add more parameter @ShowGD,@ShowMGSL and apply sport-bettype matrix 
-	- 20150710@Jim: Super Balance fix and Microgaming integration (Feature #38168)
-	- 20150723@Jim: Apply Bettrade [#38815]	
-	- 20150828@Jim: support Colossus Bet (#42608)
-	- 20151110@Billy : Change to new Virtual Rate structure - [Redmine: #47355]
-	- 20151111@Percy: Change the sport type: MGC_LC-RNG to LC and RNG [RedmineID: #46576]
-	- 20151214@Percy: 1. Add new product: Cockfighting [Redmine: #49027]
+	20151226@Johnson: Separate virtual rate by sporttype, bettype [Redmine: #25840]	
+	20150529@Jim: add more parameter @ShowGD,@ShowMGSL and apply sport-bettype matrix 
+	20150710@Jim: Super Balance fix and Microgaming integration (Feature #38168)
+	20150723@Jim: Apply Bettrade [#38815]	
+	20150828@Jim: support Colossus Bet (#42608)
+	20151110@Billy : Change to new Virtual Rate structure - [Redmine: #47355]
+	20151111@Percy: Change the sport type: MGC_LC-RNG to LC and RNG [RedmineID: #46576]
+	20151214@Percy: 1. Add new product: Cockfighting [Redmine: #49027]
 					  2. Change input parameters
-	- 20160118@Percy: Calculate turnover for RNG Casino [Redmine: #49134]
-	- 20160223@Robert: Add new range bettype for Allbet Live Casino #50921
-	- 20160411@Robert: Integrate Voidbridge Credit - Single Wallet model [RedmineID: #55589]
-	- 20160615@Sophia: Change READPAST to ROWLOCK because of the Deadlock [Redmind: #59254]
-	- 20160819@Robert: Add Bet Trade Winloss bettype=904 (#62630)
-	- 20161129@Robert: NAP Reports - Integrate Fishing World Product [RedmindID: #67757]
-	- 2018.03.19@Franklin: Integrate  ONE RNG Jackpot (#91712)
-	- 20180411@Franklin: Integrate Pragmatic (#92642)
-	- 20180504@Dominic: Apply new VR concepts - Redminde:#94213
-	- 20180711@Robert: NAP Report - Add Cash Out & Bettrade into Tree Win Loss report [RedmindID: #98005]
-	- 20480815@Robert: Integrate Poker Games into NAP Report [RedmindID: #97830]
-	- 20190107@Kean: Use NoLock hint to bettransRNG and bettransLC [RedmindID: #107415]
-	- 20190117@Robert: Video Poker - Integrate into NAP Reports [RedmindID: #107706]
+	20160118@Percy: Calculate turnover for RNG Casino [Redmine: #49134]
+	20160223@Robert: Add new range bettype for Allbet Live Casino #50921
+	20160411@Robert: Integrate Voidbridge Credit - Single Wallet model [RedmineID: #55589]
+	20160615@Sophia: Change READPAST to ROWLOCK because of the Deadlock [Redmind: #59254]
+	20160819@Robert: Add Bet Trade Winloss bettype=904 (#62630)
+	20161129@Robert: NAP Reports - Integrate Fishing World Product [RedmindID: #67757]
+	2018.03.19@Franklin: Integrate  ONE RNG Jackpot (#91712)
+	20180411@Franklin: Integrate Pragmatic (#92642)
+	20180504@Dominic: Apply new VR concepts - Redminde:#94213
+	20180711@Robert: NAP Report - Add Cash Out & Bettrade into Tree Win Loss report [RedmindID: #98005]
+	20480815@Robert: Integrate Poker Games into NAP Report [RedmindID: #97830]
+	20190107@Kean: Use NoLock hint to bettransRNG and bettransLC [RedmindID: #107415]
+	20190117@Robert: Video Poker - Integrate into NAP Reports [RedmindID: #107706]
+	20190311@Cherry: Integrate Bet Builder (#109822)
 */
 
 BEGIN
@@ -145,6 +146,28 @@ BEGIN
 				    WHERE tblS.ProductID = 1
 						AND tblS.SubProduct IN('BT-Comm', 'BT-Winloss');
 	   END;
+	   
+	IF EXISTS
+		    (
+			   SELECT TOP 1 1
+			   FROM #Product AS P
+			   WHERE p.ProductID = -3
+		    )
+	   BEGIN
+		  WITH tblP(ProductID)
+			  AS (
+			  SELECT 1 AS ProductID
+			  FROM #Product AS tblP
+			  WHERE tblP.ProductID = -3)
+			  INSERT INTO #tmpBettype(ProductID
+							    , bettype)
+				    SELECT tblS.ProductID
+					    , tblS.bettype
+				    FROM tblP
+					  , @SportBettype AS tblS
+				    WHERE tblS.ProductID = 1
+						AND tblS.SubProduct IN('Bet Builder');
+	   END;
 
     IF EXISTS
 		    (
@@ -160,7 +183,7 @@ BEGIN
 			    FROM @SportBettype AS tblS
 				   INNER JOIN #Product AS tblP ON tblS.ProductID = tblP.ProductID
 			    WHERE tblP.ProductID = 1
-					AND tblS.SubProduct NOT IN('MG-SuperLive', 'BT-Comm', 'BT-Winloss');
+					AND tblS.SubProduct NOT IN('MG-SuperLive', 'BT-Comm', 'BT-Winloss', 'Bet Builder');
 	   END;
 /*-- Extra PT */
 
@@ -599,10 +622,6 @@ GO
 SET ANSI_NULLS ON; 
 GO
 
-
-GO
-
-GRANT VIEW DEFINITION ON dbo.Acc_Rpt_TreeWinlostByCom TO [vnteam];
 GO
 
 GRANT EXECUTE ON dbo.Acc_Rpt_TreeWinlostByCom TO [bodbAdminNet];
