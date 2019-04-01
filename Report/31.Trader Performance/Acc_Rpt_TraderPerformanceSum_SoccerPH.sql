@@ -158,7 +158,7 @@ BEGIN
                                   END) AS comm,
 		SUM((CASE WHEN modds = 0.25 OR modds = - 0.25 THEN stake/2 ELSE stake END) * (CASE WHEN tpositiontaking = 1 THEN 0 ELSE 1 - tpositiontaking- ISNULL(ExtraPT, 0) END) * virtualrate) AS stake_AfterExtraPT,
 		-SUM(CASE WHEN tpositiontaking = 1 THEN 0 ELSE (winlost - actual_stake + scomm/(1 - tpositiontaking)) * virtualrate * ISNULL(e.ExtraPT, 0) END) AS memberwinlost_ExtraPT,
-		COUNT(CASE WHEN td.[VendorID] IN (14) THEN 0 
+		SUM(CASE WHEN td.[VendorID] IN (14) THEN 0 
 				   ELSE 1 END) AS bet
 	FROM dbo.bettrans b WITH (NOLOCK)
 		INNER JOIN dbo.match m WITH (NOLOCK) ON b.matchid = m.matchid 

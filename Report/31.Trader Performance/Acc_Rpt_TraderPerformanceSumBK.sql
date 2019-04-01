@@ -218,7 +218,7 @@ BEGIN
 					THEN (CASE WHEN modds = 0.25 OR modds = - 0.25 THEN stake/2 ELSE stake END) * (CASE WHEN tpositiontaking = 1 THEN 0 ELSE 1 - tpositiontaking - ISNULL(ExtraPT, 0) END) * virtualrate
 				ELSE 0 END) AS stake_AfterExtraPT,
 		-SUM(CASE WHEN tpositiontaking = 1 THEN 0 ELSE (winlost - actual_stake + scomm/(1 - tpositiontaking)) * virtualrate * ISNULL(e.ExtraPT, 0) END) AS memberwinlost_ExtraPT,
-		COUNT(CASE WHEN td.[VendorID] IN (14) THEN 0 
+		SUM(CASE WHEN td.[VendorID] IN (14) THEN 0 
 				   ELSE 1 END) AS bet
 	FROM bodb_Archive.dbo.bettrans_bk b WITH (NOLOCK)
 		LEFT JOIN #ExtraPTSportbook e ON b.srecommend = e.superId AND b.winlostdate BETWEEN e.FromDate AND e.ToDate
