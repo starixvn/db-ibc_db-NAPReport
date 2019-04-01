@@ -94,7 +94,7 @@ BEGIN
 	FROM
 	(
 		SELECT DISTINCT SuperId, ExtraPT, FromDate, ToDate
-		FROM bodb_ACC.dbo.Acc_GroupExtraPTSetting WITH (NOLOCK)
+		FROM bodb02.dbo.Acc_GroupExtraPTSetting WITH (NOLOCK)
 		WHERE
 			(
 				@FromDate BETWEEN FromDate AND ToDate
