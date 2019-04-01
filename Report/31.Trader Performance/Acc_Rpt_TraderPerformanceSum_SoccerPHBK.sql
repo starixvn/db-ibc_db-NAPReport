@@ -3,7 +3,7 @@
 USE [bodb02]
 GO
 
-ALTER PROCEDURE [dbo].[Acc_Rpt_TraderPerformanceSum_SoccerPH]   
+ALTER PROCEDURE [dbo].[Acc_Rpt_TraderPerformanceSum_SoccerPHBK]   
 	@FromDate	DATETIME,  
 	@ToDate		DATETIME  
 AS
@@ -311,7 +311,7 @@ BEGIN
 	DROP TABLE #Result 
 END
 GO
-GRANT EXECUTE ON [dbo].[Acc_Rpt_TraderPerformanceSum_SoccerPH] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[Acc_Rpt_TraderPerformanceSum_SoccerPHBK] TO [bodbAdminNet]
 GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_Rpt_TraderPerformanceSum_SoccerPH] TO [vnteam]
+GRANT VIEW DEFINITION ON [dbo].[Acc_Rpt_TraderPerformanceSum_SoccerPHBK] TO [vnteam]
 GO

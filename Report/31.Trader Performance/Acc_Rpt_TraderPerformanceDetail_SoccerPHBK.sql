@@ -3,7 +3,7 @@
 USE [bodb02]
 GO
 
-ALTER PROCEDURE [dbo].[Acc_Rpt_TraderPerformanceDetail_SoccerPH]   
+ALTER PROCEDURE [dbo].[Acc_Rpt_TraderPerformanceDetail_SoccerPHBK]   
 	@FromDate	DATETIME,  
 	@ToDate		DATETIME
 AS
@@ -413,6 +413,6 @@ BEGIN
 	
 END
 GO
-GRANT EXECUTE ON [dbo].[Acc_Rpt_TraderPerformanceDetail_SoccerPH] TO [bodbAdminNet]
+GRANT EXECUTE ON [dbo].[Acc_Rpt_TraderPerformanceDetail_SoccerPHBK] TO [bodbAdminNet]
 GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_Rpt_TraderPerformanceDetail_SoccerPH] TO [vnteam]
+GRANT VIEW DEFINITION ON [dbo].[Acc_Rpt_TraderPerformanceDetail_SoccerPHBK] TO [vnteam]
