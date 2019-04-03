@@ -1,3 +1,5 @@
+/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+
 USE [bodb02]
 GO
 
@@ -15,6 +17,7 @@ AS
 
 	Revisions:
 		@20171229: Adhoc Trader Performance
+		- 20180328@Kean: Apply new concept of Commission to Trader Performance Report (#111015)
 
 	Param's Explanation:
 		@IsSoccer:
@@ -73,7 +76,7 @@ BEGIN
 	FROM
 	(
 		SELECT SuperId, ExtraPT, FromDate, ToDate
-		FROM bodb_ACC.dbo.Acc_GroupExtraPTSetting WITH (NOLOCK)
+		FROM bodb02.dbo.Acc_GroupExtraPTSetting WITH (NOLOCK)
 		WHERE
 			(
 				@FromDate BETWEEN FromDate AND ToDate
@@ -204,16 +207,22 @@ BEGIN
 					THEN (CASE WHEN modds = 0.25 OR modds = - 0.25 THEN stake/2 ELSE stake END) * (1 - tpositiontaking) * virtualrate
 				ELSE 0 END) AS stake,
 		-SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm) * virtualrate) AS winlost,
-		SUM(scomm * actualrate) AS comm,
+		SUM(scomm * CASE
+                                      WHEN b.virtualrate < b.actualrate
+                                      THEN b.virtualrate
+                                      ELSE b.actualrate
+                                  END) AS comm,
 		SUM(CASE 
 				WHEN bettype IN (5, 15) THEN ABS(stake) * (CASE WHEN tpositiontaking = 1 THEN 0 ELSE 1 - tpositiontaking - ISNULL(ExtraPT, 0) END) * virtualrate 
 				WHEN bettype IN (1, 2, 3, 7, 8, 12, 124, 125)
 					THEN (CASE WHEN modds = 0.25 OR modds = - 0.25 THEN stake/2 ELSE stake END) * (CASE WHEN tpositiontaking = 1 THEN 0 ELSE 1 - tpositiontaking - ISNULL(ExtraPT, 0) END) * virtualrate
 				ELSE 0 END) AS stake_AfterExtraPT,
 		-SUM(CASE WHEN tpositiontaking = 1 THEN 0 ELSE (winlost - actual_stake + scomm/(1 - tpositiontaking)) * virtualrate * ISNULL(e.ExtraPT, 0) END) AS memberwinlost_ExtraPT,
-		COUNT(1) AS bet
+		SUM(CASE WHEN td.[VendorID] IN (14) THEN 0 
+				   ELSE 1 END) AS bet
 	FROM bodb_Archive.dbo.bettrans_bk b WITH (NOLOCK)
 		LEFT JOIN #ExtraPTSportbook e ON b.srecommend = e.superId AND b.winlostdate BETWEEN e.FromDate AND e.ToDate
+		LEFT JOIN dbo.TradeCust AS td WITH (NOLOCK) ON b.custid = td.custid 
 	WHERE
 		statusID NOT IN (101, 102, 103, 121, 111)
 		AND ruben = 1
