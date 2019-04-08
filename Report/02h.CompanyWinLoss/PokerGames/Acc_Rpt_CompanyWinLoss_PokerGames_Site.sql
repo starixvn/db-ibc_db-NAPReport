@@ -1,11 +1,5 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
 
-USE [bodb02];
-GO
-SET ANSI_NULLS ON;
-GO
-SET QUOTED_IDENTIFIER ON;
-GO
 ALTER PROCEDURE dbo.Acc_Rpt_CompanyWinLoss_PokerGames_Site
       @StartDate SMALLDATETIME,
       @EndDate   SMALLDATETIME,
@@ -181,11 +175,11 @@ EXEC [Acc_Rpt_CompanyWinLoss_PokerGames_Site] @StartDate='2018-08-21', @EndDate=
                                               ELSE winlost - actual_stake + b.scomm / ( 1 - b.tpositiontaking )
                                           END * ISNULL(e.ExtraPT, 0) * actualrate),
                                       SUM(scomm * actualrate),
-                                      SUM(winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - CASE
+                                      SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - CASE
                                                                                                                 WHEN tpositiontaking = 1
                                                                                                                 THEN 0
                                                                                                                 ELSE winlost - actual_stake + b.scomm / ( 1 - b.tpositiontaking )
-                                                                                                            END * ISNULL(e.ExtraPT, 0) * actualrate),
+                                                                                                            END * ISNULL(e.ExtraPT, 0)) * actualrate),
                                       SUM(CASE
                                               WHEN tpositiontaking = 1
                                               THEN 0
@@ -225,8 +219,4 @@ EXEC [Acc_Rpt_CompanyWinLoss_PokerGames_Site] @StartDate='2018-08-21', @EndDate=
         DROP TABLE #ExtraComm_Sel;
         DROP TABLE #SportBetType;
         DROP TABLE #Data;
-GO
-GRANT EXECUTE ON dbo.Acc_Rpt_CompanyWinLoss_PokerGames_Site TO [bodbAdminNet];
-GO
-GRANT VIEW DEFINITION ON dbo.Acc_Rpt_CompanyWinLoss_PokerGames_Site TO [vnteam];
 GO
