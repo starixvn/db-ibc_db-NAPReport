@@ -906,7 +906,7 @@ SET NOCOUNT ON
 				
 		INSERT INTO #tmp_bettransm (refno)
 		SELECT DISTINCT bm.refno FROM dbo.bettransm bm WITH(NOLOCK)
-					INNER JOIN dbo.match m WITH(NOLOCK) ON bm.matchid = m.matchid 
+					INNER JOIN dbo.match14 m WITH(NOLOCK) ON bm.matchid = m.matchid 
 					INNER JOIN #tmpSporttype st ON m.sporttype = st.Sporttype
 					
 		INSERT INTO #Data (  [Hour] ,  
