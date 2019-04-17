@@ -391,7 +391,7 @@ BEGIN
 					)
 					AND (s.ProductID <> 27 OR (s.ProductID = 27 AND s.EvenType = 1) 
 						OR (EXISTS (SELECT 1 FROM dbo.bettransm bm WITH (NOLOCK)
-									INNER JOIN dbo.match m WITH (NOLOCK) ON bm.matchid = m.matchid 
+									INNER JOIN dbo.match14 m WITH (NOLOCK) ON bm.matchid = m.matchid 
 									INNER JOIN #tmp_SportType st ON m.sporttype = st.Sporttype
 								WHERE bm.refno = b.refno))
 					)

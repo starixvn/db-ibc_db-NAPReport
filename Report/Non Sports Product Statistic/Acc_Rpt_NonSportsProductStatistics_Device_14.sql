@@ -1,4 +1,4 @@
-/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
 USE bodb02
 GO
@@ -39,6 +39,7 @@ AS
 		20181018@Cherry: Integrate NG2 (#102229)
 		20181108@Cherry: Improve performance (#101547)
 		20190214@Cherry: Integrate Video Poker Games (#108735)
+		20190322@Cherry: Add betfrom b,f (#110653)
 
 	Param's Explanation:
 		- @username:  + Search by keyword, member only
@@ -206,7 +207,7 @@ BEGIN
 		INSERT INTO #Device (Betfrom)
 		SELECT Betfrom
 		FROM DBWH.bodb_Account.dbo.tbl_Betfrom
-		WHERE betfrom NOT IN ('t', 'b')
+		WHERE betfrom NOT IN ('t')
 
 		IF NOT EXISTS(SELECT 1 FROM #Device d LEFT JOIN #tmp_Device t ON t.Betfrom = d.Betfrom WHERE t.Betfrom IS NULL) 
 			SET @AllDevice = 1
@@ -993,15 +994,12 @@ BEGIN
 	
 	-- Get Device
 	UPDATE d
-	SET d.Device = CASE WHEN d.Betfrom IN ('i', 'f') THEN 'Internet' ELSE f.fullname END,
+	SET d.Device = f.fullname,
 		d.DeviceGroup = f.DeviceGroup
 	FROM #Data d
 		INNER JOIN DBWH.bodb_Account.dbo.tbl_Betfrom f ON f.betfrom = d.Betfrom
-
-	UPDATE d
-	SET d.Betfrom = CASE WHEN d.Betfrom IN ('i','f') THEN 'i,f' ELSE d.Betfrom END
-	FROM #Data d
 	-- End Device
+	
 	------------------------------------------III. Drill down data ------------------------------------------------------
 	
 	IF @Currency = -1 -- BaseRM

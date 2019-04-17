@@ -1,4 +1,4 @@
-/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
 USE bodb02
 GO
@@ -44,6 +44,7 @@ AS
 		20180328@Cherry: Integrate One RNG Jackpot (#89459)
 		20181108@Cherry: Improve performance (#101547)
 		20190314@Cherry: Integrate Video Poker Games (#108735)
+		20190322@Cherry: Add betfrom b,f (#110653)
 
 	Param's Explanation:
 			 - @username:  + Search by keyword, member only
@@ -251,7 +252,7 @@ SET NOCOUNT ON
 		INSERT INTO #Device (Betfrom)
 		SELECT Betfrom
 		FROM DBWH.bodb_Account.dbo.tbl_Betfrom
-		WHERE betfrom NOT IN ('t', 'b')
+		WHERE betfrom NOT IN ('t')
 
 		IF NOT EXISTS(SELECT 1 FROM #Device d LEFT JOIN #tmpDevice t ON t.Betfrom = d.Betfrom WHERE t.Betfrom IS NULL) 
 			SET @Device = ''
@@ -905,7 +906,7 @@ SET NOCOUNT ON
 				
 		INSERT INTO #tmp_bettransm (refno)
 		SELECT DISTINCT bm.refno FROM dbo.bettransm bm WITH(NOLOCK)
-					INNER JOIN dbo.match m WITH(NOLOCK) ON bm.matchid = m.matchid 
+					INNER JOIN dbo.match14 m WITH(NOLOCK) ON bm.matchid = m.matchid 
 					INNER JOIN #tmpSporttype st ON m.sporttype = st.Sporttype
 					
 		INSERT INTO #Data (  [Hour] ,  

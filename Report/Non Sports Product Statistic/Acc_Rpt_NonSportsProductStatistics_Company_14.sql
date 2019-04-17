@@ -39,6 +39,7 @@ AS
 		20181018@Cherry: Integrate NG2 (#102229)
 		20181108@Cherry: Improve performance (#101547)
 		20190214@Cherry: Integrate Video Poker Games (#108735)
+		20190322@Cherry: Add betfrom b,f (#110653)
 
 	Param's Explanation:
 		- @username:  + Search by keyword, member only
@@ -222,7 +223,7 @@ BEGIN
 		INSERT INTO #Device (Betfrom)
 		SELECT Betfrom
 		FROM DBWH.bodb_Account.dbo.tbl_Betfrom
-		WHERE betfrom NOT IN ('t', 'b')
+		WHERE betfrom NOT IN ('t')
 
 		IF NOT EXISTS(SELECT 1 FROM #Device d LEFT JOIN #tmp_Device t ON t.Betfrom = d.Betfrom WHERE t.Betfrom IS NULL) 
 			SET @Device = ''	
@@ -945,7 +946,7 @@ BEGIN
 		WHERE b.WinlostDate = @WLDate
 			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 27 AND Eventype = 1)
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
-			AND b.matchid IN (SELECT m.matchid FROM dbo.match m WITH (NOLOCK) 
+			AND b.matchid IN (SELECT m.matchid FROM dbo.match14 m WITH (NOLOCK) 
 								WHERE m.sporttype IN (SELECT Sporttype FROM #tmp_Sporttype))
 			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
 			AND (@Currency IN (0, -1) OR b.currency = @Currency)	
