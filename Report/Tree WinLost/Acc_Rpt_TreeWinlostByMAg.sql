@@ -42,7 +42,7 @@ Revisions:
 	20190107@Kean: Use NoLock hint to bettransRNG and bettransLC [RedmindID: #107415]
 	20190117@Robert: Video Poker - Integrate into NAP Reports (#107706)
 	20190311@Cherry: Integrate Bet Builder (#109822)
-	
+	20190326@Robert: #109981 - NAP Report - Integrate Promotion Prize
 */
 
 BEGIN
@@ -291,7 +291,7 @@ BEGIN
 			 , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(5, 2)) AS VarianceVR
 			 , SUM(stake * (1 - tpositiontaking)) AS                      TurnoverIBC
 			 , SUM(CASE
-					 WHEN t.bettype IN(2199, 2399, 2999)
+					 WHEN t.bettype IN(2199, 2399, 2999, 4300)
 					 THEN 0 /*Progressive Jackpot*/
 					 WHEN t.bettype IN(2198, 2398, 2998)
 					 THEN b.ContributionRate * b.BetStake + swinlost + mwinlost + awinlost /*Jackpot Contribution*/
@@ -301,7 +301,7 @@ BEGIN
 			 , SUM(CASE
 					 WHEN tpositiontaking = 1
 					 THEN 0
-					 WHEN b.gameID IN(2199, 2399, 2999)
+					 WHEN b.gameID IN(2199, 2399, 2999, 4300)
 					 THEN 0 /*Progressive Jackpot*/
 					 WHEN b.gameID IN(2198, 2398, 2998)
 					 THEN(b.ContributionRate * b.BetStake) * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 8)) /*Jackpot Contribution*/
@@ -320,7 +320,7 @@ BEGIN
 /*RM*/
 			 , SUM(stake * (1 - tpositiontaking) * actualrate) AS         TurnoverIBC_RM
 			 , SUM(CASE
-					 WHEN t.bettype IN(2199, 2399, 2999)
+					 WHEN t.bettype IN(2199, 2399, 2999, 4300)
 					 THEN 0 /*Progressive Jackpot*/
 					 WHEN t.bettype IN(2198, 2398, 2998)
 					 THEN b.ContributionRate * b.BetStake + swinlost + mwinlost + awinlost /*Jackpot Contribution*/
@@ -330,7 +330,7 @@ BEGIN
 			 , SUM(CASE
 					 WHEN tpositiontaking = 1
 					 THEN 0
-					 WHEN b.gameID IN(2199, 2399, 2999)
+					 WHEN b.gameID IN(2199, 2399, 2999, 4300)
 					 THEN 0 /*Progressive Jackpot*/
 					 WHEN b.gameID IN(2198, 2398, 2998)
 					 THEN(b.ContributionRate * b.BetStake) * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 8)) /*Jackpot Contribution*/

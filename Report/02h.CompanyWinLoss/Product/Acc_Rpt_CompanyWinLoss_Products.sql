@@ -1,12 +1,7 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
-USE [bodb02];
-GO
-SET ANSI_NULLS ON;
-GO
-SET QUOTED_IDENTIFIER ON;
-GO
 ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_Products]
+
       @StartDate SMALLDATETIME,
       @EndDate   SMALLDATETIME
 AS
@@ -39,6 +34,7 @@ AS
 		- 20180917@Robert: House WL by Product - Poker Games should be last index (#101618)
 	     - 20190121@Franklin: Integrate Poker Games (#107706)
 		- 20190308@Jacob: Integrate BetBuilder (#109822)
+		- 20190326@Robert: #109981 - NAP Report - Integrate Promotion Prize
 
 	Explanation's Param:
 	
@@ -1011,21 +1007,21 @@ AS
                       SUM(b.SMAWinloss_actualrate) SMAWinloss,
                       SUM(b.commission_actualrate) commission_actualrate,
                       SUM(CASE
-                              WHEN s.Bettype IN( 2199, 2399, 2999 )
+                              WHEN s.Bettype IN( 2199, 2399, 2999, 4300 )
                               THEN 0
                               WHEN s.Bettype IN( 2198, 2398, 2998 )
                               THEN b.winlost_jackpot_actualrate + b.SMAWinloss_actualrate + b.commission_actualrate
                               ELSE b.winlost_actualrate + b.SMAWinloss_actualrate + b.commission_actualrate
                           END) HouseWinloss_actualrate,
                       SUM(( CASE
-                                WHEN s.Bettype IN( 2199, 2399, 2999 )
+                                WHEN s.Bettype IN( 2199, 2399, 2999, 4300 )
                                 THEN 0
                                 WHEN s.Bettype IN( 2198, 2398, 2998 )
                                 THEN b.winlost_jackpot_virtualrate + b.SMAWinloss_virtualrate
                                 ELSE b.winlost_virtualrate + b.SMAWinloss_virtualrate
                             END ) + b.commission_virtualrate) HouseWinloss_virtualrate,
                       SUM(( CASE
-                                WHEN s.Bettype IN( 2199, 2399, 2999 )
+                                WHEN s.Bettype IN( 2199, 2399, 2999, 4300 )
                                 THEN 0
                                 WHEN s.Bettype IN( 2198, 2398, 2998 )
                                 THEN b.winlost_jackpot_actualrate - winlost_jackpot_virtualrate + b.SMAWinloss_actualrate - b.SMAWinloss_virtualrate
@@ -1041,14 +1037,14 @@ AS
                       SUM(stake_actualrate) AS stake_actualrate,
                       SUM(stake_virtualrate) AS stake_virtualrate,
                       SUM(CASE
-                              WHEN b.Bettype IN( 2199, 2399, 2999 )
+                              WHEN b.Bettype IN( 2199, 2399, 2999, 4300 )
                               THEN 0 --Progressive Jackpot
                               WHEN b.Bettype IN( 2198, 2398, 2998 )
                               THEN WinlossJackpotForExtraPT_actualrate  --Jackpot Contribution
                               ELSE WinlossForExtraPT_actualrate
                           END) AS WinlossForExtraPT_actualrate,
                       SUM(CASE
-                              WHEN b.Bettype IN( 2199, 2399, 2999 )
+                              WHEN b.Bettype IN( 2199, 2399, 2999, 4300 )
                               THEN 0 --Progressive Jackpot
                               WHEN b.Bettype IN( 2198, 2398, 2998 )
                               THEN WinlossJackpotForExtraPT_virtualrate  --Jackpot Contribution
