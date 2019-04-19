@@ -235,7 +235,3 @@ BEGIN
 
 END
 GO
-GRANT EXECUTE ON [dbo].[Acc_Rpt_AdminUpdateCredit] TO [bodbAdminNet]
-GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_Rpt_AdminUpdateCredit] TO [vnteam]
-GO
