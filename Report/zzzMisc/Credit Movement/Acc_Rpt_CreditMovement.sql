@@ -1,6 +1,4 @@
-Use [bodb_CustomerLog]
-GO 
-
+/*<info serverAlias="DBLOG-bodb_CustomerLog" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_Rpt_CreditMovement]
 	@FromDate	DATETIME,  
 	@ToDate		DATETIME,   
@@ -13,6 +11,7 @@ AS
    
     Revisions: 
 		- 20150602@Sophia: remove unused code
+		- 20190405@Patrick: Support archive date range [Redmine: #111476]
 
 	Param's Explanation:
 
@@ -41,20 +40,69 @@ BEGIN
 		INNER JOIN bodb02.dbo.strSplit(@sitelist,',') t 
 				ON s.siteid = CONVERT(INT,t.val)
 	END
-		
-	INSERT INTO @CreditMovement (TransDate, CustId, Amount, BaseAmount )
-	SELECT	DATEADD(dd, 1, DATEDIFF(dd, 1, L.LogDate)) AS TransDate, 
-			L.CustId, 
-			SUM (ISNULL(L.NewValue,0) - ISNULL(L.OldValue,0)) AS Amount, 
-			SUM ((ISNULL(L.NewValue,0) -  ISNULL(L.OldValue,0))) * L.ActualRate AS BaseAmount 
-	FROM	bodb_CustomerLog.dbo.UserLog_Credit L WITH (NOLOCK)		
-	WHERE	L.LogDate BETWEEN @FromDate AND @ToDate		 
-			AND ISNULL(L.NewValue,0) > ISNULL(L.OldValue,0)
-	GROUP BY DATEADD(dd, 1, DATEDIFF(dd, 1, L.LogDate)),
-			L.ActualRate, L.CustId
-	HAVING	SUM((ISNULL(L.NewValue,0) - ISNULL(L.OldValue,0))) * L.ActualRate > @Amount
-			
- 
+	
+	DECLARE @__archiveDate DATETIME
+	SELECT @__archiveDate = DATEADD(DAY, 1, dbo.f_CustomerLog_GetArchiveDate())
+
+	IF @FromDate >= @__archiveDate
+	BEGIN
+		--active range
+		INSERT INTO @CreditMovement (TransDate, CustId, Amount, BaseAmount )
+		SELECT	DATEADD(dd, 1, DATEDIFF(dd, 1, L.LogDate)) AS TransDate, 
+				L.CustId, 
+				SUM (ISNULL(L.NewValue,0) - ISNULL(L.OldValue,0)) AS Amount, 
+				SUM ((ISNULL(L.NewValue,0) -  ISNULL(L.OldValue,0))) * L.ActualRate AS BaseAmount 
+		FROM	bodb_CustomerLog.dbo.UserLog_Credit L WITH (NOLOCK)		
+		WHERE	L.LogDate BETWEEN @FromDate AND @ToDate		 
+				AND ISNULL(L.NewValue,0) > ISNULL(L.OldValue,0)
+		GROUP BY DATEADD(dd, 1, DATEDIFF(dd, 1, L.LogDate)),
+				L.ActualRate, L.CustId
+		HAVING	SUM((ISNULL(L.NewValue,0) - ISNULL(L.OldValue,0))) * L.ActualRate > @Amount
+	END
+	IF @ToDate < @__archiveDate
+	BEGIN
+		--archive range
+		INSERT INTO @CreditMovement (TransDate, CustId, Amount, BaseAmount )
+		SELECT	DATEADD(dd, 1, DATEDIFF(dd, 1, L.LogDate)) AS TransDate, 
+				L.CustId, 
+				SUM (ISNULL(L.NewValue,0) - ISNULL(L.OldValue,0)) AS Amount, 
+				SUM ((ISNULL(L.NewValue,0) -  ISNULL(L.OldValue,0))) * L.ActualRate AS BaseAmount 
+		FROM	bodb_CustomerLog_Archive.dbo.UserLog_Credit L WITH (NOLOCK)		
+		WHERE	L.LogDate BETWEEN @FromDate AND @ToDate		 
+				AND ISNULL(L.NewValue,0) > ISNULL(L.OldValue,0)
+		GROUP BY DATEADD(dd, 1, DATEDIFF(dd, 1, L.LogDate)),
+				L.ActualRate, L.CustId
+		HAVING	SUM((ISNULL(L.NewValue,0) - ISNULL(L.OldValue,0))) * L.ActualRate > @Amount
+	END
+	ELSE
+	BEGIN
+		--active range
+		INSERT INTO @CreditMovement (TransDate, CustId, Amount, BaseAmount )
+		SELECT	DATEADD(dd, 1, DATEDIFF(dd, 1, L.LogDate)) AS TransDate, 
+				L.CustId, 
+				SUM (ISNULL(L.NewValue,0) - ISNULL(L.OldValue,0)) AS Amount, 
+				SUM ((ISNULL(L.NewValue,0) -  ISNULL(L.OldValue,0))) * L.ActualRate AS BaseAmount 
+		FROM	bodb_CustomerLog.dbo.UserLog_Credit L WITH (NOLOCK)		
+		WHERE	L.LogDate BETWEEN @__archiveDate AND @ToDate		 
+				AND ISNULL(L.NewValue,0) > ISNULL(L.OldValue,0)
+		GROUP BY DATEADD(dd, 1, DATEDIFF(dd, 1, L.LogDate)),
+				L.ActualRate, L.CustId
+		HAVING	SUM((ISNULL(L.NewValue,0) - ISNULL(L.OldValue,0))) * L.ActualRate > @Amount
+
+		UNION ALL
+		--archive range
+		SELECT	DATEADD(dd, 1, DATEDIFF(dd, 1, L.LogDate)) AS TransDate, 
+				L.CustId, 
+				SUM (ISNULL(L.NewValue,0) - ISNULL(L.OldValue,0)) AS Amount, 
+				SUM ((ISNULL(L.NewValue,0) -  ISNULL(L.OldValue,0))) * L.ActualRate AS BaseAmount 
+		FROM	bodb_CustomerLog_Archive.dbo.UserLog_Credit L WITH (NOLOCK)		
+		WHERE	L.LogDate >= @FromDate AND L.LogDate < @__archiveDate		 
+				AND ISNULL(L.NewValue,0) > ISNULL(L.OldValue,0)
+		GROUP BY DATEADD(dd, 1, DATEDIFF(dd, 1, L.LogDate)),
+				L.ActualRate, L.CustId
+		HAVING	SUM((ISNULL(L.NewValue,0) - ISNULL(L.OldValue,0))) * L.ActualRate > @Amount
+	END
+
 	UPDATE L
 	SET	   ExchangeId = C.Currency, 		
 		   srecommend =  C.srecommend,
@@ -92,6 +140,4 @@ BEGIN
 END  
 
 
-GO
-GRANT EXECUTE ON [dbo].[Acc_Rpt_CreditMovement] TO [bodbAdminNet]
 GO
