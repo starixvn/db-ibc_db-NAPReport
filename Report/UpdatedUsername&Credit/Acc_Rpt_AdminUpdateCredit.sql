@@ -115,7 +115,7 @@ BEGIN
 			AND c.currency NOT IN (20,27,28)
 		ORDER BY ul.logdate ASC
 	END
-	IF @ToDate < @__archiveDate
+	ELSE IF @ToDate < @__archiveDate
 	BEGIN
 		-- Result --> archive range
 		SELECT  DATEPART(year,ul.logdate) Year, DATEPART(month,ul.logdate) Month, ul.logdate [LogDate],

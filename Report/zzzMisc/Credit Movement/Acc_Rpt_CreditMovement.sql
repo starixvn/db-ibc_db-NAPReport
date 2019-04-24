@@ -59,7 +59,7 @@ BEGIN
 				L.ActualRate, L.CustId
 		HAVING	SUM((ISNULL(L.NewValue,0) - ISNULL(L.OldValue,0))) * L.ActualRate > @Amount
 	END
-	IF @ToDate < @__archiveDate
+	ELSE IF @ToDate < @__archiveDate
 	BEGIN
 		--archive range
 		INSERT INTO @CreditMovement (TransDate, CustId, Amount, BaseAmount )
