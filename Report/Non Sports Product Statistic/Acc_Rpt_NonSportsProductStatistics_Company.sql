@@ -130,13 +130,16 @@ BEGIN
 	SELECT @WLDate = CAST(@WinlostDate AS SMALLDATETIME)
 
 	CREATE TABLE #Data ( recommend INT, CustID INT, IsDeposit BIT, SiteName VARCHAR(50),
+						 srecommend INT, ProductID INT,
 						 BetCount INT, CurrencyID INT, Currency NVARCHAR(50),
 						 TotalBets MONEY, TotalBetsBase MONEY,
 						 TotalWins MONEY, TotalWinsBase MONEY,
 						 TotalRefund MONEY, TotalRefundBase MONEY,
 						 CompanyTurnOver MONEY, CompanyTurnOverBase MONEY,
 						 CompanyGrossIncome MONEY, CompanyGrossIncomeBase MONEY,
-						 CompanyComm MONEY, CompanyCommBase MONEY
+						 CompanyComm MONEY, CompanyCommBase MONEY,
+						 ExtraWL MONEY, ExtraWLBase MONEY,
+						 ExtraComm MONEY, ExtraCommBase MONEY
 						)
 	CREATE TABLE #Result (  IsDeposit BIT, SiteName VARCHAR(50), NoOfPlayers INT,
 							BetCount INT, CurrencyID INT, Currency NVARCHAR(50)	,
@@ -145,7 +148,8 @@ BEGIN
 							TotalRefund MONEY, TotalRefundBase MONEY,
 							CompanyTurnOver MONEY, CompanyTurnOverBase MONEY,
 							CompanyGrossIncome MONEY, CompanyGrossIncomeBase MONEY,
-							CompanyComm MONEY, CompanyCommBase MONEY							
+							CompanyComm MONEY, CompanyCommBase MONEY,
+							ExtraPT MONEY, ExtraPTBase MONEY							
 						)
 
 	------------------------------------------I. Handle Parameter ------------------------------------------------------
@@ -158,6 +162,9 @@ BEGIN
 	CREATE TABLE #tmp_Device		(Betfrom NVARCHAR(2))
 	CREATE TABLE #tmp_Site			(Site VARCHAR(50))
 	CREATE TABLE #tmp_MemIDs		(CustID INT)
+	
+	CREATE TABLE #ExtraPT (ProductID INT, SuperID INT, ExtraPT DECIMAL(9, 8))
+	CREATE TABLE #ExtraComm (ProductID INT, SuperID INT, ExtraComm DECIMAL(9, 8))
 
 	-- Get Info from Pars list
 	IF @ProductId <> ''
@@ -340,6 +347,32 @@ BEGIN
 	CREATE CLUSTERED INDEX IX_LeagueID ON #tmp_LeagueID (LeagueID, Bettype)
 	CREATE CLUSTERED INDEX IX_GameTableID ON #tmp_GameTableId (GameTableID)
 	
+	INSERT INTO #ExtraPT
+               ( ProductID,
+                 SuperID,
+                 ExtraPT
+               )
+               SELECT ProductID,
+                      SuperId,
+                      SUM(ExtraPT) AS ExtraPT
+               FROM bodb02.dbo.Acc_GroupExtraPTSetting a WITH ( NOLOCK )
+               WHERE @WLDate BETWEEN FromDate AND Todate
+               GROUP BY ProductID,
+                        SuperId
+                        
+	INSERT INTO #ExtraComm
+               ( ProductID,
+                 SuperID,
+                 ExtraComm
+               )
+               SELECT ProductID,
+                      SuperId,
+                      SUM(ExtraCommRate) AS ExtraComm
+               FROM bodb02.dbo.Acc_GroupExtraCommRateSetting a WITH ( NOLOCK )
+               WHERE @WLDate BETWEEN FromDate AND Todate
+               GROUP BY ProductID,
+                        SuperId                     
+	
 	------------------------------------------II. Get Real Data For Report ------------------------------------------------------	
 	--- Check condition 
 	-- ProductID NOT IN (3, 4, 5, 27, 33)) -- NG, SLI-Live Casino, Virtual Sports, Virtual Sport 2
@@ -347,6 +380,8 @@ BEGIN
 		-- 1. By bettype for normal product
 		INSERT INTO #Data
 				( recommend,
+				  srecommend,
+				  ProductID,
 				  CustID ,
 				  BetCount ,
 				  CurrencyID ,	         
@@ -361,9 +396,13 @@ BEGIN
 				  CompanyGrossIncome ,
 				  CompanyGrossIncomeBase ,
 				  CompanyComm ,
-				  CompanyCommBase
+				  CompanyCommBase,
+				  ExtraWL,
+				  ExtraWLBase,
+				  ExtraComm,
+				  ExtraCommBase
 				)
-		SELECT b.recommend, 
+		SELECT b.recommend, b.srecommend, s.ProductID,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
 
 				COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS BetCount, b.Currency, 
@@ -384,11 +423,20 @@ BEGIN
 				- SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeBase,
 
 				- SUM(scomm) AS CompanyComm,
-				- SUM(scomm *actualrate) AS CompanyCommBase
-
+				- SUM(scomm * actualrate) AS CompanyCommBase,
+				
+				- SUM(winlost - actual_stake) ExtraWL,
+				- SUM((winlost - actual_stake) * actualrate) ExtraWLBase,
+				
+				- SUM(CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) ExtraComm,
+				- SUM((CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraCommBase
+				
 		FROM  dbo.Bettrans b WITH (NOLOCK) 
+			INNER JOIN #SportBettype s ON b.bettype = s.bettype
 		WHERE b.WinlostDate = @WLDate
-			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE RefTable IN (0, 3) AND ProductID NOT IN (3, 4, 5, 27, 33))
+			AND s.RefTable IN (0, 3) AND s.ProductID NOT IN (3, 4, 5, 27, 33)
 			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
 			AND (@ExcludeTest = 0 OR (b.Currency <> 20 AND @ExcludeTest = 1))
