@@ -128,7 +128,7 @@ BEGIN
 					NULL AS TotalRefund,
 					NULL AS CompanyTurnOver,
 					NULL AS CompanyGrossIncome,
-					NULL AS CompanyComm
+					NULL AS CompanyComm,
 					NULL AS ExtraPT
 			RETURN
 		END
