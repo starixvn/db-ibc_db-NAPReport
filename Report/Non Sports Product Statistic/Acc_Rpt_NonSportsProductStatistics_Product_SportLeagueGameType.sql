@@ -40,6 +40,7 @@ AS
 		20181108@Cherry: Improve performance (#101547)
 		20190214@Cherry: Integrate Video Poker Games (#108735)
 		20190322@Cherry: Add betfrom b,f (#110653)
+		20190510@Cherry: Appy ExtraPT (#111676)
 
 	Param's Explanation:
 		- @username:  + Search by keyword, member only
@@ -101,7 +102,8 @@ BEGIN
 					NULL AS TotalRefund,
 					NULL AS CompanyTurnOver,
 					NULL AS CompanyGrossIncome,
-					NULL AS CompanyComm
+					NULL AS CompanyComm,
+					NULL AS ExtraPT
 			) A
 		
 			-- Grand total
@@ -116,8 +118,8 @@ BEGIN
 				NULL AS TotalRefund,
 				NULL AS CompanyTurnOver,
 				NULL AS CompanyGrossIncome,
-				NULL AS CompanyComm
-
+				NULL AS CompanyComm,
+				NULL AS ExtraPT
 			RETURN
 		END
 	END
@@ -127,21 +129,24 @@ BEGIN
 
 	CREATE TABLE #Data ( Bettype INT, BettypeName NVARCHAR(1000), CustID INT,
 						 BetCount INT, CurrencyID INT, Currency NVARCHAR(50),
-						 TotalBets MONEY, TotalBetsBase MONEY,
-						 TotalWins MONEY, TotalWinsBase MONEY,
-						 TotalRefund MONEY, TotalRefundBase MONEY,
-						 CompanyTurnOver MONEY, CompanyTurnOverBase MONEY,
-						 CompanyGrossIncome MONEY, CompanyGrossIncomeBase MONEY,
-						 CompanyComm MONEY, CompanyCommBase MONEY
+						 TotalBets DECIMAL(19,4), TotalBetsBase DECIMAL(19,4),
+						 TotalWins DECIMAL(19,4), TotalWinsBase DECIMAL(19,4),
+						 TotalRefund DECIMAL(19,4), TotalRefundBase DECIMAL(19,4),
+						 CompanyTurnOver DECIMAL(19,4), CompanyTurnOverBase DECIMAL(19,4),
+						 CompanyGrossIncome DECIMAL(19,4), CompanyGrossIncomeBase DECIMAL(19,4),
+						 CompanyComm DECIMAL(19,4), CompanyCommBase DECIMAL(19,4),
+						 ExtraWL DECIMAL(19,8), ExtraWLBase DECIMAL(19,8),
+						 ExtraComm DECIMAL(19,8), ExtraCommBase DECIMAL(19,8)
 						)
 	CREATE TABLE #Result (  Bettype INT, BettypeName NVARCHAR(1000), NoOfPlayers INT,
 							BetCount INT, CurrencyID INT, Currency NVARCHAR(50)	,
-							TotalBets MONEY, TotalBetsBase MONEY,
-							TotalWins MONEY, TotalWinsBase MONEY,
-							TotalRefund MONEY, TotalRefundBase MONEY,
-							CompanyTurnOver MONEY, CompanyTurnOverBase MONEY,
-							CompanyGrossIncome MONEY, CompanyGrossIncomeBase MONEY,
-							CompanyComm MONEY, CompanyCommBase MONEY							
+							TotalBets DECIMAL(19,4), TotalBetsBase DECIMAL(19,4),
+							TotalWins DECIMAL(19,4), TotalWinsBase DECIMAL(19,4),
+							TotalRefund DECIMAL(19,4), TotalRefundBase DECIMAL(19,4),
+							CompanyTurnOver DECIMAL(19,4), CompanyTurnOverBase DECIMAL(19,4),
+							CompanyGrossIncome DECIMAL(19,4), CompanyGrossIncomeBase DECIMAL(19,4),
+							CompanyComm DECIMAL(19,4), CompanyCommBase DECIMAL(19,4),
+							ExtraPT DECIMAL(19,8), ExtraPTBase DECIMAL(19,8)							
 						)
 
 	------------------------------------------I. Handle Parameter ------------------------------------------------------
@@ -1089,7 +1094,9 @@ BEGIN
 				TotalRefundBase,
 				CompanyTurnOverBase,
 				CompanyGrossIncomeBase,
-				CompanyCommBase
+				CompanyCommBase,
+				ExtraPT,
+				ExtraPTBase
 			    )
 		SELECT b.Bettype, b.BettypeName,
 			COUNT(DISTINCT b.CustID) AS NoOfPlayers,
@@ -1107,7 +1114,9 @@ BEGIN
 			SUM(b.TotalRefundBase) AS TotalRefundBase,
 			SUM(b.CompanyTurnOverBase) AS CompanyTurnOverBase,
 			SUM(b.CompanyGrossIncomeBase) AS CompanyGrossIncomeBase,            
-			SUM(b.CompanyCommBase) AS CompanyCommBase
+			SUM(b.CompanyCommBase) AS CompanyCommBase,
+			SUM (ExtraWLBase + ExtraCommBase) ExtraPT,
+			SUM (ExtraWLBase + ExtraCommBase) ExtraPTBase
 		FROM #Data b
 		GROUP BY b.Bettype, b.BettypeName
 		HAVING (@TotalBetType = 0
@@ -1139,7 +1148,9 @@ BEGIN
 				TotalRefundBase,
 				CompanyTurnOverBase,
 				CompanyGrossIncomeBase,
-				CompanyCommBase
+				CompanyCommBase,
+				ExtraPT,
+				ExtraPTBase
 		        )
 		SELECT b.Bettype, b.BettypeName,
 				COUNT(DISTINCT b.custid) NoOfPlayers,
@@ -1157,7 +1168,9 @@ BEGIN
 				SUM(b.TotalRefundBase) AS TotalRefundBase,
 				SUM(b.CompanyTurnOverBase) AS CompanyTurnOverBase,
 				SUM(b.CompanyGrossIncomeBase) AS CompanyGrossIncomeBase,            
-				SUM(b.CompanyCommBase) AS CompanyCommBase
+				SUM(b.CompanyCommBase) AS CompanyCommBase,
+				SUM (ExtraWL + ExtraComm) ExtraPT,
+				SUM (ExtraWLBase + ExtraCommBase) ExtraPTBase
 			FROM #Data b
 			GROUP BY b.Bettype, b.BettypeName, b.CurrencyID, b.Currency
 			HAVING (@TotalBetType = 0
@@ -1186,7 +1199,8 @@ BEGIN
 					TotalRefund,
 					CompanyTurnOver AS HouseTurnOver,
 					CompanyGrossIncome AS HouseGrossIncome,
-					CompanyComm AS HouseComm 
+					CompanyComm AS HouseComm,
+					ExtraPT 
 			FROM #Result	
 			ORDER BY BettypeName, Currency		
 		END
@@ -1203,8 +1217,8 @@ BEGIN
 				CASE WHEN @Currency = -1 THEN SUM(b.TotalRefundBase) ELSE SUM(b.TotalRefund) END AS TotalRefund,
 				CASE WHEN @Currency = -1 THEN SUM(b.CompanyTurnOverBase) ELSE SUM(b.CompanyTurnOver) END AS HouseTurnOver,
 				CASE WHEN @Currency = -1 THEN SUM(b.CompanyGrossIncomeBase) ELSE SUM(b.CompanyGrossIncome) END AS HouseGrossIncome,
-				CASE WHEN @Currency = -1 THEN SUM(b.CompanyCommBase) ELSE SUM(b.CompanyComm) END AS HouseComm
-		
+				CASE WHEN @Currency = -1 THEN SUM(b.CompanyCommBase) ELSE SUM(b.CompanyComm) END AS HouseComm,
+				CASE WHEN @Currency = -1 THEN SUM(b.ExtraWLBase + b.ExtraCommBase) ELSE SUM(b.ExtraWL + b.ExtraComm) END AS ExtraPT
 			FROM #Data b	
 				INNER JOIN #Result r ON (@Currency = -1 OR b.CurrencyID = r.CurrencyID) AND b.BettypeName = r.BettypeName	
 			GROUP BY b.Bettype, b.BettypeName, b.CurrencyID , b.Currency	
@@ -1224,8 +1238,8 @@ BEGIN
 				CASE WHEN @Currency = -1 THEN SUM(d.TotalRefundBase) ELSE SUM(d.TotalRefund) END AS TotalRefund,
 				CASE WHEN @Currency = -1 THEN SUM(d.CompanyTurnOverBase) ELSE SUM(d.CompanyTurnOver) END AS HouseTurnOver,
 				CASE WHEN @Currency = -1 THEN SUM(d.CompanyGrossIncomeBase) ELSE SUM(d.CompanyGrossIncome) END AS HouseGrossIncome,
-				CASE WHEN @Currency = -1 THEN SUM(d.CompanyCommBase) ELSE SUM(d.CompanyComm) END AS HouseComm
-		
+				CASE WHEN @Currency = -1 THEN SUM(d.CompanyCommBase) ELSE SUM(d.CompanyComm) END AS HouseComm,
+				CASE WHEN @Currency = -1 THEN SUM(b.ExtraWLBase + b.ExtraCommBase) ELSE SUM(b.ExtraWL + b.ExtraComm) END AS ExtraPT
 		FROM #Result r
 			INNER JOIN #Data d ON (r.CurrencyID = -1 OR r.CurrencyID = d.CurrencyID) AND d.BettypeName = r.BettypeName
 		GROUP BY d.CurrencyId, d.Currency
@@ -1244,7 +1258,8 @@ BEGIN
         SUM(d.TotalRefundBase) TotalRefund,
         SUM(d.CompanyTurnOverBase) HouseTurnOver,
 		SUM(d.CompanyGrossIncomeBase) HouseGrossIncome,
-		SUM(d.CompanyCommBase) HouseComm
+		SUM(d.CompanyCommBase) HouseComm,
+		SUM(d.ExtraWLBase + d.ExtraCommBase) ExtraPT
     FROM #Result r
 		INNER JOIN #Data d ON (r.CurrencyID = -1 OR r.CurrencyID = d.CurrencyID) AND r.Bettype = d.Bettype
 

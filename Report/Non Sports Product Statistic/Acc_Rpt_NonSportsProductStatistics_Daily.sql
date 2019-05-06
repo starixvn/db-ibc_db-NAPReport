@@ -1,6 +1,6 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
-Use BODB02
+Use bodb02
 GO 
 
 ALTER PROCEDURE [dbo].[Acc_Rpt_NonSportsProductStatistics_Daily]
@@ -42,6 +42,7 @@ AS
 		20181108@Cherry: Improve performance (#101547)
 		20190214@Cherry: Integrate Video Poker Games (#108735)
 		20190322@Cherry: Add betfrom b,f (#110653)
+		20190510@Cherry: Appy ExtraPT (#111676)
 
 	Param's Explanation:
 			 - @username:  + Search by keyword, member only
@@ -103,7 +104,8 @@ SET NOCOUNT ON
 					NULL AS TotalRefund,
 					NULL AS CompanyTurnover,
 					NULL AS CompanyGrossIncome,
-					NULL AS CompanyComm
+					NULL AS CompanyComm,
+					NULL AS ExtraPT
 			) A
 		
 			-- Grand Total
@@ -118,7 +120,8 @@ SET NOCOUNT ON
 				NULL AS TotalRefund,
 				NULL AS CompanyTurnover,
 				NULL AS CompanyGrossIncome,
-				NULL AS CompanyComm
+				NULL AS CompanyComm,
+				NULL AS ExtraPT
 
 			RETURN
 		END
@@ -129,22 +132,25 @@ SET NOCOUNT ON
 
 	CREATE TABLE #Data (   ReportBy NVARCHAR(1000),  CustId INT,
 						   BetCount INT, CurrencyId INT, Currency NVARCHAR(50), 
-						   TotalBets MONEY, TotalBetsBase MONEY, 
-						   TotalWins MONEY, TotalWinsBase MONEY, 
-						   TotalRefund MONEY, TotalRefundBase MONEY, 
-						   CompanyTurnover MONEY, CompanyTurnoverBase MONEY,
-						   CompanyGrossIncome MONEY, CompanyGrossIncomeBase MONEY,
-						   CompanyComm MONEY,  CompanyCommBase MONEY
+						   TotalBets DECIMAL(19,4), TotalBetsBase DECIMAL(19,4), 
+						   TotalWins DECIMAL(19,4), TotalWinsBase DECIMAL(19,4), 
+						   TotalRefund DECIMAL(19,4), TotalRefundBase DECIMAL(19,4), 
+						   CompanyTurnover DECIMAL(19,4), CompanyTurnoverBase DECIMAL(19,4),
+						   CompanyGrossIncome DECIMAL(19,4), CompanyGrossIncomeBase DECIMAL(19,4),
+						   CompanyComm DECIMAL(19,4),  CompanyCommBase DECIMAL(19,4),
+						   ExtraWL DECIMAL(19,8), ExtraWLBase DECIMAL(19,8),
+						   ExtraComm DECIMAL(19,8), ExtraCommBase DECIMAL(19,8)
 						   )
 
 	CREATE TABLE #Result ( ReportBy NVARCHAR(1000), NoOfPlayers INT, 
 						   BetCount INT, CurrencyId INT, Currency NVARCHAR(50), 
-						   TotalBets MONEY, TotalBetsBase MONEY, 
-						   TotalWins MONEY, TotalWinsBase MONEY, 
-						   TotalRefund MONEY, TotalRefundBase MONEY, 
-						   CompanyTurnover MONEY, CompanyTurnoverBase MONEY,
-						   CompanyGrossIncome MONEY, CompanyGrossIncomeBase MONEY,
-						   CompanyComm MONEY,  CompanyCommBase MONEY
+						   TotalBets DECIMAL(19,4), TotalBetsBase DECIMAL(19,4), 
+						   TotalWins DECIMAL(19,4), TotalWinsBase DECIMAL(19,4), 
+						   TotalRefund DECIMAL(19,4), TotalRefundBase DECIMAL(19,4), 
+						   CompanyTurnover DECIMAL(19,4), CompanyTurnoverBase DECIMAL(19,4),
+						   CompanyGrossIncome DECIMAL(19,4), CompanyGrossIncomeBase DECIMAL(19,4),
+						   CompanyComm DECIMAL(19,4),  CompanyCommBase DECIMAL(19,4),
+						   ExtraPT DECIMAL(19,8), ExtraPTBase DECIMAL(19,8)
 						   )
 	
 	CREATE TABLE #Temp_MemIDs (CustID int)
@@ -924,7 +930,8 @@ SET NOCOUNT ON
 	BEGIN 		
 		INSERT INTO #Result (ReportBy, NoOfPlayers, BetCount, CurrencyId, Currency, 
 							TotalBets, TotalWins, TotalRefund, CompanyTurnover, CompanyGrossIncome, CompanyComm,
-							TotalBetsBase, TotalWinsBase, TotalRefundBase, CompanyTurnoverBase, CompanyGrossIncomeBase, CompanyCommBase)
+							TotalBetsBase, TotalWinsBase, TotalRefundBase, CompanyTurnoverBase, 
+							CompanyGrossIncomeBase, CompanyCommBase, ExtraPT, ExtraPTBase )
 		SELECT  ReportBy, 
 				COUNT(DISTINCT CustID) AS NoOfPlayers, 
 				SUM(BetCount) AS BetCount ,
@@ -940,7 +947,9 @@ SET NOCOUNT ON
 				SUM (TotalRefundBase) AS TotalRefundBase,
 				SUM (CompanyTurnoverBase) AS CompanyTurnoverBase,
 				SUM (CompanyGrossIncomeBase) AS CompanyGrossIncomeBase,
-				SUM (CompanyCommBase) AS CompanyCommBase
+				SUM (CompanyCommBase) AS CompanyCommBase,
+				SUM (ExtraWLBase + ExtraCommBase) ExtraPT,
+				SUM (ExtraWLBase + ExtraCommBase) ExtraPTBase
 		FROM	#Data
 		GROUP BY ReportBy 
 		HAVING (@TotalBetType = 0
@@ -961,7 +970,8 @@ SET NOCOUNT ON
 								TotalRefund, TotalRefundBase,
 								CompanyTurnover, CompanyTurnoverBase,  
 								CompanyGrossIncome, CompanyGrossIncomeBase, 
-								CompanyComm, CompanyCommBase	)
+								CompanyComm, CompanyCommBase,
+								ExtraPT, ExtraPTBase	)
 		SELECT   ReportBy, 
 					COUNT(DISTINCT custid) AS NoOfPlayers,
 					SUM(BetCount) AS BetCount, 
@@ -977,7 +987,9 @@ SET NOCOUNT ON
 					SUM(CompanyGrossIncome) AS CompanyGrossIncome, 
 					SUM(CompanyGrossIncomeBase) AS CompanyGrossIncomeBase, 
 					SUM(CompanyComm) AS CompanyComm, 
-					SUM(CompanyCommBase) AS CompanyCommBase
+					SUM(CompanyCommBase) AS CompanyCommBase,
+					SUM (ExtraWL + ExtraComm) ExtraPT,
+				    SUM (ExtraWLBase + ExtraCommBase) ExtraPTBase
 		FROM	#Data
 		GROUP BY ReportBy, CurrencyId, Currency
 		HAVING (@TotalBetType = 0
@@ -999,7 +1011,8 @@ SET NOCOUNT ON
 				TotalBets, TotalWins, TotalRefund, 
 				CompanyTurnover AS HouseTurnover, 
 				CompanyGrossIncome AS HouseGrossIncome, 
-				CompanyComm AS HouseComm
+				CompanyComm AS HouseComm,
+				ExtraPT 
 			FROM    #Result 
 			ORDER BY ReportBy, Currency
 		END
@@ -1016,8 +1029,8 @@ SET NOCOUNT ON
 				CASE WHEN @Currency = -1 THEN SUM(b.TotalRefundBase) ELSE SUM(b.TotalRefund) END AS TotalRefund,
 				CASE WHEN @Currency = -1 THEN SUM(b.CompanyTurnOverBase) ELSE SUM(b.CompanyTurnOver) END AS HouseTurnOver,
 				CASE WHEN @Currency = -1 THEN SUM(b.CompanyGrossIncomeBase) ELSE SUM(b.CompanyGrossIncome) END AS HouseGrossIncome,
-				CASE WHEN @Currency = -1 THEN SUM(b.CompanyCommBase) ELSE SUM(b.CompanyComm) END AS HouseComm
-		
+				CASE WHEN @Currency = -1 THEN SUM(b.CompanyCommBase) ELSE SUM(b.CompanyComm) END AS HouseComm,
+				CASE WHEN @Currency = -1 THEN SUM(b.ExtraWLBase + b.ExtraCommBase) ELSE SUM(b.ExtraWL + b.ExtraComm) END AS ExtraPT
 			FROM #Data b	
 				INNER JOIN #Result r ON (@Currency = -1 OR b.CurrencyID = r.CurrencyID) AND b.ReportBy = r.ReportBy	
 			GROUP BY b.ReportBy, b.CurrencyID , b.Currency	
@@ -1037,8 +1050,8 @@ SET NOCOUNT ON
 				CASE WHEN @Currency = -1 THEN SUM(b.TotalRefundBase) ELSE SUM(b.TotalRefund) END AS TotalRefund,
 				CASE WHEN @Currency = -1 THEN SUM(b.CompanyTurnOverBase) ELSE SUM(b.CompanyTurnOver) END AS HouseTurnOver,
 				CASE WHEN @Currency = -1 THEN SUM(b.CompanyGrossIncomeBase) ELSE SUM(b.CompanyGrossIncome) END AS HouseGrossIncome,
-				CASE WHEN @Currency = -1 THEN SUM(b.CompanyCommBase) ELSE SUM(b.CompanyComm) END AS HouseComm
-		
+				CASE WHEN @Currency = -1 THEN SUM(b.CompanyCommBase) ELSE SUM(b.CompanyComm) END AS HouseComm,
+				CASE WHEN @Currency = -1 THEN SUM(b.ExtraWLBase + b.ExtraCommBase) ELSE SUM(b.ExtraWL + b.ExtraComm) END AS ExtraPT
 		FROM #Data b	
 			INNER JOIN #Result r ON (@Currency = -1 OR b.CurrencyID = r.CurrencyID) AND b.ReportBy = r.ReportBy	
 		GROUP BY b.CurrencyID , b.Currency	
@@ -1055,7 +1068,8 @@ SET NOCOUNT ON
 			SUM (b.TotalRefundBase) AS TotalRefund,
 			SUM (b.CompanyTurnoverBase) AS HouseTurnover,
 			SUM (b.CompanyGrossIncomeBase) AS HouseGrossIncome,
-			SUM (b.CompanyCommBase) AS HouseComm
+			SUM (b.CompanyCommBase) AS HouseComm,
+			SUM (b.ExtraWLBase + b.ExtraCommBase) ExtraPT
 	FROM #Data b	
 			INNER JOIN #Result r ON (@Currency = -1 OR b.CurrencyID = r.CurrencyID) AND b.ReportBy = r.ReportBy	
 	

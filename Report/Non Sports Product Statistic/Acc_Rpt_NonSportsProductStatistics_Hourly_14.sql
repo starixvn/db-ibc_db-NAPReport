@@ -45,6 +45,7 @@ AS
 		20181108@Cherry: Improve performance (#101547)
 		20190314@Cherry: Integrate Video Poker Games (#108735)
 		20190322@Cherry: Add betfrom b,f (#110653)
+		20190510@Cherry: Appy ExtraPT (#111676)
 
 	Param's Explanation:
 			 - @username:  + Search by keyword, member only
@@ -108,7 +109,8 @@ SET NOCOUNT ON
 					NULL AS TotalRefund,
 					NULL AS CompanyTurnover,
 					NULL AS CompanyGrossIncome,
-					NULL AS CompanyComm
+					NULL AS CompanyComm,
+					NULL AS ExtraPT
 			) A
 		
 			-- Grand Total
@@ -124,8 +126,8 @@ SET NOCOUNT ON
 				NULL AS TotalRefund,
 				NULL AS CompanyTurnover,
 				NULL AS CompanyGrossIncome,
-				NULL AS CompanyComm
-
+				NULL AS CompanyComm,
+				NULL AS ExtraPT
 			RETURN
 		END
 	END
@@ -136,25 +138,28 @@ SET NOCOUNT ON
 	CREATE TABLE #Data (   [Hour] tinyint,  
 						   CustId INT,
 						   BetCount INT,
-						   TotalBetsRM MONEY,
-						   TotalWinsRM MONEY, 
-						   TotalRefundRM MONEY,
-						   CompanyTurnoverRM MONEY, 
-						   CompanyGrossIncomeRM MONEY, 
-						   CompanyCommRM MONEY
+						   TotalBetsRM DECIMAL(19,4),
+						   TotalWinsRM DECIMAL(19,4), 
+						   TotalRefundRM DECIMAL(19,4),
+						   CompanyTurnoverRM DECIMAL(19,4), 
+						   CompanyGrossIncomeRM DECIMAL(19,4), 
+						   CompanyCommRM DECIMAL(19,4),
+						   ExtraWL DECIMAL(19,8),
+						   ExtraComm DECIMAL(19,8)
 						   )
 						   
 	CREATE TABLE #Result ( [Hour] tinyint,  
 						   NoOfPlayers INT, 
 						   BetCount INT, 
 						   Currency VARCHAR(50),
-						   TotalBets MONEY, 
-						   TotalWins MONEY, 
-						   GamePayout MONEY,
-						   TotalRefund MONEY, 
-						   CompanyTurnover MONEY, 
-						   CompanyGrossIncome MONEY, 
-						   CompanyComm MONEY
+						   TotalBets DECIMAL(19,4), 
+						   TotalWins DECIMAL(19,4), 
+						   GamePayout DECIMAL(19,4),
+						   TotalRefund DECIMAL(19,4), 
+						   CompanyTurnover DECIMAL(19,4), 
+						   CompanyGrossIncome DECIMAL(19,4), 
+						   CompanyComm DECIMAL(19,4),
+						   ExtraPT DECIMAL(19,8)
 						   )
 	
 	CREATE TABLE #Temp_MemIDs (
@@ -973,7 +978,8 @@ SET NOCOUNT ON
 		
 	IF @Currency = -1  
 	BEGIN 		
-		INSERT INTO #Result ([Hour], NoOfPlayers, BetCount,	Currency, TotalBets, TotalWins, GamePayout, TotalRefund, CompanyTurnover, CompanyGrossIncome, CompanyComm)							
+		INSERT INTO #Result ([Hour], NoOfPlayers, BetCount,	Currency, TotalBets, TotalWins, GamePayout, TotalRefund, 
+							CompanyTurnover, CompanyGrossIncome, CompanyComm, ExtraPT)							
 		SELECT  [Hour], 
 				COUNT(DISTINCT CustID) AS NoOfPlayers, 
 				SUM(BetCount) AS BetCount ,
@@ -984,7 +990,8 @@ SET NOCOUNT ON
 				SUM(TotalRefundRM) AS TotalRefund,
 				SUM(CompanyTurnoverRM) AS CompanyTurnover,
 				SUM(CompanyGrossIncomeRM) AS CompanyGrossIncome,
-				SUM(CompanyCommRM) AS CompanyComm
+				SUM(CompanyCommRM) AS CompanyComm,
+				SUM(ExtraWL + ExtraComm) ExtraPT
 		FROM	#Data
 		GROUP BY [Hour] 
 		HAVING (@TotalBetType = 0
@@ -1007,7 +1014,8 @@ SET NOCOUNT ON
 		TotalRefund, 
 		CompanyTurnover AS HouseTurnover, 
 		CompanyGrossIncome AS HouseGrossIncome, 
-		CompanyComm AS HouseComm
+		CompanyComm AS HouseComm,
+		ExtraPT
 	FROM #DimHour a LEFT JOIN #Result b ON a.[Hour]=b.[Hour]
 	ORDER BY a.Hour
 	

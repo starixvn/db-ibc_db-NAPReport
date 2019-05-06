@@ -45,6 +45,7 @@ AS
 		20181108@Cherry: Improve performance (#101547)
 		20190214@Cherry: Integrate Video Poker Games (#108735)
 		20190322@Cherry: Add betfrom b,f (#110653)
+		20190510@Cherry: Appy ExtraPT (#111676)
 
 	Param's Explanation:
 		- @username: search keyword
@@ -108,7 +109,8 @@ BEGIN
 					NULL AS CompanyGrossIncome,
 					NULL AS CompanyComm,
 					NULL AS HousePositionTaking,
-					NULL AS SiteName
+					NULL AS SiteName,
+					NULL AS ExtraPT
 			) A
 
 			-- GrandTotal
@@ -125,7 +127,8 @@ BEGIN
 					NULL AS TotalRefund,
 					NULL AS CompanyTurnover,		
 					NULL AS CompanyGrossIncome,
-					NULL AS CompanyComm
+					NULL AS CompanyComm,
+					NULL AS ExtraPT
 			END
 
 			RETURN
@@ -514,19 +517,23 @@ BEGIN
 		Bettype INT,
 		BetCount BIGINT,
 		CurrencyID INT,
-		TotalBets MONEY,
-		TotalBetsBase MONEY,
-		TotalWins MONEY,
-		TotalWinsBase MONEY,
-		TotalRefund MONEY, 
-		TotalRefundBase MONEY,
-		CompanyTurnover MONEY,
-		CompanyTurnoverBase MONEY,
-		CompanyGrossIncome MONEY,
-		CompanyGrossIncomeBase MONEY,
-		CompanyComm MONEY,
-		CompanyCommBase MONEY,
-		HousePT SMALLMONEY,
+		TotalBets DECIMAL(19,4),
+		TotalBetsBase DECIMAL(19,4),
+		TotalWins DECIMAL(19,4),
+		TotalWinsBase DECIMAL(19,4),
+		TotalRefund DECIMAL(19,4), 
+		TotalRefundBase DECIMAL(19,4),
+		CompanyTurnover DECIMAL(19,4),
+		CompanyTurnoverBase DECIMAL(19,4),
+		CompanyGrossIncome DECIMAL(19,4),
+		CompanyGrossIncomeBase DECIMAL(19,4),
+		CompanyComm DECIMAL(19,4),
+		CompanyCommBase DECIMAL(19,4),
+		HousePT DECIMAL(19,4),
+		ExtraWL DECIMAL(19,8), 
+		ExtraWLBase DECIMAL(19,8),
+		ExtraComm DECIMAL(19,8), 
+		ExtraCommBase DECIMAL(19,8),
 		RowNum INT
 	)
 
@@ -1253,19 +1260,21 @@ BEGIN
 		BetCount INT,
 		CurrencyID INT,
 		ProductID TINYINT,
-		TotalBets MONEY,
-		TotalBetsBase MONEY,
-		TotalWins MONEY,
-		TotalWinsBase MONEY,
-		TotalRefund MONEY,
-		TotalRefundBase MONEY,
-		CompanyTurnover MONEY,
-		CompanyTurnoverBase MONEY,
-		CompanyGrossIncome MONEY,
-		CompanyGrossIncomeBase MONEY,
-		CompanyComm MONEY,
-		CompanyCommBase MONEY,
-		HousePT SMALLMONEY,
+		TotalBets DECIMAL(19,4),
+		TotalBetsBase DECIMAL(19,4),
+		TotalWins DECIMAL(19,4),
+		TotalWinsBase DECIMAL(19,4),
+		TotalRefund DECIMAL(19,4),
+		TotalRefundBase DECIMAL(19,4),
+		CompanyTurnover DECIMAL(19,4),
+		CompanyTurnoverBase DECIMAL(19,4),
+		CompanyGrossIncome DECIMAL(19,4),
+		CompanyGrossIncomeBase DECIMAL(19,4),
+		CompanyComm DECIMAL(19,4),
+		CompanyCommBase DECIMAL(19,4),
+		HousePT DECIMAL(19,4),
+		ExtraPT DECIMAL(19,8), 
+		ExtraPTBase DECIMAL(19,8),
 		RowNum INT
 	)
 	
@@ -1290,6 +1299,8 @@ BEGIN
 		CompanyComm,
 		CompanyCommBase,
 		HousePT,
+		ExtraPT,
+		ExtraPTBase,
 		RowNum)
 	SELECT
 		b.srecommend,
@@ -1312,6 +1323,8 @@ BEGIN
 		- SUM(CompanyComm),
 		- SUM(CompanyCommBase),
 		SUM(HousePT),
+		- SUM(b.ExtraWL + b.ExtraComm),
+		- SUM(b.ExtraWLBase + b.ExtraCommBase),
 		SUM(RowNum)
 	FROM #tmp_bettrans b
 		INNER JOIN (SELECT DISTINCT Bettype, ProductID
@@ -1324,22 +1337,24 @@ BEGIN
 		BetCount INT,
 		CurrencyID INT,
 		ProductID TINYINT,
-		TotalBets MONEY,
-		TotalWins MONEY,
-		TotalRefund MONEY,
-		CompanyTurnover MONEY,
-		CompanyGrossIncome MONEY,
-		CompanyComm MONEY,
-		TotalBetsBase MONEY,
-		TotalWinsBase MONEY,
-		TotalRefundBase MONEY,
-		CompanyTurnoverBase MONEY,
-		CompanyGrossIncomeBase MONEY,
-		CompanyCommBase MONEY,
-		HousePT SMALLMONEY,
-		GamePayout MONEY,
-		CompanyNetIncome MONEY, 
-		GameIncome MONEY,
+		TotalBets DECIMAL(19,4),
+		TotalWins DECIMAL(19,4),
+		TotalRefund DECIMAL(19,4),
+		CompanyTurnover DECIMAL(19,4),
+		CompanyGrossIncome DECIMAL(19,4),
+		CompanyComm DECIMAL(19,4),
+		TotalBetsBase DECIMAL(19,4),
+		TotalWinsBase DECIMAL(19,4),
+		TotalRefundBase DECIMAL(19,4),
+		CompanyTurnoverBase DECIMAL(19,4),
+		CompanyGrossIncomeBase DECIMAL(19,4),
+		CompanyCommBase DECIMAL(19,4),
+		HousePT DECIMAL(19,4),
+		GamePayout DECIMAL(19,4),
+		CompanyNetIncome DECIMAL(19,4), 
+		GameIncome DECIMAL(19,4),
+		ExtraPT DECIMAL(19,8), 
+		ExtraPTBase DECIMAL(19,8),
 		RowNum INT
 	)
 
@@ -1386,6 +1401,8 @@ BEGIN
 					SUM(CompanyGrossIncomeBase) AS CompanyGrossIncomeBase,
 					SUM(CompanyCommBase) AS CompanyCommBase,
 					SUM(HousePT) AS HousePT,
+					SUM(ExtraPT) ExtraPT,
+					SUM(ExtraPTBase) ExtraPTBase,
 					SUM(RowNum) AS RowNum
 				FROM #Data
 				GROUP BY CASE @roleID
@@ -1414,6 +1431,8 @@ BEGIN
 				CompanyGrossIncomeBase,
 				CompanyCommBase,
 				HousePT,
+				ExtraPT,
+				ExtraPTBase,
 				RowNum
 			)
 			SELECT
@@ -1434,6 +1453,8 @@ BEGIN
 				CompanyGrossIncomeBase,
 				CompanyCommBase,
 				HousePT,
+				ExtraPT,
+				ExtraPTBase,
 				RowNum
 			FROM Result
 		END
@@ -1463,6 +1484,8 @@ BEGIN
 					SUM(CompanyGrossIncomeBase) AS CompanyGrossIncomeBase,
 					SUM(CompanyCommBase) AS CompanyCommBase,
 					SUM(HousePT) AS HousePT,
+					SUM(ExtraPT) ExtraPT,
+					SUM(ExtraPTBase) ExtraPTBase,
 					SUM(RowNum) AS RowNum
 				FROM #Data
 				GROUP BY CASE @roleID
@@ -1491,6 +1514,8 @@ BEGIN
 				CompanyGrossIncomeBase,
 				CompanyCommBase,
 				HousePT,
+				ExtraPT,
+				ExtraPTBase,
 				RowNum
 			)
 			SELECT
@@ -1511,6 +1536,8 @@ BEGIN
 				CompanyGrossIncomeBase,
 				CompanyCommBase,
 				HousePT,
+				ExtraPT,
+				ExtraPTBase,
 				RowNum
 			FROM Result
 		END
@@ -1526,22 +1553,24 @@ BEGIN
 		custid BIGINT,
 		BetCount INT,
 		CurrencyID INT,
-		TotalBets MONEY,
-		TotalWins MONEY,
-		TotalRefund MONEY,
-		CompanyTurnover MONEY,
-		CompanyGrossIncome MONEY,
-		CompanyComm MONEY,
-		TotalBetsBase MONEY,
-		TotalWinsBase MONEY,
-		TotalRefundBase MONEY,
-		CompanyTurnoverBase MONEY,
-		CompanyGrossIncomeBase MONEY,
-		CompanyCommBase MONEY,
-		HousePT SMALLMONEY,
-		GamePayout MONEY,
-		CompanyNetIncome MONEY, 
-		GameIncome MONEY
+		TotalBets DECIMAL(19,4),
+		TotalWins DECIMAL(19,4),
+		TotalRefund DECIMAL(19,4),
+		CompanyTurnover DECIMAL(19,4),
+		CompanyGrossIncome DECIMAL(19,4),
+		CompanyComm DECIMAL(19,4),
+		TotalBetsBase DECIMAL(19,4),
+		TotalWinsBase DECIMAL(19,4),
+		TotalRefundBase DECIMAL(19,4),
+		CompanyTurnoverBase DECIMAL(19,4),
+		CompanyGrossIncomeBase DECIMAL(19,4),
+		CompanyCommBase DECIMAL(19,4),
+		HousePT DECIMAL(19,4),
+		GamePayout DECIMAL(19,4),
+		CompanyNetIncome DECIMAL(19,4), 
+		GameIncome DECIMAL(19,4),
+		ExtraPT DECIMAL(19,8),
+		ExtraPTBase DECIMAL(19,8)
 	)
 
 	INSERT INTO #tmp_Result2
@@ -1564,7 +1593,9 @@ BEGIN
 		HousePT,
 		GamePayout,
 		CompanyNetIncome, 
-		GameIncome 
+		GameIncome,
+		ExtraPT,
+		ExtraPTBase
 	)
 	SELECT
 		custid,
@@ -1586,7 +1617,9 @@ BEGIN
 				 WHEN BetCount = 0 THEN NULL ELSE HousePT/BetCount END) AS HousePT,
 		SUM(GamePayout) GamePayout,
 		SUM(CompanyNetIncome) CompanyNetIncome, 
-		SUM(GameIncome) GameIncome
+		SUM(GameIncome) GameIncome,
+		SUM(ExtraPT),
+		SUM(ExtraPTBase)
 	FROM #tmp_Result
 	GROUP BY custid, CurrencyID
 	HAVING
@@ -1613,6 +1646,7 @@ BEGIN
 			AND SUM(CompanyTurnover) = 0
 			AND SUM(CompanyGrossIncome) = 0
 			AND SUM(CompanyComm) = 0
+			AND SUM(ExtraPT) = 0
 		)
 	SELECT  @TotalRefundCust = ISNULL(@TotalRefundCust, 0)
 
@@ -1623,19 +1657,21 @@ BEGIN
 		custid BIGINT,
 		BetCount INT,
 		CurrencyID INT,
-		TotalBets MONEY,
-		TotalWins MONEY,
-		TotalRefund MONEY,
-		CompanyTurnover MONEY,
-		CompanyGrossIncome MONEY,
-		CompanyComm MONEY,
-		TotalBetsBase MONEY,
-		TotalWinsBase MONEY,
-		TotalRefundBase MONEY,
-		CompanyTurnoverBase MONEY,
-		CompanyGrossIncomeBase MONEY,
-		CompanyCommBase MONEY,
-		HousePT SMALLMONEY
+		TotalBets DECIMAL(19,4),
+		TotalWins DECIMAL(19,4),
+		TotalRefund DECIMAL(19,4),
+		CompanyTurnover DECIMAL(19,4),
+		CompanyGrossIncome DECIMAL(19,4),
+		CompanyComm DECIMAL(19,4),
+		TotalBetsBase DECIMAL(19,4),
+		TotalWinsBase DECIMAL(19,4),
+		TotalRefundBase DECIMAL(19,4),
+		CompanyTurnoverBase DECIMAL(19,4),
+		CompanyGrossIncomeBase DECIMAL(19,4),
+		CompanyCommBase DECIMAL(19,4),
+		HousePT DECIMAL(19,4),
+		ExtraPT DECIMAL(19,8),
+		ExtraPTBase DECIMAL(19,8)
 	)
 
 	-- Detail	
@@ -1660,7 +1696,9 @@ BEGIN
 				AVG(HousePT) AS HousePT,
 				SUM(GamePayout) GamePayout,
 				SUM(CompanyNetIncome) CompanyNetIncome, 
-				SUM(GameIncome) GameIncome
+				SUM(GameIncome) GameIncome,
+				SUM(ExtraPT) ExtraPT,
+				SUM(ExtraPTBase) ExtraPTBase
 			FROM #tmp_Result2
 			GROUP BY custid, CurrencyID
 		), Result AS (
@@ -1676,6 +1714,7 @@ BEGIN
 				WHEN @SortColumnName = 'HouseComm' THEN RANK() OVER(ORDER BY CompanyComm)
 				WHEN @SortColumnName = 'HouseNetIncome' THEN RANK() OVER(ORDER BY CompanyNetIncome DESC)
 				WHEN @SortColumnName = 'HousePositionTaking' THEN RANK() OVER(ORDER BY HousePT DESC)
+				WHEN @SortColumnName = 'ExtraPT' THEN RANK() OVER(ORDER BY ExtraPT DESC)
 				END AS RowNum1,
 				CASE WHEN @SortColumnName = 'BetCount' THEN RANK() OVER(ORDER BY BetCount) 
 				WHEN @SortColumnName = 'TotalBets' THEN RANK() OVER(ORDER BY TotalBets)
@@ -1688,6 +1727,7 @@ BEGIN
 				WHEN @SortColumnName = 'HouseComm' THEN RANK() OVER(ORDER BY CompanyComm DESC)
 				WHEN @SortColumnName = 'HouseNetIncome' THEN RANK() OVER(ORDER BY CompanyNetIncome)
 				WHEN @SortColumnName = 'HousePositionTaking' THEN RANK() OVER(ORDER BY HousePT)
+				WHEN @SortColumnName = 'ExtraPT' THEN RANK() OVER(ORDER BY ExtraPT)
 				END AS RowNum2
 			FROM Result_1
 		)
@@ -1710,7 +1750,9 @@ BEGIN
 			CompanyTurnoverBase,
 			CompanyGrossIncomeBase,
 			CompanyCommBase,
-			HousePT
+			HousePT,
+			ExtraPT,
+			ExtraPTBase
 		)
 		SELECT
 			CASE WHEN RowNum1 <= 20 THEN 1 ELSE 2 END AS TopType,
@@ -1730,7 +1772,9 @@ BEGIN
 			CompanyTurnoverBase,
 			CompanyGrossIncomeBase,
 			CompanyCommBase,
-			HousePT
+			HousePT,
+			ExtraPT,
+			ExtraPTBase
 		FROM Result
 		WHERE
 			((@TopType = 0 OR @TopType = 1) AND RowNum1 <= 20)	
@@ -1747,6 +1791,7 @@ BEGIN
 				AND SUM(CompanyTurnover) = 0
 				AND SUM(CompanyGrossIncome) = 0
 				AND SUM(CompanyComm) = 0
+				AND SUM(ExtraPT) = 0
 			)
 		SELECT  @TotalRefundCust = ISNULL(@TotalRefundCust, 0)
 
@@ -1768,7 +1813,8 @@ BEGIN
 				r.CompanyGrossIncome AS HouseGrossIncome,
 				r.CompanyComm AS HouseComm,
 				r.HousePT AS HousePositionTaking,
-				CASE WHEN c.roleid = 1 THEN a.site ELSE c.site END AS SiteName
+				CASE WHEN c.roleid = 1 THEN a.site ELSE c.site END AS SiteName,
+				r.ExtraPT
 			FROM #Result r
 				INNER JOIN dbo.Exchange e WITH(NOLOCK) ON r.CurrencyID = e.exchangeid
 				INNER JOIN dbo.Customer c WITH(NOLOCK) ON r.custId = c.custid
@@ -1786,7 +1832,8 @@ BEGIN
 				SUM(TotalRefundBase) AS TotalRefund,
 				SUM(CompanyTurnoverBase) AS HouseTurnover,
 				SUM(CompanyGrossIncomeBase) AS HouseGrossIncome,
-				SUM(CompanyCommBase) AS HouseComm
+				SUM(CompanyCommBase) AS HouseComm,
+				SUM(ExtraPTBase) ExtraPT
 			FROM #Result
 			GROUP BY CASE TopType WHEN 1 THEN 'Top 20' ELSE 'Bottom 20' END, TopType
 			ORDER BY TopType
@@ -1804,6 +1851,7 @@ BEGIN
 						AND SUM(CompanyTurnover) = 0
 						AND SUM(CompanyGrossIncome) = 0
 						AND SUM(CompanyComm) = 0
+						AND SUM(ExtraPT) = 0
 					)
 			)
 			SELECT
@@ -1818,7 +1866,8 @@ BEGIN
 				TotalRefund,
 				CompanyTurnover AS HouseTurnover,
 				CompanyGrossIncome AS HouseGrossIncome,
-				CompanyComm AS HouseComm
+				CompanyComm AS HouseComm,
+				ExtraPT
 			FROM (
 				SELECT
 					SUM(BetCount) AS BetCount,
@@ -1830,7 +1879,8 @@ BEGIN
 					SUM(TotalRefund) AS TotalRefund,
 					SUM(CompanyTurnover) AS CompanyTurnover,
 					SUM(CompanyGrossIncome) AS CompanyGrossIncome,
-					SUM(CompanyComm) AS CompanyComm
+					SUM(CompanyComm) AS CompanyComm,
+					SUM(ExtraPT) ExtraPT
 				FROM #Result r
 					INNER JOIN dbo.Exchange e WITH(NOLOCK) ON r.CurrencyID = e.exchangeid
 				GROUP BY e.exchangeid, e.currency
@@ -1854,7 +1904,8 @@ BEGIN
 			SUM(TotalRefundBase) AS TotalRefund,
 			SUM(CompanyTurnoverBase) AS HouseTurnover,		
 			SUM(CompanyGrossIncomeBase) AS HouseGrossIncome,
-			SUM(CompanyCommBase) AS HouseComm
+			SUM(CompanyCommBase) AS HouseComm,
+			SUM(ExtraPTBase) ExtraPT
 		FROM #Result
 	END
 
