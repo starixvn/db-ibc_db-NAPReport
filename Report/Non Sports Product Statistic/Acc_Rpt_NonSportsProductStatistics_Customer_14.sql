@@ -2086,5 +2086,7 @@ BEGIN
 	DROP TABLE #tmp_Result
 	DROP TABLE #tmp_bettransm
 	DROP TABLE #Device
+	DROP TABLE #ExtraPT
+	DROP TABLE #ExtraComm
 	
 END

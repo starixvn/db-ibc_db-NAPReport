@@ -1240,5 +1240,7 @@ SET NOCOUNT ON
 	DROP TABLE #tmp_bettransm 
 	DROP TABLE #DepositSuper 
 	DROP TABLE #Device
+	DROP TABLE #ExtraPT
+	DROP TABLE #ExtraComm
 
 END 

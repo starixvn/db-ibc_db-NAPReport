@@ -1676,6 +1676,8 @@ BEGIN
 	DROP TABLE #tmp_SportType
 	DROP TABLE #tmp_bettransm
 	DROP TABLE #Device
+	DROP TABLE #ExtraPT
+	DROP TABLE #ExtraComm
 
 END
 
