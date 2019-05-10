@@ -1211,7 +1211,9 @@ BEGIN
 	END
 
 	INSERT INTO #Data
-			( ProductID,			
+			( ProductID,
+			  srecommend,
+			  bettype,
 			  CustID ,
 			  BetCount ,
 			  CurrencyID ,	         
@@ -1232,7 +1234,7 @@ BEGIN
 			  ExtraComm,
 			  ExtraCommBase
 			)
-	SELECT s.ProductID, b.custid,
+	SELECT s.ProductID, srecommend, b.bettype, b.custid,
 			SUM( BetCount ) AS BetCount, b.CurrencyID,
 
 			SUM(TotalBets) AS TotalBets,
@@ -1261,7 +1263,7 @@ BEGIN
 	FROM  #tmp_bettrans b
 		INNER JOIN (SELECT DISTINCT Bettype, ProductID
 					FROM #SportBettype) s ON b.Bettype = s.Bettype
-	GROUP BY s.ProductID, b.custid, b.CurrencyID	
+	GROUP BY s.ProductID, srecommend, b.bettype, b.custid, b.CurrencyID		
 	
 	-- Get Currency name
 	UPDATE d
