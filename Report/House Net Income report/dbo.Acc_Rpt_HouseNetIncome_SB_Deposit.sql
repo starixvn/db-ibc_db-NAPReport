@@ -4,8 +4,8 @@ USE bodb02
 GO
 
 ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_SB_Deposit]
-	@FromDate DATE,
-	@ToDate	DATE,
+	@FromDate DATE ,
+	@ToDate	DATE ,
 	@DepositType    SMALLINT = 0	
 AS  
 /*  
@@ -653,7 +653,7 @@ BEGIN
 		   , PayToGenius =
 			(
 			    SELECT CASE
-						WHEN SUM(WinLoss * 0.04 * (-1)) < 0
+						WHEN SUM(WinLoss * (-1)) < 0
 						THEN 0
 						ELSE SUM(WinLoss * 0.04 * (-1))
 					 END
