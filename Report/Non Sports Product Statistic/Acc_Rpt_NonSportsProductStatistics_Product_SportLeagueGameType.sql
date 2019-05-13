@@ -127,8 +127,8 @@ BEGIN
 	DECLARE @WLDate SMALLDATETIME
 	SELECT @WLDate = CAST(@WinlostDate AS SMALLDATETIME)
 
-	CREATE TABLE #Data ( Bettype INT, BettypeName NVARCHAR(1000), 
-						 srecommend INT, CustID INT,
+	CREATE TABLE #Data ( ReportBy INT, ReportByName NVARCHAR(1000), 
+						 bettype INT, srecommend INT, CustID INT,
 						 BetCount INT, CurrencyID INT, Currency NVARCHAR(50),
 						 TotalBets DECIMAL(19,4), TotalBetsBase DECIMAL(19,4),
 						 TotalWins DECIMAL(19,4), TotalWinsBase DECIMAL(19,4),
@@ -139,7 +139,7 @@ BEGIN
 						 ExtraWL DECIMAL(19,8), ExtraWLBase DECIMAL(19,8),
 						 ExtraComm DECIMAL(19,8), ExtraCommBase DECIMAL(19,8)
 						)
-	CREATE TABLE #Result (  Bettype INT, BettypeName NVARCHAR(1000), NoOfPlayers INT,
+	CREATE TABLE #Result (  ReportBy INT, ReportByName NVARCHAR(1000), NoOfPlayers INT,
 							BetCount INT, CurrencyID INT, Currency NVARCHAR(50)	,
 							TotalBets DECIMAL(19,4), TotalBetsBase DECIMAL(19,4),
 							TotalWins DECIMAL(19,4), TotalWinsBase DECIMAL(19,4),
@@ -359,7 +359,8 @@ BEGIN
 	BEGIN		
 		-- 1. By bettype for normal product
 		INSERT INTO #Data
-				( Bettype,
+				( ReportBy,
+				  bettype,
 				  srecommend,
 				  CustID ,
 				  BetCount ,
@@ -381,7 +382,7 @@ BEGIN
 				  ExtraComm,
 				  ExtraCommBase
 				)
-		SELECT b.Bettype, b.srecommend,
+		SELECT b.Bettype ReportBy, b.bettype, b.srecommend,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
 				COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS BetCount, b.Currency,
 
@@ -432,7 +433,8 @@ BEGIN
 		
 		-- 2a. By Bettype for Casino Product
 		INSERT INTO #Data
-				( Bettype ,
+				( ReportBy ,
+				  bettype,
 				  srecommend,
 				  CustID ,
 				  BetCount ,
@@ -454,7 +456,7 @@ BEGIN
 				  ExtraComm,
 				  ExtraCommBase
 				)
-		SELECT	b.gameID, b.srecommend, CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END AS custid,
+		SELECT	b.gameID ReportBy, b.gameID, b.srecommend, CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END AS custid,
 				COUNT(CASE WHEN StatusID IN (111,112,113) AND b.gameID NOT IN (2198, 2398, 2998) THEN b.TransId ELSE NULL END) AS BetCount, b.currency, 
 
 				SUM(CASE WHEN b.statusID IN (103) THEN 0 ELSE actual_stake END) AS TotalBets,
@@ -502,7 +504,8 @@ BEGIN
 		GROUP BY b.gameID, CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END, b.currency, b.srecommend
 		
 		INSERT INTO #Data
-				( Bettype ,
+				( ReportBy ,
+				  bettype,
 				  srecommend,
 				  CustID ,
 				  BetCount ,
@@ -524,7 +527,7 @@ BEGIN
 				  ExtraComm,
 				  ExtraCommBase
 				)
-		SELECT	b.gameID, b.srecommend,
+		SELECT	b.gameID ReportBy, b.gameID, b.srecommend,
 				CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END AS custid,
 				0 AS BetCount, b.currency, 
 
@@ -574,7 +577,8 @@ BEGIN
 		
 		-- 2b. By Bettype for Casino Product
 		INSERT INTO #Data
-				( Bettype ,
+				( ReportBy ,
+				  bettype,
 				  srecommend,
 				  CustID ,
 				  BetCount ,
@@ -596,7 +600,7 @@ BEGIN
 				  ExtraComm,
 				  ExtraCommBase
 				)
-		SELECT	b.gameID, b.srecommend,
+		SELECT	b.gameID ReportBy, b.gameID, b.srecommend,
 				CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END AS custid,
 				COUNT(CASE WHEN StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount, b.Currency, 
 
@@ -649,7 +653,8 @@ BEGIN
 	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID = 33)
 	BEGIN
 		INSERT INTO #Data
-				( Bettype,
+				( ReportBy,
+				  bettype,
 				  srecommend,
 				  CustID ,
 				  BetCount ,
@@ -671,7 +676,7 @@ BEGIN
 				  ExtraComm,
 				  ExtraCommBase
 				)
-		SELECT b.Bettype, b.srecommend,
+		SELECT b.Bettype ReportBy, b.bettype, b.srecommend,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
 				SUM(CASE WHEN b.statusID IN (111, 112, 113) THEN b.betid ELSE 0 END) AS BetCount, b.Currency,
 
@@ -723,7 +728,8 @@ BEGIN
 	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID = 3)
 	BEGIN
 		INSERT INTO #Data
-				( Bettype,
+				( ReportBy,
+				  bettype,
 				  srecommend,
 				  CustID ,
 				  BetCount ,
@@ -745,7 +751,7 @@ BEGIN
 				  ExtraComm,
 				  ExtraCommBase
 				)
-		SELECT  m.leagueid Bettype, b.srecommend,
+		SELECT  m.leagueid ReportBy, b.bettype, b.srecommend,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
 				COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS BetCount, b.Currency,
 
@@ -794,14 +800,15 @@ BEGIN
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) 
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
 				)
-		GROUP BY m.leagueid, b.srecommend, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, b.Currency
+		GROUP BY m.leagueid, b.bettype, b.srecommend, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, b.Currency
 	END
 	
 	-- Live Casino
 	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID = 4)
 	BEGIN
 		INSERT INTO #Data
-				( Bettype,
+				( ReportBy,
+				  bettype,
 				  srecommend,
 				  CustID ,
 				  BetCount ,
@@ -823,7 +830,7 @@ BEGIN
 				  ExtraComm,
 				  ExtraCommBase
 				)
-		SELECT  b.bettype Bettype, b.srecommend,
+		SELECT  b.bettype ReportBy, b.bettype, b.srecommend,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
 				COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS BetCount, b.Currency,
 
@@ -879,7 +886,8 @@ BEGIN
 	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID = 5)
 	BEGIN
 		INSERT INTO #Data
-				( Bettype,
+				( ReportBy,
+				  bettype,
 				  srecommend,
 				  CustID ,
 				  BetCount ,
@@ -901,7 +909,7 @@ BEGIN
 				  ExtraComm,
 				  ExtraCommBase
 				)
-		SELECT  m.sporttype, b.srecommend,
+		SELECT  m.sporttype ReportBy, b.bettype, b.srecommend,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
 				COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS BetCount, b.Currency,
 
@@ -950,10 +958,11 @@ BEGIN
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) 
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
 				)
-		GROUP BY m.sporttype, b.srecommend, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, b.Currency
+		GROUP BY m.sporttype, b.bettype, b.srecommend, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, b.Currency
 		
 		INSERT INTO #Data
-				( Bettype,
+				( ReportBy,
+				  bettype,
 				  srecommend,
 				  CustID ,
 				  BetCount ,
@@ -975,7 +984,7 @@ BEGIN
 				  ExtraComm,
 				  ExtraCommBase
 				)
-		SELECT  r.sporttype, b.srecommend,
+		SELECT  r.sporttype ReportBy, b.bettype, b.srecommend,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
 				COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS BetCount, b.Currency,
 
@@ -1026,7 +1035,7 @@ BEGIN
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) 
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
 				)
-		GROUP BY r.sporttype, b.srecommend, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, b.Currency
+		GROUP BY r.sporttype, b.bettype, b.srecommend, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, b.Currency
 	END
 
 	-- Virtual Sports 2 
@@ -1039,7 +1048,8 @@ BEGIN
 					INNER JOIN #tmp_Sporttype st ON m.sporttype = st.Sporttype
 					
 		INSERT INTO #Data
-				( Bettype,
+				( ReportBy,
+				  bettype,
 				  srecommend,
 				  CustID ,
 				  BetCount ,
@@ -1061,7 +1071,7 @@ BEGIN
 				  ExtraComm,
 				  ExtraCommBase
 				)
-		SELECT  m.sporttype, b.srecommend,
+		SELECT  m.sporttype ReportBy, b.bettype, b.srecommend,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
 				COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS BetCount, b.Currency,
 
@@ -1110,10 +1120,11 @@ BEGIN
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) 
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
 				)
-		GROUP BY m.sporttype, b.srecommend, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, b.Currency
+		GROUP BY m.sporttype, b.bettype, b.srecommend, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, b.Currency
 		
 		INSERT INTO #Data
-				( Bettype,
+				( ReportBy,
+				  bettype,
 				  srecommend,
 				  CustID ,
 				  BetCount ,
@@ -1135,7 +1146,7 @@ BEGIN
 				  ExtraComm,
 				  ExtraCommBase
 				)
-		SELECT  bm.sporttype, b.srecommend,
+		SELECT  bm.sporttype ReportBy, b.bettype, b.srecommend,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
 				COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS BetCount, b.Currency,
 
@@ -1183,7 +1194,7 @@ BEGIN
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) 
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
 				)
-		GROUP BY bm.sporttype, b.srecommend, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, b.Currency
+		GROUP BY bm.sporttype, b.bettype, b.srecommend, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, b.Currency
 	END
 
 	-- Get Currency name
@@ -1202,7 +1213,7 @@ BEGIN
 		FROM #Data d
 		WHERE NOT EXISTS (SELECT 1 
 						FROM dbo.SportBettypeMatrix m WITH (NOLOCK) 							
-						WHERE m.ProductID = 6 AND d.Bettype = m.BetType 
+						WHERE m.ProductID = 6 AND d.ReportBy = m.BetType 
 							AND m.SportType IN (SELECT Sporttype FROM #tmp_SportType)						
 						)															
 	END
@@ -1210,38 +1221,38 @@ BEGIN
 	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID = 3)
 	BEGIN
 		UPDATE d
-		SET d.BettypeName = l.leaguename
+		SET d.ReportByName = l.leaguename
 		FROM #Data d 
-			INNER JOIN dbo.league l WITH (NOLOCK) ON d.Bettype = l.leagueid
+			INNER JOIN dbo.league l WITH (NOLOCK) ON d.ReportBy = l.leagueid
 	END
 	ELSE IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID IN (5,27))
 	BEGIN
 		UPDATE d
-		SET d.BettypeName = s.SportName
+		SET d.ReportByName = s.SportName
 		FROM #Data d 
-			INNER JOIN dbo.Sports s WITH (NOLOCK) ON d.Bettype = s.SportType
+			INNER JOIN dbo.Sports s WITH (NOLOCK) ON d.ReportBy = s.SportType
 	END
 	ELSE IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID IN (6,23))
 	BEGIN
 		UPDATE d
-		SET d.BettypeName = s.SportName
+		SET d.ReportByName = s.SportName
 		FROM #Data d 
-			INNER JOIN dbo.SportBettypeMatrix m WITH (NOLOCK) ON d.Bettype = m.BetType
+			INNER JOIN dbo.SportBettypeMatrix m WITH (NOLOCK) ON d.ReportBy = m.BetType
 			INNER JOIN dbo.Sports s WITH (NOLOCK) ON m.SportType = s.SportType
 
 		UPDATE d
-		SET d.Bettype = s.SportType
+		SET d.ReportBy = s.SportType
 		FROM #Data d 
-			INNER JOIN dbo.SportBettypeMatrix m WITH (NOLOCK) ON d.Bettype = m.BetType
+			INNER JOIN dbo.SportBettypeMatrix m WITH (NOLOCK) ON d.ReportBy = m.BetType
 			INNER JOIN dbo.Sports s WITH (NOLOCK) ON m.SportType = s.SportType
 	END
 	ELSE
 	BEGIN
 		UPDATE d 
-		SET d.BettypeName = b.typenamee
+		SET d.ReportByName = b.typenamee
 		FROM #Data d
-			INNER JOIN dbo.bettype b WITH (NOLOCK) ON d.Bettype = b.typeid 
-		WHERE d.BettypeName IS NULL
+			INNER JOIN dbo.bettype b WITH (NOLOCK) ON d.ReportBy = b.typeid 
+		WHERE d.ReportByName IS NULL
 	END
 	-- End Bettype Name
 		
@@ -1250,8 +1261,8 @@ BEGIN
 	IF @Currency = -1 -- BaseRM
 	BEGIN		
 		INSERT INTO #Result
-			(	Bettype,
-				BettypeName ,
+			(	ReportBy,
+				ReportByName ,
 			    NoOfPlayers ,
 			    BetCount ,
 			    CurrencyID ,
@@ -1271,7 +1282,7 @@ BEGIN
 				ExtraPT,
 				ExtraPTBase
 			    )
-		SELECT b.Bettype, b.BettypeName,
+		SELECT b.ReportBy, b.ReportByName,
 			COUNT(DISTINCT b.CustID) AS NoOfPlayers,
 			SUM(b.BetCount) AS BetCount,
 			-1 AS CurrencyID,
@@ -1296,7 +1307,7 @@ BEGIN
 			INNER JOIN #SportBettype s ON b.bettype = s.Bettype 
 			LEFT JOIN #ExtraPT e ON b.srecommend = e.SuperID AND s.ProductID = e.ProductID 
 			LEFT JOIN #ExtraComm c ON b.srecommend = c.SuperID AND s.ProductID = c.ProductID
-		GROUP BY b.Bettype, b.BettypeName
+		GROUP BY b.ReportBy, b.ReportByName
 		HAVING (@TotalBetType = 0
 			OR (@TotalBetType = 1 AND SUM(b.TotalBetsBase) >= @TotalBetValue) 
 			OR (@TotalBetType = -1 AND SUM(b.TotalBetsBase) <= @TotalBetValue)
@@ -1309,8 +1320,8 @@ BEGIN
 	ELSE -- @Currency <> -1 => Original Currency
 	BEGIN
 		INSERT INTO #Result
-		    (	Bettype,
-				BettypeName ,
+		    (	ReportBy,
+				ReportByName ,
 		        NoOfPlayers ,
 		        BetCount ,
 		        CurrencyID ,
@@ -1330,7 +1341,7 @@ BEGIN
 				ExtraPT,
 				ExtraPTBase
 		        )
-		SELECT b.Bettype, b.BettypeName,
+		SELECT b.ReportBy, b.ReportByName,
 				COUNT(DISTINCT b.custid) NoOfPlayers,
 				SUM(b.BetCount) BetCount,
 				b.CurrencyId AS CurrencyId,
@@ -1355,7 +1366,7 @@ BEGIN
 				INNER JOIN #SportBettype s ON b.bettype = s.Bettype 
 				LEFT JOIN #ExtraPT e ON b.srecommend = e.SuperID AND s.ProductID = e.ProductID 
 				LEFT JOIN #ExtraComm c ON b.srecommend = c.SuperID AND s.ProductID = c.ProductID
-			GROUP BY b.Bettype, b.BettypeName, b.CurrencyID, b.Currency
+			GROUP BY b.ReportBy, b.ReportByName, b.CurrencyID, b.Currency
 			HAVING (@TotalBetType = 0
 				OR (@TotalBetType = 1 AND SUM(b.TotalBets) >= @TotalBetValue) 
 				OR (@TotalBetType = -1 AND SUM(b.TotalBets) <= @TotalBetValue)
@@ -1371,8 +1382,8 @@ BEGIN
 	BEGIN		
 		IF @IsDrillDown = 0
 		BEGIN
-			SELECT  Bettype AS ReportById,
-					BettypeName AS ReportBy, 
+			SELECT  ReportBy AS ReportById,
+					ReportByName AS ReportBy, 
 					NoOfPlayers,
 					BetCount,
 					CurrencyId,
@@ -1385,12 +1396,12 @@ BEGIN
 					CompanyComm AS HouseComm,
 					ExtraPT 
 			FROM #Result	
-			ORDER BY BettypeName, Currency		
+			ORDER BY ReportByName, Currency		
 		END
 		ELSE
 		BEGIN
-			SELECT b.Bettype AS ReportById,
-				b.BettypeName AS ReportBy,
+			SELECT b.ReportBy AS ReportById,
+				b.ReportByName AS ReportBy,
 				COUNT(DISTINCT b.CustID) AS NoOfPlayers,
 				SUM(b.BetCount) AS BetCount,
 				b.CurrencyID,
@@ -1406,11 +1417,11 @@ BEGIN
 					ELSE SUM(CASE WHEN s.ProductID = 33 AND s.RefTable = 0 THEN b.ExtraWL * CAST(ISNULL(e.ExtraPT,0) AS [decimal](10, 8)) + b.ExtraComm * CAST(ISNULL(c.ExtraComm,0) AS [decimal](10, 8))
 							ELSE (b.ExtraWL + b.ExtraComm) * CAST(ISNULL(e.ExtraPT,0) AS [decimal](10, 8)) END) END AS ExtraPT
 			FROM #Data b	
-				INNER JOIN #Result r ON (@Currency = -1 OR b.CurrencyID = r.CurrencyID) AND b.BettypeName = r.BettypeName	
+				INNER JOIN #Result r ON (@Currency = -1 OR b.CurrencyID = r.CurrencyID) AND b.ReportByName = r.ReportByName	
 				INNER JOIN #SportBettype s ON b.bettype = s.Bettype 
 				LEFT JOIN #ExtraPT e ON b.srecommend = e.SuperID AND s.ProductID = e.ProductID 
 				LEFT JOIN #ExtraComm c ON b.srecommend = c.SuperID AND s.ProductID = c.ProductID
-			GROUP BY b.Bettype, b.BettypeName, b.CurrencyID , b.Currency	
+			GROUP BY b.ReportBy, b.ReportByName, b.CurrencyID , b.Currency	
 			ORDER BY b.Currency
 		END
 	END		
@@ -1433,7 +1444,7 @@ BEGIN
 					ELSE SUM(CASE WHEN s.ProductID = 33 AND s.RefTable = 0 THEN d.ExtraWL * CAST(ISNULL(e.ExtraPT,0) AS [decimal](10, 8)) + d.ExtraComm * CAST(ISNULL(c.ExtraComm,0) AS [decimal](10, 8))
 							ELSE (d.ExtraWL + d.ExtraComm) * CAST(ISNULL(e.ExtraPT,0) AS [decimal](10, 8)) END) END AS ExtraPT
 		FROM #Result r
-			INNER JOIN #Data d ON (r.CurrencyID = -1 OR r.CurrencyID = d.CurrencyID) AND d.BettypeName = r.BettypeName
+			INNER JOIN #Data d ON (r.CurrencyID = -1 OR r.CurrencyID = d.CurrencyID) AND d.ReportByName = r.ReportByName
 			INNER JOIN #SportBettype s ON d.bettype = s.Bettype 
 			LEFT JOIN #ExtraPT e ON d.srecommend = e.SuperID AND s.ProductID = e.ProductID 
 			LEFT JOIN #ExtraComm c ON d.srecommend = c.SuperID AND s.ProductID = c.ProductID
@@ -1457,7 +1468,7 @@ BEGIN
 		SUM(CASE WHEN s.ProductID = 33 AND s.RefTable = 0 THEN d.ExtraWLBase * CAST(ISNULL(e.ExtraPT,0) AS [decimal](10, 8)) + d.ExtraCommBase * CAST(ISNULL(c.ExtraComm,0) AS [decimal](10, 8))
 				ELSE (d.ExtraWLBase + d.ExtraCommBase) * CAST(ISNULL(e.ExtraPT,0) AS [decimal](10, 8)) END) ExtraPT
     FROM #Result r
-		INNER JOIN #Data d ON (r.CurrencyID = -1 OR r.CurrencyID = d.CurrencyID) AND r.Bettype = d.Bettype
+		INNER JOIN #Data d ON (r.CurrencyID = -1 OR r.CurrencyID = d.CurrencyID) AND r.ReportBy = d.ReportBy
 		INNER JOIN #SportBettype s ON d.bettype = s.Bettype 
 		LEFT JOIN #ExtraPT e ON d.srecommend = e.SuperID AND s.ProductID = e.ProductID 
 		LEFT JOIN #ExtraComm c ON d.srecommend = c.SuperID AND s.ProductID = c.ProductID
