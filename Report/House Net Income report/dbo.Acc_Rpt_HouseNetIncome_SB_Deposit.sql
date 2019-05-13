@@ -367,7 +367,7 @@ BEGIN
 				    , 0 AS PayToMetricGaming
 				    ,
 					 (
-						SELECT ISNULL(SUM(WinLoss * 0.04 * (-1)), 0)
+						SELECT ISNULL(SUM(WinLoss * 0.04), 0)
 						FROM #BetBuilderData
 						WHERE rptDate = @tmpDate
 					 ) AS PayToGenius;
@@ -653,9 +653,10 @@ BEGIN
 		   , PayToGenius =
 			(
 			    SELECT CASE
-						WHEN SUM(WinLoss * (-1)) < 0
+						WHEN SUM(WinLoss * (-1)) < 0 -- = 0 if Licensee WL < 0
 						THEN 0
-						ELSE SUM(WinLoss * 0.04 * (-1))
+						ELSE SUM(WinLoss * 0.04) -- Licensee WL x 4% x (-1)
+
 					 END
 			    FROM #BetBuilderData
 			)
