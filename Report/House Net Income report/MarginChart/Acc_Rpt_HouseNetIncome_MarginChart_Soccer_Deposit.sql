@@ -1,10 +1,8 @@
 /*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
-USE bodb02
-GO
 
 ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_Soccer_Deposit]
-	@FromDate DATE ,
-	@ToDate	DATE  
+	@FromDate DATE,
+	@ToDate	DATE 
 AS  
 /*  	
 	Created: 20180126@Harper 
@@ -15,6 +13,7 @@ AS
     Revisions:
 		- 20180126@Harper - HDWL Letstalk - Implement Chart of SB margin Soccer [#RedmineID: 89632]
 		- 20190121@Robert: Letstalk Margin Charts - Separate Letstalk group for credit & Deposit (Soccer & Other Sports) [#108220]
+		- 20190406@Robert: 107164 - House Net Income Email/Letstalk/Margin Chart - Integrate Bet Builder
 		
 	Param's Explanation:   
 
@@ -36,32 +35,12 @@ BEGIN
 	  , PayToMetricGaming    MONEY
 	  , HouseWL              MONEY DEFAULT 0
 	  , ExtraPT              MONEY DEFAULT 0
-	  , TurnOver             MONEY DEFAULT 0);
+	  , TurnOver             MONEY DEFAULT 0
+	  , PayToGenius          MONEY DEFAULT 0);
 
-    INSERT INTO #FinalResult(rptDate
-					  , PayToMetricGaming)
-		 SELECT 'FullRange'
-			 , 0;
-    -- Date list to draw chart
-
-    DECLARE @tmpDate     DATE
-		, @DateList    VARCHAR(200);
-
-    SELECT @tmpDate = @FDate;
-
-    WHILE @tmpDate <= @TDate
-	   BEGIN
-		  INSERT INTO #FinalResult(RptDate
-							, PayToMetricGaming)
-			    SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
-				    , 0;
-
-		  SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate);
-	   END;
-
-    SELECT @DateList = COALESCE(@DateList+',', '')+'['+CONVERT(VARCHAR(10), RptDate)+']'
-    FROM #FinalResult;
-    -- Region: Get exchange rate info	
+    CREATE TABLE #BetBuilderData(
+	    rptDate    DATETIME
+	  , WinLoss    MONEY);
 
     CREATE TABLE #ExchangeOANDA(
 	    ExchangeDate    DATE
@@ -76,6 +55,55 @@ BEGIN
 			 , BaseCurrencyRate
 		 FROM bodb02.dbo.LA_f_ExchangeDailySel
 			 (@FDate, @TDate, 'MYR');
+
+    INSERT INTO #BetBuilderData(rptDate
+						, WinLoss)
+		 (
+			SELECT b.rptDate
+				, SUM(ISNULL(b.WinLoss, 0) * e.Rate)
+			FROM bodb_LicenseeReport.dbo.rpt_Betting AS b WITH (NOLOCK)
+			    INNER JOIN #ExchangeOANDA AS e ON b.rptDate = e.ExchangeDate
+										   AND b.CurrencyId = e.ExchangeID
+			WHERE b.rptDate BETWEEN @FDate AND @TDate
+				 AND b.CurrencyID <> 20
+				 AND b.customercategory NOT IN(27, 28)
+				 AND b.Bettype = 38
+				 AND b.Status NOT IN(101, 102, 103) -- Exclude Reject , Void, Refund;				 
+			GROUP BY b.rptDate
+		 );	
+
+    INSERT INTO #FinalResult(rptDate
+					  , PayToMetricGaming
+					  , PayToGenius)
+		 SELECT 'FullRange'
+			 , 0
+			 , 0;
+    -- Date list to draw chart
+
+    DECLARE @tmpDate     DATE
+		, @DateList    VARCHAR(200);
+
+    SELECT @tmpDate = @FDate;
+
+    WHILE @tmpDate <= @TDate
+	   BEGIN
+		  INSERT INTO #FinalResult(RptDate
+							, PayToMetricGaming
+							, PayToGenius)
+			    SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
+				    , 0
+				    ,
+					 (
+						SELECT ISNULL(SUM(WinLoss * 0.04), 0)
+						FROM #BetBuilderData
+						WHERE rptDate = @tmpDate
+					 ) AS PayToGenius;
+
+		  SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate);
+	   END;
+
+    SELECT @DateList = COALESCE(@DateList+',', '')+'['+CONVERT(VARCHAR(10), RptDate)+']'
+    FROM #FinalResult;
     -- End region	
 
     ---------------------------------------------------- Pay to Metric Gaming ----------------------------------------------------
@@ -145,6 +173,8 @@ BEGIN
 	  , CurrencyID     INT
 	  , LicenseeWL     MONEY
 	  , AmtLicensee    MONEY);
+
+	      
 
     INSERT INTO #MetricGamingData(LicenseeID
 						  , PartyId
@@ -273,7 +303,7 @@ BEGIN
 	  , ExtraPT     MONEY);
 
     INSERT INTO #TmpHouseWL(rptDate
-					 , HouseWL					 
+					 , HouseWL
 					 , ExtraPT
 					 , TurnOver)
     EXEC dbwh.bodb_dwrs.dbo.Acc_Rpt_HouseNetIncome_MarginChart_Soccer_Sub
@@ -288,7 +318,7 @@ BEGIN
 		   , f.ExtraPT = ISNULL(f.ExtraPT, 0) + ISNULL(wl.ExtraPT, 0)
     FROM #FinalResult f
 	   INNER JOIN #TmpHouseWL wl ON wl.rptDate = f.RptDate;
-    
+
 	---------------------------------------------------- Select the output -------------------------------------------------------
 	DECLARE @SQL VARCHAR(1000)
 	SELECT @SQL =	'SELECT * ' + CHAR(13) +
@@ -298,7 +328,9 @@ BEGIN
 							'UNION ALL' + CHAR(13) +
 							'SELECT ''Soccer'', 8, ''Turn Over'', TurnOver' + CHAR(13) +							
 							'UNION ALL' + CHAR(13) +
-							'SELECT ''Soccer'', 7, ''Pay to Metric Gaming'', PayToMetricGaming) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
+							'SELECT ''Soccer'', 7, ''Pay to Metric Gaming'', PayToMetricGaming' + CHAR(13) +
+							'UNION ALL' + CHAR(13) +
+							'SELECT ''SB'', 8, ''Pay to Bet Genius'', PayToGenius) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
 					'PIVOT' + CHAR(13) +
 					'(' + CHAR(13) +
 						'MAX(value)' + CHAR(13) +
@@ -313,8 +345,5 @@ BEGIN
 	DROP TABLE #MetricGamingData
 	DROP TABLE #FinalResult	
 	DROP TABLE #TmpHouseWL
-
+	DROP TABLE #BetBuilderData
 END
-GO
-GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_Soccer_Deposit] TO [bodbAdminNet]
-GO

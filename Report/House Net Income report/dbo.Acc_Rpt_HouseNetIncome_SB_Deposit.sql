@@ -4,8 +4,8 @@ USE bodb02
 GO
 
 ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_SB_Deposit]
-	@FromDate DATE ,
-	@ToDate	DATE ,
+	@FromDate DATE = '20190301',
+	@ToDate	DATE = '20190310',
 	@DepositType    SMALLINT = 0	
 AS  
 /*  
@@ -32,7 +32,7 @@ AS
 	EXEC Acc_Rpt_HouseNetIncome_SB_Deposit '2017-12-01', '2017-12-31'
 */  
 BEGIN  
-    SET NOCOUNT ON;
+	   SET NOCOUNT ON;
 
     DECLARE @FDate    DATE
 		, @TDate    DATE;
@@ -221,7 +221,8 @@ BEGIN
 
     CREATE TABLE #BetBuilderData(
 	    rptDate    DATETIME
-	  , WinLoss    MONEY);
+	  , WinLoss    MONEY
+	  , Scomm      MONEY);
 
     INSERT INTO #TempDataSB(PartyId
 					 , rptDate
@@ -268,23 +269,26 @@ BEGIN
     CREATE NONCLUSTERED INDEX Idx_InvoiceData ON #TempDataSB(PartyId, ProductId);	
 
     INSERT INTO #BetBuilderData(rptDate
-						, WinLoss)
+						, WinLoss
+						, Scomm)
 		 (
 			SELECT b.rptDate
-				, SUM(ISNULL(b.WinLoss, 0) * e.Rate)
-			FROM bodb_LicenseeReport.dbo.rpt_Betting AS b WITH (NOLOCK)
+				, SUM(ISNULL(b.WinlossP, 0) * e.Rate) AS WinLoss
+				, SUM(ISNULL(b.CommissionS, 0) * e.Rate) AS SComm
+			FROM bodb_Account.dbo.FactSiteWinloss AS b WITH (NOLOCK)
+			    INNER JOIN bodb_Account.dbo.tbl_Site AS s WITH (NOLOCK) ON b.SiteID = s.siteid
 			    INNER JOIN #ExchangeOANDA AS e ON b.rptDate = e.ExchangeDate
 										   AND b.CurrencyId = e.ExchangeID
 			WHERE b.rptDate BETWEEN @FDate AND @TDate
 				 AND b.CurrencyID <> 20
-				 AND b.customercategory NOT IN(27, 28)
+				 AND b.CurrencyID NOT IN(27, 28)
 				 AND b.Bettype = 38
-				 AND b.Status NOT IN(101, 102, 103) -- Exclude Reject , Void, Refund;
-				 AND b.SiteID <= CASE
-								 WHEN @DepositType = 0
-								 THEN b.SiteID
-								 ELSE 999
-							  END -- b.siteId < 1000 : Deposit
+				 AND b.TicketStatus NOT IN(10, 14)
+				 AND s.isDeposit = CASE
+								   WHEN @DepositType = 1
+								   THEN @DepositType
+								   ELSE s.isDeposit
+							    END
 			GROUP BY b.rptDate
 		 );	    
 
@@ -367,7 +371,7 @@ BEGIN
 				    , 0 AS PayToMetricGaming
 				    ,
 					 (
-						SELECT ISNULL(SUM(WinLoss * 0.04), 0)
+						SELECT ISNULL(SUM(-(WinLoss + Scomm) * 0.04), 0)
 						FROM #BetBuilderData
 						WHERE rptDate = @tmpDate
 					 ) AS PayToGenius;
@@ -653,10 +657,9 @@ BEGIN
 		   , PayToGenius =
 			(
 			    SELECT CASE
-						WHEN SUM(WinLoss * (-1)) < 0 -- = 0 if Licensee WL < 0
+						WHEN SUM(-(WinLoss + Scomm)) < 0
 						THEN 0
-						ELSE SUM(WinLoss * 0.04) -- Licensee WL x 4% x (-1)
-
+						ELSE SUM(-(WinLoss + Scomm) * 0.04)
 					 END
 			    FROM #BetBuilderData
 			)
