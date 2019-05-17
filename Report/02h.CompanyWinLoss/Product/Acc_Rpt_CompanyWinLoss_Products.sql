@@ -35,6 +35,7 @@ AS
 	     - 20190121@Franklin: Integrate Poker Games (#107706)
 		- 20190308@Jacob: Integrate BetBuilder (#109822)
 		- 20190326@Robert: #109981 - NAP Report - Integrate Promotion Prize
+		- 20190517@Cherry: Change Keno name to RNG Keno (#113670)
 
 	Explanation's Param:
 	
@@ -1619,7 +1620,7 @@ AS
               ( 3, -3, 'Parlay' ),
               ( 4, -1, 'Metric Gaming - Superlive' ),
 		    ( 5, -6, 'Bet Builder' ),
-              ( 6, 8, 'Keno' ),
+              ( 6, 8, 'RNG Keno' ),
               ( 7, 3, 'Number Game' ),
               ( 8, 4, 'Live Casino' ),
               ( 9, 6, 'Casino' ),
