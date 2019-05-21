@@ -4,8 +4,8 @@ USE bodb02
 GO
 
 ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_SB_Deposit]
-	@FromDate DATE = '20190301',
-	@ToDate	DATE = '20190310',
+	@FromDate DATE ,
+	@ToDate	DATE ,
 	@DepositType    SMALLINT = 0	
 AS  
 /*  
@@ -371,7 +371,7 @@ BEGIN
 				    , 0 AS PayToMetricGaming
 				    ,
 					 (
-						SELECT ISNULL(SUM(-(WinLoss + Scomm) * 0.04), 0)
+						SELECT ISNULL(SUM((WinLoss + Scomm) * 0.04), 0)
 						FROM #BetBuilderData
 						WHERE rptDate = @tmpDate
 					 ) AS PayToGenius;
@@ -659,7 +659,7 @@ BEGIN
 			    SELECT CASE
 						WHEN SUM(-(WinLoss + Scomm)) < 0
 						THEN 0
-						ELSE SUM(-(WinLoss + Scomm) * 0.04)
+						ELSE SUM((WinLoss + Scomm) * 0.04)
 					 END
 			    FROM #BetBuilderData
 			)

@@ -21,7 +21,7 @@ AS
   
 */    
 BEGIN  
-    SET NOCOUNT ON;
+	   SET NOCOUNT ON;
 
     DECLARE @FDate    DATE
 		, @TDate    DATE;
@@ -40,7 +40,8 @@ BEGIN
 
     CREATE TABLE #BetBuilderData(
 	    rptDate    DATETIME
-	  , WinLoss    MONEY);
+	  , WinLoss    MONEY
+	  , Scomm      MONEY);
 
     CREATE TABLE #ExchangeOANDA(
 	    ExchangeDate    DATE
@@ -57,18 +58,21 @@ BEGIN
 			 (@FDate, @TDate, 'MYR');
 
     INSERT INTO #BetBuilderData(rptDate
-						, WinLoss)
+						, WinLoss
+						, Scomm)
 		 (
 			SELECT b.rptDate
-				, SUM(ISNULL(b.WinLoss, 0) * e.Rate)
-			FROM bodb_LicenseeReport.dbo.rpt_Betting AS b WITH (NOLOCK)
+				, SUM(ISNULL(b.WinlossP, 0) * e.Rate) AS WinLoss
+				, SUM(ISNULL(b.CommissionS, 0) * e.Rate) AS SComm
+			FROM bodb_Account.dbo.FactSiteWinloss AS b WITH (NOLOCK)
+			    INNER JOIN bodb_Account.dbo.tbl_Site AS s WITH (NOLOCK) ON b.SiteID = s.siteid
 			    INNER JOIN #ExchangeOANDA AS e ON b.rptDate = e.ExchangeDate
 										   AND b.CurrencyId = e.ExchangeID
 			WHERE b.rptDate BETWEEN @FDate AND @TDate
 				 AND b.CurrencyID <> 20
-				 AND b.customercategory NOT IN(27, 28)
+				 AND b.CurrencyID NOT IN(27, 28)
 				 AND b.Bettype = 38
-				 AND b.Status NOT IN(101, 102, 103) -- Exclude Reject , Void, Refund;				 
+				 AND b.TicketStatus NOT IN(10, 14)
 			GROUP BY b.rptDate
 		 );	
 
@@ -94,7 +98,7 @@ BEGIN
 				    , 0
 				    ,
 					 (
-						SELECT ISNULL(SUM(WinLoss * 0.04), 0)
+						SELECT ISNULL(SUM((WinLoss + Scomm) * 0.04), 0)
 						FROM #BetBuilderData
 						WHERE rptDate = @tmpDate
 					 ) AS PayToGenius;
@@ -318,7 +322,6 @@ BEGIN
 		   , f.ExtraPT = ISNULL(f.ExtraPT, 0) + ISNULL(wl.ExtraPT, 0)
     FROM #FinalResult f
 	   INNER JOIN #TmpHouseWL wl ON wl.rptDate = f.RptDate;
-
 	---------------------------------------------------- Select the output -------------------------------------------------------
 	DECLARE @SQL VARCHAR(1000)
 	SELECT @SQL =	'SELECT * ' + CHAR(13) +
