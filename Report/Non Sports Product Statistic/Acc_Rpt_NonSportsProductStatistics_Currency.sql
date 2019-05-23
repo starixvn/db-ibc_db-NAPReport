@@ -737,6 +737,7 @@ BEGIN
 				)
 			AND (@DrillDownCurrency = 0 OR b.currency = @DrillDownCurrency)
 		GROUP BY b.recommend, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, b.Currency, b.srecommend, b.bettype
+		OPTION(RECOMPILE)
 	END
 
 	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID = 3)
@@ -816,6 +817,7 @@ BEGIN
 				)
 			AND (@DrillDownCurrency = 0 OR b.currency = @DrillDownCurrency)
 		GROUP BY b.recommend, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, b.Currency, b.srecommend, b.bettype
+		OPTION(RECOMPILE)
 	END
 	
 	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID = 4)
@@ -896,6 +898,7 @@ BEGIN
 				)
 			AND (@DrillDownCurrency = 0 OR b.currency = @DrillDownCurrency)
 		GROUP BY b.recommend, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, b.Currency, b.srecommend, b.bettype
+		OPTION(RECOMPILE)
 	END
 		
 	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID = 5)
@@ -976,6 +979,7 @@ BEGIN
 				)
 			AND (@DrillDownCurrency = 0 OR b.currency = @DrillDownCurrency)
 		GROUP BY b.recommend, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, b.Currency, b.srecommend, b.bettype
+		OPTION(RECOMPILE)
 	
 		-- 4. Virtual Sport (HR)
 		INSERT INTO #Data
@@ -1057,6 +1061,7 @@ BEGIN
 				)
 			AND (@DrillDownCurrency = 0 OR b.currency = @DrillDownCurrency)				  
 		GROUP BY b.recommend, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, b.Currency, b.srecommend, b.bettype
+		OPTION(RECOMPILE)
 	END
 	
 	CREATE TABLE #tmp_bettransm (refno BIGINT)
@@ -1137,6 +1142,7 @@ BEGIN
 				)
 			AND (@DrillDownCurrency = 0 OR b.currency = @DrillDownCurrency)
 		GROUP BY b.recommend, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, b.Currency, b.srecommend, b.bettype
+		OPTION(RECOMPILE)
 		
 		--Mix parlay Virtual Sport 2
 		INSERT INTO #tmp_bettransm (refno)
@@ -1218,6 +1224,7 @@ BEGIN
 				)
 			AND (@DrillDownCurrency = 0 OR b.currency = @DrillDownCurrency)
 		GROUP BY b.recommend, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, b.Currency, b.srecommend, b.bettype
+		OPTION(RECOMPILE)
 	END
 
 	-- Get Currency name

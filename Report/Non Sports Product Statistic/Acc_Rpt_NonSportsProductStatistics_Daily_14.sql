@@ -651,6 +651,7 @@ SET NOCOUNT ON
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
 				)
 		GROUP BY  b.WinlostDate,  b.Currency, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.bettype
+		OPTION(RECOMPILE)
 	END
 	
 	IF EXISTS (SELECT 1 FROM #tmpProductID WHERE ProductID = 3)  -- Number Game
@@ -715,6 +716,7 @@ SET NOCOUNT ON
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
 				)
 		GROUP BY  b.WinlostDate,  b.Currency, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.bettype
+		OPTION(RECOMPILE)
 	END
 		
 	IF EXISTS (SELECT 1 FROM #tmpProductID WHERE ProductID = 4)  -- Live Casino
@@ -780,6 +782,7 @@ SET NOCOUNT ON
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
 				)
 		GROUP BY  b.WinlostDate,  b.Currency, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.bettype
+		OPTION(RECOMPILE)
 	END
 		
 	IF EXISTS (SELECT 1 FROM #tmpProductID WHERE ProductID = 5)  -- Virtual Sports
@@ -845,6 +848,7 @@ SET NOCOUNT ON
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
 				)
 		GROUP BY  b.WinlostDate,  b.Currency, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.bettype
+		OPTION(RECOMPILE)
 
 	----3.  VirtualSport (HR) 
 		INSERT INTO #Data ( ReportBy, srecommend, bettype, CustID,   
@@ -910,6 +914,7 @@ SET NOCOUNT ON
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
 				)
 		GROUP BY  b.WinlostDate,  b.Currency, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.bettype
+		OPTION(RECOMPILE)
 	END
 		
 	CREATE TABLE #tmp_bettransm (refno BIGINT)
@@ -976,6 +981,7 @@ SET NOCOUNT ON
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue)
 				)
 		GROUP BY  b.WinlostDate,  b.Currency, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.bettype
+		OPTION(RECOMPILE)
 		
 		INSERT INTO #tmp_bettransm (refno)
 		SELECT DISTINCT bm.refno FROM dbo.bettransm14 bm WITH(NOLOCK)
@@ -1042,6 +1048,7 @@ SET NOCOUNT ON
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue)
 				)
 		GROUP BY  b.WinlostDate,  b.Currency, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.bettype
+		OPTION(RECOMPILE)
 	END
 
 ---Get CurrencyName

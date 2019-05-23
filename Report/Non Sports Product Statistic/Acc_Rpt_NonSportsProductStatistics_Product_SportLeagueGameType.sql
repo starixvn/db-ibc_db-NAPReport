@@ -724,6 +724,7 @@ BEGIN
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
 				)
 		GROUP BY b.Bettype, b.srecommend, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, b.Currency
+		OPTION(RECOMPILE)
 	END
 	
 	-- NumberGame
@@ -803,6 +804,7 @@ BEGIN
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
 				)
 		GROUP BY m.leagueid, b.bettype, b.srecommend, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, b.Currency
+		OPTION(RECOMPILE)
 	END
 	
 	-- Live Casino
@@ -882,6 +884,7 @@ BEGIN
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
 				)
 		GROUP BY b.bettype, b.srecommend, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, b.Currency
+		OPTION(RECOMPILE)
 	END
 	
 	-- Virtual Sport
@@ -961,6 +964,7 @@ BEGIN
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
 				)
 		GROUP BY m.sporttype, b.bettype, b.srecommend, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, b.Currency
+		OPTION(RECOMPILE)
 		
 		INSERT INTO #Data
 				( ReportBy,
@@ -1038,6 +1042,7 @@ BEGIN
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
 				)
 		GROUP BY r.sporttype, b.bettype, b.srecommend, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, b.Currency
+		OPTION(RECOMPILE)
 	END
 
 	-- Virtual Sports 2 
@@ -1123,6 +1128,7 @@ BEGIN
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
 				)
 		GROUP BY m.sporttype, b.bettype, b.srecommend, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, b.Currency
+		OPTION(RECOMPILE)
 		
 		INSERT INTO #Data
 				( ReportBy,
@@ -1197,6 +1203,7 @@ BEGIN
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
 				)
 		GROUP BY bm.sporttype, b.bettype, b.srecommend, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, b.Currency
+		OPTION(RECOMPILE)
 	END
 
 	-- Get Currency name

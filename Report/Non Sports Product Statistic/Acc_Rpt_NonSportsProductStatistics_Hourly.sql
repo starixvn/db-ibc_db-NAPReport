@@ -714,6 +714,7 @@ SET NOCOUNT ON
 						THEN 0 --kickoff at 23PM and settled on the next day then convert to 0 AM 
 					ELSE  DATEPART(HOUR, m.kickofftime)  END,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.bettype
+		OPTION(RECOMPILE)
 				
 	---- NumberGame 
 		INSERT INTO #Data (  [Hour] ,  
@@ -780,6 +781,7 @@ SET NOCOUNT ON
 						THEN 0 --kickoff at 23PM and settled on the next day then convert to 0 AM 
 					ELSE  DATEPART(HOUR, m.kickofftime) END,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.bettype
+		OPTION(RECOMPILE)
 				
 	---- Live Casino 
 		INSERT INTO #Data (  [Hour] ,  
@@ -845,6 +847,7 @@ SET NOCOUNT ON
 						THEN 0 --bet at 23PM then convert to 0 AM 
 					ELSE  DATEPART(HOUR, b.transdate) END,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END,srecommend, b.bettype
+		OPTION(RECOMPILE)
 				
 	---- VirtualSport (Soccer)
 		INSERT INTO #Data (  [Hour] ,  
@@ -910,6 +913,7 @@ SET NOCOUNT ON
 						THEN 0 --bet at 23PM then convert to 0 AM 
 					ELSE  DATEPART(HOUR, b.transdate) END,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.bettype
+		OPTION(RECOMPILE)
 
 	----  VirtualSport (HR) 
 		INSERT INTO #Data (  [Hour] ,  
@@ -974,6 +978,7 @@ SET NOCOUNT ON
 		GROUP BY  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 THEN 0 
 				ELSE  DATEPART(HOUR, b.transdate) END,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.bettype
+		OPTION(RECOMPILE)
 				
 		--VirtualSports 2
 		CREATE TABLE #tmp_bettransm (refno BIGINT)
@@ -1041,6 +1046,7 @@ SET NOCOUNT ON
 		GROUP BY CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 THEN 0 
 					ELSE  DATEPART(HOUR, b.transdate) END,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.bettype
+		OPTION(RECOMPILE)
 				
 		INSERT INTO #tmp_bettransm (refno)
 		SELECT DISTINCT bm.refno FROM dbo.bettransm bm WITH(NOLOCK)
@@ -1109,6 +1115,7 @@ SET NOCOUNT ON
 		GROUP BY CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 THEN 0 
 					ELSE  DATEPART(HOUR, b.transdate) END,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.bettype
+		OPTION(RECOMPILE)
 			 
 	CREATE TABLE #DimHour(
 		[Hour] [tinyint],
