@@ -452,6 +452,8 @@ BEGIN
 			)
 		GROUP BY b.srecommend, b.bettype, CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END, b.currency
 	
+		OPTION(RECOMPILE)
+	
 	INSERT INTO #tmp_bettrans
 				( CustID ,
 				  srecommend,

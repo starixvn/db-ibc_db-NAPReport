@@ -427,6 +427,8 @@ BEGIN
 				)
 		GROUP BY b.Betfrom, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, b.Currency, b.srecommend, b.bettype
 		
+		OPTION(RECOMPILE)
+		
 		-- 2a. By Bettype for Casino Product & Video Poker Games
 		INSERT INTO #Data
 				( Betfrom ,

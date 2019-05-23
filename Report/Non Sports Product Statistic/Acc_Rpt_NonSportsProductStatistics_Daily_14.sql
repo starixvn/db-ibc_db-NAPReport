@@ -406,6 +406,8 @@ SET NOCOUNT ON
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
 				)
 		GROUP BY  b.WinlostDate, b.Currency, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.bettype
+		
+		OPTION(RECOMPILE)
 		 
 		---1b. By bettype for Casino Product & Video Poker Games
 		INSERT INTO #Data (  ReportBy, srecommend, bettype, CustId,

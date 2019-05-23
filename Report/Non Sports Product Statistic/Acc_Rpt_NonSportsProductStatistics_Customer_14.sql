@@ -638,6 +638,8 @@ BEGIN
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
 			)			
 		GROUP BY b.srecommend, b.mrecommend, b.recommend, b.custid, b.bettype, b.currency
+		
+		OPTION(RECOMPILE)
 	
 		INSERT INTO #tmp_bettrans
 		(

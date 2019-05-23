@@ -464,7 +464,8 @@ SET NOCOUNT ON
 		GROUP BY  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 THEN 0
 					ELSE  DATEPART(HOUR, b.transdate) END, 
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.bettype
-		 
+				
+		OPTION(RECOMPILE)		 
 
 		---1b. By bettype for Casino Product
 		INSERT INTO #Data (  [Hour] , 
