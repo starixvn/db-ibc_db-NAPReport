@@ -162,35 +162,7 @@ SET NOCOUNT ON
 	CREATE TABLE #tmpDevice (Betfrom NVARCHAR(2))
 	
 	CREATE TABLE #ExtraPT (ProductID INT, SuperID INT, ExtraPT DECIMAL(9, 8))
-	CREATE TABLE #ExtraComm (ProductID INT, SuperID INT, ExtraComm DECIMAL(9, 8))
-	
-	INSERT INTO #ExtraPT
-               ( ProductID,
-                 SuperID,
-                 ExtraPT
-               )
-               SELECT ProductID,
-                      SuperId,
-                      SUM(ExtraPT) AS ExtraPT
-               FROM bodb02.dbo.Acc_GroupExtraPTSetting a WITH ( NOLOCK )
-               WHERE @WLDate BETWEEN FromDate AND Todate
-					AND a.ProductId IN (SELECT ProductID FROM #tmpProductID)
-               GROUP BY ProductID,
-                        SuperId
-                        
-	INSERT INTO #ExtraComm
-               ( ProductID,
-                 SuperID,
-                 ExtraComm
-               )
-               SELECT ProductID,
-                      SuperId,
-                      SUM(ExtraCommRate) AS ExtraComm
-               FROM bodb02.dbo.Acc_GroupExtraCommRateSetting a WITH ( NOLOCK )
-               WHERE @WLDate BETWEEN FromDate AND Todate
-					AND a.ProductId IN (SELECT ProductID FROM #tmpProductID)
-               GROUP BY ProductID,
-                        SuperId               
+	CREATE TABLE #ExtraComm (ProductID INT, SuperID INT, ExtraComm DECIMAL(9, 8))		        
 
 	IF @ProductID <> ''
     BEGIN
@@ -338,6 +310,36 @@ SET NOCOUNT ON
 				AND s.CustId IS NULL
 		END			
 	END	 	 
+	
+	-- ExtraPT
+	INSERT INTO #ExtraPT
+               ( ProductID,
+                 SuperID,
+                 ExtraPT
+               )
+               SELECT ProductID,
+                      SuperId,
+                      SUM(ExtraPT) AS ExtraPT
+               FROM bodb02.dbo.Acc_GroupExtraPTSetting a WITH ( NOLOCK )
+               WHERE @WLDate BETWEEN FromDate AND Todate
+					AND a.ProductId IN (SELECT ProductID FROM #tmpProductID)
+               GROUP BY ProductID,
+                        SuperId
+                        
+	INSERT INTO #ExtraComm
+               ( ProductID,
+                 SuperID,
+                 ExtraComm
+               )
+               SELECT ProductID,
+                      SuperId,
+                      SUM(ExtraCommRate) AS ExtraComm
+               FROM bodb02.dbo.Acc_GroupExtraCommRateSetting a WITH ( NOLOCK )
+               WHERE @WLDate BETWEEN FromDate AND Todate
+					AND a.ProductId IN (SELECT ProductID FROM #tmpProductID)
+               GROUP BY ProductID,
+                        SuperId       
+	-- End ExtraPT
 	
 	CREATE CLUSTERED INDEX IX_SportBettype ON #SportBettype (ProductID, Bettype, EventType, RefTable)  
 	CREATE CLUSTERED INDEX IX_SportType ON #tmpSportType (Sporttype)    
