@@ -350,6 +350,7 @@ BEGIN
                       SUM(ExtraPT) AS ExtraPT
                FROM bodb02.dbo.Acc_GroupExtraPTSetting a WITH ( NOLOCK )
                WHERE @WLDate BETWEEN FromDate AND Todate
+					AND a.ProductId IN (SELECT ProductID FROM #tmp_ProductID)
                GROUP BY ProductID,
                         SuperId
                         
@@ -363,6 +364,7 @@ BEGIN
                       SUM(ExtraCommRate) AS ExtraComm
                FROM bodb02.dbo.Acc_GroupExtraCommRateSetting a WITH ( NOLOCK )
                WHERE @WLDate BETWEEN FromDate AND Todate
+					AND a.ProductId IN (SELECT ProductID FROM #tmp_ProductID)
                GROUP BY ProductID,
                         SuperId                     
 
