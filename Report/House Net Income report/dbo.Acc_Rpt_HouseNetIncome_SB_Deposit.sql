@@ -1,12 +1,9 @@
 /*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
-USE bodb02
-GO
-
 ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_SB_Deposit]
 	@FromDate DATE ,
 	@ToDate	DATE ,
-	@DepositType    SMALLINT = 0	
+	@DepositType    SMALLINT = 2	
 AS  
 /*  
 	Created: Victor  
@@ -26,13 +23,14 @@ AS
 
 	Param's Explanation:  
 		  - DepositType  
-				    = 0 All
+				    = 2 All
 				    = 1 Deposit Only 
+				    = 0 Credit Only 
 
 	EXEC Acc_Rpt_HouseNetIncome_SB_Deposit '2017-12-01', '2017-12-31'
 */  
 BEGIN  
-	   SET NOCOUNT ON;
+    SET NOCOUNT ON;
 
     DECLARE @FDate    DATE
 		, @TDate    DATE;
@@ -219,10 +217,17 @@ BEGIN
 	  , IsApplyMinFee      BIT
 	  , DiscountAmount     MONEY);
 
-    CREATE TABLE #BetBuilderData(
-	    rptDate    DATETIME
-	  , WinLoss    MONEY
-	  , Scomm      MONEY);
+    DECLARE @PayToBetBuilder TABLE(
+	    rptDate        VARCHAR(10)
+	  , PayToGenius    MONEY);
+
+    DECLARE @PayToMetricGaming TABLE(
+	    rptDate              VARCHAR(10)
+	  , PayToMetricGaming    MONEY);
+
+    DECLARE @PayToMuayThai TABLE(
+	    RptDate          VARCHAR(10)
+	  , PayToMuayThai    MONEY);
 
     INSERT INTO #TempDataSB(PartyId
 					 , rptDate
@@ -267,30 +272,6 @@ BEGIN
 		 );
 
     CREATE NONCLUSTERED INDEX Idx_InvoiceData ON #TempDataSB(PartyId, ProductId);	
-
-    INSERT INTO #BetBuilderData(rptDate
-						, WinLoss
-						, Scomm)
-		 (
-			SELECT b.rptDate
-				, SUM(ISNULL(b.WinlossP, 0) * e.Rate) AS WinLoss
-				, SUM(ISNULL(b.CommissionS, 0) * e.Rate) AS SComm
-			FROM bodb_Account.dbo.FactSiteWinloss AS b WITH (NOLOCK)
-			    INNER JOIN bodb_Account.dbo.tbl_Site AS s WITH (NOLOCK) ON b.SiteID = s.siteid
-			    INNER JOIN #ExchangeOANDA AS e ON b.rptDate = e.ExchangeDate
-										   AND b.CurrencyId = e.ExchangeID
-			WHERE b.rptDate BETWEEN @FDate AND @TDate
-				 AND b.CurrencyID <> 20
-				 AND b.CurrencyID NOT IN(27, 28)
-				 AND b.Bettype = 38
-				 AND b.TicketStatus NOT IN(10, 14)
-				 AND s.isDeposit = CASE
-								   WHEN @DepositType = 1
-								   THEN @DepositType
-								   ELSE s.isDeposit
-							    END
-			GROUP BY b.rptDate
-		 );	    
 
     CREATE TABLE #FinalResult(
 	    RptDate              VARCHAR(10)
@@ -369,12 +350,7 @@ BEGIN
 					 ) AS BAComm -- BA Commission
 				    , 0 AS PayToMuayThai
 				    , 0 AS PayToMetricGaming
-				    ,
-					 (
-						SELECT ISNULL(SUM((WinLoss + Scomm) * 0.04), 0)
-						FROM #BetBuilderData
-						WHERE rptDate = @tmpDate
-					 ) AS PayToGenius;
+				    , 0 AS PayToGenius;
 
 		  SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate);
 	   END;
@@ -384,294 +360,47 @@ BEGIN
     -- End region
 
     ---------------------------------------------------- Pay to Metric Gaming -------------------------------------------------------
-    -- Get Party list, including credit licensees
 
-    SET @PartyIDs = NULL;
+    INSERT INTO @PayToMetricGaming(rptDate
+						   , PayToMetricGaming)
+    EXEC Acc_Rpt_HouseNetIncome_SB_PayToMetricGaming
+	    @FDate
+	  , @TDate
+	  , @DepositType;
 
-    SELECT @PartyIDs = COALESCE(@PartyIDs+',', '')+CONVERT(VARCHAR(10), PartyId)
-    FROM @tmpParty
-    WHERE IsDeposit = CASE
-					 WHEN @DepositType = 0
-					 THEN IsDeposit
-					 ELSE @DepositType
-				  END;
-
-    DELETE FROM @PartyChargeInfo;
-
-    INSERT INTO @PartyChargeInfo(PartyId
-						 , LicenseeId
-						 , IsDeposit
-						 , ProductID
-						 , Rate
-						 , Fromdate
-						 , Todate)
-		 SELECT PartyID
-			 , LicenseeID
-			 , isDeposit
-			 , ProductID
-			 , DI_Rate
-			 , Fromdate
-			 , Todate
-		 FROM bodb_licensee.dbo.LA_f_ChargeInfo
-			 (@PartyIds, @FDate, @TDate, 'SB', 'OA', 0) AS ci
-		 WHERE DI_Rate > 0;
-
-    CREATE TABLE #MetricGamingData(
-	    LicenseeID     INT
-	  , PartyID        INT
-	  , RptDate        DATE
-	  , CurrencyID     INT
-	  , LicenseeWL     MONEY
-	  , AmtLicensee    MONEY);
-
-    INSERT INTO #MetricGamingData(LicenseeID
-						  , PartyId
-						  , RptDate
-						  , CurrencyId
-						  , LicenseeWL
-						  , AmtLicensee)
-		 SELECT b.SiteID
-			 , p.PartyId
-			 , b.rptDate
-			 , b.CurrencyID
-			 , SUM(CASE
-					 WHEN p.IsDeposit = 0
-					 THEN(-b.WinLoss - b.WinLossA - b.WinLossS - b.WinLossM - b.CommissionS)
-					 ELSE-b.WinLoss
-				  END) AS LicenseeWL
-			 , SUM(CASE
-					 WHEN p.IsDeposit = 0
-					 THEN(-b.WinLoss - b.WinLossA - b.WinLossS - b.WinLossM - b.CommissionS) * p.Rate
-					 ELSE-b.WinLoss * p.Rate
-				  END) AS AmtLicensee
-		 FROM bodb_licenseereport.dbo.rpt_Betting AS b WITH (NOLOCK)
-			INNER JOIN @PartyChargeInfo AS p ON b.SiteID = p.LicenseeId
-										 AND b.rptDate BETWEEN p.FromDate AND p.ToDate
-		 WHERE b.rptDate BETWEEN @FDate AND @TDate
-			  AND b.CurrencyID <> 20
-			  AND b.Status BETWEEN 111 AND 113
-			  AND b.customercategory NOT IN(27, 28)
-			  AND b.Bettype BETWEEN 800 AND 899 -- Metric Gaming Bettype In Sportsbook
-		 GROUP BY b.rptdate
-			   , b.SiteId
-			   , b.CurrencyID
-			   , p.PartyId;
-    -- Apply currency rate
-
-    UPDATE b
+    UPDATE f
 		 SET
-			LicenseeWL = LicenseeWL * e.Rate
-		   , AmtLicensee = AmtLicensee * e.Rate
-    FROM #MetricGamingData b
-	   INNER JOIN #ExchangeOANDA e ON e.ExchangeDate = b.RptDate
-							    AND e.ExchangeID = b.CurrencyID;
-    -- Get Metric Gaming charge info
+			f.PayToMetricGaming = p.PayToMetricGaming
+    FROM #FinalResult f
+	   INNER JOIN @PayToMetricGaming p ON f.RptDate = p.rptDate;
+    ---------------------------------------------------- Pay To Bet Builder -------------------------------------------------------
 
-    DECLARE @ProductChargeInfo TABLE(
-	    Rate         FLOAT
-	  , FromDate     SMALLDATETIME
-	  , ToDate       SMALLDATETIME
-	  , MinAmount    MONEY
-	  , MaxAmount    MONEY);
+    INSERT INTO @PayToBetBuilder(rptDate
+						 , PayToGenius)
+    EXEC Acc_Rpt_HouseNetIncome_SB_PayToBetBuilder
+	    @FromDate = @FDate
+	  , @ToDate = @TDate
+	  , @DepositType = @DepositType;   
 
-    INSERT INTO @ProductChargeInfo(Rate
-						   , FromDate
-						   , ToDate
-						   , MinAmount
-						   , MaxAmount)
-		 SELECT ci.Rate
-			 , CASE
-				  WHEN @FDate >= ci.FromDate
-				  THEN @FDate
-				  ELSE ci.FromDate
-			   END AS FromDate
-			 , CASE
-				  WHEN @TDate < ci.ToDate
-				  THEN @TDate
-				  ELSE ci.ToDate
-			   END AS ToDate
-			 , ci.MinAmount * ex.Rate
-			 , ci.MaxAmount * ex.Rate
-		 FROM bodb_licensee.dbo.OAS_ChargeInfo AS ci
-			INNER JOIN #ExchangeOANDA AS ex ON ci.BaseCurrencyId = ex.ExchangeID
-										AND ex.ExchangeDate = @TDate
-		 WHERE ci.ProductID = 0
-			  AND ci.FromParty = 1
-			  AND ci.ChargeType = 4 -- Get Charge Rate to Billing for Metric Gaming
-			  AND
-				 (ci.FromDate BETWEEN @FDate AND @TDate
-				  OR ci.ToDate BETWEEN @FDate AND @TDate
-				  OR ci.FromDate < @FDate
-				  AND @TDate < ci.ToDate);
-
-    WITH WLAmount
-	    AS (
-	    SELECT CONVERT(VARCHAR(2), RptDate, 106) AS rptDate
-		    , rptDate AS FullDate
-		    , SUM(AmtLicensee) AS AmtLicensee
-	    FROM #MetricGamingData
-	    GROUP BY CONVERT(VARCHAR(2), RptDate, 106)
-			 , rptDate),
-	    MetricGamingFee
-	    AS (
-	    SELECT wl.*
-		    , ci.MinAmount
-		    , ci.MaxAmount
-		    , ci.Rate
-		    , CASE
-				WHEN AmtLicensee < 0
-					AND ci.MinAmount = 0
-					OR AmtLicensee >= ci.MinAmount
-				THEN CASE
-					    WHEN AmtLicensee > MaxAmount
-					    THEN ci.MaxAmount - ci.MinAmount
-					    ELSE AmtLicensee - ci.MinAmount
-					END
-				ELSE 0
-			 END * ci.Rate AS AmtByRange
-	    FROM WLAmount AS wl
-		   INNER JOIN @ProductChargeInfo AS ci ON wl.FullDate BETWEEN ci.FromDate AND ci.ToDate),
-	    AmtByDate
-	    AS (
-	    SELECT m.rptDate
-		    , SUM(AmtByRange) AS AmtByDate
-	    FROM MetricGamingFee AS m
-	    GROUP BY m.rptDate)
-	    UPDATE r
-			 SET
-				PayToMetricGaming = -AmtByDate
-	    FROM AmtByDate m
-		   INNER JOIN #FinalResult r ON r.RptDate = m.rptDate;
-    -- Calculate Pay to Metric gaming amount
-
-    WITH WLAmount
-	    AS (
-	    SELECT ci.*
-		    , SUM(d.AmtLicensee) AS AmtLicensee
-	    FROM @ProductChargeInfo AS ci
-		   INNER JOIN #MetricGamingData AS d ON d.RptDate BETWEEN ci.FromDate AND ci.ToDate
-	    GROUP BY ci.Rate
-			 , ci.FromDate
-			 , ci.ToDate
-			 , ci.MinAmount
-			 , ci.MaxAmount),
-	    AmtByRange
-	    AS (
-	    SELECT wl.*
-		    , CASE
-				WHEN AmtLicensee > MinAmount
-				THEN CASE
-					    WHEN AmtLicensee > MaxAmount
-					    THEN MaxAmount - MinAmount
-					    ELSE AmtLicensee - MinAmount
-					END
-				ELSE 0
-			 END * Rate AS AmtDue
-	    FROM WLAmount AS wl)
-	    UPDATE #FinalResult
-			 SET
-				PayToMetricGaming = -
-				(
-				    SELECT SUM(AmtDue)
-				    FROM AmtByRange
-				)
-	    WHERE RptDate LIKE 'FullRange';
+    UPDATE f
+		 SET
+			f.PayToGenius = p.PayToGenius
+    FROM #FinalResult f
+	   INNER JOIN @PayToBetBuilder p ON f.RptDate = p.rptDate;
     ---------------------------------------------------- Pay to Muay Thai -------------------------------------------------------
 
-    DELETE FROM @PartyChargeInfo;
+    INSERT INTO @PayToMuayThai(RptDate
+					    , PayToMuayThai)
+    EXEC bodb02.dbo.Acc_Rpt_HouseNetIncome_SB_PayToMuayThai
+	    @FromDate = @FDate
+	  , @ToDate = @TDate
+	  , @DepositType = @DepositType;
 
-    INSERT INTO @PartyChargeInfo(PartyId
-						 , LicenseeId
-						 , IsDeposit
-						 , ProductID
-						 , Rate
-						 , Fromdate
-						 , Todate)
-		 SELECT PartyID
-			 , LicenseeID
-			 , isDeposit
-			 , ProductID
-			 , DI_Rate
-			 , Fromdate
-			 , Todate
-		 FROM bodb_licensee.dbo.LA_f_ChargeInfo
-			 (@PartyIds, @FDate, @TDate, 'SB', 'OA', 0);
-
-    DECLARE @MuayThaiData TABLE(
-	    rptDate           DATE
-	  , AmtDueMuayThai    MONEY);
-
-    DECLARE @ShareRate    MONEY = 0.03;
-
-    DECLARE @CutOfDate      SMALLDATETIME
-		, @TmpFromDate    SMALLDATETIME
-		, @TmpToDate      SMALLDATETIME; 
-
-    SELECT @CutOfDate = '2017-09-30'; -- New formula when caculate muaythai ticket be applied	
-
-    IF @FDate < @CutOfDate -- Old Data: incase when handle script by hand for regen past email
-	   BEGIN
-		  INSERT INTO @MuayThaiData
-			    SELECT b.rptDate
-				    , SUM(ISNULL(b.WLShare * e.Rate, 0) + ISNULL(b.CommShare * e.Rate, 0)) AS AmtDueMuayThai
-			    FROM bodb_LicenseeReport.dbo.rpt_BettingBySport AS b WITH (NOLOCK)
-				   INNER JOIN @PartyChargeInfo AS p ON b.ProductID = p.ProductID
-											    AND b.SiteID = p.LicenseeId
-											    AND b.rptDate BETWEEN p.FromDate AND p.ToDate
-				   INNER JOIN #ExchangeOANDA AS e ON e.ExchangeDate = b.rptDate
-											  AND e.ExchangeID = b.CurrencyId
-			    WHERE b.rptDate BETWEEN @FDate AND @TDate
-					AND b.CurrencyID <> 20
-					AND b.StatusId BETWEEN 111 AND 113
-					AND b.customercategory NOT IN(27, 28)
-					AND b.SportType = 44 -- Muay Thai
-			    GROUP BY b.rptdate;
-	   END;
-	   ELSE
-	   BEGIN
-		  INSERT INTO @MuayThaiData
-		  SELECT b.rptDate
-			  , SUM(ISNULL(b.AdjustedCustomerWL * e.Rate * (-@ShareRate), 0) + ISNULL(b.AdjustedCommShare * e.Rate, 0)) AS AmtDueMuayThai
-		  FROM bodb_LicenseeReport.dbo.rpt_BettingBySport AS b WITH (NOLOCK)
-			 INNER JOIN @PartyChargeInfo AS p ON b.ProductID = p.ProductID
-										  AND b.SiteID = p.LicenseeId
-										  AND b.rptDate BETWEEN p.FromDate AND p.ToDate
-			 INNER JOIN #ExchangeOANDA AS e ON e.ExchangeDate = b.rptDate
-										AND e.ExchangeID = b.CurrencyId
-		  WHERE b.rptDate BETWEEN @FDate AND @TDate
-			   AND b.CurrencyID <> 20
-			   AND b.StatusId BETWEEN 111 AND 113
-			   AND b.customercategory NOT IN(27, 28)
-			   AND b.SportType = 44 -- Muay Thai
-		  GROUP BY b.rptdate;
-	   END;
-    -- Update Full range value
-
-    UPDATE #FinalResult
+    UPDATE f
 		 SET
-			PayToMuayThai = -
-			(
-			    SELECT ISNULL(SUM(AmtDueMuayThai), 0)
-			    FROM @MuayThaiData
-			)
-		   , PayToGenius =
-			(
-			    SELECT CASE
-						WHEN SUM(-(WinLoss + Scomm)) < 0
-						THEN 0
-						ELSE SUM((WinLoss + Scomm) * 0.04)
-					 END
-			    FROM #BetBuilderData
-			)
-    WHERE RptDate LIKE 'FullRange';
-    -- Update daily amount
-
-    UPDATE r
-		 SET
-			PayToMuayThai = -d.AmtDueMuayThai
-    FROM #FinalResult r
-	   INNER JOIN @MuayThaiData d ON r.RptDate = CONVERT(VARCHAR(2), d.RptDate, 106);
-
+			f.PayToMuayThai = p.PayToMuayThai
+    FROM #FinalResult f
+	   INNER JOIN @PayToMuayThai p ON f.RptDate = p.rptDate;
 	---------------------------------------------------- Select the output -------------------------------------------------------
 	DECLARE @SQL VARCHAR(1000)
 	SELECT @SQL =	'SELECT * ' + CHAR(13) +
@@ -705,8 +434,6 @@ BEGIN
 	DROP TABLE #TempDataSB
 	DROP TABLE #FeeData
 	DROP TABLE #FinalResult
-	DROP TABLE #DiscountGroup
-	DROP TABLE #MetricGamingData
-	DROP TABLE #BetBuilderData
+	DROP TABLE #DiscountGroup	
 END
 GO

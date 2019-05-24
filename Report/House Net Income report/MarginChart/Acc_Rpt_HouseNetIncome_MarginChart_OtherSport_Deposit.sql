@@ -13,6 +13,7 @@ AS
     Revisions:
 		- 20180126@Harper - HDWL Letstalk - Implement Chart of SB margin Other Sport[#RedmineID: 89632]
 		- 20190121@Robert: Letstalk Margin Charts - Separate Letstalk group for credit & Deposit (Soccer & Other Sports) [#108220]
+		- 20190406@Robert: 107164 - House Net Income Email/Letstalk/Margin Chart - Integrate Bet Builder
 		
 	Param's Explanation:   
 
@@ -22,29 +23,18 @@ AS
 BEGIN  
     SET NOCOUNT ON;
 
-    DECLARE @FDate    DATE
-		, @TDate    DATE;
+    DECLARE @FDate       DATE
+	   , @TDate       DATE
+	   , @tmpDate     DATE
+	   , @DateList    VARCHAR(200);
 
     SELECT @FDate = @FromDate
-	    , @TDate = @ToDate;
-    -- Region: Get exchange rate info	
+	    , @TDate = @ToDate
+	    , @tmpDate = @FDate;
 
-    CREATE TABLE #ExchangeOANDA(
-	    ExchangeDate    DATE
-	  , ExchangeID      INT
-	  , Rate            FLOAT);	
-
-    INSERT INTO #ExchangeOANDA(ExchangeDate
-					    , ExchangeID
-					    , Rate)
-		 SELECT ExchangeDate
-			 , ExchangeID
-			 , BaseCurrencyRate
-		 FROM bodb02.dbo.LA_f_ExchangeDailySel
-			 (@FDate, @TDate, 'MYR');
-    -- End region		
-
-    -- Region: Handle data of Soccer
+    DECLARE @PayToMuayThai TABLE(
+	    RptDate          VARCHAR(10)
+	  , PayToMuayThai    MONEY);
 
     CREATE TABLE #FinalResult(
 	    RptDate          VARCHAR(10)
@@ -55,14 +45,10 @@ BEGIN
 
     INSERT INTO #FinalResult(rptDate
 					  , PayToMuayThai)
-		 SELECT 'FullRange'
-			 , 0;
-    -- Date list to draw chart
-
-    DECLARE @tmpDate     DATE
-		, @DateList    VARCHAR(200);
-
-    SELECT @tmpDate = @FDate;
+		 (
+			SELECT 'FullRange'
+				, 0 AS PayToMuayThai
+		 );
 
     WHILE @tmpDate <= @TDate
 	   BEGIN
@@ -77,118 +63,22 @@ BEGIN
     SELECT @DateList = COALESCE(@DateList+',', '')+'['+CONVERT(VARCHAR(10), RptDate)+']'
     FROM #FinalResult;
     ---------------------------------------------------- Pay to Muay Thai -------------------------------------------------------
-    -- Region: Get Party list, including credit licensees	
 
-    DECLARE @tmpParty TABLE(
-	    PartyID      INT
-	  , IsDeposit    BIT);
+    INSERT INTO @PayToMuayThai(RptDate
+					    , PayToMuayThai)
+    EXEC Acc_Rpt_HouseNetIncome_SB_PayToMuayThai
+	    @FromDate = @FDate
+	  , @ToDate = @TDate
+	  , @DepositType = 1;
 
-    INSERT INTO @tmpParty(PartyID
-				    , IsDeposit)
-		 SELECT DISTINCT
-			   ci.FromParty
-			 , pd.IsDeposit
-		 FROM bodb_licensee.dbo.OAS_Party AS p WITH (NOLOCK)
-			INNER JOIN bodb_licensee.dbo.OAS_PartyDetail AS pd WITH (NOLOCK) ON pd.PartyID = p.PartyID
-			INNER JOIN bodb_licensee.dbo.OAS_ChargeInfo AS ci WITH (NOLOCK) ON p.PartyID = ci.FromParty
-			INNER JOIN bodb_licensee.dbo.LA_ChargeInfo_SystemMapping AS map ON map.ChargeID = ci.ChargeID
-																  AND map.SystemID = 2
-		 WHERE p.PartyType = 1
-			  AND ci.ProductId = 0 -- SB
-			  AND
-				 (ci.FromDate BETWEEN @FDate AND @TDate
-				  OR ci.ToDate BETWEEN @FDate AND @TDate
-				  OR ci.FromDate < @FDate
-				  AND @TDate < ci.ToDate);
-
-    DECLARE @PartyIDs    VARCHAR(1000);
-
-    SELECT @PartyIDs = COALESCE(@PartyIDs+',', '')+CONVERT(VARCHAR(10), PartyId)
-    FROM @tmpParty;
-
-    DECLARE @PartyChargeInfo AS TABLE(
-	    PartyId       INT
-	  , LicenseeId    INT
-	  , IsDeposit     BIT
-	  , ProductID     INT
-	  , Rate          MONEY
-	  , FromDate      SMALLDATETIME
-	  , ToDate        SMALLDATETIME
-	  , Bettype       INT);
-
-    INSERT INTO @PartyChargeInfo(PartyId
-						 , LicenseeId
-						 , IsDeposit
-						 , ProductID
-						 , Rate
-						 , Fromdate
-						 , Todate)
-		 SELECT PartyID
-			 , LicenseeID
-			 , isDeposit
-			 , ProductID
-			 , DI_Rate
-			 , Fromdate
-			 , Todate
-		 FROM bodb_licensee.dbo.LA_f_ChargeInfo
-			 (@PartyIds, @FDate, @TDate, 'SB', 'OA', 0);
-    -- End Region: Get Party list, including credit licensees		
-
-    DECLARE @MuayThaiData TABLE(
-	    rptDate           DATE
-	  , AmtDueMuayThai    MONEY);
-
-    DECLARE @ShareRate    MONEY = 0.03;
-
-    DECLARE @CutOfDate      SMALLDATETIME
-		, @TmpFromDate    SMALLDATETIME
-		, @TmpToDate      SMALLDATETIME; 
-
-    SELECT @CutOfDate = '2017-09-30'; -- New formula when caculate muaythai ticket be applied	
-
-    IF @FDate < @CutOfDate -- Old Data: incase when handle script by hand for regen past email
-	   BEGIN
-		  INSERT INTO @MuayThaiData
-			    SELECT b.rptDate
-				    , SUM(ISNULL(b.WLShare * e.Rate, 0) + ISNULL(b.CommShare * e.Rate, 0)) AS AmtDueMuayThai
-			    FROM bodb_LicenseeReport.dbo.rpt_BettingBySport AS b WITH (NOLOCK)
-				   INNER JOIN @PartyChargeInfo AS p ON b.ProductID = p.ProductID
-											    AND b.SiteID = p.LicenseeId
-											    AND b.rptDate BETWEEN p.FromDate AND p.ToDate
-				   INNER JOIN #ExchangeOANDA AS e ON e.ExchangeDate = b.rptDate
-											  AND e.ExchangeID = b.CurrencyId
-			    WHERE b.rptDate BETWEEN @FDate AND @TDate
-					AND b.CurrencyID <> 20
-					AND b.StatusId BETWEEN 111 AND 113
-					AND b.customercategory NOT IN(27, 28)
-					AND b.SportType = 44 -- Muay Thai
-			    GROUP BY b.rptdate;
-	   END;
-	   ELSE
-	   BEGIN
-		  INSERT INTO @MuayThaiData
-		  SELECT b.rptDate
-			  , SUM(ISNULL(b.AdjustedCustomerWL * e.Rate * (-@ShareRate), 0) + ISNULL(b.AdjustedCommShare * e.Rate, 0)) AS AmtDueMuayThai
-		  FROM bodb_LicenseeReport.dbo.rpt_BettingBySport AS b WITH (NOLOCK)
-			 INNER JOIN @PartyChargeInfo AS p ON b.ProductID = p.ProductID
-										  AND b.SiteID = p.LicenseeId
-										  AND b.rptDate BETWEEN p.FromDate AND p.ToDate
-			 INNER JOIN #ExchangeOANDA AS e ON e.ExchangeDate = b.rptDate
-										AND e.ExchangeID = b.CurrencyId
-		  WHERE b.rptDate BETWEEN @FDate AND @TDate
-			   AND b.CurrencyID <> 20
-			   AND b.StatusId BETWEEN 111 AND 113
-			   AND b.customercategory NOT IN(27, 28)
-			   AND b.SportType = 44 -- Muay Thai
-		  GROUP BY b.rptdate;
-	   END;
-    -- Update daily amount
-
-    UPDATE r
+    UPDATE f
 		 SET
-			PayToMuayThai = -d.AmtDueMuayThai
-    FROM #FinalResult r
-	   INNER JOIN @MuayThaiData d ON r.RptDate = CONVERT(VARCHAR(2), d.RptDate, 106);
+			f.PayToMuayThai = p.PayToMuayThai
+    FROM #FinalResult f
+	   INNER JOIN @PayToMuayThai p ON f.RptDate = p.rptDate
+    WHERE f.RptDate <> 'FullRange';
+    ----------------------------------------------------End Pay to Muay Thai -------------------------------------------------------
+
     --- GET TO & House Income
 
     CREATE TABLE #TmpHouseWL(
@@ -198,7 +88,7 @@ BEGIN
 	  , ExtraPT     MONEY);
 
     INSERT INTO #TmpHouseWL(rptDate
-					 , HouseWL					 
+					 , HouseWL
 					 , ExtraPT
 					 , TurnOver)
 
@@ -232,12 +122,8 @@ BEGIN
 					'ORDER BY [Order]'
 
 	EXEC(@SQL)
-
-	DROP TABLE #ExchangeOANDA
+	
 	DROP TABLE #FinalResult	
 	DROP TABLE #TmpHouseWL
 END
 GO
-GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_OtherSport_Deposit] TO [bodbAdminNet]
-GO
-
