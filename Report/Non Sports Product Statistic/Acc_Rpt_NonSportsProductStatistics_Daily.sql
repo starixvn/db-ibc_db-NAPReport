@@ -1,6 +1,6 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
-Use BODB02
+Use bodb02
 GO 
 
 ALTER PROCEDURE [dbo].[Acc_Rpt_NonSportsProductStatistics_Daily]
@@ -42,6 +42,7 @@ AS
 		20181108@Cherry: Improve performance (#101547)
 		20190214@Cherry: Integrate Video Poker Games (#108735)
 		20190322@Cherry: Add betfrom b,f (#110653)
+		20190510@Cherry: Appy ExtraPT (#111676)
 
 	Param's Explanation:
 			 - @username:  + Search by keyword, member only
@@ -103,7 +104,8 @@ SET NOCOUNT ON
 					NULL AS TotalRefund,
 					NULL AS CompanyTurnover,
 					NULL AS CompanyGrossIncome,
-					NULL AS CompanyComm
+					NULL AS CompanyComm,
+					NULL AS ExtraPT
 			) A
 		
 			-- Grand Total
@@ -118,7 +120,8 @@ SET NOCOUNT ON
 				NULL AS TotalRefund,
 				NULL AS CompanyTurnover,
 				NULL AS CompanyGrossIncome,
-				NULL AS CompanyComm
+				NULL AS CompanyComm,
+				NULL AS ExtraPT
 
 			RETURN
 		END
@@ -127,24 +130,27 @@ SET NOCOUNT ON
 	DECLARE @WLDate SMALLDATETIME , @IsMBC BIT, @IsSite BIT
 	SELECT @WLDate = CAST (@WinlostDate AS SMALLDATETIME)
 
-	CREATE TABLE #Data (   ReportBy NVARCHAR(1000),  CustId INT,
+	CREATE TABLE #Data (   srecommend INT, bettype INT, CustId INT,
 						   BetCount INT, CurrencyId INT, Currency NVARCHAR(50), 
-						   TotalBets MONEY, TotalBetsBase MONEY, 
-						   TotalWins MONEY, TotalWinsBase MONEY, 
-						   TotalRefund MONEY, TotalRefundBase MONEY, 
-						   CompanyTurnover MONEY, CompanyTurnoverBase MONEY,
-						   CompanyGrossIncome MONEY, CompanyGrossIncomeBase MONEY,
-						   CompanyComm MONEY,  CompanyCommBase MONEY
+						   TotalBets DECIMAL(19,4), TotalBetsBase DECIMAL(19,4), 
+						   TotalWins DECIMAL(19,4), TotalWinsBase DECIMAL(19,4), 
+						   TotalRefund DECIMAL(19,4), TotalRefundBase DECIMAL(19,4), 
+						   CompanyTurnover DECIMAL(19,4), CompanyTurnoverBase DECIMAL(19,4),
+						   CompanyGrossIncome DECIMAL(19,4), CompanyGrossIncomeBase DECIMAL(19,4),
+						   CompanyComm DECIMAL(19,4),  CompanyCommBase DECIMAL(19,4),
+						   ExtraWL DECIMAL(19,8), ExtraWLBase DECIMAL(19,8),
+						   ExtraComm DECIMAL(19,8), ExtraCommBase DECIMAL(19,8)
 						   )
 
-	CREATE TABLE #Result ( ReportBy NVARCHAR(1000), NoOfPlayers INT, 
+	CREATE TABLE #Result ( NoOfPlayers INT, 
 						   BetCount INT, CurrencyId INT, Currency NVARCHAR(50), 
-						   TotalBets MONEY, TotalBetsBase MONEY, 
-						   TotalWins MONEY, TotalWinsBase MONEY, 
-						   TotalRefund MONEY, TotalRefundBase MONEY, 
-						   CompanyTurnover MONEY, CompanyTurnoverBase MONEY,
-						   CompanyGrossIncome MONEY, CompanyGrossIncomeBase MONEY,
-						   CompanyComm MONEY,  CompanyCommBase MONEY
+						   TotalBets DECIMAL(19,4), TotalBetsBase DECIMAL(19,4), 
+						   TotalWins DECIMAL(19,4), TotalWinsBase DECIMAL(19,4), 
+						   TotalRefund DECIMAL(19,4), TotalRefundBase DECIMAL(19,4), 
+						   CompanyTurnover DECIMAL(19,4), CompanyTurnoverBase DECIMAL(19,4),
+						   CompanyGrossIncome DECIMAL(19,4), CompanyGrossIncomeBase DECIMAL(19,4),
+						   CompanyComm DECIMAL(19,4),  CompanyCommBase DECIMAL(19,4),
+						   ExtraPT DECIMAL(19,8), ExtraPTBase DECIMAL(19,8)
 						   )
 	
 	CREATE TABLE #Temp_MemIDs (CustID int)
@@ -156,6 +162,9 @@ SET NOCOUNT ON
 	CREATE TABLE #tmp_Site (Site VARCHAR(50))	
 	CREATE TABLE #tmp_Company (SiteName VARCHAR(50), Srecommend INT)
 	CREATE TABLE #tmpDevice (Betfrom NVARCHAR(2))
+	
+	CREATE TABLE #ExtraPT (ProductID INT, SuperID INT, ExtraPT DECIMAL(9, 8))
+	CREATE TABLE #ExtraComm (ProductID INT, SuperID INT, ExtraComm DECIMAL(9, 8))		
 
 	IF @ProductID <> ''
     BEGIN
@@ -304,6 +313,36 @@ SET NOCOUNT ON
 		END			
 	END	 
 	
+	-- ExtraPT
+	INSERT INTO #ExtraPT
+               ( ProductID,
+                 SuperID,
+                 ExtraPT
+               )
+               SELECT ProductID,
+                      SuperId,
+                      SUM(ExtraPT) AS ExtraPT
+               FROM bodb02.dbo.Acc_GroupExtraPTSetting a WITH ( NOLOCK )
+               WHERE @WLDate BETWEEN FromDate AND Todate
+					AND a.ProductId IN (SELECT ProductID FROM #tmpProductID)
+               GROUP BY ProductID,
+                        SuperId
+                        
+	INSERT INTO #ExtraComm
+               ( ProductID,
+                 SuperID,
+                 ExtraComm
+               )
+               SELECT ProductID,
+                      SuperId,
+                      SUM(ExtraCommRate) AS ExtraComm
+               FROM bodb02.dbo.Acc_GroupExtraCommRateSetting a WITH ( NOLOCK )
+               WHERE @WLDate BETWEEN FromDate AND Todate
+					AND a.ProductId IN (SELECT ProductID FROM #tmpProductID)
+               GROUP BY ProductID,
+                        SuperId      
+    -- End ExtraPT         
+	
 	CREATE CLUSTERED INDEX IX_SportBettype ON #SportBettype (ProductID, Bettype, EventType, RefTable)  
 	CREATE CLUSTERED INDEX IX_SportType ON #tmpSportType (Sporttype)    
 	CREATE CLUSTERED INDEX IX_LeagueID ON #tmpLeagueID (LeagueID, Bettype)
@@ -312,17 +351,19 @@ SET NOCOUNT ON
 	-- ProductID NOT IN (3, 4, 5, 27, 33))
 	BEGIN
 		---1. By bettype for normal Product
-		INSERT INTO #Data (  ReportBy, CustId,
+		INSERT INTO #Data (    srecommend, bettype, CustId,
 							   BetCount, CurrencyId , 
 							   TotalBets, TotalBetsBase, 
 							   TotalWins, TotalWinsBase, 
 							   TotalRefund, TotalRefundBase,
 							   CompanyTurnover, CompanyTurnoverBase,  
 							   CompanyGrossIncome, CompanyGrossIncomeBase, 
-							   CompanyComm, CompanyCommBase							   
+							   CompanyComm, CompanyCommBase,
+							   ExtraWL, ExtraWLBase,
+							   ExtraComm, ExtraCommBase						   
 							   )
 	
-		SELECT  CONVERT(VARCHAR(20),b.WinlostDate,107) AS ReportBy,
+		SELECT  srecommend, b.bettype,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
 
 				COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS BetCount, b.Currency, 
@@ -345,7 +386,15 @@ SET NOCOUNT ON
 				- SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeBase,
 
 				- SUM(scomm) AS CompanyComm,
-				- SUM(scomm *actualrate) AS CompanyCommBase
+				- SUM(scomm *actualrate) AS CompanyCommBase,
+				
+				- SUM(winlost - actual_stake) ExtraWL,
+				- SUM((winlost - actual_stake) * actualrate) ExtraWLBase,
+				
+				- SUM(CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) ExtraComm,
+				- SUM((CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraCommBase
 		FROM  dbo.Bettrans b WITH (NOLOCK)
 		WHERE b.WinlostDate = @WLDate
 			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE RefTable IN (0, 3) AND ProductID NOT IN (3, 4, 5, 27, 33))
@@ -363,20 +412,24 @@ SET NOCOUNT ON
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) 
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
 				)
-		GROUP BY  b.WinlostDate, b.Currency, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END
+		GROUP BY  b.Currency, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.bettype
+		
+		OPTION(RECOMPILE)
 		 
 		---1b. By bettype for Casino Product & Video Poker Games
-		INSERT INTO #Data (  ReportBy, CustId,
+		INSERT INTO #Data (    srecommend, bettype, CustId,
 							   BetCount, CurrencyId , 
 							   TotalBets, TotalBetsBase, 
 							   TotalWins, TotalWinsBase, 
 							   TotalRefund, TotalRefundBase,
 							   CompanyTurnover, CompanyTurnoverBase,  
 							   CompanyGrossIncome, CompanyGrossIncomeBase, 
-							   CompanyComm, CompanyCommBase							   
+							   CompanyComm, CompanyCommBase,
+							   ExtraWL, ExtraWLBase,
+							   ExtraComm, ExtraCommBase									   
 							   )
 	
-		SELECT  CONVERT(VARCHAR(20),b.WinlostDate,107) AS ReportBy,
+		SELECT  srecommend, b.gameID,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
 
 				COUNT(CASE WHEN StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount, b.Currency, 
@@ -397,7 +450,15 @@ SET NOCOUNT ON
 				- SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeBase,
 
 				- SUM(scomm) AS CompanyComm,
-				- SUM(scomm *actualrate) AS CompanyCommBase
+				- SUM(scomm *actualrate) AS CompanyCommBase,
+				
+				- SUM(winlost - actual_stake) ExtraWL,
+				- SUM((winlost - actual_stake) * actualrate) ExtraWLBase,
+				
+				- SUM(CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) ExtraComm,
+				- SUM((CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraCommBase
 		FROM  dbo.BettransRNG b WITH (NOLOCK)
 		WHERE b.WinlostDate = @WLDate
 			AND b.gameID IN (SELECT Bettype FROM #SportBettype WHERE RefTable = 1 AND Bettype NOT IN (2198, 2398, 2998))
@@ -414,19 +475,21 @@ SET NOCOUNT ON
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) 
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
 				)
-		GROUP BY  b.WinlostDate,  b.Currency, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END
+		GROUP BY  b.Currency, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.gameID
 		
-		INSERT INTO #Data (  ReportBy, CustId,
+		INSERT INTO #Data (    srecommend, bettype, CustId,
 							   BetCount, CurrencyId , 
 							   TotalBets, TotalBetsBase, 
 							   TotalWins, TotalWinsBase, 
 							   TotalRefund, TotalRefundBase,
 							   CompanyTurnover, CompanyTurnoverBase,  
 							   CompanyGrossIncome, CompanyGrossIncomeBase, 
-							   CompanyComm, CompanyCommBase							   
+							   CompanyComm, CompanyCommBase,
+							   ExtraWL, ExtraWLBase,
+							   ExtraComm, ExtraCommBase							   
 							   )
 	
-		SELECT  CONVERT(VARCHAR(20),b.WinlostDate,107) AS ReportBy,
+		SELECT  srecommend, b.gameID,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
 
 				0 AS BetCount, b.Currency, 
@@ -447,7 +510,15 @@ SET NOCOUNT ON
 				- SUM((b.ContributionRate * b.BetStake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeBase,
 
 				- SUM(scomm) AS CompanyComm,
-				- SUM(scomm *actualrate) AS CompanyCommBase
+				- SUM(scomm *actualrate) AS CompanyCommBase,
+				
+				- SUM(b.ContributionRate * b.BetStake) ExtraWL,
+				- SUM((b.ContributionRate * b.BetStake) * actualrate) ExtraWLBase,
+				
+				- SUM(CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) ExtraComm,
+				- SUM((CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraCommBase
 		FROM  dbo.BettransRNG b WITH (NOLOCK)
 		WHERE b.WinlostDate = @WLDate
 			AND b.gameID IN (SELECT Bettype FROM #SportBettype WHERE Bettype IN (2198, 2398, 2998))
@@ -464,20 +535,22 @@ SET NOCOUNT ON
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) 
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
 				)
-		GROUP BY  b.WinlostDate,  b.Currency, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END
+		GROUP BY  b.Currency, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.gameID
 		 
 		---1b. By bettype for Casino Product
-		INSERT INTO #Data (  ReportBy, CustId,
+		INSERT INTO #Data (    srecommend, bettype, CustId,
 							   BetCount, CurrencyId , 
 							   TotalBets, TotalBetsBase, 
 							   TotalWins, TotalWinsBase, 
 							   TotalRefund, TotalRefundBase,
 							   CompanyTurnover, CompanyTurnoverBase,  
 							   CompanyGrossIncome, CompanyGrossIncomeBase, 
-							   CompanyComm, CompanyCommBase							   
+							   CompanyComm, CompanyCommBase,
+							   ExtraWL, ExtraWLBase,
+							   ExtraComm, ExtraCommBase								   
 							   )
 	
-		SELECT  CONVERT(VARCHAR(20),b.WinlostDate,107) AS ReportBy,
+		SELECT  srecommend, b.gameID,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
 
 				COUNT(CASE WHEN StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount, b.Currency, 
@@ -498,7 +571,15 @@ SET NOCOUNT ON
 				- SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeBase,
 
 				- SUM(scomm) AS CompanyComm,
-				- SUM(scomm *actualrate) AS CompanyCommBase
+				- SUM(scomm *actualrate) AS CompanyCommBase,
+				
+				- SUM(winlost - actual_stake) ExtraWL,
+				- SUM((winlost - actual_stake) * actualrate) ExtraWLBase,
+				
+				- SUM(CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) ExtraComm,
+				- SUM((CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraCommBase
 		FROM  dbo.BettransLC b WITH (NOLOCK)
 		WHERE b.WinlostDate = @WLDate
 			AND b.gameID IN (SELECT Bettype FROM #SportBettype WHERE RefTable = 2)
@@ -515,22 +596,24 @@ SET NOCOUNT ON
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue)
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
 				)
-		GROUP BY  b.WinlostDate,  b.Currency, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END
+		GROUP BY  b.Currency, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.gameID
 	END
 	
 	IF EXISTS (SELECT 1 FROM #tmpProductID WHERE ProductID = 33) -- Poker Games
 	BEGIN
-		INSERT INTO #Data (  ReportBy, CustId,
+		INSERT INTO #Data (    srecommend, bettype, CustId,
 							   BetCount, CurrencyId , 
 							   TotalBets, TotalBetsBase, 
 							   TotalWins, TotalWinsBase, 
 							   TotalRefund, TotalRefundBase,
 							   CompanyTurnover, CompanyTurnoverBase,  
 							   CompanyGrossIncome, CompanyGrossIncomeBase, 
-							   CompanyComm, CompanyCommBase							   
+							   CompanyComm, CompanyCommBase,
+							   ExtraWL, ExtraWLBase,
+							   ExtraComm, ExtraCommBase								   
 							   )
 	
-		SELECT  CONVERT(VARCHAR(20),b.WinlostDate,107) AS ReportBy,
+		SELECT  srecommend, b.bettype,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
 
 				SUM(CASE WHEN b.statusID IN (111, 112, 113) THEN b.betid ELSE 0 END) AS BetCount, b.Currency, 
@@ -551,7 +634,13 @@ SET NOCOUNT ON
 				- SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeBase,
 
 				- SUM(scomm) AS CompanyComm,
-				- SUM(scomm *actualrate) AS CompanyCommBase
+				- SUM(scomm *actualrate) AS CompanyCommBase,
+				
+				- SUM(ISNULL(b.transid2, 0) * 1.0 / 10000) ExtraWL,
+				- SUM((ISNULL(b.transid2, 0) * 1.0 / 10000) * actualrate) ExtraWLBase,
+				
+				- SUM(-b.oddsspread) ExtraComm,
+				- SUM((-b.oddsspread) * actualrate) ExtraCommBase
 		FROM  dbo.Bettrans b WITH (NOLOCK)
 		WHERE b.WinlostDate = @WLDate
 			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 33  AND RefTable = 0)
@@ -569,22 +658,25 @@ SET NOCOUNT ON
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) 
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
 				)
-		GROUP BY  b.WinlostDate,  b.Currency, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END
+		GROUP BY  b.Currency, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.bettype
+		OPTION(RECOMPILE)
 	END
 	
 	IF EXISTS (SELECT 1 FROM #tmpProductID WHERE ProductID = 3)  -- Number Game
 	BEGIN
-		INSERT INTO #Data ( ReportBy, CustID,   
+		INSERT INTO #Data ( srecommend, bettype, CustID,   
 						BetCount, CurrencyId , 
 						TotalBets, TotalBetsBase, 
 						TotalWins, TotalWinsBase, 
 						TotalRefund, TotalRefundBase,
 						CompanyTurnover, CompanyTurnoverBase,  
 						CompanyGrossIncome, CompanyGrossIncomeBase, 
-						CompanyComm, CompanyCommBase							   
+						CompanyComm, CompanyCommBase,
+						ExtraWL, ExtraWLBase,
+						ExtraComm, ExtraCommBase									   
 					   )
 	
-		SELECT  CONVERT(VARCHAR(20),b.WinlostDate,107) AS ReportBy,
+		SELECT  srecommend, b.bettype,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
 
 				COUNT(CASE WHEN StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount, b.Currency, 
@@ -605,7 +697,15 @@ SET NOCOUNT ON
 				- SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeBase,
 
 				- SUM(scomm) AS CompanyComm,
-				- SUM(scomm *actualrate) AS CompanyCommBase
+				- SUM(scomm *actualrate) AS CompanyCommBase,
+				
+				- SUM(winlost - actual_stake) ExtraWL,
+				- SUM((winlost - actual_stake) * actualrate) ExtraWLBase,
+				
+				- SUM(CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) ExtraComm,
+				- SUM((CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraCommBase
 		FROM  dbo.Bettrans b WITH (NOLOCK)
 		WHERE b.WinlostDate = @WLDate
 			AND b.bettype in (SELECT Bettype FROM #SportBettype WHERE ProductID = 3)
@@ -624,22 +724,25 @@ SET NOCOUNT ON
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue)
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
 				)
-		GROUP BY  b.WinlostDate,  b.Currency, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END
+		GROUP BY  b.Currency, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.bettype
+		OPTION(RECOMPILE)
 	END
 		
 	IF EXISTS (SELECT 1 FROM #tmpProductID WHERE ProductID = 4)  -- Live Casino
 	BEGIN
-		INSERT INTO #Data ( ReportBy, CustID,   
+		INSERT INTO #Data ( srecommend, bettype, CustID,   
 						BetCount, CurrencyId , 
 						TotalBets, TotalBetsBase, 
 						TotalWins, TotalWinsBase, 
 						TotalRefund, TotalRefundBase,
 						CompanyTurnover, CompanyTurnoverBase,  
 						CompanyGrossIncome, CompanyGrossIncomeBase, 
-						CompanyComm, CompanyCommBase							   
+						CompanyComm, CompanyCommBase,
+						ExtraWL, ExtraWLBase,
+						ExtraComm, ExtraCommBase									   
 					   )
 	
-		SELECT  CONVERT(VARCHAR(20),b.WinlostDate,107) AS ReportBy,
+		SELECT  srecommend, b.bettype,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
 
 				COUNT(CASE WHEN StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount, b.Currency, 
@@ -660,7 +763,15 @@ SET NOCOUNT ON
 				- SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeBase,
 
 				- SUM(scomm) AS CompanyComm,
-				- SUM(scomm *actualrate) AS CompanyCommBase
+				- SUM(scomm *actualrate) AS CompanyCommBase,
+				
+				- SUM(winlost - actual_stake) ExtraWL,
+				- SUM((winlost - actual_stake) * actualrate) ExtraWLBase,
+				
+				- SUM(CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) ExtraComm,
+				- SUM((CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraCommBase
 		FROM  dbo.Bettrans b WITH (NOLOCK)
 		WHERE b.WinlostDate = @WLDate
 			AND b.bettype in (SELECT Bettype FROM #SportBettype WHERE ProductID = 4)
@@ -680,22 +791,25 @@ SET NOCOUNT ON
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) 
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
 				)
-		GROUP BY  b.WinlostDate,  b.Currency, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END
+		GROUP BY b.Currency, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.bettype
+		OPTION(RECOMPILE)
 	END
 		
 	IF EXISTS (SELECT 1 FROM #tmpProductID WHERE ProductID = 5)  -- Virtual Sports
 	BEGIN
-		INSERT INTO #Data ( ReportBy, CustID,   
+		INSERT INTO #Data ( srecommend, bettype, CustID,   
 						BetCount, CurrencyId , 
 						TotalBets, TotalBetsBase, 
 						TotalWins, TotalWinsBase, 
 						TotalRefund, TotalRefundBase,
 						CompanyTurnover, CompanyTurnoverBase,  
 						CompanyGrossIncome, CompanyGrossIncomeBase, 
-						CompanyComm, CompanyCommBase							   
+						CompanyComm, CompanyCommBase,
+						ExtraWL, ExtraWLBase,
+						ExtraComm, ExtraCommBase									   
 					   )
 	
-		SELECT  CONVERT(VARCHAR(20),b.WinlostDate,107) AS ReportBy,
+		SELECT  srecommend, b.bettype,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
 
 				COUNT(CASE WHEN StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount, b.Currency, 
@@ -716,7 +830,15 @@ SET NOCOUNT ON
 				- SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeBase,
 
 				- SUM(scomm) AS CompanyComm,
-				- SUM(scomm *actualrate) AS CompanyCommBase
+				- SUM(scomm *actualrate) AS CompanyCommBase,
+				
+				- SUM(winlost - actual_stake) ExtraWL,
+				- SUM((winlost - actual_stake) * actualrate) ExtraWLBase,
+				
+				- SUM(CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) ExtraComm,
+				- SUM((CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraCommBase
 		FROM  dbo.Bettrans b WITH (NOLOCK)
 		WHERE b.WinlostDate = @WLDate
 			AND b.bettype in (SELECT Bettype FROM #SportBettype WHERE ProductID = 5)
@@ -736,20 +858,23 @@ SET NOCOUNT ON
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) 
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
 				)
-		GROUP BY  b.WinlostDate,  b.Currency, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END
+		GROUP BY  b.Currency, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.bettype
+		OPTION(RECOMPILE)
 
 	----3.  VirtualSport (HR) 
-		INSERT INTO #Data ( ReportBy, CustID,   
+		INSERT INTO #Data ( srecommend, bettype, CustID,   
 						BetCount, CurrencyId , 
 						TotalBets, TotalBetsBase, 
 						TotalWins, TotalWinsBase, 
 						TotalRefund, TotalRefundBase,
 						CompanyTurnover, CompanyTurnoverBase,  
 						CompanyGrossIncome, CompanyGrossIncomeBase, 
-						CompanyComm, CompanyCommBase							   
+						CompanyComm, CompanyCommBase,
+						ExtraWL, ExtraWLBase,
+						ExtraComm, ExtraCommBase									   
 					   )
 	
-		SELECT  CONVERT(VARCHAR(20),b.WinlostDate,107) AS ReportBy,
+		SELECT  srecommend, b.bettype,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
 
 				COUNT(CASE WHEN StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount, b.Currency, 
@@ -770,7 +895,15 @@ SET NOCOUNT ON
 				- SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeBase,
 
 				- SUM(scomm) AS CompanyComm,
-				- SUM(scomm *actualrate) AS CompanyCommBase
+				- SUM(scomm *actualrate) AS CompanyCommBase,
+				
+				- SUM(winlost - actual_stake) ExtraWL,
+				- SUM((winlost - actual_stake) * actualrate) ExtraWLBase,
+				
+				- SUM(CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) ExtraComm,
+				- SUM((CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraCommBase
 		FROM  dbo.Bettrans b WITH (NOLOCK)
 
 		WHERE b.WinlostDate = @WLDate
@@ -793,23 +926,26 @@ SET NOCOUNT ON
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) 
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
 				)
-		GROUP BY  b.WinlostDate,  b.Currency, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END
+		GROUP BY b.Currency, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.bettype
+		OPTION(RECOMPILE)
 	END
 		
 	CREATE TABLE #tmp_bettransm (refno BIGINT)
 	IF EXISTS (SELECT 1 FROM #tmpProductID WHERE ProductID = 27)  -- Virtual Sports 2
 	BEGIN
-		INSERT INTO #Data ( ReportBy, CustID,   
+		INSERT INTO #Data (srecommend, bettype, CustID,   
 						BetCount, CurrencyId , 
 						TotalBets, TotalBetsBase, 
 						TotalWins, TotalWinsBase, 
 						TotalRefund, TotalRefundBase,
 						CompanyTurnover, CompanyTurnoverBase,  
 						CompanyGrossIncome, CompanyGrossIncomeBase, 
-						CompanyComm, CompanyCommBase							   
+						CompanyComm, CompanyCommBase,
+						ExtraWL, ExtraWLBase,
+						ExtraComm, ExtraCommBase									   
 					   )
 	
-		SELECT  CONVERT(VARCHAR(20),b.WinlostDate,107) AS ReportBy,
+		SELECT  srecommend, b.bettype,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
 
 				COUNT(CASE WHEN StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount, b.Currency, 
@@ -830,7 +966,15 @@ SET NOCOUNT ON
 				- SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeBase,
 
 				- SUM(scomm) AS CompanyComm,
-				- SUM(scomm *actualrate) AS CompanyCommBase
+				- SUM(scomm *actualrate) AS CompanyCommBase,
+				
+				- SUM(winlost - actual_stake) ExtraWL,
+				- SUM((winlost - actual_stake) * actualrate) ExtraWLBase,
+				
+				- SUM(CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) ExtraComm,
+				- SUM((CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraCommBase
 		FROM  dbo.Bettrans b WITH (NOLOCK)
 		WHERE b.WinlostDate = @WLDate
 			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 27 AND EventType = 1)
@@ -850,24 +994,27 @@ SET NOCOUNT ON
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue)
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue)
 				)
-		GROUP BY  b.WinlostDate,  b.Currency, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END
+		GROUP BY b.Currency, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.bettype
+		OPTION(RECOMPILE)
 		
 		INSERT INTO #tmp_bettransm (refno)
 		SELECT DISTINCT bm.refno FROM dbo.bettransm bm WITH(NOLOCK)
 					INNER JOIN dbo.match m WITH(NOLOCK) ON bm.matchid = m.matchid 
 					INNER JOIN #tmpSporttype st ON m.sporttype = st.Sporttype
 					
-		INSERT INTO #Data ( ReportBy, CustID,   
+		INSERT INTO #Data ( srecommend, bettype, CustID,   
 						BetCount, CurrencyId , 
 						TotalBets, TotalBetsBase, 
 						TotalWins, TotalWinsBase, 
 						TotalRefund, TotalRefundBase,
 						CompanyTurnover, CompanyTurnoverBase,  
 						CompanyGrossIncome, CompanyGrossIncomeBase, 
-						CompanyComm, CompanyCommBase							   
+						CompanyComm, CompanyCommBase,
+						ExtraWL, ExtraWLBase,
+						ExtraComm, ExtraCommBase									   
 					   )
 	
-		SELECT  CONVERT(VARCHAR(20),b.WinlostDate,107) AS ReportBy,
+		SELECT  srecommend, b.bettype,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
 
 				COUNT(CASE WHEN StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount, b.Currency, 
@@ -888,7 +1035,15 @@ SET NOCOUNT ON
 				- SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeBase,
 
 				- SUM(scomm) AS CompanyComm,
-				- SUM(scomm *actualrate) AS CompanyCommBase
+				- SUM(scomm *actualrate) AS CompanyCommBase,
+				
+				- SUM(winlost - actual_stake) ExtraWL,
+				- SUM((winlost - actual_stake) * actualrate) ExtraWLBase,
+				
+				- SUM(CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) ExtraComm,
+				- SUM((CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraCommBase
 		FROM  dbo.Bettrans b WITH (NOLOCK)
 		WHERE b.WinlostDate = @WLDate
 			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 27 AND EventType = 0)
@@ -907,7 +1062,8 @@ SET NOCOUNT ON
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue)
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue)
 				)
-		GROUP BY  b.WinlostDate,  b.Currency, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END
+		GROUP BY  b.Currency, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.bettype
+		OPTION(RECOMPILE)
 	END
 
 ---Get CurrencyName
@@ -922,11 +1078,11 @@ SET NOCOUNT ON
 
 	IF @Currency = -1  ----BASE RM 
 	BEGIN 		
-		INSERT INTO #Result (ReportBy, NoOfPlayers, BetCount, CurrencyId, Currency, 
+		INSERT INTO #Result (NoOfPlayers, BetCount, CurrencyId, Currency, 
 							TotalBets, TotalWins, TotalRefund, CompanyTurnover, CompanyGrossIncome, CompanyComm,
-							TotalBetsBase, TotalWinsBase, TotalRefundBase, CompanyTurnoverBase, CompanyGrossIncomeBase, CompanyCommBase)
-		SELECT  ReportBy, 
-				COUNT(DISTINCT CustID) AS NoOfPlayers, 
+							TotalBetsBase, TotalWinsBase, TotalRefundBase, CompanyTurnoverBase, 
+							CompanyGrossIncomeBase, CompanyCommBase, ExtraPT, ExtraPTBase )
+		SELECT  COUNT(DISTINCT CustID) AS NoOfPlayers, 
 				SUM(BetCount) AS BetCount ,
 				-1 as CurrencyId, 'RM' AS Currency,
 				SUM (TotalBetsBase) AS TotalBets, 
@@ -940,9 +1096,15 @@ SET NOCOUNT ON
 				SUM (TotalRefundBase) AS TotalRefundBase,
 				SUM (CompanyTurnoverBase) AS CompanyTurnoverBase,
 				SUM (CompanyGrossIncomeBase) AS CompanyGrossIncomeBase,
-				SUM (CompanyCommBase) AS CompanyCommBase
-		FROM	#Data
-		GROUP BY ReportBy 
+				SUM (CompanyCommBase) AS CompanyCommBase,
+				SUM(CASE WHEN s.ProductID = 33 AND s.RefTable = 0 THEN b.ExtraWLBase * CAST(ISNULL(e.ExtraPT,0) AS [decimal](10, 8)) + b.ExtraCommBase * CAST(ISNULL(c.ExtraComm,0) AS [decimal](10, 8))
+							ELSE (b.ExtraWLBase + b.ExtraCommBase) * CAST(ISNULL(e.ExtraPT,0) AS [decimal](10, 8)) END) ExtraPT,
+					SUM(CASE WHEN s.ProductID = 33 AND s.RefTable = 0 THEN b.ExtraWLBase * CAST(ISNULL(e.ExtraPT,0) AS [decimal](10, 8)) + b.ExtraCommBase * CAST(ISNULL(c.ExtraComm,0) AS [decimal](10, 8))
+							ELSE (b.ExtraWLBase + b.ExtraCommBase) * CAST(ISNULL(e.ExtraPT,0) AS [decimal](10, 8)) END) ExtraPTBase
+		FROM	#Data b
+				INNER JOIN #SportBettype s ON b.bettype = s.Bettype 
+				LEFT JOIN #ExtraPT e ON b.srecommend = e.SuperID AND s.ProductID = e.ProductID 
+				LEFT JOIN #ExtraComm c ON b.srecommend = c.SuperID AND s.ProductID = c.ProductID
 		HAVING (@TotalBetType = 0
 				OR (@TotalBetType = 1 AND SUM(TotalBetsBase) >= @TotalBetValue) 
 				OR (@TotalBetType = -1 AND SUM(TotalBetsBase) <= @TotalBetValue)
@@ -954,16 +1116,16 @@ SET NOCOUNT ON
 	END 		
 	ELSE 
 	BEGIN 
-		INSERT INTO #Result (  ReportBy, NoOfPlayers,
+		INSERT INTO #Result (   NoOfPlayers,
 								BetCount, CurrencyId , Currency,
 								TotalBets, TotalBetsBase, 
 								TotalWins, TotalWinsBase, 
 								TotalRefund, TotalRefundBase,
 								CompanyTurnover, CompanyTurnoverBase,  
 								CompanyGrossIncome, CompanyGrossIncomeBase, 
-								CompanyComm, CompanyCommBase	)
-		SELECT   ReportBy, 
-					COUNT(DISTINCT custid) AS NoOfPlayers,
+								CompanyComm, CompanyCommBase,
+								ExtraPT, ExtraPTBase	)
+		SELECT   	COUNT(DISTINCT custid) AS NoOfPlayers,
 					SUM(BetCount) AS BetCount, 
 					CurrencyId, Currency,
 					SUM(TotalBets) AS TotalBets, 
@@ -977,9 +1139,16 @@ SET NOCOUNT ON
 					SUM(CompanyGrossIncome) AS CompanyGrossIncome, 
 					SUM(CompanyGrossIncomeBase) AS CompanyGrossIncomeBase, 
 					SUM(CompanyComm) AS CompanyComm, 
-					SUM(CompanyCommBase) AS CompanyCommBase
-		FROM	#Data
-		GROUP BY ReportBy, CurrencyId, Currency
+					SUM(CompanyCommBase) AS CompanyCommBase,
+					SUM(CASE WHEN s.ProductID = 33 AND s.RefTable = 0 THEN b.ExtraWL * CAST(ISNULL(e.ExtraPT,0) AS [decimal](10, 8)) + b.ExtraComm * CAST(ISNULL(c.ExtraComm,0) AS [decimal](10, 8))
+							ELSE (b.ExtraWL + b.ExtraComm) * CAST(ISNULL(e.ExtraPT,0) AS [decimal](10, 8)) END) ExtraPT,
+					SUM(CASE WHEN s.ProductID = 33 AND s.RefTable = 0 THEN b.ExtraWLBase * CAST(ISNULL(e.ExtraPT,0) AS [decimal](10, 8)) + b.ExtraCommBase * CAST(ISNULL(c.ExtraComm,0) AS [decimal](10, 8))
+							ELSE (b.ExtraWLBase + b.ExtraCommBase) * CAST(ISNULL(e.ExtraPT,0) AS [decimal](10, 8)) END) ExtraPTBase
+		FROM	#Data b
+				INNER JOIN #SportBettype s ON b.bettype = s.Bettype 
+				LEFT JOIN #ExtraPT e ON b.srecommend = e.SuperID AND s.ProductID = e.ProductID 
+				LEFT JOIN #ExtraComm c ON b.srecommend = c.SuperID AND s.ProductID = c.ProductID 
+		GROUP BY CurrencyId, Currency
 		HAVING (@TotalBetType = 0
 				OR (@TotalBetType = 1 AND SUM(TotalBets) >= @TotalBetValue) 
 				OR (@TotalBetType = -1 AND SUM(TotalBets) <= @TotalBetValue)
@@ -995,18 +1164,20 @@ SET NOCOUNT ON
 	BEGIN
 		IF @IsDrillDown = 0
 		BEGIN
-			SELECT  ReportBy, NoOfPlayers, BetCount, CurrencyId, Currency, 
+			SELECT CONVERT(VARCHAR(20), @WLDate, 107) AS  ReportBy, 
+				NoOfPlayers, BetCount, CurrencyId, Currency, 
 				TotalBets, TotalWins, TotalRefund, 
 				CompanyTurnover AS HouseTurnover, 
 				CompanyGrossIncome AS HouseGrossIncome, 
-				CompanyComm AS HouseComm
+				CompanyComm AS HouseComm,
+				ExtraPT 
 			FROM    #Result 
-			ORDER BY ReportBy, Currency
+			ORDER BY Currency
 		END
 		ELSE
 		BEGIN
 			SELECT 
-				b.ReportBy AS ReportBy,
+				CONVERT(VARCHAR(20), @WLDate, 107) AS ReportBy,
 				COUNT(DISTINCT b.CustID) AS NoOfPlayers,
 				SUM(b.BetCount) AS BetCount,
 				b.CurrencyID,
@@ -1016,11 +1187,17 @@ SET NOCOUNT ON
 				CASE WHEN @Currency = -1 THEN SUM(b.TotalRefundBase) ELSE SUM(b.TotalRefund) END AS TotalRefund,
 				CASE WHEN @Currency = -1 THEN SUM(b.CompanyTurnOverBase) ELSE SUM(b.CompanyTurnOver) END AS HouseTurnOver,
 				CASE WHEN @Currency = -1 THEN SUM(b.CompanyGrossIncomeBase) ELSE SUM(b.CompanyGrossIncome) END AS HouseGrossIncome,
-				CASE WHEN @Currency = -1 THEN SUM(b.CompanyCommBase) ELSE SUM(b.CompanyComm) END AS HouseComm
-		
+				CASE WHEN @Currency = -1 THEN SUM(b.CompanyCommBase) ELSE SUM(b.CompanyComm) END AS HouseComm,
+				CASE WHEN @Currency = -1 THEN SUM(CASE WHEN s.ProductID = 33 AND s.RefTable = 0 THEN b.ExtraWLBase * CAST(ISNULL(e.ExtraPT,0) AS [decimal](10, 8)) + b.ExtraCommBase * CAST(ISNULL(c.ExtraComm,0) AS [decimal](10, 8))
+														ELSE (b.ExtraWLBase + b.ExtraCommBase) * CAST(ISNULL(e.ExtraPT,0) AS [decimal](10, 8)) END) 
+					ELSE SUM(CASE WHEN s.ProductID = 33 AND s.RefTable = 0 THEN b.ExtraWL * CAST(ISNULL(e.ExtraPT,0) AS [decimal](10, 8)) + b.ExtraComm * CAST(ISNULL(c.ExtraComm,0) AS [decimal](10, 8))
+							ELSE (b.ExtraWL + b.ExtraComm) * CAST(ISNULL(e.ExtraPT,0) AS [decimal](10, 8)) END) END AS ExtraPT
 			FROM #Data b	
-				INNER JOIN #Result r ON (@Currency = -1 OR b.CurrencyID = r.CurrencyID) AND b.ReportBy = r.ReportBy	
-			GROUP BY b.ReportBy, b.CurrencyID , b.Currency	
+				INNER JOIN #Result r ON (@Currency = -1 OR b.CurrencyID = r.CurrencyID)
+				INNER JOIN #SportBettype s ON b.bettype = s.Bettype 
+				LEFT JOIN #ExtraPT e ON b.srecommend = e.SuperID AND s.ProductID = e.ProductID 
+				LEFT JOIN #ExtraComm c ON b.srecommend = c.SuperID AND s.ProductID = c.ProductID 	
+			GROUP BY b.CurrencyID , b.Currency	
 			ORDER BY b.Currency
 		END
 	END
@@ -1037,10 +1214,16 @@ SET NOCOUNT ON
 				CASE WHEN @Currency = -1 THEN SUM(b.TotalRefundBase) ELSE SUM(b.TotalRefund) END AS TotalRefund,
 				CASE WHEN @Currency = -1 THEN SUM(b.CompanyTurnOverBase) ELSE SUM(b.CompanyTurnOver) END AS HouseTurnOver,
 				CASE WHEN @Currency = -1 THEN SUM(b.CompanyGrossIncomeBase) ELSE SUM(b.CompanyGrossIncome) END AS HouseGrossIncome,
-				CASE WHEN @Currency = -1 THEN SUM(b.CompanyCommBase) ELSE SUM(b.CompanyComm) END AS HouseComm
-		
+				CASE WHEN @Currency = -1 THEN SUM(b.CompanyCommBase) ELSE SUM(b.CompanyComm) END AS HouseComm,
+				CASE WHEN @Currency = -1 THEN SUM(CASE WHEN s.ProductID = 33 AND s.RefTable = 0 THEN b.ExtraWLBase * CAST(ISNULL(e.ExtraPT,0) AS [decimal](10, 8)) + b.ExtraCommBase * CAST(ISNULL(c.ExtraComm,0) AS [decimal](10, 8))
+														ELSE (b.ExtraWLBase + b.ExtraCommBase) * CAST(ISNULL(e.ExtraPT,0) AS [decimal](10, 8)) END) 
+					ELSE SUM(CASE WHEN s.ProductID = 33 AND s.RefTable = 0 THEN b.ExtraWL * CAST(ISNULL(e.ExtraPT,0) AS [decimal](10, 8)) + b.ExtraComm * CAST(ISNULL(c.ExtraComm,0) AS [decimal](10, 8))
+							ELSE (b.ExtraWL + b.ExtraComm) * CAST(ISNULL(e.ExtraPT,0) AS [decimal](10, 8)) END) END AS ExtraPT
 		FROM #Data b	
-			INNER JOIN #Result r ON (@Currency = -1 OR b.CurrencyID = r.CurrencyID) AND b.ReportBy = r.ReportBy	
+			INNER JOIN #Result r ON (@Currency = -1 OR b.CurrencyID = r.CurrencyID) 
+			INNER JOIN #SportBettype s ON b.bettype = s.Bettype 
+			LEFT JOIN #ExtraPT e ON b.srecommend = e.SuperID AND s.ProductID = e.ProductID 
+			LEFT JOIN #ExtraComm c ON b.srecommend = c.SuperID AND s.ProductID = c.ProductID 	
 		GROUP BY b.CurrencyID , b.Currency	
 		ORDER BY b.Currency
 	END
@@ -1055,9 +1238,14 @@ SET NOCOUNT ON
 			SUM (b.TotalRefundBase) AS TotalRefund,
 			SUM (b.CompanyTurnoverBase) AS HouseTurnover,
 			SUM (b.CompanyGrossIncomeBase) AS HouseGrossIncome,
-			SUM (b.CompanyCommBase) AS HouseComm
+			SUM (b.CompanyCommBase) AS HouseComm,
+			SUM(CASE WHEN s.ProductID = 33 AND s.RefTable = 0 THEN b.ExtraWLBase * CAST(ISNULL(e.ExtraPT,0) AS [decimal](10, 8)) + b.ExtraCommBase * CAST(ISNULL(c.ExtraComm,0) AS [decimal](10, 8))
+					ELSE (b.ExtraWLBase + b.ExtraCommBase) * CAST(ISNULL(e.ExtraPT,0) AS [decimal](10, 8)) END) ExtraPT
 	FROM #Data b	
-			INNER JOIN #Result r ON (@Currency = -1 OR b.CurrencyID = r.CurrencyID) AND b.ReportBy = r.ReportBy	
+			INNER JOIN #Result r ON (@Currency = -1 OR b.CurrencyID = r.CurrencyID) 
+			INNER JOIN #SportBettype s ON b.bettype = s.Bettype 
+			LEFT JOIN #ExtraPT e ON b.srecommend = e.SuperID AND s.ProductID = e.ProductID 
+			LEFT JOIN #ExtraComm c ON b.srecommend = c.SuperID AND s.ProductID = c.ProductID 	
 	
 	DROP TABLE #Data
 	DROP TABLE #Result
@@ -1074,5 +1262,7 @@ SET NOCOUNT ON
 	DROP TABLE #tmp_bettransm 
 	DROP TABLE #DepositSuper  
 	DROP TABLE #Device
+	DROP TABLE #ExtraPT
+	DROP TABLE #ExtraComm
 
 END  

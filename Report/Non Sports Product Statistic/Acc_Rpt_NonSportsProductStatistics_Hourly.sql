@@ -45,6 +45,7 @@ AS
 		20181108@Cherry: Improve performance (#101547)
 		20190314@Cherry: Integrate Video Poker Games (#108735)
 		20190322@Cherry: Add betfrom b,f (#110653)
+		20190510@Cherry: Appy ExtraPT (#111676)
 
 	Param's Explanation:
 			 - @username:  + Search by keyword, member only
@@ -108,7 +109,8 @@ SET NOCOUNT ON
 					NULL AS TotalRefund,
 					NULL AS CompanyTurnover,
 					NULL AS CompanyGrossIncome,
-					NULL AS CompanyComm
+					NULL AS CompanyComm,
+					NULL AS ExtraPT
 			) A
 		
 			-- Grand Total
@@ -124,7 +126,8 @@ SET NOCOUNT ON
 				NULL AS TotalRefund,
 				NULL AS CompanyTurnover,
 				NULL AS CompanyGrossIncome,
-				NULL AS CompanyComm
+				NULL AS CompanyComm,
+				NULL AS ExtraPT
 
 			RETURN
 		END
@@ -134,27 +137,32 @@ SET NOCOUNT ON
 	SELECT @WLDate = CAST(@WinlostDate AS SMALLDATETIME)
 
 	CREATE TABLE #Data (   [Hour] tinyint,  
+						   srecommend INT, 
+						   bettype INT,
 						   CustId INT,
 						   BetCount INT,
-						   TotalBetsRM MONEY,
-						   TotalWinsRM MONEY, 
-						   TotalRefundRM MONEY,
-						   CompanyTurnoverRM MONEY, 
-						   CompanyGrossIncomeRM MONEY, 
-						   CompanyCommRM MONEY
+						   TotalBetsRM DECIMAL(19,4),
+						   TotalWinsRM DECIMAL(19,4), 
+						   TotalRefundRM DECIMAL(19,4),
+						   CompanyTurnoverRM DECIMAL(19,4), 
+						   CompanyGrossIncomeRM DECIMAL(19,4), 
+						   CompanyCommRM DECIMAL(19,4),
+						   ExtraWL DECIMAL(19,8),
+						   ExtraComm DECIMAL(19,8)
 						   )
 						   
 	CREATE TABLE #Result ( [Hour] tinyint,  
 						   NoOfPlayers INT, 
 						   BetCount INT, 
 						   Currency VARCHAR(50),
-						   TotalBets MONEY, 
-						   TotalWins MONEY, 
-						   GamePayout MONEY,
-						   TotalRefund MONEY, 
-						   CompanyTurnover MONEY, 
-						   CompanyGrossIncome MONEY, 
-						   CompanyComm MONEY
+						   TotalBets DECIMAL(19,4), 
+						   TotalWins DECIMAL(19,4), 
+						   GamePayout DECIMAL(19,4),
+						   TotalRefund DECIMAL(19,4), 
+						   CompanyTurnover DECIMAL(19,4), 
+						   CompanyGrossIncome DECIMAL(19,4), 
+						   CompanyComm DECIMAL(19,4),
+						   ExtraPT DECIMAL(19,8)
 						   )
 	
 	CREATE TABLE #Temp_MemIDs (
@@ -365,10 +373,42 @@ SET NOCOUNT ON
 					
 	END	 
 
+	CREATE TABLE #ExtraPT (ProductID INT, SuperID INT, ExtraPT DECIMAL(9, 8))
+	CREATE TABLE #ExtraComm (ProductID INT, SuperID INT, ExtraComm DECIMAL(9, 8))
+	
+	INSERT INTO #ExtraPT
+               ( ProductID,
+                 SuperID,
+                 ExtraPT
+               )
+               SELECT ProductID,
+                      SuperId,
+                      SUM(ExtraPT) AS ExtraPT
+               FROM bodb02.dbo.Acc_GroupExtraPTSetting a WITH ( NOLOCK )
+               WHERE @WLDate BETWEEN FromDate AND Todate
+					AND a.ProductId IN (SELECT ProductID FROM #tmpProductID)
+               GROUP BY ProductID,
+                        SuperId
+                        
+	INSERT INTO #ExtraComm
+               ( ProductID,
+                 SuperID,
+                 ExtraComm
+               )
+               SELECT ProductID,
+                      SuperId,
+                      SUM(ExtraCommRate) AS ExtraComm
+               FROM bodb02.dbo.Acc_GroupExtraCommRateSetting a WITH ( NOLOCK )
+               WHERE @WLDate BETWEEN FromDate AND Todate
+					AND a.ProductId IN (SELECT ProductID FROM #tmpProductID)
+               GROUP BY ProductID,
+                        SuperId                    
  
 	---------------------------------------------- 
 	---1. By bettype for normal Product
 		INSERT INTO #Data ( [Hour] ,  
+						   srecommend, 
+						   bettype,
 						   CustId ,
 						   BetCount ,
 						   TotalBetsRM ,
@@ -376,11 +416,13 @@ SET NOCOUNT ON
 						   TotalRefundRM ,
 						   CompanyTurnoverRM , 
 						   CompanyGrossIncomeRM , 
-						   CompanyCommRM 					   
+						   CompanyCommRM,
+						   ExtraWL,
+						   ExtraComm 					   
 							   )
 	
 		SELECT  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 THEN 0
-					ELSE  DATEPART(HOUR, b.transdate) END AS [Hour],					
+					ELSE  DATEPART(HOUR, b.transdate) END AS [Hour], srecommend, b.bettype,					
 				
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
 
@@ -396,7 +438,12 @@ SET NOCOUNT ON
 								
 				- SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeRM,
 
-				- SUM(scomm *actualrate) AS CompanyCommRM
+				- SUM(scomm *actualrate) AS CompanyCommRM,
+				
+				- SUM((winlost - actual_stake) * actualrate) ExtraWL,
+				
+				- SUM((CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraComm
 				
 		FROM  dbo.Bettrans b WITH (NOLOCK)
 		WHERE b.WinlostDate = @WLDate
@@ -418,11 +465,14 @@ SET NOCOUNT ON
 			)
 		GROUP BY  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 THEN 0
 					ELSE  DATEPART(HOUR, b.transdate) END, 
-				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END
-		 
+				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.bettype
+				
+		OPTION(RECOMPILE)		 
 
 		---1b. By bettype for Casino Product
-		INSERT INTO #Data (  [Hour] ,  
+		INSERT INTO #Data (  [Hour] , 
+						   srecommend, 
+						   bettype, 
 						   CustId ,
 						   BetCount ,
 						   TotalBetsRM ,
@@ -430,11 +480,13 @@ SET NOCOUNT ON
 						   TotalRefundRM ,
 						   CompanyTurnoverRM , 
 						   CompanyGrossIncomeRM , 
-						   CompanyCommRM 								   
+						   CompanyCommRM,
+						   ExtraWL,
+						   ExtraComm								   
 							)
 	
 		SELECT  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 THEN 0
-					ELSE  DATEPART(HOUR, b.transdate) END AS [Hour], 
+					ELSE  DATEPART(HOUR, b.transdate) END AS [Hour], srecommend, b.gameID,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
 
 				COUNT(CASE WHEN StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount, 
@@ -449,7 +501,12 @@ SET NOCOUNT ON
 								
 				- SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeRM,
 
-				- SUM(scomm *actualrate) AS CompanyCommRM
+				- SUM(scomm *actualrate) AS CompanyCommRM,
+				
+				- SUM((winlost - actual_stake) * actualrate) ExtraWL,
+				
+				- SUM((CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraComm
 				
 		FROM  dbo.BettransRNG b WITH (NOLOCK)
 		
@@ -471,9 +528,11 @@ SET NOCOUNT ON
 			)
 		GROUP BY  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 THEN 0
 					ELSE  DATEPART(HOUR, b.transdate) END, 
-				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END
+				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.gameID
 
-	    INSERT INTO #Data (  [Hour] ,  
+	    INSERT INTO #Data (  [Hour] ,
+						   srecommend, 
+						   bettype,  
 						   CustId ,
 						   BetCount ,
 						   TotalBetsRM ,
@@ -481,11 +540,13 @@ SET NOCOUNT ON
 						   TotalRefundRM ,
 						   CompanyTurnoverRM , 
 						   CompanyGrossIncomeRM , 
-						   CompanyCommRM 								   
+						   CompanyCommRM,
+						   ExtraWL,
+						   ExtraComm 								   
 							)
 	
 		SELECT  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 THEN 0
-					ELSE  DATEPART(HOUR, b.transdate) END AS [Hour], 
+					ELSE  DATEPART(HOUR, b.transdate) END AS [Hour], srecommend, b.gameID,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
 
 				0 AS BetCount, 
@@ -500,7 +561,12 @@ SET NOCOUNT ON
 								
 				- SUM((b.ContributionRate * b.BetStake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeRM,
 
-				- SUM(scomm *actualrate) AS CompanyCommRM
+				- SUM(scomm *actualrate) AS CompanyCommRM,
+				
+				- SUM((winlost - actual_stake) * actualrate) ExtraWL,
+				
+				- SUM((CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraComm
 				
 		FROM  dbo.BettransRNG b WITH (NOLOCK)
 		WHERE b.WinlostDate = @WLDate
@@ -521,10 +587,12 @@ SET NOCOUNT ON
 			)
 		GROUP BY  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 THEN 0
 					ELSE  DATEPART(HOUR, b.transdate) END, 
-				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END
+				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.gameID
 
 		---1b. By bettype for Casino Product
 		INSERT INTO #Data (  [Hour] ,  
+						   srecommend, 
+						   bettype,
 						   CustId ,
 						   BetCount ,
 						   TotalBetsRM ,
@@ -532,11 +600,13 @@ SET NOCOUNT ON
 						   TotalRefundRM ,
 						   CompanyTurnoverRM , 
 						   CompanyGrossIncomeRM , 
-						   CompanyCommRM 						   
+						   CompanyCommRM,
+						   ExtraWL,
+						   ExtraComm 						   
 							)
 	
 		SELECT   CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 THEN 0
-					ELSE  DATEPART(HOUR, b.transdate) END AS [Hour], 
+					ELSE  DATEPART(HOUR, b.transdate) END AS [Hour], srecommend, b.gameID,
 					
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
 
@@ -552,7 +622,12 @@ SET NOCOUNT ON
 								
 				- SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeRM,
 
-				- SUM(scomm *actualrate) AS CompanyCommRM
+				- SUM(scomm *actualrate) AS CompanyCommRM,
+				
+				- SUM((winlost - actual_stake) * actualrate) ExtraWL,
+				
+				- SUM((CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraComm
 				
 		FROM  dbo.BettransLC b WITH (NOLOCK)
 		WHERE b.WinlostDate = @WLDate
@@ -573,10 +648,12 @@ SET NOCOUNT ON
 			)
 		GROUP BY   CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 THEN 0
 					ELSE  DATEPART(HOUR, b.transdate) END, 
-					CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END
+					CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.gameID
 
 	---- Lucky 3 
 		INSERT INTO #Data (  [Hour] ,  
+						   srecommend, 
+						   bettype,
 						   CustId ,
 						   BetCount ,
 						   TotalBetsRM ,
@@ -584,13 +661,15 @@ SET NOCOUNT ON
 						   TotalRefundRM ,
 						   CompanyTurnoverRM , 
 						   CompanyGrossIncomeRM , 
-						   CompanyCommRM 							   
+						   CompanyCommRM,
+						   ExtraWL,
+						   ExtraComm 							   
 					   )
 	
 		SELECT  CASE WHEN DATEDIFF(dd, m.kickofftime, b.winlostdate) = 1 and DATEPART(HOUR, m.kickofftime) = 23 
 						THEN 0 --kickoff at 23PM and settled on the next day then convert to 0 AM 
 					ELSE  DATEPART(HOUR, m.kickofftime) 
-				END AS [Hour],	
+				END AS [Hour],	srecommend, b.bettype,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
 
 				COUNT(CASE WHEN StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount, 
@@ -605,7 +684,12 @@ SET NOCOUNT ON
 								
 				- SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeRM,
 
-				- SUM(scomm *actualrate) AS CompanyCommRM
+				- SUM(scomm *actualrate) AS CompanyCommRM,
+				
+				- SUM((winlost - actual_stake) * actualrate) ExtraWL,
+				
+				- SUM((CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraComm
 				
 		FROM  dbo.Bettrans b WITH (NOLOCK)
 			INNER JOIN dbo.match m WITH (NOLOCK) ON b.matchid = m.matchid
@@ -629,10 +713,13 @@ SET NOCOUNT ON
 		GROUP BY CASE WHEN DATEDIFF(dd, m.kickofftime, b.winlostdate) = 1 and DATEPART(HOUR, m.kickofftime) = 23 
 						THEN 0 --kickoff at 23PM and settled on the next day then convert to 0 AM 
 					ELSE  DATEPART(HOUR, m.kickofftime)  END,
-				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END
+				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.bettype
+		OPTION(RECOMPILE)
 				
 	---- NumberGame 
 		INSERT INTO #Data (  [Hour] ,  
+						   srecommend, 
+						   bettype,
 						   CustId ,
 						   BetCount ,
 						   TotalBetsRM ,
@@ -640,13 +727,15 @@ SET NOCOUNT ON
 						   TotalRefundRM ,
 						   CompanyTurnoverRM , 
 						   CompanyGrossIncomeRM , 
-						   CompanyCommRM 							   
+						   CompanyCommRM,
+						   ExtraWL,
+						   ExtraComm 							   
 					   )
 	
 		SELECT  CASE WHEN DATEDIFF(dd, m.kickofftime, b.winlostdate) = 1 and DATEPART(HOUR, m.kickofftime) = 23 
 						THEN 0 --kickoff at 23PM and settled on the next day then convert to 0 AM 
 					ELSE  DATEPART(HOUR, m.kickofftime) 
-				END AS [Hour],	
+				END AS [Hour],	srecommend, b.bettype,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
 
 				COUNT(CASE WHEN StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount, 
@@ -661,7 +750,12 @@ SET NOCOUNT ON
 								
 				- SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeRM,
 
-				- SUM(scomm *actualrate) AS CompanyCommRM
+				- SUM(scomm *actualrate) AS CompanyCommRM,
+				
+				- SUM((winlost - actual_stake) * actualrate) ExtraWL,
+				
+				- SUM((CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraComm
 				
 		FROM  dbo.Bettrans b WITH (NOLOCK)	
 			INNER JOIN dbo.match m WITH (NOLOCK) ON b.matchid = m.matchid		
@@ -686,10 +780,13 @@ SET NOCOUNT ON
 		GROUP BY CASE WHEN DATEDIFF(dd, m.kickofftime, b.winlostdate) = 1 and DATEPART(HOUR, m.kickofftime) = 23 
 						THEN 0 --kickoff at 23PM and settled on the next day then convert to 0 AM 
 					ELSE  DATEPART(HOUR, m.kickofftime) END,
-				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END
+				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.bettype
+		OPTION(RECOMPILE)
 				
 	---- Live Casino 
 		INSERT INTO #Data (  [Hour] ,  
+						   srecommend, 
+						   bettype,
 						   CustId ,
 						   BetCount ,
 						   TotalBetsRM ,
@@ -697,13 +794,15 @@ SET NOCOUNT ON
 						   TotalRefundRM ,
 						   CompanyTurnoverRM , 
 						   CompanyGrossIncomeRM , 
-						   CompanyCommRM 							   
+						   CompanyCommRM,
+						   ExtraWL,
+						   ExtraComm							   
 					   )
 	
 		SELECT  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 
 						THEN 0 --bet at 23PM then convert to 0 AM 
 					ELSE  DATEPART(HOUR, b.transdate) 
-				END AS [Hour],	
+				END AS [Hour], srecommend, b.bettype,	
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
 
 				COUNT(CASE WHEN StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount, 
@@ -718,7 +817,12 @@ SET NOCOUNT ON
 								
 				- SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeRM,
 
-				- SUM(scomm *actualrate) AS CompanyCommRM
+				- SUM(scomm *actualrate) AS CompanyCommRM,
+				
+				- SUM((winlost - actual_stake) * actualrate) ExtraWL,
+				
+				- SUM((CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraComm
 				
 		FROM  dbo.Bettrans b WITH (NOLOCK)
 		WHERE b.WinlostDate = @WLDate
@@ -742,10 +846,13 @@ SET NOCOUNT ON
 		GROUP BY CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 
 						THEN 0 --bet at 23PM then convert to 0 AM 
 					ELSE  DATEPART(HOUR, b.transdate) END,
-				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END
+				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END,srecommend, b.bettype
+		OPTION(RECOMPILE)
 				
 	---- VirtualSport (Soccer)
 		INSERT INTO #Data (  [Hour] ,  
+						   srecommend, 
+						   bettype,
 						   CustId ,
 						   BetCount ,
 						   TotalBetsRM ,
@@ -753,13 +860,15 @@ SET NOCOUNT ON
 						   TotalRefundRM ,
 						   CompanyTurnoverRM , 
 						   CompanyGrossIncomeRM , 
-						   CompanyCommRM 							   
+						   CompanyCommRM,
+						   ExtraWL,
+						   ExtraComm							   
 					   )
 	
 		SELECT  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 
 						THEN 0 --bet at 23PM then convert to 0 AM 
 					ELSE  DATEPART(HOUR, b.transdate) 
-				END AS [Hour],	
+				END AS [Hour],	srecommend, b.bettype,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
 
 				COUNT(CASE WHEN StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount, 
@@ -774,7 +883,12 @@ SET NOCOUNT ON
 								
 				- SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeRM,
 
-				- SUM(scomm *actualrate) AS CompanyCommRM
+				- SUM(scomm *actualrate) AS CompanyCommRM,
+				
+				- SUM((winlost - actual_stake) * actualrate) ExtraWL,
+				
+				- SUM((CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraComm
 				
 		FROM  dbo.Bettrans b WITH (NOLOCK)
 		WHERE b.WinlostDate = @WLDate
@@ -798,10 +912,13 @@ SET NOCOUNT ON
 		GROUP BY CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 
 						THEN 0 --bet at 23PM then convert to 0 AM 
 					ELSE  DATEPART(HOUR, b.transdate) END,
-				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END
+				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.bettype
+		OPTION(RECOMPILE)
 
 	----  VirtualSport (HR) 
 		INSERT INTO #Data (  [Hour] ,  
+						   srecommend, 
+						   bettype,
 						   CustId ,
 						   BetCount ,
 						   TotalBetsRM ,
@@ -809,13 +926,15 @@ SET NOCOUNT ON
 						   TotalRefundRM ,
 						   CompanyTurnoverRM , 
 						   CompanyGrossIncomeRM , 
-						   CompanyCommRM 						   
+						   CompanyCommRM,
+						   ExtraWL,
+						   ExtraComm 						   
 					   )
 	
 		SELECT  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 
 					THEN 0 --bet at 23PM then convert to 0 AM 
 				ELSE  DATEPART(HOUR, b.transdate) 
-				END AS [Hour],
+				END AS [Hour], srecommend, b.bettype,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
 
 				COUNT(CASE WHEN StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount,
@@ -830,7 +949,12 @@ SET NOCOUNT ON
 								
 				- SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeRM,
 
-				- SUM(scomm *actualrate) AS CompanyCommRM
+				- SUM(scomm *actualrate) AS CompanyCommRM,
+				
+				- SUM((winlost - actual_stake) * actualrate) ExtraWL,
+				
+				- SUM((CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraComm
 				
 		FROM  dbo.Bettrans b WITH (NOLOCK)
 		WHERE b.WinlostDate = @WLDate
@@ -853,11 +977,14 @@ SET NOCOUNT ON
 			)
 		GROUP BY  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 THEN 0 
 				ELSE  DATEPART(HOUR, b.transdate) END,
-				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END
+				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.bettype
+		OPTION(RECOMPILE)
 				
 		--VirtualSports 2
 		CREATE TABLE #tmp_bettransm (refno BIGINT)
 		INSERT INTO #Data (  [Hour] ,  
+						   srecommend, 
+						   bettype,
 						   CustId ,
 						   BetCount ,
 						   TotalBetsRM ,
@@ -865,12 +992,14 @@ SET NOCOUNT ON
 						   TotalRefundRM ,
 						   CompanyTurnoverRM , 
 						   CompanyGrossIncomeRM , 
-						   CompanyCommRM 							   
+						   CompanyCommRM,
+						   ExtraWL,
+						   ExtraComm					   
 					   )
 	
 		SELECT  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 THEN 0 
 					ELSE  DATEPART(HOUR, b.transdate) 
-				END AS [Hour],	
+				END AS [Hour],	srecommend, b.bettype,
 				
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
 
@@ -886,7 +1015,12 @@ SET NOCOUNT ON
 								
 				- SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeRM,
 
-				- SUM(scomm *actualrate) AS CompanyCommRM
+				- SUM(scomm *actualrate) AS CompanyCommRM,
+				
+				- SUM((winlost - actual_stake) * actualrate) ExtraWL,
+				
+				- SUM((CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraComm
 				
 		FROM  dbo.Bettrans b WITH (NOLOCK)			
 		WHERE b.WinlostDate = @WLDate
@@ -911,7 +1045,8 @@ SET NOCOUNT ON
 			)
 		GROUP BY CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 THEN 0 
 					ELSE  DATEPART(HOUR, b.transdate) END,
-				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END
+				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.bettype
+		OPTION(RECOMPILE)
 				
 		INSERT INTO #tmp_bettransm (refno)
 		SELECT DISTINCT bm.refno FROM dbo.bettransm bm WITH(NOLOCK)
@@ -919,6 +1054,8 @@ SET NOCOUNT ON
 					INNER JOIN #tmpSporttype st ON m.sporttype = st.Sporttype
 					
 		INSERT INTO #Data (  [Hour] ,  
+						   srecommend, 
+						   bettype,
 						   CustId ,
 						   BetCount ,
 						   TotalBetsRM ,
@@ -926,12 +1063,14 @@ SET NOCOUNT ON
 						   TotalRefundRM ,
 						   CompanyTurnoverRM , 
 						   CompanyGrossIncomeRM , 
-						   CompanyCommRM 							   
+						   CompanyCommRM, 
+						   ExtraWL,		
+						   ExtraComm					   
 					   )
 	
 		SELECT  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 THEN 0 
 					ELSE  DATEPART(HOUR, b.transdate) 
-				END AS [Hour],	
+				END AS [Hour],	srecommend, b.bettype,
 				
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
 
@@ -947,7 +1086,12 @@ SET NOCOUNT ON
 								
 				- SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeRM,
 
-				- SUM(scomm *actualrate) AS CompanyCommRM
+				- SUM(scomm *actualrate) AS CompanyCommRM,
+				
+				- SUM((winlost - actual_stake) * actualrate) ExtraWL,
+				
+				- SUM((CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraComm
 				
 		FROM  dbo.Bettrans b WITH (NOLOCK)			
 		WHERE b.WinlostDate = @WLDate
@@ -970,7 +1114,8 @@ SET NOCOUNT ON
 			)
 		GROUP BY CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 THEN 0 
 					ELSE  DATEPART(HOUR, b.transdate) END,
-				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END
+				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.bettype
+		OPTION(RECOMPILE)
 			 
 	CREATE TABLE #DimHour(
 		[Hour] [tinyint],
@@ -983,7 +1128,8 @@ SET NOCOUNT ON
 		
 	IF @Currency = -1  
 	BEGIN 		
-		INSERT INTO #Result ([Hour], NoOfPlayers, BetCount,	Currency, TotalBets, TotalWins, GamePayout, TotalRefund, CompanyTurnover, CompanyGrossIncome, CompanyComm)							
+		INSERT INTO #Result ([Hour], NoOfPlayers, BetCount,	Currency, TotalBets, TotalWins, GamePayout, TotalRefund, 
+							CompanyTurnover, CompanyGrossIncome, CompanyComm, ExtraPT)							
 		SELECT  [Hour], 
 				COUNT(DISTINCT CustID) AS NoOfPlayers, 
 				SUM(BetCount) AS BetCount ,
@@ -994,8 +1140,13 @@ SET NOCOUNT ON
 				SUM(TotalRefundRM) AS TotalRefund,
 				SUM(CompanyTurnoverRM) AS CompanyTurnover,
 				SUM(CompanyGrossIncomeRM) AS CompanyGrossIncome,
-				SUM(CompanyCommRM) AS CompanyComm
-		FROM	#Data
+				SUM(CompanyCommRM) AS CompanyComm,
+				SUM(CASE WHEN s.ProductID = 33 AND s.RefTable = 0 THEN b.ExtraWL * CAST(ISNULL(e.ExtraPT,0) AS [decimal](10, 8)) + b.ExtraComm * CAST(ISNULL(c.ExtraComm,0) AS [decimal](10, 8))
+						ELSE (b.ExtraWL + b.ExtraComm) * CAST(ISNULL(e.ExtraPT,0) AS [decimal](10, 8)) END) ExtraPT
+		FROM	#Data b
+				INNER JOIN #SportBettype s ON b.bettype = s.Bettype 
+				LEFT JOIN #ExtraPT e ON b.srecommend = e.SuperID AND s.ProductID = e.ProductID 
+				LEFT JOIN #ExtraComm c ON b.srecommend = c.SuperID AND s.ProductID = c.ProductID
 		GROUP BY [Hour] 
 		HAVING (@TotalBetType = 0
 				OR (@TotalBetType = 1 AND SUM(TotalBetsRM) >= @TotalBetValue) 
@@ -1017,7 +1168,8 @@ SET NOCOUNT ON
 		TotalRefund, 
 		CompanyTurnover AS HouseTurnover, 
 		CompanyGrossIncome AS HouseGrossIncome, 
-		CompanyComm AS HouseComm
+		CompanyComm AS HouseComm,
+		ExtraPT 
 	FROM  #DimHour a LEFT JOIN #Result b ON a.[Hour]=b.[Hour]
 	ORDER BY a.Hour
 	
@@ -1037,6 +1189,8 @@ SET NOCOUNT ON
 	DROP TABLE #tmpSporttype
 	DROP TABLE #tmp_bettransm
 	DROP TABLE #Device
+	DROP TABLE #ExtraPT
+	DROP TABLE #ExtraComm
 
 END 
 
