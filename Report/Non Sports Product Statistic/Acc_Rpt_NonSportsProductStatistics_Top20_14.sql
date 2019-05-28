@@ -1553,7 +1553,7 @@ BEGIN
 					SUM(CompanyGrossIncomeBase) AS CompanyGrossIncomeBase,
 					SUM(CompanyCommBase) AS CompanyCommBase,
 					SUM(HousePT) AS HousePT,
-					SUM(ExtraPT) ExtraPT,
+					SUM(ExtraPTBase) ExtraPT,
 					SUM(ExtraPTBase) ExtraPTBase,
 					SUM(RowNum) AS RowNum
 				FROM #Data
