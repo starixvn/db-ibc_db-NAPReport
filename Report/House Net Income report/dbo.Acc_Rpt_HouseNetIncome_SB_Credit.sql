@@ -1,6 +1,11 @@
-USE bodb_dwrs
+USE [bodb_dwrs]
 GO
-
+/****** Object:  StoredProcedure [dbo].[Acc_Rpt_HouseNetIncome_SB_Credit]    Script Date: 5/29/2019 8:03:42 AM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+/****** Object:  Stored Procedure dbo.Acc_Rpt_HouseNetIncome_SB_Credit    Script Date: 7/4/2016 1:05:20 PM ******/
 ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_SB_Credit]
 	@FromDate DATE,
 	@ToDate	DATE
@@ -10,8 +15,9 @@ AS
     Task : House month-to-date Net Income report
     DB: DBWH/bodb_dwrs  
    
-    Revisions:
+    Revisions:	
 		- 20160922@Harper - #64429 - Edit status ID
+		- 20190529@Dan: tuning to prevent wrong excution plan (scan all table)
 	Param's Explanation:   
 */  
 BEGIN  
@@ -80,14 +86,13 @@ BEGIN
 	SELECT 
 		b.rptDate,
 		ISNULL(-SUM((winlossP+winlossS+winlossM+winlossA+commissionS)*ex.rate),0) HouseWL
-	FROM bodb_Account.dbo.mcSiteDaily b WITH(NOLOCK)
-		INNER JOIN #exchange ex ON b.rptdate = ex.exchangedate AND b.currencyid = ex.ExchangeID
-		INNER JOIN #SportBettypeMatrix sb ON sb.Bettype = b.bettype AND Sb.ProductID = 1
-		INNER JOIN bodb_Account.dbo.tbl_Site s WITH (NOLOCK) ON s.siteid = b.SiteID
+	FROM bodb_Account.dbo.FactSiteWinloss b WITH(NOLOCK)
+		LEFT JOIN #exchange ex ON b.rptdate = ex.exchangedate AND b.currencyid = ex.ExchangeID		
 	WHERE 
-		b.rptDate BETWEEN @FDate AND @TDate 
-		AND b.status <> 14
-		AND s.isDeposit = 0 -- Credit data only
+		b.rptDate BETWEEN @FDate AND @TDATE
+		AND b.TicketStatus != 14
+		AND SiteID IN (	select siteid from bodb_Account.dbo.tbl_Site WHERE isDeposit = 0) -- Credit data only
+		AND b.BetType IN (select bettype from #SportBettypeMatrix sb WHERE ProductID = 1) --SB only
 	GROUP BY b.rptDate
 	OPTION (RECOMPILE)
 
@@ -124,11 +129,10 @@ BEGIN
 	DROP TABLE #Exchange
 	DROP TABLE #FinalResult
 END
+
 GO
 
 GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_SB_Credit] TO [bodbAdminNet]
 GO
 GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_SB_Credit] TO [dwrs]
-GO
-GRANT VIEW definition ON [dbo].[Acc_Rpt_HouseNetIncome_SB_Credit] TO vnteam
 GO
