@@ -1,8 +1,5 @@
 /*<info serverAlias="DBWH-bodb_dwrs" executers="dwrs" viewers="" isFunction="0" isNested="0"></info>*/
 
-USE bodb_dwrs
-GO
-
 ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_OtherSport_Credit]
 	@FromDate DATE 
     ,@ToDate	DATE 
@@ -16,6 +13,7 @@ AS
     Revisions:
 		- 20180126@Harper - HDWL Letstalk - Implement Chart of SB margin Other Sport[#RedmineID: 89632]
 		- 20190121@Robert: Letstalk Margin Charts - Separate Letstalk group for credit & Deposit (Soccer & Other Sports) [#108220]
+		- 20190406@Robert: 107164 - House Net Income Email/Letstalk/Margin Chart - Integrate Bet Builder
 		
 	Param's Explanation:   
 
@@ -32,11 +30,16 @@ BEGIN
 	    , @TDate = @ToDate;
     -- Region: Handle data of Soccer
 
+    DECLARE @PayToMuayThai TABLE(
+	    RptDate          VARCHAR(10)
+	  , PayToMuayThai    MONEY);
+
     CREATE TABLE #FinalResult(
-	    RptDate     VARCHAR(10)
-	  , HouseWL     MONEY
-	  , ExtraPT     MONEY
-	  , TurnOver    MONEY);
+	    RptDate          VARCHAR(10)
+	  , HouseWL          MONEY
+	  , ExtraPT          MONEY
+	  , TurnOver         MONEY
+	  , PayToMuayThai    MONEY);
 
     INSERT INTO #FinalResult(RptDate
 					  , HouseWL
@@ -78,7 +81,7 @@ BEGIN
 	  , ExtraPT     MONEY);
 
     INSERT INTO #TmpHouseWL(rptDate
-					 , HouseWL					 
+					 , HouseWL
 					 , ExtraPT
 					 , TurnOver)
     EXEC Acc_Rpt_HouseNetIncome_MarginChart_OtherSport_Sub
@@ -93,8 +96,23 @@ BEGIN
 		   , f.ExtraPT = ISNULL(f.ExtraPT, 0) + ISNULL(wl.ExtraPT, 0)
     FROM #FinalResult f
 	   INNER JOIN #TmpHouseWL wl ON wl.rptDate = f.RptDate;
-				
-	---------------------------------------------------- Select the output -------------------------------------------------------
+    ---------------------------------------------------- Pay to Muay Thai -------------------------------------------------------
+
+    INSERT INTO @PayToMuayThai(RptDate
+					    , PayToMuayThai)
+    EXEC DBEXT.bodb02.dbo.Acc_Rpt_HouseNetIncome_SB_PayToMuayThai
+	    @FromDate = @FDate
+	  , @ToDate = @TDate
+	  , @DepositType = 0;
+
+    UPDATE f
+		 SET
+			f.PayToMuayThai = p.PayToMuayThai
+    FROM #FinalResult f
+	   INNER JOIN @PayToMuayThai p ON f.RptDate = p.rptDate
+    WHERE f.RptDate <> 'FullRange';
+    ---------------------------------------------------- Select the output -------------------------------------------------------
+
 	DECLARE @SQL VARCHAR(1000)
 	SELECT @SQL =	'SELECT * ' + CHAR(13) +
 					'FROM	(SELECT ProductCode, [Order], [RptDate], Figure, ISNULL(value, 0) value FROM #FinalResult' + CHAR(13) +
@@ -103,7 +121,9 @@ BEGIN
 							'UNION ALL' + CHAR(13) +
 							'SELECT ''OtherSport'', 3, ''Extra PT'', ExtraPT' + CHAR(13) +							
 							'UNION ALL' + CHAR(13) +
-							'SELECT ''OtherSport'', 8, ''Turn Over'', TurnOver) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
+							'SELECT ''OtherSport'', 8, ''Turn Over'', TurnOver' + CHAR(13) +							
+							'UNION ALL' + CHAR(13) +
+							'SELECT ''OtherSport'', 6, ''Pay to Muay Thai'', PayToMuayThai) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
 					'PIVOT' + CHAR(13) +
 					'(' + CHAR(13) +
 						'MAX(value)' + CHAR(13) +
@@ -119,5 +139,3 @@ BEGIN
 END
 GO
 
-GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_OtherSport_Credit] TO [dwrs]
-GO
