@@ -237,7 +237,9 @@ BEGIN
 													   , Stake
 													   , StatusId
 													   , Winlost
-													   , Scomm)
+													   , Scomm
+													   , Transdate
+													   , Betfrom)
 			    (
 				   SELECT @CapturedDate AS CapturedDate
 					   , TransId
@@ -251,6 +253,8 @@ BEGIN
 					   , StatusId
 					   , Payout AS Winlost
 					   , Commission AS Scomm
+					   , DateTimePlaced AS Transdate
+					   , Betfrom
 				   FROM #RawData
 				   WHERE Id BETWEEN @StartId AND @EndId
 			    );

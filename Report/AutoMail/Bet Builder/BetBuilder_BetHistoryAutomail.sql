@@ -18,7 +18,9 @@ CREATE TABLE dbo.BetBuilder_BetHistoryAutomail(
    , Stake           MONEY
    , Winlost         MONEY
    , Scomm           MONEY
-   , CapturedDate    DATETIME NOT NULL)
+   , CapturedDate    DATETIME NOT NULL
+   , Transdate       DATETIME
+   , Betfrom         VARCHAR(1))
 ON BetBuilder_BetHistoryAutomail WITH(DATA_COMPRESSION = PAGE);
 
 GO

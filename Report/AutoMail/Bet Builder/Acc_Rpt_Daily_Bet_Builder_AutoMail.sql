@@ -1,8 +1,7 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
 ALTER PROCEDURE dbo.Acc_Rpt_Daily_Bet_Builder_AutoMail
-	@WinlostDate      SMALLDATETIME = NULL
-   , @IsCaptureData    BIT           = 0
+	@WinlostDate    SMALLDATETIME = NULL
 AS
 /*
 	Creator: Robert
@@ -27,6 +26,7 @@ BEGIN
 	  , GlobalShowTime    DATETIME
 	  , MarketId          VARCHAR(20)
 	  , DateTimePlaced    DATETIME
+	  , WinLostDate       SMALLDATETIME
 	  , NoOfLegsPerBet    SMALLMONEY
 	  , Betfrom           VARCHAR(1)
 	  , Odds              SMALLMONEY
@@ -85,10 +85,6 @@ BEGIN
     IF @WinlostDate IS NULL
 	   SELECT @WinlostDate = CONVERT(VARCHAR(10), DATEADD(DAY, -1, GETDATE()), 110);
 
-    IF @IsCaptureData = 1
-	   EXEC Job_Daily_Bet_Builder_Insert_RawData
-		   @WinlostDate = @WinlostDate;
-
     INSERT INTO #Data(TransId
 				, MatchId
 				, LeagueId
@@ -97,6 +93,7 @@ BEGIN
 				, GlobalShowTime
 				, MarketId
 				, DateTimePlaced
+				, WinLostDate
 				, NoOfLegsPerBet
 				, Betfrom
 				, Odds
@@ -114,9 +111,10 @@ BEGIN
 				, 0 AS AwayId
 				, NULL AS GlobalShowTime
 				, Betcheck AS MarketId
-				, NULL AS DateTimePlaced
+				, Transdate AS DateTimePlaced
+				, WinlostDate
 				, Hdp2 AS NoOfLegsPerBet
-				, '' AS Betfrom
+				, Betfrom
 				, Odds
 				, CurrencyId AS Currency
 				, Stake
@@ -128,6 +126,8 @@ BEGIN
 			WHERE b.WinlostDate = @WinlostDate
 		 );
 
+    CREATE CLUSTERED INDEX CIX_MatchId ON #Data(MatchId ASC);
+
     IF @WinlostDate > @movebetdate
 	   BEGIN
 		  UPDATE d
@@ -136,13 +136,8 @@ BEGIN
 				 , d.HomeId = m.homeid
 				 , d.AwayId = m.awayid
 				 , d.GlobalShowTime = m.GlobalShowTime
-				 , d.DateTimePlaced = b.transdate
-				 , d.Betfrom = b.betfrom
 		  FROM #Data AS d
-			 INNER JOIN bettrans AS b WITH (NOLOCK) ON d.TransId = b.transid
-			 INNER JOIN match AS m WITH (NOLOCK) ON m.matchid = b.matchid
-		  WHERE b.winlostdate = @WinlostDate
-			   AND b.bettype = 38;
+			 INNER JOIN match AS m WITH (NOLOCK) ON m.matchid = d.matchid;
 	   END;
 
     IF @WinlostDate <= @movebetdate
@@ -153,13 +148,8 @@ BEGIN
 				 , d.HomeId = m.homeid
 				 , d.AwayId = m.awayid
 				 , d.GlobalShowTime = m.GlobalShowTime
-				 , d.DateTimePlaced = b.transdate
-				 , d.Betfrom = b.betfrom
 		  FROM #Data AS d
-			 INNER JOIN bettrans14 AS b WITH (NOLOCK) ON d.TransId = b.transid
-			 INNER JOIN match14 AS m WITH (NOLOCK) ON m.matchid = b.matchid
-		  WHERE b.winlostdate = @WinlostDate
-			   AND b.bettype = 38;
+			 INNER JOIN match14 AS m WITH (NOLOCK) ON m.matchid = d.matchid;
 	   END;
 
     IF @WinlostDate < @balanceupdate
@@ -170,13 +160,8 @@ BEGIN
 				 , d.HomeId = m.homeid
 				 , d.AwayId = m.awayid
 				 , d.GlobalShowTime = m.GlobalShowTime
-				 , d.DateTimePlaced = b.transdate
-				 , d.Betfrom = b.betfrom
 		  FROM #Data AS d
-			 INNER JOIN bodb_Archive.dbo.bettrans_bk AS b WITH (NOLOCK) ON d.TransId = b.transid
-			 INNER JOIN bodb_Archive.dbo.match_bk AS m WITH (NOLOCK) ON m.matchid = b.matchid
-		  WHERE b.winlostdate = @WinlostDate
-			   AND b.bettype = 38;
+			 INNER JOIN bodb_Archive.dbo.match_bk AS m WITH (NOLOCK) ON m.matchid = d.matchid;
 	   END;
     SELECT 'Soccer' AS Sport
 	    , d.LeagueId
