@@ -1,4 +1,4 @@
-/*<info serverAlias="DBACC-bodb_ACC" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBACC-bodb_ACC" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
 USE [bodb_ACC]
 GO
@@ -24,6 +24,7 @@ AS
 		- 20170323@Percy: return betid [RedmineID: #72900]
 		- 20170612@Percy: check bettype of Cash Out [RedmineID: #78160]
 		- 20180719@Tom:Enhance_the_flow_get_Virtual_Sport(98520)
+		- 20190705@Robert - NAP Report - Incorporate new product PHAIO 4 (4a) (#116250)
 */
 
 -- original is Dot_Admin_cteamlist
@@ -73,7 +74,7 @@ BEGIN
 		b.hdp2, 
 		b.transdate, 
 		b.transid, 
-		'' typenamee, 
+		betcheck, 
 		CASE WHEN ISNULL(t.bettype,0)<> 0 THEN b.transdesc ELSE  b.betteam  END betteam ,
 		b.betfrom
 		,b.stake * (1- b.tpositiontaking) cpstake
@@ -84,20 +85,13 @@ BEGIN
 		,@awayid awayid
 		,b.betid
 	FROM 
-	bodb02.dbo.bettrans b with (nolock)
-	--INNER JOIN bodb02.dbo.customer c with (nolock) ON b.custid = c.custid
+	bodb02.dbo.bettrans b with (nolock)	
 	INNER JOIN bodb02.dbo.customer cr with (nolock) ON b.creator = cr.custid
-	LEFT JOIN @MetricBettype t ON b.bettype = t.bettype
-	--INNER JOIN bettype bt with(nolock) ON b.bettype = bt.typeid
+	LEFT JOIN @MetricBettype t ON b.bettype = t.bettype	
 	WHERE
 		b.matchid = @matchid 
 		AND b.bettype = @bettype
 		AND b.liveindicator = @liveindicator
---AND b.bettype in (1,2,3,4,5,6,7,8,12,15,20)
---AND b.bettype = @bettype 
---AND b.betteam = @betteam
---select * from bettype (nolock)
--- exec Save_BetList 419522
 	ORDER BY b.betteam, b.transid
 END
 ELSE
@@ -122,7 +116,7 @@ BEGIN
 		b.hdp2, 
 		b.transdate, 
 		b.transid, 
-		'' typenamee, 
+		betcheck, 
 		CASE WHEN ISNULL(t.bettype,0)<> 0 THEN b.transdesc ELSE  b.betteam  END betteam ,
 		b.betfrom
 		,b.stake * (1- b.tpositiontaking) cpstake
@@ -133,20 +127,13 @@ BEGIN
 		,@awayid awayid
 		,b.betid
 	FROM 
-	bodb02.dbo.bettrans14 b with (nolock)
-	--INNER JOIN bodb02.dbo.customer c with (nolock) ON b.custid = c.custid
+	bodb02.dbo.bettrans14 b with (nolock)	
 	INNER JOIN bodb02.dbo.customer cr with (nolock) ON b.creator = cr.custid
-	LEFT JOIN @MetricBettype t ON b.bettype = t.bettype
-	--INNER JOIN bettype bt with(nolock) ON b.bettype = bt.typeid
+	LEFT JOIN @MetricBettype t ON b.bettype = t.bettype	
 	WHERE b.winlostdate = @EventDate
 		AND b.matchid = @matchid 
 		AND b.bettype = @bettype
 		AND b.liveindicator = @liveindicator
---AND b.bettype in (1,2,3,4,5,6,7,8,12,15,20)
---AND b.bettype = @bettype 
---AND b.betteam = @betteam
---select * from bettype (nolock)
--- exec Save_BetList 419522
 	ORDER BY b.betteam, b.transid
 END
 GO
