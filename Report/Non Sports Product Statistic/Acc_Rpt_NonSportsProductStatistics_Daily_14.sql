@@ -43,6 +43,7 @@ AS
 		20190214@Cherry: Integrate Video Poker Games (#108735)
 		20190322@Cherry: Add betfrom b,f (#110653)
 		20190510@Cherry: Appy ExtraPT (#111676)
+		20190708@Cherry: Fix issue VS + VS2
 
 	Param's Explanation:
 			 - @username:  + Search by keyword, member only
@@ -835,7 +836,7 @@ SET NOCOUNT ON
 							ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraCommBase
 		FROM  dbo.Bettrans14 b WITH (NOLOCK)
 		WHERE b.WinlostDate = @WLDate
-			AND b.bettype in (SELECT Bettype FROM #SportBettype WHERE ProductID = 5)
+			AND b.bettype in (SELECT Bettype FROM #SportBettype WHERE ProductID = 5 AND EventType = 1)
 			AND b.statusID IN (111, 112, 113, 103) 
 			AND b.matchid IN (SELECT matchid FROM dbo.match14 WITH (NOLOCK)
 								WHERE sporttype IN (SELECT Sporttype FROM #tmpSporttype))
