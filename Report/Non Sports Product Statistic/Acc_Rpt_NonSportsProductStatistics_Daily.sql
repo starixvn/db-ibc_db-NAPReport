@@ -842,7 +842,7 @@ SET NOCOUNT ON
 							ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraCommBase
 		FROM  dbo.Bettrans b WITH (NOLOCK)
 		WHERE b.WinlostDate = @WLDate
-			AND b.bettype in (SELECT Bettype FROM #SportBettype WHERE ProductID = 5 AND EvenType = 1)
+			AND b.bettype in (SELECT Bettype FROM #SportBettype WHERE ProductID = 5 AND EventType = 1)
 			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) 
 			AND b.matchid IN (SELECT matchid FROM dbo.match WITH (NOLOCK)
