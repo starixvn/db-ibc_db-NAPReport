@@ -1,6 +1,4 @@
-USE [bodb02]
-GO
-
+/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="vnteam" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_Rpt_TreeWinlostBulkGetVR]
 	@CustIDs NVARCHAR(MAX)
 AS
@@ -13,6 +11,7 @@ AS
 	Parameters explain:
 		@CustIDList: Comma seperated string of CustomerIDs
 	Revision: 
+		- 20190702@Dominic: Not show E-Sports [RedmineID:#114830]
 */
 BEGIN
 	DECLARE @XML XML  = NULL
@@ -44,7 +43,7 @@ BEGIN
 			ON	ci.custid = cvs.custid
 	INNER JOIN	ProfileVirtualSetting	AS pvs WITH(NOLOCK)
 			ON	cvs.seqNo = pvs.seqNo
-	WHERE pvs.isActive = 1
+	WHERE pvs.isActive = 1 AND pvs.sporttype <> 43
 	ORDER BY username, sporttype, islive DESC, bettype
 END
 
