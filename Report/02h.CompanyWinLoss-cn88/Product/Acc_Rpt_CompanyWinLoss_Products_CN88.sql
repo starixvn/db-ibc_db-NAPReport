@@ -581,7 +581,7 @@ BEGIN
 		 GROUP BY b.ProductId;
 ------------------------------------------
 
----Live casino and Casino and 3rd Party
+---Virtual Sports, RNG Keno, Virtual Sports 2, Lottery
     INSERT INTO #Result(ProductId
 				  , winlost
 				  , Position
@@ -593,13 +593,7 @@ BEGIN
 				  , VirtualTurnover
 				  , ExtraPT
 				  , NewExtraPT)
-		 SELECT CASE
-				  WHEN b.CasinoType = 1
-				  THEN 6  ---- Casino
-				  WHEN b.CasinoType = 2
-				  THEN 4  ---Live Casino
-				  ELSE b.ProductId
-			   END AS ProductId
+		 SELECT b.ProductId AS ProductId
 			 , SUM(winlost_actualrate) AS WinLost
 			 , SUM(SMAWinloss) AS Position
 			 , SUM(commission_actualrate) AS Commission
@@ -622,14 +616,8 @@ BEGIN
 			LEFT JOIN #ExtraPT_Sel AS e ON b.srecommend = e.superID
 									 AND e.ProductID = b.ProductId
 		 WHERE b.ProductId IN(5, 8, 27, 28) ---Virtual Sports, RNG Keno, Virtual Sports 2, Lottery
-			  OR b.CasinoType IN(1, 2)
-		 GROUP BY CASE
-				    WHEN b.CasinoType = 1
-				    THEN 6   ---- Casino
-				    WHEN b.CasinoType = 2
-				    THEN 4  ---Live Casino
-				    ELSE b.ProductId
-				END;
+		 GROUP BY b.ProductId;
+
 -----2. Total ----------------------------------------------------------------
 
 ----Get Result----
