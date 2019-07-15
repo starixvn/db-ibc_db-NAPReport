@@ -5,7 +5,6 @@ ALTER PROCEDURE dbo.Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus_CN88
    , @EndDate      SMALLDATETIME
    , @IsLive       INT           = 2
 AS
-
 /*	
     Creator: Robert
 	Date: 2016-05-11
@@ -31,7 +30,7 @@ BEGIN
 				, 0
 			FROM bodb02.dbo.f_SportBetTypeMatrix_Sel
 				(1, 1, 0, 2, '', '', @isTest)
-			WHERE LEN(SubProduct) = 0
+			WHERE SubProduct = ''
 				 AND EventType IN(1, 2);
 
 	   UPDATE #SportBetType
@@ -39,15 +38,7 @@ BEGIN
 			    IsMajor = 1
 	   WHERE BetType IN(1, 2, 3, 5, 6, 7, 8, 12, 15, 24, 25, 28, 121, 122, 123, 126, 151, 301, 302, 303, 304);
     END;
-    BEGIN -- #DepositSuper
-	   CREATE TABLE #DepositSuper(
-		   CustId    INT
-		   PRIMARY KEY);
-	   INSERT INTO #DepositSuper
-			SELECT CustId
-			FROM f_DepSuper_1
-				('All');
-    END;
+
     BEGIN -- #Match
 	   CREATE TABLE #Match(
 		   MatchId      INT
@@ -97,7 +88,7 @@ BEGIN
 								SELECT CustId
 								FROM CS_CustSuper WITH (NOLOCK)
 							 )
-				 AND LEN(SubProduct) = 0
+				 AND SubProduct = ''
 			GROUP BY SuperId
 				  , Sporttype;
     END;
@@ -221,7 +212,6 @@ BEGIN
 				, SUM(VirtualTurnover) AS VirtualTurnover
 			FROM #tmp_Data AS b
 			    INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
-			    LEFT JOIN #DepositSuper AS dep ON b.srecommend = dep.CustId
 			WHERE @IsLive > 1
 				 OR b.liveIndicator = @IsLive
 			GROUP BY sb.IsMajor
@@ -251,7 +241,6 @@ BEGIN
 					   , SUM(VirtualTurnover) AS VirtualTurnover
 				   FROM #tmp_Data AS b
 					  INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
-					  LEFT JOIN #DepositSuper AS dep ON b.srecommend = dep.CustId
 				   GROUP BY liveindicator
 						, CASE liveindicator
 							 WHEN 1
@@ -278,7 +267,6 @@ BEGIN
     END;
 
     DROP TABLE #SportBetType;
-    DROP TABLE #DepositSuper;
     DROP TABLE #ExtraPT_Sel;
     DROP TABLE #Data;
     DROP TABLE #tmp_Data;

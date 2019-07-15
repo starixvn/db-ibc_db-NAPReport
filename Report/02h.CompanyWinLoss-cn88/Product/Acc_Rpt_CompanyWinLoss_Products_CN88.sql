@@ -279,6 +279,12 @@ BEGIN
 				    THEN 1
 				    ELSE 2
 				END OPTION(RECOMPILE);
+
+    DELETE #tmp_src
+    WHERE bettype NOT IN(SELECT bettype
+					FROM #SportBettype AS s
+					WHERE s.productID = 1
+						 AND s.EventType IN(1, 2));
 ------Soccer and Other Sports
     INSERT INTO #src(srecommend
 			    , SportType
@@ -617,7 +623,6 @@ BEGIN
 									 AND e.ProductID = b.ProductId
 		 WHERE b.ProductId IN(5, 8, 27, 28) ---Virtual Sports, RNG Keno, Virtual Sports 2, Lottery
 		 GROUP BY b.ProductId;
-
 -----2. Total ----------------------------------------------------------------
 
 ----Get Result----

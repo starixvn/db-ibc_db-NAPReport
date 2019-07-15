@@ -1,10 +1,11 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
-ALTER PROCEDURE dbo.Acc_Rpt_CompanyWinLoss_OtherSports_BetType_CN88
+USE [bodb02];
+GO
+
+ALTER PROCEDURE dbo.Acc_Rpt_CompanyWinLoss_Parlay_CN88
 	@StartDate    SMALLDATETIME
    , @EndDate      SMALLDATETIME
-   , @SportType    SMALLINT      = 50
-   , @IsLive       INT           = 2
 AS
 /*	
     Creator: Robert
@@ -16,53 +17,9 @@ AS
 		- 20190710@Robert: 	NAP Report - Implement new report to match with CN88's need [#116083]
 	Explanation's Param:	
 */
-
 BEGIN
-
     SET NOCOUNT ON;
-    BEGIN --#SportBetType     
-	   DECLARE @isTest    BIT = 0;
-	   SELECT @isTest = dbo.f_CheckSPVersion
-			(@@PROCID);
-	   CREATE TABLE #SportBetType(
-		   BetType        INT
-		 , BetTypeName    NVARCHAR(50));
-	   INSERT INTO #SportBetType
-			SELECT b.typeid
-				, b.typenamee
-			FROM dbo.f_SportBetTypeMatrix_Sel
-				(1, @SportType, 0, 2, '', '', @isTest) AS s
-			    INNER JOIN BetType AS b WITH (NOLOCK) ON s.BetType = b.typeid
-			WHERE SubProduct = ''
-				 AND EventType IN(1, 2);
-    END;
 
-    BEGIN -- #Match
-	   CREATE TABLE #Match(
-		   MatchId    INT
-		 , type       VARCHAR(10)
-		 , PRIMARY KEY(MatchId, type));
-	   INSERT INTO #Match
-			SELECT DISTINCT
-				  m.MatchId
-				, m.type
-			FROM
-				(
-				    SELECT MatchId
-					    , LeagueId
-					    , 'match' AS type
-				    FROM Match WITH (NOLOCK)
-				    WHERE EventDate = @StartDate
-				    UNION ALL
-				    SELECT orid
-					    , LeagueId
-					    , 'outright' AS type
-				    FROM outright WITH (NOLOCK)
-				    WHERE EventDate = @StartDate
-				) AS m
-			    INNER JOIN league AS l WITH (NOLOCK) ON m.LeagueId = l.LeagueId
-			WHERE l.sporttype = @SportType;
-    END;
     BEGIN ---- Extra PT 
 	   CREATE TABLE #ExtraPT_Sel(
 		   SuperID      INT
@@ -77,11 +34,7 @@ BEGIN
 			FROM bodb02.dbo.Acc_GroupExtraPTSetting AS a WITH (NOLOCK)
 			WHERE @StartDate BETWEEN FromDate AND Todate
 				 AND a.ProductId = 1
-				 AND a.Sporttype = CASE
-								   WHEN @SportType = 44
-								   THEN 44
-								   ELSE 0
-							    END
+				 AND a.Sporttype = 0
 				 AND SuperId IN
 							 (
 								SELECT CustId
@@ -92,20 +45,6 @@ BEGIN
 				  , Sporttype;
     END;
     BEGIN -- #Data
-	   CREATE TABLE #tmp_Data(
-		   srecommend         INT
-		 , bettype            INT
-		 , liveindicator      BIT
-		 , MemberWinLoss      MONEY
-		 , SMAWinLoss         MONEY
-		 , ExtraPT            MONEY
-		 , Commission         MONEY
-		 , RealIncome         MONEY
-		 , VirtualIncome      MONEY
-		 , VarianceIncome     MONEY
-		 , RealTurnover       MONEY
-		 , VirtualTurnover    MONEY);
-
 	   CREATE TABLE #Data(
 		   GroupId            INT
 		 , GroupName          NVARCHAR(50)
@@ -119,12 +58,23 @@ BEGIN
 		 , RealTurnover       MONEY
 		 , VirtualTurnover    MONEY);
     END;
-    BEGIN -- BetType
-	   INSERT INTO #tmp_Data
-			SELECT srecommend
-				, bettype
-				, liveindicator
-				, SUM((winlost - actual_stake) * actualrate) AS MemberWinLoss
+    BEGIN -- Query
+	   INSERT INTO #Data
+			SELECT CASE
+					 WHEN bettype = 9
+						 OR bettype = 29
+						 AND betteam = '1'
+					 THEN 9
+					 ELSE 29
+				  END AS GroupId
+				, CASE
+					 WHEN bettype = 9
+						 OR bettype = 29
+						 AND betteam = '1'
+					 THEN 'Mix Parlay'
+					 ELSE 'System Parlay'
+				  END AS GroupName
+				, SUM((winlost - actual_stake) * actualrate) AS MemberWinlost
 				, SUM((awinlost + mwinlost + swinlost) * actualrate) AS SMAWinLoss
 				, SUM(CASE
 						WHEN b.tpositiontaking = 1
@@ -179,41 +129,26 @@ BEGIN
 					 END) AS VirtualTurnover
 			FROM bettrans AS b WITH (NOLOCK)
 			    INNER JOIN CS_CustSuper AS cn88 WITH (NOLOCK) ON b.srecommend = cn88.CustId
-			    INNER JOIN #Match AS m ON b.MatchId = m.MatchId
 			    LEFT JOIN #ExtraPT_Sel AS e ON e.SuperID = b.srecommend
 			WHERE b.winlostdate = @StartDate
-				 AND m.type = CASE
-							   WHEN b.BetType = 10
-							   THEN 'outright'
-							   ELSE 'match'
-						    END
+				 AND BetType IN(9, 29)
 				 AND b.ruben = 1
 				 AND b.statusID IN(111, 112, 113)
-			GROUP BY srecommend
-				  , bettype
-				  , liveindicator OPTION(RECOMPILE);
-
-	   INSERT INTO #Data
-			SELECT sb.BetType AS GroupId
-				, sb.BetTypeName AS GroupName
-				, SUM(MemberWinLoss) AS MemberWinLoss
-				, SUM(SMAWinLoss) AS SMAWinLoss
-				, SUM(ExtraPT) AS ExtraPT
-				, SUM(Commission) AS Commission
-				, SUM(RealIncome) AS RealIncome
-				, SUM(VirtualIncome) AS VirtualIncome
-				, SUM(VarianceIncome) AS VarianceIncome
-				, SUM(RealTurnover) AS RealTurnover
-				, SUM(VirtualTurnover) AS VirtualTurnover
-			FROM #tmp_Data AS b WITH (NOLOCK)
-			    INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
-			WHERE @IsLive > 1
-				 OR b.liveindicator = @IsLive
-			GROUP BY sb.BetType
-				  , sb.BetTypeName;
+			GROUP BY CASE
+					   WHEN bettype = 9
+						   OR bettype = 29
+						   AND betteam = '1'
+					   THEN 9
+					   ELSE 29
+				    END
+				  , CASE
+					   WHEN bettype = 9
+						   OR bettype = 29
+						   AND betteam = '1'
+					   THEN 'Mix Parlay'
+					   ELSE 'System Parlay'
+				    END;
     END;
-
-
     BEGIN -- Query
 	   SELECT d.GroupId AS GroupId
 		   , d.GroupName AS GroupName
@@ -227,13 +162,10 @@ BEGIN
 		   , d.RealTurnover AS RealTurnover
 		   , d.VirtualTurnover AS VirtualTurnover
 	   FROM #Data AS d
-	   ORDER BY GroupName;
+	   ORDER BY GroupName DESC;
     END;
 
-    DROP TABLE #SportBetType;
-    DROP TABLE #Match;
-    DROP TABLE #ExtraPT_Sel;
     DROP TABLE #Data;
-    DROP TABLE #tmp_Data;
+    DROP TABLE #ExtraPT_Sel;
 END;
 GO

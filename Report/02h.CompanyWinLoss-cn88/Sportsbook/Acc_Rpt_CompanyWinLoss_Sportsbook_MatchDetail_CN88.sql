@@ -73,7 +73,7 @@ BEGIN
 								SELECT CustId
 								FROM CS_CustSuper WITH (NOLOCK)
 							 )
-				 AND LEN(SubProduct) = 0
+				 AND SubProduct = ''
 				 AND a.Sporttype = @sport
 			GROUP BY SuperId
 				  , Sporttype;

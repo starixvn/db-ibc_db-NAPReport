@@ -126,7 +126,7 @@ BEGIN
 								SELECT CustId
 								FROM CS_CustSuper WITH (NOLOCK)
 							 )
-				 AND LEN(SubProduct) = 0
+				 AND SubProduct = ''
 			GROUP BY SuperId
 				  , Sporttype;
     END;
