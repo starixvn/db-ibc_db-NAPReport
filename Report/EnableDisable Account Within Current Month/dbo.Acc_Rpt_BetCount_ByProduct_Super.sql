@@ -40,6 +40,7 @@ AS
 		- 20181219@Robert: NAP Report - Add new sporttype for Happy 5 (#104253) 
 		- 20190128@Robert: Video Poker - Integrate into NAP Reports[#107706]
 		- 20190308@Robert: #109822 - NAP Report - Integrate Bet Builder
+		- 20190722@Robert: #117010 - NAP Report - Integrate Card Club on NAP Report
 	Param's Explanation:  
 	  + @MoveBetsDay: The day of moving bets to battrans14
 	  + @BalanceUpDay: The day of moving bets to battransbk
@@ -136,7 +137,7 @@ BEGIN
 					(@sportType=251 AND (b.gameID BETWEEN 2101 AND 2399 OR b.gameID BETWEEN 2901 AND 2999))
 					OR b.gameID BETWEEN 4001 AND CASE WHEN @sportType=212 THEN 4300 ELSE 0 END 	--Macau Games and Pragmatic
 					OR b.gameID BETWEEN 1011 AND CASE WHEN @sportType=219 THEN 1020 ELSE 0 END -- Fishing World			
-					OR b.gameID BETWEEN 1901 AND CASE WHEN @sportType=163 THEN 1999 ELSE 0 END -- RNG Poker Games [Video Poker]
+					OR b.gameID BETWEEN 1901 AND CASE WHEN @sportType=212 THEN 1999 ELSE 0 END -- Card Club [Video Poker]					
 				) 
 			AND (
 					b.statusId IN (111,112,113,0) 
@@ -199,7 +200,7 @@ BEGIN
 							OR b.bettype BETWEEN 1600 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' = 160 THEN 1610 ELSE 0 END --Lucky 3
 							OR (' + CONVERT(VARCHAR(5),@sportType) +' = 207 AND b.bettype = 1004) --Bullfighting	
 							OR b.bettype BETWEEN 1401 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' = 163 THEN 1499 ELSE 0 END --Poker Games			
-							OR b.bettype BETWEEN 1901 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' = 163 THEN 1999 ELSE 0 END --RNG Poker Games [Video Poker]
+							OR b.bettype BETWEEN 1901 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' = 165 THEN 1999 ELSE 0 END --Card Club [Video Poker]							
 						) 
 						AND b.bettype NOT IN (38)
 						AND b.status IN (3  ---DRAW

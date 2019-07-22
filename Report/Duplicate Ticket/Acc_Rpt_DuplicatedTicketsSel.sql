@@ -40,6 +40,7 @@ Revisions:
 	- 20180115@Tom:  Cashout tickets from separated original tickets are considered as dupplicated tickets (#89256)
 	- 20180706@Tom: Add output transdesc column(#97859)
 	- 20181129@Dominic: Check WalletType (HotFix #105532)
+	- 20190722@Robert: #117010 - NAP Report - Integrate Card Club on NAP Report
 Param's Explanation:
 	- @CheckTime : The time we consider how long the job fails (Compared the last run with the current time).
 				   Because job recurs every 30s, so we set @CheckTime = 1 minute as default
@@ -58,6 +59,7 @@ BEGIN
 	SELECT bettype
 	FROM bodb02.dbo.f_SportBettypeMatrix_Sel (0, 0, 0, 2, '', '', @isTest)
 	WHERE ProductID IN (1, 3, 5, 25, 26, 27) AND BetType NOT IN (500, 912, 913, 914) 
+	and ProductID NOT IN(34)
 
 	---- ** 1. Check the transdate of LastTransID and current time  ** ----
 	DECLARE @LastTransDate DATETIME	
@@ -168,7 +170,4 @@ BEGIN
 	END
 		
 END
-
-GO
-GRANT EXECUTE ON [dbo].[Acc_Rpt_DuplicatedTicketsSel] TO [bodbAdminNet]
 GO
