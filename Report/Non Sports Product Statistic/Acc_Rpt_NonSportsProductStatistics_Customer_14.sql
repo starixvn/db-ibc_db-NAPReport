@@ -12,7 +12,6 @@ ALTER PROCEDURE [dbo].[Acc_Rpt_NonSportsProductStatistics_Customer_14]
 	@BetType		VARCHAR(MAX) = '',
 	@LeagueId		VARCHAR(MAX) = '',
 	@Sporttype		VARCHAR(MAX) = '',
-	@GameTableId	VARCHAR(MAX) = '',
 	@Currency		SMALLINT = 0,	
 	@Device			VARCHAR(200) = '',
 	@ExcludeTest	BIT = 1, 
@@ -62,7 +61,6 @@ AS
 		- @BetType: string filter by bettype
 		- @LeagueId: string filter by LeagueId (only use for ProductID = 3 - Number Game get LeagueId)  
 		- @Sporttype: string filter by Sporttype (only use for ProductID = 5 - Virtual Sports get Sporttype)
-		- @GameTableId: filter by specific game table (only use for ProductID = 4 - Live Casino get leagueID)
 		- @currency: 
 			-1: All convert to RM currency
 			 0: All original currencyID
@@ -135,7 +133,6 @@ BEGIN
 	CREATE TABLE #tmp_BetType		(Bettype SMALLINT)
 	CREATE TABLE #tmp_LeagueID		(LeagueID INT, Bettype INT)
 	CREATE TABLE #tmp_SportType		(Sporttype SMALLINT)
-	CREATE TABLE #tmp_GameTableID	(GameTableID INT)
 	CREATE TABLE #tmp_Device		(Betfrom NVARCHAR(2))
 
 	-- Get Info from Pars list
@@ -180,12 +177,6 @@ BEGIN
 	BEGIN
 		INSERT INTO #tmp_SportType (Sporttype)
 		SELECT val FROM dbo.strSplit(@Sporttype, ',')
-	END
-
-	IF @GameTableId <> ''
-	BEGIN
-		INSERT INTO #tmp_GameTableID (GameTableID)
-		SELECT val FROM dbo.strSplit(@GameTableId, ',')
 	END
 
 	CREATE TABLE #Device (Betfrom NVARCHAR(2))
@@ -506,7 +497,6 @@ BEGIN
 	CREATE CLUSTERED INDEX IX_SportBettype ON #SportBettype (ProductID, Bettype, EvenType, RefTable)  
 	CREATE CLUSTERED INDEX IX_SportType ON #tmp_SportType (Sporttype)    
 	CREATE CLUSTERED INDEX IX_LeagueID ON #tmp_LeagueID (LeagueID, Bettype)
-	CREATE CLUSTERED INDEX IX_GameTableID ON #tmp_GameTableId (GameTableID)
 	
 	CREATE TABLE #ExtraPT (ProductID INT, SuperID INT, ExtraPT DECIMAL(9, 8))
 	CREATE TABLE #ExtraComm (ProductID INT, SuperID INT, ExtraComm DECIMAL(9, 8))
@@ -1127,8 +1117,6 @@ BEGIN
 		WHERE b.winlostdate = @WLDate				
 			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 4)
 			AND b.statusID IN (111, 112, 113, 103) 
-			AND b.matchid IN (SELECT matchid FROM match14 WITH (NOLOCK)
-								WHERE LeagueID IN (SELECT GameTableID FROM #tmp_GameTableId))
 			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
 			AND (@Currency IN (0, -1) OR b.currency = @Currency)	
 			AND (@IsFilterCust = 0 OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
@@ -2175,7 +2163,6 @@ BEGIN
 	DROP TABLE #tmp_bettrans
 	DROP TABLE #tmp_Device
 	DROP TABLE #tmp_ProductID
-	DROP TABLE #tmp_GameTableID
 	DROP TABLE #tmp_LeagueID
 	DROP TABLE #tmp_MemIDs
 	DROP TABLE #tmp_SportType

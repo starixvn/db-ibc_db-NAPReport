@@ -18,7 +18,6 @@ ALTER PROCEDURE [dbo].[Acc_Rpt_NonSportsProductStatistics_Hourly_14]
 	@BetType		VARCHAR(MAX) = '',
 	@LeagueId		VARCHAR(MAX) = '',
 	@Sporttype		VARCHAR(MAX) = '',
-	@GameTableId	VARCHAR(MAX) = '',
 	@Currency		SMALLINT = 0,	
 	@Device			VARCHAR(200) = '',
 	@ExcludeTest	BIT = 1, 
@@ -46,6 +45,7 @@ AS
 		20190314@Cherry: Integrate Video Poker Games (#108735)
 		20190322@Cherry: Add betfrom b,f (#110653)
 		20190510@Cherry: Appy ExtraPT (#111676)
+		20190724@Cherry: ExtraPT in House Turnover (#116766)
 
 	Param's Explanation:
 			 - @username:  + Search by keyword, member only
@@ -57,7 +57,6 @@ AS
 			 - @BetType: string filter by bettype
 			 - @LeagueId: string filter by LeagueId (ProductID = 3 - Number Game get LeagueId)  
 			 - @Sporttype: string filter by Sporttype (ProductID = 5 - Virtual Sports get Sporttype)
-			 - @GameTableId: filter by specific game table (ProductID = 4 - Live Casino get leagueID)
 			 - @currency: 
 				-1: All and convert to RM
 				 0: All without convert (original)
@@ -147,7 +146,8 @@ SET NOCOUNT ON
 						   CompanyGrossIncomeRM DECIMAL(19,4), 
 						   CompanyCommRM DECIMAL(19,4),
 						   ExtraWL DECIMAL(19,8),
-						   ExtraComm DECIMAL(19,8)
+						   ExtraComm DECIMAL(19,8), 
+						   StakeRM DECIMAL(19,4)
 						   )
 						   
 	CREATE TABLE #Result ( [Hour] tinyint,  
@@ -178,9 +178,6 @@ SET NOCOUNT ON
     )  
 	CREATE TABLE #tmpSporttype (
         Sporttype INT
-    )
-	CREATE TABLE #tmpGameTableId (
-        GameTableID INT
     )
 	CREATE TABLE #tmpAllDepSuper (
         Srecommend INT
@@ -242,13 +239,7 @@ SET NOCOUNT ON
     BEGIN
 		INSERT INTO #tmpSporttype (Sporttype)
 		SELECT val FROM [dbo].strSplit(@Sporttype, ',')
-	END
-		
-	IF @GameTableID <> ''
-    BEGIN
-		INSERT INTO #tmpGameTableId (GameTableID)
-		SELECT val FROM [dbo].strSplit(@GameTableID, ',')
-	END
+	END		
 
 	CREATE TABLE #Device (Betfrom NVARCHAR(2))
 	IF @Device <> ''
@@ -415,7 +406,8 @@ SET NOCOUNT ON
 						   CompanyGrossIncomeRM , 
 						   CompanyCommRM,
 						   ExtraWL,
-						   ExtraComm 					   
+						   ExtraComm,
+						   StakeRM					   
 							   )
 	
 		SELECT  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 THEN 0
@@ -440,7 +432,11 @@ SET NOCOUNT ON
 				- SUM((winlost - actual_stake) * actualrate) ExtraWL,
 				
 				- SUM((CASE WHEN tpositiontaking = 1 THEN 0
-							ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraComm
+							ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraComm,
+	
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 
+						  WHEN b.tpositiontaking = 1 THEN 0
+						  ELSE b.stake END) * actualrate) AS StakeRM
 				
 		FROM  dbo.Bettrans14 b WITH (NOLOCK)
 		WHERE b.WinlostDate = @WLDate
@@ -478,7 +474,8 @@ SET NOCOUNT ON
 						   CompanyGrossIncomeRM , 
 						   CompanyCommRM,
 						   ExtraWL,
-						   ExtraComm 								   
+						   ExtraComm,
+						   StakeRM								   
 							)
 	
 		SELECT  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 THEN 0
@@ -502,7 +499,11 @@ SET NOCOUNT ON
 				- SUM((winlost - actual_stake) * actualrate) ExtraWL,
 				
 				- SUM((CASE WHEN tpositiontaking = 1 THEN 0
-							ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraComm
+							ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraComm,
+							
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 
+						  WHEN b.tpositiontaking = 1 THEN 0
+						  ELSE b.stake END) * actualrate) AS StakeRM
 				
 		FROM  dbo.BettransRNG14 b WITH (NOLOCK)
 		
@@ -538,7 +539,8 @@ SET NOCOUNT ON
 						   CompanyGrossIncomeRM , 
 						   CompanyCommRM,
 						   ExtraWL,
-						   ExtraComm 								   
+						   ExtraComm,
+						   StakeRM 								   
 							)
 	
 		SELECT  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 THEN 0
@@ -562,7 +564,11 @@ SET NOCOUNT ON
 				- SUM((winlost - actual_stake) * actualrate) ExtraWL,
 				
 				- SUM((CASE WHEN tpositiontaking = 1 THEN 0
-							ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraComm
+							ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraComm,
+							
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 
+						  WHEN b.tpositiontaking = 1 THEN 0
+						  ELSE b.stake END) * actualrate) AS StakeRM
 				
 		FROM  dbo.BettransRNG14 b WITH (NOLOCK)
 		WHERE b.WinlostDate = @WLDate
@@ -598,7 +604,8 @@ SET NOCOUNT ON
 						   CompanyGrossIncomeRM , 
 						   CompanyCommRM,
 						   ExtraWL,
-						   ExtraComm 						   
+						   ExtraComm,
+						   StakeRM 						   
 							)
 	
 		SELECT   CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 THEN 0
@@ -623,7 +630,11 @@ SET NOCOUNT ON
 				- SUM((winlost - actual_stake) * actualrate) ExtraWL,
 				
 				- SUM((CASE WHEN tpositiontaking = 1 THEN 0
-							ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraComm
+							ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraComm,
+							
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 
+						  WHEN b.tpositiontaking = 1 THEN 0
+						  ELSE b.stake END) * actualrate) AS StakeRM
 				
 		FROM  dbo.BettransLC14 b WITH (NOLOCK)
 		WHERE b.WinlostDate = @WLDate
@@ -659,7 +670,8 @@ SET NOCOUNT ON
 						   CompanyGrossIncomeRM , 
 						   CompanyCommRM,
 						   ExtraWL,
-						   ExtraComm							   
+						   ExtraComm,
+						   StakeRM							   
 					   )
 	
 		SELECT  CASE WHEN DATEDIFF(dd, m.kickofftime, b.winlostdate) = 1 and DATEPART(HOUR, m.kickofftime) = 23 
@@ -685,7 +697,11 @@ SET NOCOUNT ON
 				- SUM((winlost - actual_stake) * actualrate) ExtraWL,
 				
 				- SUM((CASE WHEN tpositiontaking = 1 THEN 0
-							ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraComm
+							ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraComm,
+							
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 
+						  WHEN b.tpositiontaking = 1 THEN 0
+						  ELSE b.stake END) * actualrate) AS StakeRM
 				
 		FROM  dbo.Bettrans14 b WITH (NOLOCK)
 			INNER JOIN dbo.match14 m WITH (NOLOCK) ON b.matchid = m.matchid
@@ -724,7 +740,8 @@ SET NOCOUNT ON
 						   CompanyGrossIncomeRM , 
 						   CompanyCommRM,
 						   ExtraWL,
-						   ExtraComm							   
+						   ExtraComm,
+						   StakeRM							   
 					   )
 	
 		SELECT  CASE WHEN DATEDIFF(dd, m.kickofftime, b.winlostdate) = 1 and DATEPART(HOUR, m.kickofftime) = 23 
@@ -750,7 +767,11 @@ SET NOCOUNT ON
 				- SUM((winlost - actual_stake) * actualrate) ExtraWL,
 				
 				- SUM((CASE WHEN tpositiontaking = 1 THEN 0
-							ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraComm
+							ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraComm,
+							
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 
+						  WHEN b.tpositiontaking = 1 THEN 0
+						  ELSE b.stake END) * actualrate) AS StakeRM
 				
 		FROM  dbo.Bettrans14 b WITH (NOLOCK)	
 			INNER JOIN dbo.match14 m WITH (NOLOCK) ON b.matchid = m.matchid		
@@ -790,7 +811,8 @@ SET NOCOUNT ON
 						   CompanyGrossIncomeRM , 
 						   CompanyCommRM,
 						   ExtraWL,
-						   ExtraComm 							   
+						   ExtraComm,
+						   StakeRM							   
 					   )
 	
 		SELECT  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 
@@ -816,13 +838,16 @@ SET NOCOUNT ON
 				- SUM((winlost - actual_stake) * actualrate) ExtraWL,
 				
 				- SUM((CASE WHEN tpositiontaking = 1 THEN 0
-							ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraComm
+							ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraComm,
+							
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 
+						  WHEN b.tpositiontaking = 1 THEN 0
+						  ELSE b.stake END) * actualrate) AS StakeRM
 				
 		FROM  dbo.Bettrans14 b WITH (NOLOCK)
 		WHERE b.WinlostDate = @WLDate
 			AND b.bettype in (SELECT Bettype FROM #SportBettype WHERE ProductID = 4)
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
-			AND EXISTS (SELECT 1 FROM Match14 m WITH (NOLOCK) INNER JOIN #tmpGameTableId g ON g.GameTableID = m.LeagueID WHERE m.matchid = b.matchid)
 			AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
 			AND (b.currency = @currency OR @currency IN (0,-1)) 			
 			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
@@ -855,7 +880,8 @@ SET NOCOUNT ON
 						   CompanyGrossIncomeRM , 
 						   CompanyCommRM,
 						   ExtraWL,
-						   ExtraComm 							   
+						   ExtraComm,
+						   StakeRM 							   
 					   )
 	
 		SELECT  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 
@@ -881,7 +907,11 @@ SET NOCOUNT ON
 				- SUM((winlost - actual_stake) * actualrate) ExtraWL,
 				
 				- SUM((CASE WHEN tpositiontaking = 1 THEN 0
-							ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraComm
+							ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraComm,
+							
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 
+						  WHEN b.tpositiontaking = 1 THEN 0
+						  ELSE b.stake END) * actualrate) AS StakeRM
 				
 		FROM  dbo.Bettrans14 b WITH (NOLOCK)
 		WHERE b.WinlostDate = @WLDate
@@ -920,7 +950,8 @@ SET NOCOUNT ON
 						   CompanyGrossIncomeRM , 
 						   CompanyCommRM,
 						   ExtraWL,
-						   ExtraComm 						   
+						   ExtraComm,
+						   StakeRM						   
 					   )
 	
 		SELECT  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 
@@ -946,7 +977,11 @@ SET NOCOUNT ON
 				- SUM((winlost - actual_stake) * actualrate) ExtraWL,
 				
 				- SUM((CASE WHEN tpositiontaking = 1 THEN 0
-							ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraComm
+							ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraComm,
+							
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 
+						  WHEN b.tpositiontaking = 1 THEN 0
+						  ELSE b.stake END) * actualrate) AS StakeRM
 				
 		FROM  dbo.Bettrans14 b WITH (NOLOCK)
 		WHERE b.WinlostDate = @WLDate
@@ -985,7 +1020,8 @@ SET NOCOUNT ON
 						   CompanyGrossIncomeRM , 
 						   CompanyCommRM,
 						   ExtraWL,
-						   ExtraComm							   
+						   ExtraComm,
+						   StakeRM							   
 					   )
 	
 		SELECT  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 THEN 0 
@@ -1011,7 +1047,11 @@ SET NOCOUNT ON
 				- SUM((winlost - actual_stake) * actualrate) ExtraWL,
 				
 				- SUM((CASE WHEN tpositiontaking = 1 THEN 0
-							ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraComm
+							ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraComm,
+							
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 
+						  WHEN b.tpositiontaking = 1 THEN 0
+						  ELSE b.stake END) * actualrate) AS StakeRM
 				
 		FROM  dbo.Bettrans14 b WITH (NOLOCK)			
 		WHERE b.WinlostDate = @WLDate
@@ -1055,7 +1095,8 @@ SET NOCOUNT ON
 						   CompanyGrossIncomeRM , 
 						   CompanyCommRM,
 						   ExtraWL,
-						   ExtraComm							   
+						   ExtraComm,
+						   StakeRM							   
 					   )
 	
 		SELECT  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 THEN 0 
@@ -1081,7 +1122,11 @@ SET NOCOUNT ON
 				- SUM((winlost - actual_stake) * actualrate) ExtraWL,
 				
 				- SUM((CASE WHEN tpositiontaking = 1 THEN 0
-							ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraComm
+							ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraComm,
+							
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 
+						  WHEN b.tpositiontaking = 1 THEN 0
+						  ELSE b.stake END) * actualrate) AS StakeRM
 				
 		FROM  dbo.Bettrans14 b WITH (NOLOCK)			
 		WHERE b.WinlostDate = @WLDate
@@ -1127,7 +1172,7 @@ SET NOCOUNT ON
 				SUM(TotalWinsRM) AS TotalWins,
 				CASE WHEN SUM(ISNULL(TotalBetsRM,0)) = 0 THEN NULL ELSE SUM(TotalWinsRM)/SUM(TotalBetsRM) END AS GamePayout,
 				SUM(TotalRefundRM) AS TotalRefund,
-				SUM(CompanyTurnoverRM) AS CompanyTurnover,
+				SUM(CompanyTurnoverRM - StakeRM * ISNULL(e.ExtraPT,0)) AS CompanyTurnover,
 				SUM(CompanyGrossIncomeRM) AS CompanyGrossIncome,
 				SUM(CompanyCommRM) AS CompanyComm,
 				SUM(CASE WHEN s.ProductID = 33 AND s.RefTable = 0 THEN b.ExtraWL * CAST(ISNULL(e.ExtraPT,0) AS [decimal](10, 8)) + b.ExtraComm * CAST(ISNULL(c.ExtraComm,0) AS [decimal](10, 8))
@@ -1170,7 +1215,6 @@ SET NOCOUNT ON
 	DROP TABLE #tmpAllDepSuper
 	DROP TABLE #tmpBetType
 	DROP TABLE #tmpDevice
-	DROP TABLE #tmpGameTableId
 	DROP TABLE #tmpLeagueId
 	DROP TABLE #tmpProductID
 	DROP TABLE #tmpSite

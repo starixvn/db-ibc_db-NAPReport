@@ -10,7 +10,6 @@ ALTER PROCEDURE [dbo].[Acc_Rpt_NonSportsProductStatistics_Customer_HousePT_14]
 	@BetType		VARCHAR(MAX) = '',
 	@LeagueId		VARCHAR(MAX) = '',
 	@Sporttype		VARCHAR(MAX) = '',
-	@GameTableId	VARCHAR(MAX) = '',
 	@Currency		SMALLINT = 0,
 	@Device			VARCHAR(200) = '',
 	@TotalBetType	SMALLINT = 0,
@@ -42,7 +41,6 @@ AS
 		- @BetType: string filter by bettype
 		- @LeagueId: string filter by LeagueId (only use for ProductID = 3 - Number Game get LeagueId)  
 		- @Sporttype: string filter by Sporttype (only use for ProductID = 5 - Virtual Sports get Sporttype)
-		- @GameTableId: filter by specific game table (only use for ProductID = 4 - Live Casino get leagueID)
 		- @HousePTType: 
 			 1: >=
 			-1: <=
@@ -59,7 +57,6 @@ BEGIN
 	CREATE TABLE #tmp_BetType		(Bettype SMALLINT)
 	CREATE TABLE #tmp_LeagueID		(LeagueID INT, Bettype INT)
 	CREATE TABLE #tmp_SportType		(Sporttype SMALLINT)
-	CREATE TABLE #tmp_GameTableID	(GameTableID INT)
 	CREATE TABLE #tmp_Devide		(Betfrom NVARCHAR(2))
 
 	-- Get Info from Pars list
@@ -104,12 +101,6 @@ BEGIN
 	BEGIN
 		INSERT INTO #tmp_SportType (Sporttype)
 		SELECT val FROM dbo.strSplit(@Sporttype, ',')
-	END
-
-	IF @GameTableId <> ''
-	BEGIN
-		INSERT INTO #tmp_GameTableID (GameTableID)
-		SELECT val FROM dbo.strSplit(@GameTableId, ',')
 	END
 
 	IF @Device <> ''
@@ -542,7 +533,6 @@ BEGIN
 			WHERE ProductID IN (3, 4, 5) AND b.EvenType = 1
 				AND (
 					(b.ProductID = 3 AND (@LeagueId = '' OR (EXISTS (SELECT 1 FROM #tmp_LeagueID l WHERE l.LeagueID = m.leagueid AND l.Bettype = b.Bettype)))) OR
-					(b.ProductID = 4 AND (@GameTableId = '' OR (EXISTS (SELECT 1 FROM #tmp_GameTableID g WHERE g.GameTableID = m.leagueid)))) OR
 					(b.ProductID = 5 AND (@Sporttype = '' OR (EXISTS (SELECT 1 FROM #tmp_SportType st WHERE st.Sporttype = m.sporttype))))
 				)
 			GROUP BY ProductID
@@ -668,7 +658,6 @@ BEGIN
 	DROP TABLE #SportBettype
 	DROP TABLE #tmp_bettrans
 	DROP TABLE #tmp_Devide
-	DROP TABLE #tmp_GameTableID
 	DROP TABLE #tmp_LeagueID
 	DROP TABLE #tmp_MemIDs
 	DROP TABLE #tmp_SportType

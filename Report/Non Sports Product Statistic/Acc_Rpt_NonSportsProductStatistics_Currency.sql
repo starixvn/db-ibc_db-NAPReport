@@ -11,7 +11,6 @@ ALTER PROCEDURE [dbo].[Acc_Rpt_NonSportsProductStatistics_Currency]
 	@BetType		VARCHAR(MAX) = '',
 	@LeagueId		VARCHAR(MAX) = '',
 	@Sporttype		VARCHAR(MAX) = '',
-	@GameTableId	VARCHAR(MAX) = '',
 	@Currency		SMALLINT = 0,	
 	@Device			VARCHAR(200) = '',
 	@ExcludeTest	BIT = 1, 
@@ -53,7 +52,6 @@ AS
 		- @BetType: string filter by bettype
 		- @LeagueId: string filter by LeagueId (ProductID = 3 - Number Game get LeagueId)  
 		- @Sporttype: string filter by Sporttype (ProductID = 5 - Virtual Sports get Sporttype)
-		- @GameTableId: filter by specific game table (ProductID = 4 - Live Casino get leagueID)
 		- @Currency: 
 			-1: All and convert to RM
 			0: All without convert (original)
@@ -163,7 +161,6 @@ BEGIN
 	CREATE TABLE #tmp_BetType		(Bettype INT)
 	CREATE TABLE #tmp_LeagueID		(LeagueID INT, Bettype INT)
 	CREATE TABLE #tmp_SportType		(Sporttype INT)
-	CREATE TABLE #tmp_GameTableID	(GameTableID INT)
 	CREATE TABLE #tmp_Device		(Betfrom NVARCHAR(2))
 	CREATE TABLE #tmp_Site			(Site VARCHAR(50))
 	CREATE TABLE #tmp_MemIDs		(CustID INT)
@@ -213,12 +210,6 @@ BEGIN
 	BEGIN
 		INSERT INTO #tmp_SportType (Sporttype)
 		SELECT val FROM dbo.strSplit(@Sporttype, ',')
-	END
-
-	IF @GameTableId <> ''
-	BEGIN
-		INSERT INTO #tmp_GameTableID (GameTableID)
-		SELECT val FROM dbo.strSplit(@GameTableId, ',')
 	END
 
 	CREATE TABLE #Device (Betfrom NVARCHAR(2))
@@ -364,7 +355,6 @@ BEGIN
 	CREATE CLUSTERED INDEX IX_SportBettype ON #SportBettype (ProductID, Bettype, EvenType, RefTable)  
 	CREATE CLUSTERED INDEX IX_SportType ON #tmp_SportType (Sporttype)    
 	CREATE CLUSTERED INDEX IX_LeagueID ON #tmp_LeagueID (LeagueID, Bettype)
-	CREATE CLUSTERED INDEX IX_GameTableID ON #tmp_GameTableId (GameTableID)
 
 	------------------------------------------II. Get Real Data For Report ------------------------------------------------------	
 
@@ -945,8 +935,6 @@ BEGIN
 			AND b.bettype in (SELECT Bettype FROM #SportBettype WHERE ProductID = 4)
 			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
-			AND b.matchid IN (SELECT matchid FROM Match WITH (NOLOCK)
-								WHERE LeagueID IN (SELECT GameTableID FROM #tmp_GameTableId))
 			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
 			AND (@Currency IN (0, -1) OR b.currency = @Currency)	
 			AND (@Username = '' OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
@@ -1595,7 +1583,6 @@ BEGIN
 	DROP TABLE #tmp_BetType
 	DROP TABLE #recommend
 	DROP TABLE #tmp_Device
-	DROP TABLE #tmp_GameTableID
 	DROP TABLE #tmp_LeagueID
 	DROP TABLE #tmp_MemIDs
 	DROP TABLE #tmp_ProductID

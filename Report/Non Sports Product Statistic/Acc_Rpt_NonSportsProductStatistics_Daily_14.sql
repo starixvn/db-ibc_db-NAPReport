@@ -11,7 +11,6 @@ ALTER PROCEDURE [dbo].[Acc_Rpt_NonSportsProductStatistics_Daily_14]
 	@BetType		VARCHAR(MAX) = '',
 	@LeagueId		VARCHAR(MAX) = '',
 	@Sporttype		VARCHAR(MAX) = '',
-	@GameTableId	VARCHAR(MAX) = '',
 	@Currency		SMALLINT = 0,	
 	@Device			VARCHAR(200) = '',
 	@ExcludeTest	BIT = 1, 
@@ -56,7 +55,6 @@ AS
 			 - @BetType: string filter by bettype
 			 - @LeagueId: string filter by LeagueId (ProductID = 3 - Number Game get LeagueId)  
 			 - @Sporrtype: string filter by Sporrtype (ProductID = 5 - Virtual Sports get Sporttype)
-			 - @GameTableId: filter by specific game table (ProductID = 4 - Live Casino get leagueID)
 			 - @currency: 
 				-1: All and convert to RM
 				 0: All without convert (original)
@@ -159,7 +157,6 @@ SET NOCOUNT ON
     CREATE TABLE #tmpBetType (Bettype INT)
 	CREATE TABLE #tmpLeagueId (LeagueId INT, Bettype INT)  
 	CREATE TABLE #tmpSporttype (Sporttype INT)
-	CREATE TABLE #tmpGameTableId (GameTableID INT)
 	CREATE TABLE #tmp_Site (Site VARCHAR(50))	
 	CREATE TABLE #tmp_Company (SiteName VARCHAR(50), Srecommend INT)
 	CREATE TABLE #tmpDevice (Betfrom NVARCHAR(2))
@@ -208,12 +205,6 @@ SET NOCOUNT ON
     BEGIN
 		INSERT INTO #tmpSporttype (Sporttype)
 		SELECT val FROM [dbo].strSplit(@Sporttype, ',')
-	END
-		
-	IF @GameTableID <> ''
-    BEGIN
-		INSERT INTO #tmpGameTableId (GameTableID)
-		SELECT val FROM [dbo].strSplit(@GameTableID, ',')
 	END
 
 	CREATE TABLE #Device (Betfrom NVARCHAR(2))
@@ -347,7 +338,6 @@ SET NOCOUNT ON
 	CREATE CLUSTERED INDEX IX_SportBettype ON #SportBettype (ProductID, Bettype, EventType, RefTable)  
 	CREATE CLUSTERED INDEX IX_SportType ON #tmpSportType (Sporttype)    
 	CREATE CLUSTERED INDEX IX_LeagueID ON #tmpLeagueID (LeagueID, Bettype)
-	CREATE CLUSTERED INDEX IX_GameTableID ON #tmpGameTableId (GameTableID)
 
 	-- ProductID NOT IN (3, 4, 5, 27, 33)
 	BEGIN
@@ -826,8 +816,6 @@ SET NOCOUNT ON
 		WHERE b.WinlostDate = @WLDate
 			AND b.bettype in (SELECT Bettype FROM #SportBettype WHERE ProductID = 4)
 			AND b.statusID IN (111, 112, 113, 103) 
-			AND b.matchid IN (SELECT matchid FROM match14 WITH (NOLOCK)
-								WHERE LeagueID IN (SELECT GameTableID FROM #tmpGameTableId))
 			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
 			AND (@Currency IN (0, -1) OR b.currency = @Currency)	
 			AND (@Username = '' OR EXISTS (SELECT 1 FROM #Temp_MemIDs m WHERE m.CustID = b.custid))
@@ -1331,7 +1319,6 @@ SET NOCOUNT ON
 	DROP TABLE #Temp_MemIDs
 	DROP TABLE #tmpBetType
 	DROP TABLE #tmpDevice
-	DROP TABLE #tmpGameTableId
 	DROP TABLE #tmpLeagueId
 	DROP TABLE #tmpProductID
 	DROP TABLE #tmp_Site
