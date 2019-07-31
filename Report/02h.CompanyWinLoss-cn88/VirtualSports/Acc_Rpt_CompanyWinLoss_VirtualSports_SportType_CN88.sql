@@ -127,6 +127,7 @@ BEGIN
 																		   END
 					 END) AS RealTurnover
 			FROM bettrans AS b WITH (NOLOCK)
+				INNER JOIN CS_CustSuper AS cn88 WITH (NOLOCK) ON b.srecommend = cn88.CustId
 			    INNER JOIN VSRaceInfo AS r WITH (NOLOCK) ON b.MatchId = r.EventId
 			    INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
 			    LEFT JOIN #ExtraPT_Sel AS e ON e.SuperID = b.srecommend
