@@ -1,6 +1,6 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
-ALTER PROCEDURE dbo.Acc_Rpt_CompanyWinLoss_OtherSports_BetType
+ALTER PROCEDURE dbo.Acc_Rpt_CompanyWinLoss_OtherSports_BetType_CN88
 	@StartDate    SMALLDATETIME
    , @EndDate      SMALLDATETIME
    , @SportType    SMALLINT      = 50
