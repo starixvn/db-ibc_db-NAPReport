@@ -1,11 +1,11 @@
-/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBRPT-bodb_Report" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
 ALTER PROCEDURE dbo.Job_Daily_Bet_Builder_Delete_RawData
 AS
 /*
 	Creator: Robert
 	Date: 2019-05-27
-	DB: DBACC.bodb02
+	DB: DBRPT.bodb_Report
 	Task: Bet Builder - Daily Automail report to 3rd
 	Revisions:		
 		- 20190527@Robert: Bet Builder - Daily Automail report to 3rd [#114248]

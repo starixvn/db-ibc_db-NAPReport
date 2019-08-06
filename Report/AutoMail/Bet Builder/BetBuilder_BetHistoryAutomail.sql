@@ -20,14 +20,9 @@ CREATE TABLE dbo.BetBuilder_BetHistoryAutomail(
    , Scomm           MONEY
    , CapturedDate    DATETIME NOT NULL
    , Transdate       DATETIME
-   , Betfrom         VARCHAR(1))
-ON BetBuilder_BetHistoryAutomail WITH(DATA_COMPRESSION = PAGE);
+   , Betfrom         VARCHAR(1));
 
 GO
 
-CREATE CLUSTERED INDEX CIX_BetBuilder_BetHistoryAutomail ON dbo.BetBuilder_BetHistoryAutomail(WinlostDate ASC, TransId ASC)
-	WITH(DATA_COMPRESSION = PAGE);
-
+CREATE CLUSTERED INDEX CIX_BetBuilder_BetHistoryAutomail ON dbo.BetBuilder_BetHistoryAutomail(WinlostDate ASC, TransId ASC);	
 GO
-
-GRANT SELECT, INSERT, UPDATE, DELETE ON bodb_Report.dbo.BetBuilder_BetHistoryAutomail TO bodbAdminNet;

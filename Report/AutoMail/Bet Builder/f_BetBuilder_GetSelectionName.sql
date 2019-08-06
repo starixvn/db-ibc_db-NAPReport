@@ -1,4 +1,4 @@
-/*<info serverAlias="DBACC-bodb02" selecters="bodbAdminNet" viewers="" isFunction="1" isNested="1"></info>*/
+/*<info serverAlias="DBRPT-bodb_Report" selecters="bodbAdminNet" viewers="" isFunction="1" isNested="1"></info>*/
 
 ALTER FUNCTION dbo.f_BetBuilder_GetSelectionName(
 	@MarketId       VARCHAR(20)
@@ -6,7 +6,7 @@ ALTER FUNCTION dbo.f_BetBuilder_GetSelectionName(
 /*
 	Creator: Robert
 	Date: 2019-05-27
-	DB: DBACC.bodb02
+	DB: DBRPT.bodb_Report
 	Task: Bet Builder - Daily Automail report to 3rd
 	Revisions:		
 		- 20190527@Robert: Bet Builder - Daily Automail report to 3rd [#114248]
@@ -34,8 +34,8 @@ BEGIN
     IF @WinlostDate > @movebetdate
 	   BEGIN
 		  SELECT @s = COALESCE(@s+'; ', '')+s2.SelectionName
-		  FROM SMP_MarketSelection AS s1 WITH (NOLOCK)
-			 INNER JOIN SMP_Selection AS s2 WITH (NOLOCK) ON s1.SelectionType = s2.SelectionType
+		  FROM bodb02.dbo.SMP_MarketSelection AS s1 WITH (NOLOCK)
+			 INNER JOIN bodb02.dbo.SMP_Selection AS s2 WITH (NOLOCK) ON s1.SelectionType = s2.SelectionType
 		  WHERE MarketId = @MarketId
 		  ORDER BY s2.SelectionName;
 	   END;
@@ -43,8 +43,8 @@ BEGIN
     IF @WinlostDate <= @movebetdate
 	   BEGIN
 		  SELECT @s = COALESCE(@s+'; ', '')+s2.SelectionName
-		  FROM SMP_MarketSelection14 AS s1 WITH (NOLOCK)
-			 INNER JOIN SMP_Selection AS s2 WITH (NOLOCK) ON s1.SelectionType = s2.SelectionType
+		  FROM bodb02.dbo.SMP_MarketSelection14 AS s1 WITH (NOLOCK)
+			 INNER JOIN bodb02.dbo.SMP_Selection AS s2 WITH (NOLOCK) ON s1.SelectionType = s2.SelectionType
 		  WHERE MarketId = @MarketId
 		  ORDER BY s2.SelectionName;
 	   END;
@@ -53,7 +53,7 @@ BEGIN
 	   BEGIN
 		  SELECT @s = COALESCE(@s+'; ', '')+s2.SelectionName
 		  FROM bodb_Archive.dbo.SMP_MarketSelection_bk AS s1 WITH (NOLOCK)
-			 INNER JOIN SMP_Selection AS s2 WITH (NOLOCK) ON s1.SelectionType = s2.SelectionType
+			 INNER JOIN bodb02.dbo.SMP_Selection AS s2 WITH (NOLOCK) ON s1.SelectionType = s2.SelectionType
 		  WHERE MarketId = @MarketId
 		  ORDER BY s2.SelectionName;
 	   END;

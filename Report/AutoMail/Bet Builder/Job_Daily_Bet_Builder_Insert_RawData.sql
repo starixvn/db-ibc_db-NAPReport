@@ -1,4 +1,4 @@
-/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBRPT-bodb_Report" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
 ALTER PROCEDURE dbo.Job_Daily_Bet_Builder_Insert_RawData
 	@WinlostDate    SMALLDATETIME = NULL
@@ -6,7 +6,7 @@ AS
 /*
 	Creator: Robert
 	Date: 2019-05-27
-	DB: DBACC.bodb02
+	DB: DBRPT.bodb_Report
 	Task: Bet Builder - Daily Automail report to 3rd
 	Revisions:		
 		- 20190527@Robert: Bet Builder - Daily Automail report to 3rd [#114248]
@@ -99,8 +99,8 @@ BEGIN
 					   , b.winlost AS Payout
 					   , b.scomm AS Commission
 					   , b.stake - b.winlost - b.scomm AS [Gross Revenue]
-				   FROM bettrans AS b WITH (NOLOCK)
-					  INNER JOIN match AS m WITH (NOLOCK) ON b.matchid = m.matchid
+				   FROM bodb02.dbo.bettrans AS b WITH (NOLOCK)
+					  INNER JOIN bodb02.dbo.match AS m WITH (NOLOCK) ON b.matchid = m.matchid
 				   WHERE b.winlostdate = @WinlostDate
 					    AND b.statusID IN(112, 113, 111)
 					    AND b.bettype = 38
@@ -145,8 +145,8 @@ BEGIN
 					   , b.winlost AS Payout
 					   , b.scomm AS Commission
 					   , b.stake - b.winlost - b.scomm AS [Gross Revenue]
-				   FROM bettrans14 AS b WITH (NOLOCK)
-					  INNER JOIN match14 AS m WITH (NOLOCK) ON b.matchid = m.matchid
+				   FROM bodb02.dbo.bettrans14 AS b WITH (NOLOCK)
+					  INNER JOIN bodb02.dbo.match14 AS m WITH (NOLOCK) ON b.matchid = m.matchid
 				   WHERE b.winlostdate = @WinlostDate
 					    AND b.statusID IN(112, 113, 111)
 					    AND b.bettype = 38
