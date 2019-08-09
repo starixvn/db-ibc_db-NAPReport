@@ -44,6 +44,7 @@ AS
 		20190322@Cherry: Add betfrom b,f (#110653)
 		20190510@Cherry: Appy ExtraPT (#111676)
 		20190708@Cherry: Fix issue VS + VS2
+		20190809@Cherry: Add betfrom t (#115937)
 
 	Param's Explanation:
 			 - @username:  + Search by keyword, member only
@@ -225,7 +226,6 @@ SET NOCOUNT ON
 		INSERT INTO #Device (Betfrom)
 		SELECT Betfrom
 		FROM DBWH.bodb_Account.dbo.tbl_Betfrom
-		WHERE betfrom NOT IN ('t')
 
 		IF NOT EXISTS(SELECT 1 FROM #Device d LEFT JOIN #tmpDevice t ON t.Betfrom = d.Betfrom WHERE t.Betfrom IS NULL) 
 			SET @Device = ''
