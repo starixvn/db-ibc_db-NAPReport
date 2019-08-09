@@ -46,6 +46,7 @@ AS
 		20190322@Cherry: Add betfrom b,f (#110653)
 		20190510@Cherry: Appy ExtraPT (#111676)
 		20190724@Cherry: ExtraPT in House Turnover (#116766)
+		20190812@Cherry: Add betfrom t (#115937)
 
 	Param's Explanation:
 			 - @username:  + Search by keyword, member only
