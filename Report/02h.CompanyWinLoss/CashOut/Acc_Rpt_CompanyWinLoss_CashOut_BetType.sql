@@ -9,8 +9,9 @@ AS
 Creator: 20170418@Jacob
 DB: DBACC/bodb02
 Revisions:
-    - 20170418@Jacob: Integrate Cash Out - Redmine:#73419
-    - 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
+- 20170418@Jacob: Integrate Cash Out - Redmine:#73419
+- 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
+- 20190925@Jacob: Group By CN88 (#118824)
 
 Parameter's Explanation:
 	- @Site: credit, deposit

@@ -23,6 +23,7 @@ Revisions:
 - 20181018@Robert: Fix performance issue on House Win Loss by Product [#103309]
 - 20190401@Kean: Improve performance for House Win Loss by Product (#106315)
 - 20190313@Jacob: Integrate BetBuilder (#109822)
+- 20190925@Jacob: Group By CN88 (#118824)
 Parameters:
 @IsLive: 2 - ALL. 0 - Non-Live. 1 - Live
 @IsHedge: 2 - ALL. 0 - Non-Hedge. 1 - Hedge

@@ -12,6 +12,7 @@ DB: DBACC/bodb02
 
 Revisions:
 - 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
+- 20190925@Jacob: Group By CN88 (#118824)
 
 Example:
 EXEC [Acc_Rpt_CompanyWinLoss_ColossusBet_BetType] @StartDate='2016-09-13', @EndDate='2020-01-01'

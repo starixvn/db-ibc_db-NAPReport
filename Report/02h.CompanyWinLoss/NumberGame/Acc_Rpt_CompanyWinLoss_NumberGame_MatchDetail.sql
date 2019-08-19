@@ -16,7 +16,8 @@ DB: DBACC/bodb02
 Revisions:
 - 20160301@Jacob: Initialize Company Win Loss Report
 - 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
-- 20181217@Robert: #104253 - NAP Report - Add new sporttype for Happy 5	
+- 20181217@Robert: #104253 - NAP Report - Add new sporttype for Happy 5
+- 20190925@Jacob: Group By CN88 (#118824)
 Example:
     EXEC [Acc_Rpt_CompanyWinLoss_NumberGame_MatchDetail] @BetType=81, @LeagueId=15223, @StartDate='2016-01-01', @EndDate='2020-01-01'
 */

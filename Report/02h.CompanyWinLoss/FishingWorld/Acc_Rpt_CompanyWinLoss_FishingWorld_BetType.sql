@@ -18,6 +18,7 @@ DB: DBACC/bodb02
 Revisions:
 - 20161201@Jacob: Integrate Fishing World Product [#67757]
 - 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
+- 20190925@Jacob: Group By CN88 (#118824)
 
 Parameters:
 @ProductId: Jacob add this dummy parameter to make it consistent with [Acc_Rpt_CompanyWinLoss_Universal_BetType]

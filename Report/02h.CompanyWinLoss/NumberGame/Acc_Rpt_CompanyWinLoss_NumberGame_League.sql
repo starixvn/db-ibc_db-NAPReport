@@ -12,7 +12,8 @@ AS
 	DB: DBACC/bodb02	
 		
 	Revisions:
-		- 20181217@Robert: #104253 - NAP Report - Add new sporttype for Happy 5
+- 20181217@Robert: #104253 - NAP Report - Add new sporttype for Happy 5
+- 20190925@Jacob: Group By CN88 (#118824)
 
 	Explanation's Param:   
 	

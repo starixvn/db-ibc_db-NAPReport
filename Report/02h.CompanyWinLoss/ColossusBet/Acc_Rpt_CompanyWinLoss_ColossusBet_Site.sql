@@ -18,6 +18,7 @@ DB: DBACC/bodb02
 Revisions:
 - 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
 - 20181018@Robert: Fix performance issue on House Win Loss by Product [#103309]
+- 20190925@Jacob: Group By CN88 (#118824)
 
 Example:
 EXEC [Acc_Rpt_CompanyWinLoss_ColossusBet_Site] @StartDate='2016-01-01', @EndDate='2020-01-01', @Site = 'Credit', @BetType = 18000, @IsFreePlay = 1

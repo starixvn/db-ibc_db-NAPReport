@@ -20,6 +20,7 @@ Revisions:
 - 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
 - 20190220@Dominic: Recompile exec plan to avoid parameter sniffing
 - 20190313@Jacob: Integrate BetBuilder (#109822)
+- 20190925@Jacob: Group By CN88 (#118824)
 Parameters:
 @IsLive: 2 - ALL. 0 - Non-Live. 1 - Live
 @IsHedge: 2 - ALL. 0 - Non-Hedge. 1 - Hedge

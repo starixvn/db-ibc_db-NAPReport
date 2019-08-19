@@ -12,10 +12,11 @@ Task:  Integrate new product NG2 [#63460]
 DB: DBACC/bodb02
 
 Revisions:
-	- 20160921@Jacob: NG2 - Redmine[#63460]
-	- 20160923@Percy: Using local variable to prevent bad parameter sniffing [RedmineID: #64573]
-	- 20161123@Jacob: Get sport type from bet type - SportBettypeMatrix [RedmineID: #67688]
-	- 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
+- 20160921@Jacob: NG2 - Redmine[#63460]
+- 20160923@Percy: Using local variable to prevent bad parameter sniffing [RedmineID: #64573]
+- 20161123@Jacob: Get sport type from bet type - SportBettypeMatrix [RedmineID: #67688]
+- 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
+- 20190925@Jacob: Group By CN88 (#118824)
 Example:
 EXEC [Acc_Rpt_CompanyWinLoss_Universal_SportType] @StartDate='2016-11-07', @EndDate='2020-01-01', @ProductId = 23
 

@@ -14,10 +14,11 @@ Task:  Casino Integration Improvement - Implement Company Winloss By Products re
 DB: DBACC/bodb02
 
 Revisions:
-    - 20160222@Robert: Improve Company Win Loss Report - Bettrade Product
-    - 20160818@Jacob: Integrate bettype-904 (BT-Winloss) - Redmine:#62630
-    - 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
-    - 20181018@Robert: Fix performance issue on House Win Loss by Product [#103309]
+- 20160222@Robert: Improve Company Win Loss Report - Bettrade Product
+- 20160818@Jacob: Integrate bettype-904 (BT-Winloss) - Redmine:#62630
+- 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
+- 20181018@Robert: Fix performance issue on House Win Loss by Product [#103309]
+- 20190925@Jacob: Group By CN88 (#118824)
 
 Parameter's Explanation:
 	- @Site: credit, deposit

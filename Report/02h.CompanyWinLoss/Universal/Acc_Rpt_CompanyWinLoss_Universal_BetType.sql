@@ -14,12 +14,12 @@ Task:  Casino Integration Improvement - Implement Company Winloss By Products re
 DB: DBACC/bodb02
 
 Revisions:
-	 - 20160222@Franklin: Initialize Company Win Loss Report - Universal
-	 - 20160923@Percy:
-		1. Add params @Sporttype to support by Sporttype [RedmineID: #63460]
-		2. Using local variable to prevent bad parameter sniffing [RedmineID: #64573]
-	- 20170825@Franklin: Integrate Lucky 3 (#78214)
-	- 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
+- 20160222@Franklin: Initialize Company Win Loss Report - Universal
+- 20160923@Percy: Add params @Sporttype to support by Sporttype [RedmineID: #63460]
+- 20160923@Percy: Using local variable to prevent bad parameter sniffing [RedmineID: #64573]
+- 20170825@Franklin: Integrate Lucky 3 (#78214)
+- 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
+- 20190925@Jacob: Group By CN88 (#118824)	
 Example:
 EXEC [Acc_Rpt_CompanyWinLoss_Universal_BetType] @StartDate='2016-09-13', @EndDate='2020-01-01', @ProductId = 15, @SportType = 0
 

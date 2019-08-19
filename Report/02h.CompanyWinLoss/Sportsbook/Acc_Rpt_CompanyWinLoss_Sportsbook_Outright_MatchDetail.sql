@@ -16,6 +16,7 @@ Revisions:
   20160301@Jacob: Initialize Company Win Loss Report
   20180419@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
   20190828@Cherry: Hot fix Bet Buider (#119077)
+- 20190925@Jacob: Group By CN88 (#118824)
 
 Example:
 EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Outright_MatchDetail] @EndDate='2020-01-01',@StartDate='2016-01-01', @SportType=2

@@ -18,14 +18,14 @@ Task:  Casino Integration Improvement - Implement Company Winloss By Products re
 DB: DBACC/bodb02
 
 Revisions:
-	- 20160222@Franklin: Initialize Company Win Loss Report
-	- 20160720@Sophia: . Revise SP
-					   . Not use @EndDate because we get only one day on (bettrans/bettrans14 range)
-	- 20160112@Percy: Change Extra PT formula [RedmineID: #70208]
-	- 20171013@Franklin: ExtraPT Setting - DB Restructure (#84802)
-	- 2018.03.19@Franklin: Integrate  ONE RNG Jackpot (#91712)
-	- 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
-	- 20190326@Robert: #109981 - NAP Report - Integrate Promotion Prize
+- 20160222@Franklin: Initialize Company Win Loss Report
+- 20160720@Sophia: . Revise SP. Not use @EndDate because we get only one day on (bettrans/bettrans14 range)
+- 20160112@Percy: Change Extra PT formula [RedmineID: #70208]
+- 20171013@Franklin: ExtraPT Setting - DB Restructure (#84802)
+- 2018.03.19@Franklin: Integrate  ONE RNG Jackpot (#91712)
+- 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
+- 20190326@Robert: #109981 - NAP Report - Integrate Promotion Prize
+- 20190925@Jacob: Group By CN88 (#118824)
 
 Example:
 EXEC [Acc_Rpt_CompanyWinLoss_Game_Product] @EndDate='2020-01-01',@StartDate='2017-01-05', @CasinoType = 1

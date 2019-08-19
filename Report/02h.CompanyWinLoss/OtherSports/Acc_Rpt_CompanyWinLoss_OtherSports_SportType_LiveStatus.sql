@@ -13,6 +13,7 @@ Task:  Improve performance Sp to drilldown OtherSports [#99524]
 DB: DBACC/bodb02
 
 Revisions:
+- 20190925@Jacob: Group By CN88 (#118824)
 
 Parameters:
 @IsLive: 2 - ALL. 0 - Non-Live. 1 - Live

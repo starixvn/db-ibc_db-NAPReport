@@ -18,6 +18,7 @@ Revisions:
 - 20170720@Franklin: Add Betradar Virtual Sports (78495)
 - 20180323@Franklin: Betradar Virtual Sports (phase 2) (91098)
 - 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
+- 20190925@Jacob: Group By CN88 (#118824)
 
 Example:
 EXEC [Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_MatchDetail] @StartDate='2016-01-01', @EndDate='2020-01-01', @SportType = 190, @BetType = 2700

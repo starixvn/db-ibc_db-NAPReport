@@ -14,10 +14,10 @@ DB: DBACC/bodb02
 
 Revisions:
 - 20160301@Jacob: Initialize Company Win Loss Report
-- 20160720@Sophia: . Revise SP
-				   . Not use @EndDate because we get only one day on (bettrans/bettrans14 range)
+- 20160720@Sophia: . Revise SP. Not use @EndDate because we get only one day on (bettrans/bettrans14 range)
 - 20160830@Robert: Enhance System/Mix Parlay [RedmineID: #63022]
 - 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
+- 20190925@Jacob: Group By CN88 (#118824)
 
 Example:
 EXEC [Acc_Rpt_CompanyWinLoss_SystemParlay] @EndDate='2020-01-01',@StartDate='2016-01-01', @Site= 'ALL'

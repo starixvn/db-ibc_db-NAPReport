@@ -14,9 +14,10 @@ Task:  Poker Games Integration - Implement Company Winloss By Products report [#
 DB: DBACC/bodb02
 
 Revisions:
-	 - 20180831@Kean: Integrate Insurance Of Poker Games (#97830)
-	 - 20181018@Robert: Fix performance issue on House Win Loss by Product [#103309]
-	 - 20190121@Franklin: Integrate Poker Games (#107706)
+- 20180831@Kean: Integrate Insurance Of Poker Games (#97830)
+- 20181018@Robert: Fix performance issue on House Win Loss by Product [#103309]
+- 20190121@Franklin: Integrate Poker Games (#107706)
+- 20190925@Jacob: Group By CN88 (#118824)
 Parameter's Explanation:
 	- @Site: credit, deposit
 

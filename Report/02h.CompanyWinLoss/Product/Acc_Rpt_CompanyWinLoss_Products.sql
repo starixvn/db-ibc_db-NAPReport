@@ -12,31 +12,29 @@ AS
 	DB: DBACC/bodb02	
 		
 	Revisions:
-		- 20160622@Sophia: 	. Remove group by ExtraPT to avoid duplicated data. [Redmine: #59732]
-							. Ignore param @EndDate because of the performance, and business supports only one day 
-		 
-		- 20160915@Percy: Integrate NG2 [RedmineID: #63460]
-		- 20160922@Percy: Use local parameter to prevent bad parameter sniffing [RedmindID: #64573]
-		- 20161130@Percy: Integrate Fishing World [RedmineID: #67757]
-		- 20161213@Sophia: Remove parameter @winlostdate, use @StartDate to obtain parameter sniffing [RedmindID: #68634]
-		- 20160112@Percy: Change Extra PT formula [RedmineID: #70208]
-		- 20170323@Percy: Integrate Cash Out [RemineID: #73419]
-		- 20170720@Franklin: Integrate Lottery and Betradar Virtual Sports (#78184)
-		- 20170825@Franklin: Integrate Lucky 3 (#78214)
-		- 20171013@Franklin: ExtraPT Setting - DB Restructure (#84802)
-		- 20171102@Franklin: Bullfighting(#85382)
-		- 20171211@Franklin: Exchange(#86456)
-		- 2018.03.19@Franklin: Integrate  ONE RNG Jackpot (#91712)
-		- 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
-		- 20180816@Cherry: Integrate Poker Games (#97830)
-		- 20180824@Jacob: Integrate Poker Games (#97830) - Remove Racing
-		- 20180831@Kean: Integrate Insurance Of Poker Games (#97830)
-		- 20180917@Robert: House WL by Product - Poker Games should be last index (#101618)
-	     - 20190121@Franklin: Integrate Poker Games (#107706)
-		- 20190308@Jacob: Integrate BetBuilder (#109822)
-		- 20190326@Robert: #109981 - NAP Report - Integrate Promotion Prize
-		- 20190517@Cherry: Change Keno name to RNG Keno (#113670)
-
+- 20160622@Sophia: 	. Remove group by ExtraPT to avoid duplicated data. [Redmine: #59732]. Ignore param @EndDate because of the performance, and business supports only one day 		 
+- 20160915@Percy: Integrate NG2 [RedmineID: #63460]
+- 20160922@Percy: Use local parameter to prevent bad parameter sniffing [RedmindID: #64573]
+- 20161130@Percy: Integrate Fishing World [RedmineID: #67757]
+- 20161213@Sophia: Remove parameter @winlostdate, use @StartDate to obtain parameter sniffing [RedmindID: #68634]
+- 20160112@Percy: Change Extra PT formula [RedmineID: #70208]
+- 20170323@Percy: Integrate Cash Out [RemineID: #73419]
+- 20170720@Franklin: Integrate Lottery and Betradar Virtual Sports (#78184)
+- 20170825@Franklin: Integrate Lucky 3 (#78214)
+- 20171013@Franklin: ExtraPT Setting - DB Restructure (#84802)
+- 20171102@Franklin: Bullfighting(#85382)
+- 20171211@Franklin: Exchange(#86456)
+- 2018.03.19@Franklin: Integrate  ONE RNG Jackpot (#91712)
+- 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
+- 20180816@Cherry: Integrate Poker Games (#97830)
+- 20180824@Jacob: Integrate Poker Games (#97830) - Remove Racing
+- 20180831@Kean: Integrate Insurance Of Poker Games (#97830)
+- 20180917@Robert: House WL by Product - Poker Games should be last index (#101618)
+- 20190121@Franklin: Integrate Poker Games (#107706)
+- 20190308@Jacob: Integrate BetBuilder (#109822)
+- 20190326@Robert: #109981 - NAP Report - Integrate Promotion Prize
+- 20190517@Cherry: Change Keno name to RNG Keno (#113670)
+- 20190925@Jacob: Group By CN88 (#118824)
 	Explanation's Param:
 	
 */

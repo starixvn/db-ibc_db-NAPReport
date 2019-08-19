@@ -15,10 +15,10 @@ DB: DBACC/bodb02
 
 Revisions:
 - 20160301@Jacob: Initialize Company Win Loss Report
-- 20160720@Sophia: . Revise SP
-				   . Not use @EndDate because we get only one day on (bettrans/bettrans14 range)
+- 20160720@Sophia: . Revise SP. Not use @EndDate because we get only one day on (bettrans/bettrans14 range)
 - 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
 - 20190308@Jacob: Integrate BetBuilder (#109822)
+- 20190925@Jacob: Group By CN88 (#118824)
 
 Parameters:
 @IsLive: 2 - ALL. 0 - Non-Live. 1 - Live

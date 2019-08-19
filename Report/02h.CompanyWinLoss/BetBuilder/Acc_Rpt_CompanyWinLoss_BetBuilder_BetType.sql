@@ -14,6 +14,7 @@ DB: DBACC/bodb02
 
 Revisions:
 - 20190313@Jacob: Integrate BetBuilder (#109822)
+- 20190925@Jacob: Group By CN88 (#118824)
 Parameters:
 
 Example:
