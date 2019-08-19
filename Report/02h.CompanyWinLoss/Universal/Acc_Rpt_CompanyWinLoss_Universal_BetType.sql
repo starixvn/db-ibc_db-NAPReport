@@ -80,12 +80,14 @@ EXEC [Acc_Rpt_CompanyWinLoss_Universal_BetType] @StartDate='2016-09-13', @EndDat
              SELECT sb.BetType AS GroupId,
                     sb.BetTypeName AS GroupName,
                     CASE
-                          WHEN dep.CustId IS NULL AND cn88.CustId IS NOT NULL
-                          THEN 'CN88'
-					 WHEN dep.CustId IS NULL AND cn88.CustId IS NULL
-                          THEN 'Credit'
-                          ELSE 'Deposit'
-                      END AS RowName,
+                        WHEN dep.CustId IS NULL
+                             AND cn88.CustId IS NOT NULL
+                        THEN 'CN88'
+                        WHEN dep.CustId IS NULL
+                             AND cn88.CustId IS NULL
+                        THEN 'Credit'
+                        ELSE 'Deposit'
+                    END AS RowName,
                     SUM((winlost - actual_stake) * actualrate) AS MemberWinLoss,
                     SUM((awinlost + mwinlost + swinlost) * actualrate) AS SMAWinLoss,
                     -SUM((CASE
@@ -121,9 +123,11 @@ EXEC [Acc_Rpt_CompanyWinLoss_Universal_BetType] @StartDate='2016-09-13', @EndDat
              GROUP BY sb.BetType,
                       sb.BetTypeName,
                       CASE
-                          WHEN dep.CustId IS NULL AND cn88.CustId IS NOT NULL
+                          WHEN dep.CustId IS NULL
+                               AND cn88.CustId IS NOT NULL
                           THEN 'CN88'
-					 WHEN dep.CustId IS NULL AND cn88.CustId IS NULL
+                          WHEN dep.CustId IS NULL
+                               AND cn88.CustId IS NULL
                           THEN 'Credit'
                           ELSE 'Deposit'
                       END

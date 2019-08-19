@@ -117,12 +117,14 @@ EXEC [Acc_Rpt_CompanyWinLoss_PokerGames_BetType] @StartDate='2018-08-21', @EndDa
                     SELECT sb.BetType,
                            sb.BetTypeName,
                            CASE
-                          WHEN dep.CustId IS NULL AND cn88.CustId IS NOT NULL
-                          THEN 'CN88'
-					 WHEN dep.CustId IS NULL AND cn88.CustId IS NULL
-                          THEN 'Credit'
-                          ELSE 'Deposit'
-                      END,
+                               WHEN dep.CustId IS NULL
+                                    AND cn88.CustId IS NOT NULL
+                               THEN 'CN88'
+                               WHEN dep.CustId IS NULL
+                                    AND cn88.CustId IS NULL
+                               THEN 'Credit'
+                               ELSE 'Deposit'
+                           END,
                            SUM((winlost - actual_stake) * actualrate),
                            SUM((awinlost + mwinlost + swinlost) * actualrate),
                            SUM(((-b.oddsspread) * ISNULL(c.ExtraComm, 0) + (ISNULL(b.transid2, 0) * 1.0 / 10000) * ISNULL(e.ExtraPT, 0)) * actualrate),
@@ -144,12 +146,14 @@ EXEC [Acc_Rpt_CompanyWinLoss_PokerGames_BetType] @StartDate='2018-08-21', @EndDa
                     GROUP BY sb.BetType,
                              sb.BetTypeName,
                              CASE
-                          WHEN dep.CustId IS NULL AND cn88.CustId IS NOT NULL
-                          THEN 'CN88'
-					 WHEN dep.CustId IS NULL AND cn88.CustId IS NULL
-                          THEN 'Credit'
-                          ELSE 'Deposit'
-                      END;
+                                 WHEN dep.CustId IS NULL
+                                      AND cn88.CustId IS NOT NULL
+                                 THEN 'CN88'
+                                 WHEN dep.CustId IS NULL
+                                      AND cn88.CustId IS NULL
+                                 THEN 'Credit'
+                                 ELSE 'Deposit'
+                             END;
          END;
      IF EXISTS -- bettransRNG
 (
@@ -162,12 +166,14 @@ EXEC [Acc_Rpt_CompanyWinLoss_PokerGames_BetType] @StartDate='2018-08-21', @EndDa
                     SELECT sb.BetType,
                            sb.BetTypeName,
                            CASE
-                          WHEN dep.CustId IS NULL AND cn88.CustId IS NOT NULL
-                          THEN 'CN88'
-					 WHEN dep.CustId IS NULL AND cn88.CustId IS NULL
-                          THEN 'Credit'
-                          ELSE 'Deposit'
-                      END,
+                               WHEN dep.CustId IS NULL
+                                    AND cn88.CustId IS NOT NULL
+                               THEN 'CN88'
+                               WHEN dep.CustId IS NULL
+                                    AND cn88.CustId IS NULL
+                               THEN 'Credit'
+                               ELSE 'Deposit'
+                           END,
                            SUM((winlost - actual_stake) * actualrate),
                            SUM((awinlost + mwinlost + swinlost) * actualrate),
                            SUM((CASE
@@ -200,12 +206,14 @@ EXEC [Acc_Rpt_CompanyWinLoss_PokerGames_BetType] @StartDate='2018-08-21', @EndDa
                     GROUP BY sb.BetType,
                              sb.BetTypeName,
                              CASE
-                          WHEN dep.CustId IS NULL AND cn88.CustId IS NOT NULL
-                          THEN 'CN88'
-					 WHEN dep.CustId IS NULL AND cn88.CustId IS NULL
-                          THEN 'Credit'
-                          ELSE 'Deposit'
-                      END;
+                                 WHEN dep.CustId IS NULL
+                                      AND cn88.CustId IS NOT NULL
+                                 THEN 'CN88'
+                                 WHEN dep.CustId IS NULL
+                                      AND cn88.CustId IS NULL
+                                 THEN 'Credit'
+                                 ELSE 'Deposit'
+                             END;
          END;
          BEGIN -- Query
              SELECT d.GroupId,

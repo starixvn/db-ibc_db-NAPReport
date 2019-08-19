@@ -74,12 +74,14 @@ AS
              SELECT m.leagueid AS GroupId,
                     m.leaguename AS GroupName,
                     CASE
-                          WHEN dep.CustId IS NULL AND cn88.CustId IS NOT NULL
-                          THEN 'CN88'
-					 WHEN dep.CustId IS NULL AND cn88.CustId IS NULL
-                          THEN 'Credit'
-                          ELSE 'Deposit'
-                      END AS RowName,
+                        WHEN dep.CustId IS NULL
+                             AND cn88.CustId IS NOT NULL
+                        THEN 'CN88'
+                        WHEN dep.CustId IS NULL
+                             AND cn88.CustId IS NULL
+                        THEN 'Credit'
+                        ELSE 'Deposit'
+                    END AS RowName,
                     SUM((winlost - actual_stake) * actualrate) AS MemberWinLoss,
                     SUM((awinlost + mwinlost + swinlost) * actualrate) AS SMAWinLoss,
                     -SUM(CASE
@@ -113,9 +115,11 @@ AS
              GROUP BY m.leagueid,
                       m.leaguename,
                       CASE
-                          WHEN dep.CustId IS NULL AND cn88.CustId IS NOT NULL
+                          WHEN dep.CustId IS NULL
+                               AND cn88.CustId IS NOT NULL
                           THEN 'CN88'
-					 WHEN dep.CustId IS NULL AND cn88.CustId IS NULL
+                          WHEN dep.CustId IS NULL
+                               AND cn88.CustId IS NULL
                           THEN 'Credit'
                           ELSE 'Deposit'
                       END
