@@ -44,7 +44,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_Site] @StartDate='2016-01-01'
                  BEGIN
                      INSERT INTO #Agent
                             SELECT c.CustId,
-                                   Site
+                                   c.Site
                             FROM customer AS c WITH (NOLOCK)
                                  INNER JOIN CS_CustSuper cn88 WITH (NOLOCK) ON c.srecommend = cn88.CustId
                             WHERE c.RoleID = 2;
@@ -54,7 +54,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_Site] @StartDate='2016-01-01'
                  BEGIN
                      INSERT INTO #Agent
                             SELECT c.CustId,
-                                   Site
+                                   c.Site
                             FROM customer AS c WITH (NOLOCK)
                                  INNER JOIN Dep_CustSuper AS dep WITH (NOLOCK) ON c.srecommend = dep.CustId
                             WHERE c.RoleID = 2
@@ -67,7 +67,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_Site] @StartDate='2016-01-01'
                  BEGIN
                      INSERT INTO #Agent
                      SELECT c.CustId,
-                            Site
+                            c.Site
                      FROM customer AS c WITH (NOLOCK)
                           LEFT JOIN Dep_CustSuper AS dep WITH (NOLOCK) ON c.srecommend = dep.CustId
                           LEFT JOIN CS_CustSuper cn88 WITH (NOLOCK) ON c.srecommend = cn88.CustId

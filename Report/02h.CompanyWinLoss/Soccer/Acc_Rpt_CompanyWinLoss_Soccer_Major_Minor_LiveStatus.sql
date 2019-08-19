@@ -285,6 +285,7 @@ INNER JOIN league l WITH (NOLOCK) ON m.LeagueId = l.LeagueId
                             FROM #tmp_Data AS b
                                  INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
                                  LEFT JOIN #DepositSuper AS dep ON b.srecommend = dep.CustId
+						   LEFT JOIN CS_CustSuper AS cn88 WITH (NOLOCK) ON b.srecommend = cn88.CustId
                             GROUP BY liveindicator,
                                      CASE liveindicator
                                          WHEN 1
