@@ -10,13 +10,13 @@ AS
 	Date: 2016-05-11
 	Task: Company Winloss Report - Number Game - HP2 SP [Redmine: #104253]
 	DB: DBACC/bodb02	
-		
+
 	Revisions:
 - 20181217@Robert: #104253 - NAP Report - Add new sporttype for Happy 5
 - 20190925@Jacob: Group By CN88 (#118824)
 
 	Explanation's Param:   
-	
+
 */
 
 

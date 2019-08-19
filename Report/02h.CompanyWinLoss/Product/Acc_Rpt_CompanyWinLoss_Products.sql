@@ -10,7 +10,7 @@ AS
 	Date: 2016-05-11
 	Task: Company Winloss Report - Main SP [Redmine: #48448]
 	DB: DBACC/bodb02	
-		
+
 	Revisions:
 - 20160622@Sophia: 	. Remove group by ExtraPT to avoid duplicated data. [Redmine: #59732]. Ignore param @EndDate because of the performance, and business supports only one day 		 
 - 20160915@Percy: Integrate NG2 [RedmineID: #63460]
@@ -36,14 +36,14 @@ AS
 - 20190517@Cherry: Change Keno name to RNG Keno (#113670)
 - 20190925@Jacob: Group By CN88 (#118824)
 	Explanation's Param:
-	
+
 */
 
-    
+
     SET NOCOUNT ON;
     DECLARE @EffectedDate DATETIME; -- 20160112@Percy: Applying date of changing extra PT formula [RedmineID: #70208]
     SELECT @EffectedDate = '2017-01-19';
-	
+
     ------Get Sport Bettype Matrix------
     -- Check SP Version	 
     DECLARE @isTest BIT = 0;
@@ -176,8 +176,8 @@ AS
     INSERT INTO #DepSuper
             SELECT custid
             FROM f_DepSuper_1( 'All' );
-	
-	
+
+
     ---- Extra PT 
     CREATE TABLE #ExtraPT_Sel( ProductID  INT,
                                 Sporttype  INT,
@@ -253,7 +253,7 @@ AS
                 INNER JOIN league l WITH ( NOLOCK ) ON m.LeagueId = l.LeagueId
                 INNER JOIN Sports s WITH ( NOLOCK ) ON l.sporttype = s.sporttype;
     CREATE CLUSTERED INDEX CIX_MatchID ON #Match( MatchID, [Type] );
-	
+
     --------------------------------------------------------------------------------
     ---1. Sportsbook only and outright
     INSERT INTO #tmp_src
@@ -431,7 +431,7 @@ AS
                     site,
                     SportType,
                     ProductId;
-			      		 
+
     ------ BARM (only)
     INSERT INTO #src
             ( srecommend,
@@ -555,7 +555,7 @@ AS
                         ELSE 2
                     END;	
 
-		
+
     ----- Minus data of BARM 
     UPDATE c
         SET c.winlost_actualrate = c.winlost_actualrate - d.winlost_actualrate,
@@ -579,7 +579,7 @@ AS
     WHERE c.srecommend = 2
         AND c.Site = 1
         AND d.Site = 2;
-								 
+
 
     ---2. Not Sportsbook and not have detail table yet ; and special Sportsbook : Parlay, Metric gaming, Bettrade, Bet Builder
     INSERT INTO #src
@@ -1055,7 +1055,7 @@ AS
             GROUP BY b.srecommend,
                     s.ProductID,
                     s.CasinoType;
-			 
+
     -------------------------------------------------------
 
     UPDATE #src
@@ -1066,7 +1066,7 @@ AS
         SET site = 2
     WHERE srecommend IN( SELECT CustId
                             FROM #DepSuper );  
-	
+
 
     ---------------------------------------------------------		  
     -------------Insert to Result table to get data----------
@@ -1127,9 +1127,9 @@ AS
                         THEN-4
                     END,
                     site; 		
-	 	
 
-			   
+
+
     ----METRIC GAMING -SUPER LIVE
     INSERT INTO #Result
             ( ProductId,
@@ -1174,7 +1174,7 @@ AS
             WHERE b.ProductId = -1
             GROUP BY b.ProductId,
                     site; 
-	   
+
     ----BET BUILDER
     INSERT INTO #Result
             ( ProductId,
@@ -1219,7 +1219,7 @@ AS
             WHERE b.ProductId = -6
             GROUP BY b.ProductId,
                     site; 
-	
+
     --- Parlay			 
     INSERT INTO #Result
             ( ProductId,
@@ -1264,7 +1264,7 @@ AS
             WHERE b.ProductID = -3
             GROUP BY b.ProductId,
                     site;
-	
+
     ----NUMBER GAME			
     INSERT INTO #Result
             ( ProductId,
@@ -1308,7 +1308,7 @@ AS
                     site;
 
 
-       
+
     ---bettrade
     INSERT INTO #Result
             ( ProductId,

@@ -12,36 +12,44 @@ AS
 	Date: 2018-12-18
 	Task: Company Winloss Report - Number Game - HP2 SP [Redmine: #104253]
 	DB: DBACC/bodb02	
-		
+
 	Revisions:
 - 20181217@Robert: #104253 - NAP Report - Add new sporttype for Happy 5
 - 20190925@Jacob: Group By CN88 (#118824)
 
 	Explanation's Param:   
-		 
+
 */
 
      SET NOCOUNT ON;
          BEGIN -- #Agent
-
              CREATE TABLE #Agent
                           (CustId INT
                            PRIMARY KEY,
                            Site   VARCHAR(50)
                           );
+             IF @Site = 'CN88'
+                 BEGIN
+                     INSERT INTO #Agent
+                            SELECT c.CustId,
+                                   Site
+                            FROM customer AS c WITH (NOLOCK)
+                                 INNER JOIN CS_CustSuper cn88 WITH (NOLOCK) ON c.srecommend = cn88.CustId
+                            WHERE c.RoleID = 2;
+                 END;
+                 ELSE
              IF @Site = 'Deposit'
                  BEGIN
                      INSERT INTO #Agent
                             SELECT c.CustId,
                                    Site
                             FROM customer AS c WITH (NOLOCK)
+                                 INNER JOIN Dep_CustSuper AS dep WITH (NOLOCK) ON c.srecommend = dep.CustId
                             WHERE c.RoleID = 2
-                                  AND EXISTS
-(
-    SELECT 1
-    FROM Dep_CustSuper AS dep WITH (NOLOCK)
-    WHERE c.srecommend = dep.CustId
-);
+                                  AND c.CustId NOT IN(52466, 5707545);
+                     INSERT INTO #Agent
+                            SELECT 5707545,
+                                   'BEST-ODDS';
                  END;
                  ELSE
                  BEGIN
@@ -49,18 +57,17 @@ AS
                      SELECT c.CustId,
                             Site
                      FROM customer AS c WITH (NOLOCK)
+                          LEFT JOIN Dep_CustSuper AS dep WITH (NOLOCK) ON c.srecommend = dep.CustId
+                          LEFT JOIN CS_CustSuper cn88 WITH (NOLOCK) ON c.srecommend = cn88.CustId
                      WHERE c.RoleID = 2
-                           AND NOT EXISTS
-(
-    SELECT 1
-    FROM Dep_CustSuper AS dep WITH (NOLOCK)
-    WHERE c.srecommend = dep.CustId
-);
+                           AND c.CustId NOT IN(52466, 5707545)
+                          AND dep.CustId IS NULL
+                          AND cn88.CustId IS NULL
+                     SELECT 52466,
+                            'XYZBET';--8RM;
                  END;
          END;
-         BEGIN --Get Sport Bettype Matrix
-         -- Check SP Version	 
-
+         BEGIN -- Get Sport Bettype Matrix
              DECLARE @isTest BIT= 0;
              SELECT @isTest = dbo.f_CheckSPVersion(@@PROCID);
              DECLARE @ProductID INT;

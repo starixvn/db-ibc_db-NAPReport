@@ -33,16 +33,25 @@ EXEC [Acc_Rpt_CompanyWinLoss_BetBuilder_Site] @EndDate='2019-03-03',@StartDate='
                            PRIMARY KEY,
                            Site   VARCHAR(50)
                           );
+             IF @Site = 'CN88'
+                 BEGIN
+                     INSERT INTO #Agent
+                            SELECT c.CustId,
+                                   Site
+                            FROM customer AS c WITH (NOLOCK)
+                                 INNER JOIN CS_CustSuper cn88 WITH (NOLOCK) ON c.srecommend = cn88.CustId
+                            WHERE c.RoleID = 2;
+                 END;
+                 ELSE
              IF @Site = 'Deposit'
                  BEGIN
                      INSERT INTO #Agent
                             SELECT c.CustId,
-                                   c.Site
+                                   Site
                             FROM customer AS c WITH (NOLOCK)
-                                 LEFT JOIN Dep_CustSuper AS dep WITH (NOLOCK) ON c.srecommend = dep.custid
+                                 INNER JOIN Dep_CustSuper AS dep WITH (NOLOCK) ON c.srecommend = dep.CustId
                             WHERE c.RoleID = 2
-                                  AND c.CustId NOT IN(52466, 5707545)
-                                 AND dep.custid IS NOT NULL;
+                                  AND c.CustId NOT IN(52466, 5707545);
                      INSERT INTO #Agent
                             SELECT 5707545,
                                    'BEST-ODDS';
@@ -51,13 +60,14 @@ EXEC [Acc_Rpt_CompanyWinLoss_BetBuilder_Site] @EndDate='2019-03-03',@StartDate='
                  BEGIN
                      INSERT INTO #Agent
                      SELECT c.CustId,
-                            c.Site
+                            Site
                      FROM customer AS c WITH (NOLOCK)
-                          LEFT JOIN Dep_CustSuper AS dep WITH (NOLOCK) ON c.srecommend = dep.custid
+                          LEFT JOIN Dep_CustSuper AS dep WITH (NOLOCK) ON c.srecommend = dep.CustId
+                          LEFT JOIN CS_CustSuper cn88 WITH (NOLOCK) ON c.srecommend = cn88.CustId
                      WHERE c.RoleID = 2
                            AND c.CustId NOT IN(52466, 5707545)
-                          AND dep.custid IS NULL;
-                     INSERT INTO #Agent
+                          AND dep.CustId IS NULL
+                          AND cn88.CustId IS NULL
                      SELECT 52466,
                             'XYZBET';--8RM;
                  END;
