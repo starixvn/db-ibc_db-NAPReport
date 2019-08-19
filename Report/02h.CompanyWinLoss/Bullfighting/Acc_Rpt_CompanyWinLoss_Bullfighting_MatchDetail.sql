@@ -1,13 +1,5 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
-USE [bodb02]
-GO
-/****** Object:  StoredProcedure [dbo].[Acc_Rpt_CompanyWinLoss_Bullfighting_MatchDetail]    Script Date: 5/9/2018 12:43:06 PM ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-/****** Object:  Stored Procedure dbo.Acc_Rpt_CompanyWinLoss_Bullfighting_MatchDetail    Script Date: 5/2/2018 9:36:29 AM ******/
 ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_Bullfighting_MatchDetail]
        @StartDate SMALLDATETIME,
        @EndDate   SMALLDATETIME,
@@ -120,8 +112,4 @@ EXEC [Acc_Rpt_CompanyWinLoss_Bullfighting_MatchDetail] @SportType=207, @BetType=
     END;
         DROP TABLE #ExtraPT_Sel;
         DROP TABLE #Data;
-GO
-GRANT EXECUTE ON [dbo].[Acc_Rpt_CompanyWinLoss_Bullfighting_MatchDetail] TO [bodbAdminNet];
-GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_Rpt_CompanyWinLoss_Bullfighting_MatchDetail] TO [vnteam];
 GO

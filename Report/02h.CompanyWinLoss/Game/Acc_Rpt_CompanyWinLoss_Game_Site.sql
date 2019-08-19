@@ -1,15 +1,7 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
-USE [bodb02];
-GO
-/****** Object:  StoredProcedure [dbo].[Acc_Rpt_CompanyWinLoss_Game_Site]    Script Date: 5/9/2018 12:43:06 PM ******/
 
-SET ANSI_NULLS ON;
-GO
 
-SET QUOTED_IDENTIFIER ON;
-GO
-/****** Object:  Stored Procedure dbo.Acc_Rpt_CompanyWinLoss_Game_Site    Script Date: 5/2/2018 9:36:29 AM ******/
 
 ALTER PROCEDURE dbo.Acc_Rpt_CompanyWinLoss_Game_Site
 	@StartDate    SMALLDATETIME
@@ -26,19 +18,19 @@ DB: DBACC/bodb02
 Revisions:
 - 20160222@Franklin: Initialize Company Win Loss Report
 - 20160720@Sophia: . Revise SP
-				   . Not use @EndDate because we get only one day on (bettrans/bettrans14 range) 
+				   . Not use @EndDate because we get only one day on (bettrans/bettrans14 range)
 - 2018.03.19@Franklin: Integrate  ONE RNG Jackpot (#91712)
 - 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
 - 2018.06.04@Dominic: Force to recompile (#96143)
 - 20181018@Robert: Fix performance issue on House Win Loss by Product [#103309]
 - 20190326@Robert: #109981 - NAP Report - Integrate Promotion Prize
-				   
+
 Example:
 EXEC [Acc_Rpt_CompanyWinLoss_Game_Site] @BetType = 2101,@EndDate='2020-01-01',@Site = 'Credit',@StartDate='2016-01-01'
 */
 
 SET NOCOUNT ON;
-BEGIN /* #SportBetType*/
+BEGIN -- #SportBetType
 
     DECLARE @isTest    BIT = 0;
     SELECT @isTest = dbo.f_CheckSPVersion
@@ -54,7 +46,7 @@ BEGIN /* #SportBetType*/
 		 FROM bodb02.dbo.f_SportBetTypeMatrix_Sel
 			 (0, 0, @BetType, 2, '', '', @isTest);
 END;
-BEGIN /* #Agent*/
+BEGIN -- #Agent
 
 
     CREATE TABLE #Agent(
@@ -90,7 +82,7 @@ BEGIN /* #Agent*/
 						   );
 	   END;
 END;
-BEGIN /*#ExtraPT*/
+BEGIN --#ExtraPT
 
     CREATE TABLE #ExtraPT(
 	    ProductID    INT
@@ -105,7 +97,7 @@ BEGIN /*#ExtraPT*/
 		 GROUP BY ProductID
 			   , SuperId;
 END;
-BEGIN /* #Data*/
+BEGIN -- #Data
 
 
     CREATE TABLE #Data(
@@ -117,7 +109,7 @@ BEGIN /* #Data*/
 	  , RealIncome       MONEY
 	  , RealTurnover     MONEY);
 END;
-IF EXISTS /* bettrans*/
+IF EXISTS -- bettrans
 		(
 		    SELECT 1
 		    FROM #SportBetType
@@ -160,7 +152,7 @@ IF EXISTS /* bettrans*/
 				 AND b.statusID IN(111, 112, 113)
 			GROUP BY dep.Site OPTION(RECOMPILE);
     END;
-IF EXISTS /* bettransRNG*/
+IF EXISTS -- bettransRNG
 		(
 		    SELECT 1
 		    FROM #SportBetType
@@ -222,7 +214,7 @@ IF EXISTS /* bettransRNG*/
 				 AND b.statusID IN(111, 112, 113)
 			GROUP BY dep.Site OPTION(RECOMPILE);
     END;
-IF EXISTS /* bettransLC*/
+IF EXISTS -- bettransLC
 		(
 		    SELECT 1
 		    FROM #SportBetType
@@ -264,7 +256,7 @@ IF EXISTS /* bettransLC*/
 				 AND b.statusID IN(111, 112, 113)
 			GROUP BY dep.Site OPTION(RECOMPILE);
     END;
-BEGIN /* Query*/
+BEGIN -- Query
 
 
     SELECT d.RowName AS       RowName
@@ -281,10 +273,4 @@ DROP TABLE #SportBetType;
 DROP TABLE #Agent;
 DROP TABLE #ExtraPT;
 DROP TABLE #Data;
-GO
-
-GRANT EXECUTE ON dbo.Acc_Rpt_CompanyWinLoss_Game_Site TO [bodbAdminNet];
-GO
-
-GRANT VIEW DEFINITION ON dbo.Acc_Rpt_CompanyWinLoss_Game_Site TO [vnteam];
 GO

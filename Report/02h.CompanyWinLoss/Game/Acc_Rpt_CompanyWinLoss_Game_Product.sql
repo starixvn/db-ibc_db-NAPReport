@@ -1,18 +1,9 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
-USE [bodb02];
-GO
 
-/****** Object:  StoredProcedure [dbo].[Acc_Rpt_CompanyWinLoss_Game_Product]    Script Date: 4/18/2018 3:24:45 AM ******/
 
-SET ANSI_NULLS ON;
-GO
-SET QUOTED_IDENTIFIER ON;
-GO
 
-/****** Object:  Stored Procedure dbo.Acc_Rpt_CompanyWinLoss_Game_Product    Script Date: 4/18/2018 12:17:00 AM ******/
 
-/****** Object:  Stored Procedure dbo.Acc_Rpt_CompanyWinLoss_Game_Product    Script Date: 4/13/2018 2:47:18 PM ******/
 
 ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_Game_Product]
       @StartDate  SMALLDATETIME,
@@ -43,7 +34,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_Product] @EndDate='2020-01-01',@StartDate='201
      SET NOCOUNT ON;
      DECLARE @EffectedDate DATETIME; -- 20160112@Percy: Applying date of changing extra PT formula [RedmineID: #70208]
      SELECT @EffectedDate = '2017-01-19';
-    BEGIN --#SportBetType     
+    BEGIN --#SportBetType
         DECLARE @isTest BIT = 0;
         SELECT @isTest = dbo.f_CheckSPVersion( @@PROCID );
         CREATE TABLE #SportBetType( ProductID   INT,
@@ -229,7 +220,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_Product] @EndDate='2020-01-01',@StartDate='201
                         ( SELECT 1
                           FROM #SportBetType
                           WHERE RefTable = 2 )
-                            BEGIN -- 
+                            BEGIN --
 
                                 INSERT INTO #Data
                                        SELECT sb.ProductId AS GroupId,
@@ -301,8 +292,4 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_Product] @EndDate='2020-01-01',@StartDate='201
         DROP TABLE #DepositSuper;
         DROP TABLE #Data;
         DROP TABLE #ExtraPT;
-GO
-GRANT EXECUTE ON [dbo].[Acc_Rpt_CompanyWinLoss_Game_Product] TO [bodbAdminNet];
-GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_Rpt_CompanyWinLoss_Game_Product] TO [vnteam];
 GO

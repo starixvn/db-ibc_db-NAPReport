@@ -1,13 +1,5 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
-USE [bodb02]
-GO
-/****** Object:  StoredProcedure [dbo].[Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus]    Script Date: 5/9/2018 12:43:06 PM ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-/****** Object:  Stored Procedure dbo.[Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus]    Script Date: 5/2/2018 9:36:29 AM ******/
 ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus]
        @StartDate SMALLDATETIME,
        @EndDate   SMALLDATETIME,
@@ -32,7 +24,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus] @EndDate='2018-07-31
 */
 
      SET NOCOUNT ON;
-    BEGIN -- #SportBetType	
+    BEGIN -- #SportBetType
         DECLARE @isTest BIT = 0;
         SELECT @isTest = dbo.f_CheckSPVersion( @@PROCID );
         CREATE TABLE #SportBetType( BetType INT,
@@ -85,7 +77,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus] @EndDate='2018-07-31
                 INNER JOIN league l WITH (NOLOCK) ON m.LeagueId = l.LeagueId
                 WHERE l.sporttype = 1;
     END;
-    BEGIN ---- Extra PT 
+    BEGIN ---- Extra PT
         CREATE TABLE #ExtraPT_Sel( SuperID INT,
 								   Sporttype  INT,
                                    ExtraPT DECIMAL(9, 8));
@@ -153,10 +145,10 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus] @EndDate='2018-07-31
                                                                                                                     THEN 0
                                                                                                                     ELSE b.scomm / ( 1 - b.tpositiontaking )
                                                                                                                 END ) * ISNULL(e.ExtraPT, 0)
-																										) * actualrate * CASE WHEN virtualrate < actualrate THEN virtualrate / actualrate ELSE 1 END 
+																										) * actualrate * CASE WHEN virtualrate < actualrate THEN virtualrate / actualrate ELSE 1 END
 					) VirtualIncome,
 					SUM((winlost - actual_stake + awinlost + mwinlost + swinlost - CASE WHEN tpositiontaking = 1 THEN 0 ELSE( winlost - actual_stake ) * ISNULL(e.ExtraPT, 0) END
-					+ CASE WHEN virtualrate < actualrate THEN (b.scomm -  (CASE WHEN tpositiontaking = 1 THEN 0 ELSE b.scomm / (1 - b.tpositiontaking) END) * ISNULL(e.ExtraPT, 0)) ELSE 0 END															  
+					+ CASE WHEN virtualrate < actualrate THEN (b.scomm -  (CASE WHEN tpositiontaking = 1 THEN 0 ELSE b.scomm / (1 - b.tpositiontaking) END) * ISNULL(e.ExtraPT, 0)) ELSE 0 END
 																				) * (actualrate - virtualrate)) VarianceIncome,
                       SUM(CASE
                               WHEN tpositiontaking = 1
@@ -177,7 +169,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus] @EndDate='2018-07-31
                     LEFT JOIN #ExtraPT_Sel e ON e.SuperID = b.srecommend
 												AND e.Sporttype = 0
                WHERE b.winlostdate = @StartDate
-                 
+
                  AND m.type = CASE
                                   WHEN b.BetType = 10
                                   THEN 'outright'
@@ -264,7 +256,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus] @EndDate='2018-07-31
 		END
     END;
     BEGIN -- Sophia
-        ------ BARM (site only)			 
+        ------ BARM (site only)
         INSERT INTO #Data
                SELECT sb.IsMajor AS GroupId,
 					  CASE
@@ -295,10 +287,10 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus] @EndDate='2018-07-31
                                                                                                                     THEN 0
                                                                                                                     ELSE b.scomm / ( 1 - b.tpositiontaking )
                                                                                                                 END ) * ISNULL(e.ExtraPT, 0)
-																										) * actualrate * CASE WHEN virtualrate < actualrate THEN virtualrate / actualrate ELSE 1 END 
+																										) * actualrate * CASE WHEN virtualrate < actualrate THEN virtualrate / actualrate ELSE 1 END
 					) VirtualIncome,
 					SUM((winlost - actual_stake + awinlost + mwinlost + swinlost - CASE WHEN tpositiontaking = 1 THEN 0 ELSE( winlost - actual_stake ) * ISNULL(e.ExtraPT, 0) END
-					+ CASE WHEN virtualrate < actualrate THEN (b.scomm -  (CASE WHEN tpositiontaking = 1 THEN 0 ELSE b.scomm / (1 - b.tpositiontaking) END) * ISNULL(e.ExtraPT, 0)) ELSE 0 END															  
+					+ CASE WHEN virtualrate < actualrate THEN (b.scomm -  (CASE WHEN tpositiontaking = 1 THEN 0 ELSE b.scomm / (1 - b.tpositiontaking) END) * ISNULL(e.ExtraPT, 0)) ELSE 0 END
 																				) * (actualrate - virtualrate)) VarianceIncome,
                       SUM(CASE
                               WHEN tpositiontaking = 1
@@ -369,10 +361,10 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus] @EndDate='2018-07-31
                                                                                                                     THEN 0
                                                                                                                     ELSE b.scomm / ( 1 - b.tpositiontaking )
                                                                                                                 END ) * ISNULL(e.ExtraPT, 0)
-																										) * actualrate * CASE WHEN virtualrate < actualrate THEN virtualrate / actualrate ELSE 1 END 
+																										) * actualrate * CASE WHEN virtualrate < actualrate THEN virtualrate / actualrate ELSE 1 END
 					) VirtualIncome,
 					SUM((winlost - actual_stake + awinlost + mwinlost + swinlost - CASE WHEN tpositiontaking = 1 THEN 0 ELSE( winlost - actual_stake ) * ISNULL(e.ExtraPT, 0) END
-					+ CASE WHEN virtualrate < actualrate THEN (b.scomm -  (CASE WHEN tpositiontaking = 1 THEN 0 ELSE b.scomm / (1 - b.tpositiontaking) END) * ISNULL(e.ExtraPT, 0)) ELSE 0 END															  
+					+ CASE WHEN virtualrate < actualrate THEN (b.scomm -  (CASE WHEN tpositiontaking = 1 THEN 0 ELSE b.scomm / (1 - b.tpositiontaking) END) * ISNULL(e.ExtraPT, 0)) ELSE 0 END
 																				) * (actualrate - virtualrate)) VarianceIncome,
                       SUM(CASE
                               WHEN tpositiontaking = 1
@@ -444,7 +436,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus] @EndDate='2018-07-31
                    SELECT GroupId, GroupName
                    FROM #Data
                    WHERE RowName = 'Deposit' ) D;
-						 
+
         ---- Update Credit = Credit - BARM, Deposit = Deposit + BARM
         UPDATE c
           SET c.MemberWinLoss = ISNULL(c.MemberWinLoss, 0) + CASE
@@ -493,7 +485,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus] @EndDate='2018-07-31
                                                                      ELSE ISNULL(d.VirtualTurnover, 0)
                                                                  END
         FROM #Data c
-             FULL JOIN #Data d ON c.GroupId = d.GroupId 
+             FULL JOIN #Data d ON c.GroupId = d.GroupId
 							  AND c.GroupName = d.GroupName
                               AND d.RowName = 'BARM'
                               AND c.RowName IN( 'Credit', 'Deposit' );
@@ -502,7 +494,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus] @EndDate='2018-07-31
         DELETE #Data
         WHERE RowName = 'BARM';
     END;
-    BEGIN -- RM   
+    BEGIN -- RM
 
         INSERT INTO #Data
                SELECT 0 AS GroupId,
@@ -536,10 +528,10 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus] @EndDate='2018-07-31
                                                                                                                     THEN 0
                                                                                                                     ELSE b.scomm / ( 1 - b.tpositiontaking )
                                                                                                                 END ) * ISNULL(e.ExtraPT, 0)
-																										) * actualrate * CASE WHEN virtualrate < actualrate THEN virtualrate / actualrate ELSE 1 END 
+																										) * actualrate * CASE WHEN virtualrate < actualrate THEN virtualrate / actualrate ELSE 1 END
 					) VirtualIncome,
 					-SUM((winlost - actual_stake + awinlost + mwinlost + swinlost - CASE WHEN tpositiontaking = 1 THEN 0 ELSE( winlost - actual_stake ) * ISNULL(e.ExtraPT, 0) END
-					+ CASE WHEN virtualrate < actualrate THEN (b.scomm -  (CASE WHEN tpositiontaking = 1 THEN 0 ELSE b.scomm / (1 - b.tpositiontaking) END) * ISNULL(e.ExtraPT, 0)) ELSE 0 END															  
+					+ CASE WHEN virtualrate < actualrate THEN (b.scomm -  (CASE WHEN tpositiontaking = 1 THEN 0 ELSE b.scomm / (1 - b.tpositiontaking) END) * ISNULL(e.ExtraPT, 0)) ELSE 0 END
 																				) * (actualrate - virtualrate)) VarianceIncome,
                       SUM(CASE
                               WHEN tpositiontaking = 1
@@ -604,8 +596,4 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus] @EndDate='2018-07-31
 		DROP TABLE #Data;
         DROP TABLE #tmp_Data;
         DROP TABLE #Match;
-GO
-GRANT EXECUTE ON [dbo].[Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus] TO [bodbAdminNet];
-GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus] TO [vnteam];
 GO

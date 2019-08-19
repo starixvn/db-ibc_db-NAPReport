@@ -1,15 +1,7 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
-USE [bodb02];
-GO
-/****** Object:  StoredProcedure [dbo].[Acc_Rpt_CompanyWinLoss_MetricGaming_Site]    Script Date: 5/9/2018 12:43:06 PM ******/
 
-SET ANSI_NULLS ON;
-GO
 
-SET QUOTED_IDENTIFIER ON;
-GO
-/****** Object:  Stored Procedure dbo.Acc_Rpt_CompanyWinLoss_MetricGaming_Site    Script Date: 5/2/2018 9:36:29 AM ******/
 
 ALTER PROCEDURE dbo.Acc_Rpt_CompanyWinLoss_MetricGaming_Site
 	@StartDate    SMALLDATETIME
@@ -30,12 +22,12 @@ Revisions:
 - 20181018@Robert: Fix performance issue on House Win Loss by Product [#103309]
 Parameters:
 @IsLive: 2 - ALL. 0 - Non-Live. 1 - Live
-Example: 
+Example:
 EXEC [Acc_Rpt_CompanyWinLoss_MetricGaming_Site] @StartDate='2016-01-01', @EndDate='2020-01-01', @BetType = 1, @IsLive = 2,  @Site = 'Credit'
 */
 
 SET NOCOUNT ON;
-BEGIN /* #Agent*/
+BEGIN -- #Agent
 
 
     CREATE TABLE #Agent(
@@ -71,7 +63,7 @@ BEGIN /* #Agent*/
 						   );
 	   END;
 END;
-BEGIN /*-- Extra PT */
+BEGIN ---- Extra PT
 
     CREATE TABLE #ExtraPT_Sel(
 	    SuperID    INT
@@ -87,7 +79,7 @@ BEGIN /*-- Extra PT */
 			  AND a.Sporttype = 0
 		 GROUP BY SuperId;
 END;
-BEGIN /* #Data*/
+BEGIN -- #Data
 
 
     CREATE TABLE #Data(
@@ -102,7 +94,7 @@ BEGIN /* #Data*/
 	  , RealTurnover       MONEY
 	  , VirtualTurnover    MONEY);
 END;
-BEGIN /* INSERT INTO #Data*/
+BEGIN -- INSERT INTO #Data
 
     INSERT INTO #Data
 		 SELECT ag.site AS                                                                                                                                      RowName
@@ -171,7 +163,7 @@ BEGIN /* INSERT INTO #Data*/
 			  AND b.statusID IN(111, 112, 113)
 		 GROUP BY ag.site;
 END;
-BEGIN /* Query*/
+BEGIN -- Query
 
 
     SELECT d.RowName
@@ -190,10 +182,4 @@ END;
 DROP TABLE #Agent;
 DROP TABLE #ExtraPT_Sel;
 DROP TABLE #Data;
-GO
-
-GRANT EXECUTE ON dbo.Acc_Rpt_CompanyWinLoss_MetricGaming_Site TO [bodbAdminNet];
-GO
-
-GRANT VIEW DEFINITION ON dbo.Acc_Rpt_CompanyWinLoss_MetricGaming_Site TO [vnteam];
 GO

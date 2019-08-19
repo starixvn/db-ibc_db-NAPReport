@@ -1,13 +1,5 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
-USE [bodb02]
-GO
-/****** Object:  StoredProcedure [dbo].[Acc_Rpt_CompanyWinLoss_MetricGaming_BetType_LiveStatus]    Script Date: 5/9/2018 12:43:06 PM ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-/****** Object:  Stored Procedure dbo.Acc_Rpt_CompanyWinLoss_MetricGaming_BetType_LiveStatus    Script Date: 5/2/2018 9:36:29 AM ******/
 ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_MetricGaming_BetType_LiveStatus]
        @StartDate SMALLDATETIME,
        @EndDate   SMALLDATETIME,
@@ -30,7 +22,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_MetricGaming_BetType_LiveStatus] @EndDate='2018-08-
 */
 
      SET NOCOUNT ON;
-    BEGIN --#SportBetType     
+    BEGIN --#SportBetType
         DECLARE @isTest BIT = 0;
         SELECT @isTest = dbo.f_CheckSPVersion( @@PROCID );
         CREATE TABLE #SportBetType( BetType     INT,
@@ -48,7 +40,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_MetricGaming_BetType_LiveStatus] @EndDate='2018-08-
                SELECT CustId
                FROM f_DepSuper_1( 'All' );
     END;
-    BEGIN ---- Extra PT 
+    BEGIN ---- Extra PT
         CREATE TABLE #ExtraPT_Sel( SuperID INT,
                                    ExtraPT DECIMAL(9, 8));
         INSERT INTO #ExtraPT_Sel
@@ -65,7 +57,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_MetricGaming_BetType_LiveStatus] @EndDate='2018-08-
                GROUP BY SuperId;
     END;
     BEGIN -- #Data
-	CREATE TABLE #tmp_Data( 
+	CREATE TABLE #tmp_Data(
 							LiveStatus      INT,
 							bettype         INT,
 							BetTypeName     VARCHAR(50),
@@ -125,10 +117,10 @@ EXEC [Acc_Rpt_CompanyWinLoss_MetricGaming_BetType_LiveStatus] @EndDate='2018-08-
                                                                                                                     THEN 0
                                                                                                                     ELSE b.scomm / ( 1 - b.tpositiontaking )
                                                                                                                 END ) * ISNULL(e.ExtraPT, 0)
-																										) * actualrate * CASE WHEN virtualrate < actualrate THEN virtualrate / actualrate ELSE 1 END 
+																										) * actualrate * CASE WHEN virtualrate < actualrate THEN virtualrate / actualrate ELSE 1 END
 					) VirtualIncome,
 				SUM((winlost - actual_stake + awinlost + mwinlost + swinlost - CASE WHEN tpositiontaking = 1 THEN 0 ELSE( winlost - actual_stake ) * ISNULL(e.ExtraPT, 0) END
-					+ CASE WHEN virtualrate < actualrate THEN (b.scomm -  (CASE WHEN tpositiontaking = 1 THEN 0 ELSE b.scomm / (1 - b.tpositiontaking) END) * ISNULL(e.ExtraPT, 0)) ELSE 0 END															  
+					+ CASE WHEN virtualrate < actualrate THEN (b.scomm -  (CASE WHEN tpositiontaking = 1 THEN 0 ELSE b.scomm / (1 - b.tpositiontaking) END) * ISNULL(e.ExtraPT, 0)) ELSE 0 END
 																				) * (actualrate - virtualrate)) VarianceIncome,
                 SUM(CASE
                         WHEN tpositiontaking = 1
@@ -162,7 +154,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_MetricGaming_BetType_LiveStatus] @EndDate='2018-08-
                            END;
 
 		INSERT INTO #Data
-               SELECT 
+               SELECT
 				b.BetType GroupId,
                 b.BetTypeName GroupName,
                 b.RowName AS RowName,
@@ -232,8 +224,4 @@ EXEC [Acc_Rpt_CompanyWinLoss_MetricGaming_BetType_LiveStatus] @EndDate='2018-08-
         DROP TABLE #ExtraPT_Sel;
         DROP TABLE #Data;
 		DROP TABLE #tmp_Data;
-GO
-GRANT EXECUTE ON [dbo].[Acc_Rpt_CompanyWinLoss_MetricGaming_BetType_LiveStatus] TO [bodbAdminNet];
-GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_Rpt_CompanyWinLoss_MetricGaming_BetType_LiveStatus] TO [vnteam];
 GO

@@ -1,15 +1,7 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
-USE [bodb02];
-GO
-/****** Object:  StoredProcedure [dbo].[Acc_Rpt_CompanyWinLoss_Bettrade_Site]    Script Date: 5/9/2018 12:43:06 PM ******/
 
-SET ANSI_NULLS ON;
-GO
 
-SET QUOTED_IDENTIFIER ON;
-GO
-/****** Object:  Stored Procedure dbo.Acc_Rpt_CompanyWinLoss_Bettrade_Site    Script Date: 5/2/2018 9:36:29 AM ******/
 
 ALTER PROCEDURE dbo.Acc_Rpt_CompanyWinLoss_Bettrade_Site
 	@StartDate    SMALLDATETIME
@@ -21,20 +13,20 @@ Creator: 20160215@Robert
 Task:  Casino Integration Improvement - Implement Company Winloss By Products report [#48448]
 DB: DBACC/bodb02
 
-Revisions: 	 
+Revisions:
     - 20160222@Robert: Improve Company Win Loss Report - Bettrade Product
-    - 20160818@Jacob: Integrate bettype-904 (BT-Winloss) - Redmine:#62630		
+    - 20160818@Jacob: Integrate bettype-904 (BT-Winloss) - Redmine:#62630
     - 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
     - 20181018@Robert: Fix performance issue on House Win Loss by Product [#103309]
 
 Parameter's Explanation:
-	- @Site: credit, deposit	
-Example: 
+	- @Site: credit, deposit
+Example:
 EXEC [Acc_Rpt_CompanyWinLoss_Bettrade_Site] @StartDate='2016-08-24', @EndDate='2020-01-01', @Site = 'Deposit'
 */
 
 SET NOCOUNT ON;
-BEGIN /*#SportBetType     */
+BEGIN --#SportBetType
 
     DECLARE @isTest    BIT = 0;
     SELECT @isTest = dbo.f_CheckSPVersion
@@ -50,7 +42,7 @@ BEGIN /*#SportBetType     */
 		 FROM dbo.f_SportBetTypeMatrix_Sel
 			 (1, 0, 0, 2, 'BT-Winloss', '', @isTest);
 END;
-BEGIN /* #Agent*/
+BEGIN -- #Agent
 
 
     CREATE TABLE #Agent(
@@ -86,7 +78,7 @@ BEGIN /* #Agent*/
 						   );
 	   END;
 END;
-BEGIN /*-- Extra PT */
+BEGIN ---- Extra PT
 
     CREATE TABLE #ExtraPT_Sel(
 	    SuperID    INT
@@ -102,7 +94,7 @@ BEGIN /*-- Extra PT */
 			  AND a.Sporttype = 0
 		 GROUP BY SuperId;
 END;
-BEGIN /* Query*/
+BEGIN -- Query
 
 
     SELECT Site AS                                                                                                             RowName
@@ -141,10 +133,4 @@ END;
 DROP TABLE #Agent;
 DROP TABLE #SportBetType;
 DROP TABLE #ExtraPT_Sel;
-GO
-
-GRANT EXECUTE ON dbo.Acc_Rpt_CompanyWinLoss_Bettrade_Site TO [bodbAdminNet];
-GO
-
-GRANT VIEW DEFINITION ON dbo.Acc_Rpt_CompanyWinLoss_Bettrade_Site TO [vnteam];
 GO

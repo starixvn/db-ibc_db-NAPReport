@@ -1,13 +1,5 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
-USE [bodb02]
-GO
-/****** Object:  StoredProcedure [dbo].[Acc_Rpt_CompanyWinLoss_VirtualSports_SportType]    Script Date: 5/9/2018 12:43:06 PM ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-/****** Object:  Stored Procedure dbo.Acc_Rpt_CompanyWinLoss_VirtualSports_SportType    Script Date: 5/2/2018 9:36:29 AM ******/
 ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_VirtualSports_SportType] @StartDate SMALLDATETIME,
                                                                         @EndDate   SMALLDATETIME
 AS
@@ -26,7 +18,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSports_SportType]	@StartDate='2016-01-01', @
 */
 
      SET NOCOUNT ON;
-     BEGIN --#SportBetType     
+     BEGIN --#SportBetType
          DECLARE @isTest BIT= 0;
          SELECT @isTest = dbo.f_CheckSPVersion(@@PROCID);
          CREATE TABLE #SportBetType
@@ -60,7 +52,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSports_SportType]	@StartDate='2016-01-01', @
           RealTurnover  MONEY
          );
      END;
-	 BEGIN ---- Extra PT 
+	 BEGIN ---- Extra PT
         CREATE TABLE #ExtraPT_Sel( SuperID INT,
 								   Sporttype  INT,
                                    ExtraPT DECIMAL(9, 8));
@@ -192,8 +184,4 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSports_SportType]	@StartDate='2016-01-01', @
      DROP TABLE #DepositSuper;
 	 DROP TABLE #ExtraPT_Sel;
      DROP TABLE #Data;
-GO
-GRANT EXECUTE ON [dbo].[Acc_Rpt_CompanyWinLoss_VirtualSports_SportType] TO [bodbAdminNet];
-GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_Rpt_CompanyWinLoss_VirtualSports_SportType] TO [vnteam];
 GO

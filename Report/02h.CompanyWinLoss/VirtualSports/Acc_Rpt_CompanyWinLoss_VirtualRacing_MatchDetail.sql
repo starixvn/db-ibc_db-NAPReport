@@ -1,19 +1,11 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
-USE [bodb02]
-GO
-/****** Object:  StoredProcedure [dbo].[Acc_Rpt_CompanyWinLoss_VirtualRacing_MatchDetail]    Script Date: 5/9/2018 12:43:06 PM ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-/****** Object:  Stored Procedure dbo.Acc_Rpt_CompanyWinLoss_VirtualRacing_MatchDetail    Script Date: 5/2/2018 9:36:29 AM ******/
 ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_VirtualRacing_MatchDetail] @StartDate SMALLDATETIME,
                                                                           @EndDate   SMALLDATETIME,
                                                                           @SportType SMALLINT,
                                                                           @BetType   INT
 AS
-    
+
 /*
 Creator: Jacob
 Date: 2016-03-01
@@ -22,8 +14,8 @@ DB: DBACC/bodb02
 
 Revisions:
 - 20160301@Jacob: Initialize Company Win Loss Report
-- 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)		
-Example: 
+- 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
+Example:
 EXEC [Acc_Rpt_CompanyWinLoss_VirtualRacing_MatchDetail] @StartDate='2016-01-01', @EndDate='2020-01-01', @SportType = 181, @BetType = 1231
 */
 
@@ -41,7 +33,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualRacing_MatchDetail] @StartDate='2016-01-01',
           RealTurnover  MONEY
          );
      END;
-	  BEGIN ---- Extra PT 
+	  BEGIN ---- Extra PT
         CREATE TABLE #ExtraPT_Sel( SuperID INT,
 								   Sporttype  INT,
                                    ExtraPT DECIMAL(9, 8));
@@ -114,8 +106,4 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualRacing_MatchDetail] @StartDate='2016-01-01',
      END;
      DROP TABLE #Data;
 	 DROP TABLE #ExtraPT_Sel;
-GO
-GRANT EXECUTE ON [dbo].[Acc_Rpt_CompanyWinLoss_VirtualRacing_MatchDetail] TO [bodbAdminNet];
-GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_Rpt_CompanyWinLoss_VirtualRacing_MatchDetail] TO [vnteam];
 GO

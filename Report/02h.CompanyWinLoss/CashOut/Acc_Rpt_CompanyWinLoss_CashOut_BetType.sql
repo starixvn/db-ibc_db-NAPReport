@@ -1,13 +1,5 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
-USE [bodb02]
-GO
-/****** Object:  StoredProcedure [dbo].[Acc_Rpt_CompanyWinLoss_CashOut_BetType]    Script Date: 5/9/2018 12:43:06 PM ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-/****** Object:  Stored Procedure dbo.Acc_Rpt_CompanyWinLoss_CashOut_BetType    Script Date: 5/2/2018 9:36:29 AM ******/
 ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_CashOut_BetType]
        @StartDate SMALLDATETIME,
        @EndDate   SMALLDATETIME
@@ -16,14 +8,14 @@ AS
 /*
 Creator: 20170418@Jacob
 DB: DBACC/bodb02
-Revisions: 	 
-    - 20170418@Jacob: Integrate Cash Out - Redmine:#73419		
+Revisions:
+    - 20170418@Jacob: Integrate Cash Out - Redmine:#73419
     - 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
-    
+
 Parameter's Explanation:
-	- @Site: credit, deposit	
-Example: 
-Example: 
+	- @Site: credit, deposit
+Example:
+Example:
 EXEC [Acc_Rpt_CompanyWinLoss_CashOut_BetType] @StartDate='2016-01-01', @EndDate='2020-01-01'
 */
 
@@ -35,7 +27,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_CashOut_BetType] @StartDate='2016-01-01', @EndDate=
                SELECT CustId
                FROM f_DepSuper_1( 'All' );
     END;
-    BEGIN ---- Extra PT 
+    BEGIN ---- Extra PT
         CREATE TABLE #ExtraPT_Sel( SuperID INT,
                                    ExtraPT DECIMAL(9, 8));
         INSERT INTO #ExtraPT_Sel
@@ -97,8 +89,4 @@ EXEC [Acc_Rpt_CompanyWinLoss_CashOut_BetType] @StartDate='2016-01-01', @EndDate=
     END;
         DROP TABLE #DepositSuper;
         DROP TABLE #ExtraPT_Sel;
-GO
-GRANT EXECUTE ON [dbo].[Acc_Rpt_CompanyWinLoss_CashOut_BetType] TO [bodbAdminNet];
-GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_Rpt_CompanyWinLoss_CashOut_BetType] TO [vnteam];
 GO

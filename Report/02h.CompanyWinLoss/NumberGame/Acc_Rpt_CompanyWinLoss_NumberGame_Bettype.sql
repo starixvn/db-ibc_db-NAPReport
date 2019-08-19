@@ -121,3 +121,4 @@ AS
      DROP TABLE #SportBetType;
      DROP TABLE #DepositSuper;
      DROP TABLE #ExtraPT_Sel;
+GO

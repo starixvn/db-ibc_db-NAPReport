@@ -1,7 +1,5 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
-USE [bodb02];
-GO
 ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_Parlay]
       @StartDate SMALLDATETIME,
       @EndDate   SMALLDATETIME
@@ -16,7 +14,7 @@ DB: DBACC/bodb02
 Revisions:
 - 20160301@Jacob: Initialize Company Win Loss Report
 - 20160720@Sophia: . Revise SP
-				   . Not use @EndDate because we get only one day on (bettrans/bettrans14 range) 
+				   . Not use @EndDate because we get only one day on (bettrans/bettrans14 range)
 - 20160830@Robert: Enhance System/Mix Parlay [RedmineID: #63022]
 - 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
 
@@ -32,7 +30,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Parlay] @EndDate='2020-01-01',@StartDate='2016-01-0
                SELECT CustId
                FROM f_DepSuper_1( 'All' );
     END;
-    BEGIN ---- Extra PT 
+    BEGIN ---- Extra PT
          CREATE TABLE #ExtraPT_Sel( SuperID INT,
 								   Sporttype  INT,
                                    ExtraPT DECIMAL(9, 8));
@@ -110,10 +108,10 @@ EXEC [Acc_Rpt_CompanyWinLoss_Parlay] @EndDate='2020-01-01',@StartDate='2016-01-0
                                                                                                                     THEN 0
                                                                                                                     ELSE b.scomm / ( 1 - b.tpositiontaking )
                                                                                                                 END ) * ISNULL(e.ExtraPT, 0)
-																										) * actualrate * CASE WHEN virtualrate < actualrate THEN virtualrate / actualrate ELSE 1 END 
+																										) * actualrate * CASE WHEN virtualrate < actualrate THEN virtualrate / actualrate ELSE 1 END
 					) VirtualIncome,
 					SUM((winlost - actual_stake + awinlost + mwinlost + swinlost - CASE WHEN tpositiontaking = 1 THEN 0 ELSE( winlost - actual_stake ) * ISNULL(e.ExtraPT, 0) END
-					+ CASE WHEN virtualrate < actualrate THEN (b.scomm -  (CASE WHEN tpositiontaking = 1 THEN 0 ELSE b.scomm / (1 - b.tpositiontaking) END) * ISNULL(e.ExtraPT, 0)) ELSE 0 END															  
+					+ CASE WHEN virtualrate < actualrate THEN (b.scomm -  (CASE WHEN tpositiontaking = 1 THEN 0 ELSE b.scomm / (1 - b.tpositiontaking) END) * ISNULL(e.ExtraPT, 0)) ELSE 0 END
 																				) * (actualrate - virtualrate)) VarianceIncome,
                       SUM(CASE
                               WHEN tpositiontaking = 1
@@ -179,8 +177,4 @@ EXEC [Acc_Rpt_CompanyWinLoss_Parlay] @EndDate='2020-01-01',@StartDate='2016-01-0
         DROP TABLE #Data;
         DROP TABLE #DepositSuper;
         DROP TABLE #ExtraPT_Sel;
-GO
-GRANT EXECUTE ON [dbo].[Acc_Rpt_CompanyWinLoss_Parlay] TO [bodbAdminNet];
-GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_Rpt_CompanyWinLoss_Parlay] TO [vnteam];
 GO

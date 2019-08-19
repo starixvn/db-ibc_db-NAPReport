@@ -13,22 +13,22 @@ Creator: 20180824@Cherry
 Task:  Poker Games Integration - Implement Company Winloss By Products report [#97830]
 DB: DBACC/bodb02
 
-Revisions: 	 
+Revisions:
 	 - 20180831@Kean: Integrate Insurance Of Poker Games (#97830)
 	 - 20181018@Robert: Fix performance issue on House Win Loss by Product [#103309]
 	 - 20190121@Franklin: Integrate Poker Games (#107706)
 Parameter's Explanation:
-	- @Site: credit, deposit	
-	
-Example: 
+	- @Site: credit, deposit
+
+Example:
 EXEC [Acc_Rpt_CompanyWinLoss_PokerGames_Site] @StartDate='2018-08-21', @EndDate='2018-08-21', @Site = 'Credit', @BetType = 1404
 
 */
 
      SET NOCOUNT ON;
-    BEGIN 
+    BEGIN
 
-        /* #Agent*/
+        -- #Agent
 
 
         CREATE TABLE #Agent( CustId INT PRIMARY KEY,
@@ -40,7 +40,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_PokerGames_Site] @StartDate='2018-08-21', @EndDate=
                               Site
                        FROM customer AS c WITH ( NOLOCK )
                        WHERE c.RoleID = 2
-                         AND EXISTS( 
+                         AND EXISTS(
                                      SELECT 1
                                      FROM Dep_CustSuper AS dep WITH ( NOLOCK )
                                      WHERE c.srecommend = dep.CustId );
@@ -52,7 +52,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_PokerGames_Site] @StartDate='2018-08-21', @EndDate=
                               Site
                        FROM customer AS c WITH ( NOLOCK )
                        WHERE c.RoleID = 2
-                         AND NOT EXISTS( 
+                         AND NOT EXISTS(
                                          SELECT 1
                                          FROM Dep_CustSuper dep WITH ( NOLOCK )
                                          WHERE c.srecommend = dep.CustId );
@@ -73,13 +73,13 @@ EXEC [Acc_Rpt_CompanyWinLoss_PokerGames_Site] @StartDate='2018-08-21', @EndDate=
                       BetType,
                       RefTable
                FROM bodb02.dbo.f_SportBetTypeMatrix_Sel( 0, 0, @BetType, 2, '', '', @isTest );
-        
-        /*- End Sport Bettype Matrix------*/
+
+        --- End Sport Bettype Matrix------
 
     END;
-    BEGIN 
+    BEGIN
 
-        /*-- Extra PT */
+        ---- Extra PT
 
         CREATE TABLE #ExtraPT_Sel( SuperID   INT,
                                    Sporttype INT,
@@ -98,7 +98,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_PokerGames_Site] @StartDate='2018-08-21', @EndDate=
                GROUP BY SuperId,
                         a.Sporttype;
 
-        /* Extra Comm*/
+        -- Extra Comm
 
         CREATE TABLE #ExtraComm_Sel( SuperID   INT,
                                      Sporttype INT,
@@ -126,9 +126,9 @@ EXEC [Acc_Rpt_CompanyWinLoss_PokerGames_Site] @StartDate='2018-08-21', @EndDate=
                             RealIncome    MONEY,
                             RealTurnover  MONEY );
     END;
-        IF EXISTS 
+        IF EXISTS
 
-        /* bettrans*/
+        -- bettrans
 
         ( SELECT 1
           FROM #SportBetType
@@ -156,9 +156,9 @@ EXEC [Acc_Rpt_CompanyWinLoss_PokerGames_Site] @StartDate='2018-08-21', @EndDate=
                          AND b.statusID IN( 111, 112, 113 )
                        GROUP BY Site;
             END;
-                IF EXISTS 
+                IF EXISTS
 
-                /* bettransRNG*/
+                -- bettransRNG
 
                 ( SELECT 1
                   FROM #SportBetType
@@ -200,9 +200,9 @@ EXEC [Acc_Rpt_CompanyWinLoss_PokerGames_Site] @StartDate='2018-08-21', @EndDate=
                                GROUP BY dep.Site
                                OPTION( RECOMPILE );
                     END;
-    BEGIN 
+    BEGIN
 
-        /* Query*/
+        -- Query
 
         SELECT d.RowName,
                d.MemberWinLoss,

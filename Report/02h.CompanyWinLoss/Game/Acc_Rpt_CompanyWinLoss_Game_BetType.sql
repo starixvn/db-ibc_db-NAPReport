@@ -1,13 +1,5 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
-USE [bodb02]
-GO
-/****** Object:  StoredProcedure [dbo].[Acc_Rpt_CompanyWinLoss_Game_BetType]    Script Date: 5/9/2018 12:43:06 PM ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-/****** Object:  Stored Procedure dbo.Acc_Rpt_CompanyWinLoss_Game_BetType    Script Date: 5/2/2018 9:36:29 AM ******/
 ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_Game_BetType]
        @StartDate SMALLDATETIME,
        @EndDate   SMALLDATETIME,
@@ -23,7 +15,7 @@ DB: DBACC/bodb02
 Revisions:
 - 20160222@Franklin: Initialize Company Win Loss Report
 - 20160720@Sophia: . Revise SP
-				   . Not use @EndDate because we get only one day on (bettrans/bettrans14 range) 
+				   . Not use @EndDate because we get only one day on (bettrans/bettrans14 range)
 - 2018.03.19@Franklin: Integrate  ONE RNG Jackpot (#91712)
 - 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
 - 2019.04.01@Kean: Improve performance for House Win Loss by Product (#106315)
@@ -34,7 +26,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_BetType] @EndDate='2020-01-01',@StartDate='201
 */
 
      SET NOCOUNT ON;
-    BEGIN --#SportBetType     
+    BEGIN --#SportBetType
         DECLARE @isTest BIT = 0;
         SELECT @isTest = dbo.f_CheckSPVersion( @@PROCID );
         CREATE TABLE #SportBetType( BetType     INT,
@@ -56,7 +48,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_BetType] @EndDate='2020-01-01',@StartDate='201
                SELECT CustId
                FROM f_DepSuper_1( 'All' );
     END;
-    BEGIN ---- Extra PT 
+    BEGIN ---- Extra PT
         CREATE TABLE #ExtraPT_Sel( SuperID INT,
                                    ExtraPT DECIMAL(9, 8));
         INSERT INTO #ExtraPT_Sel
@@ -268,8 +260,4 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_BetType] @EndDate='2020-01-01',@StartDate='201
         DROP TABLE #DepositSuper;
         DROP TABLE #ExtraPT_Sel;
         DROP TABLE #Data;
-GO
-GRANT EXECUTE ON [dbo].[Acc_Rpt_CompanyWinLoss_Game_BetType] TO [bodbAdminNet];
-GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_Rpt_CompanyWinLoss_Game_BetType] TO [vnteam];
 GO

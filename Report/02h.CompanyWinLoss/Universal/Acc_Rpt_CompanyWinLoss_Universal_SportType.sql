@@ -1,32 +1,24 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
-USE [bodb02]
-GO
-/****** Object:  StoredProcedure [dbo].[Acc_Rpt_CompanyWinLoss_Universal_SportType]    Script Date: 5/9/2018 12:43:06 PM ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-/****** Object:  Stored Procedure dbo.Acc_Rpt_CompanyWinLoss_Universal_SportType    Script Date: 5/2/2018 9:36:29 AM ******/
 ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_Universal_SportType]
        @StartDate SMALLDATETIME,
        @EndDate   SMALLDATETIME,
        @ProductId INT
 AS
 
-/*	
+/*
 Creator: 20160921@Jacob
 Task:  Integrate new product NG2 [#63460]
 DB: DBACC/bodb02
 
-Revisions: 
+Revisions:
 	- 20160921@Jacob: NG2 - Redmine[#63460]
 	- 20160923@Percy: Using local variable to prevent bad parameter sniffing [RedmineID: #64573]
 	- 20161123@Jacob: Get sport type from bet type - SportBettypeMatrix [RedmineID: #67688]
 	- 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
-Example: 
+Example:
 EXEC [Acc_Rpt_CompanyWinLoss_Universal_SportType] @StartDate='2016-11-07', @EndDate='2020-01-01', @ProductId = 23
-		
+
 */
 
 
@@ -37,7 +29,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Universal_SportType] @StartDate='2016-11-07', @EndD
      SELECT @FDate = @StartDate,
             @TDate = @EndDate,
             @ProID = @ProductId;
-    BEGIN --#SportBetType     
+    BEGIN --#SportBetType
         DECLARE @isTest BIT = 0;
         SELECT @isTest = dbo.f_CheckSPVersion( @@PROCID );
         CREATE TABLE #SportBetType( BetType   INT,
@@ -59,7 +51,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Universal_SportType] @StartDate='2016-11-07', @EndD
                SELECT CustId
                FROM f_DepSuper_1( 'All' );
     END;
-    BEGIN ---- Extra PT 
+    BEGIN ---- Extra PT
         CREATE TABLE #ExtraPT_Sel( SuperID INT,
 								   Sporttype  INT,
                                    ExtraPT DECIMAL(9, 8));
@@ -126,8 +118,4 @@ EXEC [Acc_Rpt_CompanyWinLoss_Universal_SportType] @StartDate='2016-11-07', @EndD
         DROP TABLE #SportBetType;
         DROP TABLE #DepositSuper;
         DROP TABLE #ExtraPT_Sel;
-GO
-GRANT EXECUTE ON [dbo].[Acc_Rpt_CompanyWinLoss_Universal_SportType] TO [bodbAdminNet];
-GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_Rpt_CompanyWinLoss_Universal_SportType] TO [vnteam];
 GO

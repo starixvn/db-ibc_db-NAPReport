@@ -1,11 +1,5 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
 
-USE [bodb02];
-GO
-SET ANSI_NULLS ON;
-GO
-SET QUOTED_IDENTIFIER ON;
-GO
 ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_PokerGames_BetType]
       @StartDate SMALLDATETIME,
       @EndDate   SMALLDATETIME,
@@ -14,18 +8,18 @@ ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_PokerGames_BetType]
       @IsLive    INT = 2
 AS
 
-/*	
+/*
 Creator: 20180824@Cherry
 Task:  Poker Games Integration - Implement Company Winloss By Products report [#97830]
 DB: DBACC/bodb02
 
-Revisions: 
+Revisions:
 	- 20180831@Kean: Integrate Insurance Of Poker Games (#97830)
 	- 20190121@Franklin: Integrate Poker Games (#107706)
-	 
-Example: 
+
+Example:
 EXEC [Acc_Rpt_CompanyWinLoss_PokerGames_BetType] @StartDate='2018-08-21', @EndDate='2018-08-21', @ProductId = 33, @SportType = 0
-		
+
 */
 
     BEGIN
@@ -34,7 +28,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_PokerGames_BetType] @StartDate='2018-08-21', @EndDa
                 @TDate SMALLDATETIME;
         SELECT @FDate = @StartDate,
                @TDate = @EndDate;
-        BEGIN --#SportBetType     
+        BEGIN --#SportBetType
             DECLARE @isTest BIT = 0;
             SELECT @isTest = dbo.f_CheckSPVersion( @@PROCID );
             CREATE TABLE #SportBetType( BetType     INT,
@@ -54,7 +48,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_PokerGames_BetType] @StartDate='2018-08-21', @EndDa
                    SELECT CustId
                    FROM f_DepSuper_1( 'All' );
         END;
-        BEGIN ---- Extra PT 
+        BEGIN ---- Extra PT
             CREATE TABLE #ExtraPT_Sel( SuperID   INT,
                                        Sporttype INT,
                                        ExtraPT   DECIMAL(9, 8));
@@ -210,8 +204,4 @@ EXEC [Acc_Rpt_CompanyWinLoss_PokerGames_BetType] @StartDate='2018-08-21', @EndDa
         DROP TABLE #ExtraComm_Sel;
         DROP TABLE #Data;
     END;
-GO
-GRANT EXECUTE ON [dbo].[Acc_Rpt_CompanyWinLoss_PokerGames_BetType] TO [bodbAdminNet];
-GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_Rpt_CompanyWinLoss_PokerGames_BetType] TO [vnteam];
 GO

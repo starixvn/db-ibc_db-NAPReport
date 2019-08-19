@@ -105,3 +105,4 @@ Example:
          END;
      DROP TABLE #ExtraPT_Sel;
      DROP TABLE #Data;
+GO

@@ -1,15 +1,7 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
-USE [bodb02];
-GO
-/****** Object:  StoredProcedure [dbo].[Acc_Rpt_CompanyWinLoss_ColossusBet_Site]    Script Date: 5/9/2018 12:43:06 PM ******/
 
-SET ANSI_NULLS ON;
-GO
 
-SET QUOTED_IDENTIFIER ON;
-GO
-/****** Object:  Stored Procedure dbo.Acc_Rpt_CompanyWinLoss_ColossusBet_Site    Script Date: 5/2/2018 9:36:29 AM ******/
 
 ALTER PROCEDURE dbo.Acc_Rpt_CompanyWinLoss_ColossusBet_Site
 	@StartDate     SMALLDATETIME
@@ -21,16 +13,20 @@ AS
 /*
 Creator: 20180228@Franklin
 Task:  Integrate Colossus Bets - Free Play Integration (#90774)
-DB: DBACC/bodb02
-Revisions: - 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)- 20181018@Robert: Fix performance issue on House Win Loss by Product [#103309]
-Example: 
+DB: DBACC/bodb02
+
+Revisions:
+- 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
+- 20181018@Robert: Fix performance issue on House Win Loss by Product [#103309]
+
+Example:
 EXEC [Acc_Rpt_CompanyWinLoss_ColossusBet_Site] @StartDate='2016-01-01', @EndDate='2020-01-01', @Site = 'Credit', @BetType = 18000, @IsFreePlay = 1
 
 
 */
 
 SET NOCOUNT ON;
-BEGIN /* #Agent*/
+BEGIN -- #Agent
 
 
     CREATE TABLE #Agent(
@@ -66,7 +62,7 @@ BEGIN /* #Agent*/
 						   );
 	   END;
 END;
-BEGIN /*-- Extra PT */
+BEGIN ---- Extra PT
 
     CREATE TABLE #ExtraPT_Sel(
 	    SuperID    INT
@@ -80,7 +76,7 @@ BEGIN /*-- Extra PT */
 			  AND a.ProductId = 15
 		 GROUP BY SuperId;
 END;
-BEGIN /* Query*/
+BEGIN -- Query
 
 
     SELECT Site AS                                                                                                             RowName
@@ -123,10 +119,4 @@ BEGIN /* Query*/
 END;
 DROP TABLE #Agent;
 DROP TABLE #ExtraPT_Sel;
-GO
-
-GRANT EXECUTE ON dbo.Acc_Rpt_CompanyWinLoss_ColossusBet_Site TO [bodbAdminNet];
-GO
-
-GRANT VIEW DEFINITION ON dbo.Acc_Rpt_CompanyWinLoss_ColossusBet_Site TO [vnteam];
 GO

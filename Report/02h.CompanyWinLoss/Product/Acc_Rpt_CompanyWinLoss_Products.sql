@@ -1713,3 +1713,4 @@ AS
         DROP TABLE #Result;
         DROP TABLE #SportBettype;
     END;
+GO

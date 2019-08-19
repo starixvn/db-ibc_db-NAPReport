@@ -1,15 +1,7 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
-USE [bodb02];
-GO
-/****** Object:  StoredProcedure [dbo].[Acc_Rpt_CompanyWinLoss_Universal_Site]    Script Date: 5/9/2018 12:43:06 PM ******/
 
-SET ANSI_NULLS ON;
-GO
 
-SET QUOTED_IDENTIFIER ON;
-GO
-/****** Object:  Stored Procedure dbo.Acc_Rpt_CompanyWinLoss_Universal_Site    Script Date: 5/2/2018 9:36:29 AM ******/
 
 ALTER PROCEDURE dbo.Acc_Rpt_CompanyWinLoss_Universal_Site
 	@StartDate    SMALLDATETIME
@@ -23,21 +15,21 @@ Creator: 20160215@Robert
 Task:  Casino Integration Improvement - Implement Company Winloss By Products report [#48448]
 DB: DBACC/bodb02
 
-Revisions: 	 
+Revisions:
 	 - 20160222@Robert: Improve Company Win Loss Report - Universal Product
-	 - 20161001@Jacob: Integrate new product NG2 - #63460	
+	 - 20161001@Jacob: Integrate new product NG2 - #63460
 	 - 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
 	 - 20181018@Robert: Fix performance issue on House Win Loss by Product [#103309]
 Parameter's Explanation:
-	- @Site: credit, deposit	
-Example: 
+	- @Site: credit, deposit
+Example:
 EXEC [Acc_Rpt_CompanyWinLoss_Universal_Site] @StartDate='2016-01-01', @EndDate='2020-01-01', @Site = 'Credit', @BetType = 18000
 
 
 */
 
 SET NOCOUNT ON;
-BEGIN /* #Agent*/
+BEGIN -- #Agent
 
 
     CREATE TABLE #Agent(
@@ -89,9 +81,9 @@ BEGIN
 	   INNER JOIN dbo.SportBettypeMatrix AS t WITH (NOLOCK) ON t.BetType = s.BetType
 												    AND t.ProductId = s.ProductId
     WHERE s.bettype = @BetType;
-/*- End Sport Bettype Matrix------*/
+--- End Sport Bettype Matrix------
 END;
-BEGIN /*-- Extra PT */
+BEGIN ---- Extra PT
 
     CREATE TABLE #ExtraPT_Sel(
 	    SuperID      INT
@@ -109,7 +101,7 @@ BEGIN /*-- Extra PT */
 		 GROUP BY SuperId
 			   , a.Sporttype;
 END;
-BEGIN /* Query*/
+BEGIN -- Query
 
 
     SELECT Site AS                                                                                                             RowName
@@ -150,10 +142,4 @@ BEGIN /* Query*/
 END;
 DROP TABLE #Agent;
 DROP TABLE #ExtraPT_Sel;
-GO
-
-GRANT EXECUTE ON dbo.Acc_Rpt_CompanyWinLoss_Universal_Site TO [bodbAdminNet];
-GO
-
-GRANT VIEW DEFINITION ON dbo.Acc_Rpt_CompanyWinLoss_Universal_Site TO [vnteam];
 GO

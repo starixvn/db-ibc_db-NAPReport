@@ -1,18 +1,10 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
-USE [bodb02]
-GO
-/****** Object:  StoredProcedure [dbo].[Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_BetType]    Script Date: 5/9/2018 12:43:06 PM ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-/****** Object:  Stored Procedure dbo.Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_BetType    Script Date: 5/2/2018 9:36:29 AM ******/
 ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_BetType] @StartDate SMALLDATETIME,
                                                                               @EndDate   SMALLDATETIME,
                                                                               @SportType SMALLINT
 AS
- 
+
 /*
 Creator: Jacob
 Date: 2016-03-01
@@ -23,13 +15,13 @@ Revisions:
 - 20160301@Jacob: Initialize Company Win Loss Report
 - 20170720@Franklin: Add Betradar Virtual Sports (78495)
 - 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
-		
-Example: 
+
+Example:
 EXEC [Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_BetType] @StartDate='2016-01-01', @EndDate='2020-01-01', @SportType = 190
 */
 
      SET NOCOUNT ON;
-     BEGIN --#SportBetType     
+     BEGIN --#SportBetType
          DECLARE @isTest BIT= 0;
          SELECT @isTest = dbo.f_CheckSPVersion(@@PROCID);
          CREATE TABLE #SportBetType
@@ -53,7 +45,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_BetType] @StartDate='2016-01-
                 SELECT CustId
                 FROM f_DepSuper_1('All');
      END;
-	 BEGIN ---- Extra PT 
+	 BEGIN ---- Extra PT
         CREATE TABLE #ExtraPT_Sel( SuperID INT,
 								   Sporttype  INT,
                                    ExtraPT DECIMAL(9, 8));
@@ -207,8 +199,4 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_BetType] @StartDate='2016-01-
      DROP TABLE #DepositSuper;
 	 DROP TABLE #ExtraPT_Sel;
      DROP TABLE #Data;
-GO
-GRANT EXECUTE ON [dbo].[Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_BetType] TO [bodbAdminNet];
-GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_BetType] TO [vnteam];
 GO
