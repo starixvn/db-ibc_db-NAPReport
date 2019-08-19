@@ -1,4 +1,4 @@
-/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBRPT-bodb_Report" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
 ALTER PROCEDURE dbo.Acc_Rpt_Daily_Bet_Builder_AutoMail
 	@WinlostDate    SMALLDATETIME = NULL
@@ -6,7 +6,7 @@ AS
 /*
 	Creator: Robert
 	Date: 2019-05-27
-	DB: DBACC.bodb02
+	DB: DBRPT.bodb_Report
 	Task: Bet Builder - Daily Automail report to 3rd
 	Revisions:		
 		- 20190527@Robert: Bet Builder - Daily Automail report to 3rd [#114248]
@@ -68,7 +68,7 @@ BEGIN
 				, ExchangeId
 				, EUR
 				, Code
-			FROM ExchangeDailyOanda AS o WITH (NOLOCK)
+			FROM bodb02.dbo.ExchangeDailyOanda AS o WITH (NOLOCK)
 			WHERE ExchangeDate = @WinlostDate
 				 AND ExchangeId NOT IN(20, 27, 28, 72)
 		 );
@@ -137,7 +137,7 @@ BEGIN
 				 , d.AwayId = m.awayid
 				 , d.GlobalShowTime = m.GlobalShowTime
 		  FROM #Data AS d
-			 INNER JOIN match AS m WITH (NOLOCK) ON m.matchid = d.matchid;
+			 INNER JOIN bodb02.dbo.match AS m WITH (NOLOCK) ON m.matchid = d.matchid;
 	   END;
 
     IF @WinlostDate <= @movebetdate
@@ -149,7 +149,7 @@ BEGIN
 				 , d.AwayId = m.awayid
 				 , d.GlobalShowTime = m.GlobalShowTime
 		  FROM #Data AS d
-			 INNER JOIN match14 AS m WITH (NOLOCK) ON m.matchid = d.matchid;
+			 INNER JOIN bodb02.dbo.match14 AS m WITH (NOLOCK) ON m.matchid = d.matchid;
 	   END;
 
     IF @WinlostDate < @balanceupdate

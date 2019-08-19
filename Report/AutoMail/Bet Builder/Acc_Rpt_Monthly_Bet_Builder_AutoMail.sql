@@ -1,4 +1,4 @@
-/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBRPT-bodb_Report" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
 ALTER PROCEDURE dbo.Acc_Rpt_Monthly_Bet_Builder_AutoMail
 	@RptDate    SMALLDATETIME = NULL
@@ -6,7 +6,7 @@ AS
 /*
 	Creator: Robert
 	Date: 2019-05-27
-	DB: DBACC.bodb02
+	DB: DBRPT.bodb_Report
 	Task: Bet Builder - Daily Automail report to 3rd
 	Revisions:		
 		- 20190527@Robert: Bet Builder - Daily Automail report to 3rd [#114248]
@@ -118,7 +118,7 @@ BEGIN
 				, ExchangeId
 				, EUR
 				, Code
-			FROM ExchangeDailyOanda AS o WITH (NOLOCK)
+			FROM bodb02.dbo.ExchangeDailyOanda AS o WITH (NOLOCK)
 			WHERE ExchangeDate BETWEEN @DateStart AND @DateEnd
 				 AND ExchangeId NOT IN(20, 27, 28, 72)
 		 );
@@ -210,7 +210,7 @@ BEGIN
 							 , b.hdp2
 							 , b.odds
 							 , b.currency
-						 FROM bettrans AS b WITH (NOLOCK)
+						 FROM bodb02.dbo.bettrans AS b WITH (NOLOCK)
 						 WHERE b.winlostdate = @WinlostDate
 							  AND bettype = 38
 							  AND b.statusID IN(112, 113, 111, 102, 103)
@@ -247,7 +247,7 @@ BEGIN
 							 , b.hdp2
 							 , b.odds
 							 , b.currency
-						 FROM bettrans14 AS b WITH (NOLOCK)
+						 FROM bodb02.dbo.bettrans14 AS b WITH (NOLOCK)
 						 WHERE b.winlostdate = @WinlostDate
 							  AND bettype = 38
 					  );
@@ -406,7 +406,7 @@ BEGIN
 								(d.MarketId, @WinlostDate)
 						 )
 				FROM #Result AS d
-				    INNER JOIN match AS m WITH (NOLOCK) ON m.matchid = d.matchid
+				    INNER JOIN bodb02.dbo.match AS m WITH (NOLOCK) ON m.matchid = d.matchid
 				WHERE d.winlostdate = @WinlostDate;
 			 END;
 
@@ -425,7 +425,7 @@ BEGIN
 								(d.MarketId, @WinlostDate)
 						 )
 				FROM #Result AS d
-				    INNER JOIN match14 AS m WITH (NOLOCK) ON m.matchid = d.matchid
+				    INNER JOIN bodb02.dbo.match14 AS m WITH (NOLOCK) ON m.matchid = d.matchid
 				WHERE d.winlostdate = @WinlostDate;
 			 END;
 
