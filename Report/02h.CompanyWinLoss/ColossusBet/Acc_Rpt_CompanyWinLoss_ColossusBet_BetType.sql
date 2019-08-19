@@ -1,8 +1,8 @@
+
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
-ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_ColossusBet_BetType]
-       @StartDate SMALLDATETIME,
-       @EndDate   SMALLDATETIME
+ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_ColossusBet_BetType] @StartDate SMALLDATETIME,
+                                                                   @EndDate   SMALLDATETIME
 AS
 
 /*
@@ -19,100 +19,106 @@ EXEC [Acc_Rpt_CompanyWinLoss_ColossusBet_BetType] @StartDate='2016-09-13', @EndD
 
 */
 
-    BEGIN
-        SET NOCOUNT ON;
-        BEGIN --#SportBetType
-            DECLARE @isTest BIT = 0;
-            SELECT @isTest = dbo.f_CheckSPVersion( @@PROCID );
-            CREATE TABLE #SportBetType( BetType     INT,
-                                        BetTypeName NVARCHAR(50));
-            INSERT INTO #SportBetType
-                   SELECT b.typeid,
-                          b.typenamee
-                   FROM dbo.f_SportBetTypeMatrix_Sel( 15, 0, 0, 2, '', '', @isTest ) s
-                        INNER JOIN BetType b WITH ( NOLOCK ) ON s.BetType = b.typeid;
-        END;
-        BEGIN -- #DepositSuper
 
-            CREATE TABLE #DepositSuper( CustId INT PRIMARY KEY );
-            INSERT INTO #DepositSuper
-                   SELECT CustId
-                   FROM f_DepSuper_1( 'All' );
-        END;
-        BEGIN ---- Extra PT
-            CREATE TABLE #ExtraPT_Sel( SuperID INT,
-                                       ExtraPT DECIMAL(9, 8));
-            INSERT INTO #ExtraPT_Sel
-                   ( SuperID,
+     SET NOCOUNT ON;
+         BEGIN --#SportBetType
+             DECLARE @isTest BIT= 0;
+             SELECT @isTest = dbo.f_CheckSPVersion(@@PROCID);
+             CREATE TABLE #SportBetType
+                          (BetType     INT,
+                           BetTypeName NVARCHAR(50)
+                          );
+             INSERT INTO #SportBetType
+                    SELECT b.typeid,
+                           b.typenamee
+                    FROM dbo.f_SportBetTypeMatrix_Sel(15, 0, 0, 2, '', '', @isTest) s
+                         INNER JOIN BetType b WITH (NOLOCK) ON s.BetType = b.typeid;
+         END;
+         BEGIN -- #DepositSuper
+
+             CREATE TABLE #DepositSuper
+                          (CustId INT
+                           PRIMARY KEY
+                          );
+             INSERT INTO #DepositSuper
+                    SELECT CustId
+                    FROM f_DepSuper_1('All');
+         END;
+         BEGIN ---- Extra PT
+             CREATE TABLE #ExtraPT_Sel
+                          (SuperID INT,
+                           ExtraPT DECIMAL(9, 8)
+                          );
+             INSERT INTO #ExtraPT_Sel
+                    (SuperID,
                      ExtraPT
-                   )
-                   SELECT SuperId,
-                          SUM(ExtraPT) AS ExtraPT
-                   FROM bodb02.dbo.Acc_GroupExtraPTSetting a WITH ( NOLOCK )
-                   WHERE @StartDate BETWEEN FromDate AND Todate
-                     AND a.ProductId = 15
-                   GROUP BY SuperId;
-        END;
-        BEGIN -- Query
+                    )
+                    SELECT SuperId,
+                           SUM(ExtraPT) AS ExtraPT
+                    FROM bodb02.dbo.Acc_GroupExtraPTSetting a WITH (NOLOCK)
+                    WHERE @StartDate BETWEEN FromDate AND Todate
+                          AND a.ProductId = 15
+                    GROUP BY SuperId;
+         END;
+         BEGIN -- Query
 
-            SELECT sb.BetType AS GroupId,
-                                 CASE
-                                     WHEN b.BetType = 18000
-                                      AND ISNULL(b.currency2, 0) = 1
-                                     THEN sb.BetTypeName + ' (Free Play)'
-                                     ELSE sb.BetTypeName
-                                 END AS GroupName,
-                                        CASE
-                                            WHEN dep.CustId IS NULL
-                                            THEN 'Credit'
-                                            ELSE 'Deposit'
-                                        END AS RowName,
-                   SUM(( winlost - actual_stake ) * actualrate) AS MemberWinLoss,
-                   SUM(( awinlost + mwinlost + swinlost ) * actualrate) AS SMAWinLoss,
-				   -SUM((CASE
+             SELECT sb.BetType AS GroupId,
+                    CASE
+                        WHEN b.BetType = 18000
+                             AND ISNULL(b.currency2, 0) = 1
+                        THEN sb.BetTypeName+' (Free Play)'
+                        ELSE sb.BetTypeName
+                    END AS GroupName,
+                    CASE
+                        WHEN dep.CustId IS NULL
+                        THEN 'Credit'
+                        ELSE 'Deposit'
+                    END AS RowName,
+                    SUM((winlost - actual_stake) * actualrate) AS MemberWinLoss,
+                    SUM((awinlost + mwinlost + swinlost) * actualrate) AS SMAWinLoss,
+                    -SUM((CASE
                               WHEN b.tpositiontaking = 1
                               THEN 0
-                              ELSE(winlost - actual_stake ) + b.scomm / ( 1 - b.tpositiontaking )
+                              ELSE(winlost - actual_stake) + b.scomm / (1 - b.tpositiontaking)
                           END) * ISNULL(e.ExtraPT, 0) * actualrate) AS ExtraPT,
-                   SUM(scomm * actualrate) Commission,
-                   SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - ( CASE
-                                                                                                 WHEN tpositiontaking = 1
-                                                                                                 THEN 0
-                                                                                                 ELSE winlost - actual_stake + b.scomm / ( 1 - b.tpositiontaking )
-                                                                                             END ) * ISNULL(e.ExtraPT, 0)) * actualrate) AS RealIncome,
-                   SUM(CASE
-                           WHEN tpositiontaking = 1
-                           THEN 0
-                           ELSE( 1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * b.stake * CASE
-                                                                                                    WHEN virtualrate > actualrate
-                                                                                                    THEN virtualrate
-                                                                                                    ELSE actualrate
-                                                                                                END
-                       END) AS RealTurnover
-            FROM dbo.bettrans AS b WITH ( NOLOCK )
-                 INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
-                 LEFT JOIN #DepositSuper AS dep ON b.srecommend = dep.CustId
-                 LEFT JOIN #ExtraPT_Sel e ON e.SuperID = b.srecommend
-            WHERE b.winlostdate = @StartDate
-              AND b.ruben = 1
-              AND b.statusID IN( 111, 112, 113 )
-            GROUP BY sb.BetType,
-                        CASE
-                            WHEN b.BetType = 18000
-                             AND ISNULL(b.currency2, 0) = 1
-                            THEN sb.BetTypeName + ' (Free Play)'
-                            ELSE sb.BetTypeName
-                        END,
-                        CASE
-                            WHEN dep.CustId IS NULL
-                            THEN 'Credit'
-                            ELSE 'Deposit'
-                        END
-            ORDER BY GroupName,
-                     RowName;
-        END;
-        DROP TABLE #SportBetType;
-        DROP TABLE #DepositSuper;
-        DROP TABLE #ExtraPT_Sel;
-    END;
+                    SUM(scomm * actualrate) Commission,
+                    SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - (CASE
+                                                                                                WHEN tpositiontaking = 1
+                                                                                                THEN 0
+                                                                                                ELSE winlost - actual_stake + b.scomm / (1 - b.tpositiontaking)
+                                                                                            END) * ISNULL(e.ExtraPT, 0)) * actualrate) AS RealIncome,
+                    SUM(CASE
+                            WHEN tpositiontaking = 1
+                            THEN 0
+                            ELSE(1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * b.stake * CASE
+                                                                                               WHEN virtualrate > actualrate
+                                                                                               THEN virtualrate
+                                                                                               ELSE actualrate
+                                                                                           END
+                        END) AS RealTurnover
+             FROM dbo.bettrans AS b WITH (NOLOCK)
+                  INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
+                  LEFT JOIN #DepositSuper AS dep ON b.srecommend = dep.CustId
+                  LEFT JOIN #ExtraPT_Sel e ON e.SuperID = b.srecommend
+             WHERE b.winlostdate = @StartDate
+                   AND b.ruben = 1
+                   AND b.statusID IN(111, 112, 113)
+             GROUP BY sb.BetType,
+                      CASE
+                          WHEN b.BetType = 18000
+                               AND ISNULL(b.currency2, 0) = 1
+                          THEN sb.BetTypeName+' (Free Play)'
+                          ELSE sb.BetTypeName
+                      END,
+                      CASE
+                          WHEN dep.CustId IS NULL
+                          THEN 'Credit'
+                          ELSE 'Deposit'
+                      END
+             ORDER BY GroupName,
+                      RowName;
+         END;
+     DROP TABLE #SportBetType;
+     DROP TABLE #DepositSuper;
+     DROP TABLE #ExtraPT_Sel;
 GO
