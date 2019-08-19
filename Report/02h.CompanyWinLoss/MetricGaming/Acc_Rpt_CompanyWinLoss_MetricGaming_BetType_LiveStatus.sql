@@ -46,7 +46,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_MetricGaming_BetType_LiveStatus] @EndDate='2018-08-
                     SELECT CustId
                     FROM f_DepSuper_1('All');
          END;
-         BEGIN ---- Extra PT
+         BEGIN -- Extra PT
              CREATE TABLE #ExtraPT_Sel
                           (SuperID INT,
                            ExtraPT DECIMAL(9, 8)

@@ -47,7 +47,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_MetricGaming_MatchDetail] @EndDate='2020-01-01',@St
                FROM Match m WITH ( NOLOCK )
                WHERE EventDate = @StartDate;
     END;
-    BEGIN ---- Extra PT
+    BEGIN -- Extra PT
         CREATE TABLE #ExtraPT_Sel( SuperID INT,
                                    ExtraPT DECIMAL(9, 8));
         INSERT INTO #ExtraPT_Sel

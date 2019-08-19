@@ -35,7 +35,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_BetBuilder_BetType] @EndDate='2019-03-03',@StartDat
                     FROM dbo.f_SportBetTypeMatrix_Sel(1, 0, 0, 2, 'Bet Builder', '', @isTest) s
                          INNER JOIN dbo.BetType b WITH (NOLOCK) ON s.BetType = b.typeid;
          END;
-         BEGIN ---- Extra PT 
+         BEGIN -- Extra PT 
              CREATE TABLE #ExtraPT_Sel
                           (SuperID INT,
                            ExtraPT DECIMAL(9, 8)

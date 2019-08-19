@@ -111,7 +111,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_BetType] @EndDate='2020-01-01',@StartDate='2
 INNER JOIN league l WITH (NOLOCK) ON m.LeagueId = l.LeagueId
                     WHERE l.sporttype = 1;
          END;
-         BEGIN ---- Extra PT
+         BEGIN -- Extra PT
              CREATE TABLE #ExtraPT_Sel
                           (SuperID   INT,
                            Sporttype INT,
@@ -311,7 +311,7 @@ INNER JOIN league l WITH (NOLOCK) ON m.LeagueId = l.LeagueId
                              END;
          END;
          BEGIN -- Sophia
-        ------ BARM (site only)
+        -- BARM (site only)
              INSERT INTO #Data
                     SELECT sb.BetType GroupId,
                            CASE
@@ -398,7 +398,7 @@ INNER JOIN league l WITH (NOLOCK) ON m.LeagueId = l.LeagueId
                              END,
                              sb.DisplayOrder;
 
-        --- set data default for 'Deposit' if there is no data
+        -- set data default for 'Deposit' if there is no data
              INSERT INTO #Data
                     (GroupId,
                      GroupName,
@@ -442,7 +442,7 @@ INNER JOIN league l WITH (NOLOCK) ON m.LeagueId = l.LeagueId
     WHERE RowName = 'Deposit'
 ) D;
 
-        ---- Update Credit = Credit - BARM, Deposit = Deposit + BARM
+        -- Update Credit = Credit - BARM, Deposit = Deposit + BARM
              UPDATE c
                SET
                    c.MemberWinLoss = ISNULL(c.MemberWinLoss, 0)+CASE
@@ -496,7 +496,7 @@ INNER JOIN league l WITH (NOLOCK) ON m.LeagueId = l.LeagueId
                                        AND d.RowName = 'BARM'
                                        AND c.RowName IN('Credit', 'Deposit');
 
-        -----Delete BARM row used for calculate
+        --Delete BARM row used for calculate
              DELETE #Data
              WHERE RowName = 'BARM';
          END;

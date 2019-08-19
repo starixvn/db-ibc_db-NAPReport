@@ -78,7 +78,7 @@ INNER JOIN league l WITH (NOLOCK) ON m.LeagueId = l.LeagueId
 INNER JOIN sports s WITH (NOLOCK) ON s.sporttype = l.sporttype
                     WHERE l.sporttype > 1;
          END;
-         BEGIN ---- Extra PT
+         BEGIN -- Extra PT
              CREATE TABLE #ExtraPT_Sel
                           (SuperID   INT,
                            Sporttype INT,
@@ -298,7 +298,7 @@ INNER JOIN sports s WITH (NOLOCK) ON s.sporttype = l.sporttype
                  END;
          END;
          BEGIN -- Sophia
-        ------ BARM only
+        -- BARM only
              INSERT INTO #Data
                     SELECT m.SportType GroupId,
                            m.SportName GroupName,
@@ -505,7 +505,7 @@ INNER JOIN sports s WITH (NOLOCK) ON s.sporttype = l.sporttype
     WHERE RowName = 'Deposit'
 ) D;
 
-        ---- Update Credit = Credit - BARM, Deposit = Deposit + BARM
+        -- Update Credit = Credit - BARM, Deposit = Deposit + BARM
              UPDATE c
                SET
                    c.MemberWinLoss = ISNULL(c.MemberWinLoss, 0)+CASE
@@ -559,7 +559,7 @@ INNER JOIN sports s WITH (NOLOCK) ON s.sporttype = l.sporttype
                                        AND d.RowName = 'BARM'
                                        AND c.RowName IN('Credit', 'Deposit');
 
-        -----Delete BARM row used for calculate
+        --Delete BARM row used for calculate
              DELETE #Data
              WHERE RowName = 'BARM';
          END;

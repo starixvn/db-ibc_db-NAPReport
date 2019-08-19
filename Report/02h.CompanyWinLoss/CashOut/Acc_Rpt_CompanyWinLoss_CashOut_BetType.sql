@@ -31,7 +31,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_CashOut_BetType] @StartDate='2016-01-01', @EndDate=
                     SELECT CustId
                     FROM f_DepSuper_1('All');
          END;
-         BEGIN ---- Extra PT
+         BEGIN -- Extra PT
              CREATE TABLE #ExtraPT_Sel
                           (SuperID INT,
                            ExtraPT DECIMAL(9, 8)

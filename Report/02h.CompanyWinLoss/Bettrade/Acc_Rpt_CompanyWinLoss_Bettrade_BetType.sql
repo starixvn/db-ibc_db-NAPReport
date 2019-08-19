@@ -32,7 +32,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Bettrade_BetType] @StartDate='2016-01-01', @EndDate
                     SELECT BetType
                     FROM dbo.f_SportBetTypeMatrix_Sel(1, 0, 0, 2, 'BT-Winloss', '', @isTest);
          END;
-         BEGIN ---- Extra PT
+         BEGIN -- Extra PT
              CREATE TABLE #ExtraPT_Sel
                           (SuperID INT,
                            ExtraPT DECIMAL(9, 8)

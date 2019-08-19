@@ -46,7 +46,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSports_BetType] @StartDate='2016-01-01', @En
                     SELECT CustId
                     FROM f_DepSuper_1('All');
          END;
-         BEGIN ---- Extra PT
+         BEGIN -- Extra PT
              CREATE TABLE #ExtraPT_Sel
                           (SuperID   INT,
                            Sporttype INT,

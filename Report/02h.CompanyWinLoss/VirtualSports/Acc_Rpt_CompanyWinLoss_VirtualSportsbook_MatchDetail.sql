@@ -22,7 +22,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSportsbook_MatchDetail] @StartDate='2016-01-
 
      SET NOCOUNT ON;
 
-	 BEGIN ---- Extra PT
+	 BEGIN -- Extra PT
         CREATE TABLE #ExtraPT_Sel( SuperID INT,
 								   Sporttype  INT,
                                    ExtraPT DECIMAL(9, 8));
@@ -86,5 +86,5 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSportsbook_MatchDetail] @StartDate='2016-01-
               m.AwayId;
 
 	DROP TABLE #ExtraPT_Sel;
--------------------
+--
 GO

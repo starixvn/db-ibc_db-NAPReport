@@ -72,8 +72,8 @@ EXEC [Acc_Rpt_CompanyWinLoss_PokerGames_Site] @StartDate='2018-08-21', @EndDate=
                             'XYZBET';--8RM;
                  END;
          END;
-         BEGIN  ----Get Sport Bettype Matrix---
-	    --- Check SP Version	 
+         BEGIN  --Get Sport Bettype Matrix--
+	    -- Check SP Version	 
              DECLARE @isTest BIT= 0;
              SELECT @isTest = dbo.f_CheckSPVersion(@@PROCID);
              CREATE TABLE #SportBetType

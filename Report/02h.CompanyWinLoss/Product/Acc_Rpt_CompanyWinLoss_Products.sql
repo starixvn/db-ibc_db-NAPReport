@@ -43,7 +43,7 @@ AS
     DECLARE @EffectedDate DATETIME; -- 20160112@Percy: Applying date of changing extra PT formula [RedmineID: #70208]
     SELECT @EffectedDate = '2017-01-19';
 
-    ------Get Sport Bettype Matrix------
+    --Get Sport Bettype Matrix--
     -- Check SP Version	 
     DECLARE @isTest BIT = 0;
     SELECT @isTest = dbo.f_CheckSPVersion( @@PROCID );
@@ -69,7 +69,7 @@ AS
                     CasinoType
             FROM dbo.f_SportBettypeMatrix_Sel( 0, 0, 0, 2, '', '', @isTest )
             WHERE bettype NOT IN( 911, 912 ); -- remove Cash Out
-    --- End Sport Bettype Matrix------
+    -- End Sport Bettype Matrix--
 
     CREATE TABLE #tmp_src( srecommend                    INT,
                             bettype                       INT,
@@ -169,13 +169,13 @@ AS
                             ExtraPT             MONEY,
                             NewExtraPT          MONEY );
 
-    --- Deposit Super
+    -- Deposit Super
     CREATE TABLE #DepSuper( custid INT );
     INSERT INTO #DepSuper
             SELECT custid
             FROM f_DepSuper_1( 'All' );
 
-    ---- Extra PT 
+    -- Extra PT 
     CREATE TABLE #ExtraPT_Sel( ProductID  INT,
                                 Sporttype  INT,
                                 SubProduct VARCHAR(100),
@@ -200,7 +200,7 @@ AS
                     SubProduct,
                     SuperId;
 
-    ---- Extra Comm for PokerGame Insurance
+    -- Extra Comm for PokerGame Insurance
     CREATE TABLE #ExtraComm_Sel( ProductID  INT,
                                     Sporttype  INT,
                                     SubProduct VARCHAR(100),
@@ -251,8 +251,8 @@ AS
                 INNER JOIN Sports s WITH ( NOLOCK ) ON l.sporttype = s.sporttype;
     CREATE CLUSTERED INDEX CIX_MatchID ON #Match( MatchID, [Type] );
 
-    --------------------------------------------------------------------------------
-    ---1. Sportsbook only and outright
+    --
+    --1. Sportsbook only and outright
     INSERT INTO #tmp_src
             ( srecommend,
                 bettype,
@@ -374,7 +374,7 @@ AS
                         END
             OPTION( RECOMPILE );
 
-    -----------Remove betype of MertricGaming and Bettrade AND Bet Builder
+    --Remove betype of MertricGaming and Bettrade AND Bet Builder
     DELETE #tmp_src
     WHERE bettype NOT IN( SELECT bettype
                             FROM #SportBettype s
@@ -382,7 +382,7 @@ AS
                             AND s.EventType IN( 1, 2 )
                             AND s.SubProduct NOT IN( 'MG-SuperLive', 'BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss', 'Bet Builder' ));
 
-    ------Soccer and Other Sports
+    --Soccer and Other Sports
     INSERT INTO #src
             ( srecommend,
                 site,
@@ -429,7 +429,7 @@ AS
                     SportType,
                     ProductId;
 
-    ------ BARM (only)
+    -- BARM (only)
     INSERT INTO #src
             ( srecommend,
                 site,
@@ -552,7 +552,7 @@ AS
                         ELSE 2
                     END;	
 
-    ----- Minus data of BARM 
+    -- Minus data of BARM 
     UPDATE c
         SET c.winlost_actualrate = c.winlost_actualrate - d.winlost_actualrate,
             c.SMAWinloss = c.SMAWinloss - d.SMAWinloss,
@@ -576,7 +576,7 @@ AS
         AND c.Site = 1
         AND d.Site = 2;
 
-    ---2. Not Sportsbook and not have detail table yet ; and special Sportsbook : Parlay, Metric gaming, Bettrade, Bet Builder
+    --2. Not Sportsbook and not have detail table yet ; and special Sportsbook : Parlay, Metric gaming, Bettrade, Bet Builder
     INSERT INTO #src
             ( srecommend,
                 site,
@@ -973,7 +973,7 @@ AS
                     b.gameID
             OPTION( RECOMPILE );
 
-    ----3. Get from Temporary Detail table ----------
+    --3. Get from Temporary Detail table --
     INSERT INTO #srcDetail
             ( srecommend,
                 site,
@@ -1051,7 +1051,7 @@ AS
                     s.ProductID,
                     s.CasinoType;
 
-    -------------------------------------------------------
+    --
 
     UPDATE #src
         SET site = 2
@@ -1062,9 +1062,9 @@ AS
     WHERE srecommend IN( SELECT CustId
                             FROM #DepSuper );  
 
-    ---------------------------------------------------------		  
-    -------------Insert to Result table to get data----------
-    -----1. Soccer and Others
+    --		  
+    --Insert to Result table to get data--
+    --1. Soccer and Others
     INSERT INTO #Result
             ( ProductId,
                 site,
@@ -1122,7 +1122,7 @@ AS
                     END,
                     site; 		
 
-    ----METRIC GAMING -SUPER LIVE
+    --METRIC GAMING -SUPER LIVE
     INSERT INTO #Result
             ( ProductId,
                 site,
@@ -1167,7 +1167,7 @@ AS
             GROUP BY b.ProductId,
                     site; 
 
-    ----BET BUILDER
+    --BET BUILDER
     INSERT INTO #Result
             ( ProductId,
                 site,
@@ -1212,7 +1212,7 @@ AS
             GROUP BY b.ProductId,
                     site; 
 
-    --- Parlay			 
+    -- Parlay			 
     INSERT INTO #Result
             ( ProductId,
                 site,
@@ -1257,7 +1257,7 @@ AS
             GROUP BY b.ProductId,
                     site;
 
-    ----NUMBER GAME			
+    --NUMBER GAME			
     INSERT INTO #Result
             ( ProductId,
                 site,
@@ -1299,7 +1299,7 @@ AS
             GROUP BY b.ProductId,
                     site;
 
-    ---bettrade
+    --bettrade
     INSERT INTO #Result
             ( ProductId,
                 site,
@@ -1346,8 +1346,8 @@ AS
             GROUP BY site,
                     b.ProductId;
 
-    ------------------------------------------
-    ---For Poker Games
+    --
+    --For Poker Games
     INSERT INTO #Result
             ( ProductId,
                 site,
@@ -1422,7 +1422,7 @@ AS
             WHERE b.ProductId IN( 33 ) -- Video Poker Games
             GROUP BY site,
                     b.ProductId;            
-    ---Live casino and Casino and 3rd Party
+    --Live casino and Casino and 3rd Party
     INSERT INTO #Result
             ( ProductId,
                 site,
@@ -1439,9 +1439,9 @@ AS
             )
             SELECT CASE
                         WHEN b.CasinoType = 1
-                        THEN 6  ---- Casino
+                        THEN 6  -- Casino
                         WHEN b.CasinoType = 2
-                        THEN 4  ---Live Casino
+                        THEN 4  --Live Casino
                         ELSE b.ProductId
                     END AS ProductId,
                     site,
@@ -1466,14 +1466,14 @@ AS
             FROM #src b
                 LEFT JOIN #ExtraPT_Sel e ON b.srecommend = e.superID
                                         AND e.ProductID = b.ProductId
-            WHERE b.ProductId IN( 5, 8, 15, 23, 25, 26, 27, 28, 30, 31 ) ---Virtual Sports, Keno, Colossus Bets, NG2 (3rd), CashOut, Betradar Virtual Sports, Lottery, Lucky 3, Bullfighting, Exchange
+            WHERE b.ProductId IN( 5, 8, 15, 23, 25, 26, 27, 28, 30, 31 ) --Virtual Sports, Keno, Colossus Bets, NG2 (3rd), CashOut, Betradar Virtual Sports, Lottery, Lucky 3, Bullfighting, Exchange
                 OR b.CasinoType IN( 1, 2 )
             GROUP BY site,
                     CASE
                         WHEN b.CasinoType = 1
-                        THEN 6   ---- Casino
+                        THEN 6   -- Casino
                         WHEN b.CasinoType = 2
-                        THEN 4  ---Live Casino
+                        THEN 4  --Live Casino
                         ELSE b.ProductId
                     END;
     INSERT INTO #Result
@@ -1492,9 +1492,9 @@ AS
             )
             SELECT CASE
                         WHEN b.CasinoType = 1
-                        THEN 6  ---- Casino
+                        THEN 6  -- Casino
                         WHEN b.CasinoType = 2
-                        THEN 4  ---Live Casino
+                        THEN 4  --Live Casino
                         ELSE b.ProductId
                     END AS ProductId,
                     site,
@@ -1520,13 +1520,13 @@ AS
             GROUP BY site,
                     CASE
                         WHEN b.CasinoType = 1
-                        THEN 6  ---- Casino
+                        THEN 6  -- Casino
                         WHEN b.CasinoType = 2
-                        THEN 4  ---Live Casino
+                        THEN 4  --Live Casino
                         ELSE b.ProductId
                     END;
 
-    -----2. Total ----------------------------------------------------------------
+    --2. Total --
     -- Get win lost of agent '8RM' , 'BARM'
     INSERT INTO #Result
             ( ProductId,
@@ -1590,9 +1590,9 @@ AS
                         WHEN 5707545
                         THEN 2
                     END;					
-    -----3. Total ----------------------------------------------------------------
-    --------------------------------------------
-    ----Get Result----
+    --3. Total --
+    --
+    --Get Result--
 
     DECLARE @ProductOrder AS TABLE( DisplayOrder INT,
                                     ProductId    INT,

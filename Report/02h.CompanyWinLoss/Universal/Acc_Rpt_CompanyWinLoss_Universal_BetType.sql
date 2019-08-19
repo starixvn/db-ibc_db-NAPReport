@@ -54,7 +54,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Universal_BetType] @StartDate='2016-09-13', @EndDat
                     SELECT CustId
                     FROM f_DepSuper_1('All');
          END;
-         BEGIN ---- Extra PT
+         BEGIN -- Extra PT
              CREATE TABLE #ExtraPT_Sel
                           (SuperID   INT,
                            Sporttype INT,

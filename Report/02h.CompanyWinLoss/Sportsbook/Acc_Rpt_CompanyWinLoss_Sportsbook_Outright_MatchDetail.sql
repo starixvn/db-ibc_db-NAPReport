@@ -40,7 +40,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Outright_MatchDetail] @EndDate='2020-01-
                WHERE EventDate = @StartDate
                  AND l.sporttype = @SportType;
     END;
-    BEGIN ---- Extra PT
+    BEGIN -- Extra PT
         CREATE TABLE #ExtraPT_Sel( SuperID INT,
 								   Sporttype  INT,
                                    ExtraPT DECIMAL(9, 8));

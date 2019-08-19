@@ -33,7 +33,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Parlay] @EndDate='2020-01-01',@StartDate='2016-01-0
                     SELECT CustId
                     FROM f_DepSuper_1('All');
          END;
-         BEGIN ---- Extra PT
+         BEGIN -- Extra PT
              CREATE TABLE #ExtraPT_Sel
                           (SuperID   INT,
                            Sporttype INT,
