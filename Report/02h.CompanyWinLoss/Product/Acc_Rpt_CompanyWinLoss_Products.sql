@@ -11,7 +11,7 @@ AS
 	Task: Company Winloss Report - Main SP [Redmine: #48448]
 	DB: DBACC/bodb02	
 
-	Revisions:
+Revisions:
 - 20160622@Sophia: 	. Remove group by ExtraPT to avoid duplicated data. [Redmine: #59732]. Ignore param @EndDate because of the performance, and business supports only one day 		 
 - 20160915@Percy: Integrate NG2 [RedmineID: #63460]
 - 20160922@Percy: Use local parameter to prevent bad parameter sniffing [RedmindID: #64573]
@@ -35,7 +35,7 @@ AS
 - 20190326@Robert: #109981 - NAP Report - Integrate Promotion Prize
 - 20190517@Cherry: Change Keno name to RNG Keno (#113670)
 - 20190925@Jacob: Group By CN88 (#118824)
-	Explanation's Param:
+Explanation's Param:
 
 */
 
@@ -1062,6 +1062,10 @@ AS
     WHERE srecommend IN( SELECT CustId
                             FROM #DepSuper );  
 
+    UPDATE #src
+        SET site = 3
+    WHERE srecommend IN( SELECT CustId
+                            FROM CS_CustSuper cn88 );
     --		  
     --Insert to Result table to get data--
     --1. Soccer and Others
@@ -1656,6 +1660,8 @@ AS
                         THEN 'Credit'
                         WHEN d.Site = 2
                         THEN 'Deposit'
+				    WHEN d.Site = 3
+                        THEN 'CN88'
                     END AS RowName,
             d.DisplayOrder,
             site,
@@ -1685,6 +1691,8 @@ AS
                     THEN 'Credit'
                     WHEN d.Site = 2
                     THEN 'Deposit'
+				 WHEN d.Site = 3
+                        THEN 'CN88'
                 END,
                 d.DisplayOrder,
                 site
