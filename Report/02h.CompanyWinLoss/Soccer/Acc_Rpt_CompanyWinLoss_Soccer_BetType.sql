@@ -244,10 +244,12 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_BetType] @EndDate='2020-01-01',@StartDate='2
                                  END GroupName,
                       sb.DisplayOrder,
                          CASE
-                             WHEN dep.CustId IS NULL
-                             THEN 'Credit'
-                             ELSE 'Deposit'
-                         END AS RowName,
+                          WHEN dep.CustId IS NULL AND cn88.CustId IS NOT NULL
+                          THEN 'CN88'
+					 WHEN dep.CustId IS NULL AND cn88.CustId IS NULL
+                          THEN 'Credit'
+                          ELSE 'Deposit'
+                      END AS RowName,
                       SUM(MemberWinLoss) MemberWinLoss,
                       SUM(SMAWinLoss) AS SMAWinLoss,
 					  SUM(ExtraPT) AS ExtraPT,
@@ -260,6 +262,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_BetType] @EndDate='2020-01-01',@StartDate='2
                FROM #tmp_Data AS b WITH ( NOLOCK )
                     INNER JOIN @BetType AS sb ON sb.BetType = b.BetType
                     LEFT JOIN #DepositSuper AS dep ON b.srecommend = dep.CustId
+                    LEFT JOIN CS_CustSuper AS cn88 WITH (NOLOCK) ON b.srecommend = cn88.CustId
 			   WHERE @IsLive > 1 OR b.liveindicator = @IsLive
                GROUP BY sb.BetType,
                            CASE
@@ -269,10 +272,12 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_BetType] @EndDate='2020-01-01',@StartDate='2
                            END,
                         sb.DisplayOrder,
                            CASE
-                               WHEN dep.CustId IS NULL
-                               THEN 'Credit'
-                               ELSE 'Deposit'
-                           END;
+                          WHEN dep.CustId IS NULL AND cn88.CustId IS NOT NULL
+                          THEN 'CN88'
+					 WHEN dep.CustId IS NULL AND cn88.CustId IS NULL
+                          THEN 'Credit'
+                          ELSE 'Deposit'
+                      END;
     END;
     BEGIN -- Sophia
         ------ BARM (site only)

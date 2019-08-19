@@ -70,10 +70,12 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSports_BetType] @StartDate='2016-01-01', @En
              SELECT sb.BetType AS GroupId,
                     sb.BetTypeName AS GroupName,
                     CASE
-                        WHEN dep.CustId IS NULL
-                        THEN 'Credit'
-                        ELSE 'Deposit'
-                    END AS RowName,
+                          WHEN dep.CustId IS NULL AND cn88.CustId IS NOT NULL
+                          THEN 'CN88'
+					 WHEN dep.CustId IS NULL AND cn88.CustId IS NULL
+                          THEN 'Credit'
+                          ELSE 'Deposit'
+                      END AS RowName,
                     SUM((winlost - actual_stake) * actualrate) AS MemberWinLoss,
                     SUM((awinlost + mwinlost + swinlost) * actualrate) AS SMAWinLoss,
 					-SUM((CASE
@@ -99,6 +101,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSports_BetType] @StartDate='2016-01-01', @En
              FROM bettrans AS b WITH (NOLOCK)
                   INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
                   LEFT JOIN #DepositSuper AS dep ON b.srecommend = dep.CustId
+                  LEFT JOIN CS_CustSuper AS cn88 WITH (NOLOCK) ON b.srecommend = cn88.CustId
 				  LEFT JOIN #ExtraPT_Sel e ON e.SuperID = b.srecommend
                   INNER JOIN match AS m WITH (NOLOCK) ON b.MatchId = m.MatchId
              WHERE b.winlostdate = @StartDate
@@ -109,7 +112,9 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSports_BetType] @StartDate='2016-01-01', @En
              GROUP BY sb.BetType,
                       sb.BetTypeName,
                       CASE
-                          WHEN dep.CustId IS NULL
+                          WHEN dep.CustId IS NULL AND cn88.CustId IS NOT NULL
+                          THEN 'CN88'
+					 WHEN dep.CustId IS NULL AND cn88.CustId IS NULL
                           THEN 'Credit'
                           ELSE 'Deposit'
                       END
@@ -121,10 +126,12 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSports_BetType] @StartDate='2016-01-01', @En
              SELECT sb.BetType AS GroupId,
                     sb.BetTypeName AS GroupName,
                     CASE
-                        WHEN dep.CustId IS NULL
-                        THEN 'Credit'
-                        ELSE 'Deposit'
-                    END AS RowName,
+                          WHEN dep.CustId IS NULL AND cn88.CustId IS NOT NULL
+                          THEN 'CN88'
+					 WHEN dep.CustId IS NULL AND cn88.CustId IS NULL
+                          THEN 'Credit'
+                          ELSE 'Deposit'
+                      END AS RowName,
                     SUM((winlost - actual_stake) * actualrate) AS MemberWinLoss,
                     SUM((awinlost + mwinlost + swinlost) * actualrate) AS SMAWinLoss,
 					-SUM((CASE
@@ -160,7 +167,9 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSports_BetType] @StartDate='2016-01-01', @En
              GROUP BY sb.BetType,
                       sb.BetTypeName,
                       CASE
-                          WHEN dep.CustId IS NULL
+                          WHEN dep.CustId IS NULL AND cn88.CustId IS NOT NULL
+                          THEN 'CN88'
+					 WHEN dep.CustId IS NULL AND cn88.CustId IS NULL
                           THEN 'Credit'
                           ELSE 'Deposit'
                       END

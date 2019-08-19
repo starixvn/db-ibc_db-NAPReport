@@ -189,7 +189,9 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus] @EndDate='2018-07-31
                           ELSE 'Soccer-Minor Bet Types'
                       END,
                       CASE
-                          WHEN dep.CustId IS NULL
+                          WHEN dep.CustId IS NULL AND cn88.CustId IS NOT NULL
+                          THEN 'CN88'
+					 WHEN dep.CustId IS NULL AND cn88.CustId IS NULL
                           THEN 'Credit'
                           ELSE 'Deposit'
                       END AS RowName,
@@ -205,6 +207,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus] @EndDate='2018-07-31
                FROM #tmp_Data AS b
                     INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
                     LEFT JOIN #DepositSuper AS dep ON b.srecommend = dep.CustId
+                    LEFT JOIN CS_CustSuper AS cn88 WITH (NOLOCK) ON b.srecommend = cn88.CustId
                WHERE @IsLive > 1 OR b.liveIndicator = @IsLive
                GROUP BY sb.IsMajor,
 						CASE
@@ -213,10 +216,12 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus] @EndDate='2018-07-31
                             ELSE 'Soccer-Minor Bet Types'
                         END,
                         CASE
-                            WHEN dep.CustId IS NULL
-                            THEN 'Credit'
-                            ELSE 'Deposit'
-                        END;
+                          WHEN dep.CustId IS NULL AND cn88.CustId IS NOT NULL
+                          THEN 'CN88'
+					 WHEN dep.CustId IS NULL AND cn88.CustId IS NULL
+                          THEN 'Credit'
+                          ELSE 'Deposit'
+                      END;
 		IF @IsLive = 2
 		BEGIN
 			INSERT INTO #Data
@@ -227,10 +232,12 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus] @EndDate='2018-07-31
                                            ELSE 'Soccer Non-Live'
                                        END AS GroupName,
                                               CASE
-                                                  WHEN dep.CustId IS NULL
-                                                  THEN 'Credit'
-                                                  ELSE 'Deposit'
-                                              END AS RowName,
+                          WHEN dep.CustId IS NULL AND cn88.CustId IS NOT NULL
+                          THEN 'CN88'
+					 WHEN dep.CustId IS NULL AND cn88.CustId IS NULL
+                          THEN 'Credit'
+                          ELSE 'Deposit'
+                      END AS RowName,
                       SUM(MemberWinLoss) MemberWinLoss,
                       SUM(SMAWinLoss) AS SMAWinLoss,
 					  SUM(ExtraPT) AS ExtraPT,
@@ -250,10 +257,12 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus] @EndDate='2018-07-31
                             ELSE 'Soccer Non-Live'
                         END,
                         CASE
-                            WHEN dep.CustId IS NULL
-                            THEN 'Credit'
-                            ELSE 'Deposit'
-                        END;
+                          WHEN dep.CustId IS NULL AND cn88.CustId IS NOT NULL
+                          THEN 'CN88'
+					 WHEN dep.CustId IS NULL AND cn88.CustId IS NULL
+                          THEN 'Credit'
+                          ELSE 'Deposit'
+                      END;
 		END
     END;
     BEGIN -- Sophia

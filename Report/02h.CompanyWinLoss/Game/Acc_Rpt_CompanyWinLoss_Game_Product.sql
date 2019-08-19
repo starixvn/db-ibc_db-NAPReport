@@ -98,10 +98,12 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_Product] @EndDate='2020-01-01',@StartDate='201
                        SELECT sb.ProductId AS GroupId,
                               sb.ProductName AS GroupName,
                                                 CASE
-                                                    WHEN dep.CustId IS NULL
-                                                    THEN 'Credit'
-                                                    ELSE 'Deposit'
-                                                END AS RowName,
+                          WHEN dep.CustId IS NULL AND cn88.CustId IS NOT NULL
+                          THEN 'CN88'
+					 WHEN dep.CustId IS NULL AND cn88.CustId IS NULL
+                          THEN 'Credit'
+                          ELSE 'Deposit'
+                      END AS RowName,
                               SUM(( winlost - actual_stake ) * actualrate) AS MemberWinLoss,
                               SUM(( awinlost + mwinlost + swinlost ) * actualrate) AS SMAWinLoss,
                               SUM(scomm * actualrate) Commission,
@@ -128,6 +130,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_Product] @EndDate='2020-01-01',@StartDate='201
                        FROM bettrans AS b WITH ( NOLOCK )
                             INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
                             LEFT JOIN #DepositSuper AS dep ON b.srecommend = dep.CustId
+                            LEFT JOIN CS_CustSuper AS cn88 WITH (NOLOCK) ON b.srecommend = cn88.CustId
                             LEFT JOIN #ExtraPT e ON b.srecommend = e.superID
                                                 AND sb.ProductId = e.ProductId
                        WHERE b.winlostdate = @StartDate
@@ -137,10 +140,12 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_Product] @EndDate='2020-01-01',@StartDate='201
                        GROUP BY sb.ProductId,
                                 sb.ProductName,
                                    CASE
-                                       WHEN dep.CustId IS NULL
-                                       THEN 'Credit'
-                                       ELSE 'Deposit'
-                                   END;
+                          WHEN dep.CustId IS NULL AND cn88.CustId IS NOT NULL
+                          THEN 'CN88'
+					 WHEN dep.CustId IS NULL AND cn88.CustId IS NULL
+                          THEN 'Credit'
+                          ELSE 'Deposit'
+                      END;
             END;
                 IF EXISTS -- bettransRNG
                 ( SELECT 1
@@ -151,10 +156,12 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_Product] @EndDate='2020-01-01',@StartDate='201
                                SELECT sb.ProductId AS GroupId,
                                       sb.ProductName AS GroupName,
                                                         CASE
-                                                            WHEN dep.CustId IS NULL
-                                                            THEN 'Credit'
-                                                            ELSE 'Deposit'
-                                                        END AS RowName,
+                          WHEN dep.CustId IS NULL AND cn88.CustId IS NOT NULL
+                          THEN 'CN88'
+					 WHEN dep.CustId IS NULL AND cn88.CustId IS NULL
+                          THEN 'Credit'
+                          ELSE 'Deposit'
+                      END AS RowName,
                                       SUM(( winlost - actual_stake ) * actualrate) MemberWinLoss,
                                       SUM(( awinlost + mwinlost + swinlost ) * actualrate) SMAWinLoss,
                                       SUM(scomm * actualrate) Commission,
@@ -211,10 +218,12 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_Product] @EndDate='2020-01-01',@StartDate='201
                                GROUP BY sb.ProductId,
                                         sb.ProductName,
                                            CASE
-                                               WHEN dep.CustId IS NULL
-                                               THEN 'Credit'
-                                               ELSE 'Deposit'
-                                           END;
+                          WHEN dep.CustId IS NULL AND cn88.CustId IS NOT NULL
+                          THEN 'CN88'
+					 WHEN dep.CustId IS NULL AND cn88.CustId IS NULL
+                          THEN 'Credit'
+                          ELSE 'Deposit'
+                      END;
                     END;
                         IF EXISTS -- bettransLC
                         ( SELECT 1
@@ -226,10 +235,12 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_Product] @EndDate='2020-01-01',@StartDate='201
                                        SELECT sb.ProductId AS GroupId,
                                               sb.ProductName AS GroupName,
                                                                 CASE
-                                                                    WHEN dep.CustId IS NULL
-                                                                    THEN 'Credit'
-                                                                    ELSE 'Deposit'
-                                                                END AS RowName,
+                          WHEN dep.CustId IS NULL AND cn88.CustId IS NOT NULL
+                          THEN 'CN88'
+					 WHEN dep.CustId IS NULL AND cn88.CustId IS NULL
+                          THEN 'Credit'
+                          ELSE 'Deposit'
+                      END AS RowName,
                                               SUM(( winlost - actual_stake ) * actualrate) MemberWinLoss,
                                               SUM(( awinlost + mwinlost + swinlost ) * actualrate) SMAWinLoss,
                                               SUM(scomm * actualrate) Commission,
@@ -264,10 +275,12 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_Product] @EndDate='2020-01-01',@StartDate='201
                                        GROUP BY sb.ProductId,
                                                 sb.ProductName,
                                                    CASE
-                                                       WHEN dep.CustId IS NULL
-                                                       THEN 'Credit'
-                                                       ELSE 'Deposit'
-                                                   END;
+                          WHEN dep.CustId IS NULL AND cn88.CustId IS NOT NULL
+                          THEN 'CN88'
+					 WHEN dep.CustId IS NULL AND cn88.CustId IS NULL
+                          THEN 'Credit'
+                          ELSE 'Deposit'
+                      END;
                             END;
     BEGIN -- Query
 

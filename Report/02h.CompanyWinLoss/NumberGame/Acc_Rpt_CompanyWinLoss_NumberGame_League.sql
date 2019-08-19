@@ -74,10 +74,12 @@ AS
              SELECT m.leagueid AS GroupId,
                     m.leaguename AS GroupName,
                     CASE
-                        WHEN dep.CustId IS NULL
-                        THEN 'Credit'
-                        ELSE 'Deposit'
-                    END AS RowName,
+                          WHEN dep.CustId IS NULL AND cn88.CustId IS NOT NULL
+                          THEN 'CN88'
+					 WHEN dep.CustId IS NULL AND cn88.CustId IS NULL
+                          THEN 'Credit'
+                          ELSE 'Deposit'
+                      END AS RowName,
                     SUM((winlost - actual_stake) * actualrate) AS MemberWinLoss,
                     SUM((awinlost + mwinlost + swinlost) * actualrate) AS SMAWinLoss,
                     -SUM(CASE
@@ -103,6 +105,7 @@ AS
              FROM bettrans AS b WITH (NOLOCK)
                   INNER JOIN #Match AS m WITH (nolock) ON b.MatchId = m.MatchId
                   LEFT JOIN #DepositSuper AS dep ON b.srecommend = dep.CustId
+                  LEFT JOIN CS_CustSuper AS cn88 WITH (NOLOCK) ON b.srecommend = cn88.CustId
                   LEFT JOIN #ExtraPT_Sel AS e ON e.SuperID = b.srecommend
              WHERE b.winlostdate = @FDate
                    AND b.ruben = 1
@@ -110,7 +113,9 @@ AS
              GROUP BY m.leagueid,
                       m.leaguename,
                       CASE
-                          WHEN dep.CustId IS NULL
+                          WHEN dep.CustId IS NULL AND cn88.CustId IS NOT NULL
+                          THEN 'CN88'
+					 WHEN dep.CustId IS NULL AND cn88.CustId IS NULL
                           THEN 'Credit'
                           ELSE 'Deposit'
                       END

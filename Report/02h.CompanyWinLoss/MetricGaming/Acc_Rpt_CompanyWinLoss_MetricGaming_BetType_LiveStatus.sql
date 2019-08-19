@@ -92,10 +92,12 @@ EXEC [Acc_Rpt_CompanyWinLoss_MetricGaming_BetType_LiveStatus] @EndDate='2018-08-
 					  b.BetType,
                         sb.BetTypeName,
                            CASE
-                               WHEN dep.CustId IS NULL
-                               THEN 'Credit'
-                               ELSE 'Deposit'
-                           END AS RowName,
+                          WHEN dep.CustId IS NULL AND cn88.CustId IS NOT NULL
+                          THEN 'CN88'
+					 WHEN dep.CustId IS NULL AND cn88.CustId IS NULL
+                          THEN 'Credit'
+                          ELSE 'Deposit'
+                      END AS RowName,
                 SUM(( winlost - actual_stake ) * actualrate) MemberWinLoss,
                 SUM(( awinlost + mwinlost + swinlost ) * actualrate) SMAWinLoss,
 				SUM((CASE
@@ -140,6 +142,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_MetricGaming_BetType_LiveStatus] @EndDate='2018-08-
                FROM bettrans AS b WITH ( NOLOCK )
                     INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
                     LEFT JOIN #DepositSuper AS dep ON b.srecommend = dep.CustId
+                    LEFT JOIN CS_CustSuper AS cn88 WITH (NOLOCK) ON b.srecommend = cn88.CustId
                     LEFT JOIN #ExtraPT_Sel e ON e.SuperID = b.srecommend
                WHERE b.winlostdate = @StartDate
                  AND ( @IsLive > 1 OR b.liveindicator = @IsLive )
@@ -149,10 +152,12 @@ EXEC [Acc_Rpt_CompanyWinLoss_MetricGaming_BetType_LiveStatus] @EndDate='2018-08-
 					  b.BetType,
                         sb.BetTypeName,
                            CASE
-                               WHEN dep.CustId IS NULL
-                               THEN 'Credit'
-                               ELSE 'Deposit'
-                           END;
+                          WHEN dep.CustId IS NULL AND cn88.CustId IS NOT NULL
+                          THEN 'CN88'
+					 WHEN dep.CustId IS NULL AND cn88.CustId IS NULL
+                          THEN 'Credit'
+                          ELSE 'Deposit'
+                      END;
 
 		INSERT INTO #Data
                SELECT

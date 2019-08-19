@@ -67,10 +67,12 @@ EXEC [Acc_Rpt_CompanyWinLoss_FishingWorld_BetType] @EndDate='2020-01-01',@StartD
         SELECT sb.BetType AS GroupId,
                sb.BetTypeName AS GroupName,
                                  CASE
-                                     WHEN dep.CustId IS NULL
-                                     THEN 'Credit'
-                                     ELSE 'Deposit'
-                                 END AS RowName,
+                          WHEN dep.CustId IS NULL AND cn88.CustId IS NOT NULL
+                          THEN 'CN88'
+					 WHEN dep.CustId IS NULL AND cn88.CustId IS NULL
+                          THEN 'Credit'
+                          ELSE 'Deposit'
+                      END AS RowName,
                SUM(( winlost - actual_stake ) * actualrate) MemberWinLoss,
                SUM(( awinlost + mwinlost + swinlost ) * actualrate) SMAWinLoss,
 			   -SUM((CASE
@@ -96,16 +98,19 @@ EXEC [Acc_Rpt_CompanyWinLoss_FishingWorld_BetType] @EndDate='2020-01-01',@StartD
         FROM bettransRNG b WITH ( NOLOCK )
              INNER JOIN #SportBetType sb ON sb.BetType = b.gameID
              LEFT JOIN #DepositSuper dep ON b.srecommend = dep.custid
+             LEFT JOIN CS_CustSuper AS cn88 WITH (NOLOCK) ON b.srecommend = cn88.CustId
              LEFT JOIN #ExtraPT_Sel e ON e.SuperID = b.srecommend
         WHERE b.winlostdate = @StartDate
           AND b.statusID IN( 111, 112, 113 )
         GROUP BY sb.BetType,
                  sb.BetTypeName,
                     CASE
-                        WHEN dep.CustId IS NULL
-                        THEN 'Credit'
-                        ELSE 'Deposit'
-                    END
+                          WHEN dep.CustId IS NULL AND cn88.CustId IS NOT NULL
+                          THEN 'CN88'
+					 WHEN dep.CustId IS NULL AND cn88.CustId IS NULL
+                          THEN 'Credit'
+                          ELSE 'Deposit'
+                      END
         ORDER BY GroupName,
                  RowName;
     END;

@@ -74,10 +74,12 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSports_SportType]	@StartDate='2016-01-01', @
          INSERT INTO #Data
                 SELECT m.sporttype,
                        CASE
-                           WHEN dep.CustId IS NULL
-                           THEN 'Credit'
-                           ELSE 'Deposit'
-                       END AS Site,
+                          WHEN dep.CustId IS NULL AND cn88.CustId IS NOT NULL
+                          THEN 'CN88'
+					 WHEN dep.CustId IS NULL AND cn88.CustId IS NULL
+                          THEN 'Credit'
+                          ELSE 'Deposit'
+                      END AS Site,
                        SUM((winlost - actual_stake) * actualrate) AS MemberWinLoss,
                        SUM((awinlost + mwinlost + swinlost) * actualrate) AS SMAWinLoss,
 					   SUM((CASE
@@ -104,6 +106,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSports_SportType]	@StartDate='2016-01-01', @
                      INNER JOIN match AS m WITH (NOLOCK) ON b.MatchId = m.MatchId
                      INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
                      LEFT JOIN #DepositSuper AS dep ON b.srecommend = dep.CustId
+                     LEFT JOIN CS_CustSuper AS cn88 WITH (NOLOCK) ON b.srecommend = cn88.CustId
 					 LEFT JOIN #ExtraPT_Sel e ON e.SuperID = b.srecommend
                 WHERE b.winlostdate = @StartDate
                       AND sb.EventType = 1
@@ -112,20 +115,24 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSports_SportType]	@StartDate='2016-01-01', @
                       AND b.statusID IN(111, 112, 113)
                 GROUP BY m.sporttype,
                          CASE
-                             WHEN dep.CustId IS NULL
-                             THEN 'Credit'
-                             ELSE 'Deposit'
-                         END;
+                          WHEN dep.CustId IS NULL AND cn88.CustId IS NOT NULL
+                          THEN 'CN88'
+					 WHEN dep.CustId IS NULL AND cn88.CustId IS NULL
+                          THEN 'Credit'
+                          ELSE 'Deposit'
+                      END;
      END;
      BEGIN -- Virtual HR
 
          INSERT INTO #Data
                 SELECT r.SportType AS SportType,
                        CASE
-                           WHEN dep.CustId IS NULL
-                           THEN 'Credit'
-                           ELSE 'Deposit'
-                       END AS site,
+                          WHEN dep.CustId IS NULL AND cn88.CustId IS NOT NULL
+                          THEN 'CN88'
+					 WHEN dep.CustId IS NULL AND cn88.CustId IS NULL
+                          THEN 'Credit'
+                          ELSE 'Deposit'
+                      END AS site,
                        SUM((winlost - actual_stake) * actualrate) AS MemberWinLoss,
                        SUM((awinlost + mwinlost + swinlost) * actualrate) AS SMAWinLoss,
 					   SUM((CASE
@@ -160,10 +167,12 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSports_SportType]	@StartDate='2016-01-01', @
                       AND b.statusID IN(111, 112, 113)
                 GROUP BY r.sporttype,
                          CASE
-                             WHEN dep.CustId IS NULL
-                             THEN 'Credit'
-                             ELSE 'Deposit'
-                         END;
+                          WHEN dep.CustId IS NULL AND cn88.CustId IS NOT NULL
+                          THEN 'CN88'
+					 WHEN dep.CustId IS NULL AND cn88.CustId IS NULL
+                          THEN 'Credit'
+                          ELSE 'Deposit'
+                      END;
      END;
      BEGIN -- Query
 

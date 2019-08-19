@@ -79,10 +79,12 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_BetType] @StartDate='2016-01-
                 SELECT sb.BetType,
                        sb.BetTypeName,
                        CASE
-                           WHEN dep.CustId IS NULL
-                           THEN 'Credit'
-                           ELSE 'Deposit'
-                       END,
+                          WHEN dep.CustId IS NULL AND cn88.CustId IS NOT NULL
+                          THEN 'CN88'
+					 WHEN dep.CustId IS NULL AND cn88.CustId IS NULL
+                          THEN 'Credit'
+                          ELSE 'Deposit'
+                      END,
                        SUM((winlost - actual_stake) * actualrate),
                        SUM((awinlost + mwinlost + swinlost) * actualrate),
 					   SUM((CASE
@@ -108,6 +110,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_BetType] @StartDate='2016-01-
                 FROM bettrans AS b WITH (NOLOCK)
                      INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
                      LEFT JOIN #DepositSuper AS dep ON b.srecommend = dep.CustId
+                     LEFT JOIN CS_CustSuper AS cn88 WITH (NOLOCK) ON b.srecommend = cn88.CustId
 					 LEFT JOIN #ExtraPT_Sel e ON e.SuperID = b.srecommend
                      INNER JOIN match AS m WITH (NOLOCK) ON b.MatchId = m.MatchId
                 WHERE b.winlostdate = @StartDate
@@ -119,18 +122,22 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_BetType] @StartDate='2016-01-
                 GROUP BY sb.BetType,
                          sb.BetTypeName,
                          CASE
-                             WHEN dep.CustId IS NULL
-                             THEN 'Credit'
-                             ELSE 'Deposit'
-                         END;
+                          WHEN dep.CustId IS NULL AND cn88.CustId IS NOT NULL
+                          THEN 'CN88'
+					 WHEN dep.CustId IS NULL AND cn88.CustId IS NULL
+                          THEN 'Credit'
+                          ELSE 'Deposit'
+                      END;
          INSERT INTO #Data -- Parlay bettype
                 SELECT sb.BetType,
                        sb.BetTypeName,
                        CASE
-                           WHEN dep.CustId IS NULL
-                           THEN 'Credit'
-                           ELSE 'Deposit'
-                       END AS site,
+                          WHEN dep.CustId IS NULL AND cn88.CustId IS NOT NULL
+                          THEN 'CN88'
+					 WHEN dep.CustId IS NULL AND cn88.CustId IS NULL
+                          THEN 'Credit'
+                          ELSE 'Deposit'
+                      END AS site,
                        SUM((b.winlost - b.actual_stake) * b.actualrate),
                        SUM((b.awinlost + b.mwinlost + b.swinlost) * b.actualrate),
 					   SUM((CASE
@@ -174,10 +181,12 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_BetType] @StartDate='2016-01-
                 GROUP BY sb.BetType,
                          sb.BetTypeName,
                          CASE
-                             WHEN dep.CustId IS NULL
-                             THEN 'Credit'
-                             ELSE 'Deposit'
-                         END;
+                          WHEN dep.CustId IS NULL AND cn88.CustId IS NOT NULL
+                          THEN 'CN88'
+					 WHEN dep.CustId IS NULL AND cn88.CustId IS NULL
+                          THEN 'Credit'
+                          ELSE 'Deposit'
+                      END;
      END;
      BEGIN -- Query Data
          SELECT d.BetType AS GroupId,
