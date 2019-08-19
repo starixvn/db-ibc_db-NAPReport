@@ -1,8 +1,8 @@
 /*<info serverAlias="DBWH-bodb_dwrs" executers="dwrs" viewers="" isFunction="0" isNested="0"></info>*/
 
 ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_NonSport_Credit]
-	@FromDate	DATE,
-	@ToDate		DATE,
+	@FromDate	DATE ,
+	@ToDate	DATE ,
 	@ProductList VARCHAR(MAX) = ''
 AS  
 /*  	
@@ -16,6 +16,7 @@ AS
 		- 20180813@Harper - DHWL Non-sports Margin Chart - Integrate OneRNG Jackpot & Pragmatic [#RedmineID: 97562]
 		- 20180912@Harper - DHWL Non-sports Margin Chart - Integrate Pocker Games [#RedmineID: 100426]
 		- 20190121@Robert: Letstalk Margin Charts - Separate Letstalk group for credit & Deposit (Soccer & Other Sports) [#108220]		
+		- 20190822@Robert: #115465 - Exclude bettype 4300 (Promotion Prize) from House Income, Pay to Supplier of Pragmatic
 
 	Param's Explanation:   
 		- @ProductList: '' - default value when get all product
@@ -30,7 +31,7 @@ BEGIN
 	DECLARE @FDate DATE, @TDate DATE
 	SELECT @FDate = @FromDate, @TDate = @ToDate
 
-	DECLARE @Credit VARCHAR(MAX) = 'KN,LT,VB,VS,VS2,NG,CS,NG2,AB,FW,GD,LK3,CB,PP,PG'	
+	DECLARE @Credit VARCHAR(MAX) = 'KN,LT,VB,VS,VS2,NG,CS,NG2,AB,GD,CB,PP,CC'	
 		
 	-- Region: Get exchange rate info
 	CREATE	TABLE #Exchange			(ExchangeDate DATE, ExchangeID INT, Rate FLOAT)
@@ -95,8 +96,8 @@ BEGIN
 
 	INSERT INTO #PayToSupplierRate( ProductID, Rate )
 	VALUES  (8, 0.03), (28, 0.03), (22, 0.02), (5, 0.01), (27, 0.01)
-			, (3, 0.4), (23, 0.5), (26, 0.4)
-
+			, (3, 0.4), (23, 0.5), (34, 0.025)
+			
 	-- Sport - Bettype Matrix
 	CREATE TABLE #SportBettypeMatrix (ProductID INT, Bettype INT, EventType INT, SubProduct VARCHAR(500))
 
@@ -121,7 +122,7 @@ BEGIN
 		CASE WHEN sb.ProductID = 15 THEN 0 ELSE SUM(b.WinlossP * ex.Rate) END AS MemberWLReal,		
 		SUM((CASE WHEN TurnoverIBC = 0 THEN 0  ELSE TurnoverIBC - ExtraTO END ) * ( CASE WHEN VarianceVR > 0 THEN( VarianceVR + 1 ) ELSE 1 END ) * ex.Rate) AS TurnOver,
 		CASE WHEN sb.ProductID = 15 THEN 0 ELSE SUM((b.ExtraWL + b.ExtraComm) * ex.Rate) END AS ExtraPT,
-		CASE WHEN sb.ProductID = 33 THEN SUM(-b.PartnerFee - PartnerWinloss) ELSE 0 END AS PartnerFee -- Pocker Game
+		0 AS PartnerFee -- Pocker Game
 	FROM bodb_Account.dbo.FactSiteWinloss b WITH(NOLOCK)
 		INNER JOIN #exchange ex ON b.rptdate = ex.exchangedate AND b.currencyid = ex.ExchangeID		
 		INNER JOIN #SportBettypeMatrix sb ON sb.Bettype = b.bettype
@@ -129,6 +130,7 @@ BEGIN
 		b.rptDate BETWEEN @FDate AND @TDate 	
 		AND b.TicketStatus NOT IN (-1,18,9,10,14)
 		AND SiteID IN (SELECT SiteID FROM bodb_Account.dbo.tbl_Site WHERE isDeposit = 0 )-- Credit data only
+		AND b.BetType NOT IN (4300)
 	GROUP BY b.rptDate, sb.ProductID, b.CurrencyID
 	OPTION (RECOMPILE)
 	
@@ -138,21 +140,14 @@ BEGIN
 	FROM #TmpHouseWL b
 		INNER JOIN #ExchangeOANDA oanda ON b.rptDate = oanda.ExchangeDate AND b.CurrencyId = oanda.ExchangeID
 		INNER JOIN #PayToSupplierRate r ON b.ProductID = r.ProductID
-	WHERE b.ProductID IN (5, 8, 22, 27, 28) -- Need caculate based on oanda rate
-
-	-- OANDA Rate: PG
-	UPDATE b
-	SET b.PayToSupplier = b.PartnerFee * oanda.Rate
-	FROM #TmpHouseWL b
-		INNER JOIN #ExchangeOANDA oanda ON b.rptDate = oanda.ExchangeDate AND b.CurrencyId = oanda.ExchangeID		
-	WHERE b.ProductID IN (33) -- Need caculate based on oanda rate
+	WHERE b.ProductID IN (5, 8, 22, 27, 28, 34) -- Need caculate based on oanda rate	
 	
-	-- NG, NG2, LK3
+	-- NG, NG2 
 	UPDATE b
 	SET b.PayToSupplier = - (b.HouseWL + ExtraPT) * r.Rate
 	FROM #TmpHouseWL b		
 		INNER JOIN #PayToSupplierRate r ON b.ProductID = r.ProductID
-	WHERE b.ProductID IN (3, 23, 26)
+	WHERE b.ProductID IN (3, 23)
 
 	-- PayToSupplier for PP Product	
 	CREATE TABLE #ChargeInfo3rd (ProductID INT, Rate MONEY, FromDate SMALLDATETIME, ToDate SMALLDATETIME, MinAmount MONEY, MaxAmount MONEY, BaseCurrencyId INT)
@@ -165,7 +160,7 @@ BEGIN
 						+ CAST(@FDate AS NVARCHAR(50)) + ''''''
 						+ N','''''
 						+ CAST(@TDate AS NVARCHAR(50)) + ''''''
-						+ N',''''PP'''''
+						+ N',''''PP,CC'''''
 						+ N',''''OA'''''	
 						+ N') ci '
 						+ N'INNER JOIN bodb_licensee.dbo.OAS_ChargeInfo c WITH (NOLOCK) ON ci.ChargeID = c.ChargeID '

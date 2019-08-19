@@ -12,6 +12,7 @@ AS;
    
     Revisions:
 		- 20190121@Robert: Letstalk Margin Charts - Separate Letstalk group for credit & Deposit (Soccer & Other Sports) [#108220]		
+		- 20190822@Robert: #115465 - Exclude bettype 4300 (Promotion Prize) from House Income, Pay to Supplier of Pragmatic
 
 	Param's Explanation:   
 		- @ProductList: '' - default value when get all product
@@ -29,7 +30,7 @@ BEGIN
     SELECT @FDate = @FromDate
 	    , @TDate = @ToDate;
 
-    DECLARE @Deposit    VARCHAR(MAX) = 'NG,CS,KN,LT,AGC,MGCLC,MGCRNG,BT,CO,CB,VB,AB,FW,GD,BX,VS,VS2,PP';
+    DECLARE @Deposit    VARCHAR(MAX) = 'NG,CS,KN,LT,AGC,CO,CB,VB,AB,GD,BX,VS,VS2,PP,CC';
 
     CREATE TABLE #Exchange(
 	    ExchangeDate    DATE
@@ -141,6 +142,7 @@ BEGIN
 			    INNER JOIN #SportBettypeMatrix AS sb ON sb.Bettype = b.bettype
 			WHERE b.rptDate BETWEEN @FDate AND @TDate
 				 AND b.TicketStatus NOT IN(-1, 18, 9, 10, 14)
+				 AND b.BetType NOT IN (4300)
 				 AND SiteID IN
 							(
 							    SELECT SiteID
