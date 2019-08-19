@@ -263,7 +263,6 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_Site] @BetType = 2101,@EndDate='2020-01-01',@S
          END;
          BEGIN -- Query
 
-
              SELECT d.RowName AS RowName,
                     d.MemberWinLoss AS MemberWinLoss,
                     d.SMAWinLoss AS SMAWinLoss,

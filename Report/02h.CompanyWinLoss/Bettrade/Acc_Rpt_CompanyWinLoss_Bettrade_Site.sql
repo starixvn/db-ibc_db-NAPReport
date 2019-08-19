@@ -103,7 +103,6 @@ EXEC [Acc_Rpt_CompanyWinLoss_Bettrade_Site] @StartDate='2016-08-24', @EndDate='2
          END;
          BEGIN -- Query
 
-
              SELECT Site AS RowName,
                     SUM((winlost - actual_stake) * actualrate) AS MemberWinLoss,
                     SUM((awinlost + mwinlost + swinlost) * actualrate) AS SMAWinLoss,

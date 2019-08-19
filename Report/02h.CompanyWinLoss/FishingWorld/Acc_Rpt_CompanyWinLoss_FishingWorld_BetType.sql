@@ -8,7 +8,6 @@ ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_FishingWorld_BetType] @StartDate S
                                                                     @IsLive    INT           = 2
 AS
 
-
 /*
 Creator: Jacob
 Date: 2016-12-01

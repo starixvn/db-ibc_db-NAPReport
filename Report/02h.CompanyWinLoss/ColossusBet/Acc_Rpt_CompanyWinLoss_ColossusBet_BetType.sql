@@ -19,7 +19,6 @@ EXEC [Acc_Rpt_CompanyWinLoss_ColossusBet_BetType] @StartDate='2016-09-13', @EndD
 
 */
 
-
      SET NOCOUNT ON;
          BEGIN --#SportBetType
              DECLARE @isTest BIT= 0;

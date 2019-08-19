@@ -496,7 +496,6 @@ INNER JOIN league l WITH (NOLOCK) ON m.LeagueId = l.LeagueId
                                        AND d.RowName = 'BARM'
                                        AND c.RowName IN('Credit', 'Deposit');
 
-
         -----Delete BARM row used for calculate
              DELETE #Data
              WHERE RowName = 'BARM';

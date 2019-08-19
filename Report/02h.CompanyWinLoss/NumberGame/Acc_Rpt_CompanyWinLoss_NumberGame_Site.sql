@@ -101,7 +101,6 @@ AS
          END;
          BEGIN  -- Query
 
-
              SELECT Site AS RowName,
                     SUM((winlost - actual_stake) * actualrate) AS MemberWinLoss,
                     SUM((awinlost + mwinlost + swinlost) * actualrate) AS SMAWinLoss,

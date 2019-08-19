@@ -1,9 +1,6 @@
 
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
-
-
-
 ALTER PROCEDURE dbo.Acc_Rpt_CompanyWinLoss_MetricGaming_Site @StartDate SMALLDATETIME,
                                                              @EndDate   SMALLDATETIME,
                                                              @BetType   INT,
@@ -95,7 +92,6 @@ EXEC [Acc_Rpt_CompanyWinLoss_MetricGaming_Site] @StartDate='2016-01-01', @EndDat
          END;
          BEGIN -- #Data
 
-
              CREATE TABLE #Data
                           (RowName         NVARCHAR(50),
                            MemberWinLoss   MONEY,
@@ -178,7 +174,6 @@ EXEC [Acc_Rpt_CompanyWinLoss_MetricGaming_Site] @StartDate='2016-01-01', @EndDat
                     GROUP BY ag.site;
          END;
          BEGIN -- Query
-
 
              SELECT d.RowName,
                     d.MemberWinLoss AS MemberWinLoss,

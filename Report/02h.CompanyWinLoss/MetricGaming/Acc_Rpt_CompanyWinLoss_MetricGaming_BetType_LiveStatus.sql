@@ -232,7 +232,6 @@ EXEC [Acc_Rpt_CompanyWinLoss_MetricGaming_BetType_LiveStatus] @EndDate='2018-08-
          END;
          BEGIN -- Query
 
-
              SELECT d.GroupId GroupId,
                     d.GroupName AS GroupName,
                     d.RowName AS RowName,

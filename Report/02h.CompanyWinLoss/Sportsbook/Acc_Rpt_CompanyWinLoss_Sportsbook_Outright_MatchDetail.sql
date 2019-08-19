@@ -62,7 +62,6 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Outright_MatchDetail] @EndDate='2020-01-
     END;
     BEGIN -- #Data
 
-
         CREATE TABLE #Data( MatchId         INT,
                             MatchCode       VARCHAR(100),
                             TeamId          INT,
@@ -78,7 +77,6 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Outright_MatchDetail] @EndDate='2020-01-
                             VirtualTurnover MONEY );
     END;
     BEGIN -- Outright
-
 
         INSERT INTO #Data
                SELECT m.MatchId,

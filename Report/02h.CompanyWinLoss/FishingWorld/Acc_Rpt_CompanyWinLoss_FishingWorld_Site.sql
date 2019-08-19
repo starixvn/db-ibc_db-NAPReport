@@ -104,7 +104,6 @@ EXEC [Acc_Rpt_CompanyWinLoss_FishingWorld_Site] @BetType = 1011,@EndDate='2020-0
          END;
          BEGIN -- Query
 
-
              SELECT dep.Site AS RowName,
                     SUM((winlost - actual_stake) * actualrate) AS MemberWinLoss,
                     SUM((awinlost + mwinlost + swinlost) * actualrate) AS SMAWinLoss,

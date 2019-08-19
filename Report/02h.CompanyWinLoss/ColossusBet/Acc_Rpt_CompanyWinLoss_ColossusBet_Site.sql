@@ -1,9 +1,6 @@
 
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
-
-
-
 ALTER PROCEDURE dbo.Acc_Rpt_CompanyWinLoss_ColossusBet_Site @StartDate  SMALLDATETIME,
                                                             @EndDate    SMALLDATETIME,
                                                             @BetType    INT,
@@ -23,7 +20,6 @@ Revisions:
 
 Example:
 EXEC [Acc_Rpt_CompanyWinLoss_ColossusBet_Site] @StartDate='2016-01-01', @EndDate='2020-01-01', @Site = 'Credit', @BetType = 18000, @IsFreePlay = 1
-
 
 */
 
@@ -91,7 +87,6 @@ EXEC [Acc_Rpt_CompanyWinLoss_ColossusBet_Site] @StartDate='2016-01-01', @EndDate
                     GROUP BY SuperId;
          END;
          BEGIN -- Query
-
 
              SELECT Site AS RowName,
                     SUM((winlost - actual_stake) * actualrate) AS MemberWinLoss,

@@ -1,9 +1,6 @@
 
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
-
-
-
 ALTER PROCEDURE dbo.Acc_Rpt_CompanyWinLoss_CashOut_Site @StartDate SMALLDATETIME,
                                                         @EndDate   SMALLDATETIME,
                                                         @Site      VARCHAR(50)
@@ -88,7 +85,6 @@ EXEC [Acc_Rpt_CompanyWinLoss_CashOut_Site] @StartDate='2016-08-24', @EndDate='20
                     GROUP BY SuperId;
          END;
          BEGIN -- Query
-
 
              SELECT Site AS RowName,
                     SUM((winlost - actual_stake) * actualrate) AS MemberWinLoss,

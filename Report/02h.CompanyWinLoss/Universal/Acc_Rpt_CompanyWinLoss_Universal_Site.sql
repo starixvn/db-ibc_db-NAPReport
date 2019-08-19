@@ -24,7 +24,6 @@ Parameter's Explanation:
 Example:
 EXEC [Acc_Rpt_CompanyWinLoss_Universal_Site] @StartDate='2016-01-01', @EndDate='2020-01-01', @Site = 'Credit', @BetType = 18000
 
-
 */
 
      SET NOCOUNT ON;

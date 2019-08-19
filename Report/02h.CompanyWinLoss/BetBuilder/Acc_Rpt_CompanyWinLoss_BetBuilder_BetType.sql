@@ -1,7 +1,6 @@
 
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
-
 ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_BetBuilder_BetType] @StartDate SMALLDATETIME,
                                                                   @EndDate   SMALLDATETIME
 AS

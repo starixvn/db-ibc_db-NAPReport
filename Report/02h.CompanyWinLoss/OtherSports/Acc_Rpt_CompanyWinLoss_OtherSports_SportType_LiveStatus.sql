@@ -559,7 +559,6 @@ INNER JOIN sports s WITH (NOLOCK) ON s.sporttype = l.sporttype
                                        AND d.RowName = 'BARM'
                                        AND c.RowName IN('Credit', 'Deposit');
 
-
         -----Delete BARM row used for calculate
              DELETE #Data
              WHERE RowName = 'BARM';

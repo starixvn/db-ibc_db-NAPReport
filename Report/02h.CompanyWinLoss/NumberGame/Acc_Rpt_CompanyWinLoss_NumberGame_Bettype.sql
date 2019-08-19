@@ -42,7 +42,6 @@ AS
          END;
          BEGIN -- #DepositSuper
 
-
              CREATE TABLE #DepositSuper
                           (CustId INT
                            PRIMARY KEY
@@ -69,7 +68,6 @@ AS
                     GROUP BY SuperId;
          END;
          BEGIN -- Query
-
 
              SELECT sb.BetType AS GroupId,
                     sb.BetTypeName AS GroupName,

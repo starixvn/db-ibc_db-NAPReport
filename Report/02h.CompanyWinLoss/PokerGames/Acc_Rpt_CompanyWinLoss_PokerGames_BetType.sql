@@ -23,7 +23,6 @@ EXEC [Acc_Rpt_CompanyWinLoss_PokerGames_BetType] @StartDate='2018-08-21', @EndDa
 
 */
 
-
      SET NOCOUNT ON;
      DECLARE @FDate SMALLDATETIME, @TDate SMALLDATETIME;
      SELECT @FDate = @StartDate,

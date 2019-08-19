@@ -19,14 +19,12 @@ AS
 
 */
 
-
      SET NOCOUNT ON;
      DECLARE @FDate SMALLDATETIME, @TDate SMALLDATETIME, @Sport INT;
      SELECT @FDate = @StartDate,
             @TDate = @EndDate,
             @Sport = @SportType;
          BEGIN -- #DepositSuper
-
 
              CREATE TABLE #DepositSuper
                           (CustId INT
@@ -69,7 +67,6 @@ AS
                           AND l.sporttype = @Sport;
          END;
          BEGIN -- Query
-
 
              SELECT m.leagueid AS GroupId,
                     m.leaguename AS GroupName,

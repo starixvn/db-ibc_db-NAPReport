@@ -39,7 +39,6 @@ AS
 
 */
 
-
     SET NOCOUNT ON;
     DECLARE @EffectedDate DATETIME; -- 20160112@Percy: Applying date of changing extra PT formula [RedmineID: #70208]
     SELECT @EffectedDate = '2017-01-19';
@@ -170,13 +169,11 @@ AS
                             ExtraPT             MONEY,
                             NewExtraPT          MONEY );
 
-
     --- Deposit Super
     CREATE TABLE #DepSuper( custid INT );
     INSERT INTO #DepSuper
             SELECT custid
             FROM f_DepSuper_1( 'All' );
-
 
     ---- Extra PT 
     CREATE TABLE #ExtraPT_Sel( ProductID  INT,
@@ -555,7 +552,6 @@ AS
                         ELSE 2
                     END;	
 
-
     ----- Minus data of BARM 
     UPDATE c
         SET c.winlost_actualrate = c.winlost_actualrate - d.winlost_actualrate,
@@ -579,7 +575,6 @@ AS
     WHERE c.srecommend = 2
         AND c.Site = 1
         AND d.Site = 2;
-
 
     ---2. Not Sportsbook and not have detail table yet ; and special Sportsbook : Parlay, Metric gaming, Bettrade, Bet Builder
     INSERT INTO #src
@@ -1067,7 +1062,6 @@ AS
     WHERE srecommend IN( SELECT CustId
                             FROM #DepSuper );  
 
-
     ---------------------------------------------------------		  
     -------------Insert to Result table to get data----------
     -----1. Soccer and Others
@@ -1127,8 +1121,6 @@ AS
                         THEN-4
                     END,
                     site; 		
-
-
 
     ----METRIC GAMING -SUPER LIVE
     INSERT INTO #Result
@@ -1306,8 +1298,6 @@ AS
             WHERE b.ProductId = 3
             GROUP BY b.ProductId,
                     site;
-
-
 
     ---bettrade
     INSERT INTO #Result

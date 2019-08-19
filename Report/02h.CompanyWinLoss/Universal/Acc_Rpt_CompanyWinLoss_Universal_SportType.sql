@@ -22,7 +22,6 @@ EXEC [Acc_Rpt_CompanyWinLoss_Universal_SportType] @StartDate='2016-11-07', @EndD
 
 */
 
-
      SET NOCOUNT ON;
      DECLARE @FDate SMALLDATETIME, @TDate SMALLDATETIME, @ProID INT;
      SELECT @FDate = @StartDate,
