@@ -1512,8 +1512,8 @@ BEGIN
 				CASE WHEN @Currency = -1 THEN SUM(d.TotalBetsBase) ELSE SUM(d.TotalBets) END AS TotalBets,
 				CASE WHEN @Currency = -1 THEN SUM(d.TotalWinsBase) ELSE SUM(d.TotalWins) END AS TotalWins,
 				CASE WHEN @Currency = -1 THEN SUM(d.TotalRefundBase) ELSE SUM(d.TotalRefund) END AS TotalRefund,
-				CASE WHEN @Currency = -1 THEN SUM(d.CompanyTurnOverBase - b.StakeBase * ISNULL(e.ExtraPT,0)) 
-					 ELSE SUM(d.CompanyTurnOver - b.Stake * ISNULL(e.ExtraPT,0)) END AS HouseTurnOver,
+				CASE WHEN @Currency = -1 THEN SUM(d.CompanyTurnOverBase - d.StakeBase * ISNULL(e.ExtraPT,0)) 
+					 ELSE SUM(d.CompanyTurnOver - d.Stake * ISNULL(e.ExtraPT,0)) END AS HouseTurnOver,
 				CASE WHEN @Currency = -1 THEN SUM(d.CompanyGrossIncomeBase) ELSE SUM(d.CompanyGrossIncome) END AS HouseGrossIncome,
 				CASE WHEN @Currency = -1 THEN SUM(d.CompanyCommBase) ELSE SUM(d.CompanyComm) END AS HouseComm,
 				CASE WHEN @Currency = -1 THEN SUM(CASE WHEN s.ProductID = 33 AND s.RefTable = 0 THEN d.ExtraWLBase * CAST(ISNULL(e.ExtraPT,0) AS [decimal](10, 8)) + d.ExtraCommBase * CAST(ISNULL(c.ExtraComm,0) AS [decimal](10, 8))
@@ -1539,7 +1539,7 @@ BEGIN
         SUM(d.TotalBetsBase) TotalBets,
         SUM(d.TotalWinsBase) TotalWins,
         SUM(d.TotalRefundBase) TotalRefund,
-        SUM(d.CompanyTurnOverBase - b.StakeBase * ISNULL(e.ExtraPT,0)) HouseTurnOver,
+        SUM(d.CompanyTurnOverBase - d.StakeBase * ISNULL(e.ExtraPT,0)) HouseTurnOver,
 		SUM(d.CompanyGrossIncomeBase) HouseGrossIncome,
 		SUM(d.CompanyCommBase) HouseComm,
 		SUM(CASE WHEN s.ProductID = 33 AND s.RefTable = 0 THEN d.ExtraWLBase * CAST(ISNULL(e.ExtraPT,0) AS [decimal](10, 8)) + d.ExtraCommBase * CAST(ISNULL(c.ExtraComm,0) AS [decimal](10, 8))
