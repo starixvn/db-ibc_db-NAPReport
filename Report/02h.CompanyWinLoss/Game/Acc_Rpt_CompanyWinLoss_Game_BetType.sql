@@ -1,8 +1,8 @@
 
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
-ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_Game_BetType] @StartDate SMALLDATETIME,
-                                                            @EndDate   SMALLDATETIME,
+ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_Game_BetType] @StartDate SMALLDATETIME, 
+                                                            @EndDate   SMALLDATETIME, 
                                                             @ProductId INT
 AS
 
@@ -26,71 +26,71 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_BetType] @EndDate='2020-01-01',@StartDate='201
 */
 
      SET NOCOUNT ON;
-         BEGIN --#SportBetType
-             DECLARE @isTest BIT= 0;
-             SELECT @isTest = dbo.f_CheckSPVersion(@@PROCID);
-             CREATE TABLE #SportBetType
-                          (BetType     INT,
-                           BetTypeName NVARCHAR(50),
-                           RefTable    INT
-                          );
-             INSERT INTO #SportBetType
-                    SELECT BetType,
-                           b.typenamee,
-                           RefTable
-                    FROM dbo.f_SportBetTypeMatrix_Sel(@ProductId, 0, 0, 2, '', '', @isTest) s
-                         INNER JOIN BetType b WITH (NOLOCK) ON b.typeid = s.BetType;
-             CREATE CLUSTERED INDEX CIX_BetType ON #SportBetType(BetType, RefTable);
-         END;
-         BEGIN -- #DepositSuper
+    BEGIN --#SportBetType
+        DECLARE @isTest BIT= 0;
+        SELECT @isTest = dbo.f_CheckSPVersion(@@PROCID);
+        CREATE TABLE #SportBetType
+                     (BetType     INT, 
+                      BetTypeName NVARCHAR(50), 
+                      RefTable    INT
+                     );
+        INSERT INTO #SportBetType
+               SELECT BetType, 
+                      b.typenamee, 
+                      RefTable
+               FROM dbo.f_SportBetTypeMatrix_Sel(@ProductId, 0, 0, 2, '', '', @isTest) s
+                    INNER JOIN BetType b WITH(NOLOCK) ON b.typeid = s.BetType;
+        CREATE CLUSTERED INDEX CIX_BetType ON #SportBetType(BetType, RefTable);
+    END;
+    BEGIN -- #DepositSuper
 
-             CREATE TABLE #DepositSuper
-                          (CustId INT
-                           PRIMARY KEY
-                          );
-             INSERT INTO #DepositSuper
-                    SELECT CustId
-                    FROM f_DepSuper_1('All');
-         END;
-         BEGIN -- Extra PT
-             CREATE TABLE #ExtraPT_Sel
-                          (SuperID INT,
-                           ExtraPT DECIMAL(9, 8)
-                          );
-             INSERT INTO #ExtraPT_Sel
-                    (SuperID,
-                     ExtraPT
-                    )
-                    SELECT SuperId,
-                           SUM(ExtraPT) AS ExtraPT
-                    FROM bodb02.dbo.Acc_GroupExtraPTSetting a WITH (NOLOCK)
-                    WHERE @StartDate BETWEEN FromDate AND Todate
-                          AND a.ProductId = @ProductId
-                    GROUP BY SuperId;
-         END;
-         BEGIN -- #Data
+        CREATE TABLE #DepositSuper
+                     (CustId INT
+                      PRIMARY KEY
+                     );
+        INSERT INTO #DepositSuper
+               SELECT CustId
+               FROM f_DepSuper_1('All');
+    END;
+    BEGIN -- Extra PT
+        CREATE TABLE #ExtraPT_Sel
+                     (SuperID INT, 
+                      ExtraPT DECIMAL(9, 8)
+                     );
+        INSERT INTO #ExtraPT_Sel
+               (SuperID, 
+                ExtraPT
+               )
+               SELECT SuperId, 
+                      SUM(ExtraPT) AS ExtraPT
+               FROM bodb02.dbo.Acc_GroupExtraPTSetting a WITH(NOLOCK)
+               WHERE @StartDate BETWEEN FromDate AND Todate
+                     AND a.ProductId = @ProductId
+               GROUP BY SuperId;
+    END;
+    BEGIN -- #Data
 
-             CREATE TABLE #Data
-                          (GroupId       INT,
-                           GroupName     NVARCHAR(50),
-                           RowName       NVARCHAR(50),
-                           MemberWinLoss MONEY,
-                           SMAWinLoss    MONEY,
-                           ExtraPT       MONEY,
-                           Commission    MONEY,
-                           RealIncome    MONEY,
-                           RealTurnover  MONEY
-                          );
-         END;
+        CREATE TABLE #Data
+                     (GroupId       INT, 
+                      GroupName     NVARCHAR(50), 
+                      RowName       NVARCHAR(50), 
+                      MemberWinLoss MONEY, 
+                      SMAWinLoss    MONEY, 
+                      ExtraPT       MONEY, 
+                      Commission    MONEY, 
+                      RealIncome    MONEY, 
+                      RealTurnover  MONEY
+                     );
+    END;
      IF EXISTS -- Bettrans
-(
-    SELECT 1
-    FROM #SportBetType
-    WHERE RefTable NOT IN(1, 2)
-)
+     (
+         SELECT 1
+         FROM #SportBetType
+         WHERE RefTable NOT IN(1, 2)
+     )
          BEGIN
              INSERT INTO #Data
-                    SELECT sb.BetType AS GroupId,
+                    SELECT sb.BetType AS GroupId, 
                            sb.BetTypeName AS GroupName,
                            CASE
                                WHEN dep.CustId IS NULL
@@ -100,20 +100,20 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_BetType] @EndDate='2020-01-01',@StartDate='201
                                     AND cn88.CustId IS NULL
                                THEN 'Credit'
                                ELSE 'Deposit'
-                           END AS RowName,
-                           SUM((winlost - actual_stake) * actualrate) AS MemberWinLoss,
-                           SUM((awinlost + mwinlost + swinlost) * actualrate) AS SMAWinLoss,
+                           END AS RowName, 
+                           SUM((winlost - actual_stake) * actualrate) AS MemberWinLoss, 
+                           SUM((awinlost + mwinlost + swinlost) * actualrate) AS SMAWinLoss, 
                            SUM((CASE
                                     WHEN b.tpositiontaking = 1
                                     THEN 0
                                     ELSE(winlost - actual_stake) + b.scomm / (1 - b.tpositiontaking)
-                                END) * ISNULL(e.ExtraPT, 0) * actualrate) AS ExtraPT,
-                           SUM(scomm * actualrate) Commission,
+                                END) * ISNULL(e.ExtraPT, 0) * actualrate) AS ExtraPT, 
+                           SUM(scomm * actualrate) Commission, 
                            SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - (CASE
                                                                                                        WHEN tpositiontaking = 1
                                                                                                        THEN 0
                                                                                                        ELSE winlost - actual_stake + b.scomm / (1 - b.tpositiontaking)
-                                                                                                   END) * ISNULL(e.ExtraPT, 0)) * actualrate) AS RealIncome,
+                                                                                                   END) * ISNULL(e.ExtraPT, 0)) * actualrate) AS RealIncome, 
                            SUM(CASE
                                    WHEN tpositiontaking = 1
                                    THEN 0
@@ -123,16 +123,16 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_BetType] @EndDate='2020-01-01',@StartDate='201
                                                                                                       ELSE actualrate
                                                                                                   END
                                END) AS RealTurnover
-                    FROM bettrans AS b WITH (NOLOCK)
+                    FROM bettrans AS b WITH(NOLOCK)
                          INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
                          LEFT JOIN #DepositSuper AS dep ON b.srecommend = dep.CustId
-                         LEFT JOIN CS_CustSuper AS cn88 WITH (NOLOCK) ON b.srecommend = cn88.CustId
+                         LEFT JOIN CS_CustSuper AS cn88 WITH(NOLOCK) ON b.srecommend = cn88.CustId
                          LEFT JOIN #ExtraPT_Sel e ON e.SuperID = b.srecommend
                     WHERE b.winlostdate = @StartDate
                           AND sb.RefTable NOT IN(1, 2)
                          AND b.ruben = 1
                          AND b.statusID IN(111, 112, 113)
-                    GROUP BY sb.BetType,
+                    GROUP BY sb.BetType, 
                              sb.BetTypeName,
                              CASE
                                  WHEN dep.CustId IS NULL
@@ -143,16 +143,16 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_BetType] @EndDate='2020-01-01',@StartDate='201
                                  THEN 'Credit'
                                  ELSE 'Deposit'
                              END;
-         END;
+     END;
      IF EXISTS -- bettransRNG
-(
-    SELECT 1
-    FROM #SportBetType
-    WHERE RefTable = 1
-)
+     (
+         SELECT 1
+         FROM #SportBetType
+         WHERE RefTable = 1
+     )
          BEGIN
              INSERT INTO #Data
-                    SELECT sb.BetType AS GroupId,
+                    SELECT sb.BetType AS GroupId, 
                            sb.BetTypeName AS GroupName,
                            CASE
                                WHEN dep.CustId IS NULL
@@ -162,9 +162,9 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_BetType] @EndDate='2020-01-01',@StartDate='201
                                     AND cn88.CustId IS NULL
                                THEN 'Credit'
                                ELSE 'Deposit'
-                           END AS RowName,
-                           SUM((winlost - actual_stake) * actualrate) MemberWinLoss,
-                           SUM((awinlost + mwinlost + swinlost) * actualrate) SMAWinLoss,
+                           END AS RowName, 
+                           SUM((winlost - actual_stake) * actualrate) MemberWinLoss, 
+                           SUM((awinlost + mwinlost + swinlost) * actualrate) SMAWinLoss, 
                            SUM((CASE
                                     WHEN b.gameId IN(2198, 2398, 2998)
                                     THEN(CASE
@@ -179,8 +179,8 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_BetType] @EndDate='2020-01-01',@StartDate='201
                                              THEN 0
                                              ELSE winlost - actual_stake + b.scomm / (1 - b.tpositiontaking)
                                          END) * ISNULL(e.ExtraPT, 0)
-                                END) * actualrate) AS ExtraPT,
-                           SUM(scomm * actualrate) Commission,
+                                END) * actualrate) AS ExtraPT, 
+                           SUM(scomm * actualrate) Commission, 
                            SUM((CASE
                                     WHEN b.gameId IN(2198, 2398, 2998)
                                     THEN b.ContributionRate * b.BetStake + awinlost + mwinlost + swinlost + scomm - (CASE
@@ -195,7 +195,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_BetType] @EndDate='2020-01-01',@StartDate='201
                                                                                                                 THEN 0
                                                                                                                 ELSE winlost - actual_stake + b.scomm / (1 - b.tpositiontaking)
                                                                                                             END) * ISNULL(e.ExtraPT, 0)
-                                END) * actualrate) AS RealIncome,
+                                END) * actualrate) AS RealIncome, 
                            SUM(CASE
                                    WHEN tpositiontaking = 1
                                    THEN 0
@@ -205,14 +205,14 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_BetType] @EndDate='2020-01-01',@StartDate='201
                                                                                                       ELSE actualrate
                                                                                                   END
                                END) RealTurnover
-                    FROM bettransRNG b WITH (NOLOCK)
+                    FROM bettransRNG b WITH(NOLOCK)
                          INNER JOIN #SportBetType sb ON sb.BetType = b.gameID
                          LEFT JOIN #DepositSuper dep ON b.srecommend = dep.custid
                          LEFT JOIN #ExtraPT_Sel e ON e.SuperID = b.srecommend
                     WHERE b.winlostdate = @StartDate
                           AND sb.RefTable = 1
                           AND b.statusID IN(111, 112, 113)
-                    GROUP BY sb.BetType,
+                    GROUP BY sb.BetType, 
                              sb.BetTypeName,
                              CASE
                                  WHEN dep.CustId IS NULL
@@ -223,16 +223,16 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_BetType] @EndDate='2020-01-01',@StartDate='201
                                  THEN 'Credit'
                                  ELSE 'Deposit'
                              END OPTION(RECOMPILE);
-         END;
+     END;
      IF EXISTS -- bettransLC
-(
-    SELECT 1
-    FROM #SportBetType
-    WHERE RefTable = 2
-)
+     (
+         SELECT 1
+         FROM #SportBetType
+         WHERE RefTable = 2
+     )
          BEGIN
              INSERT INTO #Data
-                    SELECT sb.BetType AS GroupId,
+                    SELECT sb.BetType AS GroupId, 
                            sb.BetTypeName AS GroupName,
                            CASE
                                WHEN dep.CustId IS NULL
@@ -242,20 +242,20 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_BetType] @EndDate='2020-01-01',@StartDate='201
                                     AND cn88.CustId IS NULL
                                THEN 'Credit'
                                ELSE 'Deposit'
-                           END AS RowName,
-                           SUM((winlost - actual_stake) * actualrate) MemberWinLoss,
-                           SUM((awinlost + mwinlost + swinlost) * actualrate) SMAWinLoss,
+                           END AS RowName, 
+                           SUM((winlost - actual_stake) * actualrate) MemberWinLoss, 
+                           SUM((awinlost + mwinlost + swinlost) * actualrate) SMAWinLoss, 
                            SUM((CASE
                                     WHEN b.tpositiontaking = 1
                                     THEN 0
                                     ELSE(winlost - actual_stake) + b.scomm / (1 - b.tpositiontaking)
-                                END) * ISNULL(e.ExtraPT, 0) * actualrate) AS ExtraPT,
-                           SUM(scomm * actualrate) Commission,
+                                END) * ISNULL(e.ExtraPT, 0) * actualrate) AS ExtraPT, 
+                           SUM(scomm * actualrate) Commission, 
                            SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - (CASE
                                                                                                        WHEN tpositiontaking = 1
                                                                                                        THEN 0
                                                                                                        ELSE winlost - actual_stake + b.scomm / (1 - b.tpositiontaking)
-                                                                                                   END) * ISNULL(e.ExtraPT, 0)) * actualrate) RealIncome,
+                                                                                                   END) * ISNULL(e.ExtraPT, 0)) * actualrate) RealIncome, 
                            SUM(CASE
                                    WHEN tpositiontaking = 1
                                    THEN 0
@@ -265,14 +265,14 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_BetType] @EndDate='2020-01-01',@StartDate='201
                                                                                                       ELSE actualrate
                                                                                                   END
                                END) RealTurnover
-                    FROM bettransLC b WITH (NOLOCK)
+                    FROM bettransLC b WITH(NOLOCK)
                          INNER JOIN #SportBetType sb ON sb.BetType = b.gameID
                          LEFT JOIN #DepositSuper dep ON b.srecommend = dep.custid
                          LEFT JOIN #ExtraPT_Sel e ON e.SuperID = b.srecommend
                     WHERE b.winlostdate = @StartDate
                           AND sb.RefTable = 2
                           AND b.statusID IN(111, 112, 113)
-                    GROUP BY sb.BetType,
+                    GROUP BY sb.BetType, 
                              sb.BetTypeName,
                              CASE
                                  WHEN dep.CustId IS NULL
@@ -283,22 +283,22 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_BetType] @EndDate='2020-01-01',@StartDate='201
                                  THEN 'Credit'
                                  ELSE 'Deposit'
                              END OPTION(RECOMPILE);
-         END;
-         BEGIN -- Query
+     END;
+    BEGIN -- Query
 
-             SELECT d.GroupId AS GroupId,
-                    d.GroupName AS GroupName,
-                    d.RowName AS RowName,
-                    d.MemberWinLoss AS MemberWinLoss,
-                    d.SMAWinLoss AS SMAWinLoss,
-                    -d.ExtraPT AS ExtraPT,
-                    d.Commission AS Commission,
-                    d.RealIncome AS RealIncome,
-                    d.RealTurnover AS RealTurnover
-             FROM #Data AS d
-             ORDER BY GroupName,
-                      RowName;
-         END;
+        SELECT d.GroupId AS GroupId, 
+               d.GroupName AS GroupName, 
+               d.RowName AS RowName, 
+               d.MemberWinLoss AS MemberWinLoss, 
+               d.SMAWinLoss AS SMAWinLoss, 
+               -d.ExtraPT AS ExtraPT, 
+               d.Commission AS Commission, 
+               d.RealIncome AS RealIncome, 
+               d.RealTurnover AS RealTurnover
+        FROM #Data AS d
+        ORDER BY GroupName, 
+                 RowName;
+    END;
      DROP TABLE #SportBetType;
      DROP TABLE #DepositSuper;
      DROP TABLE #ExtraPT_Sel;

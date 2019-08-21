@@ -1,8 +1,8 @@
 
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
-ALTER PROCEDURE dbo.Acc_Rpt_CompanyWinLoss_Bettrade_Site @StartDate SMALLDATETIME,
-                                                         @EndDate   SMALLDATETIME,
+ALTER PROCEDURE dbo.Acc_Rpt_CompanyWinLoss_Bettrade_Site @StartDate SMALLDATETIME, 
+                                                         @EndDate   SMALLDATETIME, 
                                                          @Site      VARCHAR(50)
 AS
 
@@ -25,117 +25,117 @@ EXEC [Acc_Rpt_CompanyWinLoss_Bettrade_Site] @StartDate='2016-08-24', @EndDate='2
 */
 
      SET NOCOUNT ON;
-         BEGIN --#SportBetType
+    BEGIN --#SportBetType
 
-             DECLARE @isTest BIT= 0;
-             SELECT @isTest = dbo.f_CheckSPVersion(@@PROCID);
-             CREATE TABLE #SportBetType(BetType INT);
-             INSERT INTO #SportBetType
-                    SELECT BetType
-                    FROM dbo.f_SportBetTypeMatrix_Sel(1, 0, 0, 2, 'BT-Comm', '', @isTest)
-                    UNION
-                    SELECT BetType
-                    FROM dbo.f_SportBetTypeMatrix_Sel(1, 0, 0, 2, 'BT-Winloss', '', @isTest);
-         END;
-         BEGIN -- #Agent
-             CREATE TABLE #Agent
-                          (CustId INT
-                           PRIMARY KEY,
-                           Site   VARCHAR(50)
-                          );
-             IF @Site = 'CN88'
-                 BEGIN
-                     INSERT INTO #Agent
-                            SELECT c.CustId,
-                                   c.Site
-                            FROM customer AS c WITH (NOLOCK)
-                                 INNER JOIN CS_CustSuper cn88 WITH (NOLOCK) ON c.srecommend = cn88.CustId
-                            WHERE c.RoleID = 2;
-                 END;
-                 ELSE
-             IF @Site = 'Deposit'
-                 BEGIN
-                     INSERT INTO #Agent
-                            SELECT c.CustId,
-                                   c.Site
-                            FROM customer AS c WITH (NOLOCK)
-                                 INNER JOIN Dep_CustSuper AS dep WITH (NOLOCK) ON c.srecommend = dep.CustId
-                            WHERE c.RoleID = 2
-                                  AND c.CustId NOT IN(52466, 5707545);
-                     INSERT INTO #Agent
-                            SELECT 5707545,
-                                   'BEST-ODDS';
-                 END;
-                 ELSE
-                 BEGIN
-                     INSERT INTO #Agent
-                     SELECT c.CustId,
-                            c.Site
-                     FROM customer AS c WITH (NOLOCK)
-                          LEFT JOIN Dep_CustSuper AS dep WITH (NOLOCK) ON c.srecommend = dep.CustId
-                          LEFT JOIN CS_CustSuper cn88 WITH (NOLOCK) ON c.srecommend = cn88.CustId
-                     WHERE c.RoleID = 2
-                           AND c.CustId NOT IN(52466, 5707545)
-                          AND dep.CustId IS NULL
-                          AND cn88.CustId IS NULL
-                     SELECT 52466,
-                            'XYZBET';--8RM;
-                 END;
-         END;
-         BEGIN -- Extra PT
+        DECLARE @isTest BIT= 0;
+        SELECT @isTest = dbo.f_CheckSPVersion(@@PROCID);
+        CREATE TABLE #SportBetType(BetType INT);
+        INSERT INTO #SportBetType
+               SELECT BetType
+               FROM dbo.f_SportBetTypeMatrix_Sel(1, 0, 0, 2, 'BT-Comm', '', @isTest)
+               UNION
+               SELECT BetType
+               FROM dbo.f_SportBetTypeMatrix_Sel(1, 0, 0, 2, 'BT-Winloss', '', @isTest);
+    END;
+    BEGIN -- #Agent
+        CREATE TABLE #Agent
+                     (CustId INT
+                      PRIMARY KEY, 
+                      Site   VARCHAR(50)
+                     );
+        IF @Site = 'CN88'
+            BEGIN
+                INSERT INTO #Agent
+                       SELECT c.CustId, 
+                              c.Site
+                       FROM customer AS c WITH(NOLOCK)
+                            INNER JOIN CS_CustSuper cn88 WITH(NOLOCK) ON c.srecommend = cn88.CustId
+                       WHERE c.RoleID = 2;
+        END;
+            ELSE
+            IF @Site = 'Deposit'
+                BEGIN
+                    INSERT INTO #Agent
+                           SELECT c.CustId, 
+                                  c.Site
+                           FROM customer AS c WITH(NOLOCK)
+                                INNER JOIN Dep_CustSuper AS dep WITH(NOLOCK) ON c.srecommend = dep.CustId
+                           WHERE c.RoleID = 2
+                                 AND c.CustId NOT IN(52466, 5707545);
+                    INSERT INTO #Agent
+                           SELECT 5707545, 
+                                  'BEST-ODDS';
+            END;
+                ELSE
+                BEGIN
+                    INSERT INTO #Agent
+                           SELECT c.CustId, 
+                                  c.Site
+                           FROM customer AS c WITH(NOLOCK)
+                                LEFT JOIN Dep_CustSuper AS dep WITH(NOLOCK) ON c.srecommend = dep.CustId
+                                LEFT JOIN CS_CustSuper cn88 WITH(NOLOCK) ON c.srecommend = cn88.CustId
+                           WHERE c.RoleID = 2
+                                 AND c.CustId NOT IN(52466, 5707545)
+                                AND dep.CustId IS NULL
+                                AND cn88.CustId IS NULL;
+                    SELECT 52466, 
+                           'XYZBET';--8RM;
+            END;
+    END;
+    BEGIN -- Extra PT
 
-             CREATE TABLE #ExtraPT_Sel
-                          (SuperID INT,
-                           ExtraPT DECIMAL(9, 8)
-                          );
-             INSERT INTO #ExtraPT_Sel
-                    (SuperID,
-                     ExtraPT
-                    )
-                    SELECT SuperId,
-                           SUM(ExtraPT) AS ExtraPT
-                    FROM bodb02.dbo.Acc_GroupExtraPTSetting AS a WITH (NOLOCK)
-                    WHERE @StartDate BETWEEN FromDate AND Todate
-                          AND a.ProductId = 1
-                          AND a.SubProduct IN('BT-Comm', 'BT-Winloss')
-                    AND a.Sporttype = 0
-                    GROUP BY SuperId;
-         END;
-         BEGIN -- Query
+        CREATE TABLE #ExtraPT_Sel
+                     (SuperID INT, 
+                      ExtraPT DECIMAL(9, 8)
+                     );
+        INSERT INTO #ExtraPT_Sel
+               (SuperID, 
+                ExtraPT
+               )
+               SELECT SuperId, 
+                      SUM(ExtraPT) AS ExtraPT
+               FROM bodb02.dbo.Acc_GroupExtraPTSetting AS a WITH(NOLOCK)
+               WHERE @StartDate BETWEEN FromDate AND Todate
+                     AND a.ProductId = 1
+                     AND a.SubProduct IN('BT-Comm', 'BT-Winloss')
+               AND a.Sporttype = 0
+               GROUP BY SuperId;
+    END;
+    BEGIN -- Query
 
-             SELECT Site AS RowName,
-                    SUM((winlost - actual_stake) * actualrate) AS MemberWinLoss,
-                    SUM((awinlost + mwinlost + swinlost) * actualrate) AS SMAWinLoss,
-                    -SUM(CASE
-                             WHEN b.tpositiontaking = 1
-                             THEN 0
-                             ELSE winlost - actual_stake + b.scomm / (1 - b.tpositiontaking)
-                         END * ISNULL(e.ExtraPT, 0) * actualrate) AS ExtraPT,
-                    SUM(scomm * actualrate) AS Commission,
-                    SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - CASE
-                                                                                               WHEN tpositiontaking = 1
-                                                                                               THEN 0
-                                                                                               ELSE winlost - actual_stake + b.scomm / (1 - b.tpositiontaking)
-                                                                                           END * ISNULL(e.ExtraPT, 0)) * actualrate) AS RealIncome,
-                    SUM(CASE
-                            WHEN tpositiontaking = 1
-                            THEN 0
-                            ELSE(1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * ABS(b.stake) * CASE
-                                                                                                    WHEN virtualrate > actualrate
-                                                                                                    THEN virtualrate
-                                                                                                    ELSE actualrate
-                                                                                                END
-                        END) AS RealTurnover
-             FROM bettrans AS b WITH (NOLOCK)
-                  INNER JOIN #SportBetType AS sb ON b.BetType = sb.BetType
-                  INNER JOIN #Agent AS dep ON b.recommend = dep.CustId
-                  LEFT JOIN #ExtraPT_Sel AS e ON e.SuperID = b.srecommend
-             WHERE b.winlostdate = @StartDate
-                   AND b.ruben = 1
-                   AND b.statusID IN(111, 112, 113)
-             GROUP BY Site
-             ORDER BY RowName;
-         END;
+        SELECT Site AS RowName, 
+               SUM((winlost - actual_stake) * actualrate) AS MemberWinLoss, 
+               SUM((awinlost + mwinlost + swinlost) * actualrate) AS SMAWinLoss, 
+               -SUM(CASE
+                        WHEN b.tpositiontaking = 1
+                        THEN 0
+                        ELSE winlost - actual_stake + b.scomm / (1 - b.tpositiontaking)
+                    END * ISNULL(e.ExtraPT, 0) * actualrate) AS ExtraPT, 
+               SUM(scomm * actualrate) AS Commission, 
+               SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - CASE
+                                                                                          WHEN tpositiontaking = 1
+                                                                                          THEN 0
+                                                                                          ELSE winlost - actual_stake + b.scomm / (1 - b.tpositiontaking)
+                                                                                      END * ISNULL(e.ExtraPT, 0)) * actualrate) AS RealIncome, 
+               SUM(CASE
+                       WHEN tpositiontaking = 1
+                       THEN 0
+                       ELSE(1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * ABS(b.stake) * CASE
+                                                                                               WHEN virtualrate > actualrate
+                                                                                               THEN virtualrate
+                                                                                               ELSE actualrate
+                                                                                           END
+                   END) AS RealTurnover
+        FROM bettrans AS b WITH(NOLOCK)
+             INNER JOIN #SportBetType AS sb ON b.BetType = sb.BetType
+             INNER JOIN #Agent AS dep ON b.recommend = dep.CustId
+             LEFT JOIN #ExtraPT_Sel AS e ON e.SuperID = b.srecommend
+        WHERE b.winlostdate = @StartDate
+              AND b.ruben = 1
+              AND b.statusID IN(111, 112, 113)
+        GROUP BY Site
+        ORDER BY RowName;
+    END;
      DROP TABLE #Agent;
      DROP TABLE #SportBetType;
      DROP TABLE #ExtraPT_Sel;
