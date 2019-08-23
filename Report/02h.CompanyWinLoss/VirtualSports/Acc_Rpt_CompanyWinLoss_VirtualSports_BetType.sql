@@ -169,6 +169,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSports_BetType] @StartDate='2016-01-01', @En
              FROM bettrans AS b WITH(NOLOCK)
                   INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
                   LEFT JOIN #DepositSuper AS dep ON b.srecommend = dep.CustId
+                  LEFT JOIN CS_CustSuper AS cn88 WITH(NOLOCK) ON b.srecommend = cn88.CustId
                   LEFT JOIN #ExtraPT_Sel e ON e.SuperID = b.srecommend
                   INNER JOIN VSRaceInfo AS r WITH(NOLOCK) ON r.EventId = b.MatchId
              WHERE b.winlostdate = @StartDate

@@ -208,6 +208,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_BetType] @EndDate='2020-01-01',@StartDate='201
                     FROM bettransRNG b WITH(NOLOCK)
                          INNER JOIN #SportBetType sb ON sb.BetType = b.gameID
                          LEFT JOIN #DepositSuper dep ON b.srecommend = dep.custid
+                         LEFT JOIN CS_CustSuper AS cn88 WITH(NOLOCK) ON b.srecommend = cn88.CustId
                          LEFT JOIN #ExtraPT_Sel e ON e.SuperID = b.srecommend
                     WHERE b.winlostdate = @StartDate
                           AND sb.RefTable = 1
@@ -268,6 +269,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_BetType] @EndDate='2020-01-01',@StartDate='201
                     FROM bettransLC b WITH(NOLOCK)
                          INNER JOIN #SportBetType sb ON sb.BetType = b.gameID
                          LEFT JOIN #DepositSuper dep ON b.srecommend = dep.custid
+                         LEFT JOIN CS_CustSuper AS cn88 WITH(NOLOCK) ON b.srecommend = cn88.CustId
                          LEFT JOIN #ExtraPT_Sel e ON e.SuperID = b.srecommend
                     WHERE b.winlostdate = @StartDate
                           AND sb.RefTable = 2
