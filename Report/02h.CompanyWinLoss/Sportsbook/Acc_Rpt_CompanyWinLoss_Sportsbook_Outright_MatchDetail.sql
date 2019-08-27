@@ -238,5 +238,3 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Outright_MatchDetail] @EndDate='2020-01-
 GO
 GRANT EXECUTE ON [dbo].[Acc_Rpt_CompanyWinLoss_Sportsbook_Outright_MatchDetail] TO [bodbAdminNet];
 GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_Rpt_CompanyWinLoss_Sportsbook_Outright_MatchDetail] TO [vnteam];
-GO
