@@ -21,8 +21,9 @@ Task:  Casino Integration Improvement - Implement Company Winloss By Products re
 DB: DBACC/bodb02
 
 Revisions:
-- 20160301@Jacob: Initialize Company Win Loss Report
-- 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
+  20160301@Jacob: Initialize Company Win Loss Report
+  20180419@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
+  20190828@Cherry: Hot fix Bet Buider (#119077)
 
 Example:
 EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Outright_MatchDetail] @EndDate='2020-01-01',@StartDate='2016-01-01', @SportType=2
@@ -62,7 +63,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Outright_MatchDetail] @EndDate='2020-01-
                FROM bodb02.dbo.Acc_GroupExtraPTSetting a WITH ( NOLOCK )
                WHERE @StartDate BETWEEN FromDate AND Todate
                  AND a.ProductId = 1
-                 AND a.SubProduct NOT IN( 'MG-SuperLive', 'BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss' )
+                 AND a.SubProduct NOT IN( 'MG-SuperLive', 'BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss', 'Bet Builder' )
 				 AND a.Sporttype = @sport
                GROUP BY SuperId,Sporttype;
     END;
