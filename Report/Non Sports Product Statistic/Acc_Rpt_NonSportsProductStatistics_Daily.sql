@@ -21,6 +21,7 @@ ALTER PROCEDURE [dbo].[Acc_Rpt_NonSportsProductStatistics_Daily]
 	@HousePTType	SMALLINT = 0,
 	@HousePTValue   MONEY = 0,
 	@IsDrillDown	BIT = 0,
+	@UsernameDrillDown	BIT = 0,
 	@IsGrandTotal	BIT = 0 -- dont need to use in this report
 
 
@@ -45,6 +46,7 @@ AS
 		20190708@Cherry: Fix issue VS + VS2
 		20190724@Cherry: ExtraPT in House Turnover (#116766)
 		20190812@Cherry: Add betfrom t (#115937)
+		20190829@Cherry: Add param @UsernameDrillDown used for Nonsport Specific Member (#116766)
 
 	Param's Explanation:
 			 - @username:  + Search by keyword, member only
@@ -1159,7 +1161,8 @@ SET NOCOUNT ON
 							CompanyGrossIncomeBase, CompanyCommBase, ExtraPT, ExtraPTBase )
 		SELECT  COUNT(DISTINCT CustID) AS NoOfPlayers, 
 				SUM(BetCount) AS BetCount ,
-				-1 as CurrencyId, 'RM' AS Currency,
+				-1 as CurrencyId, 
+				CASE WHEN @UsernameDrillDown = 0 THEN 'RM' ELSE ex.currency END Currency,	
 				SUM (TotalBetsBase) AS TotalBets, 
 				SUM (TotalWinsBase) AS TotalWins,
 				SUM (TotalRefundBase) AS TotalRefund,
@@ -1177,9 +1180,11 @@ SET NOCOUNT ON
 					SUM(CASE WHEN s.ProductID = 33 AND s.RefTable = 0 THEN b.ExtraWLBase * CAST(ISNULL(e.ExtraPT,0) AS [decimal](10, 8)) + b.ExtraCommBase * CAST(ISNULL(c.ExtraComm,0) AS [decimal](10, 8))
 							ELSE (b.ExtraWLBase + b.ExtraCommBase) * CAST(ISNULL(e.ExtraPT,0) AS [decimal](10, 8)) END) ExtraPTBase
 		FROM	#Data b
+				INNER JOIN bodb02.dbo.exchange ex WITH (NOLOCK) ON b.CurrencyID = ex.exchangeid
 				INNER JOIN #SportBettype s ON b.bettype = s.Bettype 
 				LEFT JOIN #ExtraPT e ON b.srecommend = e.SuperID AND s.ProductID = e.ProductID 
 				LEFT JOIN #ExtraComm c ON b.srecommend = c.SuperID AND s.ProductID = c.ProductID
+		GROUP BY CASE WHEN @UsernameDrillDown = 0 THEN 'RM' ELSE ex.currency END
 		HAVING (@TotalBetType = 0
 				OR (@TotalBetType = 1 AND SUM(TotalBetsBase) >= @TotalBetValue) 
 				OR (@TotalBetType = -1 AND SUM(TotalBetsBase) <= @TotalBetValue)
