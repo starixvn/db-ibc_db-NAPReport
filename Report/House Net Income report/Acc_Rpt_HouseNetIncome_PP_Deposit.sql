@@ -1,7 +1,4 @@
-/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
-
-USE bodb02
-GO
+/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
 ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_PP_Deposit]
 	@FromDate DATE,
@@ -14,6 +11,7 @@ AS
    
     Revisions:  
 		- 20180618@Harper - HDWL Letstalk - Implement report for Pramatic product [#RedmineID: 94403]
+		- 20190822@Robert: #115465 - Exclude bettype 4300 (Promotion Prize) from House Income, Pay to Supplier of Pragmatic
 	
 	Param's Explanation:   
 
@@ -124,6 +122,7 @@ BEGIN
 				AND b.CurrencyID <> 20
 				AND b.customercategory NOT IN (27, 28)
 				AND b.StatusId NOT IN (-1, 101, 102, 103) -- Exclude Reject , Void, Refund
+				AND b.Bettype NOT IN (4300)
 		GROUP BY b.rptdate, b.SiteId, p.PartyId, p.ProductId
 	)	
 

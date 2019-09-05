@@ -1,11 +1,8 @@
 /*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
-USE bodb02
-GO
-
 ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_NonSport_Deposit]
-	@FromDate		DATE,
-	@ToDate			DATE,
+	@FromDate		DATE ,
+	@ToDate		DATE ,
 	@ProductList	VARCHAR(MAX) = ''
 AS  
 /*  	
@@ -18,6 +15,7 @@ AS
 		- 20180806@Harper - DHWL Margin Chart - Create new message notification to NSD group based on Product List [#RedmineID: 98611]
 		- 20180813@Harper - DHWL Non-sports Margin Chart - Integrate OneRNG Jackpot & Pragmatic [#RedmineID: 97562]
 		- 20181202@Robert: #104579 - House Net Income Email/Letstalk/Margin Chart - Integrate Happy 5
+		- 20190819@Robert - NAP Report - Integrate Card Club on NAP Report [#115465]
 
 	Param's Explanation:   
 		- @ProductList: '' - default value when get all product
@@ -32,7 +30,7 @@ BEGIN
 	DECLARE @FDate DATE, @TDate DATE
 	SELECT @FDate = @FromDate, @TDate = @ToDate
 
-	DECLARE @DefaulProductList VARCHAR(MAX) = 'EX,GD,FW,AB,VB,CB,BT,CO,MGCLC,MGCRNG,AGC,KN,LT,CS,NG,PP'
+	DECLARE @DefaulProductList VARCHAR(MAX) = 'EX,GD,FW,AB,VB,CB,CO,AGC,KN,LT,CS,NG,PP,CC'
 
 	-- Select ProductList
 	SELECT @ProductList = CASE WHEN LEN(ISNULL(@ProductList, '')) > 0  THEN @ProductList ELSE @DefaulProductList END
@@ -72,6 +70,13 @@ BEGIN
 	
 	--EXEC (@DynamicTable)
 
+	-- 14. CC
+	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'CC')
+	BEGIN
+		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
+							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_CC_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
+	END		
+
 	-- 13. PP
 	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'PP')
 	BEGIN
@@ -91,13 +96,6 @@ BEGIN
 	BEGIN
 		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
 							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_GD_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
-	END	
-
-	-- 10. FW
-	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'FW')
-	BEGIN
-		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
-							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_FW_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
 	END	
 
 	-- 9. AB
@@ -127,13 +125,6 @@ BEGIN
 		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
 							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_BT_CO_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
 	END
-	
-	-- 5. Microgaming
-	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix IN ('MGCLC', 'MGCRNG'))
-	BEGIN
-		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
-							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_MGC_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
-	END	
 
 	-- 4. AGC
 	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'AGC')
@@ -168,5 +159,7 @@ BEGIN
 	SELECT @SQL = @SQL + 'DROP TABLE #MarginChartResult' + CHAR(13)
 	
 	EXEC (@SQL)	
+
+	DROP TABLE #tmpProduct
 END
 GO
