@@ -42,6 +42,7 @@ Revisions:
 	20190117@Robert: Video Poker - Integrate into NAP Reports (#107706)
 	20190311@Cherry: Integrate Bet Builder (#109822)
 	20190326@Robert: #109981 - NAP Report - Integrate Promotion Prize
+	20190722@Robert: #117010 - NAP Report - Integrate Card Club on NAP Report
 	
 Parameters explain:
 	@Products: instead of all @showXXX parameters, have xml structure
@@ -361,7 +362,7 @@ BEGIN
 									AND expt.SubProduct = pb.SubProduct
 									AND expt.Sporttype = 0
 		 WHERE winlostdate BETWEEN CAST(@FromDate AS SMALLDATETIME) AND CAST(@ToDate AS SMALLDATETIME)
-			  AND t.ProductID IN(6, 17, 22, 24, 32, 33)
+			  AND t.ProductID IN(6, 17, 22, 24, 32, 33, 34)
 			  AND b.statusID NOT IN(0, 1, 101, 102, 103)
 			  AND b.currency <> 20
 			  AND b.recommend = @recommend
@@ -462,7 +463,7 @@ BEGIN
 									    AND excomm.SubProduct = pb.SubProduct
 									    AND excomm.Sporttype = ISNULL(m44.SportType, 0)
 		 WHERE winlostdate BETWEEN CAST(@FromDate AS SMALLDATETIME) AND CAST(@ToDate AS SMALLDATETIME)
-			  AND t.ProductID NOT IN(2, 6, 9, 17, 21, 22, 24, 32)
+			  AND t.ProductID NOT IN(2, 6, 9, 17, 21, 22, 24, 32, 34)
 			  AND b.bettype = CASE WHEN t.ProductID = 33 AND t.bettype between 1901 and 1999 THEN 0 ELSE b.bettype END
 			  AND b.ruben = 1
 			  AND b.statusID NOT IN(101, 102, 103)
