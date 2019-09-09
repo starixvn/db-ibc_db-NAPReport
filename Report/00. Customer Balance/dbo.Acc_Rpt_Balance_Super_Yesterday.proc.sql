@@ -121,7 +121,8 @@ Begin
 
 		SELECT @Total += SUM((winlost-actual_stake) * actualrate)
 		FROM bettrans WITH(NOLOCK)
-		WHERE custid in ( SELECT custid from custinfo WITH(NOLOCK) WHERE roleid = 0) and ruben = 1 
+		WHERE custid in ( SELECT custid from custinfo WITH(NOLOCK) WHERE roleid = 0) 
+				AND ruben = 1 
 				AND statusID NOT IN (101,102,103) 
 	End
 	DROP TABLE #SuperInfo
