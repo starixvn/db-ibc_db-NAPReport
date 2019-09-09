@@ -32,9 +32,9 @@ EXEC [Acc_Rpt_CompanyWinLoss_FishingWorld_Site] @BetType = 1011,@EndDate='2020-0
         DECLARE @isTest BIT= 0;
         SELECT @isTest = dbo.f_CheckSPVersion(@@PROCID);
         CREATE TABLE #SportBetType
-                     (BetType  INT, 
-                      RefTable INT
-                     );
+        (BetType  INT, 
+         RefTable INT
+        );
         INSERT INTO #SportBetType
                SELECT BetType, 
                       RefTable
@@ -42,10 +42,10 @@ EXEC [Acc_Rpt_CompanyWinLoss_FishingWorld_Site] @BetType = 1011,@EndDate='2020-0
     END;
     BEGIN -- #Agent
         CREATE TABLE #Agent
-                     (CustId INT
-                      PRIMARY KEY, 
-                      Site   VARCHAR(50)
-                     );
+        (CustId INT
+         PRIMARY KEY, 
+         Site   VARCHAR(50)
+        );
         IF @Site = 'CN88'
             BEGIN
                 INSERT INTO #Agent
@@ -81,20 +81,21 @@ EXEC [Acc_Rpt_CompanyWinLoss_FishingWorld_Site] @BetType = 1011,@EndDate='2020-0
                                  AND c.CustId NOT IN(52466, 5707545)
                                 AND dep.CustId IS NULL
                                 AND cn88.CustId IS NULL;
-                    SELECT 52466, 
-                           'XYZBET';--8RM;
+                    INSERT INTO #Agent
+                           SELECT 52466, 
+                                  'XYZBET';--8RM;
             END;
     END;
     BEGIN -- Extra PT
 
         CREATE TABLE #ExtraPT_Sel
-                     (SuperID INT, 
-                      ExtraPT DECIMAL(9, 8)
-                     );
+        (SuperID INT, 
+         ExtraPT DECIMAL(9, 8)
+        );
         INSERT INTO #ExtraPT_Sel
-               (SuperID, 
-                ExtraPT
-               )
+        (SuperID, 
+         ExtraPT
+        )
                SELECT SuperId, 
                       SUM(ExtraPT) AS ExtraPT
                FROM bodb02.dbo.Acc_GroupExtraPTSetting AS a WITH(NOLOCK)

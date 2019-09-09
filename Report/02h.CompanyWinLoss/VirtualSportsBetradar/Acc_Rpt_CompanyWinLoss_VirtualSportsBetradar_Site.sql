@@ -36,10 +36,10 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_Site] @StartDate='2016-01-01'
     END;
     BEGIN -- #Agent
         CREATE TABLE #Agent
-                     (CustId INT
-                      PRIMARY KEY, 
-                      Site   VARCHAR(50)
-                     );
+        (CustId INT
+         PRIMARY KEY, 
+         Site   VARCHAR(50)
+        );
         IF @Site = 'CN88'
             BEGIN
                 INSERT INTO #Agent
@@ -75,21 +75,22 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_Site] @StartDate='2016-01-01'
                                  AND c.CustId NOT IN(52466, 5707545)
                                 AND dep.CustId IS NULL
                                 AND cn88.CustId IS NULL;
-                    SELECT 52466, 
-                           'XYZBET';--8RM;
+                    INSERT INTO #Agent
+                           SELECT 52466, 
+                                  'XYZBET';--8RM;
             END;
     END;
     BEGIN -- Extra PT
         CREATE TABLE #ExtraPT_Sel
-                     (SuperID   INT, 
-                      Sporttype INT, 
-                      ExtraPT   DECIMAL(9, 8)
-                     );
+        (SuperID   INT, 
+         Sporttype INT, 
+         ExtraPT   DECIMAL(9, 8)
+        );
         INSERT INTO #ExtraPT_Sel
-               (SuperID, 
-                Sporttype, 
-                ExtraPT
-               )
+        (SuperID, 
+         Sporttype, 
+         ExtraPT
+        )
                SELECT SuperId, 
                       Sporttype, 
                       SUM(ExtraPT) AS ExtraPT

@@ -35,10 +35,10 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Site] @StartDate='2016-01-01', @EndDate=
      SET NOCOUNT ON;
     BEGIN -- #Agent
         CREATE TABLE #Agent
-                     (CustId INT
-                      PRIMARY KEY, 
-                      Site   VARCHAR(50)
-                     );
+        (CustId INT
+         PRIMARY KEY, 
+         Site   VARCHAR(50)
+        );
         IF @Site = 'CN88'
             BEGIN
                 INSERT INTO #Agent
@@ -74,15 +74,16 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Site] @StartDate='2016-01-01', @EndDate=
                                  AND c.CustId NOT IN(52466, 5707545)
                                 AND dep.CustId IS NULL
                                 AND cn88.CustId IS NULL;
-                    SELECT 52466, 
-                           'XYZBET';--8RM;
+                    INSERT INTO #Agent
+                           SELECT 52466, 
+                                  'XYZBET';--8RM;
             END;
     END;
     BEGIN -- Match
         CREATE TABLE #Match
-                     (MatchId INT
-                      PRIMARY KEY
-                     );
+        (MatchId INT
+         PRIMARY KEY
+        );
         IF @BetType = 10
             BEGIN
                 INSERT INTO #Match
@@ -123,10 +124,10 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Site] @StartDate='2016-01-01', @EndDate=
     END;
     BEGIN -- Extra PT 
         CREATE TABLE #ExtraPT_Sel
-                     (SuperID   INT, 
-                      Sporttype INT, 
-                      ExtraPT   DECIMAL(9, 8)
-                     );
+        (SuperID   INT, 
+         Sporttype INT, 
+         ExtraPT   DECIMAL(9, 8)
+        );
         DECLARE @sport INT= 0;
         SELECT @sport = CASE
                             WHEN @SportType = 44
@@ -134,10 +135,10 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Site] @StartDate='2016-01-01', @EndDate=
                             ELSE 0
                         END;
         INSERT INTO #ExtraPT_Sel
-               (SuperID, 
-                Sporttype, 
-                ExtraPT
-               )
+        (SuperID, 
+         Sporttype, 
+         ExtraPT
+        )
                SELECT SuperId, 
                       Sporttype, 
                       SUM(ExtraPT) AS ExtraPT
@@ -151,17 +152,17 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Site] @StartDate='2016-01-01', @EndDate=
     END;
     BEGIN  --#Data
         CREATE TABLE #Data
-                     (RowName         NVARCHAR(50), 
-                      MemberWinLoss   MONEY, 
-                      SMAWinLoss      MONEY, 
-                      ExtraPT         MONEY, 
-                      Commission      MONEY, 
-                      RealIncome      MONEY, 
-                      VirtualIncome   MONEY, 
-                      VarianceIncome  MONEY, 
-                      RealTurnover    MONEY, 
-                      VirtualTurnover MONEY
-                     );
+        (RowName         NVARCHAR(50), 
+         MemberWinLoss   MONEY, 
+         SMAWinLoss      MONEY, 
+         ExtraPT         MONEY, 
+         Commission      MONEY, 
+         RealIncome      MONEY, 
+         VirtualIncome   MONEY, 
+         VarianceIncome  MONEY, 
+         RealTurnover    MONEY, 
+         VirtualTurnover MONEY
+        );
     END;
     BEGIN -- INSERT INTO #Data
         INSERT INTO #Data

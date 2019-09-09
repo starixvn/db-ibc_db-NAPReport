@@ -29,10 +29,10 @@ EXEC [Acc_Rpt_CompanyWinLoss_PokerGames_Site] @StartDate='2018-08-21', @EndDate=
      SET NOCOUNT ON;
     BEGIN -- #Agent
         CREATE TABLE #Agent
-                     (CustId INT
-                      PRIMARY KEY, 
-                      Site   VARCHAR(50)
-                     );
+        (CustId INT
+         PRIMARY KEY, 
+         Site   VARCHAR(50)
+        );
         IF @Site = 'CN88'
             BEGIN
                 INSERT INTO #Agent
@@ -68,8 +68,9 @@ EXEC [Acc_Rpt_CompanyWinLoss_PokerGames_Site] @StartDate='2018-08-21', @EndDate=
                                  AND c.CustId NOT IN(52466, 5707545)
                                 AND dep.CustId IS NULL
                                 AND cn88.CustId IS NULL;
-                    SELECT 52466, 
-                           'XYZBET';--8RM;
+                    INSERT INTO #Agent
+                           SELECT 52466, 
+                                  'XYZBET';--8RM;
             END;
     END;
     BEGIN  --Get Sport Bettype Matrix--
@@ -77,10 +78,10 @@ EXEC [Acc_Rpt_CompanyWinLoss_PokerGames_Site] @StartDate='2018-08-21', @EndDate=
         DECLARE @isTest BIT= 0;
         SELECT @isTest = dbo.f_CheckSPVersion(@@PROCID);
         CREATE TABLE #SportBetType
-                     (ProductID INT, 
-                      BetType   INT, 
-                      RefTable  INT
-                     );
+        (ProductID INT, 
+         BetType   INT, 
+         RefTable  INT
+        );
         INSERT INTO #SportBetType
                SELECT ProductID, 
                       BetType, 
@@ -90,15 +91,15 @@ EXEC [Acc_Rpt_CompanyWinLoss_PokerGames_Site] @StartDate='2018-08-21', @EndDate=
     BEGIN -- Extra PT
 
         CREATE TABLE #ExtraPT_Sel
-                     (SuperID   INT, 
-                      Sporttype INT, 
-                      ExtraPT   DECIMAL(9, 8)
-                     );
+        (SuperID   INT, 
+         Sporttype INT, 
+         ExtraPT   DECIMAL(9, 8)
+        );
         INSERT INTO #ExtraPT_Sel
-               (SuperID, 
-                Sporttype, 
-                ExtraPT
-               )
+        (SuperID, 
+         Sporttype, 
+         ExtraPT
+        )
                SELECT SuperId, 
                       a.Sporttype, 
                       SUM(ExtraPT) AS ExtraPT
@@ -111,15 +112,15 @@ EXEC [Acc_Rpt_CompanyWinLoss_PokerGames_Site] @StartDate='2018-08-21', @EndDate=
     BEGIN        -- Extra Comm
 
         CREATE TABLE #ExtraComm_Sel
-                     (SuperID   INT, 
-                      Sporttype INT, 
-                      ExtraComm DECIMAL(9, 8)
-                     );
+        (SuperID   INT, 
+         Sporttype INT, 
+         ExtraComm DECIMAL(9, 8)
+        );
         INSERT INTO #ExtraComm_Sel
-               (SuperID, 
-                Sporttype, 
-                ExtraComm
-               )
+        (SuperID, 
+         Sporttype, 
+         ExtraComm
+        )
                SELECT SuperId, 
                       a.Sporttype, 
                       SUM(ExtraCommRate) AS ExtraComm
@@ -131,14 +132,14 @@ EXEC [Acc_Rpt_CompanyWinLoss_PokerGames_Site] @StartDate='2018-08-21', @EndDate=
     END;
     BEGIN -- Data
         CREATE TABLE #Data
-                     (RowName       NVARCHAR(50), 
-                      MemberWinLoss MONEY, 
-                      SMAWinLoss    MONEY, 
-                      ExtraPT       MONEY, 
-                      Commission    MONEY, 
-                      RealIncome    MONEY, 
-                      RealTurnover  MONEY
-                     );
+        (RowName       NVARCHAR(50), 
+         MemberWinLoss MONEY, 
+         SMAWinLoss    MONEY, 
+         ExtraPT       MONEY, 
+         Commission    MONEY, 
+         RealIncome    MONEY, 
+         RealTurnover  MONEY
+        );
     END;
      IF EXISTS
      (

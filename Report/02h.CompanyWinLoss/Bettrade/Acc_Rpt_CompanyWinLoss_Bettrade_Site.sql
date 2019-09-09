@@ -39,10 +39,10 @@ EXEC [Acc_Rpt_CompanyWinLoss_Bettrade_Site] @StartDate='2016-08-24', @EndDate='2
     END;
     BEGIN -- #Agent
         CREATE TABLE #Agent
-                     (CustId INT
-                      PRIMARY KEY, 
-                      Site   VARCHAR(50)
-                     );
+        (CustId INT
+         PRIMARY KEY, 
+         Site   VARCHAR(50)
+        );
         IF @Site = 'CN88'
             BEGIN
                 INSERT INTO #Agent
@@ -78,20 +78,21 @@ EXEC [Acc_Rpt_CompanyWinLoss_Bettrade_Site] @StartDate='2016-08-24', @EndDate='2
                                  AND c.CustId NOT IN(52466, 5707545)
                                 AND dep.CustId IS NULL
                                 AND cn88.CustId IS NULL;
-                    SELECT 52466, 
-                           'XYZBET';--8RM;
+                    INSERT INTO #Agent
+                           SELECT 52466, 
+                                  'XYZBET';--8RM;
             END;
     END;
     BEGIN -- Extra PT
 
         CREATE TABLE #ExtraPT_Sel
-                     (SuperID INT, 
-                      ExtraPT DECIMAL(9, 8)
-                     );
+        (SuperID INT, 
+         ExtraPT DECIMAL(9, 8)
+        );
         INSERT INTO #ExtraPT_Sel
-               (SuperID, 
-                ExtraPT
-               )
+        (SuperID, 
+         ExtraPT
+        )
                SELECT SuperId, 
                       SUM(ExtraPT) AS ExtraPT
                FROM bodb02.dbo.Acc_GroupExtraPTSetting AS a WITH(NOLOCK)
