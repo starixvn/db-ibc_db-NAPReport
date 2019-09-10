@@ -1,13 +1,5 @@
-﻿USE [bodb02]
-GO
-/****** Object:  StoredProcedure [dbo].[Acc_Rpt_Balance_Super_Yesterday]    Script Date: 02/06/2014 00:18:47 ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-/****** Object:  Stored Procedure dbo.Acc_Rpt_Balance_Super_Yesterday_xtest    Script Date: 7/24/2012 12:29:26 AM ******/
-/****** Object:  Stored Procedure dbo.Acc_Rpt_Balance_Super_Yesterday    Script Date: 7/19/2012 10:30:33 AM ******/
-ALTER PROC [dbo].[Acc_Rpt_Balance_Super_Yesterday]
+﻿/*<info serverAlias="DBTXN-bodb02,DBACC-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+ALTER  PROCEDURE [dbo].[Acc_Rpt_Balance_Super_Yesterday]
 	@Keyword nvarchar(50) = '',
 	@FirstChar nvarchar(6)= '',
 	@Currency int = NULL,
@@ -30,6 +22,7 @@ Revisions:
 						Change DBTRANS server instead of DB02 server
 	- 20131119@Lukas: remove running/void/reject/refund tickets
 	- 20160322@Robert: Moving customers to new lines  [Redmine: #53554]
+	- 20190909@Viet: Workaround - include CN88 Headline amount [redmine: #119921]  
 							
 Parameters Explanation:
 	- Search keyword: '%keyword%'
@@ -64,28 +57,50 @@ Begin
 		WHERE c.roleid = 4
 		
 	IF @IsViewTotalOnly = 0	
-		SELECT 
-			s.custid,
-			s.username, 
-			s.currency,
-			IsNull(sum(case when b.custid=srecommend then winlost-actual_stake else swinlost+scomm-acomm end),0)
-			+ IsNull(sum(case when b.custid=mrecommend then winlost-actual_stake else mwinlost+acomm-comm end),0)
-			+ IsNull(sum(case when b.custid=recommend  then winlost-actual_stake else awinlost+comm-playercomm end),0)
-			+ IsNull(sum(case when b.custid <> recommend and b.custid <> mrecommend and b.custid <> srecommend and b.ruben = 1 then winlost-actual_stake+playercomm else 0 end),0)
-			- isNull (sum (case when bettype < 19001 and winlostdate >= @currentDate  and ruben = 1 then  swinlost + scomm + mwinlost + awinlost + winlost-actual_stake else 0 end),0) AS Balance,
+	BEGIN
+		SELECT  CustID, username, currency, Balance, BaseBalance
+		FROM (
+			SELECT 
+				s.custid,
+				s.username,
+				s.currency,
+				IsNull(sum(case when b.custid=srecommend then winlost-actual_stake else swinlost+scomm-acomm end),0)
+				+ IsNull(sum(case when b.custid=mrecommend then winlost-actual_stake else mwinlost+acomm-comm end),0)
+				+ IsNull(sum(case when b.custid=recommend  then winlost-actual_stake else awinlost+comm-playercomm end),0)
+				+ IsNull(sum(case when b.custid <> recommend and b.custid <> mrecommend and b.custid <> srecommend and b.ruben = 1 then winlost-actual_stake+playercomm else 0 end),0)
+				- isNull (sum (case when bettype < 19001 and winlostdate >= @currentDate  and ruben = 1 then  swinlost + scomm + mwinlost + awinlost + winlost-actual_stake else 0 end),0) AS Balance,
 			
-			IsNull(sum((case when b.custid=srecommend then winlost-actual_stake else swinlost+scomm-acomm end)*b.actualrate),0)
-			+ IsNull(sum((case when b.custid=mrecommend then winlost-actual_stake else mwinlost+acomm-comm end)*b.actualrate),0)
-			+ IsNull(sum((case when b.custid=recommend then winlost-actual_stake else awinlost+comm-playercomm end)*b.actualrate),0)
-			+ IsNull(sum((case when b.custid <> recommend and b.custid <> mrecommend and b.custid <> srecommend and b.ruben = 1 then winlost-actual_stake+playercomm else 0 end)*b.actualrate),0) 
-			- isNull (sum ((case when bettype < 19001 and winlostdate >= @currentDate  and ruben = 1 then  swinlost + scomm + mwinlost + awinlost + winlost-actual_stake else 0 end)*b.actualrate),0) AS BaseBalance
-		FROM #SuperInfo s
-			INNER JOIN bettrans b with (READPAST) ON b.srecommend = s.custid
-		WHERE 
-				ruben = 1 
-				AND statusID NOT IN (101,102,103) 
-		GROUP BY s.custid, s.username, s.currency
-		order by CASE when s.custid < 100 or s.custid in (21278849, 21278858) then 0 ELSE 1 END, s.username	
+				IsNull(sum((case when b.custid=srecommend then winlost-actual_stake else swinlost+scomm-acomm end)*b.actualrate),0)
+				+ IsNull(sum((case when b.custid=mrecommend then winlost-actual_stake else mwinlost+acomm-comm end)*b.actualrate),0)
+				+ IsNull(sum((case when b.custid=recommend then winlost-actual_stake else awinlost+comm-playercomm end)*b.actualrate),0)
+				+ IsNull(sum((case when b.custid <> recommend and b.custid <> mrecommend and b.custid <> srecommend and b.ruben = 1 then winlost-actual_stake+playercomm else 0 end)*b.actualrate),0) 
+				- isNull (sum ((case when bettype < 19001 and winlostdate >= @currentDate  and ruben = 1 then  swinlost + scomm + mwinlost + awinlost + winlost-actual_stake else 0 end)*b.actualrate),0) AS BaseBalance
+		
+			FROM #SuperInfo s
+				INNER JOIN bettrans b with (READPAST) ON b.srecommend = s.custid
+			WHERE 
+					ruben = 1 
+					AND statusID NOT IN (101,102,103) 
+			GROUP BY s.custid, s.username, s.currency
+		
+			UNION ALL
+			SELECT 
+				b.custid,
+				b.username,
+				b.currency,
+				SUM(winlost-actual_stake),
+				SUM((winlost-actual_stake) * actualrate)
+			FROM bettrans b WITH(NOLOCK)
+			WHERE custid in (SELECT custid FROM custinfo WITH (NOLOCK) WHERE roleid = 0	) 
+				  AND ruben = 1 
+				  AND statusID NOT IN (101,102,103) 
+			GROUP BY b.custid,
+				b.username, 
+				b.currency
+			) s	 
+		ORDER BY CASE when s.custid < 100 or s.custid in (21278849, 21278858) then 0 ELSE 1 END, s.username	
+
+	END
 	ELSE	
 	Begin
 		select @Total = sum(bal.BaseBalance)
@@ -103,12 +118,13 @@ Begin
 				ruben = 1 
 				AND statusID NOT IN (101,102,103) 
 			GROUP BY b.srecommend) as bal
+
+		SELECT @Total += SUM((winlost-actual_stake) * actualrate)
+		FROM bettrans WITH(NOLOCK)
+		WHERE custid in ( SELECT custid from custinfo WITH(NOLOCK) WHERE roleid = 0) 
+				AND ruben = 1 
+				AND statusID NOT IN (101,102,103) 
 	End
 	DROP TABLE #SuperInfo
 END
-
-
-GO
-GRANT EXECUTE ON [dbo].[Acc_Rpt_Balance_Super_Yesterday] TO [bodbAdminNet] AS [dbo]
-GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_Rpt_Balance_Super_Yesterday] TO [vnteam] AS [dbo]
+GO 
