@@ -33,6 +33,7 @@ AS
 		- 20180831@Cherry: Integrate Poker Games into NAP Report (#97830)
 		- 20181219@Robert: NAP Report - Add new sporttype for Happy 5 (#104253) 
 		- 20190128@Robert: Video Poker - Integrate into NAP Reports[#107706]
+		- 20190917@Dominic: Remove inactive products [#120215]
 
 	Param's Explanation:  
 	  + @ListCurrency: The specified date used as one of the filter criterias, if its value is 'all' then no need to be filtered by currency
@@ -70,26 +71,17 @@ BEGIN
     DECLARE @bitmapOrder TABLE(
 	    bitmapOrder    TINYINT); /* using for sporttype that has many settings*/
 
-    IF @SportType IN(211, 163)  /* Allbet, Poker Games*/
-
-	   BEGIN
-		  INSERT INTO @bitmapOrder(bitmapOrder)
-			    SELECT bitmapOrder
-			    FROM dbo.ProductStatusProfile WITH (NOLOCK)
-			    WHERE Sporttype = @SportType;
-
-		  IF @SportType = 163
-			 BEGIN
-				INSERT INTO @bitmapOrder(bitmapOrder)
-					  SELECT bitmapOrder
-					  FROM dbo.ProductStatusProfile WITH (NOLOCK)
-					  WHERE Sporttype = 165;
-			 END;
-	   END;
+    IF @SportType IN(211)  /* Allbet*/
+	BEGIN
+		INSERT INTO @bitmapOrder(bitmapOrder)
+			SELECT bitmapOrder
+			FROM dbo.ProductStatusProfile WITH (NOLOCK)
+			WHERE Sporttype = @SportType;
+	END;
 
     DECLARE @bitmap    TINYINT; /* using for sporttype that has 1 setting*/
 
-    IF @SportType IN(212, 213, 219, 220, 180, 160, 207) /* Macau Games, NG2, Fishing World, Virtual Sports, Lottery, Lucky 3, Bullfighting*/
+    IF @SportType IN(212, 213, 219, 220, 180) /* Macau Games, NG2, Fishing World, Virtual Sports, Lottery*/
 
 	   BEGIN
 		  SELECT @bitmap = bitmapOrder
@@ -103,8 +95,6 @@ BEGIN
 						   , SuperStatus)
 		 SELECT ci.custid
 			 , CASE
-				  WHEN @sportType = 151
-				  THEN ci.Disable151_AU&ci.Disable152_AU&ci.Disable152_UK&ci.Disable153_AU&ci.DisableHorseRacing&ci.DisableOpenTote
 				  WHEN @sportType IN(161)
 				  THEN ci.DisableNumber
 				  WHEN @sportType = 202
@@ -119,19 +109,15 @@ BEGIN
 						 THEN 0
 						 ELSE 1
 					  END
-				  WHEN @sportType = 162
-				  THEN(~ci.SyncLiveCasino|ci.DisableLiveCasino)
 				  WHEN @sportType = 251
 				  THEN(~ci.SyncCasino|(ci.DisableCasino))
-				  WHEN @sportType = 252
-				  THEN(~ci.SyncBingo|ci.DisableBingo)
 				  WHEN @sportType = 255
 				  THEN ci.DisableGoldDeluxe
 				  WHEN @sportType = -1
 				  THEN ci.DisableSuperLive
 				  WHEN @sportType = 204
 				  THEN ci.DisableColossusBet
-				  WHEN @SportType IN(211, 163)
+				  WHEN @SportType IN(211)
 				  THEN
 					  (
 						 SELECT CASE MIN(CONVERT(INT, f.value))
@@ -145,7 +131,7 @@ BEGIN
 							 (cps.bitmapIsDisabled, b.bitmapOrder) AS f
 						 WHERE custid = ci.custid
 					  )
-				  WHEN @SportType IN(212, 213, 219, 220, 180, 160, 207)
+				  WHEN @SportType IN(212, 213, 219, 220, 180)
 				  THEN
 					  (
 						 SELECT CASE(SELECT value
@@ -207,43 +193,6 @@ BEGIN
 		  DELETE FROM #FiltedCreditSuper;
 	   END;
 /*Get data for downline list */
-
-    IF @sportType = 151
-	   BEGIN
-		  INSERT INTO #FiltedDownlineAcc
-			    SELECT sup.CustID
-				    , ci.custid
-				    , ci.roleid
-				    , ci.Disable151_AU&ci.Disable152_AU&ci.Disable152_UK&ci.Disable153_AU&ci.DisableHorseRacing&ci.DisableOpenTote
-			    FROM dbo.custInfo AS ci WITH (NOLOCK)
-				   JOIN dbo.CustMaster AS cm WITH (NOLOCK) ON ci.custid = cm.custid
-													 AND cm.IsInternal = 0
-				   JOIN #FiltedCreditSuper AS sup ON ci.srecommend = sup.CustID
-											  AND ci.roleid = 3
-			    WHERE ci.Enabled = 1;
-
-		  INSERT INTO #FiltedDownlineAcc
-			    SELECT sup.CustID
-				    , ci.custid
-				    , ci.roleid
-				    , ci.Disable151_AU&ci.Disable152_AU&ci.Disable152_UK&ci.Disable153_AU&ci.DisableHorseRacing&ci.DisableOpenTote
-			    FROM dbo.custInfo AS ci WITH (NOLOCK)
-				   JOIN dbo.CustAgent AS ca WITH (NOLOCK) ON ci.custid = ca.custid
-													AND ca.IsInternal = 0
-				   JOIN #FiltedCreditSuper AS sup ON ci.srecommend = sup.CustID
-											  AND ci.roleid = 2
-			    WHERE ci.Enabled = 1;
-
-		  INSERT INTO #FiltedDownlineAcc
-			    SELECT sup.CustID
-				    , ci.custid
-				    , ci.roleid
-				    , ci.Disable151_AU&ci.Disable152_AU&ci.Disable152_UK&ci.Disable153_AU&ci.DisableHorseRacing&ci.DisableOpenTote
-			    FROM dbo.custInfo AS ci WITH (NOLOCK)
-				   JOIN #FiltedCreditSuper AS sup ON ci.srecommend = sup.CustID
-											  AND ci.roleid = 1
-			    WHERE ci.Enabled = 1;
-	   END;
     IF @sportType IN(161)
 	   BEGIN
 		  INSERT INTO #FiltedDownlineAcc
@@ -275,42 +224,6 @@ BEGIN
 				    , ci.custid
 				    , ci.roleid
 				    , ci.DisableNumber
-			    FROM dbo.custInfo AS ci WITH (NOLOCK)
-				   JOIN #FiltedCreditSuper AS sup ON ci.srecommend = sup.CustID
-											  AND ci.roleid = 1
-			    WHERE ci.Enabled = 1;
-	   END;
-    IF @sportType = 162
-	   BEGIN
-		  INSERT INTO #FiltedDownlineAcc
-			    SELECT sup.CustID
-				    , ci.custid
-				    , ci.roleid
-				    , (~ci.SyncLiveCasino|ci.DisableLiveCasino)
-			    FROM dbo.custInfo AS ci WITH (NOLOCK)
-				   JOIN dbo.CustMaster AS cm WITH (NOLOCK) ON ci.custid = cm.custid
-													 AND cm.IsInternal = 0
-				   JOIN #FiltedCreditSuper AS sup ON ci.srecommend = sup.CustID
-											  AND ci.roleid = 3
-			    WHERE ci.Enabled = 1;
-
-		  INSERT INTO #FiltedDownlineAcc
-			    SELECT sup.CustID
-				    , ci.custid
-				    , ci.roleid
-				    , (~ci.SyncLiveCasino|ci.DisableLiveCasino)
-			    FROM dbo.custInfo AS ci WITH (NOLOCK)
-				   JOIN dbo.CustAgent AS ca WITH (NOLOCK) ON ci.custid = ca.custid
-													AND ca.IsInternal = 0
-				   JOIN #FiltedCreditSuper AS sup ON ci.srecommend = sup.CustID
-											  AND ci.roleid = 2
-			    WHERE ci.Enabled = 1;
-
-		  INSERT INTO #FiltedDownlineAcc
-			    SELECT sup.CustID
-				    , ci.custid
-				    , ci.roleid
-				    , (~ci.SyncLiveCasino|ci.DisableLiveCasino)
 			    FROM dbo.custInfo AS ci WITH (NOLOCK)
 				   JOIN #FiltedCreditSuper AS sup ON ci.srecommend = sup.CustID
 											  AND ci.roleid = 1
@@ -353,42 +266,7 @@ BEGIN
 											  AND ci.roleid = 1
 			    WHERE ci.Enabled = 1;
 	   END;
-    IF @sportType = 252
-	   BEGIN
-		  INSERT INTO #FiltedDownlineAcc
-			    SELECT sup.CustID
-				    , ci.custid
-				    , ci.roleid
-				    , (~ci.SyncBingo|ci.DisableBingo)
-			    FROM dbo.custInfo AS ci WITH (NOLOCK)
-				   JOIN dbo.CustMaster AS cm WITH (NOLOCK) ON ci.custid = cm.custid
-													 AND cm.IsInternal = 0
-				   JOIN #FiltedCreditSuper AS sup ON ci.srecommend = sup.CustID
-											  AND ci.roleid = 3
-			    WHERE ci.Enabled = 1;
-
-		  INSERT INTO #FiltedDownlineAcc
-			    SELECT sup.CustID
-				    , ci.custid
-				    , ci.roleid
-				    , (~ci.SyncBingo|ci.DisableBingo)
-			    FROM dbo.custInfo AS ci WITH (NOLOCK)
-				   JOIN dbo.CustAgent AS ca WITH (NOLOCK) ON ci.custid = ca.custid
-													AND ca.IsInternal = 0
-				   JOIN #FiltedCreditSuper AS sup ON ci.srecommend = sup.CustID
-											  AND ci.roleid = 2
-			    WHERE ci.Enabled = 1;
-
-		  INSERT INTO #FiltedDownlineAcc
-			    SELECT sup.CustID
-				    , ci.custid
-				    , ci.roleid
-				    , (~ci.SyncBingo|ci.DisableBingo)
-			    FROM dbo.custInfo AS ci WITH (NOLOCK)
-				   JOIN #FiltedCreditSuper AS sup ON ci.srecommend = sup.CustID
-											  AND ci.roleid = 1
-			    WHERE ci.Enabled = 1;
-	   END;
+    
     IF @sportType = 202
 	   BEGIN
 		  INSERT INTO #FiltedDownlineAcc
@@ -514,9 +392,9 @@ BEGIN
 											  AND ci.roleid = 1
 			    WHERE ci.Enabled = 1;
 	   END;
-/* Allbet, Macau Games, NG2, Poker Games*/
+/* Allbet, Macau Games, NG2*/
 
-    IF @sportType IN(211, 163)
+    IF @sportType IN(211)
 	   BEGIN
 		  INSERT INTO #FiltedDownlineAcc
 			    SELECT sup.CustID
@@ -574,9 +452,9 @@ BEGIN
 				 GROUP BY fda.CustID
 			  ) A ON fda.CustID = A.CustID;
 	   END;
-/* Macau Games, NG2, Fishing World, Virtual Sports, Lottery, Lucky 3, Bullfighting*/
+/* Macau Games, NG2, Fishing World, Virtual Sports, Lottery*/
 
-    IF @sportType IN(212, 213, 219, 220, 180, 160, 207)
+    IF @sportType IN(212, 213, 219, 220, 180)
 	   BEGIN
 		  INSERT INTO #FiltedDownlineAcc
 			    SELECT sup.CustID
