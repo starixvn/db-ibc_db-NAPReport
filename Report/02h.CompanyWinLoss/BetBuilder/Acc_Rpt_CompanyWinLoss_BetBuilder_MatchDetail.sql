@@ -1,10 +1,10 @@
 
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
-CREATE PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_BetBuilder_MatchDetail] @StartDate SMALLDATETIME,
-                                                                       @EndDate   SMALLDATETIME,
+CREATE PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_BetBuilder_MatchDetail] @StartDate SMALLDATETIME, 
+                                                                       @EndDate   SMALLDATETIME, 
                                                                        @SportType SMALLINT      = 1, -- Dummy Parameter
-                                                                       @BetType   INT           = 38,
+                                                                       @BetType   INT           = 38, 
                                                                        @IsHedge   INT           = 2, -- Dummy Parameter
                                                                        @IsLive    INT           = 2-- Dummy Parameter
 AS
@@ -17,171 +17,172 @@ DB: DBACC/bodb02
 
 Revisions:
 - 20190313@Jacob: Integrate BetBuilder (#109822)
+- 20190925@Jacob: Group By CN88 (#118824)
 Example:
 EXEC [Acc_Rpt_CompanyWinLoss_BetBuilder_MatchDetail] @EndDate='2020-01-01',@StartDate='2016-01-01', @BetType = 38
 
 */
 
      SET NOCOUNT ON;
-         BEGIN -- #Match
+    BEGIN -- #Match
 
-             CREATE TABLE #Match
-                          (MatchId   INT,
-                           MatchCode NVARCHAR(50),
-                           IsNeutral BIT,
-                           EventDate DATETIME,
-                           LeagueId  INT,
-                           HomeId    INT,
-                           AwayId    INT
-                          );
-             INSERT INTO #Match
-                    SELECT m.MatchId,
-                           m.MatchCode,
-                           m.IsNeutral,
-                           m.EventDate,
-                           m.LeagueId,
-                           m.HomeId,
-                           m.AwayId
-                    FROM Match m WITH (NOLOCK)
-                    WHERE EventDate = @StartDate;
-         END;
-         BEGIN ---- Extra PT 
-             CREATE TABLE #ExtraPT_Sel
-                          (SuperID INT,
-                           ExtraPT DECIMAL(9, 8)
-                          );
-             INSERT INTO #ExtraPT_Sel
-                    (SuperID,
-                     ExtraPT
-                    )
-                    SELECT SuperId,
-                           SUM(ExtraPT) AS ExtraPT
-                    FROM bodb02.dbo.Acc_GroupExtraPTSetting a WITH (NOLOCK)
-                    WHERE @StartDate BETWEEN FromDate AND Todate
-                          AND a.ProductId = 1
-                          AND a.SubProduct = 'Bet Builder'
-                    GROUP BY SuperId;
-         END;
-         BEGIN -- #Data	
-             CREATE TABLE #Data
-                          (MatchId         INT,
-                           MatchCode       VARCHAR(100),
-                           IsNeutral       BIT,
-                           EventDate       DATETIME,
-                           LeagueId        INT,
-                           HomeId          INT,
-                           AwayId          INT,
-                           MemberWinLoss   MONEY,
-                           SMAWinLoss      MONEY,
-                           ExtraPT         MONEY,
-                           Commission      MONEY,
-                           RealIncome      MONEY,
-                           VirtualIncome   MONEY,
-                           VarianceIncome  MONEY,
-                           RealTurnover    MONEY,
-                           VirtualTurnover MONEY
-                          );
-         END;
-         BEGIN -- INSERT INTO #Data
-             INSERT INTO #Data
-                    SELECT b.MatchId,
-                           m.MatchCode,
-                           ISNULL(m.IsNeutral, 0) AS IsNeutral,
-                           m.EventDate,
-                           m.LeagueId,
-                           m.HomeId,
-                           m.AwayId,
-                           SUM((winlost - actual_stake) * actualrate) MemberWinLoss,
-                           SUM((awinlost + mwinlost + swinlost) * actualrate) AS SMAWinLoss,
-                           SUM((CASE
-                                    WHEN b.tpositiontaking = 1
-                                    THEN 0
-                                    ELSE(winlost - actual_stake) + b.scomm / (1 - b.tpositiontaking)
-                                END) * ISNULL(e.ExtraPT, 0) * actualrate) AS ExtraPT,
-                           SUM(scomm * actualrate) Commission,
-                           SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - (CASE
-                                                                                                       WHEN tpositiontaking = 1
-                                                                                                       THEN 0
-                                                                                                       ELSE winlost - actual_stake + b.scomm / (1 - b.tpositiontaking)
-                                                                                                   END) * ISNULL(e.ExtraPT, 0)) * actualrate) RealIncome,
-                           SUM((winlost - actual_stake + awinlost + mwinlost + swinlost - CASE
-                                                                                              WHEN tpositiontaking = 1
-                                                                                              THEN 0
-                                                                                              ELSE(winlost - actual_stake) * ISNULL(e.ExtraPT, 0)
-                                                                                          END) * virtualrate + (scomm - (CASE
-                                                                                                                             WHEN tpositiontaking = 1
-                                                                                                                             THEN 0
-                                                                                                                             ELSE b.scomm / (1 - b.tpositiontaking)
-                                                                                                                         END) * ISNULL(e.ExtraPT, 0)) * actualrate * CASE
-                                                                                                                                                                         WHEN virtualrate < actualrate
-                                                                                                                                                                         THEN virtualrate / actualrate
-                                                                                                                                                                         ELSE 1
-                                                                                                                                                                     END) VirtualIncome,
-                           SUM((winlost - actual_stake + awinlost + mwinlost + swinlost - CASE
-                                                                                              WHEN tpositiontaking = 1
-                                                                                              THEN 0
-                                                                                              ELSE(winlost - actual_stake) * ISNULL(e.ExtraPT, 0)
-                                                                                          END + CASE
-                                                                                                    WHEN virtualrate < actualrate
-                                                                                                    THEN(b.scomm - (CASE
+        CREATE TABLE #Match
+                     (MatchId   INT, 
+                      MatchCode NVARCHAR(50), 
+                      IsNeutral BIT, 
+                      EventDate DATETIME, 
+                      LeagueId  INT, 
+                      HomeId    INT, 
+                      AwayId    INT
+                     );
+        INSERT INTO #Match
+               SELECT m.MatchId, 
+                      m.MatchCode, 
+                      m.IsNeutral, 
+                      m.EventDate, 
+                      m.LeagueId, 
+                      m.HomeId, 
+                      m.AwayId
+               FROM Match m WITH(NOLOCK)
+               WHERE EventDate = @StartDate;
+    END;
+    BEGIN -- Extra PT 
+        CREATE TABLE #ExtraPT_Sel
+                     (SuperID INT, 
+                      ExtraPT DECIMAL(9, 8)
+                     );
+        INSERT INTO #ExtraPT_Sel
+               (SuperID, 
+                ExtraPT
+               )
+               SELECT SuperId, 
+                      SUM(ExtraPT) AS ExtraPT
+               FROM bodb02.dbo.Acc_GroupExtraPTSetting a WITH(NOLOCK)
+               WHERE @StartDate BETWEEN FromDate AND Todate
+                     AND a.ProductId = 1
+                     AND a.SubProduct = 'Bet Builder'
+               GROUP BY SuperId;
+    END;
+    BEGIN -- #Data	
+        CREATE TABLE #Data
+                     (MatchId         INT, 
+                      MatchCode       VARCHAR(100), 
+                      IsNeutral       BIT, 
+                      EventDate       DATETIME, 
+                      LeagueId        INT, 
+                      HomeId          INT, 
+                      AwayId          INT, 
+                      MemberWinLoss   MONEY, 
+                      SMAWinLoss      MONEY, 
+                      ExtraPT         MONEY, 
+                      Commission      MONEY, 
+                      RealIncome      MONEY, 
+                      VirtualIncome   MONEY, 
+                      VarianceIncome  MONEY, 
+                      RealTurnover    MONEY, 
+                      VirtualTurnover MONEY
+                     );
+    END;
+    BEGIN -- INSERT INTO #Data
+        INSERT INTO #Data
+               SELECT b.MatchId, 
+                      m.MatchCode, 
+                      ISNULL(m.IsNeutral, 0) AS IsNeutral, 
+                      m.EventDate, 
+                      m.LeagueId, 
+                      m.HomeId, 
+                      m.AwayId, 
+                      SUM((winlost - actual_stake) * actualrate) MemberWinLoss, 
+                      SUM((awinlost + mwinlost + swinlost) * actualrate) AS SMAWinLoss, 
+                      SUM((CASE
+                               WHEN b.tpositiontaking = 1
+                               THEN 0
+                               ELSE(winlost - actual_stake) + b.scomm / (1 - b.tpositiontaking)
+                           END) * ISNULL(e.ExtraPT, 0) * actualrate) AS ExtraPT, 
+                      SUM(scomm * actualrate) Commission, 
+                      SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - (CASE
+                                                                                                  WHEN tpositiontaking = 1
+                                                                                                  THEN 0
+                                                                                                  ELSE winlost - actual_stake + b.scomm / (1 - b.tpositiontaking)
+                                                                                              END) * ISNULL(e.ExtraPT, 0)) * actualrate) RealIncome, 
+                      SUM((winlost - actual_stake + awinlost + mwinlost + swinlost - CASE
+                                                                                         WHEN tpositiontaking = 1
+                                                                                         THEN 0
+                                                                                         ELSE(winlost - actual_stake) * ISNULL(e.ExtraPT, 0)
+                                                                                     END) * virtualrate + (scomm - (CASE
                                                                                                                         WHEN tpositiontaking = 1
                                                                                                                         THEN 0
                                                                                                                         ELSE b.scomm / (1 - b.tpositiontaking)
-                                                                                                                    END) * ISNULL(e.ExtraPT, 0))
-                                                                                                    ELSE 0
-                                                                                                END) * (actualrate - virtualrate)) VarianceIncome,
-                           SUM(CASE
-                                   WHEN tpositiontaking = 1
-                                   THEN 0
-                                   ELSE(1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * ABS(b.stake) * CASE
-                                                                                                           WHEN virtualrate > actualrate
-                                                                                                           THEN virtualrate
-                                                                                                           ELSE actualrate
-                                                                                                       END
-                               END) RealTurnover,
-                           SUM(CASE
-                                   WHEN tpositiontaking = 1
-                                   THEN 0
-                                   ELSE(1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * ABS(b.stake) * virtualrate
-                               END) VirtualTurnover
-                    FROM bettrans b WITH (nolock)
-                         INNER JOIN #Match m ON b.MatchId = m.MatchId
-                         LEFT JOIN #ExtraPT_Sel e ON e.SuperID = b.srecommend
-                    WHERE b.winlostdate = @StartDate
-                          AND b.bettype = @BetType
-                          AND b.ruben = 1
-                          AND statusID IN(111, 112, 113)
-                    GROUP BY b.MatchId,
-                             m.MatchCode,
-                             m.IsNeutral,
-                             m.HomeId,
-                             m.AwayId,
-                             m.EventDate,
-                             m.LeagueId OPTION(RECOMPILE);
-         END;
-         BEGIN -- Query
+                                                                                                                    END) * ISNULL(e.ExtraPT, 0)) * actualrate * CASE
+                                                                                                                                                                    WHEN virtualrate < actualrate
+                                                                                                                                                                    THEN virtualrate / actualrate
+                                                                                                                                                                    ELSE 1
+                                                                                                                                                                END) VirtualIncome, 
+                      SUM((winlost - actual_stake + awinlost + mwinlost + swinlost - CASE
+                                                                                         WHEN tpositiontaking = 1
+                                                                                         THEN 0
+                                                                                         ELSE(winlost - actual_stake) * ISNULL(e.ExtraPT, 0)
+                                                                                     END + CASE
+                                                                                               WHEN virtualrate < actualrate
+                                                                                               THEN(b.scomm - (CASE
+                                                                                                                   WHEN tpositiontaking = 1
+                                                                                                                   THEN 0
+                                                                                                                   ELSE b.scomm / (1 - b.tpositiontaking)
+                                                                                                               END) * ISNULL(e.ExtraPT, 0))
+                                                                                               ELSE 0
+                                                                                           END) * (actualrate - virtualrate)) VarianceIncome, 
+                      SUM(CASE
+                              WHEN tpositiontaking = 1
+                              THEN 0
+                              ELSE(1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * ABS(b.stake) * CASE
+                                                                                                      WHEN virtualrate > actualrate
+                                                                                                      THEN virtualrate
+                                                                                                      ELSE actualrate
+                                                                                                  END
+                          END) RealTurnover, 
+                      SUM(CASE
+                              WHEN tpositiontaking = 1
+                              THEN 0
+                              ELSE(1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * ABS(b.stake) * virtualrate
+                          END) VirtualTurnover
+               FROM bettrans b WITH(NOLOCK)
+                    INNER JOIN #Match m ON b.MatchId = m.MatchId
+                    LEFT JOIN #ExtraPT_Sel e ON e.SuperID = b.srecommend
+               WHERE b.winlostdate = @StartDate
+                     AND b.bettype = @BetType
+                     AND b.ruben = 1
+                     AND statusID IN(111, 112, 113)
+               GROUP BY b.MatchId, 
+                        m.MatchCode, 
+                        m.IsNeutral, 
+                        m.HomeId, 
+                        m.AwayId, 
+                        m.EventDate, 
+                        m.LeagueId OPTION(RECOMPILE);
+    END;
+    BEGIN -- Query
 
-             SELECT d.MatchId,
-                    d.MatchCode,
-                    d.IsNeutral,
-                    d.EventDate,
-                    1 SportType,
-                    d.LeagueId,
-                    d.HomeId,
-                    d.AwayId,
-                    d.MemberWinLoss AS MemberWinLoss,
-                    d.SMAWinLoss AS SMAWinLoss,
-                    -d.ExtraPT AS ExtraPT,
-                    d.Commission AS Commission,
-                    d.RealIncome AS RealIncome,
-                    d.VirtualIncome AS VirtualIncome,
-                    d.VarianceIncome AS VarianceIncome,
-                    d.RealTurnover AS RealTurnover,
-                    d.VirtualTurnover AS VirtualTurnover
-             FROM #Data AS d
-             ORDER BY LeagueId,
-                      MatchCode;
-         END;
+        SELECT d.MatchId, 
+               d.MatchCode, 
+               d.IsNeutral, 
+               d.EventDate, 
+               1 SportType, 
+               d.LeagueId, 
+               d.HomeId, 
+               d.AwayId, 
+               d.MemberWinLoss AS MemberWinLoss, 
+               d.SMAWinLoss AS SMAWinLoss, 
+               -d.ExtraPT AS ExtraPT, 
+               d.Commission AS Commission, 
+               d.RealIncome AS RealIncome, 
+               d.VirtualIncome AS VirtualIncome, 
+               d.VarianceIncome AS VarianceIncome, 
+               d.RealTurnover AS RealTurnover, 
+               d.VirtualTurnover AS VirtualTurnover
+        FROM #Data AS d
+        ORDER BY LeagueId, 
+                 MatchCode;
+    END;
      DROP TABLE #Match;
      DROP TABLE #ExtraPT_Sel;
      DROP TABLE #Data;

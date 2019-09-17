@@ -1,17 +1,10 @@
+
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
-USE [bodb02]
-GO
-/****** Object:  StoredProcedure [dbo].[Acc_Rpt_CompanyWinLoss_VirtualSportsbook_MatchDetail]    Script Date: 5/9/2018 12:43:06 PM ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-/****** Object:  Stored Procedure dbo.Acc_Rpt_CompanyWinLoss_VirtualSportsbook_MatchDetail    Script Date: 5/2/2018 9:36:29 AM ******/
-ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_VirtualSportsbook_MatchDetail] @StartDate SMALLDATETIME,
-                                                                              @EndDate   SMALLDATETIME,
-                                                                              @SportType SMALLINT,
-                                                                              @BetType   INT
+ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_VirtualSportsbook_MatchDetail] @StartDate SMALLDATETIME, 
+                                                                             @EndDate   SMALLDATETIME, 
+                                                                             @SportType SMALLINT, 
+                                                                             @BetType   INT
 AS
 
 /*
@@ -23,80 +16,77 @@ DB: DBACC/bodb02
 Revisions:
 - 20160301@Jacob: Initialize Company Win Loss Report
 - 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
-Example: 
+- 20190925@Jacob: Group By CN88 (#118824)
+Example:
 EXEC [Acc_Rpt_CompanyWinLoss_VirtualSportsbook_MatchDetail] @StartDate='2016-01-01', @EndDate='2020-01-01', @SportType = 180, @BetType = 1201
 */
 
      SET NOCOUNT ON;
-
-	 BEGIN ---- Extra PT 
-        CREATE TABLE #ExtraPT_Sel( SuperID INT,
-								   Sporttype  INT,
-                                   ExtraPT DECIMAL(9, 8));
-            INSERT INTO #ExtraPT_Sel
-               ( SuperID,
-			     Sporttype,
-                 ExtraPT
+    BEGIN -- Extra PT
+        CREATE TABLE #ExtraPT_Sel
+                     (SuperID   INT, 
+                      Sporttype INT, 
+                      ExtraPT   DECIMAL(9, 8)
+                     );
+        INSERT INTO #ExtraPT_Sel
+               (SuperID, 
+                Sporttype, 
+                ExtraPT
                )
-               SELECT SuperId,Sporttype,
+               SELECT SuperId, 
+                      Sporttype, 
                       SUM(ExtraPT) AS ExtraPT
-               FROM bodb02.dbo.Acc_GroupExtraPTSetting a WITH ( NOLOCK )
+               FROM bodb02.dbo.Acc_GroupExtraPTSetting a WITH(NOLOCK)
                WHERE @StartDate BETWEEN FromDate AND Todate
-                 AND a.ProductId = 5
-               GROUP BY SuperId,Sporttype;
+                     AND a.ProductId = 5
+               GROUP BY SuperId, 
+                        Sporttype;
     END;
-
-     SELECT m.MatchId,
-            m.MatchCode,
-            m.HomeId,
-            m.AwayId,
-            m.LeagueId,
-            SUM((winlost - actual_stake) * actualrate) MemberWinLoss,
-            SUM((awinlost + mwinlost + swinlost) * actualrate) AS SMAWinLoss,
-			-SUM((CASE
-                              WHEN b.tpositiontaking = 1
-                              THEN 0
-                              ELSE(winlost - actual_stake ) + b.scomm / ( 1 - b.tpositiontaking )
-                          END) * ISNULL(e.ExtraPT, 0) * actualrate) AS ExtraPT,
-            SUM(scomm * actualrate) Commission,
-            SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - ( CASE
-                                                                                                    WHEN tpositiontaking = 1
-                                                                                                    THEN 0
-                                                                                                    ELSE winlost - actual_stake + b.scomm / ( 1 - b.tpositiontaking )
-                                                                                                END ) * ISNULL(e.ExtraPT, 0)) * actualrate) AS RealIncome,
-                       SUM(CASE
-                              WHEN tpositiontaking = 1
-                              THEN 0
-                              ELSE( 1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * b.stake * CASE
-                                                                                                       WHEN virtualrate > actualrate
-                                                                                                       THEN virtualrate
-                                                                                                       ELSE actualrate
-                                                                                                   END
-                          END) AS RealTurnover
-     FROM bettrans AS b WITH (nolock)
-          INNER JOIN match AS m WITH (nolock) ON b.MatchId = m.MatchId
-		  LEFT JOIN #ExtraPT_Sel e ON e.SuperID = b.srecommend
+     SELECT m.MatchId, 
+            m.MatchCode, 
+            m.HomeId, 
+            m.AwayId, 
+            m.LeagueId, 
+            SUM((winlost - actual_stake) * actualrate) MemberWinLoss, 
+            SUM((awinlost + mwinlost + swinlost) * actualrate) AS SMAWinLoss, 
+            -SUM((CASE
+                      WHEN b.tpositiontaking = 1
+                      THEN 0
+                      ELSE(winlost - actual_stake) + b.scomm / (1 - b.tpositiontaking)
+                  END) * ISNULL(e.ExtraPT, 0) * actualrate) AS ExtraPT, 
+            SUM(scomm * actualrate) Commission, 
+            SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - (CASE
+                                                                                        WHEN tpositiontaking = 1
+                                                                                        THEN 0
+                                                                                        ELSE winlost - actual_stake + b.scomm / (1 - b.tpositiontaking)
+                                                                                    END) * ISNULL(e.ExtraPT, 0)) * actualrate) AS RealIncome, 
+            SUM(CASE
+                    WHEN tpositiontaking = 1
+                    THEN 0
+                    ELSE(1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * b.stake * CASE
+                                                                                       WHEN virtualrate > actualrate
+                                                                                       THEN virtualrate
+                                                                                       ELSE actualrate
+                                                                                   END
+                END) AS RealTurnover
+     FROM bettrans AS b WITH(NOLOCK)
+          INNER JOIN match AS m WITH(NOLOCK) ON b.MatchId = m.MatchId
+          LEFT JOIN #ExtraPT_Sel e ON e.SuperID = b.srecommend
      WHERE b.winlostdate = @StartDate
            AND b.BetType = @BetType
            AND m.SportType = @SportType
            AND b.MatchId > 0
            AND b.ruben = 1
            AND statusID IN(111, 112, 113)
-     GROUP BY m.MatchId,
-              m.MatchCode,
-              m.HomeId,
-              m.AwayId,
+     GROUP BY m.MatchId, 
+              m.MatchCode, 
+              m.HomeId, 
+              m.AwayId, 
               m.LeagueId
-     ORDER BY m.LeagueId,
-              m.MatchCode,
-              m.HomeId,
+     ORDER BY m.LeagueId, 
+              m.MatchCode, 
+              m.HomeId, 
               m.AwayId;
-
-	DROP TABLE #ExtraPT_Sel;
--------------------
-
-GO
-GRANT EXECUTE ON [dbo].[Acc_Rpt_CompanyWinLoss_VirtualSportsbook_MatchDetail] TO [bodbAdminNet];
-GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_Rpt_CompanyWinLoss_VirtualSportsbook_MatchDetail] TO [vnteam];
+     DROP TABLE #ExtraPT_Sel;
+--
 GO
