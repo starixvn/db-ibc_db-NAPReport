@@ -18,6 +18,7 @@ Revisions:
 - 20181018@Robert: Fix performance issue on House Win Loss by Product [#103309]
 - 20190121@Franklin: Integrate Poker Games (#107706)
 - 20190925@Jacob: Group By CN88 (#118824)
+- 20190918@Robert: Remove inactive products (#120215)
 Parameter's Explanation:
 	- @Site: credit, deposit
 
