@@ -1,15 +1,7 @@
-﻿USE [bodb02]
-GO
-/****** Object:  StoredProcedure [dbo].[Acc_Rpt_Balance_Agent_Yesterday]    Script Date: 02/06/2014 00:19:50 ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-/****** Object:  Stored Procedure dbo.Acc_Rpt_Balance_Agent_Yesterday    Script Date: 5/23/2011 6:24:11 PM ******/
-
+﻿/*<info serverAlias="DBTXN-bodb02,DBACC-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_Rpt_Balance_Agent_Yesterday]
-	@masterid int = 0
-as
+	@masterid INT = 0
+AS
 /*
 Created: 
 Task : Get Agent yesterday balance
@@ -20,42 +12,60 @@ Revisions:
 	- 20100111@Jamie: Get currencyName from cache 
 	- 20110516@Lukas: re-arrange bettype
 	- 20131119@Lukas: remove running/void/reject/refund tickets
+	- 20190919@Bobby: Enhance SMA Balance report [redmine: #119990] 
 */
-SET NOCOUNT ON 
+BEGIN
+	SET NOCOUNT ON 
 
-DECLARE @currentDate datetime 
-SELECT  @currentDate = convert(varchar(10), CURRENT_TIMESTAMP, 120)
+	DECLARE @currentDate	SMALLDATETIME
+		, @yesterday		SMALLDATETIME
 
-SELECT custid, username,c.currency, 
-	   IsNull(bal,0) bal,
-	   IsNull(BaseBal,0) baseBalance  
-FROM custinfo c (nolock)
-	LEFT OUTER JOIN 
+	SELECT @currentDate		= CAST(CURRENT_TIMESTAMP AS DATE)
+		,@yesterday			= @currentDate -1
+		,@masterid			= ISNULL(@masterid,0)
+	
+	CREATE TABLE #AgentInfo (
+		custid				INT PRIMARY KEY
+		, username			NVARCHAR(50)
+		, currency			INT
+	)
+
+	INSERT INTO #AgentInfo (custid, username, currency)
+	SELECT c.custid, c.username,c.currency
+	FROM dbo.custinfo c (nolock)
+	WHERE c.mrecommend = @masterid
+		AND c.roleid = 2
+
+	;
+	WITH CTE_AgentBalance AS 
 	(
-		SELECT	recommend,
-				isnull(sum(case custid 
-							WHEN mrecommend then 0
-							WHEN recommend then winlost-actual_stake else awinlost+comm-playercomm end),0) 
-				+ isnull(sum(case when custid <> recommend AND ruben=1 then winlost-actual_stake+playercomm else 0 end),0) 
-				- isnull(sum(case when bettype < 19001 and winlostdate >= @currentDate and ruben = 1 then awinlost+comm + winlost-actual_stake else 0 end),0) Bal,
-							
-				isnull(sum((case custid 
-									WHEN mrecommend then 0
-									WHEN recommend then winlost-actual_stake else awinlost+comm-playercomm end)* actualrate),0) 
-				+ isnull(sum((case when custid <> recommend AND ruben=1 then winlost-actual_stake+playercomm else 0 end)* actualrate),0) 
-				- isnull(sum((case when bettype < 19001 and winlostdate >= @currentDate and ruben = 1 then awinlost+comm + winlost-actual_stake else 0 end)* actualrate),0) BaseBal
-			
-		FROM bettrans WITH (nolock)
-		WHERE mrecommend = @masterid
-			AND ruben = 1 
-			AND statusID NOT IN (101,102,103) 
-		GROUP BY bettrans.recommend
-	) bal ON c.custid = bal.recommend
-WHERE c.roleid = 2 AND c.mrecommend = @masterid
-order by username
-
-
+		SELECT	b.recommend AS custid
+			,SUM(bet.Balance) AS Balance
+			,SUM(bet.Balance * b.actualrate) AS BaseBalance
+		FROM #AgentInfo ai
+		INNER JOIN dbo.bettrans b WITH (nolock)
+		ON b.recommend = ai.custid
+		CROSS APPLY (
+			SELECT 
+				CASE 
+					WHEN (b.bettype >= 20000 OR b.winlostdate <= @yesterday) THEN
+						(CASE WHEN b.custid = b.recommend THEN winlost-actual_stake ELSE awinlost+comm-playercomm END) -- agent level
+						+ (CASE WHEN b.custid <> b.recommend then winlost-actual_stake+playercomm else 0 end) -- member level
+					ELSE 0
+				END 
+				AS Balance
+		) AS bet
+		WHERE b.winlostdate <= @currentDate
+			AND b.ruben = 1 
+			AND b.statusID NOT IN (101,102,103) 
+		GROUP BY b.recommend
+	)
+	SELECT c.custid, c.username,c.currency
+		,ISNULL(Balance,0) Balance
+		,ISNULL(BaseBalance,0) BaseBalance  
+	FROM #AgentInfo c
+	LEFT JOIN CTE_AgentBalance AS bal 
+	ON c.custid = bal.custid
+	ORDER BY c.username
+END
 GO
-GRANT EXECUTE ON [dbo].[Acc_Rpt_Balance_Agent_Yesterday] TO [bodbAdminNet] AS [dbo]
-GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_Rpt_Balance_Agent_Yesterday] TO [vnteam] AS [dbo]

@@ -1,20 +1,12 @@
-﻿USE [bodb02]
-GO
-/****** Object:  StoredProcedure [dbo].[Acc_Rpt_Balance_Master_Yesterday]    Script Date: 02/06/2014 00:17:45 ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-/****** Object:  Stored Procedure dbo.Acc_Rpt_Balance_Master_Yesterday    Script Date: 5/23/2011 6:24:12 PM ******/
-
-
-ALTER PROCEDURE [dbo].[Acc_Rpt_Balance_Master_Yesterday]
-	@superid int = 0,
-	@Keyword nvarchar(50) = '',
-	@FirstChar nvarchar(6)= '',
-	@Currency int = NULL	
+﻿/*<info serverAlias="DBTXN-bodb02,DBACC-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+ALTER PROCEDURE [dbo].[Acc_Rpt_Balance_Master_Yesterday] 
+	@superid		INT = 0
+	, @Keyword		NVARCHAR(50) = ''
+	, @FirstChar	NVARCHAR(6) = ''
+	, @Currency		INT = NULL
 AS
-SET NOCOUNT ON
+
+
 /*
 Created: 
 Task : Get Master balance
@@ -28,81 +20,113 @@ Revisions:
 		- 20110516@Lukas: re-arrange bettype
 		- 20131119@Lukas: remove running/void/reject/refund tickets
 		- 20160322@Robert: Moving customers to new lines  [Redmine: #53554]
+		- 20190919@Bobby: Enhance SMA Balance report [redmine: #119990] 
 */
-
-DECLARE @currentDate datetime, @srecommend int
-SELECT @currentDate = convert(varchar(10), CURRENT_TIMESTAMP, 120)
-
-CREATE TABLE #MasterInfo 
-(	
-	custid int PRIMARY KEY,
-	srecommend	int, 
-	username nvarchar(50),
-	currency int
-)  
-
-IF @superid = 0 
 BEGIN
-	if @keyword <> '' or @FirstChar <> ''
+	SET NOCOUNT ON
+
+	DECLARE @currentDate	SMALLDATETIME
+		, @yesterday		SMALLDATETIME
+		, @srecommend		INT
+
+	SELECT @currentDate		= CAST(CURRENT_TIMESTAMP AS DATE)
+		,@yesterday			= @currentDate -1
+		,@superid			= ISNULL(@superid,0)
+	
+	CREATE TABLE #SuperKey (
+		srecommend			INT PRIMARY KEY
+	)
+
+	CREATE TABLE #MasterInfo (
+		custid				INT PRIMARY KEY
+		, srecommend		INT
+		, username			NVARCHAR(50)
+		, currency			INT
+	)
+
+	IF @superid = 0 
 	BEGIN
-		INSERT INTO #MasterInfo (custid,username,srecommend, currency)
-		SELECT custid, username,srecommend, currency
-		FROM customer c with (nolock)
-		WHERE c.roleid = 3 and (srecommend < 100 or srecommend in (21278849, 21278858))
-			and c.username like '%' + @Keyword + '%'
-			AND c.username like @FirstChar + '%'
+		-- Direct level
+		IF @keyword <> '' 
+			OR @FirstChar <> ''
+		BEGIN
+			INSERT INTO #MasterInfo (custid,username,srecommend, currency)
+			SELECT custid, username,srecommend, currency
+			FROM dbo.customer c WITH (NOLOCK)
+			WHERE c.roleid = 3
+			AND (
+				srecommend < 100
+				OR srecommend IN (21278849, 21278858)
+				)
+			AND c.username LIKE '%' + @Keyword + '%'
+			AND c.username LIKE @FirstChar + '%'
+
 		
-	END
+		END
+		ELSE 
+		BEGIN 
+			INSERT INTO #MasterInfo (custid,username,srecommend, currency)
+			SELECT custid, username,srecommend, currency
+			FROM dbo.customer c with (nolock)
+			WHERE c.roleid = 3
+			AND (
+				srecommend < 100
+				OR srecommend IN (21278849, 21278858)
+				)
+		END 
+	END 
 	ELSE 
-	BEGIN 
+	BEGIN
+		-- Drill down level
 		INSERT INTO #MasterInfo (custid,username,srecommend, currency)
 		SELECT custid, username,srecommend, currency
-		FROM customer c with (nolock)
-		WHERE c.roleid = 3 AND (srecommend < 100 or srecommend in (21278849, 21278858))
-	END 
-END 
-ELSE 
-BEGIN
-	INSERT INTO #MasterInfo (custid,username,srecommend, currency)
-	SELECT custid, username,srecommend, currency
-	FROM customer c with (nolock)
-	WHERE c.roleid = 3 AND srecommend = @superid 
+		FROM dbo.customer c with (nolock)
+		WHERE c.roleid = 3 AND srecommend = @superid 
 	 
+	END
+
+	INSERT INTO #SuperKey
+	SELECT DISTINCT srecommend
+	FROM #MasterInfo
+
+	----EMPTY first
+	--IF(@@ROWCOUNT = 0) RETURN
+
+	IF @Currency IS NOT NULL
+	BEGIN 
+		DELETE FROM #MasterInfo WHERE currency <> @currency 
+	END  
+
+	;
+	WITH CTE_MasterBalance AS (
+		SELECT b.mrecommend AS custid
+			,SUM(bal.totalBalance) AS Balance
+			,SUM(bal.totalBalance * b.actualrate) AS BaseBalance
+		FROM #SuperKey sk
+		INNER JOIN dbo.bettrans b WITH (NOLOCK) 
+		ON b.srecommend = sk.srecommend 
+		CROSS APPLY (
+			SELECT CASE 
+				WHEN (b.bettype >= 20000 OR b.winlostdate <= @yesterday) THEN
+					(CASE WHEN b.custid=b.mrecommend THEN winlost-actual_stake ELSE mwinlost+acomm-comm END) -- master level
+					+ (CASE WHEN b.custid=b.recommend THEN winlost-actual_stake ELSE awinlost+comm-playercomm END) -- agent level
+					+ (CASE WHEN b.custid <> b.recommend and b.custid <> b.mrecommend THEN winlost-actual_stake+playercomm ELSE 0 END) -- member level
+				ELSE 0
+				END
+			AS totalBalance
+		) AS bal
+		WHERE EXISTS (SELECT TOP 1 1 FROM #MasterInfo mt WHERE b.mrecommend = mt.custid)
+			AND b.winlostdate <= @currentDate 
+			AND b.ruben = 1 
+			AND b.statusID NOT IN (101,102,103) 
+		GROUP BY b.mrecommend
+	)
+	SELECT mi.custid, mi.username, mi.currency 
+		, ISNULL(bal.Balance,0) AS Balance
+		, ISNULL(bal.BaseBalance,0) AS BaseBalance
+	FROM #MasterInfo mi
+		LEFT JOIN CTE_MasterBalance bal ON bal.custid = mi.custid
+	ORDER BY mi.username 
+
+	DROP TABLE #MasterInfo
 END
-
-IF @Currency is not null
-BEGIN 
-	DELETE FROM #MasterInfo WHERE currency <> @currency 
-END  
-
-SELECT custid ,username, m.currency, 
-	   IsNull(bal,0) AS Balance, 
-	   IsNull(Basebal,0) AS BaseBalance
-FROM #MasterInfo M 
-	LEFT OUTER JOIN (
-			 SELECT 
-					srecommend, mrecommend, 
-					isnull(sum(case when custid=mrecommend then winlost-actual_stake else mwinlost+acomm-comm end),0)
-					+ isnull(sum(case when custid=recommend then winlost-actual_stake else awinlost+comm-playercomm end),0)
-					+ isnull(sum(case when custid <> recommend and custid <> mrecommend and ruben=1 then winlost-actual_stake+playercomm else 0 end),0) 
-					- isnull(sum(case when bettype < 19001 and winlostdate >= @currentDate and ruben = 1 then mwinlost+acomm + awinlost + winlost-actual_stake else 0 end ),0)AS bal	,
-					
-					isnull(sum((case when custid=mrecommend then winlost-actual_stake else mwinlost+acomm-comm end)*actualrate),0)
-					+ isnull(sum((case when custid=recommend then winlost-actual_stake else awinlost+comm-playercomm end)*actualrate),0)
-					+ isnull(sum((case when custid <> recommend and custid <> mrecommend and ruben=1 then winlost-actual_stake+playercomm else 0 end)*actualrate),0) 
-					- isnull(sum((case when bettype < 19001 and winlostdate >= @currentDate and ruben = 1 then mwinlost+acomm + awinlost + winlost-actual_stake else 0 end )*actualrate),0)AS Basebal									
-			  FROM bettrans with (nolock)
-			  WHERE mrecommend in (SELECT custid FROM #MasterInfo WITH (NOLOCK))
-					AND srecommend in (SELECT srecommend FROM #MasterInfo WITH (NOLOCK))
-					AND ruben = 1 
-					AND statusID NOT IN (101,102,103) 
-			  GROUP BY mrecommend, srecommend  
-			)as Bal ON M.custid = Bal.mrecommend 
-order by username 
-DROP TABLE #MasterInfo
-
-
-GO
-GRANT EXECUTE ON [dbo].[Acc_Rpt_Balance_Master_Yesterday] TO [bodbAdminNet] AS [dbo]
-GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_Rpt_Balance_Master_Yesterday] TO [vnteam] AS [dbo]
