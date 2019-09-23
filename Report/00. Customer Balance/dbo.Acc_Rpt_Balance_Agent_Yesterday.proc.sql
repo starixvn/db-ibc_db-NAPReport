@@ -19,10 +19,11 @@ BEGIN
 
 	DECLARE @currentDate	SMALLDATETIME
 		, @yesterday		SMALLDATETIME
+		, @_masterid		INT
 
 	SELECT @currentDate		= CAST(CURRENT_TIMESTAMP AS DATE)
 		,@yesterday			= @currentDate -1
-		,@masterid			= ISNULL(@masterid,0)
+		,@_masterid			= ISNULL(@masterid,0)
 	
 	CREATE TABLE #AgentInfo (
 		custid				INT PRIMARY KEY
@@ -33,7 +34,7 @@ BEGIN
 	INSERT INTO #AgentInfo (custid, username, currency)
 	SELECT c.custid, c.username,c.currency
 	FROM dbo.custinfo c (nolock)
-	WHERE c.mrecommend = @masterid
+	WHERE c.mrecommend = @_masterid
 		AND c.roleid = 2
 
 	;
