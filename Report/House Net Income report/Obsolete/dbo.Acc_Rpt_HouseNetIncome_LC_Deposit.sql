@@ -1,5 +1,4 @@
-USE bodb02
-GO
+/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
 ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_LC_Deposit]
 	@FromDate DATE,
@@ -14,6 +13,7 @@ AS
     Revisions:  
 		- 20160909@Harper - #63853 - Return wrong data Pay to Supplier
 		- 20160922@Harper - #63926 - Remove IsApplyMinFee
+		- 20190918@Robert: Remove inactive products (#120215)
 	Param's Explanation:   
 */  
 BEGIN  
@@ -170,7 +170,3 @@ BEGIN
 	DROP TABLE #FinalResult
 END
 GO
-
-GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_LC_Deposit] TO [bodbAdminNet]
-GO
-GRANT VIEW definition ON [dbo].[Acc_Rpt_HouseNetIncome_LC_Deposit] TO vnteam

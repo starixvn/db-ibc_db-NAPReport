@@ -322,6 +322,14 @@ EXEC [Acc_Rpt_CompanyWinLoss_SystemParlay_14] @EndDate='2020-01-01',@StartDate='
                                 FROM #DepositSuper dep
                                 WHERE b.srecommend = dep.custid
                             )
+
+					   AND NOT EXISTS
+                            (
+                                SELECT 1
+                                FROM CS_CustSuper AS cn88 WITH(NOLOCK)
+                                WHERE b.srecommend = cn88.CustId
+                            )
+
                             GROUP BY 'System Parlay(' + STATUS + ')',
                                      CASE liveawayscore
                                          WHEN 1
@@ -332,7 +340,93 @@ EXEC [Acc_Rpt_CompanyWinLoss_SystemParlay_14] @EndDate='2020-01-01',@StartDate='
                                          THEN 'Multi Sport Total'
                                          ELSE ''
                                      END;
-             END;;
+			 END
+		   ELSE 
+		   IF @Site = 'CN88'
+                     BEGIN
+                         INSERT INTO #Data
+                                SELECT CASE liveawayscore
+                                           WHEN 1
+                                           THEN 'Soccer Sport Total'
+                                           WHEN 2
+                                           THEN 'Others Sport Total'
+                                           WHEN 3
+                                           THEN 'Multi Sport Total'
+                                           ELSE ''
+                                       END AS GroupName, 
+                                       'System Parlay(' + STATUS + ')' AS RowName, 
+                                       SUM((winlost - actual_stake) * actualrate) MemberWinLost, 
+                                       SUM((awinlost + mwinlost + swinlost) * actualrate) AS SMAWinLoss, 
+                                       SUM((CASE
+                                                WHEN b.tpositiontaking = 1
+                                                THEN 0
+                                                ELSE(winlost - actual_stake) + b.scomm / (1 - b.tpositiontaking)
+                                            END) * ISNULL(e.ExtraPT, 0) * actualrate) AS ExtraPT, 
+                                       SUM(scomm * actualrate) Commission, 
+                                       SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - (CASE
+                                                                                                                   WHEN tpositiontaking = 1
+                                                                                                                   THEN 0
+                                                                                                                   ELSE winlost - actual_stake + b.scomm / (1 - b.tpositiontaking)
+                                                                                                               END) * ISNULL(e.ExtraPT, 0)) * actualrate) RealIncome, 
+                                       SUM((winlost - actual_stake + awinlost + mwinlost + swinlost - CASE
+                                                                                                          WHEN tpositiontaking = 1
+                                                                                                          THEN 0
+                                                                                                          ELSE(winlost - actual_stake) * ISNULL(e.ExtraPT, 0)
+                                                                                                      END) * virtualrate + (scomm - (CASE
+                                                                                                                                         WHEN tpositiontaking = 1
+                                                                                                                                         THEN 0
+                                                                                                                                         ELSE b.scomm / (1 - b.tpositiontaking)
+                                                                                                                                     END) * ISNULL(e.ExtraPT, 0)) * actualrate * CASE
+                                                                                                                                                                                     WHEN virtualrate < actualrate
+                                                                                                                                                                                     THEN virtualrate / actualrate
+                                                                                                                                                                                     ELSE 1
+                                                                                                                                                                                 END) VirtualIncome, 
+                                       SUM((winlost - actual_stake + awinlost + mwinlost + swinlost - CASE
+                                                                                                          WHEN tpositiontaking = 1
+                                                                                                          THEN 0
+                                                                                                          ELSE(winlost - actual_stake) * ISNULL(e.ExtraPT, 0)
+                                                                                                      END + CASE
+                                                                                                                WHEN virtualrate < actualrate
+                                                                                                                THEN(b.scomm - (CASE
+                                                                                                                                    WHEN tpositiontaking = 1
+                                                                                                                                    THEN 0
+                                                                                                                                    ELSE b.scomm / (1 - b.tpositiontaking)
+                                                                                                                                END) * ISNULL(e.ExtraPT, 0))
+                                                                                                                ELSE 0
+                                                                                                            END) * (actualrate - virtualrate)) VarianceIncome, 
+                                       SUM(CASE
+                                               WHEN tpositiontaking = 1
+                                               THEN 0
+                                               ELSE(1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * ABS(b.stake) * CASE
+                                                                                                                       WHEN virtualrate > actualrate
+                                                                                                                       THEN virtualrate
+                                                                                                                       ELSE actualrate
+                                                                                                                   END
+                                           END) RealTurnover, 
+                                       SUM(CASE
+                                               WHEN tpositiontaking = 1
+                                               THEN 0
+                                               ELSE(1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * ABS(b.stake) * virtualrate
+                                           END) VirtualTurnover
+                                FROM bettrans14 b WITH(NOLOCK)
+                                     INNER JOIN CS_CustSuper cn88 ON b.srecommend = cn88.custid
+                                     LEFT JOIN #ExtraPT_Sel e ON e.SuperID = b.srecommend
+                                WHERE b.winlostdate = @StartDate
+                                      AND BetType = 29
+                                      AND betteam <> '1'
+                                      AND ruben = 1
+                                      AND statusID IN(111, 112, 113)
+                                GROUP BY 'System Parlay(' + STATUS + ')',
+                                         CASE liveawayscore
+                                             WHEN 1
+                                             THEN 'Soccer Sport Total'
+                                             WHEN 2
+                                             THEN 'Others Sport Total'
+                                             WHEN 3
+                                             THEN 'Multi Sport Total'
+                                             ELSE ''
+                                         END;
+                 END;
     BEGIN -- Query
 
         SELECT d.GroupName AS GroupName, 

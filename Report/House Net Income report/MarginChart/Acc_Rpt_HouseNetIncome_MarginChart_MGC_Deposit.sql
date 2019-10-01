@@ -1,7 +1,4 @@
-/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
-
-USE bodb02
-GO
+/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
 ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_MGC_Deposit]
 	@FromDate DATE,
@@ -15,6 +12,7 @@ AS
    
     Revisions:
 		- 20180126@Harper - HDWL Letstalk - Implement Chart of NonSport product margin [#RedmineID: 89632]
+		- 20190918@Robert: Remove inactive products (#120215)
 		
 	Param's Explanation:   
 
@@ -31,9 +29,7 @@ BEGIN
 	DECLARE @ProductsRef AS TABLE (ProductId INT, BettypeRef INT, BettypeId INT, GameTypeName VARCHAR(100))
 
 	INSERT INTO @ProductsRef (ProductId, BettypeId, BettypeRef, GameTypeName)
-	SELECT CASE WHEN sp.Sporttype = 203 THEN 14
-				WHEN sp.Sporttype = 205 THEN 17 
-				ELSE 0 END AS ProductId, 
+	SELECT 0 AS ProductId, 
 			sp.Bettype, pr.BettypeRef,
 			CASE WHEN pr.BettypeRef = 2001
 					THEN 'Generic Games' 
@@ -225,7 +221,7 @@ BEGIN
 	FROM (
 			SELECT rpt.RptDate3rd, SiteId, pr.ProductId, pr.BettypeRef, pr.GameTypeName, CurrencyId, 				
 				-SUM(ISNULL(Winloss, 0)) AS LicenseeWinLoss,
-				CASE WHEN pr.ProductId = 17 THEN SUM(ISNULL(ProgressiveContribution, 0)) ELSE 0 END  AS ProgresCont -- IF RNG: Contr <> 0, else = 0
+				0  AS ProgresCont -- IF RNG: Contr <> 0, else = 0
 			FROM bodb_LicenseeReport.dbo.rpt_ThirdPartyWL_ExtraGMT rpt WITH (NOLOCK)
 				INNER JOIN @ProductsRef pr ON rpt.BetTypeId = pr.BettypeId
 			WHERE rpt.RptDate3rd BETWEEN @FromDate AND @ToDate
@@ -271,36 +267,8 @@ BEGIN
 	UPDATE r
 	SET r.PayToSupplier = (-1) * m.PayToSupplierByDate
 	FROM AmtByDate m 
-		INNER JOIN #FinalResult r ON r.RptDate = m.RptDate3rd	
-		
-	-- Monthly
-	--; WITH sums AS 
-	--			(	SELECT b.BettypeRef
-	--					, SUM(b.LicenseeNetWin * e.MYR) AS LicenseeNetWin
-	--					, ci.Rate, ci.FromDate, ci.ToDate, ci.MinAmount, ci.MaxAmount, ci.ChargeType
-	--				FROM #TempDataMGC3rd b
-	--					INNER JOIN #ExchangeOANDA e ON e.ExchangeDate = b.RptDate3rd AND e.ExchangeID = b.CurrencyId
-	--					INNER JOIN @ProductChargeInfo ci ON b.RptDate3rd BETWEEN ci.FromDate AND ci.ToDate AND b.BettypeRef = ci.BettypeRef	
-	--				GROUP BY b.BettypeRef, ci.Rate, ci.FromDate, ci.ToDate, ci.MinAmount, ci.MaxAmount, ci.ChargeType
-	--			),
-	--AmtByMonth AS
-	--(
-	--	SELECT s.BettypeRef,
-	--		CASE 
-	--				WHEN (ChargeType = 4 AND (s.LicenseeNetWin BETWEEN s.MinAmount AND s.MaxAmount)) 
-	--				THEN CASE 						
-	--						WHEN MinAmount = 0 THEN s.LicenseeNetWin * s.Rate
-	--						WHEN MinAmount > 0 THEN ((s.LicenseeNetWin - MinAmount) * Rate) + (s.MinAmount * 0.1)
-	--						ELSE 0 END
-	--				ELSE 0 END +
-	--			CASE 
-	--				WHEN ChargeType = 1 AND s.LicenseeNetWin > 0 THEN s.LicenseeNetWin * Rate ELSE 0 END
-	--			AS PayToSupplier
-	--	FROM sums s
-	--)
-	--UPDATE #FinalResult
-	--SET PayToSupplier = (SELECT (-1) * SUM(PayToSupplier) FROM AmtByMonth)
-	--WHERE RptDate LIKE 'FullRange'
+		INNER JOIN #FinalResult r ON r.RptDate = m.RptDate3rd		
+
 
 	---------------------------------------------------- Select the output -------------------------------------------------------
 	DECLARE @SQL VARCHAR(1000)
@@ -326,9 +294,4 @@ BEGIN
 	DROP TABLE #FinalResult
 	DROP TABLE #TempDataMGC3rd
 END
-GO
-
-GRANT EXECUTE ON [dbo].Acc_Rpt_HouseNetIncome_MarginChart_MGC_Deposit TO [bodbAdminNet]
-GO
-GRANT VIEW definition ON [dbo].Acc_Rpt_HouseNetIncome_MarginChart_MGC_Deposit TO vnteam
 GO

@@ -18,6 +18,7 @@ AS
 		- 20170825@Harper - #79612 - Add VS2 to caculate Discount
 		- 20181202@Robert: #104579 - House Net Income Email/Letstalk/Margin Chart - Integrate Happy 5
 		- 20190214@Robert: #97564 - House Net Income & Margin Charts - Apply new changing on discount and update calculation formula for related products
+		- 20190918@Robert: Remove inactive products (#120215)
 
 	Param's Explanation:   
 */
@@ -198,9 +199,7 @@ BEGIN
 		 SELECT s.ProductId
 			 , CASE
 				  WHEN s.ProductId = 0
-				  THEN 'SB'
-				  WHEN s.ProductId IN(14, 17)
-				  THEN 'MGC'
+				  THEN 'SB'				 
 				  ELSE p.ProductPrefix
 			   END AS ProductCode
 			 , CASE
@@ -215,9 +214,7 @@ BEGIN
 		 GROUP BY s.ProductId
 			   , CASE
 				    WHEN s.ProductId = 0
-				    THEN 'SB'
-				    WHEN s.ProductId IN(14, 17)
-				    THEN 'MGC'
+				    THEN 'SB'				    
 				    ELSE p.ProductPrefix
 				END
 			   , CASE
@@ -227,11 +224,7 @@ BEGIN
 				END
 		 UNION ALL
 		 SELECT ProductId
-			 , CASE
-				  WHEN ProductId IN(14, 17)
-				  THEN 'MGC'
-				  ELSE ProductPrefix
-			   END AS ProductCode
+			 , ProductPrefix AS ProductCode
 			 , 3 AS [Order]
 			 , 'Rebate & Discount' AS Figure
 			 , 0 AS FullRange
@@ -242,7 +235,7 @@ BEGIN
 									ProductID
 							   FROM #TmpData_LA
 						    )
-			  AND Productid IN(2, 4, 5, 6, 8, 14, 17, 12, 22, 11, 21, 24)
+			  AND Productid IN(2, 5, 6, 8, 22, 11, 21, 24)
 		 UNION ALL
 		 SELECT 0
 			 , 'SB' AS ProductCode
@@ -270,14 +263,11 @@ BEGIN
 	    , 'Pay to supplier' AS Figure
 	    , ISNULL(r.FullRange, 0) * -0.4 AS FullRange
     FROM #RebateDiscount AS r
-    WHERE r.ProductId IN(2, 4); /* NG, LC*/
+    WHERE r.ProductId IN(2); /* NG, LC*/
 
     DROP TABLE #DiscountGroupHeader;
     DROP TABLE #DiscountGroup;
     DROP TABLE #RebateDiscount;
     DROP TABLE #TmpData_LA;
 END;
-GO
-
-GRANT EXECUTE ON dbo.Acc_Rpt_HouseNetIncome_DiscountRebate TO [bodbAdminNet];
 GO

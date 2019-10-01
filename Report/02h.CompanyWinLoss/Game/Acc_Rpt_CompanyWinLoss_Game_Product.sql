@@ -21,6 +21,7 @@ Revisions:
 - 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
 - 20190326@Robert: #109981 - NAP Report - Integrate Promotion Prize
 - 20190925@Jacob: Group By CN88 (#118824)
+- 20190918@Robert: Remove inactive products (#120215)
 
 Example:
 EXEC [Acc_Rpt_CompanyWinLoss_Game_Product] @EndDate='2020-01-01',@StartDate='2017-01-05', @CasinoType = 1
@@ -40,9 +41,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_Product] @EndDate='2020-01-01',@StartDate='201
                      );
         INSERT INTO #SportBetType
                SELECT s.ProductID,
-                      CASE
-                          WHEN s.ProductID = 4
-                          THEN 'SLI'
+                      CASE                          
                           WHEN s.ProductID = 6
                           THEN 'MBC - RNG Casino'
                           ELSE p.ProductName

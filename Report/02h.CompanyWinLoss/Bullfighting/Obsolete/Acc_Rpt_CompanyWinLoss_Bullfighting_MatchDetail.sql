@@ -17,6 +17,7 @@ Revisions:
 - 20171102@Franklin: Bullfighting(#85382)
 - 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
 - 20190925@Jacob: Group By CN88 (#118824)
+- 20190918@Robert: Remove inactive products (#120215)
 
 Example:
 EXEC [Acc_Rpt_CompanyWinLoss_Bullfighting_MatchDetail] @SportType=207, @BetType=1004, @StartDate='2017-11-01', @EndDate='2018-12-31'
