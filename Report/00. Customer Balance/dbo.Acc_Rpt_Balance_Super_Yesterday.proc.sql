@@ -48,7 +48,6 @@ BEGIN
 		, username			NVARCHAR(50)
 		, currency			INT
 		, roleId			INT
-		, isShow			BIT DEFAULT(1)
 		, headlineEnabled	BIT DEFAULT(0)
 	)
 
@@ -106,23 +105,6 @@ BEGIN
 	SELECT @isSearchHeadline = 1
 	WHERE EXISTS(SELECT TOP 1 1 FROM #SuperInfo WHERE roleid = 0)
 
-	IF (@isSearchCust = 1
-		AND @isSearchHeadline = 1
-	)
-	BEGIN
-		-- GATHER super's downline
-		INSERT INTO #SuperInfo (custid,username, currency, roleid, isShow)
-		SELECT t.custid,t.username, t.currency, t.roleid, 0
-		FROM (
-			SELECT cs.custid,c.username,c.currency,c.roleid
-			FROM dbo.CustSuper cs WITH (NOLOCK) 
-				INNER JOIN dbo.custinfo c with (nolock) ON cs.custid = c.custid
-			WHERE EXISTS (SELECT TOP 1 1 FROM #SuperInfo si WHERE cs.UplineId = si.custid AND si.roleid = 0)
-		) AS t
-		LEFT JOIN #SuperInfo si ON t.custid = si.custid
-		WHERE si.custid IS NULL
-	END
-
 	-- cal Super's balance
 	;
 	WITH cte_bettrans AS
@@ -154,41 +136,24 @@ BEGIN
 	SELECT CustID, Balance, BaseBalance
 	FROM cte_bettrans
 
-	-- re-CAL headline balance = [super's balance + headline's transfer]
+	-- re-CAL headline balance = [headline's all transfer]
 	IF(@isSearchHeadline = 1)
 	BEGIN
-		WITH CTE_HeadlineSuper AS (  
-			SELECT DISTINCT cs.custid AS superId, cs.UplineId AS HeadlineId
-			FROM bodb02.dbo.CustSuper cs WITH (NOLOCK)  
-			WHERE EXISTS(SELECT TOP 1 1 FROM #SuperInfo si WHERE cs.UplineId = si.custid AND si.roleid = 0)
-		)  
-		-- headline's balance
-		, CTE_HeadlineBalance AS (  
-			SELECT h.HeadlineId AS custid, SUM(Balance) AS Balance , SUM(BaseBalance) AS BaseBalance
-			FROM #superBalance sb  
-			INNER JOIN CTE_HeadlineSuper h ON sb.custid = h.superId  
-			GROUP BY h.HeadlineId  
-		)
-		-- headline's transfer
-		, CTE_HeadlineTransfer AS (
+		WITH CTE_HeadlineTransfer AS (
 			SELECT 
 				si.custid
-				,SUM(bal.totalBalance) AS Balance
-				,SUM(bal.totalBalance*b.actualrate) AS BaseBalance
+				,SUM(bal.winlost) AS Balance
+				,SUM(bal.winlost*b.actualrate) AS BaseBalance
 			FROM #SuperInfo si
-			INNER JOIN dbo.bettrans b with (READPAST) ON b.custid = si.custid AND si.roleId = 0
+			INNER JOIN dbo.bettrans b with (READPAST) 
+				ON b.custid = si.custid AND si.roleId = 0
 			CROSS APPLY (
-				SELECT (winlost - actual_stake) AS totalBalance
+				SELECT (winlost - actual_stake) AS winlost
 			) AS bal
 			WHERE b.winlostdate <= @currentDate
-				AND bettype > 20000
 			GROUP BY si.custid
 		)
 		INSERT #superBalance (CustID, Balance, BaseBalance)
-		SELECT CustID, Balance, BaseBalance
-		FROM CTE_HeadlineBalance
-
-		UNION ALL
 		SELECT CustID, Balance, BaseBalance
 		FROM CTE_HeadlineTransfer
 	END
@@ -200,7 +165,6 @@ BEGIN
 			, SUM(ISNULL(bal.BaseBalance, 0)) AS BaseBalance
 		FROM #SuperInfo si
 		LEFT JOIN #superBalance bal  ON si.custid = bal.custid
-		WHERE si.isShow = 1 
 		GROUP BY 
 			si.CustID, si.username, si.currency, si.headlineEnabled
 
@@ -217,7 +181,6 @@ BEGIN
 		SELECT @Total = SUM(ISNULL(bal.BaseBalance, 0))
 		FROM #SuperInfo si
 		LEFT JOIN #superBalance bal  ON si.custid = bal.custid
-		WHERE si.isShow = 1
 	END
 
 	DROP TABLE #SuperInfo
