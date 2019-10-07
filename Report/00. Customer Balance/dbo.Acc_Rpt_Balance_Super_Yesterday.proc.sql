@@ -150,7 +150,7 @@ BEGIN
 			CROSS APPLY (
 				SELECT (winlost - actual_stake) AS winlost
 			) AS bal
-			WHERE b.winlostdate <= @yesterday
+			WHERE b.winlostdate <= @currentDate
 			GROUP BY si.custid
 		)
 		INSERT #superBalance (CustID, Balance, BaseBalance)
