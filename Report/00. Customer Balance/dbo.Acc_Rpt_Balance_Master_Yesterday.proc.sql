@@ -1,4 +1,4 @@
-﻿/*<info serverAlias="DBTXN-bodb02,DBACC-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+﻿/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_Rpt_Balance_Master_Yesterday] 
 	@superid		INT = 0
 	, @Keyword		NVARCHAR(50) = ''
@@ -10,7 +10,7 @@ AS
 /*
 Created: 
 Task : Get Master balance
-DB: DB02/DB06.bodb02
+DB: DB06.bodb02
 Original: 
 Revisions:	
 		--Balance calculated with the correct transfer date @Phuong20080927
