@@ -15,8 +15,9 @@ AS
 	Task: Trader Performance Report - Detail - SoccerPH - bettrans14
 
 	Revisions:
-		-20170925@Kean: Update formula of ExtraPT
-		- 20180328@Kean: Apply new concept of Commission to Trader Performance Report (#111015)
+		20170925@Kean: Update formula of ExtraPT
+		20180328@Kean: Apply new concept of Commission to Trader Performance Report (#111015)
+		20191010@Cherry: Apply new table for Trader (#120746)
 
 	Param's Explanation:
 */

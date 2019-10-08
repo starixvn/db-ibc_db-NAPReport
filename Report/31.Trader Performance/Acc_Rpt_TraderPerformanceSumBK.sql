@@ -17,8 +17,9 @@ AS
 
 	Revisions:
 		@20171229: Adhoc Trader Performance
-		- 20180328@Kean: Apply new concept of Commission to Trader Performance Report (#111015)
-		- 20190709@Kean: Add new Bettype - Total Bookings 15 mins HDP (#116435)
+		20180328@Kean: Apply new concept of Commission to Trader Performance Report (#111015)
+		20190709@Kean: Add new Bettype - Total Bookings 15 mins HDP (#116435)
+		20191010@Cherry: Apply new table for Trader (#120746)
 
 	Param's Explanation:
 		@IsSoccer:
