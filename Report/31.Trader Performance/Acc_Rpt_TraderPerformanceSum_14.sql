@@ -192,7 +192,7 @@ BEGIN
 	IF @IsSoccer = 1
 	BEGIN
 		INSERT INTO #tmpData
-		SELECT DISTINCT a.operatorid, username, m.matchID,  
+		SELECT DISTINCT a.TraderID, username, m.matchID,  
 			a.bettype,
 			CASE
 				WHEN leaguename LIKE '%SPECIFIC 15 MINS%' AND t.teamname LIKE '%No.of Corners%' THEN 6
@@ -207,7 +207,7 @@ BEGIN
 			ELSE 0 END OUType,
 			l.category
 		FROM #tmpTraderAssignment a 
-			INNER JOIN dbo.customer c WITH (NOLOCK) ON a.operatorid = c.custid
+			INNER JOIN dbo.customer c WITH (NOLOCK) ON a.TraderID = c.custid
 			INNER JOIN dbo.match14 m WITH (NOLOCK) ON a.matchid = m.matchid
 			LEFT JOIN dbo.team t WITH (NOLOCK) ON m.homeid = t.teamid
 			INNER JOIN dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid
@@ -245,12 +245,12 @@ BEGIN
 	ELSE
 	BEGIN
 		INSERT INTO #tmpData
-		SELECT DISTINCT a.operatorid, username, m.matchID,  
+		SELECT DISTINCT a.TraderID, username, m.matchID,  
 			a.bettype,
 			0,
 			l.category
 		FROM #tmpTraderAssignment a 
-			INNER JOIN dbo.customer c WITH (NOLOCK) ON a.operatorid = c.custid
+			INNER JOIN dbo.customer c WITH (NOLOCK) ON a.TraderID = c.custid
 			INNER JOIN dbo.match14 m WITH (NOLOCK) ON a.matchid = m.matchid
 			INNER JOIN dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid
 		WHERE a.bettype IN (1, 3, 7, 8, 5, 15, 2, 12, 124, 125) 

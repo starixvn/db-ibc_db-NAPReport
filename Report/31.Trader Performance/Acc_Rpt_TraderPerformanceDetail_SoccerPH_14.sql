@@ -244,7 +244,7 @@ BEGIN
 			INNER JOIN #BettypeMapping bm ON bm.Bettype = a.bettype
 			INNER JOIN dbo.match14 m WITH (NOLOCK) ON a.matchid = m.matchid
 			LEFT JOIN dbo.team t WITH (NOLOCK) ON m.homeid = t.teamid
-			INNER JOIN dbo.customer c WITH (NOLOCK) ON a.operatorid = c.custid
+			INNER JOIN dbo.customer c WITH (NOLOCK) ON a.TraderID = c.custid
 			INNER JOIN dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid
 		WHERE
 			m.eventdate BETWEEN @FromDate AND @ToDate

@@ -212,12 +212,12 @@ BEGIN
 	END
 
 	INSERT INTO #tmpData
-	SELECT DISTINCT a.operatorid, username, m.matchID,  
+	SELECT DISTINCT a.TraderID, username, m.matchID,  
 		bm.Bettype,
 		l.category
 	FROM #tmpTraderAssignment a 
 		INNER JOIN #BettypeMapping bm ON bm.Bettype = a.bettype
-		INNER JOIN dbo.customer c WITH (NOLOCK) ON a.operatorid = c.custid
+		INNER JOIN dbo.customer c WITH (NOLOCK) ON a.TraderID = c.custid
 		INNER JOIN dbo.match14 m WITH (NOLOCK) ON a.matchid = m.matchid
 		LEFT JOIN dbo.team t WITH (NOLOCK) ON m.homeid = t.teamid
 		INNER JOIN dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid

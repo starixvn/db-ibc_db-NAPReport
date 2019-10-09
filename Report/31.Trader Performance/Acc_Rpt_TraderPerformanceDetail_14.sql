@@ -238,7 +238,7 @@ BEGIN
 		FROM #tmpTraderAssignment a 
 			INNER JOIN dbo.match14 m WITH (NOLOCK) ON a.matchid = m.matchid
 			LEFT JOIN dbo.team t WITH (NOLOCK) ON m.homeid = t.teamid
-			INNER JOIN dbo.customer c WITH (NOLOCK) ON a.operatorid = c.custid
+			INNER JOIN dbo.customer c WITH (NOLOCK) ON a.TraderID = c.custid
 			INNER JOIN dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid
 		WHERE a.bettype IN (1, 3, 7, 8, 5, 15, 124, 125)
 			AND m.eventdate BETWEEN @FromDate AND @ToDate
@@ -303,7 +303,7 @@ BEGIN
 			,0
 		FROM #tmpTraderAssignment a 
 			INNER JOIN dbo.match14 m WITH (NOLOCK) ON a.matchid = m.matchid
-			INNER JOIN dbo.customer c WITH (NOLOCK) ON a.operatorid = c.custid
+			INNER JOIN dbo.customer c WITH (NOLOCK) ON a.TraderID = c.custid
 			INNER JOIN dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid
 		WHERE a.bettype IN (1, 3, 7, 8, 5, 15, 2, 12, 124, 125)
 			AND m.eventdate BETWEEN @FromDate AND @ToDate
