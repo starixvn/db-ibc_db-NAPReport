@@ -32,6 +32,32 @@ BEGIN
 
 	DECLARE @countMajorOrphan INT, @countMinor1Orphan INT, @countMinor2Orphan INT, @countMinor3Orphan INT, @countOthersOrphan INT
   
+	CREATE TABLE #tmpDot_Admin_Assignment_Trader (
+			ID INT PRIMARY KEY,
+			eventdate DATE,
+			matchid INT,
+			bettype SMALLINT,
+			liveindicator TINYINT,
+			Detail_X SMALLINT,
+			Detail_Y SMALLINT,
+			Detail_Z SMALLINT,
+			TraderID INT,
+			UpdatedTime DATETIME
+		)
+
+	CREATE TABLE #tmpTraderAssignment (
+		eventdate DATE,
+		matchid INT,
+		bettype SMALLINT,
+		livestatus TINYINT,
+		TraderID INT
+	)
+	
+	CREATE TABLE #tmpBettype (
+		typeid INT,
+		HasExtraDimXYZ TINYINT
+	)
+	
 	CREATE TABLE #tmpData
 	(  
 		custid		INT,
@@ -88,18 +114,86 @@ BEGIN
 	) A
 	GROUP BY SuperId, FromDate, ToDate
 
+	BEGIN
+		INSERT INTO #tmpBettype (typeid, HasExtraDimXYZ)
+		SELECT typeid, HasExtraDimXYZ
+		FROM DBWH.bodb_Account.dbo.Bettype 
+		
+		-- Insert data to #tmpDot_Admin_Assignment_Trader
+		INSERT INTO #tmpDot_Admin_Assignment_Trader(ID,EventDate,matchid,bettype,liveindicator,Detail_X,Detail_Y,Detail_Z,TraderID,UpdatedTime)
+		SELECT t.ID
+			   ,m.eventdate
+			   ,t.matchid
+			   ,t.bettype
+			   ,t.liveindicator
+			   ,t.Detail_X
+			   ,t.Detail_Y
+			   ,t.Detail_Z
+			   ,t.TraderID
+			   ,t.UpdatedTime
+		FROM bodb02.dbo.Dot_Admin_Assignment_Trader t (NOLOCK)
+			 LEFT JOIN bodb02.dbo.match m (NOLOCK) ON t.matchid = m.matchid 
+		WHERE m.eventdate BETWEEN @FromDate AND @ToDate;
+
+		-- Insert data to #tmpFactTraderAssignment - Group1_matchid|bettype|livestatus
+		WITH
+		CTE_Group1 AS (
+			SELECT t.ID,t.eventdate,t.matchid,t.bettype,t.liveindicator,t.TraderID
+				   ,RANK() OVER(PARTITION BY t.matchid,t.bettype,t.liveindicator ORDER BY t.UpdatedTime DESC,t.ID DESC) Rank_
+			FROM #tmpDot_Admin_Assignment_Trader t (NOLOCK)
+				 INNER JOIN #tmpBettype b ON t.bettype = b.typeid and b.HasExtraDimXYZ = 0			
+		)
+		INSERT INTO #tmpTraderAssignment(eventdate,matchid,bettype,livestatus,TraderID)
+		SELECT t.eventdate,t.matchid,t.bettype,liveindicator livestatus,t.TraderID
+		FROM CTE_Group1 t
+		WHERE t.Rank_ = 1;
+
+		-- Insert data to #tmpFactTraderAssignment - Group2_matchid|bettype|livestatus|Detail_X
+		WITH
+		CTE_Group2 AS (
+			SELECT t.ID,t.eventdate,t.matchid,t.bettype,t.liveindicator,t.TraderID
+				   ,RANK() OVER(PARTITION BY t.matchid,t.bettype,t.liveindicator,t.Detail_X ORDER BY t.UpdatedTime DESC,t.ID DESC) Rank_
+			FROM #tmpDot_Admin_Assignment_Trader t (NOLOCK)
+				 INNER JOIN #tmpBettype b ON t.bettype = b.typeid and b.HasExtraDimXYZ = 1
+		)
+		INSERT INTO #tmpTraderAssignment(eventdate,matchid,bettype,livestatus,TraderID)
+		SELECT t.eventdate,t.matchid,t.bettype,t.liveindicator livestatus,t.TraderID
+		FROM CTE_Group2 t
+		WHERE t.Rank_ = 1;
+
+		-- Insert data to #tmpFactTraderAssignment - Group3_matchid|bettype|livestatus|Detail_X|Detail_Y
+		WITH
+		CTE_Group3 AS (
+			SELECT t.ID,t.eventdate,t.matchid,t.bettype,t.liveindicator,t.TraderID
+				   ,RANK() OVER(PARTITION BY t.matchid,t.bettype,t.liveindicator,t.Detail_X,t.Detail_Y ORDER BY t.UpdatedTime DESC,t.ID DESC) Rank_
+			FROM #tmpDot_Admin_Assignment_Trader t (NOLOCK)
+				 INNER JOIN #tmpBettype b ON t.bettype = b.typeid and b.HasExtraDimXYZ = 2
+		)
+		INSERT INTO #tmpTraderAssignment(eventdate,matchid,bettype,livestatus,TraderID)
+		SELECT t.eventdate,t.matchid,t.bettype,t.liveindicator livestatus,t.TraderID
+		FROM CTE_Group3 t
+		WHERE t.Rank_ = 1;
+		
+		-- Insert data to #tmpFactTraderAssignment - Group4_matchid|bettype|livestatus|Detail_X|Detail_Y|Detail_Z
+		WITH
+		CTE_Group4 AS (
+			SELECT t.ID,t.eventdate,t.matchid,t.bettype,t.liveindicator,t.TraderID
+				   ,RANK() OVER(PARTITION BY t.matchid,t.bettype,t.liveindicator,t.Detail_X,t.Detail_Y,t.Detail_Z ORDER BY t.UpdatedTime DESC,t.ID DESC) Rank_
+			FROM #tmpDot_Admin_Assignment_Trader t (NOLOCK)
+				 INNER JOIN #tmpBettype b ON t.bettype = b.typeid and b.HasExtraDimXYZ = 3
+		)
+		INSERT INTO #tmpTraderAssignment(eventdate,matchid,bettype,livestatus,TraderID)
+		SELECT t.eventdate,t.matchid,t.bettype,t.liveindicator livestatus,t.TraderID
+		FROM CTE_Group4 t
+		WHERE t.Rank_ = 1;
+
+	END
+
 	IF @IsSoccer = 1
 	BEGIN
 		INSERT INTO #tmpData
 		SELECT DISTINCT a.operatorid, username, m.matchID,  
-			CASE
-				WHEN (a.bettype = 1 OR a.bettype = 5) AND a.operatortype = 1 THEN 1
-				WHEN (a.bettype = 1 AND a.operatortype = 2) THEN 7
-				WHEN (a.bettype = 2 AND a.operatortype = 1) THEN 3
-				WHEN (a.bettype = 2 AND a.operatortype = 2) THEN 8
-				WHEN (a.bettype = 3 AND a.operatortype = 1) THEN 5
-				WHEN (a.bettype = 3 AND a.operatortype = 2) THEN 15    
-			END bettype,
+			a.bettype,
 			CASE
 				WHEN leaguename LIKE '%SPECIFIC 15 MINS%' AND t.teamname LIKE '%No.of Corners%' THEN 6
 				WHEN t.teamname LIKE '%No.of Corners%' THEN 1
@@ -112,17 +206,16 @@ BEGIN
 				WHEN leaguename LIKE '%SINGLE TEAM OVER/UNDER%' AND (t.teamname LIKE '%Over' OR t.teamname LIKE '%Under') THEN 9
 			ELSE 0 END OUType,
 			l.category
-		FROM bodb_Archive.dbo.Dot_admin_Assignment_Operator_bk a WITH (NOLOCK)
+		FROM #tmpTraderAssignment a 
 			INNER JOIN dbo.customer c WITH (NOLOCK) ON a.operatorid = c.custid
 			INNER JOIN dbo.match14 m WITH (NOLOCK) ON a.matchid = m.matchid
 			LEFT JOIN dbo.team t WITH (NOLOCK) ON m.homeid = t.teamid
 			INNER JOIN dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid
-		WHERE  
-			m.eventdate BETWEEN @FromDate AND @ToDate
+		WHERE  a.bettype IN (1, 3, 7, 8, 5, 15, 124, 125)
+			AND m.eventdate BETWEEN @FromDate AND @ToDate
 			AND m.eventstatus = 'completed'
 			AND m.sporttype = 1
 			AND m.matchcode NOT LIKE '%hedge%'
-			AND a.operatortype < 3
 
 		INSERT INTO #tmpData
 		SELECT NULL, NULL, m.matchID, 0 bettype,
@@ -138,7 +231,7 @@ BEGIN
 				WHEN leaguename LIKE '%SINGLE TEAM OVER/UNDER%' AND (t.teamname LIKE '%Over' OR t.teamname LIKE '%Under') THEN 9
 				ELSE 0 END OUType,
 			l.category
-		FROM bodb_Archive.dbo.Dot_admin_Assignment_Operator_bk a WITH (NOLOCK)
+		FROM #tmpTraderAssignment a
 			RIGHT JOIN dbo.match14 m WITH (NOLOCK) ON a.matchid = m.matchid  
 			LEFT JOIN dbo.team t WITH (NOLOCK) ON m.homeid = t.teamid   
 			INNER JOIN dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid  
@@ -153,32 +246,22 @@ BEGIN
 	BEGIN
 		INSERT INTO #tmpData
 		SELECT DISTINCT a.operatorid, username, m.matchID,  
-			CASE
-				WHEN (a.bettype = 1 OR a.bettype = 5) AND a.operatortype = 1 THEN 1
-				WHEN (a.bettype = 1 AND a.operatortype = 2) THEN 7
-				WHEN (a.bettype = 2 AND a.operatortype = 1) THEN 3
-				WHEN (a.bettype = 2 AND a.operatortype = 2) THEN 8
-				WHEN (a.bettype = 3 AND a.operatortype = 1) THEN 5
-				WHEN (a.bettype = 3 AND a.operatortype = 2) THEN 15
-				WHEN (a.bettype = 4 AND a.operatortype = 1) THEN 2
-				WHEN (a.bettype = 4 AND a.operatortype = 2) THEN 12        
-			END,
+			a.bettype,
 			0,
 			l.category
-		FROM bodb_Archive.dbo.Dot_admin_Assignment_Operator_bk a WITH (NOLOCK)
+		FROM #tmpTraderAssignment a 
 			INNER JOIN dbo.customer c WITH (NOLOCK) ON a.operatorid = c.custid
 			INNER JOIN dbo.match14 m WITH (NOLOCK) ON a.matchid = m.matchid
 			INNER JOIN dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid
-		WHERE  
-			m.eventdate BETWEEN @FromDate AND @ToDate
+		WHERE a.bettype IN (1, 3, 7, 8, 5, 15, 2, 12, 124, 125) 
+			AND m.eventdate BETWEEN @FromDate AND @ToDate
 			AND m.eventstatus = 'completed'
 			AND m.sporttype NOT IN (1, 161)
 			AND m.matchcode NOT LIKE '%hedge%'
-			AND a.operatortype < 3
 
 		INSERT INTO #tmpData
 		SELECT NULL, NULL, m.matchID, 0, 0, l.category
-		FROM bodb_Archive.dbo.Dot_admin_Assignment_Operator_bk a WITH (NOLOCK)
+		FROM #tmpTraderAssignment a 
 			RIGHT JOIN dbo.match14 m WITH (NOLOCK) ON a.matchid = m.matchid  
 			INNER JOIN dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid  
 		WHERE  
@@ -576,9 +659,8 @@ BEGIN
 	DROP TABLE #tmpData
 	DROP TABLE #userMatch
 	DROP TABLE #ExtraPTSportbook
+	DROP TABLE #tmpDot_Admin_Assignment_Trader
+	DROP TABLE #tmpTraderAssignment
+	DROP TABLE #tmpBettype
+	
 END
-GO
-GRANT EXECUTE ON [dbo].[Acc_Rpt_TraderPerformanceSum_14] TO [bodbAdminNet]
-GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_Rpt_TraderPerformanceSum_14] TO [vnteam]
-GO
