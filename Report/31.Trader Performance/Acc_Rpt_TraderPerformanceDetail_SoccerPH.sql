@@ -133,6 +133,9 @@ BEGIN
 	SELECT Bettype
 	FROM DBWH.bodb_Account.dbo.BettypeGroup
 	WHERE BettypeGroupID = 5	
+	
+	INSERT INTO #BettypeMapping (Bettype) VALUES (465)  -- used to place outsource bets following bettype [458]
+	INSERT INTO #BettypeMapping (Bettype) VALUES (466)  -- used to place outsource bets following bettype [459]
 
 	INSERT INTO #ExtraPTSportbook
 	SELECT SuperId, SUM(ExtraPT) AS ExtraPT, FromDate, ToDate
@@ -277,12 +280,14 @@ BEGIN
 			AND m.sporttype = 1
 			AND m.matchcode NOT LIKE '%hedge%'
 			AND a.matchid IS NULL
-	END		
+	END			
 		
 	INSERT INTO #bettrans
 	SELECT
 		b.matchid,
-		b.bettype,
+		CASE WHEN b.bettype = 465 THEN 458
+			 WHEN b.bettype = 466 THEN 459
+			 ELSE b.bettype END bettype,
 		SUM((CASE WHEN modds = 0.25 OR modds = - 0.25 THEN stake/2 ELSE stake END) * (1 - tpositiontaking) * virtualrate) AS stake,
 		-SUM((winlost - actual_stake + awinlost + mwinlost + swinlost) * virtualrate 
 								+ scomm * CASE WHEN b.virtualrate < b.actualrate THEN b.virtualrate ELSE b.actualrate END
@@ -292,8 +297,6 @@ BEGIN
                                       THEN b.virtualrate
                                       ELSE b.actualrate
                                   END) AS comm,
-		--SUM((CASE WHEN modds = 0.25 OR modds = - 0.25 THEN stake/2 ELSE stake END) * (1 - tpositiontaking- ISNULL(ExtraPT, 0)) * virtualrate) AS stake_AfterExtraPT,
-		---SUM((winlost - actual_stake + CASE WHEN tpositiontaking = 1 THEN 0 ELSE scomm/(1 - tpositiontaking) END) * virtualrate * ISNULL(e.ExtraPT, 0)) AS memberwinlost_ExtraPT,
 		SUM((CASE WHEN modds = 0.25 OR modds = - 0.25 THEN stake/2 ELSE stake END) * (CASE WHEN tpositiontaking = 1 THEN 0 ELSE 1 - tpositiontaking- ISNULL(ExtraPT, 0) END) * virtualrate) AS stake_AfterExtraPT,
 		-SUM(CASE WHEN tpositiontaking = 1 THEN 0 ELSE ((winlost - actual_stake) * virtualrate 
 														+ CASE WHEN tpositiontaking = 1 THEN 0 
@@ -316,7 +319,13 @@ BEGIN
 		AND m.eventstatus = 'completed'
 		AND m.sporttype = 1
 		AND m.matchcode NOT LIKE '%hedge%'
-	GROUP BY b.matchid, b.bettype
+	GROUP BY b.matchid, 
+			CASE WHEN b.bettype = 465 THEN 458
+			 WHEN b.bettype = 466 THEN 459
+			 ELSE b.bettype END
+	
+	DELETE FROM #BettypeMapping
+	WHERE Bettype in (465,466)
 
 	-- Return Data
 	INSERT INTO #Result (custid, username, eventdate, leagueid, matchid, 
