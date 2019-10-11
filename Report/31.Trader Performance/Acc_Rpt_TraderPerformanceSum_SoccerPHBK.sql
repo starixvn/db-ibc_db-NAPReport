@@ -25,6 +25,34 @@ AS
 
 BEGIN
 	SET NOCOUNT ON
+	
+	DECLARE @CutoffDay DATETIME = CAST ('20190901' AS DATETIME)
+	
+	CREATE TABLE #tmpDot_Admin_Assignment_Trader (
+			ID INT PRIMARY KEY,
+			eventdate DATE,
+			matchid INT,
+			bettype SMALLINT,
+			liveindicator TINYINT,
+			Detail_X SMALLINT,
+			Detail_Y SMALLINT,
+			Detail_Z SMALLINT,
+			TraderID INT,
+			UpdatedTime DATETIME
+		)
+
+	CREATE TABLE #tmpTraderAssignment (
+		eventdate DATE,
+		matchid INT,
+		bettype SMALLINT,
+		livestatus TINYINT,
+		TraderID INT
+	)
+	
+	CREATE TABLE #tmpBettype (
+		typeid INT,
+		HasExtraDimXYZ TINYINT
+	)
 
 	DECLARE @countMajorOrphan INT, @countMinor1Orphan INT, @countMinor2Orphan INT, @countMinor3Orphan INT, @countOthersOrphan INT
   
@@ -69,9 +97,7 @@ BEGIN
 	)
 	
 	CREATE TABLE #BettypeMapping(
-		OperatorType INT,
-		TradingBettype INT,
-		TicketBettype INT
+		Bettype INT
 	)
 	
 	CREATE TABLE #Result (
@@ -92,14 +118,13 @@ BEGIN
 		Commission	MONEY
 	)	
 	
-	INSERT INTO #BettypeMapping 
-	SELECT 	OperatorType, TradingBettype, TicketBettype
-	FROM DBDW.bodb_Account.dbo.TradingBettypeMapping WITH (NOLOCK)
-	WHERE OperatorType = 1 AND TradingBettype = 37
+	INSERT INTO #BettypeMapping (Bettype)
+	SELECT 	Bettype
+	FROM DBWH.bodb_Account.dbo.BettypeGroup
+	WHERE BettypeGroupID = 5
 	
-	DELETE m
-	FROM #BettypeMapping m
-	WHERE m.TicketBettype NOT IN (SELECT typeid FROM bodb02.dbo.bettype WITH (NOLOCK))
+	INSERT INTO #BettypeMapping (Bettype) VALUES (465)  -- used to place outsource bets following bettype [458]
+	INSERT INTO #BettypeMapping (Bettype) VALUES (466)  -- used to place outsource bets following bettype [459]
 
 	INSERT INTO #ExtraPTSportbook
 	SELECT SuperId, SUM(ExtraPT) AS ExtraPT, FromDate, ToDate
@@ -115,41 +140,288 @@ BEGIN
 			AND ProductId = 1 AND Sporttype = 0 AND SubProduct = ''
 	) A
 	GROUP BY SuperId, FromDate, ToDate
+	
+	IF @FromDate >= @CutoffDay
+	BEGIN
+		INSERT INTO #tmpBettype (typeid, HasExtraDimXYZ)
+		SELECT typeid, HasExtraDimXYZ
+		FROM DBWH.bodb_Account.dbo.Bettype 
+		
+		-- Insert data to #tmpDot_Admin_Assignment_Trader
+		INSERT INTO #tmpDot_Admin_Assignment_Trader(ID,EventDate,matchid,bettype,liveindicator,Detail_X,Detail_Y,Detail_Z,TraderID,UpdatedTime)
+		SELECT t.ID
+			   ,m.eventdate
+			   ,t.matchid
+			   ,t.bettype
+			   ,t.liveindicator
+			   ,t.Detail_X
+			   ,t.Detail_Y
+			   ,t.Detail_Z
+			   ,t.TraderID
+			   ,t.UpdatedTime
+		FROM bodb_Archive.dbo.Dot_Admin_Assignment_Trader_bk t (NOLOCK)
+			 LEFT JOIN bodb_Archive.dbo.match_bk m (NOLOCK) ON t.matchid = m.matchid 
+		WHERE m.eventdate BETWEEN @FromDate AND @ToDate;
 
-	INSERT INTO #tmpData
-	SELECT DISTINCT a.operatorid, username, m.matchID,  
-		bm.TicketBettype,
-		l.category
-	FROM bodb_Archive.dbo.Dot_admin_Assignment_Operator_bk a WITH (NOLOCK)
-		INNER JOIN #BettypeMapping bm ON bm.OperatorType = a.OperatorType AND bm.TradingBettype = a.bettype
-		INNER JOIN dbo.customer c WITH (NOLOCK) ON a.operatorid = c.custid
-		INNER JOIN bodb_Archive.dbo.match_bk m WITH (NOLOCK) ON a.matchid = m.matchid
-		LEFT JOIN dbo.team t WITH (NOLOCK) ON m.homeid = t.teamid
-		INNER JOIN dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid
-	WHERE  
-		m.eventdate BETWEEN @FromDate AND @ToDate
-		AND m.eventstatus = 'completed'
-		AND m.sporttype = 1
-		AND m.matchcode NOT LIKE '%hedge%'
+		-- Insert data to #tmpTraderAssignment - Group1_matchid|bettype|livestatus
+		WITH
+		CTE_Group1 AS (
+			SELECT t.ID,t.eventdate,t.matchid,t.bettype,t.liveindicator,t.TraderID
+				   ,RANK() OVER(PARTITION BY t.matchid,t.bettype,t.liveindicator ORDER BY t.UpdatedTime DESC,t.ID DESC) Rank_
+			FROM #tmpDot_Admin_Assignment_Trader t (NOLOCK)
+				 INNER JOIN #tmpBettype b ON t.bettype = b.typeid and b.HasExtraDimXYZ = 0			
+		)
+		INSERT INTO #tmpTraderAssignment(eventdate,matchid,bettype,livestatus,TraderID)
+		SELECT t.eventdate,t.matchid,t.bettype,liveindicator livestatus,t.TraderID
+		FROM CTE_Group1 t
+		WHERE t.Rank_ = 1;
 
-	INSERT INTO #tmpData
-	SELECT NULL, NULL, m.matchID, 0,
-		l.category
-	FROM bodb_Archive.dbo.Dot_admin_Assignment_Operator_bk a WITH (NOLOCK)
-		RIGHT JOIN bodb_Archive.dbo.match_bk m WITH (NOLOCK) ON a.matchid = m.matchid  
-		LEFT JOIN dbo.team t WITH (NOLOCK) ON m.homeid = t.teamid   
-		INNER JOIN dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid  
-	WHERE  
-		m.eventdate BETWEEN @FromDate AND @ToDate
-		AND m.eventstatus = 'completed'
-		AND m.sporttype = 1
-		AND m.matchcode NOT LIKE '%hedge%'
-		AND a.matchid IS NULL
+		-- Insert data to #tmpTraderAssignment - Group2_matchid|bettype|livestatus|Detail_X
+		WITH
+		CTE_Group2 AS (
+			SELECT t.ID,t.eventdate,t.matchid,t.bettype,t.liveindicator,t.TraderID
+				   ,RANK() OVER(PARTITION BY t.matchid,t.bettype,t.liveindicator,t.Detail_X ORDER BY t.UpdatedTime DESC,t.ID DESC) Rank_
+			FROM #tmpDot_Admin_Assignment_Trader t (NOLOCK)
+				 INNER JOIN #tmpBettype b ON t.bettype = b.typeid and b.HasExtraDimXYZ = 1
+		)
+		INSERT INTO #tmpTraderAssignment(eventdate,matchid,bettype,livestatus,TraderID)
+		SELECT t.eventdate,t.matchid,t.bettype,t.liveindicator livestatus,t.TraderID
+		FROM CTE_Group2 t
+		WHERE t.Rank_ = 1;
+
+		-- Insert data to #tmpTraderAssignment - Group3_matchid|bettype|livestatus|Detail_X|Detail_Y
+		WITH
+		CTE_Group3 AS (
+			SELECT t.ID,t.eventdate,t.matchid,t.bettype,t.liveindicator,t.TraderID
+				   ,RANK() OVER(PARTITION BY t.matchid,t.bettype,t.liveindicator,t.Detail_X,t.Detail_Y ORDER BY t.UpdatedTime DESC,t.ID DESC) Rank_
+			FROM #tmpDot_Admin_Assignment_Trader t (NOLOCK)
+				 INNER JOIN #tmpBettype b ON t.bettype = b.typeid and b.HasExtraDimXYZ = 2
+		)
+		INSERT INTO #tmpTraderAssignment(eventdate,matchid,bettype,livestatus,TraderID)
+		SELECT t.eventdate,t.matchid,t.bettype,t.liveindicator livestatus,t.TraderID
+		FROM CTE_Group3 t
+		WHERE t.Rank_ = 1;
+		
+		-- Insert data to #tmpTraderAssignment - Group4_matchid|bettype|livestatus|Detail_X|Detail_Y|Detail_Z
+		WITH
+		CTE_Group4 AS (
+			SELECT t.ID,t.eventdate,t.matchid,t.bettype,t.liveindicator,t.TraderID
+				   ,RANK() OVER(PARTITION BY t.matchid,t.bettype,t.liveindicator,t.Detail_X,t.Detail_Y,t.Detail_Z ORDER BY t.UpdatedTime DESC,t.ID DESC) Rank_
+			FROM #tmpDot_Admin_Assignment_Trader t (NOLOCK)
+				 INNER JOIN #tmpBettype b ON t.bettype = b.typeid and b.HasExtraDimXYZ = 3
+		)
+		INSERT INTO #tmpTraderAssignment(eventdate,matchid,bettype,livestatus,TraderID)
+		SELECT t.eventdate,t.matchid,t.bettype,t.liveindicator livestatus,t.TraderID
+		FROM CTE_Group4 t
+		WHERE t.Rank_ = 1;
+	
+		INSERT INTO #tmpData
+		SELECT DISTINCT a.operatorid, username, m.matchID,  
+			bm.Bettype,
+			l.category
+		FROM #tmpTraderAssignment a 
+			INNER JOIN #BettypeMapping bm ON bm.Bettype = a.bettype
+			INNER JOIN dbo.customer c WITH (NOLOCK) ON a.TraderID = c.custid
+			INNER JOIN bodb_Archive.dbo.match_bk m WITH (NOLOCK) ON a.matchid = m.matchid
+			LEFT JOIN dbo.team t WITH (NOLOCK) ON m.homeid = t.teamid
+			INNER JOIN dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid
+		WHERE  
+			m.eventdate BETWEEN @FromDate AND @ToDate
+			AND m.eventstatus = 'completed'
+			AND m.sporttype = 1
+			AND m.matchcode NOT LIKE '%hedge%'
+
+		INSERT INTO #tmpData
+		SELECT NULL, NULL, m.matchID, 0,
+			l.category
+		FROM #tmpTraderAssignment a
+			RIGHT JOIN bodb_Archive.dbo.match_bk m WITH (NOLOCK) ON a.matchid = m.matchid  
+			LEFT JOIN dbo.team t WITH (NOLOCK) ON m.homeid = t.teamid   
+			INNER JOIN dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid  
+		WHERE  
+			m.eventdate BETWEEN @FromDate AND @ToDate
+			AND m.eventstatus = 'completed'
+			AND m.sporttype = 1
+			AND m.matchcode NOT LIKE '%hedge%'
+			AND a.matchid IS NULL
+	END
+
+	IF @FromDate < @CutoffDay AND @ToDate < @CutoffDay 
+	BEGIN
+		INSERT INTO #tmpData
+		SELECT DISTINCT a.operatorid, username, m.matchID,  
+			bm.Bettype,
+			l.category
+		FROM bodb_Archive.dbo.Dot_admin_Assignment_Operator_bk a WITH (NOLOCK)
+			INNER JOIN #BettypeMapping bm ON bm.Bettype = a.bettype
+			INNER JOIN dbo.customer c WITH (NOLOCK) ON a.operatorid = c.custid
+			INNER JOIN bodb_Archive.dbo.match_bk m WITH (NOLOCK) ON a.matchid = m.matchid
+			LEFT JOIN dbo.team t WITH (NOLOCK) ON m.homeid = t.teamid
+			INNER JOIN dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid
+		WHERE  
+			m.eventdate BETWEEN @FromDate AND @ToDate
+			AND m.eventstatus = 'completed'
+			AND m.sporttype = 1
+			AND m.matchcode NOT LIKE '%hedge%'
+
+		INSERT INTO #tmpData
+		SELECT NULL, NULL, m.matchID, 0,
+			l.category
+		FROM bodb_Archive.dbo.Dot_admin_Assignment_Operator_bk a WITH (NOLOCK)
+			RIGHT JOIN bodb_Archive.dbo.match_bk m WITH (NOLOCK) ON a.matchid = m.matchid  
+			LEFT JOIN dbo.team t WITH (NOLOCK) ON m.homeid = t.teamid   
+			INNER JOIN dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid  
+		WHERE  
+			m.eventdate BETWEEN @FromDate AND @ToDate
+			AND m.eventstatus = 'completed'
+			AND m.sporttype = 1
+			AND m.matchcode NOT LIKE '%hedge%'
+			AND a.matchid IS NULL
+	END
+	
+	IF @FromDate < @CutoffDay AND @ToDate >= @CutoffDay
+	BEGIN
+		-- FromDate -> CutoffDay-1
+		INSERT INTO #tmpData
+		SELECT DISTINCT a.operatorid, username, m.matchID,  
+			bm.Bettype,
+			l.category
+		FROM bodb_Archive.dbo.Dot_admin_Assignment_Operator_bk a WITH (NOLOCK)
+			INNER JOIN #BettypeMapping bm ON bm.Bettype = a.bettype
+			INNER JOIN dbo.customer c WITH (NOLOCK) ON a.operatorid = c.custid
+			INNER JOIN bodb_Archive.dbo.match_bk m WITH (NOLOCK) ON a.matchid = m.matchid
+			LEFT JOIN dbo.team t WITH (NOLOCK) ON m.homeid = t.teamid
+			INNER JOIN dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid
+		WHERE  
+			m.eventdate >= @FromDate AND m.eventdate < @CutoffDay
+			AND m.eventstatus = 'completed'
+			AND m.sporttype = 1
+			AND m.matchcode NOT LIKE '%hedge%'
+
+		INSERT INTO #tmpData
+		SELECT NULL, NULL, m.matchID, 0,
+			l.category
+		FROM bodb_Archive.dbo.Dot_admin_Assignment_Operator_bk a WITH (NOLOCK)
+			RIGHT JOIN bodb_Archive.dbo.match_bk m WITH (NOLOCK) ON a.matchid = m.matchid  
+			LEFT JOIN dbo.team t WITH (NOLOCK) ON m.homeid = t.teamid   
+			INNER JOIN dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid  
+		WHERE  
+			m.eventdate >= @FromDate AND m.eventdate < @CutoffDay
+			AND m.eventstatus = 'completed'
+			AND m.sporttype = 1
+			AND m.matchcode NOT LIKE '%hedge%'
+			AND a.matchid IS NULL
+			
+		-- CutoffDay -> ToDate
+		INSERT INTO #tmpBettype (typeid, HasExtraDimXYZ)
+		SELECT typeid, HasExtraDimXYZ
+		FROM DBWH.bodb_Account.dbo.Bettype 
+		
+		-- Insert data to #tmpDot_Admin_Assignment_Trader
+		INSERT INTO #tmpDot_Admin_Assignment_Trader(ID,EventDate,matchid,bettype,liveindicator,Detail_X,Detail_Y,Detail_Z,TraderID,UpdatedTime)
+		SELECT t.ID
+			   ,m.eventdate
+			   ,t.matchid
+			   ,t.bettype
+			   ,t.liveindicator
+			   ,t.Detail_X
+			   ,t.Detail_Y
+			   ,t.Detail_Z
+			   ,t.TraderID
+			   ,t.UpdatedTime
+		FROM bodb_Archive.dbo.Dot_Admin_Assignment_Trader_bk t (NOLOCK)
+			 LEFT JOIN bodb_Archive.dbo.match_bk m (NOLOCK) ON t.matchid = m.matchid 
+		WHERE m.eventdate BETWEEN @CutoffDay AND @ToDate;
+
+		-- Insert data to #tmpTraderAssignment - Group1_matchid|bettype|livestatus
+		WITH
+		CTE_Group1 AS (
+			SELECT t.ID,t.eventdate,t.matchid,t.bettype,t.liveindicator,t.TraderID
+				   ,RANK() OVER(PARTITION BY t.matchid,t.bettype,t.liveindicator ORDER BY t.UpdatedTime DESC,t.ID DESC) Rank_
+			FROM #tmpDot_Admin_Assignment_Trader t (NOLOCK)
+				 INNER JOIN #tmpBettype b ON t.bettype = b.typeid and b.HasExtraDimXYZ = 0			
+		)
+		INSERT INTO #tmpTraderAssignment(eventdate,matchid,bettype,livestatus,TraderID)
+		SELECT t.eventdate,t.matchid,t.bettype,liveindicator livestatus,t.TraderID
+		FROM CTE_Group1 t
+		WHERE t.Rank_ = 1;
+
+		-- Insert data to #tmpTraderAssignment - Group2_matchid|bettype|livestatus|Detail_X
+		WITH
+		CTE_Group2 AS (
+			SELECT t.ID,t.eventdate,t.matchid,t.bettype,t.liveindicator,t.TraderID
+				   ,RANK() OVER(PARTITION BY t.matchid,t.bettype,t.liveindicator,t.Detail_X ORDER BY t.UpdatedTime DESC,t.ID DESC) Rank_
+			FROM #tmpDot_Admin_Assignment_Trader t (NOLOCK)
+				 INNER JOIN #tmpBettype b ON t.bettype = b.typeid and b.HasExtraDimXYZ = 1
+		)
+		INSERT INTO #tmpTraderAssignment(eventdate,matchid,bettype,livestatus,TraderID)
+		SELECT t.eventdate,t.matchid,t.bettype,t.liveindicator livestatus,t.TraderID
+		FROM CTE_Group2 t
+		WHERE t.Rank_ = 1;
+
+		-- Insert data to #tmpTraderAssignment - Group3_matchid|bettype|livestatus|Detail_X|Detail_Y
+		WITH
+		CTE_Group3 AS (
+			SELECT t.ID,t.eventdate,t.matchid,t.bettype,t.liveindicator,t.TraderID
+				   ,RANK() OVER(PARTITION BY t.matchid,t.bettype,t.liveindicator,t.Detail_X,t.Detail_Y ORDER BY t.UpdatedTime DESC,t.ID DESC) Rank_
+			FROM #tmpDot_Admin_Assignment_Trader t (NOLOCK)
+				 INNER JOIN #tmpBettype b ON t.bettype = b.typeid and b.HasExtraDimXYZ = 2
+		)
+		INSERT INTO #tmpTraderAssignment(eventdate,matchid,bettype,livestatus,TraderID)
+		SELECT t.eventdate,t.matchid,t.bettype,t.liveindicator livestatus,t.TraderID
+		FROM CTE_Group3 t
+		WHERE t.Rank_ = 1;
+		
+		-- Insert data to #tmpTraderAssignment - Group4_matchid|bettype|livestatus|Detail_X|Detail_Y|Detail_Z
+		WITH
+		CTE_Group4 AS (
+			SELECT t.ID,t.eventdate,t.matchid,t.bettype,t.liveindicator,t.TraderID
+				   ,RANK() OVER(PARTITION BY t.matchid,t.bettype,t.liveindicator,t.Detail_X,t.Detail_Y,t.Detail_Z ORDER BY t.UpdatedTime DESC,t.ID DESC) Rank_
+			FROM #tmpDot_Admin_Assignment_Trader t (NOLOCK)
+				 INNER JOIN #tmpBettype b ON t.bettype = b.typeid and b.HasExtraDimXYZ = 3
+		)
+		INSERT INTO #tmpTraderAssignment(eventdate,matchid,bettype,livestatus,TraderID)
+		SELECT t.eventdate,t.matchid,t.bettype,t.liveindicator livestatus,t.TraderID
+		FROM CTE_Group4 t
+		WHERE t.Rank_ = 1;
+	
+		INSERT INTO #tmpData
+		SELECT DISTINCT a.operatorid, username, m.matchID,  
+			bm.Bettype,
+			l.category
+		FROM #tmpTraderAssignment a 
+			INNER JOIN #BettypeMapping bm ON bm.Bettype = a.bettype
+			INNER JOIN dbo.customer c WITH (NOLOCK) ON a.TraderID = c.custid
+			INNER JOIN bodb_Archive.dbo.match_bk m WITH (NOLOCK) ON a.matchid = m.matchid
+			LEFT JOIN dbo.team t WITH (NOLOCK) ON m.homeid = t.teamid
+			INNER JOIN dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid
+		WHERE  
+			m.eventdate BETWEEN @CutoffDay AND @ToDate
+			AND m.eventstatus = 'completed'
+			AND m.sporttype = 1
+			AND m.matchcode NOT LIKE '%hedge%'
+
+		INSERT INTO #tmpData
+		SELECT NULL, NULL, m.matchID, 0,
+			l.category
+		FROM #tmpTraderAssignment a
+			RIGHT JOIN bodb_Archive.dbo.match_bk m WITH (NOLOCK) ON a.matchid = m.matchid  
+			LEFT JOIN dbo.team t WITH (NOLOCK) ON m.homeid = t.teamid   
+			INNER JOIN dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid  
+		WHERE  
+			m.eventdate BETWEEN @CutoffDay AND @ToDate
+			AND m.eventstatus = 'completed'
+			AND m.sporttype = 1
+			AND m.matchcode NOT LIKE '%hedge%'
+			AND a.matchid IS NULL
+	END
 		
 	INSERT INTO #bettrans
 	SELECT
 		b.matchid,
-		bettype,
+		CASE WHEN b.bettype = 465 THEN 458
+			 WHEN b.bettype = 466 THEN 459
+			 ELSE b.bettype END bettype,
 		SUM((CASE WHEN modds = 0.25 OR modds = - 0.25 THEN stake/2 ELSE stake END) * (1 - tpositiontaking) * virtualrate) AS stake,
 		-SUM((winlost - actual_stake + awinlost + mwinlost + swinlost) * virtualrate
 				+ scomm * CASE WHEN b.virtualrate < b.actualrate THEN b.virtualrate ELSE b.actualrate END) AS winlost,
@@ -167,7 +439,7 @@ BEGIN
 				   ELSE 1 END) AS bet
 	FROM bodb_Archive.dbo.bettrans_bk b WITH (NOLOCK)
 		INNER JOIN bodb_Archive.dbo.match_bk m WITH (NOLOCK) ON b.matchid = m.matchid 
-		INNER JOIN #BettypeMapping bm ON b.bettype = bm.TicketBettype
+		INNER JOIN #BettypeMapping bm ON b.bettype = bm.Bettype
 		LEFT JOIN #ExtraPTSportbook e ON b.srecommend = e.superId AND b.winlostdate BETWEEN e.FromDate AND e.ToDate
 		LEFT JOIN dbo.TradeCust AS td WITH (NOLOCK) ON b.custid = td.custid
 	WHERE
@@ -180,7 +452,13 @@ BEGIN
 		AND m.eventstatus = 'completed'
 		AND m.sporttype = 1
 		AND m.matchcode NOT LIKE '%hedge%'
-	GROUP BY b.matchid, bettype
+	GROUP BY b.matchid, 
+			CASE WHEN b.bettype = 465 THEN 458
+			 WHEN b.bettype = 466 THEN 459
+			 ELSE b.bettype END 
+			 
+	DELETE FROM #BettypeMapping
+	WHERE Bettype in (465,466)
 
 	INSERT INTO #userMatch (custid, nMatch, Major, Minor1, Minor2, Minor3, Others) 
 	SELECT
@@ -251,7 +529,7 @@ BEGIN
 				0 AS BetCount,					 			 
 				0 AS Commission			    			 			
 		FROM #BettypeMapping bm
-			INNER JOIN dbo.bettype bt WITH (NOLOCK) ON bm.TicketBettype = bt.typeid 
+			INNER JOIN dbo.bettype bt WITH (NOLOCK) ON bm.Bettype = bt.typeid 
 			LEFT JOIN #Result s ON s.custid = 0 AND bt.typeid = s.Bettype      
 		WHERE s.Bettype IS NULL
 		GROUP BY bt.typeid, bt.typenamee
@@ -267,7 +545,7 @@ BEGIN
 				0 AS BetCount,					 			 
 				0 AS Commission			    			 			
 		FROM #BettypeMapping bm
-			INNER JOIN dbo.bettype bt WITH (NOLOCK) ON bm.TicketBettype = bt.typeid 
+			INNER JOIN dbo.bettype bt WITH (NOLOCK) ON bm.Bettype = bt.typeid 
 	END
 	
 	UPDATE #Result
@@ -314,9 +592,8 @@ BEGIN
 	DROP TABLE #ExtraPTSportbook
 	DROP TABLE #BettypeMapping 
 	DROP TABLE #Result 
+	DROP TABLE #tmpDot_Admin_Assignment_Trader
+	DROP TABLE #tmpTraderAssignment
+	DROP TABLE #tmpBettype
+	
 END
-GO
-GRANT EXECUTE ON [dbo].[Acc_Rpt_TraderPerformanceSum_SoccerPHBK] TO [bodbAdminNet]
-GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_Rpt_TraderPerformanceSum_SoccerPHBK] TO [vnteam]
-GO

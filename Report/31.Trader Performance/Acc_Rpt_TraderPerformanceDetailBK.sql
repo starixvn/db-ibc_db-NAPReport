@@ -733,7 +733,7 @@ BEGIN
 				m.htawayscore,
 				m.finalhomescore,
 				m.finalawayscore,
-				a. bettype,
+				a.bettype,
 				m.isNeutral,
 				CASE 
 					WHEN leaguename LIKE '%SPECIFIC 15 MINS%' AND t.teamname LIKE '%No.of Corners%' THEN 6

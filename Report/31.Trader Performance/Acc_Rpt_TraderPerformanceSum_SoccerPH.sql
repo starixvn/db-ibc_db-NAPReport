@@ -160,7 +160,7 @@ BEGIN
 			 LEFT JOIN bodb02.dbo.match m (NOLOCK) ON t.matchid = m.matchid 
 		WHERE m.eventdate BETWEEN @FromDate AND @ToDate;
 
-		-- Insert data to #tmpFactTraderAssignment - Group1_matchid|bettype|livestatus
+		-- Insert data to #tmpTraderAssignment - Group1_matchid|bettype|livestatus
 		WITH
 		CTE_Group1 AS (
 			SELECT t.ID,t.eventdate,t.matchid,t.bettype,t.liveindicator,t.TraderID
@@ -173,7 +173,7 @@ BEGIN
 		FROM CTE_Group1 t
 		WHERE t.Rank_ = 1;
 
-		-- Insert data to #tmpFactTraderAssignment - Group2_matchid|bettype|livestatus|Detail_X
+		-- Insert data to #tmpTraderAssignment - Group2_matchid|bettype|livestatus|Detail_X
 		WITH
 		CTE_Group2 AS (
 			SELECT t.ID,t.eventdate,t.matchid,t.bettype,t.liveindicator,t.TraderID
@@ -186,7 +186,7 @@ BEGIN
 		FROM CTE_Group2 t
 		WHERE t.Rank_ = 1;
 
-		-- Insert data to #tmpFactTraderAssignment - Group3_matchid|bettype|livestatus|Detail_X|Detail_Y
+		-- Insert data to #tmpTraderAssignment - Group3_matchid|bettype|livestatus|Detail_X|Detail_Y
 		WITH
 		CTE_Group3 AS (
 			SELECT t.ID,t.eventdate,t.matchid,t.bettype,t.liveindicator,t.TraderID
@@ -199,7 +199,7 @@ BEGIN
 		FROM CTE_Group3 t
 		WHERE t.Rank_ = 1;
 		
-		-- Insert data to #tmpFactTraderAssignment - Group4_matchid|bettype|livestatus|Detail_X|Detail_Y|Detail_Z
+		-- Insert data to #tmpTraderAssignment - Group4_matchid|bettype|livestatus|Detail_X|Detail_Y|Detail_Z
 		WITH
 		CTE_Group4 AS (
 			SELECT t.ID,t.eventdate,t.matchid,t.bettype,t.liveindicator,t.TraderID
