@@ -44,7 +44,6 @@ BEGIN
 		eventdate DATE,
 		matchid INT,
 		bettype SMALLINT,
-		livestatus TINYINT,
 		TraderID INT
 	)
 	
@@ -173,10 +172,12 @@ BEGIN
 			   ,t.TraderID
 			   ,t.UpdatedTime
 		FROM bodb_Archive.dbo.Dot_Admin_Assignment_Trader_bk t (NOLOCK)
-			 LEFT JOIN bodb_Archive.dbo.match_bk m (NOLOCK) ON t.matchid = m.matchid 
-		WHERE m.eventdate BETWEEN @FromDate AND @ToDate;
+			INNER JOIN #BettypeMapping bm ON t.bettype = bm.Bettype
+			LEFT JOIN bodb_Archive.dbo.match_bk m (NOLOCK) ON t.matchid = m.matchid 
+		WHERE m.eventdate BETWEEN @FromDate AND @ToDate
+			AND t.liveindicator = 1;
 
-		-- Insert data to #tmpTraderAssignment - Group1_matchid|bettype|livestatus
+		-- Insert data to #tmpTraderAssignment
 		WITH
 		CTE_Group1 AS (
 			SELECT t.ID,t.eventdate,t.matchid,t.bettype,t.liveindicator,t.TraderID
@@ -184,49 +185,10 @@ BEGIN
 			FROM #tmpDot_Admin_Assignment_Trader t (NOLOCK)
 				 INNER JOIN #tmpBettype b ON t.bettype = b.typeid and b.HasExtraDimXYZ = 0			
 		)
-		INSERT INTO #tmpTraderAssignment(eventdate,matchid,bettype,livestatus,TraderID)
-		SELECT t.eventdate,t.matchid,t.bettype,liveindicator livestatus,t.TraderID
+		INSERT INTO #tmpTraderAssignment(eventdate, matchid, bettype, TraderID)
+		SELECT DISTINCT t.eventdate, t.matchid, t.bettype, t.TraderID
 		FROM CTE_Group1 t
-		WHERE t.Rank_ = 1;
-
-		-- Insert data to #tmpTraderAssignment - Group2_matchid|bettype|livestatus|Detail_X
-		WITH
-		CTE_Group2 AS (
-			SELECT t.ID,t.eventdate,t.matchid,t.bettype,t.liveindicator,t.TraderID
-				   ,RANK() OVER(PARTITION BY t.matchid,t.bettype,t.liveindicator,t.Detail_X ORDER BY t.UpdatedTime DESC,t.ID DESC) Rank_
-			FROM #tmpDot_Admin_Assignment_Trader t (NOLOCK)
-				 INNER JOIN #tmpBettype b ON t.bettype = b.typeid and b.HasExtraDimXYZ = 1
-		)
-		INSERT INTO #tmpTraderAssignment(eventdate,matchid,bettype,livestatus,TraderID)
-		SELECT t.eventdate,t.matchid,t.bettype,t.liveindicator livestatus,t.TraderID
-		FROM CTE_Group2 t
-		WHERE t.Rank_ = 1;
-
-		-- Insert data to #tmpTraderAssignment - Group3_matchid|bettype|livestatus|Detail_X|Detail_Y
-		WITH
-		CTE_Group3 AS (
-			SELECT t.ID,t.eventdate,t.matchid,t.bettype,t.liveindicator,t.TraderID
-				   ,RANK() OVER(PARTITION BY t.matchid,t.bettype,t.liveindicator,t.Detail_X,t.Detail_Y ORDER BY t.UpdatedTime DESC,t.ID DESC) Rank_
-			FROM #tmpDot_Admin_Assignment_Trader t (NOLOCK)
-				 INNER JOIN #tmpBettype b ON t.bettype = b.typeid and b.HasExtraDimXYZ = 2
-		)
-		INSERT INTO #tmpTraderAssignment(eventdate,matchid,bettype,livestatus,TraderID)
-		SELECT t.eventdate,t.matchid,t.bettype,t.liveindicator livestatus,t.TraderID
-		FROM CTE_Group3 t
-		WHERE t.Rank_ = 1;
-		
-		-- Insert data to #tmpTraderAssignment - Group4_matchid|bettype|livestatus|Detail_X|Detail_Y|Detail_Z
-		WITH
-		CTE_Group4 AS (
-			SELECT t.ID,t.eventdate,t.matchid,t.bettype,t.liveindicator,t.TraderID
-				   ,RANK() OVER(PARTITION BY t.matchid,t.bettype,t.liveindicator,t.Detail_X,t.Detail_Y,t.Detail_Z ORDER BY t.UpdatedTime DESC,t.ID DESC) Rank_
-			FROM #tmpDot_Admin_Assignment_Trader t (NOLOCK)
-				 INNER JOIN #tmpBettype b ON t.bettype = b.typeid and b.HasExtraDimXYZ = 3
-		)
-		INSERT INTO #tmpTraderAssignment(eventdate,matchid,bettype,livestatus,TraderID)
-		SELECT t.eventdate,t.matchid,t.bettype,t.liveindicator livestatus,t.TraderID
-		FROM CTE_Group4 t
-		WHERE t.Rank_ = 1;
+		WHERE t.Rank_ = 1;		
 		
 		INSERT INTO #tmpData
 		SELECT DISTINCT
@@ -412,10 +374,12 @@ BEGIN
 			   ,t.TraderID
 			   ,t.UpdatedTime
 		FROM bodb_Archive.dbo.Dot_Admin_Assignment_Trader_bk t (NOLOCK)
-			 LEFT JOIN bodb_Archive.dbo.match_bk m (NOLOCK) ON t.matchid = m.matchid 
-		WHERE m.eventdate BETWEEN @CutoffDay AND @ToDate;
+			INNER JOIN #BettypeMapping bm ON t.bettype = bm.Bettype
+			LEFT JOIN bodb_Archive.dbo.match_bk m (NOLOCK) ON t.matchid = m.matchid 
+		WHERE m.eventdate BETWEEN @CutoffDay AND @ToDate
+			AND t.liveindicator = 1;
 
-		-- Insert data to #tmpTraderAssignment - Group1_matchid|bettype|livestatus
+		-- Insert data to #tmpTraderAssignment 
 		WITH
 		CTE_Group1 AS (
 			SELECT t.ID,t.eventdate,t.matchid,t.bettype,t.liveindicator,t.TraderID
@@ -423,49 +387,10 @@ BEGIN
 			FROM #tmpDot_Admin_Assignment_Trader t (NOLOCK)
 				 INNER JOIN #tmpBettype b ON t.bettype = b.typeid and b.HasExtraDimXYZ = 0			
 		)
-		INSERT INTO #tmpTraderAssignment(eventdate,matchid,bettype,livestatus,TraderID)
-		SELECT t.eventdate,t.matchid,t.bettype,liveindicator livestatus,t.TraderID
+		INSERT INTO #tmpTraderAssignment(eventdate, matchid, bettype, TraderID)
+		SELECT DISTINCT t.eventdate, t.matchid, t.bettype, t.TraderID
 		FROM CTE_Group1 t
-		WHERE t.Rank_ = 1;
-
-		-- Insert data to #tmpTraderAssignment - Group2_matchid|bettype|livestatus|Detail_X
-		WITH
-		CTE_Group2 AS (
-			SELECT t.ID,t.eventdate,t.matchid,t.bettype,t.liveindicator,t.TraderID
-				   ,RANK() OVER(PARTITION BY t.matchid,t.bettype,t.liveindicator,t.Detail_X ORDER BY t.UpdatedTime DESC,t.ID DESC) Rank_
-			FROM #tmpDot_Admin_Assignment_Trader t (NOLOCK)
-				 INNER JOIN #tmpBettype b ON t.bettype = b.typeid and b.HasExtraDimXYZ = 1
-		)
-		INSERT INTO #tmpTraderAssignment(eventdate,matchid,bettype,livestatus,TraderID)
-		SELECT t.eventdate,t.matchid,t.bettype,t.liveindicator livestatus,t.TraderID
-		FROM CTE_Group2 t
-		WHERE t.Rank_ = 1;
-
-		-- Insert data to #tmpTraderAssignment - Group3_matchid|bettype|livestatus|Detail_X|Detail_Y
-		WITH
-		CTE_Group3 AS (
-			SELECT t.ID,t.eventdate,t.matchid,t.bettype,t.liveindicator,t.TraderID
-				   ,RANK() OVER(PARTITION BY t.matchid,t.bettype,t.liveindicator,t.Detail_X,t.Detail_Y ORDER BY t.UpdatedTime DESC,t.ID DESC) Rank_
-			FROM #tmpDot_Admin_Assignment_Trader t (NOLOCK)
-				 INNER JOIN #tmpBettype b ON t.bettype = b.typeid and b.HasExtraDimXYZ = 2
-		)
-		INSERT INTO #tmpTraderAssignment(eventdate,matchid,bettype,livestatus,TraderID)
-		SELECT t.eventdate,t.matchid,t.bettype,t.liveindicator livestatus,t.TraderID
-		FROM CTE_Group3 t
-		WHERE t.Rank_ = 1;
-		
-		-- Insert data to #tmpTraderAssignment - Group4_matchid|bettype|livestatus|Detail_X|Detail_Y|Detail_Z
-		WITH
-		CTE_Group4 AS (
-			SELECT t.ID,t.eventdate,t.matchid,t.bettype,t.liveindicator,t.TraderID
-				   ,RANK() OVER(PARTITION BY t.matchid,t.bettype,t.liveindicator,t.Detail_X,t.Detail_Y,t.Detail_Z ORDER BY t.UpdatedTime DESC,t.ID DESC) Rank_
-			FROM #tmpDot_Admin_Assignment_Trader t (NOLOCK)
-				 INNER JOIN #tmpBettype b ON t.bettype = b.typeid and b.HasExtraDimXYZ = 3
-		)
-		INSERT INTO #tmpTraderAssignment(eventdate,matchid,bettype,livestatus,TraderID)
-		SELECT t.eventdate,t.matchid,t.bettype,t.liveindicator livestatus,t.TraderID
-		FROM CTE_Group4 t
-		WHERE t.Rank_ = 1;
+		WHERE t.Rank_ = 1;		
 		
 		INSERT INTO #tmpData
 		SELECT DISTINCT
