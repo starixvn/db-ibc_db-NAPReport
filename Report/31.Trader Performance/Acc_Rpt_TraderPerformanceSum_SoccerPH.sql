@@ -46,11 +46,6 @@ BEGIN
 		TraderID INT
 	)
 	
-	CREATE TABLE #tmpBettype (
-		typeid INT,
-		HasExtraDimXYZ TINYINT
-	)
-
 	DECLARE @countMajorOrphan INT, @countMinor1Orphan INT, @countMinor2Orphan INT, @countMinor3Orphan INT, @countOthersOrphan INT
   
 	CREATE TABLE #tmpData
@@ -139,10 +134,7 @@ BEGIN
 	GROUP BY SuperId, FromDate, ToDate
 	
 	BEGIN
-		INSERT INTO #tmpBettype (typeid, HasExtraDimXYZ)
-		SELECT typeid, HasExtraDimXYZ
-		FROM DBWH.bodb_Account.dbo.Bettype 
-		
+	
 		-- Insert data to #tmpDot_Admin_Assignment_Trader
 		INSERT INTO #tmpDot_Admin_Assignment_Trader(ID,EventDate,matchid,bettype,liveindicator,Detail_X,Detail_Y,Detail_Z,TraderID,UpdatedTime)
 		SELECT t.ID
@@ -166,8 +158,7 @@ BEGIN
 		CTE_Group1 AS (
 			SELECT t.ID,t.eventdate,t.matchid,t.bettype,t.liveindicator,t.TraderID
 				   ,RANK() OVER(PARTITION BY t.matchid,t.bettype,t.liveindicator ORDER BY t.UpdatedTime DESC,t.ID DESC) Rank_
-			FROM #tmpDot_Admin_Assignment_Trader t (NOLOCK)
-				 INNER JOIN #tmpBettype b ON t.bettype = b.typeid and b.HasExtraDimXYZ = 0			
+			FROM #tmpDot_Admin_Assignment_Trader t (NOLOCK)		
 		)
 		INSERT INTO #tmpTraderAssignment(eventdate, matchid, bettype, TraderID)
 		SELECT DISTINCT t.eventdate, t.matchid, t.bettype, t.TraderID
@@ -384,5 +375,5 @@ BEGIN
 	DROP TABLE #Result 
 	DROP TABLE #tmpDot_Admin_Assignment_Trader
 	DROP TABLE #tmpTraderAssignment
-	DROP TABLE #tmpBettype
+
 END

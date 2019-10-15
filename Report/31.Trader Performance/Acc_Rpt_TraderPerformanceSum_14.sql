@@ -52,11 +52,6 @@ BEGIN
 		TraderID INT
 	)
 	
-	CREATE TABLE #tmpBettype (
-		typeid INT,
-		HasExtraDimXYZ TINYINT
-	)
-	
 	CREATE TABLE #tmpData
 	(  
 		custid		INT,
@@ -114,9 +109,6 @@ BEGIN
 	GROUP BY SuperId, FromDate, ToDate
 
 	BEGIN
-		INSERT INTO #tmpBettype (typeid, HasExtraDimXYZ)
-		SELECT typeid, HasExtraDimXYZ
-		FROM DBWH.bodb_Account.dbo.Bettype 
 		
 		-- Insert data to #tmpDot_Admin_Assignment_Trader
 		INSERT INTO #tmpDot_Admin_Assignment_Trader(ID,EventDate,matchid,bettype,liveindicator,Detail_X,Detail_Y,Detail_Z,TraderID,UpdatedTime)
@@ -143,8 +135,7 @@ BEGIN
 		CTE_Group1 AS (
 			SELECT t.ID,t.eventdate,t.matchid,t.bettype,t.liveindicator,t.TraderID
 				   ,RANK() OVER(PARTITION BY t.matchid,t.bettype,t.liveindicator ORDER BY t.UpdatedTime DESC,t.ID DESC) Rank_
-			FROM #tmpDot_Admin_Assignment_Trader t (NOLOCK)
-				 INNER JOIN #tmpBettype b ON t.bettype = b.typeid and b.HasExtraDimXYZ = 0			
+			FROM #tmpDot_Admin_Assignment_Trader t (NOLOCK)		
 		)
 		INSERT INTO #tmpTraderAssignment(eventdate, matchid, bettype, TraderID)
 		SELECT DISTINCT t.eventdate, t.matchid, t.bettype, t.TraderID
@@ -175,8 +166,8 @@ BEGIN
 			INNER JOIN dbo.match14 m WITH (NOLOCK) ON a.matchid = m.matchid
 			LEFT JOIN dbo.team t WITH (NOLOCK) ON m.homeid = t.teamid
 			INNER JOIN dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid
-		WHERE  a.bettype IN (1, 3, 7, 8, 5, 15, 124, 125)
-			AND m.eventdate BETWEEN @FromDate AND @ToDate
+		WHERE 
+			m.eventdate BETWEEN @FromDate AND @ToDate
 			AND m.eventstatus = 'completed'
 			AND m.sporttype = 1
 			AND m.matchcode NOT LIKE '%hedge%'
@@ -217,8 +208,8 @@ BEGIN
 			INNER JOIN dbo.customer c WITH (NOLOCK) ON a.TraderID = c.custid
 			INNER JOIN dbo.match14 m WITH (NOLOCK) ON a.matchid = m.matchid
 			INNER JOIN dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid
-		WHERE a.bettype IN (1, 3, 7, 8, 5, 15, 2, 12, 124, 125) 
-			AND m.eventdate BETWEEN @FromDate AND @ToDate
+		WHERE 
+			m.eventdate BETWEEN @FromDate AND @ToDate
 			AND m.eventstatus = 'completed'
 			AND m.sporttype NOT IN (1, 161)
 			AND m.matchcode NOT LIKE '%hedge%'
@@ -625,6 +616,5 @@ BEGIN
 	DROP TABLE #ExtraPTSportbook
 	DROP TABLE #tmpDot_Admin_Assignment_Trader
 	DROP TABLE #tmpTraderAssignment
-	DROP TABLE #tmpBettype
 	
 END

@@ -47,11 +47,6 @@ BEGIN
 		TraderID INT
 	)
 	
-	CREATE TABLE #tmpBettype (
-		typeid INT,
-		HasExtraDimXYZ TINYINT
-	)
-
 	CREATE TABLE #tmpData
 	(  
 		custid		INT,
@@ -154,11 +149,7 @@ BEGIN
 	GROUP BY SuperId, FromDate, ToDate
 	
 	IF @FromDate >= @CutoffDay
-	BEGIN
-		INSERT INTO #tmpBettype (typeid, HasExtraDimXYZ)
-		SELECT typeid, HasExtraDimXYZ
-		FROM DBWH.bodb_Account.dbo.Bettype 
-		
+	BEGIN		
 		-- Insert data to #tmpDot_Admin_Assignment_Trader
 		INSERT INTO #tmpDot_Admin_Assignment_Trader(ID,EventDate,matchid,bettype,liveindicator,Detail_X,Detail_Y,Detail_Z,TraderID,UpdatedTime)
 		SELECT t.ID
@@ -182,8 +173,7 @@ BEGIN
 		CTE_Group1 AS (
 			SELECT t.ID,t.eventdate,t.matchid,t.bettype,t.liveindicator,t.TraderID
 				   ,RANK() OVER(PARTITION BY t.matchid,t.bettype,t.liveindicator ORDER BY t.UpdatedTime DESC,t.ID DESC) Rank_
-			FROM #tmpDot_Admin_Assignment_Trader t (NOLOCK)
-				 INNER JOIN #tmpBettype b ON t.bettype = b.typeid and b.HasExtraDimXYZ = 0			
+			FROM #tmpDot_Admin_Assignment_Trader t (NOLOCK)	
 		)
 		INSERT INTO #tmpTraderAssignment(eventdate, matchid, bettype, TraderID)
 		SELECT DISTINCT t.eventdate, t.matchid, t.bettype, t.TraderID
@@ -357,11 +347,6 @@ BEGIN
 			AND a.matchid IS NULL
 		
 		-- CutoffDay -> ToDate
-		INSERT INTO #tmpBettype (typeid, HasExtraDimXYZ)
-		SELECT typeid, HasExtraDimXYZ
-		FROM DBWH.bodb_Account.dbo.Bettype 
-		
-		-- Insert data to #tmpDot_Admin_Assignment_Trader
 		INSERT INTO #tmpDot_Admin_Assignment_Trader(ID,EventDate,matchid,bettype,liveindicator,Detail_X,Detail_Y,Detail_Z,TraderID,UpdatedTime)
 		SELECT t.ID
 			   ,m.eventdate
@@ -384,8 +369,7 @@ BEGIN
 		CTE_Group1 AS (
 			SELECT t.ID,t.eventdate,t.matchid,t.bettype,t.liveindicator,t.TraderID
 				   ,RANK() OVER(PARTITION BY t.matchid,t.bettype,t.liveindicator ORDER BY t.UpdatedTime DESC,t.ID DESC) Rank_
-			FROM #tmpDot_Admin_Assignment_Trader t (NOLOCK)
-				 INNER JOIN #tmpBettype b ON t.bettype = b.typeid and b.HasExtraDimXYZ = 0			
+			FROM #tmpDot_Admin_Assignment_Trader t (NOLOCK)			
 		)
 		INSERT INTO #tmpTraderAssignment(eventdate, matchid, bettype, TraderID)
 		SELECT DISTINCT t.eventdate, t.matchid, t.bettype, t.TraderID
@@ -445,7 +429,8 @@ BEGIN
 			AND m.matchcode NOT LIKE '%hedge%'
 			AND a.matchid IS NULL				
 	END
-		
+	
+	-------------------------------------	
 	INSERT INTO #bettrans
 	SELECT
 		b.matchid,
@@ -460,8 +445,6 @@ BEGIN
                                       THEN b.virtualrate
                                       ELSE b.actualrate
                                   END) AS comm,
-		--SUM((CASE WHEN modds = 0.25 OR modds = - 0.25 THEN stake/2 ELSE stake END) * (1 - tpositiontaking- ISNULL(ExtraPT, 0)) * virtualrate) AS stake_AfterExtraPT,
-		---SUM((winlost - actual_stake + CASE WHEN tpositiontaking = 1 THEN 0 ELSE scomm/(1 - tpositiontaking) END) * virtualrate * ISNULL(e.ExtraPT, 0)) AS memberwinlost_ExtraPT,
 		SUM((CASE WHEN modds = 0.25 OR modds = - 0.25 THEN stake/2 ELSE stake END) * (CASE WHEN tpositiontaking = 1 THEN 0 ELSE 1 - tpositiontaking- ISNULL(ExtraPT, 0) END) * virtualrate) AS stake_AfterExtraPT,
 		-SUM(CASE WHEN tpositiontaking = 1 THEN 0 ELSE ((winlost - actual_stake) * virtualrate 
 														+ CASE WHEN tpositiontaking = 1 THEN 0 
@@ -687,6 +670,5 @@ BEGIN
 	DROP TABLE #MatchDetail
 	DROP TABLE #tmpDot_Admin_Assignment_Trader
 	DROP TABLE #tmpTraderAssignment
-	DROP TABLE #tmpBettype
 	
 END

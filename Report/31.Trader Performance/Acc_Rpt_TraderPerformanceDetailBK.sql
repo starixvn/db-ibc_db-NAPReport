@@ -50,12 +50,7 @@ BEGIN
 		matchid INT,
 		bettype SMALLINT,
 		TraderID INT
-	)
-	
-	CREATE TABLE #tmpBettype (
-		typeid INT,
-		HasExtraDimXYZ TINYINT
-	)
+	)	
 
 	CREATE TABLE #tmpData
 	(  
@@ -135,9 +130,6 @@ BEGIN
 	
 	IF @FromDate >= @CutoffDay
 	BEGIN
-		INSERT INTO #tmpBettype (typeid, HasExtraDimXYZ)
-		SELECT typeid, HasExtraDimXYZ
-		FROM DBWH.bodb_Account.dbo.Bettype 
 		
 		-- Insert data to #tmpDot_Admin_Assignment_Trader
 		INSERT INTO #tmpDot_Admin_Assignment_Trader(ID,EventDate,matchid,bettype,liveindicator,Detail_X,Detail_Y,Detail_Z,TraderID,UpdatedTime)
@@ -164,8 +156,7 @@ BEGIN
 		CTE_Group1 AS (
 			SELECT t.ID,t.eventdate,t.matchid,t.bettype,t.liveindicator,t.TraderID
 				   ,RANK() OVER(PARTITION BY t.matchid,t.bettype,t.liveindicator ORDER BY t.UpdatedTime DESC,t.ID DESC) Rank_
-			FROM #tmpDot_Admin_Assignment_Trader t (NOLOCK)
-				 INNER JOIN #tmpBettype b ON t.bettype = b.typeid and b.HasExtraDimXYZ = 0			
+			FROM #tmpDot_Admin_Assignment_Trader t (NOLOCK)		
 		)
 		INSERT INTO #tmpTraderAssignment(eventdate,matchid,bettype,TraderID)
 		SELECT DISTINCT t.eventdate, t.matchid, t.bettype, t.TraderID
@@ -274,7 +265,6 @@ BEGIN
 				m.eventdate BETWEEN @FromDate AND @ToDate
 				AND m.eventstatus = 'completed'
 				AND m.sporttype NOT IN (1, 161) -- exclude number game  
-				AND a.operatortype < 3
 				AND m.matchcode NOT LIKE '%hedge%'
 
 			INSERT INTO #tmpData
@@ -610,11 +600,6 @@ BEGIN
 		END
 		
 		-- CutoffDay -> ToDate
-		INSERT INTO #tmpBettype (typeid, HasExtraDimXYZ)
-		SELECT typeid, HasExtraDimXYZ
-		FROM DBWH.bodb_Account.dbo.Bettype 
-		
-		-- Insert data to #tmpDot_Admin_Assignment_Trader
 		INSERT INTO #tmpDot_Admin_Assignment_Trader(ID,EventDate,matchid,bettype,liveindicator,Detail_X,Detail_Y,Detail_Z,TraderID,UpdatedTime)
 		SELECT t.ID
 			   ,m.eventdate
@@ -639,8 +624,7 @@ BEGIN
 		CTE_Group1 AS (
 			SELECT t.ID,t.eventdate,t.matchid,t.bettype,t.liveindicator,t.TraderID
 				   ,RANK() OVER(PARTITION BY t.matchid,t.bettype,t.liveindicator ORDER BY t.UpdatedTime DESC,t.ID DESC) Rank_
-			FROM #tmpDot_Admin_Assignment_Trader t (NOLOCK)
-				 INNER JOIN #tmpBettype b ON t.bettype = b.typeid and b.HasExtraDimXYZ = 0			
+			FROM #tmpDot_Admin_Assignment_Trader t (NOLOCK)		
 		)
 		INSERT INTO #tmpTraderAssignment(eventdate, matchid, bettype, TraderID)
 		SELECT DISTINCT t.eventdate, t.matchid, t.bettype, t.TraderID
@@ -749,7 +733,6 @@ BEGIN
 				m.eventdate BETWEEN @CutoffDay AND @ToDate
 				AND m.eventstatus = 'completed'
 				AND m.sporttype NOT IN (1, 161) -- exclude number game  
-				AND a.operatortype < 3
 				AND m.matchcode NOT LIKE '%hedge%'
 
 			INSERT INTO #tmpData
@@ -1149,5 +1132,5 @@ BEGIN
 	DROP TABLE #ExtraPTSportbook
 	DROP TABLE #tmpDot_Admin_Assignment_Trader
 	DROP TABLE #tmpTraderAssignment
-	DROP TABLE #tmpBettype
+
 END
