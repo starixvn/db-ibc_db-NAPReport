@@ -148,7 +148,7 @@ BEGIN
 			   ,t.UpdatedTime
 		FROM bodb02.dbo.Dot_Admin_Assignment_Trader t (NOLOCK)
 			INNER JOIN #BettypeMapping bm ON t.bettype = bm.Bettype
-			LEFT JOIN bodb02.dbo.match m (NOLOCK) ON t.matchid = m.matchid 
+			LEFT JOIN bodb02.dbo.match14 m (NOLOCK) ON t.matchid = m.matchid 
 		WHERE m.eventdate BETWEEN @FromDate AND @ToDate
 			AND t.liveindicator = 1;
 

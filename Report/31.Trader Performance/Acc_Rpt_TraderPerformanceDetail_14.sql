@@ -140,14 +140,14 @@ BEGIN
 			   ,t.TraderID
 			   ,t.UpdatedTime
 		FROM bodb02.dbo.Dot_Admin_Assignment_Trader t (NOLOCK)
-			 LEFT JOIN bodb02.dbo.match m (NOLOCK) ON t.matchid = m.matchid 
+			 LEFT JOIN bodb02.dbo.match14 m (NOLOCK) ON t.matchid = m.matchid 
 		WHERE m.eventdate BETWEEN @FromDate AND @ToDate
 			AND t.liveindicator = 1
 			AND ((@IsSoccer = 1 AND t.bettype IN (1, 3, 7, 8, 5, 15, 124, 125))				
 				OR (@IsSoccer = 0 AND t.bettype IN (1, 3, 7, 8, 5, 15, 2, 12, 124, 125))				
 				);
 
-		-- Insert data to #tmpFactTraderAssignment - Group1_matchid|bettype|livestatus
+		-- Insert data to #tmpTraderAssignment 
 		WITH
 		CTE_Group1 AS (
 			SELECT t.ID,t.eventdate,t.matchid,t.bettype,t.liveindicator,t.TraderID
