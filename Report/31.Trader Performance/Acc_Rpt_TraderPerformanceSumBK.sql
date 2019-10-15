@@ -148,7 +148,7 @@ BEGIN
 		IF @IsSoccer = 1
 		BEGIN
 			INSERT INTO #tmpData
-			SELECT DISTINCT a.operatorid, username, m.matchID,  
+			SELECT DISTINCT a.TraderID, username, m.matchID,  
 				a.bettype,
 				CASE
 					WHEN leaguename LIKE '%SPECIFIC 15 MINS%' AND t.teamname LIKE '%No.of Corners%' THEN 6
@@ -201,7 +201,7 @@ BEGIN
 		ELSE
 		BEGIN
 			INSERT INTO #tmpData
-			SELECT DISTINCT a.operatorid, username, m.matchID,  
+			SELECT DISTINCT a.TraderID, username, m.matchID,  
 				a.bettype,
 				0 AS OUType,
 				l.category
@@ -473,7 +473,7 @@ BEGIN
 		IF @IsSoccer = 1
 		BEGIN
 			INSERT INTO #tmpData
-			SELECT DISTINCT a.operatorid, username, m.matchID,  
+			SELECT DISTINCT a.TraderID, username, m.matchID,  
 				a.bettype,
 				CASE
 					WHEN leaguename LIKE '%SPECIFIC 15 MINS%' AND t.teamname LIKE '%No.of Corners%' THEN 6
@@ -526,7 +526,7 @@ BEGIN
 		ELSE
 		BEGIN
 			INSERT INTO #tmpData
-			SELECT DISTINCT a.operatorid, username, m.matchID,  
+			SELECT DISTINCT a.TraderID, username, m.matchID,  
 				a.bettype,
 				0 AS OUType,
 				l.category

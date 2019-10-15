@@ -168,7 +168,7 @@ BEGIN
 		WHERE t.Rank_ = 1;		
 	
 		INSERT INTO #tmpData
-		SELECT DISTINCT a.operatorid, username, m.matchID,  
+		SELECT DISTINCT a.TraderID, username, m.matchID,  
 			bm.Bettype,
 			l.category
 		FROM #tmpTraderAssignment a 
@@ -295,7 +295,7 @@ BEGIN
 		WHERE t.Rank_ = 1;
 	
 		INSERT INTO #tmpData
-		SELECT DISTINCT a.operatorid, username, m.matchID,  
+		SELECT DISTINCT a.TraderID, username, m.matchID,  
 			bm.Bettype,
 			l.category
 		FROM #tmpTraderAssignment a 
