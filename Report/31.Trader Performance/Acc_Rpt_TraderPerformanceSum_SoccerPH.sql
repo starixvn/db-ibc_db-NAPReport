@@ -114,9 +114,6 @@ BEGIN
 	SELECT 	Bettype
 	FROM DBWH.bodb_Account.dbo.BettypeGroup
 	WHERE BettypeGroupID = 5
-	
-	INSERT INTO #BettypeMapping (Bettype) VALUES (465)  -- used to place outsource bets following bettype [458]
-	INSERT INTO #BettypeMapping (Bettype) VALUES (466)  -- used to place outsource bets following bettype [459]
 
 	INSERT INTO #ExtraPTSportbook
 	SELECT SuperId, SUM(ExtraPT) AS ExtraPT, FromDate, ToDate
@@ -200,9 +197,7 @@ BEGIN
 	INSERT INTO #bettrans
 	SELECT
 		b.matchid,
-		CASE WHEN b.bettype = 465 THEN 458
-			 WHEN b.bettype = 466 THEN 459
-			 ELSE b.bettype END bettype,
+		b.bettype,
 		SUM((CASE WHEN modds = 0.25 OR modds = - 0.25 THEN stake/2 ELSE stake END) * (1 - tpositiontaking) * virtualrate) AS stake,
 		-SUM((winlost - actual_stake + awinlost + mwinlost + swinlost) * virtualrate
 				+ scomm * CASE WHEN b.virtualrate < b.actualrate THEN b.virtualrate ELSE b.actualrate END) AS winlost,
@@ -234,12 +229,7 @@ BEGIN
 		AND m.sporttype = 1
 		AND m.matchcode NOT LIKE '%hedge%'
 	GROUP BY b.matchid,
-			CASE WHEN b.bettype = 465 THEN 458
-			 WHEN b.bettype = 466 THEN 459
-			 ELSE b.bettype END
-			 
-	DELETE FROM #BettypeMapping
-	WHERE Bettype in (465,466)
+			b.bettype
 
 	INSERT INTO #userMatch (custid, nMatch, Major, Minor1, Minor2, Minor3, Others) 
 	SELECT
