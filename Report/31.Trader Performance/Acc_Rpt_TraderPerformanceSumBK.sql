@@ -229,7 +229,7 @@ BEGIN
 		END
 	END
 
-	IF @FromDate < @CutoffDay AND @ToDate < @CutoffDay 
+	IF @ToDate < @CutoffDay 
 	BEGIN
 		IF @IsSoccer = 1
 		BEGIN

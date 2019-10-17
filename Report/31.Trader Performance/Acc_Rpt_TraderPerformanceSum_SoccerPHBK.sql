@@ -90,7 +90,13 @@ BEGIN
 		Others INT
 	)
 	
-	CREATE TABLE #BettypeMapping(
+	CREATE TABLE #TradingBettypeMapping(
+		OperatorType INT,
+		TradingBettype INT,
+		TicketBettype INT
+	)
+	
+	CREATE TABLE #BettypePH(
 		Bettype INT
 	)
 	
@@ -112,10 +118,19 @@ BEGIN
 		Commission	MONEY
 	)	
 	
-	INSERT INTO #BettypeMapping (Bettype)
+	INSERT INTO #BettypePH (Bettype)
 	SELECT 	Bettype
 	FROM DBWH.bodb_Account.dbo.BettypeGroup
 	WHERE BettypeGroupID = 5
+	
+	INSERT INTO #TradingBettypeMapping 
+	SELECT 	OperatorType, TradingBettype, TicketBettype
+	FROM DBDW.bodb_Account.dbo.TradingBettypeMapping WITH (NOLOCK)
+	WHERE OperatorType = 1 AND TradingBettype = 37
+	
+	DELETE m
+	FROM #TradingBettypeMapping m
+	WHERE m.TicketBettype NOT IN (SELECT typeid FROM bodb02.dbo.bettype WITH (NOLOCK))		
 
 	INSERT INTO #ExtraPTSportbook
 	SELECT SuperId, SUM(ExtraPT) AS ExtraPT, FromDate, ToDate
@@ -147,7 +162,7 @@ BEGIN
 			   ,t.TraderID
 			   ,t.UpdatedTime
 		FROM bodb_Archive.dbo.Dot_Admin_Assignment_Trader_bk t (NOLOCK)
-			INNER JOIN #BettypeMapping bm ON t.bettype = bm.Bettype
+			INNER JOIN #BettypePH bm ON t.bettype = bm.Bettype
 			LEFT JOIN bodb_Archive.dbo.match_bk m (NOLOCK) ON t.matchid = m.matchid 
 		WHERE m.eventdate BETWEEN @FromDate AND @ToDate
 			AND t.liveindicator = 1;
@@ -169,7 +184,7 @@ BEGIN
 			bm.Bettype,
 			l.category
 		FROM #tmpTraderAssignment a 
-			INNER JOIN #BettypeMapping bm ON bm.Bettype = a.bettype
+			INNER JOIN #BettypePH bm ON bm.Bettype = a.bettype
 			INNER JOIN dbo.customer c WITH (NOLOCK) ON a.TraderID = c.custid
 			INNER JOIN bodb_Archive.dbo.match_bk m WITH (NOLOCK) ON a.matchid = m.matchid
 			LEFT JOIN dbo.team t WITH (NOLOCK) ON m.homeid = t.teamid
@@ -195,14 +210,14 @@ BEGIN
 			AND a.matchid IS NULL
 	END
 
-	IF @FromDate < @CutoffDay AND @ToDate < @CutoffDay 
+	IF @ToDate < @CutoffDay 
 	BEGIN
 		INSERT INTO #tmpData
 		SELECT DISTINCT a.operatorid, username, m.matchID,  
 			bm.Bettype,
 			l.category
 		FROM bodb_Archive.dbo.Dot_admin_Assignment_Operator_bk a WITH (NOLOCK)
-			INNER JOIN #BettypeMapping bm ON bm.Bettype = a.bettype
+			INNER JOIN #TradingBettypeMapping bm ON bm.OperatorType = a.OperatorType AND bm.TradingBettype = a.bettype
 			INNER JOIN dbo.customer c WITH (NOLOCK) ON a.operatorid = c.custid
 			INNER JOIN bodb_Archive.dbo.match_bk m WITH (NOLOCK) ON a.matchid = m.matchid
 			LEFT JOIN dbo.team t WITH (NOLOCK) ON m.homeid = t.teamid
@@ -236,7 +251,7 @@ BEGIN
 			bm.Bettype,
 			l.category
 		FROM bodb_Archive.dbo.Dot_admin_Assignment_Operator_bk a WITH (NOLOCK)
-			INNER JOIN #BettypeMapping bm ON bm.Bettype = a.bettype
+			INNER JOIN #TradingBettypeMapping bm ON bm.OperatorType = a.OperatorType AND bm.TradingBettype = a.bettype
 			INNER JOIN dbo.customer c WITH (NOLOCK) ON a.operatorid = c.custid
 			INNER JOIN bodb_Archive.dbo.match_bk m WITH (NOLOCK) ON a.matchid = m.matchid
 			LEFT JOIN dbo.team t WITH (NOLOCK) ON m.homeid = t.teamid
@@ -274,7 +289,7 @@ BEGIN
 			   ,t.TraderID
 			   ,t.UpdatedTime
 		FROM bodb_Archive.dbo.Dot_Admin_Assignment_Trader_bk t (NOLOCK)
-			INNER JOIN #BettypeMapping bm ON t.bettype = bm.Bettype
+			INNER JOIN #BettypePH bm ON t.bettype = bm.Bettype
 			LEFT JOIN bodb_Archive.dbo.match_bk m (NOLOCK) ON t.matchid = m.matchid 
 		WHERE m.eventdate BETWEEN @CutoffDay AND @ToDate
 			AND t.liveindicator = 1;
@@ -296,7 +311,7 @@ BEGIN
 			bm.Bettype,
 			l.category
 		FROM #tmpTraderAssignment a 
-			INNER JOIN #BettypeMapping bm ON bm.Bettype = a.bettype
+			INNER JOIN #BettypePH bm ON bm.Bettype = a.bettype
 			INNER JOIN dbo.customer c WITH (NOLOCK) ON a.TraderID = c.custid
 			INNER JOIN bodb_Archive.dbo.match_bk m WITH (NOLOCK) ON a.matchid = m.matchid
 			LEFT JOIN dbo.team t WITH (NOLOCK) ON m.homeid = t.teamid
@@ -343,7 +358,7 @@ BEGIN
 				   ELSE 1 END) AS bet
 	FROM bodb_Archive.dbo.bettrans_bk b WITH (NOLOCK)
 		INNER JOIN bodb_Archive.dbo.match_bk m WITH (NOLOCK) ON b.matchid = m.matchid 
-		INNER JOIN #BettypeMapping bm ON b.bettype = bm.Bettype
+		INNER JOIN #BettypePH bm ON b.bettype = bm.Bettype
 		LEFT JOIN #ExtraPTSportbook e ON b.srecommend = e.superId AND b.winlostdate BETWEEN e.FromDate AND e.ToDate
 		LEFT JOIN dbo.TradeCust AS td WITH (NOLOCK) ON b.custid = td.custid
 	WHERE
@@ -427,7 +442,7 @@ BEGIN
 				0 AS Stake,	
 				0 AS BetCount,					 			 
 				0 AS Commission			    			 			
-		FROM #BettypeMapping bm
+		FROM #BettypePH bm
 			INNER JOIN dbo.bettype bt WITH (NOLOCK) ON bm.Bettype = bt.typeid 
 			LEFT JOIN #Result s ON s.custid = 0 AND bt.typeid = s.Bettype      
 		WHERE s.Bettype IS NULL
@@ -443,7 +458,7 @@ BEGIN
 				0 AS Stake,	
 				0 AS BetCount,					 			 
 				0 AS Commission			    			 			
-		FROM #BettypeMapping bm
+		FROM #BettypePH bm
 			INNER JOIN dbo.bettype bt WITH (NOLOCK) ON bm.Bettype = bt.typeid 
 	END
 	
@@ -489,9 +504,10 @@ BEGIN
 	DROP TABLE #tmpData
 	DROP TABLE #userMatch
 	DROP TABLE #ExtraPTSportbook
-	DROP TABLE #BettypeMapping 
+	DROP TABLE #BettypePH
 	DROP TABLE #Result 
 	DROP TABLE #tmpDot_Admin_Assignment_Trader
 	DROP TABLE #tmpTraderAssignment
+	DROP TABLE #TradingBettypeMapping
 	
 END
