@@ -191,10 +191,9 @@ BEGIN
 			m.htawayscore,
 			m.finalhomescore,
 			m.finalawayscore,
-			ISNULL(bm.Bettype,0) AS bettype,
+			a.bettype,
 			m.isNeutral
 		FROM #tmpTraderAssignment a
-			INNER JOIN #BettypeMapping bm ON bm.Bettype = a.bettype
 			INNER JOIN dbo.match14 m WITH (NOLOCK) ON a.matchid = m.matchid
 			LEFT JOIN dbo.team t WITH (NOLOCK) ON m.homeid = t.teamid
 			INNER JOIN dbo.customer c WITH (NOLOCK) ON a.TraderID = c.custid

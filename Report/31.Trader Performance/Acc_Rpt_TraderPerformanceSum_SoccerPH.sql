@@ -110,6 +110,16 @@ BEGIN
 		Commission	MONEY
 	)	
 	
+	CREATE TABLE #Detail (
+		custid		INT,
+		username	VARCHAR(50),
+		matchno		INT,  
+		Major		INT,
+		Minor1		INT,
+		Minor2		INT,
+		Minor3		INT,
+		Others		INT)
+	
 	INSERT INTO #BettypeMapping (Bettype)
 	SELECT 	Bettype
 	FROM DBWH.bodb_Account.dbo.BettypeGroup
@@ -166,10 +176,9 @@ BEGIN
 
 	INSERT INTO #tmpData
 	SELECT DISTINCT a.TraderID, username, m.matchID,  
-		bm.Bettype,
+		a.bettype,
 		l.category
 	FROM #tmpTraderAssignment a 
-		INNER JOIN #BettypeMapping bm ON bm.Bettype = a.bettype
 		INNER JOIN dbo.customer c WITH (NOLOCK) ON a.TraderID = c.custid
 		INNER JOIN dbo.match m WITH (NOLOCK) ON a.matchid = m.matchid
 		LEFT JOIN dbo.team t WITH (NOLOCK) ON m.homeid = t.teamid
@@ -271,11 +280,32 @@ BEGIN
 			SUM(ISNULL(stake_AfterExtraPT,0)) AS Stake,			
 			SUM(ISNULL(bet,0)) AS BetCount, 
 			SUM(ISNULL(comm,0)) AS Commission  			    			  			
-	FROM #tmpData t  
-		LEFT JOIN #bettrans b ON b.matchid = t.matchid AND b.bettype = t.bettype 
+	FROM #bettrans b  
+		INNER JOIN #tmpData t  ON b.matchid = t.matchid AND b.bettype = t.bettype 
 		INNER JOIN dbo.bettype bt WITH (NOLOCK) ON t.bettype = bt.typeid 
 		INNER JOIN #userMatch um ON um.custid = t.custid			
-	GROUP BY t.custid, t.username, um.nMatch, um.Major, um.Minor1, um.Minor2, um.Minor3, um.Others, bt.typeid, bt.typenamee				
+	GROUP BY t.custid, t.username, um.nMatch, um.Major, um.Minor1, um.Minor2, um.Minor3, um.Others, bt.typeid, bt.typenamee		
+	
+	IF (SELECT COUNT(*) FROM #Result WHERE custid <> 0) > 0
+	BEGIN
+		INSERT INTO #Detail (custid, username, matchno, Major, Minor1, Minor2, Minor3, Others)
+		SELECT DISTINCT custid, username, matchno, Major, Minor1, Minor2, Minor3, Others
+		FROM #Result
+		WHERE custid <> 0
+						
+		INSERT INTO #Result  (custid, username, matchno, Major, Minor1, Minor2, Minor3, Others, Bettype, BettypeName, Winlost, Stake, BetCount, Commission)
+		SELECT t.custid, t.username, t.matchno, t.Major, t.Minor1, t.Minor2, t.Minor3, t.Others,
+				bt.typeid AS Bettype, bt.typenamee AS BettypeName,
+				0 AS Winlost,  
+				0 AS Stake,		
+				0 AS BetCount,							
+				0 AS Commission  			    						
+		FROM #BettypeMapping bm  
+			INNER JOIN dbo.bettype bt WITH (NOLOCK) ON bm.Bettype = bt.typeid 
+			INNER JOIN #Detail t ON t.custid <> 0	
+			LEFT JOIN #Result r ON bt.typeid = r.Bettype AND t.custid = r.custid
+		WHERE r.Bettype IS NULL 
+	END		
 	
 	INSERT INTO #Result (custid, username, matchno, Major, Minor1, Minor2, Minor3, Others, Bettype, BettypeName, Winlost, Stake, BetCount, Commission)
 	SELECT 0, '(unassigned)', ISNULL(@countMajorOrphan, 0) + ISNULL(@countMinor1Orphan, 0) + ISNULL(@countMinor2Orphan, 0) + ISNULL(@countMinor3Orphan, 0) + ISNULL(@countOthersOrphan, 0) AS matchno, ISNULL(@countMajorOrphan, 0) Major, ISNULL(@countMinor1Orphan, 0), ISNULL(@countMinor2Orphan, 0), ISNULL(@countMinor3Orphan, 0), ISNULL(@countOthersOrphan, 0),
@@ -365,5 +395,6 @@ BEGIN
 	DROP TABLE #Result 
 	DROP TABLE #tmpDot_Admin_Assignment_Trader
 	DROP TABLE #tmpTraderAssignment
+	DROP TABLE #Detail
 
 END

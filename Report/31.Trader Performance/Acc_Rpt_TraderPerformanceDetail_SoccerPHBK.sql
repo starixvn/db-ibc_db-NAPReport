@@ -205,10 +205,9 @@ BEGIN
 			m.htawayscore,
 			m.finalhomescore,
 			m.finalawayscore,
-			ISNULL(bm.Bettype,0) AS bettype,
+			a.bettype,
 			m.isNeutral
 		FROM #tmpTraderAssignment a
-			INNER JOIN #BettypePH bm ON bm.Bettype = a.bettype
 			INNER JOIN bodb_Archive.dbo.match_bk m WITH (NOLOCK) ON a.matchid = m.matchid
 			LEFT JOIN dbo.team t WITH (NOLOCK) ON m.homeid = t.teamid
 			INNER JOIN dbo.customer c WITH (NOLOCK) ON a.TraderID = c.custid
@@ -401,10 +400,9 @@ BEGIN
 			m.htawayscore,
 			m.finalhomescore,
 			m.finalawayscore,
-			ISNULL(bm.Bettype,0) AS bettype,
+			a.bettype,
 			m.isNeutral
 		FROM #tmpTraderAssignment a
-			INNER JOIN #BettypePH bm ON bm.Bettype = a.bettype
 			INNER JOIN bodb_Archive.dbo.match_bk m WITH (NOLOCK) ON a.matchid = m.matchid
 			LEFT JOIN dbo.team t WITH (NOLOCK) ON m.homeid = t.teamid
 			INNER JOIN dbo.customer c WITH (NOLOCK) ON a.TraderID = c.custid
