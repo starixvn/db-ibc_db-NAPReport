@@ -279,8 +279,8 @@ BEGIN
 			SUM(ISNULL(stake_AfterExtraPT,0)) AS Stake,			
 			SUM(ISNULL(bet,0)) AS BetCount, 
 			SUM(ISNULL(comm,0)) AS Commission  			    			  			
-	FROM #tmpData t  
-		LEFT JOIN #bettrans b ON b.matchid = t.matchid AND b.bettype = t.bettype 
+	FROM #bettrans b  
+		INNER JOIN #tmpData t  ON b.matchid = t.matchid AND b.bettype = t.bettype 
 		INNER JOIN dbo.bettype bt WITH (NOLOCK) ON t.bettype = bt.typeid 
 		INNER JOIN #userMatch um ON um.custid = t.custid			
 	GROUP BY t.custid, t.username, um.nMatch, um.Major, um.Minor1, um.Minor2, um.Minor3, um.Others, bt.typeid, bt.typenamee		

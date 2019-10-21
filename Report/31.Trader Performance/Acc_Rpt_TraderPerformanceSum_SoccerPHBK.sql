@@ -223,7 +223,7 @@ BEGIN
 	BEGIN
 		INSERT INTO #tmpData
 		SELECT DISTINCT a.operatorid, username, m.matchID,  
-			bm.Bettype,
+			bm.TicketBettype,
 			l.category
 		FROM bodb_Archive.dbo.Dot_admin_Assignment_Operator_bk a WITH (NOLOCK)
 			INNER JOIN #TradingBettypeMapping bm ON bm.OperatorType = a.OperatorType AND bm.TradingBettype = a.bettype
@@ -257,7 +257,7 @@ BEGIN
 		-- FromDate -> CutoffDay-1
 		INSERT INTO #tmpData
 		SELECT DISTINCT a.operatorid, username, m.matchID,  
-			bm.Bettype,
+			bm.TicketBettype,
 			l.category
 		FROM bodb_Archive.dbo.Dot_admin_Assignment_Operator_bk a WITH (NOLOCK)
 			INNER JOIN #TradingBettypeMapping bm ON bm.OperatorType = a.OperatorType AND bm.TradingBettype = a.bettype
@@ -442,7 +442,7 @@ BEGIN
 				0 AS Stake,		
 				0 AS BetCount,							
 				0 AS Commission  			    						
-		FROM #BettypeMapping bm  
+		FROM #BettypePH bm  
 			INNER JOIN dbo.bettype bt WITH (NOLOCK) ON bm.Bettype = bt.typeid 
 			INNER JOIN #Detail t ON t.custid <> 0	
 			LEFT JOIN #Result r ON bt.typeid = r.Bettype AND t.custid = r.custid
