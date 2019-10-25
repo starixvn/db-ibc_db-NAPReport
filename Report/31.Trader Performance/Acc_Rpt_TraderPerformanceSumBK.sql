@@ -32,7 +32,7 @@ BEGIN
 
 	DECLARE @countMajorOrphan INT, @countMinor1Orphan INT, @countMinor2Orphan INT, @countMinor3Orphan INT, @countOthersOrphan INT
 	
-	DECLARE @CutoffDay DATETIME = CAST ('20190901' AS DATETIME)
+	DECLARE @CutoffDay DATETIME = CAST ('20191101' AS DATETIME)
 	
 	CREATE TABLE #tmpDot_Admin_Assignment_Trader (
 			ID INT PRIMARY KEY,
