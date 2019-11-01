@@ -135,7 +135,7 @@ BEGIN
 	IF @FromDate >= @CutoffDay
 	BEGIN						
 		INSERT INTO #tmpTraderAssignment
-		EXEC [dbo].[Acc_Rpt_TraderPerformancePHBK_Mapping_xtest]   
+		EXEC [dbo].[Acc_Rpt_TraderPerformancePHBK_Mapping]   
 			@FromDate	= @FromDate,  
 			@ToDate		= @ToDate,  
 			@Type	= 1  					
@@ -144,7 +144,7 @@ BEGIN
 	IF @ToDate < @CutoffDay 
 	BEGIN
 		INSERT INTO #tmpTraderAssignment
-		EXEC [dbo].[Acc_Rpt_TraderPerformancePHBK_Mapping_xtest]   
+		EXEC [dbo].[Acc_Rpt_TraderPerformancePHBK_Mapping]   
 			@FromDate	= @FromDate,  
 			@ToDate		= @ToDate,  
 			@Type	= 0 										
@@ -157,14 +157,14 @@ BEGIN
 		SELECT @TDate = DATEADD(DAY,-1,@CutoffDay)
 		
 		INSERT INTO #tmpTraderAssignment
-		EXEC [dbo].[Acc_Rpt_TraderPerformancePHBK_Mapping_xtest]   
+		EXEC [dbo].[Acc_Rpt_TraderPerformancePHBK_Mapping]   
 			@FromDate	= @FromDate,  
 			@ToDate		= @TDate,  
 			@Type	= 0 					
 				
 		-- CutoffDay -> ToDate
 		INSERT INTO #tmpTraderAssignment
-		EXEC [dbo].[Acc_Rpt_TraderPerformancePHBK_Mapping_xtest]   
+		EXEC [dbo].[Acc_Rpt_TraderPerformancePHBK_Mapping]   
 			@FromDate	= @CutoffDay,  
 			@ToDate		= @ToDate,  
 			@Type	= 1 					
