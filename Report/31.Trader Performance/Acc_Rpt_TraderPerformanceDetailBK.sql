@@ -31,19 +31,6 @@ BEGIN
 	SET NOCOUNT ON
 	
 	DECLARE @CutoffDay DATETIME = CAST ('20191101' AS DATETIME)
-	
-	CREATE TABLE #tmpDot_Admin_Assignment_Trader (
-			ID INT PRIMARY KEY,
-			eventdate DATE,
-			matchid INT,
-			bettype SMALLINT,
-			liveindicator TINYINT,
-			Detail_X SMALLINT,
-			Detail_Y SMALLINT,
-			Detail_Z SMALLINT,
-			TraderID INT,
-			UpdatedTime DATETIME
-		)
 
 	CREATE TABLE #tmpTraderAssignment (
 		eventdate DATE,
@@ -129,639 +116,130 @@ BEGIN
 	GROUP BY SuperId, FromDate, ToDate
 	
 	IF @FromDate >= @CutoffDay
-	BEGIN
-		
-		-- Insert data to #tmpDot_Admin_Assignment_Trader
-		INSERT INTO #tmpDot_Admin_Assignment_Trader(ID,EventDate,matchid,bettype,liveindicator,Detail_X,Detail_Y,Detail_Z,TraderID,UpdatedTime)
-		SELECT t.ID
-			   ,m.eventdate
-			   ,t.matchid
-			   ,t.bettype
-			   ,t.liveindicator
-			   ,t.Detail_X
-			   ,t.Detail_Y
-			   ,t.Detail_Z
-			   ,t.TraderID
-			   ,t.UpdatedTime
-		FROM bodb_Archive.dbo.Dot_Admin_Assignment_Trader_bk t (NOLOCK)
-			 LEFT JOIN bodb_Archive.dbo.match_bk m (NOLOCK) ON t.matchid = m.matchid 
-		WHERE m.eventdate BETWEEN @FromDate AND @ToDate
-			AND t.liveindicator = 1
-			AND ((@IsSoccer = 1 AND t.bettype IN (1, 3, 7, 8, 5, 15, 124, 125))				
-				OR (@IsSoccer = 0 AND t.bettype IN (1, 3, 7, 8, 5, 15, 2, 12, 124, 125))				
-				);
-
-		-- Insert data to #tmpTraderAssignment
-		WITH
-		CTE_Group1 AS (
-			SELECT t.ID,t.eventdate,t.matchid,t.bettype,t.liveindicator,t.TraderID
-				   ,RANK() OVER(PARTITION BY t.matchid,t.bettype,t.liveindicator ORDER BY t.UpdatedTime DESC,t.ID DESC) Rank_
-			FROM #tmpDot_Admin_Assignment_Trader t (NOLOCK)		
-		)
-		INSERT INTO #tmpTraderAssignment(eventdate,matchid,bettype,TraderID)
-		SELECT DISTINCT t.eventdate, t.matchid, t.bettype, t.TraderID
-		FROM CTE_Group1 t
-		WHERE t.Rank_ = 1;
-		
-		IF @IsSoccer = 1
-		BEGIN
-			INSERT INTO #tmpData
-			SELECT DISTINCT
-				c.custid,
-				c.username,
-				m.leagueid,
-				m.matchid,
-				m.homeid,
-				m.awayid,
-				m.eventdate,
-				m.hthomescore,
-				m.htawayscore,
-				m.finalhomescore,
-				m.finalawayscore,
-				a.bettype,
-				m.isNeutral,
-				CASE 
-					WHEN leaguename LIKE '%SPECIFIC 15 MINS%' AND t.teamname LIKE '%No.of Corners%' THEN 6
-					WHEN t.teamname LIKE '%No.of Corners%' THEN 1
-					WHEN t.teamname LIKE '%Total Bookings' THEN 3
-					WHEN t.teamname LIKE '%Booking' THEN 5
-					WHEN t.teamname LIKE '%Corner%' THEN 4
-					WHEN leaguename LIKE '%SPECIFIC 15 MINS TOTAL BOOKINGS%' THEN 7
-					WHEN leaguename LIKE '%SPECIFIC 15 MINS%' THEN 2
-					WHEN leaguename LIKE '%SPECIFIC 10 MINS%' THEN 8
-					WHEN leaguename LIKE '%SINGLE TEAM OVER/UNDER%' AND (t.teamname LIKE '%Over' OR t.teamname LIKE '%Under') THEN 9
-					ELSE 0 END
-			FROM #tmpTraderAssignment a 
-				INNER JOIN bodb_Archive.dbo.match_bk m WITH (NOLOCK) ON a.matchid = m.matchid
-				LEFT JOIN dbo.team t WITH (NOLOCK) ON m.homeid = t.teamid
-				INNER JOIN dbo.customer c WITH (NOLOCK) ON a.TraderID = c.custid
-				INNER JOIN dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid
-			WHERE
-				m.eventdate BETWEEN @FromDate AND @ToDate
-				AND m.eventstatus = 'completed'
-				AND m.sporttype = 1
-				AND m.matchcode NOT LIKE '%hedge%'
-
-			INSERT INTO #tmpData
-			SELECT
-				NULL,
-				NULL,
-				m.leagueid,
-				m.matchid,
-				m.homeid,
-				m.awayid,
-				m.eventdate,
-				m.hthomescore,
-				m.htawayscore,
-				m.finalhomescore,
-				m.finalawayscore,
-				0,
-				m.isNeutral,
-				CASE 
-					WHEN leaguename LIKE '%SPECIFIC 15 MINS%' AND t.teamname LIKE '%No.of Corners%' THEN 6
-					WHEN t.teamname LIKE '%No.of Corners%' THEN 1
-					WHEN t.teamname LIKE '%Total Bookings' THEN 3
-					WHEN t.teamname LIKE '%Booking' THEN 5
-					WHEN t.teamname LIKE '%Corner%' THEN 4
-					WHEN leaguename LIKE '%SPECIFIC 15 MINS TOTAL BOOKINGS%' THEN 7
-					WHEN leaguename LIKE '%SPECIFIC 15 MINS%' THEN 2
-					WHEN leaguename LIKE '%SPECIFIC 10 MINS%' THEN 8
-					WHEN leaguename LIKE '%SINGLE TEAM OVER/UNDER%' AND (t.teamname LIKE '%Over' OR t.teamname LIKE '%Under') THEN 9
-					ELSE 0 END
-			FROM #tmpTraderAssignment a 
-				RIGHT JOIN bodb_Archive.dbo.match_bk m WITH (NOLOCK) ON a.matchid = m.matchid
-				LEFT JOIN dbo.team t WITH (NOLOCK) ON m.homeid = t.teamid
-				INNER JOIN dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid
-			WHERE
-				m.eventdate BETWEEN @FromDate AND @ToDate
-				AND m.eventstatus = 'completed'
-				AND m.sporttype = 1
-				AND m.matchcode NOT LIKE '%hedge%'
-				AND a.matchid IS NULL
-		END
-		ELSE
-		BEGIN
-			INSERT INTO #tmpData
-			SELECT DISTINCT
-				c.custid,
-				c.username,
-				m.leagueid,
-				m.matchid,
-				m.homeid,
-				m.awayid,
-				m.eventdate,
-				m.hthomescore,
-				m.htawayscore,
-				m.finalhomescore,
-				m.finalawayscore,
-				a.bettype
-				,m.isNeutral
-				,0
-			FROM #tmpTraderAssignment a 
-				INNER JOIN bodb_Archive.dbo.match_bk m WITH (NOLOCK) ON a.matchid = m.matchid
-				INNER JOIN dbo.customer c WITH (NOLOCK) ON a.TraderID = c.custid
-				INNER JOIN dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid
-			WHERE
-				m.eventdate BETWEEN @FromDate AND @ToDate
-				AND m.eventstatus = 'completed'
-				AND m.sporttype NOT IN (1, 161) -- exclude number game  
-				AND m.matchcode NOT LIKE '%hedge%'
-
-			INSERT INTO #tmpData
-			SELECT
-				NULL,
-				NULL,
-				m.leagueid,
-				m.matchid,
-				m.homeid,
-				m.awayid,
-				m.eventdate,
-				m.hthomescore,
-				m.htawayscore,
-				m.finalhomescore,
-				m.finalawayscore,
-				0,
-				m.isNeutral,
-				0
-			FROM #tmpTraderAssignment a 
-				RIGHT JOIN bodb_Archive.dbo.match_bk m WITH (NOLOCK) ON a.matchid = m.matchid
-				INNER JOIN dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid
-			WHERE
-				m.eventdate BETWEEN @FromDate AND @ToDate
-				AND m.eventstatus = 'completed'
-				AND m.sporttype NOT IN (1, 161)
-				AND m.matchcode NOT LIKE '%hedge%'
-				AND a.matchid IS NULL
-		END
+	BEGIN						
+		INSERT INTO #tmpTraderAssignment
+		EXEC [dbo].[Acc_Rpt_TraderPerformanceBK_Mapping_xtest]   
+			@FromDate	= @FromDate,  
+			@ToDate		= @ToDate,  
+			@Type	= 1  					
 	END
 
 	IF @ToDate < @CutoffDay 
 	BEGIN
-		IF @IsSoccer = 1
-		BEGIN
-			INSERT INTO #tmpData
-			SELECT DISTINCT
-				c.custid,
-				c.username,
-				m.leagueid,
-				m.matchid,
-				m.homeid,
-				m.awayid,
-				m.eventdate,
-				m.hthomescore,
-				m.htawayscore,
-				m.finalhomescore,
-				m.finalawayscore,
-				CASE 
-					WHEN (operatortype = 1) AND (bettype = 1 OR bettype = 5) THEN 1
-					WHEN operatortype = 1 AND bettype = 2 THEN 3
-					WHEN operatortype = 1 AND bettype = 3 THEN 5
-					WHEN operatortype = 2 AND bettype = 1 THEN 7
-					WHEN operatortype = 2 AND bettype = 2 THEN 8
-					WHEN operatortype = 2 AND bettype = 3 THEN 15
-				END bettype,
-				m.isNeutral,
-				CASE 
-					WHEN leaguename LIKE '%SPECIFIC 15 MINS%' AND t.teamname LIKE '%No.of Corners%' THEN 6
-					WHEN t.teamname LIKE '%No.of Corners%' THEN 1
-					WHEN t.teamname LIKE '%Total Bookings' THEN 3
-					WHEN t.teamname LIKE '%Booking' THEN 5
-					WHEN t.teamname LIKE '%Corner%' THEN 4
-					WHEN leaguename LIKE '%SPECIFIC 15 MINS TOTAL BOOKINGS%' THEN 7
-					WHEN leaguename LIKE '%SPECIFIC 15 MINS%' THEN 2
-					WHEN leaguename LIKE '%SPECIFIC 10 MINS%' THEN 8
-					WHEN leaguename LIKE '%SINGLE TEAM OVER/UNDER%' AND (t.teamname LIKE '%Over' OR t.teamname LIKE '%Under') THEN 9
-					ELSE 0 END
-			FROM bodb_Archive.dbo.Dot_admin_Assignment_Operator_bk a WITH (NOLOCK)
-				INNER JOIN bodb_Archive.dbo.match_bk m WITH (NOLOCK) ON a.matchid = m.matchid
-				LEFT JOIN dbo.team t WITH (NOLOCK) ON m.homeid = t.teamid
-				INNER JOIN dbo.customer c WITH (NOLOCK) ON a.operatorid = c.custid
-				INNER JOIN dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid
-			WHERE
-				m.eventdate BETWEEN @FromDate AND @ToDate
-				AND m.eventstatus = 'completed'
-				AND m.sporttype = 1
-				AND a.operatortype < 3
-				AND m.matchcode NOT LIKE '%hedge%'
-
-			INSERT INTO #tmpData
-			SELECT
-				NULL,
-				NULL,
-				m.leagueid,
-				m.matchid,
-				m.homeid,
-				m.awayid,
-				m.eventdate,
-				m.hthomescore,
-				m.htawayscore,
-				m.finalhomescore,
-				m.finalawayscore,
-				0,
-				m.isNeutral,
-				CASE 
-					WHEN leaguename LIKE '%SPECIFIC 15 MINS%' AND t.teamname LIKE '%No.of Corners%' THEN 6
-					WHEN t.teamname LIKE '%No.of Corners%' THEN 1
-					WHEN t.teamname LIKE '%Total Bookings' THEN 3
-					WHEN t.teamname LIKE '%Booking' THEN 5
-					WHEN t.teamname LIKE '%Corner%' THEN 4
-					WHEN leaguename LIKE '%SPECIFIC 15 MINS TOTAL BOOKINGS%' THEN 7
-					WHEN leaguename LIKE '%SPECIFIC 15 MINS%' THEN 2
-					WHEN leaguename LIKE '%SPECIFIC 10 MINS%' THEN 8
-					WHEN leaguename LIKE '%SINGLE TEAM OVER/UNDER%' AND (t.teamname LIKE '%Over' OR t.teamname LIKE '%Under') THEN 9
-					ELSE 0 END
-			FROM bodb_Archive.dbo.Dot_admin_Assignment_Operator_bk a WITH (NOLOCK)
-				RIGHT JOIN bodb_Archive.dbo.match_bk m WITH (NOLOCK) ON a.matchid = m.matchid
-				LEFT JOIN dbo.team t WITH (NOLOCK) ON m.homeid = t.teamid
-				INNER JOIN dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid
-			WHERE
-				m.eventdate BETWEEN @FromDate AND @ToDate
-				AND m.eventstatus = 'completed'
-				AND m.sporttype = 1
-				AND m.matchcode NOT LIKE '%hedge%'
-				AND a.matchid IS NULL
-		END
-		ELSE
-		BEGIN
-			INSERT INTO #tmpData
-			SELECT DISTINCT
-				c.custid,
-				c.username,
-				m.leagueid,
-				m.matchid,
-				m.homeid,
-				m.awayid,
-				m.eventdate,
-				m.hthomescore,
-				m.htawayscore,
-				m.finalhomescore,
-				m.finalawayscore,
-				CASE 
-					WHEN operatortype = 1 AND (bettype = 1 OR bettype = 5) THEN 1
-					WHEN operatortype = 1 AND bettype = 4 THEN 2
-					WHEN operatortype = 1 AND bettype = 2 THEN 3
-					WHEN operatortype = 1 AND bettype = 3 THEN 5
-					WHEN operatortype = 2 AND bettype = 1 THEN 7
-					WHEN operatortype = 2 AND bettype = 2 THEN 8
-					WHEN operatortype = 2 AND bettype = 4 THEN 12
-					WHEN operatortype = 2 AND bettype = 3 THEN 15
-				END bettype
-				,m.isNeutral
-				,0
-			FROM bodb_Archive.dbo.Dot_admin_Assignment_Operator_bk a WITH (NOLOCK)
-				INNER JOIN bodb_Archive.dbo.match_bk m WITH (NOLOCK) ON a.matchid = m.matchid
-				INNER JOIN dbo.customer c WITH (NOLOCK) ON a.operatorid = c.custid
-				INNER JOIN dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid
-			WHERE
-				m.eventdate BETWEEN @FromDate AND @ToDate
-				AND m.eventstatus = 'completed'
-				AND m.sporttype NOT IN (1, 161) -- exclude number game  
-				AND a.operatortype < 3
-				AND m.matchcode NOT LIKE '%hedge%'
-
-			INSERT INTO #tmpData
-			SELECT
-				NULL,
-				NULL,
-				m.leagueid,
-				m.matchid,
-				m.homeid,
-				m.awayid,
-				m.eventdate,
-				m.hthomescore,
-				m.htawayscore,
-				m.finalhomescore,
-				m.finalawayscore,
-				0,
-				m.isNeutral,
-				0
-			FROM bodb_Archive.dbo.Dot_admin_Assignment_Operator_bk a WITH (NOLOCK)
-				RIGHT JOIN bodb_Archive.dbo.match_bk m WITH (NOLOCK) ON a.matchid = m.matchid
-				INNER JOIN dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid
-			WHERE
-				m.eventdate BETWEEN @FromDate AND @ToDate
-				AND m.eventstatus = 'completed'
-				AND m.sporttype NOT IN (1, 161)
-				AND m.matchcode NOT LIKE '%hedge%'
-				AND a.matchid IS NULL
-		END
+		INSERT INTO #tmpTraderAssignment
+		EXEC [dbo].[Acc_Rpt_TraderPerformanceBK_Mapping_xtest]   
+			@FromDate	= @FromDate,  
+			@ToDate		= @ToDate,  
+			@Type	= 0 										
 	END
 	
 	IF @FromDate < @CutoffDay AND @ToDate >= @CutoffDay
 	BEGIN
 		-- FromDate -> CutoffDay-1
-		IF @IsSoccer = 1
-		BEGIN
-			INSERT INTO #tmpData
-			SELECT DISTINCT
-				c.custid,
-				c.username,
-				m.leagueid,
-				m.matchid,
-				m.homeid,
-				m.awayid,
-				m.eventdate,
-				m.hthomescore,
-				m.htawayscore,
-				m.finalhomescore,
-				m.finalawayscore,
-				CASE 
-					WHEN (operatortype = 1) AND (bettype = 1 OR bettype = 5) THEN 1
-					WHEN operatortype = 1 AND bettype = 2 THEN 3
-					WHEN operatortype = 1 AND bettype = 3 THEN 5
-					WHEN operatortype = 2 AND bettype = 1 THEN 7
-					WHEN operatortype = 2 AND bettype = 2 THEN 8
-					WHEN operatortype = 2 AND bettype = 3 THEN 15
-				END bettype,
-				m.isNeutral,
-				CASE 
-					WHEN leaguename LIKE '%SPECIFIC 15 MINS%' AND t.teamname LIKE '%No.of Corners%' THEN 6
-					WHEN t.teamname LIKE '%No.of Corners%' THEN 1
-					WHEN t.teamname LIKE '%Total Bookings' THEN 3
-					WHEN t.teamname LIKE '%Booking' THEN 5
-					WHEN t.teamname LIKE '%Corner%' THEN 4
-					WHEN leaguename LIKE '%SPECIFIC 15 MINS TOTAL BOOKINGS%' THEN 7
-					WHEN leaguename LIKE '%SPECIFIC 15 MINS%' THEN 2
-					WHEN leaguename LIKE '%SPECIFIC 10 MINS%' THEN 8
-					WHEN leaguename LIKE '%SINGLE TEAM OVER/UNDER%' AND (t.teamname LIKE '%Over' OR t.teamname LIKE '%Under') THEN 9
-					ELSE 0 END
-			FROM bodb_Archive.dbo.Dot_admin_Assignment_Operator_bk a WITH (NOLOCK)
-				INNER JOIN bodb_Archive.dbo.match_bk m WITH (NOLOCK) ON a.matchid = m.matchid
-				LEFT JOIN dbo.team t WITH (NOLOCK) ON m.homeid = t.teamid
-				INNER JOIN dbo.customer c WITH (NOLOCK) ON a.operatorid = c.custid
-				INNER JOIN dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid
-			WHERE
-				m.eventdate >= @FromDate AND m.eventdate < @CutoffDay
-				AND m.eventstatus = 'completed'
-				AND m.sporttype = 1
-				AND a.operatortype < 3
-				AND m.matchcode NOT LIKE '%hedge%'
-
-			INSERT INTO #tmpData
-			SELECT
-				NULL,
-				NULL,
-				m.leagueid,
-				m.matchid,
-				m.homeid,
-				m.awayid,
-				m.eventdate,
-				m.hthomescore,
-				m.htawayscore,
-				m.finalhomescore,
-				m.finalawayscore,
-				0,
-				m.isNeutral,
-				CASE 
-					WHEN leaguename LIKE '%SPECIFIC 15 MINS%' AND t.teamname LIKE '%No.of Corners%' THEN 6
-					WHEN t.teamname LIKE '%No.of Corners%' THEN 1
-					WHEN t.teamname LIKE '%Total Bookings' THEN 3
-					WHEN t.teamname LIKE '%Booking' THEN 5
-					WHEN t.teamname LIKE '%Corner%' THEN 4
-					WHEN leaguename LIKE '%SPECIFIC 15 MINS TOTAL BOOKINGS%' THEN 7
-					WHEN leaguename LIKE '%SPECIFIC 15 MINS%' THEN 2
-					WHEN leaguename LIKE '%SPECIFIC 10 MINS%' THEN 8
-					WHEN leaguename LIKE '%SINGLE TEAM OVER/UNDER%' AND (t.teamname LIKE '%Over' OR t.teamname LIKE '%Under') THEN 9
-					ELSE 0 END
-			FROM bodb_Archive.dbo.Dot_admin_Assignment_Operator_bk a WITH (NOLOCK)
-				RIGHT JOIN bodb_Archive.dbo.match_bk m WITH (NOLOCK) ON a.matchid = m.matchid
-				LEFT JOIN dbo.team t WITH (NOLOCK) ON m.homeid = t.teamid
-				INNER JOIN dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid
-			WHERE
-				m.eventdate >= @FromDate AND m.eventdate < @CutoffDay
-				AND m.eventstatus = 'completed'
-				AND m.sporttype = 1
-				AND m.matchcode NOT LIKE '%hedge%'
-				AND a.matchid IS NULL
-		END
-		ELSE
-		BEGIN
-			INSERT INTO #tmpData
-			SELECT DISTINCT
-				c.custid,
-				c.username,
-				m.leagueid,
-				m.matchid,
-				m.homeid,
-				m.awayid,
-				m.eventdate,
-				m.hthomescore,
-				m.htawayscore,
-				m.finalhomescore,
-				m.finalawayscore,
-				CASE 
-					WHEN operatortype = 1 AND (bettype = 1 OR bettype = 5) THEN 1
-					WHEN operatortype = 1 AND bettype = 4 THEN 2
-					WHEN operatortype = 1 AND bettype = 2 THEN 3
-					WHEN operatortype = 1 AND bettype = 3 THEN 5
-					WHEN operatortype = 2 AND bettype = 1 THEN 7
-					WHEN operatortype = 2 AND bettype = 2 THEN 8
-					WHEN operatortype = 2 AND bettype = 4 THEN 12
-					WHEN operatortype = 2 AND bettype = 3 THEN 15
-				END bettype
-				,m.isNeutral
-				,0
-			FROM bodb_Archive.dbo.Dot_admin_Assignment_Operator_bk a WITH (NOLOCK)
-				INNER JOIN bodb_Archive.dbo.match_bk m WITH (NOLOCK) ON a.matchid = m.matchid
-				INNER JOIN dbo.customer c WITH (NOLOCK) ON a.operatorid = c.custid
-				INNER JOIN dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid
-			WHERE
-				m.eventdate >= @FromDate AND m.eventdate < @CutoffDay
-				AND m.eventstatus = 'completed'
-				AND m.sporttype NOT IN (1, 161) -- exclude number game  
-				AND a.operatortype < 3
-				AND m.matchcode NOT LIKE '%hedge%'
-
-			INSERT INTO #tmpData
-			SELECT
-				NULL,
-				NULL,
-				m.leagueid,
-				m.matchid,
-				m.homeid,
-				m.awayid,
-				m.eventdate,
-				m.hthomescore,
-				m.htawayscore,
-				m.finalhomescore,
-				m.finalawayscore,
-				0,
-				m.isNeutral,
-				0
-			FROM bodb_Archive.dbo.Dot_admin_Assignment_Operator_bk a WITH (NOLOCK)
-				RIGHT JOIN bodb_Archive.dbo.match_bk m WITH (NOLOCK) ON a.matchid = m.matchid
-				INNER JOIN dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid
-			WHERE
-				m.eventdate >= @FromDate AND m.eventdate < @CutoffDay
-				AND m.eventstatus = 'completed'
-				AND m.sporttype NOT IN (1, 161)
-				AND m.matchcode NOT LIKE '%hedge%'
-				AND a.matchid IS NULL
-		END
+		DECLARE @TDate DATETIME
+		SELECT @TDate = DATEADD(DAY,-1,@CutoffDay)
 		
+		INSERT INTO #tmpTraderAssignment
+		EXEC [dbo].[Acc_Rpt_TraderPerformanceBK_Mapping_xtest]   
+			@FromDate	= @FromDate,  
+			@ToDate		= @TDate,  
+			@Type	= 0 					
+				
 		-- CutoffDay -> ToDate
-		INSERT INTO #tmpDot_Admin_Assignment_Trader(ID,EventDate,matchid,bettype,liveindicator,Detail_X,Detail_Y,Detail_Z,TraderID,UpdatedTime)
-		SELECT t.ID
-			   ,m.eventdate
-			   ,t.matchid
-			   ,t.bettype
-			   ,t.liveindicator
-			   ,t.Detail_X
-			   ,t.Detail_Y
-			   ,t.Detail_Z
-			   ,t.TraderID
-			   ,t.UpdatedTime
-		FROM bodb_Archive.dbo.Dot_Admin_Assignment_Trader_bk t (NOLOCK)
-			 LEFT JOIN bodb_Archive.dbo.match_bk m (NOLOCK) ON t.matchid = m.matchid 
-		WHERE m.eventdate BETWEEN @CutoffDay AND @ToDate
-			AND t.liveindicator = 1
-			AND ((@IsSoccer = 1 AND t.bettype IN (1, 3, 7, 8, 5, 15, 124, 125))				
-				OR (@IsSoccer = 0 AND t.bettype IN (1, 3, 7, 8, 5, 15, 2, 12, 124, 125))				
-				);
-
-		-- Insert data to #tmpTraderAssignment 
-		WITH
-		CTE_Group1 AS (
-			SELECT t.ID,t.eventdate,t.matchid,t.bettype,t.liveindicator,t.TraderID
-				   ,RANK() OVER(PARTITION BY t.matchid,t.bettype,t.liveindicator ORDER BY t.UpdatedTime DESC,t.ID DESC) Rank_
-			FROM #tmpDot_Admin_Assignment_Trader t (NOLOCK)		
-		)
-		INSERT INTO #tmpTraderAssignment(eventdate, matchid, bettype, TraderID)
-		SELECT DISTINCT t.eventdate, t.matchid, t.bettype, t.TraderID
-		FROM CTE_Group1 t
-		WHERE t.Rank_ = 1;		
-		
-		IF @IsSoccer = 1
-		BEGIN
-			INSERT INTO #tmpData
-			SELECT DISTINCT
-				c.custid,
-				c.username,
-				m.leagueid,
-				m.matchid,
-				m.homeid,
-				m.awayid,
-				m.eventdate,
-				m.hthomescore,
-				m.htawayscore,
-				m.finalhomescore,
-				m.finalawayscore,
-				a.bettype,
-				m.isNeutral,
-				CASE 
-					WHEN leaguename LIKE '%SPECIFIC 15 MINS%' AND t.teamname LIKE '%No.of Corners%' THEN 6
-					WHEN t.teamname LIKE '%No.of Corners%' THEN 1
-					WHEN t.teamname LIKE '%Total Bookings' THEN 3
-					WHEN t.teamname LIKE '%Booking' THEN 5
-					WHEN t.teamname LIKE '%Corner%' THEN 4
-					WHEN leaguename LIKE '%SPECIFIC 15 MINS TOTAL BOOKINGS%' THEN 7
-					WHEN leaguename LIKE '%SPECIFIC 15 MINS%' THEN 2
-					WHEN leaguename LIKE '%SPECIFIC 10 MINS%' THEN 8
-					WHEN leaguename LIKE '%SINGLE TEAM OVER/UNDER%' AND (t.teamname LIKE '%Over' OR t.teamname LIKE '%Under') THEN 9
-					ELSE 0 END
-			FROM #tmpTraderAssignment a 
-				INNER JOIN bodb_Archive.dbo.match_bk m WITH (NOLOCK) ON a.matchid = m.matchid
-				LEFT JOIN dbo.team t WITH (NOLOCK) ON m.homeid = t.teamid
-				INNER JOIN dbo.customer c WITH (NOLOCK) ON a.TraderID = c.custid
-				INNER JOIN dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid
-			WHERE
-				m.eventdate BETWEEN @CutoffDay AND @ToDate
-				AND m.eventstatus = 'completed'
-				AND m.sporttype = 1
-				AND m.matchcode NOT LIKE '%hedge%'
-
-			INSERT INTO #tmpData
-			SELECT
-				NULL,
-				NULL,
-				m.leagueid,
-				m.matchid,
-				m.homeid,
-				m.awayid,
-				m.eventdate,
-				m.hthomescore,
-				m.htawayscore,
-				m.finalhomescore,
-				m.finalawayscore,
-				0,
-				m.isNeutral,
-				CASE 
-					WHEN leaguename LIKE '%SPECIFIC 15 MINS%' AND t.teamname LIKE '%No.of Corners%' THEN 6
-					WHEN t.teamname LIKE '%No.of Corners%' THEN 1
-					WHEN t.teamname LIKE '%Total Bookings' THEN 3
-					WHEN t.teamname LIKE '%Booking' THEN 5
-					WHEN t.teamname LIKE '%Corner%' THEN 4
-					WHEN leaguename LIKE '%SPECIFIC 15 MINS TOTAL BOOKINGS%' THEN 7
-					WHEN leaguename LIKE '%SPECIFIC 15 MINS%' THEN 2
-					WHEN leaguename LIKE '%SPECIFIC 10 MINS%' THEN 8
-					WHEN leaguename LIKE '%SINGLE TEAM OVER/UNDER%' AND (t.teamname LIKE '%Over' OR t.teamname LIKE '%Under') THEN 9
-					ELSE 0 END
-			FROM #tmpTraderAssignment a 
-				RIGHT JOIN bodb_Archive.dbo.match_bk m WITH (NOLOCK) ON a.matchid = m.matchid
-				LEFT JOIN dbo.team t WITH (NOLOCK) ON m.homeid = t.teamid
-				INNER JOIN dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid
-			WHERE
-				m.eventdate BETWEEN @CutoffDay AND @ToDate
-				AND m.eventstatus = 'completed'
-				AND m.sporttype = 1
-				AND m.matchcode NOT LIKE '%hedge%'
-				AND a.matchid IS NULL
-		END
-		ELSE
-		BEGIN
-			INSERT INTO #tmpData
-			SELECT DISTINCT
-				c.custid,
-				c.username,
-				m.leagueid,
-				m.matchid,
-				m.homeid,
-				m.awayid,
-				m.eventdate,
-				m.hthomescore,
-				m.htawayscore,
-				m.finalhomescore,
-				m.finalawayscore,
-				a.bettype
-				,m.isNeutral
-				,0
-			FROM #tmpTraderAssignment a 
-				INNER JOIN bodb_Archive.dbo.match_bk m WITH (NOLOCK) ON a.matchid = m.matchid
-				INNER JOIN dbo.customer c WITH (NOLOCK) ON a.TraderID = c.custid
-				INNER JOIN dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid
-			WHERE
-				m.eventdate BETWEEN @CutoffDay AND @ToDate
-				AND m.eventstatus = 'completed'
-				AND m.sporttype NOT IN (1, 161) -- exclude number game  
-				AND m.matchcode NOT LIKE '%hedge%'
-
-			INSERT INTO #tmpData
-			SELECT
-				NULL,
-				NULL,
-				m.leagueid,
-				m.matchid,
-				m.homeid,
-				m.awayid,
-				m.eventdate,
-				m.hthomescore,
-				m.htawayscore,
-				m.finalhomescore,
-				m.finalawayscore,
-				0,
-				m.isNeutral,
-				0
-			FROM #tmpTraderAssignment a 
-				RIGHT JOIN bodb_Archive.dbo.match_bk m WITH (NOLOCK) ON a.matchid = m.matchid
-				INNER JOIN dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid
-			WHERE
-				m.eventdate BETWEEN @CutoffDay AND @ToDate
-				AND m.eventstatus = 'completed'
-				AND m.sporttype NOT IN (1, 161)
-				AND m.matchcode NOT LIKE '%hedge%'
-				AND a.matchid IS NULL
-		END		
+		INSERT INTO #tmpTraderAssignment
+		EXEC [dbo].[Acc_Rpt_TraderPerformanceBK_Mapping_xtest]   
+			@FromDate	= @CutoffDay,  
+			@ToDate		= @ToDate,  
+			@Type	= 1 					
 	END
+	
+	IF @IsSoccer = 1
+	BEGIN
+		DELETE #tmpTraderAssignment
+		WHERE bettype IN (2, 12)
+	END	
+		 		
+	INSERT INTO #tmpData
+	SELECT DISTINCT
+		c.custid,
+		c.username,
+		m.leagueid,
+		m.matchid,
+		m.homeid,
+		m.awayid,
+		m.eventdate,
+		m.hthomescore,
+		m.htawayscore,
+		m.finalhomescore,
+		m.finalawayscore,
+		a.bettype,
+		m.isNeutral,
+		CASE WHEN @IsSoccer = 0 THEN 0
+			ELSE CASE 
+				WHEN leaguename LIKE '%SPECIFIC 15 MINS%' AND t.teamname LIKE '%No.of Corners%' THEN 6
+				WHEN t.teamname LIKE '%No.of Corners%' THEN 1
+				WHEN t.teamname LIKE '%Total Bookings' THEN 3
+				WHEN t.teamname LIKE '%Booking' THEN 5
+				WHEN t.teamname LIKE '%Corner%' THEN 4
+				WHEN leaguename LIKE '%SPECIFIC 15 MINS TOTAL BOOKINGS%' THEN 7
+				WHEN leaguename LIKE '%SPECIFIC 15 MINS%' THEN 2
+				WHEN leaguename LIKE '%SPECIFIC 10 MINS%' THEN 8
+				WHEN leaguename LIKE '%SINGLE TEAM OVER/UNDER%' AND (t.teamname LIKE '%Over' OR t.teamname LIKE '%Under') THEN 9
+				ELSE 0 END 
+		END OUtype
+	FROM #tmpTraderAssignment a 
+		INNER JOIN bodb_Archive.dbo.match_bk m WITH (NOLOCK) ON a.matchid = m.matchid
+		LEFT JOIN dbo.team t WITH (NOLOCK) ON m.homeid = t.teamid
+		INNER JOIN dbo.customer c WITH (NOLOCK) ON a.TraderID = c.custid
+		INNER JOIN dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid
+	WHERE
+		m.eventdate BETWEEN @FromDate AND @ToDate
+		AND m.eventstatus = 'completed'
+		AND ((@IsSoccer = 1 AND m.sporttype = 1)
+			OR (@IsSoccer = 0 AND m.sporttype NOT IN (1, 161))
+			)
+		AND m.matchcode NOT LIKE '%hedge%'
+
+	INSERT INTO #tmpData
+	SELECT
+		NULL,
+		NULL,
+		m.leagueid,
+		m.matchid,
+		m.homeid,
+		m.awayid,
+		m.eventdate,
+		m.hthomescore,
+		m.htawayscore,
+		m.finalhomescore,
+		m.finalawayscore,
+		0,
+		m.isNeutral,
+		CASE WHEN @IsSoccer = 0 THEN 0
+			ELSE CASE 
+				WHEN leaguename LIKE '%SPECIFIC 15 MINS%' AND t.teamname LIKE '%No.of Corners%' THEN 6
+				WHEN t.teamname LIKE '%No.of Corners%' THEN 1
+				WHEN t.teamname LIKE '%Total Bookings' THEN 3
+				WHEN t.teamname LIKE '%Booking' THEN 5
+				WHEN t.teamname LIKE '%Corner%' THEN 4
+				WHEN leaguename LIKE '%SPECIFIC 15 MINS TOTAL BOOKINGS%' THEN 7
+				WHEN leaguename LIKE '%SPECIFIC 15 MINS%' THEN 2
+				WHEN leaguename LIKE '%SPECIFIC 10 MINS%' THEN 8
+				WHEN leaguename LIKE '%SINGLE TEAM OVER/UNDER%' AND (t.teamname LIKE '%Over' OR t.teamname LIKE '%Under') THEN 9
+				ELSE 0 END
+		END OUtype
+	FROM #tmpTraderAssignment a 
+		RIGHT JOIN bodb_Archive.dbo.match_bk m WITH (NOLOCK) ON a.matchid = m.matchid
+		LEFT JOIN dbo.team t WITH (NOLOCK) ON m.homeid = t.teamid
+		INNER JOIN dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid
+	WHERE
+		m.eventdate BETWEEN @FromDate AND @ToDate
+		AND m.eventstatus = 'completed'
+		AND ((@IsSoccer = 1 AND m.sporttype = 1)
+			OR (@IsSoccer = 0 AND m.sporttype NOT IN (1, 161))
+			)
+		AND m.matchcode NOT LIKE '%hedge%'
+		AND a.matchid IS NULL
 	
 	INSERT INTO #tmpData (custid, username, leagueid, matchid, homeid, awayid, eventdate, hthomescore, htawayscore, fthomescore, ftawayscore, bettype, IsNeutral, OUtype)
 	SELECT DISTINCT custid, username, leagueid, matchid, homeid, awayid, eventdate, hthomescore, htawayscore, fthomescore, ftawayscore, 124 bettype, IsNeutral, OUtype
@@ -1130,7 +608,6 @@ BEGIN
 	DROP TABLE #bettrans
 	DROP TABLE #tmpData
 	DROP TABLE #ExtraPTSportbook
-	DROP TABLE #tmpDot_Admin_Assignment_Trader
 	DROP TABLE #tmpTraderAssignment
 
 END

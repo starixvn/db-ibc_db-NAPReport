@@ -156,8 +156,10 @@ BEGIN
 			   ,t.UpdatedTime
 		FROM bodb02.dbo.Dot_Admin_Assignment_Trader t (NOLOCK)
 			INNER JOIN #BettypeMapping bm ON t.bettype = bm.Bettype
-			LEFT JOIN bodb02.dbo.match m (NOLOCK) ON t.matchid = m.matchid 
+			INNER JOIN bodb02.dbo.match m (NOLOCK) ON t.matchid = m.matchid 
 		WHERE m.eventdate BETWEEN @FromDate AND @ToDate
+			AND m.eventstatus = 'completed'									
+			AND m.matchcode NOT LIKE '%hedge%'
 			AND t.liveindicator = 1;
 
 		-- Insert data to #tmpTraderAssignment - Group1_matchid|bettype|livestatus
