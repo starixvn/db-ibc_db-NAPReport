@@ -78,7 +78,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_BetBuilder_BetType] @EndDate='2019-03-03',@StartDat
                END AS RowName, 
                SUM((winlost - actual_stake) * actualrate) MemberWinLoss, 
                SUM((awinlost + mwinlost + swinlost) * actualrate) AS SMAWinLoss, 
-               SUM((CASE
+               -SUM((CASE
                         WHEN b.tpositiontaking = 1
                         THEN 0
                         ELSE(winlost - actual_stake) + b.scomm / (1 - b.tpositiontaking)
