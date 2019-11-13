@@ -18,6 +18,7 @@ AS
 		20181004@Cherry: Integrate ColosusBet and NG2 (#102229)
 		20181130@Cherry: Integrate Happy 5 (#103498)
 		20190328@Cherry: Integrate Promotion Prize (#109203)
+		20191115@Cherry: Integrate PP Tournament (#123660)
 */
  
 BEGIN
@@ -30,14 +31,22 @@ SET NOCOUNT ON
 	SELECT  @isTest = dbo.f_CheckSPVersion(@@PROCID)
  
 	CREATE TABLE #SportBettype (ProductId INT, TypeId INT, TypeName NVARCHAR(1000), IsTest BIT DEFAULT(0), GameType TINYINT) --GameType: SportType=1, Bettype=2, League=3
+	CREATE TABLE #tmpBettype (Bettype INT)
  
+	-- Get Exclude Bettype
+	INSERT INTO #tmpBettype (Bettype)
+	SELECT Bettype
+	FROM DBDW.bodb_Account.dbo.BettypeGroup (NOLOCK)
+	WHERE BettypeGroupID = 6
+	
     -- Get Bettype
 	INSERT INTO #SportBettype (ProductID, TypeId, TypeName, GameType)
 	SELECT	s.ProductID, s.Bettype as TypeId, b.typenamee AS TypeName, 2 AS GameType
 	FROM	dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '', @isTest) s
 		INNER JOIN dbo.Bettype b ON s.Bettype = b.TypeId 
+		LEFT JOIN #tmpBettype t ON s.Bettype = t.Bettype 
 	WHERE  (CasinoType IN (1,2) OR ProductID IN (8, 15, 24, 26, 28, 3, 30, 33))	 
-		   AND b.TypeId NOT IN (2199, 2399, 2999, 4300)
+		   AND t.Bettype IS NULL
 	
 	--- ProductID = 3 - Number Game get LeagueId
 	INSERT INTO #SportBettype (ProductId, TypeId, TypeName, IsTest, GameType)
@@ -63,6 +72,7 @@ SET NOCOUNT ON
 	ORDER BY ProductId, TypeName
 	
 	DROP TABLE #SportBettype
+	DROP TABLE #tmpBettype
 
 END
 
