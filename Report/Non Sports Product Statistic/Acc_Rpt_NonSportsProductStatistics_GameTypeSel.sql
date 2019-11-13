@@ -38,7 +38,7 @@ SET NOCOUNT ON
 	-- Get Exclude Bettype
 	INSERT INTO #tmpBettype (Bettype)
 	SELECT Bettype
-	FROM DBDW.bodb_Account.dbo.BettypeGroup (NOLOCK)
+	FROM DBDW.bodb_Account.dbo.BettypeGroup 
 	WHERE BettypeGroupID = 6
 	
     -- Get Bettype
