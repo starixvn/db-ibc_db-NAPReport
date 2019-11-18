@@ -42,7 +42,8 @@ Revision:
 	- 20190117@Robert: Video Poker - Integrate into NAP Reports (#107706)
 	- 20190326@Robert: #109981 - NAP Report - Integrate Promotion Prize
 	- 20190722@Robert: #117010 - NAP Report - Integrate Card Club on NAP Report
-	- 20191015@Robert: #121661 - NAP Report - Integrate NPH into reports
+        - 20191015@Robert: #121661 - NAP Report - Integrate NPH into reports
+        - 20191118@Ned.Le: Integrate Pragmatic Tournament Prize (#123685)
 */
 
 BEGIN	
@@ -73,6 +74,10 @@ BEGIN
 		WLIBC money,
 		TOPhum money
 	)
+
+	CREATE TABLE #PrizeBettypeGroup (Bettype SMALLINT)
+	INSERT INTO #PrizeBettypeGroup
+	SELECT Bettype FROM DBDW.bodb_Account.dbo.BettypeGroup WHERE BettypeGroupID=6
 
 	DECLARE @isTest BIT= 0;
      SELECT @isTest = dbo.f_CheckSPVersion(@@PROCID);
@@ -271,7 +276,8 @@ BEGIN
 			AND sb.SportType <> 165
 		GROUP BY
 			winlostdate, matchid, b.bettype, liveindicator,  
-			CASE WHEN StatusID = 111 THEN 'DRAW' 
+			CASE WHEN StatusID = 111 THEN 'DRAW'- 20191118@Ned.Le: Integrate Pragmatic Tournament Prize (#123685)
+ 
 				WHEN StatusID = 112 THEN 'WON' 
 				WHEN StatusID = 113 THEN 'LOSE' END;
 
@@ -472,12 +478,12 @@ BEGIN
 			sum((winlost-actual_stake)* actualrate)  realWinlost,
 			sum((awinlost+mwinlost+swinlost)* actualrate) realPos,
 			sum((scomm) * actualrate) realComm,
-			sum((CASE WHEN sb.Bettype IN(2199, 2399, 2999, 4300) THEN 0
+			sum((CASE WHEN bg.Bettype IS NOT NULL THEN 0 /*Progressive Jackpot, PP Promotion Prize, PP Tournament Prize*/
 					  WHEN sb.Bettype IN(2198, 2398, 2998) THEN (b.ContributionRate * b.BetStake) + awinlost + mwinlost + swinlost + scomm
 				      ELSE winlost - actual_stake + awinlost + mwinlost + swinlost + scomm 
 				 END) * actualrate) realLineTotal,
 			sum((1-tpositiontaking)*stake*virtualrate) as virtualTurnover,
-			sum((CASE WHEN sb.Bettype IN(2199, 2399, 2999, 4300) THEN 0
+			sum((CASE WHEN bg.Bettype IS NOT NULL THEN 0 /*Progressive Jackpot, PP Promotion Prize, PP Tournament Prize*/
 					  WHEN sb.Bettype IN(2198, 2398, 2998) THEN (b.ContributionRate * b.BetStake) + awinlost + mwinlost + swinlost + scomm
 				      ELSE winlost - actual_stake + awinlost + mwinlost + swinlost + scomm 
 				 END) * virtualrate) virtualLineTotal,
@@ -486,6 +492,7 @@ BEGIN
 		FROM
 			bettransRnG b with (nolock)
 			inner join #SportBettype sb on b.gameID = sb.Bettype
+			LEFT JOIN #PrizeBettypeGroup bg ON b.gameID = bg.Bettype
 		WHERE
 			sb.ProductID IN (6, 17, 22, 24, 32, 33, 34) -- MBC-RNG Casino, Microgaming-RNG Casino, Voidbridge, Fishing World, Pragmatic			
 			AND winlostdate = @winlostdate
@@ -1004,12 +1011,12 @@ BEGIN
 				sum((winlost-actual_stake)* actualrate)  realWinlost,
 				sum((awinlost+mwinlost+swinlost)* actualrate) realPos,
 				sum((scomm) * actualrate) realComm,
-				sum((CASE WHEN sb.Bettype IN(2199, 2399, 2999, 4300) THEN 0
+				sum((CASE WHEN bg.Bettype IS NOT NULL THEN 0 /*Progressive Jackpot, PP Promotion Prize, PP Tournament Prize*/
 						  WHEN sb.Bettype IN(2198, 2398, 2998) THEN (b.ContributionRate * b.BetStake) + awinlost + mwinlost + swinlost + scomm
 						  ELSE winlost - actual_stake + awinlost + mwinlost + swinlost + scomm 
 					 END) * actualrate) realLineTotal,
 				sum((1-tpositiontaking)*stake*virtualrate) as virtualTurnover,
-				sum((CASE WHEN sb.Bettype IN(2199, 2399, 2999, 4300) THEN 0
+				sum((CASE WHEN bg.Bettype IS NOT NULL THEN 0 /*Progressive Jackpot, PP Promotion Prize, PP Tournament Prize*/
 						  WHEN sb.Bettype IN(2198, 2398, 2998) THEN (b.ContributionRate * b.BetStake) + awinlost + mwinlost + swinlost + scomm
 						  ELSE winlost - actual_stake + awinlost + mwinlost + swinlost + scomm 
 					 END) * virtualrate) virtualLineTotal,
@@ -1018,6 +1025,7 @@ BEGIN
 			FROM
 				dbo.bettransRnG14 b with (nolock)
 				inner join #SportBettype sb on b.gameID = sb.Bettype
+				LEFT JOIN #PrizeBettypeGroup bg ON b.gameID = bg.Bettype
 			WHERE
 				sb.ProductID IN (6, 17, 22, 24, 32, 33, 34) -- MBC-RNG Casino, Microgaming-RNG Casino, Voidbridge, Fishing World, Pragmatic				
 				AND winlostdate = @winlostdate
@@ -1156,5 +1164,6 @@ BEGIN
 	
 	DROP TABLE #bettransm
 	DROP TABLE #SportBettype
+	DROP TABLE #PrizeBettypeGroup
 END
 

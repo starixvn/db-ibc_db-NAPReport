@@ -45,6 +45,7 @@ Revisions:
 	20190326@Robert: #109981 - NAP Report - Integrate Promotion Prize
 	20190722@Robert: #117010 - NAP Report - Integrate Card Club on NAP Report
 	20190918@Robert: Remove inactive products (#120215)	   
+	20191118@Ned.Le: Integrate Pragmatic Tournament Prize (#123685)
 */
 
 BEGIN
@@ -84,6 +85,14 @@ BEGIN
 		 FROM dbo.f_SportBettypeMatrix_Sel
 			 (0, 0, 0, 2, '', '', @isTest) AS sb
 		 WHERE sb.BetType NOT IN(901, 902, 911, 912);
+
+	IF OBJECT_ID('tempdb..#PrizeBettypeGroup') IS NOT NULL
+	BEGIN
+		DROP TABLE #PrizeBettypeGroup;
+	END;
+	CREATE TABLE #PrizeBettypeGroup (Bettype SMALLINT)
+	INSERT INTO #PrizeBettypeGroup
+	SELECT Bettype FROM DBDW.bodb_Account.dbo.BettypeGroup WHERE BettypeGroupID=6
 
     IF OBJECT_ID('tempdb..#Product') IS NOT NULL
 	   BEGIN
@@ -293,18 +302,15 @@ BEGIN
 			 , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(5, 2)) AS VarianceVR
 			 , SUM(stake * (1 - tpositiontaking)) AS                      TurnoverIBC
 			 , SUM(CASE
-					 WHEN t.bettype IN(2199, 2399, 2999, 4300)
-					 THEN 0 /*Progressive Jackpot*/
+					 WHEN bg.Bettype IS NOT NULL THEN 0 /*Progressive Jackpot, PP Promotion Prize, PP Tournament Prize*/
 					 WHEN t.bettype IN(2198, 2398, 2998)
 					 THEN b.ContributionRate * b.BetStake + swinlost + mwinlost + awinlost /*Jackpot Contribution*/
 					 ELSE swinlost + mwinlost + awinlost + winlost - actual_stake
 				  END) AS                                                WinlossIBC
 			 , SUM(scomm) AS                                              CommissionS
 			 , SUM(CASE
-					 WHEN tpositiontaking = 1
-					 THEN 0
-					 WHEN b.gameID IN(2199, 2399, 2999, 4300)
-					 THEN 0 /*Progressive Jackpot*/
+					 WHEN tpositiontaking = 1 THEN 0
+					 WHEN bg.Bettype IS NOT NULL THEN 0 /*Progressive Jackpot, PP Promotion Prize, PP Tournament Prize*/
 					 WHEN b.gameID IN(2198, 2398, 2998)
 					 THEN(b.ContributionRate * b.BetStake) * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 8)) /*Jackpot Contribution*/
 					 ELSE(winlost - actual_stake) * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 8))
@@ -322,18 +328,15 @@ BEGIN
 /*RM*/
 			 , SUM(stake * (1 - tpositiontaking) * actualrate) AS         TurnoverIBC_RM
 			 , SUM(CASE
-					 WHEN t.bettype IN(2199, 2399, 2999, 4300)
-					 THEN 0 /*Progressive Jackpot*/
+					 WHEN bg.Bettype IS NOT NULL THEN 0 /*Progressive Jackpot, PP Promotion Prize, PP Tournament Prize*/
 					 WHEN t.bettype IN(2198, 2398, 2998)
 					 THEN b.ContributionRate * b.BetStake + swinlost + mwinlost + awinlost /*Jackpot Contribution*/
 					 ELSE swinlost + mwinlost + awinlost + winlost - actual_stake
 				  END * actualrate) AS                                   WinlossIBC_RM
 			 , SUM(scomm * actualrate) AS                                 CommissionS_RM
 			 , SUM(CASE
-					 WHEN tpositiontaking = 1
-					 THEN 0
-					 WHEN b.gameID IN(2199, 2399, 2999, 4300)
-					 THEN 0 /*Progressive Jackpot*/
+					 WHEN tpositiontaking = 1 THEN 0
+					 WHEN bg.Bettype IS NOT NULL THEN 0 /*Progressive Jackpot, PP Promotion Prize, PP Tournament Prize*/
 					 WHEN b.gameID IN(2198, 2398, 2998)
 					 THEN(b.ContributionRate * b.BetStake) * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 8)) /*Jackpot Contribution*/
 					 ELSE(winlost - actual_stake) * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 8))
@@ -355,6 +358,7 @@ BEGIN
 									AND expt.ProductID = pb.ProductID
 									AND expt.SubProduct = pb.SubProduct
 									AND expt.Sporttype = 0
+			LEFT JOIN #PrizeBettypeGroup bg ON b.gameID = bg.Bettype
 		 WHERE winlostdate BETWEEN CAST(@FromDate AS SMALLDATETIME) AND CAST(@ToDate AS SMALLDATETIME)
 			  AND t.ProductID IN(6, 22, 24, 32, 34)
 			  AND b.statusID NOT IN(0, 1, 101, 102, 103)
@@ -592,6 +596,7 @@ BEGIN
     DROP TABLE #Match44;
     DROP TABLE #Product;
     DROP TABLE #tmpBettype;
+	DROP TABLE #PrizeBettypeGroup;
 END;
 
 
