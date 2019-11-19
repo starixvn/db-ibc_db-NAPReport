@@ -50,11 +50,9 @@ Explanation's Param:
 	   SELECT @EffectedDate = '2017-01-19';
 
 	   -- Get Prize Bettype Group
-	   BEGIN
-			CREATE TABLE #PrizeBettypeGroup (Bettype SMALLINT)
-			INSERT INTO #PrizeBettypeGroup
-			SELECT Bettype FROM DBDW.bodb_Account.dbo.BettypeGroup WHERE BettypeGroupID=6
-	   END;
+	   CREATE TABLE #PrizeBettypeGroup (Bettype SMALLINT)
+	   INSERT INTO #PrizeBettypeGroup
+	   SELECT Bettype FROM DBDW.bodb_Account.dbo.BettypeGroup WHERE BettypeGroupID=6
 
 	   --Get Sport Bettype Matrix--
 	   -- Check SP Version	 
