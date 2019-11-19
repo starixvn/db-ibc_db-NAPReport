@@ -1,5 +1,7 @@
-
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+
+USE [bodb02]
+GO
 
 ALTER PROCEDURE dbo.Acc_Rpt_CompanyWinLoss_Game_Site @StartDate SMALLDATETIME, 
                                                      @EndDate   SMALLDATETIME, 
