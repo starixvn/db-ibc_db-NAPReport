@@ -16,6 +16,7 @@ AS
 	Revisions:
 
 		20191010@Cherry: Apply new table for Trader (#120746)
+		20191121@Ned.Le: Integrate BM AIO (#124017)
 
 	Param's Explanation:
 		@Type: Get data of Trader
@@ -63,7 +64,7 @@ BEGIN
 			AND m.eventstatus = 'completed'									
 			AND m.matchcode NOT LIKE '%hedge%'
 			AND t.liveindicator = 1
-			AND t.bettype IN (1, 3, 5, 7, 8, 15, 2, 12);
+			AND t.bettype IN (1, 3, 5, 7, 8, 15, 2, 12, 701, 702);
 
 		WITH
 		CTE_Group1 AS (
