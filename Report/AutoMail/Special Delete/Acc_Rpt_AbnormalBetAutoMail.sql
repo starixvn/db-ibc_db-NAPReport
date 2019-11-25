@@ -19,8 +19,8 @@ AS
 	   SET NOCOUNT ON;
 
 	   CREATE TABLE #TmpVoidedTransaction(
-		   TransId             BIGINT
-		 , SubIssueTypeName    NVARCHAR(200));
+		   TransId           BIGINT
+		 , SubIssueTypeId    TINYINT);
 
 	   CREATE TABLE #TmpBettype(
 		   bettype                INT
@@ -36,7 +36,7 @@ AS
 		 , liveindicator     BIT
 		 , bettype           SMALLINT
 		 , betteam           VARCHAR(10)
-		 , Reason            NVARCHAR(200)
+		 , SubIssueTypeId    TINYINT
 		 , finalhomescore    INT
 		 , finalawayscore    INT
 		 , site              VARCHAR(50)
@@ -57,16 +57,14 @@ AS
 		   , @RptDate_To = DATEADD(d, 1, @RptDate_From);
 
 	   INSERT INTO #TmpVoidedTransaction(TransId
-								, SubIssueTypeName)
+								, SubIssueTypeId)
 			SELECT b.TransId
-				, ss.SubIssueTypeName + ' ' + ss.SubIssueTypeNameCS
+				, b.SubIssueTypeId
 			FROM bodb02.dbo.TicketVoiding_VoidedTransaction AS b WITH(NOLOCK)
-			    INNER JOIN bodb02.dbo.TicketVoiding_SubIssueType AS ss WITH(NOLOCK) ON b.SubIssueTypeID = ss.SubIssueTypeId
 			WHERE b.CustID > 0
 				 AND b.CreatedDate >= @RptDate_From
 				 AND b.CreatedDate < @RptDate_To
-				 AND b.IssueTypeID = 11
-				 AND ss.IssueTypeId = 11;
+				 AND b.IssueTypeID = 11;
 
 	   INSERT INTO #TmpBettype(bettype
 						, SupportMultipleOdds)
@@ -86,7 +84,7 @@ AS
 				    , liveindicator
 				    , bettype
 				    , betteam
-				    , Reason
+				    , SubIssueTypeId
 				    , finalhomescore
 				    , finalawayscore
 				    , site
@@ -108,7 +106,7 @@ AS
 				, b.liveindicator
 				, b.bettype
 				, b.betteam
-				, tmp.SubIssueTypeName
+				, tmp.SubIssueTypeId
 				, m.finalhomescore
 				, m.finalawayscore
 				, s.site
@@ -160,12 +158,13 @@ AS
 		   , d.liveindicator
 		   , d.bettype
 		   , d.betteam
-		   , d.Reason
+		   , ss.SubIssueTypeName + ' ' + ss.SubIssueTypeNameCS AS Reason
 		   , d.finalhomescore
 		   , d.finalawayscore
 		   , COUNT(DISTINCT site) AS NumberOfLicensees
 		   , COUNT(TransId) AS NumberOfTickets
 	   FROM #Data AS d
+		  INNER JOIN bodb02.dbo.TicketVoiding_SubIssueType AS ss WITH(NOLOCK) ON d.SubIssueTypeID = ss.SubIssueTypeId
 	   GROUP BY d.sporttype
 			, d.leagueid
 			, d.homeid
@@ -174,7 +173,7 @@ AS
 			, d.liveindicator
 			, d.bettype
 			, d.betteam
-			, d.Reason
+			, ss.SubIssueTypeName + ' ' + ss.SubIssueTypeNameCS
 			, d.finalhomescore
 			, d.finalawayscore;
 
@@ -187,7 +186,7 @@ AS
 		   , liveindicator
 		   , bettype
 		   , betteam
-		   , Reason
+		   , ss.SubIssueTypeName + ' ' + ss.SubIssueTypeNameCS AS Reason
 		   , finalhomescore
 		   , finalawayscore
 		   , site
@@ -199,7 +198,8 @@ AS
 		   , livehomescore
 		   , liveawayscore
 		   , transdate
-	   FROM #Data;
+	   FROM #Data AS d
+		  INNER JOIN bodb02.dbo.TicketVoiding_SubIssueType AS ss WITH(NOLOCK) ON d.SubIssueTypeID = ss.SubIssueTypeId;
 
 	   DROP TABLE #TmpVoidedTransaction;
 	   DROP TABLE #Data;
