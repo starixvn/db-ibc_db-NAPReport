@@ -1149,7 +1149,7 @@ BEGIN
 		    SET rpt.SportType = sb.SportType
 		    FROM bodb_Report.dbo.rptWinlost rpt
 			 INNER JOIN #SportBettype sb on  rpt.bettype = sb.Bettype
-		    WHERE sb.ProductID IN (23, 31, 32, 33, 34) 
+		    WHERE sb.ProductID IN (23, 31, 32, 33, 34, 37) 
 		    AND rpt.winlostdate =  @winlostdate
 		END
 	END
