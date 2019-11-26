@@ -42,6 +42,7 @@ Revision:
 	- 20190117@Robert: Video Poker - Integrate into NAP Reports (#107706)
 	- 20190326@Robert: #109981 - NAP Report - Integrate Promotion Prize
 	- 20190722@Robert: #117010 - NAP Report - Integrate Card Club on NAP Report
+	- 20191015@Robert: #121661 - NAP Report - Integrate NPH into reports
 */
 
 BEGIN	
@@ -87,7 +88,7 @@ BEGIN
     UPDATE sb
     SET sb.SportType = s.SportType
     FROM #SportBettype sb
-	   INNER JOIN SportBettypeMatrix s WITH(NOLOCK) ON sb.BetType = s.BetType AND s.ProductID IN (23, 31, 32, 33, 34) -- NG2, Exchange, Pragmatic, Poker Games, Card Club
+	   INNER JOIN SportBettypeMatrix s WITH(NOLOCK) ON sb.BetType = s.BetType AND s.ProductID IN (23, 31, 32, 33, 34,37) -- NG2, Exchange, Pragmatic, Poker Games, Card Club
 	
 	IF @winlostdate > @MoveBetsDay
 	BEGIN				
@@ -273,6 +274,8 @@ BEGIN
 			CASE WHEN StatusID = 111 THEN 'DRAW' 
 				WHEN StatusID = 112 THEN 'WON' 
 				WHEN StatusID = 113 THEN 'LOSE' END;
+
+				
 
 		--Colosusbet
 		INSERT INTO bodb_Report.dbo.rptWinlost
@@ -614,7 +617,7 @@ BEGIN
 		SET rpt.SportType = sb.SportType
 		FROM bodb_Report.dbo.rptWinlost rpt WITH(NOLOCK)
 		  INNER JOIN #SportBettype sb on  rpt.bettype = sb.Bettype
-		WHERE sb.ProductID IN (23,31,32,33, 34) 
+		WHERE sb.ProductID IN (23,31,32,33, 34,37) 
 		AND rpt.winlostdate =  @winlostdate
 	END
 	ELSE IF @winlostdate BETWEEN @BalanceUpDay AND @MoveBetsDay 

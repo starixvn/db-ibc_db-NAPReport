@@ -1,8 +1,8 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
 ALTER PROCEDURE dbo.Acc_Rpt_CompanyWinLoss_Products 
-	@StartDate    SMALLDATETIME
-   , @EndDate      SMALLDATETIME
+	@StartDate    SMALLDATETIME 
+   , @EndDate      SMALLDATETIME 
 AS
     BEGIN
 /*	Creator: Sophia.Nguyen
@@ -35,6 +35,7 @@ Revisions:
 - 20190517@Cherry: Change Keno name to RNG Keno (#113670)
 - 20190925@Jacob: Group By CN88 (#118824)
 - 20190918@Robert: Remove inactive products (#120215)
+- 20191015@Robert: Integrate NPH into reports (#121661)
 
 Explanation's Param:
 
@@ -726,7 +727,8 @@ Explanation's Param:
 							  ELSE s.ProductID
 						   END
 				    END
-				  , s.CasinoType;
+				  , s.CasinoType;				  
+
 	   -- Get bettransRNG data
 	   INSERT INTO #tmp_srcDetail(srecommend
 						   , bettype
@@ -1344,7 +1346,7 @@ Explanation's Param:
 			FROM #src AS b
 			    LEFT JOIN #ExtraPT_Sel AS e ON b.srecommend = e.superID
 										AND e.ProductID = b.ProductId
-			WHERE b.ProductId IN(5, 8, 15, 23, 25, 27, 28, 31) --Virtual Sports, Keno, Colossus Bets, NG2 (3rd), CashOut, Betradar Virtual Sports, Lottery, Exchange
+			WHERE b.ProductId IN(5, 8, 15, 23, 25, 27, 28, 31, 37) --Virtual Sports, Keno, Colossus Bets, NG2 (3rd), CashOut, Betradar Virtual Sports, Lottery, Exchange
 				 OR b.CasinoType IN(1, 2)
 			GROUP BY site
 				  , CASE
@@ -1400,7 +1402,7 @@ Explanation's Param:
 					   WHEN b.CasinoType = 2
 					   THEN 4  --Live Casino
 					   ELSE b.ProductId
-				    END;
+				    END;				 
 	   --2. Total --
 	   -- Get win lost of agent '8RM' , 'BARM'
 	   INSERT INTO #Result(ProductId
@@ -1493,7 +1495,8 @@ Explanation's Param:
 			(15, 25, 'Cash Out'),
 			(16, 15, 'Colossus Bets'),
 			(17, 24, 'Fishing World'),
-			(20, 31, 'Exchange');
+			(20, 31, 'Exchange'),
+			(21, 37, 'NPH Promotion');
 
 	   INSERT INTO @ProductOrder(DisplayOrder
 						  , ProductId
