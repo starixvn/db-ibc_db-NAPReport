@@ -1,7 +1,4 @@
-/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
-
-USE bodb02
-GO
+/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
 ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_AB_Deposit]
 	@FromDate DATE,
@@ -15,6 +12,7 @@ AS
    
     Revisions:
 		- 20180126@Harper - HDWL Letstalk - Implement Chart of NonSport product margin [#RedmineID: 89632]
+		- 20191107@Robert -  House Net Income, Licensee Performance Email/Letstalk Report Integration, Remove credit [122516]
 		
 	Param's Explanation:   
 
@@ -145,7 +143,7 @@ BEGIN
 		SELECT DISTINCT	ci.IsDeposit, ci.ProductID, ci.DI_Rate, ci.Fromdate, ci.ToDate, ci.ChargeType, p.LicenseeID
 		FROM	bodb_licensee.dbo.LA_f_ChargeInfo3rd(@FDate, @TDate, 'AB', 'OA') ci	
 				INNER JOIN @tmpParty p ON p.ParentID = ci.PartyID	
-		WHERE ci.ChargeType IN (9, 10)
+		WHERE ci.ChargeType IN (9, 10) AND ci.IsDeposit = 1
 	),
 	PayToSupplierDaily AS
 	(
@@ -219,7 +217,3 @@ BEGIN
 END
 GO
 
-GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_AB_Deposit] TO [bodbAdminNet]
-GO
-GRANT VIEW definition ON [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_AB_Deposit] TO vnteam
-GO

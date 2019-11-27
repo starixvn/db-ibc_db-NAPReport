@@ -1,6 +1,6 @@
 /*<info serverAlias="DBWH-bodb_dwrs" executers="dwrs" viewers="" isFunction="0" isNested="0"></info>*/
 
-ALTER PROCEDURE dbo.Acc_Rpt_HouseNetIncome_NPH_Deposit 
+ALTER PROCEDURE dbo.Acc_Rpt_HouseNetIncome_SP_Deposit 
 	@FromDate    DATE
    , @ToDate      DATE
 AS;
@@ -11,6 +11,7 @@ AS;
    
     Revisions:  
 		- 201901030@Robert - House Net Income, Licensee Performance Email/Letstalk Report Integration [122516]
+		- 20191127@Robert: Rename Product from 'NPH Promotion' to 'Saba Promotion'
 	
 	Param's Explanation:   
 
