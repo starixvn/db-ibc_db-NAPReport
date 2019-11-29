@@ -36,6 +36,7 @@ Revisions:
 - 20190925@Jacob: Group By CN88 (#118824)
 - 20190918@Robert: Remove inactive products (#120215)
 - 20191015@Robert: Integrate NPH into reports (#121661)
+- 20191201@Cherry: Change product name NPH to Saba Promotion (#124605)
 
 Explanation's Param:
 
@@ -1496,7 +1497,7 @@ Explanation's Param:
 			(16, 15, 'Colossus Bets'),
 			(17, 24, 'Fishing World'),
 			(20, 31, 'Exchange'),
-			(21, 37, 'NPH Promotion');
+			(21, 37, 'Saba Promotion');
 
 	   INSERT INTO @ProductOrder(DisplayOrder
 						  , ProductId
