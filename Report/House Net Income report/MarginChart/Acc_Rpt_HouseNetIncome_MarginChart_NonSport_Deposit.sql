@@ -1,10 +1,10 @@
 /*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
-ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_NonSport_Deposit]
-	@FromDate		DATE ,
-	@ToDate		DATE ,
-	@ProductList	VARCHAR(MAX) = ''
-AS  
+ALTER PROCEDURE dbo.Acc_Rpt_HouseNetIncome_MarginChart_NonSport_Deposit 
+	@FromDate       DATE
+   , @ToDate         DATE
+   , @ProductList    VARCHAR(MAX) = ''   
+AS;
 /*  	
 	Created:		20180126@Harper 
 	Description:	HDWL Letstalk - Implement Chart of NonSport product margin    
@@ -16,6 +16,8 @@ AS
 		- 20180813@Harper - DHWL Non-sports Margin Chart - Integrate OneRNG Jackpot & Pragmatic [#RedmineID: 97562]
 		- 20181202@Robert: #104579 - House Net Income Email/Letstalk/Margin Chart - Integrate Happy 5
 		- 20190819@Robert - NAP Report - Integrate Card Club on NAP Report [#115465]
+		- 20191107@Robert -  NPH - House Net Income, Licensee Performance Email/Letstalk Report Integration [122516]
+		- 20191127@Robert: Rename Product from 'NPH Promotion' to 'Saba Promotion'
 
 	Param's Explanation:   
 		- @ProductList: '' - default value when get all product
@@ -30,7 +32,7 @@ BEGIN
 	DECLARE @FDate DATE, @TDate DATE
 	SELECT @FDate = @FromDate, @TDate = @ToDate
 
-	DECLARE @DefaulProductList VARCHAR(MAX) = 'EX,GD,FW,AB,VB,CB,CO,AGC,KN,LT,CS,NG,PP,CC'
+	DECLARE @DefaulProductList VARCHAR(MAX) = 'EX,GD,FW,AB,VB,CB,CO,AGC,KN,LT,CS,NG,PP,CC,SP'
 
 	-- Select ProductList
 	SELECT @ProductList = CASE WHEN LEN(ISNULL(@ProductList, '')) > 0  THEN @ProductList ELSE @DefaulProductList END
@@ -69,6 +71,13 @@ BEGIN
 	SELECT @SumValue = @SumValue + ' FROM #MarginChartResult GROUP BY [Order], Figure ORDER BY [Order]'
 	
 	--EXEC (@DynamicTable)
+
+	-- 15. NPH
+	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'SP')
+	BEGIN
+		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
+							+ 'EXEC DBWH.bodb_dwrs.dbo.Acc_Rpt_HouseNetIncome_SP_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
+	END		
 
 	-- 14. CC
 	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'CC')
