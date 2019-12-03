@@ -1,5 +1,8 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
+USE [bodb02]
+GO
+
 ALTER PROCEDURE [dbo].[Task_rptWinLost_UpdateTable]
 	@winlostdate smalldatetime  
 AS
@@ -42,7 +45,8 @@ Revision:
 	- 20190117@Robert: Video Poker - Integrate into NAP Reports (#107706)
 	- 20190326@Robert: #109981 - NAP Report - Integrate Promotion Prize
 	- 20190722@Robert: #117010 - NAP Report - Integrate Card Club on NAP Report
-	- 20191015@Robert: #121661 - NAP Report - Integrate NPH into reports
+    - 20191015@Robert: #121661 - NAP Report - Integrate NPH into reports
+    - 20191118@Ned.Le: Integrate Pragmatic Tournament Prize (#123685)
 */
 
 BEGIN	
@@ -73,6 +77,10 @@ BEGIN
 		WLIBC money,
 		TOPhum money
 	)
+
+	CREATE TABLE #PrizeBettypeGroup (Bettype SMALLINT)
+	INSERT INTO #PrizeBettypeGroup
+	SELECT Bettype FROM DBWH.bodb_Account.dbo.BettypeGroup WHERE BettypeGroupID=6
 
 	DECLARE @isTest BIT= 0;
      SELECT @isTest = dbo.f_CheckSPVersion(@@PROCID);
@@ -185,8 +193,8 @@ BEGIN
 		SELECT
 			winlostdate,
 			matchid, b.bettype, liveindicator,
-			CASE WHEN StatusID = 111 THEN 'DRAW' 
-				WHEN StatusID = 112 THEN 'WON' 
+			CASE WHEN StatusID = 111 THEN 'DRAW'
+				WHEN StatusID = 112 THEN 'WON'
 				WHEN StatusID = 113 THEN 'LOSE' END  Status,
 			case when recommend = 52466 then 1 when recommend = 5707545 then 2 else 0 end as ibc,
 			sum((1-tpositiontaking)*abs(stake)*actualrate) as realturnover,
@@ -207,8 +215,8 @@ BEGIN
 			AND currency <> 20
 		GROUP BY
 			winlostdate, matchid, b.bettype, liveindicator, 
-			CASE WHEN StatusID = 111 THEN 'DRAW' 
-				WHEN StatusID = 112 THEN 'WON' 
+			CASE WHEN StatusID = 111 THEN 'DRAW'
+				WHEN StatusID = 112 THEN 'WON'
 				WHEN StatusID = 113 THEN 'LOSE' END ,
 			case when recommend = 52466 then 1 when recommend = 5707545 then 2 else 0 end,
 			CASE WHEN betteam = N'1' THEN 1 ELSE 0 END
@@ -235,8 +243,8 @@ BEGIN
 		SELECT
 			winlostdate,
 			matchid, b.bettype, liveindicator,  
-			CASE WHEN StatusID = 111 THEN 'DRAW' 
-				WHEN StatusID = 112 THEN 'WON' 
+			CASE WHEN StatusID = 111 THEN 'DRAW'
+				WHEN StatusID = 112 THEN 'WON'
 				WHEN StatusID = 113 THEN 'LOSE' END Status,
 			0 as ibc,
 			sum(case 
@@ -271,8 +279,8 @@ BEGIN
 			AND sb.SportType <> 165
 		GROUP BY
 			winlostdate, matchid, b.bettype, liveindicator,  
-			CASE WHEN StatusID = 111 THEN 'DRAW' 
-				WHEN StatusID = 112 THEN 'WON' 
+			CASE WHEN StatusID = 111 THEN 'DRAW'
+				WHEN StatusID = 112 THEN 'WON'
 				WHEN StatusID = 113 THEN 'LOSE' END;
 
 				
@@ -299,8 +307,8 @@ BEGIN
 		SELECT
 			winlostdate,
 			matchid, b.bettype, liveindicator, 
-			CASE WHEN StatusID = 111 THEN 'DRAW' 
-				WHEN StatusID = 112 THEN 'WON' 
+			CASE WHEN StatusID = 111 THEN 'DRAW'
+				WHEN StatusID = 112 THEN 'WON'
 				WHEN StatusID = 113 THEN 'LOSE' END Status,
 			0 as ibc,
 			sum((1-tpositiontaking)*stake*actualrate) as realturnover,
@@ -325,8 +333,8 @@ BEGIN
 			AND currency <> 20
 		GROUP BY
 			winlostdate, matchid, b.bettype, liveindicator,
-			CASE WHEN StatusID = 111 THEN 'DRAW' 
-				WHEN StatusID = 112 THEN 'WON' 
+			CASE WHEN StatusID = 111 THEN 'DRAW'
+				WHEN StatusID = 112 THEN 'WON'
 				WHEN StatusID = 113 THEN 'LOSE' END,
 			CASE WHEN b.Bettype = 18000 AND ISNULL(b.currency2,0) = 1 THEN 1 ELSE 0 END	;
 
@@ -352,8 +360,8 @@ BEGIN
 		SELECT
 			winlostdate,
 			matchid, b.bettype, liveindicator, 
-			CASE WHEN StatusID = 111 THEN 'DRAW' 
-				WHEN StatusID = 112 THEN 'WON' 
+			CASE WHEN StatusID = 111 THEN 'DRAW'
+				WHEN StatusID = 112 THEN 'WON'
 				WHEN StatusID = 113 THEN 'LOSE' END Status,
 			case when recommend = 52466 then 1 when recommend = 5707545 then 2 else 0 end as ibc,
 			sum((1-tpositiontaking)*abs(stake)*actualrate) as realturnover,
@@ -380,8 +388,8 @@ BEGIN
 			AND currency <> 20
 		GROUP BY
 			winlostdate, matchid, b.bettype, liveindicator, 
-			CASE WHEN StatusID = 111 THEN 'DRAW' 
-				WHEN StatusID = 112 THEN 'WON' 
+			CASE WHEN StatusID = 111 THEN 'DRAW'
+				WHEN StatusID = 112 THEN 'WON'
 				WHEN StatusID = 113 THEN 'LOSE' END,
 			case when recommend = 52466 then 1 when recommend = 5707545 then 2 else 0 end
 	    
@@ -407,8 +415,8 @@ BEGIN
 		SELECT
 			winlostdate,
 			sm.matchid, b.bettype, liveindicator,
-			CASE WHEN StatusID = 111 THEN 'DRAW' 
-				WHEN StatusID = 112 THEN 'WON' 
+			CASE WHEN StatusID = 111 THEN 'DRAW'
+				WHEN StatusID = 112 THEN 'WON'
 				WHEN StatusID = 113 THEN 'LOSE' END Status,
 			0 as ibc,
 			sum((1-tpositiontaking)*stake*actualrate) as realturnover,
@@ -437,8 +445,8 @@ BEGIN
 			AND currency <> 20
 		GROUP BY
 			winlostdate, sm.matchid, b.bettype, liveindicator, 
-			CASE WHEN StatusID = 111 THEN 'DRAW' 
-				WHEN StatusID = 112 THEN 'WON' 
+			CASE WHEN StatusID = 111 THEN 'DRAW'
+				WHEN StatusID = 112 THEN 'WON'
 				WHEN StatusID = 113 THEN 'LOSE' END
 
 		-- calculate RNG casino products from bettransRnG
@@ -464,20 +472,20 @@ BEGIN
 		 SELECT
 			winlostdate,
 			0 matchid, b.gameID, 0 liveindicator,
-			CASE WHEN StatusID = 111 THEN 'DRAW' 
-				WHEN StatusID = 112 THEN 'WON' 
+			CASE WHEN StatusID = 111 THEN 'DRAW'
+				WHEN StatusID = 112 THEN 'WON'
 				WHEN StatusID = 113 THEN 'LOSE' END  Status,
 			0 as ibc,
 			sum((1-tpositiontaking)*stake*actualrate) as realturnover,
 			sum((winlost-actual_stake)* actualrate)  realWinlost,
 			sum((awinlost+mwinlost+swinlost)* actualrate) realPos,
 			sum((scomm) * actualrate) realComm,
-			sum((CASE WHEN sb.Bettype IN(2199, 2399, 2999, 4300) THEN 0
+			sum((CASE WHEN bg.Bettype IS NOT NULL THEN 0 /*Progressive Jackpot, PP Promotion Prize, PP Tournament Prize*/
 					  WHEN sb.Bettype IN(2198, 2398, 2998) THEN (b.ContributionRate * b.BetStake) + awinlost + mwinlost + swinlost + scomm
 				      ELSE winlost - actual_stake + awinlost + mwinlost + swinlost + scomm 
 				 END) * actualrate) realLineTotal,
 			sum((1-tpositiontaking)*stake*virtualrate) as virtualTurnover,
-			sum((CASE WHEN sb.Bettype IN(2199, 2399, 2999, 4300) THEN 0
+			sum((CASE WHEN bg.Bettype IS NOT NULL THEN 0 /*Progressive Jackpot, PP Promotion Prize, PP Tournament Prize*/
 					  WHEN sb.Bettype IN(2198, 2398, 2998) THEN (b.ContributionRate * b.BetStake) + awinlost + mwinlost + swinlost + scomm
 				      ELSE winlost - actual_stake + awinlost + mwinlost + swinlost + scomm 
 				 END) * virtualrate) virtualLineTotal,
@@ -486,6 +494,7 @@ BEGIN
 		FROM
 			bettransRnG b with (nolock)
 			inner join #SportBettype sb on b.gameID = sb.Bettype
+			LEFT JOIN #PrizeBettypeGroup bg ON b.gameID = bg.Bettype
 		WHERE
 			sb.ProductID IN (6, 17, 22, 24, 32, 33, 34) -- MBC-RNG Casino, Microgaming-RNG Casino, Voidbridge, Fishing World, Pragmatic			
 			AND winlostdate = @winlostdate
@@ -493,8 +502,8 @@ BEGIN
 			AND currency <> 20
 		GROUP BY
 			winlostdate, b.gameID, 
-			CASE WHEN StatusID = 111 THEN 'DRAW' 
-				WHEN StatusID = 112 THEN 'WON' 
+			CASE WHEN StatusID = 111 THEN 'DRAW'
+				WHEN StatusID = 112 THEN 'WON'
 				WHEN StatusID = 113 THEN 'LOSE' END;
 
 		-- calculate Live casino products from bettransLC
@@ -521,8 +530,8 @@ BEGIN
 			b.productID,
 			gameID,
 			0 as liveindicator,			
-			CASE WHEN StatusID = 111 THEN 'DRAW' 
-				WHEN StatusID = 112 THEN 'WON' 
+			CASE WHEN StatusID = 111 THEN 'DRAW'
+				WHEN StatusID = 112 THEN 'WON'
 				WHEN StatusID = 113 THEN 'LOSE' END Status,
 			0 ibc,
 			SUM((1-tpositiontaking)*stake*actualrate) as realturnover,
@@ -546,8 +555,8 @@ BEGIN
 			winlostdate,
 			b.productID,
 			gameID,			
-			CASE WHEN StatusID = 111 THEN 'DRAW' 
-				WHEN StatusID = 112 THEN 'WON' 
+			CASE WHEN StatusID = 111 THEN 'DRAW'
+				WHEN StatusID = 112 THEN 'WON'
 				WHEN StatusID = 113 THEN 'LOSE' END;
 
 		-- Update Sport
@@ -719,8 +728,8 @@ BEGIN
 			SELECT
 				winlostdate,
 				matchid, b.bettype, liveindicator,
-				CASE WHEN StatusID = 111 THEN 'DRAW' 
-					WHEN StatusID = 112 THEN 'WON' 
+				CASE WHEN StatusID = 111 THEN 'DRAW'
+					WHEN StatusID = 112 THEN 'WON'
 					WHEN StatusID = 113 THEN 'LOSE' END  Status,
 				case when recommend = 52466 then 1 when recommend = 5707545 then 2 else 0 end as ibc,
 				sum((1-tpositiontaking)*abs(stake)*actualrate) as realturnover,
@@ -741,8 +750,8 @@ BEGIN
 				AND currency <> 20
 			GROUP BY
 				winlostdate, matchid, b.bettype, liveindicator, 
-				CASE WHEN StatusID = 111 THEN 'DRAW' 
-					WHEN StatusID = 112 THEN 'WON' 
+				CASE WHEN StatusID = 111 THEN 'DRAW'
+					WHEN StatusID = 112 THEN 'WON'
 					WHEN StatusID = 113 THEN 'LOSE' END ,
 				case when recommend = 52466 then 1 when recommend = 5707545 then 2 else 0 end,
 				CASE WHEN betteam = N'1' THEN 1 ELSE 0 END
@@ -769,8 +778,8 @@ BEGIN
 			SELECT
 				winlostdate,
 				matchid, b.bettype, liveindicator,  
-				CASE WHEN StatusID = 111 THEN 'DRAW' 
-					WHEN StatusID = 112 THEN 'WON' 
+				CASE WHEN StatusID = 111 THEN 'DRAW'
+					WHEN StatusID = 112 THEN 'WON'
 					WHEN StatusID = 113 THEN 'LOSE' END Status,
 				0 as ibc,
 				sum(case 
@@ -805,8 +814,8 @@ BEGIN
 				AND currency <> 20
 			GROUP BY
 				winlostdate, matchid, b.bettype, liveindicator,  
-				CASE WHEN StatusID = 111 THEN 'DRAW' 
-					WHEN StatusID = 112 THEN 'WON' 
+				CASE WHEN StatusID = 111 THEN 'DRAW'
+					WHEN StatusID = 112 THEN 'WON'
 					WHEN StatusID = 113 THEN 'LOSE' END;
 
 			--Colosusbet
@@ -831,8 +840,8 @@ BEGIN
 			SELECT
 				winlostdate,
 				matchid, b.bettype, liveindicator, 
-				CASE WHEN StatusID = 111 THEN 'DRAW' 
-					WHEN StatusID = 112 THEN 'WON' 
+				CASE WHEN StatusID = 111 THEN 'DRAW'
+					WHEN StatusID = 112 THEN 'WON'
 					WHEN StatusID = 113 THEN 'LOSE' END Status,
 				0 as ibc,
 				sum((1-tpositiontaking)*stake*actualrate) as realturnover,
@@ -857,8 +866,8 @@ BEGIN
 				AND currency <> 20
 			GROUP BY
 				winlostdate, matchid, b.bettype, liveindicator,
-				CASE WHEN StatusID = 111 THEN 'DRAW' 
-					WHEN StatusID = 112 THEN 'WON' 
+				CASE WHEN StatusID = 111 THEN 'DRAW'
+					WHEN StatusID = 112 THEN 'WON'
 					WHEN StatusID = 113 THEN 'LOSE' END,
 				CASE WHEN b.Bettype = 18000 AND ISNULL(b.currency2,0) = 1 THEN 1 ELSE 0 END	;
 
@@ -884,8 +893,8 @@ BEGIN
 			SELECT
 				winlostdate,
 				matchid, b.bettype, liveindicator, 
-				CASE WHEN StatusID = 111 THEN 'DRAW' 
-					WHEN StatusID = 112 THEN 'WON' 
+				CASE WHEN StatusID = 111 THEN 'DRAW'
+					WHEN StatusID = 112 THEN 'WON'
 					WHEN StatusID = 113 THEN 'LOSE' END Status,
 				case when recommend = 52466 then 1 when recommend = 5707545 then 2 else 0 end as ibc,
 				sum((1-tpositiontaking)*abs(stake)*actualrate) as realturnover,
@@ -912,8 +921,8 @@ BEGIN
 				AND currency <> 20
 			GROUP BY
 				winlostdate, matchid, b.bettype, liveindicator, 
-				CASE WHEN StatusID = 111 THEN 'DRAW' 
-					WHEN StatusID = 112 THEN 'WON' 
+				CASE WHEN StatusID = 111 THEN 'DRAW'
+					WHEN StatusID = 112 THEN 'WON'
 					WHEN StatusID = 113 THEN 'LOSE' END,
 				case when recommend = 52466 then 1 when recommend = 5707545 then 2 else 0 end
 	    
@@ -939,8 +948,8 @@ BEGIN
 			SELECT
 				winlostdate,
 				sm.matchid, b.bettype, liveindicator,
-				CASE WHEN StatusID = 111 THEN 'DRAW' 
-					WHEN StatusID = 112 THEN 'WON' 
+				CASE WHEN StatusID = 111 THEN 'DRAW'
+					WHEN StatusID = 112 THEN 'WON'
 					WHEN StatusID = 113 THEN 'LOSE' END Status,
 				0 as ibc,
 				sum((1-tpositiontaking)*stake*actualrate) as realturnover,
@@ -969,8 +978,8 @@ BEGIN
 				AND currency <> 20
 			GROUP BY
 				winlostdate, sm.matchid, b.bettype, liveindicator, 
-				CASE WHEN StatusID = 111 THEN 'DRAW' 
-					WHEN StatusID = 112 THEN 'WON' 
+				CASE WHEN StatusID = 111 THEN 'DRAW'
+					WHEN StatusID = 112 THEN 'WON'
 					WHEN StatusID = 113 THEN 'LOSE' END
 
 			-- calculate RNG casino products from bettransRnG
@@ -996,20 +1005,20 @@ BEGIN
 			 SELECT
 				winlostdate,
 				0 matchid, b.gameID, 0 liveindicator,
-				CASE WHEN StatusID = 111 THEN 'DRAW' 
-					WHEN StatusID = 112 THEN 'WON' 
+				CASE WHEN StatusID = 111 THEN 'DRAW'
+					WHEN StatusID = 112 THEN 'WON'
 					WHEN StatusID = 113 THEN 'LOSE' END  Status,
 				0 as ibc,
 				sum((1-tpositiontaking)*stake*actualrate) as realturnover,
 				sum((winlost-actual_stake)* actualrate)  realWinlost,
 				sum((awinlost+mwinlost+swinlost)* actualrate) realPos,
 				sum((scomm) * actualrate) realComm,
-				sum((CASE WHEN sb.Bettype IN(2199, 2399, 2999, 4300) THEN 0
+				sum((CASE WHEN bg.Bettype IS NOT NULL THEN 0 /*Progressive Jackpot, PP Promotion Prize, PP Tournament Prize*/
 						  WHEN sb.Bettype IN(2198, 2398, 2998) THEN (b.ContributionRate * b.BetStake) + awinlost + mwinlost + swinlost + scomm
 						  ELSE winlost - actual_stake + awinlost + mwinlost + swinlost + scomm 
 					 END) * actualrate) realLineTotal,
 				sum((1-tpositiontaking)*stake*virtualrate) as virtualTurnover,
-				sum((CASE WHEN sb.Bettype IN(2199, 2399, 2999, 4300) THEN 0
+				sum((CASE WHEN bg.Bettype IS NOT NULL THEN 0 /*Progressive Jackpot, PP Promotion Prize, PP Tournament Prize*/
 						  WHEN sb.Bettype IN(2198, 2398, 2998) THEN (b.ContributionRate * b.BetStake) + awinlost + mwinlost + swinlost + scomm
 						  ELSE winlost - actual_stake + awinlost + mwinlost + swinlost + scomm 
 					 END) * virtualrate) virtualLineTotal,
@@ -1018,6 +1027,7 @@ BEGIN
 			FROM
 				dbo.bettransRnG14 b with (nolock)
 				inner join #SportBettype sb on b.gameID = sb.Bettype
+				LEFT JOIN #PrizeBettypeGroup bg ON b.gameID = bg.Bettype
 			WHERE
 				sb.ProductID IN (6, 17, 22, 24, 32, 33, 34) -- MBC-RNG Casino, Microgaming-RNG Casino, Voidbridge, Fishing World, Pragmatic				
 				AND winlostdate = @winlostdate
@@ -1025,8 +1035,8 @@ BEGIN
 				AND currency <> 20
 			GROUP BY
 				winlostdate, b.gameID, 
-				CASE WHEN StatusID = 111 THEN 'DRAW' 
-					WHEN StatusID = 112 THEN 'WON' 
+				CASE WHEN StatusID = 111 THEN 'DRAW'
+					WHEN StatusID = 112 THEN 'WON'
 					WHEN StatusID = 113 THEN 'LOSE' END;
 
 			-- calculate Live casino products from bettransLC
@@ -1053,8 +1063,8 @@ BEGIN
 				b.productID,
 				gameID,
 				0 as liveindicator,			
-				CASE WHEN StatusID = 111 THEN 'DRAW' 
-					WHEN StatusID = 112 THEN 'WON' 
+				CASE WHEN StatusID = 111 THEN 'DRAW'
+					WHEN StatusID = 112 THEN 'WON'
 					WHEN StatusID = 113 THEN 'LOSE' END Status,
 				0 ibc,
 				SUM((1-tpositiontaking)*stake*actualrate) as realturnover,
@@ -1078,8 +1088,8 @@ BEGIN
 				winlostdate,
 				b.productID,
 				gameID,			
-				CASE WHEN StatusID = 111 THEN 'DRAW' 
-					WHEN StatusID = 112 THEN 'WON' 
+				CASE WHEN StatusID = 111 THEN 'DRAW'
+					WHEN StatusID = 112 THEN 'WON'
 					WHEN StatusID = 113 THEN 'LOSE' END;
 			
 			-- Update Sport
@@ -1156,5 +1166,6 @@ BEGIN
 	
 	DROP TABLE #bettransm
 	DROP TABLE #SportBettype
+	DROP TABLE #PrizeBettypeGroup
 END
 

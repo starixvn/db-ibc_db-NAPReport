@@ -1,5 +1,7 @@
-
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+
+USE [bodb02]
+GO
 
 ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_Game_BetType] @StartDate SMALLDATETIME, 
                                                             @EndDate   SMALLDATETIME, 
@@ -20,12 +22,18 @@ Revisions:
 - 2019.04.01@Kean: Improve performance for House Win Loss by Product (#106315)
 - 20190326@Robert: #109981 - NAP Report - Integrate Promotion Prize
 - 20190925@Jacob: Group By CN88 (#118824)
+- 20191118@Ned.Le: Integrate Pragmatic Tournament Prize (#123685)
 
 Example:
 EXEC [Acc_Rpt_CompanyWinLoss_Game_BetType] @EndDate='2020-01-01',@StartDate='2016-01-01',@ProductId=6
 */
 
      SET NOCOUNT ON;
+	BEGIN --#PrizeBettypeGroup
+		CREATE TABLE #PrizeBettypeGroup (Bettype SMALLINT)
+		INSERT INTO #PrizeBettypeGroup
+		SELECT Bettype FROM DBWH.bodb_Account.dbo.BettypeGroup WHERE BettypeGroupID=6
+	END;
     BEGIN --#SportBetType
         DECLARE @isTest BIT= 0;
         SELECT @isTest = dbo.f_CheckSPVersion(@@PROCID);
@@ -172,8 +180,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_BetType] @EndDate='2020-01-01',@StartDate='201
                                              THEN 0
                                              ELSE b.ContributionRate * b.BetStake + b.scomm / (1 - b.tpositiontaking)
                                          END) * ISNULL(e.ExtraPT, 0)
-                                    WHEN b.gameId IN(2199, 2399, 2999, 4300)
-                                    THEN 0
+                                    WHEN bg.Bettype IS NOT NULL THEN 0 /*Progressive Jackpot, PP Promotion Prize, PP Tournament Prize*/
                                     ELSE(CASE
                                              WHEN tpositiontaking = 1
                                              THEN 0
@@ -188,8 +195,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_BetType] @EndDate='2020-01-01',@StartDate='201
                                                                                                                          THEN 0
                                                                                                                          ELSE b.ContributionRate * b.BetStake + b.scomm / (1 - b.tpositiontaking)
                                                                                                                      END) * ISNULL(e.ExtraPT, 0)
-                                    WHEN b.gameId IN(2199, 2399, 2999, 4300)
-                                    THEN 0
+                                    WHEN bg.Bettype IS NOT NULL THEN 0 /*Progressive Jackpot, PP Promotion Prize, PP Tournament Prize*/
                                     ELSE winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - (CASE
                                                                                                                 WHEN tpositiontaking = 1
                                                                                                                 THEN 0
@@ -210,6 +216,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_BetType] @EndDate='2020-01-01',@StartDate='201
                          LEFT JOIN #DepositSuper dep ON b.srecommend = dep.custid
                          LEFT JOIN CS_CustSuper AS cn88 WITH(NOLOCK) ON b.srecommend = cn88.CustId
                          LEFT JOIN #ExtraPT_Sel e ON e.SuperID = b.srecommend
+						 LEFT JOIN #PrizeBettypeGroup bg ON b.gameID = bg.Bettype
                     WHERE b.winlostdate = @StartDate
                           AND sb.RefTable = 1
                           AND b.statusID IN(111, 112, 113)
@@ -305,4 +312,5 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_BetType] @EndDate='2020-01-01',@StartDate='201
      DROP TABLE #DepositSuper;
      DROP TABLE #ExtraPT_Sel;
      DROP TABLE #Data;
+	 DROP TABLE #PrizeBettypeGroup;
 GO

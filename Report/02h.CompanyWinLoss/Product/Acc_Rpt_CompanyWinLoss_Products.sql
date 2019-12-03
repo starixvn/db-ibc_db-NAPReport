@@ -1,5 +1,8 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
+USE [bodb02]
+GO
+
 ALTER PROCEDURE dbo.Acc_Rpt_CompanyWinLoss_Products 
 	@StartDate    SMALLDATETIME 
    , @EndDate      SMALLDATETIME 
@@ -36,6 +39,7 @@ Revisions:
 - 20190925@Jacob: Group By CN88 (#118824)
 - 20190918@Robert: Remove inactive products (#120215)
 - 20191015@Robert: Integrate NPH into reports (#121661)
+- 20191118@Ned.Le: Integrate Pragmatic Tournament Prize (#123685)
 
 Explanation's Param:
 
@@ -44,6 +48,12 @@ Explanation's Param:
 	   SET NOCOUNT ON;
 	   DECLARE @EffectedDate    DATETIME; -- 20160112@Percy: Applying date of changing extra PT formula [RedmineID: #70208]
 	   SELECT @EffectedDate = '2017-01-19';
+
+	   -- Get Prize Bettype Group
+	   CREATE TABLE #PrizeBettypeGroup (Bettype SMALLINT)
+	   INSERT INTO #PrizeBettypeGroup
+	   SELECT Bettype FROM DBWH.bodb_Account.dbo.BettypeGroup WHERE BettypeGroupID=6
+
 	   --Get Sport Bettype Matrix--
 	   -- Check SP Version	 
 	   DECLARE @isTest    BIT = 0;
@@ -963,22 +973,19 @@ Explanation's Param:
 				, SUM(b.SMAWinloss_actualrate) AS SMAWinloss
 				, SUM(b.commission_actualrate) AS commission_actualrate
 				, SUM(CASE
-						WHEN s.Bettype IN(2199, 2399, 2999, 4300)
-						THEN 0
+						WHEN bg.Bettype IS NOT NULL THEN 0 /*Progressive Jackpot, PP Promotion Prize, PP Tournament Prize*/
 						WHEN s.Bettype IN(2198, 2398, 2998)
 						THEN b.winlost_jackpot_actualrate + b.SMAWinloss_actualrate + b.commission_actualrate
 						ELSE b.winlost_actualrate + b.SMAWinloss_actualrate + b.commission_actualrate
 					 END) AS HouseWinloss_actualrate
 				, SUM(CASE
-						WHEN s.Bettype IN(2199, 2399, 2999, 4300)
-						THEN 0
+						WHEN bg.Bettype IS NOT NULL THEN 0 /*Progressive Jackpot, PP Promotion Prize, PP Tournament Prize*/
 						WHEN s.Bettype IN(2198, 2398, 2998)
 						THEN b.winlost_jackpot_virtualrate + b.SMAWinloss_virtualrate
 						ELSE b.winlost_virtualrate + b.SMAWinloss_virtualrate
 					 END + b.commission_virtualrate) AS HouseWinloss_virtualrate
 				, SUM(CASE
-						WHEN s.Bettype IN(2199, 2399, 2999, 4300)
-						THEN 0
+						WHEN bg.Bettype IS NOT NULL THEN 0 /*Progressive Jackpot, PP Promotion Prize, PP Tournament Prize*/
 						WHEN s.Bettype IN(2198, 2398, 2998)
 						THEN b.winlost_jackpot_actualrate - winlost_jackpot_virtualrate + b.SMAWinloss_actualrate - b.SMAWinloss_virtualrate
 						ELSE b.winlost_actualrate - b.winlost_virtualrate + b.SMAWinloss_actualrate - b.SMAWinloss_virtualrate
@@ -993,21 +1000,20 @@ Explanation's Param:
 				, SUM(stake_actualrate) AS stake_actualrate
 				, SUM(stake_virtualrate) AS stake_virtualrate
 				, SUM(CASE
-						WHEN b.Bettype IN(2199, 2399, 2999, 4300)
-						THEN 0 --Progressive Jackpot
+						WHEN bg.Bettype IS NOT NULL THEN 0 /*Progressive Jackpot, PP Promotion Prize, PP Tournament Prize*/
 						WHEN b.Bettype IN(2198, 2398, 2998)
 						THEN WinlossJackpotForExtraPT_actualrate  --Jackpot Contribution
 						ELSE WinlossForExtraPT_actualrate
 					 END) AS WinlossForExtraPT_actualrate
 				, SUM(CASE
-						WHEN b.Bettype IN(2199, 2399, 2999, 4300)
-						THEN 0 --Progressive Jackpot
+						WHEN bg.Bettype IS NOT NULL THEN 0 /*Progressive Jackpot, PP Promotion Prize, PP Tournament Prize*/
 						WHEN b.Bettype IN(2198, 2398, 2998)
 						THEN WinlossJackpotForExtraPT_virtualrate  --Jackpot Contribution
 						ELSE WinlossForExtraPT_virtualrate
 					 END) AS WinlossForExtraPT_virtualrate
 			FROM #tmp_srcDetail AS b WITH(NOLOCK)
 			    INNER JOIN #SportBettype AS s ON b.bettype = s.bettype
+				LEFT JOIN #PrizeBettypeGroup bg ON b.bettype = bg.Bettype
 			WHERE s.RefTable IN(1, 2)
 			GROUP BY b.srecommend
 				  , s.ProductID
@@ -1578,5 +1584,6 @@ Explanation's Param:
 	   DROP TABLE #Match;
 	   DROP TABLE #Result;
 	   DROP TABLE #SportBettype;
+	   DROP TABLE #PrizeBettypeGroup;
     END;
 GO
