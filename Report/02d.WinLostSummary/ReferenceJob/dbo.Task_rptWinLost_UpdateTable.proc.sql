@@ -80,7 +80,7 @@ BEGIN
 
 	CREATE TABLE #PrizeBettypeGroup (Bettype SMALLINT)
 	INSERT INTO #PrizeBettypeGroup
-	SELECT Bettype FROM DBDW.bodb_Account.dbo.BettypeGroup WHERE BettypeGroupID=6
+	SELECT Bettype FROM DBWH.bodb_Account.dbo.BettypeGroup WHERE BettypeGroupID=6
 
 	DECLARE @isTest BIT= 0;
      SELECT @isTest = dbo.f_CheckSPVersion(@@PROCID);

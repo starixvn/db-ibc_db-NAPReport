@@ -52,7 +52,7 @@ Explanation's Param:
 	   -- Get Prize Bettype Group
 	   CREATE TABLE #PrizeBettypeGroup (Bettype SMALLINT)
 	   INSERT INTO #PrizeBettypeGroup
-	   SELECT Bettype FROM DBDW.bodb_Account.dbo.BettypeGroup WHERE BettypeGroupID=6
+	   SELECT Bettype FROM DBWH.bodb_Account.dbo.BettypeGroup WHERE BettypeGroupID=6
 
 	   --Get Sport Bettype Matrix--
 	   -- Check SP Version	 

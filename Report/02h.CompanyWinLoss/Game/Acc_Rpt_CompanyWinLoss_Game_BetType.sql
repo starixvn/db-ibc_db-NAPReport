@@ -32,7 +32,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_BetType] @EndDate='2020-01-01',@StartDate='201
 	BEGIN --#PrizeBettypeGroup
 		CREATE TABLE #PrizeBettypeGroup (Bettype SMALLINT)
 		INSERT INTO #PrizeBettypeGroup
-		SELECT Bettype FROM DBDW.bodb_Account.dbo.BettypeGroup WHERE BettypeGroupID=6
+		SELECT Bettype FROM DBWH.bodb_Account.dbo.BettypeGroup WHERE BettypeGroupID=6
 	END;
     BEGIN --#SportBetType
         DECLARE @isTest BIT= 0;
