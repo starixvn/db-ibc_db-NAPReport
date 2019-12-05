@@ -3,6 +3,7 @@
 ALTER PROCEDURE dbo.Acc_Rpt_AbnormalBetAutoMail 
 	@RptDate    DATETIME
    , @Site       VARCHAR(50) = 'All'
+   , @IsTest     BIT         = 0
 AS
 /*
 	Creator: Robert
@@ -135,6 +136,15 @@ AS
 							   THEN s.site
 							   ELSE @Site
 						    END
+				 AND 1 = CASE
+						   WHEN @IsTest = 0
+							   AND b.Currency <> 20
+						   THEN 1
+						   WHEN @IsTest = 1
+							   AND b.Currency = 20
+						   THEN 1
+						   ELSE 0
+					    END
 			ORDER BY m.kickofftime DESC
 				  , b.liveindicator DESC
 				  , b.bettype DESC;
