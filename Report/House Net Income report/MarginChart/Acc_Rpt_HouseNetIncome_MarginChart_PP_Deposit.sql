@@ -16,6 +16,7 @@ AS
     Revisions:
 		- 20180813@Harper - HDWL Letstalk - Implement Chart of NonSport product margin [#RedmineID: 97562]
 		- 20190822@Robert: #115465 - Exclude bettype 4300 (Promotion Prize) from House Income, Pay to Supplier of Pragmatic
+		- 20191121@Robert: #123733 - Email/Letstalk Reports - Integrate PP Tournament (Exclude bettype 4299)
 		
 	Param's Explanation:   
 
@@ -127,7 +128,7 @@ BEGIN
 				AND b.CurrencyID <> 20
 				AND b.customercategory NOT IN (27, 28)
 				AND b.StatusId NOT IN (-1, 101, 102, 103) -- Exclude Reject , Void, Refund
-				AND b.Bettype NOT IN (4300)
+				AND b.Bettype NOT IN (4299, 4300)
 		GROUP BY b.rptdate, b.SiteId, p.PartyId, p.ProductId
 	)	
 

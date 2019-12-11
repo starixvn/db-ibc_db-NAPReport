@@ -17,6 +17,7 @@ AS
 		- 20180912@Harper - DHWL Non-sports Margin Chart - Integrate Pocker Games [#RedmineID: 100426]
 		- 20190121@Robert: Letstalk Margin Charts - Separate Letstalk group for credit & Deposit (Soccer & Other Sports) [#108220]		
 		- 20190822@Robert: #115465 - Exclude bettype 4300 (Promotion Prize) from House Income, Pay to Supplier of Pragmatic
+		- 20191121@Robert: #123733 - Email/Letstalk Reports - Integrate PP Tournament (Exclude bettype 4299)
 
 	Param's Explanation:   
 		- @ProductList: '' - default value when get all product
@@ -130,7 +131,7 @@ BEGIN
 		b.rptDate BETWEEN @FDate AND @TDate 	
 		AND b.TicketStatus NOT IN (-1,18,9,10,14)
 		AND SiteID IN (SELECT SiteID FROM bodb_Account.dbo.tbl_Site WHERE isDeposit = 0 )-- Credit data only
-		AND b.BetType NOT IN (4300)
+		AND b.BetType NOT IN (4299, 4300)
 	GROUP BY b.rptDate, sb.ProductID, b.CurrencyID
 	OPTION (RECOMPILE)
 	

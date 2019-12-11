@@ -15,6 +15,7 @@ AS
     Revisions:  
 		- 20180618@Harper - HDWL Letstalk - Implement report for Pramatic product [#RedmineID: 94403]
 		- 20190822@Robert: #115465 - Exclude bettype 4300 (Promotion Prize) from House Income, Pay to Supplier of Pragmatic
+		- 20191121@Robert: #123733 - Email/Letstalk Reports - Integrate PP Tournament (Exclude bettype 4299)
 	
 	Param's Explanation:   
 
@@ -125,7 +126,7 @@ BEGIN
 		b.rptDate BETWEEN @FDate AND @TDate 	
 		AND b.TicketStatus NOT IN (-1,18,9,10,14)
 		AND SiteID IN (SELECT SiteID FROM bodb_Account.dbo.tbl_Site WHERE isDeposit = 0 )-- Credit data only
-		AND b.BetType NOT IN (4300)
+		AND b.BetType NOT IN (4299, 4300)
 	GROUP BY b.rptDate, sb.ProductID, b.CurrencyID
 	OPTION (RECOMPILE)
 	
