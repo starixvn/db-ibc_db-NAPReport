@@ -1,5 +1,8 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
+USE bodb02
+GO
+
 ALTER PROCEDURE dbo.Acc_Rpt_CompanyWinLoss_NumberGame_League_CN88
 	@StartDate    SMALLDATETIME
    , @EndDate      SMALLDATETIME
@@ -13,6 +16,7 @@ AS
 		
 	Revisions:
 		- 20190710@Robert: 	NAP Report - Implement new report to match with CN88's need [#116083]
+		- 20191212@Ned.Le:  Support to get Extra PT from Extra PT column [#125286]
 	Explanation's Param:	
 */
 BEGIN
@@ -24,26 +28,6 @@ BEGIN
 	    , @TDate = @EndDate
 	    , @Sport = @SportType;
 
-
-    BEGIN   -- Extra PT
-	   CREATE TABLE #ExtraPT_Sel(
-		   SuperID    INT
-		 , ExtraPT    DECIMAL(9, 8));
-	   INSERT INTO #ExtraPT_Sel(SuperID
-						 , ExtraPT)
-			SELECT SuperId
-				, SUM(ExtraPT) AS ExtraPT
-			FROM bodb02.dbo.Acc_GroupExtraPTSetting AS a WITH (NOLOCK)
-			WHERE @FDate BETWEEN FromDate AND Todate
-				 AND a.ProductId = 3
-				 AND SuperId IN
-							 (
-								SELECT CustId
-								FROM CS_CustSuper WITH (NOLOCK)
-							 )
-				 AND SubProduct = ''
-			GROUP BY SuperId;
-    END;
     BEGIN -- #Match
 	   CREATE TABLE #Match(
 		   MatchId       INT
@@ -67,17 +51,17 @@ BEGIN
 				    WHEN b.tpositiontaking = 1
 				    THEN 0
 				    ELSE winlost - actual_stake + b.scomm / (1 - b.tpositiontaking)
-				END * ISNULL(e.ExtraPT, 0) * actualrate) AS HeadlineIncome
+				END * ISNULL(b.epositiontaking, 0) * actualrate) AS HeadlineIncome
 		   , SUM(scomm * actualrate) AS Commission
 		   , SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - CASE
 																		WHEN tpositiontaking = 1
 																		THEN 0
 																		ELSE winlost - actual_stake + b.scomm / (1 - b.tpositiontaking)
-																	 END * ISNULL(e.ExtraPT, 0)) * actualrate) AS RealIncome
+																	 END * ISNULL(b.epositiontaking, 0)) * actualrate) AS RealIncome
 		   , SUM(CASE
 				   WHEN tpositiontaking = 1
 				   THEN 0
-				   ELSE(1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * b.stake * CASE
+				   ELSE(1 - b.tpositiontaking - ISNULL(b.epositiontaking, 0)) * b.stake * CASE
 																		WHEN virtualrate > actualrate
 																		THEN virtualrate
 																		ELSE actualrate
@@ -86,7 +70,6 @@ BEGIN
 	   FROM bettrans AS b WITH (NOLOCK)
 		  INNER JOIN CS_CustSuper AS cn88 WITH (NOLOCK) ON b.srecommend = cn88.CustId
 		  INNER JOIN #Match AS m WITH (nolock) ON b.MatchId = m.MatchId
-		  LEFT JOIN #ExtraPT_Sel AS e ON e.SuperID = b.srecommend
 	   WHERE b.winlostdate = @FDate
 		    AND b.ruben = 1
 		    AND b.statusID IN(111, 112, 113)
@@ -96,5 +79,4 @@ BEGIN
     END;
 
     DROP TABLE #Match;
-    DROP TABLE #ExtraPT_Sel;
 END;
