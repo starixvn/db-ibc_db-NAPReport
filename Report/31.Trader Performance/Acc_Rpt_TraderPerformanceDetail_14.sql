@@ -20,6 +20,7 @@ AS
 		20180328@Kean: Apply new concept of Commission to Trader Performance Report (#111015)
 		20190709@Kean: Add new Bettype - Total Bookings 15 mins HDP (#116435)
 		20191010@Cherry: Apply new table for Trader (#120746)
+		20191121@Ned.Le: Integrate BM AIO (#124017)
 
 	Param's Explanation:
 		@IsSoccer:
@@ -102,14 +103,16 @@ BEGIN
 	)
 
 	INSERT INTO @bettype 
-			SELECT 	1, 1
-	UNION SELECT 	7, 2
-	UNION SELECT 	3, 3
-	UNION SELECT 	8, 4
-	UNION SELECT 	5, 5
-	UNION SELECT 	15, 6
-	UNION SELECT 	2, 7
-	UNION SELECT 	12, 8
+		  SELECT 	1,	 1
+	UNION SELECT 	701, 2
+	UNION SELECT 	7,   3
+	UNION SELECT 	3,   4
+	UNION SELECT 	702, 5
+	UNION SELECT 	8,   6
+	UNION SELECT 	5,   7
+	UNION SELECT 	15,  8
+	UNION SELECT 	2,   9
+	UNION SELECT 	12,  10
 
 	INSERT INTO #ExtraPTSportbook
 	SELECT SuperId, SUM(ExtraPT) AS ExtraPT, FromDate, ToDate
@@ -145,8 +148,8 @@ BEGIN
 			AND m.eventstatus = 'completed'									
 			AND m.matchcode NOT LIKE '%hedge%'
 			AND t.liveindicator = 1
-			AND ((@IsSoccer = 1 AND t.bettype IN (1, 3, 7, 8, 5, 15, 124, 125))				
-				OR (@IsSoccer = 0 AND t.bettype IN (1, 3, 7, 8, 5, 15, 2, 12, 124, 125))				
+			AND ((@IsSoccer = 1 AND t.bettype IN (1, 3, 7, 8, 5, 15))				
+				OR (@IsSoccer = 0 AND t.bettype IN (1, 3, 7, 8, 5, 15, 2, 12, 701, 702))				
 				);
 
 		-- Insert data to #tmpTraderAssignment 
@@ -322,7 +325,7 @@ BEGIN
 		bettype,
 		SUM(CASE 
 				WHEN bettype IN (5, 15) THEN ABS(stake) * (1 - tpositiontaking) * virtualrate
-				WHEN bettype IN (1, 2, 3, 7, 8, 12, 124, 125)
+				WHEN bettype IN (1, 2, 3, 7, 8, 12, 124, 125, 701, 702)
 					THEN (CASE WHEN modds = 0.25 OR modds = - 0.25 THEN stake/2 ELSE stake END) * (1 - tpositiontaking) * virtualrate
 				ELSE 0 END) AS stake,
 		-SUM((winlost - actual_stake + awinlost + mwinlost + swinlost) * virtualrate 
@@ -335,7 +338,7 @@ BEGIN
                                   END) AS comm,
 		SUM(CASE 
 				WHEN bettype IN (5, 15) THEN ABS(stake) * (CASE WHEN tpositiontaking = 1 THEN 0 ELSE 1 - tpositiontaking - ISNULL(ExtraPT, 0) END) * virtualrate
-				WHEN bettype IN (1, 2, 3, 7, 8, 12, 124, 125)
+				WHEN bettype IN (1, 2, 3, 7, 8, 12, 124, 125, 701, 702)
 					THEN (CASE WHEN modds = 0.25 OR modds = - 0.25 THEN stake/2 ELSE stake END) * (CASE WHEN tpositiontaking = 1 THEN 0 ELSE 1 - tpositiontaking- ISNULL(ExtraPT, 0) END) * virtualrate
 				ELSE 0 END) AS stake_AfterExtraPT,
 		-SUM(CASE WHEN tpositiontaking = 1 THEN 0 ELSE ((winlost - actual_stake) * virtualrate 
@@ -352,7 +355,7 @@ BEGIN
 		AND ruben = 1
 		AND ((@IsSoccer = 1 AND bettype IN (1, 3, 7, 8, 5, 15, 124, 125)
 				AND EXISTS(SELECT 1 FROM dbo.match14 m WHERE m.matchid = b.matchid AND m.sporttype = 1))
-			OR (@IsSoccer = 0 AND bettype IN (1, 3, 7, 8, 5, 15, 2, 12, 124, 125)
+			OR (@IsSoccer = 0 AND bettype IN (1, 3, 7, 8, 5, 15, 2, 12, 124, 125, 701, 702)
 				AND EXISTS(SELECT 1 FROM dbo.match14 m WHERE m.matchid = b.matchid AND m.sporttype NOT IN (1, 161)))
 			)
 		AND winlostdate BETWEEN @FromDate AND @ToDate
@@ -448,9 +451,9 @@ BEGIN
 	(
 		SELECT t.custid, t.username, t.eventdate, t.leagueid, t.matchid,t.homeid, t.awayid, t.hthomescore, t.htawayscore, t.fthomescore, t.ftawayscore, t.IsNeutral,
 			-- turn over
-			SUM(CASE WHEN b.bettype = 1 AND OUtype = 0 THEN stake_AfterExtraPT ELSE 0 END) AS stake_hdp,
+			SUM(CASE WHEN b.bettype IN (1, 701) AND OUtype = 0 THEN stake_AfterExtraPT ELSE 0 END) AS stake_hdp,
 			SUM(CASE WHEN b.bettype = 2 THEN stake_AfterExtraPT ELSE 0 END) AS stake_oe,
-			SUM(CASE WHEN b.bettype = 3 AND OUtype = 0 THEN stake_AfterExtraPT ELSE 0 END) AS stake_ou,
+			SUM(CASE WHEN b.bettype IN (3, 702) AND OUtype = 0 THEN stake_AfterExtraPT ELSE 0 END) AS stake_ou,
 			SUM(CASE WHEN b.bettype IN (5, 124) AND OUtype = 0 THEN stake_AfterExtraPT ELSE 0 END) AS stake_1x2,
 			SUM(CASE WHEN b.bettype = 7 THEN stake_AfterExtraPT ELSE 0 END) AS stake_1sthdp,
 			SUM(CASE WHEN b.bettype = 12 THEN stake_AfterExtraPT ELSE 0 END) AS stake_1stoe,
@@ -473,9 +476,9 @@ BEGIN
 			SUM(CASE WHEN b.bettype = 5 AND OUtype = 8 THEN stake_AfterExtraPT ELSE 0 END) AS stake_10min1x2,
 			SUM(CASE WHEN b.bettype IN (3, 8) AND OUtype = 9 THEN stake_AfterExtraPT ELSE 0 END) AS stake_SingleTeamOU,
 			-- winloss
-			SUM(CASE WHEN b.bettype = 1 AND OUtype = 0 THEN winlost - memberwinlost_ExtraPT ELSE 0 END) AS winlost_hdp,  
+			SUM(CASE WHEN b.bettype IN (1, 701) AND OUtype = 0 THEN winlost - memberwinlost_ExtraPT ELSE 0 END) AS winlost_hdp,  
 			SUM(CASE WHEN b.bettype = 2 THEN winlost - memberwinlost_ExtraPT ELSE 0 END) AS winlost_oe,  
-			SUM(CASE WHEN b.bettype = 3  AND OUtype = 0 THEN winlost - memberwinlost_ExtraPT ELSE 0 END) AS winlost_ou,  
+			SUM(CASE WHEN b.bettype IN (3, 702)  AND OUtype = 0 THEN winlost - memberwinlost_ExtraPT ELSE 0 END) AS winlost_ou,  
 			SUM(CASE WHEN b.bettype IN (5, 124) AND OUtype = 0 THEN winlost - memberwinlost_ExtraPT ELSE 0 END) AS winlost_1x2,  
 			SUM(CASE WHEN b.bettype = 7 THEN winlost - memberwinlost_ExtraPT ELSE 0 END) AS winlost_1sthdp,  
 			SUM(CASE WHEN b.bettype = 8 AND OUtype = 0 THEN winlost - memberwinlost_ExtraPT ELSE 0 END) AS winlost_1stou,  
@@ -498,9 +501,9 @@ BEGIN
 			SUM(CASE WHEN b.bettype = 5 AND OUtype = 8 THEN winlost - memberwinlost_ExtraPT ELSE 0 END) AS winlost_10min1x2,  
 			SUM(CASE WHEN b.bettype IN (3, 8) AND OUtype = 9 THEN winlost - memberwinlost_ExtraPT ELSE 0 END) AS winlost_SingleTeamOU,
 			-- commission  
-			SUM(CASE WHEN b.bettype = 1 AND OUtype = 0 THEN comm ELSE 0 END) AS comm_hdp,  
+			SUM(CASE WHEN b.bettype IN (1, 701) AND OUtype = 0 THEN comm ELSE 0 END) AS comm_hdp,  
 			SUM(CASE WHEN b.bettype = 2 THEN comm ELSE 0 END) AS comm_oe,  
-			SUM(CASE WHEN b.bettype = 3  AND OUtype = 0 THEN comm ELSE 0 END) AS comm_ou,  
+			SUM(CASE WHEN b.bettype IN (3, 702)  AND OUtype = 0 THEN comm ELSE 0 END) AS comm_ou,  
 			SUM(CASE WHEN b.bettype IN (5, 124) AND OUtype = 0 THEN comm ELSE 0 END) AS comm_1x2,  
 			SUM(CASE WHEN b.bettype = 7 THEN comm ELSE 0 END) AS comm_1sthdp,  
 			SUM(CASE WHEN b.bettype = 8 AND OUtype = 0 THEN comm ELSE 0 END) AS comm_1stou,  
@@ -523,9 +526,9 @@ BEGIN
 			SUM(CASE WHEN b.bettype = 5 AND OUtype = 8  THEN comm ELSE 0 END) AS comm_10min1x2,
 			SUM(CASE WHEN b.bettype IN (3, 8) AND OUtype = 9 THEN comm ELSE 0 END) AS comm_SingleTeamOU,  
 			-- betcount      
-			SUM(CASE WHEN b.bettype = 1 AND OUtype = 0 THEN bet ELSE 0 END) AS bet_hdp,  
+			SUM(CASE WHEN b.bettype IN (1, 701) AND OUtype = 0 THEN bet ELSE 0 END) AS bet_hdp,  
 			SUM(CASE WHEN b.bettype = 2 THEN bet ELSE 0 END) AS bet_oe,  
-			SUM(CASE WHEN b.bettype = 3 AND OUtype = 0 THEN bet ELSE 0 END) AS bet_ou,  
+			SUM(CASE WHEN b.bettype IN (3, 702) AND OUtype = 0 THEN bet ELSE 0 END) AS bet_ou,  
 			SUM(CASE WHEN b.bettype = 7 THEN bet ELSE 0 END) AS bet_1sthdp,  
 			SUM(CASE WHEN b.bettype = 8 AND OUtype = 0 THEN bet ELSE 0 END) AS bet_1stou,  
 			SUM(CASE WHEN b.bettype IN (5, 124) AND OUtype = 0 THEN bet ELSE 0 END) AS bet_1x2,  
@@ -554,9 +557,9 @@ BEGIN
 		UNION ALL  
 		SELECT 0, '(unassigned)', t.eventdate, t.leagueid, t.matchid, t.homeid, t.awayid, t.hthomescore, t.htawayscore, t.fthomescore, t.ftawayscore, t.IsNeutral,
 			-- turn over
-			SUM(CASE WHEN b.bettype = 1 AND OUtype = 0 THEN stake_AfterExtraPT ELSE 0 END) AS stake_hdp,
+			SUM(CASE WHEN b.bettype IN (1, 701) AND OUtype = 0 THEN stake_AfterExtraPT ELSE 0 END) AS stake_hdp,
 			SUM(CASE WHEN b.bettype = 2 THEN stake_AfterExtraPT ELSE 0 END) AS stake_oe,
-			SUM(CASE WHEN b.bettype = 3 AND OUtype = 0 THEN stake_AfterExtraPT ELSE 0 END) AS stake_ou,
+			SUM(CASE WHEN b.bettype IN (3, 702) AND OUtype = 0 THEN stake_AfterExtraPT ELSE 0 END) AS stake_ou,
 			SUM(CASE WHEN b.bettype IN (5, 124) AND OUtype = 0 THEN stake_AfterExtraPT ELSE 0 END) AS stake_1x2,
 			SUM(CASE WHEN b.bettype = 7 THEN stake_AfterExtraPT ELSE 0 END) AS stake_1sthdp,
 			SUM(CASE WHEN b.bettype = 12 THEN stake_AfterExtraPT ELSE 0 END) AS stake_1stoe,
@@ -579,9 +582,9 @@ BEGIN
 			SUM(CASE WHEN b.bettype = 5 AND OUtype = 8 THEN stake_AfterExtraPT ELSE 0 END) AS stake_10min1x2,
 			SUM(CASE WHEN b.bettype IN (3, 8) AND OUtype = 9 THEN stake_AfterExtraPT ELSE 0 END) AS stake_SingleTeamOU,
 			-- winloss
-			SUM(CASE WHEN b.bettype = 1 AND OUtype = 0 THEN winlost - memberwinlost_ExtraPT ELSE 0 END) AS winlost_hdp,  
+			SUM(CASE WHEN b.bettype IN (1, 701) AND OUtype = 0 THEN winlost - memberwinlost_ExtraPT ELSE 0 END) AS winlost_hdp,  
 			SUM(CASE WHEN b.bettype = 2 THEN winlost - memberwinlost_ExtraPT ELSE 0 END) AS winlost_oe,  
-			SUM(CASE WHEN b.bettype = 3  AND OUtype = 0 THEN winlost - memberwinlost_ExtraPT ELSE 0 END) AS winlost_ou,  
+			SUM(CASE WHEN b.bettype IN (3, 702)  AND OUtype = 0 THEN winlost - memberwinlost_ExtraPT ELSE 0 END) AS winlost_ou,  
 			SUM(CASE WHEN b.bettype IN (5, 124) AND OUtype = 0 THEN winlost - memberwinlost_ExtraPT ELSE 0 END) AS winlost_1x2,  
 			SUM(CASE WHEN b.bettype = 7 THEN winlost - memberwinlost_ExtraPT ELSE 0 END) AS winlost_1sthdp,  
 			SUM(CASE WHEN b.bettype = 8 AND OUtype = 0 THEN winlost - memberwinlost_ExtraPT ELSE 0 END) AS winlost_1stou,  
@@ -604,9 +607,9 @@ BEGIN
 			SUM(CASE WHEN b.bettype = 5 AND OUtype = 8 THEN winlost - memberwinlost_ExtraPT ELSE 0 END) AS winlost_10min1x2,  
 			SUM(CASE WHEN b.bettype IN (3, 8) AND OUtype = 9 THEN winlost - memberwinlost_ExtraPT ELSE 0 END) AS winlost_SingleTeamOU,
 			-- commission  
-			SUM(CASE WHEN b.bettype = 1 AND OUtype = 0 THEN comm ELSE 0 END) AS comm_hdp,  
+			SUM(CASE WHEN b.bettype IN (1, 701) AND OUtype = 0 THEN comm ELSE 0 END) AS comm_hdp,  
 			SUM(CASE WHEN b.bettype = 2 THEN comm ELSE 0 END) AS comm_oe,  
-			SUM(CASE WHEN b.bettype = 3  AND OUtype = 0 THEN comm ELSE 0 END) AS comm_ou,  
+			SUM(CASE WHEN b.bettype IN (3, 702)  AND OUtype = 0 THEN comm ELSE 0 END) AS comm_ou,  
 			SUM(CASE WHEN b.bettype IN (5, 124) AND OUtype = 0 THEN comm ELSE 0 END) AS comm_1x2,  
 			SUM(CASE WHEN b.bettype = 7 THEN comm ELSE 0 END) AS comm_1sthdp,  
 			SUM(CASE WHEN b.bettype = 8 AND OUtype = 0 THEN comm ELSE 0 END) AS comm_1stou,  
@@ -629,9 +632,9 @@ BEGIN
 			SUM(CASE WHEN b.bettype = 5 AND OUtype = 8  THEN comm ELSE 0 END) AS comm_10min1x2,
 			SUM(CASE WHEN b.bettype IN (3, 8) AND OUtype = 9 THEN comm ELSE 0 END) AS comm_SingleTeamOU,  
 			-- betcount      
-			SUM(CASE WHEN b.bettype = 1 AND OUtype = 0 THEN bet ELSE 0 END) AS bet_hdp,  
+			SUM(CASE WHEN b.bettype IN (1, 701) AND OUtype = 0 THEN bet ELSE 0 END) AS bet_hdp,  
 			SUM(CASE WHEN b.bettype = 2 THEN bet ELSE 0 END) AS bet_oe,  
-			SUM(CASE WHEN b.bettype = 3 AND OUtype = 0 THEN bet ELSE 0 END) AS bet_ou,  
+			SUM(CASE WHEN b.bettype IN (3, 702) AND OUtype = 0 THEN bet ELSE 0 END) AS bet_ou,  
 			SUM(CASE WHEN b.bettype = 7 THEN bet ELSE 0 END) AS bet_1sthdp,  
 			SUM(CASE WHEN b.bettype = 8 AND OUtype = 0 THEN bet ELSE 0 END) AS bet_1stou,  
 			SUM(CASE WHEN b.bettype IN (5, 124) AND OUtype = 0 THEN bet ELSE 0 END) AS bet_1x2,  
