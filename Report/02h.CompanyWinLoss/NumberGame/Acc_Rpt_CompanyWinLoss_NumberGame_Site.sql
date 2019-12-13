@@ -1,5 +1,7 @@
-
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+
+USE bodb02
+GO
 
 ALTER PROCEDURE dbo.Acc_Rpt_CompanyWinLoss_NumberGame_Site @StartDate SMALLDATETIME, 
                                                            @EndDate   SMALLDATETIME, 
@@ -14,8 +16,9 @@ AS
 	DB: DBACC/bodb02	
 
 	Revisions:
-- 20181217@Robert: #104253 - NAP Report - Add new sporttype for Happy 5
-- 20190925@Jacob: Group By CN88 (#118824)
+		- 20181217@Robert: #104253 - NAP Report - Add new sporttype for Happy 5
+		- 20190925@Jacob: Group By CN88 (#118824)
+		- 20191212@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
 
 	Explanation's Param:   
 
@@ -79,27 +82,6 @@ AS
                                                                     AND t.ProductId = s.ProductId
         WHERE s.bettype = @BetType;
     END;
-    BEGIN -- Extra PT
-
-        CREATE TABLE #ExtraPT_Sel
-        (SuperID   INT, 
-         Sporttype INT, 
-         ExtraPT   DECIMAL(9, 8)
-        );
-        INSERT INTO #ExtraPT_Sel
-        (SuperID, 
-         Sporttype, 
-         ExtraPT
-        )
-               SELECT SuperId, 
-                      a.Sporttype, 
-                      SUM(ExtraPT) AS ExtraPT
-               FROM bodb02.dbo.Acc_GroupExtraPTSetting AS a WITH(NOLOCK)
-               WHERE @StartDate BETWEEN FromDate AND Todate
-                     AND a.ProductId = @ProductID
-               GROUP BY SuperId, 
-                        a.Sporttype;
-    END;
     BEGIN  -- Query
 
         SELECT Site AS RowName, 
@@ -109,17 +91,17 @@ AS
                         WHEN b.tpositiontaking = 1
                         THEN 0
                         ELSE winlost - actual_stake + b.scomm / (1 - b.tpositiontaking)
-                    END * ISNULL(e.ExtraPT, 0) * actualrate) AS ExtraPT, 
+                    END * ISNULL(b.epositiontaking, 0) * actualrate) AS ExtraPT, 
                SUM(scomm * actualrate) AS Commission, 
                SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - CASE
                                                                                           WHEN tpositiontaking = 1
                                                                                           THEN 0
                                                                                           ELSE winlost - actual_stake + b.scomm / (1 - b.tpositiontaking)
-                                                                                      END * ISNULL(e.ExtraPT, 0)) * actualrate) AS RealIncome, 
+                                                                                      END * ISNULL(b.epositiontaking, 0)) * actualrate) AS RealIncome, 
                SUM(CASE
                        WHEN tpositiontaking = 1
                        THEN 0
-                       ELSE(1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * b.stake * CASE
+                       ELSE(1 - b.tpositiontaking - ISNULL(b.epositiontaking, 0)) * b.stake * CASE
                                                                                           WHEN virtualrate > actualrate
                                                                                           THEN virtualrate
                                                                                           ELSE actualrate
@@ -128,7 +110,6 @@ AS
         FROM bettrans AS b WITH(NOLOCK)
              INNER JOIN match AS m WITH(NOLOCK) ON b.MatchId = m.MatchId
              INNER JOIN #Agent AS dep ON b.recommend = dep.CustId
-             LEFT JOIN #ExtraPT_Sel AS e ON e.SuperID = b.srecommend
         WHERE b.winlostdate = @StartDate
               AND m.leagueid = @LeagueId
               AND b.BetType = @BetType
@@ -137,6 +118,6 @@ AS
         GROUP BY Site
         ORDER BY RowName;
     END;
-     DROP TABLE #Agent;
-     DROP TABLE #ExtraPT_Sel;
+    
+	DROP TABLE #Agent;
 GO

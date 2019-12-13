@@ -1,5 +1,7 @@
-
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+
+USE bodb02
+GO
 
 ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_MetricGaming_BetType_LiveStatus] @StartDate SMALLDATETIME, 
                                                                                @EndDate   SMALLDATETIME, 
@@ -14,6 +16,7 @@ DB: DBACC/bodb02
 
 Revisions:
 - 20190925@Jacob: Group By CN88 (#118824)
+- 20191212@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
 
 Parameters:
 @IsLive: 2 - ALL. 0 - Non-Live. 1 - Live
@@ -45,24 +48,6 @@ EXEC [Acc_Rpt_CompanyWinLoss_MetricGaming_BetType_LiveStatus] @EndDate='2018-08-
         INSERT INTO #DepositSuper
                SELECT CustId
                FROM f_DepSuper_1('All');
-    END;
-    BEGIN -- Extra PT
-        CREATE TABLE #ExtraPT_Sel
-                     (SuperID INT, 
-                      ExtraPT DECIMAL(9, 8)
-                     );
-        INSERT INTO #ExtraPT_Sel
-               (SuperID, 
-                ExtraPT
-               )
-               SELECT SuperId, 
-                      SUM(ExtraPT) AS ExtraPT
-               FROM bodb02.dbo.Acc_GroupExtraPTSetting a WITH(NOLOCK)
-               WHERE @StartDate BETWEEN FromDate AND Todate
-                     AND a.ProductId = 1
-                     AND a.SubProduct IN('MG-SuperLive')
-               AND a.Sporttype = 0
-               GROUP BY SuperId;
     END;
     BEGIN -- #Data
         CREATE TABLE #tmp_Data
@@ -115,22 +100,22 @@ EXEC [Acc_Rpt_CompanyWinLoss_MetricGaming_BetType_LiveStatus] @EndDate='2018-08-
                                WHEN b.tpositiontaking = 1
                                THEN 0
                                ELSE(winlost - actual_stake) + b.scomm / (1 - b.tpositiontaking)
-                           END) * ISNULL(e.ExtraPT, 0) * actualrate) AS ExtraPT, 
+                           END) * ISNULL(b.epositiontaking, 0) * actualrate) AS ExtraPT, 
                       SUM(scomm * actualrate) Commission, 
                       SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - (CASE
                                                                                                   WHEN tpositiontaking = 1
                                                                                                   THEN 0
                                                                                                   ELSE winlost - actual_stake + b.scomm / (1 - b.tpositiontaking)
-                                                                                              END) * ISNULL(e.ExtraPT, 0)) * actualrate) RealIncome, 
+                                                                                              END) * ISNULL(b.epositiontaking, 0)) * actualrate) RealIncome, 
                       SUM((winlost - actual_stake + awinlost + mwinlost + swinlost - CASE
                                                                                          WHEN tpositiontaking = 1
                                                                                          THEN 0
-                                                                                         ELSE(winlost - actual_stake) * ISNULL(e.ExtraPT, 0)
+                                                                                         ELSE(winlost - actual_stake) * ISNULL(b.epositiontaking, 0)
                                                                                      END) * virtualrate + (scomm - (CASE
                                                                                                                         WHEN tpositiontaking = 1
                                                                                                                         THEN 0
                                                                                                                         ELSE b.scomm / (1 - b.tpositiontaking)
-                                                                                                                    END) * ISNULL(e.ExtraPT, 0)) * actualrate * CASE
+                                                                                                                    END) * ISNULL(b.epositiontaking, 0)) * actualrate * CASE
                                                                                                                                                                     WHEN virtualrate < actualrate
                                                                                                                                                                     THEN virtualrate / actualrate
                                                                                                                                                                     ELSE 1
@@ -138,20 +123,20 @@ EXEC [Acc_Rpt_CompanyWinLoss_MetricGaming_BetType_LiveStatus] @EndDate='2018-08-
                       SUM((winlost - actual_stake + awinlost + mwinlost + swinlost - CASE
                                                                                          WHEN tpositiontaking = 1
                                                                                          THEN 0
-                                                                                         ELSE(winlost - actual_stake) * ISNULL(e.ExtraPT, 0)
+                                                                                         ELSE(winlost - actual_stake) * ISNULL(b.epositiontaking, 0)
                                                                                      END + CASE
                                                                                                WHEN virtualrate < actualrate
                                                                                                THEN(b.scomm - (CASE
                                                                                                                    WHEN tpositiontaking = 1
                                                                                                                    THEN 0
                                                                                                                    ELSE b.scomm / (1 - b.tpositiontaking)
-                                                                                                               END) * ISNULL(e.ExtraPT, 0))
+                                                                                                               END) * ISNULL(b.epositiontaking, 0))
                                                                                                ELSE 0
                                                                                            END) * (actualrate - virtualrate)) VarianceIncome, 
                       SUM(CASE
                               WHEN tpositiontaking = 1
                               THEN 0
-                              ELSE(1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * ABS(b.stake) * CASE
+                              ELSE(1 - b.tpositiontaking - ISNULL(b.epositiontaking, 0)) * ABS(b.stake) * CASE
                                                                                                       WHEN virtualrate > actualrate
                                                                                                       THEN virtualrate
                                                                                                       ELSE actualrate
@@ -160,13 +145,12 @@ EXEC [Acc_Rpt_CompanyWinLoss_MetricGaming_BetType_LiveStatus] @EndDate='2018-08-
                       SUM(CASE
                               WHEN tpositiontaking = 1
                               THEN 0
-                              ELSE(1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * ABS(b.stake) * virtualrate
+                              ELSE(1 - b.tpositiontaking - ISNULL(b.epositiontaking, 0)) * ABS(b.stake) * virtualrate
                           END) VirtualTurnover
                FROM bettrans AS b WITH(NOLOCK)
                     INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
                     LEFT JOIN #DepositSuper AS dep ON b.srecommend = dep.CustId
                     LEFT JOIN CS_CustSuper AS cn88 WITH(NOLOCK) ON b.srecommend = cn88.CustId
-                    LEFT JOIN #ExtraPT_Sel e ON e.SuperID = b.srecommend
                WHERE b.winlostdate = @StartDate
                      AND (@IsLive > 1
                           OR b.liveindicator = @IsLive)
@@ -248,9 +232,9 @@ EXEC [Acc_Rpt_CompanyWinLoss_MetricGaming_BetType_LiveStatus] @EndDate='2018-08-
         ORDER BY GroupName, 
                  RowName;
     END;
-     DROP TABLE #SportBetType;
-     DROP TABLE #DepositSuper;
-     DROP TABLE #ExtraPT_Sel;
-     DROP TABLE #Data;
-     DROP TABLE #tmp_Data;
+
+    DROP TABLE #SportBetType;
+    DROP TABLE #DepositSuper;
+    DROP TABLE #Data;
+    DROP TABLE #tmp_Data;
 GO
