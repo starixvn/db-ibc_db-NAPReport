@@ -1,5 +1,7 @@
-
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+
+USE bodb02
+GO
 
 ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_MatchDetail] @StartDate SMALLDATETIME, 
                                                                                  @EndDate   SMALLDATETIME, 
@@ -19,32 +21,14 @@ Revisions:
 - 20180323@Franklin: Betradar Virtual Sports (phase 2) (91098)
 - 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
 - 20190925@Jacob: Group By CN88 (#118824)
+- 20191212@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
 
 Example:
 EXEC [Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_MatchDetail] @StartDate='2016-01-01', @EndDate='2020-01-01', @SportType = 190, @BetType = 2700
 */
 
-     SET NOCOUNT ON;
-    BEGIN -- Extra PT
-        CREATE TABLE #ExtraPT_Sel
-                     (SuperID   INT, 
-                      Sporttype INT, 
-                      ExtraPT   DECIMAL(9, 8)
-                     );
-        INSERT INTO #ExtraPT_Sel
-               (SuperID, 
-                Sporttype, 
-                ExtraPT
-               )
-               SELECT SuperId, 
-                      Sporttype, 
-                      SUM(ExtraPT) AS ExtraPT
-               FROM bodb02.dbo.Acc_GroupExtraPTSetting a WITH(NOLOCK)
-               WHERE @StartDate BETWEEN FromDate AND Todate
-                     AND a.ProductId = 27
-               GROUP BY SuperId, 
-                        Sporttype;
-    END;
+    SET NOCOUNT ON;
+    
     BEGIN
         CREATE TABLE #Data
                      (LeagueId      INT, 
@@ -71,17 +55,17 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_MatchDetail] @StartDate='2016
                                WHEN b.tpositiontaking = 1
                                THEN 0
                                ELSE(winlost - actual_stake) + b.scomm / (1 - b.tpositiontaking)
-                           END) * ISNULL(e.ExtraPT, 0) * actualrate) AS ExtraPT, 
+                           END) * ISNULL(b.epositiontaking, 0) * actualrate) AS ExtraPT, 
                       SUM(scomm * actualrate), 
                       SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - (CASE
                                                                                                   WHEN tpositiontaking = 1
                                                                                                   THEN 0
                                                                                                   ELSE winlost - actual_stake + b.scomm / (1 - b.tpositiontaking)
-                                                                                              END) * ISNULL(e.ExtraPT, 0)) * actualrate), 
+                                                                                              END) * ISNULL(b.epositiontaking, 0)) * actualrate), 
                       SUM(CASE
                               WHEN tpositiontaking = 1
                               THEN 0
-                              ELSE(1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * b.stake * CASE
+                              ELSE(1 - b.tpositiontaking - ISNULL(b.epositiontaking, 0)) * b.stake * CASE
                                                                                                  WHEN virtualrate > actualrate
                                                                                                  THEN virtualrate
                                                                                                  ELSE actualrate
@@ -89,7 +73,6 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_MatchDetail] @StartDate='2016
                           END)
                FROM bettrans AS b WITH(NOLOCK)
                     INNER JOIN match AS m WITH(NOLOCK) ON b.MatchId = m.MatchId
-                    LEFT JOIN #ExtraPT_Sel e ON e.SuperID = b.srecommend
                WHERE b.winlostdate = @StartDate
                      AND b.bettype = @BetType
                      AND m.sporttype = @SportType
@@ -120,6 +103,6 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_MatchDetail] @StartDate='2016
                d.RealTurnover AS RealTurnover
         FROM #Data d;
     END;
-     DROP TABLE #ExtraPT_Sel;
-     DROP TABLE #Data;
+
+    DROP TABLE #Data;
 GO
