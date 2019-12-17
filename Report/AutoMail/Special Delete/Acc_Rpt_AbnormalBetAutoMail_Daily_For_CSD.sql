@@ -2,7 +2,7 @@
 
 ALTER PROCEDURE dbo.Acc_Rpt_AbnormalBetAutoMail_Daily_For_CSD 
 	@RptDate    DATETIME
-   , @IsTest     BIT
+   , @IsTest     BIT      = 0
 AS
 /*
 	Creator: Robert
@@ -37,6 +37,7 @@ AS
 		 , finalhomescore    INT
 		 , finalawayscore    INT
 		 , site              VARCHAR(50)
+		 , AffectedSite      VARCHAR(50)
 		 , Username          NVARCHAR(50));
 
 	   DECLARE @RptDate_From    DATETIME = @RptDate
@@ -71,6 +72,7 @@ AS
 				    , finalhomescore
 				    , finalawayscore
 				    , site
+				    , AffectedSite
 				    , Username)
 			SELECT tmp.TransId
 				, l.sporttype
@@ -91,6 +93,13 @@ AS
 					 THEN s.site
 					 ELSE 'Nova88'
 				  END AS Site
+				, CASE
+					 WHEN s.isDeposit = 1
+					 THEN 'Licensee'
+					 WHEN s.site IN('CN88', '789Y')
+					 THEN s.site
+					 ELSE 'Nova88'
+				  END AS AffectedSite
 				, c2.username
 			FROM bodb02.dbo.bettrans AS b WITH(NOLOCK)
 			    INNER JOIN #TmpVoidedTransaction AS tmp ON b.transid = tmp.TransId
@@ -118,7 +127,6 @@ AS
 		   , b.homeid
 		   , b.awayid
 		   , b.kickofftime
-		   , b.bettype
 		   , b.hthomescore
 		   , b.htawayscore
 		   , b.finalhomescore
@@ -136,6 +144,7 @@ AS
 			    END) AS NonLive
 		   , COUNT(TransId) AS TotalOfTickets
 		   , ss.SubIssueTypeName AS Reason
+		   , b.AffectedSite
 		   , Sites = STUFF(
 			(
 			    SELECT DISTINCT 
@@ -147,9 +156,24 @@ AS
 					AND a.awayid = b.awayid
 					AND a.SubIssueTypeId = b.SubIssueTypeId
 					AND a.kickofftime = b.kickofftime
-					AND a.bettype = b.bettype FOR XML PATH(''), TYPE
+					AND a.AffectedSite = b.AffectedSite FOR XML PATH(''), TYPE
 			).value
 			(N'.[1]', N'nvarchar(max)'), 1, 2, N'')
+		   , Bettypes = STUFF(
+			(
+			    SELECT DISTINCT 
+					 N',' + CAST(bettype AS VARCHAR(MAX))
+			    FROM #Data AS a
+			    WHERE a.sporttype = b.sporttype
+					AND a.leagueid = b.leagueid
+					AND a.homeid = b.homeid
+					AND a.awayid = b.awayid
+					AND a.SubIssueTypeId = b.SubIssueTypeId
+					AND a.kickofftime = b.kickofftime
+					AND a.Username = b.Username
+					AND a.AffectedSite = b.AffectedSite FOR XML PATH(''), TYPE
+			).value
+			(N'.[1]', N'nvarchar(max)'), 1, 1, N'')
 	   FROM #Data AS b
 		  INNER JOIN bodb02.dbo.TicketVoiding_SubIssueType AS ss WITH(NOLOCK) ON b.SubIssueTypeID = ss.SubIssueTypeId
 	   GROUP BY b.sporttype
@@ -157,7 +181,6 @@ AS
 			, b.homeid
 			, b.awayid
 			, b.kickofftime
-			, b.bettype
 			, b.SubIssueTypeId
 			, ss.SubIssueTypeName
 			, b.hthomescore
@@ -165,11 +188,11 @@ AS
 			, b.finalhomescore
 			, b.finalawayscore
 			, b.Username
+			, b.AffectedSite
 	   ORDER BY b.sporttype
 			, b.leagueid
 			, b.homeid
-			, b.awayid
-			, b.bettype;
+			, b.awayid;
 
 	   DROP TABLE #TmpVoidedTransaction;
 	   DROP TABLE #Data;
