@@ -42,6 +42,7 @@ AS
 		20190510@Cherry: Appy ExtraPT (#111676)
 		20190724@Cherry: ExtraPT in House Turnover (#116766)
 		20190812@Cherry: Add betfrom t (#115937)
+		20191225@Cherry: Apply ExtraPT in bettrans table (#123697)
 
 	Param's Explanation:
 		- @username:  + Search by keyword, member only
@@ -342,19 +343,19 @@ BEGIN
 	CREATE CLUSTERED INDEX IX_SportType ON #tmp_SportType (Sporttype)    
 	CREATE CLUSTERED INDEX IX_LeagueID ON #tmp_LeagueID (LeagueID, Bettype)
 	
-	INSERT INTO #ExtraPT
-               ( ProductID,
-                 SuperID,
-                 ExtraPT
-               )
-               SELECT ProductID,
-                      SuperId,
-                      SUM(ExtraPT) AS ExtraPT
-               FROM bodb02.dbo.Acc_GroupExtraPTSetting a WITH ( NOLOCK )
-               WHERE @WLDate BETWEEN FromDate AND Todate
-					AND a.ProductId IN (SELECT ProductID FROM #tmp_ProductID)
-               GROUP BY ProductID,
-                        SuperId
+	--INSERT INTO #ExtraPT
+ --              ( ProductID,
+ --                SuperID,
+ --                ExtraPT
+ --              )
+ --              SELECT ProductID,
+ --                     SuperId,
+ --                     SUM(ExtraPT) AS ExtraPT
+ --              FROM bodb02.dbo.Acc_GroupExtraPTSetting a WITH ( NOLOCK )
+ --              WHERE @WLDate BETWEEN FromDate AND Todate
+	--				AND a.ProductId IN (SELECT ProductID FROM #tmp_ProductID)
+ --              GROUP BY ProductID,
+ --                       SuperId
                         
 	INSERT INTO #ExtraComm
                ( ProductID,
@@ -755,16 +756,17 @@ BEGIN
 				- SUM(scomm) AS CompanyComm,
 				- SUM(scomm *actualrate) AS CompanyCommBase,
 				
-				- SUM(ISNULL(b.transid2, 0) * 1.0 / 10000) ExtraWL,
-				- SUM((ISNULL(b.transid2, 0) * 1.0 / 10000) * actualrate) ExtraWLBase,
+				- SUM(ISNULL(b.transid2, 0) * 1.0 / 10000 * ISNULL(b.epositiontaking, 0)) ExtraWL,
+				- SUM((ISNULL(b.transid2, 0) * 1.0 / 10000) * ISNULL(b.epositiontaking, 0) * actualrate) ExtraWLBase,
 				
-				- SUM(-b.oddsspread) ExtraComm,
-				- SUM((-b.oddsspread) * actualrate) ExtraCommBase,
+				- SUM(-b.oddsspread * ISNULL(c.ExtraComm,0)) ExtraComm,
+				- SUM((-b.oddsspread) * ISNULL(c.ExtraComm,0) * actualrate) ExtraCommBase,
 				
 				0 AS Stake,
 				0 AS StakeBase
 
-		FROM  dbo.Bettrans b WITH (NOLOCK) 
+		FROM  dbo.Bettrans b WITH (NOLOCK)
+			LEFT JOIN #ExtraComm c ON b.srecommend = c.SuperID AND c.ProductID = 33 
 		WHERE b.WinlostDate = @WLDate
 			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 33 AND RefTable = 0)
 			AND b.ruben = 1
