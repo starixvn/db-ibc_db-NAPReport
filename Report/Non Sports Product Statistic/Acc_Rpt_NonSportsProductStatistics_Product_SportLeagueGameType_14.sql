@@ -42,6 +42,7 @@ AS
 		20190510@Cherry: Appy ExtraPT (#111676)
 		20190724@Cherry: ExtraPT in House Turnover (#116766)
 		20190812@Cherry: Add betfrom t (#115937)
+		20191225@Cherry: Apply ExtraPT in bettrans table (#123697)
 
 	Param's Explanation:
 		- @username:  + Search by keyword, member only
@@ -159,8 +160,6 @@ BEGIN
 	CREATE TABLE #tmp_Device		(Betfrom NVARCHAR(2))
 	CREATE TABLE #tmp_Site			(Site VARCHAR(50))
 	CREATE TABLE #tmp_MemIDs		(CustID INT)
-	
-	CREATE TABLE #ExtraPT (ProductID INT, SuperID INT, ExtraPT DECIMAL(9, 8))
 	CREATE TABLE #ExtraComm (ProductID INT, SuperID INT, ExtraComm DECIMAL(9, 8))		             
 
 	-- Get Info from Pars list
@@ -309,21 +308,6 @@ BEGIN
 		END			
 	END
 	-- Don't need to handle 'ALL' site, because with this case we will get all ticket
-
-	-- ExtraPT
-	INSERT INTO #ExtraPT
-               ( ProductID,
-                 SuperID,
-                 ExtraPT
-               )
-               SELECT ProductID,
-                      SuperId,
-                      SUM(ExtraPT) AS ExtraPT
-               FROM bodb02.dbo.Acc_GroupExtraPTSetting a WITH ( NOLOCK )
-               WHERE @WLDate BETWEEN FromDate AND Todate
-					AND a.ProductId IN (SELECT ProductID FROM #tmp_ProductID)
-               GROUP BY ProductID,
-                        SuperId
                         
 	INSERT INTO #ExtraComm
                ( ProductID,
@@ -732,16 +716,17 @@ BEGIN
 				- SUM(scomm) AS CompanyComm,
 				- SUM(scomm * actualrate) AS CompanyCommBase,
 				
-				- SUM(ISNULL(b.transid2, 0) * 1.0 / 10000) ExtraWL,
-				- SUM((ISNULL(b.transid2, 0) * 1.0 / 10000) * actualrate) ExtraWLBase,
+				- SUM(ISNULL(b.transid2, 0) * 1.0 / 10000 * ISNULL(b.epositiontaking, 0)) ExtraWL,
+				- SUM((ISNULL(b.transid2, 0) * 1.0 / 10000) * ISNULL(b.epositiontaking, 0) * actualrate) ExtraWLBase,
 				
-				- SUM(-b.oddsspread) ExtraComm,
-				- SUM((-b.oddsspread) * actualrate) ExtraCommBase,
+				- SUM((-b.oddsspread) * ISNULL(c.ExtraComm,0)) ExtraComm,
+				- SUM((-b.oddsspread) * ISNULL(c.ExtraComm,0) * actualrate) ExtraCommBase,
 				
 				0 AS Stake,
 				0 AS StakeBase
 
 		FROM dbo.Bettrans14 b WITH (NOLOCK) 
+			LEFT JOIN #ExtraComm c ON b.srecommend = c.SuperID AND c.ProductID = 33 
 		WHERE b.WinlostDate = @WLDate
 			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 33 AND RefTable = 0)
 			AND b.statusID IN (111, 112, 113, 103) 
@@ -1395,8 +1380,6 @@ BEGIN
 					ELSE (b.ExtraWLBase + b.ExtraCommBase) * CAST(ISNULL(e.ExtraPT,0) AS [decimal](10, 8)) END) ExtraPTBase
 		FROM #Data b
 			INNER JOIN #SportBettype s ON b.bettype = s.Bettype 
-			LEFT JOIN #ExtraPT e ON b.srecommend = e.SuperID AND s.ProductID = e.ProductID 
-			LEFT JOIN #ExtraComm c ON b.srecommend = c.SuperID AND s.ProductID = c.ProductID
 		GROUP BY b.ReportBy, b.ReportByName
 		HAVING (@TotalBetType = 0
 			OR (@TotalBetType = 1 AND SUM(b.TotalBetsBase) >= @TotalBetValue) 
@@ -1454,8 +1437,6 @@ BEGIN
 						ELSE (b.ExtraWLBase + b.ExtraCommBase) * CAST(ISNULL(e.ExtraPT,0) AS [decimal](10, 8)) END) ExtraPTBase
 			FROM #Data b
 				INNER JOIN #SportBettype s ON b.bettype = s.Bettype 
-				LEFT JOIN #ExtraPT e ON b.srecommend = e.SuperID AND s.ProductID = e.ProductID 
-				LEFT JOIN #ExtraComm c ON b.srecommend = c.SuperID AND s.ProductID = c.ProductID
 			GROUP BY b.ReportBy, b.ReportByName, b.CurrencyID, b.Currency
 			HAVING (@TotalBetType = 0
 				OR (@TotalBetType = 1 AND SUM(b.TotalBets) >= @TotalBetValue) 
@@ -1510,8 +1491,6 @@ BEGIN
 			FROM #Data b	
 				INNER JOIN #Result r ON (@Currency = -1 OR b.CurrencyID = r.CurrencyID) AND b.ReportByName = r.ReportByName	
 				INNER JOIN #SportBettype s ON b.bettype = s.Bettype 
-				LEFT JOIN #ExtraPT e ON b.srecommend = e.SuperID AND s.ProductID = e.ProductID 
-				LEFT JOIN #ExtraComm c ON b.srecommend = c.SuperID AND s.ProductID = c.ProductID
 			GROUP BY b.ReportBy, b.ReportByName, b.CurrencyID , b.Currency	
 			ORDER BY b.Currency
 		END
@@ -1538,8 +1517,6 @@ BEGIN
 		FROM #Result r
 			INNER JOIN #Data d ON (r.CurrencyID = -1 OR r.CurrencyID = d.CurrencyID) AND d.ReportByName = r.ReportByName
 			INNER JOIN #SportBettype s ON d.bettype = s.Bettype 
-			LEFT JOIN #ExtraPT e ON d.srecommend = e.SuperID AND s.ProductID = e.ProductID 
-			LEFT JOIN #ExtraComm c ON d.srecommend = c.SuperID AND s.ProductID = c.ProductID
 		GROUP BY d.CurrencyId, d.Currency
 		ORDER BY ReportBy
 	END	
@@ -1562,8 +1539,6 @@ BEGIN
     FROM #Result r
 		INNER JOIN #Data d ON (r.CurrencyID = -1 OR r.CurrencyID = d.CurrencyID) AND r.ReportBy = d.ReportBy
 		INNER JOIN #SportBettype s ON d.bettype = s.Bettype 
-		LEFT JOIN #ExtraPT e ON d.srecommend = e.SuperID AND s.ProductID = e.ProductID 
-		LEFT JOIN #ExtraComm c ON d.srecommend = c.SuperID AND s.ProductID = c.ProductID
 
 	DROP TABLE #Data
 	DROP TABLE #Result
@@ -1579,7 +1554,6 @@ BEGIN
 	DROP TABLE #tmp_bettransm
 	DROP TABLE #DepositSuper 
 	DROP TABLE #Device
-	DROP TABLE #ExtraPT
 	DROP TABLE #ExtraComm
 	
 END

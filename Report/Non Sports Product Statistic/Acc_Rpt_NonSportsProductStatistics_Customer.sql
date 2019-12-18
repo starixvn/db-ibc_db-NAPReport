@@ -48,6 +48,7 @@ AS
 		20190510@Cherry: Appy ExtraPT (#111676)
 		20190724@Cherry: ExtraPT in House Turnover (#116766)
 		20190812@Cherry: Add betfrom t (#115937)
+		20191225@Cherry: Apply ExtraPT in bettrans table (#123697)
 
 	Param's Explanation:
 		- @username: search keyword
@@ -497,23 +498,8 @@ BEGIN
 	CREATE CLUSTERED INDEX IX_SportBettype ON #SportBettype (ProductID, Bettype, EvenType, RefTable)  
 	CREATE CLUSTERED INDEX IX_SportType ON #tmp_SportType (Sporttype)    
 	CREATE CLUSTERED INDEX IX_LeagueID ON #tmp_LeagueID (LeagueID, Bettype)
-	
-	CREATE TABLE #ExtraPT (ProductID INT, SuperID INT, ExtraPT DECIMAL(9, 8))
+
 	CREATE TABLE #ExtraComm (ProductID INT, SuperID INT, ExtraComm DECIMAL(9, 8))
-	
-	INSERT INTO #ExtraPT
-               ( ProductID,
-                 SuperID,
-                 ExtraPT
-               )
-               SELECT ProductID,
-                      SuperId,
-                      SUM(ExtraPT) AS ExtraPT
-               FROM bodb02.dbo.Acc_GroupExtraPTSetting a WITH ( NOLOCK )
-               WHERE @WLDate BETWEEN FromDate AND Todate
-					AND a.ProductId IN (SELECT ProductID FROM #tmp_ProductID)
-               GROUP BY ProductID,
-                        SuperId
                         
 	INSERT INTO #ExtraComm
                ( ProductID,
@@ -614,18 +600,18 @@ BEGIN
 			SUM(scomm) AS CompanyComm,
 			SUM(scomm * actualrate) AS CompanyCommBase,
 			SUM(CASE WHEN b.statusID IN (103) THEN 0 ELSE 1 - b.tpositiontaking END) AS HousePT,
-			SUM(winlost - actual_stake) ExtraWL,
-			SUM((winlost - actual_stake) * actualrate) ExtraWLBase,				
+			SUM((winlost - actual_stake) * ISNULL(b.epositiontaking, 0)) ExtraWL,
+			SUM((winlost - actual_stake) * ISNULL(b.epositiontaking, 0) * actualrate) ExtraWLBase,				
 			SUM(CASE WHEN tpositiontaking = 1 THEN 0
-					ELSE scomm / (1 - tpositiontaking) END) ExtraComm,
+					ELSE scomm * ISNULL(b.epositiontaking, 0) / (1 - tpositiontaking) END) ExtraComm,
 			SUM((CASE WHEN tpositiontaking = 1 THEN 0
-					ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraCommBase,
+					ELSE scomm * ISNULL(b.epositiontaking, 0) / (1 - tpositiontaking) END) * actualrate) ExtraCommBase,
 			SUM(CASE WHEN b.statusID IN (103) THEN 0 
 						 WHEN b.tpositiontaking = 1 THEN 0
-						 ELSE b.stake END) AS Stake,	
+						 ELSE b.stake * ISNULL(b.epositiontaking, 0) END) AS Stake,	
 			SUM((CASE WHEN b.statusID IN (103) THEN 0 
 						  WHEN b.tpositiontaking = 1 THEN 0
-						  ELSE b.stake END) * actualrate) AS StakeBase,
+						  ELSE b.stake * ISNULL(b.epositiontaking, 0) END) * actualrate) AS StakeBase,
 			COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS RowNum			
 		FROM  dbo.bettrans b WITH (NOLOCK)
 		WHERE b.winlostdate = @WLDate				
@@ -696,18 +682,18 @@ BEGIN
 			SUM(scomm) AS CompanyComm,
 			SUM(scomm * actualrate) AS CompanyCommBase,
 			SUM(CASE WHEN b.statusID IN (103) THEN 0 ELSE 1 - b.tpositiontaking END) AS HousePT,
-			SUM(winlost - actual_stake) ExtraWL,
-			SUM((winlost - actual_stake) * actualrate) ExtraWLBase,				
+			SUM((winlost - actual_stake) * ISNULL(b.epositiontaking, 0)) ExtraWL,
+			SUM((winlost - actual_stake) * ISNULL(b.epositiontaking, 0) * actualrate) ExtraWLBase,				
 			SUM(CASE WHEN tpositiontaking = 1 THEN 0
-					ELSE scomm / (1 - tpositiontaking) END) ExtraComm,
+					ELSE scomm * ISNULL(b.epositiontaking, 0) / (1 - tpositiontaking) END) ExtraComm,
 			SUM((CASE WHEN tpositiontaking = 1 THEN 0
-					ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraCommBase,
+					ELSE scomm * ISNULL(b.epositiontaking, 0) / (1 - tpositiontaking) END) * actualrate) ExtraCommBase,
 			SUM(CASE WHEN b.statusID IN (103) THEN 0 
 						 WHEN b.tpositiontaking = 1 THEN 0
-						 ELSE b.stake END) AS Stake,	
+						 ELSE b.stake * ISNULL(b.epositiontaking, 0) END) AS Stake,	
 			SUM((CASE WHEN b.statusID IN (103) THEN 0 
 						  WHEN b.tpositiontaking = 1 THEN 0
-						  ELSE b.stake END) * actualrate) AS StakeBase,
+						  ELSE b.stake * ISNULL(b.epositiontaking, 0) END) * actualrate) AS StakeBase,
 			COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS RowNum			
 		FROM dbo.bettransRnG b WITH (NOLOCK)
 		WHERE b.winlostdate = @WLDate				
@@ -775,18 +761,18 @@ BEGIN
 			SUM(scomm) AS CompanyComm,
 			SUM(scomm * actualrate) AS CompanyCommBase,
 			0 AS HousePT,
-			SUM(b.ContributionRate * b.BetStake) ExtraWL,
-			SUM((b.ContributionRate * b.BetStake) * actualrate) ExtraWLBase,				
+			SUM(b.ContributionRate * b.BetStake * ISNULL(b.epositiontaking, 0)) ExtraWL,
+			SUM(b.ContributionRate * b.BetStake * ISNULL(b.epositiontaking, 0) * actualrate) ExtraWLBase,				
 			SUM(CASE WHEN tpositiontaking = 1 THEN 0
-					ELSE scomm / (1 - tpositiontaking) END) ExtraComm,
+					ELSE scomm * ISNULL(b.epositiontaking, 0) / (1 - tpositiontaking) END) ExtraComm,
 			SUM((CASE WHEN tpositiontaking = 1 THEN 0
-					ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraCommBase,
+					ELSE scomm * ISNULL(b.epositiontaking, 0) / (1 - tpositiontaking) END) * actualrate) ExtraCommBase,
 			SUM(CASE WHEN b.statusID IN (103) THEN 0 
 						 WHEN b.tpositiontaking = 1 THEN 0
-						 ELSE b.stake END) AS Stake,	
+						 ELSE b.stake * ISNULL(b.epositiontaking, 0) END) AS Stake,	
 			SUM((CASE WHEN b.statusID IN (103) THEN 0 
 						  WHEN b.tpositiontaking = 1 THEN 0
-						  ELSE b.stake END) * actualrate) AS StakeBase,
+						  ELSE b.stake * ISNULL(b.epositiontaking, 0) END) * actualrate) AS StakeBase,
 			COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS RowNum			
 		FROM dbo.bettransRnG b WITH (NOLOCK)
 		WHERE b.winlostdate = @WLDate				
@@ -854,18 +840,18 @@ BEGIN
 			SUM(scomm) AS CompanyComm,
 			SUM(scomm * actualrate) AS CompanyCommBase,
 			SUM(CASE WHEN b.statusID IN (103) THEN 0 ELSE 1 - b.tpositiontaking END) AS HousePT,
-			SUM(winlost - actual_stake) ExtraWL,
-			SUM((winlost - actual_stake) * actualrate) ExtraWLBase,				
+			SUM((winlost - actual_stake) * ISNULL(b.epositiontaking, 0)) ExtraWL,
+			SUM((winlost - actual_stake) * ISNULL(b.epositiontaking, 0) * actualrate) ExtraWLBase,				
 			SUM(CASE WHEN tpositiontaking = 1 THEN 0
-					ELSE scomm / (1 - tpositiontaking) END) ExtraComm,
+					ELSE scomm * ISNULL(b.epositiontaking, 0) / (1 - tpositiontaking) END) ExtraComm,
 			SUM((CASE WHEN tpositiontaking = 1 THEN 0
-					ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraCommBase,
+					ELSE scomm * ISNULL(b.epositiontaking, 0) / (1 - tpositiontaking) END) * actualrate) ExtraCommBase,
 			SUM(CASE WHEN b.statusID IN (103) THEN 0 
 						 WHEN b.tpositiontaking = 1 THEN 0
-						 ELSE b.stake END) AS Stake,	
+						 ELSE b.stake * ISNULL(b.epositiontaking, 0) END) AS Stake,	
 			SUM((CASE WHEN b.statusID IN (103) THEN 0 
 						  WHEN b.tpositiontaking = 1 THEN 0
-						  ELSE b.stake END) * actualrate) AS StakeBase,
+						  ELSE b.stake * ISNULL(b.epositiontaking, 0) END) * actualrate) AS StakeBase,
 			COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS RowNum			
 		FROM dbo.bettransLC b WITH (NOLOCK)
 		WHERE b.winlostdate = @WLDate				
@@ -938,14 +924,15 @@ BEGIN
 			SUM(scomm) AS CompanyComm,
 			SUM(scomm * actualrate) AS CompanyCommBase,
 			SUM(CASE WHEN b.statusID IN (103) THEN 0 ELSE 1 - b.tpositiontaking END) AS HousePT,
-			SUM(ISNULL(b.transid2, 0) * 1.0 / 10000) ExtraWL,
-			SUM((ISNULL(b.transid2, 0) * 1.0 / 10000) * actualrate) ExtraWLBase,				
-			SUM(-b.oddsspread) ExtraComm,
-			SUM((-b.oddsspread) * actualrate) ExtraCommBase,
+			SUM(ISNULL(b.transid2, 0) * 1.0 / 10000 * ISNULL(b.epositiontaking, 0)) ExtraWL,
+			SUM((ISNULL(b.transid2, 0) * 1.0 / 10000) * ISNULL(b.epositiontaking, 0) * actualrate) ExtraWLBase,				
+			SUM((-b.oddsspread) * ISNULL(c.ExtraComm,0)) ExtraComm,
+			SUM((-b.oddsspread) * ISNULL(c.ExtraComm,0) * actualrate) ExtraCommBase,
 			0 AS Stake,	
 			0 AS StakeBase,
 			COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS RowNum			
 		FROM  dbo.bettrans b WITH (NOLOCK)
+			LEFT JOIN #ExtraComm c ON b.srecommend = c.SuperID AND c.ProductID = 33 
 		WHERE b.winlostdate = @WLDate				
 			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 33 AND RefTable = 0)
 			AND b.ruben = 1
@@ -1017,18 +1004,18 @@ BEGIN
 			SUM(scomm) AS CompanyComm,
 			SUM(scomm * actualrate) AS CompanyCommBase,
 			SUM(CASE WHEN b.statusID IN (103) THEN 0 ELSE 1 - b.tpositiontaking END) AS HousePT,
-			SUM(winlost - actual_stake) ExtraWL,
-			SUM((winlost - actual_stake) * actualrate) ExtraWLBase,				
+			SUM((winlost - actual_stake) * ISNULL(b.epositiontaking, 0)) ExtraWL,
+			SUM((winlost - actual_stake) * ISNULL(b.epositiontaking, 0) * actualrate) ExtraWLBase,				
 			SUM(CASE WHEN tpositiontaking = 1 THEN 0
-					ELSE scomm / (1 - tpositiontaking) END) ExtraComm,
+					ELSE scomm * ISNULL(b.epositiontaking, 0) / (1 - tpositiontaking) END) ExtraComm,
 			SUM((CASE WHEN tpositiontaking = 1 THEN 0
-					ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraCommBase,
+					ELSE scomm * ISNULL(b.epositiontaking, 0) / (1 - tpositiontaking) END) * actualrate) ExtraCommBase,
 			SUM(CASE WHEN b.statusID IN (103) THEN 0 
 						 WHEN b.tpositiontaking = 1 THEN 0
-						 ELSE b.stake END) AS Stake,	
+						 ELSE b.stake * ISNULL(b.epositiontaking, 0) END) AS Stake,	
 			SUM((CASE WHEN b.statusID IN (103) THEN 0 
 						  WHEN b.tpositiontaking = 1 THEN 0
-						  ELSE b.stake END) * actualrate) AS StakeBase,
+						  ELSE b.stake * ISNULL(b.epositiontaking, 0) END) * actualrate) AS StakeBase,
 			COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS RowNum			
 		FROM  dbo.bettrans b WITH (NOLOCK)
 		WHERE b.winlostdate = @WLDate				
@@ -1103,18 +1090,18 @@ BEGIN
 			SUM(scomm) AS CompanyComm,
 			SUM(scomm * actualrate) AS CompanyCommBase,
 			SUM(CASE WHEN b.statusID IN (103) THEN 0 ELSE 1 - b.tpositiontaking END) AS HousePT,
-			SUM(winlost - actual_stake) ExtraWL,
-			SUM((winlost - actual_stake) * actualrate) ExtraWLBase,				
+			SUM((winlost - actual_stake) * ISNULL(b.epositiontaking, 0)) ExtraWL,
+			SUM((winlost - actual_stake) * ISNULL(b.epositiontaking, 0) * actualrate) ExtraWLBase,				
 			SUM(CASE WHEN tpositiontaking = 1 THEN 0
-					ELSE scomm / (1 - tpositiontaking) END) ExtraComm,
+					ELSE scomm * ISNULL(b.epositiontaking, 0) / (1 - tpositiontaking) END) ExtraComm,
 			SUM((CASE WHEN tpositiontaking = 1 THEN 0
-					ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraCommBase,
+					ELSE scomm * ISNULL(b.epositiontaking, 0) / (1 - tpositiontaking) END) * actualrate) ExtraCommBase,
 			SUM(CASE WHEN b.statusID IN (103) THEN 0 
 						 WHEN b.tpositiontaking = 1 THEN 0
-						 ELSE b.stake END) AS Stake,	
+						 ELSE b.stake * ISNULL(b.epositiontaking, 0) END) AS Stake,	
 			SUM((CASE WHEN b.statusID IN (103) THEN 0 
 						  WHEN b.tpositiontaking = 1 THEN 0
-						  ELSE b.stake END) * actualrate) AS StakeBase,
+						  ELSE b.stake * ISNULL(b.epositiontaking, 0) END) * actualrate) AS StakeBase,
 			COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS RowNum			
 		FROM  dbo.bettrans b WITH (NOLOCK)
 		WHERE b.winlostdate = @WLDate				
@@ -1188,18 +1175,18 @@ BEGIN
 			SUM(scomm) AS CompanyComm,
 			SUM(scomm * actualrate) AS CompanyCommBase,
 			SUM(CASE WHEN b.statusID IN (103) THEN 0 ELSE 1 - b.tpositiontaking END) AS HousePT,
-			SUM(winlost - actual_stake) ExtraWL,
-			SUM((winlost - actual_stake) * actualrate) ExtraWLBase,				
+			SUM((winlost - actual_stake) * ISNULL(b.epositiontaking, 0)) ExtraWL,
+			SUM((winlost - actual_stake) * ISNULL(b.epositiontaking, 0) * actualrate) ExtraWLBase,				
 			SUM(CASE WHEN tpositiontaking = 1 THEN 0
-					ELSE scomm / (1 - tpositiontaking) END) ExtraComm,
+					ELSE scomm * ISNULL(b.epositiontaking, 0) / (1 - tpositiontaking) END) ExtraComm,
 			SUM((CASE WHEN tpositiontaking = 1 THEN 0
-					ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraCommBase,
+					ELSE scomm * ISNULL(b.epositiontaking, 0) / (1 - tpositiontaking) END) * actualrate) ExtraCommBase,
 			SUM(CASE WHEN b.statusID IN (103) THEN 0 
 						 WHEN b.tpositiontaking = 1 THEN 0
-						 ELSE b.stake END) AS Stake,	
+						 ELSE b.stake * ISNULL(b.epositiontaking, 0) END) AS Stake,	
 			SUM((CASE WHEN b.statusID IN (103) THEN 0 
 						  WHEN b.tpositiontaking = 1 THEN 0
-						  ELSE b.stake END) * actualrate) AS StakeBase,
+						  ELSE b.stake * ISNULL(b.epositiontaking, 0) END) * actualrate) AS StakeBase,
 			COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS RowNum			
 		FROM  dbo.bettrans b WITH (NOLOCK)
 		WHERE b.winlostdate = @WLDate				
@@ -1271,18 +1258,18 @@ BEGIN
 			SUM(scomm) AS CompanyComm,
 			SUM(scomm * actualrate) AS CompanyCommBase,
 			SUM(CASE WHEN b.statusID IN (103) THEN 0 ELSE 1 - b.tpositiontaking END) AS HousePT,
-			SUM(winlost - actual_stake) ExtraWL,
-			SUM((winlost - actual_stake) * actualrate) ExtraWLBase,				
+			SUM((winlost - actual_stake) * ISNULL(b.epositiontaking, 0)) ExtraWL,
+			SUM((winlost - actual_stake) * ISNULL(b.epositiontaking, 0) * actualrate) ExtraWLBase,				
 			SUM(CASE WHEN tpositiontaking = 1 THEN 0
-					ELSE scomm / (1 - tpositiontaking) END) ExtraComm,
+					ELSE scomm * ISNULL(b.epositiontaking, 0) / (1 - tpositiontaking) END) ExtraComm,
 			SUM((CASE WHEN tpositiontaking = 1 THEN 0
-					ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraCommBase,
+					ELSE scomm * ISNULL(b.epositiontaking, 0) / (1 - tpositiontaking) END) * actualrate) ExtraCommBase,
 			SUM(CASE WHEN b.statusID IN (103) THEN 0 
 						 WHEN b.tpositiontaking = 1 THEN 0
-						 ELSE b.stake END) AS Stake,	
+						 ELSE b.stake * ISNULL(b.epositiontaking, 0) END) AS Stake,	
 			SUM((CASE WHEN b.statusID IN (103) THEN 0 
 						  WHEN b.tpositiontaking = 1 THEN 0
-						  ELSE b.stake END) * actualrate) AS StakeBase,
+						  ELSE b.stake * ISNULL(b.epositiontaking, 0) END) * actualrate) AS StakeBase,
 			COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS RowNum			
 		FROM  dbo.bettrans b WITH (NOLOCK)
 		WHERE b.winlostdate = @WLDate				
@@ -1366,18 +1353,18 @@ BEGIN
 			SUM(scomm) AS CompanyComm,
 			SUM(scomm * actualrate) AS CompanyCommBase,
 			SUM(CASE WHEN b.statusID IN (103) THEN 0 ELSE 1 - b.tpositiontaking END) AS HousePT,
-			SUM(winlost - actual_stake) ExtraWL,
-			SUM((winlost - actual_stake) * actualrate) ExtraWLBase,				
+			SUM((winlost - actual_stake) * ISNULL(b.epositiontaking, 0)) ExtraWL,
+			SUM((winlost - actual_stake) * ISNULL(b.epositiontaking, 0) * actualrate) ExtraWLBase,				
 			SUM(CASE WHEN tpositiontaking = 1 THEN 0
-							ELSE scomm / (1 - tpositiontaking) END) ExtraComm,
+							ELSE scomm * ISNULL(b.epositiontaking, 0) / (1 - tpositiontaking) END) ExtraComm,
 			SUM((CASE WHEN tpositiontaking = 1 THEN 0
-							ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraCommBase,
+							ELSE scomm * ISNULL(b.epositiontaking, 0) / (1 - tpositiontaking) END) * actualrate) ExtraCommBase,
 			SUM(CASE WHEN b.statusID IN (103) THEN 0 
 						 WHEN b.tpositiontaking = 1 THEN 0
-						 ELSE b.stake END) AS Stake,	
+						 ELSE b.stake * ISNULL(b.epositiontaking, 0) END) AS Stake,	
 			SUM((CASE WHEN b.statusID IN (103) THEN 0 
 						  WHEN b.tpositiontaking = 1 THEN 0
-						  ELSE b.stake END) * actualrate) AS StakeBase,
+						  ELSE b.stake * ISNULL(b.epositiontaking, 0) END) * actualrate) AS StakeBase,
 			COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS RowNum			
 		FROM  dbo.bettrans b WITH (NOLOCK)
 		WHERE b.winlostdate = @WLDate				
@@ -1449,18 +1436,18 @@ BEGIN
 			SUM(scomm) AS CompanyComm,
 			SUM(scomm * actualrate) AS CompanyCommBase,
 			SUM(CASE WHEN b.statusID IN (103) THEN 0 ELSE 1 - b.tpositiontaking END) AS HousePT,
-			SUM(winlost - actual_stake) ExtraWL,
-			SUM((winlost - actual_stake) * actualrate) ExtraWLBase,				
+			SUM((winlost - actual_stake) * ISNULL(b.epositiontaking, 0)) ExtraWL,
+			SUM((winlost - actual_stake) * ISNULL(b.epositiontaking, 0) * actualrate) ExtraWLBase,				
 			SUM(CASE WHEN tpositiontaking = 1 THEN 0
-					ELSE scomm / (1 - tpositiontaking) END) ExtraComm,
+					ELSE scomm * ISNULL(b.epositiontaking, 0) / (1 - tpositiontaking) END) ExtraComm,
 			SUM((CASE WHEN tpositiontaking = 1 THEN 0
-					ELSE scomm / (1 - tpositiontaking) END) * actualrate) ExtraCommBase,
+					ELSE scomm * ISNULL(b.epositiontaking, 0) / (1 - tpositiontaking) END) * actualrate) ExtraCommBase,
 			SUM(CASE WHEN b.statusID IN (103) THEN 0 
 						 WHEN b.tpositiontaking = 1 THEN 0
-						 ELSE b.stake END) AS Stake,	
+						 ELSE b.stake * ISNULL(b.epositiontaking, 0) END) AS Stake,	
 			SUM((CASE WHEN b.statusID IN (103) THEN 0 
 						  WHEN b.tpositiontaking = 1 THEN 0
-						  ELSE b.stake END) * actualrate) AS StakeBase,
+						  ELSE b.stake * ISNULL(b.epositiontaking, 0) END) * actualrate) AS StakeBase,
 			COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS RowNum			
 		FROM  dbo.bettrans b WITH (NOLOCK)
 		WHERE b.winlostdate = @WLDate				
@@ -1547,23 +1534,19 @@ BEGIN
 		SUM(TotalWinsBase),
 		SUM(TotalRefund),
 		SUM(TotalRefundBase),
-		SUM(CompanyTurnover - Stake * ISNULL(e.ExtraPT,0)),
-		SUM(CompanyTurnoverBase - StakeBase * ISNULL(e.ExtraPT,0)),
+		SUM(CompanyTurnover - Stake),
+		SUM(CompanyTurnoverBase - StakeBase),
 		- SUM(CompanyGrossIncome),
 		- SUM(CompanyGrossIncomeBase),
 		- SUM(CompanyComm),
 		- SUM(CompanyCommBase),
 		SUM(HousePT),
-		- SUM(CASE WHEN s.ProductID = 33 AND s.RefTable = 0 THEN b.ExtraWL * CAST(ISNULL(e.ExtraPT,0) AS [decimal](10, 8)) + b.ExtraComm * CAST(ISNULL(c.ExtraComm,0) AS [decimal](10, 8))
-							ELSE (b.ExtraWL + b.ExtraComm) * CAST(ISNULL(e.ExtraPT,0) AS [decimal](10, 8)) END),
-		- SUM(CASE WHEN s.ProductID = 33 AND s.RefTable = 0 THEN b.ExtraWLBase * CAST(ISNULL(e.ExtraPT,0) AS [decimal](10, 8)) + b.ExtraCommBase * CAST(ISNULL(c.ExtraComm,0) AS [decimal](10, 8))
-							ELSE (b.ExtraWLBase + b.ExtraCommBase) * CAST(ISNULL(e.ExtraPT,0) AS [decimal](10, 8)) END),
+		- SUM(b.ExtraWL + b.ExtraComm),
+		- SUM(b.ExtraWLBase + b.ExtraCommBase),
 		SUM(RowNum)
 	FROM #tmp_bettrans b
 		INNER JOIN (SELECT DISTINCT Bettype, ProductID, RefTable
 					FROM #SportBettype) s ON b.Bettype = s.Bettype
-		LEFT JOIN #ExtraPT e ON b.srecommend = e.SuperID AND s.ProductID = e.ProductID 
-		LEFT JOIN #ExtraComm c ON b.srecommend = c.SuperID AND s.ProductID = c.ProductID 
 	GROUP BY s.ProductID, b.custid, b.CurrencyID, b.srecommend, b.mrecommend, b.recommend	
 	
 	CREATE TABLE #tmp_Result
@@ -2179,7 +2162,6 @@ BEGIN
 	DROP TABLE #tmp_Result
 	DROP TABLE #tmp_bettransm
 	DROP TABLE #Device
-	DROP TABLE #ExtraPT
 	DROP TABLE #ExtraComm
 
 END

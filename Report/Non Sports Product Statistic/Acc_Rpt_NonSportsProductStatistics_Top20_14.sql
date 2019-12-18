@@ -47,6 +47,7 @@ AS
 		20190510@Cherry: Appy ExtraPT (#111676)
 		20190724@Cherry: ExtraPT in House Turnover (#116766)
 		20190812@Cherry: Add betfrom t (#115937)
+		20191225@Cherry: Apply ExtraPT in bettrans table (#123697)
 
 	Param's Explanation:
 		- @username: search keyword
@@ -529,23 +530,8 @@ BEGIN
 		StakeBase DECIMAL(19,4),
 		RowNum INT
 	)
-	
-	CREATE TABLE #ExtraPT (ProductID INT, SuperID INT, ExtraPT DECIMAL(9, 8))
+
 	CREATE TABLE #ExtraComm (ProductID INT, SuperID INT, ExtraComm DECIMAL(9, 8))
-	
-	INSERT INTO #ExtraPT
-               ( ProductID,
-                 SuperID,
-                 ExtraPT
-               )
-               SELECT ProductID,
-                      SuperId,
-                      SUM(ExtraPT) AS ExtraPT
-               FROM bodb02.dbo.Acc_GroupExtraPTSetting a WITH ( NOLOCK )
-               WHERE @WLDate BETWEEN FromDate AND Todate
-					AND a.ProductId IN (SELECT ProductID FROM #tmp_ProductID)
-               GROUP BY ProductID,
-                        SuperId
                         
 	INSERT INTO #ExtraComm
                ( ProductID,
@@ -937,14 +923,15 @@ BEGIN
 			SUM(scomm) AS CompanyComm,
 			SUM(scomm * actualrate) AS CompanyCommBase,
 			SUM(CASE WHEN b.statusID IN (103) THEN 0 ELSE 1 - b.tpositiontaking END) AS HousePT,
-			SUM(ISNULL(b.transid2, 0) * 1.0 / 10000) ExtraWL,
-			SUM((ISNULL(b.transid2, 0) * 1.0 / 10000) * actualrate) ExtraWLBase,				
-			SUM(-b.oddsspread) ExtraComm,
-			SUM((-b.oddsspread) * actualrate) ExtraCommBase,
+			SUM(ISNULL(b.transid2, 0) * 1.0 / 10000 * ISNULL(b.epositiontaking, 0)) ExtraWL,
+			SUM((ISNULL(b.transid2, 0) * 1.0 / 10000) * ISNULL(b.epositiontaking, 0) * actualrate) ExtraWLBase,				
+			SUM((-b.oddsspread) * ISNULL(c.ExtraComm,0)) ExtraComm,
+			SUM((-b.oddsspread) * ISNULL(c.ExtraComm,0) * actualrate) ExtraCommBase,
 			0 AS Stake,
 			0 AS StakeBase,
 			COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS RowNum			
 		FROM  dbo.bettrans14 b WITH (NOLOCK)
+			LEFT JOIN #ExtraComm c ON b.srecommend = c.SuperID AND c.ProductID = 33 
 		WHERE b.winlostdate = @WLDate				
 			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 33 AND RefTable = 0)
 			AND b.statusID IN (111, 112, 113, 103) 
@@ -1554,8 +1541,6 @@ BEGIN
 	FROM #tmp_bettrans b
 		INNER JOIN (SELECT DISTINCT Bettype, ProductID, RefTable
 					FROM #SportBettype) s ON b.Bettype = s.Bettype
-		LEFT JOIN #ExtraPT e ON b.srecommend = e.SuperID AND s.ProductID = e.ProductID 
-				LEFT JOIN #ExtraComm c ON b.srecommend = c.SuperID AND s.ProductID = c.ProductID
 	GROUP BY s.ProductID, b.custid, b.CurrencyID, b.srecommend, b.mrecommend, b.recommend	
 
 	CREATE TABLE #tmp_Result
@@ -2150,7 +2135,6 @@ BEGIN
 	DROP TABLE #Result
 	DROP TABLE #tmp_bettransm
 	DROP TABLE #Device
-	DROP TABLE #ExtraPT
 	DROP TABLE #ExtraComm
 	
 END
