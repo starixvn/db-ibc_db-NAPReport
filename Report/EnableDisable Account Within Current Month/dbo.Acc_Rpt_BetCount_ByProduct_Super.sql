@@ -42,6 +42,7 @@ AS
 		- 20190308@Robert: #109822 - NAP Report - Integrate Bet Builder
 		- 20190722@Robert: #117010 - NAP Report - Integrate Card Club on NAP Report
 		- 20190917@Dominic: Remove inactive products [#120215]
+		- 20191225@Cherry: Integrate Spadegaming (#125788)
 
 	Param's Explanation:  
 	  + @MoveBetsDay: The day of moving bets to battrans14
@@ -131,7 +132,7 @@ BEGIN
 			WHERE b.winlostdate BETWEEN @TempFromDate AND @CurrentDate
 			AND (
 					(@sportType=251 AND (b.gameID BETWEEN 2101 AND 2399 OR b.gameID BETWEEN 2901 AND 2999))
-					OR b.gameID BETWEEN 4001 AND CASE WHEN @sportType=212 THEN 4300 ELSE 0 END 	--Macau Games and Pragmatic
+					OR b.gameID BETWEEN 4001 AND CASE WHEN @sportType=212 THEN 4600 ELSE 0 END 	--Macau Games, Pragmatic, Spadegaming
 					OR b.gameID BETWEEN 1011 AND CASE WHEN @sportType=219 THEN 1020 ELSE 0 END -- Fishing World			
 					OR b.gameID BETWEEN 1901 AND CASE WHEN @sportType=212 THEN 1999 ELSE 0 END -- Card Club [Video Poker]					
 				) 
@@ -185,7 +186,7 @@ BEGIN
 							OR b.bettype BETWEEN 1701 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' = 255 THEN 1703 ELSE 0 END) -- GoldDeluxe
 							OR b.bettype BETWEEN 18000 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' = 204 THEN 18005 ELSE 0 END) -- Colossus Bet
 							OR b.bettype BETWEEN 2401  AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 211 THEN 2499 ELSE 0 END) -- AllBet
-							OR b.bettype BETWEEN 4001  AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 212 THEN 4300 ELSE 0 END) -- Macau Games and Pragmatic
+							OR b.bettype BETWEEN 4001  AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 212 THEN 4600 ELSE 0 END) -- Macau Games, Pragmatic, Spadegaming
 							OR b.bettype BETWEEN 2501  AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 213 THEN 2699 ELSE 0 END) -- NG2
 							OR b.bettype BETWEEN 1011  AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 219 THEN 1020 ELSE 0 END) -- Fishing World
 							OR b.bettype BETWEEN 1021 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' = 220 THEN 1049 ELSE 0 END --Loterry
@@ -309,5 +310,3 @@ BEGIN
 END
 GO 
 
-GRANT EXECUTE ON [dbo].[Acc_Rpt_BetCount_ByProduct_Super] TO [bodbAdminNet]
-GO
