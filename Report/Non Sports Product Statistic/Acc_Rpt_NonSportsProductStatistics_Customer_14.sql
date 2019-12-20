@@ -1540,8 +1540,6 @@ BEGIN
 	FROM #tmp_bettrans b
 		INNER JOIN (SELECT DISTINCT Bettype, ProductID, RefTable
 					FROM #SportBettype) s ON b.Bettype = s.Bettype
-		LEFT JOIN #ExtraPT e ON b.srecommend = e.SuperID AND s.ProductID = e.ProductID 
-		LEFT JOIN #ExtraComm c ON b.srecommend = c.SuperID AND s.ProductID = c.ProductID 
 	GROUP BY s.ProductID, b.custid, b.CurrencyID, b.srecommend, b.mrecommend, b.recommend	
 
 	CREATE TABLE #tmp_Result

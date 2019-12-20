@@ -747,7 +747,7 @@ BEGIN
 				- SUM(ISNULL(b.transid2, 0) * 1.0 / 10000 * ISNULL(b.epositiontaking, 0)) ExtraWL,
 				- SUM((ISNULL(b.transid2, 0) * 1.0 / 10000) * ISNULL(b.epositiontaking, 0) * actualrate) ExtraWLBase,
 				
-				- SUM((-b.oddsspread)) * ISNULL(c.ExtraComm,0) ExtraComm,
+				- SUM((-b.oddsspread) * ISNULL(c.ExtraComm,0)) ExtraComm,
 				- SUM((-b.oddsspread) * ISNULL(c.ExtraComm,0) * actualrate) ExtraCommBase,
 				
 				0 AS Stake,
