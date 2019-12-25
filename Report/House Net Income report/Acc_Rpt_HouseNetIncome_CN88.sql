@@ -12,6 +12,7 @@ DB: DBWH.bodb_dwrs
 
 Revisions:
 	20191211@Robert: Initialize SP	
+	20191227@Robert: #125762 - DHWL Letstalk - Support to add Margin report into the current DHWL Letstalk report, Need to exclude sporttype = -1 
 Example:
 
 EXEC [Acc_Rpt_HouseNetIncome_CN88] @@FromDate='20190801',@@ToDate='20190801'
@@ -85,6 +86,7 @@ BEGIN
 			  AND sd.TicketStatus NOT IN(-1, 3, 18, 9, 10, 14)
 			  AND sd.CurrencyID <> 20
 			  AND sd.SiteID = @SiteCN88
+			  AND sd.SportType >= 1
 		 GROUP BY sd.RptDate
 			   , sd.SiteID;
 
