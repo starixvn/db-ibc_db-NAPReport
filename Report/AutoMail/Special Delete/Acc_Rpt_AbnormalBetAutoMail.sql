@@ -12,6 +12,7 @@ AS
 	Task: [Special Delete] - Implement Daily Auto Mail for Abnormal Bets
 	Revisions:		
 		- 20191107@Robert: [Special Delete] - Implement Daily Auto Mail for Abnormal Bets - [#121920]
+		- 20191226@Robert: NAP Report - Automate daily abnormal bets report for CSD [122800] - change request
 
 	Param's Explanation:	 
 */
@@ -103,7 +104,7 @@ AS
 				, l.leagueid
 				, m.homeid
 				, m.awayid
-				, m.kickofftime
+				, m.GlobalShowTime
 				, b.liveindicator
 				, b.bettype
 				, b.betteam

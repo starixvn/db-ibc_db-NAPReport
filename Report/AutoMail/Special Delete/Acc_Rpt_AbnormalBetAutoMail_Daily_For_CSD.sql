@@ -2,7 +2,7 @@
 
 ALTER PROCEDURE dbo.Acc_Rpt_AbnormalBetAutoMail_Daily_For_CSD 
 	@RptDate    DATETIME
-   , @IsTest     BIT      = 0
+   , @IsTest     BIT      = 1
 AS
 /*
 	Creator: Robert
@@ -11,6 +11,7 @@ AS
 	Task: NAP Report - Automate daily abnormal bets report for CSD
 	Revisions:		
 		- 20191205@Robert: NAP Report - Automate daily abnormal bets report for CSD [122800]
+		- 20191226@Robert: NAP Report - Automate daily abnormal bets report for CSD [122800] - change request
 
 	Param's Explanation:	 
 */
@@ -19,16 +20,19 @@ AS
 	   SET NOCOUNT ON;
 
 	   CREATE TABLE #TmpVoidedTransaction(
-		   TransId           BIGINT
-		 , SubIssueTypeId    TINYINT);
+		   RequestId         INT
+		 , TransId           BIGINT
+		 , SubIssueTypeId    TINYINT
+		 , CreatedDate       DATETIME);
 
 	   CREATE TABLE #Data(
-		   TransId           BIGINT
+		   RequestId         INT
+		 , TransId           BIGINT
 		 , sporttype         TINYINT
 		 , leagueid          INT
 		 , homeid            INT
 		 , awayid            INT
-		 , kickofftime       DATETIME
+		 , GlobalShowTime    DATETIME
 		 , liveindicator     BIT
 		 , bettype           SMALLINT
 		 , SubIssueTypeId    TINYINT
@@ -38,7 +42,8 @@ AS
 		 , finalawayscore    INT
 		 , site              VARCHAR(50)
 		 , AffectedSite      VARCHAR(50)
-		 , Username          NVARCHAR(50));
+		 , Username          NVARCHAR(50)
+		 , CreatedDate       DATETIME);
 
 	   DECLARE @RptDate_From    DATETIME = @RptDate
 		    , @RptDate_To      DATETIME;
@@ -46,24 +51,43 @@ AS
 	   SELECT @RptDate_From = CONVERT(VARCHAR(10), @RptDate_From, 101)
 		   , @RptDate_To = DATEADD(d, 1, @RptDate_From);
 
-	   INSERT INTO #TmpVoidedTransaction(TransId
-								, SubIssueTypeId)
-			SELECT b.TransId
-				, b.SubIssueTypeId
-			FROM bodb02.dbo.TicketVoiding_VoidedTransaction AS b WITH(NOLOCK)
-			WHERE b.CustID > 0
-				 AND b.CreatedDate >= @RptDate_From
-				 AND b.CreatedDate < @RptDate_To
-				 AND b.IssueTypeID = 11;
+	   INSERT INTO #TmpVoidedTransaction(RequestId
+								, TransId
+								, SubIssueTypeId
+								, CreatedDate)
+			SELECT tvh.RequestId
+				, tv.TransId
+				, tv.SubIssueTypeID
+				, tv.CreatedDate
+			FROM dbo.TicketVoiding_VoidedTransaction AS tv WITH(NOLOCK)
+			    INNER JOIN dbo.TicketVoiding_VoidingHistory AS tvh WITH(NOLOCK) ON tv.reasonid = tvh.reasonid
+			    INNER JOIN dbo.bettrans AS bt WITH(NOLOCK) ON tv.TransId = bt.transid
+			    INNER JOIN dbo.match AS m WITH(NOLOCK) ON m.matchid = bt.matchid
+			WHERE tv.IssueTypeID = 11
+				 AND m.eventdate >= @RptDate_From
+				 AND m.eventdate < @RptDate_To OPTION(MAXDOP 1);
 
-	   CREATE CLUSTERED INDEX IX_TransId ON #TmpVoidedTransaction(TransId ASC);
+	   CREATE CLUSTERED INDEX IX_TransId_RequestId ON #TmpVoidedTransaction(TransId ASC, RequestId ASC);
 
-	   INSERT INTO #Data(TransId
+	   UPDATE t1
+			SET 
+			    t1.CreatedDate = t2.MaxCreatedDate
+	   FROM #TmpVoidedTransaction AS t1
+		  INNER JOIN
+		   (
+			  SELECT t.RequestId
+				  , MAX(t.CreatedDate) AS MaxCreatedDate
+			  FROM #TmpVoidedTransaction AS t
+			  GROUP BY t.RequestId
+		   ) AS t2 ON t1.RequestId = t2.RequestId;
+
+	   INSERT INTO #Data(RequestId
+				    , TransId
 				    , sporttype
 				    , leagueid
 				    , homeid
 				    , awayid
-				    , kickofftime
+				    , GlobalShowTime
 				    , liveindicator
 				    , bettype
 				    , SubIssueTypeId
@@ -73,13 +97,15 @@ AS
 				    , finalawayscore
 				    , site
 				    , AffectedSite
-				    , Username)
-			SELECT tmp.TransId
+				    , Username
+				    , CreatedDate)
+			SELECT tmp.RequestId
+				, tmp.TransId
 				, l.sporttype
 				, l.leagueid
 				, m.homeid
 				, m.awayid
-				, m.kickofftime
+				, m.GlobalShowTime
 				, b.liveindicator
 				, b.bettype
 				, tmp.SubIssueTypeId
@@ -101,6 +127,7 @@ AS
 					 ELSE 'Nova88'
 				  END AS AffectedSite
 				, c2.username
+				, tmp.CreatedDate
 			FROM bodb02.dbo.bettrans AS b WITH(NOLOCK)
 			    INNER JOIN #TmpVoidedTransaction AS tmp ON b.transid = tmp.TransId
 			    LEFT JOIN bodb02.dbo.match AS m WITH(NOLOCK) ON b.matchid = m.matchid
@@ -121,12 +148,14 @@ AS
 				  , b.liveindicator DESC
 				  , b.bettype DESC;
 
-	   SELECT @RptDate AS Date
+	   SELECT b.RequestId
+		   , @RptDate AS Date
 		   , b.sporttype
 		   , b.leagueid
 		   , b.homeid
 		   , b.awayid
-		   , b.kickofftime
+		   , b.GlobalShowTime
+		   , b.CreatedDate
 		   , b.hthomescore
 		   , b.htawayscore
 		   , b.finalhomescore
@@ -150,12 +179,7 @@ AS
 			    SELECT DISTINCT 
 					 N', ' + site
 			    FROM #Data AS a
-			    WHERE a.sporttype = b.sporttype
-					AND a.leagueid = b.leagueid
-					AND a.homeid = b.homeid
-					AND a.awayid = b.awayid
-					AND a.SubIssueTypeId = b.SubIssueTypeId
-					AND a.kickofftime = b.kickofftime
+			    WHERE a.RequestId = b.RequestId
 					AND a.AffectedSite = b.AffectedSite FOR XML PATH(''), TYPE
 			).value
 			(N'.[1]', N'nvarchar(max)'), 1, 2, N'')
@@ -164,23 +188,19 @@ AS
 			    SELECT DISTINCT 
 					 N',' + CAST(bettype AS VARCHAR(MAX))
 			    FROM #Data AS a
-			    WHERE a.sporttype = b.sporttype
-					AND a.leagueid = b.leagueid
-					AND a.homeid = b.homeid
-					AND a.awayid = b.awayid
-					AND a.SubIssueTypeId = b.SubIssueTypeId
-					AND a.kickofftime = b.kickofftime
-					AND a.Username = b.Username
+			    WHERE a.RequestId = b.RequestId
 					AND a.AffectedSite = b.AffectedSite FOR XML PATH(''), TYPE
 			).value
 			(N'.[1]', N'nvarchar(max)'), 1, 1, N'')
 	   FROM #Data AS b
 		  INNER JOIN bodb02.dbo.TicketVoiding_SubIssueType AS ss WITH(NOLOCK) ON b.SubIssueTypeID = ss.SubIssueTypeId
-	   GROUP BY b.sporttype
+	   GROUP BY b.RequestId
+			, b.sporttype
 			, b.leagueid
 			, b.homeid
 			, b.awayid
-			, b.kickofftime
+			, b.GlobalShowTime
+			, b.CreatedDate
 			, b.SubIssueTypeId
 			, ss.SubIssueTypeName
 			, b.hthomescore
