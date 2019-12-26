@@ -670,12 +670,8 @@ BEGIN
 				  CompanyGrossIncomeBase ,
 				  CompanyComm ,
 				  CompanyCommBase,
-				  ExtraWL,
-				  ExtraWLBase,
-				  ExtraComm,
-				  ExtraCommBase,
-				  Stake,
-				  StakeBase
+				  ExtraPT,
+				  ExtraPTBase
 				)
 		SELECT b.recommend, b.srecommend, b.bettype,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
@@ -749,13 +745,8 @@ BEGIN
 				  CompanyGrossIncomeBase ,
 				  CompanyComm ,
 				  CompanyCommBase,
-				  ExtraWL,
-				  ExtraWLBase,
-				  ExtraComm,
-				  ExtraCommBase,
-				  Stake,
-				  StakeBase
-				)	
+				  ExtraPT,
+				  ExtraPTBase)
 		SELECT	b.recommend, b.srecommend, b.bettype,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
 
@@ -770,8 +761,12 @@ BEGIN
 				SUM(CASE WHEN b.statusID IN (103) THEN actual_stake ELSE 0 END) AS TotalRefund,
 				SUM((CASE WHEN b.statusID IN (103) THEN actual_stake ELSE 0 END)  * actualrate) AS TotalRefundBase,
 
-				SUM(CASE WHEN b.statusID IN (103) THEN 0 ELSE (1- b.tpositiontaking) * b.stake END) AS CompanyTurnover,	
-				SUM((CASE WHEN b.statusID IN (103) THEN 0 ELSE (1- b.tpositiontaking) * b.stake END) * actualrate) AS CompanyTurnoverBase,		
+				SUM(CASE WHEN b.statusID IN (103) THEN 0 
+						WHEN b.tpositiontaking = 1 THEN 0
+						ELSE (1- b.tpositiontaking - ISNULL(b.epositiontaking, 0)) * b.stake END) AS CompanyTurnover,	
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 
+						WHEN b.tpositiontaking = 1 THEN 0
+						ELSE (1- b.tpositiontaking - ISNULL(b.epositiontaking, 0)) * b.stake END) * actualrate) AS CompanyTurnoverBase,		
 								
 				- SUM(winlost - actual_stake + awinlost + mwinlost + swinlost) AS CompanyGrossIncome,
 				- SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeBase,
@@ -779,20 +774,10 @@ BEGIN
 				- SUM(scomm) AS CompanyComm,
 				- SUM(scomm *actualrate) AS CompanyCommBase,
 				
-				- SUM((winlost - actual_stake) * ISNULL(b.epositiontaking, 0)) ExtraWL,
-				- SUM((winlost - actual_stake) * ISNULL(b.epositiontaking, 0) * actualrate) ExtraWLBase,
-				
-				- SUM(CASE WHEN tpositiontaking = 1 THEN 0
-							ELSE scomm * ISNULL(b.epositiontaking, 0) / (1 - tpositiontaking) END) ExtraComm,
-				- SUM((CASE WHEN tpositiontaking = 1 THEN 0
-							ELSE scomm * ISNULL(b.epositiontaking, 0) / (1 - tpositiontaking) END) * actualrate) ExtraCommBase,
-							
-				SUM(CASE WHEN b.statusID IN (103) THEN 0 
-						 WHEN b.tpositiontaking = 1 THEN 0
-						 ELSE b.stake * ISNULL(b.epositiontaking, 0) END) AS Stake,	
-				SUM((CASE WHEN b.statusID IN (103) THEN 0 
-						  WHEN b.tpositiontaking = 1 THEN 0
-						  ELSE b.stake * ISNULL(b.epositiontaking, 0) END) * actualrate) AS StakeBase
+				- SUM((winlost - actual_stake + CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) * ISNULL(b.epositiontaking, 0)) ExtraPT,
+				- SUM((winlost - actual_stake + CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) * ISNULL(b.epositiontaking, 0) * actualrate) ExtraPTBase				
 
 		FROM dbo.Bettrans b WITH (NOLOCK) 
 		WHERE b.WinlostDate = @WLDate
@@ -839,12 +824,8 @@ BEGIN
 				  CompanyGrossIncomeBase ,
 				  CompanyComm ,
 				  CompanyCommBase,
-				  ExtraWL,
-				  ExtraWLBase,
-				  ExtraComm,
-				  ExtraCommBase,
-				  Stake,
-				  StakeBase
+				  ExtraPT,
+				  ExtraPTBase
 				)	
 		SELECT	b.recommend, b.srecommend, b.bettype,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
@@ -860,8 +841,12 @@ BEGIN
 				SUM(CASE WHEN b.statusID IN (103) THEN actual_stake ELSE 0 END) AS TotalRefund,
 				SUM((CASE WHEN b.statusID IN (103) THEN actual_stake ELSE 0 END)  * actualrate) AS TotalRefundBase,
 
-				SUM(CASE WHEN b.statusID IN (103) THEN 0 ELSE (1- b.tpositiontaking) * b.stake END) AS CompanyTurnover,	
-				SUM((CASE WHEN b.statusID IN (103) THEN 0 ELSE (1- b.tpositiontaking) * b.stake END) * actualrate) AS CompanyTurnoverBase,		
+				SUM(CASE WHEN b.statusID IN (103) THEN 0 
+						 WHEN b.tpositiontaking = 1 THEN 0
+						ELSE (1- b.tpositiontaking - ISNULL(b.epositiontaking, 0)) * b.stake END) AS CompanyTurnover,	
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 
+						 WHEN b.tpositiontaking = 1 THEN 0
+						ELSE (1- b.tpositiontaking - ISNULL(b.epositiontaking, 0)) * b.stake END) * actualrate) AS CompanyTurnoverBase,		
 								
 				- SUM(winlost - actual_stake + awinlost + mwinlost + swinlost) AS CompanyGrossIncome,
 				- SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeBase,
@@ -869,20 +854,10 @@ BEGIN
 				- SUM(scomm) AS CompanyComm,
 				- SUM(scomm *actualrate) AS CompanyCommBase,
 				
-				- SUM((winlost - actual_stake) * ISNULL(b.epositiontaking, 0)) ExtraWL,
-				- SUM((winlost - actual_stake) * ISNULL(b.epositiontaking, 0) * actualrate) ExtraWLBase,
-				
-				- SUM(CASE WHEN tpositiontaking = 1 THEN 0
-							ELSE scomm * ISNULL(b.epositiontaking, 0) / (1 - tpositiontaking) END) ExtraComm,
-				- SUM((CASE WHEN tpositiontaking = 1 THEN 0
-							ELSE scomm * ISNULL(b.epositiontaking, 0) / (1 - tpositiontaking) END) * actualrate) ExtraCommBase,
-							
-				SUM(CASE WHEN b.statusID IN (103) THEN 0 
-						 WHEN b.tpositiontaking = 1 THEN 0
-						 ELSE b.stake * ISNULL(b.epositiontaking, 0) END) AS Stake,	
-				SUM((CASE WHEN b.statusID IN (103) THEN 0 
-						  WHEN b.tpositiontaking = 1 THEN 0
-						  ELSE b.stake * ISNULL(b.epositiontaking, 0) END) * actualrate) AS StakeBase
+				- SUM((winlost - actual_stake + CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) * ISNULL(b.epositiontaking, 0)) ExtraPT,
+				- SUM((winlost - actual_stake + CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) * ISNULL(b.epositiontaking, 0) * actualrate) ExtraPTBase
 
 		FROM dbo.Bettrans b WITH (NOLOCK) 
 		WHERE b.WinlostDate = @WLDate
@@ -928,12 +903,8 @@ BEGIN
 				  CompanyGrossIncomeBase ,
 				  CompanyComm ,
 				  CompanyCommBase,
-				  ExtraWL,
-				  ExtraWLBase,
-				  ExtraComm,
-				  ExtraCommBase,
-				  Stake,
-				  StakeBase
+				  ExtraPT,
+				  ExtraPTBase
 				)	
 		SELECT	b.recommend, b.srecommend, b.bettype,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
@@ -949,8 +920,12 @@ BEGIN
 				SUM(CASE WHEN b.statusID IN (103) THEN actual_stake ELSE 0 END) AS TotalRefund,
 				SUM((CASE WHEN b.statusID IN (103) THEN actual_stake ELSE 0 END)  * actualrate) AS TotalRefundBase,
 
-				SUM(CASE WHEN b.statusID IN (103) THEN 0 ELSE (1- b.tpositiontaking) * b.stake END) AS CompanyTurnover,	
-				SUM((CASE WHEN b.statusID IN (103) THEN 0 ELSE (1- b.tpositiontaking) * b.stake END) * actualrate) AS CompanyTurnoverBase,		
+				SUM(CASE WHEN b.statusID IN (103) THEN 0 
+						WHEN b.tpositiontaking = 1 THEN 0
+						ELSE (1- b.tpositiontaking - ISNULL(b.epositiontaking, 0)) * b.stake END) AS CompanyTurnover,	
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 
+						WHEN b.tpositiontaking = 1 THEN 0
+						ELSE (1- b.tpositiontaking - ISNULL(b.epositiontaking, 0)) * b.stake END) * actualrate) AS CompanyTurnoverBase,		
 								
 				- SUM(winlost - actual_stake + awinlost + mwinlost + swinlost) AS CompanyGrossIncome,
 				- SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeBase,
@@ -958,20 +933,10 @@ BEGIN
 				- SUM(scomm) AS CompanyComm,
 				- SUM(scomm *actualrate) AS CompanyCommBase,
 				
-				- SUM((winlost - actual_stake) * ISNULL(b.epositiontaking, 0)) ExtraWL,
-				- SUM((winlost - actual_stake) * ISNULL(b.epositiontaking, 0) * actualrate) ExtraWLBase,
-				
-				- SUM(CASE WHEN tpositiontaking = 1 THEN 0
-							ELSE scomm * ISNULL(b.epositiontaking, 0) / (1 - tpositiontaking) END) ExtraComm,
-				- SUM((CASE WHEN tpositiontaking = 1 THEN 0
-							ELSE scomm * ISNULL(b.epositiontaking, 0) / (1 - tpositiontaking) END) * actualrate) ExtraCommBase,
-							
-				SUM(CASE WHEN b.statusID IN (103) THEN 0 
-						 WHEN b.tpositiontaking = 1 THEN 0
-						 ELSE b.stake * ISNULL(b.epositiontaking, 0) END) AS Stake,	
-				SUM((CASE WHEN b.statusID IN (103) THEN 0 
-						  WHEN b.tpositiontaking = 1 THEN 0
-						  ELSE b.stake * ISNULL(b.epositiontaking, 0) END) * actualrate) AS StakeBase
+				- SUM((winlost - actual_stake + CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) * ISNULL(b.epositiontaking, 0)) ExtraPT,
+				- SUM((winlost - actual_stake + CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) * ISNULL(b.epositiontaking, 0) * actualrate) ExtraPTBase
 
 		FROM dbo.Bettrans b WITH (NOLOCK) 
 		WHERE b.WinlostDate = @WLDate
@@ -1016,12 +981,8 @@ BEGIN
 				  CompanyGrossIncomeBase ,
 				  CompanyComm ,
 				  CompanyCommBase,
-				  ExtraWL,
-				  ExtraWLBase,
-				  ExtraComm,
-				  ExtraCommBase,
-				  Stake,
-				  StakeBase
+				  ExtraPT,
+				  ExtraPTBase
 				)
 		SELECT	b.recommend, b.srecommend, b.bettype,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
@@ -1037,8 +998,12 @@ BEGIN
 				SUM(CASE WHEN b.statusID IN (103) THEN actual_stake ELSE 0 END) AS TotalRefund,
 				SUM((CASE WHEN b.statusID IN (103) THEN actual_stake ELSE 0 END)  * actualrate) AS TotalRefundBase,
 
-				SUM(CASE WHEN b.statusID IN (103) THEN 0 ELSE (1- b.tpositiontaking) * b.stake END) AS CompanyTurnover,	
-				SUM((CASE WHEN b.statusID IN (103) THEN 0 ELSE (1- b.tpositiontaking) * b.stake END) * actualrate) AS CompanyTurnoverBase,		
+				SUM(CASE WHEN b.statusID IN (103) THEN 0 
+						WHEN b.tpositiontaking = 1 THEN 0
+						ELSE (1- b.tpositiontaking - ISNULL(b.epositiontaking, 0)) * b.stake END) AS CompanyTurnover,	
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 
+						WHEN b.tpositiontaking = 1 THEN 0
+						ELSE (1- b.tpositiontaking - ISNULL(b.epositiontaking, 0)) * b.stake END) * actualrate) AS CompanyTurnoverBase,		
 								
 				- SUM(winlost - actual_stake + awinlost + mwinlost + swinlost) AS CompanyGrossIncome,
 				- SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeBase,
@@ -1046,20 +1011,10 @@ BEGIN
 				- SUM(scomm) AS CompanyComm,
 				- SUM(scomm *actualrate) AS CompanyCommBase,
 				
-				- SUM((winlost - actual_stake) * ISNULL(b.epositiontaking, 0)) ExtraWL,
-				- SUM((winlost - actual_stake) * ISNULL(b.epositiontaking, 0) * actualrate) ExtraWLBase,
-				
-				- SUM(CASE WHEN tpositiontaking = 1 THEN 0
-							ELSE scomm * ISNULL(b.epositiontaking, 0) / (1 - tpositiontaking) END) ExtraComm,
-				- SUM((CASE WHEN tpositiontaking = 1 THEN 0
-							ELSE scomm * ISNULL(b.epositiontaking, 0) / (1 - tpositiontaking) END) * actualrate) ExtraCommBase,
-							
-				SUM(CASE WHEN b.statusID IN (103) THEN 0 
-						 WHEN b.tpositiontaking = 1 THEN 0
-						 ELSE b.stake * ISNULL(b.epositiontaking, 0) END) AS Stake,	
-				SUM((CASE WHEN b.statusID IN (103) THEN 0 
-						  WHEN b.tpositiontaking = 1 THEN 0
-						  ELSE b.stake * ISNULL(b.epositiontaking, 0) END) * actualrate) AS StakeBase
+				- SUM((winlost - actual_stake + CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) * ISNULL(b.epositiontaking, 0)) ExtraPT,
+				- SUM((winlost - actual_stake + CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) * ISNULL(b.epositiontaking, 0) * actualrate) ExtraPTBase
 
 		FROM  dbo.Bettrans b WITH (NOLOCK)
 		WHERE b.WinlostDate = @WLDate
@@ -1108,12 +1063,8 @@ BEGIN
 				  CompanyGrossIncomeBase ,
 				  CompanyComm ,
 				  CompanyCommBase,
-				  ExtraWL,
-				  ExtraWLBase,
-				  ExtraComm,
-				  ExtraCommBase,
-				  Stake,
-				  StakeBase
+				  ExtraPT,
+				  ExtraPTBase
 				)	
 		SELECT	b.recommend, b.srecommend, b.bettype,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
@@ -1129,8 +1080,12 @@ BEGIN
 				SUM(CASE WHEN b.statusID IN (103) THEN actual_stake ELSE 0 END) AS TotalRefund,
 				SUM((CASE WHEN b.statusID IN (103) THEN actual_stake ELSE 0 END)  * actualrate) AS TotalRefundBase,
 
-				SUM(CASE WHEN b.statusID IN (103) THEN 0 ELSE (1- b.tpositiontaking) * b.stake END) AS CompanyTurnover,	
-				SUM((CASE WHEN b.statusID IN (103) THEN 0 ELSE (1- b.tpositiontaking) * b.stake END) * actualrate) AS CompanyTurnoverBase,		
+				SUM(CASE WHEN b.statusID IN (103) THEN 0 
+						WHEN b.tpositiontaking = 1 THEN 0
+						ELSE (1- b.tpositiontaking - ISNULL(b.epositiontaking, 0)) * b.stake END) AS CompanyTurnover,	
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 
+						WHEN b.tpositiontaking = 1 THEN 0
+						ELSE (1- b.tpositiontaking - ISNULL(b.epositiontaking, 0)) * b.stake END) * actualrate) AS CompanyTurnoverBase,		
 								
 				- SUM(winlost - actual_stake + awinlost + mwinlost + swinlost) AS CompanyGrossIncome,
 				- SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeBase,
@@ -1138,20 +1093,11 @@ BEGIN
 				- SUM(scomm) AS CompanyComm,
 				- SUM(scomm *actualrate) AS CompanyCommBase,
 				
-				- SUM((winlost - actual_stake) * ISNULL(b.epositiontaking, 0)) ExtraWL,
-				- SUM((winlost - actual_stake) * ISNULL(b.epositiontaking, 0) * actualrate) ExtraWLBase,
-				
-				- SUM(CASE WHEN tpositiontaking = 1 THEN 0
-							ELSE scomm * ISNULL(b.epositiontaking, 0) / (1 - tpositiontaking) END) ExtraComm,
-				- SUM((CASE WHEN tpositiontaking = 1 THEN 0
-							ELSE scomm * ISNULL(b.epositiontaking, 0) / (1 - tpositiontaking) END) * actualrate) ExtraCommBase,
-							
-				SUM(CASE WHEN b.statusID IN (103) THEN 0 
-						 WHEN b.tpositiontaking = 1 THEN 0
-						 ELSE b.stake * ISNULL(b.epositiontaking, 0) END) AS Stake,	
-				SUM((CASE WHEN b.statusID IN (103) THEN 0 
-						  WHEN b.tpositiontaking = 1 THEN 0
-						  ELSE b.stake * ISNULL(b.epositiontaking, 0) END) * actualrate) AS StakeBase
+				- SUM((winlost - actual_stake + CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) * ISNULL(b.epositiontaking, 0)) ExtraPT,
+				- SUM((winlost - actual_stake + CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) * ISNULL(b.epositiontaking, 0) * actualrate) ExtraPTBase
+
 		FROM  dbo.Bettrans b WITH (NOLOCK)
 		WHERE b.WinlostDate = @WLDate
 			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 27 AND Eventype = 1)
@@ -1199,12 +1145,8 @@ BEGIN
 				  CompanyGrossIncomeBase ,
 				  CompanyComm ,
 				  CompanyCommBase,
-				  ExtraWL,
-				  ExtraWLBase,
-				  ExtraComm,
-				  ExtraCommBase,
-				  Stake,
-				  StakeBase
+				  ExtraPT,
+				  ExtraPTBase
 				)	
 		SELECT	b.recommend, b.srecommend, b.bettype,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
@@ -1220,8 +1162,12 @@ BEGIN
 				SUM(CASE WHEN b.statusID IN (103) THEN actual_stake ELSE 0 END) AS TotalRefund,
 				SUM((CASE WHEN b.statusID IN (103) THEN actual_stake ELSE 0 END)  * actualrate) AS TotalRefundBase,
 
-				SUM(CASE WHEN b.statusID IN (103) THEN 0 ELSE (1- b.tpositiontaking) * b.stake END) AS CompanyTurnover,	
-				SUM((CASE WHEN b.statusID IN (103) THEN 0 ELSE (1- b.tpositiontaking) * b.stake END) * actualrate) AS CompanyTurnoverBase,		
+				SUM(CASE WHEN b.statusID IN (103) THEN 0 
+						WHEN b.tpositiontaking = 1 THEN 0
+						ELSE (1- b.tpositiontaking - ISNULL(b.epositiontaking, 0)) * b.stake END) AS CompanyTurnover,	
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 
+						WHEN b.tpositiontaking = 1 THEN 0
+						ELSE (1- b.tpositiontaking - ISNULL(b.epositiontaking, 0)) * b.stake END) * actualrate) AS CompanyTurnoverBase,		
 								
 				- SUM(winlost - actual_stake + awinlost + mwinlost + swinlost) AS CompanyGrossIncome,
 				- SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeBase,
@@ -1229,20 +1175,11 @@ BEGIN
 				- SUM(scomm) AS CompanyComm,
 				- SUM(scomm *actualrate) AS CompanyCommBase,
 				
-				- SUM((winlost - actual_stake) * ISNULL(b.epositiontaking, 0)) ExtraWL,
-				- SUM((winlost - actual_stake) * ISNULL(b.epositiontaking, 0) * actualrate) ExtraWLBase,
-				
-				- SUM(CASE WHEN tpositiontaking = 1 THEN 0
-							ELSE scomm * ISNULL(b.epositiontaking, 0) / (1 - tpositiontaking) END) ExtraComm,
-				- SUM((CASE WHEN tpositiontaking = 1 THEN 0
-							ELSE scomm * ISNULL(b.epositiontaking, 0) / (1 - tpositiontaking) END) * actualrate) ExtraCommBase,
-							
-				SUM(CASE WHEN b.statusID IN (103) THEN 0 
-						 WHEN b.tpositiontaking = 1 THEN 0
-						 ELSE b.stake * ISNULL(b.epositiontaking, 0) END) AS Stake,	
-				SUM((CASE WHEN b.statusID IN (103) THEN 0 
-						  WHEN b.tpositiontaking = 1 THEN 0
-						  ELSE b.stake * ISNULL(b.epositiontaking, 0) END) * actualrate) AS StakeBase
+				- SUM((winlost - actual_stake + CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) * ISNULL(b.epositiontaking, 0)) ExtraPT,
+				- SUM((winlost - actual_stake + CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) * ISNULL(b.epositiontaking, 0) * actualrate) ExtraPTBase
+
 		FROM  dbo.Bettrans b WITH (NOLOCK)
 		WHERE b.WinlostDate = @WLDate
 			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 27 AND Eventype = 0)
@@ -1316,17 +1253,17 @@ BEGIN
 					SUM (TotalBetsBase) AS TotalBets, 
 					SUM (TotalWinsBase) AS TotalWins,
 					SUM (TotalRefundBase) AS TotalRefund,
-					SUM (CompanyTurnoverBase - StakeBase) AS CompanyTurnover,
+					SUM (CompanyTurnoverBase) AS CompanyTurnover,
 					SUM (CompanyGrossIncomeBase) AS CompanyGrossIncome,
 					SUM (CompanyCommBase) AS CompanyComm,
 					SUM (TotalBetsBase) AS TotalBetsBase, 
 					SUM (TotalWinsBase) AS TotalWinsBase,
 					SUM (TotalRefundBase) AS TotalRefundBase,
-					SUM (CompanyTurnoverBase - StakeBase) AS CompanyTurnoverBase,
+					SUM (CompanyTurnoverBase) AS CompanyTurnoverBase,
 					SUM (CompanyGrossIncomeBase) AS CompanyGrossIncomeBase,
 					SUM (CompanyCommBase) AS CompanyCommBase,
-					SUM(b.ExtraWLBase + b.ExtraCommBase) ExtraPT,
-					SUM(b.ExtraWLBase + b.ExtraCommBase) ExtraPTBase
+					SUM(b.ExtraPTBase) ExtraPT,
+					SUM(b.ExtraPTBase) ExtraPTBase
 			FROM #Data b
 				INNER JOIN #SportBettype s ON b.bettype = s.Bettype 
 			GROUP BY b.IsDeposit, b.SiteName
@@ -1373,17 +1310,17 @@ BEGIN
 				SUM (b.TotalBets) AS TotalBets, 
 				SUM (b.TotalWins) AS TotalWins,
 				SUM (b.TotalRefund) AS TotalRefund,
-				SUM (b.CompanyTurnOver - Stake) AS CompanyTurnover,
+				SUM (b.CompanyTurnOver) AS CompanyTurnover,
 				SUM (b.CompanyGrossIncome) AS CompanyGrossIncome,
 				SUM (b.CompanyComm) AS CompanyComm,
 				SUM (b.TotalBetsBase) AS TotalBetsBase, 
 				SUM (b.TotalWinsBase) AS TotalWinsBase,
 				SUM (b.TotalRefundBase) AS TotalRefundBase,
-				SUM (b.CompanyTurnOverBase - StakeBase) AS CompanyTurnoverBase,
+				SUM (b.CompanyTurnOverBase) AS CompanyTurnoverBase,
 				SUM (b.CompanyGrossIncomeBase) AS CompanyGrossIncomeBase,
 				SUM (b.CompanyCommBase) AS CompanyCommBase,
-				SUM(b.ExtraWL + b.ExtraComm) ExtraPT,
-				SUM(b.ExtraWLBase + b.ExtraCommBase) ExtraPTBase
+				SUM(b.ExtraPT) ExtraPT,
+				SUM(b.ExtraPTBase) ExtraPTBase
 			FROM #Data b
 				INNER JOIN #SportBettype s ON b.bettype = s.Bettype 
 			GROUP BY b.IsDeposit,
@@ -1433,19 +1370,19 @@ BEGIN
 				-1 AS CurrencyId, 
 				'RM' AS Currency,
 				SUM (TotalBetsBase) AS TotalBets, 
-				SUM (TotalWinsBase ) AS TotalWins,
-				SUM (TotalRefundBase ) AS TotalRefund,
-				SUM (CompanyTurnoverBase  - StakeBase) AS CompanyTurnover,
-				SUM (CompanyGrossIncomeBase ) AS CompanyGrossIncome,
+				SUM (TotalWinsBase) AS TotalWins,
+				SUM (TotalRefundBase) AS TotalRefund,
+				SUM (CompanyTurnoverBase) AS CompanyTurnover,
+				SUM (CompanyGrossIncomeBase) AS CompanyGrossIncome,
 				SUM (CompanyCommBase) AS CompanyComm,
 				SUM (TotalBetsBase) AS TotalBetsBase, 
 				SUM (TotalWinsBase) AS TotalWinsBase,
 				SUM (TotalRefundBase) AS TotalRefundBase,
-				SUM (CompanyTurnoverBase - StakeBase) AS CompanyTurnoverBase,
+				SUM (CompanyTurnoverBase) AS CompanyTurnoverBase,
 				SUM (CompanyGrossIncomeBase) AS CompanyGrossIncomeBase,
 				SUM (CompanyCommBase) AS CompanyCommBase,
-				SUM(b.ExtraWLBase + b.ExtraCommBase) ExtraPT,
-				SUM(b.ExtraWLBase + b.ExtraCommBase) ExtraPTBase
+				SUM(b.ExtraPTBase) ExtraPT,
+				SUM(b.ExtraPTBase) ExtraPTBase
 		FROM #Data b
 			INNER JOIN #SportBettype s ON b.bettype = s.Bettype 
 		GROUP BY b.IsDeposit, b.SiteName
@@ -1491,17 +1428,17 @@ BEGIN
 				SUM (b.TotalBets) AS TotalBets, 
 				SUM (b.TotalWins) AS TotalWins,
 				SUM (b.TotalRefund) AS TotalRefund,
-				SUM (b.CompanyTurnOver - Stake) AS CompanyTurnover,
+				SUM (b.CompanyTurnOver) AS CompanyTurnover,
 				SUM (b.CompanyGrossIncome) AS CompanyGrossIncome,
 				SUM (b.CompanyComm) AS CompanyComm,
 				SUM (TotalBetsBase) AS TotalBetsBase, 
 				SUM (TotalWinsBase) AS TotalWinsBase,
 				SUM (TotalRefundBase) AS TotalRefundBase,
-				SUM (CompanyTurnoverBase - StakeBase) AS CompanyTurnoverBase,
+				SUM (CompanyTurnoverBase) AS CompanyTurnoverBase,
 				SUM (CompanyGrossIncomeBase) AS CompanyGrossIncomeBase,
 				SUM (CompanyCommBase) AS CompanyCommBase,
-				SUM(b.ExtraWL + b.ExtraComm) ExtraPT,
-				SUM(b.ExtraWLBase + b.ExtraCommBase) ExtraPTBase
+				SUM(b.ExtraPT) ExtraPT,
+				SUM(b.ExtraPTBase) ExtraPTBase
 		FROM #Data b
 			INNER JOIN #SportBettype s ON b.bettype = s.Bettype 
 		GROUP BY b.IsDeposit, b.SiteName, 
@@ -1550,12 +1487,12 @@ BEGIN
 				CASE WHEN @Currency = -1 THEN SUM(b.TotalBetsBase) ELSE SUM(b.TotalBets) END AS TotalBets,
 				CASE WHEN @Currency = -1 THEN SUM(b.TotalWinsBase) ELSE SUM(b.TotalWins) END AS TotalWins,
 				CASE WHEN @Currency = -1 THEN SUM(b.TotalRefundBase) ELSE SUM(b.TotalRefund) END AS TotalRefund,
-				CASE WHEN @Currency = -1 THEN SUM(b.CompanyTurnOverBase - b.StakeBase) 
-					ELSE SUM(b.CompanyTurnOver - b.Stake) END AS HouseTurnOver,
+				CASE WHEN @Currency = -1 THEN SUM(b.CompanyTurnOverBase) 
+					ELSE SUM(b.CompanyTurnOver) END AS HouseTurnOver,
 				CASE WHEN @Currency = -1 THEN SUM(b.CompanyGrossIncomeBase) ELSE SUM(b.CompanyGrossIncome) END AS HouseGrossIncome,
 				CASE WHEN @Currency = -1 THEN SUM(b.CompanyCommBase) ELSE SUM(b.CompanyComm) END AS HouseComm,
-				CASE WHEN @Currency = -1 THEN SUM(b.ExtraWLBase + b.ExtraCommBase) 
-					ELSE SUM(b.ExtraWL + b.ExtraComm) END AS ExtraPT
+				CASE WHEN @Currency = -1 THEN SUM(b.ExtraPTBase) 
+					ELSE SUM(b.ExtraPT) END AS ExtraPT
 		FROM #Data b	
 			INNER JOIN #Result r ON (@Currency = -1 OR b.CurrencyID = r.CurrencyID) AND b.SiteName = r.SiteName	
 			INNER JOIN #SportBettype s ON b.bettype = s.Bettype 
@@ -1574,12 +1511,12 @@ BEGIN
 				CASE WHEN @Currency = -1 THEN SUM(b.TotalBetsBase) ELSE SUM(b.TotalBets) END AS TotalBets,
 				CASE WHEN @Currency = -1 THEN SUM(b.TotalWinsBase) ELSE SUM(b.TotalWins) END AS TotalWins,
 				CASE WHEN @Currency = -1 THEN SUM(b.TotalRefundBase) ELSE SUM(b.TotalRefund) END AS TotalRefund,
-				CASE WHEN @Currency = -1 THEN SUM(b.CompanyTurnOverBase - b.StakeBase) 
-					ELSE SUM(b.CompanyTurnOver - b.Stake) END AS HouseTurnOver,
+				CASE WHEN @Currency = -1 THEN SUM(b.CompanyTurnOverBase) 
+					ELSE SUM(b.CompanyTurnOver) END AS HouseTurnOver,
 				CASE WHEN @Currency = -1 THEN SUM(b.CompanyGrossIncomeBase) ELSE SUM(b.CompanyGrossIncome) END AS HouseGrossIncome,
 				CASE WHEN @Currency = -1 THEN SUM(b.CompanyCommBase) ELSE SUM(b.CompanyComm) END AS HouseComm,
-				CASE WHEN @Currency = -1 THEN SUM(b.ExtraWLBase + b.ExtraCommBase) 
-					ELSE SUM(b.ExtraWL + b.ExtraComm) END AS ExtraPT
+				CASE WHEN @Currency = -1 THEN SUM(b.ExtraPTBase) 
+					ELSE SUM(b.ExtraPT) END AS ExtraPT
 		FROM #Data b	
 			INNER JOIN #Result r ON (@Currency = -1 OR b.CurrencyID = r.CurrencyID) AND b.SiteName = r.SiteName	
 			INNER JOIN #SportBettype s ON b.bettype = s.Bettype 
@@ -1600,10 +1537,10 @@ BEGIN
 			SUM(b.TotalBetsBase) TotalBets,
 			SUM(b.TotalWinsBase) TotalWins,
 			SUM(b.TotalRefundBase) TotalRefund,
-			SUM(b.CompanyTurnOverBase - b.StakeBase) HouseTurnOver,
+			SUM(b.CompanyTurnOverBase) HouseTurnOver,
 			SUM(b.CompanyGrossIncomeBase) HouseGrossIncome,
 			SUM(b.CompanyCommBase) HouseComm,
-			SUM(b.ExtraWLBase + b.ExtraCommBase) ExtraPT
+			SUM(b.ExtraPTBase) ExtraPT
 		FROM #Data b
 			INNER JOIN  #Result r ON (@Currency = -1 OR r.CurrencyId = b.CurrencyId) AND r.SiteName = b.SiteName
 			INNER JOIN #SportBettype s ON b.bettype = s.Bettype 
@@ -1620,10 +1557,10 @@ BEGIN
 			SUM(b.TotalBetsBase) TotalBets,
 			SUM(b.TotalWinsBase) TotalWins,
 			SUM(b.TotalRefundBase) TotalRefund,
-			SUM(b.CompanyTurnOverBase - b.StakeBase) HouseTurnOver,
+			SUM(b.CompanyTurnOverBase) HouseTurnOver,
 			SUM(b.CompanyGrossIncomeBase) HouseGrossIncome,
 			SUM(b.CompanyCommBase) HouseComm,
-			SUM(b.ExtraWLBase + b.ExtraCommBase) ExtraPT
+			SUM(b.ExtraPTBase) ExtraPT
 		FROM #Data b
 			INNER JOIN  #Result r ON (@Currency = -1 OR r.CurrencyId = b.CurrencyId) AND b.SiteName = r.SiteName
 			INNER JOIN #SportBettype s ON b.bettype = s.Bettype 
@@ -1642,10 +1579,10 @@ BEGIN
 				SUM(b.TotalBetsBase) TotalBets,
 				SUM(b.TotalWinsBase) TotalWins,
 				SUM(b.TotalRefundBase) TotalRefund,
-				SUM(b.CompanyTurnOverBase - b.StakeBase * ISNULL(e.ExtraPT,0)) HouseTurnOver,
+				SUM(b.CompanyTurnOverBase) HouseTurnOver,
 				SUM(b.CompanyGrossIncomeBase) HouseGrossIncome,
 				SUM(b.CompanyCommBase) HouseComm,
-				SUM(b.ExtraWLBase + b.ExtraCommBase) ExtraPT
+				SUM(b.ExtraPTBase) ExtraPT
 			FROM #Data b
 				INNER JOIN  #Result r ON (b.SiteName = r.SiteName) AND (@Currency = -1 OR b.CurrencyID = r.CurrencyID)
 				INNER JOIN #SportBettype s ON b.bettype = s.Bettype 
@@ -1662,10 +1599,10 @@ BEGIN
 				SUM(b.TotalBetsBase) TotalBets,
 				SUM(b.TotalWinsBase) TotalWins,
 				SUM(b.TotalRefundBase) TotalRefund,
-				SUM(b.CompanyTurnOverBase - b.StakeBase * ISNULL(e.ExtraPT,0)) HouseTurnOver,
+				SUM(b.CompanyTurnOverBase) HouseTurnOver,
 				SUM(b.CompanyGrossIncomeBase) HouseGrossIncome,
 				SUM(b.CompanyCommBase) HouseComm,
-				SUM(b.ExtraWLBase + b.ExtraCommBase) ExtraPT
+				SUM(b.ExtraPTBase) ExtraPT
 			FROM #Data b
 				INNER JOIN  #Result r ON b.SiteName = r.SiteName AND (@Currency = -1 OR b.CurrencyID = r.CurrencyID)
 				INNER JOIN #SportBettype s ON b.bettype = s.Bettype 
