@@ -1224,7 +1224,7 @@ BEGIN
 			- SUM(CompanyCommBase) AS CompanyCommBase,
 			
 			- SUM(ExtraPT) ExtraPT,
-			- SUM(ExtraPTBase) ExtraPTBase,
+			- SUM(ExtraPTBase) ExtraPTBase
 
 	FROM  #tmp_bettrans b
 		INNER JOIN (SELECT DISTINCT Bettype, ProductID
