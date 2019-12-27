@@ -457,9 +457,7 @@ SET NOCOUNT ON
 							   CompanyTurnover, CompanyTurnoverBase,  
 							   CompanyGrossIncome, CompanyGrossIncomeBase, 
 							   CompanyComm, CompanyCommBase,
-							   ExtraWL, ExtraWLBase,
-							   ExtraComm, ExtraCommBase,
-							   Stake, StakeBase									   
+							   ExtraPT, ExtraPTBase							   
 							   )
 	
 		SELECT  srecommend, b.gameID,
