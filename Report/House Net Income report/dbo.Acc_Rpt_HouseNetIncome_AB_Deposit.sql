@@ -1,10 +1,10 @@
 /*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
 ALTER PROCEDURE dbo.Acc_Rpt_HouseNetIncome_AB_Deposit
-	@FromDate       DATE
-   , @ToDate         DATE
-   , @DepositType    SMALLINT = 0
-AS;;
+	@FromDate       DATE 
+   , @ToDate         DATE 
+   , @DepositType    SMALLINT = 2
+AS;
 /*  
 	Created:	20170213@Harper  
     Task :		House month-to-date Net Income report for All Bet
@@ -13,12 +13,13 @@ AS;;
     Revisions:  
 		- 20170505@Harper: Change formula for Currency Play [RedmineID: #76156]
 		- 20190222@Robert: #109196 - House Net Income - Arrange Email notification for Licensee Figures
+		- 20200102@Robert: #125762 - DHWL Letstalk - Support to add Margin report into the current DHWL Letstalk report
 	
     Param's Explanation:   
 	   - DepositType  
-				    = 0 All
+				    = 0 Credit 
 				    = 1 Deposit Only
-
+				    = 2 All
 
 	EXEC Acc_Rpt_HouseNetIncome_AB_Deposit '20170201', '20170228'   
 */  
@@ -252,9 +253,9 @@ BEGIN
 		   INNER JOIN @tmpParty AS p ON p.ParentID = ci.PartyID
 	    WHERE ci.ChargeType IN(9, 10)
 			AND ci.IsDeposit = CASE
-							   WHEN @DepositType = 1
-							   THEN 1
-							   ELSE ci.IsDeposit
+							   WHEN @DepositType = 2
+							   THEN ci.IsDeposit
+							   ELSE @DepositType
 						    END),
 	    PayToSupplierDaily
 	    AS (
@@ -425,5 +426,6 @@ BEGIN
 	DROP TABLE #TempDataAB
 	DROP TABLE #PlayCurrencySettings
 	DROP TABLE #FinalResult
+	DROP TABLE #FeeData
 END
 GO

@@ -41,8 +41,8 @@ AS
 			    SELECT 'SB' AS ProductPrefix
 				    , 1 AS ProductId
 				    , NULL AS SportType
-				    , NULL AS ExcludeSportType
-				    , 'BT-Sold,BT-Bought,BT-Comm,MG-SuperLive,BT-Winloss,Bet Builder' AS ExcludeSubProduct
+				    , NULL AS ExcludeSportType				    
+					, 'BT-Sold,BT-Bought,BT-Comm' AS ExcludeSubProduct
 				    , NULL AS Bettypes
 			    UNION ALL
 			    SELECT 'VS' AS ProductPrefix
@@ -194,7 +194,7 @@ AS
 				, sb.SubProduct
 			FROM bodb02.dbo.SportBettypeMatrix AS sb WITH(NOLOCK)
 			    INNER JOIN #ProductMatrix AS p ON sb.ProductID = p.ProductId
-			WHERE p.ProductId = 1
+			WHERE p.ProductId = 1 AND sb.EventType IN (0,1,2,4)
 				 AND sb.SubProduct NOT IN
 									 (
 										SELECT val

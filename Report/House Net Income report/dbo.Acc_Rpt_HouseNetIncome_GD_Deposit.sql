@@ -1,12 +1,9 @@
 /*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
-USE bodb02
-GO
-
 ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_GD_Deposit]
-	@FromDate DATE,
-	@ToDate	DATE,
-	@DepositType    SMALLINT = 0
+	@FromDate DATE 
+	, @ToDate	DATE 
+	, @DepositType    SMALLINT = 2
 AS  
 /*  
 	Created:	20170213@Harper  
@@ -17,11 +14,13 @@ AS
 	   - 20181019@Robert: DHWL & Margin Chart Email Letstalk - Change GD Formula for Credit and Deposit[#103476]
 	   - 20181113@Robert: DHWL Email/Letstalk/Margin Chart - Integrate Bidme & Sicbo[#104145]
 	   - 20190308@Robert: 109770 - House Net Income - Change formula for MTD values and add old month data into a new sheet
+	   - 20200102@Robert: #125762 - DHWL Letstalk - Support to add Margin report into the current DHWL Letstalk report
 
 	Param's Explanation:   
 	- DepositType  
-				    = 0 All
+				    = 2 All
 				    = 1 Deposit Only
+				    = 0 Credit
 
 	EXEC Acc_Rpt_HouseNetIncome_GD_Deposit '20161115', '20161115'   
 	Note:
@@ -265,7 +264,7 @@ BEGIN
 			INNER JOIN @tmpParty AS p ON p.ParentID = ci.PartyID
 		 WHERE ci.ChargeType IN(1, 9, 10, 12)
 			  AND ci.IsDeposit = CASE
-								WHEN @DepositType = 0
+								WHEN @DepositType = 2
 								THEN ci.IsDeposit
 								ELSE @DepositType
 							 END;

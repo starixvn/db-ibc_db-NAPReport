@@ -126,16 +126,82 @@ EXEC [Acc_Rpt_HouseNetIncome_WL_TO_CN88_ALL] @@FromDate='20190801',@@ToDate='201
 				 AND rptdate <= CAST(@ToDate AS DATE)
 				 AND sd.TicketStatus NOT IN(-1, 18, 9, 10, 14)				 
 				 AND sd.CurrencyID <> 20
+				 AND sd.BetType NOT IN (9,29)
 			GROUP BY ProductPrefix
 				  , sd.RptDate;
 
+	   INSERT INTO #RawData(ProductPrefix
+					  , rptDate
+					  , CreditTO
+					  , DepositTO
+					  , TOCN88
+					  , WinLossCN88)
+			SELECT 'SB'
+				, sd.RptDate
+				, SUM(CASE
+						WHEN s.isDeposit = 0
+						THEN CASE
+							    WHEN TurnoverIBC = 0
+							    THEN 0
+							    ELSE TurnoverIBC - ExtraTO
+							END * CASE
+									WHEN VarianceVR > 0
+									THEN VarianceVR + 1
+									ELSE 1
+								 END * ex.Rate
+						ELSE 0
+					 END) AS CreditTO
+				, SUM(CASE
+						WHEN s.isDeposit = 1
+						THEN CASE
+							    WHEN TurnoverIBC = 0
+							    THEN 0
+							    ELSE TurnoverIBC - ExtraTO
+							END * CASE
+									WHEN VarianceVR > 0
+									THEN VarianceVR + 1
+									ELSE 1
+								 END * ex.Rate
+						ELSE 0
+					 END) AS DepositTO
+				, SUM(CASE
+						WHEN s.siteid = @SiteCN88
+						THEN CASE
+							    WHEN TurnoverIBC = 0
+							    THEN 0
+							    ELSE TurnoverIBC - ExtraTO
+							END * CASE
+									WHEN VarianceVR > 0
+									THEN VarianceVR + 1
+									ELSE 1
+								 END * ex.Rate
+						ELSE 0
+					 END) AS TOCN88
+				, -SUM(CASE
+						 WHEN s.siteid = @SiteCN88
+						 THEN(WinlossIBC - ExtraWL + CommissionS - ExtraComm) * ex.rate
+						 ELSE 0
+					  END) AS WinLossCN88
+			FROM bodb_Account.dbo.FactSiteWinloss AS sd WITH(NOLOCK)
+			    LEFT JOIN #CurrencyDaily AS ex WITH(NOLOCK) ON sd.rptDate = ex.ExchangeDate
+													 AND sd.CurrencyID = ex.Currency
+			    LEFT JOIN bodb_Account.dbo.tbl_Site AS s WITH(NOLOCK) ON sd.SiteID = s.siteid
+			WHERE sd.rptdate >= CAST(@FromDate AS DATE)
+				 AND rptdate <= CAST(@ToDate AS DATE)
+				 AND sd.TicketStatus NOT IN(-1, 18, 9, 10, 14)				 
+				 AND sd.CurrencyID <> 20
+				 AND sd.BetType IN (9,29)
+			GROUP BY sd.RptDate;
+
 	   SELECT ProductPrefix
 		   , rptDate
-		   , CreditTO
-		   , DepositTO
-		   , TOCN88
-		   , WinLossCN88
+		   , SUM(CreditTO) CreditTO
+		   , SUM(DepositTO) DepositTO
+		   , SUM(TOCN88) TOCN88
+		   , SUM(WinLossCN88) WinLossCN88
 	   FROM #RawData
+	   GROUP BY  ProductPrefix
+		   , rptDate
 	   ORDER BY ProductPrefix
 			, rptDate;
 

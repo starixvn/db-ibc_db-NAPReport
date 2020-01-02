@@ -62,7 +62,7 @@ BEGIN
 			 , CasinoType
 		 FROM bodb02.dbo.f_SportBetTypeMatrix_Sel
 			 (0, 0, 0, 2, '', '', 0) AS sb
-		 WHERE SubProduct NOT IN('MG-SuperLive', 'BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss', 'Bet Builder')		
+		 WHERE SubProduct NOT IN('BT-Sold', 'BT-Bought', 'BT-Comm')		
 
     CREATE CLUSTERED INDEX PK_tmp_SportBetType ON #SportBetType(BetType, ProductID, SubProduct);
 
@@ -82,11 +82,10 @@ BEGIN
 			LEFT JOIN #CurrencyDaily AS ex WITH(NOLOCK) ON sd.rptDate = ex.ExchangeDate
 												  AND sd.CurrencyID = ex.Currency
 		 WHERE sd.rptdate >= CAST(@FromDate AS DATE)
-			  AND rptdate <= CAST(@ToDate AS DATE)
-			  AND sd.TicketStatus NOT IN(-1, 3, 18, 9, 10, 14)
+			  AND rptdate <= CAST(@ToDate AS DATE)			  
+			  AND sd.TicketStatus NOT IN(-1, 18, 9, 10, 14)				 
 			  AND sd.CurrencyID <> 20
-			  AND sd.SiteID = @SiteCN88
-			  AND sd.SportType >= 1
+			  AND sd.SiteID = @SiteCN88			  
 		 GROUP BY sd.RptDate
 			   , sd.SiteID;
 
