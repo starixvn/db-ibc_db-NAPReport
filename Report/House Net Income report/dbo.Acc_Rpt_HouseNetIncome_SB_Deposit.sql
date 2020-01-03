@@ -1,9 +1,8 @@
 /*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
 ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_SB_Deposit]
-	@FromDate DATE ,
-	@ToDate	DATE ,
-	@DepositType    SMALLINT = 2	
+	@FromDate DATE 
+	, @ToDate	DATE 
 AS  
 /*  
 	Created: Victor  
@@ -20,6 +19,7 @@ AS
 		- 20190222@Robert: #109196 - House Net Income - Arrange Email notification for Licensee Figures
 		- 20190308@Robert: 109770 - House Net Income - Change formula for MTD values and add old month data into a new sheet
 		- 20190406@Robert: 107164 - House Net Income Email/Letstalk/Margin Chart - Integrate Bet Builder
+		- 20200203@Robert: #125762 - DHWL Letstalk - Support to add Margin report into the current DHWL Letstalk report
 
 	Param's Explanation:  
 		  - DepositType  
@@ -37,7 +37,6 @@ BEGIN
 
     SELECT @FDate = @FromDate
 	    , @TDate = @ToDate;
-    -- Region: Active licensees
 
     DECLARE @tmpParty TABLE(
 	    PartyID      INT
@@ -45,12 +44,12 @@ BEGIN
 
     INSERT INTO @tmpParty(PartyID
 				    , IsDeposit)
-		 SELECT DISTINCT
+		 SELECT DISTINCT 
 			   ci.FromParty
 			 , pd.IsDeposit
-		 FROM bodb_licensee.dbo.OAS_Party AS p WITH (NOLOCK)
-			INNER JOIN bodb_licensee.dbo.OAS_PartyDetail AS pd WITH (NOLOCK) ON pd.PartyID = p.PartyID
-			INNER JOIN bodb_licensee.dbo.OAS_ChargeInfo AS ci WITH (NOLOCK) ON p.PartyID = ci.FromParty
+		 FROM bodb_licensee.dbo.OAS_Party AS p WITH(NOLOCK)
+			INNER JOIN bodb_licensee.dbo.OAS_PartyDetail AS pd WITH(NOLOCK) ON pd.PartyID = p.PartyID
+			INNER JOIN bodb_licensee.dbo.OAS_ChargeInfo AS ci WITH(NOLOCK) ON p.PartyID = ci.FromParty
 			INNER JOIN bodb_licensee.dbo.LA_ChargeInfo_SystemMapping AS map ON map.ChargeID = ci.ChargeID
 																  AND map.SystemID = 2
 		 WHERE p.PartyType = 1
@@ -63,7 +62,7 @@ BEGIN
 
     DECLARE @PartyIDs    VARCHAR(1000);
 
-    SELECT @PartyIDs = COALESCE(@PartyIDs+',', '')+CONVERT(VARCHAR(10), PartyId)
+    SELECT @PartyIDs = COALESCE(@PartyIDs + ',', '') + CONVERT(VARCHAR(10), PartyId)
     FROM @tmpParty
     WHERE IsDeposit = 1;
     -- End region
@@ -97,20 +96,12 @@ BEGIN
 				, ISNULL(sbr.Bettype, ci.Bettype)
 			FROM bodb_licensee.dbo.LA_f_ChargeInfo
 				(@PartyIDs, @FDate, @TDate, 'SB,BA', 'OA', 1) AS ci
-			    LEFT JOIN bodb_licensee..Sport_Bettype_Reference AS sbr WITH (NOLOCK) ON sbr.BettypeRef = ci.Bettype
+			    LEFT JOIN bodb_licensee..Sport_Bettype_Reference AS sbr WITH(NOLOCK) ON sbr.BettypeRef = ci.Bettype
 			WHERE DI_Rate > 0
 				 AND ProductId <> 1 --exclude RB
 		 );
-    -- End region
-
-    -- Region: Get exchange rate info
 
     CREATE TABLE #Exchange(
-	    ExchangeDate    DATE
-	  , ExchangeID      INT
-	  , Rate            FLOAT);
-
-    CREATE TABLE #ExchangeOANDA(
 	    ExchangeDate    DATE
 	  , ExchangeID      INT
 	  , Rate            FLOAT);
@@ -121,20 +112,8 @@ BEGIN
 		 SELECT ExchangeDate
 			 , Currency
 			 , Rate
-		 FROM DBWH.bodb_account.dbo.tbl_Currency_Daily WITH (NOLOCK)
+		 FROM DBWH.bodb_account.dbo.tbl_Currency_Daily WITH(NOLOCK)
 		 WHERE ExchangeDate BETWEEN @FDate AND @TDate;
-
-    INSERT INTO #ExchangeOANDA(ExchangeDate
-					    , ExchangeID
-					    , Rate)
-		 SELECT ExchangeDate
-			 , ExchangeID
-			 , BaseCurrencyRate
-		 FROM bodb02.dbo.LA_f_ExchangeDailySel
-			 (@FDate, @TDate, 'MYR');
-    -- End region
-
-    -- Region: Fee Data
 
     CREATE TABLE #FeeData(
 	    PartyId            INT
@@ -150,7 +129,7 @@ BEGIN
 				   , MinFeeApplied
 				   , WLFeeApplied
 				   , AmountToCompany)
-    EXEC dbo.Acc_Rpt_HouseNetIncome_LicenseeFee
+    EXEC dbo.Acc_Rpt_HouseNetIncome_LicenseeFee 
 	    @FromDate = @FDate
 	  , @ToDate = @TDate
 	  , @Products = 'SB,BA';
@@ -174,30 +153,29 @@ BEGIN
 					    , PartyId
 					    , ProductId
 					    , BaseCurrency)
-    EXEC Acc_Rpt_HouseNetIncome_DiscountDailyHAIFA
+    EXEC Acc_Rpt_HouseNetIncome_DiscountDailyHAIFA 
 	    @FromDate = @FDate
 	  , @ToDate = @TDate
 	  , @ProductCodes = 'SB';
     -- Apply discount & rebate
 
     WITH t
-	    AS (
-	    SELECT SUM(s.AmountToCompany) AS Total
-		    , s.PartyId
-		    , d.DiscountGroupId
-	    FROM #FeeData AS s
-		   INNER JOIN
-		    (
-			   SELECT DISTINCT
-					DiscountGroupId
-				   , PartyId
-				   , ProductId
-			   FROM #DiscountGroup
-			   WHERE DiscountGroupType = 1
-		    ) AS d ON s.PartyId = d.PartyId
-				    AND s.ProductId = d.ProductId
-	    GROUP BY s.PartyId
-			 , d.DiscountGroupId)
+	    AS (SELECT SUM(s.AmountToCompany) AS Total
+			   , s.PartyId
+			   , d.DiscountGroupId
+		   FROM #FeeData AS s
+			  INNER JOIN
+			   (
+				  SELECT DISTINCT 
+					    DiscountGroupId
+					  , PartyId
+					  , ProductId
+				  FROM #DiscountGroup
+				  WHERE DiscountGroupType = 1
+			   ) AS d ON s.PartyId = d.PartyId
+					   AND s.ProductId = d.ProductId
+		   GROUP BY s.PartyId
+				, d.DiscountGroupId)
 	    DELETE d
 	    FROM #DiscountGroup d
 		   INNER JOIN t ON t.DiscountGroupId = d.DiscountGroupId
@@ -248,7 +226,7 @@ BEGIN
 				, SUM(-ISNULL(b.MemberWL, 0) * p.Rate * e.Rate)
 				, 1 AS IsApplyMinFee
 				, SUM(-ISNULL(b.MemberWL, 0) * p.Rate * ISNULL(d.Rate, 0) * e.Rate)
-			FROM bodb_LicenseeReport.dbo.rpt_BettingByProduct AS b WITH (NOLOCK)
+			FROM bodb_LicenseeReport.dbo.rpt_BettingByProduct AS b WITH(NOLOCK)
 			    INNER JOIN #Exchange AS e ON b.rptDate = e.ExchangeDate
 									   AND b.CurrencyId = e.ExchangeID
 			    INNER JOIN @PartyChargeInfo AS p ON b.ProductId = p.ProductID
@@ -271,17 +249,14 @@ BEGIN
 				  , p.ProductId--, e.Rate, d.Rate
 		 );
 
-    CREATE NONCLUSTERED INDEX Idx_InvoiceData ON #TempDataSB(PartyId, ProductId);	
+    CREATE NONCLUSTERED INDEX Idx_InvoiceData ON #TempDataSB(PartyId, ProductId);
 
     CREATE TABLE #FinalResult(
-	    RptDate              VARCHAR(10)
-	  , LicenseeWL           MONEY
-	  , DiscountWL           MONEY
-	  , MinFee               MONEY
-	  , BAComm               MONEY
-	  , PayToMuayThai        MONEY
-	  , PayToMetricGaming    MONEY
-	  , PayToGenius          MONEY);
+	    RptDate       VARCHAR(10)
+	  , LicenseeWL    MONEY
+	  , DiscountWL    MONEY
+	  , MinFee        MONEY
+	  , BAComm        MONEY);
 
     DECLARE @BAComm       MONEY = 0
 		, @BAWinloss    MONEY = 0;
@@ -289,24 +264,18 @@ BEGIN
     SELECT @BAComm = ISNULL(-SUM(AComm), 0)
 	    , @BAWinloss = ISNULL(SUM(AmountToCompany), 0)
     FROM #FeeData
-    WHERE ProductId = 3;	
+    WHERE ProductId = 3;
 
     INSERT INTO #FinalResult(rptDate
 					  , LicenseeWL
 					  , DiscountWL
 					  , MinFee
-					  , BAComm
-					  , PayToMuayThai
-					  , PayToMetricGaming
-					  , PayToGenius)
+					  , BAComm)
 		 SELECT 'FullRange'
 			 , ISNULL(SUM(WLFeeApplied) + @BAWinloss, 0) AS LicenseeWL
 			 , 0 AS DiscountWL
 			 , ISNULL(SUM(MinFeeApplied), 0) AS MinFee
 			 , ISNULL(@BAComm, 0) AS BAComm
-			 , 0 AS PayToMuayThai
-			 , 0 AS PayToMetricGaming
-			 , 0 AS PayToGenius
 		 FROM #FeeData
 		 WHERE ProductID = 0;
 
@@ -321,10 +290,7 @@ BEGIN
 							, LicenseeWL
 							, DiscountWL
 							, MinFee
-							, BAComm
-							, PayToMuayThai
-							, PayToMetricGaming
-							, PayToGenius)
+							, BAComm)
 			    SELECT CONVERT(VARCHAR(2), @tmpDate, 106) AS RptDate
 				    ,
 					 (
@@ -347,60 +313,15 @@ BEGIN
 						FROM #TempDataSB
 						WHERE ProductId = 3
 							 AND rptDate = @tmpDate
-					 ) AS BAComm -- BA Commission
-				    , 0 AS PayToMuayThai
-				    , 0 AS PayToMetricGaming
-				    , 0 AS PayToGenius;
+					 ) AS BAComm; -- BA Commission				    
 
 		  SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate);
 	   END;
 
-    SELECT @DateList = COALESCE(@DateList+',', '')+'['+CONVERT(VARCHAR(10), RptDate)+']'
+    SELECT @DateList = COALESCE(@DateList + ',', '') + '[' + CONVERT(VARCHAR(10), RptDate) + ']'
     FROM #FinalResult;
     -- End region
-
-    ---------------------------------------------------- Pay to Metric Gaming -------------------------------------------------------
-
-    INSERT INTO @PayToMetricGaming(rptDate
-						   , PayToMetricGaming)
-    EXEC Acc_Rpt_HouseNetIncome_SB_PayToMetricGaming
-	    @FDate
-	  , @TDate
-	  , @DepositType;
-
-    UPDATE f
-		 SET
-			f.PayToMetricGaming = p.PayToMetricGaming
-    FROM #FinalResult f
-	   INNER JOIN @PayToMetricGaming p ON f.RptDate = p.rptDate;
-    ---------------------------------------------------- Pay To Bet Builder -------------------------------------------------------
-
-    INSERT INTO @PayToBetBuilder(rptDate
-						 , PayToGenius)
-    EXEC Acc_Rpt_HouseNetIncome_SB_PayToBetBuilder
-	    @FromDate = @FDate
-	  , @ToDate = @TDate
-	  , @DepositType = @DepositType;   
-
-    UPDATE f
-		 SET
-			f.PayToGenius = p.PayToGenius
-    FROM #FinalResult f
-	   INNER JOIN @PayToBetBuilder p ON f.RptDate = p.rptDate;
-    ---------------------------------------------------- Pay to Muay Thai -------------------------------------------------------
-
-    INSERT INTO @PayToMuayThai(RptDate
-					    , PayToMuayThai)
-    EXEC bodb02.dbo.Acc_Rpt_HouseNetIncome_SB_PayToMuayThai
-	    @FromDate = @FDate
-	  , @ToDate = @TDate
-	  , @DepositType = @DepositType;
-
-    UPDATE f
-		 SET
-			f.PayToMuayThai = p.PayToMuayThai
-    FROM #FinalResult f
-	   INNER JOIN @PayToMuayThai p ON f.RptDate = p.rptDate;
+    
 	---------------------------------------------------- Select the output -------------------------------------------------------
 	DECLARE @SQL VARCHAR(1000)
 	SELECT @SQL =	'SELECT * ' + CHAR(13) +
@@ -411,14 +332,8 @@ BEGIN
 							'SELECT ''SB'', 2, ''Licensing Minimum Fee'', MinFee' + CHAR(13) +
 							'UNION ALL' + CHAR(13) +
 							'SELECT ''SB'', 4, ''Rebate & Discount'', DiscountWL' + CHAR(13) +
-							'UNION ALL' + CHAR(13) +
-							'SELECT ''SB'', 5, ''BA Commission'', BAComm' + CHAR(13) +
-							'UNION ALL' + CHAR(13) +
-							'SELECT ''SB'', 6, ''Pay to Muay Thai'', PayToMuayThai' + CHAR(13) +							
-							'UNION ALL' + CHAR(13) +
-							'SELECT ''SB'', 7, ''Pay to Metric Gaming'', PayToMetricGaming' + CHAR(13) +
-							'UNION ALL' + CHAR(13) +
-							'SELECT ''SB'', 8, ''Pay to Bet Genius'', PayToGenius) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
+							'UNION ALL' + CHAR(13) +							
+							'SELECT ''SB'', 5, ''BA Commission'', BAComm) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +							
 					'PIVOT' + CHAR(13) +
 					'(' + CHAR(13) +
 						'MAX(value)' + CHAR(13) +
@@ -429,8 +344,7 @@ BEGIN
 	EXEC(@SQL)
 
 	-- Region: Drop tmp table
-	DROP TABLE #Exchange	
-	DROP TABLE #ExchangeOANDA
+	DROP TABLE #Exchange		
 	DROP TABLE #TempDataSB
 	DROP TABLE #FeeData
 	DROP TABLE #FinalResult
