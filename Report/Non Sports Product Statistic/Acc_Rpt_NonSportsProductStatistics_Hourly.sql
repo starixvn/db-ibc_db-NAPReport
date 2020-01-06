@@ -410,14 +410,14 @@ SET NOCOUNT ON
 
 				SUM((CASE WHEN b.statusID IN (103) THEN 0 
 						WHEN b.tpositiontaking = 1 THEN 0
-						ELSE (1 - b.tpositiontaking - ISNULL(b.epositiontaking, 0)) * b.stake END) * actualrate) AS CompanyTurnoverRM,		
+						ELSE (1 - b.tpositiontaking - CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) * b.stake END) * actualrate) AS CompanyTurnoverRM,		
 								
 				- SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeRM,
 
 				- SUM(scomm * actualrate) AS CompanyCommRM,
 				
 				- SUM((winlost - actual_stake + CASE WHEN tpositiontaking = 1 THEN 0
-							ELSE scomm / (1 - tpositiontaking) END) * ISNULL(b.epositiontaking, 0) * actualrate) ExtraPT							
+							ELSE scomm / (1 - tpositiontaking) END) * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8)) * actualrate) ExtraPT							
 				
 		FROM  dbo.Bettrans b WITH (NOLOCK)
 		WHERE b.WinlostDate = @WLDate
@@ -472,14 +472,14 @@ SET NOCOUNT ON
 
 				SUM((CASE WHEN b.statusID IN (103) THEN 0 
 						WHEN b.tpositiontaking = 1 THEN 0
-						ELSE (1 - b.tpositiontaking - ISNULL(b.epositiontaking, 0)) * b.stake END) * actualrate) AS CompanyTurnoverRM,		
+						ELSE (1 - b.tpositiontaking - CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) * b.stake END) * actualrate) AS CompanyTurnoverRM,		
 								
 				- SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeRM,
 
 				- SUM(scomm * actualrate) AS CompanyCommRM,
 				
 				- SUM((winlost - actual_stake + CASE WHEN tpositiontaking = 1 THEN 0
-							ELSE scomm / (1 - tpositiontaking) END) * ISNULL(b.epositiontaking, 0) * actualrate) ExtraPT
+							ELSE scomm / (1 - tpositiontaking) END) * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8)) * actualrate) ExtraPT
 					
 		FROM  dbo.BettransRNG b WITH (NOLOCK)
 		
@@ -531,14 +531,14 @@ SET NOCOUNT ON
 
 				SUM((CASE WHEN b.statusID IN (103) THEN 0 
 						WHEN b.tpositiontaking = 1 THEN 0
-						ELSE (1 - b.tpositiontaking - ISNULL(b.epositiontaking, 0)) * b.stake END) * actualrate) AS CompanyTurnoverRM,		
+						ELSE (1 - b.tpositiontaking - CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) * b.stake END) * actualrate) AS CompanyTurnoverRM,		
 								
 				- SUM((b.ContributionRate * b.BetStake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeRM,
 
 				- SUM(scomm *actualrate) AS CompanyCommRM,
 				
 				- SUM((b.ContributionRate * b.BetStake + CASE WHEN tpositiontaking = 1 THEN 0
-							ELSE scomm / (1 - tpositiontaking) END) * ISNULL(b.epositiontaking, 0) * actualrate) ExtraPT			
+							ELSE scomm / (1 - tpositiontaking) END) * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8)) * actualrate) ExtraPT			
 				
 		FROM  dbo.BettransRNG b WITH (NOLOCK)
 		WHERE b.WinlostDate = @WLDate
@@ -591,14 +591,14 @@ SET NOCOUNT ON
 
 				SUM((CASE WHEN b.statusID IN (103) THEN 0 
 						WHEN b.tpositiontaking = 1 THEN 0
-						ELSE (1 - b.tpositiontaking - ISNULL(b.epositiontaking, 0)) * b.stake END) * actualrate) AS CompanyTurnoverRM,		
+						ELSE (1 - b.tpositiontaking - CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) * b.stake END) * actualrate) AS CompanyTurnoverRM,		
 								
 				- SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeRM,
 
 				- SUM(scomm *actualrate) AS CompanyCommRM,
 				
 				- SUM((winlost - actual_stake + CASE WHEN tpositiontaking = 1 THEN 0
-							ELSE scomm / (1 - tpositiontaking) END) * ISNULL(b.epositiontaking, 0) * actualrate) ExtraPT			
+							ELSE scomm / (1 - tpositiontaking) END) * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8)) * actualrate) ExtraPT			
 				
 		FROM  dbo.BettransLC b WITH (NOLOCK)
 		WHERE b.WinlostDate = @WLDate
@@ -652,14 +652,14 @@ SET NOCOUNT ON
 
 				SUM((CASE WHEN b.statusID IN (103) THEN 0 
 						WHEN b.tpositiontaking = 1 THEN 0
-						ELSE (1 - b.tpositiontaking - ISNULL(b.epositiontaking, 0)) * b.stake END) * actualrate) AS CompanyTurnoverRM,		
+						ELSE (1 - b.tpositiontaking - CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) * b.stake END) * actualrate) AS CompanyTurnoverRM,		
 								
 				- SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeRM,
 
 				- SUM(scomm *actualrate) AS CompanyCommRM,
 				
 				- SUM((winlost - actual_stake + CASE WHEN tpositiontaking = 1 THEN 0
-							ELSE scomm / (1 - tpositiontaking) END) * ISNULL(b.epositiontaking, 0) * actualrate) ExtraPT		
+							ELSE scomm / (1 - tpositiontaking) END) * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8)) * actualrate) ExtraPT		
 				
 		FROM  dbo.Bettrans b WITH (NOLOCK)
 			INNER JOIN dbo.match m WITH (NOLOCK) ON b.matchid = m.matchid
@@ -717,14 +717,14 @@ SET NOCOUNT ON
 
 				SUM((CASE WHEN b.statusID IN (103) THEN 0 
 						WHEN b.tpositiontaking = 1 THEN 0
-						ELSE (1 - b.tpositiontaking - ISNULL(b.epositiontaking, 0)) * b.stake END) * actualrate) AS CompanyTurnoverRM,		
+						ELSE (1 - b.tpositiontaking - CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) * b.stake END) * actualrate) AS CompanyTurnoverRM,		
 								
 				- SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeRM,
 
 				- SUM(scomm *actualrate) AS CompanyCommRM,
 				
 				- SUM((winlost - actual_stake + CASE WHEN tpositiontaking = 1 THEN 0
-							ELSE scomm / (1 - tpositiontaking) END) * ISNULL(b.epositiontaking, 0) * actualrate) ExtraPT						
+							ELSE scomm / (1 - tpositiontaking) END) * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8)) * actualrate) ExtraPT						
 				
 		FROM  dbo.Bettrans b WITH (NOLOCK)	
 			INNER JOIN dbo.match m WITH (NOLOCK) ON b.matchid = m.matchid		
@@ -783,14 +783,14 @@ SET NOCOUNT ON
 
 				SUM((CASE WHEN b.statusID IN (103) THEN 0 
 						WHEN b.tpositiontaking = 1 THEN 0
-						ELSE (1 - b.tpositiontaking - ISNULL(b.epositiontaking, 0)) * b.stake END) * actualrate) AS CompanyTurnoverRM,		
+						ELSE (1 - b.tpositiontaking - CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) * b.stake END) * actualrate) AS CompanyTurnoverRM,		
 								
 				- SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeRM,
 
 				- SUM(scomm *actualrate) AS CompanyCommRM,
 				
 				- SUM((winlost - actual_stake + CASE WHEN tpositiontaking = 1 THEN 0
-							ELSE scomm / (1 - tpositiontaking) END) * ISNULL(b.epositiontaking, 0) * actualrate) ExtraPT
+							ELSE scomm / (1 - tpositiontaking) END) * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8)) * actualrate) ExtraPT
 						
 		FROM  dbo.Bettrans b WITH (NOLOCK)
 		WHERE b.WinlostDate = @WLDate
@@ -847,14 +847,14 @@ SET NOCOUNT ON
 
 				SUM((CASE WHEN b.statusID IN (103) THEN 0 
 						WHEN b.tpositiontaking = 1 THEN 0
-						ELSE (1 - b.tpositiontaking - ISNULL(b.epositiontaking, 0)) * b.stake END) * actualrate) AS CompanyTurnoverRM,		
+						ELSE (1 - b.tpositiontaking - CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) * b.stake END) * actualrate) AS CompanyTurnoverRM,		
 								
 				- SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeRM,
 
 				- SUM(scomm *actualrate) AS CompanyCommRM,
 				
 				- SUM((winlost - actual_stake + CASE WHEN tpositiontaking = 1 THEN 0
-							ELSE scomm / (1 - tpositiontaking) END) * ISNULL(b.epositiontaking, 0) * actualrate) ExtraPT
+							ELSE scomm / (1 - tpositiontaking) END) * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8)) * actualrate) ExtraPT
 						
 		FROM  dbo.Bettrans b WITH (NOLOCK)
 		WHERE b.WinlostDate = @WLDate
@@ -912,14 +912,14 @@ SET NOCOUNT ON
 
 				SUM((CASE WHEN b.statusID IN (103) THEN 0 
 						WHEN b.tpositiontaking = 1 THEN 0
-						ELSE (1 - b.tpositiontaking - ISNULL(b.epositiontaking, 0)) * b.stake END) * actualrate) AS CompanyTurnoverRM,		
+						ELSE (1 - b.tpositiontaking - CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) * b.stake END) * actualrate) AS CompanyTurnoverRM,		
 								
 				- SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeRM,
 
 				- SUM(scomm * actualrate) AS CompanyCommRM,
 				
 				- SUM((winlost - actual_stake + CASE WHEN tpositiontaking = 1 THEN 0
-							ELSE scomm / (1 - tpositiontaking) END) * ISNULL(b.epositiontaking, 0) * actualrate) ExtraPT
+							ELSE scomm / (1 - tpositiontaking) END) * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8)) * actualrate) ExtraPT
 							
 		FROM  dbo.Bettrans b WITH (NOLOCK)
 		WHERE b.WinlostDate = @WLDate
@@ -977,14 +977,14 @@ SET NOCOUNT ON
 
 				SUM((CASE WHEN b.statusID IN (103) THEN 0 
 						WHEN b.tpositiontaking = 1 THEN 0
-						ELSE (1 - b.tpositiontaking - ISNULL(b.epositiontaking, 0)) * b.stake END) * actualrate) AS CompanyTurnoverRM,		
+						ELSE (1 - b.tpositiontaking - CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) * b.stake END) * actualrate) AS CompanyTurnoverRM,		
 								
 				- SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeRM,
 
 				- SUM(scomm * actualrate) AS CompanyCommRM,
 				
 				- SUM((winlost - actual_stake + CASE WHEN tpositiontaking = 1 THEN 0
-							ELSE scomm / (1 - tpositiontaking) END) * ISNULL(b.epositiontaking, 0) * actualrate) ExtraPT				
+							ELSE scomm / (1 - tpositiontaking) END) * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8)) * actualrate) ExtraPT				
 				
 		FROM  dbo.Bettrans b WITH (NOLOCK)			
 		WHERE b.WinlostDate = @WLDate
@@ -1047,14 +1047,14 @@ SET NOCOUNT ON
 
 				SUM((CASE WHEN b.statusID IN (103) THEN 0 
 						WHEN b.tpositiontaking = 1 THEN 0
-						ELSE (1 - b.tpositiontaking - ISNULL(b.epositiontaking, 0)) * b.stake END) * actualrate) AS CompanyTurnoverRM,		
+						ELSE (1 - b.tpositiontaking - CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) * b.stake END) * actualrate) AS CompanyTurnoverRM,		
 								
 				- SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeRM,
 
 				- SUM(scomm * actualrate) AS CompanyCommRM,
 				
 				- SUM((winlost - actual_stake + CASE WHEN tpositiontaking = 1 THEN 0
-							ELSE scomm / (1 - tpositiontaking) END) * ISNULL(b.epositiontaking, 0) * actualrate) ExtraPT								
+							ELSE scomm / (1 - tpositiontaking) END) * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8)) * actualrate) ExtraPT								
 				
 		FROM  dbo.Bettrans b WITH (NOLOCK)			
 		WHERE b.WinlostDate = @WLDate
