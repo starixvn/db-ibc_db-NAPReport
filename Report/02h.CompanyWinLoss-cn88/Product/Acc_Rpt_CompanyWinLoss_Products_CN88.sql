@@ -184,7 +184,7 @@ BEGIN
 					 WHEN b.tpositiontaking = 1
 					 THEN 0
 					 ELSE b.scomm / (1 - b.tpositiontaking)
-				  END * b.actualrate * epositiontaking) AS grosscomm_actualrate
+				  END * b.actualrate * CAST(epositiontaking AS DECIMAL(9, 8))) AS grosscomm_actualrate
 			 , SUM(CASE
 					 WHEN b.tpositiontaking = 1
 					 THEN 0
@@ -193,7 +193,7 @@ BEGIN
 						  WHEN b.virtualrate < b.actualrate
 						  THEN b.virtualrate
 						  ELSE b.actualrate
-					   END * epositiontaking) AS grosscomm_virtualrate
+					   END * CAST(epositiontaking AS DECIMAL(9, 8))) AS grosscomm_virtualrate
 			 , SUM(CASE
 					 WHEN b.virtualrate < b.actualrate
 					 THEN CASE
@@ -202,7 +202,7 @@ BEGIN
 							ELSE b.scomm / (1 - b.tpositiontaking)
 						 END
 					 ELSE 0
-				  END * (actualrate - virtualrate) * epositiontaking) AS grosscomm_variance
+				  END * (actualrate - virtualrate) * CAST(epositiontaking AS DECIMAL(9, 8))) AS grosscomm_variance
 			 , 1 AS ProductId
 			 , SUM((1 - b.tpositiontaking) * ABS(stake) * CASE
 													WHEN virtualrate > actualrate
@@ -218,21 +218,21 @@ BEGIN
 									   THEN virtualrate
 									   ELSE actualrate
 								    END
-				  END * epositiontaking) AS stake_actualrate
+				  END * CAST(epositiontaking AS DECIMAL(9, 8))) AS stake_actualrate
 			 , SUM(CASE
 					 WHEN b.tpositiontaking = 1
 					 THEN 0
 					 ELSE ABS(stake) * virtualrate
-				  END * epositiontaking) AS stake_virtualrate
+				  END * CAST(epositiontaking AS DECIMAL(9, 8))) AS stake_virtualrate
 			 , SUM(CASE
 					 WHEN b.tpositiontaking = 1
 					 THEN 0
-					 ELSE(winlost - actual_stake) * actualrate * epositiontaking
+					 ELSE(winlost - actual_stake) * actualrate * CAST(epositiontaking AS DECIMAL(9, 8))
 				  END) AS WinlossForExtraPT_actualrate
 			 , SUM(CASE
 					 WHEN b.tpositiontaking = 1
 					 THEN 0
-					 ELSE(winlost - actual_stake) * virtualrate * epositiontaking
+					 ELSE(winlost - actual_stake) * virtualrate * CAST(epositiontaking AS DECIMAL(9, 8))
 				  END) AS WinlossForExtraPT_virtualrate
 		 FROM bettrans AS b WITH (NOLOCK)
 			INNER JOIN CS_CustSuper AS cn88 WITH (NOLOCK) ON b.srecommend = cn88.CustId
@@ -341,7 +341,7 @@ BEGIN
 					 WHEN b.tpositiontaking = 1
 					 THEN 0
 					 ELSE b.scomm / (1 - b.tpositiontaking)
-				  END * b.actualrate * epositiontaking) AS grosscomm_actualrate
+				  END * b.actualrate * CAST(epositiontaking AS DECIMAL(9, 8))) AS grosscomm_actualrate
 			 , SUM(CASE
 					 WHEN b.tpositiontaking = 1
 					 THEN 0
@@ -350,7 +350,7 @@ BEGIN
 						  WHEN b.virtualrate < b.actualrate
 						  THEN b.virtualrate
 						  ELSE b.actualrate
-					   END * epositiontaking) AS grosscomm_virtualrate
+					   END * CAST(epositiontaking AS DECIMAL(9, 8))) AS grosscomm_virtualrate
 			 , SUM(CASE
 					 WHEN b.virtualrate < b.actualrate
 					 THEN CASE
@@ -359,7 +359,7 @@ BEGIN
 							ELSE b.scomm / (1 - b.tpositiontaking)
 						 END
 					 ELSE 0
-				  END * (actualrate - virtualrate) * epositiontaking) AS grosscomm_variance
+				  END * (actualrate - virtualrate) * CAST(epositiontaking AS DECIMAL(9, 8))) AS grosscomm_variance
 			 , CASE
 				  WHEN s.EventType = 0
 					  AND ProductID = 1
@@ -393,7 +393,7 @@ BEGIN
 								 THEN virtualrate
 								 ELSE actualrate
 							  END
-				  END * epositiontaking) AS stake_actualrate
+				  END * CAST(epositiontaking AS DECIMAL(9, 8))) AS stake_actualrate
 			 , SUM(CASE
 					 WHEN b.tpositiontaking = 1
 					 THEN 0
@@ -402,16 +402,16 @@ BEGIN
 							THEN ABS(stake)
 							ELSE stake
 						 END * virtualrate
-				  END * epositiontaking) AS stake_virtualrate
+				  END * CAST(epositiontaking AS DECIMAL(9, 8))) AS stake_virtualrate
 			 , SUM(CASE
 					 WHEN b.tpositiontaking = 1
 					 THEN 0
-					 ELSE(winlost - actual_stake) * actualrate * epositiontaking
+					 ELSE(winlost - actual_stake) * actualrate * CAST(epositiontaking AS DECIMAL(9, 8))
 				  END) AS WinlossForExtraPT_actualrate
 			 , SUM(CASE
 					 WHEN b.tpositiontaking = 1
 					 THEN 0
-					 ELSE(winlost - actual_stake) * virtualrate * epositiontaking
+					 ELSE(winlost - actual_stake) * virtualrate * CAST(epositiontaking AS DECIMAL(9, 8))
 				  END) AS WinlossForExtraPT_virtualrate
 		 FROM bettrans AS b WITH (NOLOCK)
 			INNER JOIN CS_CustSuper AS cn88 WITH (NOLOCK) ON b.srecommend = cn88.CustId
