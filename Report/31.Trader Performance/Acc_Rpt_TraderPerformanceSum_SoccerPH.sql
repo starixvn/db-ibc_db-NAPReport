@@ -195,11 +195,11 @@ BEGIN
                                       THEN b.virtualrate
                                       ELSE b.actualrate
                                   END) AS comm,
-		SUM((CASE WHEN modds = 0.25 OR modds = - 0.25 THEN stake/2 ELSE stake END) * (CASE WHEN tpositiontaking = 1 THEN 0 ELSE 1 - tpositiontaking- ISNULL(b.epositiontaking, 0) END) * virtualrate) AS stake_AfterExtraPT,
+		SUM((CASE WHEN modds = 0.25 OR modds = - 0.25 THEN stake/2 ELSE stake END) * (CASE WHEN tpositiontaking = 1 THEN 0 ELSE 1 - tpositiontaking- ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0) END) * virtualrate) AS stake_AfterExtraPT,
 		-SUM(CASE WHEN tpositiontaking = 1 THEN 0 ELSE ((winlost - actual_stake) * virtualrate 
 														+ CASE WHEN tpositiontaking = 1 THEN 0 
 														ELSE (scomm * CASE WHEN b.virtualrate < b.actualrate THEN b.virtualrate ELSE b.actualrate END)/(1 - tpositiontaking) 
-														END) * ISNULL(b.epositiontaking, 0) END) AS memberwinlost_ExtraPT,
+														END) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0) END) AS memberwinlost_ExtraPT,
 		SUM(CASE WHEN td.[VendorID] IN (14) THEN 0 
 				   ELSE 1 END) AS bet
 	FROM dbo.bettrans b WITH (NOLOCK)

@@ -176,22 +176,22 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_BetType] @EndDate='2020-01-01',@StartDate='2
                                WHEN b.tpositiontaking = 1
                                THEN 0
                                ELSE(winlost - actual_stake) + b.scomm / (1 - b.tpositiontaking)
-                           END) * ISNULL(b.epositiontaking, 0) * actualrate) AS ExtraPT, 
+                           END) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0) * actualrate) AS ExtraPT, 
                       SUM(scomm * actualrate) Commission, 
                       SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - (CASE
                                                                                                   WHEN tpositiontaking = 1
                                                                                                   THEN 0
                                                                                                   ELSE winlost - actual_stake + b.scomm / (1 - b.tpositiontaking)
-                                                                                              END) * ISNULL(b.epositiontaking, 0)) * actualrate) AS RealIncome, 
+                                                                                              END) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * actualrate) AS RealIncome, 
                       SUM((winlost - actual_stake + awinlost + mwinlost + swinlost - CASE
                                                                                          WHEN tpositiontaking = 1
                                                                                          THEN 0
-                                                                                         ELSE(winlost - actual_stake) * ISNULL(b.epositiontaking, 0)
+                                                                                         ELSE(winlost - actual_stake) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)
                                                                                      END) * virtualrate + (scomm - (CASE
                                                                                                                         WHEN tpositiontaking = 1
                                                                                                                         THEN 0
                                                                                                                         ELSE b.scomm / (1 - b.tpositiontaking)
-                                                                                                                    END) * ISNULL(b.epositiontaking, 0)) * actualrate * CASE
+                                                                                                                    END) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * actualrate * CASE
                                                                                                                                                                     WHEN virtualrate < actualrate
                                                                                                                                                                     THEN virtualrate / actualrate
                                                                                                                                                                     ELSE 1
@@ -199,20 +199,20 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_BetType] @EndDate='2020-01-01',@StartDate='2
                       SUM((winlost - actual_stake + awinlost + mwinlost + swinlost - CASE
                                                                                          WHEN tpositiontaking = 1
                                                                                          THEN 0
-                                                                                         ELSE(winlost - actual_stake) * ISNULL(b.epositiontaking, 0)
+                                                                                         ELSE(winlost - actual_stake) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)
                                                                                      END + CASE
                                                                                                WHEN virtualrate < actualrate
                                                                                                THEN(b.scomm - (CASE
                                                                                                                    WHEN tpositiontaking = 1
                                                                                                                    THEN 0
                                                                                                                    ELSE b.scomm / (1 - b.tpositiontaking)
-                                                                                                               END) * ISNULL(b.epositiontaking, 0))
+                                                                                                               END) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0))
                                                                                                ELSE 0
                                                                                            END) * (actualrate - virtualrate)) VarianceIncome, 
                       SUM(CASE
                               WHEN tpositiontaking = 1
                               THEN 0
-                              ELSE(1 - b.tpositiontaking - ISNULL(b.epositiontaking, 0)) * ABS(b.stake) * CASE
+                              ELSE(1 - b.tpositiontaking - ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * ABS(b.stake) * CASE
                                                                                                       WHEN virtualrate > actualrate
                                                                                                       THEN virtualrate
                                                                                                       ELSE actualrate
@@ -221,7 +221,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_BetType] @EndDate='2020-01-01',@StartDate='2
                       SUM(CASE
                               WHEN tpositiontaking = 1
                               THEN 0
-                              ELSE(1 - b.tpositiontaking - ISNULL(b.epositiontaking, 0)) * ABS(b.stake) * virtualrate
+                              ELSE(1 - b.tpositiontaking - ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * ABS(b.stake) * virtualrate
                           END) AS VirtualTurnover
                FROM bettrans AS b WITH(NOLOCK)
                     INNER JOIN #Match m ON b.MatchId = m.MatchId
@@ -307,22 +307,22 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_BetType] @EndDate='2020-01-01',@StartDate='2
                                WHEN b.tpositiontaking = 1
                                THEN 0
                                ELSE(winlost - actual_stake) + b.scomm / (1 - b.tpositiontaking)
-                           END) * ISNULL(b.epositiontaking, 0) * actualrate) AS ExtraPT, 
+                           END) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0) * actualrate) AS ExtraPT, 
                       SUM(scomm * actualrate) Commission, 
                       SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - (CASE
                                                                                                   WHEN tpositiontaking = 1
                                                                                                   THEN 0
                                                                                                   ELSE winlost - actual_stake + b.scomm / (1 - b.tpositiontaking)
-                                                                                              END) * ISNULL(b.epositiontaking, 0)) * actualrate) AS RealIncome, 
+                                                                                              END) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * actualrate) AS RealIncome, 
                       SUM((winlost - actual_stake + awinlost + mwinlost + swinlost - CASE
                                                                                          WHEN tpositiontaking = 1
                                                                                          THEN 0
-                                                                                         ELSE(winlost - actual_stake) * ISNULL(b.epositiontaking, 0)
+                                                                                         ELSE(winlost - actual_stake) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)
                                                                                      END) * virtualrate + (scomm - (CASE
                                                                                                                         WHEN tpositiontaking = 1
                                                                                                                         THEN 0
                                                                                                                         ELSE b.scomm / (1 - b.tpositiontaking)
-                                                                                                                    END) * ISNULL(b.epositiontaking, 0)) * actualrate * CASE
+                                                                                                                    END) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * actualrate * CASE
                                                                                                                                                                     WHEN virtualrate < actualrate
                                                                                                                                                                     THEN virtualrate / actualrate
                                                                                                                                                                     ELSE 1
@@ -330,20 +330,20 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_BetType] @EndDate='2020-01-01',@StartDate='2
                       SUM((winlost - actual_stake + awinlost + mwinlost + swinlost - CASE
                                                                                          WHEN tpositiontaking = 1
                                                                                          THEN 0
-                                                                                         ELSE(winlost - actual_stake) * ISNULL(b.epositiontaking, 0)
+                                                                                         ELSE(winlost - actual_stake) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)
                                                                                      END + CASE
                                                                                                WHEN virtualrate < actualrate
                                                                                                THEN(b.scomm - (CASE
                                                                                                                    WHEN tpositiontaking = 1
                                                                                                                    THEN 0
                                                                                                                    ELSE b.scomm / (1 - b.tpositiontaking)
-                                                                                                               END) * ISNULL(b.epositiontaking, 0))
+                                                                                                               END) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0))
                                                                                                ELSE 0
                                                                                            END) * (actualrate - virtualrate)) VarianceIncome, 
                       SUM(CASE
                               WHEN tpositiontaking = 1
                               THEN 0
-                              ELSE(1 - b.tpositiontaking - ISNULL(b.epositiontaking, 0)) * ABS(b.stake) * CASE
+                              ELSE(1 - b.tpositiontaking - ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * ABS(b.stake) * CASE
                                                                                                       WHEN virtualrate > actualrate
                                                                                                       THEN virtualrate
                                                                                                       ELSE actualrate
@@ -352,7 +352,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_BetType] @EndDate='2020-01-01',@StartDate='2
                       SUM(CASE
                               WHEN tpositiontaking = 1
                               THEN 0
-                              ELSE(1 - b.tpositiontaking - ISNULL(b.epositiontaking, 0)) * ABS(b.stake) * virtualrate
+                              ELSE(1 - b.tpositiontaking - ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * ABS(b.stake) * virtualrate
                           END) AS VirtualTurnover
                FROM bettrans AS b WITH(NOLOCK)
                     INNER JOIN @BetType AS sb ON sb.BetType = b.BetType
@@ -497,22 +497,22 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_BetType] @EndDate='2020-01-01',@StartDate='2
                                WHEN b.tpositiontaking = 1
                                THEN 0
                                ELSE(winlost - actual_stake) + b.scomm / (1 - b.tpositiontaking)
-                           END) * ISNULL(b.epositiontaking, 0) * actualrate) AS ExtraPT, 
+                           END) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0) * actualrate) AS ExtraPT, 
                       SUM(scomm * actualrate) Commission, 
                       -SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - (CASE
                                                                                                    WHEN tpositiontaking = 1
                                                                                                    THEN 0
                                                                                                    ELSE winlost - actual_stake + b.scomm / (1 - b.tpositiontaking)
-                                                                                               END) * ISNULL(b.epositiontaking, 0)) * actualrate) AS RealIncome, 
+                                                                                               END) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * actualrate) AS RealIncome, 
                       -SUM((winlost - actual_stake + awinlost + mwinlost + swinlost - CASE
                                                                                           WHEN tpositiontaking = 1
                                                                                           THEN 0
-                                                                                          ELSE(winlost - actual_stake) * ISNULL(b.epositiontaking, 0)
+                                                                                          ELSE(winlost - actual_stake) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)
                                                                                       END) * virtualrate + (scomm - (CASE
                                                                                                                          WHEN tpositiontaking = 1
                                                                                                                          THEN 0
                                                                                                                          ELSE b.scomm / (1 - b.tpositiontaking)
-                                                                                                                     END) * ISNULL(b.epositiontaking, 0)) * actualrate * CASE
+                                                                                                                     END) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * actualrate * CASE
                                                                                                                                                                      WHEN virtualrate < actualrate
                                                                                                                                                                      THEN virtualrate / actualrate
                                                                                                                                                                      ELSE 1
@@ -520,20 +520,20 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_BetType] @EndDate='2020-01-01',@StartDate='2
                       -SUM((winlost - actual_stake + awinlost + mwinlost + swinlost - CASE
                                                                                           WHEN tpositiontaking = 1
                                                                                           THEN 0
-                                                                                          ELSE(winlost - actual_stake) * ISNULL(b.epositiontaking, 0)
+                                                                                          ELSE(winlost - actual_stake) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)
                                                                                       END + CASE
                                                                                                 WHEN virtualrate < actualrate
                                                                                                 THEN(b.scomm - (CASE
                                                                                                                     WHEN tpositiontaking = 1
                                                                                                                     THEN 0
                                                                                                                     ELSE b.scomm / (1 - b.tpositiontaking)
-                                                                                                                END) * ISNULL(b.epositiontaking, 0))
+                                                                                                                END) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0))
                                                                                                 ELSE 0
                                                                                             END) * (actualrate - virtualrate)) VarianceIncome, 
                       SUM(CASE
                               WHEN tpositiontaking = 1
                               THEN 0
-                              ELSE(1 - b.tpositiontaking - ISNULL(b.epositiontaking, 0)) * ABS(b.stake) * CASE
+                              ELSE(1 - b.tpositiontaking - ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * ABS(b.stake) * CASE
                                                                                                       WHEN virtualrate > actualrate
                                                                                                       THEN virtualrate
                                                                                                       ELSE actualrate
@@ -542,7 +542,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_BetType] @EndDate='2020-01-01',@StartDate='2
                       SUM(CASE
                               WHEN tpositiontaking = 1
                               THEN 0
-                              ELSE(1 - b.tpositiontaking - ISNULL(b.epositiontaking, 0)) * ABS(b.stake) * virtualrate
+                              ELSE(1 - b.tpositiontaking - ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * ABS(b.stake) * virtualrate
                           END) AS VirtualTurnover
                FROM bettrans b WITH(NOLOCK)
                     INNER JOIN @BetType AS sb ON sb.BetType = b.BetType

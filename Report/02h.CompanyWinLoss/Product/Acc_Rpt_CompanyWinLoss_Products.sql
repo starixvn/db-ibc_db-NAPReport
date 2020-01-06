@@ -273,7 +273,7 @@ Explanation's Param:
 						WHEN b.tpositiontaking = 1
 						THEN 0
 						ELSE b.scomm / (1 - b.tpositiontaking)
-					 END * b.actualrate * epositiontaking) AS grosscomm_actualrate
+					 END * b.actualrate * CAST(epositiontaking AS DECIMAL(9, 8))) AS grosscomm_actualrate
 				, SUM(CASE
 						WHEN b.tpositiontaking = 1
 						THEN 0
@@ -282,7 +282,7 @@ Explanation's Param:
 							 WHEN b.virtualrate < b.actualrate
 							 THEN b.virtualrate
 							 ELSE b.actualrate
-						  END * epositiontaking) AS grosscomm_virtualrate
+						  END * CAST(epositiontaking AS DECIMAL(9, 8))) AS grosscomm_virtualrate
 				, SUM(CASE
 						WHEN b.virtualrate < b.actualrate
 						THEN CASE
@@ -291,7 +291,7 @@ Explanation's Param:
 							    ELSE b.scomm / (1 - b.tpositiontaking)
 							END
 						ELSE 0
-					 END * (actualrate - virtualrate) * epositiontaking) AS grosscomm_variance
+					 END * (actualrate - virtualrate) * CAST(epositiontaking AS DECIMAL(9, 8))) AS grosscomm_variance
 				, 1 AS ProductId
 				, SUM((1 - b.tpositiontaking) * ABS(stake) * CASE
 													    WHEN virtualrate > actualrate
@@ -307,21 +307,21 @@ Explanation's Param:
 										  THEN virtualrate
 										  ELSE actualrate
 									   END
-					 END * epositiontaking) AS stake_actualrate
+					 END * CAST(epositiontaking AS DECIMAL(9, 8))) AS stake_actualrate
 				, SUM(CASE
 						WHEN b.tpositiontaking = 1
 						THEN 0
 						ELSE ABS(stake) * virtualrate
-					 END * epositiontaking) AS stake_virtualrate
+					 END * CAST(epositiontaking AS DECIMAL(9, 8))) AS stake_virtualrate
 				, SUM(CASE
 						WHEN b.tpositiontaking = 1
 						THEN 0
-						ELSE(winlost - actual_stake) * actualrate * epositiontaking
+						ELSE(winlost - actual_stake) * actualrate * CAST(epositiontaking AS DECIMAL(9, 8))
 					 END) AS WinlossForExtraPT_actualrate
 				, SUM(CASE
 						WHEN b.tpositiontaking = 1
 						THEN 0
-						ELSE(winlost - actual_stake) * virtualrate * epositiontaking
+						ELSE(winlost - actual_stake) * virtualrate * CAST(epositiontaking AS DECIMAL(9, 8))
 					 END) AS WinlossForExtraPT_virtualrate
 			FROM bettrans AS b WITH(NOLOCK)
 			    INNER JOIN #Match AS m ON b.MatchId = m.MatchId
@@ -443,7 +443,7 @@ Explanation's Param:
 						WHEN b.tpositiontaking = 1
 						THEN 0
 						ELSE b.scomm / (1 - b.tpositiontaking)
-					 END * b.actualrate * epositiontaking) AS grosscomm_actualrate
+					 END * b.actualrate * CAST(epositiontaking AS DECIMAL(9, 8))) AS grosscomm_actualrate
 				, SUM(CASE
 						WHEN b.tpositiontaking = 1
 						THEN 0
@@ -452,7 +452,7 @@ Explanation's Param:
 							 WHEN b.virtualrate < b.actualrate
 							 THEN b.virtualrate
 							 ELSE b.actualrate
-						  END * epositiontaking) AS grosscomm_virtualrate
+						  END * CAST(epositiontaking AS DECIMAL(9, 8))) AS grosscomm_virtualrate
 				, SUM(CASE
 						WHEN b.virtualrate < b.actualrate
 						THEN CASE
@@ -461,7 +461,7 @@ Explanation's Param:
 							    ELSE b.scomm / (1 - b.tpositiontaking)
 							END
 						ELSE 0
-					 END * (actualrate - virtualrate) * epositiontaking) AS grosscomm_variance
+					 END * (actualrate - virtualrate) * CAST(epositiontaking AS DECIMAL(9, 8))) AS grosscomm_variance
 				, 1 AS ProductId
 				, SUM((1 - b.tpositiontaking) * ABS(stake) * CASE
 													    WHEN virtualrate > actualrate
@@ -477,21 +477,21 @@ Explanation's Param:
 										  THEN virtualrate
 										  ELSE actualrate
 									   END
-					 END * epositiontaking) AS stake_actualrate
+					 END * CAST(epositiontaking AS DECIMAL(9, 8))) AS stake_actualrate
 				, SUM(CASE
 						WHEN b.tpositiontaking = 1
 						THEN 0
 						ELSE ABS(stake) * virtualrate
-					 END * epositiontaking) AS stake_virtualrate
+					 END * CAST(epositiontaking AS DECIMAL(9, 8))) AS stake_virtualrate
 				, SUM(CASE
 						WHEN b.tpositiontaking = 1
 						THEN 0
-						ELSE(winlost - actual_stake) * actualrate * epositiontaking
+						ELSE(winlost - actual_stake) * actualrate * CAST(epositiontaking AS DECIMAL(9, 8))
 					 END) AS WinlossForExtraPT_actualrate
 				, SUM(CASE
 						WHEN b.tpositiontaking = 1
 						THEN 0
-						ELSE(winlost - actual_stake) * virtualrate * epositiontaking
+						ELSE(winlost - actual_stake) * virtualrate * CAST(epositiontaking AS DECIMAL(9, 8))
 					 END) AS WinlossForExtraPT_virtualrate
 			FROM bettrans AS b WITH(NOLOCK)
 			    INNER JOIN #SportBettype AS s ON b.bettype = s.bettype
@@ -582,7 +582,7 @@ Explanation's Param:
 						WHEN b.tpositiontaking = 1
 						THEN 0
 						ELSE b.scomm / (1 - b.tpositiontaking)
-					 END * b.actualrate * epositiontaking) AS grosscomm_actualrate
+					 END * b.actualrate * CAST(epositiontaking AS DECIMAL(9, 8))) AS grosscomm_actualrate
 				, SUM(CASE
 						WHEN b.tpositiontaking = 1
 						THEN 0
@@ -591,7 +591,7 @@ Explanation's Param:
 							 WHEN b.virtualrate < b.actualrate
 							 THEN b.virtualrate
 							 ELSE b.actualrate
-						  END * epositiontaking) AS grosscomm_virtualrate
+						  END * CAST(epositiontaking AS DECIMAL(9, 8))) AS grosscomm_virtualrate
 				, SUM(CASE
 						WHEN b.virtualrate < b.actualrate
 						THEN CASE
@@ -600,7 +600,7 @@ Explanation's Param:
 							    ELSE b.scomm / (1 - b.tpositiontaking)
 							END
 						ELSE 0
-					 END * (actualrate - virtualrate) * epositiontaking) AS grosscomm_variance
+					 END * (actualrate - virtualrate) * CAST(epositiontaking AS DECIMAL(9, 8))) AS grosscomm_variance
 				, CASE s.SubProduct
 					 WHEN 'MG-SuperLive'
 					 THEN-1
@@ -644,7 +644,7 @@ Explanation's Param:
 									THEN virtualrate
 									ELSE actualrate
 								 END
-					 END * epositiontaking) AS stake_actualrate
+					 END * CAST(epositiontaking AS DECIMAL(9, 8))) AS stake_actualrate
 				, SUM(CASE
 						WHEN b.tpositiontaking = 1
 						THEN 0
@@ -653,16 +653,16 @@ Explanation's Param:
 							    THEN ABS(stake)
 							    ELSE stake
 							END * virtualrate
-					 END * epositiontaking) AS stake_virtualrate
+					 END * CAST(epositiontaking AS DECIMAL(9, 8))) AS stake_virtualrate
 				, SUM(CASE
 						WHEN b.tpositiontaking = 1
 						THEN 0
-						ELSE(winlost - actual_stake) * actualrate * epositiontaking
+						ELSE(winlost - actual_stake) * actualrate * CAST(epositiontaking AS DECIMAL(9, 8))
 					 END) AS WinlossForExtraPT_actualrate
 				, SUM(CASE
 						WHEN b.tpositiontaking = 1
 						THEN 0
-						ELSE(winlost - actual_stake) * virtualrate * epositiontaking
+						ELSE(winlost - actual_stake) * virtualrate * CAST(epositiontaking AS DECIMAL(9, 8))
 					 END) AS WinlossForExtraPT_virtualrate
 			FROM bettrans AS b WITH(NOLOCK)
 			    INNER JOIN #SportBettype AS s ON b.bettype = s.bettype
@@ -743,7 +743,7 @@ Explanation's Param:
 						WHEN b.tpositiontaking = 1
 						THEN 0
 						ELSE b.scomm / (1 - b.tpositiontaking)
-					 END * b.actualrate * epositiontaking) AS grosscomm_actualrate
+					 END * b.actualrate * CAST(epositiontaking AS DECIMAL(9, 8))) AS grosscomm_actualrate
 				, SUM(CASE
 						WHEN b.tpositiontaking = 1
 						THEN 0
@@ -752,7 +752,7 @@ Explanation's Param:
 							 WHEN b.virtualrate < b.actualrate
 							 THEN b.virtualrate
 							 ELSE b.actualrate
-						  END * epositiontaking) AS grosscomm_virtualrate
+						  END * CAST(epositiontaking AS DECIMAL(9, 8))) AS grosscomm_virtualrate
 				, SUM(CASE
 						WHEN b.virtualrate < b.actualrate
 						THEN CASE
@@ -761,7 +761,7 @@ Explanation's Param:
 							    ELSE b.scomm / (1 - b.tpositiontaking)
 							END
 						ELSE 0
-					 END * (actualrate - virtualrate) * epositiontaking) AS grosscomm_variance
+					 END * (actualrate - virtualrate) * CAST(epositiontaking AS DECIMAL(9, 8))) AS grosscomm_variance
 				, SUM((1 - b.tpositiontaking) * stake * CASE
 												    WHEN virtualrate > actualrate
 												    THEN virtualrate
@@ -776,21 +776,21 @@ Explanation's Param:
 									  THEN virtualrate
 									  ELSE actualrate
 								   END
-					 END * epositiontaking) AS stake_actualrate
+					 END * CAST(epositiontaking AS DECIMAL(9, 8))) AS stake_actualrate
 				, SUM(CASE
 						WHEN b.tpositiontaking = 1
 						THEN 0
 						ELSE stake * virtualrate
-					 END * epositiontaking) AS stake_virtualrate
+					 END * CAST(epositiontaking AS DECIMAL(9, 8))) AS stake_virtualrate
 				, SUM(CASE
 						WHEN b.tpositiontaking = 1
 						THEN 0
-						ELSE(winlost - actual_stake) * actualrate * epositiontaking
+						ELSE(winlost - actual_stake) * actualrate * CAST(epositiontaking AS DECIMAL(9, 8))
 					 END) AS WinlossForExtraPT_actualrate
 				, SUM(CASE
 						WHEN b.tpositiontaking = 1
 						THEN 0
-						ELSE(winlost - actual_stake) * virtualrate * epositiontaking
+						ELSE(winlost - actual_stake) * virtualrate * CAST(epositiontaking AS DECIMAL(9, 8))
 					 END) AS WinlossForExtraPT_virtualrate
 				, SUM(CASE
 						WHEN b.tpositiontaking = 1
@@ -849,7 +849,7 @@ Explanation's Param:
 						WHEN b.tpositiontaking = 1
 						THEN 0
 						ELSE b.scomm / (1 - b.tpositiontaking)
-					 END * b.actualrate * epositiontaking) AS grosscomm_actualrate
+					 END * b.actualrate * CAST(epositiontaking AS DECIMAL(9, 8))) AS grosscomm_actualrate
 				, SUM(CASE
 						WHEN b.tpositiontaking = 1
 						THEN 0
@@ -858,7 +858,7 @@ Explanation's Param:
 							 WHEN b.virtualrate < b.actualrate
 							 THEN b.virtualrate
 							 ELSE b.actualrate
-						  END * epositiontaking) AS grosscomm_virtualrate
+						  END * CAST(epositiontaking AS DECIMAL(9, 8))) AS grosscomm_virtualrate
 				, SUM(CASE
 						WHEN b.virtualrate < b.actualrate
 						THEN CASE
@@ -867,7 +867,7 @@ Explanation's Param:
 							    ELSE b.scomm / (1 - b.tpositiontaking)
 							END
 						ELSE 0
-					 END * (actualrate - virtualrate) * epositiontaking) AS grosscomm_variance
+					 END * (actualrate - virtualrate) * CAST(epositiontaking AS DECIMAL(9, 8))) AS grosscomm_variance
 				, SUM((1 - b.tpositiontaking) * stake * CASE
 												    WHEN virtualrate > actualrate
 												    THEN virtualrate
@@ -882,21 +882,21 @@ Explanation's Param:
 									  THEN virtualrate
 									  ELSE actualrate
 								   END
-					 END * epositiontaking) AS stake_actualrate
+					 END * CAST(epositiontaking AS DECIMAL(9, 8))) AS stake_actualrate
 				, SUM(CASE
 						WHEN b.tpositiontaking = 1
 						THEN 0
 						ELSE stake * virtualrate
-					 END * epositiontaking) AS stake_virtualrate
+					 END * CAST(epositiontaking AS DECIMAL(9, 8))) AS stake_virtualrate
 				, SUM(CASE
 						WHEN b.tpositiontaking = 1
 						THEN 0
-						ELSE(winlost - actual_stake) * actualrate * epositiontaking
+						ELSE(winlost - actual_stake) * actualrate * CAST(epositiontaking AS DECIMAL(9, 8))
 					 END) AS WinlossForExtraPT_actualrate
 				, SUM(CASE
 						WHEN b.tpositiontaking = 1
 						THEN 0
-						ELSE(winlost - actual_stake) * virtualrate * epositiontaking
+						ELSE(winlost - actual_stake) * virtualrate * CAST(epositiontaking AS DECIMAL(9, 8))
 					 END) AS WinlossForExtraPT_virtualrate
 			FROM bettransLC AS b WITH(NOLOCK)
 			WHERE winlostdate = @StartDate

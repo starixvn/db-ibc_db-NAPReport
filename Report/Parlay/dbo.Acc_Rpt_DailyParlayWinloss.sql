@@ -50,15 +50,15 @@ BEGIN
                          WHEN tpositiontaking = 1
                          THEN 0
                          ELSE( winlost - actual_stake ) + scomm / ( 1 - tpositiontaking )
-                     END ) * ISNULL(epositiontaking, 0) * actualrate) AS ExtraPT,
+                     END ) * ISNULL(CAST(epositiontaking AS DECIMAL(9, 8)), 0) * actualrate) AS ExtraPT,
 			SUM(scomm*actualrate) Commission,	
 			SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - ( CASE WHEN tpositiontaking = 1 THEN 0
                                                                                            ELSE winlost - actual_stake + scomm / ( 1 - tpositiontaking )
-                                                                                      END ) * ISNULL(epositiontaking, 0)) * actualrate) RealIncome, -- Real House Income
+                                                                                      END ) * ISNULL(CAST(epositiontaking AS DECIMAL(9, 8)), 0)) * actualrate) RealIncome, -- Real House Income
 			SUM(CASE
                        WHEN tpositiontaking = 1
                        THEN 0
-                       ELSE( 1 - tpositiontaking - ISNULL(epositiontaking, 0)) * ABS(stake) * CASE
+                       ELSE( 1 - tpositiontaking - ISNULL(CAST(epositiontaking AS DECIMAL(9, 8)), 0)) * ABS(stake) * CASE
                                                                                             WHEN virtualrate > actualrate
                                                                                             THEN virtualrate
                                                                                             ELSE actualrate
@@ -112,15 +112,15 @@ BEGIN
                          WHEN tpositiontaking = 1
                          THEN 0
                          ELSE( winlost - actual_stake ) + scomm / ( 1 - tpositiontaking )
-                     END ) * ISNULL(b.epositiontaking, 0) * actualrate) AS ExtraPT,
+                     END ) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0) * actualrate) AS ExtraPT,
 			SUM(scomm*actualrate) Commission,	
 			SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - ( CASE WHEN tpositiontaking = 1 THEN 0
                                                                                            ELSE winlost - actual_stake + scomm / ( 1 - tpositiontaking )
-                                                                                      END ) * ISNULL(b.epositiontaking, 0)) * actualrate) RealIncome, -- Real House Income
+                                                                                      END ) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * actualrate) RealIncome, -- Real House Income
 			SUM(CASE
                        WHEN tpositiontaking = 1
                        THEN 0
-                       ELSE( 1 - tpositiontaking - ISNULL(b.epositiontaking, 0)) * ABS(stake) * CASE
+                       ELSE( 1 - tpositiontaking - ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * ABS(stake) * CASE
                                                                                             WHEN virtualrate > actualrate
                                                                                             THEN virtualrate
                                                                                             ELSE actualrate
