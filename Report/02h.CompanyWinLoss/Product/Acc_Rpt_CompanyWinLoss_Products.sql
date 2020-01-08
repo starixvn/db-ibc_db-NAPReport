@@ -795,12 +795,12 @@ Explanation's Param:
 				, SUM(CASE
 						WHEN b.tpositiontaking = 1
 						THEN 0
-						ELSE(b.ContributionRate * b.BetStake) * actualrate
+						ELSE(b.ContributionRate * b.BetStake) * actualrate * CAST(epositiontaking AS DECIMAL(9, 8))
 					 END) AS WinlossJackpotForExtraPT_actualrate
 				, SUM(CASE
 						WHEN b.tpositiontaking = 1
 						THEN 0
-						ELSE(b.ContributionRate * b.BetStake) * virtualrate
+						ELSE(b.ContributionRate * b.BetStake) * virtualrate * CAST(epositiontaking AS DECIMAL(9, 8))
 					 END) AS WinlossJackpotForExtraPT_virtualrate
 			FROM bettransRNG AS b WITH(NOLOCK)
 			WHERE winlostdate = @StartDate
