@@ -48,11 +48,13 @@ Revisions:
 	20190722@Robert: #117010 - NAP Report - Integrate Card Club on NAP Report
 	20190918@Robert: Remove inactive products (#120215)	   
 	20191118@Ned.Le: Integrate Pragmatic Tournament Prize (#123685)
+	20191223@Ned.Le: NAP Report - Integrate Spadegaming product (#125712)
 */
 
 BEGIN
     SET NOCOUNT ON;
 
+	-- #TmpResultAll
     CREATE TABLE #TmpResultAll(
 	    mrecommend        INT
 	  , VarianceVR        DECIMAL(5, 2)
@@ -62,14 +64,15 @@ BEGIN
 	  , ExtraWL           DECIMAL(19, 6)
 	  , ExtraTO           DECIMAL(19, 6)
 	  , ExtraComm         DECIMAL(19, 6)
-/*RM*/
+	  /*RM*/
 	  , TurnoverIBC_RM    DECIMAL(19, 6)
 	  , WinlossIBC_RM     DECIMAL(19, 6)
 	  , CommissionS_RM    DECIMAL(19, 6)
 	  , ExtraWL_RM        DECIMAL(19, 6)
 	  , ExtraTO_RM        DECIMAL(19, 6)
 	  , ExtraComm_RM      DECIMAL(19, 6));
-
+	
+	-- @SportBettype
     DECLARE @isTest    BIT = 0;
     SELECT @isTest = dbo.f_CheckSPVersion
 		 (@@PROCID);
@@ -77,16 +80,19 @@ BEGIN
 	    ProductID     INT
 	  , Bettype       INT
 	  , EventType     INT
-	  , SubProduct    VARCHAR(200));
+	  , SubProduct    VARCHAR(200)
+	  , RefTable      TINYINT);
     INSERT INTO @SportBettype
 		 SELECT ProductID
 			 , Bettype
 			 , EventType
 			 , SubProduct
+			 , RefTable
 		 FROM dbo.f_SportBettypeMatrix_Sel
 			 (0, 0, 0, 2, '', '', @isTest) AS sb
 		 WHERE sb.BetType NOT IN(901, 902, 911, 912);
-
+	
+	-- #PrizeBettypeGroup
 	IF OBJECT_ID('tempdb..#PrizeBettypeGroup') IS NOT NULL
 	BEGIN
 		DROP TABLE #PrizeBettypeGroup;
@@ -95,6 +101,7 @@ BEGIN
 	INSERT INTO #PrizeBettypeGroup
 	SELECT Bettype FROM DBWH.bodb_Account.dbo.BettypeGroup WHERE BettypeGroupID=6
 
+	-- #Product
     IF OBJECT_ID('tempdb..#Product') IS NOT NULL
 	   BEGIN
 		  DROP TABLE #Product;
@@ -108,8 +115,7 @@ BEGIN
 		 FROM strSplit
 			 (@Products, ',');
 
-
-
+	-- #tmpBettype
     IF OBJECT_ID('tempdb..#tmpBettype') IS NOT NULL
 	   BEGIN
 		  DROP TABLE #tmpBettype;
@@ -117,7 +123,8 @@ BEGIN
 
     CREATE TABLE #tmpBettype(
 	    ProductID    INT
-	  , bettype      INT);
+	  , bettype      INT
+	  , RefTable     TINYINT);
 
     IF EXISTS
 		    (
@@ -132,9 +139,11 @@ BEGIN
 			  FROM #Product AS tblP
 			  WHERE tblP.ProductID = -1)
 			  INSERT INTO #tmpBettype(ProductID
-							    , bettype)
+							    , bettype
+								, RefTable)
 				    SELECT tblS.ProductID
 					    , tblS.bettype
+						, tblS.RefTable
 				    FROM tblP
 					  , @SportBettype AS tblS
 				    WHERE tblS.ProductID = 1
@@ -154,9 +163,11 @@ BEGIN
 			  FROM #Product AS tblP
 			  WHERE tblP.ProductID = -2)
 			  INSERT INTO #tmpBettype(ProductID
-							    , bettype)
+							    , bettype
+								, RefTable)
 				    SELECT tblP.ProductID
 					    , tblS.bettype
+						, tblS.RefTable
 				    FROM tblP
 					  , @SportBettype AS tblS
 				    WHERE tblS.ProductID = 1
@@ -176,9 +187,11 @@ BEGIN
 			  FROM #Product AS tblP
 			  WHERE tblP.ProductID = -3)
 			  INSERT INTO #tmpBettype(ProductID
-							    , bettype)
+							    , bettype
+								, RefTable)
 				    SELECT tblS.ProductID
 					    , tblS.bettype
+						, tblS.RefTable
 				    FROM tblP
 					  , @SportBettype AS tblS
 				    WHERE tblS.ProductID = 1
@@ -193,16 +206,30 @@ BEGIN
 		    )
 	   BEGIN
 		  INSERT INTO #tmpBettype(ProductID
-						    , bettype)
+						    , bettype
+							, RefTable)
 			    SELECT tblP.ProductID
 				    , tblS.bettype
+					, tblS.RefTable
 			    FROM @SportBettype AS tblS
 				   INNER JOIN #Product AS tblP ON tblS.ProductID = tblP.ProductID
 			    WHERE tblP.ProductID = 1
 					AND tblS.SubProduct NOT IN('MG-SuperLive', 'BT-Comm', 'BT-Winloss', 'Bet Builder');
 	   END;
-/*-- Extra PT */
 
+	INSERT INTO #tmpBettype(ProductID
+					 , bettype
+					 , RefTable)
+		 SELECT tblP.ProductID
+			 , tblS.bettype
+			 , tblS.RefTable
+		 FROM @SportBettype AS tblS
+			INNER JOIN #Product AS tblP ON tblS.ProductID = tblP.ProductID
+		 WHERE tblP.ProductID <> 1;
+
+    CREATE CLUSTERED INDEX IDX_Bettype_bettype_ProductID ON #tmpBettype(bettype, ProductID, RefTable);
+
+	/*-- Extra PT */
     CREATE TABLE #ExtraPT(
 	    ProductID     INT
 	  , Sporttype     INT
@@ -228,31 +255,7 @@ BEGIN
 			   , SubProduct
 			   , SuperId;
 
-    CREATE TABLE #ExtraComm(
-	    ProductID        INT
-	  , Sporttype        INT
-	  , SubProduct       VARCHAR(500)
-	  , SuperID          INT
-	  , ExtraCommRate    DECIMAL(9, 8));
-
-    INSERT INTO #ExtraComm(ProductID
-					, Sporttype
-					, SubProduct
-					, SuperID
-					, ExtraCommRate)
-		 SELECT ProductID
-			 , SportType
-			 , SubProduct
-			 , SuperId
-			 , SUM(ExtraCommRate) AS ExtraCommRate
-		 FROM bodb02.dbo.Acc_GroupExtraCommRateSetting AS a WITH (NOLOCK)
-		 WHERE @FromDate BETWEEN FromDate AND ToDate
-			  AND SubProduct NOT IN('BT-Sold', 'BT-Bought', 'CO-Cashout', 'CO-Bought')
-		 GROUP BY ProductID
-			   , SportType
-			   , SubProduct
-			   , SuperId;
-
+	-- #Match44
     CREATE TABLE #Match44(
 	    MatchID      INT
 	    PRIMARY KEY
@@ -265,7 +268,8 @@ BEGIN
 		 FROM bodb02..match AS m(NOLOCK)
 			INNER JOIN bodb02..League AS l(NOLOCK) ON m.leagueid = l.leagueid
 		 WHERE l.sporttype = 44;
-
+	
+	-- #ProductBettype
     CREATE TABLE #ProductBettype(
 	    Bettype       INT
 	    PRIMARY KEY
@@ -290,32 +294,21 @@ BEGIN
 			 (NOLOCK) AS sb
 		 WHERE sb.BetType NOT IN(901, 902, 911, 912);
 
-    INSERT INTO #tmpBettype(ProductID
-					 , bettype)
-		 SELECT tblP.ProductID
-			 , tblS.bettype
-		 FROM @SportBettype AS tblS
-			INNER JOIN #Product AS tblP ON tblS.ProductID = tblP.ProductID
-		 WHERE tblP.ProductID <> 1;
-
-    CREATE CLUSTERED INDEX IDX_Bettype_bettype_ProductID ON #tmpBettype(bettype, ProductID);
-
+	/*-get data from bettransRNG*/
     INSERT INTO #TmpResultAll
 		 SELECT b.mrecommend
 			 , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(5, 2)) AS VarianceVR
 			 , SUM(stake * (1 - tpositiontaking)) AS                      TurnoverIBC
 			 , SUM(CASE
 					 WHEN bg.Bettype IS NOT NULL THEN 0 /*Progressive Jackpot, PP Promotion Prize, PP Tournament Prize*/
-					 WHEN t.bettype IN(2198, 2398, 2998)
-					 THEN b.ContributionRate * b.BetStake + swinlost + mwinlost + awinlost /*Jackpot Contribution*/
+					 WHEN b.gameID IN(2198, 2398, 2998) THEN b.ContributionRate * b.BetStake + swinlost + mwinlost + awinlost /*Jackpot Contribution*/
 					 ELSE swinlost + mwinlost + awinlost + winlost - actual_stake
 				  END) AS                                                WinlossIBC
 			 , SUM(scomm) AS                                              CommissionS
 			 , SUM(CASE
 					 WHEN tpositiontaking = 1 THEN 0
 					 WHEN bg.Bettype IS NOT NULL THEN 0 /*Progressive Jackpot, PP Promotion Prize, PP Tournament Prize*/
-					 WHEN b.gameID IN(2198, 2398, 2998)
-					 THEN(b.ContributionRate * b.BetStake) * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 8)) /*Jackpot Contribution*/
+					 WHEN b.gameID IN(2198, 2398, 2998) THEN(b.ContributionRate * b.BetStake) * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 8)) /*Jackpot Contribution*/
 					 ELSE(winlost - actual_stake) * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 8))
 				  END) AS                                                ExtraWL
 			 , SUM(CASE
@@ -328,20 +321,18 @@ BEGIN
 						 THEN 0
 						 ELSE scomm * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 8)) / (1 - tpositiontaking)
 					  END) AS DECIMAL(19, 6)) AS                        ExtraComm
-/*RM*/
+			 /*RM*/
 			 , SUM(stake * (1 - tpositiontaking) * actualrate) AS         TurnoverIBC_RM
 			 , SUM(CASE
 					 WHEN bg.Bettype IS NOT NULL THEN 0 /*Progressive Jackpot, PP Promotion Prize, PP Tournament Prize*/
-					 WHEN t.bettype IN(2198, 2398, 2998)
-					 THEN b.ContributionRate * b.BetStake + swinlost + mwinlost + awinlost /*Jackpot Contribution*/
+					 WHEN b.gameID IN(2198, 2398, 2998) THEN b.ContributionRate * b.BetStake + swinlost + mwinlost + awinlost /*Jackpot Contribution*/
 					 ELSE swinlost + mwinlost + awinlost + winlost - actual_stake
 				  END * actualrate) AS                                   WinlossIBC_RM
 			 , SUM(scomm * actualrate) AS                                 CommissionS_RM
 			 , SUM(CASE
 					 WHEN tpositiontaking = 1 THEN 0
 					 WHEN bg.Bettype IS NOT NULL THEN 0 /*Progressive Jackpot, PP Promotion Prize, PP Tournament Prize*/
-					 WHEN b.gameID IN(2198, 2398, 2998)
-					 THEN(b.ContributionRate * b.BetStake) * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 8)) /*Jackpot Contribution*/
+					 WHEN b.gameID IN(2198, 2398, 2998) THEN(b.ContributionRate * b.BetStake) * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 8)) /*Jackpot Contribution*/
 					 ELSE(winlost - actual_stake) * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 8))
 				  END * actualrate) AS                                   ExtraWL_RM
 			 , SUM(CASE
@@ -355,7 +346,6 @@ BEGIN
 						 ELSE scomm * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 8)) / (1 - tpositiontaking)
 					  END * actualrate) AS DECIMAL(19, 6)) AS           ExtraComm_RM
 		 FROM bettransRNG AS b WITH (NOLOCK)
-			INNER JOIN #tmpBettype AS t ON t.bettype = b.gameID
 			INNER JOIN #ProductBettype AS pb ON pb.Bettype = b.gameID
 			LEFT JOIN #ExtraPT AS expt ON expt.SuperID = b.srecommend
 									AND expt.ProductID = pb.ProductID
@@ -363,15 +353,13 @@ BEGIN
 									AND expt.Sporttype = 0
 			LEFT JOIN #PrizeBettypeGroup bg ON b.gameID = bg.Bettype
 		 WHERE winlostdate BETWEEN CAST(@FromDate AS SMALLDATETIME) AND CAST(@ToDate AS SMALLDATETIME)
-			  AND t.ProductID IN(6, 22, 24, 32, 34)
 			  AND b.statusID NOT IN(0, 1, 101, 102, 103)
 			  AND b.currency <> 20
 			  AND b.srecommend = @srecommend
 		 GROUP BY b.mrecommend
 			   , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(5, 2)) OPTION(RECOMPILE);
 
-
-
+	/*Get data from bettrans*/
     INSERT INTO #TmpResultAll
 		 SELECT b.mrecommend
 			 , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(5, 2)) AS                     VarianceVR
@@ -401,7 +389,7 @@ BEGIN
 						 THEN 0						 
 						 ELSE scomm * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 8)) / (1 - tpositiontaking)
 					  END) AS DECIMAL(19, 6)) AS                                            ExtraComm
-/*RM*/
+			 /*RM*/
 			 , SUM(CASE
 					 WHEN pb.ProductID = 1
 					 THEN ABS(stake)					 
@@ -429,19 +417,14 @@ BEGIN
 						 ELSE scomm * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 8)) / (1 - tpositiontaking)
 					  END * actualrate) AS DECIMAL(19, 6)) AS                               ExtraComm_RM
 		 FROM bettrans AS b WITH (ROWLOCK)
-			INNER JOIN #tmpBettype AS t ON t.bettype = b.bettype
+			INNER JOIN #tmpBettype AS t ON t.RefTable NOT IN (1, 2) AND t.bettype = b.bettype
 			INNER JOIN #ProductBettype AS pb ON pb.Bettype = b.bettype
 			LEFT JOIN #Match44 AS m44 ON b.matchid = m44.MatchID
 			LEFT JOIN #ExtraPT AS expt ON expt.SuperID = b.srecommend
 									AND expt.ProductID = pb.ProductID
 									AND expt.SubProduct = pb.SubProduct
 									AND expt.Sporttype = ISNULL(m44.SportType, 0)
-			LEFT JOIN #ExtraComm AS excomm ON excomm.SuperID = b.srecommend
-									    AND excomm.ProductID = pb.ProductID
-									    AND excomm.SubProduct = pb.SubProduct
-									    AND excomm.Sporttype = ISNULL(m44.SportType, 0)
-		 WHERE winlostdate BETWEEN CAST(@FromDate AS SMALLDATETIME) AND CAST(@ToDate AS SMALLDATETIME)
-			  AND t.ProductID NOT IN(6, 21, 22, 24, 32, 34) /* excule AllBet	*/			  
+		 WHERE winlostdate BETWEEN CAST(@FromDate AS SMALLDATETIME) AND CAST(@ToDate AS SMALLDATETIME)	  
 			  AND b.ruben = 1
 			  AND b.statusID NOT IN(101, 102, 103)
 			  AND b.currency <> 20
@@ -449,6 +432,7 @@ BEGIN
 		 GROUP BY b.mrecommend
 			   , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(5, 2)) OPTION(RECOMPILE);
 
+	/*-get data from bettransLC*/
     INSERT INTO #TmpResultAll
 		 SELECT b.mrecommend
 			 , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(5, 2)) AS                     VarianceVR
@@ -470,7 +454,7 @@ BEGIN
 						 THEN 0
 						 ELSE scomm * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 8)) / (1 - tpositiontaking)
 					  END) AS DECIMAL(19, 6)) AS                                            ExtraComm
-/*RM*/
+			 /*RM*/
 			 , SUM(stake * (1 - tpositiontaking) * actualrate) AS                             TurnoverIBC_RM
 			 , SUM((swinlost + mwinlost + awinlost + winlost - actual_stake) * actualrate) AS WinlossIBC_RM
 			 , SUM(scomm * actualrate) AS                                                     CommissionS_RM
@@ -490,21 +474,19 @@ BEGIN
 						 ELSE scomm * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 8)) / (1 - tpositiontaking)
 					  END * actualrate) AS DECIMAL(19, 6)) AS                               ExtraComm_RM
 		 FROM bettransLC AS b WITH (NOLOCK)
-			INNER JOIN #tmpBettype AS t ON t.bettype = b.gameID
 			INNER JOIN #ProductBettype AS pb ON pb.Bettype = b.gameID
 			LEFT JOIN #ExtraPT AS expt ON expt.SuperID = b.srecommend
 									AND expt.ProductID = pb.ProductID
 									AND expt.SubProduct = pb.SubProduct
 									AND expt.Sporttype = 0
 		 WHERE winlostdate BETWEEN CAST(@FromDate AS SMALLDATETIME) AND CAST(@ToDate AS SMALLDATETIME)
-			  AND t.ProductID = 21 /* AllBet	*/
 			  AND b.statusID NOT IN(0, 1, 101, 102, 103)
 			  AND b.currency <> 20
 			  AND b.srecommend = @srecommend
 		 GROUP BY b.mrecommend
 			   , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(5, 2)) OPTION(RECOMPILE);
 
-
+	/*-record set main data*/
     SELECT b.mrecommend
 	    , cm.username
 	    , ISNULL(cm.virtualmultiplier, 1) AS                                                              EnableVirtualrate
@@ -593,10 +575,10 @@ BEGIN
 		 , cm.username
 		 , ISNULL(cm.virtualmultiplier, 1)
     ORDER BY username;
-
+	
+	-- Drop temp tables
     DROP TABLE #TmpResultAll;
     DROP TABLE #ExtraPT;
-    DROP TABLE #ExtraComm;
     DROP TABLE #ProductBettype;
     DROP TABLE #Match44;
     DROP TABLE #Product;
@@ -604,8 +586,4 @@ BEGIN
 	DROP TABLE #PrizeBettypeGroup;
 END;
 
-
-GO
-
-GRANT EXECUTE ON dbo.Acc_Rpt_TreeWinlostBySAg TO [bodbAdminNet];
 GO
