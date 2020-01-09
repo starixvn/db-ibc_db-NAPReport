@@ -1,5 +1,4 @@
-/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
-
+/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_AGC_Deposit]
 	@FromDate DATE,
 	@ToDate	DATE
@@ -11,6 +10,8 @@ AS
    
     Revisions:  
 	   - 20190222@Robert: #109196 - House Net Income - Arrange Email notification for Licensee Figures
+	   - 20200108@Percy: #124755 - Support billing terms by product & currency instead of product only
+	
 	Param's Explanation:   
 
 	EXEC Acc_Rpt_HouseNetIncome_AGC_Deposit '20160901', '20160930'
@@ -78,7 +79,8 @@ BEGIN
     -- Region: ChargeInfo
 
     DECLARE @PartyChargeInfo AS TABLE(
-	    PartyId       INT
+		ChargeId	  INT
+	  , PartyId       INT
 	  , LicenseeId    INT
 	  , IsDeposit     BIT
 	  , ProductID     INT
@@ -87,7 +89,8 @@ BEGIN
 	  , ToDate        SMALLDATETIME
 	  , Bettype       INT);
 
-    INSERT INTO @PartyChargeInfo(PartyId
+    INSERT INTO @PartyChargeInfo(ChargeId
+						 , PartyId
 						 , LicenseeId
 						 , IsDeposit
 						 , ProductID
@@ -96,7 +99,8 @@ BEGIN
 						 , Todate
 						 , Bettype)
 		 (
-			SELECT ci.PartyID
+			SELECT ci.ChargeId
+				, ci.PartyID
 				, ci.LicenseeID
 				, ci.isDeposit
 				, ci.ProductID
@@ -169,7 +173,7 @@ BEGIN
 				, b.CurrencyID
 				, SUM(ISNULL(b.MemberWL, 0))
 				, SUM(-ISNULL(b.MemberWL, 0))
-				, SUM(-ISNULL(b.MemberWL, 0) * p.Rate * e.Rate)
+				, SUM(-ISNULL(b.MemberWL, 0) * ISNULL(lc.Rate, p.Rate) * e.Rate)
 			FROM bodb_LicenseeReport.dbo.rpt_BettingByProduct AS b WITH (NOLOCK)
 			    INNER JOIN #Exchange AS e ON b.rptDate = e.ExchangeDate
 									   AND b.CurrencyId = e.ExchangeID
@@ -179,6 +183,8 @@ BEGIN
 											AND
 											    (p.Bettype = -1
 												OR p.Bettype = b.Bettype)
+				LEFT JOIN bodb_Licensee.dbo.LA_ChargeRateByCurrency AS lc WITH (NOLOCK) ON p.ChargeId = lc.ChargeID
+																						AND b.CurrencyId = lc.CurrencyID
 			WHERE b.rptDate BETWEEN @FDate AND @TDate
 				 AND b.CurrencyID <> 20
 				 AND b.customercategory NOT IN(27, 28)

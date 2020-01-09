@@ -1,8 +1,4 @@
-/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
-
-USE bodb02
-GO
-
+/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_SB_Deposit]
 	@FromDate DATE,
 	@ToDate	DATE
@@ -15,6 +11,7 @@ AS
    
     Revisions:
 		- 20180126@Harper - HDWL Letstalk - Implement Chart of SB margin [#RedmineID: 89632]
+		- 20200108@Percy: #124755 - Support billing terms by product & currency instead of product only
 
 	Param's Explanation:   
 
@@ -45,6 +42,7 @@ BEGIN
 	-- End region
 
 	DECLARE @PartyChargeInfo AS TABLE (
+			ChargeId	INT,
 			PartyId		INT,
 			LicenseeId	INT,
 			IsDeposit	BIT,
@@ -54,11 +52,11 @@ BEGIN
 			ToDate		SMALLDATETIME,
 			Bettype		INT)
 
-	INSERT INTO @PartyChargeInfo(PartyId, LicenseeId, IsDeposit, ProductID, Rate, Fromdate, Todate, Bettype)
+	INSERT INTO @PartyChargeInfo(ChargeId, PartyId, LicenseeId, IsDeposit, ProductID, Rate, Fromdate, Todate, Bettype)
 	(
-		SELECT	ci.PartyID, ci.LicenseeID, ci.isDeposit, ci.ProductID, ci.DI_Rate, ci.Fromdate, ci.ToDate, ISNULL(sbr.Bettype, ci.Bettype)
+		SELECT	ci.ChargeId, ci.PartyID, ci.LicenseeID, ci.isDeposit, ci.ProductID, ci.DI_Rate, ci.Fromdate, ci.ToDate, ISNULL(sbr.Bettype, ci.Bettype)
 		FROM	bodb_licensee.dbo.LA_f_ChargeInfo(@PartyIDs, @FDate, @TDate, 'SB,BA', 'OA', 1) ci
-			LEFT JOIN bodb_licensee..Sport_Bettype_Reference sbr WITH(NOLOCK) ON sbr.BettypeRef = ci.Bettype
+			LEFT JOIN bodb_licensee.dbo.Sport_Bettype_Reference sbr WITH(NOLOCK) ON sbr.BettypeRef = ci.Bettype
 		WHERE	DI_Rate > 0 AND ProductId <> 1 --exclude RB
 	)
 	-- End region
@@ -138,16 +136,18 @@ BEGIN
 				SUM(CASE WHEN b.customercategory NOT IN (27, 28) THEN ISNULL(b.MemberWL, 0) ELSE 0 END * e.Rate),
 				SUM(CASE WHEN b.customercategory NOT IN (27, 28) THEN ISNULL(b.CommissionA, 0) ELSE 0 END * e.Rate),
 				p.ProductId,
-				SUM(CASE WHEN b.customercategory NOT IN (27, 28) THEN -ISNULL(b.MemberWL, 0) ELSE 0 END * p.Rate * e.Rate),
+				SUM(CASE WHEN b.customercategory NOT IN (27, 28) THEN -ISNULL(b.MemberWL, 0) ELSE 0 END * ISNULL(lc.Rate, p.Rate) * e.Rate),
 				1 AS IsApplyMinFee,
-				SUM(CASE WHEN b.customercategory NOT IN (27, 28) THEN -ISNULL(b.MemberWL, 0) ELSE 0 END * ISNULL(d.Rate, 0) * p.Rate * e.Rate),
-				SUM(ISNULL(b.Turnover, 0) * p.Rate * e.Rate) - SUM(ISNULL(b.Turnover, 0) * ISNULL(d.Rate, 0) * p.Rate * e.Rate)
+				SUM(CASE WHEN b.customercategory NOT IN (27, 28) THEN -ISNULL(b.MemberWL, 0) ELSE 0 END * ISNULL(d.Rate, 0) * ISNULL(lc.Rate, p.Rate) * e.Rate),
+				SUM(ISNULL(b.Turnover, 0) * ISNULL(lc.Rate, p.Rate) * e.Rate) - SUM(ISNULL(b.Turnover, 0) * ISNULL(d.Rate, 0) * ISNULL(lc.Rate, p.Rate) * e.Rate)
 		FROM	bodb_LicenseeReport.dbo.rpt_BettingByProduct b WITH (NOLOCK)
 				INNER JOIN #Exchange e ON b.rptDate = e.ExchangeDate AND b.CurrencyId = e.ExchangeID
 				INNER JOIN @PartyChargeInfo p ON	b.ProductId = p.ProductID 
 													AND p.LicenseeId = b.SiteId
 													AND (b.rptDate BETWEEN p.FromDate AND p.ToDate)
 													AND (p.Bettype = -1 OR p.Bettype = b.Bettype)
+				LEFT JOIN bodb_Licensee.dbo.LA_ChargeRateByCurrency AS lc WITH (NOLOCK) ON p.ChargeId = lc.ChargeID
+																						AND b.CurrencyId = lc.CurrencyID
 				LEFT JOIN #DiscountGroup d ON d.PartyId = p.PartyId AND d.ProductId = p.ProductID
 		WHERE	b.rptDate BETWEEN @FDate AND @TDate
 				AND b.CurrencyID <> 20
@@ -209,8 +209,8 @@ BEGIN
 	SELECT	@PartyIDs = COALESCE(@PartyIDs + ',', '') + CONVERT(VARCHAR(10), PartyId) FROM @tmpParty
 
 	DELETE FROM @PartyChargeInfo
-	INSERT INTO @PartyChargeInfo(PartyId, LicenseeId, IsDeposit, ProductID, Rate, Fromdate, Todate)
-	SELECT	PartyID, LicenseeID, isDeposit, ProductID, DI_Rate, Fromdate, Todate
+	INSERT INTO @PartyChargeInfo(ChargeId, PartyId, LicenseeId, IsDeposit, ProductID, Rate, Fromdate, Todate)
+	SELECT	ChargeId, PartyID, LicenseeID, isDeposit, ProductID, DI_Rate, Fromdate, Todate
 	FROM	bodb_licensee.dbo.LA_f_ChargeInfo(@PartyIds, @FDate, @TDate, 'SB', 'OA', 0)
 	WHERE	DI_Rate > 0
 
@@ -225,12 +225,13 @@ BEGIN
 						ELSE -b.WinLoss
 				END) LicenseeWL,
 			SUM(CASE WHEN p.IsDeposit = 0 
-						THEN (-b.WinLoss - b.WinLossA - b.WinLossS - b.WinLossM - b.CommissionS) * p.Rate
-						ELSE -b.WinLoss * p.Rate 
+						THEN (-b.WinLoss - b.WinLossA - b.WinLossS - b.WinLossM - b.CommissionS) * ISNULL(lc.Rate, p.Rate)
+						ELSE -b.WinLoss * ISNULL(lc.Rate, p.Rate)
 				END) AmtLicensee
 	FROM	bodb_licenseereport.dbo.rpt_Betting b WITH (NOLOCK)
-			INNER JOIN @PartyChargeInfo p ON b.SiteID = p.LicenseeId 
-			AND b.rptDate BETWEEN p.FromDate AND p.ToDate
+			INNER JOIN @PartyChargeInfo p ON b.SiteID = p.LicenseeId  AND b.rptDate BETWEEN p.FromDate AND p.ToDate
+			LEFT JOIN bodb_Licensee.dbo.LA_ChargeRateByCurrency AS lc WITH (NOLOCK) ON p.ChargeId = lc.ChargeID
+																						AND b.CurrencyId = lc.CurrencyID
 	WHERE	b.rptDate BETWEEN @FDate AND @TDate
 			AND (b.CurrencyID <> 20)
 			AND b.[Status] BETWEEN 111 AND 113
@@ -422,14 +423,3 @@ BEGIN
 	DROP TABLE #MetricGamingData
 END
 GO
-
-SET QUOTED_IDENTIFIER OFF 
-GO
-SET ANSI_NULLS ON 
-GO
-
-GO 
- GRANT VIEW DEFINITION ON [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_SB_Deposit] TO [vnteam]
-GO 
- GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_SB_Deposit] TO [bodbAdminNet]
-GO 

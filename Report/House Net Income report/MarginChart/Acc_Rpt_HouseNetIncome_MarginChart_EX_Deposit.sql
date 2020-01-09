@@ -1,8 +1,4 @@
-/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
-
-USE bodb02
-GO
-
+/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_EX_Deposit]
 	@FromDate DATE,
 	@ToDate	DATE
@@ -15,6 +11,7 @@ AS
    
     Revisions:
 		- 20180126@Harper - HDWL Letstalk - Implement Chart of NonSport product margin [#RedmineID: 89632]
+		- 20200108@Percy: #124755 - Support billing terms by product & currency instead of product only
 		
 	Param's Explanation:   
 
@@ -48,6 +45,7 @@ BEGIN
 	
 	-- Region: Get Licensees has charge rate
 	DECLARE @PartyChargeInfo AS TABLE (
+			ChargeId	INT,
 			PartyId		INT,
 			LicenseeId	INT,
 			ParentID	INT,
@@ -65,9 +63,9 @@ BEGIN
 			ProductID	INT
 			)
 
-	INSERT INTO @PartyChargeInfo(PartyId, LicenseeId, ParentID, Rate, Fromdate, Todate, ProductID)
+	INSERT INTO @PartyChargeInfo(ChargeId, PartyId, LicenseeId, ParentID, Rate, Fromdate, Todate, ProductID)
 	(
-		SELECT	ci.PartyID, ci.LicenseeID, p.ParentID, ci.DI_Rate, ci.Fromdate, ci.ToDate, ci.ProductID
+		SELECT	ci.ChargeId, ci.PartyID, ci.LicenseeID, p.ParentID, ci.DI_Rate, ci.Fromdate, ci.ToDate, ci.ProductID
 		FROM	bodb_licensee.dbo.LA_f_ChargeInfo(@PartyIDs, @FDate, @TDate, 'BX', 'OA', 1) ci	
 			INNER JOIN @tmpParty p ON ci.PartyID = p.PartyID	
 		WHERE	DI_Rate > 0 AND ci.ChargeType = 1 -- get PT
@@ -120,13 +118,15 @@ BEGIN
 				SUM(ISNULL(b.CommissionA, 0) * e.Rate),
 				SUM(ISNULL(b.CommissionP, 0) * e.Rate) ,
 				b.ProductId,
-				SUM(-ISNULL(b.MemberWL, 0) * p.Rate * e.Rate),
+				SUM(-ISNULL(b.MemberWL, 0) * ISNULL(lc.Rate, p.Rate) * e.Rate),
 				SUM(ISNULL(b.MemberWL, 0) * rd.Rate * e.Rate)
 		FROM	bodb_LicenseeReport.dbo.rpt_BettingByProduct b WITH (NOLOCK)
 				INNER JOIN #ExchangeOANDA e ON b.rptDate = e.ExchangeDate AND b.CurrencyId = e.ExchangeID				
 				INNER JOIN @PartyChargeInfo p ON	b.ProductId = p.ProductID 
 													AND p.LicenseeId = b.SiteId
-													AND (b.rptDate BETWEEN p.FromDate AND p.ToDate)													
+													AND (b.rptDate BETWEEN p.FromDate AND p.ToDate)
+				LEFT JOIN bodb_Licensee.dbo.LA_ChargeRateByCurrency AS lc WITH (NOLOCK) ON p.ChargeId = lc.ChargeID
+																						AND b.CurrencyId = lc.CurrencyID
 				INNER JOIN @PartyCharge3rdInfo rd ON b.ProductID = rd.ProductID
 													AND b.SiteID = rd.LicenseeID
 													AND (b.rptDate BETWEEN rd.FromDate AND rd.ToDate)	
@@ -189,9 +189,4 @@ BEGIN
 	DROP TABLE #TempDataEX
 	DROP TABLE #FinalResult
 END
-GO
-
-GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_EX_Deposit] TO [bodbAdminNet]
-GO
-GRANT VIEW definition ON [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_EX_Deposit] TO vnteam
 GO

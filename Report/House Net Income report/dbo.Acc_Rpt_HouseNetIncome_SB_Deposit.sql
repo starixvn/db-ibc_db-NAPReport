@@ -1,5 +1,4 @@
-/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
-
+/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE dbo.Acc_Rpt_HouseNetIncome_SB_Deposit 
 	@FromDate    DATE 
    , @ToDate      DATE 
@@ -20,6 +19,7 @@ AS
 		- 20190308@Robert: 109770 - House Net Income - Change formula for MTD values and add old month data into a new sheet
 		- 20190406@Robert: 107164 - House Net Income Email/Letstalk/Margin Chart - Integrate Bet Builder
 		- 20200203@Robert: #125762 - DHWL Letstalk - Support to add Margin report into the current DHWL Letstalk report
+		- 20200108@Percy: #124755 - Support billing terms by product & currency instead of product only
 		- 20200113@Ned.Le: DHWL Letstalk Reports - Break SB into Soccer, OS and Parlay (#126634)
 		- 20200202@Robert: #126634 DHWL - break OS into Basketball, E-sports, Tennis and Other Sports
 
@@ -76,7 +76,8 @@ BEGIN
     -- Get data about PartyChargeInfo
 
     CREATE TABLE #TempPartyChargeInfo(
-	    PartyId       INT
+	    ChargeId      INT
+	  , PartyId       INT
 	  , LicenseeId    INT
 	  , IsDeposit     BIT
 	  , ProductID     INT
@@ -85,7 +86,8 @@ BEGIN
 	  , ToDate        SMALLDATETIME
 	  , Bettype       INT);
 
-    INSERT INTO #TempPartyChargeInfo(PartyId
+    INSERT INTO #TempPartyChargeInfo(ChargeId
+								   , PartyId
 							, LicenseeId
 							, IsDeposit
 							, ProductID
@@ -94,7 +96,8 @@ BEGIN
 							, Todate
 							, Bettype)
 		 (
-			SELECT ci.PartyID
+		SELECT ci.ChargeId
+			 , ci.PartyID
 				, ci.LicenseeID
 				, ci.isDeposit
 				, ci.ProductID
@@ -104,7 +107,7 @@ BEGIN
 				, ISNULL(sbr.Bettype, ci.Bettype)
 			FROM bodb_licensee.dbo.LA_f_ChargeInfo
 				(@PartyIDs, @FDate, @TDate, 'SB,BA', 'OA', 1) AS ci
-			    LEFT JOIN bodb_licensee..Sport_Bettype_Reference AS sbr WITH(NOLOCK) ON sbr.BettypeRef = ci.Bettype
+			 LEFT JOIN bodb_licensee.dbo.Sport_Bettype_Reference AS sbr WITH(NOLOCK) ON sbr.BettypeRef = ci.Bettype
 			WHERE DI_Rate > 0
 				 AND ProductId <> 1 --exclude RB
 		 );
@@ -324,9 +327,8 @@ BEGIN
 							ELSE 'Other Sports'
 						 END
 				  END AS Sporttype
-				, SUM(-ISNULL(b.MemberWinloss, 0) * p.Rate * e.Rate)
 				, 1 AS IsApplyMinFee
-				, SUM(-ISNULL(b.MemberWinloss, 0) * p.Rate * ISNULL(d.Rate, 0) * e.Rate)
+			 , SUM(-ISNULL(b.MemberWinloss, 0) * ISNULL(lc.Rate, p.Rate) * ISNULL(d.Rate, 0) * e.Rate)
 			FROM #TempFactLADailyWinloss AS b
 			    LEFT JOIN #TempProductMapping AS pm ON b.ProductID = pm.ProductID_DW
 			    LEFT JOIN #TempSiteMapping AS sm ON b.SiteID = sm.SiteID_DW
@@ -338,6 +340,8 @@ BEGIN
 											    AND
 												   (p.Bettype = -1
 												    OR p.Bettype = b.Bettype)
+			 LEFT JOIN bodb_Licensee.dbo.LA_ChargeRateByCurrency AS lc WITH (NOLOCK) ON p.ChargeId = lc.ChargeID
+																						AND b.CurrencyId = lc.CurrencyID
 			    LEFT JOIN #DiscountGroup AS d ON d.PartyId = p.PartyId
 										  AND d.ProductId = pm.ProductID_Li
 			WHERE b.rptDate BETWEEN @FDate AND @TDate

@@ -1,5 +1,4 @@
-/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
-
+/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE dbo.Acc_Rpt_HouseNetIncome_SB_PayToMetricGaming
 	@FromDate       DATE
    , @ToDate         DATE
@@ -13,6 +12,7 @@ AS
 
     Revisions:
 	   - 20190524@Robert: #113946 - DHWL Margin Chart - Separate Payto Metric Gaming & Bet Genius for credit/licensee
+	   - 20200108@Percy: #124755 - Support billing terms by product & currency instead of product only
 
     Param's Explanation:  
     - DepositType  
@@ -38,7 +38,8 @@ BEGIN
 	  , IsDeposit    BIT);
 
     DECLARE @PartyChargeInfo AS TABLE(
-	    PartyId       INT
+	    ChargeId	  INT
+	  , PartyId       INT
 	  , LicenseeId    INT
 	  , IsDeposit     BIT
 	  , ProductID     INT
@@ -119,7 +120,8 @@ BEGIN
     SELECT @PartyIDs = COALESCE(@PartyIDs+',', '')+CONVERT(VARCHAR(10), PartyId)
     FROM @tmpParty;
 
-    INSERT INTO @PartyChargeInfo(PartyId
+    INSERT INTO @PartyChargeInfo(ChargeId
+						 , PartyId
 						 , LicenseeId
 						 , IsDeposit
 						 , ProductID
@@ -127,7 +129,8 @@ BEGIN
 						 , Fromdate
 						 , Todate)
 		 (
-			SELECT PartyID
+			SELECT ChargeId
+				, PartyID
 				, LicenseeID
 				, isDeposit
 				, ProductID
@@ -159,12 +162,14 @@ BEGIN
 					 END) AS LicenseeWL
 				, SUM(CASE
 						WHEN p.IsDeposit = 0
-						THEN(-b.WinLoss - b.WinLossA - b.WinLossS - b.WinLossM - b.CommissionS) * p.Rate
-						ELSE-b.WinLoss * p.Rate
+						THEN(-b.WinLoss - b.WinLossA - b.WinLossS - b.WinLossM - b.CommissionS) * ISNULL(lc.Rate, p.Rate)
+						ELSE-b.WinLoss * ISNULL(lc.Rate, p.Rate)
 					 END) AS AmtLicensee
 			FROM bodb_licenseereport.dbo.rpt_Betting AS b WITH (NOLOCK)
 			    INNER JOIN @PartyChargeInfo AS p ON b.SiteID = p.LicenseeId
 											AND b.rptDate BETWEEN p.FromDate AND p.ToDate
+				LEFT JOIN bodb_Licensee.dbo.LA_ChargeRateByCurrency AS lc WITH (NOLOCK) ON p.ChargeId = lc.ChargeID
+																						AND b.CurrencyId = lc.CurrencyID
 			WHERE b.rptDate BETWEEN @FDate AND @TDate
 				 AND b.CurrencyID <> 20
 				 AND b.Status BETWEEN 111 AND 113

@@ -1,5 +1,4 @@
-/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
-
+/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_CC_Deposit]
 	@FromDate DATE ,
 	@ToDate	DATE 
@@ -11,6 +10,7 @@ AS
    
     Revisions:  
 		- 20190819@Robert - NAP Report - Integrate Card Club on NAP Report [#115465]
+		- 20200108@Percy: #124755 - Support billing terms by product & currency instead of product only
 	
 	Param's Explanation:   
 
@@ -62,7 +62,8 @@ BEGIN
     -- Region: Get Licensees has charge rate
 
     DECLARE @PartyChargeInfo AS TABLE(
-	    PartyId       INT
+	    ChargeId	  INT
+	  , PartyId       INT
 	  , LicenseeId    INT
 	  , ParentID      INT
 	  , Rate          MONEY
@@ -77,7 +78,8 @@ BEGIN
 	  , ToDate        SMALLDATETIME
 	  , ProductID     INT);
 
-    INSERT INTO @PartyChargeInfo(PartyId
+    INSERT INTO @PartyChargeInfo(ChargeId
+						 , PartyId
 						 , LicenseeId
 						 , ParentID
 						 , Rate
@@ -85,7 +87,8 @@ BEGIN
 						 , Todate
 						 , ProductID)
 		 (
-			SELECT ci.PartyID
+			SELECT ci.ChargeId
+				, ci.PartyID
 				, ci.LicenseeID
 				, p.ParentID
 				, ci.DI_Rate
@@ -174,7 +177,7 @@ BEGIN
 				, SUM(ISNULL(b.MemberWL, 0) * rd.Rate * oa.Rate)
 				, p.ProductId
 				, SUM(-ISNULL(b.MemberWL, 0) * e.Rate)
-				, SUM(-ISNULL(b.MemberWL, 0) * p.Rate * e.Rate)
+				, SUM(-ISNULL(b.MemberWL, 0) * ISNULL(lc.Rate, p.Rate) * e.Rate)
 			FROM bodb_LicenseeReport.dbo.rpt_BettingByProduct AS b WITH (NOLOCK)
 			    INNER JOIN #Exchange AS e ON b.rptDate = e.ExchangeDate
 									   AND b.CurrencyId = e.ExchangeID
@@ -183,6 +186,8 @@ BEGIN
 			    INNER JOIN @PartyChargeInfo AS p ON b.ProductId = p.ProductID
 											AND p.LicenseeId = b.SiteId
 											AND b.rptDate BETWEEN p.FromDate AND p.ToDate
+				LEFT JOIN bodb_Licensee.dbo.LA_ChargeRateByCurrency AS lc WITH (NOLOCK) ON p.ChargeId = lc.ChargeID
+																						AND b.CurrencyId = lc.CurrencyID
 			    INNER JOIN @PartyCharge3rdInfo AS rd ON b.ProductID = rd.ProductID
 											    AND b.SiteID = rd.LicenseeID
 											    AND b.rptDate BETWEEN rd.FromDate AND rd.ToDate
