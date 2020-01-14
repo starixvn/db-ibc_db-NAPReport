@@ -13,6 +13,8 @@ DB: DBWH.bodb_dwrs
 Revisions:
 	20191211@Robert: Initialize SP	
 	20191227@Robert: #125762 - DHWL Letstalk - Support to add Margin report into the current DHWL Letstalk report, Need to exclude sporttype = -1 
+	20200116@Cherry: Separate CN88 data into 3 groups: overall, 92%, 88% (#127003)
+
 Example:
 
 EXEC [Acc_Rpt_HouseNetIncome_CN88] @@FromDate='20190801',@@ToDate='20190801'
