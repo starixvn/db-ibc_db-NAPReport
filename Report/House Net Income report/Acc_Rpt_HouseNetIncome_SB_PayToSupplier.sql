@@ -13,6 +13,7 @@ AS
    
     Revisions:		
 		- 20200203@Robert: #125762 - DHWL Letstalk - Support to add Margin report into the current DHWL Letstalk report
+		- 20200113@Ned.Le: DHWL Letstalk Reports - Break SB into Soccer, OS and Parlay (#126634)
 
 	Param's Explanation:  
 		  - DepositType  
@@ -127,11 +128,11 @@ BEGIN
 	SELECT @SQL =	'SELECT * ' + CHAR(13) +
 					'FROM	(SELECT ProductCode, [Order], [RptDate], Figure, ISNULL(value, 0) value FROM #FinalResult' + CHAR(13) +
 							'CROSS APPLY' + CHAR(13) +							
-							'(SELECT ''SB'', 6, ''Pay to Muay Thai'', PayToMuayThai' + CHAR(13) +							
+							'(SELECT ''OS'', 6, ''Pay to Muay Thai'', PayToMuayThai' + CHAR(13) +							
 							'UNION ALL' + CHAR(13) +
-							'SELECT ''SB'', 7, ''Pay to Metric Gaming'', PayToMetricGaming' + CHAR(13) +
+							'SELECT ''Soccer'', 7, ''Pay to Metric Gaming'', PayToMetricGaming' + CHAR(13) +
 							'UNION ALL' + CHAR(13) +
-							'SELECT ''SB'', 8, ''Pay to Bet Genius'', PayToGenius) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
+							'SELECT ''Soccer'', 8, ''Pay to Bet Genius'', PayToGenius) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
 					'PIVOT' + CHAR(13) +
 					'(' + CHAR(13) +
 						'MAX(value)' + CHAR(13) +
