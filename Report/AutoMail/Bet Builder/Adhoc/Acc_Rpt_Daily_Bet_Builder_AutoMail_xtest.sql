@@ -1,6 +1,6 @@
 /*<info serverAlias="DBRPT-bodb_Report" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
-ALTER PROCEDURE dbo.Acc_Rpt_Daily_Bet_Builder_AutoMail_xtest
+ALTER PROCEDURE dbo.Acc_Rpt_Daily_Bet_Builder_AutoMail
 	@WinlostDate    SMALLDATETIME = NULL
 AS
 /*
