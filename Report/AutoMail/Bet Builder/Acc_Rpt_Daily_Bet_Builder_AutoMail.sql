@@ -9,14 +9,18 @@ AS
 	DB: DBRPT.bodb_Report
 	Task: Bet Builder - Daily Automail report to 3rd
 	Revisions:		
-		- 20190527@Robert: Bet Builder - Daily Automail report to 3rd [#114248]
+		20190527@Robert: Bet Builder - Daily Automail report to 3rd [#114248]
+		20200115@Cherry: Adhoc Bet Builder (127236)
 
 	Param's Explanation:	 
 */
 
 BEGIN
     SET NOCOUNT ON;
-
+    
+    DECLARE @FromDate SMALLDATETIME = '20191201',
+			@ToDate SMALLDATETIME = '20191231'
+			
     CREATE TABLE #Data(
 	    TransId           BIGINT
 	  , MatchId           INT
@@ -69,7 +73,7 @@ BEGIN
 				, EUR
 				, Code
 			FROM bodb02.dbo.ExchangeDailyOanda AS o WITH (NOLOCK)
-			WHERE ExchangeDate = @WinlostDate
+			WHERE ExchangeDate BETWEEN @FromDate AND @ToDate
 				 AND ExchangeId NOT IN(20, 27, 28, 72)
 		 );
 
@@ -123,12 +127,12 @@ BEGIN
 				, Scomm AS Commission
 				, b.stake - b.winlost - b.scomm AS GrossRevenue
 			FROM bodb_Report.dbo.BetBuilder_BetHistoryAutomail AS b WITH (NOLOCK)
-			WHERE b.WinlostDate = @WinlostDate
+			WHERE b.WinlostDate BETWEEN @FromDate AND @ToDate
 		 );
 
     CREATE CLUSTERED INDEX CIX_MatchId ON #Data(MatchId ASC);
 
-    IF @WinlostDate > @movebetdate
+    --IF @WinlostDate > @movebetdate
 	   BEGIN
 		  UPDATE d
 			    SET
@@ -140,7 +144,7 @@ BEGIN
 			 INNER JOIN bodb02.dbo.match AS m WITH (NOLOCK) ON m.matchid = d.matchid;
 	   END;
 
-    IF @WinlostDate <= @movebetdate
+    --IF @WinlostDate <= @movebetdate
 	   BEGIN
 		  UPDATE d
 			    SET
@@ -152,7 +156,7 @@ BEGIN
 			 INNER JOIN bodb02.dbo.match14 AS m WITH (NOLOCK) ON m.matchid = d.matchid;
 	   END;
 
-    IF @WinlostDate < @balanceupdate
+    --IF @WinlostDate < @balanceupdate
 	   BEGIN
 		  UPDATE d
 			    SET
@@ -174,7 +178,7 @@ BEGIN
 		 (
 			SELECT Selection
 			FROM f_BetBuilder_GetSelectionName
-				(d.MarketId, @WinlostDate)
+				(d.MarketId, d.WinLostDate)
 		 ) AS BetDescription
 	    , d.NoOfLegsPerBet
 	    , 'Settled' AS BetStatus
@@ -195,7 +199,7 @@ BEGIN
 	    , d.GrossRevenue
     FROM #Data AS d
 	   INNER JOIN @BetFrom AS bf ON d.Betfrom = bf.betfrom
-	   INNER JOIN @ExchangeOANDA AS e ON d.Currency = e.ExchangeID
+	   INNER JOIN @ExchangeOANDA AS e ON d.Currency = e.ExchangeID AND d.WinLostDate = e.ExchangeDate
     UNION ALL
     SELECT '' AS Sport
 	    , 0 AS LeagueId
@@ -216,7 +220,7 @@ BEGIN
 	    , SUM(d.Commission * e.Rate) AS Commission
 	    , SUM(d.GrossRevenue * e.Rate) AS GrossRevenue
     FROM #Data AS d
-	   INNER JOIN @ExchangeOANDA AS e ON d.Currency = e.ExchangeID;
+	   INNER JOIN @ExchangeOANDA AS e ON d.Currency = e.ExchangeID AND d.WinLostDate = e.ExchangeDate;
 
     DROP TABLE #Data;
 END;
