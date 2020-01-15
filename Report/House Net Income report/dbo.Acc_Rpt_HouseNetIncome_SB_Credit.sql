@@ -61,26 +61,21 @@ BEGIN
 			 , BetType
 		 FROM bodb02.dbo.f_SportBettypeMatrix_Sel
 			 (1, 0, 0, 2, '', 'SB', 0)
-		 WHERE SubProduct NOT IN('BT-Sold', 'BT-Bought', 'BT-Comm');    
+		 WHERE SubProduct NOT IN('BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss');    
     
     CREATE TABLE #TmpData(
 	    rptDate      DATE
-	  , SportType    INT
+	  , SportType    VARCHAR(20)
 	  , HouseWL      MONEY
 	  , ExtraPT      MONEY);
-
-    CREATE TABLE #TmpHouseWL(
-	    rptDate        DATE
-	  , ProductCode    VARCHAR(10)
-	  , HouseWL        MONEY
-	  , ExtraPT        MONEY);
 
     INSERT INTO #TmpData(rptDate
 				   , SportType
 				   , HouseWL
 				   , ExtraPT)
 		 SELECT b.rptDate
-			 , b.SportType
+			 , CASE WHEN b.BetType IN (9, 29) THEN 'Parlay'
+				    ELSE CASE WHEN b.SportType = 1 THEN 'Soccer' ELSE 'OS' END END SportType
 			 , ISNULL(-SUM((winlossP + winlossS + winlossM + winlossA + commissionS) * ex.rate), 0) AS HouseWL
 			 , ISNULL(SUM((b.ExtraWL + b.ExtraComm) * ex.Rate), 0) AS ExtraPT
 		 FROM bodb_Account.dbo.FactSiteWinloss AS b WITH(NOLOCK)
@@ -88,7 +83,8 @@ BEGIN
 			LEFT JOIN #exchange AS ex ON b.rptdate = ex.exchangedate
 								    AND b.currencyid = ex.ExchangeID
 		 WHERE b.rptDate BETWEEN @FDate AND @TDATE
-			  AND b.TicketStatus != 14
+			  AND b.TicketStatus NOT IN (-1, 18, 9, 10, 14)
+			  AND b.CurrencyID <> 20
 			  AND SiteID IN
 						 (
 							SELECT siteid
@@ -96,32 +92,9 @@ BEGIN
 							WHERE isDeposit = 0
 						 ) -- Credit data only	    
 		 GROUP BY b.rptDate
-			   , b.SportType OPTION(RECOMPILE);
-
-    INSERT INTO #TmpHouseWL(rptDate
-					 , ProductCode
-					 , HouseWL
-					 , ExtraPT)
-		 SELECT rptDate
-			 , CASE
-				  WHEN t.SportType = 1
-				  THEN 'Soccer'
-				  WHEN t.SportType > 1
-				  THEN 'OS'
-				  ELSE 'Parlay'
-			   END AS ProductCode
-			 , SUM(HouseWL) AS HouseWL
-			 , SUM(ExtraPT) AS ExtraPT
-		 FROM #TmpData AS t
-		 GROUP BY t.rptDate
-			   , CASE
-				    WHEN t.SportType = 1
-				    THEN 'Soccer'
-				    WHEN t.SportType > 1
-				    THEN 'OS'
-				    ELSE 'Parlay'
-				END
-		 ORDER BY t.rptDate;
+			   , CASE WHEN b.BetType IN (9, 29) THEN 'Parlay'
+				      ELSE CASE WHEN b.SportType = 1 THEN 'Soccer' ELSE 'OS' END END
+	     OPTION(RECOMPILE);
 
     WHILE @tmpDate <= @TDate
 	   BEGIN
@@ -136,43 +109,43 @@ BEGIN
 				    ,
 					 (
 						SELECT SUM(t.HouseWL)
-						FROM #TmpHouseWL AS t
-						WHERE t.ProductCode = 'Soccer'
+						FROM #TmpData AS t
+						WHERE t.SportType = 'Soccer'
 							 AND t.rptDate = @tmpDate
 					 ) AS HouseWL_Soccer
 				    ,
 					 (
 						SELECT SUM(t.HouseWL)
-						FROM #TmpHouseWL AS t
-						WHERE t.ProductCode = 'OS'
+						FROM #TmpData AS t
+						WHERE t.SportType = 'OS'
 							 AND t.rptDate = @tmpDate
 					 ) AS HouseWL_OS
 				    ,
 					 (
 						SELECT SUM(t.HouseWL)
-						FROM #TmpHouseWL AS t
-						WHERE t.ProductCode = 'Parlay'
+						FROM #TmpData AS t
+						WHERE t.SportType = 'Parlay'
 							 AND t.rptDate = @tmpDate
 					 ) AS HouseWL_OS
 				    ,
 					 (
 						SELECT SUM(t.ExtraPT)
-						FROM #TmpHouseWL AS t
-						WHERE t.ProductCode = 'Soccer'
+						FROM #TmpData AS t
+						WHERE t.SportType = 'Soccer'
 							 AND t.rptDate = @tmpDate
 					 ) AS ExtraPT_Soccer
 				    ,
 					 (
 						SELECT SUM(t.ExtraPT)
-						FROM #TmpHouseWL AS t
-						WHERE t.ProductCode = 'OS'
+						FROM #TmpData AS t
+						WHERE t.SportType = 'OS'
 							 AND t.rptDate = @tmpDate
 					 ) AS ExtraPT_OS
 				    ,
 					 (
 						SELECT SUM(t.ExtraPT)
-						FROM #TmpHouseWL AS t
-						WHERE t.ProductCode = 'Parlay'
+						FROM #TmpData AS t
+						WHERE t.SportType = 'Parlay'
 							 AND t.rptDate = @tmpDate
 					 ) AS ExtraPT_Parlay;
 
@@ -222,7 +195,6 @@ BEGIN
     EXEC (@SQL);
 
     DROP TABLE #SportBettypeMatrix;
-    DROP TABLE #TmpHouseWL;
     DROP TABLE #Exchange;
     DROP TABLE #FinalResult;
     DROP TABLE #TmpData;
