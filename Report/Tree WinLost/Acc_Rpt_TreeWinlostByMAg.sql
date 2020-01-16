@@ -348,6 +348,7 @@ BEGIN
 						 ELSE scomm * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 8)) / (1 - tpositiontaking)
 					  END * actualrate) AS DECIMAL(19, 6)) AS           ExtraComm_RM
 		 FROM bettransRNG AS b WITH (NOLOCK)
+			INNER JOIN #tmpBettype AS t ON t.bettype = b.gameID
 			INNER JOIN #ProductBettype AS pb ON pb.Bettype = b.gameID
 			LEFT JOIN #ExtraPT AS expt ON expt.SuperID = b.srecommend
 									AND expt.ProductID = pb.ProductID
@@ -476,6 +477,7 @@ BEGIN
 						 ELSE scomm * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 8)) / (1 - tpositiontaking)
 					  END * actualrate) AS DECIMAL(19, 6)) AS                               ExtraComm_RM
 		 FROM bettransLC AS b WITH (NOLOCK)
+			INNER JOIN #tmpBettype AS t ON t.bettype = b.gameID
 			INNER JOIN #ProductBettype AS pb ON pb.Bettype = b.gameID
 			LEFT JOIN #ExtraPT AS expt ON expt.SuperID = b.srecommend
 									AND expt.ProductID = pb.ProductID
