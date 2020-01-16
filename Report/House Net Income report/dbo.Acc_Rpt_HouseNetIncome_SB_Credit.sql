@@ -19,11 +19,14 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
+	
+	-- Declare datetime variables
     DECLARE @FDate    DATE
 		, @TDate    DATE;
     SELECT @FDate = @FromDate
 	    , @TDate = @ToDate;
     
+	-- #Exchange
     CREATE TABLE #Exchange(
 	    ExchangeDate    DATE
 	  , ExchangeID      INT
@@ -37,7 +40,8 @@ BEGIN
 			 , Rate
 		 FROM bodb_account.dbo.tbl_Currency_Daily WITH(NOLOCK)
 		 WHERE ExchangeDate BETWEEN @FDate AND @TDate;    
-
+	
+	-- #FinalResult
     CREATE TABLE #FinalResult(
 	    RptDate           VARCHAR(10)
 	  , HouseWL_Soccer    MONEY
@@ -51,6 +55,7 @@ BEGIN
 		, @DateList    VARCHAR(200) = '[FullRange]';
     SELECT @tmpDate = @FDate;
 
+	-- #SportBettypeMatrix
     CREATE TABLE #SportBettypeMatrix(
 	    ProductID    INT
 	  , Bettype      INT);
@@ -63,6 +68,7 @@ BEGIN
 			 (1, 0, 0, 2, '', 'SB', 0)
 		 WHERE SubProduct NOT IN('BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss');    
     
+	-- #TmpData
     CREATE TABLE #TmpData(
 	    rptDate      DATE
 	  , SportType    VARCHAR(20)
@@ -70,108 +76,88 @@ BEGIN
 	  , ExtraPT      MONEY);
 
     INSERT INTO #TmpData(rptDate
-				   , SportType
-				   , HouseWL
-				   , ExtraPT)
-		 SELECT b.rptDate
-			 , CASE WHEN b.BetType IN (9, 29) THEN 'Parlay'
-				    ELSE CASE WHEN b.SportType = 1 THEN 'Soccer' ELSE 'OS' END END SportType
-			 , ISNULL(-SUM((winlossP + winlossS + winlossM + winlossA + commissionS) * ex.rate), 0) AS HouseWL
-			 , ISNULL(SUM((b.ExtraWL + b.ExtraComm) * ex.Rate), 0) AS ExtraPT
-		 FROM bodb_Account.dbo.FactSiteWinloss AS b WITH(NOLOCK)
-			INNER JOIN #SportBettypeMatrix AS sb ON b.Bettype = sb.Bettype
-			LEFT JOIN #exchange AS ex ON b.rptdate = ex.exchangedate
-								    AND b.currencyid = ex.ExchangeID
-		 WHERE b.rptDate BETWEEN @FDate AND @TDATE
-			  AND b.TicketStatus NOT IN (-1, 18, 9, 10, 14)
-			  AND b.CurrencyID <> 20
-			  AND SiteID IN
-						 (
-							SELECT siteid
-							FROM bodb_Account.dbo.tbl_Site
-							WHERE isDeposit = 0
-						 ) -- Credit data only	    
-		 GROUP BY b.rptDate
-			   , CASE WHEN b.BetType IN (9, 29) THEN 'Parlay'
-				      ELSE CASE WHEN b.SportType = 1 THEN 'Soccer' ELSE 'OS' END END
-	     OPTION(RECOMPILE);
-
+				       , SportType
+				       , HouseWL
+				       , ExtraPT)
+	SELECT b.rptDate
+		 , CASE WHEN b.BetType IN (9, 29) THEN 'Parlay'
+				ELSE CASE WHEN b.SportType = 1 THEN 'Soccer' ELSE 'OS' END END SportType
+		 , ISNULL(-SUM((winlossP + winlossS + winlossM + winlossA + commissionS) * ex.rate), 0) AS HouseWL
+		 , ISNULL(SUM((b.ExtraWL + b.ExtraComm) * ex.Rate), 0) AS ExtraPT
+	FROM bodb_Account.dbo.FactSiteWinloss AS b WITH(NOLOCK)
+		 INNER JOIN #SportBettypeMatrix AS sb ON b.Bettype = sb.Bettype
+		 LEFT JOIN #exchange AS ex ON b.rptdate = ex.exchangedate
+								      AND b.currencyid = ex.ExchangeID
+	WHERE b.rptDate BETWEEN @FDate AND @TDATE
+		  AND b.TicketStatus NOT IN (-1, 18, 9, 10, 14)
+		  AND b.CurrencyID <> 20
+		  AND SiteID IN (SELECT siteid
+						 FROM bodb_Account.dbo.tbl_Site
+						 WHERE isDeposit = 0) -- Credit data only	    
+	GROUP BY b.rptDate
+		   , CASE WHEN b.BetType IN (9, 29) THEN 'Parlay'
+				  ELSE CASE WHEN b.SportType = 1 THEN 'Soccer' ELSE 'OS' END END
+	OPTION(RECOMPILE);
+	
+	-- Get DetailDaily Data & FullRange Data
     WHILE @tmpDate <= @TDate
-	   BEGIN
-		  INSERT INTO #FinalResult(RptDate
-							, HouseWL_Soccer
-							, HouseWL_OS
-							, HouseWL_Parlay
-							, ExtraPT_Soccer
-							, ExtraPT_OS
-							, ExtraPT_Parlay)
-			    SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
-				    ,
-					 (
-						SELECT SUM(t.HouseWL)
-						FROM #TmpData AS t
-						WHERE t.SportType = 'Soccer'
-							 AND t.rptDate = @tmpDate
-					 ) AS HouseWL_Soccer
-				    ,
-					 (
-						SELECT SUM(t.HouseWL)
-						FROM #TmpData AS t
-						WHERE t.SportType = 'OS'
-							 AND t.rptDate = @tmpDate
-					 ) AS HouseWL_OS
-				    ,
-					 (
-						SELECT SUM(t.HouseWL)
-						FROM #TmpData AS t
-						WHERE t.SportType = 'Parlay'
-							 AND t.rptDate = @tmpDate
-					 ) AS HouseWL_OS
-				    ,
-					 (
-						SELECT SUM(t.ExtraPT)
-						FROM #TmpData AS t
-						WHERE t.SportType = 'Soccer'
-							 AND t.rptDate = @tmpDate
-					 ) AS ExtraPT_Soccer
-				    ,
-					 (
-						SELECT SUM(t.ExtraPT)
-						FROM #TmpData AS t
-						WHERE t.SportType = 'OS'
-							 AND t.rptDate = @tmpDate
-					 ) AS ExtraPT_OS
-				    ,
-					 (
-						SELECT SUM(t.ExtraPT)
-						FROM #TmpData AS t
-						WHERE t.SportType = 'Parlay'
-							 AND t.rptDate = @tmpDate
-					 ) AS ExtraPT_Parlay;
+	BEGIN
+		INSERT INTO #FinalResult(RptDate
+							   , HouseWL_Soccer
+							   , HouseWL_OS
+							   , HouseWL_Parlay
+							   , ExtraPT_Soccer
+							   , ExtraPT_OS
+							   , ExtraPT_Parlay)
+		SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
+			   ,(SELECT SUM(t.HouseWL)
+				 FROM #TmpData AS t
+				 WHERE t.SportType = 'Soccer'
+					   AND t.rptDate = @tmpDate)		AS HouseWL_Soccer
+			   ,(SELECT SUM(t.HouseWL)
+				 FROM #TmpData AS t
+				 WHERE t.SportType = 'OS'
+					   AND t.rptDate = @tmpDate)		AS HouseWL_OS
+				,(SELECT SUM(t.HouseWL)
+				  FROM #TmpData AS t
+				  WHERE t.SportType = 'Parlay'
+						AND t.rptDate = @tmpDate)		AS HouseWL_Parlay
+				,(SELECT SUM(t.ExtraPT)
+				  FROM #TmpData AS t
+				  WHERE t.SportType = 'Soccer'
+						AND t.rptDate = @tmpDate)		AS ExtraPT_Soccer
+				,(SELECT SUM(t.ExtraPT)
+				  FROM #TmpData AS t
+				  WHERE t.SportType = 'OS'
+						AND t.rptDate = @tmpDate)		AS ExtraPT_OS
+				,(SELECT SUM(t.ExtraPT)
+				  FROM #TmpData AS t
+				  WHERE t.SportType = 'Parlay'
+						AND t.rptDate = @tmpDate)		AS ExtraPT_Parlay;
 
-		  SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate);
-	   END;
+		SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate);
+	END;
 
     SELECT @DateList = COALESCE(@DateList + ',', '') + '[' + CONVERT(VARCHAR(10), RptDate) + ']'
     FROM #FinalResult;
 
     INSERT INTO #FinalResult(RptDate
-					  , HouseWL_Soccer
-					  , HouseWL_OS
-					  , HouseWL_Parlay
-					  , ExtraPT_Soccer
-					  , ExtraPT_OS
-					  , ExtraPT_Parlay)
-		 SELECT 'FullRange'
-			 , SUM(HouseWL_Soccer)
-			 , SUM(HouseWL_OS)
-			 , SUM(HouseWL_Parlay)
-			 , SUM(ExtraPT_Soccer)
-			 , SUM(ExtraPT_OS)
-			 , SUM(ExtraPT_Parlay)
-		 FROM #FinalResult;
+						   , HouseWL_Soccer
+						   , HouseWL_OS
+						   , HouseWL_Parlay
+						   , ExtraPT_Soccer
+						   , ExtraPT_OS
+						   , ExtraPT_Parlay)
+	SELECT 'FullRange'
+		, SUM(HouseWL_Soccer)
+		, SUM(HouseWL_OS)
+		, SUM(HouseWL_Parlay)
+		, SUM(ExtraPT_Soccer)
+		, SUM(ExtraPT_OS)
+		, SUM(ExtraPT_Parlay)
+	FROM #FinalResult;
 		 
-    ---------------------------------------------------- Select the output -------------------------------------------------------
+    -- Select the output
     DECLARE @SQL    VARCHAR(1000);
     SELECT @SQL = 'SELECT * ' + CHAR(13) + 'FROM	(SELECT ProductCode, [Order], [RptDate], Figure, ISNULL(value, 0) value FROM #FinalResult' + CHAR(13) 
     + 'CROSS APPLY' + CHAR(13) 
@@ -194,6 +180,7 @@ BEGIN
     + 'ORDER BY [Order]';
     EXEC (@SQL);
 
+	-- Drop temp tables
     DROP TABLE #SportBettypeMatrix;
     DROP TABLE #Exchange;
     DROP TABLE #FinalResult;
