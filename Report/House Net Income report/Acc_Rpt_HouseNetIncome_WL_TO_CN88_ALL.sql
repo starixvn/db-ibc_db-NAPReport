@@ -12,6 +12,7 @@ DB: DBWH.bodb_dwrs
 
 Revisions:
 	20191224@Robert: Initialize SP	
+	20200113@Ned.Le: DHWL Letstalk Reports - Break SB into Soccer, OS and Parlay (#126634)
 Example:
 
 EXEC [Acc_Rpt_HouseNetIncome_WL_TO_CN88_ALL] @@FromDate='20190801',@@ToDate='20190801'
@@ -70,7 +71,9 @@ EXEC [Acc_Rpt_HouseNetIncome_WL_TO_CN88_ALL] @@FromDate='20190801',@@ToDate='201
 					  , DepositTO
 					  , TOCN88
 					  , WinLossCN88)
-			SELECT sb.ProductPrefix
+			SELECT
+				CASE WHEN sb.ProductPrefix = 'SB' THEN CASE WHEN sb.SportType = 1 THEN 'Soccer' ELSE 'OS' END
+					 ELSE sb.ProductPrefix END ProductPrefix
 				, sd.RptDate
 				, SUM(CASE
 						WHEN s.isDeposit = 0
@@ -127,7 +130,9 @@ EXEC [Acc_Rpt_HouseNetIncome_WL_TO_CN88_ALL] @@FromDate='20190801',@@ToDate='201
 				 AND sd.TicketStatus NOT IN(-1, 18, 9, 10, 14)				 
 				 AND sd.CurrencyID <> 20
 				 AND sd.BetType NOT IN (9,29)
-			GROUP BY ProductPrefix
+			GROUP BY
+					CASE WHEN sb.ProductPrefix = 'SB' THEN CASE WHEN sb.SportType = 1 THEN 'Soccer' ELSE 'OS' END
+					     ELSE sb.ProductPrefix END
 				  , sd.RptDate;
 
 	   INSERT INTO #RawData(ProductPrefix
@@ -136,7 +141,7 @@ EXEC [Acc_Rpt_HouseNetIncome_WL_TO_CN88_ALL] @@FromDate='20190801',@@ToDate='201
 					  , DepositTO
 					  , TOCN88
 					  , WinLossCN88)
-			SELECT 'SB'
+			SELECT 'Parlay'
 				, sd.RptDate
 				, SUM(CASE
 						WHEN s.isDeposit = 0
