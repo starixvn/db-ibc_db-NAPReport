@@ -434,8 +434,7 @@ BEGIN
 									AND expt.ProductID = pb.ProductID
 									AND expt.SubProduct = pb.SubProduct
 									AND expt.Sporttype = ISNULL(m44.SportType, 0)
-		 WHERE winlostdate BETWEEN CAST(@FromDate AS SMALLDATETIME) AND CAST(@ToDate AS SMALLDATETIME)
-			  AND t.ProductID NOT IN(6, 21, 22, 24, 32, 34)			  
+		 WHERE winlostdate BETWEEN CAST(@FromDate AS SMALLDATETIME) AND CAST(@ToDate AS SMALLDATETIME)		  
 			  AND b.ruben = 1
 			  AND b.statusID NOT IN(101, 102, 103)
 			  AND b.currency <> 20
