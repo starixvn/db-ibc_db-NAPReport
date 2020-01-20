@@ -48,6 +48,8 @@ Revisions:
 Param's Explanation:
 	- @CheckTime : The time we consider how long the job fails (Compared the last run with the current time).
 				   Because job recurs every 30s, so we set @CheckTime = 1 minute as default
+	- @TimeToCheckDuplicate : The total time we use to see if successive tickets are duplicates
+	                          The default value is 1s (1000ms)
 
 
 */
