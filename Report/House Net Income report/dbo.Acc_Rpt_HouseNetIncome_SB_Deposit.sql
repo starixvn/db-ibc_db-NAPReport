@@ -327,8 +327,9 @@ BEGIN
 							ELSE 'Other Sports'
 						 END
 				  END AS Sporttype
+				, SUM(-ISNULL(b.MemberWinloss, 0) * ISNULL(lc.Rate, p.Rate) * e.Rate)
 				, 1 AS IsApplyMinFee
-			 , SUM(-ISNULL(b.MemberWinloss, 0) * ISNULL(lc.Rate, p.Rate) * ISNULL(d.Rate, 0) * e.Rate)
+				, SUM(-ISNULL(b.MemberWinloss, 0) * ISNULL(lc.Rate, p.Rate) * ISNULL(d.Rate, 0) * e.Rate)
 			FROM #TempFactLADailyWinloss AS b
 			    LEFT JOIN #TempProductMapping AS pm ON b.ProductID = pm.ProductID_DW
 			    LEFT JOIN #TempSiteMapping AS sm ON b.SiteID = sm.SiteID_DW
