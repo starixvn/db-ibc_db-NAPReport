@@ -1,8 +1,8 @@
 /*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
 ALTER PROCEDURE dbo.Acc_Rpt_HouseNetIncome_SB_Deposit 
-	@FromDate    DATE
-   , @ToDate      DATE
+	@FromDate    DATE 
+   , @ToDate      DATE 
 AS
 /*  
 	Created: Victor  
@@ -199,6 +199,7 @@ BEGIN
     --------------------------------------------------
     -- Get DetailDaily data and contain in #TempDataSB
     -- #TempFactLADailyWinloss
+
     CREATE TABLE #TempFactLADailyWinloss(
 	    RptDate          [DATE] NOT NULL
 	  , SiteID           INT NOT NULL
@@ -241,6 +242,7 @@ BEGIN
 
     CREATE CLUSTERED INDEX PK_TempFactLADailyWinloss ON #TempFactLADailyWinloss(RptDate ASC, SiteID ASC, ProductID ASC, SportType ASC, BetType ASC, CurrencyID ASC);
     -- #TempProductMapping
+
     CREATE TABLE #TempProductMapping(
 	    ProductID_DW    INT
 	  , ProductID_Li    INT);
@@ -256,6 +258,7 @@ BEGIN
 
     CREATE CLUSTERED INDEX PK_TempProductMapping ON #TempProductMapping(ProductID_DW ASC, ProductID_Li ASC);
     -- #TempSiteMapping
+
     CREATE TABLE #TempSiteMapping(
 	    SiteID_DW    INT
 	  , SiteID_Li    INT
@@ -276,6 +279,7 @@ BEGIN
 
     CREATE CLUSTERED INDEX PK_TempSiteMapping ON #TempSiteMapping(SiteID_DW ASC, SiteID_Li ASC);
     -- #TempDataSB
+
     CREATE TABLE #TempDataSB(
 	    PartyId            INT
 	  , rptDate            DATETIME
@@ -311,15 +315,13 @@ BEGIN
 					 ELSE CASE
 							WHEN b.SportType = 1
 							THEN 'Soccer'
-							ELSE CASE
-								    WHEN b.SportType = 2
-								    THEN 'Basketball'
-								    WHEN b.SportType = 5
-								    THEN 'Tennis'
-								    WHEN b.SportType = 43
-								    THEN 'E-Sports'
-								    ELSE 'Other Sports'
-								END
+							WHEN b.SportType = 2
+							THEN 'Basketball'
+							WHEN b.SportType = 5
+							THEN 'Tennis'
+							WHEN b.SportType = 43
+							THEN 'E-Sports'
+							ELSE 'Other Sports'
 						 END
 				  END AS Sporttype
 				, SUM(-ISNULL(b.MemberWinloss, 0) * p.Rate * e.Rate)
@@ -350,15 +352,13 @@ BEGIN
 					   ELSE CASE
 							  WHEN b.SportType = 1
 							  THEN 'Soccer'
-							  ELSE CASE
-									 WHEN b.SportType = 2
-									 THEN 'Basketball'
-									 WHEN b.SportType = 5
-									 THEN 'Tennis'
-									 WHEN b.SportType = 43
-									 THEN 'E-Sports'
-									 ELSE 'Other Sports'
-								  END
+							  WHEN b.SportType = 2
+							  THEN 'Basketball'
+							  WHEN b.SportType = 5
+							  THEN 'Tennis'
+							  WHEN b.SportType = 43
+							  THEN 'E-Sports'
+							  ELSE 'Other Sports'
 						   END
 				    END
 		 );
@@ -367,6 +367,7 @@ BEGIN
     ------------------------------------------------
     -- Collect all data and insert into #FinalResult
     -- Create temp table
+
     CREATE TABLE #FinalResult(
 	    RptDate                  VARCHAR(10)
 	  , LicenseeWL_Soccer        MONEY
@@ -394,6 +395,7 @@ BEGIN
 	  , BAComm_OS                MONEY
 	  , BAComm_Parlay            MONEY);
     -- Get data about BAComm for FullRange
+
     DECLARE @BAComm       MONEY = 0
 		, @BAWinloss    MONEY = 0;
 
@@ -402,6 +404,7 @@ BEGIN
     FROM #FeeData
     WHERE ProductId = 3;
     -- Get FullRange data
+
     INSERT INTO #FinalResult(rptDate
 					  , LicenseeWL_Soccer
 					  , LicenseeWL_Basketball
@@ -455,6 +458,7 @@ BEGIN
 		 FROM #FeeData
 		 WHERE ProductID = 0;
     -- Get DetailDaily data
+
     DECLARE @tmpDate     DATE
 		, @DateList    VARCHAR(200);
 
@@ -655,25 +659,25 @@ BEGIN
     + 'UNION ALL' + CHAR(13) + 'SELECT ''Basketball'', 1.21, ''House Income'', LicenseeWL_Basketball' + CHAR(13) 
     + 'UNION ALL' + CHAR(13) + 'SELECT ''Tennis'', 1.22, ''House Income'', LicenseeWL_Tennis' + CHAR(13) 
     + 'UNION ALL' + CHAR(13) + 'SELECT ''E-Sports'', 1.23, ''House Income'', LicenseeWL_ESports' + CHAR(13) 
-    + 'UNION ALL' + CHAR(13) + 'SELECT ''Other Sports'', 1.24, ''House Income'', LicenseeWL_OS' + CHAR(13) 
+    + 'UNION ALL' + CHAR(13) + 'SELECT ''OS'', 1.24, ''House Income'', LicenseeWL_OS' + CHAR(13) 
     + 'UNION ALL' + CHAR(13) + 'SELECT ''Parlay'', 1.3, ''House Income'', LicenseeWL_Parlay' + CHAR(13) 
     + 'UNION ALL' + CHAR(13) + 'SELECT ''Soccer'', 2.1, ''Licensing Minimum Fee'', MinFee_Soccer' + CHAR(13) 
     + 'UNION ALL' + CHAR(13) + 'SELECT ''Basketball'', 2.21, ''Licensing Minimum Fee'', MinFee_Basketball' + CHAR(13) 
     + 'UNION ALL' + CHAR(13) + 'SELECT ''Tennis'', 2.22, ''Licensing Minimum Fee'', MinFee_Tennis' + CHAR(13) 
     + 'UNION ALL' + CHAR(13) + 'SELECT ''E-Sports'', 2.23, ''Licensing Minimum Fee'', MinFee_ESports' + CHAR(13) 
-    + 'UNION ALL' + CHAR(13) + 'SELECT ''Other Sports'', 2.24, ''Licensing Minimum Fee'', MinFee_OS' + CHAR(13) 
+    + 'UNION ALL' + CHAR(13) + 'SELECT ''OS'', 2.24, ''Licensing Minimum Fee'', MinFee_OS' + CHAR(13) 
     + 'UNION ALL' + CHAR(13) + 'SELECT ''Parlay'', 2.3, ''Licensing Minimum Fee'', MinFee_Parlay' + CHAR(13) 
     + 'UNION ALL' + CHAR(13) + 'SELECT ''Soccer'', 4.1, ''Rebate & Discount'', DiscountWL_Soccer' + CHAR(13) 
     + 'UNION ALL' + CHAR(13) + 'SELECT ''Basketball'', 4.21, ''Rebate & Discount'', DiscountWL_Basketball' + CHAR(13) 
     + 'UNION ALL' + CHAR(13) + 'SELECT ''Tennis'', 4.22, ''Rebate & Discount'', DiscountWL_Tennis' + CHAR(13) 
     + 'UNION ALL' + CHAR(13) + 'SELECT ''E-Sports'', 4.23, ''Rebate & Discount'', DiscountWL_ESports' + CHAR(13) 
-    + 'UNION ALL' + CHAR(13) + 'SELECT ''Other Sports'', 4.24, ''Rebate & Discount'', DiscountWL_OS' + CHAR(13) 
+    + 'UNION ALL' + CHAR(13) + 'SELECT ''OS'', 4.24, ''Rebate & Discount'', DiscountWL_OS' + CHAR(13) 
     + 'UNION ALL' + CHAR(13) + 'SELECT ''Parlay'', 4.3, ''Rebate & Discount'', DiscountWL_Parlay' + CHAR(13) 
     + 'UNION ALL' + CHAR(13) + 'SELECT ''Soccer'', 5.1, ''BA Commission'', BAComm_Soccer' + CHAR(13) 
     + 'UNION ALL' + CHAR(13) + 'SELECT ''Basketball'', 5.21, ''BA Commission'', BAComm_Basketball' + CHAR(13) 
     + 'UNION ALL' + CHAR(13) + 'SELECT ''Tennis'', 5.22, ''BA Commission'', BAComm_Tennis' + CHAR(13) 
     + 'UNION ALL' + CHAR(13) + 'SELECT ''E-Sports'', 5.23, ''BA Commission'', BAComm_ESports' + CHAR(13) 
-    + 'UNION ALL' + CHAR(13) + 'SELECT ''Other Sports'', 5.24, ''BA Commission'', BAComm_OS' + CHAR(13) 
+    + 'UNION ALL' + CHAR(13) + 'SELECT ''OS'', 5.24, ''BA Commission'', BAComm_OS' + CHAR(13) 
     + 'UNION ALL' + CHAR(13) + 'SELECT ''Parlay'', 5.3, ''BA Commission'', BAComm_Parlay) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) 
     + 'PIVOT' + CHAR(13) 
     + '(' + CHAR(13) 

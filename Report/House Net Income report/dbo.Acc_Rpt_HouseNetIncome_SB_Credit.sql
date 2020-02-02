@@ -20,11 +20,14 @@ AS
 BEGIN
     SET NOCOUNT ON;
     -- Declare datetime variables
+
     DECLARE @FDate    DATE
 		, @TDate    DATE;
+
     SELECT @FDate = @FromDate
 	    , @TDate = @ToDate;
     -- #Exchange
+
     CREATE TABLE #Exchange(
 	    ExchangeDate    DATE
 	  , ExchangeID      INT
@@ -39,6 +42,7 @@ BEGIN
 		 FROM bodb_account.dbo.tbl_Currency_Daily WITH(NOLOCK)
 		 WHERE ExchangeDate BETWEEN @FDate AND @TDate;
     -- #FinalResult
+
     CREATE TABLE #FinalResult(
 	    RptDate               VARCHAR(10)
 	  , HouseWL_Soccer        MONEY
@@ -56,8 +60,10 @@ BEGIN
 
     DECLARE @tmpDate     DATE
 		, @DateList    VARCHAR(200) = '[FullRange]';
+
     SELECT @tmpDate = @FDate;
     -- #SportBettypeMatrix
+
     CREATE TABLE #SportBettypeMatrix(
 	    ProductID    INT
 	  , Bettype      INT);
@@ -70,6 +76,7 @@ BEGIN
 			 (1, 0, 0, 2, '', 'SB', 0)
 		 WHERE SubProduct NOT IN('BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss');
     -- #TmpData
+
     CREATE TABLE #TmpData(
 	    rptDate      DATE
 	  , SportType    VARCHAR(20)
@@ -87,15 +94,13 @@ BEGIN
 				  ELSE CASE
 						 WHEN b.SportType = 1
 						 THEN 'Soccer'
-						 ELSE CASE
-								WHEN b.SportType = 2
-								THEN 'Basketball'
-								WHEN b.SportType = 5
-								THEN 'Tennis'
-								WHEN b.SportType = 43
-								THEN 'E-Sports'
-								ELSE 'Other Sports'
-							 END
+						 WHEN b.SportType = 2
+						 THEN 'Basketball'
+						 WHEN b.SportType = 5
+						 THEN 'Tennis'
+						 WHEN b.SportType = 43
+						 THEN 'E-Sports'
+						 ELSE 'Other Sports'
 					  END
 			   END AS SportType
 			 , ISNULL(-SUM((winlossP + winlossS + winlossM + winlossA + commissionS) * ex.rate), 0) AS HouseWL
@@ -120,18 +125,17 @@ BEGIN
 				    ELSE CASE
 						   WHEN b.SportType = 1
 						   THEN 'Soccer'
-						   ELSE CASE
-								  WHEN b.SportType = 2
-								  THEN 'Basketball'
-								  WHEN b.SportType = 5
-								  THEN 'Tennis'
-								  WHEN b.SportType = 43
-								  THEN 'E-Sports'
-								  ELSE 'Other Sports'
-							   END
+						   WHEN b.SportType = 2
+						   THEN 'Basketball'
+						   WHEN b.SportType = 5
+						   THEN 'Tennis'
+						   WHEN b.SportType = 43
+						   THEN 'E-Sports'
+						   ELSE 'Other Sports'
 					    END
 				END OPTION(RECOMPILE);
     -- Get DetailDaily Data & FullRange Data
+
     WHILE @tmpDate <= @TDate
 	   BEGIN
 		  INSERT INTO #FinalResult(RptDate
@@ -274,13 +278,13 @@ BEGIN
     + 'UNION ALL' + CHAR(13) + 'SELECT ''Basketball'', 1.21, ''House Income'', HouseWL_Basketball' + CHAR(13) 
     + 'UNION ALL' + CHAR(13) + 'SELECT ''Tennis'', 1.22, ''House Income'', HouseWL_Tennis' + CHAR(13) 
     + 'UNION ALL' + CHAR(13) + 'SELECT ''E-Sports'', 1.23, ''House Income'', HouseWL_ESports' + CHAR(13) 
-    + 'UNION ALL' + CHAR(13) + 'SELECT ''Other Sports'', 1.24, ''House Income'', HouseWL_OS' + CHAR(13) 
+    + 'UNION ALL' + CHAR(13) + 'SELECT ''OS'', 1.24, ''House Income'', HouseWL_OS' + CHAR(13) 
     + 'UNION ALL' + CHAR(13) + 'SELECT ''Parlay'', 1.3, ''House Income'', HouseWL_Parlay' + CHAR(13) 
     + 'UNION ALL' + CHAR(13) + 'SELECT ''Soccer'', 3.1, ''Extra PT'', ExtraPT_Soccer' + CHAR(13) 
     + 'UNION ALL' + CHAR(13) + 'SELECT ''Basketball'', 3.21, ''Extra PT'', ExtraPT_Basketball' + CHAR(13) 
     + 'UNION ALL' + CHAR(13) + 'SELECT ''Tennis'', 3.22, ''Extra PT'', ExtraPT_Tennis' + CHAR(13) 
     + 'UNION ALL' + CHAR(13) + 'SELECT ''E-Sports'', 3.23, ''Extra PT'', ExtraPT_ESports' + CHAR(13) 
-    + 'UNION ALL' + CHAR(13) + 'SELECT ''Other Sports'', 3.24, ''Extra PT'', ExtraPT_OS' + CHAR(13) 
+    + 'UNION ALL' + CHAR(13) + 'SELECT ''OS'', 3.24, ''Extra PT'', ExtraPT_OS' + CHAR(13) 
     + 'UNION ALL' + CHAR(13) + 'SELECT ''Parlay'', 3.3, ''Extra PT'', ExtraPT_Parlay) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) 
     + 'PIVOT' + CHAR(13) 
     + '(' + CHAR(13) 

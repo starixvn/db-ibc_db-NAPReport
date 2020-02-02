@@ -13,6 +13,7 @@ DB: DBWH.bodb_dwrs
 Revisions:
 	20191224@Robert: Initialize SP	
 	20200113@Ned.Le: DHWL Letstalk Reports - Break SB into Soccer, OS and Parlay (#126634)
+	20200202@Robert: #126634 DHWL - break OS into Basketball, E-sports, Tennis and Other Sports
 Example:
 
 EXEC [Acc_Rpt_HouseNetIncome_WL_TO_CN88_ALL] @@FromDate='20190801',@@ToDate='20190801'
@@ -71,9 +72,21 @@ EXEC [Acc_Rpt_HouseNetIncome_WL_TO_CN88_ALL] @@FromDate='20190801',@@ToDate='201
 					  , DepositTO
 					  , TOCN88
 					  , WinLossCN88)
-			SELECT
-				CASE WHEN sb.ProductPrefix = 'SB' THEN CASE WHEN sb.SportType = 1 THEN 'Soccer' ELSE 'OS' END
-					 ELSE sb.ProductPrefix END ProductPrefix
+			SELECT CASE
+					 WHEN sb.ProductPrefix = 'SB'
+					 THEN CASE
+							WHEN sb.SportType = 1
+							THEN 'Soccer'
+							WHEN sb.SportType = 2
+							THEN 'Basketball'
+							WHEN sb.SportType = 5
+							THEN 'Tennis'
+							WHEN sb.SportType = 43
+							THEN 'E-Sports'
+							ELSE 'OS'
+						 END
+					 ELSE sb.ProductPrefix
+				  END AS ProductPrefix
 				, sd.RptDate
 				, SUM(CASE
 						WHEN s.isDeposit = 0
@@ -127,12 +140,24 @@ EXEC [Acc_Rpt_HouseNetIncome_WL_TO_CN88_ALL] @@FromDate='20190801',@@ToDate='201
 			    LEFT JOIN bodb_Account.dbo.tbl_Site AS s WITH(NOLOCK) ON sd.SiteID = s.siteid
 			WHERE sd.rptdate >= CAST(@FromDate AS DATE)
 				 AND rptdate <= CAST(@ToDate AS DATE)
-				 AND sd.TicketStatus NOT IN(-1, 18, 9, 10, 14)				 
+				 AND sd.TicketStatus NOT IN(-1, 18, 9, 10, 14)
 				 AND sd.CurrencyID <> 20
-				 AND sd.BetType NOT IN (9,29)
-			GROUP BY
-					CASE WHEN sb.ProductPrefix = 'SB' THEN CASE WHEN sb.SportType = 1 THEN 'Soccer' ELSE 'OS' END
-					     ELSE sb.ProductPrefix END
+				 AND sd.BetType NOT IN(9, 29)
+			GROUP BY CASE
+					   WHEN sb.ProductPrefix = 'SB'
+					   THEN CASE
+							  WHEN sb.SportType = 1
+							  THEN 'Soccer'
+							  WHEN sb.SportType = 2
+							  THEN 'Basketball'
+							  WHEN sb.SportType = 5
+							  THEN 'Tennis'
+							  WHEN sb.SportType = 43
+							  THEN 'E-Sports'
+							  ELSE 'OS'
+						   END
+					   ELSE sb.ProductPrefix
+				    END
 				  , sd.RptDate;
 
 	   INSERT INTO #RawData(ProductPrefix
@@ -193,20 +218,20 @@ EXEC [Acc_Rpt_HouseNetIncome_WL_TO_CN88_ALL] @@FromDate='20190801',@@ToDate='201
 			    LEFT JOIN bodb_Account.dbo.tbl_Site AS s WITH(NOLOCK) ON sd.SiteID = s.siteid
 			WHERE sd.rptdate >= CAST(@FromDate AS DATE)
 				 AND rptdate <= CAST(@ToDate AS DATE)
-				 AND sd.TicketStatus NOT IN(-1, 18, 9, 10, 14)				 
+				 AND sd.TicketStatus NOT IN(-1, 18, 9, 10, 14)
 				 AND sd.CurrencyID <> 20
-				 AND sd.BetType IN (9,29)
+				 AND sd.BetType IN(9, 29)
 			GROUP BY sd.RptDate;
 
 	   SELECT ProductPrefix
 		   , rptDate
-		   , SUM(CreditTO) CreditTO
-		   , SUM(DepositTO) DepositTO
-		   , SUM(TOCN88) TOCN88
-		   , SUM(WinLossCN88) WinLossCN88
+		   , SUM(CreditTO) AS CreditTO
+		   , SUM(DepositTO) AS DepositTO
+		   , SUM(TOCN88) AS TOCN88
+		   , SUM(WinLossCN88) AS WinLossCN88
 	   FROM #RawData
-	   GROUP BY  ProductPrefix
-		   , rptDate
+	   GROUP BY ProductPrefix
+			, rptDate
 	   ORDER BY ProductPrefix
 			, rptDate;
 
