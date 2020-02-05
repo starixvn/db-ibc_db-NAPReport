@@ -49,7 +49,7 @@ Revisions:
 	20190918@Robert: Remove inactive products (#120215)	   
 	20191118@Ned.Le: Integrate Pragmatic Tournament Prize (#123685)
 	20191223@Ned.Le: NAP Report - Integrate Spadegaming product (#125712)
-	20190110@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
+	20191231@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
 	
 Parameters explain:
 	@Products: instead of all @showXXX parameters, have xml structure
@@ -143,7 +143,7 @@ BEGIN
 			   WHERE p.ProductID = -1
 		    )
 	   BEGIN
-		  WITH tblP(ProductID)D:\Nexcel Solutions\Project\db-NAPReport\Report\Tree WinLost
+		  WITH tblP(ProductID)
 			  AS (
 			  SELECT 1 AS ProductID
 			  FROM #Product AS tblP
@@ -226,6 +226,7 @@ BEGIN
 			    WHERE tblP.ProductID = 1
 					AND tblS.SubProduct NOT IN('MG-SuperLive', 'BT-Comm', 'BT-Winloss', 'Bet Builder');
 	   END;
+	
 	INSERT INTO #tmpBettype(ProductID
 					 , bettype
 					 , RefTable)
@@ -237,14 +238,7 @@ BEGIN
 		 WHERE tblP.ProductID <> 1;
 
     CREATE CLUSTERED INDEX IDX_Bettype_bettype_ProductID ON #tmpBettype(bettype, ProductID, RefTable);
-	
-	/*-- Extra PT */
-	-- #ProductBettype
-	INSERT INTO #tmpBettype(ProductID
-					 , bettype
-					 , RefTable)
-			 , tblS.RefTable
-    CREATE CLUSTERED INDEX IDX_Bettype_bettype_ProductID ON #tmpBettype(bettype, ProductID, RefTable);
+
 	/*-get data from bettransRNG*/
     INSERT INTO #TmpResultAll
 		 SELECT b.custid
@@ -388,7 +382,7 @@ BEGIN
 			 , SUM(CASE
 					 WHEN tpositiontaking = 1
 					 THEN 0
-	D:\Nexcel Solutions\Project\db-NAPReport\Report\Tree WinLost				 ELSE stake * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(19, 8))
+					 ELSE stake * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(19, 8))
 				  END) AS                                                                    ExtraTO
 			 , CAST(SUM(CASE
 						 WHEN tpositiontaking = 1
@@ -425,7 +419,7 @@ BEGIN
 
 	/*-record set main data*/
     SELECT b.custid
-	    , ci.uD:\Nexcel Solutions\Project\db-NAPReport\Report\Tree WinLostsername
+	    , ci.username
 	    , ISNULL(ci.virtualmultiplier, 1) AS                                                              EnableVirtualrate
 	    , SUM(CASE
 			    WHEN TurnoverIBC = 0

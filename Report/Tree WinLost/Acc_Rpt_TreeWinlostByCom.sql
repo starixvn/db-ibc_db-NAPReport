@@ -50,7 +50,7 @@ Revisions:
 	20190918@Robert: Remove inactive products (#120215)	   
 	20191118@Ned.Le: Integrate Pragmatic Tournament Prize (#123685)
 	20191223@Ned.Le: NAP Report - Integrate Spadegaming product (#125712)
-	20190110@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
+	20191231@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
 */
 
 BEGIN
@@ -93,7 +93,7 @@ BEGIN
 		 FROM dbo.f_SportBettypeMatrix_Sel
 			 (0, 0, 0, 2, '', '', @isTest) AS sb
 		 WHERE sb.BetType NOT IN(901, 902, 911, 912);
-	
+
 	-- #PrizeBettypeGroup
 	IF OBJECT_ID('tempdb..#PrizeBettypeGroup') IS NOT NULL
 	BEGIN
@@ -218,6 +218,7 @@ BEGIN
 			    WHERE tblP.ProductID = 1
 					AND tblS.SubProduct NOT IN('MG-SuperLive', 'BT-Comm', 'BT-Winloss', 'Bet Builder');
 	   END;
+	
 	INSERT INTO #tmpBettype(ProductID
 					 , bettype
 					 , RefTable)
@@ -229,14 +230,7 @@ BEGIN
 		 WHERE tblP.ProductID <> 1;
 
     CREATE CLUSTERED INDEX IDX_Bettype_bettype_ProductID ON #tmpBettype(bettype, ProductID, RefTable);
-	
-	/*-- Extra PT */
-	-- #ProductBettype
-	INSERT INTO #tmpBettype(ProductID
-					 , bettype
-					 , RefTable)
-			 , tblS.RefTable
-    CREATE CLUSTERED INDEX IDX_Bettype_bettype_ProductID ON #tmpBettype(bettype, ProductID, RefTable);
+
 	/*-get data from bettransRNG*/
     INSERT INTO #TmpResultAll
 		 SELECT b.srecommend
@@ -275,7 +269,7 @@ BEGIN
 			 , SUM(CASE
 					 WHEN tpositiontaking = 1 THEN 0
 					 WHEN bg.Bettype IS NOT NULL THEN 0 /*Progressive Jackpot, PP Promotion Prize, PP Tournament Prize*/
-					 WHEN b.gameID IN(2198, 2398, 2998) THEN(b.ContributionRate * b.BetStake) * CAST(ISNULL(ExtraPT, 0) AS DECIMAL(19, 8)) /*Jackpot Contribution*/
+					 WHEN b.gameID IN(2198, 2398, 2998) THEN(b.ContributionRate * b.BetStake) * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(19, 8)) /*Jackpot Contribution*/
 					 ELSE(winlost - actual_stake) * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(19, 8))
 				  END * actualrate) AS                                   ExtraWL_RM
 			 , SUM(CASE
@@ -411,7 +405,7 @@ BEGIN
 			  AND b.currency = @currency
 		 GROUP BY b.srecommend
 			   , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(5, 2)) OPTION(RECOMPILE);
-	
+
 	/*-record set main data*/
     SELECT b.srecommend
 	    , cs.UserName
@@ -501,7 +495,7 @@ BEGIN
 		 , ISNULL(cs.virtualmultiplier, 1)
 		 , cs.username
     ORDER BY username;
-	
+
 	-- Drop temp tables
     DROP TABLE #TmpResultAll;
     DROP TABLE #Product;

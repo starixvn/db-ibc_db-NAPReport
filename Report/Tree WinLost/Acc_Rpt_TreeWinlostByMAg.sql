@@ -50,7 +50,7 @@ Revisions:
 	20190918@Robert: Remove inactive products (#120215)	   
 	20191118@Ned.Le: Integrate Pragmatic Tournament Prize (#123685)
 	20191223@Ned.Le: NAP Report - Integrate Spadegaming product (#125712)
-	20190110@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
+	20191231@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
 */
 
 BEGIN
@@ -211,7 +211,7 @@ BEGIN
 		  INSERT INTO #tmpBettype(ProductID
 						    , bettype
 							, RefTable)
-			    SELED:\Nexcel Solutions\Project\db-NAPReport\Report\Tree WinLostCT tblP.ProductID
+			    SELECT tblP.ProductID
 				    , tblS.bettype
 					, tblS.RefTable
 			    FROM @SportBettype AS tblS
@@ -219,6 +219,7 @@ BEGIN
 			    WHERE tblP.ProductID = 1
 					AND tblS.SubProduct NOT IN('MG-SuperLive', 'BT-Comm', 'BT-Winloss', 'Bet Builder');
 	   END;
+	
 	INSERT INTO #tmpBettype(ProductID
 					 , bettype
 					 , RefTable)
@@ -230,14 +231,7 @@ BEGIN
 		 WHERE tblP.ProductID <> 1;
 
     CREATE CLUSTERED INDEX IDX_Bettype_bettype_ProductID ON #tmpBettype(bettype, ProductID, RefTable);
-	
-	/*-- Extra PT */
-	-- #ProductBettype
-	INSERT INTO #tmpBettype(ProductID
-					 , bettype
-					 , RefTable)
-			 , tblS.RefTable
-    CREATE CLUSTERED INDEX IDX_Bettype_bettype_ProductID ON #tmpBettype(bettype, ProductID, RefTable);
+
     /*-get data from bettransRNG*/
     INSERT INTO #TmpResultAll
 		 SELECT b.recommend
@@ -358,7 +352,7 @@ BEGIN
 					  END * actualrate) AS DECIMAL(19, 6)) AS                               ExtraComm_RM
 		 FROM bettrans AS b WITH (ROWLOCK)
 			INNER JOIN #tmpBettype AS t ON t.RefTable NOT IN (1, 2) AND t.bettype = b.bettype
-		 WHERE winlostdate BETWEEN CAST(@FromDate AS SMALLDATETIME) AND CAST(@ToDate AS SMALLDATETIME)	  
+		 WHERE winlostdate BETWEEN CAST(@FromDate AS SMALLDATETIME) AND CAST(@ToDate AS SMALLDATETIME)
 			  AND b.ruben = 1
 			  AND b.statusID NOT IN(101, 102, 103)
 			  AND b.currency <> 20
