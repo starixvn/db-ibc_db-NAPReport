@@ -49,7 +49,7 @@ Revisions:
 	20190918@Robert: Remove inactive products (#120215)	   
 	20191118@Ned.Le: Integrate Pragmatic Tournament Prize (#123685)
 	20191223@Ned.Le: NAP Report - Integrate Spadegaming product (#125712)
-	20190110@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
+	20191231@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
 */
 
 BEGIN
@@ -217,6 +217,7 @@ BEGIN
 			    WHERE tblP.ProductID = 1
 					AND tblS.SubProduct NOT IN('MG-SuperLive', 'BT-Comm', 'BT-Winloss', 'Bet Builder');
 	   END;
+	
 	INSERT INTO #tmpBettype(ProductID
 					 , bettype
 					 , RefTable)
@@ -228,14 +229,7 @@ BEGIN
 		 WHERE tblP.ProductID <> 1;
 
     CREATE CLUSTERED INDEX IDX_Bettype_bettype_ProductID ON #tmpBettype(bettype, ProductID, RefTable);
-	
-	/*-- Extra PT */
-	-- #ProductBettype
-	INSERT INTO #tmpBettype(ProductID
-					 , bettype
-					 , RefTable)
-			 , tblS.RefTable
-    CREATE CLUSTERED INDEX IDX_Bettype_bettype_ProductID ON #tmpBettype(bettype, ProductID, RefTable);
+
 	/*-get data from bettransRNG*/
     INSERT INTO #TmpResultAll
 		 SELECT b.mrecommend
@@ -503,7 +497,7 @@ BEGIN
 		 , cm.username
 		 , ISNULL(cm.virtualmultiplier, 1)
     ORDER BY username;
-	
+
 	-- Drop temp tables
     DROP TABLE #TmpResultAll;
     DROP TABLE #Product;
