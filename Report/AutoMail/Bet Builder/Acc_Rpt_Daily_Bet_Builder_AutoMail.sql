@@ -10,7 +10,7 @@ AS
 	Task: Bet Builder - Daily Automail report to 3rd
 	Revisions:		
 		20190527@Robert: Bet Builder - Daily Automail report to 3rd [#114248]
-		20200115@Cherry: Adhoc (#127236)
+		20200205@Cherry: Adhoc (#127269)
 
 	Param's Explanation:	 
 */
@@ -18,8 +18,8 @@ AS
 BEGIN
     SET NOCOUNT ON;
     
-    DECLARE @FromDate SMALLDATETIME = '20191107',
-			@ToDate SMALLDATETIME = '20191130'
+    DECLARE @FromDate SMALLDATETIME = '20200101',
+			@ToDate SMALLDATETIME = '20200131'
 			
     CREATE TABLE #Data(
 	    TransId           BIGINT
