@@ -83,9 +83,6 @@ BEGIN
     SELECT @movebetdate = MAX(eventdate)
     FROM bodb02.dbo.match14 WITH (NOLOCK);
 
-    IF @WinlostDate IS NULL
-	   SELECT @WinlostDate = CONVERT(VARCHAR(10), DATEADD(DAY, -1, GETDATE()), 110);
-
     INSERT INTO #Data(TransId
 				, MatchId
 				, LeagueId
