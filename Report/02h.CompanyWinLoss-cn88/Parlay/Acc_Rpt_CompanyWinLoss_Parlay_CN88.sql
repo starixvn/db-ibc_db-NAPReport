@@ -6,6 +6,7 @@ GO
 ALTER PROCEDURE dbo.Acc_Rpt_CompanyWinLoss_Parlay_CN88
 	@StartDate    SMALLDATETIME
    , @EndDate      SMALLDATETIME
+   , @Headline	  INT
 AS
 /*	
     Creator: Robert
@@ -14,9 +15,14 @@ AS
 	DB: DBACC/bodb02	
 		
 	Revisions:
-		- 20190710@Robert: 	NAP Report - Implement new report to match with CN88's need [#116083]
-		- 20191212@Ned.Le:  Support to get Extra PT from Extra PT column [#125286]
-	Explanation's Param:	
+		20190710@Robert: 	NAP Report - Implement new report to match with CN88's need [#116083]
+		20191212@Ned.Le:  Support to get Extra PT from Extra PT column [#125286]
+		20200214@Cherry: Add filter by Headline Group (#127822)
+		
+	Explanation's Param:
+		@Headline = 0 : All, 
+				  = 1 : TPG,
+				  = 2 : XPG	
 */
 BEGIN
     SET NOCOUNT ON;
@@ -35,6 +41,13 @@ BEGIN
 		 , RealTurnover       MONEY
 		 , VirtualTurnover    MONEY);
     END;
+    
+    CREATE TABLE #tmp_XPG_SuperID(SuperID INT)
+		  
+	INSERT INTO #tmp_XPG_SuperID(SuperID)
+	SELECT SuperId
+	FROM bodb02.dbo.f_GetHeadlineNoPT()
+	
     BEGIN -- Query
 	   INSERT INTO #Data
 			SELECT CASE
@@ -110,6 +123,10 @@ BEGIN
 				 AND BetType IN(9, 29)
 				 AND b.ruben = 1
 				 AND b.statusID IN(111, 112, 113)
+				 AND (@Headline = 0
+					OR (@Headline = 1 AND NOT EXISTS (SELECT TOP 1 1 FROM #tmp_XPG_SuperID s WHERE b.srecommend = s.SuperID))
+					OR (@Headline = 2 AND EXISTS (SELECT TOP 1 1 FROM #tmp_XPG_SuperID s WHERE b.srecommend = s.SuperID))
+					)
 			GROUP BY CASE
 					   WHEN bettype = 9
 						   OR bettype = 29
@@ -142,5 +159,7 @@ BEGIN
     END;
 
     DROP TABLE #Data;
+    DROP TABLE #tmp_XPG_SuperID;
+    
 END;
 GO
