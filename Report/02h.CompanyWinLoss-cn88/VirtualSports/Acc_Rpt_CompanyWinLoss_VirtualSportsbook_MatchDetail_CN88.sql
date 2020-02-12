@@ -5,6 +5,7 @@ ALTER PROCEDURE dbo.Acc_Rpt_CompanyWinLoss_VirtualSportsbook_MatchDetail_CN88
    , @EndDate      SMALLDATETIME
    , @SportType    SMALLINT
    , @BetType      INT
+   , @Headline	  INT
 AS
 /*	
     Creator: Robert
@@ -13,8 +14,12 @@ AS
 	DB: DBACC/bodb02	
 		
 	Revisions:
-		- 20190710@Robert: 	NAP Report - Implement new report to match with CN88's need [#116083]
+		20190710@Robert: 	NAP Report - Implement new report to match with CN88's need [#116083]
+		20200214@Cherry: Add filter by Headline Group (#127822)
 	Explanation's Param:	
+		@Headline = 0 : All, 
+				  = 1 : TPG,
+				  = 2 : XPG
 */
 BEGIN
     SET NOCOUNT ON;
@@ -42,6 +47,12 @@ BEGIN
 			GROUP BY SuperId
 				  , Sporttype;
     END;
+    
+    CREATE TABLE #tmp_XPG_SuperID(SuperID INT)
+		  
+	INSERT INTO #tmp_XPG_SuperID(SuperID)
+	SELECT SuperId
+	FROM bodb02.dbo.f_GetHeadlineNoPT()
 
     SELECT m.MatchId
 	    , m.MatchCode
@@ -80,6 +91,10 @@ BEGIN
 		AND b.MatchId > 0
 		AND b.ruben = 1
 		AND statusID IN(111, 112, 113)
+		AND (@Headline = 0
+			OR (@Headline = 1 AND NOT EXISTS (SELECT TOP 1 1 FROM #tmp_XPG_SuperID s WHERE b.srecommend = s.SuperID))
+			OR (@Headline = 2 AND EXISTS (SELECT TOP 1 1 FROM #tmp_XPG_SuperID s WHERE b.srecommend = s.SuperID))
+			)
     GROUP BY m.MatchId
 		 , m.MatchCode
 		 , m.HomeId
@@ -91,5 +106,6 @@ BEGIN
 		 , m.AwayId;
 
     DROP TABLE #ExtraPT_Sel;
+    DROP TABLE #tmp_XPG_SuperID;	
 END;
 GO

@@ -3,6 +3,7 @@
 ALTER PROCEDURE dbo.Acc_Rpt_CompanyWinLoss_Products_CN88
 	@StartDate    SMALLDATETIME
    , @EndDate      SMALLDATETIME
+   , @Headline	  INT
 AS
 /*	
     Creator: Robert
@@ -11,8 +12,12 @@ AS
 	DB: DBACC/bodb02	
 		
 	Revisions:
-		- 20190710@Robert: 	NAP Report - Implement new report to match with CN88's need [#116083]
+		20190710@Robert: 	NAP Report - Implement new report to match with CN88's need [#116083]
+		20200214@Cherry: Add filter by Headline Group (#127822)
 	Explanation's Param:	
+		@Headline = 0 : All, 
+				  = 1 : TPG,
+				  = 2 : XPG
 */
 
 BEGIN
@@ -161,6 +166,13 @@ BEGIN
 			INNER JOIN league AS l WITH (NOLOCK) ON m.LeagueId = l.LeagueId
 			INNER JOIN Sports AS s WITH (NOLOCK) ON l.sporttype = s.sporttype;
     CREATE CLUSTERED INDEX CIX_MatchID ON #Match(MatchID, Type);
+    
+    CREATE TABLE #tmp_XPG_SuperID(SuperID INT)
+		  
+	INSERT INTO #tmp_XPG_SuperID(SuperID)
+	SELECT SuperId
+	FROM bodb02.dbo.f_GetHeadlineNoPT()
+	
 --------------------------------------------------------------------------------
 ---1. Sportsbook only and outright
     INSERT INTO #tmp_src(srecommend
@@ -270,6 +282,10 @@ BEGIN
 		 WHERE winlostdate = @StartDate
 			  AND b.ruben = 1
 			  AND b.statusID IN(111, 112, 113)
+			  AND (@Headline = 0
+					OR (@Headline = 1 AND NOT EXISTS (SELECT TOP 1 1 FROM #tmp_XPG_SuperID s WHERE b.srecommend = s.SuperID))
+					OR (@Headline = 2 AND EXISTS (SELECT TOP 1 1 FROM #tmp_XPG_SuperID s WHERE b.srecommend = s.SuperID))
+					)	
 		 GROUP BY srecommend
 			   , b.bettype
 			   , CASE
@@ -449,6 +465,10 @@ BEGIN
 				  AND s.RefTable NOT IN(1, 2)
 				  OR s.productID = 1
 				  AND s.EventType = 0)
+			  AND (@Headline = 0
+					OR (@Headline = 1 AND NOT EXISTS (SELECT TOP 1 1 FROM #tmp_XPG_SuperID s WHERE b.srecommend = s.SuperID))
+					OR (@Headline = 2 AND EXISTS (SELECT TOP 1 1 FROM #tmp_XPG_SuperID s WHERE b.srecommend = s.SuperID))
+					)	
 		 GROUP BY srecommend
 			   , CASE
 				    WHEN s.EventType = 0
@@ -678,4 +698,5 @@ BEGIN
     DROP TABLE #Match;
     DROP TABLE #Result;
     DROP TABLE #SportBettype;
+    DROP TABLE #tmp_XPG_SuperID;
 END;
