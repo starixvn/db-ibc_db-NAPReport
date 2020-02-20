@@ -21,6 +21,7 @@ AS
 		20181130@Cherry: Integrate Happy 5 (#103498)
 		20190328@Cherry: Integrate Promotion Prize (#109203)
 		20191115@Cherry: Integrate PP Tournament (#123660)
+		20200220@Cherry: Integrate Virtual Games (#124753)
 */
  
 BEGIN
@@ -47,7 +48,7 @@ SET NOCOUNT ON
 	FROM	dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '', @isTest) s
 		INNER JOIN dbo.Bettype b ON s.Bettype = b.TypeId 
 		LEFT JOIN #tmpBettype t ON s.Bettype = t.Bettype 
-	WHERE  (CasinoType IN (1,2) OR ProductID IN (8, 15, 24, 26, 28, 3, 30, 33))	 
+	WHERE  (CasinoType IN (1,2) OR ProductID IN (8, 15, 24, 26, 28, 3, 30, 33, 38))	 
 		   AND t.Bettype IS NULL
 	
 	--- ProductID = 3 - Number Game get LeagueId
