@@ -13,6 +13,7 @@ AS
 	DB		: DBACC/bodb02
 	
 	Revision:		
+		20200220@Cherry: Initial (convert from script adhoc #128591 to SP)
 
 	Param's Explanation:
 */ 
