@@ -1,9 +1,12 @@
-/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="1"></info>*/
+USE bodb02
+GO
 
 ALTER PROCEDURE Acc_Rpt_HouseNetIncome_SB_PayToBetBuilder
 	@FromDate       DATE = '20190501'
    , @ToDate         DATE = '20190510'
    , @DepositType    SMALLINT = 2
+   , @Site       VARCHAR(20) = ''
 AS
 /*  
     Created: Robert  
@@ -13,6 +16,7 @@ AS
    
     Revisions:		
 		- 20190527@Robert: 107164 - House Net Income Email/Letstalk/Margin Chart - Integrate Bet Builder
+		- 20200214@Kean - DHWL Letstalk - Margin report - Separate Credit into 789 and other MBC [#128572]
 
 	Param's Explanation:  
 		  - DepositType  
@@ -20,7 +24,9 @@ AS
 				    = 1 Deposit Only 
 				    = 0 Credit Only 
 
-	EXEC Acc_Rpt_HouseNetIncome_SB_PayToBetBuilder '2017-12-01', '2017-12-31'
+	EXEC Acc_Rpt_HouseNetIncome_SB_PayToBetBuilder '20180601', '20180619', 0, '' -- All site of Credit
+	EXEC Acc_Rpt_HouseNetIncome_SB_PayToBetBuilder '20180601', '20180619', 1, '' -- All site of Deposit
+	EXEC Acc_Rpt_HouseNetIncome_SB_PayToBetBuilder '20180601', '20180619', 1, '789Y' -- 789Y site of Credit
 */
 
 BEGIN
@@ -52,7 +58,7 @@ BEGIN
 
 
     DECLARE @BetBuilderData TABLE(
-	    rptDate    DATETIME
+	    rptDate    DATE
 	  , WinLoss    MONEY
 	  , Scomm      MONEY);
 
@@ -67,6 +73,12 @@ BEGIN
 				, 0 AS PayToGenius
 		 );
 
+	CREATE TABLE #tmpSite(SiteID INT)
+	INSERT INTO #tmpSite
+	SELECT SiteID FROM bodb_Account.dbo.tbl_Site (NOLOCK)
+				  WHERE (@DepositType = 2 OR isDeposit = @DepositType)
+					AND (@Site = '' OR [site] = @Site )
+
     INSERT INTO @BetBuilderData(rptDate
 						, WinLoss
 						, Scomm)
@@ -74,8 +86,8 @@ BEGIN
 			SELECT b.rptDate
 				, SUM(ISNULL(b.WinlossP, 0) * e.Rate) AS WinLoss
 				, SUM(ISNULL(b.CommissionS, 0) * e.Rate) AS SComm
-			FROM dbwh.bodb_Account.dbo.FactSiteWinloss AS b WITH (NOLOCK)
-			    INNER JOIN dbwh.bodb_Account.dbo.tbl_Site AS s WITH (NOLOCK) ON b.SiteID = s.siteid
+			FROM bodb_Account.dbo.FactSiteWinloss AS b WITH (NOLOCK)
+			    INNER JOIN #tmpSite AS s WITH (NOLOCK) ON b.SiteID = s.siteid
 			    INNER JOIN @ExchangeOANDA AS e ON b.rptDate = e.ExchangeDate
 										   AND b.CurrencyId = e.ExchangeID
 			WHERE b.rptDate BETWEEN @FDate AND @TDate
@@ -83,11 +95,6 @@ BEGIN
 				 AND b.CurrencyID NOT IN(27, 28)
 				 AND b.Bettype = 38
 				 AND b.TicketStatus NOT IN(10, 14)
-				 AND s.isDeposit = CASE
-								   WHEN @DepositType = 2
-								   THEN s.isDeposit
-								   ELSE @DepositType
-							    END
 			GROUP BY b.rptDate
 		 );
 
@@ -122,4 +129,6 @@ BEGIN
     WHERE RptDate LIKE 'FullRange';
 
     SELECT * FROM @FinalResult;
+
+	DROP TABLE #tmpSite;
 END;

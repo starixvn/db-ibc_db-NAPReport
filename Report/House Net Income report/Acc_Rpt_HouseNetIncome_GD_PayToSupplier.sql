@@ -1,9 +1,12 @@
 /*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE bodb02
+GO
 
 ALTER PROCEDURE dbo.Acc_Rpt_HouseNetIncome_GD_PayToSupplier 
 	@FromDate       DATE 
    , @ToDate         DATE 
    , @DepositType    SMALLINT = 2
+   , @Site       VARCHAR(20) = ''
 AS  
 /*  
 	Created:	20200102@Robert: #125762 - DHWL Letstalk - Support to add Margin report into the current DHWL Letstalk report
@@ -12,6 +15,7 @@ AS
    
     Revisions:  	   
 	   - 20200102@Robert: #125762 - DHWL Letstalk - Support to add Margin report into the current DHWL Letstalk report
+	   - 20200214@Kean - DHWL Letstalk - Margin report - Separate Credit into 789 and other MBC [#128572]
 
 	Param's Explanation:   
 	- DepositType  
@@ -19,7 +23,10 @@ AS
 				    = 1 Deposit Only
 				    = 0 Credit
 
-	EXEC Acc_Rpt_HouseNetIncome_GD_PayToSupplier '20161115', '20161115'   
+	EXEC Acc_Rpt_HouseNetIncome_GD_PayToSupplier '20180601', '20180619', 0, '' -- All site of Credit
+	EXEC Acc_Rpt_HouseNetIncome_GD_PayToSupplier '20180601', '20180619', 1, '' -- All site of Deposit
+	EXEC Acc_Rpt_HouseNetIncome_GD_PayToSupplier '20180601', '20180619', 1, '789Y' -- 789Y site of Credit
+	   
 	Note:
 	   20181023Robert: remove the checking
 		  - Credit licensees before Dec-16: Member WL x 2%; 0 if Member WL > 0.
@@ -226,12 +233,14 @@ AS
 											    AND b.rptDate BETWEEN p.FromDate AND p.ToDate
 			    INNER JOIN @ExchangeOANDA AS oanda ON b.RptDate = oanda.ExchangeDate
 											  AND b.CurrencyId = oanda.ExchangeID
+				INNER JOIN bodb_licensee.dbo.view_site_list AS s WITH(NOLOCK) ON b.SiteId = s.SiteID
 			WHERE b.rptDate BETWEEN @FDate AND @TDate
 				 AND b.CurrencyID NOT IN(20, 27, 28)
 				 AND b.customercategory NOT IN(27, 28)
 				 AND b.StatusId NOT IN(-1, 101, 102) /* Exclude Reject , Void*/
 				 AND b.Bettype = -1
 				 AND p.ChargeType <> 12
+				 AND (@Site = '' OR s.SiteName = @Site) 	
 			GROUP BY b.RptDate
 				  , p.IsDeposit
 				  , p.LicenseeID
@@ -246,12 +255,14 @@ AS
 											    AND b.rptDate BETWEEN p.FromDate AND p.ToDate
 			    INNER JOIN @ExchangeOANDA AS oanda ON b.RptDate = oanda.ExchangeDate
 											  AND b.CurrencyId = oanda.ExchangeID
+				INNER JOIN bodb_licensee.dbo.view_site_list AS s WITH(NOLOCK) ON b.SiteId = s.SiteID
 			WHERE b.rptDate BETWEEN @FDate AND @TDate
 				 AND b.CurrencyID NOT IN(20, 27, 28)
 				 AND b.customercategory NOT IN(27, 28)
 				 AND b.StatusId NOT IN(-1, 101, 102) /* Exclude Reject , Void*/
 				 AND b.Bettype = 1706
 				 AND p.ChargeType = 12
+				 AND (@Site = '' OR s.SiteName = @Site)
 			GROUP BY b.RptDate
 				  , p.IsDeposit
 				  , p.LicenseeID

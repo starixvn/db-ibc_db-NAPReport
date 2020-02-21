@@ -1,4 +1,4 @@
-/*<info serverAlias="DBWH-bodb_dwrs" executers="dwrs" viewers="" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBWH-bodb_dwrs" executers="dwrs,bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
 ALTER PROCEDURE dbo.Acc_Rpt_HouseNetIncome_SP_Deposit 
 	@FromDate    DATE
@@ -12,6 +12,7 @@ AS;
     Revisions:  
 		- 201901030@Robert - House Net Income, Licensee Performance Email/Letstalk Report Integration [122516]
 		- 20191127@Robert: Rename Product from 'NPH Promotion' to 'Saba Promotion'
+		- 20200214@Kean - DHWL Letstalk - Margin report - Separate Credit into 789 and other MBC [#128572]
 	
 	Param's Explanation:   
 
