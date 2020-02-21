@@ -50,7 +50,9 @@ AS
 		 , livehomescore     SMALLINT
 		 , liveawayscore     SMALLINT
 		 , transdate         DATETIME
-		 , oddstype          SMALLINT);
+		 , oddstype          SMALLINT
+		 , ip                NVARCHAR(15)
+		 , CustId            INT);
 
 	   DECLARE @RptDate_From    DATETIME = @RptDate
 		    , @RptDate_To      DATETIME;
@@ -98,7 +100,9 @@ AS
 				    , livehomescore
 				    , liveawayscore
 				    , transdate
-				    , oddstype)
+				    , oddstype
+				    , ip
+				    , CustId)
 			SELECT tmp.TransId
 				, l.sporttype
 				, l.leagueid
@@ -121,6 +125,8 @@ AS
 				, b.liveawayscore
 				, b.transdate
 				, b.oddstype
+				, b.ip
+				, b.custid
 			FROM bodb02.dbo.bettrans AS b WITH(NOLOCK)
 			    INNER JOIN #TmpVoidedTransaction AS tmp ON b.transid = tmp.TransId
 			    LEFT JOIN bodb02.dbo.match AS m WITH(NOLOCK) ON b.matchid = m.matchid
@@ -149,6 +155,8 @@ AS
 			ORDER BY m.kickofftime DESC
 				  , b.liveindicator DESC
 				  , b.bettype DESC;
+
+	   CREATE CLUSTERED INDEX IX_CustId ON #Data(CustId ASC);
 
 	   UPDATE d
 			SET 
@@ -209,8 +217,23 @@ AS
 		   , livehomescore
 		   , liveawayscore
 		   , transdate
+		   , ip
 	   FROM #Data AS d
 		  INNER JOIN bodb02.dbo.TicketVoiding_SubIssueType AS ss WITH(NOLOCK) ON d.SubIssueTypeID = ss.SubIssueTypeId;
+
+	   SELECT DISTINCT 
+			c.username
+		   , c.iplogin
+		   , TicketIPs = STUFF(
+			(
+			    SELECT DISTINCT 
+					 N',' + a.ip
+			    FROM #Data AS a
+			    WHERE a.CustId = d.CustId FOR XML PATH(''), TYPE
+			).value
+			(N'.[1]', N'nvarchar(max)'), 1, 1, N'')
+	   FROM #Data AS d
+		  INNER JOIN dbo.Customer AS c WITH(NOLOCK) ON d.CustId = c.custid;
 
 	   DROP TABLE #TmpVoidedTransaction;
 	   DROP TABLE #Data;
