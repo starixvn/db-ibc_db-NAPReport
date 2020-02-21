@@ -4,8 +4,8 @@ USE bodb02
 GO
 
 ALTER PROCEDURE [dbo].[Acc_Rpt_Automail_WeeklyVoidTickets]
-	@FromDate    DATE,
-	@ToDate      DATE
+	@FromDate    SMALLDATETIME,
+	@ToDate      SMALLDATETIME
 AS
 /*
     Created	: 20200220@Cherry
@@ -34,4 +34,5 @@ BEGIN
 		 and z.winlostdate >= @FromDate and  z.winlostdate <= @ToDate 
 	GROUP BY si.site
 
+	OPTION (RECOMPILE)
 END	
