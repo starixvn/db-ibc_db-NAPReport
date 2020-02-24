@@ -44,6 +44,12 @@ BEGIN
 
     CREATE TABLE #Exchange(ExchangeDate    DATE, ExchangeID      INT, Rate            FLOAT);
 	CREATE	TABLE #ExchangeOANDA	(ExchangeDate DATE, ExchangeID INT, Rate FLOAT)
+	CREATE TABLE #tmpProduct(ProductID INT, ProductCode VARCHAR(100))
+
+	INSERT INTO #tmpProduct(ProductID, ProductCode)
+	SELECT SourceID, ProductCode
+	FROM bodb_Account.dbo.DimProduct
+	WHERE ProductCode IN ( 'PP', 'CC', 'SG') AND SourceInfo = 'Licensee'
 
     INSERT INTO #Exchange(ExchangeDate, ExchangeID, Rate)
 		 SELECT ExchangeDate, Currency, Rate
@@ -189,6 +195,7 @@ BEGIN
 				FROM #TmpData AS t 
 				WHERE t.ProductID = 32 GROUP BY RptDate ) wl
 			INNER JOIN #ChargeInfo3rd ci ON wl.RptDate BETWEEN ci.FromDate AND ci.ToDate
+			INNER JOIN #tmpProduct p on ci.ProductID = p.ProductID AND p.ProductCode = 'PP'
 			INNER JOIN #ExchangeOANDA ex ON ci.BaseCurrencyId = ex.ExchangeID AND ex.ExchangeDate = @TDate
 
 	INSERT INTO #tmpPayToSupplier_PP_MTD( MemberWLOANDA, PayToSupplier_PP_MTD)
@@ -204,6 +211,7 @@ BEGIN
 				FROM #TmpData AS t 
 				WHERE t.ProductID = 32 GROUP BY RptDate ) wl
 			INNER JOIN #ChargeInfo3rd ci ON wl.RptDate BETWEEN ci.FromDate AND ci.ToDate
+			INNER JOIN #tmpProduct p on ci.ProductID = p.ProductID AND p.ProductCode = 'PP'
 			INNER JOIN #ExchangeOANDA ex ON ci.BaseCurrencyId = ex.ExchangeID AND ex.ExchangeDate = @TDate
 			GROUP BY ci.Rate, ci.FromDate, ci.ToDate, ci.MinAmount * ex.Rate, MaxAmount * ex.Rate
 					) as temp
@@ -249,7 +257,8 @@ SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 	,(SELECT -SUM(t.PayToSupplier_PP_Daily) FROM #tmpPayToSupplier_PP AS t WHERE t.rptDate = @tmpDate) AS  PayToSupplier_PP
 	,(SELECT SUM(t.MemberWLOANDA * ISNULL(ci.Rate,0)) 
 							FROM #TmpData AS t
-							LEFT JOIN #ChargeInfo3rd AS ci ON t.rptDate BETWEEN ci.FromDate AND ci.ToDate 
+							INNER JOIN #ChargeInfo3rd AS ci ON t.rptDate BETWEEN ci.FromDate AND ci.ToDate
+							INNER JOIN #tmpProduct p on ci.ProductID = p.ProductID AND p.ProductCode = 'CC' 
 							WHERE t.ProductID = 34 AND t.rptDate = @tmpDate) AS  PayToSupplier_CC
 	, 0 PayToSupplier_SP;
 
@@ -277,13 +286,13 @@ INSERT INTO #FinalResult(RptDate
 		 SELECT 'FullRange'
 			, SUM(PayToSupplier_NG)        
 			, SUM(PayToSupplier_H5)
-			, 0.01 * (CASE WHEN SUM(PayToSupplier_VS) > 0 THEN 0 ELSE SUM(PayToSupplier_VS) END)
-			, 0.03 * (CASE WHEN SUM(PayToSupplier_RNGKeno) > 0 THEN 0 ELSE SUM(PayToSupplier_RNGKeno) END)        
+			, 0.01 * (SELECT CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(MemberWLOANDA) END FROM #TmpData AS t WHERE t.ProductID = 5)
+			, 0.03 * (SELECT CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(MemberWLOANDA) END FROM #TmpData AS t WHERE t.ProductID = 8)
 			, SUM(PayToSupplier_NG2)
-			, 0.02 * (CASE WHEN SUM(PayToSupplier_MacauG) > 0 THEN 0 ELSE SUM(PayToSupplier_MacauG) END)               
-			, 0.03 * (CASE WHEN SUM(PayToSupplier_LT) > 0 THEN 0 ELSE SUM(PayToSupplier_LT) END)
+			, 0.02 * (SELECT CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(MemberWLOANDA) END FROM #TmpData AS t WHERE t.ProductID = 22)
+			, 0.03 * (SELECT CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(MemberWLOANDA) END FROM #TmpData AS t WHERE t.ProductID = 28)
 			, 0
-			, 0.01 * (CASE WHEN SUM(PayToSupplier_VS2) > 0 THEN 0 ELSE SUM(PayToSupplier_VS2) END)               
+			, 0.01 * (SELECT CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(MemberWLOANDA) END FROM #TmpData AS t WHERE t.ProductID = 27)               
 			, 0
 			, 0        
 			, (SELECT CASE WHEN SUM(MemberWLOANDA) < 0 THEN 0 ELSE -SUM(PayToSupplier_PP_MTD) END FROM #tmpPayToSupplier_PP_MTD)
@@ -301,14 +310,14 @@ INSERT INTO #FinalResult(RptDate
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''RNGKeno'', 4, ''PayToSupplier'', PayToSupplier_RNGKeno' + CHAR(13)
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''NG2'', 5, ''PayToSupplier'', PayToSupplier_NG2' + CHAR(13)
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''MacauG'', 6, ''PayToSupplier'', PayToSupplier_MacauG' + CHAR(13)
-	+ 'UNION ALL' + CHAR(13) + 'SELECT ''LT'', 9, ''PayToSupplier'', PayToSupplier_LT' + CHAR(13)
-	+ 'UNION ALL' + CHAR(13) + 'SELECT ''EX'', 9, ''PayToSupplier'', PayToSupplier_EX' + CHAR(13)
-	+ 'UNION ALL' + CHAR(13) + 'SELECT ''VS2'', 10, ''PayToSupplier'', PayToSupplier_VS2' + CHAR(13)
-	+ 'UNION ALL' + CHAR(13) + 'SELECT ''1RNG'', 11, ''PayToSupplier'', PayToSupplier_1RNG' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''LT'', 7, ''PayToSupplier'', PayToSupplier_LT' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''EX'', 8, ''PayToSupplier'', PayToSupplier_EX' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''VS2'', 9, ''PayToSupplier'', PayToSupplier_VS2' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''1RNG'', 10, ''PayToSupplier'', PayToSupplier_1RNG' + CHAR(13)
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''1RNG-JP'', 11, ''PayToSupplier'', PayToSupplier_1RNG_JP' + CHAR(13)
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''PP'', 12, ''PayToSupplier'', PayToSupplier_PP' + CHAR(13)
-	+ 'UNION ALL' + CHAR(13) + 'SELECT ''CC'', 12, ''PayToSupplier'', PayToSupplier_CC' + CHAR(13)
-    + 'UNION ALL' + CHAR(13) + 'SELECT ''SP'', 13, ''PayToSupplier'', PayToSupplier_SP) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) 
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''CC'', 13, ''PayToSupplier'', PayToSupplier_CC' + CHAR(13)
+    + 'UNION ALL' + CHAR(13) + 'SELECT ''SP'', 14, ''PayToSupplier'', PayToSupplier_SP) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) 
     + 'PIVOT' + CHAR(13) 
     + '(' + CHAR(13) 
     + 'MAX(value)' + CHAR(13) 
@@ -383,6 +392,7 @@ INSERT INTO #FinalResult(RptDate
     DROP TABLE #SportBettypeMatrix;
     DROP TABLE #Exchange;
 	DROP TABLE #ExchangeOANDA;
+	DROP TABLE #tmpProduct;
 	DROP TABLE #ChargeInfo3rd
     DROP TABLE #FinalResult;
     DROP TABLE #TmpData;
