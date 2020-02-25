@@ -14,6 +14,8 @@ AS
    
     Revisions:		
 		- 20181202@Robert: #104579 - House Net Income Email/Letstalk/Margin Chart - Integrate Happy 5
+		- 20200225@Kean: #128007 - Changes on the rate of Pay to suppliers
+
 	Param's Explanation:   
 */  
 BEGIN  
@@ -160,7 +162,7 @@ BEGIN
 
     UPDATE #FinalResult
 		 SET
-			PayToSupplier = -(HouseWL + ExtraPT) * 0.4;
+			PayToSupplier = -(HouseWL + ExtraPT) * 0.5;
 
 	---------------------------------------------------- Select the output -------------------------------------------------------
 	DECLARE @SQL VARCHAR(1000)
