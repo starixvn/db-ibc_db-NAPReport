@@ -75,7 +75,7 @@ BEGIN
 
 	CREATE TABLE #tmpSite(SiteID INT)
 	INSERT INTO #tmpSite
-	SELECT SiteID FROM DBWH.bodb_Account.dbo.tbl_Site (NOLOCK)
+	SELECT SiteID FROM DBWH.bodb_Account.dbo.tbl_Site WITH (NOLOCK)
 				  WHERE (@DepositType = 2 OR isDeposit = @DepositType)
 					AND (@Site = '' OR [site] = @Site )
 
