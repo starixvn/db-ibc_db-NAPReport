@@ -140,7 +140,7 @@ SET NOCOUNT ON;
 			, (SELECT SUM(t.HouseWL) FROM #RawData AS t) AS  HouseWL
 			, (SELECT SUM(t.ExtraPT) FROM #RawData AS t) AS  ExtraPT
 			, (SELECT -SUM(HouseWL + ExtraPT) * 0.5 FROM #RawData AS t WHERE t.SiteId <> @SiteCN88)
-			+ 0.015 * (SELECT CASE WHEN SUM(MemberWL) > 0 THEN 0 ELSE SUM(MemberWL) END FROM #RawData AS t WHERE t.SiteId =  @SiteCN88)       
+			+ 0.015 * (SELECT SUM(MemberWL) FROM #RawData AS t WHERE t.SiteId =  @SiteCN88)       
 		FROM #FinalResult;
 
 	---------------------------------------------------- Select the output -------------------------------------------------------
