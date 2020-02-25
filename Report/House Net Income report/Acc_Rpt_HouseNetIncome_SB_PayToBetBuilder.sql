@@ -75,7 +75,7 @@ BEGIN
 
 	CREATE TABLE #tmpSite(SiteID INT)
 	INSERT INTO #tmpSite
-	SELECT SiteID FROM bodb_Account.dbo.tbl_Site (NOLOCK)
+	SELECT SiteID FROM DBWH.bodb_Account.dbo.tbl_Site (NOLOCK)
 				  WHERE (@DepositType = 2 OR isDeposit = @DepositType)
 					AND (@Site = '' OR [site] = @Site )
 
@@ -86,7 +86,7 @@ BEGIN
 			SELECT b.rptDate
 				, SUM(ISNULL(b.WinlossP, 0) * e.Rate) AS WinLoss
 				, SUM(ISNULL(b.CommissionS, 0) * e.Rate) AS SComm
-			FROM bodb_Account.dbo.FactSiteWinloss AS b WITH (NOLOCK)
+			FROM DBWH.bodb_Account.dbo.FactSiteWinloss AS b WITH (NOLOCK)
 			    INNER JOIN #tmpSite AS s WITH (NOLOCK) ON b.SiteID = s.siteid
 			    INNER JOIN @ExchangeOANDA AS e ON b.rptDate = e.ExchangeDate
 										   AND b.CurrencyId = e.ExchangeID
