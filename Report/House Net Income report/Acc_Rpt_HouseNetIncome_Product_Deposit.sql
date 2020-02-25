@@ -93,6 +93,10 @@ EXEC bodb02.dbo.Acc_Rpt_HouseNetIncome_NG_Deposit
 	@FromDate  = @FromDate
 	,@ToDate	= @ToDate
 
+EXEC bodb02.dbo.Acc_Rpt_HouseNetIncome_HP5_Deposit
+	@FromDate  = @FromDate
+	,@ToDate	= @ToDate
+
 EXEC bodb02.dbo.Acc_Rpt_HouseNetIncome_SB_Deposit
 	@FromDate  = @FromDate
 	,@ToDate	= @ToDate
