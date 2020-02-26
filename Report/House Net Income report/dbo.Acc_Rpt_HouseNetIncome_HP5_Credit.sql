@@ -123,8 +123,8 @@ SET NOCOUNT ON;
 			    SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 				    , (SELECT SUM(t.HouseWL) FROM #RawData AS t WHERE t.rptDate = @tmpDate) AS  HouseWL
 				    , (SELECT SUM(t.ExtraPT) FROM #RawData AS t WHERE t.rptDate = @tmpDate) AS  ExtraPT
-				    , (SELECT -SUM(HouseWL + ExtraPT) * 0.5 FROM #RawData AS t WHERE t.rptDate = @tmpDate AND t.SiteId <> @SiteCN88)
-					+ (SELECT SUM(MemberWL) * 0.015 FROM #RawData AS t WHERE t.rptDate = @tmpDate AND t.SiteId =  @SiteCN88);
+				    , (SELECT ISNULL(-SUM(HouseWL + ExtraPT) * 0.5,0) FROM #RawData AS t WHERE t.rptDate = @tmpDate AND t.SiteId <> @SiteCN88)
+					+ (SELECT ISNULL(SUM(MemberWL) * 0.015,0) FROM #RawData AS t WHERE t.rptDate = @tmpDate AND t.SiteId =  @SiteCN88);
 
 		  SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate);
 	   END;
@@ -139,8 +139,8 @@ SET NOCOUNT ON;
 		SELECT 'FullRange'
 			, (SELECT SUM(t.HouseWL) FROM #RawData AS t) AS  HouseWL
 			, (SELECT SUM(t.ExtraPT) FROM #RawData AS t) AS  ExtraPT
-			, (SELECT -SUM(HouseWL + ExtraPT) * 0.5 FROM #RawData AS t WHERE t.SiteId <> @SiteCN88)
-			+ 0.015 * (SELECT SUM(MemberWL) FROM #RawData AS t WHERE t.SiteId =  @SiteCN88)       
+			, (SELECT ISNULL(-SUM(HouseWL + ExtraPT) * 0.5,0) FROM #RawData AS t WHERE t.SiteId <> @SiteCN88)
+			+ 0.015 * (SELECT ISNULL(SUM(MemberWL),0) FROM #RawData AS t WHERE t.SiteId =  @SiteCN88)       
 		FROM #FinalResult;
 
 	---------------------------------------------------- Select the output -------------------------------------------------------
