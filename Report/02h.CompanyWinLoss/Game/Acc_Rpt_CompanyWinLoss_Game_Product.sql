@@ -25,6 +25,7 @@ Revisions:
 - 20190925@Jacob: Group By CN88 (#118824)
 - 20190918@Robert: Remove inactive products (#120215)
 - 20191118@Ned.Le: Integrate Pragmatic Tournament Prize (#123685)
+- 20191212@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
 
 Example:
 EXEC [Acc_Rpt_CompanyWinLoss_Game_Product] @EndDate='2020-01-01',@StartDate='2017-01-05', @CasinoType = 1
@@ -70,21 +71,6 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_Product] @EndDate='2020-01-01',@StartDate='201
                SELECT CustId
                FROM f_DepSuper_1('All');
     END;
-    BEGIN --#ExtraPT
-        CREATE TABLE #ExtraPT
-                     (ProductID INT, 
-                      SuperID   INT, 
-                      ExtraPT   DECIMAL(9, 8)
-                     );
-        INSERT INTO #ExtraPT
-               SELECT ProductID, 
-                      SuperId, 
-                      SUM(ExtraPT) AS ExtraPT
-               FROM bodb02.dbo.Acc_GroupExtraPTSetting a WITH(NOLOCK)
-               WHERE @StartDate BETWEEN FromDate AND Todate
-               GROUP BY ProductID, 
-                        SuperId;
-    END;
     BEGIN -- #Data
 
         CREATE TABLE #Data
@@ -126,28 +112,26 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_Product] @EndDate='2020-01-01',@StartDate='201
                                                                                                        WHEN tpositiontaking = 1
                                                                                                        THEN 0
                                                                                                        ELSE winlost - actual_stake + b.scomm / (1 - b.tpositiontaking)
-                                                                                                   END) * ISNULL(e.ExtraPT, 0)) * actualrate) AS RealIncome, 
+                                                                                                   END) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * actualrate) AS RealIncome, 
                            SUM(CASE
                                    WHEN tpositiontaking = 1
                                    THEN 0
-                                   ELSE(1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * b.stake * CASE
+                                   ELSE(1 - b.tpositiontaking - ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * b.stake * CASE
                                                                                                       WHEN virtualrate > actualrate
                                                                                                       THEN virtualrate
                                                                                                       ELSE actualrate
                                                                                                   END
                                END) AS RealTurnover, 
-                           SUM((winlost - actual_stake) * actualrate * ISNULL(e.ExtraPT, 0)) AS ExtraPT, 
+                           SUM((winlost - actual_stake) * actualrate * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) AS ExtraPT, 
                            SUM((CASE
                                     WHEN tpositiontaking = 1
                                     THEN winlost - actual_stake
                                     ELSE winlost - actual_stake + scomm / (1 - tpositiontaking)
-                                END * ISNULL(e.ExtraPT, 0)) * actualrate) AS NewExtraPT
+                                END * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * actualrate) AS NewExtraPT
                     FROM bettrans AS b WITH(NOLOCK)
                          INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
                          LEFT JOIN #DepositSuper AS dep ON b.srecommend = dep.CustId
                          LEFT JOIN CS_CustSuper AS cn88 WITH(NOLOCK) ON b.srecommend = cn88.CustId
-                         LEFT JOIN #ExtraPT e ON b.srecommend = e.superID
-                                                 AND sb.ProductId = e.ProductId
                     WHERE b.winlostdate = @StartDate
                           AND sb.RefTable NOT IN(1, 2)
                          AND b.ruben = 1
@@ -192,18 +176,18 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_Product] @EndDate='2020-01-01',@StartDate='201
                                                                                                                          WHEN tpositiontaking = 1
                                                                                                                          THEN 0
                                                                                                                          ELSE b.ContributionRate * b.BetStake + b.scomm / (1 - b.tpositiontaking)
-                                                                                                                     END) * ISNULL(e.ExtraPT, 0)
+                                                                                                                     END) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)
                                     WHEN bg.Bettype IS NOT NULL THEN 0 /*Progressive Jackpot, PP Promotion Prize, PP Tournament Prize*/
                                     ELSE winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - (CASE
                                                                                                                 WHEN tpositiontaking = 1
                                                                                                                 THEN 0
                                                                                                                 ELSE winlost - actual_stake + b.scomm / (1 - b.tpositiontaking)
-                                                                                                            END) * ISNULL(e.ExtraPT, 0)
+                                                                                                            END) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)
                                 END) * actualrate) AS RealIncome, 
                            SUM(CASE
                                    WHEN tpositiontaking = 1
                                    THEN 0
-                                   ELSE(1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * b.stake * CASE
+                                   ELSE(1 - b.tpositiontaking - ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * b.stake * CASE
                                                                                                       WHEN virtualrate > actualrate
                                                                                                       THEN virtualrate
                                                                                                       ELSE actualrate
@@ -216,7 +200,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_Product] @EndDate='2020-01-01',@StartDate='201
                                     THEN b.ContributionRate * b.BetStake
                                     WHEN bg.Bettype IS NOT NULL THEN 0 /*Progressive Jackpot, PP Promotion Prize, PP Tournament Prize*/
                                     ELSE winlost - actual_stake
-                                END) * actualrate * ISNULL(e.ExtraPT, 0)) AS ExtraPT, 
+                                END) * actualrate * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) AS ExtraPT, 
                            SUM((CASE
                                     WHEN tpositiontaking = 1
                                     THEN 0
@@ -224,13 +208,11 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_Product] @EndDate='2020-01-01',@StartDate='201
                                     WHEN b.gameId IN(2198, 2398, 2998)
                                     THEN ContributionRate * BetStake + 1.0 * scomm / (1 - tpositiontaking) --Jackpot Contribution
                                     ELSE winlost - actual_stake + 1.0 * scomm / (1 - tpositiontaking)
-                                END) * ISNULL(e.ExtraPT, 0) * actualrate) AS NewExtraPT
+                                END) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0) * actualrate) AS NewExtraPT
                     FROM bettransRNG b WITH(NOLOCK)
                          INNER JOIN #SportBetType sb ON sb.BetType = b.gameID
                          LEFT JOIN #DepositSuper dep ON b.srecommend = dep.custid
                          LEFT JOIN CS_CustSuper AS cn88 WITH(NOLOCK) ON b.srecommend = cn88.CustId
-                         LEFT JOIN #ExtraPT e ON b.srecommend = e.superID
-                                                 AND sb.ProductId = e.ProductId
 						 LEFT JOIN #PrizeBettypeGroup bg ON b.gameID = bg.Bettype
                     WHERE b.winlostdate = @StartDate
                           AND sb.RefTable = 1
@@ -274,28 +256,26 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_Product] @EndDate='2020-01-01',@StartDate='201
                                                                                                        WHEN tpositiontaking = 1
                                                                                                        THEN 0
                                                                                                        ELSE winlost - actual_stake + b.scomm / (1 - b.tpositiontaking)
-                                                                                                   END) * ISNULL(e.ExtraPT, 0)) * actualrate) RealIncome, 
+                                                                                                   END) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * actualrate) RealIncome, 
                            SUM(CASE
                                    WHEN tpositiontaking = 1
                                    THEN 0
-                                   ELSE(1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * b.stake * CASE
+                                   ELSE(1 - b.tpositiontaking - ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * b.stake * CASE
                                                                                                       WHEN virtualrate > actualrate
                                                                                                       THEN virtualrate
                                                                                                       ELSE actualrate
                                                                                                   END
                                END) RealTurnover, 
-                           SUM((winlost - actual_stake) * actualrate * ISNULL(e.ExtraPT, 0)) AS ExtraPT, 
+                           SUM((winlost - actual_stake) * actualrate * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) AS ExtraPT, 
                            SUM((CASE
                                     WHEN tpositiontaking = 1
                                     THEN winlost - actual_stake
                                     ELSE winlost - actual_stake + scomm / (1 - tpositiontaking)
-                                END * ISNULL(e.ExtraPT, 0)) * actualrate) AS NewExtraPT
+                                END * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * actualrate) AS NewExtraPT
                     FROM bettransLC b WITH(NOLOCK)
                          INNER JOIN #SportBetType sb ON sb.BetType = b.gameID
                          LEFT JOIN #DepositSuper dep ON b.srecommend = dep.custid
                          LEFT JOIN CS_CustSuper AS cn88 WITH(NOLOCK) ON b.srecommend = cn88.CustId
-                         LEFT JOIN #ExtraPT e ON b.srecommend = e.superID
-                                                 AND sb.ProductId = e.ProductId
                     WHERE b.winlostdate = @StartDate
                           AND sb.RefTable = 2
                           AND b.statusID IN(111, 112, 113)
@@ -330,9 +310,9 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_Product] @EndDate='2020-01-01',@StartDate='201
         ORDER BY GroupName, 
                  RowName;
     END;
-     DROP TABLE #SportBetType;
-     DROP TABLE #DepositSuper;
-     DROP TABLE #Data;
-     DROP TABLE #ExtraPT;
-	 DROP TABLE #PrizeBettypeGroup;
+    
+	DROP TABLE #SportBetType;
+    DROP TABLE #DepositSuper;
+    DROP TABLE #Data;
+	DROP TABLE #PrizeBettypeGroup;
 GO

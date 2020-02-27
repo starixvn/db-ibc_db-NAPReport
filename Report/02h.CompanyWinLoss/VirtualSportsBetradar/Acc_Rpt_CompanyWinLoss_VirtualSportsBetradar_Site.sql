@@ -1,5 +1,7 @@
-
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+
+USE bodb02
+GO
 
 ALTER PROCEDURE dbo.Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_Site @StartDate SMALLDATETIME, 
                                                                       @EndDate   SMALLDATETIME, 
@@ -20,6 +22,7 @@ Revisions:
 - 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
 - 20181018@Robert: Fix performance issue on House Win Loss by Product [#103309]
 - 20190925@Jacob: Group By CN88 (#118824)
+- 20191212@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
 
 Example:
 EXEC [Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_Site] @StartDate='2016-01-01', @EndDate='2020-01-01', @SportType = 180, @BetType = 1203, @Site = 'Credit'
@@ -80,26 +83,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_Site] @StartDate='2016-01-01'
                                   'XYZBET';--8RM;
             END;
     END;
-    BEGIN -- Extra PT
-        CREATE TABLE #ExtraPT_Sel
-        (SuperID   INT, 
-         Sporttype INT, 
-         ExtraPT   DECIMAL(9, 8)
-        );
-        INSERT INTO #ExtraPT_Sel
-        (SuperID, 
-         Sporttype, 
-         ExtraPT
-        )
-               SELECT SuperId, 
-                      Sporttype, 
-                      SUM(ExtraPT) AS ExtraPT
-               FROM bodb02.dbo.Acc_GroupExtraPTSetting AS a WITH(NOLOCK)
-               WHERE @StartDate BETWEEN FromDate AND Todate
-                     AND a.ProductId = 27
-               GROUP BY SuperId, 
-                        Sporttype;
-    END;
+    
      IF @EventType = 1
          BEGIN
              SELECT Site AS RowName, 
@@ -109,17 +93,17 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_Site] @StartDate='2016-01-01'
                              WHEN b.tpositiontaking = 1
                              THEN 0
                              ELSE winlost - actual_stake + b.scomm / (1 - b.tpositiontaking)
-                         END * ISNULL(e.ExtraPT, 0) * actualrate) AS ExtraPT, 
+                         END * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0) * actualrate) AS ExtraPT, 
                     SUM(scomm * actualrate) AS Commission, 
                     SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - CASE
                                                                                                WHEN tpositiontaking = 1
                                                                                                THEN 0
                                                                                                ELSE winlost - actual_stake + b.scomm / (1 - b.tpositiontaking)
-                                                                                           END * ISNULL(e.ExtraPT, 0)) * actualrate) AS RealIncome, 
+                                                                                           END * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * actualrate) AS RealIncome, 
                     SUM(CASE
                             WHEN tpositiontaking = 1
                             THEN 0
-                            ELSE(1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * b.stake * CASE
+                            ELSE(1 - b.tpositiontaking - ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * b.stake * CASE
                                                                                                WHEN virtualrate > actualrate
                                                                                                THEN virtualrate
                                                                                                ELSE actualrate
@@ -128,7 +112,6 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_Site] @StartDate='2016-01-01'
              FROM bettrans AS b WITH(NOLOCK)
                   INNER JOIN match AS m WITH(NOLOCK) ON b.MatchId = m.MatchId
                   INNER JOIN #Agent AS dep ON b.recommend = dep.CustId
-                  LEFT JOIN #ExtraPT_Sel AS e ON e.SuperID = b.srecommend
              WHERE b.winlostdate = @StartDate
                    AND b.BetType = @BetType
                    AND m.sporttype = @SportType
@@ -147,17 +130,17 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_Site] @StartDate='2016-01-01'
                               WHEN b.tpositiontaking = 1
                               THEN 0
                               ELSE(winlost - actual_stake) + b.scomm / (1 - b.tpositiontaking)
-                          END) * ISNULL(e.ExtraPT, 0) * actualrate) AS ExtraPT, 
+                          END) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0) * actualrate) AS ExtraPT, 
                     SUM(scomm * actualrate) Commission, 
                     SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - (CASE
                                                                                                 WHEN tpositiontaking = 1
                                                                                                 THEN 0
                                                                                                 ELSE winlost - actual_stake + b.scomm / (1 - b.tpositiontaking)
-                                                                                            END) * ISNULL(e.ExtraPT, 0)) * actualrate) AS RealIncome, 
+                                                                                            END) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * actualrate) AS RealIncome, 
                     SUM(CASE
                             WHEN tpositiontaking = 1
                             THEN 0
-                            ELSE(1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * b.stake * CASE
+                            ELSE(1 - b.tpositiontaking - ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * b.stake * CASE
                                                                                                WHEN virtualrate > actualrate
                                                                                                THEN virtualrate
                                                                                                ELSE actualrate
@@ -173,7 +156,6 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_Site] @StartDate='2016-01-01'
                       INNER JOIN dbo.match m WITH(NOLOCK) ON bm.matchid = m.matchid
              ) bsm ON b.refno = bsm.refno
                   INNER JOIN #Agent AS dep ON b.recommend = dep.CustId
-                  LEFT JOIN #ExtraPT_Sel e ON e.SuperID = b.srecommend
              WHERE b.winlostdate = @StartDate
                    AND b.BetType = @BetType
                    AND bsm.sporttype = @SportType
@@ -183,6 +165,6 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_Site] @StartDate='2016-01-01'
              GROUP BY Site
              ORDER BY RowName;
      END;
-     DROP TABLE #ExtraPT_Sel;
+     
      DROP TABLE #Agent;
 GO

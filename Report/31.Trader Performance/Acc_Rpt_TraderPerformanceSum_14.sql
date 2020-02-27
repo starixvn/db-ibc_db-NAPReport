@@ -21,6 +21,7 @@ AS
 		20190709@Kean: Add new Bettype - Total Bookings 15 mins HDP (#116435)
 		20191010@Cherry: Apply new table for Trader (#120746)
 		20191121@Ned.Le: Integrate BM AIO (#124017)
+		20191212@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
 
 	Param's Explanation:
 		@IsSoccer:
@@ -75,14 +76,6 @@ BEGIN
 		bet						INT
 	)
 
-	CREATE TABLE #ExtraPTSportbook
-	(
-		superId		INT,
-		ExtraPT		MONEY,
-		FromDate	DATETIME,
-		ToDate		DATETIME
-	)
-
 	CREATE TABLE #userMatch
 	(  
 		custid INT PRIMARY KEY,  
@@ -93,21 +86,6 @@ BEGIN
 		Minor3 INT,
 		Others INT
 	)
-
-	INSERT INTO #ExtraPTSportbook
-	SELECT SuperId, SUM(ExtraPT) AS ExtraPT, FromDate, ToDate
-	FROM
-	(
-		SELECT SuperId, ExtraPT, FromDate, ToDate
-		FROM bodb02.dbo.Acc_GroupExtraPTSetting WITH (NOLOCK)
-		WHERE
-			(
-				@FromDate BETWEEN FromDate AND ToDate
-				OR @ToDate BETWEEN FromDate AND ToDate
-			)
-			AND ProductId = 1 AND Sporttype = 0 AND SubProduct = ''
-	) A
-	GROUP BY SuperId, FromDate, ToDate
 
 	BEGIN
 		
@@ -257,18 +235,17 @@ BEGIN
                                       ELSE b.actualrate
                                   END) AS comm,
 		SUM(CASE 
-				WHEN bettype IN (5, 15) THEN ABS(stake) * (CASE WHEN tpositiontaking = 1 THEN 0 ELSE 1 - tpositiontaking - ISNULL(ExtraPT, 0) END) * virtualrate 
+				WHEN bettype IN (5, 15) THEN ABS(stake) * (CASE WHEN tpositiontaking = 1 THEN 0 ELSE 1 - tpositiontaking - ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0) END) * virtualrate 
 				WHEN bettype IN (1, 2, 3, 7, 8, 12, 124, 125, 701, 702)
-					THEN (CASE WHEN modds = 0.25 OR modds = - 0.25 THEN stake/2 ELSE stake END) * (CASE WHEN tpositiontaking = 1 THEN 0 ELSE 1 - tpositiontaking - ISNULL(ExtraPT, 0) END) * virtualrate
+					THEN (CASE WHEN modds = 0.25 OR modds = - 0.25 THEN stake/2 ELSE stake END) * (CASE WHEN tpositiontaking = 1 THEN 0 ELSE 1 - tpositiontaking - ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0) END) * virtualrate
 				ELSE 0 END) AS stake_AfterExtraPT,
 		-SUM(CASE WHEN tpositiontaking = 1 THEN 0 ELSE ((winlost - actual_stake) * virtualrate 
 														+ CASE WHEN tpositiontaking = 1 THEN 0 
 														ELSE (scomm * CASE WHEN b.virtualrate < b.actualrate THEN b.virtualrate ELSE b.actualrate END)/(1 - tpositiontaking) 
-														END) * ISNULL(e.ExtraPT, 0) END) AS memberwinlost_ExtraPT,
+														END) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0) END) AS memberwinlost_ExtraPT,
 		SUM(CASE WHEN td.[VendorID] IN (14) THEN 0 
 				   ELSE 1 END) AS bet
 	FROM dbo.bettrans14 b WITH (NOLOCK)
-		LEFT JOIN #ExtraPTSportbook e ON b.srecommend = e.superId AND b.winlostdate BETWEEN e.FromDate AND e.ToDate
 		LEFT JOIN dbo.TradeCust AS td WITH (NOLOCK) ON b.custid = td.custid 
 	WHERE
 		statusID NOT IN (101, 102, 103, 121, 111)
@@ -616,7 +593,6 @@ BEGIN
 	DROP TABLE #bettrans
 	DROP TABLE #tmpData
 	DROP TABLE #userMatch
-	DROP TABLE #ExtraPTSportbook
 	DROP TABLE #tmpDot_Admin_Assignment_Trader
 	DROP TABLE #tmpTraderAssignment
 	

@@ -1,5 +1,7 @@
-
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+
+USE bodb02
+GO
 
 ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_Universal_BetType] @StartDate SMALLDATETIME, 
                                                                  @EndDate   SMALLDATETIME, 
@@ -19,7 +21,9 @@ Revisions:
 - 20160923@Percy: Using local variable to prevent bad parameter sniffing [RedmineID: #64573]
 - 20170825@Franklin: Integrate Lucky 3 (#78214)
 - 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
-- 20190925@Jacob: Group By CN88 (#118824)	
+- 20190925@Jacob: Group By CN88 (#118824)
+- 20191212@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
+
 Example:
 EXEC [Acc_Rpt_CompanyWinLoss_Universal_BetType] @StartDate='2016-09-13', @EndDate='2020-01-01', @ProductId = 15, @SportType = 0
 
@@ -54,26 +58,6 @@ EXEC [Acc_Rpt_CompanyWinLoss_Universal_BetType] @StartDate='2016-09-13', @EndDat
                SELECT CustId
                FROM f_DepSuper_1('All');
     END;
-    BEGIN -- Extra PT
-        CREATE TABLE #ExtraPT_Sel
-                     (SuperID   INT, 
-                      Sporttype INT, 
-                      ExtraPT   DECIMAL(9, 8)
-                     );
-        INSERT INTO #ExtraPT_Sel
-               (SuperID, 
-                Sporttype, 
-                ExtraPT
-               )
-               SELECT SuperId, 
-                      Sporttype, 
-                      SUM(ExtraPT) AS ExtraPT
-               FROM bodb02.dbo.Acc_GroupExtraPTSetting a WITH(NOLOCK)
-               WHERE @StartDate BETWEEN FromDate AND Todate
-                     AND a.ProductId = @ProID
-               GROUP BY SuperId, 
-                        Sporttype;
-    END;
     BEGIN -- Query
 
         SELECT sb.BetType AS GroupId, 
@@ -93,17 +77,17 @@ EXEC [Acc_Rpt_CompanyWinLoss_Universal_BetType] @StartDate='2016-09-13', @EndDat
                          WHEN b.tpositiontaking = 1
                          THEN 0
                          ELSE(winlost - actual_stake) + b.scomm / (1 - b.tpositiontaking)
-                     END) * ISNULL(e.ExtraPT, 0) * actualrate) AS ExtraPT, 
+                     END) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0) * actualrate) AS ExtraPT, 
                SUM(scomm * actualrate) Commission, 
                SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - (CASE
                                                                                            WHEN tpositiontaking = 1
                                                                                            THEN 0
                                                                                            ELSE winlost - actual_stake + b.scomm / (1 - b.tpositiontaking)
-                                                                                       END) * ISNULL(e.ExtraPT, 0)) * actualrate) AS RealIncome, 
+                                                                                       END) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * actualrate) AS RealIncome, 
                SUM(CASE
                        WHEN tpositiontaking = 1
                        THEN 0
-                       ELSE(1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * b.stake * CASE
+                       ELSE(1 - b.tpositiontaking - ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * b.stake * CASE
                                                                                           WHEN virtualrate > actualrate
                                                                                           THEN virtualrate
                                                                                           ELSE actualrate
@@ -113,7 +97,6 @@ EXEC [Acc_Rpt_CompanyWinLoss_Universal_BetType] @StartDate='2016-09-13', @EndDat
              INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
              LEFT JOIN #DepositSuper AS dep ON b.srecommend = dep.CustId
              LEFT JOIN CS_CustSuper AS cn88 WITH(NOLOCK) ON b.srecommend = cn88.CustId
-             LEFT JOIN #ExtraPT_Sel e ON e.SuperID = b.srecommend
         WHERE b.winlostdate = @FDate
               AND (@IsLive = 2
                    OR b.liveindicator = @IsLive)
@@ -133,7 +116,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Universal_BetType] @StartDate='2016-09-13', @EndDat
         ORDER BY GroupName, 
                  RowName;
     END;
-     DROP TABLE #SportBetType;
-     DROP TABLE #DepositSuper;
-     DROP TABLE #ExtraPT_Sel;
+    
+	DROP TABLE #SportBetType;
+    DROP TABLE #DepositSuper;
 GO

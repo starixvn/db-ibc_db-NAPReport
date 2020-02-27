@@ -1,5 +1,8 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
+USE bodb02
+GO
+
 ALTER PROCEDURE dbo.Acc_Rpt_CompanyWinLoss_VirtualSports_SportType_CN88
 	@StartDate    SMALLDATETIME
    , @EndDate      SMALLDATETIME
@@ -12,6 +15,7 @@ AS
 		
 	Revisions:
 		- 20190710@Robert: 	NAP Report - Implement new report to match with CN88's need [#116083]
+		- 20191212@Ned.Le:  Support to get Extra PT from Extra PT column [#125286]
 	Explanation's Param:	
 */
 BEGIN
@@ -41,29 +45,6 @@ BEGIN
 		 , RealIncome       MONEY
 		 , RealTurnover     MONEY);
     END;
-    BEGIN ---- Extra PT 
-	   CREATE TABLE #ExtraPT_Sel(
-		   SuperID      INT
-		 , Sporttype    INT
-		 , ExtraPT      DECIMAL(9, 8));
-	   INSERT INTO #ExtraPT_Sel(SuperID
-						 , Sporttype
-						 , ExtraPT)
-			SELECT SuperId
-				, Sporttype
-				, SUM(ExtraPT) AS ExtraPT
-			FROM bodb02.dbo.Acc_GroupExtraPTSetting AS a WITH (NOLOCK)
-			WHERE @StartDate BETWEEN FromDate AND Todate
-				 AND a.ProductId = 5
-				 AND SuperId IN
-							 (
-								SELECT CustId
-								FROM CS_CustSuper WITH (NOLOCK)
-							 )
-				 AND SubProduct = ''
-			GROUP BY SuperId
-				  , Sporttype;
-    END;
     BEGIN -- Virtual Soccer
 	   INSERT INTO #Data
 			SELECT m.sporttype
@@ -73,17 +54,17 @@ BEGIN
 						WHEN b.tpositiontaking = 1
 						THEN 0
 						ELSE winlost - actual_stake + b.scomm / (1 - b.tpositiontaking)
-					 END * ISNULL(e.ExtraPT, 0) * actualrate) AS ExtraPT
+					 END * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0) * actualrate) AS ExtraPT
 				, SUM(scomm * actualrate) AS Commission
 				, SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - CASE
 																			  WHEN tpositiontaking = 1
 																			  THEN 0
 																			  ELSE winlost - actual_stake + b.scomm / (1 - b.tpositiontaking)
-																		   END * ISNULL(e.ExtraPT, 0)) * actualrate) AS RealIncome
+																		   END * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * actualrate) AS RealIncome
 				, SUM(CASE
 						WHEN tpositiontaking = 1
 						THEN 0
-						ELSE(1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * b.stake * CASE
+						ELSE(1 - b.tpositiontaking - ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * b.stake * CASE
 																			  WHEN virtualrate > actualrate
 																			  THEN virtualrate
 																			  ELSE actualrate
@@ -93,7 +74,6 @@ BEGIN
 			    INNER JOIN CS_CustSuper AS cn88 WITH (NOLOCK) ON b.srecommend = cn88.CustId
 			    INNER JOIN match AS m WITH (NOLOCK) ON b.MatchId = m.MatchId
 			    INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
-			    LEFT JOIN #ExtraPT_Sel AS e ON e.SuperID = b.srecommend
 			WHERE b.winlostdate = @StartDate
 				 AND sb.EventType = 1
 				 AND b.MatchId > 0
@@ -110,17 +90,17 @@ BEGIN
 						WHEN b.tpositiontaking = 1
 						THEN 0
 						ELSE winlost - actual_stake + b.scomm / (1 - b.tpositiontaking)
-					 END * ISNULL(e.ExtraPT, 0) * actualrate) AS ExtraPT
+					 END * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0) * actualrate) AS ExtraPT
 				, SUM(scomm * actualrate) AS Commission
 				, SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - CASE
 																			  WHEN tpositiontaking = 1
 																			  THEN 0
 																			  ELSE winlost - actual_stake + b.scomm / (1 - b.tpositiontaking)
-																		   END * ISNULL(e.ExtraPT, 0)) * actualrate) AS RealIncome
+																		   END * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * actualrate) AS RealIncome
 				, SUM(CASE
 						WHEN tpositiontaking = 1
 						THEN 0
-						ELSE(1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * b.stake * CASE
+						ELSE(1 - b.tpositiontaking - ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * b.stake * CASE
 																			  WHEN virtualrate > actualrate
 																			  THEN virtualrate
 																			  ELSE actualrate
@@ -130,7 +110,6 @@ BEGIN
 				INNER JOIN CS_CustSuper AS cn88 WITH (NOLOCK) ON b.srecommend = cn88.CustId
 			    INNER JOIN VSRaceInfo AS r WITH (NOLOCK) ON b.MatchId = r.EventId
 			    INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
-			    LEFT JOIN #ExtraPT_Sel AS e ON e.SuperID = b.srecommend
 			WHERE b.winlostdate = @StartDate
 				 AND sb.EventType = 3
 				 AND b.MatchId > 0
@@ -151,8 +130,8 @@ BEGIN
 		  INNER JOIN Sports AS s WITH (NOLOCK) ON d.SportType = s.SportType
 	   ORDER BY GroupName;
     END;
+
     DROP TABLE #SportBetType;
-    DROP TABLE #ExtraPT_Sel;
     DROP TABLE #Data;
 END;
 GO

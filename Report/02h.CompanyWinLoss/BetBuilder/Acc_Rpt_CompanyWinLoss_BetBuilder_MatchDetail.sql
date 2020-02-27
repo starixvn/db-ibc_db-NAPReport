@@ -1,12 +1,14 @@
-
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
-CREATE PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_BetBuilder_MatchDetail] @StartDate SMALLDATETIME, 
-                                                                       @EndDate   SMALLDATETIME, 
-                                                                       @SportType SMALLINT      = 1, -- Dummy Parameter
-                                                                       @BetType   INT           = 38, 
-                                                                       @IsHedge   INT           = 2, -- Dummy Parameter
-                                                                       @IsLive    INT           = 2-- Dummy Parameter
+USE bodb02
+GO
+
+ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_BetBuilder_MatchDetail] @StartDate SMALLDATETIME, 
+                                                                      @EndDate   SMALLDATETIME, 
+                                                                      @SportType SMALLINT      = 1, -- Dummy Parameter
+                                                                      @BetType   INT           = 38, 
+                                                                      @IsHedge   INT           = 2, -- Dummy Parameter
+                                                                      @IsLive    INT           = 2-- Dummy Parameter
 AS
 
 /*
@@ -18,6 +20,7 @@ DB: DBACC/bodb02
 Revisions:
 - 20190313@Jacob: Integrate BetBuilder (#109822)
 - 20190925@Jacob: Group By CN88 (#118824)
+- 20191212@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
 Example:
 EXEC [Acc_Rpt_CompanyWinLoss_BetBuilder_MatchDetail] @EndDate='2020-01-01',@StartDate='2016-01-01', @BetType = 38
 
@@ -45,23 +48,6 @@ EXEC [Acc_Rpt_CompanyWinLoss_BetBuilder_MatchDetail] @EndDate='2020-01-01',@Star
                       m.AwayId
                FROM Match m WITH(NOLOCK)
                WHERE EventDate = @StartDate;
-    END;
-    BEGIN -- Extra PT 
-        CREATE TABLE #ExtraPT_Sel
-                     (SuperID INT, 
-                      ExtraPT DECIMAL(9, 8)
-                     );
-        INSERT INTO #ExtraPT_Sel
-               (SuperID, 
-                ExtraPT
-               )
-               SELECT SuperId, 
-                      SUM(ExtraPT) AS ExtraPT
-               FROM bodb02.dbo.Acc_GroupExtraPTSetting a WITH(NOLOCK)
-               WHERE @StartDate BETWEEN FromDate AND Todate
-                     AND a.ProductId = 1
-                     AND a.SubProduct = 'Bet Builder'
-               GROUP BY SuperId;
     END;
     BEGIN -- #Data	
         CREATE TABLE #Data
@@ -98,22 +84,22 @@ EXEC [Acc_Rpt_CompanyWinLoss_BetBuilder_MatchDetail] @EndDate='2020-01-01',@Star
                                WHEN b.tpositiontaking = 1
                                THEN 0
                                ELSE(winlost - actual_stake) + b.scomm / (1 - b.tpositiontaking)
-                           END) * ISNULL(e.ExtraPT, 0) * actualrate) AS ExtraPT, 
+                           END) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0) * actualrate) AS ExtraPT, 
                       SUM(scomm * actualrate) Commission, 
                       SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - (CASE
                                                                                                   WHEN tpositiontaking = 1
                                                                                                   THEN 0
                                                                                                   ELSE winlost - actual_stake + b.scomm / (1 - b.tpositiontaking)
-                                                                                              END) * ISNULL(e.ExtraPT, 0)) * actualrate) RealIncome, 
+                                                                                              END) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * actualrate) RealIncome, 
                       SUM((winlost - actual_stake + awinlost + mwinlost + swinlost - CASE
                                                                                          WHEN tpositiontaking = 1
                                                                                          THEN 0
-                                                                                         ELSE(winlost - actual_stake) * ISNULL(e.ExtraPT, 0)
+                                                                                         ELSE(winlost - actual_stake) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)
                                                                                      END) * virtualrate + (scomm - (CASE
                                                                                                                         WHEN tpositiontaking = 1
                                                                                                                         THEN 0
                                                                                                                         ELSE b.scomm / (1 - b.tpositiontaking)
-                                                                                                                    END) * ISNULL(e.ExtraPT, 0)) * actualrate * CASE
+                                                                                                                    END) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * actualrate * CASE
                                                                                                                                                                     WHEN virtualrate < actualrate
                                                                                                                                                                     THEN virtualrate / actualrate
                                                                                                                                                                     ELSE 1
@@ -121,20 +107,20 @@ EXEC [Acc_Rpt_CompanyWinLoss_BetBuilder_MatchDetail] @EndDate='2020-01-01',@Star
                       SUM((winlost - actual_stake + awinlost + mwinlost + swinlost - CASE
                                                                                          WHEN tpositiontaking = 1
                                                                                          THEN 0
-                                                                                         ELSE(winlost - actual_stake) * ISNULL(e.ExtraPT, 0)
+                                                                                         ELSE(winlost - actual_stake) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)
                                                                                      END + CASE
                                                                                                WHEN virtualrate < actualrate
                                                                                                THEN(b.scomm - (CASE
                                                                                                                    WHEN tpositiontaking = 1
                                                                                                                    THEN 0
                                                                                                                    ELSE b.scomm / (1 - b.tpositiontaking)
-                                                                                                               END) * ISNULL(e.ExtraPT, 0))
+                                                                                                               END) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0))
                                                                                                ELSE 0
                                                                                            END) * (actualrate - virtualrate)) VarianceIncome, 
                       SUM(CASE
                               WHEN tpositiontaking = 1
                               THEN 0
-                              ELSE(1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * ABS(b.stake) * CASE
+                              ELSE(1 - b.tpositiontaking - ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * ABS(b.stake) * CASE
                                                                                                       WHEN virtualrate > actualrate
                                                                                                       THEN virtualrate
                                                                                                       ELSE actualrate
@@ -143,11 +129,10 @@ EXEC [Acc_Rpt_CompanyWinLoss_BetBuilder_MatchDetail] @EndDate='2020-01-01',@Star
                       SUM(CASE
                               WHEN tpositiontaking = 1
                               THEN 0
-                              ELSE(1 - b.tpositiontaking - ISNULL(e.ExtraPT, 0)) * ABS(b.stake) * virtualrate
+                              ELSE(1 - b.tpositiontaking - ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * ABS(b.stake) * virtualrate
                           END) VirtualTurnover
                FROM bettrans b WITH(NOLOCK)
                     INNER JOIN #Match m ON b.MatchId = m.MatchId
-                    LEFT JOIN #ExtraPT_Sel e ON e.SuperID = b.srecommend
                WHERE b.winlostdate = @StartDate
                      AND b.bettype = @BetType
                      AND b.ruben = 1
@@ -183,7 +168,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_BetBuilder_MatchDetail] @EndDate='2020-01-01',@Star
         ORDER BY LeagueId, 
                  MatchCode;
     END;
-     DROP TABLE #Match;
-     DROP TABLE #ExtraPT_Sel;
-     DROP TABLE #Data;
+
+    DROP TABLE #Match;
+    DROP TABLE #Data;
 GO

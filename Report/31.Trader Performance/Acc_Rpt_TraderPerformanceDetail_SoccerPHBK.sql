@@ -18,6 +18,7 @@ AS
 		20170925@Kean: Update formula of ExtraPT
 		20180328@Kean: Apply new concept of Commission to Trader Performance Report (#111015)
 		20191010@Cherry: Apply new table for Trader (#120746)
+		20191212@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
 
 	Param's Explanation:
 */
@@ -25,7 +26,8 @@ AS
 BEGIN
 	SET NOCOUNT ON
 	
-	DECLARE @CutoffDay DATETIME = CAST ('20191101' AS DATETIME)	
+	DECLARE @CutoffDay DATETIME = CAST ('20191101' AS DATETIME)
+	DECLARE @ExtraPTCutOffDate SMALLDATETIME = bodb02.dbo.f_Get_SystemSettings('CutOffDate_ExtraPT')
 
 	CREATE TABLE #tmpTraderAssignment (
 		eventdate DATE,
@@ -66,7 +68,7 @@ BEGIN
 	CREATE TABLE #ExtraPTSportbook
 	(
 		superId		INT,
-		ExtraPT		MONEY,
+		ExtraPT		DECIMAL(9, 8),
 		FromDate	DATETIME,
 		ToDate		DATETIME
 	)	
@@ -235,11 +237,11 @@ BEGIN
                                       THEN b.virtualrate
                                       ELSE b.actualrate
                                   END) AS comm,
-		SUM((CASE WHEN modds = 0.25 OR modds = - 0.25 THEN stake/2 ELSE stake END) * (CASE WHEN tpositiontaking = 1 THEN 0 ELSE 1 - tpositiontaking- ISNULL(ExtraPT, 0) END) * virtualrate) AS stake_AfterExtraPT,
+		SUM((CASE WHEN modds = 0.25 OR modds = - 0.25 THEN stake/2 ELSE stake END) * (CASE WHEN tpositiontaking = 1 THEN 0 ELSE 1 - tpositiontaking- ISNULL(CASE WHEN winlostdate >= @ExtraPTCutOffDate then CAST(b.epositiontaking AS DECIMAL(9, 8)) ELSE e.ExtraPT END, 0) END) * virtualrate) AS stake_AfterExtraPT,
 		-SUM(CASE WHEN tpositiontaking = 1 THEN 0 ELSE ((winlost - actual_stake) * virtualrate 
 														+ CASE WHEN tpositiontaking = 1 THEN 0 
 														ELSE (scomm * CASE WHEN b.virtualrate < b.actualrate THEN b.virtualrate ELSE b.actualrate END)/(1 - tpositiontaking) 
-														END) * ISNULL(e.ExtraPT, 0) END) AS memberwinlost_ExtraPT,
+														END) * ISNULL(CASE WHEN winlostdate >= @ExtraPTCutOffDate then CAST(b.epositiontaking AS DECIMAL(9, 8)) ELSE e.ExtraPT END, 0) END) AS memberwinlost_ExtraPT,
 		SUM(CASE WHEN td.[VendorID] IN (14) THEN 0 
 				   ELSE 1 END) AS bet
 	FROM bodb_Archive.dbo.bettrans_bk b WITH (NOLOCK)

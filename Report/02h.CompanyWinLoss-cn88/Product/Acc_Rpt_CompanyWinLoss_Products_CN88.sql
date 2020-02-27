@@ -1,5 +1,8 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
+USE bodb02
+GO
+
 ALTER PROCEDURE dbo.Acc_Rpt_CompanyWinLoss_Products_CN88
 	@StartDate    SMALLDATETIME
    , @EndDate      SMALLDATETIME
@@ -12,6 +15,7 @@ AS
 		
 	Revisions:
 		- 20190710@Robert: 	NAP Report - Implement new report to match with CN88's need [#116083]
+		- 20191212@Ned.Le:  Support to get Extra PT from Extra PT column [#125286]
 	Explanation's Param:	
 */
 
@@ -102,35 +106,6 @@ BEGIN
 	  , VirtualTurnover        MONEY
 	  , ExtraPT                MONEY
 	  , NewExtraPT             MONEY);
----- Extra PT 
-    CREATE TABLE #ExtraPT_Sel(
-	    ProductID     INT
-	  , Sporttype     INT
-	  , SubProduct    VARCHAR(100)
-	  , SuperID       INT
-	  , ExtraPT       DECIMAL(9, 8));
-    INSERT INTO #ExtraPT_Sel(ProductID
-					  , Sporttype
-					  , SubProduct
-					  , SuperID
-					  , ExtraPT)
-		 SELECT ProductID
-			 , SportType
-			 , SubProduct
-			 , SuperId
-			 , SUM(ExtraPT) AS ExtraPT
-		 FROM bodb02.dbo.Acc_GroupExtraPTSetting AS a WITH (NOLOCK)
-		 WHERE @StartDate BETWEEN FromDate AND Todate
-			  AND SuperId IN
-						  (
-							 SELECT CustId
-							 FROM CS_CustSuper WITH (NOLOCK)
-						  )
-			  AND LEN(SubProduct) = 0
-		 GROUP BY ProductID
-			   , SportType
-			   , SubProduct
-			   , SuperId;
 
     CREATE TABLE #Match(
 	    MatchId      INT
@@ -209,7 +184,7 @@ BEGIN
 					 WHEN b.tpositiontaking = 1
 					 THEN 0
 					 ELSE b.scomm / (1 - b.tpositiontaking)
-				  END * b.actualrate) AS grosscomm_actualrate
+				  END * b.actualrate * CAST(epositiontaking AS DECIMAL(9, 8))) AS grosscomm_actualrate
 			 , SUM(CASE
 					 WHEN b.tpositiontaking = 1
 					 THEN 0
@@ -218,7 +193,7 @@ BEGIN
 						  WHEN b.virtualrate < b.actualrate
 						  THEN b.virtualrate
 						  ELSE b.actualrate
-					   END) AS grosscomm_virtualrate
+					   END * CAST(epositiontaking AS DECIMAL(9, 8))) AS grosscomm_virtualrate
 			 , SUM(CASE
 					 WHEN b.virtualrate < b.actualrate
 					 THEN CASE
@@ -227,7 +202,7 @@ BEGIN
 							ELSE b.scomm / (1 - b.tpositiontaking)
 						 END
 					 ELSE 0
-				  END * (actualrate - virtualrate)) AS grosscomm_variance
+				  END * (actualrate - virtualrate) * CAST(epositiontaking AS DECIMAL(9, 8))) AS grosscomm_variance
 			 , 1 AS ProductId
 			 , SUM((1 - b.tpositiontaking) * ABS(stake) * CASE
 													WHEN virtualrate > actualrate
@@ -243,21 +218,21 @@ BEGIN
 									   THEN virtualrate
 									   ELSE actualrate
 								    END
-				  END) AS stake_actualrate
+				  END * CAST(epositiontaking AS DECIMAL(9, 8))) AS stake_actualrate
 			 , SUM(CASE
 					 WHEN b.tpositiontaking = 1
 					 THEN 0
 					 ELSE ABS(stake) * virtualrate
-				  END) AS stake_virtualrate
+				  END * CAST(epositiontaking AS DECIMAL(9, 8))) AS stake_virtualrate
 			 , SUM(CASE
 					 WHEN b.tpositiontaking = 1
 					 THEN 0
-					 ELSE(winlost - actual_stake) * actualrate
+					 ELSE(winlost - actual_stake) * actualrate * CAST(epositiontaking AS DECIMAL(9, 8))
 				  END) AS WinlossForExtraPT_actualrate
 			 , SUM(CASE
 					 WHEN b.tpositiontaking = 1
 					 THEN 0
-					 ELSE(winlost - actual_stake) * virtualrate
+					 ELSE(winlost - actual_stake) * virtualrate * CAST(epositiontaking AS DECIMAL(9, 8))
 				  END) AS WinlossForExtraPT_virtualrate
 		 FROM bettrans AS b WITH (NOLOCK)
 			INNER JOIN CS_CustSuper AS cn88 WITH (NOLOCK) ON b.srecommend = cn88.CustId
@@ -366,7 +341,7 @@ BEGIN
 					 WHEN b.tpositiontaking = 1
 					 THEN 0
 					 ELSE b.scomm / (1 - b.tpositiontaking)
-				  END * b.actualrate) AS grosscomm_actualrate
+				  END * b.actualrate * CAST(epositiontaking AS DECIMAL(9, 8))) AS grosscomm_actualrate
 			 , SUM(CASE
 					 WHEN b.tpositiontaking = 1
 					 THEN 0
@@ -375,7 +350,7 @@ BEGIN
 						  WHEN b.virtualrate < b.actualrate
 						  THEN b.virtualrate
 						  ELSE b.actualrate
-					   END) AS grosscomm_virtualrate
+					   END * CAST(epositiontaking AS DECIMAL(9, 8))) AS grosscomm_virtualrate
 			 , SUM(CASE
 					 WHEN b.virtualrate < b.actualrate
 					 THEN CASE
@@ -384,7 +359,7 @@ BEGIN
 							ELSE b.scomm / (1 - b.tpositiontaking)
 						 END
 					 ELSE 0
-				  END * (actualrate - virtualrate)) AS grosscomm_variance
+				  END * (actualrate - virtualrate) * CAST(epositiontaking AS DECIMAL(9, 8))) AS grosscomm_variance
 			 , CASE
 				  WHEN s.EventType = 0
 					  AND ProductID = 1
@@ -418,7 +393,7 @@ BEGIN
 								 THEN virtualrate
 								 ELSE actualrate
 							  END
-				  END) AS stake_actualrate
+				  END * CAST(epositiontaking AS DECIMAL(9, 8))) AS stake_actualrate
 			 , SUM(CASE
 					 WHEN b.tpositiontaking = 1
 					 THEN 0
@@ -427,16 +402,16 @@ BEGIN
 							THEN ABS(stake)
 							ELSE stake
 						 END * virtualrate
-				  END) AS stake_virtualrate
+				  END * CAST(epositiontaking AS DECIMAL(9, 8))) AS stake_virtualrate
 			 , SUM(CASE
 					 WHEN b.tpositiontaking = 1
 					 THEN 0
-					 ELSE(winlost - actual_stake) * actualrate
+					 ELSE(winlost - actual_stake) * actualrate * CAST(epositiontaking AS DECIMAL(9, 8))
 				  END) AS WinlossForExtraPT_actualrate
 			 , SUM(CASE
 					 WHEN b.tpositiontaking = 1
 					 THEN 0
-					 ELSE(winlost - actual_stake) * virtualrate
+					 ELSE(winlost - actual_stake) * virtualrate * CAST(epositiontaking AS DECIMAL(9, 8))
 				  END) AS WinlossForExtraPT_virtualrate
 		 FROM bettrans AS b WITH (NOLOCK)
 			INNER JOIN CS_CustSuper AS cn88 WITH (NOLOCK) ON b.srecommend = cn88.CustId
@@ -479,30 +454,14 @@ BEGIN
 			 , SUM(winLost_actualrate) AS winlost
 			 , SUM(SMAWinloss) AS Position
 			 , SUM(commission_actualrate) AS Commission
-			 , SUM(HouseWinloss_actualrate - (WinlossForExtraPT_actualrate + grosscomm_actualrate) * ISNULL(e.ExtraPT, 0)) AS RealHouseWinloss
-			 , SUM(HouseWinloss_virtualrate - (WinlossForExtraPT_virtualrate + grosscomm_virtualrate) * ISNULL(e.ExtraPT, 0)) AS VirtualHouseWinloss
-			 , SUM(HouseWinloss_variance - (WinlossForExtraPT_actualrate - WinlossForExtraPT_virtualrate) * ISNULL(e.ExtraPT, 0) - grosscomm_variance * ISNULL(e.ExtraPT, 0)) AS VarianceIncome
-			 , SUM(turnover_actualrate - ISNULL(e.ExtraPT, 0) * stake_actualrate) AS RealTurnover
-			 , SUM(turnover_virtualrate - ISNULL(e.ExtraPT, 0) * stake_virtualrate) AS VirtualTurnover
-			 , SUM(CASE ISNULL(e.ExtraPT, 0)
-					 WHEN 0
-					 THEN 0
-					 ELSE winlost_actualrate * e.ExtraPT
-				  END) AS ExtraPT
-			 , SUM(CASE ISNULL(e.ExtraPT, 0)
-					 WHEN 0
-					 THEN 0
-					 ELSE(WinlossForExtraPT_actualrate + grosscomm_actualrate) * e.ExtraPT
-				  END) AS NewExtraPT
+			 , SUM(HouseWinloss_actualrate - (WinlossForExtraPT_actualrate + grosscomm_actualrate)) AS RealHouseWinloss
+			 , SUM(HouseWinloss_virtualrate - (WinlossForExtraPT_virtualrate + grosscomm_virtualrate)) AS VirtualHouseWinloss
+			 , SUM(HouseWinloss_variance - (WinlossForExtraPT_actualrate - WinlossForExtraPT_virtualrate) - grosscomm_variance) AS VarianceIncome
+			 , SUM(turnover_actualrate - stake_actualrate) AS RealTurnover
+			 , SUM(turnover_virtualrate - stake_virtualrate) AS VirtualTurnover
+			 , SUM(WinlossForExtraPT_actualrate) AS ExtraPT
+			 , SUM(WinlossForExtraPT_actualrate + grosscomm_actualrate) AS NewExtraPT
 		 FROM #src AS b
-			LEFT JOIN #ExtraPT_Sel AS e ON b.srecommend = e.superID
-									 AND e.ProductID = b.ProductId
-									 AND e.Sporttype = CASE
-													   WHEN b.sporttype = 44
-													   THEN 44
-													   ELSE 0
-												    END
-									 AND e.SubProduct = ''
 		 WHERE b.ProductId = 1
 		 GROUP BY CASE
 				    WHEN b.Sporttype = 1
@@ -510,7 +469,7 @@ BEGIN
 				    WHEN b.sporttype IN(2, 44)
 				    THEN-4
 				END;
---- Parlay			 
+--- Parlay, NUMBER GAME, Virtual Sports, RNG Keno, Virtual Sports 2, Lottery
     INSERT INTO #Result(ProductId
 				  , winlost
 				  , Position
@@ -526,103 +485,17 @@ BEGIN
 			 , SUM(winlost_actualrate) AS WinLost
 			 , SUM(SMAWinloss) AS Position
 			 , SUM(commission_actualrate) AS Commission
-			 , SUM(HouseWinloss_actualrate - (WinlossForExtraPT_actualrate + grosscomm_actualrate) * ISNULL(e.ExtraPT, 0)) AS RealHouseWinloss
-			 , SUM(HouseWinloss_virtualrate - (WinlossForExtraPT_virtualrate + grosscomm_virtualrate) * ISNULL(e.ExtraPT, 0)) AS VirtualHouseWinloss
-			 , SUM(HouseWinloss_variance - (WinlossForExtraPT_actualrate - WinlossForExtraPT_virtualrate) * ISNULL(e.ExtraPT, 0) - grosscomm_variance * ISNULL(e.ExtraPT, 0)) AS VarianceIncome
-			 , SUM(turnover_actualrate - ISNULL(e.ExtraPT, 0) * stake_actualrate) AS RealTurnover
-			 , SUM(turnover_virtualrate - ISNULL(e.ExtraPT, 0) * stake_virtualrate) AS VirtualTurnover
-			 , SUM(CASE ISNULL(e.ExtraPT, 0)
-					 WHEN 0
-					 THEN 0
-					 ELSE winlost_actualrate * e.ExtraPT
-				  END) AS ExtraPT
-			 , SUM(CASE ISNULL(e.ExtraPT, 0)
-					 WHEN 0
-					 THEN 0
-					 ELSE(WinlossForExtraPT_actualrate + grosscomm_actualrate) * e.ExtraPT
-				  END) AS NewExtraPT
+			 , SUM(HouseWinloss_actualrate - (WinlossForExtraPT_actualrate + grosscomm_actualrate)) AS RealHouseWinloss
+			 , SUM(HouseWinloss_virtualrate - (WinlossForExtraPT_virtualrate + grosscomm_virtualrate)) AS VirtualHouseWinloss
+			 , SUM(HouseWinloss_variance - (WinlossForExtraPT_actualrate - WinlossForExtraPT_virtualrate) - grosscomm_variance) AS VarianceIncome
+			 , SUM(turnover_actualrate - stake_actualrate) AS RealTurnover
+			 , SUM(turnover_virtualrate - stake_virtualrate) AS VirtualTurnover
+			 , SUM(WinlossForExtraPT_actualrate) AS ExtraPT
+			 , SUM(WinlossForExtraPT_actualrate + grosscomm_actualrate) AS NewExtraPT
 		 FROM #src AS b
-			LEFT JOIN #ExtraPT_Sel AS e ON b.srecommend = e.superID
-									 AND b.ProductID = -3
-									 AND e.ProductID = 1
-									 AND e.Sporttype = 0
-									 AND e.SubProduct = ''
-		 WHERE b.ProductID = -3
+		 WHERE b.ProductID IN (-3, 3, 5, 8, 27, 28)
 		 GROUP BY b.ProductId;
-----NUMBER GAME			
-    INSERT INTO #Result(ProductId
-				  , winlost
-				  , Position
-				  , Commission
-				  , RealHouseWinloss
-				  , VirtualHouseWinloss
-				  , VarianceIncome
-				  , RealTurnover
-				  , VirtualTurnover
-				  , ExtraPT
-				  , NewExtraPT)
-		 SELECT b.ProductId
-			 , SUM(winlost_actualrate) AS WinLost
-			 , SUM(SMAWinloss) AS Position
-			 , SUM(commission_actualrate) AS Commission
-			 , SUM(HouseWinloss_actualrate - (WinlossForExtraPT_actualrate + grosscomm_actualrate) * ISNULL(e.ExtraPT, 0)) AS RealHouseWinloss
-			 , SUM(HouseWinloss_virtualrate - (WinlossForExtraPT_virtualrate + grosscomm_virtualrate) * ISNULL(e.ExtraPT, 0)) AS VirtualHouseWinloss
-			 , SUM(HouseWinloss_variance - (WinlossForExtraPT_actualrate - WinlossForExtraPT_virtualrate) * ISNULL(e.ExtraPT, 0) - grosscomm_variance * ISNULL(e.ExtraPT, 0)) AS VarianceIncome
-			 , SUM(turnover_actualrate - ISNULL(e.ExtraPT, 0) * stake_actualrate) AS RealTurnover
-			 , SUM(turnover_virtualrate - ISNULL(e.ExtraPT, 0) * stake_virtualrate) AS VirtualTurnover
-			 , SUM(CASE ISNULL(e.ExtraPT, 0)
-					 WHEN 0
-					 THEN 0
-					 ELSE winlost_actualrate * e.ExtraPT
-				  END) AS ExtraPT
-			 , SUM(CASE ISNULL(e.ExtraPT, 0)
-					 WHEN 0
-					 THEN 0
-					 ELSE(WinlossForExtraPT_actualrate + grosscomm_actualrate) * e.ExtraPT
-				  END) AS NewExtraPT
-		 FROM #src AS b
-			LEFT JOIN #ExtraPT_Sel AS e ON b.srecommend = e.superID
-									 AND b.ProductID = e.ProductId
-		 WHERE b.ProductId = 3
-		 GROUP BY b.ProductId;
-------------------------------------------
 
----Virtual Sports, RNG Keno, Virtual Sports 2, Lottery
-    INSERT INTO #Result(ProductId
-				  , winlost
-				  , Position
-				  , Commission
-				  , RealHouseWinloss
-				  , VirtualHouseWinloss
-				  , VarianceIncome
-				  , RealTurnover
-				  , VirtualTurnover
-				  , ExtraPT
-				  , NewExtraPT)
-		 SELECT b.ProductId AS ProductId
-			 , SUM(winlost_actualrate) AS WinLost
-			 , SUM(SMAWinloss) AS Position
-			 , SUM(commission_actualrate) AS Commission
-			 , SUM(HouseWinloss_actualrate - (WinlossForExtraPT_actualrate + grosscomm_actualrate) * ISNULL(e.ExtraPT, 0)) AS RealHouseWinloss
-			 , SUM(HouseWinloss_virtualrate - (WinlossForExtraPT_virtualrate + grosscomm_virtualrate) * ISNULL(e.ExtraPT, 0)) AS VirtualHouseWinloss
-			 , SUM(HouseWinloss_variance - (WinlossForExtraPT_actualrate - WinlossForExtraPT_virtualrate) * ISNULL(e.ExtraPT, 0) - grosscomm_variance * ISNULL(e.ExtraPT, 0)) AS VarianceIncome
-			 , SUM(turnover_actualrate - ISNULL(e.ExtraPT, 0) * stake_actualrate) AS RealTurnover
-			 , SUM(turnover_virtualrate - ISNULL(e.ExtraPT, 0) * stake_virtualrate) AS VirtualTurnover
-			 , SUM(CASE ISNULL(e.ExtraPT, 0)
-					 WHEN 0
-					 THEN 0
-					 ELSE winlost_actualrate * e.ExtraPT
-				  END) AS ExtraPT
-			 , SUM(CASE ISNULL(e.ExtraPT, 0)
-					 WHEN 0
-					 THEN 0
-					 ELSE(WinlossForExtraPT_actualrate + grosscomm_actualrate) * e.ExtraPT
-				  END) AS NewExtraPT
-		 FROM #src AS b
-			LEFT JOIN #ExtraPT_Sel AS e ON b.srecommend = e.superID
-									 AND e.ProductID = b.ProductId
-		 WHERE b.ProductId IN(5, 8, 27, 28) ---Virtual Sports, RNG Keno, Virtual Sports 2, Lottery
-		 GROUP BY b.ProductId;
 -----2. Total ----------------------------------------------------------------
 
 ----Get Result----
@@ -674,7 +547,6 @@ BEGIN
 
     DROP TABLE #tmp_src;
     DROP TABLE #src;
-    DROP TABLE #ExtraPT_Sel;
     DROP TABLE #Match;
     DROP TABLE #Result;
     DROP TABLE #SportBettype;

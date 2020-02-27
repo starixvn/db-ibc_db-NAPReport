@@ -1,4 +1,6 @@
-﻿USE [bodb02]
+﻿/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+
+USE [bodb02]
 GO
 
 ALTER PROCEDURE [dbo].[Acc_Rpt_DailyParlayWinloss]
@@ -18,6 +20,7 @@ AS
 		- 20130805@Johnson: filter by site
 		- 20160826@Percy: Enhance System/Mix Parlay [RedmineID: #63022]
 		- 20180629@Franklin: Apply new concept for Virtual & Extra PT [RedmineID: #97163]
+		- 20191212@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
 	Parameter's Explanation:
 		- Combinations: Bettrans.betcheck is stored the number of selection by format 'm4', 'm3' ...
 		- LiveType (Livehomescore):
@@ -31,30 +34,6 @@ AS
 
 */
 SET NOCOUNT ON 
-BEGIN ---- Extra PT 
-    DECLARE @datestart DATE = @FromDate
-    DECLARE @dateend DATE = @ToDate
-    DECLARE @onDate DATE = @datestart
-     
-    CREATE TABLE #ExtraPT_Sel( OnDate DATETIME, SuperID INT,
-							    ExtraPT DECIMAL(9, 8));
-       
-    WHILE (@onDate <= @dateend)
-    BEGIN
-	INSERT INTO #ExtraPT_Sel (OnDate, SuperID, ExtraPT)
-			 SELECT @onDate, SuperId,
-				    SUM(ExtraPT) AS ExtraPT
-			 FROM bodb02.dbo.Acc_GroupExtraPTSetting a WITH ( NOLOCK )
-			 WHERE @onDate BETWEEN FromDate AND Todate
-				AND a.ProductId = 1
-				AND a.Sporttype = 0
-				AND a.SubProduct = ''
-			 GROUP BY SuperId,Sporttype;
-
-	SELECT @onDate = DATEADD(DD, 1, @onDate)
-    END
-    CREATE UNIQUE CLUSTERED INDEX PK_tblExtraPT ON #ExtraPT_Sel(OnDate,SuperID)
-END;
 IF @site = 0
 BEGIN 
 	SELECT 
@@ -71,22 +50,21 @@ BEGIN
                          WHEN tpositiontaking = 1
                          THEN 0
                          ELSE( winlost - actual_stake ) + scomm / ( 1 - tpositiontaking )
-                     END ) * ISNULL(e.ExtraPT, 0) * actualrate) AS ExtraPT,
+                     END ) * ISNULL(CAST(epositiontaking AS DECIMAL(9, 8)), 0) * actualrate) AS ExtraPT,
 			SUM(scomm*actualrate) Commission,	
 			SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - ( CASE WHEN tpositiontaking = 1 THEN 0
                                                                                            ELSE winlost - actual_stake + scomm / ( 1 - tpositiontaking )
-                                                                                      END ) * ISNULL(e.ExtraPT, 0)) * actualrate) RealIncome, -- Real House Income
+                                                                                      END ) * ISNULL(CAST(epositiontaking AS DECIMAL(9, 8)), 0)) * actualrate) RealIncome, -- Real House Income
 			SUM(CASE
                        WHEN tpositiontaking = 1
                        THEN 0
-                       ELSE( 1 - tpositiontaking - ISNULL(e.ExtraPT, 0)) * ABS(stake) * CASE
+                       ELSE( 1 - tpositiontaking - ISNULL(CAST(epositiontaking AS DECIMAL(9, 8)), 0)) * ABS(stake) * CASE
                                                                                             WHEN virtualrate > actualrate
                                                                                             THEN virtualrate
                                                                                             ELSE actualrate
                                                                                         END
                     END) RealTurnover -- Real House Turnover
 	FROM	bettrans WITH (NOLOCK)
-	LEFT JOIN #ExtraPT_Sel e ON e.SuperID = srecommend AND e.OnDate = winlostdate
 	WHERE
 			ruben=1 AND
 			bettype IN (9, 29) AND matchid IN (9, 29) AND -- prevent page split
@@ -134,22 +112,21 @@ BEGIN
                          WHEN tpositiontaking = 1
                          THEN 0
                          ELSE( winlost - actual_stake ) + scomm / ( 1 - tpositiontaking )
-                     END ) * ISNULL(e.ExtraPT, 0) * actualrate) AS ExtraPT,
+                     END ) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0) * actualrate) AS ExtraPT,
 			SUM(scomm*actualrate) Commission,	
 			SUM(( winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - ( CASE WHEN tpositiontaking = 1 THEN 0
                                                                                            ELSE winlost - actual_stake + scomm / ( 1 - tpositiontaking )
-                                                                                      END ) * ISNULL(e.ExtraPT, 0)) * actualrate) RealIncome, -- Real House Income
+                                                                                      END ) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * actualrate) RealIncome, -- Real House Income
 			SUM(CASE
                        WHEN tpositiontaking = 1
                        THEN 0
-                       ELSE( 1 - tpositiontaking - ISNULL(e.ExtraPT, 0)) * ABS(stake) * CASE
+                       ELSE( 1 - tpositiontaking - ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * ABS(stake) * CASE
                                                                                             WHEN virtualrate > actualrate
                                                                                             THEN virtualrate
                                                                                             ELSE actualrate
                                                                                         END
                     END) RealTurnover -- Real House Turnover
 	FROM	bettrans b WITH (NOLOCK)
-		LEFT JOIN #ExtraPT_Sel e ON e.SuperID = srecommend AND e.OnDate = winlostdate
 		INNER JOIN #DepAgent ag ON b.recommend = ag.custid
 	WHERE
 			ruben=1 AND
@@ -166,10 +143,5 @@ BEGIN
 				WHEN 29 THEN CASE WHEN RAND() + 1 > 0 AND CONVERT(INT, hdp2) < 6 THEN 'm' + CONVERT(VARCHAR(10), CONVERT(INT, hdp2)) ELSE 'm6' END END, livehomescore, [status]
 	
 	DROP TABLE #DepAgent
-	DROP TABLE #ExtraPT_Sel
 END
-
 GO
-GRANT EXECUTE ON [dbo].[Acc_Rpt_DailyParlayWinloss] TO [bodbAdminNet]
-GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_Rpt_DailyParlayWinloss] TO [vnteam] 
