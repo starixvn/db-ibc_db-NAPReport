@@ -50,6 +50,7 @@ Revisions:
 	20191118@Ned.Le: Integrate Pragmatic Tournament Prize (#123685)
 	20191223@Ned.Le: NAP Report - Integrate Spadegaming product (#125712)
 	20191231@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
+	20200227@Ned.Le: Hotfix thats convert datatype for VarianceVR from DECIMAL(5, 2) to DECIMAL(9, 6)
 	
 Parameters explain:
 	@Products: instead of all @showXXX parameters, have xml structure
@@ -67,7 +68,7 @@ BEGIN
 	-- #TmpResultAll
     CREATE TABLE #TmpResultAll(
 	    custid            INT
-	  , VarianceVR        DECIMAL(5, 2)
+	  , VarianceVR        DECIMAL(9, 6)
 	  , TurnoverIBC       DECIMAL(19, 6)
 	  , WinlossIBC        DECIMAL(19, 6)
 	  , CommissionS       DECIMAL(19, 6)
@@ -242,7 +243,7 @@ BEGIN
 	/*-get data from bettransRNG*/
     INSERT INTO #TmpResultAll
 		 SELECT b.custid
-			 , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(5, 2)) AS VarianceVR
+			 , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(9, 6)) AS VarianceVR
 			 , SUM(stake * (1 - tpositiontaking)) AS                      TurnoverIBC
 			 , SUM(CASE
 					 WHEN bg.Bettype IS NOT NULL THEN 0 /*Progressive Jackpot, PP Promotion Prize, PP Tournament Prize*/
@@ -298,12 +299,12 @@ BEGIN
 			  AND b.currency <> 20
 			  AND b.recommend = @recommend
 		 GROUP BY b.custid
-			   , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(5, 2)) OPTION(RECOMPILE);
+			   , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(9, 6)) OPTION(RECOMPILE);
 
 	/*Get data from bettrans*/
     INSERT INTO #TmpResultAll
 		 SELECT b.custid
-			 , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(5, 2)) AS                     VarianceVR
+			 , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(9, 6)) AS                     VarianceVR
 			 , SUM(CASE
 					 WHEN t.ProductID = 1
 					 THEN ABS(stake)					 
@@ -365,12 +366,12 @@ BEGIN
 			  AND b.currency <> 20
 			  AND b.recommend = @recommend
 		 GROUP BY b.custid
-			   , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(5, 2)) OPTION(RECOMPILE);
+			   , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(9, 6)) OPTION(RECOMPILE);
 	
 	/*-get data from bettransLC*/
     INSERT INTO #TmpResultAll
 		 SELECT b.custid
-			 , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(5, 2)) AS                     VarianceVR
+			 , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(9, 6)) AS                     VarianceVR
 			 , SUM(stake * (1 - tpositiontaking)) AS                                          TurnoverIBC
 			 , SUM(swinlost + mwinlost + awinlost + winlost - actual_stake) AS                WinlossIBC
 			 , SUM(scomm) AS                                                                  CommissionS
@@ -415,7 +416,7 @@ BEGIN
 			  AND b.currency <> 20
 			  AND b.recommend = @recommend
 		 GROUP BY b.custid
-			   , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(5, 2)) OPTION(RECOMPILE);
+			   , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(9, 6)) OPTION(RECOMPILE);
 
 	/*-record set main data*/
     SELECT b.custid
