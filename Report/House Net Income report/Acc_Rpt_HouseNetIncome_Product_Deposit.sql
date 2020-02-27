@@ -27,6 +27,10 @@ BEGIN
     SELECT @FDate = @FromDate
 	    , @TDate = @ToDate;
 
+EXEC bodb02.dbo.Acc_Rpt_HouseNetIncome_AGC_Deposit
+	@FromDate  = @FromDate
+	,@ToDate	= @ToDate
+
 EXEC bodb02.dbo.Acc_Rpt_HouseNetIncome_CB 
 	@FromDate  = @FromDate
 	,@ToDate	= @ToDate
