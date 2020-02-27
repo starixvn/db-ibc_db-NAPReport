@@ -194,7 +194,7 @@ BEGIN
 		   , d.GroupName AS GroupName
 		   , d.MemberWinLoss AS MemberWinLoss
 		   , d.SMAWinLoss AS SMAWinLoss
-		   , -d.ExtraPT AS ExtraPT
+		   , -d.ExtraPT AS HeadlineIncome
 		   , d.Commission AS Commission
 		   , d.RealIncome AS RealIncome
 		   , d.VirtualIncome AS VirtualIncome
