@@ -109,14 +109,28 @@ BEGIN
 			 , sb.ProductID
 			 , CASE WHEN b.BetType IN (9, 29) THEN -2 ELSE b.SportType END SportType
 			 , b.BetType
-			 , SUM(MemberTurnover * ex.Rate) AS  HouseTO
-		 FROM bodb_Account.dbo.FactLAOverallPerformance AS b WITH(NOLOCK)
+			 , SUM(CASE
+						WHEN TurnoverIBC = 0
+						THEN 0
+						ELSE TurnoverIBC - ExtraTO
+					 END * CASE
+							 WHEN VarianceVR > 0
+							 THEN VarianceVR + 1
+							 ELSE 1
+						  END * ex.Rate) AS HouseTO
+		 FROM bodb_Account.dbo.FactSiteWinloss AS b WITH(NOLOCK)
 			INNER JOIN #SportBettypeMatrix AS sb ON b.Bettype = sb.Bettype
 			LEFT JOIN #exchange AS ex ON b.rptdate = ex.exchangedate
 								    AND b.currencyid = ex.ExchangeID
 		 WHERE b.rptDate >= @FDate AND b.rptDate <= @TDATE
 			  AND b.TicketStatus NOT IN(-1, 18, 9, 10, 14)
-			  AND b.CurrencyID <> 20  
+			  AND b.CurrencyID <> 20
+			  AND SiteID IN
+							(
+							    SELECT SiteID
+							    FROM bodb_Account.dbo.tbl_Site
+							    WHERE isDeposit = 1
+							)-- Deposit data only  
 		 GROUP BY b.rptDate
 			    , sb.ProductID
 				, CASE WHEN b.BetType IN (9, 29) THEN -2 ELSE b.SportType END
