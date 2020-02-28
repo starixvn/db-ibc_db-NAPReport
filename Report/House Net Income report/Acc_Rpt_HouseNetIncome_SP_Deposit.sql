@@ -73,24 +73,21 @@ BEGIN
     -- House WL
     CREATE TABLE #TmpHouseWL(
 	    rptDate       DATE
-	  , ProductID     INT
 	  , CurrencyID    INT
 	  , HouseWL       MONEY);
 
     INSERT INTO #TmpHouseWL(rptDate
-					 , ProductID
 					 , CurrencyID
 					 , HouseWL)
 		 SELECT b.rptDate
-			 , sb.ProductID
 			 , b.CurrencyID
 			 , -SUM(b.WinlossIBC * ex.rate) AS HouseWL
 		 FROM bodb_Account.dbo.FactSiteWinloss AS b WITH(NOLOCK)
 			INNER JOIN #exchange AS ex ON b.rptdate = ex.exchangedate
 									AND b.currencyid = ex.ExchangeID
-			INNER JOIN #SportBettypeMatrix AS sb ON sb.Bettype = b.bettype
 		 WHERE b.rptDate BETWEEN @FromDate AND @ToDate
 			  AND b.TicketStatus NOT IN(-1, 18, 9, 10, 14)
+			  AND b.bettype IN (SELECT sb.Bettype FROM #SportBettypeMatrix sb WHERE sb.ProductID = 37 )
 			  AND SiteID IN
 						 (
 							SELECT SiteID
@@ -98,7 +95,6 @@ BEGIN
 							WHERE isDeposit = 1
 						 )
 		 GROUP BY b.rptDate
-			   , sb.ProductID
 			   , b.CurrencyID OPTION(RECOMPILE);
 
     UPDATE f

@@ -101,10 +101,9 @@ BEGIN
 		 FROM bodb_Account.dbo.FactSiteWinloss AS b WITH (NOLOCK)
 			INNER JOIN #exchange AS ex ON b.rptdate = ex.exchangedate
 									AND b.currencyid = ex.ExchangeID
-			INNER JOIN #SportBettypeMatrix AS sb ON sb.Bettype = b.bettype
 			INNER JOIN bodb_Account.dbo.tbl_Site AS s WITH (NOLOCK) ON s.siteid = b.SiteID
 		 WHERE b.rptDate >= @FDate AND b.rptDate <= @TDate
-			  AND Sb.ProductID = 3
+			  AND b.bettype IN (SELECT sb.Bettype FROM #SportBettypeMatrix sb WHERE sb.ProductID = 3 )
 			  AND b.TicketStatus <> 14
 			  AND s.isDeposit = 0 /* Credit data only*/
 		 GROUP BY b.SiteID
