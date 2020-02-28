@@ -190,8 +190,8 @@ SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 	, 0 HouseWL_EX
 	,(SELECT SUM(t.HouseWL) FROM #TmpData AS t WHERE t.ProductID = 27 AND t.rptDate = @tmpDate) AS  HouseWL_VS2
 	,(SELECT SUM(t.HouseWL) FROM #TmpData AS t WHERE t.ProductID = 6 AND t.rptDate = @tmpDate) AS  HouseWL_1RNG
-	,(SELECT SUM(t.HouseWL) FROM #TmpData AS t WHERE t.BetType IN (2199, 2399, 2999) AND t.rptDate = @tmpDate) AS HouseWL_1RNG_JP_MegaPrize
-	,(SELECT SUM(t.HouseWL) FROM #TmpData AS t WHERE t.BetType IN (2198, 2398, 2998) AND t.rptDate = @tmpDate) AS HouseWL_1RNG_JP_Contribution
+	,(SELECT SUM(t.WinningPrize) FROM #TmpData AS t WHERE t.BetType IN (2199, 2399, 2999) AND t.rptDate = @tmpDate) AS HouseWL_1RNG_JP_MegaPrize
+	,(SELECT SUM(t.Contribution) FROM #TmpData AS t WHERE t.BetType IN (2198, 2398, 2998) AND t.rptDate = @tmpDate) AS HouseWL_1RNG_JP_Contribution
 	,(SELECT SUM(t.HouseWL) FROM #TmpData AS t WHERE t.ProductID = 32 AND t.rptDate = @tmpDate) AS  HouseWL_PP
 	,(SELECT SUM(t.HouseWL) FROM #TmpData AS t WHERE t.ProductID = 34 AND t.rptDate = @tmpDate) AS  HouseWL_CC
 	, 0 HouseWL_SP;
