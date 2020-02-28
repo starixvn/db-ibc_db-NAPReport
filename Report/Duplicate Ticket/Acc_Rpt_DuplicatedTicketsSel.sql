@@ -64,16 +64,16 @@ BEGIN
 		odds smallmoney,
 		stake MONEY,
 		balance MONEY,
-		status VARCHAR(20),
+		status VARCHAR(500),
 		statusID INT,
 		bettype INT, 
 		Matchid INT, 
 		winlostdate SMALLDATETIME,
-		username VARCHAR(50),
+		username VARCHAR(500),
 		refno BIGINT,
 		refnoGroup BIGINT,
 		bettime DATETIME,
-		Typename VARCHAR(50),
+		Typename VARCHAR(500),
 		transdesc nvarchar(2000)
 	)
 
