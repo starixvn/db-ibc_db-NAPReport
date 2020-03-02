@@ -270,7 +270,3 @@ BEGIN
 	DROP TABLE #TempPartyList
 	DROP TABLE #tmpParty
 END
-GO
-
-GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_SG_Deposit] TO [bodbAdminNet]
-GO

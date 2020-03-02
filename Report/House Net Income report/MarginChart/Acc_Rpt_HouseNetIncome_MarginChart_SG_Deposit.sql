@@ -1,4 +1,4 @@
-/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
 USE bodb02
 GO
@@ -193,6 +193,3 @@ BEGIN
 	DROP TABLE #TempDataSG
 	DROP TABLE #FinalResult
 END
-GO
-
-GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_SG_Deposit] TO [bodbAdminNet]

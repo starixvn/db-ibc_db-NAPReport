@@ -179,5 +179,3 @@ BEGIN
 
 	DROP TABLE #tmpProduct
 END
-GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_NonSport_Deposit] TO [bodbAdminNet]
-GO

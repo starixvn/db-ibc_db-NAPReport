@@ -243,5 +243,3 @@ BEGIN
 	DROP TABLE #FinalResult
 	DROP TABLE #ChargeInfo3rd
 END
-GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_SG_Credit] TO [dwrs]
-GO
