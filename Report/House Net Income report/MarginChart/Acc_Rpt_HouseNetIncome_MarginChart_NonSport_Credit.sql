@@ -21,6 +21,7 @@ AS
 		- 20190822@Robert: #115465 - Exclude bettype 4300 (Promotion Prize) from House Income, Pay to Supplier of Pragmatic
 		- 20191121@Robert: #123733 - Email/Letstalk Reports - Integrate PP Tournament (Exclude bettype 4299)
 		- 20200225@Kean: #128007 - Changes on the rate of Pay to suppliers
+		 - 20200224@Kean: #123734 - House Net Income - Integrate SG (Spadegaming) product
 
 	Param's Explanation:   
 		- @ProductList: '' - default value when get all product
@@ -41,7 +42,7 @@ BEGIN
 	FROM bodb_Account.dbo.tbl_Site WITH(NOLOCK)
 	WHERE [site] = 'CN88';
 
-	DECLARE @Credit VARCHAR(MAX) = 'NG,VS,KN,LT,VS2,VB,CS,NG2,AB,GD,CB,PP,CC'  
+	DECLARE @Credit VARCHAR(MAX) = 'NG,VS,KN,LT,VS2,VB,CS,NG2,AB,GD,CB,PP,CC,SG'  
 		
 	-- Region: Get exchange rate info
 	CREATE	TABLE #Exchange			(ExchangeDate DATE, ExchangeID INT, Rate FLOAT)
@@ -135,6 +136,7 @@ BEGIN
 		   ,(22, 0.02)  -- MacauG
 		   ,(23, 0.5)   -- NG2
 		   ,(34, 0.025) -- CC
+		   ,(36, 0.035) -- SG
 
 	INSERT INTO #PayToSupplierRate_CN88( ProductID, Rate )
 	VALUES  (3, 0.015)    -- NG, HP5
@@ -221,7 +223,7 @@ SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 									     WHERE t.ProductID = 3 AND t.SiteID <> @SiteCN88 AND  t.rptDate = @tmpDate) -- NG2, NG
 
 		+ (SELECT ISNULL(SUM(t.MemberWLOANDA * r.Rate),0)  FROM #TmpHouseWL AS t INNER JOIN #PayToSupplierRate r ON t.ProductID = r.ProductID
-									     WHERE t.ProductID IN (22,34)  AND  t.rptDate = @tmpDate) -- MacauG, CC 
+									     WHERE t.ProductID IN (22,34,36)  AND  t.rptDate = @tmpDate) -- MacauG, CC 
 		+ (SELECT ISNULL(SUM(t.MemberWLOANDA * r.Rate),0)  FROM #TmpHouseWL AS t INNER JOIN #PayToSupplierRate r ON t.ProductID = r.ProductID
 									     WHERE t.ProductID IN (5,8,28,27) 
 										AND t.SiteID <> @SiteCN88 AND  t.rptDate = @tmpDate) -- VS,KN,LT,VS2

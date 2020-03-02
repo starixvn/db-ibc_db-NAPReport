@@ -16,6 +16,7 @@ AS
    
     Revisions:  
 		- 20200214@Kean - DHWL Letstalk - Margin report - Separate Credit into 789 and other MBC [#128572]
+		- 20200224@Kean - Add SG product - #123734
 	
 	Param's Explanation:   
 	- DepositType  
@@ -82,7 +83,8 @@ BEGIN
 	  , HouseWL_1RNG_JP_Contribution        MONEY
 	  , HouseWL_PP        MONEY
 	  , HouseWL_CC        MONEY
-	  , HouseWL_SP        MONEY);
+	  , HouseWL_SP        MONEY
+	  , HouseWL_SG        MONEY);
 
 	  DECLARE @tmpDate     DATE
 		, @DateList    VARCHAR(200) = '[FullRange]';
@@ -99,7 +101,7 @@ BEGIN
 			 , BetType
 		FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)
 		WHERE SubProduct NOT IN('BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss')
-		 AND ProductID IN (1, 3, 5, 8, 23, 22, 21, 12, 28, 27, 6, 32, 34)
+		 AND ProductID IN (1, 3, 5, 8, 23, 22, 21, 12, 28, 27, 6, 32, 34, 36)
 		 AND BetType NOT IN (4299, 4300) -- PP
 
 		 CREATE TABLE #TmpData(
@@ -168,6 +170,7 @@ BEGIN
 						  , HouseWL_PP   
 						  , HouseWL_CC
 						  , HouseWL_SP
+						  , HouseWL_SG
 						  )
 SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 	-- BEGIN SPORTBOOK
@@ -194,7 +197,8 @@ SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 	,(SELECT SUM(t.Contribution) FROM #TmpData AS t WHERE t.BetType IN (2198, 2398, 2998) AND t.rptDate = @tmpDate) AS HouseWL_1RNG_JP_Contribution
 	,(SELECT SUM(t.HouseWL) FROM #TmpData AS t WHERE t.ProductID = 32 AND t.rptDate = @tmpDate) AS  HouseWL_PP
 	,(SELECT SUM(t.HouseWL) FROM #TmpData AS t WHERE t.ProductID = 34 AND t.rptDate = @tmpDate) AS  HouseWL_CC
-	, 0 HouseWL_SP;
+	, 0 HouseWL_SP
+	,(SELECT SUM(t.HouseWL) FROM #TmpData AS t WHERE t.ProductID = 36 AND t.rptDate = @tmpDate) AS  HouseWL_SG;
 
 		  SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate);
 	   END;
@@ -220,7 +224,8 @@ INSERT INTO #FinalResult(RptDate
 					, HouseWL_1RNG_JP_Contribution        
 					, HouseWL_PP   
 					, HouseWL_CC
-					, HouseWL_SP)
+					, HouseWL_SP
+					, HouseWL_SG)
 		 SELECT 'FullRange'
 			 , SUM(HouseWL_Soccer)
 			 , SUM(HouseWL_Basketball)
@@ -245,6 +250,7 @@ INSERT INTO #FinalResult(RptDate
 			, SUM(HouseWL_PP)   
 			, SUM(HouseWL_CC)
 			, SUM(HouseWL_SP)
+			, SUM(HouseWL_SG)
 		 FROM #FinalResult;
 
 
@@ -276,7 +282,8 @@ INSERT INTO #FinalResult(RptDate
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''1RNG-JP'', 20, ''House Income'', HouseWL_1RNG_JP_Contribution' + CHAR(13)
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''PP'', 21, ''House Income'', HouseWL_PP' + CHAR(13)
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''CC'', 22, ''House Income'', HouseWL_CC' + CHAR(13)
-    + 'UNION ALL' + CHAR(13) + 'SELECT ''SP'', 23, ''House Income'', HouseWL_SP) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) 
+    + 'UNION ALL' + CHAR(13) + 'SELECT ''SP'', 23, ''House Income'', HouseWL_SP' + CHAR(13)
+    + 'UNION ALL' + CHAR(13) + 'SELECT ''SG'', 24, ''House Income'', HouseWL_SG) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) 
     + 'PIVOT' + CHAR(13) 
     + '(' + CHAR(13) 
     + 'MAX(value)' + CHAR(13) 

@@ -16,6 +16,7 @@ AS
    
     Revisions:  
 		- 20200214@Kean - DHWL Letstalk - Margin report - Separate Credit into 789 and other MBC [#128572]
+		- 20200224@Kean - Add SG product - #123734
 	
 	Param's Explanation:   
 	- DepositType  
@@ -116,7 +117,8 @@ BEGIN
 	  , PayToSupplier_1RNG_JP        MONEY
 	  , PayToSupplier_PP        MONEY
 	  , PayToSupplier_CC        MONEY
-	  , PayToSupplier_SP        MONEY);
+	  , PayToSupplier_SP        MONEY
+	  , PayToSupplier_SG        MONEY);
 
 	  DECLARE @tmpDate     DATE
 		, @DateList    VARCHAR(200) = '[FullRange]';
@@ -132,7 +134,7 @@ BEGIN
 		SELECT DISTINCT ProductID
 			 , BetType
 		FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)
-		WHERE ProductID IN (3, 5, 8, 23, 22, 21, 12, 28, 27, 6, 32, 34)
+		WHERE ProductID IN (3, 5, 8, 23, 22, 21, 12, 28, 27, 6, 32, 34, 36)
 		 AND BetType NOT IN (4299, 4300) -- PP
 
 		 CREATE TABLE #TmpData(
@@ -241,6 +243,7 @@ BEGIN
 						  , PayToSupplier_PP   
 						  , PayToSupplier_CC
 						  , PayToSupplier_SP
+						  , PayToSupplier_SG
 						  )
 SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 	,(SELECT SUM(t.HouseWL) * 0.5 * (-1) FROM #TmpData AS t WHERE t.ProductID = 3 AND t.SportType <> 164 AND  t.rptDate = @tmpDate) AS  PayToSupplier_NG
@@ -260,7 +263,8 @@ SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 							INNER JOIN #ChargeInfo3rd AS ci ON t.rptDate BETWEEN ci.FromDate AND ci.ToDate
 							INNER JOIN #tmpProduct p on ci.ProductID = p.ProductID AND p.ProductCode = 'CC' 
 							WHERE t.ProductID = 34 AND t.rptDate = @tmpDate) AS  PayToSupplier_CC
-	, 0 PayToSupplier_SP;
+	, 0 PayToSupplier_SP
+	,(SELECT SUM(t.MemberWLOANDA) * 0.035 FROM #TmpData AS t WHERE t.ProductID = 36 AND  t.rptDate = @tmpDate) AS  PayToSupplier_SG;
 
 		  SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate);
 	   END; 
@@ -282,7 +286,8 @@ INSERT INTO #FinalResult(RptDate
 					, PayToSupplier_1RNG_JP        
 					, PayToSupplier_PP   
 					, PayToSupplier_CC
-					, PayToSupplier_SP)
+					, PayToSupplier_SP
+					, PayToSupplier_SG)
 		 SELECT 'FullRange'
 			, SUM(PayToSupplier_NG)        
 			, SUM(PayToSupplier_H5)
@@ -298,6 +303,7 @@ INSERT INTO #FinalResult(RptDate
 			, (SELECT CASE WHEN SUM(MemberWLOANDA) < 0 THEN 0 ELSE -SUM(PayToSupplier_PP_MTD) END FROM #tmpPayToSupplier_PP_MTD)
 			, CASE WHEN SUM(PayToSupplier_CC) > 0 THEN 0 ELSE SUM(PayToSupplier_CC) END
 			, 0
+			, 0.035 * (SELECT CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(MemberWLOANDA) END FROM #TmpData AS t WHERE t.ProductID = 36) 
 		 FROM #FinalResult;
 
     -- Select the output
@@ -317,7 +323,8 @@ INSERT INTO #FinalResult(RptDate
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''1RNG-JP'', 11, ''PayToSupplier'', PayToSupplier_1RNG_JP' + CHAR(13)
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''PP'', 12, ''PayToSupplier'', PayToSupplier_PP' + CHAR(13)
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''CC'', 13, ''PayToSupplier'', PayToSupplier_CC' + CHAR(13)
-    + 'UNION ALL' + CHAR(13) + 'SELECT ''SP'', 14, ''PayToSupplier'', PayToSupplier_SP) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) 
+    + 'UNION ALL' + CHAR(13) + 'SELECT ''SP'', 14, ''PayToSupplier'', PayToSupplier_SP' + CHAR(13)
+    + 'UNION ALL' + CHAR(13) + 'SELECT ''SG'', 15, ''PayToSupplier'', PayToSupplier_SG) c (ProductCode, [Order], Figure, value)) a' + CHAR(13)  
     + 'PIVOT' + CHAR(13) 
     + '(' + CHAR(13) 
     + 'MAX(value)' + CHAR(13) 
@@ -353,7 +360,7 @@ INSERT INTO #FinalResult(RptDate
 
     SELECT @SQL_MetricGaming = 'SELECT * ' + CHAR(13) 
 			+ 'FROM	(SELECT ProductCode, [Order], [RptDate], Figure, ISNULL(value, 0) value FROM #tmpPayToSupplier_MetricGaming' + CHAR(13) 
-			+ 'CROSS APPLY' + CHAR(13) + '(SELECT ''Soccer'', 15, ''PayToSupplier'', PayToSupplier_MG) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) 
+			+ 'CROSS APPLY' + CHAR(13) + '(SELECT ''Soccer'', 16, ''PayToSupplier'', PayToSupplier_MG) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) 
 			+ 'PIVOT' + CHAR(13) 
 			+ '(' + CHAR(13) 
 			+ 'MAX(value)' + CHAR(13) 
@@ -361,7 +368,7 @@ INSERT INTO #FinalResult(RptDate
 			+ ') piv' + CHAR(13);
 	SELECT @SQL_MuayThai = 'SELECT * ' + CHAR(13) 
 			+ 'FROM	(SELECT ProductCode, [Order], [RptDate], Figure, ISNULL(value, 0) value FROM #tmpPayToSupplier_MuayThai' + CHAR(13) 
-			+ 'CROSS APPLY' + CHAR(13) + '(SELECT ''OS'', 16, ''PayToSupplier'', PayToSupplier_MT) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) 
+			+ 'CROSS APPLY' + CHAR(13) + '(SELECT ''OS'', 17, ''PayToSupplier'', PayToSupplier_MT) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) 
 			+ 'PIVOT' + CHAR(13) 
 			+ '(' + CHAR(13) 
 			+ 'MAX(value)' + CHAR(13) 
@@ -369,7 +376,7 @@ INSERT INTO #FinalResult(RptDate
 			+ ') piv' + CHAR(13);
 	SELECT @SQL_BetBuilder = 'SELECT * ' + CHAR(13) 
 			+ 'FROM	(SELECT ProductCode, [Order], [RptDate], Figure, ISNULL(value, 0) value FROM #tmpPayToSupplier_BetBuilder' + CHAR(13) 
-			+ 'CROSS APPLY' + CHAR(13) + '(SELECT ''Soccer'', 17, ''PayToSupplier'', PayToSupplier_BB) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) 
+			+ 'CROSS APPLY' + CHAR(13) + '(SELECT ''Soccer'', 18, ''PayToSupplier'', PayToSupplier_BB) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) 
 			+ 'PIVOT' + CHAR(13) 
 			+ '(' + CHAR(13) 
 			+ 'MAX(value)' + CHAR(13) 

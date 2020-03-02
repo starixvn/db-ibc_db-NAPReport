@@ -18,6 +18,7 @@ AS;
 		- 20190819@Robert - NAP Report - Integrate Card Club on NAP Report [#115465]
 		- 20191107@Robert -  NPH - House Net Income, Licensee Performance Email/Letstalk Report Integration [122516]
 		- 20191127@Robert: Rename Product from 'NPH Promotion' to 'Saba Promotion'
+		 - 20200224@Kean: #123734 - Integrate SG (Spadegaming) product
 
 	Param's Explanation:   
 		- @ProductList: '' - default value when get all product
@@ -32,7 +33,7 @@ BEGIN
 	DECLARE @FDate DATE, @TDate DATE
 	SELECT @FDate = @FromDate, @TDate = @ToDate
 
-	DECLARE @DefaulProductList VARCHAR(MAX) = 'EX,GD,FW,AB,VB,CB,CO,AGC,KN,LT,CS,NG,PP,CC,SP'
+	DECLARE @DefaulProductList VARCHAR(MAX) = 'EX,GD,FW,AB,VB,CB,CO,AGC,KN,LT,CS,NG,PP,CC,SP,SG'
 
 	-- Select ProductList
 	SELECT @ProductList = CASE WHEN LEN(ISNULL(@ProductList, '')) > 0  THEN @ProductList ELSE @DefaulProductList END
@@ -71,6 +72,13 @@ BEGIN
 	SELECT @SumValue = @SumValue + ' FROM #MarginChartResult GROUP BY [Order], Figure ORDER BY [Order]'
 	
 	--EXEC (@DynamicTable)
+
+	-- 16. SG
+	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'SG')
+	BEGIN
+		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
+							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_SG_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
+	END
 
 	-- 15. NPH
 	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'SP')
@@ -171,4 +179,5 @@ BEGIN
 
 	DROP TABLE #tmpProduct
 END
+GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_NonSport_Deposit] TO [bodbAdminNet]
 GO
