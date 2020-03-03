@@ -1,5 +1,4 @@
-/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
-
+/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_EX_Deposit]
 	@FromDate DATE,
 	@ToDate	DATE
@@ -13,6 +12,7 @@ AS
 		- 20180115@Harper: Create new SP [RedmineID: #89006]
 		- 20180508@Harper: Change PayToSupplier term of Exchange product [RedmineID: #94403]
 		- 20190222@Robert: #109196 - House Net Income - Arrange Email notification for Licensee Figures
+		- 20200108@Percy: #124755 - Support billing terms by product & currency instead of product only
 
 	Param's Explanation:   
 
@@ -35,7 +35,7 @@ BEGIN
 	  , ParentID     INT);
 
     INSERT INTO @TmpPartyList
-    EXECUTE bodb_licensee..LA_PartyListSel;
+    EXECUTE bodb_licensee.dbo.LA_PartyListSel;
 
     DECLARE @PartyIDs    VARCHAR(1000);
 
@@ -48,7 +48,8 @@ BEGIN
     -- Region: Get Licensees has charge rate
 
     DECLARE @PartyChargeInfo AS TABLE(
-	    PartyId       INT
+	    ChargeId      INT
+	  , PartyId		  INT
 	  , LicenseeId    INT
 	  , ParentID      INT
 	  , Rate          MONEY
@@ -63,7 +64,8 @@ BEGIN
 	  , ToDate        SMALLDATETIME
 	  , ProductID     INT);
 
-    INSERT INTO @PartyChargeInfo(PartyId
+    INSERT INTO @PartyChargeInfo(ChargeId
+						 , PartyId
 						 , LicenseeId
 						 , ParentID
 						 , Rate
@@ -71,7 +73,8 @@ BEGIN
 						 , Todate
 						 , ProductID)
 		 (
-			SELECT ci.PartyID
+			SELECT ci.ChargeId
+				, ci.PartyID
 				, ci.LicenseeID
 				, p.ParentID
 				, ci.DI_Rate
@@ -179,7 +182,7 @@ BEGIN
 				, SUM(ISNULL(b.CommissionA, 0) * e.Rate)
 				, SUM(ISNULL(b.CommissionP, 0) * e.Rate)
 				, b.ProductId
-				, SUM(-ISNULL(b.MemberWL, 0) * p.Rate * e.Rate)
+				, SUM(-ISNULL(b.MemberWL, 0) * ISNULL(lc.Rate, p.Rate) * e.Rate)
 				, SUM(ISNULL(b.MemberWL, 0) * rd.Rate * e.Rate)
 			FROM bodb_LicenseeReport.dbo.rpt_BettingByProduct AS b WITH (NOLOCK)
 			    INNER JOIN #ExchangeOANDA AS e ON b.rptDate = e.ExchangeDate
@@ -187,6 +190,8 @@ BEGIN
 			    INNER JOIN @PartyChargeInfo AS p ON b.ProductId = p.ProductID
 											AND p.LicenseeId = b.SiteId
 											AND b.rptDate BETWEEN p.FromDate AND p.ToDate
+				LEFT JOIN bodb_Licensee.dbo.LA_ChargeRateByCurrency AS lc WITH (NOLOCK) ON p.ChargeId = lc.ChargeID
+																						AND b.CurrencyId = lc.CurrencyID
 			    INNER JOIN @PartyCharge3rdInfo AS rd ON b.ProductID = rd.ProductID
 											    AND b.SiteID = rd.LicenseeID
 											    AND b.rptDate BETWEEN rd.FromDate AND rd.ToDate

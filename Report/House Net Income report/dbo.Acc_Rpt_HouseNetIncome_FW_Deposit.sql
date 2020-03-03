@@ -1,8 +1,4 @@
-/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
-
-USE bodb02
-GO
-
+/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_FW_Deposit]
 	@FromDate DATE,
 	@ToDate	DATE
@@ -14,6 +10,8 @@ AS
    
     Revisions:  
 	   - 20181019@Robert: Nap Reports - House Net Income - Pay to Supplier(Month-to-date) of Gold Deluxe & Fishing World is incorrect [#103380]
+	   - 20200108@Percy: #124755 - Support billing terms by product & currency instead of product only
+
 	Param's Explanation:   
 
 	EXEC Acc_Rpt_HouseNetIncome_FW_Deposit '20170201', '20170228'   
@@ -35,7 +33,7 @@ BEGIN
 	  , ParentID     INT);
 
     INSERT INTO @TmpPartyList
-    EXECUTE bodb_licensee..LA_PartyListSel;
+    EXECUTE bodb_licensee.dbo.LA_PartyListSel;
 
     DECLARE @tmpParty TABLE(
 	    PartyID       INT
@@ -85,7 +83,8 @@ BEGIN
 
 
     DECLARE @PartyChargeInfo AS TABLE(
-	    PartyId       INT
+	    ChargeId	  INT
+	  , PartyId       INT
 	  , LicenseeId    INT
 	  , IsDeposit     BIT
 	  , ProductID     INT
@@ -94,7 +93,8 @@ BEGIN
 	  , ToDate        SMALLDATETIME
 	  , Bettype       INT);
 
-    INSERT INTO @PartyChargeInfo(PartyId
+    INSERT INTO @PartyChargeInfo(ChargeId
+						 , PartyId
 						 , LicenseeId
 						 , IsDeposit
 						 , ProductID
@@ -103,7 +103,8 @@ BEGIN
 						 , Todate
 						 , Bettype)
 		 (
-			SELECT ci.PartyID
+			SELECT ci.ChargeId
+				, ci.PartyID
 				, ci.LicenseeID
 				, ci.isDeposit
 				, ci.ProductID
@@ -113,7 +114,7 @@ BEGIN
 				, ISNULL(sbr.Bettype, ci.Bettype)
 			FROM bodb_licensee.dbo.LA_f_ChargeInfo
 				(@PartyIDs, @FDate, @TDate, 'FW', 'OA', 1) AS ci
-			    LEFT JOIN bodb_licensee..Sport_Bettype_Reference AS sbr WITH (NOLOCK) ON sbr.BettypeRef = ci.Bettype
+			    LEFT JOIN bodb_licensee.dbo.Sport_Bettype_Reference AS sbr WITH (NOLOCK) ON sbr.BettypeRef = ci.Bettype
 			WHERE ci.isDeposit = 1
 				 AND DI_Rate > 0
 				 AND ProductId <> 1 /*exclude RB */
@@ -174,7 +175,7 @@ BEGIN
 				, SUM(ISNULL(b.MemberWL, 0))
 				, SUM(ISNULL(b.CommissionA, 0)) * e.Rate
 				, p.ProductId
-				, SUM(-ISNULL(b.MemberWL, 0) * p.Rate) * e.Rate
+				, SUM(-ISNULL(b.MemberWL, 0) * ISNULL(lc.Rate, p.Rate)) * e.Rate
 			FROM bodb_LicenseeReport.dbo.rpt_BettingByProduct AS b WITH (NOLOCK)
 			    INNER JOIN #Exchange AS e ON b.rptDate = e.ExchangeDate
 									   AND b.CurrencyId = e.ExchangeID
@@ -184,6 +185,8 @@ BEGIN
 											AND
 											    (p.Bettype = -1
 												OR p.Bettype = b.Bettype)
+				LEFT JOIN bodb_Licensee.dbo.LA_ChargeRateByCurrency AS lc WITH (NOLOCK) ON p.ChargeId = lc.ChargeID
+																						AND b.CurrencyId = lc.CurrencyID
 			WHERE b.rptDate BETWEEN @FDate AND @TDate
 				 AND b.CurrencyID <> 20
 				 AND b.customercategory NOT IN(27, 28)
@@ -414,7 +417,3 @@ BEGIN
 	DROP TABLE #FeeData
 END
 GO
-
-GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_FW_Deposit] TO [bodbAdminNet]
-GO
-GRANT VIEW definition ON [dbo].[Acc_Rpt_HouseNetIncome_FW_Deposit] TO vnteam

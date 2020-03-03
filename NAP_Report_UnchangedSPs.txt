@@ -1,1 +1,3 @@
-Report\Games\NumberGame\Acc_Rpt_GetLicenseesByProduct.sql 
+Report\House Net Income report\Acc_Rpt_HouseNetIncome_SB_PayToSupplier.sql
+Report\House Net Income report\MarginChart\Acc_Rpt_HouseNetIncome_MarginChart_Soccer_Credit.sql
+Report\House Net Income report\MarginChart\Acc_Rpt_HouseNetIncome_MarginChart_Soccer_Deposit.sql

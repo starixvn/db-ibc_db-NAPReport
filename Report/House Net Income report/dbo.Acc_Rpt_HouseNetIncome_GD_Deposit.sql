@@ -1,5 +1,4 @@
-/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
-
+/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_GD_Deposit]
 	@FromDate DATE 
 	, @ToDate	DATE 
@@ -14,6 +13,7 @@ AS
 	   - 20181113@Robert: DHWL Email/Letstalk/Margin Chart - Integrate Bidme & Sicbo[#104145]
 	   - 20190308@Robert: 109770 - House Net Income - Change formula for MTD values and add old month data into a new sheet
 	   - 20200102@Robert: #125762 - DHWL Letstalk - Support to add Margin report into the current DHWL Letstalk report
+	   - 20200108@Percy: #124755 - Support billing terms by product & currency instead of product only
 
 	Param's Explanation:   
 	- DepositType  
@@ -43,7 +43,7 @@ BEGIN
 	  , ParentID     INT);
 
     INSERT INTO @TmpPartyList
-    EXECUTE bodb_licensee..LA_PartyListSel;
+    EXECUTE bodb_licensee.dbo.LA_PartyListSel;
 
     DECLARE @tmpParty TABLE(
 	    PartyID       INT
@@ -91,7 +91,8 @@ BEGIN
     WHERE IsDeposit = 1;    
 
     DECLARE @PartyChargeInfo AS TABLE(
-	    PartyId       INT
+	    ChargeId	  INT
+	  , PartyId       INT
 	  , LicenseeId    INT
 	  , IsDeposit     BIT
 	  , ProductID     INT
@@ -101,7 +102,8 @@ BEGIN
 	  , Bettype       INT
 	  , ChargeType    TINYINT);
 
-    INSERT INTO @PartyChargeInfo(PartyId
+    INSERT INTO @PartyChargeInfo(ChargeId
+						 , PartyId
 						 , LicenseeId
 						 , IsDeposit
 						 , ProductID
@@ -111,7 +113,8 @@ BEGIN
 						 , Bettype
 						 , ChargeType)
 		 (
-			SELECT ci.PartyID
+			SELECT ci.ChargeId
+				, ci.PartyID
 				, ci.LicenseeID
 				, ci.isDeposit
 				, ci.ProductID
@@ -122,7 +125,7 @@ BEGIN
 				, ci.ChargeType
 			FROM bodb_licensee.dbo.LA_f_ChargeInfo
 				(@PartyIDs, @FDate, @TDate, 'GD', 'OA', 1) AS ci
-			    LEFT JOIN bodb_licensee..Sport_Bettype_Reference AS sbr WITH(NOLOCK) ON sbr.BettypeRef = ci.Bettype
+			    LEFT JOIN bodb_licensee.dbo.Sport_Bettype_Reference AS sbr WITH(NOLOCK) ON sbr.BettypeRef = ci.Bettype
 			WHERE ci.isDeposit = 1
 				 AND DI_Rate > 0
 				 AND ProductId <> 1 /*exclude RB */
@@ -150,7 +153,7 @@ BEGIN
 					 , AmountToCompany)
 		 (
 			SELECT b.rptDate
-				, SUM(-ISNULL(b.MemberWL, 0) * p.Rate) * e.Rate AS AmountToCompany
+				, SUM(-ISNULL(b.MemberWL, 0) * ISNULL(lc.Rate, p.Rate)) * e.Rate AS AmountToCompany
 			FROM bodb_LicenseeReport.dbo.rpt_BettingByProduct AS b WITH(NOLOCK)
 			    INNER JOIN #Exchange AS e ON b.rptDate = e.ExchangeDate
 									   AND b.CurrencyId = e.ExchangeID
@@ -160,6 +163,8 @@ BEGIN
 											AND
 											    (p.Bettype = -1
 												OR p.Bettype = b.Bettype)
+				LEFT JOIN bodb_Licensee.dbo.LA_ChargeRateByCurrency AS lc WITH (NOLOCK) ON p.ChargeId = lc.ChargeID
+																						AND b.CurrencyId = lc.CurrencyID
 			WHERE b.rptDate BETWEEN @FDate AND @TDate
 				 AND b.CurrencyID NOT IN(20, 27, 28)
 				 AND b.customercategory NOT IN(27, 28)
@@ -171,7 +176,7 @@ BEGIN
 				  , p.Rate
 			UNION ALL
 			SELECT b.rptDate
-				, SUM(-ISNULL(b.MemberWL, 0) * p.Rate) * e.Rate AS AmountToCompany
+				, SUM(-ISNULL(b.MemberWL, 0) * ISNULL(lc.Rate, p.Rate)) * e.Rate AS AmountToCompany
 			FROM bodb_LicenseeReport.dbo.rpt_BettingByProduct AS b WITH(NOLOCK)
 			    INNER JOIN #Exchange AS e ON b.rptDate = e.ExchangeDate
 									   AND b.CurrencyId = e.ExchangeID
@@ -181,6 +186,8 @@ BEGIN
 											AND
 											    (p.Bettype = -1
 												OR p.Bettype = b.Bettype)
+				LEFT JOIN bodb_Licensee.dbo.LA_ChargeRateByCurrency AS lc WITH (NOLOCK) ON p.ChargeId = lc.ChargeID
+																						AND b.CurrencyId = lc.CurrencyID
 			WHERE b.rptDate BETWEEN @FDate AND @TDate
 				 AND b.CurrencyID NOT IN(20, 27, 28)
 				 AND b.customercategory NOT IN(27, 28)

@@ -1,5 +1,4 @@
-/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
-
+/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_VS2_Deposit]
 	@FromDate DATE,
 	@ToDate	DATE
@@ -11,6 +10,7 @@ AS
     Revisions: 
 		- 20170825@Harper: Create new SP for VS2 [RedmineID: #79612]
 		- 20190222@Robert: #109196 - House Net Income - Arrange Email notification for Licensee Figures
+		- 20200108@Percy: #124755 - Support billing terms by product & currency instead of product only
 		
 	Param's Explanation:   
 */  
@@ -57,7 +57,8 @@ BEGIN
     -- End region
 
     DECLARE @PartyChargeInfo AS TABLE(
-	    PartyId       INT
+	    ChargeId	  INT
+	  , PartyId       INT
 	  , LicenseeId    INT
 	  , IsDeposit     BIT
 	  , ProductID     INT
@@ -66,7 +67,8 @@ BEGIN
 	  , ToDate        SMALLDATETIME
 	  , Bettype       INT);
 
-    INSERT INTO @PartyChargeInfo(PartyId
+    INSERT INTO @PartyChargeInfo(ChargeId
+						 , PartyId
 						 , LicenseeId
 						 , IsDeposit
 						 , ProductID
@@ -75,7 +77,8 @@ BEGIN
 						 , Todate
 						 , Bettype)
 		 (
-			SELECT ci.PartyID
+			SELECT ci.ChargeId
+				, ci.PartyID
 				, ci.LicenseeID
 				, ci.isDeposit
 				, ci.ProductID
@@ -85,7 +88,7 @@ BEGIN
 				, ISNULL(sbr.Bettype, ci.Bettype)
 			FROM bodb_licensee.dbo.LA_f_ChargeInfo
 				(@PartyIDs, @FDate, @TDate, 'VS2', 'OA', 1) AS ci
-			    LEFT JOIN bodb_licensee..Sport_Bettype_Reference AS sbr WITH (NOLOCK) ON sbr.BettypeRef = ci.Bettype
+			    LEFT JOIN bodb_licensee.dbo.Sport_Bettype_Reference AS sbr WITH (NOLOCK) ON sbr.BettypeRef = ci.Bettype
 			WHERE DI_Rate > 0
 				 AND ProductId <> 1 --exclude RB
 		 );
@@ -173,7 +176,7 @@ BEGIN
 				, SUM(ISNULL(b.MemberWL, 0))
 				, SUM(ISNULL(b.CommissionA, 0)) * e.Rate
 				, p.ProductId
-				, SUM(-ISNULL(b.MemberWL, 0) * p.Rate) * e.Rate
+				, SUM(-ISNULL(b.MemberWL, 0) * ISNULL(lc.Rate, p.Rate)) * e.Rate
 				, SUM(-ISNULL(b.MemberWL, 0)) * ISNULL(d.Rate, 0) * e.Rate
 			FROM bodb_LicenseeReport.dbo.rpt_BettingByProduct AS b WITH (NOLOCK)
 			    INNER JOIN #Exchange AS e ON b.rptDate = e.ExchangeDate
@@ -184,6 +187,8 @@ BEGIN
 											AND
 											    (p.Bettype = -1
 												OR p.Bettype = b.Bettype)
+				LEFT JOIN bodb_Licensee.dbo.LA_ChargeRateByCurrency AS lc WITH (NOLOCK) ON p.ChargeId = lc.ChargeID
+																						AND b.CurrencyId = lc.CurrencyID
 			    LEFT JOIN #DiscountGroup AS d ON d.PartyId = p.PartyId
 										  AND d.ProductId = p.ProductID
 			WHERE b.rptDate BETWEEN @FDate AND @TDate

@@ -1,5 +1,4 @@
-/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
-
+/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" isFunction="0" isNested="1"></info>*/
 ALTER PROCEDURE dbo.Acc_Rpt_HouseNetIncome_LicenseeFee 
 	@FromDate      DATE
    , @ToDate        DATE
@@ -16,6 +15,8 @@ AS
 	   - 20181113@Robert: DHWL Email/Letstalk/Margin Chart - Integrate Bidme & Sicbo[#104145]
 	   - 20181202@Robert: #104579 - House Net Income Email/Letstalk/Margin Chart - Integrate Happy 5
 	   - 20190822@Robert: #115465 - Exclude bettype 4300 (Promotion Prize) from House Income, Pay to Supplier of Pragmatic
+	   - 20200108@Percy: #124755 - Support billing terms by product & currency instead of product only
+
 	Param's Explanation:   
 */
 
@@ -94,7 +95,8 @@ AS
 	 Region: Party charge info*/
 
 	   DECLARE @PartyChargeInfo AS TABLE(
-		   PartyId       INT
+		   ChargeId		 INT
+		 , PartyId       INT
 		 , LicenseeId    INT
 		 , IsDeposit     BIT
 		 , ProductID     INT
@@ -104,7 +106,8 @@ AS
 		 , Bettype       INT
 		 , ChargeType    TINYINT);
 
-	   INSERT INTO @PartyChargeInfo(PartyId
+	   INSERT INTO @PartyChargeInfo(ChargeId
+							, PartyId
 							, LicenseeId
 							, IsDeposit
 							, ProductID
@@ -114,8 +117,9 @@ AS
 							, Bettype
 							, ChargeType)
 			(
-			    SELECT ci.PartyID
-				    , ci.LicenseeID
+			    SELECT ci.ChargeId
+				    , ci.PartyID
+					, ci.LicenseeID
 				    , ci.isDeposit
 				    , ci.ProductID
 				    , ci.DI_Rate
@@ -125,7 +129,7 @@ AS
 				    , ci.ChargeType
 			    FROM bodb_licensee.dbo.LA_f_ChargeInfo
 				    (@PartyIDs, @FDate, @TDate, @Products, 'OA', 1) AS ci
-				   LEFT JOIN bodb_licensee..Sport_Bettype_Reference AS sbr WITH(NOLOCK) ON sbr.BettypeRef = ci.Bettype
+				   LEFT JOIN bodb_licensee.dbo.Sport_Bettype_Reference AS sbr WITH(NOLOCK) ON sbr.BettypeRef = ci.Bettype
 			    WHERE DI_Rate > 0
 					AND ProductId <> 1 /*exclude RB*/
 			);
@@ -259,7 +263,7 @@ AS
 				    , SUM(ISNULL(b.MemberWL, 0)) * e.Rate AS WinLoss
 				    , SUM(ISNULL(b.CommissionA, 0)) * e.Rate AS AComm
 				    , p.ProductId
-				    , SUM(-ISNULL(b.MemberWL, 0) * p.Rate) * e.Rate AS AmountToCompany
+				    , SUM(-ISNULL(b.MemberWL, 0) * ISNULL(lc.Rate, p.Rate)) * e.Rate AS AmountToCompany
 				    , 1 AS IsApplyMinFee
 			    FROM bodb_LicenseeReport.dbo.rpt_BettingByProduct AS b WITH(NOLOCK)
 				   INNER JOIN #Exchange AS e ON b.rptDate = e.ExchangeDate
@@ -270,6 +274,8 @@ AS
 											    AND
 												   (p.Bettype = -1
 												    OR p.Bettype = b.Bettype)
+					LEFT JOIN bodb_Licensee.dbo.LA_ChargeRateByCurrency AS lc WITH (NOLOCK) ON p.ChargeId = lc.ChargeID
+																						AND b.CurrencyId = lc.CurrencyID
 			    WHERE b.rptDate BETWEEN @FDate AND @TDate
 					AND b.CurrencyID <> 20
 					AND b.customercategory NOT IN(27, 28)
@@ -295,7 +301,7 @@ AS
 				    , SUM(ISNULL(b.MemberWL, 0)) * e.Rate
 				    , SUM(ISNULL(b.CommissionA, 0)) * e.Rate
 				    , p.ProductId
-				    , SUM(-ISNULL(b.MemberWL, 0) * p.Rate) * e.Rate
+				    , SUM(-ISNULL(b.MemberWL, 0) * ISNULL(lc.Rate, p.Rate)) * e.Rate
 				    , 1 AS IsApplyMinFee
 			    FROM bodb_LicenseeReport.dbo.rpt_BettingByProduct AS b WITH(NOLOCK)
 				   INNER JOIN #Exchange AS e ON b.rptDate = e.ExchangeDate
@@ -306,6 +312,8 @@ AS
 											    AND
 												   (p.Bettype = -1
 												    OR p.Bettype = b.Bettype)
+					LEFT JOIN bodb_Licensee.dbo.LA_ChargeRateByCurrency AS lc WITH (NOLOCK) ON p.ChargeId = lc.ChargeID
+																						AND b.CurrencyId = lc.CurrencyID
 			    WHERE b.rptDate BETWEEN @FDate AND @TDate
 					AND b.CurrencyID <> 20
 					AND b.customercategory NOT IN(27, 28)
