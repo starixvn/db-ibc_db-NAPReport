@@ -48,7 +48,8 @@ BEGIN
 	
 	-- Region: Get Licensees has charge rate
 	CREATE TABLE #PartyChargeInfo (
-	    PartyId       INT
+		ChargeId	INT
+	  , PartyId       INT
 	  , LicenseeId    INT
 	  , ParentID	  INT
 	  , IsDeposit     BIT
@@ -66,8 +67,9 @@ BEGIN
 			ProductID	INT
 			)
 
-	 INSERT INTO #PartyChargeInfo(PartyId, LicenseeId, ParentID, IsDeposit, ProductID, Rate, Fromdate, Todate, Bettype)
-			SELECT ci.PartyID
+	 INSERT INTO #PartyChargeInfo(ChargeId, PartyId, LicenseeId, ParentID, IsDeposit, ProductID, Rate, Fromdate, Todate, Bettype)
+			SELECT ci.ChargeId 
+				, ci.PartyID
 				, ci.LicenseeID, p.ParentID, ci.isDeposit, ci.ProductID
 				, ci.DI_Rate, ci.Fromdate, ci.ToDate
 				, ISNULL(sbr.Bettype, ci.Bettype)
@@ -119,7 +121,7 @@ BEGIN
 				, b.rptdate
 				, SUM(ISNULL(b.MemberWL, 0) * oa.Rate)
 				, SUM(ISNULL(b.MemberWL, 0) * rd.Rate * oa.Rate)
-				, SUM(-ISNULL(b.MemberWL, 0) * p.Rate * e.Rate)
+				, SUM(-ISNULL(b.MemberWL, 0) * ISNULL(lc.Rate, p.Rate) * e.Rate)
 			FROM bodb_LicenseeReport.dbo.rpt_BettingByProduct AS b WITH (NOLOCK)
 			    INNER JOIN #Exchange AS e ON b.rptDate = e.ExchangeDate
 										AND b.CurrencyId = e.ExchangeID
@@ -131,6 +133,8 @@ BEGIN
 											AND
 											    (p.Bettype = -1
 												OR p.Bettype = b.Bettype)
+				LEFT JOIN bodb_Licensee.dbo.LA_ChargeRateByCurrency AS lc WITH (NOLOCK) ON p.ChargeId = lc.ChargeID
+																						AND b.CurrencyId = lc.CurrencyID
 				INNER JOIN #PartyCharge3rdInfo rd ON b.ProductID = rd.ProductID
 													AND b.SiteID = rd.LicenseeID
 													AND (b.rptDate BETWEEN rd.FromDate AND rd.ToDate)
