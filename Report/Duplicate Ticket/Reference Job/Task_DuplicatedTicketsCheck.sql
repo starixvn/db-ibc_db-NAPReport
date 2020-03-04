@@ -48,7 +48,7 @@ BEGIN
 	SELECT @TransId = CONVERT(BIGINT,VValue) FROM bodb02.dbo.SystemSettings WITH (NOLOCK) WHERE VName = 'DuplTicketLastID'
 	SELECT @MaxTransId = MAX(TransId) FROM bodb02.dbo.Bettrans WITH (NOLOCK)
 	
-	DECLARE @BalanceEffectiveDate DATETIME = '2020-02-13'
+	DECLARE @BalanceEffectiveDate DATETIME = '2020-03-05'
 	DECLARE @TransIdAdjusting INT	= 10000
 	
 	-- #TempBettype

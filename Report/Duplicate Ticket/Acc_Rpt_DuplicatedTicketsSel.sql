@@ -78,7 +78,7 @@ BEGIN
 	)
 
 	-- Declare effective date
-	DECLARE @BalanceEffectiveDate DATETIME = '2020-02-13'
+	DECLARE @BalanceEffectiveDate DATETIME = '2020-03-05'
 
 	-- Get the transdate of LastTransID
 	DECLARE @LastTransDate DATETIME	
