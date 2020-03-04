@@ -74,7 +74,8 @@ BEGIN
 		refnoGroup BIGINT,
 		bettime DATETIME,
 		Typename VARCHAR(500),
-		transdesc nvarchar(2000)
+		transdesc nvarchar(2000),
+		ip nvarchar(30)
 	)
 
 	-- Declare effective date
@@ -168,8 +169,8 @@ BEGIN
 		CREATE CLUSTERED INDEX ix_TempCust ON #TempCust (custid)
 		
 		-- #TempDup
-		INSERT INTO #TempDup (custid,odds,stake,balance,status,statusID,bettype,Matchid,winlostdate,username,refno,refnoGroup,bettime,Typename,transdesc)
-		SELECT b.custid, b.odds, b.stake, b.balance, b.status, b.statusID, b.bettype, b.Matchid, b.winlostdate, b.username, b.transid as refno,b.refno as refnoGroup, b.transdate as bettime, bt.typenamee as typename, b.transdesc
+		INSERT INTO #TempDup (custid,odds,stake,balance,status,statusID,bettype,Matchid,winlostdate,username,refno,refnoGroup,bettime,Typename,transdesc,ip)
+		SELECT b.custid, b.odds, b.stake, b.balance, b.status, b.statusID, b.bettype, b.Matchid, b.winlostdate, b.username, b.transid as refno,b.refno as refnoGroup, b.transdate as bettime, bt.typenamee as typename, b.transdesc, b.ip
 		FROM bodb02.dbo.bettrans b WITH(NOLOCK)
 			 INNER JOIN #TempData t ON b.custid = t.custid 
 									   AND b.odds = t.odds
@@ -202,8 +203,8 @@ BEGIN
 		SELECT @DateFrom = DATEADD(dd, 0, DATEDIFF(dd, 0, @Date) )
 		
 		-- #TempDup
-		INSERT INTO #TempDup (custid,odds,stake,balance,status,statusID,bettype,Matchid,winlostdate,username,refno,refnoGroup,bettime,Typename,transdesc)
-		SELECT b.custid, b.odds, b.stake, b.balance, b.status, b.statusID, b.bettype, b.Matchid, b.winlostdate, b.username, b.transid as refno,b.refno as refnoGroup, b.transdate as bettime, bt.typenamee as typename, b.transdesc
+		INSERT INTO #TempDup (custid,odds,stake,balance,status,statusID,bettype,Matchid,winlostdate,username,refno,refnoGroup,bettime,Typename,transdesc,ip)
+		SELECT b.custid, b.odds, b.stake, b.balance, b.status, b.statusID, b.bettype, b.Matchid, b.winlostdate, b.username, b.transid as refno,b.refno as refnoGroup, b.transdate as bettime, bt.typenamee as typename, b.transdesc, b.ip
 		FROM dbo.DuplicatedTicket t WITH (NOLOCK)	
 			 INNER JOIN bodb02.dbo.Bettrans b WITH (NOLOCK)	ON b.TransID = t.TransID
 			 INNER JOIN bodb02.dbo.bettype bt WITH (NOLOCK) ON bt.typeid = b.bettype
@@ -224,8 +225,9 @@ BEGIN
 									  AND aa.stake = bb.stake
 									  AND CASE WHEN aa.bettime >= @BalanceEffectiveDate THEN 0 ELSE ISNULL(aa.balance,0) END = CASE WHEN bb.bettime >= @BalanceEffectiveDate THEN 0 ELSE ISNULL(bb.balance,0) END
 									  AND aa.bettype = bb.bettype
-									  AND aa.Matchid = bb.Matchid
 									  AND aa.winlostdate = bb.winlostdate
+									  AND aa.Matchid = bb.Matchid
+									  AND aa.ip = bb.ip
 									  AND aa.refno <> bb.refno
 	)
 	SELECT custid, odds, stake, balance, status, statusID, bettype, winlostdate, username, refno, refnoGroup, bettime, typename, transdesc
