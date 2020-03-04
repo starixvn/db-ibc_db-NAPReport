@@ -12,6 +12,7 @@ AS
     Revisions:  		
 		- 20181202@Robert: #104579 - House Net Income Email/Letstalk/Margin Chart - Integrate Happy 5
 		- 20200108@Percy: #124755 - Support billing terms by product & currency instead of product only
+		- 20200225@Kean: #128007 - Changes on the rate of Pay to suppliers
 
 	Param's Explanation:   
 */  
@@ -190,7 +191,7 @@ BEGIN
 					  , PayToSupplier)
 		 SELECT 'FullRange'
 			 , ISNULL(SUM(AmountToCompany), 0)
-			 , -0.4 * ISNULL(SUM(AmountToCompany), 0)
+			 , -0.5 * ISNULL(SUM(AmountToCompany), 0)
 		 FROM #FeeData
 		 WHERE ProductID = 2;
 
@@ -214,7 +215,7 @@ BEGIN
 					 ) /* LicenseeWL*/
 				    ,
 					 (
-						SELECT-0.4 * SUM(AmountToCompany)
+						SELECT-0.5 * SUM(AmountToCompany)
 						FROM #TempDataNG
 						WHERE rptDate = @tmpDate
 					 );

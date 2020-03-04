@@ -13,6 +13,7 @@ AS
 		- 20180126@Harper - HDWL Letstalk - Implement Chart of NonSport product margin [#RedmineID: 89632]
 		- 20181202@Robert: #104579 - House Net Income Email/Letstalk/Margin Chart - Integrate Happy 5
 		- 20200108@Percy: #124755 - Support billing terms by product & currency instead of product only
+		- 20200225@Kean: #128007 - Changes on the rate of Pay to suppliers
 
 	Param's Explanation:   
 
@@ -203,7 +204,7 @@ BEGIN
 							, PayToSupplier)
 			    SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 				    , ISNULL(SUM(AmountToCompany), 0) /* LicenseeWL*/
-				    , -0.4 * SUM(AmountToCompany)
+				    , -0.5 * SUM(AmountToCompany)
 			    FROM #TempDataNG
 			    WHERE rptDate = @tmpDate
 					AND ProductId = 2;

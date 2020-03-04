@@ -1,4 +1,6 @@
 /*<info serverAlias="DBWH-bodb_dwrs" executers="dwrs" viewers="" isFunction="0" isNested="0"></info>*/
+USE bodb_dwrs
+GO
 
 ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_NonSport_Credit]
 	@FromDate	DATE ,
@@ -18,6 +20,8 @@ AS
 		- 20190121@Robert: Letstalk Margin Charts - Separate Letstalk group for credit & Deposit (Soccer & Other Sports) [#108220]		
 		- 20190822@Robert: #115465 - Exclude bettype 4300 (Promotion Prize) from House Income, Pay to Supplier of Pragmatic
 		- 20191121@Robert: #123733 - Email/Letstalk Reports - Integrate PP Tournament (Exclude bettype 4299)
+		- 20200225@Kean: #128007 - Changes on the rate of Pay to suppliers
+		 - 20200224@Kean: #123734 - House Net Income - Integrate SG (Spadegaming) product
 
 	Param's Explanation:   
 		- @ProductList: '' - default value when get all product
@@ -32,7 +36,13 @@ BEGIN
 	DECLARE @FDate DATE, @TDate DATE
 	SELECT @FDate = @FromDate, @TDate = @ToDate
 
-	DECLARE @Credit VARCHAR(MAX) = 'KN,LT,VB,VS,VS2,NG,CS,NG2,AB,GD,CB,PP,CC'	
+	DECLARE @SiteCN88    INT;
+
+	SELECT TOP 1 @SiteCN88 = SiteId
+	FROM bodb_Account.dbo.tbl_Site WITH(NOLOCK)
+	WHERE [site] = 'CN88';
+
+	DECLARE @Credit VARCHAR(MAX) = 'NG,VS,KN,LT,VS2,VB,CS,NG2,AB,GD,CB,PP,CC,SG'  
 		
 	-- Region: Get exchange rate info
 	CREATE	TABLE #Exchange			(ExchangeDate DATE, ExchangeID INT, Rate FLOAT)
@@ -69,6 +79,34 @@ BEGIN
 	INSERT INTO #ExchangeOANDA(ExchangeDate, ExchangeID, Rate)
 	EXECUTE (@OpenQuery)
 	
+	CREATE TABLE #ChargeInfo3rd(
+	    ProductID         INT
+	  , Rate              MONEY
+	  , FromDate          SMALLDATETIME
+	  , ToDate            SMALLDATETIME
+	  , MinAmount         MONEY
+	  , MaxAmount         MONEY
+	  , BaseCurrencyId    INT);
+	
+	DECLARE @OpenQueryCharge NVARCHAR(1000)
+	SELECT @OpenQueryCharge = N'SELECT * ' 
+						+ N'FROM OPENQUERY(DBLIC, '
+						+ N'''SELECT DISTINCT ci.ProductID, ci.DI_Rate, ci.Fromdate, ci.Todate, c.MinAmount, c.MaxAmount, c.BaseCurrencyId '
+						+ N'FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd('''''
+						+ CAST(@FDate AS NVARCHAR(50)) + ''''''
+						+ N','''''
+						+ CAST(@TDate AS NVARCHAR(50)) + ''''''
+						+ N',''''PP'''''
+						+ N',''''OA'''''	
+						+ N') ci '
+						+ N'INNER JOIN bodb_licensee.dbo.OAS_ChargeInfo c WITH (NOLOCK) ON ci.ChargeID = c.ChargeID '
+						+ N'WHERE ci.ChargeType = 1 AND ci.IsDeposit = 0'
+						+ N''')'
+					
+    INSERT INTO #ChargeInfo3rd(ProductID
+						, Rate, FromDate, ToDate
+					    , MinAmount, MaxAmount, BaseCurrencyId)
+    EXECUTE (@OpenQueryCharge);	
 	-- End region
 
 	CREATE TABLE #FinalResult (
@@ -82,22 +120,30 @@ BEGIN
 	DECLARE @tmpDate DATE, @DateList VARCHAR(200) = '[FullRange]'
 	SELECT @tmpDate = @FDate
 
-	WHILE @tmpDate <= @TDate
-	BEGIN
-		INSERT INTO #FinalResult (RptDate, HouseWL, ExtraPT, PayToSupplier, TurnOver)
-		SELECT CONVERT(VARCHAR(2), @tmpDate, 106), 0, 0, 0, 0
-
-		SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate)
-	END
 
 	SELECT @DateList = COALESCE(@DateList + ',', '') + '[' + CONVERT(VARCHAR(10), RptDate) + ']' FROM #FinalResult 
 
 	-- KN + LT + MacauGame + VS + VS2: with Exchange Oanda Rate
 	CREATE TABLE #PayToSupplierRate (ProductID INT, Rate MONEY)
+	CREATE TABLE #PayToSupplierRate_CN88 (ProductID INT, Rate MONEY)
 
 	INSERT INTO #PayToSupplierRate( ProductID, Rate )
-	VALUES  (8, 0.03), (28, 0.03), (22, 0.02), (5, 0.01), (27, 0.01)
-			, (3, 0.4), (23, 0.5), (34, 0.025)
+	VALUES  (3, 0.5)    -- NG, HP5
+		   ,(5, 0.01)   -- VS
+		   ,(8, 0.03)   -- Keno
+		   ,(28, 0.03)  -- LT
+		   ,(27, 0.01)  -- VS2
+		   ,(22, 0.02)  -- MacauG
+		   ,(23, 0.5)   -- NG2
+		   ,(34, 0.025) -- CC
+		   ,(36, 0.035) -- SG
+
+	INSERT INTO #PayToSupplierRate_CN88( ProductID, Rate )
+	VALUES  (3, 0.015)    -- NG, HP5
+		   ,(5, 0.01)   -- VS
+		   ,(8, 0.015)   -- Keno
+		   ,(28, 0.015)  -- LT
+		   ,(27, 0.01)  -- VS2 
 			
 	-- Sport - Bettype Matrix
 	CREATE TABLE #SportBettypeMatrix (ProductID INT, Bettype INT, EventType INT, SubProduct VARCHAR(500))
@@ -109,127 +155,96 @@ BEGIN
 		OR EXISTS (SELECT 1 FROM #tmpProduct p WHERE sel.ProductPrefix = p.ProductPrefix) 
 
 	-- House WL
-	CREATE TABLE #TmpHouseWL (rptDate DATE, ProductID INT, CurrencyID INT, HouseWL MONEY
-								, MemberWL MONEY, MemberWLReal MONEY, MemberWLOANDA MONEY
-								, PayToSupplier MONEY, TurnOver MONEY, ExtraPT MONEY, PartnerFee MONEY)
+	CREATE TABLE #TmpHouseWL (rptDate DATE, SiteID INT , ProductID INT, Bettype INT
+								, HouseWL MONEY, MemberWL MONEY, MemberWLOANDA MONEY
+								, PayToSupplier MONEY, TurnOver MONEY, ExtraPT MONEY)
 	
-	INSERT INTO #TmpHouseWL (rptDate, ProductID, CurrencyID, HouseWL, MemberWL, MemberWLReal, TurnOver, ExtraPT, PartnerFee)
+	INSERT INTO #TmpHouseWL (rptDate, SiteID, ProductID, Bettype, HouseWL, MemberWL, MemberWLOANDA, TurnOver, ExtraPT)
 	SELECT 
 		b.rptDate,
+		b.SiteID,
 		sb.ProductID,
-		b.CurrencyID,
-		CASE WHEN sb.ProductID = 15 THEN 0 ELSE -SUM((b.WinlossIBC + b.CommissionS) * ex.rate) END AS HouseWL, -- Don't need to caculate for CB
-		CASE WHEN sb.ProductID = 15 THEN 0 ELSE SUM(b.WinlossP) END AS MemberWL,
-		CASE WHEN sb.ProductID = 15 THEN 0 ELSE SUM(b.WinlossP * ex.Rate) END AS MemberWLReal,		
-		SUM((CASE WHEN TurnoverIBC = 0 THEN 0  ELSE TurnoverIBC - ExtraTO END ) * ( CASE WHEN VarianceVR > 0 THEN( VarianceVR + 1 ) ELSE 1 END ) * ex.Rate) AS TurnOver,
-		CASE WHEN sb.ProductID = 15 THEN 0 ELSE SUM((b.ExtraWL + b.ExtraComm) * ex.Rate) END AS ExtraPT,
-		0 AS PartnerFee -- Pocker Game
+		b.BetType,
+		CASE WHEN sb.ProductID = 15 THEN 0 ELSE ISNULL(-SUM((b.WinlossIBC + b.CommissionS) * ex.rate),0) END AS HouseWL, -- Don't need to caculate for CB
+		-- Get value to be calculate for Pay To Supplier
+		CASE WHEN sb.ProductID = 15 THEN 0 ELSE ISNULL(SUM(b.WinlossP * ex.Rate),0) END AS MemberWL,
+		-- 
+		CASE WHEN sb.ProductID = 15 THEN 0 ELSE ISNULL(SUM(b.WinlossP * oanda.Rate),0) END AS MemberWLOANDA,		
+		ISNULL(SUM((CASE WHEN TurnoverIBC = 0 THEN 0  ELSE TurnoverIBC - ExtraTO END ) 
+				* ( CASE WHEN VarianceVR > 0 THEN( VarianceVR + 1 ) ELSE 1 END )
+				* ex.Rate),0) AS TurnOver,
+		CASE WHEN sb.ProductID = 15 THEN 0 ELSE ISNULL(SUM((b.ExtraWL + b.ExtraComm) * ex.Rate),0) END AS ExtraPT
 	FROM bodb_Account.dbo.FactSiteWinloss b WITH(NOLOCK)
-		INNER JOIN #exchange ex ON b.rptdate = ex.exchangedate AND b.currencyid = ex.ExchangeID		
-		INNER JOIN #SportBettypeMatrix sb ON sb.Bettype = b.bettype
+	INNER JOIN #SportBettypeMatrix sb ON sb.Bettype = b.bettype
+		LEFT JOIN #exchange AS ex ON b.rptdate = ex.exchangedate
+								    AND b.currencyid = ex.ExchangeID
+			LEFT JOIN #ExchangeOANDA oanda ON b.rptdate = oanda.exchangedate AND b.currencyid = oanda.ExchangeID	
 	WHERE 
-		b.rptDate BETWEEN @FDate AND @TDate 	
+		b.rptDate >= @FDate AND b.rptDate <= @TDate 	
 		AND b.TicketStatus NOT IN (-1,18,9,10,14)
 		AND SiteID IN (SELECT SiteID FROM bodb_Account.dbo.tbl_Site WHERE isDeposit = 0 )-- Credit data only
 		AND b.BetType NOT IN (4299, 4300)
-	GROUP BY b.rptDate, sb.ProductID, b.CurrencyID
+	GROUP BY b.rptDate, b.SiteID, sb.ProductID, b.BetType
 	OPTION (RECOMPILE)
 	
-	-- OANDA Rate: KN + LT + MacauGame + VS + VS2
-	UPDATE b
-	SET b.PayToSupplier = b.MemberWL * r.Rate * oanda.Rate
-	FROM #TmpHouseWL b
-		INNER JOIN #ExchangeOANDA oanda ON b.rptDate = oanda.ExchangeDate AND b.CurrencyId = oanda.ExchangeID
-		INNER JOIN #PayToSupplierRate r ON b.ProductID = r.ProductID
-	WHERE b.ProductID IN (5, 8, 22, 27, 28, 34) -- Need caculate based on oanda rate	
-	
-	-- NG, NG2 
-	UPDATE b
-	SET b.PayToSupplier = - (b.HouseWL + ExtraPT) * r.Rate
-	FROM #TmpHouseWL b		
-		INNER JOIN #PayToSupplierRate r ON b.ProductID = r.ProductID
-	WHERE b.ProductID IN (3, 23)
+	-- BEGIN - Calculate PayToSupplier for Pragmatic (PP)
+	CREATE TABLE #tmpPayToSupplier_PP(
+	    RptDate               VARCHAR(10),
+		PayToSupplier_PP_Daily        MONEY);
 
-	-- PayToSupplier for PP Product	
-	CREATE TABLE #ChargeInfo3rd (ProductID INT, Rate MONEY, FromDate SMALLDATETIME, ToDate SMALLDATETIME, MinAmount MONEY, MaxAmount MONEY, BaseCurrencyId INT)
-	
-	DECLARE @OpenQueryCharge NVARCHAR(1000)
-	SELECT @OpenQueryCharge = N'SELECT * ' 
-						+ N'FROM OPENQUERY(DBLIC, '
-						+ N'''SELECT DISTINCT ci.ProductID, ci.DI_Rate, ci.Fromdate, ci.Todate, c.MinAmount, c.MaxAmount, c.BaseCurrencyId '
-						+ N'FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd('''''
-						+ CAST(@FDate AS NVARCHAR(50)) + ''''''
-						+ N','''''
-						+ CAST(@TDate AS NVARCHAR(50)) + ''''''
-						+ N',''''PP,CC'''''
-						+ N',''''OA'''''	
-						+ N') ci '
-						+ N'INNER JOIN bodb_licensee.dbo.OAS_ChargeInfo c WITH (NOLOCK) ON ci.ChargeID = c.ChargeID '
-						+ N'WHERE ci.ChargeType = 1 AND ci.IsDeposit = 0'
-						+ N''')'
-					
-	INSERT INTO #ChargeInfo3rd(ProductID, Rate, FromDate, ToDate, MinAmount, MaxAmount, BaseCurrencyId)
-	EXECUTE (@OpenQueryCharge)
-	
-	UPDATE ci
-	SET MinAmount = MinAmount * ex.Rate,
-		MaxAmount = MaxAmount * ex.Rate
-	FROM #ChargeInfo3rd ci
-		INNER JOIN #ExchangeOANDA ex ON ci.BaseCurrencyId = ex.ExchangeID AND ex.ExchangeDate = @TDate	
-	
-	-- PayToSupplier
-	; WITH WLAmount AS
-	(
-		SELECT CONVERT(VARCHAR(2), RptDate, 106) rptDate,
-			rptDate FullDate, SUM(- MemberWL * oanda.Rate) AS MemberWL
-		FROM #TmpHouseWL b
-			INNER JOIN #ExchangeOANDA oanda ON b.rptDate = oanda.ExchangeDate AND b.CurrencyId = oanda.ExchangeID
-		WHERE b.ProductID = 32
-		GROUP BY CONVERT(VARCHAR(2), RptDate, 106), rptDate
-	),
-	PayToSupplier AS
-	(
-		SELECT wl.*, ci.MinAmount, ci.MaxAmount, ci.Rate, 
-			CASE 
-				WHEN (MemberWL < 0 AND ci.MinAmount = 0) OR (MemberWL >= ci.MinAmount) THEN 
-					CASE 
-						WHEN MemberWL > MaxAmount THEN ci.MaxAmount - ci.MinAmount
-						ELSE MemberWL - ci.MinAmount
-					END
-				ELSE 0
-			END * ci.Rate AS AmtByRange
-		FROM WLAmount wl
-			INNER JOIN #ChargeInfo3rd ci ON wl.FullDate BETWEEN ci.FromDate AND ci.ToDate
-	),
-	AmtByDate AS
-	(
-		SELECT m.rptDate, SUM(AmtByRange) AS AmtByDate	
-		FROM PayToSupplier m
-		GROUP BY m.rptDate
-	)	
-	UPDATE r
-	SET r.PayToSupplier = - AmtByDate
-	FROM AmtByDate m
-		INNER JOIN #FinalResult r ON r.RptDate = m.rptDate			
-	-- END: Pay To Supplier for PP product
-	
-	-- Final Return
-	;WITH totalcte AS (
-						SELECT rptDate
-							, SUM(ISNULL(HouseWL, 0))		AS HouseWL
-							, SUM(ISNULL(ExtraPT, 0))		AS ExtraPT
-							, SUM(ISNULL(TurnOver, 0))		AS TurnOver
-							, SUM(ISNULL(PayToSupplier, 0)) AS PayToSupplier
-						FROM #TmpHouseWL
-						GROUP BY rptDate
-					)
-	UPDATE f
-	SET HouseWL = f.HouseWL + wl.HouseWL,
-		ExtraPT = f.ExtraPT + wl.ExtraPT,
-		TurnOver = f.TurnOver + wl.TurnOver,
-		PayToSupplier = f.PayToSupplier + wl.PayToSupplier
-	FROM #FinalResult f
-		INNER JOIN totalcte wl ON CONVERT(VARCHAR(2), wl.rptDate, 106) = f.RptDate
+	INSERT INTO #tmpPayToSupplier_PP(RptDate, PayToSupplier_PP_Daily)
+	SELECT wl.RptDate, (CASE WHEN (MemberWLOANDA < 0 AND (ci.MinAmount * ex.Rate) = 0) OR (MemberWLOANDA >= (ci.MinAmount * ex.Rate)) THEN 
+								CASE WHEN MemberWLOANDA > (MaxAmount * ex.Rate) THEN (ci.MaxAmount - ci.MinAmount) * ex.Rate
+									 ELSE MemberWLOANDA - (ci.MinAmount * ex.Rate) END
+							ELSE 0 END) * ci.Rate AS PayToSupplier_PP_Daily
+		FROM (
+				SELECT RptDate, SUM(t.MemberWLOANDA * (-1))  MemberWLOANDA
+				FROM #TmpHouseWL AS t 
+				WHERE t.ProductID = 32 GROUP BY RptDate ) wl
+			INNER JOIN #ChargeInfo3rd ci ON wl.RptDate BETWEEN ci.FromDate AND ci.ToDate
+			INNER JOIN #ExchangeOANDA ex ON ci.BaseCurrencyId = ex.ExchangeID AND ex.ExchangeDate = @TDate
+
+		-- Get DetailDaily Data & FullRange Data
+    WHILE @tmpDate <= @TDate
+	   BEGIN
+		  INSERT INTO #FinalResult(RptDate
+							, HouseWL
+							, ExtraPT
+							, PayToSupplier
+							, TurnOver
+						  )
+SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
+	, (SELECT SUM(t.HouseWL) FROM #TmpHouseWL AS t WHERE t.rptDate = @tmpDate) AS  HouseWL
+	, (SELECT SUM(t.ExtraPT) FROM #TmpHouseWL AS t WHERE t.rptDate = @tmpDate) AS  ExtraPT
+
+	, ((SELECT ISNULL(SUM((t.HouseWL + t.ExtraPT) * r.Rate) * (-1),0) FROM #TmpHouseWL AS t INNER JOIN #PayToSupplierRate r ON t.ProductID = r.ProductID
+									     WHERE t.ProductID = 23 AND  t.rptDate = @tmpDate) -- NG2, NG
+		+ (SELECT ISNULL(SUM((t.HouseWL + t.ExtraPT) * r.Rate) * (-1),0) FROM #TmpHouseWL AS t INNER JOIN #PayToSupplierRate r ON t.ProductID = r.ProductID
+									     WHERE t.ProductID = 3 AND t.SiteID <> @SiteCN88 AND  t.rptDate = @tmpDate) -- NG2, NG
+
+		+ (SELECT ISNULL(SUM(t.MemberWLOANDA * r.Rate),0)  FROM #TmpHouseWL AS t INNER JOIN #PayToSupplierRate r ON t.ProductID = r.ProductID
+									     WHERE t.ProductID IN (22,34,36)  AND  t.rptDate = @tmpDate) -- MacauG, CC 
+		+ (SELECT ISNULL(SUM(t.MemberWLOANDA * r.Rate),0)  FROM #TmpHouseWL AS t INNER JOIN #PayToSupplierRate r ON t.ProductID = r.ProductID
+									     WHERE t.ProductID IN (5,8,28,27) 
+										AND t.SiteID <> @SiteCN88 AND  t.rptDate = @tmpDate) -- VS,KN,LT,VS2
+
+		+ (SELECT ISNULL(-SUM(t.PayToSupplier_PP_Daily),0) FROM #tmpPayToSupplier_PP AS t WHERE t.rptDate = @tmpDate) -- PP
+
+		+ (SELECT ISNULL(SUM(t.MemberWLOANDA * r.Rate),0) FROM #TmpHouseWL AS t INNER JOIN #PayToSupplierRate_CN88 r ON t.ProductID = r.ProductID
+									     WHERE t.ProductID IN (5,8,28,27) 
+										 AND t.rptDate = @tmpDate AND t.SiteID = @SiteCN88) --VS,KN,LT,VS2 for CN88
+		+ (SELECT ISNULL(SUM(t.MemberWL * r.Rate),0) FROM #TmpHouseWL AS t INNER JOIN #PayToSupplierRate_CN88 r ON t.ProductID = r.ProductID
+									     WHERE t.ProductID = 3 
+										 AND t.rptDate = @tmpDate AND t.SiteID = @SiteCN88) --NG,HP5for CN88
+		) AS  PayToSupplier
+
+	, (SELECT SUM(t.TurnOver) FROM #TmpHouseWL AS t WHERE t.rptDate = @tmpDate) AS  TurnOver;
+
+		  SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate);
+	   END; 
+
+    SELECT @DateList = COALESCE(@DateList + ',', '') + '[' + CONVERT(VARCHAR(10), RptDate) + ']'
+    FROM #FinalResult;
 			
 	-- FullRange amount
 	INSERT INTO #FinalResult (RptDate, HouseWL, ExtraPT, PayToSupplier, TurnOver)
@@ -264,6 +279,9 @@ BEGIN
 	DROP TABLE #FinalResult
 	DROP TABLE #tmpProduct
 	DROP TABLE #PayToSupplierRate
+	DROP TABLE #PayToSupplierRate_CN88
 	DROP TABLE #ChargeInfo3rd
+	DROP TABLE #tmpPayToSupplier_PP
+
 END
 GO

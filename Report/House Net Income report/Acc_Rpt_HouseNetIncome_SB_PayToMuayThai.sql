@@ -1,9 +1,12 @@
-/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="1"></info>*/
+USE bodb02
+GO
 
 ALTER PROCEDURE Acc_Rpt_HouseNetIncome_SB_PayToMuayThai
 	@FromDate       DATE
    , @ToDate         DATE
    , @DepositType    SMALLINT = 2
+   , @Site       VARCHAR(20) = ''
 AS
 /*  	
     Created: 20190526@Robert
@@ -13,6 +16,7 @@ AS
    
     Revisions:		
 	   - 20190406@Robert: 107164 - House Net Income Email/Letstalk/Margin Chart - Integrate Bet Builder
+	   - 20200214@Kean - DHWL Letstalk - Margin report - Separate Credit into 789 and other MBC [#128572]
 		
 	Param's Explanation:   
 	   - DepositType  
@@ -20,7 +24,9 @@ AS
 				    = 1 Deposit Only 
 				    = 0 Credit Only 
 
-	EXEC Acc_Rpt_HouseNetIncome_SB_PayToMuaytThai '2017-12-01', '2017-12-31'
+	EXEC Acc_Rpt_HouseNetIncome_SB_PayToMuayThai '20180601', '20180619', 0, '' -- All site of Credit
+	EXEC Acc_Rpt_HouseNetIncome_SB_PayToMuayThai '20180601', '20180619', 1, '' -- All site of Deposit
+	EXEC Acc_Rpt_HouseNetIncome_SB_PayToMuayThai '20180601', '20180619', 1, '789Y' -- 789Y site of Credit
   
 */
 
@@ -140,11 +146,13 @@ BEGIN
 											AND b.rptDate BETWEEN p.FromDate AND p.ToDate
 			    INNER JOIN @ExchangeOANDA AS e ON e.ExchangeDate = b.rptDate
 										   AND e.ExchangeID = b.CurrencyId
+				INNER JOIN bodb_licensee.dbo.view_site_list AS s WITH(NOLOCK) ON b.SiteId = s.SiteID
 			WHERE b.rptDate BETWEEN @FDate AND @TDate
 				 AND b.CurrencyID <> 20
 				 AND b.StatusId BETWEEN 111 AND 113
 				 AND b.customercategory NOT IN(27, 28)
 				 AND b.SportType = 44 -- Muay Thai
+				 AND (@Site = '' OR s.SiteName = @Site)
 			GROUP BY b.rptdate
 		 );
 

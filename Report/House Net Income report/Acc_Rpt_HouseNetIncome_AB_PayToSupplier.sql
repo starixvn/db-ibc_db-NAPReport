@@ -1,9 +1,12 @@
 /*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE bodb02
+GO
 
 ALTER PROCEDURE dbo.Acc_Rpt_HouseNetIncome_AB_PayToSupplier
 	@FromDate       DATE 
    , @ToDate         DATE 
    , @DepositType    SMALLINT = 2
+   , @Site       VARCHAR(20) = ''
 AS;
 /*  
 	Created:	20200102@Robert  
@@ -12,6 +15,7 @@ AS;
    
     Revisions:  		
 		- 20200102@Robert: #125762 - DHWL Letstalk - Support to add Margin report into the current DHWL Letstalk report
+		 - 20200214@Kean - DHWL Letstalk - Margin report - Separate Credit into 789 and other MBC [#128572]
 	
     Param's Explanation:   
 	   - DepositType  
@@ -19,7 +23,9 @@ AS;
 				    = 1 Deposit Only
 				    = 2 All
 
-	EXEC Acc_Rpt_HouseNetIncome_AB_PayToSupplier '20170201', '20170228'   
+	EXEC Acc_Rpt_HouseNetIncome_AB_PayToSupplier '20180601', '20180619', 0, '' -- All site of Credit
+	EXEC Acc_Rpt_HouseNetIncome_AB_PayToSupplier '20180601', '20180619', 1, '' -- All site of Deposit
+	EXEC Acc_Rpt_HouseNetIncome_AB_PayToSupplier '20180601', '20180619', 1, '789Y' -- 789Y site of Credit   
 */  
 BEGIN  
     SET NOCOUNT ON;
@@ -169,7 +175,8 @@ BEGIN
 		   WHERE b.RptDate3rd BETWEEN @FDate AND @TDate
 			    AND b.BetTypeId BETWEEN 2401 AND 2499 -- AB
 			    AND b.CurrencyID <> 20
-			    AND b.StatusId NOT IN(-1, 101, 102, 103) -- Exclude Reject , Void, Refund				
+			    AND b.StatusId NOT IN(-1, 101, 102, 103) -- Exclude Reject , Void, Refund
+				AND (@Site = '' OR s.SiteName = @Site) 				
 		   GROUP BY b.RptDate3rd
 				, p.IsDeposit
 				, b.CurrencyId

@@ -1,8 +1,11 @@
-/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" isFunction="0" isNested="1"></info>*/
+/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="1"></info>*/
+USE bodb02
+GO
 ALTER PROCEDURE dbo.Acc_Rpt_HouseNetIncome_SB_PayToMetricGaming
 	@FromDate       DATE
    , @ToDate         DATE
    , @DepositType    SMALLINT = 0
+   , @Site       VARCHAR(20) = ''
 AS
 /*
     Created: Robert  
@@ -13,12 +16,17 @@ AS
     Revisions:
 	   - 20190524@Robert: #113946 - DHWL Margin Chart - Separate Payto Metric Gaming & Bet Genius for credit/licensee
 	   - 20200108@Percy: #124755 - Support billing terms by product & currency instead of product only
+	   - 20200214@Kean - DHWL Letstalk - Margin report - Separate Credit into 789 and other MBC [#128572]
 
     Param's Explanation:  
     - DepositType  
-	   = 2 All
-	   = 1 Deposit Only 
-	   = 0 Credit Only 
+			   = 2 All
+			   = 1 Deposit Only 
+			   = 0 Credit Only
+	   
+	EXEC Acc_Rpt_HouseNetIncome_SB_PayToMetricGaming '20180601', '20180619', 0, '' -- All site of Credit
+	EXEC Acc_Rpt_HouseNetIncome_SB_PayToMetricGaming '20180601', '20180619', 1, '' -- All site of Deposit
+	EXEC Acc_Rpt_HouseNetIncome_SB_PayToMetricGaming '20180601', '20180619', 1, '789Y' -- 789Y site of Credit 
 */
 
 BEGIN
@@ -168,13 +176,14 @@ BEGIN
 			FROM bodb_licenseereport.dbo.rpt_Betting AS b WITH (NOLOCK)
 			    INNER JOIN @PartyChargeInfo AS p ON b.SiteID = p.LicenseeId
 											AND b.rptDate BETWEEN p.FromDate AND p.ToDate
-				LEFT JOIN bodb_Licensee.dbo.LA_ChargeRateByCurrency AS lc WITH (NOLOCK) ON p.ChargeId = lc.ChargeID
-																						AND b.CurrencyId = lc.CurrencyID
+				INNER JOIN bodb_licensee.dbo.view_site_list AS s WITH(NOLOCK) ON b.SiteId = s.SiteID
+				LEFT JOIN bodb_Licensee.dbo.LA_ChargeRateByCurrency AS lc WITH (NOLOCK) ON p.ChargeId = lc.ChargeID AND b.CurrencyId = lc.CurrencyID
 			WHERE b.rptDate BETWEEN @FDate AND @TDate
 				 AND b.CurrencyID <> 20
 				 AND b.Status BETWEEN 111 AND 113
 				 AND b.customercategory NOT IN(27, 28)
 				 AND b.Bettype BETWEEN 800 AND 899 -- Metric Gaming Bettype In Sportsbook
+				 AND (@Site = '' OR s.SiteName = @Site)
 			GROUP BY b.rptdate
 				  , b.SiteId
 				  , b.CurrencyID

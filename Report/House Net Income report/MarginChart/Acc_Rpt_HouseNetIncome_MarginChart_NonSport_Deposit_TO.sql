@@ -13,10 +13,11 @@ AS;
     Revisions:
 		- 20190121@Robert: Letstalk Margin Charts - Separate Letstalk group for credit & Deposit (Soccer & Other Sports) [#108220]		
 		- 20190822@Robert: #115465 - Exclude bettype 4300 (Promotion Prize) from House Income, Pay to Supplier of Pragmatic
+		- 20200224@Kean: #123734 - House Net Income - Integrate SG (Spadegaming) product
 
 	Param's Explanation:   
 		- @ProductList: '' - default value when get all product
-						'GD,AB,AGC,MGCLC,MGCRNG,CS,VB,PP,NG,VS,KN,LT,FW,VS2,CB' - if group is NSD Group
+						'GD,AB,AGC,MGCLC,MGCRNG,CS,VB,PP,NG,VS,KN,LT,FW,VS2,CB,SG' - if group is NSD Group
 
 	EXEC Acc_Rpt_HouseNetIncome_MarginChart_NonSport_Deposit_TO '2018-05-01', '2018-05-31'
   
@@ -30,7 +31,7 @@ BEGIN
     SELECT @FDate = @FromDate
 	    , @TDate = @ToDate;
 
-    DECLARE @Deposit    VARCHAR(MAX) = 'NG,CS,KN,LT,AGC,CO,CB,VB,AB,GD,BX,VS,VS2,PP,CC';
+    DECLARE @Deposit    VARCHAR(MAX) = 'NG,CS,KN,LT,AGC,CO,CB,VB,AB,GD,BX,VS,VS2,PP,CC,SG';
 
     CREATE TABLE #Exchange(
 	    ExchangeDate    DATE

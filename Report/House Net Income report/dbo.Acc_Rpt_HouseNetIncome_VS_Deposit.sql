@@ -17,6 +17,7 @@ AS
 		- 20180327@Harper - #91291 - Virtual Sports - Change of commercial terms between company and provider
 		- 20190222@Robert: #109196 - House Net Income - Arrange Email notification for Licensee Figures
 		- 20200108@Percy: #124755 - Support billing terms by product & currency instead of product only
+		- 20200214@Kean - DHWL Letstalk - Margin report - Separate Credit into 789 and other MBC [#128572]
 
 	Param's Explanation:   
 */  
@@ -262,18 +263,37 @@ BEGIN
 	  , VSRate        FLOAT);
     -- Rate for PayToSupplier
 
-    WITH rate3rd
-	    AS (
-	    SELECT DISTINCT
-			 ci.IsDeposit
-		    , ci.ProductID
-		    , ci.DI_Rate
-		    , ci.Fromdate
-		    , ci.ToDate
-		    , p.PartyID
-	    FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd
-		    (@FDate, @TDate, 'VS', 'OA') AS ci
-		   INNER JOIN @tmpParty AS p ON p.ParentID = ci.PartyID)
+	CREATE TABLE #PartyCharge3rdInfo_Direct (		
+			IsDeposit	INT,
+			ProductID		INT,			
+			DI_Rate	MONEY,
+			Fromdate		SMALLDATETIME,
+			ToDate	SMALLDATETIME,
+			PartyID		INT
+			)
+
+	CREATE TABLE #PartyCharge3rdInfo_ALL (		
+			IsDeposit	INT,
+			ProductID		INT,			
+			DI_Rate	MONEY,
+			Fromdate		SMALLDATETIME,
+			ToDate	SMALLDATETIME,
+			PartyID		INT
+			)
+	INSERT INTO #PartyCharge3rdInfo_Direct( IsDeposit, ProductID, DI_Rate, Fromdate, ToDate, PartyID )	
+	SELECT DISTINCT ci.IsDeposit, ci.ProductID, ci.DI_Rate, ci.Fromdate, ci.ToDate, ci.PartyID
+	FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd(@FDate, @TDate, 'VS', 'OA') ci	
+		INNER JOIN @tmpParty p ON p.PartyId = ci.PartyId
+
+	INSERT INTO #PartyCharge3rdInfo_ALL( IsDeposit, ProductID, DI_Rate, Fromdate, ToDate, PartyID )	
+	SELECT DISTINCT ci.IsDeposit, ci.ProductID, ci.DI_Rate, ci.Fromdate, ci.ToDate, p.PartyID
+	FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd(@FDate, @TDate, 'VS', 'OA') AS ci 
+			INNER JOIN @tmpParty AS p ON p.ParentID = ci.PartyID
+	WHERE p.PartyID NOT IN (SELECT PartyID FROM #PartyCharge3rdInfo_Direct)
+				
+	INSERT INTO #PartyCharge3rdInfo_ALL( IsDeposit, ProductID, DI_Rate, Fromdate, ToDate, PartyID )	
+	SELECT IsDeposit, ProductID, DI_Rate, Fromdate, ToDate, PartyID FROM #PartyCharge3rdInfo_Direct
+
 	    INSERT INTO @DailyPayAmt(rptDate
 						  , IsDeposit
 						  , Amount
@@ -283,7 +303,7 @@ BEGIN
 				 , SUM(d.WinLoss * oanda.Rate * p.DI_Rate)
 				 , SUM(-d.WinLoss * oanda.Rate)
 			 FROM #TempDataVS AS d
-				INNER JOIN rate3rd AS p ON p.PartyID = d.PartyId
+				INNER JOIN #PartyCharge3rdInfo_ALL AS p ON p.PartyID = d.PartyId
 									  AND d.rptDate BETWEEN p.Fromdate AND p.Todate
 				INNER JOIN #ExchangeOANDA AS oanda ON d.rptDate = oanda.ExchangeDate
 											   AND d.CurrencyId = oanda.ExchangeID
@@ -373,6 +393,8 @@ BEGIN
 	DROP TABLE #ExchangeOANDA
 	DROP TABLE #TempDataVS
 	DROP TABLE #FeeData
+	DROP TABLE #PartyCharge3rdInfo_ALL
+	DROP TABLE #PartyCharge3rdInfo_Direct
 	DROP TABLE #DiscountGroup
 	DROP TABLE #FinalResult
 END
