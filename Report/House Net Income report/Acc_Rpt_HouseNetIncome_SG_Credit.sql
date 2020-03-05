@@ -147,7 +147,6 @@ BEGIN
     -- House WL
     CREATE TABLE #TmpHouseWL(
 	    rptDate          DATE
-	  , ProductID        INT
 	  , CurrencyID       INT
 	  , HouseWL          MONEY
 	  , MemberWL         MONEY
@@ -157,13 +156,11 @@ BEGIN
 	  , ExtraPT          MONEY);
 
     INSERT INTO #TmpHouseWL(rptDate
-					 , ProductID
 					 , CurrencyID
 					 , HouseWL
 					 , MemberWLOANDA					 
 					 , ExtraPT)
 		 SELECT b.rptDate
-			 , sb.ProductID
 			 , b.CurrencyID
 			 , -SUM((b.WinlossIBC + b.CommissionS) * ex.rate) AS HouseWL			 
 			 , SUM(b.WinlossP * e.Rate) AS MemberWLOANDA
@@ -173,12 +170,11 @@ BEGIN
 									AND b.currencyid = ex.ExchangeID
 			INNER JOIN #ExchangeOANDA e ON e.ExchangeDate = b.RptDate
 								    AND e.ExchangeID = b.CurrencyID
-			INNER JOIN #SportBettypeMatrix AS sb ON sb.Bettype = b.bettype
 		 WHERE b.rptDate BETWEEN @FDate AND @TDate
 			  AND b.TicketStatus NOT IN(-1, 18, 9, 10, 14)
+			  AND b.BetType IN (SELECT sb.Bettype FROM #SportBettypeMatrix sb WHERE sb.ProductID = 36)
 	   		  AND SiteID IN (SELECT SiteID FROM bodb_Account.dbo.tbl_Site WHERE isDeposit = 0 )-- Credit data only
 		 GROUP BY b.rptDate
-			   , sb.ProductID
 			   , b.CurrencyID OPTION(RECOMPILE);    
     
     -- House Winloss

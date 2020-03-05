@@ -83,7 +83,7 @@ BEGIN
 	(
 		SELECT DISTINCT p.LicenseeID, ci.DI_Rate, ci.Fromdate, ci.ToDate, ci.ProductID
 		FROM	bodb_licensee.dbo.LA_f_ChargeInfo3rd(@FDate, @TDate, 'SG', 'OA') ci	
-			INNER JOIN #PartyChargeInfo p ON ci.IsParent = 0 AND p.PartyID = ci.PartyId		
+			INNER JOIN #PartyChargeInfo p ON p.ParentID = ci.PartyId	
 		WHERE ci.ChargeType = 1 AND ci.IsDeposit = 1
 	)
 	-- End Region

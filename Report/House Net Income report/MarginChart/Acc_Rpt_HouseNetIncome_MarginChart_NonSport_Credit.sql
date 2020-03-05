@@ -96,7 +96,7 @@ BEGIN
 						+ CAST(@FDate AS NVARCHAR(50)) + ''''''
 						+ N','''''
 						+ CAST(@TDate AS NVARCHAR(50)) + ''''''
-						+ N',''''PP'''''
+						+ N',''''PP,SG'''''
 						+ N',''''OA'''''	
 						+ N') ci '
 						+ N'INNER JOIN bodb_licensee.dbo.OAS_ChargeInfo c WITH (NOLOCK) ON ci.ChargeID = c.ChargeID '
@@ -136,7 +136,6 @@ BEGIN
 		   ,(22, 0.02)  -- MacauG
 		   ,(23, 0.5)   -- NG2
 		   ,(34, 0.025) -- CC
-		   ,(36, 0.035) -- SG
 
 	INSERT INTO #PayToSupplierRate_CN88( ProductID, Rate )
 	VALUES  (3, 0.015)    -- NG, HP5
@@ -223,7 +222,11 @@ SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 									     WHERE t.ProductID = 3 AND t.SiteID <> @SiteCN88 AND  t.rptDate = @tmpDate) -- NG2, NG
 
 		+ (SELECT ISNULL(SUM(t.MemberWLOANDA * r.Rate),0)  FROM #TmpHouseWL AS t INNER JOIN #PayToSupplierRate r ON t.ProductID = r.ProductID
-									     WHERE t.ProductID IN (22,34,36)  AND  t.rptDate = @tmpDate) -- MacauG, CC 
+									     WHERE t.ProductID IN (22,34)  AND  t.rptDate = @tmpDate) -- MacauG, CC
+		+ (SELECT ISNULL(SUM(t.MemberWLOANDA * ci.Rate),0)  FROM #TmpHouseWL AS t 
+																INNER JOIN #ChargeInfo3rd AS ci ON t.rptDate BETWEEN ci.FromDate AND ci.ToDate
+																									AND t.ProductID = ci.ProductID
+															WHERE t.ProductID IN (36)  AND  t.rptDate = @tmpDate) -- SG
 		+ (SELECT ISNULL(SUM(t.MemberWLOANDA * r.Rate),0)  FROM #TmpHouseWL AS t INNER JOIN #PayToSupplierRate r ON t.ProductID = r.ProductID
 									     WHERE t.ProductID IN (5,8,28,27) 
 										AND t.SiteID <> @SiteCN88 AND  t.rptDate = @tmpDate) -- VS,KN,LT,VS2

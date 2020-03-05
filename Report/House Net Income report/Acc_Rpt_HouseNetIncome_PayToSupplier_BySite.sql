@@ -88,7 +88,7 @@ BEGIN
 						+ CAST(@FDate AS NVARCHAR(50)) + ''''''
 						+ N','''''
 						+ CAST(@TDate AS NVARCHAR(50)) + ''''''
-						+ N',''''PP,CC'''''
+						+ N',''''PP,CC,SG'''''
 						+ N',''''OA'''''	
 						+ N') ci '
 						+ N'INNER JOIN bodb_licensee.dbo.OAS_ChargeInfo c WITH (NOLOCK) ON ci.ChargeID = c.ChargeID '
@@ -264,7 +264,11 @@ SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 							INNER JOIN #tmpProduct p on ci.ProductID = p.ProductID AND p.ProductCode = 'CC' 
 							WHERE t.ProductID = 34 AND t.rptDate = @tmpDate) AS  PayToSupplier_CC
 	, 0 PayToSupplier_SP
-	,(SELECT SUM(t.MemberWLOANDA) * 0.035 FROM #TmpData AS t WHERE t.ProductID = 36 AND  t.rptDate = @tmpDate) AS  PayToSupplier_SG;
+	,(SELECT SUM(t.MemberWLOANDA * ISNULL(ci.Rate,0)) 
+							FROM #TmpData AS t
+							INNER JOIN #ChargeInfo3rd AS ci ON t.rptDate BETWEEN ci.FromDate AND ci.ToDate
+							INNER JOIN #tmpProduct p on ci.ProductID = p.ProductID AND p.ProductCode = 'SG' 
+							WHERE t.ProductID = 36 AND t.rptDate = @tmpDate) AS  PayToSupplier_SG;
 
 		  SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate);
 	   END; 
@@ -303,7 +307,7 @@ INSERT INTO #FinalResult(RptDate
 			, (SELECT CASE WHEN SUM(MemberWLOANDA) < 0 THEN 0 ELSE -SUM(PayToSupplier_PP_MTD) END FROM #tmpPayToSupplier_PP_MTD)
 			, CASE WHEN SUM(PayToSupplier_CC) > 0 THEN 0 ELSE SUM(PayToSupplier_CC) END
 			, 0
-			, 0.035 * (SELECT CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(MemberWLOANDA) END FROM #TmpData AS t WHERE t.ProductID = 36) 
+			, CASE WHEN SUM(PayToSupplier_SG) > 0 THEN 0 ELSE SUM(PayToSupplier_SG) END
 		 FROM #FinalResult;
 
     -- Select the output
