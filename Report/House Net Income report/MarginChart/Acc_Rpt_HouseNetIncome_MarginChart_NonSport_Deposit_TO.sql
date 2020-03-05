@@ -14,6 +14,7 @@ AS;
 		- 20190121@Robert: Letstalk Margin Charts - Separate Letstalk group for credit & Deposit (Soccer & Other Sports) [#108220]		
 		- 20190822@Robert: #115465 - Exclude bettype 4300 (Promotion Prize) from House Income, Pay to Supplier of Pragmatic
 		- 20200224@Kean: #123734 - House Net Income - Integrate SG (Spadegaming) product
+		- 20200304@Kean: #129756 - Exclude bettype 4299 on Deposit TO
 
 	Param's Explanation:   
 		- @ProductList: '' - default value when get all product
@@ -143,7 +144,7 @@ BEGIN
 			    INNER JOIN #SportBettypeMatrix AS sb ON sb.Bettype = b.bettype
 			WHERE b.rptDate BETWEEN @FDate AND @TDate
 				 AND b.TicketStatus NOT IN(-1, 18, 9, 10, 14)
-				 AND b.BetType NOT IN (4300)
+				 AND b.BetType NOT IN (4299, 4300)
 				 AND SiteID IN
 							(
 							    SELECT SiteID
