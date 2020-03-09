@@ -30,11 +30,10 @@ AS
 		- 20170518@Percy:
 			1. New request of Cash Out - Check bettype 911 [RedmineID: #73419]
 			2. Remove SLI
-	    - 20170704@Tom: Integrate Betradar Virtual Sports(#78495)
-		- 20170828@Kean: Integrate Lucky 3(#82191)
-		- 20180115@Tom:  Cashout tickets from separated original tickets are considered as dupplicated tickets (#89256)
-		- 20181129@Dominic: Check WalletType (HotFix #105532)
-		- 20191115@Ned.Le: Adjust duplicate ticket report for new condition (#123663)
+	     - 20170704@Tom: Integrate Betradar Virtual Sports(#78495)
+		 - 20170828@Kean: Integrate Lucky 3(#82191)
+		 - 20180115@Tom:  Cashout tickets from separated original tickets are considered as dupplicated tickets (#89256)
+		 - 20181129@Dominic: Check WalletType (HotFix #105532)
 	Param's Explanation:
 
 */
@@ -42,120 +41,127 @@ AS
 BEGIN
 	SET NOCOUNT ON	
 
-	-- Declare parameters
 	DECLARE @TransId BIGINT, @MaxTransId BIGINT
 
 	SELECT @TransId = CONVERT(BIGINT,VValue) FROM bodb02.dbo.SystemSettings WITH (NOLOCK) WHERE VName = 'DuplTicketLastID'
 	SELECT @MaxTransId = MAX(TransId) FROM bodb02.dbo.Bettrans WITH (NOLOCK)
 	
-	DECLARE @BalanceEffectiveDate DATETIME = '2020-03-05'
-	DECLARE @TransIdAdjusting INT	= 10000
 	
-	-- #TempBettype
+	------Get Sport Bettype Matrix------
+	-- Check SP Version	 
 	DECLARE @isTest BIT = 0
 	SELECT  @isTest = dbo.f_CheckSPVersion(@@PROCID)
-	
-	CREATE TABLE #TempBettype(bettype INT)
-	
-	INSERT INTO #TempBettype (bettype)
-	SELECT DISTINCT bettype
+ 
+	DECLARE @bettype TABLE (bettype INT)
+	INSERT INTO @bettype (bettype)
+	SELECT bettype
 	FROM bodb02.dbo.f_SportBettypeMatrix_Sel (0, 0, 0, 2, '', '', @isTest)
-	WHERE ProductID IN (1, 3, 5, 25, 26, 27) AND BetType NOT IN (500, 912, 913, 914)
-	
-	CREATE CLUSTERED INDEX ix_TempBettype ON #TempBettype (bettype)
+	WHERE ProductID IN (1, 3, 5, 25, 26, 27) AND BetType NOT IN (500, 912, 913, 914) 	
+	--- End Sport Bettype Matrix------
 
-	-- #TempData
-	CREATE TABLE #TempData
-	(
-		custid INT,
-		odds smallmoney,
-		stake MONEY,
-		balance MONEY,
-		bettype INT,
-		winlostdate SMALLDATETIME,
-		matchid INT,
-		ip nvarchar(30),
-		RefNo BIGINT,
-		WalletType SMALLINT
-	)
-
- 	;WITH AllTicket AS(	 
-		SELECT  b.custid,
-				b.odds,
-				b.stake,
-				CASE WHEN b.transdate >= @BalanceEffectiveDate THEN NULL ELSE b.balance END balance,
-				b.bettype,
-				b.winlostdate,
-				b.matchid,
-				b.ip,
-				CASE WHEN b.Bettype IN (901,902,903,904,911) THEN b.RefNo ELSE 0 END as RefNo,
-				ISNULL(CAST(b.WalletType AS SMALLINT),-1) WalletType
-		FROM	bodb02.dbo.bettrans b WITH(NOLOCK , Index = PK_bettrans)
-				INNER JOIN #TempBettype s ON s.bettype = b.bettype
-		WHERE	b.TransID BETWEEN (@TransId - @TransIdAdjusting) AND @MaxTransId
-				AND b.matchid > 0
-				AND b.custid NOT IN (50057, 879241, 103873, 851668, 878902) --betdaq
-				AND b.custid NOT IN (1077687) -- Betfair
-				AND b.recommend NOT IN (11196380) -- foobet
-				AND b.recommend NOT IN (5707545, 52466) -- exclude members under BARM,8RM
-				AND b.currency NOT IN (20, 27, 28)
-				AND b.statusID NOT IN (101, 102) 
-				AND NOT EXISTS (SELECT TOP 1 1 FROM bodb02.dbo.TradeCust t WITH (NOLOCK) WHERE b.custid = t.custid AND t.VendorID = 14)
-				AND b.betfrom <> 'v'
-	)
-	INSERT INTO #TempData (custid,odds,stake,balance,bettype,winlostdate,matchid,ip,RefNo,WalletType)
-	SELECT  b.custid,
-			b.odds,
-			b.stake,
-			b.balance,
+ 	; WITH AllTicket AS(	 
+	SELECT  b.custid, 
+			b.odds, 
+			b.stake, 
+			b.balance, 
 			b.bettype,
-			b.winlostdate,
+			b.winlostdate, 
 			b.matchid,
 			b.ip,
-			b.RefNo,
+			CASE WHEN b.Bettype IN (901,902,903,904,911) THEN b.RefNo ELSE 0 END as RefNo,
+			ISNULL(CAST(b.WalletType AS SMALLINT),-1) WalletType
+	FROM	bodb02.dbo.bettrans b WITH(NOLOCK , Index = PK_bettrans)
+		INNER JOIN @bettype s ON s.bettype = b.bettype
+	WHERE	b.TransID BETWEEN @TransId - 5000 AND @MaxTransId
+			----AND b.bettype < 19000			
+			AND b.matchid > 0
+			AND b.custid NOT IN (50057, 879241, 103873, 851668, 878902) --betdaq
+			AND b.custid NOT IN (1077687) -- Betfair
+			AND b.recommend NOT IN (11196380) -- foobet	
+			AND b.srecommend NOT IN (
+					20597249,
+					20597407,
+					20597439,
+					20597465,
+					20597530,
+					20597558,
+					20597615,
+					20597645,
+					20597677,
+					21060621,
+					25235865,
+					25235922,
+					25235959,
+					26421823,
+					31937718,
+					31937737,
+					35495928,
+					35496031,
+					35496077,
+					35496125,
+					35496170,
+					35496247,
+					35496308,
+					35496387,
+					35496458) -- Nextbet
+			AND b.recommend NOT IN (5707545, 52466) -- exclude members under BARM,8RM
+			AND b.currency NOT IN (20, 27, 28)
+			AND b.statusID NOT IN (101, 102) 
+			AND NOT EXISTS (SELECT TOP 1 1 FROM bodb02.dbo.TradeCust t WITH (NOLOCK) WHERE b.custid = t.custid AND t.VendorID = 14)
+	)
+	SELECT  b.custid, 
+			b.odds, 
+			b.stake, 
+			b.balance, 
+			b.bettype,
+			b.winlostdate, 
+			b.matchid,
+			b.ip,
+			b.RefNo,		
 			b.WalletType
-	FROM	AllTicket b
-	GROUP BY	b.custid,
-				b.odds,
-				b.stake,
-				b.balance,
+	INTO	#TempData
+	FROM	AllTicket b							
+	GROUP BY	b.custid, 
+				b.odds, 
+				b.stake, 
+				b.balance, 
 				b.bettype,
-				b.winlostdate,
+				b.winlostdate, 
 				b.matchid,
 				b.ip,
 				b.RefNo,
 				b.WalletType
 	HAVING COUNT(*) > 1
-
-	CREATE CLUSTERED INDEX ix_TempData ON #TempData (custid,matchid,bettype,RefNo,winlostdate)
 	 
-	-- bodb_report.dbo.DuplicatedTicket
+
+	--------------------------------------------------------
 	INSERT INTO dbo.DuplicatedTicket (transid, transdate, winlostdate)
 	SELECT  b.transid, b.transdate, b.winlostdate
 	FROM	bodb02.dbo.bettrans b WITH(NOLOCK)
-			INNER JOIN #TempData t ON	b.custid = t.custid
-										AND b.odds = t.odds
-										AND b.stake = t.stake
-										AND CASE WHEN b.transdate >= @BalanceEffectiveDate THEN 0 ELSE ISNULL(b.balance,0) END = ISNULL(t.balance,0)
-										AND b.bettype = t.bettype
-										AND b.winlostdate = t.winlostdate
-										AND b.matchid = t.matchid
-										AND b.ip = t.ip
-										AND CASE WHEN b.bettype IN (901,902,903,904,911) THEN b.RefNo ELSE 0 END = CASE WHEN t.bettype IN (901,902,903,904,911) THEN t.RefNo ELSE 0 END
-										AND t.WalletType = ISNULL(CAST(b.WalletType AS SMALLINT),-1)
-	WHERE NOT EXISTS (SELECT 1 FROM dbo.DuplicatedTicket d WITH (NOLOCK) WHERE d.TransID = b.TransId)
+		INNER JOIN #TempData t 
+			ON	b.custid = t.custid 
+			AND b.odds = t.odds
+			AND b.stake = t.stake
+			AND ISNULL(b.balance,0) = ISNULL(t.balance,0) 
+			AND b.bettype = t.bettype
+			AND b.winlostdate = t.winlostdate
+			AND b.matchid = t.matchid
+			AND b.ip = t.ip
+			AND CASE WHEN b.bettype IN (901,902,903,904,911) THEN b.RefNo ELSE 0 END = CASE WHEN t.bettype IN (901,902,903,904,911) THEN t.RefNo ELSE 0 END  
+			AND t.WalletType = ISNULL(CAST(b.WalletType AS SMALLINT),-1)
+	WHERE NOT EXISTS (SELECT 1 FROM dbo.DuplicatedTicket d WITH (NOLOCK) WHERE d.TransID = b.TransId)	
+	DROP TABLE #TempData
 	
-	-- bodb02.dbo.SystemSettings
+	
 	UPDATE bodb02.dbo.SystemSettings WITH (UPDLOCK, ROWLOCK) 
 	SET	   VValue = @MaxTransId
 	WHERE  VName = 'DuplTicketLastID'
 
+	
 	UPDATE bodb02.dbo.SystemSettings WITH (UPDLOCK, ROWLOCK) 
 	SET	   VValue = CURRENT_TIMESTAMP
 	WHERE  VName = 'DuplTicketLastDate' 
-	
-	-- Drop temp tables
-	DROP TABLE #TempBettype
-	DROP TABLE #TempData
+		
 END
-GO
+
+
