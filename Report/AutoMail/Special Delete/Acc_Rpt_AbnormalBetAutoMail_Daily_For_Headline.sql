@@ -1,9 +1,9 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
 ALTER PROCEDURE dbo.Acc_Rpt_AbnormalBetAutoMail_Daily_For_Headline 
-	@RptDate    DATETIME
-   , @GroupId    INT      = 583
-   , @IsTest     BIT      = 1
+	@RptDate      DATETIME
+   , @GroupName    VARCHAR(50) = 'INDOWIN'
+   , @IsTest       BIT         = 0
 AS
 /*
 	Creator: Robert
@@ -76,12 +76,14 @@ AS
 					    , Master
 					    , Agent)
 	   EXEC dbo.Acc_Rpt_AbnormalBetAutoMail_Daily_SelectMember_By_Headline 
-		   @GroupId = @GroupId;
+		   @GroupName = @GroupName;
 
 	   INSERT INTO #TmpVoidedTransaction(TransId
-								, SubIssueTypeId)
+								, SubIssueTypeId
+								, CustId)
 			SELECT b.TransId
 				, b.SubIssueTypeId
+				, b.CustID
 			FROM bodb02.dbo.TicketVoiding_VoidedTransaction AS b WITH(NOLOCK)
 			WHERE b.CustID > 0
 				 AND b.CreatedDate >= @RptDate_From
@@ -154,11 +156,10 @@ AS
 				, mem.Agent
 			FROM bodb02.dbo.bettrans AS b WITH(NOLOCK)
 			    INNER JOIN #TmpVoidedTransaction AS tmp ON b.transid = tmp.TransId
-			    LEFT JOIN #TmpMember AS mem ON mem.MemberId = tmp.CustId
+			    INNER JOIN #TmpMember AS mem ON mem.MemberId = tmp.CustId
 			    LEFT JOIN bodb02.dbo.match AS m WITH(NOLOCK) ON b.matchid = m.matchid
 			    LEFT JOIN bodb02.dbo.league AS l WITH(NOLOCK) ON m.leagueid = l.leagueid
 			    LEFT JOIN bodb02.dbo.Customer AS c WITH(NOLOCK) ON b.srecommend = c.custid
-			    LEFT JOIN bodb02.dbo.Customer AS c1 WITH(NOLOCK) ON c1.custid = b.custid
 			WHERE 1 = CASE
 					    WHEN @IsTest = 0
 						    AND b.Currency <> 20
@@ -251,6 +252,9 @@ AS
 			    WHERE a.CustId = d.CustId FOR XML PATH(''), TYPE
 			).value
 			(N'.[1]', N'nvarchar(max)'), 1, 1, N'')
+		   , d.Super
+		   , d.Master
+		   , d.Agent
 	   FROM #Data AS d
 		  INNER JOIN dbo.Customer AS c WITH(NOLOCK) ON d.CustId = c.custid;
 
