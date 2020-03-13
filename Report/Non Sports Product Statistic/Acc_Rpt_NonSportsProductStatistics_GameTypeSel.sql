@@ -39,16 +39,25 @@ SET NOCOUNT ON
 	-- Get Exclude Bettype
 	INSERT INTO #tmpBettype (Bettype)
 	SELECT Bettype
-	FROM DBWH.bodb_Account.dbo.BettypeGroup 
+	FROM DBWH.bodb_Account.dbo.BettypeGroup WITH (NOLOCK)
 	WHERE BettypeGroupID = 6
+	
+	CREATE TABLE #tmpProduct (ProductID INT)
+	INSERT INTO #tmpProduct (ProductID)
+	SELECT DISTINCT ProductID 
+	FROM DBWH.bodb_Account.dbo.NonSportSetting WITH (NOLOCK)
+	WHERE ProductID NOT IN (5, 27, 23, 31) --Virtual Sports, Virtual Sports, NG2, Exchange
 	
     -- Get Bettype
 	INSERT INTO #SportBettype (ProductID, TypeId, TypeName, GameType)
 	SELECT	s.ProductID, s.Bettype as TypeId, b.typenamee AS TypeName, 2 AS GameType
 	FROM	dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '', @isTest) s
-		INNER JOIN dbo.Bettype b ON s.Bettype = b.TypeId 
+		INNER JOIN dbo.Bettype b WITH (NOLOCK) ON s.Bettype = b.TypeId 
 		LEFT JOIN #tmpBettype t ON s.Bettype = t.Bettype 
-	WHERE  (CasinoType IN (1,2) OR ProductID IN (8, 15, 24, 26, 28, 3, 30, 33, 38))	 
+	WHERE  (s.CasinoType IN (1,2) 
+			OR s.ProductID IN (SELECT ProductID 
+								FROM #tmpProduct)
+			)  	 
 		   AND t.Bettype IS NULL
 	
 	--- ProductID = 3 - Number Game get LeagueId
@@ -76,6 +85,7 @@ SET NOCOUNT ON
 	
 	DROP TABLE #SportBettype
 	DROP TABLE #tmpBettype
+	DROP TABLE #tmpProduct
 
 END
 
