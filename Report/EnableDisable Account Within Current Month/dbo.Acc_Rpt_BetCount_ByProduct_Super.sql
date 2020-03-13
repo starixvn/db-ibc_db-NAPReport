@@ -112,6 +112,7 @@ BEGIN
 			OR b.bettype BETWEEN 8101 AND (CASE WHEN @sportType=161 THEN 8120 ELSE 0 END)			
 			OR b.bettype BETWEEN 801 AND (CASE WHEN @sportType= -1 AND b.StatusID <> 0 THEN 806 ELSE 0 END)
 			OR b.bettype BETWEEN 1501 AND (CASE WHEN @sportType=202 AND b.StatusID <> 0 THEN 1599 ELSE 0 END)
+			OR b.bettype BETWEEN 4601 AND (CASE WHEN @sportType=245 AND b.StatusID <> 0 THEN 4900 ELSE 0 END)
 			OR b.bettype BETWEEN 1701 AND (CASE WHEN @sportType= 255 THEN 1703 ELSE 0 END) -- GoldDeluxe
 			OR b.bettype BETWEEN 18000 AND (CASE WHEN @sportType= 204 THEN 18005 ELSE 0 END) -- Colossus Bet
 			OR b.bettype BETWEEN 2501 AND (CASE WHEN @SportType = 213 AND b.StatusID <> 0 THEN 2699 ELSE 0 END) -- NG2	
