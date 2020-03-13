@@ -1,5 +1,8 @@
 /*<info serverAlias="DBAGE-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
- 
+
+USE bodb02
+GO
+
 ALTER PROCEDURE [dbo].[Acc_Rpt_BetCount_ByProduct_Super]
 	@MoveBetsDay	SMALLDATETIME,
 	@BalanceUpDay	SMALLDATETIME,
@@ -43,6 +46,7 @@ AS
 		- 20190722@Robert: #117010 - NAP Report - Integrate Card Club on NAP Report
 		- 20190917@Dominic: Remove inactive products [#120215]
 		- 20191225@Cherry: Integrate Spadegaming (#125788)
+		- 20200313@Ned.Le: NAP Report - Incorporate Virtual Games (#130326)
 		- 20200317@Ned.Le: Hotfix - Miss get data Card Club From bodb_account.dbo.mcCustBettingDaily table (#130535)
 
 	Param's Explanation:  
@@ -50,7 +54,7 @@ AS
 	  + @BalanceUpDay: The day of moving bets to battransbk
 	  + @CustID: SuperID
 	  + {251: Casino (include : 251, 208, 209, 210), 151:Racing, 252:Bingo, 161:Number Game, 162:Live Casino, 180:Virtual Sports, 202:Keno,  -1 : Metric Gaming - Superlive}
-			220: Lottery, 160: Lucky 3, 207: Bullfighting, 163: Poker Games
+			220: Lottery, 160: Lucky 3, 207: Bullfighting, 163: Poker Games, 245: Virtual Games
   
 */  
 BEGIN
@@ -75,13 +79,13 @@ BEGIN
 	SELECT @CurrentDate = CAST(GETDATE() AS DATE)
 	SELECT @FirstDate = CONVERT(VARCHAR(25),DATEADD(dd,-(DAY(@CurrentDate)-1),@CurrentDate),101)   --- First date of the month
     
-    --Get running Keno, Colossus Bet, Lottery, GoldDeluxe, MG-Superlive
-    IF @sportType IN (202,204,220,255,-1)                       
+    --Get running Keno, Colossus Bet, Lottery, GoldDeluxe, MG-Superlive, Virtual Games
+    IF @sportType IN (202,204,220,255,-1,245)                       
     BEGIN
 		INSERT INTO #AvailableMember
 		SELECT tl.custid,tl.[status],COUNT(1) 
 		FROM dbo.translog tl WITH(NOLOCK)
-		WHERE (tl.productID IN (202,204,220,255)
+		WHERE (tl.productID IN (202,204,220,255,245)
 			  OR tl.GameID BETWEEN 801 AND 806
 			)
 			AND tl.srecommend = @CustID
@@ -184,6 +188,7 @@ BEGIN
 							OR (' + CONVERT(VARCHAR(5),@sportType) +' = 251 AND (b.bettype BETWEEN 2101 AND 2399 OR b.bettype BETWEEN 2901 AND 2999)) --RNG Casino
 							OR b.bettype BETWEEN 801 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' = -1 THEN 806 ELSE 0 END)
 							OR b.bettype BETWEEN 1501 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' =202 THEN 1599 ELSE 0 END)
+							OR b.bettype BETWEEN 4601 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' =245 THEN 4900 ELSE 0 END) --Virtual Games
 							OR b.bettype BETWEEN 1701 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' = 255 THEN 1703 ELSE 0 END) -- GoldDeluxe
 							OR b.bettype BETWEEN 18000 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' = 204 THEN 18005 ELSE 0 END) -- Colossus Bet
 							OR b.bettype BETWEEN 2401  AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 211 THEN 2499 ELSE 0 END) -- AllBet
@@ -274,7 +279,7 @@ BEGIN
 			LEFT JOIN CustEnableKeno ce ON ce.CustID = av.custid    
 		WHERE ce.CustID IS NULL
 	END
-	IF @sportType IN (211,212,213,219,220,180)
+	IF @sportType IN (211,212,213,219,220,180,245)
     BEGIN
 		DECLARE @bitmapOrder TABLE (bitmapOrder TINYINT)
 		INSERT INTO @bitmapOrder (bitmapOrder)

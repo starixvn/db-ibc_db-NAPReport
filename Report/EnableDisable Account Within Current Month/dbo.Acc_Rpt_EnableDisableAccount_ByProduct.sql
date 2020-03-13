@@ -1,5 +1,8 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
+USE bodb02
+GO
+
 ALTER PROCEDURE dbo.Acc_Rpt_EnableDisableAccount_ByProduct
 	@ListCurrency    VARCHAR(8000) = 'all'
    , @SportType       INT
@@ -34,10 +37,11 @@ AS
 		- 20181219@Robert: NAP Report - Add new sporttype for Happy 5 (#104253) 
 		- 20190128@Robert: Video Poker - Integrate into NAP Reports[#107706]
 		- 20190917@Dominic: Remove inactive products [#120215]
+		- 20200313@Ned.Le: NAP Report - Incorporate Virtual Games (#130326)
 
 	Param's Explanation:  
 	  + @ListCurrency: The specified date used as one of the filter criterias, if its value is 'all' then no need to be filtered by currency
-	  + {251:Casino (include: 251, 208, 209, 210), 151:Racing,252:Bingo,161:Number Game,162:Live Casino,180:Virtual Sports,202:Keno}
+	  + {251:Casino (include: 251, 208, 209, 210), 151:Racing,252:Bingo,161:Number Game,162:Live Casino,180:Virtual Sports,202:Keno,245:Virtual Games}
 			220: Lottery, 163: Poker Games
 */
 
@@ -81,7 +85,7 @@ BEGIN
 
     DECLARE @bitmap    TINYINT; /* using for sporttype that has 1 setting*/
 
-    IF @SportType IN(212, 213, 219, 220, 180) /* Macau Games, NG2, Fishing World, Virtual Sports, Lottery*/
+    IF @SportType IN(212, 213, 219, 220, 180, 245) /* Macau Games, NG2, Fishing World, Virtual Sports, Lottery, Virtual Games*/
 
 	   BEGIN
 		  SELECT @bitmap = bitmapOrder
@@ -131,7 +135,7 @@ BEGIN
 							 (cps.bitmapIsDisabled, b.bitmapOrder) AS f
 						 WHERE custid = ci.custid
 					  )
-				  WHEN @SportType IN(212, 213, 219, 220, 180)
+				  WHEN @SportType IN(212, 213, 219, 220, 180, 245)
 				  THEN
 					  (
 						 SELECT CASE(SELECT value
@@ -452,9 +456,9 @@ BEGIN
 				 GROUP BY fda.CustID
 			  ) A ON fda.CustID = A.CustID;
 	   END;
-/* Macau Games, NG2, Fishing World, Virtual Sports, Lottery*/
+/* Macau Games, NG2, Fishing World, Virtual Sports, Lottery, Virtual Games*/
 
-    IF @sportType IN(212, 213, 219, 220, 180)
+    IF @sportType IN(212, 213, 219, 220, 180, 245)
 	   BEGIN
 		  INSERT INTO #FiltedDownlineAcc
 			    SELECT sup.CustID
@@ -587,7 +591,4 @@ BEGIN
     DROP TABLE #FiltedCreditSuper;
     DROP TABLE #FiltedDownlineAcc;
 END;
-GO
-
-GRANT EXECUTE ON dbo.Acc_Rpt_EnableDisableAccount_ByProduct TO [bodbAdminNet] AS [dbo];
 GO

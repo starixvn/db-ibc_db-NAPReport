@@ -97,7 +97,7 @@ BEGIN
     UPDATE sb
     SET sb.SportType = s.SportType
     FROM #SportBettype sb
-	   INNER JOIN SportBettypeMatrix s WITH(NOLOCK) ON sb.BetType = s.BetType AND s.ProductID IN (23, 31, 32, 33, 34,37, 36) -- NG2, Exchange, Pragmatic, Poker Games, Card Club, Spadegaming
+	   INNER JOIN SportBettypeMatrix s WITH(NOLOCK) ON sb.BetType = s.BetType AND s.ProductID IN (23, 31, 32, 33, 34, 37, 36, 38) -- NG2, Exchange, Pragmatic, Poker Games, Card Club, Spadegaming, Virtual Games
 	
 	IF @winlostdate > @MoveBetsDay
 	BEGIN				
@@ -627,7 +627,7 @@ BEGIN
 		SET rpt.SportType = sb.SportType
 		FROM bodb_Report.dbo.rptWinlost rpt WITH(NOLOCK)
 		  INNER JOIN #SportBettype sb on  rpt.bettype = sb.Bettype
-		WHERE sb.ProductID IN (23,31,32,33, 34,37, 36) 
+		WHERE sb.ProductID IN (23, 31, 32, 33, 34, 37, 36, 38) 
 		AND rpt.winlostdate =  @winlostdate
 	END
 	ELSE IF @winlostdate BETWEEN @BalanceUpDay AND @MoveBetsDay 
@@ -1160,7 +1160,7 @@ BEGIN
 		    SET rpt.SportType = sb.SportType
 		    FROM bodb_Report.dbo.rptWinlost rpt
 			 INNER JOIN #SportBettype sb on  rpt.bettype = sb.Bettype
-		    WHERE sb.ProductID IN (23, 31, 32, 33, 34, 37, 36) 
+		    WHERE sb.ProductID IN (23, 31, 32, 33, 34, 37, 36, 38) 
 		    AND rpt.winlostdate =  @winlostdate
 		END
 	END
