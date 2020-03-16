@@ -46,7 +46,7 @@ SET NOCOUNT ON
 	INSERT INTO #tmpProduct (ProductID)
 	SELECT DISTINCT ProductID 
 	FROM DBWH.bodb_Account.dbo.NonSportSetting WITH (NOLOCK)
-	WHERE ProductID NOT IN (5, 27, 23, 31) --Virtual Sports, Virtual Sports, NG2, Exchange
+	WHERE ProductID NOT IN (5, 27, 23, 31) --Virtual Sports, Virtual Sports 2, NG2, Exchange
 	
     -- Get Bettype
 	INSERT INTO #SportBettype (ProductID, TypeId, TypeName, GameType)
@@ -70,7 +70,7 @@ SET NOCOUNT ON
 	FROM	dbo.league l WITH (NOLOCK)
 	WHERE	EXISTS (SELECT TOP 1 1 FROM dbo.SportBettypeMatrix s (NOLOCK) WHERE l.sporttype = s.SportType AND s.ProductID = 3)
 		 
-	--- ProductID = 5, 27, 23 - Virtual Sports, Virtual Sports, NG2 get Sporttype
+	--- ProductID = 5, 27, 23 - Virtual Sports, Virtual Sports 2, NG2 get Sporttype
 	INSERT INTO #SportBettype (ProductId, TypeId, TypeName, GameType)
 	SELECT DISTINCT sb.ProductID, sb.SportType, s.SportName, 1 AS GameType
 	FROM dbo.SportBettypeMatrix sb WITH (NOLOCK)
