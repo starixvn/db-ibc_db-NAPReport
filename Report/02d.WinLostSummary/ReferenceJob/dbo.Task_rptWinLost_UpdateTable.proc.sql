@@ -48,6 +48,7 @@ Revision:
     - 20191015@Robert: #121661 - NAP Report - Integrate NPH into reports
     - 20191118@Ned.Le: Integrate Pragmatic Tournament Prize (#123685)
     - 20191225@Cherry: Integrate Spadegaming (#125788)
+    - 20200313@Ned.Le: NAP Report - Incorporate Virtual Games (#130326)
 */
 
 BEGIN	
