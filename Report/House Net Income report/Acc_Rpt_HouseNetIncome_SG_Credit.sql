@@ -1,4 +1,6 @@
 /*<info serverAlias="DBWH-bodb_dwrs" executers="dwrs" viewers="" isFunction="0" isNested="0"></info>*/
+USE bodb_dwrs
+GO
 
 ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_SG_Credit]
 	@FromDate DATE ,
@@ -12,6 +14,7 @@ AS
    
     Revisions:  
 	   - 20200224@Kean: #123734 - House Net Income - Integrate SG (Spadegaming) product
+	   - 20200313@Kean - Change the "Pay to supplier" formula of SG - #126465
 
 	Param's Explanation:   
 
@@ -36,6 +39,24 @@ BEGIN
 	    ExchangeDate    DATE
 	  , ExchangeID      INT
 	  , Rate            FLOAT);
+	CREATE TABLE #tmpProduct(ProductID INT, ProductCode VARCHAR(100), VendorID INT)
+	CREATE TABLE #tmpVendorGlobalSetting(ProductID INT, VName VARCHAR(50), ChargeRate3rd DECIMAL(19, 8), Sporttype SMALLINT, Bettype SMALLINT)
+	 
+	INSERT INTO #tmpProduct(ProductID, ProductCode, VendorID)
+	SELECT ProductID, ProductPrefix, VendorID
+	FROM bodb02.dbo.Products WITH(NOLOCK)
+	WHERE ProductPrefix IN ('SG')
+	
+	INSERT INTO #tmpVendorGlobalSetting(ProductID, VName, ChargeRate3rd, Sporttype, Bettype)
+	SELECT p.ProductID
+		  ,[VName]
+		  ,[NumberValue]
+		  ,[sporttype]
+		  ,[bettype]
+	FROM DBCUST.[CustDB].[dbo].[VendorGlobalSetting] v WITH(NOLOCK)
+	INNER JOIN #tmpProduct p ON v.[VendorId] = p.VendorID
+	WHERE v.[VName] IN ('3rdCreditWLShareRate')
+
 
     INSERT INTO #Exchange(ExchangeDate
 				    , ExchangeID
@@ -142,7 +163,13 @@ BEGIN
 					    , MinAmount
 					    , MaxAmount
 					    , BaseCurrencyId)
-    EXECUTE (@OpenQueryCharge);	
+    EXECUTE (@OpenQueryCharge);
+	
+	-- Get ChargeRate3rd from VendorGlobalSetting table IF NOT EXIST FROM LA
+	INSERT INTO #ChargeInfo3rd(ProductID, Rate, FromDate, ToDate)
+	SELECT v.ProductID, v.ChargeRate3rd, @FDate, @TDate
+	FROM #tmpVendorGlobalSetting v
+	WHERE v.ProductID NOT IN (SELECT ProductID FROM #ChargeInfo3rd)		
     
     -- House WL
     CREATE TABLE #TmpHouseWL(
@@ -234,6 +261,8 @@ BEGIN
 	-- Drop tmp table
 	DROP TABLE #SportBettypeMatrix
 	DROP TABLE #TmpHouseWL
+	DROP TABLE #tmpProduct
+	DROP TABLE #tmpVendorGlobalSetting
 	DROP TABLE #Exchange
 	DROP TABLE #ExchangeOANDA
 	DROP TABLE #FinalResult

@@ -21,7 +21,8 @@ AS
 		- 20190822@Robert: #115465 - Exclude bettype 4300 (Promotion Prize) from House Income, Pay to Supplier of Pragmatic
 		- 20191121@Robert: #123733 - Email/Letstalk Reports - Integrate PP Tournament (Exclude bettype 4299)
 		- 20200225@Kean: #128007 - Changes on the rate of Pay to suppliers
-		 - 20200224@Kean: #123734 - House Net Income - Integrate SG (Spadegaming) product
+		- 20200224@Kean: #123734 - House Net Income - Integrate SG (Spadegaming) product
+		- 20200313@Kean - Change the "Pay to supplier" formula of SG - #126465
 
 	Param's Explanation:   
 		- @ProductList: '' - default value when get all product
@@ -48,6 +49,18 @@ BEGIN
 	CREATE	TABLE #Exchange			(ExchangeDate DATE, ExchangeID INT, Rate FLOAT)
 	CREATE	TABLE #ExchangeOANDA	(ExchangeDate DATE, ExchangeID INT, Rate FLOAT)
 	CREATE	TABLE #tmpProduct		(ProductPrefix VARCHAR(20))
+	CREATE TABLE #tmpVendorGlobalSetting(ProductID INT, VName VARCHAR(50), ChargeRate3rd DECIMAL(19, 8), Sporttype SMALLINT, Bettype SMALLINT) 
+
+	INSERT INTO #tmpVendorGlobalSetting(ProductID, VName, ChargeRate3rd, Sporttype, Bettype)
+	SELECT p.ProductID
+		  ,[VName]
+		  ,[NumberValue]
+		  ,[sporttype]
+		  ,[bettype]
+	FROM DBCUST.[CustDB].[dbo].[VendorGlobalSetting] v WITH(NOLOCK)
+	INNER JOIN bodb02.dbo.Products p WITH(NOLOCK) ON v.[VendorId] = p.VendorID
+	WHERE v.[VName] IN ('3rdCreditWLShareRate')
+	AND p.ProductPrefix IN ('SG')
 
 	INSERT INTO #Exchange(ExchangeDate, ExchangeID, Rate)
 	SELECT ExchangeDate, Currency, Rate
@@ -106,8 +119,15 @@ BEGIN
     INSERT INTO #ChargeInfo3rd(ProductID
 						, Rate, FromDate, ToDate
 					    , MinAmount, MaxAmount, BaseCurrencyId)
-    EXECUTE (@OpenQueryCharge);	
+    EXECUTE (@OpenQueryCharge);
+
+	-- Get ChargeRate3rd from VendorGlobalSetting table IF NOT EXIST FROM LA
+	INSERT INTO #ChargeInfo3rd(ProductID, Rate, FromDate, ToDate)
+	SELECT v.ProductID, v.ChargeRate3rd, @FDate, @TDate
+	FROM #tmpVendorGlobalSetting v
+	WHERE v.ProductID NOT IN (SELECT ProductID FROM #ChargeInfo3rd)	
 	-- End region
+
 
 	CREATE TABLE #FinalResult (
 		RptDate		VARCHAR(10),
@@ -281,6 +301,7 @@ SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 	DROP TABLE #ExchangeOANDA
 	DROP TABLE #FinalResult
 	DROP TABLE #tmpProduct
+	DROP TABLE #tmpVendorGlobalSetting
 	DROP TABLE #PayToSupplierRate
 	DROP TABLE #PayToSupplierRate_CN88
 	DROP TABLE #ChargeInfo3rd

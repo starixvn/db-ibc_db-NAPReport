@@ -1,4 +1,6 @@
 /*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE bodb02
+GO
 
 ALTER PROCEDURE dbo.Acc_Rpt_HouseNetIncome_MarginChart_NonSport_Deposit 
 	@FromDate       DATE
@@ -18,7 +20,8 @@ AS;
 		- 20190819@Robert - NAP Report - Integrate Card Club on NAP Report [#115465]
 		- 20191107@Robert -  NPH - House Net Income, Licensee Performance Email/Letstalk Report Integration [122516]
 		- 20191127@Robert: Rename Product from 'NPH Promotion' to 'Saba Promotion'
-		 - 20200224@Kean: #123734 - Integrate SG (Spadegaming) product
+		- 20200224@Kean: #123734 - Integrate SG (Spadegaming) product
+		- 20200313@Kean - Change the "Pay to supplier" formula of SG - #126465
 
 	Param's Explanation:   
 		- @ProductList: '' - default value when get all product

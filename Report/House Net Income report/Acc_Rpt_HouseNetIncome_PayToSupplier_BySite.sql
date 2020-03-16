@@ -17,6 +17,7 @@ AS
     Revisions:  
 		- 20200214@Kean - DHWL Letstalk - Margin report - Separate Credit into 789 and other MBC [#128572]
 		- 20200224@Kean - Add SG product - #123734
+		- 20200313@Kean - Change the "Pay to supplier" formula of SG - #126465
 	
 	Param's Explanation:   
 	- DepositType  
@@ -45,12 +46,23 @@ BEGIN
 
     CREATE TABLE #Exchange(ExchangeDate    DATE, ExchangeID      INT, Rate            FLOAT);
 	CREATE	TABLE #ExchangeOANDA	(ExchangeDate DATE, ExchangeID INT, Rate FLOAT)
-	CREATE TABLE #tmpProduct(ProductID INT, ProductCode VARCHAR(100))
+	CREATE TABLE #tmpProduct(ProductID INT, ProductCode VARCHAR(100), VendorID INT)
+	CREATE TABLE #tmpVendorGlobalSetting(ProductID INT, VName VARCHAR(50), ChargeRate3rd DECIMAL(19, 8), Sporttype SMALLINT, Bettype SMALLINT) 
 
-	INSERT INTO #tmpProduct(ProductID, ProductCode)
-	SELECT SourceID, ProductCode
-	FROM bodb_Account.dbo.DimProduct
-	WHERE ProductCode IN ( 'PP', 'CC', 'SG') AND SourceInfo = 'Licensee'
+	INSERT INTO #tmpProduct(ProductID, ProductCode, VendorID)
+	SELECT ProductID, ProductPrefix, VendorID
+	FROM bodb02.dbo.Products WITH(NOLOCK)
+	WHERE ProductPrefix IN ( 'PP', 'CC', 'SG')
+	
+	INSERT INTO #tmpVendorGlobalSetting(ProductID, VName, ChargeRate3rd, Sporttype, Bettype)
+	SELECT p.ProductID
+		  ,[VName]
+		  ,[NumberValue]
+		  ,[sporttype]
+		  ,[bettype]
+	FROM DBCUST.[CustDB].[dbo].[VendorGlobalSetting] v WITH(NOLOCK)
+	INNER JOIN #tmpProduct p ON v.[VendorId] = p.VendorID
+	WHERE v.[VName] IN ('3rdCreditWLShareRate')
 
     INSERT INTO #Exchange(ExchangeDate, ExchangeID, Rate)
 		 SELECT ExchangeDate, Currency, Rate
@@ -98,8 +110,13 @@ BEGIN
     INSERT INTO #ChargeInfo3rd(ProductID
 						, Rate, FromDate, ToDate
 					    , MinAmount, MaxAmount, BaseCurrencyId)
-    EXECUTE (@OpenQueryCharge);	
-
+    EXECUTE (@OpenQueryCharge);
+	
+	-- Get ChargeRate3rd from VendorGlobalSetting table IF NOT EXIST FROM LA
+	INSERT INTO #ChargeInfo3rd(ProductID, Rate, FromDate, ToDate)
+	SELECT v.ProductID, v.ChargeRate3rd, @FDate, @TDate
+	FROM #tmpVendorGlobalSetting v
+	WHERE v.ProductID NOT IN (SELECT ProductID FROM #ChargeInfo3rd)	
 
     -- #FinalResult
 	CREATE TABLE #FinalResult(
@@ -218,12 +235,6 @@ BEGIN
 			GROUP BY ci.Rate, ci.FromDate, ci.ToDate, ci.MinAmount * ex.Rate, MaxAmount * ex.Rate
 					) as temp
 	-- END - Calculate PayToSupplier for Pragmatic (PP)
-	
-	CREATE TABLE #tmpPayToSupplier_SportBook(
-	    RptDate               VARCHAR(10),
-		ProductName				VARCHAR(10),
-		PayToSupplier        MONEY);
-
 		
 	-- Get DetailDaily Data & FullRange Data
     WHILE @tmpDate <= @TDate
@@ -267,7 +278,7 @@ SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 	,(SELECT SUM(t.MemberWLOANDA * ISNULL(ci.Rate,0)) 
 							FROM #TmpData AS t
 							INNER JOIN #ChargeInfo3rd AS ci ON t.rptDate BETWEEN ci.FromDate AND ci.ToDate
-							INNER JOIN #tmpProduct p on ci.ProductID = p.ProductID AND p.ProductCode = 'SG' 
+							INNER JOIN #tmpProduct p on ci.ProductID = p.ProductID AND p.ProductCode = 'SG'
 							WHERE t.ProductID = 36 AND t.rptDate = @tmpDate) AS  PayToSupplier_SG;
 
 		  SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate);
@@ -404,6 +415,7 @@ INSERT INTO #FinalResult(RptDate
     DROP TABLE #Exchange;
 	DROP TABLE #ExchangeOANDA;
 	DROP TABLE #tmpProduct;
+	DROP TABLE #tmpVendorGlobalSetting;
 	DROP TABLE #ChargeInfo3rd
     DROP TABLE #FinalResult;
     DROP TABLE #TmpData;
