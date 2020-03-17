@@ -43,6 +43,7 @@ AS
 		- 20190722@Robert: #117010 - NAP Report - Integrate Card Club on NAP Report
 		- 20190917@Dominic: Remove inactive products [#120215]
 		- 20191225@Cherry: Integrate Spadegaming (#125788)
+		- 20200317@Ned.Le: Hotfix - Miss get data Card Club From bodb_account.dbo.mcCustBettingDaily table (#130535)
 
 	Param's Explanation:  
 	  + @MoveBetsDay: The day of moving bets to battrans14
@@ -191,7 +192,7 @@ BEGIN
 							OR b.bettype BETWEEN 1011  AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 219 THEN 1020 ELSE 0 END) -- Fishing World
 							OR b.bettype BETWEEN 1021 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' = 220 THEN 1049 ELSE 0 END --Loterry
 							OR (' + CONVERT(VARCHAR(5),@sportType) +' =180 AND (b.bettype BETWEEN 1201 AND 1299 OR b.bettype BETWEEN 2700 AND 2899)) --Virtual Sports		
-							OR b.bettype BETWEEN 1901 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' = 165 THEN 1999 ELSE 0 END --Card Club [Video Poker]							
+							OR b.bettype BETWEEN 1901 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' = 212 THEN 1999 ELSE 0 END --Card Club [Video Poker]							
 						) 
 						AND b.bettype NOT IN (38)
 						AND b.status IN (3  ---DRAW
