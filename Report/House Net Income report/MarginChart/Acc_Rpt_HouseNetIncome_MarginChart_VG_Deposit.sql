@@ -210,8 +210,6 @@ BEGIN
 			FROM #TempDataVG b
 			    LEFT JOIN #Exchange AS e ON b.rptDate = e.ExchangeDate
 									   AND b.CurrencyId = e.ExchangeID
-			    LEFT JOIN #ExchangeOANDA AS oa ON b.rptDate = oa.ExchangeDate
-										    AND b.CurrencyId = oa.ExchangeID
 			    INNER JOIN #PartyChargeInfo AS p ON b.ProductId = p.ProductID
 											AND p.LicenseeId = b.SiteId
 											AND b.rptDate BETWEEN p.FromDate AND p.ToDate
@@ -233,8 +231,6 @@ BEGIN
 			FROM #TempDataVG b
 			    LEFT JOIN #Exchange AS e ON b.rptDate = e.ExchangeDate
 									   AND b.CurrencyId = e.ExchangeID
-			    LEFT JOIN #ExchangeOANDA AS oa ON b.rptDate = oa.ExchangeDate
-										    AND b.CurrencyId = oa.ExchangeID
 			GROUP BY b.rptdate
 				  , b.ProductId
 		 END	
