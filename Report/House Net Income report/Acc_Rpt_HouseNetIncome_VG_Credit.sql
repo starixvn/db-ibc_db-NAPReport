@@ -130,13 +130,13 @@ BEGIN
 					 , ExtraPT)
 		 SELECT b.rptDate
 			 , b.CurrencyID
-			 , -SUM((b.WinlossIBC + b.CommissionS) * ex.rate) AS HouseWL			 
-			 , SUM(b.WinlossP * e.Rate) AS MemberWLOANDA
-			 , SUM((b.ExtraWL + b.ExtraComm) * ex.Rate) AS ExtraPT
+			 , -SUM((b.WinlossIBC + b.CommissionS) * ISNULL(ex.rate,0)) AS HouseWL			 
+			 , SUM(b.WinlossP * ISNULL(ex.rate,0)) AS MemberWLOANDA
+			 , SUM((b.ExtraWL + b.ExtraComm) * ISNULL(ex.rate,0)) AS ExtraPT
 		 FROM bodb_Account.dbo.FactSiteWinloss AS b WITH (NOLOCK)
-			INNER JOIN #exchange AS ex ON b.rptdate = ex.exchangedate
+			LEFT JOIN #exchange AS ex ON b.rptdate = ex.exchangedate
 									AND b.currencyid = ex.ExchangeID
-			INNER JOIN #ExchangeOANDA e ON e.ExchangeDate = b.RptDate
+			LEFT JOIN #ExchangeOANDA e ON e.ExchangeDate = b.RptDate
 								    AND e.ExchangeID = b.CurrencyID
 		 WHERE b.rptDate BETWEEN @FDate AND @TDate
 			  AND b.TicketStatus NOT IN(-1, 18, 9, 10, 14)

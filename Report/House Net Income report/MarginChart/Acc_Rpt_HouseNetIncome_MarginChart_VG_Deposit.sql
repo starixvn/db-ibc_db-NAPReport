@@ -300,6 +300,7 @@ BEGIN
 	DROP TABLE #TempDataVG
 	DROP TABLE #FinalResult
 	DROP TABLE #SportBettypeMatrix
+	DROP TABLE #PartyChargeInfo
 	DROP TABLE #tmpSite
 	DROP TABLE #DailyPayAmmount
 END
