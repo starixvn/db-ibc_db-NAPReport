@@ -17,7 +17,7 @@ AS
     Revisions:  
 		- 20200214@Kean - DHWL Letstalk - Margin report - Separate Credit into 789 and other MBC [#128572]
 		- 20200224@Kean - Add SG product - #123734
-		- 20200313@Kean - Change the "Pay to supplier" formula of SG - #126465
+		- 20200313@Kean - Change the "Pay to supplier" formula of SG AND CC(New Bettype 1902) - #126465
 	
 	Param's Explanation:   
 	- DepositType  
@@ -62,7 +62,7 @@ BEGIN
 		  ,[bettype]
 	FROM DBCUST.[CustDB].[dbo].[VendorGlobalSetting] v WITH(NOLOCK)
 	INNER JOIN #tmpProduct p ON v.[VendorId] = p.VendorID
-	WHERE v.[VName] IN ('3rdCreditWLShareRate')
+	WHERE v.[VName] IN ('3rdCreditWLShareRate', '3rdCreditWLShareRateTX')
 
     INSERT INTO #Exchange(ExchangeDate, ExchangeID, Rate)
 		 SELECT ExchangeDate, Currency, Rate
@@ -269,10 +269,14 @@ SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 	, 0 PayToSupplier_1RNG
 	, 0 PayToSupplier_1RNG_JP
 	,(SELECT -SUM(t.PayToSupplier_PP_Daily) FROM #tmpPayToSupplier_PP AS t WHERE t.rptDate = @tmpDate) AS  PayToSupplier_PP
-	,(SELECT SUM(t.MemberWLOANDA * ISNULL(ci.Rate,0)) 
+	,(SELECT SUM(t.MemberWLOANDA * (CASE WHEN t.Bettype = 1902 THEN ISNULL(v.ChargeRate3rd,0) ELSE ISNULL(ci.Rate,0) END)) 
 							FROM #TmpData AS t
 							INNER JOIN #ChargeInfo3rd AS ci ON t.rptDate BETWEEN ci.FromDate AND ci.ToDate
-							INNER JOIN #tmpProduct p on ci.ProductID = p.ProductID AND p.ProductCode = 'CC' 
+							INNER JOIN #tmpProduct p on ci.ProductID = p.ProductID AND p.ProductCode = 'CC'
+							LEFT JOIN #tmpVendorGlobalSetting v ON t.ProductID = v.ProductID 
+																	AND v.Sporttype = t.SportType 
+																	AND v.Bettype = t.BetType
+																	AND v.VName = '3rdCreditWLShareRateTX'
 							WHERE t.ProductID = 34 AND t.rptDate = @tmpDate) AS  PayToSupplier_CC
 	, 0 PayToSupplier_SP
 	,(SELECT SUM(t.MemberWLOANDA * ISNULL(ci.Rate,0)) 

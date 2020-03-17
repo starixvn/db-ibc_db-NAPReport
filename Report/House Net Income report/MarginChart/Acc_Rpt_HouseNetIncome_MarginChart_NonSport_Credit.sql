@@ -22,7 +22,7 @@ AS
 		- 20191121@Robert: #123733 - Email/Letstalk Reports - Integrate PP Tournament (Exclude bettype 4299)
 		- 20200225@Kean: #128007 - Changes on the rate of Pay to suppliers
 		- 20200224@Kean: #123734 - House Net Income - Integrate SG (Spadegaming) product
-		- 20200313@Kean - Change the "Pay to supplier" formula of SG - #126465
+		- 20200313@Kean - Change the "Pay to supplier" formula of SG And CC(New Bettype 1902) - #126465
 
 	Param's Explanation:   
 		- @ProductList: '' - default value when get all product
@@ -59,8 +59,8 @@ BEGIN
 		  ,[bettype]
 	FROM DBCUST.[CustDB].[dbo].[VendorGlobalSetting] v WITH(NOLOCK)
 	INNER JOIN bodb02.dbo.Products p WITH(NOLOCK) ON v.[VendorId] = p.VendorID
-	WHERE v.[VName] IN ('3rdCreditWLShareRate')
-	AND p.ProductPrefix IN ('SG')
+	WHERE v.[VName] IN ('3rdCreditWLShareRate', '3rdCreditWLShareRateTX')
+	AND p.ProductPrefix IN ('SG', 'CC')
 
 	INSERT INTO #Exchange(ExchangeDate, ExchangeID, Rate)
 	SELECT ExchangeDate, Currency, Rate
@@ -109,7 +109,7 @@ BEGIN
 						+ CAST(@FDate AS NVARCHAR(50)) + ''''''
 						+ N','''''
 						+ CAST(@TDate AS NVARCHAR(50)) + ''''''
-						+ N',''''PP,SG'''''
+						+ N',''''PP,CC,SG'''''
 						+ N',''''OA'''''	
 						+ N') ci '
 						+ N'INNER JOIN bodb_licensee.dbo.OAS_ChargeInfo c WITH (NOLOCK) ON ci.ChargeID = c.ChargeID '
@@ -155,7 +155,6 @@ BEGIN
 		   ,(27, 0.01)  -- VS2
 		   ,(22, 0.02)  -- MacauG
 		   ,(23, 0.5)   -- NG2
-		   ,(34, 0.025) -- CC
 
 	INSERT INTO #PayToSupplierRate_CN88( ProductID, Rate )
 	VALUES  (3, 0.015)    -- NG, HP5
@@ -174,15 +173,16 @@ BEGIN
 		OR EXISTS (SELECT 1 FROM #tmpProduct p WHERE sel.ProductPrefix = p.ProductPrefix) 
 
 	-- House WL
-	CREATE TABLE #TmpHouseWL (rptDate DATE, SiteID INT , ProductID INT, Bettype INT
+	CREATE TABLE #TmpHouseWL (rptDate DATE, SiteID INT , ProductID INT, SportType INT, Bettype INT
 								, HouseWL MONEY, MemberWL MONEY, MemberWLOANDA MONEY
 								, PayToSupplier MONEY, TurnOver MONEY, ExtraPT MONEY)
 	
-	INSERT INTO #TmpHouseWL (rptDate, SiteID, ProductID, Bettype, HouseWL, MemberWL, MemberWLOANDA, TurnOver, ExtraPT)
+	INSERT INTO #TmpHouseWL (rptDate, SiteID, ProductID, SportType, Bettype, HouseWL, MemberWL, MemberWLOANDA, TurnOver, ExtraPT)
 	SELECT 
 		b.rptDate,
 		b.SiteID,
 		sb.ProductID,
+		b.SportType,
 		b.BetType,
 		CASE WHEN sb.ProductID = 15 THEN 0 ELSE ISNULL(-SUM((b.WinlossIBC + b.CommissionS) * ex.rate),0) END AS HouseWL, -- Don't need to caculate for CB
 		-- Get value to be calculate for Pay To Supplier
@@ -203,7 +203,7 @@ BEGIN
 		AND b.TicketStatus NOT IN (-1,18,9,10,14)
 		AND SiteID IN (SELECT SiteID FROM bodb_Account.dbo.tbl_Site WHERE isDeposit = 0 )-- Credit data only
 		AND b.BetType NOT IN (4299, 4300)
-	GROUP BY b.rptDate, b.SiteID, sb.ProductID, b.BetType
+	GROUP BY b.rptDate, b.SiteID, sb.ProductID, b.SportType, b.BetType
 	OPTION (RECOMPILE)
 	
 	-- BEGIN - Calculate PayToSupplier for Pragmatic (PP)
@@ -242,11 +242,15 @@ SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 									     WHERE t.ProductID = 3 AND t.SiteID <> @SiteCN88 AND  t.rptDate = @tmpDate) -- NG2, NG
 
 		+ (SELECT ISNULL(SUM(t.MemberWLOANDA * r.Rate),0)  FROM #TmpHouseWL AS t INNER JOIN #PayToSupplierRate r ON t.ProductID = r.ProductID
-									     WHERE t.ProductID IN (22,34)  AND  t.rptDate = @tmpDate) -- MacauG, CC
-		+ (SELECT ISNULL(SUM(t.MemberWLOANDA * ci.Rate),0)  FROM #TmpHouseWL AS t 
+									     WHERE t.ProductID IN (22)  AND  t.rptDate = @tmpDate) -- MacauG
+		+ (SELECT ISNULL(SUM(t.MemberWLOANDA * (CASE WHEN t.Bettype = 1902 THEN ISNULL(v.ChargeRate3rd,0) ELSE ISNULL(ci.Rate,0) END)),0)
+																FROM #TmpHouseWL AS t 
 																INNER JOIN #ChargeInfo3rd AS ci ON t.rptDate BETWEEN ci.FromDate AND ci.ToDate
 																									AND t.ProductID = ci.ProductID
-															WHERE t.ProductID IN (36)  AND  t.rptDate = @tmpDate) -- SG
+																LEFT JOIN #tmpVendorGlobalSetting v ON t.ProductID = v.ProductID 
+																										AND v.Sporttype = t.SportType AND v.Bettype = t.BetType
+																										AND v.VName = '3rdCreditWLShareRateTX'
+															WHERE t.ProductID IN (34, 36)  AND  t.rptDate = @tmpDate) -- CC, SG
 		+ (SELECT ISNULL(SUM(t.MemberWLOANDA * r.Rate),0)  FROM #TmpHouseWL AS t INNER JOIN #PayToSupplierRate r ON t.ProductID = r.ProductID
 									     WHERE t.ProductID IN (5,8,28,27) 
 										AND t.SiteID <> @SiteCN88 AND  t.rptDate = @tmpDate) -- VS,KN,LT,VS2
