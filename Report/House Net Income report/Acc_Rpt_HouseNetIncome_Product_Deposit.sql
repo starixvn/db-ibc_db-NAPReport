@@ -13,7 +13,8 @@ AS
    
     Revisions:  
 		- 20200214@Kean - DHWL Letstalk - Margin report - Separate Credit into 789 and other MBC [#128572]
-			- 20200224@Kean - Add SG product - #123734
+		- 20200224@Kean - Add SG product - #123734
+		- 20200317@Kean - Letstalk - Integrate Virtual Games product [#126465]
 	
 	
 	EXEC [Acc_Rpt_HouseNetIncome_Product_Deposit] '20180601', '20180619'
@@ -116,6 +117,10 @@ EXEC bodb02.dbo.Acc_Rpt_HouseNetIncome_VS_Deposit
 	,@ToDate	= @ToDate
 
 EXEC bodb02.dbo.Acc_Rpt_HouseNetIncome_SG_Deposit
+	@FromDate  = @FromDate
+	,@ToDate	= @ToDate
+
+EXEC bodb02.dbo.Acc_Rpt_HouseNetIncome_VG_Deposit
 	@FromDate  = @FromDate
 	,@ToDate	= @ToDate
 

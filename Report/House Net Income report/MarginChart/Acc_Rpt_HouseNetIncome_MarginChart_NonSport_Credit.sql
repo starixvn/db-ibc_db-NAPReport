@@ -23,6 +23,7 @@ AS
 		- 20200225@Kean: #128007 - Changes on the rate of Pay to suppliers
 		- 20200224@Kean: #123734 - House Net Income - Integrate SG (Spadegaming) product
 		- 20200313@Kean - Change the "Pay to supplier" formula of SG And CC(New Bettype 1902) - #126465
+		- 20200317@Kean - Letstalk - Integrate Virtual Games product [#126465]
 
 	Param's Explanation:   
 		- @ProductList: '' - default value when get all product
@@ -43,7 +44,7 @@ BEGIN
 	FROM bodb_Account.dbo.tbl_Site WITH(NOLOCK)
 	WHERE [site] = 'CN88';
 
-	DECLARE @Credit VARCHAR(MAX) = 'NG,VS,KN,LT,VS2,VB,CS,NG2,AB,GD,CB,PP,CC,SG'  
+	DECLARE @Credit VARCHAR(MAX) = 'NG,VS,KN,LT,VS2,VB,CS,NG2,AB,GD,CB,PP,CC,SG,VG'  
 		
 	-- Region: Get exchange rate info
 	CREATE	TABLE #Exchange			(ExchangeDate DATE, ExchangeID INT, Rate FLOAT)
