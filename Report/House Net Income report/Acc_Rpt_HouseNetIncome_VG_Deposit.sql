@@ -91,7 +91,7 @@ BEGIN
 				, ci.ToDate
 				, ci.ProductID
 			FROM bodb_licensee.dbo.LA_f_ChargeInfo
-				(@PartyIDs, @FDate, @TDate, 'VG', 'OA', 1) AS ci
+				(@PartyIDs, @FDate, @TDate, 'VRG', 'OA', 1) AS ci
 			    INNER JOIN @tmpParty AS p ON ci.PartyID = p.PartyID
 			WHERE DI_Rate > 0
 				 AND ci.ChargeType = 1 -- get PT
@@ -113,7 +113,7 @@ BEGIN
 			 , EventType
 			 , SubProduct
 		 FROM bodb02.dbo.f_SportBettypeMatrix_Sel
-			 (38, 0, 0, 2, '', 'VG', 0);
+			 (38, 0, 0, 2, '', 'VRG', 0);
     -- Region: Get exchange rate info
 
     CREATE TABLE #Exchange(
@@ -258,7 +258,7 @@ BEGIN
     EXEC dbo.Acc_Rpt_HouseNetIncome_LicenseeFee
 	    @FromDate = @FDate
 	  , @ToDate = @TDate
-	  , @Products = 'VG';
+	  , @Products = 'VRG';
     -- Region: Result	
 
     CREATE TABLE #FinalResult(

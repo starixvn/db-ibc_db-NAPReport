@@ -44,7 +44,7 @@ BEGIN
 	FROM bodb_Account.dbo.tbl_Site WITH(NOLOCK)
 	WHERE [site] = 'CN88';
 
-	DECLARE @Credit VARCHAR(MAX) = 'NG,VS,KN,LT,VS2,VB,CS,NG2,AB,GD,CB,PP,CC,SG,VG'  
+	DECLARE @Credit VARCHAR(MAX) = 'NG,VS,KN,LT,VS2,VB,CS,NG2,AB,GD,CB,PP,CC,SG,VRG'  
 		
 	-- Region: Get exchange rate info
 	CREATE	TABLE #Exchange			(ExchangeDate DATE, ExchangeID INT, Rate FLOAT)

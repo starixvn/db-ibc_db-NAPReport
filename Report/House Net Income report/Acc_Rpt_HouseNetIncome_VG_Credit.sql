@@ -110,7 +110,7 @@ BEGIN
 			 , EventType
 			 , SubProduct
 		 FROM bodb02.dbo.f_SportBettypeMatrix_Sel
-			 (38, 0, 0, 2, '', 'VG', 0);
+			 (38, 0, 0, 2, '', 'VRG', 0);
 
     -- House WL
     CREATE TABLE #TmpHouseWL(
@@ -180,11 +180,11 @@ BEGIN
 	SELECT @SQL =	'SELECT * ' + CHAR(13) +
 					'FROM	(SELECT ProductCode, [Order], [RptDate], Figure, ISNULL(value, 0) value FROM #FinalResult' + CHAR(13) +
 							'CROSS APPLY' + CHAR(13) +
-							'(SELECT ''SG'', 1, ''House Income'', HouseWL' + CHAR(13) +
+							'(SELECT ''VG'', 1, ''House Income'', HouseWL' + CHAR(13) +
 							'UNION ALL' + CHAR(13) +
-							'SELECT ''SG'', 2, ''Extra PT'', ExtraPT' + CHAR(13) +							
+							'SELECT ''VG'', 2, ''Extra PT'', ExtraPT' + CHAR(13) +							
 							'UNION ALL' + CHAR(13) +
-							'SELECT ''SG'', 4, ''Pay to supplier'', PayToSupplier) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
+							'SELECT ''VG'', 4, ''Pay to supplier'', PayToSupplier) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
 					'PIVOT' + CHAR(13) +
 					'(' + CHAR(13) +
 						'MAX(value)' + CHAR(13) +

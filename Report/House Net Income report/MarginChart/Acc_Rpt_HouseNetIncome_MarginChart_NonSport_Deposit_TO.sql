@@ -33,7 +33,7 @@ BEGIN
     SELECT @FDate = @FromDate
 	    , @TDate = @ToDate;
 
-    DECLARE @Deposit    VARCHAR(MAX) = 'NG,CS,KN,LT,AGC,CO,CB,VB,AB,GD,BX,VS,VS2,PP,CC,SG,VG';
+    DECLARE @Deposit    VARCHAR(MAX) = 'NG,CS,KN,LT,AGC,CO,CB,VB,AB,GD,BX,VS,VS2,PP,CC,SG,VRG';
 
     CREATE TABLE #Exchange(
 	    ExchangeDate    DATE

@@ -37,7 +37,7 @@ BEGIN
 	DECLARE @FDate DATE, @TDate DATE
 	SELECT @FDate = @FromDate, @TDate = @ToDate
 
-	DECLARE @DefaulProductList VARCHAR(MAX) = 'EX,GD,FW,AB,VB,CB,CO,AGC,KN,LT,CS,NG,PP,CC,SP,SG,VG'
+	DECLARE @DefaulProductList VARCHAR(MAX) = 'EX,GD,FW,AB,VB,CB,CO,AGC,KN,LT,CS,NG,PP,CC,SP,SG,VRG'
 
 	-- Select ProductList
 	SELECT @ProductList = CASE WHEN LEN(ISNULL(@ProductList, '')) > 0  THEN @ProductList ELSE @DefaulProductList END
@@ -78,7 +78,7 @@ BEGIN
 	--EXEC (@DynamicTable)
 
 	-- 17. VG
-	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'SG')
+	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'VRG')
 	BEGIN
 		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
 							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_VG_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
