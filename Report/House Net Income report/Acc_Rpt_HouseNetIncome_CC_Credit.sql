@@ -7,7 +7,7 @@ AS
 /*  	
 	 Created:	20190819@Robert
     Task :		House month-to-date Net Income report for Card Club
-    DB:			DBEXT/bodb02  
+    DB:			DBWH/bodb_dwrs  
    
     Revisions:  
 		- 20190819@Robert - NAP Report - Integrate Card Club on NAP Report [#115465]
