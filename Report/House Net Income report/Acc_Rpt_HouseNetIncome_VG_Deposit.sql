@@ -221,8 +221,6 @@ BEGIN
 				  , p.ProductId
 		 
 		 -- LA not return charge rate of Licensee TO ONEWork And Then use HouseWL 
-		 IF (NOT EXISTS(SELECT 1 FROM #PartyChargeInfo))
-		 BEGIN
 			INSERT INTO #DailyPayAmmount(rptDate, ProductId, LicenseWL, AmountToCompany)
 			SELECT b.rptDate
 				, b.ProductId
@@ -231,9 +229,9 @@ BEGIN
 			FROM #TempDataVG b
 			    LEFT JOIN #Exchange AS e ON b.rptDate = e.ExchangeDate
 									   AND b.CurrencyId = e.ExchangeID
+				WHERE b.SiteID NOT IN (SELECT p.LicenseeId FROM #PartyChargeInfo p)
 			GROUP BY b.rptdate
-				  , b.ProductId
-		 END	
+				  , b.ProductId	
 
     CREATE NONCLUSTERED INDEX Idx_InvoiceData ON #DailyPayAmmount(PartyId, ProductId);
 
@@ -298,9 +296,7 @@ BEGIN
 	SELECT @SQL =	'SELECT * ' + CHAR(13) +
 					'FROM	(SELECT ProductCode, [Order], [RptDate], Figure, ISNULL(value, 0) value FROM #FinalResult' + CHAR(13) +
 							'CROSS APPLY' + CHAR(13) +
-							'(SELECT ''VG'', 1, ''House Income'', LicenseeWL' + CHAR(13) +
-							'UNION ALL' + CHAR(13) +
-							'SELECT ''VG'', 4, ''Pay to supplier'', PayToSupplier) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
+							'(SELECT ''VG'', 1, ''House Income'', LicenseeWL) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
 					'PIVOT' + CHAR(13) +
 					'(' + CHAR(13) +
 						'MAX(value)' + CHAR(13) +

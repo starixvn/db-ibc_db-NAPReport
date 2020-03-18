@@ -182,9 +182,7 @@ BEGIN
 							'CROSS APPLY' + CHAR(13) +
 							'(SELECT ''VG'', 1, ''House Income'', HouseWL' + CHAR(13) +
 							'UNION ALL' + CHAR(13) +
-							'SELECT ''VG'', 2, ''Extra PT'', ExtraPT' + CHAR(13) +							
-							'UNION ALL' + CHAR(13) +
-							'SELECT ''VG'', 4, ''Pay to supplier'', PayToSupplier) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
+							'SELECT ''VG'', 2, ''Extra PT'', ExtraPT) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
 					'PIVOT' + CHAR(13) +
 					'(' + CHAR(13) +
 						'MAX(value)' + CHAR(13) +
