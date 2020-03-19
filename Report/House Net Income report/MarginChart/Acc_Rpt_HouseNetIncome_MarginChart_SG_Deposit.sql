@@ -15,6 +15,7 @@ AS
    
     Revisions:
 		- 20200224@Kean: #123734 - House Net Income - Integrate SG (Spadegaming) product
+		- 20200313@Kean - Change the "Pay to supplier" formula of SG - #126465
 		
 	Param's Explanation:   
 
@@ -27,8 +28,20 @@ BEGIN
 	DECLARE @FDate DATE, @TDate DATE
 	SELECT @FDate = @FromDate, @TDate = @ToDate	
 	
-	-- Region: Active licensees
+	CREATE TABLE #tmpVendorGlobalSetting(ProductID INT, VName VARCHAR(50), ChargeRate3rd DECIMAL(19, 8), Sporttype SMALLINT, Bettype SMALLINT) 
 
+	INSERT INTO #tmpVendorGlobalSetting(ProductID, VName, ChargeRate3rd, Sporttype, Bettype)
+	SELECT p.ProductID
+		  ,[VName]
+		  ,[NumberValue]
+		  ,[sporttype]
+		  ,[bettype]
+	FROM DBCUST.[CustDB].[dbo].[VendorGlobalSetting] v WITH(NOLOCK)
+	INNER JOIN bodb02.dbo.Products p WITH(NOLOCK) ON v.[VendorId] = p.VendorID
+	WHERE v.[VName] IN ('3rdCashWLShareRate')
+	AND p.ProductPrefix IN ('SG')
+
+	-- Region: Active licensees
 	DECLARE @tmpParty TABLE (PartyID INT, IsDeposit BIT, ParentID INT)
 	INSERT INTO @tmpParty (PartyID, IsDeposit, ParentID)
 	SELECT DISTINCT ci.FromParty, pd.IsDeposit, ci.ToParty
@@ -59,12 +72,23 @@ BEGIN
 	  , ToDate        SMALLDATETIME
 	  , Bettype       INT);
 
-	CREATE TABLE #PartyCharge3rdInfo (		
-			LicenseeId	INT,
-			Rate		MONEY,			
-			FromDate	SMALLDATETIME,
-			ToDate		SMALLDATETIME,
-			ProductID	INT
+	-- BEGIN - Rate for PayToSupplier
+	CREATE TABLE #PartyCharge3rdInfo_Direct (		
+			IsDeposit	INT,
+			ProductID		INT,			
+			DI_Rate	MONEY,
+			Fromdate		SMALLDATETIME,
+			ToDate	SMALLDATETIME,
+			PartyID		INT
+			)
+
+	CREATE TABLE #PartyCharge3rdInfo_ALL (		
+			IsDeposit	INT,
+			ProductID		INT,			
+			DI_Rate	MONEY,
+			Fromdate		SMALLDATETIME,
+			ToDate	SMALLDATETIME,
+			PartyID		INT
 			)
 
 	 INSERT INTO #PartyChargeInfo(ChargeId, PartyId, LicenseeId, ParentID, IsDeposit, ProductID, Rate, Fromdate, Todate, Bettype)
@@ -78,30 +102,30 @@ BEGIN
 			    LEFT JOIN bodb_licensee..Sport_Bettype_Reference AS sbr WITH (NOLOCK) ON sbr.BettypeRef = ci.Bettype
 			WHERE DI_Rate > 0
 				 AND ProductId <> 1 --exclude RB
-	
-	INSERT INTO #PartyCharge3rdInfo( LicenseeId, Rate, FromDate, ToDate, ProductID )	
-	(
-		SELECT DISTINCT p.LicenseeID, ci.DI_Rate, ci.Fromdate, ci.ToDate, ci.ProductID
-		FROM	bodb_licensee.dbo.LA_f_ChargeInfo3rd(@FDate, @TDate, 'SG', 'OA') ci	
-			INNER JOIN #PartyChargeInfo p ON p.ParentID = ci.PartyId	
-		WHERE ci.ChargeType = 1 AND ci.IsDeposit = 1
-	)
+
+	INSERT INTO #PartyCharge3rdInfo_Direct( IsDeposit, ProductID, DI_Rate, Fromdate, ToDate, PartyID)	
+	SELECT DISTINCT ci.IsDeposit, ci.ProductID, ci.DI_Rate, ci.Fromdate, ci.ToDate, ci.PartyID
+	FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd(@FDate, @TDate, 'SG', 'OA') ci	
+		INNER JOIN @tmpParty p ON p.PartyId = ci.PartyId
+
+	INSERT INTO #PartyCharge3rdInfo_ALL( IsDeposit, ProductID, DI_Rate, Fromdate, ToDate, PartyID)	
+	SELECT DISTINCT ci.IsDeposit, ci.ProductID, ci.DI_Rate, ci.Fromdate, ci.ToDate, p.PartyID
+	FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd(@FDate, @TDate, 'SG', 'OA') AS ci 
+			INNER JOIN @tmpParty AS p ON p.ParentID = ci.PartyID
+	WHERE p.PartyID NOT IN (SELECT PartyID FROM #PartyCharge3rdInfo_Direct)
+				
+	INSERT INTO #PartyCharge3rdInfo_ALL( IsDeposit, ProductID, DI_Rate, Fromdate, ToDate, PartyID)	
+	SELECT IsDeposit, ProductID, DI_Rate, Fromdate, ToDate, PartyID FROM #PartyCharge3rdInfo_Direct
 	-- End Region
 	
 	-- Region: Get Exchange
 	CREATE	TABLE #ExchangeOANDA (ExchangeDate DATE, ExchangeID INT, Rate FLOAT)	
-	CREATE TABLE #Exchange(
-	    ExchangeDate    DATE
-	  , ExchangeID      INT
-	  , Rate            FLOAT);
-	INSERT INTO #Exchange(ExchangeDate
-				    , ExchangeID
-				    , Rate)
-		 SELECT ExchangeDate
-			 , Currency
-			 , Rate
-		 FROM DBWH.bodb_account.dbo.tbl_Currency_Daily WITH (NOLOCK)
-		 WHERE ExchangeDate BETWEEN @FDate AND @TDate;
+	CREATE TABLE #Exchange(ExchangeDate DATE, ExchangeID INT, Rate FLOAT);
+
+	INSERT INTO #Exchange(ExchangeDate, ExchangeID, Rate)
+	SELECT ExchangeDate, Currency, Rate
+	FROM DBWH.bodb_account.dbo.tbl_Currency_Daily WITH (NOLOCK)
+	WHERE ExchangeDate BETWEEN @FDate AND @TDate;
 
 	INSERT INTO #ExchangeOANDA (ExchangeDate, ExchangeID, Rate)
 	SELECT ExchangeDate, ExchangeID, BaseCurrencyRate
@@ -112,21 +136,23 @@ BEGIN
 	CREATE TABLE #TempDataSG(
 			PartyId			INT,
 			rptDate			DATETIME,
+			CurrencyId		INT,
+			ProductId		TINYINT,
 			MemberWL		MONEY,
-			PayToSupplier	MONEY,
 			AmountToCompany MONEY);
+	CREATE TABLE #DailyPayToSupplier(ParentID INT, rptDate DATE, MemberWLOANDA MONEY, PayToSupplier MONEY)
+	CREATE TABLE #FullRangePayToSupplier(ParentID INT, PayToSupplier MONEY)
 
-    INSERT INTO #TempDataSG(PartyId, RptDate, MemberWL, PayToSupplier, AmountToCompany)
+    INSERT INTO #TempDataSG(PartyId, RptDate, CurrencyId, ProductId, MemberWL, AmountToCompany)
 			SELECT p.PartyId
 				, b.rptdate
-				, SUM(ISNULL(b.MemberWL, 0) * oa.Rate)
-				, SUM(ISNULL(b.MemberWL, 0) * rd.Rate * oa.Rate)
+				, b.CurrencyId
+				, b.ProductId
+				, SUM(ISNULL(b.MemberWL, 0))
 				, SUM(-ISNULL(b.MemberWL, 0) * ISNULL(lc.Rate, p.Rate) * e.Rate)
 			FROM bodb_LicenseeReport.dbo.rpt_BettingByProduct AS b WITH (NOLOCK)
 			    INNER JOIN #Exchange AS e ON b.rptDate = e.ExchangeDate
 										AND b.CurrencyId = e.ExchangeID
-				INNER JOIN #ExchangeOANDA oa ON b.rptDate = oa.ExchangeDate 
-										AND b.CurrencyId = oa.ExchangeID
 			    INNER JOIN #PartyChargeInfo AS p ON b.ProductId = p.ProductID
 											AND p.LicenseeId = b.SiteId
 											AND b.rptDate BETWEEN p.FromDate AND p.ToDate
@@ -135,17 +161,34 @@ BEGIN
 												OR p.Bettype = b.Bettype)
 				LEFT JOIN bodb_Licensee.dbo.LA_ChargeRateByCurrency AS lc WITH (NOLOCK) ON p.ChargeId = lc.ChargeID
 																						AND b.CurrencyId = lc.CurrencyID
-				INNER JOIN #PartyCharge3rdInfo rd ON b.ProductID = rd.ProductID
-													AND b.SiteID = rd.LicenseeID
-													AND (b.rptDate BETWEEN rd.FromDate AND rd.ToDate)
 			WHERE b.rptDate BETWEEN @FDate AND @TDate
 				 AND b.CurrencyID <> 20
 				 AND b.customercategory NOT IN(27, 28)
 				 AND b.StatusId NOT IN(-1, 103) -- Exclude Reject , Void, Refund
-			GROUP BY p.PartyId, b.rptdate
+			GROUP BY p.PartyId, b.rptdate, b.CurrencyId, b.ProductId
 
-    CREATE NONCLUSTERED INDEX Idx_InvoiceData ON #TempDataSG(PartyId);	
-	
+    CREATE NONCLUSTERED INDEX Idx_InvoiceData ON #TempDataSG(PartyId);
+
+	INSERT INTO #DailyPayToSupplier(ParentID, rptDate, MemberWLOANDA, PayToSupplier)
+	SELECT t.ParentID, d.rptDate, SUM(d.MemberWL * oanda.Rate), SUM(d.MemberWL * oanda.Rate * ISNULL(p.DI_Rate,ISNULL(v.ChargeRate3rd, 0)))
+	FROM #TempDataSG d
+		INNER JOIN @tmpParty AS t ON t.PartyID = d.PartyId
+		INNER JOIN #ExchangeOANDA oanda ON d.rptDate = oanda.ExchangeDate AND d.CurrencyId = oanda.ExchangeID
+		LEFT JOIN #PartyCharge3rdInfo_ALL p ON p.PartyID = d.PartyId AND d.rptDate BETWEEN p.Fromdate AND p.Todate
+		LEFT JOIN #tmpVendorGlobalSetting v ON v.ProductID = d.ProductId
+	GROUP BY t.ParentID, d.rptDate
+
+	INSERT INTO #FullRangePayToSupplier(ParentID, PayToSupplier)
+	SELECT ParentID
+		 , CASE WHEN ParentId = 1 THEN
+					CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(PayToSupplier) END
+				ELSE
+					CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(PayToSupplier) END
+				END 
+	FROM #DailyPayToSupplier
+	GROUP BY ParentID
+	-- END - Rate for PayToSupplier
+
 	CREATE TABLE #FinalResult (
 		RptDate				VARCHAR(10),
 		LicenseeWL			MONEY,
@@ -153,7 +196,9 @@ BEGIN
 	)
 
 	INSERT INTO #FinalResult (rptDate, LicenseeWL, PayToSupplier)
-	SELECT 'FullRange', 0, 0
+	SELECT 'FullRange'
+		, 0
+		, (SELECT SUM(PayToSupplier) FROM #FullRangePayToSupplier)
 
 	DECLARE @tmpDate DATE, @DateList VARCHAR(200)
 	SELECT @tmpDate = @FDate
@@ -162,11 +207,9 @@ BEGIN
 	BEGIN
 		INSERT INTO #FinalResult (RptDate, LicenseeWL, PayToSupplier)
 		SELECT CONVERT(VARCHAR(2), @tmpDate, 106), 
-				SUM(AmountToCompany), -- LicenseeWL
-				SUM(PayToSupplier) -- PayToSupplier
-		FROM #TempDataSG 
-		WHERE rptDate = @tmpDate
-			
+			(SELECT ISNULL(SUM(AmountToCompany), 0) FROM #TempDataSG WHERE ProductId = 36 AND rptDate = @tmpDate), -- LicenseeWL
+			(SELECT ISNULL(SUM(PayToSupplier), 0) FROM #DailyPayToSupplier WHERE rptDate = @tmpDate)		
+
 		SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate)
 	END
 
@@ -190,10 +233,14 @@ BEGIN
 	EXEC(@SQL)
 
 	-- Region: Drop tmp table
+	DROP TABLE #tmpVendorGlobalSetting
 	DROP TABLE #ExchangeOANDA
 	DROP TABLE #Exchange
-	DROP TABLE #PartyCharge3rdInfo
+	DROP TABLE #PartyCharge3rdInfo_Direct
+	DROP TABLE #PartyCharge3rdInfo_ALL
 	DROP TABLE #PartyChargeInfo
 	DROP TABLE #TempDataSG
+	DROP TABLE #DailyPayToSupplier
+	DROP TABLE #FullRangePayToSupplier
 	DROP TABLE #FinalResult
 END

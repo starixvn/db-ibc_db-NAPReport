@@ -12,6 +12,7 @@ AS
    
     Revisions:  
 		- 20200214@Kean - DHWL Letstalk - Margin report - Separate Credit into 789 and other MBC [#128572]
+		- 20200317@Kean - Letstalk - Integrate Virtual Games product [#126465]
   
 */
 BEGIN
@@ -68,6 +69,8 @@ SET NOCOUNT ON;
 	SELECT 'SP' Product, 'NPH' ProductPrefix
 	UNION ALL
 	SELECT 'SG' Product, 'SG' ProductPrefix
+	UNION ALL
+	SELECT 'VG' Product, 'VG' ProductPrefix
 END
 GO
 GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_ProductList] TO [dwrs]

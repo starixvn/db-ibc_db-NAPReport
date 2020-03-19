@@ -1,4 +1,6 @@
 /*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE bodb02
+GO
 
 ALTER PROCEDURE dbo.Acc_Rpt_HouseNetIncome_MarginChart_NonSport_Deposit 
 	@FromDate       DATE
@@ -18,7 +20,9 @@ AS;
 		- 20190819@Robert - NAP Report - Integrate Card Club on NAP Report [#115465]
 		- 20191107@Robert -  NPH - House Net Income, Licensee Performance Email/Letstalk Report Integration [122516]
 		- 20191127@Robert: Rename Product from 'NPH Promotion' to 'Saba Promotion'
-		 - 20200224@Kean: #123734 - Integrate SG (Spadegaming) product
+		- 20200224@Kean: #123734 - Integrate SG (Spadegaming) product
+		- 20200313@Kean - Change the "Pay to supplier" formula of SG - #126465
+		- 20200317@Kean - Letstalk - Integrate Virtual Games product [#126465]
 
 	Param's Explanation:   
 		- @ProductList: '' - default value when get all product
@@ -33,7 +37,7 @@ BEGIN
 	DECLARE @FDate DATE, @TDate DATE
 	SELECT @FDate = @FromDate, @TDate = @ToDate
 
-	DECLARE @DefaulProductList VARCHAR(MAX) = 'EX,GD,FW,AB,VB,CB,CO,AGC,KN,LT,CS,NG,PP,CC,SP,SG'
+	DECLARE @DefaulProductList VARCHAR(MAX) = 'EX,GD,FW,AB,VB,CB,CO,AGC,KN,LT,CS,NG,PP,CC,SP,SG,VRG'
 
 	-- Select ProductList
 	SELECT @ProductList = CASE WHEN LEN(ISNULL(@ProductList, '')) > 0  THEN @ProductList ELSE @DefaulProductList END
@@ -72,6 +76,13 @@ BEGIN
 	SELECT @SumValue = @SumValue + ' FROM #MarginChartResult GROUP BY [Order], Figure ORDER BY [Order]'
 	
 	--EXEC (@DynamicTable)
+
+	-- 17. VG
+	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'VRG')
+	BEGIN
+		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
+							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_VG_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
+	END
 
 	-- 16. SG
 	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'SG')

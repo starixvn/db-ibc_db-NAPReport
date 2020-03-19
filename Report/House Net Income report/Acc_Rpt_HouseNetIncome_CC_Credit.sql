@@ -7,10 +7,11 @@ AS
 /*  	
 	 Created:	20190819@Robert
     Task :		House month-to-date Net Income report for Card Club
-    DB:			DBEXT/bodb02  
+    DB:			DBWH/bodb_dwrs  
    
     Revisions:  
 		- 20190819@Robert - NAP Report - Integrate Card Club on NAP Report [#115465]
+		- 20200313@Kean - Change the "Pay to supplier" formula of CC(New Bettype 1902) - #126465
 	
 	Param's Explanation:   
 
@@ -25,6 +26,18 @@ BEGIN
     SELECT @FDate = @FromDate
 	    , @TDate = @ToDate;
     -- Region: Get exchange rate info
+	CREATE TABLE #tmpVendorGlobalSetting(ProductID INT, VName VARCHAR(50), ChargeRate3rd DECIMAL(19, 8), Sporttype SMALLINT, Bettype SMALLINT) 
+
+	INSERT INTO #tmpVendorGlobalSetting(ProductID, VName, ChargeRate3rd, Sporttype, Bettype)
+	SELECT p.ProductID
+		  ,[VName]
+		  ,[NumberValue]
+		  ,[sporttype]
+		  ,[bettype]
+	FROM DBCUST.[CustDB].[dbo].[VendorGlobalSetting] v WITH(NOLOCK)
+	INNER JOIN bodb02.dbo.Products p WITH(NOLOCK) ON v.[VendorId] = p.VendorID
+	WHERE v.[VName] IN ('3rdCreditWLShareRateTX')
+	AND p.ProductPrefix IN ('CC')
 
     CREATE TABLE #Exchange(
 	    ExchangeDate    DATE
@@ -147,6 +160,8 @@ BEGIN
     CREATE TABLE #TmpHouseWL(
 	    rptDate          DATE
 	  , ProductID        INT
+	  , SportType        INT
+	  , BetType          INT
 	  , CurrencyID       INT
 	  , HouseWL          MONEY
 	  , MemberWL         MONEY
@@ -157,28 +172,36 @@ BEGIN
 
     INSERT INTO #TmpHouseWL(rptDate
 					 , ProductID
+					 , SportType
+					 , BetType
 					 , CurrencyID
 					 , HouseWL
 					 , MemberWLOANDA					 
 					 , ExtraPT)
 		 SELECT b.rptDate
-			 , sb.ProductID
+			 , 34 ProductID
+			 , b.SportType
+			 , b.BetType
 			 , b.CurrencyID
-			 , -SUM((b.WinlossIBC + b.CommissionS) * ex.rate) AS HouseWL			 
-			 , SUM(b.WinlossP * e.Rate) AS MemberWLOANDA
-			 , SUM((b.ExtraWL + b.ExtraComm) * ex.Rate) AS ExtraPT
+			 , ISNULL(-SUM((b.WinlossIBC + b.CommissionS) * ex.rate),0) AS HouseWL			 
+			 , ISNULL(SUM(b.WinlossP * e.Rate),0) AS MemberWLOANDA
+			 , ISNULL(SUM((b.ExtraWL + b.ExtraComm) * ex.Rate),0) AS ExtraPT
 		 FROM bodb_Account.dbo.FactSiteWinloss AS b WITH (NOLOCK)
-			INNER JOIN #exchange AS ex ON b.rptdate = ex.exchangedate
+			--INNER JOIN #SportBettypeMatrix AS sb ON sb.Bettype = b.bettype
+			LEFT JOIN #exchange AS ex ON b.rptdate = ex.exchangedate
 									AND b.currencyid = ex.ExchangeID
-			INNER JOIN #ExchangeOANDA e ON e.ExchangeDate = b.RptDate
+			LEFT JOIN #ExchangeOANDA e ON e.ExchangeDate = b.RptDate
 								    AND e.ExchangeID = b.CurrencyID
-			INNER JOIN #SportBettypeMatrix AS sb ON sb.Bettype = b.bettype
+			
 		 WHERE b.rptDate BETWEEN @FDate AND @TDate
 			  AND b.TicketStatus NOT IN(-1, 18, 9, 10, 14)
+			  AND b.CurrencyID <> 20
 	   		  AND SiteID IN (SELECT SiteID FROM bodb_Account.dbo.tbl_Site WHERE isDeposit = 0 )-- Credit data only
+			  AND b.bettype IN (SELECT sb.Bettype FROM #SportBettypeMatrix sb)
 		 GROUP BY b.rptDate
-			   , sb.ProductID
-			   , b.CurrencyID OPTION(RECOMPILE);    
+			   , b.CurrencyID
+			   , b.SportType
+			   , b.BetType OPTION(RECOMPILE);    
     
     -- House Winloss
 
@@ -193,9 +216,12 @@ BEGIN
 		   SELECT CONVERT(VARCHAR(2), wl.rptDate, 106) AS winlostDate
 			   , SUM(wl.HouseWL) AS HouseWL
 			   , SUM(wl.ExtraPT) AS ExtraPT
-			   , SUM(wl.MemberWLOANDA * ci.Rate) AS PayToSupplier
+			   , SUM(wl.MemberWLOANDA * (CASE WHEN wl.Bettype = 1902 THEN ISNULL(v.ChargeRate3rd,0) ELSE ISNULL(ci.Rate,0) END)) AS PayToSupplier
 		   FROM #TmpHouseWL AS wl
 			  INNER JOIN #ChargeInfo3rd AS ci ON wl.rptDate BETWEEN ci.FromDate AND ci.ToDate
+			  LEFT JOIN #tmpVendorGlobalSetting v ON wl.ProductID = v.ProductID 
+																	AND v.Sporttype = wl.SportType 
+																	AND v.Bettype = wl.BetType
 		   GROUP BY CONVERT(VARCHAR(2), wl.rptDate, 106)
 	    ) house ON house.winlostDate = f.RptDate;
     
@@ -241,5 +267,6 @@ BEGIN
 	DROP TABLE #ExchangeOANDA
 	DROP TABLE #FinalResult
 	DROP TABLE #ChargeInfo3rd
+	DROP TABLE #tmpVendorGlobalSetting
 END
 GO
