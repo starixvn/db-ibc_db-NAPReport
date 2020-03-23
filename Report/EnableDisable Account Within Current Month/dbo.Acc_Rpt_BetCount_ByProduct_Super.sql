@@ -48,13 +48,15 @@ AS
 		- 20191225@Cherry: Integrate Spadegaming (#125788)
 		- 20200313@Ned.Le: NAP Report - Incorporate Virtual Games (#130326)
 		- 20200317@Ned.Le: Hotfix - Miss get data Card Club From bodb_account.dbo.mcCustBettingDaily table (#130535)
+		- 20200323@Ned.Le: NAP Report - Incorprorate SA Gaming (#129349) | Saba.club (#130776) | Sexy Gaming (#130853)
 
 	Param's Explanation:  
 	  + @MoveBetsDay: The day of moving bets to battrans14
 	  + @BalanceUpDay: The day of moving bets to battransbk
 	  + @CustID: SuperID
-	  + {251: Casino (include : 251, 208, 209, 210), 151:Racing, 252:Bingo, 161:Number Game, 162:Live Casino, 180:Virtual Sports, 202:Keno,  -1 : Metric Gaming - Superlive}
-			220: Lottery, 160: Lucky 3, 207: Bullfighting, 163: Poker Games, 245: Virtual Games
+	  + {251: Casino (include : 251, 208, 209, 210), 151:Racing, 252:Bingo, 161:Number Game, 162:Live Casino, 180:Virtual Sports, 202:Keno,  -1 : Metric Gaming - Superlive
+		 220: Lottery, 160: Lucky 3, 207: Bullfighting, 163: Poker Games, 245: Virtual Games
+		 244: SA Gaming, 200: Saba.club, 243: Sexy Gaming}
   
 */  
 BEGIN
@@ -139,8 +141,9 @@ BEGIN
 			AND (
 					(@sportType=251 AND (b.gameID BETWEEN 2101 AND 2399 OR b.gameID BETWEEN 2901 AND 2999))
 					OR b.gameID BETWEEN 4001 AND CASE WHEN @sportType=212 THEN 4600 ELSE 0 END 	--Macau Games, Pragmatic, Spadegaming
-					OR b.gameID BETWEEN 1011 AND CASE WHEN @sportType=219 THEN 1020 ELSE 0 END -- Fishing World			
-					OR b.gameID BETWEEN 1901 AND CASE WHEN @sportType=212 THEN 1999 ELSE 0 END -- Card Club [Video Poker]					
+					OR b.gameID BETWEEN 1011 AND CASE WHEN @sportType=219 THEN 1020 ELSE 0 END -- Fishing World
+					OR b.gameID BETWEEN 1901 AND CASE WHEN @sportType=212 THEN 1999 ELSE 0 END -- Card Club [Video Poker]
+					OR b.gameID BETWEEN 1611 AND CASE WHEN @sportType=200 THEN 1699 ELSE 0 END -- Saba.club
 				) 
 			AND (
 					b.statusId IN (111,112,113,0) 
@@ -158,7 +161,9 @@ BEGIN
 			FROM dbo.bettransLC b WITH(NOLOCK)
 			WHERE b.winlostdate BETWEEN @TempFromDate AND @CurrentDate
 			AND (
-					b.gameID BETWEEN 2401 AND CASE WHEN @sportType=211 THEN 2499 ELSE 0 END 	
+					b.gameID BETWEEN 2401 AND CASE WHEN @sportType=211 THEN 2499 ELSE 0 END -- Allbet
+					OR b.gameID BETWEEN 3001 AND CASE WHEN @sportType=244 THEN 3099 ELSE 0 END -- SA Gaming
+					OR b.gameID BETWEEN 3101 AND CASE WHEN @sportType=243 THEN 3199 ELSE 0 END -- Sexy Gaming
 				) 
 			AND (
 					b.statusId IN (111,112,113,0) 
@@ -184,21 +189,24 @@ BEGIN
 				WHERE	b.rptDate BETWEEN '''''+ CONVERT(VARCHAR(10),@FirstDate, 121)+ ''''' AND '''''+  CONVERT(VARCHAR(10),@TempToDate, 121)  + '''''
 						AND 
 						(
-							b.bettype BETWEEN 81 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' =161 THEN 120 ELSE 0 END)
-							OR b.bettype BETWEEN 8101 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' =161 THEN 8120 ELSE 0 END)
+							b.bettype BETWEEN 81 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'       = 161 THEN 120 ELSE 0 END)
+							OR b.bettype BETWEEN 8101 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 161 THEN 8120 ELSE 0 END)
 							OR (' + CONVERT(VARCHAR(5),@sportType) +' = 251 AND (b.bettype BETWEEN 2101 AND 2399 OR b.bettype BETWEEN 2901 AND 2999)) --RNG Casino
-							OR b.bettype BETWEEN 801 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' = -1 THEN 806 ELSE 0 END)
-							OR b.bettype BETWEEN 1501 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' =202 THEN 1599 ELSE 0 END)
-							OR b.bettype BETWEEN 4601 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' =245 THEN 4900 ELSE 0 END) --Virtual Games
-							OR b.bettype BETWEEN 1701 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' = 255 THEN 1703 ELSE 0 END) -- GoldDeluxe
+							OR b.bettype BETWEEN 801 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = -1 THEN 806 ELSE 0 END)
+							OR b.bettype BETWEEN 1501 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 202 THEN 1599 ELSE 0 END)
+							OR b.bettype BETWEEN 4601 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 245 THEN 4900 ELSE 0 END) --Virtual Games
+							OR b.bettype BETWEEN 1701 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 255 THEN 1703 ELSE 0 END) -- GoldDeluxe
 							OR b.bettype BETWEEN 18000 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' = 204 THEN 18005 ELSE 0 END) -- Colossus Bet
-							OR b.bettype BETWEEN 2401  AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 211 THEN 2499 ELSE 0 END) -- AllBet
-							OR b.bettype BETWEEN 4001  AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 212 THEN 4600 ELSE 0 END) -- Macau Games, Pragmatic, Spadegaming
-							OR b.bettype BETWEEN 2501  AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 213 THEN 2699 ELSE 0 END) -- NG2
-							OR b.bettype BETWEEN 1011  AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 219 THEN 1020 ELSE 0 END) -- Fishing World
-							OR b.bettype BETWEEN 1021 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' = 220 THEN 1049 ELSE 0 END --Loterry
-							OR (' + CONVERT(VARCHAR(5),@sportType) +' =180 AND (b.bettype BETWEEN 1201 AND 1299 OR b.bettype BETWEEN 2700 AND 2899)) --Virtual Sports		
-							OR b.bettype BETWEEN 1901 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' = 212 THEN 1999 ELSE 0 END --Card Club [Video Poker]							
+							OR b.bettype BETWEEN 2401 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 211 THEN 2499 ELSE 0 END) -- AllBet
+							OR b.bettype BETWEEN 3001 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 244 THEN 3099 ELSE 0 END) -- SA Gaming
+							OR b.bettype BETWEEN 3101 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 243 THEN 3199 ELSE 0 END) -- Sexy Gaming
+							OR b.bettype BETWEEN 4001 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 212 THEN 4600 ELSE 0 END) -- Macau Games, Pragmatic, Spadegaming
+							OR b.bettype BETWEEN 2501 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 213 THEN 2699 ELSE 0 END) -- NG2
+							OR b.bettype BETWEEN 1011 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 219 THEN 1020 ELSE 0 END) -- Fishing World
+							OR b.bettype BETWEEN 1021 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = 220 THEN 1049 ELSE 0 END --Loterry
+							OR (' + CONVERT(VARCHAR(5),@sportType) +' =180 AND (b.bettype BETWEEN 1201 AND 1299 OR b.bettype BETWEEN 2700 AND 2899)) --Virtual Sports
+							OR b.bettype BETWEEN 1901 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = 212 THEN 1999 ELSE 0 END --Card Club [Video Poker]
+							OR b.bettype BETWEEN 1611 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 200 THEN 1699 ELSE 0 END) -- Saba.club
 						) 
 						AND b.bettype NOT IN (38)
 						AND b.status IN (3  ---DRAW
@@ -280,7 +288,7 @@ BEGIN
 			LEFT JOIN CustEnableKeno ce ON ce.CustID = av.custid    
 		WHERE ce.CustID IS NULL
 	END
-	IF @sportType IN (211,212,213,219,220,180,245)
+	IF @sportType IN (211,212,213,219,220,180,245,244,200,243)
     BEGIN
 		DECLARE @bitmapOrder TABLE (bitmapOrder TINYINT)
 		INSERT INTO @bitmapOrder (bitmapOrder)
