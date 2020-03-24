@@ -13,6 +13,7 @@ AS
 	Revisions:		
 		- 20191107@Robert: [Special Delete] - Implement Daily Auto Mail for Abnormal Bets - [#121920]
 		- 20191226@Robert: NAP Report - Automate daily abnormal bets report for CSD [122800] - change request
+		- 20200312@Robert: NAP Report - Daily Abnormal Bet Report for Headline - [130183]
 
 	Param's Explanation:	 
 */
@@ -43,6 +44,7 @@ AS
 		 , finalawayscore    INT
 		 , site              VARCHAR(50)
 		 , Username          NVARCHAR(50)
+		 , Username2         NVARCHAR(50)
 		 , odds              SMALLMONEY
 		 , CurrencyName      NVARCHAR(50)
 		 , stake             MONEY
@@ -93,6 +95,7 @@ AS
 				    , finalawayscore
 				    , site
 				    , Username
+				    , Username2
 				    , odds
 				    , CurrencyName
 				    , stake
@@ -117,6 +120,11 @@ AS
 				, m.finalawayscore
 				, s.site
 				, b.Username
+				, CASE
+					 WHEN s.site = 'CN88'
+					 THEN 'N/A'
+					 ELSE REPLACE(c1.username2, s.site + '$', '')
+				  END AS username2
 				, b.odds
 				, b.CurrencyName
 				, b.stake
@@ -133,6 +141,7 @@ AS
 			    LEFT JOIN bodb02.dbo.league AS l WITH(NOLOCK) ON m.leagueid = l.leagueid
 			    LEFT JOIN bodb02.dbo.Customer AS c WITH(NOLOCK) ON b.srecommend = c.custid
 			    LEFT JOIN bodb02.dbo.Site AS s WITH(NOLOCK) ON c.site = s.site
+			    LEFT JOIN bodb02.dbo.Customer AS c1 WITH(NOLOCK) ON c1.custid = b.custid
 			WHERE s.isDeposit = CASE
 							    WHEN @Site = 'CN88'
 							    THEN 0
@@ -210,6 +219,7 @@ AS
 		   , finalawayscore
 		   , site
 		   , Username
+		   , Username2
 		   , odds
 		   , CurrencyName
 		   , stake
