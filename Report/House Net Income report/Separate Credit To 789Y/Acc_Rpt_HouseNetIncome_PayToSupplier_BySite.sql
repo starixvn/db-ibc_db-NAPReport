@@ -65,7 +65,7 @@ BEGIN
 	INNER JOIN #tmpProduct p ON v.[VendorId] = p.VendorID
 	WHERE v.[VName] IN ('3rdCreditWLShareRate'
 					, '3rdCreditWLShareRateTX' -- 1902 of Card Club
-					, '3rdCreditRebateRate') -- Rebate Rate of Sexy Gaming
+					, '3rdCreditRebateRate') -- Rebate Rate of SA Gaming
 
     INSERT INTO #Exchange(ExchangeDate, ExchangeID, Rate)
 		 SELECT ExchangeDate, Currency, Rate
@@ -86,11 +86,28 @@ BEGIN
 	INSERT INTO #ExchangeOANDA(ExchangeDate, ExchangeID, Rate)
 	EXECUTE (@OpenQueryExchange)
 
-	-- Rebate Rate of Sexy Gaming FROM LA
-	DECLARE @RebateRate    MONEY;
-    SELECT @RebateRate = ci.DI_Rate
-    FROM DBLIC.bodb_licensee.dbo.LA_f_ChargeInfo3rd(@FDate, @TDate, 'SAG', 'OA') AS ci
-    WHERE ci.ChargeType = 11;
+	-- BEGIN: Rebate Rate of SA Gaming FROM LA
+	CREATE TABLE #tmpRebateRate (DI_Rate MONEY)
+	DECLARE @OpenQueryRebateRate NVARCHAR(1000), @RebateRate    MONEY
+	SELECT @OpenQueryRebateRate = N'SELECT * ' 
+						+ N'FROM OPENQUERY(DBLIC, '
+						+ N'''SELECT ci.DI_Rate '
+						+ N'FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd('''''
+						+ CAST(@FDate AS NVARCHAR(50)) + ''''''
+						+ N','''''
+						+ CAST(@TDate AS NVARCHAR(50)) + ''''''
+						+ N',''''SAG'''''
+						+ N',''''OA'''''	
+						+ N') ci '
+						+ N'WHERE ci.ChargeType = 11 AND ci.IsDeposit = 0'
+						+ N''')';
+
+	INSERT INTO #tmpRebateRate(DI_Rate)
+    EXECUTE (@OpenQueryRebateRate);
+
+    SELECT TOP 1 @RebateRate = DI_Rate
+    FROM #tmpRebateRate
+	-- END: Rebate Rate of SA Gaming FROM LA
 
 	CREATE TABLE #ChargeInfo3rd(
 	    ProductID         INT
@@ -243,10 +260,10 @@ BEGIN
 	-- BEGIN - Calculate PayToSupplier for CC, SG, SAG, SXG, PP
 	CREATE TABLE #tmpPayToSupplier_Daily(
 		ProductId					INT,
-	    RptDate               VARCHAR(10),
+	    RptDate						DATE,
 		PayToSupplier_Daily        MONEY);
 
-	CREATE TABLE #tmpPayToSupplier_Daily_MTD(
+	CREATE TABLE #tmpPayToSupplier_MTD(
 		ProductId					INT,
 		MemberWLOANDA				MONEY,
 		PayToSupplier_PP_MTD        MONEY);
@@ -292,7 +309,7 @@ BEGIN
 			INNER JOIN #tmpProduct p on ci.ProductID = p.ProductID AND p.ProductCode = 'PP'
 			INNER JOIN #ExchangeOANDA ex ON ci.BaseCurrencyId = ex.ExchangeID AND ex.ExchangeDate = @TDate
 
-	INSERT INTO #tmpPayToSupplier_Daily_MTD(ProductId, MemberWLOANDA, PayToSupplier_PP_MTD)
+	INSERT INTO #tmpPayToSupplier_MTD(ProductId, MemberWLOANDA, PayToSupplier_PP_MTD)
 	SELECT 32 ProductID, SUM(MemberWL_MTD) MemberWLOANDA,
 						SUM((CASE WHEN MemberWL_MTD >= MinAmount THEN 
 								CASE WHEN MemberWL_MTD > MaxAmount THEN (MaxAmount - MinAmount)
@@ -388,7 +405,7 @@ INSERT INTO #FinalResult(RptDate
 			, 0.01 * (SELECT CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(MemberWLOANDA) END FROM #tmpFactSiteWinloss AS t WHERE t.ProductID = 27)               
 			, 0
 			, 0        
-			, (SELECT CASE WHEN SUM(MemberWLOANDA) < 0 THEN 0 ELSE -SUM(PayToSupplier_PP_MTD) END FROM #tmpPayToSupplier_Daily_MTD AS t WHERE t.ProductID = 32)
+			, (SELECT CASE WHEN SUM(MemberWLOANDA) < 0 THEN 0 ELSE -SUM(PayToSupplier_PP_MTD) END FROM #tmpPayToSupplier_MTD AS t WHERE t.ProductID = 32)
 			, CASE WHEN SUM(PayToSupplier_CC) > 0 THEN 0 ELSE SUM(PayToSupplier_CC) END
 			, 0
 			, CASE WHEN SUM(PayToSupplier_SG) > 0 THEN 0 ELSE SUM(PayToSupplier_SG) END
@@ -494,12 +511,13 @@ INSERT INTO #FinalResult(RptDate
 	DROP TABLE #tmpProduct;
 	DROP TABLE #tmpVendorGlobalSetting;
 	DROP TABLE #ChargeInfo3rd
+	DROP TABLE #tmpRebateRate
 	DROP TABLE #tmpSite
     DROP TABLE #FinalResult;
     DROP TABLE #tmpFactSiteWinloss;
 	DROP TABLE #tmpRpt_BettingByProduct
 	DROP TABLE #tmpPayToSupplier_Daily;
-	DROP TABLE #tmpPayToSupplier_Daily_MTD;
+	DROP TABLE #tmpPayToSupplier_MTD;
 
 END
 GO

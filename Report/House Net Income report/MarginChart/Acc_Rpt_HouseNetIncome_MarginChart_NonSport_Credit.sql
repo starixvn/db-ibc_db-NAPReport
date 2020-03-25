@@ -45,7 +45,7 @@ BEGIN
 	FROM bodb_Account.dbo.tbl_Site WITH(NOLOCK)
 	WHERE [site] = 'CN88';
 
-	DECLARE @Credit VARCHAR(MAX) = 'NG,VS,KN,LT,VS2,VB,CS,NG2,AB,GD,CB,PP,CC,SG,VRG,SA,SBC,SXG'  
+	DECLARE @Credit VARCHAR(MAX) = 'NG,VS,KN,LT,VS2,VB,CS,NG2,AB,GD,CB,PP,CC,SG,VRG,SAG,SBC,SXG'  
 		
 	-- Region: Get exchange rate info
 	CREATE	TABLE #Exchange			(ExchangeDate DATE, ExchangeID INT, Rate FLOAT)
@@ -94,11 +94,28 @@ BEGIN
 	INSERT INTO #ExchangeOANDA(ExchangeDate, ExchangeID, Rate)
 	EXECUTE (@OpenQuery)
 
-	-- Rebate Rate of Sexy Gaming FROM LA
-	DECLARE @RebateRate    MONEY;
-    SELECT @RebateRate = ci.DI_Rate
-    FROM DBLIC.bodb_licensee.dbo.LA_f_ChargeInfo3rd(@FDate, @TDate, 'SAG', 'OA') AS ci
-    WHERE ci.ChargeType = 11;
+	-- BEGIN: Rebate Rate of Sexy Gaming FROM LA
+	CREATE TABLE #tmpRebateRate (DI_Rate MONEY)
+	DECLARE @OpenQueryRebateRate NVARCHAR(1000), @RebateRate    MONEY
+	SELECT @OpenQueryRebateRate = N'SELECT * ' 
+						+ N'FROM OPENQUERY(DBLIC, '
+						+ N'''SELECT ci.DI_Rate '
+						+ N'FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd('''''
+						+ CAST(@FDate AS NVARCHAR(50)) + ''''''
+						+ N','''''
+						+ CAST(@TDate AS NVARCHAR(50)) + ''''''
+						+ N',''''SAG'''''
+						+ N',''''OA'''''	
+						+ N') ci '
+						+ N'WHERE ci.ChargeType = 11 AND ci.IsDeposit = 0'
+						+ N''')';
+
+	INSERT INTO #tmpRebateRate(DI_Rate)
+    EXECUTE (@OpenQueryRebateRate);
+
+    SELECT TOP 1 @RebateRate = DI_Rate
+    FROM #tmpRebateRate
+	-- END: Rebate Rate of Sexy Gaming FROM LA
 	
 	CREATE TABLE #ChargeInfo3rd(
 	    ProductID         INT
@@ -246,7 +263,7 @@ BEGIN
 	-- BEGIN - Calculate PayToSupplier for CC, SG, SAG, SXG, PP
 	CREATE TABLE #tmpPayToSupplier_Daily(
 		ProductId					INT,
-	    RptDate               VARCHAR(10),
+	    RptDate						DATE,
 		PayToSupplier_Daily        MONEY);
 
 	-- Valid Bets Rebate Of SAG From LA 
@@ -358,6 +375,7 @@ SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 	-- Drop tmp table
 	DROP TABLE #SportBettypeMatrix
 	DROP TABLE #TmpHouseWL
+	DROP TABLE #tmpRpt_BettingByProduct
 	DROP TABLE #Exchange
 	DROP TABLE #ExchangeOANDA
 	DROP TABLE #FinalResult
@@ -367,6 +385,7 @@ SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 	DROP TABLE #PayToSupplierRate
 	DROP TABLE #PayToSupplierRate_CN88
 	DROP TABLE #ChargeInfo3rd
+	DROP TABLE #tmpRebateRate
 	DROP TABLE #tmpPayToSupplier_Daily
 
 END

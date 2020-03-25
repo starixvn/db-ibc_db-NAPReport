@@ -16,6 +16,7 @@ AS;
 		- 20200224@Kean: #123734 - House Net Income - Integrate SG (Spadegaming) product
 		- 20200304@Kean: #129756 - Exclude bettype 4299 on Deposit TO
 		- 20200317@Kean - Letstalk - Integrate Virtual Games product [#126465]
+		- 20200324@Kean - Email/Letstalk Reports - Integrate SA Gaming product [#128059]
 
 	Param's Explanation:   
 		- @ProductList: '' - default value when get all product
@@ -33,7 +34,7 @@ BEGIN
     SELECT @FDate = @FromDate
 	    , @TDate = @ToDate;
 
-    DECLARE @Deposit    VARCHAR(MAX) = 'NG,CS,KN,LT,AGC,CO,CB,VB,AB,GD,BX,VS,VS2,PP,CC,SG,VRG';
+    DECLARE @Deposit    VARCHAR(MAX) = 'NG,CS,KN,LT,AGC,CO,CB,VB,AB,GD,BX,VS,VS2,PP,CC,SG,VRG,SAG,I4D';
 
     CREATE TABLE #Exchange(
 	    ExchangeDate    DATE
