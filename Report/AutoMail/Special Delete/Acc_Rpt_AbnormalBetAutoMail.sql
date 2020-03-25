@@ -14,6 +14,8 @@ AS
 		- 20191107@Robert: [Special Delete] - Implement Daily Auto Mail for Abnormal Bets - [#121920]
 		- 20191226@Robert: NAP Report - Automate daily abnormal bets report for CSD [122800] - change request
 		- 20200312@Robert: NAP Report - Daily Abnormal Bet Report for Headline - [130183]
+		- 20200325@Robert: [NAP] - Implement Daily Auto Mail for Abnormal Bets - [121920] - add more ExternalID
+
 
 	Param's Explanation:	 
 */
@@ -233,6 +235,7 @@ AS
 
 	   SELECT DISTINCT 
 			c.username
+		   , d.Username2
 		   , c.iplogin
 		   , TicketIPs = STUFF(
 			(
