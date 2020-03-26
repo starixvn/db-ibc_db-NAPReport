@@ -38,7 +38,7 @@ BEGIN
 	DECLARE @FDate DATE, @TDate DATE
 	SELECT @FDate = @FromDate, @TDate = @ToDate
 
-	DECLARE @DefaulProductList VARCHAR(MAX) = 'EX,GD,FW,AB,VB,CB,CO,AGC,KN,LT,CS,NG,PP,CC,SP,SG,VRG,SAG'
+	DECLARE @DefaulProductList VARCHAR(MAX) = 'EX,GD,FW,AB,VB,CB,CO,AGC,KN,LT,CS,NG,PP,CC,SP,SG,VRG,SAG,I4D'
 
 	-- Select ProductList
 	SELECT @ProductList = CASE WHEN LEN(ISNULL(@ProductList, '')) > 0  THEN @ProductList ELSE @DefaulProductList END
@@ -77,6 +77,13 @@ BEGIN
 	SELECT @SumValue = @SumValue + ' FROM #MarginChartResult GROUP BY [Order], Figure ORDER BY [Order]'
 	
 	--EXEC (@DynamicTable)
+
+	-- 19. I4D
+	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'I4D')
+	BEGIN
+		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
+							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_I4D_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
+	END
 
 	-- 18. SA
 	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'SAG')

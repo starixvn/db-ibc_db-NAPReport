@@ -129,6 +129,10 @@ EXEC bodb02.dbo.Acc_Rpt_HouseNetIncome_SA_Deposit
 	@FromDate  = @FromDate
 	,@ToDate	= @ToDate
 
+EXEC bodb02.dbo.Acc_Rpt_HouseNetIncome_I4D_Deposit
+	@FromDate  = @FromDate
+	,@ToDate	= @ToDate
+
 END
 GO
 GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_Product_Deposit] TO [bodbAdminNet]
