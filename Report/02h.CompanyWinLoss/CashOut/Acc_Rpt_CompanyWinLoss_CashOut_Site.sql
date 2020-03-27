@@ -8,7 +8,7 @@ ALTER PROCEDURE dbo.Acc_Rpt_CompanyWinLoss_CashOut_Site
     @EndDate   SMALLDATETIME, 
     @Site      VARCHAR(50),
     @IsLive    INT           = 2,
-    @BettypeId INT
+    @BettypeId INT 
 AS
 
 /*
