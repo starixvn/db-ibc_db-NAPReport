@@ -126,8 +126,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_CashOut_BetType] @StartDate='2016-01-01', @EndDate=
            SUM(RealIncome) RealIncome, 
            SUM(RealTurnover) RealTurnover 
     FROM #tmp_Data AS b
-    GROUP BY b.BetType, 
-            b.BetTypeName, 
+    GROUP BY b.BetTypeName, 
             b.RowName
                         
     IF @IsLive = 2
