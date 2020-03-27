@@ -7,7 +7,8 @@ ALTER PROCEDURE dbo.Acc_Rpt_CompanyWinLoss_CashOut_Site
 	@StartDate SMALLDATETIME, 
     @EndDate   SMALLDATETIME, 
     @Site      VARCHAR(50),
-    @IsLive    INT           = 2
+    @IsLive    INT           = 2,
+    @BettypeId INT
 AS
 
 /*
@@ -34,7 +35,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_CashOut_Site] @StartDate='2016-08-24', @EndDate='20
         (CustId INT
          PRIMARY KEY, 
          Site   VARCHAR(50)
-        );
+        )
         IF @Site = 'CN88'
             BEGIN
                 INSERT INTO #Agent
@@ -73,8 +74,8 @@ EXEC [Acc_Rpt_CompanyWinLoss_CashOut_Site] @StartDate='2016-08-24', @EndDate='20
                     INSERT INTO #Agent
                            SELECT 52466, 
                                   'XYZBET';--8RM;
-            END;
-    END;
+            END
+    END
     
     CREATE TABLE #Data
         (RowName         NVARCHAR(50), 
@@ -113,23 +114,25 @@ EXEC [Acc_Rpt_CompanyWinLoss_CashOut_Site] @StartDate='2016-08-24', @EndDate='20
 	FROM bettrans AS b WITH(NOLOCK)
 			INNER JOIN #Agent AS ag ON b.recommend = ag.custid
 	WHERE b.winlostdate = @StartDate
-			 AND b.BetType IN (913,914)
+			 AND b.BetType = @BettypeId
 			 AND (@IsLive > 1
 				  OR b.liveindicator = @IsLive)
 			 AND b.ruben = 1
 			 AND b.statusID IN(111, 112, 113)
-	GROUP BY ag.site;
+	GROUP BY ag.site
+	
+	OPTION(RECOMPILE)
                    
     SELECT d.RowName, 
-               d.MemberWinLoss AS MemberWinLoss, 
-               d.SMAWinLoss AS SMAWinLoss, 
-               -d.ExtraPT AS ExtraPT, 
-               d.Commission AS Commission, 
-               d.RealIncome AS RealIncome, 
-               d.RealTurnover AS RealTurnover
+           d.MemberWinLoss AS MemberWinLoss, 
+           d.SMAWinLoss AS SMAWinLoss, 
+           -d.ExtraPT AS ExtraPT, 
+           d.Commission AS Commission, 
+           d.RealIncome AS RealIncome, 
+           d.RealTurnover AS RealTurnover
     FROM #Data AS d
     ORDER BY RowName
 	    
-	DROP TABLE #Agent;
-	DROP TABLE #Data;
+	DROP TABLE #Agent
+	DROP TABLE #Data
 GO
