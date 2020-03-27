@@ -2,7 +2,7 @@
 USE bodb_dwrs
 GO
 
-ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_NonSport_Credit]
+ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_NonSport_Credit_xtest]
 	@FromDate	DATE ,
 	@ToDate	DATE ,
 	@ProductList VARCHAR(MAX) = ''
@@ -329,7 +329,8 @@ SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 									     WHERE t.ProductID IN (5,8,28,27) 
 										AND t.SiteID <> @SiteCN88 AND  t.rptDate = @tmpDate) -- VS,KN,LT,VS2
 
-		+ (SELECT ISNULL(-SUM(t.PayToSupplier_Daily),0) FROM #tmpPayToSupplier_Daily AS t WHERE t.rptDate = @tmpDate) -- PP
+		+ (SELECT ISNULL(-SUM(t.PayToSupplier_Daily),0) FROM #tmpPayToSupplier_Daily AS t 
+														WHERE t.ProductID IN (32) AND t.rptDate = @tmpDate) -- PP
 
 		+ (SELECT ISNULL(SUM(t.MemberWLOANDA * r.Rate),0) FROM #TmpHouseWL AS t INNER JOIN #PayToSupplierRate_CN88 r ON t.ProductID = r.ProductID
 									     WHERE t.ProductID IN (5,8,28,27) 
