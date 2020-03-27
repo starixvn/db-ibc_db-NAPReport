@@ -2,7 +2,7 @@
 USE bodb_dwrs
 GO
 
-ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_NonSport_Credit_xtest]
+ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_NonSport_Credit]
 	@FromDate	DATE ,
 	@ToDate	DATE ,
 	@ProductList VARCHAR(MAX) = ''
