@@ -142,7 +142,6 @@ BEGIN
 			MemberWL		MONEY,
 			AmountToCompany MONEY);
 	CREATE TABLE #DailyPayToSupplier(ParentID INT, rptDate DATE, MemberWLOANDA MONEY, PayToSupplier MONEY)
-	CREATE TABLE #FullRangePayToSupplier(PayToSupplier MONEY)
 
     INSERT INTO #TempDataSG(PartyId, RptDate, CurrencyId, ProductId, MemberWL, AmountToCompany)
 			SELECT p.PartyId
@@ -179,18 +178,6 @@ BEGIN
 		LEFT JOIN #tmpVendorGlobalSetting v ON v.ProductID = d.ProductId
 	GROUP BY t.ParentID, d.rptDate
 
-		-- Check for OneWorks
-	INSERT INTO #FullRangePayToSupplier(PayToSupplier)
-	SELECT CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(PayToSupplier) END
-	FROM #DailyPayToSupplier
-	WHERE ParentID = 1
-	-- Check for Boping & Zelianta
-	INSERT INTO #FullRangePayToSupplier(PayToSupplier)
-	SELECT CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(PayToSupplier) END
-	FROM #DailyPayToSupplier
-	WHERE ParentID <> 1
-	-- END - Rate for PayToSupplier
-
 	CREATE TABLE #FinalResult (
 		RptDate				VARCHAR(10),
 		LicenseeWL			MONEY,
@@ -200,7 +187,7 @@ BEGIN
 	INSERT INTO #FinalResult (rptDate, LicenseeWL, PayToSupplier)
 	SELECT 'FullRange'
 		, 0
-		, (SELECT SUM(PayToSupplier) FROM #FullRangePayToSupplier)
+		, 0
 
 	DECLARE @tmpDate DATE, @DateList VARCHAR(200)
 	SELECT @tmpDate = @FDate
@@ -243,6 +230,5 @@ BEGIN
 	DROP TABLE #PartyChargeInfo
 	DROP TABLE #TempDataSG
 	DROP TABLE #DailyPayToSupplier
-	DROP TABLE #FullRangePayToSupplier
 	DROP TABLE #FinalResult
 END
