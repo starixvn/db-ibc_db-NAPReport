@@ -6,8 +6,7 @@ GO
 ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_CashOut_MatchDetail] 
 	@StartDate SMALLDATETIME, 
     @EndDate   SMALLDATETIME, 
-    @IsLive    INT           = 2,
-    @BettypeId INT 
+    @IsLive    INT           = 2
 AS
 
 /*
@@ -101,9 +100,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_CashOut_MatchDetail] @EndDate='2020-01-01',@StartDa
     FROM bettrans b WITH(NOLOCK)
         INNER JOIN match m WITH(NOLOCK) ON b.MatchId = m.MatchId
     WHERE b.winlostdate = @StartDate
-         AND ((@BettypeId = 0 AND b.BetType IN (913,914))
-			OR (@BettypeId <> 0 AND b.BetType = @BettypeId)
-			)
+         AND b.bettype IN (913,914)
          AND m.EventDate = @StartDate
          AND (@IsLive > 1
               OR b.liveindicator = @IsLive)

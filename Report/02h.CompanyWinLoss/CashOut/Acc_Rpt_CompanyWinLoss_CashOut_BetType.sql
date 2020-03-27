@@ -38,7 +38,6 @@ EXEC [Acc_Rpt_CompanyWinLoss_CashOut_BetType] @StartDate='2016-01-01', @EndDate=
            
     CREATE TABLE #tmp_Data
                      (LiveStatus      INT, 
-                      bettype         INT, 
                       BetTypeName     VARCHAR(50), 
                       RowName         VARCHAR(50), 
                       MemberWinLoss   MONEY, 
@@ -62,8 +61,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_CashOut_BetType] @StartDate='2016-01-01', @EndDate=
                      
     INSERT INTO #tmp_Data
     SELECT liveindicator, 
-          b.BetType, 
-          sb.typenamee,
+          'Cash Out' BetTypeName,
           CASE
               WHEN dep.CustId IS NULL
                    AND cn88.CustId IS NOT NULL
@@ -96,7 +94,6 @@ EXEC [Acc_Rpt_CompanyWinLoss_CashOut_BetType] @StartDate='2016-01-01', @EndDate=
                                                                                       END
               END) RealTurnover
     FROM bettrans AS b WITH(NOLOCK)
-         LEFT JOIN bodb02.dbo.bettype AS sb WITH(NOLOCK) ON sb.typeid = b.BetType
          LEFT JOIN #DepositSuper AS dep ON b.srecommend = dep.CustId
          LEFT JOIN CS_CustSuper AS cn88 WITH(NOLOCK) ON b.srecommend = cn88.CustId
     WHERE b.winlostdate = @StartDate
@@ -106,8 +103,6 @@ EXEC [Acc_Rpt_CompanyWinLoss_CashOut_BetType] @StartDate='2016-01-01', @EndDate=
          AND b.statusID IN(111, 112, 113)
          AND b.bettype IN (913,914)
     GROUP BY liveindicator, 
-            b.BetType, 
-            sb.typenamee,
             CASE
                 WHEN dep.CustId IS NULL
                      AND cn88.CustId IS NOT NULL
@@ -117,10 +112,11 @@ EXEC [Acc_Rpt_CompanyWinLoss_CashOut_BetType] @StartDate='2016-01-01', @EndDate=
                 THEN 'Credit'
                 ELSE 'Deposit'
             END
+            
     OPTION(RECOMPILE)
                         
     INSERT INTO #Data
-    SELECT b.BetType GroupId, 
+    SELECT 2 GroupId, 
            b.BetTypeName GroupName, 
            b.RowName AS RowName, 
            SUM(MemberWinLoss) MemberWinLoss, 

@@ -7,8 +7,7 @@ ALTER PROCEDURE dbo.Acc_Rpt_CompanyWinLoss_CashOut_Site
 	@StartDate SMALLDATETIME, 
     @EndDate   SMALLDATETIME, 
     @Site      VARCHAR(50),
-    @IsLive    INT           = 2,
-    @BettypeId INT 
+    @IsLive    INT           = 2
 AS
 
 /*
@@ -114,9 +113,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_CashOut_Site] @StartDate='2016-08-24', @EndDate='20
 	FROM bettrans AS b WITH(NOLOCK)
 			INNER JOIN #Agent AS ag ON b.recommend = ag.custid
 	WHERE b.winlostdate = @StartDate
-			 AND ((@BettypeId = 0 AND b.BetType IN (913,914))
-				OR (@BettypeId <> 0 AND b.BetType = @BettypeId)
-				)
+			 AND b.bettype IN (913,914)
 			 AND (@IsLive > 1
 				  OR b.liveindicator = @IsLive)
 			 AND b.ruben = 1
