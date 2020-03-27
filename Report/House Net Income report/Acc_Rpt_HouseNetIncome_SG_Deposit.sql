@@ -13,13 +13,14 @@ AS
    
     Revisions:  
 	   - 20200224@Kean: #123734 - House Net Income - Integrate SG (Spadegaming) product
+	   - 20200327@Kean: #131239 - Email/Letstalk Reports: Pay to supplier of Boping&Zelianta are wrongly
 
 	Param's Explanation:   
 
 	EXEC Acc_Rpt_HouseNetIncome_SG_Deposit '20160901', '20160930'
 */  
 BEGIN  
-SET NOCOUNT ON  
+	SET NOCOUNT ON  
 
 	DECLARE @FDate DATE, @TDate DATE
 	SELECT @FDate = @FromDate, @TDate = @ToDate	
@@ -137,7 +138,7 @@ SET NOCOUNT ON
 			MemberWL		MONEY,
 			AmountToCompany MONEY);
 	CREATE TABLE #DailyPayToSupplier(ParentID INT, rptDate DATE, MemberWLOANDA MONEY, PayToSupplier MONEY)
-	CREATE TABLE #FullRangePayToSupplier(ParentID INT, PayToSupplier MONEY)
+	CREATE TABLE #FullRangePayToSupplier(PayToSupplier MONEY)
 
     INSERT INTO #TempDataSG(PartyId, RptDate, CurrencyId, ProductId, MemberWL, AmountToCompany)
 			SELECT p.PartyId
@@ -174,15 +175,16 @@ SET NOCOUNT ON
 		LEFT JOIN #tmpVendorGlobalSetting v ON v.ProductID = d.ProductId
 	GROUP BY t.ParentID, d.rptDate
 
-	INSERT INTO #FullRangePayToSupplier(ParentID, PayToSupplier)
-	SELECT ParentID
-		 , CASE WHEN ParentId = 1 THEN
-					CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(PayToSupplier) END
-				ELSE
-					CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(PayToSupplier) END
-				END 
+		-- Check for OneWorks
+	INSERT INTO #FullRangePayToSupplier(PayToSupplier)
+	SELECT CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(PayToSupplier) END
 	FROM #DailyPayToSupplier
-	GROUP BY ParentID
+	WHERE ParentID = 1
+	-- Check for Boping & Zelianta
+	INSERT INTO #FullRangePayToSupplier(PayToSupplier)
+	SELECT CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(PayToSupplier) END
+	FROM #DailyPayToSupplier
+	WHERE ParentID <> 1
 	-- END - Rate for PayToSupplier
 
 	CREATE TABLE #FeeData(

@@ -16,6 +16,7 @@ AS
     Revisions:
 		- 20200224@Kean: #123734 - House Net Income - Integrate SG (Spadegaming) product
 		- 20200313@Kean - Change the "Pay to supplier" formula of SG - #126465
+		- 20200327@Kean: #131239 - Email/Letstalk Reports: Pay to supplier of Boping&Zelianta are wrongly
 		
 	Param's Explanation:   
 
@@ -141,7 +142,6 @@ BEGIN
 			MemberWL		MONEY,
 			AmountToCompany MONEY);
 	CREATE TABLE #DailyPayToSupplier(ParentID INT, rptDate DATE, MemberWLOANDA MONEY, PayToSupplier MONEY)
-	CREATE TABLE #FullRangePayToSupplier(ParentID INT, PayToSupplier MONEY)
 
     INSERT INTO #TempDataSG(PartyId, RptDate, CurrencyId, ProductId, MemberWL, AmountToCompany)
 			SELECT p.PartyId
@@ -178,17 +178,6 @@ BEGIN
 		LEFT JOIN #tmpVendorGlobalSetting v ON v.ProductID = d.ProductId
 	GROUP BY t.ParentID, d.rptDate
 
-	INSERT INTO #FullRangePayToSupplier(ParentID, PayToSupplier)
-	SELECT ParentID
-		 , CASE WHEN ParentId = 1 THEN
-					CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(PayToSupplier) END
-				ELSE
-					CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(PayToSupplier) END
-				END 
-	FROM #DailyPayToSupplier
-	GROUP BY ParentID
-	-- END - Rate for PayToSupplier
-
 	CREATE TABLE #FinalResult (
 		RptDate				VARCHAR(10),
 		LicenseeWL			MONEY,
@@ -198,7 +187,7 @@ BEGIN
 	INSERT INTO #FinalResult (rptDate, LicenseeWL, PayToSupplier)
 	SELECT 'FullRange'
 		, 0
-		, (SELECT SUM(PayToSupplier) FROM #FullRangePayToSupplier)
+		, 0
 
 	DECLARE @tmpDate DATE, @DateList VARCHAR(200)
 	SELECT @tmpDate = @FDate
@@ -241,6 +230,5 @@ BEGIN
 	DROP TABLE #PartyChargeInfo
 	DROP TABLE #TempDataSG
 	DROP TABLE #DailyPayToSupplier
-	DROP TABLE #FullRangePayToSupplier
 	DROP TABLE #FinalResult
 END
