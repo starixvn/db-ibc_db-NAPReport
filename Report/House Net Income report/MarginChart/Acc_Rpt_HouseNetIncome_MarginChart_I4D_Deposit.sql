@@ -14,7 +14,7 @@ AS
 
 	Param's Explanation:
 
-	EXEC Acc_Rpt_HouseNetIncome_I4D_Deposit '2020-03-01', '2020-03-31'
+	EXEC Acc_Rpt_HouseNetIncome_MarginChart_I4D_Deposit '2020-03-01', '2020-03-31'
 */
 BEGIN  
     SET NOCOUNT ON

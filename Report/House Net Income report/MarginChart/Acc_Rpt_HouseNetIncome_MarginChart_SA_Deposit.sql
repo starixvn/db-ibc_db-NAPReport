@@ -35,9 +35,9 @@ BEGIN
 	SELECT @ChargeRate3rd = ISNULL(@ChargeRate3rd, 0)
 
 	-- Region: Active licensees
-	DECLARE @tmpParty TABLE (PartyID INT, IsDeposit BIT, ParentID INT)
-	INSERT INTO @tmpParty (PartyID, IsDeposit, ParentID)
-	SELECT DISTINCT ci.FromParty, pd.IsDeposit, ci.ToParty
+	DECLARE @tmpParty TABLE (PartyID INT, ParentID INT)
+	INSERT INTO @tmpParty (PartyID, ParentID)
+	SELECT DISTINCT ci.FromParty, ci.ToParty
 	FROM bodb_licensee.dbo.OAS_Party p WITH (NOLOCK)
 		INNER JOIN bodb_licensee.dbo.OAS_PartyDetail pd WITH (NOLOCK) ON pd.PartyID = p.PartyID
 		INNER JOIN bodb_licensee.dbo.OAS_ChargeInfo ci WITH (NOLOCK) ON p.PartyID = ci.FromParty
@@ -62,7 +62,6 @@ BEGIN
 		,PartyID    INT
 		,LicenseeID INT
 		,ParentID	INT
-		,IsDeposit  BIT
 		,ProductID  INT
 		,Rate       MONEY
 		,FromDate   SMALLDATETIME
@@ -70,26 +69,12 @@ BEGIN
 		,Bettype    INT
 		,ChargeType	INT
 	)
-	INSERT INTO #PartyChargeInfo (ChargeID, PartyID, LicenseeID, ParentID, IsDeposit, ProductID, Rate, Fromdate, Todate, Bettype, ChargeType)
-	SELECT ci.ChargeID, ci.PartyID, ci.LicenseeID, p.ParentID, ci.isDeposit, ci.ProductID, ci.DI_Rate, ci.Fromdate, ci.ToDate, ISNULL(sbr.Bettype, ci.Bettype), ci.ChargeType
+	INSERT INTO #PartyChargeInfo (ChargeID, PartyID, LicenseeID, ParentID, ProductID, Rate, Fromdate, Todate, Bettype, ChargeType)
+	SELECT ci.ChargeID, ci.PartyID, ci.LicenseeID, p.ParentID, ci.ProductID, ci.DI_Rate, ci.Fromdate, ci.ToDate, ISNULL(sbr.Bettype, ci.Bettype), ci.ChargeType
 	FROM bodb_licensee.dbo.LA_f_ChargeInfo (@PartyIDs, @FDate, @TDate, @ProductPrefix, 'OA', 1) ci
 		INNER JOIN @tmpParty p ON ci.PartyID = p.PartyID
 		LEFT JOIN bodb_licensee.dbo.Sport_Bettype_Reference sbr WITH (NOLOCK) ON sbr.BettypeRef = ci.Bettype
 	WHERE ci.DI_Rate > 0
-
-	CREATE TABLE #PartyCharge3rdInfo
-	(
-		PartyID		INT
-		,IsDeposit	INT
-		,ProductID	INT
-		,DI_Rate	MONEY
-		,Fromdate	SMALLDATETIME
-		,ToDate		SMALLDATETIME
-	)
-	INSERT INTO #PartyCharge3rdInfo (PartyID, IsDeposit, ProductID, DI_Rate, Fromdate, ToDate)	
-	SELECT DISTINCT p.PartyID, ci.IsDeposit, ci.ProductID, ci.DI_Rate, ci.Fromdate, ci.ToDate
-	FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd (@FDate, @TDate, @ProductPrefix, 'OA') ci
-		INNER JOIN @tmpParty p ON (p.PartyID = ci.PartyID OR p.ParentID = ci.PartyID)
 	-- End Region
 	
 	-- Region: Get Exchange
@@ -99,25 +84,27 @@ BEGIN
 	FROM DBWH.bodb_account.dbo.tbl_Currency_Daily WITH (NOLOCK)
 	WHERE ExchangeDate BETWEEN @FDate AND @TDate
 
-	CREATE TABLE #ExchangeOANDA (ExchangeDate DATETIME, ExchangeID INT, Rate FLOAT)
-	INSERT INTO #ExchangeOANDA (ExchangeDate, ExchangeID, Rate)
-	SELECT ExchangeDate, ExchangeID, BaseCurrencyRate
-	FROM dbo.LA_f_ExchangeDailySel (@FDate, @TDate, 'MYR')
+	CREATE TABLE #ExchangeOANDA (ExchangeDate DATE, ExchangeID INT, CNY FLOAT, USD FLOAT, MYR FLOAT)
+	INSERT INTO #ExchangeOANDA(ExchangeDate, ExchangeID, CNY, USD, MYR)
+	SELECT ExchangeDate, ExchangeID, CompareCurrencyRate1, CompareCurrencyRate2, BaseCurrencyRate
+	FROM dbo.LA_f_ExchangeDailyForSpecRange(@FDate, @TDate, 'CNY', 'USD', 'MYR') -- not use USD
 	-- End Region
 
 	-- Region: Get Sum data
 	CREATE TABLE #TempData
 	(
 		PartyID				INT
+		,ParentID			INT
 		,rptDate			DATETIME
 		,CurrencyID			INT
 		,ProductID			TINYINT
 		,MemberWL			MONEY
 		,AmountToCompany	MONEY
 	)
-	INSERT INTO #TempData (PartyID, rptDate, CurrencyID, ProductID, MemberWL, AmountToCompany)
+	INSERT INTO #TempData (PartyID, ParentID, rptDate, CurrencyID, ProductID, MemberWL, AmountToCompany)
 	SELECT
 		p.PartyID
+		,CASE WHEN p.ParentID = 98 THEN 11 ELSE p.ParentID END AS ParentID -- Group Boping & Zelianta
 		,b.rptDate
 		,b.CurrencyID
 		,b.ProductID
@@ -135,22 +122,35 @@ BEGIN
 			(b.Bettype = -1 AND p.ChargeType <> 12)
 			OR (b.Bettype = 3007 AND p.ChargeType = 12)
 		)
-	GROUP BY p.PartyID, b.rptDate, b.CurrencyID, b.ProductID
+	GROUP BY p.PartyID, CASE WHEN p.ParentID = 98 THEN 11 ELSE p.ParentID END, b.rptDate, b.CurrencyID, b.ProductID
 
     CREATE NONCLUSTERED INDEX Idx_InvoiceData ON #TempData (PartyID)
+	-- End Region
+
+	-- Region: Pay to Supplier
+	DECLARE @tmpPartyGroup TABLE (ParentID INT, AmountCNY MONEY, Rate FLOAT)
+	INSERT INTO @tmpPartyGroup (ParentID, AmountCNY, Rate)
+	SELECT b.ParentID, SUM(-b.MemberWL * e.CNY), 0 -- Group Boping & Zelianta
+	FROM #TempData b
+		INNER JOIN @tmpParty t ON b.PartyId = t.PartyID
+		INNER JOIN #ExchangeOANDA e ON b.CurrencyId = e.ExchangeID AND e.ExchangeDate = b.RptDate
+	GROUP BY b.ParentID
+
+	UPDATE @tmpPartyGroup
+	SET Rate = CASE WHEN AmountCNY < 10000000 THEN 0.6 ELSE 0.5 END -- 10M CNY
+	WHERE ParentID IN (1, 11)
 
 	CREATE TABLE #DailyPayToSupplier (ParentID INT, rptDate DATE, MemberWLOANDA MONEY, PayToSupplier MONEY)
 	INSERT INTO #DailyPayToSupplier (ParentID, rptDate, MemberWLOANDA, PayToSupplier)
-	SELECT t.ParentID, d.rptDate, SUM(d.MemberWL * e.Rate), SUM(d.MemberWL * e.Rate * ISNULL(p.DI_Rate, ISNULL(@ChargeRate3rd, 0)))
+	SELECT d.ParentID, d.rptDate, SUM(d.MemberWL * e.MYR), SUM(d.MemberWL * e.MYR * t.Rate)
 	FROM #TempData d
-		INNER JOIN @tmpParty t ON t.PartyID = d.PartyID
+		INNER JOIN @tmpPartyGroup t ON t.ParentID = d.ParentID
 		INNER JOIN #ExchangeOANDA e ON d.rptDate = e.ExchangeDate AND d.CurrencyId = e.ExchangeID
-		LEFT JOIN #PartyCharge3rdInfo p ON p.PartyID = d.PartyID AND d.rptDate BETWEEN p.FromDate AND p.ToDate
-	GROUP BY t.ParentID, d.rptDate
+	GROUP BY d.ParentID, d.rptDate
 
 	CREATE TABLE #FullRangePayToSupplier (ParentID INT, PayToSupplier MONEY)
 	INSERT INTO #FullRangePayToSupplier (ParentID, PayToSupplier)
-	SELECT ParentID, CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(PayToSupplier) END
+	SELECT ParentID, SUM(PayToSupplier)
 	FROM #DailyPayToSupplier
 	GROUP BY ParentID
 	-- End Region
@@ -173,7 +173,7 @@ BEGIN
 		SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate)
 	END
 
-	SELECT @DateList = COALESCE(@DateList + ',', '') + '[' + CONVERT(VARCHAR(10), RptDate) + ']' FROM #FinalResult 
+	SELECT @DateList = COALESCE(@DateList + ',', '') + '[' + CONVERT(VARCHAR(10), RptDate) + ']' FROM #FinalResult
 	
 	---------------------------------------------------- Select the output -------------------------------------------------------
 	DECLARE @SQL VARCHAR(MAX)
@@ -190,7 +190,7 @@ BEGIN
 					') piv' + CHAR(13) +
 					'ORDER BY [Order]'
 
-	SELECT @SQL
+	EXEC (@SQL)
 
 	-- Region: Drop tmp table
 	DROP TABLE #DailyPayToSupplier
@@ -198,7 +198,6 @@ BEGIN
 	DROP TABLE #ExchangeOANDA
 	DROP TABLE #FinalResult
 	DROP TABLE #FullRangePayToSupplier
-	DROP TABLE #PartyCharge3rdInfo
 	DROP TABLE #PartyChargeInfo
 	DROP TABLE #TempData
 	-- End Region
