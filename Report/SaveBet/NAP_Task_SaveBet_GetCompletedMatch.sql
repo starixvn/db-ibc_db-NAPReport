@@ -1,5 +1,8 @@
-USE [bodb_ACC];
+/*<info serverAlias="DBACC-bodb_ACC" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+
+USE [bodb_ACC]
 GO
+
 ALTER PROCEDURE [dbo].[NAP_Task_SaveBet_GetCompletedMatch]
 AS
 
@@ -12,6 +15,7 @@ AS
 	Revisions:
 		- 20170704@Robert: Integrate Betradar Virtual Sports Product [RedmineID: #78495]
 		- 20180320@Franklin: VS2  [RedmineID: #91098]
+		- 20200325@Ned.Le: NAP Report - Incorporate two new sports of Betradar VS (#131117)
 */
 
     BEGIN
@@ -51,7 +55,10 @@ AS
                  AND eventdate BETWEEN DATEADD(DD, -1, @CurentDate) AND @CurentDate
                  AND eventstatus = 'completed'
                  AND ( sporttype < 99
-                    OR sporttype IN( 180, 186, 190, 191, 192, 193 )
+                    OR sporttype IN (SELECT DISTINCT sbm.SportType
+									 FROM bodb02.dbo.SportBettypeMatrix sbm (NOLOCK)
+									 WHERE sbm.ProductID IN (5,27)
+										   AND sbm.EventType = 1)
                      );
     END;
 GO
