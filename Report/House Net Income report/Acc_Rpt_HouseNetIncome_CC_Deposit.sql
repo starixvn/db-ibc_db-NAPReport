@@ -194,10 +194,10 @@ BEGIN
 	WHERE isDeposit = 1;
 
 	UPDATE tmpS
-	SET tmpS.SiteID_Li = l.LicenseeID
+	SET tmpS.SiteID_Li = l.SiteID
 	FROM #tmpSite tmpS
-	INNER JOIN DBLIC.bodb_licensee.dbo.Licensees l WITH(NOLOCK)
-		ON tmpS.SiteName  = RTRIM(LTRIM(l.LicenseeName));
+	INNER JOIN DBLIC.bodb_licensee.dbo.view_site_list l WITH(NOLOCK)
+		ON tmpS.SiteName  = RTRIM(LTRIM(l.SiteName));
 
     CREATE TABLE #TempDataCC(
 		rptDate            DATETIME

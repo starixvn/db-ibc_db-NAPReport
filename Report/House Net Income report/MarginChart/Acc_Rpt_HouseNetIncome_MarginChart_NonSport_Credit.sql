@@ -206,10 +206,10 @@ BEGIN
 	WHERE isDeposit = 0;
 
 	UPDATE tmpS
-	SET tmpS.SiteID_Li = l.LicenseeID
+	SET tmpS.SiteID_Li = l.SiteID
 	FROM #tmpSite tmpS
-	INNER JOIN DBLIC.bodb_licensee.dbo.Licensees l WITH(NOLOCK)
-		ON tmpS.SiteName  = RTRIM(LTRIM(l.LicenseeName));
+	INNER JOIN DBLIC.bodb_licensee.dbo.view_site_list l WITH(NOLOCK)
+		ON tmpS.SiteName  = RTRIM(LTRIM(l.SiteName));
 
 	-- BEGIN: GET DATA
 	CREATE TABLE #TmpHouseWL (rptDate DATE, SiteID INT , ProductID INT, SportType INT, Bettype INT
@@ -268,7 +268,7 @@ BEGIN
 
 	-- Valid Bets Rebate Of SAG From LA 
 	INSERT INTO #tmpPayToSupplier_Daily(ProductId, RptDate, PayToSupplier_Daily)
-	SELECT t.ProductID, t.rptDate, SUM(t.ValidBetAmount * ISNULL(ci.Rate,0) * ISNULL(@RebateRate,v.ChargeRate3rd) * ISNULL(oanda.rate,0)) 
+	SELECT t.ProductID, t.rptDate, SUM(ISNULL(t.ValidBetAmount,0) * ISNULL(ci.Rate,0) * ISNULL(@RebateRate,v.ChargeRate3rd) * ISNULL(oanda.rate,0)) 
 							FROM #tmpRpt_BettingByProduct AS t
 							INNER JOIN #tmpSite s ON t.SiteID = s.SiteID_Li
 							INNER JOIN #ChargeInfo3rd AS ci ON t.ProductID = ci.ProductID AND t.rptDate BETWEEN ci.FromDate AND ci.ToDate
