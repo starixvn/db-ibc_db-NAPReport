@@ -43,6 +43,7 @@ Revisions:
 - 20191201@Cherry: Change product name NPH to Saba Promotion (#124605)
 - 20191212@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
 - 20200313@Ned.Le: NAP Report - Incorporate Virtual Games (#130326)
+- 20200323@Ned.Le: NAP Report - Incorporate 4D (#130845)
 Explanation's Param:
 
 */
@@ -1161,7 +1162,7 @@ Explanation's Param:
 				, SUM(WinlossForExtraPT_actualrate) AS ExtraPT
 				, SUM(WinlossForExtraPT_actualrate + grosscomm_actualrate) AS NewExtraPT
 			FROM #src AS b
-			WHERE b.ProductId IN(5, 8, 15, 23, 25, 27, 28, 31, 37, 38) --Virtual Sports, Keno, Colossus Bets, NG2 (3rd), CashOut, Betradar Virtual Sports, Lottery, Exchange, Saba Promotion, Virtual Games
+			WHERE b.ProductId IN(5, 8, 15, 23, 25, 27, 28, 31, 37, 38, 43) --Virtual Sports, Keno, Colossus Bets, NG2 (3rd), CashOut, Betradar Virtual Sports, Lottery, Exchange, Saba Promotion, Virtual Games, Indo 4D
 				 OR b.CasinoType IN(1, 2)
 			GROUP BY site
 				  , CASE
@@ -1306,7 +1307,8 @@ Explanation's Param:
 			(17, 24, 'Fishing World'),
 			(20, 31, 'Exchange'),
 			(21, 37, 'Saba Promotion'),
-			(22, 38, 'Virtual Games');
+			(22, 38, 'Virtual Games'),
+			(22, 43, 'Indo 4D');
 
 	   INSERT INTO @ProductOrder(DisplayOrder
 						  , ProductId
