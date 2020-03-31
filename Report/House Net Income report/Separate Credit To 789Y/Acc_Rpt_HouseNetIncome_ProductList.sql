@@ -74,8 +74,8 @@ SET NOCOUNT ON;
 	SELECT 'VG' Product, 'VG' ProductPrefix
 	UNION ALL
 	SELECT 'SA' Product, 'SA' ProductPrefix
-	UNION ALL
-	SELECT 'I4D' Product, 'I4D' ProductPrefix
+	--UNION ALL
+	--SELECT 'I4D' Product, 'I4D' ProductPrefix
 	UNION ALL
 	SELECT 'SBC' Product, 'SBC' ProductPrefix
 	UNION ALL
