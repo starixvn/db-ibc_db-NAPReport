@@ -73,7 +73,7 @@ SET NOCOUNT ON;
 	UNION ALL
 	SELECT 'VG' Product, 'VG' ProductPrefix
 	UNION ALL
-	SELECT 'SA' Product, 'SA' ProductPrefix
+	SELECT 'SAG' Product, 'SAG' ProductPrefix
 	--UNION ALL
 	--SELECT 'I4D' Product, 'I4D' ProductPrefix
 	UNION ALL

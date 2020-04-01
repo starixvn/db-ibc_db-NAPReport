@@ -291,11 +291,11 @@ BEGIN
 	SELECT @SQL =	'SELECT * ' + CHAR(13) +
 					'FROM	(SELECT ProductCode, [Order], [RptDate], Figure, ISNULL(value, 0) value FROM #FinalResult' + CHAR(13) +
 							'CROSS APPLY' + CHAR(13) +
-							'(SELECT ''SA'', 1, ''House Income'', HouseWL' + CHAR(13) +
+							'(SELECT ''SAG'', 1, ''House Income'', HouseWL' + CHAR(13) +
 							'UNION ALL' + CHAR(13) +
-							'SELECT ''SA'', 2, ''Extra PT'', ExtraPT' + CHAR(13) +							
+							'SELECT ''SAG'', 2, ''Extra PT'', ExtraPT' + CHAR(13) +							
 							'UNION ALL' + CHAR(13) +
-							'SELECT ''SA'', 4, ''Pay to supplier'', PayToSupplier) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
+							'SELECT ''SAG'', 4, ''Pay to supplier'', PayToSupplier) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
 					'PIVOT' + CHAR(13) +
 					'(' + CHAR(13) +
 						'MAX(value)' + CHAR(13) +

@@ -432,7 +432,7 @@ INSERT INTO #FinalResult(RptDate
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''CC'', 13, ''PayToSupplier'', PayToSupplier_CC' + CHAR(13)
     + 'UNION ALL' + CHAR(13) + 'SELECT ''SP'', 14, ''PayToSupplier'', PayToSupplier_SP' + CHAR(13)
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SG'', 15, ''PayToSupplier'', PayToSupplier_SG' + CHAR(13)
-	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SA'', 16, ''PayToSupplier'', PayToSupplier_SA' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SAG'', 16, ''PayToSupplier'', PayToSupplier_SA' + CHAR(13)
     + 'UNION ALL' + CHAR(13) + 'SELECT ''SXG'', 17, ''PayToSupplier'', PayToSupplier_SXG) c (ProductCode, [Order], Figure, value)) a' + CHAR(13)  
     + 'PIVOT' + CHAR(13) 
     + '(' + CHAR(13) 

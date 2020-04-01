@@ -299,7 +299,7 @@ INSERT INTO #FinalResult(RptDate
     + 'UNION ALL' + CHAR(13) + 'SELECT ''SP'', 24, ''House TurnOver'', HouseTO_SP' + CHAR(13)
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SG'', 25, ''House TurnOver'', HouseTO_SG' + CHAR(13)
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''VG'', 26, ''House TurnOver'', HouseTO_VG' + CHAR(13)
-	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SA'', 27, ''House TurnOver'', HouseTO_SA' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SAG'', 27, ''House TurnOver'', HouseTO_SA' + CHAR(13)
     + 'UNION ALL' + CHAR(13) + 'SELECT ''I4D'', 28, ''House TurnOver'', HouseTO_I4D) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) 
     + 'PIVOT' + CHAR(13) 
     + '(' + CHAR(13) 
