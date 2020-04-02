@@ -23,6 +23,7 @@ AS;
 		- 20200224@Kean: #123734 - Integrate SG (Spadegaming) product
 		- 20200313@Kean - Change the "Pay to supplier" formula of SG - #126465
 		- 20200317@Kean - Letstalk - Integrate Virtual Games product [#126465]
+		- 20200324@Kean - Email/Letstalk Reports - Integrate SA Gaming product [#128059]
 
 	Param's Explanation:   
 		- @ProductList: '' - default value when get all product
@@ -37,7 +38,7 @@ BEGIN
 	DECLARE @FDate DATE, @TDate DATE
 	SELECT @FDate = @FromDate, @TDate = @ToDate
 
-	DECLARE @DefaulProductList VARCHAR(MAX) = 'EX,GD,FW,AB,VB,CB,CO,AGC,KN,LT,CS,NG,PP,CC,SP,SG,VRG'
+	DECLARE @DefaulProductList VARCHAR(MAX) = 'EX,GD,FW,AB,VB,CB,CO,AGC,KN,LT,CS,NG,PP,CC,SP,SG,VRG,SAG,I4D'
 
 	-- Select ProductList
 	SELECT @ProductList = CASE WHEN LEN(ISNULL(@ProductList, '')) > 0  THEN @ProductList ELSE @DefaulProductList END
@@ -76,6 +77,20 @@ BEGIN
 	SELECT @SumValue = @SumValue + ' FROM #MarginChartResult GROUP BY [Order], Figure ORDER BY [Order]'
 	
 	--EXEC (@DynamicTable)
+
+	-- 19. I4D
+	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'I4D')
+	BEGIN
+		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
+							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_I4D_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
+	END
+
+	-- 18. SA
+	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'SAG')
+	BEGIN
+		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
+							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_SA_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
+	END
 
 	-- 17. VG
 	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'VRG')
