@@ -26,6 +26,7 @@ AS
 		- 20200317@Kean - Letstalk - Integrate Virtual Games product [#126465]
 		- 20200324@Kean - Email/Letstalk Reports - Integrate SA Gaming product [#128059]
 		- 20200410@Kean - Email/Letstalk Reports - Integrate BBIN product [#131364]
+		- 20200403@Kean - Integrate Mini Game Xoc Dia of CC(New Bettype 1903) - #131507
 
 	Param's Explanation:   
 		- @ProductList: '' - default value when get all product
@@ -62,7 +63,7 @@ BEGIN
 		  ,[bettype]
 	FROM DBCUST.[CustDB].[dbo].[VendorGlobalSetting] v WITH(NOLOCK)
 	INNER JOIN bodb02.dbo.Products p WITH(NOLOCK) ON v.[VendorId] = p.VendorID
-	WHERE v.[VName] IN ('3rdCreditWLShareRate', '3rdCreditWLShareRateTX', '3rdCreditRebateRate')
+	WHERE v.[VName] IN ('3rdCreditWLShareRate', '3rdCreditWLShareRateTX', '3rdCreditWLShareRateXD', '3rdCreditRebateRate')
 	AND p.ProductPrefix IN ('SG', 'CC', 'SAG', 'SXG', 'BBIN')
 
 	INSERT INTO #Exchange(ExchangeDate, ExchangeID, Rate)
@@ -276,18 +277,18 @@ BEGIN
 							LEFT JOIN #ExchangeOANDA oanda ON t.rptdate = oanda.exchangedate AND t.currencyid = oanda.ExchangeID
 							LEFT JOIN #tmpVendorGlobalSetting v ON t.ProductID = v.ProductID 
 																	AND v.VName = '3rdCreditRebateRate'
-							WHERE t.ProductID IN (39)  
+							WHERE t.ProductID IN (SELECT s.ProductID FROM #SportBettypeMatrix s WHERE s.ProductID = 39)  
 							GROUP BY t.ProductID, t.rptDate
 	-- CC, SG, SAG, SXG, BBIN
 	INSERT INTO #tmpPayToSupplier_Daily(ProductId, RptDate, PayToSupplier_Daily)
-	SELECT t.ProductID, t.rptDate, SUM(t.MemberWLOANDA * (CASE WHEN t.ProductID = 34 AND t.Bettype = 1902 THEN ISNULL(v.ChargeRate3rd,0) 
+	SELECT t.ProductID, t.rptDate, SUM(t.MemberWLOANDA * (CASE WHEN t.ProductID = 34 AND t.Bettype IN (1902,1903) THEN ISNULL(v.ChargeRate3rd,0) 
 															ELSE ISNULL(ci.Rate,0) END)) 
 							FROM #TmpHouseWL AS t
 							INNER JOIN #ChargeInfo3rd AS ci ON t.ProductID = ci.ProductID AND t.rptDate BETWEEN ci.FromDate AND ci.ToDate
 							LEFT JOIN #tmpVendorGlobalSetting v ON t.ProductID = v.ProductID 
 																	AND v.Sporttype = t.SportType 
 																	AND v.Bettype = t.BetType
-																	AND v.VName = '3rdCreditWLShareRateTX'
+																	AND v.VName IN ('3rdCreditWLShareRateTX','3rdCreditWLShareRateXD')
 							WHERE t.ProductID IN (34, 36, 39, 45, 47)
 							GROUP BY t.ProductID, t.rptDate
 

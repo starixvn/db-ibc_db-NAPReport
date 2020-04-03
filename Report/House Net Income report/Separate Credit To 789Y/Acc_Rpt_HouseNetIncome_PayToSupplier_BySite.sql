@@ -20,6 +20,7 @@ AS
 		- 20200313@Kean - Change the "Pay to supplier" formula of SG AND CC(New Bettype 1902) - #126465
 		- 20200324@Kean - Email/Letstalk Reports - Integrate SA Gaming product [#128059]
 		- 20200410@Kean - Email/Letstalk Reports - Integrate BBIN product [#131364]
+		- 20200403@Kean - Integrate Mini Game Xoc Dia of CC(New Bettype 1903) - #131507
 	
 	Param's Explanation:   
 	- DepositType  
@@ -65,7 +66,7 @@ BEGIN
 	FROM DBCUST.[CustDB].[dbo].[VendorGlobalSetting] v WITH(NOLOCK)
 	INNER JOIN #tmpProduct p ON v.[VendorId] = p.VendorID
 	WHERE v.[VName] IN ('3rdCreditWLShareRate'
-					, '3rdCreditWLShareRateTX' -- 1902 of Card Club
+					, '3rdCreditWLShareRateTX', '3rdCreditWLShareRateXD' -- 1902,1903 of Card Club
 					, '3rdCreditRebateRate') -- Rebate Rate of SA Gaming
 
     INSERT INTO #Exchange(ExchangeDate, ExchangeID, Rate)
@@ -285,7 +286,7 @@ BEGIN
 
 	-- CC, SG, SAG, SXG, BBIN
 	INSERT INTO #tmpPayToSupplier_Daily(ProductId, RptDate, PayToSupplier_Daily)
-	SELECT t.ProductID, t.rptDate, SUM(t.MemberWLOANDA * (CASE WHEN t.ProductID = 34 AND t.Bettype = 1902 THEN ISNULL(v.ChargeRate3rd,0) 
+	SELECT t.ProductID, t.rptDate, SUM(t.MemberWLOANDA * (CASE WHEN t.ProductID = 34 AND t.Bettype IN (1902, 1903) THEN ISNULL(v.ChargeRate3rd,0) 
 															ELSE ISNULL(ci.Rate,0) END)) 
 							FROM #tmpFactSiteWinloss AS t
 							INNER JOIN #ChargeInfo3rd AS ci ON t.ProductID = ci.ProductID AND t.rptDate BETWEEN ci.FromDate AND ci.ToDate
@@ -293,7 +294,7 @@ BEGIN
 							LEFT JOIN #tmpVendorGlobalSetting v ON t.ProductID = v.ProductID 
 																	AND v.Sporttype = t.SportType 
 																	AND v.Bettype = t.BetType
-																	AND v.VName = '3rdCreditWLShareRateTX'
+																	AND v.VName IN ('3rdCreditWLShareRateTX','3rdCreditWLShareRateXD')
 							WHERE t.ProductID IN (34, 36, 39, 45, 47)
 							GROUP BY t.ProductID, t.rptDate
 
