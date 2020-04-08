@@ -148,9 +148,9 @@ BEGIN
 		,tp.ParentID
 		,b.rptDate
 		,CASE
-			WHEN b.BetType BETWEEN 4044 AND 4050 THEN 1 -- Normal Macau Games
-			WHEN b.BetType BETWEEN 4051 AND 4055 THEN 2 -- Blueprint's Games
-			ELSE 0 END AS BetTypeGroup
+			WHEN b.BetType BETWEEN 4051 AND 4055 THEN 1 -- Blueprint's Games
+			ELSE 2 END -- Normal Macau Games
+			AS BetTypeGroup
 		,SUM(ISNULL(b.MemberWL, 0) * ISNULL(oa.Rate, 0))
 		,SUM(CASE WHEN p.LicenseeID IS NULL THEN -ISNULL(b.HouseWL, 0) ELSE -ISNULL(b.MemberWL, 0) * ISNULL(lc.Rate, p.Rate) END * ISNULL(e.Rate, 0))
 	FROM #tempDataDW b
@@ -164,9 +164,8 @@ BEGIN
 		,tp.ParentID
 		,b.rptDate
 		,CASE
-			WHEN b.BetType BETWEEN 4044 AND 4050 THEN 1 -- Normal Macau Games
-			WHEN b.BetType BETWEEN 4051 AND 4055 THEN 2 -- Blueprint's Games
-			ELSE 0 END
+			WHEN b.BetType BETWEEN 4051 AND 4055 THEN 1 -- Blueprint's Games
+			ELSE 2 END -- Normal Macau Games
 
     CREATE NONCLUSTERED INDEX Idx_InvoiceData ON #TempData (PartyID)
     -- End region
@@ -179,7 +178,7 @@ BEGIN
 	GROUP BY b.ParentID, b.BetTypeGroup
 
 	UPDATE @tmpPartyGroup
-	SET Rate = CASE BetTypeGroup WHEN 1 THEN 0.035 WHEN 2 THEN 0.045 ELSE 0 END
+	SET Rate = CASE BetTypeGroup WHEN 1 THEN 0.045 ELSE 0.035 END
 
 	CREATE TABLE #DailyPayToSupplier (ParentID INT, rptDate DATE, MemberWL MONEY, PayToSupplier MONEY)
 	INSERT INTO #DailyPayToSupplier (ParentID, rptDate, MemberWL, PayToSupplier)

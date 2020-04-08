@@ -157,19 +157,15 @@ BEGIN
 	(
 		PartyID				INT
 		,rptDate			DATETIME
-		,OriginalMemberWL	MONEY
 		,MemberWL			MONEY
 		,PayToSupplier		MONEY
-		,LicenseWL			MONEY
 		,AmountToCompany	MONEY
 	)
-	INSERT INTO #tempData (PartyID, rptDate, OriginalMemberWL, MemberWL, PayToSupplier, LicenseWL, AmountToCompany)
+	INSERT INTO #tempData (PartyID, rptDate, MemberWL, PayToSupplier, AmountToCompany)
 	SELECT
 		tp.PartyID
 		,b.rptDate
-		,SUM(ISNULL(b.MemberWL, 0))
 		,SUM(ISNULL(b.MemberWL, 0) * ISNULL(oa.Rate,0))
-		,SUM(-ISNULL(b.MemberWL, 0) * ISNULL(e.Rate,0))
 		,SUM(ISNULL(b.MemberWL, 0) * (CASE WHEN b.Bettype IN (1902, 1903) THEN ISNULL(v.ChargeRate3rd, 0) ELSE ISNULL(rd.Rate, 0) END) * oa.Rate)
 		,SUM(CASE WHEN p.LicenseeID IS NULL THEN -ISNULL(b.HouseWL, 0) ELSE -ISNULL(b.MemberWL, 0) * ISNULL(lc.Rate, p.Rate) END * ISNULL(e.Rate, 0))
 	FROM #tempDataDW b
@@ -195,20 +191,34 @@ BEGIN
 		HAVING SUM(MemberWL) <= 0
 	) p
 
+	IF @@ROWCOUNT = 0
+		INSERT INTO #FinalResult (rptDate, LicenseeWL, PayToSupplier)
+		SELECT 'FullRange', 0, 0
+
+	;WITH CTE_rptDate AS
+	(
+		SELECT @FDate AS rptDate
+		UNION ALL
+		SELECT DATEADD(DAY, 1, rptDate)
+		FROM CTE_rptDate
+		WHERE rptDate < @TDate
+	)
 	INSERT INTO #FinalResult (RptDate, LicenseeWL, PayToSupplier)
-	SELECT CONVERT(VARCHAR(2), rptDate, 106), SUM(AmountToCompany), SUM(PayToSupplier)
-	FROM #tempData
-	GROUP BY CONVERT(VARCHAR(2), rptDate, 106)
+	SELECT CONVERT(VARCHAR(2), d.rptDate, 106), SUM(ISNULL(t.AmountToCompany, 0)), SUM(ISNULL(t.PayToSupplier, 0))
+	FROM CTE_RptDate d
+		LEFT JOIN #tempData t ON d.rptDate = t.rptDate
+	GROUP BY CONVERT(VARCHAR(2), d.rptDate, 106)
+	OPTION (MAXRECURSION 0)
 
 	DECLARE @DateList VARCHAR(200)
 	SELECT  @DateList = COALESCE(@DateList + ',', '') + '[' + CONVERT(VARCHAR(10), RptDate) + ']' FROM #FinalResult
     
 	---------------------------------------------------- Select the output -------------------------------------------------------
 	DECLARE @SQL VARCHAR(MAX)
-	SELECT	@SQL =	'SELECT * ' + CHAR(13) +
+	SELECT  @SQL =	'SELECT * ' + CHAR(13) +
 					'FROM	(SELECT ProductCode, [Order], [RptDate], Figure, ISNULL(value, 0) value FROM #FinalResult' + CHAR(13) +
 							'CROSS APPLY' + CHAR(13) +
-							'(SELECT ''' + @ProductPrefix + ''', 1, ''House Income'', LicenseeWL' + CHAR(13) +							
+							'(SELECT ''' + @ProductPrefix + ''', 1, ''House Income'', LicenseeWL' + CHAR(13) +
 							'UNION ALL' + CHAR(13) +
 							'SELECT ''' + @ProductPrefix + ''', 4, ''Pay to supplier'', PayToSupplier) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
 					'PIVOT' + CHAR(13) +
@@ -217,7 +227,6 @@ BEGIN
 						'FOR [RptDate] in (' + @DateList + ')' + CHAR(13) +
 					') piv' + CHAR(13) +
 					'ORDER BY [Order]'
-
 	EXEC (@SQL)
 
 	-- Region: Drop tmp table

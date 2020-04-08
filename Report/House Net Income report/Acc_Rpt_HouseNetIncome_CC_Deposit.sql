@@ -197,13 +197,27 @@ BEGIN
 		HAVING SUM(MemberWL) <= 0
 	) p
 
+	IF @@ROWCOUNT = 0
+		INSERT INTO #FinalResult (rptDate, LicenseeWL, PayToSupplier)
+		SELECT 'FullRange', 0, 0
+
 	UPDATE #FinalResult
 	SET LicenseeWL = (SELECT SUM(WLFeeApplied) FROM #FeeData)
 
+	;WITH CTE_rptDate AS
+	(
+		SELECT @FDate AS rptDate
+		UNION ALL
+		SELECT DATEADD(DAY, 1, rptDate)
+		FROM CTE_rptDate
+		WHERE rptDate < @TDate
+	)
 	INSERT INTO #FinalResult (RptDate, LicenseeWL, PayToSupplier)
-	SELECT CONVERT(VARCHAR(2), rptDate, 106), SUM(AmountToCompany), SUM(PayToSupplier)
-	FROM #tempData
-	GROUP BY CONVERT(VARCHAR(2), rptDate, 106)
+	SELECT CONVERT(VARCHAR(2), d.rptDate, 106), SUM(ISNULL(t.AmountToCompany, 0)), SUM(ISNULL(t.PayToSupplier, 0))
+	FROM CTE_RptDate d
+		LEFT JOIN #tempData t ON d.rptDate = t.rptDate
+	GROUP BY CONVERT(VARCHAR(2), d.rptDate, 106)
+	OPTION (MAXRECURSION 0)
 
 	DECLARE @DateList VARCHAR(200)
 	SELECT  @DateList = COALESCE(@DateList + ',', '') + '[' + CONVERT(VARCHAR(10), RptDate) + ']' FROM #FinalResult
