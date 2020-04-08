@@ -2,11 +2,12 @@
 ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_CC_Deposit]
 	@FromDate	DATE,
 	@ToDate		DATE
-AS  
-/*  
-    Created:	20190819@Robert
-    Task :		House month-to-date Net Income report for Card Club
-    DB:			DBEXT/bodb02  
+AS
+
+/*
+	Created:	20190819@Robert
+    Task:		House month-to-date Net Income report for Card Club
+    DB:			DBEXT-bodb02  
    
     Revisions:  
 		- 20190819@Robert - NAP Report - Integrate Card Club on NAP Report [#115465]
@@ -17,7 +18,8 @@ AS
 	Param's Explanation:   
 
 	EXEC Acc_Rpt_HouseNetIncome_CC_Deposit '20180601', '20180630'   
-*/  
+*/
+
 BEGIN  
     SET NOCOUNT ON
 
@@ -157,19 +159,15 @@ BEGIN
 	(
 		PartyID				INT
 		,rptDate			DATETIME
-		,OriginalMemberWL	MONEY
 		,MemberWL			MONEY
 		,PayToSupplier		MONEY
-		,LicenseWL			MONEY
 		,AmountToCompany	MONEY
 	)
-	INSERT INTO #tempData (PartyID, rptDate, OriginalMemberWL, MemberWL, PayToSupplier, LicenseWL, AmountToCompany)
+	INSERT INTO #tempData (PartyID, rptDate, MemberWL, PayToSupplier, AmountToCompany)
 	SELECT
 		tp.PartyID
 		,b.rptDate
-		,SUM(ISNULL(b.MemberWL, 0))
 		,SUM(ISNULL(b.MemberWL, 0) * ISNULL(oa.Rate,0))
-		,SUM(-ISNULL(b.MemberWL, 0) * ISNULL(e.Rate,0))
 		,SUM(ISNULL(b.MemberWL, 0) * (CASE WHEN b.Bettype IN (1902, 1903) THEN ISNULL(v.ChargeRate3rd, 0) ELSE ISNULL(rd.Rate, 0) END) * oa.Rate)
 		,SUM(CASE WHEN p.LicenseeID IS NULL THEN -ISNULL(b.HouseWL, 0) ELSE -ISNULL(b.MemberWL, 0) * ISNULL(lc.Rate, p.Rate) END * ISNULL(e.Rate, 0))
 	FROM #tempDataDW b
@@ -180,7 +178,7 @@ BEGIN
 		LEFT JOIN #Exchange e ON b.rptDate = e.ExchangeDate AND b.CurrencyID = e.ExchangeID
 		LEFT JOIN #ExchangeOANDA oa ON b.rptDate = oa.ExchangeDate AND b.CurrencyId = oa.ExchangeID
 		LEFT JOIN bodb_Licensee.dbo.LA_ChargeRateByCurrency lc WITH (NOLOCK) ON p.ChargeID = lc.ChargeID AND b.CurrencyID = lc.CurrencyID
-	GROUP BY tp.PartyID, CASE WHEN tp.ParentID = 98 THEN 11 ELSE tp.ParentID END, b.rptDate, b.CurrencyID, CASE WHEN b.BetType = 3007 THEN 3007 ELSE 0 END
+	GROUP BY tp.PartyID, b.rptDate
 
     CREATE NONCLUSTERED INDEX Idx_InvoiceData ON #TempData (PartyID)
     -- End region

@@ -180,7 +180,7 @@ BEGIN
 		LEFT JOIN #Exchange e ON b.rptDate = e.ExchangeDate AND b.CurrencyID = e.ExchangeID
 		LEFT JOIN #ExchangeOANDA oa ON b.rptDate = oa.ExchangeDate AND b.CurrencyId = oa.ExchangeID
 		LEFT JOIN bodb_Licensee.dbo.LA_ChargeRateByCurrency lc WITH (NOLOCK) ON p.ChargeID = lc.ChargeID AND b.CurrencyID = lc.CurrencyID
-	GROUP BY tp.PartyID, CASE WHEN tp.ParentID = 98 THEN 11 ELSE tp.ParentID END, b.rptDate, b.CurrencyID, CASE WHEN b.BetType = 3007 THEN 3007 ELSE 0 END
+	GROUP BY tp.PartyID, b.rptDate
 
     CREATE NONCLUSTERED INDEX Idx_InvoiceData ON #TempData (PartyID)
     -- End region
