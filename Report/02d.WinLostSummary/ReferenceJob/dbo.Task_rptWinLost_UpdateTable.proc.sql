@@ -50,6 +50,7 @@ Revision:
     - 20191225@Cherry: Integrate Spadegaming (#125788)
     - 20200313@Ned.Le: NAP Report - Incorporate Virtual Games (#130326)
     - 20200323@Ned.Le: NAP Report - Incorprorate SA Gaming (#129349) | Saba.club (#130776) | Indo 4D (#130845) | Sexy Gaming (#130853)
+	- 20200331@Ned.Le: NAP Report - Incorporate new Table Games (#131095)
 */
 
 BEGIN	
@@ -100,7 +101,7 @@ BEGIN
     SET sb.SportType = s.SportType
     FROM #SportBettype sb
          INNER JOIN SportBettypeMatrix s WITH(NOLOCK) ON sb.BetType = s.BetType AND s.ProductID IN (23, 31, 32, 33, 34, 37, 36, 38, -- NG2, Exchange, Pragmatic, Poker Games, Card Club, Spadegaming, Virtual Games
-                                                                                                    39, 42, 43, 45) -- SA Gaming, Saba.club, Indo 4D, Sexy Gaming
+                                                                                                    39, 42, 43, 45, 40)             -- SA Gaming, Saba.club, Indo 4D, Sexy Gaming, Table Games
 	IF @winlostdate > @MoveBetsDay
 	BEGIN				
 		DELETE FROM bodb_Report.dbo.rptWinlost
@@ -629,7 +630,7 @@ BEGIN
 		SET rpt.SportType = sb.SportType
 		FROM bodb_Report.dbo.rptWinlost rpt WITH(NOLOCK)
 		  INNER JOIN #SportBettype sb on  rpt.bettype = sb.Bettype
-		WHERE sb.ProductID IN (23, 31, 32, 33, 34, 37, 36, 38, 39, 42, 43, 45)
+		WHERE sb.ProductID IN (23, 31, 32, 33, 34, 37, 36, 38, 39, 42, 43, 45, 40)
 		AND rpt.winlostdate =  @winlostdate
 	END
 	ELSE IF @winlostdate BETWEEN @BalanceUpDay AND @MoveBetsDay 
@@ -1162,7 +1163,7 @@ BEGIN
 		    SET rpt.SportType = sb.SportType
 		    FROM bodb_Report.dbo.rptWinlost rpt
 			 INNER JOIN #SportBettype sb on  rpt.bettype = sb.Bettype
-		    WHERE sb.ProductID IN (23, 31, 32, 33, 34, 37, 36, 38, 39, 42, 43, 45)
+		    WHERE sb.ProductID IN (23, 31, 32, 33, 34, 37, 36, 38, 39, 42, 43, 45, 40)
 		    AND rpt.winlostdate =  @winlostdate
 		END
 	END
