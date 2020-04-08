@@ -1,3 +1,5 @@
+/*<info serverAlias="DBWH-bodb_dwrs" executers="bodbAdminNet,dwrs" viewers="" isFunction="0" isNested="0"></info>*/
+
 USE bodb_dwrs
 GO
 
@@ -12,7 +14,8 @@ AS
    
     Revisions:  
 	
-	Param's Explanation:   
+	Param's Explanation:
+	- 20200408@Kean - Add 12 New Slot Games for Macau Game - (#131755)  
 
 	EXEC Acc_Rpt_HouseNetIncome_VB_Credit '20161201', '20161230' 
 */  
@@ -54,17 +57,6 @@ BEGIN
 	)
 
 	DECLARE @tmpDate DATE, @DateList VARCHAR(200) = '[FullRange]'
-	SELECT @tmpDate = @FDate
-
-	WHILE @tmpDate <= @TDate
-	BEGIN
-		INSERT INTO #FinalResult (RptDate, HouseWL, ExtraPT, PayToSupplier)
-		SELECT CONVERT(VARCHAR(2), @tmpDate, 106), 0, 0, 0
-
-		SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate)
-	END
-
-	SELECT @DateList = COALESCE(@DateList + ',', '') + '[' + CONVERT(VARCHAR(10), RptDate) + ']' FROM #FinalResult 
 
 	-- Sport - Bettype Matrix
 	CREATE TABLE #SportBettypeMatrix (ProductID INT, Bettype INT, EventType INT, SubProduct VARCHAR(500))
@@ -72,58 +64,77 @@ BEGIN
 	INSERT INTO #SportBettypeMatrix (ProductID, Bettype, EventType, SubProduct)
 	SELECT ProductID, BetType, EventType, SubProduct FROM bodb02.dbo.f_SportBettypeMatrix_Sel(22,0,0,2,'','VB',0)
 
-	-- Daily Extra PT
-	;WITH ExtraPT AS
-	(
-		SELECT b.rptDate, SUM(b.extraWinloss) AS ExtraPT
-		FROM bodb_account.dbo.rptGroupWinloss b WITH (NOLOCK)
-			INNER JOIN #SportBettypeMatrix sb ON sb.Bettype = b.bettype
-		WHERE	rptdate BETWEEN @FDate AND @TDate 
-				AND sb.ProductID = 22 -- Macau Games in Products table
-				AND b.statusid <> 14
-		GROUP BY b.rptDate
-	)
-	UPDATE f
-	SET ExtraPT = e.ExtraPT
-	FROM #FinalResult f
-		INNER JOIN ExtraPT e ON CONVERT(VARCHAR(2), e.rptDate, 106) = f.RptDate
-
 	-- House WL
-	CREATE TABLE #TmpHouseWL (rptDate DATE, HouseWL MONEY, MemberWLOANDA MONEY)
-	INSERT INTO #TmpHouseWL (rptDate, HouseWL, MemberWLOANDA)
-	SELECT 
-		b.rptDate,
-		ISNULL(-SUM((winlossP+winlossS+winlossM+winlossA+commissionS)*ex.rate),0) HouseWL,
-		SUM(ISNULL(b.WinlossP, 0) * oa.Rate) AS MemberWLOANDA
-	FROM bodb_Account.dbo.mcSiteDaily b WITH(NOLOCK)
-		INNER JOIN #exchange ex ON b.rptdate = ex.exchangedate AND b.currencyid = ex.ExchangeID
-		INNER JOIN #ExchangeOANDA oa ON b.rptDate = oa.ExchangeDate AND b.CurrencyID = oa.ExchangeID
-		INNER JOIN #SportBettypeMatrix sb ON sb.Bettype = b.bettype
-		INNER JOIN bodb_Account.dbo.tbl_Site s WITH (NOLOCK) ON s.siteid = b.SiteID
-	WHERE 
-		b.rptDate BETWEEN @FDate AND @TDate 
-		AND s.isDeposit = 0 -- Credit data only
-		AND Sb.ProductID = 22 -- VB in Products table
-		AND b.status <> 14
-	GROUP BY b.rptDate
-	OPTION (RECOMPILE)
+	-- BEGIN: GET DATA
+	CREATE TABLE #TmpHouseWL(
+		rptDate      DATE
+		, BetType    INT
+		, HouseWL      MONEY
+		, ExtraPT    MONEY
+		, MemberWLOANDA MONEY);
+	INSERT INTO #TmpHouseWL(rptDate
+				   , BetType
+				   , HouseWL
+				   , ExtraPT
+				   , MemberWLOANDA)
+		 SELECT b.rptDate
+			 ,  b.BetType
+			 , ISNULL(-SUM((winlossP + winlossS + winlossM + winlossA + commissionS) * ex.rate), 0) AS HouseWL
+			 , ISNULL(SUM((b.ExtraWL + b.ExtraComm) * ex.rate), 0) AS ExtraPT
+			 , ISNULL(SUM(b.WinlossP * oanda.Rate), 0) AS  MemberWLOANDA
+		 FROM bodb_Account.dbo.FactSiteWinloss AS b WITH(NOLOCK)
+			INNER JOIN bodb_Account.dbo.tbl_Site AS s WITH (NOLOCK) ON s.siteid = b.SiteID
+			LEFT JOIN #exchange AS ex ON b.rptdate = ex.exchangedate
+								    AND b.currencyid = ex.ExchangeID
+			LEFT JOIN #ExchangeOANDA oanda ON b.rptdate = oanda.exchangedate AND b.currencyid = oanda.ExchangeID
+		 WHERE b.rptDate >= @FDate AND b.rptDate <= @TDATE
+			  AND b.TicketStatus NOT IN(-1, 18, 9, 10, 14)
+			  AND b.CurrencyID <> 20
+			  AND s.isDeposit = 0 /* Credit data only*/
+			  AND b.bettype IN (SELECT sb.Bettype FROM #SportBettypeMatrix sb WHERE sb.ProductID = 22 )  
+		 GROUP BY b.rptDate
+				, b.BetType OPTION(RECOMPILE);
 	
-	UPDATE f
-	SET HouseWL = f.HouseWL + wl.HouseWL
-	FROM #FinalResult f
-		INNER JOIN #TmpHouseWL wl ON CONVERT(VARCHAR(2), wl.rptDate, 106) = f.RptDate
-	
-	UPDATE f
-	SET f.PayToSupplier = 0.02 * wl.MemberWLOANDA
-	FROM #FinalResult f
-		INNER JOIN #TmpHouseWL wl ON CONVERT(VARCHAR(2), wl.rptDate, 106) = f.RptDate
+	CREATE TABLE #tmpPayToSupplier_Daily(
+	    RptDate						DATE
+		, PayToSupplier_Daily        MONEY);
+	CREATE TABLE #tmpPayToSupplier_MTD(
+		MemberWLOANDA				MONEY,
+		PayToSupplier_PP_MTD        MONEY);
 
-	DECLARE @SumPayToSupplier MONEY
-	SELECT @SumPayToSupplier = SUM(MemberWLOANDA) FROM #TmpHouseWL
+	INSERT INTO #tmpPayToSupplier_Daily(RptDate, PayToSupplier_Daily)
+	SELECT rptDate, SUM(MemberWLOANDA * (CASE WHEN BetType IN (4051,4052,4053,4054,4055) THEN 0.03 ELSE 0.02 END))
+	FROM #TmpHouseWL
+	GROUP BY rptDate
+
+	INSERT INTO #tmpPayToSupplier_MTD(MemberWLOANDA, PayToSupplier_PP_MTD)
+	SELECT SUM(MemberWLOANDA), SUM(MemberWLOANDA * (CASE WHEN BetType IN (4051,4052,4053,4054,4055) THEN 0.03 ELSE 0.02 END))
+	FROM #TmpHouseWL
+	
+	SELECT @tmpDate = @FDate;
+    WHILE @tmpDate <= @TDate
+	   BEGIN
+		  INSERT INTO #FinalResult(RptDate
+							, HouseWL
+							, ExtraPT
+							, PayToSupplier)
+			    SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
+				    , (SELECT SUM(t.HouseWL) FROM #TmpHouseWL AS t WHERE t.rptDate = @tmpDate) AS  HouseWL
+				    , (SELECT SUM(t.ExtraPT) FROM #TmpHouseWL AS t WHERE t.rptDate = @tmpDate) AS  ExtraPT
+				    , (SELECT ISNULL(SUM(PayToSupplier_Daily),0) FROM #tmpPayToSupplier_Daily AS t WHERE t.rptDate = @tmpDate);
+
+		  SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate);
+	   END;
+
+    SELECT @DateList = COALESCE(@DateList+',', '')+'['+CONVERT(VARCHAR(10), RptDate)+']'
+    FROM #FinalResult;
 	
 	-- FullRange amount
 	INSERT INTO #FinalResult (RptDate, HouseWL, ExtraPT, PayToSupplier)
-	SELECT 'FullRange', SUM(HouseWL), SUM(ExtraPT), 0.02 * (CASE WHEN @SumPayToSupplier > 0 THEN 0 ELSE @SumPayToSupplier END)
+	SELECT 'FullRange'
+	, SUM(HouseWL)
+	, SUM(ExtraPT)
+	, (SELECT CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(PayToSupplier_PP_MTD) END FROM #tmpPayToSupplier_MTD)
 	FROM #FinalResult	
 
 	---------------------------------------------------- Select the output -------------------------------------------------------
@@ -148,13 +159,10 @@ BEGIN
 	-- Drop tmp table
 	DROP TABLE #SportBettypeMatrix
 	DROP TABLE #TmpHouseWL
+	DROP TABLE #tmpPayToSupplier_Daily
+	DROP TABLE #tmpPayToSupplier_MTD
 	DROP TABLE #Exchange
+	DROP TABLE #ExchangeOANDA
 	DROP TABLE #FinalResult
 END
 GO
-
-GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_MacauGames_Credit] TO [bodbAdminNet]
-GO
-GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_MacauGames_Credit] TO [dwrs]
-GO
-GRANT VIEW definition ON [dbo].[Acc_Rpt_HouseNetIncome_MacauGames_Credit] TO vnteam

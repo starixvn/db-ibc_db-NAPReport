@@ -17,6 +17,7 @@ AS;
 		- 20200304@Kean: #129756 - Exclude bettype 4299 on Deposit TO
 		- 20200317@Kean - Letstalk - Integrate Virtual Games product [#126465]
 		- 20200324@Kean - Email/Letstalk Reports - Integrate SA Gaming product [#128059]
+		- 20200409@Kean: House Net Income - Integrate Table Games product (#129447)
 
 	Param's Explanation:   
 		- @ProductList: '' - default value when get all product
@@ -34,7 +35,7 @@ BEGIN
     SELECT @FDate = @FromDate
 	    , @TDate = @ToDate;
 
-    DECLARE @Deposit    VARCHAR(MAX) = 'NG,CS,KN,LT,AGC,CO,CB,VB,AB,GD,BX,VS,VS2,PP,CC,SG,VRG,SAG,I4D';
+    DECLARE @Deposit    VARCHAR(MAX) = 'NG,CS,KN,LT,AGC,CO,CB,VB,AB,GD,BX,VS,VS2,PP,CC,SG,VRG,SAG,I4D,TG';
 
     CREATE TABLE #Exchange(
 	    ExchangeDate    DATE
