@@ -50,6 +50,7 @@ AS
 		- 20200317@Ned.Le: Hotfix - Miss get data Card Club From bodb_account.dbo.mcCustBettingDaily table (#130535)
 		- 20200323@Ned.Le: NAP Report - Incorprorate SA Gaming (#129349) | Saba.club (#130776) | Sexy Gaming (#130853)
 		- 20200331@Ned.Le: NAP Report - Incorporate new Table Games (#131095)
+		- 20200409@Ned.Le: NAP Report - Incorporate BBIN Live Casino (#131357)
 
 	Param's Explanation:  
 	  + @MoveBetsDay: The day of moving bets to battrans14
@@ -57,7 +58,8 @@ AS
 	  + @CustID: SuperID
 	  + {251: Casino (include : 251, 208, 209, 210), 151:Racing, 252:Bingo, 161:Number Game, 162:Live Casino, 180:Virtual Sports, 202:Keno,  -1 : Metric Gaming - Superlive
 		 220: Lottery, 160: Lucky 3, 207: Bullfighting, 163: Poker Games, 245: Virtual Games
-		 244: SA Gaming, 200: Saba.club, 243: Sexy Gaming, 222: Table Games}
+		 244: SA Gaming, 200: Saba.club, 243: Sexy Gaming, 222: Table Games,
+		 241: BBIN}
   
 */  
 BEGIN
@@ -118,6 +120,7 @@ BEGIN
 			OR b.bettype BETWEEN 4601 AND (CASE WHEN @sportType=245 AND b.StatusID <> 0 THEN 4900 ELSE 0 END)
 			OR b.bettype BETWEEN 4901 AND (CASE WHEN @sportType=222 AND b.StatusID <> 0 THEN 5000 ELSE 0 END)
 			OR b.bettype BETWEEN 1701 AND (CASE WHEN @sportType= 255 THEN 1703 ELSE 0 END) -- GoldDeluxe
+			OR b.bettype BETWEEN 3300 AND (CASE WHEN @sportType= 241 THEN 3300 ELSE 0 END) -- BBIN
 			OR b.bettype BETWEEN 18000 AND (CASE WHEN @sportType= 204 THEN 18005 ELSE 0 END) -- Colossus Bet
 			OR b.bettype BETWEEN 2501 AND (CASE WHEN @SportType = 213 AND b.StatusID <> 0 THEN 2699 ELSE 0 END) -- NG2	
 			OR b.bettype BETWEEN 1021 AND CASE WHEN @sportType = 220 THEN 1049 ELSE 0 END --Loterry
@@ -199,6 +202,7 @@ BEGIN
 							OR b.bettype BETWEEN 4601 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 245 THEN 4900 ELSE 0 END)  -- Virtual Games
 							OR b.bettype BETWEEN 4901 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 222 THEN 5000 ELSE 0 END)  -- Table Games
 							OR b.bettype BETWEEN 1701 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 255 THEN 1703 ELSE 0 END)  -- GoldDeluxe
+							OR b.bettype BETWEEN 3300 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 241 THEN 3300 ELSE 0 END)  -- BBIN
 							OR b.bettype BETWEEN 18000 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' = 204 THEN 18005 ELSE 0 END) -- Colossus Bet
 							OR b.bettype BETWEEN 2401 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 211 THEN 2499 ELSE 0 END)  -- AllBet
 							OR b.bettype BETWEEN 3001 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 244 THEN 3099 ELSE 0 END)  -- SA Gaming
@@ -291,7 +295,7 @@ BEGIN
 			LEFT JOIN CustEnableKeno ce ON ce.CustID = av.custid    
 		WHERE ce.CustID IS NULL
 	END
-	IF @sportType IN (211,212,213,219,220,180,245,244,200,243,222)
+	IF @sportType IN (211,212,213,219,220,180,245,244,200,243,222,241)
     BEGIN
 		DECLARE @bitmapOrder TABLE (bitmapOrder TINYINT)
 		INSERT INTO @bitmapOrder (bitmapOrder)
