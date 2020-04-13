@@ -185,7 +185,7 @@ BEGIN
 	  , PayToSupplier_SG        MONEY
 	  , PayToSupplier_SA        MONEY
 	  , PayToSupplier_SXG        MONEY
-	  , PayToSupplier_BBIN        MONEY)
+	  , PayToSupplier_BBIN        MONEY
 	  , PayToSupplier_TG        MONEY);
 
 	  DECLARE @tmpDate     DATE
