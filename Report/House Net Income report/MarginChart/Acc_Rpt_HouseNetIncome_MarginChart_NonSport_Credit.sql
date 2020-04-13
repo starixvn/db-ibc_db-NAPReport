@@ -331,7 +331,7 @@ SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 		+ (SELECT ISNULL(SUM((t.HouseWL + t.ExtraPT) * r.Rate) * (-1),0) FROM #TmpHouseWL AS t INNER JOIN #PayToSupplierRate r ON t.ProductID = r.ProductID
 									     WHERE t.ProductID = 3 AND t.SiteID <> @SiteCN88 AND  t.rptDate = @tmpDate) -- NG2, NG
 		+ (SELECT SUM(t.PayToSupplier_Daily) FROM #tmpPayToSupplier_Daily AS t 
-											 WHERE t.ProductID IN (22, 34, 36, 39, 45, 40)  AND  t.rptDate = @tmpDate) -- MacauG, CC, SG, SA, SXG
+											 WHERE t.ProductID IN (22, 34, 36, 39, 45, 40, 47)  AND  t.rptDate = @tmpDate) -- MacauG, CC, SG, SA, SXG
 		+ (SELECT ISNULL(SUM(t.MemberWLOANDA * r.Rate),0)  FROM #TmpHouseWL AS t INNER JOIN #PayToSupplierRate r ON t.ProductID = r.ProductID
 									     WHERE t.ProductID IN (5,8,28,27) 
 										AND t.SiteID <> @SiteCN88 AND  t.rptDate = @tmpDate) -- VS,KN,LT,VS2

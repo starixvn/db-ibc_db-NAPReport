@@ -93,7 +93,7 @@ BEGIN
 	  , HouseTO_SA        MONEY
 	  , HouseTO_SBC        MONEY
 	  , HouseTO_SXG        MONEY
-	  , HouseTO_BBIN        MONEY)
+	  , HouseTO_BBIN        MONEY
 	  , HouseTO_TG        MONEY);
 
 	  DECLARE @tmpDate     DATE
