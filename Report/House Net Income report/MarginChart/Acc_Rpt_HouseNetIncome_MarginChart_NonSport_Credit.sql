@@ -25,6 +25,7 @@ AS
 		- 20200313@Kean - Change the "Pay to supplier" formula of SG And CC(New Bettype 1902) - #126465
 		- 20200317@Kean - Letstalk - Integrate Virtual Games product [#126465]
 		- 20200324@Kean - Email/Letstalk Reports - Integrate SA Gaming product [#128059]
+		- 20200410@Kean - Email/Letstalk Reports - Integrate BBIN product [#131364]
 
 	Param's Explanation:   
 		- @ProductList: '' - default value when get all product
@@ -45,7 +46,7 @@ BEGIN
 	FROM bodb_Account.dbo.tbl_Site WITH(NOLOCK)
 	WHERE [site] = 'CN88';
 
-	DECLARE @Credit VARCHAR(MAX) = 'NG,VS,KN,LT,VS2,VB,CS,NG2,AB,GD,CB,PP,CC,SG,VRG,SAG,SBC,SXG'  
+	DECLARE @Credit VARCHAR(MAX) = 'NG,VS,KN,LT,VS2,VB,CS,NG2,AB,GD,CB,PP,CC,SG,VRG,SAG,SBC,SXG,BBIN'  
 		
 	-- Region: Get exchange rate info
 	CREATE	TABLE #Exchange			(ExchangeDate DATE, ExchangeID INT, Rate FLOAT)
@@ -62,7 +63,7 @@ BEGIN
 	FROM DBCUST.[CustDB].[dbo].[VendorGlobalSetting] v WITH(NOLOCK)
 	INNER JOIN bodb02.dbo.Products p WITH(NOLOCK) ON v.[VendorId] = p.VendorID
 	WHERE v.[VName] IN ('3rdCreditWLShareRate', '3rdCreditWLShareRateTX', '3rdCreditRebateRate')
-	AND p.ProductPrefix IN ('SG', 'CC', 'SAG', 'SXG')
+	AND p.ProductPrefix IN ('SG', 'CC', 'SAG', 'SXG', 'BBIN')
 
 	INSERT INTO #Exchange(ExchangeDate, ExchangeID, Rate)
 	SELECT ExchangeDate, Currency, Rate
@@ -134,7 +135,7 @@ BEGIN
 						+ CAST(@FDate AS NVARCHAR(50)) + ''''''
 						+ N','''''
 						+ CAST(@TDate AS NVARCHAR(50)) + ''''''
-						+ N',''''PP,CC,SG,SAG,SXG'''''
+						+ N',''''PP,CC,SG,SAG,SXG,BBIN'''''
 						+ N',''''OA'''''	
 						+ N') ci '
 						+ N'INNER JOIN bodb_licensee.dbo.OAS_ChargeInfo c WITH (NOLOCK) ON ci.ChargeID = c.ChargeID '
@@ -277,7 +278,7 @@ BEGIN
 																	AND v.VName = '3rdCreditRebateRate'
 							WHERE t.ProductID IN (39)  
 							GROUP BY t.ProductID, t.rptDate
-	-- CC, SG, SAG, SXG
+	-- CC, SG, SAG, SXG, BBIN
 	INSERT INTO #tmpPayToSupplier_Daily(ProductId, RptDate, PayToSupplier_Daily)
 	SELECT t.ProductID, t.rptDate, SUM(t.MemberWLOANDA * (CASE WHEN t.ProductID = 34 AND t.Bettype = 1902 THEN ISNULL(v.ChargeRate3rd,0) 
 															ELSE ISNULL(ci.Rate,0) END)) 
@@ -287,7 +288,7 @@ BEGIN
 																	AND v.Sporttype = t.SportType 
 																	AND v.Bettype = t.BetType
 																	AND v.VName = '3rdCreditWLShareRateTX'
-							WHERE t.ProductID IN (34, 36, 39, 45)
+							WHERE t.ProductID IN (34, 36, 39, 45, 47)
 							GROUP BY t.ProductID, t.rptDate
 
 	INSERT INTO #tmpPayToSupplier_Daily(ProductId, RptDate, PayToSupplier_Daily)
@@ -324,7 +325,7 @@ SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 		+ (SELECT ISNULL(SUM(t.MemberWLOANDA * r.Rate),0)  FROM #TmpHouseWL AS t INNER JOIN #PayToSupplierRate r ON t.ProductID = r.ProductID
 									     WHERE t.ProductID IN (22)  AND  t.rptDate = @tmpDate) -- MacauG
 		+ (SELECT SUM(t.PayToSupplier_Daily) FROM #tmpPayToSupplier_Daily AS t 
-											 WHERE t.ProductID IN (34, 36, 39, 45)  AND  t.rptDate = @tmpDate) -- CC, SG, SA, SXG
+											 WHERE t.ProductID IN (34, 36, 39, 45, 47)  AND  t.rptDate = @tmpDate) -- CC, SG, SA, SXG, BBIN
 		+ (SELECT ISNULL(SUM(t.MemberWLOANDA * r.Rate),0)  FROM #TmpHouseWL AS t INNER JOIN #PayToSupplierRate r ON t.ProductID = r.ProductID
 									     WHERE t.ProductID IN (5,8,28,27) 
 										AND t.SiteID <> @SiteCN88 AND  t.rptDate = @tmpDate) -- VS,KN,LT,VS2

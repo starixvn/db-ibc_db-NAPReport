@@ -19,6 +19,7 @@ AS
 		- 20200224@Kean - Add SG product - #123734
 		- 20200317@Kean - Letstalk - Integrate Virtual Games product [#126465]
 		- 20200324@Kean - Email/Letstalk Reports - Integrate SA Gaming product [#128059]
+		- 20200410@Kean - Email/Letstalk Reports - Integrate BBIN product [#131364]
 	
 	Param's Explanation:   
 	- DepositType  
@@ -90,7 +91,8 @@ BEGIN
 	  , HouseTO_VG        MONEY
 	  , HouseTO_SA        MONEY
 	  , HouseTO_SBC        MONEY
-	  , HouseTO_SXG        MONEY);
+	  , HouseTO_SXG        MONEY
+	  , HouseTO_BBIN        MONEY);
 
 	  DECLARE @tmpDate     DATE
 		, @DateList    VARCHAR(200) = '[FullRange]';
@@ -107,7 +109,7 @@ BEGIN
 			 , BetType
 		FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)
 		WHERE SubProduct NOT IN('BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss')
-		 AND ProductID IN (1, 3, 5, 8, 23, 22, 21, 12, 28, 27, 6, 32, 34, 36, 38, 39, 42, 45)
+		 AND ProductID IN (1, 3, 5, 8, 23, 22, 21, 12, 28, 27, 6, 32, 34, 36, 38, 39, 42, 45, 47)
 		 AND BetType NOT IN (4299, 4300) -- PP
 
 		 CREATE TABLE #TmpData(
@@ -176,6 +178,7 @@ BEGIN
 						  , HouseTO_SA        
 						  , HouseTO_SBC        
 						  , HouseTO_SXG
+						  , HouseTO_BBIN
 						  )
 SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 	-- BEGIN SPORTBOOK
@@ -207,7 +210,8 @@ SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 	,(SELECT SUM(t.HouseTO) FROM #TmpData AS t WHERE t.ProductID = 38 AND t.rptDate = @tmpDate) AS  HouseTO_VG
 	,(SELECT SUM(t.HouseTO) FROM #TmpData AS t WHERE t.ProductID = 39 AND t.rptDate = @tmpDate) AS  HouseTO_SA
 	,(SELECT SUM(t.HouseTO) FROM #TmpData AS t WHERE t.ProductID = 42 AND t.rptDate = @tmpDate) AS  HouseTO_SBC
-	,(SELECT SUM(t.HouseTO) FROM #TmpData AS t WHERE t.ProductID = 45 AND t.rptDate = @tmpDate) AS  HouseTO_SXG;
+	,(SELECT SUM(t.HouseTO) FROM #TmpData AS t WHERE t.ProductID = 45 AND t.rptDate = @tmpDate) AS  HouseTO_SXG
+	,(SELECT SUM(t.HouseTO) FROM #TmpData AS t WHERE t.ProductID = 47 AND t.rptDate = @tmpDate) AS  HouseTO_BBIN;
 
 		  SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate);
 	   END;
@@ -238,7 +242,8 @@ INSERT INTO #FinalResult(RptDate
 					, HouseTO_VG
 					, HouseTO_SA        
 					, HouseTO_SBC        
-					, HouseTO_SXG)
+					, HouseTO_SXG
+					, HouseTO_BBIN)
 		 SELECT 'FullRange'
 			 , SUM(HouseTO_Soccer)
 			 , SUM(HouseTO_Basketball)
@@ -268,6 +273,7 @@ INSERT INTO #FinalResult(RptDate
 			, SUM(HouseTO_SA)
 			, SUM(HouseTO_SBC)
 			, SUM(HouseTO_SXG)
+			, SUM(HouseTO_BBIN)
 		 FROM #FinalResult;
 
     -- Select the output
@@ -302,7 +308,8 @@ INSERT INTO #FinalResult(RptDate
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''VG'', 25, ''House TurnOver'', HouseTO_VG' + CHAR(13)
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SAG'', 26, ''House TurnOver'', HouseTO_SA' + CHAR(13)
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SBC'', 27, ''House TurnOver'', HouseTO_SBC' + CHAR(13)
-    + 'UNION ALL' + CHAR(13) + 'SELECT ''SXG'', 28, ''House TurnOver'', HouseTO_SXG) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) 
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SXG'', 28, ''House TurnOver'', HouseTO_SXG' + CHAR(13)
+    + 'UNION ALL' + CHAR(13) + 'SELECT ''BBIN'', 29, ''House TurnOver'', HouseTO_BBIN) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) 
     + 'PIVOT' + CHAR(13) 
     + '(' + CHAR(13) 
     + 'MAX(value)' + CHAR(13) 
