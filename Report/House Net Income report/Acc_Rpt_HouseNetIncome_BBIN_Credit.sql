@@ -13,7 +13,7 @@ AS
     DB:			DBWH/bodb_dwrs  
    
     Revisions:  
-		- 20200410@Kean - Email/Letstalk Reports - Integrate BBIN product [#131364]
+		- 20200410@Kean - Email/Letstalk Reports - Integrate BBIN product (#131364)
 
 	Param's Explanation:   
 
