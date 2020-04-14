@@ -23,7 +23,14 @@ BEGIN
 	DECLARE @FDate DATE, @TDate DATE
 	SELECT  @FDate = @FromDate, @TDate = @ToDate
 
-	DECLARE @ProductID INT = 40, @ProductPrefix VARCHAR(5) = 'TG'
+	DECLARE @ProductID INT = 40, @ProductPrefix VARCHAR(5) = 'TG', @VendorID SMALLINT, @ChargeRate3rd DECIMAL(19, 8)
+	SELECT	@VendorID = VendorID FROM dbo.Products WITH (NOLOCK) WHERE ProductID = @ProductID
+	SELECT  @ChargeRate3rd = NumberValue
+	FROM DBCUST.CustDB.dbo.VendorGlobalSetting WITH (NOLOCK)
+	WHERE VendorID = @VendorID
+		AND VName = '3rdCashWLShareRate'
+
+	SELECT  @ChargeRate3rd = ISNULL(@ChargeRate3rd, 0)
 
 	-- Region: Active licensees
 	DECLARE @tmpAllParty TABLE (PartyID INT, ParentID INT, LicenseeID INT)
@@ -82,6 +89,24 @@ BEGIN
 		LEFT JOIN bodb_licensee.dbo.Sport_Bettype_Reference sbr WITH(NOLOCK) ON sbr.BettypeRef = ci.Bettype
 	WHERE ci.ChargeType = 1
 		AND ci.DI_Rate > 0
+
+	CREATE TABLE #PartyCharge3rdInfo
+	(
+		PartyID		INT
+		,Rate       MONEY
+		,FromDate   SMALLDATETIME
+		,ToDate     SMALLDATETIME
+	)
+	INSERT INTO #PartyCharge3rdInfo (PartyID, Rate, FromDate, ToDate)
+	SELECT p.PartyID, ci.DI_Rate, ci.FromDate, ci.ToDate
+	FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd (@FDate, @TDate, @ProductPrefix, 'OA') ci
+		INNER JOIN @tmpParty p ON ci.PartyID = p.PartyID
+
+	INSERT INTO #PartyCharge3rdInfo (PartyID, Rate, FromDate, ToDate)
+	SELECT p.PartyID, ci.DI_Rate, ci.FromDate, ci.ToDate
+	FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd (@FDate, @TDate, @ProductPrefix, 'OA') ci
+		INNER JOIN @tmpParty p ON ci.PartyID = p.ParentID
+	WHERE NOT EXISTS (SELECT 1 FROM #PartyCharge3rdInfo t WHERE p.PartyID = t.PartyID)
 	-- End Region
 
 	-- Region: Get Exchange
@@ -162,17 +187,18 @@ BEGIN
     -- End region
 
 	-- Region: Pay to Supplier
-	DECLARE @tmpPartyGroup TABLE (ParentID INT, MemberWL MONEY, Rate FLOAT)
-	INSERT INTO @tmpPartyGroup (ParentID, MemberWL, Rate)
-	SELECT b.ParentID, SUM(b.MemberWL), 0.03
+	DECLARE @tmpPartyGroup TABLE (ParentID INT, MemberWL MONEY)
+	INSERT INTO @tmpPartyGroup (ParentID, MemberWL)
+	SELECT b.ParentID, SUM(b.MemberWL)
 	FROM #tempData b
 	GROUP BY b.ParentID
 
 	CREATE TABLE #DailyPayToSupplier (ParentID INT, rptDate DATE, MemberWL MONEY, PayToSupplier MONEY)
 	INSERT INTO #DailyPayToSupplier (ParentID, rptDate, MemberWL, PayToSupplier)
-	SELECT d.ParentID, d.rptDate, SUM(d.MemberWL), SUM(d.MemberWL * t.Rate)
+	SELECT d.ParentID, d.rptDate, SUM(d.MemberWL), SUM(d.MemberWL * ISNULL(p.Rate, @ChargeRate3rd))
 	FROM #tempData d
 		INNER JOIN @tmpPartyGroup t ON t.ParentID = d.ParentID
+		LEFT JOIN #PartyCharge3rdInfo p ON d.PartyID = p.PartyID AND d.rptDate BETWEEN p.FromDate AND p.ToDate
 	GROUP BY d.ParentID, d.rptDate
 
 	CREATE TABLE #FullRangePayToSupplier (ParentID INT, PayToSupplier MONEY)
@@ -233,6 +259,7 @@ BEGIN
 	DROP TABLE #ExchangeOANDA
 	DROP TABLE #FinalResult
 	DROP TABLE #FullRangePayToSupplier
+	DROP TABLE #PartyCharge3rdInfo
 	DROP TABLE #PartyChargeInfo
 	DROP TABLE #Site
 	DROP TABLE #tempData
