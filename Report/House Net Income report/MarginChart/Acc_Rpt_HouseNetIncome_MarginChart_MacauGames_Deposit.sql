@@ -180,7 +180,6 @@ BEGIN
 
 	UPDATE @tmpPartyGroup
 	SET Rate = CASE BetTypeGroup WHEN 1 THEN 0.045 ELSE 0.035 END
-	WHERE MemberWL <= 0
 
 	CREATE TABLE #DailyPayToSupplier (ParentID INT, rptDate DATE, MemberWL MONEY, PayToSupplier MONEY)
 	INSERT INTO #DailyPayToSupplier (ParentID, rptDate, MemberWL, PayToSupplier)
