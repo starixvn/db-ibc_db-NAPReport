@@ -43,6 +43,7 @@ AS
 		20190724@Cherry: ExtraPT in House Turnover (#116766)
 		20190812@Cherry: Add betfrom t (#115937)
 		20191225@Cherry: Apply ExtraPT in bettrans table (#123697)
+		20200415@Cherry: Exclude dummy accounts (#132492)	
 
 	Param's Explanation:
 		- @username:  + Search by keyword, member only
@@ -229,19 +230,28 @@ BEGIN
 		BEGIN
 			INSERT INTO #tmp_MemIDs (CustID)
 			SELECT val FROM dbo.strSplit(@CustList, ',')
+				INNER JOIN dbo.customer c WITH(NOLOCK) ON val = c.custid
+				INNER JOIN dbo.customer a WITH(NOLOCK) ON c.recommend = a.custid
+			WHERE a.username not like '%acc%'
 		END
 		ELSE
 		BEGIN
 			INSERT INTO #tmp_MemIDs (CustID)
-			SELECT custid
-			FROM dbo.Customer WITH(NOLOCK)
-			WHERE username LIKE @Username + '%' AND roleid = 1
+			SELECT c.custid
+			FROM dbo.Customer c WITH(NOLOCK)
+				INNER JOIN dbo.customer a WITH(NOLOCK) ON c.recommend = a.custid
+			WHERE c.username LIKE @Username + '%' AND c.roleid = 1
+				AND a.username not like '%acc%'
 
 			IF @Username NOT LIKE '%[^0-9]%' AND LEN(@Username) < 10
 			BEGIN
 			INSERT INTO #tmp_MemIDs (CustID)
-			SELECT cu.custid FROM dbo.Customer cu WITH(NOLOCK) WHERE cu.custid = @Username AND cu.roleid = 1
+			SELECT cu.custid 
+			FROM dbo.Customer cu WITH(NOLOCK) 
+				INNER JOIN dbo.customer a WITH(NOLOCK) ON cu.recommend = a.custid
+			WHERE cu.custid = @Username AND cu.roleid = 1
 				AND NOT EXISTS (SELECT 1 FROM #tmp_MemIDs c WHERE cu.custid = c.custid)
+				AND a.username not like '%acc%'
 			END
 		END
 	END

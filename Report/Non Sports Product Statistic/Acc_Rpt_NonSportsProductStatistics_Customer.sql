@@ -49,6 +49,7 @@ AS
 		20190724@Cherry: ExtraPT in House Turnover (#116766)
 		20190812@Cherry: Add betfrom t (#115937)
 		20191225@Cherry: Apply ExtraPT in bettrans table (#123697)
+		20200415@Cherry: Exclude dummy accounts (#132492)
 
 	Param's Explanation:
 		- @username: search keyword
@@ -1455,6 +1456,8 @@ BEGIN
 	FROM #tmp_bettrans b
 		INNER JOIN (SELECT DISTINCT Bettype, ProductID, RefTable
 					FROM #SportBettype) s ON b.Bettype = s.Bettype
+		INNER JOIN dbo.customer a WITH(NOLOCK) ON b.recommend = a.custid
+	WHERE a.username not like '%acc%'
 	GROUP BY s.ProductID, b.custid, b.CurrencyID, b.srecommend, b.mrecommend, b.recommend	
 	
 	CREATE TABLE #tmp_Result
