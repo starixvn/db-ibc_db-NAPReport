@@ -6,11 +6,11 @@ AS
 
 /*  
 	Created:	20200403@Percy
-    Task:		Integrate Table Games product [RedmineID: #]
+    Task:		Integrate Table Games product [RedmineID: #129447]
     DB:			DBEXT-bodb02
    
     Revisions:
-		- 20200403@Percy: Integrate Table Games products [RedmineID: #]
+		- 20200403@Percy: Integrate Table Games products [RedmineID: #129447]
 	
 	Param's Explanation:   
 

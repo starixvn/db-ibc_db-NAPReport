@@ -22,7 +22,7 @@ AS
 		- 20200313@Kean - Change the "Pay to supplier" formula of SG - #126465
 		- 20200317@Kean - Letstalk - Integrate Virtual Games product [#126465]
 		- 20200324@Kean - Email/Letstalk Reports - Integrate SA Gaming product [#128059]
-		- 20200403@Percy: Integrate Xoc Dia (CC), Bluesprint's games (Macau Games), Table Games [RedmineID: #]
+		- 20200403@Percy: Integrate Xoc Dia (CC), Bluesprint's games (Macau Games), Table Games [RedmineID: #131507,#131755,#129447]
 
 	Param's Explanation:   
 		- @ProductList: '' - default value when get all product

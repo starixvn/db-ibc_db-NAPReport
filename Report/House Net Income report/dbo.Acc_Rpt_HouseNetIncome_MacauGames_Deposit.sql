@@ -11,7 +11,7 @@ AS
    
     Revisions:
 		- 20200108@Percy: #124755 - Support billing terms by product & currency instead of product only
-		- 20200403@Percy: Integrate Blueprint's games - Macau Games [RedmineID: #131507]
+		- 20200403@Percy: Integrate Blueprint's games - Macau Games [RedmineID: #131755]
 	
 	Param's Explanation:   
 

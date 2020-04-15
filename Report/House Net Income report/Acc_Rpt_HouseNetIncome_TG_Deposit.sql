@@ -6,11 +6,11 @@ AS
 
 /*  
 	Created:	20200403@Percy
-    Task:		Integrate Table Games product [RedmineID: #]
+    Task:		Integrate Table Games product [RedmineID: #129447]
     DB:			DBEXT-bodb02
    
     Revisions:
-		- 20200403@Percy: Integrate Table Games products [RedmineID: #]
+		- 20200403@Percy: Integrate Table Games products [RedmineID: #129447]
 	
 	Param's Explanation:   
 
@@ -209,15 +209,13 @@ BEGIN
 	HAVING SUM(MemberWL) <= 0
 	-- End Region
 
-	DECLARE @TotalAmountToCompany MONEY
-	SELECT  @TotalAmountToCompany = SUM(AmountToCompany) FROM #tempData
-
-	IF @TotalAmountToCompany IS NULL OR @TotalAmountToCompany < 0
-		SELECT @TotalAmountToCompany = 0
+	CREATE TABLE #FeeData (PartyID INT, ProductID INT, AComm MONEY, MinFeeApplied MONEY, WLFeeApplied MONEY, AmountToCompany MONEY)
+    INSERT INTO #FeeData (PartyId, ProductID, AComm, MinFeeApplied, WLFeeApplied, AmountToCompany)
+    EXEC dbo.Acc_Rpt_HouseNetIncome_LicenseeFee @FromDate = @FDate, @ToDate = @TDate, @Products = @ProductPrefix
 
 	CREATE TABLE #FinalResult (rptDate VARCHAR(10), LicenseeWL MONEY, PayToSupplier MONEY)
 	INSERT INTO #FinalResult (rptDate, LicenseeWL, PayToSupplier)
-	SELECT 'FullRange', @TotalAmountToCompany, (SELECT SUM(PayToSupplier) FROM #FullRangePayToSupplier)
+	SELECT 'FullRange', (SELECT SUM(WLFeeApplied) FROM #FeeData), (SELECT SUM(PayToSupplier) FROM #FullRangePayToSupplier)
 
 	DECLARE @tmpDate DATETIME, @DateList VARCHAR(200)
 	SELECT  @tmpDate = @FDate
@@ -257,6 +255,7 @@ BEGIN
 	DROP TABLE #DailyPayToSupplier
 	DROP TABLE #Exchange
 	DROP TABLE #ExchangeOANDA
+	DROP TABLE #FeeData
 	DROP TABLE #FinalResult
 	DROP TABLE #FullRangePayToSupplier
 	DROP TABLE #PartyCharge3rdInfo
