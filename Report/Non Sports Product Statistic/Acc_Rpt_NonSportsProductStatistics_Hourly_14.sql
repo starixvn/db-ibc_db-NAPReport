@@ -293,7 +293,7 @@ SET NOCOUNT ON
 				INSERT INTO #Temp_MemIDs (CustID)
 				SELECT c.custid
 				FROM dbo.Customer c WITH(NOLOCK)
-					INNER JOIN dbo.customer a WITH(NOLOCK) ON cu.recommend = a.custid
+					INNER JOIN dbo.customer a WITH(NOLOCK) ON c.recommend = a.custid
 				WHERE c.username = @Username AND c.roleid = 1
 					AND a.username not like '%acc%'
 			END
