@@ -2,158 +2,221 @@
 ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_MacauGames_Deposit]
 	@FromDate DATE,
 	@ToDate	DATE
-AS  
-/*  	
-	Created:		20180126@Harper 
-	Description:	HDWL Letstalk - Implement Chart of NonSport product margin
-    Source :		Acc_Rpt_HouseNetIncome_MacauGames_Deposit
-    DB:				DBEXT/bodb02  
+AS
+
+/*
+	Created:	20180126@Harper 
+	Task:		HDWL Letstalk - Implement Chart of NonSport product margin
+    DB:			DBEXT-bodb02  
    
     Revisions:
 		- 20180126@Harper - HDWL Letstalk - Implement Chart of NonSport product margin [#RedmineID: 89632]
 		- 20200108@Percy: #124755 - Support billing terms by product & currency instead of product only
+		- 20200403@Percy: Integrate Blueprint's games - Macau Games [RedmineID: #131755]
 		
 	Param's Explanation:   
 
 	Acc_Rpt_HouseNetIncome_MarginChart_MacauGames_Deposit '2018-04-01', '2018-04-30'
-  
 */ 
+
 BEGIN  
-	SET NOCOUNT ON  
+	SET NOCOUNT ON
 
 	DECLARE @FDate DATE, @TDate DATE
-	SELECT @FDate = @FromDate, @TDate = @ToDate
+	SELECT  @FDate = @FromDate, @TDate = @ToDate
+
+	DECLARE @ProductID INT = 22, @ProductPrefix VARCHAR(5) = 'VB'
 
 	-- Region: Active licensees
-	DECLARE @tmpParty TABLE (PartyID INT, IsDeposit BIT)
-	INSERT INTO @tmpParty (PartyID, IsDeposit)
-	SELECT DISTINCT ci.FromParty, pd.IsDeposit
+	DECLARE @tmpAllParty TABLE (PartyID INT, ParentID INT, LicenseeID INT)
+	INSERT INTO @tmpAllParty (PartyID, ParentID, LicenseeID)
+	SELECT PartyID, ParentID, OldRefID
+	FROM (
+		SELECT ci.FromParty AS PartyID, ci.ToParty AS ParentID, p.OldRefID
+			,ROW_NUMBER() OVER(PARTITION BY ci.FromParty ORDER BY ci.FromDate DESC) AS RowNum
+		FROM bodb_licensee.dbo.OAS_Party p WITH (NOLOCK)
+			INNER JOIN bodb_licensee.dbo.OAS_PartyDetail pd WITH (NOLOCK) ON p.PartyID = pd.PartyID
+			INNER JOIN bodb_licensee.dbo.OAS_ChargeInfo ci WITH (NOLOCK) ON p.PartyID = ci.FromParty
+			INNER JOIN bodb_licensee.dbo.LA_ChargeInfo_SystemMapping cs WITH(NOLOCK) ON ci.ChargeID = cs.ChargeID AND cs.SystemID = 2
+		WHERE ci.ChargeType = 1
+			AND p.PartyType = 1
+			AND pd.IsDeposit = 1
+			AND ci.ToParty IN (1, 9, 11, 98)
+	) AS r
+	WHERE r.RowNum = 1
+
+	DECLARE @tmpParty TABLE (PartyID INT, ParentID INT, LicenseeID INT)
+	INSERT INTO @tmpParty (PartyID, ParentID, LicenseeID)
+	SELECT DISTINCT p.PartyID, ci.ToParty, p.OldRefID
 	FROM bodb_licensee.dbo.OAS_Party p WITH (NOLOCK)
 		INNER JOIN bodb_licensee.dbo.OAS_PartyDetail pd WITH (NOLOCK) ON pd.PartyID = p.PartyID
 		INNER JOIN bodb_licensee.dbo.OAS_ChargeInfo ci WITH (NOLOCK) ON p.PartyID = ci.FromParty
-		INNER JOIN bodb_licensee.dbo.LA_ChargeInfo_SystemMapping map ON map.ChargeID = ci.ChargeID and map.SystemID = 2
-	WHERE	p.PartyType = 1 AND pd.IsDeposit = 1
-			AND ci.ProductId = 22 -- VB_Macau Game
-			AND ((ci.FromDate BETWEEN @FDate AND @TDate)
-				OR (ci.ToDate BETWEEN @FDate AND @TDate)
-				OR (ci.FromDate < @FDate AND @TDate < ci.ToDate))
+		INNER JOIN bodb_licensee.dbo.LA_ChargeInfo_SystemMapping map ON map.ChargeID = ci.ChargeID AND map.SystemID = 2
+	WHERE p.PartyType = 1
+		AND pd.IsDeposit = 1
+		AND ci.ProductId = @ProductID
+		AND (
+			(ci.FromDate BETWEEN @FDate AND @TDate)
+			OR (ci.ToDate BETWEEN @FDate AND @TDate)
+			OR (ci.FromDate < @FDate AND @TDate < ci.ToDate)
+		)
 
 	DECLARE @PartyIDs VARCHAR(1000)
-	SELECT	@PartyIDs = COALESCE(@PartyIDs + ',', '') + CONVERT(VARCHAR(10), PartyId) FROM @tmpParty WHERE IsDeposit = 1
-	-- End region
+	SELECT	@PartyIDs = COALESCE(@PartyIDs + ',', '') + CONVERT(VARCHAR(10), PartyId) FROM @tmpParty
+    -- End region
 
-	DECLARE @PartyChargeInfo AS TABLE (
-			ChargeId	INT,
-			PartyId		INT,
-			LicenseeId	INT,
-			IsDeposit	BIT,
-			ProductID	INT,
-			Rate		MONEY,
-			FromDate	SMALLDATETIME,
-			ToDate		SMALLDATETIME,
-			Bettype		INT)
-
-	INSERT INTO @PartyChargeInfo(ChargeId, PartyId, LicenseeId, IsDeposit, ProductID, Rate, Fromdate, Todate, Bettype)
+	-- Region: Get charge rate
+	CREATE TABLE #PartyChargeInfo
 	(
-		SELECT	ci.ChargeId, ci.PartyID, ci.LicenseeID, ci.isDeposit, ci.ProductID, ci.DI_Rate, ci.Fromdate, ci.ToDate, ISNULL(sbr.Bettype, ci.Bettype)
-		FROM	bodb_licensee.dbo.LA_f_ChargeInfo(@PartyIDs, @FDate, @TDate, 'VB', 'OA', 1) ci
-			LEFT JOIN bodb_licensee.dbo.Sport_Bettype_Reference sbr WITH(NOLOCK) ON sbr.BettypeRef = ci.Bettype
-		WHERE	DI_Rate > 0 AND ProductId <> 1 --exclude RB
+		ChargeID	INT
+		,PartyID    INT
+		,LicenseeID INT
+		,ParentID	INT
+		,Rate       MONEY
+		,FromDate   SMALLDATETIME
+		,ToDate     SMALLDATETIME
+		,Bettype	INT
 	)
-	-- End region
+	INSERT INTO #PartyChargeInfo (ChargeID, PartyID, LicenseeID, ParentID, Rate, FromDate, ToDate, Bettype)
+	SELECT ci.ChargeID, ci.PartyID, ci.LicenseeID, p.ParentID, ci.DI_Rate, ci.FromDate, ci.ToDate, ISNULL(sbr.Bettype, ci.Bettype)
+	FROM bodb_licensee.dbo.LA_f_ChargeInfo (@PartyIDs, @FDate, @TDate, @ProductPrefix, 'OA', 1) ci
+		INNER JOIN @tmpParty p ON ci.PartyID = p.PartyID
+		LEFT JOIN bodb_licensee.dbo.Sport_Bettype_Reference sbr WITH(NOLOCK) ON sbr.BettypeRef = ci.Bettype
+	WHERE ci.ChargeType = 1
+		AND ci.DI_Rate > 0
+	-- End Region
 
-	-- Region: Get exchange rate info
-	CREATE	TABLE #Exchange			(ExchangeDate DATE, ExchangeID INT, Rate FLOAT)
-	CREATE	TABLE #ExchangeOANDA	(ExchangeDate DATE, ExchangeID INT, Rate FLOAT)
-
+	-- Region: Get Exchange
+	CREATE TABLE #Exchange (ExchangeDate DATETIME, ExchangeID INT, Rate FLOAT)
 	INSERT INTO #Exchange(ExchangeDate, ExchangeID, Rate)
 	SELECT ExchangeDate, Currency, Rate
-	FROM DBWH.bodb_account.dbo.tbl_Currency_Daily WITH (NOLOCK) 
+	FROM DBWH.bodb_account.dbo.tbl_Currency_Daily WITH (NOLOCK)
 	WHERE ExchangeDate BETWEEN @FDate AND @TDate
 
+	CREATE TABLE #ExchangeOANDA (ExchangeDate DATE, ExchangeID INT, Rate FLOAT)
 	INSERT INTO #ExchangeOANDA(ExchangeDate, ExchangeID, Rate)
 	SELECT ExchangeDate, ExchangeID, BaseCurrencyRate
-	FROM bodb02.dbo.LA_f_ExchangeDailySel(@FDate, @TDate, 'MYR')
-	-- End region
+	FROM dbo.LA_f_ExchangeDailySel(@FDate, @TDate, 'MYR')
+	-- End Region
 
-	CREATE	TABLE #TempDataVB (
-			PartyId			INT,
-			rptDate			DATETIME,
-			CurrencyId		INT,
-			MemberWL		MONEY,
-			AComm			MONEY,
-			ProductId		TINYINT,
-			AmountToCompany MONEY)
-
-	INSERT INTO #TempDataVB (PartyId,rptDate,CurrencyId,MemberWL,AComm,ProductId,AmountToCompany)
+	-- Region: Get Sum data
+	CREATE TABLE #tempDataDW
 	(
-		SELECT	p.PartyId,
-				b.rptDate,
-				b.CurrencyID,
-				SUM(ISNULL(b.MemberWL, 0) * oa.Rate),
-				SUM(ISNULL(b.CommissionA, 0)) * e.Rate,
-				p.ProductId,
-				SUM(-ISNULL(b.MemberWL, 0) * ISNULL(lc.Rate, p.Rate)) * e.Rate
-		FROM	bodb_LicenseeReport.dbo.rpt_BettingByProduct b WITH (NOLOCK)
-				INNER JOIN #Exchange e ON b.rptDate = e.ExchangeDate AND b.CurrencyId = e.ExchangeID
-				INNER JOIN #ExchangeOANDA oa ON b.rptDate = oa.ExchangeDate AND b.CurrencyId = oa.ExchangeID
-				INNER JOIN @PartyChargeInfo p ON	b.ProductId = p.ProductID 
-													AND p.LicenseeId = b.SiteId
-													AND (b.rptDate BETWEEN p.FromDate AND p.ToDate)
-													AND (p.Bettype = -1 OR p.Bettype = b.Bettype)
-				LEFT JOIN bodb_Licensee.dbo.LA_ChargeRateByCurrency AS lc WITH (NOLOCK) ON p.ChargeId = lc.ChargeID
-																						AND b.CurrencyId = lc.CurrencyID
-		WHERE	b.rptDate BETWEEN @FDate AND @TDate
-				AND b.CurrencyID <> 20
-				AND b.customercategory NOT IN (27, 28)
-				AND b.StatusId NOT IN (-1, 101, 102, 103) -- Exclude Reject , Void, Refund
-		GROUP BY b.rptdate, b.SiteId, p.PartyId,b.CurrencyID, p.ProductId, e.Rate
+		rptDate		DATE
+		,LicenseeID	INT
+		,CurrencyID	INT
+		,BetType	INT
+		,MemberWL	MONEY
+		,HouseWL	MONEY
 	)
 
-	CREATE NONCLUSTERED INDEX Idx_InvoiceData ON #TempDataVB (PartyId, ProductId)
+	CREATE TABLE #Site (SiteID_DW INT, LicenseeID INT, SiteName VARCHAR(20))
+	INSERT INTO #Site (SiteID_DW, SiteName)
+	SELECT SiteID, RTRIM(LTRIM(Site)) SiteName
+	FROM DBWH.bodb_Account.dbo.tbl_Site WITH (NOLOCK) WHERE isDeposit = 1
 
-	-- Region: Result	
+	UPDATE s
+	SET s.LicenseeID = l.LicenseeID
+	FROM #Site s
+		INNER JOIN bodb_licensee.dbo.Licensees l WITH (NOLOCK) ON s.SiteName  = RTRIM(LTRIM(l.LicenseeName))
 
-	CREATE TABLE #FinalResult (
-		RptDate				VARCHAR(10),
-		LicenseeWL			MONEY,
-		PayToSupplier		MONEY
+	CREATE TABLE #Bettype (BetType INT)
+	INSERT INTO #Bettype (BetType)
+	SELECT BetType FROM dbo.f_SportBettypeMatrixByProduct_Sel (@ProductID, 0)
+
+	INSERT INTO #tempDataDW (rptDate, LicenseeID, CurrencyID, BetType, MemberWL, HouseWL)
+	SELECT b.rptDate, s.LicenseeID, b.CurrencyID, b.BetType, SUM(ISNULL(b.WinlossP, 0)) AS MemberWL, SUM((b.WinlossIBC + b.CommissionS)) AS HouseWL
+	FROM DBWH.bodb_Account.dbo.FactSiteWinloss b WITH (NOLOCK)
+		INNER JOIN #Site s ON b.SiteID = s.SiteID_DW
+	WHERE b.rptDate BETWEEN @FDate AND @TDate
+		AND b.CurrencyID <> 20
+		AND b.TicketStatus NOT IN (-1, 18, 9, 10, 14)
+		AND EXISTS (SELECT 1 FROM #Bettype bt WITH (NOLOCK) WHERE b.BetType = bt.BetType)
+	GROUP BY b.rptDate, s.LicenseeID, b.CurrencyID, b.BetType
+
+	CREATE TABLE #tempData
+	(
+		PartyID				INT
+		,ParentID			INT
+		,rptDate			DATETIME
+		,BetTypeGroup		INT
+		,MemberWL			MONEY
+		,AmountToCompany	MONEY
 	)
+	INSERT INTO #tempData (PartyID, ParentID, rptDate, BetTypeGroup, MemberWL, AmountToCompany)
+	SELECT
+		tp.PartyID
+		,tp.ParentID
+		,b.rptDate
+		,CASE
+			WHEN b.BetType BETWEEN 4051 AND 4055 THEN 1 -- Blueprint's Games
+			ELSE 2 END -- Normal Macau Games
+			AS BetTypeGroup
+		,SUM(ISNULL(b.MemberWL, 0) * ISNULL(oa.Rate, 0))
+		,SUM(CASE WHEN p.LicenseeID IS NULL THEN -ISNULL(b.HouseWL, 0) ELSE -ISNULL(b.MemberWL, 0) * ISNULL(lc.Rate, p.Rate) END * ISNULL(e.Rate, 0))
+	FROM #tempDataDW b
+		INNER JOIN @tmpAllParty tp ON tp.LicenseeID = b.LicenseeID
+		LEFT JOIN #PartyChargeInfo p ON p.PartyID = tp.PartyID AND b.rptDate BETWEEN p.FromDate AND p.ToDate
+		LEFT JOIN #Exchange e ON b.rptDate = e.ExchangeDate AND b.CurrencyID = e.ExchangeID
+		LEFT JOIN #ExchangeOANDA oa ON b.rptDate = oa.ExchangeDate AND b.CurrencyId = oa.ExchangeID
+		LEFT JOIN bodb_Licensee.dbo.LA_ChargeRateByCurrency lc WITH (NOLOCK) ON p.ChargeID = lc.ChargeID AND b.CurrencyID = lc.CurrencyID
+	GROUP BY
+		tp.PartyID
+		,tp.ParentID
+		,b.rptDate
+		,CASE
+			WHEN b.BetType BETWEEN 4051 AND 4055 THEN 1 -- Blueprint's Games
+			ELSE 2 END -- Normal Macau Games
 
-	--INSERT INTO #FinalResult (rptDate, LicenseeWL, PayToSupplier)
-	--SELECT 'FullRange', CASE WHEN SUM(AmountToCompany) < 0 THEN 0 ELSE SUM(AmountToCompany) END, 
-	--		0.035 * CASE WHEN SUM(MemberWL) > 0 THEN 0 ELSE SUM(MemberWL) END
-	--FROM #TempDataVB
+    CREATE NONCLUSTERED INDEX Idx_InvoiceData ON #TempData (PartyID)
+    -- End region
 
+	-- Region: Pay to Supplier
+	DECLARE @tmpPartyGroup TABLE (ParentID INT, BetTypeGroup INT, MemberWL MONEY, Rate FLOAT)
+	INSERT INTO @tmpPartyGroup (ParentID, BetTypeGroup, MemberWL, Rate)
+	SELECT b.ParentID, b.BetTypeGroup, SUM(b.MemberWL), 0
+	FROM #tempData b
+	GROUP BY b.ParentID, b.BetTypeGroup
+
+	UPDATE @tmpPartyGroup
+	SET Rate = CASE BetTypeGroup WHEN 1 THEN 0.045 ELSE 0.035 END
+
+	CREATE TABLE #DailyPayToSupplier (ParentID INT, rptDate DATE, MemberWL MONEY, PayToSupplier MONEY)
+	INSERT INTO #DailyPayToSupplier (ParentID, rptDate, MemberWL, PayToSupplier)
+	SELECT d.ParentID, d.rptDate, SUM(d.MemberWL), SUM(d.MemberWL * t.Rate)
+	FROM #tempData d
+		INNER JOIN @tmpPartyGroup t ON t.ParentID = d.ParentID
+	GROUP BY d.ParentID, d.rptDate
+	-- End Region
+
+	CREATE TABLE #FinalResult (rptDate VARCHAR(10), LicenseeWL MONEY, PayToSupplier MONEY)
 	INSERT INTO #FinalResult (rptDate, LicenseeWL, PayToSupplier)
-	SELECT 'FullRange', 0, 0			
+	SELECT 'FullRange', 0, 0
 
-	DECLARE @tmpDate DATE, @DateList VARCHAR(200)
-	SELECT @tmpDate = @FDate
+	DECLARE @tmpDate DATETIME, @DateList VARCHAR(200)
+	SELECT  @tmpDate = @FDate
 
 	WHILE @tmpDate <= @TDate
 	BEGIN
 		INSERT INTO #FinalResult (RptDate, LicenseeWL, PayToSupplier)
-		SELECT CONVERT(VARCHAR(2), @tmpDate, 106), 
-				SUM(AmountToCompany), -- LicenseeWL
-				0.035 * SUM(MemberWL) -- PayToSupplier				
-		FROM #TempDataVB 
-		WHERE rptDate = @tmpDate
+		SELECT
+			CONVERT(VARCHAR(2), @tmpDate, 106)
+			,(SELECT ISNULL(SUM(AmountToCompany), 0) FROM #tempData WHERE rptDate = @tmpDate)
+			,(SELECT ISNULL(SUM(PayToSupplier), 0) FROM #DailyPayToSupplier WHERE rptDate = @tmpDate)
 
 		SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate)
 	END
 
-	SELECT @DateList = COALESCE(@DateList + ',', '') + '[' + CONVERT(VARCHAR(10), RptDate) + ']' FROM #FinalResult 
-	-- End region
+	SELECT @DateList = COALESCE(@DateList + ',', '') + '[' + CONVERT(VARCHAR(10), RptDate) + ']' FROM #FinalResult
 
 	---------------------------------------------------- Select the output -------------------------------------------------------
-	DECLARE @SQL VARCHAR(1000)
-	SELECT @SQL =	'SELECT * ' + CHAR(13) +
+	DECLARE @SQL VARCHAR(MAX)
+	SELECT	@SQL =	'SELECT * ' + CHAR(13) +
 					'FROM	(SELECT ProductCode, [Order], [RptDate], Figure, ISNULL(value, 0) value FROM #FinalResult' + CHAR(13) +
 							'CROSS APPLY' + CHAR(13) +
-							'(SELECT ''VB'', 1, ''House Income'', LicenseeWL' + CHAR(13) +							
+							'(SELECT ''' + @ProductPrefix + ''', 1, ''House Income'', LicenseeWL' + CHAR(13) +							
 							'UNION ALL' + CHAR(13) +
-							'SELECT ''VB'', 4, ''Pay to supplier'', PayToSupplier) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
+							'SELECT ''' + @ProductPrefix + ''', 4, ''Pay to supplier'', PayToSupplier) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
 					'PIVOT' + CHAR(13) +
 					'(' + CHAR(13) +
 						'MAX(value)' + CHAR(13) +
@@ -161,12 +224,18 @@ BEGIN
 					') piv' + CHAR(13) +
 					'ORDER BY [Order]'
 
-	EXEC(@SQL)
+	EXEC (@SQL)
 
 	-- Region: Drop tmp table
+	DROP TABLE #Bettype
+	DROP TABLE #DailyPayToSupplier
 	DROP TABLE #Exchange
 	DROP TABLE #ExchangeOANDA
-	DROP TABLE #TempDataVB
 	DROP TABLE #FinalResult
+	DROP TABLE #PartyChargeInfo
+	DROP TABLE #Site
+	DROP TABLE #tempData
+	DROP TABLE #tempDataDW
+	-- End Region
 END
 GO

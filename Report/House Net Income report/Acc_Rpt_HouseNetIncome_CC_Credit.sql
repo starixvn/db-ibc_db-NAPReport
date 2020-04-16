@@ -1,4 +1,6 @@
 /*<info serverAlias="DBWH-bodb_dwrs" executers="dwrs" viewers="" isFunction="0" isNested="0"></info>*/
+USE bodb_dwrs
+GO
 
 ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_CC_Credit]
 	@FromDate DATE ,
@@ -12,6 +14,7 @@ AS
     Revisions:  
 		- 20190819@Robert - NAP Report - Integrate Card Club on NAP Report [#115465]
 		- 20200313@Kean - Change the "Pay to supplier" formula of CC(New Bettype 1902) - #126465
+		- 20200403@Kean - Integrate Mini Game Xoc Dia of CC(New Bettype 1903) - #131507
 	
 	Param's Explanation:   
 
@@ -36,7 +39,7 @@ BEGIN
 		  ,[bettype]
 	FROM DBCUST.[CustDB].[dbo].[VendorGlobalSetting] v WITH(NOLOCK)
 	INNER JOIN bodb02.dbo.Products p WITH(NOLOCK) ON v.[VendorId] = p.VendorID
-	WHERE v.[VName] IN ('3rdCreditWLShareRateTX')
+	WHERE v.[VName] IN ('3rdCreditWLShareRateTX','3rdCreditWLShareRateXD')
 	AND p.ProductPrefix IN ('CC')
 
     CREATE TABLE #Exchange(
@@ -187,13 +190,12 @@ BEGIN
 			 , ISNULL(SUM(b.WinlossP * e.Rate),0) AS MemberWLOANDA
 			 , ISNULL(SUM((b.ExtraWL + b.ExtraComm) * ex.Rate),0) AS ExtraPT
 		 FROM bodb_Account.dbo.FactSiteWinloss AS b WITH (NOLOCK)
-			--INNER JOIN #SportBettypeMatrix AS sb ON sb.Bettype = b.bettype
 			LEFT JOIN #exchange AS ex ON b.rptdate = ex.exchangedate
 									AND b.currencyid = ex.ExchangeID
 			LEFT JOIN #ExchangeOANDA e ON e.ExchangeDate = b.RptDate
 								    AND e.ExchangeID = b.CurrencyID
 			
-		 WHERE b.rptDate BETWEEN @FDate AND @TDate
+		 WHERE b.rptDate >= @FDate AND b.rptDate <= @TDate
 			  AND b.TicketStatus NOT IN(-1, 18, 9, 10, 14)
 			  AND b.CurrencyID <> 20
 	   		  AND SiteID IN (SELECT SiteID FROM bodb_Account.dbo.tbl_Site WHERE isDeposit = 0 )-- Credit data only
@@ -216,7 +218,7 @@ BEGIN
 		   SELECT CONVERT(VARCHAR(2), wl.rptDate, 106) AS winlostDate
 			   , SUM(wl.HouseWL) AS HouseWL
 			   , SUM(wl.ExtraPT) AS ExtraPT
-			   , SUM(wl.MemberWLOANDA * (CASE WHEN wl.Bettype = 1902 THEN ISNULL(v.ChargeRate3rd,0) ELSE ISNULL(ci.Rate,0) END)) AS PayToSupplier
+			   , SUM(wl.MemberWLOANDA * (CASE WHEN wl.Bettype IN (1902, 1903) THEN ISNULL(v.ChargeRate3rd,0) ELSE ISNULL(ci.Rate,0) END)) AS PayToSupplier
 		   FROM #TmpHouseWL AS wl
 			  INNER JOIN #ChargeInfo3rd AS ci ON wl.rptDate BETWEEN ci.FromDate AND ci.ToDate
 			  LEFT JOIN #tmpVendorGlobalSetting v ON wl.ProductID = v.ProductID 

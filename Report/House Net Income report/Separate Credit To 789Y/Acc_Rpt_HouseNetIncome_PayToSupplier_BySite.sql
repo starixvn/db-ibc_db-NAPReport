@@ -20,6 +20,9 @@ AS
 		- 20200313@Kean - Change the "Pay to supplier" formula of SG AND CC(New Bettype 1902) - #126465
 		- 20200324@Kean - Email/Letstalk Reports - Integrate SA Gaming product [#128059]
 		- 20200410@Kean - Email/Letstalk Reports - Integrate BBIN product [#131364]
+		- 20200403@Kean - Integrate Mini Game Xoc Dia of CC(New Bettype 1903) - #131507
+		- 20200408@Kean - Add 12 New Slot Games for Macau Game - (#131755)
+		- 20200409@Kean: House Net Income - Integrate Table Games product (#129447)
 	
 	Param's Explanation:   
 	- DepositType  
@@ -54,7 +57,7 @@ BEGIN
 	INSERT INTO #tmpProduct(ProductID, ProductCode, VendorID)
 	SELECT ProductID, ProductPrefix, VendorID
 	FROM bodb02.dbo.Products WITH(NOLOCK)
-	WHERE ProductPrefix IN ( 'PP', 'CC', 'SG', 'SAG', 'SXG', 'BBIN')
+	WHERE ProductPrefix IN ( 'PP', 'CC', 'SG', 'SAG', 'SXG', 'BBIN', 'TG')
 	
 	INSERT INTO #tmpVendorGlobalSetting(ProductID, VName, ChargeRate3rd, Sporttype, Bettype)
 	SELECT p.ProductID
@@ -65,7 +68,7 @@ BEGIN
 	FROM DBCUST.[CustDB].[dbo].[VendorGlobalSetting] v WITH(NOLOCK)
 	INNER JOIN #tmpProduct p ON v.[VendorId] = p.VendorID
 	WHERE v.[VName] IN ('3rdCreditWLShareRate'
-					, '3rdCreditWLShareRateTX' -- 1902 of Card Club
+					, '3rdCreditWLShareRateTX', '3rdCreditWLShareRateXD' -- 1902,1903 of Card Club
 					, '3rdCreditRebateRate') -- Rebate Rate of SA Gaming
 
     INSERT INTO #Exchange(ExchangeDate, ExchangeID, Rate)
@@ -127,7 +130,7 @@ BEGIN
 						+ CAST(@FDate AS NVARCHAR(50)) + ''''''
 						+ N','''''
 						+ CAST(@TDate AS NVARCHAR(50)) + ''''''
-						+ N',''''PP,CC,SG,SAG,SXG,BBIN'''''
+						+ N',''''PP,CC,SG,SAG,SXG,BBIN,TG'''''
 						+ N',''''OA'''''	
 						+ N') ci '
 						+ N'INNER JOIN bodb_licensee.dbo.OAS_ChargeInfo c WITH (NOLOCK) ON ci.ChargeID = c.ChargeID '
@@ -182,7 +185,8 @@ BEGIN
 	  , PayToSupplier_SG        MONEY
 	  , PayToSupplier_SA        MONEY
 	  , PayToSupplier_SXG        MONEY
-	  , PayToSupplier_BBIN        MONEY);
+	  , PayToSupplier_BBIN        MONEY
+	  , PayToSupplier_TG        MONEY);
 
 	  DECLARE @tmpDate     DATE
 		, @DateList    VARCHAR(200) = '[FullRange]';
@@ -198,7 +202,7 @@ BEGIN
 		SELECT DISTINCT ProductID
 			 , BetType
 		FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)
-		WHERE ProductID IN (3, 5, 8, 23, 22, 21, 12, 28, 27, 6, 32, 34, 36, 39, 45, 47)
+		WHERE ProductID IN (3, 5, 8, 23, 22, 21, 12, 28, 27, 6, 32, 34, 36, 39, 45, 47, 40)
 		 AND BetType NOT IN (4299, 4300) -- PP
 
 	-- BEGIN: GET DATA
@@ -259,7 +263,7 @@ BEGIN
 		
 	-- END: GET DATA
 
-	-- BEGIN - Calculate PayToSupplier for CC, SG, SAG, SXG, PP, BBIN
+	-- BEGIN - Calculate PayToSupplier for CC, SG, SAG, SXG, PP, BBIN, TG
 	CREATE TABLE #tmpPayToSupplier_Daily(
 		ProductId					INT,
 	    RptDate						DATE,
@@ -269,7 +273,8 @@ BEGIN
 		ProductId					INT,
 		MemberWLOANDA				MONEY,
 		PayToSupplier_PP_MTD        MONEY);
-	
+
+	-- For Daily
 	-- Valid Bets Rebate Of SAG From LA 
 	INSERT INTO #tmpPayToSupplier_Daily(ProductId, RptDate, PayToSupplier_Daily)
 	SELECT t.ProductID, t.rptDate, SUM(t.ValidBetAmount * ISNULL(ci.Rate,0) * ISNULL(@RebateRate,v.ChargeRate3rd) * ISNULL(oanda.rate,0)) 
@@ -283,18 +288,25 @@ BEGIN
 							WHERE t.ProductID IN (39) 
 							GROUP BY t.ProductID, t.rptDate
 
-	-- CC, SG, SAG, SXG, BBIN
+	-- CC, SG, SAG, SXG, BBIN, TG
 	INSERT INTO #tmpPayToSupplier_Daily(ProductId, RptDate, PayToSupplier_Daily)
-	SELECT t.ProductID, t.rptDate, SUM(t.MemberWLOANDA * (CASE WHEN t.ProductID = 34 AND t.Bettype = 1902 THEN ISNULL(v.ChargeRate3rd,0) 
+	SELECT t.ProductID, t.rptDate, SUM(t.MemberWLOANDA * (CASE WHEN t.ProductID = 34 AND t.Bettype IN (1902, 1903) THEN ISNULL(v.ChargeRate3rd,0) 
 															ELSE ISNULL(ci.Rate,0) END)) 
 							FROM #tmpFactSiteWinloss AS t
 							INNER JOIN #ChargeInfo3rd AS ci ON t.ProductID = ci.ProductID AND t.rptDate BETWEEN ci.FromDate AND ci.ToDate
-							INNER JOIN #tmpProduct p on ci.ProductID = p.ProductID AND p.ProductCode IN ('CC', 'SG', 'SAG', 'SXG', 'BBIN')
+							INNER JOIN #tmpProduct p on ci.ProductID = p.ProductID AND p.ProductCode IN ('CC', 'SG', 'SAG', 'SXG', 'BBIN', 'TG')
 							LEFT JOIN #tmpVendorGlobalSetting v ON t.ProductID = v.ProductID 
 																	AND v.Sporttype = t.SportType 
 																	AND v.Bettype = t.BetType
-																	AND v.VName = '3rdCreditWLShareRateTX'
-							WHERE t.ProductID IN (34, 36, 39, 45, 47)
+																	AND v.VName IN ('3rdCreditWLShareRateTX','3rdCreditWLShareRateXD')
+							WHERE t.ProductID IN (34, 36, 39, 45, 47, 40)
+							GROUP BY t.ProductID, t.rptDate
+
+	-- Macau Games
+	INSERT INTO #tmpPayToSupplier_Daily(ProductId, RptDate, PayToSupplier_Daily)
+	SELECT t.ProductID, t.rptDate, SUM(t.MemberWLOANDA * (CASE WHEN BetType IN (4051,4052,4053,4054,4055) THEN 0.03 ELSE 0.02 END)) 
+							FROM #tmpFactSiteWinloss AS t
+							WHERE t.ProductID IN (22)
 							GROUP BY t.ProductID, t.rptDate
 
 	-- PP
@@ -311,6 +323,14 @@ BEGIN
 			INNER JOIN #tmpProduct p on ci.ProductID = p.ProductID AND p.ProductCode = 'PP'
 			INNER JOIN #ExchangeOANDA ex ON ci.BaseCurrencyId = ex.ExchangeID AND ex.ExchangeDate = @TDate
 
+	-- For Monthly
+	-- Macau Games
+	INSERT INTO #tmpPayToSupplier_MTD(ProductId, MemberWLOANDA, PayToSupplier_PP_MTD)
+	SELECT t.ProductID, SUM(MemberWLOANDA), SUM(t.MemberWLOANDA * (CASE WHEN BetType IN (4051,4052,4053,4054,4055) THEN 0.03 ELSE 0.02 END)) 
+							FROM #tmpFactSiteWinloss AS t
+							WHERE t.ProductID IN (22)
+							GROUP BY t.ProductID
+	--PP
 	INSERT INTO #tmpPayToSupplier_MTD(ProductId, MemberWLOANDA, PayToSupplier_PP_MTD)
 	SELECT 32 ProductID, SUM(MemberWL_MTD) MemberWLOANDA,
 						SUM((CASE WHEN MemberWL_MTD >= MinAmount THEN 
@@ -352,6 +372,7 @@ BEGIN
 						  , PayToSupplier_SA
 						  , PayToSupplier_SXG
 						  , PayToSupplier_BBIN
+						  , PayToSupplier_TG
 						  )
 SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 	,(SELECT SUM(t.HouseWL) * 0.5 * (-1) FROM #tmpFactSiteWinloss AS t WHERE t.ProductID = 3 AND t.SportType <> 164 AND  t.rptDate = @tmpDate) AS  PayToSupplier_NG
@@ -359,7 +380,7 @@ SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 	,(SELECT SUM(t.MemberWLOANDA) * 0.01 FROM #tmpFactSiteWinloss AS t WHERE t.ProductID = 5 AND t.rptDate = @tmpDate)  AS  PayToSupplier_VS
 	,(SELECT SUM(t.MemberWLOANDA) * 0.03 FROM #tmpFactSiteWinloss AS t WHERE t.ProductID = 8 AND t.rptDate = @tmpDate)  AS  PayToSupplier_RNGKeno
 	,(SELECT SUM(t.HouseWL) * 0.5 * (-1) FROM #tmpFactSiteWinloss AS t WHERE t.ProductID = 23 AND t.rptDate = @tmpDate) AS  PayToSupplier_NG2
-	,(SELECT SUM(t.MemberWLOANDA) * 0.02 FROM #tmpFactSiteWinloss AS t WHERE t.ProductID = 22 AND t.rptDate = @tmpDate) AS  PayToSupplier_MacauG
+	,(SELECT SUM(t.PayToSupplier_Daily) FROM #tmpPayToSupplier_Daily AS t WHERE t.ProductID = 22 AND t.rptDate = @tmpDate) AS  PayToSupplier_MacauG
 	,(SELECT SUM(t.MemberWLOANDA) * 0.03 FROM #tmpFactSiteWinloss AS t WHERE t.ProductID = 28 AND t.rptDate = @tmpDate) AS  PayToSupplier_LT
 	, 0 PayToSupplier_EX
 	,(SELECT SUM(t.MemberWLOANDA) * 0.01 FROM #tmpFactSiteWinloss AS t WHERE t.ProductID = 27 AND t.rptDate = @tmpDate) AS  PayToSupplier_VS2
@@ -372,6 +393,7 @@ SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 	,(SELECT SUM(t.PayToSupplier_Daily) FROM #tmpPayToSupplier_Daily AS t WHERE t.ProductID = 39 AND t.rptDate = @tmpDate) AS  PayToSupplier_SA
 	,(SELECT SUM(t.PayToSupplier_Daily) FROM #tmpPayToSupplier_Daily AS t WHERE t.ProductID = 45 AND t.rptDate = @tmpDate) AS PayToSupplier_SXG
 	,(SELECT SUM(t.PayToSupplier_Daily) FROM #tmpPayToSupplier_Daily AS t WHERE t.ProductID = 47 AND t.rptDate = @tmpDate) AS PayToSupplier_BBIN
+	,(SELECT SUM(t.PayToSupplier_Daily) FROM #tmpPayToSupplier_Daily AS t WHERE t.ProductID = 40 AND t.rptDate = @tmpDate) AS  PayToSupplier_TG
 
 		  SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate);
 	   END; 
@@ -397,14 +419,15 @@ INSERT INTO #FinalResult(RptDate
 					, PayToSupplier_SG
 					, PayToSupplier_SA
 					, PayToSupplier_SXG
-					, PayToSupplier_BBIN)
+					, PayToSupplier_BBIN
+					, PayToSupplier_TG)
 		 SELECT 'FullRange'
 			, SUM(PayToSupplier_NG)        
 			, SUM(PayToSupplier_H5)
 			, 0.01 * (SELECT CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(MemberWLOANDA) END FROM #tmpFactSiteWinloss AS t WHERE t.ProductID = 5)
 			, 0.03 * (SELECT CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(MemberWLOANDA) END FROM #tmpFactSiteWinloss AS t WHERE t.ProductID = 8)
 			, SUM(PayToSupplier_NG2)
-			, 0.02 * (SELECT CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(MemberWLOANDA) END FROM #tmpFactSiteWinloss AS t WHERE t.ProductID = 22)
+			, (SELECT CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(PayToSupplier_PP_MTD) END FROM #tmpPayToSupplier_MTD AS t WHERE t.ProductID = 22)
 			, 0.03 * (SELECT CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(MemberWLOANDA) END FROM #tmpFactSiteWinloss AS t WHERE t.ProductID = 28)
 			, 0
 			, 0.01 * (SELECT CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(MemberWLOANDA) END FROM #tmpFactSiteWinloss AS t WHERE t.ProductID = 27)               
@@ -417,6 +440,7 @@ INSERT INTO #FinalResult(RptDate
 			, SUM(PayToSupplier_SA)
 			, SUM(PayToSupplier_SXG)
 			, SUM(PayToSupplier_BBIN)
+			, CASE WHEN SUM(PayToSupplier_TG) > 0 THEN 0 ELSE SUM(PayToSupplier_TG) END
 		 FROM #FinalResult;
 
     -- Select the output
@@ -440,7 +464,8 @@ INSERT INTO #FinalResult(RptDate
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SG'', 15, ''PayToSupplier'', PayToSupplier_SG' + CHAR(13)
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SAG'', 16, ''PayToSupplier'', PayToSupplier_SA' + CHAR(13)
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SXG'', 17, ''PayToSupplier'', PayToSupplier_SXG' + CHAR(13)
-    + 'UNION ALL' + CHAR(13) + 'SELECT ''BBIN'', 18, ''PayToSupplier'', PayToSupplier_BBIN) c (ProductCode, [Order], Figure, value)) a' + CHAR(13)  
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''BBIN'', 18, ''PayToSupplier'', PayToSupplier_BBIN' + CHAR(13)
+    + 'UNION ALL' + CHAR(13) + 'SELECT ''TG'', 21, ''PayToSupplier'', PayToSupplier_TG) c (ProductCode, [Order], Figure, value)) a' + CHAR(13)    
     + 'PIVOT' + CHAR(13) 
     + '(' + CHAR(13) 
     + 'MAX(value)' + CHAR(13) 

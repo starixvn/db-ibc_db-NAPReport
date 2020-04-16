@@ -1,16 +1,14 @@
-/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
-USE bodb02
-GO
-
+/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE dbo.Acc_Rpt_HouseNetIncome_MarginChart_NonSport_Deposit 
 	@FromDate       DATE
-   , @ToDate         DATE
-   , @ProductList    VARCHAR(MAX) = ''   
-AS;
-/*  	
-	Created:		20180126@Harper 
-	Description:	HDWL Letstalk - Implement Chart of NonSport product margin    
-    DB:				DBEXT/bodb02  
+   ,@ToDate         DATE
+   ,@ProductList    VARCHAR(MAX) = ''   
+AS
+
+/*
+	Created:	20180126@Harper 
+	Task:		HDWL Letstalk - Implement Chart of NonSport product margin    
+    DB:			DBEXT-bodb02  
    
     Revisions:
 		- 20180126@Harper - HDWL Letstalk - Implement Chart of NonSport product margin [#RedmineID: 89632]
@@ -24,6 +22,7 @@ AS;
 		- 20200313@Kean - Change the "Pay to supplier" formula of SG - #126465
 		- 20200317@Kean - Letstalk - Integrate Virtual Games product [#126465]
 		- 20200324@Kean - Email/Letstalk Reports - Integrate SA Gaming product [#128059]
+		- 20200403@Percy: Integrate Xoc Dia (CC), Bluesprint's games (Macau Games), Table Games [RedmineID: #131507,#131755,#129447]
 
 	Param's Explanation:   
 		- @ProductList: '' - default value when get all product
@@ -38,7 +37,7 @@ BEGIN
 	DECLARE @FDate DATE, @TDate DATE
 	SELECT @FDate = @FromDate, @TDate = @ToDate
 
-	DECLARE @DefaulProductList VARCHAR(MAX) = 'EX,GD,FW,AB,VB,CB,CO,AGC,KN,LT,CS,NG,PP,CC,SP,SG,VRG,SAG,I4D'
+	DECLARE @DefaulProductList VARCHAR(MAX) = 'EX,GD,FW,AB,VB,CB,CO,AGC,KN,LT,CS,NG,PP,CC,SP,SG,VRG,SAG,I4D,TG'
 
 	-- Select ProductList
 	SELECT @ProductList = CASE WHEN LEN(ISNULL(@ProductList, '')) > 0  THEN @ProductList ELSE @DefaulProductList END
@@ -78,6 +77,13 @@ BEGIN
 	
 	--EXEC (@DynamicTable)
 
+	-- 20. TG
+	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'TG')
+	BEGIN
+		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
+							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_TG_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
+	END
+	
 	-- 19. I4D
 	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'I4D')
 	BEGIN
