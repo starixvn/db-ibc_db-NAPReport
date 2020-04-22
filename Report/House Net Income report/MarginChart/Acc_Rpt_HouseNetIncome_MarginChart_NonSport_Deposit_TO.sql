@@ -1,5 +1,4 @@
 /*<info serverAlias="DBWH-bodb_dwrs" executers="dwrs" viewers="" isFunction="0" isNested="0"></info>*/
-
 ALTER PROCEDURE dbo.Acc_Rpt_HouseNetIncome_MarginChart_NonSport_Deposit_TO
 	@FromDate       DATE
    , @ToDate         DATE
@@ -18,6 +17,7 @@ AS;
 		- 20200317@Kean - Letstalk - Integrate Virtual Games product [#126465]
 		- 20200324@Kean - Email/Letstalk Reports - Integrate SA Gaming product [#128059]
 		- 20200409@Kean: House Net Income - Integrate Table Games product (#129447)
+		- 20200422@Percy: Integrate 3D Lottery (CC), Saba.Club, Sexy Gaming [RedmineID: #132790,#132791,#132792]
 
 	Param's Explanation:   
 		- @ProductList: '' - default value when get all product
@@ -35,7 +35,7 @@ BEGIN
     SELECT @FDate = @FromDate
 	    , @TDate = @ToDate;
 
-    DECLARE @Deposit    VARCHAR(MAX) = 'NG,CS,KN,LT,AGC,CO,CB,VB,AB,GD,BX,VS,VS2,PP,CC,SG,VRG,SAG,I4D,TG';
+    DECLARE @Deposit    VARCHAR(MAX) = 'NG,CS,KN,LT,AGC,CO,CB,VB,AB,GD,BX,VS,VS2,PP,CC,SG,VRG,SAG,I4D,TG,SBC,SXG';
 
     CREATE TABLE #Exchange(
 	    ExchangeDate    DATE
