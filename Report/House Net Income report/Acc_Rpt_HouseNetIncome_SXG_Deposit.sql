@@ -89,13 +89,13 @@ BEGIN
 
 	CREATE TABLE #PartyCharge3rdInfo
 	(
-		LicenseeID INT
+		PartyID		INT
 		,Rate       MONEY
 		,FromDate   SMALLDATETIME
 		,ToDate     SMALLDATETIME
 	)
-	INSERT INTO #PartyCharge3rdInfo (LicenseeID, Rate, FromDate, ToDate)
-	SELECT DISTINCT p.LicenseeID, ci.DI_Rate, ci.FromDate, ci.ToDate
+	INSERT INTO #PartyCharge3rdInfo (PartyID, Rate, FromDate, ToDate)
+	SELECT DISTINCT p.PartyID, ci.DI_Rate, ci.FromDate, ci.ToDate
 	FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd (@FDate, @TDate, @ProductPrefix, 'OA') ci
 		INNER JOIN #PartyChargeInfo p ON p.ParentID = ci.PartyID
 	WHERE ci.ChargeType = 1
@@ -108,10 +108,10 @@ BEGIN
 	FROM DBWH.bodb_account.dbo.tbl_Currency_Daily WITH (NOLOCK)
 	WHERE ExchangeDate BETWEEN @FDate AND @TDate
 
-	CREATE TABLE #ExchangeOANDA (ExchangeDate DATE, ExchangeID INT, CNY FLOAT, USD FLOAT, MYR FLOAT)
-	INSERT INTO #ExchangeOANDA(ExchangeDate, ExchangeID, CNY, USD, MYR)
-	SELECT ExchangeDate, ExchangeID, CompareCurrencyRate1, CompareCurrencyRate2, BaseCurrencyRate
-	FROM dbo.LA_f_ExchangeDailyForSpecRange(@FDate, @TDate, 'CNY', 'USD', 'MYR') -- not use USD
+	CREATE TABLE #ExchangeOANDA (ExchangeDate DATE, ExchangeID INT, Rate FLOAT)
+	INSERT INTO #ExchangeOANDA(ExchangeDate, ExchangeID, Rate)
+	SELECT ExchangeDate, ExchangeID, BaseCurrencyRate
+	FROM dbo.LA_f_ExchangeDailySel (@FDate, @TDate, 'MYR')
 	-- End Region
 
 	-- Region: Get Sum data
