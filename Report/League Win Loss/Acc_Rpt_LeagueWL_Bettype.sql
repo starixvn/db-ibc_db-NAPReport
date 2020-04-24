@@ -130,7 +130,7 @@ BEGIN
 						   RealTurnover			MONEY,
 						   VirtualTurnover		MONEY)
 	
-	-- + Soccer, Other Sports and Parlay
+	-- + Soccer, Other Sports
 	INSERT INTO #tmpData (LiveIndicator,
 						  Bettype,
 						  BettypeName,
