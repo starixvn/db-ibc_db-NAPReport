@@ -16,7 +16,7 @@ AS
 		- 20200324@Kean - Email/Letstalk Reports - Integrate SA Gaming product [#128059]
 		- 20200410@Kean - Email/Letstalk Reports - Integrate BBIN product [#131364]
 		- 20200409@Kean: House Net Income - Integrate Table Games product (#129447)
-		- 20200423@Kean - Email/Letstalk Reports - Integrate GT Casino product (#130690)
+		- 20200423@Kean - Email/Letstalk Reports - Integrate IBCBet Live Casino product (#130690)
   
 */
 BEGIN
@@ -88,7 +88,7 @@ SET NOCOUNT ON;
 	UNION ALL
 	SELECT 'TG' Product, 'TG' ProductPrefix
 	UNION ALL
-	SELECT 'GTC' Product, 'GTC' ProductPrefix
+	SELECT 'IBCLC' Product, 'IBCLC' ProductPrefix
 END
 GO
 GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_ProductList] TO [dwrs]

@@ -2,7 +2,7 @@
 USE bodb_dwrs
 GO
 
-ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_GTC_Credit]
+ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_IBCLC_Credit]
 	@FromDate DATE ,
 	@ToDate	DATE 
 AS
@@ -17,13 +17,13 @@ AS
 
 	Param's Explanation:   
 
-	EXEC Acc_Rpt_HouseNetIncome_GTC_Credit '20160901', '20160930'
+	EXEC Acc_Rpt_HouseNetIncome_IBCLC_Credit '20160901', '20160930'
 */ 
 BEGIN  
     SET NOCOUNT ON;
 
-    DECLARE @FDate    DATE
-		, @TDate    DATE;
+    DECLARE @FDate DATE, @TDate DATE;
+	DECLARE @ProductPrefix VARCHAR(5) = 'IBCLC'
 
     SELECT @FDate = @FromDate
 	    , @TDate = @ToDate;
@@ -44,7 +44,7 @@ BEGIN
 	INSERT INTO #tmpProduct(ProductID, ProductCode, VendorID)
 	SELECT ProductID, ProductPrefix, VendorID
 	FROM bodb02.dbo.Products WITH(NOLOCK)
-	WHERE ProductPrefix IN ('GTC')
+	WHERE ProductPrefix = @ProductPrefix
 	
 	INSERT INTO #tmpVendorGlobalSetting(ProductID, VName, ChargeRate3rd, Sporttype, Bettype)
 	SELECT p.ProductID
@@ -113,7 +113,7 @@ BEGIN
 			 , EventType
 			 , SubProduct
 		 FROM bodb02.dbo.f_SportBettypeMatrix_Sel
-			 (46, 0, 0, 2, '', 'GTC', 0);
+			 (46, 0, 0, 2, '', @ProductPrefix, 0);
     -- Get PayToSupplier Rate
 
     CREATE TABLE #ChargeInfo3rd(
@@ -133,7 +133,7 @@ BEGIN
 						+ CAST(@FDate AS NVARCHAR(50)) + ''''''
 						+ N','''''
 						+ CAST(@TDate AS NVARCHAR(50)) + ''''''
-						+ N',''''GTC'''''
+						+ N','''''+ @ProductPrefix + ''''''
 						+ N',''''OA'''''	
 						+ N') ci '
 						+ N'INNER JOIN bodb_licensee.dbo.OAS_ChargeInfo c WITH (NOLOCK) ON ci.ChargeID = c.ChargeID '
@@ -231,11 +231,11 @@ BEGIN
 	SELECT @SQL =	'SELECT * ' + CHAR(13) +
 					'FROM	(SELECT ProductCode, [Order], [RptDate], Figure, ISNULL(value, 0) value FROM #FinalResult' + CHAR(13) +
 							'CROSS APPLY' + CHAR(13) +
-							'(SELECT ''GTC'', 1, ''House Income'', HouseWL' + CHAR(13) +
+							'(SELECT ''' + @ProductPrefix + ''', 1, ''House Income'', HouseWL' + CHAR(13) +
 							'UNION ALL' + CHAR(13) +
-							'SELECT ''GTC'', 2, ''Extra PT'', ExtraPT' + CHAR(13) +							
+							'SELECT ''' + @ProductPrefix + ''', 2, ''Extra PT'', ExtraPT' + CHAR(13) +							
 							'UNION ALL' + CHAR(13) +
-							'SELECT ''GTC'', 4, ''Pay to supplier'', PayToSupplier) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
+							'SELECT ''' + @ProductPrefix + ''', 4, ''Pay to supplier'', PayToSupplier) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
 					'PIVOT' + CHAR(13) +
 					'(' + CHAR(13) +
 						'MAX(value)' + CHAR(13) +

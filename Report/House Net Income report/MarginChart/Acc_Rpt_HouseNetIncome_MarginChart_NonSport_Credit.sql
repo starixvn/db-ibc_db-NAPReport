@@ -30,7 +30,7 @@ AS
 		- 20200408@Kean - Add 12 New Slot Games for Macau Game - (#131755)
 		- 20200409@Kean: House Net Income - Integrate Table Games product (#129447)
 		- 20200422@Kean - Integrate Mini Game 3D Lottery of CC(New Bettype 1904) - #132790
-		- 20200423@Kean - Email/Letstalk Reports - Integrate GT Casino product (#130690)
+		- 20200423@Kean - Email/Letstalk Reports - Integrate IBCBet Live Casino product (#130690)
 
 	Param's Explanation:   
 		- @ProductList: '' - default value when get all product
@@ -51,7 +51,7 @@ BEGIN
 	FROM bodb_Account.dbo.tbl_Site WITH(NOLOCK)
 	WHERE [site] = 'CN88';
 
-	DECLARE @Credit VARCHAR(MAX) = 'NG,VS,KN,LT,VS2,VB,CS,NG2,AB,GD,CB,PP,CC,SG,VRG,SAG,SBC,SXG,BBIN,TG,GTC'  
+	DECLARE @Credit VARCHAR(MAX) = 'NG,VS,KN,LT,VS2,VB,CS,NG2,AB,GD,CB,PP,CC,SG,VRG,SAG,SBC,SXG,BBIN,TG,IBCLC'  
 		
 	-- Region: Get exchange rate info
 	CREATE	TABLE #Exchange			(ExchangeDate DATE, ExchangeID INT, Rate FLOAT)
@@ -68,7 +68,7 @@ BEGIN
 	FROM DBCUST.[CustDB].[dbo].[VendorGlobalSetting] v WITH(NOLOCK)
 	INNER JOIN bodb02.dbo.Products p WITH(NOLOCK) ON v.[VendorId] = p.VendorID
 	WHERE v.[VName] IN ('3rdCreditWLShareRate', '3rdCreditWLShareRateTX', '3rdCreditWLShareRateXD', '3rdCreditWLShareRate3D', '3rdCreditRebateRate')
-	AND p.ProductPrefix IN ('SG', 'CC', 'SAG', 'SXG', 'BBIN', 'TG', 'GTC')
+	AND p.ProductPrefix IN ('SG', 'CC', 'SAG', 'SXG', 'BBIN', 'TG', 'IBCLC')
 
 	INSERT INTO #Exchange(ExchangeDate, ExchangeID, Rate)
 	SELECT ExchangeDate, Currency, Rate
@@ -140,7 +140,7 @@ BEGIN
 						+ CAST(@FDate AS NVARCHAR(50)) + ''''''
 						+ N','''''
 						+ CAST(@TDate AS NVARCHAR(50)) + ''''''
-						+ N',''''PP,CC,SG,SAG,SXG,BBIN,TG,GTC'''''
+						+ N',''''PP,CC,SG,SAG,SXG,BBIN,TG,IBCLC'''''
 						+ N',''''OA'''''	
 						+ N') ci '
 						+ N'INNER JOIN bodb_licensee.dbo.OAS_ChargeInfo c WITH (NOLOCK) ON ci.ChargeID = c.ChargeID '
@@ -266,7 +266,7 @@ BEGIN
 		EXECUTE (@OpenQuery_BettingByProduct)
 	-- END: GET DATA
 
-	-- BEGIN - Calculate PayToSupplier for CC, SG, SAG, SXG, PP,TG,GTC
+	-- BEGIN - Calculate PayToSupplier for CC, SG, SAG, SXG, PP,TG,IBCLC
 	CREATE TABLE #tmpPayToSupplier_Daily(
 		ProductId					INT,
 	    RptDate						DATE,
@@ -283,7 +283,7 @@ BEGIN
 																	AND v.VName = '3rdCreditRebateRate'
 							WHERE t.ProductID IN (SELECT s.ProductID FROM #SportBettypeMatrix s WHERE s.ProductID = 39)  
 							GROUP BY t.ProductID, t.rptDate
-	-- CC, SG, SAG, SXG, BBIN, TG,GTC
+	-- CC, SG, SAG, SXG, BBIN, TG,IBCLC
 	INSERT INTO #tmpPayToSupplier_Daily(ProductId, RptDate, PayToSupplier_Daily)
 	SELECT t.ProductID, t.rptDate, SUM(t.MemberWLOANDA * (CASE WHEN t.ProductID = 34 AND t.Bettype IN (1902,1903,1904) THEN ISNULL(v.ChargeRate3rd,0) 
 															ELSE ISNULL(ci.Rate,0) END)) 
@@ -313,7 +313,7 @@ BEGIN
 				WHERE t.ProductID = 32 GROUP BY RptDate ) wl
 			INNER JOIN #ChargeInfo3rd ci ON wl.RptDate BETWEEN ci.FromDate AND ci.ToDate
 			INNER JOIN #ExchangeOANDA ex ON ci.BaseCurrencyId = ex.ExchangeID AND ex.ExchangeDate = @TDate
-	-- END - Calculate PayToSupplier for CC, SG, SAG, SXG, PP, TG, GTC
+	-- END - Calculate PayToSupplier for CC, SG, SAG, SXG, PP, TG, IBCLC
 
 		-- Get DetailDaily Data & FullRange Data
     WHILE @tmpDate <= @TDate
@@ -333,7 +333,7 @@ SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 		+ (SELECT ISNULL(SUM((t.HouseWL + t.ExtraPT) * r.Rate) * (-1),0) FROM #TmpHouseWL AS t INNER JOIN #PayToSupplierRate r ON t.ProductID = r.ProductID
 									     WHERE t.ProductID = 3 AND t.SiteID <> @SiteCN88 AND  t.rptDate = @tmpDate) -- NG2, NG
 		+ (SELECT SUM(t.PayToSupplier_Daily) FROM #tmpPayToSupplier_Daily AS t 
-											 WHERE t.ProductID IN (22, 34, 36, 39, 45, 40, 47, 46)  AND  t.rptDate = @tmpDate) -- MacauG, CC, SG, SA, SXG, GTC
+											 WHERE t.ProductID IN (22, 34, 36, 39, 45, 40, 47, 46)  AND  t.rptDate = @tmpDate) -- MacauG, CC, SG, SA, SXG, IBCLC
 		+ (SELECT ISNULL(SUM(t.MemberWLOANDA * r.Rate),0)  FROM #TmpHouseWL AS t INNER JOIN #PayToSupplierRate r ON t.ProductID = r.ProductID
 									     WHERE t.ProductID IN (5,8,28,27) 
 										AND t.SiteID <> @SiteCN88 AND  t.rptDate = @tmpDate) -- VS,KN,LT,VS2
