@@ -175,8 +175,8 @@ BEGIN
 	SELECT '' AS MatchCode,
 		   -1 AS HomeID,
 		   -1 AS AwayID,
-		   CASE WHEN @SportType = 1 AND sd.recommend = 52466   THEN 'ZZZZZ'    +  'Soccer 8RM'
-				WHEN @SportType > 1 AND sd.recommend = 52466   THEN 'ZZZZZZ'   +  'Other Sports 8RM'
+		   CASE WHEN @SportType = 1 AND sd.recommend = 52466   THEN 'ZZZZZ'    + 'Soccer 8RM'
+				WHEN @SportType > 1 AND sd.recommend = 52466   THEN 'ZZZZZZ'   + 'Other Sports 8RM'
 				WHEN @SportType = 1 AND sd.recommend = 5707545 THEN 'ZZZZZZZ'  + 'Soccer BARM'
 				WHEN @SportType > 1 AND sd.recommend = 5707545 THEN 'ZZZZZZZZ' + 'Other Sports BARM'
 				ELSE '' END AS MatchEvent,
@@ -224,8 +224,8 @@ BEGIN
 		  AND sd.recommend IN (52466, 5707545)
 		  AND sd.liveindicator = @LiveIndicator
 		  AND sd.bettype = @BetType
-	GROUP BY CASE WHEN @SportType = 1 AND sd.recommend = 52466   THEN 'ZZZZZ'    +  'Soccer 8RM'
-				  WHEN @SportType > 1 AND sd.recommend = 52466   THEN 'ZZZZZZ'   +  'Other Sports 8RM'
+	GROUP BY CASE WHEN @SportType = 1 AND sd.recommend = 52466   THEN 'ZZZZZ'    + 'Soccer 8RM'
+				  WHEN @SportType > 1 AND sd.recommend = 52466   THEN 'ZZZZZZ'   + 'Other Sports 8RM'
 				  WHEN @SportType = 1 AND sd.recommend = 5707545 THEN 'ZZZZZZZ'  + 'Soccer BARM'
 				  WHEN @SportType > 1 AND sd.recommend = 5707545 THEN 'ZZZZZZZZ' + 'Other Sports BARM'
 				  ELSE '' END
@@ -252,7 +252,7 @@ BEGIN
 	SELECT MatchCode,
 		   HomeID,
 		   AwayID,
-		   REPLACE(MatchEvent, 'Z', '') MatchEvent,
+		   CASE WHEN HomeID = -1 THEN REPLACE(MatchEvent, 'Z', '') ELSE MatchEvent END MatchEvent,
 		   MemberWinLoss,
 		   SMAWinLoss,
 		   ExtraPT,
