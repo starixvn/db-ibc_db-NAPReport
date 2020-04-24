@@ -181,15 +181,23 @@ BEGIN
 						  VarianceIncome,
 						  RealTurnover,
 						  VirtualTurnover)
-	SELECT 10001 AS SportType,
-		   'RM' AS Sport,
-		   CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466 THEN -5
-				WHEN sbm.SportType > 1 AND sd.recommend = 52466 THEN -4
-				WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN -3
-				WHEN sbm.SportType > 1 AND sd.recommend = 5707545 THEN -2
+	SELECT CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466	  THEN 10001
+				WHEN sbm.SportType > 1 AND sd.recommend = 52466	  THEN 10002
+				WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN 10003
+				WHEN sbm.SportType > 1 AND sd.recommend = 5707545 THEN 10004
+				ELSE -10000 END AS SportType,
+		   CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466   THEN 'Soccer 8RM'
+				WHEN sbm.SportType > 1 AND sd.recommend = 52466   THEN 'Other Sports 8RM'
+				WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN 'Soccer BARM'
+				WHEN sbm.SportType > 1 AND sd.recommend = 5707545 THEN 'Other Sports BARM'
+				ELSE '' END AS Sport,
+		   CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466	  THEN -2
+				WHEN sbm.SportType > 1 AND sd.recommend = 52466	  THEN -3
+				WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN -4
+				WHEN sbm.SportType > 1 AND sd.recommend = 5707545 THEN -5
 				ELSE -10000 END AS LeagueID,
-		   CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466 THEN 'Soccer 8RM'
-				WHEN sbm.SportType > 1 AND sd.recommend = 52466 THEN 'Other Sports 8RM'
+		   CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466   THEN 'Soccer 8RM'
+				WHEN sbm.SportType > 1 AND sd.recommend = 52466   THEN 'Other Sports 8RM'
 				WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN 'Soccer BARM'
 				WHEN sbm.SportType > 1 AND sd.recommend = 5707545 THEN 'Other Sports BARM'
 				ELSE '' END AS LeagueName,
@@ -239,13 +247,23 @@ BEGIN
 		  AND sd.ruben = 1
 		  AND sd.statusID IN (111, 112, 113)
 		  AND sd.recommend IN (52466, 5707545)
-	GROUP BY CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466 THEN -5
-				  WHEN sbm.SportType > 1 AND sd.recommend = 52466 THEN -4
-				  WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN -3
-				  WHEN sbm.SportType > 1 AND sd.recommend = 5707545 THEN -2
+	GROUP BY CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466	  THEN 10001
+				  WHEN sbm.SportType > 1 AND sd.recommend = 52466	  THEN 10002
+				  WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN 10003
+				  WHEN sbm.SportType > 1 AND sd.recommend = 5707545 THEN 10004
 				  ELSE -10000 END,
-		     CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466 THEN 'Soccer 8RM'
-				  WHEN sbm.SportType > 1 AND sd.recommend = 52466 THEN 'Other Sports 8RM'
+		     CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466   THEN 'Soccer 8RM'
+				  WHEN sbm.SportType > 1 AND sd.recommend = 52466   THEN 'Other Sports 8RM'
+				  WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN 'Soccer BARM'
+				  WHEN sbm.SportType > 1 AND sd.recommend = 5707545 THEN 'Other Sports BARM'
+				  ELSE '' END,
+		     CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466	  THEN -2
+				  WHEN sbm.SportType > 1 AND sd.recommend = 52466	  THEN -3
+				  WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN -4
+				  WHEN sbm.SportType > 1 AND sd.recommend = 5707545 THEN -5
+				  ELSE -10000 END,
+		     CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466   THEN 'Soccer 8RM'
+				  WHEN sbm.SportType > 1 AND sd.recommend = 52466   THEN 'Other Sports 8RM'
 				  WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN 'Soccer BARM'
 				  WHEN sbm.SportType > 1 AND sd.recommend = 5707545 THEN 'Other Sports BARM'
 				  ELSE '' END

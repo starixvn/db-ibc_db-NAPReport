@@ -212,18 +212,18 @@ BEGIN
 						  RealTurnover,
 						  VirtualTurnover)
 	SELECT sd.liveindicator AS LiveIndicator,
-		   CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466 THEN 30001
-				WHEN sbm.SportType > 1 AND sd.recommend = 52466 THEN 30002
+		   CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466   THEN 30001
+				WHEN sbm.SportType > 1 AND sd.recommend = 52466   THEN 30002
 				WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN 30003
 				WHEN sbm.SportType > 1 AND sd.recommend = 5707545 THEN 30004
 				ELSE -1 END AS Bettype,
-		   CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466 THEN 'Soccer 8RM'
-				WHEN sbm.SportType > 1 AND sd.recommend = 52466 THEN 'Other Sports 8RM'
+		   CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466   THEN 'Soccer 8RM'
+				WHEN sbm.SportType > 1 AND sd.recommend = 52466   THEN 'Other Sports 8RM'
 				WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN 'Soccer BARM'
 				WHEN sbm.SportType > 1 AND sd.recommend = 5707545 THEN 'Other Sports BARM'
 				ELSE '' END AS BettypeName,
-		   CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466 THEN 30001
-				WHEN sbm.SportType > 1 AND sd.recommend = 52466 THEN 30002
+		   CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466   THEN 30001
+				WHEN sbm.SportType > 1 AND sd.recommend = 52466   THEN 30002
 				WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN 30003
 				WHEN sbm.SportType > 1 AND sd.recommend = 5707545 THEN 30004
 				ELSE -1 END AS BettypeDisplayOrder,
@@ -272,18 +272,18 @@ BEGIN
 		  AND sd.statusID IN (111, 112, 113)
 		  AND sd.recommend IN (52466, 5707545)
 	GROUP BY sd.liveindicator,
-		     CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466 THEN 30001
-				  WHEN sbm.SportType > 1 AND sd.recommend = 52466 THEN 30002
+		     CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466   THEN 30001
+				  WHEN sbm.SportType > 1 AND sd.recommend = 52466   THEN 30002
 				  WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN 30003
 				  WHEN sbm.SportType > 1 AND sd.recommend = 5707545 THEN 30004
 				  ELSE -1 END,
-		     CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466 THEN 'Soccer 8RM'
-				  WHEN sbm.SportType > 1 AND sd.recommend = 52466 THEN 'Other Sports 8RM'
+		     CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466   THEN 'Soccer 8RM'
+				  WHEN sbm.SportType > 1 AND sd.recommend = 52466   THEN 'Other Sports 8RM'
 				  WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN 'Soccer BARM'
 				  WHEN sbm.SportType > 1 AND sd.recommend = 5707545 THEN 'Other Sports BARM'
 				  ELSE '' END,
-		     CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466 THEN 30001
-				  WHEN sbm.SportType > 1 AND sd.recommend = 52466 THEN 30002
+		     CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466   THEN 30001
+				  WHEN sbm.SportType > 1 AND sd.recommend = 52466   THEN 30002
 				  WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN 30003
 				  WHEN sbm.SportType > 1 AND sd.recommend = 5707545 THEN 30004
 				  ELSE -1 END

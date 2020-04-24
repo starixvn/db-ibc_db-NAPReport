@@ -175,10 +175,10 @@ BEGIN
 	SELECT '' AS MatchCode,
 		   -1 AS HomeID,
 		   -1 AS AwayID,
-		   CASE WHEN @SportType = 1 AND sd.recommend = 52466 THEN 'Soccer 8RM'
-				WHEN @SportType > 1 AND sd.recommend = 52466 THEN 'Other Sports 8RM'
-				WHEN @SportType = 1 AND sd.recommend = 5707545 THEN 'Soccer BARM'
-				WHEN @SportType > 1 AND sd.recommend = 5707545 THEN 'Other Sports BARM'
+		   CASE WHEN @SportType = 1 AND sd.recommend = 52466   THEN 'ZZZZZ'    +  'Soccer 8RM'
+				WHEN @SportType > 1 AND sd.recommend = 52466   THEN 'ZZZZZZ'   +  'Other Sports 8RM'
+				WHEN @SportType = 1 AND sd.recommend = 5707545 THEN 'ZZZZZZZ'  + 'Soccer BARM'
+				WHEN @SportType > 1 AND sd.recommend = 5707545 THEN 'ZZZZZZZZ' + 'Other Sports BARM'
 				ELSE '' END AS MatchEvent,
 		   -SUM((sd.winlost - sd.actual_stake) * sd.actualrate) MemberWinLoss,
            -SUM((sd.awinlost + sd.mwinlost + sd.swinlost) * sd.actualrate) AS SMAWinLoss, 
@@ -224,18 +224,35 @@ BEGIN
 		  AND sd.recommend IN (52466, 5707545)
 		  AND sd.liveindicator = @LiveIndicator
 		  AND sd.bettype = @BetType
-	GROUP BY CASE WHEN @SportType = 1 AND sd.recommend = 52466 THEN 'Soccer 8RM'
-				  WHEN @SportType > 1 AND sd.recommend = 52466 THEN 'Other Sports 8RM'
-				  WHEN @SportType = 1 AND sd.recommend = 5707545 THEN 'Soccer BARM'
-				  WHEN @SportType > 1 AND sd.recommend = 5707545 THEN 'Other Sports BARM'
+	GROUP BY CASE WHEN @SportType = 1 AND sd.recommend = 52466   THEN 'ZZZZZ'    +  'Soccer 8RM'
+				  WHEN @SportType > 1 AND sd.recommend = 52466   THEN 'ZZZZZZ'   +  'Other Sports 8RM'
+				  WHEN @SportType = 1 AND sd.recommend = 5707545 THEN 'ZZZZZZZ'  + 'Soccer BARM'
+				  WHEN @SportType > 1 AND sd.recommend = 5707545 THEN 'ZZZZZZZZ' + 'Other Sports BARM'
 				  ELSE '' END
 	OPTION (RECOMPILE)
 
 	-- Get Data
+	;WITH CTE_Rank AS (
+		SELECT MatchCode,
+			   HomeID,
+			   AwayID,
+			   MatchEvent,
+			   MemberWinLoss,
+			   SMAWinLoss,
+			   ExtraPT,
+			   Commission,
+			   RealIncome,
+			   VirtualIncome,
+			   VarianceIncome,
+			   RealTurnover,
+			   VirtualTurnover,
+			   RANK() OVER (ORDER BY MatchEvent) Rank_
+		FROM #tmpData
+	)
 	SELECT MatchCode,
 		   HomeID,
 		   AwayID,
-		   MatchEvent,
+		   REPLACE(MatchEvent, 'Z', '') MatchEvent,
 		   MemberWinLoss,
 		   SMAWinLoss,
 		   ExtraPT,
@@ -245,8 +262,8 @@ BEGIN
 		   VarianceIncome,
 		   RealTurnover,
 		   VirtualTurnover
-	FROM #tmpData
-	ORDER BY MatchEvent
+	FROM CTE_Rank
+	ORDER BY Rank_
 
 	-- Drop temp tables
 	DROP TABLE #tmpMatch
