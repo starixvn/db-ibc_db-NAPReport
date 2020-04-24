@@ -21,7 +21,7 @@ AS
 		- 20200324@Kean - Email/Letstalk Reports - Integrate SA Gaming product [#128059]
 		- 20200410@Kean - Email/Letstalk Reports - Integrate BBIN product [#131364]
 		- 20200409@Kean: House Net Income - Integrate Table Games product (#129447)
-		- 20200423@Kean - Email/Letstalk Reports - Integrate GT Casino product (#130690)
+		- 20200423@Kean - Email/Letstalk Reports - Integrate IBCBet Live Casino product (#130690)
 	
 	Param's Explanation:   
 	- DepositType  
@@ -96,7 +96,7 @@ BEGIN
 	  , HouseTO_SXG        MONEY
 	  , HouseTO_BBIN        MONEY
 	  , HouseTO_TG        MONEY
-	  , HouseTO_GTC        MONEY);
+	  , HouseTO_IBCLC        MONEY);
 
 	  DECLARE @tmpDate     DATE
 		, @DateList    VARCHAR(200) = '[FullRange]';
@@ -184,7 +184,7 @@ BEGIN
 						  , HouseTO_SXG
 						  , HouseTO_BBIN
 						  , HouseTO_TG
-						  , HouseTO_GTC
+						  , HouseTO_IBCLC
 						  )
 SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 	-- BEGIN SPORTBOOK
@@ -219,7 +219,7 @@ SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 	,(SELECT SUM(t.HouseTO) FROM #TmpData AS t WHERE t.ProductID = 45 AND t.rptDate = @tmpDate) AS  HouseTO_SXG
 	,(SELECT SUM(t.HouseTO) FROM #TmpData AS t WHERE t.ProductID = 47 AND t.rptDate = @tmpDate) AS  HouseTO_BBIN
 	,(SELECT SUM(t.HouseTO) FROM #TmpData AS t WHERE t.ProductID = 40 AND t.rptDate = @tmpDate) AS  HouseTO_TG
-	,(SELECT SUM(t.HouseTO) FROM #TmpData AS t WHERE t.ProductID = 46 AND t.rptDate = @tmpDate) AS  HouseTO_GTC;
+	,(SELECT SUM(t.HouseTO) FROM #TmpData AS t WHERE t.ProductID = 46 AND t.rptDate = @tmpDate) AS  HouseTO_IBCLC;
 
 		  SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate);
 	   END;
@@ -253,7 +253,7 @@ INSERT INTO #FinalResult(RptDate
 					, HouseTO_SXG
 					, HouseTO_BBIN
 					, HouseTO_TG
-					, HouseTO_GTC)
+					, HouseTO_IBCLC)
 		 SELECT 'FullRange'
 			 , SUM(HouseTO_Soccer)
 			 , SUM(HouseTO_Basketball)
@@ -285,7 +285,7 @@ INSERT INTO #FinalResult(RptDate
 			, SUM(HouseTO_SXG)
 			, SUM(HouseTO_BBIN)
 			, SUM(HouseTO_TG)
-			, SUM(HouseTO_GTC)
+			, SUM(HouseTO_IBCLC)
 		 FROM #FinalResult;
 
     -- Select the output
@@ -323,7 +323,7 @@ INSERT INTO #FinalResult(RptDate
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SXG'', 28, ''House TurnOver'', HouseTO_SXG' + CHAR(13)
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''BBIN'', 29, ''House TurnOver'', HouseTO_BBIN' + CHAR(13)
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''TG'', 30, ''House TurnOver'', HouseTO_TG' + CHAR(13)
-    + 'UNION ALL' + CHAR(13) + 'SELECT ''GTC'', 31, ''House TurnOver'', HouseTO_GTC) c (ProductCode, [Order], Figure, value)) a' + CHAR(13)  
+    + 'UNION ALL' + CHAR(13) + 'SELECT ''IBCLC'', 31, ''House TurnOver'', HouseTO_IBCLC) c (ProductCode, [Order], Figure, value)) a' + CHAR(13)  
     + 'PIVOT' + CHAR(13) 
     + '(' + CHAR(13) 
     + 'MAX(value)' + CHAR(13) 
