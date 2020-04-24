@@ -1,6 +1,4 @@
-﻿/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
-
-ALTER PROCEDURE [dbo].[Acc_Rpt_LeagueWL_Bettype]
+﻿ALTER PROCEDURE [dbo].[Acc_Rpt_LeagueWL_Bettype]
 	@winlostdate	DATETIME,
 	@leagueid INT,
 	@sporttype INT
