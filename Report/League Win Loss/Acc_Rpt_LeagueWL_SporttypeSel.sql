@@ -14,6 +14,9 @@ AS
 		- 20200422@Ned.Le: NAP Report - Adjustment for League Win Loss (#132846)
 
 	Param's Explanation:
+
+	Example:
+		EXEC bodb02.dbo.Acc_Rpt_LeagueWL_SporttypeSel
 */
 
 BEGIN

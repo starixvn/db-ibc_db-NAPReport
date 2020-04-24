@@ -4,8 +4,8 @@ USE bodb02
 GO
 
 ALTER PROCEDURE dbo.Acc_Rpt_LeagueWL_Sporttype @StartDate SMALLDATETIME,
-                                               @EndDate   SMALLDATETIME,
-                                               @SportType VARCHAR(MAX)
+                                               @EndDate SMALLDATETIME,
+                                               @SportTypeList VARCHAR(MAX)
 AS
 /*
 	Created: Ned.Le@20200422
@@ -16,10 +16,12 @@ AS
 		- 20200422@Ned.Le: NAP Report - Adjustment for League Win Loss (#132846)
 
 	Param's Explanation:
-		- @SportType: Set of sporttypes, seperate by ','
+		- @StartDate: The start date of data to view on report
+		- @EndDate: The end date of data to view on report
+		- @SportTypeList: Set of sporttypes, seperate by ','
 
 	Example:
-		EXEC bodb_dwrs.dbo.Acc_Rpt_LeagueWL_Sporttype @StartDate='20200410', @EndDate='20200420', @SportType='1,10000,2,3,4'
+		EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Sporttype @StartDate='20200407', @EndDate='20200407', @SportTypeList='1,10000,2,3,4'
 */
 
 BEGIN
@@ -29,18 +31,15 @@ BEGIN
 	-- #tmpSportBettypeMatrix
 	CREATE TABLE #tmpSportBettypeMatrix (SportType SMALLINT,
 									     Sport VARCHAR(50),
-										 BetType SMALLINT,
-										 BetTypeName VARCHAR(128))
+										 BetType SMALLINT)
 
 	;WITH CTE_SportBettypeMatrix AS (
 		SELECT DISTINCT
 			   sbm.SportType,
 			   s.SportName Sport,
-			   sbm.BetType,
-			   b.typenamee BetTypeName
+			   sbm.BetType
 		FROM bodb02.dbo.SportBettypeMatrix sbm (NOLOCK)
 			 LEFT JOIN bodb02.dbo.Sports s (NOLOCK) ON sbm.SportType = s.SportType
-			 LEFT JOIN bodb02.dbo.bettype b (NOLOCK) ON sbm.BetType = b.typeid
 		WHERE sbm.ProductID = 1
 			  AND sbm.SportType <> 27
 			  AND sbm.SubProduct NOT LIKE 'BT%'
@@ -49,10 +48,8 @@ BEGIN
 		SELECT DISTINCT
 			   10000 SportType,
 			   'Parlay' Sport,
-			   sbm.BetType,
-			   b.typenamee BetTypeName
+			   sbm.BetType
 		FROM bodb02.dbo.SportBettypeMatrix sbm (NOLOCK)
-			 LEFT JOIN bodb02.dbo.bettype b (NOLOCK) ON sbm.BetType = b.typeid
 		WHERE sbm.ProductID = 1
 			  AND sbm.BetType IN (9, 29)
 	)
@@ -60,11 +57,11 @@ BEGIN
 	SELECT SportType, Sport, BetType
 	FROM CTE_SportBettypeMatrix
 
-	CREATE UNIQUE CLUSTERED INDEX PK_tmpSportBettypeMatrix ON #tmpSportBettypeMatrix(SportType, BetType);
+	CREATE UNIQUE CLUSTERED INDEX PK_tmpSportBettypeMatrix ON #tmpSportBettypeMatrix(SportType, BetType)
 
 	DELETE sbm
 	FROM #tmpSportBettypeMatrix sbm
-	WHERE sbm.SportType NOT IN (SELECT val FROM bodb02.dbo.strSplit_str(@SportType, ','))
+	WHERE sbm.SportType NOT IN (SELECT val FROM bodb02.dbo.strSplit_str(@SportTypeList, ','))
 
 	-- #tmpMatch
 	CREATE TABLE #tmpMatch (matchid INT,
@@ -84,6 +81,8 @@ BEGIN
 		   m.matchtype
 	FROM CTE_Match m
 		 INNER JOIN bodb02.dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid
+	
+	CREATE UNIQUE CLUSTERED INDEX PK_tmpMatch ON #tmpMatch(matchid, matchtype)
 
 	-- #tmpData
 	CREATE TABLE #tmpData (SportType		SMALLINT,
@@ -100,7 +99,7 @@ BEGIN
 						   RealTurnover		MONEY,
 						   VirtualTurnover	MONEY)
 	
-	-- Soccer, Other Sports and Parlay
+	-- + Soccer, Other Sports and Parlay
 	INSERT INTO #tmpData (SportType,
 						  Sport,
 						  LeagueID,
@@ -168,27 +167,27 @@ BEGIN
 		     CASE WHEN sbm.SportType = 10000 THEN '' ELSE l.leaguename END
 	OPTION (RECOMPILE)
 	
-	-- RM
+	-- + RM
 	INSERT INTO #tmpData (SportType,
-							Sport,
-							LeagueID,
-							LeagueName,
-							MemberWinLoss,
-							SMAWinLoss,
-							ExtraPT,
-							Commission,
-							RealIncome,
-							VirtualIncome,
-							VarianceIncome,
-							RealTurnover,
-							VirtualTurnover)
+						  Sport,
+						  LeagueID,
+						  LeagueName,
+						  MemberWinLoss,
+						  SMAWinLoss,
+						  ExtraPT,
+						  Commission,
+						  RealIncome,
+						  VirtualIncome,
+						  VarianceIncome,
+						  RealTurnover,
+						  VirtualTurnover)
 	SELECT 10001 AS SportType,
 		   'RM' AS Sport,
 		   CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466 THEN -5
 				WHEN sbm.SportType > 1 AND sd.recommend = 52466 THEN -4
 				WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN -3
 				WHEN sbm.SportType > 1 AND sd.recommend = 5707545 THEN -2
-				ELSE NULL END AS LeagueID,
+				ELSE -10000 END AS LeagueID,
 		   CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466 THEN 'Soccer 8RM'
 				WHEN sbm.SportType > 1 AND sd.recommend = 52466 THEN 'Other Sports 8RM'
 				WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN 'Soccer BARM'
@@ -232,7 +231,8 @@ BEGIN
 	FROM bodb02.dbo.bettrans sd (NOLOCK)
 		 INNER JOIN #tmpMatch m ON sd.matchid = m.matchid
 								   AND CASE WHEN sd.bettype = 10 THEN 1 ELSE 0 END = m.matchtype
-		 INNER JOIN #tmpSportBettypeMatrix sbm ON (CASE WHEN sd.BetType IN (9, 29) THEN 10000 ELSE m.sporttype END) = sbm.SportType
+		 INNER JOIN #tmpSportBettypeMatrix sbm ON sbm.BetType NOT IN (9, 29)
+			                                      AND sd.SportType = sbm.SportType
 												  AND sd.BetType = sbm.BetType
 		 INNER JOIN bodb02.dbo.league l (NOLOCK) ON m.leagueid = l.leagueid
 	WHERE sd.winlostdate = @StartDate
@@ -267,7 +267,7 @@ BEGIN
 		   VirtualTurnover
 	FROM #tmpData
 	ORDER BY SportType,
-		     LeagueID
+		     LeagueName
 
 	-- Drop temp tables
 	DROP TABLE #tmpSportBettypeMatrix
