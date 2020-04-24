@@ -232,7 +232,7 @@ BEGIN
 		 INNER JOIN #tmpMatch m ON sd.matchid = m.matchid
 								   AND CASE WHEN sd.bettype = 10 THEN 1 ELSE 0 END = m.matchtype
 		 INNER JOIN #tmpSportBettypeMatrix sbm ON sbm.BetType NOT IN (9, 29)
-			                                      AND sd.SportType = sbm.SportType
+			                                      AND m.SportType = sbm.SportType
 												  AND sd.BetType = sbm.BetType
 		 INNER JOIN bodb02.dbo.league l (NOLOCK) ON m.leagueid = l.leagueid
 	WHERE sd.winlostdate = @StartDate
@@ -243,7 +243,7 @@ BEGIN
 				  WHEN sbm.SportType > 1 AND sd.recommend = 52466 THEN -4
 				  WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN -3
 				  WHEN sbm.SportType > 1 AND sd.recommend = 5707545 THEN -2
-				  ELSE NULL END,
+				  ELSE -10000 END,
 		     CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466 THEN 'Soccer 8RM'
 				  WHEN sbm.SportType > 1 AND sd.recommend = 52466 THEN 'Other Sports 8RM'
 				  WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN 'Soccer BARM'
