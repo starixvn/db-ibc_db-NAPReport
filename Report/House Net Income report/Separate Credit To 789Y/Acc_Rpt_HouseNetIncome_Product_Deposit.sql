@@ -17,6 +17,9 @@ AS
 		- 20200317@Kean - Letstalk - Integrate Virtual Games product [#126465]
 		- 20200324@Kean - Email/Letstalk Reports - Integrate SA Gaming product [#128059]
 		- 20200409@Kean: House Net Income - Integrate Table Games product (#129447)
+		- 20200422@Kean: House Net Income - Integrate Sexy Gaming product (#132792)
+		- 20200422@Kean: House Net Income - Integrate Saba.Club product (#132791)
+		
 	
 	
 	EXEC [Acc_Rpt_HouseNetIncome_Product_Deposit] '20180601', '20180619'
@@ -137,7 +140,14 @@ EXEC bodb02.dbo.Acc_Rpt_HouseNetIncome_I4D_Deposit
 EXEC bodb02.dbo.Acc_Rpt_HouseNetIncome_TG_Deposit
 	@FromDate  = @FromDate
 	,@ToDate	= @ToDate
-	
+
+EXEC bodb02.dbo.Acc_Rpt_HouseNetIncome_SXG_Deposit
+	@FromDate  = @FromDate
+	,@ToDate	= @ToDate
+
+EXEC bodb02.dbo.Acc_Rpt_HouseNetIncome_SBC_Deposit
+	@FromDate  = @FromDate
+	,@ToDate	= @ToDate
 END
 GO
 GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_Product_Deposit] TO [bodbAdminNet]
