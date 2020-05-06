@@ -56,6 +56,7 @@ BEGIN
 	INSERT INTO #tmpSportBettypeMatrix (SportType, Sport, BetType)
 	SELECT SportType, Sport, BetType
 	FROM CTE_SportBettypeMatrix
+	OPTION (RECOMPILE)
 
 	CREATE UNIQUE CLUSTERED INDEX PK_tmpSportBettypeMatrix ON #tmpSportBettypeMatrix(SportType, BetType)
 
@@ -81,6 +82,7 @@ BEGIN
 		   m.matchtype
 	FROM CTE_Match m
 		 INNER JOIN bodb02.dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid
+	OPTION (RECOMPILE)
 	
 	CREATE UNIQUE CLUSTERED INDEX PK_tmpMatch ON #tmpMatch(matchid, matchtype)
 
@@ -161,6 +163,7 @@ BEGIN
 	WHERE sd.winlostdate = @StartDate
 		  AND sd.ruben = 1
 		  AND sd.statusID IN (111, 112, 113)
+		  AND sd.currency NOT IN (20, 27, 28)
 	GROUP BY sbm.SportType,
 			 sbm.Sport,
 			 CASE WHEN sbm.SportType = 10000 THEN -1 ELSE l.leagueid END,
@@ -246,6 +249,7 @@ BEGIN
 	WHERE sd.winlostdate = @StartDate
 		  AND sd.ruben = 1
 		  AND sd.statusID IN (111, 112, 113)
+		  AND sd.currency NOT IN (20, 27, 28)
 		  AND sd.recommend IN (52466, 5707545)
 	GROUP BY CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466	  THEN 10001
 				  WHEN sbm.SportType > 1 AND sd.recommend = 52466	  THEN 10002

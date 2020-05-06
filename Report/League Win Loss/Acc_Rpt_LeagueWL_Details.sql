@@ -8,7 +8,8 @@ ALTER PROCEDURE dbo.Acc_Rpt_LeagueWL_Details @StartDate SMALLDATETIME,
                                              @SportType INT,
 											 @LeagueID INT,
 											 @LiveIndicator TINYINT,
-											 @BetType SMALLINT
+											 @BetType SMALLINT,
+											 @IsHegde SMALLINT
 AS
 /*
 	Created: Ned.Le@20200424
@@ -27,7 +28,7 @@ AS
 		- @LiveIndicator: To indicate the live status to view on report
 
 	Example:
-		EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Details @StartDate='20200421', @EndDate='20200421', @SportType=1, @LeagueID=143, @LiveIndicator=1, @BetType=1
+		EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Details @StartDate='20200421', @EndDate='20200421', @SportType=1, @LeagueID=143, @LiveIndicator=1, @BetType=1, @IsHegde=0
 */
 
 BEGIN
@@ -35,6 +36,8 @@ BEGIN
 	SET NOCOUNT ON
 
 	-- #tmpMatch
+
+	-- + create table
 	CREATE TABLE #tmpMatch (matchid INT,
 						    matchcode VARCHAR(500),
 							matchtype TINYINT,
@@ -42,22 +45,53 @@ BEGIN
 							hometeamname VARCHAR(100),
 							awayid INT,
 							awayteamname VARCHAR(100))
+	
+	-- + hedge match
+	IF @IsHegde = 1
+	BEGIN
+		INSERT INTO #tmpMatch(matchid, matchcode, matchtype, homeid, hometeamname, awayid, awayteamname)
+		SELECT m.matchid,
+			   m.matchcode,
+			   0 matchtype,
+			   m.homeid,
+			   ISNULL(home.teamname, '') hometeamname,
+			   m.awayid,
+			   ISNULL(away.teamname,'') awayteamname
+		FROM [bodb02].[dbo].[match] m (NOLOCK)
+			 INNER JOIN bodb02.dbo.league l WITH (NOLOCK) ON l.sporttype = @SportType
+															 AND l.leagueid = @LeagueID
+															 AND m.leagueid = l.leagueid
+			 LEFT JOIN bodb02.dbo.Team home (NOLOCK) ON m.homeid = home.teamid
+			 LEFT JOIN bodb02.dbo.Team away (NOLOCK) ON m.awayid = away.teamid
+		WHERE m.eventdate = @StartDate
+			  AND m.matchcode LIKE '%hedge%'
+		OPTION (RECOMPILE)
+	END
+
+	-- + non-hedge match
+	IF @IsHegde = 0
+	BEGIN
+		INSERT INTO #tmpMatch(matchid, matchcode, matchtype, homeid, hometeamname, awayid, awayteamname)
+		SELECT m.matchid,
+			   m.matchcode,
+			   0 matchtype,
+			   m.homeid,
+			   ISNULL(home.teamname, '') hometeamname,
+			   m.awayid,
+			   ISNULL(away.teamname,'') awayteamname
+		FROM [bodb02].[dbo].[match] m (NOLOCK)
+			 INNER JOIN bodb02.dbo.league l WITH (NOLOCK) ON l.sporttype = @SportType
+															 AND l.leagueid = @LeagueID
+															 AND m.leagueid = l.leagueid
+			 LEFT JOIN bodb02.dbo.Team home (NOLOCK) ON m.homeid = home.teamid
+			 LEFT JOIN bodb02.dbo.Team away (NOLOCK) ON m.awayid = away.teamid
+		WHERE m.eventdate = @StartDate
+			  AND m.matchcode NOT LIKE '%hedge%'
+		OPTION (RECOMPILE)
+	END
+	
+	-- + outright
 	INSERT INTO #tmpMatch(matchid, matchcode, matchtype, homeid, hometeamname, awayid, awayteamname)
-	SELECT m.matchid,
-		   m.matchcode,
-		   0 matchtype,
-		   m.homeid,
-		   ISNULL(home.teamname, '') hometeamname,
-		   m.awayid,
-		   ISNULL(away.teamname,'') awayteamname
-	FROM [bodb02].[dbo].[match] m (NOLOCK)
-		 INNER JOIN bodb02.dbo.league l WITH (NOLOCK) ON l.sporttype = @SportType
-														 AND l.leagueid = @LeagueID
-														 AND m.leagueid = l.leagueid
-	     LEFT JOIN bodb02.dbo.Team home (NOLOCK) ON m.homeid = home.teamid
-		 LEFT JOIN bodb02.dbo.Team away (NOLOCK) ON m.awayid = away.teamid
-	WHERE m.eventdate = @StartDate
-	UNION ALL
 	SELECT m.orid matchid,
 		   m.matchcode,
 		   1 matchtype,
@@ -71,7 +105,9 @@ BEGIN
 														 AND m.leagueid = l.leagueid
 		 LEFT JOIN bodb02.dbo.Team team (NOLOCK) ON m.teamid = team.teamid
 	WHERE m.eventdate = @StartDate
+	OPTION (RECOMPILE)
 	
+	-- + create clustered index
 	CREATE UNIQUE CLUSTERED INDEX PK_tmpMatch ON #tmpMatch(matchid, matchtype)
 
 	-- #tmpData
@@ -149,6 +185,7 @@ BEGIN
 	WHERE sd.winlostdate = @StartDate
 		  AND sd.ruben = 1
 		  AND sd.statusID IN (111, 112, 113)
+		  AND sd.currency NOT IN (20, 27, 28)
 		  AND sd.liveindicator = @LiveIndicator
 		  AND sd.bettype = @BetType
 	GROUP BY m.matchcode,
@@ -221,6 +258,7 @@ BEGIN
 	WHERE sd.winlostdate = @StartDate
 		  AND sd.ruben = 1
 		  AND sd.statusID IN (111, 112, 113)
+		  AND sd.currency NOT IN (20, 27, 28)
 		  AND sd.recommend IN (52466, 5707545)
 		  AND sd.liveindicator = @LiveIndicator
 		  AND sd.bettype = @BetType

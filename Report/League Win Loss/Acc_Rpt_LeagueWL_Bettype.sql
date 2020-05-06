@@ -89,22 +89,25 @@ BEGIN
 		   BetTypeName,
 		   BettypeDisplayOrder
 	FROM CTE_FinalResult
+	OPTION (RECOMPILE)
 
 	CREATE UNIQUE CLUSTERED INDEX PK_tmpSportBettypeMatrix ON #tmpSportBettypeMatrix(SportType, BetType)
 
 	-- #tmpMatch
 	CREATE TABLE #tmpMatch (matchid INT,
+							matchcode NVARCHAR(50),
 							sporttype SMALLINT,
 							leagueid INT,
 							matchtype TINYINT)
 
 	;WITH CTE_Match AS (
-		SELECT matchid AS matchid, leagueid, 0 AS matchtype  FROM [bodb02].[dbo].[match] (NOLOCK) WHERE eventdate = @StartDate
+		SELECT matchid AS matchid, matchcode, leagueid, 0 AS matchtype  FROM [bodb02].[dbo].[match] (NOLOCK) WHERE eventdate = @StartDate
 		UNION ALL
-		SELECT orid AS matchid, leagueid, 1 AS matchtype FROM bodb02.dbo.outright (NOLOCK) WHERE eventdate = @StartDate
+		SELECT orid AS matchid, matchcode, leagueid, 1 AS matchtype FROM bodb02.dbo.outright (NOLOCK) WHERE eventdate = @StartDate
 	)
-	INSERT INTO #tmpMatch(matchid, sporttype, leagueid, matchtype)
+	INSERT INTO #tmpMatch(matchid, matchcode, sporttype, leagueid, matchtype)
 	SELECT m.matchid,
+		   m.matchcode,
 		   l.sporttype,
 		   l.leagueid,
 		   m.matchtype
@@ -112,6 +115,7 @@ BEGIN
 		 INNER JOIN bodb02.dbo.league l WITH (NOLOCK) ON l.sporttype = @SportType
 														 AND l.leagueid = @LeagueID
 														 AND m.leagueid = l.leagueid
+	OPTION (RECOMPILE)
 	
 	CREATE UNIQUE CLUSTERED INDEX PK_tmpMatch ON #tmpMatch(matchid, matchtype)
 
@@ -120,6 +124,7 @@ BEGIN
 						   Bettype				SMALLINT,
 						   BettypeName			VARCHAR(128),
 						   BettypeDisplayOrder	SMALLINT,
+						   IsHegde				SMALLINT,
 						   MemberWinLoss		MONEY,
 						   SMAWinLoss			MONEY,
 						   ExtraPT				MONEY,
@@ -135,6 +140,7 @@ BEGIN
 						  Bettype,
 						  BettypeName,
 						  BettypeDisplayOrder,
+						  IsHegde,
 						  MemberWinLoss,
 						  SMAWinLoss,
 						  ExtraPT,
@@ -148,6 +154,7 @@ BEGIN
 		   sbm.BetType AS BetType,
 		   sbm.BetTypeName AS BetTypeName,
 		   sbm.BettypeDisplayOrder AS BettypeDisplayOrder,
+		   CASE WHEN m.matchcode like '%hedge%' THEN 1 ELSE 0 END IsHegde,
 		   SUM((sd.winlost - sd.actual_stake) * sd.actualrate) MemberWinLoss,
            SUM((sd.awinlost + sd.mwinlost + sd.swinlost) * sd.actualrate) AS SMAWinLoss,
 		   SUM((CASE WHEN sd.tpositiontaking = 1 THEN 0
@@ -191,10 +198,12 @@ BEGIN
 	WHERE sd.winlostdate = @StartDate
 		  AND sd.ruben = 1
 		  AND sd.statusID IN (111, 112, 113)
+		  AND sd.currency NOT IN (20, 27, 28)
 	GROUP BY sd.liveindicator,
 		     sbm.BetType,
 		     sbm.BetTypeName,
-		     sbm.BettypeDisplayOrder
+		     sbm.BettypeDisplayOrder,
+			 CASE WHEN m.matchcode like '%hedge%' THEN 1 ELSE 0 END
 	OPTION (RECOMPILE)
 	
 	-- + RM
@@ -202,6 +211,7 @@ BEGIN
 						  Bettype,
 						  BettypeName,
 						  BettypeDisplayOrder,
+						  IsHegde,
 						  MemberWinLoss,
 						  SMAWinLoss,
 						  ExtraPT,
@@ -227,6 +237,7 @@ BEGIN
 				WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN 30003
 				WHEN sbm.SportType > 1 AND sd.recommend = 5707545 THEN 30004
 				ELSE -1 END AS BettypeDisplayOrder,
+		   -1 IsHegde,
 		   -SUM((sd.winlost - sd.actual_stake) * sd.actualrate) MemberWinLoss,
            -SUM((sd.awinlost + sd.mwinlost + sd.swinlost) * sd.actualrate) AS SMAWinLoss, 
            -SUM((CASE WHEN sd.tpositiontaking = 1 THEN 0
@@ -270,6 +281,7 @@ BEGIN
 	WHERE sd.winlostdate = @StartDate
 		  AND sd.ruben = 1
 		  AND sd.statusID IN (111, 112, 113)
+		  AND sd.currency NOT IN (20, 27, 28)
 		  AND sd.recommend IN (52466, 5707545)
 	GROUP BY sd.liveindicator,
 		     CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466   THEN 30001
@@ -292,7 +304,8 @@ BEGIN
 	-- Get Data
 	SELECT LiveIndicator,
 		   Bettype,
-		   BettypeName,
+		   CASE WHEN IsHegde = 1 THEN BettypeName + ' (hedge)' ELSE BettypeName END BettypeName,
+		   IsHegde,
 		   MemberWinLoss,
 		   SMAWinLoss,
 		   ExtraPT,
