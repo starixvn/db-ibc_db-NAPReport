@@ -2,7 +2,7 @@
 
 ALTER PROCEDURE dbo.Acc_Rpt_HouseNetIncome_DiscountRebate
 	@FromDate    DATE 
-   , @ToDate      DATE 
+   , @ToDate      DATE
 AS
 /*  
 	Created: Victor  
@@ -19,6 +19,7 @@ AS
 		- 20181202@Robert: #104579 - House Net Income Email/Letstalk/Margin Chart - Integrate Happy 5
 		- 20190214@Robert: #97564 - House Net Income & Margin Charts - Apply new changing on discount and update calculation formula for related products
 		- 20190918@Robert: Remove inactive products (#120215)
+		- 20200506@Robrt: #133709 - House Net Income: Monthly - Miss Rebase and Discount of Sportbook
 
 	Param's Explanation:   
 */
@@ -136,7 +137,7 @@ BEGIN
 				END AS ProductPrefix
 		   FROM #DiscountGroup AS d
 			  LEFT JOIN bodb_licensee.dbo.Product3rd AS p WITH (NOLOCK) ON p.Productid = d.ProductId
-	    ) AS t;
+	    ) AS t;		
 
     DECLARE @PartyIDs    VARCHAR(1000);
     SELECT @PartyIDs = COALESCE(@PartyIDs+',', '')+CONVERT(VARCHAR(10), PartyId)
@@ -199,7 +200,7 @@ BEGIN
 		 SELECT s.ProductId
 			 , CASE
 				  WHEN s.ProductId = 0
-				  THEN 'SB'				 
+				  THEN 'Soccer'				 
 				  ELSE p.ProductPrefix
 			   END AS ProductCode
 			 , CASE
@@ -214,7 +215,7 @@ BEGIN
 		 GROUP BY s.ProductId
 			   , CASE
 				    WHEN s.ProductId = 0
-				    THEN 'SB'				    
+				    THEN 'Soccer'				    
 				    ELSE p.ProductPrefix
 				END
 			   , CASE
@@ -238,7 +239,7 @@ BEGIN
 			  AND Productid IN(2, 5, 6, 8, 22, 11, 21, 24)
 		 UNION ALL
 		 SELECT 0
-			 , 'SB' AS ProductCode
+			 , 'Soccer' AS ProductCode
 			 , 4 AS [Order]
 			 , 'Rebate & Discount' AS Figure
 			 , 0 AS FullRange
