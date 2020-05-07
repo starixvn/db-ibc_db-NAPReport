@@ -9,7 +9,7 @@ ALTER PROCEDURE dbo.Acc_Rpt_LeagueWL_Details @StartDate SMALLDATETIME,
 											 @LeagueID INT,
 											 @LiveIndicator TINYINT,
 											 @BetType SMALLINT,
-											 @IsHegde SMALLINT
+											 @IsHedge SMALLINT
 AS
 /*
 	Created: Ned.Le@20200424
@@ -28,7 +28,7 @@ AS
 		- @LiveIndicator: To indicate the live status to view on report
 
 	Example:
-		EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Details @StartDate='20200421', @EndDate='20200421', @SportType=1, @LeagueID=143, @LiveIndicator=1, @BetType=1, @IsHegde=0
+		EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Details @StartDate='20200421', @EndDate='20200421', @SportType=1, @LeagueID=143, @LiveIndicator=1, @BetType=1, @IsHedge=0
 */
 
 BEGIN
@@ -47,7 +47,7 @@ BEGIN
 							awayteamname VARCHAR(100))
 	
 	-- + hedge match
-	IF @IsHegde = 1
+	IF @IsHedge = 1
 	BEGIN
 		INSERT INTO #tmpMatch(matchid, matchcode, matchtype, homeid, hometeamname, awayid, awayteamname)
 		SELECT m.matchid,
@@ -69,7 +69,7 @@ BEGIN
 	END
 
 	-- + non-hedge match
-	IF @IsHegde = 0
+	IF @IsHedge = 0
 	BEGIN
 		INSERT INTO #tmpMatch(matchid, matchcode, matchtype, homeid, hometeamname, awayid, awayteamname)
 		SELECT m.matchid,

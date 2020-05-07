@@ -124,7 +124,7 @@ BEGIN
 						   Bettype				SMALLINT,
 						   BettypeName			VARCHAR(128),
 						   BettypeDisplayOrder	SMALLINT,
-						   IsHegde				SMALLINT,
+						   IsHedge				SMALLINT,
 						   MemberWinLoss		MONEY,
 						   SMAWinLoss			MONEY,
 						   ExtraPT				MONEY,
@@ -140,7 +140,7 @@ BEGIN
 						  Bettype,
 						  BettypeName,
 						  BettypeDisplayOrder,
-						  IsHegde,
+						  IsHedge,
 						  MemberWinLoss,
 						  SMAWinLoss,
 						  ExtraPT,
@@ -154,7 +154,7 @@ BEGIN
 		   sbm.BetType AS BetType,
 		   sbm.BetTypeName AS BetTypeName,
 		   sbm.BettypeDisplayOrder AS BettypeDisplayOrder,
-		   CASE WHEN m.matchcode like '%hedge%' THEN 1 ELSE 0 END IsHegde,
+		   CASE WHEN m.matchcode like '%hedge%' THEN 1 ELSE 0 END IsHedge,
 		   SUM((sd.winlost - sd.actual_stake) * sd.actualrate) MemberWinLoss,
            SUM((sd.awinlost + sd.mwinlost + sd.swinlost) * sd.actualrate) AS SMAWinLoss,
 		   SUM((CASE WHEN sd.tpositiontaking = 1 THEN 0
@@ -211,7 +211,7 @@ BEGIN
 						  Bettype,
 						  BettypeName,
 						  BettypeDisplayOrder,
-						  IsHegde,
+						  IsHedge,
 						  MemberWinLoss,
 						  SMAWinLoss,
 						  ExtraPT,
@@ -237,7 +237,7 @@ BEGIN
 				WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN 30003
 				WHEN sbm.SportType > 1 AND sd.recommend = 5707545 THEN 30004
 				ELSE -1 END AS BettypeDisplayOrder,
-		   -1 IsHegde,
+		   -1 IsHedge,
 		   -SUM((sd.winlost - sd.actual_stake) * sd.actualrate) MemberWinLoss,
            -SUM((sd.awinlost + sd.mwinlost + sd.swinlost) * sd.actualrate) AS SMAWinLoss, 
            -SUM((CASE WHEN sd.tpositiontaking = 1 THEN 0
@@ -304,8 +304,8 @@ BEGIN
 	-- Get Data
 	SELECT LiveIndicator,
 		   Bettype,
-		   CASE WHEN IsHegde = 1 THEN BettypeName + ' (hedge)' ELSE BettypeName END BettypeName,
-		   IsHegde,
+		   CASE WHEN IsHedge = 1 THEN BettypeName + ' (hedge)' ELSE BettypeName END BettypeName,
+		   IsHedge,
 		   MemberWinLoss,
 		   SMAWinLoss,
 		   ExtraPT,
