@@ -18,6 +18,7 @@ AS
 	   - 20190822@Robert: #115465 - Exclude bettype 4300 (Promotion Prize) from House Income, Pay to Supplier of Pragmatic
 	   - 20200108@Percy: #124755 - Support billing terms by product & currency instead of product only
 	   - 20200403@Percy: Change name of tmp table to prevent duplicate name with main SP [RedmineID: #131755]
+	   - 20200506@Sophia: Fix bug get old setting [redmine: #133709]
 */
 
 BEGIN
@@ -157,27 +158,8 @@ BEGIN
 		,CASE WHEN @FDate >= mf.FromDate THEN @FDate ELSE mf.FromDate END AS FromDate
 		,CASE WHEN @TDate < mf.ToDate THEN @TDate ELSE mf.ToDate END AS ToDate
 	FROM bodb_licensee.dbo.LA_MinFee mf WITH (NOLOCK)
-	WHERE
-		(
-			mf.FeeTypeId = 1
-			OR
-			(
-				mf.FeeTypeId = 2
-				AND EXISTS
-					(
-					SELECT PartyId
-					FROM bodb_licensee.dbo.LA_MinFee m WITH (NOLOCK)
-					WHERE m.FeeTypeId = 1
-							AND m.PartyId = mf.PartyId
-							AND m.ProductId = mf.ProductId
-							AND
-							(
-								m.FromDate BETWEEN @FirstDate AND @LastDate
-								OR m.ToDate BETWEEN @FirstDate AND @LastDate
-								OR m.FromDate < @FirstDate
-								AND @LastDate < m.ToDate
-							)
-					))
+	WHERE		
+			(	mf.FeeTypeId = 1
 				AND mf.ProductId IN (SELECT ProductId FROM @PartyChargeInfo)
 				AND
 				(
@@ -186,7 +168,30 @@ BEGIN
 					OR mf.FromDate < @FirstDate
 					AND @LastDate < mf.ToDate
 				)
-		)
+			)
+			OR
+			(
+				mf.FeeTypeId = 2
+				AND EXISTS
+					(
+						SELECT 	PartyId
+						FROM 	bodb_licensee.dbo.LA_MinFee m WITH (NOLOCK)
+						WHERE 	m.FeeTypeId = 1
+								AND m.PartyId = mf.PartyId
+								AND m.ProductId = mf.ProductId
+								AND
+								(
+									m.FromDate BETWEEN @FirstDate AND @LastDate
+									OR m.ToDate BETWEEN @FirstDate AND @LastDate
+									OR m.FromDate < @FirstDate
+									AND @LastDate < m.ToDate
+								)
+					)
+				)
+				
+		
+		
+	 
 	
 	UPDATE m
 	SET m.FeeAmount = m.FeeAmount * e.Rate
