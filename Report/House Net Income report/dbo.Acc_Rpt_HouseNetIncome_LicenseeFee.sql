@@ -18,6 +18,7 @@ AS
 	   - 20190822@Robert: #115465 - Exclude bettype 4300 (Promotion Prize) from House Income, Pay to Supplier of Pragmatic
 	   - 20200108@Percy: #124755 - Support billing terms by product & currency instead of product only
 	   - 20200403@Percy: Change name of tmp table to prevent duplicate name with main SP [RedmineID: #131755]
+	   - 20200508@Sophia: Version xpre
 */
 
 BEGIN
