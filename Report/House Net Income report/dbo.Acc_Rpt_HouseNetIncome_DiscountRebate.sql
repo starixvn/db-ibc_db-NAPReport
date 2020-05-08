@@ -19,6 +19,8 @@ AS
 		- 20181202@Robert: #104579 - House Net Income Email/Letstalk/Margin Chart - Integrate Happy 5
 		- 20190214@Robert: #97564 - House Net Income & Margin Charts - Apply new changing on discount and update calculation formula for related products
 		- 20190918@Robert: Remove inactive products (#120215)
+		- 20200508#Robert: #133842 DHWL - Support old data from Jan - Mar 2020
+
 
 	Param's Explanation:   
 */
