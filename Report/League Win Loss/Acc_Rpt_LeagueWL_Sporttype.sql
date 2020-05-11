@@ -63,6 +63,7 @@ BEGIN
 	DELETE sbm
 	FROM #tmpSportBettypeMatrix sbm
 	WHERE sbm.SportType NOT IN (SELECT val FROM bodb02.dbo.strSplit_str(@SportTypeList, ','))
+		  AND sbm.BetType NOT IN (9, 29)
 
 	-- #tmpMatch
 	CREATE TABLE #tmpMatch (matchid INT,
@@ -155,11 +156,11 @@ BEGIN
 		   SUM(CASE WHEN sd.tpositiontaking = 1 THEN 0
                     ELSE(1 - sd.tpositiontaking - ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0)) * ABS(sd.stake) * sd.virtualrate END) AS VirtualTurnover
 	FROM bodb02.dbo.bettrans sd (NOLOCK)
-		 INNER JOIN #tmpMatch m ON sd.matchid = m.matchid
-								   AND CASE WHEN sd.bettype = 10 THEN 1 ELSE 0 END = m.matchtype
+		 LEFT JOIN #tmpMatch m ON sd.matchid = m.matchid
+								  AND CASE WHEN sd.bettype = 10 THEN 1 ELSE 0 END = m.matchtype
+		 LEFT JOIN bodb02.dbo.league l (NOLOCK) ON m.leagueid = l.leagueid
 		 INNER JOIN #tmpSportBettypeMatrix sbm ON (CASE WHEN sd.BetType IN (9, 29) THEN 10000 ELSE m.sporttype END) = sbm.SportType
 												  AND sd.BetType = sbm.BetType
-		 INNER JOIN bodb02.dbo.league l (NOLOCK) ON m.leagueid = l.leagueid
 	WHERE sd.winlostdate = @StartDate
 		  AND sd.ruben = 1
 		  AND sd.statusID IN (111, 112, 113)
@@ -169,7 +170,7 @@ BEGIN
 			 CASE WHEN sbm.SportType = 10000 THEN -1 ELSE l.leagueid END,
 		     CASE WHEN sbm.SportType = 10000 THEN '' ELSE l.leaguename END
 	OPTION (RECOMPILE)
-	
+
 	-- + RM
 	INSERT INTO #tmpData (SportType,
 						  Sport,
@@ -242,10 +243,10 @@ BEGIN
 	FROM bodb02.dbo.bettrans sd (NOLOCK)
 		 INNER JOIN #tmpMatch m ON sd.matchid = m.matchid
 								   AND CASE WHEN sd.bettype = 10 THEN 1 ELSE 0 END = m.matchtype
+		 INNER JOIN bodb02.dbo.league l (NOLOCK) ON m.leagueid = l.leagueid
 		 INNER JOIN #tmpSportBettypeMatrix sbm ON sbm.BetType NOT IN (9, 29)
 			                                      AND m.SportType = sbm.SportType
 												  AND sd.BetType = sbm.BetType
-		 INNER JOIN bodb02.dbo.league l (NOLOCK) ON m.leagueid = l.leagueid
 	WHERE sd.winlostdate = @StartDate
 		  AND sd.ruben = 1
 		  AND sd.statusID IN (111, 112, 113)
