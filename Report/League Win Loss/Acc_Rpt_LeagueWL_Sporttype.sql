@@ -63,7 +63,6 @@ BEGIN
 	DELETE sbm
 	FROM #tmpSportBettypeMatrix sbm
 	WHERE sbm.SportType NOT IN (SELECT val FROM bodb02.dbo.strSplit_str(@SportTypeList, ','))
-		  AND sbm.BetType NOT IN (9, 29)
 
 	-- #tmpMatch
 	CREATE TABLE #tmpMatch (matchid INT,
