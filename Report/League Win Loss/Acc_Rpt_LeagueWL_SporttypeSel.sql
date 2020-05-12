@@ -26,7 +26,7 @@ BEGIN
 	;WITH CTE_ListOfSports AS (
 		-- Soccer & Others
 		SELECT DISTINCT
-			   CASE WHEN sbm.SportType = 1 THEN 5000
+			   CASE WHEN sbm.SportType = 1 THEN 1
 					ELSE 15000 END SportGroupType,
 			   CASE WHEN sbm.SportType = 1 THEN 'Soccer'
 					ELSE 'Others' END SportGroupName,
