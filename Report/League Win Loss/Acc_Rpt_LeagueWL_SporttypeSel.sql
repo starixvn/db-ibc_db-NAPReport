@@ -27,7 +27,7 @@ BEGIN
 		-- Soccer & Others
 		SELECT DISTINCT
 			   CASE WHEN sbm.SportType = 1 THEN 1
-					ELSE 15000 END SportGroupType,
+					ELSE 20000 END SportGroupType,
 			   CASE WHEN sbm.SportType = 1 THEN 'Soccer'
 					ELSE 'Others' END SportGroupName,
 			   sbm.SportType,

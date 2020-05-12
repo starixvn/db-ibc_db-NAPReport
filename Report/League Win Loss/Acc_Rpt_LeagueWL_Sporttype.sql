@@ -251,8 +251,8 @@ BEGIN
 		  AND sd.statusID IN (111, 112, 113)
 		  AND sd.currency NOT IN (20, 27, 28)
 		  AND sd.recommend IN (52466, 5707545)
-	GROUP BY CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466	  THEN 10001
-				  WHEN sbm.SportType > 1 AND sd.recommend = 52466	  THEN 10002
+	GROUP BY CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466	THEN 10001
+				  WHEN sbm.SportType > 1 AND sd.recommend = 52466	THEN 10002
 				  WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN 10003
 				  WHEN sbm.SportType > 1 AND sd.recommend = 5707545 THEN 10004
 				  ELSE -10000 END,
@@ -261,8 +261,8 @@ BEGIN
 				  WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN 'Soccer BARM'
 				  WHEN sbm.SportType > 1 AND sd.recommend = 5707545 THEN 'Other Sports BARM'
 				  ELSE '' END,
-		     CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466	  THEN -2
-				  WHEN sbm.SportType > 1 AND sd.recommend = 52466	  THEN -3
+		     CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466	THEN -2
+				  WHEN sbm.SportType > 1 AND sd.recommend = 52466	THEN -3
 				  WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN -4
 				  WHEN sbm.SportType > 1 AND sd.recommend = 5707545 THEN -5
 				  ELSE -10000 END,
