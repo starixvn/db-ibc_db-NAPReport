@@ -26,8 +26,8 @@ BEGIN
 	;WITH CTE_ListOfSports AS (
 		-- Soccer & Others
 		SELECT DISTINCT
-			   CASE WHEN sbm.SportType = 1 THEN 1
-					ELSE 3 END SportGroupType,
+			   CASE WHEN sbm.SportType = 1 THEN 5000
+					ELSE 15000 END SportGroupType,
 			   CASE WHEN sbm.SportType = 1 THEN 'Soccer'
 					ELSE 'Others' END SportGroupName,
 			   sbm.SportType,
@@ -38,7 +38,7 @@ BEGIN
 			  AND sbm.SportType <> 27
 		UNION ALL
 		-- Parlay
-		SELECT 2 SportGroupType,
+		SELECT 10000 SportGroupType,
 			   'Parlay' SportGroupName,
 			   10000 SportType,
 			   'Parlay' SportName
