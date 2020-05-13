@@ -280,7 +280,7 @@ BEGIN
 		   LeagueName,
 		   MemberWinLoss,
 		   SMAWinLoss,
-		   ExtraPT,
+		   -ExtraPT,
 		   Commission,
 		   RealIncome,
 		   VirtualIncome,

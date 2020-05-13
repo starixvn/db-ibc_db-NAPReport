@@ -308,7 +308,7 @@ BEGIN
 		   IsHedge,
 		   MemberWinLoss,
 		   SMAWinLoss,
-		   ExtraPT,
+		   -ExtraPT,
 		   Commission,
 		   RealIncome,
 		   VirtualIncome,
