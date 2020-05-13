@@ -293,7 +293,7 @@ BEGIN
 		   CASE WHEN HomeID = -1 THEN REPLACE(MatchEvent, 'Z', '') ELSE MatchEvent END MatchEvent,
 		   MemberWinLoss,
 		   SMAWinLoss,
-		   -ExtraPT,
+		   (-ExtraPT) ExtraPT,
 		   Commission,
 		   RealIncome,
 		   VirtualIncome,
