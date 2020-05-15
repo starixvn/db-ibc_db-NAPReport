@@ -34,6 +34,7 @@ AS
 		 - 20170828@Kean: Integrate Lucky 3(#82191)
 		 - 20180115@Tom:  Cashout tickets from separated original tickets are considered as dupplicated tickets (#89256)
 		 - 20181129@Dominic: Check WalletType (HotFix #105532)
+		 - 20200515@Dominic: Check betteam
 	Param's Explanation:
 
 */
@@ -70,6 +71,7 @@ BEGIN
 			b.ip,
 			CASE WHEN b.Bettype IN (901,902,903,904,911) THEN b.RefNo ELSE 0 END as RefNo,
 			ISNULL(CAST(b.WalletType AS SMALLINT),-1) WalletType
+			, b.betteam
 	FROM	bodb02.dbo.bettrans b WITH(NOLOCK , Index = PK_bettrans)
 		INNER JOIN @bettype s ON s.bettype = b.bettype
 	WHERE	b.TransID BETWEEN @TransId - 5000 AND @MaxTransId
@@ -131,6 +133,7 @@ BEGIN
 				b.ip,
 				b.RefNo,
 				b.WalletType
+				,b.betteam
 	HAVING COUNT(*) > 1
 	 
 
