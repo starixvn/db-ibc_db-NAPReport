@@ -42,6 +42,9 @@ Revisions:
 	- 20180706@Tom: Add output transdesc column(#97859)
 	- 20181129@Dominic: Check WalletType (HotFix #105532)
 	- 20190722@Robert: #117010 - NAP Report - Integrate Card Club on NAP Report
+	- 20200518@Ned.Le: Add betteam as a new data duplication checking condition
+	                   Exclude ticktes that have betfrom='v'
+	                   
 Param's Explanation:
 	- @CheckTime : The time we consider how long the job fails (Compared the last run with the current time).
 				   Because job recurs every 30s, so we set @CheckTime = 1 minute as default
@@ -54,13 +57,15 @@ BEGIN
 	----Get Sport Bettype Matrix------
 	DECLARE @isTest BIT = 0
 	SELECT  @isTest = dbo.f_CheckSPVersion(@@PROCID)
-
-	DECLARE @bettype TABLE (bettype INT)
-	INSERT INTO @bettype (bettype)
-	SELECT bettype
+		
+	CREATE TABLE #TempBettype(bettype INT)
+		
+	INSERT INTO #TempBettype (bettype)
+	SELECT DISTINCT bettype
 	FROM bodb02.dbo.f_SportBettypeMatrix_Sel (0, 0, 0, 2, '', '', @isTest)
-	WHERE ProductID IN (1, 3, 5, 25, 26, 27) AND BetType NOT IN (500, 912, 913, 914) 
-	and ProductID NOT IN(34)
+	WHERE ProductID IN (1, 3, 5, 25, 26, 27) AND BetType NOT IN (500, 912, 913, 914)
+		
+	CREATE CLUSTERED INDEX ix_TempBettype ON #TempBettype (bettype)
 
 	---- ** 1. Check the transdate of LastTransID and current time  ** ----
 	DECLARE @LastTransDate DATETIME	
@@ -95,41 +100,17 @@ BEGIN
 					b.matchid,
 					b.ip,
 					CASE WHEN b.Bettype IN (901,902,903,904,911) THEN b.RefNo ELSE 0 END as RefNo,
-					ISNULL(CAST(b.WalletType AS SMALLINT),-1)	WalletType
+					ISNULL(CAST(b.WalletType AS SMALLINT),-1)	WalletType,
+					b.betteam
 			INTO #TempData
 			FROM bodb02.dbo.bettrans b WITH(NOLOCK)
-				INNER JOIN @bettype s ON s.bettype = b.bettype
+				INNER JOIN #TempBettype s ON s.bettype = b.bettype
 				INNER JOIN _match m ON b.matchid = m.mID
 			WHERE b.bettype < 19000							
 				and custid not in (50057,879241,103873, 851668, 878902) --betdaq
 				and custid NOT IN (1077687) -- Betfair
 				and recommend not in (11196380) -- foobet
-				AND b.srecommend NOT IN (
-					20597249,
-					20597407,
-					20597439,
-					20597465,
-					20597530,
-					20597558,
-					20597615,
-					20597645,
-					20597677,
-					21060621,
-					25235865,
-					25235922,
-					25235959,
-					26421823,
-					31937718,
-					31937737,
-					35495928,
-					35496031,
-					35496077,
-					35496125,
-					35496170,
-					35496247,
-					35496308,
-					35496387,
-					35496458) -- Nextbet
+				AND b.betfrom <> 'v'
 				and transdate BETWEEN @date AND DATEADD(dd, 1, @date)				
 				and custid > 0
 				and recommend NOT IN (5707545,52466) -- exclude members under BARM,8RM
@@ -147,7 +128,8 @@ BEGIN
 					b.matchid,
 					b.ip,
 					CASE WHEN b.Bettype IN (901,902,903,904,911) THEN b.RefNo ELSE 0 END,	
-					ISNULL(CAST(b.WalletType AS SMALLINT),-1)
+					ISNULL(CAST(b.WalletType AS SMALLINT),-1),
+					b.betteam
 			HAVING COUNT(*) > 1
 			option (maxdop 4)
 			--------------------------------------------------------
@@ -165,6 +147,8 @@ BEGIN
 					AND b.matchid = t.matchid
 					AND b.ip = t.ip
 					AND CASE WHEN b.bettype IN (901,902,903,904,911) THEN b.RefNo ELSE 0 END = CASE WHEN t.bettype IN (901,902,903,904,911) THEN t.RefNo ELSE 0 END
+					AND t.WalletType = ISNULL(CAST(b.WalletType AS SMALLINT),-1)
+					AND b.betteam = t.betteam
 				INNER JOIN bodb02.dbo.bettype bt with(nolock) on bt.typeid = b.bettype
 			WHERE b.custid IN (SELECT DISTINCT custid FROM #TempData)
 				AND b.statusID NOT IN (101,102)
@@ -195,6 +179,8 @@ BEGIN
 
 
 	END
+
+	DROP TABLE #TempBettype
 		
 END
 
