@@ -62,7 +62,7 @@ BEGIN
 	CREATE	TABLE #tmpProduct		(ProductPrefix VARCHAR(20))
 	CREATE TABLE #tmpVendorGlobalSetting(ProductID INT, VName VARCHAR(50), ChargeRate3rd DECIMAL(19, 8), Sporttype SMALLINT, Bettype SMALLINT) 
 	
-	WITH CTE_ProductSport AS (
+	;WITH CTE_ProductSport AS (
 		SELECT DISTINCT
 			   p.ProductID, sbm.Sporttype, p.ProductPrefix, p.VendorID
 		FROM bodb02.dbo.Products p (NOLOCK)
@@ -344,7 +344,7 @@ SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 		+ (SELECT ISNULL(SUM((t.HouseWL + t.ExtraPT) * r.Rate) * (-1),0) FROM #TmpHouseWL AS t INNER JOIN #PayToSupplierRate r ON t.ProductID = r.ProductID
 									     WHERE t.ProductID = 3 AND t.SiteID <> @SiteCN88 AND  t.rptDate = @tmpDate) -- NG2, NG
 		+ (SELECT SUM(t.PayToSupplier_Daily) FROM #tmpPayToSupplier_Daily AS t 
-											 WHERE t.ProductID IN (22, 34, 36, 39, 45, 40, 47, 46, 52, 50)  AND  t.rptDate = @tmpDate) -- MacauG, CC, SG, SA, SXG, IBCLC, ION, ENGW
+											 WHERE t.ProductID IN (22, 34, 36, 39, 45, 40, 47, 46, 52, 50)  AND  t.rptDate = @tmpDate) -- MacauG, CC, SG, SA, SXG, TG, BBIN, IBCLC, ION, RNGW
 		+ (SELECT ISNULL(SUM(t.MemberWLOANDA * r.Rate),0)  FROM #TmpHouseWL AS t INNER JOIN #PayToSupplierRate r ON t.ProductID = r.ProductID
 									     WHERE t.ProductID IN (5,8,28,27) 
 										AND t.SiteID <> @SiteCN88 AND  t.rptDate = @tmpDate) -- VS,KN,LT,VS2
