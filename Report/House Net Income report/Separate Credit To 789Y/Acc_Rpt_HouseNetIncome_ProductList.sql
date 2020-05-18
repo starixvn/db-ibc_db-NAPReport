@@ -17,6 +17,8 @@ AS
 		- 20200410@Kean - Email/Letstalk Reports - Integrate BBIN product [#131364]
 		- 20200409@Kean: House Net Income - Integrate Table Games product (#129447)
 		- 20200423@Kean - Email/Letstalk Reports - Integrate IBCBet Live Casino product (#130690)
+		- 20200518@Ned.Le - Email/Letstalk Reports - Integrate SBO ION Live Casino (#132331)
+		- 20200518@Ned.Le - Email/Letstalk Reports - Integrate SBO RNG War (#132019)
   
 */
 BEGIN
@@ -89,6 +91,10 @@ SET NOCOUNT ON;
 	SELECT 'TG' Product, 'TG' ProductPrefix
 	UNION ALL
 	SELECT 'IBCLC' Product, 'IBCLC' ProductPrefix
+	UNION ALL
+	SELECT 'ION' Product, 'ION' ProductPrefix
+	UNION ALL
+	SELECT 'RNGW' Product, 'RNGW' ProductPrefix
 END
 GO
 GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_ProductList] TO [dwrs]
