@@ -15,6 +15,7 @@ AS
 		- 20200313@Kean - Change the "Pay to supplier" formula of CC(New Bettype 1902) - #126465
 		- 20200403@Percy: Integrate Xoc Dia - CC (Bettype 1903) [RedmineID: #131507]
 		- 20200422@Percy: Integrate 3D Lottery - CC (Bettype 1904) [RedmineID: #132790]
+		- 20200519@Percy: Integrate Midas Hi-Lo - CC (Bettype 1905) [RedmineID: #133594]
 	
 	Param's Explanation:   
 
@@ -35,7 +36,7 @@ BEGIN
 	SELECT Sporttype, Bettype, NumberValue
 	FROM DBCUST.CustDB.dbo.VendorGlobalSetting WITH (NOLOCK)
 	WHERE VendorID = @VendorID
-		AND VName IN ('3rdCashWLShareRateTX', '3rdCashWLShareRateXD', '3rdCashWLShareRate3D')
+		AND VName IN ('3rdCashWLShareRateTX', '3rdCashWLShareRateXD', '3rdCashWLShareRate3D', '3rdCashWLShareRateHL')
     
 	-- Region: Active licensees
 	DECLARE @tmpAllParty TABLE (PartyID INT, ParentID INT, LicenseeID INT)
@@ -169,7 +170,7 @@ BEGIN
 		tp.PartyID
 		,b.rptDate
 		,SUM(ISNULL(b.MemberWL, 0) * ISNULL(oa.Rate,0))
-		,SUM(ISNULL(b.MemberWL, 0) * (CASE WHEN b.Bettype IN (1902, 1903, 1904) THEN ISNULL(v.ChargeRate3rd, 0) ELSE ISNULL(rd.Rate, 0) END) * oa.Rate)
+		,SUM(ISNULL(b.MemberWL, 0) * (CASE WHEN b.Bettype IN (1902, 1903, 1904, 1905) THEN ISNULL(v.ChargeRate3rd, 0) ELSE ISNULL(rd.Rate, 0) END) * oa.Rate)
 		,SUM(CASE WHEN p.LicenseeID IS NULL THEN -ISNULL(b.HouseWL, 0) ELSE -ISNULL(b.MemberWL, 0) * ISNULL(lc.Rate, p.Rate) END * ISNULL(e.Rate, 0))
 	FROM #tempDataDW b
 		INNER JOIN @tmpAllParty tp ON tp.LicenseeID = b.LicenseeID
