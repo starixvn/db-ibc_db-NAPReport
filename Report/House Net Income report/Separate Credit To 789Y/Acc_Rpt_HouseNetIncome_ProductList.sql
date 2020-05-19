@@ -94,7 +94,7 @@ SET NOCOUNT ON;
 	UNION ALL
 	SELECT 'ION' Product, 'ION' ProductPrefix
 	UNION ALL
-	SELECT 'RNGW' Product, 'RNGW' ProductPrefix
+	SELECT 'RNGWar' Product, 'RNGW' ProductPrefix
 END
 GO
 GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_ProductList] TO [dwrs]
