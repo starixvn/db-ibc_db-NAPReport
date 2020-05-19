@@ -34,6 +34,8 @@ AS
 		 - 20170828@Kean: Integrate Lucky 3(#82191)
 		 - 20180115@Tom:  Cashout tickets from separated original tickets are considered as dupplicated tickets (#89256)
 		 - 20181129@Dominic: Check WalletType (HotFix #105532)
+		 - 20200515@Dominic: Check betteam
+		 - 20200518@Ned.Le: Exclude tickets that have betfrom='v'
 	Param's Explanation:
 
 */
@@ -69,7 +71,8 @@ BEGIN
 			b.matchid,
 			b.ip,
 			CASE WHEN b.Bettype IN (901,902,903,904,911) THEN b.RefNo ELSE 0 END as RefNo,
-			ISNULL(CAST(b.WalletType AS SMALLINT),-1) WalletType
+			ISNULL(CAST(b.WalletType AS SMALLINT),-1) WalletType,
+			b.betteam
 	FROM	bodb02.dbo.bettrans b WITH(NOLOCK , Index = PK_bettrans)
 		INNER JOIN @bettype s ON s.bettype = b.bettype
 	WHERE	b.TransID BETWEEN @TransId - 5000 AND @MaxTransId
@@ -78,32 +81,7 @@ BEGIN
 			AND b.custid NOT IN (50057, 879241, 103873, 851668, 878902) --betdaq
 			AND b.custid NOT IN (1077687) -- Betfair
 			AND b.recommend NOT IN (11196380) -- foobet	
-			AND b.srecommend NOT IN (
-					20597249,
-					20597407,
-					20597439,
-					20597465,
-					20597530,
-					20597558,
-					20597615,
-					20597645,
-					20597677,
-					21060621,
-					25235865,
-					25235922,
-					25235959,
-					26421823,
-					31937718,
-					31937737,
-					35495928,
-					35496031,
-					35496077,
-					35496125,
-					35496170,
-					35496247,
-					35496308,
-					35496387,
-					35496458) -- Nextbet
+			AND b.betfrom <> 'v'
 			AND b.recommend NOT IN (5707545, 52466) -- exclude members under BARM,8RM
 			AND b.currency NOT IN (20, 27, 28)
 			AND b.statusID NOT IN (101, 102) 
@@ -118,7 +96,8 @@ BEGIN
 			b.matchid,
 			b.ip,
 			b.RefNo,		
-			b.WalletType
+			b.WalletType,
+			b.betteam
 	INTO	#TempData
 	FROM	AllTicket b							
 	GROUP BY	b.custid, 
@@ -130,7 +109,8 @@ BEGIN
 				b.matchid,
 				b.ip,
 				b.RefNo,
-				b.WalletType
+				b.WalletType,
+				b.betteam
 	HAVING COUNT(*) > 1
 	 
 
@@ -149,6 +129,7 @@ BEGIN
 			AND b.ip = t.ip
 			AND CASE WHEN b.bettype IN (901,902,903,904,911) THEN b.RefNo ELSE 0 END = CASE WHEN t.bettype IN (901,902,903,904,911) THEN t.RefNo ELSE 0 END  
 			AND t.WalletType = ISNULL(CAST(b.WalletType AS SMALLINT),-1)
+			AND b.betteam = t.betteam
 	WHERE NOT EXISTS (SELECT 1 FROM dbo.DuplicatedTicket d WITH (NOLOCK) WHERE d.TransID = b.TransId)	
 	DROP TABLE #TempData
 	
