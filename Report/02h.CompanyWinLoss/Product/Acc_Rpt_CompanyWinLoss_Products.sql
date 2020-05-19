@@ -45,6 +45,7 @@ Revisions:
 - 20200313@Ned.Le: NAP Report - Incorporate Virtual Games (#130326)
 - 20200323@Ned.Le: NAP Report - Incorporate 4D (#130845)
 - 20200331@Ned.Le: NAP Report - Incorporate new Table Games (#131095)
+- 20200520@Cherry: Integrate Saba.club (#134441)
 Explanation's Param:
 
 */
@@ -1164,7 +1165,7 @@ Explanation's Param:
 				, SUM(WinlossForExtraPT_actualrate + grosscomm_actualrate) AS NewExtraPT
 			FROM #src AS b
 			WHERE b.ProductId IN(5, 8, 15, 23, 25, 27, 28, 31, --Virtual Sports, Keno, Colossus Bets, NG2 (3rd), CashOut, Betradar Virtual Sports, Lottery, Exchange
-								 37, 38, 43, 40)                   --Saba Promotion, Virtual Games, Indo 4D, Table Games
+								 37, 38, 43, 40, 42)                   --Saba Promotion, Virtual Games, Indo 4D, Table Games, Saba.club
 				 OR b.CasinoType IN(1, 2)
 			GROUP BY site
 				  , CASE
@@ -1311,7 +1312,8 @@ Explanation's Param:
 			(21, 37, 'Saba Promotion'),
 			(22, 38, 'Virtual Games'),
 			(23, 43, 'Indo 4D'),
-			(24, 40, 'Table Games');
+			(24, 40, 'Table Games'),
+			(25, 42, 'Saba.club');
 
 	   INSERT INTO @ProductOrder(DisplayOrder
 						  , ProductId
