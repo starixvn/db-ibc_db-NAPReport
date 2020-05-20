@@ -3,7 +3,7 @@
 USE bodb02
 GO
 
-CREATE PROCEDURE dbo.Acc_Rpt_LeagueWL_SporttypeSel
+ALTER PROCEDURE dbo.Acc_Rpt_LeagueWL_SporttypeSel
 AS
 /*
 	Created: Ned.Le@20200422
@@ -12,6 +12,7 @@ AS
 
 	Revisions:
 		- 20200422@Ned.Le: NAP Report - Adjustment for League Win Loss (#132846)
+		- 20200520@Ned.Le: NAP Report - Enhancement for League Win Loss (#134439)
 
 	Param's Explanation:
 
@@ -31,25 +32,41 @@ BEGIN
 			   CASE WHEN sbm.SportType = 1 THEN 'Soccer'
 					ELSE 'Others' END SportGroupName,
 			   sbm.SportType,
-			   s.SportName
+			   s.SportName,
+			   sbm.BetType Bettype,
+			   b.typenamee BettypeName
 		FROM bodb02.dbo.SportBettypeMatrix sbm (NOLOCK)
 			 LEFT JOIN bodb02.dbo.Sports s (NOLOCK) ON sbm.SportType = s.SportType
+			 LEFT JOIN bodb02.dbo.bettype b (NOLOCK) ON sbm.BetType = b.typeid
 		WHERE sbm.ProductID = 1
 			  AND sbm.SportType <> 27
+			  AND sbm.SubProduct NOT LIKE 'BT%'
+			  AND sbm.BetType NOT IN (9, 29)
 		UNION ALL
 		-- Parlay
-		SELECT 10000 SportGroupType,
+		SELECT DISTINCT
+			   10000 SportGroupType,
 			   'Parlay' SportGroupName,
 			   10000 SportType,
-			   'Parlay' SportName
+			   'Parlay' SportName,
+			   sbm.BetType Bettype,
+			   b.typenamee BettypeName
+		FROM bodb02.dbo.SportBettypeMatrix sbm (NOLOCK)
+			 LEFT JOIN bodb02.dbo.bettype b (NOLOCK) ON sbm.BetType = b.typeid
+		WHERE sbm.ProductID = 1
+			  AND sbm.BetType IN (9, 29)
 	)
 	SELECT SportGroupType,
 		   SportGroupName,
 		   SportType,
-		   SportName
+		   SportName,
+		   Bettype,
+		   BettypeName
 	FROM CTE_ListOfSports
+	WHERE BettypeName IS NOT NULL
 	ORDER BY SportGroupType ASC,
-			 SportName ASC
+			 SportName ASC,
+			 BettypeName ASC
 
 END
 GO
