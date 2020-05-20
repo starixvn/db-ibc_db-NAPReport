@@ -178,8 +178,6 @@ BEGIN
 	OPTION (RECOMPILE)
 	
 	-- + Parlay
-	IF EXISTS (SELECT TOP 1 1 FROM #tmpSportBettypeMatrix WHERE SportType = 10000)
-	BEGIN
 	INSERT INTO #tmpData (SportType,
 						  Sport,
 						  LeagueID,
@@ -245,7 +243,6 @@ BEGIN
 		  AND sd.bettype IN (SELECT BetType FROM #tmpSportBettypeMatrix WHERE SportType = 10000)
 		  AND (@IsNoDraw = 0 OR (@IsNoDraw = 1 AND sd.statusID NOT IN (111)))
 	OPTION (RECOMPILE)
-	END
 
 	-- + RM
 	INSERT INTO #tmpData (SportType,
