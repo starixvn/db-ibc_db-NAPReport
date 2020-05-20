@@ -138,7 +138,7 @@ BEGIN
 		GROUP BY b.custid,b.[status], b.bettype
 		
 		-- Get data from bettransRnG
-		IF @sportType IN (251, 212, 219, 212, 200, 224)
+		IF @sportType IN (251, 212, 219, 200, 224)
 		BEGIN
 			INSERT INTO #AvailableMember
 			SELECT b.custid,
