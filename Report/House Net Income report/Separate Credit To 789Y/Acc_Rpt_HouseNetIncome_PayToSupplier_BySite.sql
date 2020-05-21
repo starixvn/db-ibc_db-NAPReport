@@ -25,6 +25,9 @@ AS
 		- 20200409@Kean: House Net Income - Integrate Table Games product (#129447)
 		- 20200422@Kean - Integrate Mini Game 3D Lottery of CC(New Bettype 1904) - #132790
 		- 20200423@Kean - Email/Letstalk Reports - Integrate IBCBet Live Casino product (#130690)
+		- 20200518@Ned.Le - Email/Letstalk Reports - Integrate Midas Hi-Lo Game (#133594)
+		- 20200518@Ned.Le - Email/Letstalk Reports - Integrate SBO ION Live Casino (#132331)
+		- 20200518@Ned.Le - Email/Letstalk Reports - Integrate SBO RNG War (#132019)
 	
 	Param's Explanation:   
 	- DepositType  
@@ -53,26 +56,30 @@ BEGIN
 
     CREATE TABLE #Exchange(ExchangeDate    DATE, ExchangeID      INT, Rate            FLOAT);
 	CREATE	TABLE #ExchangeOANDA	(ExchangeDate DATE, ExchangeID INT, Rate FLOAT)
-	CREATE TABLE #tmpProduct(ProductID INT, ProductCode VARCHAR(100), VendorID INT)
+	CREATE TABLE #tmpProduct(ProductID INT, Sporttype INT, ProductCode VARCHAR(100), VendorID INT)
 	CREATE TABLE #tmpVendorGlobalSetting(ProductID INT, VName VARCHAR(50), ChargeRate3rd DECIMAL(19, 8), Sporttype SMALLINT, Bettype SMALLINT) 
 
-	INSERT INTO #tmpProduct(ProductID, ProductCode, VendorID)
-	SELECT ProductID, ProductPrefix, VendorID
-	FROM bodb02.dbo.Products WITH(NOLOCK)
-	WHERE ProductPrefix IN ( 'PP', 'CC', 'SG', 'SAG', 'SXG', 'BBIN', 'TG', 'IBCLC')
+	INSERT INTO #tmpProduct(ProductID, Sporttype, ProductCode, VendorID)
+	SELECT DISTINCT p.ProductID, sbm.Sporttype, p.ProductPrefix, p.VendorID
+	FROM bodb02.dbo.Products p (NOLOCK)
+	     INNER JOIN bodb02.dbo.SportBettypeMatrix sbm (NOLOCK) ON p.ProductID = sbm.ProductID
+	WHERE p.ProductPrefix IN ('PP', 'CC', 'SG', 'SAG', 'SXG', 'BBIN', 'TG', 'IBCLC', 'ION', 'RNGW')
 	
 	INSERT INTO #tmpVendorGlobalSetting(ProductID, VName, ChargeRate3rd, Sporttype, Bettype)
 	SELECT p.ProductID
-		  ,[VName]
-		  ,[NumberValue]
-		  ,[sporttype]
-		  ,[bettype]
+		   ,v.[VName]
+		   ,v.[NumberValue]
+		   ,v.[sporttype]
+		   ,v.[bettype]
 	FROM DBCUST.[CustDB].[dbo].[VendorGlobalSetting] v WITH(NOLOCK)
 	INNER JOIN #tmpProduct p ON v.[VendorId] = p.VendorID
-	WHERE v.[VName] IN ('3rdCreditWLShareRate'
-					, '3rdCreditWLShareRateTX', '3rdCreditWLShareRateXD', '3rdCreditWLShareRate3D' -- 1902,1903,1904 of Card Club
-					, '3rdCreditRebateRate') -- Rebate Rate of SA Gaming
-
+		                        AND (v.Sporttype = p.Sporttype			-- For ['CC', 'SAG', 'SXG', 'BBIN', 'TG', 'IBCLC', 'ION', 'RNGW']
+									 OR v.Sporttype IS NULL)			-- For ['PP', 'SG']
+	WHERE v.[VName] IN ('3rdCreditWLShareRate',
+					    '3rdCreditWLShareRateTX', '3rdCreditWLShareRateXD', '3rdCreditWLShareRate3D', '3rdCreditWLShareRateHL', 	-- 1902,1903,1904,1905 of Card Club
+					    '3rdCreditRebateRate', 																						-- Rebate Rate of SA Gaming
+					    '3rdCreditWLShareRateION')																					-- WL Share Rale of ION
+	
     INSERT INTO #Exchange(ExchangeDate, ExchangeID, Rate)
 		 SELECT ExchangeDate, Currency, Rate
 		 FROM bodb_account.dbo.tbl_Currency_Daily WITH(NOLOCK)
@@ -132,7 +139,7 @@ BEGIN
 						+ CAST(@FDate AS NVARCHAR(50)) + ''''''
 						+ N','''''
 						+ CAST(@TDate AS NVARCHAR(50)) + ''''''
-						+ N',''''PP,CC,SG,SAG,SXG,BBIN,TG,IBCLC'''''
+						+ N',''''PP,CC,SG,SAG,SXG,BBIN,TG,IBCLC,ION,RNGW'''''
 						+ N',''''OA'''''	
 						+ N') ci '
 						+ N'INNER JOIN bodb_licensee.dbo.OAS_ChargeInfo c WITH (NOLOCK) ON ci.ChargeID = c.ChargeID '
@@ -149,7 +156,7 @@ BEGIN
 	SELECT v.ProductID, v.ChargeRate3rd, @FDate, @TDate
 	FROM #tmpVendorGlobalSetting v
 	WHERE v.ProductID NOT IN (SELECT ProductID FROM #ChargeInfo3rd)
-	AND v.VName = '3rdCreditWLShareRate'
+	AND v.VName IN ('3rdCreditWLShareRate','3rdCreditWLShareRateION')
 	
 	-- Mapping Site between DW and Licensees
 	CREATE TABLE #tmpSite(SiteID_DW INT,SiteID_Li INT,SiteName VARCHAR(100))
@@ -189,7 +196,9 @@ BEGIN
 	  , PayToSupplier_SXG        MONEY
 	  , PayToSupplier_BBIN        MONEY
 	  , PayToSupplier_TG        MONEY
-	  , PayToSupplier_IBCLC        MONEY);
+	  , PayToSupplier_IBCLC     MONEY
+	  , PayToSupplier_ION       MONEY
+	  , PayToSupplier_RNGW      MONEY);
 
 	  DECLARE @tmpDate     DATE
 		, @DateList    VARCHAR(200) = '[FullRange]';
@@ -205,7 +214,7 @@ BEGIN
 		SELECT DISTINCT ProductID
 			 , BetType
 		FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)
-		WHERE ProductID IN (3, 5, 8, 23, 22, 21, 12, 28, 27, 6, 32, 34, 36, 39, 45, 47, 40, 46)
+		WHERE ProductID IN (3, 5, 8, 23, 22, 21, 12, 28, 27, 6, 32, 34, 36, 39, 45, 47, 40, 46, 52, 50)
 		 AND BetType NOT IN (4299, 4300) -- PP
 
 	-- BEGIN: GET DATA
@@ -266,7 +275,7 @@ BEGIN
 		
 	-- END: GET DATA
 
-	-- BEGIN - Calculate PayToSupplier for CC, SG, SAG, SXG, PP, BBIN, TG, IBCLC
+	-- BEGIN - Calculate PayToSupplier for CC, SG, SAG, SXG, PP, BBIN, TG, IBCLC, ION, RNGW
 	CREATE TABLE #tmpPayToSupplier_Daily(
 		ProductId					INT,
 	    RptDate						DATE,
@@ -291,18 +300,18 @@ BEGIN
 							WHERE t.ProductID IN (39) 
 							GROUP BY t.ProductID, t.rptDate
 
-	-- CC, SG, SAG, SXG, BBIN, TG, IBCLC
+	-- CC, SG, SAG, SXG, BBIN, TG, IBCLC, ION, RNGW
 	INSERT INTO #tmpPayToSupplier_Daily(ProductId, RptDate, PayToSupplier_Daily)
-	SELECT t.ProductID, t.rptDate, SUM(t.MemberWLOANDA * (CASE WHEN t.ProductID = 34 AND t.Bettype IN (1902, 1903, 1904) THEN ISNULL(v.ChargeRate3rd,0) 
+	SELECT t.ProductID, t.rptDate, SUM(t.MemberWLOANDA * (CASE WHEN t.ProductID = 34 AND t.Bettype IN (1902, 1903, 1904, 1905) THEN ISNULL(v.ChargeRate3rd,0) 
 															ELSE ISNULL(ci.Rate,0) END)) 
 							FROM #tmpFactSiteWinloss AS t
 							INNER JOIN #ChargeInfo3rd AS ci ON t.ProductID = ci.ProductID AND t.rptDate BETWEEN ci.FromDate AND ci.ToDate
-							INNER JOIN #tmpProduct p on ci.ProductID = p.ProductID AND p.ProductCode IN ('CC', 'SG', 'SAG', 'SXG', 'BBIN', 'TG', 'IBCLC')
+							INNER JOIN #tmpProduct p on ci.ProductID = p.ProductID AND p.ProductCode IN ('CC', 'SG', 'SAG', 'SXG', 'BBIN', 'TG', 'IBCLC', 'ION', 'RNGW')
 							LEFT JOIN #tmpVendorGlobalSetting v ON t.ProductID = v.ProductID 
 																	AND v.Sporttype = t.SportType 
 																	AND v.Bettype = t.BetType
-																	AND v.VName IN ('3rdCreditWLShareRateTX','3rdCreditWLShareRateXD','3rdCreditWLShareRate3D')
-							WHERE t.ProductID IN (34, 36, 39, 45, 47, 40, 46)
+																	AND v.VName IN ('3rdCreditWLShareRateTX','3rdCreditWLShareRateXD','3rdCreditWLShareRate3D','3rdCreditWLShareRateHL')
+							WHERE t.ProductID IN (34, 36, 39, 45, 47, 40, 46, 52, 50)
 							GROUP BY t.ProductID, t.rptDate
 
 	-- Macau Games
@@ -351,7 +360,7 @@ BEGIN
 			INNER JOIN #ExchangeOANDA ex ON ci.BaseCurrencyId = ex.ExchangeID AND ex.ExchangeDate = @TDate
 			GROUP BY ci.Rate, ci.FromDate, ci.ToDate, ci.MinAmount * ex.Rate, MaxAmount * ex.Rate
 					) as temp
-	-- END - Calculate PayToSupplier for CC, SG, SAG, SXG, PP, BBIN, TG, IBCLC
+	-- END - Calculate PayToSupplier for CC, SG, SAG, SXG, PP, BBIN, TG, IBCLC, ION, RNGW
 		
 	-- Get DetailDaily Data & FullRange Data
     WHILE @tmpDate <= @TDate
@@ -377,6 +386,8 @@ BEGIN
 						  , PayToSupplier_BBIN
 						  , PayToSupplier_TG
 						  , PayToSupplier_IBCLC
+						  , PayToSupplier_ION
+						  , PayToSupplier_RNGW
 						  )
 SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 	,(SELECT SUM(t.HouseWL) * 0.5 * (-1) FROM #tmpFactSiteWinloss AS t WHERE t.ProductID = 3 AND t.SportType <> 164 AND  t.rptDate = @tmpDate) AS  PayToSupplier_NG
@@ -399,6 +410,8 @@ SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 	,(SELECT SUM(t.PayToSupplier_Daily) FROM #tmpPayToSupplier_Daily AS t WHERE t.ProductID = 47 AND t.rptDate = @tmpDate) AS PayToSupplier_BBIN
 	,(SELECT SUM(t.PayToSupplier_Daily) FROM #tmpPayToSupplier_Daily AS t WHERE t.ProductID = 40 AND t.rptDate = @tmpDate) AS  PayToSupplier_TG
 	,(SELECT SUM(t.PayToSupplier_Daily) FROM #tmpPayToSupplier_Daily AS t WHERE t.ProductID = 46 AND t.rptDate = @tmpDate) AS  PayToSupplier_IBCLC
+	,(SELECT SUM(t.PayToSupplier_Daily) FROM #tmpPayToSupplier_Daily AS t WHERE t.ProductID = 52 AND t.rptDate = @tmpDate) AS  PayToSupplier_ION
+	,(SELECT SUM(t.PayToSupplier_Daily) FROM #tmpPayToSupplier_Daily AS t WHERE t.ProductID = 50 AND t.rptDate = @tmpDate) AS  PayToSupplier_RNGW
 
 		  SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate);
 	   END; 
@@ -426,7 +439,9 @@ INSERT INTO #FinalResult(RptDate
 					, PayToSupplier_SXG
 					, PayToSupplier_BBIN
 					, PayToSupplier_TG
-					, PayToSupplier_IBCLC)
+					, PayToSupplier_IBCLC
+					, PayToSupplier_ION
+					, PayToSupplier_RNGW)
 		 SELECT 'FullRange'
 			, SUM(PayToSupplier_NG)        
 			, SUM(PayToSupplier_H5)
@@ -448,6 +463,8 @@ INSERT INTO #FinalResult(RptDate
 			, SUM(PayToSupplier_BBIN)
 			, CASE WHEN SUM(PayToSupplier_TG) > 0 THEN 0 ELSE SUM(PayToSupplier_TG) END
 			, SUM(PayToSupplier_IBCLC)
+			, SUM(PayToSupplier_ION)
+			, CASE WHEN SUM(PayToSupplier_RNGW) > 0 THEN 0 ELSE SUM(PayToSupplier_RNGW) END
 		 FROM #FinalResult;
 
     -- Select the output
@@ -473,7 +490,9 @@ INSERT INTO #FinalResult(RptDate
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SXG'', 17, ''PayToSupplier'', PayToSupplier_SXG' + CHAR(13)
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''BBIN'', 18, ''PayToSupplier'', PayToSupplier_BBIN' + CHAR(13)
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''TG'', 21, ''PayToSupplier'', PayToSupplier_TG' + CHAR(13)
-    + 'UNION ALL' + CHAR(13) + 'SELECT ''IBCLC'', 22, ''PayToSupplier'', PayToSupplier_IBCLC) c (ProductCode, [Order], Figure, value)) a' + CHAR(13)    
+    + 'UNION ALL' + CHAR(13) + 'SELECT ''IBCLC'', 22, ''PayToSupplier'', PayToSupplier_IBCLC' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''ION'', 23, ''PayToSupplier'', PayToSupplier_ION' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''RNGW'', 24, ''PayToSupplier'', PayToSupplier_RNGW) c (ProductCode, [Order], Figure, value)) a' + CHAR(13)
     + 'PIVOT' + CHAR(13) 
     + '(' + CHAR(13) 
     + 'MAX(value)' + CHAR(13) 

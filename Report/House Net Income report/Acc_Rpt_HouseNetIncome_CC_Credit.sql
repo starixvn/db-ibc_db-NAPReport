@@ -16,6 +16,7 @@ AS
 		- 20200313@Kean - Change the "Pay to supplier" formula of CC(New Bettype 1902) - #126465
 		- 20200403@Kean - Integrate Mini Game Xoc Dia of CC(New Bettype 1903) - #131507
 		- 20200422@Kean - Integrate Mini Game 3D Lottery of CC(New Bettype 1904) - #132790
+		- 20200518@Ned.Le - Integrate Mini Game Hi-Lo Game of CC(New Bettype 1905) - #133594
 	
 	Param's Explanation:   
 
@@ -40,7 +41,7 @@ BEGIN
 		  ,[bettype]
 	FROM DBCUST.[CustDB].[dbo].[VendorGlobalSetting] v WITH(NOLOCK)
 	INNER JOIN bodb02.dbo.Products p WITH(NOLOCK) ON v.[VendorId] = p.VendorID
-	WHERE v.[VName] IN ('3rdCreditWLShareRateTX','3rdCreditWLShareRateXD', '3rdCreditWLShareRate3D')
+	WHERE v.[VName] IN ('3rdCreditWLShareRateTX','3rdCreditWLShareRateXD', '3rdCreditWLShareRate3D','3rdCreditWLShareRateHL')
 	AND p.ProductPrefix IN ('CC')
 
     CREATE TABLE #Exchange(
@@ -219,7 +220,7 @@ BEGIN
 		   SELECT CONVERT(VARCHAR(2), wl.rptDate, 106) AS winlostDate
 			   , SUM(wl.HouseWL) AS HouseWL
 			   , SUM(wl.ExtraPT) AS ExtraPT
-			   , SUM(wl.MemberWLOANDA * (CASE WHEN wl.Bettype IN (1902, 1903, 1904) THEN ISNULL(v.ChargeRate3rd,0) ELSE ISNULL(ci.Rate,0) END)) AS PayToSupplier
+			   , SUM(wl.MemberWLOANDA * (CASE WHEN wl.Bettype IN (1902, 1903, 1904, 1905) THEN ISNULL(v.ChargeRate3rd,0) ELSE ISNULL(ci.Rate,0) END)) AS PayToSupplier
 		   FROM #TmpHouseWL AS wl
 			  INNER JOIN #ChargeInfo3rd AS ci ON wl.rptDate BETWEEN ci.FromDate AND ci.ToDate
 			  LEFT JOIN #tmpVendorGlobalSetting v ON wl.ProductID = v.ProductID 
