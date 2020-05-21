@@ -1165,7 +1165,7 @@ Explanation's Param:
 				, SUM(WinlossForExtraPT_actualrate + grosscomm_actualrate) AS NewExtraPT
 			FROM #src AS b
 			WHERE b.ProductId IN(5, 8, 15, 23, 25, 27, 28, 31, --Virtual Sports, Keno, Colossus Bets, NG2 (3rd), CashOut, Betradar Virtual Sports, Lottery, Exchange
-								 37, 38, 43, 40, 42)                   --Saba Promotion, Virtual Games, Indo 4D, Table Games, Saba.club
+								 37, 38, 43, 40)                   --Saba Promotion, Virtual Games, Indo 4D, Table Games
 				 OR b.CasinoType IN(1, 2)
 			GROUP BY site
 				  , CASE
@@ -1206,7 +1206,7 @@ Explanation's Param:
 				, SUM(WinlossForExtraPT_actualrate) AS ExtraPT
 				, SUM(b.WinlossForExtraPT_actualrate + grosscomm_actualrate) AS NewExtraPT
 			FROM #srcDetail AS b
-			WHERE b.ProductId IN(24) -- Fishing World
+			WHERE b.ProductId IN(24, 42) -- Fishing World, Saba.club
 				 OR b.CasinoType IN(1, 2)
 			GROUP BY site
 				  , CASE
