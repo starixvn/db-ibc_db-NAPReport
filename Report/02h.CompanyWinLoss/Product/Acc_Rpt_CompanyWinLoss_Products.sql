@@ -1312,7 +1312,7 @@ Explanation's Param:
 			(21, 37, 'Saba Promotion'),
 			(22, 38, 'Virtual Games'),
 			(23, 43, 'Indo 4D'),
-			(24, 40, 'Table Games'),
+			(24, 40, 'Table Game'),
 			(25, 42, 'Saba.club');
 
 	   INSERT INTO @ProductOrder(DisplayOrder
