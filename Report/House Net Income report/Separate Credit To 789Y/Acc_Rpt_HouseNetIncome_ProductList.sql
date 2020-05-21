@@ -19,6 +19,7 @@ AS
 		- 20200423@Kean - Email/Letstalk Reports - Integrate IBCBet Live Casino product (#130690)
 		- 20200518@Ned.Le - Email/Letstalk Reports - Integrate SBO ION Live Casino (#132331)
 		- 20200518@Ned.Le - Email/Letstalk Reports - Integrate SBO RNG War (#132019)
+		- 20200521@Ned.Le - Re-Integrate Fishing World product for letstalk (#134533)
   
 */
 BEGIN
@@ -95,6 +96,8 @@ SET NOCOUNT ON;
 	SELECT 'ION' Product, 'ION' ProductPrefix
 	UNION ALL
 	SELECT 'RNGWar' Product, 'RNGW' ProductPrefix
+	UNION ALL
+	SELECT 'FW' Product, 'FW' ProductPrefix
 END
 GO
 GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_ProductList] TO [dwrs]

@@ -19,7 +19,7 @@ AS
 		- 20200409@Kean: House Net Income - Integrate Table Games product (#129447)
 		- 20200422@Kean: House Net Income - Integrate Sexy Gaming product (#132792)
 		- 20200422@Kean: House Net Income - Integrate Saba.Club product (#132791)
-		
+		- 20200521@Ned.Le: Re-Integrate Fishing World product for letstalk (#134533)
 	
 	
 	EXEC [Acc_Rpt_HouseNetIncome_Product_Deposit] '20180601', '20180619'
@@ -146,6 +146,10 @@ EXEC bodb02.dbo.Acc_Rpt_HouseNetIncome_SXG_Deposit
 	,@ToDate	= @ToDate
 
 EXEC bodb02.dbo.Acc_Rpt_HouseNetIncome_SBC_Deposit
+	@FromDate  = @FromDate
+	,@ToDate	= @ToDate
+	
+EXEC bodb02.dbo.Acc_Rpt_HouseNetIncome_FW_Deposit
 	@FromDate  = @FromDate
 	,@ToDate	= @ToDate
 END
