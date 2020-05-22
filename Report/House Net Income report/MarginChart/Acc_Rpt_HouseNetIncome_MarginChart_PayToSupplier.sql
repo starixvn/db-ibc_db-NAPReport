@@ -35,33 +35,10 @@ BEGIN
 	DECLARE @GMTFDate DATETIME, @GMTTDate DATETIME
 	SELECT  @GMTFDate = DATEADD(DAY, -1, @FromDate), @GMTTDate = DATEADD(DAY, 1, @ToDate)
 
-	DECLARE @ProductID INT, @VendorID SMALLINT
-	SELECT	@ProductID = ProductID, @VendorID = VendorID FROM dbo.Products WITH (NOLOCK) WHERE ProductPrefix = @ProductPrefix
+	DECLARE @ProductID INT
+	SELECT	@ProductID = ProductID FROM dbo.Products WITH (NOLOCK) WHERE ProductPrefix = @ProductPrefix
 
-	CREATE TABLE #__tempVendorGlobalSetting (IsDeposit BIT, ChargeRate3rd DECIMAL(19, 8))
-	INSERT INTO #__tempVendorGlobalSetting (IsDeposit, ChargeRate3rd)
-	SELECT CASE WHEN VName = '3rdCashWLShareRate' THEN 1 ELSE 0 END, NumberValue
-	FROM DBCUST.CustDB.dbo.VendorGlobalSetting WITH (NOLOCK)
-	WHERE VendorID = @VendorID
-		AND VName IN ('3rdCreditWLShareRate', '3rdCashWLShareRate')
-    
 	-- Region: Active licensees
-	DECLARE @tmpAllParty TABLE (PartyID INT, ParentID INT, LicenseeID INT, IsDeposit BIT)
-	INSERT INTO @tmpAllParty (PartyID, ParentID, LicenseeID, IsDeposit)
-	SELECT PartyID, ParentID, OldRefID, IsDeposit
-	FROM (
-		SELECT ci.FromParty AS PartyID, ci.ToParty AS ParentID, p.OldRefID, pd.IsDeposit
-			,ROW_NUMBER() OVER(PARTITION BY ci.FromParty ORDER BY ci.FromDate DESC) AS RowNum
-		FROM bodb_licensee.dbo.OAS_Party p WITH (NOLOCK)
-			INNER JOIN bodb_licensee.dbo.OAS_PartyDetail pd WITH (NOLOCK) ON p.PartyID = pd.PartyID
-			INNER JOIN bodb_licensee.dbo.OAS_ChargeInfo ci WITH (NOLOCK) ON p.PartyID = ci.FromParty
-			INNER JOIN bodb_licensee.dbo.LA_ChargeInfo_SystemMapping cs WITH(NOLOCK) ON ci.ChargeID = cs.ChargeID AND cs.SystemID = 2
-		WHERE ci.ChargeType = 1
-			AND p.PartyType = 1
-			AND ci.ToParty IN (1, 9, 11, 98)
-	) AS r
-	WHERE r.RowNum = 1
-
 	DECLARE @tmpParty TABLE (PartyID INT, ParentID INT, LicenseeID INT, IsDeposit BIT)
 	INSERT INTO @tmpParty (PartyID, ParentID, LicenseeID, IsDeposit)
 	SELECT DISTINCT p.PartyID, CASE WHEN pd.IsDeposit = 0 THEN 999 ELSE ci.ToParty END, CASE WHEN pd.IsDeposit = 1 THEN p.OldRefID ELSE lb.LabelID END, pd.IsDeposit
@@ -77,9 +54,7 @@ BEGIN
 			OR (ci.ToDate BETWEEN @FDate AND @TDate)
 			OR (ci.FromDate < @FDate AND @TDate < ci.ToDate)
 		)
-
-	DECLARE @PartyIDs VARCHAR(1000)
-	SELECT	@PartyIDs = COALESCE(@PartyIDs + ',', '') + CONVERT(VARCHAR(10), PartyId) FROM @tmpParty
+		AND 1 = CASE WHEN @DepositType = 2 OR @DepositType = pd.IsDeposit THEN 1 ELSE 0 END
 	-- End region
 
 	-- Region: Get charge rate
@@ -100,7 +75,6 @@ BEGIN
 			(@ProductID IN (11, 21) AND ci.ChargeType IN (9, 10)) -- GD & AB
 			OR (@ProductID NOT IN (11, 21) AND ci.ChargeType = 1)
 		)
-		AND 1 = CASE WHEN @DepositType = 2 OR @DepositType = ci.IsDeposit THEN 1 ELSE 0 END
 	-- End Region
 
 	-- Region: Get Exchange
@@ -152,11 +126,9 @@ BEGIN
 
 	INSERT INTO #__tempDataGMT (rptDate, IsDeposit, CurrencyId, PlayCurrency, PayDaily)
 	SELECT b.RptDate3rd, p.IsDeposit, b.CurrencyId, ISNULL(pc.PlayCurrency, b.CurrencyId) AS PlayCurrency
-		,SUM((b.Winloss + CASE WHEN p.IsDeposit = 0 AND @ProductID = 21 THEN b.ValidBetAmount * @ABCommissionRate ELSE 0 END) * ISNULL(p.Rate, v.ChargeRate3rd)) AS PayDaily
+		,SUM((b.Winloss + CASE WHEN p.IsDeposit = 0 AND @ProductID = 21 THEN b.ValidBetAmount * @ABCommissionRate ELSE 0 END) * p.Rate) AS PayDaily
 	FROM bodb_LicenseeReport.dbo.rpt_ThirdPartyWL_ExtraGMT b WITH (NOLOCK)
-		INNER JOIN @tmpAllParty ap ON ap.LicenseeID = b.SiteID
-		LEFT JOIN #__tempVendorGlobalSetting v ON ap.IsDeposit = v.IsDeposit
-		LEFT JOIN #__PartyCharge3rdInfo p ON p.LicenseeID = b.SiteID AND b.RptDate3rd BETWEEN p.FromDate AND p.ToDate
+		INNER JOIN #__PartyCharge3rdInfo p ON p.LicenseeID = b.SiteID AND b.RptDate3rd BETWEEN p.FromDate AND p.ToDate
 		INNER JOIN bodb_licensee.dbo.view_site_list AS s WITH(NOLOCK) ON b.SiteId = s.SiteID
 		LEFT JOIN #__PlayCurrencySettings pc ON pc.SiteId = s.IbcSiteID AND b.CurrencyId = pc.MemberCurrency AND b.RptDate3rd BETWEEN pc.FromDate AND pc.ToDate
 	WHERE b.RptDate BETWEEN @GMTFDate AND @GMTTDate
@@ -174,7 +146,6 @@ BEGIN
 	DROP TABLE #__Bettype
 	DROP TABLE #__PartyCharge3rdInfo
 	DROP TABLE #__PlayCurrencySettings
-	DROP TABLE #__tempVendorGlobalSetting
 
 	CREATE TABLE #__tempData
 	(
