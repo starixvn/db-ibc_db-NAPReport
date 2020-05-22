@@ -364,7 +364,7 @@ SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 									     WHERE t.ProductID = 23 AND  t.rptDate = @tmpDate) -- NG2, NG
 		+ (SELECT ISNULL(SUM((t.HouseWL + t.ExtraPT) * r.Rate) * (-1),0) FROM #TmpHouseWL AS t INNER JOIN #PayToSupplierRate r ON t.ProductID = r.ProductID
 									     WHERE t.ProductID = 3 AND t.SiteID <> @SiteCN88 AND  t.rptDate = @tmpDate) -- NG2, NG
-		+ (SELECT SUM(t.PayToSupplier_Daily) FROM #tmpPayToSupplier_Daily AS t 
+		+ (SELECT ISNULL(SUM(t.PayToSupplier_Daily),0) FROM #tmpPayToSupplier_Daily AS t 
 											 WHERE t.ProductID IN (22, 34, 36, 39, 45, 40, 47, 46, 52, 50)  AND  t.rptDate = @tmpDate) -- MacauG, CC, SG, SA, SXG, TG, BBIN, IBCLC, ION, RNGW
 		+ (SELECT ISNULL(SUM(t.MemberWLOANDA * r.Rate),0)  FROM #TmpHouseWL AS t INNER JOIN #PayToSupplierRate r ON t.ProductID = r.ProductID
 									     WHERE t.ProductID IN (5,8,28,27) 
@@ -379,9 +379,9 @@ SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 		+ (SELECT ISNULL(SUM(t.MemberWL * r.Rate),0) FROM #TmpHouseWL AS t INNER JOIN #PayToSupplierRate_CN88 r ON t.ProductID = r.ProductID
 									     WHERE t.ProductID = 3 
 										 AND t.rptDate = @tmpDate AND t.SiteID = @SiteCN88) --NG,HP5 for CN88
-		+ (SELECT PayToSupplier_Daily_AB FROM #tmpPayToSupplier_Daily_AB AS t
+		+ (SELECT ISNULL(SUM(PayToSupplier_Daily_AB),0) FROM #tmpPayToSupplier_Daily_AB AS t
 									     WHERE t.rptDate = CONVERT(VARCHAR(2), @tmpDate, 106)) --AB
-		+ (SELECT PayToSupplier_Daily_FW FROM #tmpPayToSupplier_Daily_FW AS t
+		+ (SELECT ISNULL(SUM(PayToSupplier_Daily_FW),0) FROM #tmpPayToSupplier_Daily_FW AS t
 									     WHERE t.rptDate = CONVERT(VARCHAR(2), @tmpDate, 106)) --FW
 		) AS  PayToSupplier
 
