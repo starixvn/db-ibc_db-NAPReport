@@ -42,6 +42,7 @@ AS
 		- 20200331@Ned.Le: NAP Report - Incorporate new Table Games (#131095)
 		- 20200409@Ned.Le: NAP Report - Incorporate BBIN Live Casino (#131357)
 		- 20200422@Ned.Le: NAP Report - Incorporate IBCBet Live Casino (#132961)
+		- 20200522@Cherry: Nap Report - Integrate ION Live Casino (#132324) & RNG War (#132009)
 
 	Param's Explanation:  
 	  + @ListCurrency: The specified date used as one of the filter criterias, if its value is 'all' then no need to be filtered by currency
@@ -91,7 +92,7 @@ BEGIN
 
     DECLARE @bitmap    TINYINT; /* using for sporttype that has 1 setting*/
 
-    IF @SportType IN(212, 213, 219, 220, 180, 245, 244, 200, 243, 222, 241, 242) /* Macau Games, NG2, Fishing World, Virtual Sports, Lottery, Virtual Games, SA Gaming, Saba.club, Sexy Gaming, Table Games, BBIN, IBCBet Live Casino*/
+    IF @SportType IN(212, 213, 219, 220, 180, 245, 244, 200, 243, 222, 241, 242, 224, 225) /* Macau Games, NG2, Fishing World, Virtual Sports, Lottery, Virtual Games, SA Gaming, Saba.club, Sexy Gaming, Table Games, BBIN, IBCBet Live Casino, RNG War, ION*/
 
 	   BEGIN
 		  SELECT @bitmap = bitmapOrder
@@ -141,7 +142,7 @@ BEGIN
 							 (cps.bitmapIsDisabled, b.bitmapOrder) AS f
 						 WHERE custid = ci.custid
 					  )
-				  WHEN @SportType IN(212, 213, 219, 220, 180, 245, 244, 200, 243, 222, 241, 242)
+				  WHEN @SportType IN(212, 213, 219, 220, 180, 245, 244, 200, 243, 222, 241, 242, 224, 225)
 				  THEN
 					  (
 						 SELECT CASE(SELECT value
@@ -462,9 +463,9 @@ BEGIN
 				 GROUP BY fda.CustID
 			  ) A ON fda.CustID = A.CustID;
 	   END;
-/* Macau Games, NG2, Fishing World, Virtual Sports, Lottery, Virtual Games, SA Gaming, Saba.club, Sexy Gaming, Table Games, BBIN, IBCBet Live Casino*/
+/* Macau Games, NG2, Fishing World, Virtual Sports, Lottery, Virtual Games, SA Gaming, Saba.club, Sexy Gaming, Table Games, BBIN, IBCBet Live Casino, RNG War, ION*/
 
-    IF @sportType IN(212, 213, 219, 220, 180, 245, 244, 200, 243, 222, 241, 242)
+    IF @sportType IN(212, 213, 219, 220, 180, 245, 244, 200, 243, 222, 241, 242, 224, 225)
 	   BEGIN
 		  INSERT INTO #FiltedDownlineAcc
 			    SELECT sup.CustID
