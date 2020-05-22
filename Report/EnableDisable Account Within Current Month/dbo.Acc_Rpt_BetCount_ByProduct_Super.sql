@@ -52,6 +52,7 @@ AS
 		- 20200331@Ned.Le: NAP Report - Incorporate new Table Games (#131095)
 		- 20200409@Ned.Le: NAP Report - Incorporate BBIN Live Casino (#131357)
 		- 20200422@Ned.Le: NAP Report - Incorporate IBCBet Live Casino (#132961)
+		- 20200521@Cherry: Missing running betcount for sports: Saba, SA Gaming, Sexy Gaming, IBCBet Live Casino (#134571)
 
 	Param's Explanation:  
 	  + @MoveBetsDay: The day of moving bets to battrans14
@@ -136,7 +137,7 @@ BEGIN
 		GROUP BY b.custid,b.[status], b.bettype
 		
 		-- Get data from bettransRnG
-		IF @sportType IN (251, 212, 219)
+		IF @sportType IN (251, 212, 219, 200)
 		BEGIN
 			INSERT INTO #AvailableMember
 			SELECT b.custid,
@@ -160,7 +161,7 @@ BEGIN
 		END	
 
 		-- Get data from bettransLC
-		IF @sportType IN (211)
+		IF @sportType IN (211, 244, 243, 242)
 		BEGIN
 			INSERT INTO #AvailableMember
 			SELECT b.custid,b.[status],COUNT(1) 
