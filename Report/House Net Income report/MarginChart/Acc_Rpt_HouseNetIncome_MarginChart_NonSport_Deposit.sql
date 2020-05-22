@@ -1,5 +1,5 @@
 /*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
-ALTER PROCEDURE dbo.Acc_Rpt_HouseNetIncome_MarginChart_NonSport_Deposit 
+ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_NonSport_Deposit]
 	@FromDate       DATE
    ,@ToDate         DATE
    ,@ProductList    VARCHAR(MAX) = ''   
@@ -24,6 +24,7 @@ AS
 		- 20200324@Kean - Email/Letstalk Reports - Integrate SA Gaming product [#128059]
 		- 20200403@Percy: Integrate Xoc Dia (CC), Bluesprint's games (Macau Games), Table Games [RedmineID: #131507,#131755,#129447]
 		- 20200422@Percy: Integrate 3D Lottery (CC), Saba.Club, Sexy Gaming [RedmineID: #132790,#132791,#132792]
+		- 20200521@Percy: Re-integrate FW [RedmineID: #134533]
 
 	Param's Explanation:   
 		- @ProductList: '' - default value when get all product
@@ -77,6 +78,13 @@ BEGIN
 	SELECT @SumValue = @SumValue + ' FROM #MarginChartResult GROUP BY [Order], Figure ORDER BY [Order]'
 	
 	--EXEC (@DynamicTable)
+
+	-- 23. FW
+	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'TG')
+	BEGIN
+		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
+							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_FW_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
+	END
 
 	-- 22. SXG
 	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'TG')
