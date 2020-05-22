@@ -38,8 +38,8 @@ BEGIN
 	DECLARE @ProductID INT, @VendorID SMALLINT
 	SELECT	@ProductID = ProductID, @VendorID = VendorID FROM dbo.Products WITH (NOLOCK) WHERE ProductPrefix = @ProductPrefix
 
-	CREATE TABLE #tempVendorGlobalSetting (IsDeposit BIT, ChargeRate3rd DECIMAL(19, 8))
-	INSERT INTO #tempVendorGlobalSetting (IsDeposit, ChargeRate3rd)
+	CREATE TABLE #__tempVendorGlobalSetting (IsDeposit BIT, ChargeRate3rd DECIMAL(19, 8))
+	INSERT INTO #__tempVendorGlobalSetting (IsDeposit, ChargeRate3rd)
 	SELECT CASE WHEN VName = '3rdCashWLShareRate' THEN 1 ELSE 0 END, NumberValue
 	FROM DBCUST.CustDB.dbo.VendorGlobalSetting WITH (NOLOCK)
 	WHERE VendorID = @VendorID
@@ -83,7 +83,7 @@ BEGIN
 	-- End region
 
 	-- Region: Get charge rate
-	CREATE TABLE #PartyCharge3rdInfo
+	CREATE TABLE #__PartyCharge3rdInfo
 	(
 		LicenseeId	INT
 		,IsDeposit	BIT
@@ -91,7 +91,7 @@ BEGIN
 		,FromDate   SMALLDATETIME
 		,ToDate     SMALLDATETIME
 	)
-	INSERT INTO #PartyCharge3rdInfo (LicenseeId, IsDeposit, Rate, FromDate, ToDate)
+	INSERT INTO #__PartyCharge3rdInfo (LicenseeId, IsDeposit, Rate, FromDate, ToDate)
 	SELECT DISTINCT p.LicenseeId, ci.IsDeposit, ci.DI_Rate, ci.FromDate, ci.ToDate
 	FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd (@FDate, @TDate, @ProductPrefix, 'OA') ci
 		INNER JOIN @tmpParty p ON p.ParentID = ci.PartyID
@@ -104,14 +104,14 @@ BEGIN
 	-- End Region
 
 	-- Region: Get Exchange
-	CREATE TABLE #ExchangeOANDA (ExchangeDate DATE, ExchangeID INT, Rate FLOAT)
-	INSERT INTO #ExchangeOANDA(ExchangeDate, ExchangeID, Rate)
+	CREATE TABLE #__ExchangeOANDA (ExchangeDate DATE, ExchangeID INT, Rate FLOAT)
+	INSERT INTO #__ExchangeOANDA(ExchangeDate, ExchangeID, Rate)
 	SELECT ExchangeDate, ExchangeID, BaseCurrencyRate
 	FROM dbo.LA_f_ExchangeDailySel(@FDate, @TDate, 'MYR')
 	-- End Region
 
 	-- Region: Get Sum data
-	CREATE TABLE #tempDataGMT
+	CREATE TABLE #__tempDataGMT
 	(
 		rptDate			DATE
 		,IsDeposit		BIT
@@ -120,12 +120,12 @@ BEGIN
 		,PayDaily		MONEY
 	)
 
-	CREATE TABLE #Bettype (BetType INT)
-	INSERT INTO #Bettype (BetType)
+	CREATE TABLE #__Bettype (BetType INT)
+	INSERT INTO #__Bettype (BetType)
 	SELECT BetType FROM dbo.f_SportBettypeMatrixByProduct_Sel (@ProductID, 0)
 
 	-- For Allbet
-	CREATE TABLE #PlayCurrencySettings
+	CREATE TABLE #__PlayCurrencySettings
 	(
 		SiteId          INT
 		,MemberCurrency	INT
@@ -138,11 +138,11 @@ BEGIN
 
 	IF @ProductID = 21
 	BEGIN
-		INSERT INTO #PlayCurrencySettings (SiteId, MemberCurrency, PlayCurrency, FromDate, ToDate)
+		INSERT INTO #__PlayCurrencySettings (SiteId, MemberCurrency, PlayCurrency, FromDate, ToDate)
 		SELECT SiteId, MemberCurrency, PlayCurrency, FromDate, ToDate
 		FROM OPENQUERY(DBACC, 'SELECT SiteId, MemberCurrency, PlayCurrency, FromDate, ToDate FROM bodb02.dbo.PlayCurrencySetting WITH(NOLOCK) WHERE SportType = 211')
 		
-		DELETE #PlayCurrencySettings
+		DELETE #__PlayCurrencySettings
 		WHERE ToDate < @FromDate OR FromDate > @ToDate
 
 		SELECT @ABCommissionRate = DI_Rate
@@ -150,18 +150,18 @@ BEGIN
 		WHERE ChargeType = 11
 	END
 
-	INSERT INTO #tempDataGMT (rptDate, IsDeposit, CurrencyId, PlayCurrency, PayDaily)
+	INSERT INTO #__tempDataGMT (rptDate, IsDeposit, CurrencyId, PlayCurrency, PayDaily)
 	SELECT b.RptDate3rd, p.IsDeposit, b.CurrencyId, ISNULL(pc.PlayCurrency, b.CurrencyId) AS PlayCurrency
 		,SUM((b.Winloss + CASE WHEN p.IsDeposit = 0 AND @ProductID = 21 THEN b.ValidBetAmount * @ABCommissionRate ELSE 0 END) * ISNULL(p.Rate, v.ChargeRate3rd)) AS PayDaily
 	FROM bodb_LicenseeReport.dbo.rpt_ThirdPartyWL_ExtraGMT b WITH (NOLOCK)
 		INNER JOIN @tmpAllParty ap ON ap.LicenseeID = b.SiteID
-		LEFT JOIN #tempVendorGlobalSetting v ON ap.IsDeposit = v.IsDeposit
-		LEFT JOIN #PartyCharge3rdInfo p ON p.LicenseeID = b.SiteID AND b.RptDate3rd BETWEEN p.FromDate AND p.ToDate
+		LEFT JOIN #__tempVendorGlobalSetting v ON ap.IsDeposit = v.IsDeposit
+		LEFT JOIN #__PartyCharge3rdInfo p ON p.LicenseeID = b.SiteID AND b.RptDate3rd BETWEEN p.FromDate AND p.ToDate
 		INNER JOIN bodb_licensee.dbo.view_site_list AS s WITH(NOLOCK) ON b.SiteId = s.SiteID
-		LEFT JOIN #PlayCurrencySettings pc ON pc.SiteId = s.IbcSiteID AND b.CurrencyId = pc.MemberCurrency AND b.RptDate3rd BETWEEN pc.FromDate AND pc.ToDate
+		LEFT JOIN #__PlayCurrencySettings pc ON pc.SiteId = s.IbcSiteID AND b.CurrencyId = pc.MemberCurrency AND b.RptDate3rd BETWEEN pc.FromDate AND pc.ToDate
 	WHERE b.RptDate BETWEEN @GMTFDate AND @GMTTDate
 		AND b.RptDate3rd BETWEEN @FDate AND @TDate
-		AND EXISTS (SELECT 1 FROM #Bettype bt WHERE b.BetTypeId = bt.BetType)
+		AND EXISTS (SELECT 1 FROM #__Bettype bt WHERE b.BetTypeId = bt.BetType)
 		AND b.CurrencyID <> 20
 		AND b.StatusId NOT IN(-1, 101, 102, 103) -- Exclude Reject , Void, Refund
 		AND (@Site = '' OR s.SiteName = @Site) 				
@@ -171,30 +171,30 @@ BEGIN
 		,b.CurrencyId
 		,ISNULL(pc.PlayCurrency, b.CurrencyId)
 
-	DROP TABLE #Bettype
-	DROP TABLE #PartyCharge3rdInfo
-	DROP TABLE #PlayCurrencySettings
-	DROP TABLE #tempVendorGlobalSetting
+	DROP TABLE #__Bettype
+	DROP TABLE #__PartyCharge3rdInfo
+	DROP TABLE #__PlayCurrencySettings
+	DROP TABLE #__tempVendorGlobalSetting
 
-	CREATE TABLE #tempData
+	CREATE TABLE #__tempData
 	(
 		IsDeposit			BIT
 		,rptDate			DATETIME
 		,AmountDailyBased	MONEY
 		,AmountDailySystem	MONEY
 	)
-	INSERT INTO #tempData (IsDeposit, rptDate, AmountDailyBased, AmountDailySystem)
+	INSERT INTO #__tempData (IsDeposit, rptDate, AmountDailyBased, AmountDailySystem)
 	SELECT b.IsDeposit, b.rptDate, b.PayDaily * oe.Rate, b.PayDaily * pe.Rate
-	FROM #tempDataGMT b
-		INNER JOIN #ExchangeOANDA oe ON oe.ExchangeDate = b.rptDate AND oe.ExchangeID = b.CurrencyId
-		INNER JOIN #ExchangeOANDA pe ON pe.ExchangeDate = b.rptDate AND pe.ExchangeID = b.PlayCurrency;
+	FROM #__tempDataGMT b
+		INNER JOIN #__ExchangeOANDA oe ON oe.ExchangeDate = b.rptDate AND oe.ExchangeID = b.CurrencyId
+		INNER JOIN #__ExchangeOANDA pe ON pe.ExchangeDate = b.rptDate AND pe.ExchangeID = b.PlayCurrency;
 	-- End region
 
-	DROP TABLE #ExchangeOANDA
-	DROP TABLE #tempDataGMT
+	DROP TABLE #__ExchangeOANDA
+	DROP TABLE #__tempDataGMT
 
-	CREATE TABLE #FinalResult (rptDate VARCHAR(10), PayToSupplier MONEY, CurrencyPlay MONEY)
-	INSERT INTO #FinalResult (rptDate, PayToSupplier, CurrencyPlay)
+	CREATE TABLE #__FinalResult (rptDate VARCHAR(10), PayToSupplier MONEY, CurrencyPlay MONEY)
+	INSERT INTO #__FinalResult (rptDate, PayToSupplier, CurrencyPlay)
 	SELECT 'FullRange', AmountDailyBased, AmountDailySystem - AmountDailyBased
 	FROM
 	(
@@ -204,13 +204,13 @@ BEGIN
 		FROM
 		(
 			SELECT IsDeposit, SUM(AmountDailyBased) AS AmountDailyBased, SUM(AmountDailySystem) AS AmountDailySystem
-			FROM #tempData
+			FROM #__tempData
 			GROUP BY IsDeposit
 		) s
 	) r
 
 	IF @@ROWCOUNT = 0
-		INSERT INTO #FinalResult (rptDate, PayToSupplier, CurrencyPlay)
+		INSERT INTO #__FinalResult (rptDate, PayToSupplier, CurrencyPlay)
 		VALUES ('FullRange', 0, 0)
 
 	;WITH CTE_rptDate AS
@@ -221,35 +221,17 @@ BEGIN
 		FROM CTE_rptDate
 		WHERE rptDate < @TDate
 	)
-	INSERT INTO #FinalResult (RptDate, PayToSupplier, CurrencyPlay)
+	INSERT INTO #__FinalResult (rptDate, PayToSupplier, CurrencyPlay)
 	SELECT CONVERT(VARCHAR(2), d.rptDate, 106), SUM(ISNULL(t.AmountDailyBased, 0)), SUM(ISNULL(t.AmountDailySystem, 0) - ISNULL(t.AmountDailyBased, 0))
 	FROM CTE_RptDate d
-		LEFT JOIN #tempData t ON d.rptDate = t.rptDate
+		LEFT JOIN #__tempData t ON d.rptDate = t.rptDate
 	GROUP BY CONVERT(VARCHAR(2), d.rptDate, 106)
 	OPTION (MAXRECURSION 0)
 
-    DECLARE @DateList VARCHAR(200)
-	SELECT  @DateList = COALESCE(@DateList + ',', '') + '[' + CONVERT(VARCHAR(10), RptDate) + ']' FROM #FinalResult
-    
-	---------------------------------------------------- Select the output -------------------------------------------------------
-	DECLARE @SQL VARCHAR(MAX)
-	SELECT @SQL =	'SELECT * ' + CHAR(13) +
-					'FROM	(SELECT ProductCode, [Order], [RptDate], Figure, ISNULL(value, 0) value FROM #FinalResult' + CHAR(13) +
-							'CROSS APPLY' + CHAR(13) +							
-							'(SELECT ''' + @ProductPrefix + ''', 4, ''Pay to supplier'', PayToSupplier' + CHAR(13) +
-							'UNION ALL' + CHAR(13) +
-							'SELECT ''' + @ProductPrefix + ''', 5, ''Currency Play'', CurrencyPlay ) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
-					'PIVOT' + CHAR(13) +
-					'(' + CHAR(13) +
-						'MAX(value)' + CHAR(13) +
-						'FOR [RptDate] in (' + @DateList + ')' + CHAR(13) +
-					') piv' + CHAR(13) +
-					'WHERE ProductCode = ''AB'' OR [Order] <> 5
-					ORDER BY [Order]'
+	SELECT rptDate, PayToSupplier, CurrencyPlay
+	FROM #__FinalResult
 
-	EXEC(@SQL)
-	
-	DROP TABLE #FinalResult
-	DROP TABLE #tempData
+	DROP TABLE #__FinalResult
+	DROP TABLE #__tempData
 END
 GO

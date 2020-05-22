@@ -1,21 +1,23 @@
 /*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_FW_Deposit]
-	@FromDate DATE,
-	@ToDate	DATE
-AS  
-/*  
-	Created:	20170213@Harper  
-    Task :		House month-to-date Net Income report for Fishing World
-    DB:			DBEXT/bodb02  
-   
-    Revisions:  
+	@FromDate	DATE
+   ,@ToDate		DATE
+AS
+
+/*
+	Created:	20170213@Harper
+	DB:			DBEXT-bodb02
+	Task:		House month-to-date Net Income report for Fishing World
+	
+	Revisions:  
 	   - 20181019@Robert: Nap Reports - House Net Income - Pay to Supplier(Month-to-date) of Gold Deluxe & Fishing World is incorrect [#103380]
 	   - 20200108@Percy: #124755 - Support billing terms by product & currency instead of product only
 
 	Param's Explanation:   
 
 	EXEC Acc_Rpt_HouseNetIncome_FW_Deposit '20170201', '20170228'   
-*/  
+*/
+
 BEGIN  
     SET NOCOUNT ON;
 

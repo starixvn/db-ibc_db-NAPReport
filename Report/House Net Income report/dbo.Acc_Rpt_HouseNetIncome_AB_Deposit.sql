@@ -1,14 +1,15 @@
 /*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
-ALTER PROCEDURE dbo.Acc_Rpt_HouseNetIncome_AB_Deposit
-	@FromDate       DATE 
-   , @ToDate         DATE 
+ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_AB_Deposit]
+	@FromDate	DATE
+   ,@ToDate		DATE
 AS
-/*  
-	Created:	20170213@Harper  
-    Task :		House month-to-date Net Income report for All Bet
-    DB:			DBEXT/bodb02  
-   
-    Revisions:  
+
+/*
+	Created:	20170213@Harper
+	DB:			DBEXT-bodb02
+	Task:		House month-to-date Net Income report for Allbet
+	
+	Revisions:  
 		- 20170505@Harper: Change formula for Currency Play [RedmineID: #76156]
 		- 20190222@Robert: #109196 - House Net Income - Arrange Email notification for Licensee Figures
 		- 20200102@Robert: #125762 - DHWL Letstalk - Support to add Margin report into the current DHWL Letstalk report
@@ -17,7 +18,8 @@ AS
     Param's Explanation:   	   
 
 	EXEC Acc_Rpt_HouseNetIncome_AB_Deposit '20170201', '20170228'   
-*/  
+*/
+
 BEGIN  
     SET NOCOUNT ON;
 
@@ -183,67 +185,51 @@ BEGIN
 
     CREATE NONCLUSTERED INDEX Idx_InvoiceData ON #TempDataAB(PartyId, ProductId);
 
-    CREATE TABLE #FinalResult(
-	    RptDate       VARCHAR(10)
-	  , LicenseeWL    MONEY);
+    CREATE TABLE #FinalResult
+	(
+		RptDate			VARCHAR(10)
+		,LicenseeWL		MONEY
+		,PayToSupplier	MONEY
+		,CurrencyPlay	MONEY
+	);
 
-    CREATE TABLE #FeeData(
-	    PartyId            INT
-	  , ProductID          INT
-	  , AComm              MONEY
-	  , MinFeeApplied      MONEY
-	  , WLFeeApplied       MONEY
-	  , AmountToCompany    MONEY);
+    CREATE TABLE #FeeData (PartyId INT, ProductID INT, AComm MONEY, MinFeeApplied MONEY, WLFeeApplied MONEY, AmountToCompany MONEY)
+    INSERT INTO #FeeData (PartyId, ProductID, AComm, MinFeeApplied, WLFeeApplied, AmountToCompany)
+	EXEC dbo.Acc_Rpt_HouseNetIncome_LicenseeFee @FromDate = @FDate, @ToDate = @TDate, @Products = 'AB'
 
-    INSERT INTO #FeeData(PartyId
-				   , ProductID
-				   , AComm
-				   , MinFeeApplied
-				   , WLFeeApplied
-				   , AmountToCompany)
-    EXEC dbo.Acc_Rpt_HouseNetIncome_LicenseeFee 
-	    @FromDate = @FDate
-	  , @ToDate = @TDate
-	  , @Products = 'AB';
+    INSERT INTO #FinalResult(rptDate, LicenseeWL)
+	SELECT 'FullRange'
+			 ,(SELECT CASE WHEN SUM(AmountToCompany) < 0 THEN 0 ELSE SUM(WLFeeApplied) END FROM #FeeData)
 
-    INSERT INTO #FinalResult(rptDate
-					  , LicenseeWL)
-		 SELECT 'FullRange'
-			 ,
-			   (
-				  SELECT CASE
-						   WHEN SUM(AmountToCompany) < 0
-						   THEN 0
-						   ELSE SUM(WLFeeApplied)
-					    END
-				  FROM #FeeData
-			   );
+    ;WITH CTE_rptDate AS
+	(
+		SELECT @FDate AS rptDate
+		UNION ALL
+		SELECT DATEADD(DAY, 1, rptDate)
+		FROM CTE_rptDate
+		WHERE rptDate < @TDate
+	)
+	INSERT INTO #FinalResult (RptDate, PayToSupplier)
+	SELECT CONVERT(VARCHAR(2), d.rptDate, 106), SUM(ISNULL(t.AmountToCompany, 0))
+	FROM CTE_RptDate d
+		LEFT JOIN #TempDataAB t ON d.rptDate = t.rptDate
+	GROUP BY CONVERT(VARCHAR(2), d.rptDate, 106)
+	OPTION (MAXRECURSION 0)
 
-    DECLARE @tmpDate     DATE
-		, @DateList    VARCHAR(200);
+	CREATE TABLE #PayToSupplier (rptDate VARCHAR(10), PayToSupplier MONEY, CurrencyPlay	MONEY)
+	INSERT INTO #PayToSupplier (rptDate, PayToSupplier, CurrencyPlay)
+	EXEC Acc_Rpt_HouseNetIncome_PayToSupplier @FromDate = @FDate, @ToDate = @TDate, @ProductPrefix = 'AB', @DepositType = 1
 
-    SELECT @tmpDate = @FDate;
+	UPDATE f
+	SET f.PayToSupplier = p.PayToSupplier, f.CurrencyPlay = p.CurrencyPlay
+	FROM #FinalResult f
+		INNER JOIN #PayToSupplier p ON f.rptDate = p.rptDate
 
-    WHILE @tmpDate <= @TDate
-	   BEGIN
-		  INSERT INTO #FinalResult(RptDate
-							, LicenseeWL)
-			    SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
-				    ,
-					 (
-						SELECT SUM(AmountToCompany)
-						FROM #TempDataAB
-						WHERE rptDate = @tmpDate
-					 );
-
-		  SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate);
-	   END;
-
-    SELECT @DateList = COALESCE(@DateList + ',', '') + '[' + CONVERT(VARCHAR(10), RptDate) + ']'
-    FROM #FinalResult;
+    DECLARE @DateList VARCHAR(200)
+	SELECT  @DateList = COALESCE(@DateList + ',', '') + '[' + CONVERT(VARCHAR(10), RptDate) + ']' FROM #FinalResult
 
 	---------------------------------------------------- Select the output -------------------------------------------------------
-	DECLARE @SQL VARCHAR(1000)
+	DECLARE @SQL VARCHAR(MAX)
 	SELECT @SQL =	'SELECT * ' + CHAR(13) +
 					'FROM	(SELECT ProductCode, [Order], [RptDate], Figure, ISNULL(value, 0) value FROM #FinalResult' + CHAR(13) +
 							'CROSS APPLY' + CHAR(13) +							
