@@ -149,14 +149,9 @@ BEGIN
 	GROUP BY b.rptDate
 	-- End Region
 
-	CREATE TABLE #FeeData (PartyID INT, ProductID INT, AComm MONEY, MinFeeApplied MONEY, WLFeeApplied MONEY, AmountToCompany MONEY)
-    INSERT INTO #FeeData (PartyId, ProductID, AComm, MinFeeApplied, WLFeeApplied, AmountToCompany)
-    EXEC dbo.Acc_Rpt_HouseNetIncome_LicenseeFee @FromDate = @FDate, @ToDate = @TDate, @Products = @ProductPrefix
-
 	CREATE TABLE #FinalResult (rptDate VARCHAR(10), LicenseeWL MONEY, PayToSupplier MONEY, CurrencyPlay MONEY)
 	INSERT INTO #FinalResult (rptDate, LicenseeWL)
-	SELECT 'FullRange', ISNULL(SUM(AmountToCompany), 0)
-	FROM #FeeData
+	SELECT 'FullRange', 0
 
 	;WITH CTE_rptDate AS
 	(
@@ -173,15 +168,6 @@ BEGIN
 	GROUP BY CONVERT(VARCHAR(2), d.rptDate, 106)
 	OPTION (MAXRECURSION 0)
 
-	CREATE TABLE #PayToSupplier (rptDate VARCHAR(10), PayToSupplier MONEY, CurrencyPlay	MONEY)
-	INSERT INTO #PayToSupplier (rptDate, PayToSupplier, CurrencyPlay)
-	EXEC Acc_Rpt_HouseNetIncome_MarginChart_PayToSupplier @FromDate = @FDate, @ToDate = @TDate, @ProductPrefix = @ProductPrefix, @DepositType = 1
-
-	UPDATE f
-	SET f.PayToSupplier = p.PayToSupplier, f.CurrencyPlay = p.CurrencyPlay
-	FROM #FinalResult f
-		INNER JOIN #PayToSupplier p ON f.rptDate = p.rptDate
-
     DECLARE @DateList VARCHAR(200)
 	SELECT  @DateList = COALESCE(@DateList + ',', '') + '[' + CONVERT(VARCHAR(10), RptDate) + ']' FROM #FinalResult
 
@@ -190,11 +176,7 @@ BEGIN
 	SELECT  @SQL =	'SELECT * ' + CHAR(13) +
 					'FROM	(SELECT ProductCode, [Order], [RptDate], Figure, ISNULL(value, 0) value FROM #FinalResult' + CHAR(13) +
 							'CROSS APPLY' + CHAR(13) +
-							'(SELECT ''' + @ProductPrefix + ''', 1, ''House Income'', LicenseeWL' + CHAR(13) +
-							'UNION ALL' + CHAR(13) +
-							'SELECT ''' + @ProductPrefix + ''', 4, ''Pay to supplier'', PayToSupplier' + CHAR(13) +
-							'UNION ALL' + CHAR(13) +
-							'SELECT ''' + @ProductPrefix + ''', 5, ''Currency Play'', CurrencyPlay) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
+							'(SELECT ''' + @ProductPrefix + ''', 1, ''House Income'', LicenseeWL) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
 					'PIVOT' + CHAR(13) +
 					'(' + CHAR(13) +
 						'MAX(value)' + CHAR(13) +
@@ -207,7 +189,6 @@ BEGIN
 	-- Region: Drop tmp table
 	DROP TABLE #Bettype
 	DROP TABLE #Exchange
-	DROP TABLE #FeeData
 	DROP TABLE #FinalResult
 	DROP TABLE #PartyChargeInfo
 	DROP TABLE #Site
