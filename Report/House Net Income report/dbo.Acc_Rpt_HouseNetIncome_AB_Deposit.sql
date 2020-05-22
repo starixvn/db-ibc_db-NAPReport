@@ -14,6 +14,7 @@ AS
 		- 20190222@Robert: #109196 - House Net Income - Arrange Email notification for Licensee Figures
 		- 20200102@Robert: #125762 - DHWL Letstalk - Support to add Margin report into the current DHWL Letstalk report
 		- 20200108@Percy: #124755 - Support billing terms by product & currency instead of product only
+		- 20200521@Percy: PayToSupplier - Apply nested SP [RedmineID: #134533]
 	
     Param's Explanation:   	   
 
@@ -26,7 +27,7 @@ BEGIN
 	DECLARE @FDate DATE, @TDate DATE
 	SELECT  @FDate = @FromDate, @TDate = @ToDate
 
-	DECLARE @ProductID INT = 24, @ProductPrefix VARCHAR(5) = 'FW'
+	DECLARE @ProductID INT = 21, @ProductPrefix VARCHAR(5) = 'AB'
 
 	-- Region: Active licensees
 	DECLARE @tmpAllParty TABLE (PartyID INT, ParentID INT, LicenseeID INT)
@@ -151,7 +152,7 @@ BEGIN
     INSERT INTO #FeeData (PartyId, ProductID, AComm, MinFeeApplied, WLFeeApplied, AmountToCompany)
     EXEC dbo.Acc_Rpt_HouseNetIncome_LicenseeFee @FromDate = @FDate, @ToDate = @TDate, @Products = @ProductPrefix
 
-	CREATE TABLE #FinalResult (rptDate VARCHAR(10), LicenseeWL MONEY, PayToSupplier MONEY)
+	CREATE TABLE #FinalResult (rptDate VARCHAR(10), LicenseeWL MONEY, PayToSupplier MONEY, CurrencyPlay MONEY)
 	INSERT INTO #FinalResult (rptDate, LicenseeWL)
 	SELECT 'FullRange', ISNULL(SUM(AmountToCompany), 0)
 	FROM #FeeData
@@ -176,7 +177,7 @@ BEGIN
 	EXEC Acc_Rpt_HouseNetIncome_PayToSupplier @FromDate = @FDate, @ToDate = @TDate, @ProductPrefix = @ProductPrefix, @DepositType = 1
 
 	UPDATE f
-	SET f.PayToSupplier = p.PayToSupplier
+	SET f.PayToSupplier = p.PayToSupplier, f.CurrencyPlay = p.CurrencyPlay
 	FROM #FinalResult f
 		INNER JOIN #PayToSupplier p ON f.rptDate = p.rptDate
 
@@ -188,9 +189,11 @@ BEGIN
 	SELECT  @SQL =	'SELECT * ' + CHAR(13) +
 					'FROM	(SELECT ProductCode, [Order], [RptDate], Figure, ISNULL(value, 0) value FROM #FinalResult' + CHAR(13) +
 							'CROSS APPLY' + CHAR(13) +
-							'(SELECT ''' + @ProductPrefix + ''', 1, ''House Income'', LicenseeWL' + CHAR(13) +							
+							'(SELECT ''' + @ProductPrefix + ''', 1, ''House Income'', LicenseeWL' + CHAR(13) +
 							'UNION ALL' + CHAR(13) +
-							'SELECT ''' + @ProductPrefix + ''', 4, ''Pay to supplier'', PayToSupplier) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
+							'SELECT ''' + @ProductPrefix + ''', 4, ''Pay to supplier'', PayToSupplier' + CHAR(13) +
+							'UNION ALL' + CHAR(13) +
+							'SELECT ''' + @ProductPrefix + ''', 5, ''Currency Play'', CurrencyPlay) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
 					'PIVOT' + CHAR(13) +
 					'(' + CHAR(13) +
 						'MAX(value)' + CHAR(13) +

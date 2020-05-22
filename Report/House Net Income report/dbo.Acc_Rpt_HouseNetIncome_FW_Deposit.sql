@@ -12,6 +12,7 @@ AS
 	Revisions:  
 	   - 20181019@Robert: Nap Reports - House Net Income - Pay to Supplier(Month-to-date) of Gold Deluxe & Fishing World is incorrect [#103380]
 	   - 20200108@Percy: #124755 - Support billing terms by product & currency instead of product only
+	   - 20200521@Percy: Re-integrate FW [RedmineID: #134533]
 
 	Param's Explanation:   
 
