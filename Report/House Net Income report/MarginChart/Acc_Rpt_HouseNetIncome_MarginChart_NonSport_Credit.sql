@@ -173,11 +173,12 @@ BEGIN
 	-- End region
 
 	CREATE TABLE #FinalResult (
-		RptDate		VARCHAR(10),
-		HouseWL		MONEY,
-		ExtraPT		MONEY,
+		RptDate		  VARCHAR(10),
+		HouseWL		  MONEY,
+		ExtraPT		  MONEY,
 		PayToSupplier MONEY,
-		TurnOver	MONEY
+		TurnOver	  MONEY,
+		CurrencyPlay  MONEY
 	)
 
 	DECLARE @tmpDate DATE, @DateList VARCHAR(200) = '[FullRange]'
@@ -353,6 +354,7 @@ BEGIN
 							, ExtraPT
 							, PayToSupplier
 							, TurnOver
+							, CurrencyPlay
 						  )
 SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 	, (SELECT SUM(t.HouseWL) FROM #TmpHouseWL AS t WHERE t.rptDate = @tmpDate) AS  HouseWL
@@ -383,7 +385,8 @@ SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 									     WHERE t.rptDate = CONVERT(VARCHAR(2), @tmpDate, 106)) --FW
 		) AS  PayToSupplier
 
-	, (SELECT SUM(t.TurnOver) FROM #TmpHouseWL AS t WHERE t.rptDate = @tmpDate) AS  TurnOver;
+	, (SELECT SUM(t.TurnOver) FROM #TmpHouseWL AS t WHERE t.rptDate = @tmpDate) AS  TurnOver
+	, (SELECT SUM(t.CurrencyPlay_Daily_AB) FROM #tmpPayToSupplier_Daily_AB AS t WHERE t.rptDate = CONVERT(VARCHAR(2), @tmpDate, 106)) AS  TurnOver;
 
 		  SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate);
 	   END; 
@@ -392,8 +395,8 @@ SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
     FROM #FinalResult;
 			
 	-- FullRange amount
-	INSERT INTO #FinalResult (RptDate, HouseWL, ExtraPT, PayToSupplier, TurnOver)
-	SELECT 'FullRange', 0, 0, 0, 0		
+	INSERT INTO #FinalResult (RptDate, HouseWL, ExtraPT, PayToSupplier, TurnOver, CurrencyPlay)
+	SELECT 'FullRange', 0, 0, 0, 0, 0
 
 	---------------------------------------------------- Select the output -------------------------------------------------------
 	DECLARE @SQL VARCHAR(1000)
@@ -406,7 +409,9 @@ SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 							'UNION ALL' + CHAR(13) +
 							'SELECT ''NonSport'', 8, ''Turn Over'', TurnOver' + CHAR(13) +
 							'UNION ALL' + CHAR(13) +
-							'SELECT ''NonSport'', 4, ''Pay to supplier'', PayToSupplier) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
+							'SELECT ''NonSport'', 4, ''Pay to supplier'', PayToSupplier' + CHAR(13) +
+							'UNION ALL' + CHAR(13) +
+							'SELECT ''NonSport'', 10, ''Currency Play'', CurrencyPlay) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
 					'PIVOT' + CHAR(13) +
 					'(' + CHAR(13) +
 						'MAX(value)' + CHAR(13) +
