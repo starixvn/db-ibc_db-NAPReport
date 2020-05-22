@@ -253,7 +253,7 @@ BEGIN
 		)
 		SELECT  @DateList = COALESCE(@DateList + ',', '') + '[' + CONVERT(VARCHAR(2), RptDate, 106) + ']' FROM CTE_rptDate
 
-		SELECT @DateList = @DateList + ',FullRange'
+		SELECT @DateList = 'FullRange,' + @DateList
 
 	
 		SELECT  @P_SQL ='SELECT * ' + CHAR(13) +
