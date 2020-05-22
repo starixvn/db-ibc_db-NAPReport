@@ -74,11 +74,6 @@ EXEC bodb02.dbo.Acc_Rpt_HouseNetIncome_AB_Deposit
 	@FromDate  = @FromDate
 	,@ToDate	= @ToDate
 
-EXEC bodb02.dbo.Acc_Rpt_HouseNetIncome_AB_PayToSupplier
-		@FromDate = @FDate
-		, @ToDate = @TDate
-		, @DepositType = 1
-
 EXEC bodb02.dbo.Acc_Rpt_HouseNetIncome_CS_Deposit
 	@FromDate  = @FromDate
 	,@ToDate	= @ToDate
