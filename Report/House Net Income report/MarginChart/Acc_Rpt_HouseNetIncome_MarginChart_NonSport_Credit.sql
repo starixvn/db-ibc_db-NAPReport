@@ -326,8 +326,26 @@ BEGIN
 			INNER JOIN #ChargeInfo3rd ci ON wl.RptDate BETWEEN ci.FromDate AND ci.ToDate
 			INNER JOIN #ExchangeOANDA ex ON ci.BaseCurrencyId = ex.ExchangeID AND ex.ExchangeDate = @TDate
 	-- END - Calculate PayToSupplier for CC, SG, SAG, SXG, PP, TG, IBCLC, ION, RNGW
+	
+	-- BEGIN - Calculate PayToSupplier for AB
+	CREATE TABLE #tmpPayToSupplier_Daily_AB (RptDate				  VARCHAR(10),
+											 PayToSupplier_Daily_AB   MONEY,
+											 CurrencyPlay_Daily_AB    MONEY);
+	
+	INSERT INTO #tmpPayToSupplier_Daily_AB (RptDate, PayToSupplier_Daily_AB, CurrencyPlay_Daily_AB)
+	EXEC DBEXT.bodb02.dbo.Acc_Rpt_HouseNetIncome_MarginChart_PayToSupplier @FromDate = @FDate, @ToDate = @TDate, @ProductPrefix = 'AB', @DepositType = 0
+	-- END - Calculate PayToSupplier for AB
+	
+	-- BEGIN - Calculate PayToSupplier for FW
+	CREATE TABLE #tmpPayToSupplier_Daily_FW (RptDate				  VARCHAR(10),
+											 PayToSupplier_Daily_FW   MONEY,
+											 CurrencyPlay_Daily_FW    MONEY);
+	
+	INSERT INTO #tmpPayToSupplier_Daily_FW (RptDate, PayToSupplier_Daily_FW, CurrencyPlay_Daily_FW)
+	EXEC DBEXT.bodb02.dbo.Acc_Rpt_HouseNetIncome_MarginChart_PayToSupplier @FromDate = @FDate, @ToDate = @TDate, @ProductPrefix = 'FW', @DepositType = 0
+	-- END - Calculate PayToSupplier for FW
 
-		-- Get DetailDaily Data & FullRange Data
+	-- Get DetailDaily Data & FullRange Data
     WHILE @tmpDate <= @TDate
 	   BEGIN
 		  INSERT INTO #FinalResult(RptDate
@@ -359,6 +377,10 @@ SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 		+ (SELECT ISNULL(SUM(t.MemberWL * r.Rate),0) FROM #TmpHouseWL AS t INNER JOIN #PayToSupplierRate_CN88 r ON t.ProductID = r.ProductID
 									     WHERE t.ProductID = 3 
 										 AND t.rptDate = @tmpDate AND t.SiteID = @SiteCN88) --NG,HP5 for CN88
+		+ (SELECT PayToSupplier_Daily_AB FROM #tmpPayToSupplier_Daily_AB AS t
+									     WHERE t.rptDate = CONVERT(VARCHAR(2), @tmpDate, 106)) --AB
+		+ (SELECT PayToSupplier_Daily_FW FROM #tmpPayToSupplier_Daily_FW AS t
+									     WHERE t.rptDate = CONVERT(VARCHAR(2), @tmpDate, 106)) --FW
 		) AS  PayToSupplier
 
 	, (SELECT SUM(t.TurnOver) FROM #TmpHouseWL AS t WHERE t.rptDate = @tmpDate) AS  TurnOver;
@@ -409,6 +431,8 @@ SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 	DROP TABLE #ChargeInfo3rd
 	DROP TABLE #tmpRebateRate
 	DROP TABLE #tmpPayToSupplier_Daily
+	DROP TABLE #tmpPayToSupplier_Daily_AB
+	DROP TABLE #tmpPayToSupplier_Daily_FW
 
 END
 GO

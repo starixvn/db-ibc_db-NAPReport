@@ -1,3 +1,5 @@
+/*<info serverAlias="DBWH-bodb_dwrs" executers="dwrs" viewers="" isFunction="0" isNested="0"></info>*/
+
 USE bodb_dwrs
 GO
 
@@ -10,7 +12,8 @@ AS
     Task :		House month-to-date Net Income report for AllBet
     DB:			DBWH/bodb_dwrs  
    
-    Revisions:  
+    Revisions: 
+		- 20200521@Ned.Le - Re-Integrate Fishing World product for letstalk (#134533)
 	
 	Param's Explanation:   
 
@@ -21,6 +24,8 @@ BEGIN
 
 	DECLARE @FDate DATE, @TDate DATE
 	SELECT @FDate = @FromDate, @TDate = @ToDate
+	
+	DECLARE @ProductID INT = 21, @ProductPrefix VARCHAR(5) = 'AB'
 	
 	-- Region: Get exchange rate info
 	CREATE	TABLE #Exchange			(ExchangeDate DATE, ExchangeID INT, Rate FLOAT)	
@@ -33,10 +38,11 @@ BEGIN
 	-- End region
 
 	CREATE TABLE #FinalResult (
-		RptDate		VARCHAR(10),
-		HouseWL		MONEY,
-		ExtraPT		MONEY,
-		PayToSupplier MONEY
+		RptDate			VARCHAR(10),
+		HouseWL			MONEY,
+		ExtraPT			MONEY,
+		PayToSupplier 	MONEY,
+		CurrencyPlay	MONEY
 	)
 
 	DECLARE @tmpDate DATE, @DateList VARCHAR(200) = '[FullRange]'
@@ -44,8 +50,8 @@ BEGIN
 
 	WHILE @tmpDate <= @TDate
 	BEGIN
-		INSERT INTO #FinalResult (RptDate, HouseWL, ExtraPT, PayToSupplier)
-		SELECT CONVERT(VARCHAR(2), @tmpDate, 106), 0, 0, 0
+		INSERT INTO #FinalResult (RptDate, HouseWL, ExtraPT, PayToSupplier, CurrencyPlay)
+		SELECT CONVERT(VARCHAR(2), @tmpDate, 106), 0, 0, 0, 0
 
 		SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate)
 	END
@@ -56,7 +62,7 @@ BEGIN
 	CREATE TABLE #SportBettypeMatrix (ProductID INT, Bettype INT, EventType INT, SubProduct VARCHAR(500))
 
 	INSERT INTO #SportBettypeMatrix (ProductID, Bettype, EventType, SubProduct)
-	SELECT ProductID, BetType, EventType, SubProduct FROM bodb02.dbo.f_SportBettypeMatrix_Sel(21,0,0,2,'','AB',0) -- AB in Products table
+	SELECT ProductID, BetType, EventType, SubProduct FROM bodb02.dbo.f_SportBettypeMatrix_Sel(@ProductID,0,0,2,'',@ProductPrefix,0)
 
 	-- Daily Extra PT
 	;WITH ExtraPT AS
@@ -65,7 +71,7 @@ BEGIN
 		FROM bodb_account.dbo.rptGroupWinloss b WITH (NOLOCK)
 			INNER JOIN #SportBettypeMatrix sb ON sb.Bettype = b.bettype
 		WHERE	rptdate BETWEEN @FDate AND @TDate 
-				AND sb.ProductID = 21 -- AB in Products table
+				AND sb.ProductID = @ProductID
 				AND b.statusid <> 14
 		GROUP BY b.rptDate
 	)
@@ -87,7 +93,7 @@ BEGIN
 	WHERE 
 		b.rptDate BETWEEN @FDate AND @TDate 
 		AND s.isDeposit = 0 -- Credit data only
-		AND Sb.ProductID = 21 -- AB in Products table
+		AND Sb.ProductID = @ProductID
 		AND b.status <> 14
 	GROUP BY b.rptDate
 	OPTION (RECOMPILE)
@@ -98,18 +104,33 @@ BEGIN
 		INNER JOIN #TmpHouseWL wl ON CONVERT(VARCHAR(2), wl.rptDate, 106) = f.RptDate
 		
 	-- FullRange amount
-	INSERT INTO #FinalResult (RptDate, HouseWL, ExtraPT, PayToSupplier)
-	SELECT 'FullRange', SUM(HouseWL), SUM(ExtraPT), 0
-	FROM #FinalResult	
+	INSERT INTO #FinalResult (RptDate, HouseWL, ExtraPT, PayToSupplier, CurrencyPlay)
+	SELECT 'FullRange', SUM(HouseWL), SUM(ExtraPT), 0, 0
+	FROM #FinalResult
+	
+	-- Pay To Supplier
+	CREATE TABLE #PayToSupplier (rptDate VARCHAR(10), PayToSupplier MONEY, CurrencyPlay	MONEY)
+	INSERT INTO #PayToSupplier (rptDate, PayToSupplier, CurrencyPlay)
+	EXEC DBEXT.bodb02.dbo.Acc_Rpt_HouseNetIncome_PayToSupplier @FromDate = @FDate, @ToDate = @TDate, @ProductPrefix = @ProductPrefix, @DepositType = 0
+
+	UPDATE f
+	SET f.PayToSupplier = p.PayToSupplier,
+		f.CurrencyPlay = p.CurrencyPlay
+	FROM #FinalResult f
+		 INNER JOIN #PayToSupplier p ON f.rptDate = p.rptDate
 
 	---------------------------------------------------- Select the output -------------------------------------------------------
 	DECLARE @SQL VARCHAR(1000)
 	SELECT @SQL =	'SELECT * ' + CHAR(13) +
 					'FROM	(SELECT ProductCode, [Order], [RptDate], Figure, ISNULL(value, 0) value FROM #FinalResult' + CHAR(13) +
 							'CROSS APPLY' + CHAR(13) +
-							'(SELECT ''AB'', 1, ''House Income'', HouseWL' + CHAR(13) +
+							'(SELECT ''' + @ProductPrefix + ''', 1, ''House Income'', HouseWL' + CHAR(13) +
 							'UNION ALL' + CHAR(13) +
-							'SELECT ''AB'', 2, ''Extra PT'', ExtraPT) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +							
+							'SELECT ''' + @ProductPrefix + ''', 2, ''Extra PT'', ExtraPT' + CHAR(13) +
+							'UNION ALL' + CHAR(13) +
+							'SELECT ''' + @ProductPrefix + ''', 3, ''Pay to supplier'', PayToSupplier' + CHAR(13) +
+							'UNION ALL' + CHAR(13) +
+							'SELECT ''' + @ProductPrefix + ''', 4, ''Currency Play'', CurrencyPlay) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
 					'PIVOT' + CHAR(13) +
 					'(' + CHAR(13) +
 						'MAX(value)' + CHAR(13) +
@@ -124,11 +145,6 @@ BEGIN
 	DROP TABLE #TmpHouseWL
 	DROP TABLE #Exchange
 	DROP TABLE #FinalResult
+	DROP TABLE #PayToSupplier
 END
 GO
-
-GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_AB_Credit] TO [bodbAdminNet]
-GO
-GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_AB_Credit] TO [dwrs]
-GO
-GRANT VIEW definition ON [dbo].[Acc_Rpt_HouseNetIncome_AB_Credit] TO vnteam
