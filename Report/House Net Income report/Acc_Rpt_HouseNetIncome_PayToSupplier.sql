@@ -22,7 +22,7 @@ AS
 						= 1 Deposit Only
 						= 2 All
 		- @Site:
-						= '': all site
+						= '': all sites
 						= '789y': 789y
 */
 
