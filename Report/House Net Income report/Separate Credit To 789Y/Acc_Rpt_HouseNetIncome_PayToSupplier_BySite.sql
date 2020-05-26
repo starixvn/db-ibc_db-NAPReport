@@ -28,6 +28,7 @@ AS
 		- 20200518@Ned.Le - Email/Letstalk Reports - Integrate Midas Hi-Lo Game (#133594)
 		- 20200518@Ned.Le - Email/Letstalk Reports - Integrate SBO ION Live Casino (#132331)
 		- 20200518@Ned.Le - Email/Letstalk Reports - Integrate SBO RNG War (#132019)
+		- 20200521@Ned.Le - Re-Integrate Fishing World product for letstalk (#134533)
 	
 	Param's Explanation:   
 	- DepositType  
@@ -214,7 +215,7 @@ BEGIN
 		SELECT DISTINCT ProductID
 			 , BetType
 		FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)
-		WHERE ProductID IN (3, 5, 8, 23, 22, 21, 12, 28, 27, 6, 32, 34, 36, 39, 45, 47, 40, 46, 52, 50)
+		WHERE ProductID IN (3, 5, 8, 23, 22, 21, 12, 28, 27, 6, 32, 34, 36, 39, 45, 47, 40, 46, 52, 50, 24)
 		 AND BetType NOT IN (4299, 4300) -- PP
 
 	-- BEGIN: GET DATA
@@ -489,10 +490,10 @@ INSERT INTO #FinalResult(RptDate
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SAG'', 16, ''PayToSupplier'', PayToSupplier_SA' + CHAR(13)
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SXG'', 17, ''PayToSupplier'', PayToSupplier_SXG' + CHAR(13)
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''BBIN'', 18, ''PayToSupplier'', PayToSupplier_BBIN' + CHAR(13)
-	+ 'UNION ALL' + CHAR(13) + 'SELECT ''TG'', 21, ''PayToSupplier'', PayToSupplier_TG' + CHAR(13)
-    + 'UNION ALL' + CHAR(13) + 'SELECT ''IBCLC'', 22, ''PayToSupplier'', PayToSupplier_IBCLC' + CHAR(13)
-	+ 'UNION ALL' + CHAR(13) + 'SELECT ''ION'', 23, ''PayToSupplier'', PayToSupplier_ION' + CHAR(13)
-	+ 'UNION ALL' + CHAR(13) + 'SELECT ''RNGW'', 24, ''PayToSupplier'', PayToSupplier_RNGW) c (ProductCode, [Order], Figure, value)) a' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''TG'', 19, ''PayToSupplier'', PayToSupplier_TG' + CHAR(13)
+    + 'UNION ALL' + CHAR(13) + 'SELECT ''IBCLC'', 20, ''PayToSupplier'', PayToSupplier_IBCLC' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''ION'', 21, ''PayToSupplier'', PayToSupplier_ION' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''RNGW'', 22, ''PayToSupplier'', PayToSupplier_RNGW) c (ProductCode, [Order], Figure, value)) a' + CHAR(13)
     + 'PIVOT' + CHAR(13) 
     + '(' + CHAR(13) 
     + 'MAX(value)' + CHAR(13) 
@@ -522,13 +523,39 @@ INSERT INTO #FinalResult(RptDate
 		EXEC DBEXT.bodb02.dbo.Acc_Rpt_HouseNetIncome_SB_PayToBetBuilder
 			@FromDate = @FDate, @ToDate = @TDate, @DepositType = @DepositType, @Site = @Site			 
 
+	CREATE TABLE #tmpPayToSupplier_AB(
+	    RptDate             VARCHAR(10),
+		PayToSupplier_AB	MONEY,
+		CurrencyPlay_AB		MONEY);
+
+	INSERT INTO #tmpPayToSupplier_AB(rptDate, PayToSupplier_AB, CurrencyPlay_AB)
+	EXEC DBEXT.bodb02.dbo.Acc_Rpt_HouseNetIncome_PayToSupplier @FromDate = @FDate,
+															   @ToDate = @TDate,
+															   @ProductPrefix = 'AB',
+															   @DepositType = @DepositType,
+															   @Site = @Site
+															   
+	CREATE TABLE #tmpPayToSupplier_FW(
+	    RptDate             VARCHAR(10),
+		PayToSupplier_FW	MONEY,
+		CurrencyPlay_FW		MONEY);
+
+	INSERT INTO #tmpPayToSupplier_FW(rptDate, PayToSupplier_FW, CurrencyPlay_FW)
+	EXEC DBEXT.bodb02.dbo.Acc_Rpt_HouseNetIncome_PayToSupplier @FromDate = @FDate,
+															   @ToDate = @TDate,
+															   @ProductPrefix = 'FW',
+															   @DepositType = @DepositType,
+															   @Site = @Site
+
 	DECLARE @SQL_MetricGaming    VARCHAR(max)
-			,@SQL_MuayThai    VARCHAR(max)
-			,@SQL_BetBuilder    VARCHAR(max);
+			,@SQL_MuayThai    	VARCHAR(max)
+			,@SQL_BetBuilder    VARCHAR(max)
+			,@SQL_AB    		VARCHAR(max)
+			,@SQL_FW    		VARCHAR(max);
 
     SELECT @SQL_MetricGaming = 'SELECT * ' + CHAR(13) 
 			+ 'FROM	(SELECT ProductCode, [Order], [RptDate], Figure, ISNULL(value, 0) value FROM #tmpPayToSupplier_MetricGaming' + CHAR(13) 
-			+ 'CROSS APPLY' + CHAR(13) + '(SELECT ''Soccer'', 18, ''PayToSupplier'', PayToSupplier_MG) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) 
+			+ 'CROSS APPLY' + CHAR(13) + '(SELECT ''Soccer'', 100, ''PayToSupplier'', PayToSupplier_MG) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) 
 			+ 'PIVOT' + CHAR(13) 
 			+ '(' + CHAR(13) 
 			+ 'MAX(value)' + CHAR(13) 
@@ -536,7 +563,7 @@ INSERT INTO #FinalResult(RptDate
 			+ ') piv' + CHAR(13);
 	SELECT @SQL_MuayThai = 'SELECT * ' + CHAR(13) 
 			+ 'FROM	(SELECT ProductCode, [Order], [RptDate], Figure, ISNULL(value, 0) value FROM #tmpPayToSupplier_MuayThai' + CHAR(13) 
-			+ 'CROSS APPLY' + CHAR(13) + '(SELECT ''OS'', 19, ''PayToSupplier'', PayToSupplier_MT) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) 
+			+ 'CROSS APPLY' + CHAR(13) + '(SELECT ''OS'', 101, ''PayToSupplier'', PayToSupplier_MT) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) 
 			+ 'PIVOT' + CHAR(13) 
 			+ '(' + CHAR(13) 
 			+ 'MAX(value)' + CHAR(13) 
@@ -544,17 +571,36 @@ INSERT INTO #FinalResult(RptDate
 			+ ') piv' + CHAR(13);
 	SELECT @SQL_BetBuilder = 'SELECT * ' + CHAR(13) 
 			+ 'FROM	(SELECT ProductCode, [Order], [RptDate], Figure, ISNULL(value, 0) value FROM #tmpPayToSupplier_BetBuilder' + CHAR(13) 
-			+ 'CROSS APPLY' + CHAR(13) + '(SELECT ''Soccer'', 20, ''PayToSupplier'', PayToSupplier_BB) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) 
+			+ 'CROSS APPLY' + CHAR(13) + '(SELECT ''Soccer'', 102, ''PayToSupplier'', PayToSupplier_BB) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) 
+			+ 'PIVOT' + CHAR(13) 
+			+ '(' + CHAR(13) 
+			+ 'MAX(value)' + CHAR(13) 
+			+ 'FOR [RptDate] in (' + @DateList + ')' + CHAR(13) 
+			+ ') piv' + CHAR(13);
+	SELECT @SQL_AB = 'SELECT * ' + CHAR(13) 
+			+ 'FROM	(SELECT ProductCode, [Order], [RptDate], Figure, ISNULL(value, 0) value FROM #tmpPayToSupplier_AB' + CHAR(13)
+			+ 'CROSS APPLY' + CHAR(13) + '(SELECT ''AB'', 103, ''PayToSupplier'', PayToSupplier_AB' + CHAR(13) +
+			+ 'UNION ALL' + CHAR(13) + 'SELECT ''AB'', 104, ''CurrencyPlay'', CurrencyPlay_AB) c (ProductCode, [Order], Figure, value)) a' + CHAR(13)
+			+ 'PIVOT' + CHAR(13) 
+			+ '(' + CHAR(13) 
+			+ 'MAX(value)' + CHAR(13) 
+			+ 'FOR [RptDate] in (' + @DateList + ')' + CHAR(13) 
+			+ ') piv' + CHAR(13);
+	SELECT @SQL_FW = 'SELECT * ' + CHAR(13) 
+			+ 'FROM	(SELECT ProductCode, [Order], [RptDate], Figure, ISNULL(value, 0) value FROM #tmpPayToSupplier_FW' + CHAR(13) 
+			+ 'CROSS APPLY' + CHAR(13) + '(SELECT ''FW'', 105, ''PayToSupplier'', PayToSupplier_FW) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) 
 			+ 'PIVOT' + CHAR(13) 
 			+ '(' + CHAR(13) 
 			+ 'MAX(value)' + CHAR(13) 
 			+ 'FOR [RptDate] in (' + @DateList + ')' + CHAR(13) 
 			+ ') piv' + CHAR(13);
 
-	EXEC (@SQL_MetricGaming + ' UNION ALL ' + @SQL_MuayThai + ' UNION ALL ' + @SQL_BetBuilder + ' UNION ALL ' + @SQL );
-
-	EXEC DBEXT.bodb02.dbo.Acc_Rpt_HouseNetIncome_AB_PayToSupplier
-		@FromDate = @FDate, @ToDate = @TDate, @DepositType = @DepositType, @Site = @Site
+	EXEC (@SQL_MetricGaming + ' UNION ALL '
+		  + @SQL_MuayThai + ' UNION ALL '
+		  + @SQL_BetBuilder + ' UNION ALL '
+		  + @SQL_AB + ' UNION ALL '
+		  + @SQL_FW + ' UNION ALL '
+		  + @SQL );
 	
 	EXEC DBEXT.bodb02.dbo.Acc_Rpt_HouseNetIncome_GD_PayToSupplier
 		@FromDate = @FDate, @ToDate = @TDate, @DepositType = @DepositType, @Site = @Site
@@ -563,6 +609,8 @@ INSERT INTO #FinalResult(RptDate
 	DROP TABLE #tmpPayToSupplier_MetricGaming;
 	DROP TABLE #tmpPayToSupplier_MuayThai;
 	DROP TABLE #tmpPayToSupplier_BetBuilder;
+	DROP TABLE #tmpPayToSupplier_AB;
+	DROP TABLE #tmpPayToSupplier_FW;
     -- Drop temp tables
     DROP TABLE #SportBettypeMatrix;
     DROP TABLE #Exchange;
@@ -580,4 +628,3 @@ INSERT INTO #FinalResult(RptDate
 
 END
 GO
-GRANT EXECUTE ON [dbo].Acc_Rpt_HouseNetIncome_PayToSupplier_BySite TO [dwrs]

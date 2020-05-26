@@ -34,6 +34,7 @@ AS
 		- 20200518@Ned.Le - Email/Letstalk Reports - Integrate Midas Hi-Lo Game (#133594)
 		- 20200518@Ned.Le - Email/Letstalk Reports - Integrate SBO ION Live Casino (#132331)
 		- 20200518@Ned.Le - Email/Letstalk Reports - Integrate SBO RNG War (#132019)
+		- 20200521@Ned.Le - Re-Integrate Fishing World product for letstalk (#134533)
 
 	Param's Explanation:   
 		- @ProductList: '' - default value when get all product
@@ -54,7 +55,7 @@ BEGIN
 	FROM bodb_Account.dbo.tbl_Site WITH(NOLOCK)
 	WHERE [site] = 'CN88';
 
-	DECLARE @Credit VARCHAR(MAX) = 'NG,VS,KN,LT,VS2,VB,CS,NG2,AB,GD,CB,PP,CC,SG,VRG,SAG,SBC,SXG,BBIN,TG,IBCLC,ION,RNGW'
+	DECLARE @Credit VARCHAR(MAX) = 'NG,VS,KN,LT,VS2,VB,CS,NG2,AB,GD,CB,PP,CC,SG,VRG,SAG,SBC,SXG,BBIN,TG,IBCLC,ION,RNGW,FW'
 		
 	-- Region: Get exchange rate info
 	CREATE	TABLE #Exchange			(ExchangeDate DATE, ExchangeID INT, Rate FLOAT)
@@ -172,11 +173,12 @@ BEGIN
 	-- End region
 
 	CREATE TABLE #FinalResult (
-		RptDate		VARCHAR(10),
-		HouseWL		MONEY,
-		ExtraPT		MONEY,
+		RptDate		  VARCHAR(10),
+		HouseWL		  MONEY,
+		ExtraPT		  MONEY,
 		PayToSupplier MONEY,
-		TurnOver	MONEY
+		TurnOver	  MONEY,
+		CurrencyPlay  MONEY
 	)
 
 	DECLARE @tmpDate DATE, @DateList VARCHAR(200) = '[FullRange]'
@@ -325,8 +327,26 @@ BEGIN
 			INNER JOIN #ChargeInfo3rd ci ON wl.RptDate BETWEEN ci.FromDate AND ci.ToDate
 			INNER JOIN #ExchangeOANDA ex ON ci.BaseCurrencyId = ex.ExchangeID AND ex.ExchangeDate = @TDate
 	-- END - Calculate PayToSupplier for CC, SG, SAG, SXG, PP, TG, IBCLC, ION, RNGW
+	
+	-- BEGIN - Calculate PayToSupplier for AB
+	CREATE TABLE #tmpPayToSupplier_Daily_AB (RptDate				  VARCHAR(10),
+											 PayToSupplier_Daily_AB   MONEY,
+											 CurrencyPlay_Daily_AB    MONEY);
+	
+	INSERT INTO #tmpPayToSupplier_Daily_AB (RptDate, PayToSupplier_Daily_AB, CurrencyPlay_Daily_AB)
+	EXEC DBEXT.bodb02.dbo.Acc_Rpt_HouseNetIncome_MarginChart_PayToSupplier @FromDate = @FDate, @ToDate = @TDate, @ProductPrefix = 'AB', @DepositType = 0
+	-- END - Calculate PayToSupplier for AB
+	
+	-- BEGIN - Calculate PayToSupplier for FW
+	CREATE TABLE #tmpPayToSupplier_Daily_FW (RptDate				  VARCHAR(10),
+											 PayToSupplier_Daily_FW   MONEY,
+											 CurrencyPlay_Daily_FW    MONEY);
+	
+	INSERT INTO #tmpPayToSupplier_Daily_FW (RptDate, PayToSupplier_Daily_FW, CurrencyPlay_Daily_FW)
+	EXEC DBEXT.bodb02.dbo.Acc_Rpt_HouseNetIncome_MarginChart_PayToSupplier @FromDate = @FDate, @ToDate = @TDate, @ProductPrefix = 'FW', @DepositType = 0
+	-- END - Calculate PayToSupplier for FW
 
-		-- Get DetailDaily Data & FullRange Data
+	-- Get DetailDaily Data & FullRange Data
     WHILE @tmpDate <= @TDate
 	   BEGIN
 		  INSERT INTO #FinalResult(RptDate
@@ -334,6 +354,7 @@ BEGIN
 							, ExtraPT
 							, PayToSupplier
 							, TurnOver
+							, CurrencyPlay
 						  )
 SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 	, (SELECT SUM(t.HouseWL) FROM #TmpHouseWL AS t WHERE t.rptDate = @tmpDate) AS  HouseWL
@@ -343,7 +364,7 @@ SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 									     WHERE t.ProductID = 23 AND  t.rptDate = @tmpDate) -- NG2, NG
 		+ (SELECT ISNULL(SUM((t.HouseWL + t.ExtraPT) * r.Rate) * (-1),0) FROM #TmpHouseWL AS t INNER JOIN #PayToSupplierRate r ON t.ProductID = r.ProductID
 									     WHERE t.ProductID = 3 AND t.SiteID <> @SiteCN88 AND  t.rptDate = @tmpDate) -- NG2, NG
-		+ (SELECT SUM(t.PayToSupplier_Daily) FROM #tmpPayToSupplier_Daily AS t 
+		+ (SELECT ISNULL(SUM(t.PayToSupplier_Daily),0) FROM #tmpPayToSupplier_Daily AS t 
 											 WHERE t.ProductID IN (22, 34, 36, 39, 45, 40, 47, 46, 52, 50)  AND  t.rptDate = @tmpDate) -- MacauG, CC, SG, SA, SXG, TG, BBIN, IBCLC, ION, RNGW
 		+ (SELECT ISNULL(SUM(t.MemberWLOANDA * r.Rate),0)  FROM #TmpHouseWL AS t INNER JOIN #PayToSupplierRate r ON t.ProductID = r.ProductID
 									     WHERE t.ProductID IN (5,8,28,27) 
@@ -358,9 +379,14 @@ SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 		+ (SELECT ISNULL(SUM(t.MemberWL * r.Rate),0) FROM #TmpHouseWL AS t INNER JOIN #PayToSupplierRate_CN88 r ON t.ProductID = r.ProductID
 									     WHERE t.ProductID = 3 
 										 AND t.rptDate = @tmpDate AND t.SiteID = @SiteCN88) --NG,HP5 for CN88
+		+ (SELECT ISNULL(SUM(PayToSupplier_Daily_AB),0) FROM #tmpPayToSupplier_Daily_AB AS t
+									     WHERE t.rptDate = CONVERT(VARCHAR(2), @tmpDate, 106)) --AB
+		+ (SELECT ISNULL(SUM(PayToSupplier_Daily_FW),0) FROM #tmpPayToSupplier_Daily_FW AS t
+									     WHERE t.rptDate = CONVERT(VARCHAR(2), @tmpDate, 106)) --FW
 		) AS  PayToSupplier
 
-	, (SELECT SUM(t.TurnOver) FROM #TmpHouseWL AS t WHERE t.rptDate = @tmpDate) AS  TurnOver;
+	, (SELECT SUM(t.TurnOver) FROM #TmpHouseWL AS t WHERE t.rptDate = @tmpDate) AS  TurnOver
+	, (SELECT SUM(t.CurrencyPlay_Daily_AB) FROM #tmpPayToSupplier_Daily_AB AS t WHERE t.rptDate = CONVERT(VARCHAR(2), @tmpDate, 106)) AS  TurnOver;
 
 		  SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate);
 	   END; 
@@ -369,8 +395,8 @@ SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
     FROM #FinalResult;
 			
 	-- FullRange amount
-	INSERT INTO #FinalResult (RptDate, HouseWL, ExtraPT, PayToSupplier, TurnOver)
-	SELECT 'FullRange', 0, 0, 0, 0		
+	INSERT INTO #FinalResult (RptDate, HouseWL, ExtraPT, PayToSupplier, TurnOver, CurrencyPlay)
+	SELECT 'FullRange', 0, 0, 0, 0, 0
 
 	---------------------------------------------------- Select the output -------------------------------------------------------
 	DECLARE @SQL VARCHAR(1000)
@@ -383,7 +409,9 @@ SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 							'UNION ALL' + CHAR(13) +
 							'SELECT ''NonSport'', 8, ''Turn Over'', TurnOver' + CHAR(13) +
 							'UNION ALL' + CHAR(13) +
-							'SELECT ''NonSport'', 4, ''Pay to supplier'', PayToSupplier) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
+							'SELECT ''NonSport'', 4, ''Pay to supplier'', PayToSupplier' + CHAR(13) +
+							'UNION ALL' + CHAR(13) +
+							'SELECT ''NonSport'', 10, ''Currency Play'', CurrencyPlay) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
 					'PIVOT' + CHAR(13) +
 					'(' + CHAR(13) +
 						'MAX(value)' + CHAR(13) +
@@ -408,6 +436,8 @@ SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 	DROP TABLE #ChargeInfo3rd
 	DROP TABLE #tmpRebateRate
 	DROP TABLE #tmpPayToSupplier_Daily
+	DROP TABLE #tmpPayToSupplier_Daily_AB
+	DROP TABLE #tmpPayToSupplier_Daily_FW
 
 END
 GO
