@@ -3,12 +3,14 @@
 USE bodb02
 GO
 
-CREATE PROCEDURE dbo.Acc_Rpt_SBPerformanceMonitor_Dashboard @fromDate DATE,
-														    @toDate DATE,
+CREATE PROCEDURE dbo.Acc_Rpt_SBPerformanceMonitor_Dashboard @fromDate SMALLDATETIME,
+														    @toDate SMALLDATETIME,
 														    @isShowSite BIT,
 														    @isShowSport BIT,
 															@isShowLeague BIT,
-														    @isShowCust BIT
+														    @isShowCust BIT,
+															@margin FLOAT = 3,
+															@top INT = 50
 AS
 /*
 	Created: Ned.Le@20200526
@@ -29,21 +31,34 @@ AS
 						 1: Columns related to League have SPECIFIC value
 		- @isShowCust:   0: Columns related to Cust have NULL value
 					     1: Columns related to Cust have SPECIFIC value
+		- @margin: Value for filter data in the situation of site or sport
+		- @top: Value for filter data in the situation of league or cust
 
 	Example:
 		EXEC bodb_dwrs.dbo.Acc_Rpt_SBPerformanceMonitor_Dashboard @fromDate='20200520', @toDate='20200520',
-																  @isShowSite=1, @isShowSport=0, @isShowLeague=0, @isShowCust=0
+																  @isShowSite=1, @isShowSport=0, @isShowLeague=0, @isShowCust=0,
+																  @margin = 3, @top = 50
 		EXEC bodb_dwrs.dbo.Acc_Rpt_SBPerformanceMonitor_Dashboard @fromDate=CAST(GETDATE() AS DATE), @toDate=CAST(GETDATE() AS DATE),
-																  @isShowSite=1, @isShowSport=0, @isShowLeague=0, @isShowCust=0
+																  @isShowSite=1, @isShowSport=0, @isShowLeague=0, @isShowCust=0,
+																  @margin = 3, @top = 50
 		EXEC bodb_dwrs.dbo.Acc_Rpt_SBPerformanceMonitor_Dashboard @fromDate='20200520', @toDate='20200520',
-																  @isShowSite=0, @isShowSport=0, @isShowLeague=1, @isShowCust=0
+																  @isShowSite=0, @isShowSport=0, @isShowLeague=1, @isShowCust=0,
+																  @margin = 3, @top = 50
 		EXEC bodb_dwrs.dbo.Acc_Rpt_SBPerformanceMonitor_Dashboard @fromDate=CAST(GETDATE() AS DATE), @toDate=CAST(GETDATE() AS DATE),
-																  @isShowSite=0, @isShowSport=0, @isShowLeague=1, @isShowCust=0
+																  @isShowSite=0, @isShowSport=0, @isShowLeague=1, @isShowCust=0,
+																  @margin = 3, @top = 50
 */
 
 BEGIN
 
 	SET NOCOUNT ON
+
+	-- Declare variables
+	DECLARE @MoveBetsDay SMALLDATETIME
+	SELECT @MoveBetsDay = MAX(eventdate) FROM bodb02.dbo.match14 WITH (NOLOCK)
+
+	DECLARE @sqlCommand VARCHAR(MAX)
+	SELECT @sqlCommand = ''
 
 	-- #tmpSportBettypeMatrix
 	CREATE TABLE #tmpSportBettypeMatrix (BetType SMALLINT)
@@ -67,11 +82,11 @@ BEGIN
 	CTE_Match AS (
 		SELECT matchid AS matchid, leagueid, 0 AS matchtype
 		FROM [bodb02].[dbo].[match] (NOLOCK)
-		WHERE eventdate >= CAST(@fromDate AS DATETIME) AND eventdate <= CAST(@toDate AS DATETIME)
+		WHERE eventdate >= @fromDate AND eventdate <= @toDate
 		UNION ALL
 		SELECT orid AS matchid, leagueid, 1 AS matchtype
 		FROM bodb02.dbo.outright (NOLOCK)
-		WHERE eventdate >= CAST(@fromDate AS DATETIME) AND eventdate <= CAST(@toDate AS DATETIME)
+		WHERE eventdate >= @fromDate AND eventdate <= @toDate
 	)
 	INSERT INTO #tmpMatch (SportType, leagueid, matchid, matchtype)
 	SELECT s.SportType,
@@ -81,6 +96,30 @@ BEGIN
 	FROM CTE_Match m
 		 INNER JOIN bodb02.dbo.league l (NOLOCK) ON m.leagueid = l.leagueid
 		 INNER JOIN bodb02.dbo.Sports s (NOLOCK) ON l.sporttype = s.SportType
+	OPTION (RECOMPILE)
+
+	IF (@fromDate <= @MoveBetsDay)
+	BEGIN
+		;WITH
+		CTE_Match AS (
+			SELECT matchid AS matchid, leagueid, 0 AS matchtype
+			FROM [bodb02].[dbo].[match14] (NOLOCK)
+			WHERE eventdate >=@fromDate AND eventdate <= @MoveBetsDay
+			UNION ALL
+			SELECT orid AS matchid, leagueid, 1 AS matchtype
+			FROM bodb02.dbo.outright14 (NOLOCK)
+			WHERE eventdate >=@fromDate AND eventdate <= @MoveBetsDay
+		)
+		INSERT INTO #tmpMatch (SportType, leagueid, matchid, matchtype)
+		SELECT s.SportType,
+			   l.leagueid,
+			   m.matchid,
+			   m.matchtype
+		FROM CTE_Match m
+			 INNER JOIN bodb02.dbo.league l (NOLOCK) ON m.leagueid = l.leagueid
+			 INNER JOIN bodb02.dbo.Sports s (NOLOCK) ON l.sporttype = s.SportType
+		OPTION (RECOMPILE)
+	END
 	
 	CREATE UNIQUE CLUSTERED INDEX PK_tmpMatch ON #tmpMatch(matchid, matchtype)
 
@@ -94,32 +133,44 @@ BEGIN
 	FROM bodb02.dbo.Customer c (NOLOCK)
 		 LEFT JOIN bodb02.dbo.Site s (NOLOCK) ON c.site = s.site
 	WHERE c.RoleID = 2
+	OPTION (RECOMPILE)
 
 	CREATE UNIQUE CLUSTERED INDEX PK_tmpAgent ON #tmpAgent(CustID)
 	
-	-- Return data
+	-- #tmpData
+	CREATE TABLE #tmpData (SiteID INT,
+						   SportID INT,
+						   LeagueID INT,
+						   CustID INT,
+						   BetCount INT,
+						   RealIncome DECIMAL(19, 4),
+						   RealTurnover DECIMAL(19, 4))
+	
+	INSERT INTO #tmpData (SiteID, SportID, LeagueID, CustID, BetCount, RealIncome, RealTurnover)
 	SELECT -- DIMENSION
-		   CASE WHEN @isShowSite = 0 THEN NULL ELSE a.SiteID END SiteID,
-		   CASE WHEN @isShowSport = 0 THEN NULL ELSE m.SportType END SportID,
-		   CASE WHEN @isShowLeague = 0 THEN NULL ELSE m.leagueid END LeagueID,
-		   CASE WHEN @isShowCust = 0 THEN NULL ELSE sd.custid END CustID,
+		   CASE WHEN @isShowSite = 0 THEN NULL ELSE a.SiteID END AS SiteID,
+		   CASE WHEN @isShowSport = 0 THEN NULL ELSE m.SportType END AS SportID,
+		   CASE WHEN @isShowLeague = 0 THEN NULL ELSE m.leagueid END AS LeagueID,
+		   CASE WHEN @isShowCust = 0 THEN NULL ELSE sd.custid END AS CustID,
 		   -- MEASURE
 		   COUNT(1) AS BetCount,
-		   SUM(-(sd.winlost - sd.actual_stake +
-			     sd.awinlost + sd.mwinlost + sd.swinlost +
-			     sd.scomm - (CASE WHEN sd.tpositiontaking = 1 THEN 0
-								  ELSE sd.winlost - sd.actual_stake + sd.scomm / (1 - sd.tpositiontaking)
-						     END) * ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0)) * sd.actualrate) AS HouseIncome,
+		   SUM(CASE WHEN sd.recommend IN (52466, 5707545) THEN 0
+			        ELSE (-(sd.winlost - sd.actual_stake +
+			              sd.awinlost + sd.mwinlost + sd.swinlost +
+			              sd.scomm - (CASE WHEN sd.tpositiontaking = 1 THEN 0
+								           ELSE sd.winlost - sd.actual_stake + sd.scomm / (1 - sd.tpositiontaking)
+						              END) * ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0)) * sd.actualrate)
+			   END) AS RealIncome,
 		   SUM(CASE WHEN sd.tpositiontaking = 1 THEN 0
 					ELSE (1 - sd.tpositiontaking - ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0))
 						 * ABS(sd.stake)
 						 * CASE WHEN sd.virtualrate > sd.actualrate THEN sd.virtualrate ELSE sd.actualrate END
-			   END) AS HouseTurnover
+			   END) AS RealTurnover
 	FROM bodb02.dbo.bettrans sd (NOLOCK)
 		 LEFT JOIN #tmpAgent a ON sd.recommend = a.CustID
 		 LEFT JOIN #tmpMatch m ON sd.matchid = m.matchid
 								  AND CASE WHEN sd.bettype = 10 THEN 1 ELSE 0 END = m.matchtype
-	WHERE sd.winlostdate >= CAST(@fromDate AS SMALLDATETIME) AND sd.winlostdate <= CAST(@toDate AS SMALLDATETIME)
+	WHERE sd.winlostdate >= @fromDate AND sd.winlostdate <= @toDate
 		  AND sd.ruben = 1
 		  AND sd.statusID IN (111, 112, 113)
 		  AND sd.currency NOT IN (20, 27, 28)
@@ -132,10 +183,129 @@ BEGIN
 		     CASE WHEN @isShowCust = 0 THEN NULL ELSE sd.custid END
 	OPTION (RECOMPILE)
 
+	IF (@fromDate <= @MoveBetsDay)
+	BEGIN
+		INSERT INTO #tmpData (SiteID, SportID, LeagueID, CustID, BetCount, RealIncome, RealTurnover)
+		SELECT -- DIMENSION
+			   CASE WHEN @isShowSite = 0 THEN NULL ELSE a.SiteID END AS SiteID,
+			   CASE WHEN @isShowSport = 0 THEN NULL ELSE m.SportType END AS SportID,
+			   CASE WHEN @isShowLeague = 0 THEN NULL ELSE m.leagueid END AS LeagueID,
+			   CASE WHEN @isShowCust = 0 THEN NULL ELSE sd.custid END AS CustID,
+			   -- MEASURE
+			   COUNT(1) AS BetCount,
+			   SUM(CASE WHEN sd.recommend IN (52466, 5707545) THEN 0
+			            ELSE (-(sd.winlost - sd.actual_stake +
+			                  sd.awinlost + sd.mwinlost + sd.swinlost +
+			                  sd.scomm - (CASE WHEN sd.tpositiontaking = 1 THEN 0
+								               ELSE sd.winlost - sd.actual_stake + sd.scomm / (1 - sd.tpositiontaking)
+						                  END) * ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0)) * sd.actualrate)
+			       END) AS RealIncome,
+			   SUM(CASE WHEN sd.tpositiontaking = 1 THEN 0
+						ELSE (1 - sd.tpositiontaking - ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0))
+							 * ABS(sd.stake)
+							 * CASE WHEN sd.virtualrate > sd.actualrate THEN sd.virtualrate ELSE sd.actualrate END
+				   END) AS RealTurnover
+		FROM bodb02.dbo.bettrans14 sd (NOLOCK)
+			 LEFT JOIN #tmpAgent a ON sd.recommend = a.CustID
+			 LEFT JOIN #tmpMatch m ON sd.matchid = m.matchid
+									  AND CASE WHEN sd.bettype = 10 THEN 1 ELSE 0 END = m.matchtype
+		WHERE sd.winlostdate >= @fromDate AND sd.winlostdate <= @MoveBetsDay
+			  AND sd.ruben = 1
+			  AND sd.statusID IN (111, 112, 113)
+			  AND sd.currency NOT IN (20, 27, 28)
+			  AND EXISTS (SELECT TOP 1 1
+						  FROM #tmpSportBettypeMatrix sbm
+						  WHERE sd.BetType = sbm.BetType)
+		GROUP BY CASE WHEN @isShowSite = 0 THEN NULL ELSE a.SiteID END,
+				 CASE WHEN @isShowSport = 0 THEN NULL ELSE m.SportType END,
+				 CASE WHEN @isShowLeague = 0 THEN NULL ELSE m.leagueid END,
+				 CASE WHEN @isShowCust = 0 THEN NULL ELSE sd.custid END
+		OPTION (RECOMPILE)
+	END
+
+	-- #tmpFinal
+	CREATE TABLE #tmpFinal (SiteID INT,
+							SiteName VARCHAR(50),
+						    SportID INT,
+							SportName VARCHAR(50),
+						    LeagueID INT,
+							LeagueName VARCHAR(500),
+						    CustID INT,
+							CustName VARCHAR(30),
+						    BetCount INT,
+						    RealIncome DECIMAL(19, 4),
+						    RealTurnover DECIMAL(19, 4),
+							RealMargin DECIMAL(19, 4))
+	
+	;WITH
+	CTE_Aggregate AS (
+		SELECT SiteID,
+			   SportID,
+			   LeagueID,
+			   CustID,
+			   SUM(BetCount) BetCount,
+			   SUM(RealIncome) RealIncome,
+			   SUM(RealTurnover) RealTurnover
+		FROM #tmpData
+		GROUP BY SiteID,
+			     SportID,
+			     LeagueID,
+			     CustID
+	),
+	CTE_Margin AS (
+		SELECT SiteID,
+			   SportID,
+			   LeagueID,
+			   CustID,
+			   BetCount,
+			   RealIncome,
+			   RealTurnover,
+			   CASE WHEN RealTurnover = 0 THEN 0 ELSE ((RealIncome / RealTurnover) * 100) END RealMargin
+		FROM CTE_Aggregate
+	)
+	INSERT INTO #tmpFinal (SiteID, SiteName, SportID, SportName, LeagueID, LeagueName, CustID, CustName, BetCount, RealIncome, RealTurnover, RealMargin)
+	SELECT cte.SiteID,
+		   si.site SiteName,
+		   cte.SportID,
+		   sp.SportName SportName,
+		   cte.LeagueID,
+		   l.leaguename LeagueName,
+		   cte.CustID,
+		   c.username CustName,
+		   cte.BetCount,
+		   cte.RealIncome,
+		   cte.RealTurnover,
+		   cte.RealMargin
+	FROM CTE_Margin cte
+		 LEFT JOIN bodb02.dbo.Site si (NOLOCK) ON cte.SiteID = si.siteid
+		 LEFT JOIN bodb02.dbo.Sports sp (NOLOCK) ON cte.SportID = sp.SportType
+		 LEFT JOIN bodb02.dbo.league l (NOLOCK) ON cte.LeagueID = l.leagueid
+		 LEFT JOIN bodb02.dbo.Customer c (NOLOCK) ON cte.CustID = c.custid
+	
+	-- Return data
+	SELECT @sqlCommand =
+		   @sqlCommand +
+		   'SELECT ' + 
+		   CASE WHEN (@isShowLeague = 1 OR @isShowCust = 1) THEN 'TOP(' + CAST(@top AS VARCHAR(10)) + ') ' ELSE '' END +
+		   CASE WHEN @isShowSite = 1 THEN 'SiteID, SiteName, '
+				WHEN @isShowSport = 1 THEN 'SportID, SportName, '
+				WHEN @isShowLeague = 1 THEN 'LeagueID, LeagueName, '
+				WHEN @isShowCust = 1 THEN 'CustID, CustName, '
+				ELSE '' END +
+		   'BetCount, RealIncome, RealTurnover, RealMargin' + CHAR(13) +
+		   'FROM #tmpFinal' + CHAR(13) +
+		   CASE WHEN (@isShowSite = 1 OR @isShowSport = 1) THEN 'WHERE RealMargin <= ' + CAST(@margin AS VARCHAR(10)) + CHAR(13) ELSE '' END +
+		   'ORDER BY RealMargin' + CHAR(13) +
+		   'OPTION (RECOMPILE)'
+	
+	EXEC (@sqlCommand)
+
 	-- Drop temp tables
 	DROP TABLE #tmpSportBettypeMatrix
 	DROP TABLE #tmpMatch
 	DROP TABLE #tmpAgent
+	DROP TABLE #tmpData
+	DROP TABLE #tmpFinal
 
 END
 GO
