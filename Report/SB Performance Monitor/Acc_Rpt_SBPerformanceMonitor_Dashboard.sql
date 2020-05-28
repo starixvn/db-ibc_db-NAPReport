@@ -83,13 +83,26 @@ BEGIN
 		 INNER JOIN bodb02.dbo.Sports s (NOLOCK) ON l.sporttype = s.SportType
 	
 	CREATE UNIQUE CLUSTERED INDEX PK_tmpMatch ON #tmpMatch(matchid, matchtype)
+
+	-- #tmpAgent
+	CREATE TABLE #tmpAgent (CustID INT,
+							SiteID INT)
+	
+	INSERT INTO #tmpAgent (CustID, SiteID)
+	SELECT c.CustId CustID, 
+		   s.siteid SiteID
+	FROM bodb02.dbo.Customer c (NOLOCK)
+		 LEFT JOIN bodb02.dbo.Site s (NOLOCK) ON c.site = s.site
+	WHERE c.RoleID = 2
+
+	CREATE UNIQUE CLUSTERED INDEX PK_tmpAgent ON #tmpAgent(CustID)
 	
 	-- Return data
 	SELECT -- DIMENSION
-		   CASE WHEN @isShowSite = 0 THEN NULL ELSE si.siteid END SiteID,
+		   CASE WHEN @isShowSite = 0 THEN NULL ELSE a.SiteID END SiteID,
 		   CASE WHEN @isShowSport = 0 THEN NULL ELSE m.SportType END SportID,
 		   CASE WHEN @isShowLeague = 0 THEN NULL ELSE m.leagueid END LeagueID,
-		   CASE WHEN @isShowCust = 0 THEN NULL ELSE c.custid END CustID,
+		   CASE WHEN @isShowCust = 0 THEN NULL ELSE sd.custid END CustID,
 		   -- MEASURE
 		   COUNT(1) AS BetCount,
 		   SUM(-(sd.winlost - sd.actual_stake +
@@ -103,8 +116,7 @@ BEGIN
 						 * CASE WHEN sd.virtualrate > sd.actualrate THEN sd.virtualrate ELSE sd.actualrate END
 			   END) AS HouseTurnover
 	FROM bodb02.dbo.bettrans sd (NOLOCK)
-		 LEFT JOIN bodb02.dbo.Customer c (NOLOCK) ON sd.custid = c.custid
-		 LEFT JOIN bodb02.dbo.Site si (NOLOCK) ON c.site = si.site
+		 LEFT JOIN #tmpAgent a ON sd.recommend = a.CustID
 		 LEFT JOIN #tmpMatch m ON sd.matchid = m.matchid
 								  AND CASE WHEN sd.bettype = 10 THEN 1 ELSE 0 END = m.matchtype
 	WHERE sd.winlostdate >= CAST(@fromDate AS SMALLDATETIME) AND sd.winlostdate <= CAST(@toDate AS SMALLDATETIME)
@@ -114,15 +126,16 @@ BEGIN
 		  AND EXISTS (SELECT TOP 1 1
 					  FROM #tmpSportBettypeMatrix sbm
 					  WHERE sd.BetType = sbm.BetType)
-	GROUP BY CASE WHEN @isShowSite = 0 THEN NULL ELSE si.siteid END,
+	GROUP BY CASE WHEN @isShowSite = 0 THEN NULL ELSE a.SiteID END,
 		     CASE WHEN @isShowSport = 0 THEN NULL ELSE m.SportType END,
 			 CASE WHEN @isShowLeague = 0 THEN NULL ELSE m.leagueid END,
-		     CASE WHEN @isShowCust = 0 THEN NULL ELSE c.custid END
+		     CASE WHEN @isShowCust = 0 THEN NULL ELSE sd.custid END
 	OPTION (RECOMPILE)
 
 	-- Drop temp tables
 	DROP TABLE #tmpSportBettypeMatrix
 	DROP TABLE #tmpMatch
+	DROP TABLE #tmpAgent
 
 END
 GO
