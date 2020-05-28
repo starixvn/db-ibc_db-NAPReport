@@ -46,6 +46,7 @@ Revisions:
 - 20200323@Ned.Le: NAP Report - Incorporate 4D (#130845)
 - 20200331@Ned.Le: NAP Report - Incorporate new Table Games (#131095)
 - 20200520@Cherry: Integrate Saba.club (#134441)
+- 20200522@Cherry: Integrate RNG War (#132009)
 Explanation's Param:
 
 */
@@ -1206,7 +1207,7 @@ Explanation's Param:
 				, SUM(WinlossForExtraPT_actualrate) AS ExtraPT
 				, SUM(b.WinlossForExtraPT_actualrate + grosscomm_actualrate) AS NewExtraPT
 			FROM #srcDetail AS b
-			WHERE b.ProductId IN(24, 42) -- Fishing World, Saba.club
+			WHERE b.ProductId IN(24, 42, 50) -- Fishing World, Saba.club, RNG War
 				 OR b.CasinoType IN(1, 2)
 			GROUP BY site
 				  , CASE
@@ -1313,7 +1314,8 @@ Explanation's Param:
 			(22, 38, 'Virtual Games'),
 			(23, 43, 'Indo 4D'),
 			(24, 40, 'Table Game'),
-			(25, 42, 'Saba.club');
+			(25, 42, 'Saba.club'),
+			(26, 50, 'RNG War');
 
 	   INSERT INTO @ProductOrder(DisplayOrder
 						  , ProductId

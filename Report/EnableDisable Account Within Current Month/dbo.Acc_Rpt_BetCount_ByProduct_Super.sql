@@ -53,6 +53,7 @@ AS
 		- 20200409@Ned.Le: NAP Report - Incorporate BBIN Live Casino (#131357)
 		- 20200422@Ned.Le: NAP Report - Incorporate IBCBet Live Casino (#132961)
 		- 20200521@Cherry: Missing running betcount for sports: Saba, SA Gaming, Sexy Gaming, IBCBet Live Casino (#134571)
+		- 20200522@Cherry: Nap Report - Integrate ION Live Casino (#132324) & RNG War (#132009)
 
 	Param's Explanation:  
 	  + @MoveBetsDay: The day of moving bets to battrans14
@@ -137,7 +138,7 @@ BEGIN
 		GROUP BY b.custid,b.[status], b.bettype
 		
 		-- Get data from bettransRnG
-		IF @sportType IN (251, 212, 219, 200)
+		IF @sportType IN (251, 212, 219, 200, 224)
 		BEGIN
 			INSERT INTO #AvailableMember
 			SELECT b.custid,
@@ -151,6 +152,7 @@ BEGIN
 					OR b.gameID BETWEEN 1011 AND CASE WHEN @sportType=219 THEN 1020 ELSE 0 END -- Fishing World
 					OR b.gameID BETWEEN 1901 AND CASE WHEN @sportType=212 THEN 1999 ELSE 0 END -- Card Club [Video Poker]
 					OR b.gameID BETWEEN 1611 AND CASE WHEN @sportType=200 THEN 1699 ELSE 0 END -- Saba.club
+					OR b.gameID BETWEEN 5500 AND CASE WHEN @sportType=224 THEN 5599 ELSE 0 END -- RNG War
 				) 
 			AND (
 					b.statusId IN (111,112,113,0) 
@@ -161,7 +163,7 @@ BEGIN
 		END	
 
 		-- Get data from bettransLC
-		IF @sportType IN (211, 244, 243, 242)
+		IF @sportType IN (211, 244, 243, 242, 225)
 		BEGIN
 			INSERT INTO #AvailableMember
 			SELECT b.custid,b.[status],COUNT(1) 
@@ -172,6 +174,7 @@ BEGIN
 					OR b.gameID BETWEEN 3001 AND CASE WHEN @sportType=244 THEN 3099 ELSE 0 END -- SA Gaming
 					OR b.gameID BETWEEN 3101 AND CASE WHEN @sportType=243 THEN 3199 ELSE 0 END -- Sexy Gaming
 					OR b.gameID BETWEEN 3201 AND CASE WHEN @sportType=242 THEN 3299 ELSE 0 END -- IBCBet Live Casino
+					OR b.gameID BETWEEN 5601 AND CASE WHEN @sportType=225 THEN 5699 ELSE 0 END -- ION Live Casino
 				) 
 			AND (
 					b.statusId IN (111,112,113,0) 
@@ -218,6 +221,8 @@ BEGIN
 							OR (' + CONVERT(VARCHAR(5),@sportType) +' =180 AND (b.bettype BETWEEN 1201 AND 1299 OR b.bettype BETWEEN 2700 AND 2899)) -- Virtual Sports
 							OR b.bettype BETWEEN 1901 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = 212 THEN 1999 ELSE 0 END   -- Card Club [Video Poker]
 							OR b.bettype BETWEEN 1611 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 200 THEN 1699 ELSE 0 END)  -- Saba.club
+							OR b.bettype BETWEEN 5601 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 225 THEN 5699 ELSE 0 END)  -- ION Live Casino
+							OR b.bettype BETWEEN 5500 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 224 THEN 5599 ELSE 0 END)  -- RNG War
 						) 
 						AND b.bettype NOT IN (38)
 						AND b.status IN (3  ---DRAW
@@ -299,7 +304,7 @@ BEGIN
 			LEFT JOIN CustEnableKeno ce ON ce.CustID = av.custid    
 		WHERE ce.CustID IS NULL
 	END
-	IF @sportType IN (211,212,213,219,220,180,245,244,200,243,222,241,242)
+	IF @sportType IN (211,212,213,219,220,180,245,244,200,243,222,241,242,224,225)
     BEGIN
 		DECLARE @bitmapOrder TABLE (bitmapOrder TINYINT)
 		INSERT INTO @bitmapOrder (bitmapOrder)
