@@ -266,7 +266,7 @@ BEGIN
 															   @ToDate = @TDate,
 															   @ProductCodes = @ProductCodeGMT,
 															   @DepositType = 0,
-															   @Site = @'',
+															   @Site = '',
 															   @IsOldView = 0
 	
 	IF (ISNULL(@ProductList, '') <> '')
