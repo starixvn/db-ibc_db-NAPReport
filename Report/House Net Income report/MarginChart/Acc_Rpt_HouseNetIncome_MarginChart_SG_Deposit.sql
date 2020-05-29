@@ -1,8 +1,4 @@
-/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
-
-USE bodb02
-GO
-
+/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" isFunction="0" isNested="1"></info>*/
 ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_SG_Deposit]
 	@FromDate DATE,
 	@ToDate	DATE
@@ -17,6 +13,7 @@ AS
 		- 20200224@Kean: #123734 - House Net Income - Integrate SG (Spadegaming) product
 		- 20200313@Kean - Change the "Pay to supplier" formula of SG - #126465
 		- 20200327@Kean: #131239 - Email/Letstalk Reports: Pay to supplier of Boping&Zelianta are wrongly
+		- 20200529@Percy: Remove PayToSupplier code - Using core SP [RedmineID: #134867]
 		
 	Param's Explanation:   
 
@@ -28,6 +25,8 @@ BEGIN
 
 	DECLARE @FDate DATE, @TDate DATE
 	SELECT @FDate = @FromDate, @TDate = @ToDate	
+
+	DECLARE @ProductPrefix VARCHAR(5) = 'SG'
 	
 	CREATE TABLE #tmpVendorGlobalSetting(ProductID INT, VName VARCHAR(50), ChargeRate3rd DECIMAL(19, 8), Sporttype SMALLINT, Bettype SMALLINT) 
 
@@ -134,70 +133,39 @@ BEGIN
 	-- End Region
 
 	-- Region: Get Sum data
-	CREATE TABLE #TempDataSG(
-			PartyId			INT,
-			rptDate			DATETIME,
-			CurrencyId		INT,
-			ProductId		TINYINT,
-			MemberWL		MONEY,
-			AmountToCompany MONEY);
-	CREATE TABLE #DailyPayToSupplier(ParentID INT, rptDate DATE, MemberWLOANDA MONEY, PayToSupplier MONEY)
+	CREATE TABLE #TempDataSG(rptDate DATETIME, AmountToCompany MONEY);
 
-    INSERT INTO #TempDataSG(PartyId, RptDate, CurrencyId, ProductId, MemberWL, AmountToCompany)
-			SELECT p.PartyId
-				, b.rptdate
-				, b.CurrencyId
-				, b.ProductId
-				, SUM(ISNULL(b.MemberWL, 0))
-				, SUM(-ISNULL(b.MemberWL, 0) * ISNULL(lc.Rate, p.Rate) * e.Rate)
-			FROM bodb_LicenseeReport.dbo.rpt_BettingByProduct AS b WITH (NOLOCK)
-			    INNER JOIN #Exchange AS e ON b.rptDate = e.ExchangeDate
-										AND b.CurrencyId = e.ExchangeID
-			    INNER JOIN #PartyChargeInfo AS p ON b.ProductId = p.ProductID
-											AND p.LicenseeId = b.SiteId
-											AND b.rptDate BETWEEN p.FromDate AND p.ToDate
-											AND
-											    (p.Bettype = -1
-												OR p.Bettype = b.Bettype)
-				LEFT JOIN bodb_Licensee.dbo.LA_ChargeRateByCurrency AS lc WITH (NOLOCK) ON p.ChargeId = lc.ChargeID
-																						AND b.CurrencyId = lc.CurrencyID
-			WHERE b.rptDate BETWEEN @FDate AND @TDate
-				 AND b.CurrencyID <> 20
-				 AND b.customercategory NOT IN(27, 28)
-				 AND b.StatusId NOT IN(-1, 103) -- Exclude Reject , Void, Refund
-			GROUP BY p.PartyId, b.rptdate, b.CurrencyId, b.ProductId
+    INSERT INTO #TempDataSG(RptDate, AmountToCompany)
+	SELECT b.rptdate, SUM(-ISNULL(b.MemberWL, 0) * ISNULL(lc.Rate, p.Rate) * e.Rate)
+	FROM bodb_LicenseeReport.dbo.rpt_BettingByProduct AS b WITH (NOLOCK)
+		INNER JOIN #Exchange AS e ON b.rptDate = e.ExchangeDate
+								AND b.CurrencyId = e.ExchangeID
+		INNER JOIN #PartyChargeInfo AS p ON b.ProductId = p.ProductID
+									AND p.LicenseeId = b.SiteId
+									AND b.rptDate BETWEEN p.FromDate AND p.ToDate
+									AND
+										(p.Bettype = -1
+										OR p.Bettype = b.Bettype)
+		LEFT JOIN bodb_Licensee.dbo.LA_ChargeRateByCurrency AS lc WITH (NOLOCK) ON p.ChargeId = lc.ChargeID
+																				AND b.CurrencyId = lc.CurrencyID
+	WHERE b.rptDate BETWEEN @FDate AND @TDate
+			AND b.CurrencyID <> 20
+			AND b.customercategory NOT IN(27, 28)
+			AND b.StatusId NOT IN(-1, 103) -- Exclude Reject , Void, Refund
+	GROUP BY b.rptdate
 
-    CREATE NONCLUSTERED INDEX Idx_InvoiceData ON #TempDataSG(PartyId);
-
-	INSERT INTO #DailyPayToSupplier(ParentID, rptDate, MemberWLOANDA, PayToSupplier)
-	SELECT t.ParentID, d.rptDate, SUM(d.MemberWL * oanda.Rate), SUM(d.MemberWL * oanda.Rate * ISNULL(p.DI_Rate,ISNULL(v.ChargeRate3rd, 0)))
-	FROM #TempDataSG d
-		INNER JOIN @tmpParty AS t ON t.PartyID = d.PartyId
-		INNER JOIN #ExchangeOANDA oanda ON d.rptDate = oanda.ExchangeDate AND d.CurrencyId = oanda.ExchangeID
-		LEFT JOIN #PartyCharge3rdInfo_ALL p ON p.PartyID = d.PartyId AND d.rptDate BETWEEN p.Fromdate AND p.Todate
-		LEFT JOIN #tmpVendorGlobalSetting v ON v.ProductID = d.ProductId
-	GROUP BY t.ParentID, d.rptDate
-
-	CREATE TABLE #FinalResult (
-		RptDate				VARCHAR(10),
-		LicenseeWL			MONEY,
-		PayToSupplier		MONEY
-	)
-
-	INSERT INTO #FinalResult (rptDate, LicenseeWL, PayToSupplier)
-	SELECT 'FullRange'
-		, 0
-		, 0
+	CREATE TABLE #FinalResult (RptDate VARCHAR(10), LicenseeWL MONEY)
+	INSERT INTO #FinalResult (rptDate, LicenseeWL)
+	SELECT 'FullRange', 0
 
 	DECLARE @tmpDate DATE, @DateList VARCHAR(200)
 	SELECT @tmpDate = @FDate
 
 	WHILE @tmpDate <= @TDate
 	BEGIN
-		INSERT INTO #FinalResult (RptDate, LicenseeWL, PayToSupplier)
+		INSERT INTO #FinalResult (RptDate, LicenseeWL)
 		SELECT CONVERT(VARCHAR(2), @tmpDate, 106), 
-			(SELECT ISNULL(SUM(AmountToCompany), 0) FROM #TempDataSG WHERE ProductId = 36 AND rptDate = @tmpDate), -- LicenseeWL
-			(SELECT ISNULL(SUM(PayToSupplier), 0) FROM #DailyPayToSupplier WHERE rptDate = @tmpDate)		
+			(SELECT ISNULL(SUM(AmountToCompany), 0) FROM #TempDataSG WHERE rptDate = @tmpDate) -- LicenseeWL
 
 		SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate)
 	END
@@ -205,19 +173,16 @@ BEGIN
 	SELECT @DateList = COALESCE(@DateList + ',', '') + '[' + CONVERT(VARCHAR(10), RptDate) + ']' FROM #FinalResult 
 	
 	---------------------------------------------------- Select the output -------------------------------------------------------
-	DECLARE @SQL VARCHAR(1000)
-	SELECT @SQL =	'SELECT * ' + CHAR(13) +
+	DECLARE @SQL VARCHAR(MAX)
+	SELECT  @SQL =	'SELECT * ' + CHAR(13) +
 					'FROM	(SELECT ProductCode, [Order], [RptDate], Figure, ISNULL(value, 0) value FROM #FinalResult' + CHAR(13) +
 							'CROSS APPLY' + CHAR(13) +
-							'(SELECT ''SG'', 1, ''House Income'', LicenseeWL' + CHAR(13) +							
-							'UNION ALL' + CHAR(13) +
-							'SELECT ''SG'', 4, ''Pay to supplier'', PayToSupplier) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
+							'(SELECT ''' + @ProductPrefix + ''', 1, ''House Income'', LicenseeWL) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
 					'PIVOT' + CHAR(13) +
 					'(' + CHAR(13) +
 						'MAX(value)' + CHAR(13) +
 						'FOR [RptDate] in (' + @DateList + ')' + CHAR(13) +
-					') piv' + CHAR(13) +
-					'ORDER BY [Order]'
+					') piv' + CHAR(13)
 
 	EXEC(@SQL)
 
@@ -229,6 +194,5 @@ BEGIN
 	DROP TABLE #PartyCharge3rdInfo_ALL
 	DROP TABLE #PartyChargeInfo
 	DROP TABLE #TempDataSG
-	DROP TABLE #DailyPayToSupplier
 	DROP TABLE #FinalResult
 END

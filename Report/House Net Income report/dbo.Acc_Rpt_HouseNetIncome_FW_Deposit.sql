@@ -13,6 +13,7 @@ AS
 	   - 20181019@Robert: Nap Reports - House Net Income - Pay to Supplier(Month-to-date) of Gold Deluxe & Fishing World is incorrect [#103380]
 	   - 20200108@Percy: #124755 - Support billing terms by product & currency instead of product only
 	   - 20200521@Percy: Re-integrate FW [RedmineID: #134533]
+	   - 20200529@Percy: PayToSupplier - Apply nested SP [RedmineID: #134867]
 
 	Param's Explanation:   
 
@@ -170,8 +171,8 @@ BEGIN
 	GROUP BY CONVERT(VARCHAR(2), d.rptDate, 106)
 	OPTION (MAXRECURSION 0)
 
-	CREATE TABLE #PayToSupplier (rptDate VARCHAR(10), PayToSupplier MONEY, CurrencyPlay	MONEY)
-	INSERT INTO #PayToSupplier (rptDate, PayToSupplier, CurrencyPlay)
+	CREATE TABLE #PayToSupplier (ProductCode VARCHAR(50), rptDate VARCHAR(10), PayToSupplier MONEY, CurrencyPlay	MONEY)
+	INSERT INTO #PayToSupplier (ProductCode, rptDate, PayToSupplier, CurrencyPlay)
 	EXEC Acc_Rpt_HouseNetIncome_PayToSupplier @FromDate = @FDate, @ToDate = @TDate, @ProductPrefix = @ProductPrefix, @DepositType = 1
 
 	UPDATE f
@@ -208,6 +209,7 @@ BEGIN
 	DROP TABLE #Site
 	DROP TABLE #tempData
 	DROP TABLE #tempDataDW
+	DROP TABLE #PayToSupplier
 	-- End Region
 END
 GO

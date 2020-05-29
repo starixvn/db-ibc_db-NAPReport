@@ -25,6 +25,7 @@ AS
 		- 20200403@Percy: Integrate Xoc Dia (CC), Bluesprint's games (Macau Games), Table Games [RedmineID: #131507,#131755,#129447]
 		- 20200422@Percy: Integrate 3D Lottery (CC), Saba.Club, Sexy Gaming [RedmineID: #132790,#132791,#132792]
 		- 20200521@Percy: Re-integrate FW [RedmineID: #134533]
+		- 20200529@Percy: Special members for AB [RedmineID: #134867]
 
 	Param's Explanation:   
 		- @ProductList: '' - default value when get all product
@@ -86,10 +87,8 @@ BEGIN
 		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
 							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_FW_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
 
-		INSERT INTO #P__PayToSupplier (rptDate, PayToSupplier, CurrencyPlay)
+		INSERT INTO #P__PayToSupplier (ProductCode, rptDate, PayToSupplier, CurrencyPlay)
 		EXEC dbo.Acc_Rpt_HouseNetIncome_MarginChart_PayToSupplier @FromDate = @FDate, @ToDate = @TDate, @ProductPrefix = 'FW', @DepositType = 1
-
-		UPDATE #P__PayToSupplier SET ProductCode = 'FW' WHERE ProductCode IS NULL
 	END
 
 	-- 22. SXG
@@ -182,10 +181,8 @@ BEGIN
 		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
 							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_AB_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
 
-		INSERT INTO #P__PayToSupplier (rptDate, PayToSupplier, CurrencyPlay)
+		INSERT INTO #P__PayToSupplier (ProductCode, rptDate, PayToSupplier, CurrencyPlay)
 		EXEC dbo.Acc_Rpt_HouseNetIncome_MarginChart_PayToSupplier @FromDate = @FDate, @ToDate = @TDate, @ProductPrefix = 'AB', @DepositType = 1
-
-		UPDATE #P__PayToSupplier SET ProductCode = 'AB' WHERE ProductCode IS NULL
 	END	
 
 	-- 8. Macau Game

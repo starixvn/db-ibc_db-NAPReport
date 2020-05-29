@@ -1,7 +1,4 @@
-/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
-USE bodb02
-GO
-
+/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_SG_Deposit]
 	@FromDate DATE,
 	@ToDate	DATE
@@ -14,6 +11,7 @@ AS
     Revisions:  
 	   - 20200224@Kean: #123734 - House Net Income - Integrate SG (Spadegaming) product
 	   - 20200327@Kean: #131239 - Email/Letstalk Reports: Pay to supplier of Boping&Zelianta are wrongly
+	   - 20200529@Percy: PayToSupplier - Apply nested SP [RedmineID: #134867]
 
 	Param's Explanation:   
 
@@ -130,62 +128,26 @@ BEGIN
 	-- End Region
 
 	-- Region: Get Sum data
-	CREATE TABLE #TempDataSG(
-			PartyId			INT,
-			rptDate			DATETIME,
-			CurrencyId		INT,
-			ProductId		TINYINT,
-			MemberWL		MONEY,
-			AmountToCompany MONEY);
-	CREATE TABLE #DailyPayToSupplier(ParentID INT, rptDate DATE, MemberWLOANDA MONEY, PayToSupplier MONEY)
-	CREATE TABLE #FullRangePayToSupplier(PayToSupplier MONEY)
+	CREATE TABLE #TempDataSG(rptDate DATETIME, AmountToCompany MONEY);
 
-    INSERT INTO #TempDataSG(PartyId, RptDate, CurrencyId, ProductId, MemberWL, AmountToCompany)
-			SELECT p.PartyId
-				, b.rptdate
-				, b.CurrencyId
-				, b.ProductId
-				, SUM(ISNULL(b.MemberWL, 0))
-				, SUM(-ISNULL(b.MemberWL, 0) * ISNULL(lc.Rate, p.Rate) * e.Rate)
-			FROM bodb_LicenseeReport.dbo.rpt_BettingByProduct AS b WITH (NOLOCK)
-			    INNER JOIN #Exchange AS e ON b.rptDate = e.ExchangeDate
-										AND b.CurrencyId = e.ExchangeID
-			    INNER JOIN #PartyChargeInfo AS p ON b.ProductId = p.ProductID
-											AND p.LicenseeId = b.SiteId
-											AND b.rptDate BETWEEN p.FromDate AND p.ToDate
-											AND
-											    (p.Bettype = -1
-												OR p.Bettype = b.Bettype)
-				LEFT JOIN bodb_Licensee.dbo.LA_ChargeRateByCurrency AS lc WITH (NOLOCK) ON p.ChargeId = lc.ChargeID
-																						AND b.CurrencyId = lc.CurrencyID
-			WHERE b.rptDate BETWEEN @FDate AND @TDate
-				 AND b.CurrencyID <> 20
-				 AND b.customercategory NOT IN(27, 28)
-				 AND b.StatusId NOT IN(-1, 103) -- Exclude Reject , Void, Refund
-			GROUP BY p.PartyId, b.rptdate, b.CurrencyId, b.ProductId
-
-    CREATE NONCLUSTERED INDEX Idx_InvoiceData ON #TempDataSG(PartyId);
-
-	INSERT INTO #DailyPayToSupplier(ParentID, rptDate, MemberWLOANDA, PayToSupplier)
-	SELECT t.ParentID, d.rptDate, SUM(d.MemberWL * oanda.Rate), SUM(d.MemberWL * oanda.Rate * ISNULL(p.DI_Rate,ISNULL(v.ChargeRate3rd, 0)))
-	FROM #TempDataSG d
-		INNER JOIN @tmpParty AS t ON t.PartyID = d.PartyId
-		INNER JOIN #ExchangeOANDA oanda ON d.rptDate = oanda.ExchangeDate AND d.CurrencyId = oanda.ExchangeID
-		LEFT JOIN #PartyCharge3rdInfo_ALL p ON p.PartyID = d.PartyId AND d.rptDate BETWEEN p.Fromdate AND p.Todate
-		LEFT JOIN #tmpVendorGlobalSetting v ON v.ProductID = d.ProductId
-	GROUP BY t.ParentID, d.rptDate
-
-		-- Check for OneWorks
-	INSERT INTO #FullRangePayToSupplier(PayToSupplier)
-	SELECT CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(PayToSupplier) END
-	FROM #DailyPayToSupplier
-	WHERE ParentID = 1
-	-- Check for Boping & Zelianta
-	INSERT INTO #FullRangePayToSupplier(PayToSupplier)
-	SELECT CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(PayToSupplier) END
-	FROM #DailyPayToSupplier
-	WHERE ParentID <> 1
-	-- END - Rate for PayToSupplier
+    INSERT INTO #TempDataSG(rptDate, AmountToCompany)
+	SELECT b.rptdate, SUM(-ISNULL(b.MemberWL, 0) * ISNULL(lc.Rate, p.Rate) * e.Rate)
+	FROM bodb_LicenseeReport.dbo.rpt_BettingByProduct AS b WITH (NOLOCK)
+		INNER JOIN #Exchange AS e ON b.rptDate = e.ExchangeDate
+								AND b.CurrencyId = e.ExchangeID
+		INNER JOIN #PartyChargeInfo AS p ON b.ProductId = p.ProductID
+									AND p.LicenseeId = b.SiteId
+									AND b.rptDate BETWEEN p.FromDate AND p.ToDate
+									AND
+										(p.Bettype = -1
+										OR p.Bettype = b.Bettype)
+		LEFT JOIN bodb_Licensee.dbo.LA_ChargeRateByCurrency AS lc WITH (NOLOCK) ON p.ChargeId = lc.ChargeID
+																				AND b.CurrencyId = lc.CurrencyID
+	WHERE b.rptDate BETWEEN @FDate AND @TDate
+			AND b.CurrencyID <> 20
+			AND b.customercategory NOT IN(27, 28)
+			AND b.StatusId NOT IN(-1, 103) -- Exclude Reject , Void, Refund
+	GROUP BY b.rptdate
 
 	CREATE TABLE #FeeData(
 	    PartyId            INT
@@ -204,23 +166,30 @@ BEGIN
 		PayToSupplier		MONEY
 	)
 
-	INSERT INTO #FinalResult (rptDate, LicenseeWL, PayToSupplier)
+	INSERT INTO #FinalResult (rptDate, LicenseeWL)
 	SELECT 'FullRange'
 		, (SELECT SUM(WLFeeApplied) FROM #FeeData)
-		, (SELECT SUM(PayToSupplier) FROM #FullRangePayToSupplier)
 
 	DECLARE @tmpDate DATE, @DateList VARCHAR(200)
 	SELECT @tmpDate = @FDate
 
 	WHILE @tmpDate <= @TDate
 	BEGIN
-		INSERT INTO #FinalResult (RptDate, LicenseeWL, PayToSupplier)
+		INSERT INTO #FinalResult (RptDate, LicenseeWL)
 		SELECT CONVERT(VARCHAR(2), @tmpDate, 106), 
-			(SELECT ISNULL(SUM(AmountToCompany), 0) FROM #TempDataSG WHERE ProductId = 36 AND rptDate = @tmpDate), -- LicenseeWL
-			(SELECT ISNULL(SUM(PayToSupplier), 0) FROM #DailyPayToSupplier WHERE rptDate = @tmpDate)		
+			(SELECT ISNULL(SUM(AmountToCompany), 0) FROM #TempDataSG WHERE rptDate = @tmpDate) -- LicenseeWL
 
 		SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate)
 	END
+
+	CREATE TABLE #PayToSupplier (ProductCode VARCHAR(50), rptDate VARCHAR(10), PayToSupplier MONEY, CurrencyPlay	MONEY)
+	INSERT INTO #PayToSupplier (ProductCode, rptDate, PayToSupplier, CurrencyPlay)
+	EXEC Acc_Rpt_HouseNetIncome_PayToSupplier @FromDate = @FDate, @ToDate = @TDate, @ProductPrefix = @ProductPrefix, @DepositType = 1
+
+	UPDATE f
+	SET f.PayToSupplier = p.PayToSupplier
+	FROM #FinalResult f
+		INNER JOIN #PayToSupplier p ON f.rptDate = p.rptDate
 
 	SELECT @DateList = COALESCE(@DateList + ',', '') + '[' + CONVERT(VARCHAR(10), RptDate) + ']' FROM #FinalResult 
 	
@@ -249,8 +218,7 @@ BEGIN
 	DROP TABLE #PartyCharge3rdInfo_ALL
 	DROP TABLE #PartyChargeInfo
 	DROP TABLE #TempDataSG
-	DROP TABLE #DailyPayToSupplier
-	DROP TABLE #FullRangePayToSupplier
 	DROP TABLE #FeeData
 	DROP TABLE #FinalResult
+	DROP TABLE #PayToSupplier
 END

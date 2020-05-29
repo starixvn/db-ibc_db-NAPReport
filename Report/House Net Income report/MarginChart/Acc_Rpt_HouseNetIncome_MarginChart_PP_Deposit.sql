@@ -1,4 +1,4 @@
-/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" isFunction="0" isNested="1"></info>*/
 ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_PP_Deposit]
 	@FromDate DATE,
 	@ToDate	DATE
@@ -14,6 +14,7 @@ AS
 		- 20190822@Robert: #115465 - Exclude bettype 4300 (Promotion Prize) from House Income, Pay to Supplier of Pragmatic
 		- 20191121@Robert: #123733 - Email/Letstalk Reports - Integrate PP Tournament (Exclude bettype 4299)
 		- 20200108@Percy: #124755 - Support billing terms by product & currency instead of product only
+		- 20200529@Percy: Remove PayToSupplier code - Using core SP [RedmineID: #134867]
 		
 	Param's Explanation:   
 
@@ -25,6 +26,8 @@ BEGIN
 
 	DECLARE @FDate DATE, @TDate DATE
 	SELECT @FDate = @FromDate, @TDate = @ToDate
+
+	DECLARE @ProductPrefix VARCHAR(5) = 'PP'
 
 	-- Region: Active licensees
 	DECLARE @tmpParty TABLE (PartyID INT, IsDeposit BIT, ParentID INT)
@@ -138,23 +141,21 @@ BEGIN
 
 	CREATE TABLE #FinalResult (
 		RptDate				VARCHAR(10),
-		LicenseeWL			MONEY,
-		PayToSupplier		MONEY
+		LicenseeWL			MONEY
 	)
 	
-	INSERT INTO #FinalResult (rptDate, LicenseeWL, PayToSupplier)
-	SELECT 'FullRange', 0 , 0	
+	INSERT INTO #FinalResult (rptDate, LicenseeWL)
+	SELECT 'FullRange', 0	
 		
 	DECLARE @tmpDate DATE, @DateList VARCHAR(200)
 	SELECT @tmpDate = @FDate
 
 	WHILE @tmpDate <= @TDate
 	BEGIN
-		INSERT INTO #FinalResult (RptDate, LicenseeWL, PayToSupplier)
+		INSERT INTO #FinalResult (RptDate, LicenseeWL)
 		SELECT CONVERT(VARCHAR(2), @tmpDate, 106), 
-				SUM(AmountToCompany), -- LicenseeWL
-				SUM(PayToSupplier) -- PayToSupplier
-		FROM #TempDataPP 
+				SUM(AmountToCompany) -- LicenseeWL
+		FROM #TempDataPP
 		WHERE rptDate = @tmpDate
 
 		SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate)
@@ -164,13 +165,11 @@ BEGIN
 	-- End region
 
 	---------------------------------------------------- Select the output -------------------------------------------------------
-	DECLARE @SQL VARCHAR(1000)
-	SELECT @SQL =	'SELECT * ' + CHAR(13) +
+	DECLARE @SQL VARCHAR(MAX)
+	SELECT  @SQL =	'SELECT * ' + CHAR(13) +
 					'FROM	(SELECT ProductCode, [Order], [RptDate], Figure, ISNULL(value, 0) value FROM #FinalResult' + CHAR(13) +
 							'CROSS APPLY' + CHAR(13) +
-							'(SELECT ''PP'', 1, ''House Income'', LicenseeWL' + CHAR(13) +
-							'UNION ALL' + CHAR(13) +
-							'SELECT ''PP'', 4, ''Pay to supplier'', PayToSupplier) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
+							'(SELECT ''' + @ProductPrefix + ''', 1, ''House Income'', LicenseeWL) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
 					'PIVOT' + CHAR(13) +
 					'(' + CHAR(13) +
 						'MAX(value)' + CHAR(13) +

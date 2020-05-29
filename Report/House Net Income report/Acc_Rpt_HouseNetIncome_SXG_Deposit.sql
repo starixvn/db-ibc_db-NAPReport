@@ -11,6 +11,7 @@ AS
 
     Revisions:
 	   - 20200422@Percy: House Net Income - Integrate Sexy Gaming product [RedmineID: #132792]
+	   - 20200529@Percy: PayToSupplier - Apply nested SP [RedmineID: #134867]
 
 	Param's Explanation:
 
@@ -107,11 +108,6 @@ BEGIN
 	SELECT ExchangeDate, Currency, Rate
 	FROM DBWH.bodb_account.dbo.tbl_Currency_Daily WITH (NOLOCK)
 	WHERE ExchangeDate BETWEEN @FDate AND @TDate
-
-	CREATE TABLE #ExchangeOANDA (ExchangeDate DATE, ExchangeID INT, Rate FLOAT)
-	INSERT INTO #ExchangeOANDA(ExchangeDate, ExchangeID, Rate)
-	SELECT ExchangeDate, ExchangeID, BaseCurrencyRate
-	FROM dbo.LA_f_ExchangeDailySel (@FDate, @TDate, 'MYR')
 	-- End Region
 
 	-- Region: Get Sum data
@@ -148,56 +144,15 @@ BEGIN
 		AND EXISTS (SELECT 1 FROM #Bettype bt WITH (NOLOCK) WHERE b.BetType = bt.BetType)
 	GROUP BY b.rptDate, s.LicenseeID, b.CurrencyID
 
-	CREATE TABLE #tempData
-	(
-		PartyID				INT
-		,ParentID			INT
-		,rptDate			DATETIME
-		,MemberWL			MONEY
-		,AmountToCompany	MONEY
-	)
-	INSERT INTO #tempData (PartyID, ParentID, rptDate, MemberWL, AmountToCompany)
-	SELECT
-		tp.PartyID
-		,tp.ParentID
-		,b.rptDate
-		,SUM(ISNULL(b.MemberWL, 0) * ISNULL(oa.Rate, 0))
-		,SUM(CASE WHEN p.LicenseeID IS NULL THEN -ISNULL(b.HouseWL, 0) ELSE -ISNULL(b.MemberWL, 0) * ISNULL(lc.Rate, p.Rate) END * ISNULL(e.Rate, 0))
+	CREATE TABLE #tempData (rptDate DATETIME, AmountToCompany MONEY)
+	INSERT INTO #tempData (rptDate, AmountToCompany)
+	SELECT b.rptDate, SUM(CASE WHEN p.LicenseeID IS NULL THEN -ISNULL(b.HouseWL, 0) ELSE -ISNULL(b.MemberWL, 0) * ISNULL(lc.Rate, p.Rate) END * ISNULL(e.Rate, 0))
 	FROM #tempDataDW b
 		INNER JOIN @tmpAllParty tp ON tp.LicenseeID = b.LicenseeID
 		LEFT JOIN #PartyChargeInfo p ON p.PartyID = tp.PartyID AND b.rptDate BETWEEN p.FromDate AND p.ToDate
 		LEFT JOIN #Exchange e ON b.rptDate = e.ExchangeDate AND b.CurrencyID = e.ExchangeID
-		LEFT JOIN #ExchangeOANDA oa ON b.rptDate = oa.ExchangeDate AND b.CurrencyId = oa.ExchangeID
 		LEFT JOIN bodb_Licensee.dbo.LA_ChargeRateByCurrency lc WITH (NOLOCK) ON p.ChargeID = lc.ChargeID AND b.CurrencyID = lc.CurrencyID
-	GROUP BY
-		tp.PartyID
-		,tp.ParentID
-		,b.rptDate
-
-    CREATE NONCLUSTERED INDEX Idx_InvoiceData ON #TempData (PartyID)
-	-- End Region
-
-	-- Region: Pay to Supplier
-	DECLARE @tmpPartyGroup TABLE (ParentID INT, MemberWL MONEY)
-	INSERT INTO @tmpPartyGroup (ParentID, MemberWL)
-	SELECT b.ParentID, SUM(b.MemberWL)
-	FROM #tempData b
-	GROUP BY b.ParentID
-
-	CREATE TABLE #DailyPayToSupplier (ParentID INT, rptDate DATE, MemberWL MONEY, PayToSupplier MONEY)
-	INSERT INTO #DailyPayToSupplier (ParentID, rptDate, MemberWL, PayToSupplier)
-	SELECT d.ParentID, d.rptDate, SUM(d.MemberWL), SUM(d.MemberWL * ISNULL(p.Rate, @ChargeRate3rd))
-	FROM #tempData d
-		INNER JOIN @tmpPartyGroup t ON t.ParentID = d.ParentID
-		LEFT JOIN #PartyCharge3rdInfo p ON d.PartyID = p.PartyID AND d.rptDate BETWEEN p.FromDate AND p.ToDate
-	GROUP BY d.ParentID, d.rptDate
-
-	CREATE TABLE #FullRangePayToSupplier (ParentID INT, PayToSupplier MONEY)
-	INSERT INTO #FullRangePayToSupplier (ParentID, PayToSupplier)
-	SELECT ParentID, SUM(PayToSupplier)
-	FROM #DailyPayToSupplier
-	GROUP BY ParentID
-	HAVING SUM(MemberWL) <= 0
+	GROUP BY b.rptDate
 	-- End Region
 
 	CREATE TABLE #FeeData (PartyID INT, ProductID INT, AComm MONEY, MinFeeApplied MONEY, WLFeeApplied MONEY, AmountToCompany MONEY)
@@ -205,22 +160,30 @@ BEGIN
     EXEC dbo.Acc_Rpt_HouseNetIncome_LicenseeFee @FromDate = @FDate, @ToDate = @TDate, @Products = @ProductPrefix
 
 	CREATE TABLE #FinalResult (rptDate VARCHAR(10), LicenseeWL MONEY, PayToSupplier MONEY)
-	INSERT INTO #FinalResult (rptDate, LicenseeWL, PayToSupplier)
-	SELECT 'FullRange', (SELECT SUM(WLFeeApplied) FROM #FeeData), (SELECT SUM(PayToSupplier) FROM #FullRangePayToSupplier)
+	INSERT INTO #FinalResult (rptDate, LicenseeWL)
+	SELECT 'FullRange', (SELECT SUM(WLFeeApplied) FROM #FeeData)
 
 	DECLARE @tmpDate DATETIME, @DateList VARCHAR(200)
 	SELECT  @tmpDate = @FDate
 
 	WHILE @tmpDate <= @TDate
 	BEGIN
-		INSERT INTO #FinalResult (RptDate, LicenseeWL, PayToSupplier)
+		INSERT INTO #FinalResult (RptDate, LicenseeWL)
 		SELECT
 			CONVERT(VARCHAR(2), @tmpDate, 106)
 			,(SELECT ISNULL(SUM(AmountToCompany), 0) FROM #tempData WHERE rptDate = @tmpDate)
-			,(SELECT ISNULL(SUM(PayToSupplier), 0) FROM #DailyPayToSupplier WHERE rptDate = @tmpDate)
 
 		SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate)
 	END
+
+	CREATE TABLE #PayToSupplier (ProductCode VARCHAR(50), rptDate VARCHAR(10), PayToSupplier MONEY, CurrencyPlay	MONEY)
+	INSERT INTO #PayToSupplier (ProductCode, rptDate, PayToSupplier, CurrencyPlay)
+	EXEC Acc_Rpt_HouseNetIncome_PayToSupplier @FromDate = @FDate, @ToDate = @TDate, @ProductPrefix = @ProductPrefix, @DepositType = 1
+
+	UPDATE f
+	SET f.PayToSupplier = p.PayToSupplier
+	FROM #FinalResult f
+		INNER JOIN #PayToSupplier p ON f.rptDate = p.rptDate
 
 	SELECT @DateList = COALESCE(@DateList + ',', '') + '[' + CONVERT(VARCHAR(10), RptDate) + ']' FROM #FinalResult
 
@@ -243,17 +206,15 @@ BEGIN
 
 	-- Region: Drop tmp table
 	DROP TABLE #Bettype
-	DROP TABLE #DailyPayToSupplier
 	DROP TABLE #Exchange
-	DROP TABLE #ExchangeOANDA
 	DROP TABLE #FeeData
 	DROP TABLE #FinalResult
-	DROP TABLE #FullRangePayToSupplier
 	DROP TABLE #PartyCharge3rdInfo
 	DROP TABLE #PartyChargeInfo
 	DROP TABLE #Site
 	DROP TABLE #tempData
 	DROP TABLE #tempDataDW
+	DROP TABLE #PayToSupplier
 	-- End Region
 END
 GO
