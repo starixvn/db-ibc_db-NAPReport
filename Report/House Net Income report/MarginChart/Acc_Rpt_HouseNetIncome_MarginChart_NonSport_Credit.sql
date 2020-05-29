@@ -265,8 +265,8 @@ BEGIN
 	EXEC DBEXT.bodb02.dbo.Acc_Rpt_HouseNetIncome_PayToSupplier @FromDate = @FDate,
 															   @ToDate = @TDate,
 															   @ProductCodes = @ProductCodeGMT,
-															   @DepositType = @DepositType,
-															   @Site = @Site,
+															   @DepositType = 0,
+															   @Site = @'',
 															   @IsOldView = 0
 	
 	IF (ISNULL(@ProductList, '') <> '')

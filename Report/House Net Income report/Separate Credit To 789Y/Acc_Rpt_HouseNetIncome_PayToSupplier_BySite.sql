@@ -7,7 +7,7 @@ ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_PayToSupplier_BySite]
 	@FromDate DATE,
 	@ToDate	DATE,
 	@DepositType BIT = 0,
-	@Site       VARCHAR(20) = ''
+	@Site VARCHAR(20) = ''
 AS
 
 /*  	
