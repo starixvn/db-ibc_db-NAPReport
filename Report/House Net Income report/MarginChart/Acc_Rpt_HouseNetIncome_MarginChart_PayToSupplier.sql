@@ -60,15 +60,17 @@ BEGIN
 	-- Region: Get charge rate
 	CREATE TABLE #__PartyCharge3rdInfo
 	(
-		LicenseeId	INT
+		ParentId	INT
+		,LicenseeId	INT
 		,IsDeposit	BIT
 		,ProductId	INT
+		,ChargeType	INT
 		,Rate       MONEY
 		,FromDate   SMALLDATETIME
 		,ToDate     SMALLDATETIME
 	)
-	INSERT INTO #__PartyCharge3rdInfo (LicenseeId, IsDeposit, ProductId, Rate, FromDate, ToDate)
-	SELECT DISTINCT p.LicenseeId, ci.IsDeposit, ci.ProductId, ci.DI_Rate, ci.FromDate, ci.ToDate
+	INSERT INTO #__PartyCharge3rdInfo (ParentId, LicenseeId, IsDeposit, ProductId, ChargeType, Rate, FromDate, ToDate)
+	SELECT DISTINCT p.ParentId, p.LicenseeId, ci.IsDeposit, ci.ProductId, ci.ChargeType, ci.DI_Rate, ci.FromDate, ci.ToDate
 	FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd (@FDate, @TDate, @ProductCodes, 'OA') ci
 		INNER JOIN @tmpParty p ON p.ParentID = ci.PartyID
 	WHERE
@@ -76,6 +78,26 @@ BEGIN
 			(ci.ProductID IN (11, 21) AND ci.ChargeType IN (9, 10)) -- GD & AB
 			OR (ci.ProductID NOT IN (11, 21) AND ci.ChargeType = 1)
 		)
+
+	-- Rate by MinAmount, MaxAmount
+	DECLARE @AmountRM MONEY = 0
+
+	CREATE TABLE #__PartyCharge3rdInfoByAmount
+	(
+		IsDeposit	BIT
+		,ProductId	INT
+		,CurrencyId	INT
+		,Rate		MONEY
+		,MinAmount	MONEY
+		,MaxAmount	MONEY
+		,FromDate	DATE
+		,ToDate		DATE
+	)
+	INSERT INTO #__PartyCharge3rdInfoByAmount (IsDeposit, ProductId, CurrencyId, Rate, MinAmount, MaxAmount, FromDate, ToDate)
+	SELECT DISTINCT ci.IsDeposit, ci.ProductId, c.BaseCurrencyId, ci.DI_Rate, c.MinAmount, c.MaxAmount, ci.Fromdate, ci.Todate
+	FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd(@FDate, @TDate, @ProductCodes, 'OA') ci
+		INNER JOIN bodb_licensee.dbo.OAS_ChargeInfo c WITH (NOLOCK) ON ci.ChargeID = c.ChargeID
+	WHERE ci.ChargeType = 1
 	-- End Region
 
 	-- Region: Get Exchange
@@ -89,11 +111,15 @@ BEGIN
 	CREATE TABLE #__tempDataGMT
 	(
 		rptDate			DATE
+		,ParentId		INT
 		,IsDeposit		BIT
 		,ProductId		INT
+		,Bettype		INT
 		,CurrencyId		INT
 		,PlayCurrency	INT
 		,PayDaily		MONEY
+		,PayDailyRate	MONEY
+		,MemberWLRate	MONEY -- For calculate pay to supplier of some products base on setting min max amount
 	)
 
 	CREATE TABLE #__Bettype (ProductId INT, BetType INT)
@@ -101,6 +127,10 @@ BEGIN
 	SELECT DISTINCT s.ProductId, s.BetType FROM dbo.SportBettypeMatrix s WITH (NOLOCK)
 		INNER JOIN dbo.Products p WITH (NOLOCK) ON s.ProductID = p.ProductID
 	WHERE ',' + @ProductCodes + ',' LIKE '%,' + p.ProductPrefix + ',%'
+		AND s.BetType NOT IN (4299, 4300)
+
+	-- Use validbetamount
+	CREATE TABLE #__ValidBetAmount (IsDeposit BIT, ProductId INT, CommRate FLOAT)
 
 	-- For Allbet
 	CREATE TABLE #__PlayCurrencySettings
@@ -112,9 +142,6 @@ BEGIN
 		,ToDate         DATETIME
 	)
 
-	DECLARE @ABCommissionRate FLOAT = 0
-
-	-- Allbet
 	IF ',' + @ProductCodes + ',' LIKE '%,AB,%'
 	BEGIN
 		INSERT INTO #__PlayCurrencySettings (SiteId, MemberCurrency, PlayCurrency, FromDate, ToDate)
@@ -123,45 +150,50 @@ BEGIN
 		
 		DELETE #__PlayCurrencySettings
 		WHERE ToDate < @FromDate OR FromDate > @ToDate
-
-		SELECT @ABCommissionRate = DI_Rate
-		FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd (@FDate, @TDate, 'AB', 'OA')
-		WHERE ChargeType = 11
 	END
 
-	INSERT INTO #__tempDataGMT (rptDate, IsDeposit, ProductID, CurrencyId, PlayCurrency, PayDaily)
-	SELECT b.RptDate3rd, p.IsDeposit, p.ProductID, b.CurrencyId, ISNULL(pc.PlayCurrency, b.CurrencyId) AS PlayCurrency
-		,SUM((b.Winloss + CASE WHEN p.IsDeposit = 0 AND p.ProductID = 21 THEN b.ValidBetAmount * @ABCommissionRate ELSE 0 END) * p.Rate) AS PayDaily
+	IF @DepositType IN (0, 2) AND (',' + @ProductCodes + ',' LIKE '%,AB,%' OR ',' + @ProductCodes + ',' LIKE '%,SAG,%')
+	BEGIN
+		INSERT INTO #__ValidBetAmount (IsDeposit, ProductId, CommRate)
+		SELECT 0 IsDeposit, 21 ProductId, DI_Rate
+		FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd (@FDate, @TDate, 'AB,SAG', 'OA')
+		WHERE ChargeType = 11 AND IsDeposit = 0
+	END
+
+	INSERT INTO #__tempDataGMT (rptDate, ParentId, IsDeposit, ProductID, Bettype, CurrencyId, PlayCurrency, PayDaily, PayDailyRate, MemberWLRate)
+	SELECT b.RptDate3rd, p.ParentId, p.IsDeposit, p.ProductID, CASE WHEN b.BetTypeId = 3007 THEN 3007 ELSE 0 END, b.CurrencyId, ISNULL(pc.PlayCurrency, b.CurrencyId) AS PlayCurrency
+		,SUM((b.Winloss + ISNULL(b.ValidBetAmount * v.CommRate, 0)) * p.Rate) AS PayDaily
+		,SUM((b.Winloss + ISNULL(b.ValidBetAmount * v.CommRate, 0)) * e.Rate * p.Rate) AS PayDailyRate
+		,SUM(b.Winloss * e.Rate) AS MemberWLRate
 	FROM bodb_LicenseeReport.dbo.rpt_ThirdPartyWL_ExtraGMT b WITH (NOLOCK)
 		INNER JOIN #__Bettype bt ON b.BetTypeId = bt.BetType
 		INNER JOIN #__PartyCharge3rdInfo p ON p.LicenseeID = b.SiteID AND bt.ProductId = p.ProductId AND b.RptDate3rd BETWEEN p.FromDate AND p.ToDate
 		INNER JOIN bodb_licensee.dbo.view_site_list AS s WITH(NOLOCK) ON b.SiteId = s.SiteID
+		INNER JOIN #__ExchangeOANDA e ON b.RptDate3rd = e.ExchangeDate AND b.CurrencyId = e.ExchangeID
 		LEFT JOIN #__PlayCurrencySettings pc ON pc.SiteId = s.IbcSiteID AND b.CurrencyId = pc.MemberCurrency AND b.RptDate3rd BETWEEN pc.FromDate AND pc.ToDate
+		LEFT JOIN #__ValidBetAmount v ON p.IsDeposit = v.IsDeposit AND p.ProductId = v.ProductId
 	WHERE b.RptDate BETWEEN @GMTFDate AND @GMTTDate
 		AND b.RptDate3rd BETWEEN @FDate AND @TDate
 		AND b.CurrencyID <> 20
 		AND b.StatusId NOT IN(-1, 101, 102, 103) -- Exclude Reject , Void, Refund
 		AND (@Site = '' OR s.SiteName = @Site)
+		AND (
+			(b.BetTypeId <> 3007 AND p.ChargeType <> 12)
+			OR (b.BetTypeId = 3007 AND p.ChargeType = 12)
+		)
 	GROUP BY
 		b.RptDate3rd
+		,p.ParentId
 		,p.IsDeposit
 		,p.ProductId
+		,CASE WHEN b.BetTypeId = 3007 THEN 3007 ELSE 0 END
 		,b.CurrencyId
 		,ISNULL(pc.PlayCurrency, b.CurrencyId)
 
 	-- Special PayToSupplier
-	CREATE TABLE #__Special_PayToSupplier
-	(
-		rptDate			DATE
-		,IsDeposit		BIT
-		,ProductId		INT
-		,CurrencyId		INT
-		,PlayCurrency	INT
-		,PayDaily		MONEY
-	)
-
-	IF @IsOldView = 0
+	IF @DepositType IN (0, 2) AND @IsOldView = 0
 	BEGIN
+		CREATE TABLE #__Special_PayToSupplier (rptDate DATE, IsDeposit BIT, ProductId INT, CurrencyId INT, PlayCurrency INT, PayDaily MONEY)
 		INSERT INTO #__Special_PayToSupplier (rptDate, IsDeposit, ProductId, CurrencyId, PlayCurrency, PayDaily)
 		SELECT b.RptDate3rd, p.IsDeposit, p.ProductId, b.CurrencyId, ISNULL(pc.PlayCurrency, b.CurrencyId) AS PlayCurrency
 			,SUM(b.Winloss * (1 - p.Rate)) AS PayDaily
@@ -189,34 +221,156 @@ BEGIN
 					AND t.ProductId = s.ProductId
 					AND t.PlayCurrency = s.PlayCurrency
 					AND t.IsDeposit = s.IsDeposit
+
+		DROP TABLE #__Special_PayToSupplier
 	END
+
+	CREATE TABLE #__DailyPayToSupplier (IsDeposit BIT, ProductId INT, rptDate DATE, PayToSupplier MONEY, CurrencyPlay MONEY DEFAULT(0))
+	CREATE TABLE #__FullRangePayToSupplier (IsDeposit BIT, ProductId INT, PayToSupplier MONEY, CurrencyPlay MONEY DEFAULT(0))
+
+	-- Pragmatic for Credit
+	IF @DepositType IN (1, 2)
+		AND EXISTS (SELECT 1 FROM #__tempDataGMT WHERE ProductId = 22)
+	BEGIN
+		INSERT INTO #__DailyPayToSupplier (IsDeposit, ProductId, rptDate, PayToSupplier)
+		SELECT 0, 22, wl.rptDate
+			,(CASE
+				WHEN
+					(LicenseeWLRate < 0 AND (ci.MinAmount * ex.Rate) = 0)
+					OR (LicenseeWLRate >= (ci.MinAmount * ex.Rate))
+				THEN 
+					CASE
+						WHEN LicenseeWLRate > (MaxAmount * ex.Rate) THEN (ci.MaxAmount - ci.MinAmount) * ex.Rate
+						ELSE LicenseeWLRate - (ci.MinAmount * ex.Rate) END
+				ELSE 0 END
+			) * ci.Rate AS PayToSupplier
+		FROM
+		(
+			SELECT rptDate, SUM(-MemberWLRate) AS LicenseeWLRate
+			FROM #__tempDataGMT
+			WHERE ProductId = 22
+			GROUP BY RptDate
+		) wl
+			INNER JOIN #__PartyCharge3rdInfoByAmount ci ON wl.RptDate BETWEEN ci.FromDate AND ci.ToDate
+			INNER JOIN #__ExchangeOANDA ex ON ci.CurrencyId = ex.ExchangeId AND ex.ExchangeDate = @TDate
+		WHERE ci.ProductId = 22
+
+		IF ISNULL((SELECT SUM(MemberWLRate) FROM #__tempDataGMT WHERE ProductId = 22), 0) > 0
+			INSERT INTO #__FullRangePayToSupplier (IsDeposit, ProductId, PayToSupplier)
+			SELECT 0, 22, SUM(PayToSupplier)
+			FROM #__DailyPayToSupplier
+		ELSE
+			INSERT INTO #__FullRangePayToSupplier (IsDeposit, ProductId, PayToSupplier)
+			SELECT 0, 22, 0
+	END
+	
+	-- SA Gaming for Deposit
+	IF @DepositType IN (1, 2)
+		AND EXISTS (SELECT 1 FROM #__tempDataGMT WHERE ProductId = 39)
+	BEGIN
+		SELECT @AmountRM = 10000000 * Rate
+		FROM #__ExchangeOANDA
+		WHERE ExchangeDate = @TDate
+			AND ExchangeID = 13 -- CNY
+
+		;WITH CTE_SA AS
+		(
+			SELECT ParentId, CASE WHEN ParentId IN (1, 11) THEN CASE WHEN Amount < @AmountRM THEN 0.06 ELSE 0.05 END ELSE 0 END AS Rate
+			FROM
+			(
+				SELECT CASE WHEN ParentId = 98 THEN 11 ELSE ParentId END AS ParentId, SUM(-MemberWLRate) AS Amount
+				FROM #__tempDataGMT
+				WHERE BetType = 0 AND ProductId = 39 -- SA
+				GROUP BY CASE WHEN ParentId = 98 THEN 11 ELSE ParentId END
+			) a
+		)
+		INSERT INTO #__DailyPayToSupplier (IsDeposit, ProductId, rptDate, PayToSupplier)
+		SELECT 1, 39, d.rptDate, SUM(d.MemberWLRate * CASE WHEN d.BetType = 3007 THEN 0.5 ELSE t.Rate END)
+		FROM #__tempDataGMT d
+			INNER JOIN CTE_SA t ON t.ParentId = d.ParentId
+		WHERE d.ProductId = 39
+		GROUP BY d.rptDate
+	END
+
+	-- Spadegaming and Sexy Gaming for Deposit
+	IF @DepositType IN (1, 2)
+		AND EXISTS (SELECT 1 FROM #__tempDataGMT WHERE ProductId IN (36, 45))
+	BEGIN
+		;WITH CTE_SXG AS
+		(
+			SELECT ProductId, CASE WHEN ProductId = 36 AND ParentId <> 1 THEN -1 ELSE ParentId END AS ParentId
+				,SUM(PayDailyRate) AS PayToSupplier
+			FROM #__tempDataGMT
+			WHERE ProductId IN (36, 45)
+			GROUP BY ProductId, CASE WHEN ProductId = 36 AND ParentId <> 1 THEN -1 ELSE ParentId END
+			HAVING SUM(MemberWLRate) <= 0
+		)
+		INSERT INTO #__FullRangePayToSupplier (IsDeposit, ProductId, PayToSupplier)
+		SELECT 1, ProductId, SUM(PayToSupplier)
+		FROM CTE_SXG
+		GROUP BY ProductId
+	END
+
+	-- Other products
+	BEGIN
+		INSERT INTO #__DailyPayToSupplier (IsDeposit, ProductId, rptDate, PayToSupplier)
+		SELECT IsDeposit, ProductId, rptDate, SUM(PayDailyRate)
+		FROM #__tempDataGMT
+		WHERE
+			(IsDeposit = 0 AND ProductId <> 22)
+			OR (IsDeposit = 1 AND ProductId <> 39)
+		GROUP BY IsDeposit, ProductId, rptDate
+
+		INSERT INTO #__FullRangePayToSupplier (IsDeposit, ProductId, PayToSupplier)
+		SELECT IsDeposit, ProductId, SUM(PayToSupplier)
+		FROM #__DailyPayToSupplier
+		WHERE (IsDeposit = 0 AND ProductId <> 22)
+			OR (IsDeposit = 1 AND ProductId NOT IN (36, 45))
+		GROUP BY IsDeposit, ProductId
+	END
+
+	-- Play Currency
+	IF @DepositType IN (0, 2)
+		AND EXISTS (SELECT 1 FROM #__tempDataGMT WHERE ProductId = 21)
+	BEGIN
+		WITH CTE_AB AS
+		(
+			SELECT b.rptDate, b.PayDaily * (pe.Rate - oe.Rate) AS CurrencyPlay
+			FROM #__tempDataGMT b
+				INNER JOIN #__ExchangeOANDA oe ON oe.ExchangeDate = b.rptDate AND oe.ExchangeID = b.CurrencyId
+				INNER JOIN #__ExchangeOANDA pe ON pe.ExchangeDate = b.rptDate AND pe.ExchangeID = b.PlayCurrency
+		)
+		UPDATE d
+		SET d.CurrencyPlay = c.CurrencyPlay
+		FROM #__DailyPayToSupplier d
+			INNER JOIN CTE_AB c ON d.rptDate = d.rptDate
+		WHERE d.ProductId = 21 AND d.IsDeposit = 0
+
+		UPDATE f
+		SET f.CurrencyPlay = ISNULL((
+								SELECT SUM(CurrencyPlay) AS CurrencyPlay
+								FROM #__DailyPayToSupplier
+								WHERE ProductId = 21 AND IsDeposit = 0
+								HAVING SUM(PayToSupplier) <= 0
+								), 0)
+		FROM #__FullRangePayToSupplier f
+		WHERE ProductId = 21 AND IsDeposit = 0
+	END
+	-- End Region
 
 	DROP TABLE #__PartyCharge3rdInfo
 	DROP TABLE #__PlayCurrencySettings
-	DROP TABLE #__Special_PayToSupplier
-
-	CREATE TABLE #__tempData
-	(
-		IsDeposit			BIT
-		,ProductId			INT
-		,rptDate			DATETIME
-		,AmountDailyBased	MONEY
-		,AmountDailySystem	MONEY
-	)
-	INSERT INTO #__tempData (IsDeposit, ProductId, rptDate, AmountDailyBased, AmountDailySystem)
-	SELECT b.IsDeposit, b.ProductId, b.rptDate, b.PayDaily * oe.Rate, b.PayDaily * pe.Rate
-	FROM #__tempDataGMT b
-		INNER JOIN #__ExchangeOANDA oe ON oe.ExchangeDate = b.rptDate AND oe.ExchangeID = b.CurrencyId
-		INNER JOIN #__ExchangeOANDA pe ON pe.ExchangeDate = b.rptDate AND pe.ExchangeID = b.PlayCurrency;
-	-- End region
-
+	DROP TABLE #__PartyCharge3rdInfoByAmount
 	DROP TABLE #__ExchangeOANDA
 	DROP TABLE #__tempDataGMT
+	DROP TABLE #__ValidBetAmount
+	-- End region
 
 	CREATE TABLE #__FinalResult (ProductId INT, rptDate VARCHAR(10), PayToSupplier MONEY, CurrencyPlay MONEY)
+	
 	INSERT INTO #__FinalResult (ProductId, rptDate, PayToSupplier, CurrencyPlay)
 	SELECT DISTINCT ProductId, 'FullRange', 0, 0 FROM #__Bettype
-
+	
 	;WITH CTE_rptDate AS
 	(
 		SELECT DISTINCT ProductId, @FDate AS rptDate FROM #__Bettype
@@ -226,9 +380,9 @@ BEGIN
 		WHERE rptDate < @TDate
 	)
 	INSERT INTO #__FinalResult (ProductId, rptDate, PayToSupplier, CurrencyPlay)
-	SELECT d.ProductId, CONVERT(VARCHAR(2), d.rptDate, 106), SUM(ISNULL(t.AmountDailyBased, 0)), SUM(ISNULL(t.AmountDailySystem, 0) - ISNULL(t.AmountDailyBased, 0))
+	SELECT d.ProductId, CONVERT(VARCHAR(2), d.rptDate, 106), SUM(ISNULL(t.PayToSupplier, 0)), SUM(ISNULL(t.CurrencyPlay, 0))
 	FROM CTE_RptDate d
-		LEFT JOIN #__tempData t ON d.rptDate = t.rptDate AND d.ProductId = t.ProductId
+		LEFT JOIN #__DailyPayToSupplier t ON d.rptDate = t.rptDate AND d.ProductId = t.ProductId
 	GROUP BY d.ProductId, CONVERT(VARCHAR(2), d.rptDate, 106)
 	OPTION (MAXRECURSION 0)
 
@@ -239,6 +393,7 @@ BEGIN
 
 	DROP TABLE #__Bettype
 	DROP TABLE #__FinalResult
-	DROP TABLE #__tempData
+	DROP TABLE #__DailyPayToSupplier
+	DROP TABLE #__FullRangePayToSupplier
 END
 GO

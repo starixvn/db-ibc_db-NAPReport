@@ -21,7 +21,9 @@ BEGIN
 	SET NOCOUNT ON  
 
 	DECLARE @FDate DATE, @TDate DATE
-	SELECT @FDate = @FromDate, @TDate = @ToDate	
+	SELECT @FDate = @FromDate, @TDate = @ToDate
+
+	DECLARE @ProductPrefix VARCHAR(5) = 'SG'
 	
 	CREATE TABLE #tmpVendorGlobalSetting(ProductID INT, VName VARCHAR(50), ChargeRate3rd DECIMAL(19, 8), Sporttype SMALLINT, Bettype SMALLINT) 
 
@@ -184,7 +186,7 @@ BEGIN
 
 	CREATE TABLE #PayToSupplier (ProductCode VARCHAR(50), rptDate VARCHAR(10), PayToSupplier MONEY, CurrencyPlay	MONEY)
 	INSERT INTO #PayToSupplier (ProductCode, rptDate, PayToSupplier, CurrencyPlay)
-	EXEC Acc_Rpt_HouseNetIncome_PayToSupplier @FromDate = @FDate, @ToDate = @TDate, @ProductPrefix = @ProductPrefix, @DepositType = 1
+	EXEC Acc_Rpt_HouseNetIncome_PayToSupplier @FromDate = @FDate, @ToDate = @TDate, @ProductCodes = @ProductPrefix, @DepositType = 1
 
 	UPDATE f
 	SET f.PayToSupplier = p.PayToSupplier

@@ -173,7 +173,7 @@ BEGIN
 
 	CREATE TABLE #PayToSupplier (ProductCode VARCHAR(50), rptDate VARCHAR(10), PayToSupplier MONEY, CurrencyPlay	MONEY)
 	INSERT INTO #PayToSupplier (ProductCode, rptDate, PayToSupplier, CurrencyPlay)
-	EXEC Acc_Rpt_HouseNetIncome_PayToSupplier @FromDate = @FDate, @ToDate = @TDate, @ProductPrefix = @ProductPrefix, @DepositType = 1
+	EXEC Acc_Rpt_HouseNetIncome_PayToSupplier @FromDate = @FDate, @ToDate = @TDate, @ProductCodes = @ProductPrefix, @DepositType = 1
 
 	UPDATE f
 	SET f.PayToSupplier = p.PayToSupplier
