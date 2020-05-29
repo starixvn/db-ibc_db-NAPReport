@@ -479,31 +479,32 @@ BEGIN
 		SELECT ProductCode, RptDate, ''CurrencyPlay'' Figure, PayToSupplier value FROM #tmpPayToSupplier_GMT WHERE ProductCode = ''AB''
 	),
 	CTE_Pivot AS (
-		SELECT ProductCode, Figure, @DateList FROM
+		SELECT ProductCode, Figure, ' + @DateList + ' FROM
 		(
 			SELECT ProductCode, RptDate, Figure, value FROM CTE_UnionAll
 		) tab1
 		PIVOT
 		(
 			MAX(value)
-			FOR RptDate IN (@DateList)
+			FOR RptDate IN (' + @DateList + ')
 		) tab2
 	)
 	SELECT ProductCode,
 		   (200 + ROW_NUMBER() OVER(ORDER BY ProductCode)) [Order],
 		   Figure,
-		   @DateList
+		   ' + @DateList + '
 	FROM CTE_Pivot
-	ORDER BY ProductCode
 	'
+	
 	-- + Execute query
+	--   * Normal
 	EXEC (@SQL_MetricGaming + ' UNION ALL '
 		  + @SQL_MuayThai + ' UNION ALL '
 		  + @SQL_BetBuilder + ' UNION ALL '
-		  + @SQL_GMT + ' UNION ALL '
 		  + @SQL_GMT4)
-	
-	-- + Return data of GD
+	--   * GMT8 and GMT0
+	EXEC (@SQL_GMT)
+	--   * GD
 	EXEC DBEXT.bodb02.dbo.Acc_Rpt_HouseNetIncome_GD_PayToSupplier @FromDate = @FDate, @ToDate = @TDate, @DepositType = @DepositType, @Site = @Site
 	
 	-- END - Return data
