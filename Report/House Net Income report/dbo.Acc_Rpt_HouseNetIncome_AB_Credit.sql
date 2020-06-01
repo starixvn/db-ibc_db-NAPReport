@@ -14,6 +14,7 @@ AS
    
     Revisions: 
 		- 20200521@Ned.Le - Re-Integrate Fishing World product for letstalk (#134533)
+		- 20200529@Ned.Le - House Net Income Email/Letstalk - Change timezone to calculate monthly Pay To Supplier (#134867)
 	
 	Param's Explanation:   
 
@@ -111,7 +112,7 @@ BEGIN
 	-- Pay To Supplier
 	CREATE TABLE #PayToSupplier (rptDate VARCHAR(10), PayToSupplier MONEY, CurrencyPlay	MONEY)
 	INSERT INTO #PayToSupplier (rptDate, PayToSupplier, CurrencyPlay)
-	EXEC DBEXT.bodb02.dbo.Acc_Rpt_HouseNetIncome_PayToSupplier @FromDate = @FDate, @ToDate = @TDate, @ProductPrefix = @ProductPrefix, @DepositType = 0
+	EXEC DBEXT.bodb02.dbo.Acc_Rpt_HouseNetIncome_PayToSupplier @FromDate = @FDate, @ToDate = @TDate, @ProductCodes = @ProductPrefix, @DepositType = 0
 
 	UPDATE f
 	SET f.PayToSupplier = p.PayToSupplier,
