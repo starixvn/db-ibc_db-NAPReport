@@ -597,7 +597,7 @@ BEGIN
 	
 	IF @TotalBetType <> 0 OR @GameIncomeType <> 0
 	BEGIN
-		IF @Currency = -1
+		IF @Currency = '-1'
 			SELECT @TotalBets = SUM(TotalBetsBase), @TotalWins = SUM(TotalWinsBase) FROM #Data
 		ELSE
 			SELECT @TotalBets = SUM(TotalBets), @TotalWins = SUM(TotalWins) FROM #Data

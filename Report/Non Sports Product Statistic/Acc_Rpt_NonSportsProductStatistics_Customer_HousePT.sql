@@ -150,7 +150,7 @@ BEGIN
 
 	IF NOT EXISTS (SELECT 1 FROM dbo.Dep_CustSuper WITH(NOLOCK) WHERE custid = @srecommend) -- Credit - MBC Group
 	BEGIN
-		SELECT @CustSite = 'MBC Group'
+		SELECT @CustSite = 'Credit Group'
 	END
 	ELSE IF @RoleID = 1
 	BEGIN
@@ -631,7 +631,7 @@ BEGIN
 	
 	IF @TotalBetType <> 0 OR @GameIncomeType <> 0
 	BEGIN
-		IF @Currency = -1
+		IF @Currency = '-1'
 			SELECT @TotalBets = SUM(TotalBetsBase), @TotalWins = SUM(TotalWinsBase) FROM #Data
 		ELSE
 			SELECT @TotalBets = SUM(TotalBets), @TotalWins = SUM(TotalWins) FROM #Data
