@@ -11,7 +11,7 @@ ALTER PROCEDURE [dbo].[Acc_Rpt_NonSportsProductStatistics_Device_14]
 	@BetType		VARCHAR(MAX) = '',
 	@LeagueId		VARCHAR(MAX) = '',
 	@Sporttype		VARCHAR(MAX) = '',
-	@Currency		SMALLINT = 0,	
+	@Currency		VARCHAR(MAX) = '',	
 	@Device			VARCHAR(200) = '',
 	@ExcludeTest	BIT = 1, 
 	@TotalBetType	SMALLINT = 0,
@@ -43,6 +43,7 @@ AS
 		20190724@Cherry: ExtraPT in House Turnover (#116766)
 		20190812@Cherry: Add betfrom t (#115937)
 		20191225@Cherry: Apply ExtraPT in bettrans table (#123697)
+		20200601@Cherry: Add Credit Site and support multiple currency (#135009)
 
 	Param's Explanation:
 		- @username:  + Search by keyword, member only

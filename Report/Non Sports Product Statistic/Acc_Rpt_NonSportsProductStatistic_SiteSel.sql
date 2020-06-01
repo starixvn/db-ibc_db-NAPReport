@@ -13,6 +13,7 @@ AS
 	Revisions:
 		- 20170215@Percy: Integrate Fishing World [RedmineID: #71616]
 		- 20181031@Percy: Remove linked-server DBLIC [RedmineID: #103660]
+		- 20200601@Cherry: Add Credit Site (#135009)
 */
 
 BEGIN
@@ -29,19 +30,13 @@ BEGIN
 			val
 		FROM [dbo].strSplit(@ProductID, ',')
 	END 
-	ELSE 
-	BEGIN 
-		INSERT INTO #tmpProductID (ProductID)
-		SELECT	ProductID
-		FROM	dbo.Products WITH (NOLOCK)
-		WHERE   CasinoType IN (1,2) 
-				OR ProductID IN (3, 5, 8, 24)
-	END 
-
 	
 	----Get Site
 
-	SELECT 'MBC Group' as Site,  0 AS OrderId, 0 AS SortID  --- Credit only
+	SELECT DISTINCT c.site, 0 AS OrderId, 0 AS SortID
+	FROM dbo.Customer c WITH(NOLOCK)
+		LEFT JOIN dbo.Dep_CustSuper d WITH(NOLOCK) ON c.srecommend = d.custid
+	WHERE c.roleid = 2 AND d.custid IS NULL AND c.site IS NOT NULL
 	UNION
 	SELECT DISTINCT l.Licenseename as Site, l.LicenseeId As OrderId,  1 AS SortID 				
 	FROM

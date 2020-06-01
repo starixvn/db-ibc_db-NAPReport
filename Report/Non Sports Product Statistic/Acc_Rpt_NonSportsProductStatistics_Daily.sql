@@ -11,7 +11,7 @@ ALTER PROCEDURE [dbo].[Acc_Rpt_NonSportsProductStatistics_Daily]
 	@BetType		VARCHAR(MAX) = '',
 	@LeagueId		VARCHAR(MAX) = '',
 	@Sporttype		VARCHAR(MAX) = '',
-	@Currency		SMALLINT = 0,	
+	@Currency		VARCHAR(MAX) = '',	
 	@Device			VARCHAR(200) = '',
 	@ExcludeTest	BIT = 1, 
 	@TotalBetType	SMALLINT = 0,
@@ -48,6 +48,7 @@ AS
 		20190812@Cherry: Add betfrom t (#115937)
 		20190829@Cherry: Add param @UsernameDrillDown used for Nonsport Specific Member (#116766)
 		20191225@Cherry: Apply ExtraPT in bettrans table (#123697)
+		20200601@Cherry: Add Credit Site and support multiple currency (#135009)
 
 	Param's Explanation:
 			 - @username:  + Search by keyword, member only
@@ -161,6 +162,7 @@ SET NOCOUNT ON
     CREATE TABLE #tmpBetType (Bettype INT)
 	CREATE TABLE #tmpLeagueId (LeagueId INT, Bettype INT)  
 	CREATE TABLE #tmpSporttype (Sporttype INT)
+	CREATE TABLE #tmpCurrency (CurrencyId INT)
 	CREATE TABLE #tmp_Site (Site VARCHAR(50))	
 	CREATE TABLE #tmp_Company (SiteName VARCHAR(50), Srecommend INT)
 	CREATE TABLE #tmpDevice (Betfrom NVARCHAR(2))
@@ -176,6 +178,12 @@ SET NOCOUNT ON
     BEGIN
 		INSERT INTO #tmpBetType (Bettype)
 		SELECT val FROM [dbo].strSplit(@Bettype, ',')
+	END
+	
+	IF @Currency NOT IN ('0', '-1')
+    BEGIN
+		INSERT INTO #tmpCurrency (CurrencyId)
+		SELECT val FROM [dbo].strSplit(@Currency, ',')
 	END
 	
 	DECLARE @splitter1 char(1) = ',', @splitter2 char(1) = '-',
@@ -276,34 +284,16 @@ SET NOCOUNT ON
 
 	--- End Sport Bettype Matrix------
 
-	CREATE TABLE #DepositSuper (CustId INT)
 	IF @Site <> 'ALL'
 	BEGIN
 		INSERT INTO #tmp_Site (Site)
 		SELECT RTRIM(LTRIM(val)) FROM dbo.strSplit(@Site, ',')
 
-		IF EXISTS (SELECT 1 FROM #tmp_Site WHERE Site NOT IN ('MBC Group')) -- Deposit Or Credit Drill Down
-		BEGIN	
-			INSERT INTO #tmp_Company (SiteName, Srecommend)
-			SELECT s.Site, c.srecommend
-			FROM #tmp_Site s
-				INNER JOIN dbo.Customer c WITH (NOLOCK) ON s.Site = c.site
-			WHERE c.roleid = 4
-		END
-
-		IF EXISTS (SELECT 1 FROM #tmp_Site WHERE Site IN ('MBC Group'))					
-		BEGIN
-			INSERT INTO #DepositSuper
-			SELECT CustId
-			FROM f_DepSuper_1( 'All' )
-			
-			INSERT INTO #tmp_Company (SiteName, Srecommend)
-			SELECT c.site, c.srecommend
-			FROM dbo.Customer c WITH (NOLOCK)
-				LEFT JOIN #DepositSuper s ON c.srecommend = s.CustId 
-			WHERE c.roleid = 4
-				AND s.CustId IS NULL
-		END			
+		INSERT INTO #tmp_Company (SiteName, Srecommend)
+		SELECT s.Site, c.srecommend
+		FROM #tmp_Site s
+			INNER JOIN dbo.Customer c WITH (NOLOCK) ON s.Site = c.site
+		WHERE c.roleid = 4
 	END	 
                         
 	INSERT INTO #ExtraComm
@@ -377,7 +367,7 @@ SET NOCOUNT ON
 			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) 
 			AND (@ExcludeTest = 0 OR (b.Currency <> 20 AND @ExcludeTest = 1))
-			AND (@currency IN (0,-1) OR b.currency = @currency) 
+			AND (@currency IN (0,-1) OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId)) 
 			AND (@Username = '' OR EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId))
 			AND (@Device = '' OR EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
