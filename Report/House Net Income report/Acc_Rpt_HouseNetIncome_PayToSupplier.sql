@@ -193,34 +193,42 @@ BEGIN
 	-- Special PayToSupplier
 	IF @DepositType IN (0, 2) AND @IsOldView = 0
 	BEGIN
-		CREATE TABLE #__Special_PayToSupplier (rptDate DATE, IsDeposit BIT, ProductId INT, CurrencyId INT, PlayCurrency INT, PayDaily MONEY)
-		INSERT INTO #__Special_PayToSupplier (rptDate, IsDeposit, ProductId, CurrencyId, PlayCurrency, PayDaily)
-		SELECT b.RptDate3rd, p.IsDeposit, p.ProductId, b.CurrencyId, ISNULL(pc.PlayCurrency, b.CurrencyId) AS PlayCurrency
-			,SUM(b.Winloss * (1 - p.Rate)) AS PayDaily
+		CREATE TABLE #__Special_PayToSupplier (rptDate DATE, ParentId INT, IsDeposit BIT, ProductId INT, Bettype INT, CurrencyId INT, PlayCurrency INT, PayDaily MONEY, PayDailyRate MONEY)
+		INSERT INTO #__Special_PayToSupplier (rptDate, ParentId, IsDeposit, ProductId, Bettype, CurrencyId, PlayCurrency, PayDaily, PayDailyRate)
+		SELECT b.RptDate3rd, p.ParentId, p.IsDeposit, p.ProductID, CASE WHEN b.BetTypeId = 3007 THEN 3007 ELSE 0 END, b.CurrencyId, ISNULL(pc.PlayCurrency, b.CurrencyId) AS PlayCurrency
+			,SUM((b.Winloss + ISNULL(b.ValidBetAmount * v.CommRate, 0)) * (1 - p.Rate)) AS PayDaily
+			,SUM((b.Winloss + ISNULL(b.ValidBetAmount * v.CommRate, 0)) * e.Rate * (1 - p.Rate)) AS PayDailyRate
 		FROM bodb_LicenseeReport.dbo.rpt_CustomerWL_ExtraGMT b WITH (NOLOCK)
 			INNER JOIN #__PartyCharge3rdInfo p ON p.LicenseeID = b.SiteID AND b.ProductId = p.ProductId AND b.RptDate3rd BETWEEN p.FromDate AND p.ToDate
 			INNER JOIN bodb_licensee.dbo.view_site_list AS s WITH(NOLOCK) ON b.SiteId = s.SiteID
+			INNER JOIN #__ExchangeOANDA e ON b.RptDate3rd = e.ExchangeDate AND b.CurrencyId = e.ExchangeID
 			LEFT JOIN #__PlayCurrencySettings pc ON pc.SiteId = s.IbcSiteID AND b.CurrencyId = pc.MemberCurrency AND b.RptDate3rd BETWEEN pc.FromDate AND pc.ToDate
+			LEFT JOIN #__ValidBetAmount v ON p.IsDeposit = v.IsDeposit AND p.ProductId = v.ProductId
 		WHERE b.RptDate BETWEEN @GMTFDate AND @GMTTDate
 			AND b.RptDate3rd BETWEEN @FDate AND @TDate
 			AND b.CurrencyID <> 20
 			AND b.StatusId NOT IN(-1, 101, 102, 103) -- Exclude Reject , Void, Refund
 		GROUP BY
 			b.RptDate3rd
+			,p.ParentId
 			,p.IsDeposit
 			,p.ProductId
+			,CASE WHEN b.BetTypeId = 3007 THEN 3007 ELSE 0 END
 			,b.CurrencyId
 			,ISNULL(pc.PlayCurrency, b.CurrencyId)
 
 		UPDATE t
 		SET t.PayDaily = t.PayDaily + s.PayDaily
+			,t.PayDailyRate = t.PayDailyRate + s.PayDailyRate
 		FROM #__tempDataGMT t
 			INNER JOIN #__Special_PayToSupplier s
 				ON t.rptDate = s.rptDate
-					AND t.CurrencyId = s.CurrencyId
-					AND t.ProductId = s.ProductId
-					AND t.PlayCurrency = s.PlayCurrency
+					AND t.ParentId = s.ParentId
 					AND t.IsDeposit = s.IsDeposit
+					AND t.ProductId = s.ProductId
+					AND t.Bettype = s.Bettype
+					AND t.CurrencyId = s.CurrencyId
+					AND t.PlayCurrency = s.PlayCurrency
 
 		DROP TABLE #__Special_PayToSupplier
 	END
