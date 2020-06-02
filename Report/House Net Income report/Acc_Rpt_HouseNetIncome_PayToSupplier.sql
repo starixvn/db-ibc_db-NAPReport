@@ -130,7 +130,7 @@ BEGIN
 		AND s.BetType NOT IN (4299, 4300)
 
 	-- Use validbetamount
-	CREATE TABLE #__ValidBetAmount (IsDeposit BIT, ProductId INT, CommRate FLOAT)
+	CREATE TABLE #__ValidBetAmount (IsDeposit BIT, ProductId INT, FromDate DATE, ToDate DATE, CommRate FLOAT)
 
 	-- For Allbet
 	CREATE TABLE #__PlayCurrencySettings
@@ -154,10 +154,10 @@ BEGIN
 
 	IF @DepositType IN (0, 2) AND (',' + @ProductCodes + ',' LIKE '%,AB,%' OR ',' + @ProductCodes + ',' LIKE '%,SAG,%')
 	BEGIN
-		INSERT INTO #__ValidBetAmount (IsDeposit, ProductId, CommRate)
-		SELECT 0 IsDeposit, 21 ProductId, DI_Rate
+		INSERT INTO #__ValidBetAmount (IsDeposit, ProductId, FromDate, ToDate, CommRate)
+		SELECT DISTINCT IsDeposit, ProductId, FromDate, ToDate, DI_Rate
 		FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd (@FDate, @TDate, 'AB,SAG', 'OA')
-		WHERE ChargeType = 11 AND IsDeposit = 0
+		WHERE ChargeType = 11
 	END
 
 	INSERT INTO #__tempDataGMT (rptDate, ParentId, IsDeposit, ProductID, Bettype, CurrencyId, PlayCurrency, PayDaily, PayDailyRate, MemberWLRate)
@@ -167,11 +167,11 @@ BEGIN
 		,SUM(b.Winloss * e.Rate) AS MemberWLRate
 	FROM bodb_LicenseeReport.dbo.rpt_ThirdPartyWL_ExtraGMT b WITH (NOLOCK)
 		INNER JOIN #__Bettype bt ON b.BetTypeId = bt.BetType
-		INNER JOIN #__PartyCharge3rdInfo p ON p.LicenseeID = b.SiteID AND bt.ProductId = p.ProductId AND b.RptDate3rd BETWEEN p.FromDate AND p.ToDate
+		LEFT JOIN #__PartyCharge3rdInfo p ON p.LicenseeID = b.SiteID AND bt.ProductId = p.ProductId AND b.RptDate3rd BETWEEN p.FromDate AND p.ToDate
 		INNER JOIN bodb_licensee.dbo.view_site_list AS s WITH(NOLOCK) ON b.SiteId = s.SiteID
 		INNER JOIN #__ExchangeOANDA e ON b.RptDate3rd = e.ExchangeDate AND b.CurrencyId = e.ExchangeID
 		LEFT JOIN #__PlayCurrencySettings pc ON pc.SiteId = s.IbcSiteID AND b.CurrencyId = pc.MemberCurrency AND b.RptDate3rd BETWEEN pc.FromDate AND pc.ToDate
-		LEFT JOIN #__ValidBetAmount v ON p.IsDeposit = v.IsDeposit AND p.ProductId = v.ProductId
+		LEFT JOIN #__ValidBetAmount v ON p.IsDeposit = v.IsDeposit AND p.ProductId = v.ProductId AND b.RptDate3rd BETWEEN v.FromDate AND v.ToDate
 	WHERE b.RptDate BETWEEN @GMTFDate AND @GMTTDate
 		AND b.RptDate3rd BETWEEN @FDate AND @TDate
 		AND b.CurrencyID <> 20
@@ -341,17 +341,18 @@ BEGIN
 	IF @DepositType IN (0, 2)
 		AND EXISTS (SELECT 1 FROM #__tempDataGMT WHERE ProductId = 21)
 	BEGIN
-		WITH CTE_AB AS
+		;WITH CTE_AB AS
 		(
-			SELECT b.rptDate, b.PayDaily * (pe.Rate - oe.Rate) AS CurrencyPlay
+			SELECT b.rptDate, SUM(b.PayDaily * (pe.Rate - oe.Rate)) AS CurrencyPlay
 			FROM #__tempDataGMT b
 				INNER JOIN #__ExchangeOANDA oe ON oe.ExchangeDate = b.rptDate AND oe.ExchangeID = b.CurrencyId
 				INNER JOIN #__ExchangeOANDA pe ON pe.ExchangeDate = b.rptDate AND pe.ExchangeID = b.PlayCurrency
+			GROUP BY b.rptDate
 		)
 		UPDATE d
 		SET d.CurrencyPlay = c.CurrencyPlay
 		FROM #__DailyPayToSupplier d
-			INNER JOIN CTE_AB c ON d.rptDate = d.rptDate
+			INNER JOIN CTE_AB c ON d.rptDate = c.rptDate
 		WHERE d.ProductId = 21 AND d.IsDeposit = 0
 
 		UPDATE f
@@ -359,7 +360,7 @@ BEGIN
 								SELECT SUM(CurrencyPlay) AS CurrencyPlay
 								FROM #__DailyPayToSupplier
 								WHERE ProductId = 21 AND IsDeposit = 0
-								HAVING SUM(PayToSupplier) <= 0
+								HAVING SUM(PayToSupplier) < 0
 								), 0)
 		FROM #__FullRangePayToSupplier f
 		WHERE ProductId = 21 AND IsDeposit = 0
