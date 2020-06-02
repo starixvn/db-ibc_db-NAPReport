@@ -180,9 +180,6 @@ SET NOCOUNT ON
 	CREATE TABLE #tmpSporttype (
         Sporttype INT
     )
-	CREATE TABLE #tmpAllDepSuper (
-        Srecommend INT
-    )
 	CREATE TABLE #tmpSiteSuper (
         Srecommend INT
     )
@@ -198,6 +195,14 @@ SET NOCOUNT ON
 		Bettype INT,
 		WalletType VARCHAR(50)
 	)
+	
+	CREATE TABLE #tmpCurrency (CurrencyId INT)
+	
+	IF @Currency NOT IN ('0', '-1')
+    BEGIN
+		INSERT INTO #tmpCurrency (CurrencyId)
+		SELECT val FROM [dbo].strSplit(@Currency, ',')
+	END
 
 	IF @ProductID <> ''
     BEGIN
@@ -331,35 +336,11 @@ SET NOCOUNT ON
 		INSERT INTO #tmpSite (Site)
 		SELECT RTRIM(LTRIM(val)) FROM [dbo].strSplit(@Site, ',')
 		
-		----Specific Site
-		IF EXISTS (SELECT 1 FROM #tmpSite WHERE Site NOT IN ('MBC Group'))
-		BEGIN 
-			SELECT @IsSite = 1
-
-			INSERT INTO #tmpSiteSuper (Srecommend)
-			SELECT	f.custid 
-			FROM	#tmpSite s
-			CROSS APPLY f_DepSuper_1(s.Site) f		 
-		END
-
-
-		-- If 'MBC Group' : Credit Site only, so get the Srecommend of Deposit to exclude later  	
-		IF EXISTS (SELECT 1 FROM #tmpSite WHERE Site IN ('MBC Group'))					
-		BEGIN 
-
-			SELECT @IsMBC = 1   
-
-			INSERT INTO #tmpAllDepSuper (Srecommend)
-			SELECT custid FROM f_DepSuper_1('ALL')
-			
-			IF @IsSite = 1
-			BEGIN 				
-				DELETE A
-				FROM  #tmpAllDepSuper A
-				INNER JOIN #tmpSiteSuper S
-					ON A.Srecommend = S.Srecommend
-			END 			
-		END
+		INSERT INTO #tmpSiteSuper (Srecommend)
+		SELECT c.srecommend
+		FROM #tmpSite s
+			INNER JOIN dbo.Customer c WITH (NOLOCK) ON s.Site = c.site
+		WHERE c.roleid = 4		
 					
 	END	 
 
@@ -422,13 +403,12 @@ SET NOCOUNT ON
 			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE RefTable IN (0,3) AND ProductID NOT IN (3,4,5,27,26))
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
 			AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
-			AND (b.currency = @currency OR @currency IN (0,-1)) 			
+			AND (EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId) OR @currency IN ('0','-1')) 			
 			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
 			AND (EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom) OR @Device = '')
 			AND ( @Site = 'ALL'
-				  OR (EXISTS (SELECT 1 From #tmpSiteSuper s WHERE s.srecommend = b.srecommend) AND @IsSite = 1)
-				  OR (NOT EXISTS (SELECT 1 From #tmpAllDepSuper d WHERE d.srecommend = b.srecommend) AND @IsMBC = 1)
-			)
+				  OR EXISTS(SELECT 1 From #tmpSiteSuper s WHERE s.srecommend = b.srecommend)
+				)
 			AND (
 				@HousePTType = 0
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
@@ -484,13 +464,12 @@ SET NOCOUNT ON
 			AND b.GameId IN (SELECT Bettype FROM #SportBettype WHERE RefTable = 1 AND Bettype NOT IN (2198, 2398, 2998))
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
 			AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
-			AND (b.currency = @currency OR @currency IN (0,-1)) 			
+			AND (EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId) OR @currency IN ('0','-1')) 			
 			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
 			AND (EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom) OR @Device = '')
 			AND ( @Site = 'ALL'
-				  OR (EXISTS (SELECT 1 From #tmpSiteSuper s WHERE s.srecommend = b.srecommend) AND @IsSite = 1)
-				  OR (NOT EXISTS (SELECT 1 From #tmpAllDepSuper d WHERE d.srecommend = b.srecommend) AND @IsMBC = 1)
-			)
+				  OR EXISTS(SELECT 1 From #tmpSiteSuper s WHERE s.srecommend = b.srecommend)
+				)
 			AND (
 				@HousePTType = 0
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
@@ -542,13 +521,12 @@ SET NOCOUNT ON
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
 			AND b.gameID IN (SELECT Bettype FROM #SportBettype WHERE Bettype IN (2198, 2398, 2998))
 			AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
-			AND (b.currency = @currency OR @currency IN (0,-1)) 			
+			AND (EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId) OR @currency IN ('0','-1')) 			
 			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
 			AND (EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom) OR @Device = '')
 			AND ( @Site = 'ALL'
-				  OR (EXISTS (SELECT 1 From #tmpSiteSuper s WHERE s.srecommend = b.srecommend) AND @IsSite = 1)
-				  OR (NOT EXISTS (SELECT 1 From #tmpAllDepSuper d WHERE d.srecommend = b.srecommend) AND @IsMBC = 1)
-			)
+				  OR EXISTS(SELECT 1 From #tmpSiteSuper s WHERE s.srecommend = b.srecommend)
+				)
 			AND (
 				@HousePTType = 0
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
@@ -602,13 +580,12 @@ SET NOCOUNT ON
 			AND b.GameId IN (SELECT Bettype FROM #SportBettype WHERE RefTable = 2)
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
 			AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
-			AND (b.currency = @currency OR @currency IN (0,-1)) 			
+			AND (EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId) OR @currency IN ('0','-1')) 			
 			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
 			AND (EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom) OR @Device = '')
 			AND ( @Site = 'ALL'
-				  OR (EXISTS (SELECT 1 From #tmpSiteSuper s WHERE s.srecommend = b.srecommend) AND @IsSite = 1)
-				  OR (NOT EXISTS (SELECT 1 From #tmpAllDepSuper d WHERE d.srecommend = b.srecommend) AND @IsMBC = 1)
-			)
+				  OR EXISTS(SELECT 1 From #tmpSiteSuper s WHERE s.srecommend = b.srecommend)
+				)
 			AND (
 				@HousePTType = 0
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
@@ -664,13 +641,12 @@ SET NOCOUNT ON
 			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 26)
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets			
 			AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
-			AND (b.currency = @currency OR @currency IN (0,-1)) 			
+			AND (EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId) OR @currency IN ('0','-1')) 			
 			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
 			AND (EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom) OR @Device = '')
 			AND ( @Site = 'ALL'
-				  OR (EXISTS (SELECT 1 From #tmpSiteSuper s WHERE s.srecommend = b.srecommend) AND @IsSite = 1)
-				  OR (NOT EXISTS (SELECT 1 From #tmpAllDepSuper d WHERE d.srecommend = b.srecommend) AND @IsMBC = 1)
-			)
+				  OR EXISTS(SELECT 1 From #tmpSiteSuper s WHERE s.srecommend = b.srecommend)
+				)
 			AND (
 				@HousePTType = 0
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
@@ -729,13 +705,12 @@ SET NOCOUNT ON
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
 			AND EXISTS (SELECT 1 FROM #tmpLeagueID l WHERE m.leagueid = l.LeagueID AND l.Bettype = b.bettype)
 			AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
-			AND (b.currency = @currency OR @currency IN (0,-1)) 			
+			AND (EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId) OR @currency IN ('0','-1')) 			
 			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
 			AND (EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom) OR @Device = '')
 			AND ( @Site = 'ALL'
-				  OR (EXISTS (SELECT 1 From #tmpSiteSuper s WHERE s.srecommend = b.srecommend) AND @IsSite = 1)
-				  OR (NOT EXISTS (SELECT 1 From #tmpAllDepSuper d WHERE d.srecommend = b.srecommend) AND @IsMBC = 1)
-			)
+				  OR EXISTS(SELECT 1 From #tmpSiteSuper s WHERE s.srecommend = b.srecommend)
+				)
 			AND (
 				@HousePTType = 0
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
@@ -792,13 +767,12 @@ SET NOCOUNT ON
 			AND b.bettype in (SELECT Bettype FROM #SportBettype WHERE ProductID = 4)
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
 			AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
-			AND (b.currency = @currency OR @currency IN (0,-1)) 			
+			AND (EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId) OR @currency IN ('0','-1')) 			
 			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
 			AND (EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom) OR @Device = '')
 			AND ( @Site = 'ALL'
-				  OR (EXISTS (SELECT 1 From #tmpSiteSuper s WHERE s.srecommend = b.srecommend) AND @IsSite = 1)
-				  OR (NOT EXISTS (SELECT 1 From #tmpAllDepSuper d WHERE d.srecommend = b.srecommend) AND @IsMBC = 1)
-			)
+				  OR EXISTS(SELECT 1 From #tmpSiteSuper s WHERE s.srecommend = b.srecommend)
+				)
 			AND (
 				@HousePTType = 0
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
@@ -856,13 +830,12 @@ SET NOCOUNT ON
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
 			AND EXISTS (SELECT 1 FROM Match14 m WITH (NOLOCK) INNER JOIN #tmpSporttype sp ON sp.Sporttype = m.sporttype WHERE m.matchid = b.matchid)			
 			AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
-			AND (b.currency = @currency OR @currency IN (0,-1)) 			
+			AND (EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId) OR @currency IN ('0','-1')) 			
 			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
 			AND (EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom) OR @Device = '')
 			AND ( @Site = 'ALL'
-				  OR (EXISTS (SELECT 1 From #tmpSiteSuper s WHERE s.srecommend = b.srecommend) AND @IsSite = 1)
-				  OR (NOT EXISTS (SELECT 1 From #tmpAllDepSuper d WHERE d.srecommend = b.srecommend) AND @IsMBC = 1)
-			)
+				  OR EXISTS(SELECT 1 From #tmpSiteSuper s WHERE s.srecommend = b.srecommend)
+				)
 			AND (
 				@HousePTType = 0
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
@@ -920,13 +893,12 @@ SET NOCOUNT ON
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
 			AND EXISTS (SELECT 1 From VSRaceInfo r WITH (NOLOCK) INNER JOIN #tmpSporttype sp ON sp.Sporttype = r.sporttype WHERE r.EventID = b.matchid)
 			AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
-			AND (b.currency = @currency OR @currency IN (0,-1)) 			
+			AND (EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId) OR @currency IN ('0','-1')) 			
 			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
 			AND (EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom) OR @Device = '')
 			AND ( @Site = 'ALL'
-				  OR (EXISTS (SELECT 1 From #tmpSiteSuper s WHERE s.srecommend = b.srecommend) AND @IsSite = 1)
-				  OR (NOT EXISTS (SELECT 1 From #tmpAllDepSuper d WHERE d.srecommend = b.srecommend) AND @IsMBC = 1)
-			)
+				  OR EXISTS(SELECT 1 From #tmpSiteSuper s WHERE s.srecommend = b.srecommend)
+				)
 			AND (
 				@HousePTType = 0
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
@@ -986,13 +958,12 @@ SET NOCOUNT ON
 									INNER JOIN #tmpSporttype st ON m.sporttype = st.Sporttype 
 								WHERE m.matchid = b.matchid)
 			AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
-			AND (b.currency = @currency OR @currency IN (0,-1)) 			
+			AND (EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId) OR @currency IN ('0','-1')) 			
 			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
 			AND (EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom) OR @Device = '')
 			AND ( @Site = 'ALL'
-				  OR (EXISTS (SELECT 1 From #tmpSiteSuper s WHERE s.srecommend = b.srecommend) AND @IsSite = 1)
-				  OR (NOT EXISTS (SELECT 1 From #tmpAllDepSuper d WHERE d.srecommend = b.srecommend) AND @IsMBC = 1)
-			)
+				  OR EXISTS(SELECT 1 From #tmpSiteSuper s WHERE s.srecommend = b.srecommend)
+				)
 			AND (
 				@HousePTType = 0
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
@@ -1053,13 +1024,12 @@ SET NOCOUNT ON
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
 			AND EXISTS(SELECT 1 FROM #tmp_bettransm bm WHERE bm.refno = b.refno)
 			AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
-			AND (b.currency = @currency OR @currency IN (0,-1)) 			
+			AND (EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId) OR @currency IN ('0','-1')) 			
 			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
 			AND (EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom) OR @Device = '')
 			AND ( @Site = 'ALL'
-				  OR (EXISTS (SELECT 1 From #tmpSiteSuper s WHERE s.srecommend = b.srecommend) AND @IsSite = 1)
-				  OR (NOT EXISTS (SELECT 1 From #tmpAllDepSuper d WHERE d.srecommend = b.srecommend) AND @IsMBC = 1)
-			)
+				  OR EXISTS(SELECT 1 From #tmpSiteSuper s WHERE s.srecommend = b.srecommend)
+				)
 			AND (
 				@HousePTType = 0
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
@@ -1079,7 +1049,7 @@ SET NOCOUNT ON
 	SELECT [Hour], [Description]
 	FROM DBDW.[bodb_Account].[dbo].[DimHour]
 		
-	IF @Currency = -1  
+	IF @Currency = '-1'  
 	BEGIN 		
 		INSERT INTO #Result ([Hour], NoOfPlayers, BetCount,	Currency, TotalBets, TotalWins, GamePayout, TotalRefund, 
 							CompanyTurnover, CompanyGrossIncome, CompanyComm, ExtraPT)							
@@ -1128,7 +1098,6 @@ SET NOCOUNT ON
 	DROP TABLE #Result
 	DROP TABLE #SportBettype
 	DROP TABLE #Temp_MemIDs
-	DROP TABLE #tmpAllDepSuper
 	DROP TABLE #tmpBetType
 	DROP TABLE #tmpDevice
 	DROP TABLE #tmpLeagueId
@@ -1139,6 +1108,7 @@ SET NOCOUNT ON
 	DROP TABLE #tmp_bettransm
 	DROP TABLE #Device
 	DROP TABLE #ExtraComm
+	DROP TABLE #tmpCurrency
 
 END 
 

@@ -149,6 +149,7 @@ BEGIN
 	CREATE TABLE #tmp_BetType		(Bettype INT)
 	CREATE TABLE #tmp_LeagueID		(LeagueID INT, Bettype INT)
 	CREATE TABLE #tmp_SportType		(Sporttype INT)
+	CREATE TABLE #tmpCurrency		(CurrencyId INT)
 	CREATE TABLE #tmp_Device		(Betfrom NVARCHAR(2))
 	CREATE TABLE #tmp_Site			(Site VARCHAR(50))
 	CREATE TABLE #tmp_MemIDs		(CustID INT)
@@ -165,6 +166,12 @@ BEGIN
 	BEGIN
 		INSERT INTO #tmp_BetType (Bettype)
 		SELECT val FROM dbo.strSplit(@BetType, ',')
+	END
+	
+	IF @Currency NOT IN ('0', '-1')
+    BEGIN
+		INSERT INTO #tmpCurrency (CurrencyId)
+		SELECT val FROM [dbo].strSplit(@Currency, ',')
 	END
 
 	DECLARE @splitter1 char(1) = ',', @splitter2 char(1) = '-',
@@ -277,36 +284,18 @@ BEGIN
 	
 	-- Get Site	
 	CREATE TABLE #tmp_Company (SiteName VARCHAR(50), Srecommend INT, isDeposit BIT)
-	CREATE TABLE #DepositSuper (CustId INT)
 
 	IF @Site <> 'ALL'
 	BEGIN
 		INSERT INTO #tmp_Site (Site)
 		SELECT RTRIM(LTRIM(val)) FROM dbo.strSplit(@Site, ',')
 
-		IF EXISTS (SELECT 1 FROM #tmp_Site WHERE Site NOT IN ('MBC Group')) -- Deposit Or Credit Drill Down
-		BEGIN	
-			INSERT INTO #tmp_Company (SiteName, Srecommend, isDeposit)
-			SELECT s.Site, c.srecommend, ss.isDeposit
-			FROM #tmp_Site s
-				INNER JOIN dbo.Site ss WITH (NOLOCK) ON s.Site = ss.site
-				INNER JOIN dbo.Customer c WITH (NOLOCK) ON ss.Site = c.site
-			WHERE c.roleid = 4
-		END
-
-		IF EXISTS (SELECT 1 FROM #tmp_Site WHERE Site IN ('MBC Group'))					
-		BEGIN
-			INSERT INTO #DepositSuper
-			SELECT CustId
-			FROM f_DepSuper_1( 'All' )
-		
-			INSERT INTO #tmp_Company (SiteName, Srecommend, isDeposit)
-			SELECT c.site, c.srecommend, 0
-			FROM dbo.Customer c WITH (NOLOCK)
-				LEFT JOIN #DepositSuper d ON c.srecommend = d.CustId 
-			WHERE c.roleid = 4
-				AND d.CustId IS NULL
-		END			
+		INSERT INTO #tmp_Company (SiteName, Srecommend, isDeposit)
+		SELECT s.Site, c.srecommend, ss.isDeposit
+		FROM #tmp_Site s
+			INNER JOIN dbo.Site ss WITH (NOLOCK) ON s.Site = ss.site
+			INNER JOIN dbo.Customer c WITH (NOLOCK) ON ss.Site = c.site
+		WHERE c.roleid = 4
 	END
 	-- Don't need to handle 'ALL' site, because with this case we will get all ticket
                         
@@ -405,7 +394,7 @@ BEGIN
 			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) 
 			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
-			AND (@Currency IN (0, -1) OR b.currency = @Currency)	
+			AND (@Currency IN ('0', '-1') OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId))	
 			AND (@Username = '' OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
 			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
@@ -478,7 +467,7 @@ BEGIN
 			AND b.gameID IN (SELECT Bettype FROM #SportBettype WHERE RefTable = 1 AND Bettype NOT IN (2198, 2398, 2998))
 			AND b.statusID IN (111, 112, 113, 103) 
 			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
-			AND (@Currency IN (0, -1) OR b.currency = @Currency)	
+			AND (@Currency IN ('0', '-1') OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId))	
 			AND (@Username = '' OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
 			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
@@ -549,7 +538,7 @@ BEGIN
 			AND b.gameID IN (SELECT Bettype FROM #SportBettype WHERE Bettype IN (2198, 2398, 2998))
 			AND b.statusID IN (111, 112, 113, 103) 
 			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
-			AND (@Currency IN (0, -1) OR b.currency = @Currency)	
+			AND (@Currency IN ('0', '-1') OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId))	
 			AND (@Username = '' OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
 			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
@@ -620,7 +609,7 @@ BEGIN
 			AND b.gameID IN (SELECT Bettype FROM #SportBettype WHERE RefTable = 2)
 			AND b.statusID IN (111, 112, 113, 103) 
 			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
-			AND (@Currency IN (0, -1) OR b.currency = @Currency)	
+			AND (@Currency IN ('0', '-1') OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId))	
 			AND (@Username = '' OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
 			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
@@ -692,7 +681,7 @@ BEGIN
 			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) 
 			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
-			AND (@Currency IN (0, -1) OR b.currency = @Currency)	
+			AND (@Currency IN ('0', '-1') OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId))	
 			AND (@Username = '' OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
 			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
@@ -770,7 +759,7 @@ BEGIN
 			AND b.statusID IN (111, 112, 113, 103) 
 			AND EXISTS (SELECT 1 FROM Match m WITH (NOLOCK) INNER JOIN #tmp_LeagueID l ON m.leagueid = l.LeagueID WHERE m.matchid = b.matchid AND l.Bettype = b.bettype)
 			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
-			AND (@Currency IN (0, -1) OR b.currency = @Currency)	
+			AND (@Currency IN ('0', '-1') OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId))	
 			AND (@Username = '' OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
 			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
@@ -847,7 +836,7 @@ BEGIN
 			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) 
 			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
-			AND (@Currency IN (0, -1) OR b.currency = @Currency)	
+			AND (@Currency IN ('0', '-1') OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId))	
 			AND (@Username = '' OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
 			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
@@ -926,7 +915,7 @@ BEGIN
 			AND b.matchid IN (SELECT matchid FROM dbo.match WITH (NOLOCK)
 								WHERE sporttype IN (SELECT Sporttype FROM #tmp_Sporttype))		
 			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
-			AND (@Currency IN (0, -1) OR b.currency = @Currency)	
+			AND (@Currency IN ('0', '-1') OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId))	
 			AND (@Username = '' OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
 			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
@@ -1003,7 +992,7 @@ BEGIN
 								WHERE sporttype IN (SELECT Sporttype FROM #tmp_Sporttype))				
 				)	
 			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
-			AND (@Currency IN (0, -1) OR b.currency = @Currency)	
+			AND (@Currency IN ('0', '-1') OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId))	
 			AND (@Username = '' OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
 			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
@@ -1088,7 +1077,7 @@ BEGIN
 			AND b.matchid IN (SELECT m.matchid FROM dbo.match m WITH (NOLOCK) 
 								WHERE m.sporttype IN (SELECT Sporttype FROM #tmp_Sporttype))
 			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
-			AND (@Currency IN (0, -1) OR b.currency = @Currency)	
+			AND (@Currency IN ('0', '-1') OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId))	
 			AND (@Username = '' OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
 			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
@@ -1162,7 +1151,7 @@ BEGIN
 			AND b.statusID IN (111, 112, 113, 103) 
 			AND b.refno IN (SELECT refno FROM #tmp_bettransm)
 			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
-			AND (@Currency IN (0, -1) OR b.currency = @Currency)	
+			AND (@Currency IN ('0', '-1') OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId))	
 			AND (@Username = '' OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
 			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
@@ -1265,7 +1254,7 @@ BEGIN
 	END
 	--End Product Name
 	------------------------------------------III. Drill down data ------------------------------------------------------
-	IF @Currency = -1 -- BaseRM
+	IF @Currency = '-1' -- BaseRM
 	BEGIN		
 		INSERT INTO #Result
 			(	ProductID ,
@@ -1408,17 +1397,17 @@ BEGIN
 				SUM(b.BetCount) AS BetCount,
 				b.CurrencyID,
 				b.Currency,
-				CASE WHEN @Currency = -1 THEN SUM(b.TotalBetsBase) ELSE SUM(b.TotalBets) END AS TotalBets,
-				CASE WHEN @Currency = -1 THEN SUM(b.TotalWinsBase) ELSE SUM(b.TotalWins) END AS TotalWins,
-				CASE WHEN @Currency = -1 THEN SUM(b.TotalRefundBase) ELSE SUM(b.TotalRefund) END AS TotalRefund,
-				CASE WHEN @Currency = -1 THEN SUM(b.CompanyTurnOverBase) 
+				CASE WHEN @Currency = '-1' THEN SUM(b.TotalBetsBase) ELSE SUM(b.TotalBets) END AS TotalBets,
+				CASE WHEN @Currency = '-1' THEN SUM(b.TotalWinsBase) ELSE SUM(b.TotalWins) END AS TotalWins,
+				CASE WHEN @Currency = '-1' THEN SUM(b.TotalRefundBase) ELSE SUM(b.TotalRefund) END AS TotalRefund,
+				CASE WHEN @Currency = '-1' THEN SUM(b.CompanyTurnOverBase) 
 					 ELSE SUM(b.CompanyTurnOver) END AS HouseTurnOver,
-				CASE WHEN @Currency = -1 THEN SUM(b.CompanyGrossIncomeBase) ELSE SUM(b.CompanyGrossIncome) END AS HouseGrossIncome,
-				CASE WHEN @Currency = -1 THEN SUM(b.CompanyCommBase) ELSE SUM(b.CompanyComm) END AS HouseComm,
-				CASE WHEN @Currency = -1 THEN SUM(b.ExtraPTBase) 
+				CASE WHEN @Currency = '-1' THEN SUM(b.CompanyGrossIncomeBase) ELSE SUM(b.CompanyGrossIncome) END AS HouseGrossIncome,
+				CASE WHEN @Currency = '-1' THEN SUM(b.CompanyCommBase) ELSE SUM(b.CompanyComm) END AS HouseComm,
+				CASE WHEN @Currency = '-1' THEN SUM(b.ExtraPTBase) 
 					ELSE SUM(b.ExtraPT) END AS ExtraPT
 			FROM #Data b	
-				INNER JOIN #Result r ON (@Currency = -1 OR b.CurrencyID = r.CurrencyID) AND b.ProductName = r.ProductName	
+				INNER JOIN #Result r ON (@Currency = '-1' OR b.CurrencyID = r.CurrencyID) AND b.ProductName = r.ProductName	
 				INNER JOIN #SportBettype s ON b.bettype = s.Bettype 
 			GROUP BY b.ProductID, b.ProductName, b.CurrencyID , b.Currency	
 			ORDER BY b.Currency
@@ -1432,17 +1421,17 @@ BEGIN
 				SUM(b.BetCount) AS BetCount,
 				b.CurrencyID,
 				b.Currency,
-				CASE WHEN @Currency = -1 THEN SUM(b.TotalBetsBase) ELSE SUM(b.TotalBets) END AS TotalBets,
-				CASE WHEN @Currency = -1 THEN SUM(b.TotalWinsBase) ELSE SUM(b.TotalWins) END AS TotalWins,
-				CASE WHEN @Currency = -1 THEN SUM(b.TotalRefundBase) ELSE SUM(b.TotalRefund) END AS TotalRefund,
-				CASE WHEN @Currency = -1 THEN SUM(b.CompanyTurnOverBase) 
+				CASE WHEN @Currency = '-1' THEN SUM(b.TotalBetsBase) ELSE SUM(b.TotalBets) END AS TotalBets,
+				CASE WHEN @Currency = '-1' THEN SUM(b.TotalWinsBase) ELSE SUM(b.TotalWins) END AS TotalWins,
+				CASE WHEN @Currency = '-1' THEN SUM(b.TotalRefundBase) ELSE SUM(b.TotalRefund) END AS TotalRefund,
+				CASE WHEN @Currency = '-1' THEN SUM(b.CompanyTurnOverBase) 
 					 ELSE SUM(b.CompanyTurnOver) END AS HouseTurnOver,
-				CASE WHEN @Currency = -1 THEN SUM(b.CompanyGrossIncomeBase) ELSE SUM(b.CompanyGrossIncome) END AS HouseGrossIncome,
-				CASE WHEN @Currency = -1 THEN SUM(b.CompanyCommBase) ELSE SUM(b.CompanyComm) END AS HouseComm,
-				CASE WHEN @Currency = -1 THEN SUM(b.ExtraPTBase) 
+				CASE WHEN @Currency = '-1' THEN SUM(b.CompanyGrossIncomeBase) ELSE SUM(b.CompanyGrossIncome) END AS HouseGrossIncome,
+				CASE WHEN @Currency = '-1' THEN SUM(b.CompanyCommBase) ELSE SUM(b.CompanyComm) END AS HouseComm,
+				CASE WHEN @Currency = '-1' THEN SUM(b.ExtraPTBase) 
 					ELSE SUM(b.ExtraPT) END AS ExtraPT
 		FROM #Data b	
-			INNER JOIN #Result r ON (@Currency = -1 OR b.CurrencyID = r.CurrencyID) AND b.ProductName = r.ProductName
+			INNER JOIN #Result r ON (@Currency = '-1' OR b.CurrencyID = r.CurrencyID) AND b.ProductName = r.ProductName
 			INNER JOIN #SportBettype s ON b.bettype = s.Bettype 	
 		GROUP BY b.CurrencyID , b.Currency	
 		ORDER BY b.Currency
@@ -1479,9 +1468,9 @@ BEGIN
 	DROP TABLE #tmp_SportType
 	DROP TABLE #tmp_bettrans
 	DROP TABLE #tmp_bettransm
-	DROP TABLE #DepositSuper 
 	DROP TABLE #Device
 	DROP TABLE #ExtraComm
+	DROP TABLE #tmpCurrency
 	
 END
 
