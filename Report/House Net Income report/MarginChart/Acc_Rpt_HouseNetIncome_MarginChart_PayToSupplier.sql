@@ -157,7 +157,7 @@ BEGIN
 		INSERT INTO #__ValidBetAmount (IsDeposit, ProductId, FromDate, ToDate, CommRate)
 		SELECT DISTINCT IsDeposit, ProductId, FromDate, ToDate, DI_Rate
 		FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd (@FDate, @TDate, 'AB,SAG', 'OA')
-		WHERE ChargeType = 11
+		WHERE ChargeType = 11 AND IsDeposit = 0
 	END
 
 	INSERT INTO #__tempDataGMT (rptDate, ParentId, IsDeposit, ProductID, Bettype, CurrencyId, PlayCurrency, PayDaily, PayDailyRate, MemberWLRate)
@@ -300,25 +300,6 @@ BEGIN
 		GROUP BY d.rptDate
 	END
 
-	-- Spadegaming and Sexy Gaming for Deposit
-	IF @DepositType IN (1, 2)
-		AND EXISTS (SELECT 1 FROM #__tempDataGMT WHERE ProductId IN (36, 45))
-	BEGIN
-		;WITH CTE_SXG AS
-		(
-			SELECT ProductId, CASE WHEN ProductId = 36 AND ParentId <> 1 THEN -1 ELSE ParentId END AS ParentId
-				,SUM(PayDailyRate) AS PayToSupplier
-			FROM #__tempDataGMT
-			WHERE ProductId IN (36, 45)
-			GROUP BY ProductId, CASE WHEN ProductId = 36 AND ParentId <> 1 THEN -1 ELSE ParentId END
-			HAVING SUM(MemberWLRate) <= 0
-		)
-		INSERT INTO #__FullRangePayToSupplier (IsDeposit, ProductId, PayToSupplier)
-		SELECT 1, ProductId, SUM(PayToSupplier)
-		FROM CTE_SXG
-		GROUP BY ProductId
-	END
-
 	-- Other products
 	BEGIN
 		INSERT INTO #__DailyPayToSupplier (IsDeposit, ProductId, rptDate, PayToSupplier)
@@ -332,8 +313,7 @@ BEGIN
 		INSERT INTO #__FullRangePayToSupplier (IsDeposit, ProductId, PayToSupplier)
 		SELECT IsDeposit, ProductId, SUM(PayToSupplier)
 		FROM #__DailyPayToSupplier
-		WHERE (IsDeposit = 0 AND ProductId <> 22)
-			OR (IsDeposit = 1 AND ProductId NOT IN (36, 45))
+		WHERE (IsDeposit = 1 OR ProductId <> 22)
 		GROUP BY IsDeposit, ProductId
 	END
 
@@ -360,7 +340,6 @@ BEGIN
 								SELECT SUM(CurrencyPlay) AS CurrencyPlay
 								FROM #__DailyPayToSupplier
 								WHERE ProductId = 21 AND IsDeposit = 0
-								HAVING SUM(PayToSupplier) < 0
 								), 0)
 		FROM #__FullRangePayToSupplier f
 		WHERE ProductId = 21 AND IsDeposit = 0
@@ -405,5 +384,4 @@ BEGIN
 	DROP TABLE #__DailyPayToSupplier
 	DROP TABLE #__FullRangePayToSupplier
 END
-GO
 GO
