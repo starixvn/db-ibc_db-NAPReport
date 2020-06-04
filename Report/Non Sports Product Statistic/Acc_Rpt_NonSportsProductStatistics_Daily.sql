@@ -1215,8 +1215,7 @@ SET NOCOUNT ON
 	DROP TABLE #tmp_Site
 	DROP TABLE #tmp_Company
 	DROP TABLE #tmpSporttype
-	DROP TABLE #tmp_bettransm 
-	DROP TABLE #DepositSuper  
+	DROP TABLE #tmp_bettransm   
 	DROP TABLE #Device
 	DROP TABLE #ExtraComm
 	DROP TABLE #tmpCurrency

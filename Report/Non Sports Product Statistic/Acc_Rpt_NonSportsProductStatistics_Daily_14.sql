@@ -159,6 +159,7 @@ SET NOCOUNT ON
 	CREATE TABLE #tmpLeagueId (LeagueId INT, Bettype INT)  
 	CREATE TABLE #tmpSporttype (Sporttype INT)
 	CREATE TABLE #tmp_Site (Site VARCHAR(50))	
+	CREATE TABLE #tmpCurrency		(CurrencyId INT)
 	CREATE TABLE #tmp_Company (SiteName VARCHAR(50), Srecommend INT)
 	CREATE TABLE #tmpDevice (Betfrom NVARCHAR(2))
 	CREATE TABLE #ExtraComm (ProductID INT, SuperID INT, ExtraComm DECIMAL(9, 8))		        
@@ -173,6 +174,12 @@ SET NOCOUNT ON
     BEGIN
 		INSERT INTO #tmpBetType (Bettype)
 		SELECT val FROM [dbo].strSplit(@Bettype, ',')
+	END
+	
+	IF @Currency NOT IN ('0', '-1')
+    BEGIN
+		INSERT INTO #tmpCurrency (CurrencyId)
+		SELECT val FROM [dbo].strSplit(@Currency, ',')
 	END
 	
 	DECLARE @splitter1 char(1) = ',', @splitter2 char(1) = '-',
@@ -273,7 +280,6 @@ SET NOCOUNT ON
 
 	--- End Sport Bettype Matrix------
 
-	CREATE TABLE #DepositSuper (CustId INT)
 	IF @Site <> 'ALL'
 	BEGIN
 		INSERT INTO #tmp_Site (Site)
@@ -1194,7 +1200,6 @@ SET NOCOUNT ON
 	DROP TABLE #tmp_Company
 	DROP TABLE #tmpSporttype
 	DROP TABLE #tmp_bettransm 
-	DROP TABLE #DepositSuper 
 	DROP TABLE #Device
 	DROP TABLE #ExtraComm
 	DROP TABLE #tmpCurrency
