@@ -1478,7 +1478,9 @@ BEGIN
 		HousePT DECIMAL(19,4),
 		GamePayout DECIMAL(19,4),
 		CompanyNetIncome DECIMAL(19,4), 
+		CompanyNetIncomeBase DECIMAL(19,4), 
 		GameIncome DECIMAL(19,4),
+		GameIncomeBase DECIMAL(19,4),
 		ExtraPT DECIMAL(19,8), 
 		ExtraPTBase DECIMAL(19,8),
 		RowNum INT
@@ -1500,9 +1502,7 @@ BEGIN
 		ELSE
 			CREATE NONCLUSTERED INDEX IX_srecommend ON #Data (srecommend)
 
-		IF @Currency = '-1'
-		BEGIN
-			;WITH Result AS (
+		;WITH Result AS (
 				SELECT
 					CASE @roleID
 						WHEN 1 THEN custid
@@ -1513,95 +1513,12 @@ BEGIN
 					SUM(BetCount) AS BetCount,
 					CurrencyID,
 					ProductID,
-					SUM(TotalBetsBase) AS TotalBets,
-					SUM(TotalWinsBase) AS TotalWins,
-					SUM(TotalRefundBase) AS TotalRefund,
-					SUM(CompanyTurnoverBase) AS CompanyTurnover,		
-					SUM(CompanyGrossIncomeBase) AS CompanyGrossIncome,
-					SUM(CompanyCommBase) AS CompanyComm,
-					SUM(TotalBetsBase)  AS TotalBetsBase,
-					SUM(TotalWinsBase) AS TotalWinsBase,
-					SUM(TotalRefundBase) AS TotalRefundBase,
-					SUM(CompanyTurnoverBase) AS CompanyTurnoverBase,		
-					SUM(CompanyGrossIncomeBase) AS CompanyGrossIncomeBase,
-					SUM(CompanyCommBase) AS CompanyCommBase,
-					SUM(HousePT) AS HousePT,
-					SUM(ExtraPTBase) ExtraPT,
-					SUM(ExtraPTBase) ExtraPTBase,
-					SUM(RowNum) AS RowNum
-				FROM #Data
-				GROUP BY CASE @roleID
-						WHEN 1 THEN custid
-						WHEN 2 THEN recommend
-						WHEN 3 THEN mrecommend
-						WHEN 4 THEN srecommend
-						END, CurrencyID, ProductID
-			)
-			INSERT INTO #tmp_Result
-			(
-				custid,
-				BetCount,
-				CurrencyID,
-				ProductID,
-				TotalBets,
-				TotalWins,
-				TotalRefund,
-				CompanyTurnover,
-				CompanyGrossIncome,
-				CompanyComm,
-				TotalBetsBase,
-				TotalWinsBase,
-				TotalRefundBase,
-				CompanyTurnoverBase,
-				CompanyGrossIncomeBase,
-				CompanyCommBase,
-				HousePT,
-				ExtraPT,
-				ExtraPTBase,
-				RowNum
-			)
-			SELECT
-				custid,
-				BetCount,
-				CurrencyID,
-				ProductID,
-				TotalBets,
-				TotalWins,
-				TotalRefund,
-				CompanyTurnover,
-				CompanyGrossIncome,
-				CompanyComm,
-				TotalBetsBase,
-				TotalWinsBase,
-				TotalRefundBase,
-				CompanyTurnoverBase,
-				CompanyGrossIncomeBase,
-				CompanyCommBase,
-				HousePT,
-				ExtraPT,
-				ExtraPTBase,
-				RowNum
-			FROM Result
-		END
-		ELSE
-		BEGIN
-			;WITH Result AS (
-				SELECT
-					CASE @roleID
-						WHEN 1 THEN custid
-						WHEN 2 THEN recommend
-						WHEN 3 THEN mrecommend
-						WHEN 4 THEN srecommend
-						END AS custid,
-					SUM(BetCount) AS BetCount,
-					CurrencyID,
-					ProductID,
-					SUM(TotalBets) AS TotalBets,
-					SUM(TotalWins) AS TotalWins,
-					SUM(TotalRefund) AS TotalRefund,
-					SUM(CompanyTurnover) AS CompanyTurnover,		
-					SUM(CompanyGrossIncome) AS CompanyGrossIncome,
-					SUM(CompanyComm) AS CompanyComm,
+					SUM(CASE WHEN @Currency = '-1' THEN TotalBetsBase ELSE TotalBets END) AS TotalBets,
+					SUM(CASE WHEN @Currency = '-1' THEN TotalWinsBase ELSE TotalWins END) AS TotalWins,
+					SUM(CASE WHEN @Currency = '-1' THEN TotalRefundBase ELSE TotalRefund END) AS TotalRefund,
+					SUM(CASE WHEN @Currency = '-1' THEN CompanyTurnoverBase ELSE CompanyTurnover END) AS CompanyTurnover,		
+					SUM(CASE WHEN @Currency = '-1' THEN CompanyGrossIncomeBase ELSE CompanyGrossIncome END) AS CompanyGrossIncome,
+					SUM(CASE WHEN @Currency = '-1' THEN CompanyCommBase ELSE CompanyComm END) AS CompanyComm,
 					SUM(TotalBetsBase)  AS TotalBetsBase,
 					SUM(TotalWinsBase) AS TotalWinsBase,
 					SUM(TotalRefundBase) AS TotalRefundBase,
@@ -1665,13 +1582,14 @@ BEGIN
 				ExtraPTBase,
 				RowNum
 			FROM Result
-		END
 	END
 	
 	UPDATE #tmp_Result
 	SET GamePayout = CASE WHEN TotalBets = 0 THEN 0 ELSE TotalWins/TotalBets END,
 		CompanyNetIncome = CompanyGrossIncome + CompanyComm,
-		GameIncome = TotalBets - TotalWins
+		GameIncome = TotalBets - TotalWins,
+		CompanyNetIncomeBase = CompanyGrossIncomeBase + CompanyCommBase,
+		GameIncomeBase = TotalBetsBase - TotalWinsBase
 
 	CREATE TABLE #tmp_Result2
 	( 
@@ -1693,7 +1611,9 @@ BEGIN
 		HousePT DECIMAL(19,4),
 		GamePayout DECIMAL(19,4),
 		CompanyNetIncome DECIMAL(19,4), 
+		CompanyNetIncomeBase DECIMAL(19,4), 
 		GameIncome DECIMAL(19,4),
+		GameIncomeBase DECIMAL(19,4),
 		ExtraPT DECIMAL(19,8),
 		ExtraPTBase DECIMAL(19,8)
 	)
@@ -1718,7 +1638,9 @@ BEGIN
 		HousePT,
 		GamePayout,
 		CompanyNetIncome, 
+		CompanyNetIncomeBase, 
 		GameIncome,
+		GameIncomeBase,
 		ExtraPT,
 		ExtraPTBase
 	)
@@ -1742,7 +1664,9 @@ BEGIN
 				 WHEN BetCount = 0 THEN NULL ELSE HousePT/BetCount END) AS HousePT,
 		SUM(GamePayout) GamePayout,
 		SUM(CompanyNetIncome) CompanyNetIncome, 
+		SUM(CompanyNetIncomeBase) CompanyNetIncomeBase, 
 		SUM(GameIncome) GameIncome,
+		SUM(GameIncomeBase) GameIncomeBase,
 		SUM(ExtraPT),
 		SUM(ExtraPTBase)
 	FROM #tmp_Result
@@ -1821,7 +1745,9 @@ BEGIN
 				AVG(HousePT) AS HousePT,
 				SUM(GamePayout) GamePayout,
 				SUM(CompanyNetIncome) CompanyNetIncome, 
+				SUM(CompanyNetIncomeBase) CompanyNetIncomeBase, 
 				SUM(GameIncome) GameIncome,
+				SUM(GameIncomeBase) GameIncomeBase,
 				SUM(ExtraPT) ExtraPT,
 				SUM(ExtraPTBase) ExtraPTBase
 			FROM #tmp_Result2
@@ -1829,30 +1755,30 @@ BEGIN
 		), Result AS (
 			SELECT *,
 				CASE WHEN @SortColumnName = 'BetCount' THEN RANK() OVER(ORDER BY BetCount DESC) 
-				WHEN @SortColumnName = 'TotalBets' THEN RANK() OVER(ORDER BY TotalBets DESC)
-				WHEN @SortColumnName = 'TotalWins' THEN RANK() OVER(ORDER BY TotalWins DESC)
-				WHEN @SortColumnName = 'TotalRefund' THEN RANK() OVER(ORDER BY TotalRefund DESC)
-				WHEN @SortColumnName = 'GameIncome' THEN RANK() OVER(ORDER BY GameIncome)
+				WHEN @SortColumnName = 'TotalBets' THEN RANK() OVER(ORDER BY TotalBetsBase DESC)
+				WHEN @SortColumnName = 'TotalWins' THEN RANK() OVER(ORDER BY TotalWinsBase DESC)
+				WHEN @SortColumnName = 'TotalRefund' THEN RANK() OVER(ORDER BY TotalRefundBase DESC)
+				WHEN @SortColumnName = 'GameIncome' THEN RANK() OVER(ORDER BY GameIncomeBase)
 				WHEN @SortColumnName = 'GamePayout' THEN RANK() OVER(ORDER BY GamePayout DESC)
-				WHEN @SortColumnName = 'HouseTurnOver' THEN RANK() OVER(ORDER BY CompanyTurnOver DESC)
-				WHEN @SortColumnName = 'HouseGrossIncome' THEN RANK() OVER(ORDER BY CompanyGrossIncome DESC)
-				WHEN @SortColumnName = 'HouseComm' THEN RANK() OVER(ORDER BY CompanyComm)
-				WHEN @SortColumnName = 'HouseNetIncome' THEN RANK() OVER(ORDER BY CompanyNetIncome DESC)
+				WHEN @SortColumnName = 'HouseTurnOver' THEN RANK() OVER(ORDER BY CompanyTurnOverBase DESC)
+				WHEN @SortColumnName = 'HouseGrossIncome' THEN RANK() OVER(ORDER BY CompanyGrossIncomeBase DESC)
+				WHEN @SortColumnName = 'HouseComm' THEN RANK() OVER(ORDER BY CompanyCommBase)
+				WHEN @SortColumnName = 'HouseNetIncome' THEN RANK() OVER(ORDER BY CompanyNetIncomeBase DESC)
 				WHEN @SortColumnName = 'HousePositionTaking' THEN RANK() OVER(ORDER BY HousePT DESC)
-				WHEN @SortColumnName = 'ExtraPT' THEN RANK() OVER(ORDER BY ExtraPT DESC)
+				WHEN @SortColumnName = 'ExtraPT' THEN RANK() OVER(ORDER BY ExtraPTBase DESC)
 				END AS RowNum1,
 				CASE WHEN @SortColumnName = 'BetCount' THEN RANK() OVER(ORDER BY BetCount) 
-				WHEN @SortColumnName = 'TotalBets' THEN RANK() OVER(ORDER BY TotalBets)
-				WHEN @SortColumnName = 'TotalWins' THEN RANK() OVER(ORDER BY TotalWins)
-				WHEN @SortColumnName = 'TotalRefund' THEN RANK() OVER(ORDER BY TotalRefund)
-				WHEN @SortColumnName = 'GameIncome' THEN RANK() OVER(ORDER BY GameIncome DESC)
+				WHEN @SortColumnName = 'TotalBets' THEN RANK() OVER(ORDER BY TotalBetsBase)
+				WHEN @SortColumnName = 'TotalWins' THEN RANK() OVER(ORDER BY TotalWinsBase)
+				WHEN @SortColumnName = 'TotalRefund' THEN RANK() OVER(ORDER BY TotalRefundBase)
+				WHEN @SortColumnName = 'GameIncome' THEN RANK() OVER(ORDER BY GameIncomeBase DESC)
 				WHEN @SortColumnName = 'GamePayout' THEN RANK() OVER(ORDER BY GamePayout)
-				WHEN @SortColumnName = 'HouseTurnOver' THEN RANK() OVER(ORDER BY CompanyTurnOver)
-				WHEN @SortColumnName = 'HouseGrossIncome' THEN RANK() OVER(ORDER BY CompanyGrossIncome)
-				WHEN @SortColumnName = 'HouseComm' THEN RANK() OVER(ORDER BY CompanyComm DESC)
-				WHEN @SortColumnName = 'HouseNetIncome' THEN RANK() OVER(ORDER BY CompanyNetIncome)
+				WHEN @SortColumnName = 'HouseTurnOver' THEN RANK() OVER(ORDER BY CompanyTurnOverBase)
+				WHEN @SortColumnName = 'HouseGrossIncome' THEN RANK() OVER(ORDER BY CompanyGrossIncomeBase)
+				WHEN @SortColumnName = 'HouseComm' THEN RANK() OVER(ORDER BY CompanyCommBase DESC)
+				WHEN @SortColumnName = 'HouseNetIncome' THEN RANK() OVER(ORDER BY CompanyNetIncomeBase)
 				WHEN @SortColumnName = 'HousePositionTaking' THEN RANK() OVER(ORDER BY HousePT)
-				WHEN @SortColumnName = 'ExtraPT' THEN RANK() OVER(ORDER BY ExtraPT)
+				WHEN @SortColumnName = 'ExtraPT' THEN RANK() OVER(ORDER BY ExtraPTBase)
 				END AS RowNum2
 			FROM Result_1
 		)	
