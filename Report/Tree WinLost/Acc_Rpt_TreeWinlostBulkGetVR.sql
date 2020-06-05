@@ -1,4 +1,4 @@
-/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="vnteam" isFunction="0"></info>*/
+/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_Rpt_TreeWinlostBulkGetVR]
 	@CustIDs NVARCHAR(MAX)
 AS
@@ -12,6 +12,7 @@ AS
 		@CustIDList: Comma seperated string of CustomerIDs
 	Revision: 
 		- 20190702@Dominic: Not show E-Sports [RedmineID:#114830]
+		- 20200608@Cherry: Not show Basketball (#134978)
 */
 BEGIN
 	DECLARE @XML XML  = NULL
@@ -43,12 +44,7 @@ BEGIN
 			ON	ci.custid = cvs.custid
 	INNER JOIN	ProfileVirtualSetting	AS pvs WITH(NOLOCK)
 			ON	cvs.seqNo = pvs.seqNo
-	WHERE pvs.isActive = 1 AND pvs.sporttype <> 43
+	WHERE pvs.isActive = 1 AND pvs.sporttype NOT IN (43, 2)
 	ORDER BY username, sporttype, islive DESC, bettype
 END
 
-GO 
- GRANT VIEW DEFINITION ON [dbo].[Acc_Rpt_TreeWinlostBulkGetVR] TO [vnteam]
-GO 
- GRANT EXECUTE ON [dbo].[Acc_Rpt_TreeWinlostBulkGetVR] TO [bodbAdminNet]
-GO 
