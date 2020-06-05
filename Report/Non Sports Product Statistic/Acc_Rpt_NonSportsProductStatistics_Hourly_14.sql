@@ -62,7 +62,6 @@ AS
 			 - @Sporttype: string filter by Sporttype (ProductID = 5 - Virtual Sports get Sporttype)
 			 - @currency: 
 				-1: All and convert to RM
-				 0: All without convert (original)
 				>0: Filter by currency ID without convert (original)  
 			 - @TotalBetType : 
 				 1 : is >=
@@ -198,7 +197,7 @@ SET NOCOUNT ON
 	
 	CREATE TABLE #tmpCurrency (CurrencyId INT)
 	
-	IF @Currency NOT IN ('0', '-1')
+	IF @Currency <> '-1'
     BEGIN
 		INSERT INTO #tmpCurrency (CurrencyId)
 		SELECT val FROM [dbo].strSplit(@Currency, ',')
@@ -403,7 +402,7 @@ SET NOCOUNT ON
 			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE RefTable IN (0,3) AND ProductID NOT IN (3,4,5,27,26))
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
 			AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
-			AND (EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId) OR @currency IN ('0','-1')) 			
+			AND (EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId) OR @currency = '-1') 			
 			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
 			AND (EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom) OR @Device = '')
 			AND ( @Site = 'ALL'
@@ -464,7 +463,7 @@ SET NOCOUNT ON
 			AND b.GameId IN (SELECT Bettype FROM #SportBettype WHERE RefTable = 1 AND Bettype NOT IN (2198, 2398, 2998))
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
 			AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
-			AND (EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId) OR @currency IN ('0','-1')) 			
+			AND (EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId) OR @currency = '-1') 			
 			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
 			AND (EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom) OR @Device = '')
 			AND ( @Site = 'ALL'
@@ -521,7 +520,7 @@ SET NOCOUNT ON
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
 			AND b.gameID IN (SELECT Bettype FROM #SportBettype WHERE Bettype IN (2198, 2398, 2998))
 			AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
-			AND (EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId) OR @currency IN ('0','-1')) 			
+			AND (EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId) OR @currency = '-1') 			
 			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
 			AND (EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom) OR @Device = '')
 			AND ( @Site = 'ALL'
@@ -580,7 +579,7 @@ SET NOCOUNT ON
 			AND b.GameId IN (SELECT Bettype FROM #SportBettype WHERE RefTable = 2)
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
 			AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
-			AND (EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId) OR @currency IN ('0','-1')) 			
+			AND (EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId) OR @currency = '-1') 			
 			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
 			AND (EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom) OR @Device = '')
 			AND ( @Site = 'ALL'
@@ -641,7 +640,7 @@ SET NOCOUNT ON
 			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 26)
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets			
 			AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
-			AND (EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId) OR @currency IN ('0','-1')) 			
+			AND (EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId) OR @currency = '-1') 			
 			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
 			AND (EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom) OR @Device = '')
 			AND ( @Site = 'ALL'
@@ -705,7 +704,7 @@ SET NOCOUNT ON
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
 			AND EXISTS (SELECT 1 FROM #tmpLeagueID l WHERE m.leagueid = l.LeagueID AND l.Bettype = b.bettype)
 			AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
-			AND (EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId) OR @currency IN ('0','-1')) 			
+			AND (EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId) OR @currency = '-1') 			
 			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
 			AND (EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom) OR @Device = '')
 			AND ( @Site = 'ALL'
@@ -767,7 +766,7 @@ SET NOCOUNT ON
 			AND b.bettype in (SELECT Bettype FROM #SportBettype WHERE ProductID = 4)
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
 			AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
-			AND (EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId) OR @currency IN ('0','-1')) 			
+			AND (EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId) OR @currency = '-1') 			
 			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
 			AND (EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom) OR @Device = '')
 			AND ( @Site = 'ALL'
@@ -830,7 +829,7 @@ SET NOCOUNT ON
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
 			AND EXISTS (SELECT 1 FROM Match14 m WITH (NOLOCK) INNER JOIN #tmpSporttype sp ON sp.Sporttype = m.sporttype WHERE m.matchid = b.matchid)			
 			AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
-			AND (EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId) OR @currency IN ('0','-1')) 			
+			AND (EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId) OR @currency = '-1') 			
 			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
 			AND (EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom) OR @Device = '')
 			AND ( @Site = 'ALL'
@@ -893,7 +892,7 @@ SET NOCOUNT ON
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
 			AND EXISTS (SELECT 1 From VSRaceInfo r WITH (NOLOCK) INNER JOIN #tmpSporttype sp ON sp.Sporttype = r.sporttype WHERE r.EventID = b.matchid)
 			AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
-			AND (EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId) OR @currency IN ('0','-1')) 			
+			AND (EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId) OR @currency = '-1')			
 			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
 			AND (EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom) OR @Device = '')
 			AND ( @Site = 'ALL'
@@ -958,7 +957,7 @@ SET NOCOUNT ON
 									INNER JOIN #tmpSporttype st ON m.sporttype = st.Sporttype 
 								WHERE m.matchid = b.matchid)
 			AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
-			AND (EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId) OR @currency IN ('0','-1')) 			
+			AND (EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId) OR @currency = '-1') 			
 			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
 			AND (EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom) OR @Device = '')
 			AND ( @Site = 'ALL'
@@ -1024,7 +1023,7 @@ SET NOCOUNT ON
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
 			AND EXISTS(SELECT 1 FROM #tmp_bettransm bm WHERE bm.refno = b.refno)
 			AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
-			AND (EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId) OR @currency IN ('0','-1')) 			
+			AND (EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId) OR @currency = '-1') 			
 			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
 			AND (EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom) OR @Device = '')
 			AND ( @Site = 'ALL'

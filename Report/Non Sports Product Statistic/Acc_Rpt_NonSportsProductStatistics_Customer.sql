@@ -67,7 +67,6 @@ AS
 		- @Sporttype: string filter by Sporttype (only use for ProductID = 5 - Virtual Sports get Sporttype)
 		- @currency: 
 			-1: All convert to RM currency
-			 0: All original currencyID
 			>0: Filter by original currencyID  
 		- @TotalBetType, @GameIncomeType, @HousePTType: 
 			 1: >=
@@ -184,7 +183,7 @@ BEGIN
 		SELECT val FROM dbo.strSplit(@Sporttype, ',')
 	END
 	
-	IF @Currency NOT IN ('0', '-1')
+	IF @Currency <> '-1'
     BEGIN
 		INSERT INTO #tmpCurrency (CurrencyId)
 		SELECT val FROM [dbo].strSplit(@Currency, ',')
@@ -604,7 +603,7 @@ BEGIN
 			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) 
 			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
-			AND (@Currency IN ('0', '-1') OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId))	
+			AND (@Currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId))	
 			AND (@IsFilterCust = 0 OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
 			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 			AND (
@@ -677,7 +676,7 @@ BEGIN
 			AND b.gameID IN (SELECT Bettype FROM #SportBettype WHERE RefTable = 1 AND Bettype NOT IN (2198, 2398, 2998))
 			AND b.statusID IN (111, 112, 113, 103) 
 			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
-			AND (@Currency IN ('0', '-1') OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId))	
+			AND (@Currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId))	
 			AND (@IsFilterCust = 0 OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
 			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 			AND (
@@ -748,7 +747,7 @@ BEGIN
 			AND b.gameID IN (SELECT Bettype FROM #SportBettype WHERE Bettype IN (2198, 2398, 2998))
 			AND b.statusID IN (111, 112, 113, 103) 
 			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
-			AND (@Currency IN ('0', '-1') OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId))	
+			AND (@Currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId))	
 			AND (@IsFilterCust = 0 OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
 			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 			AND (
@@ -819,7 +818,7 @@ BEGIN
 			AND b.gameID IN (SELECT Bettype FROM #SportBettype WHERE RefTable = 2)
 			AND b.statusID IN (111, 112, 113, 103) 
 			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
-			AND (@Currency IN ('0', '-1') OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId))	
+			AND (@Currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId))	
 			AND (@IsFilterCust = 0 OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
 			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 			AND (
@@ -891,7 +890,7 @@ BEGIN
 			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) 
 			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
-			AND (@Currency IN ('0', '-1') OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId))	
+			AND (@Currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId))	
 			AND (@IsFilterCust = 0 OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
 			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 			AND (
@@ -969,7 +968,7 @@ BEGIN
 			AND b.statusID IN (111, 112, 113, 103) 
 			AND EXISTS (SELECT 1 FROM Match m WITH (NOLOCK) INNER JOIN #tmp_LeagueID l ON m.leagueid = l.LeagueID WHERE m.matchid = b.matchid AND l.Bettype = b.bettype)
 			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
-			AND (@Currency IN ('0', '-1') OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId))	
+			AND (@Currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId))	
 			AND (@IsFilterCust = 0 OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
 			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 			AND (
@@ -1046,7 +1045,7 @@ BEGIN
 			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) 
 			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
-			AND (@Currency IN ('0', '-1') OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId))	
+			AND (@Currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId))	
 			AND (@IsFilterCust = 0 OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
 			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 			AND (
@@ -1125,7 +1124,7 @@ BEGIN
 			AND b.matchid IN (SELECT matchid FROM dbo.match WITH (NOLOCK)
 								WHERE sporttype IN (SELECT Sporttype FROM #tmp_Sporttype))	
 			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
-			AND (@Currency IN ('0', '-1') OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId))	
+			AND (@Currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId))	
 			AND (@IsFilterCust = 0 OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
 			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 			AND (
@@ -1202,7 +1201,7 @@ BEGIN
 								WHERE sporttype IN (SELECT Sporttype FROM #tmp_Sporttype))				
 				)
 			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
-			AND (@Currency IN ('0', '-1') OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId))	
+			AND (@Currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId))	
 			AND (@IsFilterCust = 0 OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
 			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 			AND (
@@ -1287,7 +1286,7 @@ BEGIN
 			AND b.matchid IN (SELECT m.matchid FROM dbo.match m WITH (NOLOCK) 
 								WHERE m.sporttype IN (SELECT Sporttype FROM #tmp_Sporttype))	
 			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
-			AND (@Currency IN ('0', '-1') OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId))	
+			AND (@Currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId))	
 			AND (@IsFilterCust = 0 OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
 			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 			AND (
@@ -1361,7 +1360,7 @@ BEGIN
 			AND b.statusID IN (111, 112, 113, 103) 
 			AND b.refno IN (SELECT refno FROM #tmp_bettransm)		
 			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
-			AND (@Currency IN ('0', '-1') OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId))	
+			AND (@Currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId))	
 			AND (@IsFilterCust = 0 OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
 			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 			AND (
