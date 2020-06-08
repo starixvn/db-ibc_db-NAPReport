@@ -157,6 +157,7 @@ BEGIN
 	-- 13. PP
 	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'PP')
 	BEGIN
+		SELECT @SpecialPayToSupplierProductCodes = COALESCE(@SpecialPayToSupplierProductCodes + ',', '') + 'PP'
 		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
 							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_PP_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
 	END		
@@ -178,6 +179,7 @@ BEGIN
 	-- 9. AB
 	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'AB')
 	BEGIN
+		SELECT @SpecialPayToSupplierProductCodes = COALESCE(@SpecialPayToSupplierProductCodes + ',', '') + 'AB'
 		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
 							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_AB_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
 	END	
