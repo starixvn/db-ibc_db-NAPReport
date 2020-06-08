@@ -298,7 +298,7 @@ BEGIN
 		) wl
 			INNER JOIN #__PartyCharge3rdInfoByAmount ci ON wl.RptDate BETWEEN ci.FromDate AND ci.ToDate
 			INNER JOIN #__ExchangeOANDA ex ON ci.CurrencyId = ex.ExchangeId AND ex.ExchangeDate = @TDate
-		WHERE ci.ProductId = 32
+		WHERE ci.ProductId = 32 AND IsDeposit = 0
 
 		IF ISNULL((SELECT SUM(MemberWLRate) FROM #__tempDataGMT WHERE ProductId = 22 AND IsDeposit = 0), 0) > 0
 			INSERT INTO #__FullRangePayToSupplier (IsDeposit, ProductId, PayToSupplier)
