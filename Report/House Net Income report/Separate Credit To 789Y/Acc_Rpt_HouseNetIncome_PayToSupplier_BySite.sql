@@ -476,7 +476,7 @@ BEGIN
 	CTE_UnionAll AS (
 		SELECT ProductCode, RptDate, ''PayToSupplier'' Figure, PayToSupplier value FROM #tmpPayToSupplier_GMT
 		UNION ALL
-		SELECT ProductCode, RptDate, ''CurrencyPlay'' Figure, PayToSupplier value FROM #tmpPayToSupplier_GMT WHERE ProductCode = ''AB''
+		SELECT ProductCode, RptDate, ''CurrencyPlay'' Figure, CurrencyPlay value FROM #tmpPayToSupplier_GMT WHERE ProductCode = ''AB''
 	),
 	CTE_Pivot AS (
 		SELECT ProductCode, Figure, ' + @DateList + ' FROM
