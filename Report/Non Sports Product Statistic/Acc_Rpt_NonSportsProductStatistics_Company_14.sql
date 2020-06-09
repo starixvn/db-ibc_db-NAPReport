@@ -1530,7 +1530,7 @@ BEGIN
 			CASE WHEN r.isDeposit = 0 THEN 'Credit Group' ELSE 'Licensee Group' END ReportBy,
 			COUNT(DISTINCT custid) AS NoOfPlayers,
 			SUM(b.BetCount) BetCount,
-			b.CurrencyId CurrencyId, 
+			-1 CurrencyId, 
 			'RM' AS Currency,
 			SUM(b.TotalBetsBase) TotalBets,
 			SUM(b.TotalWinsBase) TotalWins,
@@ -1542,7 +1542,7 @@ BEGIN
 		FROM #Data b
 			INNER JOIN  #Result r ON (@Currency = '-1' OR r.CurrencyId = b.CurrencyId) AND r.SiteName = b.SiteName
 			INNER JOIN #SportBettype s ON b.bettype = s.Bettype 
-		GROUP BY r.isDeposit, b.CurrencyId,
+		GROUP BY r.isDeposit, 
 			CASE WHEN r.isDeposit = 0 THEN 'Credit Group' ELSE 'Licensee Group' END
 		UNION ALL
 		SELECT
