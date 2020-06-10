@@ -1477,7 +1477,9 @@ BEGIN
 		ELSE
 		BEGIN
 			SELECT 0 AS IsDeposit,
-				CASE WHEN @isDrillDownLicensee = 1 THEN 'Licensee Group' ELSE @Site END AS ReportBy,
+				CASE WHEN @isDrillDownLicensee = 0 THEN 'Credit Group' 
+					WHEN @isDrillDownLicensee = 1 THEN 'Licensee Group' 
+					ELSE @Site END AS ReportBy,
 				COUNT(DISTINCT b.CustID) AS NoOfPlayers,
 				SUM(b.BetCount) AS BetCount,
 				b.CurrencyID,
