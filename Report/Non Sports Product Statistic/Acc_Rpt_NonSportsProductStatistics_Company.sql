@@ -294,29 +294,52 @@ BEGIN
 			INNER JOIN dbo.Site ss WITH (NOLOCK) ON ss.Site = c.site
 		WHERE c.roleid = 2
 	END
-	ELSE IF @Site = 'Licensee Group' -- all deposit drill down
+	ELSE IF @Site = 'All,Licensee Group' -- all deposit drill down
 	BEGIN
+		SELECT @isDrillDownLicensee = 1
 		INSERT INTO #recommend (SiteName, recommend, isDeposit)
 		SELECT c.site, c.custid, 1
 		FROM dbo.Dep_CustSuper d WITH (NOLOCK)
 			INNER JOIN dbo.Customer c WITH (NOLOCK) ON d.custid = c.srecommend
 		WHERE c.roleid = 2
 	END
+	ELSE IF @Site = 'All,Credit Group'
+	BEGIN
+		INSERT INTO #recommend (SiteName, recommend, isDeposit)
+			SELECT c.site, c.custid, 0
+			FROM dbo.Customer c WITH(NOLOCK)
+				LEFT JOIN dbo.Dep_CustSuper d WITH(NOLOCK) ON c.srecommend = d.custid
+			WHERE c.roleid = 2 AND d.custid IS NULL
+	END
 	ELSE
 	BEGIN
 		INSERT INTO #tmp_Site (Site)
 		SELECT RTRIM(LTRIM(val)) FROM dbo.strSplit(@Site, ',')
 
-		IF EXISTS (SELECT TOP 1 1 FROM #tmp_Site WHERE Site IN ('Credit Group'))					
+		IF EXISTS (SELECT TOP 1 1 FROM #tmp_Site WHERE Site IN ('Licensee Group'))
+		BEGIN
+			SELECT @isDrillDownLicensee = 1
+			INSERT INTO #recommend (SiteName, recommend, isDeposit)
+			SELECT c.site, c.custid, 1
+			FROM dbo.Dep_CustSuper d WITH (NOLOCK)
+				INNER JOIN dbo.Customer c WITH (NOLOCK) ON d.custid = c.srecommend
+				INNER JOIN dbo.Site ss WITH (NOLOCK) ON ss.Site = c.site
+				INNER JOIN #tmp_Site s ON ss.site = s.Site
+			WHERE c.roleid = 2
+		END
+		
+		IF EXISTS (SELECT TOP 1 1 FROM #tmp_Site WHERE Site IN ('Credit Group'))
 		BEGIN
 			INSERT INTO #recommend (SiteName, recommend, isDeposit)
-			SELECT c.site, c.custid, 0
+			SELECT c.site, c.custid, 1
 			FROM dbo.Customer c WITH(NOLOCK)
 				LEFT JOIN dbo.Dep_CustSuper d WITH(NOLOCK) ON c.srecommend = d.custid
+				INNER JOIN dbo.Site ss WITH (NOLOCK) ON ss.Site = c.site
+				INNER JOIN #tmp_Site s ON ss.site = s.Site
 			WHERE c.roleid = 2 AND d.custid IS NULL
 		END
 
-		IF EXISTS (SELECT TOP 1 1 FROM #tmp_Site WHERE Site NOT IN ('Credit Group', 'Licensee Group'))
+		IF NOT EXISTS (SELECT TOP 1 1 FROM #tmp_Site WHERE Site IN ('Credit Group', 'Licensee Group'))
 		BEGIN	
 			INSERT INTO #recommend (SiteName, recommend, isDeposit)
 			SELECT c.site, c.custid, ss.isDeposit
@@ -324,19 +347,7 @@ BEGIN
 				INNER JOIN dbo.Site ss WITH (NOLOCK) ON ss.Site = c.site
 				INNER JOIN #tmp_Site s ON ss.site = s.Site
 			WHERE c.roleid = 2
-			
-			IF EXISTS (SELECT TOP 1 1 FROM #recommend WHERE isDeposit = 1)
-				IF (SELECT COUNT(1) FROM #tmp_Site) <> 1
-					SELECT @isDrillDownLicensee = 1
-		END
-		ELSE IF	EXISTS (SELECT TOP 1 1 FROM #tmp_Site WHERE Site IN ('Licensee Group'))
-		BEGIN
-			INSERT INTO #recommend (SiteName, recommend, isDeposit)
-			SELECT c.site, c.custid, 1
-			FROM dbo.Dep_CustSuper d WITH (NOLOCK)
-				INNER JOIN dbo.Customer c WITH (NOLOCK) ON d.custid = c.srecommend
-			WHERE c.roleid = 2
-		END
+		END		
 	END
 
 	CREATE NONCLUSTERED INDEX Idx_recommendID ON #recommend (recommend)	
