@@ -1369,7 +1369,7 @@ BEGIN
 			b.DeviceGroup AS ReportBy,
 			COUNT(DISTINCT custid) AS NoOfPlayers,
 			SUM(b.BetCount) BetCount,
-			@Currency CurrencyId, 
+			-1 CurrencyId, 
 			'RM' AS Currency,
 			SUM(b.TotalBetsBase) TotalBets,
 			SUM(b.TotalWinsBase) TotalWins,

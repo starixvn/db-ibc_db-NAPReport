@@ -1875,7 +1875,7 @@ BEGIN
 				CASE TopType WHEN 1 THEN 'Top 20' ELSE 'Bottom 20' END AS ReportBy,
 				TopType AS ReportById,
 				SUM(BetCount) AS BetCount,
-				@Currency AS CurrencyId,
+				-1 AS CurrencyId,
 				'RM' AS Currency,
 				SUM(TotalBetsBase) AS TotalBets,
 				SUM(TotalWinsBase) AS TotalWins,
