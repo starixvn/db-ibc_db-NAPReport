@@ -294,7 +294,7 @@ BEGIN
 			INNER JOIN dbo.Site ss WITH (NOLOCK) ON ss.Site = c.site
 		WHERE c.roleid = 2
 	END
-	ELSE IF @Site = 'All,Licensee Group' -- all deposit drill down
+	ELSE IF @Site = 'Licensee Group' -- all deposit drill down
 	BEGIN
 		SELECT @isDrillDownLicensee = 1
 		INSERT INTO #recommend (SiteName, recommend, isDeposit)
@@ -303,7 +303,7 @@ BEGIN
 			INNER JOIN dbo.Customer c WITH (NOLOCK) ON d.custid = c.srecommend
 		WHERE c.roleid = 2
 	END
-	ELSE IF @Site = 'All,Credit Group'
+	ELSE IF @Site = 'Credit Group'
 	BEGIN
 		INSERT INTO #recommend (SiteName, recommend, isDeposit)
 			SELECT c.site, c.custid, 0
