@@ -96,6 +96,7 @@ BEGIN
 	WHERE b.rptDate BETWEEN @FDate AND @TDate
 		  AND b.TicketStatus NOT IN(-1, 18, 9, 10, 14)
 		  AND b.BetType IN (SELECT Bettype FROM #SportBettypeMatrix)
+		  AND b.BetType NOT IN (SELECT Bettype FROM bodb_Account.dbo.BettypeGroup (NOLOCK) WHERE BettypeGroupID = 6)
 		  AND b.SiteID IN (SELECT SiteID FROM bodb_Account.dbo.tbl_Site WHERE isDeposit = 0)
 	GROUP BY b.rptDate
 	OPTION(RECOMPILE)
