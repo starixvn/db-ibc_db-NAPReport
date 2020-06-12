@@ -65,7 +65,7 @@ BEGIN
 	WHERE [site] = 'CN88'
 
 	DECLARE @ProductCodeAll VARCHAR(MAX) = 'NG,VS,KN,LT,VS2,VB,CS,NG2,AB,GD,CB,PP,CC,SG,VRG,SAG,SBC,SXG,BBIN,TG,IBCLC,ION,RNGW,FW'
-	DECLARE @ProductCodeGMT4 VARCHAR(1000) = 'CC,BBIN,TG,IBCLC,ION,RNGW'
+	DECLARE @ProductCodeGMT4 VARCHAR(1000) = 'VB,CC,BBIN,TG,IBCLC,ION,RNGW'
 	DECLARE @ProductCodeGMT VARCHAR(1000) = 'AB,FW,PP,SG,SAG,SXG'
 		
 	-- #Exchange
@@ -231,8 +231,8 @@ BEGIN
 	INSERT INTO #tmpPayToSupplier_Daily (ProductId, RptDate, PayToSupplier_Daily)
 	SELECT t.ProductID,
 		   t.rptDate,
-		   SUM(t.MemberWLOANDA
-			   * (CASE WHEN t.ProductID = 34 AND t.Bettype IN (1902,1903,1904,1905) THEN ISNULL(v.ChargeRate3rd,0) ELSE ISNULL(ci.Rate,0) END))
+		   CASE WHEN t.ProductID = 22 THEN  SUM(t.MemberWLOANDA * (CASE WHEN t.BetType IN (4051,4052,4053,4054,4055) THEN 0.03 ELSE 0.02 END))
+		        ELSE SUM(t.MemberWLOANDA * (CASE WHEN t.ProductID = 34 AND t.Bettype IN (1902,1903,1904,1905) THEN ISNULL(v.ChargeRate3rd,0) ELSE ISNULL(ci.Rate,0) END)) END PayToSupplier_Daily
 	FROM #TmpHouseWL AS t
 		 INNER JOIN #ChargeInfo3rd AS ci ON t.ProductID = ci.ProductID AND t.rptDate BETWEEN ci.FromDate AND ci.ToDate
 		 LEFT JOIN #tmpVendorGlobalSetting v ON t.ProductID = v.ProductID 
@@ -244,15 +244,6 @@ BEGIN
 						  WHERE ProductPrefix IN (SELECT val FROM bodb02.dbo.strSplit(@ProductCodeGMT4, ',')))
 	GROUP BY t.ProductID,
 	         t.rptDate
-	
-	INSERT INTO #tmpPayToSupplier_Daily(ProductId, RptDate, PayToSupplier_Daily)
-	SELECT t.ProductID,
-		   t.rptDate,
-		   SUM(t.MemberWLOANDA * (CASE WHEN BetType IN (4051,4052,4053,4054,4055) THEN 0.03 ELSE 0.02 END)) 
-	FROM #TmpHouseWL AS t
-	WHERE t.ProductID IN (22)
-	GROUP BY t.ProductID,
-			 t.rptDate
 
 	-- + #tmpPayToSupplier_GMT
 	CREATE TABLE #tmpPayToSupplier_GMT(
