@@ -117,6 +117,7 @@ BEGIN
 	CREATE TABLE #Bettype (BetType INT)
 	INSERT INTO #Bettype (BetType)
 	SELECT BetType FROM dbo.f_SportBettypeMatrixByProduct_Sel (@ProductID, 0)
+	WHERE Bettype NOT IN (4299, 4300)
 
 	INSERT INTO #tempDataDW (rptDate, LicenseeID, CurrencyID, BetType, MemberWL, HouseWL)
 	SELECT b.rptDate, s.LicenseeID, b.CurrencyID, b.BetType, SUM(ISNULL(b.WinlossP, 0)) AS MemberWL, SUM((b.WinlossIBC + b.CommissionS)) AS HouseWL
