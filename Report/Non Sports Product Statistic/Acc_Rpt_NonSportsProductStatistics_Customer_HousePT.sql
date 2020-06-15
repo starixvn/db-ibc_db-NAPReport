@@ -10,7 +10,7 @@ ALTER PROCEDURE [dbo].[Acc_Rpt_NonSportsProductStatistics_Customer_HousePT]
 	@BetType		VARCHAR(MAX) = '',
 	@LeagueId		VARCHAR(MAX) = '',
 	@Sporttype		VARCHAR(MAX) = '',
-	@Currency		SMALLINT = 0,
+	@Currency		VARCHAR(MAX) = '',
 	@Device			VARCHAR(200) = '',
 	@TotalBetType	SMALLINT = 0,
 	@TotalBetValue  MONEY = NULL,
@@ -35,6 +35,7 @@ AS
 		20180808@Cherry: Integrate Poker Games (#97809)
 		20181018@Cherry: Integrate NG2 (#102229)
 		20190214@Cherry: Integrate Video Poker Games (#108735)
+		20200601@Cherry: Add Credit Site and support multiple currency (#135009)
 
 	Param's Explanation:
 		- @ProductID: string filter by Product 
@@ -149,7 +150,7 @@ BEGIN
 
 	IF NOT EXISTS (SELECT 1 FROM dbo.Dep_CustSuper WITH(NOLOCK) WHERE custid = @srecommend) -- Credit - MBC Group
 	BEGIN
-		SELECT @CustSite = 'MBC Group'
+		SELECT @CustSite = 'Credit Group'
 	END
 	ELSE IF @RoleID = 1
 	BEGIN
@@ -630,7 +631,7 @@ BEGIN
 	
 	IF @TotalBetType <> 0 OR @GameIncomeType <> 0
 	BEGIN
-		IF @Currency = -1
+		IF @Currency = '-1'
 			SELECT @TotalBets = SUM(TotalBetsBase), @TotalWins = SUM(TotalWinsBase) FROM #Data
 		ELSE
 			SELECT @TotalBets = SUM(TotalBets), @TotalWins = SUM(TotalWins) FROM #Data
