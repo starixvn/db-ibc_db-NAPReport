@@ -1,9 +1,9 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
 ALTER PROCEDURE dbo.Acc_Rpt_AbnormalBetAutoMail 
-	@RptDate    DATETIME
+	@RptDate    DATETIME 
    , @Site       VARCHAR(50) = 'All'
-   , @IsTest     BIT         = 0
+   , @IsTest     BIT         = 0 
 AS
 /*
 	Creator: Robert
@@ -15,7 +15,7 @@ AS
 		- 20191226@Robert: NAP Report - Automate daily abnormal bets report for CSD [122800] - change request
 		- 20200312@Robert: NAP Report - Daily Abnormal Bet Report for Headline - [130183]
 		- 20200325@Robert: [NAP] - Implement Daily Auto Mail for Abnormal Bets - [121920] - add more ExternalID
-
+		- 20200615@Robert: NAP Report - Adjustment CN88's Abnormal Bet report - [135393]
 
 	Param's Explanation:	 
 */
@@ -56,7 +56,9 @@ AS
 		 , transdate         DATETIME
 		 , oddstype          SMALLINT
 		 , ip                NVARCHAR(15)
-		 , CustId            INT);
+		 , CustId            INT
+		 , AfterPT			 MONEY
+		 );
 
 	   DECLARE @RptDate_From    DATETIME = @RptDate
 		    , @RptDate_To      DATETIME;
@@ -107,7 +109,8 @@ AS
 				    , transdate
 				    , oddstype
 				    , ip
-				    , CustId)
+				    , CustId
+					, AfterPT)
 			SELECT tmp.TransId
 				, l.sporttype
 				, l.leagueid
@@ -137,6 +140,7 @@ AS
 				, b.oddstype
 				, b.ip
 				, b.custid
+				, (1 - b.tpositiontaking) * b.stake AfterPT
 			FROM bodb02.dbo.bettrans AS b WITH(NOLOCK)
 			    INNER JOIN #TmpVoidedTransaction AS tmp ON b.transid = tmp.TransId
 			    LEFT JOIN bodb02.dbo.match AS m WITH(NOLOCK) ON b.matchid = m.matchid
@@ -230,6 +234,7 @@ AS
 		   , liveawayscore
 		   , transdate
 		   , ip
+		   , AfterPT
 	   FROM #Data AS d
 		  INNER JOIN bodb02.dbo.TicketVoiding_SubIssueType AS ss WITH(NOLOCK) ON d.SubIssueTypeID = ss.SubIssueTypeId;
 
