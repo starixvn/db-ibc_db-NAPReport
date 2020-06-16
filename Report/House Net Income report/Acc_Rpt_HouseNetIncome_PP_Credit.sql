@@ -6,7 +6,8 @@ GO
 ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_PP_Credit]
 	@FromDate DATE,
 	@ToDate	DATE
-AS  
+AS
+
 /*  	
 	Created:	20180612@Harper  
     Task :		House month-to-date Net Income report for Pramatic product
@@ -16,55 +17,51 @@ AS
 		- 20180618@Harper - HDWL Letstalk - Implement report for Pramatic product [#RedmineID: 94403]
 		- 20190822@Robert: #115465 - Exclude bettype 4300 (Promotion Prize) from House Income, Pay to Supplier of Pragmatic
 		- 20191121@Robert: #123733 - Email/Letstalk Reports - Integrate PP Tournament (Exclude bettype 4299)
+		- 20200529@Ned.Le - House Net Income Email/Letstalk - Change timezone to calculate monthly Pay To Supplier (#134867)
 	
 	Param's Explanation:   
 
 	EXEC Acc_Rpt_HouseNetIncome_PP_Credit '20180601', '20180619'   
-  
-*/  
-BEGIN  
+*/
+
+BEGIN
+
 	SET NOCOUNT ON  
 
-	DECLARE @FDate DATE, @TDate DATE
-	SELECT @FDate = @FromDate, @TDate = @ToDate
-	
-	-- Region: Get exchange rate info
-	CREATE	TABLE #Exchange			(ExchangeDate DATE, ExchangeID INT, Rate FLOAT)
-	CREATE	TABLE #ExchangeOANDA	(ExchangeDate DATE, ExchangeID INT, Rate FLOAT)
+	-- Declare variables
+    DECLARE @FDate    DATE,
+			@TDate    DATE
 
-	INSERT INTO #Exchange(ExchangeDate, ExchangeID, Rate)
+    SELECT @FDate = @FromDate,
+		   @TDate = @ToDate
+
+	DECLARE @tmpDate     DATE,
+			@DateList    VARCHAR(200) = '[FullRange]'
+
+    SELECT @tmpDate = @FDate
+
+	DECLARE @ProductID INT = 32,
+			@ProductPrefix VARCHAR(5) = 'PP'
+	
+	-- #Exchange
+    CREATE TABLE #Exchange (ExchangeDate    DATE,
+						    ExchangeID      INT,
+						    Rate            FLOAT)
+
+    INSERT INTO #Exchange (ExchangeDate, ExchangeID, Rate)
 	SELECT ExchangeDate, Currency, Rate
-	FROM bodb_account.dbo.tbl_Currency_Daily WITH (NOLOCK) 
+	FROM bodb_account.dbo.tbl_Currency_Daily WITH (NOLOCK)
 	WHERE ExchangeDate BETWEEN @FDate AND @TDate
 
-	CREATE CLUSTERED INDEX [PK_tmp_CurrencyDaily] ON #Exchange( ExchangeDate, ExchangeID )
+    CREATE CLUSTERED INDEX PK_tmp_CurrencyDaily ON #Exchange(ExchangeDate, ExchangeID)
 
-	DECLARE @OpenQuery NVARCHAR(1000)
-	SELECT @OpenQuery = N'SELECT * ' 
-						+ N'FROM OPENQUERY(DBEXT, '
-						+ N'''SELECT ExchangeDate, ExchangeID, BaseCurrencyRate '
-						+ N'FROM bodb02.dbo.LA_f_ExchangeDailySel('''''
-						+ CAST(@FDate AS NVARCHAR(50)) + ''''''
-						+ N','''''
-						+ CAST(@TDate AS NVARCHAR(50)) + ''''''
-						+ N',''''MYR'''''			
-						+ N')'')'
-					
-	INSERT INTO #ExchangeOANDA(ExchangeDate, ExchangeID, Rate)
-	EXECUTE (@OpenQuery)
-	-- End region
-
-	CREATE TABLE #FinalResult (
-		RptDate		VARCHAR(10),
-		HouseWL		MONEY,
-		ExtraPT		MONEY,
-		PayToSupplier MONEY
-	)
-
-	DECLARE @tmpDate DATE, @DateList VARCHAR(200) = '[FullRange]'
-	SELECT @tmpDate = @FDate
-
-	WHILE @tmpDate <= @TDate
+	-- #FinalResult
+    CREATE TABLE #FinalResult (RptDate          VARCHAR(10),
+							   HouseWL          MONEY,
+							   ExtraPT          MONEY,
+							   PayToSupplier    MONEY)
+    
+    WHILE @tmpDate <= @TDate
 	BEGIN
 		INSERT INTO #FinalResult (RptDate, HouseWL, ExtraPT, PayToSupplier)
 		SELECT CONVERT(VARCHAR(2), @tmpDate, 106), 0, 0, 0
@@ -72,169 +69,99 @@ BEGIN
 		SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate)
 	END
 
-	SELECT @DateList = COALESCE(@DateList + ',', '') + '[' + CONVERT(VARCHAR(10), RptDate) + ']' FROM #FinalResult 
+    SELECT @DateList = COALESCE(@DateList+',', '')+'['+CONVERT(VARCHAR(10), RptDate)+']'
+    FROM #FinalResult
 	
-	-- Sport - Bettype Matrix
-	CREATE TABLE #SportBettypeMatrix (ProductID INT, Bettype INT, EventType INT, SubProduct VARCHAR(500))
+	-- #SportBettypeMatrix
+    CREATE TABLE #SportBettypeMatrix (ProductID     INT,
+									  Bettype       INT,
+									  EventType     INT,
+									  SubProduct    VARCHAR(500))
 
-	INSERT INTO #SportBettypeMatrix (ProductID, Bettype, EventType, SubProduct)
-	SELECT ProductID, BetType, EventType, SubProduct FROM bodb02.dbo.f_SportBettypeMatrix_Sel(32,0,0,2,'','PP',0)
+    INSERT INTO #SportBettypeMatrix (ProductID, Bettype, EventType, SubProduct)
+	SELECT ProductID, BetType, EventType, SubProduct
+	FROM bodb02.dbo.f_SportBettypeMatrix_Sel(@ProductID, 0, 0, 2, '', @ProductPrefix, 0)
 	
-	-- Get PayToSupplier Rate
-	CREATE TABLE #ChargeInfo3rd (ProductID INT, Rate MONEY, FromDate SMALLDATETIME, ToDate SMALLDATETIME, MinAmount MONEY, MaxAmount MONEY, BaseCurrencyId INT)
-	
-	DECLARE @OpenQueryCharge NVARCHAR(1000)
-	SELECT @OpenQueryCharge = N'SELECT * ' 
-						+ N'FROM OPENQUERY(DBLIC, '
-						+ N'''SELECT DISTINCT ci.ProductID, ci.DI_Rate, ci.Fromdate, ci.Todate, c.MinAmount, c.MaxAmount, c.BaseCurrencyId '
-						+ N'FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd('''''
-						+ CAST(@FDate AS NVARCHAR(50)) + ''''''
-						+ N','''''
-						+ CAST(@TDate AS NVARCHAR(50)) + ''''''
-						+ N',''''PP'''''
-						+ N',''''OA'''''	
-						+ N') ci '
-						+ N'INNER JOIN bodb_licensee.dbo.OAS_ChargeInfo c WITH (NOLOCK) ON ci.ChargeID = c.ChargeID '
-						+ N'WHERE ci.ChargeType = 1 AND ci.IsDeposit = 0'
-						+ N''')'
-					
-	INSERT INTO #ChargeInfo3rd(ProductID, Rate, FromDate, ToDate, MinAmount, MaxAmount, BaseCurrencyId)
-	EXECUTE (@OpenQueryCharge)
+	-- #TmpHouseWL
+    CREATE TABLE #TmpHouseWL(rptDate          DATE,
+							 HouseWL          MONEY,
+							 ExtraPT          MONEY)
 
-	UPDATE ci
-	SET MinAmount = MinAmount * ex.Rate,
-		MaxAmount = MaxAmount * ex.Rate
-	FROM #ChargeInfo3rd ci
-		INNER JOIN #ExchangeOANDA ex ON ci.BaseCurrencyId = ex.ExchangeID AND ex.ExchangeDate = @TDate
-	
-	-- House WL
-	CREATE TABLE #TmpHouseWL (rptDate DATE, ProductID INT, CurrencyID INT, HouseWL MONEY, MemberWL MONEY, MemberWLReal MONEY, MemberWLOANDA MONEY, PayToSupplier MONEY, ExtraPT MONEY)
-	
-	INSERT INTO #TmpHouseWL (rptDate, ProductID, CurrencyID, HouseWL, MemberWL, MemberWLReal, ExtraPT)
-	SELECT 
-		b.rptDate,
-		sb.ProductID,
-		b.CurrencyID,
-		-SUM((b.WinlossIBC + b.CommissionS) * ex.rate)  AS HouseWL,
-		SUM(b.WinlossP) AS MemberWL,
-		SUM(b.WinlossP * ex.Rate) AS MemberWLReal,		
-		SUM((b.ExtraWL + b.ExtraComm) * ex.Rate)  AS ExtraPT
-	FROM bodb_Account.dbo.FactSiteWinloss b WITH(NOLOCK)
-		INNER JOIN #exchange ex ON b.rptdate = ex.exchangedate AND b.currencyid = ex.ExchangeID		
-		INNER JOIN #SportBettypeMatrix sb ON sb.Bettype = b.bettype
-	WHERE 
-		b.rptDate BETWEEN @FDate AND @TDate 	
-		AND b.TicketStatus NOT IN (-1,18,9,10,14)
-		AND SiteID IN (SELECT SiteID FROM bodb_Account.dbo.tbl_Site WHERE isDeposit = 0 )-- Credit data only
-		AND b.BetType NOT IN (4299, 4300)
-	GROUP BY b.rptDate, sb.ProductID, b.CurrencyID
-	OPTION (RECOMPILE)
-	
-	UPDATE b
-	SET MemberWL = - MemberWL * e.Rate		
-	FROM #TmpHouseWL b
-		INNER JOIN #ExchangeOANDA e ON e.ExchangeDate = b.RptDate AND e.ExchangeID = b.CurrencyID
+    INSERT INTO #TmpHouseWL (rptDate, HouseWL, ExtraPT)
+	SELECT b.rptDate,
+		  -SUM((b.WinlossIBC + b.CommissionS) * ISNULL(ex.rate,0)) AS HouseWL,
+		  SUM((b.ExtraWL + b.ExtraComm) * ISNULL(ex.rate,0)) AS ExtraPT
+	FROM bodb_Account.dbo.FactSiteWinloss AS b WITH (NOLOCK)
+		 LEFT JOIN #exchange AS ex ON b.rptdate = ex.exchangedate AND b.currencyid = ex.ExchangeID
+	WHERE b.rptDate BETWEEN @FDate AND @TDate
+		  AND b.TicketStatus NOT IN(-1, 18, 9, 10, 14)
+		  AND b.BetType IN (SELECT Bettype FROM #SportBettypeMatrix)
+		  AND b.BetType NOT IN (SELECT Bettype FROM bodb_Account.dbo.BettypeGroup (NOLOCK) WHERE BettypeGroupID = 6)
+		  AND b.SiteID IN (SELECT SiteID FROM bodb_Account.dbo.tbl_Site WHERE isDeposit = 0)
+	GROUP BY b.rptDate
+	OPTION(RECOMPILE)
 
-	-- House Winloss
+	-- BEGIN - Calcualting for #FinalResult
+
+	-- + Update HouseWL and ExtraPT for each day
 	UPDATE f
-	SET HouseWL = f.HouseWL + house.HouseWL,
-		ExtraPT = f.ExtraPT + house.ExtraPT
+	SET f.HouseWL = f.HouseWL + wl.HouseWL,
+		f.ExtraPT = f.ExtraPT + wl.ExtraPT
 	FROM #FinalResult f
-		INNER JOIN (
-						SELECT CONVERT(VARCHAR(2), wl.rptDate, 106) AS winlostDate
-						, SUM (wl.HouseWL) AS HouseWL
-						, SUM (wl.ExtraPT) AS ExtraPT 
-						FROM #TmpHouseWL wl 
-						GROUP BY CONVERT(VARCHAR(2), wl.rptDate, 106)
-					) house ON house.winlostDate = f.RptDate
+		 INNER JOIN #TmpHouseWL wl ON f.RptDate = CONVERT(VARCHAR(2), wl.rptDate, 106)
 
-	-- PayToSupplier
-	; WITH WLAmount AS
-	(
-		SELECT CONVERT(VARCHAR(2), RptDate, 106) rptDate,
-			rptDate FullDate, SUM(MemberWL) AS MemberWL
-		FROM #TmpHouseWL
-		GROUP BY CONVERT(VARCHAR(2), RptDate, 106), rptDate
-	),
-	PayToSupplier AS
-	(
-		SELECT wl.*, ci.MinAmount, ci.MaxAmount, ci.Rate, 
-			CASE 
-				WHEN (MemberWL < 0 AND ci.MinAmount = 0) OR (MemberWL >= ci.MinAmount) THEN 
-					CASE 
-						WHEN MemberWL > MaxAmount THEN ci.MaxAmount - ci.MinAmount
-						ELSE MemberWL - ci.MinAmount
-					END
-				ELSE 0
-			END * ci.Rate AS AmtByRange
-		FROM WLAmount wl
-			INNER JOIN #ChargeInfo3rd ci ON wl.FullDate BETWEEN ci.FromDate AND ci.ToDate
-	),
-	AmtByDate AS
-	(
-		SELECT m.rptDate, SUM(AmtByRange) AS AmtByDate	
-		FROM PayToSupplier m
-		GROUP BY m.rptDate
-	)
-	UPDATE r
-	SET r.PayToSupplier = - AmtByDate
-	FROM AmtByDate m
-		INNER JOIN #FinalResult r ON r.RptDate = m.rptDate	
-	
-	-- Full PayToSupplier
-	DECLARE @PayToSupplier MONEY
+	-- + Calculate FullRange for HouseWL and ExtraPT
+    INSERT INTO #FinalResult(RptDate, HouseWL, ExtraPT, PayToSupplier)
+	SELECT 'FullRange' RptDate,
+		   SUM(f.HouseWL) HouseWL,
+		   SUM(f.ExtraPT) ExtraPT,
+		   0 PayToSupplier
+	FROM #FinalResult AS f
 
-	;WITH WLAmount AS
-	(
-		SELECT ci.Rate, ci.FromDate, ci.ToDate, ci.MinAmount, ci.MaxAmount, SUM(d.MemberWL) AS AmtLicensee
-		FROM #ChargeInfo3rd ci
-			INNER JOIN #TmpHouseWL d ON d.RptDate BETWEEN ci.FromDate AND ci.ToDate
-		GROUP BY ci.Rate, ci.FromDate, ci.ToDate, ci.MinAmount, ci.MaxAmount
-	),
-	AmtByRange AS
-	(
-		SELECT wl.*, 
-			CASE 
-				WHEN AmtLicensee > MinAmount THEN 
-					CASE 
-						WHEN AmtLicensee > MaxAmount THEN MaxAmount - MinAmount 
-						ELSE AmtLicensee - MinAmount 
-					END
-				ELSE 0 
-			END * Rate AS AmtDue
-		FROM WLAmount wl
-	)
-	SELECT @PayToSupplier = - (SELECT SUM(AmtDue) FROM AmtByRange)
+	-- + Calculate PayToSupplier
+	CREATE TABLE #PayToSupplier (ProductCode VARCHAR(10), rptDate VARCHAR(10), PayToSupplier MONEY, CurrencyPlay MONEY)
+	INSERT INTO #PayToSupplier (ProductCode, rptDate, PayToSupplier, CurrencyPlay)
+	EXEC DBEXT.bodb02.dbo.Acc_Rpt_HouseNetIncome_PayToSupplier @FromDate = @FDate,
+															   @ToDate = @TDate,
+															   @ProductCodes = @ProductPrefix,
+															   @DepositType = 0,
+															   @Site = '',
+															   @IsOldView = 0
+
+	UPDATE f
+	SET f.PayToSupplier = f.PayToSupplier + p.PayToSupplier
+	FROM #FinalResult f
+		 INNER JOIN #PayToSupplier p ON f.rptDate = p.rptDate
+
+    -- END - Calcualting #FinalResult
 	
-	-- FullRange amount
-	INSERT INTO #FinalResult (RptDate, HouseWL, ExtraPT, PayToSupplier)
-	SELECT 'FullRange', SUM(f.HouseWL), SUM(f.ExtraPT), (SELECT CASE WHEN SUM(MemberWL) < 0 THEN 0 ELSE @PayToSupplier END FROM #TmpHouseWL)
-	FROM #FinalResult f	
-	
-	---------------------------------------------------- Select the output -------------------------------------------------------
+	-- Return data
 	DECLARE @SQL VARCHAR(1000)
-	SELECT @SQL =	'SELECT * ' + CHAR(13) +
-					'FROM	(SELECT ProductCode, [Order], [RptDate], Figure, ISNULL(value, 0) value FROM #FinalResult' + CHAR(13) +
-							'CROSS APPLY' + CHAR(13) +
-							'(SELECT ''PP'', 1, ''House Income'', HouseWL' + CHAR(13) +
-							'UNION ALL' + CHAR(13) +
-							'SELECT ''PP'', 2, ''Extra PT'', ExtraPT' + CHAR(13) +							
-							'UNION ALL' + CHAR(13) +
-							'SELECT ''PP'', 4, ''Pay to supplier'', PayToSupplier) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
-					'PIVOT' + CHAR(13) +
-					'(' + CHAR(13) +
-						'MAX(value)' + CHAR(13) +
-						'FOR [RptDate] in (' + @DateList + ')' + CHAR(13) +
-					') piv' + CHAR(13) +
-					'ORDER BY [Order]'
+
+	SELECT @SQL =
+		   'SELECT * ' + CHAR(13) +
+		   'FROM (SELECT ProductCode, [Order], [RptDate], Figure, ISNULL(value, 0) value FROM #FinalResult' + CHAR(13) +
+		   'CROSS APPLY' + CHAR(13) +
+		   '(SELECT ''' + @ProductPrefix + ''', 1, ''House Income'', HouseWL' + CHAR(13) +
+		   'UNION ALL' + CHAR(13) +
+		   'SELECT ''' + @ProductPrefix + ''', 2, ''Extra PT'', ExtraPT' + CHAR(13) +							
+		   'UNION ALL' + CHAR(13) +
+		   'SELECT ''' + @ProductPrefix + ''', 3, ''Pay to supplier'', PayToSupplier) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
+		   'PIVOT' + CHAR(13) +
+		   '(' + CHAR(13) +
+		   'MAX(value)' + CHAR(13) +
+		   'FOR [RptDate] in (' + @DateList + ')' + CHAR(13) +
+		   ') piv' + CHAR(13) +
+		   'ORDER BY [Order]'
 
 	EXEC(@SQL)
 
-	-- Drop tmp table
+	-- Drop temp tables
+	DROP TABLE #Exchange
+	DROP TABLE #FinalResult
 	DROP TABLE #SportBettypeMatrix
 	DROP TABLE #TmpHouseWL
-	DROP TABLE #Exchange
-	DROP TABLE #ExchangeOANDA
-	DROP TABLE #FinalResult
+	DROP TABLE #PayToSupplier
+
 END
 GO

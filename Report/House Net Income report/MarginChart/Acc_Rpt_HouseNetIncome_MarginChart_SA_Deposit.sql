@@ -1,4 +1,4 @@
-/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" isFunction="0" isNested="1"></info>*/
 ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_SA_Deposit]
 	@FromDate	DATE,
 	@ToDate		DATE
@@ -11,6 +11,7 @@ AS
 
     Revisions:
 	   - 20200324@Percy: #128059 - House Net Income - Integrate SA Gaming product
+	   - 20200529@Percy: Remove PayToSupplier code - Using core SP [RedmineID: #134867]
 
 	Param's Explanation:
 
@@ -134,25 +135,11 @@ BEGIN
 
 	CREATE TABLE #tempData
 	(
-		PartyID				INT
-		,ParentID			INT
-		,rptDate			DATETIME
-		,CurrencyID			INT
-		,BetType			INT
-		,OriginalMemberWL	MONEY
-		,MemberWL			MONEY
+		rptDate				DATETIME
 		,AmountToCompany	MONEY
 	)
-	INSERT INTO #tempData (PartyID, ParentID, rptDate, CurrencyID, BetType, OriginalMemberWL, MemberWL, AmountToCompany)
-	SELECT
-		tp.PartyID
-		,CASE WHEN tp.ParentID = 98 THEN 11 ELSE tp.ParentID END AS ParentID -- Group Boping & Zelianta
-		,b.rptDate
-		,b.CurrencyID
-		,CASE WHEN b.BetType = 3007 THEN 3007 ELSE 0 END
-		,SUM(ISNULL(b.MemberWL, 0))
-		,SUM(ISNULL(b.MemberWL, 0) * ISNULL(e.Rate, 0))
-		,SUM(CASE WHEN p.LicenseeID IS NULL THEN -ISNULL(b.HouseWL, 0) ELSE -ISNULL(b.MemberWL, 0) * ISNULL(lc.Rate, p.Rate) END * ISNULL(e.Rate, 0))
+	INSERT INTO #tempData (rptDate, AmountToCompany)
+	SELECT b.rptDate, SUM(CASE WHEN p.LicenseeID IS NULL THEN -ISNULL(b.HouseWL, 0) ELSE -ISNULL(b.MemberWL, 0) * ISNULL(lc.Rate, p.Rate) END * ISNULL(e.Rate, 0))
 	FROM #tempDataDW b
 		INNER JOIN @tmpAllParty tp ON tp.LicenseeID = b.LicenseeID
 		LEFT JOIN #PartyChargeInfo p
@@ -165,53 +152,22 @@ BEGIN
 				)
 		LEFT JOIN #Exchange e ON b.rptDate = e.ExchangeDate AND b.CurrencyID = e.ExchangeID
 		LEFT JOIN bodb_Licensee.dbo.LA_ChargeRateByCurrency lc WITH (NOLOCK) ON p.ChargeID = lc.ChargeID AND b.CurrencyID = lc.CurrencyID
-	GROUP BY tp.PartyID, CASE WHEN tp.ParentID = 98 THEN 11 ELSE tp.ParentID END, b.rptDate, b.CurrencyID, CASE WHEN b.BetType = 3007 THEN 3007 ELSE 0 END
-
-    CREATE NONCLUSTERED INDEX Idx_InvoiceData ON #TempData (PartyID)
+	GROUP BY b.rptDate
 	-- End Region
 
-	-- Region: Pay to Supplier
-	DECLARE @tmpPartyGroup TABLE (ParentID INT, AmountCNY MONEY, Rate FLOAT)
-	INSERT INTO @tmpPartyGroup (ParentID, AmountCNY, Rate)
-	SELECT b.ParentID, SUM(-b.OriginalMemberWL * ISNULL(e.CNY, 0)), 0 -- Group Boping & Zelianta
-	FROM #tempData b
-		LEFT JOIN #ExchangeOANDA e ON b.CurrencyId = e.ExchangeID AND e.ExchangeDate = b.RptDate
-	WHERE b.BetType = 0
-	GROUP BY b.ParentID
-
-	UPDATE @tmpPartyGroup
-	SET Rate = CASE WHEN AmountCNY < 10000000 THEN 0.06 ELSE 0.05 END -- 10M CNY
-	WHERE ParentID IN (1, 11)
-
-	CREATE TABLE #DailyPayToSupplier (ParentID INT, rptDate DATE, MemberWLOANDA MONEY, PayToSupplier MONEY)
-	INSERT INTO #DailyPayToSupplier (ParentID, rptDate, MemberWLOANDA, PayToSupplier)
-	SELECT d.ParentID, d.rptDate, SUM(d.OriginalMemberWL * ISNULL(e.MYR, 0)), SUM(d.OriginalMemberWL * ISNULL(e.MYR, 0) * CASE WHEN d.BetType = 3007 THEN 0.5 ELSE t.Rate END)
-	FROM #tempData d
-		INNER JOIN @tmpPartyGroup t ON t.ParentID = d.ParentID
-		LEFT JOIN #ExchangeOANDA e ON d.rptDate = e.ExchangeDate AND d.CurrencyId = e.ExchangeID
-	GROUP BY d.ParentID, d.rptDate
-
-	CREATE TABLE #FullRangePayToSupplier (ParentID INT, PayToSupplier MONEY)
-	INSERT INTO #FullRangePayToSupplier (ParentID, PayToSupplier)
-	SELECT ParentID, SUM(PayToSupplier)
-	FROM #DailyPayToSupplier
-	GROUP BY ParentID
-	-- End Region
-
-	CREATE TABLE #FinalResult (rptDate VARCHAR(10), LicenseeWL MONEY, PayToSupplier MONEY)
-	INSERT INTO #FinalResult (rptDate, LicenseeWL, PayToSupplier)
-	SELECT 'FullRange', 0, (SELECT SUM(PayToSupplier) FROM #FullRangePayToSupplier)
+	CREATE TABLE #FinalResult (rptDate VARCHAR(10), LicenseeWL MONEY)
+	INSERT INTO #FinalResult (rptDate, LicenseeWL)
+	SELECT 'FullRange', 0
 
 	DECLARE @tmpDate DATETIME, @DateList VARCHAR(200)
 	SELECT  @tmpDate = @FDate
 
 	WHILE @tmpDate <= @TDate
 	BEGIN
-		INSERT INTO #FinalResult (RptDate, LicenseeWL, PayToSupplier)
+		INSERT INTO #FinalResult (RptDate, LicenseeWL)
 		SELECT
 			CONVERT(VARCHAR(2), @tmpDate, 106)
 			,(SELECT ISNULL(SUM(AmountToCompany), 0) FROM #tempData WHERE rptDate = @tmpDate)
-			,(SELECT ISNULL(SUM(PayToSupplier), 0) FROM #DailyPayToSupplier WHERE rptDate = @tmpDate)
 
 		SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate)
 	END
@@ -220,12 +176,10 @@ BEGIN
 	
 	---------------------------------------------------- Select the output -------------------------------------------------------
 	DECLARE @SQL VARCHAR(MAX)
-	SELECT	@SQL =	'SELECT * ' + CHAR(13) +
+	SELECT  @SQL =	'SELECT * ' + CHAR(13) +
 					'FROM	(SELECT ProductCode, [Order], [RptDate], Figure, ISNULL(value, 0) value FROM #FinalResult' + CHAR(13) +
 							'CROSS APPLY' + CHAR(13) +
-							'(SELECT ''' + @ProductPrefix + ''', 1, ''House Income'', LicenseeWL' + CHAR(13) +							
-							'UNION ALL' + CHAR(13) +
-							'SELECT ''' + @ProductPrefix + ''', 4, ''Pay to supplier'', PayToSupplier) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
+							'(SELECT ''' + @ProductPrefix + ''', 1, ''House Income'', LicenseeWL) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
 					'PIVOT' + CHAR(13) +
 					'(' + CHAR(13) +
 						'MAX(value)' + CHAR(13) +
@@ -237,11 +191,9 @@ BEGIN
 
 	-- Region: Drop tmp table
 	DROP TABLE #Bettype
-	DROP TABLE #DailyPayToSupplier
 	DROP TABLE #Exchange
 	DROP TABLE #ExchangeOANDA
 	DROP TABLE #FinalResult
-	DROP TABLE #FullRangePayToSupplier
 	DROP TABLE #PartyChargeInfo
 	DROP TABLE #Site
 	DROP TABLE #tempData

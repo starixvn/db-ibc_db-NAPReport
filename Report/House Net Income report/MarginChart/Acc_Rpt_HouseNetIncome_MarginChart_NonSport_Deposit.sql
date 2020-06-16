@@ -25,6 +25,7 @@ AS
 		- 20200403@Percy: Integrate Xoc Dia (CC), Bluesprint's games (Macau Games), Table Games [RedmineID: #131507,#131755,#129447]
 		- 20200422@Percy: Integrate 3D Lottery (CC), Saba.Club, Sexy Gaming [RedmineID: #132790,#132791,#132792]
 		- 20200521@Percy: Re-integrate FW [RedmineID: #134533]
+		- 20200529@Percy: Special members for AB [RedmineID: #134867]
 
 	Param's Explanation:   
 		- @ProductList: '' - default value when get all product
@@ -38,6 +39,8 @@ BEGIN
 
 	DECLARE @FDate DATE, @TDate DATE
 	SELECT @FDate = @FromDate, @TDate = @ToDate
+
+	DECLARE @SpecialPayToSupplierProductCodes VARCHAR(MAX)
 
 	DECLARE @DefaulProductList VARCHAR(MAX) = 'EX,GD,FW,AB,VB,CB,CO,AGC,KN,LT,CS,NG,PP,CC,SP,SG,VRG,SAG,I4D,TG,SBC,SXG'
 
@@ -77,30 +80,24 @@ BEGIN
 	SELECT @SQL = LEFT(@SQL, DATALENGTH(@SQL) -2) + ')'	+ CHAR(13)
 	SELECT @SumValue = @SumValue + ' FROM #MarginChartResult GROUP BY [Order], Figure ORDER BY [Order]'
 
-	-- For Specific PayToSupplier
-	CREATE TABLE #P__PayToSupplier (ProductCode VARCHAR(50), rptDate VARCHAR(10), PayToSupplier MONEY, CurrencyPlay MONEY)
-
 	-- 23. FW
 	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'FW')
 	BEGIN
+		SELECT @SpecialPayToSupplierProductCodes = COALESCE(@SpecialPayToSupplierProductCodes + ',', '') + 'FW'
 		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
 							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_FW_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
-
-		INSERT INTO #P__PayToSupplier (rptDate, PayToSupplier, CurrencyPlay)
-		EXEC dbo.Acc_Rpt_HouseNetIncome_MarginChart_PayToSupplier @FromDate = @FDate, @ToDate = @TDate, @ProductPrefix = 'FW', @DepositType = 1
-
-		UPDATE #P__PayToSupplier SET ProductCode = 'FW' WHERE ProductCode IS NULL
 	END
 
 	-- 22. SXG
-	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'TG')
+	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'SXG')
 	BEGIN
+		SELECT @SpecialPayToSupplierProductCodes = COALESCE(@SpecialPayToSupplierProductCodes + ',', '') + 'SXG'
 		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
 							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_SXG_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
 	END
 	
 	-- 21. SBC
-	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'I4D')
+	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'SBC')
 	BEGIN
 		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
 							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_SBC_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
@@ -123,6 +120,7 @@ BEGIN
 	-- 18. SA
 	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'SAG')
 	BEGIN
+		SELECT @SpecialPayToSupplierProductCodes = COALESCE(@SpecialPayToSupplierProductCodes + ',', '') + 'SAG'
 		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
 							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_SA_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
 	END
@@ -137,6 +135,7 @@ BEGIN
 	-- 16. SG
 	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'SG')
 	BEGIN
+		SELECT @SpecialPayToSupplierProductCodes = COALESCE(@SpecialPayToSupplierProductCodes + ',', '') + 'SG'
 		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
 							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_SG_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
 	END
@@ -158,6 +157,7 @@ BEGIN
 	-- 13. PP
 	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'PP')
 	BEGIN
+		SELECT @SpecialPayToSupplierProductCodes = COALESCE(@SpecialPayToSupplierProductCodes + ',', '') + 'PP'
 		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
 							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_PP_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
 	END		
@@ -179,13 +179,9 @@ BEGIN
 	-- 9. AB
 	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'AB')
 	BEGIN
+		SELECT @SpecialPayToSupplierProductCodes = COALESCE(@SpecialPayToSupplierProductCodes + ',', '') + 'AB'
 		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
 							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_AB_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
-
-		INSERT INTO #P__PayToSupplier (rptDate, PayToSupplier, CurrencyPlay)
-		EXEC dbo.Acc_Rpt_HouseNetIncome_MarginChart_PayToSupplier @FromDate = @FDate, @ToDate = @TDate, @ProductPrefix = 'AB', @DepositType = 1
-
-		UPDATE #P__PayToSupplier SET ProductCode = 'AB' WHERE ProductCode IS NULL
 	END	
 
 	-- 8. Macau Game
@@ -236,12 +232,19 @@ BEGIN
 		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
 							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_NG_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
 	END
+
+	-- For Specific PayToSupplier
+	CREATE TABLE #P__PayToSupplier (ProductCode VARCHAR(50), rptDate VARCHAR(10), PayToSupplier MONEY, CurrencyPlay MONEY)
+	
+	IF ISNULL(@SpecialPayToSupplierProductCodes, '') <> ''
+		INSERT INTO #P__PayToSupplier (ProductCode, rptDate, PayToSupplier, CurrencyPlay)
+		EXEC dbo.Acc_Rpt_HouseNetIncome_MarginChart_PayToSupplier @FromDate = @FDate, @ToDate = @TDate, @ProductCodes = @SpecialPayToSupplierProductCodes, @DepositType = 1
 		
 	-- Region: Return final result
 	DECLARE @DateList VARCHAR(200)
 	DECLARE @P_SQL VARCHAR(MAX)
 
-	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix IN ('FW', 'AB'))
+	IF EXISTS (SELECT 1 FROM #P__PayToSupplier)
 	BEGIN
 		;WITH CTE_rptDate AS
 		(

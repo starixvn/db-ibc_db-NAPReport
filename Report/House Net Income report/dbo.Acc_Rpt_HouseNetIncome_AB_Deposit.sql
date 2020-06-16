@@ -15,6 +15,7 @@ AS
 		- 20200102@Robert: #125762 - DHWL Letstalk - Support to add Margin report into the current DHWL Letstalk report
 		- 20200108@Percy: #124755 - Support billing terms by product & currency instead of product only
 		- 20200521@Percy: PayToSupplier - Apply nested SP [RedmineID: #134533]
+		- 20200529@Percy: Special members for AB [RedmineID: #134867]
 	
     Param's Explanation:   	   
 
@@ -172,9 +173,9 @@ BEGIN
 	GROUP BY CONVERT(VARCHAR(2), d.rptDate, 106)
 	OPTION (MAXRECURSION 0)
 
-	CREATE TABLE #PayToSupplier (rptDate VARCHAR(10), PayToSupplier MONEY, CurrencyPlay	MONEY)
-	INSERT INTO #PayToSupplier (rptDate, PayToSupplier, CurrencyPlay)
-	EXEC Acc_Rpt_HouseNetIncome_PayToSupplier @FromDate = @FDate, @ToDate = @TDate, @ProductPrefix = @ProductPrefix, @DepositType = 1
+	CREATE TABLE #PayToSupplier (ProductCode VARCHAR(50), rptDate VARCHAR(10), PayToSupplier MONEY, CurrencyPlay	MONEY)
+	INSERT INTO #PayToSupplier (ProductCode, rptDate, PayToSupplier, CurrencyPlay)
+	EXEC Acc_Rpt_HouseNetIncome_PayToSupplier @FromDate = @FDate, @ToDate = @TDate, @ProductCodes = @ProductPrefix, @DepositType = 1
 
 	UPDATE f
 	SET f.PayToSupplier = p.PayToSupplier, f.CurrencyPlay = p.CurrencyPlay
