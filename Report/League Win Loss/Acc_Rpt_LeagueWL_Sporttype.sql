@@ -6,7 +6,7 @@ GO
 ALTER PROCEDURE dbo.Acc_Rpt_LeagueWL_Sporttype @StartDate SMALLDATETIME,
                                                @EndDate SMALLDATETIME,
                                                @SportBettype VARCHAR(MAX),
-											   @LeagueID INT = 0,
+											   @LeagueId INT = 0,
 										       @IsNoDraw BIT = 0
 AS
 /*
@@ -23,14 +23,14 @@ AS
 		- @EndDate: The end date of data to view on report
 		- @SportBettype: List of Sporttypes and Bettypes that correspond to each other
 		                 Example '1_1,2_1' --> 'Soccer_Handicap,Basketball_Handicap'
-		- @LeagueID: The leagueid to view on report
+		- @LeagueId: The leagueid to view on report
 		             If value is 0, it means that no filter by LeagueID
 		- @IsNoDraw: To get the draw tickets to report or not
 		             0 - Get draw ticktes to report
 					 1 - No get draw ticktes to report
 
 	Example:
-		EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Sporttype @StartDate='20200407', @EndDate='20200407', @SportBettype='1_1,1_2,10000_9,10000_29,2_1,3_1,4_1', @LeagueID=0, @IsNoDraw=0
+		EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Sporttype @StartDate='20200407', @EndDate='20200407', @SportBettype='1_1,1_2,10000_9,10000_29,2_1,3_1,4_1', @LeagueId=0, @IsNoDraw=0
 */
 
 BEGIN
@@ -77,7 +77,7 @@ BEGIN
 		   m.matchtype
 	FROM CTE_Match m
 		 INNER JOIN bodb02.dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid
-	WHERE (0 = @LeagueID OR m.leagueid = @LeagueID)
+	WHERE (0 = @LeagueId OR m.leagueid = @LeagueId)
 		  AND EXISTS (SELECT TOP 1 1
 		              FROM #tmpSportBettypeMatrix sbm
 					  WHERE l.sporttype = sbm.SportType)

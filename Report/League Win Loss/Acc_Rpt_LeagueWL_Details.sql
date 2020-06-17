@@ -6,7 +6,7 @@ GO
 ALTER PROCEDURE dbo.Acc_Rpt_LeagueWL_Details @StartDate SMALLDATETIME,
                                              @EndDate SMALLDATETIME,
                                              @SportType INT,
-											 @LeagueID INT,
+											 @LeagueId INT,
 											 @LiveIndicator TINYINT,
 											 @BetType SMALLINT,
 											 @IsHedge SMALLINT,
@@ -25,7 +25,7 @@ AS
 		- @StartDate: The start date of data to view on report
 		- @EndDate: The end date of data to view on report
 		- @SportType: The sporttype to view on report
-		- @LeagueID: The leagueid to view on report
+		- @LeagueId: The leagueid to view on report
 		- @BetType: The bettype to view on report
 		- @LiveIndicator: To indicate the live status to view on report
 		- @IsNoDraw: To get the draw tickets to report or not
@@ -33,7 +33,7 @@ AS
 					 1 - No get draw ticktes to report
 
 	Example:
-		EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Details @StartDate='20200421', @EndDate='20200421', @SportType=1, @LeagueID=143, @LiveIndicator=1, @BetType=1, @IsHedge=0, @IsNoDraw=0
+		EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Details @StartDate='20200421', @EndDate='20200421', @SportType=1, @LeagueId=143, @LiveIndicator=1, @BetType=1, @IsHedge=0, @IsNoDraw=0
 */
 
 BEGIN
@@ -67,7 +67,7 @@ BEGIN
 			 LEFT JOIN bodb02.dbo.Team home (NOLOCK) ON m.homeid = home.teamid
 			 LEFT JOIN bodb02.dbo.Team away (NOLOCK) ON m.awayid = away.teamid
 		WHERE m.eventdate = @StartDate
-			  AND m.leagueid = @LeagueID
+			  AND m.leagueid = @LeagueId
 			  AND m.matchcode LIKE '%hedge%'
 		OPTION (RECOMPILE)
 	END
@@ -88,7 +88,7 @@ BEGIN
 			 LEFT JOIN bodb02.dbo.Team home (NOLOCK) ON m.homeid = home.teamid
 			 LEFT JOIN bodb02.dbo.Team away (NOLOCK) ON m.awayid = away.teamid
 		WHERE m.eventdate = @StartDate
-			  AND m.leagueid = @LeagueID
+			  AND m.leagueid = @LeagueId
 			  AND m.matchcode NOT LIKE '%hedge%'
 		OPTION (RECOMPILE)
 	END
@@ -106,7 +106,7 @@ BEGIN
 		 INNER JOIN bodb02.dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid
 		 LEFT JOIN bodb02.dbo.Team team (NOLOCK) ON m.teamid = team.teamid
 	WHERE m.eventdate = @StartDate
-		  AND m.leagueid = @LeagueID
+		  AND m.leagueid = @LeagueId
 	OPTION (RECOMPILE)
 	
 	-- + create clustered index

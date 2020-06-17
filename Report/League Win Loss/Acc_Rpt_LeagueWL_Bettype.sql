@@ -6,7 +6,7 @@ GO
 ALTER PROCEDURE dbo.Acc_Rpt_LeagueWL_Bettype @StartDate SMALLDATETIME,
 											 @EndDate SMALLDATETIME,
 											 @SportBettype VARCHAR(MAX),
-											 @LeagueID INT,
+											 @LeagueId INT,
 											 @IsNoDraw BIT = 0
 AS
 /*
@@ -23,13 +23,13 @@ AS
 		- @EndDate: The end date of data to view on report
 		- @SportBettype: List of Sporttypes and Bettypes that correspond to each other
 		                 Example '1_1,2_1' --> 'Soccer_Handicap,Basketball_Handicap'
-		- @LeagueID: The leagueid to view on report
+		- @LeagueId: The leagueid to view on report
 		- @IsNoDraw: To get the draw tickets to report or not
 		             0 - Get draw ticktes to report
 					 1 - No get draw ticktes to report
 
 	Example:
-		EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Bettype @StartDate='20200421', @EndDate='20200421', @SportBettype='1_1,1_2,10000_9,10000_29,2_1,3_1,4_1', @LeagueID=143, @IsNoDraw=0
+		EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Bettype @StartDate='20200421', @EndDate='20200421', @SportBettype='1_1,1_2,10000_9,10000_29,2_1,3_1,4_1', @LeagueId=143, @IsNoDraw=0
 */
 
 BEGIN
@@ -120,7 +120,7 @@ BEGIN
 		   m.matchtype
 	FROM CTE_Match m
 		 INNER JOIN bodb02.dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid
-	WHERE m.leagueid = @LeagueID
+	WHERE m.leagueid = @LeagueId
 	OPTION (RECOMPILE)
 	
 	CREATE UNIQUE CLUSTERED INDEX PK_tmpMatch ON #tmpMatch(matchid, matchtype)
