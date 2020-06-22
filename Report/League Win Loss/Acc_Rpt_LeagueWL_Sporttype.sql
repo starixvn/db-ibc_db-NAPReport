@@ -369,8 +369,7 @@ BEGIN
 		   VirtualTurnover
 	FROM #tmpData
 	WHERE MemberWinLoss IS NOT NULL
-	ORDER BY SportType,
-		     LeagueName
+	ORDER BY RealTurnover DESC
 
 	-- Drop temp tables
 	DROP TABLE #tmpSportBettypeMatrix
