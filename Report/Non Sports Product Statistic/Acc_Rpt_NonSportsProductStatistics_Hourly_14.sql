@@ -49,6 +49,7 @@ AS
 		20190812@Cherry: Add betfrom t (#115937)
 		20191225@Cherry: Apply ExtraPT in bettrans table (#123697)
 		20200601@Cherry: Add Credit Site and support multiple currency (#135009)
+		20200624@Cherry: Archive VSRaceInfo (#136256)
 
 	Param's Explanation:
 			 - @username:  + Search by keyword, member only
@@ -890,7 +891,7 @@ SET NOCOUNT ON
 		WHERE b.WinlostDate = @WLDate
 			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 5 AND Eventtype = 3)
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
-			AND EXISTS (SELECT 1 From VSRaceInfo r WITH (NOLOCK) INNER JOIN #tmpSporttype sp ON sp.Sporttype = r.sporttype WHERE r.EventID = b.matchid)
+			AND EXISTS (SELECT 1 From VSRaceInfo14 r WITH (NOLOCK) INNER JOIN #tmpSporttype sp ON sp.Sporttype = r.sporttype WHERE r.EventID = b.matchid)
 			AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
 			AND (EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId) OR @currency = '-1')			
 			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')

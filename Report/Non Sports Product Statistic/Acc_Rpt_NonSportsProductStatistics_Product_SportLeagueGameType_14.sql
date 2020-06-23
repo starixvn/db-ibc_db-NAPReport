@@ -44,6 +44,7 @@ AS
 		20190812@Cherry: Add betfrom t (#115937)
 		20191225@Cherry: Apply ExtraPT in bettrans table (#123697)
 		20200601@Cherry: Add Credit Site and support multiple currency (#135009)
+		20200624@Cherry: Archive VSRaceInfo (#136256)
 
 	Param's Explanation:
 		- @username:  + Search by keyword, member only
@@ -968,7 +969,7 @@ BEGIN
 							ELSE scomm / (1 - tpositiontaking) END) * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8)) * actualrate) ExtraPTBase
 						
 		FROM dbo.Bettrans14 b WITH (NOLOCK) 
-			INNER JOIN VSRaceInfo r WITH (NOLOCK) ON b.matchid = r.EventID 
+			INNER JOIN VSRaceInfo14 r WITH (NOLOCK) ON b.matchid = r.EventID 
 		WHERE b.WinlostDate = @WLDate
 			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 5 AND EvenType = 3)
 			AND b.statusID IN (111, 112, 113, 103) 
