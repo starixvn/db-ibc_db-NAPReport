@@ -5,6 +5,7 @@ GO
 
 CREATE PROCEDURE dbo.Acc_Rpt_SBPerformanceMonitor_Dashboard @fromDate SMALLDATETIME,
 														    @toDate SMALLDATETIME,
+															@timeRange SMALLINT = -1,
 														    @isShowSite BIT,
 														    @isShowSport BIT,
 															@isShowLeague BIT,
