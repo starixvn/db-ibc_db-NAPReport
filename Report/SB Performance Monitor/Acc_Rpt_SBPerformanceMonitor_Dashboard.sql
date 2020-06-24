@@ -3,7 +3,7 @@
 USE bodb02
 GO
 
-CREATE PROCEDURE dbo.Acc_Rpt_SBPerformanceMonitor_Dashboard @fromDate SMALLDATETIME,
+ALTER PROCEDURE dbo.Acc_Rpt_SBPerformanceMonitor_Dashboard @fromDate SMALLDATETIME,
 														    @toDate SMALLDATETIME,
 															@timeRange SMALLINT = -1,
 														    @isShowSite BIT,
@@ -36,16 +36,16 @@ AS
 		- @top: Value for filter data in the situation of league or cust
 
 	Example:
-		EXEC bodb_dwrs.dbo.Acc_Rpt_SBPerformanceMonitor_Dashboard @fromDate='20200520', @toDate='20200520',
+		EXEC bodb02.dbo.Acc_Rpt_SBPerformanceMonitor_Dashboard @fromDate='20200520', @toDate='20200520',
 																  @isShowSite=1, @isShowSport=0, @isShowLeague=0, @isShowCust=0,
 																  @margin = 3, @top = 50
-		EXEC bodb_dwrs.dbo.Acc_Rpt_SBPerformanceMonitor_Dashboard @fromDate=CAST(GETDATE() AS DATE), @toDate=CAST(GETDATE() AS DATE),
+		EXEC bodb02.dbo.Acc_Rpt_SBPerformanceMonitor_Dashboard @fromDate=CAST(GETDATE() AS DATE), @toDate=CAST(GETDATE() AS DATE),
 																  @isShowSite=1, @isShowSport=0, @isShowLeague=0, @isShowCust=0,
 																  @margin = 3, @top = 50
-		EXEC bodb_dwrs.dbo.Acc_Rpt_SBPerformanceMonitor_Dashboard @fromDate='20200520', @toDate='20200520',
+		EXEC bodb02.dbo.Acc_Rpt_SBPerformanceMonitor_Dashboard @fromDate='20200520', @toDate='20200520',
 																  @isShowSite=0, @isShowSport=0, @isShowLeague=1, @isShowCust=0,
 																  @margin = 3, @top = 50
-		EXEC bodb_dwrs.dbo.Acc_Rpt_SBPerformanceMonitor_Dashboard @fromDate=CAST(GETDATE() AS DATE), @toDate=CAST(GETDATE() AS DATE),
+		EXEC bodb02.dbo.Acc_Rpt_SBPerformanceMonitor_Dashboard @fromDate=CAST(GETDATE() AS DATE), @toDate=CAST(GETDATE() AS DATE),
 																  @isShowSite=0, @isShowSport=0, @isShowLeague=1, @isShowCust=0,
 																  @margin = 3, @top = 50
 */
@@ -288,10 +288,10 @@ BEGIN
 		   @sqlCommand +
 		   'SELECT ' + 
 		   CASE WHEN (@isShowLeague = 1 OR @isShowCust = 1) THEN 'TOP(' + CAST(@top AS VARCHAR(10)) + ') ' ELSE '' END +
-		   CASE WHEN @isShowSite = 1 THEN 'SiteID, SiteName, '
-				WHEN @isShowSport = 1 THEN 'SportID, SportName, '
-				WHEN @isShowLeague = 1 THEN 'LeagueID, LeagueName, '
-				WHEN @isShowCust = 1 THEN 'CustID, CustName, '
+		   CASE WHEN @isShowSite = 1 THEN 'SiteID AS ID, SiteName AS Name, '
+				WHEN @isShowSport = 1 THEN 'SportID AS ID, SportName AS Name, '
+				WHEN @isShowLeague = 1 THEN 'LeagueID AS ID, LeagueName AS Name, '
+				WHEN @isShowCust = 1 THEN 'CustID AS ID, CustName AS Name, '
 				ELSE '' END +
 		   'BetCount, RealIncome, RealTurnover, RealMargin' + CHAR(13) +
 		   'FROM #tmpFinal' + CHAR(13) +
