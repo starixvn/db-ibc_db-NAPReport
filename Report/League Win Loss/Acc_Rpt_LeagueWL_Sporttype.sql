@@ -152,13 +152,33 @@ BEGIN
                     ELSE (1 - sd.tpositiontaking - ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0))
 					     * ABS(sd.stake)
 						 * CASE WHEN sd.virtualrate > sd.actualrate THEN sd.virtualrate ELSE sd.actualrate END
-						 * CASE WHEN @IsNoDraw = 1 THEN CASE WHEN (sd.statusID IN (112, 113) AND sd.modds = 0.25) THEN 0.5 ELSE 1 END ELSE 1 END
+						 * CASE WHEN @IsNoDraw = 1 THEN CASE WHEN 	(
+																		(
+																			(sd.bettype < 999 OR sd.bettype BETWEEN 1301 AND 1399 OR sd.bettype BETWEEN 9001 AND 9399) 
+																			AND sd.bettype NOT IN (29, 38, 911, 912, 913, 914 )
+																			AND sd.bettype NOT BETWEEN 81 AND 120
+																		)
+																		AND ABS(sd.modds) = 0.25
+																		AND sd.statusID IN (112, 113)
+																	) THEN 0.5
+															 ELSE 1 END
+								ELSE 1 END
 			   END) AS RealTurnover, 
 		   SUM(CASE WHEN sd.tpositiontaking = 1 THEN 0
                     ELSE (1 - sd.tpositiontaking - ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0))
-					* ABS(sd.stake)
-					* sd.virtualrate
-					* CASE WHEN @IsNoDraw = 1 THEN CASE WHEN (sd.statusID IN (112, 113) AND sd.modds = 0.25) THEN 0.5 ELSE 1 END ELSE 1 END
+					     * ABS(sd.stake)
+					     * sd.virtualrate
+						 * CASE WHEN @IsNoDraw = 1 THEN CASE WHEN 	(
+																		(
+																			(sd.bettype < 999 OR sd.bettype BETWEEN 1301 AND 1399 OR sd.bettype BETWEEN 9001 AND 9399) 
+																			AND sd.bettype NOT IN (29, 38, 911, 912, 913, 914 )
+																			AND sd.bettype NOT BETWEEN 81 AND 120
+																		)
+																		AND ABS(sd.modds) = 0.25
+																		AND sd.statusID IN (112, 113)
+																	) THEN 0.5
+															 ELSE 1 END
+								ELSE 1 END
 			   END) AS VirtualTurnover
 	FROM bodb02.dbo.bettrans sd (NOLOCK)
 		 INNER JOIN #tmpMatch m ON sd.matchid = m.matchid
@@ -312,13 +332,33 @@ BEGIN
                     ELSE (1 - sd.tpositiontaking - ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0))
 					     * ABS(sd.stake)
 						 * CASE WHEN sd.virtualrate > sd.actualrate THEN sd.virtualrate ELSE sd.actualrate END
-						 * CASE WHEN @IsNoDraw = 1 THEN CASE WHEN (sd.statusID IN (112, 113) AND sd.modds = 0.25) THEN 0.5 ELSE 1 END ELSE 1 END
+						 * CASE WHEN @IsNoDraw = 1 THEN CASE WHEN 	(
+																		(
+																			(sd.bettype < 999 OR sd.bettype BETWEEN 1301 AND 1399 OR sd.bettype BETWEEN 9001 AND 9399) 
+																			AND sd.bettype NOT IN (29, 38, 911, 912, 913, 914 )
+																			AND sd.bettype NOT BETWEEN 81 AND 120
+																		)
+																		AND ABS(sd.modds) = 0.25
+																		AND sd.statusID IN (112, 113)
+																	) THEN 0.5
+															 ELSE 1 END
+								ELSE 1 END
 			   END) AS RealTurnover, 
 		   SUM(CASE WHEN sd.tpositiontaking = 1 THEN 0
                     ELSE (1 - sd.tpositiontaking - ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0))
-					* ABS(sd.stake)
-					* sd.virtualrate
-					* CASE WHEN @IsNoDraw = 1 THEN CASE WHEN (sd.statusID IN (112, 113) AND sd.modds = 0.25) THEN 0.5 ELSE 1 END ELSE 1 END
+					     * ABS(sd.stake)
+					     * sd.virtualrate
+						 * CASE WHEN @IsNoDraw = 1 THEN CASE WHEN 	(
+																		(
+																			(sd.bettype < 999 OR sd.bettype BETWEEN 1301 AND 1399 OR sd.bettype BETWEEN 9001 AND 9399) 
+																			AND sd.bettype NOT IN (29, 38, 911, 912, 913, 914 )
+																			AND sd.bettype NOT BETWEEN 81 AND 120
+																		)
+																		AND ABS(sd.modds) = 0.25
+																		AND sd.statusID IN (112, 113)
+																	) THEN 0.5
+															 ELSE 1 END
+								ELSE 1 END
 			   END) AS VirtualTurnover
 	FROM bodb02.dbo.bettrans sd (NOLOCK)
 		 INNER JOIN #tmpMatch m ON sd.matchid = m.matchid
@@ -329,6 +369,7 @@ BEGIN
 		  AND sd.ruben = 1
 		  AND sd.statusID IN (111, 112, 113)
 		  AND sd.currency NOT IN (20, 27, 28)
+		  AND sd.bettype NOT IN (9, 29)
 		  AND sd.recommend IN (52466, 5707545)
 		  AND (@IsNoDraw = 0 OR (@IsNoDraw = 1 AND sd.statusID NOT IN (111)))
 	GROUP BY CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466	THEN 10001
