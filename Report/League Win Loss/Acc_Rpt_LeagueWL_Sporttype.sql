@@ -6,7 +6,7 @@ GO
 ALTER PROCEDURE dbo.Acc_Rpt_LeagueWL_Sporttype @StartDate SMALLDATETIME,
                                                @EndDate SMALLDATETIME,
                                                @SportBettype VARCHAR(MAX),
-											   @LeagueId INT = 0,
+											   @LeagueName VARCHAR(500) = '',
 										       @IsNoDraw BIT = 0
 AS
 /*
@@ -17,20 +17,21 @@ AS
 	Revisions:
 		- 20200422@Ned.Le: NAP Report - Adjustment for League Win Loss (#132846)
 		- 20200520@Ned.Le: NAP Report - Enhancement for League Win Loss (#134439)
+		- 20200626@Ned.Le: NAP Report - Enhancement for searching a league info on Punter Analysis and League Win Loss Report (#136277)
 
 	Param's Explanation:
 		- @StartDate: The start date of data to view on report
 		- @EndDate: The end date of data to view on report
 		- @SportBettype: List of Sporttypes and Bettypes that correspond to each other
 		                 Example '1_1,2_1' --> 'Soccer_Handicap,Basketball_Handicap'
-		- @LeagueId: The leagueid to view on report
-		             If value is 0, it means that no filter by LeagueID
+		- @LeagueName: The leaguename to view on report
+		               If value is '', it means that no filter by LeagueName
 		- @IsNoDraw: To get the draw tickets to report or not
 		             0 - Get draw ticktes to report
 					 1 - No get draw ticktes to report
 
 	Example:
-		EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Sporttype @StartDate='20200407', @EndDate='20200407', @SportBettype='1_1,1_2,10000_9,10000_29,2_1,3_1,4_1', @LeagueId=0, @IsNoDraw=0
+		EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Sporttype @StartDate='20200407', @EndDate='20200407', @SportBettype='1_1,1_2,10000_9,10000_29,2_1,3_1,4_1', @LeagueName='', @IsNoDraw=0
 */
 
 BEGIN
@@ -57,6 +58,17 @@ BEGIN
 
 	CREATE UNIQUE CLUSTERED INDEX PK_tmpSportBettypeMatrix ON #tmpSportBettypeMatrix(SportType, BetType)
 
+	-- #tmpLeague
+	CREATE TABLE #tmpLeague (LeagueId INT)
+
+	INSERT INTO #tmpLeague (LeagueId)
+	SELECT leagueid
+	FROM bodb02.dbo.league (NOLOCK)
+	WHERE leaguename = @LeagueName
+		  AND isTest = 0
+
+	CREATE UNIQUE CLUSTERED INDEX PK_tmpLeague ON #tmpLeague(LeagueId)
+
 	-- #tmpMatch
 	CREATE TABLE #tmpMatch (matchid INT,
 							sporttype SMALLINT,
@@ -77,7 +89,7 @@ BEGIN
 		   m.matchtype
 	FROM CTE_Match m
 		 INNER JOIN bodb02.dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid
-	WHERE (0 = @LeagueId OR m.leagueid = @LeagueId)
+	WHERE ('' = @LeagueName OR m.leagueid IN (SELECT LeagueId FROM #tmpLeague))
 		  AND EXISTS (SELECT TOP 1 1
 		              FROM #tmpSportBettypeMatrix sbm
 					  WHERE l.sporttype = sbm.SportType)
@@ -88,7 +100,6 @@ BEGIN
 	-- #tmpData
 	CREATE TABLE #tmpData (SportType		SMALLINT,
 						   Sport			VARCHAR(50),
-						   LeagueID			INT,
 						   LeagueName		VARCHAR(150),
 						   MemberWinLoss	MONEY,
 						   SMAWinLoss		MONEY,
@@ -103,7 +114,6 @@ BEGIN
 	-- + Soccer, Other Sports
 	INSERT INTO #tmpData (SportType,
 						  Sport,
-						  LeagueID,
 						  LeagueName,
 						  MemberWinLoss,
 						  SMAWinLoss,
@@ -116,7 +126,6 @@ BEGIN
 						  VirtualTurnover)
 	SELECT sbm.SportType AS SportType,
 		   sbm.Sport AS Sport,
-		   m.leagueid AS LeagueID,
 		   m.leaguename AS LeagueName,
 		   SUM((sd.winlost - sd.actual_stake) * sd.actualrate) AS MemberWinLoss,
            SUM((sd.awinlost + sd.mwinlost + sd.swinlost) * sd.actualrate) AS SMAWinLoss,
@@ -193,14 +202,12 @@ BEGIN
 		  AND (@IsNoDraw = 0 OR (@IsNoDraw = 1 AND sd.statusID NOT IN (111)))
 	GROUP BY sbm.SportType,
 			 sbm.Sport,
-			 m.leagueid,
 		     m.leaguename
 	OPTION (RECOMPILE)
 	
 	-- + Parlay
 	INSERT INTO #tmpData (SportType,
 						  Sport,
-						  LeagueID,
 						  LeagueName,
 						  MemberWinLoss,
 						  SMAWinLoss,
@@ -213,7 +220,6 @@ BEGIN
 						  VirtualTurnover)
 	SELECT 10000 AS SportType,
 		   'Parlay' AS Sport,
-		   -1 AS LeagueID,
 		   '' AS LeagueName,
 		   SUM((sd.winlost - sd.actual_stake) * sd.actualrate) AS MemberWinLoss,
            SUM((sd.awinlost + sd.mwinlost + sd.swinlost) * sd.actualrate) AS SMAWinLoss,
@@ -267,7 +273,6 @@ BEGIN
 	-- + RM
 	INSERT INTO #tmpData (SportType,
 						  Sport,
-						  LeagueID,
 						  LeagueName,
 						  MemberWinLoss,
 						  SMAWinLoss,
@@ -288,11 +293,6 @@ BEGIN
 				WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN 'Soccer BARM'
 				WHEN sbm.SportType > 1 AND sd.recommend = 5707545 THEN 'Other Sports BARM'
 				ELSE '' END AS Sport,
-		   CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466	  THEN -2
-				WHEN sbm.SportType > 1 AND sd.recommend = 52466	  THEN -3
-				WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN -4
-				WHEN sbm.SportType > 1 AND sd.recommend = 5707545 THEN -5
-				ELSE -10000 END AS LeagueID,
 		   CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466   THEN 'Soccer 8RM'
 				WHEN sbm.SportType > 1 AND sd.recommend = 52466   THEN 'Other Sports 8RM'
 				WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN 'Soccer BARM'
@@ -382,11 +382,6 @@ BEGIN
 				  WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN 'Soccer BARM'
 				  WHEN sbm.SportType > 1 AND sd.recommend = 5707545 THEN 'Other Sports BARM'
 				  ELSE '' END,
-		     CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466	THEN -2
-				  WHEN sbm.SportType > 1 AND sd.recommend = 52466	THEN -3
-				  WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN -4
-				  WHEN sbm.SportType > 1 AND sd.recommend = 5707545 THEN -5
-				  ELSE -10000 END,
 		     CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466   THEN 'Soccer 8RM'
 				  WHEN sbm.SportType > 1 AND sd.recommend = 52466   THEN 'Other Sports 8RM'
 				  WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN 'Soccer BARM'
@@ -397,7 +392,6 @@ BEGIN
 	-- Get Data
 	SELECT SportType,
 		   Sport,
-		   LeagueID,
 		   LeagueName,
 		   MemberWinLoss,
 		   SMAWinLoss,
@@ -414,6 +408,7 @@ BEGIN
 
 	-- Drop temp tables
 	DROP TABLE #tmpSportBettypeMatrix
+	DROP TABLE #tmpLeague
 	DROP TABLE #tmpMatch
 	DROP TABLE #tmpData
 
