@@ -14,7 +14,7 @@ AS
 		- 20180126@Harper - HDWL Letstalk - Implement Chart of SB margin Soccer [#RedmineID: 89632]
 		- 20190121@Robert: Letstalk Margin Charts - Separate Letstalk group for credit & Deposit (Soccer & Other Sports) [#108220]
 		- 20190406@Robert: 107164 - House Net Income Email/Letstalk/Margin Chart - Integrate Bet Builder
-		
+		- 20200701@Kean.Nguyen - House Net Income Email/Letstalk - Change formula to Calculate Margin (#136792)
 	Param's Explanation:   
 
 	Acc_Rpt_HouseNetIncome_MarginChart_Soccer_Credit '2018-12-01', '2018-12-31'
@@ -34,17 +34,7 @@ BEGIN
 	    RptDate              VARCHAR(10)
 	  , HouseWL              MONEY
 	  , ExtraPT              MONEY
-	  , TurnOver             MONEY
-	  , PayToMetricGaming    MONEY
-	  , PayToGenius          MONEY);
-
-    DECLARE @PayToMetricGaming TABLE(
-	    RptDate              VARCHAR(10)
-	  , PayToMetricGaming    MONEY);
-
-    DECLARE @PayToBetBuilder TABLE(
-	    rptDate        VARCHAR(10)
-	  , PayToGenius    MONEY);
+	  , TurnOver             MONEY);
 
     INSERT INTO #FinalResult(rptDate
 					  , HouseWL
@@ -101,36 +91,7 @@ BEGIN
 		   , f.ExtraPT = ISNULL(f.ExtraPT, 0) + ISNULL(wl.ExtraPT, 0)
     FROM #FinalResult f
 	   INNER JOIN #TmpHouseWL wl ON wl.rptDate = f.RptDate;
-    ---------------------------------------------------- Pay to Metric Gaming ----------------------------------------------------
-
-    INSERT INTO @PayToMetricGaming(RptDate
-						   , PayToMetricGaming)
-    EXEC DBEXT.bodb02.dbo.Acc_Rpt_HouseNetIncome_SB_PayToMetricGaming
-	    @FromDate = @FDate
-	  , @ToDate = @TDate
-	  , @DepositType = 0;	  
-
-    UPDATE f
-		 SET
-			f.PayToMetricGaming = p.PayToMetricGaming
-    FROM #FinalResult f
-	   INNER JOIN @PayToMetricGaming p ON f.RptDate = p.RptDate
-    WHERE f.RptDate <> 'FullRange';
-    ---------------------------------------------------- Pay To Bet Builder -------------------------------------------------------
-
-    INSERT INTO @PayToBetBuilder(rptDate
-						 , PayToGenius)
-    EXEC DBEXT.bodb02.dbo.Acc_Rpt_HouseNetIncome_SB_PayToBetBuilder
-	    @FromDate = @FDate
-	  , @ToDate = @TDate
-	  , @DepositType = 0;   
-
-    UPDATE f
-		 SET
-			f.PayToGenius = p.PayToGenius
-    FROM #FinalResult f
-	   INNER JOIN @PayToBetBuilder p ON f.RptDate = p.rptDate
-    WHERE f.RptDate <> 'FullRange';
+   
 	---------------------------------------------------- Select the output -------------------------------------------------------
 	DECLARE @SQL VARCHAR(1000)
 	SELECT @SQL =	'SELECT * ' + CHAR(13) +
@@ -138,13 +99,9 @@ BEGIN
 							'CROSS APPLY' + CHAR(13) +
 							'(SELECT ''Soccer'', 1, ''House Income'', HouseWL' + CHAR(13) +
 							'UNION ALL' + CHAR(13) +
-							'SELECT ''Soccer'', 3, ''Extra PT'', ExtraPT' + CHAR(13) +	
+							'SELECT ''Soccer'', 2, ''Extra PT'', ExtraPT' + CHAR(13) +					
 							'UNION ALL' + CHAR(13) +
-							'SELECT ''Soccer'', 7, ''Pay to Metric Gaming'', PayToMetricGaming' + CHAR(13) +						
-							'UNION ALL' + CHAR(13) +
-							'SELECT ''Soccer'', 8, ''Turn Over'', TurnOver' + CHAR(13) +						
-							'UNION ALL' + CHAR(13) +
-							'SELECT ''Soccer'', 9, ''Pay to Bet Genius'', PayToGenius) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
+							'SELECT ''Soccer'', 3, ''Turn Over'', TurnOver) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
 					'PIVOT' + CHAR(13) +
 					'(' + CHAR(13) +
 						'MAX(value)' + CHAR(13) +

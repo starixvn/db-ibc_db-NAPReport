@@ -38,6 +38,7 @@ AS
 		- 20200518@Ned.Le - Email/Letstalk Reports - Integrate SBO RNG War (#132019)
 		- 20200521@Ned.Le - Re-Integrate Fishing World product for letstalk (#134533)
 		- 20200529@Ned.Le - House Net Income Email/Letstalk - Change timezone to calculate monthly Pay To Supplier (#134867)
+		- 20200701@Kean.Nguyen - House Net Income Email/Letstalk - Change formula to Calculate Margin (#136792)
 
 	Param's Explanation:   
 		- @ProductList: '' - default value when get all product
@@ -209,14 +210,14 @@ BEGIN
 		  CASE WHEN sb.ProductID = 15 THEN 0 ELSE ISNULL(SUM(b.WinlossP * oanda.Rate),0) END AS MemberWLOANDA,		
 		  ISNULL(SUM((CASE WHEN TurnoverIBC = 0 THEN 0  ELSE TurnoverIBC - ExtraTO END )
 				     * ( CASE WHEN VarianceVR > 0 THEN( VarianceVR + 1 ) ELSE 1 END )
-				     * ex.Rate), 0) AS TurnOver,
+				     * ex.Rate * (CASE WHEN b.TicketStatus in (12,13) THEN 0.5 ELSE 1 END)), 0) AS TurnOver,
 		  CASE WHEN sb.ProductID = 15 THEN 0 ELSE ISNULL(SUM((b.ExtraWL + b.ExtraComm) * ex.Rate),0) END AS ExtraPT
 	FROM bodb_Account.dbo.FactSiteWinloss b WITH(NOLOCK)
 		 INNER JOIN #SportBettypeMatrix sb ON sb.Bettype = b.bettype
 		 LEFT JOIN #exchange AS ex ON b.rptdate = ex.exchangedate AND b.currencyid = ex.ExchangeID
 		 LEFT JOIN #ExchangeOANDA oanda ON b.rptdate = oanda.exchangedate AND b.currencyid = oanda.ExchangeID
 	WHERE b.rptDate >= @FDate AND b.rptDate <= @TDate
-		  AND b.TicketStatus NOT IN (-1,18,9,10,14)
+		  AND b.TicketStatus NOT IN(-1, 18, 9, 10, 14, 3)
 		  AND SiteID IN (SELECT SiteID FROM bodb_Account.dbo.tbl_Site WHERE isDeposit = 0) -- Credit data only
 		  AND b.BetType NOT IN (4299, 4300)
 	GROUP BY b.rptDate, b.SiteID, sb.ProductID, b.SportType, b.BetType
@@ -275,8 +276,7 @@ BEGIN
 		HouseWL		  MONEY,
 		ExtraPT		  MONEY,
 		PayToSupplier MONEY,
-		TurnOver	  MONEY,
-		CurrencyPlay  MONEY
+		TurnOver	  MONEY
 	)
 
 	DECLARE @tmpDate DATE, @DateList VARCHAR(200) = '[FullRange]'
@@ -284,7 +284,7 @@ BEGIN
 
     WHILE @tmpDate <= @TDate
 	BEGIN
-		INSERT INTO #FinalResult (RptDate, HouseWL, ExtraPT, PayToSupplier, TurnOver, CurrencyPlay)
+		INSERT INTO #FinalResult (RptDate, HouseWL, ExtraPT, PayToSupplier, TurnOver)
 		SELECT CONVERT(VARCHAR(2), @tmpDate, 106) AS RptDate,
 			   (SELECT SUM(t.HouseWL) FROM #TmpHouseWL AS t WHERE t.rptDate = @tmpDate) AS HouseWL,
 			   (SELECT SUM(t.ExtraPT) FROM #TmpHouseWL AS t WHERE t.rptDate = @tmpDate) AS ExtraPT,
@@ -320,8 +320,7 @@ BEGIN
 				  FROM #tmpPayToSupplier_GMT AS t
 				  WHERE t.rptDate = CONVERT(VARCHAR(2), @tmpDate, 106)) -- List of GMT8-GMT0 Products
 			   ) AS PayToSupplier,
-			   (SELECT SUM(t.TurnOver) FROM #TmpHouseWL AS t WHERE t.rptDate = @tmpDate) AS  TurnOver,
-			   (SELECT SUM(t.CurrencyPlay_Daily) FROM #tmpPayToSupplier_GMT AS t WHERE t.rptDate = CONVERT(VARCHAR(2), @tmpDate, 106)) AS  CurrencyPlay
+			   (SELECT SUM(t.TurnOver) FROM #TmpHouseWL AS t WHERE t.rptDate = @tmpDate) AS  TurnOver
 
 		SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate)
 	END
@@ -329,8 +328,8 @@ BEGIN
     SELECT @DateList = COALESCE(@DateList + ',', '') + '[' + CONVERT(VARCHAR(10), RptDate) + ']'
     FROM #FinalResult
 
-	INSERT INTO #FinalResult (RptDate, HouseWL, ExtraPT, PayToSupplier, TurnOver, CurrencyPlay)
-	SELECT 'FullRange', 0, 0, 0, 0, 0
+	INSERT INTO #FinalResult (RptDate, HouseWL, ExtraPT, PayToSupplier, TurnOver)
+	SELECT 'FullRange', 0, 0, 0, 0
 
 	-- Return data
 	DECLARE @SQL VARCHAR(1000)
@@ -345,9 +344,7 @@ BEGIN
 		'UNION ALL' + CHAR(13) +
 		'SELECT ''NonSport'', 8, ''Turn Over'', TurnOver' + CHAR(13) +
 		'UNION ALL' + CHAR(13) +
-		'SELECT ''NonSport'', 4, ''Pay to supplier'', PayToSupplier' + CHAR(13) +
-		'UNION ALL' + CHAR(13) +
-		'SELECT ''NonSport'', 10, ''Currency Play'', CurrencyPlay) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
+		'SELECT ''NonSport'', 4, ''Pay to supplier'', PayToSupplier) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
 		'PIVOT' + CHAR(13) +
 		'(' + CHAR(13) +
 		'MAX(value)' + CHAR(13) +
