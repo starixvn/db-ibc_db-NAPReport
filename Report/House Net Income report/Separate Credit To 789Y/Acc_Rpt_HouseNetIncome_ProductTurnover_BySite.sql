@@ -25,6 +25,7 @@ AS
 		- 20200518@Ned.Le - Email/Letstalk Reports - Integrate SBO ION Live Casino (#132331)
 		- 20200518@Ned.Le - Email/Letstalk Reports - Integrate SBO RNG War (#132019)
 		- 20200521@Ned.Le - Re-Integrate Fishing World product for letstalk (#134533)
+		- 20200701@Kean.Nguyen - House Net Income Email/Letstalk - Change formula to Calculate Margin (#136792)
 	
 	Param's Explanation:   
 	- DepositType  
@@ -139,13 +140,14 @@ BEGIN
 			 , CASE WHEN b.BetType IN (9, 29) THEN -2 ELSE b.SportType END SportType
 			 , b.BetType
 			 , SUM((CASE WHEN b.TurnoverIBC=0 THEN 0 ELSE b.TurnoverIBC - b.ExtraTO END) *
-							(CASE WHEN b.VarianceVR > 0 THEN (b.VarianceVR + 1) ELSE 1 END) * ex.Rate) AS  HouseTO
+							(CASE WHEN b.VarianceVR > 0 THEN (b.VarianceVR + 1) ELSE 1 END) * ex.Rate *
+							(CASE WHEN b.TicketStatus in (12,13) THEN 0.5 ELSE 1 END)) AS  HouseTO
 		 FROM bodb_Account.dbo.FactSiteWinloss AS b WITH(NOLOCK)
 			INNER JOIN #SportBettypeMatrix AS sb ON b.Bettype = sb.Bettype
 			LEFT JOIN #exchange AS ex ON b.rptdate = ex.exchangedate
 								    AND b.currencyid = ex.ExchangeID
 		 WHERE b.rptDate >= @FDate AND b.rptDate <= @TDATE
-			  AND b.TicketStatus NOT IN(-1, 18, 9, 10, 14)
+			  AND b.TicketStatus NOT IN(-1, 18, 9, 10, 14, 3)
 			  AND b.CurrencyID <> 20
 			  AND SiteID IN
 						 (
