@@ -18,6 +18,7 @@ AS;
 		- 20200324@Kean - Email/Letstalk Reports - Integrate SA Gaming product [#128059]
 		- 20200409@Kean: House Net Income - Integrate Table Games product (#129447)
 		- 20200422@Percy: Integrate 3D Lottery (CC), Saba.Club, Sexy Gaming [RedmineID: #132790,#132791,#132792]
+		- 20200701@Percy: Exclude draw tickets, TO/2 for half won, half lose tickets [RedmineID: #136792]
 
 	Param's Explanation:   
 		- @ProductList: '' - default value when get all product
@@ -140,13 +141,15 @@ BEGIN
 							 WHEN VarianceVR > 0
 							 THEN VarianceVR + 1
 							 ELSE 1
-						  END * ex.Rate) AS TurnOver
+						  END
+					* ex.Rate
+					* CASE WHEN b.TicketStatus IN (12, 13) THEN 0.5 ELSE 1.0 END) AS TurnOver
 			FROM bodb_Account.dbo.FactSiteWinloss AS b WITH (NOLOCK)
 			    INNER JOIN #exchange AS ex ON b.rptdate = ex.exchangedate
 									    AND b.currencyid = ex.ExchangeID
 			    INNER JOIN #SportBettypeMatrix AS sb ON sb.Bettype = b.bettype
 			WHERE b.rptDate BETWEEN @FDate AND @TDate
-				 AND b.TicketStatus NOT IN(-1, 18, 9, 10, 14)
+				 AND b.TicketStatus NOT IN(-1, 18, 9, 10, 14, 3)
 				 AND b.BetType NOT IN (4299, 4300)
 				 AND SiteID IN
 							(
