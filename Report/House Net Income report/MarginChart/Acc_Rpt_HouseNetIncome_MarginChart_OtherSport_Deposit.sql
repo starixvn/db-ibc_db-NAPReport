@@ -56,7 +56,7 @@ BEGIN
 		WHERE rptDate < @TDate
 	)
 	INSERT INTO #FinalResult (rptDate, HouseWL, ExtraPT, TurnOver)
-	SELECT d.rptDate, ISNULL(t.HouseWL, 0), ISNULL(t.ExtraPT, 0), ISNULL(t.TurnOver, 0)
+	SELECT CONVERT(VARCHAR(2), d.rptDate, 106), ISNULL(t.HouseWL, 0), ISNULL(t.ExtraPT, 0), ISNULL(t.TurnOver, 0)
 	FROM CTE_Date d
 		LEFT JOIN #__OtherSportWL t ON CONVERT(VARCHAR(2), d.rptDate, 106) = t.rptDate
 
