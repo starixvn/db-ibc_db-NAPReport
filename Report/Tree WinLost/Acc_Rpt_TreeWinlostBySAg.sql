@@ -7,7 +7,8 @@ ALTER PROCEDURE dbo.Acc_Rpt_TreeWinlostBySAg
 	@FromDate      DATETIME
    , @ToDate        DATETIME
    , @srecommend    INT
-   , @Products      VARCHAR(4000) /* instead of all @showXXX parameters*/
+   , @Products      VARCHAR(MAX) /* instead of all @showXXX parameters*/
+   , @SportType VARCHAR(MAX)
 AS
 /*  
 Created by: Scott  
@@ -51,6 +52,7 @@ Revisions:
 	20191223@Ned.Le: NAP Report - Integrate Spadegaming product (#125712)
 	20191231@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
 	20200227@Ned.Le: Hotfix thats convert datatype for VarianceVR from DECIMAL(5, 2) to DECIMAL(9, 6)
+	20200703@Cherry: Add filter Sport of Sportbook (#135880)
 */
 
 BEGIN
@@ -230,6 +232,41 @@ BEGIN
 		 WHERE tblP.ProductID <> 1;
 
     CREATE CLUSTERED INDEX IDX_Bettype_bettype_ProductID ON #tmpBettype(bettype, ProductID, RefTable);
+    
+    -- @SportType	
+	CREATE TABLE #tmpSportType (SportType INT)
+	CREATE TABLE #tmpMatch (matchid INT, matchtype TINYINT)
+	IF @SportType <> ''
+    BEGIN
+		INSERT INTO #tmpSportType (SportType)
+		SELECT val FROM [dbo].strSplit(@SportType, ',')
+		
+		IF EXISTS(SELECT TOP 1 1 FROM #tmpSportType WHERE SportType = 10000)	-- Other Sports
+			INSERT INTO #tmpSportType (SportType)
+			SELECT DISTINCT sb.SportType
+			FROM bodb02.dbo.SportBettypeMatrix sb WITH(NOLOCK)
+				LEFT JOIN #tmpSportType t ON sb.SportType = t.SportType
+			WHERE ProductID = 1 AND t.SportType IS NULL
+			
+		IF NOT EXISTS (SELECT TOP 1 1 FROM #tmpSportType WHERE SportType = 20000) -- Parlay
+			DELETE FROM #tmpBettype WHERE bettype IN (9,29)
+			
+		;WITH CTE_Match AS (
+		SELECT matchid AS matchid, leagueid, 0 AS matchtype  FROM bodb02.dbo.match (NOLOCK) WHERE eventdate between @FromDate and @ToDate
+		UNION ALL
+		SELECT orid AS matchid, leagueid, 1 AS matchtype FROM bodb02.dbo.outright (NOLOCK) WHERE eventdate between @FromDate and @ToDate
+		)
+		INSERT INTO #tmpMatch(matchid, matchtype)
+		SELECT m.matchid,
+			   m.matchtype
+		FROM CTE_Match m
+			 INNER JOIN bodb02.dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid
+		WHERE m.leagueid = l.LeagueId
+			  AND l.sporttype IN (SELECT SportType FROM #tmpSportType)
+		OPTION (RECOMPILE)
+	END
+		
+	-- End @SportType
 
 	/*-get data from bettransRNG*/
     INSERT INTO #TmpResultAll
@@ -356,6 +393,10 @@ BEGIN
 			  AND b.statusID NOT IN(101, 102, 103)
 			  AND b.currency <> 20
 			  AND b.srecommend = @srecommend
+			  AND (t.bettype IN (9,29)
+				OR t.ProductID <> 1
+				OR (t.ProductID = 1 AND t.bettype NOT IN (9,29) AND b.matchid IN (SELECT matchid FROM #tmpMatch))
+				)
 		 GROUP BY b.mrecommend
 			   , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(9, 6)) OPTION(RECOMPILE);
 	
@@ -504,6 +545,8 @@ BEGIN
     DROP TABLE #Product;
     DROP TABLE #tmpBettype;
 	DROP TABLE #PrizeBettypeGroup;
+	DROP TABLE #tmpSportType;
+	DROP TABLE #tmpMatch;
 END;
 
 GO
