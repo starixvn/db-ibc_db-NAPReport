@@ -13,6 +13,7 @@ AS
    
     Revisions:		
 		- 20190121@Robert: Letstalk Margin Charts - Separate Letstalk group for credit & Deposit (Soccer & Other Sports) [#108220]
+		- 20200701@Kean.Nguyen - House Net Income Email/Letstalk - Change formula to Calculate Margin (#136792)
 		
 	Param's Explanation:   
 
@@ -88,13 +89,13 @@ BEGIN
 						  WHEN VarianceVR > 0
 						  THEN VarianceVR + 1
 						  ELSE 1
-					   END * ex.Rate)
+					   END * ex.Rate * (CASE WHEN b.TicketStatus in (12,13) THEN 0.5 ELSE 1 END))
 			 , SUM((ISNULL(b.ExtraWL, 0) + ISNULL(b.ExtraComm, 0)) * ex.Rate) AS ExtraPT
 		 FROM bodb_Account.dbo.FactSiteWinloss AS b WITH (NOLOCK)
 			INNER JOIN #exchange AS ex ON b.rptdate = ex.exchangedate
 									AND b.currencyid = ex.ExchangeID
 		 WHERE b.rptDate BETWEEN @FDate AND @TDate
-			  AND b.TicketStatus NOT IN(-1, 18, 9, 10, 14)
+			   AND b.TicketStatus NOT IN(-1, 18, 9, 10, 14, 3)
 			  AND EXISTS
 					   (
 						  SELECT TOP 1 1
