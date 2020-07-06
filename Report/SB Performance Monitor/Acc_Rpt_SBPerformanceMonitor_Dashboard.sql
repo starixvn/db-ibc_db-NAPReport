@@ -295,7 +295,7 @@ BEGIN
 				ELSE '' END +
 		   'BetCount, RealIncome, RealTurnover, RealMargin' + CHAR(13) +
 		   'FROM #tmpFinal' + CHAR(13) +
-		   CASE WHEN (@isShowSite = 1 OR @isShowSport = 1) THEN 'WHERE RealMargin <= ' + CAST(@margin AS VARCHAR(10)) + CHAR(13) ELSE '' END +
+		   'WHERE RealMargin <= ' + CAST(@margin AS VARCHAR(10)) + CHAR(13) +
 		   'ORDER BY RealMargin' + CHAR(13) +
 		   'OPTION (RECOMPILE)'
 	
