@@ -32,7 +32,7 @@ AS
 					 1 - No get draw ticktes to report
 
 	Example:
-		EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Bettype @StartDate='20200421', @EndDate='20200421', @SportBettype='1_1,1_2,10000_9,10000_29,2_1,3_1,4_1', @SportType = 1, @LeagueName='*GERMANY-BUNDESLIGA I', @IsNoDraw=0
+		EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Bettype @StartDate='20200421', @EndDate='20200421', @SportBettype='1_1,1_2,10000_9,10000_29,2_1,3_1,4_1', @SportType=1, @LeagueName='*GERMANY-BUNDESLIGA I', @IsNoDraw=0
 */
 
 BEGIN
