@@ -48,7 +48,8 @@ BEGIN
 	INSERT INTO #tmpLeague (LeagueId)
 	SELECT leagueid
 	FROM bodb02.dbo.league (NOLOCK)
-	WHERE leaguename LIKE '%' + @LeagueName + '%'
+	WHERE leaguename = @LeagueName
+		  AND sporttype = @SportType
 		  AND isTest = 0
 
 	CREATE UNIQUE CLUSTERED INDEX PK_tmpLeague ON #tmpLeague(LeagueId)
