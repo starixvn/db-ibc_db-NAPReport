@@ -16,6 +16,7 @@ AS
 	Revisions:
 		- 20190710@Robert: 	NAP Report - Implement new report to match with CN88's need [#116083]
 		- 20191212@Ned.Le:  Support to get Extra PT from Extra PT column [#125286]
+		- 20200706@Ned.Le:  NAP Report - Enhance the report CN88 Win Loss by Product [#137068]
 	Explanation's Param:	
 */
 
@@ -48,7 +49,7 @@ BEGIN
 			 , CasinoType
 		 FROM dbo.f_SportBettypeMatrix_Sel
 			 (0, 0, 0, 2, '', '', @isTest)
-		 WHERE LEN(SubProduct) = 0
+		 WHERE SubProduct NOT IN('MG-SuperLive', 'BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss', 'Bet Builder')
 			  AND ProductID IN(1, 3, 5, 8, 27, 28); -- Sportsbook, Number Game, Virtual Sports, RNG Keno, Virtual Sports 2, Lottery
     CREATE TABLE #tmp_src(
 	    srecommend                       INT

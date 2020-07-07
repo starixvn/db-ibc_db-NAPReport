@@ -18,6 +18,7 @@ AS
 	Revisions:
 		- 20190710@Robert: 	NAP Report - Implement new report to match with CN88's need [#116083]
 		- 20191212@Ned.Le:  Support to get Extra PT from Extra PT column [#125286]
+		- 20200706@Ned.Le:  NAP Report - Enhance the report CN88 Win Loss by Product [#137068]
 	Explanation's Param:	
 */
 
@@ -37,7 +38,7 @@ BEGIN
 			FROM dbo.f_SportBetTypeMatrix_Sel
 				(1, @SportType, 0, 2, '', '', @isTest) AS s
 			    INNER JOIN BetType AS b WITH (NOLOCK) ON s.BetType = b.typeid
-			WHERE SubProduct = ''
+			WHERE SubProduct NOT IN('MG-SuperLive', 'BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss')
 				 AND EventType IN(1, 2);
     END;
 

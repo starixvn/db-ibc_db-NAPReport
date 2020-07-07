@@ -17,6 +17,7 @@ AS
 	Revisions:
 		- 20190710@Robert: 	NAP Report - Implement new report to match with CN88's need [#116083]
 		- 20191212@Ned.Le:  Support to get Extra PT from Extra PT column [#125286]
+		- 20200706@Ned.Le:  NAP Report - Enhance the report CN88 Win Loss by Product [#137068]
 	Explanation's Param:	
 */
 
@@ -34,7 +35,7 @@ BEGIN
 				, 0
 			FROM bodb02.dbo.f_SportBetTypeMatrix_Sel
 				(1, 1, 0, 2, '', '', @isTest)
-			WHERE SubProduct = ''
+			WHERE SubProduct NOT IN('MG-SuperLive', 'BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss', 'Bet Builder')
 				 AND EventType IN(1, 2);
 
 	   UPDATE #SportBetType
