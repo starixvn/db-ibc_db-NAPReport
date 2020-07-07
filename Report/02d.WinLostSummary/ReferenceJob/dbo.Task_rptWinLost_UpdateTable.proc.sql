@@ -54,6 +54,7 @@ Revision:
 	- 20200409@Ned.Le: NAP Report - Incorporate BBIN Live Casino (#131357)
 	- 20200422@Ned.Le: NAP Report - Incorporate IBCBet Live Casino (#132961)
 	- 20200520@Cherry: Nap Report - Integrate ION Live Casino (#132324) & RNG War (#132009)
+	- 20200624@Cherry: Archive VSRaceInfo (#136256)
 */
 
 BEGIN	
@@ -1157,7 +1158,7 @@ BEGIN
 			--Virtual Racing
 			UPDATE bodb_Report.dbo.rptWinlost
 			SET SportType = r.sporttype
-			FROM VSRaceInfo r with (nolock)
+			FROM VSRaceInfo14 r with (nolock)
 			WHERE bodb_Report.dbo.rptWinlost.matchid = r.EventID
 			AND bodb_Report.dbo.rptWinlost.winlostdate = @winlostdate
 			AND bodb_Report.dbo.rptWinlost.bettype in (1231, 1232, 1233, 1237, 1238)	

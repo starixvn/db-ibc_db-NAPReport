@@ -36,6 +36,7 @@ AS
 		20181018@Cherry: Integrate NG2 (#102229)
 		20190214@Cherry: Integrate Video Poker Games (#108735)
 		20200601@Cherry: Add Credit Site and support multiple currency (#135009)
+		20200624@Cherry: Archive VSRaceInfo (#136256)
 
 	Param's Explanation:
 		- @ProductID: string filter by Product 
@@ -556,7 +557,7 @@ BEGIN
 				ProductID,
 				SUM(HousePT) AS HousePT
 			FROM  #tmp_bettrans b
-				INNER JOIN dbo.VSRaceInfo r WITH (NOLOCK) ON r.EventID = b.matchid
+				INNER JOIN dbo.VSRaceInfo14 r WITH (NOLOCK) ON r.EventID = b.matchid
 			WHERE b.ProductID = 5 AND b.EvenType = 3
 				AND (@Sporttype = '' OR (EXISTS(SELECT 1 FROM #tmp_SportType st WHERE st.Sporttype = r.SportType)))			  
 			GROUP BY b.ProductID

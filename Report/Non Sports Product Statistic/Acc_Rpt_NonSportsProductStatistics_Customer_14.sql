@@ -51,6 +51,7 @@ AS
 		20191225@Cherry: Apply ExtraPT in bettrans table (#123697)
 		20200415@Cherry: Exclude dummy accounts (#132492)
 		20200601@Cherry: Add Credit Site and support multiple currency (#135009)
+		20200624@Cherry: Archive VSRaceInfo (#136256)
 
 	Param's Explanation:
 		- @username: search keyword
@@ -1192,7 +1193,7 @@ BEGIN
 			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 5 AND EvenType = 3)
 			AND b.statusID IN (111, 112, 113, 103) 
 			AND (@Sporttype = '' OR
-				b.matchid IN (SELECT EventId FROM VSRaceInfo WITH (NOLOCK) 
+				b.matchid IN (SELECT EventId FROM VSRaceInfo14 WITH (NOLOCK) 
 								WHERE sporttype IN (SELECT Sporttype FROM #tmp_Sporttype))				
 				)	
 			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
