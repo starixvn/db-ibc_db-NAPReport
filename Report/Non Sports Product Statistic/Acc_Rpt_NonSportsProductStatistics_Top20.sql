@@ -1525,7 +1525,7 @@ BEGIN
 					SUM(CompanyGrossIncomeBase) AS CompanyGrossIncomeBase,
 					SUM(CompanyCommBase) AS CompanyCommBase,
 					SUM(HousePT) AS HousePT,
-					SUM(ExtraPT) ExtraPT,
+					SUM(CASE WHEN @Currency = '-1' THEN ExtraPTBase ELSE ExtraPT END) AS ExtraPT,
 					SUM(ExtraPTBase) ExtraPTBase,
 					SUM(RowNum) AS RowNum
 				FROM #Data
