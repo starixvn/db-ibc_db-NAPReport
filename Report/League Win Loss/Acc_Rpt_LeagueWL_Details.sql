@@ -6,7 +6,7 @@ GO
 ALTER PROCEDURE dbo.Acc_Rpt_LeagueWL_Details @StartDate SMALLDATETIME,
                                              @EndDate SMALLDATETIME,
                                              @SportType INT,
-											 @LeagueId INT,
+											 @LeagueName VARCHAR(500),
 											 @LiveIndicator TINYINT,
 											 @BetType SMALLINT,
 											 @IsHedge SMALLINT,
@@ -20,12 +20,13 @@ AS
 	Revisions:
 		- 20200424@Ned.Le: NAP Report - Adjustment for League Win Loss (#132846)
 		- 20200520@Ned.Le: NAP Report - Enhancement for League Win Loss (#134439)
+		- 20200626@Ned.Le: NAP Report - Enhancement for searching a league info on Punter Analysis and League Win Loss Report (#136277)
 
 	Param's Explanation:
 		- @StartDate: The start date of data to view on report
 		- @EndDate: The end date of data to view on report
 		- @SportType: The sporttype to view on report
-		- @LeagueId: The leagueid to view on report
+		- @LeagueName: The leaguename to view on report
 		- @BetType: The bettype to view on report
 		- @LiveIndicator: To indicate the live status to view on report
 		- @IsNoDraw: To get the draw tickets to report or not
@@ -33,12 +34,25 @@ AS
 					 1 - No get draw ticktes to report
 
 	Example:
-		EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Details @StartDate='20200421', @EndDate='20200421', @SportType=1, @LeagueId=143, @LiveIndicator=1, @BetType=1, @IsHedge=0, @IsNoDraw=0
+		EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Details @StartDate='20200421', @EndDate='20200421', @SportType=1, @LeagueName='*GERMANY-BUNDESLIGA I', @LiveIndicator=1, @BetType=1, @IsHedge=0, @IsNoDraw=0
 */
 
 BEGIN
 
 	SET NOCOUNT ON
+	
+	-- #tmpLeague
+
+	CREATE TABLE #tmpLeague (LeagueId INT)
+
+	INSERT INTO #tmpLeague (LeagueId)
+	SELECT leagueid
+	FROM bodb02.dbo.league (NOLOCK)
+	WHERE leaguename = @LeagueName
+		  AND sporttype = @SportType
+		  AND isTest = 0
+
+	CREATE UNIQUE CLUSTERED INDEX PK_tmpLeague ON #tmpLeague(LeagueId)
 
 	-- #tmpMatch
 
@@ -67,7 +81,7 @@ BEGIN
 			 LEFT JOIN bodb02.dbo.Team home (NOLOCK) ON m.homeid = home.teamid
 			 LEFT JOIN bodb02.dbo.Team away (NOLOCK) ON m.awayid = away.teamid
 		WHERE m.eventdate = @StartDate
-			  AND m.leagueid = @LeagueId
+			  AND m.leagueid IN (SELECT LeagueId FROM #tmpLeague)
 			  AND m.matchcode LIKE '%hedge%'
 		OPTION (RECOMPILE)
 	END
@@ -88,7 +102,7 @@ BEGIN
 			 LEFT JOIN bodb02.dbo.Team home (NOLOCK) ON m.homeid = home.teamid
 			 LEFT JOIN bodb02.dbo.Team away (NOLOCK) ON m.awayid = away.teamid
 		WHERE m.eventdate = @StartDate
-			  AND m.leagueid = @LeagueId
+			  AND m.leagueid IN (SELECT LeagueId FROM #tmpLeague)
 			  AND m.matchcode NOT LIKE '%hedge%'
 		OPTION (RECOMPILE)
 	END
@@ -106,7 +120,7 @@ BEGIN
 		 INNER JOIN bodb02.dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid
 		 LEFT JOIN bodb02.dbo.Team team (NOLOCK) ON m.teamid = team.teamid
 	WHERE m.eventdate = @StartDate
-		  AND m.leagueid = @LeagueId
+		  AND m.leagueid IN (SELECT LeagueId FROM #tmpLeague)
 	OPTION (RECOMPILE)
 	
 	-- + create clustered index
@@ -362,6 +376,7 @@ BEGIN
 	ORDER BY Rank_
 
 	-- Drop temp tables
+	DROP TABLE #tmpLeague
 	DROP TABLE #tmpMatch
 	DROP TABLE #tmpData
 
