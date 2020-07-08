@@ -50,6 +50,7 @@ AS
 		20191225@Cherry: Apply ExtraPT in bettrans table (#123697)
 		20200415@Cherry: Exclude dummy accounts (#132492)
 		20200601@Cherry: Add Credit Site and support multiple currency (#135009)
+		20200808@Cherry: Hot fix ExtraPT base RM (#137218)
 
 	Param's Explanation:
 		- @username: search keyword

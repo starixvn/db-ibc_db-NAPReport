@@ -51,6 +51,7 @@ AS
 		20200415@Cherry: Exclude dummy accounts (#132492)
 		20200601@Cherry: Add Credit Site and support multiple currency (#135009)
 		20200624@Cherry: Archive VSRaceInfo (#136256)
+		20200808@Cherry: Hot fix ExtraPT base RM (#137218)
 
 	Param's Explanation:
 		- @username: search keyword
