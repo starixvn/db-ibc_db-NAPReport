@@ -55,6 +55,7 @@ Revision:
 	- 20200422@Ned.Le: NAP Report - Incorporate IBCBet Live Casino (#132961)
 	- 20200520@Cherry: Nap Report - Integrate ION Live Casino (#132324) & RNG War (#132009)
 	- 20200624@Cherry: Archive VSRaceInfo (#136256)
+	- 20200710@Jaden: Incorporate Jackpot Games (#137271)
 */
 
 BEGIN	
