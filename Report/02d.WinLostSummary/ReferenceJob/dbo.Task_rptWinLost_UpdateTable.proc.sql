@@ -86,9 +86,9 @@ BEGIN
 		TOPhum money
 	)
 
-	CREATE TABLE #PrizeBettypeGroup (Bettype SMALLINT)
+	CREATE TABLE #PrizeBettypeGroup (Bettype SMALLINT, BettypeGroupID SMALLINT)
 	INSERT INTO #PrizeBettypeGroup
-	SELECT Bettype FROM DBWH.bodb_Account.dbo.BettypeGroup WHERE BettypeGroupID=6
+	SELECT Bettype, BettypeGroupID FROM DBWH.bodb_Account.dbo.BettypeGroup WHERE BettypeGroupID IN (6, 10)
 
 	DECLARE @isTest BIT= 0;
      SELECT @isTest = dbo.f_CheckSPVersion(@@PROCID);
@@ -489,13 +489,13 @@ BEGIN
 			sum((winlost-actual_stake)* actualrate)  realWinlost,
 			sum((awinlost+mwinlost+swinlost)* actualrate) realPos,
 			sum((scomm) * actualrate) realComm,
-			sum((CASE WHEN bg.Bettype IS NOT NULL THEN 0 /*Progressive Jackpot, PP Promotion Prize, PP Tournament Prize*/
-					  WHEN sb.Bettype IN(2198, 2398, 2998) THEN (b.ContributionRate * b.BetStake) + awinlost + mwinlost + swinlost + scomm
+			sum((CASE WHEN bg.BettypeGroupID = 6 THEN 0 /*Progressive Jackpot, PP Promotion Prize, PP Tournament Prize*/
+					  WHEN bg.BettypeGroupID = 10 THEN (b.ContributionRate * b.BetStake) + awinlost + mwinlost + swinlost + scomm
 				      ELSE winlost - actual_stake + awinlost + mwinlost + swinlost + scomm 
 				 END) * actualrate) realLineTotal,
 			sum((1-tpositiontaking)*stake*virtualrate) as virtualTurnover,
-			sum((CASE WHEN bg.Bettype IS NOT NULL THEN 0 /*Progressive Jackpot, PP Promotion Prize, PP Tournament Prize*/
-					  WHEN sb.Bettype IN(2198, 2398, 2998) THEN (b.ContributionRate * b.BetStake) + awinlost + mwinlost + swinlost + scomm
+			sum((CASE WHEN bg.BettypeGroupID = 6 THEN 0 /*Progressive Jackpot, PP Promotion Prize, PP Tournament Prize*/
+					  WHEN bg.BettypeGroupID = 10 THEN (b.ContributionRate * b.BetStake) + awinlost + mwinlost + swinlost + scomm
 				      ELSE winlost - actual_stake + awinlost + mwinlost + swinlost + scomm 
 				 END) * virtualrate) virtualLineTotal,
 
@@ -1022,13 +1022,13 @@ BEGIN
 				sum((winlost-actual_stake)* actualrate)  realWinlost,
 				sum((awinlost+mwinlost+swinlost)* actualrate) realPos,
 				sum((scomm) * actualrate) realComm,
-				sum((CASE WHEN bg.Bettype IS NOT NULL THEN 0 /*Progressive Jackpot, PP Promotion Prize, PP Tournament Prize*/
-						  WHEN sb.Bettype IN(2198, 2398, 2998) THEN (b.ContributionRate * b.BetStake) + awinlost + mwinlost + swinlost + scomm
+				sum((CASE WHEN bg.BettypeGroupID = 6 THEN 0 /*Progressive Jackpot, PP Promotion Prize, PP Tournament Prize*/
+						  WHEN bg.BettypeGroupID = 10 THEN (b.ContributionRate * b.BetStake) + awinlost + mwinlost + swinlost + scomm
 						  ELSE winlost - actual_stake + awinlost + mwinlost + swinlost + scomm 
 					 END) * actualrate) realLineTotal,
 				sum((1-tpositiontaking)*stake*virtualrate) as virtualTurnover,
-				sum((CASE WHEN bg.Bettype IS NOT NULL THEN 0 /*Progressive Jackpot, PP Promotion Prize, PP Tournament Prize*/
-						  WHEN sb.Bettype IN(2198, 2398, 2998) THEN (b.ContributionRate * b.BetStake) + awinlost + mwinlost + swinlost + scomm
+				sum((CASE WHEN bg.BettypeGroupID = 6 THEN 0 /*Progressive Jackpot, PP Promotion Prize, PP Tournament Prize*/
+						  WHEN bg.BettypeGroupID = 10 THEN (b.ContributionRate * b.BetStake) + awinlost + mwinlost + swinlost + scomm
 						  ELSE winlost - actual_stake + awinlost + mwinlost + swinlost + scomm 
 					 END) * virtualrate) virtualLineTotal,
 
