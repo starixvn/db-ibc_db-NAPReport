@@ -52,6 +52,7 @@ AS
 		20200601@Cherry: Add Credit Site and support multiple currency (#135009)
 		20200624@Cherry: Archive VSRaceInfo (#136256)
 		20200808@Cherry: Hot fix ExtraPT base RM (#137218)
+		20200710@Cherry: Integrate Pragmatic Jackpot (#137268)
 
 	Param's Explanation:
 		- @username: search keyword
@@ -148,6 +149,7 @@ BEGIN
 	CREATE TABLE #tmp_SportType		(Sporttype SMALLINT)
 	CREATE TABLE #tmp_Device		(Betfrom NVARCHAR(2))
 	CREATE TABLE #tmpCurrency		(CurrencyId INT)
+	CREATE TABLE #tmpContributionBettype (Bettype INT)
 
 	-- Get Info from Pars list
 	IF @ProductId <> ''
@@ -496,6 +498,11 @@ BEGIN
 	CREATE CLUSTERED INDEX IX_SportBettype ON #SportBettype (ProductID, Bettype, EvenType, RefTable)  
 	CREATE CLUSTERED INDEX IX_SportType ON #tmp_SportType (Sporttype)    
 	CREATE CLUSTERED INDEX IX_LeagueID ON #tmp_LeagueID (LeagueID, Bettype)
+	
+	INSERT INTO #tmpContributionBettype (Bettype)
+	SELECT Bettype
+	FROM DBWH.bodb_Account.dbo.BettypeGroup WITH (NOLOCK)
+	WHERE BettypeGroupID = 10
 
 	-- Select temp data of bettrans
 	CREATE TABLE #tmp_bettrans
@@ -674,7 +681,8 @@ BEGIN
 			COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS RowNum			
 		FROM dbo.bettransRnG14 b WITH (NOLOCK)
 		WHERE b.winlostdate = @WLDate				
-			AND b.gameID IN (SELECT Bettype FROM #SportBettype WHERE RefTable = 1 AND Bettype NOT IN (2198, 2398, 2998))
+			AND b.gameID IN (SELECT sb.Bettype FROM #SportBettype sb LEFT JOIN #tmpContributionBettype t ON sb.Bettype = t.Bettype 
+							 WHERE t.Bettype IS NULL AND sb.RefTable = 1)
 			AND b.statusID IN (111, 112, 113, 103) 
 			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
 			AND (@Currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId))	
@@ -745,7 +753,7 @@ BEGIN
 			COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS RowNum			
 		FROM dbo.bettransRnG14 b WITH (NOLOCK)
 		WHERE b.winlostdate = @WLDate				
-			AND b.gameID IN (SELECT Bettype FROM #SportBettype WHERE Bettype IN (2198, 2398, 2998))
+			AND b.gameID IN (SELECT sb.Bettype FROM #SportBettype sb INNER JOIN #tmpContributionBettype t ON sb.Bettype = t.Bettype) 
 			AND b.statusID IN (111, 112, 113, 103) 
 			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
 			AND (@Currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId))	
@@ -1969,5 +1977,6 @@ BEGIN
 	DROP TABLE #Device
 	DROP TABLE #ExtraComm
 	DROP TABLE #tmpCurrency
+	DROP TABLE #tmpContributionBettype	
 	
 END

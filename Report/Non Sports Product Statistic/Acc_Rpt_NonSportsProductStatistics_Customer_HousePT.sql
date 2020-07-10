@@ -36,6 +36,7 @@ AS
 		20181018@Cherry: Integrate NG2 (#102229)
 		20190214@Cherry: Integrate Video Poker Games (#108735)
 		20200601@Cherry: Add Credit Site and support multiple currency (#135009)
+		20200710@Cherry: Integrate Pragmatic Jackpot (#137268)
 
 	Param's Explanation:
 		- @ProductID: string filter by Product 
@@ -60,6 +61,7 @@ BEGIN
 	CREATE TABLE #tmp_SportType		(Sporttype SMALLINT)
 	CREATE TABLE #tmp_GameTableID	(GameTableID INT)
 	CREATE TABLE #tmp_Devide		(Betfrom NVARCHAR(2))
+	CREATE TABLE #tmpContributionBettype (Bettype INT)
 
 	-- Get Info from Pars list
 	IF @ProductId <> ''
@@ -143,6 +145,11 @@ BEGIN
 	DROP TABLE #tmp_ProductID
 	DROP TABLE #tmp_BetType
 	-- End Get Sport Bettype Matrix --
+	
+	INSERT INTO #tmpContributionBettype (Bettype)
+	SELECT Bettype
+	FROM DBWH.bodb_Account.dbo.BettypeGroup WITH (NOLOCK)
+	WHERE BettypeGroupID = 10
 
 	-- Get list member
 	DECLARE @srecommend INT, @RoleID TINYINT, @recommend INT, @CustSite VARCHAR(10)
@@ -280,15 +287,16 @@ BEGIN
 					HousePT
 				)
 				SELECT
-					COUNT(CASE WHEN b.gameID IN (2198, 2398, 2998) THEN NULL ELSE b.transid END) AS BetCount,
+					COUNT(CASE WHEN bt.Bettype IS NOT NULL THEN NULL ELSE b.transid END) AS BetCount,
 					SUM(actual_stake) AS TotalBets,
 					SUM(actual_stake * actualrate) AS TotalBetsBase,
 					SUM(winlost) AS TotalWins,
 					SUM(winlost * actualrate) AS TotalWinsBase,
 					s.ProductID, b.gameID,
-					SUM(CASE WHEN b.gameID IN (2198, 2398, 2998) THEN 0 ELSE 1 - b.tpositiontaking END) AS HousePT
+					SUM(CASE WHEN bt.Bettype IS NOT NULL THEN 0 ELSE 1 - b.tpositiontaking END) AS HousePT
 				FROM dbo.bettransRnG b WITH (NOLOCK)
 					INNER JOIN #SportBettype s ON s.Bettype = b.gameID
+					LEFT JOIN #tmpContributionBettype bt ON bt.Bettype = b.gameID
 				WHERE b.winlostdate = @WLDate
 					AND b.custid = @CID
 					AND b.statusID IN (111, 112, 113) -- won/lose/draw tickets
@@ -435,16 +443,17 @@ BEGIN
 					HousePT
 				)
 				SELECT
-					COUNT(CASE WHEN b.gameID IN (2198, 2398, 2998) THEN NULL ELSE b.transid END) AS BetCount,
+					COUNT(CASE WHEN bt.Bettype IS NOT NULL THEN NULL ELSE b.transid END) AS BetCount,
 					SUM(actual_stake) AS TotalBets,
 					SUM(actual_stake * actualrate) AS TotalBetsBase,
 					SUM(winlost) AS TotalWins,
 					SUM(winlost * actualrate) AS TotalWinsBase,
 					s.ProductID, b.gameID,
-					SUM(CASE WHEN b.gameID IN (2198, 2398, 2998) THEN 0 ELSE 1 - b.tpositiontaking END) AS HousePT
+					SUM(CASE WHEN bt.Bettype IS NOT NULL THEN 0 ELSE 1 - b.tpositiontaking END) AS HousePT
 				FROM dbo.bettransRnG b WITH (NOLOCK)
 					INNER JOIN #SportBettype s ON s.Bettype = b.gameID
 					INNER JOIN #tmp_MemIDs m ON b.custid = m.CustID
+					LEFT JOIN #tmpContributionBettype bt ON bt.Bettype = b.gameID
 				WHERE b.winlostdate = @WLDate
 					AND b.statusID IN (111, 112, 113) -- won/lose/draw tickets
 					AND s.RefTable = 1
@@ -696,4 +705,5 @@ BEGIN
 	DROP TABLE #tmp_LeagueID
 	DROP TABLE #tmp_MemIDs
 	DROP TABLE #tmp_SportType
+	DROP TABLE #tmpContributionBettype		
 END
