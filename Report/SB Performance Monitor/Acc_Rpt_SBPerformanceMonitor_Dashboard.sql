@@ -10,7 +10,7 @@ ALTER PROCEDURE dbo.Acc_Rpt_SBPerformanceMonitor_Dashboard @fromDate SMALLDATETI
 														    @isShowSport BIT,
 															@isShowLeague BIT,
 														    @isShowCust BIT,
-															@margin FLOAT = 3,
+															@margin FLOAT = NULL,
 															@top INT = 50
 AS
 /*
@@ -33,6 +33,7 @@ AS
 		- @isShowCust:   0: Columns related to Cust have NULL value
 					     1: Columns related to Cust have SPECIFIC value
 		- @margin: Value for filter data in the situation of site or sport
+						 NULL: Get ALL
 		- @top: Value for filter data in the situation of league or cust
 
 	Example:
@@ -154,7 +155,8 @@ BEGIN
 		   CASE WHEN @isShowLeague = 0 THEN NULL ELSE m.leagueid END AS LeagueID,
 		   CASE WHEN @isShowCust = 0 THEN NULL ELSE sd.custid END AS CustID,
 		   -- MEASURE
-		   COUNT(1) AS BetCount,
+		   SUM(CASE WHEN sd.bettype = 500 OR td.[VendorID] = 14 THEN 0 
+					ELSE 1 END) AS BetCount,
 		   SUM(CASE WHEN sd.recommend IN (52466, 5707545) THEN 0
 			        ELSE (-(sd.winlost - sd.actual_stake +
 			              sd.awinlost + sd.mwinlost + sd.swinlost +
@@ -171,6 +173,7 @@ BEGIN
 		 LEFT JOIN #tmpAgent a ON sd.recommend = a.CustID
 		 LEFT JOIN #tmpMatch m ON sd.matchid = m.matchid
 								  AND CASE WHEN sd.bettype = 10 THEN 1 ELSE 0 END = m.matchtype
+		 LEFT JOIN bodb02.dbo.TradeCust AS td WITH (NOLOCK) ON sd.custid = td.custid
 	WHERE sd.winlostdate >= @fromDate AND sd.winlostdate <= @toDate
 		  AND sd.ruben = 1
 		  AND sd.statusID IN (111, 112, 113)
@@ -193,7 +196,8 @@ BEGIN
 			   CASE WHEN @isShowLeague = 0 THEN NULL ELSE m.leagueid END AS LeagueID,
 			   CASE WHEN @isShowCust = 0 THEN NULL ELSE sd.custid END AS CustID,
 			   -- MEASURE
-			   COUNT(1) AS BetCount,
+			   SUM(CASE WHEN sd.bettype = 500 OR td.[VendorID] = 14 THEN 0 
+					ELSE 1 END) AS BetCount,
 			   SUM(CASE WHEN sd.recommend IN (52466, 5707545) THEN 0
 			            ELSE (-(sd.winlost - sd.actual_stake +
 			                  sd.awinlost + sd.mwinlost + sd.swinlost +
@@ -210,6 +214,7 @@ BEGIN
 			 LEFT JOIN #tmpAgent a ON sd.recommend = a.CustID
 			 LEFT JOIN #tmpMatch m ON sd.matchid = m.matchid
 									  AND CASE WHEN sd.bettype = 10 THEN 1 ELSE 0 END = m.matchtype
+			 LEFT JOIN bodb02.dbo.TradeCust AS td WITH (NOLOCK) ON sd.custid = td.custid
 		WHERE sd.winlostdate >= @fromDate AND sd.winlostdate <= @MoveBetsDay
 			  AND sd.ruben = 1
 			  AND sd.statusID IN (111, 112, 113)
@@ -295,7 +300,7 @@ BEGIN
 				ELSE '' END +
 		   'BetCount, RealIncome, RealTurnover, RealMargin' + CHAR(13) +
 		   'FROM #tmpFinal' + CHAR(13) +
-		   'WHERE RealMargin <= ' + CAST(@margin AS VARCHAR(10)) + CHAR(13) +
+		   CASE WHEN ISNULL(@margin, '') = '' THEN '' ELSE 'WHERE RealMargin <= ' + CAST(@margin AS VARCHAR(10)) + CHAR(13) END +
 		   'ORDER BY RealMargin' + CHAR(13) +
 		   'OPTION (RECOMPILE)'
 	
