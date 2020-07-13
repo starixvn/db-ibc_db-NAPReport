@@ -87,9 +87,9 @@ BEGIN
 		TOPhum money
 	)
 
-	CREATE TABLE #PrizeBettypeGroup (Bettype SMALLINT, BettypeGroupID SMALLINT)
-	INSERT INTO #PrizeBettypeGroup
-	SELECT Bettype, BettypeGroupID FROM DBWH.bodb_Account.dbo.BettypeGroup WHERE BettypeGroupID IN (6, 10)
+	CREATE TABLE #SpecialBettypeGroup (BettypeGroupID SMALLINT, Bettype INT)
+	INSERT INTO #SpecialBettypeGroup (BettypeGroupID, Bettype)
+	SELECT BettypeGroupID, Bettype FROM DBWH.bodb_Account.dbo.BettypeGroup WHERE BettypeGroupID IN (6, 10)
 
 	DECLARE @isTest BIT= 0;
      SELECT @isTest = dbo.f_CheckSPVersion(@@PROCID);
@@ -490,13 +490,13 @@ BEGIN
 			sum((winlost-actual_stake)* actualrate)  realWinlost,
 			sum((awinlost+mwinlost+swinlost)* actualrate) realPos,
 			sum((scomm) * actualrate) realComm,
-			sum((CASE WHEN bg.BettypeGroupID = 6 THEN 0 /*Progressive Jackpot, PP Promotion Prize, PP Tournament Prize*/
-					  WHEN bg.BettypeGroupID = 10 THEN (b.ContributionRate * b.BetStake) + awinlost + mwinlost + swinlost + scomm
+			sum((CASE WHEN bg.BettypeGroupID = 6 THEN 0 --Prize Bettype Group
+					  WHEN bg.BettypeGroupID = 10 THEN (b.ContributionRate * b.BetStake) + awinlost + mwinlost + swinlost + scomm --Contribution Bettype Group
 				      ELSE winlost - actual_stake + awinlost + mwinlost + swinlost + scomm 
 				 END) * actualrate) realLineTotal,
 			sum((1-tpositiontaking)*stake*virtualrate) as virtualTurnover,
-			sum((CASE WHEN bg.BettypeGroupID = 6 THEN 0 /*Progressive Jackpot, PP Promotion Prize, PP Tournament Prize*/
-					  WHEN bg.BettypeGroupID = 10 THEN (b.ContributionRate * b.BetStake) + awinlost + mwinlost + swinlost + scomm
+			sum((CASE WHEN bg.BettypeGroupID = 6 THEN 0 --Prize Bettype Group
+					  WHEN bg.BettypeGroupID = 10 THEN (b.ContributionRate * b.BetStake) + awinlost + mwinlost + swinlost + scomm --Contribution Bettype Group
 				      ELSE winlost - actual_stake + awinlost + mwinlost + swinlost + scomm 
 				 END) * virtualrate) virtualLineTotal,
 
@@ -504,7 +504,7 @@ BEGIN
 		FROM
 			bettransRnG b with (nolock)
 			inner join #SportBettype sb on b.gameID = sb.Bettype
-			LEFT JOIN #PrizeBettypeGroup bg ON b.gameID = bg.Bettype
+			LEFT JOIN #SpecialBettypeGroup bg ON b.gameID = bg.Bettype
 		WHERE
 			sb.ProductID IN (6, 17, 22, 24, 32, 33, 34, 36, 42, 50) -- MBC-RNG Casino, Microgaming-RNG Casino, Voidbridge, Fishing World, Pragmatic, Spadegaming, Saba.club, RNG War
 			AND winlostdate = @winlostdate
@@ -1023,13 +1023,13 @@ BEGIN
 				sum((winlost-actual_stake)* actualrate)  realWinlost,
 				sum((awinlost+mwinlost+swinlost)* actualrate) realPos,
 				sum((scomm) * actualrate) realComm,
-				sum((CASE WHEN bg.BettypeGroupID = 6 THEN 0 /*Progressive Jackpot, PP Promotion Prize, PP Tournament Prize*/
-						  WHEN bg.BettypeGroupID = 10 THEN (b.ContributionRate * b.BetStake) + awinlost + mwinlost + swinlost + scomm
+				sum((CASE WHEN bg.BettypeGroupID = 6 THEN 0 --Prize Bettype Group
+						  WHEN bg.BettypeGroupID = 10 THEN (b.ContributionRate * b.BetStake) + awinlost + mwinlost + swinlost + scomm --Contribution Bettype Group
 						  ELSE winlost - actual_stake + awinlost + mwinlost + swinlost + scomm 
 					 END) * actualrate) realLineTotal,
 				sum((1-tpositiontaking)*stake*virtualrate) as virtualTurnover,
-				sum((CASE WHEN bg.BettypeGroupID = 6 THEN 0 /*Progressive Jackpot, PP Promotion Prize, PP Tournament Prize*/
-						  WHEN bg.BettypeGroupID = 10 THEN (b.ContributionRate * b.BetStake) + awinlost + mwinlost + swinlost + scomm
+				sum((CASE WHEN bg.BettypeGroupID = 6 THEN 0 --Prize Bettype Group
+						  WHEN bg.BettypeGroupID = 10 THEN (b.ContributionRate * b.BetStake) + awinlost + mwinlost + swinlost + scomm --Contribution Bettype Group
 						  ELSE winlost - actual_stake + awinlost + mwinlost + swinlost + scomm 
 					 END) * virtualrate) virtualLineTotal,
 
@@ -1037,7 +1037,7 @@ BEGIN
 			FROM
 				dbo.bettransRnG14 b with (nolock)
 				inner join #SportBettype sb on b.gameID = sb.Bettype
-				LEFT JOIN #PrizeBettypeGroup bg ON b.gameID = bg.Bettype
+				LEFT JOIN #SpecialBettypeGroup bg ON b.gameID = bg.Bettype
 			WHERE
 				sb.ProductID IN (6, 17, 22, 24, 32, 33, 34, 36, 42, 50) -- MBC-RNG Casino, Microgaming-RNG Casino, Voidbridge, Fishing World, Pragmatic, Spadegaming, Saba.club, RNG War
 				AND winlostdate = @winlostdate
@@ -1176,6 +1176,6 @@ BEGIN
 	
 	DROP TABLE #bettransm
 	DROP TABLE #SportBettype
-	DROP TABLE #PrizeBettypeGroup
+	DROP TABLE #SpecialBettypeGroup
 END
 

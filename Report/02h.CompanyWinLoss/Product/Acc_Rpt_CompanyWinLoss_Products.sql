@@ -47,6 +47,8 @@ Revisions:
 - 20200331@Ned.Le: NAP Report - Incorporate new Table Games (#131095)
 - 20200520@Cherry: Integrate Saba.club (#134441)
 - 20200522@Cherry: Integrate RNG War (#132009)
+- 20200713@Ned.Le: NAP Report - Incorporate Jackpot Games (#137271)
+
 Explanation's Param:
 
 */
@@ -55,10 +57,10 @@ Explanation's Param:
 	   DECLARE @EffectedDate    DATETIME; -- 20160112@Percy: Applying date of changing extra PT formula [RedmineID: #70208]
 	   SELECT @EffectedDate = '2017-01-19';
 
-	   -- Get Prize Bettype Group
-	   CREATE TABLE #PrizeBettypeGroup (Bettype SMALLINT)
-	   INSERT INTO #PrizeBettypeGroup
-	   SELECT Bettype FROM DBWH.bodb_Account.dbo.BettypeGroup WHERE BettypeGroupID=6
+	   -- Get Special Bettype Group
+	   CREATE TABLE #SpecialBettypeGroup (BettypeGroupID SMALLINT, Bettype SMALLINT)
+	   INSERT INTO #SpecialBettypeGroup (BettypeGroupID, Bettype)
+	   SELECT BettypeGroupID, Bettype FROM DBWH.bodb_Account.dbo.BettypeGroup WHERE BettypeGroupID IN (6, 10)
 
 	   --Get Sport Bettype Matrix--
 	   -- Check SP Version	 
@@ -934,20 +936,20 @@ Explanation's Param:
 				, SUM(b.SMAWinloss_actualrate) AS SMAWinloss
 				, SUM(b.commission_actualrate) AS commission_actualrate
 				, SUM(CASE
-						WHEN bg.Bettype IS NOT NULL THEN 0 /*Progressive Jackpot, PP Promotion Prize, PP Tournament Prize*/
-						WHEN s.Bettype IN(2198, 2398, 2998)
+						WHEN bg.BettypeGroupID = 6 THEN 0 -- Prize Bettype Group
+						WHEN bg.BettypeGroupID = 10 --Contribution Bettype Group
 						THEN b.winlost_jackpot_actualrate + b.SMAWinloss_actualrate + b.commission_actualrate
 						ELSE b.winlost_actualrate + b.SMAWinloss_actualrate + b.commission_actualrate
 					 END) AS HouseWinloss_actualrate
 				, SUM(CASE
-						WHEN bg.Bettype IS NOT NULL THEN 0 /*Progressive Jackpot, PP Promotion Prize, PP Tournament Prize*/
-						WHEN s.Bettype IN(2198, 2398, 2998)
+						WHEN bg.BettypeGroupID = 6 THEN 0 -- Prize Bettype Group
+						WHEN bg.BettypeGroupID = 10 --Contribution Bettype Group
 						THEN b.winlost_jackpot_virtualrate + b.SMAWinloss_virtualrate
 						ELSE b.winlost_virtualrate + b.SMAWinloss_virtualrate
 					 END + b.commission_virtualrate) AS HouseWinloss_virtualrate
 				, SUM(CASE
-						WHEN bg.Bettype IS NOT NULL THEN 0 /*Progressive Jackpot, PP Promotion Prize, PP Tournament Prize*/
-						WHEN s.Bettype IN(2198, 2398, 2998)
+						WHEN bg.BettypeGroupID = 6 THEN 0 -- Prize Bettype Group
+						WHEN bg.BettypeGroupID = 10 --Contribution Bettype Group
 						THEN b.winlost_jackpot_actualrate - winlost_jackpot_virtualrate + b.SMAWinloss_actualrate - b.SMAWinloss_virtualrate
 						ELSE b.winlost_actualrate - b.winlost_virtualrate + b.SMAWinloss_actualrate - b.SMAWinloss_virtualrate
 					 END + b.grosscomm_variance) AS HouseWinloss_variance
@@ -961,20 +963,20 @@ Explanation's Param:
 				, SUM(stake_actualrate) AS stake_actualrate
 				, SUM(stake_virtualrate) AS stake_virtualrate
 				, SUM(CASE
-						WHEN bg.Bettype IS NOT NULL THEN 0 /*Progressive Jackpot, PP Promotion Prize, PP Tournament Prize*/
-						WHEN b.Bettype IN(2198, 2398, 2998)
+						WHEN bg.BettypeGroupID = 6 THEN 0 -- Prize Bettype Group
+						WHEN bg.BettypeGroupID = 10 --Contribution Bettype Group
 						THEN WinlossJackpotForExtraPT_actualrate  --Jackpot Contribution
 						ELSE WinlossForExtraPT_actualrate
 					 END) AS WinlossForExtraPT_actualrate
 				, SUM(CASE
-						WHEN bg.Bettype IS NOT NULL THEN 0 /*Progressive Jackpot, PP Promotion Prize, PP Tournament Prize*/
-						WHEN b.Bettype IN(2198, 2398, 2998)
+						WHEN bg.BettypeGroupID = 6 THEN 0 -- Prize Bettype Group
+						WHEN bg.BettypeGroupID = 10 --Contribution Bettype Group
 						THEN WinlossJackpotForExtraPT_virtualrate  --Jackpot Contribution
 						ELSE WinlossForExtraPT_virtualrate
 					 END) AS WinlossForExtraPT_virtualrate
 			FROM #tmp_srcDetail AS b WITH(NOLOCK)
 			    INNER JOIN #SportBettype AS s ON b.bettype = s.bettype
-				LEFT JOIN #PrizeBettypeGroup bg ON b.bettype = bg.Bettype
+				LEFT JOIN #SpecialBettypeGroup bg ON b.bettype = bg.Bettype
 			WHERE s.RefTable IN(1, 2)
 			GROUP BY b.srecommend
 				  , s.ProductID
@@ -1395,6 +1397,6 @@ Explanation's Param:
 	   DROP TABLE #Match;
 	   DROP TABLE #Result;
 	   DROP TABLE #SportBettype;
-	   DROP TABLE #PrizeBettypeGroup;
+	   DROP TABLE #SpecialBettypeGroup;
     END;
 GO
