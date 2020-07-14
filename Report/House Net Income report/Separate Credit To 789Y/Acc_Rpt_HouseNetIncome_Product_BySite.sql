@@ -26,6 +26,8 @@ AS
 		- 20200518@Ned.Le - Email/Letstalk Reports - Integrate SBO RNG War (#132019)
 		- 20200521@Ned.Le - Re-Integrate Fishing World product for letstalk (#134533)
 		- 20200720@Kean - DHWL Email/Letstalk - Separate Saba Sports from real Sports (#137822)
+		- 20200722@Ned.Le - Email/Letstalk Reports - Integrate Jackpot Games (#137280)
+
 	
 	Param's Explanation:   
 	- DepositType  
@@ -46,6 +48,19 @@ BEGIN
 
     SELECT @FDate = @FromDate
 	    , @TDate = @ToDate;
+
+	-- #tmpBettypeGroup
+	CREATE TABLE #tmpBettypeGroup (
+		BettypeGroupID SMALLINT,
+		Bettype INT
+	)
+
+	INSERT INTO #tmpBettypeGroup (BettypeGroupID, Bettype)
+	SELECT bg.BettypeGroupID, bg.Bettype
+	FROM bodb_Account.dbo.BettypeGroup bg (NOLOCK)
+	WHERE bg.BettypeGroupID IN (6, 10)
+	      AND Remark LIKE '%Jackpot%'
+
     -- #Exchange
 	DECLARE @SiteCN88    INT;
 
@@ -69,44 +84,46 @@ BEGIN
     -- #FinalResult
 
 	CREATE TABLE #FinalResult(
-	    RptDate               VARCHAR(10)
-	  , HouseWL_Soccer        MONEY
+	    RptDate							VARCHAR(10)
+	  , HouseWL_Soccer					MONEY
 	  , HouseWL_SabaSoccer        MONEY
-	  , HouseWL_Basketball    MONEY
+	  , HouseWL_Basketball				MONEY
 	  , HouseWL_SabaBasketball    MONEY
-	  , HouseWL_Tennis        MONEY
-	  , HouseWL_ESports       MONEY
-	  , HouseWL_OS            MONEY
+	  , HouseWL_Tennis					MONEY
+	  , HouseWL_ESports					MONEY
+	  , HouseWL_OS						MONEY
 	  , HouseWL_Cricket            MONEY
-	  , HouseWL_Parlay        MONEY
-	  , HouseWL_NG        MONEY
-	  , HouseWL_H5        MONEY
-	  , HouseWL_VS        MONEY
-	  , HouseWL_RNGKeno        MONEY
-	  , HouseWL_NG2        MONEY
-	  , HouseWL_MacauG        MONEY
-	  , HouseWL_AB        MONEY
-	  , HouseWL_GD        MONEY
-	  , HouseWL_LT        MONEY
-	  , HouseWL_EX        MONEY
-	  , HouseWL_VS2        MONEY
-	  , HouseWL_1RNG        MONEY
-	  , HouseWL_1RNG_JP_MegaPrize        MONEY
-	  , HouseWL_1RNG_JP_Contribution        MONEY
-	  , HouseWL_PP        MONEY
-	  , HouseWL_CC        MONEY
-	  , HouseWL_SP        MONEY
-	  , HouseWL_SG        MONEY
-	  , HouseWL_VG        MONEY
-	  , HouseWL_SA        MONEY
-	  , HouseWL_SBC        MONEY
-	  , HouseWL_SXG        MONEY
-	  , HouseWL_BBIN        MONEY
-	  , HouseWL_TG          MONEY
-	  , HouseWL_IBCLC          MONEY
-	  , HouseWL_ION			MONEY
-	  , HouseWL_RNGW		MONEY
-	  , HouseWL_FW			MONEY);
+	  , HouseWL_Parlay					MONEY
+	  , HouseWL_NG						MONEY
+	  , HouseWL_H5						MONEY
+	  , HouseWL_VS						MONEY
+	  , HouseWL_RNGKeno					MONEY
+	  , HouseWL_NG2						MONEY
+	  , HouseWL_MacauG					MONEY
+	  , HouseWL_AB						MONEY
+	  , HouseWL_GD						MONEY
+	  , HouseWL_LT						MONEY
+	  , HouseWL_EX						MONEY
+	  , HouseWL_VS2						MONEY
+	  , HouseWL_1RNG					MONEY
+	  , HouseWL_1RNG_JP_MegaPrize       MONEY
+	  , HouseWL_1RNG_JP_Contribution    MONEY
+	  , HouseWL_PP						MONEY
+	  , HouseWL_PP_JP_MegaPrize			MONEY
+	  , HouseWL_PP_JP_Contribution      MONEY
+	  , HouseWL_CC						MONEY
+	  , HouseWL_SP						MONEY
+	  , HouseWL_SG						MONEY
+	  , HouseWL_VG						MONEY
+	  , HouseWL_SA						MONEY
+	  , HouseWL_SBC						MONEY
+	  , HouseWL_SXG						MONEY
+	  , HouseWL_BBIN					MONEY
+	  , HouseWL_TG						MONEY
+	  , HouseWL_IBCLC					MONEY
+	  , HouseWL_ION						MONEY
+	  , HouseWL_RNGW					MONEY
+	  , HouseWL_FW						MONEY);
 
 	  DECLARE @tmpDate     DATE
 		, @DateList    VARCHAR(200) = '[FullRange]';
@@ -133,7 +150,6 @@ BEGIN
 		FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)
 		WHERE SubProduct NOT IN('BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss')
 		 AND ProductID IN (1, 3, 5, 8, 23, 22, 21, 12, 28, 27, 6, 32, 34, 36,38,39,42,45,47, 40, 46, 52, 50, 24)
-		 AND BetType NOT IN (4299, 4300) -- PP
 
 		 CREATE TABLE #TmpData(
 				rptDate      DATE
@@ -160,13 +176,14 @@ BEGIN
 					ELSE b.SportType END SportType
 			 , b.BetType
 			 , ISNULL(-SUM((WinlossIBC - ExtraWL + CommissionS - ExtraComm) * ex.rate), 0) AS  HouseWL
-			 , -SUM(CASE WHEN b.bettype IN (2199, 2399, 2999) THEN b.WinlossP ELSE 0 END * ex.Rate) AS WinningPrize		
-			 , SUM(CASE WHEN b.Bettype IN (2198, 2398, 2998) THEN b.WinlossIBC - b.WinlossS - b.WinlossM - b.WinlossA ELSE 0 END * ex.Rate)
+			 , -SUM(CASE WHEN bg.BettypeGroupID = 6 THEN b.WinlossP ELSE 0 END * ex.Rate) AS WinningPrize		
+			 , SUM(CASE WHEN bg.BettypeGroupID = 10 THEN b.WinlossIBC - b.WinlossS - b.WinlossM - b.WinlossA ELSE 0 END * ex.Rate)
 		 FROM bodb_Account.dbo.FactSiteWinloss AS b WITH(NOLOCK)
 			INNER JOIN #SportBettypeMatrix AS sb ON b.Bettype = sb.Bettype
 			LEFT JOIN  #tmpLeague l ON l.leagueid = b.leagueID
 			LEFT JOIN #exchange AS ex ON b.rptdate = ex.exchangedate
 								    AND b.currencyid = ex.ExchangeID
+			LEFT JOIN #tmpBettypeGroup bg ON b.BetType = bg.Bettype
 		 WHERE b.rptDate >= @FDate AND b.rptDate <= @TDATE
 			  AND b.TicketStatus NOT IN(-1, 18, 9, 10, 14)
 			  AND b.CurrencyID <> 20
@@ -210,7 +227,9 @@ BEGIN
 						  , HouseWL_1RNG
 						  , HouseWL_1RNG_JP_MegaPrize
 						  , HouseWL_1RNG_JP_Contribution        
-						  , HouseWL_PP   
+						  , HouseWL_PP
+						  , HouseWL_PP_JP_MegaPrize
+						  , HouseWL_PP_JP_Contribution
 						  , HouseWL_CC
 						  , HouseWL_SP
 						  , HouseWL_SG
@@ -252,6 +271,18 @@ SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 	,(SELECT SUM(t.WinningPrize) FROM #TmpData AS t WHERE t.BetType IN (2199, 2399, 2999) AND t.rptDate = @tmpDate) AS HouseWL_1RNG_JP_MegaPrize
 	,(SELECT SUM(t.Contribution) FROM #TmpData AS t WHERE t.BetType IN (2198, 2398, 2998) AND t.rptDate = @tmpDate) AS HouseWL_1RNG_JP_Contribution
 	,(SELECT SUM(t.HouseWL) FROM #TmpData AS t WHERE t.ProductID = 32 AND t.rptDate = @tmpDate) AS  HouseWL_PP
+	,(SELECT SUM(t.WinningPrize)
+	  FROM #TmpData AS t
+		   INNER JOIN #tmpBettypeGroup AS bg ON t.BetType = bg.Bettype
+	  WHERE t.rptDate = @tmpDate
+		    AND t.ProductID = 32
+	        AND bg.BettypeGroupID = 6) AS HouseWL_PP_JP_MegaPrize
+	,(SELECT SUM(t.WinningPrize)
+	  FROM #TmpData AS t
+		   INNER JOIN #tmpBettypeGroup AS bg ON t.BetType = bg.Bettype
+	  WHERE t.rptDate = @tmpDate
+		    AND t.ProductID = 32
+	        AND bg.BettypeGroupID = 10) AS HouseWL_PP_JP_Contribution
 	,(SELECT SUM(t.HouseWL) FROM #TmpData AS t WHERE t.ProductID = 34 AND t.rptDate = @tmpDate) AS  HouseWL_CC
 	, 0 HouseWL_SP
 	,(SELECT SUM(t.HouseWL) FROM #TmpData AS t WHERE t.ProductID = 36 AND t.rptDate = @tmpDate) AS  HouseWL_SG
@@ -291,7 +322,9 @@ INSERT INTO #FinalResult(RptDate
 					, HouseWL_1RNG
 					, HouseWL_1RNG_JP_MegaPrize
 					, HouseWL_1RNG_JP_Contribution        
-					, HouseWL_PP   
+					, HouseWL_PP
+					, HouseWL_PP_JP_MegaPrize
+				    , HouseWL_PP_JP_Contribution
 					, HouseWL_CC
 					, HouseWL_SP
 					, HouseWL_SG
@@ -329,7 +362,9 @@ INSERT INTO #FinalResult(RptDate
 			, SUM(HouseWL_1RNG)
 			, SUM(HouseWL_1RNG_JP_MegaPrize)
 			, SUM(HouseWL_1RNG_JP_Contribution)        
-			, SUM(HouseWL_PP)   
+			, SUM(HouseWL_PP)
+			, SUM(HouseWL_PP_JP_MegaPrize)
+			, SUM(HouseWL_PP_JP_Contribution)
 			, SUM(HouseWL_CC)
 			, SUM(HouseWL_SP)
 			, SUM(HouseWL_SG)
@@ -376,19 +411,21 @@ INSERT INTO #FinalResult(RptDate
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''1RNG-JP'', 19, ''House Income'', HouseWL_1RNG_JP_MegaPrize' + CHAR(13)
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''1RNG-JP'', 20, ''House Income'', HouseWL_1RNG_JP_Contribution' + CHAR(13)
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''PP'', 21, ''House Income'', HouseWL_PP' + CHAR(13)
-	+ 'UNION ALL' + CHAR(13) + 'SELECT ''CC'', 22, ''House Income'', HouseWL_CC' + CHAR(13)
-    + 'UNION ALL' + CHAR(13) + 'SELECT ''SP'', 23, ''House Income'', HouseWL_SP' + CHAR(13)
-	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SG'', 24, ''House Income'', HouseWL_SG' + CHAR(13)
-	+ 'UNION ALL' + CHAR(13) + 'SELECT ''VG'', 25, ''House Income'', HouseWL_VG' + CHAR(13)
-	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SAG'', 26, ''House Income'', HouseWL_SA' + CHAR(13)
-	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SBC'', 27, ''House Income'', HouseWL_SBC' + CHAR(13)
-	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SXG'', 28, ''House Income'', HouseWL_SXG' + CHAR(13)
-	+ 'UNION ALL' + CHAR(13) + 'SELECT ''BBIN'', 29, ''House Income'', HouseWL_BBIN' + CHAR(13)
-	+ 'UNION ALL' + CHAR(13) + 'SELECT ''TG'', 30, ''House Income'', HouseWL_TG' + CHAR(13)
-    + 'UNION ALL' + CHAR(13) + 'SELECT ''IBCLC'', 31, ''House Income'', HouseWL_IBCLC' + CHAR(13)
-	+ 'UNION ALL' + CHAR(13) + 'SELECT ''ION'', 32, ''House Income'', HouseWL_ION' + CHAR(13)
-	+ 'UNION ALL' + CHAR(13) + 'SELECT ''RNGW'', 33, ''House Income'', HouseWL_RNGW' + CHAR(13)
-	+ 'UNION ALL' + CHAR(13) + 'SELECT ''FW'', 34, ''House Income'', HouseWL_FW) c (ProductCode, [Order], Figure, value)) a' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''PP-JP'', 22, ''House Income'', HouseWL_PP_JP_MegaPrize' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''PP-JP'', 23, ''House Income'', HouseWL_PP_JP_Contribution' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''CC'', 24, ''House Income'', HouseWL_CC' + CHAR(13)
+    + 'UNION ALL' + CHAR(13) + 'SELECT ''SP'', 25, ''House Income'', HouseWL_SP' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SG'', 26, ''House Income'', HouseWL_SG' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''VG'', 27, ''House Income'', HouseWL_VG' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SAG'', 28, ''House Income'', HouseWL_SA' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SBC'', 29, ''House Income'', HouseWL_SBC' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SXG'', 30, ''House Income'', HouseWL_SXG' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''BBIN'', 31, ''House Income'', HouseWL_BBIN' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''TG'', 32, ''House Income'', HouseWL_TG' + CHAR(13)
+    + 'UNION ALL' + CHAR(13) + 'SELECT ''IBCLC'', 33, ''House Income'', HouseWL_IBCLC' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''ION'', 34, ''House Income'', HouseWL_ION' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''RNGW'', 35, ''House Income'', HouseWL_RNGW' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''FW'', 36, ''House Income'', HouseWL_FW) c (ProductCode, [Order], Figure, value)) a' + CHAR(13)
     + 'PIVOT' + CHAR(13) 
     + '(' + CHAR(13) 
     + 'MAX(value)' + CHAR(13) 
@@ -399,6 +436,7 @@ INSERT INTO #FinalResult(RptDate
     EXEC (@SQL);
 	
     -- Drop temp tables
+	DROP TABLE #tmpBettypeGroup;
     DROP TABLE #SportBettypeMatrix;
 	DROP TABLE #tmpLeague;
     DROP TABLE #Exchange;
