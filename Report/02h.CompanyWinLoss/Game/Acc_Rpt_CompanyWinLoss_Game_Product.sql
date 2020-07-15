@@ -173,10 +173,10 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_Product] @EndDate='2020-01-01',@StartDate='201
                            SUM(scomm * actualrate) Commission, 
                            SUM((CASE
                                     WHEN bg.BettypeGroupID = 10 --Contribution Bettype Group
-                                    THEN b.ContributionRate * b.BetStake + awinlost + mwinlost + swinlost + scomm - (CASE
+                                    THEN b.ContributionStake3rd + awinlost + mwinlost + swinlost + scomm - (CASE
                                                                                                                          WHEN tpositiontaking = 1
                                                                                                                          THEN 0
-                                                                                                                         ELSE b.ContributionRate * b.BetStake + b.scomm / (1 - b.tpositiontaking)
+                                                                                                                         ELSE b.ContributionStake3rd + b.scomm / (1 - b.tpositiontaking)
                                                                                                                      END) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)
                                     WHEN bg.BettypeGroupID = 6 THEN 0 -- Prize Bettype Group
                                     ELSE winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - (CASE
@@ -198,7 +198,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_Product] @EndDate='2020-01-01',@StartDate='201
                                     WHEN tpositiontaking = 1
                                     THEN 0
                                     WHEN bg.BettypeGroupID = 10 --Contribution Bettype Group
-                                    THEN b.ContributionRate * b.BetStake
+                                    THEN b.ContributionStake3rd
                                     WHEN bg.BettypeGroupID = 6 THEN 0 -- Prize Bettype Group
                                     ELSE winlost - actual_stake
                                 END) * actualrate * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) AS ExtraPT, 
@@ -207,7 +207,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_Product] @EndDate='2020-01-01',@StartDate='201
                                     THEN 0
                                     WHEN bg.BettypeGroupID = 6 THEN 0 -- Prize Bettype Group
                                     WHEN bg.BettypeGroupID = 10 --Contribution Bettype Group
-                                    THEN ContributionRate * BetStake + 1.0 * scomm / (1 - tpositiontaking) --Jackpot Contribution
+                                    THEN ContributionStake3rd + 1.0 * scomm / (1 - tpositiontaking) --Jackpot Contribution
                                     ELSE winlost - actual_stake + 1.0 * scomm / (1 - tpositiontaking)
                                 END) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0) * actualrate) AS NewExtraPT
                     FROM bettransRNG b WITH(NOLOCK)

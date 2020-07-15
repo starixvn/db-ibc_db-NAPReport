@@ -491,12 +491,12 @@ BEGIN
 			sum((awinlost+mwinlost+swinlost)* actualrate) realPos,
 			sum((scomm) * actualrate) realComm,
 			sum((CASE WHEN bg.BettypeGroupID = 6 THEN 0 --Prize Bettype Group
-					  WHEN bg.BettypeGroupID = 10 THEN (b.ContributionRate * b.BetStake) + awinlost + mwinlost + swinlost + scomm --Contribution Bettype Group
+					  WHEN bg.BettypeGroupID = 10 THEN b.ContributionStake3rd + awinlost + mwinlost + swinlost + scomm --Contribution Bettype Group
 				      ELSE winlost - actual_stake + awinlost + mwinlost + swinlost + scomm 
 				 END) * actualrate) realLineTotal,
 			sum((1-tpositiontaking)*stake*virtualrate) as virtualTurnover,
 			sum((CASE WHEN bg.BettypeGroupID = 6 THEN 0 --Prize Bettype Group
-					  WHEN bg.BettypeGroupID = 10 THEN (b.ContributionRate * b.BetStake) + awinlost + mwinlost + swinlost + scomm --Contribution Bettype Group
+					  WHEN bg.BettypeGroupID = 10 THEN b.ContributionStake3rd + awinlost + mwinlost + swinlost + scomm --Contribution Bettype Group
 				      ELSE winlost - actual_stake + awinlost + mwinlost + swinlost + scomm 
 				 END) * virtualrate) virtualLineTotal,
 
@@ -1024,12 +1024,12 @@ BEGIN
 				sum((awinlost+mwinlost+swinlost)* actualrate) realPos,
 				sum((scomm) * actualrate) realComm,
 				sum((CASE WHEN bg.BettypeGroupID = 6 THEN 0 --Prize Bettype Group
-						  WHEN bg.BettypeGroupID = 10 THEN (b.ContributionRate * b.BetStake) + awinlost + mwinlost + swinlost + scomm --Contribution Bettype Group
+						  WHEN bg.BettypeGroupID = 10 THEN b.ContributionStake3rd + awinlost + mwinlost + swinlost + scomm --Contribution Bettype Group
 						  ELSE winlost - actual_stake + awinlost + mwinlost + swinlost + scomm 
 					 END) * actualrate) realLineTotal,
 				sum((1-tpositiontaking)*stake*virtualrate) as virtualTurnover,
 				sum((CASE WHEN bg.BettypeGroupID = 6 THEN 0 --Prize Bettype Group
-						  WHEN bg.BettypeGroupID = 10 THEN (b.ContributionRate * b.BetStake) + awinlost + mwinlost + swinlost + scomm --Contribution Bettype Group
+						  WHEN bg.BettypeGroupID = 10 THEN b.ContributionStake3rd + awinlost + mwinlost + swinlost + scomm --Contribution Bettype Group
 						  ELSE winlost - actual_stake + awinlost + mwinlost + swinlost + scomm 
 					 END) * virtualrate) virtualLineTotal,
 

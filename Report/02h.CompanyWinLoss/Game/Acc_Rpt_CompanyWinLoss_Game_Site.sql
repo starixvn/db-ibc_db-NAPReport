@@ -168,7 +168,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_Site] @BetType = 2101,@EndDate='2020-01-01',@S
                                    THEN CASE
                                             WHEN tpositiontaking = 1
                                             THEN 0
-                                            ELSE b.ContributionRate * b.BetStake + b.scomm / (1 - b.tpositiontaking)
+                                            ELSE b.ContributionStake3rd + b.scomm / (1 - b.tpositiontaking)
                                         END * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)
                                    WHEN bg.BettypeGroupID = 6 THEN 0 -- Prize Bettype Group
                                    ELSE CASE
@@ -180,10 +180,10 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_Site] @BetType = 2101,@EndDate='2020-01-01',@S
                            SUM(scomm * actualrate) AS Commission, 
                            SUM(CASE
                                    WHEN bg.BettypeGroupID = 10 --Contribution Bettype Group
-                                   THEN b.ContributionRate * b.BetStake + awinlost + mwinlost + swinlost + scomm - CASE
+                                   THEN b.ContributionStake3rd + awinlost + mwinlost + swinlost + scomm - CASE
                                                                                                                        WHEN tpositiontaking = 1
                                                                                                                        THEN 0
-                                                                                                                       ELSE b.ContributionRate * b.BetStake + b.scomm / (1 - b.tpositiontaking)
+                                                                                                                       ELSE b.ContributionStake3rd + b.scomm / (1 - b.tpositiontaking)
                                                                                                                    END * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)
                                    WHEN bg.BettypeGroupID = 6 THEN 0 -- Prize Bettype Group
                                    ELSE winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - CASE
