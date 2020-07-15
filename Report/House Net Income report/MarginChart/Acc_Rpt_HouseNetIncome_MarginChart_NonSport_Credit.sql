@@ -39,6 +39,7 @@ AS
 		- 20200521@Ned.Le - Re-Integrate Fishing World product for letstalk (#134533)
 		- 20200529@Ned.Le - House Net Income Email/Letstalk - Change timezone to calculate monthly Pay To Supplier (#134867)
 		- 20200701@Kean.Nguyen - House Net Income Email/Letstalk - Change formula to Calculate Margin (#136792)
+		- 20200714@Ned.Le - Email/Letstalk Reports - Integrate Jackpot Games (#137280)
 
 	Param's Explanation:   
 		- @ProductList: '' - default value when get all product
@@ -68,7 +69,21 @@ BEGIN
 	DECLARE @ProductCodeAll VARCHAR(MAX) = 'NG,VS,KN,LT,VS2,VB,CS,NG2,AB,GD,CB,PP,CC,SG,VRG,SAG,SBC,SXG,BBIN,TG,IBCLC,ION,RNGW,FW'
 	DECLARE @ProductCodeGMT4 VARCHAR(1000) = 'VB,CC,BBIN,TG,IBCLC,ION,RNGW'
 	DECLARE @ProductCodeGMT VARCHAR(1000) = 'AB,FW,PP,SG,SAG,SXG'
-		
+
+	-- #tmpBettypeGroup
+	CREATE TABLE #tmpBettypeGroup (
+		BettypeGroupID SMALLINT,
+		ProductID INT,
+		Bettype INT
+	)
+
+	INSERT INTO #tmpBettypeGroup (BettypeGroupID, ProductID, Bettype)
+	SELECT bg.BettypeGroupID, pb.ProductID, bg.Bettype
+	FROM bodb_Account.dbo.BettypeGroup bg (NOLOCK)
+		 LEFT JOIN bodb_Account.dbo.Product_Bettype pb (NOLOCK) ON bg.Bettype = pb.Bettype
+		 LEFT JOIN bodb_Account.dbo.Bettype b (NOLOCK) ON bg.Bettype = b.typeid
+	WHERE bg.BettypeGroupID IN (6, 10)
+
 	-- #Exchange
 	CREATE TABLE #Exchange (ExchangeDate DATE, ExchangeID INT, Rate FLOAT)
 	
@@ -171,6 +186,9 @@ BEGIN
 	WHERE ISNULL(@ProductList, '') = ''
 		  OR EXISTS (SELECT 1 FROM #tmpProduct p WHERE sel.ProductPrefix = p.ProductPrefix)
 	
+	DELETE t
+	FROM #SportBettypeMatrix t
+	WHERE t.Bettype IN (SELECT Bettype FROM #tmpBettypeGroup WHERE ProductID = 32)
 
 	-- BEGIN - Calculating
 
@@ -219,7 +237,6 @@ BEGIN
 	WHERE b.rptDate >= @FDate AND b.rptDate <= @TDate
 		  AND b.TicketStatus NOT IN(-1, 18, 9, 10, 14, 3)
 		  AND SiteID IN (SELECT SiteID FROM bodb_Account.dbo.tbl_Site WHERE isDeposit = 0) -- Credit data only
-		  AND b.BetType NOT IN (4299, 4300)
 	GROUP BY b.rptDate, b.SiteID, sb.ProductID, b.SportType, b.BetType
 	OPTION (RECOMPILE);
 
@@ -355,6 +372,7 @@ BEGIN
 	EXEC(@SQL)
 
 	-- Drop tmp table
+	DROP TABLE #tmpBettypeGroup
 	DROP TABLE #SportBettypeMatrix
 	DROP TABLE #TmpHouseWL
 	DROP TABLE #Exchange

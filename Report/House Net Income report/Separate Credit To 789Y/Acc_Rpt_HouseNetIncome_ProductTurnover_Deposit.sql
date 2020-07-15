@@ -47,8 +47,10 @@ BEGIN
 	INSERT INTO #tmpBettypeGroup (BettypeGroupID, Bettype)
 	SELECT bg.BettypeGroupID, bg.Bettype
 	FROM bodb_Account.dbo.BettypeGroup bg (NOLOCK)
+		 LEFT JOIN bodb_Account.dbo.Product_Bettype pb (NOLOCK) ON bg.Bettype = pb.Bettype
+		 LEFT JOIN bodb_Account.dbo.Bettype b (NOLOCK) ON bg.Bettype = b.typeid
 	WHERE bg.BettypeGroupID IN (6, 10)
-	      AND Remark LIKE '%Jackpot%'
+		  AND b.typenamee LIKE '%Jackpot%'
 
     -- #Exchange
 

@@ -52,9 +52,10 @@ BEGIN
 	SELECT bg.BettypeGroupID, bg.Bettype
 	FROM bodb_Account.dbo.BettypeGroup bg (NOLOCK)
 		 LEFT JOIN bodb_Account.dbo.Product_Bettype pb (NOLOCK) ON bg.Bettype = pb.Bettype
+		 LEFT JOIN bodb_Account.dbo.Bettype b (NOLOCK) ON bg.Bettype = b.typeid
 	WHERE bg.BettypeGroupID IN (6, 10)
 		  AND pb.ProductID = @productID
-		  AND Remark LIKE '%Jackpot%'
+		  AND b.typenamee LIKE '%Jackpot%'
 
 	-- #tmpDataJP
 	CREATE TABLE #tmpDataJP (
@@ -117,9 +118,9 @@ BEGIN
 	SELECT @SQL =	'SELECT * ' + CHAR(13) +
 					'FROM	(SELECT ProductCode, [Order], [RptDate], Figure, ISNULL(value, 0) value FROM #FinalResult' + CHAR(13) +
 							'CROSS APPLY' + CHAR(13) +
-							'(SELECT ''PPJackpot'', 1, ''Contribution Amount'', Contribution' + CHAR(13) +
+							'(SELECT ''PP-JP'', 1, ''Contribution Amount'', Contribution' + CHAR(13) +
 							'UNION ALL' + CHAR(13) +
-							'SELECT ''PPJackpot'', 2, ''Mega Prize'', MegaPrize) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
+							'SELECT ''PP-JP'', 2, ''Mega Prize'', MegaPrize) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
 					'PIVOT' + CHAR(13) +
 					'(' + CHAR(13) +
 						'MAX(value)' + CHAR(13) +
