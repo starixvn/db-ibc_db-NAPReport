@@ -242,14 +242,14 @@ BEGIN
 			 , SUM(stake * (1 - tpositiontaking)) AS                      TurnoverIBC
 			 , SUM(CASE
 					 WHEN bg.BettypeGroupID = 6 THEN 0 /*Progressive Jackpot, PP Promotion Prize, PP Tournament Prize*/
-					 WHEN bg.BettypeGroupID = 10 THEN b.ContributionRate * b.BetStake + swinlost + mwinlost + awinlost /*Jackpot Contribution*/
+					 WHEN bg.BettypeGroupID = 10 THEN b.ContributionStake3rd + swinlost + mwinlost + awinlost /*Jackpot Contribution*/
 					 ELSE swinlost + mwinlost + awinlost + winlost - actual_stake
 				  END) AS                                                WinlossIBC
 			 , SUM(scomm) AS                                              CommissionS
 			 , SUM(CASE
 					 WHEN tpositiontaking = 1 THEN 0
 					 WHEN bg.BettypeGroupID = 6 THEN 0 /*Progressive Jackpot, PP Promotion Prize, PP Tournament Prize*/
-					 WHEN bg.BettypeGroupID = 10 THEN(b.ContributionRate * b.BetStake) * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(19, 8)) /*Jackpot Contribution*/
+					 WHEN bg.BettypeGroupID = 10 THEN b.ContributionStake3rd * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(19, 8)) /*Jackpot Contribution*/
 					 ELSE(winlost - actual_stake) * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(19, 8))
 				  END) AS                                                ExtraWL
 			 , SUM(CASE
@@ -266,14 +266,14 @@ BEGIN
 			 , SUM(stake * (1 - tpositiontaking) * actualrate) AS         TurnoverIBC_RM
 			 , SUM(CASE
 					 WHEN bg.BettypeGroupID = 6 THEN 0 /*Progressive Jackpot, PP Promotion Prize, PP Tournament Prize*/
-					 WHEN bg.BettypeGroupID = 10 THEN b.ContributionRate * b.BetStake + swinlost + mwinlost + awinlost /*Jackpot Contribution*/
+					 WHEN bg.BettypeGroupID = 10 THEN b.ContributionStake3rd + swinlost + mwinlost + awinlost /*Jackpot Contribution*/
 					 ELSE swinlost + mwinlost + awinlost + winlost - actual_stake
 				  END * actualrate) AS                                   WinlossIBC_RM
 			 , SUM(scomm * actualrate) AS                                 CommissionS_RM
 			 , SUM(CASE
 					 WHEN tpositiontaking = 1 THEN 0
 					 WHEN bg.BettypeGroupID = 6 THEN 0 /*Progressive Jackpot, PP Promotion Prize, PP Tournament Prize*/
-					 WHEN bg.BettypeGroupID = 10 THEN(b.ContributionRate * b.BetStake) * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(19, 8)) /*Jackpot Contribution*/
+					 WHEN bg.BettypeGroupID = 10 THEN b.ContributionStake3rd * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(19, 8)) /*Jackpot Contribution*/
 					 ELSE(winlost - actual_stake) * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(19, 8))
 				  END * actualrate) AS                                   ExtraWL_RM
 			 , SUM(CASE
