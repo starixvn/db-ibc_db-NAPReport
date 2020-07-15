@@ -15,6 +15,7 @@ AS
 		- 20191121@Robert: #123733 - Email/Letstalk Reports - Integrate PP Tournament (Exclude bettype 4299)
 		- 20200108@Percy: #124755 - Support billing terms by product & currency instead of product only
 		- 20200529@Percy: Remove PayToSupplier code - Using core SP [RedmineID: #134867]
+		- 20200715@Percy: Integrate PP Jackpot [RedmineID: #137280]
 		
 	Param's Explanation:   
 
@@ -131,7 +132,7 @@ BEGIN
 				AND b.CurrencyID <> 20
 				AND b.customercategory NOT IN (27, 28)
 				AND b.StatusId NOT IN (-1, 101, 102, 103) -- Exclude Reject , Void, Refund
-				AND b.Bettype NOT IN (4299, 4300)
+				AND b.Bettype NOT IN (4297, 4298, 4299, 4300)
 		GROUP BY b.rptdate, b.SiteId, p.PartyId, p.ProductId
 	)	
 

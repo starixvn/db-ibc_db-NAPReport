@@ -16,6 +16,7 @@ AS
 	Revisions:
 		- 20200521@Percy: Initiliaze SP [RedmineID: #134553]
 		- 20200529@Percy: Special members for AB [RedmineID: #134867]
+		- 20200715@Percy: Integrate PP Jackpot [RedmineID: #137280]
     
 	Param's Explanation:
 		- @@ProductCodes: List of Product Code
@@ -161,7 +162,7 @@ BEGIN
 	SELECT DISTINCT s.ProductId, s.BetType FROM dbo.SportBettypeMatrix s WITH (NOLOCK)
 		INNER JOIN dbo.Products p WITH (NOLOCK) ON s.ProductID = p.ProductID
 	WHERE ',' + @ProductCodes + ',' LIKE '%,' + p.ProductPrefix + ',%'
-		AND s.BetType NOT IN (4299, 4300)
+		AND s.BetType NOT IN (4298, 4299, 4300)
 
 	-- Use validbetamount
 	CREATE TABLE #__ValidBetAmount (IsDeposit BIT, ProductId INT, FromDate DATE, ToDate DATE, CommRate FLOAT)
@@ -196,9 +197,9 @@ BEGIN
 
 	INSERT INTO #__tempDataGMT (rptDate, ParentId, IsDeposit, ProductID, Bettype, CurrencyId, PlayCurrency, PayDaily, PayDailyRate, MemberWLRate)
 	SELECT b.RptDate3rd, tp.ParentId, tp.IsDeposit, bt.ProductID, CASE WHEN b.BetTypeId = 3007 THEN 3007 ELSE 0 END, b.CurrencyId, ISNULL(pc.PlayCurrency, b.CurrencyId) AS PlayCurrency
-		,SUM((b.Winloss + ISNULL(b.ValidBetAmount * v.CommRate, 0)) * ISNULL(p.Rate, vs.ChargeRate3rd)) AS PayDaily
-		,SUM((b.Winloss + ISNULL(b.ValidBetAmount * v.CommRate, 0)) * e.Rate * ISNULL(p.Rate, vs.ChargeRate3rd)) AS PayDailyRate
-		,SUM(b.Winloss * e.Rate) AS MemberWLRate
+		,SUM((CASE WHEN b.BetTypeId = 4297 THEN -b.ProgressiveContribution ELSE b.Winloss END + ISNULL(b.ValidBetAmount * v.CommRate, 0)) * ISNULL(p.Rate, vs.ChargeRate3rd)) AS PayDaily
+		,SUM((CASE WHEN b.BetTypeId = 4297 THEN -b.ProgressiveContribution ELSE b.Winloss END + ISNULL(b.ValidBetAmount * v.CommRate, 0)) * e.Rate * ISNULL(p.Rate, vs.ChargeRate3rd)) AS PayDailyRate
+		,SUM(CASE WHEN b.BetTypeId = 4297 THEN 0 ELSE b.Winloss END * e.Rate) AS MemberWLRate
 	FROM bodb_LicenseeReport.dbo.rpt_ThirdPartyWL_ExtraGMT b WITH (NOLOCK)
 		INNER JOIN #__Bettype bt ON b.BetTypeId = bt.BetType
 		INNER JOIN @tmpAllParty tp ON tp.LicenseeID = b.SiteID

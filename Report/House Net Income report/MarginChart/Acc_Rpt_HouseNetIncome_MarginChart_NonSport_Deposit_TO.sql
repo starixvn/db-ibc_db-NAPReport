@@ -1,4 +1,4 @@
-/*<info serverAlias="DBWH-bodb_dwrs" executers="dwrs" viewers="" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBWH-bodb_dwrs" executers="dwrs" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE dbo.Acc_Rpt_HouseNetIncome_MarginChart_NonSport_Deposit_TO
 	@FromDate       DATE
    , @ToDate         DATE
@@ -19,6 +19,7 @@ AS;
 		- 20200409@Kean: House Net Income - Integrate Table Games product (#129447)
 		- 20200422@Percy: Integrate 3D Lottery (CC), Saba.Club, Sexy Gaming [RedmineID: #132790,#132791,#132792]
 		- 20200701@Percy: Exclude draw tickets, TO/2 for half won, half lose tickets [RedmineID: #136792]
+		- 20200715@Percy: Integrate PP Jackpot [RedmineID: #137280]
 
 	Param's Explanation:   
 		- @ProductList: '' - default value when get all product
@@ -150,7 +151,7 @@ BEGIN
 			    INNER JOIN #SportBettypeMatrix AS sb ON sb.Bettype = b.bettype
 			WHERE b.rptDate BETWEEN @FDate AND @TDate
 				 AND b.TicketStatus NOT IN(-1, 18, 9, 10, 14, 3)
-				 AND b.BetType NOT IN (4299, 4300)
+				 AND b.BetType NOT IN (4297, 4298, 4299, 4300)
 				 AND SiteID IN
 							(
 							    SELECT SiteID
