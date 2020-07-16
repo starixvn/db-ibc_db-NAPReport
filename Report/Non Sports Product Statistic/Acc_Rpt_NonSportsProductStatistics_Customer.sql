@@ -740,14 +740,14 @@ BEGIN
 			SUM((CASE WHEN b.statusID IN (103) THEN 0 
 					WHEN b.tpositiontaking = 1 THEN 0
 					ELSE (1 - b.tpositiontaking - CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) * b.stake END) * actualrate) AS CompanyTurnoverBase,
-			SUM(b.ContributionRate * b.BetStake + awinlost + mwinlost + swinlost) AS CompanyGrossIncome,
-			SUM((b.ContributionRate * b.BetStake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeBase,
+			SUM(b.ContributionStake3rd + awinlost + mwinlost + swinlost) AS CompanyGrossIncome,
+			SUM((b.ContributionStake3rd + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeBase,
 			SUM(scomm) AS CompanyComm,
 			SUM(scomm * actualrate) AS CompanyCommBase,
 			0 AS HousePT,
-			SUM((b.ContributionRate * b.BetStake + CASE WHEN tpositiontaking = 1 THEN 0
+			SUM((b.ContributionStake3rd + CASE WHEN tpositiontaking = 1 THEN 0
 					ELSE scomm / (1 - tpositiontaking) END) * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) ExtraWL,
-			SUM((b.ContributionRate * b.BetStake + CASE WHEN tpositiontaking = 1 THEN 0
+			SUM((b.ContributionStake3rd + CASE WHEN tpositiontaking = 1 THEN 0
 					ELSE scomm / (1 - tpositiontaking) END) * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8)) * actualrate) ExtraWLBase,							
 			COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS RowNum			
 		FROM dbo.bettransRnG b WITH (NOLOCK)

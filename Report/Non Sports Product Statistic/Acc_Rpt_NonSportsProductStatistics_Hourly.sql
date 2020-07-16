@@ -522,11 +522,11 @@ SET NOCOUNT ON
 						WHEN b.tpositiontaking = 1 THEN 0
 						ELSE (1 - b.tpositiontaking - CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) * b.stake END) * actualrate) AS CompanyTurnoverRM,		
 								
-				- SUM((b.ContributionRate * b.BetStake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeRM,
+				- SUM((b.ContributionStake3rd + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeRM,
 
 				- SUM(scomm *actualrate) AS CompanyCommRM,
 				
-				- SUM((b.ContributionRate * b.BetStake + CASE WHEN tpositiontaking = 1 THEN 0
+				- SUM((b.ContributionStake3rd + CASE WHEN tpositiontaking = 1 THEN 0
 							ELSE scomm / (1 - tpositiontaking) END) * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8)) * actualrate) ExtraPT			
 				
 		FROM  dbo.BettransRNG b WITH (NOLOCK)
