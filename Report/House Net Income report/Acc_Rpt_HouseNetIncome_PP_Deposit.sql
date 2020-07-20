@@ -103,6 +103,8 @@ BEGIN
 		,LicenseeWL				MONEY
 		,HouseWL				MONEY
 		,LicenseeContribution	MONEY
+		,FullContribution		MONEY
+		,MegaPrize				MONEY
 	)
 
 	CREATE TABLE #Site (SiteID_DW INT, LicenseeID INT, SiteName VARCHAR(20))
@@ -120,11 +122,13 @@ BEGIN
 	SELECT BetType FROM dbo.f_SportBettypeMatrixByProduct_Sel (@ProductID, 0)
 	WHERE Bettype NOT IN (4298, 4299, 4300)
 
-	INSERT INTO #tempDataDW (rptDate, LicenseeID, CurrencyID, LicenseeWL, HouseWL, LicenseeContribution)
+	INSERT INTO #tempDataDW (rptDate, LicenseeID, CurrencyID, LicenseeWL, HouseWL, LicenseeContribution, FullContribution, MegaPrize)
 	SELECT b.rptDate, s.LicenseeID, b.CurrencyID
-		,SUM(CASE WHEN b.bettype = 4297 THEN 0 ELSE -b.WinlossP END) AS LicenseeWL
-		,SUM(CASE WHEN b.bettype = 4297 THEN 0 ELSE b.WinlossIBC + b.CommissionS END) AS HouseWL
+		,SUM(CASE WHEN b.bettype IN (4297, 4298) THEN 0 ELSE -b.WinlossP END) AS LicenseeWL
+		,SUM(CASE WHEN b.bettype IN (4297, 4298) THEN 0 ELSE b.WinlossIBC + b.CommissionS END) AS HouseWL
 		,SUM(CASE WHEN b.bettype = 4297 THEN -b.WinlossA ELSE 0 END) AS LicenseeContribution
+		,SUM(CASE WHEN b.bettype = 4297 THEN b.WinlossIBC-b.WinlossS-b.WinlossM-b.WinlossA ELSE 0 END) AS FullContribution
+		,SUM(CASE WHEN b.bettype = 4298 THEN b.WinlossP ELSE 0 END) AS MegaPrize
 	FROM DBWH.bodb_Account.dbo.FactSiteWinloss b WITH (NOLOCK)
 		INNER JOIN #Site s ON b.SiteID = s.SiteID_DW
 	WHERE b.rptDate BETWEEN @FDate AND @TDate
@@ -137,11 +141,15 @@ BEGIN
 	(
 		rptDate				DATETIME
 		,AmountToCompany	MONEY
+		,FullContribution	MONEY
+		,MegaPrize			MONEY
 	)
-	INSERT INTO #tempData (rptDate, AmountToCompany)
+	INSERT INTO #tempData (rptDate, AmountToCompany, FullContribution, MegaPrize)
 	SELECT
 		b.rptDate
 		,SUM(CASE WHEN p.LicenseeID IS NULL THEN -b.HouseWL ELSE (b.LicenseeWL - b.LicenseeContribution) * ISNULL(lc.Rate, p.Rate) END * ISNULL(e.Rate, 0))
+		,SUM(b.FullContribution)
+		,SUM(b.MegaPrize)
 	FROM #tempDataDW b
 		INNER JOIN @tmpAllParty tp ON tp.LicenseeID = b.LicenseeID
 		LEFT JOIN #PartyChargeInfo p
@@ -156,9 +164,9 @@ BEGIN
     INSERT INTO #FeeData (PartyId, ProductID, AComm, MinFeeApplied, WLFeeApplied, AmountToCompany)
     EXEC dbo.Acc_Rpt_HouseNetIncome_LicenseeFee @FromDate = @FDate, @ToDate = @TDate, @Products = @ProductPrefix
 
-	CREATE TABLE #FinalResult (rptDate VARCHAR(10), LicenseeWL MONEY, PayToSupplier MONEY)
-	INSERT INTO #FinalResult (rptDate, LicenseeWL)
-	SELECT 'FullRange', ISNULL(SUM(AmountToCompany), 0)
+	CREATE TABLE #FinalResult (rptDate VARCHAR(10), LicenseeWL MONEY, PayToSupplier MONEY, FullContribution MONEY, MegaPrize MONEY)
+	INSERT INTO #FinalResult (rptDate, LicenseeWL, FullContribution, MegaPrize)
+	SELECT 'FullRange', ISNULL(SUM(AmountToCompany), 0), ISNULL(SUM(FullContribution), 0), ISNULL(SUM(MegaPrize), 0)
 	FROM #FeeData
 
 	;WITH CTE_rptDate AS
@@ -169,8 +177,8 @@ BEGIN
 		FROM CTE_rptDate
 		WHERE rptDate < @TDate
 	)
-	INSERT INTO #FinalResult (RptDate, LicenseeWL)
-	SELECT CONVERT(VARCHAR(2), d.rptDate, 106), SUM(ISNULL(t.AmountToCompany, 0))
+	INSERT INTO #FinalResult (RptDate, LicenseeWL, FullContribution, MegaPrize)
+	SELECT CONVERT(VARCHAR(2), d.rptDate, 106), SUM(ISNULL(t.AmountToCompany, 0)), SUM(ISNULL(t.FullContribution, 0)), SUM(ISNULL(t.MegaPrize, 0))
 	FROM CTE_RptDate d
 		LEFT JOIN #tempData t ON d.rptDate = t.rptDate
 	GROUP BY CONVERT(VARCHAR(2), d.rptDate, 106)
@@ -193,9 +201,13 @@ BEGIN
 	SELECT  @SQL =	'SELECT * ' + CHAR(13) +
 					'FROM	(SELECT ProductCode, [Order], [RptDate], Figure, ISNULL(value, 0) value FROM #FinalResult' + CHAR(13) +
 							'CROSS APPLY' + CHAR(13) +
-							'(SELECT ''' + @ProductPrefix + ''', 1, ''House Income'', LicenseeWL' + CHAR(13) +							
+							'(SELECT ''' + @ProductPrefix + ''', 1, ''House Income'', LicenseeWL' + CHAR(13) +
 							'UNION ALL' + CHAR(13) +
-							'SELECT ''' + @ProductPrefix + ''', 4, ''Pay to supplier'', PayToSupplier) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
+							'SELECT ''' + @ProductPrefix + ''', 2, ''Pay to supplier'', PayToSupplier' + CHAR(13) +
+							'UNION ALL' + CHAR(13) +
+							'SELECT ''' + @ProductPrefix + '-JP'', 3, ''Contribution Amount'', FullContribution' + CHAR(13) +
+							'UNION ALL' + CHAR(13) +
+							'SELECT ''' + @ProductPrefix + '-JP'', 4, ''Mega Prize'', MegaPrize) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
 					'PIVOT' + CHAR(13) +
 					'(' + CHAR(13) +
 						'MAX(value)' + CHAR(13) +
