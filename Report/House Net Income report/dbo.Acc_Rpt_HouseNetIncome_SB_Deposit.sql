@@ -1,5 +1,5 @@
-/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
-ALTER PROCEDURE dbo.Acc_Rpt_HouseNetIncome_SB_Deposit 
+/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" isFunction="0" isNested="1"></info>*/
+ALTER PROCEDURE dbo.Acc_Rpt_HouseNetIncome_SB_Deposit
 	@FromDate    DATE 
    , @ToDate      DATE 
 AS
@@ -22,6 +22,7 @@ AS
 		- 20200108@Percy: #124755 - Support billing terms by product & currency instead of product only
 		- 20200113@Ned.Le: DHWL Letstalk Reports - Break SB into Soccer, OS and Parlay (#126634)
 		- 20200202@Robert: #126634 DHWL - break OS into Basketball, E-sports, Tennis and Other Sports
+		- 20200720@Percy: Separate Saba Sports [RedmineID: #137822]
 
 	Param's Explanation:  
 		  - DepositType  
@@ -204,44 +205,52 @@ BEGIN
     -- #TempFactLADailyWinloss
 
     CREATE TABLE #TempFactLADailyWinloss(
-	    RptDate          [DATE] NOT NULL
-	  , SiteID           INT NOT NULL
-	  , SportType        INT NOT NULL
-	  , BetType          INT NOT NULL
-	  , ProductID        INT NOT NULL
-	  , CurrencyID       INT NOT NULL
-	  , MemberWinloss    DECIMAL(19, 4) NOT NULL
-	  , AgentComm        DECIMAL(19, 4) NOT NULL);
+	    RptDate          [DATE]
+	  , SiteID           INT
+	  , SportType        INT
+	  , BetType          INT
+	  , ProductID        INT
+	  , LeagueID		 INT
+	  , CurrencyID       INT
+	  , MemberWinloss    DECIMAL(19, 4)
+	  , AgentComm        DECIMAL(19, 4));
 
-    INSERT INTO #TempFactLADailyWinloss(RptDate
-							   , SiteID
-							   , SportType
-							   , BetType
-							   , ProductID
-							   , CurrencyID
-							   , MemberWinloss
-							   , AgentComm)
-		 SELECT rptDate
-			 , SiteID
-			 , SportType
-			 , BetType
-			 , ProductID
-			 , CurrencyID
-			 , SUM(MemberWinloss) AS MemberWinloss
-			 , SUM(AgentComm) AS AgentComm
-		 FROM DBWH.bodb_Account.dbo.FactLAOverallPerformance AS f WITH(NOLOCK)
-		 WHERE RptDate BETWEEN @FDate AND @TDate
-			  AND SiteID NOT IN(-2, -4)
-			  AND ProductID IN(10001, 10004)
-			  AND Bettype NOT IN(901, 902, 903, 904)
-			  AND CurrencyID <> 20
-			  AND TicketStatus NOT IN(-1, 18, 9, 10, 14)
-		 GROUP BY rptDate
-			   , SiteID
-			   , SportType
-			   , BetType
-			   , ProductID
-			   , CurrencyID OPTION(RECOMPILE);
+    INSERT INTO #TempFactLADailyWinloss
+	(
+		RptDate
+		, SiteID
+		, SportType
+		, BetType
+		, ProductID
+		, LeagueID
+		, CurrencyID
+		, MemberWinloss
+		, AgentComm
+	)
+	SELECT rptDate
+		, SiteID
+		, SportType
+		, BetType
+		, ProductID
+		, LeagueID
+		, CurrencyID
+		, SUM(MemberWinloss) AS MemberWinloss
+		, SUM(AgentComm) AS AgentComm
+	FROM DBWH.bodb_Account.dbo.FactLADailyWinloss AS f WITH(NOLOCK)
+	WHERE RptDate BETWEEN @FDate AND @TDate
+		AND SiteID NOT IN(-2, -4)
+		AND ProductID IN(10001, 10004)
+		AND Bettype NOT IN(901, 902, 903, 904)
+		AND CurrencyID <> 20
+		AND TicketStatus NOT IN(-1, 18, 9, 10, 14)
+	GROUP BY rptDate
+		, SiteID
+		, SportType
+		, BetType
+		, ProductID
+		, LeagueID
+		, CurrencyID
+	OPTION(RECOMPILE);
 
     CREATE CLUSTERED INDEX PK_TempFactLADailyWinloss ON #TempFactLADailyWinloss(RptDate ASC, SiteID ASC, ProductID ASC, SportType ASC, BetType ASC, CurrencyID ASC);
     -- #TempProductMapping
@@ -281,6 +290,16 @@ BEGIN
 	   INNER JOIN bodb_Licensee.dbo.view_site_list site ON tmpS.SiteName = site.SiteName;
 
     CREATE CLUSTERED INDEX PK_TempSiteMapping ON #TempSiteMapping(SiteID_DW ASC, SiteID_Li ASC);
+
+	-- Saba league
+	CREATE TABLE #tmpLeague (LeagueID INT, LeagueGroupID INT)
+
+	INSERT INTO #tmpLeague (LeagueID, LeagueGroupID)
+	SELECT leagueID, LeagueGroupID
+	FROM bodb02.dbo.League WITH (NOLOCK) 
+	WHERE sporttype IN (1, 2, 50)
+		AND LeagueGroupID IN (42,74)
+
     -- #TempDataSB
 
     CREATE TABLE #TempDataSB(
@@ -290,7 +309,7 @@ BEGIN
 	  , WinLoss            MONEY
 	  , AComm              MONEY
 	  , ProductId          TINYINT
-	  , Sporttype          VARCHAR(20)
+	  , Sporttype          SMALLINT
 	  , AmountToCompany    MONEY
 	  , IsApplyMinFee      BIT
 	  , DiscountAmount     MONEY);
@@ -313,19 +332,15 @@ BEGIN
 				, SUM(ISNULL(b.AgentComm, 0) * e.Rate)
 				, p.ProductId
 				, CASE
-					 WHEN b.BetType IN(9, 29)
-					 THEN 'Parlay'
-					 ELSE CASE
-							WHEN b.SportType = 1
-							THEN 'Soccer'
-							WHEN b.SportType = 2
-							THEN 'Basketball'
-							WHEN b.SportType = 5
-							THEN 'Tennis'
-							WHEN b.SportType = 43
-							THEN 'E-Sports'
-							ELSE 'Other Sports'
-						 END
+					WHEN b.BetType IN (9, 29) THEN -2 -- Parlay
+					WHEN l.LeagueGroupID IN (42,74) AND b.SportType = 1 THEN -3 -- Saba Soccer
+					WHEN l.LeagueGroupID IN (42) AND b.SportType = 2 THEN -4 -- Saba Basketball
+					WHEN l.LeagueGroupID IN (42) AND b.SportType = 50 THEN -5 -- Saba Cricket
+					WHEN b.SportType = 1 THEN 1 -- Soccer
+					WHEN b.SportType = 2 THEN 2 -- Basketball
+					WHEN b.SportType = 5 THEN 5 -- Tennis
+					WHEN b.SportType = 43 THEN 43 -- E-Sports
+					ELSE 99 -- Other Sports
 				  END AS Sporttype
 				, SUM(-ISNULL(b.MemberWinloss, 0) * ISNULL(lc.Rate, p.Rate) * e.Rate)
 				, 1 AS IsApplyMinFee
@@ -341,10 +356,9 @@ BEGIN
 											    AND
 												   (p.Bettype = -1
 												    OR p.Bettype = b.Bettype)
-			 LEFT JOIN bodb_Licensee.dbo.LA_ChargeRateByCurrency AS lc WITH (NOLOCK) ON p.ChargeId = lc.ChargeID
-																						AND b.CurrencyId = lc.CurrencyID
-			    LEFT JOIN #DiscountGroup AS d ON d.PartyId = p.PartyId
-										  AND d.ProductId = pm.ProductID_Li
+				LEFT JOIN bodb_Licensee.dbo.LA_ChargeRateByCurrency AS lc WITH (NOLOCK) ON p.ChargeId = lc.ChargeID AND b.CurrencyId = lc.CurrencyID
+			    LEFT JOIN #DiscountGroup AS d ON d.PartyId = p.PartyId AND d.ProductId = pm.ProductID_Li
+				LEFT JOIN #tmpLeague l ON l.leagueid = b.leagueID
 			WHERE b.rptDate BETWEEN @FDate AND @TDate
 			GROUP BY p.PartyId
 				  , b.rptdate
@@ -352,20 +366,16 @@ BEGIN
 				  , p.ProductId
 				  , b.SiteID
 				  , CASE
-					   WHEN b.BetType IN(9, 29)
-					   THEN 'Parlay'
-					   ELSE CASE
-							  WHEN b.SportType = 1
-							  THEN 'Soccer'
-							  WHEN b.SportType = 2
-							  THEN 'Basketball'
-							  WHEN b.SportType = 5
-							  THEN 'Tennis'
-							  WHEN b.SportType = 43
-							  THEN 'E-Sports'
-							  ELSE 'Other Sports'
-						   END
-				    END
+					WHEN b.BetType IN (9, 29) THEN -2 -- Parlay
+					WHEN l.LeagueGroupID IN (42,74) AND b.SportType = 1 THEN -3 -- Saba Soccer
+					WHEN l.LeagueGroupID IN (42) AND b.SportType = 2 THEN -4 -- Saba Basketball
+					WHEN l.LeagueGroupID IN (42) AND b.SportType = 50 THEN -5 -- Saba Cricket
+					WHEN b.SportType = 1 THEN 1 -- Soccer
+					WHEN b.SportType = 2 THEN 2 -- Basketball
+					WHEN b.SportType = 5 THEN 5 -- Tennis
+					WHEN b.SportType = 43 THEN 43 -- E-Sports
+					ELSE 99 -- Other Sports
+				  END
 		 );
 
     CREATE NONCLUSTERED INDEX Idx_InvoiceData ON #TempDataSB(PartyId, ProductId);
@@ -374,31 +384,46 @@ BEGIN
     -- Create temp table
 
     CREATE TABLE #FinalResult(
-	    RptDate                  VARCHAR(10)
-	  , LicenseeWL_Soccer        MONEY
-	  , LicenseeWL_Basketball    MONEY
-	  , LicenseeWL_Tennis        MONEY
-	  , LicenseeWL_ESports       MONEY
-	  , LicenseeWL_OS            MONEY
-	  , LicenseeWL_Parlay        MONEY
-	  , DiscountWL_Soccer        MONEY
-	  , DiscountWL_Basketball    MONEY
-	  , DiscountWL_Tennis        MONEY
-	  , DiscountWL_ESports       MONEY
-	  , DiscountWL_OS            MONEY
-	  , DiscountWL_Parlay        MONEY
-	  , MinFee_Soccer            MONEY
-	  , MinFee_Basketball        MONEY
-	  , MinFee_Tennis            MONEY
-	  , MinFee_ESports           MONEY
-	  , MinFee_OS                MONEY
-	  , MinFee_Parlay            MONEY
-	  , BAComm_Soccer            MONEY
-	  , BAComm_Basketball        MONEY
-	  , BAComm_Tennis            MONEY
-	  , BAComm_ESports           MONEY
-	  , BAComm_OS                MONEY
-	  , BAComm_Parlay            MONEY);
+		RptDate						VARCHAR(10)
+		,LicenseeWL_Soccer			MONEY
+		,LicenseeWL_SabaSoccer		MONEY
+		,LicenseeWL_Basketball		MONEY
+		,LicenseeWL_SabaBasketball  MONEY
+		,LicenseeWL_Tennis			MONEY
+		,LicenseeWL_ESports			MONEY
+		,LicenseeWL_OS				MONEY
+		,LicenseeWL_SabaCricket		MONEY
+		,LicenseeWL_Parlay			MONEY
+
+		,DiscountWL_Soccer			MONEY
+		,DiscountWL_SabaSoccer		MONEY
+		,DiscountWL_Basketball		MONEY
+		,DiscountWL_SabaBasketball  MONEY
+		,DiscountWL_Tennis			MONEY
+		,DiscountWL_ESports			MONEY
+		,DiscountWL_OS				MONEY
+		,DiscountWL_SabaCricket		MONEY
+		,DiscountWL_Parlay			MONEY
+
+		,MinFee_Soccer				MONEY
+		,MinFee_SabaSoccer			MONEY
+		,MinFee_Basketball			MONEY
+		,MinFee_SabaBasketball		MONEY
+		,MinFee_Tennis				MONEY
+		,MinFee_ESports				MONEY
+		,MinFee_OS					MONEY
+		,MinFee_SabaCricket			MONEY
+		,MinFee_Parlay				MONEY
+
+		,BAComm_Soccer				MONEY
+		,BAComm_SabaSoccer			MONEY
+		,BAComm_Basketball			MONEY
+		,BAComm_SabaBasketball		MONEY
+		,BAComm_Tennis				MONEY
+		,BAComm_ESports				MONEY
+		,BAComm_OS					MONEY
+		,BAComm_SabaCricket			MONEY
+		,BAComm_Parlay				MONEY);
     -- Get data about BAComm for FullRange
 
     DECLARE @BAComm       MONEY = 0
@@ -410,58 +435,91 @@ BEGIN
     WHERE ProductId = 3;
     -- Get FullRange data
 
-    INSERT INTO #FinalResult(rptDate
-					  , LicenseeWL_Soccer
-					  , LicenseeWL_Basketball
-					  , LicenseeWL_Tennis
-					  , LicenseeWL_ESports
-					  , LicenseeWL_OS
-					  , LicenseeWL_Parlay
-					  , DiscountWL_Soccer
-					  , DiscountWL_Basketball
-					  , DiscountWL_Tennis
-					  , DiscountWL_ESports
-					  , DiscountWL_OS
-					  , DiscountWL_Parlay
-					  , MinFee_Soccer
-					  , MinFee_Basketball
-					  , MinFee_Tennis
-					  , MinFee_ESports
-					  , MinFee_OS
-					  , MinFee_Parlay
-					  , BAComm_Soccer
-					  , BAComm_Basketball
-					  , BAComm_Tennis
-					  , BAComm_ESports
-					  , BAComm_OS
-					  , BAComm_Parlay)
-		 SELECT 'FullRange'
-			 , ISNULL(SUM(WLFeeApplied) + @BAWinloss, 0) AS LicenseeWL_Soccer
-			 , 0 AS LicenseeWL_Basketball
-			 , 0 AS LicenseeWL_Tennis
-			 , 0 AS LicenseeWL_ESports
-			 , 0 AS LicenseeWL_OS
-			 , 0 AS LicenseeWL_Parlay
-			 , 0 AS DiscountWL_Soccer
-			 , 0 AS DiscountWL_Basketball
-			 , 0 AS DiscountWL_Tennis
-			 , 0 AS DiscountWL_ESports
-			 , 0 AS DiscountWL_OS
-			 , 0 AS DiscountWL_Parlay
-			 , ISNULL(SUM(MinFeeApplied), 0) AS MinFee_Soccer
-			 , 0 AS MinFee_Basketball
-			 , 0 AS MinFee_Tennis
-			 , 0 AS MinFee_ESports
-			 , 0 AS MinFee_OS
-			 , 0 AS MinFee_Parlay
-			 , ISNULL(@BAComm, 0) AS BAComm_Soccer
-			 , 0 AS BAComm_Basketball
-			 , 0 AS BAComm_Tennis
-			 , 0 AS BAComm_ESports
-			 , 0 AS BAComm_OS
-			 , 0 AS BAComm_Parlay
-		 FROM #FeeData
-		 WHERE ProductID = 0;
+    INSERT INTO #FinalResult
+	(
+		rptDate
+		,LicenseeWL_Soccer
+		,LicenseeWL_SabaSoccer
+		,LicenseeWL_Basketball
+		,LicenseeWL_SabaBasketball
+		,LicenseeWL_Tennis
+		,LicenseeWL_ESports
+		,LicenseeWL_OS
+		,LicenseeWL_SabaCricket
+		,LicenseeWL_Parlay
+
+		,DiscountWL_Soccer
+		,DiscountWL_SabaSoccer
+		,DiscountWL_Basketball
+		,DiscountWL_SabaBasketball
+		,DiscountWL_Tennis
+		,DiscountWL_ESports
+		,DiscountWL_OS
+		,DiscountWL_SabaCricket
+		,DiscountWL_Parlay
+
+		,MinFee_Soccer
+		,MinFee_SabaSoccer
+		,MinFee_Basketball
+		,MinFee_SabaBasketball
+		,MinFee_Tennis
+		,MinFee_ESports
+		,MinFee_OS
+		,MinFee_SabaCricket
+		,MinFee_Parlay
+
+		,BAComm_Soccer
+		,BAComm_SabaSoccer
+		,BAComm_Basketball
+		,BAComm_SabaBasketball
+		,BAComm_Tennis
+		,BAComm_ESports
+		,BAComm_OS
+		,BAComm_SabaCricket
+		,BAComm_Parlay
+	)
+	SELECT 'FullRange'
+		,ISNULL(SUM(WLFeeApplied) + @BAWinloss, 0) AS LicenseeWL_Soccer
+		,0 AS LicenseeWL_SabaSoccer
+		,0 AS LicenseeWL_Basketball
+		,0 AS LicenseeWL_SabaBasketball
+		,0 AS LicenseeWL_Tennis
+		,0 AS LicenseeWL_ESports
+		,0 AS LicenseeWL_OS
+		,0 AS LicenseeWL_SabaCricket
+		,0 AS LicenseeWL_Parlay
+
+		,0 AS DiscountWL_Soccer
+		,0 AS DiscountWL_SabaSoccer
+		,0 AS DiscountWL_Basketball
+		,0 AS DiscountWL_SabaBasketball
+		,0 AS DiscountWL_Tennis
+		,0 AS DiscountWL_ESports
+		,0 AS DiscountWL_OS
+		,0 AS DiscountWL_SabaCricket
+		,0 AS DiscountWL_Parlay
+
+		,ISNULL(SUM(MinFeeApplied), 0) AS MinFee_Soccer
+		,0 AS MinFee_SabaSoccer
+		,0 AS MinFee_Basketball
+		,0 AS MinFee_SabaBasketball
+		,0 AS MinFee_Tennis
+		,0 AS MinFee_ESports
+		,0 AS MinFee_OS
+		,0 AS MinFee_SabaCricket
+		,0 AS MinFee_Parlay
+
+		,ISNULL(@BAComm, 0) AS BAComm_Soccer
+		,0 AS BAComm_SabaSoccer
+		,0 AS BAComm_Basketball
+		,0 AS BAComm_SabaBasketball
+		,0 AS BAComm_Tennis
+		,0 AS BAComm_ESports
+		,0 AS BAComm_OS
+		,0 AS BAComm_SabaCricket
+		,0 AS BAComm_Parlay
+	FROM #FeeData
+	WHERE ProductID = 0;
     -- Get DetailDaily data
 
     DECLARE @tmpDate     DATE
@@ -470,186 +528,95 @@ BEGIN
     SELECT @tmpDate = @FDate;
 
     WHILE @tmpDate <= @TDate
-	   BEGIN
-		  INSERT INTO #FinalResult(RptDate
-							, LicenseeWL_Soccer
-							, LicenseeWL_Basketball
-							, LicenseeWL_Tennis
-							, LicenseeWL_ESports
-							, LicenseeWL_OS
-							, LicenseeWL_Parlay
-							, DiscountWL_Soccer
-							, DiscountWL_Basketball
-							, DiscountWL_Tennis
-							, DiscountWL_ESports
-							, DiscountWL_OS
-							, DiscountWL_Parlay
-							, MinFee_Soccer
-							, MinFee_Basketball
-							, MinFee_Tennis
-							, MinFee_ESports
-							, MinFee_OS
-							, MinFee_Parlay
-							, BAComm_Soccer
-							, BAComm_Basketball
-							, BAComm_Tennis
-							, BAComm_ESports
-							, BAComm_OS
-							, BAComm_Parlay)
-			    SELECT CONVERT(VARCHAR(2), @tmpDate, 106) AS RptDate
-				    ,
-					 (
-						SELECT ISNULL(SUM(AmountToCompany), 0)
-						FROM #TempDataSB
-						WHERE ProductId IN(0, 3)
-							 AND rptDate = @tmpDate
-							 AND Sporttype = 'Soccer'
-					 ) AS LicenseeWL_Soccer
-				    ,
-					 (
-						SELECT ISNULL(SUM(AmountToCompany), 0)
-						FROM #TempDataSB
-						WHERE ProductId IN(0, 3)
-							 AND rptDate = @tmpDate
-							 AND Sporttype = 'Basketball'
-					 ) AS LicenseeWL_Basketball
-				    ,
-					 (
-						SELECT ISNULL(SUM(AmountToCompany), 0)
-						FROM #TempDataSB
-						WHERE ProductId IN(0, 3)
-							 AND rptDate = @tmpDate
-							 AND Sporttype = 'Tennis'
-					 ) AS LicenseeWL_Tennis
-				    ,
-					 (
-						SELECT ISNULL(SUM(AmountToCompany), 0)
-						FROM #TempDataSB
-						WHERE ProductId IN(0, 3)
-							 AND rptDate = @tmpDate
-							 AND Sporttype = 'E-Sports'
-					 ) AS LicenseeWL_ESports
-				    ,
-					 (
-						SELECT ISNULL(SUM(AmountToCompany), 0)
-						FROM #TempDataSB
-						WHERE ProductId IN(0, 3)
-							 AND rptDate = @tmpDate
-							 AND Sporttype = 'Other Sports'
-					 ) AS LicenseeWL_OS
-				    ,
-					 (
-						SELECT ISNULL(SUM(AmountToCompany), 0)
-						FROM #TempDataSB
-						WHERE ProductId IN(0, 3)
-							 AND rptDate = @tmpDate
-							 AND Sporttype = 'Parlay'
-					 ) AS LicenseeWL_Parlay
-				    ,
-					 (
-						SELECT-ISNULL(SUM(DiscountAmount), 0)
-						FROM #TempDataSB
-						WHERE ProductId = 0
-							 AND rptDate = @tmpDate
-							 AND Sporttype = 'Soccer'
-					 ) AS DiscountWL_Soccer
-				    ,
-					 (
-						SELECT-ISNULL(SUM(DiscountAmount), 0)
-						FROM #TempDataSB
-						WHERE ProductId = 0
-							 AND rptDate = @tmpDate
-							 AND Sporttype = 'Basketball'
-					 ) AS DiscountWL_Basketball
-				    ,
-					 (
-						SELECT-ISNULL(SUM(DiscountAmount), 0)
-						FROM #TempDataSB
-						WHERE ProductId = 0
-							 AND rptDate = @tmpDate
-							 AND Sporttype = 'Tennis'
-					 ) AS DiscountWL_Tennis
-				    ,
-					 (
-						SELECT-ISNULL(SUM(DiscountAmount), 0)
-						FROM #TempDataSB
-						WHERE ProductId = 0
-							 AND rptDate = @tmpDate
-							 AND Sporttype = 'E-Sports'
-					 ) AS DiscountWL_ESports
-				    ,
-					 (
-						SELECT-ISNULL(SUM(DiscountAmount), 0)
-						FROM #TempDataSB
-						WHERE ProductId = 0
-							 AND rptDate = @tmpDate
-							 AND Sporttype = 'Other Sports'
-					 ) AS DiscountWL_OS
-				    ,
-					 (
-						SELECT-ISNULL(SUM(DiscountAmount), 0)
-						FROM #TempDataSB
-						WHERE ProductId = 0
-							 AND rptDate = @tmpDate
-							 AND Sporttype = 'Parlay'
-					 ) AS DiscountWL_Parlay
-				    , 0 AS MinFee_Soccer
-				    , 0 AS MinFee_Basketball
-				    , 0 AS MinFee_Tennis
-				    , 0 AS MinFee_ESports
-				    , 0 AS MinFee_OS
-				    , 0 AS MinFee_Parlay
-				    ,
-					 (
-						SELECT ISNULL(-SUM(AComm), 0)
-						FROM #TempDataSB
-						WHERE ProductId = 3
-							 AND rptDate = @tmpDate
-							 AND Sporttype = 'Soccer'
-					 ) AS BAComm_Soccer
-				    ,
-					 (
-						SELECT ISNULL(-SUM(AComm), 0)
-						FROM #TempDataSB
-						WHERE ProductId = 3
-							 AND rptDate = @tmpDate
-							 AND Sporttype = 'Basketball'
-					 ) AS BAComm_Basketball
-				    ,
-					 (
-						SELECT ISNULL(-SUM(AComm), 0)
-						FROM #TempDataSB
-						WHERE ProductId = 3
-							 AND rptDate = @tmpDate
-							 AND Sporttype = 'Tennis'
-					 ) AS BAComm_Tennis
-				    ,
-					 (
-						SELECT ISNULL(-SUM(AComm), 0)
-						FROM #TempDataSB
-						WHERE ProductId = 3
-							 AND rptDate = @tmpDate
-							 AND Sporttype = 'E-Sports'
-					 ) AS BAComm_ESports
-				    ,
-					 (
-						SELECT ISNULL(-SUM(AComm), 0)
-						FROM #TempDataSB
-						WHERE ProductId = 3
-							 AND rptDate = @tmpDate
-							 AND Sporttype = 'Other Sports'
-					 ) AS BAComm_OS
-				    ,
-					 (
-						SELECT ISNULL(-SUM(AComm), 0)
-						FROM #TempDataSB
-						WHERE ProductId = 3
-							 AND rptDate = @tmpDate
-							 AND Sporttype = 'Parlay'
-					 ) AS BAComm_Parlay;
+	BEGIN
+		INSERT INTO #FinalResult
+		(
+			rptDate
+			,LicenseeWL_Soccer
+			,LicenseeWL_SabaSoccer
+			,LicenseeWL_Basketball
+			,LicenseeWL_SabaBasketball
+			,LicenseeWL_Tennis
+			,LicenseeWL_ESports
+			,LicenseeWL_OS
+			,LicenseeWL_SabaCricket
+			,LicenseeWL_Parlay
 
-		  SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate);
-	   END;
+			,DiscountWL_Soccer
+			,DiscountWL_SabaSoccer
+			,DiscountWL_Basketball
+			,DiscountWL_SabaBasketball
+			,DiscountWL_Tennis
+			,DiscountWL_ESports
+			,DiscountWL_OS
+			,DiscountWL_SabaCricket
+			,DiscountWL_Parlay
+
+			,MinFee_Soccer
+			,MinFee_SabaSoccer
+			,MinFee_Basketball
+			,MinFee_SabaBasketball
+			,MinFee_Tennis
+			,MinFee_ESports
+			,MinFee_OS
+			,MinFee_SabaCricket
+			,MinFee_Parlay
+
+			,BAComm_Soccer
+			,BAComm_SabaSoccer
+			,BAComm_Basketball
+			,BAComm_SabaBasketball
+			,BAComm_Tennis
+			,BAComm_ESports
+			,BAComm_OS
+			,BAComm_SabaCricket
+			,BAComm_Parlay
+		)
+		SELECT CONVERT(VARCHAR(2), @tmpDate, 106) AS RptDate
+			,ISNULL(SUM(CASE WHEN Sporttype = 1		THEN AmountToCompany ELSE 0 END), 0) 
+			,ISNULL(SUM(CASE WHEN Sporttype = -3	THEN AmountToCompany ELSE 0 END), 0) 
+			,ISNULL(SUM(CASE WHEN Sporttype = 2		THEN AmountToCompany ELSE 0 END), 0) 
+			,ISNULL(SUM(CASE WHEN Sporttype = -4	THEN AmountToCompany ELSE 0 END), 0) 
+			,ISNULL(SUM(CASE WHEN Sporttype = 5		THEN AmountToCompany ELSE 0 END), 0) 
+			,ISNULL(SUM(CASE WHEN Sporttype = 43	THEN AmountToCompany ELSE 0 END), 0) 
+			,ISNULL(SUM(CASE WHEN Sporttype = 99	THEN AmountToCompany ELSE 0 END), 0) 
+			,ISNULL(SUM(CASE WHEN Sporttype = -5	THEN AmountToCompany ELSE 0 END), 0) 
+			,ISNULL(SUM(CASE WHEN Sporttype = -2	THEN AmountToCompany ELSE 0 END), 0)
+			
+			,ISNULL(SUM(CASE WHEN ProductId = 0 AND Sporttype = 1	THEN DiscountAmount ELSE 0 END), 0) 
+			,ISNULL(SUM(CASE WHEN ProductId = 0 AND Sporttype = -3	THEN DiscountAmount ELSE 0 END), 0) 
+			,ISNULL(SUM(CASE WHEN ProductId = 0 AND Sporttype = 2	THEN DiscountAmount ELSE 0 END), 0) 
+			,ISNULL(SUM(CASE WHEN ProductId = 0 AND Sporttype = -4	THEN DiscountAmount ELSE 0 END), 0) 
+			,ISNULL(SUM(CASE WHEN ProductId = 0 AND Sporttype = 5	THEN DiscountAmount ELSE 0 END), 0) 
+			,ISNULL(SUM(CASE WHEN ProductId = 0 AND Sporttype = 43	THEN DiscountAmount ELSE 0 END), 0) 
+			,ISNULL(SUM(CASE WHEN ProductId = 0 AND Sporttype = 99	THEN DiscountAmount ELSE 0 END), 0) 
+			,ISNULL(SUM(CASE WHEN ProductId = 0 AND Sporttype = -5	THEN DiscountAmount ELSE 0 END), 0) 
+			,ISNULL(SUM(CASE WHEN ProductId = 0 AND Sporttype = -2	THEN DiscountAmount ELSE 0 END), 0) 
+
+			,0 AS MinFee_Soccer
+			,0 AS MinFee_SabaSoccer
+			,0 AS MinFee_Basketball
+			,0 AS MinFee_SabaBasketball
+			,0 AS MinFee_Tennis
+			,0 AS MinFee_ESports
+			,0 AS MinFee_OS
+			,0 AS MinFee_SabaCricket
+			,0 AS MinFee_Parlay
+
+			,ISNULL(SUM(CASE WHEN ProductId = 3 AND Sporttype = 1	THEN -AComm ELSE 0 END), 0) 
+			,ISNULL(SUM(CASE WHEN ProductId = 3 AND Sporttype = -3	THEN -AComm ELSE 0 END), 0) 
+			,ISNULL(SUM(CASE WHEN ProductId = 3 AND Sporttype = 2	THEN -AComm ELSE 0 END), 0) 
+			,ISNULL(SUM(CASE WHEN ProductId = 3 AND Sporttype = -4	THEN -AComm ELSE 0 END), 0) 
+			,ISNULL(SUM(CASE WHEN ProductId = 3 AND Sporttype = 5	THEN -AComm ELSE 0 END), 0) 
+			,ISNULL(SUM(CASE WHEN ProductId = 3 AND Sporttype = 43	THEN -AComm ELSE 0 END), 0) 
+			,ISNULL(SUM(CASE WHEN ProductId = 3 AND Sporttype = 99	THEN -AComm ELSE 0 END), 0) 
+			,ISNULL(SUM(CASE WHEN ProductId = 3 AND Sporttype = -5	THEN -AComm ELSE 0 END), 0) 
+			,ISNULL(SUM(CASE WHEN ProductId = 3 AND Sporttype = -2	THEN -AComm ELSE 0 END), 0) 
+		FROM #TempDataSB
+		WHERE rptDate = @tmpDate
+		
+		SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate);
+	END;
     --------------------
     -- Select the output
 
@@ -658,38 +625,53 @@ BEGIN
 
     DECLARE @SQL    VARCHAR(MAX);
     SELECT @SQL = 'SELECT * ' + CHAR(13) 
-    + 'FROM	(SELECT ProductCode, [Order], [RptDate], Figure, ISNULL(value, 0) value FROM #FinalResult' + CHAR(13) 
-    + 'CROSS APPLY' + CHAR(13) 
-    + '(SELECT ''Soccer'', 1.1, ''House Income'', LicenseeWL_Soccer' + CHAR(13) 
-    + 'UNION ALL' + CHAR(13) + 'SELECT ''Basketball'', 1.21, ''House Income'', LicenseeWL_Basketball' + CHAR(13) 
-    + 'UNION ALL' + CHAR(13) + 'SELECT ''Tennis'', 1.22, ''House Income'', LicenseeWL_Tennis' + CHAR(13) 
-    + 'UNION ALL' + CHAR(13) + 'SELECT ''E-Sports'', 1.23, ''House Income'', LicenseeWL_ESports' + CHAR(13) 
-    + 'UNION ALL' + CHAR(13) + 'SELECT ''OS'', 1.24, ''House Income'', LicenseeWL_OS' + CHAR(13) 
-    + 'UNION ALL' + CHAR(13) + 'SELECT ''Parlay'', 1.3, ''House Income'', LicenseeWL_Parlay' + CHAR(13) 
-    + 'UNION ALL' + CHAR(13) + 'SELECT ''Soccer'', 2.1, ''Licensing Minimum Fee'', MinFee_Soccer' + CHAR(13) 
-    + 'UNION ALL' + CHAR(13) + 'SELECT ''Basketball'', 2.21, ''Licensing Minimum Fee'', MinFee_Basketball' + CHAR(13) 
-    + 'UNION ALL' + CHAR(13) + 'SELECT ''Tennis'', 2.22, ''Licensing Minimum Fee'', MinFee_Tennis' + CHAR(13) 
-    + 'UNION ALL' + CHAR(13) + 'SELECT ''E-Sports'', 2.23, ''Licensing Minimum Fee'', MinFee_ESports' + CHAR(13) 
-    + 'UNION ALL' + CHAR(13) + 'SELECT ''OS'', 2.24, ''Licensing Minimum Fee'', MinFee_OS' + CHAR(13) 
-    + 'UNION ALL' + CHAR(13) + 'SELECT ''Parlay'', 2.3, ''Licensing Minimum Fee'', MinFee_Parlay' + CHAR(13) 
-    + 'UNION ALL' + CHAR(13) + 'SELECT ''Soccer'', 4.1, ''Rebate & Discount'', DiscountWL_Soccer' + CHAR(13) 
-    + 'UNION ALL' + CHAR(13) + 'SELECT ''Basketball'', 4.21, ''Rebate & Discount'', DiscountWL_Basketball' + CHAR(13) 
-    + 'UNION ALL' + CHAR(13) + 'SELECT ''Tennis'', 4.22, ''Rebate & Discount'', DiscountWL_Tennis' + CHAR(13) 
-    + 'UNION ALL' + CHAR(13) + 'SELECT ''E-Sports'', 4.23, ''Rebate & Discount'', DiscountWL_ESports' + CHAR(13) 
-    + 'UNION ALL' + CHAR(13) + 'SELECT ''OS'', 4.24, ''Rebate & Discount'', DiscountWL_OS' + CHAR(13) 
-    + 'UNION ALL' + CHAR(13) + 'SELECT ''Parlay'', 4.3, ''Rebate & Discount'', DiscountWL_Parlay' + CHAR(13) 
-    + 'UNION ALL' + CHAR(13) + 'SELECT ''Soccer'', 5.1, ''BA Commission'', BAComm_Soccer' + CHAR(13) 
-    + 'UNION ALL' + CHAR(13) + 'SELECT ''Basketball'', 5.21, ''BA Commission'', BAComm_Basketball' + CHAR(13) 
-    + 'UNION ALL' + CHAR(13) + 'SELECT ''Tennis'', 5.22, ''BA Commission'', BAComm_Tennis' + CHAR(13) 
-    + 'UNION ALL' + CHAR(13) + 'SELECT ''E-Sports'', 5.23, ''BA Commission'', BAComm_ESports' + CHAR(13) 
-    + 'UNION ALL' + CHAR(13) + 'SELECT ''OS'', 5.24, ''BA Commission'', BAComm_OS' + CHAR(13) 
-    + 'UNION ALL' + CHAR(13) + 'SELECT ''Parlay'', 5.3, ''BA Commission'', BAComm_Parlay) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) 
-    + 'PIVOT' + CHAR(13) 
-    + '(' + CHAR(13) 
-    + 'MAX(value)' + CHAR(13) 
-    + 'FOR [RptDate] in (' + @DateList + ')' + CHAR(13) 
-    + ') piv' + CHAR(13) 
-    + 'ORDER BY [Order]';
+	+ 'FROM	(SELECT ProductCode, [Order], [RptDate], Figure, ISNULL(value, 0) value FROM #FinalResult' + CHAR(13)
+	+ 'CROSS APPLY' + CHAR(13)
+	+ '(SELECT ''Soccer'', 1.11, ''House Income'', LicenseeWL_Soccer' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SabaSoccer'', 1.12, ''House Income'', LicenseeWL_SabaSoccer' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''Basketball'', 1.21, ''House Income'', LicenseeWL_Basketball' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SabaBasketball'', 1.22, ''House Income'', LicenseeWL_SabaBasketball' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''Tennis'', 1.31, ''House Income'', LicenseeWL_Tennis' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''E-Sports'', 1.41, ''House Income'', LicenseeWL_ESports' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''OS'', 1.51, ''House Income'', LicenseeWL_OS' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SabaCricket'', 1.61, ''House Income'', LicenseeWL_SabaCricket' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''Parlay'', 1.71, ''House Income'', LicenseeWL_Parlay' + CHAR(13)
+	
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''Soccer'', 2.11, ''Licensing Minimum Fee'', MinFee_Soccer' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SabaSoccer'', 2.12, ''Licensing Minimum Fee'', MinFee_SabaSoccer' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''Basketball'', 2.21, ''Licensing Minimum Fee'', MinFee_Basketball' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SabaBasketball'', 2.22, ''Licensing Minimum Fee'', MinFee_SabaBasketball' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''Tennis'', 2.31, ''Licensing Minimum Fee'', MinFee_Tennis' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''E-Sports'', 2.41, ''Licensing Minimum Fee'', MinFee_ESports' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''OS'', 2.51, ''Licensing Minimum Fee'', MinFee_OS' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SabaCricket'', 2.61, ''Licensing Minimum Fee'', MinFee_SabaCricket' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''Parlay'', 2.71, ''Licensing Minimum Fee'', MinFee_Parlay' + CHAR(13)
+	
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''Soccer'', 4.11, ''Rebate & Discount'', DiscountWL_Soccer' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SabaSoccer'', 4.12, ''Rebate & Discount'', DiscountWL_SabaSoccer' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''Basketball'', 4.21, ''Rebate & Discount'', DiscountWL_Basketball' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SabaBasketball'', 4.22, ''Rebate & Discount'', DiscountWL_SabaBasketball' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''Tennis'', 4.31, ''Rebate & Discount'', DiscountWL_Tennis' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''E-Sports'', 4.41, ''Rebate & Discount'', DiscountWL_ESports' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''OS'', 4.51, ''Rebate & Discount'', DiscountWL_OS' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SabaCricket'', 4.61, ''Rebate & Discount'', DiscountWL_SabaCricket' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''Parlay'', 4.71, ''Rebate & Discount'', DiscountWL_Parlay' + CHAR(13)
+
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''Soccer'', 5.11, ''BA Commission'', BAComm_Soccer' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SabaSoccer'', 5.12, ''BA Commission'', BAComm_SabaSoccer' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''Basketball'', 5.21, ''BA Commission'', BAComm_Basketball' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SabaBasketball'', 5.22, ''BA Commission'', BAComm_SabaBasketball' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''Tennis'', 5.31, ''BA Commission'', BAComm_Tennis' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''E-Sports'', 5.41, ''BA Commission'', BAComm_ESports' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''OS'', 5.51, ''BA Commission'', BAComm_OS' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SabaCricket'', 5.61, ''BA Commission'', BAComm_SabaCricket' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''Parlay'', 5.71, ''BA Commission'', BAComm_Parlay) c (ProductCode, [Order], Figure, value)) a' + CHAR(13)
+	+ 'PIVOT' + CHAR(13)
+	+ '(' + CHAR(13)
+	+ 'MAX(value)' + CHAR(13)
+	+ 'FOR [RptDate] in (' + @DateList + ')' + CHAR(13)
+	+ ') piv' + CHAR(13)
+	+ 'ORDER BY [Order]';
 
     EXEC (@SQL);
     -------------------
@@ -704,5 +686,6 @@ BEGIN
     DROP TABLE #TempFactLADailyWinloss;
     DROP TABLE #TempProductMapping;
     DROP TABLE #TempSiteMapping;
+	DROP TABLE #tmpLeague;
 END;
 GO

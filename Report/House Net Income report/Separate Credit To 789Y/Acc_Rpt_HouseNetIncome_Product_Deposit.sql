@@ -1,7 +1,4 @@
-/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
-USE bodb02
-GO
-
+/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_Product_Deposit]
 	@FromDate DATE,
 	@ToDate	DATE
@@ -149,4 +146,3 @@ EXEC bodb02.dbo.Acc_Rpt_HouseNetIncome_FW_Deposit
 	,@ToDate	= @ToDate
 END
 GO
-GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_Product_Deposit] TO [bodbAdminNet]
