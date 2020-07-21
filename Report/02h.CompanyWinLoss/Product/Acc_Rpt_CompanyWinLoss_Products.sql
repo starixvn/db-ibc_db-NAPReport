@@ -731,8 +731,8 @@ Explanation's Param:
 				, 1 AS site
 				, SUM((winlost - actual_stake) * actualrate) AS winlost_actualrate
 				, SUM((winlost - actual_stake) * virtualrate) AS winlost_virtualrate
-				, SUM((b.ContributionRate * b.BetStake) * actualrate) AS winlost_jackpot_actualrate
-				, SUM((b.ContributionRate * b.BetStake) * virtualrate) AS winlost_jackpot_virtualrate
+				, SUM(b.ContributionStake3rd * actualrate) AS winlost_jackpot_actualrate
+				, SUM(b.ContributionStake3rd * virtualrate) AS winlost_jackpot_virtualrate
 				, SUM((awinlost + mwinlost + swinlost) * actualrate) AS SMAWinloss_actualrate
 				, SUM((awinlost + mwinlost + swinlost) * virtualrate) AS SMAWinloss_virtualrate
 				, SUM(scomm * actualrate) AS commission_actualrate
