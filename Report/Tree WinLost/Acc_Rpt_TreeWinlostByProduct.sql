@@ -452,8 +452,10 @@ BEGIN
 			  AND b.statusID NOT IN(101, 102, 103, 121)
 			  AND b.currency <> 20
 			  AND (t.bettype IN (9,29)
+				OR t.bettype in (SELECT Bettype FROM @SportBettype WHERE SubProduct IN('Bet Builder','BT-Comm', 'BT-Winloss','MG-SuperLive'))
 				OR t.ProductID <> 1
-				OR (t.ProductID = 1 AND t.bettype NOT IN (9,29) AND b.matchid IN (SELECT matchid FROM #tmpMatch))
+				OR (t.ProductID = 1 AND t.bettype NOT IN (9,29,10) AND b.matchid IN (SELECT matchid FROM #tmpMatch where matchtype = 0))
+				OR (t.bettype = 10 AND b.matchid IN (SELECT matchid FROM #tmpMatch where matchtype = 1))
 				)
 		 GROUP BY b.currency
 			   , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(9, 6)) OPTION(RECOMPILE);
@@ -466,6 +468,12 @@ BEGIN
     WHERE recommend = 52466
 		AND ruben = 1
 		AND winlostdate BETWEEN CAST(@FromDate AS SMALLDATETIME) AND CAST(@ToDate AS SMALLDATETIME)
+		AND (t.bettype IN (9,29)
+			OR t.bettype in (SELECT Bettype FROM @SportBettype WHERE SubProduct IN('Bet Builder','BT-Comm', 'BT-Winloss','MG-SuperLive'))
+			OR t.ProductID <> 1
+			OR (t.ProductID = 1 AND t.bettype NOT IN (9,29,10) AND b.matchid IN (SELECT matchid FROM #tmpMatch where matchtype = 0))
+			OR (t.bettype = 10 AND b.matchid IN (SELECT matchid FROM #tmpMatch where matchtype = 1))
+			)
 		AND b.statusID NOT IN(101, 102, 103, 121);
 
     SELECT @TurnOver_BARM = SUM(ABS(stake) * (1 - tpositiontaking) * actualrate)
@@ -476,6 +484,12 @@ BEGIN
     WHERE recommend = 5707545
 		AND ruben = 1
 		AND winlostdate BETWEEN CAST(@FromDate AS SMALLDATETIME) AND CAST(@ToDate AS SMALLDATETIME)
+		AND (t.bettype IN (9,29)
+			OR t.bettype in (SELECT Bettype FROM @SportBettype WHERE SubProduct IN('Bet Builder','BT-Comm', 'BT-Winloss','MG-SuperLive'))
+			OR t.ProductID <> 1
+			OR (t.ProductID = 1 AND t.bettype NOT IN (9,29,10) AND b.matchid IN (SELECT matchid FROM #tmpMatch where matchtype = 0))
+			OR (t.bettype = 10 AND b.matchid IN (SELECT matchid FROM #tmpMatch where matchtype = 1))
+			)
 		AND b.statusID NOT IN(101, 102, 103, 121);
 	
 	/*-record set main data*/

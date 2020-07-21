@@ -396,8 +396,10 @@ BEGIN
 			  AND b.currency <> 20
 			  AND b.srecommend = @srecommend
 			  AND (t.bettype IN (9,29)
+				OR t.bettype in (SELECT Bettype FROM @SportBettype WHERE SubProduct IN('Bet Builder','BT-Comm', 'BT-Winloss','MG-SuperLive'))
 				OR t.ProductID <> 1
-				OR (t.ProductID = 1 AND t.bettype NOT IN (9,29) AND b.matchid IN (SELECT matchid FROM #tmpMatch))
+				OR (t.ProductID = 1 AND t.bettype NOT IN (9,29,10) AND b.matchid IN (SELECT matchid FROM #tmpMatch where matchtype = 0))
+				OR (t.bettype = 10 AND b.matchid IN (SELECT matchid FROM #tmpMatch where matchtype = 1))
 				)
 		 GROUP BY b.mrecommend
 			   , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(9, 6)) OPTION(RECOMPILE);
