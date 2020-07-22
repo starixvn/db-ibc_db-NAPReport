@@ -38,9 +38,9 @@ SET NOCOUNT ON;
 	UNION ALL
 	SELECT 'E-Sports' Product, 'E-Sports' ProductPrefix
 	UNION ALL
-	SELECT 'OS' Product, 'OS' ProductPrefix
-	UNION ALL
 	SELECT 'Saba Cricket' Product, 'SabaCricket' ProductPrefix
+	UNION ALL
+	SELECT 'OS' Product, 'OS' ProductPrefix
 	UNION ALL
 	SELECT 'Parlay' Product, 'Parlay' ProductPrefix
 	UNION ALL
