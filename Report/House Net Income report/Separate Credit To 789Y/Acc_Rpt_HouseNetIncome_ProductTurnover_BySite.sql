@@ -140,6 +140,16 @@ BEGIN
 	FROM bodb02.dbo.League WITH(NOLOCK) 
 	WHERE sporttype IN (1,2,50)
 		AND LeagueGroupID IN (42,74)
+	
+	
+	-- #tmpLeague
+	CREATE TABLE #tmpLeague (LeagueID INT, LeagueGroupID INT)
+
+	INSERT INTO #tmpLeague (LeagueID, LeagueGroupID)
+	SELECT leagueID, LeagueGroupID
+	FROM bodb02.dbo.League WITH(NOLOCK) 
+	WHERE sporttype IN (1,2,50)
+		AND LeagueGroupID IN (42,74)
 
     -- #SportBettypeMatrix
     CREATE TABLE #SportBettypeMatrix(
@@ -380,7 +390,7 @@ INSERT INTO #FinalResult(RptDate
     SELECT @SQL = 'SELECT * ' + CHAR(13) 
     + 'FROM	(SELECT ProductCode, [Order], [RptDate], Figure, ISNULL(value, 0) value FROM #FinalResult' + CHAR(13) 
     + 'CROSS APPLY' + CHAR(13) + '(SELECT ''Soccer'', 1, ''House TurnOver'', HouseTO_Soccer' + CHAR(13) 
-	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SabaSoccer'', 1, ''House TurnOver'', HouseTO_SabaSoccer' + CHAR(13)
+    + 'UNION ALL' + CHAR(13) + 'SELECT ''SabaSoccer'', 1, ''House TurnOver'', HouseTO_SabaSoccer' + CHAR(13)
     + 'UNION ALL' + CHAR(13) + 'SELECT ''Basketball'', 2, ''House TurnOver'', HouseTO_Basketball' + CHAR(13)
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SabaBasketball'', 2, ''House TurnOver'', HouseTO_SabaBasketball' + CHAR(13) 
     + 'UNION ALL' + CHAR(13) + 'SELECT ''Tennis'', 3, ''House TurnOver'', HouseTO_Tennis' + CHAR(13) 
@@ -438,4 +448,3 @@ INSERT INTO #FinalResult(RptDate
 
 END
 GO
-GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_ProductTurnover_BySite] TO [dwrs]

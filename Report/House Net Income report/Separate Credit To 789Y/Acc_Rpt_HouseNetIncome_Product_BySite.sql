@@ -141,6 +141,16 @@ BEGIN
 	WHERE sporttype IN (1,2,50)
 		AND LeagueGroupID IN (42,74)
 
+
+	-- #tmpLeague
+	CREATE TABLE #tmpLeague (LeagueID INT, LeagueGroupID INT)
+
+	INSERT INTO #tmpLeague (LeagueID, LeagueGroupID)
+	SELECT leagueID, LeagueGroupID
+	FROM bodb02.dbo.League WITH(NOLOCK) 
+	WHERE sporttype IN (1,2,50)
+		AND LeagueGroupID IN (42,74)
+
     -- #SportBettypeMatrix
     CREATE TABLE #SportBettypeMatrix(
 	    ProductID    INT
@@ -447,4 +457,3 @@ INSERT INTO #FinalResult(RptDate
 
 END
 GO
-GRANT EXECUTE ON [dbo].Acc_Rpt_HouseNetIncome_Product_BySite TO dwrs
