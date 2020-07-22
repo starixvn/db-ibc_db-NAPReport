@@ -20,18 +20,25 @@ AS
 		- 20200518@Ned.Le - Email/Letstalk Reports - Integrate SBO ION Live Casino (#132331)
 		- 20200518@Ned.Le - Email/Letstalk Reports - Integrate SBO RNG War (#132019)
 		- 20200521@Ned.Le - Re-Integrate Fishing World product for letstalk (#134533)
+		- 20200720@Kean - DHWL Email/Letstalk - Separate Saba Sports from real Sports (#137822)
   
 */
 BEGIN
 SET NOCOUNT ON;	
 
-	SELECT 'Soccer' Product, 'Soccer' ProductPrefix
+	SELECT 'Real Soccer' Product, 'Soccer' ProductPrefix
 	UNION ALL
-	SELECT 'Basketball' Product, 'Basketball' ProductPrefix
+	SELECT 'Saba Soccer' Product, 'SabaSoccer' ProductPrefix
+	UNION ALL
+	SELECT 'Real Basketball' Product, 'Basketball' ProductPrefix
+	UNION ALL
+	SELECT 'Saba Basketball' Product, 'SabaBasketball' ProductPrefix
 	UNION ALL
 	SELECT 'Tennis' Product, 'Tennis' ProductPrefix
 	UNION ALL
 	SELECT 'E-Sports' Product, 'E-Sports' ProductPrefix
+	UNION ALL
+	SELECT 'Saba Cricket' Product, 'SabaCricket' ProductPrefix
 	UNION ALL
 	SELECT 'OS' Product, 'OS' ProductPrefix
 	UNION ALL

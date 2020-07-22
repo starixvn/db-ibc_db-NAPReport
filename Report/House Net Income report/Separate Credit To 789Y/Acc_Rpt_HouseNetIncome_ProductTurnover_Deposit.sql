@@ -22,6 +22,7 @@ AS
 		- 20200422@Kean: House Net Income - Integrate Saba.Club product (#132791)
 		- 20200521@Ned.Le: Re-Integrate Fishing World product for letstalk (#134533)
 		- 20200701@Kean.Nguyen - House Net Income Email/Letstalk - Change formula to Calculate Margin (#136792)
+		- 20200720@Kean - DHWL Email/Letstalk - Separate Saba Sports from real Sports (#137822)
 
 	EXEC Acc_Rpt_HouseNetIncome_ProductTurnover_Deposit '20180601', '20180619'
   
@@ -55,10 +56,13 @@ BEGIN
 	CREATE TABLE #FinalResult(
 	    RptDate               VARCHAR(10)
 	  , HouseTO_Soccer        MONEY
+	  , HouseTO_SabaSoccer        MONEY
 	  , HouseTO_Basketball    MONEY
+	  , HouseTO_SabaBasketball    MONEY
 	  , HouseTO_Tennis        MONEY
 	  , HouseTO_ESports       MONEY
 	  , HouseTO_OS            MONEY
+	  , HouseTO_Cricket            MONEY
 	  , HouseTO_Parlay        MONEY
 	  --
 	  , HouseTO_AGC        MONEY
@@ -93,8 +97,17 @@ BEGIN
 		, @DateList    VARCHAR(200) = '[FullRange]';
 
     SELECT @tmpDate = @FDate;
-    -- #SportBettypeMatrix
 
+	-- #tmpLeague
+	CREATE TABLE #tmpLeague (LeagueID INT, LeagueGroupID INT)
+
+	INSERT INTO #tmpLeague (LeagueID, LeagueGroupID)
+	SELECT leagueID, LeagueGroupID
+	FROM bodb02.dbo.League WITH(NOLOCK) 
+	WHERE sporttype IN (1,2,50)
+		AND LeagueGroupID IN (42,74)
+
+    -- #SportBettypeMatrix
     CREATE TABLE #SportBettypeMatrix(
 	    ProductID    INT
 		, Bettype      INT);
@@ -124,7 +137,11 @@ BEGIN
 				   , HouseTO)
 		 SELECT b.rptDate
 			 , sb.ProductID
-			 , CASE WHEN b.BetType IN (9, 29) THEN -2 ELSE b.SportType END SportType
+			 , CASE WHEN b.BetType IN (9, 29) THEN -2
+					WHEN l.leagueid IS NOT NULL AND b.SportType = 1 AND l.LeagueGroupID IN (42,74) THEN -3  -- Saba Soccer
+					WHEN l.leagueid IS NOT NULL AND b.SportType = 2 AND l.LeagueGroupID IN (42) THEN -4  -- Saba Basketball
+					WHEN l.leagueid IS NOT NULL AND b.SportType = 50 AND l.LeagueGroupID IN (42) THEN -5  -- Saba Cricket 
+					ELSE b.SportType END SportType
 			 , b.BetType
 			 , SUM(CASE WHEN TurnoverIBC = 0 THEN 0
 						ELSE TurnoverIBC - ExtraTO
@@ -134,6 +151,7 @@ BEGIN
 						  END * ex.Rate * (CASE WHEN b.TicketStatus in (12,13) THEN 0.5 ELSE 1 END)) AS HouseTO
 		 FROM bodb_Account.dbo.FactSiteWinloss AS b WITH(NOLOCK)
 			INNER JOIN #SportBettypeMatrix AS sb ON b.Bettype = sb.Bettype
+			LEFT JOIN  #tmpLeague l ON l.leagueid = b.leagueID
 			LEFT JOIN #exchange AS ex ON b.rptdate = ex.exchangedate
 								    AND b.currencyid = ex.ExchangeID
 		 WHERE b.rptDate >= @FDate AND b.rptDate <= @TDATE
@@ -147,7 +165,11 @@ BEGIN
 							)-- Deposit data only  
 		 GROUP BY b.rptDate
 			    , sb.ProductID
-				, CASE WHEN b.BetType IN (9, 29) THEN -2 ELSE b.SportType END
+				, CASE WHEN b.BetType IN (9, 29) THEN -2
+					WHEN l.leagueid IS NOT NULL AND b.SportType = 1 AND l.LeagueGroupID IN (42,74) THEN -3  -- Saba Soccer
+					WHEN l.leagueid IS NOT NULL AND b.SportType = 2 AND l.LeagueGroupID IN (42) THEN -4  -- Saba Basketball
+					WHEN l.leagueid IS NOT NULL AND b.SportType = 50 AND l.LeagueGroupID IN (42) THEN -5  -- Saba Cricket 
+					ELSE b.SportType END
 				, b.BetType OPTION(RECOMPILE);
 		
 		-- Get DetailDaily Data & FullRange Data
@@ -155,7 +177,10 @@ BEGIN
     WHILE @tmpDate <= @TDate
 	   BEGIN
 		  INSERT INTO #FinalResult(RptDate
-						  , HouseTO_Soccer, HouseTO_Basketball, HouseTO_Tennis, HouseTO_ESports, HouseTO_OS, HouseTO_Parlay
+						  , HouseTO_Soccer, HouseTO_SabaSoccer
+						  , HouseTO_Basketball, HouseTO_SabaBasketball
+						  , HouseTO_Tennis, HouseTO_ESports
+						  , HouseTO_OS, HouseTO_Cricket, HouseTO_Parlay
 						  , HouseTO_AGC
 						  , HouseTO_CB 
 						  ,	HouseTO_NG        
@@ -187,10 +212,13 @@ BEGIN
 SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 	-- BEGIN SPORTBOOK
 	,(SELECT SUM(t.HouseTO) FROM #TmpData AS t WHERE t.SportType = 1 AND t.rptDate = @tmpDate) AS HouseTO_Soccer
+	,(SELECT SUM(t.HouseTO) FROM #TmpData AS t WHERE t.SportType = -3 AND t.rptDate = @tmpDate) AS HouseTO_SabaSoccer
 	,(SELECT SUM(t.HouseTO) FROM #TmpData AS t WHERE t.SportType = 2 AND t.rptDate = @tmpDate) AS HouseTO_Basketball
+	,(SELECT SUM(t.HouseTO) FROM #TmpData AS t WHERE t.SportType = -4 AND t.rptDate = @tmpDate) AS HouseTO_SabaBasketball
 	,(SELECT SUM(t.HouseTO) FROM #TmpData AS t WHERE t.SportType = 5 AND t.rptDate = @tmpDate ) AS HouseTO_Tennis
 	,(SELECT SUM(t.HouseTO) FROM #TmpData AS t WHERE t.SportType = 43 AND t.rptDate = @tmpDate) AS HouseTO_ESports
-	,(SELECT SUM(t.HouseTO) FROM #TmpData AS t WHERE t.ProductID = 1 AND t.SportType NOT IN (1, 2, 5, 43, -2) AND t.rptDate = @tmpDate) AS  HouseTO_OS
+	,(SELECT SUM(t.HouseTO) FROM #TmpData AS t WHERE t.ProductID = 1 AND t.SportType NOT IN (1, 2, 5, 43, -2,-3,-4,-5) AND t.rptDate = @tmpDate) AS  HouseTO_OS
+	,(SELECT SUM(t.HouseTO) FROM #TmpData AS t WHERE t.SportType = -5 AND t.rptDate = @tmpDate) AS  HouseTO_Cricket
 	,(SELECT SUM(t.HouseTO) FROM #TmpData AS t WHERE t.SportType = -2 AND t.rptDate = @tmpDate) AS  HouseTO_Parlay
 	-- END SPORTBOOK
 	,(SELECT SUM(t.HouseTO) FROM #TmpData AS t WHERE t.ProductID = 11 AND t.rptDate = @tmpDate) AS  HouseTO_AGC
@@ -229,7 +257,10 @@ SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
     FROM #FinalResult; 
 		
 INSERT INTO #FinalResult(RptDate
-					, HouseTO_Soccer, HouseTO_Basketball, HouseTO_Tennis, HouseTO_ESports, HouseTO_OS, HouseTO_Parlay
+					, HouseTO_Soccer, HouseTO_SabaSoccer
+					, HouseTO_Basketball, HouseTO_SabaBasketball
+					, HouseTO_Tennis, HouseTO_ESports
+					, HouseTO_OS, HouseTO_Cricket, HouseTO_Parlay
 					, HouseTO_AGC
 					, HouseTO_CB
 					, HouseTO_NG        
@@ -259,10 +290,13 @@ INSERT INTO #FinalResult(RptDate
 					, HouseTO_FW)
 		 SELECT 'FullRange'
 			 , SUM(HouseTO_Soccer)
+			 , SUM(HouseTO_SabaSoccer)
 			 , SUM(HouseTO_Basketball)
+			 , SUM(HouseTO_SabaBasketball)
 			 , SUM(HouseTO_Tennis)
 			 , SUM(HouseTO_ESports)
 			 , SUM(HouseTO_OS)
+			 , SUM(HouseTO_Cricket)
 			 , SUM(HouseTO_Parlay)
 			 --
 			 , SUM(HouseTO_AGC)
@@ -298,11 +332,14 @@ INSERT INTO #FinalResult(RptDate
     DECLARE @SQL    VARCHAR(max);
     SELECT @SQL = 'SELECT * ' + CHAR(13) 
     + 'FROM	(SELECT ProductCode, [Order], [RptDate], Figure, ISNULL(value, 0) value FROM #FinalResult' + CHAR(13) 
-    + 'CROSS APPLY' + CHAR(13) + '(SELECT ''Soccer'', 1, ''House TurnOver'', HouseTO_Soccer' + CHAR(13) 
-    + 'UNION ALL' + CHAR(13) + 'SELECT ''Basketball'', 2, ''House TurnOver'', HouseTO_Basketball' + CHAR(13) 
+    + 'CROSS APPLY' + CHAR(13) + '(SELECT ''Soccer'', 1, ''House TurnOver'', HouseTO_Soccer' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SabaSoccer'', 1, ''House TurnOver'', HouseTO_SabaSoccer' + CHAR(13) 
+    + 'UNION ALL' + CHAR(13) + 'SELECT ''Basketball'', 2, ''House TurnOver'', HouseTO_Basketball' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SabaBasketball'', 2, ''House TurnOver'', HouseTO_SabaBasketball' + CHAR(13) 
     + 'UNION ALL' + CHAR(13) + 'SELECT ''Tennis'', 3, ''House TurnOver'', HouseTO_Tennis' + CHAR(13) 
     + 'UNION ALL' + CHAR(13) + 'SELECT ''E-Sports'', 4, ''House TurnOver'', HouseTO_ESports' + CHAR(13) 
     + 'UNION ALL' + CHAR(13) + 'SELECT ''OS'', 5, ''House TurnOver'', HouseTO_OS' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SabaCricket'', 5, ''House TurnOver'', HouseTO_Cricket' + CHAR(13)
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''Parlay'', 6, ''House TurnOver'', HouseTO_Parlay' + CHAR(13)
 	--
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''AGC'', 7, ''House TurnOver'', HouseTO_AGC' + CHAR(13)
@@ -343,6 +380,7 @@ INSERT INTO #FinalResult(RptDate
 	
     -- Drop temp tables
     DROP TABLE #SportBettypeMatrix;
+	DROP TABLE #tmpLeague;
     DROP TABLE #Exchange;
     DROP TABLE #FinalResult;
     DROP TABLE #TmpData;
