@@ -55,6 +55,7 @@ AS
 		- 20200521@Cherry: Missing running betcount for sports: Saba, SA Gaming, Sexy Gaming, IBCBet Live Casino (#134571)
 		- 20200522@Cherry: Nap Report - Integrate ION Live Casino (#132324) & RNG War (#132009)
 		- 20200713@Ned.Le: NAP Report - Incorporate Jackpot Games (#137271)
+		- 20200723@Jaden.Tang: NAP Report - Add new range for lottery (#137715)
 
 	Param's Explanation:  
 	  + @MoveBetsDay: The day of moving bets to battrans14
