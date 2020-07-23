@@ -23,6 +23,7 @@ BEGIN
 	  , LeagueId          INT
 	  , HomeId            INT
 	  , AwayId            INT
+	  , SportType		  INT
 	  , GlobalShowTime    DATETIME
 	  , MarketId          VARCHAR(20)
 	  , DateTimePlaced    DATETIME
@@ -90,6 +91,7 @@ BEGIN
 				, LeagueId
 				, HomeId
 				, AwayId
+				, SportType
 				, GlobalShowTime
 				, MarketId
 				, DateTimePlaced
@@ -109,6 +111,7 @@ BEGIN
 				, 0 AS LeagueId
 				, 0 AS HomeId
 				, 0 AS AwayId
+				, NULL AS SportType
 				, NULL AS GlobalShowTime
 				, Betcheck AS MarketId
 				, Transdate AS DateTimePlaced
@@ -135,6 +138,7 @@ BEGIN
 				   d.LeagueId = m.leagueid
 				 , d.HomeId = m.homeid
 				 , d.AwayId = m.awayid
+				 , d.SportType = m.sporttype
 				 , d.GlobalShowTime = m.GlobalShowTime
 		  FROM #Data AS d
 			 INNER JOIN bodb02.dbo.match AS m WITH (NOLOCK) ON m.matchid = d.matchid;
@@ -147,6 +151,7 @@ BEGIN
 				   d.LeagueId = m.leagueid
 				 , d.HomeId = m.homeid
 				 , d.AwayId = m.awayid
+				 , d.SportType = m.sporttype
 				 , d.GlobalShowTime = m.GlobalShowTime
 		  FROM #Data AS d
 			 INNER JOIN bodb02.dbo.match14 AS m WITH (NOLOCK) ON m.matchid = d.matchid;
@@ -159,11 +164,12 @@ BEGIN
 				   d.LeagueId = m.leagueid
 				 , d.HomeId = m.homeid
 				 , d.AwayId = m.awayid
+				 , d.SportType = m.sporttype
 				 , d.GlobalShowTime = m.GlobalShowTime
 		  FROM #Data AS d
 			 INNER JOIN bodb_Archive.dbo.match_bk AS m WITH (NOLOCK) ON m.matchid = d.matchid;
 	   END;
-    SELECT 'Soccer' AS Sport
+    SELECT (SELECT SportName FROM bodb02.dbo.Sports WHERE SportType = d.SportType) AS Sport
 	    , d.LeagueId
 	    , d.HomeId
 	    , d.AwayId
