@@ -10,6 +10,7 @@ AS
 	Task: Bet Builder - Daily Automail report to 3rd
 	Revisions:		
 		- 20190527@Robert: Bet Builder - Daily Automail report to 3rd [#114248]
+		- 20200723@Jaden: Bet Builder - Remove hardcoding (soccer), add basketball [#138082]
 
 	Param's Explanation:	 
 */
