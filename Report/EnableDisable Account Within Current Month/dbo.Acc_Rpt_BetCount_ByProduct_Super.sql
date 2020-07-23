@@ -54,6 +54,7 @@ AS
 		- 20200422@Ned.Le: NAP Report - Incorporate IBCBet Live Casino (#132961)
 		- 20200521@Cherry: Missing running betcount for sports: Saba, SA Gaming, Sexy Gaming, IBCBet Live Casino (#134571)
 		- 20200522@Cherry: Nap Report - Integrate ION Live Casino (#132324) & RNG War (#132009)
+		- 20200713@Ned.Le: NAP Report - Incorporate Jackpot Games (#137271)
 
 	Param's Explanation:  
 	  + @MoveBetsDay: The day of moving bets to battrans14
@@ -72,7 +73,12 @@ BEGIN
 	DECLARE @FirstDate SMALLDATETIME
 	DECLARE @TempFromDate SMALLDATETIME
 	DECLARE @TempToDate SMALLDATETIME
-			
+	
+	--Table of special bettype group
+	CREATE TABLE #SpecialBettypeGroup (BettypeGroupID SMALLINT, Bettype INT)
+	INSERT INTO #SpecialBettypeGroup (BettypeGroupID, Bettype)
+	SELECT BettypeGroupID, Bettype FROM DBWH.bodb_Account.dbo.BettypeGroup WHERE BettypeGroupID IN (6, 10)
+
 	--Table of Super/master/Member that belong to real super above	
 	CREATE TABLE #FiltedDownlineAcc(
 		CustID		INT,
@@ -158,7 +164,7 @@ BEGIN
 					b.statusId IN (111,112,113,0) 
 				)	
 			AND b.srecommend = @CustID
-			AND b.gameID NOT IN (2198, 2398, 2998, 2199, 2399, 2999)
+			AND b.gameID NOT IN (SELECT Bettype FROM #SpecialBettypeGroup)
 			GROUP BY b.custid,b.[status]
 		END	
 
@@ -337,6 +343,7 @@ BEGIN
 	--Drop temp tables
 	DROP TABLE #FiltedDownlineAcc
 	DROP TABLE #AvailableMember
+	DROP TABLE #SpecialBettypeGroup
 
 END
 GO 
