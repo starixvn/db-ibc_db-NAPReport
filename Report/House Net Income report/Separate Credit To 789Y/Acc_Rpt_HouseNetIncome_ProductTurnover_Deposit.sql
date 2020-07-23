@@ -72,13 +72,13 @@ BEGIN
 	CREATE TABLE #FinalResult(
 	    RptDate							VARCHAR(10)
 	  , HouseTO_Soccer					MONEY
-	  , HouseTO_SabaSoccer        MONEY
+	  , HouseTO_SabaSoccer        		MONEY
 	  , HouseTO_Basketball				MONEY
-	  , HouseTO_SabaBasketball    MONEY
+	  , HouseTO_SabaBasketball    		MONEY
 	  , HouseTO_Tennis					MONEY
 	  , HouseTO_ESports					MONEY
 	  , HouseTO_OS						MONEY
-	  , HouseTO_Cricket            MONEY
+	  , HouseTO_Cricket            		MONEY
 	  , HouseTO_Parlay					MONEY
 	  --
 	  , HouseTO_AGC						MONEY
@@ -124,16 +124,6 @@ BEGIN
 	FROM bodb02.dbo.League WITH(NOLOCK) 
 	WHERE sporttype IN (1,2,50)
 		AND LeagueGroupID IN (42,74)
-	
-
-	-- #tmpLeague
-	CREATE TABLE #tmpLeague (LeagueID INT, LeagueGroupID INT)
-
-	INSERT INTO #tmpLeague (LeagueID, LeagueGroupID)
-	SELECT leagueID, LeagueGroupID
-	FROM bodb02.dbo.League WITH(NOLOCK) 
-	WHERE sporttype IN (1,2,50)
-		AND LeagueGroupID IN (42,74)
 
     -- #SportBettypeMatrix
     CREATE TABLE #SportBettypeMatrix(
@@ -141,21 +131,20 @@ BEGIN
 		, Bettype      INT);
 
     INSERT INTO #SportBettypeMatrix(ProductID, Bettype)
-		SELECT DISTINCT ProductID
-			 , BetType
-		FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)
-		WHERE SubProduct NOT IN('BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss')
-		AND ProductID IN (1,11, 15, 34, 25, 31, 28, 32, 37, 27, 21, 6, 12, 3, 8, 22, 5, 36, 38, 39, 43, 40, 42, 45, 24)
-		-- SB, AG casino,Colossus Bets,Card Club,Cash Out,Exchange,Lottery,Pragmatic,Saba Promotion,Betradar Virtual Sports(VS2),
-		-- AllBet,RNG Casino,Gold Deluxe,Number Game(NG & HP5),RNG Keno,Macau Games,Virtual Sports, Spade Gaming, Virtual Games 
-		-- Fishing World
+	SELECT DISTINCT ProductID, BetType
+	FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)
+	WHERE SubProduct NOT IN('BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss')
+	AND ProductID IN (1,11, 15, 34, 25, 31, 28, 32, 37, 27, 21, 6, 12, 3, 8, 22, 5, 36, 38, 39, 43, 40, 42, 45, 24)
+	-- SB, AG casino,Colossus Bets,Card Club,Cash Out,Exchange,Lottery,Pragmatic,Saba Promotion,Betradar Virtual Sports(VS2),
+	-- AllBet,RNG Casino,Gold Deluxe,Number Game(NG & HP5),RNG Keno,Macau Games,Virtual Sports, Spade Gaming, Virtual Games 
+	-- Fishing World
 
-		 CREATE TABLE #TmpData(
-				rptDate      DATE
-				, ProductID INT
-				, SportType    INT
-				, BetType    INT
-				, HouseTO      MONEY);
+	CREATE TABLE #TmpData(
+		rptDate      	DATE
+		, ProductID 	INT
+		, SportType    	INT
+		, BetType    	INT
+		, HouseTO      	MONEY);
 	    
     INSERT INTO #TmpData(rptDate
 				   , ProductID
@@ -332,23 +321,23 @@ INSERT INTO #FinalResult(RptDate
 					, HouseTO_SXG
 					, HouseTO_FW)
 		 SELECT 'FullRange'
-			 , SUM(HouseTO_Soccer)
-			 , SUM(HouseTO_SabaSoccer)
-			 , SUM(HouseTO_Basketball)
-			 , SUM(HouseTO_SabaBasketball)
-			 , SUM(HouseTO_Tennis)
-			 , SUM(HouseTO_ESports)
-			 , SUM(HouseTO_OS)
-			 , SUM(HouseTO_Cricket)
-			 , SUM(HouseTO_Parlay)
-			 --
-			 , SUM(HouseTO_AGC)
-			 , SUM(HouseTO_CB)
-			 , SUM(HouseTO_NG)        
-			 , SUM(HouseTO_H5)        
-			 , SUM(HouseTO_VS)        
-			 , SUM(HouseTO_RNGKeno)       
-			 , SUM(HouseTO_MacauG)        
+			, SUM(HouseTO_Soccer)
+			, SUM(HouseTO_SabaSoccer)
+			, SUM(HouseTO_Basketball)
+			, SUM(HouseTO_SabaBasketball)
+			, SUM(HouseTO_Tennis)
+			, SUM(HouseTO_ESports)
+			, SUM(HouseTO_OS)
+			, SUM(HouseTO_Cricket)
+			, SUM(HouseTO_Parlay)
+			--
+			, SUM(HouseTO_AGC)
+			, SUM(HouseTO_CB)
+			, SUM(HouseTO_NG)        
+			, SUM(HouseTO_H5)        
+			, SUM(HouseTO_VS)        
+			, SUM(HouseTO_RNGKeno)       
+			, SUM(HouseTO_MacauG)        
 			, SUM(HouseTO_AB)
 			, SUM(HouseTO_CO)
 			, SUM(HouseTO_GD)        
@@ -379,8 +368,6 @@ INSERT INTO #FinalResult(RptDate
     + 'FROM	(SELECT ProductCode, [Order], [RptDate], Figure, ISNULL(value, 0) value FROM #FinalResult' + CHAR(13) 
     + 'CROSS APPLY' + CHAR(13) + '(SELECT ''Soccer'', 1, ''House TurnOver'', HouseTO_Soccer' + CHAR(13)
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SabaSoccer'', 1, ''House TurnOver'', HouseTO_SabaSoccer' + CHAR(13) 
-    + 'UNION ALL' + CHAR(13) + 'SELECT ''Basketball'', 2, ''House TurnOver'', HouseTO_Basketball' + CHAR(13)
-	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SabaBasketball'', 2, ''House TurnOver'', HouseTO_SabaBasketball' + CHAR(13) 
     + 'UNION ALL' + CHAR(13) + 'SELECT ''Basketball'', 2, ''House TurnOver'', HouseTO_Basketball' + CHAR(13)
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SabaBasketball'', 2, ''House TurnOver'', HouseTO_SabaBasketball' + CHAR(13) 
     + 'UNION ALL' + CHAR(13) + 'SELECT ''Tennis'', 3, ''House TurnOver'', HouseTO_Tennis' + CHAR(13) 

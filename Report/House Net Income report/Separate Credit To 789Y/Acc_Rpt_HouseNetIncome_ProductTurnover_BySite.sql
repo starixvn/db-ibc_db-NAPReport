@@ -88,13 +88,13 @@ BEGIN
 	CREATE TABLE #FinalResult(
 	    RptDate							VARCHAR(10)
 	  , HouseTO_Soccer					MONEY
-	  , HouseTO_SabaSoccer        MONEY
+	  , HouseTO_SabaSoccer        		MONEY
 	  , HouseTO_Basketball				MONEY
-	  , HouseTO_SabaBasketball    MONEY
+	  , HouseTO_SabaBasketball    		MONEY
 	  , HouseTO_Tennis					MONEY
 	  , HouseTO_ESports					MONEY
 	  , HouseTO_OS						MONEY
-	  , HouseTO_Cricket            MONEY
+	  , HouseTO_Cricket            		MONEY
 	  , HouseTO_Parlay					MONEY
 	  , HouseTO_NG						MONEY
 	  , HouseTO_H5						MONEY
@@ -140,16 +140,6 @@ BEGIN
 	FROM bodb02.dbo.League WITH(NOLOCK) 
 	WHERE sporttype IN (1,2,50)
 		AND LeagueGroupID IN (42,74)
-	
-	
-	-- #tmpLeague
-	CREATE TABLE #tmpLeague (LeagueID INT, LeagueGroupID INT)
-
-	INSERT INTO #tmpLeague (LeagueID, LeagueGroupID)
-	SELECT leagueID, LeagueGroupID
-	FROM bodb02.dbo.League WITH(NOLOCK) 
-	WHERE sporttype IN (1,2,50)
-		AND LeagueGroupID IN (42,74)
 
     -- #SportBettypeMatrix
     CREATE TABLE #SportBettypeMatrix(
@@ -157,18 +147,17 @@ BEGIN
 		, Bettype      INT);
 
     INSERT INTO #SportBettypeMatrix(ProductID, Bettype)
-		SELECT DISTINCT ProductID
-			 , BetType
-		FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)
-		WHERE SubProduct NOT IN('BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss')
-		 AND ProductID IN (1, 3, 5, 8, 23, 22, 21, 12, 28, 27, 6, 32, 34, 36, 38, 39, 42, 45, 47, 40, 46, 52, 50, 24)
+	SELECT DISTINCT ProductID, BetType
+	FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)
+	WHERE SubProduct NOT IN('BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss')
+	      AND ProductID IN (1, 3, 5, 8, 23, 22, 21, 12, 28, 27, 6, 32, 34, 36, 38, 39, 42, 45, 47, 40, 46, 52, 50, 24)
 
-		 CREATE TABLE #TmpData(
-				rptDate      DATE
-				, ProductID INT
-				, SportType    INT
-				, BetType    INT
-				, HouseTO      MONEY);
+	CREATE TABLE #TmpData(
+		rptDate      	DATE
+		, ProductID 	INT
+		, SportType    	INT
+		, BetType    	INT
+		, HouseTO      	MONEY);
 	    
     INSERT INTO #TmpData(rptDate
 				   , ProductID
@@ -344,21 +333,21 @@ INSERT INTO #FinalResult(RptDate
 					, HouseTO_RNGW
 					, HouseTO_FW)
 		 SELECT 'FullRange'
-			 , SUM(HouseTO_Soccer)
-			 , SUM(HouseTO_SabaSoccer)
-			 , SUM(HouseTO_Basketball)
-			 , SUM(HouseTO_SabaBasketball)
-			 , SUM(HouseTO_Tennis)
-			 , SUM(HouseTO_ESports)
-			 , SUM(HouseTO_OS)
-			 , SUM(HouseTO_Cricket)
-			 , SUM(HouseTO_Parlay)
-			 , SUM(HouseTO_NG)        
-			 , SUM(HouseTO_H5)        
-			 , SUM(HouseTO_VS)        
-			 , SUM(HouseTO_RNGKeno)        
-			 , SUM(HouseTO_NG2)        
-			 , SUM(HouseTO_MacauG)        
+			, SUM(HouseTO_Soccer)
+			, SUM(HouseTO_SabaSoccer)
+			, SUM(HouseTO_Basketball)
+			, SUM(HouseTO_SabaBasketball)
+			, SUM(HouseTO_Tennis)
+			, SUM(HouseTO_ESports)
+			, SUM(HouseTO_OS)
+			, SUM(HouseTO_Cricket)
+			, SUM(HouseTO_Parlay)
+			, SUM(HouseTO_NG)        
+			, SUM(HouseTO_H5)        
+			, SUM(HouseTO_VS)        
+			, SUM(HouseTO_RNGKeno)        
+			, SUM(HouseTO_NG2)        
+			, SUM(HouseTO_MacauG)        
 			, SUM(HouseTO_AB)
 			, SUM(HouseTO_GD)        
 			, SUM(HouseTO_LT)

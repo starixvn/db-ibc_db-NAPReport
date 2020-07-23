@@ -27,7 +27,6 @@ AS
 		- 20200521@Ned.Le - Re-Integrate Fishing World product for letstalk (#134533)
 		- 20200720@Kean - DHWL Email/Letstalk - Separate Saba Sports from real Sports (#137822)
 		- 20200722@Ned.Le - Email/Letstalk Reports - Integrate Jackpot Games (#137280)
-
 	
 	Param's Explanation:   
 	- DepositType  
@@ -88,13 +87,13 @@ BEGIN
 	CREATE TABLE #FinalResult(
 	    RptDate							VARCHAR(10)
 	  , HouseWL_Soccer					MONEY
-	  , HouseWL_SabaSoccer        MONEY
+	  , HouseWL_SabaSoccer        		MONEY
 	  , HouseWL_Basketball				MONEY
-	  , HouseWL_SabaBasketball    MONEY
+	  , HouseWL_SabaBasketball    		MONEY
 	  , HouseWL_Tennis					MONEY
 	  , HouseWL_ESports					MONEY
 	  , HouseWL_OS						MONEY
-	  , HouseWL_Cricket            MONEY
+	  , HouseWL_Cricket            		MONEY
 	  , HouseWL_Parlay					MONEY
 	  , HouseWL_NG						MONEY
 	  , HouseWL_H5						MONEY
@@ -141,36 +140,25 @@ BEGIN
 	WHERE sporttype IN (1,2,50)
 		AND LeagueGroupID IN (42,74)
 
-
-	-- #tmpLeague
-	CREATE TABLE #tmpLeague (LeagueID INT, LeagueGroupID INT)
-
-	INSERT INTO #tmpLeague (LeagueID, LeagueGroupID)
-	SELECT leagueID, LeagueGroupID
-	FROM bodb02.dbo.League WITH(NOLOCK) 
-	WHERE sporttype IN (1,2,50)
-		AND LeagueGroupID IN (42,74)
-
     -- #SportBettypeMatrix
     CREATE TABLE #SportBettypeMatrix(
 	    ProductID    INT
 		, Bettype      INT);
 
     INSERT INTO #SportBettypeMatrix(ProductID, Bettype)
-		SELECT DISTINCT ProductID
-			 , BetType
-		FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)
-		WHERE SubProduct NOT IN('BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss')
-		 AND ProductID IN (1, 3, 5, 8, 23, 22, 21, 12, 28, 27, 6, 32, 34, 36,38,39,42,45,47, 40, 46, 52, 50, 24)
+	SELECT DISTINCT ProductID, BetType
+	FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)
+	WHERE SubProduct NOT IN('BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss')
+		  AND ProductID IN (1, 3, 5, 8, 23, 22, 21, 12, 28, 27, 6, 32, 34, 36,38,39,42,45,47, 40, 46, 52, 50, 24)
 
-		 CREATE TABLE #TmpData(
-				rptDate      DATE
-				, ProductID INT
-				, SportType    INT
-				, BetType    INT
-				, HouseWL      MONEY
-				, WinningPrize MONEY
-				, Contribution MONEY);
+	CREATE TABLE #TmpData(
+			rptDate      DATE
+			, ProductID INT
+			, SportType    INT
+			, BetType    INT
+			, HouseWL      MONEY
+			, WinningPrize MONEY
+			, Contribution MONEY);
 	    
     INSERT INTO #TmpData(rptDate
 				   , ProductID
@@ -351,21 +339,21 @@ INSERT INTO #FinalResult(RptDate
 					, HouseWL_RNGW
 					, HouseWL_FW)
 		 SELECT 'FullRange'
-			 , SUM(HouseWL_Soccer)
-			 , SUM(HouseWL_SabaSoccer)
-			 , SUM(HouseWL_Basketball)
-			 , SUM(HouseWL_SabaBasketball)
-			 , SUM(HouseWL_Tennis)
-			 , SUM(HouseWL_ESports)
-			 , SUM(HouseWL_OS)
-			 , SUM(HouseWL_Cricket)
-			 , SUM(HouseWL_Parlay)
-			 , SUM(HouseWL_NG)        
-			 , SUM(HouseWL_H5)        
-			 , SUM(HouseWL_VS)        
-			 , SUM(HouseWL_RNGKeno)        
+			, SUM(HouseWL_Soccer)
+			, SUM(HouseWL_SabaSoccer)
+			, SUM(HouseWL_Basketball)
+			, SUM(HouseWL_SabaBasketball)
+			, SUM(HouseWL_Tennis)
+			, SUM(HouseWL_ESports)
+			, SUM(HouseWL_OS)
+			, SUM(HouseWL_Cricket)
+			, SUM(HouseWL_Parlay)
+			, SUM(HouseWL_NG)        
+			, SUM(HouseWL_H5)        
+			, SUM(HouseWL_VS)        
+			, SUM(HouseWL_RNGKeno)        
 			, SUM(HouseWL_NG2)        
-			 , SUM(HouseWL_MacauG)        
+			, SUM(HouseWL_MacauG)        
 			, SUM(HouseWL_AB)
 			, SUM(HouseWL_GD)        
 			, SUM(HouseWL_LT)
@@ -391,8 +379,6 @@ INSERT INTO #FinalResult(RptDate
 			, SUM(HouseWL_RNGW)
 			, SUM(HouseWL_FW)
 		 FROM #FinalResult;
-
-
 
     -- Select the output
     DECLARE @SQL    VARCHAR(max);
