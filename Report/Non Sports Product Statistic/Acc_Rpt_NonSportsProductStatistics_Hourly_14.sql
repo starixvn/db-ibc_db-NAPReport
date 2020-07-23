@@ -50,6 +50,7 @@ AS
 		20191225@Cherry: Apply ExtraPT in bettrans table (#123697)
 		20200601@Cherry: Add Credit Site and support multiple currency (#135009)
 		20200624@Cherry: Archive VSRaceInfo (#136256)
+		20200710@Cherry: Integrate Pragmatic Jackpot (#137268)
 
 	Param's Explanation:
 			 - @username:  + Search by keyword, member only
@@ -198,6 +199,8 @@ SET NOCOUNT ON
 	
 	CREATE TABLE #tmpCurrency (CurrencyId INT)
 	
+	CREATE TABLE #tmpContributionBettype (Bettype INT)
+	
 	IF @Currency <> '-1'
     BEGIN
 		INSERT INTO #tmpCurrency (CurrencyId)
@@ -260,6 +263,11 @@ SET NOCOUNT ON
 		IF NOT EXISTS(SELECT 1 FROM #Device d LEFT JOIN #tmpDevice t ON t.Betfrom = d.Betfrom WHERE t.Betfrom IS NULL) 
 			SET @Device = ''
 	END
+	
+	INSERT INTO #tmpContributionBettype (Bettype)
+	SELECT Bettype
+	FROM DBWH.bodb_Account.dbo.BettypeGroup WITH (NOLOCK)
+	WHERE BettypeGroupID = 10
 	
 	IF @Username <> ''
 	BEGIN
@@ -461,7 +469,8 @@ SET NOCOUNT ON
 		FROM  dbo.BettransRNG14 b WITH (NOLOCK)
 		
 		WHERE b.WinlostDate = @WLDate
-			AND b.GameId IN (SELECT Bettype FROM #SportBettype WHERE RefTable = 1 AND Bettype NOT IN (2198, 2398, 2998))
+			AND b.GameId IN (SELECT sb.Bettype FROM #SportBettype sb LEFT JOIN #tmpContributionBettype t ON sb.Bettype = t.Bettype 
+							 WHERE t.Bettype IS NULL AND sb.RefTable = 1)	
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
 			AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
 			AND (EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId) OR @currency = '-1') 			
@@ -509,17 +518,17 @@ SET NOCOUNT ON
 						WHEN b.tpositiontaking = 1 THEN 0
 						ELSE (1 - b.tpositiontaking - CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) * b.stake END) * actualrate) AS CompanyTurnoverRM,		
 								
-				- SUM((b.ContributionRate * b.BetStake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeRM,
+				- SUM((b.ContributionStake3rd + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeRM,
 
 				- SUM(scomm *actualrate) AS CompanyCommRM,
 				
-				- SUM((b.ContributionRate * b.BetStake + CASE WHEN tpositiontaking = 1 THEN 0
+				- SUM((b.ContributionStake3rd + CASE WHEN tpositiontaking = 1 THEN 0
 							ELSE scomm / (1 - tpositiontaking) END) * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8)) * actualrate) ExtraPT
 				
 		FROM  dbo.BettransRNG14 b WITH (NOLOCK)
 		WHERE b.WinlostDate = @WLDate
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
-			AND b.gameID IN (SELECT Bettype FROM #SportBettype WHERE Bettype IN (2198, 2398, 2998))
+			AND b.gameID IN (SELECT sb.Bettype FROM #SportBettype sb INNER JOIN #tmpContributionBettype t ON sb.Bettype = t.Bettype)
 			AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
 			AND (EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId) OR @currency = '-1') 			
 			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
@@ -1109,6 +1118,7 @@ SET NOCOUNT ON
 	DROP TABLE #Device
 	DROP TABLE #ExtraComm
 	DROP TABLE #tmpCurrency
+	DROP TABLE #tmpContributionBettype
 
 END 
 

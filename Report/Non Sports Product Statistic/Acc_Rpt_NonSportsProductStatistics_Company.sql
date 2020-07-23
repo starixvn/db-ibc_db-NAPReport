@@ -44,6 +44,7 @@ AS
 		20190812@Cherry: Add betfrom t (#115937)
 		20191225@Cherry: Apply ExtraPT in bettrans table (#123697)
 		20200601@Cherry: Add Credit Site and support multiple currency (#135009)
+		20200710@Cherry: Integrate Pragmatic Jackpot (#137268)
 
 	Param's Explanation:
 		- @username:  + Search by keyword, member only
@@ -166,6 +167,7 @@ BEGIN
 	CREATE TABLE #tmp_Site			(Site VARCHAR(50))
 	CREATE TABLE #tmp_MemIDs		(CustID INT)	
 	CREATE TABLE #ExtraComm (ProductID INT, SuperID INT, ExtraComm DECIMAL(9, 8))
+	CREATE TABLE #tmpContributionBettype (Bettype INT)
 
 	-- Get Info from Pars list
 	IF @ProductId <> ''
@@ -451,6 +453,11 @@ BEGIN
 		
 		OPTION(RECOMPILE)
 		
+		INSERT INTO #tmpContributionBettype (Bettype)
+		SELECT Bettype
+		FROM DBWH.bodb_Account.dbo.BettypeGroup WITH (NOLOCK)
+		WHERE BettypeGroupID = 10
+		
 		-- 2a. By Bettype for Casino Product & Video Poker Games
 		INSERT INTO #Data
 				( recommend ,
@@ -507,7 +514,8 @@ BEGIN
 	
 		FROM dbo.bettransRnG b WITH (NOLOCK)
 		WHERE b.winlostdate = @WLDate
-			AND b.gameID IN (SELECT Bettype FROM #SportBettype WHERE Bettype NOT IN (2198, 2398, 2998) AND RefTable = 1)
+			AND b.gameID IN (SELECT sb.Bettype FROM #SportBettype sb LEFT JOIN #tmpContributionBettype t ON sb.Bettype = t.Bettype 
+							 WHERE t.Bettype IS NULL AND sb.RefTable = 1)
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets	
 			AND (@ExcludeTest = 0 OR (b.Currency <> 20 AND @ExcludeTest = 1))
 			AND (@currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId)) 
@@ -565,20 +573,20 @@ BEGIN
 						WHEN b.tpositiontaking = 1 THEN 0
 						ELSE (1- b.tpositiontaking - CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) * b.stake END) * actualrate) AS CompanyTurnoverBase,		
 								
-				- SUM(b.ContributionRate * b.BetStake + awinlost + mwinlost + swinlost) AS CompanyGrossIncome,
-				- SUM((b.ContributionRate * b.BetStake + awinlost + mwinlost + swinlost) * actualrate) AS CompanyGrossIncomeBase,
+				- SUM(b.ContributionStake3rd + awinlost + mwinlost + swinlost) AS CompanyGrossIncome,
+				- SUM((b.ContributionStake3rd + awinlost + mwinlost + swinlost) * actualrate) AS CompanyGrossIncomeBase,
 
 				- SUM(scomm) AS CompanyComm,
 				- SUM(scomm *actualrate) AS CompanyCommBase,
 				
-				- SUM((b.ContributionRate * b.BetStake + CASE WHEN tpositiontaking = 1 THEN 0
+				- SUM((b.ContributionStake3rd + CASE WHEN tpositiontaking = 1 THEN 0
 							ELSE scomm / (1 - tpositiontaking) END) * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) ExtraPT,
-				- SUM((b.ContributionRate * b.BetStake + CASE WHEN tpositiontaking = 1 THEN 0
+				- SUM((b.ContributionStake3rd + CASE WHEN tpositiontaking = 1 THEN 0
 							ELSE scomm / (1 - tpositiontaking) END) * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8)) * actualrate) ExtraPTBase
 			
 		FROM dbo.bettransRnG b WITH (NOLOCK)
 		WHERE b.winlostdate = @WLDate
-			AND b.gameID IN (SELECT Bettype FROM #SportBettype WHERE Bettype IN (2198, 2398, 2998))
+			AND b.gameID IN (SELECT sb.Bettype FROM #SportBettype sb INNER JOIN #tmpContributionBettype t ON sb.Bettype = t.Bettype) 
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets	
 			AND (@ExcludeTest = 0 OR (b.Currency <> 20 AND @ExcludeTest = 1))
 			AND (@currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId)) 
@@ -1644,6 +1652,7 @@ BEGIN
 	DROP TABLE #Device
 	DROP TABLE #ExtraComm
 	DROP TABLE #tmpCurrency
+	DROP TABLE #tmpContributionBettype
 
 END
 
