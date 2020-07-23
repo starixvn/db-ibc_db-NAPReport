@@ -250,8 +250,7 @@ BEGIN
 			INSERT INTO #tmpSportType (SportType)
 			SELECT DISTINCT sb.SportType
 			FROM bodb02.dbo.SportBettypeMatrix sb WITH(NOLOCK)
-				LEFT JOIN #tmpSportType t ON sb.SportType = t.SportType
-			WHERE ProductID = 1 AND t.SportType NOT IN (1,2,43)
+			WHERE ProductID = 1 AND sb.SportType NOT IN (1,2,43)
 			
 		IF NOT EXISTS (SELECT TOP 1 1 FROM #tmpSportType WHERE SportType = 20000) -- Parlay
 			DELETE FROM #tmpBettype WHERE bettype IN (9,29)
