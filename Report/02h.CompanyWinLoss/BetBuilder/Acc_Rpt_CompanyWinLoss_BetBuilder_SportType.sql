@@ -159,8 +159,11 @@ BEGIN
 					THEN 'Credit'
 				ELSE 'Deposit'
 		END)
+	ORDER BY GroupName
+		,RowName
 	OPTION (RECOMPILE)
 	
 	DROP TABLE #tmpBetBuilderMatches
+	DROP TABLE #tmpBetBuilderBetTypes
 	DROP TABLE #tmpDepSuper
 END

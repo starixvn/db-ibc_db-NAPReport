@@ -156,4 +156,5 @@ EXEC Acc_Rpt_CompanyWinLoss_BetBuilder_BetType @StartDate='2020-07-23 00:00:00',
 
     DROP TABLE #SportBetType;
     DROP TABLE #DepositSuper;
+	DROP TABLE #tmpBetBuilderMatches;
 GO
