@@ -22,28 +22,43 @@ BEGIN
 		MatchId INT
 		,SportType TINYINT
 		,SportName NVARCHAR(50)
-		,BetType SMALLINT
+		)
+	
+	CREATE TABLE #tmpBetBuilderBetTypes (
+		BetType SMALLINT
 		)
 	
 	CREATE TABLE #tmpDepSuper (CustId INT)
 	
 	/*
+		Define BetTypes of Bet Builder
+		From: f_SportBetTypeMatrix_Sel
+		To: #tmpBetBuilderBetTypes ( BetType )
+	*/
+	DECLARE @isTest BIT = dbo.f_CheckSPVersion(@@PROCID)
+	
+	INSERT INTO #tmpBetBuilderBetTypes
+	SELECT DISTINCT BetType
+	FROM dbo.f_SportBetTypeMatrix_Sel(1, 0, 0, 2, 'Bet Builder', '', @isTest)
+	/*
 		Define Matches of Bet Builder
-		From: SportBettypeMatrix, Sports, league, match
+		From: SportBettypeMatrix, Sports, match
 		To: #tmpBetBuilderMatches ( MatchId, SportType, SportName, BetType )
 	*/
 	INSERT INTO #tmpBetBuilderMatches
 	SELECT m.MatchId
 		,s.Sporttype
 		,s.Sportname
-		,sm.BetType
 	FROM SportBettypeMatrix sm WITH (NOLOCK)
 		INNER JOIN sports s WITH (NOLOCK) ON sm.sporttype = s.sporttype
 		INNER JOIN match m WITH (NOLOCK) ON sm.sporttype = m.sporttype
 	WHERE sm.SubProduct = 'Bet Builder'
 		AND m.EventDate = @StartDate
+	GROUP BY m.MatchId
+		,s.Sporttype
+		,s.Sportname
 	
-	CREATE CLUSTERED INDEX [CIX_match_bettype] ON #tmpBetBuilderMatches( MatchId, BetType)
+	CREATE CLUSTERED INDEX [CIX_match] ON #tmpBetBuilderMatches( MatchId )
 	/*
 		Define Deposit Super user
 		From: f_DepSuper_1
@@ -127,8 +142,9 @@ BEGIN
 					THEN 0
 				ELSE (1 - b.tpositiontaking - ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * ABS(b.stake) * virtualrate
 				END) AS VirtualTurnover
-	FROM #tmpBetBuilderMatches AS m
-		INNER JOIN bettrans AS b WITH (NOLOCK) ON m.MatchId = b.MatchId AND m.BetType = b.BetType
+	FROM #tmpBetBuilderBetTypes AS bt
+		INNER JOIN bettrans AS b WITH (NOLOCK) ON bt.BetType = b.BetType
+		INNER JOIN #tmpBetBuilderMatches AS m WITH (NOLOCK) ON b.MatchId = m.MatchId
 		LEFT JOIN CS_CustSuper AS cn88 WITH (NOLOCK) ON b.srecommend = cn88.CustId
 		LEFT JOIN #tmpDepSuper AS dep ON b.srecommend = dep.CustId
 	WHERE b.winlostdate = @StartDate
