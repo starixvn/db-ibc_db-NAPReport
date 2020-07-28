@@ -6,7 +6,8 @@ GO
 ALTER PROCEDURE dbo.Acc_Rpt_TreeWinlostByProduct
 	@FromDate             DATETIME
    , @ToDate               DATETIME
-   , @Products             VARCHAR(4000)
+   , @Products             VARCHAR(MAX)
+   , @SportType VARCHAR(MAX)
 /* 8RM account*/
    , @TurnOver_8RM         MONEY         = 0 OUTPUT
    , @Total_8RM            MONEY         = 0 OUTPUT
@@ -60,6 +61,7 @@ Revisions:
 	20191231@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
 	20200227@Ned.Le: Hotfix thats convert datatype for VarianceVR from DECIMAL(5, 2) to DECIMAL(9, 6)
 	20200710@Cherry: Integrate Jackpot Pragmatic (#137271)
+	20200724@Cherry: Add filter Sport of Sportbook (#135880)
 */
 
 BEGIN
@@ -69,20 +71,20 @@ BEGIN
 	-- #TmpResultAll
     CREATE TABLE #TmpResultAll(
 	    Currency          TINYINT
-	  , VarianceVR        DECIMAL(9, 6)
-	  , TurnoverIBC       DECIMAL(19, 6)
-	  , WinlossIBC        DECIMAL(19, 6)
-	  , CommissionS       DECIMAL(19, 6)
-	  , ExtraWL           DECIMAL(19, 6)
-	  , ExtraTO           DECIMAL(19, 6)
-	  , ExtraComm         DECIMAL(19, 6)
+	  , VarianceVR        DECIMAL(19,6)
+	  , TurnoverIBC       MONEY
+	  , WinlossIBC        MONEY
+	  , CommissionS       MONEY
+	  , ExtraWL           MONEY
+	  , ExtraTO           MONEY
+	  , ExtraComm         MONEY
 	  /*RM*/
-	  , TurnoverIBC_RM    DECIMAL(19, 6)
-	  , WinlossIBC_RM     DECIMAL(19, 6)
-	  , CommissionS_RM    DECIMAL(19, 6)
-	  , ExtraWL_RM        DECIMAL(19, 6)
-	  , ExtraTO_RM        DECIMAL(19, 6)
-	  , ExtraComm_RM      DECIMAL(19, 6));
+	  , TurnoverIBC_RM    MONEY
+	  , WinlossIBC_RM     MONEY
+	  , CommissionS_RM    MONEY
+	  , ExtraWL_RM        MONEY
+	  , ExtraTO_RM        MONEY
+	  , ExtraComm_RM      MONEY);
 	
 	-- @SportBettype
     DECLARE @isTest    BIT = 0;
@@ -242,11 +244,45 @@ BEGIN
 		 WHERE tblP.ProductID <> 1;
 
 	CREATE CLUSTERED INDEX IDX_Bettype_bettype_ProductID ON #tmpBettype(bettype, ProductID, RefTable);
+	
+	-- @SportType	
+	CREATE TABLE #tmpSportType (SportType INT)
+	CREATE TABLE #tmpMatch (matchid INT, matchtype TINYINT)
+	IF @SportType <> ''
+    BEGIN
+		INSERT INTO #tmpSportType (SportType)
+		SELECT val FROM [dbo].strSplit(@SportType, ',')
+		
+		IF EXISTS(SELECT TOP 1 1 FROM #tmpSportType WHERE SportType = 10000)	-- Other Sports
+			INSERT INTO #tmpSportType (SportType)
+			SELECT DISTINCT sb.SportType
+			FROM bodb02.dbo.SportBettypeMatrix sb WITH(NOLOCK)
+			WHERE ProductID = 1 AND sb.SportType NOT IN (1,2,43)
+			
+		IF NOT EXISTS (SELECT TOP 1 1 FROM #tmpSportType WHERE SportType = 20000) -- Parlay
+			DELETE FROM #tmpBettype WHERE bettype IN (9,29)
+			
+		DELETE FROM #tmpSportType WHERE SportType IN (10000, 20000)
+		
+		;WITH CTE_Match AS (
+		SELECT matchid AS matchid, leagueid, 0 AS matchtype  FROM bodb02.dbo.match (NOLOCK) WHERE eventdate between @FromDate and @ToDate
+		UNION ALL
+		SELECT orid AS matchid, leagueid, 1 AS matchtype FROM bodb02.dbo.outright (NOLOCK) WHERE eventdate between @FromDate and @ToDate
+		)
+		INSERT INTO #tmpMatch(matchid, matchtype)
+		SELECT m.matchid,
+			   m.matchtype
+		FROM CTE_Match m
+			 INNER JOIN bodb02.dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid
+		WHERE m.leagueid = l.LeagueId
+			  AND l.sporttype IN (SELECT SportType FROM #tmpSportType)
+		OPTION (RECOMPILE)
+	END
 
 	/*Get data from bettransRNG*/
     INSERT INTO #TmpResultAll
 		 SELECT b.currency
-			 , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(9, 6)) AS VarianceVR
+			 , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(19, 6)) AS VarianceVR
 			 , SUM(stake * (1 - tpositiontaking)) AS                      TurnoverIBC
 			 , SUM(CASE
 					 WHEN bg.BettypeGroupID = 6 THEN 0 /*Progressive Jackpot, PP Promotion Prize, PP Tournament Prize*/
@@ -301,12 +337,12 @@ BEGIN
 			  AND b.statusID NOT IN(0, 1, 101, 102, 103, 121)
 			  AND b.currency <> 20
 		 GROUP BY b.currency
-			   , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(9, 6)) OPTION(RECOMPILE);
+			   , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(19, 6)) OPTION(RECOMPILE);
 
 	/*-get data from bettransLC*/
     INSERT INTO #TmpResultAll
 		 SELECT b.currency
-			 , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(9, 6)) AS                     VarianceVR
+			 , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(19, 6)) AS                     VarianceVR
 			 , SUM(stake * (1 - tpositiontaking)) AS                                          TurnoverIBC
 			 , SUM(swinlost + mwinlost + awinlost + winlost - actual_stake) AS                WinlossIBC
 			 , SUM(scomm) AS                                                                  CommissionS
@@ -350,12 +386,12 @@ BEGIN
 			  AND b.statusID NOT IN(0, 1, 101, 102, 103, 121)
 			  AND b.currency <> 20
 		 GROUP BY b.currency
-			   , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(9, 6)) OPTION(RECOMPILE);
+			   , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(19, 6)) OPTION(RECOMPILE);
 
 	/*Get data from bettrans*/
     INSERT INTO #TmpResultAll
 		 SELECT b.currency
-			 , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(9, 6)) AS                     VarianceVR
+			 , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(19, 6)) AS                     VarianceVR
 			 , SUM(CASE
 					 WHEN t.ProductID = 1
 					 THEN ABS(stake)					 
@@ -415,8 +451,14 @@ BEGIN
 			  AND b.ruben = 1
 			  AND b.statusID NOT IN(101, 102, 103, 121)
 			  AND b.currency <> 20
+			  AND (t.bettype IN (9,29)
+				OR t.ProductID IN (-1, -2, -3)
+				OR t.ProductID <> 1
+				OR (t.ProductID = 1 AND t.bettype NOT IN (9,29,10) AND b.matchid IN (SELECT matchid FROM #tmpMatch where matchtype = 0))
+				OR (t.bettype = 10 AND b.matchid IN (SELECT matchid FROM #tmpMatch where matchtype = 1))
+				)
 		 GROUP BY b.currency
-			   , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(9, 6)) OPTION(RECOMPILE);
+			   , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(19, 6)) OPTION(RECOMPILE);
 
     SELECT @TurnOver_8RM = SUM(ABS(stake) * (1 - tpositiontaking) * actualrate)
 	    , @Total_8RM = -SUM((swinlost + mwinlost + awinlost + winlost - actual_stake + scomm) * actualrate)
@@ -426,7 +468,13 @@ BEGIN
     WHERE recommend = 52466
 		AND ruben = 1
 		AND winlostdate BETWEEN CAST(@FromDate AS SMALLDATETIME) AND CAST(@ToDate AS SMALLDATETIME)
-		AND b.statusID NOT IN(101, 102, 103, 121);
+		AND b.statusID NOT IN(101, 102, 103, 121)
+		AND (t.bettype IN (9,29)
+				OR t.ProductID IN (-1, -2, -3)
+				OR t.ProductID <> 1
+				OR (t.ProductID = 1 AND t.bettype NOT IN (9,29,10) AND b.matchid IN (SELECT matchid FROM #tmpMatch where matchtype = 0))
+				OR (t.bettype = 10 AND b.matchid IN (SELECT matchid FROM #tmpMatch where matchtype = 1))
+				);
 
     SELECT @TurnOver_BARM = SUM(ABS(stake) * (1 - tpositiontaking) * actualrate)
 	    , @Total_BARM = -SUM((swinlost + mwinlost + awinlost + winlost - actual_stake + scomm) * actualrate)
@@ -436,7 +484,13 @@ BEGIN
     WHERE recommend = 5707545
 		AND ruben = 1
 		AND winlostdate BETWEEN CAST(@FromDate AS SMALLDATETIME) AND CAST(@ToDate AS SMALLDATETIME)
-		AND b.statusID NOT IN(101, 102, 103, 121);
+		AND b.statusID NOT IN(101, 102, 103, 121)
+		AND (t.bettype IN (9,29)
+				OR t.ProductID IN (-1, -2, -3)
+				OR t.ProductID <> 1
+				OR (t.ProductID = 1 AND t.bettype NOT IN (9,29,10) AND b.matchid IN (SELECT matchid FROM #tmpMatch where matchtype = 0))
+				OR (t.bettype = 10 AND b.matchid IN (SELECT matchid FROM #tmpMatch where matchtype = 1))
+				);
 	
 	/*-record set main data*/
     SELECT currency
@@ -526,7 +580,9 @@ BEGIN
     DROP TABLE #TmpResultAll;
     DROP TABLE #Product;
     DROP TABLE #tmpBettype;
-	DROP TABLE #PrizeBettypeGroup;
+	DROP TABLE #PrizeBettypeGroup;				
+	DROP TABLE #tmpSportType;
+	DROP TABLE #tmpMatch;
 END;
 
 GO
