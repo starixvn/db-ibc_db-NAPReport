@@ -177,7 +177,7 @@ BEGIN
 			 , b.BetType
 			 , ISNULL(-SUM((WinlossIBC - ExtraWL + CommissionS - ExtraComm) * ex.rate), 0) AS  HouseWL
 			 , -SUM(CASE WHEN bg.BettypeGroupID = 6 THEN b.WinlossP ELSE 0 END * ex.Rate) AS WinningPrize		
-			 , SUM(CASE WHEN bg.BettypeGroupID = 10 THEN b.WinlossIBC - b.WinlossS - b.WinlossM - b.WinlossA ELSE 0 END * ex.Rate)
+			 , SUM(CASE WHEN bg.BettypeGroupID = 10 THEN b.WinlossIBC - b.WinlossS - b.WinlossM - b.WinlossA ELSE 0 END * ex.Rate) AS Contribution
 		 FROM bodb_Account.dbo.FactSiteWinloss AS b WITH(NOLOCK)
 			INNER JOIN #SportBettypeMatrix AS sb ON b.Bettype = sb.Bettype
 			LEFT JOIN  #tmpLeague l ON l.leagueid = b.leagueID
@@ -277,7 +277,7 @@ SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 	  WHERE t.rptDate = @tmpDate
 		    AND t.ProductID = 32
 	        AND bg.BettypeGroupID = 6) AS HouseWL_PP_JP_MegaPrize
-	,(SELECT SUM(t.WinningPrize)
+	,(SELECT SUM(t.Contribution)
 	  FROM #TmpData AS t
 		   INNER JOIN #tmpBettypeGroup AS bg ON t.BetType = bg.Bettype
 	  WHERE t.rptDate = @tmpDate
