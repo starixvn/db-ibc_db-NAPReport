@@ -39,7 +39,7 @@ BEGIN
 	INSERT INTO #tempDataDW (rptDate, CurrencyID, FullContribution, JackpotPrize)
 	SELECT b.rptDate, b.CurrencyID
 		,SUM(CASE WHEN b.bettype = 4297 THEN b.WinlossIBC-b.WinlossS-b.WinlossM-b.WinlossA ELSE 0 END) AS FullContribution
-		,SUM(CASE WHEN b.bettype = 4298 THEN b.WinlossP ELSE 0 END) AS JackpotPrize
+		,SUM(CASE WHEN b.bettype = 4298 THEN -b.WinlossP ELSE 0 END) AS JackpotPrize
 	FROM DBWH.bodb_Account.dbo.FactSiteWinloss b WITH (NOLOCK)
 	WHERE b.rptDate BETWEEN @FDate AND @TDate
 		AND b.CurrencyID <> 20

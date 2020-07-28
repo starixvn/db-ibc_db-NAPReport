@@ -307,18 +307,6 @@ BEGIN
 			FROM #__DailyPayToSupplier
 	END
 
-	-- Pragmatic for Deposit
-	IF @DepositType IN (1, 2)
-		AND EXISTS (SELECT 1 FROM #__tempDataGMT WHERE ProductId = 32 AND IsDeposit = 1)
-	BEGIN
-		INSERT INTO #__FullRangePayToSupplier (IsDeposit, ProductId, PayToSupplier)
-		SELECT IsDeposit, ProductId, SUM(PayDailyRate)
-		FROM #__tempDataGMT
-		WHERE ProductId = 32 AND IsDeposit = 1
-		GROUP BY IsDeposit, ProductId
-		HAVING SUM(MemberWLRate) <= 0
-	END
-	
 	-- SA Gaming for Deposit
 	IF @DepositType IN (1, 2)
 		AND EXISTS (SELECT 1 FROM #__tempDataGMT WHERE ProductId = 39 AND IsDeposit = 1)
@@ -360,7 +348,7 @@ BEGIN
 		INSERT INTO #__FullRangePayToSupplier (IsDeposit, ProductId, PayToSupplier)
 		SELECT IsDeposit, ProductId, SUM(PayToSupplier)
 		FROM #__DailyPayToSupplier
-		WHERE ProductId <> 32
+		WHERE (ProductId <> 32 OR IsDeposit = 0)
 		GROUP BY IsDeposit, ProductId
 	END
 
