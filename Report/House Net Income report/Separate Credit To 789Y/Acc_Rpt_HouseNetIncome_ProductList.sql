@@ -21,6 +21,7 @@ AS
 		- 20200518@Ned.Le - Email/Letstalk Reports - Integrate SBO RNG War (#132019)
 		- 20200521@Ned.Le - Re-Integrate Fishing World product for letstalk (#134533)
 		- 20200720@Kean - DHWL Email/Letstalk - Separate Saba Sports from real Sports (#137822)
+		- 20200722@Ned.Le - Email/Letstalk Reports - Integrate Jackpot Games (#137280)
   
 */
 BEGIN
@@ -75,6 +76,8 @@ SET NOCOUNT ON;
 	SELECT 'EX' Product, 'EX' ProductPrefix
 	UNION ALL
 	SELECT 'PP' Product, 'PP' ProductPrefix
+	UNION ALL
+	SELECT 'PP-JP' Product, 'PP-JP' ProductPrefix
 	UNION ALL
 	SELECT 'H5' Product, 'H5' ProductPrefix
 	UNION ALL
