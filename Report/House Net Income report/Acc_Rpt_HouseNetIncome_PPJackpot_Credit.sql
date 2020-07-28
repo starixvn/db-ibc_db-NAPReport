@@ -61,14 +61,14 @@ BEGIN
 	CREATE TABLE #tmpDataJP (
 			rptDate			DATETIME,
 			CurrencyId		INT,
-			MegaPrize		MONEY,
+			JackpotPrize	MONEY,
 			Contribution	MONEY
 	)
 
-	INSERT INTO #tmpDataJP (rptDate, CurrencyId, MegaPrize, Contribution)
+	INSERT INTO #tmpDataJP (rptDate, CurrencyId, JackpotPrize, Contribution)
 	SELECT b.rptDate rptDate,
 		   b.CurrencyID CurrencyId,
-		   -SUM(CASE WHEN bg.BettypeGroupID = 6 THEN b.WinlossP ELSE 0 END * ex.Rate) MegaPrize,	
+		   -SUM(CASE WHEN bg.BettypeGroupID = 6 THEN b.WinlossP ELSE 0 END * ex.Rate) JackpotPrize,	
 		   SUM(CASE WHEN bg.BettypeGroupID = 10 THEN b.WinlossIBC - b.WinlossS - b.WinlossM - b.WinlossA ELSE 0 END * ex.Rate) Contribution
 	FROM bodb_Account.dbo.FactSiteWinloss b (NOLOCK)
 		 INNER JOIN #tmpExchange ex ON b.rptdate = ex.ExchangeDate AND b.CurrencyID = ex.ExchangeID
@@ -83,13 +83,13 @@ BEGIN
 	-- #FinalResult
 	CREATE TABLE #FinalResult (
 		RptDate				VARCHAR(10),
-		MegaPrize			MONEY,	
+		JackpotPrize		MONEY,	
 		Contribution		MONEY
 	)
 
-	INSERT INTO #FinalResult (RptDate, MegaPrize, Contribution)
+	INSERT INTO #FinalResult (RptDate, JackpotPrize, Contribution)
 	SELECT 'FullRange' RptDate,
-		   SUM(MegaPrize) MegaPrize,
+		   SUM(JackpotPrize) JackpotPrize,
 		   SUM(Contribution) Contribution
 	FROM #tmpDataJP	
 
@@ -100,9 +100,9 @@ BEGIN
 
 	WHILE @tmpDate <= @ToDate
 	BEGIN
-		INSERT INTO #FinalResult (RptDate, MegaPrize, Contribution)
+		INSERT INTO #FinalResult (RptDate, JackpotPrize, Contribution)
 		SELECT CONVERT(VARCHAR(2), @tmpDate, 106) RptDate,
-			   SUM(MegaPrize) MegaPrize,
+			   SUM(JackpotPrize) JackpotPrize,
 			   SUM(Contribution) Contribution
 		FROM #tmpDataJP 
 		WHERE rptDate = @tmpDate
@@ -120,7 +120,7 @@ BEGIN
 							'CROSS APPLY' + CHAR(13) +
 							'(SELECT ''PP-JP'', 1, ''Contribution Amount'', Contribution' + CHAR(13) +
 							'UNION ALL' + CHAR(13) +
-							'SELECT ''PP-JP'', 2, ''Mega Prize'', MegaPrize) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
+							'SELECT ''PP-JP'', 2, ''Jackpot Prize'', JackpotPrize) c (ProductCode, [Order], Figure, value)) a' + CHAR(13) +
 					'PIVOT' + CHAR(13) +
 					'(' + CHAR(13) +
 						'MAX(value)' + CHAR(13) +
