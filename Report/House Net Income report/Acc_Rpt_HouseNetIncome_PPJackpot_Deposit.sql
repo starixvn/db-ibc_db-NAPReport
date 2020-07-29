@@ -1,4 +1,4 @@
-/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBWH-bodb_dwrs" executers="dwrs" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_PPJackpot_Deposit]
 	@FromDate	DATE
 	,@ToDate	DATE
@@ -6,7 +6,7 @@ AS
 
 /*
 	Created: 20200715@Percy
-	DB: DBEXT-bodb02
+	DB: DBWH-bodb_dwrs
 	Task: House Net Income - Pramatic - Jackpot
 
 	Revisions:
@@ -23,7 +23,7 @@ BEGIN
 	CREATE TABLE #Exchange (ExchangeDate DATETIME, ExchangeID INT, Rate FLOAT)
 	INSERT INTO #Exchange(ExchangeDate, ExchangeID, Rate)
 	SELECT ExchangeDate, Currency, Rate
-	FROM DBWH.bodb_account.dbo.tbl_Currency_Daily WITH (NOLOCK)
+	FROM bodb_account.dbo.tbl_Currency_Daily WITH (NOLOCK)
 	WHERE ExchangeDate BETWEEN @FDate AND @TDate
 	-- End Region
 
@@ -40,11 +40,12 @@ BEGIN
 	SELECT b.rptDate, b.CurrencyID
 		,SUM(CASE WHEN b.bettype = 4297 THEN b.WinlossIBC-b.WinlossS-b.WinlossM-b.WinlossA ELSE 0 END) AS FullContribution
 		,SUM(CASE WHEN b.bettype = 4298 THEN -b.WinlossP ELSE 0 END) AS JackpotPrize
-	FROM DBWH.bodb_Account.dbo.FactSiteWinloss b WITH (NOLOCK)
+	FROM bodb_Account.dbo.FactSiteWinloss b WITH (NOLOCK)
 	WHERE b.rptDate BETWEEN @FDate AND @TDate
 		AND b.CurrencyID <> 20
 		AND b.TicketStatus NOT IN (-1, 18, 9, 10, 14)
 		AND b.BetType IN (4297, 4298)
+		AND b.SiteID IN (SELECT SiteID FROM bodb_Account.dbo.tbl_Site WHERE isDeposit = 1)
 	GROUP BY b.rptDate, b.CurrencyID
 
 	CREATE TABLE #tempData
