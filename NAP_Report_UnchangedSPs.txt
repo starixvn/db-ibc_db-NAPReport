@@ -1,1 +1,2 @@
 Report\House Net Income report\MarginChart\Acc_Rpt_HouseNetIncome_MarginChart_NonSport_Deposit.sql
+Report\House Net Income report\Separate Credit To 789Y\Acc_Rpt_HouseNetIncome_Product_Deposit.sql

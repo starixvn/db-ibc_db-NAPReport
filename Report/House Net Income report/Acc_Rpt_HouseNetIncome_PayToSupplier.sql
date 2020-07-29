@@ -197,9 +197,9 @@ BEGIN
 
 	INSERT INTO #__tempDataGMT (rptDate, ParentId, IsDeposit, ProductID, Bettype, CurrencyId, PlayCurrency, PayDaily, PayDailyRate, MemberWLRate)
 	SELECT b.RptDate3rd, tp.ParentId, tp.IsDeposit, bt.ProductID, CASE WHEN b.BetTypeId = 3007 THEN 3007 ELSE 0 END, b.CurrencyId, ISNULL(pc.PlayCurrency, b.CurrencyId) AS PlayCurrency
-		,SUM((CASE WHEN b.BetTypeId = 4297 THEN -b.ProgressiveContribution ELSE b.Winloss END + ISNULL(b.ValidBetAmount * v.CommRate, 0)) * ISNULL(p.Rate, vs.ChargeRate3rd)) AS PayDaily
-		,SUM((CASE WHEN b.BetTypeId = 4297 THEN -b.ProgressiveContribution ELSE b.Winloss END + ISNULL(b.ValidBetAmount * v.CommRate, 0)) * e.Rate * ISNULL(p.Rate, vs.ChargeRate3rd)) AS PayDailyRate
-		,SUM(CASE WHEN b.BetTypeId = 4297 THEN -b.ProgressiveContribution ELSE b.Winloss END * e.Rate) AS MemberWLRate
+		,SUM((CASE WHEN b.BetTypeId = 4297 THEN b.ProgressiveContribution ELSE b.Winloss END + ISNULL(b.ValidBetAmount * v.CommRate, 0)) * ISNULL(p.Rate, vs.ChargeRate3rd)) AS PayDaily
+		,SUM((CASE WHEN b.BetTypeId = 4297 THEN b.ProgressiveContribution ELSE b.Winloss END + ISNULL(b.ValidBetAmount * v.CommRate, 0)) * e.Rate * ISNULL(p.Rate, vs.ChargeRate3rd)) AS PayDailyRate
+		,SUM(CASE WHEN b.BetTypeId = 4297 THEN b.ProgressiveContribution ELSE b.Winloss END * e.Rate) AS MemberWLRate
 	FROM bodb_LicenseeReport.dbo.rpt_ThirdPartyWL_ExtraGMT b WITH (NOLOCK)
 		INNER JOIN #__Bettype bt ON b.BetTypeId = bt.BetType
 		INNER JOIN @tmpAllParty tp ON tp.LicenseeID = b.SiteID
@@ -300,11 +300,6 @@ BEGIN
 			INNER JOIN #__PartyCharge3rdInfoByAmount ci ON wl.RptDate BETWEEN ci.FromDate AND ci.ToDate
 			INNER JOIN #__ExchangeOANDA ex ON ci.CurrencyId = ex.ExchangeId AND ex.ExchangeDate = @TDate
 		WHERE ci.ProductId = 32 AND IsDeposit = 0
-
-		IF ISNULL((SELECT SUM(MemberWLRate) FROM #__tempDataGMT WHERE ProductId = 22 AND IsDeposit = 0), 0) > 0
-			INSERT INTO #__FullRangePayToSupplier (IsDeposit, ProductId, PayToSupplier)
-			SELECT 0, 32, SUM(PayToSupplier)
-			FROM #__DailyPayToSupplier
 	END
 
 	-- SA Gaming for Deposit
@@ -348,7 +343,6 @@ BEGIN
 		INSERT INTO #__FullRangePayToSupplier (IsDeposit, ProductId, PayToSupplier)
 		SELECT IsDeposit, ProductId, SUM(PayToSupplier)
 		FROM #__DailyPayToSupplier
-		WHERE (ProductId <> 32 OR IsDeposit = 0)
 		GROUP BY IsDeposit, ProductId
 	END
 
