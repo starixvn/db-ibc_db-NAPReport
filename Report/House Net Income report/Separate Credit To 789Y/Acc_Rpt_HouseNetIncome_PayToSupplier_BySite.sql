@@ -31,6 +31,8 @@ AS
 		- 20200518@Ned.Le - Email/Letstalk Reports - Integrate SBO RNG War (#132019)
 		- 20200521@Ned.Le - Re-Integrate Fishing World product for letstalk (#134533)
 		- 20200529@Ned.Le - House Net Income Email/Letstalk - Change timezone to calculate monthly Pay To Supplier (#134867)
+		- 20200714@Ned.Le - Email/Letstalk Reports - Integrate Jackpot Games (#137280)
+						    * Remove the hardcoding of bettype=4299|4300 (FACT table already care about these bettypes)
 	
 	Param's Explanation:   
 	- DepositType  
@@ -169,7 +171,6 @@ BEGIN
 	SELECT DISTINCT ProductID, BetType
 	FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)
 	WHERE ProductID IN (SELECT CAST(val AS INT) val FROM bodb02.dbo.strSplit(@ProductIDAll, ','))
-		  AND BetType NOT IN (4299, 4300) -- Exclude PP Prize bettypes
 
 	-- #tmpFactSiteWinloss
 	CREATE TABLE #tmpFactSiteWinloss (rptDate		DATE,

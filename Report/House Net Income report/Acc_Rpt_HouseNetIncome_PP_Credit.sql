@@ -17,7 +17,9 @@ AS
 		- 20180618@Harper - HDWL Letstalk - Implement report for Pramatic product [#RedmineID: 94403]
 		- 20190822@Robert: #115465 - Exclude bettype 4300 (Promotion Prize) from House Income, Pay to Supplier of Pragmatic
 		- 20191121@Robert: #123733 - Email/Letstalk Reports - Integrate PP Tournament (Exclude bettype 4299)
-		- 20200529@Ned.Le - House Net Income Email/Letstalk - Change timezone to calculate monthly Pay To Supplier (#134867)
+		- 20200529@Ned.Le: House Net Income Email/Letstalk - Change timezone to calculate monthly Pay To Supplier (#134867)
+		- 20200714@Ned.Le: Email/Letstalk Reports - Integrate Jackpot Games (#137280)
+						   * Remove the hardcoding of bettype=4299|4300 (FACT table already care about these bettypes)
 	
 	Param's Explanation:   
 
@@ -96,7 +98,6 @@ BEGIN
 	WHERE b.rptDate BETWEEN @FDate AND @TDate
 		  AND b.TicketStatus NOT IN(-1, 18, 9, 10, 14)
 		  AND b.BetType IN (SELECT Bettype FROM #SportBettypeMatrix)
-		  AND b.BetType NOT IN (SELECT Bettype FROM bodb_Account.dbo.BettypeGroup (NOLOCK) WHERE BettypeGroupID = 6)
 		  AND b.SiteID IN (SELECT SiteID FROM bodb_Account.dbo.tbl_Site WHERE isDeposit = 0)
 	GROUP BY b.rptDate
 	OPTION(RECOMPILE)

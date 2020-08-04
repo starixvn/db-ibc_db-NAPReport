@@ -27,6 +27,7 @@ AS
 		- 20200521@Ned.Le - Re-Integrate Fishing World product for letstalk (#134533)
 		- 20200701@Kean.Nguyen - House Net Income Email/Letstalk - Change formula to Calculate Margin (#136792)
 		- 20200720@Kean - DHWL Email/Letstalk - Separate Saba Sports from real Sports (#137822)
+		- 20200722@Ned.Le - Email/Letstalk Reports - Integrate Jackpot Games (#137280)
 	
 	Param's Explanation:   
 	- DepositType  
@@ -47,6 +48,21 @@ BEGIN
 
     SELECT @FDate = @FromDate
 	    , @TDate = @ToDate;
+	
+	-- #tmpBettypeGroup
+	CREATE TABLE #tmpBettypeGroup (
+		BettypeGroupID SMALLINT,
+		Bettype INT
+	)
+
+	INSERT INTO #tmpBettypeGroup (BettypeGroupID, Bettype)
+	SELECT bg.BettypeGroupID, bg.Bettype
+	FROM bodb_Account.dbo.BettypeGroup bg (NOLOCK)
+		 LEFT JOIN bodb_Account.dbo.Product_Bettype pb (NOLOCK) ON bg.Bettype = pb.Bettype
+		 LEFT JOIN bodb_Account.dbo.Bettype b (NOLOCK) ON bg.Bettype = b.typeid
+	WHERE bg.BettypeGroupID IN (6, 10)
+		  AND b.typenamee LIKE '%Jackpot%'
+
     -- #Exchange
 	DECLARE @SiteCN88    INT;
 
@@ -70,44 +86,46 @@ BEGIN
     -- #FinalResult
 
 	CREATE TABLE #FinalResult(
-	    RptDate               VARCHAR(10)
-	  , HouseTO_Soccer        MONEY
-	  , HouseTO_SabaSoccer        MONEY
-	  , HouseTO_Basketball    MONEY
-	  , HouseTO_SabaBasketball    MONEY
-	  , HouseTO_Tennis        MONEY
-	  , HouseTO_ESports       MONEY
-	  , HouseTO_OS            MONEY
-	  , HouseTO_Cricket            MONEY
-	  , HouseTO_Parlay        MONEY
-	  , HouseTO_NG        MONEY
-	  , HouseTO_H5        MONEY
-	  , HouseTO_VS        MONEY
-	  , HouseTO_RNGKeno        MONEY
-	  , HouseTO_NG2        MONEY
-	  , HouseTO_MacauG        MONEY
-	  , HouseTO_AB        MONEY
-	  , HouseTO_GD        MONEY
-	  , HouseTO_LT        MONEY
-	  , HouseTO_EX        MONEY
-	  , HouseTO_VS2        MONEY
-	  , HouseTO_1RNG        MONEY
-	  , HouseTO_1RNG_JP_MegaPrize        MONEY
-	  , HouseTO_1RNG_JP_Contribution        MONEY
-	  , HouseTO_PP        MONEY
-	  , HouseTO_CC        MONEY
-	  , HouseTO_SP        MONEY
-	  , HouseTO_SG        MONEY
-	  , HouseTO_VG        MONEY
-	  , HouseTO_SA        MONEY
-	  , HouseTO_SBC        MONEY
-	  , HouseTO_SXG        MONEY
-	  , HouseTO_BBIN        MONEY
-	  , HouseTO_TG        MONEY
-	  , HouseTO_IBCLC        MONEY
-	  , HouseTO_ION       MONEY
-	  , HouseTO_RNGW      MONEY
-	  , HouseTO_FW        MONEY);
+	    RptDate							VARCHAR(10)
+	  , HouseTO_Soccer					MONEY
+	  , HouseTO_SabaSoccer        		MONEY
+	  , HouseTO_Basketball				MONEY
+	  , HouseTO_SabaBasketball    		MONEY
+	  , HouseTO_Tennis					MONEY
+	  , HouseTO_ESports					MONEY
+	  , HouseTO_OS						MONEY
+	  , HouseTO_Cricket            		MONEY
+	  , HouseTO_Parlay					MONEY
+	  , HouseTO_NG						MONEY
+	  , HouseTO_H5						MONEY
+	  , HouseTO_VS						MONEY
+	  , HouseTO_RNGKeno					MONEY
+	  , HouseTO_NG2						MONEY
+	  , HouseTO_MacauG					MONEY
+	  , HouseTO_AB						MONEY
+	  , HouseTO_GD						MONEY
+	  , HouseTO_LT						MONEY
+	  , HouseTO_EX						MONEY
+	  , HouseTO_VS2						MONEY
+	  , HouseTO_1RNG					MONEY
+	  , HouseTO_1RNG_JP_MegaPrize		MONEY
+	  , HouseTO_1RNG_JP_Contribution    MONEY
+	  , HouseTO_PP						MONEY
+	  , HouseTO_PP_JP_MegaPrize			MONEY
+	  , HouseTO_PP_JP_Contribution      MONEY
+	  , HouseTO_CC						MONEY
+	  , HouseTO_SP						MONEY
+	  , HouseTO_SG						MONEY
+	  , HouseTO_VG						MONEY
+	  , HouseTO_SA						MONEY
+	  , HouseTO_SBC						MONEY
+	  , HouseTO_SXG						MONEY
+	  , HouseTO_BBIN					MONEY
+	  , HouseTO_TG						MONEY
+	  , HouseTO_IBCLC					MONEY
+	  , HouseTO_ION						MONEY
+	  , HouseTO_RNGW					MONEY
+	  , HouseTO_FW						MONEY);
 
 	  DECLARE @tmpDate     DATE
 		, @DateList    VARCHAR(200) = '[FullRange]';
@@ -129,19 +147,17 @@ BEGIN
 		, Bettype      INT);
 
     INSERT INTO #SportBettypeMatrix(ProductID, Bettype)
-		SELECT DISTINCT ProductID
-			 , BetType
-		FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)
-		WHERE SubProduct NOT IN('BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss')
-		 AND ProductID IN (1, 3, 5, 8, 23, 22, 21, 12, 28, 27, 6, 32, 34, 36, 38, 39, 42, 45, 47, 40, 46, 52, 50, 24)
-		 AND BetType NOT IN (4299, 4300) -- PP
+	SELECT DISTINCT ProductID, BetType
+	FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)
+	WHERE SubProduct NOT IN('BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss')
+	      AND ProductID IN (1, 3, 5, 8, 23, 22, 21, 12, 28, 27, 6, 32, 34, 36, 38, 39, 42, 45, 47, 40, 46, 52, 50, 24)
 
-		 CREATE TABLE #TmpData(
-				rptDate      DATE
-				, ProductID INT
-				, SportType    INT
-				, BetType    INT
-				, HouseTO      MONEY);
+	CREATE TABLE #TmpData(
+		rptDate      	DATE
+		, ProductID 	INT
+		, SportType    	INT
+		, BetType    	INT
+		, HouseTO      	MONEY);
 	    
     INSERT INTO #TmpData(rptDate
 				   , ProductID
@@ -205,7 +221,9 @@ BEGIN
 						  , HouseTO_1RNG
 						  , HouseTO_1RNG_JP_MegaPrize
 						  , HouseTO_1RNG_JP_Contribution        
-						  , HouseTO_PP   
+						  , HouseTO_PP
+						  , HouseTO_PP_JP_MegaPrize
+						  , HouseTO_PP_JP_Contribution
 						  , HouseTO_CC
 						  , HouseTO_SP
 						  , HouseTO_SG
@@ -247,6 +265,18 @@ SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 	,(SELECT SUM(t.HouseTO) FROM #TmpData AS t WHERE t.BetType IN (2199, 2399, 2999) AND t.rptDate = @tmpDate) AS HouseTO_1RNG_JP_MegaPrize
 	,(SELECT SUM(t.HouseTO) FROM #TmpData AS t WHERE t.BetType IN (2198, 2398, 2998) AND t.rptDate = @tmpDate) AS HouseTO_1RNG_JP_Contribution
 	,(SELECT SUM(t.HouseTO) FROM #TmpData AS t WHERE t.ProductID = 32 AND t.rptDate = @tmpDate) AS  HouseTO_PP
+	,(SELECT SUM(t.HouseTO)
+	  FROM #TmpData AS t
+	       INNER JOIN #tmpBettypeGroup AS bg ON t.BetType = bg.Bettype
+	  WHERE t.rptDate = @tmpDate
+		    AND t.ProductID = 32
+	        AND bg.BettypeGroupID = 6) AS HouseTO_1RNG_JP_MegaPrize
+	,(SELECT SUM(t.HouseTO)
+	  FROM #TmpData AS t
+	       INNER JOIN #tmpBettypeGroup AS bg ON t.BetType = bg.Bettype
+	  WHERE t.rptDate = @tmpDate
+		    AND t.ProductID = 32
+	        AND bg.BettypeGroupID = 10) AS HouseTO_1RNG_JP_Contribution
 	,(SELECT SUM(t.HouseTO) FROM #TmpData AS t WHERE t.ProductID = 34 AND t.rptDate = @tmpDate) AS  HouseTO_CC
 	, 0 HouseTO_SP
 	,(SELECT SUM(t.HouseTO) FROM #TmpData AS t WHERE t.ProductID = 36 AND t.rptDate = @tmpDate) AS  HouseTO_SG
@@ -286,7 +316,9 @@ INSERT INTO #FinalResult(RptDate
 					, HouseTO_1RNG
 					, HouseTO_1RNG_JP_MegaPrize
 					, HouseTO_1RNG_JP_Contribution        
-					, HouseTO_PP   
+					, HouseTO_PP
+					, HouseTO_PP_JP_MegaPrize
+				    , HouseTO_PP_JP_Contribution
 					, HouseTO_CC
 					, HouseTO_SP
 					, HouseTO_SG
@@ -301,21 +333,21 @@ INSERT INTO #FinalResult(RptDate
 					, HouseTO_RNGW
 					, HouseTO_FW)
 		 SELECT 'FullRange'
-			 , SUM(HouseTO_Soccer)
-			 , SUM(HouseTO_SabaSoccer)
-			 , SUM(HouseTO_Basketball)
-			 , SUM(HouseTO_SabaBasketball)
-			 , SUM(HouseTO_Tennis)
-			 , SUM(HouseTO_ESports)
-			 , SUM(HouseTO_OS)
-			 , SUM(HouseTO_Cricket)
-			 , SUM(HouseTO_Parlay)
-			 , SUM(HouseTO_NG)        
-			 , SUM(HouseTO_H5)        
-			 , SUM(HouseTO_VS)        
-			 , SUM(HouseTO_RNGKeno)        
-			 , SUM(HouseTO_NG2)        
-			 , SUM(HouseTO_MacauG)        
+			, SUM(HouseTO_Soccer)
+			, SUM(HouseTO_SabaSoccer)
+			, SUM(HouseTO_Basketball)
+			, SUM(HouseTO_SabaBasketball)
+			, SUM(HouseTO_Tennis)
+			, SUM(HouseTO_ESports)
+			, SUM(HouseTO_OS)
+			, SUM(HouseTO_Cricket)
+			, SUM(HouseTO_Parlay)
+			, SUM(HouseTO_NG)        
+			, SUM(HouseTO_H5)        
+			, SUM(HouseTO_VS)        
+			, SUM(HouseTO_RNGKeno)        
+			, SUM(HouseTO_NG2)        
+			, SUM(HouseTO_MacauG)        
 			, SUM(HouseTO_AB)
 			, SUM(HouseTO_GD)        
 			, SUM(HouseTO_LT)
@@ -324,7 +356,9 @@ INSERT INTO #FinalResult(RptDate
 			, SUM(HouseTO_1RNG)
 			, SUM(HouseTO_1RNG_JP_MegaPrize)
 			, SUM(HouseTO_1RNG_JP_Contribution)        
-			, SUM(HouseTO_PP)   
+			, SUM(HouseTO_PP)
+			, SUM(HouseTO_PP_JP_MegaPrize)
+			, SUM(HouseTO_PP_JP_Contribution)
 			, SUM(HouseTO_CC)
 			, SUM(HouseTO_SP)
 			, SUM(HouseTO_SG)
@@ -345,7 +379,7 @@ INSERT INTO #FinalResult(RptDate
     SELECT @SQL = 'SELECT * ' + CHAR(13) 
     + 'FROM	(SELECT ProductCode, [Order], [RptDate], Figure, ISNULL(value, 0) value FROM #FinalResult' + CHAR(13) 
     + 'CROSS APPLY' + CHAR(13) + '(SELECT ''Soccer'', 1, ''House TurnOver'', HouseTO_Soccer' + CHAR(13) 
-	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SabaSoccer'', 1, ''House TurnOver'', HouseTO_SabaSoccer' + CHAR(13)
+    + 'UNION ALL' + CHAR(13) + 'SELECT ''SabaSoccer'', 1, ''House TurnOver'', HouseTO_SabaSoccer' + CHAR(13)
     + 'UNION ALL' + CHAR(13) + 'SELECT ''Basketball'', 2, ''House TurnOver'', HouseTO_Basketball' + CHAR(13)
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SabaBasketball'', 2, ''House TurnOver'', HouseTO_SabaBasketball' + CHAR(13) 
     + 'UNION ALL' + CHAR(13) + 'SELECT ''Tennis'', 3, ''House TurnOver'', HouseTO_Tennis' + CHAR(13) 
@@ -369,19 +403,21 @@ INSERT INTO #FinalResult(RptDate
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''1RNG-JP'', 19, ''House TurnOver'', HouseTO_1RNG_JP_MegaPrize' + CHAR(13)
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''1RNG-JP'', 20, ''House TurnOver'', HouseTO_1RNG_JP_Contribution' + CHAR(13)
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''PP'', 21, ''House TurnOver'', HouseTO_PP' + CHAR(13)
-	+ 'UNION ALL' + CHAR(13) + 'SELECT ''CC'', 22, ''House TurnOver'', HouseTO_CC' + CHAR(13)
-    + 'UNION ALL' + CHAR(13) + 'SELECT ''SP'', 23, ''House TurnOver'', HouseTO_SP' + CHAR(13)
-	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SG'', 24, ''House TurnOver'', HouseTO_SG' + CHAR(13)
-	+ 'UNION ALL' + CHAR(13) + 'SELECT ''VG'', 25, ''House TurnOver'', HouseTO_VG' + CHAR(13)
-	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SAG'', 26, ''House TurnOver'', HouseTO_SA' + CHAR(13)
-	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SBC'', 27, ''House TurnOver'', HouseTO_SBC' + CHAR(13)
-	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SXG'', 28, ''House TurnOver'', HouseTO_SXG' + CHAR(13)
-	+ 'UNION ALL' + CHAR(13) + 'SELECT ''BBIN'', 29, ''House TurnOver'', HouseTO_BBIN' + CHAR(13)
-	+ 'UNION ALL' + CHAR(13) + 'SELECT ''TG'', 30, ''House TurnOver'', HouseTO_TG' + CHAR(13)
-    + 'UNION ALL' + CHAR(13) + 'SELECT ''IBCLC'', 31, ''House TurnOver'', HouseTO_IBCLC' + CHAR(13)
-	+ 'UNION ALL' + CHAR(13) + 'SELECT ''ION'', 32, ''House TurnOver'', HouseTO_ION' + CHAR(13)
-	+ 'UNION ALL' + CHAR(13) + 'SELECT ''RNGW'', 33, ''House TurnOver'', HouseTO_RNGW' + CHAR(13)
-	+ 'UNION ALL' + CHAR(13) + 'SELECT ''FW'', 34, ''House TurnOver'', HouseTO_FW) c (ProductCode, [Order], Figure, value)) a' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''PP-JP'', 22, ''House TurnOver'', HouseTO_PP_JP_MegaPrize' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''PP-JP'', 23, ''House TurnOver'', HouseTO_PP_JP_Contribution' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''CC'', 24, ''House TurnOver'', HouseTO_CC' + CHAR(13)
+    + 'UNION ALL' + CHAR(13) + 'SELECT ''SP'', 25, ''House TurnOver'', HouseTO_SP' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SG'', 26, ''House TurnOver'', HouseTO_SG' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''VG'', 27, ''House TurnOver'', HouseTO_VG' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SAG'', 28, ''House TurnOver'', HouseTO_SA' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SBC'', 29, ''House TurnOver'', HouseTO_SBC' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''SXG'', 30, ''House TurnOver'', HouseTO_SXG' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''BBIN'', 31, ''House TurnOver'', HouseTO_BBIN' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''TG'', 32, ''House TurnOver'', HouseTO_TG' + CHAR(13)
+    + 'UNION ALL' + CHAR(13) + 'SELECT ''IBCLC'', 33, ''House TurnOver'', HouseTO_IBCLC' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''ION'', 34, ''House TurnOver'', HouseTO_ION' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''RNGW'', 35, ''House TurnOver'', HouseTO_RNGW' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''FW'', 36, ''House TurnOver'', HouseTO_FW) c (ProductCode, [Order], Figure, value)) a' + CHAR(13)
     + 'PIVOT' + CHAR(13) 
     + '(' + CHAR(13) 
     + 'MAX(value)' + CHAR(13) 
@@ -392,6 +428,7 @@ INSERT INTO #FinalResult(RptDate
     EXEC (@SQL);
 	
     -- Drop temp tables
+	DROP TABLE #tmpBettypeGroup;
     DROP TABLE #SportBettypeMatrix;
 	DROP TABLE #tmpLeague;
     DROP TABLE #Exchange;
@@ -400,4 +437,3 @@ INSERT INTO #FinalResult(RptDate
 
 END
 GO
-GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_ProductTurnover_BySite] TO [dwrs]
