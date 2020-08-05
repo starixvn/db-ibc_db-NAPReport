@@ -160,7 +160,7 @@ BEGIN
 
 	CREATE TABLE #FeeData (PartyID INT, ProductID INT, AComm MONEY, MinFeeApplied MONEY, WLFeeApplied MONEY, AmountToCompany MONEY)
     INSERT INTO #FeeData (PartyId, ProductID, AComm, MinFeeApplied, WLFeeApplied, AmountToCompany)
-    EXEC dbo.Acc_Rpt_HouseNetIncome_LicenseeFee @FromDate = @FDate, @ToDate = @TDate, @Products = @ProductPrefix
+    EXEC dbo.Acc_Rpt_HouseNetIncome_LicenseeFee_PP @FromDate = @FDate, @ToDate = @TDate
 
 	CREATE TABLE #FinalResult (rptDate VARCHAR(10), HouseIncome MONEY, PayToSupplier MONEY)
 	INSERT INTO #FinalResult (rptDate, HouseIncome)

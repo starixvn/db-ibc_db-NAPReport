@@ -19,7 +19,6 @@ AS
 	   - 20200108@Percy: #124755 - Support billing terms by product & currency instead of product only
 	   - 20200403@Percy: Change name of tmp table to prevent duplicate name with main SP [RedmineID: #131755]
 	   - 20200506@Sophia: Fix bug get old setting [redmine: #133709]
-	   - 20200715@Percy: Integrate PP Jackpot [RedmineID: #137280]
 */
 
 BEGIN
@@ -190,49 +189,6 @@ BEGIN
 		INNER JOIN #tmp__Exchange e ON e.ExchangeDate = @TDate AND m.CurrencyId = e.ExchangeID
 	-- End region
 
-	CREATE TABLE #__Site (SiteID_DW INT, LicenseeID INT, SiteName VARCHAR(20))
-	INSERT INTO #__Site (SiteID_DW, SiteName)
-	SELECT SiteID, RTRIM(LTRIM(Site)) SiteName
-	FROM DBWH.bodb_Account.dbo.tbl_Site WITH (NOLOCK) WHERE isDeposit = 1
-
-	UPDATE s
-	SET s.LicenseeID = l.LicenseeID
-	FROM #__Site s
-		INNER JOIN bodb_licensee.dbo.Licensees l WITH (NOLOCK) ON s.SiteName  = RTRIM(LTRIM(l.LicenseeName))
-
-	CREATE TABLE #__Bettype (ProductID INT, BetType INT)
-	INSERT INTO #__Bettype (ProductID, BetType)
-	SELECT s.ProductID, s.BetType FROM bodb02.dbo.SportBettypeMatrix s WITH (NOLOCK)
-		INNER JOIN @ProductList p ON s.ProductID = p.ProductID
-	WHERE s.Bettype NOT IN (901, 902, 903, 904, 4298, 4299, 4300)
-
-	CREATE TABLE #__tempDataDW
-	(
-		rptDate					DATE
-		,LicenseeID				INT
-		,CurrencyID				INT
-		,ProductID				INT
-		,Bettype				INT
-		,LicenseeWL				MONEY
-		,LicenseeComm			MONEY
-		,LicenseeContribution	MONEY
-		,FullContribution		MONEY
-	)
-
-	INSERT INTO #__tempDataDW (rptDate, LicenseeID, CurrencyID, ProductID, Bettype, LicenseeWL, LicenseeComm, LicenseeContribution, FullContribution)
-	SELECT b.rptDate, s.LicenseeID, b.CurrencyID, bt.ProductID, b.Bettype
-		,SUM(CASE WHEN b.bettype = 4297 THEN 0 ELSE -b.WinlossP END) AS LicenseeWL
-		,SUM(CASE WHEN b.bettype = 4297 THEN 0 ELSE b.CommissionA END) AS LicenseeComm
-		,SUM(CASE WHEN b.bettype = 4297 THEN -b.WinlossA ELSE 0 END) AS LicenseeContribution
-		,SUM(CASE WHEN b.bettype = 4297 THEN b.WinlossIBC-b.WinlossS-b.WinlossM-b.WinlossA ELSE 0 END) AS FullContribution
-	FROM DBWH.bodb_Account.dbo.FactSiteWinloss b WITH (NOLOCK)
-		INNER JOIN #__Site s ON b.SiteID = s.SiteID_DW
-		INNER JOIN #__Bettype bt ON b.BetType = bt.BetType
-	WHERE b.rptDate BETWEEN @FDate AND @TDate
-		AND b.CurrencyID <> 20
-		AND b.TicketStatus NOT IN (-1, 18, 9, 10, 14)
-	GROUP BY b.rptDate, s.LicenseeID, b.CurrencyID, bt.ProductID, b.Bettype
-
 	CREATE TABLE #tmp__Data
 	(
 		PartyId            INT
@@ -259,16 +215,21 @@ BEGIN
 		p.PartyId
 		,b.rptDate
 		,b.CurrencyID
-		,SUM(-LicenseeWL * e.Rate) AS WinLoss
-		,SUM(b.LicenseeComm * e.Rate) AS AComm
+		,SUM(ISNULL(b.MemberWL, 0) * e.Rate) AS WinLoss
+		,SUM(ISNULL(b.CommissionA, 0) * e.Rate) AS AComm
 		,p.ProductId
-		,SUM((b.LicenseeWL - b.LicenseeContribution) * ISNULL(lc.Rate, p.Rate) - (b.FullContribution - b.LicenseeContribution)) AS AmountToCompany
+		,SUM(-ISNULL(b.MemberWL, 0) * ISNULL(lc.Rate, p.Rate) * e.Rate) AS AmountToCompany
 		,1 AS IsApplyMinFee
-	FROM #__tempDataDW b
+	FROM bodb_LicenseeReport.dbo.rpt_BettingByProduct b WITH (NOLOCK)
 		INNER JOIN #tmp__Exchange e ON b.rptDate = e.ExchangeDate AND b.CurrencyId = e.ExchangeID
-		INNER JOIN @PartyChargeInfo p ON b.ProductId = p.ProductID AND p.LicenseeId = b.LicenseeId AND b.rptDate BETWEEN p.FromDate AND p.ToDate AND (p.Bettype = -1 OR p.Bettype = b.Bettype)
+		INNER JOIN @PartyChargeInfo p ON b.ProductId = p.ProductID AND p.LicenseeId = b.SiteId AND b.rptDate BETWEEN p.FromDate AND p.ToDate AND (p.Bettype = -1 OR p.Bettype = b.Bettype)
 		LEFT JOIN bodb_Licensee.dbo.LA_ChargeRateByCurrency lc WITH (NOLOCK) ON p.ChargeId = lc.ChargeID AND b.CurrencyId = lc.CurrencyID
-	WHERE
+	WHERE b.rptDate BETWEEN @FDate AND @TDate
+		AND b.CurrencyID <> 20
+		AND b.customercategory NOT IN(27, 28)
+		AND b.Bettype NOT IN(901, 902, 903, 904, 4300)
+		AND b.StatusId NOT IN(-1, 103) /* Exclude Reject , Void, Refund*/
+		AND
 		(
 			(
 				p.ChargeType = 12
@@ -277,7 +238,7 @@ BEGIN
 			OR 
 			(
 				p.ChargeType <> 12
-				AND b.Bettype = CASE WHEN @Products = 'NG' AND @SubProduct = 'H5' THEN 8101 ELSE b.Bettype END
+				AND b.Bettype = CASE WHEN @Products = 'NG' AND @SubProduct = 'H5' THEN 8101 ELSE -1 END
 			)
 		)
 	GROUP BY
@@ -488,11 +449,8 @@ BEGIN
 		,AmountToCompany
 	FROM #tmp__SumByProducts
 
-	DROP TABLE #__tempDataDW
 	DROP TABLE #tmp__Data
 	DROP TABLE #tmp__Exchange
 	DROP TABLE #tmp__SumByProducts
-	DROP TABLE #__Site
-	DROP TABLE #__Bettype
 END
 GO
