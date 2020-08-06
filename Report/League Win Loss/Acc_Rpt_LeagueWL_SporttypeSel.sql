@@ -13,6 +13,7 @@ AS
 	Revisions:
 		- 20200422@Ned.Le: NAP Report - Adjustment for League Win Loss (#132846)
 		- 20200520@Ned.Le: NAP Report - Enhancement for League Win Loss (#134439)
+		- 20200806@Jaden.Tang: NAP Report - Enhancement for League Win Loss (#138995)
 
 	Param's Explanation:
 
@@ -32,7 +33,15 @@ BEGIN
 			   CASE WHEN sbm.SportType = 1 THEN 'Soccer'
 					ELSE 'Others' END SportGroupName,
 			   sbm.SportType,
-			   s.SportName,
+			   CASE
+					WHEN sbm.BetType IN (1, 2, 3, 5, 6, 7, 8, 12, 15, 24, 25, 28, 121, 122,123, 126, 151, 301, 302, 303, 304)
+						AND s.SportType = 1 --Soccer
+					THEN 'Major Bet Types'
+					WHEN sbm.BetType NOT IN (1, 2, 3, 5, 6, 7, 8, 12, 15, 24, 25, 28, 121, 122,123, 126, 151, 301, 302, 303, 304)
+						AND s.SportType = 1
+					THEN 'Minor Bet Types'
+					ELSE s.SportName
+				END SportName,
 			   sbm.BetType Bettype,
 			   b.typenamee BettypeName
 		FROM bodb02.dbo.SportBettypeMatrix sbm (NOLOCK)
