@@ -33,15 +33,22 @@ BEGIN
 			   CASE WHEN sbm.SportType = 1 THEN 'Soccer'
 					ELSE 'Others' END SportGroupName,
 			   sbm.SportType,
+			   s.SportName SportName,
 			   CASE
-					WHEN sbm.BetType IN (1, 2, 3, 5, 6, 7, 8, 12, 15, 24, 25, 28, 121, 122,123, 126, 151, 301, 302, 303, 304)
-						AND s.SportType = 1 --Soccer
+					WHEN (sbm.BetType IN (1, 2, 3, 5, 6, 7, 8, 12, 15, 24, 25, 28, 121, 122,123, 126, 151, 301, 302, 303, 304)
+						AND s.SportType = 1)  --Soccer
+						OR
+						(sbm.BetType IN (1, 2, 3, 7, 8, 12)
+						AND s.SportType = 2) --Basketball
 					THEN 'Major Bet Types'
-					WHEN sbm.BetType NOT IN (1, 2, 3, 5, 6, 7, 8, 12, 15, 24, 25, 28, 121, 122,123, 126, 151, 301, 302, 303, 304)
-						AND s.SportType = 1
+					WHEN (sbm.BetType NOT IN (1, 2, 3, 5, 6, 7, 8, 12, 15, 24, 25, 28, 121, 122,123, 126, 151, 301, 302, 303, 304)
+						AND s.SportType = 1)  --Soccer
+						OR
+						(sbm.BetType NOT IN (1, 2, 3, 7, 8, 12)
+						AND s.SportType = 2) --Basketball
 					THEN 'Minor Bet Types'
-					ELSE s.SportName
-				END SportName,
+					ELSE NULL
+			   END BetGroupName,
 			   sbm.BetType Bettype,
 			   b.typenamee BettypeName
 		FROM bodb02.dbo.SportBettypeMatrix sbm (NOLOCK)
@@ -58,6 +65,7 @@ BEGIN
 			   'Parlay' SportGroupName,
 			   10000 SportType,
 			   'Parlay' SportName,
+			   NULL BetGroupName,
 			   sbm.BetType Bettype,
 			   b.typenamee BettypeName
 		FROM bodb02.dbo.SportBettypeMatrix sbm (NOLOCK)
@@ -69,6 +77,7 @@ BEGIN
 		   SportGroupName,
 		   SportType,
 		   SportName,
+		   BetGroupName,
 		   Bettype,
 		   BettypeName
 	FROM CTE_ListOfSports
