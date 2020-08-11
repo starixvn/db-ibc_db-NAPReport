@@ -254,7 +254,8 @@ BEGIN
     END
 	
     -- final aggregation by Site, display report
-	SELECT  Site,
+	SELECT  s.siteid SiteID,
+            MAX(t.Site) SiteName,
 		    SUM(MemberWinLoss) AS MemberWinLoss,
             SUM(SMAWinLoss) AS SMAWinLoss,
             SUM(ExtraPT) AS ExtraPT,
@@ -264,13 +265,15 @@ BEGIN
             SUM(VarianceIncome) AS VarianceIncome,
             SUM(RealTurnover) AS RealTurnover, 
             SUM(VirtualTurnover) AS VirtualTurnover
-	FROM #tmpData
-    GROUP BY Site
-    ORDER BY CASE WHEN Site = 'Soccer 8RM'        THEN 1
-                  WHEN Site = 'Other Sports 8RM'  THEN 2
-                  WHEN Site = 'Soccer BARM'       THEN 3
-                  WHEN Site = 'Other Sports BARM' THEN 4
-                  ELSE 0 END
+	FROM #tmpData t
+    LEFT JOIN bodb02.dbo.Site s
+        ON t.Site = s.site
+    GROUP BY s.siteid
+    ORDER BY CASE WHEN MAX(t.Site) = 'Soccer 8RM'        THEN 2
+                  WHEN MAX(t.Site) = 'Other Sports 8RM'  THEN 3
+                  WHEN MAX(t.Site) = 'Soccer BARM'       THEN 4
+                  WHEN MAX(t.Site) = 'Other Sports BARM' THEN 5
+                  ELSE 1 END
 
 	DROP TABLE #tmpData
     DROP TABLE #agent
