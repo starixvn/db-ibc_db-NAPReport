@@ -271,13 +271,13 @@ BEGIN
                             WHEN @SportType = 1 AND t.AgentId = 5707545 THEN 'Soccer BARM'
                             WHEN @SportType > 1 AND t.AgentId = 5707545 THEN 'Other Sports BARM'
                             ELSE '' END AS Site,
-                    SUM(MemberWinLoss) AS MemberWinLoss,
-                    SUM(SMAWinLoss) AS SMAWinLoss,
+                    - SUM(MemberWinLoss) AS MemberWinLoss,
+                    - SUM(SMAWinLoss) AS SMAWinLoss,
                     SUM(ExtraPT) AS ExtraPT,
                     SUM(Commission) AS Commission,
-                    SUM(RealIncome) AS RealIncome,
-                    SUM(VirtualIncome) AS VirtualIncome,
-                    SUM(VarianceIncome) AS VarianceIncome,
+                    - SUM(RealIncome) AS RealIncome,
+                    - SUM(VirtualIncome) AS VirtualIncome,
+                    - SUM(VarianceIncome) AS VarianceIncome,
                     SUM(RealTurnover) AS RealTurnover, 
                     SUM(VirtualTurnover) AS VirtualTurnover
             FROM #tmpData t
