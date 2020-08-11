@@ -40,6 +40,7 @@ AS
 		- 20200529@Ned.Le - House Net Income Email/Letstalk - Change timezone to calculate monthly Pay To Supplier (#134867)
 		- 20200701@Kean.Nguyen - House Net Income Email/Letstalk - Change formula to Calculate Margin (#136792)
 		- 20200714@Ned.Le - Email/Letstalk Reports - Integrate Jackpot Games (#137280)
+		- 20200811@Kean - Email/Letstalk Reports - Integrate PG Soft (#137764)
 
 	Param's Explanation:   
 		- @ProductList: '' - default value when get all product
@@ -66,8 +67,8 @@ BEGIN
 	FROM bodb_Account.dbo.tbl_Site WITH(NOLOCK)
 	WHERE [site] = 'CN88'
 
-	DECLARE @ProductCodeAll VARCHAR(MAX) = 'NG,VS,KN,LT,VS2,VB,CS,NG2,AB,GD,CB,PP,CC,SG,VRG,SAG,SBC,SXG,BBIN,TG,IBCLC,ION,RNGW,FW'
-	DECLARE @ProductCodeGMT4 VARCHAR(1000) = 'VB,CC,BBIN,TG,IBCLC,ION,RNGW'
+	DECLARE @ProductCodeAll VARCHAR(MAX) = 'NG,VS,KN,LT,VS2,VB,CS,NG2,AB,GD,CB,PP,CC,SG,VRG,SAG,SBC,SXG,BBIN,TG,IBCLC,ION,RNGW,FW,PGS'
+	DECLARE @ProductCodeGMT4 VARCHAR(1000) = 'VB,CC,BBIN,TG,IBCLC,ION,RNGW,PGS'
 	DECLARE @ProductCodeGMT VARCHAR(1000) = 'AB,FW,PP,SG,SAG,SXG'
 
 	-- #tmpBettypeGroup

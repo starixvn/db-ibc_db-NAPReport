@@ -34,6 +34,7 @@ AS
 		- 20200714@Ned.Le - Email/Letstalk Reports - Integrate Jackpot Games (#137280)
 						    * Remove the hardcoding of bettype=4299|4300 (FACT table already care about these bettypes)
 		- 20200813@Kean - DHWL Email/Letstalk - Change Product Name and Margin Report Format, Improve performance (#139537)
+		- 20200811@Kean - Email/Letstalk Reports - Integrate PG Soft (#137764)
 	
 	Param's Explanation:   
 	- DepositType  
@@ -63,8 +64,8 @@ BEGIN
 	FROM bodb_Account.dbo.tbl_Site WITH(NOLOCK)
 	WHERE [site] = 'CN88'
 
-	DECLARE @ProductIDAll VARCHAR(1000) = '3,5,8,23,22,21,12,28,27,6,32,34,36,39,45,47,40,46,52,50,24'
-	DECLARE @ProductCodeGMT4 VARCHAR(1000) = 'CC,BBIN,TG,IBCLC,ION,RNGW'
+	DECLARE @ProductIDAll VARCHAR(1000) = '3,5,8,23,22,21,12,28,27,6,32,34,36,39,45,47,40,46,52,50,24,55'
+	DECLARE @ProductCodeGMT4 VARCHAR(1000) = 'CC,BBIN,TG,IBCLC,ION,RNGW,PGS'
 	DECLARE @ProductCodeGMT VARCHAR(1000) = 'AB,FW,PP,SG,SAG,SXG'
 
     -- #Exchange
@@ -219,7 +220,7 @@ BEGIN
 		MemberWLOANDA			MONEY,
 		PayToSupplier_PP_MTD    MONEY)
 
-	-- + For Daily - CC, BBIN, TG, IBCLC, ION, RNGW
+	-- + For Daily - CC, BBIN, TG, IBCLC, ION, RNGW, PGS
 	INSERT INTO #tmpPayToSupplier_Daily (ProductId, RptDate, PayToSupplier_Daily)
 	SELECT t.ProductID,
 		   t.rptDate,
@@ -276,7 +277,8 @@ BEGIN
 	  , PayToSupplier_TG        MONEY
 	  , PayToSupplier_IBCLC     MONEY
 	  , PayToSupplier_ION       MONEY
-	  , PayToSupplier_RNGW      MONEY)
+	  , PayToSupplier_RNGW      MONEY
+	  , PayToSupplier_PGS      MONEY)
 
 	DECLARE @tmpDate     DATE,
 			@DateList    VARCHAR(200) = '[FullRange]'
@@ -303,7 +305,8 @@ BEGIN
 								 ,PayToSupplier_TG
 								 ,PayToSupplier_IBCLC
 								 ,PayToSupplier_ION
-								 ,PayToSupplier_RNGW)
+								 ,PayToSupplier_RNGW
+								 ,PayToSupplier_PGS)
 		SELECT CONVERT(VARCHAR(2), @tmpDate, 106)																										 AS RptDate
 			   ,(SELECT SUM(t.HouseWL) * 0.5 * (-1) FROM #tmpFactSiteWinloss AS t WHERE t.ProductID = 3 AND t.SportType <> 164 AND t.rptDate = @tmpDate) AS PayToSupplier_NG
 	           ,(SELECT SUM(t.HouseWL) * 0.5 * (-1) FROM #tmpFactSiteWinloss AS t WHERE t.ProductID = 3 AND t.SportType = 164 AND  t.rptDate = @tmpDate) AS PayToSupplier_H5
@@ -323,6 +326,7 @@ BEGIN
 	           ,(SELECT SUM(t.PayToSupplier_Daily) FROM #tmpPayToSupplier_Daily AS t WHERE t.ProductID = 46 AND t.rptDate = @tmpDate)                    AS PayToSupplier_IBCLC
 	           ,(SELECT SUM(t.PayToSupplier_Daily) FROM #tmpPayToSupplier_Daily AS t WHERE t.ProductID = 52 AND t.rptDate = @tmpDate)                    AS PayToSupplier_ION
 	           ,(SELECT SUM(t.PayToSupplier_Daily) FROM #tmpPayToSupplier_Daily AS t WHERE t.ProductID = 50 AND t.rptDate = @tmpDate)                    AS PayToSupplier_RNGW
+			   ,(SELECT SUM(t.PayToSupplier_Daily) FROM #tmpPayToSupplier_Daily AS t WHERE t.ProductID = 55 AND t.rptDate = @tmpDate)                    AS PayToSupplier_PGS
 
 		  SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate)
 	END
@@ -348,7 +352,8 @@ BEGIN
 							 ,PayToSupplier_TG
 							 ,PayToSupplier_IBCLC
 							 ,PayToSupplier_ION
-							 ,PayToSupplier_RNGW)
+							 ,PayToSupplier_RNGW
+							 ,PayToSupplier_PGS)
 	SELECT 'FullRange'																																	AS RptDate
 	       ,SUM(PayToSupplier_NG)																														AS PayToSupplier_NG  
 	       ,SUM(PayToSupplier_H5)																														AS PayToSupplier_H5
@@ -368,6 +373,7 @@ BEGIN
 	       ,SUM(PayToSupplier_IBCLC)																													AS PayToSupplier_IBCLC
 	       ,SUM(PayToSupplier_ION)																														AS PayToSupplier_ION
 	       ,CASE WHEN SUM(PayToSupplier_RNGW) > 0 THEN 0 ELSE SUM(PayToSupplier_RNGW) END																AS PayToSupplier_RNGW
+		   ,SUM(PayToSupplier_PGS)																														AS PayToSupplier_PGS
 	FROM #FinalResult
 
 	-- BEGIN - Calculate PayToSupplier for the rest other Products
@@ -428,7 +434,8 @@ BEGIN
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''TG'', 15, ''PayToSupplier'', PayToSupplier_TG' + CHAR(13)
     + 'UNION ALL' + CHAR(13) + 'SELECT ''IBCLC'', 16, ''PayToSupplier'', PayToSupplier_IBCLC' + CHAR(13)
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''ION'', 17, ''PayToSupplier'', PayToSupplier_ION' + CHAR(13)
-	+ 'UNION ALL' + CHAR(13) + 'SELECT ''RNGW'', 18, ''PayToSupplier'', PayToSupplier_RNGW) c (ProductCode, [Order], Figure, value)) a' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''RNGW'', 18, ''PayToSupplier'', PayToSupplier_RNGW' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''PGS'', 19, ''PayToSupplier'', PayToSupplier_PGS) c (ProductCode, [Order], Figure, value)) a' + CHAR(13)
     + 'PIVOT' + CHAR(13) 
     + '(' + CHAR(13) 
     + 'MAX(value)' + CHAR(13) 
