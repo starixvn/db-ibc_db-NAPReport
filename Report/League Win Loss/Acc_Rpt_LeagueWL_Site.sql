@@ -5,8 +5,7 @@ GO
 
 ALTER PROCEDURE dbo.Acc_Rpt_LeagueWL_Site @StartDate SMALLDATETIME,
                                           @EndDate SMALLDATETIME,
-                                          @SportType INT,
-										  @LeagueName VARCHAR(500),
+                                          @SportType INT = NULL,
                                           @MatchID INT,
                                           @LiveIndicator TINYINT,
 										  @BetType INT,
@@ -24,8 +23,7 @@ AS
 	Param's Explanation:
 		- @StartDate: The start date of data to view on report
 		- @EndDate: The end date of data to view on report
-		- @SportType: The sporttype to view on report
-		- @LeagueName: The leaguename to view on report
+		- @SportType: [Optional] The sporttype to view on report, if not specified, will calculate based on MatchID
         - @MatchID: The specific match to view on report
         - @LiveIndicator: To indicate the live status to view on report
 		- @BetType: The bettype to view on report
@@ -36,61 +34,29 @@ AS
 
 	Example:
         EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Site @StartDate='20200620', @EndDate='20200630'
-                    , @SportType=1, @LeagueName='DENMARK SUPER LEAGUE (PLAY OFF)', @MatchID=36693927, @LiveIndicator=0, @SiteType='Credit'
-                    , @BetType=1, @IsNoDraw=0
+                    , @SportType=1, @MatchID=36693927, @LiveIndicator=0, @SiteType='Credit', @BetType=1, @IsNoDraw=0
 */
 
 BEGIN
 	SET NOCOUNT ON
-	
-    BEGIN /*gather match & outright data based on @StartDate*/
-        CREATE TABLE #tmpMatch (matchid      INT,
-                                matchcode    VARCHAR(500),
-                                matchtype    TINYINT,
-                                homeid       INT,
-                                hometeamname VARCHAR(100),
-                                awayid       INT,
-                                awayteamname VARCHAR(100))
 
-            ;WITH CTE_all_matches AS (
-                SELECT m.matchid,
-                    m.matchcode,
-                    0 matchtype,
-                    m.homeid,
-                    m.awayid,
-                    m.leagueid
-                FROM [bodb02].[dbo].[match] m (NOLOCK)
-                WHERE m.eventdate = @StartDate
-                    AND m.matchid = @MatchID
-                UNION ALL
-                SELECT m.orid matchid,
-                    m.matchcode,
-                    1 matchtype,
-                    m.teamid homeid,
-                    -1 awayid,
-                    m.leagueid
-                FROM bodb02.dbo.outright m (NOLOCK)
-                WHERE m.eventdate = @StartDate
-                    AND m.orid = @MatchID
-            )
-        INSERT INTO #tmpMatch(matchid, matchcode, matchtype, homeid, hometeamname, awayid, awayteamname)
-            SELECT matchid,
-                matchcode,
-                matchtype,
-                homeid,
-                ISNULL(home.teamname, '') hometeamname,
-                awayid,
-                ISNULL(away.teamname, '') awayteamname
-            FROM CTE_all_matches m
-            INNER JOIN [bodb02].[dbo].[league] l (NOLOCK)
-                ON m.leagueid = l.leagueid
-            LEFT JOIN bodb02.dbo.Team home (NOLOCK) 
-                ON m.homeid = home.teamid
-            LEFT JOIN bodb02.dbo.Team away (NOLOCK) 
-                ON m.awayid = away.teamid
-            WHERE l.leaguename = @LeagueName
-                AND l.sporttype = @SportType
-                AND l.isTest = 0
+    BEGIN /*get sport type from league if null*/
+        IF @SportType IS NULL
+            SELECT @SportType = l.sporttype
+            FROM bodb02.dbo.league l
+            INNER JOIN bodb02.dbo.match m
+                ON l.leagueid = m.leagueid
+            WHERE m.matchid = @MatchID AND m.eventdate = @StartDate
+
+        IF @SportType IS NULL
+            SELECT @SportType = l.sporttype
+            FROM bodb02.dbo.league l
+            INNER JOIN bodb02.dbo.outright o
+                ON l.leagueid = o.leagueid
+            WHERE o.orid = @MatchID AND o.eventdate = @StartDate
+
+        IF @SportType IS NULL
+            RAISERROR(N'No sport type found with match id: %d', 16, 1, @MatchID)
     END
 
     BEGIN /*gather agent-site data depending on @SiteType*/
@@ -238,12 +204,10 @@ BEGIN
                                 * sd.virtualrate
                         END) AS VirtualTurnover
             FROM bodb02.dbo.bettrans sd (NOLOCK)
-            INNER JOIN #tmpMatch m 
-                ON sd.matchid = m.matchid
-                    AND CASE WHEN sd.bettype = 10 THEN 1 ELSE 0 END = m.matchtype --extra predicate to prevent dupplicated matchids
             INNER JOIN #agent a
                 ON sd.recommend = a.agentId
             WHERE sd.winlostdate = @StartDate
+                AND sd.matchid = @MatchID
                 AND sd.ruben = 1
                 AND sd.statusID IN (111, 112, 113)
                 AND sd.currency NOT IN (20, 27, 28)
@@ -308,10 +272,7 @@ BEGIN
                   WHEN Site = 'Other Sports BARM' THEN 4
                   ELSE 0 END
 
-	/*
-	DROP TABLE #tmpMatch
 	DROP TABLE #tmpData
     DROP TABLE #agent
-    */
 END
 GO
