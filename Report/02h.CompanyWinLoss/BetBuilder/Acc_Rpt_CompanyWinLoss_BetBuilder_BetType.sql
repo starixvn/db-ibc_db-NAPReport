@@ -35,11 +35,11 @@ EXEC Acc_Rpt_CompanyWinLoss_BetBuilder_BetType @StartDate='2020-07-23 00:00:00',
                       ,BetTypeName NVARCHAR(50)
                      );
         INSERT INTO #SportBetType
-				SELECT BetType, 
+				SELECT s.BetType, 
                       b.typenamee
 				FROM dbo.f_SportBetTypeMatrix_Sel(1, 0, 0, 2, 'Bet Builder', '', @isTest) s
                     INNER JOIN dbo.BetType b WITH(NOLOCK) ON s.BetType = b.typeid
-				GROUP BY BetType
+				GROUP BY s.BetType
 						,b.typenamee;
     END;
     BEGIN -- #DepositSuper
@@ -52,18 +52,20 @@ EXEC Acc_Rpt_CompanyWinLoss_BetBuilder_BetType @StartDate='2020-07-23 00:00:00',
                SELECT CustId
                FROM f_DepSuper_1('All');
     END;
-	BEGIN -- #tmpBetBuilderMatches
-        CREATE TABLE #tmpBetBuilderMatches (
+	BEGIN -- #tmpMatches
+        CREATE TABLE #tmpMatches (
 			MatchId INT PRIMARY KEY
 			)
-		INSERT INTO #tmpBetBuilderMatches
+		INSERT INTO #tmpMatches
         SELECT m.MatchId
-		FROM SportBettypeMatrix sm WITH (NOLOCK)
-			INNER JOIN match m WITH (NOLOCK) ON sm.sporttype = m.sporttype
-		WHERE sm.SubProduct = 'Bet Builder'
+		FROM match m WITH (NOLOCK)
+			INNER JOIN league l WITH (NOLOCK) ON m.leagueid = l.leagueid
+			INNER JOIN SportBettypeMatrix sm WITH (NOLOCK) ON l.sporttype = sm.sporttype
+		WHERE sm.SubProduct = 'Bet Builder'		
+			AND sm.sporttype = @SportType
 			AND m.EventDate = @StartDate
-			AND m.sporttype = @SportType
 		GROUP BY m.MatchId
+		OPTION (RECOMPILE)
     END;
     BEGIN -- Query
 
@@ -133,7 +135,7 @@ EXEC Acc_Rpt_CompanyWinLoss_BetBuilder_BetType @StartDate='2020-07-23 00:00:00',
                    END) AS VirtualTurnover
         FROM bettrans AS b WITH(NOLOCK)
 			 INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
-			 INNER JOIN #tmpBetBuilderMatches AS m WITH(NOLOCK) ON b.MatchId = m.MatchId
+			 INNER JOIN #tmpMatches AS m WITH(NOLOCK) ON b.MatchId = m.MatchId
              LEFT JOIN #DepositSuper AS dep ON b.srecommend = dep.CustId
              LEFT JOIN CS_CustSuper AS cn88 WITH(NOLOCK) ON b.srecommend = cn88.CustId
         WHERE b.winlostdate = @StartDate
@@ -156,5 +158,5 @@ EXEC Acc_Rpt_CompanyWinLoss_BetBuilder_BetType @StartDate='2020-07-23 00:00:00',
 
     DROP TABLE #SportBetType;
     DROP TABLE #DepositSuper;
-	DROP TABLE #tmpBetBuilderMatches;
+	DROP TABLE #tmpMatches;
 GO

@@ -18,13 +18,13 @@ AS
 BEGIN
 	
 	---Create temp tables---
-	CREATE TABLE #tmpBetBuilderMatches (
+	CREATE TABLE #tmpSportMatches (
 		MatchId INT
 		,SportType TINYINT
 		,SportName NVARCHAR(50)
 		)
 	
-	CREATE TABLE #tmpBetBuilderBetTypes (
+	CREATE TABLE #tmpBetTypes (
 		BetType SMALLINT
 		)
 	
@@ -33,32 +33,34 @@ BEGIN
 	/*
 		Define BetTypes of Bet Builder
 		From: f_SportBetTypeMatrix_Sel
-		To: #tmpBetBuilderBetTypes ( BetType )
+		To: #tmpBetTypes ( BetType )
 	*/
 	DECLARE @isTest BIT = dbo.f_CheckSPVersion(@@PROCID)
 	
-	INSERT INTO #tmpBetBuilderBetTypes
+	INSERT INTO #tmpBetTypes
 	SELECT DISTINCT BetType
 	FROM dbo.f_SportBetTypeMatrix_Sel(1, 0, 0, 2, 'Bet Builder', '', @isTest)
 	/*
-		Define Matches of Bet Builder
-		From: SportBettypeMatrix, Sports, match
-		To: #tmpBetBuilderMatches ( MatchId, SportType, SportName, BetType )
+		Define Matches of Bet Builder ( join with LEAGUE to get exactly SPORTTYPE )
+		From: match, league, SportBettypeMatrix, sports
+		To: #tmpSportMatches ( MatchId, SportType, SportName )
 	*/
-	INSERT INTO #tmpBetBuilderMatches
+	INSERT INTO #tmpSportMatches
 	SELECT m.MatchId
 		,s.Sporttype
 		,s.Sportname
-	FROM SportBettypeMatrix sm WITH (NOLOCK)
-		INNER JOIN sports s WITH (NOLOCK) ON sm.sporttype = s.sporttype
-		INNER JOIN match m WITH (NOLOCK) ON sm.sporttype = m.sporttype
-	WHERE sm.SubProduct = 'Bet Builder'
-		AND m.EventDate = @StartDate
+	FROM match m WITH (NOLOCK)
+		INNER JOIN league l WITH (NOLOCK) ON m.leagueid = l.leagueid
+		INNER JOIN SportBettypeMatrix sm WITH (NOLOCK) ON l.sporttype = sm.SportType
+		INNER JOIN sports s WITH (NOLOCK) ON l.sporttype = s.sporttype
+	WHERE m.EventDate = @StartDate
+		AND sm.SubProduct = 'Bet Builder'
 	GROUP BY m.MatchId
 		,s.Sporttype
 		,s.Sportname
+	OPTION (RECOMPILE)
 	
-	CREATE CLUSTERED INDEX [CIX_match] ON #tmpBetBuilderMatches( MatchId )
+	CREATE CLUSTERED INDEX [CIX_match] ON #tmpSportMatches( MatchId )
 	/*
 		Define Deposit Super user
 		From: f_DepSuper_1
@@ -142,9 +144,9 @@ BEGIN
 					THEN 0
 				ELSE (1 - b.tpositiontaking - ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * ABS(b.stake) * virtualrate
 				END) AS VirtualTurnover
-	FROM #tmpBetBuilderBetTypes AS bt
-		INNER JOIN bettrans AS b WITH (NOLOCK) ON bt.BetType = b.BetType
-		INNER JOIN #tmpBetBuilderMatches AS m WITH (NOLOCK) ON b.MatchId = m.MatchId
+	FROM bettrans AS b WITH (NOLOCK)
+		INNER JOIN #tmpBetTypes AS bt ON b.BetType = bt.BetType
+		INNER JOIN #tmpSportMatches AS m WITH (NOLOCK) ON b.MatchId = m.MatchId
 		LEFT JOIN CS_CustSuper AS cn88 WITH (NOLOCK) ON b.srecommend = cn88.CustId
 		LEFT JOIN #tmpDepSuper AS dep ON b.srecommend = dep.CustId
 	WHERE b.winlostdate = @StartDate
@@ -163,7 +165,7 @@ BEGIN
 		,RowName
 	OPTION (RECOMPILE)
 	
-	DROP TABLE #tmpBetBuilderMatches
-	DROP TABLE #tmpBetBuilderBetTypes
+	DROP TABLE #tmpSportMatches
+	DROP TABLE #tmpBetTypes
 	DROP TABLE #tmpDepSuper
 END

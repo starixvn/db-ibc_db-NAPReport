@@ -17,6 +17,7 @@ DB: DBACC/bodb02
 Revisions:
 - 20190925@Jacob: Group By CN88 (#118824)
 - 20191212@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
+- 20200722@Roy: Incorporate New Basketball Sport for BetBuilder Product - NAP Report (#138082)
 
 Parameters:
 @IsLive: 2 - ALL. 0 - Non-Live. 1 - Live
@@ -33,9 +34,9 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_SportType_LiveStatus] @EndDate='2018-08
         SELECT @isTest = dbo.f_CheckSPVersion(@@PROCID);
         CREATE TABLE #SportBetType(BetType INT);
         INSERT INTO #SportBetType
-               SELECT s.BetType
+               SELECT DISTINCT s.BetType
                FROM dbo.f_SportBetTypeMatrix_Sel(1, 0, 0, 2, '', '', @isTest) s
-               WHERE SubProduct NOT IN('MG-SuperLive', 'BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss')
+               WHERE SubProduct NOT IN('MG-SuperLive', 'BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss', 'Bet Builder')
                AND EventType IN(1, 2);
     END;
     BEGIN -- #DepositSuper

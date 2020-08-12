@@ -5,7 +5,7 @@ GO
 
 ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_BetBuilder_MatchDetail] @StartDate SMALLDATETIME, 
                                                                       @EndDate   SMALLDATETIME, 
-                                                                      @SportType SMALLINT      = 1, -- Dummy Parameter
+                                                                      @SportType SMALLINT,
                                                                       @BetType   INT           = 38, 
                                                                       @IsHedge   INT           = 2, -- Dummy Parameter
                                                                       @IsLive    INT           = 2-- Dummy Parameter
@@ -21,8 +21,9 @@ Revisions:
 - 20190313@Jacob: Integrate BetBuilder (#109822)
 - 20190925@Jacob: Group By CN88 (#118824)
 - 20191212@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
+- 20200722@Roy: Incorporate New Basketball Sport for BetBuilder Product - NAP Report (#138082)
 Example:
-EXEC [Acc_Rpt_CompanyWinLoss_BetBuilder_MatchDetail] @EndDate='2020-01-01',@StartDate='2016-01-01', @BetType = 38
+EXEC [Acc_Rpt_CompanyWinLoss_BetBuilder_MatchDetail] @EndDate='2020-01-01',@StartDate='2016-01-01', @SportType =2, @BetType = 38
 
 */
 
@@ -47,7 +48,17 @@ EXEC [Acc_Rpt_CompanyWinLoss_BetBuilder_MatchDetail] @EndDate='2020-01-01',@Star
                       m.HomeId, 
                       m.AwayId
                FROM Match m WITH(NOLOCK)
-               WHERE EventDate = @StartDate;
+					INNER JOIN league l WITH (NOLOCK) ON m.leagueid = l.leagueid
+               WHERE m.EventDate = @StartDate
+					AND l.sporttype = @SportType
+				GROUP BY m.MatchId, 
+                      m.MatchCode, 
+                      m.IsNeutral, 
+                      m.EventDate, 
+                      m.LeagueId, 
+                      m.HomeId, 
+                      m.AwayId
+			   OPTION (RECOMPILE)
     END;
     BEGIN -- #Data	
         CREATE TABLE #Data
@@ -151,7 +162,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_BetBuilder_MatchDetail] @EndDate='2020-01-01',@Star
                d.MatchCode, 
                d.IsNeutral, 
                d.EventDate, 
-               1 SportType, 
+               @SportType SportType, 
                d.LeagueId, 
                d.HomeId, 
                d.AwayId, 

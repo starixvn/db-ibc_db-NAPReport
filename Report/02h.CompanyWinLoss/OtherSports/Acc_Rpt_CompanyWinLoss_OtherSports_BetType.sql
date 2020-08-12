@@ -21,6 +21,7 @@ Revisions:
 - 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
 - 20190925@Jacob: Group By CN88 (#118824)
 - 20191212@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
+- 20200722@Roy: Incorporate New Basketball Sport for BetBuilder Product - NAP Report (#138082)
 
 Parameters:
 @IsLive: 2 - ALL. 0 - Non-Live. 1 - Live
@@ -38,11 +39,11 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_BetType] @EndDate='2020-01-01',@StartDa
                       BetTypeName NVARCHAR(50)
                      );
         INSERT INTO #SportBetType
-               SELECT b.typeid, 
+               SELECT DISTINCT b.typeid, 
                       b.typenamee
                FROM dbo.f_SportBetTypeMatrix_Sel(1, @SportType, 0, 2, '', '', @isTest) s
                     INNER JOIN BetType b WITH(NOLOCK) ON s.BetType = b.typeid
-               WHERE SubProduct NOT IN('MG-SuperLive', 'BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss')
+               WHERE SubProduct NOT IN('MG-SuperLive', 'BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss', 'Bet Builder')
                AND EventType IN(1, 2);
     END;
     BEGIN -- #DepositSuper
