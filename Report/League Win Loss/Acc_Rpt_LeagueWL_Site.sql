@@ -32,7 +32,7 @@ AS
 
 	Example:
         EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Site @StartDate='20200620', @EndDate='20200630'
-                    , @SportType=1, @MatchID=36693927, @LiveIndicator=0, @SiteType='Credit', @BetType=1, @IsNoDraw=0
+                    , @MatchID=36693927, @LiveIndicator=0, @SiteType='Credit', @BetType=1, @IsNoDraw=0
 */
 
 BEGIN
