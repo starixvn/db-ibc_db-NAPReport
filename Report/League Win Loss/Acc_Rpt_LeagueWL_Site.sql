@@ -5,7 +5,6 @@ GO
 
 ALTER PROCEDURE dbo.Acc_Rpt_LeagueWL_Site @StartDate SMALLDATETIME,
                                           @EndDate SMALLDATETIME,
-                                          @SportType INT = NULL,
                                           @MatchID INT,
                                           @LiveIndicator TINYINT,
 										  @BetType INT,
@@ -23,7 +22,6 @@ AS
 	Param's Explanation:
 		- @StartDate: The start date of data to view on report
 		- @EndDate: The end date of data to view on report
-		- @SportType: [Optional] The sporttype to view on report, if not specified, will calculate based on MatchID
         - @MatchID: The specific match to view on report
         - @LiveIndicator: To indicate the live status to view on report
 		- @BetType: The bettype to view on report
@@ -40,23 +38,22 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
-    BEGIN /*get sport type from league if null*/
-        IF @SportType IS NULL
-            SELECT @SportType = l.sporttype
+    DECLARE @SportType INT
+    BEGIN /*get sport type from league*/
+        SELECT @SportType = sporttype 
+        FROM (
+            SELECT l.sporttype
             FROM bodb02.dbo.league l
             INNER JOIN bodb02.dbo.match m
                 ON l.leagueid = m.leagueid
             WHERE m.matchid = @MatchID AND m.eventdate = @StartDate
-
-        IF @SportType IS NULL
-            SELECT @SportType = l.sporttype
+            UNION ALL 
+            SELECT l.sporttype
             FROM bodb02.dbo.league l
             INNER JOIN bodb02.dbo.outright o
                 ON l.leagueid = o.leagueid
             WHERE o.orid = @MatchID AND o.eventdate = @StartDate
-
-        IF @SportType IS NULL
-            RAISERROR(N'No sport type found with match id: %d', 16, 1, @MatchID)
+        ) t
     END
 
     BEGIN /*gather agent-site data depending on @SiteType*/
