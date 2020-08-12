@@ -54,6 +54,7 @@ Revisions:
 	20200227@Ned.Le: Hotfix thats convert datatype for VarianceVR from DECIMAL(5, 2) to DECIMAL(9, 6)
 	20200710@Cherry: Integrate Jackpot Pragmatic (#137271)
 	20200724@Cherry: Add filter Sport of Sportbook (#135880)
+	20200812@Cherry: Hotfix 139420
 */
 
 BEGIN
@@ -142,13 +143,13 @@ BEGIN
 	   BEGIN
 		  WITH tblP(ProductID)
 			  AS (
-			  SELECT 1 AS ProductID
+			  SELECT tblP.ProductID
 			  FROM #Product AS tblP
 			  WHERE tblP.ProductID = -1)
 			  INSERT INTO #tmpBettype(ProductID
 							    , bettype
 								, RefTable)
-				    SELECT tblS.ProductID
+				    SELECT tblP.ProductID
 					    , tblS.bettype
 						, tblS.RefTable
 				    FROM tblP
@@ -166,7 +167,7 @@ BEGIN
 	   BEGIN
 		  WITH tblP(ProductID)
 			  AS (
-			  SELECT-2 AS ProductID
+			  SELECT tblP.ProductID
 			  FROM #Product AS tblP
 			  WHERE tblP.ProductID = -2)
 			  INSERT INTO #tmpBettype(ProductID
@@ -190,13 +191,13 @@ BEGIN
 	   BEGIN
 		  WITH tblP(ProductID)
 			  AS (
-			  SELECT 1 AS ProductID
+			  SELECT tblP.ProductID
 			  FROM #Product AS tblP
 			  WHERE tblP.ProductID = -3)
 			  INSERT INTO #tmpBettype(ProductID
 							    , bettype
 								, RefTable)
-				    SELECT tblS.ProductID
+				    SELECT tblP.ProductID
 					    , tblS.bettype
 						, tblS.RefTable
 				    FROM tblP
@@ -396,7 +397,6 @@ BEGIN
 			  AND b.currency <> 20
 			  AND b.srecommend = @srecommend
 			  AND (t.bettype IN (9,29)
-				OR t.ProductID IN (-1, -2, -3)
 				OR t.ProductID <> 1
 				OR (t.ProductID = 1 AND t.bettype NOT IN (9,29,10) AND b.matchid IN (SELECT matchid FROM #tmpMatch where matchtype = 0))
 				OR (t.bettype = 10 AND b.matchid IN (SELECT matchid FROM #tmpMatch where matchtype = 1))
