@@ -79,7 +79,7 @@ BEGIN
 		INSERT INTO #tmpMatch (matchid, matchcode, matchtype, homeid, awayid)
 			SELECT  matchid,
 					matchcode,
-					0 matchtype,
+					matchtype,
 					homeid,
 					awayid
 			FROM CTE_all_matches_by_day m
