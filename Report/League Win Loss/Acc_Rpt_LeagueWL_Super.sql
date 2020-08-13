@@ -228,7 +228,7 @@ BEGIN
 	
     -- final aggregation by SuperID, display report
 	SELECT  t.SuperID SuperID,
-            MAX(t.SuperName) SuperName,
+            t.SuperName SuperName,
 		    SUM(MemberWinLoss) AS MemberWinLoss,
             SUM(SMAWinLoss) AS SMAWinLoss,
             SUM(ExtraPT) AS ExtraPT,
@@ -239,12 +239,12 @@ BEGIN
             SUM(RealTurnover) AS RealTurnover, 
             SUM(VirtualTurnover) AS VirtualTurnover
 	FROM #tmpData t
-    GROUP BY t.SuperID
-    ORDER BY CASE WHEN MAX(t.SuperName) = 'Soccer 8RM'        THEN 2
-                  WHEN MAX(t.SuperName) = 'Other Sports 8RM'  THEN 3
-                  WHEN MAX(t.SuperName) = 'Soccer BARM'       THEN 4
-                  WHEN MAX(t.SuperName) = 'Other Sports BARM' THEN 5
-                  ELSE 1 END
+    GROUP BY t.SuperID, t.SuperName
+    ORDER BY CASE WHEN t.SuperName = 'Soccer 8RM'        THEN 2
+                  WHEN t.SuperName = 'Other Sports 8RM'  THEN 3
+                  WHEN t.SuperName = 'Soccer BARM'       THEN 4
+                  WHEN t.SuperName = 'Other Sports BARM' THEN 5
+                  ELSE 1 END, SuperName
 
 	DROP TABLE #tmpData
     DROP TABLE #agentSuper
