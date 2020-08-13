@@ -73,7 +73,9 @@ BEGIN
 			 (0, 0, 0, 2, '', '', @isTest);
     DELETE FROM @SportBettype
     WHERE Bettype IN(901, 902, 903, 904, 911, 912, 913, 914);
-	IF (@sporttype > 0 AND @sporttype <= 99 AND @SubProduct = '' AND @drilldownbytype = 1)
+	IF ((@drilldownbytype = 1 AND @sporttype > 0 AND @sporttype <= 99 AND @SubProduct = '')
+	    OR
+		(@drilldownbytype = 2 AND @bettype=19999))
 	BEGIN
 		DELETE 
 		FROM @SportBettype
