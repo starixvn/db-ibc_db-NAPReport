@@ -28,6 +28,7 @@ BEGIN
 			20170323@Robert: NAP Reports - Integrate Cash out [RedmindID: #73419]
 			20180618@Tom: Fix Duplicate data when match have hedge (#97073)
 			20190308@Cherry: Integrate Bet Builder (#109822)
+			20200813@Ned.Le: HotFix - Soccer data is included data Bet Builder and Metric Gaming in Win Loss Summary (2d) report (#139454)
 
 
         Parameter's Explanation:
@@ -72,6 +73,12 @@ BEGIN
 			 (0, 0, 0, 2, '', '', @isTest);
     DELETE FROM @SportBettype
     WHERE Bettype IN(901, 902, 903, 904, 911, 912, 913, 914);
+	IF (@sporttype > 0 AND @sporttype <= 99)
+	BEGIN
+		DELETE 
+		FROM @SportBettype
+		WHERE SubProduct IN ('MG-SuperLive', 'Bet Builder')
+	END
     DECLARE @movebetdate    DATETIME
 		, @f_date         DATETIME
 		, @t_date         DATETIME;
