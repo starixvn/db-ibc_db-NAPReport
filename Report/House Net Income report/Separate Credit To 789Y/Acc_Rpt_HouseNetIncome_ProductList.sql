@@ -22,92 +22,101 @@ AS
 		- 20200521@Ned.Le - Re-Integrate Fishing World product for letstalk (#134533)
 		- 20200720@Kean - DHWL Email/Letstalk - Separate Saba Sports from real Sports (#137822)
 		- 20200722@Ned.Le - Email/Letstalk Reports - Integrate Jackpot Games (#137280)
+		- 20200813@Kean - DHWL Email/Letstalk - Change Product Name and Margin Report Format (#139537)
   
 */
 BEGIN
 SET NOCOUNT ON;	
+    -- Spooksbooks
+	SELECT 'Real Soc' Product, 'Soccer' ProductPrefix, 'Spooksbooks' [Group]
+	UNION ALL
+	SELECT 'Saba Soc' Product, 'SabaSoccer' ProductPrefix, 'Spooksbooks' [Group]
+	UNION ALL
+	SELECT 'Real Bas' Product, 'Basketball' ProductPrefix, 'Spooksbooks' [Group]
+	UNION ALL
+	SELECT 'Saba Bas' Product, 'SabaBasketball' ProductPrefix, 'Spooksbooks' [Group]
+	UNION ALL
+	SELECT 'Tennis' Product, 'Tennis' ProductPrefix, 'Spooksbooks' [Group]
+	UNION ALL
+	SELECT 'E-Sports' Product, 'E-Sports' ProductPrefix, 'Spooksbooks' [Group]
+	UNION ALL
+	SELECT 'Saba Cric' Product, 'SabaCricket' ProductPrefix, 'Spooksbooks' [Group]
+	UNION ALL
+	SELECT 'OtherSp' Product, 'OS' ProductPrefix, 'Spooksbooks' [Group]
+	UNION ALL
+	SELECT 'Parlay' Product, 'Parlay' ProductPrefix, 'Spooksbooks' [Group]
 
-	SELECT 'Real Soccer' Product, 'Soccer' ProductPrefix
+	-- Live Casino
 	UNION ALL
-	SELECT 'Saba Soccer' Product, 'SabaSoccer' ProductPrefix
+	SELECT 'AllBet' Product, 'AB' ProductPrefix, 'Live Casino' [Group]
 	UNION ALL
-	SELECT 'Real Basketball' Product, 'Basketball' ProductPrefix
+	SELECT 'SexyG' Product, 'SXG' ProductPrefix, 'Live Casino' [Group]
 	UNION ALL
-	SELECT 'Saba Basketball' Product, 'SabaBasketball' ProductPrefix
+	SELECT 'GoldD' Product, 'GD' ProductPrefix, 'Live Casino' [Group]
 	UNION ALL
-	SELECT 'Tennis' Product, 'Tennis' ProductPrefix
+	SELECT 'SA Game' Product, 'SAG' ProductPrefix, 'Live Casino' [Group]
 	UNION ALL
-	SELECT 'E-Sports' Product, 'E-Sports' ProductPrefix
+	SELECT 'ION LC' Product, 'ION' ProductPrefix, 'Live Casino' [Group]
 	UNION ALL
-	SELECT 'Saba Cricket' Product, 'SabaCricket' ProductPrefix
+	SELECT 'IBC LC' Product, 'IBCLC' ProductPrefix, 'Live Casino' [Group]
 	UNION ALL
-	SELECT 'OS' Product, 'OS' ProductPrefix
+	SELECT 'BBIN LC' Product, 'BBIN' ProductPrefix, 'Live Casino' [Group]
 	UNION ALL
-	SELECT 'Parlay' Product, 'Parlay' ProductPrefix
+	SELECT 'AG LC' Product, 'AGC' ProductPrefix, 'Live Casino' [Group]
+
+	-- RNG Casino
 	UNION ALL
-	SELECT 'VS' Product, 'VS' ProductPrefix
+	SELECT 'SabaC' Product, 'SBC' ProductPrefix, 'RNG Casino' [Group]
 	UNION ALL
-	SELECT 'NG' Product, 'NG' ProductPrefix
+	SELECT '1RNG' Product, 'CS' ProductPrefix, 'RNG Casino' [Group]
 	UNION ALL
-	SELECT '1RNG' Product, 'CS' ProductPrefix
+	SELECT '1RNG-JP' Product, 'JP' ProductPrefix, 'RNG Casino' [Group]
 	UNION ALL
-	SELECT '1RNG-JP' Product, 'JP' ProductPrefix
+	SELECT 'CardC' Product, 'CC' ProductPrefix, 'RNG Casino' [Group]
 	UNION ALL
-	SELECT 'RNGKeno' Product, 'KN' ProductPrefix
+	SELECT 'PragP' Product, 'PP' ProductPrefix, 'RNG Casino' [Group]
 	UNION ALL
-	SELECT 'AG' Product, 'AGC' ProductPrefix
+	SELECT 'PragP-JP' Product, 'PP-JP' ProductPrefix, 'RNG Casino' [Group]
 	UNION ALL
-	SELECT 'NG2' Product,'NG2' ProductPrefix
+	SELECT 'TableG' Product, 'TG' ProductPrefix, 'RNG Casino' [Group]
 	UNION ALL
-	SELECT 'CB' Product, 'CB' ProductPrefix
+	SELECT 'VirtualG' Product, 'VG' ProductPrefix, 'RNG Casino' [Group]
 	UNION ALL
-	SELECT 'MacauG' Product, 'VB' ProductPrefix
+	SELECT 'MacauG' Product, 'VB' ProductPrefix, 'RNG Casino' [Group]
 	UNION ALL
-	SELECT 'GD' Product, 'GD' ProductPrefix
+	SELECT 'SpadeG' Product, 'SG' ProductPrefix, 'RNG Casino' [Group]
 	UNION ALL
-	SELECT 'AB' Product, 'AB' ProductPrefix
+	SELECT 'RNGWar' Product, 'RNGW' ProductPrefix, 'RNG Casino' [Group]
 	UNION ALL
-	SELECT 'CO' Product, 'CO' ProductPrefix
+	SELECT 'FishW' Product, 'FW' ProductPrefix, 'RNG Casino' [Group]
+
+	-- Lottery/Keno
 	UNION ALL
-	SELECT 'VS2' Product, 'VS2' ProductPrefix
+	SELECT 'MKeno' Product, 'KN' ProductPrefix, 'Lottery/Keno' [Group]
 	UNION ALL
-	SELECT 'LT' Product, 'LT' ProductPrefix
+	SELECT 'NumG' Product, 'NG' ProductPrefix, 'Lottery/Keno' [Group]
 	UNION ALL
-	SELECT 'EX' Product, 'EX' ProductPrefix
+	SELECT 'Happy5' Product, 'H5' ProductPrefix, 'Lottery/Keno' [Group]
 	UNION ALL
-	SELECT 'PP' Product, 'PP' ProductPrefix
+	SELECT 'MLotte' Product, 'LT' ProductPrefix, 'Lottery/Keno' [Group]
 	UNION ALL
-	SELECT 'PP-JP' Product, 'PP-JP' ProductPrefix
-	UNION ALL
-	SELECT 'H5' Product, 'H5' ProductPrefix
-	UNION ALL
-	SELECT 'CC' Product, 'CC' ProductPrefix
-	UNION ALL
-	SELECT 'SP' Product, 'NPH' ProductPrefix
-	UNION ALL
-	SELECT 'SG' Product, 'SG' ProductPrefix
-	UNION ALL
-	SELECT 'VG' Product, 'VG' ProductPrefix
-	UNION ALL
-	SELECT 'SAG' Product, 'SAG' ProductPrefix
+	SELECT 'NG2' Product,'NG2' ProductPrefix, 'Lottery/Keno' [Group]
 	--UNION ALL
-	--SELECT 'I4D' Product, 'I4D' ProductPrefix
+	--SELECT 'Indo 4D' Product, 'I4D' ProductPrefix, 'Lottery/Keno' [Group]
+
+	-- Others
 	UNION ALL
-	SELECT 'SBC' Product, 'SBC' ProductPrefix
+	SELECT 'VirtSpo2' Product, 'VS2' ProductPrefix, 'Others' [Group]
 	UNION ALL
-	SELECT 'SXG' Product, 'SXG' ProductPrefix
+	SELECT 'VirtSpo' Product, 'VS' ProductPrefix, 'Others' [Group]
 	UNION ALL
-	SELECT 'BBIN' Product, 'BBIN' ProductPrefix
+	SELECT 'ColosBe' Product, 'CB' ProductPrefix, 'Others' [Group]
 	UNION ALL
-	SELECT 'TG' Product, 'TG' ProductPrefix
+	SELECT 'CashO' Product, 'CO' ProductPrefix, 'Others' [Group]
 	UNION ALL
-	SELECT 'IBCLC' Product, 'IBCLC' ProductPrefix
+	SELECT 'Exchange' Product, 'EX' ProductPrefix, 'Others' [Group]
 	UNION ALL
-	SELECT 'ION' Product, 'ION' ProductPrefix
-	UNION ALL
-	SELECT 'RNGWar' Product, 'RNGW' ProductPrefix
-	UNION ALL
-	SELECT 'FW' Product, 'FW' ProductPrefix
+	SELECT 'SabaPro' Product, 'NPH' ProductPrefix, 'Others' [Group]
 END
 GO
 GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_ProductList] TO [dwrs]
