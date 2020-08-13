@@ -126,6 +126,7 @@ BEGIN
 						  , ISNULL(SUM(virtualLineTotal), 0)
 						  , m.isNeutral
 					  FROM rptWinlost AS b WITH (NOLOCK)
+					     INNER JOIN @SportBettype AS sb ON b.bettype = sb.Bettype
 						 INNER JOIN bodb02.dbo.match AS m WITH (NOLOCK) ON b.matchid = m.matchid
 					  WHERE winlostdate BETWEEN @f_date AND @t_date
 						   AND b.sporttype = CASE
@@ -159,7 +160,7 @@ BEGIN
 						    , homeid
 						    , awayid
 						    , liveindicator
-						    , bettype
+						    , b.bettype
 						    , leagueid
 						    , isNeutral;
 				IF @bettype IN(0, 19999)
@@ -400,6 +401,7 @@ BEGIN
 						  , ISNULL(SUM(virtualLineTotal), 0)
 						  , m.isNeutral
 					  FROM rptWinlost AS b WITH (NOLOCK)
+					     INNER JOIN @SportBettype AS sb ON b.bettype = sb.Bettype
 						 INNER JOIN bodb02.dbo.match14 AS m WITH (NOLOCK) ON b.matchid = m.matchid
 					  WHERE winlostdate BETWEEN @f_date AND @t_date
 						   AND b.sporttype = CASE
@@ -433,7 +435,7 @@ BEGIN
 						    , homeid
 						    , awayid
 						    , liveindicator
-						    , bettype
+						    , b.bettype
 						    , leagueid
 						    , isNeutral;
 				IF @bettype IN(0, 19999)
