@@ -133,7 +133,7 @@ BEGIN
 					  WHERE winlostdate BETWEEN @f_date AND @t_date
 						   AND b.sporttype = CASE
 											WHEN @sporttype = -38
-											THEN 1
+											THEN b.sporttype
 											ELSE @sporttype
 										 END --Bet Builder
 						   AND CASE
@@ -404,9 +404,9 @@ BEGIN
 					  WHERE winlostdate BETWEEN @f_date AND @t_date
 						   AND b.sporttype = CASE
 											WHEN @sporttype = -38
-											THEN 1
+											THEN b.sporttype
 											ELSE @sporttype
-										 END
+										 END -- Bet Builder
 						   AND CASE
 								 WHEN @bettype = 0
 								 THEN 1
