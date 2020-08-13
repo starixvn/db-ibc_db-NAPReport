@@ -43,17 +43,18 @@ BEGIN
         SELECT @SportType = sporttype 
         FROM (
             SELECT l.sporttype
-            FROM bodb02.dbo.league l
-            INNER JOIN bodb02.dbo.match m
+            FROM bodb02.dbo.league l WITH (NOLOCK)
+            INNER JOIN bodb02.dbo.match m WITH (NOLOCK)
                 ON l.leagueid = m.leagueid
             WHERE m.matchid = @MatchID AND m.eventdate = @StartDate
             UNION ALL 
             SELECT l.sporttype
-            FROM bodb02.dbo.league l
-            INNER JOIN bodb02.dbo.outright o
+            FROM bodb02.dbo.league l WITH (NOLOCK)
+            INNER JOIN bodb02.dbo.outright o WITH (NOLOCK)
                 ON l.leagueid = o.leagueid
             WHERE o.orid = @MatchID AND o.eventdate = @StartDate
         ) t
+        OPTION (RECOMPILE)
     END
 
     BEGIN /*gather agent-super data depending on @SiteID*/
@@ -66,6 +67,7 @@ BEGIN
         FROM bodb02.dbo.Customer agent
         INNER JOIN bodb02.dbo.Customer super
             ON agent.srecommend = super.custid
+                AND super.roleid = 4
         INNER JOIN bodb02.dbo.Site s
             ON agent.site = s.site -->>filter by agent to get "current" snapsnot of working agents from a site
         WHERE s.siteid = @SiteID
@@ -176,7 +178,7 @@ BEGIN
                                         ELSE 1 END
                                 * sd.virtualrate
                         END) AS VirtualTurnover
-            FROM bodb02.dbo.bettrans sd (NOLOCK)
+            FROM bodb02.dbo.bettrans sd WITH (NOLOCK)
             INNER JOIN #agentSuper s
                 ON sd.recommend = s.AgentID
             WHERE sd.winlostdate = @StartDate

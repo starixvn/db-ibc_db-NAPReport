@@ -43,17 +43,18 @@ BEGIN
         SELECT @SportType = sporttype 
         FROM (
             SELECT l.sporttype
-            FROM bodb02.dbo.league l
-            INNER JOIN bodb02.dbo.match m
+            FROM bodb02.dbo.league l WITH (NOLOCK)
+            INNER JOIN bodb02.dbo.match m WITH (NOLOCK)
                 ON l.leagueid = m.leagueid
             WHERE m.matchid = @MatchID AND m.eventdate = @StartDate
             UNION ALL 
             SELECT l.sporttype
-            FROM bodb02.dbo.league l
-            INNER JOIN bodb02.dbo.outright o
+            FROM bodb02.dbo.league l WITH (NOLOCK)
+            INNER JOIN bodb02.dbo.outright o WITH (NOLOCK)
                 ON l.leagueid = o.leagueid
             WHERE o.orid = @MatchID AND o.eventdate = @StartDate
         ) t
+        OPTION (RECOMPILE)
     END
 
     BEGIN /*gather agent-site data depending on @SiteType*/
@@ -200,7 +201,7 @@ BEGIN
                                         ELSE 1 END
                                 * sd.virtualrate
                         END) AS VirtualTurnover
-            FROM bodb02.dbo.bettrans sd (NOLOCK)
+            FROM bodb02.dbo.bettrans sd WITH (NOLOCK)
             INNER JOIN #agent a
                 ON sd.recommend = a.agentId
             WHERE sd.winlostdate = @StartDate
@@ -263,7 +264,7 @@ BEGIN
             SUM(RealTurnover) AS RealTurnover, 
             SUM(VirtualTurnover) AS VirtualTurnover
 	FROM #tmpData t
-    LEFT JOIN bodb02.dbo.Site s
+    LEFT JOIN bodb02.dbo.Site s WITH (NOLOCK)
         ON t.Site = s.site
     GROUP BY s.siteid
     ORDER BY CASE WHEN MAX(t.Site) = 'Soccer 8RM'        THEN 2
