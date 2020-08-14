@@ -698,16 +698,6 @@ BEGIN
 						THEN 16
 						ELSE 17
 					 END;
-    IF @drilldownbytype IN(1, 2)
-	  AND @sporttype = 1
-	  AND @bettype IN(0, 19999)
-	  AND @SubProduct = ''
-	   BEGIN
-		  DELETE r
-		  FROM @RPT r
-			 INNER JOIN @SportBettype sb ON r.bettype = sb.Bettype
-		  WHERE sb.SubProduct = 'MG-SuperLive';
-	   END;
     SELECT CASE
 			WHEN d.matchcode LIKE '%hedge%'
 				OR r.matchcode LIKE '%hedge%'
@@ -718,8 +708,10 @@ BEGIN
 			THEN 1
 			ELSE 0
 		 END AS IsHedge
+		,l.sporttype
 	    , r.*
     FROM @RPT AS r
+	     LEFT JOIN bodb02.dbo.league l (NOLOCK) ON r.leagueid = l.leagueid
 	   OUTER APPLY
 	    (
 		   SELECT *
