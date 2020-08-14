@@ -280,7 +280,7 @@ BEGIN
             t.LiveIndicator LiveIndicator,
 		    SUM(MemberWinLoss) AS MemberWinLoss,
             SUM(SMAWinLoss) AS SMAWinLoss,
-            SUM(ExtraPT) AS ExtraPT,
+            - SUM(ExtraPT) AS ExtraPT,
             SUM(Commission) AS Commission,
             SUM(RealIncome) AS RealIncome,
             SUM(VirtualIncome) AS VirtualIncome,
