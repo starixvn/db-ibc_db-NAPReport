@@ -285,7 +285,7 @@ BEGIN
 				  WHEN t.MatchCode = 'Soccer BARM'       THEN 4
 				  WHEN t.MatchCode = 'Other Sports BARM' THEN 5
 				  ELSE 1 END
-			, MatchEvent, LiveIndicator ASC, MatchID
+			, MatchID DESC, MatchEvent, LiveIndicator ASC
 
 	DROP TABLE #tmpMatch
 	DROP TABLE #tmpData
