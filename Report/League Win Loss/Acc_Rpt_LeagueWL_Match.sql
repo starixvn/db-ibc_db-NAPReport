@@ -5,7 +5,7 @@ GO
 
 ALTER PROCEDURE dbo.Acc_Rpt_LeagueWL_Match @StartDate SMALLDATETIME,
                                            @EndDate SMALLDATETIME,
-                                           @SportType INT,
+                                           @SportBettype VARCHAR(MAX),
 										   @LeagueName VARCHAR(500),
 										   @IsNoDraw BIT = 0
 AS
@@ -25,7 +25,9 @@ AS
 	Param's Explanation:
 		- @StartDate: The start date of data to view on report
 		- @EndDate: The end date of data to view on report
-		- @SportType: The sporttype to view on report
+		- @SportBettype: List of Sporttypes and Bettypes that correspond to each other
+		                 Example '1_1,1_3' --> 'Soccer_Handicap,Soccer_Over/Under...'
+						 There is only one sport type passed into this SP
 		- @LeagueName: The leaguename to view on report
 		- @IsNoDraw: To get the draw tickets to report or not
 		             0 - Get draw ticktes to report
@@ -33,16 +35,34 @@ AS
 
 	Example:
 		EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Match @StartDate='20200620', @EndDate='20200706'
-				, @LeagueName='*ENGLISH PREMIER LEAGUE', @SportType = 1, @IsNoDraw=0
-
-		EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Match @StartDate='20200622', @EndDate='20200630'
-				, @LeagueName='SABA ELITE FRIENDLY Virtual PES 20 - 5 Mins Play'
-				, @SportType = 1, @IsNoDraw=0
+				, @LeagueName='*ENGLISH PREMIER LEAGUE', @IsNoDraw=0
+				, @SportBettype='1_301,1_302,1_303,1_304,1_15,1_125,1_453,1_476,1_459,1_466,1_205,1_201,1_138,1_404,1_464,1_485,1_215,1_188,1_427,1_456,1_457,1_478,1_203,1_471,1_487,1_494,1_30,1_414,1_151,1_410,1_191,1_411,1_182,1_181,1_207,1_489,1_127,1_7,1_204,1_200,1_136,1_403,1_463,1_484,1_213,1_209,1_492,1_180,1_12,1_8,1_211,1_143,1_202,1_474,1_126,1_426,1_177,1_430,1_146,1_433,1_472,1_495,1_405,1_186,1_431,1_185,1_432,1_490,1_17,1_183,1_184,1_428,1_18,1_178,1_28,1_475,1_458,1_465,1_447,1_122,1_381,1_388,1_386,1_196,1_139,1_402,1_462,1_483,1_214,1_198,1_132,1_421,1_148,1_437,1_134,1_439,1_150,1_441,1_189,1_434,1_190,1_435,1_145,1_445,1_451,1_417,1_418,1_26,1_13,1_477,1_496,1_497,1_194,1_470,1_486,1_4,1_413,1_24,1_454,1_449,1_25,1_123,1_804,1_129,1_412,1_179,1_429,1_187,1_162,1_409,1_130,1_161,1_407,1_159,1_406,1_167,1_165,1_174,1_166,1_399,1_398,1_164,1_396,1_395,1_400,1_397,1_173,1_206,1_488,1_806,1_424,1_192,1_193,1_14,1_422,1_423,1_176,1_5,1_124,1_216,1_217,1_801,1_152,1_416,1_467,1_493,1_1,1_140,1_452,1_442,1_142,1_444,1_141,1_443,1_446,1_121,1_382,1_389,1_387,1_195,1_137,1_401,1_461,1_482,1_212,1_197,1_131,1_420,1_147,1_436,1_133,1_438,1_149,1_440,1_16,1_128,1_208,1_491,1_448,1_175,1_221,1_225,1_222,1_22,1_160,1_169,1_803,1_450,1_2,1_157,1_10,1_3,1_135,1_385,1_384,1_376,1_392,1_391,1_394,1_393,1_390,1_383,1_210,1_172,1_415,1_144,1_163,1_468,1_469,1_38,1_170,1_481,1_479,1_455,1_805,1_425,1_27,1_473,1_199,1_6,1_223,1_224,1_226,1_227,1_419,1_460,1_168,1_171,1_408'
 */
 
 BEGIN
 
 	SET NOCOUNT ON
+
+	BEGIN /*split the array @SportBettype into a temp table*/
+		CREATE TABLE #tmpSportBettypeMatrix (SportType SMALLINT,
+											 BetType SMALLINT)
+
+		;WITH CTE_SportBettypeMatrix AS (
+			SELECT CAST(LEFT(val, CHARINDEX('_', val)-1) AS INT) AS SportType,
+				   CAST(SUBSTRING(val, CHARINDEX('_', val)+1, 6) AS INT) AS BetType
+			FROM bodb02.dbo.strSplit_str(@SportBettype, ',')
+			WHERE LEN(val) > 0
+		)
+		INSERT INTO #tmpSportBettypeMatrix (SportType, BetType)
+		SELECT cte.SportType, cte.BetType
+		FROM CTE_SportBettypeMatrix cte
+	END
+
+	DECLARE @SportType INT 
+	BEGIN /*get the sport type into a separate variable*/
+		SELECT TOP 1 @SportType = SportType
+		FROM #tmpSportBettypeMatrix
+	END
 
 	BEGIN /*get match data from @LeagueName by @StartDate*/
 		CREATE TABLE #tmpMatch (matchid 	 INT,
@@ -70,11 +90,11 @@ BEGIN
 			FROM bodb02.dbo.outright WITH (NOLOCK)
 			WHERE eventdate = @StartDate
 		),
-		CTE_all_league_ids AS (
+		CTE_league_id AS (
 			SELECT leagueid
 			FROM bodb02.dbo.league WITH (NOLOCK)
 			WHERE leaguename = @LeagueName
-				AND sporttype = @SportType AND isTest = 0
+				AND isTest = 0
 		)
 		INSERT INTO #tmpMatch (matchid, matchcode, matchtype, homeid, awayid)
 			SELECT  matchid,
@@ -83,7 +103,7 @@ BEGIN
 					homeid,
 					awayid
 			FROM CTE_all_matches_by_day m
-			INNER JOIN CTE_all_league_ids l
+			INNER JOIN CTE_league_id l
 			ON m.leagueid = l.leagueid
 			OPTION (RECOMPILE)
 	END
@@ -201,6 +221,8 @@ BEGIN
 								* sd.virtualrate
 						END) AS VirtualTurnover
 			FROM bodb02.dbo.bettrans sd (NOLOCK)
+			INNER JOIN #tmpSportBettypeMatrix sbm
+				ON sbm.BetType = sd.bettype AND sbm.SportType = sbm.SportType
 			INNER JOIN #tmpMatch m 
 				ON sd.matchid = m.matchid
 					AND CASE WHEN sd.bettype = 10 THEN 1 ELSE 0 END = m.matchtype --prevent matchid dupplicates in *match* and *outright*
