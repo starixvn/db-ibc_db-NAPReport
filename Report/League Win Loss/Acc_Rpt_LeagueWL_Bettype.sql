@@ -200,7 +200,9 @@ BEGIN
 			FROM bodb02.dbo.bettrans sd (NOLOCK)
 			INNER JOIN #tmpSportBettypeMatrix mtrix
 				ON mtrix.BetType = sd.bettype
-					AND mtrix.BetType NOT IN (9, 29) --exclude Parlay
+					AND mtrix.BetType NOT IN (9, 29) --as there already are another option (from LeagueWL_SportType report) 
+													 --to explicitly view metrics by Parlay (which shown as sport type 10000 in web), 
+													 --so this one does not need to include Parlay data
 			WHERE sd.winlostdate = @StartDate
 				AND sd.matchid = @MatchID
 				AND sd.liveindicator = @LiveIndicator
