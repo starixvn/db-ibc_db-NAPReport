@@ -27,7 +27,6 @@ AS
 		- @EndDate: The end date of data to view on report
 		- @SportBettype: List of Sporttypes and Bettypes that correspond to each other
 		                 Example '1_1,2_1' --> 'Soccer_Handicap,Basketball_Handicap'
-						 There is only one sport type passed into this SP
 		- @MatchID: The specific match to view on report
 		- @IsNoDraw: To get the draw tickets to report or not
 		             0 - Get draw ticktes to report
@@ -58,10 +57,40 @@ BEGIN
 		FROM CTE_SportBettypeMatrix cte
 	END
 
-	DECLARE @SportType INT 
-	BEGIN /*get the sport type into a separate variable*/
-		SELECT TOP 1 @SportType = SportType
-		FROM #tmpSportBettypeMatrix
+	DECLARE @SportType INT
+    BEGIN /*get sport type from @MatchID*/
+        SELECT @SportType = sporttype 
+        FROM (
+            SELECT l.sporttype
+            FROM bodb02.dbo.league l WITH (NOLOCK)
+            INNER JOIN bodb02.dbo.match m WITH (NOLOCK)
+                ON l.leagueid = m.leagueid
+            WHERE m.matchid = @MatchID AND m.eventdate = @StartDate
+            UNION ALL 
+            SELECT l.sporttype
+            FROM bodb02.dbo.league l WITH (NOLOCK)
+            INNER JOIN bodb02.dbo.outright o WITH (NOLOCK)
+                ON l.leagueid = o.leagueid
+            WHERE o.orid = @MatchID AND o.eventdate = @StartDate
+        ) t
+        OPTION (RECOMPILE)
+    END
+
+	BEGIN /*get a list of Supers by site type*/
+		CREATE TABLE #super (SuperID   INT PRIMARY KEY, 
+                             SiteType  CHAR(7))
+
+		INSERT INTO #super
+			SELECT s.CustId AS SuperID,
+				   CASE WHEN cn88.CustId IS NOT NULL THEN 'CN88'
+				 		WHEN dep.custid  IS NOT NULL THEN 'Deposit'
+						ELSE 'Credit' END AS SiteType
+			FROM bodb02..Customer AS s WITH(NOLOCK)
+			LEFT JOIN bodb02..Dep_CustSuper AS dep WITH(NOLOCK) 
+				ON s.custid = dep.CustId
+			LEFT JOIN bodb02..CS_CustSuper cn88 WITH(NOLOCK) 
+				ON s.srecommend = cn88.CustId
+			WHERE s.RoleID = 4
 	END
 
 	BEGIN /*build staging data by agent-super-bettype dimension*/
@@ -223,10 +252,7 @@ BEGIN
 				 WHEN t.SummaryLineIdentifier = 2 THEN 'Other Sports 8RM'
 				 WHEN t.SummaryLineIdentifier = 3 THEN 'Soccer BARM'
 				 WHEN t.SummaryLineIdentifier = 4 THEN 'Other Sports BARM'
-				 ELSE 
-				 	CASE WHEN cn88.CustId IS NOT NULL THEN 'CN88'
-				 		 WHEN dep.custid  IS NOT NULL THEN 'Deposit'
-						 ELSE 'Credit' END
+				 ELSE super.SiteType
 			END AS SiteType,
 		    SUM(MemberWinLoss) AS MemberWinLoss,
             SUM(SMAWinLoss) AS SMAWinLoss,
@@ -240,31 +266,23 @@ BEGIN
 	FROM #agentSuperBettype t
 	LEFT JOIN bodb02.dbo.bettype bt WITH (NOLOCK)
 		ON t.Bettype = bt.typeid
-	LEFT JOIN bodb02..Dep_CustSuper AS dep WITH (NOLOCK) 
-		ON t.SuperID = dep.CustId
-	LEFT JOIN bodb02..CS_CustSuper cn88 WITH (NOLOCK) 
-		ON t.SuperID = cn88.CustId
+	LEFT JOIN #super AS super
+		ON t.SuperID = super.SuperID
 	GROUP BY GROUPING SETS (
 			(Bettype, t.SummaryLineIdentifier
 			,CASE WHEN t.SummaryLineIdentifier = 1 THEN 'Soccer 8RM'
 				  WHEN t.SummaryLineIdentifier = 2 THEN 'Other Sports 8RM'
 				  WHEN t.SummaryLineIdentifier = 3 THEN 'Soccer BARM'
 				  WHEN t.SummaryLineIdentifier = 4 THEN 'Other Sports BARM'
-				  ELSE 
-				 	CASE WHEN cn88.CustId IS NOT NULL THEN 'CN88'
-				 		 WHEN dep.custid  IS NOT NULL THEN 'Deposit'
-						 ELSE 'Credit' END
-			END)
+				  ELSE super.SiteType
+			 END)
 			, (BetType)
 	) --add summary records displaying the totals of each bet type
 	HAVING (CASE WHEN t.SummaryLineIdentifier = 1 THEN 'Soccer 8RM'
-				WHEN t.SummaryLineIdentifier = 2 THEN 'Other Sports 8RM'
-				WHEN t.SummaryLineIdentifier = 3 THEN 'Soccer BARM'
-				WHEN t.SummaryLineIdentifier = 4 THEN 'Other Sports BARM'
-				ELSE 
-				 	CASE WHEN cn88.CustId IS NOT NULL THEN 'CN88'
-				 		 WHEN dep.custid  IS NOT NULL THEN 'Deposit'
-						 ELSE 'Credit' END
+				 WHEN t.SummaryLineIdentifier = 2 THEN 'Other Sports 8RM'
+				 WHEN t.SummaryLineIdentifier = 3 THEN 'Soccer BARM'
+				 WHEN t.SummaryLineIdentifier = 4 THEN 'Other Sports BARM'
+				 ELSE super.SiteType
 			END IS NOT NULL 
 		OR Bettype IS NOT NULL) --exclude the summary record (from group set) for RM lines such as 'Soccer 8RM'
 	ORDER BY CASE WHEN BetType = 1		THEN 1		--Handicap
