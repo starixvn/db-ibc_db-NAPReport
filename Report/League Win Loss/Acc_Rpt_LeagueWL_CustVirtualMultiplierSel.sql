@@ -8,7 +8,7 @@ ALTER PROCEDURE Acc_Rpt_LeagueWL_CustVirtualMultiplierSel
 AS
 /*
 	Created: 20200818@Jaden
-	Task : Get current virtual rate settings of users
+	Task : Get current virtual rate settings of users (cloned from #136629 SMA Winloss)
 	DB: DBACC.bodb02
 
 	Revisions:
@@ -17,7 +17,6 @@ AS
 
 	Used by:
 		- [DBACC + DBDW] League WL report (by Super)
-		- [DBDW] SMA Winloss Summary report
 
 	Script: EXEC bodb02..Acc_Rpt_LeagueWL_SupVirtualMultiplierSel @CustID=1
 */
