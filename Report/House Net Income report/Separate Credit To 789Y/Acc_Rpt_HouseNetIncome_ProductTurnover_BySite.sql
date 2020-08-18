@@ -28,6 +28,7 @@ AS
 		- 20200701@Kean.Nguyen - House Net Income Email/Letstalk - Change formula to Calculate Margin (#136792)
 		- 20200720@Kean - DHWL Email/Letstalk - Separate Saba Sports from real Sports (#137822)
 		- 20200722@Ned.Le - Email/Letstalk Reports - Integrate Jackpot Games (#137280)
+		- 20200813@Kean - DHWL Email/Letstalk - Change Product Name and Margin Report Format (#139537)
 	
 	Param's Explanation:   
 	- DepositType  
