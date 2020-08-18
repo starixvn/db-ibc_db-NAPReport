@@ -267,23 +267,13 @@ BEGIN
 		ON t.Bettype = bt.typeid
 	LEFT JOIN #super AS super
 		ON t.SuperID = super.SuperID
-	GROUP BY GROUPING SETS (
-			(Bettype, t.SummaryLineIdentifier
+	GROUP BY Bettype, t.SummaryLineIdentifier
 			,CASE WHEN t.SummaryLineIdentifier = 1 THEN 'Soccer 8RM'
 				  WHEN t.SummaryLineIdentifier = 2 THEN 'Other Sports 8RM'
 				  WHEN t.SummaryLineIdentifier = 3 THEN 'Soccer BARM'
 				  WHEN t.SummaryLineIdentifier = 4 THEN 'Other Sports BARM'
 				  ELSE super.SiteType
-			 END)
-			, (BetType)
-	) --add summary records displaying the totals of each bet type
-	HAVING (CASE WHEN t.SummaryLineIdentifier = 1 THEN 'Soccer 8RM'
-				 WHEN t.SummaryLineIdentifier = 2 THEN 'Other Sports 8RM'
-				 WHEN t.SummaryLineIdentifier = 3 THEN 'Soccer BARM'
-				 WHEN t.SummaryLineIdentifier = 4 THEN 'Other Sports BARM'
-				 ELSE super.SiteType
-			END IS NOT NULL 
-		OR Bettype IS NOT NULL) --exclude the summary record (from group set) for RM lines such as 'Soccer 8RM'
+			 END
 	ORDER BY CASE WHEN BetType = 1		THEN 1		--Handicap
 				  WHEN BetType = 301	THEN 2		--% Handicap
 				  WHEN BetType = 3		THEN 3		--Over/Under

@@ -293,16 +293,7 @@ BEGIN
 		ON t.homeid = home.teamid
 	LEFT JOIN bodb02.dbo.Team away WITH (NOLOCK) 
 		ON t.awayid = away.teamid
-	GROUP BY GROUPING SETS (
-		(t.MatchID, t.LiveIndicator, t.MatchCode),
-		(t.MatchID)
-	) --add summary records displaying the totals of each match
-	HAVING COALESCE(
-				MAX(home.teamname 
-					+ CASE WHEN away.teamname IS NOT NULL THEN ' -vs- ' + away.teamname ELSE '' END
-					+ CASE WHEN t.MatchCode LIKE '%hedge%' THEN ' (hedge)' ELSE '' END)
-				, t.MatchCode
-			) IS NOT NULL --exclude the summary record (from group set) for RM lines such as 'Soccer 8RM'
+	GROUP BY t.MatchID, t.LiveIndicator, t.MatchCode
 	ORDER BY CASE WHEN t.MatchCode = 'Soccer 8RM'        THEN 2
 				  WHEN t.MatchCode = 'Other Sports 8RM'  THEN 3
 				  WHEN t.MatchCode = 'Soccer BARM'       THEN 4
