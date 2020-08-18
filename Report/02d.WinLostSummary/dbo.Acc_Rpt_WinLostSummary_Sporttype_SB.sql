@@ -28,6 +28,7 @@ BEGIN
 			20170323@Robert: NAP Reports - Integrate Cash out [RedmindID: #73419]
 			20180618@Tom: Fix Duplicate data when match have hedge (#97073)
 			20190308@Cherry: Integrate Bet Builder (#109822)
+			20200813@Ned.Le: HotFix - Soccer data is included data Bet Builder and Metric Gaming in Win Loss Summary (2d) report (#139454)
 
 
         Parameter's Explanation:
@@ -72,6 +73,14 @@ BEGIN
 			 (0, 0, 0, 2, '', '', @isTest);
     DELETE FROM @SportBettype
     WHERE Bettype IN(901, 902, 903, 904, 911, 912, 913, 914);
+	IF ((@drilldownbytype = 1 AND @sporttype > 0 AND @sporttype <= 99 AND @SubProduct = '')
+	    OR
+		(@drilldownbytype = 2 AND @bettype=19999))
+	BEGIN
+		DELETE 
+		FROM @SportBettype
+		WHERE SubProduct IN ('MG-SuperLive', 'Bet Builder')
+	END
     DECLARE @movebetdate    DATETIME
 		, @f_date         DATETIME
 		, @t_date         DATETIME;
@@ -119,11 +128,12 @@ BEGIN
 						  , ISNULL(SUM(virtualLineTotal), 0)
 						  , m.isNeutral
 					  FROM rptWinlost AS b WITH (NOLOCK)
+					     INNER JOIN @SportBettype AS sb ON b.bettype = sb.Bettype
 						 INNER JOIN bodb02.dbo.match AS m WITH (NOLOCK) ON b.matchid = m.matchid
 					  WHERE winlostdate BETWEEN @f_date AND @t_date
 						   AND b.sporttype = CASE
 											WHEN @sporttype = -38
-											THEN 1
+											THEN b.sporttype
 											ELSE @sporttype
 										 END --Bet Builder
 						   AND CASE
@@ -152,7 +162,7 @@ BEGIN
 						    , homeid
 						    , awayid
 						    , liveindicator
-						    , bettype
+						    , b.bettype
 						    , leagueid
 						    , isNeutral;
 				IF @bettype IN(0, 19999)
@@ -251,11 +261,7 @@ BEGIN
 						 INNER JOIN @SportBettype AS sb ON b.bettype = sb.Bettype
 						 INNER JOIN bodb02.dbo.match AS m WITH (NOLOCK) ON b.matchid = m.matchid
 					  WHERE winlostdate BETWEEN @f_date AND @t_date
-						   AND b.sporttype = CASE
-											WHEN @sporttype = -38
-											THEN 1
-											ELSE @sporttype
-										 END
+						   AND b.sporttype = @sporttype
 						   AND CASE
 								 WHEN @bettype = 0
 								 THEN 1
@@ -393,13 +399,14 @@ BEGIN
 						  , ISNULL(SUM(virtualLineTotal), 0)
 						  , m.isNeutral
 					  FROM rptWinlost AS b WITH (NOLOCK)
+					     INNER JOIN @SportBettype AS sb ON b.bettype = sb.Bettype
 						 INNER JOIN bodb02.dbo.match14 AS m WITH (NOLOCK) ON b.matchid = m.matchid
 					  WHERE winlostdate BETWEEN @f_date AND @t_date
 						   AND b.sporttype = CASE
 											WHEN @sporttype = -38
-											THEN 1
+											THEN b.sporttype
 											ELSE @sporttype
-										 END
+										 END -- Bet Builder
 						   AND CASE
 								 WHEN @bettype = 0
 								 THEN 1
@@ -426,7 +433,7 @@ BEGIN
 						    , homeid
 						    , awayid
 						    , liveindicator
-						    , bettype
+						    , b.bettype
 						    , leagueid
 						    , isNeutral;
 				IF @bettype IN(0, 19999)
@@ -525,11 +532,7 @@ BEGIN
 						 INNER JOIN @SportBettype AS sb ON b.bettype = sb.Bettype
 						 INNER JOIN bodb02.dbo.match14 AS m WITH (NOLOCK) ON b.matchid = m.matchid
 					  WHERE winlostdate BETWEEN @f_date AND @t_date
-						   AND b.sporttype = CASE
-											WHEN @sporttype = -38
-											THEN 1
-											ELSE @sporttype
-										 END
+						   AND b.sporttype = @sporttype
 						   AND CASE
 								 WHEN @bettype = 0
 								 THEN 1
@@ -695,16 +698,6 @@ BEGIN
 						THEN 16
 						ELSE 17
 					 END;
-    IF @drilldownbytype IN(1, 2)
-	  AND @sporttype = 1
-	  AND @bettype IN(0, 19999)
-	  AND @SubProduct = ''
-	   BEGIN
-		  DELETE r
-		  FROM @RPT r
-			 INNER JOIN @SportBettype sb ON r.bettype = sb.Bettype
-		  WHERE sb.SubProduct = 'MG-SuperLive';
-	   END;
     SELECT CASE
 			WHEN d.matchcode LIKE '%hedge%'
 				OR r.matchcode LIKE '%hedge%'
@@ -715,8 +708,10 @@ BEGIN
 			THEN 1
 			ELSE 0
 		 END AS IsHedge
+		,l.sporttype
 	    , r.*
     FROM @RPT AS r
+	     LEFT JOIN bodb02.dbo.league l (NOLOCK) ON r.leagueid = l.leagueid
 	   OUTER APPLY
 	    (
 		   SELECT *
