@@ -223,9 +223,9 @@ BEGIN
 						END) AS VirtualTurnover
 			FROM bodb02.dbo.bettrans sd (NOLOCK)
 			INNER JOIN #tmpSportBettypeMatrix sbm
-				ON sbm.BetType = sd.bettype AND sbm.SportType = sbm.SportType
+				ON sbm.BetType = sd.bettype 
 			INNER JOIN #tmpMatch m 
-				ON sd.matchid = m.matchid
+				ON sd.matchid = m.matchid AND m.sporttype = sbm.SportType
 					AND CASE WHEN sd.bettype = 10 THEN 1 ELSE 0 END = m.matchtype --prevent matchid dupplicates in *match* and *outright*
 			WHERE sd.winlostdate = @StartDate
 				AND sd.ruben = 1
