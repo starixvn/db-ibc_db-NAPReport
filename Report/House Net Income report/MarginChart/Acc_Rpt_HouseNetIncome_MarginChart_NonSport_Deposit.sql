@@ -26,6 +26,7 @@ AS
 		- 20200422@Percy: Integrate 3D Lottery (CC), Saba.Club, Sexy Gaming [RedmineID: #132790,#132791,#132792]
 		- 20200521@Percy: Re-integrate FW [RedmineID: #134533]
 		- 20200529@Percy: Special members for AB [RedmineID: #134867]
+		- 20200818@Percy: Integrate PG Soft [RedmineID: #137764]
 
 	Param's Explanation:   
 		- @ProductList: '' - default value when get all product
@@ -80,6 +81,14 @@ BEGIN
 	SELECT @SQL = LEFT(@SQL, DATALENGTH(@SQL) -2) + ')'	+ CHAR(13)
 	SELECT @SumValue = @SumValue + ' FROM #MarginChartResult GROUP BY [Order], Figure ORDER BY [Order]'
 
+	-- 24. PGS
+	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'FW')
+	BEGIN
+		SELECT @SpecialPayToSupplierProductCodes = COALESCE(@SpecialPayToSupplierProductCodes + ',', '') + 'FW'
+		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
+							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_PGS_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
+	END
+	
 	-- 23. FW
 	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'FW')
 	BEGIN
