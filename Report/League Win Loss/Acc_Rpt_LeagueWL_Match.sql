@@ -302,6 +302,7 @@ BEGIN
 			, MatchID DESC, MatchEvent, LiveIndicator ASC
 
 	DROP TABLE #tmpMatch
+	DROP TABLE #tmpSportBettypeMatrix
 	DROP TABLE #tmpData
 END
 GO

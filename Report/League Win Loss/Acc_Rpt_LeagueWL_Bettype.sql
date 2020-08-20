@@ -295,6 +295,8 @@ BEGIN
 			 , 3 ASC -- then order "SiteType" NULL first
 			 , t.SummaryLineIdentifier
 
+	DROP TABLE #tmpSportBettypeMatrix
+	DROP TABLE #super
 	DROP TABLE #agentSuperBettype
 END
 GO
