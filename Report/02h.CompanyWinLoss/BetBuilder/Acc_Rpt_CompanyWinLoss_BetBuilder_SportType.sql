@@ -82,7 +82,7 @@ BEGIN
 		END) as RowName
 		,SUM((winlost - actual_stake) * actualrate) as MemberWinLoss
 		,SUM((awinlost + mwinlost + swinlost) * actualrate) AS SMAWinLoss
-		,SUM((
+		,-SUM((
 				CASE 
 					WHEN b.tpositiontaking = 1
 						THEN 0
