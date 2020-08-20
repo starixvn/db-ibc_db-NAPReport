@@ -31,7 +31,7 @@ AS
 					 1 - No get draw ticktes to report
 
 	Example:
-        EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Site @StartDate='20200809', @EndDate='20200630'
+        EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Site @StartDate='20200620', @EndDate='20200630'
                     , @MatchID=36693927, @LiveIndicator=0, @SiteType='Credit', @BetType=1, @IsNoDraw=0
 */
 
@@ -57,33 +57,48 @@ BEGIN
         OPTION (RECOMPILE)
     END
 
-    BEGIN /*gather super-site data depending on @SiteType*/
-        CREATE TABLE #super (SuperID INT PRIMARY KEY, 
-                             Site    VARCHAR(50))
+    BEGIN /*gather agent-site data depending on @SiteType*/
+        CREATE TABLE #agent (agentId INT PRIMARY KEY, 
+                             site    VARCHAR(50))
 
         IF @SiteType = 'CN88'
-            INSERT INTO #super
-                SELECT c.CustId AS SuperID, c.Site
-                FROM bodb02..Customer AS c WITH(NOLOCK)
-                INNER JOIN bodb02..CS_CustSuper cn88 WITH(NOLOCK) 
-                    ON c.srecommend = cn88.CustId
-                WHERE c.RoleID = 4
+            BEGIN
+                INSERT INTO #Agent
+                    SELECT c.CustId, c.Site
+                    FROM bodb02..Customer AS c WITH(NOLOCK)
+                    INNER JOIN bodb02..CS_CustSuper cn88 WITH(NOLOCK) 
+                        ON c.srecommend = cn88.CustId
+                    WHERE c.RoleID = 2
+            END
         ELSE
             IF @SiteType = 'Deposit'
-                INSERT INTO #super
-                    SELECT CustId AS SuperID, Site
-                    FROM bodb02..Dep_CustSuper WITH(NOLOCK)
+                BEGIN
+                    INSERT INTO #Agent
+                        SELECT c.CustId, c.Site
+                        FROM bodb02..Customer AS c WITH(NOLOCK)
+                        INNER JOIN bodb02..Dep_CustSuper AS dep WITH(NOLOCK) 
+                            ON c.srecommend = dep.CustId
+                        WHERE c.RoleID = 2
+                            AND c.CustId NOT IN (52466, 5707545);
+                   
+                    INSERT INTO #Agent SELECT 5707545, 'BEST-ODDS'
+                END
             ELSE
-                INSERT INTO #super
-                    SELECT s.CustId AS SuperID, s.Site
-                    FROM bodb02..Customer AS s WITH(NOLOCK)
-                    LEFT JOIN bodb02..Dep_CustSuper AS dep WITH(NOLOCK) 
-                        ON s.custid = dep.CustId
-                    LEFT JOIN bodb02..CS_CustSuper cn88 WITH(NOLOCK) 
-                        ON s.srecommend = cn88.CustId
-                    WHERE s.RoleID = 4
-                        AND dep.CustId IS NULL
-                        AND cn88.CustId IS NULL
+                BEGIN
+                    INSERT INTO #Agent
+                        SELECT c.CustId, c.Site
+                        FROM bodb02..Customer AS c WITH(NOLOCK)
+                        LEFT JOIN bodb02..Dep_CustSuper AS dep WITH(NOLOCK) 
+                            ON c.srecommend = dep.CustId
+                        LEFT JOIN bodb02..CS_CustSuper cn88 WITH(NOLOCK) 
+                            ON c.srecommend = cn88.CustId
+                        WHERE c.RoleID = 2
+                            AND c.CustId NOT IN (52466, 5707545)
+                            AND dep.CustId IS NULL
+                            AND cn88.CustId IS NULL;
+                    
+                    INSERT INTO #Agent SELECT 52466, 'XYZBET'
+                END
     END
 
 	BEGIN /*staging data*/
@@ -101,18 +116,18 @@ BEGIN
         
         --+ soccer, other sports
         INSERT INTO #tmpData (AgentId,
-                              Site,
-                              MemberWinLoss,
-                              SMAWinLoss,
-                              ExtraPT,
-                              Commission,
-                              RealIncome,
-                              VirtualIncome,
-                              VarianceIncome,
-                              RealTurnover,
-                              VirtualTurnover)
-            SELECT  sd.recommend AgentID,
-                    s.site Site,
+                            Site,
+                            MemberWinLoss,
+                            SMAWinLoss,
+                            ExtraPT,
+                            Commission,
+                            RealIncome,
+                            VirtualIncome,
+                            VarianceIncome,
+                            RealTurnover,
+                            VirtualTurnover)
+            SELECT  a.agentId,
+                    a.site Site,
                     SUM((sd.winlost - sd.actual_stake) * sd.actualrate) AS MemberWinLoss,
                     SUM((sd.awinlost + sd.mwinlost + sd.swinlost) * sd.actualrate) AS SMAWinLoss,
                     SUM((CASE WHEN sd.tpositiontaking = 1 THEN 0
@@ -187,8 +202,8 @@ BEGIN
                                 * sd.virtualrate
                         END) AS VirtualTurnover
             FROM bodb02.dbo.bettrans sd WITH (NOLOCK)
-            INNER JOIN #super s
-                ON sd.srecommend = s.SuperID
+            INNER JOIN #agent a
+                ON sd.recommend = a.agentId
             WHERE sd.winlostdate = @StartDate
                 AND sd.matchid = @MatchID
                 AND sd.ruben = 1
@@ -197,7 +212,7 @@ BEGIN
                 AND sd.liveindicator = @LiveIndicator
                 AND sd.bettype = @BetType
                 AND (@IsNoDraw = 0 OR (@IsNoDraw = 1 AND sd.statusID NOT IN (111)))
-            GROUP BY sd.recommend, s.site
+            GROUP BY a.agentId, a.site
             OPTION (RECOMPILE)
 
         --+ RM summary
@@ -259,6 +274,6 @@ BEGIN
                   ELSE 1 END
 
 	DROP TABLE #tmpData
-    DROP TABLE #super
+    DROP TABLE #agent
 END
 GO
