@@ -5,7 +5,7 @@ GO
 
 ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_BetBuilder_BetType] @StartDate SMALLDATETIME, 
                                                                   @EndDate   SMALLDATETIME,
-																  @SportType SMALLINT
+																  @SportType INT
 AS
 
 /*
@@ -31,7 +31,7 @@ EXEC Acc_Rpt_CompanyWinLoss_BetBuilder_BetType @StartDate='2020-07-23 00:00:00',
 		DECLARE @isTest BIT= 0;
         SELECT @isTest = dbo.f_CheckSPVersion(@@PROCID);
         CREATE TABLE #SportBetType
-                     (BetType     SMALLINT
+                     (BetType     INT
                       ,BetTypeName NVARCHAR(50)
                      );
         INSERT INTO #SportBetType

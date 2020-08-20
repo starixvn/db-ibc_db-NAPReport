@@ -20,12 +20,12 @@ BEGIN
 	---Create temp tables---
 	CREATE TABLE #tmpSportMatches (
 		MatchId INT
-		,SportType TINYINT
+		,SportType INT
 		,SportName NVARCHAR(50)
 		)
 	
 	CREATE TABLE #tmpBetTypes (
-		BetType SMALLINT
+		BetType INT
 		)
 	
 	CREATE TABLE #tmpDepSuper (CustId INT)

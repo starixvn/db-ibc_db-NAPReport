@@ -5,7 +5,7 @@ GO
 
 ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_OtherSports_BetType] @StartDate SMALLDATETIME, 
                                                                    @EndDate   SMALLDATETIME, 
-                                                                   @SportType SMALLINT, 
+                                                                   @SportType INT, 
                                                                    @IsLive    INT           = 2
 AS
 

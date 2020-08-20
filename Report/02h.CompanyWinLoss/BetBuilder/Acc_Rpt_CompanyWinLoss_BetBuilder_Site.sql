@@ -5,7 +5,7 @@ GO
 
 ALTER PROCEDURE dbo.Acc_Rpt_CompanyWinLoss_BetBuilder_Site @StartDate SMALLDATETIME, 
                                                            @EndDate   SMALLDATETIME, 
-                                                           @SportType SMALLINT,
+                                                           @SportType INT,
                                                            @BetType   INT           = 38, 
                                                            @IsHedge   INT           = 2, -- Dummy Parameter
                                                            @IsLive    INT           = 2, -- Dummy Parameter
