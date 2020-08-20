@@ -81,16 +81,17 @@ BEGIN
                              SiteType  CHAR(7))
 
 		INSERT INTO #super
-			SELECT s.CustId AS SuperID,
+			SELECT DISTINCT 
+				   s.srecommend AS SuperID,
 				   CASE WHEN cn88.CustId IS NOT NULL THEN 'CN88'
 				 		WHEN dep.custid  IS NOT NULL THEN 'Deposit'
 						ELSE 'Credit' END AS SiteType
 			FROM bodb02..Customer AS s WITH(NOLOCK)
 			LEFT JOIN bodb02..Dep_CustSuper AS dep WITH(NOLOCK) 
-				ON s.custid = dep.CustId
+				ON s.srecommend = dep.CustId
 			LEFT JOIN bodb02..CS_CustSuper cn88 WITH(NOLOCK) 
 				ON s.srecommend = cn88.CustId
-			WHERE s.RoleID = 4
+			WHERE s.RoleID = 2 -- always get Site info from Agent
 	END
 
 	BEGIN /*build staging data by agent-super-bettype dimension*/
