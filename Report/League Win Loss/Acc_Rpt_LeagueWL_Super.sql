@@ -31,8 +31,8 @@ AS
 					 1 - No get draw ticktes to report
 
 	Example:
-        EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Super @StartDate='20200809', @EndDate='20200630'
-                , @MatchID=37611742, @SiteID = 1, @LiveIndicator=0, @BetType=1, @IsNoDraw=0
+       EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Super @StartDate='20200620', @EndDate='20200630'
+                , @MatchID=36693927, @SiteID = 3, @LiveIndicator=0, @BetType=1, @IsNoDraw=0
 */
 
 BEGIN
@@ -57,18 +57,22 @@ BEGIN
         OPTION (RECOMPILE)
     END
 
-    BEGIN /*gather super-site data depending on @SiteID*/
-        CREATE TABLE #superSite (SuperID   INT,
-                                 SuperName VARCHAR(30))
+    BEGIN /*gather agent-super data depending on @SiteID*/
+        CREATE TABLE #agentSuper (AgentID   INT PRIMARY KEY, 
+                                  SuperID   INT,
+                                  SuperName VARCHAR(30))
 
-        INSERT INTO #superSite
-            SELECT super.custid SuperID, super.username SuperName
-            FROM bodb02.dbo.Customer super
-            INNER JOIN bodb02.dbo.Site s
-                ON super.site = s.site
-                    AND super.roleid = 4
-            WHERE s.siteid = @SiteID
-            OPTION (RECOMPILE)
+        INSERT INTO #agentSuper
+        SELECT agent.custid Agent, super.custid SuperID, super.username SuperName
+        FROM bodb02.dbo.Customer agent
+        INNER JOIN bodb02.dbo.Customer super
+            ON agent.srecommend = super.custid
+                AND super.roleid = 4
+        INNER JOIN bodb02.dbo.Site s
+            ON agent.site = s.site -->>filter by agent to get "current" snapsnot of working agents from a site
+        WHERE s.siteid = @SiteID
+            AND agent.roleid = 2
+        OPTION (RECOMPILE)
     END
 
 	BEGIN /*staging data*/
@@ -98,8 +102,8 @@ BEGIN
                               VarianceIncome,
                               RealTurnover,
                               VirtualTurnover)
-            SELECT  sd.recommend AgentID,
-                    s.SuperID SuperID,
+            SELECT  s.AgentID,
+                    MAX(s.SuperID),
                     MAX(s.SuperName),
                     SUM((sd.winlost - sd.actual_stake) * sd.actualrate) AS MemberWinLoss,
                     SUM((sd.awinlost + sd.mwinlost + sd.swinlost) * sd.actualrate) AS SMAWinLoss,
@@ -175,8 +179,8 @@ BEGIN
                                 * sd.virtualrate
                         END) AS VirtualTurnover
             FROM bodb02.dbo.bettrans sd WITH (NOLOCK)
-            INNER JOIN #superSite s
-                ON sd.srecommend = s.SuperID
+            INNER JOIN #agentSuper s
+                ON sd.recommend = s.AgentID
             WHERE sd.winlostdate = @StartDate
                 AND sd.matchid = @MatchID
                 AND sd.ruben = 1
@@ -185,7 +189,7 @@ BEGIN
                 AND sd.liveindicator = @LiveIndicator
                 AND sd.bettype = @BetType
                 AND (@IsNoDraw = 0 OR (@IsNoDraw = 1 AND sd.statusID NOT IN (111)))
-            GROUP BY sd.recommend, s.SuperID
+            GROUP BY s.AgentId
             OPTION (RECOMPILE)
 
         --+ RM summary
@@ -243,6 +247,6 @@ BEGIN
                   ELSE 1 END, SuperName
 
 	DROP TABLE #tmpData
-    DROP TABLE #superSite
+    DROP TABLE #agentSuper
 END
 GO
