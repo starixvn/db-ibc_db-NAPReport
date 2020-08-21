@@ -64,11 +64,11 @@ BEGIN
 
         INSERT INTO #agentSuper
         SELECT agent.custid Agent, super.custid SuperID, super.username SuperName
-        FROM bodb02.dbo.Customer agent
-        INNER JOIN bodb02.dbo.Customer super
+        FROM bodb02.dbo.Customer agent WITH (NOLOCK)
+        INNER JOIN bodb02.dbo.Customer super WITH (NOLOCK)
             ON agent.srecommend = super.custid
                 AND super.roleid = 4
-        INNER JOIN bodb02.dbo.Site s
+        INNER JOIN bodb02.dbo.Site s WITH (NOLOCK)
             ON agent.site = s.site -->>filter by agent to get "current" snapsnot of working agents from a site
         WHERE s.siteid = @SiteID
             AND agent.roleid = 2
