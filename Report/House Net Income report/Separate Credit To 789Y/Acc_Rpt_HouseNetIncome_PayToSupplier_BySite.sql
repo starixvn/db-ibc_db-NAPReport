@@ -372,7 +372,7 @@ BEGIN
 	       ,CASE WHEN SUM(PayToSupplier_TG) > 0 THEN 0 ELSE SUM(PayToSupplier_TG) END																	AS PayToSupplier_TG
 	       ,SUM(PayToSupplier_IBCLC)																													AS PayToSupplier_IBCLC
 	       ,SUM(PayToSupplier_ION)																														AS PayToSupplier_ION
-	       ,CASE WHEN SUM(PayToSupplier_RNGW) > 0 THEN 0 ELSE SUM(PayToSupplier_RNGW) END																AS PayToSupplier_RNGW
+	       ,SUM(PayToSupplier_RNGW)																														AS PayToSupplier_RNGW
 		   ,SUM(PayToSupplier_PGS)																														AS PayToSupplier_PGS
 	FROM #FinalResult
 
