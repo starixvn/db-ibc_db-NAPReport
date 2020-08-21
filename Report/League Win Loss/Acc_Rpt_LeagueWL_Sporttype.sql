@@ -50,7 +50,7 @@ BEGIN
 		;WITH CTE_SportBettypeMatrix AS (
 			SELECT CAST(LEFT(val, CHARINDEX('_', val)-1) AS INT) AS SportType,
 				   CAST(SUBSTRING(val, CHARINDEX('_', val)+1, 6) AS INT) AS BetType
-			FROM bodb02.dbo.strSplit_str(@SportBettype, ',')
+			FROM bodb02.dbo.strSplit(@SportBettype, ',')
 			WHERE LEN(val) > 0
 		)
 		INSERT INTO #tmpSportBettypeMatrix (SportType, BetType)
