@@ -19,7 +19,13 @@ BEGIN
 	DECLARE @FDate DATE, @TDate DATE
 	SELECT  @FDate = @FromDate, @TDate = @ToDate
 
-	DECLARE @ProductID INT = 55, @ProductPrefix VARCHAR(5) = 'PGS'
+	DECLARE @ProductID INT = 55, @ProductPrefix VARCHAR(5) = 'PGS', @VendorID SMALLINT, @ChargeRate3rd DECIMAL(19, 8)
+	SELECT	@VendorID = VendorID FROM dbo.Products WITH (NOLOCK) WHERE ProductID = @ProductID
+	SELECT  @ChargeRate3rd = NumberValue
+	FROM DBCUST.CustDB.dbo.VendorGlobalSetting WITH (NOLOCK)
+	WHERE VendorID = @VendorID AND VName = '3rdCashWLShareRate'
+
+	SELECT @ChargeRate3rd = ISNULL(@ChargeRate3rd, 0)
 
 	-- Region: Active licensees
 	DECLARE @tmpAllParty TABLE (PartyID INT, ParentID INT, LicenseeID INT)
@@ -78,6 +84,19 @@ BEGIN
 		INNER JOIN @tmpParty p ON ci.PartyID = p.PartyID
 		LEFT JOIN bodb_licensee.dbo.Sport_Bettype_Reference sbr WITH (NOLOCK) ON sbr.BettypeRef = ci.Bettype
 	WHERE ci.DI_Rate > 0
+
+	CREATE TABLE #PartyCharge3rdInfo
+	(
+		LicenseeID INT
+		,Rate       MONEY
+		,FromDate   SMALLDATETIME
+		,ToDate     SMALLDATETIME
+	)
+	INSERT INTO #PartyCharge3rdInfo (LicenseeID, Rate, FromDate, ToDate)
+	SELECT DISTINCT p.LicenseeID, ci.DI_Rate, ci.FromDate, ci.ToDate
+	FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd (@FDate, @TDate, @ProductPrefix, 'OA') ci
+		INNER JOIN #PartyChargeInfo p ON p.ParentID = ci.PartyID
+	WHERE ci.ChargeType = 1
 	-- End Region
 	
 	-- Region: Get Exchange
@@ -86,6 +105,11 @@ BEGIN
 	SELECT ExchangeDate, Currency, Rate
 	FROM DBWH.bodb_account.dbo.tbl_Currency_Daily WITH (NOLOCK)
 	WHERE ExchangeDate BETWEEN @FDate AND @TDate
+
+	CREATE TABLE #ExchangeOANDA (ExchangeDate DATETIME, ExchangeID INT, Rate FLOAT)	
+	INSERT INTO #ExchangeOANDA (ExchangeDate, ExchangeID, Rate)
+	SELECT ExchangeDate, ExchangeID, BaseCurrencyRate
+	FROM bodb02.dbo.LA_f_ExchangeDailySel(@FDate, @TDate, 'MYR')
 	-- End Region
 
 	-- Region: Get Sum data
@@ -130,14 +154,16 @@ BEGIN
 		,AmountToCompany	MONEY
 	)
 	INSERT INTO #tempData (rptDate, PayToSupplier, AmountToCompany)
-	SELECT b.rptDate, SUM(ISNULL(b.MemberWL, 0) * ISNULL(e.Rate, 0)), SUM(CASE WHEN p.LicenseeID IS NULL THEN -ISNULL(b.HouseWL, 0) ELSE -ISNULL(b.MemberWL, 0) * ISNULL(lc.Rate, p.Rate) END * ISNULL(e.Rate, 0))
+	SELECT b.rptDate, SUM(ISNULL(b.MemberWL, 0) * ISNULL(rd.Rate, @ChargeRate3rd) * ISNULL(eo.Rate, 0)), SUM(CASE WHEN p.LicenseeID IS NULL THEN -ISNULL(b.HouseWL, 0) ELSE -ISNULL(b.MemberWL, 0) * ISNULL(lc.Rate, p.Rate) END * ISNULL(e.Rate, 0))
 	FROM #tempDataDW b
 		INNER JOIN @tmpAllParty tp ON tp.LicenseeID = b.LicenseeID
 		LEFT JOIN #PartyChargeInfo p
 			ON		p.PartyID = tp.PartyID
 				AND b.rptDate BETWEEN p.FromDate AND p.ToDate
 				AND (p.Bettype = -1 OR p.Bettype = b.Bettype)
+		LEFT JOIN #PartyCharge3rdInfo rd ON rd.LicenseeID = b.LicenseeID AND b.rptDate BETWEEN rd.FromDate AND rd.ToDate
 		LEFT JOIN #Exchange e ON b.rptDate = e.ExchangeDate AND b.CurrencyID = e.ExchangeID
+		LEFT JOIN #ExchangeOANDA eo ON b.rptDate = eo.ExchangeDate AND b.CurrencyID = eo.ExchangeID
 		LEFT JOIN bodb_Licensee.dbo.LA_ChargeRateByCurrency lc WITH (NOLOCK) ON p.ChargeID = lc.ChargeID AND b.CurrencyID = lc.CurrencyID
 	GROUP BY b.rptDate
 	-- End Region
@@ -184,7 +210,9 @@ BEGIN
 	-- Region: Drop tmp table
 	DROP TABLE #Bettype
 	DROP TABLE #Exchange
+	DROP TABLE #ExchangeOANDA
 	DROP TABLE #FinalResult
+	DROP TABLE #PartyCharge3rdInfo
 	DROP TABLE #PartyChargeInfo
 	DROP TABLE #Site
 	DROP TABLE #tempData
