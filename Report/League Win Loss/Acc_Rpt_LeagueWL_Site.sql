@@ -271,7 +271,7 @@ BEGIN
                   WHEN MAX(t.Site) = 'Other Sports 8RM'  THEN 3
                   WHEN MAX(t.Site) = 'Soccer BARM'       THEN 4
                   WHEN MAX(t.Site) = 'Other Sports BARM' THEN 5
-                  ELSE 1 END
+                  ELSE 1 END, SiteName
 
 	DROP TABLE #tmpData
     DROP TABLE #agent
