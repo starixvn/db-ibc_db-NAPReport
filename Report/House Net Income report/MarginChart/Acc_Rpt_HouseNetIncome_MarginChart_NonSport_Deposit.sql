@@ -43,7 +43,7 @@ BEGIN
 
 	DECLARE @SpecialPayToSupplierProductCodes VARCHAR(MAX)
 
-	DECLARE @DefaulProductList VARCHAR(MAX) = 'EX,GD,FW,AB,VB,CB,CO,AGC,KN,LT,CS,NG,PP,CC,SP,SG,VRG,SAG,I4D,TG,SBC,SXG'
+	DECLARE @DefaulProductList VARCHAR(MAX) = 'EX,GD,FW,AB,VB,CB,CO,AGC,KN,LT,CS,NG,PP,CC,SP,SG,VRG,SAG,I4D,TG,SBC,SXG,FW,PGS'
 
 	-- Select ProductList
 	SELECT @ProductList = CASE WHEN LEN(ISNULL(@ProductList, '')) > 0  THEN @ProductList ELSE @DefaulProductList END
@@ -82,9 +82,8 @@ BEGIN
 	SELECT @SumValue = @SumValue + ' FROM #MarginChartResult GROUP BY [Order], Figure ORDER BY [Order]'
 
 	-- 24. PGS
-	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'FW')
+	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'PGS')
 	BEGIN
-		SELECT @SpecialPayToSupplierProductCodes = COALESCE(@SpecialPayToSupplierProductCodes + ',', '') + 'FW'
 		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
 							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_PGS_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
 	END

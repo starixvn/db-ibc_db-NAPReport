@@ -126,10 +126,11 @@ BEGIN
 	CREATE TABLE #tempData
 	(
 		rptDate				DATETIME
+		,PayToSupplier		MONEY
 		,AmountToCompany	MONEY
 	)
-	INSERT INTO #tempData (rptDate, AmountToCompany)
-	SELECT b.rptDate, SUM(CASE WHEN p.LicenseeID IS NULL THEN -ISNULL(b.HouseWL, 0) ELSE -ISNULL(b.MemberWL, 0) * ISNULL(lc.Rate, p.Rate) END * ISNULL(e.Rate, 0))
+	INSERT INTO #tempData (rptDate, PayToSupplier, AmountToCompany)
+	SELECT b.rptDate, SUM(ISNULL(b.MemberWL, 0) * ISNULL(e.Rate, 0)), SUM(CASE WHEN p.LicenseeID IS NULL THEN -ISNULL(b.HouseWL, 0) ELSE -ISNULL(b.MemberWL, 0) * ISNULL(lc.Rate, p.Rate) END * ISNULL(e.Rate, 0))
 	FROM #tempDataDW b
 		INNER JOIN @tmpAllParty tp ON tp.LicenseeID = b.LicenseeID
 		LEFT JOIN #PartyChargeInfo p
@@ -146,30 +147,24 @@ BEGIN
     EXEC dbo.Acc_Rpt_HouseNetIncome_LicenseeFee @FromDate = @FDate, @ToDate = @TDate, @Products = @ProductPrefix
 
 	CREATE TABLE #FinalResult (rptDate VARCHAR(10), LicenseeWL MONEY, PayToSupplier MONEY)
-	INSERT INTO #FinalResult (rptDate, LicenseeWL)
-	SELECT 'FullRange', (SELECT SUM(WLFeeApplied) FROM #FeeData)
+	INSERT INTO #FinalResult (rptDate, LicenseeWL, PayToSupplier)
+	SELECT 'FullRange', (SELECT SUM(WLFeeApplied) FROM #FeeData), (SELECT SUM(PayToSupplier) FROM #tempData)
 
 	DECLARE @tmpDate DATETIME, @DateList VARCHAR(200)
 	SELECT  @tmpDate = @FDate
 
 	WHILE @tmpDate <= @TDate
 	BEGIN
-		INSERT INTO #FinalResult (RptDate, LicenseeWL)
+		INSERT INTO #FinalResult (RptDate, LicenseeWL, PayToSupplier)
 		SELECT
 			CONVERT(VARCHAR(2), @tmpDate, 106)
-			,(SELECT ISNULL(SUM(AmountToCompany), 0) FROM #tempData WHERE rptDate = @tmpDate)
+			,ISNULL(SUM(AmountToCompany), 0)
+			,ISNULL(SUM(PayToSupplier), 0)
+		FROM #tempData
+		WHERE rptDate = @tmpDate
 
 		SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate)
 	END
-
-	CREATE TABLE #PayToSupplier (ProductCode VARCHAR(50), rptDate VARCHAR(10), PayToSupplier MONEY, CurrencyPlay	MONEY)
-	INSERT INTO #PayToSupplier (ProductCode, rptDate, PayToSupplier, CurrencyPlay)
-	EXEC Acc_Rpt_HouseNetIncome_PayToSupplier @FromDate = @FDate, @ToDate = @TDate, @ProductCodes = @ProductPrefix, @DepositType = 1
-
-	UPDATE f
-	SET f.PayToSupplier = p.PayToSupplier
-	FROM #FinalResult f
-		INNER JOIN #PayToSupplier p ON f.rptDate = p.rptDate
 
 	SELECT @DateList = COALESCE(@DateList + ',', '') + '[' + CONVERT(VARCHAR(10), RptDate) + ']' FROM #FinalResult
 	
@@ -199,7 +194,6 @@ BEGIN
 	DROP TABLE #Site
 	DROP TABLE #tempData
 	DROP TABLE #tempDataDW
-	DROP TABLE #PayToSupplier
 	-- End Region
 END
 GO
