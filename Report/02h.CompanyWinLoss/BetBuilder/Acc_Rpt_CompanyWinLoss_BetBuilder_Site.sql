@@ -5,7 +5,7 @@ GO
 
 ALTER PROCEDURE dbo.Acc_Rpt_CompanyWinLoss_BetBuilder_Site @StartDate SMALLDATETIME, 
                                                            @EndDate   SMALLDATETIME, 
-                                                           @SportType SMALLINT, -- Dummy Parameter
+                                                           @SportType INT,
                                                            @BetType   INT           = 38, 
                                                            @IsHedge   INT           = 2, -- Dummy Parameter
                                                            @IsLive    INT           = 2, -- Dummy Parameter
@@ -22,6 +22,7 @@ Revisions:
 - 20190313@Jacob: Integrate BetBuilder (#109822)
 - 20190925@Jacob: Group By CN88 (#118824)
 - 20191212@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
+- 20200722@Roy: Incorporate New Basketball Sport for BetBuilder Product - NAP Report (#138082)
 Parameters:
 
 Example:
@@ -75,6 +76,17 @@ EXEC [Acc_Rpt_CompanyWinLoss_BetBuilder_Site] @EndDate='2019-03-03',@StartDate='
                            SELECT 52466, 
                                   'XYZBET';--8RM;
             END;
+    END;
+	BEGIN -- #Match
+        CREATE TABLE #Match
+                     ( MatchId INT )
+        INSERT INTO #Match
+               SELECT DISTINCT m.MatchId
+               FROM Match m WITH(NOLOCK)
+					INNER JOIN league l WITH (NOLOCK) ON m.leagueid = l.leagueid
+               WHERE m.EventDate = @StartDate
+					AND l.sporttype = @SportType
+			   OPTION (RECOMPILE)
     END;
     BEGIN -- #Data
 
@@ -149,6 +161,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_BetBuilder_Site] @EndDate='2019-03-03',@StartDate='
                           END) AS VirtualTurnover
                FROM bettrans AS b WITH(NOLOCK)
                     INNER JOIN #Agent AS ag ON b.recommend = ag.custid
+					INNER JOIN #Match m ON b.MatchId = m.MatchId
                WHERE b.winlostdate = @StartDate
                      AND b.bettype = @BetType
                      AND b.ruben = 1
@@ -172,4 +185,5 @@ EXEC [Acc_Rpt_CompanyWinLoss_BetBuilder_Site] @EndDate='2019-03-03',@StartDate='
 	
     DROP TABLE #Agent;
     DROP TABLE #Data;
+	DROP TABLE #Match;
 GO

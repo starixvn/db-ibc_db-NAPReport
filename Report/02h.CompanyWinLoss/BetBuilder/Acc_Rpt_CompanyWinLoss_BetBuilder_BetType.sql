@@ -4,7 +4,8 @@ USE bodb02
 GO
 
 ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_BetBuilder_BetType] @StartDate SMALLDATETIME, 
-                                                                  @EndDate   SMALLDATETIME
+                                                                  @EndDate   SMALLDATETIME,
+																  @SportType INT
 AS
 
 /*
@@ -17,26 +18,29 @@ Revisions:
 - 20190313@Jacob: Integrate BetBuilder (#109822)
 - 20190925@Jacob: Group By CN88 (#118824)
 - 20191212@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
+- 20200722@Roy: Incorporate New Basketball Sport for BetBuilder Product - NAP Report (#138082)
 Parameters:
 
 Example:
-EXEC [Acc_Rpt_CompanyWinLoss_BetBuilder_BetType] @EndDate='2019-03-03',@StartDate='2019-03-03'
+EXEC Acc_Rpt_CompanyWinLoss_BetBuilder_BetType @StartDate='2020-07-23 00:00:00', @EndDate='2020-07-23 00:00:00', @SportType = 2
 
 */
 
      SET NOCOUNT ON;
-    BEGIN --#SportBetType     
-        DECLARE @isTest BIT= 0;
+    BEGIN --#SportBetType 
+		DECLARE @isTest BIT= 0;
         SELECT @isTest = dbo.f_CheckSPVersion(@@PROCID);
         CREATE TABLE #SportBetType
-                     (BetType     INT, 
-                      BetTypeName NVARCHAR(50)
+                     (BetType     INT
+                      ,BetTypeName NVARCHAR(50)
                      );
         INSERT INTO #SportBetType
-               SELECT BetType, 
+				SELECT s.BetType, 
                       b.typenamee
-               FROM dbo.f_SportBetTypeMatrix_Sel(1, 0, 0, 2, 'Bet Builder', '', @isTest) s
-                    INNER JOIN dbo.BetType b WITH(NOLOCK) ON s.BetType = b.typeid;
+				FROM dbo.f_SportBetTypeMatrix_Sel(1, 0, 0, 2, 'Bet Builder', '', @isTest) s
+                    INNER JOIN dbo.BetType b WITH(NOLOCK) ON s.BetType = b.typeid
+				GROUP BY s.BetType
+						,b.typenamee;
     END;
     BEGIN -- #DepositSuper
 
@@ -47,6 +51,21 @@ EXEC [Acc_Rpt_CompanyWinLoss_BetBuilder_BetType] @EndDate='2019-03-03',@StartDat
         INSERT INTO #DepositSuper
                SELECT CustId
                FROM f_DepSuper_1('All');
+    END;
+	BEGIN -- #tmpMatches
+        CREATE TABLE #tmpMatches (
+			MatchId INT PRIMARY KEY
+			)
+		INSERT INTO #tmpMatches
+        SELECT m.MatchId
+		FROM match m WITH (NOLOCK)
+			INNER JOIN league l WITH (NOLOCK) ON m.leagueid = l.leagueid
+			INNER JOIN SportBettypeMatrix sm WITH (NOLOCK) ON l.sporttype = sm.sporttype
+		WHERE sm.SubProduct = 'Bet Builder'		
+			AND sm.sporttype = @SportType
+			AND m.EventDate = @StartDate
+		GROUP BY m.MatchId
+		OPTION (RECOMPILE)
     END;
     BEGIN -- Query
 
@@ -115,7 +134,8 @@ EXEC [Acc_Rpt_CompanyWinLoss_BetBuilder_BetType] @EndDate='2019-03-03',@StartDat
                        ELSE(1 - b.tpositiontaking - ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * ABS(b.stake) * virtualrate
                    END) AS VirtualTurnover
         FROM bettrans AS b WITH(NOLOCK)
-             INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
+			 INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
+			 INNER JOIN #tmpMatches AS m WITH(NOLOCK) ON b.MatchId = m.MatchId
              LEFT JOIN #DepositSuper AS dep ON b.srecommend = dep.CustId
              LEFT JOIN CS_CustSuper AS cn88 WITH(NOLOCK) ON b.srecommend = cn88.CustId
         WHERE b.winlostdate = @StartDate
@@ -138,4 +158,5 @@ EXEC [Acc_Rpt_CompanyWinLoss_BetBuilder_BetType] @EndDate='2019-03-03',@StartDat
 
     DROP TABLE #SportBetType;
     DROP TABLE #DepositSuper;
+	DROP TABLE #tmpMatches;
 GO
