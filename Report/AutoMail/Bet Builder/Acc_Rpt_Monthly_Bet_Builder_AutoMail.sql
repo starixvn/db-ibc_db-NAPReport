@@ -10,6 +10,7 @@ AS
 	Task: Bet Builder - Daily Automail report to 3rd
 	Revisions:		
 		- 20190527@Robert: Bet Builder - Daily Automail report to 3rd [#114248]
+		- 20200723@Jaden: Bet Builder - Remove hardcoding (soccer), add basketball [#138082]
 
 	Param's Explanation:	 
 */
@@ -56,6 +57,7 @@ BEGIN
     CREATE TABLE #Result(
 	    TransId               BIGINT
 	  , MatchId               INT
+	  , SportType		  	  INT
 	  , WinLostDate           SMALLDATETIME
 	  , LeagueId              INT
 	  , HomeId                INT
@@ -398,6 +400,7 @@ BEGIN
 						 d.LeagueId = m.leagueid
 					    , d.HomeId = m.homeid
 					    , d.AwayId = m.awayid
+						, d.SportType = m.sporttype
 					    , d.GlobalShowTime = m.GlobalShowTime
 					    , d.BetDescription =
 						 (
@@ -417,6 +420,7 @@ BEGIN
 						 d.LeagueId = m.leagueid
 					    , d.HomeId = m.homeid
 					    , d.AwayId = m.awayid
+						, d.SportType = m.sporttype
 					    , d.GlobalShowTime = m.GlobalShowTime
 					    , d.BetDescription =
 						 (
@@ -436,6 +440,7 @@ BEGIN
 						 d.LeagueId = m.leagueid
 					    , d.HomeId = m.homeid
 					    , d.AwayId = m.awayid
+						, d.SportType = m.sporttype
 					    , d.GlobalShowTime = m.GlobalShowTime
 					    , d.BetDescription =
 						 (
@@ -451,7 +456,7 @@ BEGIN
 	   END;
 
 
-    SELECT 'Soccer' AS Sport
+    SELECT (SELECT SportName FROM bodb02.dbo.Sports WHERE SportType = d.SportType) AS Sport
 	    , d.LeagueId
 	    , d.HomeId
 	    , d.AwayId
