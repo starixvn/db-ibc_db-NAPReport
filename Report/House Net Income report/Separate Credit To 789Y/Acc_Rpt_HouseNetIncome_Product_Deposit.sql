@@ -17,6 +17,7 @@ AS
 		- 20200422@Kean: House Net Income - Integrate Sexy Gaming product (#132792)
 		- 20200422@Kean: House Net Income - Integrate Saba.Club product (#132791)
 		- 20200521@Ned.Le: Re-Integrate Fishing World product for letstalk (#134533)
+		- 20200813@Kean - DHWL Email/Letstalk - Change Product Name and Margin Report Format. (#139537)
 	
 	
 	EXEC [Acc_Rpt_HouseNetIncome_Product_Deposit] '20180601', '20180619'
@@ -142,6 +143,10 @@ EXEC bodb02.dbo.Acc_Rpt_HouseNetIncome_SBC_Deposit
 	,@ToDate	= @ToDate
 	
 EXEC bodb02.dbo.Acc_Rpt_HouseNetIncome_FW_Deposit
+	@FromDate  = @FromDate
+	,@ToDate	= @ToDate
+
+EXEC DBWH.bodb_dwrs.dbo.Acc_Rpt_HouseNetIncome_PPJackpot_Deposit
 	@FromDate  = @FromDate
 	,@ToDate	= @ToDate
 END
