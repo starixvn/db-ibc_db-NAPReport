@@ -3,10 +3,10 @@
 USE [bodb02]
 GO
 
-ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_NonSPortRNG_BetType] @StartDate SMALLDATETIME, 
-                                                                   @EndDate   SMALLDATETIME, 
-                                                                   @ProductId INT,
-                                                                   @SportType INT
+ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_NonSportRNGs_BetType] @StartDate SMALLDATETIME, 
+                                                                    @EndDate   SMALLDATETIME, 
+                                                                    @ProductId INT,
+                                                                    @SportType INT
 AS
 /*
     Creator: Jaden
@@ -21,7 +21,7 @@ AS
             * Saba.Club
 
     Example:
-        EXEC [Acc_Rpt_CompanyWinLoss_NonSPortRNG_BetType] @StartDate='2020-08-18', @EndDate='2020-01-01', 
+        EXEC [Acc_Rpt_CompanyWinLoss_NonSportRNGs_BetType] @StartDate='2020-08-18', @EndDate='2020-01-01', 
             @ProductId=42, @SportType=150
 */
     SET NOCOUNT ON

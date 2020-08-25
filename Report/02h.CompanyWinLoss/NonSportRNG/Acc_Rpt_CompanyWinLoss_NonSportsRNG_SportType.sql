@@ -3,9 +3,9 @@
 USE [bodb02]
 GO
 
-ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_NonSPortRNG_SportType] @StartDate SMALLDATETIME, 
-                                                                     @EndDate   SMALLDATETIME, 
-                                                                     @ProductId INT
+ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_NonSportsRNG_SportType] @StartDate SMALLDATETIME, 
+                                                                      @EndDate   SMALLDATETIME, 
+                                                                      @ProductId INT
 AS
 /*
     Creator: Jaden
@@ -20,7 +20,7 @@ AS
             * Saba.Club
 
     Example:
-        EXEC [Acc_Rpt_CompanyWinLoss_NonSPortRNG_SportType] @StartDate='2020-08-18', @EndDate='2020-01-01', 
+        EXEC [Acc_Rpt_CompanyWinLoss_NonSportsRNG_SportType] @StartDate='2020-08-18', @EndDate='2020-01-01', 
             @ProductId=42
 */
     SET NOCOUNT ON
