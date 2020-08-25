@@ -33,7 +33,7 @@ AS
 		- 20200529@Ned.Le - House Net Income Email/Letstalk - Change timezone to calculate monthly Pay To Supplier (#134867)
 		- 20200714@Ned.Le - Email/Letstalk Reports - Integrate Jackpot Games (#137280)
 						    * Remove the hardcoding of bettype=4299|4300 (FACT table already care about these bettypes)
-		- 20200813@Kean - DHWL Email/Letstalk - Change Product Name and Margin Report Format (#139537)
+		- 20200813@Kean - DHWL Email/Letstalk - Change Product Name and Margin Report Format, Improve performance (#139537)
 	
 	Param's Explanation:   
 	- DepositType  
@@ -194,13 +194,13 @@ BEGIN
 		   ISNULL(-SUM((WinlossIBC - ExtraWL + CommissionS - ExtraComm) * ex.rate), 0) AS  HouseWL,
 		   ISNULL(SUM(b.WinlossP * oanda.Rate), 0) AS  MemberWLOANDA
 	FROM bodb_Account.dbo.FactSiteWinloss AS b WITH(NOLOCK)
-		 INNER JOIN #SportBettypeMatrix AS sb ON b.Bettype = sb.Bettype
-	     INNER JOIN #tmpSite AS s ON b.SiteID = s.SiteID_DW
+		 INNER JOIN #SportBettypeMatrix AS sb ON b.Bettype = sb.Bettype 
 	     LEFT JOIN #exchange AS ex ON b.rptdate = ex.exchangedate AND b.currencyid = ex.ExchangeID
 	     LEFT JOIN #ExchangeOANDA oanda ON b.rptdate = oanda.exchangedate AND b.currencyid = oanda.ExchangeID
 	WHERE b.rptDate >= @FDate AND b.rptDate <= @TDATE
 		  AND b.TicketStatus NOT IN(-1, 18, 9, 10, 14)
-		  AND b.CurrencyID <> 20  
+		  AND b.CurrencyID <> 20
+		  AND b.SiteID IN (SELECT s.SiteID_DW FROM #tmpSite AS s)  
 	GROUP BY b.rptDate,
 			 sb.ProductID,
 			 CASE WHEN b.BetType IN (9, 29) THEN -2 ELSE b.SportType END,
