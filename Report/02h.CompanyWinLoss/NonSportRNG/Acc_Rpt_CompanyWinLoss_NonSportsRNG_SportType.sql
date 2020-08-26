@@ -3,7 +3,7 @@
 USE [bodb02]
 GO
 
-ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_NonSportsRNG_SportType] @StartDate SMALLDATETIME, 
+CREATE PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_NonSportsRNG_SportType] @StartDate SMALLDATETIME, 
                                                                       @EndDate   SMALLDATETIME, 
                                                                       @ProductId INT
 AS
@@ -50,11 +50,12 @@ AS
                           * CASE WHEN virtualrate > actualrate THEN virtualrate ELSE actualrate END
                 END) AS RealTurnover
     FROM bettransRNG b WITH(NOLOCK)
-    INNER JOIN SportBettypeMatrix sb WITH (NOLOCK)
-        ON sb.BetType = b.gameID AND sb.ProductID = @ProductId AND sb.IsTest = @isTest
-            /*SportBettypeMatrix: new sport type (150) added for saba.club free bet
-              bettransRNG: ProductID is used as a place holder field to identify saba.club free bets (150)*/
-            AND b.productID = sb.SportType
+    INNER JOIN (SELECT DISTINCT BetType, ProductID, IsTest, SportType FROM SportBettypeMatrix WITH (NOLOCK)) sb
+        ON sb.BetType = b.gameID 
+            AND sb.ProductID = @ProductId 
+            AND sb.IsTest = @isTest
+            AND b.productID = sb.SportType  /*SportBettypeMatrix: new sport type (150) added for saba.club free bet
+                                              bettransRNG: ProductID is used as a place holder field to identify saba.club free bets (150)*/
     INNER JOIN Sports AS sport WITH (NOLOCK) ON sport.SportType = sb.SportType
     LEFT JOIN Dep_CustSuper AS dep WITH (NOLOCK) ON b.srecommend = dep.custid
     LEFT JOIN CS_CustSuper AS cn88 WITH (NOLOCK) ON b.srecommend = cn88.CustId
