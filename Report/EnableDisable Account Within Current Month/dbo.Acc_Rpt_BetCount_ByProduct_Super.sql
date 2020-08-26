@@ -56,15 +56,19 @@ AS
 		- 20200522@Cherry: Nap Report - Integrate ION Live Casino (#132324) & RNG War (#132009)
 		- 20200713@Ned.Le: NAP Report - Incorporate Jackpot Games (#137271)
 		- 20200723@Jaden.Tang: NAP Report - Add new range for lottery (#137715)
+		- 20200814@Roy: NAP Report - Integrate PG Soft (#137770)
 
 	Param's Explanation:  
 	  + @MoveBetsDay: The day of moving bets to battrans14
 	  + @BalanceUpDay: The day of moving bets to battransbk
 	  + @CustID: SuperID
-	  + {251: Casino (include : 251, 208, 209, 210), 151:Racing, 252:Bingo, 161:Number Game, 162:Live Casino, 180:Virtual Sports, 202:Keno,  -1 : Metric Gaming - Superlive
+	  + @SportType
+		{251: Casino (include : 251, 208, 209, 210), 151:Racing, 252:Bingo, 161:Number Game, 162:Live Casino, 180:Virtual Sports, 202:Keno,  -1 : Metric Gaming - Superlive
 		 220: Lottery, 160: Lucky 3, 207: Bullfighting, 163: Poker Games, 245: Virtual Games
 		 244: SA Gaming, 200: Saba.club, 243: Sexy Gaming, 222: Table Games,
-		 241: BBIN, 242: IBCBet Live Casino}
+		 241: BBIN, 242: IBCBet Live Casino
+		 212: Macau Games (include: Macau Games, Pragmatic, Spadegaming, Card Club [Video Poker], PG Soft)
+		}
   
 */  
 BEGIN
@@ -155,9 +159,10 @@ BEGIN
 			WHERE b.winlostdate BETWEEN @TempFromDate AND @CurrentDate
 			AND (
 					(@sportType=251 AND (b.gameID BETWEEN 2101 AND 2399 OR b.gameID BETWEEN 2901 AND 2999))
-					OR b.gameID BETWEEN 4001 AND CASE WHEN @sportType=212 THEN 4600 ELSE 0 END 	--Macau Games, Pragmatic, Spadegaming
-					OR b.gameID BETWEEN 1011 AND CASE WHEN @sportType=219 THEN 1020 ELSE 0 END -- Fishing World
+					OR b.gameID BETWEEN 4001 AND CASE WHEN @sportType=212 THEN 4600 ELSE 0 END 	--Macau Games, Pragmatic, Spadegaming					
 					OR b.gameID BETWEEN 1901 AND CASE WHEN @sportType=212 THEN 1999 ELSE 0 END -- Card Club [Video Poker]
+					OR b.gameID BETWEEN 6001 AND CASE WHEN @sportType=212 THEN 6300 ELSE 0 END -- PG Soft
+					OR b.gameID BETWEEN 1011 AND CASE WHEN @sportType=219 THEN 1020 ELSE 0 END -- Fishing World
 					OR b.gameID BETWEEN 1611 AND CASE WHEN @sportType=200 THEN 1699 ELSE 0 END -- Saba.club
 					OR b.gameID BETWEEN 5500 AND CASE WHEN @sportType=224 THEN 5599 ELSE 0 END -- RNG War
 				) 
@@ -230,6 +235,7 @@ BEGIN
 							OR b.bettype BETWEEN 1611 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 200 THEN 1699 ELSE 0 END)  -- Saba.club
 							OR b.bettype BETWEEN 5601 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 225 THEN 5699 ELSE 0 END)  -- ION Live Casino
 							OR b.bettype BETWEEN 5500 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 224 THEN 5599 ELSE 0 END)  -- RNG War
+							OR b.bettype BETWEEN 6001 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = 212 THEN 6300 ELSE 0 END   -- PG Soft
 						) 
 						AND b.bettype NOT IN (38)
 						AND b.status IN (3  ---DRAW
