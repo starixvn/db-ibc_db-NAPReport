@@ -14,6 +14,7 @@ AS
     DB: DBACC/bodb02
 
     Revisions:
+        - 20200825@Jaden: Init SP
 
     Remarks:
         Target detail SP (level 2) in "Company winloss by Product" report for product:
