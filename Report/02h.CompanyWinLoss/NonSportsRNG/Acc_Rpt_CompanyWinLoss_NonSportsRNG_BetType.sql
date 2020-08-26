@@ -68,12 +68,6 @@ AS
     LEFT JOIN CS_CustSuper AS cn88 WITH (NOLOCK) ON b.srecommend = cn88.CustId
     WHERE b.winlostdate = @StartDate
         AND b.statusID IN(111, 112, 113)
-        AND EXISTS (SELECT 1 FROM SportBettypeMatrix sb WITH (NOLOCK)
-                    WHERE sb.ProductID = @ProductId 
-                      AND sb.IsTest    = @isTest
-                      AND sb.SportType = @SportType
-                      AND sb.BetType   = b.gameID 
-                      AND sb.SportType = b.productID)  
     GROUP BY b.gameID, 
              CASE WHEN dep.CustId IS NULL AND cn88.CustId IS NOT NULL THEN 'CN88'
                   WHEN dep.CustId IS NULL AND cn88.CustId IS NULL     THEN 'Credit'
