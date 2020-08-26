@@ -3,7 +3,7 @@
 USE [bodb02]
 GO
 
-CREATE PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_NonSportsRNG_SportType] @StartDate SMALLDATETIME, 
+ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_NonSportsRNG_SportType] @StartDate SMALLDATETIME, 
                                                                       @EndDate   SMALLDATETIME, 
                                                                       @ProductId INT
 AS
@@ -26,8 +26,16 @@ AS
     SET NOCOUNT ON
 
     DECLARE @isTest BIT = dbo.f_CheckSPVersion(@@PROCID)
+
+    CREATE TABLE #SportBetTypeMatrix (BetType   INT, 
+                                      SportType INT)
+    INSERT INTO #SportBetTypeMatrix (BetType, SportType)
+        SELECT DISTINCT BetType, SportType --use distinct to remove "IsLive"
+        FROM SportBetTypeMatrix
+        WHERE ProductID = @ProductId 
+          AND IsTest    = @isTest
     
-    SELECT  sb.SportType            AS GroupId, 
+    SELECT  b.productID             AS GroupId, 
             MAX(sport.SportName)    AS GroupName,
             CASE WHEN dep.CustId IS NULL AND cn88.CustId IS NOT NULL THEN 'CN88'
                  WHEN dep.CustId IS NULL AND cn88.CustId IS NULL     THEN 'Credit'
@@ -50,18 +58,15 @@ AS
                           * CASE WHEN virtualrate > actualrate THEN virtualrate ELSE actualrate END
                 END) AS RealTurnover
     FROM bettransRNG b WITH(NOLOCK)
-    INNER JOIN (SELECT DISTINCT BetType, ProductID, IsTest, SportType FROM SportBettypeMatrix WITH (NOLOCK)) sb
-        ON sb.BetType = b.gameID 
-            AND sb.ProductID = @ProductId 
-            AND sb.IsTest = @isTest
-            AND b.productID = sb.SportType  /*SportBettypeMatrix: new sport type (150) added for saba.club free bet
-                                              bettransRNG: ProductID is used as a place holder field to identify saba.club free bets (150)*/
-    INNER JOIN Sports AS sport WITH (NOLOCK) ON sport.SportType = sb.SportType
+    INNER JOIN Sports AS sport WITH (NOLOCK) ON sport.SportType  = b.productID
+    INNER JOIN #SportBetTypeMatrix AS sb 
+        ON sb.BetType = b.gameID AND sb.SportType = b.productID
+            --bettransRNG: ProductID is used as a place holder field to identify bet type saba.club free bets (150)
     LEFT JOIN Dep_CustSuper AS dep WITH (NOLOCK) ON b.srecommend = dep.custid
     LEFT JOIN CS_CustSuper AS cn88 WITH (NOLOCK) ON b.srecommend = cn88.CustId
     WHERE b.winlostdate = @StartDate
         AND b.statusID IN(111, 112, 113)
-    GROUP BY sb.SportType, 
+    GROUP BY b.productID, 
              CASE WHEN dep.CustId IS NULL AND cn88.CustId IS NOT NULL THEN 'CN88'
                   WHEN dep.CustId IS NULL AND cn88.CustId IS NULL     THEN 'Credit'
                   ELSE 'Deposit' END 
