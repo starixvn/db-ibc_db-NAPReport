@@ -11,6 +11,7 @@ ALTER PROCEDURE [dbo].[Acc_Rpt_NonSportsProductStatistics_Daily]
 	@BetType		VARCHAR(MAX) = '',
 	@LeagueId		VARCHAR(MAX) = '',
 	@Sporttype		VARCHAR(MAX) = '',
+	@SportBetType	VARCHAR(MAX) = '',
 	@Currency		VARCHAR(MAX) = '',	
 	@Device			VARCHAR(200) = '',
 	@ExcludeTest	BIT = 1, 
@@ -50,6 +51,7 @@ AS
 		20191225@Cherry: Apply ExtraPT in bettrans table (#123697)
 		20200601@Cherry: Add Credit Site and support multiple currency (#135009)
 		20200710@Cherry: Integrate Pragmatic Jackpot (#137268)
+		20200826@Cherry: Integrate Saba.club Free Bet (#140109)
 
 	Param's Explanation:
 			 - @username:  + Search by keyword, member only
@@ -73,6 +75,7 @@ AS
 				-1 : is <=
 			 - @HousePTValue : Value to compare with @HousePTType
 			 - @IsDrillDown: If click on Grand Total or on the Grid of column Currency
+			 - @SportBetType (used for Saba.club - ProductID = 42)
 				
 	Query exam: 
 
@@ -168,6 +171,7 @@ SET NOCOUNT ON
 	CREATE TABLE #tmpDevice (Betfrom NVARCHAR(2))
 	CREATE TABLE #ExtraComm (ProductID INT, SuperID INT, ExtraComm DECIMAL(9, 8))		
 	CREATE TABLE #tmpContributionBettype (Bettype INT)
+	CREATE TABLE #tmpSportBetType (Sporttype INT, Bettype INT)
 
 	IF @ProductID <> ''
     BEGIN
