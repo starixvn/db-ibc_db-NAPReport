@@ -23,6 +23,7 @@ AS
 		- 20200720@Kean - DHWL Email/Letstalk - Separate Saba Sports from real Sports (#137822)
 		- 20200722@Ned.Le - Email/Letstalk Reports - Integrate Jackpot Games (#137280)
 		- 20200813@Kean - DHWL Email/Letstalk - Change Product Name and Margin Report Format. (#139537)
+		- 20200811@Kean - Email/Letstalk Reports - Integrate PG Soft (#137764)
   
 */
 BEGIN
@@ -89,6 +90,8 @@ SET NOCOUNT ON;
 	SELECT 'RNGWar' Product, 'RNGW' ProductPrefix, 'RNG Casino' [Group]
 	UNION ALL
 	SELECT 'FishW' Product, 'FW' ProductPrefix, 'RNG Casino' [Group]
+	UNION ALL
+	SELECT 'PGSoft' Product, 'PGS' ProductPrefix, 'RNG Casino' [Group]
 
 	-- Lottery/Keno
 	UNION ALL

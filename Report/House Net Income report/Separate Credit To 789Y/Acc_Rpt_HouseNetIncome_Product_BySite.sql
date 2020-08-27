@@ -28,6 +28,7 @@ AS
 		- 20200720@Kean - DHWL Email/Letstalk - Separate Saba Sports from real Sports (#137822)
 		- 20200722@Ned.Le - Email/Letstalk Reports - Integrate Jackpot Games (#137280)
 		- 20200813@Kean - DHWL Email/Letstalk - Change Product Name and Margin Report Format. (#139537)
+		- 20200811@Kean - Email/Letstalk Reports - Integrate PG Soft (#137764)
 	
 	Param's Explanation:   
 	- DepositType  
@@ -125,7 +126,8 @@ BEGIN
 	  , HouseWL_IBCLC					MONEY
 	  , HouseWL_ION						MONEY
 	  , HouseWL_RNGW					MONEY
-	  , HouseWL_FW						MONEY);
+	  , HouseWL_FW						MONEY
+	  , HouseWL_PGS						MONEY);
 
 	  DECLARE @tmpDate     DATE
 		, @DateList    VARCHAR(200) = '[FullRange]';
@@ -150,7 +152,7 @@ BEGIN
 	SELECT DISTINCT ProductID, BetType
 	FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)
 	WHERE SubProduct NOT IN('BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss')
-		  AND ProductID IN (1, 3, 5, 8, 23, 22, 21, 12, 28, 27, 6, 32, 34, 36,38,39,42,45,47, 40, 46, 52, 50, 24)
+		  AND ProductID IN (1, 3, 5, 8, 23, 22, 21, 12, 28, 27, 6, 32, 34, 36,38,39,42,45,47, 40, 46, 52, 50, 24, 55)
 
 	CREATE TABLE #TmpData(
 			rptDate      DATE
@@ -244,6 +246,7 @@ BEGIN
 						  , HouseWL_ION
 						  , HouseWL_RNGW
 						  , HouseWL_FW
+						  , HouseWL_PGS
 						  )
 SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 	-- BEGIN SPORTBOOK
@@ -296,7 +299,8 @@ SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 	,(SELECT SUM(t.HouseWL) FROM #TmpData AS t WHERE t.ProductID = 46 AND t.rptDate = @tmpDate) AS  HouseWL_IBCLC
 	,(SELECT SUM(t.HouseWL) FROM #TmpData AS t WHERE t.ProductID = 52 AND t.rptDate = @tmpDate) AS  HouseWL_ION
 	,(SELECT SUM(t.HouseWL) FROM #TmpData AS t WHERE t.ProductID = 50 AND t.rptDate = @tmpDate) AS  HouseWL_RNGW
-	,(SELECT SUM(t.HouseWL) FROM #TmpData AS t WHERE t.ProductID = 24 AND t.rptDate = @tmpDate) AS  HouseWL_FW;
+	,(SELECT SUM(t.HouseWL) FROM #TmpData AS t WHERE t.ProductID = 24 AND t.rptDate = @tmpDate) AS  HouseWL_FW
+	,(SELECT SUM(t.HouseWL) FROM #TmpData AS t WHERE t.ProductID = 55 AND t.rptDate = @tmpDate) AS  HouseWL_PGS;
 
 		  SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate);
 	   END;
@@ -338,7 +342,8 @@ INSERT INTO #FinalResult(RptDate
 					, HouseWL_IBCLC
 					, HouseWL_ION
 					, HouseWL_RNGW
-					, HouseWL_FW)
+					, HouseWL_FW
+					, HouseWL_PGS)
 		 SELECT 'FullRange'
 			, SUM(HouseWL_Soccer)
 			, SUM(HouseWL_SabaSoccer)
@@ -379,6 +384,7 @@ INSERT INTO #FinalResult(RptDate
 			, SUM(HouseWL_ION)
 			, SUM(HouseWL_RNGW)
 			, SUM(HouseWL_FW)
+			, SUM(HouseWL_PGS)
 		 FROM #FinalResult;
 
     -- Select the output
@@ -424,7 +430,8 @@ INSERT INTO #FinalResult(RptDate
     + 'UNION ALL' + CHAR(13) + 'SELECT ''IBCLC'', 33, ''House Income'', HouseWL_IBCLC' + CHAR(13)
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''ION'', 34, ''House Income'', HouseWL_ION' + CHAR(13)
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''RNGW'', 35, ''House Income'', HouseWL_RNGW' + CHAR(13)
-	+ 'UNION ALL' + CHAR(13) + 'SELECT ''FW'', 36, ''House Income'', HouseWL_FW) c (ProductCode, [Order], Figure, value)) a' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''FW'', 36, ''House Income'', HouseWL_FW' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''PGS'', 37, ''House Income'', HouseWL_PGS) c (ProductCode, [Order], Figure, value)) a' + CHAR(13)
     + 'PIVOT' + CHAR(13) 
     + '(' + CHAR(13) 
     + 'MAX(value)' + CHAR(13) 
