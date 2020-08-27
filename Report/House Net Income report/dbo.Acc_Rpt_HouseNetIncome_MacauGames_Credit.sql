@@ -15,7 +15,8 @@ AS
     Revisions:  
 	
 	Param's Explanation:
-	- 20200408@Kean - Add 12 New Slot Games for Macau Game - (#131755)  
+	- 20200408@Kean - Add 12 New Slot Games for Macau Game - (#131755)
+	- 20200827@Kean - Email/Letstalk Reports - Integrate 10 New BluePrint Games (#140459)  
 
 	EXEC Acc_Rpt_HouseNetIncome_VB_Credit '20161201', '20161230' 
 */  
@@ -103,13 +104,15 @@ BEGIN
 		PayToSupplier_PP_MTD        MONEY);
 
 	INSERT INTO #tmpPayToSupplier_Daily(RptDate, PayToSupplier_Daily)
-	SELECT rptDate, SUM(MemberWLOANDA * (CASE WHEN BetType IN (4051,4052,4053,4054,4055) THEN 0.03 ELSE 0.02 END))
-	FROM #TmpHouseWL
+	SELECT rptDate, SUM(MemberWLOANDA * (CASE WHEN bg.Bettype IS NOT NULL THEN 0.03 ELSE 0.02 END))
+	FROM #TmpHouseWL t
+	LEFT JOIN bodb_Account.dbo.BettypeGroup bg (NOLOCK) ON t.BetType = bg.Bettype AND bg.BettypeGroupID = 11
 	GROUP BY rptDate
 
 	INSERT INTO #tmpPayToSupplier_MTD(MemberWLOANDA, PayToSupplier_PP_MTD)
-	SELECT SUM(MemberWLOANDA), SUM(MemberWLOANDA * (CASE WHEN BetType IN (4051,4052,4053,4054,4055) THEN 0.03 ELSE 0.02 END))
-	FROM #TmpHouseWL
+	SELECT SUM(MemberWLOANDA), SUM(MemberWLOANDA * (CASE WHEN bg.Bettype IS NOT NULL THEN 0.03 ELSE 0.02 END))
+	FROM #TmpHouseWL t
+	LEFT JOIN bodb_Account.dbo.BettypeGroup bg (NOLOCK) ON t.BetType = bg.Bettype AND bg.BettypeGroupID = 11
 	
 	SELECT @tmpDate = @FDate;
     WHILE @tmpDate <= @TDate
