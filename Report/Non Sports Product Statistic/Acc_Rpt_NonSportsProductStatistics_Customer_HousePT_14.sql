@@ -157,7 +157,7 @@ BEGIN
 	FROM
 		dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '', @isTest) s
 		INNER JOIN #tmp_ProductID p ON s.ProductID = p.ProductID
-	WHERE p.ProductID IN (3, 5, 27) -- Number Game, Virtual Sports, Virtual Sports 2
+	WHERE p.ProductID IN (3, 5, 27, 42) -- Number Game, Virtual Sports, Virtual Sports 2, Saba.club
 	
 	INSERT INTO #SportBettype (ProductID, Bettype, EvenType, RefTable)
 	SELECT s.ProductID, s.BetType, s.EventType, s.RefTable

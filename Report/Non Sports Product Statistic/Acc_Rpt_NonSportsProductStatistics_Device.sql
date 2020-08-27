@@ -292,7 +292,7 @@ BEGIN
 
 	DELETE s
 	FROM #SportBettype s
-	WHERE s.ProductID NOT IN (3, 5, 27, 23) -- NumberGame, Virtual Sport, NG2
+	WHERE s.ProductID NOT IN (3, 5, 27, 23, 42) -- NumberGame, Virtual Sport, NG2, Saba.club
 		AND NOT EXISTS (SELECT b.Bettype FROM #tmp_BetType b WHERE b.Bettype = s.Bettype)
 		
 	DELETE s

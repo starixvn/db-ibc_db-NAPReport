@@ -294,7 +294,7 @@ SET NOCOUNT ON
 
 	DELETE	s
 	FROM	#SportBettype s
-	WHERE	s.ProductID NOT IN (3, 5, 27, 23)   ---- NumberGame , Virtual Sports, Virtual Sports 2, NG2
+	WHERE	s.ProductID NOT IN (3, 5, 27, 23, 42)   ---- NumberGame , Virtual Sports, Virtual Sports 2, NG2, Saba.club
 			AND NOT EXISTS (SELECT Bettype FROM #tmpBetType b WHERE b.Bettype = s.Bettype)
 
 	DELETE s
