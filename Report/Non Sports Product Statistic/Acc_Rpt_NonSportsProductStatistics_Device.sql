@@ -11,6 +11,7 @@ ALTER PROCEDURE [dbo].[Acc_Rpt_NonSportsProductStatistics_Device]
 	@BetType		VARCHAR(MAX) = '',
 	@LeagueId		VARCHAR(MAX) = '',
 	@Sporttype		VARCHAR(MAX) = '',
+	@SportBetType	VARCHAR(MAX) = '',
 	@Currency		VARCHAR(MAX) = '',	
 	@Device			VARCHAR(200) = '',
 	@ExcludeTest	BIT = 1, 
@@ -45,6 +46,7 @@ AS
 		20191225@Cherry: Apply ExtraPT in bettrans table (#123697)
 		20200601@Cherry: Add Credit Site and support multiple currency (#135009)
 		20200710@Cherry: Integrate Pragmatic Jackpot (#137268)
+		20200828@Cherry: Integrate Saba.club Free Bet (#140109)
 
 	Param's Explanation:
 		- @username:  + Search by keyword, member only
@@ -162,7 +164,8 @@ BEGIN
 	CREATE TABLE #tmp_Site			(Site VARCHAR(50))
 	CREATE TABLE #tmp_MemIDs		(CustID INT)
 	CREATE TABLE #ExtraComm (ProductID INT, SuperID INT, ExtraComm DECIMAL(9, 8))	
-	CREATE TABLE #tmpContributionBettype (Bettype INT)	             
+	CREATE TABLE #tmpContributionBettype (Bettype INT)	  
+	CREATE TABLE #tmpSportBetType (Sporttype INT, Bettype INT)           
 
 	-- Get Info from Pars list
 	IF @ProductId <> ''
@@ -185,6 +188,7 @@ BEGIN
 
 	DECLARE @splitter1 char(1) = ',', @splitter2 char(1) = '-',
 		@league int, @bettypeid int,
+		@sportid int, @sporttypebettype nvarchar(4000), 
 		@start int, @leaguebettype nvarchar(4000), 
 		@charindex1 int, @charindex2 int
 
@@ -205,6 +209,26 @@ BEGIN
 			INSERT INTO #tmp_LeagueID(LeagueID, Bettype) VALUES (@league, @bettypeid)
 			SET @start = @charindex1 +1
 			SET @charindex1 = charindex(@splitter1, @LeagueID, @start)          
+		END
+	END
+	
+	IF @SportBetType <> ''
+    BEGIN
+		IF substring (@SportBetType, len(@SportBetType), 1) <> @splitter1
+			SET @SportBetType = @SportBetType + @splitter1
+		SET @start = 1
+		SET @charindex1 = charindex(@splitter1, @SportBetType, @start)
+		SET @charindex2 = charindex(@splitter2, @SportBetType, @start)
+
+		WHILE (@charindex1 <> 0)
+		BEGIN
+			SET @sporttypebettype = substring(@SportBetType, @start, @charindex1 - @start)       
+			SET @charindex2 = charindex(@splitter2, @sporttypebettype, 1)
+			SET @sportid = substring(@sporttypebettype, 1, @charindex2 - 1)
+			SET @bettypeid = substring(@sporttypebettype, @charindex2 + 1, LEN(@sporttypebettype))
+			INSERT INTO #tmpSportBetType (Sporttype , Bettype) VALUES (@sportid, @bettypeid)
+			SET @start = @charindex1 +1
+			SET @charindex1 = charindex(@splitter1, @SportBetType, @start)          
 		END
 	END
 
@@ -460,6 +484,9 @@ BEGIN
 		WHERE b.winlostdate = @WLDate
 			AND b.gameID IN (SELECT sb.Bettype FROM #SportBettype sb LEFT JOIN #tmpContributionBettype t ON sb.Bettype = t.Bettype 
 							 WHERE t.Bettype IS NULL AND sb.RefTable = 1)	
+			AND (@SportBetType = ''
+				OR EXISTS(SELECT 1 FROM #tmpSportBetType s where b.productid = s.Sporttype and b.gameid = s.Bettype)
+				)
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets		
 			AND ((b.currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
 			AND (EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId) OR @Currency = '-1')	
@@ -1465,5 +1492,6 @@ BEGIN
 	DROP TABLE #Device
 	DROP TABLE #tmpCurrency
 	DROP TABLE #tmpContributionBettype	
+	DROP TABLE #tmpSportBetType
 END
 
