@@ -137,7 +137,7 @@ BEGIN
 	SELECT 'FullRange'
 	, SUM(HouseWL)
 	, SUM(ExtraPT)
-	, (SELECT CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(PayToSupplier_PP_MTD) END FROM #tmpPayToSupplier_MTD)
+	, (SELECT SUM(PayToSupplier_PP_MTD) FROM #tmpPayToSupplier_MTD)
 	FROM #FinalResult	
 
 	---------------------------------------------------- Select the output -------------------------------------------------------
