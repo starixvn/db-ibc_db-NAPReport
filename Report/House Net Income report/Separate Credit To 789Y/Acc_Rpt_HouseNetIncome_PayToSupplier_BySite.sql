@@ -363,7 +363,7 @@ BEGIN
 	       ,0.01 * (SELECT CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(MemberWLOANDA) END FROM #tmpFactSiteWinloss AS t WHERE t.ProductID = 5)		AS PayToSupplier_VS
 	       ,0.03 * (SELECT CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(MemberWLOANDA) END FROM #tmpFactSiteWinloss AS t WHERE t.ProductID = 8)		AS PayToSupplier_RNGKeno
 	       ,SUM(PayToSupplier_NG2)																														AS PayToSupplier_NG2
-	       ,(SELECT SUM(PayToSupplier_PP_MTD) FROM #tmpPayToSupplier_MTD AS t WHERE t.ProductID = 22)	AS PayToSupplier_MacauG
+	       ,(SELECT CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(PayToSupplier_PP_MTD) END FROM #tmpPayToSupplier_MTD AS t WHERE t.ProductID = 22)	AS PayToSupplier_MacauG
 	       ,0.03 * (SELECT CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(MemberWLOANDA) END FROM #tmpFactSiteWinloss AS t WHERE t.ProductID = 28)	AS PayToSupplier_LT
 	       ,0																																			AS PayToSupplier_EX
 	       ,0.01 * (SELECT CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(MemberWLOANDA) END FROM #tmpFactSiteWinloss AS t WHERE t.ProductID = 27)    AS PayToSupplier_VS2     
