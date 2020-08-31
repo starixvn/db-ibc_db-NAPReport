@@ -22,6 +22,7 @@ AS
 		20190328@Cherry: Integrate Promotion Prize (#109203)
 		20191115@Cherry: Integrate PP Tournament (#123660)
 		20200220@Cherry: Integrate Virtual Games (#124753)
+		20200828@Cherry: Integrate Saba.club Free Bet (#140109)
 */
  
 BEGIN
@@ -59,7 +60,17 @@ SET NOCOUNT ON
 								FROM #tmpProduct)
 			)  	 
 		   AND t.Bettype IS NULL
-	
+		   AND s.ProductID <> 42
+		   
+	INSERT INTO #SportBettype (ProductID, TypeId, TypeName, GameType)
+	SELECT	s.SportType ProductID, s.Bettype as TypeId, b.typenamee AS TypeName, 4 AS GameType
+	FROM dbo.SportBettypeMatrix s WITH (NOLOCK)
+		INNER JOIN dbo.Bettype b WITH (NOLOCK) ON s.Bettype = b.TypeId 
+		LEFT JOIN #tmpBettype t ON s.Bettype = t.Bettype 
+	WHERE  s.ProductID = 42
+		   AND (IsTest = 0 OR s.IsTest = @isTest)
+		   AND t.Bettype IS NULL
+		   	
 	--- ProductID = 3 - Number Game get LeagueId
 	INSERT INTO #SportBettype (ProductId, TypeId, TypeName, IsTest, GameType)
 	SELECT  3 as ProductId,
@@ -70,15 +81,14 @@ SET NOCOUNT ON
 	FROM	dbo.league l WITH (NOLOCK)
 	WHERE	EXISTS (SELECT TOP 1 1 FROM dbo.SportBettypeMatrix s (NOLOCK) WHERE l.sporttype = s.SportType AND s.ProductID = 3)
 		 
-	--- ProductID = 5, 27, 23 - Virtual Sports, Virtual Sports 2, NG2 get Sporttype
+	--- ProductID = 5, 27, 23, 42 - Virtual Sports, Virtual Sports 2, NG2, Saba.club get Sporttype
 	INSERT INTO #SportBettype (ProductId, TypeId, TypeName, GameType)
 	SELECT DISTINCT sb.ProductID, sb.SportType, s.SportName, 1 AS GameType
 	FROM dbo.SportBettypeMatrix sb WITH (NOLOCK)
 		INNER JOIN dbo.Sports s WITH (NOLOCK) ON sb.SportType = s.SportType 
-	WHERE sb.ProductID IN (5, 27, 23)
+	WHERE sb.ProductID IN (5, 27, 23, 42)
 		AND (sb.IsTest = 0 OR sb.IsTest = @isTest)	
-		
-	
+			
 	SELECT	* 
 	FROM	#SportBettype
 	ORDER BY ProductId, TypeName
