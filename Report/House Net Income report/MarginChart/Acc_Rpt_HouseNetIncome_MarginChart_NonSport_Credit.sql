@@ -41,6 +41,7 @@ AS
 		- 20200701@Kean.Nguyen - House Net Income Email/Letstalk - Change formula to Calculate Margin (#136792)
 		- 20200714@Ned.Le - Email/Letstalk Reports - Integrate Jackpot Games (#137280)
 		- 20200811@Kean - Email/Letstalk Reports - Integrate PG Soft (#137764)
+		- 20200827@Kean - Email/Letstalk Reports - Integrate 10 New BluePrint Games (#140459)
 
 	Param's Explanation:   
 		- @ProductList: '' - default value when get all product
@@ -250,10 +251,11 @@ BEGIN
 	INSERT INTO #tmpPayToSupplier_Daily (ProductId, RptDate, PayToSupplier_Daily)
 	SELECT t.ProductID,
 		   t.rptDate,
-		   CASE WHEN t.ProductID = 22 THEN  SUM(t.MemberWLOANDA * (CASE WHEN t.BetType IN (4051,4052,4053,4054,4055) THEN 0.03 ELSE 0.02 END))
+		   CASE WHEN t.ProductID = 22 THEN  SUM(t.MemberWLOANDA * (CASE WHEN bg.Bettype IS NOT NULL THEN 0.03 ELSE 0.02 END))
 		        ELSE SUM(t.MemberWLOANDA * (CASE WHEN t.ProductID = 34 AND t.Bettype IN (1902,1903,1904,1905) THEN ISNULL(v.ChargeRate3rd,0) ELSE ISNULL(ci.Rate,0) END)) END PayToSupplier_Daily
 	FROM #TmpHouseWL AS t
 		 INNER JOIN #ChargeInfo3rd AS ci ON t.ProductID = ci.ProductID AND t.rptDate BETWEEN ci.FromDate AND ci.ToDate
+		 LEFT JOIN bodb_Account.dbo.BettypeGroup bg (NOLOCK) ON t.BetType = bg.Bettype AND bg.BettypeGroupID = 11
 		 LEFT JOIN #tmpVendorGlobalSetting v ON t.ProductID = v.ProductID 
 												AND v.Sporttype = t.SportType 
 												AND v.Bettype = t.BetType

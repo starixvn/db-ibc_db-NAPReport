@@ -35,6 +35,7 @@ AS
 						    * Remove the hardcoding of bettype=4299|4300 (FACT table already care about these bettypes)
 		- 20200813@Kean - DHWL Email/Letstalk - Change Product Name and Margin Report Format, Improve performance (#139537)
 		- 20200811@Kean - Email/Letstalk Reports - Integrate PG Soft (#137764)
+		- 20200827@Kean - Email/Letstalk Reports - Integrate 10 New BluePrint Games (#140459)
 	
 	Param's Explanation:   
 	- DepositType  
@@ -240,8 +241,9 @@ BEGIN
 	INSERT INTO #tmpPayToSupplier_Daily(ProductId, RptDate, PayToSupplier_Daily)
 	SELECT t.ProductID,
 		   t.rptDate,
-		   SUM(t.MemberWLOANDA * (CASE WHEN BetType IN (4051,4052,4053,4054,4055) THEN 0.03 ELSE 0.02 END)) 
+		   SUM(t.MemberWLOANDA * (CASE WHEN bg.Bettype IS NOT NULL THEN 0.03 ELSE 0.02 END)) 
 	FROM #tmpFactSiteWinloss AS t
+	LEFT JOIN bodb_Account.dbo.BettypeGroup bg (NOLOCK) ON t.BetType = bg.Bettype AND bg.BettypeGroupID = 11
 	WHERE t.ProductID IN (22)
 	GROUP BY t.ProductID,
 			 t.rptDate
@@ -250,8 +252,9 @@ BEGIN
 	INSERT INTO #tmpPayToSupplier_MTD(ProductId, MemberWLOANDA, PayToSupplier_PP_MTD)
 	SELECT t.ProductID,
 		   SUM(MemberWLOANDA),
-		   SUM(t.MemberWLOANDA * (CASE WHEN BetType IN (4051,4052,4053,4054,4055) THEN 0.03 ELSE 0.02 END))
+		   SUM(t.MemberWLOANDA * (CASE WHEN bg.Bettype IS NOT NULL THEN 0.03 ELSE 0.02 END))
 	FROM #tmpFactSiteWinloss AS t
+	LEFT JOIN bodb_Account.dbo.BettypeGroup bg (NOLOCK) ON t.BetType = bg.Bettype AND bg.BettypeGroupID = 11
 	WHERE t.ProductID IN (22)
 	GROUP BY t.ProductID
 

@@ -19,6 +19,7 @@ AS
 		- 20200521@Ned.Le: Re-Integrate Fishing World product for letstalk (#134533)
 		- 20200813@Kean - DHWL Email/Letstalk - Change Product Name and Margin Report Format. (#139537)
 		- 20200811@Kean - Email/Letstalk Reports - Integrate PG Soft (#137764)
+		- 20200827@Kean - Email/Letstalk Reports - Integrate 10 New BluePrint Games (#140459)
 	
 	
 	EXEC [Acc_Rpt_HouseNetIncome_Product_Deposit] '20180601', '20180619'

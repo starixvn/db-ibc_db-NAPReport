@@ -12,8 +12,9 @@ AS
     Revisions:
 		- 20200108@Percy: #124755 - Support billing terms by product & currency instead of product only
 		- 20200403@Percy: Integrate Blueprint's games - Macau Games [RedmineID: #131755]
+		- 20200827@Percy: Use table to apply Blueprint's games - Macau Games [RedmineID: #140459]
 	
-	Param's Explanation:   
+	Param's Explanation:
 
 	EXEC Acc_Rpt_HouseNetIncome_MacauGames_Deposit '20161201', '20161230'
 */
@@ -119,9 +120,13 @@ BEGIN
 	FROM #Site s
 		INNER JOIN bodb_licensee.dbo.Licensees l WITH (NOLOCK) ON s.SiteName  = RTRIM(LTRIM(l.LicenseeName))
 
-	CREATE TABLE #Bettype (BetType INT)
-	INSERT INTO #Bettype (BetType)
-	SELECT BetType FROM dbo.f_SportBettypeMatrixByProduct_Sel (@ProductID, 0)
+	CREATE TABLE #Bettype (BetType INT, BetTypeGroup TINYINT) -- BetTypeGroup: 1 - Blueprint's Games, 2 - Normal Macau Games
+	INSERT INTO #Bettype (BetType, BetTypeGroup)
+	SELECT BetType, 2 FROM dbo.f_SportBettypeMatrixByProduct_Sel (@ProductID, 0)
+
+	UPDATE #Bettype
+	SET BetTypeGroup = 1
+	WHERE BetType IN (SELECT BetType FROM DBWH.bodb_Account.dbo.BettypeGroup WITH (NOLOCK) WHERE BettypeGroupID = 11)
 
 	INSERT INTO #tempDataDW (rptDate, LicenseeID, CurrencyID, BetType, MemberWL, HouseWL)
 	SELECT b.rptDate, s.LicenseeID, b.CurrencyID, b.BetType, SUM(ISNULL(b.WinlossP, 0)) AS MemberWL, SUM((b.WinlossIBC + b.CommissionS)) AS HouseWL
@@ -138,22 +143,20 @@ BEGIN
 		PartyID				INT
 		,ParentID			INT
 		,rptDate			DATETIME
-		,BetTypeGroup		INT
 		,MemberWL			MONEY
+		,PayToSupplier		MONEY
 		,AmountToCompany	MONEY
 	)
-	INSERT INTO #tempData (PartyID, ParentID, rptDate, BetTypeGroup, MemberWL, AmountToCompany)
+	INSERT INTO #tempData (PartyID, ParentID, rptDate, MemberWL, PayToSupplier, AmountToCompany)
 	SELECT
 		tp.PartyID
 		,tp.ParentID
 		,b.rptDate
-		,CASE
-			WHEN b.BetType BETWEEN 4051 AND 4055 THEN 1 -- Blueprint's Games
-			ELSE 2 END -- Normal Macau Games
-			AS BetTypeGroup
 		,SUM(ISNULL(b.MemberWL, 0) * ISNULL(oa.Rate, 0))
+		,SUM(ISNULL(b.MemberWL, 0) * ISNULL(oa.Rate, 0) * CASE WHEN bt.BetTypeGroup = 1 THEN 0.045 ELSE 0.035 END)
 		,SUM(CASE WHEN p.LicenseeID IS NULL THEN -ISNULL(b.HouseWL, 0) ELSE -ISNULL(b.MemberWL, 0) * ISNULL(lc.Rate, p.Rate) END * ISNULL(e.Rate, 0))
 	FROM #tempDataDW b
+		INNER JOIN #Bettype bt ON b.BetType = bt.BetType
 		INNER JOIN @tmpAllParty tp ON tp.LicenseeID = b.LicenseeID
 		LEFT JOIN #PartyChargeInfo p ON p.PartyID = tp.PartyID AND b.rptDate BETWEEN p.FromDate AND p.ToDate
 		LEFT JOIN #Exchange e ON b.rptDate = e.ExchangeDate AND b.CurrencyID = e.ExchangeID
@@ -163,63 +166,44 @@ BEGIN
 		tp.PartyID
 		,tp.ParentID
 		,b.rptDate
-		,CASE
-			WHEN b.BetType BETWEEN 4051 AND 4055 THEN 1 -- Blueprint's Games
-			ELSE 2 END -- Normal Macau Games
-
-    CREATE NONCLUSTERED INDEX Idx_InvoiceData ON #TempData (PartyID)
     -- End region
 
 	-- Region: Pay to Supplier
-	DECLARE @tmpPartyGroup TABLE (ParentID INT, BetTypeGroup INT, MemberWL MONEY, Rate FLOAT)
-	INSERT INTO @tmpPartyGroup (ParentID, BetTypeGroup, MemberWL, Rate)
-	SELECT b.ParentID, b.BetTypeGroup, SUM(b.MemberWL), 0
-	FROM #tempData b
-	GROUP BY b.ParentID, b.BetTypeGroup
-
-	UPDATE @tmpPartyGroup
-	SET Rate = CASE BetTypeGroup WHEN 1 THEN 0.045 ELSE 0.035 END
-
-	CREATE TABLE #DailyPayToSupplier (ParentID INT, rptDate DATE, MemberWL MONEY, PayToSupplier MONEY)
-	INSERT INTO #DailyPayToSupplier (ParentID, rptDate, MemberWL, PayToSupplier)
-	SELECT d.ParentID, d.rptDate, SUM(d.MemberWL), SUM(d.MemberWL * t.Rate)
-	FROM #tempData d
-		INNER JOIN @tmpPartyGroup t ON t.ParentID = d.ParentID
-	GROUP BY d.ParentID, d.rptDate
-
-	CREATE TABLE #FullRangePayToSupplier (ParentID INT, PayToSupplier MONEY)
-	INSERT INTO #FullRangePayToSupplier (ParentID, PayToSupplier)
-	SELECT ParentID, SUM(PayToSupplier)
-	FROM #DailyPayToSupplier
-	GROUP BY ParentID
-	HAVING SUM(MemberWL) <= 0
-	-- End Region
-
 	DECLARE @TotalAmountToCompany MONEY
-	SELECT  @TotalAmountToCompany = SUM(AmountToCompany) FROM #tempData
-
-	IF @TotalAmountToCompany IS NULL OR @TotalAmountToCompany < 0
-		SELECT @TotalAmountToCompany = 0
+	SELECT  @TotalAmountToCompany = SUM(AmountToCompany)
+	FROM (
+		SELECT SUM(AmountToCompany) AS AmountToCompany
+		FROM #tempData
+		GROUP BY PartyID
+		HAVING SUM(AmountToCompany) > 0
+	) t
 
 	CREATE TABLE #FinalResult (rptDate VARCHAR(10), LicenseeWL MONEY, PayToSupplier MONEY)
 	INSERT INTO #FinalResult (rptDate, LicenseeWL, PayToSupplier)
-	SELECT 'FullRange', @TotalAmountToCompany, (SELECT SUM(PayToSupplier) FROM #FullRangePayToSupplier)
+	SELECT 'FullRange', SUM(CASE WHEN AmountToCompany < 0 THEN 0 ELSE AmountToCompany END), SUM(CASE WHEN MemberWL > 0 THEN 0 ELSE PayToSupplier END)
+	FROM (
+		SELECT SUM(AmountToCompany) AS AmountToCompany, SUM(MemberWL) AS MemberWL, SUM(PayToSupplier) AS PayToSupplier
+		FROM #tempData
+		GROUP BY PartyId
+	) t
 
-	DECLARE @tmpDate DATETIME, @DateList VARCHAR(200)
-	SELECT  @tmpDate = @FDate
-
-	WHILE @tmpDate <= @TDate
-	BEGIN
-		INSERT INTO #FinalResult (RptDate, LicenseeWL, PayToSupplier)
-		SELECT
-			CONVERT(VARCHAR(2), @tmpDate, 106)
-			,(SELECT ISNULL(SUM(AmountToCompany), 0) FROM #tempData WHERE rptDate = @tmpDate)
-			,(SELECT ISNULL(SUM(PayToSupplier), 0) FROM #DailyPayToSupplier WHERE rptDate = @tmpDate)
-
-		SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate)
-	END
-
-	SELECT @DateList = COALESCE(@DateList + ',', '') + '[' + CONVERT(VARCHAR(10), RptDate) + ']' FROM #FinalResult
+	;WITH CTE_rptDate AS
+	(
+		SELECT CONVERT(DATETIME, @FDate) AS rptDate
+		UNION ALL
+		SELECT DATEADD(DAY, 1, rptDate)
+		FROM CTE_rptDate
+		WHERE rptDate < @TDate
+	)
+	INSERT INTO #FinalResult (RptDate, LicenseeWL, PayToSupplier)
+	SELECT CONVERT(VARCHAR(2), r.rptDate, 106), SUM(ISNULL(t.AmountToCompany, 0)), SUM(ISNULL(t.PayToSupplier, 0))
+	FROM CTE_rptDate r
+		LEFT JOIN #tempData t ON r.rptDate = t.rptDate
+	GROUP BY CONVERT(VARCHAR(2), r.rptDate, 106)
+	OPTION (MAXRECURSION 0)
+	
+	DECLARE @DateList VARCHAR(1000)
+	SELECT  @DateList = COALESCE(@DateList + ',', '') + '[' + CONVERT(VARCHAR(10), RptDate) + ']' FROM #FinalResult
 
 	---------------------------------------------------- Select the output -------------------------------------------------------
 	DECLARE @SQL VARCHAR(MAX)
@@ -240,11 +224,9 @@ BEGIN
 
 	-- Region: Drop tmp table
 	DROP TABLE #Bettype
-	DROP TABLE #DailyPayToSupplier
 	DROP TABLE #Exchange
 	DROP TABLE #ExchangeOANDA
 	DROP TABLE #FinalResult
-	DROP TABLE #FullRangePayToSupplier
 	DROP TABLE #PartyChargeInfo
 	DROP TABLE #Site
 	DROP TABLE #tempData
