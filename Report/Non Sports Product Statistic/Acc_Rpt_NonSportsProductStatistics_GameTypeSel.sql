@@ -63,7 +63,7 @@ SET NOCOUNT ON
 		   AND s.ProductID <> 42
 		   
 	INSERT INTO #SportBettype (ProductID, TypeId, TypeName, GameType)
-	SELECT	s.SportType ProductID, s.Bettype as TypeId, b.typenamee AS TypeName, 4 AS GameType
+	SELECT	s.ProductID ProductID, s.Bettype as TypeId, b.typenamee AS TypeName, s.SportType AS GameType
 	FROM dbo.SportBettypeMatrix s WITH (NOLOCK)
 		INNER JOIN dbo.Bettype b WITH (NOLOCK) ON s.Bettype = b.TypeId 
 		LEFT JOIN #tmpBettype t ON s.Bettype = t.Bettype 
