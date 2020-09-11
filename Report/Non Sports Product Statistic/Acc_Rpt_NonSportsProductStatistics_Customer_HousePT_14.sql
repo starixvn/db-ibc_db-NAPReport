@@ -321,7 +321,7 @@ BEGIN
 					AND b.custid = @CID
 					AND b.statusID IN (111, 112, 113) -- won/lose/draw tickets
 					AND s.RefTable = 1
-					AND (@SportBetType = ''
+					AND (s.ProductID <> 42
 						OR EXISTS(SELECT 1 FROM #tmpSportBetType s where b.productid = s.Sporttype and b.gameid = s.Bettype)
 						)
 					AND ((b.currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
@@ -447,7 +447,7 @@ BEGIN
 				WHERE b.winlostdate = @WLDate
 					AND b.statusID IN (111, 112, 113) -- won/lose/draw tickets
 					AND s.RefTable = 1
-					AND (@SportBetType = ''
+					AND (s.ProductID <> 42
 						OR EXISTS(SELECT 1 FROM #tmpSportBetType s where b.productid = s.Sporttype and b.gameid = s.Bettype)
 						)
 					AND ((b.currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)

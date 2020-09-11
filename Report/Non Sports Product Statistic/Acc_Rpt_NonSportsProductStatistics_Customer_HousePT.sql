@@ -322,7 +322,7 @@ BEGIN
 					INNER JOIN #SportBettype s ON s.Bettype = b.gameID
 					LEFT JOIN #tmpContributionBettype bt ON bt.Bettype = b.gameID
 				WHERE b.winlostdate = @WLDate
-					AND (@SportBetType = ''
+					AND (s.ProductID <> 42
 						OR EXISTS(SELECT 1 FROM #tmpSportBetType s where b.productid = s.Sporttype and b.gameid = s.Bettype)
 						)
 					AND b.custid = @CID
@@ -482,7 +482,7 @@ BEGIN
 					INNER JOIN #tmp_MemIDs m ON b.custid = m.CustID
 					LEFT JOIN #tmpContributionBettype bt ON bt.Bettype = b.gameID
 				WHERE b.winlostdate = @WLDate
-					AND (@SportBetType = ''
+					AND (s.ProductID <> 42
 						OR EXISTS(SELECT 1 FROM #tmpSportBetType s where b.productid = s.Sporttype and b.gameid = s.Bettype)
 						)
 					AND b.statusID IN (111, 112, 113) -- won/lose/draw tickets
