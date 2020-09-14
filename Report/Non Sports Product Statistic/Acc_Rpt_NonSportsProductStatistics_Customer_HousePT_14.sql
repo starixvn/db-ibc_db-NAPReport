@@ -10,6 +10,7 @@ ALTER PROCEDURE [dbo].[Acc_Rpt_NonSportsProductStatistics_Customer_HousePT_14]
 	@BetType		VARCHAR(MAX) = '',
 	@LeagueId		VARCHAR(MAX) = '',
 	@Sporttype		VARCHAR(MAX) = '',
+	@SportBetType	VARCHAR(MAX) = '',
 	@Currency		VARCHAR(MAX) = '',
 	@Device			VARCHAR(200) = '',
 	@TotalBetType	SMALLINT = 0,
@@ -38,6 +39,8 @@ AS
 		20200601@Cherry: Add Credit Site and support multiple currency (#135009)
 		20200624@Cherry: Archive VSRaceInfo (#136256)
 		20200710@Cherry: Integrate Pragmatic Jackpot (#137268)
+		20200828@Cherry: Integrate Saba.club Free Bet (#140109)
+
 
 	Param's Explanation:
 		- @ProductID: string filter by Product 
@@ -62,6 +65,7 @@ BEGIN
 	CREATE TABLE #tmp_SportType		(Sporttype SMALLINT)
 	CREATE TABLE #tmp_Devide		(Betfrom NVARCHAR(2))
 	CREATE TABLE #tmpContributionBettype (Bettype INT)
+	CREATE TABLE #tmpSportBetType (Sporttype INT, Bettype INT)
 
 	-- Get Info from Pars list
 	IF @ProductId <> ''
@@ -78,6 +82,7 @@ BEGIN
 	
 	DECLARE @splitter1 char(1) = ',', @splitter2 char(1) = '-',
 		@league int, @bettypeid int,
+		@sportid int, @sporttypebettype nvarchar(4000), 
 		@start int, @leaguebettype nvarchar(4000), 
 		@charindex1 int, @charindex2 int
 
@@ -98,6 +103,26 @@ BEGIN
 			INSERT INTO #tmp_LeagueID(LeagueID, Bettype) VALUES (@league, @bettypeid)
 			SET @start = @charindex1 +1
 			SET @charindex1 = charindex(@splitter1, @LeagueID, @start)          
+		END
+	END
+	
+	IF @SportBetType <> ''
+    BEGIN
+		IF substring (@SportBetType, len(@SportBetType), 1) <> @splitter1
+			SET @SportBetType = @SportBetType + @splitter1
+		SET @start = 1
+		SET @charindex1 = charindex(@splitter1, @SportBetType, @start)
+		SET @charindex2 = charindex(@splitter2, @SportBetType, @start)
+
+		WHILE (@charindex1 <> 0)
+		BEGIN
+			SET @sporttypebettype = substring(@SportBetType, @start, @charindex1 - @start)       
+			SET @charindex2 = charindex(@splitter2, @sporttypebettype, 1)
+			SET @sportid = substring(@sporttypebettype, 1, @charindex2 - 1)
+			SET @bettypeid = substring(@sporttypebettype, @charindex2 + 1, LEN(@sporttypebettype))
+			INSERT INTO #tmpSportBetType (Sporttype , Bettype) VALUES (@sportid, @bettypeid)
+			SET @start = @charindex1 +1
+			SET @charindex1 = charindex(@splitter1, @SportBetType, @start)          
 		END
 	END
 
@@ -132,7 +157,7 @@ BEGIN
 	FROM
 		dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '', @isTest) s
 		INNER JOIN #tmp_ProductID p ON s.ProductID = p.ProductID
-	WHERE p.ProductID IN (3, 5, 27) -- Number Game, Virtual Sports, Virtual Sports 2
+	WHERE p.ProductID IN (3, 5, 27, 42) -- Number Game, Virtual Sports, Virtual Sports 2, Saba.club
 	
 	INSERT INTO #SportBettype (ProductID, Bettype, EvenType, RefTable)
 	SELECT s.ProductID, s.BetType, s.EventType, s.RefTable
@@ -296,6 +321,9 @@ BEGIN
 					AND b.custid = @CID
 					AND b.statusID IN (111, 112, 113) -- won/lose/draw tickets
 					AND s.RefTable = 1
+					AND (s.ProductID <> 42
+						OR EXISTS(SELECT 1 FROM #tmpSportBetType s where b.productid = s.Sporttype and b.gameid = s.Bettype)
+						)
 					AND ((b.currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
 					AND (EXISTS (SELECT 1 FROM #tmp_Devide d WHERE d.Betfrom = b.betfrom) OR @Device = '')
 					AND (
@@ -419,6 +447,9 @@ BEGIN
 				WHERE b.winlostdate = @WLDate
 					AND b.statusID IN (111, 112, 113) -- won/lose/draw tickets
 					AND s.RefTable = 1
+					AND (s.ProductID <> 42
+						OR EXISTS(SELECT 1 FROM #tmpSportBetType s where b.productid = s.Sporttype and b.gameid = s.Bettype)
+						)
 					AND ((b.currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
 					AND (EXISTS (SELECT 1 FROM #tmp_Devide d WHERE d.Betfrom = b.betfrom) OR @Device = '')
 					AND (
@@ -668,4 +699,5 @@ BEGIN
 	DROP TABLE #tmp_MemIDs
 	DROP TABLE #tmp_SportType
 	DROP TABLE #tmpContributionBettype		
+	DROP TABLE #tmpSportBetType
 END
