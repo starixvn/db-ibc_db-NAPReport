@@ -1,4 +1,4 @@
-﻿/*<info serverAlias="DBSUM-bodb_Summary" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
+﻿/*<info serverAlias="DBSUM-bodb_Summary" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
 USE [bodb_Summary]
 GO
