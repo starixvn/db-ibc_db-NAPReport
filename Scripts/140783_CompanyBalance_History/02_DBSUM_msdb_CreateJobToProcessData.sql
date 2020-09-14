@@ -33,7 +33,7 @@ EXEC @ReturnCode =  msdb.dbo.sp_add_job @job_name=N'bodb_Summary - Weekly Compan
 		@description=N'No description available.', 
 		@category_name=N'[Uncategorized (Local)]', 
 		@owner_login_name=N'sa', 
-		@notify_email_operator_name=N'Viet', @job_id = @jobId OUTPUT
+		@job_id = @jobId OUTPUT
 IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollback
 /****** Object:  Step [Get Company Balance]    Script Date: 9/14/2020 12:21:03 AM ******/
 EXEC @ReturnCode = msdb.dbo.sp_add_jobstep @job_id=@jobId, @step_name=N'Get Company Balance', 
