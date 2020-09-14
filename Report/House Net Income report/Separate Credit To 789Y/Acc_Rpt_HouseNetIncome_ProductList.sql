@@ -24,6 +24,7 @@ AS
 		- 20200722@Ned.Le - Email/Letstalk Reports - Integrate Jackpot Games (#137280)
 		- 20200813@Kean - DHWL Email/Letstalk - Change Product Name and Margin Report Format. (#139537)
 		- 20200811@Kean - Email/Letstalk Reports - Integrate PG Soft (#137764)
+		- 20200914@Kean - Email/Letstalk Reports - Change Sexy Gaming to AE Casino (#141448)
   
 */
 BEGIN
@@ -51,7 +52,7 @@ SET NOCOUNT ON;
 	UNION ALL
 	SELECT 'AllBet' Product, 'AB' ProductPrefix, 'Live Casino' [Group]
 	UNION ALL
-	SELECT 'SexyG' Product, 'SXG' ProductPrefix, 'Live Casino' [Group]
+	SELECT 'AE Casino' Product, 'SXG' ProductPrefix, 'Live Casino' [Group]
 	UNION ALL
 	SELECT 'GoldD' Product, 'GD' ProductPrefix, 'Live Casino' [Group]
 	UNION ALL
