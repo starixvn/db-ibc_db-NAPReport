@@ -52,7 +52,7 @@ SET NOCOUNT ON;
 	UNION ALL
 	SELECT 'AllBet' Product, 'AB' ProductPrefix, 'Live Casino' [Group]
 	UNION ALL
-	SELECT 'AE Casino' Product, 'SXG' ProductPrefix, 'Live Casino' [Group]
+	SELECT 'AE Cas' Product, 'SXG' ProductPrefix, 'Live Casino' [Group]
 	UNION ALL
 	SELECT 'GoldD' Product, 'GD' ProductPrefix, 'Live Casino' [Group]
 	UNION ALL
