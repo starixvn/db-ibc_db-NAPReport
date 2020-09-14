@@ -78,7 +78,7 @@ BEGIN
 
 	BEGIN /*get a list of Supers by site type*/
 		CREATE TABLE #super (SuperID   INT PRIMARY KEY, 
-                             SiteType  CHAR(7))
+                             SiteType  VARCHAR(7))
 
 		INSERT INTO #super
 			SELECT DISTINCT 
