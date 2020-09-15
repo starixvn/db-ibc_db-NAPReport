@@ -227,6 +227,15 @@ BEGIN
     END
 	
     -- final aggregation by SuperID, display report
+    -- check if this master has VR settings (core logic extracted from Acc_Rpt_LeagueWL_CustVirtualMultiplierSel)
+    ;WITH CTE_currVirtualRate AS (
+		SELECT cvs.custid
+		FROM bodb02.dbo.CustVirtualSetting AS cvs WITH (NOLOCK)
+		INNER JOIN bodb02.dbo.ProfileVirtualSetting AS pvs WITH (NOLOCK) 
+			ON cvs.seqNo = pvs.seqNo
+		WHERE pvs.sporttype NOT IN (43, 2) 
+			AND pvs.isActive = 1
+	)
 	SELECT  t.SuperID SuperID,
             t.SuperName SuperName,
 		    SUM(MemberWinLoss) AS MemberWinLoss,
@@ -237,7 +246,9 @@ BEGIN
             SUM(VirtualIncome) AS VirtualIncome,
             SUM(VarianceIncome) AS VarianceIncome,
             SUM(RealTurnover) AS RealTurnover, 
-            SUM(VirtualTurnover) AS VirtualTurnover
+            SUM(VirtualTurnover) AS VirtualTurnover,
+            CASE WHEN EXISTS (SELECT 1 FROM CTE_currVirtualRate cte WHERE cte.custid = t.SuperID) THEN 'Yes'
+                 ELSE 'No' END AS HasVR
 	FROM #tmpData t
     GROUP BY t.SuperID, t.SuperName
     ORDER BY CASE WHEN t.SuperName = 'Soccer 8RM'        THEN 2
