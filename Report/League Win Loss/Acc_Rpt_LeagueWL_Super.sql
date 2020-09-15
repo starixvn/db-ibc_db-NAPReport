@@ -247,8 +247,8 @@ BEGIN
             SUM(VarianceIncome) AS VarianceIncome,
             SUM(RealTurnover) AS RealTurnover, 
             SUM(VirtualTurnover) AS VirtualTurnover,
-            CASE WHEN EXISTS (SELECT 1 FROM CTE_currVirtualRate cte WHERE cte.custid = t.SuperID) THEN 'Yes'
-                 ELSE 'No' END AS HasVR
+            CAST(CASE WHEN EXISTS (SELECT 1 FROM CTE_currVirtualRate cte WHERE cte.custid = t.SuperID) THEN 1
+                 ELSE 0 END AS BIT) HasVR
 	FROM #tmpData t
     GROUP BY t.SuperID, t.SuperName
     ORDER BY CASE WHEN t.SuperName = 'Soccer 8RM'        THEN 2
