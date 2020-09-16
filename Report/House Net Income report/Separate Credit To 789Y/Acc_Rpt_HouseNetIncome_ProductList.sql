@@ -25,6 +25,8 @@ AS
 		- 20200813@Kean - DHWL Email/Letstalk - Change Product Name and Margin Report Format. (#139537)
 		- 20200811@Kean - Email/Letstalk Reports - Integrate PG Soft (#137764)
 		- 20200914@Kean - Email/Letstalk Reports - Change Sexy Gaming to AE Casino (#141448)
+		- 20200916@Roy: Email/Letstalk Reports - Integrate Joker Gaming (#131602)
+		- 20200916@Roy: Email/Letstalk Reports - Integrate WM Live Casino (#131593)
   
 */
 BEGIN
@@ -65,6 +67,8 @@ SET NOCOUNT ON;
 	SELECT 'BBIN LC' Product, 'BBIN' ProductPrefix, 'Live Casino' [Group]
 	UNION ALL
 	SELECT 'AG LC' Product, 'AGC' ProductPrefix, 'Live Casino' [Group]
+	UNION ALL
+	SELECT 'WM LC' Product, 'WM' ProductPrefix, 'Live Casino' [Group]
 
 	-- RNG Casino
 	UNION ALL
@@ -93,6 +97,8 @@ SET NOCOUNT ON;
 	SELECT 'FishW' Product, 'FW' ProductPrefix, 'RNG Casino' [Group]
 	UNION ALL
 	SELECT 'PGSoft' Product, 'PGS' ProductPrefix, 'RNG Casino' [Group]
+	UNION ALL
+	SELECT 'Joker' Product, 'JK' ProductPrefix, 'RNG Casino' [Group]
 
 	-- Lottery/Keno
 	UNION ALL
