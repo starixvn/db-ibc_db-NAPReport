@@ -302,8 +302,8 @@ SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 	,(SELECT SUM(t.HouseTO) FROM #TmpData AS t WHERE t.ProductID = 50 AND t.rptDate = @tmpDate) AS  HouseTO_RNGW
 	,(SELECT SUM(t.HouseTO) FROM #TmpData AS t WHERE t.ProductID = 24 AND t.rptDate = @tmpDate) AS  HouseTO_FW
 	,(SELECT SUM(t.HouseTO) FROM #TmpData AS t WHERE t.ProductID = 55 AND t.rptDate = @tmpDate) AS  HouseTO_PGS
-	,(SELECT SUM(t.HouseTO) FROM #TmpData AS t WHERE t.ProductID = 55 AND t.rptDate = @tmpDate) AS  HouseTO_JK
-	,(SELECT SUM(t.HouseTO) FROM #TmpData AS t WHERE t.ProductID = 55 AND t.rptDate = @tmpDate) AS  HouseTO_WM;
+	,(SELECT SUM(t.HouseTO) FROM #TmpData AS t WHERE t.ProductID = 56 AND t.rptDate = @tmpDate) AS  HouseTO_JK
+	,(SELECT SUM(t.HouseTO) FROM #TmpData AS t WHERE t.ProductID = 51 AND t.rptDate = @tmpDate) AS  HouseTO_WM;
 
 		  SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate);
 	   END;
