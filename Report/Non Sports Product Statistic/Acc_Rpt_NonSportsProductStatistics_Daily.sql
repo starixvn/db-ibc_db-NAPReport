@@ -525,7 +525,7 @@ SET NOCOUNT ON
 					
 			FROM  dbo.BettransRNG b WITH (NOLOCK)
 			WHERE b.WinlostDate = @WLDate
-				AND b.gameID IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 42)
+				AND b.gameID IN (SELECT Bettype FROM #SportBettype WHERE RefTable = 1 AND ProductID = 42)
 				AND EXISTS(SELECT 1 FROM #tmpSportBetType s WHERE b.productid = s.Sporttype and b.gameid = s.Bettype)
 				AND b.statusID IN (111, 112, 113, 103) 
 				AND (@ExcludeTest = 0 OR (b.Currency <> 20 AND @ExcludeTest = 1))
