@@ -39,6 +39,7 @@ AS
 		20200601@Cherry: Add Credit Site and support multiple currency (#135009)
 		20200710@Cherry: Integrate Pragmatic Jackpot (#137268)
 		20200828@Cherry: Integrate Saba.club Free Bet (#140109)
+		20200917@Cherry: Improve performance (#141831)
 
 	Param's Explanation:
 		- @ProductID: string filter by Product 
@@ -260,6 +261,7 @@ BEGIN
 					)
 					AND b.bettype <> 2799
 				GROUP BY s.EvenType, b.matchid, s.ProductID, b.bettype
+				OPTION(RECOMPILE)
 				
 				--Mix Parlay Virtual Sport 2
 				INSERT INTO #tmp_bettrans
@@ -298,6 +300,7 @@ BEGIN
 									INNER JOIN #tmp_SportType st ON m.sporttype = st.Sporttype
 								WHERE bm.refno = b.refno)					
 				GROUP BY s.EvenType, b.matchid, s.ProductID, b.bettype
+				OPTION(RECOMPILE)
 			END
 
 			IF EXISTS (SELECT TOP 1 1 FROM #SportBettype WHERE RefTable = 1) -- bettransRnG
@@ -322,9 +325,7 @@ BEGIN
 					INNER JOIN #SportBettype s ON s.Bettype = b.gameID
 					LEFT JOIN #tmpContributionBettype bt ON bt.Bettype = b.gameID
 				WHERE b.winlostdate = @WLDate
-					AND (s.ProductID <> 42
-						OR EXISTS(SELECT 1 FROM #tmpSportBetType s where b.productid = s.Sporttype and b.gameid = s.Bettype)
-						)
+					AND s.ProductID <> 42
 					AND b.custid = @CID
 					AND b.statusID IN (111, 112, 113) -- won/lose/draw tickets
 					AND s.RefTable = 1
@@ -336,6 +337,42 @@ BEGIN
 						OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 					)
 				GROUP BY s.ProductID, b.gameID
+				OPTION(RECOMPILE)
+				
+				INSERT INTO #tmp_bettrans
+				(
+					BetCount,
+					TotalBets, TotalBetsBase,
+					TotalWins, TotalWinsBase,
+					ProductID, Bettype,
+					HousePT
+				)
+				SELECT
+					COUNT(CASE WHEN bt.Bettype IS NOT NULL THEN NULL ELSE b.transid END) AS BetCount,
+					SUM(actual_stake) AS TotalBets,
+					SUM(actual_stake * actualrate) AS TotalBetsBase,
+					SUM(winlost) AS TotalWins,
+					SUM(winlost * actualrate) AS TotalWinsBase,
+					s.ProductID, b.gameID,
+					SUM(CASE WHEN bt.Bettype IS NOT NULL THEN 0 ELSE 1 - b.tpositiontaking END) AS HousePT
+				FROM dbo.bettransRnG b WITH (NOLOCK)
+					INNER JOIN #SportBettype s ON s.Bettype = b.gameID
+					LEFT JOIN #tmpContributionBettype bt ON bt.Bettype = b.gameID
+				WHERE b.winlostdate = @WLDate
+					AND s.ProductID = 42
+					AND EXISTS(SELECT 1 FROM #tmpSportBetType s where b.productid = s.Sporttype and b.gameid = s.Bettype)
+					AND b.custid = @CID
+					AND b.statusID IN (111, 112, 113) -- won/lose/draw tickets
+					AND s.RefTable = 1
+					AND ((b.currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
+					AND (EXISTS (SELECT 1 FROM #tmp_Devide d WHERE d.Betfrom = b.betfrom) OR @Device = '')
+					AND (
+						@HousePTType = 0
+						OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
+						OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
+					)
+				GROUP BY s.ProductID, b.gameID
+				OPTION(RECOMPILE)
 			END
 		
 			IF EXISTS (SELECT TOP 1 1 FROM #SportBettype WHERE RefTable = 2) -- bettransLC
@@ -370,6 +407,7 @@ BEGIN
 						OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 					)
 				GROUP BY b.srecommend, b.mrecommend, b.recommend, b.custid, b.currency, s.ProductID, b.gameID
+				OPTION(RECOMPILE)
 			END
 		END
 		ELSE -- roleID > 1
@@ -419,6 +457,7 @@ BEGIN
 					)
 					AND b.bettype <> 2799
 				GROUP BY s.EvenType, b.matchid, s.ProductID, b.bettype 
+				OPTION(RECOMPILE)
 				
 				--Mix Parlay Virtual Sport 2
 				INSERT INTO #tmp_bettrans
@@ -457,6 +496,7 @@ BEGIN
 									INNER JOIN #tmp_SportType st ON m.sporttype = st.Sporttype
 								WHERE bm.refno = b.refno)					
 				GROUP BY s.EvenType, b.matchid, s.ProductID, b.bettype 
+				OPTION(RECOMPILE)
 			END
 
 			IF EXISTS (SELECT TOP 1 1 FROM #SportBettype WHERE RefTable = 1) -- bettransRnG
@@ -495,6 +535,7 @@ BEGIN
 						OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 					)
 				GROUP BY s.ProductID, b.gameID 
+				OPTION(RECOMPILE)
 			END
 
 			IF EXISTS (SELECT TOP 1 1 FROM #SportBettype WHERE RefTable = 2) -- bettransLC
@@ -529,6 +570,7 @@ BEGIN
 						OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 					)
 				GROUP BY s.ProductID, b.gameID 
+				OPTION(RECOMPILE)
 			END
 		END
 	
