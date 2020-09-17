@@ -2,7 +2,7 @@
 ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_MarginChart_NonSport_Deposit]
 	@FromDate       DATE
    ,@ToDate         DATE
-   ,@ProductList    VARCHAR(MAX) = ''   
+   ,@ProductList    VARCHAR(MAX) = ''
 AS
 
 /*
@@ -28,63 +28,121 @@ AS
 		- 20200529@Percy: Special members for AB [RedmineID: #134867]
 		- 20200818@Percy: Integrate PG Soft [RedmineID: #137764]
 		- 20200922@Percy: Integrate WM Live Casino & Joker Gaming [RedmineID: #131593,#131602]
+		- 20200901@Percy: Refactor code to enhance performance [RedmineID: #140677]
 
 	Param's Explanation:   
-		- @ProductList: '' - default value when get all product
-						'GD,AB,AGC,MGCLC,MGCRNG,CS,VB,PP,NG,VS,KN,LT,FW,VS2,CB' - if group is NSD Group
+		- @ProductList: List of Product Code
 
 	Acc_Rpt_HouseNetIncome_MarginChart_NonSport_Deposit '2018-07-01', '2018-07-30'
   
 */ 
-BEGIN  
-	SET NOCOUNT ON  
+
+BEGIN
+	SET NOCOUNT ON
 
 	DECLARE @FDate DATE, @TDate DATE
-	SELECT @FDate = @FromDate, @TDate = @ToDate
+	SELECT  @FDate = @FromDate, @TDate = @ToDate
 
-	DECLARE @SpecialPayToSupplierProductCodes VARCHAR(MAX)
-
-	DECLARE @DefaulProductList VARCHAR(MAX) = 'EX,GD,FW,AB,VB,CB,CO,AGC,KN,LT,CS,NG,PP,CC,SP,SG,VRG,SAG,I4D,TG,SBC,SXG,FW,PGS,WM,JK'
-
-	-- Select ProductList
-	SELECT @ProductList = CASE WHEN LEN(ISNULL(@ProductList, '')) > 0  THEN @ProductList ELSE @DefaulProductList END
-
-	IF LEN(ISNULL(@ProductList, '')) > 0 
+	-- Get list of product
 	BEGIN
-		SELECT val AS ProductPrefix
-		INTO #tmpProduct
-		FROM dbo.strSplit(@ProductList, ',')
+		IF ISNULL(@ProductList, '') = ''
+			SELECT @ProductList = 'EX,GD,FW,AB,VB,CB,CO,AGC,KN,LT,CS,NG,H5,PP,CC,SP,SG,VRG,SAG,I4D,TG,SBC,SXG,PGS,WM,JK'
+
+		SELECT @ProductList = ',' + @ProductList + ','
+		SELECT @ProductList = REPLACE(REPLACE(REPLACE(@ProductList, ',SB,', ',SB,BA,'), ',EX,', ',BX,'), ',SP,', ',SPR,')
+
+		DECLARE @Products TABLE (OrderId INT, SubOrder INT, ProductId INT, Product3rdId INT, ProductCode VARCHAR(200), SubProductCode VARCHAR(10))
+		INSERT INTO @Products (OrderId, ProductCode)
+		SELECT [rank] * 100, val FROM dbo.strSplit(@ProductList, ',') WHERE LEN(val) > 0
+
+		UPDATE t
+		SET t.ProductId = CASE WHEN t.ProductCode = 'SB' THEN 1 WHEN t.ProductCode = 'BA' THEN 0 ELSE p.ProductId END
+			,t.Product3rdId = CASE WHEN t.ProductCode = 'SB' THEN 0 ELSE p3.ProductId END
+			,t.SubProductCode = CASE WHEN t.ProductCode IN ('NG', 'PP') THEN t.ProductCode END
+		FROM @Products t
+			LEFT JOIN bodb_Licensee.dbo.Product3rd p3 WITH (NOLOCK) ON t.ProductCode = p3.ProductPrefix
+			LEFT JOIN dbo.Products p WITH (NOLOCK) ON p.ProductPrefix = p3.ProductPrefix
+
+		IF ',' + @ProductList + ',' LIKE '%,H5,%'
+			UPDATE @Products SET Product3rdId = 2, ProductId = 3, ProductCode = 'NG', SubProductCode = 'H5'
+			WHERE ProductCode = 'H5'
+
+		IF ',' + @ProductList + ',' LIKE '%,PP-JP,%'
+			UPDATE @Products SET Product3rdId = 32, ProductId = 32, ProductCode = 'PP', SubProductCode = 'PP-JP'
+			WHERE ProductCode = 'PP-JP'
 	END
 
-	DECLARE @SQL VARCHAR(MAX)
-	SELECT @SQL = '-- Create Temp Table Final Return Data ' + CHAR(13)
-
-	
-	DECLARE @SumValue VARCHAR(1000)	
-	SET @SumValue = 'SELECT ''NonSport'' AS ProductCode, [Order], Figure, SUM(FullRange) AS FullRange '
-
-	SELECT @SQL = @SQL + 'CREATE TABLE #MarginChartResult (ProductCode VARCHAR(50), [Order] TINYINT, Figure NVARCHAR(100), FullRange MONEY, ' + CHAR(13)
-			
-	DECLARE @tmpDate DATE, @date VARCHAR(5)
-	SELECT @tmpDate = @FDate
-
-	WHILE @tmpDate <= @TDate
+	-- Get licensee charge rate
 	BEGIN
+		-- All licensees
+		CREATE TABLE #AllLicensees (LicenseeId INT, PartyId INT, ParentId INT)
+		INSERT INTO #AllLicensees (LicenseeId, PartyId, ParentId)
+		SELECT OldRefId, PartyId, ParentId
+		FROM (
+			SELECT ci.FromParty AS PartyId, ci.ToParty AS ParentId, p.OldRefId
+				,ROW_NUMBER() OVER(PARTITION BY ci.FromParty ORDER BY ci.FromDate DESC) AS RowNum
+			FROM bodb_licensee.dbo.OAS_Party p WITH (NOLOCK)
+				INNER JOIN bodb_licensee.dbo.OAS_PartyDetail pd WITH (NOLOCK) ON p.PartyID = pd.PartyID
+				INNER JOIN bodb_licensee.dbo.OAS_ChargeInfo ci WITH (NOLOCK) ON p.PartyID = ci.FromParty
+				INNER JOIN bodb_licensee.dbo.LA_ChargeInfo_SystemMapping cs WITH(NOLOCK) ON ci.ChargeID = cs.ChargeID AND cs.SystemID = 2
+			WHERE ci.ChargeType = 1
+				AND p.PartyType = 1
+				AND pd.IsDeposit = 1
+				AND ci.ToParty IN (1, 9, 11, 98)
+		) r
+		WHERE RowNum = 1
+
+		-- Licensees by product
+		CREATE TABLE #Licensees (LicenseeId INT, PartyId INT, ParentId INT)
+		INSERT INTO #Licensees (LicenseeId, PartyId, ParentId)
+		SELECT DISTINCT p.OldRefId, p.PartyId, ci.ToParty
+		FROM bodb_licensee.dbo.OAS_Party p WITH (NOLOCK)
+			INNER JOIN bodb_licensee.dbo.OAS_PartyDetail pd WITH (NOLOCK) ON pd.PartyID = p.PartyID
+			INNER JOIN bodb_licensee.dbo.OAS_ChargeInfo ci WITH (NOLOCK) ON p.PartyID = ci.FromParty
+			INNER JOIN bodb_licensee.dbo.LA_ChargeInfo_SystemMapping map ON map.ChargeID = ci.ChargeID AND map.SystemID = 2
+		WHERE p.PartyType = 1
+			AND pd.IsDeposit = 1
+			AND ci.ToParty IN (1, 9, 11, 98)
+			AND EXISTS (SELECT 1 FROM @Products pr WHERE ci.ProductId = pr.Product3rdId)
+			AND (
+				(ci.FromDate BETWEEN @FromDate AND @ToDate)
+				OR (ci.ToDate BETWEEN @FromDate AND @ToDate)
+				OR (ci.FromDate < @FromDate AND @ToDate < ci.ToDate)
+			)
+
+		-- Get charge rate
+		DECLARE @PartyIDs VARCHAR(1000)
+		SELECT	@PartyIDs = COALESCE(@PartyIDs + ',', '') + CONVERT(VARCHAR(10), PartyId) FROM #Licensees
 		
-		SELECT @date = CONVERT(VARCHAR(2), @tmpDate, 106)
+		CREATE TABLE #PartyChargeInfo
+		(
+			ChargeId		INT
+			,PartyId		INT
+			,LicenseeId		INT
+			,ParentId		INT
+			,Product3rdId	INT
+			,Rate			MONEY
+			,FromDate		DATE
+			,ToDate			DATE
+			,Bettype		INT
+			,ChargeType		INT
+		)
+		INSERT INTO #PartyChargeInfo (ChargeId, PartyId, LicenseeId, ParentId, Product3rdId, Rate, FromDate, ToDate, Bettype, ChargeType)
+		SELECT ci.ChargeId, ci.PartyId, ci.LicenseeId, p.ParentId, ci.ProductId, ci.DI_Rate, ci.FromDate, ci.ToDate, ISNULL(sbr.Bettype, ci.Bettype), ci.ChargeType
+		FROM bodb_licensee.dbo.LA_f_ChargeInfo (@PartyIDs, @FromDate, @ToDate, @ProductList, 'OA', 1) ci
+			INNER JOIN #Licensees p ON ci.PartyID = p.PartyID
+			LEFT JOIN bodb_licensee.dbo.Sport_Bettype_Reference sbr WITH (NOLOCK) ON sbr.BettypeRef = ci.Bettype
+		WHERE
+			(
+				ci.ChargeType = 1
+				OR ci.ChargeType IN (9, 10, 12) AND ci.ProductId = 11 -- GD
+				OR ci.ChargeType = 12 AND ci.ProductId = 39 -- SAG
+			)
+			AND ci.DI_Rate > 0
 
-		SELECT @SQL = @SQL + '[' + @date + ']' + ' MONEY, '
-		SELECT @SumValue = @SumValue + ', SUM(' + '[' + @date + ']' + ') AS ' + + '[' + @date + ']'
-
-		SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate)
-	END
-
-	SELECT @SQL = LEFT(@SQL, DATALENGTH(@SQL) -2) + ')'	+ CHAR(13)
-	SELECT @SumValue = @SumValue + ' FROM #MarginChartResult GROUP BY [Order], Figure ORDER BY [Order]'
-
-	-- 26. JK
-	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'JK')
-	BEGIN
+		-- Special products
+			-- H5
+		IF EXISTS (SELECT 1 FROM @Products WHERE Product3rdId = 2 AND SubProductCode = 'H5')
 		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
 							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_JK_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
 	END
@@ -96,214 +154,244 @@ BEGIN
 							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_WM_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
 	END
 	
-	-- 24. PGS
-	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'PGS')
-	BEGIN
-		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
-							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_PGS_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
-	END
-	
-	-- 23. FW
-	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'FW')
-	BEGIN
-		SELECT @SpecialPayToSupplierProductCodes = COALESCE(@SpecialPayToSupplierProductCodes + ',', '') + 'FW'
-		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
-							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_FW_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
-	END
+		BEGIN
+			IF EXISTS (SELECT 1 FROM @Products WHERE Product3rdId = 2 AND SubProductCode = 'NG')
+			BEGIN
+				INSERT INTO #PartyChargeInfo (ChargeId, PartyId, LicenseeId, ParentId, Product3rdId, Rate, FromDate, ToDate, Bettype, ChargeType)
+				SELECT ChargeId, PartyId, LicenseeId, ParentId, -2, Rate, FromDate, ToDate, -1, ChargeType
+				FROM #PartyChargeInfo
+				WHERE Product3rdId = 2
+			END
+			ELSE
+			BEGIN
+				UPDATE #PartyChargeInfo SET Product3rdId = -2, Bettype = -1 WHERE Product3rdId = 2
+			END
+		END
 
-	-- 22. SXG
-	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'SXG')
-	BEGIN
-		SELECT @SpecialPayToSupplierProductCodes = COALESCE(@SpecialPayToSupplierProductCodes + ',', '') + 'SXG'
-		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
-							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_SXG_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
-	END
-	
-	-- 21. SBC
-	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'SBC')
-	BEGIN
-		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
-							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_SBC_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
-	END
+			-- PP-JP
+		IF EXISTS (SELECT 1 FROM @Products WHERE Product3rdId = 32 AND SubProductCode = 'PP-JP')
+		BEGIN
+			IF EXISTS (SELECT 1 FROM @Products WHERE Product3rdId = 32 AND SubProductCode = 'PP')
+			BEGIN
+				INSERT INTO #PartyChargeInfo (ChargeId, PartyId, LicenseeId, ParentId, Product3rdId, Rate, FromDate, ToDate, Bettype, ChargeType)
+				SELECT ChargeId, PartyId, LicenseeId, ParentId, -3, Rate, FromDate, ToDate, -1, ChargeType
+				FROM #PartyChargeInfo
+				WHERE Product3rdId = 32
+			END
+			ELSE
+			BEGIN
+				UPDATE #PartyChargeInfo SET Product3rdId = -3, Bettype = -1 WHERE Product3rdId = 32
+			END
+		END
 
-	-- 20. TG
-	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'TG')
-	BEGIN
-		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
-							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_TG_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
-	END
-	
-	-- 19. I4D
-	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'I4D')
-	BEGIN
-		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
-							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_I4D_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
+		DROP TABLE #Licensees
 	END
 
-	-- 18. SA
-	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'SAG')
+	-- Get exchange rate
 	BEGIN
-		SELECT @SpecialPayToSupplierProductCodes = COALESCE(@SpecialPayToSupplierProductCodes + ',', '') + 'SAG'
-		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
-							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_SA_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
+		CREATE TABLE #Exchange (ExchangeDate DATETIME, ExchangeId INT, Rate FLOAT)
+		INSERT INTO #Exchange(ExchangeDate, ExchangeId, Rate)
+		SELECT ExchangeDate, Currency, Rate
+		FROM DBWH.bodb_account.dbo.tbl_Currency_Daily WITH (NOLOCK)
+		WHERE ExchangeDate BETWEEN @FromDate AND @ToDate
+
+		CREATE TABLE #ExchangeOANDA (ExchangeDate DATE, ExchangeId INT, Rate FLOAT)
+		INSERT INTO #ExchangeOANDA(ExchangeDate, ExchangeId, Rate)
+		SELECT ExchangeDate, ExchangeId, BaseCurrencyRate
+		FROM dbo.LA_f_ExchangeDailySel(@FromDate, @ToDate, 'MYR')
 	END
 
-	-- 17. VG
-	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'VRG')
+	-- Get data
 	BEGIN
-		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
-							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_VG_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
-	END
-
-	-- 16. SG
-	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'SG')
-	BEGIN
-		SELECT @SpecialPayToSupplierProductCodes = COALESCE(@SpecialPayToSupplierProductCodes + ',', '') + 'SG'
-		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
-							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_SG_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
-	END
-
-	-- 15. NPH
-	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'SP')
-	BEGIN
-		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
-							+ 'EXEC DBWH.bodb_dwrs.dbo.Acc_Rpt_HouseNetIncome_SP_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
-	END		
-
-	-- 14. CC
-	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'CC')
-	BEGIN
-		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
-							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_CC_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
-	END		
-
-	-- 13. PP
-	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'PP')
-	BEGIN
-		SELECT @SpecialPayToSupplierProductCodes = COALESCE(@SpecialPayToSupplierProductCodes + ',', '') + 'PP'
-		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
-							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_PP_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
-	END		
-	
-	-- 12. EX
-	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'EX')
-	BEGIN
-		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
-							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_EX_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
-	END	
-
-	-- 11. GD
-	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'GD')
-	BEGIN
-		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
-							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_GD_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
-	END	
-
-	-- 9. AB
-	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'AB')
-	BEGIN
-		SELECT @SpecialPayToSupplierProductCodes = COALESCE(@SpecialPayToSupplierProductCodes + ',', '') + 'AB'
-		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
-							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_AB_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
-	END	
-
-	-- 8. Macau Game
-	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'VB')
-	BEGIN
-		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
-							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_MacauGames_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
-	END	
-
-	-- 7. CB
-	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'CB')
-	BEGIN
-		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
-							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_CB @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
-	END
-
-	-- 6. BT + CO
-	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix IN ('BT', 'CO'))
-	BEGIN
-		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
-							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_BT_CO_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
-	END
-
-	-- 4. AGC
-	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'AGC')
-	BEGIN
-		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
-							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_AGC_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
-	END	
-
-	-- 3. KN + LT
-	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix IN ('KN', 'LT'))
-	BEGIN
-		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
-							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_KN_LT_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
-	END	
-
-	-- 2. CS
-	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'CS')
-	BEGIN
-		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
-							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_CS_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
-	END	
-
-	-- 1. NG
-	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'NG')
-	BEGIN
-		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
-							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_NG_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
-	END
-
-	-- For Specific PayToSupplier
-	CREATE TABLE #P__PayToSupplier (ProductCode VARCHAR(50), rptDate VARCHAR(10), PayToSupplier MONEY, CurrencyPlay MONEY)
-	
-	IF ISNULL(@SpecialPayToSupplierProductCodes, '') <> ''
-		INSERT INTO #P__PayToSupplier (ProductCode, rptDate, PayToSupplier, CurrencyPlay)
-		EXEC dbo.Acc_Rpt_HouseNetIncome_MarginChart_PayToSupplier @FromDate = @FDate, @ToDate = @TDate, @ProductCodes = @SpecialPayToSupplierProductCodes, @DepositType = 1
-		
-	-- Region: Return final result
-	DECLARE @DateList VARCHAR(200)
-	DECLARE @P_SQL VARCHAR(MAX)
-
-	IF EXISTS (SELECT 1 FROM #P__PayToSupplier)
-	BEGIN
-		;WITH CTE_rptDate AS
+		CREATE TABLE #__tempData
 		(
-			SELECT @FDate AS rptDate
-			UNION ALL
-			SELECT DATEADD(DAY, 1, rptDate)
-			FROM CTE_rptDate
-			WHERE rptDate < @TDate
+			rptDate				DATE
+			,LicenseeId			INT
+			,CurrencyId			INT
+			,ProductId			INT
+			,SportTypeGroup		INT
+			,BetTypeGroup		INT
+			,ValidBetAmount		MONEY DEFAULT(0) -- GD
+			,MemberWL			MONEY DEFAULT(0) -- BT & CO: include AWinloss, PP: exclude LicenseeContribution
+			,HouseWL			MONEY DEFAULT(0)
+			,Comm				MONEY DEFAULT(0) -- SB: AComm, Exchange: AComm + PComm
+			,HouseContribution	MONEY DEFAULT(0) -- FullContribution - LicenseeContribution
+			,FullContribution	MONEY DEFAULT(0)
 		)
-		SELECT  @DateList = COALESCE(@DateList + ',', '') + '[' + CONVERT(VARCHAR(2), RptDate, 106) + ']' FROM CTE_rptDate
 
-		SELECT @DateList = 'FullRange,' + @DateList
+		-- Get data from DW
+		IF EXISTS (SELECT 1 FROM @Products WHERE Product3rdId NOT IN (10, 11, 15, 31))
+		BEGIN
+			DECLARE @ProductIds VARCHAR(MAX)
+			SELECT  @ProductIds = COALESCE(@ProductIds + ',', '') + CONVERT(VARCHAR(5), ProductId)
+			FROM @Products WHERE Product3rdId NOT IN (10, 11, 15, 31) AND (SubProductCode IS NULL OR SubProductCode IN ('NG', 'PP'))
 
-	
-		SELECT  @P_SQL ='SELECT * ' + CHAR(13) +
-						'FROM	(SELECT ProductCode, [Order], [RptDate], Figure, ISNULL(value, 0) value FROM #P__PayToSupplier' + CHAR(13) +
-								'CROSS APPLY' + CHAR(13) +
-								'(SELECT 4, ''Pay to supplier'', PayToSupplier' + CHAR(13) +
-								'UNION ALL' + CHAR(13) +
-								'SELECT 5, ''Currency Play'', CurrencyPlay) c ([Order], Figure, value)) a' + CHAR(13) +
-						'PIVOT' + CHAR(13) +
-						'(' + CHAR(13) +
-							'MAX(value)' + CHAR(13) +
-							'FOR [RptDate] in (' + @DateList + ')' + CHAR(13) +
-						') piv' + CHAR(13) +
-						'WHERE ProductCode = ''AB'' OR [Order] <> 5' + CHAR(13) +
-						'ORDER BY [Order]'
+			DECLARE @SubProducts VARCHAR(MAX)
+			SELECT  @SubProducts = COALESCE(@SubProducts + ',', '') + SubProductCode
+			FROM @Products WHERE SubProductCode IS NOT NULL
 
-		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
-							+ @P_SQL
+			SELECT  @SubProducts = ISNULL(@SubProducts, '')
+
+			INSERT INTO #__tempData (rptDate, LicenseeId, CurrencyId, ProductId, SportTypeGroup, BetTypeGroup, MemberWL, HouseWL, Comm, HouseContribution, FullContribution)
+			EXEC DBWH.bodb_dwrs.dbo.Acc_Rpt_HouseNetIncome_MemberWL
+				@FromDate		= @FromDate
+				,@ToDate		= @ToDate
+				,@ProductIds	= @ProductIds
+				,@SubProducts	= @SubProducts
+				,@DepositType	= 1
+		END
+
+		-- CB: include credit site
+		IF EXISTS (SELECT 1 FROM @Products WHERE Product3rdId = 15)
+			INSERT INTO #__tempData (rptDate, LicenseeId, CurrencyId, ProductId, SportTypeGroup, BetTypeGroup, MemberWL, HouseWL, Comm, HouseContribution)
+			SELECT rptDate, CASE WHEN SiteId >= 1000 THEN -1 ELSE SiteId END, CurrencyId, 15, -1, -1
+				,SUM(Turnover * CASE WHEN SiteId < 1000 THEN 0.0405 ELSE 0.062 END
+					+ BuyBackAmount * CASE WHEN SiteId < 1000 THEN 0.15 ELSE 0.225 END)
+				, 0, 0, 0
+			FROM bodb_LicenseeReport.dbo.rpt_BettingByProduct WITH (NOLOCK)
+			WHERE rptDate BETWEEN @FromDate AND @ToDate
+				AND ProductID = 15
+				AND CurrencyId <> 20
+				AND CustomerCategory NOT IN (27, 28)
+				AND StatusId NOT IN(-1, 101, 102, 103)
+			GROUP BY rptDate, CASE WHEN SiteId >= 1000 THEN -1 ELSE SiteId END, CurrencyId
+
+		-- 3rd Product: AGC, GD, EX
+		IF EXISTS (SELECT 1 FROM @Products WHERE Product3rdId IN (10, 11, 31))
+			INSERT INTO #__tempData (rptDate, LicenseeId, CurrencyId, ProductId, SportTypeGroup, BetTypeGroup, ValidBetAmount, MemberWL, HouseWL, Comm, HouseContribution)
+			SELECT rptDate, SiteId, CurrencyId
+				,CASE
+					WHEN ProductId = 10 THEN 11 -- AGC
+					WHEN ProductId = 11 THEN 12 -- GD
+					WHEN ProductId = 31 THEN 31 -- EX
+					END
+				,-1
+				,CASE WHEN bettype = 1706 THEN 1706 ELSE -1 END
+				,SUM(CASE WHEN ProductId = 11 AND bettype = -1 THEN ValidBetAmount ELSE 0 END)
+				,SUM(MemberWL)
+				,0
+				,SUM(CommissionP + CommissionA)
+				,0
+			FROM bodb_LicenseeReport.dbo.rpt_BettingByProduct WITH (NOLOCK)
+			WHERE rptDate BETWEEN @FromDate AND @ToDate
+				AND ProductId IN (SELECT p.Product3rdId FROM @Products p WHERE p.Product3rdId IN (10, 11, 31))
+				AND CurrencyId <> 20
+				AND CustomerCategory NOT IN (27, 28)
+				AND StatusId NOT IN(-1, 101, 102, 103)
+				AND SiteId < 1000 -- Deposit only
+			GROUP BY rptDate, SiteId, CurrencyId
+				,CASE
+					WHEN ProductId = 10 THEN 11 -- AGC
+					WHEN ProductId = 11 THEN 12 -- GD
+					WHEN ProductId = 31 THEN 31 -- EX
+					END
+				,CASE WHEN bettype = 1706 THEN 1706 ELSE -1 END
+
+		-- Get ProductId - Bettype
+		CREATE TABLE #BetType (ProductId INT, Product3rdId INT, BetTypeGroup INT DEFAULT(-1))
+		INSERT INTO #BetType (ProductId, Product3rdId)
+		SELECT DISTINCT ProductId, Product3rdId FROM @Products
+
+		INSERT INTO #BetType (ProductId, Product3rdId, BetTypeGroup)
+		SELECT ProductId, Product3rdId, 1 AS BetTypeGroup
+		FROM @Products p
+		WHERE Product3rdId = 22 -- VB (Macau Games)
+
+		INSERT INTO #BetType (ProductId, Product3rdId, BetTypeGroup)
+		SELECT ProductId, Product3rdId, BetTypeGroup
+		FROM @Products p
+			CROSS JOIN (VALUES (1902), (1903), (1904), (1905)) b (BetTypeGroup)
+		WHERE Product3rdId = 34 -- Card Club
+
+		INSERT INTO #BetType (ProductId, Product3rdId)
+		VALUES (-2, -2), (-3, -3), (-4, -4), (-5, -5)
+
+		UPDATE @Products SET ProductId = -2, Product3rdId = -2, ProductCode = 'H5' WHERE SubProductCode = 'H5'
+		UPDATE @Products SET ProductId = -3, Product3rdId = -3, ProductCode = 'PP-JP' WHERE SubProductCode = 'PP-JP'
+
+		-- Process data
+		DECLARE @GDCommissionRate FLOAT = 0
+		SELECT  @GDCommissionRate = DI_Rate FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd (@FromDate, @ToDate, 'GD', 'OA') WHERE ChargeType = 11
+		
+		CREATE TABLE #__tempResult
+		(
+			rptDate				DATETIME
+			,AmountToCompany	MONEY
+		)
+		INSERT INTO #__tempResult (rptDate, AmountToCompany)
+		SELECT t.rptDate
+			,SUM(CASE
+					WHEN b.Product3rdId = 15 THEN t.MemberWL * ISNULL(oa.Rate, 0) -- CB
+					WHEN b.Product3rdId = 25 THEN -t.MemberWL * ISNULL(oa.Rate, 0) -- BT & CO
+					WHEN b.Product3rdId = 31 THEN (-t.MemberWL * ISNULL(lc.Rate, p.Rate) - t.Comm) * ISNULL(oa.Rate, 0) -- EX
+					WHEN b.Product3rdId = 37 OR p.LicenseeId IS NULL THEN -t.HouseWL * ISNULL(e.Rate, 0)
+					ELSE ((-t.MemberWL - (t.FullContribution - t.HouseContribution)) * ISNULL(lc.Rate, p.Rate) - t.HouseContribution) * ISNULL(e.Rate, 0)
+					END)
+		FROM #__tempData t
+			INNER JOIN #BetType b ON t.ProductId = b.ProductId AND b.BetTypeGroup = t.BetTypeGroup
+			INNER JOIN #AllLicensees l ON l.LicenseeId = t.LicenseeId
+			LEFT JOIN #PartyChargeInfo p ON p.PartyId = l.PartyId AND p.Product3rdId = b.Product3rdId AND t.rptDate BETWEEN p.FromDate AND p.ToDate
+					AND (p.Bettype = -1 OR p.Bettype = b.BetTypeGroup)
+					AND (
+						(b.Product3rdId IN (11, 39) AND b.BetTypeGroup <> -1 AND p.ChargeType = 12)
+						OR ((b.Product3rdId NOT IN (11, 39) OR b.BetTypeGroup = -1) AND p.ChargeType <> 12)
+					)
+			LEFT JOIN #Exchange e ON t.rptDate = e.ExchangeDate AND t.CurrencyId = e.ExchangeId
+			LEFT JOIN #ExchangeOANDA oa ON t.rptDate = oa.ExchangeDate AND t.CurrencyId = oa.ExchangeId
+			LEFT JOIN bodb_Licensee.dbo.LA_ChargeRateByCurrency lc WITH (NOLOCK) ON p.ChargeId = lc.ChargeId AND t.CurrencyId = lc.CurrencyId
+		GROUP BY t.rptDate
 	END
 
-	SELECT @SQL = @SQL + @SumValue + CHAR(13)
-	SELECT @SQL = @SQL + 'DROP TABLE #MarginChartResult' + CHAR(13)
-	
-	EXEC (@SQL)	
+	DROP TABLE #__tempData
+	DROP TABLE #AllLicensees
+	DROP TABLE #BetType
+	DROP TABLE #Exchange
+	DROP TABLE #ExchangeOANDA
+	DROP TABLE #PartyChargeInfo
 
-	DROP TABLE #tmpProduct
+	-- Calculate result
+	CREATE TABLE #Result (rptDate VARCHAR(10), HouseIncome MONEY)
+	;WITH CTE_rptDate AS
+	(
+		SELECT CONVERT(DATETIME, @FromDate) AS rptDate
+		UNION ALL
+		SELECT DATEADD(DAY, 1, rptDate)
+		FROM CTE_rptDate
+		WHERE rptDate < @ToDate
+	)
+	INSERT INTO #Result (rptDate, HouseIncome)
+	SELECT CONVERT(VARCHAR(2), r.rptDate, 106) AS rptDate, SUM(ISNULL(t.AmountToCompany, 0))
+	FROM CTE_rptDate r
+		LEFT JOIN #__tempResult t ON r.rptDate = t.rptDate
+	GROUP BY CONVERT(VARCHAR(2), r.rptDate, 106)
+	ORDER BY rptDate
+	OPTION (MAXRECURSION 0)
+
+	DROP TABLE #__tempResult
+
+	-- Update result
+	DECLARE @DateList VARCHAR(2000), @ReturnColumns VARCHAR(2000)
+	SELECT  @DateList = COALESCE(@DateList + ',', '') + '[' + rptDate + ']' FROM #Result
+	SELECT  @ReturnColumns = '''NonSport'' AS ProductCode,1 AS [Order],Figure,' + @DateList
+
+    /* End region*/
+	---------------------------------------------------- Select the output -------------------------------------------------------
+	DECLARE @SQL VARCHAR(2000)
+	SELECT  @SQL =	'SELECT ' + @ReturnColumns + CHAR(13) +
+					'FROM	(
+								SELECT [RptDate], Figure, ISNULL(value, 0) value
+								FROM #Result
+									CROSS APPLY (
+										SELECT ''House Income'', HouseIncome
+									) c (Figure, value)
+							) a
+							PIVOT
+							(
+								MAX(value)
+								FOR [RptDate] IN (' + @DateList + ')
+							) p'
+	EXEC(@SQL)
+
+	DROP TABLE #Result
 END
+GO
