@@ -48,6 +48,7 @@ AS
 		20200624@Cherry: Archive VSRaceInfo (#136256)
 		20200710@Cherry: Integrate Pragmatic Jackpot (#137268)
 		20200828@Cherry: Integrate Saba.club Free Bet (#140109)
+		20200917@Cherry: Improve performance (#141844)
 
 	Param's Explanation:
 		- @username:  + Search by keyword, member only
@@ -483,7 +484,7 @@ BEGIN
 							ELSE scomm / (1 - tpositiontaking) END) * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8)) * actualrate) ExtraPTBase
 			
 		FROM dbo.bettransRnG14 b WITH (NOLOCK)
-		WHERE b.winlostdate = @WLDate
+		WHERE b.winlostdate = @WLDate	
 			AND b.gameID IN (SELECT sb.Bettype FROM #SportBettype sb LEFT JOIN #tmpContributionBettype t ON sb.Bettype = t.Bettype 
 							 WHERE t.Bettype IS NULL AND sb.RefTable = 1 AND sb.ProductID <> 42)	
 			AND b.statusID IN (111, 112, 113, 103) 	

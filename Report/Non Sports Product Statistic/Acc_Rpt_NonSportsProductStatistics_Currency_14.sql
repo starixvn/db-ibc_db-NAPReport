@@ -48,7 +48,7 @@ AS
 		20200624@Cherry: Archive VSRaceInfo (#136256)
 		20200710@Cherry: Integrate Pragmatic Jackpot (#137268)
 		20200828@Cherry: Integrate Saba.club Free Bet (#140109)
-		20200917@Cherry: Improve performance (#141831)
+		20200917@Cherry: Improve performance (#141844)
 
 	Param's Explanation:
 		- @Username:  + Search by keyword, member only

@@ -47,6 +47,7 @@ AS
 		20200601@Cherry: Add Credit Site and support multiple currency (#135009)
 		20200710@Cherry: Integrate Pragmatic Jackpot (#137268)
 		20200828@Cherry: Integrate Saba.club Free Bet (#140109)
+		20200917@Cherry: Improve performance (#141844)
 
 	Param's Explanation:
 		- @username:  + Search by keyword, member only
@@ -503,7 +504,7 @@ BEGIN
 		OPTION(RECOMPILE)
 		
 		-- Saba.club
-		IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID = 42
+		IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID = 42)
 		BEGIN
 			INSERT INTO #Data
 					( ReportBy ,
