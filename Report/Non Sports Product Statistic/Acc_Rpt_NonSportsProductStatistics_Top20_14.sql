@@ -55,6 +55,7 @@ AS
 		20200808@Cherry: Hot fix ExtraPT base RM (#137218)
 		20200710@Cherry: Integrate Pragmatic Jackpot (#137268)
 		20200828@Cherry: Integrate Saba.club Free Bet (#140109)
+		20200917@Cherry: Improve performance (#141831)
 
 	Param's Explanation:
 		- @username: search keyword
@@ -721,6 +722,8 @@ BEGIN
 			)			
 		GROUP BY b.srecommend, b.mrecommend, b.recommend, b.custid, b.gameID, b.currency
 		
+		OPTION(RECOMPILE)
+		
 		INSERT INTO #tmp_bettrans
 		(
 			srecommend,
@@ -792,6 +795,8 @@ BEGIN
 			)			
 		GROUP BY b.srecommend, b.mrecommend, b.recommend, b.custid, b.gameID, b.currency
 		
+		OPTION(RECOMPILE)
+		
 		INSERT INTO #tmp_bettrans
 		(
 			srecommend,
@@ -862,6 +867,8 @@ BEGIN
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
 			)			
 		GROUP BY b.srecommend, b.mrecommend, b.recommend, b.custid, b.gameID, b.currency
+		
+		OPTION(RECOMPILE)
 		
 	END
 	

@@ -40,6 +40,7 @@ AS
 		20200624@Cherry: Archive VSRaceInfo (#136256)
 		20200710@Cherry: Integrate Pragmatic Jackpot (#137268)
 		20200828@Cherry: Integrate Saba.club Free Bet (#140109)
+		20200917@Cherry: Improve performance (#141831)
 
 
 	Param's Explanation:
@@ -257,6 +258,8 @@ BEGIN
 					AND b.bettype <> 2799
 				GROUP BY s.EvenType, b.matchid, s.ProductID, b.bettype
 				
+				OPTION(RECOMPILE)
+				
 				--Mix Parlay Virtual Sport 2
 				INSERT INTO #tmp_bettrans
 				(
@@ -294,6 +297,8 @@ BEGIN
 									INNER JOIN #tmp_SportType st ON m.sporttype = st.Sporttype
 								WHERE bm.refno = b.refno)					
 				GROUP BY s.EvenType, b.matchid, s.ProductID, b.bettype 
+				
+				OPTION(RECOMPILE)
 			END
 
 			IF EXISTS (SELECT TOP 1 1 FROM #SportBettype WHERE RefTable = 1) -- bettransRnG
@@ -332,6 +337,8 @@ BEGIN
 						OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 					)
 				GROUP BY s.ProductID, b.gameID 
+				
+				OPTION(RECOMPILE)
 			END
 		
 			IF EXISTS (SELECT TOP 1 1 FROM #SportBettype WHERE RefTable = 2) -- bettransLC
@@ -366,6 +373,8 @@ BEGIN
 						OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 					)
 				GROUP BY b.srecommend, b.mrecommend, b.recommend, b.custid, b.currency, s.ProductID, b.gameID 
+				
+				OPTION(RECOMPILE)
 			END
 		END
 		ELSE -- roleID > 1
@@ -420,6 +429,8 @@ BEGIN
 								WHERE bm.refno = b.refno))
 					)
 				GROUP BY s.EvenType, b.matchid, s.ProductID, b.bettype 
+				
+				OPTION(RECOMPILE)
 			END
 
 			IF EXISTS (SELECT TOP 1 1 FROM #SportBettype WHERE RefTable = 1) -- bettransRnG
@@ -458,6 +469,8 @@ BEGIN
 						OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 					)
 				GROUP BY s.ProductID, b.gameID 
+				
+				OPTION(RECOMPILE)
 			END
 
 			IF EXISTS (SELECT TOP 1 1 FROM #SportBettype WHERE RefTable = 2) -- bettransLC
@@ -492,6 +505,8 @@ BEGIN
 						OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 					)
 				GROUP BY s.ProductID, b.gameID 
+				
+				OPTION(RECOMPILE)
 			END
 		END
 	

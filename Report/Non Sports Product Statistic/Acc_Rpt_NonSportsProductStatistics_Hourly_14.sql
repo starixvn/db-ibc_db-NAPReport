@@ -53,6 +53,7 @@ AS
 		20200624@Cherry: Archive VSRaceInfo (#136256)
 		20200710@Cherry: Integrate Pragmatic Jackpot (#137268)
 		20200828@Cherry: Integrate Saba.club Free Bet (#140109)
+		20200917@Cherry: Improve performance (#141831)
 
 	Param's Explanation:
 			 - @username:  + Search by keyword, member only
@@ -514,6 +515,8 @@ SET NOCOUNT ON
 		GROUP BY  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 THEN 0
 					ELSE  DATEPART(HOUR, b.transdate) END, 
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.gameID
+				
+		OPTION(RECOMPILE)	
 
 	    INSERT INTO #Data (  [Hour] ,  
 						   srecommend, 
@@ -571,6 +574,8 @@ SET NOCOUNT ON
 		GROUP BY  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 THEN 0
 					ELSE  DATEPART(HOUR, b.transdate) END, 
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.gameID
+				
+		OPTION(RECOMPILE)	
 
 		---1b. By bettype for Casino Product
 		INSERT INTO #Data (  [Hour] ,  
@@ -630,6 +635,8 @@ SET NOCOUNT ON
 		GROUP BY   CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 THEN 0
 					ELSE  DATEPART(HOUR, b.transdate) END, 
 					CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.gameID
+					
+		OPTION(RECOMPILE)	
 
 	---- Lucky 3 
 		INSERT INTO #Data (  [Hour] ,  
