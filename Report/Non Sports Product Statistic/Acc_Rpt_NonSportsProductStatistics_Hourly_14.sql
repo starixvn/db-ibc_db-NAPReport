@@ -250,7 +250,7 @@ SET NOCOUNT ON
 		END
 	END
 	
-	IF @SportBetType <> ''
+	IF @SportBetType <> '' AND EXISTS (SELECT 1 FROM #tmpProductID WHERE ProductID = 42)
     BEGIN
 		IF substring (@SportBetType, len(@SportBetType), 1) <> @splitter1
 			SET @SportBetType = @SportBetType + @splitter1
