@@ -325,7 +325,9 @@ BEGIN
 					INNER JOIN #SportBettype s ON s.Bettype = b.gameID
 					LEFT JOIN #tmpContributionBettype bt ON bt.Bettype = b.gameID
 				WHERE b.winlostdate = @WLDate
-					AND s.ProductID <> 42
+					AND (s.ProductID <> 42
+						OR EXISTS(SELECT 1 FROM #tmpSportBetType sb where b.productid = sb.Sporttype and b.gameid = sb.Bettype)
+					)
 					AND b.custid = @CID
 					AND b.statusID IN (111, 112, 113) -- won/lose/draw tickets
 					AND s.RefTable = 1
@@ -337,42 +339,7 @@ BEGIN
 						OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 					)
 				GROUP BY s.ProductID, b.gameID
-				OPTION(RECOMPILE)
-				
-				INSERT INTO #tmp_bettrans
-				(
-					BetCount,
-					TotalBets, TotalBetsBase,
-					TotalWins, TotalWinsBase,
-					ProductID, Bettype,
-					HousePT
-				)
-				SELECT
-					COUNT(CASE WHEN bt.Bettype IS NOT NULL THEN NULL ELSE b.transid END) AS BetCount,
-					SUM(actual_stake) AS TotalBets,
-					SUM(actual_stake * actualrate) AS TotalBetsBase,
-					SUM(winlost) AS TotalWins,
-					SUM(winlost * actualrate) AS TotalWinsBase,
-					s.ProductID, b.gameID,
-					SUM(CASE WHEN bt.Bettype IS NOT NULL THEN 0 ELSE 1 - b.tpositiontaking END) AS HousePT
-				FROM dbo.bettransRnG b WITH (NOLOCK)
-					INNER JOIN #SportBettype s ON s.Bettype = b.gameID
-					LEFT JOIN #tmpContributionBettype bt ON bt.Bettype = b.gameID
-				WHERE b.winlostdate = @WLDate
-					AND s.ProductID = 42
-					AND EXISTS(SELECT 1 FROM #tmpSportBetType s where b.productid = s.Sporttype and b.gameid = s.Bettype)
-					AND b.custid = @CID
-					AND b.statusID IN (111, 112, 113) -- won/lose/draw tickets
-					AND s.RefTable = 1
-					AND ((b.currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
-					AND (EXISTS (SELECT 1 FROM #tmp_Devide d WHERE d.Betfrom = b.betfrom) OR @Device = '')
-					AND (
-						@HousePTType = 0
-						OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
-						OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
-					)
-				GROUP BY s.ProductID, b.gameID
-				OPTION(RECOMPILE)
+				OPTION(RECOMPILE)								
 			END
 		
 			IF EXISTS (SELECT TOP 1 1 FROM #SportBettype WHERE RefTable = 2) -- bettransLC
