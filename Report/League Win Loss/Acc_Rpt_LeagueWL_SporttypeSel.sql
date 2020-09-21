@@ -67,7 +67,7 @@ BEGIN
 			   'Parlay' SportGroupName,
 			   10000 SportType,
 			   'Parlay' SportName,
-			   NULL BetGroupName,
+			   'Parlay' BetGroupName,
 			   sbm.BetType Bettype,
 			   b.typenamee BettypeName
 		FROM bodb02.dbo.SportBettypeMatrix sbm (NOLOCK)
