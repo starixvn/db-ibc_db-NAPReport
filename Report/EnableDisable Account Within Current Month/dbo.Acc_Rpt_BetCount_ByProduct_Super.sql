@@ -57,7 +57,7 @@ AS
 		- 20200713@Ned.Le: NAP Report - Incorporate Jackpot Games (#137271)
 		- 20200723@Jaden.Tang: NAP Report - Add new range for lottery (#137715)
 		- 20200814@Roy: NAP Report - Integrate PG Soft (#137770)
-		- 20200921@Jaden.Tang: NAP Report - Incorporate Joker Gaming (#131611)
+		- 20200921@Jaden.Tang: NAP Report - Incorporate Joker Gaming (#131611) & WM (#131583)
 
 	Param's Explanation:  
 	  + @MoveBetsDay: The day of moving bets to battrans14
@@ -67,7 +67,7 @@ AS
 		{251: Casino (include : 251, 208, 209, 210), 151:Racing, 252:Bingo, 161:Number Game, 162:Live Casino, 180:Virtual Sports, 202:Keno,  -1 : Metric Gaming - Superlive
 		 220: Lottery, 160: Lucky 3, 207: Bullfighting, 163: Poker Games, 245: Virtual Games
 		 244: SA Gaming, 200: Saba.club, 243: Sexy Gaming, 222: Table Games,
-		 241: BBIN, 242: IBCBet Live Casino
+		 241: BBIN, 242: IBCBet Live Casino, 233: WM,
 		 212: Macau Games (include: Macau Games, Pragmatic, Spadegaming, Card Club [Video Poker], PG Soft, Joker Gaming)
 		}
   
@@ -189,6 +189,7 @@ BEGIN
 					OR b.gameID BETWEEN 3101 AND CASE WHEN @sportType=243 THEN 3199 ELSE 0 END -- Sexy Gaming
 					OR b.gameID BETWEEN 3201 AND CASE WHEN @sportType=242 THEN 3299 ELSE 0 END -- IBCBet Live Casino
 					OR b.gameID BETWEEN 5601 AND CASE WHEN @sportType=225 THEN 5699 ELSE 0 END -- ION Live Casino
+					OR b.gameID BETWEEN 3401 AND CASE WHEN @sportType=233 THEN 3499 ELSE 0 END -- WM
 				) 
 			AND (
 					b.statusId IN (111,112,113,0) 
@@ -239,6 +240,7 @@ BEGIN
 							OR b.bettype BETWEEN 5500 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 224 THEN 5599 ELSE 0 END)  -- RNG War
 							OR b.bettype BETWEEN 6001 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = 212 THEN 6300 ELSE 0 END   -- PG Soft
 							OR b.bettype BETWEEN 6401 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = 212 THEN 6700 ELSE 0 END   -- Joker Gaming
+							OR b.bettype BETWEEN 3401 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = 233 THEN 3499 ELSE 0 END   -- WM
 						) 
 						AND b.bettype NOT IN (38)
 						AND b.status IN (3  ---DRAW
