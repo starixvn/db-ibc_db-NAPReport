@@ -29,8 +29,10 @@ BEGIN
 		-- Soccer & Others
 		SELECT DISTINCT
 			   CASE WHEN sbm.SportType = 1 THEN 1
+			   		WHEN sbm.SportType = 2 THEN 2
 					ELSE 20000 END SportGroupType,
 			   CASE WHEN sbm.SportType = 1 THEN 'Soccer'
+			   		WHEN sbm.SportType = 2 THEN 'Basketball'
 					ELSE 'Others' END SportGroupName,
 			   sbm.SportType,
 			   s.SportName SportName,
@@ -47,7 +49,7 @@ BEGIN
 						(sbm.BetType NOT IN (1, 2, 3, 7, 8, 12)
 						AND s.SportType = 2) --Basketball
 					THEN 'Minor Bet Types'
-					ELSE NULL
+					ELSE SportName
 			   END BetGroupName,
 			   sbm.BetType Bettype,
 			   b.typenamee BettypeName
