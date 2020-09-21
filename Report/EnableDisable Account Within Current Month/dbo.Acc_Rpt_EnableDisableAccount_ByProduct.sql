@@ -43,6 +43,7 @@ AS
 		- 20200409@Ned.Le: NAP Report - Incorporate BBIN Live Casino (#131357)
 		- 20200422@Ned.Le: NAP Report - Incorporate IBCBet Live Casino (#132961)
 		- 20200522@Cherry: Nap Report - Integrate ION Live Casino (#132324) & RNG War (#132009)
+		- 20200921@Jaden.Tang: NAP Report - Incorporate Joker Gaming (#131611) & WM (#131583)
 
 	Param's Explanation:  
 	  + @ListCurrency: The specified date used as one of the filter criterias, if its value is 'all' then no need to be filtered by currency
