@@ -86,6 +86,7 @@ BEGIN
 	WHERE BettypeName IS NOT NULL
 	ORDER BY SportGroupType ASC,
 			 SportName ASC,
+			 BetGroupName ASC,
 			 BettypeName ASC
 
 END
