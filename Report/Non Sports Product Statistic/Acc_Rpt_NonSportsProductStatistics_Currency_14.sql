@@ -49,6 +49,7 @@ AS
 		20200710@Cherry: Integrate Pragmatic Jackpot (#137268)
 		20200828@Cherry: Integrate Saba.club Free Bet (#140109)
 		20200917@Cherry: Improve performance (#141844)
+		202009122@Cherry: Improve performance (#142096)
 
 	Param's Explanation:
 		- @Username:  + Search by keyword, member only
@@ -519,9 +520,6 @@ BEGIN
 				AND (@Currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId))	
 				AND (@Username = '' OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
 				AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
-				AND ( @Site = 'ALL'
-					  OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
-				)
 				AND (
 					@HousePTType = 0
 					OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
@@ -531,6 +529,12 @@ BEGIN
 			GROUP BY b.recommend, CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END, b.currency, b.srecommend, b.gameID
 			
 			OPTION(RECOMPILE)
+			
+			IF @Site <> 'ALL'
+			BEGIN
+				DELETE FROM #Data
+				WHERE recommend NOT IN (SELECT recommend FROM #recommend)
+			END
 		END
 		
 		IF (EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID = 42) AND (SELECT COUNT(1) FROM #tmp_ProductID) = 1)
