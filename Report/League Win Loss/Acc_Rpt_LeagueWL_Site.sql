@@ -5,6 +5,7 @@ GO
 
 ALTER PROCEDURE dbo.Acc_Rpt_LeagueWL_Site @StartDate SMALLDATETIME,
                                           @EndDate SMALLDATETIME,
+                                          @SiteName VARCHAR(MAX) = 'ALL',
                                           @MatchID INT,
                                           @LiveIndicator TINYINT,
 										  @BetType INT,
@@ -22,6 +23,7 @@ AS
 	Param's Explanation:
 		- @StartDate: The start date of data to view on report
 		- @EndDate: The end date of data to view on report
+        - @SiteName: Filter by list of site names (delimited by commas)
         - @MatchID: The specific match to view on report
         - @LiveIndicator: To indicate the live status to view on report
 		- @BetType: The bettype to view on report
@@ -31,8 +33,9 @@ AS
 					 1 - No get draw ticktes to report
 
 	Example:
-        EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Site @StartDate='20200620', @EndDate='20200630'
-                    , @MatchID=36693927, @LiveIndicator=0, @SiteType='Credit', @BetType=1, @IsNoDraw=0
+        EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Site_xtest @StartDate='2020-09-06', @EndDate='2020-09-06'
+                , @MatchID=38236262, @LiveIndicator=1, @SiteType='Credit', @BetType=2, @IsNoDraw=0
+                , @SiteName = 'XYZBET,BEST-ODDS,611111'
 */
 
 BEGIN
@@ -57,7 +60,17 @@ BEGIN
         OPTION (RECOMPILE)
     END
 
-    BEGIN /*gather agent-site data depending on @SiteType*/
+    BEGIN /*filter by input site list*/
+		CREATE TABLE #inputSites (SiteName NVARCHAR(100))
+		IF @SiteName <> 'ALL' BEGIN
+            INSERT INTO #inputSites
+			    SELECT val SiteName
+				FROM bodb02.dbo.strSplit(@SiteName, ',')
+				WHERE LEN(val) > 0
+		END
+	END
+
+    BEGIN /*gather agent-site data depending on @SiteType & @SiteName*/
         CREATE TABLE #agent (agentId INT PRIMARY KEY, 
                              site    VARCHAR(50))
 
@@ -69,23 +82,29 @@ BEGIN
                     INNER JOIN bodb02..CS_CustSuper cn88 WITH(NOLOCK) 
                         ON c.srecommend = cn88.CustId
                     WHERE c.RoleID = 2
+                        AND (@SiteName = 'ALL' OR c.site IN (SELECT SiteName FROM #inputSites))
             END
         ELSE
             IF @SiteType = 'Deposit'
                 BEGIN
-                    INSERT INTO #Agent
+                    ;WITH CTE_Dep AS (
                         SELECT c.CustId, c.Site
                         FROM bodb02..Customer AS c WITH(NOLOCK)
                         INNER JOIN bodb02..Dep_CustSuper AS dep WITH(NOLOCK) 
                             ON c.srecommend = dep.CustId
                         WHERE c.RoleID = 2
-                            AND c.CustId NOT IN (52466, 5707545);
-                   
-                    INSERT INTO #Agent SELECT 5707545, 'BEST-ODDS'
+                            AND c.CustId NOT IN (52466, 5707545)
+                                    UNION
+                        SELECT 5707545, 'BEST-ODDS'
+                    )
+                    INSERT INTO #Agent
+                        SELECT CustId, Site
+                        FROM CTE_Dep
+                        WHERE (@SiteName = 'ALL' OR Site IN (SELECT SiteName FROM #inputSites))
                 END
             ELSE
                 BEGIN
-                    INSERT INTO #Agent
+                    ;WITH CTE_Cre AS (
                         SELECT c.CustId, c.Site
                         FROM bodb02..Customer AS c WITH(NOLOCK)
                         LEFT JOIN bodb02..Dep_CustSuper AS dep WITH(NOLOCK) 
@@ -95,9 +114,14 @@ BEGIN
                         WHERE c.RoleID = 2
                             AND c.CustId NOT IN (52466, 5707545)
                             AND dep.CustId IS NULL
-                            AND cn88.CustId IS NULL;
-                    
-                    INSERT INTO #Agent SELECT 52466, 'XYZBET'
+                            AND cn88.CustId IS NULL
+                                    UNION
+                        SELECT 52466, 'XYZBET'
+                    )
+                    INSERT INTO #Agent
+                        SELECT CustId, Site
+                        FROM CTE_Cre
+                        WHERE (@SiteName = 'ALL' OR Site IN (SELECT SiteName FROM #inputSites))
                 END
     END
 

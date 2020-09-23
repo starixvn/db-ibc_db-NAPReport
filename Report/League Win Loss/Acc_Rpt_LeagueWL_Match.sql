@@ -6,6 +6,7 @@ GO
 ALTER PROCEDURE dbo.Acc_Rpt_LeagueWL_Match @StartDate SMALLDATETIME,
                                            @EndDate SMALLDATETIME,
                                            @SportBettype VARCHAR(MAX),
+										   @SiteName VARCHAR(MAX) = 'ALL',
 										   @LeagueName VARCHAR(500),
 										   @IsNoDraw BIT = 0
 AS
@@ -21,21 +22,24 @@ AS
 		- 20200813@Jaden.Tang: NAP Report - Enhancement for League Win Loss (#138955) - New dimensions
 								+ Changed name from Acc_Rpt_LeagueWL_Details to Acc_Rpt_LeagueWL_Match
 								+ Moved one level up (drill down: League > **Match** > Bet Type > ... )
+								+ Add filter by SiteName
 
 	Param's Explanation:
 		- @StartDate: The start date of data to view on report
 		- @EndDate: The end date of data to view on report
 		- @SportBettype: List of Sporttypes and Bettypes that correspond to each other
 		                 Example '1_1,1_3' --> 'Soccer_Handicap,Soccer_Over/Under...'
+		- @SiteName: Filter by list of site names (delimited by commas)
 		- @LeagueName: The leaguename to view on report
 		- @IsNoDraw: To get the draw tickets to report or not
 		             0 - Get draw ticktes to report
 					 1 - No get draw ticktes to report
 
 	Example:
-		EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Match @StartDate='20200809', @EndDate='20200706'
-				, @LeagueName='AUSTRALIA BRISBANE PREMIER LEAGUE RESERVE', @IsNoDraw=0
-				, @SportBettype='1_301,1_302,1_303,1_304,1_15,1_125,1_453,1_476,1_459,1_466,1_205,1_201,1_138,1_404,1_464,1_485,1_215,1_188,1_427,1_456,1_457,1_478,1_203,1_471,1_487,1_494,1_30,1_414,1_151,1_410,1_191,1_411,1_182,1_181,1_207,1_489,1_127,1_7,1_204,1_200,1_136,1_403,1_463,1_484,1_213,1_209,1_492,1_180,1_12,1_8,1_211,1_143,1_202,1_474,1_126,1_426,1_177,1_430,1_146,1_433,1_472,1_495,1_405,1_186,1_431,1_185,1_432,1_490,1_17,1_183,1_184,1_428,1_18,1_178,1_28,1_475,1_458,1_465,1_447,1_122,1_381,1_388,1_386,1_196,1_139,1_402,1_462,1_483,1_214,1_198,1_132,1_421,1_148,1_437,1_134,1_439,1_150,1_441,1_189,1_434,1_190,1_435,1_145,1_445,1_451,1_417,1_418,1_26,1_13,1_477,1_496,1_497,1_194,1_470,1_486,1_4,1_413,1_24,1_454,1_449,1_25,1_123,1_804,1_129,1_412,1_179,1_429,1_187,1_162,1_409,1_130,1_161,1_407,1_159,1_406,1_167,1_165,1_174,1_166,1_399,1_398,1_164,1_396,1_395,1_400,1_397,1_173,1_206,1_488,1_806,1_424,1_192,1_193,1_14,1_422,1_423,1_176,1_5,1_124,1_216,1_217,1_801,1_152,1_416,1_467,1_493,1_1,1_140,1_452,1_442,1_142,1_444,1_141,1_443,1_446,1_121,1_382,1_389,1_387,1_195,1_137,1_401,1_461,1_482,1_212,1_197,1_131,1_420,1_147,1_436,1_133,1_438,1_149,1_440,1_16,1_128,1_208,1_491,1_448,1_175,1_221,1_225,1_222,1_22,1_160,1_169,1_803,1_450,1_2,1_157,1_10,1_3,1_135,1_385,1_384,1_376,1_392,1_391,1_394,1_393,1_390,1_383,1_210,1_172,1_415,1_144,1_163,1_468,1_469,1_38,1_170,1_481,1_479,1_455,1_805,1_425,1_27,1_473,1_199,1_6,1_223,1_224,1_226,1_227,1_419,1_460,1_168,1_171,1_408'
+		EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Match_xtest @StartDate='2020-09-06', @EndDate='2020-09-06',
+			@LeagueName='UEFA NATIONS LEAGUE A', @IsNoDraw=0,
+			@SportBettype='1_1,1_2,10000_9,10000_29,2_1,3_1,4_1',
+			@SiteName = '12Bet,755555,INDO,789y,IBCIndo,BEST-ODDS,722222,733333,XYZBET,asiabet88'
 */
 
 BEGIN
@@ -107,6 +111,22 @@ BEGIN
 	BEGIN /*as the @SportBetType array passed from the WEB does not get filtered by the 2nd drilldown
 		(always same as the parameter from first report), using data from that parameter is not the correct way to retrieve sport*/
 		SELECT TOP 1 @SportType = SportType FROM #tmpMatch
+	END
+
+	BEGIN -- #tmpAgentBySite: list of active agents in the list input @SiteName
+		CREATE TABLE #tmpAgentBySite (AgentID INT)
+		IF @SiteName <> 'ALL' BEGIN
+			;WITH CTE_Sites AS (
+				SELECT val SiteName
+				FROM bodb02.dbo.strSplit(@SiteName, ',')
+				WHERE LEN(val) > 0
+			)
+			INSERT INTO #tmpAgentBySite
+				SELECT custid AgentID
+				FROM bodb02.dbo.Customer WITH (NOLOCK)
+				WHERE roleid = 2
+					AND site IN (SELECT SiteName FROM CTE_Sites)
+		END
 	END
 
 	BEGIN /*build staging data by agent-match-live/nonlive dimension*/
@@ -232,6 +252,7 @@ BEGIN
 				AND sd.statusID IN (111, 112, 113)
 				AND sd.currency NOT IN (20, 27, 28)
 				AND (@IsNoDraw = 0 OR (@IsNoDraw = 1 AND sd.statusID NOT IN (111)))
+				AND (@SiteName = 'ALL' OR sd.recommend IN (SELECT AgentID FROM #tmpAgentBySite))
 			GROUP BY sd.recommend, m.matchid, sd.liveindicator
 			OPTION (RECOMPILE)
 

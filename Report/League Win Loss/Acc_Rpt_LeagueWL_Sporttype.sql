@@ -7,6 +7,7 @@ ALTER PROCEDURE dbo.Acc_Rpt_LeagueWL_Sporttype @StartDate SMALLDATETIME,
                                                @EndDate SMALLDATETIME,
                                                @SportBettype VARCHAR(MAX),
 											   @LeagueName VARCHAR(500) = '',
+											   @SiteName VARCHAR(MAX) = 'ALL',
 										       @IsNoDraw BIT = 0
 AS
 /*
@@ -18,6 +19,7 @@ AS
 		- 20200422@Ned.Le: NAP Report - Adjustment for League Win Loss (#132846)
 		- 20200520@Ned.Le: NAP Report - Enhancement for League Win Loss (#134439)
 		- 20200626@Ned.Le: NAP Report - Enhancement for searching a league info on Punter Analysis and League Win Loss Report (#136277)
+		- 20200923@Jaden.Tang: NAP Report - Add filter by SiteName (#138955)
 
 	Param's Explanation:
 		- @StartDate: The start date of data to view on report
@@ -26,12 +28,15 @@ AS
 		                 Example '1_1,2_1' --> 'Soccer_Handicap,Basketball_Handicap'
 		- @LeagueName: The leaguename to view on report
 		               If value is '', it means that no filter by LeagueName
+		- @SiteName: Filter by list of site names (delimited by commas)
 		- @IsNoDraw: To get the draw tickets to report or not
 		             0 - Get draw ticktes to report
 					 1 - No get draw ticktes to report
 
 	Example:
-		EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Sporttype @StartDate='20200407', @EndDate='20200407', @SportBettype='1_1,1_2,10000_9,10000_29,2_1,3_1,4_1', @LeagueName='', @IsNoDraw=0
+		EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Sporttype @StartDate='2020-09-06', @EndDate='2020-09-06', 
+			@SportBettype='1_1,1_2,10000_9,10000_29,2_1,3_1,4_1', @LeagueName='', @IsNoDraw=0, 
+			@SiteName = '12Bet,755555,INDO,789y,IBCIndo,BEST-ODDS,722222,733333,XYZBET,asiabet88'
 */
 
 BEGIN
@@ -96,6 +101,21 @@ BEGIN
 	OPTION (RECOMPILE)
 	
 	CREATE UNIQUE CLUSTERED INDEX PK_tmpMatch ON #tmpMatch(matchid, matchtype)
+
+	-- #tmpAgentBySite: list of active agents in the list input @SiteName
+	CREATE TABLE #tmpAgentBySite (AgentID INT)
+	IF @SiteName <> 'ALL' BEGIN
+		;WITH CTE_Sites AS (
+			SELECT val SiteName
+			FROM bodb02.dbo.strSplit(@SiteName, ',')
+			WHERE LEN(val) > 0
+		)
+		INSERT INTO #tmpAgentBySite
+			SELECT custid AgentID
+			FROM bodb02.dbo.Customer WITH (NOLOCK)
+			WHERE roleid = 2
+				AND site IN (SELECT SiteName FROM CTE_Sites)
+	END
 
 	-- #tmpData
 	CREATE TABLE #tmpData (SportType		SMALLINT,
@@ -200,6 +220,7 @@ BEGIN
 		  AND sd.currency NOT IN (20, 27, 28)
 		  AND sd.bettype NOT IN (9, 29)
 		  AND (@IsNoDraw = 0 OR (@IsNoDraw = 1 AND sd.statusID NOT IN (111)))
+		  AND (@SiteName = 'ALL' OR sd.recommend IN (SELECT AgentID FROM #tmpAgentBySite))
 	GROUP BY sbm.SportType,
 			 sbm.Sport,
 		     m.leaguename
@@ -268,6 +289,7 @@ BEGIN
 		  AND sd.currency NOT IN (20, 27, 28)
 		  AND sd.bettype IN (SELECT BetType FROM #tmpSportBettypeMatrix WHERE SportType = 10000)
 		  AND (@IsNoDraw = 0 OR (@IsNoDraw = 1 AND sd.statusID NOT IN (111)))
+		  AND (@SiteName = 'ALL' OR sd.recommend IN (SELECT AgentID FROM #tmpAgentBySite))
 	OPTION (RECOMPILE)
 
 	-- + RM
@@ -371,6 +393,7 @@ BEGIN
 		  AND sd.currency NOT IN (20, 27, 28)
 		  AND sd.bettype NOT IN (9, 29)
 		  AND sd.recommend IN (52466, 5707545)
+		  AND (@SiteName = 'ALL' OR sd.recommend IN (SELECT AgentID FROM #tmpAgentBySite))
 		  AND (@IsNoDraw = 0 OR (@IsNoDraw = 1 AND sd.statusID NOT IN (111)))
 	GROUP BY CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466	THEN 10001
 				  WHEN sbm.SportType > 1 AND sd.recommend = 52466	THEN 10002
