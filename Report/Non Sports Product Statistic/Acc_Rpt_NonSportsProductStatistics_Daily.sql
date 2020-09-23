@@ -469,7 +469,7 @@ SET NOCOUNT ON
 				)
 				AND b.statusID IN (111, 112, 113, 103) 
 				AND (@ExcludeTest = 0 OR (b.Currency <> 20 AND @ExcludeTest = 1))
-				AND (@currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId)) 
+				--AND (@currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId)) 
 				AND (@Username = '' OR EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId))
 				AND (@Device = '' OR EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom))
 				AND (
@@ -484,6 +484,12 @@ SET NOCOUNT ON
 			BEGIN
 				DELETE FROM #Data
 				WHERE srecommend NOT IN (SELECT srecommend FROM #tmp_Company)
+			END
+			
+			IF @currency <> '-1'
+			BEGIN
+				DELETE FROM #Data
+				WHERE CurrencyId NOT IN (SELECT CurrencyId FROM #tmpCurrency)
 			END
 		END
 		
