@@ -49,6 +49,7 @@ AS
 		20200710@Cherry: Integrate Pragmatic Jackpot (#137268)
 		20200828@Cherry: Integrate Saba.club Free Bet (#140109)
 		20200917@Cherry: Improve performance (#141844)
+		20200922@Cherry: Improve performance (#142096)
 
 	Param's Explanation:
 		- @username:  + Search by keyword, member only
@@ -340,6 +341,12 @@ BEGIN
 	SELECT Bettype
 	FROM DBWH.bodb_Account.dbo.BettypeGroup WITH (NOLOCK)
 	WHERE BettypeGroupID = 10
+	
+	DELETE #tmpContributionBettype
+	WHERE bettype NOT IN (SELECT bettype FROM #SportBettype) 
+
+	DELETE #SportBettype
+	WHERE bettype IN (SELECT bettype FROM #tmpContributionBettype)
 
 	------------------------------------------II. Get Real Data For Report ------------------------------------------------------
 	-- ProductID NOT IN (3, 4, 5, 27, 33)) -- NG, SLI-Live Casino, Virtual Sports, Virtual Sports 2, Poker Games
@@ -477,7 +484,6 @@ BEGIN
 								
 			FROM dbo.bettransRnG14 b WITH (NOLOCK)
 			WHERE b.winlostdate = @WLDate
-				AND b.gameID NOT IN (SELECT Bettype FROM #tmpContributionBettype)
 				AND (b.gameID IN (SELECT Bettype FROM #SportBettype WHERE RefTable = 1 AND ProductID <> 42)
 					OR EXISTS(SELECT 1 FROM #tmpSportBetType s WHERE b.productid = s.Sporttype and b.gameid = s.Bettype)
 				)
@@ -631,7 +637,7 @@ BEGIN
 								
 		FROM dbo.bettransRnG14 b WITH (NOLOCK)
 		WHERE b.winlostdate = @WLDate
-			AND b.gameID IN (SELECT sb.Bettype FROM #SportBettype sb INNER JOIN #tmpContributionBettype t ON sb.Bettype = t.Bettype)
+			AND b.gameID IN (SELECT Bettype FROM #tmpContributionBettype)
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets		
 			AND ((b.currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
 			AND (EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId) OR @Currency = '-1')	
