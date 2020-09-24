@@ -1304,8 +1304,7 @@ BEGIN
 	SET d.ReportByName = s.typenamee
 	FROM #Data d
 		INNER JOIN (SELECT typeid, typenamee
-					FROM dbo.bettype) s ON d.ReportBy = s.typeid 		
-	WHERE s.typeid IN (SELECT Bettype FROM #SportBettype WHERE ProductID <> 4)	 		
+					FROM dbo.bettype) s ON d.ReportBy = s.typeid 				
 
 	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID = 4)
 	BEGIN
