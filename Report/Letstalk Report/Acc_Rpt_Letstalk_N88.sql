@@ -23,9 +23,9 @@ BEGIN
 	-- 1. Member Information
 	BEGIN
 		-- Active Members
-		DECLARE @ActiveMembers TABLE (Currency INT, ActiveMembers INT)
-		INSERT INTO @ActiveMembers (Currency, ActiveMembers)
-		SELECT c.CurrencyId, COUNT(1)
+		DECLARE @ActiveMembers TABLE (SiteId INT, Currency INT, ActiveMembers INT)
+		INSERT INTO @ActiveMembers (SiteId, Currency, ActiveMembers)
+		SELECT c.SiteId, c.CurrencyId, COUNT(1)
 		FROM (
 			SELECT CustId
 			FROM dbo.N88_RptWinloss WITH (NOLOCK)
@@ -36,12 +36,12 @@ BEGIN
 		) r
 			INNER JOIN dbo.Customer c WITH (NOLOCK) ON r.CustId = c.CustId
 		WHERE c.IsTest = 0
-		GROUP BY c.CurrencyId
+		GROUP BY c.SiteId, c.CurrencyId
 
 		-- Deposit Members
-		DECLARE @DepositMembers TABLE (Currency INT, DepositMembers INT, FirstDepositTrans INT, DepositTrans INT)
-		INSERT INTO @DepositMembers (Currency, DepositMembers, FirstDepositTrans, DepositTrans)
-		SELECT c.CurrencyId, COUNT(1), SUM(FirstDepositTrans), SUM(DepositTrans)
+		DECLARE @DepositMembers TABLE (SiteId INT, Currency INT, DepositMembers INT, FirstDepositTrans INT, DepositTrans INT)
+		INSERT INTO @DepositMembers (SiteId, Currency, DepositMembers, FirstDepositTrans, DepositTrans)
+		SELECT c.SiteId, c.CurrencyId, COUNT(1), SUM(FirstDepositTrans), SUM(DepositTrans)
 		FROM (
 			SELECT CustId, COUNT(CASE WHEN FirstDeposit = 1 THEN 1 ELSE NULL END) AS FirstDepositTrans, COUNT(1) AS DepositTrans
 			FROM dbo.DepositInfo WITH (NOLOCK)
@@ -53,21 +53,23 @@ BEGIN
 		) d
 			INNER JOIN dbo.Customer c WITH (NOLOCK) ON d.CustId = c.CustId
 		WHERE c.IsTest = 0
-		GROUP BY c.CurrencyId
+		GROUP BY c.SiteId, c.CurrencyId
 
 		-- Return data
-		SELECT e.Currency, r.ActiveMembers, r.DepositMembers, r.FirstDepositTrans, r.DepositTrans
+		SELECT s.LicenseeName, e.Currency, r.ActiveMembers, r.DepositMembers, r.FirstDepositTrans, r.DepositTrans
 		FROM (
 			SELECT
-				ISNULL(a.Currency, d.Currency)	AS Currency
+				ISNULL(a.SiteId, d.SiteId)		AS SiteId
+				,ISNULL(a.Currency, d.Currency)	AS Currency
 				,ISNULL(a.ActiveMembers, 0)		AS ActiveMembers
 				,ISNULL(d.DepositMembers, 0)	AS DepositMembers
 				,ISNULL(d.FirstDepositTrans, 0) AS FirstDepositTrans
 				,ISNULL(d.DepositTrans, 0)		AS DepositTrans
 			FROM @ActiveMembers a
-				FULL OUTER JOIN @DepositMembers d ON a.Currency = d.Currency
+				FULL OUTER JOIN @DepositMembers d ON a.Currency = d.Currency AND a.SiteId = d.SiteId
 		) r
 			INNER JOIN bodb02.dbo.Exchange e WITH (NOLOCK) ON r.Currency = e.ExchangeId
+			INNER JOIN dbo.ServerInfo s WITH (NOLOCK) ON r.SiteId = s.SiteId
 	END
 
 	-- 2. Winloss performance
@@ -76,11 +78,11 @@ BEGIN
 		INSERT INTO #Exchange (FromDate, ToDate, ExchangeId, Rate)
 		SELECT FromDate, ToDate, ExchangeId, Rate FROM bodb02.dbo.Lrf_f_GetExchangeRate(@FromDate, @ToDate, 'MYR', '')
 
-		SELECT g.TypeName AS Product, BetCount, ValidBet AS Turnover, Winloss
+		SELECT s.LicenseeName, g.TypeName AS Product, BetCount, ValidBet AS Turnover, Winloss
 			,ValidBet AS CoTurnover, -Winloss AS CoIncome
 			, CASE WHEN ValidBet = 0 THEN 0 ELSE -Winloss/ValidBet END AS CoMargin
 		FROM (
-			SELECT r.GameType, SUM(r.BetCount) AS BetCount, SUM(r.ValidBet * e.Rate) AS ValidBet, SUM(r.Winloss * e.Rate) AS Winloss
+			SELECT r.LicenseeId, r.GameType, SUM(r.BetCount) AS BetCount, SUM(r.ValidBet * e.Rate) AS ValidBet, SUM(r.Winloss * e.Rate) AS Winloss
 			FROM dbo.N88_RptWinloss r WITH (NOLOCK)
 				INNER JOIN #Exchange e ON r.WinlostDate BETWEEN e.FromDate AND e.ToDate AND r.Currency = e.ExchangeId
 			WHERE r.WinlostDate BETWEEN @FDate AND @TDate
@@ -89,10 +91,10 @@ BEGIN
 				AND r.StatusId IN (1, 2, 4, 6)
 				AND r.GameType <> 1 -- Exclude OW Sports
 				AND EXISTS (SELECT 1 FROM dbo.Customer c WITH (NOLOCK) WHERE r.CustId = c.CustId AND c.IsTest = 0)
-			GROUP BY r.GameType
+			GROUP BY r.LicenseeId, r.GameType
 		) r
 			INNER JOIN dbo.TpGameType g WITH (NOLOCK) ON r.GameType = g.Type
-		ORDER BY g.Type
+			INNER JOIN bodb_Licensee.dbo.Licensees s WITH (NOLOCK) ON r.LicenseeId = s.LicenseeId
 	END
 END
 GO
