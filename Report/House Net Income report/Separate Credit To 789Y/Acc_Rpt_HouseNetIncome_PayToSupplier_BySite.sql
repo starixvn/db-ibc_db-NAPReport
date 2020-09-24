@@ -68,8 +68,8 @@ BEGIN
 	WHERE [site] = 'CN88'
 
 	DECLARE @ProductIDAll VARCHAR(1000) = '3,5,8,23,22,21,12,28,27,6,32,34,36,39,45,47,40,46,52,50,24,55,56,51'
-	DECLARE @ProductCodeGMT4 VARCHAR(1000) = 'CC,BBIN,TG,IBCLC,ION,RNGW,PGS,JK,WM'
-	DECLARE @ProductCodeGMT VARCHAR(1000) = 'AB,FW,PP,SG,SAG,SXG'
+	DECLARE @ProductCodeGMT4 VARCHAR(1000) = 'CC,BBIN,TG,IBCLC,ION,RNGW,PGS,JK'
+	DECLARE @ProductCodeGMT VARCHAR(1000) = 'AB,FW,PP,SG,SAG,SXG,WM'
 
     -- #Exchange
     CREATE TABLE #Exchange (ExchangeDate DATE, ExchangeID INT, Rate FLOAT)
@@ -223,7 +223,7 @@ BEGIN
 		MemberWLOANDA			MONEY,
 		PayToSupplier_PP_MTD    MONEY)
 
-	-- + For Daily - CC, BBIN, TG, IBCLC, ION, RNGW, PGS, JK, WM
+	-- + For Daily - CC, BBIN, TG, IBCLC, ION, RNGW, PGS, JK
 	INSERT INTO #tmpPayToSupplier_Daily (ProductId, RptDate, PayToSupplier_Daily)
 	SELECT t.ProductID,
 		   t.rptDate,
@@ -284,8 +284,7 @@ BEGIN
 	  , PayToSupplier_ION       MONEY
 	  , PayToSupplier_RNGW      MONEY
 	  , PayToSupplier_PGS      MONEY
-	  , PayToSupplier_JK      MONEY
-	  , PayToSupplier_WM      MONEY)
+	  , PayToSupplier_JK      MONEY)
 
 	DECLARE @tmpDate     DATE,
 			@DateList    VARCHAR(200) = '[FullRange]'
@@ -314,8 +313,7 @@ BEGIN
 								 ,PayToSupplier_ION
 								 ,PayToSupplier_RNGW
 								 ,PayToSupplier_PGS
-								 ,PayToSupplier_JK
-								 ,PayToSupplier_WM)
+								 ,PayToSupplier_JK)
 		SELECT CONVERT(VARCHAR(2), @tmpDate, 106)																										 AS RptDate
 			   ,(SELECT SUM(t.HouseWL) * 0.5 * (-1) FROM #tmpFactSiteWinloss AS t WHERE t.ProductID = 3 AND t.SportType <> 164 AND t.rptDate = @tmpDate) AS PayToSupplier_NG
 	           ,(SELECT SUM(t.HouseWL) * 0.5 * (-1) FROM #tmpFactSiteWinloss AS t WHERE t.ProductID = 3 AND t.SportType = 164 AND  t.rptDate = @tmpDate) AS PayToSupplier_H5
@@ -337,7 +335,6 @@ BEGIN
 	           ,(SELECT SUM(t.PayToSupplier_Daily) FROM #tmpPayToSupplier_Daily AS t WHERE t.ProductID = 50 AND t.rptDate = @tmpDate)                    AS PayToSupplier_RNGW
 			   ,(SELECT SUM(t.PayToSupplier_Daily) FROM #tmpPayToSupplier_Daily AS t WHERE t.ProductID = 55 AND t.rptDate = @tmpDate)                    AS PayToSupplier_PGS
 			   ,(SELECT SUM(t.PayToSupplier_Daily) FROM #tmpPayToSupplier_Daily AS t WHERE t.ProductID = 56 AND t.rptDate = @tmpDate)                    AS PayToSupplier_JK
-			   ,(SELECT SUM(t.PayToSupplier_Daily) FROM #tmpPayToSupplier_Daily AS t WHERE t.ProductID = 51 AND t.rptDate = @tmpDate)                    AS PayToSupplier_WM
 
 		  SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate)
 	END
@@ -365,8 +362,7 @@ BEGIN
 							 ,PayToSupplier_ION
 							 ,PayToSupplier_RNGW
 							 ,PayToSupplier_PGS
-							 ,PayToSupplier_JK
-							 ,PayToSupplier_WM)
+							 ,PayToSupplier_JK)
 	SELECT 'FullRange'																																	AS RptDate
 	       ,SUM(PayToSupplier_NG)																														AS PayToSupplier_NG  
 	       ,SUM(PayToSupplier_H5)																														AS PayToSupplier_H5
@@ -388,7 +384,6 @@ BEGIN
 	       ,SUM(PayToSupplier_RNGW)																														AS PayToSupplier_RNGW
 		   ,SUM(PayToSupplier_PGS)																														AS PayToSupplier_PGS
 		   ,SUM(PayToSupplier_JK)																														AS PayToSupplier_JK
-		   ,SUM(PayToSupplier_WM)																														AS PayToSupplier_WM
 	FROM #FinalResult
 
 	-- BEGIN - Calculate PayToSupplier for the rest other Products
@@ -451,8 +446,7 @@ BEGIN
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''ION'', 17, ''PayToSupplier'', PayToSupplier_ION' + CHAR(13)
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''RNGW'', 18, ''PayToSupplier'', PayToSupplier_RNGW' + CHAR(13)
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''PGS'', 19, ''PayToSupplier'', PayToSupplier_PGS' + CHAR(13)
-	+ 'UNION ALL' + CHAR(13) + 'SELECT ''JK'', 20, ''PayToSupplier'', PayToSupplier_JK' + CHAR(13)
-	+ 'UNION ALL' + CHAR(13) + 'SELECT ''WM'', 21, ''PayToSupplier'', PayToSupplier_WM) c (ProductCode, [Order], Figure, value)) a' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''JK'', 20, ''PayToSupplier'', PayToSupplier_JK) c (ProductCode, [Order], Figure, value)) a' + CHAR(13)
     + 'PIVOT' + CHAR(13) 
     + '(' + CHAR(13) 
     + 'MAX(value)' + CHAR(13) 
