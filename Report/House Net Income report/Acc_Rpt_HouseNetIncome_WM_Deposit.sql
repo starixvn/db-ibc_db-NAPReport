@@ -19,13 +19,7 @@ BEGIN
 	DECLARE @FDate DATE, @TDate DATE
 	SELECT  @FDate = @FromDate, @TDate = @ToDate
 
-	DECLARE @ProductID INT = 51, @ProductPrefix VARCHAR(5) = 'WM', @VendorID SMALLINT, @ChargeRate3rd DECIMAL(19, 8)
-	SELECT	@VendorID = VendorID FROM dbo.Products WITH (NOLOCK) WHERE ProductID = @ProductID
-	SELECT  @ChargeRate3rd = NumberValue
-	FROM DBCUST.CustDB.dbo.VendorGlobalSetting WITH (NOLOCK)
-	WHERE VendorID = @VendorID AND VName = '3rdCashWLShareRate'
-
-	SELECT @ChargeRate3rd = ISNULL(@ChargeRate3rd, 0)
+	DECLARE @ProductID INT = 51, @ProductPrefix VARCHAR(5) = 'WM'
 
 	-- Region: Active licensees
 	DECLARE @tmpAllParty TABLE (PartyID INT, ParentID INT, LicenseeID INT)
@@ -85,19 +79,6 @@ BEGIN
 		INNER JOIN @tmpParty p ON ci.PartyID = p.PartyID
 		LEFT JOIN bodb_licensee.dbo.Sport_Bettype_Reference sbr WITH (NOLOCK) ON sbr.BettypeRef = ci.Bettype
 	WHERE ci.DI_Rate > 0
-
-	CREATE TABLE #PartyCharge3rdInfo
-	(
-		LicenseeID INT
-		,Rate       MONEY
-		,FromDate   SMALLDATETIME
-		,ToDate     SMALLDATETIME
-	)
-	INSERT INTO #PartyCharge3rdInfo (LicenseeID, Rate, FromDate, ToDate)
-	SELECT DISTINCT p.LicenseeID, ci.DI_Rate, ci.FromDate, ci.ToDate
-	FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd (@FDate, @TDate, @ProductPrefix, 'OA') ci
-		INNER JOIN #PartyChargeInfo p ON p.ParentID = ci.PartyID
-	WHERE ci.ChargeType = 1
 	-- End Region
 	
 	-- Region: Get Exchange
@@ -106,11 +87,6 @@ BEGIN
 	SELECT ExchangeDate, Currency, Rate
 	FROM DBWH.bodb_account.dbo.tbl_Currency_Daily WITH (NOLOCK)
 	WHERE ExchangeDate BETWEEN @FDate AND @TDate
-
-	CREATE TABLE #ExchangeOANDA (ExchangeDate DATE, ExchangeID INT, Rate FLOAT)
-	INSERT INTO #ExchangeOANDA(ExchangeDate, ExchangeID, Rate)
-	SELECT ExchangeDate, ExchangeID, BaseCurrencyRate
-	FROM dbo.LA_f_ExchangeDailySel(@FDate, @TDate, 'MYR')
 	-- End Region
 
 	-- Region: Get Sum data
@@ -148,23 +124,16 @@ BEGIN
 		AND EXISTS (SELECT 1 FROM #Bettype bt WITH (NOLOCK) WHERE b.BetType = bt.BetType)
 	GROUP BY b.rptDate, s.LicenseeID, b.CurrencyID, b.BetType
 	
-	CREATE TABLE #tempData
-	(
-		rptDate				DATETIME
-		,PayToSupplier		MONEY
-		,AmountToCompany	MONEY
-	)
-	INSERT INTO #tempData (rptDate, PayToSupplier, AmountToCompany)
-	SELECT b.rptDate, SUM(ISNULL(b.MemberWL, 0) * ISNULL(rd.Rate, @ChargeRate3rd) * ISNULL(eo.Rate, 0)), SUM(CASE WHEN p.LicenseeID IS NULL THEN -ISNULL(b.HouseWL, 0) ELSE -ISNULL(b.MemberWL, 0) * ISNULL(lc.Rate, p.Rate) END * ISNULL(e.Rate, 0))
+	CREATE TABLE #tempData (rptDate DATETIME, AmountToCompany MONEY)
+	INSERT INTO #tempData (rptDate, AmountToCompany)
+	SELECT b.rptDate, SUM(CASE WHEN p.LicenseeID IS NULL THEN -ISNULL(b.HouseWL, 0) ELSE -ISNULL(b.MemberWL, 0) * ISNULL(lc.Rate, p.Rate) END * ISNULL(e.Rate, 0))
 	FROM #tempDataDW b
 		INNER JOIN @tmpAllParty tp ON tp.LicenseeID = b.LicenseeID
 		LEFT JOIN #PartyChargeInfo p
 			ON		p.PartyID = tp.PartyID
 				AND b.rptDate BETWEEN p.FromDate AND p.ToDate
 				AND (p.Bettype = -1 OR p.Bettype = b.Bettype)
-		LEFT JOIN #PartyCharge3rdInfo rd ON rd.LicenseeID = b.LicenseeID AND b.rptDate BETWEEN rd.FromDate AND rd.ToDate
 		LEFT JOIN #Exchange e ON b.rptDate = e.ExchangeDate AND b.CurrencyID = e.ExchangeID
-		LEFT JOIN #ExchangeOANDA eo ON b.rptDate = eo.ExchangeDate AND b.CurrencyID = eo.ExchangeID
 		LEFT JOIN bodb_Licensee.dbo.LA_ChargeRateByCurrency lc WITH (NOLOCK) ON p.ChargeID = lc.ChargeID AND b.CurrencyID = lc.CurrencyID
 	GROUP BY b.rptDate
 	-- End Region
@@ -174,26 +143,35 @@ BEGIN
     EXEC dbo.Acc_Rpt_HouseNetIncome_LicenseeFee @FromDate = @FDate, @ToDate = @TDate, @Products = @ProductPrefix
 
 	CREATE TABLE #FinalResult (rptDate VARCHAR(10), LicenseeWL MONEY, PayToSupplier MONEY)
-	INSERT INTO #FinalResult (rptDate, LicenseeWL, PayToSupplier)
-	SELECT 'FullRange', (SELECT SUM(WLFeeApplied) FROM #FeeData), (SELECT SUM(PayToSupplier) FROM #tempData)
+	INSERT INTO #FinalResult (rptDate, LicenseeWL)
+	SELECT 'FullRange', (SELECT SUM(WLFeeApplied) FROM #FeeData)
 
-	DECLARE @tmpDate DATETIME, @DateList VARCHAR(200)
+	DECLARE @tmpDate DATETIME
 	SELECT  @tmpDate = @FDate
 
 	WHILE @tmpDate <= @TDate
 	BEGIN
-		INSERT INTO #FinalResult (RptDate, LicenseeWL, PayToSupplier)
+		INSERT INTO #FinalResult (RptDate, LicenseeWL)
 		SELECT
 			CONVERT(VARCHAR(2), @tmpDate, 106)
 			,ISNULL(SUM(AmountToCompany), 0)
-			,ISNULL(SUM(PayToSupplier), 0)
 		FROM #tempData
 		WHERE rptDate = @tmpDate
 
 		SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate)
 	END
 
-	SELECT @DateList = COALESCE(@DateList + ',', '') + '[' + CONVERT(VARCHAR(10), RptDate) + ']' FROM #FinalResult
+	CREATE TABLE #PayToSupplier (ProductCode VARCHAR(50), rptDate VARCHAR(10), PayToSupplier MONEY, CurrencyPlay	MONEY)
+	INSERT INTO #PayToSupplier (ProductCode, rptDate, PayToSupplier, CurrencyPlay)
+	EXEC Acc_Rpt_HouseNetIncome_PayToSupplier @FromDate = @FDate, @ToDate = @TDate, @ProductCodes = @ProductPrefix, @DepositType = 1
+
+	UPDATE f
+	SET f.PayToSupplier = p.PayToSupplier
+	FROM #FinalResult f
+		INNER JOIN #PayToSupplier p ON f.rptDate = p.rptDate
+
+	DECLARE @DateList VARCHAR(200)
+	SELECT  @DateList = COALESCE(@DateList + ',', '') + '[' + CONVERT(VARCHAR(10), RptDate) + ']' FROM #FinalResult
 	
 	---------------------------------------------------- Select the output -------------------------------------------------------
 	DECLARE @SQL VARCHAR(MAX)
@@ -215,11 +193,10 @@ BEGIN
 	-- Region: Drop tmp table
 	DROP TABLE #Bettype
 	DROP TABLE #Exchange
-	DROP TABLE #ExchangeOANDA
 	DROP TABLE #FeeData
 	DROP TABLE #FinalResult
-	DROP TABLE #PartyCharge3rdInfo
 	DROP TABLE #PartyChargeInfo
+	DROP TABLE #PayToSupplier
 	DROP TABLE #Site
 	DROP TABLE #tempData
 	DROP TABLE #tempDataDW
