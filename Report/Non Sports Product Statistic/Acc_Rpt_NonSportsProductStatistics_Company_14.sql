@@ -1401,8 +1401,7 @@ BEGIN
 					SUM (CompanyCommBase) AS CompanyCommBase,
 					SUM(b.ExtraPTBase) ExtraPT,
 					SUM(b.ExtraPTBase) ExtraPTBase
-			FROM #Data b
-				INNER JOIN #SportBettype s ON b.bettype = s.Bettype 	
+			FROM #Data b	
 			GROUP BY b.IsDeposit, b.SiteName
 			HAVING (@TotalBetType = 0
 					OR (@TotalBetType = 1 AND SUM(b.TotalBetsBase) >= @TotalBetValue) 
@@ -1459,7 +1458,6 @@ BEGIN
 				SUM(b.ExtraPT) ExtraPT,
 				SUM(b.ExtraPTBase) ExtraPTBase
 			FROM #Data b
-				INNER JOIN #SportBettype s ON b.bettype = s.Bettype 
 			GROUP BY b.IsDeposit,
 				b.SiteName,
 				b.CurrencyID , 
@@ -1520,8 +1518,7 @@ BEGIN
 				SUM (CompanyCommBase) AS CompanyCommBase,
 				SUM(b.ExtraPTBase) ExtraPT,
 				SUM(b.ExtraPTBase) ExtraPTBase
-		FROM #Data b
-			INNER JOIN #SportBettype s ON b.bettype = s.Bettype 	
+		FROM #Data b	
 		GROUP BY b.IsDeposit, b.SiteName
 		HAVING (@TotalBetType = 0
 				OR (@TotalBetType = 1 AND SUM(TotalBetsBase ) >= @TotalBetValue) 
@@ -1576,8 +1573,7 @@ BEGIN
 				SUM (CompanyCommBase) AS CompanyCommBase,
 				SUM(b.ExtraPT) ExtraPT,
 				SUM(b.ExtraPTBase) ExtraPTBase
-		FROM #Data b
-			INNER JOIN #SportBettype s ON b.bettype = s.Bettype 		
+		FROM #Data b		
 		GROUP BY b.IsDeposit, b.SiteName, 
 				b.CurrencyID, Currency
 		HAVING (@TotalBetType = 0
@@ -1632,8 +1628,7 @@ BEGIN
 				CASE WHEN @Currency = '-1' THEN SUM(b.CompanyCommBase) ELSE SUM(b.CompanyComm) END AS HouseComm,
 				CASE WHEN @Currency = '-1' THEN SUM(b.ExtraPTBase) 
 					ELSE SUM(b.ExtraPT) END AS ExtraPT
-		FROM #Data b	
-			INNER JOIN #SportBettype s ON b.bettype = s.Bettype 		
+		FROM #Data b			
 			INNER JOIN #Result r ON (@Currency = '-1' OR b.CurrencyID = r.CurrencyID) AND b.SiteName = r.SiteName	
 		GROUP BY b.CurrencyID , b.Currency	
 		ORDER BY b.Currency
@@ -1657,8 +1652,7 @@ BEGIN
 				CASE WHEN @Currency = '-1' THEN SUM(b.ExtraPTBase) 
 					ELSE SUM(b.ExtraPT) END AS ExtraPT
 		FROM #Data b				
-			INNER JOIN #Result r ON (@Currency = '-1' OR b.CurrencyID = r.CurrencyID) AND b.SiteName = r.SiteName	
-			INNER JOIN #SportBettype s ON b.bettype = s.Bettype 	
+			INNER JOIN #Result r ON (@Currency = '-1' OR b.CurrencyID = r.CurrencyID) AND b.SiteName = r.SiteName		
 		GROUP BY b.CurrencyID , b.Currency		
 		ORDER BY b.Currency
 	END
@@ -1682,7 +1676,6 @@ BEGIN
 			SUM(b.ExtraPTBase) ExtraPT
 		FROM #Data b
 			INNER JOIN  #Result r ON (@Currency = '-1' OR r.CurrencyId = b.CurrencyId) AND r.SiteName = b.SiteName
-			INNER JOIN #SportBettype s ON b.bettype = s.Bettype 
 		GROUP BY r.isDeposit, 
 			CASE WHEN r.isDeposit = 0 THEN 'Credit Group' ELSE 'Licensee Group' END
 		UNION ALL
@@ -1702,7 +1695,6 @@ BEGIN
 			SUM(b.ExtraPTBase) ExtraPT
 		FROM #Data b
 			INNER JOIN  #Result r ON (@Currency = '-1' OR r.CurrencyId = b.CurrencyId) AND b.SiteName = r.SiteName
-			INNER JOIN #SportBettype s ON b.bettype = s.Bettype 
 	END
 	ELSE 
 	BEGIN	
@@ -1723,8 +1715,7 @@ BEGIN
 				SUM(b.CompanyCommBase) HouseComm,
 				SUM(b.ExtraPTBase) ExtraPT
 			FROM #Data b
-				INNER JOIN  #Result r ON (b.SiteName = r.SiteName) AND (@Currency = '-1' OR b.CurrencyID = r.CurrencyID)
-				INNER JOIN #SportBettype s ON b.bettype = s.Bettype 	
+				INNER JOIN  #Result r ON (b.SiteName = r.SiteName) AND (@Currency = '-1' OR b.CurrencyID = r.CurrencyID)	
 		END
 		ELSE
 		BEGIN
@@ -1744,7 +1735,6 @@ BEGIN
 				SUM(b.ExtraPTBase) ExtraPT
 			FROM #Data b
 				INNER JOIN  #Result r ON b.SiteName = r.SiteName AND (@Currency = '-1' OR b.CurrencyID = r.CurrencyID)
-				INNER JOIN #SportBettype s ON b.bettype = s.Bettype 
 		END
 	END
 

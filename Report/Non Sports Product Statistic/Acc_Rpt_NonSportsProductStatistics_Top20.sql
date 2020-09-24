@@ -1578,8 +1578,8 @@ BEGIN
 		- SUM(b.ExtraPTBase) ExtraPTBase,
 		SUM(RowNum)
 	FROM #tmp_bettrans b
-		INNER JOIN (SELECT DISTINCT Bettype, ProductID, RefTable
-					FROM #SportBettype) s ON b.Bettype = s.Bettype
+		INNER JOIN (SELECT DISTINCT Bettype, ProductID
+					FROM bodb02.dbo.SportBettypeMatrix (NOLOCK)) s ON b.Bettype = s.Bettype
 		INNER JOIN dbo.customer a WITH(NOLOCK) ON b.recommend = a.custid
 	WHERE a.username not like '%acc%'
 	GROUP BY s.ProductID, b.custid, b.CurrencyID, b.srecommend, b.mrecommend, b.recommend	

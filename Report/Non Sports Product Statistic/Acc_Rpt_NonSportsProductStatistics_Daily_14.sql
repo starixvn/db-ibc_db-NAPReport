@@ -1175,7 +1175,6 @@ SET NOCOUNT ON
 				SUM (b.ExtraPTBase) ExtraPT,
 				SUM (b.ExtraPTBase) ExtraPTBase
 		FROM	#Data b
-				INNER JOIN #SportBettype s ON b.bettype = s.Bettype 
 		HAVING (@TotalBetType = 0
 				OR (@TotalBetType = 1 AND SUM(TotalBetsBase) >= @TotalBetValue) 
 				OR (@TotalBetType = -1 AND SUM(TotalBetsBase) <= @TotalBetValue)
@@ -1214,7 +1213,6 @@ SET NOCOUNT ON
 					SUM(b.ExtraPT) ExtraPT,
 					SUM(b.ExtraPTBase) ExtraPTBase
 		FROM	#Data b
-				INNER JOIN #SportBettype s ON b.bettype = s.Bettype 
 		GROUP BY CurrencyId, Currency
 		HAVING (@TotalBetType = 0
 				OR (@TotalBetType = 1 AND SUM(TotalBets) >= @TotalBetValue) 
@@ -1259,8 +1257,7 @@ SET NOCOUNT ON
 				CASE WHEN @Currency = '-1' THEN SUM(b.ExtraPTBase) 
 					ELSE SUM(b.ExtraPT) END AS ExtraPT
 			FROM #Data b	
-				INNER JOIN #Result r ON (@Currency = '-1' OR b.CurrencyID = r.CurrencyID) 
-				INNER JOIN #SportBettype s ON b.bettype = s.Bettype 	
+				INNER JOIN #Result r ON (@Currency = '-1' OR b.CurrencyID = r.CurrencyID) 	
 			GROUP BY b.CurrencyID , b.Currency	
 			ORDER BY b.Currency
 		END
@@ -1283,8 +1280,7 @@ SET NOCOUNT ON
 				CASE WHEN @Currency = '-1' THEN SUM(b.ExtraPTBase) 
 					ELSE SUM(b.ExtraPT) END AS ExtraPT
 		FROM #Data b	
-			INNER JOIN #Result r ON (@Currency = '-1' OR b.CurrencyID = r.CurrencyID)
-			INNER JOIN #SportBettype s ON b.bettype = s.Bettype 	
+			INNER JOIN #Result r ON (@Currency = '-1' OR b.CurrencyID = r.CurrencyID)	
 		GROUP BY b.CurrencyID , b.Currency	
 		ORDER BY b.Currency
 	END
@@ -1303,7 +1299,6 @@ SET NOCOUNT ON
 			SUM (b.ExtraPTBase) ExtraPT
 	FROM #Data b	
 			INNER JOIN #Result r ON (@Currency = '-1' OR b.CurrencyID = r.CurrencyID) 
-			INNER JOIN #SportBettype s ON b.bettype = s.Bettype 
 	
 	DROP TABLE #Data
 	DROP TABLE #Result

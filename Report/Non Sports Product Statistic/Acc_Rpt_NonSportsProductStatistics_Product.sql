@@ -1340,7 +1340,7 @@ BEGIN
 
 	FROM  #tmp_bettrans b
 		INNER JOIN (SELECT DISTINCT Bettype, ProductID
-					FROM #SportBettype) s ON b.Bettype = s.Bettype
+					FROM bodb02.dbo.SportBettypeMatrix (NOLOCK)) s ON b.Bettype = s.Bettype
 	GROUP BY s.ProductID, srecommend, b.bettype, b.custid, b.CurrencyID				
 	
 	-- Get Currency name
@@ -1425,7 +1425,6 @@ BEGIN
 			SUM(b.ExtraPTBase) ExtraPT,
 			SUM(b.ExtraPTBase) ExtraPTBase
 		FROM #Data b
-			INNER JOIN #SportBettype s ON b.bettype = s.Bettype 
 		GROUP BY b.ProductID, b.ProductName
 		HAVING (@TotalBetType = 0
 			OR (@TotalBetType = 1 AND SUM(b.TotalBetsBase) >= @TotalBetValue) 
@@ -1481,7 +1480,6 @@ BEGIN
 				SUM(b.ExtraPT) ExtraPT,
 				SUM(b.ExtraPTBase) ExtraPTBase
 			FROM #Data b
-				INNER JOIN #SportBettype s ON b.bettype = s.Bettype 
 			GROUP BY b.ProductID, b.ProductName, b.CurrencyID, b.Currency
 			HAVING (@TotalBetType = 0
 				OR (@TotalBetType = 1 AND SUM(b.TotalBets) >= @TotalBetValue) 
@@ -1534,7 +1532,6 @@ BEGIN
 					ELSE SUM(b.ExtraPT) END AS ExtraPT
 			FROM #Data b	
 				INNER JOIN #Result r ON (@Currency = '-1' OR b.CurrencyID = r.CurrencyID) AND b.ProductName = r.ProductName	
-				INNER JOIN #SportBettype s ON b.bettype = s.Bettype 
 			GROUP BY b.ProductID, b.ProductName, b.CurrencyID , b.Currency	
 			ORDER BY b.Currency
 		END
@@ -1557,8 +1554,7 @@ BEGIN
 				CASE WHEN @Currency = '-1' THEN SUM(b.ExtraPTBase) 
 					ELSE SUM(b.ExtraPT) END AS ExtraPT
 		FROM #Data b	
-			INNER JOIN #Result r ON (@Currency = '-1' OR b.CurrencyID = r.CurrencyID) AND b.ProductName = r.ProductName
-			INNER JOIN #SportBettype s ON b.bettype = s.Bettype 	
+			INNER JOIN #Result r ON (@Currency = '-1' OR b.CurrencyID = r.CurrencyID) AND b.ProductName = r.ProductName	
 		GROUP BY b.CurrencyID , b.Currency	
 		ORDER BY b.Currency
 	END
@@ -1579,7 +1575,6 @@ BEGIN
 		SUM(b.ExtraPTBase) ExtraPT
     FROM #Result r
 		INNER JOIN #Data b ON (r.CurrencyID = -1 OR r.CurrencyID = b.CurrencyID) AND r.ProductID = b.ProductID
-		INNER JOIN #SportBettype s ON b.bettype = s.Bettype 
 
 	DROP TABLE #Data
 	DROP TABLE #Result
