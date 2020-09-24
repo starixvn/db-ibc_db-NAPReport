@@ -53,6 +53,7 @@ AS
 		20200710@Cherry: Integrate Pragmatic Jackpot (#137268)
 		20200828@Cherry: Integrate Saba.club Free Bet (#140109)
 		20200917@Cherry: Improve performance (#141844)
+		20200922@Cherry: Improve performance (#142096)
 
 	Param's Explanation:
 			 - @username:  + Search by keyword, member only
@@ -348,6 +349,17 @@ SET NOCOUNT ON
 	DELETE s
 	FROM	#SportBettype s LEFT JOIN #NonSportSetting t ON s.ProductID = t.ProductID AND s.Bettype = t.Bettype 
 	WHERE t.Bettype IS NULL
+	
+	INSERT INTO #tmpContributionBettype (Bettype)
+	SELECT Bettype
+	FROM DBWH.bodb_Account.dbo.BettypeGroup WITH (NOLOCK)
+	WHERE BettypeGroupID = 10
+	
+	DELETE #tmpContributionBettype
+	WHERE bettype NOT IN (SELECT bettype FROM #SportBettype) 
+
+	DELETE #SportBettype
+	WHERE bettype IN (SELECT bettype FROM #tmpContributionBettype)
 
 	--- End Sport Bettype Matrix------
 	
@@ -356,11 +368,6 @@ SET NOCOUNT ON
 		INSERT INTO #tmpCurrency (CurrencyId)
 		SELECT val FROM [dbo].strSplit(@Currency, ',')
 	END
-	
-	INSERT INTO #tmpContributionBettype (Bettype)
-	SELECT Bettype
-	FROM DBWH.bodb_Account.dbo.BettypeGroup WITH (NOLOCK)
-	WHERE BettypeGroupID = 10
 
 	------Get Site
 	SELECT @IsMBC = 0
@@ -501,7 +508,6 @@ SET NOCOUNT ON
 			FROM  dbo.BettransRNG b WITH (NOLOCK)
 			
 			WHERE b.WinlostDate = @WLDate
-				AND b.gameID NOT IN (SELECT Bettype FROM #tmpContributionBettype)
 				AND (b.gameID IN (SELECT Bettype FROM #SportBettype WHERE RefTable = 1 AND ProductID <> 42)
 					OR EXISTS(SELECT 1 FROM #tmpSportBetType s WHERE b.productid = s.Sporttype and b.gameid = s.Bettype)
 				)
@@ -629,7 +635,7 @@ SET NOCOUNT ON
 		FROM  dbo.BettransRNG b WITH (NOLOCK)
 		WHERE b.WinlostDate = @WLDate
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
-			AND b.gameID IN (SELECT sb.Bettype FROM #SportBettype sb INNER JOIN #tmpContributionBettype t ON sb.Bettype = t.Bettype)
+			AND b.gameID IN (SELECT Bettype FROM #tmpContributionBettype)
 			AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
 			AND (EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId) OR @currency = '-1') 			
 			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
