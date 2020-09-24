@@ -1193,7 +1193,6 @@ SET NOCOUNT ON
 				SUM(CompanyCommRM) AS CompanyComm,
 				SUM(b.ExtraPT) ExtraPT
 		FROM	#Data b
-				INNER JOIN #SportBettype s ON b.bettype = s.Bettype 
 		GROUP BY [Hour] 
 		HAVING (@TotalBetType = 0
 				OR (@TotalBetType = 1 AND SUM(TotalBetsRM) >= @TotalBetValue) 

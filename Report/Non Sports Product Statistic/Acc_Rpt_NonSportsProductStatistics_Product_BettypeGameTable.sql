@@ -1301,10 +1301,11 @@ BEGIN
 	
 	-- Get Bettype name
 	UPDATE d
-	SET d.ReportByName = s.TypeName
+	SET d.ReportByName = s.typenamee
 	FROM #Data d
-		INNER JOIN (SELECT DISTINCT Bettype, TypeName
-					FROM #SportBettype WHERE ProductID <> 4) s ON d.Bettype = s.Bettype 		
+		INNER JOIN (SELECT typeid, typenamee
+					FROM dbo.bettype) s ON d.ReportBy = s.typeid 		
+	WHERE s.typeid IN (SELECT Bettype FROM #SportBettype WHERE ProductID <> 4)	 		
 
 	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID = 4)
 	BEGIN
@@ -1368,7 +1369,6 @@ BEGIN
 			SUM(b.ExtraPTBase) ExtraPT,
 			SUM(b.ExtraPTBase) ExtraPTBase
 		FROM #Data b
-			INNER JOIN #SportBettype s ON b.bettype = s.Bettype 
 		GROUP BY b.ReportBy, b.ReportByName
 		HAVING (@TotalBetType = 0
 			OR (@TotalBetType = 1 AND SUM(b.TotalBetsBase) >= @TotalBetValue) 
@@ -1424,7 +1424,6 @@ BEGIN
 				SUM(b.ExtraPT) ExtraPT,
 				SUM(b.ExtraPTBase) ExtraPTBase
 			FROM #Data b
-				INNER JOIN #SportBettype s ON b.bettype = s.Bettype 
 			GROUP BY b.ReportBy, b.ReportByName, b.CurrencyID, b.Currency
 			HAVING (@TotalBetType = 0
 				OR (@TotalBetType = 1 AND SUM(b.TotalBets) >= @TotalBetValue) 
@@ -1477,7 +1476,6 @@ BEGIN
 					ELSE SUM(b.ExtraPT) END AS ExtraPT
 			FROM #Data b	
 				INNER JOIN #Result r ON (@Currency = '-1' OR b.CurrencyID = r.CurrencyID) AND b.ReportByName = r.ReportByName	
-				INNER JOIN #SportBettype s ON b.bettype = s.Bettype 
 			GROUP BY b.ReportBy, b.ReportByName, b.CurrencyID , b.Currency	
 			ORDER BY b.Currency
 		END
@@ -1501,7 +1499,6 @@ BEGIN
 					ELSE SUM(d.ExtraPT) END AS ExtraPT
 		FROM #Result r
 			INNER JOIN #Data d ON (r.CurrencyID = '-1' OR r.CurrencyID = d.CurrencyID) AND d.ReportByName = r.ReportByName
-			INNER JOIN #SportBettype s ON d.bettype = s.Bettype 
 		GROUP BY d.CurrencyId, d.Currency
 		ORDER BY ReportBy
 	END	
@@ -1522,7 +1519,6 @@ BEGIN
 		SUM(d.ExtraPTBase) ExtraPT
     FROM #Result r
 		INNER JOIN #Data d ON (r.CurrencyID = -1 OR r.CurrencyID = d.CurrencyID) AND r.ReportBy = d.ReportBy
-		INNER JOIN #SportBettype s ON d.bettype = s.Bettype 
 
 	DROP TABLE #Data
 	DROP TABLE #Result

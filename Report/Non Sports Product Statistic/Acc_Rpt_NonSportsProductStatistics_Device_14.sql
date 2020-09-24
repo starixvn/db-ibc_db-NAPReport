@@ -1334,7 +1334,6 @@ BEGIN
 			SUM(b.ExtraPTBase) ExtraPT,
 			SUM(b.ExtraPTBase) ExtraPTBase
 		FROM #Data b
-			INNER JOIN #SportBettype s ON b.bettype = s.Bettype 
 		GROUP BY b.Betfrom, b.Device, b.DeviceGroup
 		HAVING (@TotalBetType = 0
 			OR (@TotalBetType = 1 AND SUM(b.TotalBetsBase) >= @TotalBetValue) 
@@ -1392,7 +1391,6 @@ BEGIN
 				SUM(b.ExtraPT) ExtraPT,
 				SUM(b.ExtraPTBase) ExtraPTBase
 			FROM #Data b
-				INNER JOIN #SportBettype s ON b.bettype = s.Bettype 
 			GROUP BY b.Betfrom, b.Device, b.DeviceGroup, b.CurrencyID, b.Currency
 			HAVING (@TotalBetType = 0
 				OR (@TotalBetType = 1 AND SUM(b.TotalBets) >= @TotalBetValue) 
@@ -1443,7 +1441,6 @@ BEGIN
 					ELSE SUM(b.ExtraPT) END AS ExtraPT
 			FROM #Data b
 				INNER JOIN #Result r ON (@Currency = '-1' OR b.CurrencyID = r.CurrencyID) AND b.Device = r.Device
-				INNER JOIN #SportBettype s ON b.bettype = s.Bettype 
 			GROUP BY b.DeviceGroup, b.CurrencyID, b.Currency
 			ORDER BY b.Currency
 		END
@@ -1467,7 +1464,6 @@ BEGIN
 					ELSE SUM(b.ExtraPT) END AS ExtraPT
 		FROM #Data b
 			INNER JOIN #Result r ON (@Currency = '-1' OR b.CurrencyID = r.CurrencyID) AND b.Device = r.Device
-			INNER JOIN #SportBettype s ON b.bettype = s.Bettype 
 		GROUP BY b.CurrencyID, b.Currency
 		ORDER BY b.Currency
 	END
@@ -1509,7 +1505,6 @@ BEGIN
 		FROM #Data b
 			INNER JOIN #Result r ON (@Currency = '-1' OR r.CurrencyId = b.CurrencyId) AND r.Device = b.Device
 			INNER JOIN #tmp_DeviceGroup d ON r.DeviceGroup = d.DeviceGroup
-			INNER JOIN #SportBettype s ON b.bettype = s.Bettype 
 		GROUP BY b.DeviceGroup, d.Betfrom
 		UNION ALL
 		SELECT
@@ -1528,7 +1523,6 @@ BEGIN
 			SUM(b.ExtraPTBase) ExtraPT
 		FROM #Data b
 			INNER JOIN  #Result r ON (@Currency = '-1' OR r.CurrencyId = b.CurrencyId) AND b.Device = r.Device
-			INNER JOIN #SportBettype s ON b.bettype = s.Bettype 
 	END
 	ELSE -- @IsDrillDown = 1
 	BEGIN
@@ -1548,7 +1542,6 @@ BEGIN
 			SUM(b.ExtraPTBase) ExtraPT
 		FROM #Data b
 			INNER JOIN  #Result r ON (@Currency = '-1' OR r.CurrencyId = b.CurrencyId) AND b.Device = r.Device
-			INNER JOIN #SportBettype s ON b.bettype = s.Bettype 
 	END
 
 	DROP TABLE #Data

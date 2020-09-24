@@ -1349,7 +1349,6 @@ BEGIN
 					SUM(b.CompanyCommBase) AS CompanyComm,
 					SUM(b.ExtraPTBase) ExtraPT
 			FROM #Data b
-				INNER JOIN #SportBettype s ON b.bettype = s.Bettype 
 			GROUP BY b.CurrencyID, b.Currency
 			HAVING (@TotalBetType = 0
 					OR (@TotalBetType = 1 AND SUM(b.TotalBetsBase) >= @TotalBetValue) 
@@ -1387,7 +1386,6 @@ BEGIN
 					SUM(b.CompanyComm) AS CompanyComm,
 					SUM(b.ExtraPT) ExtraPT
 			FROM #Data b
-				INNER JOIN #SportBettype s ON b.bettype = s.Bettype  
 			GROUP BY b.CurrencyID, b.Currency
 			HAVING (@TotalBetType = 0
 					OR (@TotalBetType = 1 AND SUM(b.TotalBets) >= @TotalBetValue) 
@@ -1431,7 +1429,6 @@ BEGIN
 					SUM(b.ExtraPTBase) ExtraPT
 			FROM #Data b
 				INNER JOIN #recommend r ON b.recommend = r.recommend
-				INNER JOIN #SportBettype s ON b.bettype = s.Bettype 
 			GROUP BY r.SiteName, b.CurrencyID, b.Currency
 			HAVING (@TotalBetType = 0
 					OR (@TotalBetType = 1 AND SUM(b.TotalBetsBase) >= @TotalBetValue) 
@@ -1473,7 +1470,6 @@ BEGIN
 					SUM(b.ExtraPT) ExtraPT
 			FROM #Data b
 				INNER JOIN #recommend r ON b.recommend = r.recommend
-				INNER JOIN #SportBettype s ON b.bettype = s.Bettype 
 			GROUP BY r.SiteName, b.CurrencyID, b.Currency
 			HAVING (@TotalBetType = 0
 					OR (@TotalBetType = 1 AND SUM(b.TotalBets) >= @TotalBetValue) 
@@ -1519,7 +1515,6 @@ BEGIN
 			SUM(b.ExtraPTBase) ExtraPT
 		FROM #Data b
 			INNER JOIN #ResultByCurrency r ON b.CurrencyID = r.CurrencyID
-			INNER JOIN #SportBettype s ON b.bettype = s.Bettype 
 	END
 	ELSE -- @DrillDownCurrency > 0 => Drill down to Company
 	BEGIN
@@ -1549,7 +1544,6 @@ BEGIN
 			SUM(b.CompanyCommBase) AS HouseComm,
 			SUM(b.ExtraPTBase) ExtraPT
 		FROM #Data b			
-			INNER JOIN #SportBettype s ON b.bettype = s.Bettype 
 		WHERE EXISTS ( SELECT 1 
 					   FROM #recommend c INNER JOIN #ResultByCompany s ON c.SiteName = s.SiteName 
 					   WHERE b.recommend = c.recommend)
