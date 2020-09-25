@@ -15,6 +15,7 @@ AS
 		- 20200210@Robert: #126634 - DHWL Letstalk Reports - Break SB into Soccer, OS and Parlay
 		- 20200202@Robert: #126634 DHWL - break OS into Basketball, E-sports, Tennis and Other Sports
 		- 20200720@Kean - DHWL Email/Letstalk - Separate Saba Sports from real Sports (#137822)
+		- 20200529@Ned.Le: Letstalk Reports - Saba - Treat Saba Futsal as Saba Soccer (#142264)
 	Param's Explanation:   
 */
 
@@ -77,7 +78,7 @@ BEGIN
 	SELECT leagueID, LeagueGroupID
 	FROM bodb02.dbo.League WITH(NOLOCK) 
 	WHERE sporttype IN (1,2,50)
-		AND LeagueGroupID IN (42,74)
+		AND LeagueGroupID IN (42,74,108)
 
     -- #SportBettypeMatrix
     CREATE TABLE #SportBettypeMatrix(
@@ -105,7 +106,7 @@ BEGIN
 				   , ExtraPT)
 		 SELECT b.rptDate
 				 , CASE WHEN b.BetType IN (9, 29) THEN -2
-					WHEN l.leagueid IS NOT NULL AND b.SportType = 1 AND l.LeagueGroupID IN (42,74) THEN -3  -- Saba Soccer
+					WHEN l.leagueid IS NOT NULL AND b.SportType = 1 AND l.LeagueGroupID IN (42,74,108) THEN -3  -- Saba Soccer
 					WHEN l.leagueid IS NOT NULL AND b.SportType = 2 AND l.LeagueGroupID IN (42) THEN -4  -- Saba Basketball
 					WHEN l.leagueid IS NOT NULL AND b.SportType = 50 AND l.LeagueGroupID IN (42) THEN -5  -- Saba Cricket 
 					ELSE b.SportType END SportType
@@ -127,7 +128,7 @@ BEGIN
 						 ) -- Credit data only	    
 		 GROUP BY b.rptDate
 			   , CASE WHEN b.BetType IN (9, 29) THEN -2
-					WHEN l.leagueid IS NOT NULL AND b.SportType = 1 AND l.LeagueGroupID IN (42,74) THEN -3  -- Saba Soccer
+					WHEN l.leagueid IS NOT NULL AND b.SportType = 1 AND l.LeagueGroupID IN (42,74,108) THEN -3  -- Saba Soccer
 					WHEN l.leagueid IS NOT NULL AND b.SportType = 2 AND l.LeagueGroupID IN (42) THEN -4  -- Saba Basketball
 					WHEN l.leagueid IS NOT NULL AND b.SportType = 50 AND l.LeagueGroupID IN (42) THEN -5  -- Saba Cricket 
 					ELSE b.SportType END

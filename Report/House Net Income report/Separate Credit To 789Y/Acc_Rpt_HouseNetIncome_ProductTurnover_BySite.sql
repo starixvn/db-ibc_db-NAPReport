@@ -30,6 +30,7 @@ AS
 		- 20200722@Ned.Le - Email/Letstalk Reports - Integrate Jackpot Games (#137280)
 		- 20200813@Kean - DHWL Email/Letstalk - Change Product Name and Margin Report Format. (#139537)
 		- 20200811@Kean - Email/Letstalk Reports - Integrate PG Soft (#137764)
+		- 20200529@Ned.Le: Letstalk Reports - Saba - Treat Saba Futsal as Saba Soccer (#142264)
 	
 	Param's Explanation:   
 	- DepositType  
@@ -142,7 +143,7 @@ BEGIN
 	SELECT leagueID, LeagueGroupID
 	FROM bodb02.dbo.League WITH(NOLOCK) 
 	WHERE sporttype IN (1,2,50)
-		AND LeagueGroupID IN (42,74)
+		AND LeagueGroupID IN (42,74,108)
 
     -- #SportBettypeMatrix
     CREATE TABLE #SportBettypeMatrix(
@@ -170,7 +171,7 @@ BEGIN
 		 SELECT b.rptDate
 			 , sb.ProductID
 			 , CASE WHEN b.BetType IN (9, 29) THEN -2
-					WHEN l.leagueid IS NOT NULL AND b.SportType = 1 AND l.LeagueGroupID IN (42,74) THEN -3  -- Saba Soccer
+					WHEN l.leagueid IS NOT NULL AND b.SportType = 1 AND l.LeagueGroupID IN (42,74,108) THEN -3  -- Saba Soccer
 					WHEN l.leagueid IS NOT NULL AND b.SportType = 2 AND l.LeagueGroupID IN (42) THEN -4  -- Saba Basketball
 					WHEN l.leagueid IS NOT NULL AND b.SportType = 50 AND l.LeagueGroupID IN (42) THEN -5  -- Saba Cricket 
 					ELSE b.SportType END SportType
@@ -197,7 +198,7 @@ BEGIN
 		 GROUP BY b.rptDate
 			    , sb.ProductID
 				, CASE WHEN b.BetType IN (9, 29) THEN -2
-					WHEN l.leagueid IS NOT NULL AND b.SportType = 1 AND l.LeagueGroupID IN (42,74) THEN -3  -- Saba Soccer
+					WHEN l.leagueid IS NOT NULL AND b.SportType = 1 AND l.LeagueGroupID IN (42,74,108) THEN -3  -- Saba Soccer
 					WHEN l.leagueid IS NOT NULL AND b.SportType = 2 AND l.LeagueGroupID IN (42) THEN -4  -- Saba Basketball
 					WHEN l.leagueid IS NOT NULL AND b.SportType = 50 AND l.LeagueGroupID IN (42) THEN -5  -- Saba Cricket 
 					ELSE b.SportType END
