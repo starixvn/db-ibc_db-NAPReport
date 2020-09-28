@@ -23,6 +23,7 @@ AS
 		- 20200113@Ned.Le: DHWL Letstalk Reports - Break SB into Soccer, OS and Parlay (#126634)
 		- 20200202@Robert: #126634 DHWL - break OS into Basketball, E-sports, Tennis and Other Sports
 		- 20200720@Percy: Separate Saba Sports [RedmineID: #137822]
+		- 20200529@Ned.Le: Letstalk Reports - Saba - Treat Saba Futsal as Saba Soccer (#142264)
 
 	Param's Explanation:  
 		  - DepositType  
@@ -298,7 +299,7 @@ BEGIN
 	SELECT leagueID, LeagueGroupID
 	FROM bodb02.dbo.League WITH (NOLOCK) 
 	WHERE sporttype IN (1, 2, 50)
-		AND LeagueGroupID IN (42,74)
+		AND LeagueGroupID IN (42,74,108)
 
     -- #TempDataSB
 
@@ -333,7 +334,7 @@ BEGIN
 				, p.ProductId
 				, CASE
 					WHEN b.BetType IN (9, 29) THEN -2 -- Parlay
-					WHEN l.LeagueGroupID IN (42,74) AND b.SportType = 1 THEN -3 -- Saba Soccer
+					WHEN l.LeagueGroupID IN (42,74,108) AND b.SportType = 1 THEN -3 -- Saba Soccer
 					WHEN l.LeagueGroupID IN (42) AND b.SportType = 2 THEN -4 -- Saba Basketball
 					WHEN l.LeagueGroupID IN (42) AND b.SportType = 50 THEN -5 -- Saba Cricket
 					WHEN b.SportType = 1 THEN 1 -- Soccer
@@ -367,7 +368,7 @@ BEGIN
 				  , b.SiteID
 				  , CASE
 					WHEN b.BetType IN (9, 29) THEN -2 -- Parlay
-					WHEN l.LeagueGroupID IN (42,74) AND b.SportType = 1 THEN -3 -- Saba Soccer
+					WHEN l.LeagueGroupID IN (42,74,108) AND b.SportType = 1 THEN -3 -- Saba Soccer
 					WHEN l.LeagueGroupID IN (42) AND b.SportType = 2 THEN -4 -- Saba Basketball
 					WHEN l.LeagueGroupID IN (42) AND b.SportType = 50 THEN -5 -- Saba Cricket
 					WHEN b.SportType = 1 THEN 1 -- Soccer
