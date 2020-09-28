@@ -56,6 +56,7 @@ AS
 		20200828@Cherry: Integrate Saba.club Free Bet (#140109)
 		20200917@Cherry: Improve performance (#141844)
 		20200922@Cherry: Improve performance (#142096)
+		20200928@Cherry: Hot fix (#142436)
 
 	Param's Explanation:
 		- @username: search keyword
@@ -654,7 +655,7 @@ BEGIN
 		DELETE #SportBettype
 		WHERE bettype IN (SELECT bettype FROM #tmpContributionBettype)
 	
-		IF EXISTS(SELECT 1 FROM #SportBettype WHERE RefTable = 1 AND ProductID <> 42)
+		IF EXISTS(SELECT 1 FROM #SportBettype WHERE ProductID <> 42)
 		BEGIN
 			INSERT INTO #tmp_bettrans
 			(

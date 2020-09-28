@@ -54,6 +54,7 @@ AS
 		20200828@Cherry: Integrate Saba.club Free Bet (#140109)
 		20200917@Cherry: Improve performance (#141844)
 		20200922@Cherry: Improve performance (#142096)
+		20200928@Cherry: Hot fix (#142436)
 
 	Param's Explanation:
 			 - @username:  + Search by keyword, member only
@@ -422,7 +423,7 @@ SET NOCOUNT ON
 		OPTION(RECOMPILE)
 		 
 		---1b. By bettype for Casino Product & Video Poker Games
-		IF EXISTS(SELECT 1 FROM #SportBettype WHERE RefTable = 1 AND ProductID <> 42)
+		IF EXISTS(SELECT 1 FROM #SportBettype WHERE ProductID <> 42)
 		BEGIN
 			INSERT INTO #Data (    srecommend, bettype, CustId,
 								   BetCount, CurrencyId , 
