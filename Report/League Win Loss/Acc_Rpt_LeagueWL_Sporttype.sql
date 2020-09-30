@@ -427,7 +427,12 @@ BEGIN
 		   VirtualTurnover
 	FROM #tmpData
 	WHERE MemberWinLoss IS NOT NULL
-	ORDER BY RealTurnover DESC
+	ORDER BY CASE WHEN Sport = 'Soccer' 	THEN 1
+				  WHEN Sport = 'Parlay' 	THEN 2
+				  WHEN Sport = 'Basketball' THEN 3
+				  WHEN Sport = 'Tenis'		THEN 4
+				  WHEN Sport = 'E-Sports'	THEN 5 
+				  ELSE 6 END, LeagueName --fix some sports at top, then sport by league name
 
 	-- Drop temp tables
 	DROP TABLE #tmpSportBettypeMatrix
