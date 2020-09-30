@@ -20,6 +20,8 @@ AS
 		- 20200813@Kean - DHWL Email/Letstalk - Change Product Name and Margin Report Format. (#139537)
 		- 20200811@Kean - Email/Letstalk Reports - Integrate PG Soft (#137764)
 		- 20200827@Kean - Email/Letstalk Reports - Integrate 10 New BluePrint Games (#140459)
+		- 20200916@Roy: Email/Letstalk Reports - Integrate Joker Gaming (#131602)
+		- 20200916@Roy: Email/Letstalk Reports - Integrate WM Live Casino (#131593)
 	
 	
 	EXEC [Acc_Rpt_HouseNetIncome_Product_Deposit] '20180601', '20180619'
@@ -153,6 +155,14 @@ EXEC DBWH.bodb_dwrs.dbo.Acc_Rpt_HouseNetIncome_PPJackpot_Deposit
 	,@ToDate	= @ToDate
 
 EXEC bodb02.dbo.Acc_Rpt_HouseNetIncome_PGS_Deposit
+	@FromDate  = @FromDate
+	,@ToDate	= @ToDate
+
+EXEC bodb02.dbo.Acc_Rpt_HouseNetIncome_JK_Deposit
+	@FromDate  = @FromDate
+	,@ToDate	= @ToDate
+
+EXEC bodb02.dbo.Acc_Rpt_HouseNetIncome_WM_Deposit
 	@FromDate  = @FromDate
 	,@ToDate	= @ToDate
 END

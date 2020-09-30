@@ -42,6 +42,8 @@ AS
 		- 20200714@Ned.Le - Email/Letstalk Reports - Integrate Jackpot Games (#137280)
 		- 20200811@Kean - Email/Letstalk Reports - Integrate PG Soft (#137764)
 		- 20200827@Kean - Email/Letstalk Reports - Integrate 10 New BluePrint Games (#140459)
+		- 20200916@Roy: Email/Letstalk Reports - Integrate Joker Gaming (#131602)
+		- 20200916@Roy: Email/Letstalk Reports - Integrate WM Live Casino (#131593)
 
 	Param's Explanation:   
 		- @ProductList: '' - default value when get all product
@@ -68,9 +70,9 @@ BEGIN
 	FROM bodb_Account.dbo.tbl_Site WITH(NOLOCK)
 	WHERE [site] = 'CN88'
 
-	DECLARE @ProductCodeAll VARCHAR(MAX) = 'NG,VS,KN,LT,VS2,VB,CS,NG2,AB,GD,CB,PP,CC,SG,VRG,SAG,SBC,SXG,BBIN,TG,IBCLC,ION,RNGW,FW,PGS'
-	DECLARE @ProductCodeGMT4 VARCHAR(1000) = 'VB,CC,BBIN,TG,IBCLC,ION,RNGW,PGS'
-	DECLARE @ProductCodeGMT VARCHAR(1000) = 'AB,FW,PP,SG,SAG,SXG'
+	DECLARE @ProductCodeAll VARCHAR(MAX) = 'NG,VS,KN,LT,VS2,VB,CS,NG2,AB,GD,CB,PP,CC,SG,VRG,SAG,SBC,SXG,BBIN,TG,IBCLC,ION,RNGW,FW,PGS,JK,WM'
+	DECLARE @ProductCodeGMT4 VARCHAR(1000) = 'VB,CC,BBIN,TG,IBCLC,ION,RNGW,PGS,JK'
+	DECLARE @ProductCodeGMT VARCHAR(1000) = 'AB,FW,PP,SG,SAG,SXG,WM'
 
 	-- #tmpBettypeGroup
 	CREATE TABLE #tmpBettypeGroup (
