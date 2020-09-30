@@ -181,6 +181,19 @@ BEGIN
 		END
 
 		-- Special products
+			-- Metric Gaming
+		IF EXISTS (SELECT 1 FROM @Products WHERE Product3rdId = 0)
+		BEGIN
+			INSERT INTO #PartyChargeInfo (ChargeId, PartyId, LicenseeId, ParentId, Product3rdId, Rate, FromDate, ToDate, Bettype, ChargeType)
+			SELECT ChargeId, PartyId, LicenseeId, ParentId, -4, Rate, FromDate, ToDate, -1, ChargeType
+			FROM #PartyChargeInfo
+			WHERE Product3rdId = 0
+
+			INSERT INTO #PartyCharge3rdInfo (LicenseeId, Product3rdId, ChargeType, Rate, FromDate, ToDate)
+			SELECT LicenseeId, -4, ChargeType, Rate, FromDate, ToDate
+			FROM #PartyCharge3rdInfo
+			WHERE Product3rdId = 0
+		END
 			-- H5
 		IF EXISTS (SELECT 1 FROM @Products WHERE Product3rdId = 2 AND SubProductCode = 'H5')
 		BEGIN
@@ -504,7 +517,8 @@ BEGIN
 					*
 					(
 						CASE
-							WHEN b.Product3rdId IN (-4, 6, 13, 15, 24, 25, 36, 37, 38, 39, 42, 43, 45) THEN 0
+							WHEN b.Product3rdId IN (6, 13, 15, 24, 25, 36, 37, 38, 39, 42, 43, 45) THEN 0
+							WHEN b.Product3rdId = -4 THEN -1 * ISNULL(lc.Rate, p.Rate) -- Metric Gaming
 							WHEN b.Product3rdId = -5 THEN 0.04 -- Bet Builder
 							WHEN b.Product3rdId = 27 THEN 0.065 -- VS2
 							WHEN b.Product3rdId IN (8, 28) THEN CASE WHEN p.PartyId = 14 OR @FDate >= '2018-08-01' THEN 0.03 ELSE 0.05 END -- KN, LT
@@ -550,8 +564,8 @@ BEGIN
 			LEFT JOIN #ExchangeOANDA oa ON t.rptDate = oa.ExchangeDate AND t.CurrencyId = oa.ExchangeId
 			LEFT JOIN bodb_Licensee.dbo.LA_ChargeRateByCurrency lc WITH (NOLOCK) ON p.ChargeId = lc.ChargeId AND t.CurrencyId = lc.CurrencyId
 		WHERE (
-			(b.Product3rdId IN (0, 3) AND p.PartyId IS NOT NULL)
-			OR b.Product3rdId NOT IN (0, 3)
+			(b.Product3rdId IN (0, 3, -4) AND p.PartyId IS NOT NULL)
+			OR (b.Product3rdId NOT IN (0, 3, -4) AND p.PartyId IS NULL)
 		)
 		GROUP BY t.rptDate
 			,CASE

@@ -24,6 +24,7 @@ AS
 		- 20200113@Ned.Le: DHWL Letstalk Reports - Break SB into Soccer, OS and Parlay (#126634)
 		- 20200202@Robert: #126634 DHWL - break OS into Basketball, E-sports, Tennis and Other Sports
 		- 20200720@Percy: Separate Saba Sports [RedmineID: #137822]
+		- 20200529@Ned.Le: Letstalk Reports - Saba - Treat Saba Futsal as Saba Soccer (#142264)
 		- 20200901@Percy: Refactor code to enhance performance [RedmineID: #140677]
 
 	EXEC Acc_Rpt_HouseNetIncome_SB_Deposit '2017-12-01', '2017-12-31'
@@ -122,6 +123,17 @@ BEGIN
 			INNER JOIN #PartyChargeInfo p ON p.ParentId = ci.PartyId AND ci.ProductId = p.Product3rdId
 		WHERE ci.ChargeType = 1
 			AND NOT EXISTS (SELECT 1 FROM #PartyCharge3rdInfo rd WHERE p.LicenseeId = rd.LicenseeId AND ci.ProductId = rd.Product3rdId)
+
+		-- For Metric Gaming
+		INSERT INTO #PartyChargeInfo (ChargeId, PartyId, LicenseeId, ParentId, Product3rdId, Rate, FromDate, ToDate, Bettype, ChargeType)
+		SELECT ChargeId, PartyId, LicenseeId, ParentId, -4, Rate, FromDate, ToDate, -1, ChargeType
+		FROM #PartyChargeInfo
+		WHERE Product3rdId = 0
+
+		INSERT INTO #PartyCharge3rdInfo (LicenseeId, Product3rdId, ChargeType, Rate, FromDate, ToDate)
+		SELECT LicenseeId, -4, ChargeType, Rate, FromDate, ToDate
+		FROM #PartyCharge3rdInfo
+		WHERE Product3rdId = 0
 
 		DROP TABLE #Licensees
 	END
@@ -257,17 +269,22 @@ BEGIN
 		INSERT INTO #__tempResult (rptDate, PartyId, Product3rdId, SporttypeGroup, MemberWL, PayToSupplier, AmountToCompany, AComm)
 		SELECT t.rptDate, l.PartyId, t.ProductId, t.SporttypeGroup
 			,SUM(t.MemberWL * ISNULL(oa.Rate, 0))
-			,SUM(t.MemberWL * ISNULL(oa.Rate, 0) * CASE WHEN t.ProductId = -4 THEN 0 WHEN t.ProductId = -5 THEN 0.04 ELSE ISNULL(rd.Rate, 0) END)
+			,SUM(t.MemberWL * ISNULL(oa.Rate, 0) * CASE WHEN t.ProductId = -4 THEN -1 * ISNULL(lc.Rate, p.Rate) WHEN t.ProductId = -5 THEN 0.04 ELSE ISNULL(rd.Rate, 0) END)
 			,SUM(-t.MemberWL * ISNULL(lc.Rate, p.Rate) * ISNULL(e.Rate, 0))
 			,SUM(t.AComm * ISNULL(e.Rate, 0))
 		FROM #__tempData t
 			INNER JOIN #AllLicensees l ON l.LicenseeId = t.LicenseeId
-			INNER JOIN #PartyChargeInfo p ON p.PartyId = l.PartyId AND p.Product3rdId = t.ProductId AND t.rptDate BETWEEN p.FromDate AND p.ToDate
+			LEFT JOIN #PartyChargeInfo p ON p.PartyId = l.PartyId AND p.Product3rdId = t.ProductId AND t.rptDate BETWEEN p.FromDate AND p.ToDate
 					AND (p.Bettype = -1 OR p.Bettype = t.BetTypeGroup)
 			LEFT JOIN #PartyCharge3rdInfo rd ON rd.LicenseeId = l.LicenseeId AND rd.Product3rdId = t.ProductId AND t.rptDate BETWEEN rd.FromDate AND rd.ToDate
 			LEFT JOIN #Exchange e ON t.rptDate = e.ExchangeDate AND t.CurrencyId = e.ExchangeId
 			LEFT JOIN #ExchangeOANDA oa ON t.rptDate = oa.ExchangeDate AND t.CurrencyId = oa.ExchangeId
 			LEFT JOIN bodb_Licensee.dbo.LA_ChargeRateByCurrency lc WITH (NOLOCK) ON p.ChargeId = lc.ChargeId AND t.CurrencyId = lc.CurrencyId
+		WHERE
+		(
+			(t.ProductId IN (0, 3, -4) AND p.PartyId IS NOT NULL)
+			OR (t.ProductId NOT IN (0, 3, -4) AND p.PartyId IS NULL)
+		)
 		GROUP BY t.rptDate, l.PartyId, t.ProductId, t.SporttypeGroup
 
 		DROP TABLE #__tempData
@@ -302,8 +319,8 @@ BEGIN
 			,r.rptDate
 			,CASE
 				WHEN r.Product3rdId = -5 THEN r.PaytoSupplier
-				WHEN (r.PayToSupplier >= 0 AND m.MinAmount = 0) OR r.PayToSupplier <= m.MinAmount
-					THEN CASE WHEN r.PayToSupplier <= m.MaxAmount THEN m.MaxAmount - m.MinAmount ELSE r.PayToSupplier + m.MinAmount END * m.Rate
+				WHEN (r.PayToSupplier < 0 AND m.MinAmount = 0) OR r.PayToSupplier >= m.MinAmount
+					THEN CASE WHEN r.PayToSupplier > m.MaxAmount THEN -(m.MaxAmount - m.MinAmount) ELSE -(r.PayToSupplier - m.MinAmount) END * m.Rate
 				ELSE 0
 				END
 		FROM #__tempResult r

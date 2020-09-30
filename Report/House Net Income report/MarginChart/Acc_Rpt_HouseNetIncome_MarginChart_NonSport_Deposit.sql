@@ -143,17 +143,6 @@ BEGIN
 		-- Special products
 			-- H5
 		IF EXISTS (SELECT 1 FROM @Products WHERE Product3rdId = 2 AND SubProductCode = 'H5')
-		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
-							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_JK_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
-	END
-	
-	-- 25. WM
-	IF EXISTS (SELECT 1 FROM #tmpProduct WHERE ProductPrefix = 'WM')
-	BEGIN
-		SELECT @SQL = @SQL  + 'INSERT INTO #MarginChartResult ' + CHAR(13)
-							+ 'EXEC Acc_Rpt_HouseNetIncome_MarginChart_WM_Deposit @FromDate = ''' + CONVERT(VARCHAR(10), @FDate, 120) + ''', @ToDate = ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''' + CHAR(13)
-	END
-	
 		BEGIN
 			IF EXISTS (SELECT 1 FROM @Products WHERE Product3rdId = 2 AND SubProductCode = 'NG')
 			BEGIN
