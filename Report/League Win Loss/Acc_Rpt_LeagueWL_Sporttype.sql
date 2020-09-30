@@ -35,7 +35,7 @@ AS
 
 	Example:
 		EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Sporttype @StartDate='2020-09-06', @EndDate='2020-09-06', 
-			@SportBettype='1_1,1_2,10000_9,10000_29,2_1,3_1,4_1', @LeagueName='', @IsNoDraw=0, 
+			@SportBettype='1_1,1_2,10000_9,10000_29,2_1,3_1,4_1,5_1,6_1,7_1,8_1,9_1', @LeagueName='', @IsNoDraw=0, 
 			@SiteName = '12Bet,755555,INDO,789y,IBCIndo,BEST-ODDS,722222,733333,XYZBET,asiabet88'
 */
 
@@ -432,7 +432,9 @@ BEGIN
 				  WHEN Sport = 'Basketball' THEN 3
 				  WHEN Sport = 'Tenis'		THEN 4
 				  WHEN Sport = 'E-Sports'	THEN 5 
-				  ELSE 6 END, LeagueName --fix some sports at top, then sport by league name
+				  ELSE 
+				  	CASE WHEN SportType > 10000 THEN 99 ELSE 6 END
+				  END, Sport, LeagueName --fix some sports at top, then sort by league name
 
 	-- Drop temp tables
 	DROP TABLE #tmpSportBettypeMatrix
