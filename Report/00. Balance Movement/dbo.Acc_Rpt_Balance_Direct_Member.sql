@@ -1,14 +1,8 @@
-﻿USE [bodb02]
-GO
-/****** Object:  StoredProcedure [dbo].[Acc_Rpt_Balance_Direct_Member]    Script Date: 07/03/2012 01:28:12 ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-/****** Object:  Stored Procedure dbo.Acc_Rpt_Balance_Direct_Member    Script Date: 6/10/2010 1:42:31 PM ******/
-ALTER PROCEDURE [dbo].[Acc_Rpt_Balance_Direct_Member]
-	@username	nvarchar(50) = '',
-	@currency   int = null
+﻿/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+
+ALTER PROCEDURE Acc_Rpt_Balance_Direct_Member
+	@username varchar(50) = ''
+	,@currency int = null
 AS
 /*	Created: Jamie
 	Date: 2009-07-17
@@ -20,31 +14,47 @@ AS
 	-- 20100522@Henry: Change to use StatusID instead of Status in WHERE statement
 	-- 20120702@Daniel: Get all accounts regardless of data in bettrans
 	- 20130131@Johnson: Add filter by username and currency
+	- 20200930@Roy: HotFix - NAP Report - Direct member balance report getting wrong account list (#142334)
 */
 BEGIN
-	SET NOCOUNT ON 
+	SET NOCOUNT ON
+
+	CREATE TABLE #directMember (
+		custid INT
+		,username VARCHAR(50)
+		,currency INT
+		,recommend INT)
+	---get directMember---
+	INSERT INTO #directMember
+	SELECT m.custid
+		,m.username
+		,m.currency
+		,m.recommend
+	FROM dbo.custinfo m WITH (NOLOCK)
+		INNER JOIN dbo.CustDirectAccount d WITH (NOLOCK) ON m.roleid = 1 AND m.custid = d.custid
+	WHERE username LIKE '%' + @username + '%'
+		AND currency = ISNULL(@currency,currency)
+	OPTION (RECOMPILE)
+
+	---Return data---
 	SELECT  mem.custid,
 			mem.username, 
 			mem.currency, 
 			IsNull(bal.bal,0) Balance, 
 			IsNull(bal.BaseBal,0) BaseBalance
-	FROM	f_DirectAgencyList(2) mem
+	FROM	#directMember mem WITH (NOLOCK)
 			LEFT JOIN (
 				SELECT	custid,
 						isnull(SUM(winlost - actual_stake + playercomm),0) bal,
 						isnull(SUM((winlost - actual_stake + playercomm)* actualrate),0) as Basebal
-				FROM	bettrans with (nolock) 
+				FROM	bettrans WITH (NOLOCK)
 				WHERE	ruben = 1 AND 
-				--status NOT IN ('VOID','REJECT','REFUND')				
-				statusID NOT IN (101,102,103)				
+				--status NOT IN ('VOID','REJECT','REFUND')
+				statusID NOT IN (101,102,103)
+				AND EXISTS ( SELECT 1 FROM #directMember d WITH (NOLOCK) WHERE a.recommend = d.recommend )
 				GROUP BY custid
-			) bal ON mem.custid = bal.custid	
-	WHERE mem.username LIKE '%' + @username + '%'
-		AND mem.currency = ISNULL(@currency,mem.currency)	
+			) bal ON mem.custid = bal.custid
 	ORDER BY username
-END
 
-GO
-GRANT EXECUTE ON [dbo].[Acc_Rpt_Balance_Direct_Member] TO [bodbAdminNet]
-GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_Rpt_Balance_Direct_Member] TO [vnteam]
+	DROP TABLE #directMember
+END
