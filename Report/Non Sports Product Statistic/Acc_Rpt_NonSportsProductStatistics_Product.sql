@@ -51,6 +51,7 @@ AS
 		20200917@Cherry: Improve performance (#141844)
 		20200922@Cherry: Improve performance (#142096)
 		20200928@Cherry: Hot fix (#142436)
+		20200929@Cherry: Hot fix (#142525)
 
 	Param's Explanation:
 		- @username:  + Search by keyword, member only
@@ -306,7 +307,14 @@ BEGIN
 		WHERE NOT EXISTS (SELECT 1 
 						FROM dbo.Products p WITH (NOLOCK) 
 						WHERE p.CasinoType = @CasinoType
-								AND s.ProductID = p.ProductID)							
+								AND s.ProductID = p.ProductID)	
+								
+		DELETE s
+		FROM #tmpSportBetType s
+		WHERE NOT EXISTS (SELECT 1 
+						FROM dbo.Products p WITH (NOLOCK) 
+						WHERE p.CasinoType = @CasinoType
+								AND p.ProductID = 42)							
 	END		
 	-- End Product Group
 	
