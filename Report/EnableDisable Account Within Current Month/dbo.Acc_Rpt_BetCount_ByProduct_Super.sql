@@ -58,6 +58,7 @@ AS
 		- 20200723@Jaden.Tang: NAP Report - Add new range for lottery (#137715)
 		- 20200814@Roy: NAP Report - Integrate PG Soft (#137770)
 		- 20200921@Jaden.Tang: NAP Report - Incorporate Joker Gaming (#131611) & WM (#131583)
+		- 20200930@Ned.Le: NAP Reports - Licensee Odds Spread (#141750)
 
 	Param's Explanation:  
 	  + @MoveBetsDay: The day of moving bets to battrans14
@@ -83,7 +84,7 @@ BEGIN
 	--Table of special bettype group
 	CREATE TABLE #SpecialBettypeGroup (BettypeGroupID SMALLINT, Bettype INT)
 	INSERT INTO #SpecialBettypeGroup (BettypeGroupID, Bettype)
-	SELECT BettypeGroupID, Bettype FROM DBWH.bodb_Account.dbo.BettypeGroup WHERE BettypeGroupID IN (6, 10)
+	SELECT BettypeGroupID, Bettype FROM DBWH.bodb_Account.dbo.BettypeGroup WHERE BettypeGroupID IN (12)
 
 	--Table of Super/master/Member that belong to real super above	
 	CREATE TABLE #FiltedDownlineAcc(
