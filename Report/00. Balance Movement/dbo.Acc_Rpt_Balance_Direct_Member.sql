@@ -30,17 +30,32 @@ BEGIN
 		,recommend INT)
 	---get directMember---
 	INSERT INTO #directMember
-	SELECT m.custid
-		,m.username
-		,m.currency
-		,m.recommend
-	FROM dbo.custinfo m WITH (NOLOCK)
-		INNER JOIN dbo.CustDirectAccount d WITH (NOLOCK) ON m.roleid = 1 AND m.custid = d.custid
-	WHERE m.username LIKE '%' + @username + '%'
-		AND m.currency = ISNULL(@currency, m.currency)
-		AND (@ExclTestCurr = 0 OR m.currency NOT IN (20, 27, 28))
+	SELECT DISTINCT ci.custid
+		,ci.username
+		,ci.currency
+		,ci.recommend
+	FROM dbo.custinfo ci WITH (NOLOCK)
+		INNER JOIN dbo.CustDirectAccount d WITH (NOLOCK) ON ci.roleid = 1 AND ci.custid = d.custid
+	WHERE ci.username LIKE '%' + @username + '%'
+		AND ci.currency = ISNULL(@currency, ci.currency)
+		AND (@ExclTestCurr = 0 OR ci.currency NOT IN (20, 27, 28))
 	OPTION (RECOMPILE)
 
+	---Include finance accounts---
+	INSERT INTO #directMember
+	SELECT DISTINCT ci.custid
+		,ci.username
+		,ci.currency
+		,ci.recommend
+	FROM dbo.CustAgent AS ca WITH (NOLOCK)
+		INNER JOIN dbo.custinfo ci WITH (NOLOCK) ON ci.roleid = 1 AND ca.custid = ci.recommend
+	WHERE ca.IsInternal = 1
+		AND ci.username LIKE '%' + @username + '%'
+		AND ci.currency = ISNULL(@currency, ci.currency)
+		AND (@ExclTestCurr = 0 OR ci.currency NOT IN (20, 27, 28))
+		AND NOT EXISTS ( SELECT 1 FROM #directMember d WHERE ci.custid = d.custid )
+	OPTION (RECOMPILE)
+	
 	CREATE CLUSTERED INDEX [CIX_Direct] ON #directMember( recommend, custid )
 	
 	---Return data---

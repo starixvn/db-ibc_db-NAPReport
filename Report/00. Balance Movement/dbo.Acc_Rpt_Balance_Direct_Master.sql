@@ -27,29 +27,29 @@ BEGIN
 	CREATE TABLE #directMaster (custid INT,username VARCHAR(50), currency INT, srecommend INT)
 	---get directMaster---
 	INSERT INTO #directMaster
-	SELECT m.custid
-		,m.username
-		,m.currency
-		,m.srecommend
-	FROM dbo.custinfo m WITH (NOLOCK)
-		INNER JOIN dbo.CustDirectAccount d WITH (NOLOCK) ON m.roleid = 3 AND m.custid = d.custid
-	WHERE m.username LIKE '%' + @username + '%'
-		AND m.currency = ISNULL(@currency, m.currency)
-		AND (@ExclTestCurr = 0 OR m.currency NOT IN (20, 27, 28))
+	SELECT DISTINCT ci.custid
+		,ci.username
+		,ci.currency
+		,ci.srecommend
+	FROM dbo.custinfo ci WITH (NOLOCK)
+		INNER JOIN dbo.CustDirectAccount d WITH (NOLOCK) ON ci.roleid = 3 AND ci.custid = d.custid
+	WHERE ci.username LIKE '%' + @username + '%'
+		AND ci.currency = ISNULL(@currency, ci.currency)
+		AND (@ExclTestCurr = 0 OR ci.currency NOT IN (20, 27, 28))
 	OPTION (RECOMPILE)
 	
 	---Include finance accounts---
 	INSERT INTO #directMaster
-	SELECT m.custid
-		,m.username
-		,m.currency
-		,m.srecommend
+	SELECT DISTINCT ci.custid
+		,ci.username
+		,ci.currency
+		,ci.srecommend
 	FROM dbo.CustMaster AS cm WITH (NOLOCK)
-		INNER JOIN dbo.custinfo m WITH (NOLOCK) ON cm.custid = m.custid
+		INNER JOIN dbo.custinfo ci WITH (NOLOCK) ON ci.roleid = 3 AND cm.custid = ci.custid
 	WHERE cm.IsInternal = 1
-		AND username LIKE '%' + @username + '%'
-		AND currency = ISNULL(@currency,currency)
-		AND (@ExclTestCurr = 0 OR m.currency NOT IN (20, 27, 28))
+		AND ci.username LIKE '%' + @username + '%'
+		AND ci.currency = ISNULL(@currency, ci.currency)
+		AND (@ExclTestCurr = 0 OR ci.currency NOT IN (20, 27, 28))
 		AND NOT EXISTS ( SELECT 1 FROM #directMaster d WHERE cm.custid = d.custid )
 	OPTION (RECOMPILE)
 	

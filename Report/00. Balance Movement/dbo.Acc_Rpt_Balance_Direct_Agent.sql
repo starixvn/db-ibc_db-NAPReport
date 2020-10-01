@@ -30,29 +30,29 @@ BEGIN
 		,mrecommend INT)
 	---get directAgent---
 	INSERT INTO #directAgent
-	SELECT m.custid
-		,m.username
-		,m.currency
-		,m.mrecommend
-	FROM dbo.custinfo m WITH (NOLOCK)
-		INNER JOIN dbo.CustDirectAccount d WITH (NOLOCK) ON m.roleid = 2 AND m.custid = d.custid
-	WHERE m.username LIKE '%' + @username + '%'
-		AND m.currency = ISNULL(@currency,m.currency)
-		AND (@ExclTestCurr = 0 OR m.currency NOT IN (20, 27, 28))
+	SELECT DISTINCT ci.custid
+		,ci.username
+		,ci.currency
+		,ci.mrecommend
+	FROM dbo.custinfo ci WITH (NOLOCK)
+		INNER JOIN dbo.CustDirectAccount d WITH (NOLOCK) ON ci.roleid = 2 AND ci.custid = d.custid
+	WHERE ci.username LIKE '%' + @username + '%'
+		AND ci.currency = ISNULL(@currency,ci.currency)
+		AND (@ExclTestCurr = 0 OR ci.currency NOT IN (20, 27, 28))
 	OPTION (RECOMPILE)
 	
 	---Include finance accounts---
 	INSERT INTO #directAgent
-	SELECT m.custid
-		,m.username
-		,m.currency
-		,m.mrecommend
+	SELECT DISTINCT ci.custid
+		,ci.username
+		,ci.currency
+		,ci.mrecommend
 	FROM dbo.CustAgent AS ca WITH (NOLOCK)
-		INNER JOIN dbo.custinfo m WITH (NOLOCK) ON ca.custid = m.custid
+		INNER JOIN dbo.custinfo ci WITH (NOLOCK) ON ci.roleid = 2 AND ca.custid = ci.custid
 	WHERE ca.IsInternal = 1
-		AND username LIKE '%' + @username + '%'
-		AND currency = ISNULL(@currency,currency)
-		AND (@ExclTestCurr = 0 OR m.currency NOT IN (20, 27, 28))
+		AND ci.username LIKE '%' + @username + '%'
+		AND ci.currency = ISNULL(@currency, ci.currency)
+		AND (@ExclTestCurr = 0 OR ci.currency NOT IN (20, 27, 28))
 		AND NOT EXISTS ( SELECT 1 FROM #directAgent d WHERE ca.custid = d.custid )
 	OPTION (RECOMPILE)
 
