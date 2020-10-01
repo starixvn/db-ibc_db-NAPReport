@@ -3,6 +3,7 @@
 ALTER PROCEDURE Acc_Rpt_Balance_Direct_Master
 	@username varchar(50) = ''
 	,@currency int = null
+	,@ExclTestCurr bit = 0
 AS
 /*	Created: Jamie
 	Date: 2009-07-16
@@ -29,8 +30,9 @@ BEGIN
 		,m.srecommend
 	FROM dbo.custinfo m WITH (NOLOCK)
 		INNER JOIN dbo.CustDirectAccount d WITH (NOLOCK) ON m.roleid = 3 AND m.custid = d.custid
-	WHERE username LIKE '%' + @username + '%'
-		AND currency = ISNULL(@currency,currency)
+	WHERE m.username LIKE '%' + @username + '%'
+		AND m.currency = ISNULL(@currency, m.currency)
+		AND (@ExclTestCurr = 0 OR m.currency NOT IN (20, 27, 28))
 	OPTION (RECOMPILE)
 	
 	---Include finance accounts---
@@ -69,6 +71,8 @@ BEGIN
 				AND EXISTS ( SELECT 1 FROM #directMaster d WITH (NOLOCK) WHERE b.srecommend = d.srecommend )
 				GROUP BY b.mrecommend
 			) as  bal ON m.custid = bal.mrecommend
+	WHERE ROUND(IsNull(bal.bal,0), 2) > 0
 	ORDER BY m.username
+
 	DROP TABLE #directMaster
 END
