@@ -59,11 +59,11 @@ BEGIN
 						isnull(SUM((case when bettype < 19001 and winlostdate < @currentdate then winlost - actual_stake + playercomm
 										 when bettype > 19000 then winlost - actual_stake  + playercomm
 										else 0 end)* actualrate),0) as Basebal
-				FROM	bettrans WITH (NOLOCK)
+				FROM	bettrans b WITH (NOLOCK)
 				WHERE	ruben = 1 AND 
 				--status NOT IN ('VOID','REJECT','REFUND')
 				statusID NOT IN (101,102,103)
-				AND EXISTS ( SELECT 1 FROM #directMember d WITH (NOLOCK) WHERE a.recommend = d.recommend )
+				AND EXISTS ( SELECT 1 FROM #directMember d WITH (NOLOCK) WHERE b.recommend = d.recommend )
 				GROUP BY custid
 			) bal ON mem.custid = bal.custid
 	WHERE bal.bal >= @MinBal

@@ -73,11 +73,11 @@ BEGIN
 						isnull(sum((case when custid=recommend then winlost-actual_stake else awinlost+comm-playercomm end)* actualrate),0)
 						+ isnull(sum((case when custid <> recommend and custid <> mrecommend then winlost-actual_stake+playercomm else 0 end)* actualrate),0)
 						- isnull(sum((case when bettype < 19001 and winlostdate >= @currentDate then awinlost+comm + winlost-actual_stake else 0 end)*actualrate),0) AS Basebal
-				FROM	bettrans with (nolock) 
+				FROM	bettrans b WITH (NOLOCK)
 				WHERE	ruben = 1 AND 
 				--status NOT IN ('VOID','REJECT','REFUND')
 				statusID NOT IN (101,102,103)
-				AND EXISTS ( SELECT 1 FROM #directAgent d WHERE a.mrecommend = d.mrecommend )
+				AND EXISTS ( SELECT 1 FROM #directAgent d WHERE b.mrecommend = d.mrecommend )
 				GROUP BY recommend 
 			)as Bal ON a.custid = Bal.recommend
 	WHERE bal.bal >= @MinBal

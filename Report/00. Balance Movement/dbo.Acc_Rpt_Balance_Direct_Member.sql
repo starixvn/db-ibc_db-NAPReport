@@ -54,11 +54,11 @@ BEGIN
 				SELECT	custid,
 						isnull(SUM(winlost - actual_stake + playercomm),0) bal,
 						isnull(SUM((winlost - actual_stake + playercomm)* actualrate),0) as Basebal
-				FROM	bettrans WITH (NOLOCK)
+				FROM	bettrans b WITH (NOLOCK)
 				WHERE	ruben = 1 AND 
 				--status NOT IN ('VOID','REJECT','REFUND')
 				statusID NOT IN (101,102,103)
-				AND EXISTS ( SELECT 1 FROM #directMember d WITH (NOLOCK) WHERE a.recommend = d.recommend )
+				AND EXISTS ( SELECT 1 FROM #directMember d WITH (NOLOCK) WHERE b.recommend = d.recommend )
 				GROUP BY custid
 			) bal ON mem.custid = bal.custid
 	WHERE bal.bal >= @MinBal
