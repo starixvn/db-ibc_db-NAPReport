@@ -20,6 +20,9 @@ BEGIN
 	DECLARE @currentDate datetime 
 	SELECT @currentDate = convert(varchar(10), CURRENT_TIMESTAMP, 120)
 	
+	---display round(balance,2) > 0---
+	DECLARE @MinBal DECIMAL(3,3) = 0.005
+	
 	CREATE TABLE #directMember (
 		custid INT
 		,username VARCHAR(50)
@@ -38,6 +41,8 @@ BEGIN
 		AND (@ExclTestCurr = 0 OR m.currency NOT IN (20, 27, 28))
 	OPTION (RECOMPILE)
 
+	CREATE CLUSTERED INDEX [CIX_Direct] ON #directMember( recommend, custid )
+	
 	---Return data---
 	SELECT  mem.custid,
 			mem.username, 
@@ -61,8 +66,9 @@ BEGIN
 				AND EXISTS ( SELECT 1 FROM #directMember d WITH (NOLOCK) WHERE a.recommend = d.recommend )
 				GROUP BY custid
 			) bal ON mem.custid = bal.custid
-	WHERE ROUND(IsNull(bal.bal,0), 2) > 0
-	ORDER BY username
+	WHERE bal.bal >= @MinBal
+	ORDER BY mem.username
+	OPTION (RECOMPILE)
 
 	DROP TABLE #directMember
 END

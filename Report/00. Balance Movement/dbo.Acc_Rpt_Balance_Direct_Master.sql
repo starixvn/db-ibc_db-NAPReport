@@ -21,6 +21,9 @@ AS
 BEGIN
 	SET NOCOUNT ON
 	
+	---display round(balance,2) > 0---
+	DECLARE @MinBal DECIMAL(3,3) = 0.005
+	
 	CREATE TABLE #directMaster (custid INT,username VARCHAR(50), currency INT, srecommend INT)
 	---get directMaster---
 	INSERT INTO #directMaster
@@ -50,6 +53,8 @@ BEGIN
 		AND NOT EXISTS ( SELECT 1 FROM #directMaster d WHERE cm.custid = d.custid )
 	OPTION (RECOMPILE)
 	
+	CREATE CLUSTERED INDEX [CIX_Direct] ON #directMaster( srecommend, custid )
+	
 	---Return data---
 	SELECT	m.custid,
 			m.username, 
@@ -73,8 +78,9 @@ BEGIN
 				AND EXISTS ( SELECT 1 FROM #directMaster d WITH (NOLOCK) WHERE b.srecommend = d.srecommend )
 				GROUP BY b.mrecommend
 			) as  bal ON m.custid = bal.mrecommend
-	WHERE ROUND(IsNull(bal.bal,0), 2) > 0
+	WHERE bal.bal >= @MinBal
 	ORDER BY m.username
+	OPTION (RECOMPILE)
 
 	DROP TABLE #directMaster
 END

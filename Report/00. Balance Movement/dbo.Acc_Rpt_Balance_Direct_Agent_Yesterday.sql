@@ -19,6 +19,9 @@ BEGIN
 	DECLARE @currentDate datetime 
 	SELECT  @currentDate = convert(varchar(10), CURRENT_TIMESTAMP, 120)
 
+	---display round(balance,2) > 0---
+	DECLARE @MinBal DECIMAL(3,3) = 0.005
+	
 	CREATE TABLE #directAgent (
 		custid INT
 		,username VARCHAR(50)
@@ -52,6 +55,8 @@ BEGIN
 		AND NOT EXISTS ( SELECT 1 FROM #directAgent d WHERE ca.custid = d.custid )
 	OPTION (RECOMPILE)
 
+	CREATE CLUSTERED INDEX [CIX_Direct] ON #directAgent( mrecommend, custid )
+	
 	---Return data---
 	SELECT	a.custid,
 			a.username, 
@@ -75,8 +80,9 @@ BEGIN
 				AND EXISTS ( SELECT 1 FROM #directAgent d WHERE a.mrecommend = d.mrecommend )
 				GROUP BY recommend 
 			)as Bal ON a.custid = Bal.recommend
-	WHERE ROUND(IsNull(bal.bal,0), 2) > 0
+	WHERE bal.bal >= @MinBal
 	ORDER BY a.username
+	OPTION (RECOMPILE)
 
 	DROP TABLE #directAgent
 END
