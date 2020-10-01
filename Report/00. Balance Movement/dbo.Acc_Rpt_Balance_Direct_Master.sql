@@ -46,7 +46,9 @@ BEGIN
 	WHERE cm.IsInternal = 1
 		AND username LIKE '%' + @username + '%'
 		AND currency = ISNULL(@currency,currency)
+		AND (@ExclTestCurr = 0 OR m.currency NOT IN (20, 27, 28))
 		AND NOT EXISTS ( SELECT 1 FROM #directMaster d WHERE cm.custid = d.custid )
+	OPTION (RECOMPILE)
 	
 	---Return data---
 	SELECT	m.custid,
