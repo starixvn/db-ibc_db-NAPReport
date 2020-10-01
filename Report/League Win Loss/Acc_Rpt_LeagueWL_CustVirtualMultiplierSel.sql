@@ -34,6 +34,7 @@ BEGIN
 		WHERE cvs.custid = @CustID
 			AND pvs.sporttype NOT IN (43, 2) 
 			AND pvs.isActive = 1
+			AND pvs.bettype in (1,3) --only get Handicap, Over/Under
 	)
 	SELECT 
 		 vm.sporttype AS sportid

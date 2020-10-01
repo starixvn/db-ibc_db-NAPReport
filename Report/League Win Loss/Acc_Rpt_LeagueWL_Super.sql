@@ -235,6 +235,7 @@ BEGIN
 			ON cvs.seqNo = pvs.seqNo
 		WHERE pvs.sporttype NOT IN (43, 2) 
 			AND pvs.isActive = 1
+            AND pvs.bettype in (1,3) --only get Handicap, Over/Under
 	)
 	SELECT  t.SuperID SuperID,
             t.SuperName SuperName,
