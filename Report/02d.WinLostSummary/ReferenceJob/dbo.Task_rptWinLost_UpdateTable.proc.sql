@@ -59,6 +59,7 @@ Revision:
 	- 20200814@Roy: NAP Report - Integrate PG Soft (#137770)
 	- 20200825@Ned.Le: NAP Report - Incorporate saba.club freebet (#140107)
 	- 20200921@Jaden.Tang: NAP Report - Incorporate Joker Gaming (#131611) & WM (#131583)
+	- 20201001@Ned.Le: NAP Reports - Licensee Odds Spread (#141750)
 */
 
 BEGIN	
@@ -184,7 +185,7 @@ BEGIN
 			winlostdate, b.matchid, bettype, liveindicator, status,
 			case when recommend = 52466 then 1 when recommend = 5707545 then 2 else 0 end	
 
-		-- Combo Parlay (bettype = 29)
+		-- Combo Parlay (bettype = 29) | Odds Spread Adjustment (bettype = 999)
 		INSERT INTO bodb_Report.dbo.rptWinlost
 			(
 				[winlostdate]
@@ -221,7 +222,7 @@ BEGIN
 			CASE WHEN betteam = N'1' THEN 1 ELSE 0 END exrisk
 		FROM bettrans b with (nolock)
 		WHERE
-			bettype = 29
+			bettype IN (29, 999)
 			AND winlostdate = @winlostdate
 			AND b.statusID IN (111,112,113) --(/Won/lose/Draw)
 			AND ruben = 1
@@ -283,7 +284,7 @@ BEGIN
 			bettrans b with (nolock)
 			inner join #SportBettype sb on b.bettype = sb.Bettype
 		WHERE
-			(b.bettype < 19999 and b.bettype not in (29,31,32,33,1003,2799))
+			(b.bettype < 19999 and b.bettype not in (29,999,31,32,33,1003,2799))
 			AND sb.ProductID NOT IN (1, 15, 6, 17, 21, 22, 24, 32, 34, 36, 39, 42, 45, 46, 52, 50, 55, 56, 51)
 			AND winlostdate = @winlostdate
 			AND statusID IN (111,112,113) --(/Won/lose/Draw)
@@ -295,8 +296,6 @@ BEGIN
 			CASE WHEN StatusID = 111 THEN 'DRAW'
 				WHEN StatusID = 112 THEN 'WON'
 				WHEN StatusID = 113 THEN 'LOSE' END;
-
-				
 
 		--Colosusbet
 		INSERT INTO bodb_Report.dbo.rptWinlost
@@ -392,7 +391,7 @@ BEGIN
 			EXISTS(SELECT TOP 1 1 FROM #SportBettype sb 
 						WHERE sb.ProductID =  1
 							AND sb.Bettype = b.bettype
-							AND sb.bettype not in (29)
+							AND sb.bettype not in (29, 999)
 							)
 			----(b.bettype < 19999 and b.bettype not in (29,31,32,33,1003,2799))
 			AND winlostdate = @winlostdate
@@ -721,7 +720,7 @@ BEGIN
 				winlostdate, b.matchid, bettype, liveindicator, status,
 				case when recommend = 52466 then 1 when recommend = 5707545 then 2 else 0 end
 
-			-- Combo Parlay (bettype = 29)
+			-- Combo Parlay (bettype = 29) | Odds Spread Adjustment (bettype = 999)
 			INSERT INTO bodb_Report.dbo.rptWinlost
 				(
 					[winlostdate]
@@ -758,7 +757,7 @@ BEGIN
 				CASE WHEN betteam = N'1' THEN 1 ELSE 0 END exrisk
 			FROM dbo.bettrans14 b with (nolock)
 			WHERE
-				bettype = 29
+				bettype IN (29, 999)
 				AND winlostdate = @winlostdate
 				AND b.statusID IN (111,112,113) --(/Won/lose/Draw)
 				AND ruben = 1
@@ -820,7 +819,7 @@ BEGIN
 				dbo.bettrans14 b with (nolock)
 				inner join #SportBettype sb on b.bettype = sb.Bettype
 			WHERE
-				(b.bettype < 19999 and b.bettype not in (29,31,32,33,1003,2799))
+				(b.bettype < 19999 and b.bettype not in (29,999,31,32,33,1003,2799))
 				AND sb.ProductID NOT IN (1, 15, 6, 17, 21, 22, 24, 32, 34, 36, 39, 42, 45, 46, 52, 50, 55, 56, 51)
 				AND sb.SportType <> 165
 				AND winlostdate = @winlostdate
@@ -927,7 +926,7 @@ BEGIN
 				EXISTS(SELECT TOP 1 1 FROM #SportBettype sb 
 							WHERE sb.ProductID =  1
 								AND sb.Bettype = b.bettype
-								AND sb.bettype not in (29)
+								AND sb.bettype not in (29, 999)
 								)
 				----(b.bettype < 19999 and b.bettype not in (29,31,32,33,1003,2799))
 				AND winlostdate = @winlostdate

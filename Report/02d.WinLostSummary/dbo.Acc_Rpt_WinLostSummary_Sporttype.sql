@@ -1,5 +1,8 @@
 ﻿/*<info serverAlias="DBRPT-bodb_Report" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
+USE bodb_Report
+GO
+
 ALTER PROCEDURE dbo.Acc_Rpt_WinlostSummary_Sporttype
 	@fromdate    DATETIME
    , @todate      DATETIME
@@ -41,6 +44,7 @@ AS
 		  20181219@Robert: NAP Report - Add new sporttype for Happy 5 (#104253) 
 		  20190117@Robert: Video Poker - Integrate into NAP Reports (#107706)
 		  20190308@Cherry: Integrate Bet Builder (#109822)
+		  20201001@Ned.Le: NAP Reports - Licensee Odds Spread (#141750)
 
         Parameter's Explanation:
 
@@ -625,6 +629,40 @@ BEGIN
 		 WHERE b.winlostdate BETWEEN @_fromdate AND @_todate
 			  AND bettype = 29
 			  AND exrisk <> 1
+		 GROUP BY status;
+    INSERT INTO #TempData(sporttype
+				    , bettype
+				    , liveindicator
+				    , ibc
+				    , IsHedge
+				    , status
+				    , OrderKey
+				    , SortKey
+				    , realWinlost
+				    , realPosition
+				    , realCommission
+				    , realLineTotal
+				    , virtualLineTotal
+				    , realTurnover
+				    , virtualTurnover)
+		 SELECT 96 /*SB Adjustment*/
+			 , 999 AS bettype
+			 , 0 AS liveindicator
+			 , 0 AS ibc
+			 , 0 AS IsHedge
+			 , status
+			 , 5 AS OrderKey
+			 , 18 AS SortKey
+			 , ISNULL(SUM(realWinlost), 0)
+			 , ISNULL(SUM(realPosition), 0)
+			 , ISNULL(SUM(realCommission), 0)
+			 , ISNULL(SUM(realLineTotal), 0)
+			 , ISNULL(SUM(virtualLineTotal), 0)
+			 , ISNULL(SUM(realTurnover), 0)
+			 , ISNULL(SUM(virtualTurnover), 0)
+		 FROM dbo.rptWinlost AS b WITH (NOLOCK)
+		 WHERE b.winlostdate BETWEEN @_fromdate AND @_todate
+			   AND bettype = 999
 		 GROUP BY status;
     INSERT INTO #TempData(sporttype
 				    , bettype
