@@ -430,7 +430,7 @@ BEGIN
 	ORDER BY CASE WHEN Sport = 'Soccer' 	THEN 1
 				  WHEN Sport = 'Parlay' 	THEN 2
 				  WHEN Sport = 'Basketball' THEN 3
-				  WHEN Sport = 'Tenis'		THEN 4
+				  WHEN Sport = 'Tennis'		THEN 4
 				  WHEN Sport = 'E-Sports'	THEN 5 
 				  ELSE 
 				  	CASE WHEN SportType > 10000 THEN 99 ELSE 6 END
