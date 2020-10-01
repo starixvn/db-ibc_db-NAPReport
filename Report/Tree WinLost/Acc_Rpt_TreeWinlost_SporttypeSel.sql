@@ -12,7 +12,7 @@ AS
 
 	Revisions:
 		202000703@Cherry: NAP Report - Add filter Sport of Sportbook (#135880)
-		
+		20201001@Cherry: Add Licensee Odds Spread (#141750)
 
 	Param's Explanation:
 
@@ -35,6 +35,8 @@ BEGIN
 	SELECT 10000 SportType, 'Other Sports' SportName
 	UNION 
 	SELECT 20000 SportType, 'Parlay' SportName
+	UNION
+	SELECT 30000 SportType, 'SB Adjustment' SportName
 
 END
 GO
