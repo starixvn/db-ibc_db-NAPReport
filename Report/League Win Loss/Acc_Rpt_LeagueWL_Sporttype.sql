@@ -212,8 +212,8 @@ BEGIN
 	FROM bodb02.dbo.bettrans sd (NOLOCK)
 		 INNER JOIN #tmpMatch m ON sd.matchid = m.matchid
 								   AND CASE WHEN sd.bettype = 10 THEN 1 ELSE 0 END = m.matchtype
-		 INNER JOIN #tmpSportBettypeMatrix sbm ON m.sporttype = sbm.SportType
-			                                      AND sd.BetType = sbm.BetType
+		 INNER JOIN #tmpSportBettypeMatrix sbm ON sd.BetType = sbm.BetType --note: do not add filter `sd.SportType = sbm.SportType`
+		 																   --as it will cause Optimizer to create bad plan
 	WHERE sd.winlostdate = @StartDate
 		  AND sd.ruben = 1
 		  AND sd.statusID IN (111, 112, 113)
@@ -385,8 +385,7 @@ BEGIN
 	FROM bodb02.dbo.bettrans sd (NOLOCK)
 		 INNER JOIN #tmpMatch m ON sd.matchid = m.matchid
 								   AND CASE WHEN sd.bettype = 10 THEN 1 ELSE 0 END = m.matchtype
-		 INNER JOIN #tmpSportBettypeMatrix sbm ON m.SportType = sbm.SportType
-												  AND sd.BetType = sbm.BetType
+		 INNER JOIN #tmpSportBettypeMatrix sbm ON sd.BetType = sbm.BetType
 	WHERE sd.winlostdate = @StartDate
 		  AND sd.ruben = 1
 		  AND sd.statusID IN (111, 112, 113)
