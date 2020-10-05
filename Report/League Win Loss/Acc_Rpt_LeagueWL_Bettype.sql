@@ -220,7 +220,7 @@ BEGIN
 						END) AS VirtualTurnover
 			FROM bodb02.dbo.bettrans sd (NOLOCK)
 			INNER JOIN #tmpSportBettypeMatrix mtrix
-				ON mtrix.BetType = sd.bettype AND mtrix.SportType = @SportType
+				ON mtrix.BetType = sd.bettype
 			WHERE sd.winlostdate = @StartDate
 				AND sd.matchid = @MatchID
 				AND sd.liveindicator = @LiveIndicator
