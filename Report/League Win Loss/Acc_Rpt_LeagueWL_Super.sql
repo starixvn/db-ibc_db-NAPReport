@@ -31,7 +31,7 @@ AS
 					 1 - No get draw ticktes to report
 
 	Example:
-       EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Super @StartDate='20200620', @EndDate='20200630'
+       EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Super_xtest @StartDate='20200620', @EndDate='20200630'
                 , @MatchID=36693927, @SiteID = 3, @LiveIndicator=0, @BetType=1, @IsNoDraw=0
 */
 
@@ -229,13 +229,9 @@ BEGIN
     -- final aggregation by SuperID, display report
     -- check if this master has VR settings (core logic extracted from Acc_Rpt_LeagueWL_CustVirtualMultiplierSel)
     ;WITH CTE_currVirtualRate AS (
-		SELECT cvs.custid
-		FROM bodb02.dbo.CustVirtualSetting AS cvs WITH (NOLOCK)
-		INNER JOIN bodb02.dbo.ProfileVirtualSetting AS pvs WITH (NOLOCK) 
-			ON cvs.seqNo = pvs.seqNo
-		WHERE pvs.sporttype NOT IN (43, 2) 
-			AND pvs.isActive = 1
-            AND pvs.bettype in (1,3) --only get Handicap, Over/Under
+		SELECT custid, 
+            CASE WHEN ISNULL(VirtualMultiplier, 0) <> 0 THEN 1 ELSE 0 END HasVR
+		FROM bodb02.dbo.custInfo WITH (NOLOCK)
 	)
 	SELECT  t.SuperID SuperID,
             t.SuperName SuperName,
@@ -248,8 +244,10 @@ BEGIN
             SUM(VarianceIncome) AS VarianceIncome,
             SUM(RealTurnover) AS RealTurnover, 
             SUM(VirtualTurnover) AS VirtualTurnover,
-            CAST(CASE WHEN EXISTS (SELECT 1 FROM CTE_currVirtualRate cte WHERE cte.custid = t.SuperID) THEN 1
-                 ELSE 0 END AS BIT) HasVR
+            CAST(CASE WHEN EXISTS (SELECT 1 FROM CTE_currVirtualRate cte WHERE cte.custid = t.SuperID AND cte.HasVR = 1) 
+                      THEN 1
+                      ELSE 0 END 
+                 AS BIT) HasVR
 	FROM #tmpData t
     GROUP BY t.SuperID, t.SuperName
     ORDER BY CASE WHEN t.SuperName = 'Soccer 8RM'        THEN 2
