@@ -117,35 +117,34 @@ BEGIN
 				AND site IN (SELECT SiteName FROM CTE_Sites)
 	END
 
-	-- #tmpData
-	CREATE TABLE #tmpData (SportType		SMALLINT,
-						   Sport			VARCHAR(50),
-						   LeagueName		VARCHAR(150),
-						   MemberWinLoss	MONEY,
-						   SMAWinLoss		MONEY,
-						   ExtraPT			MONEY,
-						   Commission		MONEY,
-						   RealIncome		MONEY,
-						   VirtualIncome	MONEY,
-						   VarianceIncome	MONEY,
-						   RealTurnover		MONEY,
-						   VirtualTurnover	MONEY)
+	--staging table for performance enhancement
+	CREATE TABLE #transLeague(LeagueID			INT, 
+						      BetType 			INT,
+						      LeagueName		VARCHAR(150),
+						      MemberWinLoss		MONEY,
+						      SMAWinLoss		MONEY,
+						      ExtraPT			MONEY,
+						      Commission		MONEY,
+						      RealIncome		MONEY,
+						      VirtualIncome		MONEY,
+						      VarianceIncome	MONEY,
+						      RealTurnover		MONEY,
+						      VirtualTurnover	MONEY)
 	
-	-- + Soccer, Other Sports
-	INSERT INTO #tmpData (SportType,
-						  Sport,
-						  LeagueName,
-						  MemberWinLoss,
-						  SMAWinLoss,
-						  ExtraPT,
-						  Commission,
-						  RealIncome,
-						  VirtualIncome,
-						  VarianceIncome,
-						  RealTurnover,
-						  VirtualTurnover)
-	SELECT sbm.SportType AS SportType,
-		   sbm.Sport AS Sport,
+	INSERT INTO #transLeague(LeagueID,
+						     BetType,
+						     LeagueName,
+						     MemberWinLoss,
+						     SMAWinLoss,
+						     ExtraPT,
+						     Commission,
+						     RealIncome,
+						     VirtualIncome,
+						     VarianceIncome,
+						     RealTurnover,
+						     VirtualTurnover)
+	SELECT m.leagueid,
+		   sd.bettype,
 		   m.leaguename AS LeagueName,
 		   SUM((sd.winlost - sd.actual_stake) * sd.actualrate) AS MemberWinLoss,
            SUM((sd.awinlost + sd.mwinlost + sd.swinlost) * sd.actualrate) AS SMAWinLoss,
@@ -212,8 +211,6 @@ BEGIN
 	FROM bodb02.dbo.bettrans sd (NOLOCK)
 		 INNER JOIN #tmpMatch m ON sd.matchid = m.matchid
 								   AND CASE WHEN sd.bettype = 10 THEN 1 ELSE 0 END = m.matchtype
-		 INNER JOIN #tmpSportBettypeMatrix sbm ON m.sporttype = sbm.SportType
-			                                      AND sd.BetType = sbm.BetType
 	WHERE sd.winlostdate = @StartDate
 		  AND sd.ruben = 1
 		  AND sd.statusID IN (111, 112, 113)
@@ -221,10 +218,54 @@ BEGIN
 		  AND sd.bettype NOT IN (9, 29)
 		  AND (@IsNoDraw = 0 OR (@IsNoDraw = 1 AND sd.statusID NOT IN (111)))
 		  AND (@SiteName = 'ALL' OR sd.recommend IN (SELECT AgentID FROM #tmpAgentBySite))
-	GROUP BY sbm.SportType,
-			 sbm.Sport,
-		     m.leaguename
+		  AND sd.bettype IN (SELECT s.BetType FROM #tmpSportBettypeMatrix s )
+	GROUP BY m.leagueid, sd.bettype, m.leaguename
 	OPTION (RECOMPILE)
+
+	-- #tmpData
+	-- + Soccer, Other Sports
+	CREATE TABLE #tmpData (SportType		SMALLINT,
+						   Sport			VARCHAR(50),
+						   LeagueName		VARCHAR(150),
+						   MemberWinLoss	MONEY,
+						   SMAWinLoss		MONEY,
+						   ExtraPT			MONEY,
+						   Commission		MONEY,
+						   RealIncome		MONEY,
+						   VirtualIncome	MONEY,
+						   VarianceIncome	MONEY,
+						   RealTurnover		MONEY,
+						   VirtualTurnover	MONEY)
+
+	INSERT INTO #tmpData (SportType,
+						  Sport,
+						  LeagueName,
+						  MemberWinLoss,
+						  SMAWinLoss,
+						  ExtraPT,
+						  Commission,
+						  RealIncome,
+						  VirtualIncome,
+						  VarianceIncome,
+						  RealTurnover,
+						  VirtualTurnover)
+	   SELECT l.sporttype,
+	   		  sbm.Sport,
+		      l.leaguename AS LeagueName,
+		      SUM(MemberWinLoss) AS MemberWinLoss,
+              SUM(SMAWinLoss) AS SMAWinLoss,
+		      SUM(ExtraPT) AS ExtraPT,
+		      SUM(Commission) AS Commission,
+		      SUM(RealIncome) AS RealIncome,
+		      SUM(VirtualIncome) AS VirtualIncome,
+              SUM(VarianceIncome) AS VarianceIncome,
+              SUM(RealTurnover) AS RealTurnover, 
+		      SUM(VirtualTurnover) AS VirtualTurnover
+		FROM #transLeague sd 
+		INNER JOIN bodb02.dbo.League l WITH (NOLOCK) ON sd.leagueid = l.leagueid	
+		INNER JOIN #tmpSportBettypeMatrix sbm ON l.sporttype = sbm.SportType AND sd.BetType = sbm.BetType
+		GROUP BY  l.sporttype, sbm.Sport, l.leaguename
+		OPTION (RECOMPILE)
 	
 	-- + Parlay
 	INSERT INTO #tmpData (SportType,
@@ -441,6 +482,8 @@ BEGIN
 	DROP TABLE #tmpLeague
 	DROP TABLE #tmpMatch
 	DROP TABLE #tmpData
+	DROP TABLE #tmpAgentBySite
+	DROP TABLE #transLeague
 
 END
 GO
