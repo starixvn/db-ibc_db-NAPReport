@@ -48,6 +48,7 @@ Revisions:
 - 20200520@Cherry: Integrate Saba.club (#134441)
 - 20200522@Cherry: Integrate RNG War (#132009)
 - 20200713@Ned.Le: NAP Report - Incorporate Jackpot Games (#137271)
+- 20200930@Jaden.Tang: Odds Spread Adjustment (#141750)
 
 Explanation's Param:
 
@@ -677,12 +678,9 @@ Explanation's Param:
 				 AND b.statusID IN(111, 112, 113)
 				 AND b.ruben = 1
 				 AND
-					(s.productID <> 1
-					 AND s.RefTable NOT IN(1, 2)
-					 OR s.productID = 1
-					 AND s.SubProduct IN('MG-SuperLive', 'BT-Comm', 'BT-Winloss', 'Bet Builder')
-					 OR s.productID = 1
-					 AND s.EventType = 0)
+					(s.productID <> 1 AND s.RefTable NOT IN(1, 2)
+					 OR s.productID = 1 AND s.SubProduct IN('MG-SuperLive', 'BT-Comm', 'BT-Winloss', 'Bet Builder')
+					 OR s.productID = 1 AND s.EventType = 0) /*include "Odds Spread Adjustment" & "Parlay"*/
 			GROUP BY srecommend
 				  , CASE s.SubProduct
 					   WHEN 'MG-SuperLive'
@@ -693,10 +691,12 @@ Explanation's Param:
 					   THEN-2
 					   WHEN 'Bet Builder'
 					   THEN-6
+					   WHEN 'Odds Spread Adjustment'
+					   THEN-7 /*odds spread (#141750)*/
 					   ELSE CASE
 							  WHEN s.EventType = 0
 								  AND ProductID = 1
-							  THEN-3
+							  THEN-3 /*parlay*/
 							  ELSE s.ProductID
 						   END
 				    END
@@ -1077,7 +1077,7 @@ Explanation's Param:
 			WHERE b.ProductId IN (-1, -6)
 			GROUP BY b.ProductId
 				  , site;
-	   -- Parlay, NUMBER GAME			 
+	   -- Parlay, NUMBER GAME, Licensee Odds Spread		 
 	   INSERT INTO #Result(ProductId
 					 , site
 					 , winlost
@@ -1103,9 +1103,10 @@ Explanation's Param:
 				, SUM(WinlossForExtraPT_actualrate) AS ExtraPT
 				, SUM(WinlossForExtraPT_actualrate + grosscomm_actualrate) AS NewExtraPT
 			FROM #src AS b
-			WHERE b.ProductID IN (-3, 3)
+			WHERE b.ProductID IN (-3, 3, -7)
 			GROUP BY b.ProductId
 				  , site;
+
 	   --bettrade
 	   INSERT INTO #Result(ProductId
 					 , site
@@ -1297,20 +1298,21 @@ Explanation's Param:
 			(1, -5, 'Soccer'),
 			(2, -4, 'Other Sports'),
 			(3, -3, 'Parlay'),
-			(4, -1, 'Metric Gaming - Superlive'),
-			(5, -6, 'Bet Builder'),
-			(6, 8, 'RNG Keno'),
-			(7, 3, 'Number Game'),
-			(8, 4, 'Live Casino'),
-			(9, 6, 'Casino'),
-			(10, 5, 'Virtual Sports'),
-			(11, 27, 'Virtual Sports 2'),
-			(12, 28, 'Lottery'),
-			(13, 23, 'NG2'),
-			(14, -2, 'Bettrade'),
-			(15, 25, 'Cash Out'),
-			(16, 15, 'Colossus Bets'),
-			(17, 24, 'Fishing World'),
+			(4, -7, 'SB Adjustment'),
+			(5, -1, 'Metric Gaming - Superlive'),
+			(6, -6, 'Bet Builder'),
+			(7, 8, 'RNG Keno'),
+			(8, 3, 'Number Game'),
+			(9, 4, 'Live Casino'),
+			(10, 6, 'Casino'),
+			(11, 5, 'Virtual Sports'),
+			(12, 27, 'Virtual Sports 2'),
+			(13, 28, 'Lottery'),
+			(14, 23, 'NG2'),
+			(15, -2, 'Bettrade'),
+			(16, 25, 'Cash Out'),
+			(17, 15, 'Colossus Bets'),
+			(18, 24, 'Fishing World'),
 			(20, 31, 'Exchange'),
 			(21, 37, 'Saba Promotion'),
 			(22, 38, 'Virtual Games'),
