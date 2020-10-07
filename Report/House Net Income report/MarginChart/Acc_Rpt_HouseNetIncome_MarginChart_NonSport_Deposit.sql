@@ -46,7 +46,7 @@ BEGIN
 	-- Get list of product
 	BEGIN
 		IF ISNULL(@ProductList, '') = ''
-			SELECT @ProductList = 'EX,GD,FW,AB,VB,CB,CO,AGC,KN,LT,CS,NG,H5,PP,CC,SP,SG,VRG,SAG,I4D,TG,SBC,SXG,PGS,WM,JK'
+			SELECT @ProductList = 'EX,GD,FW,AB,VB,CB,CO,AGC,KN,LT,CS,NG,H5,PP,CC,SP,SG,VRG,SAG,I4D,TG,SBC,SXG,PGS,WM,JK,VS,VS2'
 
 		SELECT @ProductList = ',' + @ProductList + ','
 		SELECT @ProductList = REPLACE(REPLACE(REPLACE(@ProductList, ',SB,', ',SB,BA,'), ',EX,', ',BX,'), ',SP,', ',SPR,')
