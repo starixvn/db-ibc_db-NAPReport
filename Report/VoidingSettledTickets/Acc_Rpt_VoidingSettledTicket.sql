@@ -4,10 +4,9 @@ USE [bodb02]
 GO
 
 ALTER PROCEDURE dbo.Acc_Rpt_VoidingSettledTicket
-	@RptDate     DATE
-   , @VoidTime   DATETIME
-   , @MatchId     VARCHAR(MAX) 
-
+	@WinlostDate DATE
+   , @VoidTime   SMALLDATETIME
+   , @MatchId    INT
 AS
 /*  
 Created by: Cherry  
