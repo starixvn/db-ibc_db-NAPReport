@@ -7,6 +7,7 @@ ALTER PROCEDURE dbo.Acc_Rpt_LeagueWL_Sporttype @StartDate SMALLDATETIME,
                                                @EndDate SMALLDATETIME,
                                                @SportBettype VARCHAR(MAX),
 											   @LeagueName VARCHAR(500) = '',
+											   @SiteName VARCHAR(MAX) = 'ALL',
 										       @IsNoDraw BIT = 0
 AS
 /*
@@ -18,6 +19,7 @@ AS
 		- 20200422@Ned.Le: NAP Report - Adjustment for League Win Loss (#132846)
 		- 20200520@Ned.Le: NAP Report - Enhancement for League Win Loss (#134439)
 		- 20200626@Ned.Le: NAP Report - Enhancement for searching a league info on Punter Analysis and League Win Loss Report (#136277)
+		- 20200923@Jaden.Tang: NAP Report - Add filter by SiteName (#138955)
 
 	Param's Explanation:
 		- @StartDate: The start date of data to view on report
@@ -26,12 +28,15 @@ AS
 		                 Example '1_1,2_1' --> 'Soccer_Handicap,Basketball_Handicap'
 		- @LeagueName: The leaguename to view on report
 		               If value is '', it means that no filter by LeagueName
+		- @SiteName: Filter by list of site names (delimited by commas)
 		- @IsNoDraw: To get the draw tickets to report or not
 		             0 - Get draw ticktes to report
 					 1 - No get draw ticktes to report
 
 	Example:
-		EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Sporttype @StartDate='20200407', @EndDate='20200407', @SportBettype='1_1,1_2,10000_9,10000_29,2_1,3_1,4_1', @LeagueName='', @IsNoDraw=0
+		EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Sporttype @StartDate='2020-09-06', @EndDate='2020-09-06', 
+			@SportBettype='1_1,1_2,10000_9,10000_29,2_1,3_1,4_1,5_1,6_1,7_1,8_1,9_1', @LeagueName='', @IsNoDraw=0, 
+			@SiteName = '12Bet,755555,INDO,789y,IBCIndo,BEST-ODDS,722222,733333,XYZBET,asiabet88'
 */
 
 BEGIN
@@ -46,7 +51,7 @@ BEGIN
 	;WITH CTE_SportBettypeMatrix AS (
 		SELECT CAST(LEFT(val, CHARINDEX('_', val)-1) AS INT) AS SportType,
 			   CAST(SUBSTRING(val, CHARINDEX('_', val)+1, 6) AS INT) AS BetType
-		FROM bodb02.dbo.strSplit_str(@SportBettype, ',')
+		FROM bodb02.dbo.strSplit(@SportBettype, ',')
 		WHERE LEN(val) > 0
 	)
 	INSERT INTO #tmpSportBettypeMatrix (SportType, Sport, BetType)
@@ -97,35 +102,49 @@ BEGIN
 	
 	CREATE UNIQUE CLUSTERED INDEX PK_tmpMatch ON #tmpMatch(matchid, matchtype)
 
-	-- #tmpData
-	CREATE TABLE #tmpData (SportType		SMALLINT,
-						   Sport			VARCHAR(50),
-						   LeagueName		VARCHAR(150),
-						   MemberWinLoss	MONEY,
-						   SMAWinLoss		MONEY,
-						   ExtraPT			MONEY,
-						   Commission		MONEY,
-						   RealIncome		MONEY,
-						   VirtualIncome	MONEY,
-						   VarianceIncome	MONEY,
-						   RealTurnover		MONEY,
-						   VirtualTurnover	MONEY)
+	-- #tmpAgentBySite: list of active agents in the list input @SiteName
+	CREATE TABLE #tmpAgentBySite (AgentID INT)
+	IF @SiteName <> 'ALL' BEGIN
+		;WITH CTE_Sites AS (
+			SELECT val SiteName
+			FROM bodb02.dbo.strSplit(@SiteName, ',')
+			WHERE LEN(val) > 0
+		)
+		INSERT INTO #tmpAgentBySite
+			SELECT custid AgentID
+			FROM bodb02.dbo.Customer WITH (NOLOCK)
+			WHERE roleid = 2
+				AND site IN (SELECT SiteName FROM CTE_Sites)
+	END
+
+	--staging table for performance enhancement
+	CREATE TABLE #transLeague(LeagueID			INT, 
+						      BetType 			INT,
+						      LeagueName		VARCHAR(150),
+						      MemberWinLoss		MONEY,
+						      SMAWinLoss		MONEY,
+						      ExtraPT			MONEY,
+						      Commission		MONEY,
+						      RealIncome		MONEY,
+						      VirtualIncome		MONEY,
+						      VarianceIncome	MONEY,
+						      RealTurnover		MONEY,
+						      VirtualTurnover	MONEY)
 	
-	-- + Soccer, Other Sports
-	INSERT INTO #tmpData (SportType,
-						  Sport,
-						  LeagueName,
-						  MemberWinLoss,
-						  SMAWinLoss,
-						  ExtraPT,
-						  Commission,
-						  RealIncome,
-						  VirtualIncome,
-						  VarianceIncome,
-						  RealTurnover,
-						  VirtualTurnover)
-	SELECT sbm.SportType AS SportType,
-		   sbm.Sport AS Sport,
+	INSERT INTO #transLeague(LeagueID,
+						     BetType,
+						     LeagueName,
+						     MemberWinLoss,
+						     SMAWinLoss,
+						     ExtraPT,
+						     Commission,
+						     RealIncome,
+						     VirtualIncome,
+						     VarianceIncome,
+						     RealTurnover,
+						     VirtualTurnover)
+	SELECT m.leagueid,
+		   sd.bettype,
 		   m.leaguename AS LeagueName,
 		   SUM((sd.winlost - sd.actual_stake) * sd.actualrate) AS MemberWinLoss,
            SUM((sd.awinlost + sd.mwinlost + sd.swinlost) * sd.actualrate) AS SMAWinLoss,
@@ -192,18 +211,61 @@ BEGIN
 	FROM bodb02.dbo.bettrans sd (NOLOCK)
 		 INNER JOIN #tmpMatch m ON sd.matchid = m.matchid
 								   AND CASE WHEN sd.bettype = 10 THEN 1 ELSE 0 END = m.matchtype
-		 INNER JOIN #tmpSportBettypeMatrix sbm ON m.sporttype = sbm.SportType
-			                                      AND sd.BetType = sbm.BetType
 	WHERE sd.winlostdate = @StartDate
 		  AND sd.ruben = 1
 		  AND sd.statusID IN (111, 112, 113)
 		  AND sd.currency NOT IN (20, 27, 28)
 		  AND sd.bettype NOT IN (9, 29)
 		  AND (@IsNoDraw = 0 OR (@IsNoDraw = 1 AND sd.statusID NOT IN (111)))
-	GROUP BY sbm.SportType,
-			 sbm.Sport,
-		     m.leaguename
+		  AND (@SiteName = 'ALL' OR sd.recommend IN (SELECT AgentID FROM #tmpAgentBySite))
+		  AND sd.bettype IN (SELECT s.BetType FROM #tmpSportBettypeMatrix s )
+	GROUP BY m.leagueid, sd.bettype, m.leaguename
 	OPTION (RECOMPILE)
+
+	-- #tmpData
+	-- + Soccer, Other Sports
+	CREATE TABLE #tmpData (SportType		SMALLINT,
+						   Sport			VARCHAR(50),
+						   LeagueName		VARCHAR(150),
+						   MemberWinLoss	MONEY,
+						   SMAWinLoss		MONEY,
+						   ExtraPT			MONEY,
+						   Commission		MONEY,
+						   RealIncome		MONEY,
+						   VirtualIncome	MONEY,
+						   VarianceIncome	MONEY,
+						   RealTurnover		MONEY,
+						   VirtualTurnover	MONEY)
+
+	INSERT INTO #tmpData (SportType,
+						  Sport,
+						  LeagueName,
+						  MemberWinLoss,
+						  SMAWinLoss,
+						  ExtraPT,
+						  Commission,
+						  RealIncome,
+						  VirtualIncome,
+						  VarianceIncome,
+						  RealTurnover,
+						  VirtualTurnover)
+	   SELECT l.sporttype,
+	   		  sbm.Sport,
+		      l.leaguename AS LeagueName,
+		      SUM(MemberWinLoss) AS MemberWinLoss,
+              SUM(SMAWinLoss) AS SMAWinLoss,
+		      SUM(ExtraPT) AS ExtraPT,
+		      SUM(Commission) AS Commission,
+		      SUM(RealIncome) AS RealIncome,
+		      SUM(VirtualIncome) AS VirtualIncome,
+              SUM(VarianceIncome) AS VarianceIncome,
+              SUM(RealTurnover) AS RealTurnover, 
+		      SUM(VirtualTurnover) AS VirtualTurnover
+		FROM #transLeague sd 
+		INNER JOIN bodb02.dbo.League l WITH (NOLOCK) ON sd.leagueid = l.leagueid	
+		INNER JOIN #tmpSportBettypeMatrix sbm ON l.sporttype = sbm.SportType AND sd.BetType = sbm.BetType
+		GROUP BY  l.sporttype, sbm.Sport, l.leaguename
+		OPTION (RECOMPILE)
 	
 	-- + Parlay
 	INSERT INTO #tmpData (SportType,
@@ -268,6 +330,7 @@ BEGIN
 		  AND sd.currency NOT IN (20, 27, 28)
 		  AND sd.bettype IN (SELECT BetType FROM #tmpSportBettypeMatrix WHERE SportType = 10000)
 		  AND (@IsNoDraw = 0 OR (@IsNoDraw = 1 AND sd.statusID NOT IN (111)))
+		  AND (@SiteName = 'ALL' OR sd.recommend IN (SELECT AgentID FROM #tmpAgentBySite))
 	OPTION (RECOMPILE)
 
 	-- + RM
@@ -371,6 +434,7 @@ BEGIN
 		  AND sd.currency NOT IN (20, 27, 28)
 		  AND sd.bettype NOT IN (9, 29)
 		  AND sd.recommend IN (52466, 5707545)
+		  AND (@SiteName = 'ALL' OR sd.recommend IN (SELECT AgentID FROM #tmpAgentBySite))
 		  AND (@IsNoDraw = 0 OR (@IsNoDraw = 1 AND sd.statusID NOT IN (111)))
 	GROUP BY CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466	THEN 10001
 				  WHEN sbm.SportType > 1 AND sd.recommend = 52466	THEN 10002
@@ -404,13 +468,22 @@ BEGIN
 		   VirtualTurnover
 	FROM #tmpData
 	WHERE MemberWinLoss IS NOT NULL
-	ORDER BY RealTurnover DESC
+	ORDER BY CASE WHEN Sport = 'Soccer' 	THEN 1
+				  WHEN Sport = 'Parlay' 	THEN 2
+				  WHEN Sport = 'Basketball' THEN 3
+				  WHEN Sport = 'Tennis'		THEN 4
+				  WHEN Sport = 'E-Sports'	THEN 5 
+				  ELSE 
+				  	CASE WHEN SportType > 10000 THEN 99 ELSE 6 END
+				  END, Sport, LeagueName --fix some sports at top, then sort by league name
 
 	-- Drop temp tables
 	DROP TABLE #tmpSportBettypeMatrix
 	DROP TABLE #tmpLeague
 	DROP TABLE #tmpMatch
 	DROP TABLE #tmpData
+	DROP TABLE #tmpAgentBySite
+	DROP TABLE #transLeague
 
 END
 GO

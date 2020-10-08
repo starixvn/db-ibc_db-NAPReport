@@ -13,6 +13,7 @@ AS
 	Revisions:
 		- 20200422@Ned.Le: NAP Report - Adjustment for League Win Loss (#132846)
 		- 20200520@Ned.Le: NAP Report - Enhancement for League Win Loss (#134439)
+		- 20200806@Jaden.Tang: NAP Report - Enhancement for League Win Loss (#138995)
 
 	Param's Explanation:
 
@@ -28,11 +29,28 @@ BEGIN
 		-- Soccer & Others
 		SELECT DISTINCT
 			   CASE WHEN sbm.SportType = 1 THEN 1
+			   		WHEN sbm.SportType = 2 THEN 2
 					ELSE 20000 END SportGroupType,
 			   CASE WHEN sbm.SportType = 1 THEN 'Soccer'
+			   		WHEN sbm.SportType = 2 THEN 'Basketball'
 					ELSE 'Others' END SportGroupName,
 			   sbm.SportType,
-			   s.SportName,
+			   s.SportName SportName,
+			   CASE
+					WHEN (sbm.BetType IN (1, 2, 3, 5, 6, 7, 8, 12, 15, 24, 25, 28, 121, 122,123, 126, 151, 301, 302, 303, 304)
+						AND s.SportType = 1)  --Soccer
+						OR
+						(sbm.BetType IN (1, 2, 3, 7, 8, 12)
+						AND s.SportType = 2) --Basketball
+					THEN 'Major Bet Types'
+					WHEN (sbm.BetType NOT IN (1, 2, 3, 5, 6, 7, 8, 12, 15, 24, 25, 28, 121, 122,123, 126, 151, 301, 302, 303, 304)
+						AND s.SportType = 1)  --Soccer
+						OR
+						(sbm.BetType NOT IN (1, 2, 3, 7, 8, 12)
+						AND s.SportType = 2) --Basketball
+					THEN 'Minor Bet Types'
+					ELSE SportName
+			   END BetGroupName,
 			   sbm.BetType Bettype,
 			   b.typenamee BettypeName
 		FROM bodb02.dbo.SportBettypeMatrix sbm (NOLOCK)
@@ -49,6 +67,7 @@ BEGIN
 			   'Parlay' SportGroupName,
 			   10000 SportType,
 			   'Parlay' SportName,
+			   'Parlay' BetGroupName,
 			   sbm.BetType Bettype,
 			   b.typenamee BettypeName
 		FROM bodb02.dbo.SportBettypeMatrix sbm (NOLOCK)
@@ -60,12 +79,14 @@ BEGIN
 		   SportGroupName,
 		   SportType,
 		   SportName,
+		   BetGroupName,
 		   Bettype,
 		   BettypeName
 	FROM CTE_ListOfSports
 	WHERE BettypeName IS NOT NULL
 	ORDER BY SportGroupType ASC,
 			 SportName ASC,
+			 BetGroupName ASC,
 			 BettypeName ASC
 
 END
