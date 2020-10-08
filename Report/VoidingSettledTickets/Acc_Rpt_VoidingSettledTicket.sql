@@ -21,23 +21,62 @@ Revisions:
 
 BEGIN
     SET NOCOUNT ON
-    CREATE TABLE #Result 
-	(	ProductGroup VARCHAR(50),
-		HouseIncomeBeforeExtraPT MONEY,
-		HouseIncomeAfterExtraPT MONEY	
-	)
-	INSERT INTO #Result VALUES('SPL', 2000, 3000)
-	INSERT INTO #Result VALUES('SPNL', -2000, -3000)
-	INSERT INTO #Result VALUES('Parlay', -2500, -3000)
-	INSERT INTO #Result VALUES('Outright', -2000, -2500)
-	INSERT INTO #Result VALUES('Bet Builder', 2500, 3000)
-	INSERT INTO #Result VALUES('Metric Gaming - Super Live', 2000, 3000)
-	INSERT INTO #Result VALUES('Muay Thai', 5000, 8000)
-	INSERT INTO #Result VALUES('Cash Out', 4000, 6000)
-	INSERT INTO #Result VALUES('CN88 SPL', -2000, -3000)
-	INSERT INTO #Result VALUES('CN88 SPNL', -2500, -3000)
-	INSERT INTO #Result VALUES('CN88 Parlay', 1000, 2000)
-	INSERT INTO #Result VALUES('CN88 Outright', -2000, -3000)
+    CREATE TABLE #VoidTrans 
+		(TransID BIGINT, 
+		CustID INT, 
+		VoidDate DATETIME, 
+		Bettype INT, 
+		Matchid INT, 
+		Recommend INT,
+		liveindicator BIT,
+		ActualRate FLOAT, 
+		tpositiontaking SMALLMONEY, 
+		epositiontaking SMALLMONEY)
+	CREATE TABLE #VoidRecord 
+		(TransID BIGINT, 
+		CustID INT, 
+		ActionDate SMALLDATETIME)
+	CREATE TABLE #SettledRecord 
+		(TransID BIGINT, 
+		CustID INT, 
+		winlost MONEY, 
+		actual_stake MONEY, 
+		awinlost MONEY, 
+		mwinlost MONEY, 
+		swinlost MONEY, 
+		scomm MONEY)
+	CREATE TABLE #Result 
+		(ProductGroup VARCHAR(50),	
+		HouseIncomeBeforeExtraPT MONEY,	
+		HouseIncomeAfterExtraPT MONEY)
+
+	INSERT INTO #VoidTrans (TransID, CustID, VoidDate)
+	SELECT z.transid, z.custid, z.transdate
+	  FROM bodb02.dbo.zzzbettrans z (NOLOCK)
+		inner join bodb02.dbo.bettrans b (NOLOCK) ON z.custid = b.custid AND z.transid = b.transid 
+	  where z.status in ('WON','LOSE','DRAW')
+		  and b.winlostdate = '20201006'
+		  and z.transdate >= '20201006 00:00:00'
+		  and b.currency <> 20
+  
+	INSERT INTO #VoidRecord (TransID, CustID, ActionDate)
+	SELECT b.TransID, b.CustID, MAX(b.ActionDate)
+	FROM bodb02.dbo.BalanceRecord b (NOLOCK)
+	WHERE EXISTS(SELECT TOP 1 1 FROM #VoidTrans v WHERE b.TransID = v.TransID AND b.CustID = v.CustID)
+	AND ActionID = 50
+	GROUP BY b.TransID, b.CustID
+
+	INSERT INTO #SettledRecord (TransID, CustID, RowID)
+	SELECT b.transid, b.custid, b.RowID
+	FROM bodb02.dbo.BalanceRecord b (NOLOCK)
+	WHERE b.ActionDate = (SELECT MAX(c.ActionDate)
+						  FROM bodb02.dbo.BalanceRecord c (NOLOCK)
+						  WHERE EXISTS(SELECT TOP 1 1 FROM #VoidRecord v WHERE c.TransID = v.TransID AND c.CustID = v.CustID AND c.ActionDate < v.ActionDate))
+		AND EXISTS(SELECT TOP 1 1 FROM #VoidRecord v WHERE b.TransID = v.TransID AND b.CustID = v.CustID)
+    
+	DROP TABLE #VoidTrans
+	DROP TABLE #VoidRecord
+	DROP TABLE #SettledRecord
 	
 	SELECT *
 	FROM #Result
