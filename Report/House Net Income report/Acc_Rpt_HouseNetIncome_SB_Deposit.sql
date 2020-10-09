@@ -283,7 +283,7 @@ BEGIN
 		WHERE
 		(
 			(t.ProductId IN (0, 3, -4) AND p.PartyId IS NOT NULL)
-			OR (t.ProductId NOT IN (0, 3, -4) AND p.PartyId IS NULL)
+			OR (t.ProductId NOT IN (0, 3, -4))
 		)
 		GROUP BY t.rptDate, l.PartyId, t.ProductId, t.SporttypeGroup
 

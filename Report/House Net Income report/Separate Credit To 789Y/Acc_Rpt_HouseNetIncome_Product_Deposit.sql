@@ -36,6 +36,8 @@ BEGIN
 	DECLARE @FDate DATE, @TDate DATE
 	SELECT  @FDate = @FromDate, @TDate = @ToDate
 
+	DECLARE @ProductCodes VARCHAR(MAX), @ProductCodesGMT VARCHAR(MAX)
+
 	-- Get list of product
 	BEGIN
 		IF ISNULL(@ProductList, '') = ''
@@ -66,6 +68,9 @@ BEGIN
 			WHERE ProductCode = 'PP-JP'
 
 		UPDATE @Products SET Product3rdId = -999, ProductId = -999 WHERE ProductId IS NULL
+
+		SELECT @ProductCodes = COALESCE(@ProductCodes + ',', '') + ProductCode
+		FROM (SELECT ProductCode FROM @Products WHERE ProductCode IS NOT NULL) t
 	END
 
 	-- Get licensee charge rate
@@ -125,7 +130,7 @@ BEGIN
 		)
 		INSERT INTO #PartyChargeInfo (ChargeId, PartyId, LicenseeId, ParentId, Product3rdId, Rate, FromDate, ToDate, Bettype, ChargeType)
 		SELECT ci.ChargeId, ci.PartyId, ci.LicenseeId, p.ParentId, ci.ProductId, ci.DI_Rate, ci.FromDate, ci.ToDate, ISNULL(sbr.Bettype, ci.Bettype), ci.ChargeType
-		FROM bodb_licensee.dbo.LA_f_ChargeInfo (@PartyIDs, @FDate, @TDate, @ProductList, 'OA', 1) ci
+		FROM bodb_licensee.dbo.LA_f_ChargeInfo (@PartyIDs, @FDate, @TDate, @ProductCodes, 'OA', 1) ci
 			INNER JOIN #Licensees p ON ci.PartyID = p.PartyID
 			LEFT JOIN bodb_licensee.dbo.Sport_Bettype_Reference sbr WITH (NOLOCK) ON sbr.BettypeRef = ci.Bettype
 		WHERE
@@ -149,7 +154,7 @@ BEGIN
 		-- Licensee to 3rd
 		INSERT INTO #PartyCharge3rdInfo (LicenseeId, Product3rdId, ChargeType, Rate, FromDate, ToDate)
 		SELECT DISTINCT p.LicenseeId, ci.ProductId, ci.ChargeType, ci.DI_Rate, ci.FromDate, ci.ToDate
-		FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd (@FDate, @TDate, @ProductList, 'OA') ci
+		FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd (@FDate, @TDate, @ProductCodes, 'OA') ci
 			INNER JOIN #PartyChargeInfo p ON p.PartyId = ci.PartyId AND ci.ProductId = p.Product3rdId
 		WHERE
 			(
@@ -161,7 +166,7 @@ BEGIN
 		-- OW to 3rd
 		INSERT INTO #PartyCharge3rdInfo (LicenseeId, Product3rdId, ChargeType, Rate, FromDate, ToDate)
 		SELECT DISTINCT p.LicenseeId, ci.ProductId, ci.ChargeType, ci.DI_Rate, ci.FromDate, ci.ToDate
-		FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd (@FDate, @TDate, @ProductList, 'OA') ci
+		FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd (@FDate, @TDate, @ProductCodes, 'OA') ci
 			INNER JOIN #PartyChargeInfo p ON p.ParentId = ci.PartyId AND ci.ProductId = p.Product3rdId
 		WHERE
 			(
@@ -565,7 +570,7 @@ BEGIN
 			LEFT JOIN bodb_Licensee.dbo.LA_ChargeRateByCurrency lc WITH (NOLOCK) ON p.ChargeId = lc.ChargeId AND t.CurrencyId = lc.CurrencyId
 		WHERE (
 			(b.Product3rdId IN (0, 3, -4) AND p.PartyId IS NOT NULL)
-			OR (b.Product3rdId NOT IN (0, 3, -4) AND p.PartyId IS NULL)
+			OR (b.Product3rdId NOT IN (0, 3, -4))
 		)
 		GROUP BY t.rptDate
 			,CASE
@@ -614,8 +619,7 @@ BEGIN
 			INNER JOIN CTE_Sum s ON r.ParentId = s.ParentId AND r.Product3rdId = s.Product3rdId
 
 			-- 3. GMT <> -4
-		DECLARE @ProductCodes VARCHAR(MAX)
-		SELECT  @ProductCodes = COALESCE(@ProductCodes + ',', '') + ProductCode
+		SELECT @ProductCodesGMT = COALESCE(@ProductCodesGMT + ',', '') + ProductCode
 		FROM @Products WHERE Product3rdId IN (21,24,32,36,39,45,51) -- 'AB,FW,PP,SG,SAG,SXG,WM'
 
 		CREATE TABLE #__PayToSupplier (Product3rdId INT, ProductCode VARCHAR(50), rptDate VARCHAR(10), PayToSupplier MONEY, CurrencyPlay MONEY)
@@ -655,8 +659,8 @@ BEGIN
 				,r.rptDate
 				,CASE
 					WHEN r.Product3rdId = -5 THEN r.PaytoSupplier
-					WHEN (r.PayToSupplier >= 0 AND m.MinAmount = 0) OR r.PayToSupplier <= m.MinAmount
-						THEN CASE WHEN r.PayToSupplier <= m.MaxAmount THEN m.MaxAmount - m.MinAmount ELSE r.PayToSupplier + m.MinAmount END * m.Rate
+					WHEN (r.PayToSupplier < 0 AND m.MinAmount = 0) OR r.PayToSupplier >= m.MinAmount
+						THEN CASE WHEN r.PayToSupplier > m.MaxAmount THEN -(m.MaxAmount - m.MinAmount) ELSE -(r.PayToSupplier - m.MinAmount) END * m.Rate
 					ELSE 0
 					END
 			FROM #__tempResult r
@@ -1087,7 +1091,7 @@ BEGIN
 		CROSS APPLY (
 			SELECT SUM(t.PayToSupplier) AS PayToSupplier FROM #__tempResult t WHERE t.Product3rdId = r.Product3rdId
 		) t
-	WHERE r.Product3rdId IN (31, 55)
+	WHERE r.Product3rdId NOT IN (5, 8, 10, 11, 22, 27, 28, 34, 40)
 
 		-- 2. House Income
 		-- 2.1. Include BA into SB
