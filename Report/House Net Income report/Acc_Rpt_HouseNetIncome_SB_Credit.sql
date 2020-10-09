@@ -331,10 +331,10 @@ BEGIN
 								FROM #Result
 									CROSS APPLY (
 												  SELECT 1, ''House Income''			, HouseIncome		WHERE HouseIncome IS NOT NULL
-										UNION ALL SELECT 2, ''Extra PT''				, ExtraPT			WHERE ExtraPT IS NOT NULL
-										UNION ALL SELECT 3, ''Pay to Muay Thai''		, PaytoMuayThai		WHERE PaytoMuayThai IS NOT NULL
-										UNION ALL SELECT 4, ''Pay to Metric Gaming''	, PaytoMetricGaming WHERE PaytoMetricGaming IS NOT NULL
-										UNION ALL SELECT 5, ''Pay to Bet Genius''		, PayToBetBuilder	WHERE PayToBetBuilder IS NOT NULL
+										UNION ALL SELECT 3, ''Extra PT''				, ExtraPT			WHERE ExtraPT IS NOT NULL
+										UNION ALL SELECT 6, ''Pay to Muay Thai''		, PaytoMuayThai		WHERE PaytoMuayThai IS NOT NULL
+										UNION ALL SELECT 7, ''Pay to Metric Gaming''	, PaytoMetricGaming WHERE PaytoMetricGaming IS NOT NULL
+										UNION ALL SELECT 8, ''Pay to Bet Genius''		, PayToBetBuilder	WHERE PayToBetBuilder IS NOT NULL
 									) c ([Order], Figure, value)
 							) a
 							PIVOT

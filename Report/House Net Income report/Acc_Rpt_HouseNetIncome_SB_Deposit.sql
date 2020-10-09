@@ -770,11 +770,11 @@ BEGIN
 									CROSS APPLY (
 												  SELECT 1, ''House Income''			, HouseIncome		WHERE HouseIncome IS NOT NULL
 										UNION ALL SELECT 2, ''Licensing Minimum Fee''	, MinFee			WHERE MinFee IS NOT NULL
-										UNION ALL SELECT 3, ''Rebate & Discount''		, Discount			WHERE Discount IS NOT NULL
-										UNION ALL SELECT 4, ''BA Commission''			, BAComm			WHERE BAComm IS NOT NULL
-										UNION ALL SELECT 5, ''Pay to Muay Thai''		, PaytoMuayThai		WHERE PaytoMuayThai IS NOT NULL
-										UNION ALL SELECT 6, ''Pay to Metric Gaming''	, PaytoMetricGaming WHERE PaytoMetricGaming IS NOT NULL
-										UNION ALL SELECT 7, ''Pay to Bet Genius''		, PayToBetBuilder	WHERE PayToBetBuilder IS NOT NULL
+										UNION ALL SELECT 4, ''Rebate & Discount''		, Discount			WHERE Discount IS NOT NULL
+										UNION ALL SELECT 5, ''BA Commission''			, BAComm			WHERE BAComm IS NOT NULL
+										UNION ALL SELECT 6, ''Pay to Muay Thai''		, PaytoMuayThai		WHERE PaytoMuayThai IS NOT NULL
+										UNION ALL SELECT 7, ''Pay to Metric Gaming''	, PaytoMetricGaming WHERE PaytoMetricGaming IS NOT NULL
+										UNION ALL SELECT 8, ''Pay to Bet Genius''		, PayToBetBuilder	WHERE PayToBetBuilder IS NOT NULL
 									) c ([Order], Figure, value)
 							) a
 							PIVOT
