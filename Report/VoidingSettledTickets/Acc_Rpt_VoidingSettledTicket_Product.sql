@@ -19,7 +19,21 @@ Task : Voiding Settled Tickets
 DB: DBBAH.bodb02  
 Original SP:   
 Revisions:  
-	20201010@Cherry : Voiding Settled Tickets (#142454)		
+	20201010@Cherry : Voiding Settled Tickets (#142454)	
+	
+Param's Explanation:
+	@ProductGroupID: 
+		1 : SPL
+		2 : SPNL
+		3 : Parlay
+		4 : Outright
+		5 : Bet Builder
+		6 : Muay Thai
+		7 : Cash Out
+		8 : CN88 SPL
+		9 : CN88 SPNL
+		10: CN88 Parlay
+		11: CN88 Outright
 
 */
 

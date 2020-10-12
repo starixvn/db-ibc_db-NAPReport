@@ -46,6 +46,14 @@ BEGIN
 		(TransID BIGINT, 
 		CustID INT, 
 		ActionDate SMALLDATETIME)
+	CREATE TABLE #tmpSettle
+		(TransID BIGINT, 
+		CustID INT, 
+		ActionDate SMALLDATETIME)
+	CREATE TABLE #tmpSettleBK
+		(TransID BIGINT, 
+		CustID INT, 
+		ActionDate SMALLDATETIME)
 	CREATE TABLE #SettledBalance
 		(TransID BIGINT, 
 		CustID INT, 
@@ -102,7 +110,7 @@ BEGIN
 		  AND b.winlostdate = @WinlostDate
 		  AND z.transdate >= @VoidTime
 		  AND b.currency <> 20
-		  AND @MatchId = -1 OR b.matchid = @MatchId
+		  AND (@MatchId = -1 OR b.matchid = @MatchId)
   
 	INSERT INTO #BalanceRecord (TransID, CustID, ActionDate)
 	SELECT b.TransID, b.CustID, MAX(b.ActionDate)
@@ -132,22 +140,32 @@ BEGIN
 	SELECT a.TransID, a.CustID, a.ActionDate
 	FROM #BalanceRecordBK a LEFT JOIN #BalanceRecord b ON a.TransID = b.TransID
 	WHERE b.TransID IS NULL
+	
+	INSERT INTO #tmpSettle (TransID, CustID, ActionDate)
+	SELECT b.transid, b.custid, MAX(b.ActionDate)
+	FROM bodb02.dbo.BalanceRecord b (NOLOCK)
+	WHERE b.ActionID = 30
+		AND b.CustID IN (SELECT CustID FROM #VoidRecord)
+		AND EXISTS(SELECT TOP 1 1 FROM #VoidRecord v WHERE b.TransID = v.TransID AND b.CustID = v.CustID AND b.ActionDate < v.ActionDate)
+	GROUP BY b.transid, b.custid
 
 	INSERT INTO #SettledBalance (TransID, CustID, winlost, actual_stake, awinlost, mwinlost, swinlost, scomm, ActionDate)
 	SELECT b.transid, b.custid, b.winlost, b.actual_stake, b.awinlost, b.mwinlost, b.swinlost, b.scomm, b.ActionDate
 	FROM bodb02.dbo.BalanceRecord b (NOLOCK)
-	WHERE b.ActionDate = (SELECT MAX(c.ActionDate)
-						  FROM bodb02.dbo.BalanceRecord c (NOLOCK)
-						  WHERE EXISTS(SELECT TOP 1 1 FROM #VoidRecord v WHERE c.TransID = v.TransID AND c.CustID = v.CustID AND c.ActionDate < v.ActionDate))
-		AND EXISTS(SELECT TOP 1 1 FROM #VoidRecord v WHERE b.TransID = v.TransID AND b.CustID = v.CustID)
+	WHERE EXISTS(SELECT TOP 1 1 FROM #tmpSettle v WHERE b.TransID = v.TransID AND b.CustID = v.CustID AND b.ActionDate = v.ActionDate)
+	
+	INSERT INTO #tmpSettleBK (TransID, CustID, ActionDate)
+	SELECT b.transid, b.custid, MAX(b.ActionDate)
+	FROM BalanceRecord.dbo.BalanceRecord_bk b (NOLOCK)
+	WHERE b.ActionID = 30
+		AND b.CustID IN (SELECT CustID FROM #VoidRecord)
+		AND EXISTS(SELECT TOP 1 1 FROM #VoidRecord v WHERE b.TransID = v.TransID AND b.CustID = v.CustID AND b.ActionDate < v.ActionDate)
+	GROUP BY b.transid, b.custid
 		
 	INSERT INTO #SettledBalanceBK (TransID, CustID, winlost, actual_stake, awinlost, mwinlost, swinlost, scomm, ActionDate)
 	SELECT b.transid, b.custid, b.winlost, b.actual_stake, b.awinlost, b.mwinlost, b.swinlost, b.scomm, b.ActionDate
 	FROM BalanceRecord.dbo.BalanceRecord_bk b (NOLOCK)
-	WHERE b.ActionDate = (SELECT MAX(c.ActionDate)
-						  FROM BalanceRecord.dbo.BalanceRecord_bk c (NOLOCK)
-						  WHERE EXISTS(SELECT TOP 1 1 FROM #VoidRecord v WHERE c.TransID = v.TransID AND c.CustID = v.CustID AND c.ActionDate < v.ActionDate))
-		AND EXISTS(SELECT TOP 1 1 FROM #VoidRecord v WHERE b.TransID = v.TransID AND b.CustID = v.CustID)
+	WHERE EXISTS(SELECT TOP 1 1 FROM #tmpSettleBK v WHERE b.TransID = v.TransID AND b.CustID = v.CustID AND b.ActionDate = v.ActionDate)
 		
 	INSERT INTO #SettledRecord (TransID, CustID, winlost, actual_stake, awinlost, mwinlost, swinlost, scomm)
 	SELECT a.TransID, a.CustID,
