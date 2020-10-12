@@ -84,6 +84,7 @@ BEGIN
 		,@homeid homeid
 		,@awayid awayid
 		,b.betid
+		,b.betcheck
 	FROM 
 	bodb02.dbo.bettrans b with (nolock)	
 	INNER JOIN bodb02.dbo.customer cr with (nolock) ON b.creator = cr.custid
@@ -126,6 +127,7 @@ BEGIN
 		,@homeid homeid
 		,@awayid awayid
 		,b.betid
+		,b.betcheck
 	FROM 
 	bodb02.dbo.bettrans14 b with (nolock)	
 	INNER JOIN bodb02.dbo.customer cr with (nolock) ON b.creator = cr.custid
