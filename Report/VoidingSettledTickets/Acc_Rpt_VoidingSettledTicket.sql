@@ -200,12 +200,13 @@ BEGIN
 			WHEN t.Bettype IN (9,29) AND c.Recommend IS NULL THEN 3
 			WHEN t.Bettype = 10 AND c.Recommend IS NULL THEN 4
 			WHEN b.SubProduct = 'Bet Builder' AND c.Recommend IS NULL THEN 5
-			WHEN m.sporttype = 44 AND c.Recommend IS NULL THEN 6
-			WHEN t.Bettype IN (913, 914) AND c.Recommend IS NULL THEN 7
-			WHEN t.Bettype NOT IN (9,29,10) AND t.liveindicator = 1 AND c.Recommend IS NOT NULL THEN 8
-			WHEN t.Bettype NOT IN (9,29,10) AND t.liveindicator = 0 AND c.Recommend IS NOT NULL THEN 9
-			WHEN t.Bettype IN (9,29) AND c.Recommend IS NOT NULL THEN 'CN88 Parlay'
-			WHEN t.Bettype = 10 AND c.Recommend IS NOT NULL THEN 'CN88 Outright'
+			WHEN b.SubProduct = 'MG-SuperLive' AND c.Recommend IS NULL THEN 6
+			WHEN m.sporttype = 44 AND c.Recommend IS NULL THEN 7
+			WHEN t.Bettype IN (913, 914) AND c.Recommend IS NULL THEN 8
+			WHEN t.Bettype NOT IN (9,29,10) AND t.liveindicator = 1 AND c.Recommend IS NOT NULL THEN 9
+			WHEN t.Bettype NOT IN (9,29,10) AND t.liveindicator = 0 AND c.Recommend IS NOT NULL THEN 10
+			WHEN t.Bettype IN (9,29) AND c.Recommend IS NOT NULL THEN 11
+			WHEN t.Bettype = 10 AND c.Recommend IS NOT NULL THEN 12
 		END ProductGroupId,
 		CASE WHEN t.Bettype NOT IN (9,29,10) AND b.SubProduct NOT IN ('MG-SuperLive','CO-Comm','CO-Winloss','Bet Builder') 
 				AND m.sporttype <> 44 AND t.liveindicator = 1 AND c.Recommend IS NULL THEN 'SPL'
@@ -214,6 +215,7 @@ BEGIN
 			WHEN t.Bettype IN (9,29) AND c.Recommend IS NULL THEN 'Parlay'
 			WHEN t.Bettype = 10 AND c.Recommend IS NULL THEN 'Outright'
 			WHEN b.SubProduct = 'Bet Builder' AND c.Recommend IS NULL THEN 'Bet Builder'
+			WHEN b.SubProduct = 'MG-SuperLive' AND c.Recommend IS NULL THEN 'Metric Gaming - Super Live'
 			WHEN m.sporttype = 44 AND c.Recommend IS NULL THEN 'Muay Thai'
 			WHEN t.Bettype IN (913, 914) AND c.Recommend IS NULL THEN 'Cash Out'
 			WHEN t.Bettype NOT IN (9,29,10) AND t.liveindicator = 1 AND c.Recommend IS NOT NULL THEN 'CN88 SPL'
@@ -238,12 +240,13 @@ BEGIN
 			WHEN t.Bettype IN (9,29) AND c.Recommend IS NULL THEN 3
 			WHEN t.Bettype = 10 AND c.Recommend IS NULL THEN 4
 			WHEN b.SubProduct = 'Bet Builder' AND c.Recommend IS NULL THEN 5
-			WHEN m.sporttype = 44 AND c.Recommend IS NULL THEN 6
-			WHEN t.Bettype IN (913, 914) AND c.Recommend IS NULL THEN 7
-			WHEN t.Bettype NOT IN (9,29,10) AND t.liveindicator = 1 AND c.Recommend IS NOT NULL THEN 8
-			WHEN t.Bettype NOT IN (9,29,10) AND t.liveindicator = 0 AND c.Recommend IS NOT NULL THEN 9
-			WHEN t.Bettype IN (9,29) AND c.Recommend IS NOT NULL THEN 'CN88 Parlay'
-			WHEN t.Bettype = 10 AND c.Recommend IS NOT NULL THEN 'CN88 Outright'
+			WHEN b.SubProduct = 'MG-SuperLive' AND c.Recommend IS NULL THEN 6
+			WHEN m.sporttype = 44 AND c.Recommend IS NULL THEN 7
+			WHEN t.Bettype IN (913, 914) AND c.Recommend IS NULL THEN 8
+			WHEN t.Bettype NOT IN (9,29,10) AND t.liveindicator = 1 AND c.Recommend IS NOT NULL THEN 9
+			WHEN t.Bettype NOT IN (9,29,10) AND t.liveindicator = 0 AND c.Recommend IS NOT NULL THEN 10
+			WHEN t.Bettype IN (9,29) AND c.Recommend IS NOT NULL THEN 11
+			WHEN t.Bettype = 10 AND c.Recommend IS NOT NULL THEN 12
 		END,
 		CASE WHEN t.Bettype NOT IN (9,29,10) AND b.SubProduct NOT IN ('MG-SuperLive','CO-Comm','CO-Winloss','Bet Builder') 
 				AND m.sporttype <> 44 AND t.liveindicator = 1 AND c.Recommend IS NULL THEN 'SPL'
@@ -252,6 +255,7 @@ BEGIN
 			WHEN t.Bettype IN (9,29) AND c.Recommend IS NULL THEN 'Parlay'
 			WHEN t.Bettype = 10 AND c.Recommend IS NULL THEN 'Outright'
 			WHEN b.SubProduct = 'Bet Builder' AND c.Recommend IS NULL THEN 'Bet Builder'
+			WHEN b.SubProduct = 'MG-SuperLive' AND c.Recommend IS NULL THEN 'Metric Gaming - Super Live'
 			WHEN m.sporttype = 44 AND c.Recommend IS NULL THEN 'Muay Thai'
 			WHEN t.Bettype IN (913, 914) AND c.Recommend IS NULL THEN 'Cash Out'
 			WHEN t.Bettype NOT IN (9,29,10) AND t.liveindicator = 1 AND c.Recommend IS NOT NULL THEN 'CN88 SPL'
@@ -270,6 +274,8 @@ BEGIN
 	DROP TABLE #BalanceRecord
 	DROP TABLE #BalanceRecordBK
 	DROP TABLE #VoidRecord
+	DROP TABLE #tmpSettle
+	DROP TABLE #tmpSettleBK
 	DROP TABLE #SettledBalance
 	DROP TABLE #SettledBalanceBK
 	DROP TABLE #SettledRecord

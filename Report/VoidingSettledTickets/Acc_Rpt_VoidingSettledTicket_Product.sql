@@ -28,12 +28,13 @@ Param's Explanation:
 		3 : Parlay
 		4 : Outright
 		5 : Bet Builder
-		6 : Muay Thai
-		7 : Cash Out
-		8 : CN88 SPL
-		9 : CN88 SPNL
-		10: CN88 Parlay
-		11: CN88 Outright
+		6 : Metric Gaming
+		7 : Muay Thai
+		8 : Cash Out
+		9 : CN88 SPL
+		10: CN88 SPNL
+		11: CN88 Parlay
+		12: CN88 Outright
 
 */
 
@@ -61,6 +62,14 @@ BEGIN
 		CustID INT, 
 		ActionDate SMALLDATETIME)
 	CREATE TABLE #VoidRecord 
+		(TransID BIGINT, 
+		CustID INT, 
+		ActionDate SMALLDATETIME)
+	CREATE TABLE #tmpSettle
+		(TransID BIGINT, 
+		CustID INT, 
+		ActionDate SMALLDATETIME)
+	CREATE TABLE #tmpSettleBK
 		(TransID BIGINT, 
 		CustID INT, 
 		ActionDate SMALLDATETIME)
@@ -94,12 +103,16 @@ BEGIN
 		swinlost MONEY, 
 		scomm MONEY)
 	CREATE TABLE #Result 
-		(TransID INT,
+		(TransID BIGINT,
 		Username VARCHAR(50),	
 		MatchID INT,
 		VoidedTime DATETIME,
 		HouseIncomeBeforeExtraPT MONEY,	
 		HouseIncomeAfterExtraPT MONEY)
+	CREATE TABLE #tmpTrans (
+		RN INT IDENTITY(1, 1)
+		,TransID BIGINT
+		)
 
 	INSERT INTO #Bettype (Bettype, SubProduct)
 	SELECT DISTINCT Bettype, SubProduct
@@ -122,7 +135,111 @@ BEGIN
 		  AND b.winlostdate = @WinlostDate
 		  AND z.transdate >= @VoidTime
 		  AND b.currency <> 20
-		  AND @MatchId = -1 OR b.matchid = @MatchId
+		  AND (@MatchId = -1 OR b.matchid = @MatchId)
+		
+	IF @ProductGroupID = 1 -- SPL
+	BEGIN
+		DELETE
+		FROM #VoidTrans 
+		WHERE liveindicator = 0 
+			OR Bettype IN (9,29,10)
+			OR Matchid IN (SELECT matchid FROM bodb02.dbo.match (NOLOCK) WHERE sporttype = 44)
+			OR Recommend IN (SELECT Recommend FROM #Recommend)
+			OR Bettype IN (SELECT Bettype FROM #Bettype WHERE SubProduct IN ('MG-SuperLive','CO-Comm','CO-Winloss','Bet Builder'))
+	END
+	
+	IF @ProductGroupID = 2 -- SPNL
+	BEGIN
+		DELETE
+		FROM #VoidTrans 
+		WHERE liveindicator = 1 
+			OR Bettype IN (9,29,10)
+			OR Matchid IN (SELECT matchid FROM bodb02.dbo.match (NOLOCK) WHERE sporttype = 44)
+			OR Recommend IN (SELECT Recommend FROM #Recommend)
+			OR Bettype IN (SELECT Bettype FROM #Bettype WHERE SubProduct IN ('MG-SuperLive','CO-Comm','CO-Winloss','Bet Builder'))
+	END
+	
+	IF @ProductGroupID = 3 -- Parlay
+	BEGIN
+		DELETE
+		FROM #VoidTrans 
+		WHERE Bettype NOT IN (9,29)
+			OR Recommend IN (SELECT Recommend FROM #Recommend)
+	END
+	
+	IF @ProductGroupID = 4 -- Outright
+	BEGIN
+		DELETE
+		FROM #VoidTrans 
+		WHERE Bettype NOT IN (10)
+			OR Recommend IN (SELECT Recommend FROM #Recommend)
+	END
+	
+	IF @ProductGroupID = 5 -- Bet Builder
+	BEGIN
+		DELETE
+		FROM #VoidTrans 
+		WHERE Bettype NOT IN (SELECT Bettype FROM #Bettype WHERE SubProduct = 'Bet Builder')
+			OR Recommend IN (SELECT Recommend FROM #Recommend)
+	END
+	
+	IF @ProductGroupID = 6 -- Metric Gaming - Super Live
+	BEGIN
+		DELETE
+		FROM #VoidTrans 
+		WHERE Bettype NOT IN (SELECT Bettype FROM #Bettype WHERE SubProduct = 'MG-SuperLive')
+			OR Recommend IN (SELECT Recommend FROM #Recommend)
+	END
+	
+	IF @ProductGroupID = 7 -- Muay Thai
+	BEGIN
+		DELETE
+		FROM #VoidTrans 
+		WHERE Matchid NOT IN (SELECT matchid FROM bodb02.dbo.match (NOLOCK) WHERE sporttype = 44)
+			OR Recommend IN (SELECT Recommend FROM #Recommend)
+	END
+	
+	IF @ProductGroupID = 8 -- Cash Out
+	BEGIN
+		DELETE
+		FROM #VoidTrans 
+		WHERE Bettype NOT IN (913, 914)
+			OR Recommend IN (SELECT Recommend FROM #Recommend)
+	END
+	
+	IF @ProductGroupID = 9 -- CN88 SPL
+	BEGIN
+		DELETE
+		FROM #VoidTrans 
+		WHERE Bettype IN (9,29,10)
+			OR liveindicator = 0
+			OR Recommend NOT IN (SELECT Recommend FROM #Recommend)
+	END
+	
+	IF @ProductGroupID = 10 -- CN88 SPNL
+	BEGIN
+		DELETE
+		FROM #VoidTrans 
+		WHERE Bettype IN (9,29,10)
+			OR liveindicator = 1
+			OR Recommend NOT IN (SELECT Recommend FROM #Recommend)
+	END
+	
+	IF @ProductGroupID = 11 -- CN88 Parlay
+	BEGIN
+		DELETE
+		FROM #VoidTrans 
+		WHERE Bettype NOT IN (9,29)
+			OR Recommend NOT IN (SELECT Recommend FROM #Recommend)
+	END
+	
+	IF @ProductGroupID = 12 -- CN88 Outright
+	BEGIN
+		DELETE
+		FROM #VoidTrans 
+		WHERE Bettype NOT IN (10)
+			OR Recommend NOT IN (SELECT Recommend FROM #Recommend)
+	END
   
 	INSERT INTO #BalanceRecord (TransID, CustID, ActionDate)
 	SELECT b.TransID, b.CustID, MAX(b.ActionDate)
@@ -153,21 +270,31 @@ BEGIN
 	FROM #BalanceRecordBK a LEFT JOIN #BalanceRecord b ON a.TransID = b.TransID
 	WHERE b.TransID IS NULL
 
+	INSERT INTO #tmpSettle (TransID, CustID, ActionDate)
+	SELECT b.transid, b.custid, MAX(b.ActionDate)
+	FROM bodb02.dbo.BalanceRecord b (NOLOCK)
+	WHERE b.ActionID = 30
+		AND b.CustID IN (SELECT CustID FROM #VoidRecord)
+		AND EXISTS(SELECT TOP 1 1 FROM #VoidRecord v WHERE b.TransID = v.TransID AND b.CustID = v.CustID AND b.ActionDate < v.ActionDate)
+	GROUP BY b.transid, b.custid
+
 	INSERT INTO #SettledBalance (TransID, CustID, winlost, actual_stake, awinlost, mwinlost, swinlost, scomm, ActionDate)
 	SELECT b.transid, b.custid, b.winlost, b.actual_stake, b.awinlost, b.mwinlost, b.swinlost, b.scomm, b.ActionDate
 	FROM bodb02.dbo.BalanceRecord b (NOLOCK)
-	WHERE b.ActionDate = (SELECT MAX(c.ActionDate)
-						  FROM bodb02.dbo.BalanceRecord c (NOLOCK)
-						  WHERE EXISTS(SELECT TOP 1 1 FROM #VoidRecord v WHERE c.TransID = v.TransID AND c.CustID = v.CustID AND c.ActionDate < v.ActionDate))
-		AND EXISTS(SELECT TOP 1 1 FROM #VoidRecord v WHERE b.TransID = v.TransID AND b.CustID = v.CustID)
+	WHERE EXISTS(SELECT TOP 1 1 FROM #tmpSettle v WHERE b.TransID = v.TransID AND b.CustID = v.CustID AND b.ActionDate = v.ActionDate)
+	
+	INSERT INTO #tmpSettleBK (TransID, CustID, ActionDate)
+	SELECT b.transid, b.custid, MAX(b.ActionDate)
+	FROM BalanceRecord.dbo.BalanceRecord_bk b (NOLOCK)
+	WHERE b.ActionID = 30
+		AND b.CustID IN (SELECT CustID FROM #VoidRecord)
+		AND EXISTS(SELECT TOP 1 1 FROM #VoidRecord v WHERE b.TransID = v.TransID AND b.CustID = v.CustID AND b.ActionDate < v.ActionDate)
+	GROUP BY b.transid, b.custid
 		
 	INSERT INTO #SettledBalanceBK (TransID, CustID, winlost, actual_stake, awinlost, mwinlost, swinlost, scomm, ActionDate)
 	SELECT b.transid, b.custid, b.winlost, b.actual_stake, b.awinlost, b.mwinlost, b.swinlost, b.scomm, b.ActionDate
 	FROM BalanceRecord.dbo.BalanceRecord_bk b (NOLOCK)
-	WHERE b.ActionDate = (SELECT MAX(c.ActionDate)
-						  FROM BalanceRecord.dbo.BalanceRecord_bk c (NOLOCK)
-						  WHERE EXISTS(SELECT TOP 1 1 FROM #VoidRecord v WHERE c.TransID = v.TransID AND c.CustID = v.CustID AND c.ActionDate < v.ActionDate))
-		AND EXISTS(SELECT TOP 1 1 FROM #VoidRecord v WHERE b.TransID = v.TransID AND b.CustID = v.CustID)
+	WHERE EXISTS(SELECT TOP 1 1 FROM #tmpSettleBK v WHERE b.TransID = v.TransID AND b.CustID = v.CustID AND b.ActionDate = v.ActionDate)
 		
 	INSERT INTO #SettledRecord (TransID, CustID, winlost, actual_stake, awinlost, mwinlost, swinlost, scomm)
 	SELECT a.TransID, a.CustID,
@@ -189,92 +316,82 @@ BEGIN
 	FROM #SettledBalanceBK a LEFT JOIN #SettledBalance b ON a.TransID = b.TransID
 	WHERE b.TransID IS NULL
 	
-	--INSERT INTO #Result 
-	--	(ProductGroupId,
-	--	ProductGroup,	
-	--	HouseIncomeBeforeExtraPT,	
-	--	HouseIncomeAfterExtraPT)
-	--SELECT
-	--	CASE WHEN t.Bettype NOT IN (9,29,10) AND b.SubProduct NOT IN ('MG-SuperLive','CO-Comm','CO-Winloss','Bet Builder') 
-	--			AND m.sporttype <> 44 AND t.liveindicator = 1 AND c.Recommend IS NULL THEN 1
-	--		WHEN t.Bettype NOT IN (9,29,10) AND b.SubProduct NOT IN ('MG-SuperLive','CO-Comm','CO-Winloss','Bet Builder') 
-	--			AND m.sporttype <> 44 AND t.liveindicator = 0 AND c.Recommend IS NULL THEN 2
-	--		WHEN t.Bettype IN (9,29) AND c.Recommend IS NULL THEN 3
-	--		WHEN t.Bettype = 10 AND c.Recommend IS NULL THEN 4
-	--		WHEN b.SubProduct = 'Bet Builder' AND c.Recommend IS NULL THEN 5
-	--		WHEN m.sporttype = 44 AND c.Recommend IS NULL THEN 6
-	--		WHEN t.Bettype IN (913, 914) AND c.Recommend IS NULL THEN 7
-	--		WHEN t.Bettype NOT IN (9,29,10) AND t.liveindicator = 1 AND c.Recommend IS NOT NULL THEN 8
-	--		WHEN t.Bettype NOT IN (9,29,10) AND t.liveindicator = 0 AND c.Recommend IS NOT NULL THEN 9
-	--		WHEN t.Bettype IN (9,29) AND c.Recommend IS NOT NULL THEN 'CN88 Parlay'
-	--		WHEN t.Bettype = 10 AND c.Recommend IS NOT NULL THEN 'CN88 Outright'
-	--	END ProductGroupId,
-	--	CASE WHEN t.Bettype NOT IN (9,29,10) AND b.SubProduct NOT IN ('MG-SuperLive','CO-Comm','CO-Winloss','Bet Builder') 
-	--			AND m.sporttype <> 44 AND t.liveindicator = 1 AND c.Recommend IS NULL THEN 'SPL'
-	--		WHEN t.Bettype NOT IN (9,29,10) AND b.SubProduct NOT IN ('MG-SuperLive','CO-Comm','CO-Winloss','Bet Builder') 
-	--			AND m.sporttype <> 44 AND t.liveindicator = 0 AND c.Recommend IS NULL THEN 'SPNL'
-	--		WHEN t.Bettype IN (9,29) AND c.Recommend IS NULL THEN 'Parlay'
-	--		WHEN t.Bettype = 10 AND c.Recommend IS NULL THEN 'Outright'
-	--		WHEN b.SubProduct = 'Bet Builder' AND c.Recommend IS NULL THEN 'Bet Builder'
-	--		WHEN m.sporttype = 44 AND c.Recommend IS NULL THEN 'Muay Thai'
-	--		WHEN t.Bettype IN (913, 914) AND c.Recommend IS NULL THEN 'Cash Out'
-	--		WHEN t.Bettype NOT IN (9,29,10) AND t.liveindicator = 1 AND c.Recommend IS NOT NULL THEN 'CN88 SPL'
-	--		WHEN t.Bettype NOT IN (9,29,10) AND t.liveindicator = 0 AND c.Recommend IS NOT NULL THEN 'CN88 SPNL'
-	--		WHEN t.Bettype IN (9,29) AND c.Recommend IS NOT NULL THEN 'CN88 Parlay'
-	--		WHEN t.Bettype = 10 AND c.Recommend IS NOT NULL THEN 'CN88 Outright'
-	--	END ProductGroup,
-	--	SUM((s.winlost - s.actual_stake + s.swinlost + s.mwinlost + s.awinlost + scomm) * t.ActualRate) HouseIncomeBeforeExtraPT,
-	--	SUM((s.swinlost + s.mwinlost + s.awinlost + scomm 
-	--			- CASE WHEN t.tpositiontaking = 1 THEN 0
-	--				ELSE scomm / (1 - t.tpositiontaking) * t.epositiontaking END) * t.ActualRate) HouseIncomeAfterExtraPT
-	--FROM #VoidTrans t 
-	--	INNER JOIN #SettledRecord s ON t.TransID = s.TransID
-	--	INNER JOIN #Bettype b ON t.Bettype = b.Bettype
-	--	INNER JOIN bodb02.dbo.match m (NOLOCK) ON t.Matchid = m.matchid
-	--	LEFT JOIN #Recommend c ON t.Recommend = c.Recommend
-	--GROUP BY 
-	--	CASE WHEN t.Bettype NOT IN (9,29,10) AND b.SubProduct NOT IN ('MG-SuperLive','CO-Comm','CO-Winloss','Bet Builder') 
-	--			AND m.sporttype <> 44 AND t.liveindicator = 1 AND c.Recommend IS NULL THEN 1
-	--		WHEN t.Bettype NOT IN (9,29,10) AND b.SubProduct NOT IN ('MG-SuperLive','CO-Comm','CO-Winloss','Bet Builder') 
-	--			AND m.sporttype <> 44 AND t.liveindicator = 0 AND c.Recommend IS NULL THEN 2
-	--		WHEN t.Bettype IN (9,29) AND c.Recommend IS NULL THEN 3
-	--		WHEN t.Bettype = 10 AND c.Recommend IS NULL THEN 4
-	--		WHEN b.SubProduct = 'Bet Builder' AND c.Recommend IS NULL THEN 5
-	--		WHEN m.sporttype = 44 AND c.Recommend IS NULL THEN 6
-	--		WHEN t.Bettype IN (913, 914) AND c.Recommend IS NULL THEN 7
-	--		WHEN t.Bettype NOT IN (9,29,10) AND t.liveindicator = 1 AND c.Recommend IS NOT NULL THEN 8
-	--		WHEN t.Bettype NOT IN (9,29,10) AND t.liveindicator = 0 AND c.Recommend IS NOT NULL THEN 9
-	--		WHEN t.Bettype IN (9,29) AND c.Recommend IS NOT NULL THEN 'CN88 Parlay'
-	--		WHEN t.Bettype = 10 AND c.Recommend IS NOT NULL THEN 'CN88 Outright'
-	--	END,
-	--	CASE WHEN t.Bettype NOT IN (9,29,10) AND b.SubProduct NOT IN ('MG-SuperLive','CO-Comm','CO-Winloss','Bet Builder') 
-	--			AND m.sporttype <> 44 AND t.liveindicator = 1 AND c.Recommend IS NULL THEN 'SPL'
-	--		WHEN t.Bettype NOT IN (9,29,10) AND b.SubProduct NOT IN ('MG-SuperLive','CO-Comm','CO-Winloss','Bet Builder') 
-	--			AND m.sporttype <> 44 AND t.liveindicator = 0 AND c.Recommend IS NULL THEN 'SPNL'
-	--		WHEN t.Bettype IN (9,29) AND c.Recommend IS NULL THEN 'Parlay'
-	--		WHEN t.Bettype = 10 AND c.Recommend IS NULL THEN 'Outright'
-	--		WHEN b.SubProduct = 'Bet Builder' AND c.Recommend IS NULL THEN 'Bet Builder'
-	--		WHEN m.sporttype = 44 AND c.Recommend IS NULL THEN 'Muay Thai'
-	--		WHEN t.Bettype IN (913, 914) AND c.Recommend IS NULL THEN 'Cash Out'
-	--		WHEN t.Bettype NOT IN (9,29,10) AND t.liveindicator = 1 AND c.Recommend IS NOT NULL THEN 'CN88 SPL'
-	--		WHEN t.Bettype NOT IN (9,29,10) AND t.liveindicator = 0 AND c.Recommend IS NOT NULL THEN 'CN88 SPNL'
-	--		WHEN t.Bettype IN (9,29) AND c.Recommend IS NOT NULL THEN 'CN88 Parlay'
-	--		WHEN t.Bettype = 10 AND c.Recommend IS NOT NULL THEN 'CN88 Outright'
-	--	END     
+	INSERT INTO #Result 
+		(TransID,
+		Username,	
+		MatchID,
+		VoidedTime,
+		HouseIncomeBeforeExtraPT,	
+		HouseIncomeAfterExtraPT)
+	SELECT t.TransID,
+		c.username,
+		t.Matchid,
+		t.VoidDate,
+		(s.winlost - s.actual_stake + s.swinlost + s.mwinlost + s.awinlost + scomm) * t.ActualRate HouseIncomeBeforeExtraPT,
+		(s.swinlost + s.mwinlost + s.awinlost + scomm 
+				- CASE WHEN t.tpositiontaking = 1 THEN 0
+					ELSE scomm / (1 - t.tpositiontaking) * t.epositiontaking END) * t.ActualRate HouseIncomeAfterExtraPT
+	FROM #VoidTrans t
+		INNER JOIN #SettledRecord s ON t.TransID = s.TransID
+		INNER JOIN bodb02.dbo.Customer c ON t.CustID = c.custid
 	
-	SELECT *
+	CREATE CLUSTERED INDEX [CIX_TransID] ON #Result(TransID)
+	
+	INSERT INTO #tmpTrans (TransID)
+	SELECT TransID
 	FROM #Result
+	GROUP BY TransID
+	ORDER BY TransID
+	
+	CREATE CLUSTERED INDEX [CIX_RN] ON #tmpTrans( RN )
+	
+	DECLARE @FromTrans INT, @ToTrans INT
+	
+	IF ( @PageIndex = 0 AND @PageSize = 0 ) ---All data---
+	BEGIN
+		SET @FromTrans = 1
+		SELECT @ToTrans = ISNULL(MAX(RN),0)
+		FROM #tmpTrans
+	END
+	ELSE  ---Pagination---
+	BEGIN
+		SET @FromTrans = 1 + (@PageIndex - 1) * @PageSize
+		SELECT @ToTrans = MIN(val)
+		FROM (
+			SELECT MAX(u.RN) AS val
+			FROM #tmpTrans AS u			
+			UNION			
+			SELECT (@PageIndex * @PageSize) AS val
+			) AS tmp
+	END
+	
+	SELECT TransID,
+		Username,	
+		MatchID,
+		VoidedTime,
+		HouseIncomeBeforeExtraPT,	
+		HouseIncomeAfterExtraPT
+	FROM #Result
+	WHERE TransID BETWEEN ( SELECT TransID FROM #tmpTrans WHERE RN = @FromTrans )
+					AND ( SELECT TransID FROM #tmpTrans WHERE RN = @ToTrans )
+	ORDER BY TransID
+	
+	SELECT ISNULL(MAX(RN),0) TotalItems
+	FROM #tmpTrans
 	
 	DROP TABLE #VoidTrans
 	DROP TABLE #BalanceRecord
 	DROP TABLE #BalanceRecordBK
 	DROP TABLE #VoidRecord
+	DROP TABLE #tmpSettle
+	DROP TABLE #tmpSettleBK
 	DROP TABLE #SettledBalance
 	DROP TABLE #SettledBalanceBK
 	DROP TABLE #SettledRecord
 	DROP TABLE #Result
 	DROP TABLE #Bettype
 	DROP TABLE #Recommend
+	DROP TABLE #tmpTrans
 	
 END
 
