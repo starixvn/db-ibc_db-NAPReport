@@ -5,7 +5,7 @@ GO
 
 ALTER PROCEDURE dbo.Acc_Rpt_VoidingSettledTicket_Product
 	@WinlostDate DATE,
-    @VoidTime   SMALLDATETIME,
+    @VoidTime   DATETIME,
     @MatchId    INT = -1,
     @ProductGroupID INT,
     @PageSize INT,
@@ -56,23 +56,23 @@ BEGIN
 	CREATE TABLE #BalanceRecord 
 		(TransID BIGINT, 
 		CustID INT, 
-		ActionDate SMALLDATETIME)
+		ActionDate DATETIME)
 	CREATE TABLE #BalanceRecordBK 
 		(TransID BIGINT, 
 		CustID INT, 
-		ActionDate SMALLDATETIME)
+		ActionDate DATETIME)
 	CREATE TABLE #VoidRecord 
 		(TransID BIGINT, 
 		CustID INT, 
-		ActionDate SMALLDATETIME)
+		ActionDate DATETIME)
 	CREATE TABLE #tmpSettle
 		(TransID BIGINT, 
 		CustID INT, 
-		ActionDate SMALLDATETIME)
+		ActionDate DATETIME)
 	CREATE TABLE #tmpSettleBK
 		(TransID BIGINT, 
 		CustID INT, 
-		ActionDate SMALLDATETIME)
+		ActionDate DATETIME)
 	CREATE TABLE #SettledBalance
 		(TransID BIGINT, 
 		CustID INT, 
@@ -82,7 +82,7 @@ BEGIN
 		mwinlost MONEY, 
 		swinlost MONEY, 
 		scomm MONEY,
-		ActionDate SMALLDATETIME)
+		ActionDate DATETIME)
 	CREATE TABLE #SettledBalanceBK
 		(TransID BIGINT, 
 		CustID INT, 
@@ -92,7 +92,7 @@ BEGIN
 		mwinlost MONEY, 
 		swinlost MONEY, 
 		scomm MONEY,
-		ActionDate SMALLDATETIME)
+		ActionDate DATETIME)
 	CREATE TABLE #SettledRecord 
 		(TransID BIGINT, 
 		CustID INT, 
@@ -131,7 +131,8 @@ BEGIN
 	SELECT z.transid, z.custid, z.transdate, b.Bettype, b.Matchid, b.Recommend, b.liveindicator, b.ActualRate, b.tpositiontaking, b.epositiontaking
 	FROM bodb02.dbo.zzzbettrans z (NOLOCK)
 		INNER JOIN bodb02.dbo.bettrans b (NOLOCK) ON z.custid = b.custid AND z.transid = b.transid 
-	WHERE z.status in ('WON','LOSE','DRAW')
+	WHERE b.Bettype in (SELECT Bettype FROM #Bettype)
+		  AND z.status in ('WON','LOSE','DRAW')
 		  AND b.winlostdate = @WinlostDate
 		  AND z.transdate >= @VoidTime
 		  AND b.currency <> 20
