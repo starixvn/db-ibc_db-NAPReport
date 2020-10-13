@@ -113,6 +113,7 @@ BEGIN
 		WHERE f.rptDate BETWEEN @FDate AND @TDate
 			AND f.CurrencyId <> 20
 			AND f.TicketStatus NOT IN (-1, 18, 9, 10, 14)
+			AND EXISTS (SELECT 1 FROM bodb_Account.dbo.tbl_Site s WITH (NOLOCK) WHERE f.SiteId = s.SiteId AND s.IsDeposit = 0)
 		GROUP BY f.rptDate
 		OPTION (RECOMPILE)
 	END

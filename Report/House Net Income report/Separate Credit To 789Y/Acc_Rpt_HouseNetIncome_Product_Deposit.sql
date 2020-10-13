@@ -1084,14 +1084,19 @@ BEGIN
 		) t
 	WHERE r.Product3rdId IN (11)
 
-		-- 1.3. Total daily
+		-- 1.3. 1/2 House Income
+	UPDATE #Result
+	SET PayToSupplier = -0.5 * HouseIncome
+	WHERE Product3rdId IN (-2, 2)
+
+		-- 1.4. Total daily
 	UPDATE r
 	SET r.PayToSupplier = ISNULL(t.PayToSupplier, 0)
 	FROM #Result r
 		CROSS APPLY (
 			SELECT SUM(t.PayToSupplier) AS PayToSupplier FROM #__tempResult t WHERE t.Product3rdId = r.Product3rdId
 		) t
-	WHERE r.Product3rdId NOT IN (5, 8, 10, 11, 22, 27, 28, 34, 40)
+	WHERE r.Product3rdId NOT IN (-2, 2, 5, 8, 10, 11, 22, 27, 28, 34, 40)
 
 		-- 2. House Income
 		-- 2.1. Include BA into SB
