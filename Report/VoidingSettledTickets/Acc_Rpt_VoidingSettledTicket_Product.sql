@@ -246,14 +246,14 @@ BEGIN
 	SELECT b.TransID, b.CustID, MAX(b.ActionDate)
 	FROM bodb02.dbo.BalanceRecord b (NOLOCK)
 	WHERE EXISTS(SELECT TOP 1 1 FROM #VoidTrans v WHERE b.TransID = v.TransID AND b.CustID = v.CustID)
-		AND ActionID = 50
+		AND ActionID = 50  --latest void ticket in BalanceRecord
 	GROUP BY b.TransID, b.CustID
 	
 	INSERT INTO #BalanceRecordBK (TransID, CustID, ActionDate)
 	SELECT b.TransID, b.CustID, MAX(b.ActionDate)
 	FROM BalanceRecord.dbo.BalanceRecord_bk b (NOLOCK)
 	WHERE EXISTS(SELECT TOP 1 1 FROM #VoidTrans v WHERE b.TransID = v.TransID AND b.CustID = v.CustID)
-		AND ActionID = 50
+		AND ActionID = 50  --latest void ticket in BalanceRecord_bk
 	GROUP BY b.TransID, b.CustID
 	
 	INSERT INTO #VoidRecord (TransID, CustID, ActionDate)
@@ -274,7 +274,7 @@ BEGIN
 	INSERT INTO #tmpSettle (TransID, CustID, ActionDate)
 	SELECT b.transid, b.custid, MAX(b.ActionDate)
 	FROM bodb02.dbo.BalanceRecord b (NOLOCK)
-	WHERE b.ActionID = 30
+	WHERE b.ActionID = 30  -- latest settled ticket in BalanceRecord
 		AND b.CustID IN (SELECT CustID FROM #VoidRecord)
 		AND EXISTS(SELECT TOP 1 1 FROM #VoidRecord v WHERE b.TransID = v.TransID AND b.CustID = v.CustID AND b.ActionDate < v.ActionDate)
 	GROUP BY b.transid, b.custid
@@ -287,7 +287,7 @@ BEGIN
 	INSERT INTO #tmpSettleBK (TransID, CustID, ActionDate)
 	SELECT b.transid, b.custid, MAX(b.ActionDate)
 	FROM BalanceRecord.dbo.BalanceRecord_bk b (NOLOCK)
-	WHERE b.ActionID = 30
+	WHERE b.ActionID = 30  -- latest settled ticket in BalanceRecord_bk
 		AND b.CustID IN (SELECT CustID FROM #VoidRecord)
 		AND EXISTS(SELECT TOP 1 1 FROM #VoidRecord v WHERE b.TransID = v.TransID AND b.CustID = v.CustID AND b.ActionDate < v.ActionDate)
 	GROUP BY b.transid, b.custid
