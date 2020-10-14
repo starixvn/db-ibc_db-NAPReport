@@ -70,6 +70,8 @@ BEGIN
 		IF ',' + @ProductList + ',' LIKE '%,PP-JP,%'
 			UPDATE @Products SET Product3rdId = 32, ProductId = 32, ProductCode = 'PP', SubProductCode = 'PP-JP'
 			WHERE ProductCode = 'PP-JP'
+
+		UPDATE @Products SET Product3rdId = -999, ProductId = -999 WHERE ProductId IS NULL
 	END
 
 	-- Get licensee charge rate
@@ -212,8 +214,8 @@ BEGIN
 		IF EXISTS (SELECT 1 FROM @Products WHERE Product3rdId NOT IN (10, 11, 15, 31))
 		BEGIN
 			DECLARE @ProductIds VARCHAR(MAX)
-			SELECT  @ProductIds = COALESCE(@ProductIds + ',', '') + CONVERT(VARCHAR(5), ProductId)
-			FROM @Products WHERE Product3rdId NOT IN (10, 11, 15, 31) AND (SubProductCode IS NULL OR SubProductCode IN ('NG', 'PP'))
+			;WITH CTE_ProductIds AS (SELECT DISTINCT ProductId FROM @Products WHERE Product3rdId NOT IN (10, 11, 15, 31))
+			SELECT  @ProductIds = COALESCE(@ProductIds + ',', '') + CONVERT(VARCHAR(5), ProductId) FROM CTE_ProductIds
 
 			DECLARE @SubProducts VARCHAR(MAX)
 			SELECT  @SubProducts = COALESCE(@SubProducts + ',', '') + SubProductCode
