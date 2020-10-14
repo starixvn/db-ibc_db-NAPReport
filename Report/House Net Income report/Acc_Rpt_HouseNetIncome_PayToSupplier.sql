@@ -14,9 +14,10 @@ AS
 	Task: House Net Income - Pay to supplier for some products (using diff GMT-4)
 	
 	Revisions:
-		- 20200521@Percy: Initiliaze SP [RedmineID: #134553]
+		- 20200521@Percy: Initiliaze SP [RedmineID: #134533]
 		- 20200529@Percy: Special members for AB [RedmineID: #134867]
 		- 20200715@Percy: Integrate PP Jackpot [RedmineID: #137280]
+		- 20200901@Percy: Change Pay to Supplier of PP, FW [RedmineID: #140677]
     
 	Param's Explanation:
 		- @@ProductCodes: List of Product Code
@@ -330,7 +331,21 @@ BEGIN
 		GROUP BY d.rptDate
 	END
 
-	-- Other products
+	-- Check by MemberWL
+	BEGIN
+		INSERT INTO #__FullRangePayToSupplier (IsDeposit, ProductId, PayToSupplier)
+		SELECT IsDeposit, ProductId, SUM(PayToSupplier)
+		FROM (
+			SELECT IsDeposit, ProductId, ParentId, SUM(PayDailyRate) AS PayToSupplier
+			FROM #__tempDataGMT
+			WHERE ProductId IN (11, 24)
+			GROUP BY IsDeposit, ProductId, ParentId
+			HAVING SUM(PayDailyRate) < 0
+		) t
+		GROUP BY IsDeposit, ProductId
+	END
+
+	-- Others
 	BEGIN
 		INSERT INTO #__DailyPayToSupplier (IsDeposit, ProductId, rptDate, PayToSupplier)
 		SELECT IsDeposit, ProductId, rptDate, SUM(PayDailyRate)
@@ -343,6 +358,7 @@ BEGIN
 		INSERT INTO #__FullRangePayToSupplier (IsDeposit, ProductId, PayToSupplier)
 		SELECT IsDeposit, ProductId, SUM(PayToSupplier)
 		FROM #__DailyPayToSupplier
+		WHERE ProductId NOT IN (11, 24)
 		GROUP BY IsDeposit, ProductId
 	END
 
