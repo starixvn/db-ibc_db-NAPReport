@@ -134,7 +134,7 @@ BEGIN
 	WHERE b.Bettype in (SELECT Bettype FROM #Bettype)
 		  AND z.status in ('WON','LOSE','DRAW')
 		  AND b.winlostdate = @WinlostDate
-		  AND z.transdate >= @VoidTime
+		  AND (@VoidTime = '' OR z.transdate >= @VoidTime)
 		  AND b.currency <> 20
 		  AND (@MatchId = -1 OR b.matchid = @MatchId)
 		
