@@ -5,7 +5,7 @@ GO
 
 ALTER PROCEDURE dbo.Acc_Rpt_VoidingSettledTicket
 	@WinlostDate DATE
-   , @VoidTime   DATETIME
+   , @VoidTime   DATETIME = ''
    , @MatchId    INT = -1
 AS
 /*  

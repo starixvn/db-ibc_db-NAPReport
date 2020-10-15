@@ -5,7 +5,7 @@ GO
 
 ALTER PROCEDURE dbo.Acc_Rpt_VoidingSettledTicket_Product
 	@WinlostDate DATE,
-    @VoidTime   DATETIME,
+    @VoidTime   DATETIME = '',
     @MatchId    INT = -1,
     @ProductGroupID INT,
     @PageSize INT,
