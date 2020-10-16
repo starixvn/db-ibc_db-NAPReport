@@ -129,7 +129,7 @@ BEGIN
 				SUM(sd.VarianceHouseIncome) 	AS VarianceIncome,
 				SUM(sd.RealHouseTurnover) 		AS RealTurnover, 
 				SUM(sd.VirtualHouseTurnover) 	AS VirtualTurnover
-			FROM bodb02.dbo.f_bettrans_measures(0) sd
+			FROM bodb02.dbo.f_bettrans_measures(@IsNoDraw) sd
 			WHERE sd.winlostdate = @StartDate
 					AND sd.ruben = 1
 					AND sd.statusID IN (111, 112, 113)
