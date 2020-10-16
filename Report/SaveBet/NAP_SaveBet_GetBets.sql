@@ -25,6 +25,7 @@ AS
 		- 20170612@Percy: check bettype of Cash Out [RedmineID: #78160]
 		- 20180719@Tom:Enhance_the_flow_get_Virtual_Sport(98520)
 		- 20190705@Robert - NAP Report - Incorporate new product PHAIO 4 (4a) (#116250)
+		- 20201009@Jaden: Add betcheck column (#73598)
 */
 
 -- original is Dot_Admin_cteamlist
