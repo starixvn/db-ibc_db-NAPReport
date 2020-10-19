@@ -57,6 +57,7 @@ BEGIN
 		INSERT INTO #tmpSportBettypeMatrix (SportType, BetType)
 			SELECT cte.SportType, cte.BetType
 			FROM CTE_SportBettypeMatrix cte
+		OPTION (RECOMPILE)
 	END
 
 	BEGIN -- #tmpMatch
@@ -97,13 +98,13 @@ BEGIN
 				FROM bodb02.dbo.Customer WITH (NOLOCK)
 				WHERE roleid = 2
 					AND site IN (SELECT SiteName FROM CTE_Sites)
+			OPTION (RECOMPILE)
 		END
 	END 
 
-	BEGIN --#matchBettypeTmp: staging table for performance enhancement
-		/*Join directly with bettrans table on sporttype, bettype will cause estimation problem
-		as events with sporttype = 1 spans most of the table and we does not index that field
-		  So start step-by-step to guide the optimizer*/
+	BEGIN -- #matchBettypeTmp: staging table for performance enhancement
+		-- Join directly with bettrans table on match, sporttype, bettype for reports that 
+		-- include sport book data will cause estimation problem.
 		CREATE TABLE #matchBettypeTmp (MatchID			INT, 
 								  	   BetType 			INT,
 								  	   MemberWinLoss	MONEY,
@@ -131,11 +132,15 @@ BEGIN
 				SUM(sd.VirtualHouseTurnover) 	AS VirtualTurnover
 			FROM bodb02.dbo.f_bettrans_measures(@IsNoDraw) sd
 			WHERE sd.winlostdate = @StartDate
+					/* -- hint use statistics: IX_bettype -- */
 					AND sd.ruben = 1
 					AND sd.statusID IN (111, 112, 113)
 					AND sd.currency NOT IN (20, 27, 28)
-					AND ('ALL' = 'ALL' OR sd.recommend IN (SELECT AgentID FROM #tmpAgentBySite))
+					/* -------------------------------------------- */
+					AND ('ALL' = @SiteName OR sd.recommend IN (SELECT AgentID FROM #tmpAgentBySite))
+					AND sd.bettype IN (SELECT BetType FROM #tmpSportBettypeMatrix)
 			GROUP BY sd.matchid, sd.bettype
+			OPTION (RECOMPILE)
 	END
 
 	-- #tmpData: display tmp (sport / league)
@@ -168,7 +173,6 @@ BEGIN
 				INNER JOIN #tmpMatch m /*filtering with matchid eliminates parlay & odds spread data*/
 					ON sd.matchid = m.matchid
 					AND CASE WHEN sd.bettype = 10 THEN 1 ELSE 0 END = m.matchtype
-				WHERE sd.bettype IN (SELECT BetType FROM #tmpSportBettypeMatrix)
 				GROUP BY  m.SportType,
 						  m.LeagueName
 				OPTION (RECOMPILE)
