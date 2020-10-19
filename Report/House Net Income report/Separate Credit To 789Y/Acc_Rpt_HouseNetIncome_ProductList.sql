@@ -27,6 +27,7 @@ AS
 		- 20200914@Kean - Email/Letstalk Reports - Change Sexy Gaming to AE Casino (#141448)
 		- 20200916@Roy: Email/Letstalk Reports - Integrate Joker Gaming (#131602)
 		- 20200916@Roy: Email/Letstalk Reports - Integrate WM Live Casino (#131593)
+		- 20201002@Ned.Le: Email/Letstalk Reports - Change Card Club into Arcadia Gaming (#142831)
   
 */
 BEGIN
@@ -78,7 +79,7 @@ SET NOCOUNT ON;
 	UNION ALL
 	SELECT '1RNG-JP' Product, 'JP' ProductPrefix, 'RNG Casino' [Group]
 	UNION ALL
-	SELECT 'CardC' Product, 'CC' ProductPrefix, 'RNG Casino' [Group]
+	SELECT 'Arcadia' Product, 'CC' ProductPrefix, 'RNG Casino' [Group]
 	UNION ALL
 	SELECT 'PragP' Product, 'PP' ProductPrefix, 'RNG Casino' [Group]
 	UNION ALL
@@ -129,4 +130,3 @@ SET NOCOUNT ON;
 	SELECT 'SabaPro' Product, 'NPH' ProductPrefix, 'Others' [Group]
 END
 GO
-GRANT EXECUTE ON [dbo].[Acc_Rpt_HouseNetIncome_ProductList] TO [dwrs]
