@@ -14,6 +14,7 @@ AS
     Revisions:		
 		- 20190121@Robert: Letstalk Margin Charts - Separate Letstalk group for credit & Deposit (Soccer & Other Sports) [#108220]
 		- 20200701@Kean.Nguyen - House Net Income Email/Letstalk - Change formula to Calculate Margin (#136792)
+		- 20201019@Ned.Le: House Net Income - Apply Licensee ticket's oddspread changing (#111275)
 		
 	Param's Explanation:   
 
@@ -96,21 +97,17 @@ BEGIN
 									AND b.currencyid = ex.ExchangeID
 		 WHERE b.rptDate BETWEEN @FDate AND @TDate
 			   AND b.TicketStatus NOT IN(-1, 18, 9, 10, 14, 3)
-			  AND EXISTS
-					   (
-						  SELECT TOP 1 1
-						  FROM #SportBettypeMatrix AS sb
-						  WHERE sb.BetType = b.BetType
-							   AND sb.ProductID = 1
-							   AND sb.EventType IN(1, 2, 4)
-					   )
-			  AND EXISTS
-					   (
-						  SELECT TOP 1 1
-						  FROM bodb_Account.dbo.League AS l WITH (NOLOCK)
-						  WHERE b.LeagueId = l.LeagueId
-							   AND l.sportid > 1
-					   )
+			   AND (b.bettype IN (999) -- Odds Spread Adjustment
+				    OR
+					(EXISTS (SELECT TOP 1 1
+							 FROM #SportBettypeMatrix AS sb
+							 WHERE sb.BetType = b.BetType
+							       AND sb.ProductID = 1
+							       AND sb.EventType IN(1, 2, 4))
+			         AND EXISTS (SELECT TOP 1 1
+						         FROM bodb_Account.dbo.League AS l WITH (NOLOCK)
+								 WHERE b.LeagueId = l.LeagueId
+								       AND l.sportid > 1)))
 		 GROUP BY b.SiteID
 			   , b.rptDate OPTION(RECOMPILE);
 
