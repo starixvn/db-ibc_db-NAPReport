@@ -3,7 +3,7 @@
 USE [bodb02]
 GO
 
-ALTER PROCEDURE dbo.Acc_Rpt_CompanyWinLoss_Products 
+ALTER PROCEDURE dbo.Acc_Rpt_CompanyWinLoss_Products
 	@StartDate    SMALLDATETIME 
    , @EndDate      SMALLDATETIME 
 AS
@@ -610,21 +610,23 @@ Explanation's Param:
 						ELSE 0
 					 END * (actualrate - virtualrate) * CAST(epositiontaking AS DECIMAL(9, 8))) AS grosscomm_variance
 				, CASE s.SubProduct
-					 WHEN 'MG-SuperLive'
-					 THEN-1
-					 WHEN 'BT-Comm'
-					 THEN-2
-					 WHEN 'BT-Winloss'
-					 THEN-2
-					 WHEN 'Bet Builder'
-					 THEN-6
-					 ELSE CASE
-							WHEN s.EventType = 0
-								AND ProductID = 1
-							THEN-3
-							ELSE s.ProductID
-						 END
-				  END AS ProductID
+					   WHEN 'MG-SuperLive'
+					   THEN-1
+					   WHEN 'BT-Comm'
+					   THEN-2
+					   WHEN 'BT-Winloss'
+					   THEN-2
+					   WHEN 'Bet Builder'
+					   THEN-6
+					   WHEN 'Odds Spread Adjustment'
+					   THEN-7 /*odds spread (#141750)*/
+					   ELSE CASE
+							  WHEN s.EventType = 0
+								  AND ProductID = 1
+							  THEN-3 /*parlay*/
+							  ELSE s.ProductID
+						   END
+				    END AS ProductID
 				, s.CasinoType
 				, SUM((1 - b.tpositiontaking) * CASE
 											 WHEN s.productID = 1
