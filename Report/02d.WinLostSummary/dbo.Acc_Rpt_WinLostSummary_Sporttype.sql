@@ -652,7 +652,7 @@ BEGIN
 			 , 0 AS IsHedge
 			 , status
 			 , 5 AS OrderKey
-			 , 18 AS SortKey
+			 , 17 AS SortKey
 			 , ISNULL(SUM(realWinlost), 0)
 			 , ISNULL(SUM(realPosition), 0)
 			 , ISNULL(SUM(realCommission), 0)
