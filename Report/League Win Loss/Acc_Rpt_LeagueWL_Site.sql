@@ -152,80 +152,16 @@ BEGIN
                             VirtualTurnover)
             SELECT  a.agentId,
                     a.site Site,
-                    SUM((sd.winlost - sd.actual_stake) * sd.actualrate) AS MemberWinLoss,
-                    SUM((sd.awinlost + sd.mwinlost + sd.swinlost) * sd.actualrate) AS SMAWinLoss,
-                    SUM((CASE WHEN sd.tpositiontaking = 1 THEN 0
-                            ELSE (sd.winlost - sd.actual_stake) + sd.scomm / (1 - sd.tpositiontaking) END) 
-                        * ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0) 
-                        * sd.actualrate
-                        ) AS ExtraPT,
-                    SUM(sd.scomm * sd.actualrate) AS Commission,
-                    SUM((
-                            sd.winlost - sd.actual_stake + sd.awinlost + sd.mwinlost + sd.swinlost + sd.scomm 
-                            - CASE WHEN sd.tpositiontaking = 1 THEN 0
-                                ELSE sd.winlost - sd.actual_stake + sd.scomm / (1 - sd.tpositiontaking) END 
-                            * ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0)
-                        ) 
-                        * sd.actualrate
-                        ) AS RealIncome,
-                    SUM((
-                            sd.winlost - sd.actual_stake + sd.awinlost + sd.mwinlost + sd.swinlost 
-                            - CASE WHEN sd.tpositiontaking = 1 THEN 0
-                                ELSE (sd.winlost - sd.actual_stake) * ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0) END
-                        ) * sd.virtualrate 
-                        + (
-                            sd.scomm 
-                            - CASE WHEN sd.tpositiontaking = 1 THEN 0
-                                ELSE sd.scomm / (1 - sd.tpositiontaking) END 
-                            * ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0)
-                        ) 
-                        * sd.actualrate 
-                        * (CASE WHEN sd.virtualrate < sd.actualrate THEN sd.virtualrate / sd.actualrate ELSE 1 END)
-                        ) AS VirtualIncome,
-                    SUM((
-                            sd.winlost - sd.actual_stake + sd.awinlost + sd.mwinlost + sd.swinlost -
-                            CASE WHEN sd.tpositiontaking = 1 THEN 0
-                                ELSE(sd.winlost - sd.actual_stake) * ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0)
-                            END 
-                            + CASE WHEN sd.virtualrate < sd.actualrate 
-                                    THEN (sd.scomm - 
-                                            (CASE WHEN tpositiontaking = 1 THEN 0 ELSE sd.scomm / (1 - sd.tpositiontaking) END) 
-                                            * ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0))
-                                ELSE 0
-                            END
-                        ) 
-                        * (sd.actualrate - sd.virtualrate)) AS VarianceIncome,
-                    SUM(CASE WHEN sd.tpositiontaking = 1 THEN 0
-                            ELSE (1 - sd.tpositiontaking - ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0))
-                                * ABS(sd.stake)
-                                * CASE WHEN sd.virtualrate > sd.actualrate THEN sd.virtualrate ELSE sd.actualrate END
-                                * CASE WHEN @IsNoDraw = 1 THEN CASE WHEN  (sd.bettype < 999 
-                                                                                OR sd.bettype BETWEEN 1301 AND 1399 
-                                                                                OR sd.bettype BETWEEN 9001 AND 9399) 
-                                                                            AND sd.bettype NOT IN (29, 38, 911, 912, 913, 914)
-                                                                            AND sd.bettype NOT BETWEEN 81 AND 120
-                                                                            AND ABS(sd.modds) = 0.25
-                                                                            AND sd.statusID IN (112, 113)
-                                                                    THEN 0.5
-                                                                    ELSE 1 END
-                                        ELSE 1 END
-                        END) AS RealTurnover, 
-                    SUM(CASE WHEN sd.tpositiontaking = 1 THEN 0
-                            ELSE (1 - sd.tpositiontaking - ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0))
-                                * ABS(sd.stake)
-                                * CASE WHEN @IsNoDraw = 1 THEN CASE WHEN 	(sd.bettype < 999 
-                                                                                OR sd.bettype BETWEEN 1301 AND 1399 
-                                                                                OR sd.bettype BETWEEN 9001 AND 9399) 
-                                                                            AND sd.bettype NOT IN (29, 38, 911, 912, 913, 914 )
-                                                                            AND sd.bettype NOT BETWEEN 81 AND 120
-                                                                            AND ABS(sd.modds) = 0.25
-                                                                            AND sd.statusID IN (112, 113)
-                                                                    THEN 0.5
-                                                                    ELSE 1 END
-                                        ELSE 1 END
-                                * sd.virtualrate
-                        END) AS VirtualTurnover
-            FROM bodb02.dbo.bettrans sd WITH (NOLOCK)
+					SUM(sd.MemberWinLoss)			AS MemberWinLoss,
+					SUM(sd.SMAWinLoss)				AS SMAWinLoss,
+					SUM(sd.[Extra's Amount]) 		AS ExtraPT,
+					SUM(sd.TreeCommission) 			AS Commission,
+					SUM(sd.RealHouseIncome) 		AS RealIncome,
+					SUM(sd.VirtualHouseIncome) 		AS VirtualIncome,
+					SUM(sd.VarianceHouseIncome) 	AS VarianceIncome,
+					SUM(sd.RealHouseTurnover) 		AS RealTurnover, 
+					SUM(sd.VirtualHouseTurnover) 	AS VirtualTurnover
+            FROM bodb02.dbo.f_bettrans_measures(@IsNoDraw) sd
             INNER JOIN #agent a
                 ON sd.recommend = a.agentId
             WHERE sd.winlostdate = @StartDate
@@ -235,7 +171,6 @@ BEGIN
                 AND sd.currency NOT IN (20, 27, 28)
                 AND sd.liveindicator = @LiveIndicator
                 AND sd.bettype = @BetType
-                AND (@IsNoDraw = 0 OR (@IsNoDraw = 1 AND sd.statusID NOT IN (111)))
             GROUP BY a.agentId, a.site
             OPTION (RECOMPILE)
 
@@ -299,5 +234,6 @@ BEGIN
 
 	DROP TABLE #tmpData
     DROP TABLE #agent
+    DROP TABLE #inputSites
 END
 GO
