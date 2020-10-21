@@ -226,8 +226,8 @@ BEGIN
 		END ProductGroup,
 		SUM((s.winlost - s.actual_stake + s.swinlost + s.mwinlost + s.awinlost + s.scomm) * t.ActualRate) HouseIncomeBeforeExtraPT,
 		SUM((s.winlost - s.actual_stake + s.swinlost + s.mwinlost + s.awinlost + s.scomm 
-				- CASE WHEN t.tpositiontaking = 1 THEN 0
-					ELSE s.winlost - s.actual_stake + s.scomm / (1 - t.tpositiontaking) * t.epositiontaking END) * t.ActualRate) HouseIncomeAfterExtraPT
+				- (CASE WHEN t.tpositiontaking = 1 THEN 0
+					ELSE s.winlost - s.actual_stake + s.scomm / (1 - t.tpositiontaking) END)* t.epositiontaking) * t.ActualRate) HouseIncomeAfterExtraPT
 	FROM #VoidTrans t 
 		INNER JOIN #SettledRecord s ON t.TransID = s.TransID
 		INNER JOIN #Bettype b ON t.Bettype = b.Bettype
