@@ -224,10 +224,10 @@ BEGIN
 			WHEN t.Bettype IN (9,29) AND c.Recommend IS NOT NULL THEN 'CN88 Parlay'
 			WHEN t.Bettype = 10 AND c.Recommend IS NOT NULL THEN 'CN88 Outright'
 		END ProductGroup,
-		SUM((s.winlost - s.actual_stake + s.swinlost + s.mwinlost + s.awinlost + scomm) * t.ActualRate) HouseIncomeBeforeExtraPT,
-		SUM((s.swinlost + s.mwinlost + s.awinlost + scomm 
+		SUM((s.winlost - s.actual_stake + s.swinlost + s.mwinlost + s.awinlost + s.scomm) * t.ActualRate) HouseIncomeBeforeExtraPT,
+		SUM((s.winlost - s.actual_stake + s.swinlost + s.mwinlost + s.awinlost + s.scomm 
 				- CASE WHEN t.tpositiontaking = 1 THEN 0
-					ELSE scomm / (1 - t.tpositiontaking) * t.epositiontaking END) * t.ActualRate) HouseIncomeAfterExtraPT
+					ELSE s.winlost - s.actual_stake + s.scomm / (1 - t.tpositiontaking) * t.epositiontaking END) * t.ActualRate) HouseIncomeAfterExtraPT
 	FROM #VoidTrans t 
 		INNER JOIN #SettledRecord s ON t.TransID = s.TransID
 		INNER JOIN #Bettype b ON t.Bettype = b.Bettype

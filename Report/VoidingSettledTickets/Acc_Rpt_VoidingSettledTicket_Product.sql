@@ -328,10 +328,10 @@ BEGIN
 		c.username,
 		t.Matchid,
 		t.VoidDate,
-		(s.winlost - s.actual_stake + s.swinlost + s.mwinlost + s.awinlost + scomm) * t.ActualRate HouseIncomeBeforeExtraPT,
+		(s.winlost - s.actual_stake + s.swinlost + s.mwinlost + s.awinlost + s.scomm) * t.ActualRate HouseIncomeBeforeExtraPT,
 		(s.swinlost + s.mwinlost + s.awinlost + scomm 
 				- CASE WHEN t.tpositiontaking = 1 THEN 0
-					ELSE scomm / (1 - t.tpositiontaking) * t.epositiontaking END) * t.ActualRate HouseIncomeAfterExtraPT
+					ELSE s.winlost - s.actual_stake + s.scomm / (1 - t.tpositiontaking) * t.epositiontaking END) * t.ActualRate HouseIncomeAfterExtraPT
 	FROM #VoidTrans t
 		INNER JOIN #SettledRecord s ON t.TransID = s.TransID
 		INNER JOIN bodb02.dbo.Customer c ON t.CustID = c.custid
