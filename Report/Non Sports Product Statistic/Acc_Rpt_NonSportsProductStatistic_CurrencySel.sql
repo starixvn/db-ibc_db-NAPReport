@@ -26,10 +26,9 @@ BEGIN
 	FROM dbo.exchange WITH(NOLOCK) 
 	WHERE IsActive = 1
 		AND (@ExcludeTest = 0 OR (@ExcludeTest = 1 AND exchangeid <> 20))
-		AND (OfferSite = 0
-			OR @SiteType = -1
-			OR (@SiteType = 0 AND OfferSite = 1) 
-			OR (@SiteType = 1 AND OfferSite = 2)
+		AND (@SiteType = -1
+			OR (@SiteType = 0 AND OfferSite IN (0,1)) 
+			OR (@SiteType = 1 AND OfferSite IN (0,2))
 			)
 	
 END 
