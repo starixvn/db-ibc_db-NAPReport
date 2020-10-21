@@ -409,9 +409,9 @@ BEGIN
 			  AND b.statusID NOT IN(101, 102, 103)
 			  AND b.currency <> 20
 			  AND b.recommend = @recommend
-			  AND (t.bettype IN (9,29)
+			  AND (t.bettype IN (9,29,999)
 				OR t.ProductID <> 1
-				OR (t.ProductID = 1 AND t.bettype NOT IN (9,29,10) AND b.matchid IN (SELECT matchid FROM #tmpMatch where matchtype = 0))
+				OR (t.ProductID = 1 AND t.bettype NOT IN (9,29,10,999) AND b.matchid IN (SELECT matchid FROM #tmpMatch where matchtype = 0))
 				OR (t.bettype = 10 AND b.matchid IN (SELECT matchid FROM #tmpMatch where matchtype = 1))
 				)	
 		 GROUP BY b.custid
