@@ -329,7 +329,7 @@ BEGIN
 		t.Matchid,
 		t.VoidDate,
 		(s.winlost - s.actual_stake + s.swinlost + s.mwinlost + s.awinlost + s.scomm) * t.ActualRate HouseIncomeBeforeExtraPT,
-		(s.swinlost + s.mwinlost + s.awinlost + scomm 
+		(s.winlost - s.actual_stake + s.swinlost + s.mwinlost + s.awinlost + s.scomm 
 				- CASE WHEN t.tpositiontaking = 1 THEN 0
 					ELSE s.winlost - s.actual_stake + s.scomm / (1 - t.tpositiontaking) * t.epositiontaking END) * t.ActualRate HouseIncomeAfterExtraPT
 	FROM #VoidTrans t
