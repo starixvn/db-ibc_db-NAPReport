@@ -231,7 +231,7 @@ BEGIN
 	FROM #VoidTrans t 
 		INNER JOIN #SettledRecord s ON t.TransID = s.TransID
 		INNER JOIN #Bettype b ON t.Bettype = b.Bettype
-		INNER JOIN bodb02.dbo.match m (NOLOCK) ON t.Matchid = m.matchid
+		LEFT JOIN bodb02.dbo.match m (NOLOCK) ON t.Matchid = m.matchid AND m.sporttype = 44
 		LEFT JOIN #Recommend c ON t.Recommend = c.Recommend
 	GROUP BY 
 		CASE WHEN t.Bettype NOT IN (9,29,10) AND b.SubProduct NOT IN ('MG-SuperLive','CO-Comm','CO-Winloss','Bet Builder') 
