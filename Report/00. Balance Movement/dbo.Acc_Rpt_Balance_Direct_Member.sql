@@ -19,9 +19,6 @@ AS
 */
 BEGIN
 	SET NOCOUNT ON
-
-	---display round(balance,2) > 0---
-	DECLARE @MinBal DECIMAL(3,3) = 0.005
 	
 	CREATE TABLE #directMember (
 		custid INT
@@ -76,7 +73,6 @@ BEGIN
 				AND EXISTS ( SELECT 1 FROM #directMember d WITH (NOLOCK) WHERE b.recommend = d.recommend )
 				GROUP BY custid
 			) bal ON mem.custid = bal.custid
-	WHERE bal.bal >= @MinBal
 	ORDER BY mem.username
 	OPTION (RECOMPILE)
 

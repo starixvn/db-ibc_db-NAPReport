@@ -18,9 +18,6 @@ BEGIN
 	
 	DECLARE @currentDate datetime 
 	SELECT  @currentDate = convert(varchar(10), CURRENT_TIMESTAMP, 120)
-
-	---display round(balance,2) > 0---
-	DECLARE @MinBal DECIMAL(3,3) = 0.005
 	
 	CREATE TABLE #directAgent (
 		custid INT
@@ -80,7 +77,6 @@ BEGIN
 				AND EXISTS ( SELECT 1 FROM #directAgent d WHERE b.mrecommend = d.mrecommend )
 				GROUP BY recommend 
 			)as Bal ON a.custid = Bal.recommend
-	WHERE bal.bal >= @MinBal
 	ORDER BY a.username
 	OPTION (RECOMPILE)
 

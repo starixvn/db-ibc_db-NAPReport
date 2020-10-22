@@ -20,9 +20,6 @@ AS
 BEGIN
 	SET NOCOUNT ON
 	
-	---display round(balance,2) > 0---
-	DECLARE @MinBal DECIMAL(3,3) = 0.005
-	
 	CREATE TABLE #directAgent (
 		custid INT
 		,username VARCHAR(50)
@@ -79,7 +76,6 @@ BEGIN
 				AND EXISTS ( SELECT 1 FROM #directAgent d WITH (NOLOCK) WHERE b.mrecommend = d.mrecommend )
 				GROUP BY recommend 
 			)as Bal ON a.custid = Bal.recommend
-	WHERE bal.bal >= @MinBal
 	ORDER BY a.username
 	OPTION (RECOMPILE)
 
