@@ -24,7 +24,7 @@ AS
 		- 20200827@Kean - Email/Letstalk Reports - Integrate 10 New BluePrint Games (#140459)
 		- 20200916@Roy: Email/Letstalk Reports - Integrate Joker Gaming (#131602)
 		- 20200916@Roy: Email/Letstalk Reports - Integrate WM Live Casino (#131593)
-		- 20200901@Percy: Refactor code to enhance performance [Redmi
+		- 20200901@Percy: Refactor code to enhance performance [RedmineID: #140677]
 	
 	EXEC [Acc_Rpt_HouseNetIncome_Product_Deposit] '20180601', '20180619'
   
@@ -241,6 +241,39 @@ BEGIN
 				UPDATE #PartyChargeInfo SET Product3rdId = -3, Bettype = -1 WHERE Product3rdId = 32
 				UPDATE #PartyCharge3rdInfo SET Product3rdId = -3 WHERE Product3rdId = 32
 			END
+		END
+
+			-- Update charge rate for Keno, Lottery, Table Game
+		DECLARE @tmp_PartyCharge3rdInfo TABLE (LicenseeId INT, Product3rdId INT, ChargeType INT, Rate MONEY, FromDate DATE, ToDate DATE)
+		DECLARE @tmp_Licensee TABLE (LicenseeId INT)
+
+		IF EXISTS (SELECT 1 FROM #PartyCharge3rdInfo WHERE Product3rdId IN (8, 28, 40) AND ToDate >= '2020-07-01')
+		BEGIN
+			INSERT INTO @tmp_Licensee (LicenseeId)
+			SELECT LicenseeId FROM bodb_Licensee.dbo.Licensees WITH (NOLOCK)
+			WHERE LicenseeName IN ('Bobbet', 'Tianbo')
+
+			INSERT INTO @tmp_PartyCharge3rdInfo (LicenseeId, Product3rdId, ChargeType, Rate, FromDate, ToDate)
+			SELECT p.LicenseeId, p.Product3rdId, p.ChargeType, r.Rate
+				,CASE WHEN p.FromDate > r.FromDate THEN p.FromDate ELSE r.FromDate END
+				,CASE WHEN p.ToDate < r.ToDate THEN p.ToDate ELSE r.ToDate END
+			FROM #PartyCharge3rdInfo p
+				CROSS APPLY (
+					SELECT p.FromDate, CONVERT(DATE, '2020-06-30') AS ToDate, p.Rate
+					WHERE FromDate <= '2020-06-30'
+					UNION ALL
+					SELECT CONVERT(DATE, '2020-07-01') AS FromDate, p.ToDate, 0.02 AS Rate
+					WHERE p.LicenseeId IN (SELECT l.LicenseeId FROM @tmp_Licensee l)
+					UNION ALL
+					SELECT CONVERT(DATE, '2020-07-01') AS FromDate, p.ToDate, 0.036 AS Rate
+					WHERE p.LicenseeId NOT IN (SELECT l.LicenseeId FROM @tmp_Licensee l)
+				) r
+			WHERE p.Product3rdId IN (8, 28, 40) AND p.ToDate >= '2020-07-01'
+
+			DELETE #PartyCharge3rdInfo WHERE Product3rdId IN (8, 28, 40) AND ToDate >= '2020-07-01'
+
+			INSERT INTO #PartyCharge3rdInfo (LicenseeId, Product3rdId, ChargeType, Rate, FromDate, ToDate)
+			SELECT LicenseeId, Product3rdId, ChargeType, Rate, FromDate, ToDate FROM @tmp_PartyCharge3rdInfo
 		END
 
 		DROP TABLE #Licensees

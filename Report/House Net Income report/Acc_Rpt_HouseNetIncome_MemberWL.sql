@@ -14,6 +14,7 @@ AS
 
 	Revisions:
 		- 20200901@Percy: Initialize SP [RedmineID: #140677]
+		- 20201023@Percy: Exclude Arcadia Gaming - Bonus bettype (1906) [RedmineID: #143656]
 
 	Param's Explanation:
 		@DepositType:
@@ -56,7 +57,7 @@ BEGIN
 		,BetType
 	FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)
 	WHERE ',' + @ProductIds + ',' LIKE '%,' + CONVERT(VARCHAR(5), ProductId) + ',%'
-		AND BetType NOT IN (901, 902, 903, 904, 911, 912, 18000, 1700, 1706, 1800, 8000)
+		AND BetType NOT IN (901, 902, 903, 904, 911, 912, 18000, 1700, 1706, 1800, 1906, 8000)
 		AND (
 			ProductId NOT IN (1, 3, 32)
 			OR
