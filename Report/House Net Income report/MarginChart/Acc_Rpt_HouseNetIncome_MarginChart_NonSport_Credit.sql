@@ -44,6 +44,8 @@ AS
 		- 20200827@Kean - Email/Letstalk Reports - Integrate 10 New BluePrint Games (#140459)
 		- 20200916@Roy: Email/Letstalk Reports - Integrate Joker Gaming (#131602)
 		- 20200916@Roy: Email/Letstalk Reports - Integrate WM Live Casino (#131593)
+		- 20201023@Roy: Email/Letstalk Reports - Offer Bonus program for Arcadia Gaming product (#143656)
+		- 20201023@Roy: HNI Email/Letstalk - Adjust royalty fee term for RNG Keno, Lottery, Table Game, Number Game, NG2, Happy 5 (#143589)
 
 	Param's Explanation:   
 		- @ProductList: '' - default value when get all product
@@ -65,13 +67,18 @@ BEGIN
 		   @TDate = @ToDate
 
 	DECLARE @SiteCN88 INT
+		,@SiteIBCIndo INT
 
 	SELECT TOP 1 @SiteCN88 = SiteId
 	FROM bodb_Account.dbo.tbl_Site WITH(NOLOCK)
 	WHERE [site] = 'CN88'
 
+	SELECT TOP 1 @SiteIBCIndo = SiteId
+	FROM bodb_Account.dbo.tbl_Site WITH(NOLOCK)
+	WHERE [site] = 'IBCIndo'
+
 	DECLARE @ProductCodeAll VARCHAR(MAX) = 'NG,VS,KN,LT,VS2,VB,CS,NG2,AB,GD,CB,PP,CC,SG,VRG,SAG,SBC,SXG,BBIN,TG,IBCLC,ION,RNGW,FW,PGS,JK,WM'
-	DECLARE @ProductCodeGMT4 VARCHAR(1000) = 'VB,CC,BBIN,TG,IBCLC,ION,RNGW,PGS,JK'
+	DECLARE @ProductCodeGMT4 VARCHAR(1000) = 'VB,CC,BBIN,IBCLC,ION,RNGW,PGS,JK'
 	DECLARE @ProductCodeGMT VARCHAR(1000) = 'AB,FW,PP,SG,SAG,SXG,WM'
 
 	-- #tmpBettypeGroup
@@ -187,8 +194,9 @@ BEGIN
 	INSERT INTO #SportBettypeMatrix (ProductID, Bettype, EventType, SubProduct)
 	SELECT ProductID, BetType, EventType, SubProduct 
 	FROM bodb02.dbo.f_SportBettypeMatrix_Sel(0,0,0,2,'',@ProductCodeAll,0) sel
-	WHERE ISNULL(@ProductList, '') = ''
-		  OR EXISTS (SELECT 1 FROM #tmpProduct p WHERE sel.ProductPrefix = p.ProductPrefix)
+	WHERE (ISNULL(@ProductList, '') = ''
+		  OR EXISTS (SELECT 1 FROM #tmpProduct p WHERE sel.ProductPrefix = p.ProductPrefix))
+		  AND BetType NOT IN ( 1906 ) -- exclude Arcadia Bonus bettype
 	
 	DELETE t
 	FROM #SportBettypeMatrix t
@@ -203,8 +211,9 @@ BEGIN
 	INSERT INTO #PayToSupplierRate (ProductID, Rate)
 	VALUES (3, 0.5)			-- NG, HP5
 		   ,(5, 0.01)		-- VS
-		   ,(8, 0.03)		-- Keno
-		   ,(28, 0.03)		-- LT
+		   ,(8, 0.036)		-- Keno
+		   ,(28, 0.036)		-- LT
+		   ,(40, 0.036)		-- TG
 		   ,(27, 0.01)		-- VS2
 		   --,(22, 0.02)	-- MacauG
 		   ,(23, 0.5)		-- NG2
@@ -310,13 +319,13 @@ BEGIN
 		SELECT CONVERT(VARCHAR(2), @tmpDate, 106) AS RptDate,
 			   (SELECT SUM(t.HouseWL) FROM #TmpHouseWL AS t WHERE t.rptDate = @tmpDate) AS HouseWL,
 			   (SELECT SUM(t.ExtraPT) FROM #TmpHouseWL AS t WHERE t.rptDate = @tmpDate) AS ExtraPT,
-			   ((SELECT ISNULL(SUM((t.HouseWL + t.ExtraPT) * r.Rate) * (-1),0)
+			   ((SELECT ISNULL(SUM(t.HouseWL * r.Rate) * (-1),0)
 			     FROM #TmpHouseWL AS t INNER JOIN #PayToSupplierRate r ON t.ProductID = r.ProductID
                  WHERE t.ProductID = 23 AND  t.rptDate = @tmpDate) -- NG2
 		         +
-				 (SELECT ISNULL(SUM((t.HouseWL + t.ExtraPT) * r.Rate) * (-1),0)
+				 (SELECT ISNULL(SUM(t.HouseWL * r.Rate) * (-1),0)
 				  FROM #TmpHouseWL AS t INNER JOIN #PayToSupplierRate r ON t.ProductID = r.ProductID
-				  WHERE t.ProductID = 3 AND t.SiteID <> @SiteCN88 AND  t.rptDate = @tmpDate) --NG
+				  WHERE t.ProductID = 3 AND t.SiteID NOT IN (@SiteCN88, @SiteIBCIndo) AND  t.rptDate = @tmpDate) --NG, HP5
 				 +
 				 (SELECT ISNULL(SUM(t.PayToSupplier_Daily),0)
 				  FROM #tmpPayToSupplier_Daily AS t 
@@ -327,7 +336,7 @@ BEGIN
 				 +
 				 (SELECT ISNULL(SUM(t.MemberWLOANDA * r.Rate),0)
 				  FROM #TmpHouseWL AS t INNER JOIN #PayToSupplierRate r ON t.ProductID = r.ProductID
-				  WHERE t.ProductID IN (5,8,28,27) AND t.SiteID <> @SiteCN88 AND t.rptDate = @tmpDate) -- VS, KN, LT, VS2
+				  WHERE t.ProductID IN (5,8,28,27,40) AND t.SiteID <> @SiteCN88 AND t.rptDate = @tmpDate) -- VS, KN, LT, TG, VS2
 				 +
 				 (SELECT ISNULL(SUM(t.MemberWLOANDA * r.Rate),0)
 				  FROM #TmpHouseWL AS t INNER JOIN #PayToSupplierRate_CN88 r ON t.ProductID = r.ProductID
@@ -337,6 +346,10 @@ BEGIN
 				 (SELECT ISNULL(SUM(t.MemberWL * r.Rate),0)
 				  FROM #TmpHouseWL AS t INNER JOIN #PayToSupplierRate_CN88 r ON t.ProductID = r.ProductID
 				  WHERE t.ProductID = 3 AND t.rptDate = @tmpDate AND t.SiteID = @SiteCN88) -- NG, HP5 for CN88
+				 +
+				 (SELECT ISNULL(SUM((t.HouseWL + t.ExtraPT) * r.Rate),0)
+				  FROM #TmpHouseWL AS t INNER JOIN #PayToSupplierRate_CN88 r ON t.ProductID = r.ProductID
+				  WHERE t.ProductID = 3 AND t.rptDate = @tmpDate AND t.SiteID = @SiteIBCIndo) -- NG, HP5 for IBCIndo
 				 +
 				 (SELECT ISNULL(SUM(t.PayToSupplier_Daily),0)
 				  FROM #tmpPayToSupplier_GMT AS t

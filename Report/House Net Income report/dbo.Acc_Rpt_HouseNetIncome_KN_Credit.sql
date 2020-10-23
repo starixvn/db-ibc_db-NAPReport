@@ -17,6 +17,7 @@ AS
 		- 20160922@Harper - #64429 - Edit status ID
 		- 20160923@Harper - #64582, #64799 - PayToSupplier should use ExchangeOANDA
 		- 20200225@Kean: #128007 - Changes on the rate of Pay to suppliers
+		- 20201023@Roy: #143589 - HNI Email/Letstalk - Adjust royalty fee term for RNG Keno, Lottery, Table Game, Number Game, NG2, Happy 5
 	Param's Explanation:   
 */  
 BEGIN  
@@ -112,7 +113,7 @@ BEGIN
 			    SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 				    , (SELECT SUM(t.HouseWL) FROM #RawData AS t WHERE t.rptDate = @tmpDate) AS  HouseWL
 				    , (SELECT SUM(t.ExtraPT) FROM #RawData AS t WHERE t.rptDate = @tmpDate) AS  ExtraPT
-				    , (SELECT ISNULL(SUM(MemberWLOANDA) * 0.03,0) FROM #RawData AS t WHERE t.rptDate = @tmpDate AND t.SiteId <> @SiteCN88)
+				    , (SELECT ISNULL(SUM(MemberWLOANDA) * 0.036,0) FROM #RawData AS t WHERE t.rptDate = @tmpDate AND t.SiteId <> @SiteCN88)
 					+ (SELECT ISNULL(SUM(MemberWLOANDA) * 0.015,0) FROM #RawData AS t WHERE t.rptDate = @tmpDate AND t.SiteId =  @SiteCN88);
 
 		  SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate);
@@ -128,7 +129,7 @@ BEGIN
 		SELECT 'FullRange'
 			, (SELECT SUM(t.HouseWL) FROM #RawData AS t) AS  HouseWL
 			, (SELECT SUM(t.ExtraPT) FROM #RawData AS t) AS  ExtraPT
-			, 0.03 * (SELECT CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE ISNULL(SUM(MemberWLOANDA),0) END FROM #RawData AS t WHERE t.SiteId <> @SiteCN88)
+			, 0.036 * (SELECT CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE ISNULL(SUM(MemberWLOANDA),0) END FROM #RawData AS t WHERE t.SiteId <> @SiteCN88)
 			+ 0.015 * (SELECT CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE ISNULL(SUM(MemberWLOANDA),0) END FROM #RawData AS t WHERE t.SiteId = @SiteCN88)       
 		FROM #FinalResult;
 

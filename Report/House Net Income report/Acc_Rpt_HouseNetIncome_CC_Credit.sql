@@ -17,6 +17,8 @@ AS
 		- 20200403@Kean - Integrate Mini Game Xoc Dia of CC(New Bettype 1903) - #131507
 		- 20200422@Kean - Integrate Mini Game 3D Lottery of CC(New Bettype 1904) - #132790
 		- 20200518@Ned.Le - Integrate Mini Game Hi-Lo Game of CC(New Bettype 1905) - #133594
+		- 20201023@Roy - Email/Letstalk Reports - Offer Bonus program for Arcadia Gaming product - #143656
+
 	
 	Param's Explanation:   
 
@@ -125,7 +127,8 @@ BEGIN
 			 , EventType
 			 , SubProduct
 		 FROM bodb02.dbo.f_SportBettypeMatrix_Sel
-			 (34, 0, 0, 2, '', 'CC', 0);
+			 (34, 0, 0, 2, '', 'CC', 0)
+		 WHERE BetType NOT IN (1906) -- exclude Arcadia Bonus bettype
     -- Get PayToSupplier Rate
 
     CREATE TABLE #ChargeInfo3rd(

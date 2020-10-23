@@ -16,6 +16,7 @@ AS
 		- 20160922@Harper: #64429 - Edit status ID
 		- 20181202@Robert: #104579 - House Net Income Email/Letstalk/Margin Chart - Integrate Happy 5
 		- 20200225@Kean: #128007 - Changes on the rate of Pay to suppliers
+		- 20201023@Roy: #143589 - HNI Email/Letstalk - Adjust royalty fee term for RNG Keno, Lottery, Table Game, Number Game, NG2, Happy 5
 	Param's Explanation:   
 */  
 BEGIN  
@@ -27,11 +28,16 @@ BEGIN
     SELECT @FDate = @FromDate
 	    , @TDate = @ToDate;
     /* Region: Get exchange rate info*/
-	DECLARE @SiteCN88    INT;
+	DECLARE @SiteCN88    INT
+		,@SiteIBCIndo INT
 
 	SELECT TOP 1 @SiteCN88 = SiteId
 	FROM bodb_Account.dbo.tbl_Site WITH(NOLOCK)
 	WHERE [site] = 'CN88';
+	
+	SELECT TOP 1 @SiteIBCIndo = SiteId
+	FROM bodb_Account.dbo.tbl_Site WITH(NOLOCK)
+	WHERE [site] = 'IBCIndo'
 
     CREATE TABLE #Exchange(
 	    ExchangeDate    DATE
@@ -122,8 +128,9 @@ BEGIN
 			    SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 				    , (SELECT SUM(t.HouseWL) FROM #RawData AS t WHERE t.rptDate = @tmpDate) AS  HouseWL
 				    , (SELECT SUM(t.ExtraPT) FROM #RawData AS t WHERE t.rptDate = @tmpDate) AS  ExtraPT
-				    , (SELECT ISNULL(-SUM(HouseWL + ExtraPT) * 0.5,0) FROM #RawData AS t WHERE t.rptDate = @tmpDate AND t.SiteId <> @SiteCN88)
-					+ (SELECT ISNULL(SUM(MemberWL) * 0.015,0) FROM #RawData AS t WHERE t.rptDate = @tmpDate AND t.SiteId =  @SiteCN88);
+				    , (SELECT ISNULL(-SUM(HouseWL) * 0.5,0) FROM #RawData AS t WHERE t.rptDate = @tmpDate AND t.SiteId NOT IN (@SiteCN88, @SiteIBCIndo))
+					+ (SELECT ISNULL(SUM(MemberWL) * 0.015,0) FROM #RawData AS t WHERE t.rptDate = @tmpDate AND t.SiteId =  @SiteCN88)
+					+ (SELECT ISNULL(-SUM(HouseWL + ExtraPT) * 0.5,0) FROM #RawData AS t WHERE t.rptDate = @tmpDate AND t.SiteId = @SiteIBCIndo);
 
 		  SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate);
 	   END;
@@ -138,8 +145,9 @@ BEGIN
 		SELECT 'FullRange'
 			, (SELECT SUM(t.HouseWL) FROM #RawData AS t) AS  HouseWL
 			, (SELECT SUM(t.ExtraPT) FROM #RawData AS t) AS  ExtraPT
-			, (SELECT ISNULL(-SUM(HouseWL + ExtraPT) * 0.5,0) FROM #RawData AS t WHERE t.SiteId <> @SiteCN88)
-			+ 0.015 * (SELECT ISNULL(SUM(MemberWL),0) FROM #RawData AS t WHERE t.SiteId =  @SiteCN88)       
+			, (SELECT ISNULL(-SUM(HouseWL) * 0.5,0) FROM #RawData AS t WHERE t.SiteId NOT IN (@SiteCN88, @SiteIBCIndo))
+			+ 0.015 * (SELECT ISNULL(SUM(MemberWL),0) FROM #RawData AS t WHERE t.SiteId =  @SiteCN88)
+			+ (SELECT ISNULL(-SUM(HouseWL + ExtraPT) * 0.5,0) FROM #RawData AS t WHERE t.SiteId = @SiteIBCIndo)			
 		FROM #FinalResult;
 
 	---------------------------------------------------- Select the output -------------------------------------------------------

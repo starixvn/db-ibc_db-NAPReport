@@ -14,6 +14,7 @@ AS
    
     Revisions:  
 	   - 20200409@Kean: House Net Income - Integrate Table Games product (#129447)
+	   - 20201023@Roy: HNI Email/Letstalk - Adjust royalty fee term for RNG Keno, Lottery, Table Game, Number Game, NG2, Happy 5 (#143589)
 
 	Param's Explanation:   
 
@@ -39,22 +40,11 @@ BEGIN
 	  , ExchangeID      INT
 	  , Rate            FLOAT);
 	CREATE TABLE #tmpProduct(ProductID INT, ProductCode VARCHAR(100), VendorID INT)
-	CREATE TABLE #tmpVendorGlobalSetting(ProductID INT, VName VARCHAR(50), ChargeRate3rd DECIMAL(19, 8), Sporttype SMALLINT, Bettype SMALLINT)
 	 
 	INSERT INTO #tmpProduct(ProductID, ProductCode, VendorID)
 	SELECT ProductID, ProductPrefix, VendorID
 	FROM bodb02.dbo.Products WITH(NOLOCK)
 	WHERE ProductPrefix IN ('TG')
-	
-	INSERT INTO #tmpVendorGlobalSetting(ProductID, VName, ChargeRate3rd, Sporttype, Bettype)
-	SELECT p.ProductID
-		  ,[VName]
-		  ,[NumberValue]
-		  ,[sporttype]
-		  ,[bettype]
-	FROM DBCUST.[CustDB].[dbo].[VendorGlobalSetting] v WITH(NOLOCK)
-	INNER JOIN #tmpProduct p ON v.[VendorId] = p.VendorID
-	WHERE v.[VName] IN ('3rdCreditWLShareRate')
 
     INSERT INTO #Exchange(ExchangeDate
 				    , ExchangeID
@@ -129,45 +119,6 @@ BEGIN
 		 FROM bodb02.dbo.f_SportBettypeMatrix_Sel
 			 (40, 0, 0, 2, '', 'TG', 0);
     -- Get PayToSupplier Rate
-
-    CREATE TABLE #ChargeInfo3rd(
-	    ProductID         INT
-	  , Rate              MONEY
-	  , FromDate          SMALLDATETIME
-	  , ToDate            SMALLDATETIME
-	  , MinAmount         MONEY
-	  , MaxAmount         MONEY
-	  , BaseCurrencyId    INT);
-	
-	DECLARE @OpenQueryCharge NVARCHAR(1000)
-	SELECT @OpenQueryCharge = N'SELECT * ' 
-						+ N'FROM OPENQUERY(DBLIC, '
-						+ N'''SELECT DISTINCT ci.ProductID, ci.DI_Rate, ci.Fromdate, ci.Todate, c.MinAmount, c.MaxAmount, c.BaseCurrencyId '
-						+ N'FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd('''''
-						+ CAST(@FDate AS NVARCHAR(50)) + ''''''
-						+ N','''''
-						+ CAST(@TDate AS NVARCHAR(50)) + ''''''
-						+ N',''''TG'''''
-						+ N',''''OA'''''	
-						+ N') ci '
-						+ N'INNER JOIN bodb_licensee.dbo.OAS_ChargeInfo c WITH (NOLOCK) ON ci.ChargeID = c.ChargeID '
-						+ N'WHERE ci.ChargeType = 1 AND ci.IsDeposit = 0'
-						+ N''')'
-					
-    INSERT INTO #ChargeInfo3rd(ProductID
-					    , Rate
-					    , FromDate
-					    , ToDate
-					    , MinAmount
-					    , MaxAmount
-					    , BaseCurrencyId)
-    EXECUTE (@OpenQueryCharge);
-	
-	-- Get ChargeRate3rd from VendorGlobalSetting table IF NOT EXIST FROM LA
-	INSERT INTO #ChargeInfo3rd(ProductID, Rate, FromDate, ToDate)
-	SELECT v.ProductID, v.ChargeRate3rd, @FDate, @TDate
-	FROM #tmpVendorGlobalSetting v
-	WHERE v.ProductID NOT IN (SELECT ProductID FROM #ChargeInfo3rd)		
     
     -- House WL
     CREATE TABLE #TmpHouseWL(
@@ -215,9 +166,8 @@ BEGIN
 		   SELECT CONVERT(VARCHAR(2), wl.rptDate, 106) AS winlostDate
 			   , SUM(wl.HouseWL) AS HouseWL
 			   , SUM(wl.ExtraPT) AS ExtraPT
-			   , SUM(wl.MemberWLOANDA * ci.Rate) AS PayToSupplier
+			   , SUM(wl.MemberWLOANDA * 0.036) AS PayToSupplier
 		   FROM #TmpHouseWL AS wl
-			  INNER JOIN #ChargeInfo3rd AS ci ON wl.rptDate BETWEEN ci.FromDate AND ci.ToDate
 		   GROUP BY CONVERT(VARCHAR(2), wl.rptDate, 106)
 	    ) house ON house.winlostDate = f.RptDate;
     
@@ -260,9 +210,7 @@ BEGIN
 	DROP TABLE #SportBettypeMatrix
 	DROP TABLE #TmpHouseWL
 	DROP TABLE #tmpProduct
-	DROP TABLE #tmpVendorGlobalSetting
 	DROP TABLE #Exchange
 	DROP TABLE #ExchangeOANDA
 	DROP TABLE #FinalResult
-	DROP TABLE #ChargeInfo3rd
 END
