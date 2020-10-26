@@ -30,6 +30,7 @@ AS
 		- 20200922@Percy: Integrate WM Live Casino & Joker Gaming [RedmineID: #131593,#131602]
 		- 20200901@Percy: Refactor code to enhance performance [RedmineID: #140677]
 		- 20201023@Percy: Correct input productcode for HP5 & PP-JP [RedmineID: #143589]
+		- 20201026@Percy: Integrate Saba.Club - Free bets [RedmineID: #143654]
 		- 20201102@Percy: Return FullRange (web format, not use) [RedmineID: #143589]
 
 	Param's Explanation:   
@@ -323,6 +324,7 @@ BEGIN
 					WHEN b.Product3rdId = 25 THEN -t.MemberWL * ISNULL(oa.Rate, 0) -- BT & CO
 					WHEN b.Product3rdId = 31 THEN (-t.MemberWL * ISNULL(lc.Rate, p.Rate) - t.Comm) * ISNULL(oa.Rate, 0) -- EX
 					WHEN b.Product3rdId = 37 OR p.LicenseeId IS NULL THEN -t.HouseWL * ISNULL(e.Rate, 0)
+					WHEN t.SportTypeGroup = 150 THEN -t.MemberWL * ISNULL(e.Rate, 0) -- SBC free bets
 					ELSE ((-t.MemberWL - (t.FullContribution - t.HouseContribution)) * ISNULL(lc.Rate, p.Rate) - t.HouseContribution) * ISNULL(e.Rate, 0)
 					END)
 		FROM #__tempData t

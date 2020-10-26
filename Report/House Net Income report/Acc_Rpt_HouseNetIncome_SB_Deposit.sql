@@ -26,6 +26,7 @@ AS
 		- 20200720@Percy: Separate Saba Sports [RedmineID: #137822]
 		- 20200529@Ned.Le: Letstalk Reports - Saba - Treat Saba Futsal as Saba Soccer (#142264)
 		- 20200901@Percy: Refactor code to enhance performance [RedmineID: #140677]
+		- 20201026@Percy: Offer Odds Spread Adjustment for Sportsbook [RedmineID: #111275]
 
 	EXEC Acc_Rpt_HouseNetIncome_SB_Deposit '2017-12-01', '2017-12-31'
 */
@@ -163,7 +164,7 @@ BEGIN
 			,SportTypeGroup		INT
 			,BetTypeGroup		INT
 			,MemberWL			MONEY DEFAULT(0)
-			,HouseWL			MONEY DEFAULT(0) -- not use (due to using core sp)
+			,HouseWL			MONEY DEFAULT(0) -- Odds Spread Adjustment
 			,AComm				MONEY DEFAULT(0)
 			,HouseContribution	MONEY DEFAULT(0) -- not use (due to using core sp)
 			,FullContribution	MONEY DEFAULT(0) -- not use (due to using core sp)
@@ -184,8 +185,8 @@ BEGIN
 		INSERT INTO #__SabaLeague (LeagueId, LeagueGroupId)
 		SELECT LeagueId, LeagueGroupId FROM dbo.League WITH (NOLOCK) WHERE sporttype IN (1, 2, 50) AND LeagueGroupId IN (42, 74, 108)
 
-		CREATE TABLE #__tempSB (rptDate DATE, SiteId INT, CurrencyId INT, ProductId INT, LeagueId INT, Sporttype INT, MemberWL MONEY, AComm MONEY)
-		INSERT INTO #__tempSB (rptDate, SiteId, CurrencyId, ProductId, LeagueId, Sporttype, MemberWL, AComm)
+		CREATE TABLE #__tempSB (rptDate DATE, SiteId INT, CurrencyId INT, ProductId INT, LeagueId INT, Sporttype INT, MemberWL MONEY, AWL MONEY, AComm MONEY)
+		INSERT INTO #__tempSB (rptDate, SiteId, CurrencyId, ProductId, LeagueId, Sporttype, MemberWL, AWL, AComm)
 		SELECT f.rptDate, f.SiteId, f.CurrencyId, f.ProductId, f.LeagueId
 			,CASE
 				WHEN f.BetType IN (9, 29) THEN -2 -- Parlay
@@ -193,6 +194,7 @@ BEGIN
 				ELSE 99 -- Other Sports
 				END AS Sporttype
 			,SUM(f.MemberWinloss) AS MemberWL
+			,SUM(CASE WHEN f.bettype = 999 THEN f.AgentWinloss ELSE 0 END) AS AWL -- Odds Spread Adjustment
 			,SUM(f.AgentComm) AS AComm
 		FROM DBWH.bodb_Account.dbo.FactLADailyWinloss f WITH (NOLOCK)
 		WHERE f.rptDate BETWEEN @FDate AND @TDate
@@ -209,7 +211,7 @@ BEGIN
 				END
 		OPTION (RECOMPILE)
 
-		INSERT INTO #__tempData (rptDate, LicenseeId, CurrencyId, ProductId, SporttypeGroup, BettypeGroup, MemberWL, AComm)
+		INSERT INTO #__tempData (rptDate, LicenseeId, CurrencyId, ProductId, SporttypeGroup, BettypeGroup, MemberWL, HouseWL, AComm)
 		SELECT t.rptDate, s.LicenseeId, t.CurrencyId
 			,CASE
 				WHEN t.ProductId = 10001 THEN 0 -- SB
@@ -224,6 +226,7 @@ BEGIN
 				END AS SporttypeGroup
 			,-1 AS BettypeGroup
 			,SUM(t.MemberWL) AS MemberWL
+			,SUM(t.AWL) AS HouseWL -- Odds Spread Adjustment
 			,SUM(t.AComm) AS AComm
 		FROM #__tempSB t
 			INNER JOIN #__tempSite s ON t.SiteId = s.SiteId_DW
@@ -270,7 +273,7 @@ BEGIN
 		SELECT t.rptDate, l.PartyId, t.ProductId, t.SporttypeGroup
 			,SUM(t.MemberWL * ISNULL(oa.Rate, 0))
 			,SUM(t.MemberWL * ISNULL(oa.Rate, 0) * CASE WHEN t.ProductId = -4 THEN -1 * ISNULL(lc.Rate, p.Rate) WHEN t.ProductId = -5 THEN 0.04 ELSE ISNULL(rd.Rate, 0) END)
-			,SUM(-t.MemberWL * ISNULL(lc.Rate, p.Rate) * ISNULL(e.Rate, 0))
+			,SUM((-t.MemberWL * ISNULL(lc.Rate, p.Rate) - t.HouseWL) * ISNULL(e.Rate, 0))
 			,SUM(t.AComm * ISNULL(e.Rate, 0))
 		FROM #__tempData t
 			INNER JOIN #AllLicensees l ON l.LicenseeId = t.LicenseeId
@@ -562,9 +565,16 @@ BEGIN
 			INNER JOIN @MinFeeGroup m ON m.PartyId = s.PartyId AND m.Product3rdId = s.Product3rdId
 		WHERE m.FeeType = 1
 
-		UPDATE @tmpResult
-		SET HouseIncome = CASE WHEN HouseIncome > 0 OR Product3rdId = 3 THEN HouseIncome ELSE 0 END
-			,WLFee = CASE WHEN WLFee > 0 THEN WLFee ELSE 0 END
+		UPDATE r
+		SET r.HouseIncome = CASE WHEN r.HouseIncome > 0 OR r.Product3rdId = 3 THEN r.HouseIncome ELSE 0 END
+			,r.WLFee = CASE WHEN r.WLFee > 0 THEN r.WLFee ELSE 0 END
+		FROM @tmpResult r
+		WHERE
+			r.Product3rdId <> 0
+			OR r.PartyId NOT IN (
+				SELECT p.PartyId FROM bodb_Licensee.dbo.OAS_Party p WITH (NOLOCK)
+				WHERE p.PartyName IN ('9wickets', '9Wsports')
+			)
 
 		-- Discount for HAIFA
 		CREATE TABLE #DiscountGroup (DiscountGroupId SMALLINT, DiscountGroupType TINYINT, FromAmount MONEY, ToAmount MONEY, Rate MONEY, PartyId INT, Product3rdId INT, BaseCurrency INT)

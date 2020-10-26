@@ -15,6 +15,7 @@ AS
 	Revisions:
 		- 20200901@Percy: Initialize SP [RedmineID: #140677]
 		- 20201023@Percy: Exclude Arcadia Gaming - Bonus bettype (1906) [RedmineID: #143656]
+		- 20201026@Percy: Offer Saba.Club - Free bets [RedmineID: #143654]
 
 	Param's Explanation:
 		@DepositType:
@@ -113,7 +114,7 @@ BEGIN
 	-- Get data
 	CREATE TABLE #__MemberWL (rptDate DATE, LicenseeId INT, CurrencyId INT, ProductId INT, SporttypeGroup INT, BettypeGroup INT, MemberWL MONEY, HouseWL MONEY, AComm MONEY, HouseContribution MONEY, FullContribution MONEY)
 	INSERT INTO #__MemberWL (rptDate, LicenseeId, CurrencyId, ProductId, SporttypeGroup, BettypeGroup, MemberWL, HouseWL, AComm, HouseContribution, FullContribution)
-	SELECT b.rptDate, s.LicenseeId, b.CurrencyId, bt.ProductId, -1, bt.BetTypeGroup
+	SELECT b.rptDate, s.LicenseeId, b.CurrencyId, bt.ProductId, CASE WHEN b.SportType = 150 THEN b.SportType ELSE -1 END, bt.BetTypeGroup
 		,SUM(CASE
 				WHEN b.BetType IN (4297) THEN 0
 				WHEN b.BetType IN (903, 904, 913, 914) THEN b.WinlossP + b.WinlossA
@@ -131,7 +132,7 @@ BEGIN
 	WHERE b.rptDate BETWEEN @FDate AND @TDate
 		AND b.CurrencyId <> 20
 		AND b.TicketStatus NOT IN (-1, 18, 9, 10, 14)
-	GROUP BY b.rptDate, s.LicenseeId, b.CurrencyId, bt.ProductId, bt.BetTypeGroup
+	GROUP BY b.rptDate, s.LicenseeId, b.CurrencyId, bt.ProductId, CASE WHEN b.SportType = 150 THEN b.SportType ELSE -1 END, bt.BetTypeGroup
 	OPTION (RECOMPILE)
 
 	SELECT rptDate, LicenseeId, CurrencyId, ProductId, SporttypeGroup, BettypeGroup, MemberWL, HouseWL, AComm, HouseContribution, FullContribution

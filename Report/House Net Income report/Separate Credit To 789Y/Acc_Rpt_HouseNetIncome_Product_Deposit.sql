@@ -26,6 +26,9 @@ AS
 		- 20200916@Roy: Email/Letstalk Reports - Integrate WM Live Casino (#131593)
 		- 20200901@Percy: Refactor code to enhance performance [RedmineID: #140677]
 		- 20201023@Percy: Change 3rd rate of Keno, Lottery, Table Game [RedmineID: #143589]
+		- 20201026@Percy: Integrate:
+			. Sportsbook - Odds Spread Adjustment [RedmineID: #111275]
+			. Saba.Club - Free bets [RedmineID: #143654]
 	
 	EXEC [Acc_Rpt_HouseNetIncome_Product_Deposit] '20180601', '20180619'
   
@@ -319,10 +322,10 @@ BEGIN
 			,BetTypeGroup		INT
 			,ValidBetAmount		MONEY DEFAULT(0) -- GD
 			,MemberWL			MONEY DEFAULT(0) -- BT & CO: include AWinloss, PP: exclude LicenseeContribution
-			,HouseWL			MONEY DEFAULT(0)
+			,HouseWL			MONEY DEFAULT(0) -- SB: Odds Spread Adjustment
 			,Comm				MONEY DEFAULT(0) -- SB: AComm, Exchange: AComm + PComm
 			,HouseContribution	MONEY DEFAULT(0) -- FullContribution - LicenseeContribution
-			,FullContribution	MONEY DEFAULT(0)
+			,FullContribution	MONEY DEFAULT(0) -- FullContribution
 		)
 
 		-- Get data from DW: SB, BA
@@ -343,8 +346,8 @@ BEGIN
 			INSERT INTO #__SabaLeague (LeagueId, LeagueGroupId)
 			SELECT LeagueId, LeagueGroupId FROM dbo.League WITH (NOLOCK) WHERE sporttype IN (1, 2, 50) AND LeagueGroupId IN (42, 74, 108)
 
-			CREATE TABLE #__tempSB (rptDate DATE, SiteId INT, CurrencyId INT, ProductId INT, LeagueId INT, Sporttype INT, MemberWL MONEY, AComm MONEY)
-			INSERT INTO #__tempSB (rptDate, SiteId, CurrencyId, ProductId, LeagueId, Sporttype, MemberWL, AComm)
+			CREATE TABLE #__tempSB (rptDate DATE, SiteId INT, CurrencyId INT, ProductId INT, LeagueId INT, Sporttype INT, MemberWL MONEY, AWL MONEY, AComm MONEY)
+			INSERT INTO #__tempSB (rptDate, SiteId, CurrencyId, ProductId, LeagueId, Sporttype, MemberWL, AWL, AComm)
 			SELECT f.rptDate, f.SiteId, f.CurrencyId, f.ProductId, f.LeagueId
 				,CASE
 					WHEN f.BetType IN (9, 29) THEN -2 -- Parlay
@@ -352,6 +355,7 @@ BEGIN
 					ELSE 99 -- Other Sports
 					END AS Sporttype
 				,SUM(f.MemberWinloss) AS MemberWL
+				,SUM(CASE WHEN f.bettype = 999 THEN f.AgentWinloss ELSE 0 END) AS AWL -- Odds Spread Adjustment
 				,SUM(f.AgentComm) AS AComm
 			FROM DBWH.bodb_Account.dbo.FactLADailyWinloss f WITH (NOLOCK)
 			WHERE f.rptDate BETWEEN @FDate AND @TDate
@@ -368,7 +372,7 @@ BEGIN
 					END
 			OPTION (RECOMPILE)
 
-			INSERT INTO #__tempData (rptDate, LicenseeId, CurrencyId, ProductId, SporttypeGroup, BettypeGroup, MemberWL, Comm)
+			INSERT INTO #__tempData (rptDate, LicenseeId, CurrencyId, ProductId, SporttypeGroup, BettypeGroup, MemberWL, HouseWL, Comm)
 			SELECT t.rptDate, s.LicenseeId, t.CurrencyId
 				,CASE
 					WHEN t.ProductId = 10001 THEN 1 -- SB
@@ -383,6 +387,7 @@ BEGIN
 					END AS SporttypeGroup
 				,-1 AS BettypeGroup
 				,SUM(t.MemberWL) AS MemberWL
+				,SUM(t.AWL) AS HouseWL -- Odds Spread Adjustment
 				,SUM(t.AComm) AS AComm
 			FROM #__tempSB t
 				INNER JOIN #__tempSite s ON t.SiteId = s.SiteId_DW
@@ -582,10 +587,12 @@ BEGIN
 			,SUM(CASE WHEN b.Product3rdId = -3 THEN t.FullContribution * ISNULL(e.Rate, 0) ELSE 0 END)
 			,SUM(CASE WHEN b.Product3rdId = -3 THEN -t.MemberWL * ISNULL(e.Rate, 0) ELSE 0 END)
 			,SUM(CASE
+					WHEN b.Product3rdId = 1 THEN (-t.MemberWL * ISNULL(lc.Rate, p.Rate) - t.HouseWL) * ISNULL(e.Rate, 0) -- HouseWL: Odds Spread Adjustment
 					WHEN b.Product3rdId = 15 THEN t.MemberWL * ISNULL(oa.Rate, 0) -- CB
 					WHEN b.Product3rdId IN (13, 25) THEN -t.MemberWL * ISNULL(oa.Rate, 0) -- BT & CO
 					WHEN b.Product3rdId = 31 THEN (-t.MemberWL * ISNULL(lc.Rate, p.Rate) - t.Comm) * ISNULL(oa.Rate, 0) -- EX
 					WHEN b.Product3rdId = 37 OR p.LicenseeId IS NULL THEN -t.HouseWL * ISNULL(e.Rate, 0)
+					WHEN t.SportTypeGroup = 150 THEN -t.MemberWL * ISNULL(e.Rate, 0) -- SBC free bets
 					ELSE ((-t.MemberWL - (t.FullContribution - t.HouseContribution)) * ISNULL(lc.Rate, p.Rate) - t.HouseContribution) * ISNULL(e.Rate, 0)
 					END)
 			,SUM(t.Comm * ISNULL(e.Rate, 0))
@@ -933,11 +940,11 @@ BEGIN
 		FROM @MinFeeGroup amf
 		WHERE amf.FeeType = 1 AND amf.AmountToCompany IS NULL
 
-		DECLARE @tmpResult TABLE (PartyId INT, Product3rdId INT, BeforeHouseIncome MONEY, HouseIncome MONEY, AComm MONEY, MinFee MONEY, WLFee MONEY)
-		INSERT INTO @tmpResult (PartyId, Product3rdId, BeforeHouseIncome, HouseIncome, AComm, MinFee, WLFee)
-		SELECT PartyId, Product3rdId, SUM(AmountToCompany), SUM(AmountToCompany), SUM(AComm), 0, SUM(AmountToCompany) FROM #__tempResult GROUP BY PartyId, Product3rdId
+		DECLARE @tmpResult TABLE (PartyId INT, Product3rdId INT, LicenseeWL MONEY, HouseIncome MONEY, AComm MONEY, MinFee MONEY, WLFee MONEY)
+		INSERT INTO @tmpResult (PartyId, Product3rdId, LicenseeWL, HouseIncome, AComm, MinFee, WLFee)
+		SELECT PartyId, Product3rdId, SUM(-MemberWL), SUM(AmountToCompany), SUM(AComm), 0, SUM(AmountToCompany) FROM #__tempResult GROUP BY PartyId, Product3rdId
 
-		INSERT INTO @tmpResult (PartyId, Product3rdId, BeforeHouseIncome, HouseIncome, AComm, MinFee, WLFee)
+		INSERT INTO @tmpResult (PartyId, Product3rdId, LicenseeWL, HouseIncome, AComm, MinFee, WLFee)
 		SELECT mf.PartyId, mf.Product3rdId, 0, 0, 0, 0, 0
 		FROM @MinFeeGroup AS mf
 			INNER JOIN #PartyChargeInfo p ON p.PartyID = mf.PartyId AND p.Product3rdId = mf.Product3rdId
@@ -953,9 +960,18 @@ BEGIN
 			INNER JOIN @MinFeeGroup m ON m.PartyId = s.PartyId AND m.Product3rdId = s.Product3rdId
 		WHERE m.FeeType = 1
 
-		UPDATE @tmpResult
-		SET HouseIncome = CASE WHEN HouseIncome > 0 OR Product3rdId = 3 THEN HouseIncome ELSE 0 END
-			,WLFee = CASE WHEN WLFee > 0 THEN WLFee ELSE 0 END
+		UPDATE r
+		SET r.HouseIncome = CASE WHEN r.HouseIncome > 0 OR r.Product3rdId = 3 THEN r.HouseIncome ELSE 0 END
+			,r.WLFee = CASE
+						WHEN r.Product3rdId = 42 THEN CASE WHEN r.LicenseeWL > 0 THEN r.WLFee ELSE 0 END
+						WHEN r.WLFee > 0 THEN r.WLFee ELSE 0 END
+		FROM @tmpResult r
+		WHERE
+			r.Product3rdId <> 0
+			OR r.PartyId NOT IN (
+				SELECT p.PartyId FROM bodb_Licensee.dbo.OAS_Party p WITH (NOLOCK)
+				WHERE p.PartyName IN ('9wickets', '9Wsports')
+			)
 
 		-- Discount for HAIFA
 		CREATE TABLE #DiscountGroup (DiscountGroupId SMALLINT, DiscountGroupType TINYINT, FromAmount MONEY, ToAmount MONEY, Rate MONEY, PartyId INT, Product3rdId INT, BaseCurrency INT)
