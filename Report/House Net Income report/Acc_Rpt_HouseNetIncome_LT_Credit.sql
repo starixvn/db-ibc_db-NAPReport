@@ -126,7 +126,7 @@ BEGIN
 		SELECT 'FullRange'
 			, SUM(HouseWL) AS  HouseWL
 			, SUM(ExtraPT) AS  ExtraPT
-			, CASE WHEN SUM(PayToSupplier) > 0 THEN 0 ELSE SUM(PayToSupplier) END AS PayToSupplier
+			, SUM(PayToSupplier) AS PayToSupplier
 		FROM #FinalResult;
 
 	---------------------------------------------------- Select the output -------------------------------------------------------

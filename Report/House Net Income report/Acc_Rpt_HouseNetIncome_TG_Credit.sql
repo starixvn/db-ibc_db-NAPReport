@@ -180,11 +180,7 @@ BEGIN
 		 SELECT 'FullRange'
 			 , SUM(f.HouseWL)
 			 , SUM(f.ExtraPT)
-			 , CASE
-				  WHEN SUM(PayToSupplier) > 0
-				  THEN 0
-				  ELSE SUM(PayToSupplier)
-			   END AS PayToSupplier
+			 , SUM(PayToSupplier) AS PayToSupplier
 		 FROM #FinalResult AS f;
 	
 	---------------------------------------------------- Select the output -------------------------------------------------------

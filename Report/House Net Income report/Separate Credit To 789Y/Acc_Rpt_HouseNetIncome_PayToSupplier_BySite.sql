@@ -390,10 +390,10 @@ BEGIN
 	       ,SUM(PayToSupplier_NG)																														AS PayToSupplier_NG  
 	       ,SUM(PayToSupplier_H5)																														AS PayToSupplier_H5
 	       ,0.01 * (SELECT CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(MemberWLOANDA) END FROM #tmpFactSiteWinloss AS t WHERE t.ProductID = 5)		AS PayToSupplier_VS
-	       ,CASE WHEN SUM(PayToSupplier_RNGKeno) > 0 THEN 0 ELSE SUM(PayToSupplier_RNGKeno) END															AS PayToSupplier_RNGKeno
+	       ,SUM(PayToSupplier_RNGKeno)																													AS PayToSupplier_RNGKeno
 	       ,SUM(PayToSupplier_NG2)																														AS PayToSupplier_NG2
 	       ,(SELECT CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(PayToSupplier_PP_MTD) END FROM #tmpPayToSupplier_MTD AS t WHERE t.ProductID = 22)	AS PayToSupplier_MacauG
-	       ,CASE WHEN SUM(PayToSupplier_LT) > 0 THEN 0 ELSE SUM(PayToSupplier_LT) END																	AS PayToSupplier_LT
+	       ,SUM(PayToSupplier_LT)																														AS PayToSupplier_LT
 	       ,0																																			AS PayToSupplier_EX
 	       ,0.01 * (SELECT CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(MemberWLOANDA) END FROM #tmpFactSiteWinloss AS t WHERE t.ProductID = 27)    AS PayToSupplier_VS2     
 	       ,0																																			AS PayToSupplier_1RNG
@@ -401,7 +401,7 @@ BEGIN
 	       ,CASE WHEN SUM(PayToSupplier_CC) > 0 THEN 0 ELSE SUM(PayToSupplier_CC) END																    AS PayToSupplier_CC
 	       ,0																																			AS PayToSupplier_SP
 	       ,SUM(PayToSupplier_BBIN)																														AS PayToSupplier_BBIN
-	       ,CASE WHEN SUM(PayToSupplier_TG) > 0 THEN 0 ELSE SUM(PayToSupplier_TG) END																	AS PayToSupplier_TG
+	       ,SUM(PayToSupplier_TG)																														AS PayToSupplier_TG
 	       ,SUM(PayToSupplier_IBCLC)																													AS PayToSupplier_IBCLC
 	       ,SUM(PayToSupplier_ION)																														AS PayToSupplier_ION
 	       ,SUM(PayToSupplier_RNGW)																														AS PayToSupplier_RNGW
