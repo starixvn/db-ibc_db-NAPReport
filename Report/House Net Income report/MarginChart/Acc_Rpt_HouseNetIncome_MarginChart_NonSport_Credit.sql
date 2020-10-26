@@ -211,9 +211,9 @@ BEGIN
 	INSERT INTO #PayToSupplierRate (ProductID, Rate)
 	VALUES (3, 0.5)			-- NG, HP5
 		   ,(5, 0.01)		-- VS
-		   ,(8, 0.036)		-- Keno
-		   ,(28, 0.036)		-- LT
-		   ,(40, 0.036)		-- TG
+		   --,(8, 0.036)		-- Keno
+		   --,(28, 0.036)		-- LT
+		   --,(40, 0.036)		-- TG
 		   ,(27, 0.01)		-- VS2
 		   --,(22, 0.02)	-- MacauG
 		   ,(23, 0.5)		-- NG2
@@ -319,11 +319,11 @@ BEGIN
 		SELECT CONVERT(VARCHAR(2), @tmpDate, 106) AS RptDate,
 			   (SELECT SUM(t.HouseWL) FROM #TmpHouseWL AS t WHERE t.rptDate = @tmpDate) AS HouseWL,
 			   (SELECT SUM(t.ExtraPT) FROM #TmpHouseWL AS t WHERE t.rptDate = @tmpDate) AS ExtraPT,
-			   ((SELECT ISNULL(SUM(t.HouseWL * r.Rate) * (-1),0)
+			   ((SELECT ISNULL(SUM((t.HouseWL + (CASE WHEN @tmpDate >= '2020-11-01' THEN 0 ELSE ExtraPT END)) * r.Rate) * (-1),0)
 			     FROM #TmpHouseWL AS t INNER JOIN #PayToSupplierRate r ON t.ProductID = r.ProductID
                  WHERE t.ProductID = 23 AND  t.rptDate = @tmpDate) -- NG2
 		         +
-				 (SELECT ISNULL(SUM(t.HouseWL * r.Rate) * (-1),0)
+				 (SELECT ISNULL(SUM((t.HouseWL + (CASE WHEN @tmpDate >= '2020-11-01' THEN 0 ELSE ExtraPT END)) * r.Rate) * (-1),0)
 				  FROM #TmpHouseWL AS t INNER JOIN #PayToSupplierRate r ON t.ProductID = r.ProductID
 				  WHERE t.ProductID = 3 AND t.SiteID NOT IN (@SiteCN88, @SiteIBCIndo) AND  t.rptDate = @tmpDate) --NG, HP5
 				 +
@@ -336,7 +336,11 @@ BEGIN
 				 +
 				 (SELECT ISNULL(SUM(t.MemberWLOANDA * r.Rate),0)
 				  FROM #TmpHouseWL AS t INNER JOIN #PayToSupplierRate r ON t.ProductID = r.ProductID
-				  WHERE t.ProductID IN (5,8,28,27,40) AND t.SiteID <> @SiteCN88 AND t.rptDate = @tmpDate) -- VS, KN, LT, TG, VS2
+				  WHERE t.ProductID IN (5,27) AND t.SiteID <> @SiteCN88 AND t.rptDate = @tmpDate) -- VS, VS2
+				 +
+				 (SELECT ISNULL(SUM(t.MemberWLOANDA * (CASE WHEN @tmpDate >= '2020-07-01' THEN 0.036 ELSE 0.03 END)),0)
+				  FROM #TmpHouseWL AS t
+				  WHERE t.ProductID IN (8,28,40) AND t.SiteID <> @SiteCN88 AND t.rptDate = @tmpDate) -- KN, LT, TG
 				 +
 				 (SELECT ISNULL(SUM(t.MemberWLOANDA * r.Rate),0)
 				  FROM #TmpHouseWL AS t INNER JOIN #PayToSupplierRate_CN88 r ON t.ProductID = r.ProductID

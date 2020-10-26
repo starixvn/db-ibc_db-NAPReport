@@ -166,7 +166,7 @@ BEGIN
 		   SELECT CONVERT(VARCHAR(2), wl.rptDate, 106) AS winlostDate
 			   , SUM(wl.HouseWL) AS HouseWL
 			   , SUM(wl.ExtraPT) AS ExtraPT
-			   , SUM(wl.MemberWLOANDA * 0.036) AS PayToSupplier
+			   , SUM(wl.MemberWLOANDA * (CASE WHEN wl.rptDate >= '2020-07-01' THEN 0.036 ELSE 0.03 END)) AS PayToSupplier
 		   FROM #TmpHouseWL AS wl
 		   GROUP BY CONVERT(VARCHAR(2), wl.rptDate, 106)
 	    ) house ON house.winlostDate = f.RptDate;

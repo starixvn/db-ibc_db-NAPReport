@@ -330,21 +330,21 @@ BEGIN
 								 ,PayToSupplier_PGS
 								 ,PayToSupplier_JK)
 		SELECT CONVERT(VARCHAR(2), @tmpDate, 106)																									AS RptDate
-			   ,(SELECT SUM(CASE WHEN t.SiteID = @SiteIBCIndo THEN t.HouseWL ELSE t.HouseWLBeforeExtraPT END * 0.5 * (-1))
+			   ,(SELECT SUM(CASE WHEN @tmpDate >= '2020-11-01' THEN CASE WHEN t.SiteID = @SiteIBCIndo THEN t.HouseWL ELSE t.HouseWLBeforeExtraPT END ELSE t.HouseWL END * 0.5 * (-1))
 				 FROM #tmpFactSiteWinloss AS t
 				 WHERE t.ProductID = 3
 				       AND t.SportType <> 164
 					   AND t.rptDate = @tmpDate)																									AS PayToSupplier_NG
-	           ,(SELECT SUM(CASE WHEN t.SiteID = @SiteIBCIndo THEN t.HouseWL ELSE t.HouseWLBeforeExtraPT END * 0.5 * (-1))
+	           ,(SELECT SUM(CASE WHEN @tmpDate >= '2020-11-01' THEN CASE WHEN t.SiteID = @SiteIBCIndo THEN t.HouseWL ELSE t.HouseWLBeforeExtraPT END ELSE t.HouseWL END * 0.5 * (-1))
 			     FROM #tmpFactSiteWinloss AS t
 				 WHERE t.ProductID = 3
 				       AND t.SportType = 164
 				       AND  t.rptDate = @tmpDate)																									AS PayToSupplier_H5
 	           ,(SELECT SUM(t.MemberWLOANDA) * 0.01 FROM #tmpFactSiteWinloss AS t WHERE t.ProductID = 5 AND t.rptDate = @tmpDate)					AS PayToSupplier_VS
-	           ,(SELECT SUM(t.MemberWLOANDA) * 0.036 FROM #tmpFactSiteWinloss AS t WHERE t.ProductID = 8 AND t.rptDate = @tmpDate)					AS PayToSupplier_RNGKeno
-	           ,(SELECT SUM(t.HouseWLBeforeExtraPT) * 0.5 * (-1) FROM #tmpFactSiteWinloss AS t WHERE t.ProductID = 23 AND t.rptDate = @tmpDate)		AS PayToSupplier_NG2
+	           ,(SELECT SUM(t.MemberWLOANDA) * (CASE WHEN @tmpDate >= '2020-07-01' THEN 0.036 ELSE 0.03 END) FROM #tmpFactSiteWinloss AS t WHERE t.ProductID = 8 AND t.rptDate = @tmpDate)					AS PayToSupplier_RNGKeno
+	           ,(SELECT SUM(CASE WHEN @tmpDate >= '2020-11-01' THEN t.HouseWLBeforeExtraPT ELSE t.HouseWL END) * 0.5 * (-1) FROM #tmpFactSiteWinloss AS t WHERE t.ProductID = 23 AND t.rptDate = @tmpDate)		AS PayToSupplier_NG2
 	           ,(SELECT SUM(t.PayToSupplier_Daily) FROM #tmpPayToSupplier_Daily AS t WHERE t.ProductID = 22 AND t.rptDate = @tmpDate)				AS PayToSupplier_MacauG
-	           ,(SELECT SUM(t.MemberWLOANDA) * 0.036 FROM #tmpFactSiteWinloss AS t WHERE t.ProductID = 28 AND t.rptDate = @tmpDate)					AS PayToSupplier_LT
+	           ,(SELECT SUM(t.MemberWLOANDA) * (CASE WHEN @tmpDate >= '2020-07-01' THEN 0.036 ELSE 0.03 END) FROM #tmpFactSiteWinloss AS t WHERE t.ProductID = 28 AND t.rptDate = @tmpDate)					AS PayToSupplier_LT
 	           ,0																																	AS PayToSupplier_EX
 	           ,(SELECT SUM(t.MemberWLOANDA) * 0.01 FROM #tmpFactSiteWinloss AS t WHERE t.ProductID = 27 AND t.rptDate = @tmpDate)					AS PayToSupplier_VS2
 	           ,0																																	AS PayToSupplier_1RNG
@@ -352,7 +352,7 @@ BEGIN
 	           ,(SELECT SUM(t.PayToSupplier_Daily) FROM #tmpPayToSupplier_Daily AS t WHERE t.ProductID = 34 AND t.rptDate = @tmpDate)				AS PayToSupplier_CC
 	           ,0																																	AS PayToSupplier_SP
 	           ,(SELECT SUM(t.PayToSupplier_Daily) FROM #tmpPayToSupplier_Daily AS t WHERE t.ProductID = 47 AND t.rptDate = @tmpDate)				AS PayToSupplier_BBIN
-	           ,(SELECT SUM(t.MemberWLOANDA) * 0.036 FROM #tmpFactSiteWinloss AS t WHERE t.ProductID = 40 AND t.rptDate = @tmpDate)                    AS PayToSupplier_TG
+	           ,(SELECT SUM(t.MemberWLOANDA) * (CASE WHEN @tmpDate >= '2020-07-01' THEN 0.036 ELSE 0.03 END) FROM #tmpFactSiteWinloss AS t WHERE t.ProductID = 40 AND t.rptDate = @tmpDate)                    AS PayToSupplier_TG
 	           ,(SELECT SUM(t.PayToSupplier_Daily) FROM #tmpPayToSupplier_Daily AS t WHERE t.ProductID = 46 AND t.rptDate = @tmpDate)				AS PayToSupplier_IBCLC
 	           ,(SELECT SUM(t.PayToSupplier_Daily) FROM #tmpPayToSupplier_Daily AS t WHERE t.ProductID = 52 AND t.rptDate = @tmpDate)				AS PayToSupplier_ION
 	           ,(SELECT SUM(t.PayToSupplier_Daily) FROM #tmpPayToSupplier_Daily AS t WHERE t.ProductID = 50 AND t.rptDate = @tmpDate)				AS PayToSupplier_RNGW
@@ -390,10 +390,10 @@ BEGIN
 	       ,SUM(PayToSupplier_NG)																														AS PayToSupplier_NG  
 	       ,SUM(PayToSupplier_H5)																														AS PayToSupplier_H5
 	       ,0.01 * (SELECT CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(MemberWLOANDA) END FROM #tmpFactSiteWinloss AS t WHERE t.ProductID = 5)		AS PayToSupplier_VS
-	       ,0.036 * (SELECT CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(MemberWLOANDA) END FROM #tmpFactSiteWinloss AS t WHERE t.ProductID = 8)		AS PayToSupplier_RNGKeno
+	       ,CASE WHEN SUM(PayToSupplier_RNGKeno) > 0 THEN 0 ELSE SUM(PayToSupplier_RNGKeno) END															AS PayToSupplier_RNGKeno
 	       ,SUM(PayToSupplier_NG2)																														AS PayToSupplier_NG2
 	       ,(SELECT CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(PayToSupplier_PP_MTD) END FROM #tmpPayToSupplier_MTD AS t WHERE t.ProductID = 22)	AS PayToSupplier_MacauG
-	       ,0.036 * (SELECT CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(MemberWLOANDA) END FROM #tmpFactSiteWinloss AS t WHERE t.ProductID = 28)	AS PayToSupplier_LT
+	       ,CASE WHEN SUM(PayToSupplier_LT) > 0 THEN 0 ELSE SUM(PayToSupplier_LT) END																	AS PayToSupplier_LT
 	       ,0																																			AS PayToSupplier_EX
 	       ,0.01 * (SELECT CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(MemberWLOANDA) END FROM #tmpFactSiteWinloss AS t WHERE t.ProductID = 27)    AS PayToSupplier_VS2     
 	       ,0																																			AS PayToSupplier_1RNG

@@ -128,7 +128,7 @@ SET NOCOUNT ON;
 			    SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 				    , (SELECT SUM(t.HouseWL) FROM #RawData AS t WHERE t.rptDate = @tmpDate) AS  HouseWL
 				    , (SELECT SUM(t.ExtraPT) FROM #RawData AS t WHERE t.rptDate = @tmpDate) AS  ExtraPT
-					, (SELECT ISNULL(-SUM(HouseWL) * 0.5,0) FROM #RawData AS t WHERE t.rptDate = @tmpDate AND t.SiteId NOT IN (@SiteCN88, @SiteIBCIndo))
+					, (SELECT ISNULL(-SUM(HouseWL + (CASE WHEN @tmpDate >= '2020-11-01' THEN 0 ELSE ExtraPT END)) * 0.5,0) FROM #RawData AS t WHERE t.rptDate = @tmpDate AND t.SiteId NOT IN (@SiteCN88, @SiteIBCIndo))
 					+ (SELECT ISNULL(SUM(MemberWL) * 0.015,0) FROM #RawData AS t WHERE t.rptDate = @tmpDate AND t.SiteId =  @SiteCN88)
 					+ (SELECT ISNULL(-SUM(HouseWL + ExtraPT) * 0.5,0) FROM #RawData AS t WHERE t.rptDate = @tmpDate AND t.SiteId = @SiteIBCIndo);
 
@@ -143,11 +143,9 @@ SET NOCOUNT ON;
 							, ExtraPT
 							, PayToSupplier)
 		SELECT 'FullRange'
-			, (SELECT SUM(t.HouseWL) FROM #RawData AS t) AS  HouseWL
-			, (SELECT SUM(t.ExtraPT) FROM #RawData AS t) AS  ExtraPT
-			, (SELECT ISNULL(-SUM(HouseWL) * 0.5,0) FROM #RawData AS t WHERE t.SiteId NOT IN (@SiteCN88, @SiteIBCIndo))
-			+ 0.015 * (SELECT ISNULL(SUM(MemberWL),0) FROM #RawData AS t WHERE t.SiteId =  @SiteCN88)
-			+ (SELECT ISNULL(-SUM(HouseWL + ExtraPT) * 0.5,0) FROM #RawData AS t WHERE t.SiteId = @SiteIBCIndo)	
+			, SUM(HouseWL) AS  HouseWL
+			, SUM(ExtraPT) AS  ExtraPT
+			, SUM(PayToSupplier) AS  PayToSupplier	
 		FROM #FinalResult;
 
 	---------------------------------------------------- Select the output -------------------------------------------------------

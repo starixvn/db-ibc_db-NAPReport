@@ -113,7 +113,7 @@ BEGIN
 			    SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 				    , (SELECT SUM(t.HouseWL) FROM #RawData AS t WHERE t.rptDate = @tmpDate) AS  HouseWL
 				    , (SELECT SUM(t.ExtraPT) FROM #RawData AS t WHERE t.rptDate = @tmpDate) AS  ExtraPT
-				    , (SELECT ISNULL(SUM(MemberWLOANDA) * 0.036,0) FROM #RawData AS t WHERE t.rptDate = @tmpDate AND t.SiteId <> @SiteCN88)
+				    , (SELECT ISNULL(SUM(MemberWLOANDA) * (CASE WHEN @tmpDate >= '2020-07-01' THEN 0.036 ELSE 0.03 END),0) FROM #RawData AS t WHERE t.rptDate = @tmpDate AND t.SiteId <> @SiteCN88)
 					+ (SELECT ISNULL(SUM(MemberWLOANDA) * 0.015,0) FROM #RawData AS t WHERE t.rptDate = @tmpDate AND t.SiteId =  @SiteCN88);
 
 		  SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate);
@@ -127,10 +127,9 @@ BEGIN
 							, ExtraPT
 							, PayToSupplier)
 		SELECT 'FullRange'
-			, (SELECT SUM(t.HouseWL) FROM #RawData AS t) AS  HouseWL
-			, (SELECT SUM(t.ExtraPT) FROM #RawData AS t) AS  ExtraPT
-			, 0.036 * (SELECT CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE ISNULL(SUM(MemberWLOANDA),0) END FROM #RawData AS t WHERE t.SiteId <> @SiteCN88)
-			+ 0.015 * (SELECT CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE ISNULL(SUM(MemberWLOANDA),0) END FROM #RawData AS t WHERE t.SiteId = @SiteCN88)       
+			, SUM(HouseWL) AS  HouseWL
+			, SUM(ExtraPT) AS  ExtraPT
+			, CASE WHEN SUM(PayToSupplier) > 0 THEN 0 ELSE SUM(PayToSupplier) END AS PayToSupplier
 		FROM #FinalResult;
 
 	---------------------------------------------------- Select the output -------------------------------------------------------
