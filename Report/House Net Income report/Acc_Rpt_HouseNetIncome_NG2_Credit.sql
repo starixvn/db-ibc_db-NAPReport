@@ -93,7 +93,7 @@ BEGIN
 		 INNER JOIN #TmpHouseWL wl ON f.RptDate = CONVERT(VARCHAR(2), wl.rptDate, 106)
 
 	UPDATE f
-	SET f.PayToSupplier = (wl.HouseWL + (CASE WHEN wl.rptDate >= '2020-11-01' THEN 0 ELSE ExtraPT END) ) * (-0.5)
+	SET f.PayToSupplier = (wl.HouseWL + (CASE WHEN wl.rptDate >= '2020-11-01' THEN 0 ELSE wl.ExtraPT END) ) * (-0.5)
 	FROM #FinalResult f
 		 INNER JOIN #TmpHouseWL wl ON f.RptDate = CONVERT(VARCHAR(2), wl.rptDate, 106)
 
