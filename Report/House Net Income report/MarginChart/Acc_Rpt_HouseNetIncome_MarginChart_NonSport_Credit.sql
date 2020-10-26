@@ -347,8 +347,8 @@ BEGIN
 				  FROM #TmpHouseWL AS t INNER JOIN #PayToSupplierRate_CN88 r ON t.ProductID = r.ProductID
 				  WHERE t.ProductID = 3 AND t.rptDate = @tmpDate AND t.SiteID = @SiteCN88) -- NG, HP5 for CN88
 				 +
-				 (SELECT ISNULL(SUM((t.HouseWL + t.ExtraPT) * r.Rate),0)
-				  FROM #TmpHouseWL AS t INNER JOIN #PayToSupplierRate_CN88 r ON t.ProductID = r.ProductID
+				 (SELECT ISNULL(SUM((t.HouseWL + t.ExtraPT) * r.Rate * (-1)),0)
+				  FROM #TmpHouseWL AS t INNER JOIN #PayToSupplierRate r ON t.ProductID = r.ProductID
 				  WHERE t.ProductID = 3 AND t.rptDate = @tmpDate AND t.SiteID = @SiteIBCIndo) -- NG, HP5 for IBCIndo
 				 +
 				 (SELECT ISNULL(SUM(t.PayToSupplier_Daily),0)

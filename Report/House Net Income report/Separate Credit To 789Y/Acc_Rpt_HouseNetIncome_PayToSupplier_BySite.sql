@@ -390,10 +390,10 @@ BEGIN
 	       ,SUM(PayToSupplier_NG)																														AS PayToSupplier_NG  
 	       ,SUM(PayToSupplier_H5)																														AS PayToSupplier_H5
 	       ,0.01 * (SELECT CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(MemberWLOANDA) END FROM #tmpFactSiteWinloss AS t WHERE t.ProductID = 5)		AS PayToSupplier_VS
-	       ,0.03 * (SELECT CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(MemberWLOANDA) END FROM #tmpFactSiteWinloss AS t WHERE t.ProductID = 8)		AS PayToSupplier_RNGKeno
+	       ,0.036 * (SELECT CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(MemberWLOANDA) END FROM #tmpFactSiteWinloss AS t WHERE t.ProductID = 8)		AS PayToSupplier_RNGKeno
 	       ,SUM(PayToSupplier_NG2)																														AS PayToSupplier_NG2
 	       ,(SELECT CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(PayToSupplier_PP_MTD) END FROM #tmpPayToSupplier_MTD AS t WHERE t.ProductID = 22)	AS PayToSupplier_MacauG
-	       ,0.03 * (SELECT CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(MemberWLOANDA) END FROM #tmpFactSiteWinloss AS t WHERE t.ProductID = 28)	AS PayToSupplier_LT
+	       ,0.036 * (SELECT CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(MemberWLOANDA) END FROM #tmpFactSiteWinloss AS t WHERE t.ProductID = 28)	AS PayToSupplier_LT
 	       ,0																																			AS PayToSupplier_EX
 	       ,0.01 * (SELECT CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(MemberWLOANDA) END FROM #tmpFactSiteWinloss AS t WHERE t.ProductID = 27)    AS PayToSupplier_VS2     
 	       ,0																																			AS PayToSupplier_1RNG
