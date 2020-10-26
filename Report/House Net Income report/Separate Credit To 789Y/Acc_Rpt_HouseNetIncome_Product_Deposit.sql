@@ -1100,7 +1100,7 @@ BEGIN
 				HAVING SUM(t.MemberWL) < 0
 			) r
 		) t
-	WHERE r.Product3rdId IN (5, 8, 10, 22, 27, 28, 34, 40)
+	WHERE r.Product3rdId IN (5, 10, 22, 27, 34)
 
 		-- 1.2. Base on PayToSupplier < 0
 	UPDATE r
@@ -1130,7 +1130,7 @@ BEGIN
 		CROSS APPLY (
 			SELECT SUM(t.PayToSupplier) AS PayToSupplier FROM #__tempResult t WHERE t.Product3rdId = r.Product3rdId
 		) t
-	WHERE r.Product3rdId NOT IN (-2, 2, 5, 8, 10, 11, 22, 27, 28, 34, 40)
+	WHERE r.Product3rdId NOT IN (-2, 2, 5, 10, 11, 22, 27, 34)
 
 		-- 2. House Income
 		-- 2.1. Include BA into SB
