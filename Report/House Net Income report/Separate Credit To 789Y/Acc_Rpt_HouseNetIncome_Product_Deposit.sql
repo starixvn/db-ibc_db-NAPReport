@@ -25,6 +25,7 @@ AS
 		- 20200916@Roy: Email/Letstalk Reports - Integrate Joker Gaming (#131602)
 		- 20200916@Roy: Email/Letstalk Reports - Integrate WM Live Casino (#131593)
 		- 20200901@Percy: Refactor code to enhance performance [RedmineID: #140677]
+		- 20201023@Percy: Change 3rd rate of Keno, Lottery, Table Game [RedmineID: #143589]
 	
 	EXEC [Acc_Rpt_HouseNetIncome_Product_Deposit] '20180601', '20180619'
   
