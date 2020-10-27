@@ -8,7 +8,8 @@ ALTER PROCEDURE dbo.Acc_Rpt_LeagueWL_Match @StartDate SMALLDATETIME,
                                            @SportBettype VARCHAR(MAX),
 										   @SiteName VARCHAR(MAX) = 'ALL',
 										   @LeagueName VARCHAR(500),
-										   @IsNoDraw BIT = 0
+										   @IsNoDraw BIT = 0,
+										   @IsIncludeLiveIndicator BIT = 1
 AS
 /*
 	Created: Ned.Le@20200424
@@ -35,6 +36,7 @@ AS
 		- @IsNoDraw: To get the draw tickets to report or not
 		             0 - Get draw ticktes to report
 					 1 - No get draw ticktes to report
+		- @IsIncludeLiveIndicator: Include live indicators (live/non-live) in report
 
 	Example:
 		EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Match_xtest @StartDate='2020-09-06', @EndDate='2020-09-06',
@@ -257,7 +259,9 @@ BEGIN
 		
 	END
 
-	-- final aggregation by match event name & live indicator, display report
+	/* final aggregation by:
+		- match event name & live indicator if @IsIncludeLiveIndicator = 1
+		- match event name if @IsIncludeLiveIndicator = 0 */
 	SELECT  t.MatchID,
 			COALESCE(
 				MAX(home.teamname 
@@ -266,7 +270,7 @@ BEGIN
 				, t.MatchCode --summary RM line
 			) AS MatchEvent,
 			CASE WHEN t.MatchCode LIKE '%hedge%' THEN 1 ELSE 0 END IsHedge,
-            t.LiveIndicator LiveIndicator,
+            CASE WHEN @IsIncludeLiveIndicator = 1 THEN t.LiveIndicator END AS LiveIndicator,
 		    SUM(MemberWinLoss) AS MemberWinLoss,
             SUM(SMAWinLoss) AS SMAWinLoss,
             - SUM(ExtraPT) AS ExtraPT,
@@ -281,7 +285,9 @@ BEGIN
 		ON t.homeid = home.teamid
 	LEFT JOIN bodb02.dbo.Team away WITH (NOLOCK) 
 		ON t.awayid = away.teamid
-	GROUP BY t.MatchID, t.LiveIndicator, t.MatchCode
+	GROUP BY t.MatchID
+		, CASE WHEN @IsIncludeLiveIndicator = 1 THEN t.LiveIndicator END
+		, t.MatchCode
 	ORDER BY CASE WHEN t.MatchCode = 'Soccer 8RM'        THEN 2
 				  WHEN t.MatchCode = 'Other Sports 8RM'  THEN 3
 				  WHEN t.MatchCode = 'Soccer BARM'       THEN 4
