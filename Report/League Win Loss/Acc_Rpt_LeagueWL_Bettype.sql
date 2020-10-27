@@ -9,7 +9,8 @@ ALTER PROCEDURE dbo.Acc_Rpt_LeagueWL_Bettype @StartDate SMALLDATETIME,
 											 @SiteName VARCHAR(MAX) = 'ALL',
 											 @MatchID INT,
 											 @LiveIndicator BIT,
-											 @IsNoDraw BIT = 0
+											 @IsNoDraw BIT = 0,
+											 @IsIncludeSiteType BIT = 1
 AS
 /*
 	Created: Ned.Le@20200424
@@ -35,6 +36,7 @@ AS
 		- @IsNoDraw: To get the draw tickets to report or not
 		             0 - Get draw ticktes to report
 					 1 - No get draw ticktes to report
+		- @IsIncludeSiteType: Include site info (credit/deposit/cn88) in report
 
 	Example:
 		EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Bettype_xtest @StartDate='2020-09-06', @EndDate='2020-09-06', 
@@ -202,14 +204,16 @@ BEGIN
                           ELSE 0 END
 	END
 
-	/*final aggregation by bet type and site types, display result*/
+	/* final aggregation by: 
+		- if @IsIncludeSiteType = 1: bet type and site types
+		- if @IsIncludeSiteType = 0: bet type only */
 	SELECT  Bettype AS BetTypeID,
 			MAX(bt.typenamee) AS BetTypeName,
 			CASE WHEN t.SummaryLineIdentifier = 1 THEN 'Soccer 8RM'
 				 WHEN t.SummaryLineIdentifier = 2 THEN 'Other Sports 8RM'
 				 WHEN t.SummaryLineIdentifier = 3 THEN 'Soccer BARM'
 				 WHEN t.SummaryLineIdentifier = 4 THEN 'Other Sports BARM'
-				 ELSE super.SiteType
+				 ELSE CASE WHEN @IsIncludeSiteType = 1 THEN super.SiteType END
 			END AS SiteType,
 		    SUM(MemberWinLoss) AS MemberWinLoss,
             SUM(SMAWinLoss) AS SMAWinLoss,
@@ -230,7 +234,7 @@ BEGIN
 				  WHEN t.SummaryLineIdentifier = 2 THEN 'Other Sports 8RM'
 				  WHEN t.SummaryLineIdentifier = 3 THEN 'Soccer BARM'
 				  WHEN t.SummaryLineIdentifier = 4 THEN 'Other Sports BARM'
-				  ELSE super.SiteType
+				  ELSE CASE WHEN @IsIncludeSiteType = 1 THEN super.SiteType END
 			 END
 	ORDER BY CASE WHEN BetType = 1		THEN 1		--Handicap
 				  WHEN BetType = 301	THEN 2		--% Handicap
