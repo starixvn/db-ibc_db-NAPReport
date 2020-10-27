@@ -1,18 +1,23 @@
-﻿/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+
+USE bodb02
+GO
+
 ALTER PROCEDURE [dbo].[Acc_Rpt_Balance_Member_Yesterday]
 	@agentid	INT
 AS
 /*
-Created: 
+Created:
 Task : Get member yesterday balance
-DB: DB06.bodb02
-Original: 
-Revisions:	
+DB: DBACC.bodb02
+Original:
+Revisions:
 	- 20090619@Kiwi: Enhence Performance
-	- 20100112@Jamie: Get currencyName from Cache 
+	- 20100112@Jamie: Get currencyName from Cache
 	- 20101229@Lukas: Re-arrange bettype
 	- 20131118@Lukas: add filter to exclude running tickets
-	- 20190923@Bobby: Enhance SMA Balance report [redmine: #119990] 
+	- 20190923@Bobby: Enhance SMA Balance report [redmine: #119990]
+	- 20201027@Ned.Le: NAP Report - BBin - Remove BBIN Transfer off Balance reports (#144071)
 */
 BEGIN
 	SET NOCOUNT ON
@@ -46,10 +51,11 @@ BEGIN
 						END
 					AS winlost
 			) AS bet
-			WHERE b.recommend = @_agentid 
+			WHERE b.recommend = @_agentid
 				AND b.winlostdate <= @currentDate
-				AND b.ruben = 1 
+				AND b.ruben = 1
 				AND b.statusID NOT IN (101,102,103)
+				AND b.bettype NOT IN (21008, 21009)
 			GROUP BY b.custid
 		) AS b ON c.custid = b.custid
 	WHERE
