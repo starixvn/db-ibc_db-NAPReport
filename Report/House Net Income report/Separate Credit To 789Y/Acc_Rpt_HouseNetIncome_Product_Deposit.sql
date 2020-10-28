@@ -560,7 +560,11 @@ BEGIN
 							WHEN b.Product3rdId = -4 THEN -1 * ISNULL(lc.Rate, p.Rate) -- Metric Gaming
 							WHEN b.Product3rdId = -5 THEN 0.04 -- Bet Builder
 							WHEN b.Product3rdId = 27 THEN 0.065 -- VS2
-							WHEN b.Product3rdId IN (8, 28) THEN CASE WHEN p.PartyId = 14 OR @FDate >= '2018-08-01' THEN 0.03 ELSE 0.05 END -- KN, LT
+							WHEN b.Product3rdId IN (8, 28) THEN
+								CASE
+									WHEN t.rptDate >= '2020-07-01' THEN
+										CASE WHEN p.LicenseeId IN (SELECT l.LicenseeId FROM @tmp_Licensee l) THEN 0.02 ELSE 0.036 END
+									WHEN p.PartyId = 14 OR @FDate >= '2018-08-01' THEN 0.03 ELSE 0.05 END -- KN, LT
 							WHEN b.Product3rdId = 22 THEN CASE WHEN b.BetTypeGroup = 1 THEN 0.045 ELSE 0.035 END -- VB (Macau Games)
 							WHEN b.Product3rdId = 34 AND b.BetTypeGroup <> -1 THEN ISNULL(v.ChargeRate3rd, 0)
 							ELSE ISNULL(rd.Rate, v.ChargeRate3rd)
@@ -1118,19 +1122,14 @@ BEGIN
 		) t
 	WHERE r.Product3rdId IN (11)
 
-		-- 1.3. 1/2 House Income
-	UPDATE #Result
-	SET PayToSupplier = -0.5 * HouseIncome
-	WHERE Product3rdId IN (-2, 2)
-
-		-- 1.4. Total daily
+		-- 1.3. Total daily
 	UPDATE r
 	SET r.PayToSupplier = ISNULL(t.PayToSupplier, 0)
 	FROM #Result r
 		CROSS APPLY (
 			SELECT SUM(t.PayToSupplier) AS PayToSupplier FROM #__tempResult t WHERE t.Product3rdId = r.Product3rdId
 		) t
-	WHERE r.Product3rdId NOT IN (-2, 2, 5, 10, 11, 22, 27, 34)
+	WHERE r.Product3rdId NOT IN (5, 10, 11, 22, 27, 34)
 
 		-- 2. House Income
 		-- 2.1. Include BA into SB
