@@ -43,6 +43,8 @@ BEGIN
 	DECLARE @FDate DATE, @TDate DATE
 	SELECT  @FDate = @FromDate, @TDate = @ToDate
 
+	DECLARE @ProductCodes VARCHAR(MAX)
+
 	-- Get list of product
 	BEGIN
 		IF ISNULL(@ProductList, '') = ''
@@ -72,6 +74,9 @@ BEGIN
 			WHERE ProductCode = 'PP-JP'
 
 		UPDATE @Products SET Product3rdId = -999, ProductId = -999 WHERE ProductId IS NULL
+
+		SELECT @ProductCodes = COALESCE(@ProductCodes + ',', '') + ProductCode
+		FROM (SELECT ProductCode FROM @Products WHERE ProductCode IS NOT NULL) t
 	END
 
 	-- Get licensee charge rate
@@ -131,7 +136,7 @@ BEGIN
 		)
 		INSERT INTO #PartyChargeInfo (ChargeId, PartyId, LicenseeId, ParentId, Product3rdId, Rate, FromDate, ToDate, Bettype, ChargeType)
 		SELECT ci.ChargeId, ci.PartyId, ci.LicenseeId, p.ParentId, ci.ProductId, ci.DI_Rate, ci.FromDate, ci.ToDate, ISNULL(sbr.Bettype, ci.Bettype), ci.ChargeType
-		FROM bodb_licensee.dbo.LA_f_ChargeInfo (@PartyIDs, @FromDate, @ToDate, @ProductList, 'OA', 1) ci
+		FROM bodb_licensee.dbo.LA_f_ChargeInfo (@PartyIDs, @FromDate, @ToDate, @ProductCodes, 'OA', 1) ci
 			INNER JOIN #Licensees p ON ci.PartyID = p.PartyID
 			LEFT JOIN bodb_licensee.dbo.Sport_Bettype_Reference sbr WITH (NOLOCK) ON sbr.BettypeRef = ci.Bettype
 		WHERE

@@ -246,14 +246,15 @@ BEGIN
 
 			-- Update charge rate for Keno, Lottery, Table Game
 		DECLARE @tmp_PartyCharge3rdInfo TABLE (LicenseeId INT, Product3rdId INT, ChargeType INT, Rate MONEY, FromDate DATE, ToDate DATE)
-		DECLARE @tmp_Licensee TABLE (LicenseeId INT)
+		
+		DECLARE @BobbetId INT, @TianboId INT
+		SELECT	@BobbetId = CASE WHEN LicenseeName = 'Bobbet' THEN LicenseeId ELSE @BobbetId END
+				,@TianboId = CASE WHEN LicenseeName = 'Tianbo' THEN LicenseeId ELSE @TianboId END
+		FROM bodb_Licensee.dbo.Licensees WITH (NOLOCK)
+		WHERE LicenseeName IN ('Bobbet', 'Tianbo')
 
 		IF EXISTS (SELECT 1 FROM #PartyCharge3rdInfo WHERE Product3rdId IN (8, 28, 40) AND ToDate >= '2020-07-01')
 		BEGIN
-			INSERT INTO @tmp_Licensee (LicenseeId)
-			SELECT LicenseeId FROM bodb_Licensee.dbo.Licensees WITH (NOLOCK)
-			WHERE LicenseeName IN ('Bobbet', 'Tianbo')
-
 			INSERT INTO @tmp_PartyCharge3rdInfo (LicenseeId, Product3rdId, ChargeType, Rate, FromDate, ToDate)
 			SELECT p.LicenseeId, p.Product3rdId, p.ChargeType, r.Rate
 				,CASE WHEN p.FromDate > r.FromDate THEN p.FromDate ELSE r.FromDate END
@@ -264,10 +265,10 @@ BEGIN
 					WHERE FromDate <= '2020-06-30'
 					UNION ALL
 					SELECT CONVERT(DATE, '2020-07-01') AS FromDate, p.ToDate, 0.02 AS Rate
-					WHERE p.LicenseeId IN (SELECT l.LicenseeId FROM @tmp_Licensee l)
+					WHERE p.LicenseeId IN (@BobbetId, @TianboId)
 					UNION ALL
 					SELECT CONVERT(DATE, '2020-07-01') AS FromDate, p.ToDate, 0.036 AS Rate
-					WHERE p.LicenseeId NOT IN (SELECT l.LicenseeId FROM @tmp_Licensee l)
+					WHERE p.LicenseeId NOT IN (@BobbetId, @TianboId)
 				) r
 			WHERE p.Product3rdId IN (8, 28, 40) AND p.ToDate >= '2020-07-01'
 
@@ -563,7 +564,7 @@ BEGIN
 							WHEN b.Product3rdId IN (8, 28) THEN
 								CASE
 									WHEN t.rptDate >= '2020-07-01' THEN
-										CASE WHEN p.LicenseeId IN (SELECT l.LicenseeId FROM @tmp_Licensee l) THEN 0.02 ELSE 0.036 END
+										CASE WHEN p.LicenseeId IN (@BobbetId, @TianboId) THEN 0.02 ELSE 0.036 END
 									WHEN p.PartyId = 14 OR @FDate >= '2018-08-01' THEN 0.03 ELSE 0.05 END -- KN, LT
 							WHEN b.Product3rdId = 22 THEN CASE WHEN b.BetTypeGroup = 1 THEN 0.045 ELSE 0.035 END -- VB (Macau Games)
 							WHEN b.Product3rdId = 34 AND b.BetTypeGroup <> -1 THEN ISNULL(v.ChargeRate3rd, 0)
@@ -1104,7 +1105,7 @@ BEGIN
 				HAVING SUM(t.MemberWL) < 0
 			) r
 		) t
-	WHERE r.Product3rdId IN (5, 10, 22, 27, 34)
+	WHERE r.Product3rdId IN (5, 10, 22, 27)
 
 		-- 1.2. Base on PayToSupplier < 0
 	UPDATE r
@@ -1129,7 +1130,7 @@ BEGIN
 		CROSS APPLY (
 			SELECT SUM(t.PayToSupplier) AS PayToSupplier FROM #__tempResult t WHERE t.Product3rdId = r.Product3rdId
 		) t
-	WHERE r.Product3rdId NOT IN (5, 10, 11, 22, 27, 34)
+	WHERE r.Product3rdId NOT IN (5, 10, 11, 22, 27)
 
 		-- 2. House Income
 		-- 2.1. Include BA into SB
