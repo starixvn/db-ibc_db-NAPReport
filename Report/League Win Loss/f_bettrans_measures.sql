@@ -9,6 +9,10 @@ RETURNS TABLE
     Created: Jaden.Tang@20201015
     DB: DBACC.bodb02
     Remarks: bettrans table with added calculations for common measures
+
+    Revisions:
+		- 20201016@Jaden.Tang: creation
+
     Param's Explanation:
 		- @IsNoDraw: To include the draw tickets in Turnovers or not
                      Refer to feature id #120417 on how to determine DRAW tickets from bettrans
