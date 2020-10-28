@@ -46,7 +46,7 @@ BEGIN
 	SET NOCOUNT ON
 
 	BEGIN -- #tmpSportBettypeMatrix
-		CREATE TABLE #tmpSportBettypeMatrix (SportType SMALLINT, BetType SMALLINT)
+		CREATE TABLE #tmpSportBettypeMatrix (SportType INT, BetType INT)
 		
 		;WITH CTE_SportBettypeMatrix AS (
 			SELECT CAST(LEFT(val, CHARINDEX('_', val)-1) AS INT) AS SportType,
@@ -62,7 +62,7 @@ BEGIN
 
 	BEGIN -- #tmpMatch
 		CREATE TABLE #tmpMatch (MatchID 	INT,
-								SportType 	SMALLINT,
+								SportType 	INT,
 								LeagueID 	INT,
 								LeagueName 	VARCHAR(500),
 								MatchType 	TINYINT)
@@ -144,7 +144,7 @@ BEGIN
 	END
 
 	-- #tmpData: display tmp (sport / league)
-	CREATE TABLE #tmpData ( SportType		SMALLINT,
+	CREATE TABLE #tmpData ( SportType		INT,
 							LeagueName		VARCHAR(150),
 							MemberWinLoss	MONEY,
 							SMAWinLoss		MONEY,
@@ -177,15 +177,12 @@ BEGIN
 						  m.LeagueName
 				OPTION (RECOMPILE)
 		
-		-- + Parlay, Odds Spread
+		-- + Parlay, Odds Spread Adjustment (#141750)
 		INSERT INTO #tmpData
 			SELECT CASE WHEN sd.bettype IN (9, 29) THEN 10000
 						WHEN sd.bettype = 999 	   THEN 10001
-					END AS SportType,
-					CASE WHEN sd.bettype IN (9, 29) THEN 'Parlay'
-						 WHEN sd.bettype = 999 	    THEN 'SB Adjustment'
-					END AS Sport,
-				   '' 	AS LeagueName,
+				   END 					AS SportType,
+				   '' 					AS LeagueName,
 				   SUM(MemberWinLoss), 
 				   SUM(SMAWinLoss), 
 				   SUM(ExtraPT),
@@ -197,6 +194,8 @@ BEGIN
 				   SUM(VirtualTurnover)
 			FROM #matchBettypeTmp sd
 			WHERE BetType IN (9, 29, 999)
+			GROUP BY CASE WHEN sd.bettype IN (9, 29) THEN 10000
+						  WHEN sd.bettype = 999 	 THEN 10001 END
 			OPTION (RECOMPILE)
 
 		-- + RM
@@ -205,7 +204,7 @@ BEGIN
 						WHEN sbm.SportType > 1 AND sd.recommend = 52466	  THEN 100002
 						WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN 100003
 						WHEN sbm.SportType > 1 AND sd.recommend = 5707545 THEN 100004
-						ELSE -10000 END 												AS SportType,
+						ELSE -100000 END 												AS SportType,
 				   CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466   THEN 'Soccer 8RM'
 						WHEN sbm.SportType > 1 AND sd.recommend = 52466   THEN 'Other Sports 8RM'
 						WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN 'Soccer BARM'
@@ -229,14 +228,13 @@ BEGIN
 				AND sd.ruben = 1
 				AND sd.statusID IN (111, 112, 113)
 				AND sd.currency NOT IN (20, 27, 28)
-				AND sd.bettype NOT IN (9, 29)
 				AND sd.recommend IN (52466, 5707545)
 				AND (@IsNoDraw = 0 OR (@IsNoDraw = 1 AND sd.statusID NOT IN (111)))
 			GROUP BY CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466	THEN 100001
 						  WHEN sbm.SportType > 1 AND sd.recommend = 52466	THEN 100002
 						  WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN 100003
 						  WHEN sbm.SportType > 1 AND sd.recommend = 5707545 THEN 100004
-						  ELSE -10000 END,
+						  ELSE -100000 END,
 					CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466   THEN 'Soccer 8RM'
 						 WHEN sbm.SportType > 1 AND sd.recommend = 52466   THEN 'Other Sports 8RM'
 						 WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN 'Soccer BARM'
@@ -252,7 +250,7 @@ BEGIN
 		SELECT t.SportType,
 			CASE WHEN t.SportType = 10000 THEN 'Parlay'
 				 WHEN t.SportType = 10001 THEN 'SB Adjustment'
-				 WHEN t.SportType BETWEEN 100001 AND 100004 THEN LeagueName
+				 WHEN t.SportType BETWEEN 10001 AND 10004 THEN LeagueName
 				 ELSE SportName END AS Sport,
 			LeagueName,
 			MemberWinLoss,
@@ -272,9 +270,9 @@ BEGIN
 	ORDER BY CASE WHEN Sport = 'Soccer' 		THEN 1
 				  WHEN Sport = 'Parlay' 		THEN 2
 				  WHEN Sport = 'SB Adjustment'  THEN 3
-				  WHEN Sport = 'Basketball' 	THEN 4
-				  WHEN Sport = 'Tennis'			THEN 5
-				  WHEN Sport = 'E-Sports'		THEN 6 
+				  WHEN Sport = 'Basketball'  	THEN 4
+				  WHEN Sport = 'Tennis'		 	THEN 5
+				  WHEN Sport = 'E-Sports'	 	THEN 6 
 				  ELSE 
 				  	CASE WHEN SportType > 100000 THEN 99 ELSE 7 END
 				  END, Sport, LeagueName --fix some sports at top, then sort by league name
