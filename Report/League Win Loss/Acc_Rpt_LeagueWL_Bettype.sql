@@ -24,7 +24,7 @@ AS
 		- 20200814@Jaden.Tang: NAP Report - Enhancement for League Win Loss (#138955) - New dimensions
 								+ Moved one level down (drill down: League > Match > **Bet Type** > ... )
 								+ Add filter by SiteName
-		- 20201016@Jaden.Tang: Refactor for code readability
+		- 20201016@Jaden.Tang: Refactor for code readability & new drilldowns (#144387)
 
 	Param's Explanation:
 		- @StartDate: The start date of data to view on report
