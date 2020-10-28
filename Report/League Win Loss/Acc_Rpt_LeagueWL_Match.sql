@@ -24,7 +24,7 @@ AS
 								+ Changed name from Acc_Rpt_LeagueWL_Details to Acc_Rpt_LeagueWL_Match
 								+ Moved one level up (drill down: League > **Match** > Bet Type > ... )
 								+ Add filter by SiteName
-		- 20201016@Jaden.Tang: Refactor for code readability & performance
+		- 20201016@Jaden.Tang: Refactor for code readability & performance & new drilldowns (#144387)
 
 	Param's Explanation:
 		- @StartDate: The start date of data to view on report
