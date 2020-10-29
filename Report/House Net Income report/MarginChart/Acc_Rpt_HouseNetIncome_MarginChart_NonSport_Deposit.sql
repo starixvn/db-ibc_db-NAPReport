@@ -29,6 +29,7 @@ AS
 		- 20200818@Percy: Integrate PG Soft [RedmineID: #137764]
 		- 20200922@Percy: Integrate WM Live Casino & Joker Gaming [RedmineID: #131593,#131602]
 		- 20200901@Percy: Refactor code to enhance performance [RedmineID: #140677]
+		- 20201023@Percy: Correct input productcode for HP5 & PP-JP [RedmineID: #143589]
 
 	Param's Explanation:   
 		- @ProductList: List of Product Code
