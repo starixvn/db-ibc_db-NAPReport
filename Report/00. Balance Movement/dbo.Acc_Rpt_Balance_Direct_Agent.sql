@@ -1,14 +1,9 @@
-﻿USE [bodb02]
-GO
-/****** Object:  StoredProcedure [dbo].[Acc_Rpt_Balance_Direct_Agent]    Script Date: 07/03/2012 01:25:52 ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-/****** Object:  Stored Procedure dbo.Acc_Rpt_Balance_Direct_Agent    Script Date: 6/10/2010 1:42:31 PM ******/
-ALTER PROCEDURE [dbo].[Acc_Rpt_Balance_Direct_Agent]
-	@username	nvarchar(50) = '',
-	@currency   int = null
+﻿/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+
+ALTER PROCEDURE Acc_Rpt_Balance_Direct_Agent
+	@username varchar(50) = ''
+	,@currency int = null
+	,@ExclTestCurr bit = 0
 AS
 /*	Created: Jamie
 	Date: 2009-07-17
@@ -20,34 +15,69 @@ AS
 	-- 20100522@Henry: Change to use StatusID instead of Status in WHERE statement
 	-- 20120702@Daniel: Get all accounts regardless of data in bettrans
 	- 20130131@Johnson: Add filter by username and currency
+	- 20200930@Roy: HotFix - NAP Report - Direct member balance report getting wrong account list (#142334)
 */
 BEGIN
 	SET NOCOUNT ON
+	
+	CREATE TABLE #directAgent (
+		custid INT
+		,username VARCHAR(50)
+		,currency INT
+		,mrecommend INT)
+	---get directAgent---
+	INSERT INTO #directAgent
+	SELECT DISTINCT ci.custid
+		,ci.username
+		,ci.currency
+		,ci.mrecommend
+	FROM dbo.custinfo ci WITH (NOLOCK)
+		INNER JOIN dbo.CustDirectAccount d WITH (NOLOCK) ON ci.roleid = 2 AND ci.custid = d.custid
+	WHERE ci.username LIKE '%' + @username + '%'
+		AND ci.currency = ISNULL(@currency,ci.currency)
+		AND (@ExclTestCurr = 0 OR ci.currency NOT IN (20, 27, 28))
+	OPTION (RECOMPILE)
+	
+	---Include finance accounts---
+	INSERT INTO #directAgent
+	SELECT DISTINCT ci.custid
+		,ci.username
+		,ci.currency
+		,ci.mrecommend
+	FROM dbo.CustAgent AS ca WITH (NOLOCK)
+		INNER JOIN dbo.custinfo ci WITH (NOLOCK) ON ci.roleid = 2 AND ca.custid = ci.custid
+	WHERE ca.IsInternal = 1
+		AND ci.username LIKE '%' + @username + '%'
+		AND ci.currency = ISNULL(@currency, ci.currency)
+		AND (@ExclTestCurr = 0 OR ci.currency NOT IN (20, 27, 28))
+		AND NOT EXISTS ( SELECT 1 FROM #directAgent d WHERE ca.custid = d.custid )
+	OPTION (RECOMPILE)
+
+	CREATE CLUSTERED INDEX [CIX_Direct] ON #directAgent( mrecommend, custid )
+	
+	---Return data---
 	SELECT	a.custid,
 			a.username, 
 			a.currency, 
 			IsNull(bal.bal,0) AS Balance, 
 			IsNull(bal.Basebal,0) AS BaseBalance
-	FROM	f_DirectAgencyList(3) a 
+	FROM	#directAgent a WITH (NOLOCK)
 			LEFT JOIN (
 				SELECT	recommend, 
 						isnull(sum(case when custid=recommend then winlost-actual_stake else awinlost+comm-playercomm end),0)
-						+ isnull(sum(case when custid <> recommend and custid <> mrecommend then winlost-actual_stake+playercomm else 0 end),0) AS bal, 	
+						+ isnull(sum(case when custid <> recommend and custid <> mrecommend then winlost-actual_stake+playercomm else 0 end),0) AS bal,
 					
 						isnull(sum((case when custid=recommend then winlost-actual_stake else awinlost+comm-playercomm end)* actualrate),0)
-						+ isnull(sum((case when custid <> recommend and custid <> mrecommend then winlost-actual_stake+playercomm else 0 end)* actualrate),0) AS Basebal								
-				FROM	bettrans with (nolock) 
+						+ isnull(sum((case when custid <> recommend and custid <> mrecommend then winlost-actual_stake+playercomm else 0 end)* actualrate),0) AS Basebal
+				FROM	bettrans b WITH (NOLOCK)
 				WHERE	ruben = 1 AND 
 				--status NOT IN ('VOID','REJECT','REFUND')
 				statusID NOT IN (101,102,103)
+				AND EXISTS ( SELECT 1 FROM #directAgent d WITH (NOLOCK) WHERE b.mrecommend = d.mrecommend )
 				GROUP BY recommend 
-			)as Bal ON a.custid = Bal.recommend 
-	WHERE a.username LIKE '%' + @username +'%'
-		AND a.currency = ISNULL(@currency,currency)
+			)as Bal ON a.custid = Bal.recommend
 	ORDER BY a.username
-END
+	OPTION (RECOMPILE)
 
-GO
-GRANT EXECUTE ON [dbo].[Acc_Rpt_Balance_Direct_Agent] TO [bodbAdminNet]
-GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_Rpt_Balance_Direct_Agent] TO [vnteam]
+	DROP TABLE #directAgent
+END
