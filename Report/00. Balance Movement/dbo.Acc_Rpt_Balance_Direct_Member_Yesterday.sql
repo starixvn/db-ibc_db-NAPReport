@@ -12,7 +12,8 @@ AS
 		
 	Revisions:	
 		- 20130531@Johnson: add playercomm for bettype > 19000 to fix data summary bettype(19999)
-		- 20200930@Roy: HotFix - NAP Report - Direct member balance report getting wrong account list (#142334)
+		- 20200930@Roy: NAP Report - Enhance the way we get Direct Balance report (#144094)
+		- 20201030@Ned.Le: NAP Report - BBin - Remove BBIN Transfer off Balance reports (#144071)
 */
 BEGIN
 	SET NOCOUNT ON 
@@ -75,6 +76,7 @@ BEGIN
 				WHERE	ruben = 1 AND 
 				--status NOT IN ('VOID','REJECT','REFUND')
 				statusID NOT IN (101,102,103)
+				AND b.bettype NOT IN (21008, 21009)
 				AND EXISTS ( SELECT 1 FROM #directMember d WITH (NOLOCK) WHERE b.recommend = d.recommend )
 				GROUP BY custid
 			) bal ON mem.custid = bal.custid

@@ -16,7 +16,8 @@ AS
 	-- 20120702@Daniel: Get all accounts regardless of data in bettrans
 	-- 20121115@Lukas: change query to get only needed data
 	- 20130131@Johnson: Filter by username and currency
-	- 20200930@Roy: HotFix - NAP Report - Direct member balance report getting wrong account list (#142334)
+	- 20200930@Roy: NAP Report - Enhance the way we get Direct Balance report (#144094)
+	- 20201030@Ned.Le: NAP Report - BBin - Remove BBIN Transfer off Balance reports (#144071)
 */
 BEGIN
 	SET NOCOUNT ON
@@ -72,6 +73,7 @@ BEGIN
 				WHERE	ruben = 1 AND 
 				--status NOT IN ('VOID','REJECT','REFUND')
 				statusID NOT IN (101,102,103)
+				AND b.bettype NOT IN (21008, 21009)
 				AND EXISTS ( SELECT 1 FROM #directMaster d WITH (NOLOCK) WHERE b.srecommend = d.srecommend )
 				GROUP BY b.mrecommend
 			) as  bal ON m.custid = bal.mrecommend
