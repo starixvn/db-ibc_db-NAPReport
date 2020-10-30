@@ -24,7 +24,8 @@ AS
 		- 20200827@Kean - Email/Letstalk Reports - Integrate 10 New BluePrint Games (#140459)
 		- 20200916@Roy: Email/Letstalk Reports - Integrate Joker Gaming (#131602)
 		- 20200916@Roy: Email/Letstalk Reports - Integrate WM Live Casino (#131593)
-		- 20200901@Percy: Refactor code to enhance performance [Redmi
+		- 20200901@Percy: Refactor code to enhance performance [RedmineID: #140677]
+		- 20201023@Percy: Change 3rd rate of Keno, Lottery, Table Game [RedmineID: #143589]
 	
 	EXEC [Acc_Rpt_HouseNetIncome_Product_Deposit] '20180601', '20180619'
   
@@ -241,6 +242,40 @@ BEGIN
 				UPDATE #PartyChargeInfo SET Product3rdId = -3, Bettype = -1 WHERE Product3rdId = 32
 				UPDATE #PartyCharge3rdInfo SET Product3rdId = -3 WHERE Product3rdId = 32
 			END
+		END
+
+			-- Update charge rate for Keno, Lottery, Table Game
+		DECLARE @tmp_PartyCharge3rdInfo TABLE (LicenseeId INT, Product3rdId INT, ChargeType INT, Rate MONEY, FromDate DATE, ToDate DATE)
+		
+		DECLARE @BobbetId INT, @TianboId INT
+		SELECT	@BobbetId = CASE WHEN LicenseeName = 'Bobbet' THEN LicenseeId ELSE @BobbetId END
+				,@TianboId = CASE WHEN LicenseeName = 'Tianbo' THEN LicenseeId ELSE @TianboId END
+		FROM bodb_Licensee.dbo.Licensees WITH (NOLOCK)
+		WHERE LicenseeName IN ('Bobbet', 'Tianbo')
+
+		IF EXISTS (SELECT 1 FROM #PartyCharge3rdInfo WHERE Product3rdId IN (8, 28, 40) AND ToDate >= '2020-07-01')
+		BEGIN
+			INSERT INTO @tmp_PartyCharge3rdInfo (LicenseeId, Product3rdId, ChargeType, Rate, FromDate, ToDate)
+			SELECT p.LicenseeId, p.Product3rdId, p.ChargeType, r.Rate
+				,CASE WHEN p.FromDate > r.FromDate THEN p.FromDate ELSE r.FromDate END
+				,CASE WHEN p.ToDate < r.ToDate THEN p.ToDate ELSE r.ToDate END
+			FROM #PartyCharge3rdInfo p
+				CROSS APPLY (
+					SELECT p.FromDate, CONVERT(DATE, '2020-06-30') AS ToDate, p.Rate
+					WHERE FromDate <= '2020-06-30'
+					UNION ALL
+					SELECT CONVERT(DATE, '2020-07-01') AS FromDate, p.ToDate, 0.02 AS Rate
+					WHERE p.LicenseeId IN (@BobbetId, @TianboId)
+					UNION ALL
+					SELECT CONVERT(DATE, '2020-07-01') AS FromDate, p.ToDate, 0.036 AS Rate
+					WHERE p.LicenseeId NOT IN (@BobbetId, @TianboId)
+				) r
+			WHERE p.Product3rdId IN (8, 28, 40) AND p.ToDate >= '2020-07-01'
+
+			DELETE #PartyCharge3rdInfo WHERE Product3rdId IN (8, 28, 40) AND ToDate >= '2020-07-01'
+
+			INSERT INTO #PartyCharge3rdInfo (LicenseeId, Product3rdId, ChargeType, Rate, FromDate, ToDate)
+			SELECT LicenseeId, Product3rdId, ChargeType, Rate, FromDate, ToDate FROM @tmp_PartyCharge3rdInfo
 		END
 
 		DROP TABLE #Licensees
@@ -526,7 +561,11 @@ BEGIN
 							WHEN b.Product3rdId = -4 THEN -1 * ISNULL(lc.Rate, p.Rate) -- Metric Gaming
 							WHEN b.Product3rdId = -5 THEN 0.04 -- Bet Builder
 							WHEN b.Product3rdId = 27 THEN 0.065 -- VS2
-							WHEN b.Product3rdId IN (8, 28) THEN CASE WHEN p.PartyId = 14 OR @FDate >= '2018-08-01' THEN 0.03 ELSE 0.05 END -- KN, LT
+							WHEN b.Product3rdId IN (8, 28) THEN
+								CASE
+									WHEN t.rptDate >= '2020-07-01' THEN
+										CASE WHEN p.LicenseeId IN (@BobbetId, @TianboId) THEN 0.02 ELSE 0.036 END
+									WHEN p.PartyId = 14 OR @FDate >= '2018-08-01' THEN 0.03 ELSE 0.05 END -- KN, LT
 							WHEN b.Product3rdId = 22 THEN CASE WHEN b.BetTypeGroup = 1 THEN 0.045 ELSE 0.035 END -- VB (Macau Games)
 							WHEN b.Product3rdId = 34 AND b.BetTypeGroup <> -1 THEN ISNULL(v.ChargeRate3rd, 0)
 							ELSE ISNULL(rd.Rate, v.ChargeRate3rd)
@@ -1066,7 +1105,7 @@ BEGIN
 				HAVING SUM(t.MemberWL) < 0
 			) r
 		) t
-	WHERE r.Product3rdId IN (5, 8, 10, 22, 27, 28, 34, 40)
+	WHERE r.Product3rdId IN (5, 10, 22, 27)
 
 		-- 1.2. Base on PayToSupplier < 0
 	UPDATE r
@@ -1084,19 +1123,14 @@ BEGIN
 		) t
 	WHERE r.Product3rdId IN (11)
 
-		-- 1.3. 1/2 House Income
-	UPDATE #Result
-	SET PayToSupplier = -0.5 * HouseIncome
-	WHERE Product3rdId IN (-2, 2)
-
-		-- 1.4. Total daily
+		-- 1.3. Total daily
 	UPDATE r
 	SET r.PayToSupplier = ISNULL(t.PayToSupplier, 0)
 	FROM #Result r
 		CROSS APPLY (
 			SELECT SUM(t.PayToSupplier) AS PayToSupplier FROM #__tempResult t WHERE t.Product3rdId = r.Product3rdId
 		) t
-	WHERE r.Product3rdId NOT IN (-2, 2, 5, 8, 10, 11, 22, 27, 28, 34, 40)
+	WHERE r.Product3rdId NOT IN (5, 10, 11, 22, 27)
 
 		-- 2. House Income
 		-- 2.1. Include BA into SB

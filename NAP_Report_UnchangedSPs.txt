@@ -1,1 +1,6 @@
-Report\House Net Income report\Separate Credit To 789Y\Acc_Rpt_HouseNetIncome_Product_Deposit.sql
+Report\House Net Income report\Acc_Rpt_HouseNetIncome_KN_Deposit.sql
+Report\House Net Income report\Acc_Rpt_HouseNetIncome_LT_Deposit.sql
+Report\House Net Income report\Acc_Rpt_HouseNetIncome_TG_Deposit.sql
+Report\House Net Income report\Acc_Rpt_HouseNetIncome_NG_Deposit.sql
+Report\House Net Income report\Acc_Rpt_HouseNetIncome_HP5_Deposit.sql
+Report\House Net Income report\Acc_Rpt_HouseNetIncome_CC_Deposit.sql

@@ -13,6 +13,7 @@ AS
    
     Revisions:
 		20201002@Ned.Le: Email/Letstalk Reports - Change Card Club into Arcadia Gaming (#142831)
+		20201023@Roy: HNI Email/Letstalk - Adjust royalty fee term for RNG Keno, Lottery, Table Game, Number Game, NG2, Happy 5 (#143589)
 
 	Param's Explanation:
 */  
@@ -92,7 +93,7 @@ BEGIN
 		 INNER JOIN #TmpHouseWL wl ON f.RptDate = CONVERT(VARCHAR(2), wl.rptDate, 106)
 
 	UPDATE f
-	SET f.PayToSupplier = (wl.HouseWL + f.ExtraPT) * (-0.5)
+	SET f.PayToSupplier = (wl.HouseWL + (CASE WHEN wl.rptDate >= '2020-11-01' THEN 0 ELSE wl.ExtraPT END) ) * (-0.5)
 	FROM #FinalResult f
 		 INNER JOIN #TmpHouseWL wl ON f.RptDate = CONVERT(VARCHAR(2), wl.rptDate, 106)
 
