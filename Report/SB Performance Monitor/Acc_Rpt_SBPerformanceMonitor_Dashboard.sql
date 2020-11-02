@@ -20,6 +20,7 @@ AS
 
 	Revisions:
 		- 20200526@Ned.Le: [SB R&C] Implement Performance Monitor report (#134119)
+		- 20200930@Ned.Le: NAP Reports - Licensee Odds Spread (#141750)
 
 	Param's Explanation:
 		- @fromDate: Range date to get data for report
@@ -61,7 +62,15 @@ BEGIN
 
 	DECLARE @sqlCommand VARCHAR(MAX)
 	SELECT @sqlCommand = ''
-
+	
+	-- #tmpBettypeGroup
+	CREATE TABLE #tmpBettypeGroup (BettypeGroupID SMALLINT, Bettype INT)
+	
+	INSERT INTO #tmpBettypeGroup (BettypeGroupID, Bettype)
+	SELECT BettypeGroupID, Bettype
+	FROM DBWH.bodb_Account.dbo.BettypeGroup
+	WHERE BettypeGroupID = 12
+	
 	-- #tmpSportBettypeMatrix
 	CREATE TABLE #tmpSportBettypeMatrix (BetType SMALLINT)
 
@@ -70,7 +79,7 @@ BEGIN
 	FROM bodb02.dbo.SportBettypeMatrix sbm (NOLOCK)
 	WHERE sbm.ProductID = 1
 		  AND sbm.SubProduct NOT LIKE 'BT%'
-		  AND sbm.BetType NOT IN (9, 29)
+		  AND sbm.BetType NOT IN (9, 29, 999)
 
 	CREATE UNIQUE CLUSTERED INDEX PK_tmpSportBettypeMatrix ON #tmpSportBettypeMatrix(BetType)
 
@@ -155,7 +164,7 @@ BEGIN
 		   CASE WHEN @isShowLeague = 0 THEN NULL ELSE m.leagueid END AS LeagueID,
 		   CASE WHEN @isShowCust = 0 THEN NULL ELSE sd.custid END AS CustID,
 		   -- MEASURE
-		   SUM(CASE WHEN sd.bettype = 500 OR td.[VendorID] = 14 THEN 0 
+		   SUM(CASE WHEN bg.Bettype IS NOT NULL OR td.[VendorID] = 14 THEN 0 
 					ELSE 1 END) AS BetCount,
 		   SUM(CASE WHEN sd.recommend IN (52466, 5707545) THEN 0
 			        ELSE (-(sd.winlost - sd.actual_stake +
@@ -174,6 +183,7 @@ BEGIN
 		 LEFT JOIN #tmpMatch m ON sd.matchid = m.matchid
 								  AND CASE WHEN sd.bettype = 10 THEN 1 ELSE 0 END = m.matchtype
 		 LEFT JOIN bodb02.dbo.TradeCust AS td WITH (NOLOCK) ON sd.custid = td.custid
+		 LEFT JOIN #tmpBettypeGroup bg ON sd.bettype = bg.Bettype
 	WHERE sd.winlostdate >= @fromDate AND sd.winlostdate <= @toDate
 		  AND sd.ruben = 1
 		  AND sd.statusID IN (111, 112, 113)
@@ -196,8 +206,8 @@ BEGIN
 			   CASE WHEN @isShowLeague = 0 THEN NULL ELSE m.leagueid END AS LeagueID,
 			   CASE WHEN @isShowCust = 0 THEN NULL ELSE sd.custid END AS CustID,
 			   -- MEASURE
-			   SUM(CASE WHEN sd.bettype = 500 OR td.[VendorID] = 14 THEN 0 
-					ELSE 1 END) AS BetCount,
+			   SUM(CASE WHEN bg.Bettype IS NOT NULL OR td.[VendorID] = 14 THEN 0 
+						ELSE 1 END) AS BetCount,
 			   SUM(CASE WHEN sd.recommend IN (52466, 5707545) THEN 0
 			            ELSE (-(sd.winlost - sd.actual_stake +
 			                  sd.awinlost + sd.mwinlost + sd.swinlost +
@@ -215,6 +225,7 @@ BEGIN
 			 LEFT JOIN #tmpMatch m ON sd.matchid = m.matchid
 									  AND CASE WHEN sd.bettype = 10 THEN 1 ELSE 0 END = m.matchtype
 			 LEFT JOIN bodb02.dbo.TradeCust AS td WITH (NOLOCK) ON sd.custid = td.custid
+			 LEFT JOIN #tmpBettypeGroup bg ON sd.bettype = bg.Bettype
 		WHERE sd.winlostdate >= @fromDate AND sd.winlostdate <= @MoveBetsDay
 			  AND sd.ruben = 1
 			  AND sd.statusID IN (111, 112, 113)
