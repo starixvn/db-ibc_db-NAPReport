@@ -369,7 +369,7 @@ BEGIN
 	-- Update result
 	DECLARE @DateList VARCHAR(2000), @ReturnColumns VARCHAR(2000)
 	SELECT  @DateList = COALESCE(@DateList + ',', '') + '[' + rptDate + ']' FROM #Result
-	SELECT  @ReturnColumns = '''NonSport'' AS ProductCode,1 AS [Order],Figure,' + @DateList
+	SELECT  @ReturnColumns = '''NonSport'' AS ProductCode,1 AS [Order],Figure,0 AS FullRange,' + @DateList
 
     /* End region*/
 	---------------------------------------------------- Select the output -------------------------------------------------------
