@@ -20,6 +20,7 @@ AS
 		- 20200520@Ned.Le: NAP Report - Enhancement for League Win Loss (#134439)
 		- 20200626@Ned.Le: NAP Report - Enhancement for searching a league info on Punter Analysis and League Win Loss Report (#136277)
 		- 20200923@Jaden.Tang: NAP Report - Add filter by SiteName (#138955)
+		- 20200930@Jaden.Tang: Odds Spread Adjustment (#141750)
 
 	Param's Explanation:
 		- @StartDate: The start date of data to view on report
@@ -56,7 +57,9 @@ BEGIN
 	)
 	INSERT INTO #tmpSportBettypeMatrix (SportType, Sport, BetType)
 	SELECT cte.SportType,
-		   CASE WHEN cte.SportType = 10000 THEN 'Parlay' ELSE s.SportName END Sport,
+		   CASE WHEN cte.SportType = 10000 THEN 'Parlay' 
+		    	WHEN cte.SportType = 10001 THEN 'SB Adjustment' 
+				ELSE s.SportName END Sport,
 		   cte.BetType
 	FROM CTE_SportBettypeMatrix cte
 		 LEFT JOIN bodb02.dbo.Sports s (NOLOCK) ON cte.SportType = s.SportType
@@ -215,7 +218,7 @@ BEGIN
 		  AND sd.ruben = 1
 		  AND sd.statusID IN (111, 112, 113)
 		  AND sd.currency NOT IN (20, 27, 28)
-		  AND sd.bettype NOT IN (9, 29)
+		  AND sd.bettype NOT IN (9, 29, 999) --exclude Parlay (9, 29) & SB Odds Spread Adjustment (999)
 		  AND (@IsNoDraw = 0 OR (@IsNoDraw = 1 AND sd.statusID NOT IN (111)))
 		  AND (@SiteName = 'ALL' OR sd.recommend IN (SELECT AgentID FROM #tmpAgentBySite))
 		  AND sd.bettype IN (SELECT s.BetType FROM #tmpSportBettypeMatrix s )
@@ -224,7 +227,7 @@ BEGIN
 
 	-- #tmpData
 	-- + Soccer, Other Sports
-	CREATE TABLE #tmpData (SportType		SMALLINT,
+	CREATE TABLE #tmpData (SportType		INT,
 						   Sport			VARCHAR(50),
 						   LeagueName		VARCHAR(150),
 						   MemberWinLoss	MONEY,
@@ -267,7 +270,7 @@ BEGIN
 		GROUP BY  l.sporttype, sbm.Sport, l.leaguename
 		OPTION (RECOMPILE)
 	
-	-- + Parlay
+	-- + Parlay, Odds Spread Adjustment (#141750)
 	INSERT INTO #tmpData (SportType,
 						  Sport,
 						  LeagueName,
@@ -280,8 +283,12 @@ BEGIN
 						  VarianceIncome,
 						  RealTurnover,
 						  VirtualTurnover)
-	SELECT 10000 AS SportType,
-		   'Parlay' AS Sport,
+	SELECT CASE WHEN sd.bettype IN (9, 29) THEN 10000
+				WHEN sd.bettype = 999 	   THEN 10001
+		   END AS SportType,
+		   CASE WHEN sd.bettype IN (9, 29) THEN 'Parlay'
+				WHEN sd.bettype = 999 	   THEN 'SB Adjustment'
+		   END AS Sport,
 		   '' AS LeagueName,
 		   SUM((sd.winlost - sd.actual_stake) * sd.actualrate) AS MemberWinLoss,
            SUM((sd.awinlost + sd.mwinlost + sd.swinlost) * sd.actualrate) AS SMAWinLoss,
@@ -328,9 +335,14 @@ BEGIN
 		  AND sd.ruben = 1
 		  AND sd.statusID IN (111, 112, 113)
 		  AND sd.currency NOT IN (20, 27, 28)
-		  AND sd.bettype IN (SELECT BetType FROM #tmpSportBettypeMatrix WHERE SportType = 10000)
+		  AND sd.bettype IN (SELECT BetType FROM #tmpSportBettypeMatrix WHERE SportType IN (10000, 10001))
+		  --10000, 10001 are custom sport ids defined from SporttypeSel to identify if Parlay/OddsSpread checkbox is selected
 		  AND (@IsNoDraw = 0 OR (@IsNoDraw = 1 AND sd.statusID NOT IN (111)))
 		  AND (@SiteName = 'ALL' OR sd.recommend IN (SELECT AgentID FROM #tmpAgentBySite))
+	GROUP BY CASE WHEN sd.bettype IN (9, 29) THEN 10000
+				  WHEN sd.bettype = 999 	 THEN 10001 END,
+		     CASE WHEN sd.bettype IN (9, 29) THEN 'Parlay'
+			  	   WHEN sd.bettype = 999 	 THEN 'SB Adjustment' END
 	OPTION (RECOMPILE)
 
 	-- + RM
@@ -346,11 +358,11 @@ BEGIN
 						  VarianceIncome,
 						  RealTurnover,
 						  VirtualTurnover)
-	SELECT CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466	  THEN 10001
-				WHEN sbm.SportType > 1 AND sd.recommend = 52466	  THEN 10002
-				WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN 10003
-				WHEN sbm.SportType > 1 AND sd.recommend = 5707545 THEN 10004
-				ELSE -10000 END AS SportType,
+	SELECT CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466	  THEN 100001
+				WHEN sbm.SportType > 1 AND sd.recommend = 52466	  THEN 100002
+				WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN 100003
+				WHEN sbm.SportType > 1 AND sd.recommend = 5707545 THEN 100004
+				ELSE -100000 END AS SportType,
 		   CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466   THEN 'Soccer 8RM'
 				WHEN sbm.SportType > 1 AND sd.recommend = 52466   THEN 'Other Sports 8RM'
 				WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN 'Soccer BARM'
@@ -436,11 +448,11 @@ BEGIN
 		  AND sd.recommend IN (52466, 5707545)
 		  AND (@SiteName = 'ALL' OR sd.recommend IN (SELECT AgentID FROM #tmpAgentBySite))
 		  AND (@IsNoDraw = 0 OR (@IsNoDraw = 1 AND sd.statusID NOT IN (111)))
-	GROUP BY CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466	THEN 10001
-				  WHEN sbm.SportType > 1 AND sd.recommend = 52466	THEN 10002
-				  WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN 10003
-				  WHEN sbm.SportType > 1 AND sd.recommend = 5707545 THEN 10004
-				  ELSE -10000 END,
+	GROUP BY CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466	THEN 100001
+				  WHEN sbm.SportType > 1 AND sd.recommend = 52466	THEN 100002
+				  WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN 100003
+				  WHEN sbm.SportType > 1 AND sd.recommend = 5707545 THEN 100004
+				  ELSE -100000 END,
 		     CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466   THEN 'Soccer 8RM'
 				  WHEN sbm.SportType > 1 AND sd.recommend = 52466   THEN 'Other Sports 8RM'
 				  WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN 'Soccer BARM'
@@ -468,13 +480,14 @@ BEGIN
 		   VirtualTurnover
 	FROM #tmpData
 	WHERE MemberWinLoss IS NOT NULL
-	ORDER BY CASE WHEN Sport = 'Soccer' 	THEN 1
-				  WHEN Sport = 'Parlay' 	THEN 2
-				  WHEN Sport = 'Basketball' THEN 3
-				  WHEN Sport = 'Tennis'		THEN 4
-				  WHEN Sport = 'E-Sports'	THEN 5 
+	ORDER BY CASE WHEN Sport = 'Soccer' 	   THEN 1
+				  WHEN Sport = 'Parlay' 	   THEN 2
+				  WHEN Sport = 'SB Adjustment' THEN 3
+				  WHEN Sport = 'Basketball'    THEN 4
+				  WHEN Sport = 'Tennis'		   THEN 5
+				  WHEN Sport = 'E-Sports'	   THEN 6 
 				  ELSE 
-				  	CASE WHEN SportType > 10000 THEN 99 ELSE 6 END
+				  	CASE WHEN SportType > 100000 THEN 99 ELSE 7 END
 				  END, Sport, LeagueName --fix some sports at top, then sort by league name
 
 	-- Drop temp tables

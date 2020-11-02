@@ -14,6 +14,7 @@ AS
 		- 20200422@Ned.Le: NAP Report - Adjustment for League Win Loss (#132846)
 		- 20200520@Ned.Le: NAP Report - Enhancement for League Win Loss (#134439)
 		- 20200806@Jaden.Tang: NAP Report - Enhancement for League Win Loss (#138995)
+		- 20200930@Jaden.Tang: Odds Spread Adjustment (#141750)
 
 	Param's Explanation:
 
@@ -73,7 +74,16 @@ BEGIN
 		FROM bodb02.dbo.SportBettypeMatrix sbm (NOLOCK)
 			 LEFT JOIN bodb02.dbo.bettype b (NOLOCK) ON sbm.BetType = b.typeid
 		WHERE sbm.ProductID = 1
-			  AND sbm.BetType IN (9, 29)
+			  AND sbm.BetType IN (9, 29, 999)
+		UNION ALL
+		-- Odds Spread Adjustment
+		SELECT 10001 SportGroupType,
+			   'SB Adjustment' SportGroupName,
+			   10001 SportType,
+			   'SB Adjustment' SportName,
+			   'SB Adjustment' BetGroupName,
+			   999 Bettype,
+			   'Odds Spread Adjustment' BettypeName
 	)
 	SELECT SportGroupType,
 		   SportGroupName,
