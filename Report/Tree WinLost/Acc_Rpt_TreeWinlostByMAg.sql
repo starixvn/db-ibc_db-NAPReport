@@ -56,6 +56,7 @@ Revisions:
 	20200710@Cherry: Integrate Jackpot Pragmatic (#137271)
 	20200724@Cherry: Add filter Sport of Sportbook (#135880)
 	20200812@Cherry: Hotfix 139420
+	20201001@Cherry: Add Licensee Odds Spread (#141750)
 */
 
 BEGIN
@@ -256,7 +257,10 @@ BEGIN
 		IF NOT EXISTS (SELECT TOP 1 1 FROM #tmpSportType WHERE SportType = 20000) -- Parlay
 			DELETE FROM #tmpBettype WHERE bettype IN (9,29)
 			
-		DELETE FROM #tmpSportType WHERE SportType IN (10000, 20000)
+		IF NOT EXISTS (SELECT TOP 1 1 FROM #tmpSportType WHERE SportType = 30000) -- SB Adjustment
+			DELETE FROM #tmpBettype WHERE bettype = 999
+			
+		DELETE FROM #tmpSportType WHERE SportType IN (10000, 20000, 30000)
 		
 		;WITH CTE_Match AS (
 		SELECT matchid AS matchid, leagueid, 0 AS matchtype  FROM bodb02.dbo.match (NOLOCK) WHERE eventdate between @FromDate and @ToDate
@@ -398,9 +402,9 @@ BEGIN
 			  AND b.statusID NOT IN(101, 102, 103)
 			  AND b.currency <> 20
 			  AND b.mrecommend = @mrecommend
-			  AND (t.bettype IN (9,29)
+			  AND (t.bettype IN (9,29,999)
 				OR t.ProductID <> 1
-				OR (t.ProductID = 1 AND t.bettype NOT IN (9,29,10) AND b.matchid IN (SELECT matchid FROM #tmpMatch where matchtype = 0))
+				OR (t.ProductID = 1 AND t.bettype NOT IN (9,29,10,999) AND b.matchid IN (SELECT matchid FROM #tmpMatch where matchtype = 0))
 				OR (t.bettype = 10 AND b.matchid IN (SELECT matchid FROM #tmpMatch where matchtype = 1))
 				)
 		 GROUP BY b.recommend
