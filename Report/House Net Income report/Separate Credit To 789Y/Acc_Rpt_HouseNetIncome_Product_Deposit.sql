@@ -587,7 +587,7 @@ BEGIN
 			,SUM(CASE WHEN b.Product3rdId = -3 THEN t.FullContribution * ISNULL(e.Rate, 0) ELSE 0 END)
 			,SUM(CASE WHEN b.Product3rdId = -3 THEN -t.MemberWL * ISNULL(e.Rate, 0) ELSE 0 END)
 			,SUM(CASE
-					WHEN b.Product3rdId = 1 THEN (-t.MemberWL * ISNULL(lc.Rate, p.Rate) - t.HouseWL) * ISNULL(e.Rate, 0) -- HouseWL: Odds Spread Adjustment
+					WHEN b.Product3rdId = 0 THEN (-t.MemberWL * ISNULL(lc.Rate, p.Rate) - t.HouseWL) * ISNULL(e.Rate, 0) -- HouseWL: Odds Spread Adjustment
 					WHEN b.Product3rdId = 15 THEN t.MemberWL * ISNULL(oa.Rate, 0) -- CB
 					WHEN b.Product3rdId IN (13, 25) THEN -t.MemberWL * ISNULL(oa.Rate, 0) -- BT & CO
 					WHEN b.Product3rdId = 31 THEN (-t.MemberWL * ISNULL(lc.Rate, p.Rate) - t.Comm) * ISNULL(oa.Rate, 0) -- EX
@@ -942,7 +942,8 @@ BEGIN
 
 		DECLARE @tmpResult TABLE (PartyId INT, Product3rdId INT, LicenseeWL MONEY, HouseIncome MONEY, AComm MONEY, MinFee MONEY, WLFee MONEY)
 		INSERT INTO @tmpResult (PartyId, Product3rdId, LicenseeWL, HouseIncome, AComm, MinFee, WLFee)
-		SELECT PartyId, Product3rdId, SUM(-MemberWL), SUM(AmountToCompany), SUM(AComm), 0, SUM(AmountToCompany) FROM #__tempResult GROUP BY PartyId, Product3rdId
+		SELECT PartyId, Product3rdId, SUM(CASE WHEN SporttypeGroup = 150 THEN 0 ELSE -MemberWL END), SUM(AmountToCompany), SUM(AComm), 0, SUM(AmountToCompany) FROM #__tempResult
+		GROUP BY PartyId, Product3rdId
 
 		INSERT INTO @tmpResult (PartyId, Product3rdId, LicenseeWL, HouseIncome, AComm, MinFee, WLFee)
 		SELECT mf.PartyId, mf.Product3rdId, 0, 0, 0, 0, 0
@@ -1226,7 +1227,7 @@ BEGIN
 		,SUM(ISNULL(t.JackpotPrize, 0))
 	FROM CTE_rptDate r
 		CROSS JOIN @Products p
-		LEFT JOIN #__tempResult t ON r.rptDate = t.rptDate AND t.Product3rdId = p.Product3rdId AND t.SporttypeGroup = p.SporttypeGroup
+		LEFT JOIN #__tempResult t ON r.rptDate = t.rptDate AND t.Product3rdId = p.Product3rdId AND (t.Product3rdId = 0 AND t.SporttypeGroup = p.SporttypeGroup OR t.Product3rdId <> 0)
 		LEFT JOIN #DiscountGroup d ON t.PartyId = d.PartyId AND t.Product3rdId = d.Product3rdId
 	GROUP BY CONVERT(VARCHAR(2), r.rptDate, 106), p.Product3rdId, p.ProductCode
 	OPTION (MAXRECURSION 0)
