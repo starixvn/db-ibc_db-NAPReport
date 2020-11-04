@@ -3,7 +3,7 @@ USE [bodb02]
 GO
  
 ALTER PROCEDURE [dbo].[Acc_Rpt_NonSportsProductStatistic_CurrencySel]
-	@SiteType VARCHAR(MAX) = '-1',
+	@SiteType VARCHAR(MAX) = '0,1',
 	@ExcludeTest BIT = 0
 AS
 /*
@@ -15,7 +15,7 @@ AS
 		20201020@Cherry: Get Currency dropdown by Site [Redmine: #140386]
 		
 	Param: 
-		@SiteType = -1 : All, 0: Credit, 1: Deposit
+		@SiteType = '0,1' : All, 0: Credit, 1: Deposit
 
 */
 
@@ -26,7 +26,7 @@ BEGIN
 	FROM dbo.exchange WITH(NOLOCK) 
 	WHERE IsActive = 1
 		AND (@ExcludeTest = 0 OR (@ExcludeTest = 1 AND exchangeid <> 20))
-		AND (@SiteType = '-1'
+		AND (@SiteType = '0,1'
 			OR (@SiteType = '0' AND OfferSite IN (0,1)) 
 			OR (@SiteType = '1' AND OfferSite IN (0,2))
 			)
