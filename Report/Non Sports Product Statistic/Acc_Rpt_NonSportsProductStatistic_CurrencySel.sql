@@ -3,7 +3,7 @@ USE [bodb02]
 GO
  
 ALTER PROCEDURE [dbo].[Acc_Rpt_NonSportsProductStatistic_CurrencySel]
-	@SiteType INT = -1,
+	@SiteType VARCHAR(MAX) = '-1',
 	@ExcludeTest BIT = 0
 AS
 /*
@@ -26,9 +26,9 @@ BEGIN
 	FROM dbo.exchange WITH(NOLOCK) 
 	WHERE IsActive = 1
 		AND (@ExcludeTest = 0 OR (@ExcludeTest = 1 AND exchangeid <> 20))
-		AND (@SiteType = -1
-			OR (@SiteType = 0 AND OfferSite IN (0,1)) 
-			OR (@SiteType = 1 AND OfferSite IN (0,2))
+		AND (@SiteType = '-1'
+			OR (@SiteType = '0' AND OfferSite IN (0,1)) 
+			OR (@SiteType = '1' AND OfferSite IN (0,2))
 			)
 	
 END 
