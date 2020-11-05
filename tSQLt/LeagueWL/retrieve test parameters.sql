@@ -6,8 +6,9 @@ ALTER PROCEDURE testLeagueWinloss.[retrieve test parameters] (
 	@SportBetType 	VARCHAR(MAX) OUTPUT,
 	@IsNoDraw		BIT			 OUTPUT,
 	@SiteName		VARCHAR(MAX) OUTPUT,
-	@LeagueName		VARCHAR(MAX) OUTPUT,
-	@MatchID		INT	= 0    	 OUTPUT
+	@LeagueName		VARCHAR(MAX) = '' OUTPUT,
+	@MatchID		INT	= 0    	 OUTPUT,
+	@BetType		INT = 0		 OUTPUT
 )
 AS
 	/*Created by: Jaden to unit test NAP reports*/
@@ -31,5 +32,7 @@ BEGIN
 	SET @LeagueName = 'FRANCE LIGUE 1'
 
 	SET @MatchID = 99000049
+
+	SET @BetType = 226
 END
 
