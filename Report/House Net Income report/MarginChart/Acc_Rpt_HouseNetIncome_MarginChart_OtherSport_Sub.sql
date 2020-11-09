@@ -80,7 +80,9 @@ BEGIN
 			 , ISNULL(-SUM(CASE WHEN b.SiteID NOT IN(-2, -4) THEN b.WinlossIBC + b.CommissionS
 						        ELSE 0 END
 						   * ex.rate
-						   * (CASE WHEN b.TicketStatus = 3 AND BetType = 999 THEN 1 ELSE 0 END)), 0) AS HouseWL
+						   * (CASE WHEN b.TicketStatus = 3 AND BetType = 999 THEN 1
+						           WHEN b.TicketStatus = 3 THEN 0
+								   ELSE 1 END)), 0) AS HouseWL
 			 , SUM(CASE WHEN TurnoverIBC = 0 THEN 0
 					    ELSE TurnoverIBC - ExtraTO END
 				   * CASE WHEN VarianceVR > 0 THEN VarianceVR + 1
@@ -88,20 +90,20 @@ BEGIN
 					      END
 				   * ex.Rate
 				   * (CASE WHEN b.TicketStatus in (12,13) THEN 0.5 ELSE 1 END)
-				   * (CASE WHEN b.TicketStatus = 3 AND BetType = 999 THEN 1 ELSE 0 END)) TurnOver
+				   * (CASE WHEN b.TicketStatus = 3 AND BetType = 999 THEN 1
+						   WHEN b.TicketStatus = 3 THEN 0
+						   ELSE 1 END)) TurnOver
 			 , SUM((ISNULL(b.ExtraWL, 0) + ISNULL(b.ExtraComm, 0)) * ex.Rate) AS ExtraPT
 		 FROM bodb_Account.dbo.FactSiteWinloss AS b WITH (NOLOCK)
 			INNER JOIN #exchange AS ex ON b.rptdate = ex.exchangedate
 									AND b.currencyid = ex.ExchangeID
 		 WHERE b.rptDate BETWEEN @FDate AND @TDate
 			   AND b.TicketStatus NOT IN(-1, 18, 9, 10, 14)
-			   AND (b.bettype IN (999) -- Odds Spread Adjustment
-				    OR
-					(EXISTS (SELECT TOP 1 1
+			   AND ((EXISTS (SELECT TOP 1 1
 							 FROM #SportBettypeMatrix AS sb
 							 WHERE sb.BetType = b.BetType
 							       AND sb.ProductID = 1
-							       AND sb.EventType IN(1, 2, 4))
+							       AND (sb.EventType IN(1, 2, 4) OR sb.BetType = 999))
 			         AND EXISTS (SELECT TOP 1 1
 						         FROM bodb_Account.dbo.League AS l WITH (NOLOCK)
 								 WHERE b.LeagueId = l.LeagueId
