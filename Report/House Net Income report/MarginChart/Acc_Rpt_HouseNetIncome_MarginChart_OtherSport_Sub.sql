@@ -14,6 +14,7 @@ AS
     Revisions:		
 		- 20190121@Robert: Letstalk Margin Charts - Separate Letstalk group for credit & Deposit (Soccer & Other Sports) [#108220]
 		- 20200701@Kean.Nguyen - House Net Income Email/Letstalk - Change formula to Calculate Margin (#136792)
+		- 20201019@Ned.Le: House Net Income - Apply Licensee ticket's oddspread changing (#111275)
 		
 	Param's Explanation:   
 
@@ -76,41 +77,37 @@ BEGIN
 				   , ExtraPT)
 		 SELECT b.SiteID
 			 , b.rptDate
-			 , ISNULL(-SUM(CASE
-						    WHEN b.SiteID NOT IN(-2, -4)
-						    THEN b.WinlossIBC + b.CommissionS
-						    ELSE 0
-						END * ex.rate), 0) AS HouseWL
-			 , SUM(CASE
-					 WHEN TurnoverIBC = 0
-					 THEN 0
-					 ELSE TurnoverIBC - ExtraTO
-				  END * CASE
-						  WHEN VarianceVR > 0
-						  THEN VarianceVR + 1
+			 , ISNULL(-SUM(CASE WHEN b.SiteID NOT IN(-2, -4) THEN b.WinlossIBC + b.CommissionS
+						        ELSE 0 END
+						   * ex.rate
+						   * (CASE WHEN b.TicketStatus = 3 AND BetType = 999 THEN 1
+						           WHEN b.TicketStatus = 3 THEN 0
+								   ELSE 1 END)), 0) AS HouseWL
+			 , SUM(CASE WHEN TurnoverIBC = 0 THEN 0
+					    ELSE TurnoverIBC - ExtraTO END
+				   * CASE WHEN VarianceVR > 0 THEN VarianceVR + 1
 						  ELSE 1
-					   END * ex.Rate * (CASE WHEN b.TicketStatus in (12,13) THEN 0.5 ELSE 1 END))
+					      END
+				   * ex.Rate
+				   * (CASE WHEN b.TicketStatus in (12,13) THEN 0.5 ELSE 1 END)
+				   * (CASE WHEN b.TicketStatus = 3 AND BetType = 999 THEN 1
+						   WHEN b.TicketStatus = 3 THEN 0
+						   ELSE 1 END)) TurnOver
 			 , SUM((ISNULL(b.ExtraWL, 0) + ISNULL(b.ExtraComm, 0)) * ex.Rate) AS ExtraPT
 		 FROM bodb_Account.dbo.FactSiteWinloss AS b WITH (NOLOCK)
 			INNER JOIN #exchange AS ex ON b.rptdate = ex.exchangedate
 									AND b.currencyid = ex.ExchangeID
 		 WHERE b.rptDate BETWEEN @FDate AND @TDate
-			   AND b.TicketStatus NOT IN(-1, 18, 9, 10, 14, 3)
-			  AND EXISTS
-					   (
-						  SELECT TOP 1 1
-						  FROM #SportBettypeMatrix AS sb
-						  WHERE sb.BetType = b.BetType
-							   AND sb.ProductID = 1
-							   AND sb.EventType IN(1, 2, 4)
-					   )
-			  AND EXISTS
-					   (
-						  SELECT TOP 1 1
-						  FROM bodb_Account.dbo.League AS l WITH (NOLOCK)
-						  WHERE b.LeagueId = l.LeagueId
-							   AND l.sportid > 1
-					   )
+			   AND b.TicketStatus NOT IN(-1, 18, 9, 10, 14)
+			   AND ((EXISTS (SELECT TOP 1 1
+							 FROM #SportBettypeMatrix AS sb
+							 WHERE sb.BetType = b.BetType
+							       AND sb.ProductID = 1
+							       AND (sb.EventType IN(1, 2, 4) OR sb.BetType = 999))
+			         AND EXISTS (SELECT TOP 1 1
+						         FROM bodb_Account.dbo.League AS l WITH (NOLOCK)
+								 WHERE b.LeagueId = l.LeagueId
+								       AND l.sportid > 1)))
 		 GROUP BY b.SiteID
 			   , b.rptDate OPTION(RECOMPILE);
 
