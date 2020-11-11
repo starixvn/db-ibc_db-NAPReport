@@ -18,7 +18,6 @@ Revisions:
 		1. Change Alias DB DB06 to DBACC
 		2. Add 2 new columns Today Rate and Yesterday Rate
 	- 20151221@Sophia: Company Yesterday Balance [Redmine: #49458]
-	- 20200914@Ned.Le: Migrate Log DBs from DB052 to DB054 (Phase 1) (#140783)
 	- 20201027@Ned.Le: NAP Report - BBin - Remove BBIN Transfer off Balance reports (#144071)
 */
 BEGIN
