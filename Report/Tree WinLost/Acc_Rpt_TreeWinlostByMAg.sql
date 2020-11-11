@@ -57,6 +57,7 @@ Revisions:
 	20200724@Cherry: Add filter Sport of Sportbook (#135880)
 	20200812@Cherry: Hotfix 139420
 	20201001@Cherry: Add Licensee Odds Spread (#141750)
+	20201111@Ned.Le: NAP Report - Hotfix Tree Winloss - Block Replication (#145175)
 */
 
 BEGIN
@@ -395,7 +396,7 @@ BEGIN
 						 THEN 0						 
 						 ELSE scomm * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(19, 8)) / (1 - tpositiontaking)
 					  END * actualrate) AS DECIMAL(19, 6)) AS                               ExtraComm_RM
-		 FROM bettrans AS b WITH (ROWLOCK)
+		 FROM bettrans AS b WITH (NOLOCK)
 			INNER JOIN #tmpBettype AS t ON t.RefTable NOT IN (1, 2) AND t.bettype = b.bettype
 		 WHERE winlostdate BETWEEN CAST(@FromDate AS SMALLDATETIME) AND CAST(@ToDate AS SMALLDATETIME)
 			  AND b.ruben = 1
