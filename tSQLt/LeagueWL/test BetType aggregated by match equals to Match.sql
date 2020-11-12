@@ -166,6 +166,7 @@ BEGIN
     IF OBJECT_ID('tempdb..#result') IS NOT NULL DROP TABLE #result;
 	CREATE TABLE #result (BetType			INT,
 						  BetTypeName		NVARCHAR(200),
+                          IsHedge           BIT,
 						  SiteType			VARCHAR(20),
 						  MemberWinLoss	    MONEY,
 						  SMAWinLoss		MONEY,
