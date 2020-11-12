@@ -7,7 +7,8 @@ ALTER PROCEDURE dbo.Acc_Rpt_LeagueWL_Bettype @StartDate SMALLDATETIME,
 											 @EndDate SMALLDATETIME,
 											 @SportBettype VARCHAR(MAX),
 											 @SiteName VARCHAR(MAX) = 'ALL',
-											 @MatchID INT,
+											 @LeagueName VARCHAR(500) = NULL,
+											 @MatchID INT = NULL,
 											 @LiveIndicator BIT,
 											 @IsNoDraw BIT = 0,
 											 @IsIncludeSiteType BIT = 1
@@ -33,6 +34,7 @@ AS
 		                 Example '1_1,2_1' --> 'Soccer_Handicap,Basketball_Handicap'
 		- @SiteName: Filter by list of site names (delimited by commas)
 		- @MatchID: The specific match to view on report
+		- @LeagueName: The specific league to view on report, can be used without matchid
 		- @IsNoDraw: To get the draw tickets to report or not
 		             0 - Get draw ticktes to report
 					 1 - No get draw ticktes to report
@@ -64,23 +66,30 @@ BEGIN
 		FROM CTE_SportBettypeMatrix cte
 	END
 
-	DECLARE @SportType INT
-    BEGIN /*get sport type from @MatchID*/
-        SELECT @SportType = sporttype 
+	DECLARE @SportType INTEGER
+    BEGIN /*get sport type from @MatchID or @LeagueID*/
+		CREATE TABLE #tmpLeague (SportType INT, MatchID INT)
+
+		INSERT INTO #tmpLeague
+		SELECT sporttype, matchid
         FROM (
-            SELECT l.sporttype
+            SELECT l.sporttype, m.matchid
             FROM bodb02.dbo.league l WITH (NOLOCK)
             INNER JOIN bodb02.dbo.match m WITH (NOLOCK)
                 ON l.leagueid = m.leagueid
-            WHERE m.matchid = @MatchID AND m.eventdate = @StartDate
+            WHERE (m.matchid = @MatchID OR l.leaguename = @LeagueName)
+				AND m.eventdate = @StartDate
             UNION ALL 
-            SELECT l.sporttype
+            SELECT l.sporttype, o.orid
             FROM bodb02.dbo.league l WITH (NOLOCK)
             INNER JOIN bodb02.dbo.outright o WITH (NOLOCK)
                 ON l.leagueid = o.leagueid
-            WHERE o.orid = @MatchID AND o.eventdate = @StartDate
+            WHERE (o.orid = @MatchID OR l.leaguename = @LeagueName)
+				AND o.eventdate = @StartDate
         ) t
         OPTION (RECOMPILE)
+
+		SELECT TOP 1 @SportType = sporttype FROM #tmpLeague
     END
 
 	BEGIN /*get a list of Supers by site type*/
@@ -161,7 +170,7 @@ BEGIN
 			INNER JOIN #tmpSportBettypeMatrix mtrix
 				ON mtrix.BetType = sd.bettype AND mtrix.SportType = @SportType
 			WHERE sd.winlostdate = @StartDate
-				AND sd.matchid = @MatchID
+				AND sd.matchid IN (SELECT MatchID FROM #tmpLeague)
 				AND sd.liveindicator = @LiveIndicator
 				AND sd.ruben = 1
 				AND sd.statusID IN (111, 112, 113)
