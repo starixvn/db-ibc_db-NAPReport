@@ -281,7 +281,8 @@ BEGIN
 				  	CASE WHEN t.SummaryLineIdentifier > 0 THEN 99 ELSE 14 END
 			 END -- first priority bet type group
 			 , BetTypeName --then order by name
-			 , 3 ASC -- then order "SiteType" NULL first
+			 , 4 ASC -- then order "SiteType" NULL first
+			 , 3
 			 , t.SummaryLineIdentifier
 
 	DROP TABLE #tmpSportBettypeMatrix
