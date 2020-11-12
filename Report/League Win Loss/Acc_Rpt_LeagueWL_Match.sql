@@ -10,7 +10,8 @@ ALTER PROCEDURE dbo.Acc_Rpt_LeagueWL_Match @StartDate SMALLDATETIME,
 										   @SiteName VARCHAR(MAX) = 'ALL',
 										   @LeagueName VARCHAR(500),
 										   @IsNoDraw BIT = 0,
-										   @IsIncludeLiveIndicator BIT = 1
+										   @IsIncludeLiveIndicator BIT = 1,
+										   @ShowHedgeMatchOnly BIT = 0
 AS
 /*
 	Created: Ned.Le@20200424
@@ -40,6 +41,7 @@ AS
 		             0 - Get draw ticktes to report
 					 1 - No get draw ticktes to report
 		- @IsIncludeLiveIndicator: Include live indicators (live/non-live) in report
+		- @ShowHedgeMatchOnly: Only show hedge matches
 
 	Example:
 		EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Match_xtest @StartDate='2020-09-06', @EndDate='2020-09-06',
@@ -215,6 +217,7 @@ BEGIN
 			INNER JOIN #tmpMatch m 
 				ON sd.matchid = m.matchid
 					AND CASE WHEN sd.bettype = 10 THEN 1 ELSE 0 END = m.matchtype --prevent matchid dupplicates in *match* and *outright*
+			WHERE CASE WHEN @ShowHedgeMatchOnly = 1 THEN CHARINDEX('hedge', m.matchcode) ELSE 1 END > 0
 			GROUP BY m.matchid, sd.liveindicator
 			OPTION (RECOMPILE)
 
@@ -254,6 +257,7 @@ BEGIN
 				AND statusID IN (111, 112, 113)
 				AND currency NOT IN (20, 27, 28)
 				AND t.bettype NOT IN (9, 29)
+				AND CASE WHEN @ShowHedgeMatchOnly = 1 THEN CHARINDEX('hedge', m.matchcode) ELSE 1 END > 0
             GROUP BY CASE WHEN @SportType = 1 AND recommend = 52466   THEN 'Soccer 8RM'
                           WHEN @SportType > 1 AND recommend = 52466   THEN 'Other Sports 8RM'
                           WHEN @SportType = 1 AND recommend = 5707545 THEN 'Soccer BARM'
