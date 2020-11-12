@@ -11,7 +11,8 @@ ALTER PROCEDURE dbo.Acc_Rpt_LeagueWL_Bettype @StartDate SMALLDATETIME,
 											 @MatchID INT = NULL,
 											 @LiveIndicator BIT,
 											 @IsNoDraw BIT = 0,
-											 @IsIncludeSiteType BIT = 1
+											 @IsIncludeSiteType BIT = 1,
+											 @IsIncludeHedge BIT = 0
 AS
 /*
 	Created: Ned.Le@20200424
@@ -39,6 +40,7 @@ AS
 		             0 - Get draw ticktes to report
 					 1 - No get draw ticktes to report
 		- @IsIncludeSiteType: Include site info (credit/deposit/cn88) in report
+		- @IsIncludeHedge: Further groups by hedge matches / bettypes
 
 	Example:
 		EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Bettype_xtest @StartDate='2020-09-06', @EndDate='2020-09-06', 
@@ -68,19 +70,19 @@ BEGIN
 
 	DECLARE @SportType INTEGER
     BEGIN /*get sport type from @MatchID or @LeagueID*/
-		CREATE TABLE #tmpLeague (SportType INT, MatchID INT)
+		CREATE TABLE #tmpMatch (SportType INT, MatchID INT, MatchCode NVARCHAR(100), IsOutright BIT)
 
-		INSERT INTO #tmpLeague
-		SELECT sporttype, matchid
+		INSERT INTO #tmpMatch
+		SELECT sporttype, matchid, matchcode, IsOutright
         FROM (
-            SELECT l.sporttype, m.matchid
+            SELECT l.sporttype, m.matchid, m.matchcode, 0 AS IsOutright
             FROM bodb02.dbo.league l WITH (NOLOCK)
             INNER JOIN bodb02.dbo.match m WITH (NOLOCK)
                 ON l.leagueid = m.leagueid
             WHERE (m.matchid = @MatchID OR l.leaguename = @LeagueName)
 				AND m.eventdate = @StartDate
             UNION ALL 
-            SELECT l.sporttype, o.orid
+            SELECT l.sporttype, o.orid, o.matchcode, 1 AS IsOutright
             FROM bodb02.dbo.league l WITH (NOLOCK)
             INNER JOIN bodb02.dbo.outright o WITH (NOLOCK)
                 ON l.leagueid = o.leagueid
@@ -89,7 +91,7 @@ BEGIN
         ) t
         OPTION (RECOMPILE)
 
-		SELECT TOP 1 @SportType = sporttype FROM #tmpLeague
+		SELECT TOP 1 @SportType = sporttype FROM #tmpMatch
     END
 
 	BEGIN /*get a list of Supers by site type*/
@@ -130,6 +132,7 @@ BEGIN
 		CREATE TABLE #agentSuperBettype (AgentID				INT,
 							   			 SuperID				INT,
 							   			 Bettype				INT,
+										 MatchCode				NVARCHAR(100),
 							   			 MemberWinLoss			MONEY,
 							   			 SMAWinLoss				MONEY,
 							   			 ExtraPT				MONEY,
@@ -145,6 +148,7 @@ BEGIN
 		INSERT INTO #agentSuperBettype (AgentID,
 							  			SuperID,
 							  			Bettype,
+										MatchCode,
 							  			MemberWinLoss,
 							  			SMAWinLoss,
 							  			ExtraPT,
@@ -157,6 +161,7 @@ BEGIN
 			SELECT  sd.recommend  					AS AgentID,
 					sd.srecommend 					AS SuperID,
 					sd.BetType 	  					AS BetType,
+					m.MatchCode						AS MatchCode,
 					SUM(sd.MemberWinLoss)			AS MemberWinLoss,
 					SUM(sd.SMAWinLoss)				AS SMAWinLoss,
 					SUM(sd.[Extra's Amount]) 		AS ExtraPT,
@@ -169,14 +174,16 @@ BEGIN
 			FROM bodb02.dbo.f_bettrans_measures(@IsNoDraw) sd
 			INNER JOIN #tmpSportBettypeMatrix mtrix
 				ON mtrix.BetType = sd.bettype AND mtrix.SportType = @SportType
+			INNER JOIN #tmpMatch m 
+				ON sd.matchid = m.MatchID AND CASE WHEN sd.bettype = 10 THEN 1 ELSE 0 END = m.IsOutright
 			WHERE sd.winlostdate = @StartDate
-				AND sd.matchid IN (SELECT MatchID FROM #tmpLeague)
+				AND sd.matchid IN (SELECT MatchID FROM #tmpMatch)
 				AND sd.liveindicator = @LiveIndicator
 				AND sd.ruben = 1
 				AND sd.statusID IN (111, 112, 113)
 				AND sd.currency NOT IN (20, 27, 28)
 				AND (@SiteName = 'ALL' OR sd.recommend IN (SELECT AgentID FROM #tmpAgentBySite))
-			GROUP BY sd.recommend, sd.srecommend, sd.BetType
+			GROUP BY sd.recommend, sd.srecommend, sd.BetType, m.MatchCode
 			OPTION (RECOMPILE)
 	
         --+ RM summary
@@ -215,9 +222,15 @@ BEGIN
 
 	/* final aggregation by: 
 		- if @IsIncludeSiteType = 1: bet type and site types
-		- if @IsIncludeSiteType = 0: bet type only */
+		- if @IsIncludeSiteType = 0: bet type only 
+		- if @IsIncludeHedge = 1: also group by hedge matches or non-hedge matches*/
 	SELECT  Bettype AS BetTypeID,
 			MAX(bt.typenamee) AS BetTypeName,
+			CASE WHEN @IsIncludeHedge = 1 THEN 
+				CASE WHEN t.MatchCode NOT LIKE '%hedge%' THEN 0 
+					 WHEN t.MatchCode     LIKE '%hedge%' THEN 1
+				END 
+			 END AS IsHedge,
 			CASE WHEN t.SummaryLineIdentifier = 1 THEN 'Soccer 8RM'
 				 WHEN t.SummaryLineIdentifier = 2 THEN 'Other Sports 8RM'
 				 WHEN t.SummaryLineIdentifier = 3 THEN 'Soccer BARM'
@@ -238,7 +251,13 @@ BEGIN
 		ON t.Bettype = bt.typeid
 	LEFT JOIN #super AS super
 		ON t.SuperID = super.SuperID
-	GROUP BY Bettype, t.SummaryLineIdentifier
+	GROUP BY Bettype
+			,CASE WHEN @IsIncludeHedge = 1 THEN 
+				CASE WHEN t.MatchCode NOT LIKE '%hedge%' THEN 0 
+					 WHEN t.MatchCode     LIKE '%hedge%' THEN 1
+				END 
+			 END
+			, t.SummaryLineIdentifier
 			,CASE WHEN t.SummaryLineIdentifier = 1 THEN 'Soccer 8RM'
 				  WHEN t.SummaryLineIdentifier = 2 THEN 'Other Sports 8RM'
 				  WHEN t.SummaryLineIdentifier = 3 THEN 'Soccer BARM'
