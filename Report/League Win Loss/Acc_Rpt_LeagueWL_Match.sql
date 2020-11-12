@@ -6,6 +6,7 @@ GO
 ALTER PROCEDURE dbo.Acc_Rpt_LeagueWL_Match @StartDate SMALLDATETIME,
                                            @EndDate SMALLDATETIME,
                                            @SportBettype VARCHAR(MAX),
+										   @BetType	INT = NULL,
 										   @SiteName VARCHAR(MAX) = 'ALL',
 										   @LeagueName VARCHAR(500),
 										   @IsNoDraw BIT = 0,
@@ -29,8 +30,10 @@ AS
 	Param's Explanation:
 		- @StartDate: The start date of data to view on report
 		- @EndDate: The end date of data to view on report
-		- @SportBettype: List of Sporttypes and Bettypes that correspond to each other
+		- @SportBettype: List of Sporttypes and Bettypes that correspond to each other, this list is build from the drop-down list of
+						 front-end website, correspond to selections of user
 		                 Example '1_1,1_3' --> 'Soccer_Handicap,Soccer_Over/Under...'
+		- @BetType: The specific bet type to view, included in new drilldown flow from #144387
 		- @SiteName: Filter by list of site names (delimited by commas)
 		- @LeagueName: The leaguename to view on report
 		- @IsNoDraw: To get the draw tickets to report or not
@@ -115,6 +118,7 @@ BEGIN
 			SELECT cte.SportType, cte.BetType
 			FROM CTE_SportBettypeMatrix cte
 			WHERE cte.SportType = @SportType
+				AND cte.BetType = ISNULL(@BetType, cte.BetType)
 	END
 
 	BEGIN -- #tmpAgentBySite: list of active agents in the list input @SiteName
