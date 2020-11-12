@@ -60,7 +60,7 @@ BEGIN
               INNER JOIN dbo.exchange ex WITH (NOLOCK) ON lc.Currency = ex.exchangeid
               INNER JOIN dbo.site s WITH (NOLOCK) ON s.site = l.LicenseeName AND s.isActive = 1
               LEFT JOIN #Currency c ON ex.exchangeid = c.ExchangeId
-        WHERE s.siteid IN (SELECT SiteID FROM #tmpSite)
+        WHERE l.LicenseeID IN (SELECT SiteID FROM #tmpSite)
 			   AND ex.IsActive = 1
                AND (@ExcludeTest = 0 OR (@ExcludeTest = 1 AND ex.exchangeid <> 20))
                AND c.exchangeid IS NULL
