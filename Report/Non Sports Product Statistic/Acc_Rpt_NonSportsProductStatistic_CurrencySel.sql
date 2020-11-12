@@ -42,7 +42,7 @@ BEGIN
 	IF @SiteId = '-1' OR @IsCredit = 1
 	BEGIN
 		INSERT INTO #Currency (ExchangeId, Currency)
-		SELECT ExchangeId, Currency 
+		SELECT DISTINCT ExchangeId, Currency 
 		FROM dbo.exchange WITH(NOLOCK) 
 		WHERE IsActive = 1
 			AND (@ExcludeTest = 0 OR (@ExcludeTest = 1 AND exchangeid <> 20))
@@ -59,9 +59,11 @@ BEGIN
               INNER JOIN bodb_licensee.dbo.Licensees l WITH (NOLOCK) ON l.LicenseeID = lc.LicenseeID
               INNER JOIN dbo.exchange ex WITH (NOLOCK) ON lc.Currency = ex.exchangeid
               INNER JOIN dbo.site s WITH (NOLOCK) ON s.site = l.LicenseeName AND s.isActive = 1
+              LEFT JOIN #Currency c ON ex.exchangeid = c.ExchangeId
         WHERE s.siteid IN (SELECT SiteID FROM #tmpSite)
 			   AND ex.IsActive = 1
-               AND (@ExcludeTest = 0 OR (@ExcludeTest = 1 AND exchangeid <> 20))
+               AND (@ExcludeTest = 0 OR (@ExcludeTest = 1 AND ex.exchangeid <> 20))
+               AND c.exchangeid IS NULL
 	END
 	
 	SELECT ExchangeId, Currency
