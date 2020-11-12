@@ -250,7 +250,7 @@ BEGIN
 		SELECT t.SportType,
 			CASE WHEN t.SportType = 10000 THEN 'Parlay'
 				 WHEN t.SportType = 10001 THEN 'SB Adjustment'
-				 WHEN t.SportType BETWEEN 10001 AND 10004 THEN LeagueName
+				 WHEN t.SportType BETWEEN 100001 AND 100004 THEN LeagueName
 				 ELSE SportName END AS Sport,
 			LeagueName,
 			MemberWinLoss,
