@@ -1,4 +1,8 @@
-﻿/*<info serverAlias="DBTXN-bodb02,DBACC-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBTXN-bodb02,DBACC-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+
+USE bodb02
+GO
+
 ALTER  PROCEDURE [dbo].[Acc_Rpt_Balance_Super_Yesterday]
 	@Keyword			NVARCHAR(50) = ''
 	, @FirstChar		NVARCHAR(6) = ''
@@ -8,22 +12,23 @@ ALTER  PROCEDURE [dbo].[Acc_Rpt_Balance_Super_Yesterday]
 
 AS
 /*
-Created: 
+Created:
 Task : Get Yesterday Total Balance of all supers
-DB: DBTRANS.bodb02, DB06.bodb02
+DB: DBTRANS.bodb02, DBACC.bodb02
 Original:
 Revisions:
 	- 20090619@Kiwi: Enhence Performance by using #SuperInfo
 	- 20091130@Jamie: Move from DB06 to DB052 (Replication) 
-	- 20100112@Jamie: Get currencyName from Cache 
+	- 20100112@Jamie: Get currencyName from Cache
 	- 20110516@Lukas: re-arrange bettype
 	- 20120717@Elodie:  Add @IsViewTotalOnly and @Total params to show total value when user want to view total only
 						Rewrite SP to enhance performance
 						Change DBTRANS server instead of DB02 server
 	- 20131119@Lukas: remove running/void/reject/refund tickets
 	- 20160322@Robert: Moving customers to new lines  [Redmine: #53554]
-	- 20190909@Viet: Workaround - include CN88 Headline amount [redmine: #119921]  
-	- 20190917@Bobby: Enhance SMA Balance report [redmine: #119990] 
+	- 20190909@Viet: Workaround - include CN88 Headline amount [redmine: #119921]
+	- 20190917@Bobby: Enhance SMA Balance report [redmine: #119990]
+	- 20201027@Ned.Le: NAP Report - BBin - Remove BBIN Transfer off Balance reports (#144071)
 							
 Parameters Explanation:
 	- Search keyword: '%keyword%'
@@ -128,8 +133,9 @@ BEGIN
 				END AS totalBalance
 		) AS bal
 		WHERE b.winlostdate <= @currentDate
-			AND ruben = 1 
-			AND statusID NOT IN (101,102,103) 
+			AND ruben = 1
+			AND statusID NOT IN (101,102,103)
+			AND b.bettype NOT IN (21008, 21009)
 		GROUP BY si.custid
 	)
 	INSERT #superBalance (CustID, Balance, BaseBalance)
@@ -151,6 +157,7 @@ BEGIN
 				SELECT (winlost - actual_stake) AS winlost
 			) AS bal
 			WHERE b.winlostdate <= @currentDate
+				  AND b.bettype NOT IN (21008, 21009)
 			GROUP BY si.custid
 		)
 		INSERT #superBalance (CustID, Balance, BaseBalance)

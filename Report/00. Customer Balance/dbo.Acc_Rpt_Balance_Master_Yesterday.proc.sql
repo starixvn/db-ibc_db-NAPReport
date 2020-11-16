@@ -1,4 +1,8 @@
-﻿/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+
+USE bodb02
+GO
+
 ALTER PROCEDURE [dbo].[Acc_Rpt_Balance_Master_Yesterday] 
 	@superid		INT = 0
 	, @Keyword		NVARCHAR(50) = ''
@@ -8,11 +12,11 @@ AS
 
 
 /*
-Created: 
+Created:
 Task : Get Master balance
 DB: DB06.bodb02
-Original: 
-Revisions:	
+Original:
+Revisions:
 		--Balance calculated with the correct transfer date @Phuong20080927
 		- 20090619@Kiwi: Remove Exchange
 		--20090515@Jamie: Enhance for using right index
@@ -20,7 +24,8 @@ Revisions:
 		- 20110516@Lukas: re-arrange bettype
 		- 20131119@Lukas: remove running/void/reject/refund tickets
 		- 20160322@Robert: Moving customers to new lines  [Redmine: #53554]
-		- 20190919@Bobby: Enhance SMA Balance report [redmine: #119990] 
+		- 20190919@Bobby: Enhance SMA Balance report [redmine: #119990]
+		- 20201027@Ned.Le: NAP Report - BBin - Remove BBIN Transfer off Balance reports (#144071)
 */
 BEGIN
 	SET NOCOUNT ON
@@ -116,9 +121,10 @@ BEGIN
 			AS totalBalance
 		) AS bal
 		WHERE EXISTS (SELECT TOP 1 1 FROM #MasterInfo mt WHERE b.mrecommend = mt.custid)
-			AND b.winlostdate <= @currentDate 
-			AND b.ruben = 1 
-			AND b.statusID NOT IN (101,102,103) 
+			AND b.winlostdate <= @currentDate
+			AND b.ruben = 1
+			AND b.statusID NOT IN (101,102,103)
+			AND b.bettype NOT IN (21008, 21009)
 		GROUP BY b.mrecommend
 	)
 	SELECT mi.custid, mi.username, mi.currency 
