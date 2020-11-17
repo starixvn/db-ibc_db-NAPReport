@@ -5,11 +5,12 @@ ALTER PROCEDURE [dbo].[Acc_Rpt_TimeMachineTicket] @RptDate DATETIME
 AS
 	/*
 	 Created: 20191101@Harry
-	 Task: #123087 - SAS - Monthly Abnormal bets report
+	 Task: #145519 - SAS - Daily report - Time machine tickets
 	 DB: DB061.BODB02
 	 
 	 Revisions:
-	 - 20191231@Harry: add reasons: Robot Betting and Irrigation Bet
+	 - 20191231@Harry: add reasons: Robot Betting and Irrigation Bet (?)
+	 - 20201117@Jaden: from adhoc to SP
 	 */
 BEGIN 
 	Create table #tmp_data
