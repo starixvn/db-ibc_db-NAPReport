@@ -7,8 +7,8 @@ ALTER PROCEDURE dbo.Acc_Rpt_LeagueWL_Bettype @StartDate SMALLDATETIME,
 											 @EndDate SMALLDATETIME,
 											 @SportBettype VARCHAR(MAX),
 											 @SiteName VARCHAR(MAX) = 'ALL',
-											 @LeagueName VARCHAR(500) = NULL,
-											 @MatchID INT = NULL,
+											 @LeagueName VARCHAR(500) = '',
+											 @MatchID INT = -1,
 											 @LiveIndicator BIT,
 											 @IsNoDraw BIT = 0,
 											 @IsIncludeSiteType BIT = 1,
@@ -52,6 +52,10 @@ AS
 BEGIN
 
 	SET NOCOUNT ON
+
+	-- web can't send NULLs
+	IF @LeagueName = '' SET @LeagueName = NULL
+	IF @MatchID = -1 SET @MatchID = NULL
 
 	BEGIN /*split the array @SportBettype into a temp table*/
 		CREATE TABLE #tmpSportBettypeMatrix (SportType SMALLINT,
