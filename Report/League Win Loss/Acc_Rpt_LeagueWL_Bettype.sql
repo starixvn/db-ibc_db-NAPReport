@@ -79,14 +79,14 @@ BEGIN
             FROM bodb02.dbo.league l WITH (NOLOCK)
             INNER JOIN bodb02.dbo.match m WITH (NOLOCK)
                 ON l.leagueid = m.leagueid
-            WHERE (m.matchid = @MatchID OR l.leaguename = @LeagueName)
+            WHERE (m.matchid = ISNULL(@MatchID, m.matchid) AND l.leaguename = ISNULL(@LeagueName, l.leaguename))
 				AND m.eventdate = @StartDate
             UNION ALL 
             SELECT l.sporttype, o.orid, o.matchcode, 1 AS IsOutright
             FROM bodb02.dbo.league l WITH (NOLOCK)
             INNER JOIN bodb02.dbo.outright o WITH (NOLOCK)
                 ON l.leagueid = o.leagueid
-            WHERE (o.orid = @MatchID OR l.leaguename = @LeagueName)
+            WHERE (o.orid = ISNULL(@MatchID, o.orid) AND l.leaguename = ISNULL(@LeagueName, l.leaguename))
 				AND o.eventdate = @StartDate
         ) t
         OPTION (RECOMPILE)
