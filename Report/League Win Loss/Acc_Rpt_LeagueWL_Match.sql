@@ -10,7 +10,7 @@ ALTER PROCEDURE dbo.Acc_Rpt_LeagueWL_Match @StartDate SMALLDATETIME,
 										   @SiteName VARCHAR(MAX) = 'ALL',
 										   @LeagueName VARCHAR(500),
 										   @IsNoDraw BIT = 0,
-										   @LiveIndicatorVarchar VARCHAR(5) = 'none',	/*1st report flow = 'none; 2nd report flow = 'live'/'non-live'*/
+										   @LiveIndicatorVarchar VARCHAR(10) = 'none',	/*1st report flow = 'none; 2nd report flow = 'live'/'non-live'*/
 										   @ShowHedgeMatchOnly BIT = 0			/*1st report flow = 0; 2nd report flow = input from Bet type report*/
 AS
 /*
