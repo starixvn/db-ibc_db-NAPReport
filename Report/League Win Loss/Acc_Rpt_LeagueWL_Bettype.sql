@@ -7,12 +7,12 @@ ALTER PROCEDURE dbo.Acc_Rpt_LeagueWL_Bettype @StartDate SMALLDATETIME,
 											 @EndDate SMALLDATETIME,
 											 @SportBettype VARCHAR(MAX),
 											 @SiteName VARCHAR(MAX) = 'ALL',
-											 @LeagueName VARCHAR(500) = '',
-											 @MatchID INT = -1,
-											 @LiveIndicator BIT,
+											 @LeagueName VARCHAR(500) = '', /*1st report flow*/
+											 @MatchID INT = -1,				/*2nd report flow*/
 											 @IsNoDraw BIT = 0,
-											 @IsIncludeSiteType BIT = 1,
-											 @IsIncludeHedge BIT = 0
+											 @LiveIndicator BIT = 0,		/*for 2nd report flow, this SP would be called 2 times, one for each BIT*/
+											 @IsIncludeSiteType BIT = 1,	/*1st report flow = 1; 2nd report flow = 0*/
+											 @IsIncludeHedge BIT = 0		/*1st report flow = 0; 2nd report flow = 1*/
 AS
 /*
 	Created: Ned.Le@20200424
@@ -40,7 +40,31 @@ AS
 		             0 - Get draw ticktes to report
 					 1 - No get draw ticktes to report
 		- @IsIncludeSiteType: Include site info (credit/deposit/cn88) in report
+			Example (web view):
+			- @IsIncludeSiteType = 0
+				Bet type		 |	Member Winloss
+				----------------------------------
+				Handicap		 |	10,000
+			
+			- @IsIncludeHedge = 1
+				Bet type		 |	Member Winloss
+				----------------------------------
+				Handicap		 |	10,000
+					Credit		 |	 5,000
+					Deposit		 |   4,000
+					CN88		 |   1,000
 		- @IsIncludeHedge: Further groups by hedge matches / bettypes
+			Example (web view):
+			- @IsIncludeHedge = 0	
+				Bet type		 |	Member Winloss
+				----------------------------------
+				Handicap		 |	10,000
+			
+			- @IsIncludeHedge = 1
+				Bet type		 |	Member Winloss
+				----------------------------------
+				Handicap		 |	8,000
+				Handicap (hedge) |	2,000
 
 	Example:
 		EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Bettype_xtest @StartDate='2020-09-06', @EndDate='2020-09-06', 
