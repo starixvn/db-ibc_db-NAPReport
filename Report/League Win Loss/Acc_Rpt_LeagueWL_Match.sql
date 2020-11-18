@@ -6,12 +6,12 @@ GO
 ALTER PROCEDURE dbo.Acc_Rpt_LeagueWL_Match @StartDate SMALLDATETIME,
                                            @EndDate SMALLDATETIME,
                                            @SportBettype VARCHAR(MAX),
-										   @BetType	INT = NULL,
+										   @BetType	INT = -1,					/*1st report flow = -1; 2nd report flow = input from Bet type report*/	
 										   @SiteName VARCHAR(MAX) = 'ALL',
 										   @LeagueName VARCHAR(500),
 										   @IsNoDraw BIT = 0,
-										   @IsIncludeLiveIndicator BIT = 1,
-										   @ShowHedgeMatchOnly BIT = 0
+										   @LiveIndicatorVarchar VARCHAR(5) = 'none',	/*1st report flow = 'none; 2nd report flow = 'true'/'false'*/
+										   @ShowHedgeMatchOnly BIT = 0			/*1st report flow = 0; 2nd report flow = input from Bet type report*/
 AS
 /*
 	Created: Ned.Le@20200424
@@ -40,7 +40,10 @@ AS
 		- @IsNoDraw: To get the draw tickets to report or not
 		             0 - Get draw ticktes to report
 					 1 - No get draw ticktes to report
-		- @IsIncludeLiveIndicator: Include live indicators (live/non-live) in report
+		- @LiveIndicatorVarchar: Include live indicators (live/non-live) in report
+			- 'true': filter bettrans by liveindicator = 1, result LiveIndicator column = null
+			- 'false': filter bettrans by liveindicator = 0, result LiveIndicator column = null
+			- 'none': no filter
 		- @ShowHedgeMatchOnly: Only show hedge matches
 
 	Example:
@@ -53,6 +56,13 @@ AS
 BEGIN
 
 	SET NOCOUNT ON
+
+	-- web can't send NULLs
+	IF @BetType = -1 SET @BetType = NULL
+
+	DECLARE @IsLive BIT = NULL
+	IF LOWER(@LiveIndicatorVarchar) = 'true' SET @IsLive = 1
+	IF LOWER(@LiveIndicatorVarchar) = 'false' SET @IsLive = 0
 
 	BEGIN /*get match data from @LeagueName by @StartDate*/
 		CREATE TABLE #tmpMatch (matchid 	 INT,
@@ -178,6 +188,7 @@ BEGIN
 					/* -------------------------------------------- */
 					AND ('ALL' = @SiteName OR sd.recommend IN (SELECT AgentID FROM #tmpAgentBySite))
 					AND sd.bettype IN (SELECT BetType FROM #tmpSportBettypeMatrix)
+					AND sd.liveindicator = ISNULL(@IsLive, sd.liveindicator)
 			GROUP BY sd.matchid, sd.bettype, sd.liveindicator
 			OPTION (RECOMPILE)
 	END
@@ -268,8 +279,8 @@ BEGIN
 	END
 
 	/* final aggregation by:
-		- match event name & live indicator if @IsIncludeLiveIndicator = 1
-		- match event name if @IsIncludeLiveIndicator = 0 */
+		- match event name & live indicator if @LiveIndicatorVarchar = 'none'
+		- match event name if @LiveIndicatorVarchar is 'true' or 'false' */
 	SELECT  t.MatchID,
 			COALESCE(
 				MAX(home.teamname 
@@ -278,7 +289,7 @@ BEGIN
 				, t.MatchCode --summary RM line
 			) AS MatchEvent,
 			CASE WHEN t.MatchCode LIKE '%hedge%' THEN 1 ELSE 0 END IsHedge,
-            CASE WHEN @IsIncludeLiveIndicator = 1 THEN t.LiveIndicator END AS LiveIndicator,
+            CASE WHEN @IsLive IS NULL THEN t.LiveIndicator ELSE @IsLive END AS LiveIndicator,
 		    SUM(MemberWinLoss) AS MemberWinLoss,
             SUM(SMAWinLoss) AS SMAWinLoss,
             - SUM(ExtraPT) AS ExtraPT,
@@ -294,7 +305,7 @@ BEGIN
 	LEFT JOIN bodb02.dbo.Team away WITH (NOLOCK) 
 		ON t.awayid = away.teamid
 	GROUP BY t.MatchID
-		, CASE WHEN @IsIncludeLiveIndicator = 1 THEN t.LiveIndicator END
+		, CASE WHEN @IsLive IS NULL THEN t.LiveIndicator ELSE @IsLive END
 		, t.MatchCode
 	ORDER BY CASE WHEN t.MatchCode = 'Soccer 8RM'        THEN 2
 				  WHEN t.MatchCode = 'Other Sports 8RM'  THEN 3
