@@ -1,7 +1,9 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 USE bodb02
 GO
-ALTER PROCEDURE [dbo].[Acc_Rpt_TimeMachineTicket] @RptDate DATETIME 
+ALTER PROCEDURE [dbo].[Acc_Rpt_TimeMachineTicket] 
+	 @FromDate		SMALLDATETIME
+	,@ToDate		SMALLDATETIME
 AS
 	/*
 	 Created: 20191101@Harry
@@ -76,7 +78,7 @@ BEGIN
 		bettrans mc with (nolock)
 		Inner join match m with (nolock) on mc.matchid = m.matchid
 	where
-		winlostdate = @rptdate
+		winlostdate = @FromDate
 		and mc.currency <> 20
 		and mc.bettype = 228
 		and mc.ruben = 1 --and mc.liveindicator = 1
