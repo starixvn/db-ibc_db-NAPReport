@@ -10,7 +10,7 @@ ALTER PROCEDURE dbo.Acc_Rpt_LeagueWL_Match @StartDate SMALLDATETIME,
 										   @SiteName VARCHAR(MAX) = 'ALL',
 										   @LeagueName VARCHAR(500),
 										   @IsNoDraw BIT = 0,
-										   @LiveIndicatorVarchar VARCHAR(5) = 'none',	/*1st report flow = 'none; 2nd report flow = 'true'/'false'*/
+										   @LiveIndicatorVarchar VARCHAR(5) = 'none',	/*1st report flow = 'none; 2nd report flow = 'live'/'non-live'*/
 										   @ShowHedgeMatchOnly BIT = 0			/*1st report flow = 0; 2nd report flow = input from Bet type report*/
 AS
 /*
@@ -41,8 +41,8 @@ AS
 		             0 - Get draw ticktes to report
 					 1 - No get draw ticktes to report
 		- @LiveIndicatorVarchar: Include live indicators (live/non-live) in report
-			- 'true': filter bettrans by liveindicator = 1, result LiveIndicator column = null
-			- 'false': filter bettrans by liveindicator = 0, result LiveIndicator column = null
+			- 'live': filter bettrans by liveindicator = 1, result LiveIndicator column = null
+			- 'non-live': filter bettrans by liveindicator = 0, result LiveIndicator column = null
 			- 'none': no filter
 		- @ShowHedgeMatchOnly: Only show hedge matches
 
@@ -61,8 +61,8 @@ BEGIN
 	IF @BetType = -1 SET @BetType = NULL
 
 	DECLARE @IsLive BIT = NULL
-	IF LOWER(@LiveIndicatorVarchar) = 'true' SET @IsLive = 1
-	IF LOWER(@LiveIndicatorVarchar) = 'false' SET @IsLive = 0
+	IF LOWER(@LiveIndicatorVarchar) = 'live' SET @IsLive = 1
+	IF LOWER(@LiveIndicatorVarchar) = 'non-live' SET @IsLive = 0
 
 	BEGIN /*get match data from @LeagueName by @StartDate*/
 		CREATE TABLE #tmpMatch (matchid 	 INT,
