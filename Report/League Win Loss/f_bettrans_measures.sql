@@ -152,7 +152,7 @@ RETURN (
         -- Total winloss of super, master, agent    
         SMAWinLoss_Orig                                                     * ActualRate                   AS SMAWinLoss,
         -- Amount that House pays to/gets from Extra group    
-        [Extra's Winloss Orig] + [Extra's Commission Orig]                  * ActualRate                   AS [Extra's Amount],
+        ([Extra's Winloss Orig] + [Extra's Commission Orig])                * ActualRate                   AS [Extra's Amount],
         -- Commision that House gives to Super level    
         TreeCommission_Orig                                                 * ActualRate                   AS TreeCommission,
         -- House income from controling virtual rate   
