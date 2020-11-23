@@ -151,6 +151,10 @@ RETURN (
         MemberWinLoss_Orig                                                  * ActualRate                   AS MemberWinLoss,
         -- Total winloss of super, master, agent    
         SMAWinLoss_Orig                                                     * ActualRate                   AS SMAWinLoss,
+
+        [Extra's Winloss Orig]                                              * 1                            AS [Extra's Winloss],
+        
+        [Extra's Commission Orig]                                           * 1                            AS [Extra's Commission],
         -- Amount that House pays to/gets from Extra group    
         ([Extra's Winloss Orig] + [Extra's Commission Orig])                * ActualRate                   AS [Extra's Amount],
         -- Commision that House gives to Super level    
