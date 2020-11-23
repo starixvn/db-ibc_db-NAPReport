@@ -61,8 +61,8 @@ BEGIN
 	IF @BetType = -1 SET @BetType = NULL
 
 	DECLARE @IsLive BIT = NULL
-	IF LOWER(@LiveIndicatorVarchar) = 'live' SET @IsLive = 1
-	IF LOWER(@LiveIndicatorVarchar) = 'non-live' SET @IsLive = 0
+	IF @LiveIndicatorVarchar = 'live' SET @IsLive = 1
+	IF @LiveIndicatorVarchar = 'non-live' SET @IsLive = 0
 
 	BEGIN /*get match data from @LeagueName by @StartDate*/
 		CREATE TABLE #tmpMatch (matchid 	 INT,
@@ -94,7 +94,7 @@ BEGIN
 		CTE_league_ids AS (
 			SELECT leagueid, sporttype
 			FROM bodb02.dbo.league WITH (NOLOCK)
-			WHERE leaguename = @LeagueName COLLATE SQL_Latin1_General_CP1_CS_AS -- case sensitive search
+			WHERE leaguename = @LeagueName
 				AND isTest = 0
 		)
 		INSERT INTO #tmpMatch (matchid, matchcode, matchtype, homeid, awayid, sporttype)
