@@ -98,7 +98,7 @@ RETURN (
         SELECT
             *,
 
-            scomm                                                                                       AS TreeCommission_Orig,
+            scomm                                                                                       AS CommissionS_Orig,
             ISNULL(scomm / NULLIF(1 - tpositiontaking, 0), 0)                                           AS GrossCommission,
 
             winlost - actual_stake                                                                      AS MemberWinLoss_Orig,
@@ -142,7 +142,7 @@ RETURN (
             *,
             (MemberWinLoss_Orig + SMAWinLoss_Orig - [Extra's Winloss Orig] 
             + CASE WHEN VirtualRate < ActualRate 
-                    THEN TreeCommission_Orig - [Extra's Commission Orig] ELSE 0 END)                         AS VarianceIncome_Orig
+                    THEN CommissionS_Orig - [Extra's Commission Orig] ELSE 0 END)                         AS VarianceIncome_Orig
         FROM Tier2_Measures
     )
     SELECT /* (rates applied) */ 
@@ -158,15 +158,15 @@ RETURN (
         -- Amount that House pays to/gets from Extra group    
         ([Extra's Winloss Orig] + [Extra's Commission Orig])                * ActualRate                   AS [Extra's Amount],
         -- Commision that House gives to Super level    
-        TreeCommission_Orig                                                 * ActualRate                   AS TreeCommission,
+        CommissionS_Orig                                                    * ActualRate                   AS CommissionS,
         -- House income from controling virtual rate   
         VarianceIncome_Orig                                                 * [aRate - vRate]              AS VarianceHouseIncome,
         -- House income after ExtraPT and Super commission based on virtual rate   
         (MemberWinLoss_Orig + SMAWinLoss_Orig - [Extra's Winloss Orig])     * VirtualRate    
-        + (TreeCommission_Orig - [Extra's Commission Orig]) * VarianceVR    * ActualRate                   AS VirtualHouseIncome,
+        + (CommissionS_Orig - [Extra's Commission Orig]) * VarianceVR       * ActualRate                   AS VirtualHouseIncome,
         -- House income after ExtraPT and Super commission based on actual rate   
         (MemberWinLoss_Orig + SMAWinLoss_Orig - [Extra's Winloss Orig]
-        + TreeCommission_Orig - [Extra's Commission Orig])                  * ActualRate                   AS RealHouseIncome,   
+        + CommissionS_Orig - [Extra's Commission Orig])                     * ActualRate                   AS RealHouseIncome,   
         -- House Turnover after ExtraPT based on virtual rate   
         NetTurnoverIBC_Orig                                                 * VirtualRate                  AS VirtualHouseTurnover,
         -- House Turnover after ExtraPT based on actual rate        

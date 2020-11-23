@@ -173,7 +173,7 @@ BEGIN
 				SUM(sd.MemberWinLoss),
 				SUM(sd.SMAWinLoss),
 				SUM(sd.[Extra's Amount]) 		AS ExtraPT,
-				SUM(sd.TreeCommission) 			AS Commission,
+				SUM(sd.CommissionS) 			AS Commission,
 				SUM(sd.RealHouseIncome) 		AS RealIncome,
 				SUM(sd.VirtualHouseIncome) 		AS VirtualIncome,
 				SUM(sd.VarianceHouseIncome) 	AS VarianceIncome,
