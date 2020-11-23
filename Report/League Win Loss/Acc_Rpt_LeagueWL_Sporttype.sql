@@ -263,7 +263,7 @@ BEGIN
 			RealTurnover,
 			VirtualTurnover
 		FROM #tmpData t
-		LEFT JOIN bodb02.dbo.Sports 
+		LEFT JOIN bodb02.dbo.Sports WITH (NOLOCK)
 			ON Sports.SportType = t.SportType
 		WHERE MemberWinLoss IS NOT NULL
 	) AS s
