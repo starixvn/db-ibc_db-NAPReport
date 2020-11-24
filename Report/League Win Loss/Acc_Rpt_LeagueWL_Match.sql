@@ -251,7 +251,7 @@ BEGIN
                     - SUM(MemberWinLoss) AS MemberWinLoss,
                     - SUM(SMAWinLoss) AS SMAWinLoss,
                     SUM([Extra's Amount]) AS ExtraPT,
-                    SUM(TreeCommission) AS Commission,
+                    SUM(CommissionS) AS Commission,
                     - SUM(RealHouseIncome) AS RealIncome,
                     - SUM(VirtualHouseIncome) AS VirtualIncome,
                     - SUM(VarianceHouseIncome) AS VarianceIncome,
