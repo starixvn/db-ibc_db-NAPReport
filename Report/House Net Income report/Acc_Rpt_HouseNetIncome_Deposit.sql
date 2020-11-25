@@ -271,7 +271,7 @@ BEGIN
 			INNER JOIN bodb_licensee.dbo.Licensees l WITH (NOLOCK) ON s.SiteName = RTRIM(LTRIM(l.LicenseeName))
 
 		-- SB
-		IF EXISTS (SELECT 1 FROM @Products WHERE Product3rdId = 0)
+		IF EXISTS (SELECT 1 FROM @Products WHERE Product3rdId IN (0, 3))
 		BEGIN
 			-- Saba League
 			CREATE TABLE #__SabaLeague (LeagueId INT, LeagueGroupId INT)
@@ -341,7 +341,7 @@ BEGIN
 			DROP TABLE #__tempSB
 		END
 
-		-- CB
+		-- CB, AG, GD, EX
 		IF EXISTS (SELECT 1 FROM @Products WHERE Product3rdId IN (10, 11, 15, 31))
 		BEGIN
 			INSERT INTO #__tempData (rptDate, LicenseeId, CurrencyId, Product3rdId, BetTypeGroup, ValidBetAmount, MemberWL, Comm)
@@ -357,7 +357,7 @@ BEGIN
 										ELSE 0 END)
 			FROM bodb_LicenseeReport.dbo.rpt_BettingByProduct WITH (NOLOCK)
 			WHERE rptDate BETWEEN @FDate AND @TDate
-				AND ProductID IN (SELECT p.Product3rdId FROM @Products p WHERE p.Product3rdId IN (10, 11, 31))
+				AND ProductId IN (10, 11, 15, 31)
 				AND CurrencyId <> 20
 				AND CustomerCategory NOT IN (27, 28)
 				AND StatusId NOT IN (-1, 101, 102, 103)
@@ -366,17 +366,12 @@ BEGIN
 				,CASE WHEN bettype = 1706 THEN 1706 ELSE -1 END
 		END
 
-		-- Others + SB for Metric Gaming, Bet Builder
-		IF EXISTS (SELECT 1 FROM @Products WHERE Product3rdId NOT IN (10, 11, 15, 31))
+		-- Others
+		IF EXISTS (SELECT 1 FROM @Products WHERE Product3rdId NOT IN (0, 3, 10, 11, 15, 31))
 		BEGIN
 			DECLARE @tmpBetType TABLE (Product3rdId INT, AliasProductId INT, IsPayToSupplierGMT BIT, BetType INT, BettypeGroup INT)
 			INSERT INTO @tmpBetType (Product3rdId, AliasProductId, IsPayToSupplierGMT, BetType, BettypeGroup)
-			SELECT DISTINCT p.Product3rdId
-				,CASE
-					WHEN s.bettype BETWEEN 801 AND 899 THEN -1 -- Metric Gaming
-					WHEN s.bettype = 38 THEN -2 -- Bet Builder
-					ELSE p.AliasProductId
-					END AS AliasProductId
+			SELECT DISTINCT p.Product3rdId, p.AliasProductId
 				,CASE WHEN s.ProductId IN (1,2,3,4,5,6) THEN 1 ELSE 0 END AS IsPayToSupplierGMT
 				,CASE
 					WHEN s.ProductId = 22 AND bg.BettypeGroupId = 11 THEN 1 -- VB (Macau Games)
