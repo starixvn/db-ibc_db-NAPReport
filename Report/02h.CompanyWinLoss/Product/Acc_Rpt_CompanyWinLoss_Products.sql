@@ -49,6 +49,7 @@ Revisions:
 - 20200522@Cherry: Integrate RNG War (#132009)
 - 20200713@Ned.Le: NAP Report - Incorporate Jackpot Games (#137271)
 - 20200930@Jaden.Tang: Odds Spread Adjustment (#141750)
+- 20201126@Cherry: Integrate Virtual Sports 3 (#146010) 
 
 Explanation's Param:
 
@@ -1171,7 +1172,7 @@ Explanation's Param:
 				, SUM(WinlossForExtraPT_actualrate + grosscomm_actualrate) AS NewExtraPT
 			FROM #src AS b
 			WHERE b.ProductId IN(5, 8, 15, 23, 25, 27, 28, 31, --Virtual Sports, Keno, Colossus Bets, NG2 (3rd), CashOut, Betradar Virtual Sports, Lottery, Exchange
-								 37, 38, 43, 40)                   --Saba Promotion, Virtual Games, Indo 4D, Table Games
+								 37, 38, 43, 40, 49)           --Saba Promotion, Virtual Games, Indo 4D, Table Games, Virtual Sports 3
 				 OR b.CasinoType IN(1, 2)
 			GROUP BY site
 				  , CASE
@@ -1321,7 +1322,8 @@ Explanation's Param:
 			(23, 43, 'Indo 4D'),
 			(24, 40, 'Table Game'),
 			(25, 42, 'Saba.club'),
-			(26, 50, 'RNG War');
+			(26, 50, 'RNG War'),
+			(27, 49, 'Virtual Sports 3');
 
 	   INSERT INTO @ProductOrder(DisplayOrder
 						  , ProductId
