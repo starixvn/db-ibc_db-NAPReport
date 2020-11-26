@@ -27,6 +27,7 @@ AS
 		- 20200529@Ned.Le: Letstalk Reports - Saba - Treat Saba Futsal as Saba Soccer (#142264)
 		- 20200901@Percy: Refactor code to enhance performance [RedmineID: #140677]
 		- 20201026@Percy: Offer Odds Spread Adjustment for Sportsbook [RedmineID: #111275]
+		- 20201120@Percy: Apply group min fee [RedmineID: #135865]
 
 	EXEC Acc_Rpt_HouseNetIncome_SB_Deposit '2017-12-01', '2017-12-31'
 */
@@ -143,12 +144,6 @@ BEGIN
 
 	-- Get exchange rate
 	BEGIN
-		CREATE TABLE #Exchange (ExchangeDate DATETIME, ExchangeId INT, Rate FLOAT)
-		INSERT INTO #Exchange(ExchangeDate, ExchangeId, Rate)
-		SELECT ExchangeDate, Currency, Rate
-		FROM DBWH.bodb_account.dbo.tbl_Currency_Daily WITH (NOLOCK)
-		WHERE ExchangeDate BETWEEN @FDate AND @TDate
-
 		CREATE TABLE #ExchangeOANDA (ExchangeDate DATE, ExchangeId INT, Rate FLOAT)
 		INSERT INTO #ExchangeOANDA(ExchangeDate, ExchangeId, Rate)
 		SELECT ExchangeDate, ExchangeId, BaseCurrencyRate
@@ -275,14 +270,13 @@ BEGIN
 		SELECT t.rptDate, l.PartyId, t.ProductId, t.SporttypeGroup
 			,SUM(t.MemberWL * ISNULL(oa.Rate, 0))
 			,SUM(t.MemberWL * ISNULL(oa.Rate, 0) * CASE WHEN t.ProductId = -4 THEN -1 * ISNULL(lc.Rate, p.Rate) WHEN t.ProductId = -5 THEN 0.04 ELSE ISNULL(rd.Rate, 0) END)
-			,SUM((-t.MemberWL * ISNULL(lc.Rate, p.Rate) - t.HouseWL) * ISNULL(e.Rate, 0))
-			,SUM(t.AComm * ISNULL(e.Rate, 0))
+			,SUM((-t.MemberWL * ISNULL(lc.Rate, p.Rate) - t.HouseWL) * ISNULL(oa.Rate, 0))
+			,SUM(t.AComm * ISNULL(oa.Rate, 0))
 		FROM #__tempData t
 			INNER JOIN #AllLicensees l ON l.LicenseeId = t.LicenseeId
 			LEFT JOIN #PartyChargeInfo p ON p.PartyId = l.PartyId AND p.Product3rdId = t.ProductId AND t.rptDate BETWEEN p.FromDate AND p.ToDate
 					AND (p.Bettype = -1 OR p.Bettype = t.BetTypeGroup)
 			LEFT JOIN #PartyCharge3rdInfo rd ON rd.LicenseeId = l.LicenseeId AND rd.Product3rdId = t.ProductId AND t.rptDate BETWEEN rd.FromDate AND rd.ToDate
-			LEFT JOIN #Exchange e ON t.rptDate = e.ExchangeDate AND t.CurrencyId = e.ExchangeId
 			LEFT JOIN #ExchangeOANDA oa ON t.rptDate = oa.ExchangeDate AND t.CurrencyId = oa.ExchangeId
 			LEFT JOIN bodb_Licensee.dbo.LA_ChargeRateByCurrency lc WITH (NOLOCK) ON p.ChargeId = lc.ChargeId AND t.CurrencyId = lc.CurrencyId
 		WHERE
@@ -347,8 +341,6 @@ BEGIN
 			AND b.SportType = 44
 			AND p.Product3rdId = 0
 		GROUP BY b.rptdate
-
-		DROP TABLE #ExchangeOANDA
 	END
 
 	-- Licensee Min Fee
@@ -415,7 +407,7 @@ BEGIN
 		UPDATE m
 		SET m.IndividualMinFee = m.IndividualMinFee * e.Rate
 		FROM @MinFee m
-			INNER JOIN #Exchange e ON e.ExchangeDate = @TDate AND m.CurrencyId = e.ExchangeId
+			INNER JOIN #ExchangeOANDA e ON e.ExchangeDate = @TDate AND m.CurrencyId = e.ExchangeId
 		WHERE m.GroupMinFeeId < 0
 
 		UPDATE t
@@ -498,7 +490,7 @@ BEGIN
 		INSERT INTO @GroupMinFee (GroupMinFeeId, Product3rdId, GroupMinFee)
 		SELECT TOP(1) WITH TIES mfd.GroupMinFeeID, ProductId, mfd.MinimumFee * e.Rate AS TotalMinFee
 		FROM bodb_Licensee.dbo.LA_GroupMinFeeDetail mfd WITH (NOLOCK)
-			INNER JOIN #Exchange e ON e.ExchangeId = mfd.CurrencyId AND e.ExchangeDate = @TDate
+			INNER JOIN #ExchangeOANDA e ON e.ExchangeId = mfd.CurrencyId AND e.ExchangeDate = @TDate
 		WHERE @FDate BETWEEN mfd.FromDate AND mfd.ToDate
 		ORDER BY ROW_NUMBER() OVER(PARTITION BY mfd.GroupMinFeeId ORDER BY mfd.ToDate DESC)
 
@@ -681,7 +673,7 @@ BEGIN
 	END
 
 	DROP TABLE #PartyChargeInfo
-	DROP TABLE #Exchange
+	DROP TABLE #ExchangeOANDA
 
 	-- Calculate result
 	DECLARE @Products TABLE (OrderId INT, SporttypeGroup INT, ProductCode VARCHAR(500))

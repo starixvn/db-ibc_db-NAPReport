@@ -29,6 +29,7 @@ AS
 		- 20201026@Percy: Integrate:
 			. Sportsbook - Odds Spread Adjustment [RedmineID: #111275]
 			. Saba.Club - Free bets [RedmineID: #143654]
+		- 20201120@Percy: Apply group min fee [RedmineID: #135865]
 	
 	EXEC [Acc_Rpt_HouseNetIncome_Product_Deposit] '20180601', '20180619'
 */
@@ -587,7 +588,7 @@ BEGIN
 			,SUM(CASE WHEN b.Product3rdId = -3 THEN t.FullContribution * ISNULL(e.Rate, 0) ELSE 0 END)
 			,SUM(CASE WHEN b.Product3rdId = -3 THEN -t.MemberWL * ISNULL(e.Rate, 0) ELSE 0 END)
 			,SUM(CASE
-					WHEN b.Product3rdId = 0 THEN (-t.MemberWL * ISNULL(lc.Rate, p.Rate) - t.HouseWL) * ISNULL(e.Rate, 0) -- HouseWL: Odds Spread Adjustment
+					WHEN b.Product3rdId IN (0, 3) THEN (-t.MemberWL * ISNULL(lc.Rate, p.Rate) - t.HouseWL) * ISNULL(oa.Rate, 0) -- HouseWL: Odds Spread Adjustment
 					WHEN b.Product3rdId = 15 THEN t.MemberWL * ISNULL(oa.Rate, 0) -- CB
 					WHEN b.Product3rdId IN (13, 25) THEN -t.MemberWL * ISNULL(oa.Rate, 0) -- BT & CO
 					WHEN b.Product3rdId = 31 THEN (-t.MemberWL * ISNULL(lc.Rate, p.Rate) - t.Comm) * ISNULL(oa.Rate, 0) -- EX
@@ -595,7 +596,7 @@ BEGIN
 					WHEN t.SportTypeGroup = 150 THEN -t.MemberWL * ISNULL(e.Rate, 0) -- SBC free bets
 					ELSE ((-t.MemberWL - (t.FullContribution - t.HouseContribution)) * ISNULL(lc.Rate, p.Rate) - t.HouseContribution) * ISNULL(e.Rate, 0)
 					END)
-			,SUM(t.Comm * ISNULL(e.Rate, 0))
+			,SUM(t.Comm * ISNULL(oa.Rate, 0))
 		FROM #__tempData t
 			INNER JOIN #BetType b ON t.ProductId = b.ProductId AND b.BetTypeGroup = t.BetTypeGroup
 			INNER JOIN #AllLicensees l ON l.LicenseeId = t.LicenseeId
@@ -730,7 +731,7 @@ BEGIN
 			GROUP BY b.rptdate
 		END
 		
-		DROP TABLE #ExchangeOANDA
+		DROP TABLE #Exchange
 	END
 
 	-- Licensee Min Fee
@@ -797,7 +798,7 @@ BEGIN
 		UPDATE m
 		SET m.IndividualMinFee = m.IndividualMinFee * e.Rate
 		FROM @MinFee m
-			INNER JOIN #Exchange e ON e.ExchangeDate = @TDate AND m.CurrencyId = e.ExchangeId
+			INNER JOIN #ExchangeOANDA e ON e.ExchangeDate = @TDate AND m.CurrencyId = e.ExchangeId
 		WHERE m.GroupMinFeeId < 0
 
 		UPDATE t
@@ -880,7 +881,7 @@ BEGIN
 		INSERT INTO @GroupMinFee (GroupMinFeeId, Product3rdId, GroupMinFee)
 		SELECT TOP(1) WITH TIES mfd.GroupMinFeeID, ProductId, mfd.MinimumFee * e.Rate AS TotalMinFee
 		FROM bodb_Licensee.dbo.LA_GroupMinFeeDetail mfd WITH (NOLOCK)
-			INNER JOIN #Exchange e ON e.ExchangeId = mfd.CurrencyId AND e.ExchangeDate = @TDate
+			INNER JOIN #ExchangeOANDA e ON e.ExchangeId = mfd.CurrencyId AND e.ExchangeDate = @TDate
 		WHERE @FDate BETWEEN mfd.FromDate AND mfd.ToDate
 		ORDER BY ROW_NUMBER() OVER(PARTITION BY mfd.GroupMinFeeId ORDER BY mfd.ToDate DESC)
 
@@ -1067,7 +1068,7 @@ BEGIN
 	END
 
 	DROP TABLE #PartyChargeInfo
-	DROP TABLE #Exchange
+	DROP TABLE #ExchangeOANDA
 
 	-- Calculate result
 	DELETE @Products WHERE Product3rdId = 3 -- BA
