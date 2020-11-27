@@ -6,9 +6,12 @@ GO
 ALTER PROCEDURE dbo.Acc_Rpt_LeagueWL_Match @StartDate SMALLDATETIME,
                                            @EndDate SMALLDATETIME,
                                            @SportBettype VARCHAR(MAX),
+										   @BetType	INT = -1,					/*1st report flow = -1; 2nd report flow = input from Bet type report*/	
 										   @SiteName VARCHAR(MAX) = 'ALL',
 										   @LeagueName VARCHAR(500),
-										   @IsNoDraw BIT = 0
+										   @IsNoDraw BIT = 0,
+										   @LiveIndicatorVarchar VARCHAR(10) = 'none',	/*1st report flow = 'none; 2nd report flow = 'live'/'non-live'*/
+										   @ShowHedgeMatchOnly BIT = 0			/*1st report flow = 0; 2nd report flow = input from Bet type report*/
 AS
 /*
 	Created: Ned.Le@20200424
@@ -23,17 +26,25 @@ AS
 								+ Changed name from Acc_Rpt_LeagueWL_Details to Acc_Rpt_LeagueWL_Match
 								+ Moved one level up (drill down: League > **Match** > Bet Type > ... )
 								+ Add filter by SiteName
+		- 20201016@Jaden.Tang: Refactor for code readability & performance & new drilldowns (#144387)
 
 	Param's Explanation:
 		- @StartDate: The start date of data to view on report
 		- @EndDate: The end date of data to view on report
-		- @SportBettype: List of Sporttypes and Bettypes that correspond to each other
+		- @SportBettype: List of Sporttypes and Bettypes that correspond to each other, this list is build from the drop-down list of
+						 front-end website, correspond to selections of user
 		                 Example '1_1,1_3' --> 'Soccer_Handicap,Soccer_Over/Under...'
+		- @BetType: The specific bet type to view, included in new drilldown flow from #144387
 		- @SiteName: Filter by list of site names (delimited by commas)
 		- @LeagueName: The leaguename to view on report
 		- @IsNoDraw: To get the draw tickets to report or not
 		             0 - Get draw ticktes to report
 					 1 - No get draw ticktes to report
+		- @LiveIndicatorVarchar: Include live indicators (live/non-live) in report
+			- 'live': filter bettrans by liveindicator = 1, result LiveIndicator column = null
+			- 'non-live': filter bettrans by liveindicator = 0, result LiveIndicator column = null
+			- 'none': no filter
+		- @ShowHedgeMatchOnly: Only show hedge matches
 
 	Example:
 		EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Match_xtest @StartDate='2020-09-06', @EndDate='2020-09-06',
@@ -46,20 +57,12 @@ BEGIN
 
 	SET NOCOUNT ON
 
-	BEGIN /*split the array @SportBettype into a temp table*/
-		CREATE TABLE #tmpSportBettypeMatrix (SportType SMALLINT,
-											 BetType SMALLINT)
+	-- web can't send NULLs
+	IF @BetType = -1 SET @BetType = NULL
 
-		;WITH CTE_SportBettypeMatrix AS (
-			SELECT CAST(LEFT(val, CHARINDEX('_', val)-1) AS INT) AS SportType,
-				   CAST(SUBSTRING(val, CHARINDEX('_', val)+1, 6) AS INT) AS BetType
-			FROM bodb02.dbo.strSplit(@SportBettype, ',')
-			WHERE LEN(val) > 0
-		)
-		INSERT INTO #tmpSportBettypeMatrix (SportType, BetType)
-		SELECT cte.SportType, cte.BetType
-		FROM CTE_SportBettypeMatrix cte
-	END
+	DECLARE @IsLive BIT = NULL
+	IF @LiveIndicatorVarchar = 'live' SET @IsLive = 1
+	IF @LiveIndicatorVarchar = 'non-live' SET @IsLive = 0
 
 	BEGIN /*get match data from @LeagueName by @StartDate*/
 		CREATE TABLE #tmpMatch (matchid 	 INT,
@@ -113,6 +116,23 @@ BEGIN
 		SELECT TOP 1 @SportType = SportType FROM #tmpMatch
 	END
 
+	BEGIN /*split the array @SportBettype into a temp table*/
+		CREATE TABLE #tmpSportBettypeMatrix (SportType SMALLINT,
+											 BetType SMALLINT)
+
+		;WITH CTE_SportBettypeMatrix AS (
+			SELECT CAST(LEFT(val, CHARINDEX('_', val)-1) AS INT) AS SportType,
+				   CAST(SUBSTRING(val, CHARINDEX('_', val)+1, 6) AS INT) AS BetType
+			FROM bodb02.dbo.strSplit(@SportBettype, ',')
+			WHERE LEN(val) > 0
+		)
+		INSERT INTO #tmpSportBettypeMatrix (SportType, BetType)
+			SELECT cte.SportType, cte.BetType
+			FROM CTE_SportBettypeMatrix cte
+			WHERE cte.SportType = @SportType
+				AND cte.BetType = ISNULL(@BetType, cte.BetType)
+	END
+
 	BEGIN -- #tmpAgentBySite: list of active agents in the list input @SiteName
 		CREATE TABLE #tmpAgentBySite (AgentID INT)
 		IF @SiteName <> 'ALL' BEGIN
@@ -129,169 +149,138 @@ BEGIN
 		END
 	END
 
-	BEGIN /*build staging data by agent-match-live/nonlive dimension*/
-		CREATE TABLE #tmpData ( AgentID				INT,
-								MatchID				INT,
-								HomeID				INT,
-								AwayID				INT,
-								MatchCode			NVARCHAR(100),
-								LiveIndicator		BIT,
-								MemberWinLoss		MONEY,
-								SMAWinLoss			MONEY,
-								ExtraPT				MONEY,
-								Commission			MONEY,
-								RealIncome			MONEY,
-								VirtualIncome		MONEY,
-								VarianceIncome		MONEY,
-								RealTurnover		MONEY,
-								VirtualTurnover		MONEY)
+	BEGIN -- #matchBettypeTmp: staging table for performance enhancement
+		-- Join directly with bettrans table on match, sporttype, bettype for reports that 
+		-- include sport book data will cause estimation problem.
+		CREATE TABLE #matchLiveIndTmp (MatchID			INT, 
+									   BetType			INT,
+									   LiveIndicator	BIT,
+								  	   MemberWinLoss	MONEY,
+								  	   SMAWinLoss		MONEY,
+								  	   ExtraPT			MONEY,
+								  	   Commission		MONEY,
+								  	   RealIncome		MONEY,
+								  	   VirtualIncome	MONEY,
+								  	   VarianceIncome	MONEY,
+								  	   RealTurnover		MONEY,
+								  	   VirtualTurnover	MONEY)
 		
-		-- + Soccer, Other Sports
-		INSERT INTO #tmpData (AgentID,
-							MatchID,
-							HomeID,
-							AwayID,
-							MatchCode,
-							LiveIndicator,
-							MemberWinLoss,
-							SMAWinLoss,
-							ExtraPT,
-							Commission,
-							RealIncome,
-							VirtualIncome,
-							VarianceIncome,
-							RealTurnover,
-							VirtualTurnover)
-			SELECT  sd.recommend AS AgentID,
-					m.matchid AS MatchID,
-					MAX(m.homeid) AS HomeID,		    -- 1 matchid : 1 homeid
-					MAX(m.awayid) AS AwayID,		    -- 1 matchid : 1 awayid
-					MAX(m.matchcode) AS MatchName,     	-- 1 matchid : 1 matchcode
-					sd.liveindicator LiveIndicator,
-					SUM((sd.winlost - sd.actual_stake) * sd.actualrate) AS MemberWinLoss,
-					SUM((sd.awinlost + sd.mwinlost + sd.swinlost) * sd.actualrate) AS SMAWinLoss,
-					SUM((CASE WHEN sd.tpositiontaking = 1 THEN 0
-							ELSE (sd.winlost - sd.actual_stake) + sd.scomm / (1 - sd.tpositiontaking) END) 
-						* ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0) 
-						* sd.actualrate
-						) AS ExtraPT,
-					SUM(sd.scomm * sd.actualrate) AS Commission,
-					SUM((
-							sd.winlost - sd.actual_stake + sd.awinlost + sd.mwinlost + sd.swinlost + sd.scomm 
-							- CASE WHEN sd.tpositiontaking = 1 THEN 0
-								ELSE sd.winlost - sd.actual_stake + sd.scomm / (1 - sd.tpositiontaking) END 
-							* ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0)
-						) 
-						* sd.actualrate
-						) AS RealIncome,
-					SUM((
-							sd.winlost - sd.actual_stake + sd.awinlost + sd.mwinlost + sd.swinlost 
-							- CASE WHEN sd.tpositiontaking = 1 THEN 0
-								ELSE (sd.winlost - sd.actual_stake) * ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0) END
-						) * sd.virtualrate 
-						+ (
-							sd.scomm 
-							- CASE WHEN sd.tpositiontaking = 1 THEN 0
-								ELSE sd.scomm / (1 - sd.tpositiontaking) END 
-							* ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0)
-						) 
-						* sd.actualrate 
-						* (CASE WHEN sd.virtualrate < sd.actualrate THEN sd.virtualrate / sd.actualrate ELSE 1 END)
-						) AS VirtualIncome,
-					SUM((
-							sd.winlost - sd.actual_stake + sd.awinlost + sd.mwinlost + sd.swinlost -
-							CASE WHEN sd.tpositiontaking = 1 THEN 0
-								ELSE(sd.winlost - sd.actual_stake) * ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0)
-							END 
-							+ CASE WHEN sd.virtualrate < sd.actualrate 
-									THEN (sd.scomm - 
-											(CASE WHEN tpositiontaking = 1 THEN 0 ELSE sd.scomm / (1 - sd.tpositiontaking) END) 
-											* ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0))
-								ELSE 0
-							END
-						) 
-						* (sd.actualrate - sd.virtualrate)) AS VarianceIncome,
-					SUM(CASE WHEN sd.tpositiontaking = 1 THEN 0
-							ELSE (1 - sd.tpositiontaking - ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0))
-								* ABS(sd.stake)
-								* CASE WHEN sd.virtualrate > sd.actualrate THEN sd.virtualrate ELSE sd.actualrate END
-								* CASE WHEN @IsNoDraw = 1 THEN CASE WHEN  (sd.bettype < 999 
-																				OR sd.bettype BETWEEN 1301 AND 1399 
-																				OR sd.bettype BETWEEN 9001 AND 9399) 
-																			AND sd.bettype NOT IN (29, 38, 911, 912, 913, 914)
-																			AND sd.bettype NOT BETWEEN 81 AND 120
-																			AND ABS(sd.modds) = 0.25
-																			AND sd.statusID IN (112, 113)
-																	THEN 0.5
-																	ELSE 1 END
-										ELSE 1 END
-						END) AS RealTurnover, 
-					SUM(CASE WHEN sd.tpositiontaking = 1 THEN 0
-							ELSE (1 - sd.tpositiontaking - ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0))
-								* ABS(sd.stake)
-								* CASE WHEN @IsNoDraw = 1 THEN CASE WHEN 	(sd.bettype < 999 
-																				OR sd.bettype BETWEEN 1301 AND 1399 
-																				OR sd.bettype BETWEEN 9001 AND 9399) 
-																			AND sd.bettype NOT IN (29, 38, 911, 912, 913, 914 )
-																			AND sd.bettype NOT BETWEEN 81 AND 120
-																			AND ABS(sd.modds) = 0.25
-																			AND sd.statusID IN (112, 113)
-																	THEN 0.5
-																	ELSE 1 END
-										ELSE 1 END
-								* sd.virtualrate
-						END) AS VirtualTurnover
-			FROM bodb02.dbo.bettrans sd (NOLOCK)
-			INNER JOIN #tmpSportBettypeMatrix sbm
-				ON sbm.BetType = sd.bettype 
-			INNER JOIN #tmpMatch m 
-				ON sd.matchid = m.matchid AND m.sporttype = sbm.SportType
-					AND CASE WHEN sd.bettype = 10 THEN 1 ELSE 0 END = m.matchtype --prevent matchid dupplicates in *match* and *outright*
+		INSERT INTO #matchLiveIndTmp
+			SELECT 
+				sd.matchid,
+				sd.bettype,
+				sd.liveindicator,
+				SUM(sd.MemberWinLoss),
+				SUM(sd.SMAWinLoss),
+				SUM(sd.[Extra's Amount]) 		AS ExtraPT,
+				SUM(sd.CommissionS) 			AS Commission,
+				SUM(sd.RealHouseIncome) 		AS RealIncome,
+				SUM(sd.VirtualHouseIncome) 		AS VirtualIncome,
+				SUM(sd.VarianceHouseIncome) 	AS VarianceIncome,
+				SUM(sd.RealHouseTurnover) 		AS RealTurnover, 
+				SUM(sd.VirtualHouseTurnover) 	AS VirtualTurnover
+			FROM bodb02.dbo.f_bettrans_measures(@IsNoDraw) sd
 			WHERE sd.winlostdate = @StartDate
-				AND sd.ruben = 1
-				AND sd.statusID IN (111, 112, 113)
-				AND sd.currency NOT IN (20, 27, 28)
-				AND (@IsNoDraw = 0 OR (@IsNoDraw = 1 AND sd.statusID NOT IN (111)))
-				AND (@SiteName = 'ALL' OR sd.recommend IN (SELECT AgentID FROM #tmpAgentBySite))
-			GROUP BY sd.recommend, m.matchid, sd.liveindicator
+					/* -- hint use statistics: IX_bettype -- */
+					AND sd.ruben = 1
+					AND sd.statusID IN (111, 112, 113)
+					AND sd.currency NOT IN (20, 27, 28)
+					/* -------------------------------------------- */
+					AND ('ALL' = @SiteName OR sd.recommend IN (SELECT AgentID FROM #tmpAgentBySite))
+					AND sd.bettype IN (SELECT BetType FROM #tmpSportBettypeMatrix)
+					AND sd.liveindicator = ISNULL(@IsLive, sd.liveindicator)
+			GROUP BY sd.matchid, sd.bettype, sd.liveindicator
+			OPTION (RECOMPILE)
+	END
+
+	CREATE TABLE #tmpDataFiltered ( MatchID				INT,
+									HomeID				INT,
+									AwayID				INT,
+									MatchCode			NVARCHAR(100),
+									LiveIndicator		BIT,
+									MemberWinLoss		MONEY,
+									SMAWinLoss			MONEY,
+									ExtraPT				MONEY,
+									Commission			MONEY,
+									RealIncome			MONEY,
+									VirtualIncome		MONEY,
+									VarianceIncome		MONEY,
+									RealTurnover		MONEY,
+									VirtualTurnover		MONEY)
+	BEGIN /* further filter by match */
+		-- + Soccer, Other Sports
+		INSERT INTO #tmpDataFiltered
+			SELECT  m.matchid,
+					MAX(m.homeid),		    -- 1 matchid : 1 homeid
+					MAX(m.awayid),		    -- 1 matchid : 1 awayid
+					MAX(m.matchcode),     	-- 1 matchid : 1 matchcode
+					sd.liveindicator,
+					SUM(sd.MemberWinLoss),
+					SUM(sd.SMAWinLoss),
+					SUM(sd.ExtraPT),
+					SUM(sd.Commission),
+					SUM(sd.RealIncome),
+					SUM(sd.VirtualIncome),
+					SUM(sd.VarianceIncome),
+					SUM(sd.RealTurnover), 
+					SUM(sd.VirtualTurnover)
+			FROM #matchLiveIndTmp sd
+			INNER JOIN #tmpMatch m 
+				ON sd.matchid = m.matchid
+					AND CASE WHEN sd.bettype = 10 THEN 1 ELSE 0 END = m.matchtype --prevent matchid dupplicates in *match* and *outright*
+			WHERE CASE WHEN @ShowHedgeMatchOnly = 1 THEN CHARINDEX('hedge', m.matchcode) ELSE 1 END > 0
+			GROUP BY m.matchid, sd.liveindicator
 			OPTION (RECOMPILE)
 
 		--+ RM summary
-        INSERT INTO #tmpData (MatchCode,
-                              MemberWinLoss,
-                              SMAWinLoss,
-                              ExtraPT,
-                              Commission,
-                              RealIncome,
-                              VirtualIncome,
-                              VarianceIncome,
-                              RealTurnover,
-                              VirtualTurnover)
-            SELECT  CASE WHEN @SportType = 1 AND t.AgentId = 52466   THEN 'Soccer 8RM'
-                         WHEN @SportType > 1 AND t.AgentId = 52466   THEN 'Other Sports 8RM'
-                         WHEN @SportType = 1 AND t.AgentId = 5707545 THEN 'Soccer BARM'
-                         WHEN @SportType > 1 AND t.AgentId = 5707545 THEN 'Other Sports BARM'
+        INSERT INTO #tmpDataFiltered (MatchCode,
+									  MemberWinLoss,
+									  SMAWinLoss,
+									  ExtraPT,
+									  Commission,
+									  RealIncome,
+									  VirtualIncome,
+									  VarianceIncome,
+									  RealTurnover,
+									  VirtualTurnover)
+            SELECT  CASE WHEN @SportType = 1 AND recommend = 52466   THEN 'Soccer 8RM'
+                         WHEN @SportType > 1 AND recommend = 52466   THEN 'Other Sports 8RM'
+                         WHEN @SportType = 1 AND recommend = 5707545 THEN 'Soccer BARM'
+                         WHEN @SportType > 1 AND recommend = 5707545 THEN 'Other Sports BARM'
                          ELSE '' END AS MatchCode, --place holder
                     - SUM(MemberWinLoss) AS MemberWinLoss,
                     - SUM(SMAWinLoss) AS SMAWinLoss,
-                    SUM(ExtraPT) AS ExtraPT,
-                    SUM(Commission) AS Commission,
-                    - SUM(RealIncome) AS RealIncome,
-                    - SUM(VirtualIncome) AS VirtualIncome,
-                    - SUM(VarianceIncome) AS VarianceIncome,
-                    SUM(RealTurnover) AS RealTurnover, 
-                    SUM(VirtualTurnover) AS VirtualTurnover
-            FROM #tmpData t
-            WHERE t.AgentId IN (52466, 5707545)
-            GROUP BY CASE WHEN @SportType = 1 AND t.AgentId = 52466   THEN 'Soccer 8RM'
-                          WHEN @SportType > 1 AND t.AgentId = 52466   THEN 'Other Sports 8RM'
-                          WHEN @SportType = 1 AND t.AgentId = 5707545 THEN 'Soccer BARM'
-                          WHEN @SportType > 1 AND t.AgentId = 5707545 THEN 'Other Sports BARM'
+                    SUM([Extra's Amount]) AS ExtraPT,
+                    SUM(CommissionS) AS Commission,
+                    - SUM(RealHouseIncome) AS RealIncome,
+                    - SUM(VirtualHouseIncome) AS VirtualIncome,
+                    - SUM(VarianceHouseIncome) AS VarianceIncome,
+                    SUM(RealHouseTurnover) AS RealTurnover, 
+                    SUM(VirtualHouseTurnover) AS VirtualTurnover
+            FROM bodb02.dbo.f_bettrans_measures(@IsNoDraw) t
+				INNER JOIN #tmpMatch m 
+					ON t.matchid = m.MatchID AND CASE WHEN t.bettype = 10 THEN 1 ELSE 0 END = m.matchtype
+				INNER JOIN #tmpSportBettypeMatrix sbm 
+					ON m.SportType = sbm.SportType AND t.BetType = sbm.BetType
+            WHERE winlostdate = @StartDate
+				AND recommend IN (52466, 5707545)
+				AND ruben = 1
+				AND statusID IN (111, 112, 113)
+				AND currency NOT IN (20, 27, 28)
+				AND t.bettype NOT IN (9, 29)
+				AND CASE WHEN @ShowHedgeMatchOnly = 1 THEN CHARINDEX('hedge', m.matchcode) ELSE 1 END > 0
+            GROUP BY CASE WHEN @SportType = 1 AND recommend = 52466   THEN 'Soccer 8RM'
+                          WHEN @SportType > 1 AND recommend = 52466   THEN 'Other Sports 8RM'
+                          WHEN @SportType = 1 AND recommend = 5707545 THEN 'Soccer BARM'
+                          WHEN @SportType > 1 AND recommend = 5707545 THEN 'Other Sports BARM'
                           ELSE '' END
+			OPTION (RECOMPILE)
 		
 	END
 
-	-- final aggregation by match event name & live indicator, display report
+	/* final aggregation by:
+		- match event name & live indicator if @LiveIndicatorVarchar = 'none'
+		- match event name if @LiveIndicatorVarchar is 'true' or 'false' */
 	SELECT  t.MatchID,
 			COALESCE(
 				MAX(home.teamname 
@@ -300,7 +289,7 @@ BEGIN
 				, t.MatchCode --summary RM line
 			) AS MatchEvent,
 			CASE WHEN t.MatchCode LIKE '%hedge%' THEN 1 ELSE 0 END IsHedge,
-            t.LiveIndicator LiveIndicator,
+            CASE WHEN @IsLive IS NULL THEN t.LiveIndicator ELSE @IsLive END AS LiveIndicator,
 		    SUM(MemberWinLoss) AS MemberWinLoss,
             SUM(SMAWinLoss) AS SMAWinLoss,
             - SUM(ExtraPT) AS ExtraPT,
@@ -310,12 +299,14 @@ BEGIN
             SUM(VarianceIncome) AS VarianceIncome,
             SUM(RealTurnover) AS RealTurnover, 
             SUM(VirtualTurnover) AS VirtualTurnover
-	FROM #tmpData t
+	FROM #tmpDataFiltered t
 	LEFT JOIN bodb02.dbo.Team home WITH (NOLOCK) 
 		ON t.homeid = home.teamid
 	LEFT JOIN bodb02.dbo.Team away WITH (NOLOCK) 
 		ON t.awayid = away.teamid
-	GROUP BY t.MatchID, t.LiveIndicator, t.MatchCode
+	GROUP BY t.MatchID
+		, CASE WHEN @IsLive IS NULL THEN t.LiveIndicator ELSE @IsLive END
+		, t.MatchCode
 	ORDER BY CASE WHEN t.MatchCode = 'Soccer 8RM'        THEN 2
 				  WHEN t.MatchCode = 'Other Sports 8RM'  THEN 3
 				  WHEN t.MatchCode = 'Soccer BARM'       THEN 4
@@ -325,6 +316,8 @@ BEGIN
 
 	DROP TABLE #tmpMatch
 	DROP TABLE #tmpSportBettypeMatrix
-	DROP TABLE #tmpData
+	DROP TABLE #tmpDataFiltered
+	DROP TABLE #matchLiveIndTmp
+	DROP TABLE #tmpAgentBySite
 END
 GO

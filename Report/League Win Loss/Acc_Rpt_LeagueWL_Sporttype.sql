@@ -21,6 +21,7 @@ AS
 		- 20200626@Ned.Le: NAP Report - Enhancement for searching a league info on Punter Analysis and League Win Loss Report (#136277)
 		- 20200923@Jaden.Tang: NAP Report - Add filter by SiteName (#138955)
 		- 20200930@Jaden.Tang: Odds Spread Adjustment (#141750)
+		- 20201016@Jaden.Tang: Refactor for code readability & performance
 
 	Param's Explanation:
 		- @StartDate: The start date of data to view on report
@@ -44,459 +45,242 @@ BEGIN
 
 	SET NOCOUNT ON
 
-	-- #tmpSportBettypeMatrix
-	CREATE TABLE #tmpSportBettypeMatrix (SportType SMALLINT,
-									     Sport VARCHAR(50),
-										 BetType SMALLINT)
-
-	;WITH CTE_SportBettypeMatrix AS (
-		SELECT CAST(LEFT(val, CHARINDEX('_', val)-1) AS INT) AS SportType,
-			   CAST(SUBSTRING(val, CHARINDEX('_', val)+1, 6) AS INT) AS BetType
-		FROM bodb02.dbo.strSplit(@SportBettype, ',')
-		WHERE LEN(val) > 0
-	)
-	INSERT INTO #tmpSportBettypeMatrix (SportType, Sport, BetType)
-	SELECT cte.SportType,
-		   CASE WHEN cte.SportType = 10000 THEN 'Parlay' 
-		    	WHEN cte.SportType = 10001 THEN 'SB Adjustment' 
-				ELSE s.SportName END Sport,
-		   cte.BetType
-	FROM CTE_SportBettypeMatrix cte
-		 LEFT JOIN bodb02.dbo.Sports s (NOLOCK) ON cte.SportType = s.SportType
-
-	CREATE UNIQUE CLUSTERED INDEX PK_tmpSportBettypeMatrix ON #tmpSportBettypeMatrix(SportType, BetType)
-
-	-- #tmpLeague
-	CREATE TABLE #tmpLeague (LeagueId INT)
-
-	INSERT INTO #tmpLeague (LeagueId)
-	SELECT leagueid
-	FROM bodb02.dbo.league (NOLOCK)
-	WHERE leaguename LIKE '%' + @LeagueName + '%'
-		  AND isTest = 0
-
-	CREATE UNIQUE CLUSTERED INDEX PK_tmpLeague ON #tmpLeague(LeagueId)
-
-	-- #tmpMatch
-	CREATE TABLE #tmpMatch (matchid INT,
-							sporttype SMALLINT,
-							leagueid INT,
-							leaguename VARCHAR(500),
-							matchtype TINYINT)
-
-	;WITH CTE_Match AS (
-		SELECT matchid AS matchid, leagueid, 0 AS matchtype  FROM [bodb02].[dbo].[match] (NOLOCK) WHERE eventdate = @StartDate
-		UNION ALL
-		SELECT orid AS matchid, leagueid, 1 AS matchtype FROM bodb02.dbo.outright (NOLOCK) WHERE eventdate = @StartDate
-	)
-	INSERT INTO #tmpMatch(matchid, sporttype, leagueid, leaguename, matchtype)
-	SELECT m.matchid,
-		   l.sporttype,
-		   l.leagueid,
-		   l.leaguename,
-		   m.matchtype
-	FROM CTE_Match m
-		 INNER JOIN bodb02.dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid
-	WHERE ('' = @LeagueName OR m.leagueid IN (SELECT LeagueId FROM #tmpLeague))
-		  AND EXISTS (SELECT TOP 1 1
-		              FROM #tmpSportBettypeMatrix sbm
-					  WHERE l.sporttype = sbm.SportType)
-	OPTION (RECOMPILE)
-	
-	CREATE UNIQUE CLUSTERED INDEX PK_tmpMatch ON #tmpMatch(matchid, matchtype)
-
-	-- #tmpAgentBySite: list of active agents in the list input @SiteName
-	CREATE TABLE #tmpAgentBySite (AgentID INT)
-	IF @SiteName <> 'ALL' BEGIN
-		;WITH CTE_Sites AS (
-			SELECT val SiteName
-			FROM bodb02.dbo.strSplit(@SiteName, ',')
+	BEGIN -- #tmpSportBettypeMatrix
+		CREATE TABLE #tmpSportBettypeMatrix (SportType INT, BetType INT)
+		
+		;WITH CTE_SportBettypeMatrix AS (
+			SELECT CAST(LEFT(val, CHARINDEX('_', val)-1) AS INT) AS SportType,
+				CAST(SUBSTRING(val, CHARINDEX('_', val)+1, 6) AS INT) AS BetType
+			FROM bodb02.dbo.strSplit(@SportBettype, ',')
 			WHERE LEN(val) > 0
 		)
-		INSERT INTO #tmpAgentBySite
-			SELECT custid AgentID
-			FROM bodb02.dbo.Customer WITH (NOLOCK)
-			WHERE roleid = 2
-				AND site IN (SELECT SiteName FROM CTE_Sites)
+		INSERT INTO #tmpSportBettypeMatrix (SportType, BetType)
+			SELECT cte.SportType, cte.BetType
+			FROM CTE_SportBettypeMatrix cte
+		OPTION (RECOMPILE)
 	END
 
-	--staging table for performance enhancement
-	CREATE TABLE #transLeague(LeagueID			INT, 
-						      BetType 			INT,
-						      LeagueName		VARCHAR(150),
-						      MemberWinLoss		MONEY,
-						      SMAWinLoss		MONEY,
-						      ExtraPT			MONEY,
-						      Commission		MONEY,
-						      RealIncome		MONEY,
-						      VirtualIncome		MONEY,
-						      VarianceIncome	MONEY,
-						      RealTurnover		MONEY,
-						      VirtualTurnover	MONEY)
-	
-	INSERT INTO #transLeague(LeagueID,
-						     BetType,
-						     LeagueName,
-						     MemberWinLoss,
-						     SMAWinLoss,
-						     ExtraPT,
-						     Commission,
-						     RealIncome,
-						     VirtualIncome,
-						     VarianceIncome,
-						     RealTurnover,
-						     VirtualTurnover)
-	SELECT m.leagueid,
-		   sd.bettype,
-		   m.leaguename AS LeagueName,
-		   SUM((sd.winlost - sd.actual_stake) * sd.actualrate) AS MemberWinLoss,
-           SUM((sd.awinlost + sd.mwinlost + sd.swinlost) * sd.actualrate) AS SMAWinLoss,
-		   SUM((CASE WHEN sd.tpositiontaking = 1 THEN 0
-                     ELSE(sd.winlost - sd.actual_stake) + sd.scomm / (1 - sd.tpositiontaking)
-			    END) * ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0) * sd.actualrate) AS ExtraPT,
-		   SUM(sd.scomm * sd.actualrate) AS Commission,
-		   SUM((sd.winlost - sd.actual_stake +
-			    sd.awinlost + sd.mwinlost + sd.swinlost +
-				sd.scomm - (CASE WHEN sd.tpositiontaking = 1 THEN 0
-								 ELSE sd.winlost - sd.actual_stake + sd.scomm / (1 - sd.tpositiontaking)
-							END) * ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0)) * sd.actualrate) AS RealIncome,
-		   SUM((sd.winlost - sd.actual_stake +
-			    sd.awinlost + sd.mwinlost + sd.swinlost -
-				CASE WHEN tpositiontaking = 1 THEN 0
-					 ELSE(winlost - actual_stake) * ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0)
-				END) * sd.virtualrate + (sd.scomm - (CASE WHEN sd.tpositiontaking = 1 THEN 0
-                                                          ELSE sd.scomm / (1 - sd.tpositiontaking)
-													 END) * ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0)) * sd.actualrate * CASE WHEN sd.virtualrate < sd.actualrate THEN sd.virtualrate / sd.actualrate
-                                                                                                                                         ELSE 1
-                                                                                                                                    END) AS VirtualIncome,
-           SUM((sd.winlost - sd.actual_stake +
-				sd.awinlost + sd.mwinlost + sd.swinlost -
-				CASE WHEN sd.tpositiontaking = 1 THEN 0
-                     ELSE(sd.winlost - sd.actual_stake) * ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0)
-				END +
-				CASE WHEN sd.virtualrate < sd.actualrate THEN (sd.scomm - (CASE WHEN tpositiontaking = 1 THEN 0
-                                                                                ELSE sd.scomm / (1 - sd.tpositiontaking)
-				  													       END) * ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0))
-                     ELSE 0
-				END) * (sd.actualrate - sd.virtualrate)) AS VarianceIncome,
-           SUM(CASE WHEN sd.tpositiontaking = 1 THEN 0
-                    ELSE (1 - sd.tpositiontaking - ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0))
-					     * ABS(sd.stake)
-						 * CASE WHEN sd.virtualrate > sd.actualrate THEN sd.virtualrate ELSE sd.actualrate END
-						 * CASE WHEN @IsNoDraw = 1 THEN CASE WHEN 	(
-																		(
-																			(sd.bettype < 999 OR sd.bettype BETWEEN 1301 AND 1399 OR sd.bettype BETWEEN 9001 AND 9399) 
-																			AND sd.bettype NOT IN (29, 38, 911, 912, 913, 914 )
-																			AND sd.bettype NOT BETWEEN 81 AND 120
-																		)
-																		AND ABS(sd.modds) = 0.25
-																		AND sd.statusID IN (112, 113)
-																	) THEN 0.5
-															 ELSE 1 END
-								ELSE 1 END
-			   END) AS RealTurnover, 
-		   SUM(CASE WHEN sd.tpositiontaking = 1 THEN 0
-                    ELSE (1 - sd.tpositiontaking - ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0))
-					     * ABS(sd.stake)
-					     * sd.virtualrate
-						 * CASE WHEN @IsNoDraw = 1 THEN CASE WHEN 	(
-																		(
-																			(sd.bettype < 999 OR sd.bettype BETWEEN 1301 AND 1399 OR sd.bettype BETWEEN 9001 AND 9399) 
-																			AND sd.bettype NOT IN (29, 38, 911, 912, 913, 914 )
-																			AND sd.bettype NOT BETWEEN 81 AND 120
-																		)
-																		AND ABS(sd.modds) = 0.25
-																		AND sd.statusID IN (112, 113)
-																	) THEN 0.5
-															 ELSE 1 END
-								ELSE 1 END
-			   END) AS VirtualTurnover
-	FROM bodb02.dbo.bettrans sd (NOLOCK)
-		 INNER JOIN #tmpMatch m ON sd.matchid = m.matchid
-								   AND CASE WHEN sd.bettype = 10 THEN 1 ELSE 0 END = m.matchtype
-	WHERE sd.winlostdate = @StartDate
-		  AND sd.ruben = 1
-		  AND sd.statusID IN (111, 112, 113)
-		  AND sd.currency NOT IN (20, 27, 28)
-		  AND sd.bettype NOT IN (9, 29, 999) --exclude Parlay (9, 29) & SB Odds Spread Adjustment (999)
-		  AND (@IsNoDraw = 0 OR (@IsNoDraw = 1 AND sd.statusID NOT IN (111)))
-		  AND (@SiteName = 'ALL' OR sd.recommend IN (SELECT AgentID FROM #tmpAgentBySite))
-		  AND sd.bettype IN (SELECT s.BetType FROM #tmpSportBettypeMatrix s )
-	GROUP BY m.leagueid, sd.bettype, m.leaguename
-	OPTION (RECOMPILE)
+	BEGIN -- #tmpMatch
+		CREATE TABLE #tmpMatch (MatchID 	INT,
+								SportType 	INT,
+								LeagueID 	INT,
+								LeagueName 	VARCHAR(500),
+								MatchType 	TINYINT)
 
-	-- #tmpData
-	-- + Soccer, Other Sports
-	CREATE TABLE #tmpData (SportType		INT,
-						   Sport			VARCHAR(50),
-						   LeagueName		VARCHAR(150),
-						   MemberWinLoss	MONEY,
-						   SMAWinLoss		MONEY,
-						   ExtraPT			MONEY,
-						   Commission		MONEY,
-						   RealIncome		MONEY,
-						   VirtualIncome	MONEY,
-						   VarianceIncome	MONEY,
-						   RealTurnover		MONEY,
-						   VirtualTurnover	MONEY)
+		;WITH CTE_Match AS (
+			SELECT matchid, leagueid, 0 AS matchtype FROM match WITH (NOLOCK) WHERE eventdate = @StartDate
+			UNION ALL
+			SELECT orid AS matchid, leagueid, 1 AS matchtype FROM outright WITH (NOLOCK) WHERE eventdate = @StartDate
+		)
+		INSERT INTO #tmpMatch(MatchID, SportType, LeagueID, LeagueName, MatchType)
+			SELECT m.matchid, l.sporttype, l.leagueid, l.leaguename, m.matchtype
+			FROM CTE_Match m
+			INNER JOIN bodb02.dbo.league l WITH (NOLOCK) 
+				ON m.leagueid = l.leagueid
+				AND ('' = @LeagueName OR leaguename LIKE '%' + @LeagueName + '%' AND isTest = 0)
+			WHERE 
+				EXISTS (SELECT 1 FROM #tmpSportBettypeMatrix sbm WHERE l.sporttype = sbm.SportType)
+			OPTION (RECOMPILE)
 
-	INSERT INTO #tmpData (SportType,
-						  Sport,
-						  LeagueName,
-						  MemberWinLoss,
-						  SMAWinLoss,
-						  ExtraPT,
-						  Commission,
-						  RealIncome,
-						  VirtualIncome,
-						  VarianceIncome,
-						  RealTurnover,
-						  VirtualTurnover)
-	   SELECT l.sporttype,
-	   		  sbm.Sport,
-		      l.leaguename AS LeagueName,
-		      SUM(MemberWinLoss) AS MemberWinLoss,
-              SUM(SMAWinLoss) AS SMAWinLoss,
-		      SUM(ExtraPT) AS ExtraPT,
-		      SUM(Commission) AS Commission,
-		      SUM(RealIncome) AS RealIncome,
-		      SUM(VirtualIncome) AS VirtualIncome,
-              SUM(VarianceIncome) AS VarianceIncome,
-              SUM(RealTurnover) AS RealTurnover, 
-		      SUM(VirtualTurnover) AS VirtualTurnover
-		FROM #transLeague sd 
-		INNER JOIN bodb02.dbo.League l WITH (NOLOCK) ON sd.leagueid = l.leagueid	
-		INNER JOIN #tmpSportBettypeMatrix sbm ON l.sporttype = sbm.SportType AND sd.BetType = sbm.BetType
-		GROUP BY  l.sporttype, sbm.Sport, l.leaguename
-		OPTION (RECOMPILE)
-	
-	-- + Parlay, Odds Spread Adjustment (#141750)
-	INSERT INTO #tmpData (SportType,
-						  Sport,
-						  LeagueName,
-						  MemberWinLoss,
-						  SMAWinLoss,
-						  ExtraPT,
-						  Commission,
-						  RealIncome,
-						  VirtualIncome,
-						  VarianceIncome,
-						  RealTurnover,
-						  VirtualTurnover)
-	SELECT CASE WHEN sd.bettype IN (9, 29) THEN 10000
-				WHEN sd.bettype = 999 	   THEN 10001
-		   END AS SportType,
-		   CASE WHEN sd.bettype IN (9, 29) THEN 'Parlay'
-				WHEN sd.bettype = 999 	   THEN 'SB Adjustment'
-		   END AS Sport,
-		   '' AS LeagueName,
-		   SUM((sd.winlost - sd.actual_stake) * sd.actualrate) AS MemberWinLoss,
-           SUM((sd.awinlost + sd.mwinlost + sd.swinlost) * sd.actualrate) AS SMAWinLoss,
-		   SUM((CASE WHEN sd.tpositiontaking = 1 THEN 0
-                     ELSE(sd.winlost - sd.actual_stake) + sd.scomm / (1 - sd.tpositiontaking)
-			    END) * ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0) * sd.actualrate) AS ExtraPT,
-		   SUM(sd.scomm * sd.actualrate) AS Commission,
-		   SUM((sd.winlost - sd.actual_stake +
-			    sd.awinlost + sd.mwinlost + sd.swinlost +
-				sd.scomm - (CASE WHEN sd.tpositiontaking = 1 THEN 0
-								 ELSE sd.winlost - sd.actual_stake + sd.scomm / (1 - sd.tpositiontaking)
-							END) * ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0)) * sd.actualrate) AS RealIncome,
-		   SUM((sd.winlost - sd.actual_stake +
-			    sd.awinlost + sd.mwinlost + sd.swinlost -
-				CASE WHEN tpositiontaking = 1 THEN 0
-					 ELSE(winlost - actual_stake) * ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0)
-				END) * sd.virtualrate + (sd.scomm - (CASE WHEN sd.tpositiontaking = 1 THEN 0
-                                                          ELSE sd.scomm / (1 - sd.tpositiontaking)
-													 END) * ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0)) * sd.actualrate * CASE WHEN sd.virtualrate < sd.actualrate THEN sd.virtualrate / sd.actualrate
-                                                                                                                                         ELSE 1
-                                                                                                                                    END) AS VirtualIncome,
-           SUM((sd.winlost - sd.actual_stake +
-				sd.awinlost + sd.mwinlost + sd.swinlost -
-				CASE WHEN sd.tpositiontaking = 1 THEN 0
-                     ELSE(sd.winlost - sd.actual_stake) * ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0)
-				END +
-				CASE WHEN sd.virtualrate < sd.actualrate THEN (sd.scomm - (CASE WHEN tpositiontaking = 1 THEN 0
-                                                                                ELSE sd.scomm / (1 - sd.tpositiontaking)
-				  													       END) * ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0))
-                     ELSE 0
-				END) * (sd.actualrate - sd.virtualrate)) AS VarianceIncome,
-           SUM(CASE WHEN sd.tpositiontaking = 1 THEN 0
-                    ELSE (1 - sd.tpositiontaking - ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0))
-					     * ABS(sd.stake)
-						 * CASE WHEN sd.virtualrate > sd.actualrate THEN sd.virtualrate ELSE sd.actualrate END
-			   END) AS RealTurnover, 
-		   SUM(CASE WHEN sd.tpositiontaking = 1 THEN 0
-                    ELSE (1 - sd.tpositiontaking - ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0))
-					* ABS(sd.stake)
-					* sd.virtualrate
-			   END) AS VirtualTurnover
-	FROM bodb02.dbo.bettrans sd (NOLOCK)
-	WHERE sd.winlostdate = @StartDate
-		  AND sd.ruben = 1
-		  AND sd.statusID IN (111, 112, 113)
-		  AND sd.currency NOT IN (20, 27, 28)
-		  AND sd.bettype IN (SELECT BetType FROM #tmpSportBettypeMatrix WHERE SportType IN (10000, 10001))
-		  --10000, 10001 are custom sport ids defined from SporttypeSel to identify if Parlay/OddsSpread checkbox is selected
-		  AND (@IsNoDraw = 0 OR (@IsNoDraw = 1 AND sd.statusID NOT IN (111)))
-		  AND (@SiteName = 'ALL' OR sd.recommend IN (SELECT AgentID FROM #tmpAgentBySite))
-	GROUP BY CASE WHEN sd.bettype IN (9, 29) THEN 10000
-				  WHEN sd.bettype = 999 	 THEN 10001 END,
-		     CASE WHEN sd.bettype IN (9, 29) THEN 'Parlay'
-			  	   WHEN sd.bettype = 999 	 THEN 'SB Adjustment' END
-	OPTION (RECOMPILE)
+		CREATE UNIQUE CLUSTERED INDEX PK_tmpMatch ON #tmpMatch(matchid, matchtype)
+	END
 
-	-- + RM
-	INSERT INTO #tmpData (SportType,
-						  Sport,
-						  LeagueName,
-						  MemberWinLoss,
-						  SMAWinLoss,
-						  ExtraPT,
-						  Commission,
-						  RealIncome,
-						  VirtualIncome,
-						  VarianceIncome,
-						  RealTurnover,
-						  VirtualTurnover)
-	SELECT CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466	  THEN 100001
-				WHEN sbm.SportType > 1 AND sd.recommend = 52466	  THEN 100002
-				WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN 100003
-				WHEN sbm.SportType > 1 AND sd.recommend = 5707545 THEN 100004
-				ELSE -100000 END AS SportType,
-		   CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466   THEN 'Soccer 8RM'
-				WHEN sbm.SportType > 1 AND sd.recommend = 52466   THEN 'Other Sports 8RM'
-				WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN 'Soccer BARM'
-				WHEN sbm.SportType > 1 AND sd.recommend = 5707545 THEN 'Other Sports BARM'
-				ELSE '' END AS Sport,
-		   CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466   THEN 'Soccer 8RM'
-				WHEN sbm.SportType > 1 AND sd.recommend = 52466   THEN 'Other Sports 8RM'
-				WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN 'Soccer BARM'
-				WHEN sbm.SportType > 1 AND sd.recommend = 5707545 THEN 'Other Sports BARM'
-				ELSE '' END AS LeagueName,
-		   -SUM((sd.winlost - sd.actual_stake) * sd.actualrate) AS MemberWinLoss,
-           -SUM((sd.awinlost + sd.mwinlost + sd.swinlost) * sd.actualrate) AS SMAWinLoss, 
-           -SUM((CASE WHEN sd.tpositiontaking = 1 THEN 0
-                      ELSE(sd.winlost - sd.actual_stake) + sd.scomm / (1 - sd.tpositiontaking)
-                 END) * ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0) * sd.actualrate) AS ExtraPT,
-		   SUM(sd.scomm * sd.actualrate) AS Commission,
-           -SUM((sd.winlost - sd.actual_stake +
-		         sd.awinlost + sd.mwinlost + sd.swinlost +
-				 sd.scomm - (CASE WHEN sd.tpositiontaking = 1 THEN 0
-                                  ELSE sd.winlost - sd.actual_stake + sd.scomm / (1 - sd.tpositiontaking)
-							 END) * ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0)) * sd.actualrate) AS RealIncome,
-		   -SUM((sd.winlost - sd.actual_stake +
-			     sd.awinlost + sd.mwinlost + sd.swinlost -
-				 CASE WHEN sd.tpositiontaking = 1 THEN 0
-					  ELSE(sd.winlost - sd.actual_stake) * ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0)
-				 END) * sd.virtualrate + (sd.scomm - (CASE WHEN sd.tpositiontaking = 1 THEN 0
-                                                           ELSE sd.scomm / (1 - sd.tpositiontaking)
-                                                      END) * ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0)) * sd.actualrate * CASE WHEN sd.virtualrate < sd.actualrate THEN sd.virtualrate / sd.actualrate
-                                                                                                                                          ELSE 1
-                                                                                                                                     END) AS VirtualIncome,
-		   -SUM((sd.winlost - sd.actual_stake +
-			     sd.awinlost + sd.mwinlost + sd.swinlost -
-				 CASE WHEN sd.tpositiontaking = 1 THEN 0
-                      ELSE(sd.winlost - sd.actual_stake) * ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0)
-                 END +
-				 CASE WHEN sd.virtualrate < sd.actualrate THEN(sd.scomm - (CASE WHEN sd.tpositiontaking = 1 THEN 0
-                                                                                ELSE sd.scomm / (1 - sd.tpositiontaking)
-                                                                           END) * ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0))
-					  ELSE 0
-                 END) * (sd.actualrate - sd.virtualrate)) AS VarianceIncome,
-           SUM(CASE WHEN sd.tpositiontaking = 1 THEN 0
-                    ELSE (1 - sd.tpositiontaking - ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0))
-					     * ABS(sd.stake)
-						 * CASE WHEN sd.virtualrate > sd.actualrate THEN sd.virtualrate ELSE sd.actualrate END
-						 * CASE WHEN @IsNoDraw = 1 THEN CASE WHEN 	(
-																		(
-																			(sd.bettype < 999 OR sd.bettype BETWEEN 1301 AND 1399 OR sd.bettype BETWEEN 9001 AND 9399) 
-																			AND sd.bettype NOT IN (29, 38, 911, 912, 913, 914 )
-																			AND sd.bettype NOT BETWEEN 81 AND 120
-																		)
-																		AND ABS(sd.modds) = 0.25
-																		AND sd.statusID IN (112, 113)
-																	) THEN 0.5
-															 ELSE 1 END
-								ELSE 1 END
-			   END) AS RealTurnover, 
-		   SUM(CASE WHEN sd.tpositiontaking = 1 THEN 0
-                    ELSE (1 - sd.tpositiontaking - ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0))
-					     * ABS(sd.stake)
-					     * sd.virtualrate
-						 * CASE WHEN @IsNoDraw = 1 THEN CASE WHEN 	(
-																		(
-																			(sd.bettype < 999 OR sd.bettype BETWEEN 1301 AND 1399 OR sd.bettype BETWEEN 9001 AND 9399) 
-																			AND sd.bettype NOT IN (29, 38, 911, 912, 913, 914 )
-																			AND sd.bettype NOT BETWEEN 81 AND 120
-																		)
-																		AND ABS(sd.modds) = 0.25
-																		AND sd.statusID IN (112, 113)
-																	) THEN 0.5
-															 ELSE 1 END
-								ELSE 1 END
-			   END) AS VirtualTurnover
-	FROM bodb02.dbo.bettrans sd (NOLOCK)
-		 INNER JOIN #tmpMatch m ON sd.matchid = m.matchid
-								   AND CASE WHEN sd.bettype = 10 THEN 1 ELSE 0 END = m.matchtype
-		 INNER JOIN #tmpSportBettypeMatrix sbm ON m.SportType = sbm.SportType
-												  AND sd.BetType = sbm.BetType
-	WHERE sd.winlostdate = @StartDate
-		  AND sd.ruben = 1
-		  AND sd.statusID IN (111, 112, 113)
-		  AND sd.currency NOT IN (20, 27, 28)
-		  AND sd.bettype NOT IN (9, 29)
-		  AND sd.recommend IN (52466, 5707545)
-		  AND (@SiteName = 'ALL' OR sd.recommend IN (SELECT AgentID FROM #tmpAgentBySite))
-		  AND (@IsNoDraw = 0 OR (@IsNoDraw = 1 AND sd.statusID NOT IN (111)))
-	GROUP BY CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466	THEN 100001
-				  WHEN sbm.SportType > 1 AND sd.recommend = 52466	THEN 100002
-				  WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN 100003
-				  WHEN sbm.SportType > 1 AND sd.recommend = 5707545 THEN 100004
-				  ELSE -100000 END,
-		     CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466   THEN 'Soccer 8RM'
-				  WHEN sbm.SportType > 1 AND sd.recommend = 52466   THEN 'Other Sports 8RM'
-				  WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN 'Soccer BARM'
-				  WHEN sbm.SportType > 1 AND sd.recommend = 5707545 THEN 'Other Sports BARM'
-				  ELSE '' END,
-		     CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466   THEN 'Soccer 8RM'
-				  WHEN sbm.SportType > 1 AND sd.recommend = 52466   THEN 'Other Sports 8RM'
-				  WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN 'Soccer BARM'
-				  WHEN sbm.SportType > 1 AND sd.recommend = 5707545 THEN 'Other Sports BARM'
-				  ELSE '' END
-	OPTION (RECOMPILE)
+	BEGIN -- #tmpAgentBySite: list of active agents in the list input @SiteName
+		CREATE TABLE #tmpAgentBySite (AgentID INT)
+		IF @SiteName <> 'ALL' BEGIN
+			;WITH CTE_Sites AS (
+				SELECT val SiteName
+				FROM bodb02.dbo.strSplit(@SiteName, ',')
+				WHERE LEN(val) > 0
+			)
+			INSERT INTO #tmpAgentBySite
+				SELECT custid AgentID
+				FROM bodb02.dbo.Customer WITH (NOLOCK)
+				WHERE roleid = 2
+					AND site IN (SELECT SiteName FROM CTE_Sites)
+			OPTION (RECOMPILE)
+		END
+	END 
+
+	BEGIN -- #matchBettypeTmp: staging table for performance enhancement
+		-- Join directly with bettrans table on match, sporttype, bettype for reports that 
+		-- include sport book data will cause estimation problem.
+		CREATE TABLE #matchBettypeTmp (MatchID			INT, 
+								  	   BetType 			INT,
+								  	   MemberWinLoss	MONEY,
+								  	   SMAWinLoss		MONEY,
+								  	   ExtraPT			MONEY,
+								  	   Commission		MONEY,
+								  	   RealIncome		MONEY,
+								  	   VirtualIncome	MONEY,
+								  	   VarianceIncome	MONEY,
+								  	   RealTurnover		MONEY,
+								  	   VirtualTurnover	MONEY)
+		
+		INSERT INTO #matchBettypeTmp
+			SELECT 
+				sd.matchid,
+				sd.bettype,
+				SUM(sd.MemberWinLoss),
+				SUM(sd.SMAWinLoss),
+				SUM(sd.[Extra's Amount]) 		AS ExtraPT,
+				SUM(sd.CommissionS) 			AS Commission,
+				SUM(sd.RealHouseIncome) 		AS RealIncome,
+				SUM(sd.VirtualHouseIncome) 		AS VirtualIncome,
+				SUM(sd.VarianceHouseIncome) 	AS VarianceIncome,
+				SUM(sd.RealHouseTurnover) 		AS RealTurnover, 
+				SUM(sd.VirtualHouseTurnover) 	AS VirtualTurnover
+			FROM bodb02.dbo.f_bettrans_measures(@IsNoDraw) sd
+			WHERE sd.winlostdate = @StartDate
+					/* -- hint use statistics: IX_bettype -- */
+					AND sd.ruben = 1
+					AND sd.statusID IN (111, 112, 113)
+					AND sd.currency NOT IN (20, 27, 28)
+					/* -------------------------------------------- */
+					AND ('ALL' = @SiteName OR sd.recommend IN (SELECT AgentID FROM #tmpAgentBySite))
+					AND sd.bettype IN (SELECT BetType FROM #tmpSportBettypeMatrix)
+			GROUP BY sd.matchid, sd.bettype
+			OPTION (RECOMPILE)
+	END
+
+	-- #tmpData: display tmp (sport / league)
+	CREATE TABLE #tmpData ( SportType		INT,
+							LeagueName		VARCHAR(150),
+							MemberWinLoss	MONEY,
+							SMAWinLoss		MONEY,
+							ExtraPT			MONEY,
+							Commission		MONEY,
+							RealIncome		MONEY,
+							VirtualIncome	MONEY,
+							VarianceIncome	MONEY,
+							RealTurnover	MONEY,
+							VirtualTurnover	MONEY)
+	BEGIN
+		-- + Soccer, Other Sports
+		INSERT INTO #tmpData
+			SELECT  m.SportType,
+					m.LeagueName,
+					SUM(MemberWinLoss), 
+					SUM(SMAWinLoss), 
+					SUM(ExtraPT),
+					SUM(Commission),
+					SUM(RealIncome),
+					SUM(VirtualIncome),
+					SUM(VarianceIncome),
+					SUM(RealTurnover), 
+					SUM(VirtualTurnover)
+				FROM #matchBettypeTmp sd
+				INNER JOIN #tmpMatch m /*filtering with matchid eliminates parlay & odds spread data*/
+					ON sd.matchid = m.matchid
+					AND CASE WHEN sd.bettype = 10 THEN 1 ELSE 0 END = m.matchtype
+				GROUP BY  m.SportType,
+						  m.LeagueName
+				OPTION (RECOMPILE)
+		
+		-- + Parlay, Odds Spread Adjustment (#141750)
+		INSERT INTO #tmpData
+			SELECT CASE WHEN sd.bettype IN (9, 29) THEN 10000
+						WHEN sd.bettype = 999 	   THEN 10001
+				   END 					AS SportType,
+				   '' 					AS LeagueName,
+				   SUM(MemberWinLoss), 
+				   SUM(SMAWinLoss), 
+				   SUM(ExtraPT),
+				   SUM(Commission),
+				   SUM(RealIncome),
+				   SUM(VirtualIncome),
+				   SUM(VarianceIncome),
+				   SUM(RealTurnover), 
+				   SUM(VirtualTurnover)
+			FROM #matchBettypeTmp sd
+			WHERE BetType IN (9, 29, 999)
+			GROUP BY CASE WHEN sd.bettype IN (9, 29) THEN 10000
+						  WHEN sd.bettype = 999 	 THEN 10001 END
+			OPTION (RECOMPILE)
+
+		-- + RM
+		INSERT INTO #tmpData
+			SELECT CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466	  THEN 100001
+						WHEN sbm.SportType > 1 AND sd.recommend = 52466	  THEN 100002
+						WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN 100003
+						WHEN sbm.SportType > 1 AND sd.recommend = 5707545 THEN 100004
+						ELSE -100000 END 												AS SportType,
+				   CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466   THEN 'Soccer 8RM'
+						WHEN sbm.SportType > 1 AND sd.recommend = 52466   THEN 'Other Sports 8RM'
+						WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN 'Soccer BARM'
+						WHEN sbm.SportType > 1 AND sd.recommend = 5707545 THEN 'Other Sports BARM'
+						ELSE '' END 													AS LeagueName,
+				   - SUM(sd.MemberWinLoss),
+				   - SUM(sd.SMAWinLoss),
+				   - SUM(sd.[Extra's Amount]) 											AS ExtraPT,
+				   SUM(sd.CommissionS) 												AS Commission,
+				   - SUM(sd.RealHouseIncome) 											AS RealIncome,
+				   - SUM(sd.VirtualHouseIncome) 										AS VirtualIncome,
+				   - SUM(sd.VarianceHouseIncome) 										AS VarianceIncome,
+				   SUM(sd.RealHouseTurnover) 											AS RealTurnover, 
+				   SUM(sd.VirtualHouseTurnover) 										AS VirtualTurnover
+			FROM bodb02.dbo.f_bettrans_measures(@IsNoDraw) sd
+				INNER JOIN #tmpMatch m 
+					ON sd.matchid = m.MatchID AND CASE WHEN sd.bettype = 10 THEN 1 ELSE 0 END = m.matchtype
+				INNER JOIN #tmpSportBettypeMatrix sbm 
+					ON m.SportType = sbm.SportType AND sd.BetType = sbm.BetType
+			WHERE sd.winlostdate = @StartDate
+				AND sd.ruben = 1
+				AND sd.statusID IN (111, 112, 113)
+				AND sd.currency NOT IN (20, 27, 28)
+				AND sd.recommend IN (52466, 5707545)
+				AND (@IsNoDraw = 0 OR (@IsNoDraw = 1 AND sd.statusID NOT IN (111)))
+			GROUP BY CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466	THEN 100001
+						  WHEN sbm.SportType > 1 AND sd.recommend = 52466	THEN 100002
+						  WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN 100003
+						  WHEN sbm.SportType > 1 AND sd.recommend = 5707545 THEN 100004
+						  ELSE -100000 END,
+					CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466   THEN 'Soccer 8RM'
+						 WHEN sbm.SportType > 1 AND sd.recommend = 52466   THEN 'Other Sports 8RM'
+						 WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN 'Soccer BARM'
+						 WHEN sbm.SportType > 1 AND sd.recommend = 5707545 THEN 'Other Sports BARM'
+						 ELSE '' END
+			OPTION (RECOMPILE)
+	END
 
 	-- Get Data
-	SELECT SportType,
-		   Sport,
-		   LeagueName,
-		   MemberWinLoss,
-		   SMAWinLoss,
-		   (-ExtraPT) ExtraPT,
-		   Commission,
-		   RealIncome,
-		   VirtualIncome,
-		   VarianceIncome,
-		   RealTurnover,
-		   VirtualTurnover
-	FROM #tmpData
-	WHERE MemberWinLoss IS NOT NULL
-	ORDER BY CASE WHEN Sport = 'Soccer' 	   THEN 1
-				  WHEN Sport = 'Parlay' 	   THEN 2
-				  WHEN Sport = 'SB Adjustment' THEN 3
-				  WHEN Sport = 'Basketball'    THEN 4
-				  WHEN Sport = 'Tennis'		   THEN 5
-				  WHEN Sport = 'E-Sports'	   THEN 6 
+	SELECT * 
+	FROM 
+	(
+		SELECT t.SportType,
+			CASE WHEN t.SportType = 10000 THEN 'Parlay'
+				 WHEN t.SportType = 10001 THEN 'SB Adjustment'
+				 WHEN t.SportType BETWEEN 100001 AND 100004 THEN LeagueName
+				 ELSE SportName END AS Sport,
+			LeagueName,
+			MemberWinLoss,
+			SMAWinLoss,
+			(-ExtraPT) ExtraPT,
+			Commission,
+			RealIncome,
+			VirtualIncome,
+			VarianceIncome,
+			RealTurnover,
+			VirtualTurnover
+		FROM #tmpData t
+		LEFT JOIN bodb02.dbo.Sports WITH (NOLOCK)
+			ON Sports.SportType = t.SportType
+		WHERE MemberWinLoss IS NOT NULL
+	) AS s
+	ORDER BY CASE WHEN Sport = 'Soccer' 		THEN 1
+				  WHEN Sport = 'Parlay' 		THEN 2
+				  WHEN Sport = 'SB Adjustment'  THEN 3
+				  WHEN Sport = 'Basketball'  	THEN 4
+				  WHEN Sport = 'Tennis'		 	THEN 5
+				  WHEN Sport = 'E-Sports'	 	THEN 6 
 				  ELSE 
 				  	CASE WHEN SportType > 100000 THEN 99 ELSE 7 END
 				  END, Sport, LeagueName --fix some sports at top, then sort by league name
 
-	-- Drop temp tables
 	DROP TABLE #tmpSportBettypeMatrix
-	DROP TABLE #tmpLeague
 	DROP TABLE #tmpMatch
 	DROP TABLE #tmpData
 	DROP TABLE #tmpAgentBySite
-	DROP TABLE #transLeague
-
+	DROP TABLE #matchBettypeTmp
 END
 GO
