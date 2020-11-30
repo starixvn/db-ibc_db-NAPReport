@@ -472,7 +472,6 @@ BEGIN
 
 		UPDATE @MinFee
 		SET ActualFee = CASE
-							WHEN LicenseeFee < 0 THEN 0
 							WHEN LicenseeFee < ProrateMinFee THEN ProrateMinFee
 							ELSE LicenseeFee END + WaivedFee
 
@@ -601,23 +600,33 @@ BEGIN
 			,Discount		MONEY DEFAULT(0)
 			,ActualWLFee	MONEY DEFAULT(0)
 		)
-		;WITH CTE_Result AS (
+		;WITH CTE_tempResult AS (
 			SELECT PartyId, Product3rdId
 				,LicenseeWL		= SUM(CASE WHEN SporttypeGroup = 150 THEN 0 ELSE -MemberWL END)
 				,HouseIncome	= SUM(AmountToCompany)
 				,AComm			= SUM(AComm)
 			FROM #__tempResult
 			GROUP BY PartyId, Product3rdId
+		), CTE_Result AS (
+			SELECT
+				PartyId = ISNULL(t.PartyId, m.PartyId)
+				,Product3rdId = ISNULL(t.Product3rdId, m.Product3rdId)
+				,GroupMinFeeId = ISNULL(m.GroupMinFeeId, -t.PartyId)
+				,LicenseeWL = ISNULL(t.LicenseeWL, 0)
+				,HouseIncome = ISNULL(t.HouseIncome, 0)
+				,AComm = ISNULL(t.AComm, 0)
+			FROM CTE_tempResult t
+				FULL OUTER JOIN @MinFee m ON t.PartyId = m.PartyId AND t.Product3rdId = m.Product3rdId			
 		)
 		INSERT INTO @tmpResult (PartyId, Product3rdId, GroupMinFeeId, LicenseeWL, HouseIncome, AComm)
-		SELECT p.PartyId, p.Product3rdId
-			,ISNULL(m.GroupMinFeeId, -r.PartyId)
+		SELECT ISNULL(r.PartyId, p.PartyId)
+			,ISNULL(r.Product3rdId, p.Product3rdId)
+			,ISNULL(r.GroupMinFeeId, p.PartyId)
 			,ISNULL(r.LicenseeWL, 0)
 			,ISNULL(r.HouseIncome, 0)
 			,ISNULL(r.AComm, 0)
-		FROM #PartyChargeInfo p
-			LEFT JOIN CTE_Result r ON p.PartyId = r.PartyId AND p.Product3rdId = r.Product3rdId
-			LEFT JOIN @MinFee m ON p.PartyId = m.PartyId AND p.Product3rdId = m.Product3rdId
+		FROM CTE_Result r
+			INNER JOIN #PartyChargeInfo p ON p.PartyId = r.PartyId AND p.Product3rdId = r.Product3rdId
 
 		DELETE @tmpResult WHERE GroupMinFeeId IS NULL
 
@@ -625,15 +634,17 @@ BEGIN
 		SET s.IsPrimaryFee		= m.IsPrimary
 			,s.HouseIncome		= m.LicenseeFee
 			,s.LicenseeMinFee	= CASE
+									WHEN m.PartyId IS NULL THEN 0
 									WHEN m.LicenseeFee = m.ActualFee THEN 0
 									ELSE m.ActualFee END
 			,s.LicenseeFee		= CASE
+									WHEN m.PartyId IS NULL THEN s.HouseIncome
 									WHEN m.LicenseeFee = m.ActualFee THEN m.ActualFee
 									ELSE 0 END
 			,s.Rebate			= ISNULL(d.Rebate, 0)
 			,s.Discount			= ISNULL(d.Discount, 0)
 		FROM @tmpResult s
-			INNER JOIN @MinFee m ON m.PartyId = s.PartyId AND m.Product3rdId = s.Product3rdId
+			LEFT JOIN @MinFee m ON m.PartyId = s.PartyId AND m.Product3rdId = s.Product3rdId
 			LEFT JOIN @DiscountData d ON d.PartyId = s.PartyId AND d.Product3rdId = s.Product3rdId
 
 		UPDATE g
