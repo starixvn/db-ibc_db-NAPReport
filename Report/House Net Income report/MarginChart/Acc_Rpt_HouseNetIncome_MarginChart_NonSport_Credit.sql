@@ -46,6 +46,7 @@ AS
 		- 20200916@Roy: Email/Letstalk Reports - Integrate WM Live Casino (#131593)
 		- 20201023@Roy: Email/Letstalk Reports - Offer Bonus program for Arcadia Gaming product (#143656)
 		- 20201023@Roy: HNI Email/Letstalk - Adjust royalty fee term for RNG Keno, Lottery, Table Game, Number Game, NG2, Happy 5 (#143589)
+		- 20201123@Ned.Le: House Net Income Email/Letstalk - Implement the new rules for Group Min Fee + INH Special Treatment (#135865)
 
 	Param's Explanation:   
 		- @ProductList: '' - default value when get all product
@@ -68,6 +69,7 @@ BEGIN
 
 	DECLARE @SiteCN88 INT
 		,@SiteIBCIndo INT
+		,@Site76666b INT
 
 	SELECT TOP 1 @SiteCN88 = SiteId
 	FROM bodb_Account.dbo.tbl_Site WITH(NOLOCK)
@@ -76,6 +78,10 @@ BEGIN
 	SELECT TOP 1 @SiteIBCIndo = SiteId
 	FROM bodb_Account.dbo.tbl_Site WITH(NOLOCK)
 	WHERE [site] = 'IBCIndo'
+
+	SELECT TOP 1 @Site76666b = SiteId
+	FROM bodb_Account.dbo.tbl_Site WITH(NOLOCK)
+	WHERE [site] = '76666b'
 
 	DECLARE @ProductCodeAll VARCHAR(MAX) = 'NG,VS,KN,LT,VS2,VB,CS,NG2,AB,GD,CB,PP,CC,SG,VRG,SAG,SBC,SXG,BBIN,TG,IBCLC,ION,RNGW,FW,PGS,JK,WM'
 	DECLARE @ProductCodeGMT4 VARCHAR(1000) = 'VB,CC,BBIN,IBCLC,ION,RNGW,PGS,JK'
@@ -325,7 +331,7 @@ BEGIN
 		         +
 				 (SELECT ISNULL(SUM((t.HouseWL + (CASE WHEN @tmpDate >= '2020-11-01' THEN 0 ELSE ExtraPT END)) * r.Rate) * (-1),0)
 				  FROM #TmpHouseWL AS t INNER JOIN #PayToSupplierRate r ON t.ProductID = r.ProductID
-				  WHERE t.ProductID = 3 AND t.SiteID NOT IN (@SiteCN88, @SiteIBCIndo) AND  t.rptDate = @tmpDate) --NG, HP5
+				  WHERE t.ProductID = 3 AND t.SiteID NOT IN (@SiteCN88, @SiteIBCIndo, @Site76666b) AND  t.rptDate = @tmpDate) --NG, HP5
 				 +
 				 (SELECT ISNULL(SUM(t.PayToSupplier_Daily),0)
 				  FROM #tmpPayToSupplier_Daily AS t 
@@ -353,7 +359,7 @@ BEGIN
 				 +
 				 (SELECT ISNULL(SUM((t.HouseWL + t.ExtraPT) * r.Rate * (-1)),0)
 				  FROM #TmpHouseWL AS t INNER JOIN #PayToSupplierRate r ON t.ProductID = r.ProductID
-				  WHERE t.ProductID = 3 AND t.rptDate = @tmpDate AND t.SiteID = @SiteIBCIndo) -- NG, HP5 for IBCIndo
+				  WHERE t.ProductID = 3 AND t.rptDate = @tmpDate AND t.SiteID IN (@SiteIBCIndo, @Site76666b)) -- NG, HP5 for IBCIndo, 76666b
 				 +
 				 (SELECT ISNULL(SUM(t.PayToSupplier_Daily),0)
 				  FROM #tmpPayToSupplier_GMT AS t

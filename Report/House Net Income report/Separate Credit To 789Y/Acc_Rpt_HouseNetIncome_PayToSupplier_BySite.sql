@@ -40,6 +40,7 @@ AS
 		- 20200916@Roy: Email/Letstalk Reports - Integrate WM Live Casino (#131593)
 		- 20201023@Roy: Email/Letstalk Reports - Offer Bonus program for Arcadia Gaming product (#143656)
 		- 20201023@Roy: HNI Email/Letstalk - Adjust royalty fee term for RNG Keno, Lottery, Table Game, Number Game, NG2, Happy 5 (#143589)
+		- 20201123@Ned.Le: House Net Income Email/Letstalk - Implement the new rules for Group Min Fee + INH Special Treatment (#135865)
 	
 	Param's Explanation:   
 	- DepositType  
@@ -65,6 +66,7 @@ BEGIN
 
 	DECLARE @SiteCN88 INT
 		,@SiteIBCIndo INT
+		,@Site76666b INT
 
 	SELECT TOP 1 @SiteCN88 = SiteId
 	FROM bodb_Account.dbo.tbl_Site WITH(NOLOCK)
@@ -73,6 +75,10 @@ BEGIN
 	SELECT TOP 1 @SiteIBCIndo = SiteId
 	FROM bodb_Account.dbo.tbl_Site WITH(NOLOCK)
 	WHERE [site] = 'IBCIndo'
+
+	SELECT TOP 1 @Site76666b = SiteId
+	FROM bodb_Account.dbo.tbl_Site WITH(NOLOCK)
+	WHERE [site] = '76666b'
 
 	DECLARE @ProductIDAll VARCHAR(1000) = '3,5,8,23,22,21,12,28,27,6,32,34,36,39,45,47,40,46,52,50,24,55,56,51'
 	DECLARE @ProductCodeGMT4 VARCHAR(1000) = 'CC,BBIN,IBCLC,ION,RNGW,PGS,JK'
@@ -330,12 +336,12 @@ BEGIN
 								 ,PayToSupplier_PGS
 								 ,PayToSupplier_JK)
 		SELECT CONVERT(VARCHAR(2), @tmpDate, 106)																									AS RptDate
-			   ,(SELECT SUM(CASE WHEN @tmpDate >= '2020-11-01' THEN CASE WHEN t.SiteID = @SiteIBCIndo THEN t.HouseWL ELSE t.HouseWLBeforeExtraPT END ELSE t.HouseWL END * 0.5 * (-1))
+			   ,(SELECT SUM(CASE WHEN @tmpDate >= '2020-11-01' THEN CASE WHEN t.SiteID IN (@SiteIBCIndo, @Site76666b) THEN t.HouseWL ELSE t.HouseWLBeforeExtraPT END ELSE t.HouseWL END * 0.5 * (-1))
 				 FROM #tmpFactSiteWinloss AS t
 				 WHERE t.ProductID = 3
 				       AND t.SportType <> 164
 					   AND t.rptDate = @tmpDate)																									AS PayToSupplier_NG
-	           ,(SELECT SUM(CASE WHEN @tmpDate >= '2020-11-01' THEN CASE WHEN t.SiteID = @SiteIBCIndo THEN t.HouseWL ELSE t.HouseWLBeforeExtraPT END ELSE t.HouseWL END * 0.5 * (-1))
+	           ,(SELECT SUM(CASE WHEN @tmpDate >= '2020-11-01' THEN CASE WHEN t.SiteID IN (@SiteIBCIndo, @Site76666b) THEN t.HouseWL ELSE t.HouseWLBeforeExtraPT END ELSE t.HouseWL END * 0.5 * (-1))
 			     FROM #tmpFactSiteWinloss AS t
 				 WHERE t.ProductID = 3
 				       AND t.SportType = 164
