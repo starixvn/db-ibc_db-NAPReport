@@ -33,6 +33,8 @@ AS
 		- 20200916@Roy: Email/Letstalk Reports - Integrate Joker Gaming (#131602)
 		- 20200916@Roy: Email/Letstalk Reports - Integrate WM Live Casino (#131593)
 		- 20200529@Ned.Le: Letstalk Reports - Saba - Treat Saba Futsal as Saba Soccer (#142264)
+		- 20201201@Ned.Le: Email/Letstalk Reports - Integrate Gold Diamond Gaming (#144106)
+		- 20201201@Ned.Le: Email/Letstalk Reports - Integrate Leap Gaming Virtual Sports (#131369)
 	
 	Param's Explanation:   
 	- DepositType  
@@ -133,7 +135,9 @@ BEGIN
 	  , HouseTO_FW						MONEY
 	  , HouseTO_PGS						MONEY
 	  , HouseTO_JK						MONEY
-	  , HouseTO_WM						MONEY);
+	  , HouseTO_WM						MONEY
+	  , HouseTO_GDG						MONEY
+	  , HouseTO_VS3						MONEY);
 
 	  DECLARE @tmpDate     DATE
 		, @DateList    VARCHAR(200) = '[FullRange]';
@@ -158,7 +162,7 @@ BEGIN
 	SELECT DISTINCT ProductID, BetType
 	FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)
 	WHERE SubProduct NOT IN('BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss')
-	      AND ProductID IN (1, 3, 5, 8, 23, 22, 21, 12, 28, 27, 6, 32, 34, 36, 38, 39, 42, 45, 47, 40, 46, 52, 50, 24, 55, 56, 51)
+	      AND ProductID IN (1, 3, 5, 8, 23, 22, 21, 12, 28, 27, 6, 32, 34, 36, 38, 39, 42, 45, 47, 40, 46, 52, 50, 24, 55, 56, 51, 59, 49)
 
 	CREATE TABLE #TmpData(
 		rptDate      	DATE
@@ -248,6 +252,8 @@ BEGIN
 						  , HouseTO_PGS
 						  , HouseTO_JK
 						  , HouseTO_WM
+						  , HouseTO_GDG
+						  , HouseTO_VS3
 						  )
 SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 	-- BEGIN SPORTBOOK
@@ -303,7 +309,9 @@ SELECT CONVERT(VARCHAR(2), @tmpDate, 106)
 	,(SELECT SUM(t.HouseTO) FROM #TmpData AS t WHERE t.ProductID = 24 AND t.rptDate = @tmpDate) AS  HouseTO_FW
 	,(SELECT SUM(t.HouseTO) FROM #TmpData AS t WHERE t.ProductID = 55 AND t.rptDate = @tmpDate) AS  HouseTO_PGS
 	,(SELECT SUM(t.HouseTO) FROM #TmpData AS t WHERE t.ProductID = 56 AND t.rptDate = @tmpDate) AS  HouseTO_JK
-	,(SELECT SUM(t.HouseTO) FROM #TmpData AS t WHERE t.ProductID = 51 AND t.rptDate = @tmpDate) AS  HouseTO_WM;
+	,(SELECT SUM(t.HouseTO) FROM #TmpData AS t WHERE t.ProductID = 51 AND t.rptDate = @tmpDate) AS  HouseTO_WM
+	,(SELECT SUM(t.HouseTO) FROM #TmpData AS t WHERE t.ProductID = 59 AND t.rptDate = @tmpDate) AS  HouseTO_GDG
+	,(SELECT SUM(t.HouseTO) FROM #TmpData AS t WHERE t.ProductID = 49 AND t.rptDate = @tmpDate) AS  HouseTO_VS3;
 
 		  SELECT @tmpDate = DATEADD(DAY, 1, @tmpDate);
 	   END;
@@ -348,7 +356,9 @@ INSERT INTO #FinalResult(RptDate
 					, HouseTO_FW
 					, HouseTO_PGS
 					, HouseTO_JK
-					, HouseTO_WM)
+					, HouseTO_WM
+					, HouseTO_GDG
+					, HouseTO_VS3)
 		 SELECT 'FullRange'
 			, SUM(HouseTO_Soccer)
 			, SUM(HouseTO_SabaSoccer)
@@ -392,6 +402,8 @@ INSERT INTO #FinalResult(RptDate
 			, SUM(HouseTO_PGS)
 			, SUM(HouseTO_JK)
 			, SUM(HouseTO_WM)
+			, SUM(HouseTO_GDG)
+			, SUM(HouseTO_VS3)
 		 FROM #FinalResult;
 
     -- Select the output
@@ -440,7 +452,9 @@ INSERT INTO #FinalResult(RptDate
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''FW'', 36, ''House TurnOver'', HouseTO_FW' + CHAR(13)
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''PGS'', 37, ''House TurnOver'', HouseTO_PGS' + CHAR(13)
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''JK'', 38, ''House TurnOver'', HouseTO_JK' + CHAR(13)
-	+ 'UNION ALL' + CHAR(13) + 'SELECT ''WM'', 39, ''House TurnOver'', HouseTO_WM) c (ProductCode, [Order], Figure, value)) a' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''WM'', 39, ''House TurnOver'', HouseTO_WM' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''GDG'', 40, ''House TurnOver'', HouseTO_GDG' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''VS3'', 41, ''House TurnOver'', HouseTO_VS3) c (ProductCode, [Order], Figure, value)) a' + CHAR(13)
     + 'PIVOT' + CHAR(13) 
     + '(' + CHAR(13) 
     + 'MAX(value)' + CHAR(13) 

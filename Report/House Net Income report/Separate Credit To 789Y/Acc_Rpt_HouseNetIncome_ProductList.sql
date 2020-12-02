@@ -28,6 +28,8 @@ AS
 		- 20200916@Roy: Email/Letstalk Reports - Integrate Joker Gaming (#131602)
 		- 20200916@Roy: Email/Letstalk Reports - Integrate WM Live Casino (#131593)
 		- 20201002@Ned.Le: Email/Letstalk Reports - Change Card Club into Arcadia Gaming (#142831)
+		- 20201201@Ned.Le: Email/Letstalk Reports - Integrate Gold Diamond Gaming (#144106)
+		- 20201201@Ned.Le: Email/Letstalk Reports - Integrate Leap Gaming Virtual Sports (#131369)
   
 */
 BEGIN
@@ -70,6 +72,8 @@ SET NOCOUNT ON;
 	SELECT 'AG LC' Product, 'AGC' ProductPrefix, 'Live Casino' [Group]
 	UNION ALL
 	SELECT 'WM LC' Product, 'WM' ProductPrefix, 'Live Casino' [Group]
+	UNION ALL
+	SELECT 'GDG LC' Product, 'GDG' ProductPrefix, 'Live Casino' [Group]
 
 	-- RNG Casino
 	UNION ALL
@@ -128,5 +132,7 @@ SET NOCOUNT ON;
 	SELECT 'Exchange' Product, 'EX' ProductPrefix, 'Others' [Group]
 	UNION ALL
 	SELECT 'SabaPro' Product, 'NPH' ProductPrefix, 'Others' [Group]
+	UNION ALL
+	SELECT 'VirtSpo3' Product, 'VS3' ProductPrefix, 'Others' [Group]
 END
 GO
