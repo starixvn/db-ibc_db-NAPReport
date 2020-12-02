@@ -189,7 +189,7 @@ BEGIN
 			SELECT  sd.recommend  					AS AgentID,
 					sd.srecommend 					AS SuperID,
 					sd.BetType 	  					AS BetType,
-					m.MatchCode						AS MatchCode,
+					sd.matchid						AS MatchCode,
 					SUM(sd.MemberWinLoss)			AS MemberWinLoss,
 					SUM(sd.SMAWinLoss)				AS SMAWinLoss,
 					SUM(sd.[Extra's Amount]) 		AS ExtraPT,
@@ -202,18 +202,25 @@ BEGIN
 			FROM bodb02.dbo.f_bettrans_measures(@IsNoDraw) sd
 			INNER JOIN #tmpSportBettypeMatrix mtrix
 				ON mtrix.BetType = sd.bettype AND mtrix.SportType = @SportType
-			INNER JOIN #tmpMatch m 
-				ON sd.matchid = m.MatchID AND CASE WHEN sd.bettype = 10 THEN 1 ELSE 0 END = m.IsOutright
 			WHERE sd.winlostdate = @StartDate
-				AND sd.matchid IN (SELECT MatchID FROM #tmpMatch)
+				AND sd.matchid IN (SELECT MatchID FROM #tmpMatch UNION ALL SELECT 29)
 				AND sd.liveindicator = @LiveIndicator
 				AND sd.ruben = 1
 				AND sd.statusID IN (111, 112, 113)
 				AND sd.currency NOT IN (20, 27, 28)
 				AND (@SiteName = 'ALL' OR sd.recommend IN (SELECT AgentID FROM #tmpAgentBySite))
-			GROUP BY sd.recommend, sd.srecommend, sd.BetType, m.MatchCode
+			GROUP BY sd.recommend, sd.srecommend, sd.BetType, sd.matchid
 			OPTION (RECOMPILE)
-	
+		
+		DELETE FROM #agentSuperBettype WHERE MatchCode = '29' --a trick to improve optimizer estimation, making match data less skewed
+
+		UPDATE sd
+			SET sd.MatchCode = m.MatchCode
+			FROM #agentSuperBettype sd
+			INNER JOIN #tmpMatch m 
+				ON sd.MatchCode = m.matchid 
+				AND CASE WHEN sd.bettype = 10 THEN 1 ELSE 0 END = m.IsOutright
+
         --+ RM summary
         INSERT INTO #agentSuperBettype (SummaryLineIdentifier,
                               			MemberWinLoss,
