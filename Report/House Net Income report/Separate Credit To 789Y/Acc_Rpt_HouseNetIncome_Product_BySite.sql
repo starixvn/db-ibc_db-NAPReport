@@ -458,7 +458,7 @@ INSERT INTO #FinalResult(RptDate
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''FW'', 36, ''House Income'', HouseWL_FW' + CHAR(13)
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''PGS'', 37, ''House Income'', HouseWL_PGS' + CHAR(13)
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''JK'', 38, ''House Income'', HouseWL_JK' + CHAR(13)
-	+ 'UNION ALL' + CHAR(13) + 'SELECT ''VM'', 39, ''House Income'', HouseWL_VM' + CHAR(13)
+	+ 'UNION ALL' + CHAR(13) + 'SELECT ''WM'', 39, ''House Income'', HouseWL_WM' + CHAR(13)
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''GDG'', 40, ''House Income'', HouseWL_GDG' + CHAR(13)
 	+ 'UNION ALL' + CHAR(13) + 'SELECT ''VS3'', 41, ''House Income'', HouseWL_VS3) c (ProductCode, [Order], Figure, value)) a' + CHAR(13)
     + 'PIVOT' + CHAR(13) 
