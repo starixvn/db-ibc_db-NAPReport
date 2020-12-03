@@ -49,7 +49,7 @@ BEGIN
 	-- Get list of product
 	BEGIN
 		IF ISNULL(@ProductList, '') = ''
-			SELECT @ProductList = 'AGC,CB,CC,CO,EX,LT,PP,SPR,VS2,AB,CS,GD,KN,VB,NG,H5,SB,VS,SG,VRG,SAG,I4D,TG,SXG,SBC,FW,PP-JP,PGS,WM,JK'
+			SELECT @ProductList = 'AGC,CB,CC,CO,EX,LT,PP,SPR,VS2,AB,CS,GD,KN,VB,NG,H5,SB,VS,SG,VRG,SAG,I4D,TG,SXG,SBC,FW,PP-JP,PGS,WM,JK,VS3,GDG'
 			-- remove BT
 
 		SELECT @ProductList = ',' + @ProductList + ','
