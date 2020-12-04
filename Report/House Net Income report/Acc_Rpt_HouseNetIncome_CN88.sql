@@ -1,5 +1,8 @@
 /*<info serverAlias="DBWH-bodb_dwrs" executers="dwrs" viewers="" isFunction="0" isNested="0"></info>*/
 
+USE bodb_dwrs
+GO
+
 ALTER PROCEDURE dbo.Acc_Rpt_HouseNetIncome_CN88 
 	@FromDate    SMALLDATETIME 
    , @ToDate      SMALLDATETIME 
@@ -15,6 +18,7 @@ Revisions:
 	20191227@Robert: #125762 - DHWL Letstalk - Support to add Margin report into the current DHWL Letstalk report, Need to exclude sporttype = -1 
 	20200116@Cherry: Separate CN88 data into 3 groups: overall, 92%, 88% (#127003)
 	20200813@Kean - DHWL Email/Letstalk - Change Product Name and Margin Report Format. (#139537)
+	20201204@Ned.Le: DHWL letstalk: Data CN88 is wrong (HotFix #146607)
 
 Example:
 
@@ -220,20 +224,20 @@ BEGIN
 					  , HouseWL_XPG
 					  , HouseWL_TPG)
 		 SELECT 'FullRange'
-			 , SUM(f.HouseWL) - (SELECT CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(PayToSupplier_MTD) END 
-										FROM #tmpPayToSupplier_MTD AS t WHERE t.ProductID IN (5,8,28,27) AND TypeSuper = 0) -- All
-								- (SELECT SUM(PayToSupplier_MTD) 
-										FROM #tmpPayToSupplier_MTD AS t WHERE t.ProductID  = 3 AND TypeSuper = 0) -- All
+			 , SUM(f.HouseWL) - ISNULL((SELECT CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(PayToSupplier_MTD) END 
+										FROM #tmpPayToSupplier_MTD AS t WHERE t.ProductID IN (5,27) AND TypeSuper = 0), 0) -- All
+								- ISNULL((SELECT SUM(PayToSupplier_MTD) 
+										FROM #tmpPayToSupplier_MTD AS t WHERE t.ProductID  IN (3,8,28) AND TypeSuper = 0), 0) -- All
 
-			 , SUM(f.HouseWL_XPG) - (SELECT CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(PayToSupplier_MTD) END 
-										FROM #tmpPayToSupplier_MTD AS t WHERE t.ProductID IN (5,8,28,27) AND TypeSuper = 1) -- All
-								- (SELECT SUM(PayToSupplier_MTD) 
-										FROM #tmpPayToSupplier_MTD AS t WHERE t.ProductID  = 3 AND TypeSuper = 1)  -- XPG
+			 , SUM(f.HouseWL_XPG) - ISNULL((SELECT CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(PayToSupplier_MTD) END 
+										FROM #tmpPayToSupplier_MTD AS t WHERE t.ProductID IN (5,27) AND TypeSuper = 1), 0) -- All
+								- ISNULL((SELECT SUM(PayToSupplier_MTD) 
+										FROM #tmpPayToSupplier_MTD AS t WHERE t.ProductID  IN (3,8,28) AND TypeSuper = 1), 0)  -- XPG
 
-			 , SUM(f.HouseWL_TPG) - (SELECT CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(PayToSupplier_MTD) END 
-										FROM #tmpPayToSupplier_MTD AS t WHERE t.ProductID IN (5,8,28,27) AND TypeSuper = 2) -- TPG
-								- (SELECT SUM(PayToSupplier_MTD) 
-										FROM #tmpPayToSupplier_MTD AS t WHERE t.ProductID  = 3 AND TypeSuper = 2)  -- TPG
+			 , SUM(f.HouseWL_TPG) - ISNULL((SELECT CASE WHEN SUM(MemberWLOANDA) > 0 THEN 0 ELSE SUM(PayToSupplier_MTD) END 
+										FROM #tmpPayToSupplier_MTD AS t WHERE t.ProductID IN (5,27) AND TypeSuper = 2), 0) -- TPG
+								- ISNULL((SELECT SUM(PayToSupplier_MTD) 
+										FROM #tmpPayToSupplier_MTD AS t WHERE t.ProductID  IN (3,8,28) AND TypeSuper = 2), 0)  -- TPG
 		 FROM #FinalResult AS f;
 
     DECLARE @SQL VARCHAR(5000)
