@@ -20,6 +20,10 @@ AS;
 		- 20200422@Percy: Integrate 3D Lottery (CC), Saba.Club, Sexy Gaming [RedmineID: #132790,#132791,#132792]
 		- 20200701@Percy: Exclude draw tickets, TO/2 for half won, half lose tickets [RedmineID: #136792]
 		- 20200715@Percy: Integrate PP Jackpot [RedmineID: #137280]
+		- 20200922@Percy: Integrate WM Live Casino & Joker Gaming [RedmineID: #131593,#131602]
+		- 20201201@Percy: Integrate:
+			. Leap Gaming Virtual Sports - VS3 [RedmineID: #131369]
+			. Gold Diamond Gaming - GDG [RedmineID: #144106]
 
 	Param's Explanation:   
 		- @ProductList: '' - default value when get all product
@@ -37,7 +41,7 @@ BEGIN
     SELECT @FDate = @FromDate
 	    , @TDate = @ToDate;
 
-    DECLARE @Deposit    VARCHAR(MAX) = 'NG,CS,KN,LT,AGC,CO,CB,VB,AB,GD,BX,VS,VS2,PP,CC,SG,VRG,SAG,I4D,TG,SBC,SXG';
+    DECLARE @Deposit    VARCHAR(MAX) = 'NG,CS,KN,LT,AGC,CO,CB,VB,AB,GD,BX,VS,VS2,PP,CC,SG,VRG,SAG,I4D,TG,SBC,SXG,WM,JK,VS3,GDG';
 
     CREATE TABLE #Exchange(
 	    ExchangeDate    DATE
