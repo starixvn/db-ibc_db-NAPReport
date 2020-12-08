@@ -30,6 +30,9 @@ AS
 			. Sportsbook - Odds Spread Adjustment [RedmineID: #111275]
 			. Saba.Club - Free bets [RedmineID: #143654]
 		- 20201120@Percy: Apply group min fee [RedmineID: #135865]
+		- 20201201@Percy: Integrate:
+			. Leap Gaming Virtual Sports - VS3 [RedmineID: #131369]
+			. Gold Diamond Gaming - GDG [RedmineID: #144106]
 	
 	EXEC [Acc_Rpt_HouseNetIncome_Product_Deposit] '20180601', '20180619'
 */
@@ -46,7 +49,7 @@ BEGIN
 	-- Get list of product
 	BEGIN
 		IF ISNULL(@ProductList, '') = ''
-			SELECT @ProductList = 'AGC,CB,CC,CO,EX,LT,PP,SPR,VS2,AB,CS,GD,KN,VB,NG,H5,SB,VS,SG,VRG,SAG,I4D,TG,SXG,SBC,FW,PP-JP,PGS,WM,JK'
+			SELECT @ProductList = 'AGC,CB,CC,CO,EX,LT,PP,SPR,VS2,AB,CS,GD,KN,VB,NG,H5,SB,VS,SG,VRG,SAG,I4D,TG,SXG,SBC,FW,PP-JP,PGS,WM,JK,VS3,GDG'
 			-- remove BT
 
 		SELECT @ProductList = ',' + @ProductList + ','
@@ -665,9 +668,9 @@ BEGIN
 		FROM #__tempResult r
 			INNER JOIN CTE_Sum s ON r.ParentId = s.ParentId AND r.Product3rdId = s.Product3rdId
 
-			-- 3. GMT <> -4
+			-- 3. GMT <> -4 + special like GDG
 		SELECT @ProductCodesGMT = COALESCE(@ProductCodesGMT + ',', '') + ProductCode
-		FROM @Products WHERE Product3rdId IN (21,24,32,36,39,45,51) -- 'AB,FW,PP,SG,SAG,SXG,WM'
+		FROM @Products WHERE Product3rdId IN (21,24,32,36,39,45,51,59) -- 'AB,FW,PP,SG,SAG,SXG,WM,GDG'
 
 		CREATE TABLE #__PayToSupplier (Product3rdId INT, ProductCode VARCHAR(50), rptDate VARCHAR(10), PayToSupplier MONEY, CurrencyPlay MONEY)
 		INSERT INTO #__PayToSupplier (ProductCode, rptDate, PayToSupplier, CurrencyPlay)

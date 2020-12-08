@@ -41,6 +41,8 @@ AS
 		- 20201023@Roy: Email/Letstalk Reports - Offer Bonus program for Arcadia Gaming product (#143656)
 		- 20201023@Roy: HNI Email/Letstalk - Adjust royalty fee term for RNG Keno, Lottery, Table Game, Number Game, NG2, Happy 5 (#143589)
 		- 20201123@Ned.Le: House Net Income Email/Letstalk - Implement the new rules for Group Min Fee + INH Special Treatment (#135865)
+		- 20201201@Ned.Le: Email/Letstalk Reports - Integrate Gold Diamond Gaming (#144106)
+		- 20201201@Ned.Le: Email/Letstalk Reports - Integrate Leap Gaming Virtual Sports (#131369)
 	
 	Param's Explanation:   
 	- DepositType  
@@ -80,9 +82,9 @@ BEGIN
 	FROM bodb_Account.dbo.tbl_Site WITH(NOLOCK)
 	WHERE [site] = '76666b'
 
-	DECLARE @ProductIDAll VARCHAR(1000) = '3,5,8,23,22,21,12,28,27,6,32,34,36,39,45,47,40,46,52,50,24,55,56,51'
-	DECLARE @ProductCodeGMT4 VARCHAR(1000) = 'CC,BBIN,IBCLC,ION,RNGW,PGS,JK'
-	DECLARE @ProductCodeGMT VARCHAR(1000) = 'AB,FW,PP,SG,SAG,SXG,WM'
+	DECLARE @ProductIDAll VARCHAR(1000) = '3,5,8,23,22,21,12,28,27,6,32,34,36,39,45,47,40,46,52,50,24,55,56,51,59,49'
+	DECLARE @ProductCodeGMT4 VARCHAR(1000) = 'CC,BBIN,IBCLC,ION,RNGW,PGS,JK,VS3'
+	DECLARE @ProductCodeGMT VARCHAR(1000) = 'AB,FW,PP,SG,SAG,SXG,WM,GDG'
 
     -- #Exchange
     CREATE TABLE #Exchange (ExchangeDate DATE, ExchangeID INT, Rate FLOAT)

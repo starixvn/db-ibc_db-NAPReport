@@ -32,6 +32,9 @@ AS
 		- 20201023@Percy: Correct input productcode for HP5 & PP-JP [RedmineID: #143589]
 		- 20201026@Percy: Integrate Saba.Club - Free bets [RedmineID: #143654]
 		- 20201102@Percy: Return FullRange (web format, not use) [RedmineID: #143589]
+		- 20201201@Percy: Integrate:
+			. Leap Gaming Virtual Sports - VS3 [RedmineID: #131369]
+			. Gold Diamond Gaming - GDG [RedmineID: #144106]
 
 	Param's Explanation:   
 		- @ProductList: List of Product Code
@@ -51,7 +54,7 @@ BEGIN
 	-- Get list of product
 	BEGIN
 		IF ISNULL(@ProductList, '') = ''
-			SELECT @ProductList = 'EX,GD,FW,AB,VB,CB,CO,AGC,KN,LT,CS,NG,H5,PP,CC,SP,SG,VRG,SAG,I4D,TG,SBC,SXG,PGS,WM,JK,VS,VS2'
+			SELECT @ProductList = 'EX,GD,FW,AB,VB,CB,CO,AGC,KN,LT,CS,NG,H5,PP,CC,SP,SG,VRG,SAG,I4D,TG,SBC,SXG,PGS,WM,JK,VS,VS2,VS3,GDG'
 
 		SELECT @ProductList = ',' + @ProductList + ','
 		SELECT @ProductList = REPLACE(REPLACE(REPLACE(@ProductList, ',SB,', ',SB,BA,'), ',EX,', ',BX,'), ',SP,', ',SPR,')
