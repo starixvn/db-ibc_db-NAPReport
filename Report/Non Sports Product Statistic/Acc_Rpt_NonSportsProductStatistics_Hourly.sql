@@ -55,6 +55,7 @@ AS
 		20200917@Cherry: Improve performance (#141844)
 		20200922@Cherry: Improve performance (#142096)
 		20200928@Cherry: Hot fix (#142436)
+		20201210@Cherry: Add Real Turnover (#146137)
 
 	Param's Explanation:
 			 - @username:  + Search by keyword, member only
@@ -116,6 +117,7 @@ SET NOCOUNT ON
 					NULL AS GamePayout,
 					NULL AS TotalRefund,
 					NULL AS CompanyTurnover,
+					NULL AS RealTurnover,
 					NULL AS CompanyGrossIncome,
 					NULL AS CompanyComm,
 					NULL AS ExtraPT
@@ -133,6 +135,7 @@ SET NOCOUNT ON
 				NULL AS GamePayout,
 				NULL AS TotalRefund,
 				NULL AS CompanyTurnover,
+				NULL AS RealTurnover,
 				NULL AS CompanyGrossIncome,
 				NULL AS CompanyComm,
 				NULL AS ExtraPT
@@ -153,6 +156,7 @@ SET NOCOUNT ON
 						   TotalWinsRM DECIMAL(19,4), 
 						   TotalRefundRM DECIMAL(19,4),
 						   CompanyTurnoverRM DECIMAL(19,4), 
+						   RealTurnoverRM DECIMAL(19,4), 
 						   CompanyGrossIncomeRM DECIMAL(19,4), 
 						   CompanyCommRM DECIMAL(19,4),
 						   ExtraPT DECIMAL(19,8)
@@ -167,6 +171,7 @@ SET NOCOUNT ON
 						   GamePayout DECIMAL(19,4),
 						   TotalRefund DECIMAL(19,4), 
 						   CompanyTurnover DECIMAL(19,4), 
+						   RealTurnover DECIMAL(19,4),
 						   CompanyGrossIncome DECIMAL(19,4), 
 						   CompanyComm DECIMAL(19,4),
 						   ExtraPT DECIMAL(19,8)
@@ -1180,7 +1185,7 @@ SET NOCOUNT ON
 	IF @Currency = '-1'  
 	BEGIN 		
 		INSERT INTO #Result ([Hour], NoOfPlayers, BetCount,	Currency, TotalBets, TotalWins, GamePayout, TotalRefund, 
-							CompanyTurnover, CompanyGrossIncome, CompanyComm, ExtraPT)							
+							CompanyTurnover, RealTurnover, CompanyGrossIncome, CompanyComm, ExtraPT)							
 		SELECT  [Hour], 
 				COUNT(DISTINCT CustID) AS NoOfPlayers, 
 				SUM(BetCount) AS BetCount ,
@@ -1190,6 +1195,7 @@ SET NOCOUNT ON
 				CASE WHEN SUM(ISNULL(TotalBetsRM,0)) = 0 THEN NULL ELSE SUM(TotalWinsRM)/SUM(TotalBetsRM) END AS GamePayout,
 				SUM(TotalRefundRM) AS TotalRefund,
 				SUM(CompanyTurnoverRM) AS CompanyTurnover,
+				SUM(RealTurnoverRM) AS RealTurnover,
 				SUM(CompanyGrossIncomeRM) AS CompanyGrossIncome,
 				SUM(CompanyCommRM) AS CompanyComm,
 				SUM(b.ExtraPT) ExtraPT
@@ -1214,6 +1220,7 @@ SET NOCOUNT ON
 		TotalWins, 
 		TotalRefund, 
 		CompanyTurnover AS HouseTurnover, 
+		RealTurnover, 
 		CompanyGrossIncome AS HouseGrossIncome, 
 		CompanyComm AS HouseComm,
 		ExtraPT 

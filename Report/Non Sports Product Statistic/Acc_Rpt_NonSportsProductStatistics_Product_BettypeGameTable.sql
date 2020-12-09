@@ -50,6 +50,7 @@ AS
 		20200917@Cherry: Improve performance (#141844)
 		20200922@Cherry: Improve performance (#142096)
 		20200928@Cherry: Hot fix (#142436)
+		20201210@Cherry: Add Real Turnover (#146137)
 
 	Param's Explanation:
 		- @username:  + Search by keyword, member only
@@ -107,6 +108,7 @@ BEGIN
 					NULL AS TotalWins,
 					NULL AS TotalRefund,
 					NULL AS CompanyTurnOver,
+					NULL AS RealTurnOver,
 					NULL AS CompanyGrossIncome,
 					NULL AS CompanyComm,
 					NULL AS ExtraPT
@@ -123,6 +125,7 @@ BEGIN
 				NULL AS TotalWins,
 				NULL AS TotalRefund,
 				NULL AS CompanyTurnOver,
+				NULL AS RealTurnOver,
 				NULL AS CompanyGrossIncome,
 				NULL AS CompanyComm,
 				NULL AS ExtraPT
@@ -140,6 +143,7 @@ BEGIN
 						 TotalWins DECIMAL(19,4), TotalWinsBase DECIMAL(19,4),
 						 TotalRefund DECIMAL(19,4), TotalRefundBase DECIMAL(19,4),
 						 CompanyTurnOver DECIMAL(19,4), CompanyTurnOverBase DECIMAL(19,4),
+						 RealTurnOver DECIMAL(19,4), RealTurnOverBase DECIMAL(19,4),
 						 CompanyGrossIncome DECIMAL(19,4), CompanyGrossIncomeBase DECIMAL(19,4),
 						 CompanyComm DECIMAL(19,4), CompanyCommBase DECIMAL(19,4),
 						 ExtraPT DECIMAL(19,8), ExtraPTBase DECIMAL(19,8)
@@ -150,6 +154,7 @@ BEGIN
 							TotalWins DECIMAL(19,4), TotalWinsBase DECIMAL(19,4),
 							TotalRefund DECIMAL(19,4), TotalRefundBase DECIMAL(19,4),
 							CompanyTurnOver DECIMAL(19,4), CompanyTurnOverBase DECIMAL(19,4),
+							RealTurnOver DECIMAL(19,4), RealTurnOverBase DECIMAL(19,4),
 							CompanyGrossIncome DECIMAL(19,4), CompanyGrossIncomeBase DECIMAL(19,4),
 							CompanyComm DECIMAL(19,4), CompanyCommBase DECIMAL(19,4),
 							ExtraPT DECIMAL(19,8), ExtraPTBase DECIMAL(19,8)							
@@ -1338,12 +1343,14 @@ BEGIN
 			    TotalWins ,
 			    TotalRefund ,
 			    CompanyTurnOver ,
+			    RealTurnOver ,
 			    CompanyGrossIncome ,
 			    CompanyComm,
 				TotalBetsBase,
 				TotalWinsBase,
 				TotalRefundBase,
 				CompanyTurnOverBase,
+				RealTurnOverBase,
 				CompanyGrossIncomeBase,
 				CompanyCommBase,
 				ExtraPT,
@@ -1358,12 +1365,14 @@ BEGIN
 			SUM(b.TotalWinsBase) AS TotalWins,
 			SUM(b.TotalRefundBase) AS TotalRefund,
 			SUM(b.CompanyTurnOverBase) AS CompanyTurnOver,
+			SUM(b.RealTurnOverBase) AS RealTurnOver,
 			SUM(b.CompanyGrossIncomeBase) AS CompanyGrossIncome,            
 			SUM(b.CompanyCommBase) AS CompanyComm,
 			SUM(b.TotalBetsBase) AS TotalBetsBase,
 			SUM(b.TotalWinsBase) AS TotalWinsBase,
 			SUM(b.TotalRefundBase) AS TotalRefundBase,
 			SUM(b.CompanyTurnOverBase) AS CompanyTurnOverBase,
+			SUM(b.RealTurnOverBase) AS RealTurnOverBase,
 			SUM(b.CompanyGrossIncomeBase) AS CompanyGrossIncomeBase,            
 			SUM(b.CompanyCommBase) AS CompanyCommBase,
 			SUM(b.ExtraPTBase) ExtraPT,
@@ -1393,12 +1402,14 @@ BEGIN
 		        TotalWins ,
 		        TotalRefund ,
 		        CompanyTurnOver ,
+		        RealTurnOver ,
 		        CompanyGrossIncome ,
 		        CompanyComm,
 				TotalBetsBase,
 				TotalWinsBase,
 				TotalRefundBase,
 				CompanyTurnOverBase,
+				RealTurnOverBase,
 				CompanyGrossIncomeBase,
 				CompanyCommBase,
 				ExtraPT,
@@ -1413,12 +1424,14 @@ BEGIN
 				SUM(b.TotalWins) AS TotalWins,
 				SUM(b.TotalRefund) AS TotalRefund,
 				SUM(b.CompanyTurnOver) AS CompanyTurnOver,
+				SUM(b.RealTurnOver) AS RealTurnOver,
 				SUM(b.CompanyGrossIncome) AS CompanyGrossIncome,            
 				SUM(b.CompanyComm) AS CompanyComm,
 				SUM(b.TotalBetsBase) AS TotalBetsBase,
 				SUM(b.TotalWinsBase) AS TotalWinsBase,
 				SUM(b.TotalRefundBase) AS TotalRefundBase,
 				SUM(b.CompanyTurnOverBase) AS CompanyTurnOverBase,
+				SUM(b.RealTurnOverBase) AS RealTurnOverBase,
 				SUM(b.CompanyGrossIncomeBase) AS CompanyGrossIncomeBase,            
 				SUM(b.CompanyCommBase) AS CompanyCommBase,
 				SUM(b.ExtraPT) ExtraPT,
@@ -1451,6 +1464,7 @@ BEGIN
 					TotalWins,
 					TotalRefund,
 					CompanyTurnOver AS HouseTurnOver,
+					RealTurnOver AS RealTurnOver,
 					CompanyGrossIncome AS HouseGrossIncome,
 					CompanyComm AS HouseComm,
 					ExtraPT
@@ -1468,8 +1482,8 @@ BEGIN
 				CASE WHEN @Currency = '-1' THEN SUM(b.TotalBetsBase) ELSE SUM(b.TotalBets) END AS TotalBets,
 				CASE WHEN @Currency = '-1' THEN SUM(b.TotalWinsBase) ELSE SUM(b.TotalWins) END AS TotalWins,
 				CASE WHEN @Currency = '-1' THEN SUM(b.TotalRefundBase) ELSE SUM(b.TotalRefund) END AS TotalRefund,
-				CASE WHEN @Currency = '-1' THEN SUM(b.CompanyTurnOverBase) 
-					 ELSE SUM(b.CompanyTurnOver) END AS HouseTurnOver,
+				CASE WHEN @Currency = '-1' THEN SUM(b.CompanyTurnOverBase) ELSE SUM(b.CompanyTurnOver) END AS HouseTurnOver,
+				CASE WHEN @Currency = '-1' THEN SUM(b.RealTurnOverBase) ELSE SUM(b.RealTurnOver) END AS RealTurnOver,
 				CASE WHEN @Currency = '-1' THEN SUM(b.CompanyGrossIncomeBase) ELSE SUM(b.CompanyGrossIncome) END AS HouseGrossIncome,
 				CASE WHEN @Currency = '-1' THEN SUM(b.CompanyCommBase) ELSE SUM(b.CompanyComm) END AS HouseComm,
 				CASE WHEN @Currency = '-1' THEN SUM(b.ExtraPTBase) 
@@ -1491,8 +1505,8 @@ BEGIN
 				CASE WHEN @Currency = '-1' THEN SUM(d.TotalBetsBase) ELSE SUM(d.TotalBets) END AS TotalBets,
 				CASE WHEN @Currency = '-1' THEN SUM(d.TotalWinsBase) ELSE SUM(d.TotalWins) END AS TotalWins,
 				CASE WHEN @Currency = '-1' THEN SUM(d.TotalRefundBase) ELSE SUM(d.TotalRefund) END AS TotalRefund,
-				CASE WHEN @Currency = '-1' THEN SUM(d.CompanyTurnOverBase) 
-					 ELSE SUM(d.CompanyTurnOver) END AS HouseTurnOver,
+				CASE WHEN @Currency = '-1' THEN SUM(d.CompanyTurnOverBase) ELSE SUM(d.CompanyTurnOver) END AS HouseTurnOver,
+				CASE WHEN @Currency = '-1' THEN SUM(d.RealTurnOverBase) ELSE SUM(d.RealTurnOver) END AS RealTurnOver,
 				CASE WHEN @Currency = '-1' THEN SUM(d.CompanyGrossIncomeBase) ELSE SUM(d.CompanyGrossIncome) END AS HouseGrossIncome,
 				CASE WHEN @Currency = '-1' THEN SUM(d.CompanyCommBase) ELSE SUM(d.CompanyComm) END AS HouseComm,
 				CASE WHEN @Currency = '-1' THEN SUM(d.ExtraPTBase) 
@@ -1514,6 +1528,7 @@ BEGIN
         SUM(d.TotalWinsBase) TotalWins,
         SUM(d.TotalRefundBase) TotalRefund,
         SUM(d.CompanyTurnOverBase) HouseTurnOver,
+        SUM(d.RealTurnOverBase) RealTurnOver,
 		SUM(d.CompanyGrossIncomeBase) HouseGrossIncome,
 		SUM(d.CompanyCommBase) HouseComm,
 		SUM(d.ExtraPTBase) ExtraPT
