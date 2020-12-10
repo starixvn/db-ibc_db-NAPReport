@@ -4,9 +4,11 @@
 USE bodb02
 GO
 
-ALTER PROCEDURE dbo.Acc_Rpt_Letstalk_HouseMarginMonitor @FromDate  SMALLDATETIME,
-											            @ToDate    SMALLDATETIME,
-											            @BetType   VARCHAR(MAX) = '228' -- List of bet types to report, delimited by comma
+ALTER PROCEDURE dbo.Acc_Rpt_Letstalk_HouseMarginMonitor @FromDate        SMALLDATETIME,
+											            @ToDate          SMALLDATETIME,
+											            @BetType         VARCHAR(MAX) = '228', -- List of bet types to report, delimited by comma
+                                                        @WLThreshold     FLOAT = -10000, -- bet types that under this threshold will be reported
+                                                        @MarginThreshold FLOAT = -10     -- unit: percent %, bet types that under this threshold will be reported
 AS
 /*
 	Created: Jaden.Tamg@20201208
@@ -32,7 +34,7 @@ BEGIN
    
     SELECT  sd.bettype                      AS BetType,
             MAX(bt.BetTypeName)             AS BetTypeName,
-            SUM(sd.RealHouseIncome) 		AS HouseWL,
+            -SUM(sd.RealHouseIncome) 		AS HouseWL,
             SUM(sd.RealHouseTurnover) 		AS HouseTO
     FROM bodb02.dbo.f_bettrans_measures(@ExcludeDraw) sd
     INNER JOIN bodb02.dbo.f_HouseMarginMonitorBetTypes() bt
@@ -43,6 +45,8 @@ BEGIN
         AND sd.statusID IN (111, 112, 113)
         AND sd.currency NOT IN (20, 27, 28)
     GROUP BY sd.bettype
+    HAVING -SUM(sd.RealHouseIncome) <= @WLThreshold
+        OR (-SUM(sd.RealHouseIncome) / SUM(sd.RealHouseTurnover)) * 100 < @MarginThreshold
     OPTION (RECOMPILE)
 
     DROP TABLE #parameter
