@@ -46,7 +46,7 @@ BEGIN
         AND sd.currency NOT IN (20, 27, 28)
     GROUP BY sd.bettype
     HAVING -SUM(sd.RealHouseIncome) <= @WLThreshold
-        OR (-SUM(sd.RealHouseIncome) / SUM(sd.RealHouseTurnover)) * 100 < @MarginThreshold
+       AND (-SUM(sd.RealHouseIncome) / SUM(sd.RealHouseTurnover)) * 100 < @MarginThreshold
     OPTION (RECOMPILE)
 
     DROP TABLE #parameter
