@@ -111,7 +111,6 @@ RETURN (
 
             CASE WHEN virtualrate > actualrate THEN virtualrate ELSE actualrate END                     AS [Whichever-is-higher Rate],
             CASE WHEN virtualrate < actualrate THEN virtualrate / actualrate ELSE 1 END                 AS VarianceVR,
-            actualrate - virtualrate                                                                    AS [aRate - vRate],
 
             CASE WHEN @IsNoDraw = 1 
                  THEN CASE WHEN (bettype < 999 OR bettype BETWEEN 1301 AND 1399 OR bettype BETWEEN 9001 AND 9399) --SportBooks
@@ -129,10 +128,8 @@ RETURN (
     Tier2_Measures AS (
         SELECT
             *,
-            DrawMultiplier *
-                stake * GrossCompanyPT_Orig                                                             AS TurnoverIBC_Orig,
-            DrawMultiplier *
-                ABS(stake) * NetCompanyPT_Orig                                                          AS NetTurnoverIBC_Orig,
+            DrawMultiplier * stake * GrossCompanyPT_Orig                                                AS TurnoverIBC_Orig,
+            DrawMultiplier * ABS(stake) * NetCompanyPT_Orig                                             AS NetTurnoverIBC_Orig,
             GrossCommission * epositiontaking                                                           AS [Extra's Commission Orig],
             MemberWinLoss_Orig * epositiontaking                                                        AS [Extra's Winloss Orig]
         FROM Base_Measures
@@ -160,7 +157,7 @@ RETURN (
         -- Commision that House gives to Super level    
         CommissionS_Orig                                                    * ActualRate                   AS CommissionS,
         -- House income from controling virtual rate   
-        VarianceIncome_Orig                                                 * [aRate - vRate]              AS VarianceHouseIncome,
+        VarianceIncome_Orig                                                 * (ActualRate - VirtualRate)   AS VarianceHouseIncome,
         -- House income after ExtraPT and Super commission based on virtual rate   
         (MemberWinLoss_Orig + SMAWinLoss_Orig - [Extra's Winloss Orig])     * VirtualRate    
         + (CommissionS_Orig - [Extra's Commission Orig]) * VarianceVR       * ActualRate                   AS VirtualHouseIncome,
