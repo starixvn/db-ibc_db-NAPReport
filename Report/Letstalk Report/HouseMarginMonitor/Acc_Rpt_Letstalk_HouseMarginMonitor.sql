@@ -37,7 +37,7 @@ BEGIN
             -SUM(sd.RealHouseIncome) 		AS HouseWL,
             SUM(sd.RealHouseTurnover) 		AS HouseTO
     FROM bodb02.dbo.f_bettrans_measures(@ExcludeDraw) sd
-    INNER JOIN bodb02.dbo.bettype bt
+    INNER JOIN bodb02.dbo.bettype bt WITH (NOLOCK)
         ON sd.bettype = bt.typeid
     WHERE sd.winlostdate BETWEEN @FromDate AND @ToDate
         AND sd.ruben = 1
