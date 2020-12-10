@@ -33,17 +33,17 @@ BEGIN
     DECLARE @ExcludeDraw BIT = 1
    
     SELECT  sd.bettype                      AS BetType,
-            MAX(bt.BetTypeName)             AS BetTypeName,
+            MAX(bt.typenamee)               AS BetTypeName,
             -SUM(sd.RealHouseIncome) 		AS HouseWL,
             SUM(sd.RealHouseTurnover) 		AS HouseTO
     FROM bodb02.dbo.f_bettrans_measures(@ExcludeDraw) sd
-    INNER JOIN bodb02.dbo.f_HouseMarginMonitorBetTypes() bt
-        ON sd.bettype = bt.BetType
-        AND sd.bettype IN (SELECT betType FROM #parameter)
+    INNER JOIN bodb02.dbo.bettype bt
+        ON sd.bettype = bt.typeid
     WHERE sd.winlostdate BETWEEN @FromDate AND @ToDate
         AND sd.ruben = 1
         AND sd.statusID IN (111, 112, 113)
         AND sd.currency NOT IN (20, 27, 28)
+        AND sd.bettype IN (SELECT betType FROM #parameter)
     GROUP BY sd.bettype
     HAVING -SUM(sd.RealHouseIncome) <= @WLThreshold
        AND (-SUM(sd.RealHouseIncome) / SUM(sd.RealHouseTurnover)) * 100 < @MarginThreshold

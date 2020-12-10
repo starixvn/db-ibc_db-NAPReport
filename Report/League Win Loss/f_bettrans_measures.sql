@@ -12,6 +12,7 @@ RETURNS TABLE
 
     Revisions:
 		- 20201016@Jaden.Tang: creation
+        - 20201210@Jaden.Tang: format code
 
     Param's Explanation:
 		- @IsNoDraw: To include the draw tickets in Turnovers or not
