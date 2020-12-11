@@ -46,7 +46,7 @@ BEGIN
         AND sd.bettype IN (SELECT betType FROM #parameter)
     GROUP BY sd.bettype
     HAVING -SUM(sd.RealHouseIncome) <= @WLThreshold
-       AND (-SUM(sd.RealHouseIncome) / SUM(sd.RealHouseTurnover)) * 100 < @MarginThreshold
+       AND (-SUM(sd.RealHouseIncome) / SUM(sd.RealHouseTurnover)) * 100 <= @MarginThreshold
     OPTION (RECOMPILE)
 
     DROP TABLE #parameter
