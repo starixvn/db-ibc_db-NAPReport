@@ -649,10 +649,35 @@ BEGIN
 
 	-- Calculate for Monthly column in #tmpFinalData
 	UPDATE f
-	SET f.[Monthly] = CASE WHEN f.Figure IN ('Pay to Bet Genius') THEN (f.[MTD] * (CASE WHEN f.[MTD] > 0 THEN 0 ELSE 1 END))
-						   WHEN f.Figure IN ('Pay to Supplier') AND f.ProductShortName IN ('VirtSpo2', 'VirtSpo', 'MacauG', 'Arcadia') THEN (f.[MTD] * (CASE WHEN f.[MTD] > 0 THEN 0 ELSE 1 END))
-						   ELSE f.[MTD] END
+	SET f.[Monthly] = f.[MTD]
 	FROM #tmpFinalData f
+	WHERE (f.ProductShortName NOT IN ('VirtSpo2', 'VirtSpo', 'MacauG', 'Arcadia') AND f.Figure NOT IN ('Pay to Bet Genius'))
+	      OR (f.ProductShortName IN ('VirtSpo2', 'VirtSpo', 'MacauG', 'Arcadia') AND f.Figure NOT IN ('Pay to Supplier'))
+
+	UPDATE f
+	SET f.[Monthly] = (f.[MTD] * (CASE WHEN f.[MTD] > 0 THEN 0 ELSE 1 END))
+	FROM #tmpFinalData f
+	WHERE f.ProductShortName IN ('VirtSpo2', 'VirtSpo')
+		  AND f.Figure IN ('Pay to Supplier')
+		  AND f.SiteGroup = 'CN88'
+	
+	;WITH
+	CTE_SumUpData AS (
+		SELECT f.ProductShortName,
+			   f.Figure,
+			   SUM(f.[MTD]) [MTD]
+		FROM #tmpFinalData f
+		WHERE (f.ProductShortName IN ('VirtSpo2', 'VirtSpo', 'MacauG', 'Arcadia') AND f.Figure IN ('Pay to Supplier') AND f.SiteGroup <> 'CN88')
+			  OR (f.Figure IN ('Pay to Bet Genius'))
+		GROUP BY f.ProductShortName,
+			     f.Figure
+	)
+	UPDATE f
+	SET f.[Monthly] = (f.[MTD] * (CASE WHEN cte.[MTD] > 0 THEN 0 ELSE 1 END))
+	FROM #tmpFinalData f
+		 LEFT JOIN CTE_SumUpData cte ON f.ProductShortName = cte.ProductShortName AND f.Figure = cte.Figure
+	WHERE (f.ProductShortName IN ('VirtSpo2', 'VirtSpo', 'MacauG', 'Arcadia') AND f.Figure IN ('Pay to Supplier') AND f.SiteGroup <> 'CN88')
+		  OR (f.Figure IN ('Pay to Bet Genius'))
 
 
 	--------------------
