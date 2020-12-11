@@ -17,6 +17,7 @@ AS
 
 	Revisions:
 		- 20201208@Jaden.Tang: Creation - https://nexdev.net/projects/nap-accounting-report/wiki/House_Margin_Monitoring
+        - 20201211@Jaden.Tang: Use less-than-or-equal check for @MarginThreshold instead of less-than
 
     Example:
         exec bodb02.dbo.Acc_Rpt_Letstalk_HouseMarginMonitor '20200101', '20201230', '228,229'
