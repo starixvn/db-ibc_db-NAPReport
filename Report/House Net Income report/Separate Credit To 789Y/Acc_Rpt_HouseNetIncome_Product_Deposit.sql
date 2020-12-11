@@ -33,6 +33,7 @@ AS
 		- 20201201@Percy: Integrate:
 			. Leap Gaming Virtual Sports - VS3 [RedmineID: #131369]
 			. Gold Diamond Gaming - GDG [RedmineID: #144106]
+		- 20201210@Percy: Include waive fee when checking min fee [RedmineID: #135865]
 	
 	EXEC [Acc_Rpt_HouseNetIncome_Product_Deposit] '20180601', '20180619'
 */
@@ -1033,11 +1034,11 @@ BEGIN
 			,s.HouseIncome		= m.LicenseeFee
 			,s.LicenseeMinFee	= CASE
 									WHEN m.PartyId IS NULL THEN 0
-									WHEN m.LicenseeFee = m.ActualFee THEN 0
+									WHEN m.LicenseeFee + m.WaivedFee = m.ActualFee THEN 0
 									ELSE m.ActualFee END
 			,s.LicenseeFee		= CASE
 									WHEN m.PartyId IS NULL THEN s.HouseIncome
-									WHEN m.LicenseeFee = m.ActualFee THEN m.ActualFee
+									WHEN m.LicenseeFee + m.WaivedFee = m.ActualFee THEN m.ActualFee
 									ELSE 0 END
 			,s.Rebate			= ISNULL(d.Rebate, 0)
 			,s.Discount			= ISNULL(d.Discount, 0)
