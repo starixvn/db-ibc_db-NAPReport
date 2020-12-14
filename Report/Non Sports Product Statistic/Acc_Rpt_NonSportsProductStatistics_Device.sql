@@ -380,6 +380,8 @@ BEGIN
 				  TotalRefundBase ,
 				  CompanyTurnOver ,
 				  CompanyTurnOverBase ,
+				  RealTurnOver ,
+				  RealTurnOverBase ,
 				  CompanyGrossIncome ,
 				  CompanyGrossIncomeBase ,
 				  CompanyComm ,
@@ -406,7 +408,14 @@ BEGIN
 						ELSE (1 - b.tpositiontaking - CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) * b.stake END) AS CompanyTurnover,	
 				SUM((CASE WHEN b.statusID IN (103) THEN 0 
 						WHEN b.tpositiontaking = 1 THEN 0
-						ELSE (1 - b.tpositiontaking - CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) * b.stake END) * actualrate) AS CompanyTurnoverBase,		
+						ELSE (1 - b.tpositiontaking - CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) * b.stake END) * actualrate) AS CompanyTurnoverBase,	
+						
+				SUM(CASE WHEN b.statusID IN (103) THEN 0 
+						WHEN b.tpositiontaking = 1 THEN 0
+						ELSE (1 - b.tpositiontaking - CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) * b.oddsspread END) AS RealTurnover,	
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 
+						WHEN b.tpositiontaking = 1 THEN 0
+						ELSE (1 - b.tpositiontaking - CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) * b.oddsspread END) * actualrate) AS RealTurnoverBase,		
 								
 				- SUM(winlost - actual_stake + awinlost + mwinlost + swinlost) AS CompanyGrossIncome,
 				- SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeBase,
@@ -711,6 +720,13 @@ BEGIN
 				SUM((CASE WHEN b.statusID IN (103) THEN 0 
 						WHEN b.tpositiontaking = 1 THEN 0
 						ELSE (1 - b.tpositiontaking - CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) * b.stake END) * actualrate) AS CompanyTurnoverBase,		
+						
+				SUM(CASE WHEN b.statusID IN (103) THEN 0 
+						WHEN b.tpositiontaking = 1 THEN 0
+						ELSE (1 - b.tpositiontaking - CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) * b.NetStake END) AS RealTurnover,	
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 
+						WHEN b.tpositiontaking = 1 THEN 0
+						ELSE (1 - b.tpositiontaking - CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) * b.NetStake END) * actualrate) AS RealTurnoverBase,	
 								
 				- SUM(winlost - actual_stake + awinlost + mwinlost + swinlost) AS CompanyGrossIncome,
 				- SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeBase,
@@ -1291,6 +1307,18 @@ BEGIN
 		OPTION(RECOMPILE)
 	END
 	
+	--Update Real Turnover
+	CREATE TABLE #tmpNetStakeBettype (Bettype INT)
+	INSERT INTO #tmpNetStakeBettype (Bettype)
+	SELECT Bettype
+	FROM DBWH.bodb_Account.dbo.BettypeGroup WITH (NOLOCK)
+	WHERE BettypeGroupID = 13
+	
+	UPDATE #Data
+	SET RealTurnover = CompanyTurnover,
+		RealTurnoverBase = CompanyTurnoverBase
+	WHERE bettype NOT IN (SELECT Bettype FROM #tmpNetStakeBettype)
+	
 	-- Get Currency name
 	UPDATE d
 	SET d.Currency = e.currency
@@ -1596,5 +1624,7 @@ BEGIN
 	DROP TABLE #tmpCurrency
 	DROP TABLE #tmpContributionBettype	
 	DROP TABLE #tmpSportBetType
+	DROP TABLE #tmpNetStakeBettype	
+	
 END
 
