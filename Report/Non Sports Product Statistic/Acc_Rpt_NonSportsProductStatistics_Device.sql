@@ -694,6 +694,8 @@ BEGIN
 				  TotalRefundBase ,
 				  CompanyTurnOver ,
 				  CompanyTurnOverBase ,
+				  RealTurnOver ,
+				  RealTurnOverBase ,
 				  CompanyGrossIncome ,
 				  CompanyGrossIncomeBase ,
 				  CompanyComm ,
