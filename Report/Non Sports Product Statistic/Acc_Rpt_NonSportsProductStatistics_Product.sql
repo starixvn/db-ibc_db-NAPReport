@@ -1352,6 +1352,8 @@ BEGIN
 			  TotalRefundBase ,
 			  CompanyTurnOver ,
 			  CompanyTurnOverBase ,
+			  RealTurnOver ,
+			  RealTurnOverBase ,
 			  CompanyGrossIncome ,
 			  CompanyGrossIncomeBase ,
 			  CompanyComm ,
@@ -1373,6 +1375,9 @@ BEGIN
 
 			SUM(CompanyTurnover) AS CompanyTurnover,	
 			SUM(CompanyTurnoverBase) AS CompanyTurnoverBase,		
+			
+			SUM(RealTurnover) AS RealTurnover,	
+			SUM(RealTurnoverBase) AS RealTurnoverBase,	
 							
 			- SUM(CompanyGrossIncome) AS CompanyGrossIncome,
 			- SUM(CompanyGrossIncomeBase) AS CompanyGrossIncomeBase,
