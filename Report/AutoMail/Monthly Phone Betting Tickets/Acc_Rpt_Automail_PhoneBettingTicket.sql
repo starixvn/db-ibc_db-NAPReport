@@ -14,6 +14,7 @@ AS
 	
 	Revision:		
 		20201118@Cherry: Initial (convert from script adhoc #129840 to SP)
+		20201218@Cherry: Modify SP
 
 	Param's Explanation:
 */ 
@@ -23,31 +24,10 @@ BEGIN
 	CREATE TABLE #tmp (custid INT)
 
 	INSERT INTO #tmp
-	SELECT custid
-	FROM vw_customer WITH(nolocK)
-	WHERE username in
-		(
-		'CMTDFOO',
-		'CMTDKEE',
-		'CMTDRICHIE',
-		'CMTDRICHIE1',
-		'CMTDKUAN',
-		'CMTDBRIAN',
-		'CMTDYAKUSHI',
-		'CMTDFEIBEE',
-		'CMTDPIAU',
-		'CMTDWEI',
-		'CMTDBAO',
-		'CMTDVINH',
-		'CMTDVINH1',
-		'CMTDLIN',
-		'CMTDLSOON',
-		'CMTDDANIEL',
-		'CMTDKingston',
-		'CMTDPATRICK',
-		'CMTDHOI',
-		'Clyde'
-		)
+	SELECT custid  
+	FROM DBCUST.NAP_UserControl.dbo.NAP_Users acc WITH(nolock)
+		INNER JOIN vw_Customer ci WITH(nolock) on ci.custid= acc.UserId
+	WHERE  username like 'CMTD%'
 	
 	CREATE TABLE #statistics(creator INT, cnt INT)
 	
@@ -90,5 +70,8 @@ BEGIN
 		INNER join custinfo c WITH(nolock) ON s.creator = c.custid
 	GROUP BY c.username
 	ORDER BY username
+	
+	DROP TABLE #tmp
+	DROP TABLE #statistics
 	
 END	
