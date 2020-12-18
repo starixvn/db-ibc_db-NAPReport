@@ -14,7 +14,7 @@ AS
 	
 	Revision:		
 		20201118@Cherry: Initial (convert from script adhoc #129840 to SP)
-		20201218@Cherry: Modify SP
+		20201218@Cherry: Modify SP  (#129840)
 
 	Param's Explanation:
 */ 
