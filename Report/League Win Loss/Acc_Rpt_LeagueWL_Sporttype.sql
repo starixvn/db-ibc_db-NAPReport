@@ -24,6 +24,7 @@ AS
 		- 20200923@Jaden.Tang: NAP Report - Add filter by SiteName (#138955)
 		- 20200930@Jaden.Tang: Odds Spread Adjustment (#141750)
 		- 20201016@Jaden.Tang: Refactor for code readability & performance
+		- 20201221@Jaden.Tang: Add live status & global show time filter (#147450)
 
 	Param's Explanation:
 		- @StartDate: The start date of data to view on report
@@ -34,6 +35,7 @@ AS
 		               If value is '', it means that no filter by LeagueName
 		- @SiteName: Filter by list of site names (delimited by commas)
 		- @GlobalDateTime: Filter by matches of @GlobalDateTime (+GMT8), this is a list of enums ranging from 1 - 24
+			Multiple inputs are seperated by commas
 			enum	|	gmt+8 (input)	|	gmt-4 (database server time)
 			---------------------------------------------
 			0		|	00:00 - 23:59	|	00:00 - 23:59 (ALL)
@@ -126,7 +128,7 @@ BEGIN
 								MatchType 	TINYINT)
 
 		;WITH CTE_Match AS (
-			SELECT matchid, leagueid, 0 AS matchtype FROM match WITH (NOLOCK) WHERE eventdate = @StartDate
+			SELECT matchid, leagueid, 0 AS matchtype, GlobalShowTime FROM match WITH (NOLOCK) WHERE eventdate = @StartDate
 			UNION ALL
 			SELECT orid AS matchid, leagueid, 1 AS matchtype, NULL FROM outright WITH (NOLOCK) WHERE eventdate = @StartDate 
 				/* if user filters by GlobalShowTime, then ignore outright data*/
