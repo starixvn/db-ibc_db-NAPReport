@@ -8,6 +8,8 @@ ALTER PROCEDURE dbo.Acc_Rpt_LeagueWL_Sporttype @StartDate SMALLDATETIME,
                                                @SportBettype VARCHAR(MAX),
 											   @LeagueName VARCHAR(500) = '',
 											   @SiteName VARCHAR(MAX) = 'ALL',
+											   @GlobalShowTime VARCHAR(MAX) = '0', /*enum: 0-24*/
+											   @LiveIndicator BIT = NULL,
 										       @IsNoDraw BIT = 0
 AS
 /*
@@ -31,6 +33,20 @@ AS
 		- @LeagueName: The leaguename to view on report
 		               If value is '', it means that no filter by LeagueName
 		- @SiteName: Filter by list of site names (delimited by commas)
+		- @GlobalDateTime: Filter by matches of @GlobalDateTime (+GMT8), this is a list of enums ranging from 1 - 24
+			enum	|	gmt+8 (input)	|	gmt-4 (database server time)
+			---------------------------------------------
+			0		|	00:00 - 23:59	|	00:00 - 23:59 (ALL)
+			1		|	12:00 - 12:59 	|	00:00 - 00:59
+			2		|	13:00 - 13:59	|	01:00 - 01:59
+			3		|	14:00 - 14:59	|	02:00 - 02:59
+			...
+			23		|	10:00 - 10:59	|	22:00 - 22:59
+			24		|	11:00 -	11:59	|	23:00 - 23:59
+		- @LiveIndicator: View by live status of matches
+			+ NULL: ALL - includes Parlay & Odds data
+			+ 1: Live
+			+ 0: Non-live
 		- @IsNoDraw: To get the draw tickets to report or not
 		             0 - Get draw ticktes to report
 					 1 - No get draw ticktes to report
@@ -38,12 +54,54 @@ AS
 	Example:
 		EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Sporttype @StartDate='2020-09-06', @EndDate='2020-09-06', 
 			@SportBettype='1_1,1_2,10000_9,10000_29,2_1,3_1,4_1,5_1,6_1,7_1,8_1,9_1', @LeagueName='', @IsNoDraw=0, 
-			@SiteName = '12Bet,755555,INDO,789y,IBCIndo,BEST-ODDS,722222,733333,XYZBET,asiabet88'
+			@SiteName = '12Bet,755555,INDO,789y,IBCIndo,BEST-ODDS,722222,733333,XYZBET,asiabet88',
+			@GlobalShowTime = '0,1,12,13'
 */
 
 BEGIN
 
 	SET NOCOUNT ON
+
+	BEGIN --#tmpGlobalShowTime
+		CREATE TABLE #tmpGlobalShowTime (ID TINYINT, [From] TIME, [To] TIME)
+
+		;WITH CTE_EnumDict AS (
+			SELECT *
+			FROM (
+			VALUES
+				(0,  '00:00:00', '23:59:59'),
+				(1,  '00:00:00', '00:59:59'),
+				(2,  '01:00:00', '01:59:59'),
+				(3,  '02:00:00', '02:59:59'),
+				(4,  '03:00:00', '03:59:59'),
+				(5,  '04:00:00', '04:59:59'),
+				(6,  '05:00:00', '05:59:59'),
+				(7,  '06:00:00', '06:59:59'),
+				(8,  '07:00:00', '07:59:59'),
+				(9,  '08:00:00', '08:59:59'),
+				(10, '09:00:00', '09:59:59'),
+				(11, '10:00:00', '10:59:59'),
+				(12, '11:00:00', '11:59:59'),
+				(13, '12:00:00', '12:59:59'),
+				(14, '13:00:00', '13:59:59'),
+				(15, '14:00:00', '14:59:59'),
+				(16, '15:00:00', '15:59:59'),
+				(17, '16:00:00', '16:59:59'),
+				(18, '17:00:00', '17:59:59'),
+				(19, '18:00:00', '18:59:59'),
+				(20, '19:00:00', '19:59:59'),
+				(21, '20:00:00', '20:59:59'),
+				(22, '21:00:00', '21:59:59'),
+				(23, '22:00:00', '22:59:59'),
+				(24, '23:00:00', '23:59:59')
+			)sub (ID, [From], [To])
+		)
+		INSERT INTO #tmpGlobalShowTime
+		SELECT CTE_EnumDict.ID, [From], [To]
+		FROM CTE_EnumDict
+		INNER JOIN bodb02.dbo.strSplit(@GlobalShowTime, ',') s
+		ON CTE_EnumDict.ID = s.val
+	END
 
 	BEGIN -- #tmpSportBettypeMatrix
 		CREATE TABLE #tmpSportBettypeMatrix (SportType INT, BetType INT)
@@ -70,16 +128,20 @@ BEGIN
 		;WITH CTE_Match AS (
 			SELECT matchid, leagueid, 0 AS matchtype FROM match WITH (NOLOCK) WHERE eventdate = @StartDate
 			UNION ALL
-			SELECT orid AS matchid, leagueid, 1 AS matchtype FROM outright WITH (NOLOCK) WHERE eventdate = @StartDate
+			SELECT orid AS matchid, leagueid, 1 AS matchtype, NULL FROM outright WITH (NOLOCK) WHERE eventdate = @StartDate 
+				/* if user filters by GlobalShowTime, then ignore outright data*/
+				AND @GlobalShowTime = '0'
 		)
 		INSERT INTO #tmpMatch(MatchID, SportType, LeagueID, LeagueName, MatchType)
 			SELECT m.matchid, l.sporttype, l.leagueid, l.leaguename, m.matchtype
 			FROM CTE_Match m
 			INNER JOIN bodb02.dbo.league l WITH (NOLOCK) 
 				ON m.leagueid = l.leagueid
-				AND ('' = @LeagueName OR leaguename LIKE '%' + @LeagueName + '%' AND isTest = 0)
+				AND ('' = @LeagueName OR leaguename LIKE '%' + @LeagueName + '%' AND isTest = 0),
+			#tmpGlobalShowTime gst
 			WHERE 
 				EXISTS (SELECT 1 FROM #tmpSportBettypeMatrix sbm WHERE l.sporttype = sbm.SportType)
+				AND CONVERT(TIME, m.GlobalShowTime) BETWEEN gst.[From] AND gst.[To]
 			OPTION (RECOMPILE)
 
 		CREATE UNIQUE CLUSTERED INDEX PK_tmpMatch ON #tmpMatch(matchid, matchtype)
@@ -139,6 +201,7 @@ BEGIN
 					/* -------------------------------------------- */
 					AND ('ALL' = @SiteName OR sd.recommend IN (SELECT AgentID FROM #tmpAgentBySite))
 					AND sd.bettype IN (SELECT BetType FROM #tmpSportBettypeMatrix)
+					AND sd.liveindicator = ISNULL(@LiveIndicator, sd.liveindicator)
 			GROUP BY sd.matchid, sd.bettype
 			OPTION (RECOMPILE)
 	END
@@ -194,6 +257,8 @@ BEGIN
 				   SUM(VirtualTurnover)
 			FROM #matchBettypeTmp sd
 			WHERE BetType IN (9, 29, 999)
+				AND @GlobalShowTime = '0' -- only show Parlay & Odds when specific show time is not chosen
+				AND @LiveIndicator IS NULL
 			GROUP BY CASE WHEN sd.bettype IN (9, 29) THEN 10000
 						  WHEN sd.bettype = 999 	 THEN 10001 END
 			OPTION (RECOMPILE)
@@ -230,6 +295,7 @@ BEGIN
 				AND sd.currency NOT IN (20, 27, 28)
 				AND sd.recommend IN (52466, 5707545)
 				AND (@IsNoDraw = 0 OR (@IsNoDraw = 1 AND sd.statusID NOT IN (111)))
+				AND sd.liveindicator = ISNULL(@LiveIndicator, sd.liveindicator)
 			GROUP BY CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466	THEN 100001
 						  WHEN sbm.SportType > 1 AND sd.recommend = 52466	THEN 100002
 						  WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN 100003
