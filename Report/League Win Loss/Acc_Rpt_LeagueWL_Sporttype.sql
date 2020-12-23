@@ -24,7 +24,7 @@ AS
 		- 20200923@Jaden.Tang: NAP Report - Add filter by SiteName (#138955)
 		- 20200930@Jaden.Tang: Odds Spread Adjustment (#141750)
 		- 20201016@Jaden.Tang: Refactor for code readability & performance
-		- 20201221@Jaden.Tang: Add live status & global show time filter (#147450)
+		- 20201221@Jaden.Tang: Add live status & global show time filter (#147450), separate SABA sports
 
 	Param's Explanation:
 		- @StartDate: The start date of data to view on report
@@ -58,6 +58,24 @@ AS
 			@SportBettype='1_1,1_2,10000_9,10000_29,2_1,3_1,4_1,5_1,6_1,7_1,8_1,9_1', @LeagueName='', @IsNoDraw=0, 
 			@SiteName = '12Bet,755555,INDO,789y,IBCIndo,BEST-ODDS,722222,733333,XYZBET,asiabet88',
 			@GlobalShowTime = '0,1,12,13'
+
+	Remarks: 
+		- Only show Parlay & Odds data when specific @GlobalShowTime/@LiveIndicator is specified
+		- Virtual sport id (addictive inverse number of real sport) represents the SABA sports: SABA Soccer (-1), SABA Basketball (-2) & SABA Cricket (-50)	[#147450]
+		- Custom sport id (>= 10000) used to represents Parlay, SB Adjustment & RM metrics
+		Example result:
+			| SportType |       Sport       |     LeagueName    | Other metrics |
+			|:---------:|:-----------------:|:-----------------:|---------------|
+			|     1     |       Soccer      |   FRANCE LIGUE 1  | ...           |
+			|     -1    |    SABA Soccer    |  SABA Tournament  | ...           |
+			|   10000   |       Parlay      |                   | ...           |
+			|   10001   |   SB Adjustment   |                   | ...           |
+			|   100001  |     Soccer 8RM    |     Soccer 8RM    | ...           |
+			|   100002  |  SABA Soccer 8RM  |  SABA Soccer 8RM  | ...           |
+			|   100003  |  Other Sports 8RM |  Other Sports 8RM | ...           |
+			|   100004  |    Soccer BARM    |    Soccer BARM    | ...           |
+			|   100005  |  SABA Soccer BARM |  SABA Soccer BARM | ...           |
+			|   100006  | Other Sports BARM | Other Sports BARM | ...           |
 */
 
 BEGIN
@@ -99,10 +117,10 @@ BEGIN
 			)sub (ID, [From], [To])
 		)
 		INSERT INTO #tmpGlobalShowTime
-		SELECT CTE_EnumDict.ID, [From], [To]
-		FROM CTE_EnumDict
-		INNER JOIN bodb02.dbo.strSplit(@GlobalShowTime, ',') s
-		ON CTE_EnumDict.ID = s.val
+			SELECT CTE_EnumDict.ID, [From], [To]
+			FROM CTE_EnumDict
+			INNER JOIN bodb02.dbo.strSplit(@GlobalShowTime, ',') s
+			ON CTE_EnumDict.ID = s.val
 	END
 
 	BEGIN -- #tmpSportBettypeMatrix
@@ -131,11 +149,18 @@ BEGIN
 			SELECT matchid, leagueid, 0 AS matchtype, GlobalShowTime FROM match WITH (NOLOCK) WHERE eventdate = @StartDate
 			UNION ALL
 			SELECT orid AS matchid, leagueid, 1 AS matchtype, NULL FROM outright WITH (NOLOCK) WHERE eventdate = @StartDate 
-				/* if user filters by GlobalShowTime, then ignore outright data*/
-				AND @GlobalShowTime = '0'
+				AND @GlobalShowTime = '0' /* if user filters by GlobalShowTime, then ignore outright data*/
 		)
 		INSERT INTO #tmpMatch(MatchID, SportType, LeagueID, LeagueName, MatchType)
-			SELECT m.matchid, l.sporttype, l.leagueid, l.leaguename, m.matchtype
+			SELECT 
+				m.matchid, 
+				CASE WHEN l.sporttype = 1 AND l.LeagueGroupID IN (42, 74, 108) THEN -1
+					 WHEN l.sporttype = 2 AND l.LeagueGroupID IN (42, 74, 108) THEN -2
+					 WHEN l.sporttype = 50 AND l.LeagueGroupID IN (42, 74, 108) THEN -50
+					 ELSE l.sporttype END sporttype,
+				l.leagueid, 
+				l.leaguename, 
+				m.matchtype
 			FROM CTE_Match m
 			INNER JOIN bodb02.dbo.league l WITH (NOLOCK) 
 				ON m.leagueid = l.leagueid
@@ -146,7 +171,7 @@ BEGIN
 				AND CONVERT(TIME, m.GlobalShowTime) BETWEEN gst.[From] AND gst.[To]
 			OPTION (RECOMPILE)
 
-		CREATE UNIQUE CLUSTERED INDEX PK_tmpMatch ON #tmpMatch(matchid, matchtype)
+		-- CREATE UNIQUE CLUSTERED INDEX PK_tmpMatch ON #tmpMatch(matchid, matchtype)
 	END
 
 	BEGIN -- #tmpAgentBySite: list of active agents in the list input @SiteName
@@ -267,20 +292,23 @@ BEGIN
 
 		-- + RM
 		INSERT INTO #tmpData
-			SELECT CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466	  THEN 100001
-						WHEN sbm.SportType > 1 AND sd.recommend = 52466	  THEN 100002
-						WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN 100003
-						WHEN sbm.SportType > 1 AND sd.recommend = 5707545 THEN 100004
-						ELSE -100000 END 												AS SportType,
-				   CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466   THEN 'Soccer 8RM'
-						WHEN sbm.SportType > 1 AND sd.recommend = 52466   THEN 'Other Sports 8RM'
-						WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN 'Soccer BARM'
-						WHEN sbm.SportType > 1 AND sd.recommend = 5707545 THEN 'Other Sports BARM'
-						ELSE '' END 													AS LeagueName,
+			SELECT CASE WHEN m.SportType = 1 AND sd.recommend = 52466	  THEN 100001
+						WHEN m.SportType < 0 AND sd.recommend = 52466     THEN 100002
+						WHEN m.SportType > 1 AND sd.recommend = 52466	  THEN 100003
+						WHEN m.SportType = 1 AND sd.recommend = 5707545   THEN 100004
+						WHEN m.SportType < 0 AND sd.recommend = 5707545   THEN 100005
+						WHEN m.SportType > 1 AND sd.recommend = 5707545   THEN 100006 END AS SportType,
+				   MAX(CASE 
+				   		WHEN m.SportType = 1 AND sd.recommend = 52466   THEN 'Soccer 8RM'
+						WHEN m.SportType < 0 AND sd.recommend = 52466   THEN 'SABA Soccer 8RM'
+						WHEN m.SportType > 1 AND sd.recommend = 52466   THEN 'Other Sports 8RM'
+						WHEN m.SportType = 1 AND sd.recommend = 5707545 THEN 'Soccer BARM'
+						WHEN m.SportType < 0 AND sd.recommend = 5707545 THEN 'SABA Soccer BARM'
+						WHEN m.SportType > 1 AND sd.recommend = 5707545 THEN 'Other Sports BARM' END) AS LeagueName,
 				   - SUM(sd.MemberWinLoss),
 				   - SUM(sd.SMAWinLoss),
 				   - SUM(sd.[Extra's Amount]) 											AS ExtraPT,
-				   SUM(sd.CommissionS) 												AS Commission,
+				   SUM(sd.CommissionS) 													AS Commission,
 				   - SUM(sd.RealHouseIncome) 											AS RealIncome,
 				   - SUM(sd.VirtualHouseIncome) 										AS VirtualIncome,
 				   - SUM(sd.VarianceHouseIncome) 										AS VarianceIncome,
@@ -290,7 +318,7 @@ BEGIN
 				INNER JOIN #tmpMatch m 
 					ON sd.matchid = m.MatchID AND CASE WHEN sd.bettype = 10 THEN 1 ELSE 0 END = m.matchtype
 				INNER JOIN #tmpSportBettypeMatrix sbm 
-					ON m.SportType = sbm.SportType AND sd.BetType = sbm.BetType
+					ON sbm.SportType = ABS(m.SportType) AND sd.BetType = sbm.BetType
 			WHERE sd.winlostdate = @StartDate
 				AND sd.ruben = 1
 				AND sd.statusID IN (111, 112, 113)
@@ -298,16 +326,12 @@ BEGIN
 				AND sd.recommend IN (52466, 5707545)
 				AND (@IsNoDraw = 0 OR (@IsNoDraw = 1 AND sd.statusID NOT IN (111)))
 				AND sd.liveindicator = ISNULL(@LiveIndicator, sd.liveindicator)
-			GROUP BY CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466	THEN 100001
-						  WHEN sbm.SportType > 1 AND sd.recommend = 52466	THEN 100002
-						  WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN 100003
-						  WHEN sbm.SportType > 1 AND sd.recommend = 5707545 THEN 100004
-						  ELSE -100000 END,
-					CASE WHEN sbm.SportType = 1 AND sd.recommend = 52466   THEN 'Soccer 8RM'
-						 WHEN sbm.SportType > 1 AND sd.recommend = 52466   THEN 'Other Sports 8RM'
-						 WHEN sbm.SportType = 1 AND sd.recommend = 5707545 THEN 'Soccer BARM'
-						 WHEN sbm.SportType > 1 AND sd.recommend = 5707545 THEN 'Other Sports BARM'
-						 ELSE '' END
+			GROUP BY CASE WHEN m.SportType = 1 AND sd.recommend = 52466	  THEN 100001
+						  WHEN m.SportType < 0 AND sd.recommend = 52466   THEN 100002
+						  WHEN m.SportType > 1 AND sd.recommend = 52466	  THEN 100003
+						  WHEN m.SportType = 1 AND sd.recommend = 5707545 THEN 100004
+						  WHEN m.SportType < 0 AND sd.recommend = 5707545 THEN 100005
+						  WHEN m.SportType > 1 AND sd.recommend = 5707545 THEN 100006 END
 			OPTION (RECOMPILE)
 	END
 
@@ -316,9 +340,10 @@ BEGIN
 	FROM 
 	(
 		SELECT t.SportType,
-			CASE WHEN t.SportType = 10000 THEN 'Parlay'
-				 WHEN t.SportType = 10001 THEN 'SB Adjustment'
-				 WHEN t.SportType BETWEEN 100001 AND 100004 THEN LeagueName
+			CASE WHEN t.SportType = 10000  THEN 'Parlay'
+				 WHEN t.SportType = 10001  THEN 'SB Adjustment'
+				 WHEN t.SportType > 100000 THEN LeagueName
+				 WHEN t.SportType < 0 	   THEN 'SABA ' + SportName
 				 ELSE SportName END AS Sport,
 			LeagueName,
 			MemberWinLoss,
@@ -332,18 +357,24 @@ BEGIN
 			VirtualTurnover
 		FROM #tmpData t
 		LEFT JOIN bodb02.dbo.Sports WITH (NOLOCK)
-			ON Sports.SportType = t.SportType
+			ON Sports.SportType = ABS(t.SportType)
 		WHERE MemberWinLoss IS NOT NULL
 	) AS s
-	ORDER BY CASE WHEN Sport = 'Soccer' 		THEN 1
-				  WHEN Sport = 'Parlay' 		THEN 2
-				  WHEN Sport = 'SB Adjustment'  THEN 3
-				  WHEN Sport = 'Basketball'  	THEN 4
-				  WHEN Sport = 'Tennis'		 	THEN 5
-				  WHEN Sport = 'E-Sports'	 	THEN 6 
+	--fix some sports at top, then sort by sport name (for non RM summary lines), then league name
+	ORDER BY CASE WHEN Sport = 'Soccer' 		 THEN 1
+				  WHEN Sport = 'SABA Soccer' 	 THEN 2
+				  WHEN Sport = 'Parlay' 		 THEN 3
+				  WHEN Sport = 'SB Adjustment'   THEN 4
+				  WHEN Sport = 'Basketball'  	 THEN 5
+				  WHEN Sport = 'SABA Basketball' THEN 6
+				  WHEN Sport = 'Tennis'		 	 THEN 7
+				  WHEN Sport = 'E-Sports'	 	 THEN 8 
 				  ELSE 
-				  	CASE WHEN SportType > 100000 THEN 99 ELSE 7 END
-				  END, Sport, LeagueName --fix some sports at top, then sort by league name
+				  	CASE WHEN SportType > 100000 THEN 99 ELSE 9 END
+				  END
+				  , CASE WHEN SportType > 100000 THEN SportType END
+				  , Sport
+				  , LeagueName
 
 	DROP TABLE #tmpSportBettypeMatrix
 	DROP TABLE #tmpMatch
