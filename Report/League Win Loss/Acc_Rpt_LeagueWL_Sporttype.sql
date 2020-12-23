@@ -382,5 +382,6 @@ BEGIN
 	DROP TABLE #tmpData
 	DROP TABLE #tmpAgentBySite
 	DROP TABLE #matchBettypeTmp
+	DROP TABLE #tmpGlobalShowTime
 END
 GO
