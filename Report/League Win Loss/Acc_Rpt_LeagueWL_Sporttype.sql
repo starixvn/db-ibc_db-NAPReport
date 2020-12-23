@@ -8,7 +8,7 @@ ALTER PROCEDURE dbo.Acc_Rpt_LeagueWL_Sporttype @StartDate SMALLDATETIME,
                                                @SportBettype VARCHAR(MAX),
 											   @LeagueName VARCHAR(500) = '',
 											   @SiteName VARCHAR(MAX) = 'ALL',
-											   @GlobalShowTime VARCHAR(MAX) = '0', /*enum: 0-24*/
+											   @GlobalShowTime VARCHAR(MAX) = '0',
 											   @LiveIndicator BIT = NULL,
 										       @IsNoDraw BIT = 0
 AS
@@ -34,7 +34,7 @@ AS
 		- @LeagueName: The leaguename to view on report
 		               If value is '', it means that no filter by LeagueName
 		- @SiteName: Filter by list of site names (delimited by commas)
-		- @GlobalDateTime: Filter by matches of @GlobalDateTime (+GMT8), this is a list of enums ranging from 1 - 24
+		- @GlobalDateTime: Filter by matches of @GlobalDateTime (+GMT8), this is a list of enums ranging from 0 - 24
 			Multiple inputs are seperated by commas
 			enum	|	gmt+8 (input)	|	gmt-4 (database server time)
 			---------------------------------------------
@@ -61,7 +61,8 @@ AS
 
 	Remarks: 
 		- Only show Parlay & Odds data when specific @GlobalShowTime/@LiveIndicator is specified
-		- Virtual sport id (addictive inverse number of real sport) represents the SABA sports: SABA Soccer (-1), SABA Basketball (-2) & SABA Cricket (-50)	[#147450]
+		- Virtual sport id (addictive inverse number of real sport) represents the SABA sports: 
+			SABA Soccer (-1), SABA Basketball (-2) & SABA Cricket (-50)	[#147450]
 		- Custom sport id (>= 10000) used to represents Parlay, SB Adjustment & RM metrics
 		Example result:
 			| SportType |       Sport       |     LeagueName    | Other metrics |
@@ -170,8 +171,6 @@ BEGIN
 				EXISTS (SELECT 1 FROM #tmpSportBettypeMatrix sbm WHERE l.sporttype = sbm.SportType)
 				AND CONVERT(TIME, m.GlobalShowTime) BETWEEN gst.[From] AND gst.[To]
 			OPTION (RECOMPILE)
-
-		-- CREATE UNIQUE CLUSTERED INDEX PK_tmpMatch ON #tmpMatch(matchid, matchtype)
 	END
 
 	BEGIN -- #tmpAgentBySite: list of active agents in the list input @SiteName
