@@ -5,7 +5,9 @@ GO
 
 ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_Sportsbook_Outright_MatchDetail] @StartDate SMALLDATETIME, 
                                                                                @EndDate   SMALLDATETIME, 
-                                                                               @SportType SMALLINT      = 1
+                                                                               @SportType SMALLINT      = 1,
+																			   @IsSabaSport BIT = 0,
+																			   @IsNoDraw BIT = 0
 AS
 
 /*
@@ -20,6 +22,7 @@ Revisions:
   20190828@Cherry: Hot fix Bet Buider (#119077)
 - 20190925@Jacob: Group By CN88 (#118824)
 - 20191212@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
+- 20201222@Kean: Support to filter NoDraw and separate the SABA sports - NAP Report (#147451)
 
 Example:
 EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Outright_MatchDetail] @EndDate='2020-01-01',@StartDate='2016-01-01', @SportType=2
@@ -27,6 +30,14 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Outright_MatchDetail] @EndDate='2020-01-
 */
 
      SET NOCOUNT ON;
+	 BEGIN -- #SABALeagueGroup
+		DECLARE @LeagueGroupStr VARCHAR(500);
+		CREATE TABLE #SABALeagueGroup(LeagueGroupID INT)
+		SELECT @LeagueGroupStr = [VValue] FROM DBWH.[bodb_Account].[dbo].[SystemSettings] WHERE VID = 5
+
+		INSERT INTO #SABALeagueGroup
+		SELECT val FROM dbo.strSplit(@LeagueGroupStr,',')
+	END;
     BEGIN -- #Match
 
         CREATE TABLE #Match
@@ -43,7 +54,10 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Outright_MatchDetail] @EndDate='2020-01-
                FROM outright o WITH(NOLOCK)
                     INNER JOIN league l WITH(NOLOCK) ON o.LeagueId = l.LeagueId
                WHERE EventDate = @StartDate
-                     AND l.sporttype = @SportType;
+                     AND l.sporttype = @SportType
+					 AND ((@IsSabaSport = 0 AND l.LeagueGroupID NOT IN (SELECT LeagueGroupID FROM #SABALeagueGroup)) 
+							OR (@IsSabaSport = 1 AND l.LeagueGroupID IN (SELECT LeagueGroupID FROM #SABALeagueGroup))
+						);
     END;
     BEGIN -- #Data
 
@@ -117,18 +131,34 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Outright_MatchDetail] @EndDate='2020-01-
                                                                                                       THEN virtualrate
                                                                                                       ELSE actualrate
                                                                                                   END
-                          END) RealTurnover, 
+                          END *
+							CASE WHEN @IsNoDraw = 1 
+								THEN CASE WHEN (b.bettype < 999 OR b.bettype BETWEEN 1301 AND 1399 OR b.bettype BETWEEN 9001 AND 9399) --SportBooks
+												AND b.bettype NOT IN (29, 38, 911, 912, 913, 914) --exclude parlay, bet builder, cashout
+												AND b.bettype NOT BETWEEN 81 AND 120 --exclude number game
+												AND ABS(modds) = 0.25 --to identify Half won/lost tickets
+										THEN 0.5
+									ELSE 1 END
+								ELSE 1 END) RealTurnover, 
                       SUM(CASE
                               WHEN tpositiontaking = 1
                               THEN 0
                               ELSE(1 - b.tpositiontaking - ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * ABS(b.stake) * virtualrate
-                          END) VirtualTurnover
+                          END *
+							CASE WHEN @IsNoDraw = 1 
+								THEN CASE WHEN (b.bettype < 999 OR b.bettype BETWEEN 1301 AND 1399 OR b.bettype BETWEEN 9001 AND 9399) --SportBooks
+												AND b.bettype NOT IN (29, 38, 911, 912, 913, 914) --exclude parlay, bet builder, cashout
+												AND b.bettype NOT BETWEEN 81 AND 120 --exclude number game
+												AND ABS(modds) = 0.25 --to identify Half won/lost tickets
+										THEN 0.5
+									ELSE 1 END
+								ELSE 1 END) VirtualTurnover
                FROM bettrans b WITH(NOLOCK)
                     INNER JOIN #Match m WITH(NOLOCK) ON b.MatchId = m.MatchId
                WHERE b.winlostdate = @StartDate
                      AND b.BetType = 10
                      AND b.ruben = 1
-                     AND b.statusID IN(111, 112, 113)
+                     AND  ((@IsNoDraw = 0 AND b.statusID IN(111, 112, 113)) OR (@IsNoDraw = 1 AND statusID IN (112, 113)))
                GROUP BY m.MatchId, 
                         m.MatchCode, 
                         m.TeamId, 
@@ -192,18 +222,34 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Outright_MatchDetail] @EndDate='2020-01-
                                                                                                       THEN virtualrate
                                                                                                       ELSE actualrate
                                                                                                   END
-                          END) AS RealTurnover, 
+                          END *
+							CASE WHEN @IsNoDraw = 1 
+								THEN CASE WHEN (b.bettype < 999 OR b.bettype BETWEEN 1301 AND 1399 OR b.bettype BETWEEN 9001 AND 9399) --SportBooks
+												AND b.bettype NOT IN (29, 38, 911, 912, 913, 914) --exclude parlay, bet builder, cashout
+												AND b.bettype NOT BETWEEN 81 AND 120 --exclude number game
+												AND ABS(modds) = 0.25 --to identify Half won/lost tickets
+										THEN 0.5
+									ELSE 1 END
+								ELSE 1 END) AS RealTurnover, 
                       SUM(CASE
                               WHEN tpositiontaking = 1
                               THEN 0
                               ELSE(1 - b.tpositiontaking - ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * ABS(b.stake) * virtualrate
-                          END) AS VirtualTurnover
+                          END *
+							CASE WHEN @IsNoDraw = 1 
+								THEN CASE WHEN (b.bettype < 999 OR b.bettype BETWEEN 1301 AND 1399 OR b.bettype BETWEEN 9001 AND 9399) --SportBooks
+												AND b.bettype NOT IN (29, 38, 911, 912, 913, 914) --exclude parlay, bet builder, cashout
+												AND b.bettype NOT BETWEEN 81 AND 120 --exclude number game
+												AND ABS(modds) = 0.25 --to identify Half won/lost tickets
+										THEN 0.5
+									ELSE 1 END
+								ELSE 1 END) AS VirtualTurnover
                FROM bettrans b WITH(NOLOCK)
                     INNER JOIN #Match m ON b.MatchId = m.MatchId
                WHERE b.winlostdate = @StartDate
                      AND b.BetType = 10
                      AND b.ruben = 1
-                     AND b.statusID IN(111, 112, 113)
+                     AND  ((@IsNoDraw = 0 AND b.statusID IN(111, 112, 113)) OR (@IsNoDraw = 1 AND statusID IN (112, 113)))
                     AND b.recommend IN(52466, 5707545)
                GROUP BY CASE
                             WHEN b.recommend = 52466
@@ -235,4 +281,5 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Outright_MatchDetail] @EndDate='2020-01-
     
 	DROP TABLE #Match;
     DROP TABLE #Data;
+	DROP TABLE #SABALeagueGroup;
 GO
