@@ -9,7 +9,7 @@ ALTER PROCEDURE dbo.Acc_Rpt_LeagueWL_Sporttype @StartDate SMALLDATETIME,
 											   @LeagueName VARCHAR(500) = '',
 											   @SiteName VARCHAR(MAX) = 'ALL',
 											   @GlobalShowTime VARCHAR(MAX) = '0',
-											   @LiveIndicator BIT = NULL,
+											   @LiveIndicator TINYINT = 2,
 										       @IsNoDraw BIT = 0
 AS
 /*
@@ -46,7 +46,7 @@ AS
 			23		|	10:00 - 10:59	|	22:00 - 22:59
 			24		|	11:00 -	11:59	|	23:00 - 23:59
 		- @LiveIndicator: View by live status of matches
-			+ NULL: ALL - includes Parlay & Odds data
+			+ 2: ALL - includes Parlay & Odds data
 			+ 1: Live
 			+ 0: Non-live
 		- @IsNoDraw: To get the draw tickets to report or not
@@ -82,6 +82,8 @@ AS
 BEGIN
 
 	SET NOCOUNT ON
+
+	IF @LiveIndicator > 1 SET @LiveIndicator = NULL
 
 	BEGIN --#tmpGlobalShowTime
 		CREATE TABLE #tmpGlobalShowTime (ID TINYINT, [From] TIME, [To] TIME)
