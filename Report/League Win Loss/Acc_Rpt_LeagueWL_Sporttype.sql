@@ -141,6 +141,9 @@ BEGIN
 		OPTION (RECOMPILE)
 	END
 
+	DECLARE @SABA_GROUPIDS VARCHAR(100)
+	SELECT @SABA_GROUPIDS = [VValue] FROM [DBDW].[bodb_Account].[dbo].[SystemSettings] WHERE VID = 5
+
 	BEGIN -- #tmpMatch
 		CREATE TABLE #tmpMatch (MatchID 	INT,
 								SportType 	INT,
@@ -153,13 +156,15 @@ BEGIN
 			UNION ALL
 			SELECT orid AS matchid, leagueid, 1 AS matchtype, NULL FROM outright WITH (NOLOCK) WHERE eventdate = @StartDate 
 				AND @GlobalShowTime = '0' /* if user filters by GlobalShowTime, then ignore outright data*/
+		), CTE_SABA_Groups AS (
+			SELECT val FROM bodb02.dbo.strSplit(@SABA_GROUPIDS, ',')
 		)
 		INSERT INTO #tmpMatch(MatchID, SportType, LeagueID, LeagueName, MatchType)
 			SELECT 
 				m.matchid, 
-				CASE WHEN l.sporttype = 1 AND l.LeagueGroupID IN (42, 74, 108) THEN -1
-					 WHEN l.sporttype = 2 AND l.LeagueGroupID IN (42, 74, 108) THEN -2
-					 WHEN l.sporttype = 50 AND l.LeagueGroupID IN (42, 74, 108) THEN -50
+				CASE WHEN l.sporttype = 1 AND l.LeagueGroupID IN (SELECT val FROM CTE_SABA_Groups) THEN -1
+					 WHEN l.sporttype = 2 AND l.LeagueGroupID IN (SELECT val FROM CTE_SABA_Groups) THEN -2
+					 WHEN l.sporttype = 50 AND l.LeagueGroupID IN (SELECT val FROM CTE_SABA_Groups) THEN -50
 					 ELSE l.sporttype END sporttype,
 				l.leagueid, 
 				l.leaguename, 
