@@ -50,6 +50,7 @@ AS
 		20200917@Cherry: Improve performance (#141844)
 		20200922@Cherry: Improve performance (#142096)
 		20200928@Cherry: Hot fix (#142436)
+		20201210@Cherry: Add Real Turnover (#146137)
 
 	Param's Explanation:
 		- @username:  + Search by keyword, member only
@@ -107,6 +108,7 @@ BEGIN
 					NULL AS TotalWins,
 					NULL AS TotalRefund,
 					NULL AS CompanyTurnover,
+					NULL AS RealTurnover,
 					NULL AS CompanyGrossIncome,
 					NULL AS CompanyComm,
 					NULL AS ExtraPT
@@ -123,6 +125,7 @@ BEGIN
 				NULL AS TotalWins,
 				NULL AS TotalRefund,
 				NULL AS CompanyTurnover,
+				NULL AS RealTurnover,
 				NULL AS CompanyGrossIncome,
 				NULL AS CompanyComm,
 				NULL AS ExtraPT
@@ -140,6 +143,7 @@ BEGIN
 						 TotalWins DECIMAL(19,4), TotalWinsBase DECIMAL(19,4),
 						 TotalRefund DECIMAL(19,4), TotalRefundBase DECIMAL(19,4),
 						 CompanyTurnOver DECIMAL(19,4), CompanyTurnOverBase DECIMAL(19,4),
+						 RealTurnOver DECIMAL(19,4), RealTurnOverBase DECIMAL(19,4),
 						 CompanyGrossIncome DECIMAL(19,4), CompanyGrossIncomeBase DECIMAL(19,4),
 						 CompanyComm DECIMAL(19,4), CompanyCommBase DECIMAL(19,4),
 						 ExtraPT DECIMAL(19,8), ExtraPTBase DECIMAL(19,8)
@@ -150,6 +154,7 @@ BEGIN
 							TotalWins DECIMAL(19,4), TotalWinsBase DECIMAL(19,4),
 							TotalRefund DECIMAL(19,4), TotalRefundBase DECIMAL(19,4),
 							CompanyTurnOver DECIMAL(19,4), CompanyTurnOverBase DECIMAL(19,4),
+							RealTurnOver DECIMAL(19,4), RealTurnOverBase DECIMAL(19,4),
 							CompanyGrossIncome DECIMAL(19,4), CompanyGrossIncomeBase DECIMAL(19,4),
 							CompanyComm DECIMAL(19,4), CompanyCommBase DECIMAL(19,4),
 							ExtraPT DECIMAL(19,8), ExtraPTBase DECIMAL(19,8)						
@@ -375,6 +380,8 @@ BEGIN
 				  TotalRefundBase ,
 				  CompanyTurnOver ,
 				  CompanyTurnOverBase ,
+				  RealTurnOver ,
+				  RealTurnOverBase ,
 				  CompanyGrossIncome ,
 				  CompanyGrossIncomeBase ,
 				  CompanyComm ,
@@ -401,7 +408,14 @@ BEGIN
 						ELSE (1 - b.tpositiontaking - CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) * b.stake END) AS CompanyTurnover,	
 				SUM((CASE WHEN b.statusID IN (103) THEN 0 
 						WHEN b.tpositiontaking = 1 THEN 0
-						ELSE (1 - b.tpositiontaking - CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) * b.stake END) * actualrate) AS CompanyTurnoverBase,		
+						ELSE (1 - b.tpositiontaking - CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) * b.stake END) * actualrate) AS CompanyTurnoverBase,	
+						
+				SUM(CASE WHEN b.statusID IN (103) THEN 0 
+						WHEN b.tpositiontaking = 1 THEN 0
+						ELSE (1 - b.tpositiontaking - CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) * b.oddsspread END) AS RealTurnover,	
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 
+						WHEN b.tpositiontaking = 1 THEN 0
+						ELSE (1 - b.tpositiontaking - CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) * b.oddsspread END) * actualrate) AS RealTurnoverBase,		
 								
 				- SUM(winlost - actual_stake + awinlost + mwinlost + swinlost) AS CompanyGrossIncome,
 				- SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeBase,
@@ -680,6 +694,8 @@ BEGIN
 				  TotalRefundBase ,
 				  CompanyTurnOver ,
 				  CompanyTurnOverBase ,
+				  RealTurnOver ,
+				  RealTurnOverBase ,
 				  CompanyGrossIncome ,
 				  CompanyGrossIncomeBase ,
 				  CompanyComm ,
@@ -706,6 +722,13 @@ BEGIN
 				SUM((CASE WHEN b.statusID IN (103) THEN 0 
 						WHEN b.tpositiontaking = 1 THEN 0
 						ELSE (1 - b.tpositiontaking - CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) * b.stake END) * actualrate) AS CompanyTurnoverBase,		
+						
+				SUM(CASE WHEN b.statusID IN (103) THEN 0 
+						WHEN b.tpositiontaking = 1 THEN 0
+						ELSE (1 - b.tpositiontaking - CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) * b.NetStake END) AS RealTurnover,	
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 
+						WHEN b.tpositiontaking = 1 THEN 0
+						ELSE (1 - b.tpositiontaking - CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) * b.NetStake END) * actualrate) AS RealTurnoverBase,	
 								
 				- SUM(winlost - actual_stake + awinlost + mwinlost + swinlost) AS CompanyGrossIncome,
 				- SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeBase,
@@ -1286,6 +1309,18 @@ BEGIN
 		OPTION(RECOMPILE)
 	END
 	
+	--Update Real Turnover
+	CREATE TABLE #tmpNetStakeBettype (Bettype INT)
+	INSERT INTO #tmpNetStakeBettype (Bettype)
+	SELECT Bettype
+	FROM DBWH.bodb_Account.dbo.BettypeGroup WITH (NOLOCK)
+	WHERE BettypeGroupID = 13
+	
+	UPDATE #Data
+	SET RealTurnover = CompanyTurnover,
+		RealTurnoverBase = CompanyTurnoverBase
+	WHERE bettype NOT IN (SELECT Bettype FROM #tmpNetStakeBettype)
+	
 	-- Get Currency name
 	UPDATE d
 	SET d.Currency = e.currency
@@ -1317,12 +1352,14 @@ BEGIN
 				TotalWins ,
 				TotalRefund ,
 				CompanyTurnOver ,
+				RealTurnOver ,
 				CompanyGrossIncome ,
 				CompanyComm,
 				TotalBetsBase,
 				TotalWinsBase,
 				TotalRefundBase,
 				CompanyTurnOverBase,
+				RealTurnOverBase,
 				CompanyGrossIncomeBase,
 				CompanyCommBase,
 				ExtraPT,
@@ -1339,12 +1376,14 @@ BEGIN
 			SUM(b.TotalWinsBase) AS TotalWins,
 			SUM(b.TotalRefundBase) AS TotalRefund,
 			SUM(b.CompanyTurnOverBase) AS CompanyTurnOver,
+			SUM(b.RealTurnOverBase) AS RealTurnOver,
 			SUM(b.CompanyGrossIncomeBase) AS CompanyGrossIncome,            
 			SUM(b.CompanyCommBase) AS CompanyComm,
 			SUM(b.TotalBetsBase) AS TotalBetsBase,
 			SUM(b.TotalWinsBase) AS TotalWinsBase,
 			SUM(b.TotalRefundBase) AS TotalRefundBase,
 			SUM(b.CompanyTurnOverBase) AS CompanyTurnOverBase,
+			SUM(b.RealTurnOverBase) AS RealTurnOverBase,
 			SUM(b.CompanyGrossIncomeBase) AS CompanyGrossIncomeBase,            
 			SUM(b.CompanyCommBase) AS CompanyCommBase,
 			SUM(b.ExtraPTBase) ExtraPT,
@@ -1374,12 +1413,14 @@ BEGIN
 				TotalWins ,
 				TotalRefund ,
 				CompanyTurnOver ,
+				RealTurnOver ,
 				CompanyGrossIncome ,
 				CompanyComm,
 				TotalBetsBase,
 				TotalWinsBase,
 				TotalRefundBase,
 				CompanyTurnOverBase,
+				RealTurnOverBase,
 				CompanyGrossIncomeBase,
 				CompanyCommBase,
 				ExtraPT,
@@ -1396,12 +1437,14 @@ BEGIN
 				SUM(b.TotalWins) AS TotalWins,
 				SUM(b.TotalRefund) AS TotalRefund,
 				SUM(b.CompanyTurnOver) AS CompanyTurnOver,
+				SUM(b.RealTurnOver) AS RealTurnOver,
 				SUM(b.CompanyGrossIncome) AS CompanyGrossIncome,            
 				SUM(b.CompanyComm) AS CompanyComm,
 				SUM(b.TotalBetsBase) AS TotalBetsBase,
 				SUM(b.TotalWinsBase) AS TotalWinsBase,
 				SUM(b.TotalRefundBase) AS TotalRefundBase,
 				SUM(b.CompanyTurnOverBase) AS CompanyTurnOverBase,
+				SUM(b.RealTurnOverBase) AS RealTurnOverBase,
 				SUM(b.CompanyGrossIncomeBase) AS CompanyGrossIncomeBase,            
 				SUM(b.CompanyCommBase) AS CompanyCommBase,
 				SUM(b.ExtraPT) ExtraPT,
@@ -1433,6 +1476,7 @@ BEGIN
 				TotalWins,
 				TotalRefund,
 				CompanyTurnOver AS HouseTurnOver,
+				RealTurnOver AS RealTurnOver,
 				CompanyGrossIncome AS HouseGrossIncome,
 				CompanyComm AS HouseComm,
 				ExtraPT
@@ -1449,8 +1493,8 @@ BEGIN
 				CASE WHEN @Currency = '-1' THEN SUM(b.TotalBetsBase) ELSE SUM(b.TotalBets) END AS TotalBets,
 				CASE WHEN @Currency = '-1' THEN SUM(b.TotalWinsBase) ELSE SUM(b.TotalWins) END AS TotalWins,
 				CASE WHEN @Currency = '-1' THEN SUM(b.TotalRefundBase) ELSE SUM(b.TotalRefund) END AS TotalRefund,
-				CASE WHEN @Currency = '-1' THEN SUM(b.CompanyTurnOverBase) 
-					 ELSE SUM(b.CompanyTurnOver) END AS HouseTurnOver,
+				CASE WHEN @Currency = '-1' THEN SUM(b.CompanyTurnOverBase) ELSE SUM(b.CompanyTurnOver) END AS HouseTurnOver,
+				CASE WHEN @Currency = '-1' THEN SUM(b.RealTurnOverBase) ELSE SUM(b.RealTurnOver) END AS RealTurnOver,
 				CASE WHEN @Currency = '-1' THEN SUM(b.CompanyGrossIncomeBase) ELSE SUM(b.CompanyGrossIncome) END AS HouseGrossIncome,
 				CASE WHEN @Currency = '-1' THEN SUM(b.CompanyCommBase) ELSE SUM(b.CompanyComm) END AS HouseComm,
 				CASE WHEN @Currency = '-1' THEN SUM(b.ExtraPTBase) 
@@ -1472,8 +1516,8 @@ BEGIN
 				CASE WHEN @Currency = '-1' THEN SUM(b.TotalBetsBase) ELSE SUM(b.TotalBets) END AS TotalBets,
 				CASE WHEN @Currency = '-1' THEN SUM(b.TotalWinsBase) ELSE SUM(b.TotalWins) END AS TotalWins,
 				CASE WHEN @Currency = '-1' THEN SUM(b.TotalRefundBase) ELSE SUM(b.TotalRefund) END AS TotalRefund,
-				CASE WHEN @Currency = '-1' THEN SUM(b.CompanyTurnOverBase) 
-					 ELSE SUM(b.CompanyTurnOver) END AS HouseTurnOver,
+				CASE WHEN @Currency = '-1' THEN SUM(b.CompanyTurnOverBase) ELSE SUM(b.CompanyTurnOver) END AS HouseTurnOver,
+				CASE WHEN @Currency = '-1' THEN SUM(b.RealTurnOverBase) ELSE SUM(b.RealTurnOver) END AS RealTurnOver,
 				CASE WHEN @Currency = '-1' THEN SUM(b.CompanyGrossIncomeBase) ELSE SUM(b.CompanyGrossIncome) END AS HouseGrossIncome,
 				CASE WHEN @Currency = '-1' THEN SUM(b.CompanyCommBase) ELSE SUM(b.CompanyComm) END AS HouseComm,
 				CASE WHEN @Currency = '-1' THEN SUM(b.ExtraPTBase) 
@@ -1515,6 +1559,7 @@ BEGIN
 			SUM(b.TotalWinsBase) TotalWins,
 			SUM(b.TotalRefundBase) TotalRefund,
 			SUM(b.CompanyTurnOverBase) HouseTurnOver,
+			SUM(b.RealTurnOverBase) RealTurnOver,
 			SUM(b.CompanyGrossIncomeBase) HouseGrossIncome,
 			SUM(b.CompanyCommBase) HouseComm,
 			SUM(b.ExtraPTBase) ExtraPT
@@ -1534,6 +1579,7 @@ BEGIN
 			SUM(b.TotalWinsBase) TotalWins,
 			SUM(b.TotalRefundBase) TotalRefund,
 			SUM(b.CompanyTurnOverBase) HouseTurnOver,
+			SUM(b.RealTurnOverBase) RealTurnOver,
 			SUM(b.CompanyGrossIncomeBase) HouseGrossIncome,
 			SUM(b.CompanyCommBase) HouseComm,
 			SUM(b.ExtraPTBase) ExtraPT
@@ -1553,6 +1599,7 @@ BEGIN
 			SUM(b.TotalWinsBase) TotalWins,
 			SUM(b.TotalRefundBase) TotalRefund,
 			SUM(b.CompanyTurnOverBase) HouseTurnOver,
+			SUM(b.RealTurnOverBase) RealTurnOver,
 			SUM(b.CompanyGrossIncomeBase) HouseGrossIncome,
 			SUM(b.CompanyCommBase) HouseComm,
 			SUM(b.ExtraPTBase) ExtraPT
@@ -1579,5 +1626,7 @@ BEGIN
 	DROP TABLE #tmpCurrency
 	DROP TABLE #tmpContributionBettype	
 	DROP TABLE #tmpSportBetType
+	DROP TABLE #tmpNetStakeBettype	
+	
 END
 
