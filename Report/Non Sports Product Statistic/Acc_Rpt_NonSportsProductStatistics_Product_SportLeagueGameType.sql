@@ -51,6 +51,7 @@ AS
 		20200922@Cherry: Improve performance (#142096)
 		20200928@Cherry: Hot fix (#142436)
 		20201210@Cherry: Add Real Turnover (#146137)
+		20201224@Cherry: Integrate Happy 5 Linked Games (#146537)
 
 	Param's Explanation:
 		- @username:  + Search by keyword, member only
@@ -835,7 +836,9 @@ BEGIN
 	-- NumberGame
 	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID = 3)
 	BEGIN
-		INSERT INTO #Data
+		IF EXISTS (SELECT 1 FROM #tmp_LeagueID WHERE LeagueID <> 168)
+		BEGIN
+			INSERT INTO #Data
 				( ReportBy,
 				  bettype,
 				  srecommend,
@@ -857,7 +860,7 @@ BEGIN
 				  ExtraPT,
 				  ExtraPTBase
 				)
-		SELECT  m.leagueid ReportBy, b.bettype, b.srecommend,
+			SELECT  m.leagueid ReportBy, b.bettype, b.srecommend,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
 				COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS BetCount, b.Currency,
 
@@ -888,27 +891,105 @@ BEGIN
 				- SUM((winlost - actual_stake + CASE WHEN tpositiontaking = 1 THEN 0
 							ELSE scomm / (1 - tpositiontaking) END) * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8)) * actualrate) ExtraPTBase						
 
-		FROM dbo.Bettrans b WITH (NOLOCK) 
-			INNER JOIN Match m WITH (NOLOCK) ON m.matchid = b.matchid
-		WHERE b.WinlostDate = @WLDate
-			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 3)
-			AND b.ruben = 1
-			AND b.statusID IN (111, 112, 113, 103) 
-			AND EXISTS (SELECT 1 FROM #tmp_LeagueID l WHERE m.leagueid = l.LeagueID AND l.Bettype = b.bettype)
-			AND (@ExcludeTest = 0 OR (b.Currency <> 20 AND @ExcludeTest = 1))
-			AND (@currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId)) 
-			AND (@Username = '' OR EXISTS (SELECT 1 From #tmp_MemIDs m WHERE m.CustID = b.custId))
-			AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
-			AND ( @Site = 'ALL'
-				  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.srecommend = b.srecommend))
+			FROM dbo.Bettrans b WITH (NOLOCK) 
+				INNER JOIN Match m WITH (NOLOCK) ON m.matchid = b.matchid
+			WHERE b.WinlostDate = @WLDate
+				AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 3)
+				AND b.ruben = 1
+				AND b.statusID IN (111, 112, 113, 103) 
+				AND EXISTS (SELECT 1 FROM #tmp_LeagueID l WHERE m.leagueid = l.LeagueID AND l.Bettype = b.bettype)
+				AND (@ExcludeTest = 0 OR (b.Currency <> 20 AND @ExcludeTest = 1))
+				AND (@currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId)) 
+				AND (@Username = '' OR EXISTS (SELECT 1 From #tmp_MemIDs m WHERE m.CustID = b.custId))
+				AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
+				AND ( @Site = 'ALL'
+					  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.srecommend = b.srecommend))
+					)
+				AND (
+					@HousePTType = 0
+					OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) 
+					OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
+					)
+			GROUP BY m.leagueid, b.bettype, b.srecommend, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, b.Currency
+			OPTION(RECOMPILE)
+		END
+		
+		IF EXISTS (SELECT 1 FROM #tmp_LeagueID WHERE LeagueID = 168)
+		BEGIN
+			INSERT INTO #Data
+				( ReportBy,
+				  bettype,
+				  srecommend,
+				  CustID ,
+				  BetCount ,
+				  CurrencyID ,	         
+				  TotalBets ,
+				  TotalBetsBase ,
+				  TotalWins ,
+				  TotalWinsBase ,
+				  TotalRefund ,
+				  TotalRefundBase ,
+				  CompanyTurnOver ,
+				  CompanyTurnOverBase ,
+				  CompanyGrossIncome ,
+				  CompanyGrossIncomeBase ,
+				  CompanyComm ,
+				  CompanyCommBase,
+				  ExtraPT,
+				  ExtraPTBase
 				)
-			AND (
-				@HousePTType = 0
-				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) 
-				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
-				)
-		GROUP BY m.leagueid, b.bettype, b.srecommend, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, b.Currency
-		OPTION(RECOMPILE)
+			SELECT  168 ReportBy, b.bettype, b.srecommend,
+				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
+				COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS BetCount, b.Currency,
+
+				SUM(CASE WHEN b.statusID IN (103) THEN 0 ELSE actual_stake END) AS TotalBets,
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 ELSE actual_stake END) * actualrate)  AS TotalBetsBase,
+
+				SUM(CASE WHEN b.statusID IN (103) THEN 0 ELSE winlost END) AS TotalWins,
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 ELSE winlost END) * actualrate) AS TotalWinsBase,
+
+				SUM(CASE WHEN b.statusID IN (103) THEN actual_stake ELSE 0 END) AS TotalRefund,
+				SUM((CASE WHEN b.statusID IN (103) THEN actual_stake ELSE 0 END)  * actualrate) AS TotalRefundBase,
+
+				SUM(CASE WHEN b.statusID IN (103) THEN 0 
+						WHEN b.tpositiontaking = 1 THEN 0
+						ELSE (1 - b.tpositiontaking - CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) * b.stake END) AS CompanyTurnover,	
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 
+						WHEN b.tpositiontaking = 1 THEN 0
+						ELSE (1 - b.tpositiontaking - CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) * b.stake END) * actualrate) AS CompanyTurnoverBase,		
+								
+				- SUM(winlost - actual_stake + awinlost + mwinlost + swinlost) AS CompanyGrossIncome,
+				- SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeBase,
+
+				- SUM(scomm) AS CompanyComm,
+				- SUM(scomm * actualrate) AS CompanyCommBase,
+				
+				- SUM((winlost - actual_stake + CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) ExtraPT,
+				- SUM((winlost - actual_stake + CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8)) * actualrate) ExtraPTBase						
+
+			FROM dbo.Bettrans b WITH (NOLOCK) 
+			WHERE b.WinlostDate = @WLDate
+				AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 3)
+				AND b.ruben = 1
+				AND b.statusID IN (111, 112, 113, 103) 
+				AND EXISTS (SELECT 1 FROM #tmp_LeagueID l WHERE l.LeagueID = 168 AND l.Bettype = b.bettype)
+				AND (@ExcludeTest = 0 OR (b.Currency <> 20 AND @ExcludeTest = 1))
+				AND (@currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId)) 
+				AND (@Username = '' OR EXISTS (SELECT 1 From #tmp_MemIDs m WHERE m.CustID = b.custId))
+				AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
+				AND ( @Site = 'ALL'
+					  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.srecommend = b.srecommend))
+					)
+				AND (
+					@HousePTType = 0
+					OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) 
+					OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
+					)
+			GROUP BY m.leagueid, b.bettype, b.srecommend, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, b.Currency
+			OPTION(RECOMPILE)
+		END
 	END
 	
 	-- Live Casino
@@ -1342,6 +1423,10 @@ BEGIN
 		SET d.ReportByName = l.leaguename
 		FROM #Data d 
 			INNER JOIN dbo.league l WITH (NOLOCK) ON d.ReportBy = l.leagueid
+		
+		UPDATE #Data
+		SET ReportByName = 'Happy 5 Linked Games'
+		WHERE ReportBy = 168
 	END
 	ELSE IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID IN (5,27,42))
 	BEGIN

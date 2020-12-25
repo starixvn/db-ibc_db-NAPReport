@@ -23,6 +23,7 @@ AS
 		20191115@Cherry: Integrate PP Tournament (#123660)
 		20200220@Cherry: Integrate Virtual Games (#124753)
 		20200828@Cherry: Integrate Saba.club Free Bet (#140109)
+		20201224@Cherry: Integrate Happy 5 Linked Games (#146537)
 */
  
 BEGIN
@@ -80,6 +81,9 @@ SET NOCOUNT ON
 			3 AS GameType
 	FROM	dbo.league l WITH (NOLOCK)
 	WHERE	EXISTS (SELECT TOP 1 1 FROM dbo.SportBettypeMatrix s (NOLOCK) WHERE l.sporttype = s.SportType AND s.ProductID = 3)
+	
+	INSERT INTO #SportBettype (ProductId, TypeId, TypeName, IsTest, GameType)
+	VALUES (3, 168, 'Happy 5 Linked Games', @isTest, 3)
 		 
 	--- ProductID = 5, 27, 23, 42 - Virtual Sports, Virtual Sports 2, NG2, Saba.club get Sporttype
 	INSERT INTO #SportBettype (ProductId, TypeId, TypeName, GameType)
