@@ -29,6 +29,7 @@ AS
 		- 20180301@Kean: Missing number game data of some licensee (91266)
 		- 20181031@Percy: Remove linked-server DBLIC [RedmineID: #103660]
 		- 20181219@Robert: NAP Report - Add new sporttype for Happy 5 (#104253) 
+		- 20201225@Jaden: Add new sporttype for Happy 5 Linked games (#147573)
 
     Param usage:
 		- @SiteID:
@@ -44,6 +45,12 @@ AS
 			+ Null: All (default)
 			+ 0: Non-Live
 			+ 1: Live
+
+	Remarks:
+		- Happy 5 linked games do not have match, so no joining with [match] table, [matchid] on bettrans is used to store sporttype (168)
+		- Matchcode of Happy 5 Linked Games is stored in [bettrans].[betcheck]
+			Wildcard format: [ENV][TableNo]-[MatchCode] 
+			For Example: betcheck =  P20-00130 => MatchCode = 00130
 	*/
 
 BEGIN
@@ -160,7 +167,10 @@ BEGIN
 
     CREATE INDEX IX_tmpAg_CustID ON #tmpAg(CustID);
 
-    SELECT m.matchcode
+    SELECT 
+		case when m.matchid != 168 then m.matchcode
+			 else substring(b.betcheck, charindex('-', b.betcheck) + 1, len(b.betcheck) - charindex('-', b.betcheck))
+		end as matchcode
 	    , b.BetType AS                                                                            bType
 	    , m.leagueid
 	    , SUM((winlost - actual_stake) * actualrate) AS                                           WinLost
@@ -171,7 +181,12 @@ BEGIN
 	    , SUM((1 - tpositiontaking) * stake * actualrate) AS                                      Turnover
     FROM bettrans AS b WITH (nolock)
 	   INNER JOIN #Bettype AS bt ON b.bettype = bt.Bettype
-	   INNER JOIN match AS m WITH (nolock) ON b.matchid = m.matchid
+	   INNER JOIN (
+		   	select matchid, matchcode, sporttype, leagueid from match with (nolock) 
+	   		union -- add dummy row to not losing out happy 5 linked games data
+			select 168, 'refer bettrans.betcheck', 168, -1
+		) AS m
+	   	ON b.matchid = m.matchid
     WHERE b.winlostdate = @winlostdate
 		AND statusID NOT IN(102, 101, 103, 121)
 		AND b.matchid > 0
@@ -185,19 +200,15 @@ BEGIN
 					  (
 						 SELECT custid FROM #tmpAg
 					  )
-    GROUP BY m.matchcode
-		 , m.HomeId
-		 , m.AwayId
+    GROUP BY
+		 case when m.matchid != 168 then m.matchcode
+			  else substring(b.betcheck, charindex('-', b.betcheck) + 1, len(b.betcheck) - charindex('-', b.betcheck))
+		 end
 		 , b.bettype
 		 , m.leagueid
-		 , m.isNeutral
-    ORDER BY m.leagueid /*leaguename,*/
-		 , m.matchcode;
+    ORDER BY m.leagueid, matchcode;
 
     DROP TABLE #Bettype;
     DROP TABLE #tmpAg;
 END;
-GO
-
-GRANT EXECUTE ON dbo.Acc_Rpt_NumberGame_Details TO [bodbAdminNet];
 GO
