@@ -1224,7 +1224,7 @@ BEGIN
 /*	Happy 5 Linked Games*/
 		 SELECT
 			b.SportType
-			, b.bettype
+			, 19999 bettype
 			, b.liveindicator
 			, b.ibc
 			, 0 AS IsHedge
@@ -1242,7 +1242,6 @@ BEGIN
 		 WHERE winlostdate BETWEEN @_fromdate AND @_todate
 			  AND b.SportType = 168
 		 GROUP BY b.SportType
-			, b.bettype
 			, b.liveindicator
 			, b.ibc;
     INSERT INTO #TempData(sporttype
