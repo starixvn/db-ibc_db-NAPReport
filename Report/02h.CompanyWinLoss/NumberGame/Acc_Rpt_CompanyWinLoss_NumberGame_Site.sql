@@ -5,7 +5,7 @@ GO
 
 ALTER PROCEDURE dbo.Acc_Rpt_CompanyWinLoss_NumberGame_Site @StartDate SMALLDATETIME, 
                                                            @EndDate   SMALLDATETIME, 
-                                                           @LeagueId  INT, 
+                                                           @LeagueId  INT = -1, 
                                                            @BetType   INT, 
                                                            @Site      VARCHAR(50)
 AS
@@ -19,6 +19,7 @@ AS
 		- 20181217@Robert: #104253 - NAP Report - Add new sporttype for Happy 5
 		- 20190925@Jacob: Group By CN88 (#118824)
 		- 20191212@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
+		- 20201225@Kean.Nguyen: Integrate HP5 Linked Games (Number Game) (#147573)
 
 	Explanation's Param:   
 
@@ -82,6 +83,20 @@ AS
                                                                     AND t.ProductId = s.ProductId
         WHERE s.bettype = @BetType;
     END;
+	BEGIN -- #Match
+
+        CREATE TABLE #Match
+                     (MatchId INT PRIMARY KEY
+                     );
+		IF (@LeagueId <> -1)
+		BEGIN
+        INSERT INTO #Match
+               SELECT DISTINCT MatchId
+			   FROM Match m WITH(NOLOCK)
+			   INNER JOIN league l WITH(NOLOCK) ON m.LeagueId = l.LeagueId
+			   WHERE m.leagueid = @LeagueId;
+		END
+    END;
     BEGIN  -- Query
 
         SELECT Site AS RowName, 
@@ -108,10 +123,9 @@ AS
                                                                                       END
                    END) AS RealTurnover
         FROM bettrans AS b WITH(NOLOCK)
-             INNER JOIN match AS m WITH(NOLOCK) ON b.MatchId = m.MatchId
              INNER JOIN #Agent AS dep ON b.recommend = dep.CustId
         WHERE b.winlostdate = @StartDate
-              AND m.leagueid = @LeagueId
+			  AND (@LeagueId = -1 OR (b.MatchId IN (SELECT MatchId FROM #Match)))
               AND b.BetType = @BetType
               AND b.ruben = 1
               AND b.statusID IN(111, 112, 113)
@@ -120,4 +134,5 @@ AS
     END;
     
 	DROP TABLE #Agent;
+	DROP TABLE #Match;
 GO

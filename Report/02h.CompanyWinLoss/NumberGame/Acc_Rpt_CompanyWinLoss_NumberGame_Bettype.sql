@@ -6,7 +6,7 @@ GO
 ALTER PROCEDURE dbo.Acc_Rpt_CompanyWinLoss_NumberGame_Bettype @StartDate SMALLDATETIME, 
                                                               @EndDate   SMALLDATETIME, 
                                                               @SportType INT, 
-                                                              @LeagueId  INT
+                                                              @LeagueId  INT = -1
 AS
 
 /*	Creator: Robert.Tran
@@ -18,6 +18,7 @@ AS
 		- 20181217@Robert: #104253 - NAP Report - Add new sporttype for Happy 5
 		- 20190925@Jacob: Group By CN88 (#118824)
 		- 20191212@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
+		- 20201225@Kean.Nguyen: Integrate HP5 Linked Games (Number Game) (#147573)
 
 	Explanation's Param:   
 
@@ -52,6 +53,20 @@ AS
         INSERT INTO #DepositSuper
                SELECT CustId
                FROM f_DepSuper_1('All');
+    END;
+	BEGIN -- #Match
+
+        CREATE TABLE #Match
+                     (MatchId INT PRIMARY KEY
+                     );
+		IF (@League <> -1)
+		BEGIN
+        INSERT INTO #Match
+               SELECT DISTINCT MatchId
+			   FROM Match m WITH(NOLOCK)
+			   INNER JOIN league l WITH(NOLOCK) ON m.LeagueId = l.LeagueId
+			   WHERE m.leagueid = @League;
+		END
     END;
     BEGIN -- Query
 
@@ -89,12 +104,11 @@ AS
                                                                                       END
                    END) AS RealTurnover
         FROM bettrans AS b WITH(NOLOCK)
-             INNER JOIN match AS m WITH(NOLOCK) ON b.MatchId = m.MatchId
              INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
              LEFT JOIN #DepositSuper AS dep ON b.srecommend = dep.CustId
              LEFT JOIN CS_CustSuper AS cn88 WITH(NOLOCK) ON b.srecommend = cn88.CustId
         WHERE b.winlostdate = @FDate
-              AND m.leagueid = @League
+              AND (@League = -1 OR (b.MatchId IN (SELECT MatchId FROM #Match)))
               AND b.ruben = 1
               AND b.statusID IN(111, 112, 113)
         GROUP BY sb.BetType, 
@@ -114,4 +128,5 @@ AS
     
 	DROP TABLE #SportBetType;
     DROP TABLE #DepositSuper;
+	DROP TABLE #Match;
 GO
