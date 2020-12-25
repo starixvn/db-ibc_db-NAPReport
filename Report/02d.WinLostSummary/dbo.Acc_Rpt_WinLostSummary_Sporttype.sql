@@ -45,6 +45,7 @@ AS
 		  20190117@Robert: Video Poker - Integrate into NAP Reports (#107706)
 		  20190308@Cherry: Integrate Bet Builder (#109822)
 		  20201001@Ned.Le: NAP Reports - Licensee Odds Spread (#141750)
+		  20201225@Ned.Le: NAP Reports - Integrate Linked Games (Number Game) (#147573)
 
         Parameter's Explanation:
 
@@ -1205,6 +1206,45 @@ BEGIN
 			  AND b.bettype IN(913, 914)
 		 GROUP BY b.liveindicator
 			   , ibc;
+    INSERT INTO #TempData(sporttype
+				    , bettype
+				    , liveindicator
+				    , ibc
+				    , IsHedge
+				    , status
+				    , OrderKey
+				    , SortKey
+				    , realWinlost
+				    , realPosition
+				    , realCommission
+				    , realLineTotal
+				    , virtualLineTotal
+				    , realTurnover
+				    , virtualTurnover)
+/*	Happy 5 Linked Games*/
+		 SELECT
+			b.SportType
+			, b.bettype
+			, b.liveindicator
+			, b.ibc
+			, 0 AS IsHedge
+			, '' AS status
+			, 1 AS OrderKey
+			, 18 AS SortKey
+			, ISNULL(SUM(realWinlost), 0) AS realWinlost
+			, ISNULL(SUM(realPosition), 0) AS realPosition
+			, ISNULL(SUM(realcommission), 0) AS realCommission
+			, ISNULL(SUM(realLineTotal), 0) AS realLineTotal
+			, ISNULL(SUM(virtualLineTotal), 0) AS virtualLineTotal
+			, ISNULL(SUM(realTurnover), 0) AS realTurnover
+			, ISNULL(SUM(virtualTurnover), 0) AS virtualTurnover
+		 FROM rptWinlost AS b WITH (NOLOCK)
+		 WHERE winlostdate BETWEEN @_fromdate AND @_todate
+			  AND b.SportType = 168
+		 GROUP BY b.SportType
+			, b.bettype
+			, b.liveindicator
+			, b.ibc;
     INSERT INTO #TempData(sporttype
 				    , bettype
 				    , liveindicator
