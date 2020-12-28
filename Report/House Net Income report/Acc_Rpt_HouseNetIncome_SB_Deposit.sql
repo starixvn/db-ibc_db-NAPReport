@@ -28,6 +28,7 @@ AS
 		- 20200901@Percy: Refactor code to enhance performance [RedmineID: #140677]
 		- 20201026@Percy: Offer Odds Spread Adjustment for Sportsbook [RedmineID: #111275]
 		- 20201120@Percy: Apply group min fee [RedmineID: #135865]
+		- 20201210@Percy: Include waive fee when checking min fee [RedmineID: #135865]
 
 	EXEC Acc_Rpt_HouseNetIncome_SB_Deposit '2017-12-01', '2017-12-31'
 */
@@ -635,11 +636,11 @@ BEGIN
 			,s.HouseIncome		= m.LicenseeFee
 			,s.LicenseeMinFee	= CASE
 									WHEN m.PartyId IS NULL THEN 0
-									WHEN m.LicenseeFee = m.ActualFee THEN 0
+									WHEN m.LicenseeFee + m.WaivedFee = m.ActualFee THEN 0
 									ELSE m.ActualFee END
 			,s.LicenseeFee		= CASE
 									WHEN m.PartyId IS NULL THEN s.HouseIncome
-									WHEN m.LicenseeFee = m.ActualFee THEN m.ActualFee
+									WHEN m.LicenseeFee + m.WaivedFee = m.ActualFee THEN m.ActualFee
 									ELSE 0 END
 			,s.Rebate			= ISNULL(d.Rebate, 0)
 			,s.Discount			= ISNULL(d.Discount, 0)
