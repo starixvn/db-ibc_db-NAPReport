@@ -343,25 +343,31 @@ BEGIN
 		  AND v.VName IN ('3rdCreditWLShareRate', '3rdCreditWLShareRateION')
 
 
-	----------------------------------------------------------------------------------------------
-	-- 4. Getting raw data																	    --
-	----------------------------------------------------------------------------------------------
-	--                                                                                          --
-	-- Dimension:	RptDate																		--
-	--				Site																		--
-	--				ProductID																	--
-	--				Sporttype																	--
-	--				Bettype																		--
-	--				LeagueID																	--
-	--                                                                                          --
-	-- Measure:		HouseWL [(WinlossIBC + CommissionS) * SystemRate]							--
-	--				HouseTO [...]																--
-	--				ExtraPT [(ExtraWL + ExtraComm) * SystemRate]								--
-	--				MemberWL [WinlossP * SystemRate]											--
-	--				MemberWLOANDA [WinlossP * OANDARate]										--
-	--				ScommOANDA [CommissionS * OANDARate]										--
-	--				Contribution [(WinlossIBC - WinlossS - WinlossM - WinlossA) * SystemRate]   --
-	----------------------------------------------------------------------------------------------
+	-----------------------------------------------------------------------------------------------
+	-- 4. Getting raw data																	     --
+	-----------------------------------------------------------------------------------------------
+	--                                                                                           --
+	-- Dimension:	RptDate																		 --
+	--				Site																		 --
+	--				ProductID																	 --
+	--				Sporttype																	 --
+	--				Bettype																		 --
+	--				LeagueID																	 --
+	--                                                                                           --
+	-- Measure:		HouseWL [(WinlossIBC + CommissionS) * SystemRate]							 --
+	--              HouseWLOANDA [(WinlossIBC + CommissionS) * OANDARate]						 --
+	--				HouseTO [(CASE WHEN TurnoverIBC = 0 THEN 0 ELSE TurnoverIBC - ExtraTO END) * --
+	--			             (CASE WHEN VarianceVR > 0 THEN (VarianceVR + 1) ELSE 1 END) *       --
+	--			             (CASE WHEN TicketStatus IN (12, 13) THEN 0.5 ELSE 1 END) *          --
+	--			             (CASE WHEN TicketStatus = 3 THEN 0 ELSE 1 END) *                    --
+	--                       SystemRate]                                                         --
+	--				ExtraPT [(ExtraWL + ExtraComm) * SystemRate]								 --
+	--				ExtraPTOANDA [(ExtraWL + ExtraComm) * OANDARate]							 --
+	--				MemberWL [WinlossP * SystemRate]											 --
+	--				MemberWLOANDA [WinlossP * OANDARate]										 --
+	--				ScommOANDA [CommissionS * OANDARate]										 --
+	--				Contribution [(WinlossIBC - WinlossS - WinlossM - WinlossA) * SystemRate]    --
+	-----------------------------------------------------------------------------------------------
 
 	CREATE TABLE #tmpRawData (
 		RptDate DATE,
@@ -371,8 +377,10 @@ BEGIN
 		Bettype INT,
 		LeagueID INT,
 		HouseWL DECIMAL(19, 4),
+		HouseWLOANDA DECIMAL(19, 4),
 		HouseTO DECIMAL(19, 4),
 		ExtraPT DECIMAL(19, 4),
+		ExtraPTOANDA DECIMAL(19, 4),
 		MemberWL DECIMAL(19, 4),
 		MemberWLOANDA DECIMAL(19, 4),
 		ScommOANDA DECIMAL(19, 4),
@@ -381,7 +389,13 @@ BEGIN
 
 	WHILE @ToDate_e <= @ToDate
 	BEGIN
-		INSERT INTO #tmpRawData (RptDate, Site, ProductID, Sporttype, Bettype, LeagueID, HouseWL, HouseTO, ExtraPT, MemberWL, MemberWLOANDA, ScommOANDA, Contribution)
+		INSERT INTO #tmpRawData (RptDate, Site, ProductID, Sporttype, Bettype, LeagueID,
+		                         HouseWL, HouseWLOANDA,
+								 HouseTO,
+								 ExtraPT, ExtraPTOANDA,
+								 MemberWL, MemberWLOANDA,
+								 ScommOANDA,
+								 Contribution)
 		SELECT -- *** DIMENSION *** --
 			   b.RptDate,
 			   s.site Site,
@@ -402,12 +416,14 @@ BEGIN
 			   b.LeagueID,
 			   -- *** MEASURE *** --
 			   SUM((b.WinlossIBC + b.CommissionS) * ISNULL(es.Rate, 0))	HouseWL,
+			   SUM((b.WinlossIBC + b.CommissionS) * ISNULL(eo.Rate, 0))	HouseWLOANDA,
 			   SUM((CASE WHEN b.TurnoverIBC = 0 THEN 0 ELSE b.TurnoverIBC - b.ExtraTO END) *
 				   (CASE WHEN b.VarianceVR > 0 THEN (b.VarianceVR + 1) ELSE 1 END) *
 				   (CASE WHEN b.TicketStatus IN (12, 13) THEN 0.5 ELSE 1 END) *
 				   (CASE WHEN b.TicketStatus = 3 THEN 0 ELSE 1 END) *
 				   ISNULL(es.Rate, 0)) HouseTO,
 			   SUM((b.ExtraWL + b.ExtraComm) * ISNULL(es.Rate, 0)) ExtraPT,
+			   SUM((b.ExtraWL + b.ExtraComm) * ISNULL(eo.Rate, 0)) ExtraPTOANDA,
 			   SUM(b.WinlossP * ISNULL(es.Rate, 0)) MemberWL,
 			   SUM(b.WinlossP * ISNULL(eo.Rate, 0)) MemberWLOANDA,
 			   SUM(b.CommissionS * ISNULL(eo.Rate, 0)) ScommOANDA,
@@ -482,13 +498,13 @@ BEGIN
 					WHEN hni.Figure = 'Extra PT' THEN SUM(b.ExtraPT)
 					WHEN hni.Figure = 'Pay to Supplier' THEN CASE WHEN hni.ProductShortName = 'Arcadia' THEN SUM(b.MemberWLOANDA * ISNULL(v.NumberValue, 0))
 																  WHEN hni.ProductShortName = 'MacauG' THEN SUM(b.MemberWLOANDA * (CASE WHEN bg.BettypeGroupID = 11 THEN 0.03 ELSE 0.02 END))
-																  WHEN hni.ProductShortName = 'NG2' THEN SUM((-b.HouseWL + (CASE WHEN b.RptDate >= '2020-11-01' THEN 0 ELSE b.ExtraPT END)) * (-0.5))
+																  WHEN hni.ProductShortName = 'NG2' THEN SUM((-b.HouseWLOANDA + (CASE WHEN b.RptDate >= '2020-11-01' THEN 0 ELSE b.ExtraPTOANDA END)) * (-0.5))
 																  WHEN hni.ProductShortName = 'TableG' THEN SUM(b.MemberWLOANDA * (CASE WHEN b.RptDate >= '2020-07-01' THEN 0.036 ELSE 0.03 END))
 																  WHEN hni.ProductShortName IN ('MKeno', 'MLotte') THEN SUM(b.MemberWLOANDA * (CASE WHEN b.Site = 'CN88' THEN 0.015 ELSE (CASE WHEN b.RptDate >= '2020-07-01' THEN 0.036 ELSE 0.03 END) END))
 																  WHEN hni.ProductShortName IN ('VirtSpo2', 'VirtSpo') THEN SUM(b.MemberWLOANDA * 0.01)
-																  WHEN hni.ProductShortName IN ('NumG', 'Happy5') THEN CASE WHEN b.Site = 'CN88' THEN SUM(b.MemberWL * 0.015)
-																													        WHEN b.Site IN ('IBCIndo', '76666b') THEN SUM((-b.HouseWL + b.ExtraPT) * (-0.5))
-																													        ELSE SUM((-b.HouseWL + (CASE WHEN b.RptDate >= '2020-11-01' THEN 0 ELSE b.ExtraPT END)) * (-0.5)) END
+																  WHEN hni.ProductShortName IN ('NumG', 'Happy5') THEN CASE WHEN b.Site = 'CN88' THEN SUM(b.MemberWLOANDA * 0.015)
+																													        WHEN b.Site IN ('IBCIndo', '76666b') THEN SUM((-b.HouseWLOANDA + b.ExtraPTOANDA) * (-0.5))
+																													        ELSE SUM((-b.HouseWLOANDA + (CASE WHEN b.RptDate >= '2020-11-01' THEN 0 ELSE b.ExtraPT END)) * (-0.5)) END
 																  ELSE SUM(b.MemberWLOANDA * ISNULL( pts.Rate, 0)) END
 					WHEN hni.Figure = 'Pay to Bet Genius' THEN SUM((b.MemberWLOANDA + b.ScommOANDA) * 0.04 * (CASE WHEN b.Bettype = 38 THEN 1 ELSE 0 END))
 					WHEN hni.Figure = 'Contribution Amount' THEN SUM(b.Contribution * (CASE WHEN bg.BettypeGroupID = 10 AND bg.BettypeName LIKE '%Jackpot%' THEN 1 ELSE 0 END))
