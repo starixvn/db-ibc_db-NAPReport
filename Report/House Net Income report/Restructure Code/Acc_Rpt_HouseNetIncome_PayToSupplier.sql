@@ -56,6 +56,10 @@ BEGIN
 				OR s.ProductId = 1 AND ',' + @ProductList + ',' LIKE '%,SB,%'
 				OR ',' + @ProductList + ',' LIKE '%,' + s.ProductPrefix + ',%'
 			)
+			AND (
+				@DepositType = 2
+				OR s.isDeposit = @DepositType
+			)
 
 		;WITH CTE_Product AS (SELECT DISTINCT ProductCode FROM @Products)
 		SELECT @ProductCodes = COALESCE(@ProductCodes + ',', '') + ProductCode FROM CTE_Product
@@ -164,6 +168,11 @@ BEGIN
 		INSERT INTO #MetricChargeInfo (FromDate, ToDate, BaseCurrencyId, MinAmount, MaxAmount, Rate)
 		EXEC (@SQL)
 
+		UPDATE m
+		SET m.MinAmount = m.MinAmount * e.Rate, m.MaxAmount = m.MaxAmount * e.Rate
+		FROM #MetricChargeInfo m
+			INNER JOIN @ExchangeOANDA e ON m.BaseCurrencyId = e.ExchangeId
+
 		-- Global Setting (default setting)
 		CREATE TABLE #__tmpVendorGlobalSetting (IsDeposit BIT, VendorId SMALLINT, Product3rdId INT, ChargeRate3rd DECIMAL(19, 8))
 		INSERT INTO #__tmpVendorGlobalSetting (IsDeposit, VendorId, ChargeRate3rd)
@@ -239,17 +248,18 @@ BEGIN
 
 			-- Metric Gaming, Bet Builder
 			INSERT INTO #__tempData (rptDate, SiteId, BetTypeId, CurrencyId, Winloss)
-			SELECT f.rptDate, s.LicenseeId, f.CurrencyId, CASE WHEN f.BetType = 38 THEN -3 ELSE -1 END, SUM(CASE WHEN f.BetType = 38 THEN winlossP + winlossS + winlossM + winlossA + commissionS ELSE winlossP + commissionS END)
+			SELECT f.rptDate, s.LicenseeId, CASE WHEN f.BetType = 38 THEN -3 ELSE -1 END, f.CurrencyId, SUM(CASE WHEN f.BetType = 38 THEN winlossP + commissionS ELSE winlossP + winlossA + winlossM + winlossS + commissionS END)
 			FROM bodb_Account.dbo.FactSiteWinloss f WITH (NOLOCK)
 				INNER JOIN @tmpSite s ON f.SiteId = s.SiteId_DW
-			WHERE rptDate BETWEEN @FDate AND @TDate
-				AND TicketStatus NOT IN(-1, 18, 9, 10, 14)
-				AND CurrencyId <> 20
-			GROUP BY f.rptDate, s.LicenseeId, f.CurrencyId, CASE WHEN f.BetType = 38 THEN -3 ELSE -1 END
+			WHERE f.rptDate BETWEEN @FDate AND @TDate
+				AND f.TicketStatus NOT IN (-1, 18, 9, 10, 14)
+				AND f.CurrencyId <> 20
+				AND (f.BetType = 38 OR f.BetType BETWEEN 801 AND 899)
+			GROUP BY f.rptDate, s.LicenseeId, CASE WHEN f.BetType = 38 THEN -3 ELSE -1 END, f.CurrencyId
 
 			-- Muay Thai
 			INSERT INTO #__tempData (rptDate, SiteId, BetTypeId, CurrencyId, Winloss)
-			SELECT rptDate, SiteId, CurrencyId, -2, SUM(ISNULL(AdjustedCustomerWL * 0.03, 0) - ISNULL(AdjustedCommShare, 0))
+			SELECT rptDate, SiteId, -2, CurrencyId, SUM(ISNULL(AdjustedCustomerWL * 0.03, 0) - ISNULL(AdjustedCommShare, 0))
 			FROM DBLIC.bodb_LicenseeReport.dbo.rpt_BettingBySport WITH (NOLOCK)
 			WHERE rptDate BETWEEN @FDate AND @TDate
 				AND CurrencyId <> 20
@@ -263,22 +273,24 @@ BEGIN
 				)
 			GROUP BY rptDate, SiteId, CurrencyId
 
-			INSERT INTO #__tempResult (rptDate, ParentId, IsDeposit, Product3rdId, Bettype, CurrencyId, PlayCurrency, PayDaily)
-			SELECT d.rptDate, 0, p.IsDeposit, 0, d.BetTypeId, d.CurrencyId, d.CurrencyId
-				,SUM(Winloss * CASE d.BetTypeId
-								WHEN -2 THEN 1
-								WHEN -3 THEN 0.04
-								ELSE CASE WHEN (d.Winloss < 0 AND m.MinAmount = 0) OR d.Winloss >= m.MinAmount
-										THEN CASE WHEN d.Winloss > m.MaxAmount THEN -(m.MaxAmount - m.MinAmount) ELSE -(d.Winloss - m.MinAmount) END * m.Rate ELSE 0 END END)
+			INSERT INTO #__tempResult (rptDate, ParentId, IsDeposit, Product3rdId, Bettype, CurrencyId, PlayCurrency, PayDailyRate)
+			SELECT d.rptDate, 0, a.IsDeposit, 0, d.BetTypeId, d.CurrencyId, d.CurrencyId
+				,SUM(CASE d.BetTypeId
+						WHEN -2 THEN Winloss * e.Rate
+						WHEN -3 THEN Winloss * e.Rate * 0.04
+						ELSE CASE WHEN (-d.Winloss * p.Rate * e.Rate < 0 AND m.MinAmount = 0) OR -d.Winloss * p.Rate * e.Rate >= m.MinAmount
+								THEN CASE WHEN -d.Winloss * p.Rate * e.Rate > m.MaxAmount THEN -(m.MaxAmount - m.MinAmount) ELSE -(-d.Winloss * p.Rate * e.Rate - m.MinAmount) END * m.Rate ELSE 0 END END)
 			FROM #__tempData d
-				INNER JOIN #__PartyChargeInfo p ON p.LicenseeId = d.SiteId AND d.rptDate BETWEEN p.FromDate AND p.ToDate
+				INNER JOIN #AllParties a ON d.SiteId = a.LicenseeId
+				INNER JOIN @ExchangeOANDA e ON d.CurrencyId = e.ExchangeId
+				LEFT JOIN #__PartyChargeInfo p ON p.LicenseeId = d.SiteId AND d.rptDate BETWEEN p.FromDate AND p.ToDate AND d.BetTypeId = -1
 				LEFT JOIN #MetricChargeInfo m ON d.rptDate BETWEEN m.FromDate AND m.ToDate AND d.BetTypeId = -1
-			GROUP BY d.rptDate, p.IsDeposit, d.BetTypeId, d.CurrencyId
+			GROUP BY d.rptDate, a.IsDeposit, d.BetTypeId, d.CurrencyId
 
 			UPDATE r
-			SET r.PayMonth = r.PayDaily
-				,r.PayDailyRate = r.PayDaily * e.Rate
-				,r.PayMonthRate = r.PayDaily * e.Rate
+			SET r.PayMonthRate = r.PayDailyRate
+				,r.PayDaily = CASE WHEN e.Rate = 0 THEN 0 ELSE r.PayDailyRate / e.Rate END
+				,r.PayMonth = CASE WHEN e.Rate = 0 THEN 0 ELSE r.PayDailyRate / e.Rate END
 			FROM #__tempResult r
 				INNER JOIN @ExchangeOANDA e ON r.CurrencyId = e.ExchangeId
 		END
@@ -455,47 +467,38 @@ BEGIN
 		WHERE Product3rdId = 21 AND IsDeposit = 0
 	END
 
-	CREATE TABLE #__FinalResult (Product3rdId INT, ProductCode VARCHAR(50), rptDate VARCHAR(10), PayToSupplier MONEY, CurrencyPlay MONEY)
+	CREATE TABLE #__FinalResult (IsDeposit BIT, Product3rdId INT, ProductCode VARCHAR(50), rptDate VARCHAR(10), PayToSupplier MONEY, CurrencyPlay MONEY)
 	
 	;WITH CTE_Product AS
 	(
-		SELECT DISTINCT Product3rdId, ProductCode FROM #__Bettype
+		SELECT DISTINCT Product3rdId, ProductCode FROM @Products
 	)
-	INSERT INTO #__FinalResult (Product3rdId, ProductCode, rptDate, PayToSupplier, CurrencyPlay)
-	SELECT p.Product3rdId, p.ProductCode + CASE WHEN Bettype <> 0 THEN CONVERT(VARCHAR(5), Bettype) ELSE '' END, 'Monthly', SUM(ISNULL(f.PayToSupplier, 0)), SUM(ISNULL(f.CurrencyPlay, 0))
+	INSERT INTO #__FinalResult (IsDeposit, Product3rdId, ProductCode, rptDate, PayToSupplier, CurrencyPlay)
+	SELECT f.IsDeposit, p.Product3rdId, p.ProductCode + CASE WHEN Bettype <> 0 THEN CONVERT(VARCHAR(5), Bettype) ELSE '' END, 'Monthly', SUM(ISNULL(f.PayToSupplier, 0)), SUM(ISNULL(f.CurrencyPlay, 0))
 	FROM CTE_Product p
-		LEFT JOIN #__FullRangePayToSupplier f ON p.Product3rdId = f.Product3rdId
-	GROUP BY p.Product3rdId, p.ProductCode + CASE WHEN Bettype <> 0 THEN CONVERT(VARCHAR(5), Bettype) ELSE '' END
+		INNER JOIN #__FullRangePayToSupplier f ON p.Product3rdId = f.Product3rdId
+	GROUP BY f.IsDeposit, p.Product3rdId, p.ProductCode + CASE WHEN Bettype <> 0 THEN CONVERT(VARCHAR(5), Bettype) ELSE '' END
 
 	;WITH CTE_rptDate AS
 	(
-		SELECT DISTINCT Product3rdId, ProductCode, @FDate AS rptDate FROM #__Bettype
-		UNION ALL
-		SELECT Product3rdId, ProductCode, DATEADD(DAY, 1, rptDate)
-		FROM CTE_rptDate
-		WHERE rptDate < @TDate
+		SELECT DISTINCT Product3rdId, ProductCode FROM @Products
 	)
-	INSERT INTO #__FinalResult (Product3rdId, ProductCode, rptDate, PayToSupplier, CurrencyPlay)
-	SELECT d.Product3rdId, d.ProductCode + CASE WHEN Bettype <> 0 THEN CONVERT(VARCHAR(5), Bettype) ELSE '' END, 'MTD', SUM(ISNULL(t.PayToSupplier, 0)), SUM(ISNULL(t.CurrencyPlay, 0))
+	INSERT INTO #__FinalResult (IsDeposit, Product3rdId, ProductCode, rptDate, PayToSupplier, CurrencyPlay)
+	SELECT t.IsDeposit, d.Product3rdId, d.ProductCode + CASE WHEN Bettype <> 0 THEN CONVERT(VARCHAR(5), Bettype) ELSE '' END, 'MTD', SUM(ISNULL(t.PayToSupplier, 0)), SUM(ISNULL(t.CurrencyPlay, 0))
 	FROM CTE_RptDate d
-		LEFT JOIN #__DailyPayToSupplier t ON d.rptDate = t.rptDate AND d.Product3rdId = t.Product3rdId
-	GROUP BY d.Product3rdId, d.ProductCode + CASE WHEN Bettype <> 0 THEN CONVERT(VARCHAR(5), Bettype) ELSE '' END
+		INNER JOIN #__DailyPayToSupplier t ON d.Product3rdId = t.Product3rdId
+	GROUP BY t.IsDeposit, d.Product3rdId, d.ProductCode + CASE WHEN Bettype <> 0 THEN CONVERT(VARCHAR(5), Bettype) ELSE '' END
 	OPTION (MAXRECURSION 0)
 	
 	;WITH CTE_rptDate AS
 	(
-		SELECT DISTINCT Product3rdId, ProductCode, @FDate AS rptDate FROM #__Bettype
-		UNION ALL
-		SELECT Product3rdId, ProductCode, DATEADD(DAY, 1, rptDate)
-		FROM CTE_rptDate
-		WHERE rptDate < @TDate
+		SELECT DISTINCT Product3rdId, ProductCode FROM @Products
 	)
-	INSERT INTO #__FinalResult (Product3rdId, ProductCode, rptDate, PayToSupplier, CurrencyPlay)
-	SELECT d.Product3rdId, d.ProductCode + CASE WHEN Bettype <> 0 THEN CONVERT(VARCHAR(5), Bettype) ELSE '' END, CONVERT(VARCHAR(2), d.rptDate, 106), SUM(ISNULL(t.PayToSupplier, 0)), SUM(ISNULL(t.CurrencyPlay, 0))
+	INSERT INTO #__FinalResult (IsDeposit, Product3rdId, ProductCode, rptDate, PayToSupplier, CurrencyPlay)
+	SELECT t.IsDeposit, d.Product3rdId, d.ProductCode + CASE WHEN Bettype <> 0 THEN CONVERT(VARCHAR(5), Bettype) ELSE '' END, CONVERT(VARCHAR(2), t.rptDate, 106), SUM(ISNULL(t.PayToSupplier, 0)), SUM(ISNULL(t.CurrencyPlay, 0))
 	FROM CTE_RptDate d
-		LEFT JOIN #__DailyPayToSupplier t ON d.rptDate = t.rptDate AND d.Product3rdId = t.Product3rdId
-	GROUP BY d.Product3rdId, d.ProductCode + CASE WHEN Bettype <> 0 THEN CONVERT(VARCHAR(5), Bettype) ELSE '' END, CONVERT(VARCHAR(2), d.rptDate, 106)
-	OPTION (MAXRECURSION 0)
+		INNER JOIN #__DailyPayToSupplier t ON d.Product3rdId = t.Product3rdId
+	GROUP BY t.IsDeposit, d.Product3rdId, d.ProductCode + CASE WHEN Bettype <> 0 THEN CONVERT(VARCHAR(5), Bettype) ELSE '' END, CONVERT(VARCHAR(2), t.rptDate, 106)
 
 	DECLARE @DateList VARCHAR(2000)
 	;WITH CTE_Date AS
@@ -507,19 +510,20 @@ BEGIN
 		WHERE rptDate < @TDate
 	)
 	SELECT @DateList = COALESCE(@DateList + ',', '') + '[' + CONVERT(VARCHAR(2), rptDate, 106) + ']' FROM CTE_Date ORDER BY rptDate
+	OPTION (MAXRECURSION 0)
 
 	SELECT @SQL = '
 	;WITH CTE_Result AS (
-		SELECT ProductCode, Figure, Monthly, MTD, ' + @DateList + '
+		SELECT IsDeposit, ProductCode, Figure, Monthly, MTD, ' + @DateList + '
 		FROM (
-			SELECT f.ProductCode, Value, Figure, rptDate
+			SELECT r.IsDeposit, f.ProductCode, Value, Figure, rptDate
 			FROM #__FinalResult r
 			CROSS APPLY (
-				SELECT ProductCode, PayToSupplier AS Value, ''Pay to supplier'' AS Figure
-				UNION ALL SELECT ProductCode, CurrencyPlay, ''Currency Play''
+				SELECT ProductCode, PayToSupplier AS Value, ''Pay to supplier'' AS Figure WHERE ProductCode NOT LIKE ''SB%''
+				UNION ALL SELECT ProductCode, CurrencyPlay, ''Currency Play'' WHERE ProductCode NOT LIKE ''SB%''
 				UNION ALL SELECT ''Soccer'', PayToSupplier, ''Pay to Metric Gaming'' WHERE ProductCode = ''SB-1''
 				UNION ALL SELECT ''OS'', PayToSupplier, ''Pay to Muay Thai'' WHERE ProductCode = ''SB-2''
-				UNION ALL SELECT ''OS'', PayToSupplier, ''Pay to Bet Genuis'' WHERE ProductCode = ''SB-3''
+				UNION ALL SELECT ''Soccer'', PayToSupplier, ''Pay to Bet Genius'' WHERE ProductCode = ''SB-3''
 			) f
 		) t
 		PIVOT (
@@ -528,11 +532,24 @@ BEGIN
 		) p
 	)
 	SELECT
-		s.isDeposit, s.OrderByProduct, s.OrderByFigure, ''Licensee'' AS SiteGroup, s.ProductGroup, s.ProductName, s.ProductShortName
-		,r.Figure, r.Monthly, r.MTD, ' + @DateList + '
-	FROM CTE_Result r
-		INNER JOIN bodb_Account.dbo.HNISettings s WITH (NOLOCK) ON r.ProductCode = s.ProductPrefix AND r.Figure = s.Figure
+		s.IsDeposit, s.OrderByProduct, s.OrderByFigure, ''Licensee'' AS SiteGroup, s.ProductGroup, s.ProductName, s.ProductShortName
+		,s.Figure, r.Monthly, r.MTD, ' + @DateList + '
+	FROM bodb_Account.dbo.HNISettings s WITH (NOLOCK)
+		LEFT JOIN CTE_Result r ON r.ProductCode = s.ProductPrefix AND r.IsDeposit = s.IsDeposit AND r.Figure = s.Figure
 	WHERE s.LogicCode = 3
+		AND (
+				s.EndOfSupportDate IS NULL AND s.isEnable = 1
+				OR s.EndOfSupportDate < ''' + CONVERT(VARCHAR(10), @FDate, 120) + '''
+		)
+		AND (
+			''' + @ProductList + ''' = ''all''
+			OR s.ProductId = 1 AND '',' + @ProductList + ','' LIKE ''%,SB,%''
+			OR '',' + @ProductList + ','' LIKE ''%,'' + s.ProductPrefix + '',%''
+		)
+		AND (
+			' + CONVERT(VARCHAR(1), @DepositType) + ' = 2
+			OR s.isDeposit = ' + CONVERT(VARCHAR(1), @DepositType) + '
+		)
 	ORDER BY s.OrderByProduct, s.OrderByFigure'
 
 	EXEC (@SQL)

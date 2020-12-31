@@ -175,7 +175,7 @@ BEGIN
 		SELECT p3.ChargeType, p.PartyId, p3.Product3rdId, p3.FromDate, p3.ToDate, p3.Rate
 		FROM @PartyCharge3rd p3
 			INNER JOIN #AllLicensees l ON p3.PartyId = l.ParentId
-			INNER JOIN #PartyChargeInfo p ON l.PartyId = p3.PartyId AND p.Product3rdId = p3.Product3rdId
+			INNER JOIN #PartyChargeInfo p ON p.PartyId = l.PartyId AND p.Product3rdId = p3.Product3rdId
 		WHERE NOT EXISTS (SELECT 1 FROM #PartyCharge3rdInfo rd WHERE p.PartyId = rd.PartyId AND p.Product3rdId = rd.Product3rdId)
 
 		-- Get default setting 3rd
@@ -352,7 +352,7 @@ BEGIN
 						ELSE b.WinlossP END
 					) AS MemberWL
 				,SUM(CASE WHEN bt.IsOnlyTO = 1 OR bt.bettype = 4297 THEN 0 ELSE b.WinlossIBC + b.CommissionS END) AS HouseWL
-				,SUM(b.TurnoverIBC * CASE WHEN b.VarianceVR > 0 THEN b.VarianceVR + 1.0 ELSE 1.0 END * CASE WHEN b.TicketStatus IN (12, 13) THEN 0.5 ELSE 1.0 END) AS HouseTO -- VarianceVR = virtualrate/actualrate - 1
+				,SUM(b.TurnoverIBC * CASE WHEN b.VarianceVR > 0 THEN b.VarianceVR + 1.0 ELSE 1.0 END * CASE WHEN b.TicketStatus = 3 THEN 0 WHEN b.TicketStatus IN (12, 13) THEN 0.5 ELSE 1.0 END) AS HouseTO -- VarianceVR = virtualrate/actualrate - 1
 				,SUM(CASE WHEN bt.bettype = 4297 THEN b.WinlossIBC ELSE 0 END) AS HouseContribution
 				,SUM(CASE WHEN bt.bettype = 4297 THEN b.WinlossIBC-b.WinlossS-b.WinlossM-b.WinlossA ELSE 0 END) AS FullContribution
 			FROM bodb_Account.dbo.FactSiteWinloss b WITH (NOLOCK)
@@ -453,13 +453,14 @@ BEGIN
 											WHEN t.Product3rdId = 22 THEN CASE WHEN t.BetTypeGroup = 1 THEN 0.045 ELSE 0.035 END -- VB (Macau Games)
 											WHEN t.Product3rdId = 27 THEN 0.065 -- VS2
 											WHEN t.Product3rdId = 34 AND t.BetTypeGroup <> -1 THEN ISNULL(v.ChargeRate3rd, 0)
-											ELSE ISNULL(rd.Rate, v.ChargeRate3rd) END
+											ELSE ISNULL(rd.Rate, 0) END
 									+ CASE WHEN t.Product3rdId = 31 THEN t.Comm ELSE 0 END) * e.Rate * CASE WHEN rd.PartyId IS NULL THEN 0 ELSE 1 END)
 			,FullContribution	= SUM(t.FullContribution * e.Rate)
 			,JackpotPrize		= SUM(CASE WHEN t.Product3rdId = -3 THEN -t.MemberWL ELSE 0 END * e.Rate)
-			,HouseTurnover		= SUM(t.HouseTO)
+			,HouseTurnover		= SUM(t.HouseTO * e.Rate)
 			,HouseIncomeDaily	= SUM(CASE
 										WHEN t.Product3rdId = 37 THEN -t.HouseWL
+										WHEN p.PartyId IS NULL THEN -t.HouseWL
 										WHEN t.SportTypeGroup = 150 THEN -t.MemberWL -- SBC free bets
 										ELSE
 											(- t.MemberWL - (t.FullContribution - t.HouseContribution) - t.OddsSpreadAdj) * ISNULL(lc.Rate, p.Rate)
@@ -467,11 +468,12 @@ BEGIN
 										END * e.Rate)
 			,HouseIncomeMonth	= SUM(CASE
 										WHEN t.Product3rdId = 37 THEN -t.HouseWL
+										WHEN p.PartyId IS NULL THEN 0
 										WHEN t.SportTypeGroup = 150 THEN -t.MemberWL -- SBC free bets
 										ELSE
 											(- t.MemberWL - (t.FullContribution - t.HouseContribution) - t.OddsSpreadAdj) * ISNULL(lc.Rate, p.Rate)
 											- t.HouseContribution - CASE WHEN t.Product3rdId = 31 THEN t.Comm ELSE 0 END
-										END * e.Rate * CASE WHEN p.PartyId IS NULL THEN 0 ELSE 1 END)
+										END * e.Rate)
 		FROM #__tempData t
 			INNER JOIN #AllLicensees l ON t.SiteId_DW = l.SiteId_DW
 			INNER JOIN @ExchangeOANDA e ON t.CurrencyId = e.ExchangeId
@@ -922,35 +924,28 @@ BEGIN
 			) r
 		) t
 	WHERE r.Product3rdId IN (5, 10, 11, 22, 27)
+		AND rptDate = 'Monthly'
 
 		-- 1.2 Pay to supplier = sum up Total daily
 	UPDATE r
-	SET r.PayToSupplier = ISNULL(t.PayToSupplier, 0)
+	SET r.PayToSupplier = ISNULL(m.PayToSupplier, 0)
 	FROM #Result r
-		CROSS APPLY (
-			SELECT SUM(t.PayToSupplierMonth) AS PayToSupplier FROM #__tempResult t WHERE t.Product3rdId = r.Product3rdId
-		) t
+		INNER JOIN #Result m ON m.Product3rdId = r.Product3rdId AND r.rptDate = 'Monthly' AND m.rptDate = 'MTD'
 	WHERE r.Product3rdId NOT IN (5, 10, 11, 22, 27)
 
 		-- 1.3 House Income = sum up Total daily
 	UPDATE r
-	SET r.HouseIncome = ISNULL(t.HouseIncome, 0)
+	SET r.HouseIncome = ISNULL(m.HouseIncome, 0)
 	FROM #Result r
-		CROSS APPLY (
-			SELECT SUM(t.HouseIncomeMonth) AS HouseIncome FROM #__tempResult t WHERE t.Product3rdId = r.Product3rdId
-		) t
+		INNER JOIN #Result m ON m.Product3rdId = r.Product3rdId AND r.rptDate = 'Monthly' AND m.rptDate = 'MTD'
 	WHERE r.Product3rdId IN (13, 15, 25, 31, 37)
 
 		-- 1.4 FullContribution, JackpotPrize
 	UPDATE r
-	SET r.FullContribution = ISNULL(t.FullContribution, 0), r.JackpotPrize = ISNULL(t.JackpotPrize, 0)
+	SET r.FullContribution = ISNULL(m.FullContribution, 0), r.JackpotPrize = ISNULL(m.JackpotPrize, 0)
 	FROM #Result r
-		CROSS APPLY (
-			SELECT SUM(t.FullContribution) AS FullContribution, SUM(t.JackpotPrize) AS JackpotPrize FROM #__tempResult t WHERE t.Product3rdId = r.Product3rdId
-		) t
+		INNER JOIN #Result m ON m.Product3rdId = r.Product3rdId AND r.rptDate = 'Monthly' AND m.rptDate = 'MTD'
 	WHERE r.Product3rdId = 32
-
-	
 
 	DECLARE @DateList VARCHAR(2000)
 	;WITH CTE_Date AS
