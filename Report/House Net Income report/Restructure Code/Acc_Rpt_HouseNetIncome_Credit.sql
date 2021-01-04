@@ -667,8 +667,8 @@ BEGIN
 	UPDATE f
 	SET f.[Monthly] = f.[MTD]
 	FROM #tmpFinalData f
-	WHERE (f.ProductShortName NOT IN ('VirtSpo2', 'VirtSpo', 'MacauG', 'Arcadia') AND f.Figure NOT IN ('Pay to Bet Genius'))
-	      OR (f.ProductShortName IN ('VirtSpo2', 'VirtSpo', 'MacauG', 'Arcadia') AND f.Figure NOT IN ('Pay to Supplier'))
+	WHERE (f.ProductShortName NOT IN ('VirtSpo2', 'VirtSpo', 'MacauG') AND f.Figure NOT IN ('Pay to Bet Genius'))
+	      OR (f.ProductShortName IN ('VirtSpo2', 'VirtSpo', 'MacauG') AND f.Figure NOT IN ('Pay to Supplier'))
 
 	UPDATE f
 	SET f.[Monthly] = (f.[MTD] * (CASE WHEN f.[MTD] > 0 THEN 0 ELSE 1 END))
@@ -683,7 +683,7 @@ BEGIN
 			   f.Figure,
 			   SUM(f.[MTD]) [MTD]
 		FROM #tmpFinalData f
-		WHERE (f.ProductShortName IN ('VirtSpo2', 'VirtSpo', 'MacauG', 'Arcadia') AND f.Figure IN ('Pay to Supplier') AND f.SiteGroup <> 'CN88')
+		WHERE (f.ProductShortName IN ('VirtSpo2', 'VirtSpo', 'MacauG') AND f.Figure IN ('Pay to Supplier') AND f.SiteGroup <> 'CN88')
 			  OR (f.Figure IN ('Pay to Bet Genius'))
 		GROUP BY f.ProductShortName,
 			     f.Figure
@@ -692,7 +692,7 @@ BEGIN
 	SET f.[Monthly] = (f.[MTD] * (CASE WHEN cte.[MTD] > 0 THEN 0 ELSE 1 END))
 	FROM #tmpFinalData f
 		 LEFT JOIN CTE_SumUpData cte ON f.ProductShortName = cte.ProductShortName AND f.Figure = cte.Figure
-	WHERE (f.ProductShortName IN ('VirtSpo2', 'VirtSpo', 'MacauG', 'Arcadia') AND f.Figure IN ('Pay to Supplier') AND f.SiteGroup <> 'CN88')
+	WHERE (f.ProductShortName IN ('VirtSpo2', 'VirtSpo', 'MacauG') AND f.Figure IN ('Pay to Supplier') AND f.SiteGroup <> 'CN88')
 		  OR (f.Figure IN ('Pay to Bet Genius'))
 
 
