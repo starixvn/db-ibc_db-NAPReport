@@ -83,7 +83,7 @@ SET NOCOUNT ON
 	WHERE	EXISTS (SELECT TOP 1 1 FROM dbo.SportBettypeMatrix s (NOLOCK) WHERE l.sporttype = s.SportType AND s.ProductID = 3)
 	
 	INSERT INTO #SportBettype (ProductId, TypeId, TypeName, IsTest, GameType)
-	VALUES (3, 168, 'Happy 5 Linked Games', @isTest, 3)
+	VALUES (3, 168, 'Happy 5 Linked Games', 0, 3)
 		 
 	--- ProductID = 5, 27, 23, 42 - Virtual Sports, Virtual Sports 2, NG2, Saba.club get Sporttype
 	INSERT INTO #SportBettype (ProductId, TypeId, TypeName, GameType)
