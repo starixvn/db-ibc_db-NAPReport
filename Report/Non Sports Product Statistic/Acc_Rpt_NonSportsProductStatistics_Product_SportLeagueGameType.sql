@@ -987,7 +987,7 @@ BEGIN
 					OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) 
 					OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
 					)
-			GROUP BY m.leagueid, b.bettype, b.srecommend, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, b.Currency
+			GROUP BY b.bettype, b.srecommend, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, b.Currency
 			OPTION(RECOMPILE)
 		END
 	END
