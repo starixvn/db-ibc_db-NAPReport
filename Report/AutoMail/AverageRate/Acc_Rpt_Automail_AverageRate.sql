@@ -14,33 +14,17 @@ AS
 	
 	Revision:		
 		20201207@Cherry: Initial (convert from script adhoc #146621 to SP)
+		20210104@Cherry: Change request (#146621)
 
 	Param's Explanation:
 */ 
 BEGIN
-	SELECT Currency, Rate as 'AvgRate'
-	FROM (
-			SELECT USD=AVG(USD)
-				,EUR=AVG(EUR)
-				,CNY=AVG(CNY)
-				,IDR=AVG(IDR)
-				,AUD=AVG(AUD)
-				,CHF=AVG(CHF)
-				,GBP=AVG(GBP)
-				,SGD=AVG(SGD)
-				,THB=AVG(THB)
-				,VND=AVG(VND)
-				,KRW=AVG(KRW)
-				,JPY=AVG(JPY)
-				,HKD=AVG(HKD)
-				,TWD=AVG(TWD)
-				,PHP=AVG(PHP)			
-			FROM dbo.ExchangeDailyOanda WITH(NOLOCK)
-			WHERE ExchangeDate BETWEEN @FromDate AND @ToDate 
-				AND exchangeid = 2
-		) p  
-	UNPIVOT  
-	   (Rate FOR Currency IN   
-		  (USD, EUR, CNY, IDR, AUD, CHF, GBP, SGD, THB, VND, KRW, JPY, HKD, TWD, PHP)  
-	)AS unpvt 
+	SELECT DISTINCT o.code AS Currency
+	  ,LTRIM(STR(1/avg(EUR) * MultipliedBy, 19, 8)) AS 'AvgRate'
+	FROM dbo.ExchangeDailyOanda o WITH(NOLOCK)
+	  INNER JOIN dbo.exchange e WITH(NOLOCK) ON o.exchangeid = e.exchangeid
+	WHERE ExchangeDate BETWEEN @FromDate AND @ToDate 
+	  AND o.ExchangeId <> 20
+	GROUP BY o.code, MultipliedBy
+	ORDER BY o.code
 END  
