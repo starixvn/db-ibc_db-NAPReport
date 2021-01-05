@@ -33,7 +33,7 @@ BEGIN
 		,@f_date = CONVERT(VARCHAR(10), @FromDate, 120)
 		,@t_date = CONVERT(VARCHAR(10), @ToDate, 120)
 		
-	DECLARE @BobbetId INT, @TianboId INT
+	DECLARE @BobbetId INT = 0, @TianboId INT = 0
 	DECLARE @Discount_PartyIds VARCHAR(MAX), @Discount_ProductCodes VARCHAR(MAX)
 	DECLARE @ProductIds VARCHAR(MAX), @Product3rdIds VARCHAR(MAX), @ProductCodes VARCHAR(MAX), @SubProducts VARCHAR(MAX), @PartyIds VARCHAR(MAX)
 
@@ -178,6 +178,40 @@ BEGIN
 			INNER JOIN #PartyChargeInfo p ON p.PartyId = l.PartyId AND p.Product3rdId = p3.Product3rdId
 		WHERE NOT EXISTS (SELECT 1 FROM #PartyCharge3rdInfo rd WHERE p.PartyId = rd.PartyId AND p.Product3rdId = rd.Product3rdId)
 
+		SELECT	@BobbetId = CASE WHEN PartyName = 'Bobbet' THEN PartyId ELSE @BobbetId END
+				,@TianboId = CASE WHEN PartyName = 'Tianbo' THEN PartyId ELSE @TianboId END
+		FROM DBLIC.bodb_Licensee.dbo.OAS_Party WITH (NOLOCK)
+		WHERE PartyName IN ('Bobbet', 'Tianbo')
+
+		-- Update charge rate for Keno, Lottery, Table Game
+		DECLARE @tmp_PartyCharge3rdInfo TABLE (ChargeType INT, PartyId INT, Product3rdId INT, FromDate DATE, ToDate DATE, Rate MONEY)
+		
+		IF EXISTS (SELECT 1 FROM #PartyCharge3rdInfo WHERE Product3rdId IN (8, 28, 40) AND ToDate >= '2020-07-01')
+		BEGIN
+			INSERT INTO @tmp_PartyCharge3rdInfo (ChargeType, PartyId, Product3rdId, FromDate, ToDate, Rate)
+			SELECT p.ChargeType, p.PartyId, p.Product3rdId
+				,CASE WHEN p.FromDate > r.FromDate THEN p.FromDate ELSE r.FromDate END
+				,CASE WHEN p.ToDate < r.ToDate THEN p.ToDate ELSE r.ToDate END
+				, r.Rate
+			FROM #PartyCharge3rdInfo p
+				CROSS APPLY (
+					SELECT p.FromDate, CONVERT(DATE, '2020-06-30') AS ToDate, p.Rate
+					WHERE FromDate <= '2020-06-30'
+					UNION ALL
+					SELECT CONVERT(DATE, '2020-07-01') AS FromDate, p.ToDate, 0.02 AS Rate
+					WHERE p.PartyId IN (@BobbetId, @TianboId)
+					UNION ALL
+					SELECT CONVERT(DATE, '2020-07-01') AS FromDate, p.ToDate, 0.036 AS Rate
+					WHERE p.PartyId NOT IN (@BobbetId, @TianboId)
+				) r
+			WHERE p.Product3rdId IN (8, 28, 40) AND p.ToDate >= '2020-07-01'
+
+			DELETE #PartyCharge3rdInfo WHERE Product3rdId IN (8, 28, 40) AND ToDate >= '2020-07-01'
+
+			INSERT INTO #PartyCharge3rdInfo (ChargeType, PartyId, Product3rdId, FromDate, ToDate, Rate)
+			SELECT ChargeType, PartyId, Product3rdId, FromDate, ToDate, Rate FROM @tmp_PartyCharge3rdInfo
+		END
+
 		-- Get default setting 3rd
 		CREATE TABLE #tempVendorGlobalSetting (Product3rdId INT, Bettype INT, ChargeRate3rd FLOAT)
 		INSERT INTO #tempVendorGlobalSetting (Bettype, ChargeRate3rd)
@@ -223,10 +257,11 @@ BEGIN
 				OR (p.SubProductCode = 'NG' AND s.bettype NOT BETWEEN 8101 AND 8200)
 				OR (p.SubProductCode = 'H5' AND s.bettype BETWEEN 8101 AND 8200)
 			)
+			AND p.SubProductCode <> 'PP-JP'
 
 		IF EXISTS (SELECT 1 FROM @Products WHERE SubProductCode = 'PP-JP')
-			INSERT INTO @tmpBetType (Product3rdId, AliasProductId, BetType)
-			SELECT p.Product3rdId, p.AliasProductId, b.BetType
+			INSERT INTO @tmpBetType (Product3rdId, AliasProductId, BetType, BettypeGroup, IsOnlyTO)
+			SELECT p.Product3rdId, p.AliasProductId, b.BetType, -3, 0
 			FROM (SELECT Product3rdId, AliasProductId FROM @Products WHERE SubProductCode = 'PP-JP') p
 				CROSS JOIN (SELECT 4297 AS BetType UNION ALL SELECT 4298) b
 
@@ -426,7 +461,7 @@ BEGIN
 			,CurrencyId	= CASE WHEN t.Product3rdId = 10 THEN t.CurrencyId END
 			,ParentId	= CASE
 							WHEN t.Product3rdId IN (11, 22, 34) THEN l.PartyId
-							WHEN t.Product3rdId = 10 THEN l.ParentId
+							WHEN t.Product3rdId IN (10, 27) THEN l.ParentId
 							WHEN t.Product3rdId IN (8, 28) THEN CASE WHEN l.PartyId = 14 THEN 1 ELSE 2 END
 							WHEN t.Product3rdId = 40 THEN CASE WHEN l.PartyId = 14 THEN -1 ELSE l.ParentId END
 							END
@@ -442,7 +477,7 @@ BEGIN
 											WHEN t.Product3rdId = 22 THEN CASE WHEN t.BetTypeGroup = 1 THEN 0.045 ELSE 0.035 END -- VB (Macau Games)
 											WHEN t.Product3rdId = 27 THEN 0.065 -- VS2
 											WHEN t.Product3rdId = 34 AND t.BetTypeGroup <> -1 THEN ISNULL(v.ChargeRate3rd, 0)
-											ELSE ISNULL(rd.Rate, v.ChargeRate3rd) END
+											ELSE ISNULL(ISNULL(rd.Rate, v.ChargeRate3rd), 0) END
 									+ CASE WHEN t.Product3rdId = 31 THEN t.Comm ELSE 0 END) * e.Rate)
 			,PayToSupplierMonth	= SUM((t.MemberWL *
 										CASE
@@ -454,9 +489,9 @@ BEGIN
 											WHEN t.Product3rdId = 27 THEN 0.065 -- VS2
 											WHEN t.Product3rdId = 34 AND t.BetTypeGroup <> -1 THEN ISNULL(v.ChargeRate3rd, 0)
 											ELSE ISNULL(rd.Rate, 0) END
-									+ CASE WHEN t.Product3rdId = 31 THEN t.Comm ELSE 0 END) * e.Rate * CASE WHEN rd.PartyId IS NULL THEN 0 ELSE 1 END)
-			,FullContribution	= SUM(t.FullContribution * e.Rate)
-			,JackpotPrize		= SUM(CASE WHEN t.Product3rdId = -3 THEN -t.MemberWL ELSE 0 END * e.Rate)
+									+ CASE WHEN t.Product3rdId = 31 THEN t.Comm ELSE 0 END) * e.Rate)
+			,FullContribution	= SUM(CASE WHEN t.BetTypeGroup = -3 THEN t.FullContribution ELSE 0 END * e.Rate)
+			,JackpotPrize		= SUM(CASE WHEN t.BetTypeGroup = -3 THEN -t.MemberWL ELSE 0 END * e.Rate)
 			,HouseTurnover		= SUM(t.HouseTO * e.Rate)
 			,HouseIncomeDaily	= SUM(CASE
 										WHEN t.Product3rdId = 37 THEN -t.HouseWL
@@ -496,7 +531,7 @@ BEGIN
 			,CASE WHEN t.Product3rdId = 10 THEN t.CurrencyId END
 			,CASE
 				WHEN t.Product3rdId IN (11, 22, 34) THEN l.PartyId
-				WHEN t.Product3rdId = 10 THEN l.ParentId
+				WHEN t.Product3rdId IN (10, 27) THEN l.ParentId
 				WHEN t.Product3rdId IN (8, 28) THEN CASE WHEN l.PartyId = 14 THEN 1 ELSE 2 END
 				WHEN t.Product3rdId = 40 THEN CASE WHEN l.PartyId = 14 THEN -1 ELSE l.ParentId END
 				END
@@ -918,7 +953,7 @@ BEGIN
 			FROM (
 				SELECT SUM(t.PayToSupplierMonth) AS PayToSupplier
 				FROM #__tempResult t
-				WHERE t.Product3rdId = r.Product3rdId
+				WHERE t.Product3rdId = r.Product3rdId AND t.AliasProductId = r.AliasProductId
 				GROUP BY t.ParentId
 				HAVING SUM(t.MemberWL) < 0
 			) r
@@ -930,21 +965,21 @@ BEGIN
 	UPDATE r
 	SET r.PayToSupplier = ISNULL(m.PayToSupplier, 0)
 	FROM #Result r
-		INNER JOIN #Result m ON m.Product3rdId = r.Product3rdId AND r.rptDate = 'Monthly' AND m.rptDate = 'MTD'
+		INNER JOIN #Result m ON m.Product3rdId = r.Product3rdId AND m.AliasProductId = r.AliasProductId AND r.rptDate = 'Monthly' AND m.rptDate = 'MTD'
 	WHERE r.Product3rdId NOT IN (5, 10, 11, 22, 27)
 
 		-- 1.3 House Income = sum up Total daily
 	UPDATE r
 	SET r.HouseIncome = ISNULL(m.HouseIncome, 0)
 	FROM #Result r
-		INNER JOIN #Result m ON m.Product3rdId = r.Product3rdId AND r.rptDate = 'Monthly' AND m.rptDate = 'MTD'
+		INNER JOIN #Result m ON m.Product3rdId = r.Product3rdId AND m.AliasProductId = r.AliasProductId AND r.rptDate = 'Monthly' AND m.rptDate = 'MTD'
 	WHERE r.Product3rdId IN (13, 15, 25, 31, 37)
 
 		-- 1.4 FullContribution, JackpotPrize
 	UPDATE r
 	SET r.FullContribution = ISNULL(m.FullContribution, 0), r.JackpotPrize = ISNULL(m.JackpotPrize, 0)
 	FROM #Result r
-		INNER JOIN #Result m ON m.Product3rdId = r.Product3rdId AND r.rptDate = 'Monthly' AND m.rptDate = 'MTD'
+		INNER JOIN #Result m ON m.Product3rdId = r.Product3rdId AND m.AliasProductId = r.AliasProductId AND r.rptDate = 'Monthly' AND m.rptDate = 'MTD'
 	WHERE r.Product3rdId = 32
 
 	DECLARE @DateList VARCHAR(2000)
@@ -979,10 +1014,19 @@ BEGIN
 			FOR rptDate IN (Monthly, MTD, ' + @DateList + ')
 		) p
 	)
-	SELECT s.isDeposit, s.OrderByProduct, s.OrderByFigure, ''Licensee'' AS SiteGroup, s.ProductGroup, s.ProductName, s.ProductShortName, r.Figure, r.Monthly, r.MTD, ' + @DateList + '
-	FROM CTE_Result r
-		INNER JOIN bodb_Account.dbo.HNISettings s WITH (NOLOCK) ON r.AliasProductId = s.AliasProductId AND r.Figure = s.Figure
+	SELECT s.isDeposit, s.OrderByProduct, s.OrderByFigure, ''Licensee'' AS SiteGroup, s.ProductGroup, s.ProductName, s.ProductShortName, s.Figure, r.Monthly, r.MTD, ' + @DateList + '
+	FROM bodb_Account.dbo.HNISettings s WITH (NOLOCK)
+		LEFT JOIN CTE_Result r ON r.AliasProductId = s.AliasProductId AND r.Figure = s.Figure
 	WHERE s.isDeposit = 1 AND s.LogicCode = 2
+		AND (
+				s.EndOfSupportDate IS NULL AND s.isEnable = 1
+				OR s.EndOfSupportDate < ''' + CONVERT(VARCHAR(10), @FDate, 120) + '''
+		)
+		AND (
+			''' + @ProductList + ''' = ''all''
+			OR s.ProductId = 1 AND '',' + @ProductList + ','' LIKE ''%,SB,%''
+			OR '',' + @ProductList + ','' LIKE ''%,'' + s.ProductPrefix + '',%''
+		)
 	ORDER BY s.OrderByProduct, s.OrderByFigure'
 
 	EXEC (@SQL)
