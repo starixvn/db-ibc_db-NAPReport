@@ -142,7 +142,7 @@ BEGIN
 	END
 
 	DECLARE @SABA_GROUPIDS VARCHAR(100)
-	SELECT @SABA_GROUPIDS = [VValue] FROM [DBDW].[bodb_Account].[dbo].[SystemSettings] WHERE VID = 5
+	SELECT @SABA_GROUPIDS = [VValue] FROM [DBDW].[bodb_Account].[dbo].[SystemSettings] WITH (NOLOCK) WHERE VID = 5
 
 	BEGIN -- #tmpMatch
 		CREATE TABLE #tmpMatch (MatchID 	INT,
