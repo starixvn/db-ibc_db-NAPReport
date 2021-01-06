@@ -31,6 +31,7 @@ AS
 		- 20180301@Kean: Missing number game data of some licensee (91266)
 		- 20181031@Percy: Remove linked-server DBLIC [RedmineID: #103660]
 		- 20181219@Robert: NAP Report - Add new sporttype for Happy 5 (#104253) 
+		- 20201225@Jaden: Integrate Happy 5 linked game (#147573)
 		
     Param usage:
 		- @SiteID:
