@@ -165,7 +165,7 @@ BEGIN
 
     SELECT
 		case when m.matchid != 168 then m.matchcode
-			 else substring(b.betcheck, charindex('-', b.betcheck) + 1, len(b.betcheck) - charindex('-', b.betcheck))
+			 else substring(b.betcheck, charindex('-', b.betcheck) + 1, charindex(';', b.betcheck+';') - charindex('-', b.betcheck) - 1)
 		end as matchcode
 	    , b.BetType AS                                                                            bType
 	    , m.leagueid
@@ -198,7 +198,7 @@ BEGIN
 					  )
     GROUP BY
 		 case when m.matchid != 168 then m.matchcode
-			 else substring(b.betcheck, charindex('-', b.betcheck) + 1, len(b.betcheck) - charindex('-', b.betcheck))
+			 else substring(b.betcheck, charindex('-', b.betcheck) + 1, charindex(';', b.betcheck+';') - charindex('-', b.betcheck) - 1)
 		 end
 		 , b.bettype
 		 , m.leagueid

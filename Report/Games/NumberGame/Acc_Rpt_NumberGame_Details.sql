@@ -49,8 +49,8 @@ AS
 	Remarks:
 		- Happy 5 linked games do not have match, so no joining with [match] table, [matchid] on bettrans is used to store sporttype (168)
 		- Matchcode of Happy 5 Linked Games is stored in [bettrans].[betcheck]
-			Wildcard format: [ENV][TableNo]-[MatchCode] 
-			For Example: betcheck =  P20-00130 => MatchCode = 00130
+			Wildcard format: [ENV][TableNo]-[MatchCode];[TransId3rd]
+			For Example: betcheck =  P20-00130;P200304000001 => MatchCode = 00130
 	*/
 
 BEGIN
@@ -169,7 +169,7 @@ BEGIN
 
     SELECT 
 		case when m.matchid != 168 then m.matchcode
-			 else substring(b.betcheck, charindex('-', b.betcheck) + 1, len(b.betcheck) - charindex('-', b.betcheck))
+			 else substring(b.betcheck, charindex('-', b.betcheck) + 1, charindex(';', b.betcheck+';') - charindex('-', b.betcheck) - 1)
 		end as matchcode
 	    , b.BetType AS                                                                            bType
 	    , m.leagueid
@@ -202,7 +202,7 @@ BEGIN
 					  )
     GROUP BY
 		 case when m.matchid != 168 then m.matchcode
-			  else substring(b.betcheck, charindex('-', b.betcheck) + 1, len(b.betcheck) - charindex('-', b.betcheck))
+			  else substring(b.betcheck, charindex('-', b.betcheck) + 1, charindex(';', b.betcheck+';') - charindex('-', b.betcheck) - 1)
 		 end
 		 , b.bettype
 		 , m.leagueid
