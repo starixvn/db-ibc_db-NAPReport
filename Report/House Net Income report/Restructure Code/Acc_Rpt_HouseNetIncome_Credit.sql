@@ -24,7 +24,7 @@ AS
 	Example:
 		EXEC bodb_dwrs.dbo.Acc_Rpt_HouseNetIncome_Credit '20200901', '20200930', 'ALL'
 		EXEC bodb_dwrs.dbo.Acc_Rpt_HouseNetIncome_Credit '20200901', '20200930', 'KN,LT'
-		EXEC bodb_dwrs.dbo.Acc_Rpt_HouseNetIncome_Credit '20200901', '20200930', 'SB,NG'
+		EXEC bodb_dwrs.dbo.Acc_Rpt_HouseNetIncome_Credit '20200901', '20200930', 'SB,NG,H5,H5LG,JP,PP-JP'
 */
 
 BEGIN
@@ -53,10 +53,13 @@ BEGIN
 	--    -> #tmpPTSMainData                                   --
 	--                                                         --
 	-- 4. Getting raw data                                     --
+	--    -> #tmpRawData                                       --
 	--                                                         --
 	-- 5. Getting detail data                                  --
+	--    -> #tmpDetailData                                    --
 	--                                                         --
 	-- 6. Pivot detail data to get the final expected data set --
+	--    -> #tmpFinalData                                     --
 	--                                                         --
 	-- 7. Select data                                          --
 	--                                                         --
@@ -430,13 +433,14 @@ BEGIN
 			   SUM((b.WinlossIBC - b.WinlossS - b.WinlossM - b.WinlossA) * ISNULL(es.Rate, 0)) Contribution
 		FROM bodb_Account.dbo.FactSiteWinloss b (NOLOCK)
 			 INNER JOIN bodb_Account.dbo.tbl_Site s (NOLOCK) ON s.isDeposit = 0 AND b.SiteID = s.siteid
-			 INNER JOIN #tmpProductBettype pb (NOLOCK) ON b.Bettype = pb.Bettype
+			 LEFT JOIN #tmpProductBettype pb (NOLOCK) ON b.Bettype = pb.Bettype
 			 LEFT JOIN #tmpExchangeSystem es ON b.rptdate = es.ExchangeDate AND b.CurrencyID = es.ExchangeID
 			 LEFT JOIN #tmpExchangeOANDA eo ON b.RptDate = eo.ExchangeDate AND b.CurrencyID = eo.ExchangeID
 			 LEFT JOIN #tmpLeague l ON b.LeagueID = l.LeagueID
 		WHERE RptDate >= @FromDate_e AND RptDate <= @ToDate_e
 			  AND b.TicketStatus NOT IN (-1, 18, 9, 10, 14)
 			  AND b.CurrencyID <> 20
+			  AND b.BetType IN (SELECT Bettype FROM #tmpProductBettype)
 		GROUP BY b.RptDate,
 				 s.site,
 				 CASE WHEN b.Bettype IN (9, 29) THEN -10								--Parlay
@@ -723,6 +727,7 @@ BEGIN
 
 	DROP TABLE #tmpBettypeGroup
 	DROP TABLE #tmpProductList
+	DROP TABLE #tmpHNISettings
 	DROP TABLE #tmpProductBettype
 
 	DROP TABLE #tmpExchangeSystem
@@ -733,6 +738,7 @@ BEGIN
 	DROP TABLE #tmpPTSMainData
 
 	DROP TABLE #tmpRawData
+
 	DROP TABLE #tmpDetailData
 
 	DROP TABLE #tmpFinalData
