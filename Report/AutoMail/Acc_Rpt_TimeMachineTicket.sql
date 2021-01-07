@@ -13,6 +13,7 @@ AS
 	 Revisions:
 	 - 20191231@Harry: add reasons: Robot Betting and Irrigation Bet (?)
 	 - 20201117@Jaden: from adhoc to SP
+	 - 20210107@Jaden: new columns
 	 */
 BEGIN 
 	Create table #tmp_data
