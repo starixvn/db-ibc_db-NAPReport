@@ -521,6 +521,7 @@ BEGIN
 			,JackpotPrize		= SUM(CASE WHEN t.BetTypeGroup = -3 THEN -t.MemberWL ELSE 0 END * e.Rate)
 			,HouseTurnover		= SUM(t.HouseTO * e.Rate)
 			,HouseIncomeDaily	= SUM(CASE
+										WHEN t.Product3rdId = 15 THEN t.MemberWL
 										WHEN t.Product3rdId = 37 THEN -t.HouseWL
 										WHEN p.PartyId IS NULL THEN -t.HouseWL
 										WHEN t.SportTypeGroup = 150 THEN -t.MemberWL -- SBC free bets
@@ -529,6 +530,7 @@ BEGIN
 											- t.HouseContribution - CASE WHEN t.Product3rdId = 31 THEN t.Comm ELSE 0 END
 										END * e.Rate)
 			,HouseIncomeMonth	= SUM(CASE
+										WHEN t.Product3rdId = 15 THEN t.MemberWL
 										WHEN t.Product3rdId = 37 THEN -t.HouseWL
 										WHEN p.PartyId IS NULL THEN 0
 										WHEN t.SportTypeGroup = 150 THEN -t.MemberWL -- SBC free bets
@@ -953,7 +955,7 @@ BEGIN
 
 	-- Daily
 	INSERT INTO #Result (rptDate, Product3rdId, AliasProductId, BAComm, PayToSupplier, FullContribution, JackpotPrize, HouseTurnover, HouseIncome)
-	SELECT CONVERT(VARCHAR(2), rptDate, 106), Product3rdId, AliasProductId, SUM(Comm), SUM(PayToSupplierDaily), SUM(FullContribution), SUM(JackpotPrize), SUM(HouseTurnover), SUM(HouseIncomeDaily)
+	SELECT CONVERT(VARCHAR(2), rptDate, 106), Product3rdId, AliasProductId, -SUM(Comm), SUM(PayToSupplierDaily), SUM(FullContribution), SUM(JackpotPrize), SUM(HouseTurnover), SUM(HouseIncomeDaily)
 	FROM #__tempResult
 	GROUP BY CONVERT(VARCHAR(2), rptDate, 106), Product3rdId, AliasProductId
 
