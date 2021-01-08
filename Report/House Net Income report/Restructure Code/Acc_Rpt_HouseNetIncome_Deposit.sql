@@ -178,10 +178,8 @@ BEGIN
 			INNER JOIN #PartyChargeInfo p ON p.PartyId = l.PartyId AND p.Product3rdId = p3.Product3rdId
 		WHERE NOT EXISTS (SELECT 1 FROM #PartyCharge3rdInfo rd WHERE p.PartyId = rd.PartyId AND p.Product3rdId = rd.Product3rdId)
 
-		SELECT	@BobbetId = CASE WHEN PartyName = 'Bobbet' THEN PartyId ELSE @BobbetId END
-				,@TianboId = CASE WHEN PartyName = 'Tianbo' THEN PartyId ELSE @TianboId END
-		FROM DBLIC.bodb_Licensee.dbo.OAS_Party WITH (NOLOCK)
-		WHERE PartyName IN ('Bobbet', 'Tianbo')
+		SELECT @BobbetId = PartyId FROM DBLIC.bodb_Licensee.dbo.OAS_Party WITH (NOLOCK) WHERE PartyName = 'Bobbet'
+		SELECT @TianboId = PartyId FROM DBLIC.bodb_Licensee.dbo.OAS_Party WITH (NOLOCK) WHERE PartyName = 'Tianbo'
 
 		-- Update charge rate for Keno, Lottery, Table Game
 		DECLARE @tmp_PartyCharge3rdInfo TABLE (ChargeType INT, PartyId INT, Product3rdId INT, FromDate DATE, ToDate DATE, Rate MONEY)
@@ -251,7 +249,7 @@ BEGIN
 			INNER JOIN @Products p ON s.ProductId = p.ProductId
 			LEFT JOIN bodb_Account.dbo.BettypeGroup bg WITH (NOLOCK) ON s.BetType = bg.Bettype
 		WHERE s.BetType NOT IN (911, 912, 1906, 4298, 4299, 4300)
-			AND s.ProductId NOT IN (1, 11, 12, 15, 31)
+			AND s.ProductId NOT IN (11, 12, 15, 31)
 			AND (
 				s.ProductId <> 3
 				OR (p.SubProductCode = 'NG' AND s.bettype NOT BETWEEN 8101 AND 8200)
@@ -326,7 +324,7 @@ BEGIN
 					WHEN t.Sporttype = 2 THEN -4 -- Basketball
 					WHEN t.Sporttype = 5 THEN -6 -- Tennis
 					WHEN t.Sporttype = 43 THEN -7 -- E-Sports
-					WHEN t.Sporttype = -2 THEN -10 -- E-Sports
+					WHEN t.Sporttype = -2 THEN -10 -- Parlay
 					ELSE -9 -- OS
 					END AS AliasProductId
 				,SUM(t.MemberWinloss) AS MemberWL
@@ -343,7 +341,7 @@ BEGIN
 					WHEN t.Sporttype = 2 THEN -4 -- Basketball
 					WHEN t.Sporttype = 5 THEN -6 -- Tennis
 					WHEN t.Sporttype = 43 THEN -7 -- E-Sports
-					WHEN t.Sporttype = -2 THEN -10 -- E-Sports
+					WHEN t.Sporttype = -2 THEN -10 -- Parlay
 					ELSE -9 -- OS
 					END
 		END
@@ -379,7 +377,21 @@ BEGIN
 		-- Others
 		BEGIN
 			INSERT INTO #__tempData (rptDate, SiteId_DW, CurrencyId, Product3rdId, AliasProductId, SportTypeGroup, BetTypeGroup, MemberWL, HouseWL, HouseTO, HouseContribution, FullContribution)
-			SELECT b.rptDate, b.SiteId, b.CurrencyId, bt.Product3rdId, bt.AliasProductId, CASE WHEN b.SportType = 150 THEN b.SportType ELSE -1 END, bt.BetTypeGroup
+			SELECT b.rptDate, b.SiteId, b.CurrencyId, bt.Product3rdId
+				,CASE
+					WHEN bt.Product3rdId <> 0 THEN bt.AliasProductId
+					WHEN bt.BetType IN (9, 29) THEN -10 -- Parlay
+					WHEN s.LeagueGroupId IN (42, 74, 108) AND b.SportType = 1 THEN -3 -- Saba Soccer
+					WHEN s.LeagueGroupId IN (42) AND b.SportType = 2 THEN -5 -- Saba Basketball
+					WHEN s.LeagueGroupId IN (42) AND b.SportType = 50 THEN -8 -- Saba Cricket
+					WHEN b.Sporttype = 1 THEN -2 -- Soccer
+					WHEN b.Sporttype = 2 THEN -4 -- Basketball
+					WHEN b.Sporttype = 5 THEN -6 -- Tennis
+					WHEN b.Sporttype = 43 THEN -7 -- E-Sports
+					ELSE -9 -- OS
+					END AS AliasProductId
+				,CASE WHEN b.SportType = 150 THEN b.SportType ELSE -1 END AS SportTypeGroup
+				,bt.BetTypeGroup
 				,SUM(CASE
 						WHEN bt.IsOnlyTO = 1 OR bt.bettype = 4297 THEN 0
 						WHEN bt.BetType IN (913, 914) THEN b.WinlossP + b.WinlossA
@@ -392,10 +404,25 @@ BEGIN
 				,SUM(CASE WHEN bt.bettype = 4297 THEN b.WinlossIBC-b.WinlossS-b.WinlossM-b.WinlossA ELSE 0 END) AS FullContribution
 			FROM bodb_Account.dbo.FactSiteWinloss b WITH (NOLOCK)
 				INNER JOIN @tmpBetType bt ON b.BetType = bt.BetType
+				LEFT JOIN #__SabaLeague s ON b.LeagueId = s.LeagueId AND bt.Product3rdId = 0
 			WHERE b.rptDate BETWEEN @FDate AND @TDate
 				AND b.CurrencyId <> 20
 				AND b.TicketStatus NOT IN (-1, 18, 9, 10, 14)
-			GROUP BY b.rptDate, b.SiteId, b.CurrencyId, bt.Product3rdId, bt.AliasProductId, CASE WHEN b.SportType = 150 THEN b.SportType ELSE -1 END, bt.BetTypeGroup
+			GROUP BY b.rptDate, b.SiteId, b.CurrencyId, bt.Product3rdId
+				,CASE
+					WHEN bt.Product3rdId <> 0 THEN bt.AliasProductId
+					WHEN bt.BetType IN (9, 29) THEN -10 -- Parlay
+					WHEN s.LeagueGroupId IN (42, 74, 108) AND b.SportType = 1 THEN -3 -- Saba Soccer
+					WHEN s.LeagueGroupId IN (42) AND b.SportType = 2 THEN -5 -- Saba Basketball
+					WHEN s.LeagueGroupId IN (42) AND b.SportType = 50 THEN -8 -- Saba Cricket
+					WHEN b.Sporttype = 1 THEN -2 -- Soccer
+					WHEN b.Sporttype = 2 THEN -4 -- Basketball
+					WHEN b.Sporttype = 5 THEN -6 -- Tennis
+					WHEN b.Sporttype = 43 THEN -7 -- E-Sports
+					ELSE -9 -- OS
+					END
+				,CASE WHEN b.SportType = 150 THEN b.SportType ELSE -1 END
+				,bt.BetTypeGroup
 			OPTION (RECOMPILE)
 		END
 
@@ -920,6 +947,8 @@ BEGIN
 		,HouseTurnover		MONEY
 		,HouseIncome		MONEY
 		,MinFee				MONEY
+		,Discount			MONEY
+		,Rebate				MONEY
 	)
 
 	-- Daily
@@ -935,14 +964,26 @@ BEGIN
 	GROUP BY Product3rdId, AliasProductId
 
 	-- Monthly
-	INSERT INTO #Result (rptDate, Product3rdId, AliasProductId, HouseTurnover, HouseIncome, MinFee)
-	SELECT 'Monthly', Product3rdId, AliasProductId, SUM(HouseTurnover), SUM(LicenseeFee), SUM(LicenseeMinFee)
+	INSERT INTO #Result (rptDate, Product3rdId, AliasProductId, HouseTurnover, HouseIncome, MinFee, Discount, Rebate)
+	SELECT 'Monthly', Product3rdId, AliasProductId, SUM(HouseTurnover), SUM(LicenseeFee), SUM(LicenseeMinFee), SUM(Discount), SUM(Rebate)
 	FROM @tmpResult
 	GROUP BY Product3rdId, AliasProductId
 
 	-- Update full range
-	UPDATE #Result SET HouseIncome = HouseIncome + @BAWinloss, BAComm = @BAComm WHERE Product3rdId = 0 AND AliasProductId = -2
-	UPDATE #Result SET PayToSupplier = -0.5*HouseIncome WHERE Product3rdId = 2 -- NG, HP5
+	;WITH CTE_HouseTO AS
+	(
+		SELECT Product3rdId, AliasProductId, HouseTurnover FROM #Result WHERE rptDate = 'MTD'
+	)
+	MERGE #Result AS s
+	USING CTE_HouseTO AS t ON s.Product3rdId = t.Product3rdId AND s.AliasProductId = t.AliasProductId AND s.rptDate = 'Monthly'
+	WHEN MATCHED THEN UPDATE
+		SET s.HouseTurnover = t.HouseTurnover
+	WHEN NOT MATCHED THEN INSERT
+		(rptDate, Product3rdId, AliasProductId, HouseTurnover)
+		VALUES
+		('Monthly', Product3rdId, AliasProductId, HouseTurnover);
+	
+	UPDATE #Result SET HouseIncome = HouseIncome + @BAWinloss, BAComm = @BAComm WHERE Product3rdId = 0 AND AliasProductId = -2 AND rptDate = 'Monthly'
 
 		-- 1.1 Pay to supplier Base on MemberWL < 0
 	UPDATE r
@@ -1007,6 +1048,7 @@ BEGIN
 				UNION ALL SELECT HouseIncome, ''Licensee House Income''
 				UNION ALL SELECT MinFee, ''Licensing Minimum Fee''
 				UNION ALL SELECT PayToSupplier, ''Pay to supplier''
+				UNION ALL SELECT ISNULL(Rebate, 0) + ISNULL(Discount, 0), ''Rebate & Discount''
 			) f
 		) t
 		PIVOT (

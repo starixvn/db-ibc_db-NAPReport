@@ -135,8 +135,8 @@ BEGIN
 		SELECT @SQL = '	SELECT PartyId, ProductId, ChargeId, ChargeType, FromDate, ToDate, Rate
 						FROM OPENQUERY (DBLIC, ''SELECT DISTINCT PartyId, ProductId, ChargeId, ChargeType, FromDate, ToDate, DI_Rate AS Rate FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd (''''' + @f_date + ''''', ''''' + @t_date + ''''', ''''' + @ProductCodes + ''''', ''''OA'''')
 												 WHERE (
-														(ProductID IN (11, 21) AND ChargeType IN (9, 10)) -- GD & AB
-														OR (ProductID NOT IN (11, 21) AND ChargeType = 1)
+														(ProductID IN (11, 21, 39) AND ChargeType IN (9, 10, 11)) -- GD, AB, SAG
+														OR (ProductID NOT IN (11, 21, 39) AND ChargeType = 1)
 													)'')'
 		INSERT INTO #__Party3rdInfo (PartyId, Product3rdId, ChargeId, ChargeType, FromDate, ToDate, Rate)
 		EXEC (@SQL)
@@ -153,6 +153,18 @@ BEGIN
 		FROM #__PartyCharge3rdInfo p
 			INNER JOIN DBLIC.bodb_licensee.dbo.OAS_ChargeInfo c WITH (NOLOCK) ON p.ChargeId = c.ChargeId
 		WHERE p.ChargeType = 1 AND p.IsDeposit = 0 AND p.Product3rdId = 32 -- PP
+		
+		UPDATE p
+		SET p.Rate = 0
+		FROM #__PartyCharge3rdInfo p
+			INNER JOIN #__PartyCharge3rdInfoByAmount pa ON p.IsDeposit = pa.IsDeposit AND p.Product3rdId = pa.Product3rdId
+
+		DELETE t
+		FROM (
+			SELECT ROW_NUMBER() OVER(PARTITION BY ParentId, PartyId, LicenseeId, IsDeposit, Product3rdId, ChargeType, FromDate, ToDate, Rate ORDER BY ChargeId) AS RN
+			FROM #__PartyCharge3rdInfo
+		) t
+		WHERE RN > 1
 
 		CREATE TABLE #MetricChargeInfo (FromDate DATE, ToDate DATE, BaseCurrencyId INT, MinAmount MONEY, MaxAmount MONEY, Rate FLOAT)
 		SELECT @SQL = '	SELECT FromDate, ToDate, BaseCurrencyId, MinAmount, MaxAmount, Rate
@@ -196,7 +208,7 @@ BEGIN
 	BEGIN
 		DECLARE @tmpSite TABLE (SiteId_DW INT, LicenseeId INT, SiteName VARCHAR(20))
 		INSERT INTO @tmpSite (LicenseeId, SiteName)
-		SELECT LicenseeId, RTRIM(LTRIM(LicenseeName)) FROM DBLIC.bodb_licensee.dbo.Licensees WITH (NOLOCK) WHERE IsDeposit = 1
+		SELECT SiteId, RTRIM(LTRIM(SiteName)) FROM DBLIC.bodb_licensee.dbo.view_site_list WITH (NOLOCK)
 
 		UPDATE s
 		SET s.SiteId_DW = t.SiteId
@@ -339,7 +351,7 @@ BEGIN
 				INNER JOIN #__Bettype bt ON d.BetTypeId = bt.BetType
 				INNER JOIN #AllParties tp ON tp.LicenseeId = d.SiteId
 				INNER JOIN @ExchangeOANDA e ON d.CurrencyId = e.ExchangeId
-				LEFT JOIN #__PartyCharge3rdInfo p ON tp.LicenseeId = p.LicenseeId AND bt.Product3rdId = p.Product3rdId AND d.rptDate BETWEEN p.FromDate AND p.ToDate AND ((d.BetTypeId <> 3007 AND p.ChargeType <> 12) OR (d.BetTypeId = 3007 AND p.ChargeType = 12))
+				LEFT JOIN #__PartyCharge3rdInfo p ON tp.LicenseeId = p.LicenseeId AND bt.Product3rdId = p.Product3rdId AND d.rptDate BETWEEN p.FromDate AND p.ToDate AND p.ChargeType <> 11 AND ((d.BetTypeId <> 3007 AND p.ChargeType <> 12) OR (d.BetTypeId = 3007 AND p.ChargeType = 12))
 				LEFT JOIN #__tmpVendorGlobalSetting vs ON vs.IsDeposit = tp.IsDeposit AND vs.Product3rdId = bt.Product3rdId
 				LEFT JOIN #__PlayCurrencySettings pc ON d.SiteId = pc.SiteId AND d.CurrencyId = pc.MemberCurrency AND d.rptDate BETWEEN pc.FromDate AND pc.ToDate
 				LEFT JOIN #__ValidBetRate v ON tp.IsDeposit = v.IsDeposit AND bt.Product3rdId = v.Product3rdId AND d.rptDate BETWEEN v.FromDate AND v.ToDate
@@ -376,6 +388,9 @@ BEGIN
 			INNER JOIN #__PartyCharge3rdInfoByAmount ci ON wl.RptDate BETWEEN ci.FromDate AND ci.ToDate
 			INNER JOIN @ExchangeOANDA ex ON ci.CurrencyId = ex.ExchangeId
 		WHERE ci.Product3rdId = 32 AND IsDeposit = 0
+		
+		INSERT INTO #__FullRangePayToSupplier (IsDeposit, Product3rdId, PayToSupplier)
+		SELECT 0, 32, SUM(PayToSupplier) FROM #__DailyPayToSupplier WHERE Product3rdId = 32 AND IsDeposit = 0
 	END
 
 	-- SA Gaming for Deposit
@@ -402,6 +417,9 @@ BEGIN
 			INNER JOIN CTE_SA t ON t.ParentId = d.ParentId
 		WHERE d.Product3rdId = 39 AND IsDeposit = 1
 		GROUP BY d.rptDate
+		
+		INSERT INTO #__FullRangePayToSupplier (IsDeposit, Product3rdId, PayToSupplier)
+		SELECT 1, 39, SUM(PayToSupplier) FROM #__DailyPayToSupplier WHERE Product3rdId = 39 AND IsDeposit = 1
 	END
 
 	-- Check by MemberWL
@@ -432,6 +450,8 @@ BEGIN
 		SELECT IsDeposit, Product3rdId, CASE WHEN Product3rdId = 0 THEN Bettype ELSE 0 END, SUM(PayMonthRate)
 		FROM #__tempResult
 		WHERE Product3rdId NOT IN (10, 24)
+			AND (IsDeposit = 1 OR Product3rdId <> 32)
+			AND (IsDeposit = 0 OR Product3rdId <> 39)
 		GROUP BY IsDeposit, Product3rdId, CASE WHEN Product3rdId = 0 THEN Bettype ELSE 0 END
 	END
 
