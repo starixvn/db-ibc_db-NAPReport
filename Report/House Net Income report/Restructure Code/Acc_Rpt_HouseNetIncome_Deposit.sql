@@ -1050,7 +1050,7 @@ BEGIN
 				UNION ALL SELECT HouseIncome, ''Licensee House Income''
 				UNION ALL SELECT MinFee, ''Licensing Minimum Fee''
 				UNION ALL SELECT PayToSupplier, ''Pay to supplier''
-				UNION ALL SELECT ISNULL(Rebate, 0) + ISNULL(Discount, 0), ''Rebate & Discount''
+				UNION ALL SELECT -(ISNULL(Rebate, 0) + ISNULL(Discount, 0)), ''Rebate & Discount''
 			) f
 		) t
 		PIVOT (
