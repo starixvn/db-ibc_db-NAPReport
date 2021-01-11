@@ -31,6 +31,7 @@ AS
 		- 20180301@Kean: Missing number game data of some licensee (91266)
 		- 20181031@Percy: Remove linked-server DBLIC [RedmineID: #103660]
 		- 20181219@Robert: NAP Report - Add new sporttype for Happy 5 (#104253) 
+		- 20201225@Jaden: Integrate Happy 5 linked game (#147573)
 		
     Param usage:
 		- @SiteID:
@@ -169,8 +170,12 @@ BEGIN
 	    , SUM((1 - tpositiontaking) * stake * actualrate) AS                                      Turnover
     FROM dbo.bettrans AS b WITH (NOLOCK)
 	   INNER JOIN #Bettype AS bt ON b.bettype = bt.Bettype
-	   INNER JOIN dbo.match AS m WITH (NOLOCK) ON b.matchid = m.matchid									
-										 AND m.eventdate = @winlostdate
+	   INNER JOIN (
+		   	select matchid, matchcode, sporttype, leagueid from match with (nolock) 
+	   		union -- add dummy row to not losing out happy 5 linked games data
+			select 168, 'refer bettrans.betcheck', 168, -1
+		) AS m
+	   	ON b.matchid = m.matchid AND b.winlostdate = @winlostdate
     WHERE b.ruben = 1
 		AND b.statusID NOT IN(101, 102, 103, 121)
 		AND b.liveindicator = CASE
