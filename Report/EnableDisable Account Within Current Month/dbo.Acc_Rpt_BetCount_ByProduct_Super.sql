@@ -60,6 +60,9 @@ AS
 		- 20200921@Jaden.Tang: NAP Report - Incorporate Joker Gaming (#131611) & WM (#131583)
 		- 20200930@Ned.Le: NAP Reports - Licensee Odds Spread (#141750)
 		- 20201126@Cherry: Integrate Virtual Sports 3 (#146010) & GDG (#146008)
+		- 20201225@Ned.Le: NAP Reports - Integrate Linked Games (Number Game) (#147573)
+		- 20201225@Ned.Le: NAP Reports - Integrate Big Gaming (#142481)
+		- 20201225@Ned.Le: NAP Reports - Integrate MaxGame (#147570)
 
 	Param's Explanation:  
 	  + @MoveBetsDay: The day of moving bets to battrans14
@@ -69,8 +72,8 @@ AS
 		{251: Casino (include : 251, 208, 209, 210), 151:Racing, 252:Bingo, 161:Number Game, 162:Live Casino, 180:Virtual Sports, 202:Keno,  -1 : Metric Gaming - Superlive
 		 220: Lottery, 160: Lucky 3, 207: Bullfighting, 163: Poker Games, 245: Virtual Games
 		 244: SA Gaming, 200: Saba.club, 243: Sexy Gaming, 222: Table Games,
-		 241: BBIN, 242: IBCBet Live Casino, 233: WM,
-		 212: Macau Games (include: Macau Games, Pragmatic, Spadegaming, Card Club [Video Poker], PG Soft, Joker Gaming)
+		 241: BBIN, 242: IBCBet Live Casino, 233: WM, 236: GDG, 239: BG
+		 212: Macau Games (include: Macau Games, Pragmatic, Spadegaming, Card Club [Video Poker], PG Soft, Joker Gaming, MaxGame)
 		}
   
 */  
@@ -101,8 +104,8 @@ BEGIN
 	SELECT @CurrentDate = CAST(GETDATE() AS DATE)
 	SELECT @FirstDate = CONVERT(VARCHAR(25),DATEADD(dd,-(DAY(@CurrentDate)-1),@CurrentDate),101)   --- First date of the month
     
-    --Get running Keno, Colossus Bet, Lottery, GoldDeluxe, MG-Superlive, Virtual Games, Table Games, Virtual Sports 3
-    IF @sportType IN (202,204,220,255,-1,245,222,180)                       
+    --Get running Keno, Colossus Bet, Lottery, GoldDeluxe, MG-Superlive, Virtual Games, Table Games, Virtual Sports 3, Happy 5 Linked Games
+    IF @sportType IN (202,204,220,255,-1,245,222,180,161)
     BEGIN
 		INSERT INTO #AvailableMember
 		SELECT tl.custid,tl.[status],COUNT(1) 
@@ -110,6 +113,7 @@ BEGIN
 		WHERE (tl.productID = @sportType
 			  OR (@sportType = -1 AND tl.GameID BETWEEN 801 AND 806)
 			  OR (@sportType = 180 AND tl.GameID BETWEEN 5301 AND 5399) -- Virtual Sports 3 using the same setting with Virtual Sport
+			  OR (@sportType = 161 AND tl.GameID BETWEEN 3601 AND 3610) -- Happy 5 Linked Games
 			)
 			AND tl.srecommend = @CustID
 			AND tl.StatusId = 0 
@@ -131,8 +135,9 @@ BEGIN
 		FROM dbo.bettrans b WITH(NOLOCK)
 		WHERE b.winlostdate BETWEEN @TempFromDate AND @CurrentDate
 		AND (
-			b.bettype BETWEEN 81 AND (CASE WHEN @sportType=161 THEN 120 ELSE 0 END)
-			OR b.bettype BETWEEN 8101 AND (CASE WHEN @sportType=161 THEN 8120 ELSE 0 END)			
+			b.bettype BETWEEN 81 AND (CASE WHEN @sportType=161 THEN 120 ELSE 0 END) -- Number Game
+			OR b.bettype BETWEEN 8101 AND (CASE WHEN @sportType=161 THEN 8120 ELSE 0 END) -- Happy 5
+			OR b.bettype BETWEEN 3601 AND (CASE WHEN @sportType=161 THEN 3610 ELSE 0 END) -- Happy 5 Linked Games
 			OR b.bettype BETWEEN 801 AND (CASE WHEN @sportType= -1 AND b.StatusID <> 0 THEN 806 ELSE 0 END)
 			OR b.bettype BETWEEN 1501 AND (CASE WHEN @sportType=202 AND b.StatusID <> 0 THEN 1599 ELSE 0 END)
 			OR b.bettype BETWEEN 4601 AND (CASE WHEN @sportType=245 AND b.StatusID <> 0 THEN 4900 ELSE 0 END)
@@ -167,6 +172,7 @@ BEGIN
 					OR b.gameID BETWEEN 1901 AND CASE WHEN @sportType=212 THEN 1999 ELSE 0 END -- Card Club [Video Poker]
 					OR b.gameID BETWEEN 6001 AND CASE WHEN @sportType=212 THEN 6300 ELSE 0 END -- PG Soft
 					OR b.gameID BETWEEN 6401 AND CASE WHEN @sportType=212 THEN 6700 ELSE 0 END -- Joker Gaming
+					OR b.gameID BETWEEN 5401 AND CASE WHEN @sportType=212 THEN 5499 ELSE 0 END -- MaxGame
 					OR b.gameID BETWEEN 1011 AND CASE WHEN @sportType=219 THEN 1020 ELSE 0 END -- Fishing World
 					OR b.gameID BETWEEN 1611 AND CASE WHEN @sportType=200 THEN 1699 ELSE 0 END -- Saba.club
 					OR b.gameID BETWEEN 5500 AND CASE WHEN @sportType=224 THEN 5599 ELSE 0 END -- RNG War
@@ -180,7 +186,7 @@ BEGIN
 		END	
 
 		-- Get data from bettransLC
-		IF @sportType IN (211, 244, 243, 242, 225, 236)
+		IF @sportType IN (211, 244, 243, 242, 225, 236, 239)
 		BEGIN
 			INSERT INTO #AvailableMember
 			SELECT b.custid,b.[status],COUNT(1) 
@@ -194,6 +200,7 @@ BEGIN
 					OR b.gameID BETWEEN 5601 AND CASE WHEN @sportType=225 THEN 5699 ELSE 0 END -- ION Live Casino
 					OR b.gameID BETWEEN 3401 AND CASE WHEN @sportType=233 THEN 3499 ELSE 0 END -- WM
 					OR b.gameID BETWEEN 5701 AND CASE WHEN @sportType=236 THEN 5799 ELSE 0 END -- GDG
+					OR b.gameID BETWEEN 3501 AND CASE WHEN @sportType=239 THEN 3599 ELSE 0 END -- BG
 				) 
 			AND (
 					b.statusId IN (111,112,113,0) 
@@ -219,8 +226,9 @@ BEGIN
 				WHERE	b.rptDate BETWEEN '''''+ CONVERT(VARCHAR(10),@FirstDate, 121)+ ''''' AND '''''+  CONVERT(VARCHAR(10),@TempToDate, 121)  + '''''
 						AND 
 						(
-							b.bettype BETWEEN 81 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'       = 161 THEN 120 ELSE 0 END)
-							OR b.bettype BETWEEN 8101 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 161 THEN 8120 ELSE 0 END)
+							b.bettype BETWEEN 81 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'       = 161 THEN 120 ELSE 0 END)	 -- Number Game
+							OR b.bettype BETWEEN 8101 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 161 THEN 8120 ELSE 0 END)  -- Happy 5
+							OR b.bettype BETWEEN 3601 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 161 THEN 3610 ELSE 0 END)  -- Happy 5 Linked Games
 							OR (' + CONVERT(VARCHAR(5),@sportType) +' = 251 AND (b.bettype BETWEEN 2101 AND 2399 OR b.bettype BETWEEN 2901 AND 2999)) -- RNG Casino
 							OR b.bettype BETWEEN 801 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = -1 THEN 806 ELSE 0 END)
 							OR b.bettype BETWEEN 1501 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 202 THEN 1599 ELSE 0 END)
@@ -244,8 +252,10 @@ BEGIN
 							OR b.bettype BETWEEN 5500 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 224 THEN 5599 ELSE 0 END)  -- RNG War
 							OR b.bettype BETWEEN 6001 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = 212 THEN 6300 ELSE 0 END   -- PG Soft
 							OR b.bettype BETWEEN 6401 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = 212 THEN 6700 ELSE 0 END   -- Joker Gaming
+							OR b.bettype BETWEEN 5401 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = 212 THEN 6499 ELSE 0 END   -- MaxGame
 							OR b.bettype BETWEEN 3401 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = 233 THEN 3499 ELSE 0 END   -- WM
 							OR b.bettype BETWEEN 5701 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = 236 THEN 5799 ELSE 0 END   -- GDG
+							OR b.bettype BETWEEN 3501 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = 239 THEN 3599 ELSE 0 END   -- BG
 						) 
 						AND b.bettype NOT IN (38)
 						AND b.status IN (3  ---DRAW
@@ -327,7 +337,7 @@ BEGIN
 			LEFT JOIN CustEnableKeno ce ON ce.CustID = av.custid    
 		WHERE ce.CustID IS NULL
 	END
-	IF @sportType IN (211,212,213,219,220,180,245,244,200,243,222,241,242,224,225,233,236)
+	IF @sportType IN (211,212,213,219,220,180,245,244,200,243,222,241,242,224,225,233,236,239)
     BEGIN
 		DECLARE @bitmapOrder TABLE (bitmapOrder TINYINT)
 		INSERT INTO @bitmapOrder (bitmapOrder)
