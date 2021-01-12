@@ -40,6 +40,7 @@ AS
 		20200710@Cherry: Integrate Pragmatic Jackpot (#137268)
 		20200828@Cherry: Integrate Saba.club Free Bet (#140109)
 		20200917@Cherry: Improve performance (#141844)
+		20201224@Cherry: Integrate Happy 5 Linked Games (#146537)
 
 	Param's Explanation:
 		- @ProductID: string filter by Product 
@@ -648,7 +649,8 @@ BEGIN
 				INNER JOIN dbo.match m WITH (NOLOCK) ON m.matchid = b.matchid
 			WHERE ProductID IN (3, 4, 5) AND b.EvenType = 1
 				AND (
-					(b.ProductID = 3 AND (@LeagueId = '' OR (EXISTS (SELECT 1 FROM #tmp_LeagueID l WHERE l.LeagueID = m.leagueid AND l.Bettype = b.Bettype)))) OR
+					(b.ProductID = 3 AND (@LeagueId = '' OR EXISTS (SELECT 1 FROM #tmp_LeagueID l WHERE l.LeagueID = m.leagueid AND l.Bettype = b.Bettype)
+											OR EXISTS (SELECT 1 FROM #tmp_LeagueID l WHERE l.LeagueID = 168 AND l.Bettype = b.bettype))) OR
 					(b.ProductID = 5 AND (@Sporttype = '' OR (EXISTS (SELECT 1 FROM #tmp_SportType st WHERE st.Sporttype = m.sporttype))))
 				)
 			GROUP BY ProductID
