@@ -15,6 +15,7 @@ AS
    
     Revisions:
 		20201102@Ned.Le: DHWL Email/Letstalk - Restructure source code to improve performance & Separate House Income into Credit Income and Licensee Income (#143208)
+		20210112@Ned.Le: Email/Letstalk Reports - Integrate Linked Games (Number Game) (#146539)
 
 	Param's Explanation:
 		@ProductList: 'ALL' - Get data of all product
@@ -181,7 +182,7 @@ BEGIN
 		INSERT INTO #tmpProductBettype (ProductID, Bettype)
 		SELECT DISTINCT ProductID, BetType
 		FROM bodb02.dbo.SportBettypeMatrix (NOLOCK)
-		WHERE ProductID = 3 AND SportType <> 164
+		WHERE ProductID = 3 AND SportType = 161
 	END
 
 	IF EXISTS (SELECT TOP 1 1 FROM #tmpProductList WHERE ProductPrefix = 'H5')
@@ -190,6 +191,14 @@ BEGIN
 		SELECT DISTINCT ProductID, BetType
 		FROM bodb02.dbo.SportBettypeMatrix (NOLOCK)
 		WHERE ProductID = 3 AND SportType = 164
+	END
+
+	IF EXISTS (SELECT TOP 1 1 FROM #tmpProductList WHERE ProductPrefix = 'H5LG')
+	BEGIN
+		INSERT INTO #tmpProductBettype (ProductID, Bettype)
+		SELECT DISTINCT ProductID, BetType
+		FROM bodb02.dbo.SportBettypeMatrix (NOLOCK)
+		WHERE ProductID = 3 AND SportType = 168
 	END
 
 	IF EXISTS (SELECT TOP 1 1 FROM #tmpProductList WHERE ProductPrefix = 'JP')
@@ -411,8 +420,9 @@ BEGIN
 					WHEN b.SportType = 5 THEN -6										--Tennis
 					WHEN b.SportType = 43 THEN -7										--E-Sports
 					WHEN pb.ProductID = 1 THEN -9										--OtherSp
-					WHEN pb.ProductID = 3 AND b.Sporttype <> 164 THEN -11				--NumG
+					WHEN pb.ProductID = 3 AND b.Sporttype = 161 THEN -11				--NumG
 					WHEN pb.ProductID = 3 AND Sporttype = 164 THEN -12					--Happy5
+					WHEN pb.ProductID = 3 AND Sporttype = 168 THEN -13					--Happy5 LG
 					ELSE ISNULL(pb.ProductID, -1) END ProductID,						--Unknown
 			   b.SportType,
 			   b.BetType,
@@ -452,8 +462,9 @@ BEGIN
 					  WHEN b.SportType = 5 THEN -6										--Tennis
 					  WHEN b.SportType = 43 THEN -7										--E-Sports
 					  WHEN pb.ProductID = 1 THEN -9										--OtherSp
-					  WHEN pb.ProductID = 3 AND b.Sporttype <> 164 THEN -11				--NumG
+					  WHEN pb.ProductID = 3 AND b.Sporttype = 161 THEN -11				--NumG
 					  WHEN pb.ProductID = 3 AND Sporttype = 164 THEN -12				--Happy5
+					  WHEN pb.ProductID = 3 AND Sporttype = 168 THEN -13				--Happy5 LG
 					  ELSE ISNULL(pb.ProductID, -1) END,								--Unknown
 				 b.SportType,
 				 b.BetType,
@@ -506,9 +517,9 @@ BEGIN
 																  WHEN hni.ProductShortName = 'TableG' THEN SUM(b.MemberWLOANDA * (CASE WHEN b.RptDate >= '2020-07-01' THEN 0.036 ELSE 0.03 END))
 																  WHEN hni.ProductShortName IN ('MKeno', 'MLotte') THEN SUM(b.MemberWLOANDA * (CASE WHEN b.Site = 'CN88' THEN 0.015 ELSE (CASE WHEN b.RptDate >= '2020-07-01' THEN 0.036 ELSE 0.03 END) END))
 																  WHEN hni.ProductShortName IN ('VirtSpo2', 'VirtSpo') THEN SUM(b.MemberWLOANDA * 0.01)
-																  WHEN hni.ProductShortName IN ('NumG', 'Happy5') THEN CASE WHEN b.Site = 'CN88' THEN SUM(b.MemberWLOANDA * 0.015)
-																													        WHEN b.Site IN ('IBCIndo', '76666b') THEN SUM((-b.HouseWLOANDA + b.ExtraPTOANDA) * (-0.5))
-																													        ELSE SUM((-b.HouseWLOANDA + (CASE WHEN b.RptDate >= '2020-11-01' THEN 0 ELSE b.ExtraPT END)) * (-0.5)) END
+																  WHEN hni.ProductShortName IN ('NumG', 'Happy5', 'Happy5 LG') THEN CASE WHEN b.Site = 'CN88' THEN SUM(b.MemberWLOANDA * 0.015)
+																													                     WHEN b.Site IN ('IBCIndo', '76666b') THEN SUM((-b.HouseWLOANDA + b.ExtraPTOANDA) * (-0.5))
+																													                     ELSE SUM((-b.HouseWLOANDA + (CASE WHEN b.RptDate >= '2020-11-01' THEN 0 ELSE b.ExtraPTOANDA END)) * (-0.5)) END
 																  ELSE SUM(b.MemberWLOANDA * ISNULL( pts.Rate, 0)) END
 					WHEN hni.Figure = 'Pay to Bet Genius' THEN SUM((b.MemberWLOANDA + b.ScommOANDA) * 0.04 * (CASE WHEN b.Bettype = 38 THEN 1 ELSE 0 END))
 					WHEN hni.Figure = 'Contribution Amount' THEN SUM(b.Contribution * (CASE WHEN bg.BettypeGroupID = 10 AND bg.BettypeName LIKE '%Jackpot%' THEN 1 ELSE 0 END))
