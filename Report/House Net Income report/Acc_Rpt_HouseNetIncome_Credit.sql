@@ -121,6 +121,7 @@ BEGIN
 		ProductID INT,
 		AliasProductID INT,	
 		ProductPrefix VARCHAR(50),
+		ProductCategory VARCHAR(50),
 		ProductGroup VARCHAR(50),
 		ProductName VARCHAR(50),
 		ProductShortName VARCHAR(50),
