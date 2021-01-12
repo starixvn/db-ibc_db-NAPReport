@@ -169,7 +169,10 @@ BEGIN
 
     SELECT 
 		case when m.matchid != 168 then m.matchcode
-			 else substring(b.betcheck, charindex('-', b.betcheck) + 1, charindex(';', b.betcheck+';') - charindex('-', b.betcheck) - 1)
+			 else left(
+				 	right(b.betcheck, charindex('-', reverse(b.betcheck)) - 1), 
+					charindex('-', reverse(b.betcheck)) - charindex(';', reverse(b.betcheck)) - 1
+				) -- get substring between last hyphen and last semicolon: 'a-c-b;c' => 'b'
 		end as matchcode
 	    , b.BetType AS                                                                            bType
 	    , m.leagueid
@@ -202,7 +205,8 @@ BEGIN
 					  )
     GROUP BY
 		 case when m.matchid != 168 then m.matchcode
-			  else substring(b.betcheck, charindex('-', b.betcheck) + 1, charindex(';', b.betcheck+';') - charindex('-', b.betcheck) - 1)
+			  else left(right(b.betcheck, charindex('-', reverse(b.betcheck)) - 1), 
+					charindex('-', reverse(b.betcheck)) - charindex(';', reverse(b.betcheck)) - 1)
 		 end
 		 , b.bettype
 		 , m.leagueid
