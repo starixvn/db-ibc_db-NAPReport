@@ -16,6 +16,7 @@ AS
     Revisions:
 		20201102@Ned.Le: DHWL Email/Letstalk - Restructure source code to improve performance & Separate House Income into Credit Income and Licensee Income (#143208)
 		20210112@Ned.Le: Email/Letstalk Reports - Integrate Linked Games (Number Game) (#146539)
+		20211201@Ned.Le: DHWL Email/Letstalk - Margin Charts - Restructure code (#148604)
 
 	Param's Explanation:
 		@ProductList: 'ALL' - Get data of all product
@@ -132,22 +133,22 @@ BEGIN
 
 	IF EXISTS (SELECT TOP 1 1 FROM #tmpProductList WHERE ProductPrefix = 'ALL')
 	BEGIN
-		INSERT INTO #tmpHNISettings (isDeposit, OrderByProduct, OrderByFigure, ProductID, AliasProductID, ProductPrefix, ProductGroup, ProductName, ProductShortName, Figure, isEnable, EndOfSupportDate, LogicCode, LogicDescription)
-		SELECT isDeposit, OrderByProduct, OrderByFigure, ProductID, AliasProductID, ProductPrefix, ProductGroup, ProductName, ProductShortName, Figure, isEnable, EndOfSupportDate, LogicCode, LogicDescription
+		INSERT INTO #tmpHNISettings (isDeposit, OrderByProduct, OrderByFigure, ProductID, AliasProductID, ProductPrefix, ProductCategory, ProductGroup, ProductName, ProductShortName, Figure, isEnable, EndOfSupportDate, LogicCode, LogicDescription)
+		SELECT isDeposit, OrderByProduct, OrderByFigure, ProductID, AliasProductID, ProductPrefix, ProductCategory, ProductGroup, ProductName, ProductShortName, Figure, isEnable, EndOfSupportDate, LogicCode, LogicDescription
 		FROM bodb_Account.dbo.HNISettings (NOLOCK)
 	END
 	
 	IF EXISTS (SELECT TOP 1 1 FROM #tmpProductList WHERE ProductPrefix = 'SB')
 	BEGIN
-		INSERT INTO #tmpHNISettings (isDeposit, OrderByProduct, OrderByFigure, ProductID, AliasProductID, ProductPrefix, ProductGroup, ProductName, ProductShortName, Figure, isEnable, EndOfSupportDate, LogicCode, LogicDescription)
-		SELECT isDeposit, OrderByProduct, OrderByFigure, ProductID, AliasProductID, ProductPrefix, ProductGroup, ProductName, ProductShortName, Figure, isEnable, EndOfSupportDate, LogicCode, LogicDescription
+		INSERT INTO #tmpHNISettings (isDeposit, OrderByProduct, OrderByFigure, ProductID, AliasProductID, ProductPrefix, ProductCategory, ProductGroup, ProductName, ProductShortName, Figure, isEnable, EndOfSupportDate, LogicCode, LogicDescription)
+		SELECT isDeposit, OrderByProduct, OrderByFigure, ProductID, AliasProductID, ProductPrefix, ProductCategory, ProductGroup, ProductName, ProductShortName, Figure, isEnable, EndOfSupportDate, LogicCode, LogicDescription
 		FROM bodb_Account.dbo.HNISettings (NOLOCK)
 		WHERE ProductName = 'Sportsbook'
 	END
 
 	BEGIN
-		INSERT INTO #tmpHNISettings (isDeposit, OrderByProduct, OrderByFigure, ProductID, AliasProductID, ProductPrefix, ProductGroup, ProductName, ProductShortName, Figure, isEnable, EndOfSupportDate, LogicCode, LogicDescription)
-		SELECT isDeposit, OrderByProduct, OrderByFigure, ProductID, AliasProductID, ProductPrefix, ProductGroup, ProductName, ProductShortName, Figure, isEnable, EndOfSupportDate, LogicCode, LogicDescription
+		INSERT INTO #tmpHNISettings (isDeposit, OrderByProduct, OrderByFigure, ProductID, AliasProductID, ProductPrefix, ProductCategory, ProductGroup, ProductName, ProductShortName, Figure, isEnable, EndOfSupportDate, LogicCode, LogicDescription)
+		SELECT isDeposit, OrderByProduct, OrderByFigure, ProductID, AliasProductID, ProductPrefix, ProductCategory, ProductGroup, ProductName, ProductShortName, Figure, isEnable, EndOfSupportDate, LogicCode, LogicDescription
 		FROM bodb_Account.dbo.HNISettings (NOLOCK)
 		WHERE ProductPrefix IN (SELECT ProductPrefix FROM #tmpProductList)
 	END
@@ -491,6 +492,7 @@ BEGIN
 		OrderByProduct INT,
 		OrderByFigure INT,
 		SiteGroup VARCHAR(20),
+		ProductCategory VARCHAR(50),
 		ProductGroup VARCHAR(50),
 		ProductName VARCHAR(50),
 		ProductShortName VARCHAR(50),
@@ -504,6 +506,7 @@ BEGIN
 			   hni.OrderByProduct,
 			   hni.OrderByFigure,
 			   b.Site,
+			   hni.ProductCategory,
 			   hni.ProductGroup,
 			   hni.ProductName,
 			   hni.ProductShortName,
@@ -536,13 +539,14 @@ BEGIN
 			     hni.OrderByProduct,
 			     hni.OrderByFigure,
 				 b.Site,
+				 hni.ProductCategory,
 				 hni.ProductGroup,
 				 hni.ProductName,
 				 hni.ProductPrefix,
 				 hni.ProductShortName,
 				 hni.Figure
 	)
-	INSERT INTO #tmpDetailData (RptDate, isDeposit, OrderByProduct, OrderByFigure, SiteGroup, ProductGroup, ProductName, ProductShortName, Figure, DataValue)
+	INSERT INTO #tmpDetailData (RptDate, isDeposit, OrderByProduct, OrderByFigure, SiteGroup, ProductCategory, ProductGroup, ProductName, ProductShortName, Figure, DataValue)
 	SELECT RptDate,
 		   isDeposit,
 		   OrderByProduct,
@@ -550,6 +554,7 @@ BEGIN
 		   CASE WHEN Site = 'CN88' THEN 'CN88'
 				WHEN Site = '789Y' THEN '789Y'
 				ELSE 'MBC' END SiteGroup,
+		   ProductCategory,
 		   ProductGroup,
 		   ProductName,
 		   ProductShortName,
@@ -563,6 +568,7 @@ BEGIN
 			 CASE WHEN Site = 'CN88' THEN 'CN88'
 					   WHEN Site = '789Y' THEN '789Y'
 					   ELSE 'MBC' END,
+			 ProductCategory,
 			 ProductGroup,
 			 ProductName,
 			 ProductShortName,
@@ -580,6 +586,7 @@ BEGIN
 		[OrderByProduct]	INT,
 		[OrderByFigure]		INT,
 		[SiteGroup] 		VARCHAR(20),
+		[ProductCategory] 	VARCHAR(50),
 		[ProductGroup] 		VARCHAR(50),
 		[ProductName] 		VARCHAR(50),
 		[ProductShortName] 	VARCHAR(50), 
@@ -620,19 +627,19 @@ BEGIN
 	)
 
 	-- Initialize data for #tmpFinalData
-	INSERT INTO #tmpFinalData ([isDeposit], [OrderByProduct], [OrderByFigure], [SiteGroup], [ProductGroup], [ProductName], [ProductShortName], [Figure])
-	SELECT isDeposit, OrderByProduct, OrderByFigure, 'CN88' SiteGroup, ProductGroup, ProductName, ProductShortName, Figure
+	INSERT INTO #tmpFinalData ([isDeposit], [OrderByProduct], [OrderByFigure], [SiteGroup], [ProductCategory], [ProductGroup], [ProductName], [ProductShortName], [Figure])
+	SELECT isDeposit, OrderByProduct, OrderByFigure, 'CN88' SiteGroup, ProductCategory, ProductGroup, ProductName, ProductShortName, Figure
 	FROM #tmpHNISettings (NOLOCK)
 	WHERE isDeposit = 0 AND isEnable = 1 AND LogicCode = 1
 		  AND ((EndOfSupportDate IS NULL) OR (EndOfSupportDate IS NOT NULL AND EndOfSupportDate >= @FromDate))
 		  AND ProductName IN ('Sportsbook','Number Game', 'Happy 5', 'Virtual Sports', 'RNG Keno', 'Virtual Sports 2', 'Lottery')
 	UNION ALL
-	SELECT isDeposit, OrderByProduct, OrderByFigure, '789Y' SiteGroup, ProductGroup, ProductName, ProductShortName, Figure
+	SELECT isDeposit, OrderByProduct, OrderByFigure, '789Y' SiteGroup, ProductCategory, ProductGroup, ProductName, ProductShortName, Figure
 	FROM #tmpHNISettings (NOLOCK)
 	WHERE isDeposit = 0 AND isEnable = 1 AND LogicCode = 1
 		  AND ((EndOfSupportDate IS NULL) OR (EndOfSupportDate IS NOT NULL AND EndOfSupportDate >= @FromDate))
 	UNION ALL
-	SELECT isDeposit, OrderByProduct, OrderByFigure, 'MBC' SiteGroup, ProductGroup, ProductName, ProductShortName, Figure
+	SELECT isDeposit, OrderByProduct, OrderByFigure, 'MBC' SiteGroup, ProductCategory, ProductGroup, ProductName, ProductShortName, Figure
 	FROM #tmpHNISettings (NOLOCK)
 	WHERE isDeposit = 0 AND isEnable = 1 AND LogicCode = 1
 		  AND ((EndOfSupportDate IS NULL) OR (EndOfSupportDate IS NOT NULL AND EndOfSupportDate >= @FromDate))
@@ -649,6 +656,7 @@ BEGIN
 				   detail.OrderByProduct,
 				   detail.OrderByFigure,
 				   detail.SiteGroup,
+				   detail.ProductCategory,
 				   detail.ProductGroup,
 				   detail.ProductName,
 				   detail.ProductShortName,
@@ -725,7 +733,7 @@ BEGIN
 	SELECT @sqlSupport = COALESCE(@sqlSupport + ', ' + RptDate, RptDate)
 	FROM CTE_RptDate
 
-	SET @sqlQuery = 'SELECT f.[isDeposit], f.[OrderByProduct], f.[OrderByFigure], f.[SiteGroup], f.[ProductGroup], f.[ProductName], f.[ProductShortName], f.[Figure], f.[Monthly], f.[MTD], ' + @sqlSupport + CHAR(13) +
+	SET @sqlQuery = 'SELECT f.[isDeposit], f.[OrderByProduct], f.[OrderByFigure], f.[SiteGroup], f.[ProductCategory], f.[ProductGroup], f.[ProductName], f.[ProductShortName], f.[Figure], f.[Monthly], f.[MTD], ' + @sqlSupport + CHAR(13) +
 					'FROM #tmpFinalData f' + CHAR(13) +
 					'ORDER BY f.[isDeposit], f.[SiteGroup], f.[OrderByProduct], f.[OrderByFigure]'
 
