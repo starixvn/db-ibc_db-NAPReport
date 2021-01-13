@@ -12,6 +12,7 @@ AS
 	
 	Revisions:
 		- 20201201@Percy: Initiliaze SP [RedmineID: #143208]
+		- 20200112@Percy: Integrate Happy 5 Linked Games [RedmineID: #146539]
 */
 
 BEGIN
@@ -252,8 +253,9 @@ BEGIN
 			AND s.ProductId NOT IN (11, 12, 15, 31)
 			AND (
 				s.ProductId <> 3
-				OR (p.SubProductCode = 'NG' AND s.bettype NOT BETWEEN 8101 AND 8200)
-				OR (p.SubProductCode = 'H5' AND s.bettype BETWEEN 8101 AND 8200)
+				OR (p.SubProductCode = 'NG' AND s.sporttype = 161)
+				OR (p.SubProductCode = 'H5' AND s.sporttype = 164)
+				OR (p.SubProductCode = 'H5LG' AND s.sporttype = 168)
 			)
 			AND p.SubProductCode <> 'PP-JP'
 
@@ -395,7 +397,6 @@ BEGIN
 				,SUM(CASE
 						WHEN bt.IsOnlyTO = 1 OR bt.bettype = 4297 THEN 0
 						WHEN bt.BetType IN (913, 914) THEN b.WinlossP + b.WinlossA
-						WHEN bt.Product3rdId = -2 THEN b.WinlossP + b.CommissionS -- H5
 						ELSE b.WinlossP END
 					) AS MemberWL
 				,SUM(CASE WHEN bt.IsOnlyTO = 1 OR bt.bettype = 4297 THEN 0 ELSE b.WinlossIBC + b.CommissionS END) AS HouseWL
@@ -571,7 +572,7 @@ BEGIN
 			-- 1. NG, H5
 		UPDATE #__tempResult
 		SET PayToSupplierDaily = -0.5 * HouseIncomeDaily, PayToSupplierMonth = -0.5 * HouseIncomeMonth
-		WHERE Product3rdId IN (2, -2) -- NG, H5
+		WHERE Product3rdId = 2 -- NG, H5
 
 			-- 2. AGC
 		;WITH CTE_Sum AS
@@ -1058,7 +1059,7 @@ BEGIN
 			FOR rptDate IN (Monthly, MTD, ' + @DateList + ')
 		) p
 	)
-	SELECT s.isDeposit, s.OrderByProduct, s.OrderByFigure, ''Licensee'' AS SiteGroup, s.ProductGroup, s.ProductName, s.ProductShortName, s.Figure, r.Monthly, r.MTD, ' + @DateList + '
+	SELECT s.isDeposit, s.OrderByProduct, s.OrderByFigure, ''Licensee'' AS SiteGroup, s.ProductCategory, s.ProductGroup, s.ProductName, s.ProductShortName, s.Figure, r.Monthly, r.MTD, ' + @DateList + '
 	FROM bodb_Account.dbo.HNISettings s WITH (NOLOCK)
 		LEFT JOIN CTE_Result r ON r.AliasProductId = s.AliasProductId AND r.Figure = s.Figure
 	WHERE s.isDeposit = 1 AND s.LogicCode = 2
