@@ -14,6 +14,7 @@ AS
 	
 	Revisions:
 		- 20201201@Percy: Initiliaze SP [RedmineID: #143208]
+		- 20200112@Percy: Return ProductCategory column [RedmineID: #146539]
 */
 
 BEGIN  
@@ -552,7 +553,7 @@ BEGIN
 		) p
 	)
 	SELECT
-		s.IsDeposit, s.OrderByProduct, s.OrderByFigure, ''Licensee'' AS SiteGroup, s.ProductGroup, s.ProductName, s.ProductShortName
+		s.IsDeposit, s.OrderByProduct, s.OrderByFigure, CASE WHEN s.IsDeposit = 0 THEN ''Credit'' ELSE ''Licensee'' END AS SiteGroup, s.ProductCategory, s.ProductGroup, s.ProductName, s.ProductShortName
 		,s.Figure, r.Monthly, r.MTD, ' + @DateList + '
 	FROM bodb_Account.dbo.HNISettings s WITH (NOLOCK)
 		LEFT JOIN CTE_Result r ON r.ProductCode = s.ProductPrefix AND r.IsDeposit = s.IsDeposit AND r.Figure = s.Figure
