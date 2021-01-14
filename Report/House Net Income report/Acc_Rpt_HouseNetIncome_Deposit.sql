@@ -53,7 +53,7 @@ BEGIN
 		WHERE isDeposit = 1
 			AND (
 				s.EndOfSupportDate IS NULL AND s.isEnable = 1
-				OR s.EndOfSupportDate < @FDate
+				OR s.EndOfSupportDate >= @TDate
 			)
 			AND (
 				@ProductList = 'all'
@@ -1086,7 +1086,7 @@ BEGIN
 	WHERE s.isDeposit = 1 AND s.LogicCode = 2
 		AND (
 				s.EndOfSupportDate IS NULL AND s.isEnable = 1
-				OR s.EndOfSupportDate < ''' + CONVERT(VARCHAR(10), @FDate, 120) + '''
+				OR s.EndOfSupportDate >= ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''
 		)
 		AND (
 			''' + @ProductList + ''' = ''all''
