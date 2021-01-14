@@ -140,6 +140,7 @@ BEGIN
 								AND (
 									ci.ChargeType = 1
 									OR ci.ChargeType IN (9, 10, 12) AND ci.ProductId = 11 -- GD
+									OR ci.ChargeType = 6 AND ci.ProductId = 15 -- CB
 									OR ci.ChargeType = 12 AND ci.ProductId = 39 -- SAG
 								)'')'
 		INSERT INTO #PartyChargeInfo (ChargeId, PartyId, Product3rdId, FromDate, ToDate, Rate, Bettype, ChargeType)
@@ -156,7 +157,8 @@ BEGIN
 
 		DECLARE @PartyCharge3rd TABLE (PartyId INT, Product3rdId INT, ChargeType INT, FromDate DATE, ToDate DATE, Rate FLOAT)
 		SELECT @SQL = '	SELECT PartyId, ProductId, ChargeType, FromDate, ToDate, Rate
-						FROM OPENQUERY (DBLIC, ''SELECT DISTINCT PartyId, ProductId, ChargeType, FromDate, ToDate, DI_Rate AS Rate FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd (''''' + @f_date + ''''', ''''' + @t_date + ''''', ''''' + @ProductCodes + ''''', ''''OA'''')
+						FROM OPENQUERY (DBLIC, ''SELECT DISTINCT PartyId, ProductId, ChargeType, FromDate, ToDate, CASE WHEN ProductId = 10 THEN 0 ELSE DI_Rate END AS Rate
+												 FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd (''''' + @f_date + ''''', ''''' + @t_date + ''''', ''''' + @ProductCodes + ''''', ''''OA'''')
 												 WHERE DI_Rate > 0
 													AND (
 														ChargeType = 1
@@ -520,7 +522,7 @@ BEGIN
 									+ CASE WHEN t.Product3rdId = 31 THEN t.Comm ELSE 0 END) * e.Rate)
 			,PayToSupplierMonth	= SUM((t.MemberWL *
 										CASE
-											WHEN rd.PartyId IS NULL THEN 0
+											WHEN (t.Product3rdId IN (8, 22) AND p.PartyId IS NULL) OR (t.Product3rdId NOT IN (8, 22) AND rd.PartyId IS NULL) THEN 0
 											WHEN t.Product3rdId IN (8, 28) THEN CASE
 																					WHEN t.rptDate >= '2020-07-01' THEN CASE WHEN l.PartyId IN (@BobbetId, @TianboId) THEN 0.02 ELSE 0.036 END
 																					WHEN l.PartyId = 14 OR @FDate >= '2018-08-01' THEN 0.03
@@ -535,7 +537,7 @@ BEGIN
 			,HouseTurnover		= SUM(t.HouseTO * e.Rate)
 			,HouseIncomeDaily	= SUM(CASE
 										WHEN t.Product3rdId = 15 THEN t.MemberWL
-										WHEN t.Product3rdId = 37 THEN -t.HouseWL
+										WHEN t.Product3rdId IN (25, 37) THEN -t.HouseWL
 										WHEN p.PartyId IS NULL THEN -t.HouseWL
 										WHEN t.SportTypeGroup = 150 THEN -t.MemberWL -- SBC free bets
 										ELSE
@@ -543,7 +545,7 @@ BEGIN
 											- t.HouseContribution - CASE WHEN t.Product3rdId = 31 THEN t.Comm ELSE 0 END
 										END * e.Rate)
 			,HouseIncomeMonth	= SUM(CASE
-										WHEN t.Product3rdId = 37 THEN -t.HouseWL
+										WHEN t.Product3rdId IN (25, 37) THEN -t.HouseWL
 										WHEN p.PartyId IS NULL THEN 0
 										WHEN t.Product3rdId = 15 THEN t.MemberWL
 										WHEN t.SportTypeGroup = 150 THEN -t.MemberWL -- SBC free bets
@@ -1038,7 +1040,7 @@ BEGIN
 	SET r.HouseIncome = ISNULL(m.HouseIncome, 0)
 	FROM #Result r
 		INNER JOIN #Result m ON m.Product3rdId = r.Product3rdId AND m.AliasProductId = r.AliasProductId AND r.rptDate = 'Monthly' AND m.rptDate = 'MTD'
-	WHERE r.Product3rdId = 37
+	WHERE r.Product3rdId IN (25, 37)
 
 		-- 1.4 FullContribution, JackpotPrize
 	UPDATE r
