@@ -29,8 +29,8 @@ BEGIN
 		AND LEN(val) > 0
 
 	INSERT INTO #tmpLeagueGroups (
-		GroupID
-		,GroupName
+		GroupName
+		,GroupID
 	)	
 	SELECT GroupName
 		,GroupID
@@ -52,7 +52,7 @@ BEGIN
 
 	/*
 		Return list of LeagueGroupIDs grouped by GroupName
-			Non-group Leagues: -1 include Parlay
+			Non-group Leagues: -1
 	*/
 	SELECT GroupName
 			,GroupID = STUFF((

@@ -4,7 +4,7 @@ ALTER PROCEDURE Acc_Rpt_SBCustPerfByDangerLevel
 	,@Divisions VARCHAR(MAX) = 'ALL'
 	,@DangerLevels VARCHAR(10) = '50'
 	,@SportBettypes VARCHAR(MAX) = 'ALL'
-	,@LeagueName NVARCHAR(500) = 'ALL'
+	,@LeagueName NVARCHAR(500) = 'All Leagues'
 	,@LeagueGroupIDs VARCHAR(MAX) = 'ALL'
 	,@LiveStat VARCHAR(10) = 'ALL'
 	,@TopUsers INT = 10
@@ -27,14 +27,14 @@ AS
 		@TopUsers: No. of user order by member winlost
 	
 	Script: EXEC Acc_Rpt_SBCustPerfByDangerLevel
-											@WinlostDate SMALLDATETIME = '2020-12-06'
-											,@Divisions VARCHAR(MAX) = 'ALL'
-											,@DangerLevels VARCHAR(10) = ''
-											,@SportBettypes VARCHAR(MAX)= 'ALL'
-											,@LeagueName NVARCHAR(500)= 'All Leagues'
-											,@LeagueGroupIDs VARCHAR(MAX) = 'ALL'
-											,@LiveStat VARCHAR(10) = 'All'
-											,@TopUsers INT = 1000
+											@WinlostDate = '2020-12-06'
+											,@Divisions = 'ALL'
+											,@DangerLevels = ''
+											,@SportBettypes = 'ALL'
+											,@LeagueName = 'All Leagues'
+											,@LeagueGroupIDs = 'ALL'
+											,@LiveStat = 'All'
+											,@TopUsers = 1000
 */
 BEGIN
 
@@ -59,6 +59,7 @@ BEGIN
 	)
 	CREATE TABLE #tmpAgentBySite (
 		AgentID INT
+		,SiteName VARCHAR(10)
 	)
 	CREATE TABLE #tmpDangerLevel (
 		DangerLevel INT
@@ -70,10 +71,9 @@ BEGIN
 		,AgentID INT
 		,MasterID INT
 		,SuperID INT
-		,MatchID INT
-		,MatchType TINYINT
+		,SportType SMALLINT
 		,Bettype SMALLINT
-		,Currency TINYINT
+		,Currency INT
 		,BetCount INT
 		,MemberTO DECIMAL(25, 8)
 		,MemberWL DECIMAL(25, 8)
@@ -112,28 +112,34 @@ BEGIN
 	IF @LiveStat = 'Live'
 		SET @IsLive = 1
 	ELSE IF @LiveStat = 'Non-Live'
-		SET @IsLive = 0
+		SET @IsLive = 0	
 
 	/*
 		Define Agent by site name
 		From: @Divisions
-		To: #tmpAgentBySite ( AgentID )
+		To: #tmpAgentBySite ( AgentID, SiteName )
+		Desc: result data will get this SiteName instead of Customer.Site (exec plan)
 	*/
-	IF @Divisions <> 'ALL'
-	BEGIN
-		;WITH CTE_Sites AS (
-			SELECT val SiteName
-			FROM dbo.strSplit(@Divisions, ',')
-			WHERE LEN(val) > 0
-		)
-		INSERT INTO #tmpAgentBySite
-		SELECT c.custid
-		FROM dbo.CustAgent AS c WITH (NOLOCK)
-			INNER JOIN CTE_Sites cte ON c.site = cte.SiteName
-		GROUP BY c.custid
-		
-		CREATE CLUSTERED INDEX [CIX_tmpAgentBySite] ON #tmpAgentBySite( AgentID )
-	END
+	;WITH CTE_Sites AS (
+		SELECT val SiteName
+		FROM dbo.strSplit(@Divisions, ',')
+		WHERE LEN(val) > 0
+	)
+	INSERT INTO #tmpAgentBySite (
+		AgentID
+		,SiteName
+	)
+	SELECT c.custid
+		,c.site
+	FROM dbo.CustAgent AS c WITH (NOLOCK)
+	WHERE (
+		@Divisions <> 'ALL'
+		OR c.site IN ( SELECT SiteName FROM CTE_Sites )
+	)
+	GROUP BY c.custid
+		,c.site
+	
+	CREATE CLUSTERED INDEX [CIX_tmpAgentBySite] ON #tmpAgentBySite( AgentID, SiteName )
 
 	/*
 		Define DangerLevel
@@ -202,6 +208,7 @@ BEGIN
 		SELECT l.leagueid
 			,ISNULL(lg.GroupID, - 1) AS GroupID
 			,l.SportType
+			,ISNULL(lg.IsActive, 1) IsActive
 		FROM dbo.League l(NOLOCK)
 			LEFT JOIN dbo.LeagueGroup lg(NOLOCK) ON l.LeagueGroupID = lg.GroupID
 		WHERE l.isTest = 0
@@ -209,11 +216,14 @@ BEGIN
 			AND (
 				@LeagueName = 'All Leagues'
 				OR l.leaguename = @LeagueName
-				)
-			AND lg.IsActive = 1
-		GROUP BY l.leagueid
-			,lg.GroupID
-			,l.SportType
+			)
+			AND (
+				@SportBettypes = 'ALL'
+				OR l.SportType IN (
+					SELECT DISTINCT sb.SportType
+					FROM #tmpSportBettypes sb
+					)
+			)
 	)
 	,CTE_LeagueGroup AS (
 		SELECT CAST(val AS SMALLINT) GroupID
@@ -248,20 +258,15 @@ BEGIN
 		INNER JOIN CTE_League l ON m.LeagueID = l.LeagueID
 	WHERE (
 			@LeagueGroupIDs = 'ALL'
-			OR EXISTS ( SELECT 1 FROM CTE_LeagueGroup lg WHERE l.GroupID = lg.GroupID )
+			OR l.GroupID IN ( SELECT lg.GroupID FROM CTE_LeagueGroup lg )
 		)
-		AND (
-			@SportBettypes = 'ALL'
-			OR EXISTS (
-				SELECT 1
-				FROM #tmpSportBettypes sb
-				WHERE l.SportType = sb.SportType
-				)
-		)
+		AND l.IsActive = 1
 	GROUP BY m.MatchID
 		,m.MatchType
 		,l.SportType
-	CREATE CLUSTERED INDEX [CIX_tmpMatch] ON #tmpMatch( MatchType, MatchID )
+	OPTION (RECOMPILE)
+
+	CREATE CLUSTERED INDEX [CIX_tmpMatch] ON #tmpMatch( MatchID, MatchType, SportType )
 
 	/*
 		Get raw data
@@ -276,8 +281,7 @@ BEGIN
 		,AgentID
 		,MasterID
 		,SuperID
-		,MatchID
-		,MatchType
+		,SportType
 		,Bettype
 		,Currency
 		,BetCount
@@ -288,30 +292,30 @@ BEGIN
 	)
 	SELECT b.CustID
 		,c.UserName
-		,ISNULL(CONVERT(INT, c.danger2), -1) DangerLevel
+		,ISNULL(CONVERT(INT, c.danger2), -1) AS DangerLevel
 		,b.Recommend
 		,b.mRecommend
 		,b.sRecommend
-		,b.Matchid
-		,(CASE WHEN b.Bettype = 10 THEN 1 ELSE 0 END) AS MatchType
+		,m.SportType
 		,b.Bettype
 		,b.Currency
 		,SUM(CASE WHEN co.VendorID = 14 THEN 0 ELSE 1 END) AS BetCount -- Exclude Dummy Cashout accounts
-		,SUM(abs(b.stake)) AS MemberTO
-		,SUM(b.winlost - b.actual_stake) MemberWL
+		,SUM(ABS(b.stake) * b.actualrate ) AS MemberTO
+		,SUM((b.winlost - b.actual_stake) * b.actualrate ) AS MemberWL
 		,-SUM((b.winlost - b.actual_stake + b.awinlost + b.mwinlost + b.swinlost + b.scomm - (CASE WHEN b.tpositiontaking = 1 THEN 0
 																								ELSE b.winlost - b.actual_stake + b.scomm / (1 - b.tpositiontaking)
-																							END) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * b.actualrate) AS RealIncome
+																							END) * ISNULL(CAST(b.epositiontaking AS DECIMAL(10, 8)), 0)) * b.actualrate) AS RealIncome
 		,SUM(CASE WHEN b.tpositiontaking = 1 THEN 0
-				ELSE (1 - b.tpositiontaking - ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0))
+				ELSE (1 - b.tpositiontaking - ISNULL(CAST(b.epositiontaking AS DECIMAL(10, 8)), 0))
 						* ABS(stake)
 						* (CASE WHEN b.virtualrate > b.actualrate THEN b.virtualrate
 							ELSE b.actualrate END)
 			END) AS RealTurnover
 	FROM dbo.bettrans AS b WITH (NOLOCK)
+		INNER JOIN #tmpMatch AS m ON (b.Matchid = m.Matchid AND (CASE WHEN b.Bettype = 10 THEN 1 ELSE 0 END) = m.MatchType)
 		LEFT JOIN dbo.custInfo AS c WITH (NOLOCK) ON (c.roleid = 1 AND b.CustID = c.CustID)
 		LEFT JOIN dbo.TradeCust AS co WITH (NOLOCK) ON b.CustID = co.CustID
-	WHERE Winlostdate >= @StartDate AND Winlostdate < @EndDate
+	WHERE b.Winlostdate >= @StartDate AND b.Winlostdate < @EndDate
 		AND b.Ruben = 1
 		AND b.StatusID IN (111, 112, 113)
 		AND b.Currency NOT IN (20, 27, 28)
@@ -326,16 +330,14 @@ BEGIN
 		,b.Recommend
 		,b.mRecommend
 		,b.sRecommend
-		,b.Matchid
-		,(CASE WHEN b.Bettype = 10 THEN 1 ELSE 0 END)
+		,m.SportType
 		,b.Bettype
 		,b.Currency
 	OPTION (RECOMPILE)
 	
 	CREATE CLUSTERED INDEX [CIX_tmpRawData] ON #tmpRawData(
 		Bettype
-		,MatchType
-		,MatchID
+		,SportType
 		,CustID
 		,UserName
 		,DangerLevel
@@ -389,9 +391,8 @@ BEGIN
 			,SUM(d.MemberWL) MemberWL
 			,SUM(d.RealIncome) RealIncome
 			,SUM(d.RealTurnover) RealTurnover
-		FROM #tmpRawData d
-			INNER JOIN #tmpSportBettypes sb ON d.Bettype = sb.Bettype
-			INNER JOIN #tmpMatch m ON d.MatchType = m.MatchType AND d.Matchid = m.Matchid AND sb.SportType = m.SportType
+		FROM #tmpRawData AS d
+			INNER JOIN #tmpSportBettypes AS sb ON d.Bettype = sb.Bettype AND sb.SportType = d.SportType
 			INNER JOIN dbo.Exchange AS e WITH (NOLOCK) ON d.Currency = e.ExchangeId
 		GROUP BY d.CustID
 			,d.UserName
@@ -402,6 +403,7 @@ BEGIN
 			,e.Currency
 	) tmp
 	ORDER BY MemberWL DESC
+		,DangerLevel DESC
 		,UserName
 
 	CREATE CLUSTERED INDEX [CIX_tmpFiltered] ON #tmpFiltered (
@@ -416,46 +418,53 @@ BEGIN
 		From: #tmpFiltered
 		To: #tmpNoAssocByCust
 	*/
-	SET @AssoSQLStr = N'EXEC bodb_dwrs.dbo.Acc_Rpt_SBCustPerfByDangerLevel_CTSAssociation @CustIDs'
-	SET @AssoParmDefStr = N'@CustIDs VARCHAR(MAX)'
 	
 	---Parse all member Ids to string---
-	SELECT @UserIDs = @UserIDs + CONVERT(VARCHAR, CustID) + ',' from #tmpFiltered
+	SELECT @UserIDs = @UserIDs + CONVERT(VARCHAR, CustID) + ','
+	FROM #tmpFiltered
+	GROUP BY CustID
 	SET @UserIDs = SUBSTRING(@UserIDs, 0, LEN(@UserIDs))
 
-	INSERT INTO #tmpNoAssocByCust
-	EXECUTE DBWH.master.dbo.sp_executesql @AssoSQLStr
-										,@AssoParmDefStr
-											,@UserIDs
-	
-	CREATE CLUSTERED INDEX [CIX_tmpNoAssocByCust] ON #tmpNoAssocByCust ( CustID	)
+	IF LEN(@UserIDs) > 0
+	BEGIN
+		SET @AssoSQLStr = N'EXEC bodb_dwrs.dbo.Acc_Rpt_SBCustPerfByDangerLevel_CTSAssociation @CustIDs'
+		SET @AssoParmDefStr = N'@CustIDs VARCHAR(MAX)'
+		
+		INSERT INTO #tmpNoAssocByCust ( CustID, NoAssoc )
+		EXECUTE DBWH.master.dbo.sp_executesql @AssoSQLStr
+											,@AssoParmDefStr
+												,@UserIDs
+		
+		CREATE CLUSTERED INDEX [CIX_tmpNoAssocByCust] ON #tmpNoAssocByCust ( CustID	)
+	END
 
 	---Return result---
 	SELECT d.UserName
 		,a.UserName AgentName
 		,m.UserName MasterName
 		,s.UserName SuperName
-		,a.Site Division
+		,a2.SiteName Division
 		,d.Currency
-		,CASE WHEN d.DangerLevel <= 0 THEN 'None' ELSE CONVERT(CHAR, d.DangerLevel) END DangerLevel
+		,CASE WHEN d.DangerLevel <= 0 THEN 'None' ELSE CONVERT(VARCHAR, d.DangerLevel) END DangerLevel
 		,SUM(d.BetCount) BetCount
 		,SUM(d.MemberTO) MemberTO
 		,SUM(d.MemberWL) MemberWL
 		,SUM(d.RealTurnover) HouseTO
 		,SUM(d.RealIncome) 	HouseIncome		
 		,SUM(ISNULL(assoc.NoAssoc, 0)) NoAssoc
-	FROM #tmpFiltered d
+	FROM #tmpFiltered AS d
 		LEFT JOIN dbo.Customer AS s WITH (NOLOCK) ON ( s.roleid = 4 AND d.SuperID = s.CustID )
 		LEFT JOIN dbo.Customer AS m WITH (NOLOCK) ON ( m.roleid = 3 AND d.MasterID = m.CustID )
 		LEFT JOIN dbo.Customer AS a WITH (NOLOCK) ON ( a.roleid = 2 AND d.AgentID = a.CustID )
 		LEFT JOIN #tmpNoAssocByCust AS assoc ON d.CustID = assoc.CustID
+		LEFT JOIN #tmpAgentBySite AS a2 ON d.AgentID = a2.AgentID
 	GROUP BY d.UserName
 		,a.UserName
 		,m.UserName
 		,s.UserName
-		,a.Site
+		,a2.SiteName
 		,d.Currency
-		,(CASE WHEN d.DangerLevel <= 0 THEN 'None' ELSE CONVERT(CHAR, d.DangerLevel) END)
+		,(CASE WHEN d.DangerLevel <= 0 THEN 'None' ELSE CONVERT(VARCHAR, d.DangerLevel) END)
 	ORDER BY SUM(d.MemberWL) DESC
 		,d.UserName
 
