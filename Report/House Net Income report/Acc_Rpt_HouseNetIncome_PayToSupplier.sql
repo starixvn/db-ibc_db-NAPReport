@@ -303,7 +303,6 @@ BEGIN
 				,SUM(CASE 
 						WHEN d.BetTypeId = -2 THEN Winloss * e.Rate
 						WHEN d.BetTypeId = -3 THEN Winloss * e.Rate * 0.04
-						WHEN d.Winloss > 0 THEN 0
 						WHEN (-d.Winloss * p.Rate * e.Rate < 0 AND m.MinAmount = 0) OR -d.Winloss * p.Rate * e.Rate >= m.MinAmount
 								THEN CASE WHEN -d.Winloss * p.Rate * e.Rate > m.MaxAmount THEN -(m.MaxAmount - m.MinAmount) ELSE -(-d.Winloss * p.Rate * e.Rate - m.MinAmount) END * m.Rate 
 						ELSE 0 END)
