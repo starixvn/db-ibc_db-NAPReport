@@ -124,6 +124,7 @@ BEGIN
 		SELECT val SiteName
 		FROM dbo.strSplit(@Divisions, ',')
 		WHERE LEN(val) > 0
+		GROUP BY val
 	)
 	INSERT INTO #tmpAgentBySite (
 		AgentID
@@ -320,7 +321,7 @@ BEGIN
 		AND b.StatusID IN (111, 112, 113)
 		AND b.Currency NOT IN (20, 27, 28)
 		AND b.Bettype IN ( SELECT DISTINCT BetType FROM #tmpSportBettypes )
-		AND b.Liveindicator = ISNULL(@IsLive, b.Liveindicator)
+		AND ISNULL(b.Liveindicator, 0) = COALESCE(@IsLive, b.Liveindicator, 0)
 		AND ('ALL' = @Divisions OR b.recommend IN (SELECT AgentID FROM #tmpAgentBySite))
 		AND ('ALL' = @DangerLevels OR c.danger2 IN (SELECT DangerLevel FROM #tmpDangerLevel))
 		AND @TopUsers > 0

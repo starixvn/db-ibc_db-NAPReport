@@ -28,7 +28,7 @@ BEGIN
 	/*
 		Define CustIDs
 		From: @CustIDs
-		To: #tmpCusts ( CustID, CTSCustID )
+		To: #tmpCusts ( CustID )
 	*/
 	INSERT INTO #tmpCusts (	CustID )
 	SELECT val CustID
