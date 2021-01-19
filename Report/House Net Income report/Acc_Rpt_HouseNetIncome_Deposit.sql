@@ -352,18 +352,13 @@ BEGIN
 		-- CB, AG, GD, EX
 		IF EXISTS (SELECT 1 FROM @Products WHERE Product3rdId IN (10, 11, 15, 31))
 		BEGIN
-			CREATE TABLE #__BettingByProduct (rptDate DATE, LicenseeId INT, CurrencyId INT, Product3rdId INT, BetTypeGroup INT, ValidBetAmount MONEY, MemberWL MONEY, Comm MONEY, Turnover MONEY, TurnoverForCommision MONEY, WinningPrize MONEY, CashOut MONEY, CashInAmount MONEY)
-			INSERT INTO #__BettingByProduct (rptDate, LicenseeId, CurrencyId, Product3rdId, BetTypeGroup, ValidBetAmount, MemberWL, Comm, Turnover, TurnoverForCommision, WinningPrize, CashOut, CashInAmount)
+			CREATE TABLE #__BettingByProduct (rptDate DATE, LicenseeId INT, CurrencyId INT, Product3rdId INT, BetTypeGroup INT, ValidBetAmount MONEY, MemberWL MONEY, Comm MONEY)
+			INSERT INTO #__BettingByProduct (rptDate, LicenseeId, CurrencyId, Product3rdId, BetTypeGroup, ValidBetAmount, MemberWL, Comm)
 			SELECT rptDate, SiteId, CurrencyId, ProductId
-				,BetTypeGroup			= CASE WHEN bettype = 1706 THEN 1706 ELSE -1 END
-				,ValidBetAmount			= SUM(CASE WHEN ProductId = 11 AND bettype = -1 THEN ValidBetAmount ELSE 0 END)
-				,MemberWL				= SUM(MemberWL)
-				,Comm					= SUM(CASE WHEN ProductId = 31 THEN CommissionP + CommissionA ELSE 0 END)
-				,Turnover				= SUM(Turnover)
-				,TurnoverForCommision	= SUM(CASE WHEN ISNULL(TicketType, 0) = 0 THEN Turnover ELSE ExtraAmount END)
-				,WinningPrize			= SUM(ISNULL(WinPrizeAmount, 0))
-				,CashOut				= SUM(ISNULL(CashOutAmount, 0))
-				,CashInAmount			= SUM(ISNULL(BuyBackAmount, 0))
+				,BetTypeGroup	= CASE WHEN bettype = 1706 THEN 1706 ELSE -1 END
+				,ValidBetAmount	= SUM(CASE WHEN ProductId = 11 AND bettype = -1 THEN ValidBetAmount ELSE 0 END)
+				,MemberWL		= SUM(CASE WHEN ProductId = 15 THEN Turnover * 0.0405 + BuyBackAmount * 0.15 ELSE MemberWL END)
+				,Comm			= SUM(CASE WHEN ProductId = 31 THEN CommissionP + CommissionA ELSE 0 END)
 			FROM DBLIC.bodb_LicenseeReport.dbo.rpt_BettingByProduct WITH (NOLOCK)
 			WHERE rptDate BETWEEN @FDate AND @TDate
 				AND ProductId IN (10, 11, 15, 31)
@@ -373,17 +368,11 @@ BEGIN
 				AND SiteId < 1000 -- Deposit only
 			GROUP BY rptDate, SiteId, CurrencyId, ProductId, CASE WHEN bettype = 1706 THEN 1706 ELSE -1 END
 
-			INSERT INTO #__tempData (rptDate, SiteId_DW, CurrencyId, Product3rdId, AliasProductId, BetTypeGroup, ValidBetAmount, Comm, MemberWL)
-			SELECT b.rptDate, s.SiteId_DW, b.CurrencyId, b.Product3rdId, p.AliasProductId, b.BetTypeGroup, b.ValidBetAmount, b.Comm
-				,CASE	WHEN b.Product3rdId <> 15 THEN b.MemberWL
-						WHEN pc6.PartyId IS NULL OR pc7.PartyId IS NULL THEN 0
-						ELSE b.Turnover - b.WinningPrize - b.Cashout - b.TurnoverForCommision * ISNULL(pc6.Rate, 0) - b.CashInAmount * ISNULL(pc7.Rate, 0) END
+			INSERT INTO #__tempData (rptDate, SiteId_DW, CurrencyId, Product3rdId, AliasProductId, BetTypeGroup, ValidBetAmount, MemberWL, Comm)
+			SELECT b.rptDate, s.SiteId_DW, b.CurrencyId, b.Product3rdId, p.AliasProductId, b.BetTypeGroup, b.ValidBetAmount, b.MemberWL, b.Comm
 			FROM #__BettingByProduct b
 				INNER JOIN @Products p ON b.Product3rdId = p.Product3rdId AND p.Product3rdId IN (10, 11, 15, 31)
 				INNER JOIN @tmpSite s ON b.LicenseeId = s.LicenseeId
-				LEFT JOIN #Licensees l ON b.LicenseeId = l.LicenseeId
-				LEFT JOIN #PartyChargeInfo pc6 ON l.PartyId = pc6.PartyId AND b.Product3rdId = pc6.Product3rdId AND b.Product3rdId = 15 AND pc6.ChargeType = 6
-				LEFT JOIN #PartyChargeInfo pc7 ON l.PartyId = pc7.PartyId AND b.Product3rdId = pc7.Product3rdId AND b.Product3rdId = 15 AND pc7.ChargeType = 7
 
 			DROP TABLE #__BettingByProduct
 		END
