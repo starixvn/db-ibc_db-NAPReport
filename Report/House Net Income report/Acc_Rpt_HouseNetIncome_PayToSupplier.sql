@@ -14,6 +14,7 @@ AS
 	
 	Revisions:
 		- 20201201@Percy: Initiliaze SP [RedmineID: #143208]
+		- 20200112@Percy: Return ProductCategory column [RedmineID: #146539]
 */
 
 BEGIN  
@@ -49,7 +50,7 @@ BEGIN
 		WHERE s.LogicCode = 3
 			AND (
 				s.EndOfSupportDate IS NULL AND s.isEnable = 1
-				OR s.EndOfSupportDate < @FDate
+				OR s.EndOfSupportDate >= @TDate
 			)
 			AND (
 				@ProductList = 'all'
@@ -125,10 +126,22 @@ BEGIN
 
 	-- Get charge rate
 	BEGIN
-		CREATE TABLE #__PartyChargeInfo (ChargeId INT, LicenseeId INT, IsDeposit BIT, FromDate DATE, ToDate DATE, Rate FLOAT)
-		SELECT @SQL = ' SELECT ChargeId, LicenseeId, IsDeposit, FromDate, ToDate, Rate
-						FROM OPENQUERY(DBLIC, ''SELECT DISTINCT ChargeId, LicenseeId, IsDeposit, FromDate, ToDate, DI_Rate AS Rate FROM bodb_licensee.dbo.LA_f_ChargeInfo (''''' + @PartyIDs + ''''', ''''' + @f_date + ''''', ''''' + @t_date + ''''', ''''SB'''', ''''OA'''', 1)'')'
-		INSERT INTO #__PartyChargeInfo (ChargeId, LicenseeId, IsDeposit, FromDate, ToDate, Rate)
+		CREATE TABLE #__PartyChargeInfo (LicenseeId INT, IsDeposit BIT, Product3rdId INT, FromDate DATE, ToDate DATE, Rate FLOAT, Bettype INT, ChargeType INT)
+		SELECT @SQL = '	SELECT LicenseeId, IsDeposit, Product3rdId, FromDate, ToDate, Rate, Bettype, ChargeType
+						FROM OPENQUERY (DBLIC, ''
+							SELECT DISTINCT ci.LicenseeId, ci.IsDeposit, ci.ProductId AS Product3rdId, ci.FromDate, ci.ToDate, ci.ChargeType
+								,CASE WHEN ci.ProductId = 0 THEN -1 ELSE ISNULL(sbr.Bettype, ci.Bettype) END AS Bettype
+								,CASE WHEN ci.IsDeposit = 0 AND ci.ProductId = 32 THEN 0 ELSE ci.DI_Rate END AS Rate
+							FROM bodb_licensee.dbo.LA_f_ChargeInfo (''''' + @PartyIds + ''''', ''''' + @f_date + ''''', ''''' + @t_date + ''''', ''''' + @ProductCodes + ''''', ''''OA'''', 1) ci
+								LEFT JOIN bodb_licensee.dbo.Sport_Bettype_Reference sbr WITH (NOLOCK) ON sbr.BettypeRef = ci.Bettype
+							WHERE ci.DI_Rate > 0
+								AND (
+									ci.ChargeType = 1
+									OR ci.ChargeType IN (9, 10, 11, 12) AND ci.ProductId IN (11, 21, 39) -- GD
+									OR ci.ChargeType IN (6, 7) AND ci.ProductId = 15 -- CB
+									OR ci.ChargeType = 5 AND ci.ProductId = 25 -- CO
+								)'')'
+		INSERT INTO #__PartyChargeInfo (LicenseeId, IsDeposit, Product3rdId, FromDate, ToDate, Rate, Bettype, ChargeType)
 		EXEC (@SQL)
 
 		CREATE TABLE #__Party3rdInfo (PartyId INT, Product3rdId INT, ChargeId INT, ChargeType INT, FromDate DATE, ToDate DATE, Rate MONEY)
@@ -218,7 +231,7 @@ BEGIN
 
 	-- Get data
 	BEGIN
-		CREATE TABLE #__tempResult (rptDate DATE, ParentId INT, IsDeposit BIT, Product3rdId INT, Bettype INT, CurrencyId INT, PlayCurrency INT, PayDaily MONEY, PayDailyRate MONEY, PayMonth MONEY, PayMonthRate MONEY, MemberWLRate MONEY)
+		CREATE TABLE #__tempResult (rptDate DATE, ParentId INT, IsDeposit BIT, Product3rdId INT, Bettype INT, CurrencyId INT, PlayCurrency INT, PayDaily MONEY, PayDailyRate MONEY, PayMonth MONEY, PayMonthRate MONEY, MemberWLDailyRate MONEY, MemberWLMonthRate MONEY)
 
 		CREATE TABLE #__Bettype (Product3rdId INT, ProductCode VARCHAR(50), BetType INT)
 		INSERT INTO #__Bettype (Product3rdId, ProductCode, BetType)
@@ -287,15 +300,16 @@ BEGIN
 
 			INSERT INTO #__tempResult (rptDate, ParentId, IsDeposit, Product3rdId, Bettype, CurrencyId, PlayCurrency, PayDailyRate)
 			SELECT d.rptDate, 0, a.IsDeposit, 0, d.BetTypeId, d.CurrencyId, d.CurrencyId
-				,SUM(CASE d.BetTypeId
-						WHEN -2 THEN Winloss * e.Rate
-						WHEN -3 THEN Winloss * e.Rate * 0.04
-						ELSE CASE WHEN (-d.Winloss * p.Rate * e.Rate < 0 AND m.MinAmount = 0) OR -d.Winloss * p.Rate * e.Rate >= m.MinAmount
-								THEN CASE WHEN -d.Winloss * p.Rate * e.Rate > m.MaxAmount THEN -(m.MaxAmount - m.MinAmount) ELSE -(-d.Winloss * p.Rate * e.Rate - m.MinAmount) END * m.Rate ELSE 0 END END)
+				,SUM(CASE 
+						WHEN d.BetTypeId = -2 THEN Winloss * e.Rate
+						WHEN d.BetTypeId = -3 THEN Winloss * e.Rate * 0.04
+						WHEN (-d.Winloss * p.Rate * e.Rate < 0 AND m.MinAmount = 0) OR -d.Winloss * p.Rate * e.Rate >= m.MinAmount
+								THEN CASE WHEN -d.Winloss * p.Rate * e.Rate > m.MaxAmount THEN -(m.MaxAmount - m.MinAmount) ELSE -(-d.Winloss * p.Rate * e.Rate - m.MinAmount) END * m.Rate 
+						ELSE 0 END)
 			FROM #__tempData d
 				INNER JOIN #AllParties a ON d.SiteId = a.LicenseeId
 				INNER JOIN @ExchangeOANDA e ON d.CurrencyId = e.ExchangeId
-				LEFT JOIN #__PartyChargeInfo p ON p.LicenseeId = d.SiteId AND d.rptDate BETWEEN p.FromDate AND p.ToDate AND d.BetTypeId = -1
+				LEFT JOIN #__PartyChargeInfo p ON p.LicenseeId = d.SiteId AND p.Product3rdId = 0 AND d.rptDate BETWEEN p.FromDate AND p.ToDate AND d.BetTypeId = -1
 				LEFT JOIN #MetricChargeInfo m ON d.rptDate BETWEEN m.FromDate AND m.ToDate AND d.BetTypeId = -1
 			GROUP BY d.rptDate, a.IsDeposit, d.BetTypeId, d.CurrencyId
 
@@ -340,18 +354,20 @@ BEGIN
 					)
 				GROUP BY RptDate3rd, SiteId, BetTypeId, CurrencyId
 
-			INSERT INTO #__tempResult (rptDate, ParentId, IsDeposit, Product3rdId, Bettype, CurrencyId, PlayCurrency, PayDaily, PayDailyRate, PayMonth, PayMonthRate, MemberWLRate)
+			INSERT INTO #__tempResult (rptDate, ParentId, IsDeposit, Product3rdId, Bettype, CurrencyId, PlayCurrency, PayDaily, PayDailyRate, PayMonth, PayMonthRate, MemberWLDailyRate, MemberWLMonthRate)
 			SELECT d.rptDate, tp.ParentId, tp.IsDeposit, bt.Product3rdId, CASE WHEN d.BetTypeId = 3007 THEN 3007 ELSE 0 END, d.CurrencyId, ISNULL(pc.PlayCurrency, d.CurrencyId) AS PlayCurrency
-				,SUM((CASE WHEN d.BetTypeId = 4297 THEN d.ProgressiveContribution ELSE d.Winloss END + ISNULL(d.ValidBetAmount * v.CommRate, 0)) * ISNULL(p.Rate, vs.ChargeRate3rd)) AS PayDaily
-				,SUM((CASE WHEN d.BetTypeId = 4297 THEN d.ProgressiveContribution ELSE d.Winloss END + ISNULL(d.ValidBetAmount * v.CommRate, 0)) * e.Rate * ISNULL(p.Rate, vs.ChargeRate3rd)) AS PayDailyRate
-				,SUM((CASE WHEN d.BetTypeId = 4297 THEN d.ProgressiveContribution ELSE d.Winloss END + ISNULL(d.ValidBetAmount * v.CommRate, 0)) * ISNULL(p.Rate, 0)) AS PayMonth
-				,SUM((CASE WHEN d.BetTypeId = 4297 THEN d.ProgressiveContribution ELSE d.Winloss END + ISNULL(d.ValidBetAmount * v.CommRate, 0)) * e.Rate * ISNULL(p.Rate, 0)) AS PayMonthRate
-				,SUM( CASE WHEN d.BetTypeId = 4297 THEN d.ProgressiveContribution ELSE d.Winloss END * e.Rate) AS MemberWLRate
+				,SUM((CASE WHEN d.BetTypeId = 4297 THEN d.ProgressiveContribution ELSE d.Winloss END + ISNULL(d.ValidBetAmount * v.CommRate, 0)) * ISNULL(ISNULL(p3.Rate, vs.ChargeRate3rd), 0)) AS PayDaily
+				,SUM((CASE WHEN d.BetTypeId = 4297 THEN d.ProgressiveContribution ELSE d.Winloss END + ISNULL(d.ValidBetAmount * v.CommRate, 0)) * e.Rate * ISNULL(ISNULL(p3.Rate, vs.ChargeRate3rd), 0)) AS PayDailyRate
+				,SUM((CASE WHEN d.BetTypeId = 4297 THEN d.ProgressiveContribution ELSE d.Winloss END + ISNULL(d.ValidBetAmount * v.CommRate, 0)) * CASE WHEN p.LicenseeId IS NULL OR p3.LicenseeId IS NULL THEN 0 ELSE p3.Rate END) AS PayMonth
+				,SUM((CASE WHEN d.BetTypeId = 4297 THEN d.ProgressiveContribution ELSE d.Winloss END + ISNULL(d.ValidBetAmount * v.CommRate, 0)) * e.Rate * CASE WHEN p.LicenseeId IS NULL OR p3.LicenseeId IS NULL THEN 0 ELSE p3.Rate END) AS PayMonthRate
+				,SUM( CASE WHEN d.BetTypeId = 4297 THEN d.ProgressiveContribution ELSE d.Winloss END * e.Rate) AS MemberWLDailyRate
+				,SUM( CASE WHEN d.BetTypeId = 4297 THEN d.ProgressiveContribution ELSE d.Winloss END * e.Rate * CASE WHEN p.LicenseeId IS NULL THEN 0.0 ELSE 1.0 END) AS MemberWLMonthRate
 			FROM #__tempData d
 				INNER JOIN #__Bettype bt ON d.BetTypeId = bt.BetType
 				INNER JOIN #AllParties tp ON tp.LicenseeId = d.SiteId
 				INNER JOIN @ExchangeOANDA e ON d.CurrencyId = e.ExchangeId
-				LEFT JOIN #__PartyCharge3rdInfo p ON tp.LicenseeId = p.LicenseeId AND bt.Product3rdId = p.Product3rdId AND d.rptDate BETWEEN p.FromDate AND p.ToDate AND p.ChargeType <> 11 AND ((d.BetTypeId <> 3007 AND p.ChargeType <> 12) OR (d.BetTypeId = 3007 AND p.ChargeType = 12))
+				LEFT JOIN #__PartyChargeInfo p ON tp.LicenseeId = p.LicenseeId AND bt.Product3rdId = p.Product3rdId AND d.rptDate BETWEEN p.FromDate AND p.ToDate AND p.ChargeType <> 11 AND ((d.BetTypeId <> 3007 AND p.ChargeType <> 12) OR (d.BetTypeId = 3007 AND p.ChargeType = 12))
+				LEFT JOIN #__PartyCharge3rdInfo p3 ON tp.LicenseeId = p3.LicenseeId AND bt.Product3rdId = p3.Product3rdId AND d.rptDate BETWEEN p3.FromDate AND p3.ToDate AND p3.ChargeType <> 11 AND ((d.BetTypeId <> 3007 AND p3.ChargeType <> 12) OR (d.BetTypeId = 3007 AND p3.ChargeType = 12))
 				LEFT JOIN #__tmpVendorGlobalSetting vs ON vs.IsDeposit = tp.IsDeposit AND vs.Product3rdId = bt.Product3rdId
 				LEFT JOIN #__PlayCurrencySettings pc ON d.SiteId = pc.SiteId AND d.CurrencyId = pc.MemberCurrency AND d.rptDate BETWEEN pc.FromDate AND pc.ToDate
 				LEFT JOIN #__ValidBetRate v ON tp.IsDeposit = v.IsDeposit AND bt.Product3rdId = v.Product3rdId AND d.rptDate BETWEEN v.FromDate AND v.ToDate
@@ -380,7 +396,7 @@ BEGIN
 			) * ci.Rate AS PayToSupplier
 		FROM
 		(
-			SELECT rptDate, SUM(MemberWLRate) AS MemberWLRate
+			SELECT rptDate, SUM(MemberWLDailyRate) AS MemberWLRate
 			FROM #__tempResult
 			WHERE Product3rdId = 32 AND IsDeposit = 0
 			GROUP BY RptDate
@@ -388,9 +404,29 @@ BEGIN
 			INNER JOIN #__PartyCharge3rdInfoByAmount ci ON wl.RptDate BETWEEN ci.FromDate AND ci.ToDate
 			INNER JOIN @ExchangeOANDA ex ON ci.CurrencyId = ex.ExchangeId
 		WHERE ci.Product3rdId = 32 AND IsDeposit = 0
-		
+
 		INSERT INTO #__FullRangePayToSupplier (IsDeposit, Product3rdId, PayToSupplier)
-		SELECT 0, 32, SUM(PayToSupplier) FROM #__DailyPayToSupplier WHERE Product3rdId = 32 AND IsDeposit = 0
+		SELECT 0, 32
+			,SUM((CASE
+				WHEN
+					(MemberWLRate < 0 AND (ci.MinAmount * ex.Rate) = 0)
+					OR (MemberWLRate >= (ci.MinAmount * ex.Rate))
+				THEN 
+					CASE
+						WHEN MemberWLRate > (MaxAmount * ex.Rate) THEN (ci.MaxAmount - ci.MinAmount) * ex.Rate
+						ELSE MemberWLRate - (ci.MinAmount * ex.Rate) END
+				ELSE 0 END
+			) * ci.Rate) AS PayToSupplier
+		FROM
+		(
+			SELECT rptDate, SUM(MemberWLMonthRate) AS MemberWLRate
+			FROM #__tempResult
+			WHERE Product3rdId = 32 AND IsDeposit = 0
+			GROUP BY RptDate
+		) wl
+			INNER JOIN #__PartyCharge3rdInfoByAmount ci ON wl.RptDate BETWEEN ci.FromDate AND ci.ToDate
+			INNER JOIN @ExchangeOANDA ex ON ci.CurrencyId = ex.ExchangeId
+		WHERE ci.Product3rdId = 32 AND IsDeposit = 0
 	END
 
 	-- SA Gaming for Deposit
@@ -405,31 +441,45 @@ BEGIN
 			SELECT ParentId, CASE WHEN ParentId IN (1, 11) THEN CASE WHEN Amount < @AmountRM THEN 0.06 ELSE 0.05 END ELSE 0 END AS Rate
 			FROM
 			(
-				SELECT CASE WHEN ParentId = 98 THEN 11 ELSE ParentId END AS ParentId, SUM(-MemberWLRate) AS Amount
+				SELECT CASE WHEN ParentId = 98 THEN 11 ELSE ParentId END AS ParentId, SUM(-MemberWLDailyRate) AS Amount
 				FROM #__tempResult
 				WHERE BetType = 0 AND Product3rdId = 39 AND IsDeposit = 1
 				GROUP BY CASE WHEN ParentId = 98 THEN 11 ELSE ParentId END
 			) a
 		)
 		INSERT INTO #__DailyPayToSupplier (IsDeposit, Product3rdId, rptDate, PayToSupplier)
-		SELECT 1, 39, d.rptDate, SUM(d.MemberWLRate * CASE WHEN d.BetType = 3007 THEN 0.5 ELSE t.Rate END)
+		SELECT 1, 39, d.rptDate, SUM(d.MemberWLDailyRate * CASE WHEN d.BetType = 3007 THEN 0.5 ELSE t.Rate END)
 		FROM #__tempResult d
 			INNER JOIN CTE_SA t ON t.ParentId = d.ParentId
 		WHERE d.Product3rdId = 39 AND IsDeposit = 1
 		GROUP BY d.rptDate
-		
+
+		;WITH CTE_SA AS
+		(
+			SELECT ParentId, CASE WHEN ParentId IN (1, 11) THEN CASE WHEN Amount < @AmountRM THEN 0.06 ELSE 0.05 END ELSE 0 END AS Rate
+			FROM
+			(
+				SELECT CASE WHEN ParentId = 98 THEN 11 ELSE ParentId END AS ParentId, SUM(-MemberWLMonthRate) AS Amount
+				FROM #__tempResult
+				WHERE BetType = 0 AND Product3rdId = 39 AND IsDeposit = 1
+				GROUP BY CASE WHEN ParentId = 98 THEN 11 ELSE ParentId END
+			) a
+		)
 		INSERT INTO #__FullRangePayToSupplier (IsDeposit, Product3rdId, PayToSupplier)
-		SELECT 1, 39, SUM(PayToSupplier) FROM #__DailyPayToSupplier WHERE Product3rdId = 39 AND IsDeposit = 1
+		SELECT 1, 39, SUM(d.MemberWLMonthRate * CASE WHEN d.BetType = 3007 THEN 0.5 ELSE t.Rate END)
+		FROM #__tempResult d
+			INNER JOIN CTE_SA t ON t.ParentId = d.ParentId
+		WHERE d.Product3rdId = 39 AND IsDeposit = 1
 	END
 
 	-- Check by MemberWL
 	BEGIN
-		INSERT INTO #__FullRangePayToSupplier (IsDeposit, Product3rdId, PayToSupplier)
-		SELECT IsDeposit, Product3rdId, SUM(PayToSupplier)
+		INSERT INTO #__FullRangePayToSupplier (IsDeposit, Product3rdId, Bettype, PayToSupplier)
+		SELECT IsDeposit, Product3rdId, CASE WHEN Product3rdId = 0 THEN -1 ELSE 0 END, SUM(PayToSupplier)
 		FROM (
 			SELECT IsDeposit, Product3rdId, ParentId, SUM(PayMonthRate) AS PayToSupplier
 			FROM #__tempResult
-			WHERE Product3rdId IN (10, 24)
+			WHERE Product3rdId IN (10, 24) OR (Product3rdId = 0 AND Bettype = -1)
 			GROUP BY IsDeposit, Product3rdId, ParentId
 			HAVING SUM(PayMonthRate) < 0
 		) t
@@ -450,6 +500,7 @@ BEGIN
 		SELECT IsDeposit, Product3rdId, CASE WHEN Product3rdId = 0 THEN Bettype ELSE 0 END, SUM(PayMonthRate)
 		FROM #__tempResult
 		WHERE Product3rdId NOT IN (10, 24)
+			AND (Product3rdId <> 0 OR Bettype <> -1)
 			AND (IsDeposit = 1 OR Product3rdId <> 32)
 			AND (IsDeposit = 0 OR Product3rdId <> 39)
 		GROUP BY IsDeposit, Product3rdId, CASE WHEN Product3rdId = 0 THEN Bettype ELSE 0 END
@@ -552,14 +603,14 @@ BEGIN
 		) p
 	)
 	SELECT
-		s.IsDeposit, s.OrderByProduct, s.OrderByFigure, ''Licensee'' AS SiteGroup, s.ProductGroup, s.ProductName, s.ProductShortName
+		s.IsDeposit, s.OrderByProduct, s.OrderByFigure, CASE WHEN s.IsDeposit = 0 THEN ''Credit'' ELSE ''Licensee'' END AS SiteGroup, s.ProductCategory, s.ProductGroup, s.ProductName, s.ProductShortName
 		,s.Figure, r.Monthly, r.MTD, ' + @DateList + '
 	FROM bodb_Account.dbo.HNISettings s WITH (NOLOCK)
 		LEFT JOIN CTE_Result r ON r.ProductCode = s.ProductPrefix AND r.IsDeposit = s.IsDeposit AND r.Figure = s.Figure
 	WHERE s.LogicCode = 3
 		AND (
 				s.EndOfSupportDate IS NULL AND s.isEnable = 1
-				OR s.EndOfSupportDate < ''' + CONVERT(VARCHAR(10), @FDate, 120) + '''
+				OR s.EndOfSupportDate >= ''' + CONVERT(VARCHAR(10), @TDate, 120) + '''
 		)
 		AND (
 			''' + @ProductList + ''' = ''all''
