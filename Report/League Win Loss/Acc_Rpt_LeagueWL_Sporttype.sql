@@ -54,21 +54,21 @@ AS
 					 1 - No get draw ticktes to report
 
 	Example:
-		EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Sporttype @StartDate='2020-09-06', @EndDate='2020-09-06', 
-			@SportBettype='1_1,1_2,10000_9,10000_29,2_1,3_1,4_1,5_1,6_1,7_1,8_1,9_1', @LeagueName='', @IsNoDraw=0, 
-			@SiteName = '12Bet,755555,INDO,789y,IBCIndo,BEST-ODDS,722222,733333,XYZBET,asiabet88',
-			@GlobalShowTime = '0,1,12,13'
+		EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Sporttype_xtest @StartDate='2020-12-08', @EndDate='2020-12-08' 
+			, @SportBettype='10000_9,10000_29,10001_999,1_1,2_1,3_1,4_1,4_3,5_1,5_3,5_153,5_154,6_1,6_20,8_1,8_3,8_9,50_501,50_3'
+			, @LeagueName='', @IsNoDraw=0
+			, @SiteName = '12Bet,755555,INDO,789y,IBCIndo,BEST-ODDS,722222,733333,XYZBET,asiabet88'
+			, @GlobalShowTime = '0,1,12,13'
 
 	Remarks: 
 		- Only show Parlay & Odds data when specific @GlobalShowTime/@LiveIndicator is specified
-		- Virtual sport id (addictive inverse number of real sport) represents the SABA sports: 
-			SABA Soccer (-1), SABA Basketball (-2) & SABA Cricket (-50)	[#147450]
+		- SABA sports are separated into different groups [#147450]
 		- Custom sport id (>= 10000) used to represents Parlay, SB Adjustment & RM metrics
 		Example result:
 			| SportType |       Sport       |     LeagueName    | Other metrics |
 			|:---------:|:-----------------:|:-----------------:|---------------|
 			|     1     |       Soccer      |   FRANCE LIGUE 1  | ...           |
-			|     -1    |    SABA Soccer    |  SABA Tournament  | ...           |
+			|     1     |    SABA Soccer    |  SABA Tournament  | ...           |
 			|   10000   |       Parlay      |                   | ...           |
 			|   10001   |   SB Adjustment   |                   | ...           |
 			|   100001  |     Soccer 8RM    |     Soccer 8RM    | ...           |
@@ -80,6 +80,11 @@ AS
 */
 
 BEGIN
+	/* Technical details:
+		During "transformation", virtual sport id (addictive inverse number of real sport) are used to represents the SABA sports: 
+			SABA Soccer (-1), SABA Basketball (-2) & SABA Cricket (-50)
+		Revert to original positive number when getting final result
+	*/
 
 	SET NOCOUNT ON
 
@@ -227,11 +232,9 @@ BEGIN
 				SUM(sd.VirtualHouseTurnover) 	AS VirtualTurnover
 			FROM bodb02.dbo.f_bettrans_measures(@IsNoDraw) sd
 			WHERE sd.winlostdate = @StartDate
-					/* -- hint use statistics: IX_bettype -- */
 					AND sd.ruben = 1
 					AND sd.statusID IN (111, 112, 113)
 					AND sd.currency NOT IN (20, 27, 28)
-					/* -------------------------------------------- */
 					AND ('ALL' = @SiteName OR sd.recommend IN (SELECT AgentID FROM #tmpAgentBySite))
 					AND sd.bettype IN (SELECT BetType FROM #tmpSportBettypeMatrix)
 					AND sd.liveindicator = ISNULL(@LiveIndicator, sd.liveindicator)
@@ -345,7 +348,7 @@ BEGIN
 	SELECT * 
 	FROM 
 	(
-		SELECT t.SportType,
+		SELECT ABS(t.SportType) SportType, -- rollback to orig sport id for SABAs to keep consistency with other reports
 			CASE WHEN t.SportType = 10000  THEN 'Parlay'
 				 WHEN t.SportType = 10001  THEN 'SB Adjustment'
 				 WHEN t.SportType > 100000 THEN LeagueName
@@ -366,7 +369,6 @@ BEGIN
 			ON Sports.SportType = ABS(t.SportType)
 		WHERE MemberWinLoss IS NOT NULL
 	) AS s
-	--fix some sports at top, then sort by sport name (for non RM summary lines), then league name
 	ORDER BY CASE WHEN Sport = 'Soccer' 		 THEN 1
 				  WHEN Sport = 'SABA Soccer' 	 THEN 2
 				  WHEN Sport = 'Parlay' 		 THEN 3
@@ -374,13 +376,14 @@ BEGIN
 				  WHEN Sport = 'Basketball'  	 THEN 5
 				  WHEN Sport = 'SABA Basketball' THEN 6
 				  WHEN Sport = 'Tennis'		 	 THEN 7
-				  WHEN Sport = 'E-Sports'	 	 THEN 8 
+				  WHEN Sport = 'E-Sports'	 	 THEN 8 --fix some sports at top
 				  ELSE 
-				  	CASE WHEN SportType > 100000 THEN 99 ELSE 9 END
-				  END
-				  , CASE WHEN SportType > 100000 THEN SportType END
-				  , Sport
-				  , LeagueName
+				  	CASE WHEN SportType > 100000 THEN SportType ELSE 9 END --fix summary lines at bottom
+			 END
+			,CASE -- then sort by alphabetic order; except for SABA sports: fix them after their primary sport
+				  WHEN Sport LIKE '%SABA%' THEN LTRIM(REPLACE(Sport, 'SABA', '')) + '~' 
+				  ELSE Sport END
+			,LeagueName -- lastly, sort by league name
 
 	DROP TABLE #tmpSportBettypeMatrix
 	DROP TABLE #tmpMatch
