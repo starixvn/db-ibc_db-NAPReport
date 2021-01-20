@@ -81,8 +81,8 @@ AS
 
 BEGIN
 	/* Technical details:
-		During "transformation", virtual sport id (addictive inverse number of real sport) are used to represents the SABA sports: 
-			SABA Soccer (-1), SABA Basketball (-2) & SABA Cricket (-50)
+		During "transformation", virtual sport id (addictive inverse number of real sport) are used to represents the SABA sports;
+			Example: SABA Soccer (-1), SABA Basketball (-2) & SABA Cricket (-50)
 		Revert to original positive number when getting final result
 	*/
 
@@ -167,9 +167,7 @@ BEGIN
 		INSERT INTO #tmpMatch(MatchID, SportType, LeagueID, LeagueName, MatchType)
 			SELECT 
 				m.matchid, 
-				CASE WHEN l.sporttype = 1 AND l.LeagueGroupID IN (SELECT val FROM CTE_SABA_Groups) THEN -1
-					 WHEN l.sporttype = 2 AND l.LeagueGroupID IN (SELECT val FROM CTE_SABA_Groups) THEN -2
-					 WHEN l.sporttype = 50 AND l.LeagueGroupID IN (SELECT val FROM CTE_SABA_Groups) THEN -50
+				CASE WHEN l.LeagueGroupID IN (SELECT val FROM CTE_SABA_Groups) THEN -l.sporttype
 					 ELSE l.sporttype END sporttype,
 				l.leagueid, 
 				l.leaguename, 
