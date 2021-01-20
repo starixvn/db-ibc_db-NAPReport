@@ -349,6 +349,7 @@ BEGIN
 	FROM 
 	(
 		SELECT ABS(t.SportType) SportType, -- rollback to orig sport id for SABAs to keep consistency with other reports
+			CASE WHEN t.SportType < 0 THEN 1 ELSE 0 END AS IsSabaSport,
 			CASE WHEN t.SportType = 10000  THEN 'Parlay'
 				 WHEN t.SportType = 10001  THEN 'SB Adjustment'
 				 WHEN t.SportType > 100000 THEN LeagueName
