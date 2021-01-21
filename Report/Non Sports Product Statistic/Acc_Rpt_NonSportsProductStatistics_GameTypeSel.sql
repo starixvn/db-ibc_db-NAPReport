@@ -24,6 +24,7 @@ AS
 		20200220@Cherry: Integrate Virtual Games (#124753)
 		20200828@Cherry: Integrate Saba.club Free Bet (#140109)
 		20201224@Cherry: Integrate Happy 5 Linked Games (#146537)
+		20210120@Cherry: Integrate Saba Jackpot (#148293)
 */
  
 BEGIN
@@ -43,6 +44,7 @@ SET NOCOUNT ON
 	SELECT Bettype
 	FROM DBWH.bodb_Account.dbo.BettypeGroup WITH (NOLOCK)
 	WHERE BettypeGroupID = 6
+		AND Bettype <> 1699
 	
 	CREATE TABLE #tmpProduct (ProductID INT)
 	INSERT INTO #tmpProduct (ProductID)

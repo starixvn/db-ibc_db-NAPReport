@@ -41,6 +41,7 @@ AS
 		20200828@Cherry: Integrate Saba.club Free Bet (#140109)
 		20200917@Cherry: Improve performance (#141844)
 		20201224@Cherry: Integrate Happy 5 Linked Games (#146537)
+		20210120@Cherry: Integrate Saba Jackpot (#148293)	
 
 	Param's Explanation:
 		- @ProductID: string filter by Product 
@@ -574,6 +575,18 @@ BEGIN
 				OPTION(RECOMPILE)
 			END
 		END
+		
+		-- Update BetCount = 0
+		CREATE TABLE #tmpNoBetCountBettype (Bettype INT)
+		INSERT INTO #tmpNoBetCountBettype (Bettype)
+		SELECT Bettype
+		FROM DBWH.bodb_Account.dbo.BettypeGroup WITH (NOLOCK)
+		WHERE BettypeGroupID = 12
+		
+		UPDATE #tmp_bettrans
+		SET BetCount = 0
+		WHERE bettype IN (SELECT Bettype FROM #tmpNoBetCountBettype)
+		---------------
 	
 		--- Check condition 
 		IF EXISTS (SELECT TOP 1 1 FROM #SportBettype WHERE ProductID NOT IN (3, 4, 5, 27, 33)) -- NG, SLI-Live Casino, Virtual Sports, Virtual Sports 2, Poker Games
@@ -781,4 +794,5 @@ BEGIN
 	DROP TABLE #tmp_SportType
 	DROP TABLE #tmpContributionBettype		
 	DROP TABLE #tmpSportBetType
+	DROP TABLE #tmpNoBetCountBettype
 END

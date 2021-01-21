@@ -54,6 +54,7 @@ AS
 		20200929@Cherry: Hot fix (#142525)
 		20201210@Cherry: Add Real Turnover (#146137)
 		20201224@Cherry: Integrate Happy 5 Linked Games (#146537)
+		20210120@Cherry: Integrate Saba Jackpot (#148293)
 
 	Param's Explanation:
 		- @username:  + Search by keyword, member only
@@ -167,7 +168,7 @@ BEGIN
 	CREATE TABLE #tmp_MemIDs		(CustID INT)
 	CREATE TABLE #ExtraComm (ProductID INT, SuperID INT, ExtraComm DECIMAL(9, 8))	
 	CREATE TABLE #tmpContributionBettype (Bettype INT)	
-	CREATE TABLE #tmpSportBetType (Sporttype INT, Bettype INT)    
+	CREATE TABLE #tmpSportBetType (Sporttype INT, Bettype INT) 
 
 	-- Get Info from Pars list
 	IF @ProductId <> ''
@@ -361,7 +362,7 @@ BEGIN
 	
 	CREATE CLUSTERED INDEX IX_SportBettype ON #SportBettype (ProductID, Bettype, EvenType, RefTable)  
 	CREATE CLUSTERED INDEX IX_SportType ON #tmp_SportType (Sporttype)    
-	CREATE CLUSTERED INDEX IX_LeagueID ON #tmp_LeagueID (LeagueID, Bettype)
+	CREATE CLUSTERED INDEX IX_LeagueID ON #tmp_LeagueID (LeagueID, Bettype)		
 	
 	INSERT INTO #tmpContributionBettype (Bettype)
 	SELECT Bettype
@@ -1328,7 +1329,7 @@ BEGIN
 		OPTION(RECOMPILE)
 	END
 	
-	--Update Real Turnover
+	-- Update Real Turnover
 	CREATE TABLE #tmpNetStakeBettype (Bettype INT)
 	INSERT INTO #tmpNetStakeBettype (Bettype)
 	SELECT Bettype
@@ -1339,6 +1340,19 @@ BEGIN
 	SET RealTurnover = CompanyTurnover,
 		RealTurnoverBase = CompanyTurnoverBase
 	WHERE bettype NOT IN (SELECT Bettype FROM #tmpNetStakeBettype)
+	----------------
+	
+	-- Update BetCount = 0
+	CREATE TABLE #tmpNoBetCountBettype (Bettype INT)
+	INSERT INTO #tmpNoBetCountBettype (Bettype)
+	SELECT Bettype
+	FROM DBWH.bodb_Account.dbo.BettypeGroup WITH (NOLOCK)
+	WHERE BettypeGroupID = 12
+	
+	UPDATE #tmp_bettrans
+	SET BetCount = 0
+	WHERE bettype IN (SELECT Bettype FROM #tmpNoBetCountBettype)
+	---------------
 
 	INSERT INTO #Data
 			( ProductID,
@@ -1658,6 +1672,7 @@ BEGIN
 	DROP TABLE #tmpContributionBettype	
 	DROP TABLE #tmpSportBetType
 	DROP TABLE #tmpNetStakeBettype	
+	DROP TABLE #tmpNoBetCountBettype
 	
 END
 

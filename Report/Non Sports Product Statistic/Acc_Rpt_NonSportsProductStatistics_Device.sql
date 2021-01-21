@@ -52,6 +52,7 @@ AS
 		20200928@Cherry: Hot fix (#142436)
 		20201210@Cherry: Add Real Turnover (#146137)
 		20201224@Cherry: Integrate Happy 5 Linked Games (#146537)
+		20210120@Cherry: Integrate Saba Jackpot (#148293)	
 
 	Param's Explanation:
 		- @username:  + Search by keyword, member only
@@ -1323,6 +1324,19 @@ BEGIN
 	SET RealTurnover = CompanyTurnover,
 		RealTurnoverBase = CompanyTurnoverBase
 	WHERE bettype NOT IN (SELECT Bettype FROM #tmpNetStakeBettype)
+	----------------
+	
+	-- Update BetCount = 0
+	CREATE TABLE #tmpNoBetCountBettype (Bettype INT)
+	INSERT INTO #tmpNoBetCountBettype (Bettype)
+	SELECT Bettype
+	FROM DBWH.bodb_Account.dbo.BettypeGroup WITH (NOLOCK)
+	WHERE BettypeGroupID = 12
+	
+	UPDATE #Data
+	SET BetCount = 0
+	WHERE bettype IN (SELECT Bettype FROM #tmpNoBetCountBettype)
+	---------------
 	
 	-- Get Currency name
 	UPDATE d
@@ -1630,6 +1644,7 @@ BEGIN
 	DROP TABLE #tmpContributionBettype	
 	DROP TABLE #tmpSportBetType
 	DROP TABLE #tmpNetStakeBettype	
+	DROP TABLE #tmpNoBetCountBettype
 	
 END
 
