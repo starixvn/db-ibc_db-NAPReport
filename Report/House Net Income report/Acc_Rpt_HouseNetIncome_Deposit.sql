@@ -13,6 +13,7 @@ AS
 	Revisions:
 		- 20201201@Percy: Initiliaze SP [RedmineID: #143208]
 		- 20200112@Percy: Integrate Happy 5 Linked Games [RedmineID: #146539]
+		- 20210125@Percy: Return SubFigure column [RedmineID: #149267]
 */
 
 BEGIN
@@ -1076,19 +1077,20 @@ BEGIN
 
 	SELECT @SQL = '
 	;WITH CTE_Result AS (
-		SELECT Product3rdId, AliasProductId, Figure, ISNULL(Monthly, 0) AS Monthly, MTD, ' + @DateList + '
+		SELECT Product3rdId, AliasProductId, Figure, SubFigure, ISNULL(Monthly, 0) AS Monthly, MTD, ' + @DateList + '
 		FROM (
-			SELECT r.Product3rdId, r.AliasProductId, ISNULL(f.Value, 0) AS Value, f.Figure, r.rptDate
+			SELECT r.Product3rdId, r.AliasProductId, ISNULL(f.Value, 0) AS Value, f.Figure, f.SubFigure, r.rptDate
 			FROM #Result r
 			CROSS APPLY (
-				SELECT BAComm AS Value, ''BA Commission'' AS Figure
-				UNION ALL SELECT FullContribution, ''Contribution Amount''
-				UNION ALL SELECT HouseTurnover, ''House TurnOver''
-				UNION ALL SELECT JackpotPrize, ''Jackpot Prize''
-				UNION ALL SELECT HouseIncome, ''Licensee House Income''
-				UNION ALL SELECT MinFee, ''Licensing Minimum Fee''
-				UNION ALL SELECT PayToSupplier, ''Pay to supplier''
-				UNION ALL SELECT -(ISNULL(Rebate, 0) + ISNULL(Discount, 0)), ''Rebate & Discount''
+				SELECT BAComm AS Value, ''BA Commission'' AS Figure, '''' AS SubFigure
+				UNION ALL SELECT FullContribution, ''Contribution Amount'', ''''
+				UNION ALL SELECT HouseTurnover, ''House TurnOver'', ''''
+				UNION ALL SELECT JackpotPrize, ''Jackpot Prize'', ''''
+				UNION ALL SELECT HouseIncome, ''Licensee House Income'', ''''
+				UNION ALL SELECT MinFee, ''Licensing Minimum Fee'', ''''
+				UNION ALL SELECT PayToSupplier, ''Pay to supplier'', ''''
+				UNION ALL SELECT -ISNULL(Rebate, 0), ''Rebate & Discount'', ''Rebate''
+				UNION ALL SELECT -ISNULL(Discount, 0), ''Rebate & Discount'', ''Discount''
 			) f
 		) t
 		PIVOT (
@@ -1096,9 +1098,9 @@ BEGIN
 			FOR rptDate IN (Monthly, MTD, ' + @DateList + ')
 		) p
 	)
-	SELECT s.isDeposit, s.OrderByProduct, s.OrderByFigure, ''Licensee'' AS SiteGroup, s.ProductCategory, s.ProductGroup, s.ProductName, s.ProductShortName, s.Figure, r.Monthly, r.MTD, ' + @DateList + '
+	SELECT s.isDeposit, s.OrderByProduct, s.OrderByFigure, ''Licensee'' AS SiteGroup, s.ProductCategory, s.ProductGroup, s.ProductName, s.ProductShortName, s.Figure, s.SubFigure, r.Monthly, r.MTD, ' + @DateList + '
 	FROM bodb_Account.dbo.HNISettings s WITH (NOLOCK)
-		LEFT JOIN CTE_Result r ON r.AliasProductId = s.AliasProductId AND r.Figure = s.Figure
+		LEFT JOIN CTE_Result r ON r.AliasProductId = s.AliasProductId AND r.Figure = s.Figure AND r.SubFigure = ISNULL(s.SubFigure, '''')
 	WHERE s.isDeposit = 1 AND s.LogicCode = 2
 		AND (
 				s.EndOfSupportDate IS NULL AND s.isEnable = 1
