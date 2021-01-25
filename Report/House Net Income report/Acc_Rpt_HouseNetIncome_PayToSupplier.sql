@@ -18,8 +18,11 @@ AS
 		- 20210125@Percy: Return SubFigure column [RedmineID: #149267]
 */
 
-BEGIN  
+BEGIN
     SET NOCOUNT ON
+
+	DECLARE @IsTest BIT = 0
+	SELECT  @IsTest = dbo.f_CheckSPVersion(@@PROCID)
 
 	DECLARE @FDate DATE, @TDate DATE
 	SELECT  @FDate = @FromDate, @TDate = @ToDate
@@ -62,6 +65,7 @@ BEGIN
 				@DepositType = 2
 				OR s.isDeposit = @DepositType
 			)
+			AND s.IsTest <= @IsTest
 
 		;WITH CTE_Product AS (SELECT DISTINCT ProductCode FROM @Products)
 		SELECT @ProductCodes = COALESCE(@ProductCodes + ',', '') + ProductCode FROM CTE_Product
@@ -622,6 +626,7 @@ BEGIN
 			' + CONVERT(VARCHAR(1), @DepositType) + ' = 2
 			OR s.isDeposit = ' + CONVERT(VARCHAR(1), @DepositType) + '
 		)
+		AND s.IsTest <= ' + CONVERT(VARCHAR(1), @IsTest) + '
 	ORDER BY s.OrderByProduct, s.OrderByFigure'
 
 	EXEC (@SQL)

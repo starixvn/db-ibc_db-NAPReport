@@ -19,6 +19,9 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
+	DECLARE @IsTest BIT = 0
+	SELECT  @IsTest = dbo.f_CheckSPVersion(@@PROCID)
+
 	IF @FromDate > @ToDate OR DATEDIFF(MONTH, @FromDate, @ToDate) <> 0
 		RETURN
 
@@ -61,6 +64,7 @@ BEGIN
 				OR s.ProductId = 1 AND ',' + @ProductList + ',' LIKE '%,SB,%'
 				OR ',' + @ProductList + ',' LIKE '%,' + s.ProductPrefix + ',%'
 			)
+			AND s.IsTest <= @IsTest
 
 		UPDATE @Products SET IsPayToSupplier = 1 WHERE ProductId IN (SELECT ProductId FROM bodb_Account.dbo.HNISettings WITH (NOLOCK) WHERE Figure = 'Pay to Supplier' AND LogicCode = 1 AND isDeposit = 1)
 
@@ -1111,6 +1115,7 @@ BEGIN
 			OR s.ProductId = 1 AND '',' + @ProductList + ','' LIKE ''%,SB,%''
 			OR '',' + @ProductList + ','' LIKE ''%,'' + s.ProductPrefix + '',%''
 		)
+		AND s.IsTest <= ' + CONVERT(VARCHAR(1), @IsTest) + '
 	ORDER BY s.OrderByProduct, s.OrderByFigure'
 
 	EXEC (@SQL)
