@@ -75,6 +75,9 @@ BEGIN
 	-- 1. Declare variables --
 	--------------------------
 
+	DECLARE @isTest BIT= 0
+    SET @isTest = bodb_dwrs.dbo.f_CheckSPVersion(@@PROCID)
+
 	DECLARE @sqlQuery VARCHAR(MAX)
 	DECLARE @sqlSupport VARCHAR(MAX)
 
@@ -130,30 +133,32 @@ BEGIN
 		SubFigure VARCHAR(200),
 		isEnable BIT,
 		EndOfSupportDate DATE,
-		LogicCode SMALLINT,
-		LogicDescription VARCHAR(1000)
+		LogicCode SMALLINT
 	)
 
 	IF EXISTS (SELECT TOP 1 1 FROM #tmpProductList WHERE ProductPrefix = 'ALL')
 	BEGIN
-		INSERT INTO #tmpHNISettings (isDeposit, OrderByProduct, OrderByFigure, ProductID, AliasProductID, ProductPrefix, ProductCategory, ProductGroup, ProductName, ProductShortName, Figure, SubFigure, isEnable, EndOfSupportDate, LogicCode, LogicDescription)
-		SELECT isDeposit, OrderByProduct, OrderByFigure, ProductID, AliasProductID, ProductPrefix, ProductCategory, ProductGroup, ProductName, ProductShortName, Figure, SubFigure, isEnable, EndOfSupportDate, LogicCode, LogicDescription
+		INSERT INTO #tmpHNISettings (isDeposit, OrderByProduct, OrderByFigure, ProductID, AliasProductID, ProductPrefix, ProductCategory, ProductGroup, ProductName, ProductShortName, Figure, SubFigure, isEnable, EndOfSupportDate, LogicCode)
+		SELECT DISTINCT isDeposit, OrderByProduct, OrderByFigure, ProductID, AliasProductID, ProductPrefix, ProductCategory, ProductGroup, ProductName, ProductShortName, Figure, SubFigure, isEnable, EndOfSupportDate, LogicCode
 		FROM bodb_Account.dbo.HNISettings (NOLOCK)
+		WHERE (isTest = 0 OR isTest = @isTest)
 	END
 	
 	IF EXISTS (SELECT TOP 1 1 FROM #tmpProductList WHERE ProductPrefix = 'SB')
 	BEGIN
-		INSERT INTO #tmpHNISettings (isDeposit, OrderByProduct, OrderByFigure, ProductID, AliasProductID, ProductPrefix, ProductCategory, ProductGroup, ProductName, ProductShortName, Figure, SubFigure, isEnable, EndOfSupportDate, LogicCode, LogicDescription)
-		SELECT isDeposit, OrderByProduct, OrderByFigure, ProductID, AliasProductID, ProductPrefix, ProductCategory, ProductGroup, ProductName, ProductShortName, Figure, SubFigure, isEnable, EndOfSupportDate, LogicCode, LogicDescription
+		INSERT INTO #tmpHNISettings (isDeposit, OrderByProduct, OrderByFigure, ProductID, AliasProductID, ProductPrefix, ProductCategory, ProductGroup, ProductName, ProductShortName, Figure, SubFigure, isEnable, EndOfSupportDate, LogicCode)
+		SELECT DISTINCT isDeposit, OrderByProduct, OrderByFigure, ProductID, AliasProductID, ProductPrefix, ProductCategory, ProductGroup, ProductName, ProductShortName, Figure, SubFigure, isEnable, EndOfSupportDate, LogicCode
 		FROM bodb_Account.dbo.HNISettings (NOLOCK)
 		WHERE ProductName = 'Sportsbook'
+		      AND (isTest = 0 OR isTest = @isTest)
 	END
 
 	BEGIN
-		INSERT INTO #tmpHNISettings (isDeposit, OrderByProduct, OrderByFigure, ProductID, AliasProductID, ProductPrefix, ProductCategory, ProductGroup, ProductName, ProductShortName, Figure, SubFigure, isEnable, EndOfSupportDate, LogicCode, LogicDescription)
-		SELECT isDeposit, OrderByProduct, OrderByFigure, ProductID, AliasProductID, ProductPrefix, ProductCategory, ProductGroup, ProductName, ProductShortName, Figure, SubFigure, isEnable, EndOfSupportDate, LogicCode, LogicDescription
+		INSERT INTO #tmpHNISettings (isDeposit, OrderByProduct, OrderByFigure, ProductID, AliasProductID, ProductPrefix, ProductCategory, ProductGroup, ProductName, ProductShortName, Figure, SubFigure, isEnable, EndOfSupportDate, LogicCode)
+		SELECT DISTINCT isDeposit, OrderByProduct, OrderByFigure, ProductID, AliasProductID, ProductPrefix, ProductCategory, ProductGroup, ProductName, ProductShortName, Figure, SubFigure, isEnable, EndOfSupportDate, LogicCode
 		FROM bodb_Account.dbo.HNISettings (NOLOCK)
 		WHERE ProductPrefix IN (SELECT ProductPrefix FROM #tmpProductList)
+		      AND (isTest = 0 OR isTest = @isTest)
 	END
 
 
