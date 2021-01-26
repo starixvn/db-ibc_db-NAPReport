@@ -5,7 +5,8 @@ GO
 
 ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_OtherSports_SportType_LiveStatus] @StartDate SMALLDATETIME, 
                                                                                 @EndDate   SMALLDATETIME, 
-                                                                                @IsLive    INT           = 2
+                                                                                @IsLive    INT           = 2,
+																				@IsNoDraw BIT = 0
 AS
 
 /*
@@ -18,6 +19,7 @@ Revisions:
 - 20190925@Jacob: Group By CN88 (#118824)
 - 20191212@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
 - 20200722@Roy: Incorporate New Basketball Sport for BetBuilder Product - NAP Report (#138082)
+- 20201222@Kean: Support to filter NoDraw and separate the SABA sports - NAP Report (#147451)
 
 Parameters:
 @IsLive: 2 - ALL. 0 - Non-Live. 1 - Live
@@ -28,9 +30,9 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_SportType_LiveStatus] @EndDate='2018-08
 
 */
 
-     SET NOCOUNT ON;
+          SET NOCOUNT ON;
     BEGIN --#SportBetType
-        DECLARE @isTest BIT= 0;
+        DECLARE @isTest BIT= 0, @LeagueGroupStr VARCHAR(500);
         SELECT @isTest = dbo.f_CheckSPVersion(@@PROCID);
         CREATE TABLE #SportBetType(BetType INT);
         INSERT INTO #SportBetType
@@ -49,13 +51,21 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_SportType_LiveStatus] @EndDate='2018-08
                SELECT CustId
                FROM f_DepSuper_1('All');
     END;
+	BEGIN -- #SABALeagueGroup
+		CREATE TABLE #SABALeagueGroup(LeagueGroupID INT)
+		SELECT @LeagueGroupStr = [VValue] FROM DBWH.[bodb_Account].[dbo].[SystemSettings] WHERE VID = 5
+
+		INSERT INTO #SABALeagueGroup
+		SELECT val FROM dbo.strSplit(@LeagueGroupStr,',')
+	END;
     BEGIN -- #Match
 
         CREATE TABLE #Match
                      (MatchId   INT, 
                       type      VARCHAR(10), 
                       SportType INT, 
-                      SportName NVARCHAR(50), 
+                      SportName NVARCHAR(50),
+					  IsSabaSport BIT,  
                       PRIMARY KEY(MatchId, type)
                      );
         INSERT INTO #Match
@@ -63,7 +73,8 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_SportType_LiveStatus] @EndDate='2018-08
                       m.MatchId, 
                       m.type, 
                       s.sporttype, 
-                      s.sportname
+                      s.sportname,
+					  CASE WHEN saba.LeagueGroupID IS NULL THEN 0 ELSE 1 END IsSabaSport
                FROM
                (
                    SELECT MatchId, 
@@ -80,6 +91,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_SportType_LiveStatus] @EndDate='2018-08
                ) m
                INNER JOIN league l WITH(NOLOCK) ON m.LeagueId = l.LeagueId
                INNER JOIN sports s WITH(NOLOCK) ON s.sporttype = l.sporttype
+			   LEFT JOIN #SABALeagueGroup saba ON l.LeagueGroupID = saba.LeagueGroupID
                WHERE l.sporttype > 1;
     END;
     BEGIN -- #Data
@@ -87,7 +99,8 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_SportType_LiveStatus] @EndDate='2018-08
                      (srecommend      INT, 
                       bettype         INT, 
                       SportType       INT, 
-                      SportName       NVARCHAR(50), 
+                      SportName       NVARCHAR(50),
+					  IsSabaSport	  BIT,  
                       liveindicator   BIT, 
                       MemberWinLoss   MONEY, 
                       SMAWinLoss      MONEY, 
@@ -101,7 +114,8 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_SportType_LiveStatus] @EndDate='2018-08
                      );
         CREATE TABLE #Data
                      (GroupId         INT, 
-                      GroupName       NVARCHAR(50), 
+                      GroupName       NVARCHAR(50),
+					  IsSabaSport     BIT,  
                       RowName         NVARCHAR(50), 
                       MemberWinLoss   MONEY, 
                       SMAWinLoss      MONEY, 
@@ -119,7 +133,8 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_SportType_LiveStatus] @EndDate='2018-08
                SELECT srecommend, 
                       bettype, 
                       m.SportType, 
-                      m.SportName, 
+                      CASE WHEN m.IsSabaSport = 1 THEN 'SABA ' + m.SportName ELSE m.SportName END SportName,
+					  m.IsSabaSport, 
                       liveindicator, 
                       SUM((winlost - actual_stake) * actualrate) MemberWinLoss, 
                       SUM((awinlost + mwinlost + swinlost) * actualrate) AS SMAWinLoss, 
@@ -168,12 +183,28 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_SportType_LiveStatus] @EndDate='2018-08
                                                                                                       THEN virtualrate
                                                                                                       ELSE actualrate
                                                                                                   END
-                          END) AS RealTurnover, 
+                          END *
+							CASE WHEN @IsNoDraw = 1 
+								THEN CASE WHEN (bettype < 999 OR bettype BETWEEN 1301 AND 1399 OR bettype BETWEEN 9001 AND 9399) --SportBooks
+												AND bettype NOT IN (29, 38, 911, 912, 913, 914) --exclude parlay, bet builder, cashout
+												AND bettype NOT BETWEEN 81 AND 120 --exclude number game
+												AND ABS(modds) = 0.25 --to identify Half won/lost tickets
+										THEN 0.5
+									ELSE 1 END
+								ELSE 1 END) AS RealTurnover, 
                       SUM(CASE
                               WHEN tpositiontaking = 1
                               THEN 0
                               ELSE(1 - b.tpositiontaking - ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * ABS(b.stake) * virtualrate
-                          END) AS VirtualTurnover
+                          END *
+							CASE WHEN @IsNoDraw = 1 
+								THEN CASE WHEN (bettype < 999 OR bettype BETWEEN 1301 AND 1399 OR bettype BETWEEN 9001 AND 9399) --SportBooks
+												AND bettype NOT IN (29, 38, 911, 912, 913, 914) --exclude parlay, bet builder, cashout
+												AND bettype NOT BETWEEN 81 AND 120 --exclude number game
+												AND ABS(modds) = 0.25 --to identify Half won/lost tickets
+										THEN 0.5
+									ELSE 1 END
+								ELSE 1 END) AS VirtualTurnover
                FROM bettrans AS b WITH(NOLOCK)
                     INNER JOIN #Match AS m ON b.MatchId = m.MatchId
                WHERE b.winlostdate = @StartDate
@@ -183,15 +214,17 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_SportType_LiveStatus] @EndDate='2018-08
                                       ELSE 'match'
                                   END
                      AND b.ruben = 1
-                     AND b.statusID IN(111, 112, 113)
+                     AND  ((@IsNoDraw = 0 AND b.statusID IN(111, 112, 113)) OR (@IsNoDraw = 1 AND statusID IN (112, 113)))
                GROUP BY srecommend, 
                         bettype, 
                         m.SportType, 
-                        m.SportName, 
+                        CASE WHEN m.IsSabaSport = 1 THEN 'SABA ' + m.SportName ELSE m.SportName END,
+						m.IsSabaSport, 
                         liveindicator OPTION(RECOMPILE);
         INSERT INTO #Data
                SELECT b.SportType GroupId, 
                       b.SportName GroupName,
+					  b.IsSabaSport,
                       CASE
                           WHEN dep.CustId IS NULL
                                AND cn88.CustId IS NOT NULL
@@ -218,6 +251,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_SportType_LiveStatus] @EndDate='2018-08
                      OR b.liveindicator = @IsLive
                GROUP BY b.SportType, 
                         b.SportName,
+						b.IsSabaSport,
                         CASE
                             WHEN dep.CustId IS NULL
                                  AND cn88.CustId IS NOT NULL
@@ -236,6 +270,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_SportType_LiveStatus] @EndDate='2018-08
                                   THEN 'Other Sports Live'
                                   ELSE 'Other Sports Non-Live'
                               END AS GroupName,
+							  0 IsSabaSport,
                               CASE
                                   WHEN dep.CustId IS NULL
                                        AND cn88.CustId IS NOT NULL
@@ -279,7 +314,8 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_SportType_LiveStatus] @EndDate='2018-08
         -- BARM only
         INSERT INTO #Data
                SELECT m.SportType GroupId, 
-                      m.SportName GroupName, 
+                      CASE WHEN m.IsSabaSport = 1 THEN 'SABA ' + m.SportName ELSE m.SportName END GroupName,
+					  m.IsSabaSport, 
                       'BARM' AS RowName, 
                       SUM((winlost - actual_stake) * actualrate) MemberWinLoss, 
                       SUM((awinlost + mwinlost + swinlost) * actualrate) AS SMAWinLoss, 
@@ -328,12 +364,28 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_SportType_LiveStatus] @EndDate='2018-08
                                                                                                       THEN virtualrate
                                                                                                       ELSE actualrate
                                                                                                   END
-                          END) AS RealTurnover, 
+                          END *
+							CASE WHEN @IsNoDraw = 1 
+								THEN CASE WHEN (b.bettype < 999 OR b.bettype BETWEEN 1301 AND 1399 OR b.bettype BETWEEN 9001 AND 9399) --SportBooks
+												AND b.bettype NOT IN (29, 38, 911, 912, 913, 914) --exclude parlay, bet builder, cashout
+												AND b.bettype NOT BETWEEN 81 AND 120 --exclude number game
+												AND ABS(modds) = 0.25 --to identify Half won/lost tickets
+										THEN 0.5
+									ELSE 1 END
+								ELSE 1 END) AS RealTurnover, 
                       SUM(CASE
                               WHEN tpositiontaking = 1
                               THEN 0
                               ELSE(1 - b.tpositiontaking - ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * ABS(b.stake) * virtualrate
-                          END) AS VirtualTurnover
+                          END *
+							CASE WHEN @IsNoDraw = 1 
+								THEN CASE WHEN (b.bettype < 999 OR b.bettype BETWEEN 1301 AND 1399 OR b.bettype BETWEEN 9001 AND 9399) --SportBooks
+												AND b.bettype NOT IN (29, 38, 911, 912, 913, 914) --exclude parlay, bet builder, cashout
+												AND b.bettype NOT BETWEEN 81 AND 120 --exclude number game
+												AND ABS(modds) = 0.25 --to identify Half won/lost tickets
+										THEN 0.5
+									ELSE 1 END
+								ELSE 1 END) AS VirtualTurnover
                FROM bettrans AS b WITH(NOLOCK)
                     INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
                     INNER JOIN #Match AS m ON b.MatchId = m.MatchId
@@ -347,9 +399,10 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_SportType_LiveStatus] @EndDate='2018-08
                                       ELSE 'match'
                                   END
                      AND b.ruben = 1
-                     AND b.statusID IN(111, 112, 113)
+                     AND  ((@IsNoDraw = 0 AND b.statusID IN(111, 112, 113)) OR (@IsNoDraw = 1 AND statusID IN (112, 113)))
                GROUP BY m.SportType, 
-                        m.SportName;
+                        CASE WHEN m.IsSabaSport = 1 THEN 'SABA ' + m.SportName ELSE m.SportName END,
+						m.IsSabaSport;
         IF @IsLive = 2
             BEGIN
                 INSERT INTO #Data
@@ -358,7 +411,8 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_SportType_LiveStatus] @EndDate='2018-08
                                   WHEN 1
                                   THEN 'Other Sports Live'
                                   ELSE 'Other Sports Non-Live'
-                              END AS GroupName, 
+                              END AS GroupName,
+							  0 IsSabaSport, 
                               'BARM' AS RowName, 
                               SUM((winlost - actual_stake) * actualrate) MemberWinLoss, 
                               SUM((awinlost + mwinlost + swinlost) * actualrate) AS SMAWinLoss, 
@@ -407,12 +461,28 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_SportType_LiveStatus] @EndDate='2018-08
                                                                                                               THEN virtualrate
                                                                                                               ELSE actualrate
                                                                                                           END
-                                  END) AS RealTurnover, 
+                                  END *
+									CASE WHEN @IsNoDraw = 1 
+										THEN CASE WHEN (b.bettype < 999 OR b.bettype BETWEEN 1301 AND 1399 OR b.bettype BETWEEN 9001 AND 9399) --SportBooks
+														AND b.bettype NOT IN (29, 38, 911, 912, 913, 914) --exclude parlay, bet builder, cashout
+														AND b.bettype NOT BETWEEN 81 AND 120 --exclude number game
+														AND ABS(modds) = 0.25 --to identify Half won/lost tickets
+												THEN 0.5
+											ELSE 1 END
+										ELSE 1 END) AS RealTurnover, 
                               SUM(CASE
                                       WHEN tpositiontaking = 1
                                       THEN 0
                                       ELSE(1 - b.tpositiontaking - ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * ABS(b.stake) * virtualrate
-                                  END) AS VirtualTurnover
+                                  END *
+									CASE WHEN @IsNoDraw = 1 
+										THEN CASE WHEN (b.bettype < 999 OR b.bettype BETWEEN 1301 AND 1399 OR b.bettype BETWEEN 9001 AND 9399) --SportBooks
+														AND b.bettype NOT IN (29, 38, 911, 912, 913, 914) --exclude parlay, bet builder, cashout
+														AND b.bettype NOT BETWEEN 81 AND 120 --exclude number game
+														AND ABS(modds) = 0.25 --to identify Half won/lost tickets
+												THEN 0.5
+											ELSE 1 END
+										ELSE 1 END) AS VirtualTurnover
                        FROM bettrans AS b WITH(NOLOCK)
                             INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
                             INNER JOIN #Match AS m ON b.MatchId = m.MatchId
@@ -424,7 +494,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_SportType_LiveStatus] @EndDate='2018-08
                                               ELSE 'match'
                                           END
                              AND b.ruben = 1
-                             AND b.statusID IN(111, 112, 113)
+                             AND  ((@IsNoDraw = 0 AND b.statusID IN(111, 112, 113)) OR (@IsNoDraw = 1 AND statusID IN (112, 113)))
                        GROUP BY liveindicator,
                                 CASE liveindicator
                                     WHEN 1
@@ -435,6 +505,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_SportType_LiveStatus] @EndDate='2018-08
         INSERT INTO #Data
                (GroupId, 
                 GroupName, 
+				IsSabaSport,
                 RowName, 
                 MemberWinLoss, 
                 SMAWinLoss, 
@@ -448,6 +519,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_SportType_LiveStatus] @EndDate='2018-08
                )
                SELECT GroupId, 
                       GroupName, 
+					  IsSabaSport,
                       'Deposit' AS RowName, 
                       0 AS MemberWinLoss, 
                       0 AS SMAWinLoss, 
@@ -461,12 +533,14 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_SportType_LiveStatus] @EndDate='2018-08
                FROM
                (
                    SELECT GroupId, 
-                          GroupName
+                          GroupName,
+						  IsSabaSport
                    FROM #Data
                    WHERE RowName = 'BARM'
                    EXCEPT
                    SELECT GroupId, 
-                          GroupName
+                          GroupName,
+						  IsSabaSport
                    FROM #Data
                    WHERE RowName = 'Deposit'
                ) D;
@@ -522,6 +596,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_SportType_LiveStatus] @EndDate='2018-08
         FROM #Data c
              FULL JOIN #Data d ON c.GroupId = d.GroupId
                                   AND c.GroupName = d.GroupName
+								  AND c.IsSabaSport = d.IsSabaSport
                                   AND d.RowName = 'BARM'
                                   AND c.RowName IN('Credit', 'Deposit');
 
@@ -534,6 +609,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_SportType_LiveStatus] @EndDate='2018-08
         INSERT INTO #Data
                SELECT 0, 
                       'RM',
+					  0 IsSabaSport,
                       CASE
                           WHEN b.recommend = 52466
                           THEN '8RM Total'
@@ -588,12 +664,28 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_SportType_LiveStatus] @EndDate='2018-08
                                                                                                       THEN virtualrate
                                                                                                       ELSE actualrate
                                                                                                   END
-                          END) AS RealTurnover, 
+                          END *
+							CASE WHEN @IsNoDraw = 1 
+								THEN CASE WHEN (b.bettype < 999 OR b.bettype BETWEEN 1301 AND 1399 OR b.bettype BETWEEN 9001 AND 9399) --SportBooks
+												AND b.bettype NOT IN (29, 38, 911, 912, 913, 914) --exclude parlay, bet builder, cashout
+												AND b.bettype NOT BETWEEN 81 AND 120 --exclude number game
+												AND ABS(modds) = 0.25 --to identify Half won/lost tickets
+										THEN 0.5
+									ELSE 1 END
+								ELSE 1 END) AS RealTurnover, 
                       SUM(CASE
                               WHEN tpositiontaking = 1
                               THEN 0
                               ELSE(1 - b.tpositiontaking - ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * ABS(b.stake) * virtualrate
-                          END) AS VirtualTurnover
+                          END *
+							CASE WHEN @IsNoDraw = 1 
+								THEN CASE WHEN (b.bettype < 999 OR b.bettype BETWEEN 1301 AND 1399 OR b.bettype BETWEEN 9001 AND 9399) --SportBooks
+												AND b.bettype NOT IN (29, 38, 911, 912, 913, 914) --exclude parlay, bet builder, cashout
+												AND b.bettype NOT BETWEEN 81 AND 120 --exclude number game
+												AND ABS(modds) = 0.25 --to identify Half won/lost tickets
+										THEN 0.5
+									ELSE 1 END
+								ELSE 1 END) AS VirtualTurnover
                FROM bettrans AS b WITH(NOLOCK)
                     INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
                     INNER JOIN #Match AS m ON b.MatchId = m.MatchId
@@ -607,8 +699,8 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_SportType_LiveStatus] @EndDate='2018-08
                                       ELSE 'match'
                                   END
                      AND b.ruben = 1
-                     AND b.statusID IN(111, 112, 113)
-                    AND b.recommend IN(52466, 5707545)
+                     AND  ((@IsNoDraw = 0 AND b.statusID IN(111, 112, 113)) OR (@IsNoDraw = 1 AND statusID IN (112, 113)))
+                     AND b.recommend IN(52466, 5707545)
                GROUP BY CASE
                             WHEN b.recommend = 52466
                             THEN '8RM Total'
@@ -620,7 +712,8 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_SportType_LiveStatus] @EndDate='2018-08
     BEGIN -- Query
 
         SELECT d.GroupId AS GroupId, 
-               d.GroupName AS GroupName, 
+               d.GroupName AS GroupName,
+			   IsSabaSport AS IsSabaSport, 
                d.RowName AS RowName, 
                d.MemberWinLoss AS MemberWinLoss, 
                d.SMAWinLoss AS SMAWinLoss, 
@@ -641,4 +734,5 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_SportType_LiveStatus] @EndDate='2018-08
     DROP TABLE #Match;
     DROP TABLE #Data;
     DROP TABLE #tmp_Data;
+	DROP TABLE #SABALeagueGroup;
 GO

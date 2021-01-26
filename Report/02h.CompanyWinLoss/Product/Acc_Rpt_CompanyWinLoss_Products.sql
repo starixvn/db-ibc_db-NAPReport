@@ -6,6 +6,7 @@ GO
 ALTER PROCEDURE dbo.Acc_Rpt_CompanyWinLoss_Products
 	@StartDate    SMALLDATETIME 
    , @EndDate      SMALLDATETIME 
+   , @IsNoDraw BIT = 0
 AS
     BEGIN
 /*	Creator: Sophia.Nguyen
@@ -49,7 +50,8 @@ Revisions:
 - 20200522@Cherry: Integrate RNG War (#132009)
 - 20200713@Ned.Le: NAP Report - Incorporate Jackpot Games (#137271)
 - 20200930@Jaden.Tang: Odds Spread Adjustment (#141750)
-- 20201126@Cherry: Integrate Virtual Sports 3 (#146010) 
+- 20201126@Cherry: Integrate Virtual Sports 3 (#146010)
+- 20201222@Kean: Support to filter NoDraw and separate the SABA sports - NAP Report (#147451) 
 
 Explanation's Param:
 
@@ -66,7 +68,7 @@ Explanation's Param:
 
 	   --Get Sport Bettype Matrix--
 	   -- Check SP Version	 
-	   DECLARE @isTest    BIT = 0;
+	   DECLARE @isTest    BIT = 0, @LeagueGroupStr VARCHAR(500);
 	   SELECT @isTest = dbo.f_CheckSPVersion
 			(@@PROCID);
 	   CREATE TABLE #SportBettype(
@@ -75,22 +77,31 @@ Explanation's Param:
 		 , EventType     INT
 		 , SubProduct    VARCHAR(500)
 		 , RefTable      TINYINT
-		 , CasinoType    TINYINT);
+		 , CasinoType    TINYINT
+		 , ApplyNoDraw BIT);
 	   INSERT INTO #SportBettype(ProductID
 						  , Bettype
 						  , EventType
 						  , SubProduct
 						  , RefTable
-						  , CasinoType)
+						  , CasinoType
+						  , ApplyNoDraw)
 			SELECT ProductID
 				, Bettype
 				, EventType
 				, SubProduct
 				, RefTable
 				, CasinoType
+				,0
 			FROM dbo.f_SportBettypeMatrix_Sel
 				(0, 0, 0, 2, '', '', @isTest)
 			WHERE bettype NOT IN(911, 912); -- remove Cash Out
+
+			UPDATE #SportBettype
+			SET ApplyNoDraw = 1
+			WHERE (bettype < 999 OR bettype BETWEEN 1301 AND 1399 OR bettype BETWEEN 9001 AND 9399) --SportBooks
+                                 AND bettype NOT IN (29, 38, 911, 912, 913, 914) --exclude parlay, bet builder, cashout
+                                 AND bettype NOT BETWEEN 81 AND 120 --exclude number game
 	   -- End Sport Bettype Matrix--
 
 	   CREATE TABLE #tmp_src(
@@ -202,15 +213,24 @@ Explanation's Param:
 			SELECT custid
 			FROM f_DepSuper_1
 				('All');
+	   -- #SABALeagueGroup
+		CREATE TABLE #SABALeagueGroup(LeagueGroupID INT)
+		SELECT @LeagueGroupStr = [VValue] FROM DBWH.[bodb_Account].[dbo].[SystemSettings] WHERE VID = 5
+
+		INSERT INTO #SABALeagueGroup
+		SELECT val FROM dbo.strSplit(@LeagueGroupStr,',')
 	   -- Match
 	   CREATE TABLE #Match(
 		   MatchId      INT
 		 , sporttype    SMALLINT
-		 , type         TINYINT);--, primary key(MatchId, type))
+		 , type         TINYINT
+		 , IsSabaSport BIT);--, primary key(MatchId, type))
+	   
 	   INSERT INTO #Match
 			SELECT m.MatchId
 				, s.sporttype
 				, m.type
+				, CASE WHEN saba.LeagueGroupID IS NULL THEN 0 ELSE 1 END IsSabaSport
 			FROM
 				(
 				    SELECT MatchId
@@ -230,7 +250,8 @@ Explanation's Param:
 				    WHERE EventDate = @StartDate
 				) AS m
 			    INNER JOIN league AS l WITH(NOLOCK) ON m.LeagueId = l.LeagueId
-			    INNER JOIN Sports AS s WITH(NOLOCK) ON l.sporttype = s.sporttype;
+			    INNER JOIN Sports AS s WITH(NOLOCK) ON l.sporttype = s.sporttype
+				LEFT JOIN #SABALeagueGroup saba ON l.LeagueGroupID = saba.LeagueGroupID;
 	   CREATE CLUSTERED INDEX CIX_MatchID ON #Match(MatchID, Type);
 	   --
 	   --1. Sportsbook only and outright
@@ -260,8 +281,8 @@ Explanation's Param:
 				, CASE
 					 WHEN m.sporttype = 44
 					 THEN 44
-					 WHEN m.Sporttype = 1
-					 THEN 1
+					 WHEN m.Sporttype = 1 AND m.IsSabaSport = 0 THEN 1 -- Real Soccer
+					 WHEN m.Sporttype = 1 AND m.IsSabaSport = 1 THEN -1 -- SABA Soccer
 					 ELSE 2
 				  END AS SportType
 				, SUM((winlost - actual_stake) * actualrate) AS winlost_actualrate
@@ -302,12 +323,29 @@ Explanation's Param:
 						ELSE 0
 					 END * (actualrate - virtualrate) * CAST(epositiontaking AS DECIMAL(9, 8))) AS grosscomm_variance
 				, 1 AS ProductId
+				-- Apply NoDraw
 				, SUM((1 - b.tpositiontaking) * ABS(stake) * CASE
 													    WHEN virtualrate > actualrate
 													    THEN virtualrate
 													    ELSE actualrate
-													END) AS turnover_actualrate
-				, SUM((1 - b.tpositiontaking) * ABS(stake) * virtualrate) AS turnover_virtualrate
+													END *
+															CASE WHEN @IsNoDraw = 1 
+															 THEN CASE WHEN (bettype < 999 OR bettype BETWEEN 1301 AND 1399 OR bettype BETWEEN 9001 AND 9399) --SportBooks
+																			 AND bettype NOT IN (29, 38, 911, 912, 913, 914) --exclude parlay, bet builder, cashout
+																			 AND bettype NOT BETWEEN 81 AND 120 --exclude number game
+																			 AND ABS(modds) = 0.25 --to identify Half won/lost tickets
+																	   THEN 0.5
+																  ELSE 1 END
+															 ELSE 1 END) AS turnover_actualrate
+				, SUM((1 - b.tpositiontaking) * ABS(stake) * virtualrate *
+															CASE WHEN @IsNoDraw = 1 
+															 THEN CASE WHEN (bettype < 999 OR bettype BETWEEN 1301 AND 1399 OR bettype BETWEEN 9001 AND 9399) --SportBooks
+																			 AND bettype NOT IN (29, 38, 911, 912, 913, 914) --exclude parlay, bet builder, cashout
+																			 AND bettype NOT BETWEEN 81 AND 120 --exclude number game
+																			 AND ABS(modds) = 0.25 --to identify Half won/lost tickets
+																	   THEN 0.5
+																  ELSE 1 END
+															 ELSE 1 END) AS turnover_virtualrate
 				, SUM(CASE
 						WHEN b.tpositiontaking = 1
 						THEN 0
@@ -316,12 +354,28 @@ Explanation's Param:
 										  THEN virtualrate
 										  ELSE actualrate
 									   END
-					 END * CAST(epositiontaking AS DECIMAL(9, 8))) AS stake_actualrate
+					 END * CAST(epositiontaking AS DECIMAL(9, 8)) *
+															CASE WHEN @IsNoDraw = 1 
+															 THEN CASE WHEN (bettype < 999 OR bettype BETWEEN 1301 AND 1399 OR bettype BETWEEN 9001 AND 9399) --SportBooks
+																			 AND bettype NOT IN (29, 38, 911, 912, 913, 914) --exclude parlay, bet builder, cashout
+																			 AND bettype NOT BETWEEN 81 AND 120 --exclude number game
+																			 AND ABS(modds) = 0.25 --to identify Half won/lost tickets
+																	   THEN 0.5
+																  ELSE 1 END
+															 ELSE 1 END) AS stake_actualrate
 				, SUM(CASE
 						WHEN b.tpositiontaking = 1
 						THEN 0
 						ELSE ABS(stake) * virtualrate
-					 END * CAST(epositiontaking AS DECIMAL(9, 8))) AS stake_virtualrate
+					 END * CAST(epositiontaking AS DECIMAL(9, 8)) *
+															CASE WHEN @IsNoDraw = 1 
+															 THEN CASE WHEN (bettype < 999 OR bettype BETWEEN 1301 AND 1399 OR bettype BETWEEN 9001 AND 9399) --SportBooks
+																			 AND bettype NOT IN (29, 38, 911, 912, 913, 914) --exclude parlay, bet builder, cashout
+																			 AND bettype NOT BETWEEN 81 AND 120 --exclude number game
+																			 AND ABS(modds) = 0.25 --to identify Half won/lost tickets
+																	   THEN 0.5
+																  ELSE 1 END
+															 ELSE 1 END) AS stake_virtualrate
 				, SUM(CASE
 						WHEN b.tpositiontaking = 1
 						THEN 0
@@ -341,14 +395,14 @@ Explanation's Param:
 											   END
 			WHERE winlostdate = @StartDate
 				 AND b.ruben = 1
-				 AND b.statusID IN(111, 112, 113)
+				 AND  ((@IsNoDraw = 0 AND b.statusID IN(111, 112, 113)) OR (@IsNoDraw = 1 AND statusID IN (112, 113)))
 			GROUP BY srecommend
 				  , b.bettype
 				  , CASE
 					   WHEN m.sporttype = 44
 					   THEN 44
-					   WHEN m.Sporttype = 1
-					   THEN 1
+					   WHEN m.Sporttype = 1 AND m.IsSabaSport = 0 THEN 1 -- Real Soccer
+					   WHEN m.Sporttype = 1 AND m.IsSabaSport = 1 THEN -1 -- SABA Soccer
 					   ELSE 2
 				    END OPTION(RECOMPILE);
 	   --Remove betype of MertricGaming and Bettrade AND Bet Builder
@@ -430,8 +484,8 @@ Explanation's Param:
 				, CASE
 					 WHEN m.sporttype = 44
 					 THEN 44
-					 WHEN m.Sporttype = 1
-					 THEN 1
+					 WHEN m.Sporttype = 1 AND m.IsSabaSport = 0 THEN 1 -- Real Soccer
+					 WHEN m.Sporttype = 1 AND m.IsSabaSport = 1 THEN -1 -- SABA Soccer
 					 ELSE 2
 				  END AS SportType
 				, SUM((winlost - actual_stake) * actualrate) AS winlost_actualrate
@@ -472,12 +526,22 @@ Explanation's Param:
 						ELSE 0
 					 END * (actualrate - virtualrate) * CAST(epositiontaking AS DECIMAL(9, 8))) AS grosscomm_variance
 				, 1 AS ProductId
+				-- Apply NoDraw
 				, SUM((1 - b.tpositiontaking) * ABS(stake) * CASE
 													    WHEN virtualrate > actualrate
 													    THEN virtualrate
 													    ELSE actualrate
-													END) AS turnover_actualrate
-				, SUM((1 - b.tpositiontaking) * ABS(stake) * virtualrate) AS turnover_virtualrate
+													END * CASE WHEN @IsNoDraw = 1 
+															 THEN CASE WHEN s.ApplyNoDraw = 1 AND ABS(modds) = 0.25 --to identify Half won/lost tickets
+																	   THEN 0.5
+																  ELSE 1 END
+															 ELSE 1 END) AS turnover_actualrate
+				, SUM((1 - b.tpositiontaking) * ABS(stake) * virtualrate * 
+															CASE WHEN @IsNoDraw = 1 
+															 THEN CASE WHEN s.ApplyNoDraw = 1 AND ABS(modds) = 0.25 --to identify Half won/lost tickets
+																	   THEN 0.5
+																  ELSE 1 END
+															 ELSE 1 END) AS turnover_virtualrate
 				, SUM(CASE
 						WHEN b.tpositiontaking = 1
 						THEN 0
@@ -486,12 +550,22 @@ Explanation's Param:
 										  THEN virtualrate
 										  ELSE actualrate
 									   END
-					 END * CAST(epositiontaking AS DECIMAL(9, 8))) AS stake_actualrate
+					 END * CAST(epositiontaking AS DECIMAL(9, 8)) * 
+															CASE WHEN @IsNoDraw = 1 
+															 THEN CASE WHEN s.ApplyNoDraw = 1 AND ABS(modds) = 0.25 --to identify Half won/lost tickets
+																	   THEN 0.5
+																  ELSE 1 END
+															 ELSE 1 END) AS stake_actualrate
 				, SUM(CASE
 						WHEN b.tpositiontaking = 1
 						THEN 0
 						ELSE ABS(stake) * virtualrate
-					 END * CAST(epositiontaking AS DECIMAL(9, 8))) AS stake_virtualrate
+					 END * CAST(epositiontaking AS DECIMAL(9, 8)) * 
+															CASE WHEN @IsNoDraw = 1 
+															 THEN CASE WHEN s.ApplyNoDraw = 1 AND ABS(modds) = 0.25 --to identify Half won/lost tickets
+																	   THEN 0.5
+																  ELSE 1 END
+															 ELSE 1 END) AS stake_virtualrate
 				, SUM(CASE
 						WHEN b.tpositiontaking = 1
 						THEN 0
@@ -508,7 +582,7 @@ Explanation's Param:
 			WHERE b.recommend = 5707545
 				 AND b.winlostdate = @StartDate
 				 AND b.bettype < 19001
-				 AND b.statusID IN(111, 112, 113)
+				 AND  ((@IsNoDraw = 0 AND b.statusID IN(111, 112, 113)) OR (@IsNoDraw = 1 AND statusID IN (112, 113)))
 				 AND b.ruben = 1
 				 AND m.type = CASE
 							   WHEN b.bettype = 10
@@ -521,8 +595,8 @@ Explanation's Param:
 			GROUP BY CASE
 					   WHEN m.sporttype = 44
 					   THEN 44
-					   WHEN m.Sporttype = 1
-					   THEN 1
+					   WHEN m.Sporttype = 1 AND m.IsSabaSport = 0 THEN 1 -- Real Soccer
+					   WHEN m.Sporttype = 1 AND m.IsSabaSport = 1 THEN -1 -- SABA Soccer
 					   ELSE 2
 				    END;
 	   -- Minus data of BARM 
@@ -637,12 +711,20 @@ Explanation's Param:
 												  WHEN virtualrate > actualrate
 												  THEN virtualrate
 												  ELSE actualrate
-											   END) AS turnover_actualrate
+											   END * CASE WHEN @IsNoDraw = 1 
+															 THEN CASE WHEN s.ApplyNoDraw = 1 AND ABS(modds) = 0.25 --to identify Half won/lost tickets
+																	   THEN 0.5
+																  ELSE 1 END
+															 ELSE 1 END) AS turnover_actualrate
 				, SUM((1 - b.tpositiontaking) * CASE
 											 WHEN s.productID = 1
 											 THEN ABS(stake)
 											 ELSE stake
-										  END * virtualrate) AS turnover_virtualrate
+										  END * virtualrate * CASE WHEN @IsNoDraw = 1 
+															 THEN CASE WHEN s.ApplyNoDraw = 1 AND ABS(modds) = 0.25 --to identify Half won/lost tickets
+																	   THEN 0.5
+																  ELSE 1 END
+															 ELSE 1 END) AS turnover_virtualrate
 				, SUM(CASE
 						WHEN b.tpositiontaking = 1
 						THEN 0
@@ -655,7 +737,11 @@ Explanation's Param:
 									THEN virtualrate
 									ELSE actualrate
 								 END
-					 END * CAST(epositiontaking AS DECIMAL(9, 8))) AS stake_actualrate
+					 END * CAST(epositiontaking AS DECIMAL(9, 8)) * CASE WHEN @IsNoDraw = 1 
+															 THEN CASE WHEN s.ApplyNoDraw = 1 AND ABS(modds) = 0.25 --to identify Half won/lost tickets
+																	   THEN 0.5
+																  ELSE 1 END
+															 ELSE 1 END) AS stake_actualrate
 				, SUM(CASE
 						WHEN b.tpositiontaking = 1
 						THEN 0
@@ -664,7 +750,11 @@ Explanation's Param:
 							    THEN ABS(stake)
 							    ELSE stake
 							END * virtualrate
-					 END * CAST(epositiontaking AS DECIMAL(9, 8))) AS stake_virtualrate
+					 END * CAST(epositiontaking AS DECIMAL(9, 8)) * CASE WHEN @IsNoDraw = 1 
+															 THEN CASE WHEN s.ApplyNoDraw = 1 AND ABS(modds) = 0.25 --to identify Half won/lost tickets
+																	   THEN 0.5
+																  ELSE 1 END
+															 ELSE 1 END) AS stake_virtualrate
 				, SUM(CASE
 						WHEN b.tpositiontaking = 1
 						THEN 0
@@ -678,7 +768,7 @@ Explanation's Param:
 			FROM bettrans AS b WITH(NOLOCK)
 			    INNER JOIN #SportBettype AS s ON b.bettype = s.bettype
 			WHERE winlostdate = @StartDate
-				 AND b.statusID IN(111, 112, 113)
+				 AND  ((@IsNoDraw = 0 AND b.statusID IN(111, 112, 113)) OR (@IsNoDraw = 1 AND statusID IN (112, 113)))
 				 AND b.ruben = 1
 				 AND
 					(s.productID <> 1 AND s.RefTable NOT IN(1, 2)
@@ -1028,6 +1118,7 @@ Explanation's Param:
 			SELECT CASE
 					 WHEN b.Sporttype = 1
 					 THEN-5
+					 WHEN b.Sporttype = -1 THEN -1000 -- Harcode for SABA
 					 WHEN b.sporttype IN(2, 44)
 					 THEN-4
 				  END AS ProductID
@@ -1047,6 +1138,7 @@ Explanation's Param:
 			GROUP BY CASE
 					   WHEN b.Sporttype = 1
 					   THEN-5
+					   WHEN b.Sporttype = -1 THEN -1000 -- Harcode for SABA
 					   WHEN b.sporttype IN(2, 44)
 					   THEN-4
 				    END
@@ -1238,8 +1330,8 @@ Explanation's Param:
 					 , ExtraPT
 					 , NewExtraPT)
 			SELECT CASE
-					 WHEN m.Sporttype = 1
-					 THEN-98
+					 WHEN m.Sporttype = 1 AND m.IsSabaSport = 0 THEN -98
+					 WHEN m.Sporttype = 1 AND m.IsSabaSport = 1 THEN -1001
 					 ELSE-99
 				  END AS ProductId
 				, CASE b.recommend
@@ -1254,8 +1346,18 @@ Explanation's Param:
 				, -SUM(winlost - actual_stake + awinlost + mwinlost + swinlost + scomm) AS RealHouseWinloss
 				, -SUM(winlost - actual_stake + awinlost + mwinlost + swinlost + scomm) AS VirtualHouseWinloss
 				, 0 AS VarianceIncome
-				, SUM((1 - tpositiontaking) * ABS(stake)) AS RealTurnover
-				, SUM((1 - tpositiontaking) * ABS(stake)) AS VirtualTurnover
+				, SUM((1 - tpositiontaking) * ABS(stake) * CASE WHEN @IsNoDraw = 1 
+															 THEN CASE WHEN s.ApplyNoDraw = 1 AND statusID IN (112, 113) --WON, LOSE
+																			 AND ABS(modds) = 0.25 --to actually identify tickets that settled as Half won/lost
+																	   THEN 0.5
+																  ELSE 1 END
+															 ELSE 1 END) AS RealTurnover
+				, SUM((1 - tpositiontaking) * ABS(stake) * CASE WHEN @IsNoDraw = 1 
+															 THEN CASE WHEN s.ApplyNoDraw = 1 AND statusID IN (112, 113) --WON, LOSE
+																			 AND ABS(modds) = 0.25 --to actually identify tickets that settled as Half won/lost
+																	   THEN 0.5
+																  ELSE 1 END
+															 ELSE 1 END) AS VirtualTurnover
 				, 0 AS ExtraPT
 				, 0 AS NewExtraPT
 			FROM bettrans AS b WITH(NOLOCK)
@@ -1264,7 +1366,7 @@ Explanation's Param:
 			WHERE b.recommend IN(52466, 5707545)
 				 AND b.winlostdate = @StartDate
 				 AND b.bettype < 19001
-				 AND b.statusID IN(111, 112, 113)
+				 AND  ((@IsNoDraw = 0 AND b.statusID IN(111, 112, 113)) OR (@IsNoDraw = 1 AND statusID IN (112, 113)))
 				 AND b.ruben = 1
 				 AND m.type = CASE
 							   WHEN b.bettype = 10
@@ -1275,8 +1377,8 @@ Explanation's Param:
 				 AND s.EventType IN(1, 2)
 				 AND s.SubProduct NOT IN('MG-SuperLive', 'BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss', 'Bet Builder')
 			GROUP BY CASE
-					   WHEN m.Sporttype = 1
-					   THEN-98
+					  WHEN m.Sporttype = 1 AND m.IsSabaSport = 0 THEN -98
+					  WHEN m.Sporttype = 1 AND m.IsSabaSport = 1 THEN -1001
 					   ELSE-99
 				    END
 				  , CASE b.recommend
@@ -1299,23 +1401,24 @@ Explanation's Param:
 						  , ProductName)
 	   VALUES
 			(1, -5, 'Soccer'),
-			(2, -4, 'Other Sports'),
-			(3, -3, 'Parlay'),
-			(4, -7, 'SB Adjustment'),
-			(5, -1, 'Metric Gaming - Superlive'),
-			(6, -6, 'Bet Builder'),
-			(7, 8, 'RNG Keno'),
-			(8, 3, 'Number Game'),
-			(9, 4, 'Live Casino'),
-			(10, 6, 'Casino'),
-			(11, 5, 'Virtual Sports'),
-			(12, 27, 'Virtual Sports 2'),
-			(13, 28, 'Lottery'),
-			(14, 23, 'NG2'),
-			(15, -2, 'Bettrade'),
-			(16, 25, 'Cash Out'),
-			(17, 15, 'Colossus Bets'),
-			(18, 24, 'Fishing World'),
+			(2, -1000, 'SABA Soccer'),
+			(3, -4, 'Other Sports'),
+			(4, -3, 'Parlay'),
+			(5, -7, 'SB Adjustment'),
+			(6, -1, 'Metric Gaming - Superlive'),
+			(7, -6, 'Bet Builder'),
+			(8, 8, 'RNG Keno'),
+			(9, 3, 'Number Game'),
+			(10, 4, 'Live Casino'),
+			(11, 6, 'Casino'),
+			(12, 5, 'Virtual Sports'),
+			(13, 27, 'Virtual Sports 2'),
+			(14, 28, 'Lottery'),
+			(15, 23, 'NG2'),
+			(16, -2, 'Bettrade'),
+			(17, 25, 'Cash Out'),
+			(18, 15, 'Colossus Bets'),
+			(19, 24, 'Fishing World'),
 			(20, 31, 'Exchange'),
 			(21, 37, 'Saba Promotion'),
 			(22, 38, 'Virtual Games'),
@@ -1332,8 +1435,11 @@ Explanation's Param:
 	   VALUES
 			(100, -98, 'Soccer 8RM', 1),
 			(100, -98, 'Soccer BARM', 2),
-			(101, -99, 'Other Sports 8RM', 1),
-			(101, -99, 'Other Sports BARM', 2);
+			(101, -1001, 'SABA Soccer 8RM', 1),
+			(101, -1001, 'SABA Soccer BARM', 2),
+
+			(102, -99, 'Other Sports 8RM', 1),
+			(102, -99, 'Other Sports BARM', 2);
 	   UPDATE R
 			SET 
 			    DisplayOrder = P.DisplayOrder
@@ -1346,12 +1452,12 @@ Explanation's Param:
 											    ELSE 0
 											END;
 	   SELECT CASE
-			    WHEN d.DisplayOrder IN(100, 101)
+			    WHEN d.DisplayOrder IN(100, 101, 102)
 			    THEN 'RM'
 			    ELSE d.ProductName
 			END AS GroupName
 		   , CASE
-			    WHEN d.DisplayOrder IN(100, 101)
+			    WHEN d.DisplayOrder IN(100, 101, 102)
 			    THEN d.ProductName
 			    WHEN d.Site = 1
 			    THEN 'Credit'
@@ -1377,12 +1483,12 @@ Explanation's Param:
 			    END) AS extraPT
 	   FROM #Result AS d
 	   GROUP BY CASE
-				 WHEN d.DisplayOrder IN(100, 101)
+				 WHEN d.DisplayOrder IN(100, 101, 102)
 				 THEN 'RM'
 				 ELSE d.ProductName
 			  END
 			, CASE
-				 WHEN d.DisplayOrder IN(100, 101)
+				 WHEN d.DisplayOrder IN(100, 101, 102)
 				 THEN d.ProductName
 				 WHEN d.Site = 1
 				 THEN 'Credit'
@@ -1403,6 +1509,7 @@ Explanation's Param:
 	   DROP TABLE #Match;
 	   DROP TABLE #Result;
 	   DROP TABLE #SportBettype;
-	   DROP TABLE #SpecialBettypeGroup;
-    END;
+	   DROP TABLE #SpecialBettypeGroup
+	   DROP TABLE #SABALeagueGroup;
+    END
 GO
