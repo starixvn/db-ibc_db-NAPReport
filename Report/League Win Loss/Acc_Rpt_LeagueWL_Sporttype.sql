@@ -90,6 +90,9 @@ BEGIN
 
 	IF @LiveIndicator > 1 SET @LiveIndicator = NULL
 
+	IF REPLACE(@GlobalShowTime, ' ', '') = '1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24'
+		SET @GlobalShowTime = '0'
+
 	BEGIN --#tmpGlobalShowTime
 		CREATE TABLE #tmpGlobalShowTime (ID TINYINT, [From] TIME, [To] TIME)
 
@@ -179,7 +182,9 @@ BEGIN
 			#tmpGlobalShowTime gst
 			WHERE 
 				EXISTS (SELECT 1 FROM #tmpSportBettypeMatrix sbm WHERE l.sporttype = sbm.SportType)
-				AND CONVERT(TIME, m.GlobalShowTime) BETWEEN gst.[From] AND gst.[To]
+				AND (@GlobalShowTime = '0'
+					OR
+					(@GlobalShowTime != '0' AND CONVERT(TIME, m.GlobalShowTime) BETWEEN gst.[From] AND gst.[To]))
 			OPTION (RECOMPILE)
 	END
 

@@ -67,6 +67,9 @@ BEGIN
 	IF @LiveIndicatorVarchar = 'live' SET @IsLive = 1
 	IF @LiveIndicatorVarchar = 'non-live' SET @IsLive = 0
 
+	IF REPLACE(@GlobalShowTime, ' ', '') = '1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24'
+		SET @GlobalShowTime = '0'
+
 	BEGIN --#tmpGlobalShowTime
 		CREATE TABLE #tmpGlobalShowTime (ID TINYINT, [From] TIME, [To] TIME)
 
@@ -155,8 +158,8 @@ BEGIN
 			INNER JOIN CTE_league_ids l
 			ON m.leagueid = l.leagueid
 			, #tmpGlobalShowTime gst
-			WHERE 
-				CONVERT(TIME, m.GlobalShowTime) BETWEEN gst.[From] AND gst.[To]
+			WHERE @GlobalShowTime = '0'
+			   OR (@GlobalShowTime != '0' AND CONVERT(TIME, m.GlobalShowTime) BETWEEN gst.[From] AND gst.[To])
 			OPTION (RECOMPILE)
 	END
 

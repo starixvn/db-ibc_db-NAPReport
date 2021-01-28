@@ -84,6 +84,9 @@ BEGIN
 	IF @LeagueName = '' SET @LeagueName = NULL
 	IF @MatchID = -1 SET @MatchID = NULL
 
+	IF REPLACE(@GlobalShowTime, ' ', '') = '1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24'
+		SET @GlobalShowTime = '0'
+
 	BEGIN /*split the array @SportBettype into a temp table*/
 		CREATE TABLE #tmpSportBettypeMatrix (SportType SMALLINT,
 											 BetType SMALLINT)
@@ -163,8 +166,8 @@ BEGIN
 				AND @GlobalShowTime = '0' /* if user filters by GlobalShowTime, then ignore outright data*/
         ) t
 		, #tmpGlobalShowTime gst
-		WHERE 
-			CONVERT(TIME, t.GlobalShowTime) BETWEEN gst.[From] AND gst.[To]
+		WHERE @GlobalShowTime = '0'
+		   OR (@GlobalShowTime != '0' AND CONVERT(TIME, m.GlobalShowTime) BETWEEN gst.[From] AND gst.[To])
         OPTION (RECOMPILE)
 
 		SELECT TOP 1 @SportType = sporttype FROM #tmpMatch
