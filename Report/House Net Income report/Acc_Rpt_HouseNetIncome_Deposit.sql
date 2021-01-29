@@ -29,7 +29,7 @@ BEGIN
 		@FDate DATE, @TDate DATE, @LastDay DATE
 		,@FromExDate SMALLDATETIME, @ToExDate SMALLDATETIME, @ExDate SMALLDATETIME
 		,@f_date VARCHAR(10), @t_date VARCHAR(10), @SQL VARCHAR(MAX) -- use for dynamic query
-		,@tmpDate DATE
+		,@FromDateByBatch DATE, @ToDateByBatch DATE
 
 	SELECT
 		@FDate = @FromDate
@@ -384,53 +384,65 @@ BEGIN
 
 		-- Others
 		BEGIN
-			INSERT INTO #__tempData (rptDate, SiteId_DW, CurrencyId, Product3rdId, AliasProductId, SportTypeGroup, BetTypeGroup, MemberWL, HouseWL, HouseTO, HouseContribution, FullContribution)
-			SELECT b.rptDate, b.SiteId, b.CurrencyId, bt.Product3rdId
-				,CASE
-					WHEN bt.Product3rdId <> 0 THEN bt.AliasProductId
-					WHEN bt.BetType IN (9, 29) THEN -10 -- Parlay
-					WHEN s.LeagueGroupId IN (42, 74, 108) AND b.SportType = 1 THEN -3 -- Saba Soccer
-					WHEN s.LeagueGroupId IN (42) AND b.SportType = 2 THEN -5 -- Saba Basketball
-					WHEN s.LeagueGroupId IN (42) AND b.SportType = 50 THEN -8 -- Saba Cricket
-					WHEN b.Sporttype = 1 THEN -2 -- Soccer
-					WHEN b.Sporttype = 2 THEN -4 -- Basketball
-					WHEN b.Sporttype = 5 THEN -6 -- Tennis
-					WHEN b.Sporttype = 43 THEN -7 -- E-Sports
-					ELSE -9 -- OS
-					END AS AliasProductId
-				,CASE WHEN b.SportType = 150 THEN b.SportType ELSE -1 END AS SportTypeGroup
-				,bt.BetTypeGroup
-				,SUM(CASE
-						WHEN bt.IsOnlyTO = 1 OR bt.bettype = 4297 THEN 0
-						WHEN bt.BetType IN (913, 914) THEN b.WinlossP + b.WinlossA
-						ELSE b.WinlossP END
-					) AS MemberWL
-				,SUM(CASE WHEN bt.IsOnlyTO = 1 OR bt.bettype = 4297 THEN 0 ELSE b.WinlossIBC + b.CommissionS END) AS HouseWL
-				,SUM(b.TurnoverIBC * CASE WHEN b.VarianceVR > 0 THEN b.VarianceVR + 1.0 ELSE 1.0 END * CASE WHEN b.TicketStatus = 3 THEN 0 WHEN b.TicketStatus IN (12, 13) THEN 0.5 ELSE 1.0 END) AS HouseTO -- VarianceVR = virtualrate/actualrate - 1
-				,SUM(CASE WHEN bt.bettype = 4297 THEN b.WinlossIBC ELSE 0 END) AS HouseContribution
-				,SUM(CASE WHEN bt.bettype = 4297 THEN b.WinlossIBC-b.WinlossS-b.WinlossM-b.WinlossA ELSE 0 END) AS FullContribution
-			FROM bodb_Account.dbo.FactSiteWinloss b WITH (NOLOCK)
-				INNER JOIN @tmpBetType bt ON b.BetType = bt.BetType
-				LEFT JOIN #__SabaLeague s ON b.LeagueId = s.LeagueId AND bt.Product3rdId = 0
-			WHERE b.rptDate BETWEEN @FDate AND @TDate
-				AND b.CurrencyId <> 20
-				AND b.TicketStatus NOT IN (-1, 18, 9, 10, 14)
-			GROUP BY b.rptDate, b.SiteId, b.CurrencyId, bt.Product3rdId
-				,CASE
-					WHEN bt.Product3rdId <> 0 THEN bt.AliasProductId
-					WHEN bt.BetType IN (9, 29) THEN -10 -- Parlay
-					WHEN s.LeagueGroupId IN (42, 74, 108) AND b.SportType = 1 THEN -3 -- Saba Soccer
-					WHEN s.LeagueGroupId IN (42) AND b.SportType = 2 THEN -5 -- Saba Basketball
-					WHEN s.LeagueGroupId IN (42) AND b.SportType = 50 THEN -8 -- Saba Cricket
-					WHEN b.Sporttype = 1 THEN -2 -- Soccer
-					WHEN b.Sporttype = 2 THEN -4 -- Basketball
-					WHEN b.Sporttype = 5 THEN -6 -- Tennis
-					WHEN b.Sporttype = 43 THEN -7 -- E-Sports
-					ELSE -9 -- OS
-					END
-				,CASE WHEN b.SportType = 150 THEN b.SportType ELSE -1 END
-				,bt.BetTypeGroup
-			OPTION (RECOMPILE)
+			SELECT @FromDateByBatch = @FDate
+
+			WHILE @FromDateByBatch <= @TDate
+			BEGIN
+				SELECT @ToDateByBatch = DATEADD(DAY, 7, @FromDateByBatch)
+
+				IF @ToDateByBatch > @TDate
+					SET @ToDateByBatch = @TDate
+
+				INSERT INTO #__tempData (rptDate, SiteId_DW, CurrencyId, Product3rdId, AliasProductId, SportTypeGroup, BetTypeGroup, MemberWL, HouseWL, HouseTO, HouseContribution, FullContribution)
+				SELECT b.rptDate, b.SiteId, b.CurrencyId, bt.Product3rdId
+					,CASE
+						WHEN bt.Product3rdId <> 0 THEN bt.AliasProductId
+						WHEN bt.BetType IN (9, 29) THEN -10 -- Parlay
+						WHEN s.LeagueGroupId IN (42, 74, 108) AND b.SportType = 1 THEN -3 -- Saba Soccer
+						WHEN s.LeagueGroupId IN (42) AND b.SportType = 2 THEN -5 -- Saba Basketball
+						WHEN s.LeagueGroupId IN (42) AND b.SportType = 50 THEN -8 -- Saba Cricket
+						WHEN b.Sporttype = 1 THEN -2 -- Soccer
+						WHEN b.Sporttype = 2 THEN -4 -- Basketball
+						WHEN b.Sporttype = 5 THEN -6 -- Tennis
+						WHEN b.Sporttype = 43 THEN -7 -- E-Sports
+						ELSE -9 -- OS
+						END AS AliasProductId
+					,CASE WHEN b.SportType = 150 THEN b.SportType ELSE -1 END AS SportTypeGroup
+					,bt.BetTypeGroup
+					,SUM(CASE
+							WHEN bt.IsOnlyTO = 1 OR bt.bettype = 4297 THEN 0
+							WHEN bt.BetType IN (913, 914) THEN b.WinlossP + b.WinlossA
+							ELSE b.WinlossP END
+						) AS MemberWL
+					,SUM(CASE WHEN bt.IsOnlyTO = 1 OR bt.bettype = 4297 THEN 0 ELSE b.WinlossIBC + b.CommissionS END) AS HouseWL
+					,SUM(b.TurnoverIBC * CASE WHEN b.VarianceVR > 0 THEN b.VarianceVR + 1.0 ELSE 1.0 END * CASE WHEN b.TicketStatus = 3 THEN 0 WHEN b.TicketStatus IN (12, 13) THEN 0.5 ELSE 1.0 END) AS HouseTO -- VarianceVR = virtualrate/actualrate - 1
+					,SUM(CASE WHEN bt.bettype = 4297 THEN b.WinlossIBC ELSE 0 END) AS HouseContribution
+					,SUM(CASE WHEN bt.bettype = 4297 THEN b.WinlossIBC-b.WinlossS-b.WinlossM-b.WinlossA ELSE 0 END) AS FullContribution
+				FROM bodb_Account.dbo.FactSiteWinloss b WITH (NOLOCK)
+					INNER JOIN @tmpBetType bt ON b.BetType = bt.BetType
+					LEFT JOIN #__SabaLeague s ON b.LeagueId = s.LeagueId AND bt.Product3rdId = 0
+				WHERE b.rptDate BETWEEN @FromDateByBatch AND @ToDateByBatch
+					AND b.CurrencyId <> 20
+					AND b.TicketStatus NOT IN (-1, 18, 9, 10, 14)
+				GROUP BY b.rptDate, b.SiteId, b.CurrencyId, bt.Product3rdId
+					,CASE
+						WHEN bt.Product3rdId <> 0 THEN bt.AliasProductId
+						WHEN bt.BetType IN (9, 29) THEN -10 -- Parlay
+						WHEN s.LeagueGroupId IN (42, 74, 108) AND b.SportType = 1 THEN -3 -- Saba Soccer
+						WHEN s.LeagueGroupId IN (42) AND b.SportType = 2 THEN -5 -- Saba Basketball
+						WHEN s.LeagueGroupId IN (42) AND b.SportType = 50 THEN -8 -- Saba Cricket
+						WHEN b.Sporttype = 1 THEN -2 -- Soccer
+						WHEN b.Sporttype = 2 THEN -4 -- Basketball
+						WHEN b.Sporttype = 5 THEN -6 -- Tennis
+						WHEN b.Sporttype = 43 THEN -7 -- E-Sports
+						ELSE -9 -- OS
+						END
+					,CASE WHEN b.SportType = 150 THEN b.SportType ELSE -1 END
+					,bt.BetTypeGroup
+				OPTION (RECOMPILE)
+
+				SELECT @FromDateByBatch = DATEADD(DAY, 1, @ToDateByBatch)
+			END
 		END
 
 		UPDATE v
@@ -1086,13 +1098,13 @@ BEGIN
 			SELECT r.Product3rdId, r.AliasProductId, ISNULL(f.Value, 0) AS Value, f.Figure, f.SubFigure, r.rptDate
 			FROM #Result r
 			CROSS APPLY (
-				SELECT BAComm AS Value, ''BA Commission'' AS Figure, '''' AS SubFigure
-				UNION ALL SELECT FullContribution, ''Contribution Amount'', ''''
-				UNION ALL SELECT HouseTurnover, ''House TurnOver'', ''''
-				UNION ALL SELECT JackpotPrize, ''Jackpot Prize'', ''''
-				UNION ALL SELECT HouseIncome, ''Licensee House Income'', ''''
-				UNION ALL SELECT MinFee, ''Licensing Minimum Fee'', ''''
-				UNION ALL SELECT PayToSupplier, ''Pay to supplier'', ''''
+				SELECT BAComm AS Value, ''BA Commission'' AS Figure, ''BA Commission'' AS SubFigure
+				UNION ALL SELECT FullContribution, ''Contribution Amount'', ''Contribution Amount''
+				UNION ALL SELECT HouseTurnover, ''House TurnOver'', ''House TurnOver''
+				UNION ALL SELECT JackpotPrize, ''Jackpot Prize'', ''Jackpot Prize''
+				UNION ALL SELECT HouseIncome, ''Licensee House Income'', ''Licensee House Income''
+				UNION ALL SELECT MinFee, ''Licensing Minimum Fee'', ''Licensing Minimum Fee''
+				UNION ALL SELECT PayToSupplier, ''Pay to supplier'', ''Pay to supplier''
 				UNION ALL SELECT -ISNULL(Rebate, 0), ''Rebate & Discount'', ''Rebate''
 				UNION ALL SELECT -ISNULL(Discount, 0), ''Rebate & Discount'', ''Discount''
 			) f
@@ -1102,7 +1114,7 @@ BEGIN
 			FOR rptDate IN (Monthly, MTD, ' + @DateList + ')
 		) p
 	)
-	SELECT s.isDeposit, s.OrderByProduct, s.OrderByFigure, ''Licensee'' AS SiteGroup, s.ProductCategory, s.ProductGroup, s.ProductName, s.ProductShortName, s.Figure, s.SubFigure, r.Monthly, r.MTD, ' + @DateList + '
+	SELECT DISTINCT s.isDeposit, s.OrderByProduct, s.OrderByFigure, ''Licensee'' AS SiteGroup, s.ProductCategory, s.ProductGroup, s.ProductName, s.ProductShortName, s.Figure, s.SubFigure, r.Monthly, r.MTD, ' + @DateList + '
 	FROM bodb_Account.dbo.HNISettings s WITH (NOLOCK)
 		LEFT JOIN CTE_Result r ON r.AliasProductId = s.AliasProductId AND r.Figure = s.Figure AND r.SubFigure = ISNULL(s.SubFigure, '''')
 	WHERE s.isDeposit = 1 AND s.LogicCode = 2

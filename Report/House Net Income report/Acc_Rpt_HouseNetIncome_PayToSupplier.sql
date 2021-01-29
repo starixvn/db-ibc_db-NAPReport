@@ -39,6 +39,8 @@ BEGIN
 	DECLARE @ProductCodes VARCHAR(MAX), @Product3rdIds VARCHAR(MAX)
 	DECLARE @PartyIds VARCHAR(MAX)
 
+	DECLARE @FromDateByBatch DATE, @ToDateByBatch DATE
+
 	-- Get list of product
 	BEGIN
 		DECLARE @Product3rd TABLE (Product3rdId INT, ProductPrefix VARCHAR(10))
@@ -277,15 +279,28 @@ BEGIN
 			DELETE #__tempData
 
 			-- Metric Gaming, Bet Builder
-			INSERT INTO #__tempData (rptDate, SiteId, BetTypeId, CurrencyId, Winloss)
-			SELECT f.rptDate, s.LicenseeId, CASE WHEN f.BetType = 38 THEN -3 ELSE -1 END, f.CurrencyId, SUM(CASE WHEN f.BetType = 38 THEN winlossP + commissionS ELSE winlossP + winlossA + winlossM + winlossS + commissionS END)
-			FROM bodb_Account.dbo.FactSiteWinloss f WITH (NOLOCK)
-				INNER JOIN @tmpSite s ON f.SiteId = s.SiteId_DW
-			WHERE f.rptDate BETWEEN @FDate AND @TDate
-				AND f.TicketStatus NOT IN (-1, 18, 9, 10, 14)
-				AND f.CurrencyId <> 20
-				AND (f.BetType = 38 OR f.BetType BETWEEN 801 AND 899)
-			GROUP BY f.rptDate, s.LicenseeId, CASE WHEN f.BetType = 38 THEN -3 ELSE -1 END, f.CurrencyId
+			SELECT @FromDateByBatch = @FDate
+
+			WHILE @FromDateByBatch <= @TDate
+			BEGIN
+				SELECT @ToDateByBatch = DATEADD(DAY, 7, @FromDateByBatch)
+
+				IF @ToDateByBatch > @TDate
+					SET @ToDateByBatch = @TDate
+				
+				INSERT INTO #__tempData (rptDate, SiteId, BetTypeId, CurrencyId, Winloss)
+				SELECT f.rptDate, s.LicenseeId, CASE WHEN f.BetType = 38 THEN -3 ELSE -1 END, f.CurrencyId, SUM(CASE WHEN f.BetType = 38 THEN winlossP + commissionS ELSE winlossP + winlossA + winlossM + winlossS + commissionS END)
+				FROM bodb_Account.dbo.FactSiteWinloss f WITH (NOLOCK)
+					INNER JOIN @tmpSite s ON f.SiteId = s.SiteId_DW
+				WHERE f.rptDate BETWEEN @FromDateByBatch AND @ToDateByBatch
+					AND f.TicketStatus NOT IN (-1, 18, 9, 10, 14)
+					AND f.CurrencyId <> 20
+					AND (f.BetType = 38 OR f.BetType BETWEEN 801 AND 899)
+				GROUP BY f.rptDate, s.LicenseeId, CASE WHEN f.BetType = 38 THEN -3 ELSE -1 END, f.CurrencyId
+				OPTION (RECOMPILE)
+
+				SELECT @FromDateByBatch = DATEADD(DAY, 1, @ToDateByBatch)
+			END
 
 			-- Muay Thai
 			INSERT INTO #__tempData (rptDate, SiteId, BetTypeId, CurrencyId, Winloss)
