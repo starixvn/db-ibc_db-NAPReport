@@ -167,7 +167,7 @@ BEGIN
         ) t
 		, #tmpGlobalShowTime gst
 		WHERE @GlobalShowTime = '0'
-		   OR (@GlobalShowTime != '0' AND CONVERT(TIME, m.GlobalShowTime) BETWEEN gst.[From] AND gst.[To])
+		   OR (@GlobalShowTime != '0' AND CONVERT(TIME, t.GlobalShowTime) BETWEEN gst.[From] AND gst.[To])
         OPTION (RECOMPILE)
 
 		SELECT TOP 1 @SportType = sporttype FROM #tmpMatch
