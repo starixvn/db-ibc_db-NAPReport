@@ -11,7 +11,7 @@ ALTER PROCEDURE dbo.Acc_Rpt_LeagueWL_Match @StartDate SMALLDATETIME,
 										   @GlobalShowTime VARCHAR(MAX) = '0',
 										   @LeagueName VARCHAR(500),
 										   @IsNoDraw BIT = 0,
-										   @LiveIndicatorVarchar VARCHAR(10) = 'none',	/*1st report flow = 'none; 2nd report flow = 'live'/'non-live'*/
+										   @LiveIndicator TINYINT = 2,			/*1st report flow = 2; 2nd report flow = 0 or 1*/
 										   @ShowHedgeMatchOnly BIT = 0			/*1st report flow = 0; 2nd report flow = input from Bet type report*/
 AS
 /*
@@ -42,10 +42,10 @@ AS
 		- @IsNoDraw: To get the draw tickets to report or not
 		             0 - Get draw ticktes to report
 					 1 - No get draw ticktes to report
-		- @LiveIndicatorVarchar: Include live indicators (live/non-live) in report
-			- 'live': filter bettrans by liveindicator = 1, result LiveIndicator column = null
-			- 'non-live': filter bettrans by liveindicator = 0, result LiveIndicator column = null
-			- 'none': no filter
+		- @LiveIndicator: Include live indicators (live/non-live) in report
+			- 0: filter bettrans by liveindicator = 0, result LiveIndicator column = null
+			- 1: filter bettrans by liveindicator = 1, result LiveIndicator column = null
+			- 2: no filter
 		- @ShowHedgeMatchOnly: Only show hedge matches
 		- @GlobalShowTime: refer to to [Acc_Rpt_LeagueWL_Sporttype.sql]
 
@@ -64,8 +64,7 @@ BEGIN
 	IF @BetType = -1 SET @BetType = NULL
 
 	DECLARE @IsLive BIT = NULL
-	IF @LiveIndicatorVarchar = 'live' SET @IsLive = 1
-	IF @LiveIndicatorVarchar = 'non-live' SET @IsLive = 0
+	IF @LiveIndicator IN (0, 1) SET @IsLive = @LiveIndicator
 
 	IF REPLACE(@GlobalShowTime, ' ', '') = '1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24'
 		SET @GlobalShowTime = '0'
