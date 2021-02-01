@@ -305,18 +305,18 @@ BEGIN
 		-- + RM
 		INSERT INTO #tmpData
 			SELECT CASE WHEN m.SportType = 1 AND sd.recommend = 52466	  THEN 100001
-						WHEN m.SportType < 0 AND sd.recommend = 52466     THEN 100002
-						WHEN m.SportType > 1 AND sd.recommend = 52466	  THEN 100003
+						WHEN m.SportType =-1 AND sd.recommend = 52466     THEN 100002
+						WHEN ABS(m.SportType)>1 AND sd.recommend = 52466  THEN 100003
 						WHEN m.SportType = 1 AND sd.recommend = 5707545   THEN 100004
-						WHEN m.SportType < 0 AND sd.recommend = 5707545   THEN 100005
-						WHEN m.SportType > 1 AND sd.recommend = 5707545   THEN 100006 END AS SportType,
+						WHEN m.SportType =-1 AND sd.recommend = 5707545   THEN 100005
+						WHEN ABS(m.SportType)>1 AND sd.recommend = 5707545 THEN 100006 END AS SportType,
 				   MAX(CASE 
-				   		WHEN m.SportType = 1 AND sd.recommend = 52466   THEN 'Soccer 8RM'
-						WHEN m.SportType < 0 AND sd.recommend = 52466   THEN 'SABA Soccer 8RM'
-						WHEN m.SportType > 1 AND sd.recommend = 52466   THEN 'Other Sports 8RM'
-						WHEN m.SportType = 1 AND sd.recommend = 5707545 THEN 'Soccer BARM'
-						WHEN m.SportType < 0 AND sd.recommend = 5707545 THEN 'SABA Soccer BARM'
-						WHEN m.SportType > 1 AND sd.recommend = 5707545 THEN 'Other Sports BARM' END) AS LeagueName,
+				   		WHEN m.SportType = 1 AND sd.recommend = 52466	  THEN 'Soccer 8RM'
+						WHEN m.SportType =-1 AND sd.recommend = 52466     THEN 'SABA Soccer 8RM'
+						WHEN ABS(m.SportType)>1 AND sd.recommend = 52466  THEN 'Other Sports 8RM'
+						WHEN m.SportType = 1 AND sd.recommend = 5707545   THEN 'Soccer BARM'
+						WHEN m.SportType =-1 AND sd.recommend = 5707545   THEN 'SABA Soccer BARM'
+						WHEN ABS(m.SportType)>1 AND sd.recommend = 5707545 THEN 'Other Sports BARM' END) AS LeagueName,
 				   - SUM(sd.MemberWinLoss),
 				   - SUM(sd.SMAWinLoss),
 				   - SUM(sd.[Extra's Amount]) 											AS ExtraPT,
@@ -338,12 +338,12 @@ BEGIN
 				AND sd.recommend IN (52466, 5707545)
 				AND (@IsNoDraw = 0 OR (@IsNoDraw = 1 AND sd.statusID NOT IN (111)))
 				AND sd.liveindicator = ISNULL(@LiveIndicator, sd.liveindicator)
-			GROUP BY CASE WHEN m.SportType = 1 AND sd.recommend = 52466	  THEN 100001
-						  WHEN m.SportType < 0 AND sd.recommend = 52466   THEN 100002
-						  WHEN m.SportType > 1 AND sd.recommend = 52466	  THEN 100003
-						  WHEN m.SportType = 1 AND sd.recommend = 5707545 THEN 100004
-						  WHEN m.SportType < 0 AND sd.recommend = 5707545 THEN 100005
-						  WHEN m.SportType > 1 AND sd.recommend = 5707545 THEN 100006 END
+			GROUP BY CASE WHEN m.SportType = 1 AND sd.recommend = 52466	  	THEN 100001
+						  WHEN m.SportType =-1 AND sd.recommend = 52466     THEN 100002
+						  WHEN ABS(m.SportType)>1 AND sd.recommend = 52466  THEN 100003
+						  WHEN m.SportType = 1 AND sd.recommend = 5707545   THEN 100004
+						  WHEN m.SportType =-1 AND sd.recommend = 5707545   THEN 100005
+						  WHEN ABS(m.SportType)>1 AND sd.recommend = 5707545 THEN 100006 END
 			OPTION (RECOMPILE)
 	END
 
