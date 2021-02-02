@@ -15,10 +15,14 @@ AS
 	Revisions:
 		- 20201201@Percy: Initiliaze SP [RedmineID: #143208]
 		- 20200112@Percy: Return ProductCategory column [RedmineID: #146539]
+		- 20210125@Percy: Return SubFigure column [RedmineID: #149267]
 */
 
-BEGIN  
+BEGIN
     SET NOCOUNT ON
+
+	DECLARE @IsTest BIT = 0
+	SELECT  @IsTest = dbo.f_CheckSPVersion(@@PROCID)
 
 	DECLARE @FDate DATE, @TDate DATE
 	SELECT  @FDate = @FromDate, @TDate = @ToDate
@@ -34,6 +38,8 @@ BEGIN
 
 	DECLARE @ProductCodes VARCHAR(MAX), @Product3rdIds VARCHAR(MAX)
 	DECLARE @PartyIds VARCHAR(MAX)
+
+	DECLARE @FromDateByBatch DATE, @ToDateByBatch DATE
 
 	-- Get list of product
 	BEGIN
@@ -61,6 +67,7 @@ BEGIN
 				@DepositType = 2
 				OR s.isDeposit = @DepositType
 			)
+			AND s.IsTest <= @IsTest
 
 		;WITH CTE_Product AS (SELECT DISTINCT ProductCode FROM @Products)
 		SELECT @ProductCodes = COALESCE(@ProductCodes + ',', '') + ProductCode FROM CTE_Product
@@ -272,15 +279,28 @@ BEGIN
 			DELETE #__tempData
 
 			-- Metric Gaming, Bet Builder
-			INSERT INTO #__tempData (rptDate, SiteId, BetTypeId, CurrencyId, Winloss)
-			SELECT f.rptDate, s.LicenseeId, CASE WHEN f.BetType = 38 THEN -3 ELSE -1 END, f.CurrencyId, SUM(CASE WHEN f.BetType = 38 THEN winlossP + commissionS ELSE winlossP + winlossA + winlossM + winlossS + commissionS END)
-			FROM bodb_Account.dbo.FactSiteWinloss f WITH (NOLOCK)
-				INNER JOIN @tmpSite s ON f.SiteId = s.SiteId_DW
-			WHERE f.rptDate BETWEEN @FDate AND @TDate
-				AND f.TicketStatus NOT IN (-1, 18, 9, 10, 14)
-				AND f.CurrencyId <> 20
-				AND (f.BetType = 38 OR f.BetType BETWEEN 801 AND 899)
-			GROUP BY f.rptDate, s.LicenseeId, CASE WHEN f.BetType = 38 THEN -3 ELSE -1 END, f.CurrencyId
+			SELECT @FromDateByBatch = @FDate
+
+			WHILE @FromDateByBatch <= @TDate
+			BEGIN
+				SELECT @ToDateByBatch = DATEADD(DAY, 7, @FromDateByBatch)
+
+				IF @ToDateByBatch > @TDate
+					SET @ToDateByBatch = @TDate
+				
+				INSERT INTO #__tempData (rptDate, SiteId, BetTypeId, CurrencyId, Winloss)
+				SELECT f.rptDate, s.LicenseeId, CASE WHEN f.BetType = 38 THEN -3 ELSE -1 END, f.CurrencyId, SUM(CASE WHEN f.BetType = 38 THEN winlossP + commissionS ELSE winlossP + winlossA + winlossM + winlossS + commissionS END)
+				FROM bodb_Account.dbo.FactSiteWinloss f WITH (NOLOCK)
+					INNER JOIN @tmpSite s ON f.SiteId = s.SiteId_DW
+				WHERE f.rptDate BETWEEN @FromDateByBatch AND @ToDateByBatch
+					AND f.TicketStatus NOT IN (-1, 18, 9, 10, 14)
+					AND f.CurrencyId <> 20
+					AND (f.BetType = 38 OR f.BetType BETWEEN 801 AND 899)
+				GROUP BY f.rptDate, s.LicenseeId, CASE WHEN f.BetType = 38 THEN -3 ELSE -1 END, f.CurrencyId
+				OPTION (RECOMPILE)
+
+				SELECT @FromDateByBatch = DATEADD(DAY, 1, @ToDateByBatch)
+			END
 
 			-- Muay Thai
 			INSERT INTO #__tempData (rptDate, SiteId, BetTypeId, CurrencyId, Winloss)
@@ -604,7 +624,7 @@ BEGIN
 	)
 	SELECT
 		s.IsDeposit, s.OrderByProduct, s.OrderByFigure, CASE WHEN s.IsDeposit = 0 THEN ''Credit'' ELSE ''Licensee'' END AS SiteGroup, s.ProductCategory, s.ProductGroup, s.ProductName, s.ProductShortName
-		,s.Figure, r.Monthly, r.MTD, ' + @DateList + '
+		,s.Figure, s.SubFigure, r.Monthly, r.MTD, ' + @DateList + '
 	FROM bodb_Account.dbo.HNISettings s WITH (NOLOCK)
 		LEFT JOIN CTE_Result r ON r.ProductCode = s.ProductPrefix AND r.IsDeposit = s.IsDeposit AND r.Figure = s.Figure
 	WHERE s.LogicCode = 3
@@ -621,6 +641,7 @@ BEGIN
 			' + CONVERT(VARCHAR(1), @DepositType) + ' = 2
 			OR s.isDeposit = ' + CONVERT(VARCHAR(1), @DepositType) + '
 		)
+		AND s.IsTest <= ' + CONVERT(VARCHAR(1), @IsTest) + '
 	ORDER BY s.OrderByProduct, s.OrderByFigure'
 
 	EXEC (@SQL)
