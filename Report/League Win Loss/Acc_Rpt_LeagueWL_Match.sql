@@ -8,9 +8,10 @@ ALTER PROCEDURE dbo.Acc_Rpt_LeagueWL_Match @StartDate SMALLDATETIME,
                                            @SportBettype VARCHAR(MAX),
 										   @BetType	INT = -1,					/*1st report flow = -1; 2nd report flow = input from Bet type report*/	
 										   @SiteName VARCHAR(MAX) = 'ALL',
+										   @GlobalShowTime VARCHAR(MAX) = '0',
 										   @LeagueName VARCHAR(500),
 										   @IsNoDraw BIT = 0,
-										   @LiveIndicatorVarchar VARCHAR(10) = 'none',	/*1st report flow = 'none; 2nd report flow = 'live'/'non-live'*/
+										   @LiveIndicator TINYINT = 2,			/*1st report flow = 2; 2nd report flow = 0 or 1*/
 										   @ShowHedgeMatchOnly BIT = 0			/*1st report flow = 0; 2nd report flow = input from Bet type report*/
 AS
 /*
@@ -27,6 +28,7 @@ AS
 								+ Moved one level up (drill down: League > **Match** > Bet Type > ... )
 								+ Add filter by SiteName
 		- 20201016@Jaden.Tang: Refactor for code readability & performance & new drilldowns (#144387)
+		- 20210126@Jaden.Tang: global show time filter (#147450)
 
 	Param's Explanation:
 		- @StartDate: The start date of data to view on report
@@ -40,11 +42,12 @@ AS
 		- @IsNoDraw: To get the draw tickets to report or not
 		             0 - Get draw ticktes to report
 					 1 - No get draw ticktes to report
-		- @LiveIndicatorVarchar: Include live indicators (live/non-live) in report
-			- 'live': filter bettrans by liveindicator = 1, result LiveIndicator column = null
-			- 'non-live': filter bettrans by liveindicator = 0, result LiveIndicator column = null
-			- 'none': no filter
+		- @LiveIndicator: Include live indicators (live/non-live) in report
+			- 0: filter bettrans by liveindicator = 0, result LiveIndicator column = null
+			- 1: filter bettrans by liveindicator = 1, result LiveIndicator column = null
+			- 2: no filter
 		- @ShowHedgeMatchOnly: Only show hedge matches
+		- @GlobalShowTime: refer to to [Acc_Rpt_LeagueWL_Sporttype.sql]
 
 	Example:
 		EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Match_xtest @StartDate='2020-09-06', @EndDate='2020-09-06',
@@ -61,8 +64,51 @@ BEGIN
 	IF @BetType = -1 SET @BetType = NULL
 
 	DECLARE @IsLive BIT = NULL
-	IF @LiveIndicatorVarchar = 'live' SET @IsLive = 1
-	IF @LiveIndicatorVarchar = 'non-live' SET @IsLive = 0
+	IF @LiveIndicator IN (0, 1) SET @IsLive = @LiveIndicator
+
+	IF REPLACE(@GlobalShowTime, ' ', '') = '1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24'
+		SET @GlobalShowTime = '0'
+
+	BEGIN --#tmpGlobalShowTime
+		CREATE TABLE #tmpGlobalShowTime (ID TINYINT, [From] TIME, [To] TIME)
+
+		;WITH CTE_EnumDict AS (
+			SELECT *
+			FROM (
+			VALUES
+				(0,  '00:00:00', '23:59:59'),
+				(1,  '00:00:00', '00:59:59'),
+				(2,  '01:00:00', '01:59:59'),
+				(3,  '02:00:00', '02:59:59'),
+				(4,  '03:00:00', '03:59:59'),
+				(5,  '04:00:00', '04:59:59'),
+				(6,  '05:00:00', '05:59:59'),
+				(7,  '06:00:00', '06:59:59'),
+				(8,  '07:00:00', '07:59:59'),
+				(9,  '08:00:00', '08:59:59'),
+				(10, '09:00:00', '09:59:59'),
+				(11, '10:00:00', '10:59:59'),
+				(12, '11:00:00', '11:59:59'),
+				(13, '12:00:00', '12:59:59'),
+				(14, '13:00:00', '13:59:59'),
+				(15, '14:00:00', '14:59:59'),
+				(16, '15:00:00', '15:59:59'),
+				(17, '16:00:00', '16:59:59'),
+				(18, '17:00:00', '17:59:59'),
+				(19, '18:00:00', '18:59:59'),
+				(20, '19:00:00', '19:59:59'),
+				(21, '20:00:00', '20:59:59'),
+				(22, '21:00:00', '21:59:59'),
+				(23, '22:00:00', '22:59:59'),
+				(24, '23:00:00', '23:59:59')
+			)sub (ID, [From], [To])
+		)
+		INSERT INTO #tmpGlobalShowTime
+			SELECT CTE_EnumDict.ID, [From], [To]
+			FROM CTE_EnumDict
+			INNER JOIN bodb02.dbo.strSplit(@GlobalShowTime, ',') s
+			ON CTE_EnumDict.ID = s.val
+	END
 
 	BEGIN /*get match data from @LeagueName by @StartDate*/
 		CREATE TABLE #tmpMatch (matchid 	 INT,
@@ -78,7 +124,8 @@ BEGIN
 					0 matchtype,
 					homeid,
 					awayid,
-					leagueid
+					leagueid,
+					GlobalShowTime
 			FROM bodb02.dbo.match WITH (NOLOCK)
 			WHERE eventdate = @StartDate
 			UNION ALL
@@ -87,9 +134,11 @@ BEGIN
 					1 matchtype,
 					teamid homeid,
 					-1 awayid, --'outright' matches do not have 'away' team 
-					leagueid
+					leagueid,
+					NULL
 			FROM bodb02.dbo.outright WITH (NOLOCK)
 			WHERE eventdate = @StartDate
+				AND @GlobalShowTime = '0' /* if user filters by GlobalShowTime, then ignore outright data*/
 		),
 		CTE_league_ids AS (
 			SELECT leagueid, sporttype
@@ -107,6 +156,9 @@ BEGIN
 			FROM CTE_all_matches_by_day m
 			INNER JOIN CTE_league_ids l
 			ON m.leagueid = l.leagueid
+			, #tmpGlobalShowTime gst
+			WHERE @GlobalShowTime = '0'
+			   OR (@GlobalShowTime != '0' AND CONVERT(TIME, m.GlobalShowTime) BETWEEN gst.[From] AND gst.[To])
 			OPTION (RECOMPILE)
 	END
 
@@ -319,5 +371,6 @@ BEGIN
 	DROP TABLE #tmpDataFiltered
 	DROP TABLE #matchLiveIndTmp
 	DROP TABLE #tmpAgentBySite
+	DROP TABLE #tmpGlobalShowTime
 END
 GO

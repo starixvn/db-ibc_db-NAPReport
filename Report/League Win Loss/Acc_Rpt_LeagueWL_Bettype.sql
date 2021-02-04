@@ -7,6 +7,7 @@ ALTER PROCEDURE dbo.Acc_Rpt_LeagueWL_Bettype @StartDate SMALLDATETIME,
 											 @EndDate SMALLDATETIME,
 											 @SportBettype VARCHAR(MAX),
 											 @SiteName VARCHAR(MAX) = 'ALL',
+											 @GlobalShowTime VARCHAR(MAX) = '0',
 											 @LeagueName VARCHAR(500) = '', /*1st report flow*/
 											 @MatchID INT = -1,				/*2nd report flow*/
 											 @IsNoDraw BIT = 0,
@@ -27,6 +28,7 @@ AS
 								+ Moved one level down (drill down: League > Match > **Bet Type** > ... )
 								+ Add filter by SiteName
 		- 20201016@Jaden.Tang: Refactor for code readability & new drilldowns (#144387)
+		- 20210126@Jaden.Tang: global show time filter (#147450)
 
 	Param's Explanation:
 		- @StartDate: The start date of data to view on report
@@ -65,6 +67,7 @@ AS
 				----------------------------------
 				Handicap		 |	8,000
 				Handicap (hedge) |	2,000
+		- @GlobalShowTime: refer to to [Acc_Rpt_LeagueWL_Sporttype.sql]
 
 	Example:
 		EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Bettype_xtest @StartDate='2020-09-06', @EndDate='2020-09-06', 
@@ -81,6 +84,9 @@ BEGIN
 	IF @LeagueName = '' SET @LeagueName = NULL
 	IF @MatchID = -1 SET @MatchID = NULL
 
+	IF REPLACE(@GlobalShowTime, ' ', '') = '1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24'
+		SET @GlobalShowTime = '0'
+
 	BEGIN /*split the array @SportBettype into a temp table*/
 		CREATE TABLE #tmpSportBettypeMatrix (SportType SMALLINT,
 											 BetType SMALLINT)
@@ -96,6 +102,47 @@ BEGIN
 		FROM CTE_SportBettypeMatrix cte
 	END
 
+	BEGIN --#tmpGlobalShowTime
+		CREATE TABLE #tmpGlobalShowTime (ID TINYINT, [From] TIME, [To] TIME)
+
+		;WITH CTE_EnumDict AS (
+			SELECT *
+			FROM (
+			VALUES
+				(0,  '00:00:00', '23:59:59'),
+				(1,  '00:00:00', '00:59:59'),
+				(2,  '01:00:00', '01:59:59'),
+				(3,  '02:00:00', '02:59:59'),
+				(4,  '03:00:00', '03:59:59'),
+				(5,  '04:00:00', '04:59:59'),
+				(6,  '05:00:00', '05:59:59'),
+				(7,  '06:00:00', '06:59:59'),
+				(8,  '07:00:00', '07:59:59'),
+				(9,  '08:00:00', '08:59:59'),
+				(10, '09:00:00', '09:59:59'),
+				(11, '10:00:00', '10:59:59'),
+				(12, '11:00:00', '11:59:59'),
+				(13, '12:00:00', '12:59:59'),
+				(14, '13:00:00', '13:59:59'),
+				(15, '14:00:00', '14:59:59'),
+				(16, '15:00:00', '15:59:59'),
+				(17, '16:00:00', '16:59:59'),
+				(18, '17:00:00', '17:59:59'),
+				(19, '18:00:00', '18:59:59'),
+				(20, '19:00:00', '19:59:59'),
+				(21, '20:00:00', '20:59:59'),
+				(22, '21:00:00', '21:59:59'),
+				(23, '22:00:00', '22:59:59'),
+				(24, '23:00:00', '23:59:59')
+			)sub (ID, [From], [To])
+		)
+		INSERT INTO #tmpGlobalShowTime
+			SELECT CTE_EnumDict.ID, [From], [To]
+			FROM CTE_EnumDict
+			INNER JOIN bodb02.dbo.strSplit(@GlobalShowTime, ',') s
+			ON CTE_EnumDict.ID = s.val
+	END
+
 	DECLARE @SportType INTEGER
     BEGIN /*get sport type from @MatchID or @LeagueID*/
 		CREATE TABLE #tmpMatch (SportType INT, MatchID INT, MatchCode NVARCHAR(100), IsOutright BIT)
@@ -103,20 +150,24 @@ BEGIN
 		INSERT INTO #tmpMatch
 		SELECT sporttype, matchid, matchcode, IsOutright
         FROM (
-            SELECT l.sporttype, m.matchid, m.matchcode, 0 AS IsOutright
+            SELECT l.sporttype, m.matchid, m.matchcode, 0 AS IsOutright, GlobalShowTime
             FROM bodb02.dbo.league l WITH (NOLOCK)
             INNER JOIN bodb02.dbo.match m WITH (NOLOCK)
                 ON l.leagueid = m.leagueid
             WHERE (m.matchid = ISNULL(@MatchID, m.matchid) AND l.leaguename = ISNULL(@LeagueName, l.leaguename))
 				AND m.eventdate = @StartDate
             UNION ALL 
-            SELECT l.sporttype, o.orid, o.matchcode, 1 AS IsOutright
+            SELECT l.sporttype, o.orid, o.matchcode, 1 AS IsOutright, NULL
             FROM bodb02.dbo.league l WITH (NOLOCK)
             INNER JOIN bodb02.dbo.outright o WITH (NOLOCK)
                 ON l.leagueid = o.leagueid
             WHERE (o.orid = ISNULL(@MatchID, o.orid) AND l.leaguename = ISNULL(@LeagueName, l.leaguename))
 				AND o.eventdate = @StartDate
+				AND @GlobalShowTime = '0' /* if user filters by GlobalShowTime, then ignore outright data*/
         ) t
+		, #tmpGlobalShowTime gst
+		WHERE @GlobalShowTime = '0'
+		   OR (@GlobalShowTime != '0' AND CONVERT(TIME, t.GlobalShowTime) BETWEEN gst.[From] AND gst.[To])
         OPTION (RECOMPILE)
 
 		SELECT TOP 1 @SportType = sporttype FROM #tmpMatch
