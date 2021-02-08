@@ -29,6 +29,7 @@ AS
 								+ Add filter by SiteName
 		- 20201016@Jaden.Tang: Refactor for code readability & new drilldowns (#144387)
 		- 20210126@Jaden.Tang: global show time filter (#147450)
+		- 20210208@Jaden.Tang: Hotfix - change LiveIndicator type to TINYINT (#150190)
 
 	Param's Explanation:
 		- @StartDate: The start date of data to view on report
