@@ -80,7 +80,7 @@ BEGIN
 	) t
 	WHERE RN = 1
 
-	SELECT m.PartyId, m.CurrencyId, 1-apositiontaking AS HousePT
+	SELECT m.PartyId, m.CurrencyId, CONVERT(FLOAT, 1-apositiontaking) AS HousePT
 	FROM dbo.Dep_CustSetting dcs WITH (NOLOCK)
 		INNER JOIN #__member m ON m.CustId = dcs.CustId
 	WHERE dcs.bettype = 1 AND dcs.sporttype = 1 AND dcs.islive = 0

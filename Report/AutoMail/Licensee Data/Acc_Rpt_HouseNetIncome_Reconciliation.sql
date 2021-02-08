@@ -675,7 +675,7 @@ BEGIN
 		FOR XML PATH('r'), TYPE, ROOT('root')
 	))
 
-	CREATE TABLE #__HousePT (PartyId INT, CurrencyId INT, HousePT SMALLMONEY)
+	CREATE TABLE #__HousePT (PartyId INT, CurrencyId INT, HousePT FLOAT)
 	INSERT INTO #__HousePT (PartyId, CurrencyId, HousePT)
 	EXEC DBACC.bodb02.dbo.Acc_Licensee_HousePT @Sites = @Sites, @SiteCurrencies = @SiteCurrencies
 
