@@ -774,7 +774,7 @@ BEGIN
 	), CTE_ChargeRateByCurrency AS (
 		SELECT p1.PartyId, ChargeRate = STUFF((
             SELECT ' | ' + p2.Rate
-            FROM CTE_ChargeRate p2 WHERE p1.PartyId = p2.PartyId
+            FROM CTE_ChargeRate p2 WHERE p1.PartyId = p2.PartyId ORDER BY p2.Rate
             FOR XML PATH('')
             ), 1, 3, '')
 		FROM CTE_ChargeRate p1
@@ -793,7 +793,7 @@ BEGIN
 	), CTE_HousePTByCurrency AS (
 		SELECT p1.PartyId, HousePT = STUFF((
             SELECT ' | ' + p2.Rate
-            FROM CTE_HousePT p2 WHERE p1.PartyId = p2.PartyId
+            FROM CTE_HousePT p2 WHERE p1.PartyId = p2.PartyId ORDER BY p2.Rate
             FOR XML PATH('')
             ), 1, 3, '')
 		FROM CTE_HousePT p1
