@@ -11,7 +11,7 @@ ALTER PROCEDURE dbo.Acc_Rpt_LeagueWL_Bettype @StartDate SMALLDATETIME,
 											 @LeagueName VARCHAR(500) = '', /*1st report flow*/
 											 @MatchID INT = -1,				/*2nd report flow*/
 											 @IsNoDraw BIT = 0,
-											 @LiveIndicator BIT = 0,		/*for 2nd report flow, this SP would be called 2 times, one for each BIT*/
+											 @LiveIndicator TINYINT = 2,		/*for 2nd report flow, this SP would be called 2 times*/
 											 @IsIncludeSiteType BIT = 1,	/*1st report flow = 1; 2nd report flow = 0*/
 											 @IsIncludeHedge BIT = 0		/*1st report flow = 0; 2nd report flow = 1*/
 AS
@@ -29,6 +29,7 @@ AS
 								+ Add filter by SiteName
 		- 20201016@Jaden.Tang: Refactor for code readability & new drilldowns (#144387)
 		- 20210126@Jaden.Tang: global show time filter (#147450)
+		- 20210208@Jaden.Tang: Hotfix - change LiveIndicator type to TINYINT (#150190)
 
 	Param's Explanation:
 		- @StartDate: The start date of data to view on report
@@ -83,6 +84,9 @@ BEGIN
 	-- web can't send NULLs
 	IF @LeagueName = '' SET @LeagueName = NULL
 	IF @MatchID = -1 SET @MatchID = NULL
+
+	DECLARE @IsLive BIT = NULL
+	IF @LiveIndicator IN (0, 1) SET @IsLive = @LiveIndicator
 
 	IF REPLACE(@GlobalShowTime, ' ', '') = '1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24'
 		SET @GlobalShowTime = '0'
@@ -255,7 +259,7 @@ BEGIN
 				ON mtrix.BetType = sd.bettype AND mtrix.SportType = @SportType
 			WHERE sd.winlostdate = @StartDate
 				AND sd.matchid IN (SELECT MatchID FROM #tmpMatch UNION ALL SELECT 29)
-				AND sd.liveindicator = @LiveIndicator
+				AND sd.liveindicator = ISNULL(@IsLive, sd.liveindicator)
 				AND sd.ruben = 1
 				AND sd.statusID IN (111, 112, 113)
 				AND sd.currency NOT IN (20, 27, 28)
