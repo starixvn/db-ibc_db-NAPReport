@@ -566,7 +566,7 @@ BEGIN
 										WHEN t.SportTypeGroup = 150 THEN -t.MemberWL -- SBC free bets
 										ELSE
 											(- t.MemberWL - (t.FullContribution - t.HouseContribution) - t.OddsSpreadAdj) * ISNULL(lc.Rate, p.Rate)
-											- t.HouseContribution - CASE WHEN t.Product3rdId = 31 THEN t.Comm ELSE 0 END
+											- t.HouseContribution - t.OddsSpreadAdj - CASE WHEN t.Product3rdId = 31 THEN t.Comm ELSE 0 END
 										END * e.Rate)
 			,HouseIncomeMonth	= SUM(CASE
 										WHEN t.Product3rdId = 15 THEN t.MemberWL
@@ -576,7 +576,7 @@ BEGIN
 										WHEN t.SportTypeGroup = 150 THEN -t.MemberWL -- SBC free bets
 										ELSE
 											(- t.MemberWL - (t.FullContribution - t.HouseContribution) - t.OddsSpreadAdj) * ISNULL(lc.Rate, p.Rate)
-											- t.HouseContribution - CASE WHEN t.Product3rdId = 31 THEN t.Comm ELSE 0 END
+											- t.HouseContribution - t.OddsSpreadAdj - CASE WHEN t.Product3rdId = 31 THEN t.Comm ELSE 0 END
 										END * e.Rate)
 		FROM #__tempData t
 			INNER JOIN #AllLicensees l ON t.SiteId_DW = l.SiteId_DW
@@ -787,17 +787,20 @@ BEGIN
 		SET g.HouseWL = ISNULL(m.HouseWL, 0)
 		FROM @GroupMinFee g
 			CROSS APPLY (
-				SELECT SUM(m.LicenseeFee) AS HouseWL
+				SELECT SUM(CASE WHEN m.LicenseeFee > 0 THEN m.LicenseeFee ELSE 0 END + m.WaivedFee) AS HouseWL
 				FROM @MinFee m
-				WHERE g.GroupMinFeeId = m.GroupMinFeeId AND g.Product3rdId = m.Product3rdId AND m.LicenseeFee > 0
+				WHERE g.GroupMinFeeId = m.GroupMinFeeId AND g.Product3rdId = m.Product3rdId
 			) m
 		
 		-- Include left over min fee into primary licensees
 		UPDATE m
-		SET m.ActualFee = CASE WHEN m.LicenseeFee < 0 THEN 0 ELSE m.LicenseeFee END + (g.GroupMinFee - g.HouseWL)
+		SET m.ActualFee = CASE
+								WHEN g.HouseWL >= g.GroupMinFee THEN ActualFee
+								WHEN m.LicenseeFee < 0 THEN g.GroupMinFee - g.HouseWL
+								ELSE m.LicenseeFee + g.GroupMinFee - g.HouseWL END
 		FROM @MinFee m
-			INNER JOIN @GroupMinFee g ON g.GroupMinFeeId = m.GroupMinFeeId AND g.Product3rdId = m.Product3rdId
-		WHERE m.IsPrimary = 1 AND g.HouseWL < g.GroupMinFee
+			INNER JOIN @GroupMinFee g ON g.GroupMinFeeId = m.GroupMinFeeId AND m.Product3rdId = g.Product3rdId
+		WHERE m.IsPrimary = 1
 
 		-- Licensee Fee & Licensee Min Fee
 		UPDATE g
