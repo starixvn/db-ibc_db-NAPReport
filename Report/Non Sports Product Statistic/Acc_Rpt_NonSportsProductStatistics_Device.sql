@@ -509,6 +509,7 @@ BEGIN
 								
 			FROM dbo.bettransRnG b WITH (NOLOCK)
 			WHERE b.winlostdate = @WLDate
+				AND b.gameID NOT IN (SELECT Bettype FROM #tmpContributionBettype) 
 				AND (b.gameID IN (SELECT Bettype FROM #SportBettype WHERE RefTable = 1 AND ProductID <> 42)
 					OR EXISTS(SELECT 1 FROM #tmpSportBetType s WHERE b.productid = s.Sporttype and b.gameid = s.Bettype)
 				)
@@ -587,6 +588,7 @@ BEGIN
 								
 			FROM dbo.bettransRnG b WITH (NOLOCK)
 			WHERE b.winlostdate = @WLDate
+				AND b.gameID NOT IN (SELECT Bettype FROM #tmpContributionBettype) 
 				AND b.gameID IN (SELECT Bettype FROM #SportBettype WHERE RefTable = 1 AND ProductID = 42)
 				AND EXISTS(SELECT 1 FROM #tmpSportBetType s WHERE b.productid = s.Sporttype and b.gameid = s.Bettype)
 				AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets		

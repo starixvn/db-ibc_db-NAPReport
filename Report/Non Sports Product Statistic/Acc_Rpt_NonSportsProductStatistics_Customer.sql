@@ -729,7 +729,8 @@ BEGIN
 						ELSE scomm / (1 - tpositiontaking) END) * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8)) * actualrate) ExtraPTBase,							
 				COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS RowNum			
 			FROM dbo.bettransRnG b WITH (NOLOCK)
-			WHERE b.winlostdate = @WLDate				
+			WHERE b.winlostdate = @WLDate			
+				AND b.gameID NOT IN (SELECT Bettype FROM #tmpContributionBettype) 	
 				AND (b.gameID IN (SELECT Bettype FROM #SportBettype WHERE RefTable = 1 AND ProductID <> 42)
 					OR EXISTS(SELECT 1 FROM #tmpSportBetType s WHERE b.productid = s.Sporttype and b.gameid = s.Bettype)
 				)
@@ -807,7 +808,8 @@ BEGIN
 						ELSE scomm / (1 - tpositiontaking) END) * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8)) * actualrate) ExtraPTBase,							
 				COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS RowNum			
 			FROM dbo.bettransRnG b WITH (NOLOCK)
-			WHERE b.winlostdate = @WLDate				
+			WHERE b.winlostdate = @WLDate		
+				AND b.gameID NOT IN (SELECT Bettype FROM #tmpContributionBettype) 		
 				AND b.gameID IN (SELECT Bettype FROM #SportBettype WHERE RefTable = 1 AND ProductID = 42)
 				AND EXISTS(SELECT 1 FROM #tmpSportBetType s WHERE b.productid = s.Sporttype and b.gameid = s.Bettype)
 				AND b.statusID IN (111, 112, 113, 103) 
