@@ -30,6 +30,7 @@ AS
 		- 20181031@Percy: Remove linked-server DBLIC [RedmineID: #103660]
 		- 20181219@Robert: NAP Report - Add new sporttype for Happy 5 (#104253) 
 		- 20201225@Jaden: Add new sporttype for Happy 5 Linked games (#147573)
+		- 20210222@Jaden: Adjust matchcode extraction method from betcheck
 
     Param usage:
 		- @SiteID:
@@ -165,8 +166,10 @@ BEGIN
 
     SELECT
 		case when m.matchid != 168 then m.matchcode
-			 else left(right(b.betcheck, charindex('-', reverse(b.betcheck)) - 1), 
-					charindex('-', reverse(b.betcheck)) - charindex(';', reverse(b.betcheck)) - 1)
+			 else RIGHT(
+				 	SUBSTRING(b.betcheck, 1, CHARINDEX (';', b.betcheck) - 1), 
+					CHARINDEX('-', REVERSE(SUBSTRING(b.betcheck, 1, CHARINDEX(';', b.betcheck) - 1))) - 1
+				)  -- get substring between last hyphen and first semicolon: 'a-c-b;c' => 'b'
 		end as matchcode
 	    , b.BetType AS                                                                            bType
 	    , m.leagueid
