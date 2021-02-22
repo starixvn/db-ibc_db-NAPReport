@@ -275,6 +275,11 @@ BEGIN
 		INNER JOIN #tmp_SportType t ON s.SportType = t.Sporttype 
 	WHERE p.ProductID = 23 --NG2
 		AND (s.IsTest = 0 OR s.IsTest = @isTest)
+		
+	DELETE s
+	FROM #SportBettype s
+	WHERE s.ProductID = 42
+		AND NOT EXISTS (SELECT b.Bettype FROM #tmpSportBetType b WHERE b.Bettype = s.Bettype)
 	
 	DROP TABLE #tmp_BetType
 	-- End Get Sport Bettype Matrix --
@@ -888,6 +893,9 @@ BEGIN
 		FROM dbo.bettransRnG b WITH (NOLOCK)
 		WHERE b.winlostdate = @WLDate				
 			AND b.gameID IN (SELECT Bettype FROM #tmpContributionBettype) 
+			AND (b.gameID NOT IN (SELECT Bettype FROM #tmpSportBetType)
+				OR EXISTS(SELECT 1 FROM #tmpSportBetType s WHERE b.productid = s.Sporttype and b.gameid = s.Bettype)
+				)
 			AND b.statusID IN (111, 112, 113, 103) 
 			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
 			AND (@Currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId))	

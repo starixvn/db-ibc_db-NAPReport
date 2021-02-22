@@ -357,6 +357,11 @@ SET NOCOUNT ON
 	FROM	#SportBettype s LEFT JOIN #NonSportSetting t ON s.ProductID = t.ProductID AND s.Bettype = t.Bettype 
 	WHERE t.Bettype IS NULL
 	
+	DELETE s
+	FROM #SportBettype s
+	WHERE s.ProductID = 42
+		AND NOT EXISTS (SELECT b.Bettype FROM #tmpSportBetType b WHERE b.Bettype = s.Bettype)
+	
 	INSERT INTO #tmpContributionBettype (Bettype)
 	SELECT Bettype
 	FROM DBWH.bodb_Account.dbo.BettypeGroup WITH (NOLOCK)
