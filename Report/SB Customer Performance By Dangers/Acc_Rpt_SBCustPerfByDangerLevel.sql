@@ -6,7 +6,7 @@ ALTER PROCEDURE Acc_Rpt_SBCustPerfByDangerLevel
 	,@SportBettypes VARCHAR(MAX) = 'ALL'
 	,@LeagueName NVARCHAR(500) = 'All Leagues'
 	,@LeagueGroupIDs VARCHAR(MAX) = 'ALL'
-	,@LiveStat VARCHAR(10) = 'ALL'
+	,@LiveStatus VARCHAR(10) = 'ALL'
 	,@TopUsers INT = 10
 AS
 /*
@@ -23,7 +23,7 @@ AS
 		@SportBettypes: List of Sporttypes and Bettypes with format: Sport_Bettype (ex: 43_2,29_9)
 		@LeagueName: exactly league name - 'All Leagues' for all
 		@LeagueGroupIDs: List of LeagueGroups by IDs
-		@LiveStat: ALL, Non-Live, Live
+		@LiveStatus: ALL, Non-Live, Live
 		@TopUsers: No. of user order by member winlost
 	
 	Script: EXEC Acc_Rpt_SBCustPerfByDangerLevel
@@ -33,7 +33,7 @@ AS
 											,@SportBettypes = 'ALL'
 											,@LeagueName = 'All Leagues'
 											,@LeagueGroupIDs = 'ALL'
-											,@LiveStat = 'All'
+											,@LiveStatus = 'All'
 											,@TopUsers = 1000
 */
 BEGIN
@@ -109,9 +109,9 @@ BEGIN
 		SET @TopUsers = 0
 
 	---Live Status---
-	IF @LiveStat = 'Live'
+	IF @LiveStatus = 'Live'
 		SET @IsLive = 1
-	ELSE IF @LiveStat = 'Non-Live'
+	ELSE IF @LiveStatus = 'Non-Live'
 		SET @IsLive = 0	
 
 	/*
@@ -271,7 +271,7 @@ BEGIN
 
 	/*
 		Get raw data
-		From: bettrans, #tmpSportBettypes, @LiveStat, @Divisions, @DangerLevels
+		From: bettrans, #tmpSportBettypes, @LiveStatus, @Divisions, @DangerLevels
 		To: #tmpData
 		Desc: get raw data filtered by WLdate, bettype, Liveindicator, SiteNames, DangerLevel
 	*/
@@ -452,7 +452,7 @@ BEGIN
 		,SUM(d.MemberWL) MemberWL
 		,SUM(d.RealTurnover) HouseTO
 		,SUM(d.RealIncome) 	HouseIncome		
-		,SUM(ISNULL(assoc.NoAssoc, 0)) NoAssoc
+		,SUM(ISNULL(assoc.NoAssoc, 0)) NumberOfAssociatedAccount 
 	FROM #tmpFiltered AS d
 		LEFT JOIN dbo.Customer AS s WITH (NOLOCK) ON ( s.roleid = 4 AND d.SuperID = s.CustID )
 		LEFT JOIN dbo.Customer AS m WITH (NOLOCK) ON ( m.roleid = 3 AND d.MasterID = m.CustID )
