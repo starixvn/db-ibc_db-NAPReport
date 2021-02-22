@@ -14,6 +14,7 @@ AS
 		- 20201201@Percy: Initiliaze SP [RedmineID: #143208]
 		- 20200112@Percy: Integrate Happy 5 Linked Games [RedmineID: #146539]
 		- 20210125@Percy: Return SubFigure column [RedmineID: #149267]
+		- 20210202@Percy: Integrate Saba.Club Four Guardians games [RedmineID: #149122]
 */
 
 BEGIN
@@ -256,20 +257,26 @@ BEGIN
 		FROM bodb02.dbo.SportBettypeMatrix s WITH (NOLOCK)
 			INNER JOIN @Products p ON s.ProductId = p.ProductId
 			LEFT JOIN bodb_Account.dbo.BettypeGroup bg WITH (NOLOCK) ON s.BetType = bg.Bettype
-		WHERE s.BetType NOT IN (911, 912, 1906, 4298, 4299, 4300)
+		WHERE s.BetType NOT IN (911, 912, 1906, 4298, 4299, 4300, 1699)
 			AND (
 				s.ProductId <> 3
 				OR (p.SubProductCode = 'NG' AND s.sporttype = 161)
 				OR (p.SubProductCode = 'H5' AND s.sporttype = 164)
 				OR (p.SubProductCode = 'H5LG' AND s.sporttype = 168)
 			)
-			AND p.SubProductCode <> 'PP-JP'
+			AND p.SubProductCode NOT IN ('PP-JP', 'SBC-JP')
 
 		IF EXISTS (SELECT 1 FROM @Products WHERE SubProductCode = 'PP-JP')
 			INSERT INTO @tmpBetType (Product3rdId, AliasProductId, BetType, BettypeGroup, IsOnlyTO)
 			SELECT p.Product3rdId, p.AliasProductId, b.BetType, -3, 0
 			FROM (SELECT Product3rdId, AliasProductId FROM @Products WHERE SubProductCode = 'PP-JP') p
 				CROSS JOIN (SELECT 4297 AS BetType UNION ALL SELECT 4298) b
+
+		IF EXISTS (SELECT 1 FROM @Products WHERE SubProductCode = 'SBC-JP')
+			INSERT INTO @tmpBetType (Product3rdId, AliasProductId, BetType, BettypeGroup, IsOnlyTO)
+			SELECT p.Product3rdId, p.AliasProductId, b.BetType, -3, 0
+			FROM (SELECT Product3rdId, AliasProductId FROM @Products WHERE SubProductCode = 'SBC-JP') p
+				CROSS JOIN (SELECT 1698 AS BetType UNION ALL SELECT 1699) b
 
 		CREATE TABLE #__SabaLeague (LeagueId INT, LeagueGroupId INT)
 
@@ -410,14 +417,14 @@ BEGIN
 					,CASE WHEN b.SportType = 150 THEN b.SportType ELSE -1 END AS SportTypeGroup
 					,bt.BetTypeGroup
 					,SUM(CASE
-							WHEN bt.IsOnlyTO = 1 OR bt.bettype = 4297 THEN 0
+							WHEN bt.IsOnlyTO = 1 OR bt.bettype IN (1698, 4297) THEN 0
 							WHEN bt.BetType IN (913, 914) THEN b.WinlossP + b.WinlossA
 							ELSE b.WinlossP END
 						) AS MemberWL
-					,SUM(CASE WHEN bt.IsOnlyTO = 1 OR bt.bettype = 4297 THEN 0 ELSE b.WinlossIBC + b.CommissionS END) AS HouseWL
+					,SUM(CASE WHEN bt.IsOnlyTO = 1 OR bt.bettype IN (1698, 4297) THEN 0 ELSE b.WinlossIBC + b.CommissionS END) AS HouseWL
 					,SUM(b.TurnoverIBC * CASE WHEN b.VarianceVR > 0 THEN b.VarianceVR + 1.0 ELSE 1.0 END * CASE WHEN b.TicketStatus = 3 THEN 0 WHEN b.TicketStatus IN (12, 13) THEN 0.5 ELSE 1.0 END) AS HouseTO -- VarianceVR = virtualrate/actualrate - 1
-					,SUM(CASE WHEN bt.bettype = 4297 THEN b.WinlossIBC ELSE 0 END) AS HouseContribution
-					,SUM(CASE WHEN bt.bettype = 4297 THEN b.WinlossIBC-b.WinlossS-b.WinlossM-b.WinlossA ELSE 0 END) AS FullContribution
+					,SUM(CASE WHEN bt.bettype IN (1698, 4297) THEN b.WinlossIBC ELSE 0 END) AS HouseContribution
+					,SUM(CASE WHEN bt.bettype IN (1698, 4297) THEN b.WinlossIBC-b.WinlossS-b.WinlossM-b.WinlossA ELSE 0 END) AS FullContribution
 				FROM bodb_Account.dbo.FactSiteWinloss b WITH (NOLOCK)
 					INNER JOIN @tmpBetType bt ON b.BetType = bt.BetType
 					LEFT JOIN #__SabaLeague s ON b.LeagueId = s.LeagueId AND bt.Product3rdId = 0
@@ -559,7 +566,7 @@ BEGIN
 										WHEN t.SportTypeGroup = 150 THEN -t.MemberWL -- SBC free bets
 										ELSE
 											(- t.MemberWL - (t.FullContribution - t.HouseContribution) - t.OddsSpreadAdj) * ISNULL(lc.Rate, p.Rate)
-											- t.HouseContribution - CASE WHEN t.Product3rdId = 31 THEN t.Comm ELSE 0 END
+											- t.HouseContribution - t.OddsSpreadAdj - CASE WHEN t.Product3rdId = 31 THEN t.Comm ELSE 0 END
 										END * e.Rate)
 			,HouseIncomeMonth	= SUM(CASE
 										WHEN t.Product3rdId = 15 THEN t.MemberWL
@@ -569,7 +576,7 @@ BEGIN
 										WHEN t.SportTypeGroup = 150 THEN -t.MemberWL -- SBC free bets
 										ELSE
 											(- t.MemberWL - (t.FullContribution - t.HouseContribution) - t.OddsSpreadAdj) * ISNULL(lc.Rate, p.Rate)
-											- t.HouseContribution - CASE WHEN t.Product3rdId = 31 THEN t.Comm ELSE 0 END
+											- t.HouseContribution - t.OddsSpreadAdj - CASE WHEN t.Product3rdId = 31 THEN t.Comm ELSE 0 END
 										END * e.Rate)
 		FROM #__tempData t
 			INNER JOIN #AllLicensees l ON t.SiteId_DW = l.SiteId_DW
@@ -780,17 +787,20 @@ BEGIN
 		SET g.HouseWL = ISNULL(m.HouseWL, 0)
 		FROM @GroupMinFee g
 			CROSS APPLY (
-				SELECT SUM(m.LicenseeFee) AS HouseWL
+				SELECT SUM(CASE WHEN m.LicenseeFee > 0 THEN m.LicenseeFee ELSE 0 END + m.WaivedFee) AS HouseWL
 				FROM @MinFee m
-				WHERE g.GroupMinFeeId = m.GroupMinFeeId AND g.Product3rdId = m.Product3rdId AND m.LicenseeFee > 0
+				WHERE g.GroupMinFeeId = m.GroupMinFeeId AND g.Product3rdId = m.Product3rdId
 			) m
 		
 		-- Include left over min fee into primary licensees
 		UPDATE m
-		SET m.ActualFee = CASE WHEN m.LicenseeFee < 0 THEN 0 ELSE m.LicenseeFee END + (g.GroupMinFee - g.HouseWL)
+		SET m.ActualFee = CASE
+								WHEN g.HouseWL >= g.GroupMinFee THEN ActualFee
+								WHEN m.LicenseeFee < 0 THEN g.GroupMinFee - g.HouseWL
+								ELSE m.LicenseeFee + g.GroupMinFee - g.HouseWL END
 		FROM @MinFee m
-			INNER JOIN @GroupMinFee g ON g.GroupMinFeeId = m.GroupMinFeeId AND g.Product3rdId = m.Product3rdId
-		WHERE m.IsPrimary = 1 AND g.HouseWL < g.GroupMinFee
+			INNER JOIN @GroupMinFee g ON g.GroupMinFeeId = m.GroupMinFeeId AND m.Product3rdId = g.Product3rdId
+		WHERE m.IsPrimary = 1
 
 		-- Licensee Fee & Licensee Min Fee
 		UPDATE g
