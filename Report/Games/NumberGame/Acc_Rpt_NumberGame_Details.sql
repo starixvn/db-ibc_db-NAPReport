@@ -1,9 +1,6 @@
-USE [bodb02]
-GO
-/****** Object:  StoredProcedure [dbo].[Acc_Rpt_NumberGame_Details]    Script Date: 2/21/2021 9:48:04 PM ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
+/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+
+USE [bodb02];
 GO
 
 ALTER PROCEDURE [dbo].[Acc_Rpt_NumberGame_Details]
