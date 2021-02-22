@@ -1,9 +1,9 @@
-﻿/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
 USE [bodb02];
 GO
 
-ALTER PROCEDURE dbo.Acc_Rpt_NumberGame_Details
+ALTER PROCEDURE [dbo].[Acc_Rpt_NumberGame_Details]
 	@winlostdate      DATETIME
    , @liveindicator    BIT           = NULL
    , @bettype          INT           = 85
@@ -30,6 +30,7 @@ AS
 		- 20181031@Percy: Remove linked-server DBLIC [RedmineID: #103660]
 		- 20181219@Robert: NAP Report - Add new sporttype for Happy 5 (#104253) 
 		- 20201225@Jaden: Add new sporttype for Happy 5 Linked games (#147573)
+		- 20210222@Jaden: Adjustment for matchcode extraction
 
     Param usage:
 		- @SiteID:
@@ -169,10 +170,7 @@ BEGIN
 
     SELECT 
 		case when m.matchid != 168 then m.matchcode
-			 else left(
-				 	right(b.betcheck, charindex('-', reverse(b.betcheck)) - 1), 
-					charindex('-', reverse(b.betcheck)) - charindex(';', reverse(b.betcheck)) - 1
-				) -- get substring between last hyphen and last semicolon: 'a-c-b;c' => 'b'
+			 else RIGHT(SUBSTRING(b.betcheck, 1, CHARINDEX (';', b.betcheck) - 1), charindex('-', reverse(SUBSTRING(b.betcheck, 1, CHARINDEX (';', b.betcheck) - 1))) - 1)
 		end as matchcode
 	    , b.BetType AS                                                                            bType
 	    , m.leagueid
@@ -205,8 +203,7 @@ BEGIN
 					  )
     GROUP BY
 		 case when m.matchid != 168 then m.matchcode
-			  else left(right(b.betcheck, charindex('-', reverse(b.betcheck)) - 1), 
-					charindex('-', reverse(b.betcheck)) - charindex(';', reverse(b.betcheck)) - 1)
+			  else RIGHT(SUBSTRING(b.betcheck, 1, CHARINDEX (';', b.betcheck) - 1), charindex('-', reverse(SUBSTRING(b.betcheck, 1, CHARINDEX (';', b.betcheck) - 1))) - 1)
 		 end
 		 , b.bettype
 		 , m.leagueid
@@ -215,4 +212,3 @@ BEGIN
     DROP TABLE #Bettype;
     DROP TABLE #tmpAg;
 END;
-GO
