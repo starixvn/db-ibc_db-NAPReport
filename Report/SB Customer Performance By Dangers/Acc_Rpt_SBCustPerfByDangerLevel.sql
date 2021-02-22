@@ -2,7 +2,7 @@
 ALTER PROCEDURE Acc_Rpt_SBCustPerfByDangerLevel
 	@WinlostDate SMALLDATETIME
 	,@Divisions VARCHAR(MAX) = 'ALL'
-	,@DangerLevels VARCHAR(10) = '50'
+	,@DangerLevels VARCHAR(500) = '50'
 	,@SportBettypes VARCHAR(MAX) = 'ALL'
 	,@LeagueName NVARCHAR(500) = 'All Leagues'
 	,@LeagueGroupIDs VARCHAR(MAX) = 'ALL'
@@ -19,7 +19,7 @@ AS
 		
 	Param's Explanation:
 		@Divisions: List of site names
-		@DangerLevels: danger level - blank for all
+		@DangerLevels: danger level - blank for all (can be: 50,49 for multiple)
 		@SportBettypes: List of Sporttypes and Bettypes with format: Sport_Bettype (ex: 43_2,29_9)
 		@LeagueName: exactly league name - 'All Leagues' for all
 		@LeagueGroupIDs: List of LeagueGroups by IDs
@@ -34,7 +34,7 @@ AS
 											,@LeagueName = 'All Leagues'
 											,@LeagueGroupIDs = 'ALL'
 											,@LiveStatus = 'All'
-											,@TopUsers = 1000
+											,@TopUsers = 9999
 */
 BEGIN
 
