@@ -576,11 +576,7 @@ BEGIN
                WHERE @WLDate BETWEEN FromDate AND Todate
 					AND a.ProductId IN (SELECT ProductID FROM #tmp_ProductID)
                GROUP BY ProductID,
-                        SuperId         
-	
-	CREATE CLUSTERED INDEX IX_SportBettype ON #SportBettype (ProductID, Bettype, EvenType, RefTable)  
-	CREATE CLUSTERED INDEX IX_SportType ON #tmp_SportType (Sporttype)    
-	CREATE CLUSTERED INDEX IX_LeagueID ON #tmp_LeagueID (LeagueID, Bettype)
+                        SuperId         		
 	
 	INSERT INTO #tmpContributionBettype (Bettype)
 	SELECT Bettype
@@ -592,6 +588,12 @@ BEGIN
 
 	DELETE #SportBettype
 	WHERE bettype IN (SELECT bettype FROM #tmpContributionBettype)
+	
+	CREATE CLUSTERED INDEX IX_SportBettype ON #SportBettype (ProductID, Bettype, EvenType, RefTable)  
+	CREATE CLUSTERED INDEX IX_SportType ON #tmp_SportType (Sporttype)    
+	CREATE CLUSTERED INDEX IX_LeagueID ON #tmp_LeagueID (LeagueID, Bettype)
+	CREATE CLUSTERED INDEX IX_SporttypeBettype ON #tmpSportBetType (Sporttype, Bettype)  
+	CREATE CLUSTERED INDEX IX_Bettype ON #tmpContributionBettype (Bettype) 
 
 	-- ProductID NOT IN (3, 4, 5, 27, 33)) -- NG, SLI-Live Casino, Virtual Sports, Virtual Sports 2, Poker Games
 	BEGIN
@@ -736,8 +738,7 @@ BEGIN
 								ELSE scomm / (1 - tpositiontaking) END) * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8)) * actualrate) ExtraPTBase,							
 				COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS RowNum			
 			FROM dbo.bettransRnG b WITH (NOLOCK)
-			WHERE b.winlostdate = @WLDate		
-				AND b.gameID NOT IN (SELECT Bettype FROM #tmpContributionBettype) 		
+			WHERE b.winlostdate = @WLDate			
 				AND (b.gameID IN (SELECT Bettype FROM #SportBettype WHERE RefTable = 1 AND ProductID <> 42)
 					OR EXISTS(SELECT 1 FROM #tmpSportBetType s WHERE b.productid = s.Sporttype and b.gameid = s.Bettype)
 				)
@@ -815,8 +816,7 @@ BEGIN
 								ELSE scomm / (1 - tpositiontaking) END) * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8)) * actualrate) ExtraPTBase,							
 				COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS RowNum			
 			FROM dbo.bettransRnG b WITH (NOLOCK)
-			WHERE b.winlostdate = @WLDate		
-				AND b.gameID NOT IN (SELECT Bettype FROM #tmpContributionBettype) 		
+			WHERE b.winlostdate = @WLDate			
 				AND b.gameID IN (SELECT Bettype FROM #SportBettype WHERE RefTable = 1 AND ProductID = 42)
 				AND EXISTS(SELECT 1 FROM #tmpSportBetType s WHERE b.productid = s.Sporttype and b.gameid = s.Bettype)
 				AND b.statusID IN (111, 112, 113, 103) 
@@ -834,81 +834,88 @@ BEGIN
 			OPTION(RECOMPILE)
 		END
 		
-		INSERT INTO #tmp_bettrans
-		(
-			srecommend,
-			mrecommend,
-			recommend,
-			custid,
-			Bettype,
-			BetCount,
-			CurrencyID,
-			TotalBets,
-			TotalBetsBase,
-			TotalWins,
-			TotalWinsBase,
-			TotalRefund ,
-			TotalRefundBase ,
-			CompanyTurnover,
-			CompanyTurnoverBase,
-			CompanyGrossIncome,
-			CompanyGrossIncomeBase,
-			CompanyComm,
-			CompanyCommBase,
-			HousePT,
-			ExtraPT,
-			ExtraPTBase,
-			RowNum
-		)
-		SELECT
-			b.srecommend,
-			b.mrecommend,
-			b.recommend,
-			b.custid,
-			b.gameID,
-			0 AS BetCount,
-			b.currency CurrencyID,
-			SUM(CASE WHEN b.statusID IN (103) THEN 0 ELSE actual_stake END) AS TotalBets,
-			SUM((CASE WHEN b.statusID IN (103) THEN 0 ELSE actual_stake END) * actualrate) AS TotalBetsBase,
-			SUM(CASE WHEN b.statusID IN (103) THEN 0 ELSE winlost END) AS TotalWins,
-			SUM((CASE WHEN b.statusID IN (103) THEN 0 ELSE winlost END) * actualrate) AS TotalWinsBase,
-			SUM(CASE WHEN b.statusID IN (103) THEN actual_stake ELSE 0 END) AS TotalRefund,
-			SUM((CASE WHEN b.statusID IN (103) THEN actual_stake ELSE 0 END)  * actualrate) AS TotalRefundBase,
-			SUM(CASE WHEN b.statusID IN (103) THEN 0 
-					WHEN b.tpositiontaking = 1 THEN 0
-					ELSE (1 - b.tpositiontaking - CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) * b.stake END) AS CompanyTurnover,
-			SUM((CASE WHEN b.statusID IN (103) THEN 0 
-					WHEN b.tpositiontaking = 1 THEN 0
-					ELSE (1 - b.tpositiontaking - CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) * b.stake END) * actualrate) AS CompanyTurnoverBase,
-			SUM(b.ContributionStake3rd + awinlost + mwinlost + swinlost) AS CompanyGrossIncome,
-			SUM((b.ContributionStake3rd + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeBase,
-			SUM(scomm) AS CompanyComm,
-			SUM(scomm * actualrate) AS CompanyCommBase,
-			0 AS HousePT,
-			SUM((b.ContributionStake3rd + CASE WHEN tpositiontaking = 1 THEN 0
-							ELSE scomm / (1 - tpositiontaking) END) * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) ExtraPT,
-			SUM((b.ContributionStake3rd + CASE WHEN tpositiontaking = 1 THEN 0
-							ELSE scomm / (1 - tpositiontaking) END) * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8)) * actualrate) ExtraPTBase,							
-			COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS RowNum			
-		FROM dbo.bettransRnG b WITH (NOLOCK)
-		WHERE b.winlostdate = @WLDate				
-			AND b.gameID IN (SELECT Bettype FROM #tmpContributionBettype) 
-			AND (b.gameID NOT IN (SELECT Bettype FROM #tmpSportBetType)
-				OR EXISTS(SELECT 1 FROM #tmpSportBetType s WHERE b.productid = s.Sporttype and b.gameid = s.Bettype)
-				)
-			AND b.statusID IN (111, 112, 113, 103) 
-			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
-			AND (@Currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId))	
-			AND (@IsFilterCust = 0 OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
-			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
-			AND (
-				@HousePTType = 0
-				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) 
-				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
-			)			
-		GROUP BY b.srecommend, b.mrecommend, b.recommend, b.custid, b.gameID, b.currency
+		DELETE d
+		FROM #Data d INNER JOIN #tmpContributionBettype b ON d.bettype = b.bettype
+		WHERE d.bettype IN (SELECT Bettype FROM #tmpSportBetType)
 		
-		OPTION(RECOMPILE)
+		IF EXISTS(SELECT Bettype FROM #tmpContributionBettype) 
+		BEGIN
+			INSERT INTO #tmp_bettrans
+			(
+				srecommend,
+				mrecommend,
+				recommend,
+				custid,
+				Bettype,
+				BetCount,
+				CurrencyID,
+				TotalBets,
+				TotalBetsBase,
+				TotalWins,
+				TotalWinsBase,
+				TotalRefund ,
+				TotalRefundBase ,
+				CompanyTurnover,
+				CompanyTurnoverBase,
+				CompanyGrossIncome,
+				CompanyGrossIncomeBase,
+				CompanyComm,
+				CompanyCommBase,
+				HousePT,
+				ExtraPT,
+				ExtraPTBase,
+				RowNum
+			)
+			SELECT
+				b.srecommend,
+				b.mrecommend,
+				b.recommend,
+				b.custid,
+				b.gameID,
+				0 AS BetCount,
+				b.currency CurrencyID,
+				SUM(CASE WHEN b.statusID IN (103) THEN 0 ELSE actual_stake END) AS TotalBets,
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 ELSE actual_stake END) * actualrate) AS TotalBetsBase,
+				SUM(CASE WHEN b.statusID IN (103) THEN 0 ELSE winlost END) AS TotalWins,
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 ELSE winlost END) * actualrate) AS TotalWinsBase,
+				SUM(CASE WHEN b.statusID IN (103) THEN actual_stake ELSE 0 END) AS TotalRefund,
+				SUM((CASE WHEN b.statusID IN (103) THEN actual_stake ELSE 0 END)  * actualrate) AS TotalRefundBase,
+				SUM(CASE WHEN b.statusID IN (103) THEN 0 
+						WHEN b.tpositiontaking = 1 THEN 0
+						ELSE (1 - b.tpositiontaking - CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) * b.stake END) AS CompanyTurnover,
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 
+						WHEN b.tpositiontaking = 1 THEN 0
+						ELSE (1 - b.tpositiontaking - CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) * b.stake END) * actualrate) AS CompanyTurnoverBase,
+				SUM(b.ContributionStake3rd + awinlost + mwinlost + swinlost) AS CompanyGrossIncome,
+				SUM((b.ContributionStake3rd + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeBase,
+				SUM(scomm) AS CompanyComm,
+				SUM(scomm * actualrate) AS CompanyCommBase,
+				0 AS HousePT,
+				SUM((b.ContributionStake3rd + CASE WHEN tpositiontaking = 1 THEN 0
+								ELSE scomm / (1 - tpositiontaking) END) * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) ExtraPT,
+				SUM((b.ContributionStake3rd + CASE WHEN tpositiontaking = 1 THEN 0
+								ELSE scomm / (1 - tpositiontaking) END) * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8)) * actualrate) ExtraPTBase,							
+				COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS RowNum			
+			FROM dbo.bettransRnG b WITH (NOLOCK)
+			WHERE b.winlostdate = @WLDate				
+				AND b.gameID IN (SELECT Bettype FROM #tmpContributionBettype) 
+				AND (b.gameID NOT IN (SELECT Bettype FROM #tmpSportBetType)
+					OR EXISTS(SELECT 1 FROM #tmpSportBetType s WHERE b.productid = s.Sporttype and b.gameid = s.Bettype)
+					)
+				AND b.statusID IN (111, 112, 113, 103) 
+				AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
+				AND (@Currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId))	
+				AND (@IsFilterCust = 0 OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
+				AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
+				AND (
+					@HousePTType = 0
+					OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) 
+					OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
+				)			
+			GROUP BY b.srecommend, b.mrecommend, b.recommend, b.custid, b.gameID, b.currency
+			
+			OPTION(RECOMPILE)
+		END
 		
 		INSERT INTO #tmp_bettrans
 		(
