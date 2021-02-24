@@ -635,7 +635,7 @@ BEGIN
 		END
 		
 		DELETE d
-		FROM #Data d INNER JOIN #tmpContributionBettype b ON d.bettype = b.bettype
+		FROM #tmp_bettrans d INNER JOIN #tmpContributionBettype b ON d.bettype = b.bettype
 		WHERE d.bettype IN (SELECT Bettype FROM #tmpSportBetType)
 		
 		IF EXISTS(SELECT 1 FROM #tmpContributionBettype) 
