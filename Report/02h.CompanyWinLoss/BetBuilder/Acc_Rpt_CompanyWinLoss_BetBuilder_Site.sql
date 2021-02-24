@@ -5,11 +5,13 @@ GO
 
 ALTER PROCEDURE dbo.Acc_Rpt_CompanyWinLoss_BetBuilder_Site @StartDate SMALLDATETIME, 
                                                            @EndDate   SMALLDATETIME, 
-                                                           @SportType INT,
-                                                           @BetType   INT           = 38, 
-                                                           @IsHedge   INT           = 2, -- Dummy Parameter
-                                                           @IsLive    INT           = 2, -- Dummy Parameter
-                                                           @Site      VARCHAR(20)
+                                                           @SportType   INT,
+                                                           @BetType     INT           = 38, 
+                                                           @IsHedge     INT           = 2, -- Dummy Parameter
+                                                           @IsLive      INT           = 2, -- Dummy Parameter
+														   @IsSabaSport BIT           = 0, -- Dummy Parameter
+														   @IsNoDraw    BIT           = 0, -- Dummy Parameter
+                                                           @Site        VARCHAR(20)
 AS
 
 /*
@@ -23,6 +25,7 @@ Revisions:
 - 20190925@Jacob: Group By CN88 (#118824)
 - 20191212@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
 - 20200722@Roy: Incorporate New Basketball Sport for BetBuilder Product - NAP Report (#138082)
+- 20210223@Ned.Le: Nap Reports - House Winloss By Product - HotFix (#150511)
 Parameters:
 
 Example:
