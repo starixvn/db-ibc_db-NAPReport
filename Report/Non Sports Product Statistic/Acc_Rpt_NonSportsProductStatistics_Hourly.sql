@@ -375,7 +375,7 @@ SET NOCOUNT ON
 
 	--- End Sport Bettype Matrix------
 	
-	CREATE CLUSTERED INDEX IX_SportBettype ON #SportBettype (ProductID, Bettype, EvenType, RefTable)   
+	CREATE CLUSTERED INDEX IX_SportBettype ON #SportBettype (ProductID, Bettype, EventType, RefTable)   
 	CREATE CLUSTERED INDEX IX_SporttypeBettype ON #tmpSportBetType (Sporttype, Bettype)  
 	CREATE CLUSTERED INDEX IX_Bettype ON #tmpContributionBettype (Bettype)  
 	
