@@ -338,7 +338,7 @@ BEGIN
 				MAX(home.teamname 
 					+ CASE WHEN away.teamname IS NOT NULL THEN ' -vs- ' + away.teamname ELSE '' END
 					+ CASE WHEN t.MatchCode LIKE '%hedge%' THEN ' (hedge)' ELSE '' END
-					+ ' (' + t.MatchCode + ')'
+					+ ' (Code: ' + t.MatchCode + ')'
 				) --for Soccer hedge matches, append "(hedge)" to match name
 				, t.MatchCode --summary RM line
 			) AS MatchEvent,
