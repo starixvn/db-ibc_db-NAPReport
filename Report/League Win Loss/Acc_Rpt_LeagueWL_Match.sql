@@ -29,6 +29,7 @@ AS
 								+ Add filter by SiteName
 		- 20201016@Jaden.Tang: Refactor for code readability & performance & new drilldowns (#144387)
 		- 20210126@Jaden.Tang: global show time filter (#147450)
+		- 20210224@Jaden.Tang: Integrate Cricket AIO (#148454)
 
 	Param's Explanation:
 		- @StartDate: The start date of data to view on report
@@ -50,7 +51,7 @@ AS
 		- @GlobalShowTime: refer to to [Acc_Rpt_LeagueWL_Sporttype.sql]
 
 	Example:
-		EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Match_jden @StartDate='2021-02-21', @EndDate='2021-02-28',
+		EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Match @StartDate='2021-02-21', @EndDate='2021-02-28',
 			@LeagueName='CSA T20 Challenge - Score at End of Over', @IsNoDraw=0,
 			@SportBettype='10000_9,10000_29,50_3'
 */
