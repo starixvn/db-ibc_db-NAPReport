@@ -1058,7 +1058,7 @@ BEGIN
 				inner join #SportBettype sb on b.gameID = sb.Bettype
 				LEFT JOIN #SpecialBettypeGroup bg ON b.gameID = bg.Bettype
 			WHERE
-				sb.ProductID IN (6, 17, 22, 24, 32, 33, 34, 36, 42, 50, 55, 56, 60, 61) -- MBC-RNG Casino, Microgaming-RNG Casino, Voidbridge, Fishing World, Pragmatic, Spadegaming, Saba.club, RNG War, PG Soft, Joker, MaxGame
+				sb.ProductID IN (6, 17, 22, 24, 32, 33, 34, 36, 42, 50, 55, 56, 60, 61) -- MBC-RNG Casino, Microgaming-RNG Casino, Voidbridge, Fishing World, Pragmatic, Spadegaming, Saba.club, RNG War, PG Soft, Joker, MaxGame, Habanero
 				AND winlostdate = @winlostdate
 				AND b.statusID IN (111,112,113) --(/Won/lose/Draw)	
 				AND currency <> 20

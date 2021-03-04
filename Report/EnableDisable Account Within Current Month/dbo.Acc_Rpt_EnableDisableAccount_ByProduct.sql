@@ -97,7 +97,7 @@ BEGIN
     DECLARE @bitmap    TINYINT; /* using for sporttype that has 1 setting*/
 
     IF @SportType IN(212, 213, 219, 220, 180, 245, 244, 200, 243, 222, 241, 242, 224, 225, 233, 236, 239, 169) 
-    /* Macau Games, NG2, Fishing World, Virtual Sports, Lottery, Virtual Games, SA Gaming, Saba.club, Sexy Gaming, Table Games, BBIN, IBCBet Live Casino, RNG War, ION, WM, GDG, BG */
+    /* Macau Games, NG2, Fishing World, Virtual Sports, Lottery, Virtual Games, SA Gaming, Saba.club, Sexy Gaming, Table Games, BBIN, IBCBet Live Casino, RNG War, ION, WM, GDG, BG, Sports Lottery */
 
 	   BEGIN
 		  SELECT @bitmap = bitmapOrder
