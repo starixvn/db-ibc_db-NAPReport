@@ -52,6 +52,7 @@ Revisions:
 - 20200930@Jaden.Tang: Odds Spread Adjustment (#141750)
 - 20201126@Cherry: Integrate Virtual Sports 3 (#146010)
 - 20201222@Kean: Support to filter NoDraw and separate the SABA sports - NAP Report (#147451) 
+- 20210303@Cherry: Change product name "Indo 4D" to "Togel 4D" (#149710)
 
 Explanation's Param:
 
@@ -1422,7 +1423,7 @@ Explanation's Param:
 			(20, 31, 'Exchange'),
 			(21, 37, 'Saba Promotion'),
 			(22, 38, 'Virtual Games'),
-			(23, 43, 'Indo 4D'),
+			(23, 43, 'Togel 4D'),
 			(24, 40, 'Table Game'),
 			(25, 42, 'Saba.club'),
 			(26, 50, 'RNG War'),
