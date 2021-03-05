@@ -59,7 +59,7 @@ BEGIN
 		,m.awayid
 		,transdesc
 		,1 as [betcount]
-		,abs(stake)* mc.virtualrate
+		,abs(stake)* mc.actualrate
 		, ABS(Stake) * (1 - tpositiontaking - ISNULL(mc.epositiontaking,0) ) * mc.virtualrate VirtualTO
 		, ABS(Stake) * (1 - tpositiontaking - ISNULL(mc.epositiontaking,0)) * ABS(virtualrate - actualrate) VarianceTO
 		, ABS(Stake) * (1 - tpositiontaking - ISNULL(mc.epositiontaking,0)) * CASE WHEN mc.virtualrate > actualrate THEN mc.virtualrate ELSE actualrate END RealTO
@@ -84,7 +84,7 @@ BEGIN
 		,m.awayid
 		,transdesc
 		,1 as [betcount]
-		,ABS(stake)* mc.virtualrate stake
+		,ABS(stake)* mc.actualrate
 		,ABS(Stake) * (1 - tpositiontaking - ISNULL(mc.epositiontaking,0)) * mc.virtualrate VirtualTO
 		,ABS(Stake) * (1 - tpositiontaking - ISNULL(mc.epositiontaking,0)) * ABS(virtualrate - actualrate) VarianceTO
 		,ABS(Stake) * (1 - tpositiontaking - ISNULL(mc.epositiontaking,0)) * CASE WHEN mc.virtualrate > actualrate THEN mc.virtualrate ELSE actualrate END RealTO
@@ -119,7 +119,7 @@ BEGIN
 		,m.awayid
 		,transdesc
 		,1 as [betcount]
-		,ABS(stake)* mc.virtualrate stake
+		,ABS(stake)* mc.actualrate
 		,ABS(Stake) * (1 - tpositiontaking - ISNULL(mc.epositiontaking,0) ) * mc.virtualrate VirtualTO
 		,ABS(Stake) * (1 - tpositiontaking - ISNULL(mc.epositiontaking,0)) * ABS(virtualrate - actualrate) VarianceTO
 		,ABS(Stake) * (1 - tpositiontaking - ISNULL(mc.epositiontaking,0)) * CASE WHEN mc.virtualrate > actualrate THEN mc.virtualrate ELSE actualrate END RealTO
