@@ -183,7 +183,7 @@ BEGIN
 			   ELSE 'Live & Non-Live'
 			   END [Live]
 		,ISNULL(t1.teamname + ' vs ' + t2.teamname,'Combine Parlay Match') [Match]	
-		,cu1.username 'creator'	
+		,cu1.username 'Creator'	
 		,tr.ReasonEnglish
 	FROM #tmp_data b WITH (NOLOCK)
 		INNER JOIN bodb02.dbo.[TicketVoiding_VoidedTransaction] tv WITH (NOLOCK) ON b.transid = tv.TransId
