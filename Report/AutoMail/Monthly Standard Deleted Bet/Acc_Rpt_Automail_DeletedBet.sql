@@ -37,7 +37,7 @@ BEGIN
 		creator INT,
 		homeid INT,
 		awayid INT,
-		transdesc NVARCHAR (200),
+		transdesc NVARCHAR (1000),
 		betcount INT,
 		memberTO MONEY,
 		VirtualTO MONEY,
