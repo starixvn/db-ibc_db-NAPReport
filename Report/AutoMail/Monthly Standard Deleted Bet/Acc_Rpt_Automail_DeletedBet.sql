@@ -135,9 +135,9 @@ BEGIN
 
 	--Select data------------------------------------------------------------------------------------------------------------------------------
 	SELECT CONVERT(VARCHAR(10), Year(rptDate)) + '-' + CONVERT(VARCHAR(10), RIGHT('0' + RTRIM(MONTH(rptDate)), 2)) AS Monthly
-		,cast(rptDate as DATE) 'Winlossdate'
+		,CAST(rptDate as DATE) 'Winlossdate'
 		,s.SportName
-		,cu.username 'Customer ID'
+		,cu.username 'Customer'
 		, bt.typenamee 'Bettype'
 		,CASE
 				WHEN b.bettype in (1,7,17,20,21) or bt.typenamee like '%Handicap%' or bt.typenamee like '%Moneyline%' or bt.typenamee like '%Cash Out%' THEN 
@@ -171,8 +171,8 @@ BEGIN
 				WHEN betteam = 'h' THEN t1.teamname	
 				WHEN betteam = 'a' THEN t2.teamname		   
 				ELSE betteam					   	 
-		 END [Bet Choice]
-		,SUM(b.memberTO) AS [Turnover Member]
+		 END [BetChoice]
+		,SUM(b.memberTO) AS [TurnoverMember]
 		,SUM(realTO) RealTO
 		,SUM(virtualTO) VirtualTO
 		,SUM(VarianceTO) VarianceTO
