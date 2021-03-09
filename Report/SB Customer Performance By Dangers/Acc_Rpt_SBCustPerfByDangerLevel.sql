@@ -148,13 +148,14 @@ BEGIN
 		To: #tmpDangerLevel ( DangerLevel )
 	*/
 	SET @DangerLevels = REPLACE(@DangerLevels, ' ', '')
-	IF LEN(@DangerLevels) > 0
+	IF LEN(@DangerLevels) > 0 AND @DangerLevels <> 'ALL'
 	BEGIN
 		INSERT INTO #tmpDangerLevel
-		SELECT CONVERT(INT, val)
+		SELECT DISTINCT CONVERT(INT, (CASE WHEN val = 'None' THEN 0 ELSE val END))
 		FROM dbo.strSplit(@DangerLevels, ',')
 		WHERE LEN(val) > 0
-			AND ISNUMERIC(val + '.0e0') = 1
+			AND ( val = 'None'
+				OR ISNUMERIC(val + '.0e0') = 1)
 	END
 	ELSE
 	BEGIN
