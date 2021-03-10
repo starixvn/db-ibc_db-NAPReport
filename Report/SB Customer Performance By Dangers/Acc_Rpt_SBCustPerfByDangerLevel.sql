@@ -134,7 +134,7 @@ BEGIN
 		,c.site
 	FROM dbo.CustAgent AS c WITH (NOLOCK)
 	WHERE (
-		@Divisions <> 'ALL'
+		@Divisions = 'ALL'
 		OR c.site IN ( SELECT SiteName FROM CTE_Sites )
 	)
 	GROUP BY c.custid
