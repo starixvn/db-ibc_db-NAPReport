@@ -46,6 +46,7 @@ AS
 		- 20200921@Jaden.Tang: NAP Report - Incorporate Joker Gaming (#131611) & WM (#131583)
 		- 20201125@Cherry: Integrate GDG (#146008)
 		- 20201225@Ned.Le: NAP Reports - Integrate Big Gaming (#142481)
+		- 20210303@Cherry: Integrate Sports Lottery (#151071)
 
 	Param's Explanation:  
 	  + @ListCurrency: The specified date used as one of the filter criterias, if its value is 'all' then no need to be filtered by currency
@@ -95,8 +96,8 @@ BEGIN
 
     DECLARE @bitmap    TINYINT; /* using for sporttype that has 1 setting*/
 
-    IF @SportType IN(212, 213, 219, 220, 180, 245, 244, 200, 243, 222, 241, 242, 224, 225, 233, 236, 239) 
-    /* Macau Games, NG2, Fishing World, Virtual Sports, Lottery, Virtual Games, SA Gaming, Saba.club, Sexy Gaming, Table Games, BBIN, IBCBet Live Casino, RNG War, ION, WM, GDG, BG */
+    IF @SportType IN(212, 213, 219, 220, 180, 245, 244, 200, 243, 222, 241, 242, 224, 225, 233, 236, 239, 169) 
+    /* Macau Games, NG2, Fishing World, Virtual Sports, Lottery, Virtual Games, SA Gaming, Saba.club, Sexy Gaming, Table Games, BBIN, IBCBet Live Casino, RNG War, ION, WM, GDG, BG, Sports Lottery */
 
 	   BEGIN
 		  SELECT @bitmap = bitmapOrder
@@ -146,7 +147,7 @@ BEGIN
 							 (cps.bitmapIsDisabled, b.bitmapOrder) AS f
 						 WHERE custid = ci.custid
 					  )
-				  WHEN @SportType IN(212, 213, 219, 220, 180, 245, 244, 200, 243, 222, 241, 242, 224, 225, 233, 236, 239)
+				  WHEN @SportType IN(212, 213, 219, 220, 180, 245, 244, 200, 243, 222, 241, 242, 224, 225, 233, 236, 239, 169)
 				  THEN
 					  (
 						 SELECT CASE(SELECT value
@@ -469,7 +470,7 @@ BEGIN
 	   END;
 /* Macau Games, NG2, Fishing World, Virtual Sports, Lottery, Virtual Games, SA Gaming, Saba.club, Sexy Gaming, Table Games, BBIN, IBCBet Live Casino, RNG War, ION, WM, GDG, BG */
 
-    IF @sportType IN(212, 213, 219, 220, 180, 245, 244, 200, 243, 222, 241, 242, 224, 225, 233, 236, 239)
+    IF @sportType IN(212, 213, 219, 220, 180, 245, 244, 200, 243, 222, 241, 242, 224, 225, 233, 236, 239, 169)
 	   BEGIN
 		  INSERT INTO #FiltedDownlineAcc
 			    SELECT sup.CustID

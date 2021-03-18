@@ -53,6 +53,7 @@ Revisions:
 - 20201126@Cherry: Integrate Virtual Sports 3 (#146010)
 - 20201222@Kean: Support to filter NoDraw and separate the SABA sports - NAP Report (#147451) 
 - 20210303@Cherry: Change product name "Indo 4D" to "Togel 4D" (#149710)
+- 20210303@Cherry: Integrate Sports Lottery (#151071)
 
 Explanation's Param:
 
@@ -1265,7 +1266,7 @@ Explanation's Param:
 				, SUM(WinlossForExtraPT_actualrate + grosscomm_actualrate) AS NewExtraPT
 			FROM #src AS b
 			WHERE b.ProductId IN(5, 8, 15, 23, 25, 27, 28, 31, --Virtual Sports, Keno, Colossus Bets, NG2 (3rd), CashOut, Betradar Virtual Sports, Lottery, Exchange
-								 37, 38, 43, 40, 49)           --Saba Promotion, Virtual Games, Indo 4D, Table Games, Virtual Sports 3
+								 37, 38, 43, 40, 49, 63)           --Saba Promotion, Virtual Games, Indo 4D, Table Games, Virtual Sports 3, Sports Lottery
 				 OR b.CasinoType IN(1, 2)
 			GROUP BY site
 				  , CASE
@@ -1392,12 +1393,12 @@ Explanation's Param:
 	   --
 	   --Get Result--
 
-	   DECLARE @ProductOrder AS TABLE(
+	   CREATE TABLE #ProductOrder (
 		   DisplayOrder    INT
 		 , ProductId       INT
 		 , ProductName     NVARCHAR(50)
 		 , Site            TINYINT DEFAULT 0);
-	   INSERT INTO @ProductOrder(DisplayOrder
+	   INSERT INTO #ProductOrder(DisplayOrder
 						  , ProductId
 						  , ProductName)
 	   VALUES
@@ -1408,28 +1409,35 @@ Explanation's Param:
 			(5, -7, 'SB Adjustment'),
 			(6, -1, 'Metric Gaming - Superlive'),
 			(7, -6, 'Bet Builder'),
-			(8, 8, 'RNG Keno'),
-			(9, 3, 'Number Game'),
+			(8, 8, NULL),
+			(9, 3, NULL),
 			(10, 4, 'Live Casino'),
 			(11, 6, 'Casino'),
-			(12, 5, 'Virtual Sports'),
-			(13, 27, 'Virtual Sports 2'),
-			(14, 28, 'Lottery'),
-			(15, 23, 'NG2'),
+			(12, 5, NULL),
+			(13, 27, NULL),
+			(14, 28, NULL),
+			(15, 23, NULL),
 			(16, -2, 'Bettrade'),
-			(17, 25, 'Cash Out'),
-			(18, 15, 'Colossus Bets'),
-			(19, 24, 'Fishing World'),
-			(20, 31, 'Exchange'),
-			(21, 37, 'Saba Promotion'),
-			(22, 38, 'Virtual Games'),
-			(23, 43, 'Togel 4D'),
-			(24, 40, 'Table Game'),
-			(25, 42, 'Saba.club'),
-			(26, 50, 'RNG War'),
-			(27, 49, 'Virtual Sports 3');
+			(17, 25, NULL),
+			(18, 15, NULL),
+			(19, 24, NULL),
+			(20, 31, NULL),
+			(21, 37, NULL),
+			(22, 38, NULL),
+			(23, 43, NULL),
+			(24, 40, NULL),
+			(25, 42, NULL),
+			(26, 50, NULL),
+			(27, 49, NULL),
+			(28, 63, NULL);
+			
+	   UPDATE p
+	   SET p.ProductName = s.ProductName
+	   FROM #ProductOrder p		
+			INNER JOIN bodb02.dbo.Products s WITH(NOLOCK) ON p.ProductId = s.ProductId
+	   WHERE p.ProductName IS NULL
 
-	   INSERT INTO @ProductOrder(DisplayOrder
+	   INSERT INTO #ProductOrder(DisplayOrder
 						  , ProductId
 						  , ProductName
 						  , Site)
@@ -1446,7 +1454,7 @@ Explanation's Param:
 			    DisplayOrder = P.DisplayOrder
 			  , ProductName = P.ProductName
 	   FROM #Result R
-		  INNER JOIN @ProductOrder P ON P.ProductID = R.ProductId
+		  INNER JOIN #ProductOrder P ON P.ProductID = R.ProductId
 								  AND P.Site = CASE
 											    WHEN P.Site <> 0
 											    THEN r.Site
@@ -1512,5 +1520,6 @@ Explanation's Param:
 	   DROP TABLE #SportBettype;
 	   DROP TABLE #SpecialBettypeGroup
 	   DROP TABLE #SABALeagueGroup;
+	   DROP TABLE #ProductOrder;
     END
 GO
