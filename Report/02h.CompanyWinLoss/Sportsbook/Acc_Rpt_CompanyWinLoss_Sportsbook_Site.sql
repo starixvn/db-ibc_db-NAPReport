@@ -9,7 +9,7 @@ ALTER PROCEDURE dbo.Acc_Rpt_CompanyWinLoss_Sportsbook_Site @StartDate SMALLDATET
                                                            @BetType   INT, 
                                                            @IsHedge   INT           = 2, 
                                                            @IsLive    INT           = 2,
-														   @IsSabaSport BIT = 0,
+														   @IsSabaSport TINYINT = 0,
 														   @IsNoDraw BIT = 0, 
                                                            @Site      VARCHAR(20)
 AS
@@ -30,10 +30,12 @@ Revisions:
 - 20190925@Jacob: Group By CN88 (#118824)
 - 20191212@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
 - 20201222@Kean: Support to filter NoDraw and separate the SABA sports - NAP Report (#147451)
+- 20210323@Kean: Daily Win Loss (2h) Soccer Minor Bet Types do not use @IsSabaSport parameter (#152100)
 
 Parameters:
 @IsLive: 2 - ALL. 0 - Non-Live. 1 - Live
 @IsHedge: 2 - ALL. 0 - Non-Hedge. 1 - Hedge
+@IsSabaSport: 2 - ALL. 0 - Non-SABA. 1 - SABA 
 
 Example: 
 EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Site] @StartDate='2016-01-01', @EndDate='2020-01-01', @SportType = 1, @BetType = 1, @IsHedge=0, @IsLive=2,  @Site = 'Credit'
@@ -114,7 +116,8 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Site] @StartDate='2016-01-01', @EndDate=
                        ) AS m
                        INNER JOIN league AS l WITH(NOLOCK) ON m.LeagueId = l.LeagueId
                        WHERE l.sporttype = @sporttype
-						   AND ((@IsSabaSport = 0 AND l.LeagueGroupID NOT IN (SELECT LeagueGroupID FROM #SABALeagueGroup)) 
+						   AND (@IsSabaSport = 2
+						   OR (@IsSabaSport = 0 AND l.LeagueGroupID NOT IN (SELECT LeagueGroupID FROM #SABALeagueGroup)) 
 							OR (@IsSabaSport = 1 AND l.LeagueGroupID IN (SELECT LeagueGroupID FROM #SABALeagueGroup))
 						);
         END;
@@ -138,7 +141,8 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Site] @StartDate='2016-01-01', @EndDate=
                        ) AS m
                        INNER JOIN league AS l WITH(NOLOCK) ON m.LeagueId = l.LeagueId
                        WHERE l.sporttype = @sporttype
-						   AND ((@IsSabaSport = 0 AND l.LeagueGroupID NOT IN (SELECT LeagueGroupID FROM #SABALeagueGroup)) 
+						   AND (@IsSabaSport = 2
+						    OR (@IsSabaSport = 0 AND l.LeagueGroupID NOT IN (SELECT LeagueGroupID FROM #SABALeagueGroup)) 
 							OR (@IsSabaSport = 1 AND l.LeagueGroupID IN (SELECT LeagueGroupID FROM #SABALeagueGroup))
 						);
         END;
