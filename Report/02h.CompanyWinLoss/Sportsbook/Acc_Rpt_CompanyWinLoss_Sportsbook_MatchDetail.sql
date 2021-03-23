@@ -9,7 +9,7 @@ ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_Sportsbook_MatchDetail] @StartDate
                                                                       @BetType   INT           = 1, 
                                                                       @IsHedge   INT           = 2, 
                                                                       @IsLive    INT           = 2,
-																	  @IsSabaSport TINYINT = 2,
+																	  @IsSabaSport TINYINT = 0,
 																	  @IsNoDraw BIT = 0 
 AS
 
