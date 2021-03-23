@@ -6,7 +6,7 @@ GO
 ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_Sportsbook_Outright_MatchDetail] @StartDate SMALLDATETIME, 
                                                                                @EndDate   SMALLDATETIME, 
                                                                                @SportType SMALLINT      = 1,
-																			   @IsSabaSport BIT = 0,
+																			   @IsSabaSport TINYINT = 2,
 																			   @IsNoDraw BIT = 0
 AS
 
@@ -23,7 +23,10 @@ Revisions:
 - 20190925@Jacob: Group By CN88 (#118824)
 - 20191212@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
 - 20201222@Kean: Support to filter NoDraw and separate the SABA sports - NAP Report (#147451)
+- 20210323@Kean: Daily Win Loss (2h) Soccer Minor Bet Types do not use @IsSabaSport parameter (#152100)
 
+Parameters:
+@IsSabaSport: 2 - ALL. 0 - Non-SABA. 1 - SABA 
 Example:
 EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Outright_MatchDetail] @EndDate='2020-01-01',@StartDate='2016-01-01', @SportType=2
 
@@ -55,7 +58,8 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Outright_MatchDetail] @EndDate='2020-01-
                     INNER JOIN league l WITH(NOLOCK) ON o.LeagueId = l.LeagueId
                WHERE EventDate = @StartDate
                      AND l.sporttype = @SportType
-					 AND ((@IsSabaSport = 0 AND l.LeagueGroupID NOT IN (SELECT LeagueGroupID FROM #SABALeagueGroup)) 
+					 AND (@IsSabaSport = 2
+							OR (@IsSabaSport = 0 AND l.LeagueGroupID NOT IN (SELECT LeagueGroupID FROM #SABALeagueGroup)) 
 							OR (@IsSabaSport = 1 AND l.LeagueGroupID IN (SELECT LeagueGroupID FROM #SABALeagueGroup))
 						);
     END;
