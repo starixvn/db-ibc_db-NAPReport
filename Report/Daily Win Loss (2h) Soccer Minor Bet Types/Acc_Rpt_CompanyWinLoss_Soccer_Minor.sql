@@ -17,6 +17,7 @@ Revisions:
     20180920@Robert: Apply new concept for Virtual & Extra PT on 2h Soccer Minor Bettype [#100617]
     20190308@Cherry: Integrate Bet Builder (#109822)
 	20191212@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
+	20212203@Jaden: Support SABA789 (#151326)
 
 Parameters:
 
@@ -50,8 +51,8 @@ BEGIN /* #DepositSuper*/
 	    PRIMARY KEY);
     INSERT INTO #DepositSuper
 		 SELECT CustId
-		 FROM f_DepSuper_1
-			 ('All');
+		 FROM Dep_CustSuper WITH (NOLOCK)
+			WHERE [site] <> 'Saba789';
 END;
 BEGIN /* #Match*/
 

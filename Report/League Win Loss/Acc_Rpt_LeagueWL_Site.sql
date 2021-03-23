@@ -20,6 +20,7 @@ AS
 	Revisions:
 		- 20200424@Jaden.Tang: NAP Report - New drilldown level for League Win Loss (#138955)
         - 20201016@Jaden.Tang: Refactor for code readability & new drilldowns (#144387)
+        - 20212203@Jaden: Support SABA789 (#151326)
 
 	Param's Explanation:
 		- @StartDate: The start date of data to view on report
@@ -93,6 +94,7 @@ BEGIN
                         FROM bodb02..Customer AS c WITH(NOLOCK)
                         INNER JOIN bodb02..Dep_CustSuper AS dep WITH(NOLOCK) 
                             ON c.srecommend = dep.CustId
+                            AND dep.site <> 'Saba789'
                         WHERE c.RoleID = 2
                             AND c.CustId NOT IN (52466, 5707545)
                                     UNION
@@ -110,6 +112,7 @@ BEGIN
                         FROM bodb02..Customer AS c WITH(NOLOCK)
                         LEFT JOIN bodb02..Dep_CustSuper AS dep WITH(NOLOCK) 
                             ON c.srecommend = dep.CustId
+                            AND dep.site <> 'Saba789'
                         LEFT JOIN bodb02..CS_CustSuper cn88 WITH(NOLOCK) 
                             ON c.srecommend = cn88.CustId
                         WHERE c.RoleID = 2

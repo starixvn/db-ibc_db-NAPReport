@@ -54,6 +54,7 @@ Revisions:
 - 20201222@Kean: Support to filter NoDraw and separate the SABA sports - NAP Report (#147451) 
 - 20210303@Cherry: Change product name "Indo 4D" to "Togel 4D" (#149710)
 - 20210303@Cherry: Integrate Sports Lottery (#151071)
+- 20212203@Jaden: Support SABA789 (#151326)
 
 Explanation's Param:
 
@@ -213,8 +214,9 @@ Explanation's Param:
 		   custid    INT);
 	   INSERT INTO #DepSuper
 			SELECT custid
-			FROM f_DepSuper_1
-				('All');
+			FROM Dep_CustSuper WITH (NOLOCK)
+			/*exclude saba789 from #DepSuper, so that later on the [site] won't be updated to 2 (Deposit) and stays as default (Credit)*/
+			WHERE [site] <> 'Saba789';
 	   -- #SABALeagueGroup
 		CREATE TABLE #SABALeagueGroup(LeagueGroupID INT)
 		SELECT @LeagueGroupStr = [VValue] FROM DBWH.[bodb_Account].[dbo].[SystemSettings] WHERE VID = 5

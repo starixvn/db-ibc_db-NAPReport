@@ -30,6 +30,7 @@ AS
 		- 20201016@Jaden.Tang: Refactor for code readability & new drilldowns (#144387)
 		- 20210126@Jaden.Tang: global show time filter (#147450)
 		- 20210208@Jaden.Tang: Hotfix - change LiveIndicator type to TINYINT (#150190)
+		- 20212203@Jaden: Support SABA789 (#151326)
 
 	Param's Explanation:
 		- @StartDate: The start date of data to view on report
@@ -190,6 +191,7 @@ BEGIN
 			FROM bodb02..Customer AS s WITH(NOLOCK)
 			LEFT JOIN bodb02..Dep_CustSuper AS dep WITH(NOLOCK) 
 				ON s.srecommend = dep.CustId
+				AND dep.site <> 'Saba789'
 			LEFT JOIN bodb02..CS_CustSuper cn88 WITH(NOLOCK) 
 				ON s.srecommend = cn88.CustId
 			WHERE s.RoleID = 2 -- always get Site info from Agent
