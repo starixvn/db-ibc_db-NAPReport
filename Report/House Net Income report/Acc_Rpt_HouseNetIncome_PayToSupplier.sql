@@ -168,12 +168,13 @@ BEGIN
 		FROM #__Party3rdInfo p3
 			INNER JOIN #Party p ON p3.PartyId = p.ParentId
 
-		CREATE TABLE #__PartyCharge3rdInfoByAmount (IsDeposit BIT, Product3rdId INT, CurrencyId INT, Rate MONEY, MinAmount MONEY, MaxAmount MONEY, FromDate DATE, ToDate DATE)
-		INSERT INTO #__PartyCharge3rdInfoByAmount (IsDeposit, Product3rdId, CurrencyId, Rate, MinAmount, MaxAmount, FromDate, ToDate)
-		SELECT DISTINCT p.IsDeposit, p.Product3rdId, c.BaseCurrencyId, p.Rate, c.MinAmount, c.MaxAmount, p.FromDate, p.ToDate
+		CREATE TABLE #__PartyCharge3rdInfoByAmount (IsDeposit BIT, Product3rdId INT, CurrencyId INT, Rate MONEY, MinAmount MONEY, MaxAmount MONEY)
+		INSERT INTO #__PartyCharge3rdInfoByAmount (IsDeposit, Product3rdId, CurrencyId, Rate, MinAmount, MaxAmount)
+		SELECT DISTINCT p.IsDeposit, p.Product3rdId, c.BaseCurrencyId, p.Rate, c.MinAmount, c.MaxAmount
 		FROM #__PartyCharge3rdInfo p
 			INNER JOIN DBLIC.bodb_licensee.dbo.OAS_ChargeInfo c WITH (NOLOCK) ON p.ChargeId = c.ChargeId
 		WHERE p.ChargeType = 1 AND p.IsDeposit = 0 AND p.Product3rdId IN (32, 65) -- PP, PP Live Casino
+			AND @ToDate BETWEEN c.FromDate AND c.ToDate
 		
 		UPDATE p
 		SET p.Rate = 0
@@ -422,12 +423,13 @@ BEGIN
 			WHERE Product3rdId IN (32, 65) AND IsDeposit = 0
 			GROUP BY rptDate, Product3rdId, IsDeposit
 		) wl
-			INNER JOIN #__PartyCharge3rdInfoByAmount ci ON wl.Product3rdId = ci.Product3rdId AND wl.IsDeposit = ci.IsDeposit AND wl.RptDate BETWEEN ci.FromDate AND ci.ToDate
+			INNER JOIN #__PartyCharge3rdInfoByAmount ci ON wl.Product3rdId = ci.Product3rdId AND wl.IsDeposit = ci.IsDeposit
 			INNER JOIN @ExchangeOANDA ex ON ci.CurrencyId = ex.ExchangeId
 
 		INSERT INTO #__FullRangePayToSupplier (IsDeposit, Product3rdId, PayToSupplier)
 		SELECT wl.IsDeposit, wl.Product3rdId
 			,SUM((CASE
+				WHEN wl.Product3rdId = 32 AND -wl.MemberWLRate < 0 THEN 0
 				WHEN
 					(wl.MemberWLRate < 0 AND (ci.MinAmount * ex.Rate) = 0)
 					OR (wl.MemberWLRate >= (ci.MinAmount * ex.Rate))
@@ -439,13 +441,14 @@ BEGIN
 			) * ci.Rate) AS PayToSupplier
 		FROM
 		(
-			SELECT rptDate, Product3rdId, IsDeposit, SUM(MemberWLMonthRate) AS MemberWLRate
+			SELECT Product3rdId, IsDeposit, SUM(MemberWLMonthRate) AS MemberWLRate
 			FROM #__tempResult
 			WHERE Product3rdId IN (32, 65) AND IsDeposit = 0
-			GROUP BY rptDate, Product3rdId, IsDeposit
+			GROUP BY Product3rdId, IsDeposit
 		) wl
-			INNER JOIN #__PartyCharge3rdInfoByAmount ci ON wl.Product3rdId = ci.Product3rdId AND wl.IsDeposit = ci.IsDeposit AND wl.RptDate BETWEEN ci.FromDate AND ci.ToDate
+			INNER JOIN #__PartyCharge3rdInfoByAmount ci ON wl.Product3rdId = ci.Product3rdId AND wl.IsDeposit = ci.IsDeposit
 			INNER JOIN @ExchangeOANDA ex ON ci.CurrencyId = ex.ExchangeId
+		GROUP BY wl.IsDeposit, wl.Product3rdId
 	END
 
 	-- SA Gaming for Deposit
