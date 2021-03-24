@@ -42,6 +42,7 @@ AS
 		20200917@Cherry: Improve performance (#141844)
 		20201224@Cherry: Integrate Happy 5 Linked Games (#146537)
 		20210120@Cherry: Integrate Saba Jackpot (#148293)	
+		20210324@Cherry: Consider Saba789 as Credit site (#152124)
 
 	Param's Explanation:
 		- @ProductID: string filter by Product 
@@ -181,8 +182,14 @@ BEGIN
 	-- Get list member
 	DECLARE @srecommend INT, @RoleID TINYINT, @recommend INT, @CustSite VARCHAR(10)
 	SELECT  @srecommend = srecommend, @recommend = recommend, @RoleID = roleid, @CustSite = site FROM dbo.Customer WITH(NOLOCK) WHERE custid = @CID
+	
+	CREATE TABLE #tmpDep_CustSuper (CustID INT)
+	
+	INSERT INTO #tmpDep_CustSuper (CustID)
+	SELECT custid
+	FROM DBWH.bodb_Account.dbo.vw_Dep_CustSuper WITH(NOLOCK)
 
-	IF NOT EXISTS (SELECT 1 FROM dbo.Dep_CustSuper WITH(NOLOCK) WHERE custid = @srecommend) -- Credit - MBC Group
+	IF NOT EXISTS (SELECT 1 FROM #tmpDep_CustSuper WHERE custid = @srecommend) -- Credit - MBC Group
 	BEGIN
 		SELECT @CustSite = 'Credit Group'
 	END
@@ -795,4 +802,5 @@ BEGIN
 	DROP TABLE #tmpContributionBettype		
 	DROP TABLE #tmpSportBetType
 	DROP TABLE #tmpNoBetCountBettype
+	DROP TABLE #tmpDep_CustSuper
 END

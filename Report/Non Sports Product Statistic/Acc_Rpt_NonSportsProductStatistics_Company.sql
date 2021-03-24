@@ -53,6 +53,7 @@ AS
 		20201210@Cherry: Add Real Turnover (#146137)
 		20201224@Cherry: Integrate Happy 5 Linked Games (#146537)
 		20210120@Cherry: Integrate Saba Jackpot (#148293)
+		20210324@Cherry: Consider Saba789 as Credit site (#152124)
 
 	Param's Explanation:
 		- @username:  + Search by keyword, member only
@@ -327,6 +328,11 @@ BEGIN
 	CREATE TABLE #recommend (SiteName VARCHAR(50), recommend INT, isDeposit BIT)
 	DECLARE @isDrillDownLicensee BIT
 	SELECT  @isDrillDownLicensee = 0
+	CREATE TABLE #tmpDep_CustSuper (CustID INT)
+	
+	INSERT INTO #tmpDep_CustSuper (CustID)
+	SELECT custid
+	FROM DBWH.bodb_Account.dbo.vw_Dep_CustSuper WITH(NOLOCK)
 
 	IF @Site = 'All'
 	BEGIN
@@ -341,7 +347,7 @@ BEGIN
 		SELECT @isDrillDownLicensee = 1
 		INSERT INTO #recommend (SiteName, recommend, isDeposit)
 		SELECT c.site, c.custid, 1
-		FROM dbo.Dep_CustSuper d WITH (NOLOCK)
+		FROM #tmpDep_CustSuper d
 			INNER JOIN dbo.Customer c WITH (NOLOCK) ON d.custid = c.srecommend
 		WHERE c.roleid = 2
 	END
@@ -350,7 +356,7 @@ BEGIN
 		INSERT INTO #recommend (SiteName, recommend, isDeposit)
 			SELECT c.site, c.custid, 0
 			FROM dbo.Customer c WITH(NOLOCK)
-				LEFT JOIN dbo.Dep_CustSuper d WITH(NOLOCK) ON c.srecommend = d.custid
+				LEFT JOIN #tmpDep_CustSuper d ON c.srecommend = d.custid
 			WHERE c.roleid = 2 AND d.custid IS NULL
 	END
 	ELSE
@@ -363,7 +369,7 @@ BEGIN
 			SELECT @isDrillDownLicensee = 1
 			INSERT INTO #recommend (SiteName, recommend, isDeposit)
 			SELECT c.site, c.custid, 1
-			FROM dbo.Dep_CustSuper d WITH (NOLOCK)
+			FROM #tmpDep_CustSuper d
 				INNER JOIN dbo.Customer c WITH (NOLOCK) ON d.custid = c.srecommend
 				INNER JOIN dbo.Site ss WITH (NOLOCK) ON ss.Site = c.site
 				INNER JOIN #tmp_Site s ON ss.site = s.Site
@@ -375,7 +381,7 @@ BEGIN
 			INSERT INTO #recommend (SiteName, recommend, isDeposit)
 			SELECT c.site, c.custid, 1
 			FROM dbo.Customer c WITH(NOLOCK)
-				LEFT JOIN dbo.Dep_CustSuper d WITH(NOLOCK) ON c.srecommend = d.custid
+				LEFT JOIN #tmpDep_CustSuper d ON c.srecommend = d.custid
 				INNER JOIN dbo.Site ss WITH (NOLOCK) ON ss.Site = c.site
 				INNER JOIN #tmp_Site s ON ss.site = s.Site
 			WHERE c.roleid = 2 AND d.custid IS NULL
@@ -1853,6 +1859,7 @@ BEGIN
 	DROP TABLE #tmpSportBetType
 	DROP TABLE #tmpNetStakeBettype
 	DROP TABLE #tmpNoBetCountBettype
+	DROP TABLE #tmpDep_CustSuper
 
 END
 

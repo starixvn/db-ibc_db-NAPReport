@@ -13,6 +13,7 @@ AS
 	
 	Revisions:
 		20201020@Cherry: Get Currency dropdown by Site [Redmine: #140386]
+		20210324@Cherry: Consider Saba789 as Credit site (#152124)
 		
 	Param: 
 		@SiteId = -1 : All, 0: Credit, >0: Deposit
@@ -23,6 +24,7 @@ BEGIN
 	SET NOCOUNT ON
 	CREATE TABLE #tmpSite (SiteID INT)
 	CREATE TABLE #Currency (ExchangeId INT, Currency NVARCHAR(50))
+	CREATE TABLE #tmpLicensees (LicenseeID INT, LicenseeName VARCHAR(50))
 	DECLARE @IsCredit BIT = 0
 	
 	IF @SiteId <> '-1'
@@ -51,12 +53,16 @@ BEGIN
 				)
 	END
 	
+	INSERT INTO #tmpLicensees (LicenseeID, LicenseeName)
+	SELECT LicenseeID, LicenseeName
+	FROM DBWH.bodb_Account.dbo.vw_Licensees WITH(NOLOCK)
+	
 	IF EXISTS(SELECT TOP 1 1 FROM #tmpSite WHERE SiteID > 0) -- Deposit
 	BEGIN
 		INSERT INTO #Currency (ExchangeId, Currency)
 		SELECT DISTINCT ex.ExchangeId, ex.Currency
         FROM bodb_licensee.dbo.LicenseeCust lc WITH (NOLOCK)
-              INNER JOIN bodb_licensee.dbo.Licensees l WITH (NOLOCK) ON l.LicenseeID = lc.LicenseeID
+              INNER JOIN #tmpLicensees l ON l.LicenseeID = lc.LicenseeID
               INNER JOIN dbo.exchange ex WITH (NOLOCK) ON lc.Currency = ex.exchangeid
               INNER JOIN dbo.site s WITH (NOLOCK) ON s.site = l.LicenseeName AND s.isActive = 1
               LEFT JOIN #Currency c ON ex.exchangeid = c.ExchangeId
@@ -72,6 +78,7 @@ BEGIN
 	
 	DROP TABLE #tmpSite
 	DROP TABLE #Currency
+	DROP TABLE #tmpLicensees
 	
 END 
 GO
