@@ -189,9 +189,8 @@ BEGIN
 				 		WHEN dep.custid  IS NOT NULL THEN 'Deposit'
 						ELSE 'Credit' END AS SiteType
 			FROM bodb02..Customer AS s WITH(NOLOCK)
-			LEFT JOIN bodb02..Dep_CustSuper AS dep WITH(NOLOCK) 
+			LEFT JOIN DBDW.bodb_Account.dbo.vw_Dep_CustSuper dep WITH (NOLOCK)
 				ON s.srecommend = dep.CustId
-				AND dep.site <> 'Saba789'
 			LEFT JOIN bodb02..CS_CustSuper cn88 WITH(NOLOCK) 
 				ON s.srecommend = cn88.CustId
 			WHERE s.RoleID = 2 -- always get Site info from Agent

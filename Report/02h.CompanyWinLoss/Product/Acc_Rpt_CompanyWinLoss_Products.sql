@@ -214,9 +214,7 @@ Explanation's Param:
 		   custid    INT);
 	   INSERT INTO #DepSuper
 			SELECT custid
-			FROM Dep_CustSuper WITH (NOLOCK)
-			/*exclude saba789 from #DepSuper, so that later on the [site] won't be updated to 2 (Deposit) and stays as default (Credit)*/
-			WHERE [site] <> 'Saba789';
+			FROM DBDW.bodb_Account.dbo.vw_Dep_CustSuper WITH (NOLOCK)
 	   -- #SABALeagueGroup
 		CREATE TABLE #SABALeagueGroup(LeagueGroupID INT)
 		SELECT @LeagueGroupStr = [VValue] FROM DBWH.[bodb_Account].[dbo].[SystemSettings] WHERE VID = 5

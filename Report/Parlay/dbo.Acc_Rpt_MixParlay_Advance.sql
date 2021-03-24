@@ -104,7 +104,7 @@ ELSE BEGIN
 	INSERT INTO #DepAgent (custid)
 	SELECT c.custid
 	FROM custinfo c WITH(NOLOCK)
-		LEFT JOIN (select custid from Dep_CustSuper with (NOLOCK) where [site] <> 'Saba789') dep ON c.srecommend = dep.custid
+		LEFT JOIN (select custid from DBDW.bodb_Account.dbo.vw_Dep_CustSuper with (NOLOCK)) dep ON c.srecommend = dep.custid
 	WHERE roleid = 2
 		AND 1= CASE WHEN @site = 1 AND dep.custid IS NULL THEN 1
 					WHEN @site = 2 AND dep.custid IS NOT NULL THEN 1 ELSE 0 END

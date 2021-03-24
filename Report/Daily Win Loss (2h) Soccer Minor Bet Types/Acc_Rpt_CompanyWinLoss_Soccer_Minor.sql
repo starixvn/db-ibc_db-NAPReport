@@ -51,8 +51,7 @@ BEGIN /* #DepositSuper*/
 	    PRIMARY KEY);
     INSERT INTO #DepositSuper
 		 SELECT CustId
-		 FROM Dep_CustSuper WITH (NOLOCK)
-			WHERE [site] <> 'Saba789';
+		 FROM DBDW.bodb_Account.dbo.vw_Dep_CustSuper WITH (NOLOCK)
 END;
 BEGIN /* #Match*/
 
