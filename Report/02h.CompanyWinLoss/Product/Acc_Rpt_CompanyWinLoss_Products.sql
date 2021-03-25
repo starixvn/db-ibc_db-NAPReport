@@ -54,6 +54,7 @@ Revisions:
 - 20201222@Kean: Support to filter NoDraw and separate the SABA sports - NAP Report (#147451) 
 - 20210303@Cherry: Change product name "Indo 4D" to "Togel 4D" (#149710)
 - 20210303@Cherry: Integrate Sports Lottery (#151071)
+- 20210325@Jaden: Integrate PP Live Casino (#133731)
 
 Explanation's Param:
 
@@ -1266,7 +1267,7 @@ Explanation's Param:
 				, SUM(WinlossForExtraPT_actualrate + grosscomm_actualrate) AS NewExtraPT
 			FROM #src AS b
 			WHERE b.ProductId IN(5, 8, 15, 23, 25, 27, 28, 31, --Virtual Sports, Keno, Colossus Bets, NG2 (3rd), CashOut, Betradar Virtual Sports, Lottery, Exchange
-								 37, 38, 43, 40, 49, 63)           --Saba Promotion, Virtual Games, Indo 4D, Table Games, Virtual Sports 3, Sports Lottery
+								 37, 38, 43, 40, 49, 63, 65)           --Saba Promotion, Virtual Games, Indo 4D, Table Games, Virtual Sports 3, Sports Lottery, PP Live Casino
 				 OR b.CasinoType IN(1, 2)
 			GROUP BY site
 				  , CASE
@@ -1429,7 +1430,8 @@ Explanation's Param:
 			(25, 42, NULL),
 			(26, 50, NULL),
 			(27, 49, NULL),
-			(28, 63, NULL);
+			(28, 63, NULL),
+			(29, 65, NULL);
 			
 	   UPDATE p
 	   SET p.ProductName = s.ProductName
