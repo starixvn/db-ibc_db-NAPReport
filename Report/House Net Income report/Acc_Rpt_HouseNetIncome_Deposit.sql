@@ -15,6 +15,7 @@ AS
 		- 20200112@Percy: Integrate Happy 5 Linked Games [RedmineID: #146539]
 		- 20210125@Percy: Return SubFigure column [RedmineID: #149267]
 		- 20210202@Percy: Integrate Saba.Club Four Guardians games [RedmineID: #149122]
+		- 20210325@Sophia: Change Formula of House TO to get rate from LA setting, not use PT Setting [Redmine: #152291] 
 */
 
 BEGIN
@@ -294,6 +295,7 @@ BEGIN
 			,MemberWL			MONEY DEFAULT(0) -- CO: include AWinloss, PP: exclude LicenseeContribution
 			,HouseWL			MONEY DEFAULT(0)
 			,HouseTO			MONEY DEFAULT(0)
+			,Stake				MONEY DEFAULT(0)
 			,Comm				MONEY DEFAULT(0) -- SB: BA Comm, Exchange: AComm + PComm
 			,HouseContribution	MONEY DEFAULT(0) -- FullContribution - LicenseeContribution
 			,FullContribution	MONEY DEFAULT(0) -- FullContribution
@@ -400,7 +402,7 @@ BEGIN
 				IF @ToDateByBatch > @TDate
 					SET @ToDateByBatch = @TDate
 
-				INSERT INTO #__tempData (rptDate, SiteId_DW, CurrencyId, Product3rdId, AliasProductId, SportTypeGroup, BetTypeGroup, MemberWL, HouseWL, HouseTO, HouseContribution, FullContribution)
+				INSERT INTO #__tempData (rptDate, SiteId_DW, CurrencyId, Product3rdId, AliasProductId, SportTypeGroup, BetTypeGroup, MemberWL, HouseWL, HouseTO, Stake, HouseContribution, FullContribution)
 				SELECT b.rptDate, b.SiteId, b.CurrencyId, bt.Product3rdId
 					,CASE
 						WHEN bt.Product3rdId <> 0 THEN bt.AliasProductId
@@ -423,6 +425,8 @@ BEGIN
 						) AS MemberWL
 					,SUM(CASE WHEN bt.IsOnlyTO = 1 OR bt.bettype IN (1698, 4297) THEN 0 ELSE b.WinlossIBC + b.CommissionS END) AS HouseWL
 					,SUM(b.TurnoverIBC * CASE WHEN b.VarianceVR > 0 THEN b.VarianceVR + 1.0 ELSE 1.0 END * CASE WHEN b.TicketStatus = 3 THEN 0 WHEN b.TicketStatus IN (12, 13) THEN 0.5 ELSE 1.0 END) AS HouseTO -- VarianceVR = virtualrate/actualrate - 1
+					---- HouseTO change formula, will get MemberTO * ChargeRate
+					,SUM(b.Stake * CASE WHEN b.VarianceVR > 0 THEN b.VarianceVR + 1.0 ELSE 1.0 END * CASE WHEN b.TicketStatus = 3 THEN 0 WHEN b.TicketStatus IN (12, 13) THEN 0.5 ELSE 1.0 END) AS Stake -- VarianceVR = virtualrate/actualrate - 1
 					,SUM(CASE WHEN bt.bettype IN (1698, 4297) THEN b.WinlossIBC ELSE 0 END) AS HouseContribution
 					,SUM(CASE WHEN bt.bettype IN (1698, 4297) THEN b.WinlossIBC-b.WinlossS-b.WinlossM-b.WinlossA ELSE 0 END) AS FullContribution
 				FROM bodb_Account.dbo.FactSiteWinloss b WITH (NOLOCK)
@@ -558,7 +562,10 @@ BEGIN
 									+ CASE WHEN t.Product3rdId = 31 THEN t.Comm ELSE 0 END) * e.Rate)
 			,FullContribution	= SUM(CASE WHEN t.BetTypeGroup = -3 THEN t.FullContribution ELSE 0 END * e.Rate)
 			,JackpotPrize		= SUM(CASE WHEN t.BetTypeGroup = -3 THEN -t.MemberWL ELSE 0 END * e.Rate)
-			,HouseTurnover		= SUM(t.HouseTO * e.Rate)
+			,HouseTurnover		= SUM(CASE 
+										WHEN p.PartyId IS NULL THEN HouseTO										
+										ELSE (t.Stake * ISNULL(ISNULL(lc.Rate, p.Rate),0)) 
+										END * e.Rate)
 			,HouseIncomeDaily	= SUM(CASE
 										WHEN t.Product3rdId = 15 THEN t.MemberWL
 										WHEN t.Product3rdId IN (25, 37) THEN -t.HouseWL
