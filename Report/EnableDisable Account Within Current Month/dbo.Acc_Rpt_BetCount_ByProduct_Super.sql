@@ -65,6 +65,7 @@ AS
 		- 20201225@Ned.Le: NAP Reports - Integrate MaxGame (#147570)
 		- 20210303@Cherry: Integrate Habanero (#151070)
 		- 20210303@Cherry: Integrate Sports Lottery (#151071)
+		- 20210325@Jaden: Change bettype range from [3101 - 3199] to [3101 - 3150] (#151869)
 
 	Param's Explanation:  
 	  + @MoveBetsDay: The day of moving bets to battrans14
@@ -73,7 +74,7 @@ AS
 	  + @SportType
 		{251: Casino (include : 251, 208, 209, 210), 151:Racing, 252:Bingo, 161:Number Game, 162:Live Casino, 180:Virtual Sports, 202:Keno,  -1 : Metric Gaming - Superlive
 		 220: Lottery, 160: Lucky 3, 207: Bullfighting, 163: Poker Games, 245: Virtual Games
-		 244: SA Gaming, 200: Saba.club, 243: Sexy Gaming, 222: Table Games,
+		 244: SA Gaming, 200: Saba.club, 243: AE Casino, 222: Table Games,
 		 241: BBIN, 242: IBCBet Live Casino, 233: WM, 236: GDG, 239: BG
 		 212: Macau Games (include: Macau Games, Pragmatic, Spadegaming, Card Club [Video Poker], PG Soft, Joker Gaming, MaxGame)
 		}
@@ -159,6 +160,7 @@ BEGIN
 			)	
 		AND b.srecommend = @CustID
 		AND b.bettype NOT IN (38)
+		AND b.bettype NOT IN (SELECT Bettype FROM #SpecialBettypeGroup)
 		GROUP BY b.custid,b.[status], b.bettype
 		
 		-- Get data from bettransRnG
@@ -199,7 +201,7 @@ BEGIN
 			AND (
 					b.gameID BETWEEN 2401 AND CASE WHEN @sportType=211 THEN 2499 ELSE 0 END -- Allbet
 					OR b.gameID BETWEEN 3001 AND CASE WHEN @sportType=244 THEN 3099 ELSE 0 END -- SA Gaming
-					OR b.gameID BETWEEN 3101 AND CASE WHEN @sportType=243 THEN 3199 ELSE 0 END -- Sexy Gaming
+					OR b.gameID BETWEEN 3101 AND CASE WHEN @sportType=243 THEN 3150 ELSE 0 END -- AE Casino
 					OR b.gameID BETWEEN 3201 AND CASE WHEN @sportType=242 THEN 3299 ELSE 0 END -- IBCBet Live Casino
 					OR b.gameID BETWEEN 5601 AND CASE WHEN @sportType=225 THEN 5699 ELSE 0 END -- ION Live Casino
 					OR b.gameID BETWEEN 3401 AND CASE WHEN @sportType=233 THEN 3499 ELSE 0 END -- WM
@@ -210,6 +212,7 @@ BEGIN
 					b.statusId IN (111,112,113,0) 
 				)	
 			AND b.srecommend = @CustID
+			AND b.gameID NOT IN (SELECT Bettype FROM #SpecialBettypeGroup)
 			GROUP BY b.custid,b.[status]
 		END
 	END
@@ -243,7 +246,7 @@ BEGIN
 							OR b.bettype BETWEEN 18000 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' = 204 THEN 18005 ELSE 0 END) -- Colossus Bet
 							OR b.bettype BETWEEN 2401 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 211 THEN 2499 ELSE 0 END)  -- AllBet
 							OR b.bettype BETWEEN 3001 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 244 THEN 3099 ELSE 0 END)  -- SA Gaming
-							OR b.bettype BETWEEN 3101 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 243 THEN 3199 ELSE 0 END)  -- Sexy Gaming
+							OR b.bettype BETWEEN 3101 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 243 THEN 3150 ELSE 0 END)  -- AE Casino
 							OR b.bettype BETWEEN 3201 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 242 THEN 3299 ELSE 0 END)  -- IBCBet Live Casino
 							OR (' + CONVERT(VARCHAR(5),@sportType) +' = 212 AND (b.bettype BETWEEN 4001 AND 4600 OR b.bettype BETWEEN 7001 AND 7300)) -- Macau Games, Pragmatic, Spadegaming, Habanero
 							OR b.bettype BETWEEN 2501 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 213 THEN 2699 ELSE 0 END)  -- NG2
