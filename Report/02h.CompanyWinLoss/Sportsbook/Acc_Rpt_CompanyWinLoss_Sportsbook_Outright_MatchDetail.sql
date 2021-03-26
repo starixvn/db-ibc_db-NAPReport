@@ -166,7 +166,8 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Outright_MatchDetail] @EndDate='2020-01-
                GROUP BY m.MatchId, 
                         m.MatchCode, 
                         m.TeamId, 
-                        m.LeagueId;
+                        m.LeagueId 
+						OPTION(RECOMPILE);
     END;
     BEGIN -- RM
 
@@ -259,7 +260,8 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Outright_MatchDetail] @EndDate='2020-01-
                             WHEN b.recommend = 52466
                             THEN '8RM Total'
                             ELSE 'BARM Total'
-                        END;
+                        END 
+						OPTION(RECOMPILE);
     END;
     BEGIN -- Query
 
