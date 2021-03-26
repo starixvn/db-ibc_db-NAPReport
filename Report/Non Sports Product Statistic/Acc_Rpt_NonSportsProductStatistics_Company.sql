@@ -332,14 +332,19 @@ BEGIN
 	
 	INSERT INTO #tmpDep_CustSuper (CustID)
 	SELECT custid
-	FROM DBWH.bodb_Account.dbo.vw_Dep_CustSuper WITH(NOLOCK)
+	FROM DBWH.bodb_Account.dbo.vw_Dep_CustSuper WITH(NOLOCK) 
+	
+	CREATE TABLE #tmpSite_DW ([Site] VARCHAR(50), isDeposit BIT)
+	INSERT INTO #tmpSite_DW ([Site], isDeposit)
+	SELECT [site], isDeposit
+	FROM DBWH.bodb_Account.dbo.tbl_Site WITH(NOLOCK) 
 
 	IF @Site = 'All'
 	BEGIN
 		INSERT INTO #recommend (SiteName, recommend, isDeposit)
 		SELECT ss.site, c.recommend, ss.isDeposit
 		FROM dbo.Customer c WITH (NOLOCK)
-			INNER JOIN dbo.Site ss WITH (NOLOCK) ON ss.Site = c.site
+			INNER JOIN #tmpSite_DW ss ON ss.Site = c.site
 		WHERE c.roleid = 2
 	END
 	ELSE IF @Site = 'Licensee Group' -- all deposit drill down
@@ -371,19 +376,17 @@ BEGIN
 			SELECT c.site, c.custid, 1
 			FROM #tmpDep_CustSuper d
 				INNER JOIN dbo.Customer c WITH (NOLOCK) ON d.custid = c.srecommend
-				INNER JOIN dbo.Site ss WITH (NOLOCK) ON ss.Site = c.site
-				INNER JOIN #tmp_Site s ON ss.site = s.Site
+				INNER JOIN #tmp_Site s ON c.site = s.Site
 			WHERE c.roleid = 2
 		END
 		
 		IF EXISTS (SELECT TOP 1 1 FROM #tmp_Site WHERE Site IN ('Credit Group'))
 		BEGIN
 			INSERT INTO #recommend (SiteName, recommend, isDeposit)
-			SELECT c.site, c.custid, 1
+			SELECT c.site, c.custid, 0
 			FROM dbo.Customer c WITH(NOLOCK)
 				LEFT JOIN #tmpDep_CustSuper d ON c.srecommend = d.custid
-				INNER JOIN dbo.Site ss WITH (NOLOCK) ON ss.Site = c.site
-				INNER JOIN #tmp_Site s ON ss.site = s.Site
+				INNER JOIN #tmp_Site s ON c.site = s.Site
 			WHERE c.roleid = 2 AND d.custid IS NULL
 		END
 
@@ -392,9 +395,13 @@ BEGIN
 			INSERT INTO #recommend (SiteName, recommend, isDeposit)
 			SELECT c.site, c.custid, ss.isDeposit
 			FROM dbo.Customer c WITH (NOLOCK) 
-				INNER JOIN dbo.Site ss WITH (NOLOCK) ON ss.Site = c.site
+				INNER JOIN #tmpSite_DW ss ON ss.Site = c.site
 				INNER JOIN #tmp_Site s ON ss.site = s.Site
 			WHERE c.roleid = 2
+			
+			IF @IsDrillDown = 1 
+			SELECT @isDrillDownLicensee = isDeposit
+			FROM #recommend
 		END		
 	END	
 	-- End Site		
@@ -1860,6 +1867,7 @@ BEGIN
 	DROP TABLE #tmpNetStakeBettype
 	DROP TABLE #tmpNoBetCountBettype
 	DROP TABLE #tmpDep_CustSuper
+	DROP TABLE #tmpSite_DW
 
 END
 
