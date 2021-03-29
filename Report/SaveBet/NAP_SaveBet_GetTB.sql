@@ -19,6 +19,7 @@ AS
 		- 20150728@Jim: apply Bettrade (Feature #38815)
 		- 20160819@Robert: Add Bet Trade Winloss bettype=904 (#62630)
 		- 20170612@Percy: check bettype of Cash Out [RedmineID: #78160]
+		- 20210329@Jaden: add forecast the result with Real figures (#152290)
 */
 
 BEGIN
@@ -29,11 +30,13 @@ BEGIN
 	Declare @FC TABLE 
 		(vScore smallint, liveindicator bit, status nvarchar(20), 
 		hdp smallmoney, livehomescore smallint, liveawayscore smallint,
-		HomeTotal money, AwayTotal money,
-		AwayLose money, HomeLose money,
-		BetCount int, Commission money, 
-		FC_pX money, FC_p4 money, FC_p3 money, FC_p2 money, FC_p1 money, FC_p0 money,
-		FC_m1 money, FC_m2 money, FC_m3 money, FC_m4 money, FC_mX money, FC_00 money, FC_0x money)
+		HomeTotal_V money, AwayTotal_V money, AwayLose_V money, HomeLose_V money, Commission_V money,
+		HomeTotal_A money, AwayTotal_A money, AwayLose_A money, HomeLose_A money, Commission_A money,
+		BetCount int, 
+		FC_pX_V money, FC_p4_V money, FC_p3_V money, FC_p2_V money, FC_p1_V money, FC_p0_V money,
+		FC_m1_V money, FC_m2_V money, FC_m3_V money, FC_m4_V money, FC_mX_V money, FC_00_V money, FC_0x_V money,
+		FC_pX_A money, FC_p4_A money, FC_p3_A money, FC_p2_A money, FC_p1_A money, FC_p0_A money,
+		FC_m1_A money, FC_m2_A money, FC_m3_A money, FC_m4_A money, FC_mX_A money, FC_00_A money, FC_0x_A money)
 
 	Declare @FTHomeScore smallint, @FTAwayScore smallint, @HTHomeScore smallint, @HTAwayScore smallint
 
@@ -63,14 +66,22 @@ BEGIN
 			matchid = @matchid
 
 		IF @bettype IN (1, 7, 20)
-			INSERT INTO @FC (liveindicator, status, hdp, livehomescore, liveawayscore, HomeTotal, AwayTotal, AwayLose, HomeLose, BetCount, Commission)
+			INSERT INTO @FC (liveindicator, status, hdp, livehomescore, liveawayscore, 
+				HomeTotal_V, AwayTotal_V, AwayLose_V, HomeLose_V, Commission_V,
+				HomeTotal_A, AwayTotal_A, AwayLose_A, HomeLose_A, Commission_A, 
+				BetCount)
 			SELECT  x.liveindicator, x.status, x.hdp, livehomescore, liveawayscore,
-				sum(x.hometotal * x.virtualrate) 'ht',
-				sum(x.awaytotal * x.virtualrate) 'at',
-				sum((x.homewin - x.awaylose) * x.virtualrate) 'al',
+				sum(x.hometotal * x.virtualrate),
+				sum(x.awaytotal * x.virtualrate),
+				sum((x.homewin - x.awaylose) * x.virtualrate),
 				sum((x.awaywin - x.homelose) * x.virtualrate) 'hl',
-				sum(c) c,
-				sum(x.comm * x.virtualrate) comm
+				sum(x.comm * x.virtualrate),
+				sum(x.hometotal * x.actualrate),
+				sum(x.awaytotal * x.actualrate),
+				sum((x.homewin - x.awaylose) * x.actualrate),
+				sum((x.awaywin - x.homelose) * x.actualrate) 'hl',
+				sum(x.comm * x.actualrate),
+				sum(c) c
 			FROM 
 				(select status, b.currency, hdp1 - hdp2 hdp, livehomescore, liveawayscore, liveindicator,
 					sum(case when betteam='h' then case when abs(odds) > 1 then abs(odds) * stake else stake end * (1-b.tpositiontaking) else 0 end) hometotal,
@@ -80,23 +91,31 @@ BEGIN
 					sum(case when betteam='h' then (case when odds < 0 then abs(odds) else 1 end)  * stake * (1-b.tpositiontaking) else 0 end) homelose,
 					sum(case when betteam='a' then (case when odds < 0 then abs(odds) else 1 end)  * stake * (1-b.tpositiontaking) else 0 end) awaylose,
 					sum(scomm) comm,
-					count(*) c, b.virtualrate
+					count(*) c, b.virtualrate, b.actualrate
 				from bodb02.dbo.bettrans b with(nolock)
 				where bettype=@bettype AND liveindicator = @liveindicator
 					and matchid = @matchid and b.custid >0 and status NOT IN ('VOID', 'REJECT')
-				group by status, b.currency, hdp1 - hdp2, livehomescore, liveawayscore, liveindicator, b.virtualrate
+				group by status, b.currency, hdp1 - hdp2, livehomescore, liveawayscore, liveindicator, b.virtualrate, b.actualrate
 				)x
 		GROUP BY x.status, x.hdp, x.livehomescore, x.liveawayscore, x.liveindicator
 
 		ELSE IF @bettype IN (3, 8)
-			INSERT INTO @FC (liveindicator, status, hdp, livehomescore, liveawayscore, HomeTotal, AwayTotal, AwayLose, HomeLose, BetCount, Commission)
+			INSERT INTO @FC (liveindicator, status, hdp, livehomescore, liveawayscore, 
+				HomeTotal_V, AwayTotal_V, AwayLose_V, HomeLose_V, Commission_V,
+				HomeTotal_A, AwayTotal_A, AwayLose_A, HomeLose_A, Commission_A, 
+				BetCount)
 			SELECT x.liveindicator, x.status, x.hdp, x.livehomescore, x.liveawayscore, 
-				sum(x.hometotal * x.virtualrate) 'ht',
-				sum(x.awaytotal * x.virtualrate) 'at',
-				sum((x.homewin - x.awaylose) * x.virtualrate) 'al',
+				sum(x.hometotal * x.virtualrate),
+				sum(x.awaytotal * x.virtualrate),
+				sum((x.homewin - x.awaylose) * x.virtualrate),
 				sum((x.awaywin - x.homelose) * x.virtualrate) 'hl',
-				sum(c) c,
-				sum(x.comm * x.virtualrate) comm
+				sum(x.comm * x.virtualrate),
+				sum(x.hometotal * x.actualrate),
+				sum(x.awaytotal * x.actualrate),
+				sum((x.homewin - x.awaylose) * x.actualrate),
+				sum((x.awaywin - x.homelose) * x.actualrate) 'hl',
+				sum(x.comm * x.actualrate),
+				sum(c) c
 			FROM 
 				(select liveindicator, status, b.currency, hdp1 hdp, livehomescore, liveawayscore,
 					sum(case when betteam='h' then case when abs(odds) > 1 then abs(odds) * stake else stake end * (1-b.tpositiontaking) else 0 end) hometotal,
@@ -106,11 +125,11 @@ BEGIN
 					sum(case when betteam='h' then (case when odds < 0 then abs(odds) else 1 end)  * stake * (1-b.tpositiontaking) else 0 end) homelose,
 					sum(case when betteam='a' then (case when odds < 0 then abs(odds) else 1 end)  * stake * (1-b.tpositiontaking) else 0 end) awaylose,
 					sum(scomm) comm,
-					count(*) c, b.virtualrate
+					count(*) c, b.virtualrate, b.actualrate
 				from bodb02.dbo.bettrans b with(nolock) 
 				where bettype=@bettype AND liveindicator = @liveindicator
 					and matchid = @matchid and custid > 0 and status NOT IN ('VOID', 'REJECT')
-				group by liveindicator, status, b.currency, hdp1, livehomescore, liveawayscore, b.virtualrate
+				group by liveindicator, status, b.currency, hdp1, livehomescore, liveawayscore, b.virtualrate, b.actualrate
 				)x
 			group by x.status, liveindicator, x.hdp, x.livehomescore, x.liveawayscore
 		
@@ -130,14 +149,22 @@ BEGIN
 			matchid = @matchid
 
 		IF @bettype IN (1, 7, 20)
-			INSERT INTO @FC (liveindicator, status, hdp, livehomescore, liveawayscore, HomeTotal, AwayTotal, AwayLose, HomeLose, BetCount, Commission)
+			INSERT INTO @FC (liveindicator, status, hdp, livehomescore, liveawayscore, 
+				HomeTotal_V, AwayTotal_V, AwayLose_V, HomeLose_V, Commission_V,
+				HomeTotal_A, AwayTotal_A, AwayLose_A, HomeLose_A, Commission_A, 
+				BetCount)
 			SELECT  x.liveindicator, x.status, x.hdp, livehomescore, liveawayscore,
-				sum(x.hometotal * x.virtualrate) 'ht',
-				sum(x.awaytotal * x.virtualrate) 'at',
-				sum((x.homewin - x.awaylose) * x.virtualrate) 'al',
+				sum(x.hometotal * x.virtualrate),
+				sum(x.awaytotal * x.virtualrate),
+				sum((x.homewin - x.awaylose) * x.virtualrate),
 				sum((x.awaywin - x.homelose) * x.virtualrate) 'hl',
-				sum(c) c,
-				sum(x.comm * x.virtualrate) comm
+				sum(x.comm * x.virtualrate),
+				sum(x.hometotal * x.actualrate),
+				sum(x.awaytotal * x.actualrate),
+				sum((x.homewin - x.awaylose) * x.actualrate),
+				sum((x.awaywin - x.homelose) * x.actualrate) 'hl',
+				sum(x.comm * x.actualrate),
+				sum(c) c
 			FROM 
 				(select status, b.currency, hdp1 - hdp2 hdp, livehomescore, liveawayscore, liveindicator,
 					sum(case when betteam='h' then case when abs(odds) > 1 then abs(odds) * stake else stake end * (1-b.tpositiontaking) else 0 end) hometotal,
@@ -147,23 +174,31 @@ BEGIN
 					sum(case when betteam='h' then (case when odds < 0 then abs(odds) else 1 end)  * stake * (1-b.tpositiontaking) else 0 end) homelose,
 					sum(case when betteam='a' then (case when odds < 0 then abs(odds) else 1 end)  * stake * (1-b.tpositiontaking) else 0 end) awaylose,
 					sum(scomm) comm,
-					count(*) c, b.virtualrate
+					count(*) c, b.virtualrate, b.actualrate
 				from bodb02.dbo.bettrans14 b with(nolock)
 				where bettype=@bettype AND liveindicator = @liveindicator
 					and matchid = @matchid and b.custid >0 and status NOT IN ('VOID', 'REJECT')
-				group by status, b.currency, hdp1 - hdp2, livehomescore, liveawayscore, liveindicator, b.virtualrate
+				group by status, b.currency, hdp1 - hdp2, livehomescore, liveawayscore, liveindicator, b.virtualrate, b.actualrate
 				)x
 		GROUP BY x.status, x.hdp, x.livehomescore, x.liveawayscore, x.liveindicator
 
 		ELSE IF @bettype IN (3, 8)
-			INSERT INTO @FC (liveindicator, status, hdp, livehomescore, liveawayscore, HomeTotal, AwayTotal, AwayLose, HomeLose, BetCount, Commission)
+			INSERT INTO @FC (liveindicator, status, hdp, livehomescore, liveawayscore, 
+				HomeTotal_V, AwayTotal_V, AwayLose_V, HomeLose_V, Commission_V,
+				HomeTotal_A, AwayTotal_A, AwayLose_A, HomeLose_A, Commission_A, 
+				BetCount)
 			SELECT x.liveindicator, x.status, x.hdp, x.livehomescore, x.liveawayscore, 
-				sum(x.hometotal * x.virtualrate) 'ht',
-				sum(x.awaytotal * x.virtualrate) 'at',
-				sum((x.homewin - x.awaylose) * x.virtualrate) 'al',
+				sum(x.hometotal * x.virtualrate),
+				sum(x.awaytotal * x.virtualrate),
+				sum((x.homewin - x.awaylose) * x.virtualrate),
 				sum((x.awaywin - x.homelose) * x.virtualrate) 'hl',
-				sum(c) c,
-				sum(x.comm * x.virtualrate) comm
+				sum(x.comm * x.virtualrate),
+				sum(x.hometotal * x.actualrate),
+				sum(x.awaytotal * x.actualrate),
+				sum((x.homewin - x.awaylose) * x.actualrate),
+				sum((x.awaywin - x.homelose) * x.actualrate) 'hl',
+				sum(x.comm * x.actualrate),
+				sum(c) c
 			FROM 
 				(select liveindicator, status, b.currency, hdp1 hdp, livehomescore, liveawayscore,
 					sum(case when betteam='h' then case when abs(odds) > 1 then abs(odds) * stake else stake end * (1-b.tpositiontaking) else 0 end) hometotal,
@@ -173,11 +208,11 @@ BEGIN
 					sum(case when betteam='h' then (case when odds < 0 then abs(odds) else 1 end)  * stake * (1-b.tpositiontaking) else 0 end) homelose,
 					sum(case when betteam='a' then (case when odds < 0 then abs(odds) else 1 end)  * stake * (1-b.tpositiontaking) else 0 end) awaylose,
 					sum(scomm) comm,
-					count(*) c, b.virtualrate
+					count(*) c, b.virtualrate, b.actualrate
 				from bodb02.dbo.bettrans14 b with(nolock) 
 				where bettype=@bettype AND liveindicator = @liveindicator
 					and matchid = @matchid and custid > 0 and status NOT IN ('VOID', 'REJECT')
-				group by liveindicator, status, b.currency, hdp1, livehomescore, liveawayscore, b.virtualrate
+				group by liveindicator, status, b.currency, hdp1, livehomescore, liveawayscore, b.virtualrate, b.actualrate
 				)x
 			group by x.status, liveindicator, x.hdp, x.livehomescore, x.liveawayscore
 
@@ -218,83 +253,162 @@ BEGIN
 	--SELECT @vScore vScore
 
 	UPDATE @FC SET vScore = @vScore,
-			FC_p4 = CASE
-				WHEN @vScore + 4 - (hdp + @factor*(livehomescore - liveawayscore)) >  0.25 THEN AwayLose
-				WHEN @vScore + 4 - (hdp + @factor*(livehomescore - liveawayscore)) =  0.25 THEN AwayLose / 2
-				WHEN @vScore + 4 - (hdp + @factor*(livehomescore - liveawayscore)) = -0.25 THEN HomeLose / 2
-				WHEN @vScore + 4 - (hdp + @factor*(livehomescore - liveawayscore)) < -0.25 THEN HomeLose
+			FC_p4_V = CASE
+				WHEN @vScore + 4 - (hdp + @factor*(livehomescore - liveawayscore)) >  0.25 THEN AwayLose_V
+				WHEN @vScore + 4 - (hdp + @factor*(livehomescore - liveawayscore)) =  0.25 THEN AwayLose_V / 2
+				WHEN @vScore + 4 - (hdp + @factor*(livehomescore - liveawayscore)) = -0.25 THEN HomeLose_V / 2
+				WHEN @vScore + 4 - (hdp + @factor*(livehomescore - liveawayscore)) < -0.25 THEN HomeLose_V
 				ELSE 0 END,
-			FC_p3 = CASE
-				WHEN @vScore + 3 - (hdp + @factor*(livehomescore - liveawayscore)) >  0.25 THEN AwayLose
-				WHEN @vScore + 3 - (hdp + @factor*(livehomescore - liveawayscore)) =  0.25 THEN AwayLose / 2
-				WHEN @vScore + 3 - (hdp + @factor*(livehomescore - liveawayscore)) = -0.25 THEN HomeLose / 2
-				WHEN @vScore + 3 - (hdp + @factor*(livehomescore - liveawayscore)) < -0.25 THEN HomeLose
+			FC_p3_V = CASE
+				WHEN @vScore + 3 - (hdp + @factor*(livehomescore - liveawayscore)) >  0.25 THEN AwayLose_V
+				WHEN @vScore + 3 - (hdp + @factor*(livehomescore - liveawayscore)) =  0.25 THEN AwayLose_V / 2
+				WHEN @vScore + 3 - (hdp + @factor*(livehomescore - liveawayscore)) = -0.25 THEN HomeLose_V / 2
+				WHEN @vScore + 3 - (hdp + @factor*(livehomescore - liveawayscore)) < -0.25 THEN HomeLose_V
 				ELSE 0 END,
-			FC_p2 = CASE
-				WHEN @vScore + 2 - (hdp + @factor*(livehomescore - liveawayscore)) >  0.25 THEN AwayLose
-				WHEN @vScore + 2 - (hdp + @factor*(livehomescore - liveawayscore)) =  0.25 THEN AwayLose / 2
-				WHEN @vScore + 2 - (hdp + @factor*(livehomescore - liveawayscore)) = -0.25 THEN HomeLose / 2
-				WHEN @vScore + 2 - (hdp + @factor*(livehomescore - liveawayscore)) < -0.25 THEN HomeLose
+			FC_p2_V = CASE
+				WHEN @vScore + 2 - (hdp + @factor*(livehomescore - liveawayscore)) >  0.25 THEN AwayLose_V
+				WHEN @vScore + 2 - (hdp + @factor*(livehomescore - liveawayscore)) =  0.25 THEN AwayLose_V / 2
+				WHEN @vScore + 2 - (hdp + @factor*(livehomescore - liveawayscore)) = -0.25 THEN HomeLose_V / 2
+				WHEN @vScore + 2 - (hdp + @factor*(livehomescore - liveawayscore)) < -0.25 THEN HomeLose_V
 				ELSE 0 END,
-			FC_p1 = CASE
-				WHEN @vScore + 1 - (hdp + @factor*(livehomescore - liveawayscore)) >  0.25 THEN AwayLose
-				WHEN @vScore + 1 - (hdp + @factor*(livehomescore - liveawayscore)) =  0.25 THEN AwayLose / 2
-				WHEN @vScore + 1 - (hdp + @factor*(livehomescore - liveawayscore)) = -0.25 THEN HomeLose / 2
-				WHEN @vScore + 1 - (hdp + @factor*(livehomescore - liveawayscore)) < -0.25 THEN HomeLose
+			FC_p1_V = CASE
+				WHEN @vScore + 1 - (hdp + @factor*(livehomescore - liveawayscore)) >  0.25 THEN AwayLose_V
+				WHEN @vScore + 1 - (hdp + @factor*(livehomescore - liveawayscore)) =  0.25 THEN AwayLose_V / 2
+				WHEN @vScore + 1 - (hdp + @factor*(livehomescore - liveawayscore)) = -0.25 THEN HomeLose_V / 2
+				WHEN @vScore + 1 - (hdp + @factor*(livehomescore - liveawayscore)) < -0.25 THEN HomeLose_V
 				ELSE 0 END,
-			FC_p0 = CASE
-				WHEN @vScore - (hdp + @factor*(livehomescore - liveawayscore)) >  0.25 THEN AwayLose
-				WHEN @vScore - (hdp + @factor*(livehomescore - liveawayscore)) =  0.25 THEN AwayLose / 2
-				WHEN @vScore - (hdp + @factor*(livehomescore - liveawayscore)) = -0.25 THEN HomeLose / 2
-				WHEN @vScore - (hdp + @factor*(livehomescore - liveawayscore)) < -0.25 THEN HomeLose
+			FC_p0_V = CASE
+				WHEN @vScore - (hdp + @factor*(livehomescore - liveawayscore)) >  0.25 THEN AwayLose_V
+				WHEN @vScore - (hdp + @factor*(livehomescore - liveawayscore)) =  0.25 THEN AwayLose_V / 2
+				WHEN @vScore - (hdp + @factor*(livehomescore - liveawayscore)) = -0.25 THEN HomeLose_V / 2
+				WHEN @vScore - (hdp + @factor*(livehomescore - liveawayscore)) < -0.25 THEN HomeLose_V
 				ELSE 0 END,
-			FC_m1 = CASE
-				WHEN @vScore - 1 - (hdp + @factor*(livehomescore - liveawayscore)) >  0.25 THEN AwayLose
-				WHEN @vScore - 1 - (hdp + @factor*(livehomescore - liveawayscore)) =  0.25 THEN AwayLose / 2
-				WHEN @vScore - 1 - (hdp + @factor*(livehomescore - liveawayscore)) = -0.25 THEN HomeLose / 2
-				WHEN @vScore - 1 - (hdp + @factor*(livehomescore - liveawayscore)) < -0.25 THEN HomeLose
+			FC_m1_V = CASE
+				WHEN @vScore - 1 - (hdp + @factor*(livehomescore - liveawayscore)) >  0.25 THEN AwayLose_V
+				WHEN @vScore - 1 - (hdp + @factor*(livehomescore - liveawayscore)) =  0.25 THEN AwayLose_V / 2
+				WHEN @vScore - 1 - (hdp + @factor*(livehomescore - liveawayscore)) = -0.25 THEN HomeLose_V / 2
+				WHEN @vScore - 1 - (hdp + @factor*(livehomescore - liveawayscore)) < -0.25 THEN HomeLose_V
 				ELSE 0 END,
-			FC_m2 = CASE
-				WHEN @vScore - 2 - (hdp + @factor*(livehomescore - liveawayscore)) >  0.25 THEN AwayLose
-				WHEN @vScore - 2 - (hdp + @factor*(livehomescore - liveawayscore)) =  0.25 THEN AwayLose / 2
-				WHEN @vScore - 2 - (hdp + @factor*(livehomescore - liveawayscore)) = -0.25 THEN HomeLose / 2
-				WHEN @vScore - 2 - (hdp + @factor*(livehomescore - liveawayscore)) < -0.25 THEN HomeLose
+			FC_m2_V = CASE
+				WHEN @vScore - 2 - (hdp + @factor*(livehomescore - liveawayscore)) >  0.25 THEN AwayLose_V
+				WHEN @vScore - 2 - (hdp + @factor*(livehomescore - liveawayscore)) =  0.25 THEN AwayLose_V / 2
+				WHEN @vScore - 2 - (hdp + @factor*(livehomescore - liveawayscore)) = -0.25 THEN HomeLose_V / 2
+				WHEN @vScore - 2 - (hdp + @factor*(livehomescore - liveawayscore)) < -0.25 THEN HomeLose_V
 				ELSE 0 END,
-			FC_m3 = CASE
-				WHEN @vScore - 3 - (hdp + @factor*(livehomescore - liveawayscore)) >  0.25 THEN AwayLose
-				WHEN @vScore - 3 - (hdp + @factor*(livehomescore - liveawayscore)) =  0.25 THEN AwayLose / 2
-				WHEN @vScore - 3 - (hdp + @factor*(livehomescore - liveawayscore)) = -0.25 THEN HomeLose / 2
-				WHEN @vScore - 3 - (hdp + @factor*(livehomescore - liveawayscore)) < -0.25 THEN HomeLose
+			FC_m3_V = CASE
+				WHEN @vScore - 3 - (hdp + @factor*(livehomescore - liveawayscore)) >  0.25 THEN AwayLose_V
+				WHEN @vScore - 3 - (hdp + @factor*(livehomescore - liveawayscore)) =  0.25 THEN AwayLose_V / 2
+				WHEN @vScore - 3 - (hdp + @factor*(livehomescore - liveawayscore)) = -0.25 THEN HomeLose_V / 2
+				WHEN @vScore - 3 - (hdp + @factor*(livehomescore - liveawayscore)) < -0.25 THEN HomeLose_V
 				ELSE 0 END,
-			FC_m4 = CASE
-				WHEN @vScore - 4 - (hdp + @factor*(livehomescore - liveawayscore)) >  0.25 THEN AwayLose
-				WHEN @vScore - 4 - (hdp + @factor*(livehomescore - liveawayscore)) =  0.25 THEN AwayLose / 2
-				WHEN @vScore - 4 - (hdp + @factor*(livehomescore - liveawayscore)) = -0.25 THEN HomeLose / 2
-				WHEN @vScore - 4 - (hdp + @factor*(livehomescore - liveawayscore)) < -0.25 THEN HomeLose
+			FC_m4_V = CASE
+				WHEN @vScore - 4 - (hdp + @factor*(livehomescore - liveawayscore)) >  0.25 THEN AwayLose_V
+				WHEN @vScore - 4 - (hdp + @factor*(livehomescore - liveawayscore)) =  0.25 THEN AwayLose_V / 2
+				WHEN @vScore - 4 - (hdp + @factor*(livehomescore - liveawayscore)) = -0.25 THEN HomeLose_V / 2
+				WHEN @vScore - 4 - (hdp + @factor*(livehomescore - liveawayscore)) < -0.25 THEN HomeLose_V
 				ELSE 0 END,
-			FC_pX = CASE
-				WHEN @vScore + 1000 - (hdp + @factor*(livehomescore - liveawayscore)) >  0.25 THEN AwayLose
-				WHEN @vScore + 1000 - (hdp + @factor*(livehomescore - liveawayscore)) =  0.25 THEN AwayLose / 2
-				WHEN @vScore + 1000 - (hdp + @factor*(livehomescore - liveawayscore)) = -0.25 THEN HomeLose / 2
-				WHEN @vScore + 1000 - (hdp + @factor*(livehomescore - liveawayscore)) < -0.25 THEN HomeLose
+			FC_pX_V = CASE
+				WHEN @vScore + 1000 - (hdp + @factor*(livehomescore - liveawayscore)) >  0.25 THEN AwayLose_V
+				WHEN @vScore + 1000 - (hdp + @factor*(livehomescore - liveawayscore)) =  0.25 THEN AwayLose_V / 2
+				WHEN @vScore + 1000 - (hdp + @factor*(livehomescore - liveawayscore)) = -0.25 THEN HomeLose_V / 2
+				WHEN @vScore + 1000 - (hdp + @factor*(livehomescore - liveawayscore)) < -0.25 THEN HomeLose_V
 				ELSE 0 END,
-			FC_mX = CASE
-				WHEN @vScore - 1000 - (hdp + @factor*(livehomescore - liveawayscore)) >  0.25 THEN AwayLose
-				WHEN @vScore - 1000 - (hdp + @factor*(livehomescore - liveawayscore)) =  0.25 THEN AwayLose / 2
-				WHEN @vScore - 1000 - (hdp + @factor*(livehomescore - liveawayscore)) = -0.25 THEN HomeLose / 2
-				WHEN @vScore - 1000 - (hdp + @factor*(livehomescore - liveawayscore)) < -0.25 THEN HomeLose
+			FC_mX_V = CASE
+				WHEN @vScore - 1000 - (hdp + @factor*(livehomescore - liveawayscore)) >  0.25 THEN AwayLose_V
+				WHEN @vScore - 1000 - (hdp + @factor*(livehomescore - liveawayscore)) =  0.25 THEN AwayLose_V / 2
+				WHEN @vScore - 1000 - (hdp + @factor*(livehomescore - liveawayscore)) = -0.25 THEN HomeLose_V / 2
+				WHEN @vScore - 1000 - (hdp + @factor*(livehomescore - liveawayscore)) < -0.25 THEN HomeLose_V
 				ELSE 0 END,
-			FC_00 = CASE
-				WHEN (@livehomescore+@LiveAwayScore) - hdp >  0.25 THEN AwayLose
-				WHEN (@livehomescore+@LiveAwayScore) - hdp =  0.25 THEN AwayLose / 2
-				WHEN (@livehomescore+@LiveAwayScore) - hdp = -0.25 THEN HomeLose / 2
-				WHEN (@livehomescore+@LiveAwayScore) - hdp < -0.25 THEN HomeLose
+			FC_00_V = CASE
+				WHEN (@livehomescore+@LiveAwayScore) - hdp >  0.25 THEN AwayLose_V
+				WHEN (@livehomescore+@LiveAwayScore) - hdp =  0.25 THEN AwayLose_V / 2
+				WHEN (@livehomescore+@LiveAwayScore) - hdp = -0.25 THEN HomeLose_V / 2
+				WHEN (@livehomescore+@LiveAwayScore) - hdp < -0.25 THEN HomeLose_V
 				ELSE 0 END,
-			FC_0x = CASE
-				WHEN (livehomescore+liveawayscore) - hdp >  0.25 THEN AwayLose
-				WHEN (livehomescore+liveawayscore) - hdp =  0.25 THEN AwayLose / 2
-				WHEN (livehomescore+liveawayscore) - hdp = -0.25 THEN HomeLose / 2
-				WHEN (livehomescore+liveawayscore) - hdp < -0.25 THEN HomeLose
+			FC_0x_V = CASE
+				WHEN (livehomescore+liveawayscore) - hdp >  0.25 THEN AwayLose_V
+				WHEN (livehomescore+liveawayscore) - hdp =  0.25 THEN AwayLose_V / 2
+				WHEN (livehomescore+liveawayscore) - hdp = -0.25 THEN HomeLose_V / 2
+				WHEN (livehomescore+liveawayscore) - hdp < -0.25 THEN HomeLose_V
+				ELSE 0 END,
+			--actual
+			FC_p4_A = CASE
+				WHEN @vScore + 4 - (hdp + @factor*(livehomescore - liveawayscore)) >  0.25 THEN AwayLose_A
+				WHEN @vScore + 4 - (hdp + @factor*(livehomescore - liveawayscore)) =  0.25 THEN AwayLose_A / 2
+				WHEN @vScore + 4 - (hdp + @factor*(livehomescore - liveawayscore)) = -0.25 THEN HomeLose_A / 2
+				WHEN @vScore + 4 - (hdp + @factor*(livehomescore - liveawayscore)) < -0.25 THEN HomeLose_A
+				ELSE 0 END,
+			FC_p3_A = CASE
+				WHEN @vScore + 3 - (hdp + @factor*(livehomescore - liveawayscore)) >  0.25 THEN AwayLose_A
+				WHEN @vScore + 3 - (hdp + @factor*(livehomescore - liveawayscore)) =  0.25 THEN AwayLose_A / 2
+				WHEN @vScore + 3 - (hdp + @factor*(livehomescore - liveawayscore)) = -0.25 THEN HomeLose_A / 2
+				WHEN @vScore + 3 - (hdp + @factor*(livehomescore - liveawayscore)) < -0.25 THEN HomeLose_A
+				ELSE 0 END,
+			FC_p2_A = CASE
+				WHEN @vScore + 2 - (hdp + @factor*(livehomescore - liveawayscore)) >  0.25 THEN AwayLose_A
+				WHEN @vScore + 2 - (hdp + @factor*(livehomescore - liveawayscore)) =  0.25 THEN AwayLose_A / 2
+				WHEN @vScore + 2 - (hdp + @factor*(livehomescore - liveawayscore)) = -0.25 THEN HomeLose_A / 2
+				WHEN @vScore + 2 - (hdp + @factor*(livehomescore - liveawayscore)) < -0.25 THEN HomeLose_A
+				ELSE 0 END,
+			FC_p1_A = CASE
+				WHEN @vScore + 1 - (hdp + @factor*(livehomescore - liveawayscore)) >  0.25 THEN AwayLose_A
+				WHEN @vScore + 1 - (hdp + @factor*(livehomescore - liveawayscore)) =  0.25 THEN AwayLose_A / 2
+				WHEN @vScore + 1 - (hdp + @factor*(livehomescore - liveawayscore)) = -0.25 THEN HomeLose_A / 2
+				WHEN @vScore + 1 - (hdp + @factor*(livehomescore - liveawayscore)) < -0.25 THEN HomeLose_A
+				ELSE 0 END,
+			FC_p0_A = CASE
+				WHEN @vScore - (hdp + @factor*(livehomescore - liveawayscore)) >  0.25 THEN AwayLose_A
+				WHEN @vScore - (hdp + @factor*(livehomescore - liveawayscore)) =  0.25 THEN AwayLose_A / 2
+				WHEN @vScore - (hdp + @factor*(livehomescore - liveawayscore)) = -0.25 THEN HomeLose_A / 2
+				WHEN @vScore - (hdp + @factor*(livehomescore - liveawayscore)) < -0.25 THEN HomeLose_A
+				ELSE 0 END,
+			FC_m1_A = CASE
+				WHEN @vScore - 1 - (hdp + @factor*(livehomescore - liveawayscore)) >  0.25 THEN AwayLose_A
+				WHEN @vScore - 1 - (hdp + @factor*(livehomescore - liveawayscore)) =  0.25 THEN AwayLose_A / 2
+				WHEN @vScore - 1 - (hdp + @factor*(livehomescore - liveawayscore)) = -0.25 THEN HomeLose_A / 2
+				WHEN @vScore - 1 - (hdp + @factor*(livehomescore - liveawayscore)) < -0.25 THEN HomeLose_A
+				ELSE 0 END,
+			FC_m2_A = CASE
+				WHEN @vScore - 2 - (hdp + @factor*(livehomescore - liveawayscore)) >  0.25 THEN AwayLose_A
+				WHEN @vScore - 2 - (hdp + @factor*(livehomescore - liveawayscore)) =  0.25 THEN AwayLose_A / 2
+				WHEN @vScore - 2 - (hdp + @factor*(livehomescore - liveawayscore)) = -0.25 THEN HomeLose_A / 2
+				WHEN @vScore - 2 - (hdp + @factor*(livehomescore - liveawayscore)) < -0.25 THEN HomeLose_A
+				ELSE 0 END,
+			FC_m3_A = CASE
+				WHEN @vScore - 3 - (hdp + @factor*(livehomescore - liveawayscore)) >  0.25 THEN AwayLose_A
+				WHEN @vScore - 3 - (hdp + @factor*(livehomescore - liveawayscore)) =  0.25 THEN AwayLose_A / 2
+				WHEN @vScore - 3 - (hdp + @factor*(livehomescore - liveawayscore)) = -0.25 THEN HomeLose_A / 2
+				WHEN @vScore - 3 - (hdp + @factor*(livehomescore - liveawayscore)) < -0.25 THEN HomeLose_A
+				ELSE 0 END,
+			FC_m4_A = CASE
+				WHEN @vScore - 4 - (hdp + @factor*(livehomescore - liveawayscore)) >  0.25 THEN AwayLose_A
+				WHEN @vScore - 4 - (hdp + @factor*(livehomescore - liveawayscore)) =  0.25 THEN AwayLose_A / 2
+				WHEN @vScore - 4 - (hdp + @factor*(livehomescore - liveawayscore)) = -0.25 THEN HomeLose_A / 2
+				WHEN @vScore - 4 - (hdp + @factor*(livehomescore - liveawayscore)) < -0.25 THEN HomeLose_A
+				ELSE 0 END,
+			FC_pX_A = CASE
+				WHEN @vScore + 1000 - (hdp + @factor*(livehomescore - liveawayscore)) >  0.25 THEN AwayLose_A
+				WHEN @vScore + 1000 - (hdp + @factor*(livehomescore - liveawayscore)) =  0.25 THEN AwayLose_A / 2
+				WHEN @vScore + 1000 - (hdp + @factor*(livehomescore - liveawayscore)) = -0.25 THEN HomeLose_A / 2
+				WHEN @vScore + 1000 - (hdp + @factor*(livehomescore - liveawayscore)) < -0.25 THEN HomeLose_A
+				ELSE 0 END,
+			FC_mX_A = CASE
+				WHEN @vScore - 1000 - (hdp + @factor*(livehomescore - liveawayscore)) >  0.25 THEN AwayLose_A
+				WHEN @vScore - 1000 - (hdp + @factor*(livehomescore - liveawayscore)) =  0.25 THEN AwayLose_A / 2
+				WHEN @vScore - 1000 - (hdp + @factor*(livehomescore - liveawayscore)) = -0.25 THEN HomeLose_A / 2
+				WHEN @vScore - 1000 - (hdp + @factor*(livehomescore - liveawayscore)) < -0.25 THEN HomeLose_A
+				ELSE 0 END,
+			FC_00_A = CASE
+				WHEN (@livehomescore+@LiveAwayScore) - hdp >  0.25 THEN AwayLose_A
+				WHEN (@livehomescore+@LiveAwayScore) - hdp =  0.25 THEN AwayLose_A / 2
+				WHEN (@livehomescore+@LiveAwayScore) - hdp = -0.25 THEN HomeLose_A / 2
+				WHEN (@livehomescore+@LiveAwayScore) - hdp < -0.25 THEN HomeLose_A
+				ELSE 0 END,
+			FC_0x_A = CASE
+				WHEN (livehomescore+liveawayscore) - hdp >  0.25 THEN AwayLose_A
+				WHEN (livehomescore+liveawayscore) - hdp =  0.25 THEN AwayLose_A / 2
+				WHEN (livehomescore+liveawayscore) - hdp = -0.25 THEN HomeLose_A / 2
+				WHEN (livehomescore+liveawayscore) - hdp < -0.25 THEN HomeLose_A
 				ELSE 0 END
 	
 	SELECT * FROM @FC
