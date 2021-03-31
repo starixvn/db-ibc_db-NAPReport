@@ -1,1 +1,3 @@
 Report\House Net Income report\Acc_Rpt_HouseNetIncome.sql
+Report\House Net Income report\Acc_Rpt_HouseNetIncome_Credit.sql
+Report\House Net Income report\Acc_Rpt_HouseNetIncome_PayToSupplier.sql

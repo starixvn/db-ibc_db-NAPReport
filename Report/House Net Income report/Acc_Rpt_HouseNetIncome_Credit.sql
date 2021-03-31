@@ -18,6 +18,7 @@ AS
 		20210112@Ned.Le: Email/Letstalk Reports - Integrate Linked Games (Number Game) (#146539)
 		20211201@Ned.Le: DHWL Email/Letstalk - Margin Charts - Restructure code (#148604)
 		20210122@Ned.Le: DHWL Email/Letstalk - Adjustment Letstalk (#149267)
+		20210322@Ned.Le: Email/Letstalk Reports - Integrate PP Live Casino (#133734)
 
 	Param's Explanation:
 		@ProductList: 'ALL' - Get data of all product
@@ -27,7 +28,7 @@ AS
 	Example:
 		EXEC bodb_dwrs.dbo.Acc_Rpt_HouseNetIncome_Credit '20200901', '20200930', 'ALL'
 		EXEC bodb_dwrs.dbo.Acc_Rpt_HouseNetIncome_Credit '20200901', '20200930', 'KN,LT'
-		EXEC bodb_dwrs.dbo.Acc_Rpt_HouseNetIncome_Credit '20200901', '20200930', 'SB,NG,H5,H5LG,JP,PP-JP'
+		EXEC bodb_dwrs.dbo.Acc_Rpt_HouseNetIncome_Credit '20200901', '20200930', 'SB,NG,H5,H5LG,CS,JP,PP,PP-JP'
 */
 
 BEGIN
@@ -235,7 +236,6 @@ BEGIN
 			WHERE hni.isDeposit = 0
 				  AND hni.isEnable = 1
 				  AND hni.AliasProductID > 0
-				  AND hni.ProductPrefix NOT IN ('JP', 'PP-JP')
 				  AND EXISTS (SELECT TOP 1 1
 							  FROM #tmpProductList pl
 							  WHERE pl.ProductPrefix = hni.ProductPrefix)
@@ -246,6 +246,7 @@ BEGIN
 			   BetType
 		FROM bodb02.dbo.SportBettypeMatrix (NOLOCK)
 		WHERE ProductID IN (SELECT ProductID FROM CTE_Normal)
+		      AND BetType NOT IN (SELECT BetType FROM #tmpProductBettype)
 			  AND BetType NOT IN (1906) --Arcadia Gaming - Bonus
 	END
 
