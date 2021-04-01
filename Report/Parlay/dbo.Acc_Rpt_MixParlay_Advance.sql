@@ -99,12 +99,17 @@ BEGIN
 			currency <> 20
 END
 ELSE BEGIN
+	CREATE TABLE #DepSuper (custid int)
+	INSERT INTO #DepSuper
+		SELECT custid FROM DBDW.bodb_Account.dbo.vw_Dep_CustSuper (NOLOCK)
+
 	CREATE TABLE #DepAgent (custid int primary key)
 	
 	INSERT INTO #DepAgent (custid)
 	SELECT c.custid
 	FROM custinfo c WITH(NOLOCK)
-		LEFT JOIN (select custid from DBDW.bodb_Account.dbo.vw_Dep_CustSuper with (NOLOCK)) dep ON c.srecommend = dep.custid
+		LEFT JOIN #DepSuper dep with (NOLOCK)
+		ON c.srecommend = dep.custid
 	WHERE roleid = 2
 		AND 1= CASE WHEN @site = 1 AND dep.custid IS NULL THEN 1
 					WHEN @site = 2 AND dep.custid IS NOT NULL THEN 1 ELSE 0 END
