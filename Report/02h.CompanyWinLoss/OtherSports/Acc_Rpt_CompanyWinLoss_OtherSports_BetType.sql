@@ -26,6 +26,7 @@ Revisions:
 - 20200722@Roy: Incorporate New Basketball Sport for BetBuilder Product - NAP Report (#138082)
 - 20201222@Kean: Support to filter NoDraw and separate the SABA sports - NAP Report (#147451)
 - 20210326@Kean: HotFix, Missing data when league.LeagueGroupId is NULL - NAP Report (#152390)
+- 20212203@Jaden: Support SABA789 (#151326)
 
 Parameters:
 @IsLive: 2 - ALL. 0 - Non-Live. 1 - Live
@@ -58,7 +59,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_BetType] @EndDate='2020-01-01',@StartDa
                      );
         INSERT INTO #DepositSuper
                SELECT CustId
-               FROM f_DepSuper_1('All');
+               FROM DBDW.bodb_Account.dbo.vw_Dep_CustSuper WITH (NOLOCK)
     END;
 	BEGIN -- #SABALeagueGroup
 		CREATE TABLE #SABALeagueGroup(LeagueGroupID INT)

@@ -19,7 +19,8 @@ AS
 		- 20190925@Jacob: Group By CN88 (#118824)
 		- 20191212@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
 		- 20201225@Kean.Nguyen: Integrate HP5 Linked Games (Number Game) (#147573)
-
+        - 20212203@Jaden: Support SABA789 (#151326)
+        
 	Explanation's Param:   
 
 */
@@ -52,7 +53,7 @@ AS
                      );
         INSERT INTO #DepositSuper
                SELECT CustId
-               FROM f_DepSuper_1('All');
+               FROM DBDW.bodb_Account.dbo.vw_Dep_CustSuper WITH (NOLOCK)
     END;
 	BEGIN -- #Match
 

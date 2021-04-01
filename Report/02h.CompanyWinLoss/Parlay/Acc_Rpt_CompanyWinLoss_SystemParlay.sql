@@ -21,6 +21,7 @@ Revisions:
 - 2018.04.19@Franklin: Apply new concept for turnover, virtual win loss and Extra PT (#85003)
 - 20190925@Jacob: Group By CN88 (#118824)
 - 20191212@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
+- 20212203@Jaden: Support SABA789 (#151326)
 
 Example:
 EXEC [Acc_Rpt_CompanyWinLoss_SystemParlay] @EndDate='2020-01-01',@StartDate='2016-01-01', @Site= 'ALL'
@@ -36,7 +37,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_SystemParlay] @EndDate='2020-01-01',@StartDate='201
         );
         INSERT INTO #DepositSuper
                SELECT CustId
-               FROM f_DepSuper_1('All');
+               FROM DBDW.bodb_Account.dbo.vw_Dep_CustSuper WITH (NOLOCK)
     END;
     BEGIN -- #Data
 

@@ -19,6 +19,7 @@ Revisions:
 - 20190925@Jacob: Group By CN88 (#118824)
 - 20191212@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
 - 20200722@Roy: Incorporate New Basketball Sport for BetBuilder Product - NAP Report (#138082)
+- 20212203@Jaden: Support SABA789 (#151326)
 Parameters:
 
 Example:
@@ -49,8 +50,8 @@ EXEC Acc_Rpt_CompanyWinLoss_BetBuilder_BetType @StartDate='2020-07-23 00:00:00',
                       PRIMARY KEY
                      );
         INSERT INTO #DepositSuper
-               SELECT CustId
-               FROM f_DepSuper_1('All');
+               SELECT custid
+			   FROM DBDW.bodb_Account.dbo.vw_Dep_CustSuper WITH (NOLOCK);
     END;
 	BEGIN -- #tmpMatches
         CREATE TABLE #tmpMatches (
