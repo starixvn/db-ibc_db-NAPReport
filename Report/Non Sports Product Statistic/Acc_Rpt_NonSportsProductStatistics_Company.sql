@@ -326,8 +326,7 @@ BEGIN
 
 	-- Get Site	
 	CREATE TABLE #recommend (SiteName VARCHAR(50), recommend INT, isDeposit BIT)
-	DECLARE @isDrillDownLicensee BIT
-	SELECT  @isDrillDownLicensee = 0
+	DECLARE @isDrillDownLicensee TINYINT = 2 --0:MBC Group, 1:Licensee Group, 2:Special Site
 	CREATE TABLE #tmpDep_CustSuper (CustID INT)
 	
 	INSERT INTO #tmpDep_CustSuper (CustID)
@@ -398,10 +397,6 @@ BEGIN
 				INNER JOIN #tmpSite_DW ss ON ss.Site = c.site
 				INNER JOIN #tmp_Site s ON ss.site = s.Site
 			WHERE c.roleid = 2
-			
-			IF @IsDrillDown = 1 
-			SELECT @isDrillDownLicensee = isDeposit
-			FROM #recommend
 		END		
 	END	
 	-- End Site		
