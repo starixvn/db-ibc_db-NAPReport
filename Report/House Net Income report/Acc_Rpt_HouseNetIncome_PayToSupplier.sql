@@ -9,7 +9,7 @@ AS
 
 /*
 	Created: 20201201@Percy
-	DB: DBEXT-bodb02
+	DB: DBWH-bodb_dwrs
 	Task: House Net Income - Pay to supplier for some products
 	
 	Revisions:
@@ -18,6 +18,7 @@ AS
 		- 20210125@Percy: Return SubFigure column [RedmineID: #149267]
 		- 20210323@Percy: Integrate PP Live Casino [RedmineID: #133734]
 		- 20210402@Danny: Support Lucky Draw for AE Casino & Integrate Bonus program for credit sites for Arcadia Gaming & Remove the Gold Deluxe (#151870)
+		- 20210331@Danny: handle site saba789 follow credit term [Redmine: #152450] 
 
 */
 
@@ -114,6 +115,16 @@ BEGIN
 		INSERT INTO #AllParties (PartyId, ParentId, LicenseeId, IsDeposit)
 		EXEC (@SQL)
 
+
+		-- Handle 'Saba789' follow credit term
+		UPDATE t
+		SET t.PartyId = 30,
+			t.ParentId = 999,
+			t.IsDeposit = 0
+		FROM #AllParties t 
+		WHERE LicenseeId = 509
+		-------------------------------------
+
 		-- Licensees have setting
 		CREATE TABLE #Party (PartyId INT, ParentId INT, LicenseeId INT, IsDeposit BIT)
 		SELECT @SQL = '	SELECT PartyId, ParentId, LicenseeId, IsDeposit
@@ -131,7 +142,17 @@ BEGIN
 		INSERT INTO #Party (PartyId, ParentId, LicenseeId, IsDeposit)
 		EXEC (@SQL)
 
+		-- Handle 'Saba789' follow credit term
+		UPDATE t
+		SET t.PartyId = 30,
+			t.ParentId = 999,
+			t.IsDeposit = 0
+		FROM #Party t 
+		WHERE LicenseeId = 509
+		-------------------------------------
+
 		SELECT @PartyIds = COALESCE(@PartyIds + ',', '') + CONVERT(VARCHAR(10), PartyId) FROM #Party
+
 	END
 
 	-- Get charge rate
@@ -238,6 +259,7 @@ BEGIN
 		SET s.SiteId_DW = t.SiteId
 		FROM @tmpSite s
 			INNER JOIN bodb_Account.dbo.tbl_Site t WITH (NOLOCK) ON s.SiteName = RTRIM(LTRIM(t.Site))
+
 	END
 
 	-- Get data
@@ -292,6 +314,8 @@ BEGIN
 				IF @ToDateByBatch > @TDate
 					SET @ToDateByBatch = @TDate
 				
+
+				-- Handle here
 				INSERT INTO #__tempData (rptDate, SiteId, BetTypeId, CurrencyId, Winloss)
 				SELECT f.rptDate, s.LicenseeId, CASE WHEN f.BetType = 38 THEN -3 ELSE -1 END, f.CurrencyId, SUM(CASE WHEN f.BetType = 38 THEN winlossP + commissionS ELSE winlossP + winlossA + winlossM + winlossS + commissionS END)
 				FROM bodb_Account.dbo.FactSiteWinloss f WITH (NOLOCK)
@@ -317,8 +341,8 @@ BEGIN
 				AND SportType = 44
 				AND (
 					@DepositType = 2
-					OR (@DepositType = 0 AND SiteId > 1000)
-					OR (@DepositType = 1 AND SiteId < 1000)
+					OR (@DepositType = 0 AND (SiteId > 1000 OR SiteID = 509))
+					OR (@DepositType = 1 AND (SiteId < 1000 AND SiteID <> 509))
 				)
 			GROUP BY rptDate, SiteId, CurrencyId
 
@@ -358,8 +382,8 @@ BEGIN
 				AND StatusId NOT IN(-1, 101, 102, 103) -- Exclude Reject , Void, Refund
 				AND (
 					@DepositType = 2
-					OR (@DepositType = 0 AND SiteId > 1000)
-					OR (@DepositType = 1 AND SiteId < 1000)
+					OR (@DepositType = 0 AND (SiteId > 1000 OR SiteID = 509))
+					OR (@DepositType = 1 AND (SiteId < 1000 AND SiteID <> 509))
 				)
 			GROUP BY RptDate3rd, SiteId, BetTypeId, CurrencyId
 
@@ -373,8 +397,8 @@ BEGIN
 					AND StatusId NOT IN(-1, 101, 102, 103) -- Exclude Reject , Void, Refund
 					AND (
 						@DepositType = 2
-						OR (@DepositType = 0 AND SiteId > 1000)
-						OR (@DepositType = 1 AND SiteId < 1000)
+					OR (@DepositType = 0 AND (SiteId > 1000 OR SiteID = 509))
+					OR (@DepositType = 1 AND (SiteId < 1000 AND SiteID <> 509))
 					)
 				GROUP BY RptDate3rd, SiteId, BetTypeId, CurrencyId
 
