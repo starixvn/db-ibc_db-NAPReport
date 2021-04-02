@@ -58,10 +58,10 @@ SELECT  @homeid = homeid, @awayid = awayid FROM bodb02.dbo.match WITH(NOLOCK) WH
 CREATE TABLE #abnormalOrRobotUsers (custid int, [type] char)
 
 INSERT INTO #abnormalOrRobotUsers (custid, [type])
-SELECT custid, 'A'
+SELECT custid, 'R'
 FROM DBONUSER.ON_USER.dbo.robotusers WITH(NOLOCK) WHERE [counter] > 10
 UNION ALL
-SELECT custid, 'R'
+SELECT custid, 'A'
 FROM DBONUSER.ON_USER.dbo.AbnormalUsers WITH(NOLOCK) WHERE flags = 4
 
 IF @homeid IS NOT NULL
@@ -99,9 +99,11 @@ BEGIN
 
 		,CASE WHEN dep.CustID IS NULL THEN 'C' ELSE 'L' END as [site] --credit / lisencee
 		,ar.type as [bot]
-		,CASE WHEN ci.danger > 0 THEN ' Ori@' + cast(ci.danger as varchar(2)) ELSE '' END
-		+ CASE WHEN ci.danger2 > 0 THEN ' ABI@' + cast(ci.danger2 as varchar(2)) ELSE '' END
-		+ CASE WHEN ci.danger3 > 0 THEN ' O.Sport@' + cast(ci.danger3 as varchar(2)) ELSE '' END [dgr]
+		,REPLACE(LTRIM(RTRIM(
+			CASE WHEN ci.danger > 0 THEN 'Ori@' + cast(ci.danger as varchar(3)) ELSE '' END
+			+ CASE WHEN ci.danger2 > 0 THEN ' ABI@' + cast(ci.danger2 as varchar(3)) ELSE '' END
+			+ CASE WHEN ci.danger3 > 0 THEN ' O.Sport@' + cast(ci.danger3 as varchar(3)) ELSE '' END 
+		)), ' ', ', ') [dgr]
 		,ci.CustomerClass as [CC]
 		,bi.OriginalOdds as [ori.odds]
 		,CASE 
