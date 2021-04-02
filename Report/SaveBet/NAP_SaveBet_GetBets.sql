@@ -55,14 +55,15 @@ END
 DECLARE @homeid INT, @awayid INT,@EventDate SMALLDATETIME
 SELECT  @homeid = homeid, @awayid = awayid FROM bodb02.dbo.match WITH(NOLOCK) WHERE matchid = @matchid
 
-CREATE TABLE #abnormalOrRobotUsers (custid int, [type] char)
+CREATE TABLE #abnormalOrRobotUsers (custid int, [type] varchar(10))
 
 INSERT INTO #abnormalOrRobotUsers (custid, [type])
-SELECT custid, 'R'
-FROM DBONUSER.ON_USER.dbo.robotusers WITH(NOLOCK) WHERE [counter] > 10
-UNION ALL
-SELECT custid, 'A'
-FROM DBONUSER.ON_USER.dbo.AbnormalUsers WITH(NOLOCK) WHERE flags = 4
+	SELECT ISNULL(b.custid, a.custid) custid, 
+		RTRIM(LTRIM(ISNULL('(' +b.t+ ')', '') + ' ' + ISNULL('(' +a.t+ ')', ''))) [type]
+	FROM (SELECT custid, 'R' t FROM DBONUSER.ON_USER.dbo.robotusers WITH(NOLOCK) WHERE [counter] > 10) a
+	FULL OUTER JOIN (SELECT custid, 'A' t FROM DBONUSER.ON_USER.dbo.AbnormalUsers WITH(NOLOCK) WHERE flags = 4) b
+	ON a.custid = b.custid
+	WHERE a.custid IS NOT NULL OR b.custid IS NOT NULL
 
 IF @homeid IS NOT NULL
 BEGIN
