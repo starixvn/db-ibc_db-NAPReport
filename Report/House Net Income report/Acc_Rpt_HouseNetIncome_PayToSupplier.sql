@@ -71,6 +71,7 @@ BEGIN
 				OR s.isDeposit = @DepositType
 			)
 			AND s.IsTest <= @IsTest
+			AND s.ProductID <> 12
 
 		;WITH CTE_Product AS (SELECT DISTINCT ProductCode FROM @Products)
 		SELECT @ProductCodes = COALESCE(@ProductCodes + ',', '') + ProductCode FROM CTE_Product

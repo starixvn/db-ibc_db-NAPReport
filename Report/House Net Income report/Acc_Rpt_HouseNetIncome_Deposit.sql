@@ -69,6 +69,7 @@ BEGIN
 				OR ',' + @ProductList + ',' LIKE '%,' + s.ProductPrefix + ',%'
 			)
 			AND s.IsTest <= @IsTest
+			AND s.ProductId <> 12
 
 		UPDATE @Products SET IsPayToSupplier = 1 WHERE ProductId IN (SELECT ProductId FROM bodb_Account.dbo.HNISettings WITH (NOLOCK) WHERE Figure = 'Pay to Supplier' AND LogicCode = 1 AND isDeposit = 1)
 
