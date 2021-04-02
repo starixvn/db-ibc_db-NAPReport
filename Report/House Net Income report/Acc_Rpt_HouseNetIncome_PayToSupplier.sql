@@ -17,6 +17,8 @@ AS
 		- 20200112@Percy: Return ProductCategory column [RedmineID: #146539]
 		- 20210125@Percy: Return SubFigure column [RedmineID: #149267]
 		- 20210323@Percy: Integrate PP Live Casino [RedmineID: #133734]
+		- 20210402@Danny: Email/Letstalk Reports - AE Casino - Support Lucky Draw (#151870)
+
 */
 
 BEGIN
@@ -75,6 +77,7 @@ BEGIN
 
 		;WITH CTE_Product AS (SELECT DISTINCT Product3rdId FROM @Products)
 		SELECT @Product3rdIds = COALESCE(@Product3rdIds + ',', '') + CONVERT(VARCHAR(3), Product3rdId) FROM CTE_Product
+		WHERE Product3rdId <> 11 -- Remove GD 
 	END
 
 	-- Get Exchange
@@ -246,7 +249,7 @@ BEGIN
 		INSERT INTO #__Bettype (Product3rdId, ProductCode, BetType)
 		SELECT DISTINCT p.Product3rdId, p.ProductCode, s.BetType FROM bodb02.dbo.SportBettypeMatrix s WITH (NOLOCK)
 			INNER JOIN @Products p ON s.ProductId = p.ProductId AND p.Product3rdId <> 0
-		WHERE s.BetType NOT IN (4298, 4299, 4300)
+		WHERE s.BetType NOT IN (4298, 4299, 4300, 1906) -- Exclude bettype 1906 Product: Arcadia Gaming 
 
 		-- Use Valid Bet Amount
 		CREATE TABLE #__ValidBetRate (IsDeposit BIT, Product3rdId INT, FromDate DATE, ToDate DATE, CommRate FLOAT)

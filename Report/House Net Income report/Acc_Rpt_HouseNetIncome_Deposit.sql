@@ -17,6 +17,7 @@ AS
 		- 20210202@Percy: Integrate Saba.Club Four Guardians games [RedmineID: #149122]
 		- 20210325@Sophia: Change Formula of House TO to get rate from LA setting, not use PT Setting [Redmine: #152291] 
 		- 20210405@Percy: Missing Contribution Amount & Jackpot Prize on Monthly [RedmineID: #152912]
+		- 20210402@Danny: Email/Letstalk Reports - AE Casino - Support Lucky Draw (#151870)
 */
 
 BEGIN
@@ -77,7 +78,9 @@ BEGIN
 
 		;WITH CTE_Product AS (SELECT DISTINCT Product3rdId FROM @Products)
 		SELECT @Product3rdIds = COALESCE(@Product3rdIds + ',', '') + CONVERT(VARCHAR(3), Product3rdId) FROM CTE_Product
-		
+		WHERE Product3rdId <> 11
+
+
 		;WITH CTE_Product AS (SELECT DISTINCT ProductCode FROM @Products)
 		SELECT @ProductCodes = COALESCE(@ProductCodes + ',', '') + ProductCode FROM CTE_Product
 
@@ -259,7 +262,7 @@ BEGIN
 		FROM bodb02.dbo.SportBettypeMatrix s WITH (NOLOCK)
 			INNER JOIN @Products p ON s.ProductId = p.ProductId
 			LEFT JOIN bodb_Account.dbo.BettypeGroup bg WITH (NOLOCK) ON s.BetType = bg.Bettype
-		WHERE s.BetType NOT IN (911, 912, 1906, 4298, 4299, 4300, 1699)
+		WHERE s.BetType NOT IN (911, 912, 1906, 4298, 4299, 4300, 1699, 1906) -- Exclude bettype 1906 Product: Arcadia Gaming 
 			AND (
 				s.ProductId <> 3
 				OR (p.SubProductCode = 'NG' AND s.sporttype = 161)
@@ -365,7 +368,7 @@ BEGIN
 		END
 
 		-- CB, AG, GD, EX
-		IF EXISTS (SELECT 1 FROM @Products WHERE Product3rdId IN (10, 11, 15, 31))
+		IF EXISTS (SELECT 1 FROM @Products WHERE Product3rdId IN (10,15, 31))
 		BEGIN
 			CREATE TABLE #__BettingByProduct (rptDate DATE, LicenseeId INT, CurrencyId INT, Product3rdId INT, BetTypeGroup INT, ValidBetAmount MONEY, MemberWL MONEY, Comm MONEY)
 			INSERT INTO #__BettingByProduct (rptDate, LicenseeId, CurrencyId, Product3rdId, BetTypeGroup, ValidBetAmount, MemberWL, Comm)
@@ -376,7 +379,7 @@ BEGIN
 				,Comm			= SUM(CASE WHEN ProductId = 31 THEN CommissionP + CommissionA ELSE 0 END)
 			FROM DBLIC.bodb_LicenseeReport.dbo.rpt_BettingByProduct WITH (NOLOCK)
 			WHERE rptDate BETWEEN @FDate AND @TDate
-				AND ProductId IN (10, 11, 15, 31)
+				AND ProductId IN (10,  15, 31) -- Remove GD
 				AND CurrencyId <> 20
 				AND CustomerCategory NOT IN (27, 28)
 				AND StatusId NOT IN (-1, 101, 102, 103)
