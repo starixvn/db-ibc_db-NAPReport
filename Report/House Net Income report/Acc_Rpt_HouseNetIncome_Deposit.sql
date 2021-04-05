@@ -16,6 +16,7 @@ AS
 		- 20210125@Percy: Return SubFigure column [RedmineID: #149267]
 		- 20210202@Percy: Integrate Saba.Club Four Guardians games [RedmineID: #149122]
 		- 20210325@Sophia: Change Formula of House TO to get rate from LA setting, not use PT Setting [Redmine: #152291] 
+		- 20210405@Percy: Missing Contribution Amount & Jackpot Prize on Monthly [RedmineID: #152912]
 */
 
 BEGIN
@@ -1095,7 +1096,7 @@ BEGIN
 	SET r.FullContribution = ISNULL(m.FullContribution, 0), r.JackpotPrize = ISNULL(m.JackpotPrize, 0)
 	FROM #Result r
 		INNER JOIN #Result m ON m.Product3rdId = r.Product3rdId AND m.AliasProductId = r.AliasProductId AND r.rptDate = 'Monthly' AND m.rptDate = 'MTD'
-	WHERE r.Product3rdId = 32
+	WHERE r.Product3rdId IN (32, 42)
 
 	DECLARE @DateList VARCHAR(2000)
 	;WITH CTE_Date AS
