@@ -66,6 +66,7 @@ Revision:
 	- 20201225@Ned.Le: NAP Reports - Integrate MaxGame (#147570)
 	- 20210303@Cherry: Integrate Habanero (#151070)
 	- 20210303@Cherry: Integrate Sports Lottery (#151071)
+	- 20210325@Jaden: Integrate PP Live Casino (#133731)
 */
 
 BEGIN	
@@ -118,7 +119,7 @@ BEGIN
          INNER JOIN SportBettypeMatrix s WITH(NOLOCK) ON sb.BetType = s.BetType 
 			AND s.ProductID IN (23, 31, 32, 33, 34, 37, 36, 38, -- NG2, Exchange, Pragmatic, Poker Games, Card Club, Spadegaming, Virtual Games
             39, 43, 45, 40, 47, 46, 52, 50, 55, 56, 51, 49, 59, -- SA Gaming, Indo 4D, Sexy Gaming, Table Games, BBIN, IBCBet Live Casino, ION, RNG War, PG Soft, Joker, WM, VS3, GDG
-			57, 60, 61, 63) -- BG, MXG, Habanero, Sports Lottery
+			57, 60, 61, 63, 65) -- BG, MXG, Habanero, Sports Lottery, PP Live Casino
 	IF @winlostdate > @MoveBetsDay
 	BEGIN				
 		DELETE FROM bodb_Report.dbo.rptWinlost
@@ -568,7 +569,7 @@ BEGIN
 			dbo.bettransLC b WITH (NOLOCK)
 			 INNER JOIN #SportBettype sb on b.gameID = sb.Bettype
 		WHERE
-			sb.ProductID IN (21, 39, 45, 46, 52, 51, 59, 57) -- Allbet, SA Gaming, Sexy Gaming, IBCBet Live Casino, ION, WM, GDG, BG
+			sb.ProductID IN (21, 39, 45, 46, 52, 51, 59, 57, 65) -- Allbet, SA Gaming, Sexy Gaming, IBCBet Live Casino, ION, WM, GDG, BG, PP Live Casino
 			AND winlostdate = @winlostdate
 			AND statusID   IN (111,112,113) --(/Won/lose/Draw)
 			AND currency <> 20
@@ -1110,7 +1111,7 @@ BEGIN
 				dbo.bettransLC14 b WITH (NOLOCK)
 				 INNER JOIN #SportBettype sb on b.gameID = sb.Bettype
 			WHERE
-				sb.ProductID IN (21, 39, 45, 46, 52, 51, 59, 57) -- Allbet, SA Gaming, Sexy Gaming, IBCBet Live Casino, ION, BG
+				sb.ProductID IN (21, 39, 45, 46, 52, 51, 59, 57, 65) -- Allbet, SA Gaming, Sexy Gaming, IBCBet Live Casino, ION, BG, PP Live Casino
 				AND winlostdate = @winlostdate
 				AND statusID   IN (111,112,113) --(/Won/lose/Draw)
 				AND currency <> 20
@@ -1189,7 +1190,7 @@ BEGIN
 		    SET rpt.SportType = sb.SportType
 		    FROM bodb_Report.dbo.rptWinlost rpt
 			 INNER JOIN #SportBettype sb on  rpt.bettype = sb.Bettype
-		    WHERE sb.ProductID IN (23, 31, 32, 33, 34, 37, 36, 38, 39, 43, 45, 40, 47, 46, 52, 50, 55, 56, 51, 49, 59, 57, 60, 61, 63)
+		    WHERE sb.ProductID IN (23, 31, 32, 33, 34, 37, 36, 38, 39, 43, 45, 40, 47, 46, 52, 50, 55, 56, 51, 49, 59, 57, 60, 61, 63, 65)
 		    AND rpt.winlostdate =  @winlostdate
 
 			-- Happy 5 Linked Games
