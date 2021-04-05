@@ -66,6 +66,7 @@ AS
 		- 20210303@Cherry: Integrate Habanero (#151070)
 		- 20210303@Cherry: Integrate Sports Lottery (#151071)
 		- 20210325@Jaden: Change bettype range from [3101 - 3199] to [3101 - 3150] (#151869)
+		- 20210325@Jaden: Integrate PP Live Casino (#133731)
 
 	Param's Explanation:  
 	  + @MoveBetsDay: The day of moving bets to battrans14
@@ -192,7 +193,7 @@ BEGIN
 		END	
 
 		-- Get data from bettransLC
-		IF @sportType IN (211, 244, 243, 242, 225, 236, 239)
+		IF @sportType IN (211, 244, 243, 242, 225, 236, 239, 170)
 		BEGIN
 			INSERT INTO #AvailableMember
 			SELECT b.custid,b.[status],COUNT(1) 
@@ -204,6 +205,7 @@ BEGIN
 					OR b.gameID BETWEEN 3101 AND CASE WHEN @sportType=243 THEN 3150 ELSE 0 END -- AE Casino
 					OR b.gameID BETWEEN 3201 AND CASE WHEN @sportType=242 THEN 3299 ELSE 0 END -- IBCBet Live Casino
 					OR b.gameID BETWEEN 5601 AND CASE WHEN @sportType=225 THEN 5699 ELSE 0 END -- ION Live Casino
+					OR b.gameID BETWEEN 3701 AND CASE WHEN @sportType=170 THEN 3799 ELSE 0 END -- PP Live Casino
 					OR b.gameID BETWEEN 3401 AND CASE WHEN @sportType=233 THEN 3499 ELSE 0 END -- WM
 					OR b.gameID BETWEEN 5701 AND CASE WHEN @sportType=236 THEN 5799 ELSE 0 END -- GDG
 					OR b.gameID BETWEEN 3501 AND CASE WHEN @sportType=239 THEN 3599 ELSE 0 END -- BG
@@ -256,6 +258,7 @@ BEGIN
 							OR b.bettype BETWEEN 1901 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = 212 THEN 1999 ELSE 0 END   -- Card Club [Video Poker]
 							OR b.bettype BETWEEN 1611 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 200 THEN 1699 ELSE 0 END)  -- Saba.club
 							OR b.bettype BETWEEN 5601 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 225 THEN 5699 ELSE 0 END)  -- ION Live Casino
+							OR b.bettype BETWEEN 3701 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 170 THEN 3799 ELSE 0 END)  -- PP Live Casino
 							OR b.bettype BETWEEN 5500 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 224 THEN 5599 ELSE 0 END)  -- RNG War
 							OR b.bettype BETWEEN 6001 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = 212 THEN 6300 ELSE 0 END   -- PG Soft
 							OR b.bettype BETWEEN 6401 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = 212 THEN 6700 ELSE 0 END   -- Joker Gaming
@@ -345,7 +348,7 @@ BEGIN
 			LEFT JOIN CustEnableKeno ce ON ce.CustID = av.custid    
 		WHERE ce.CustID IS NULL
 	END
-	IF @sportType IN (211,212,213,219,220,180,245,244,200,243,222,241,242,224,225,233,236,239,169)
+	IF @sportType IN (211,212,213,219,220,180,245,244,200,243,222,241,242,224,225,233,236,239,169, 170)
     BEGIN
 		DECLARE @bitmapOrder TABLE (bitmapOrder TINYINT)
 		INSERT INTO @bitmapOrder (bitmapOrder)
