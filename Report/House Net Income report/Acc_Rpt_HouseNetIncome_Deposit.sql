@@ -19,7 +19,6 @@ AS
 		- 20210405@Percy: Missing Contribution Amount & Jackpot Prize on Monthly [RedmineID: #152912]
 		- 20210402@Danny: Support Lucky Draw for AE Casino & Integrate Bonus program for credit sites for Arcadia Gaming & Remove the Gold Deluxe (#151870)
 */
-
 BEGIN
 	SET NOCOUNT ON
 
@@ -69,7 +68,6 @@ BEGIN
 				OR ',' + @ProductList + ',' LIKE '%,' + s.ProductPrefix + ',%'
 			)
 			AND s.IsTest <= @IsTest
-			AND s.ProductId <> 12 -- Remove Gold Deluxe product
 
 		UPDATE @Products SET IsPayToSupplier = 1 WHERE ProductId IN (SELECT ProductId FROM bodb_Account.dbo.HNISettings WITH (NOLOCK) WHERE Figure = 'Pay to Supplier' AND LogicCode = 1 AND isDeposit = 1)
 
@@ -79,8 +77,7 @@ BEGIN
 
 		;WITH CTE_Product AS (SELECT DISTINCT Product3rdId FROM @Products)
 		SELECT @Product3rdIds = COALESCE(@Product3rdIds + ',', '') + CONVERT(VARCHAR(3), Product3rdId) FROM CTE_Product
-
-
+		
 		;WITH CTE_Product AS (SELECT DISTINCT ProductCode FROM @Products)
 		SELECT @ProductCodes = COALESCE(@ProductCodes + ',', '') + ProductCode FROM CTE_Product
 
@@ -150,7 +147,7 @@ BEGIN
 							WHERE ci.DI_Rate > 0
 								AND (
 									ci.ChargeType = 1
-									--OR ci.ChargeType IN (9, 10, 12) AND ci.ProductId = 11 -- GD
+									OR ci.ChargeType IN (9, 10, 12) AND ci.ProductId = 11 -- GD
 									OR ci.ChargeType IN (6, 7) AND ci.ProductId = 15 -- CB
 									OR ci.ChargeType = 5 AND ci.ProductId = 25 -- CO
 									OR ci.ChargeType = 12 AND ci.ProductId = 39 -- SAG
@@ -174,7 +171,7 @@ BEGIN
 												 WHERE DI_Rate > 0
 													AND (
 														ChargeType = 1
-														--OR (ChargeType IN (9, 10, 12) AND ProductId = 11) -- GD
+														OR (ChargeType IN (9, 10, 12) AND ProductId = 11) -- GD
 													)'')'
 		INSERT INTO @PartyCharge3rd (PartyId, Product3rdId, ChargeType, FromDate, ToDate, Rate)
 		EXEC (@SQL)
@@ -262,7 +259,7 @@ BEGIN
 		FROM bodb02.dbo.SportBettypeMatrix s WITH (NOLOCK)
 			INNER JOIN @Products p ON s.ProductId = p.ProductId
 			LEFT JOIN bodb_Account.dbo.BettypeGroup bg WITH (NOLOCK) ON s.BetType = bg.Bettype
-		WHERE s.BetType NOT IN (911, 912, 1906, 4298, 4299, 4300, 1699, 3150) -- Exclude bettype 1906, 3150 redmineID [151870]
+		WHERE s.BetType NOT IN (911, 912, 1906, 4298, 4299, 4300, 1699,3150)
 			AND (
 				s.ProductId <> 3
 				OR (p.SubProductCode = 'NG' AND s.sporttype = 161)
@@ -368,7 +365,7 @@ BEGIN
 		END
 
 		-- CB, AG, GD, EX
-		IF EXISTS (SELECT 1 FROM @Products WHERE Product3rdId IN (10,15, 31))
+		IF EXISTS (SELECT 1 FROM @Products WHERE Product3rdId IN (10, 11, 15, 31))
 		BEGIN
 			CREATE TABLE #__BettingByProduct (rptDate DATE, LicenseeId INT, CurrencyId INT, Product3rdId INT, BetTypeGroup INT, ValidBetAmount MONEY, MemberWL MONEY, Comm MONEY)
 			INSERT INTO #__BettingByProduct (rptDate, LicenseeId, CurrencyId, Product3rdId, BetTypeGroup, ValidBetAmount, MemberWL, Comm)
@@ -379,7 +376,7 @@ BEGIN
 				,Comm			= SUM(CASE WHEN ProductId = 31 THEN CommissionP + CommissionA ELSE 0 END)
 			FROM DBLIC.bodb_LicenseeReport.dbo.rpt_BettingByProduct WITH (NOLOCK)
 			WHERE rptDate BETWEEN @FDate AND @TDate
-				AND ProductId IN (10,  15, 31) -- Remove GD
+				AND ProductId IN (10, 11, 15, 31)
 				AND CurrencyId <> 20
 				AND CustomerCategory NOT IN (27, 28)
 				AND StatusId NOT IN (-1, 101, 102, 103)
@@ -530,7 +527,7 @@ BEGIN
 		SELECT t.rptDate, l.PartyId, t.Product3rdId, t.AliasProductId, t.SportTypeGroup
 			,CurrencyId	= CASE WHEN t.Product3rdId = 10 THEN t.CurrencyId END
 			,ParentId	= CASE
-							WHEN t.Product3rdId IN (5, 34) THEN l.PartyId --Remove Product3rdId = 11
+							WHEN t.Product3rdId IN (5, 11, 34) THEN l.PartyId
 							WHEN t.Product3rdId IN (10, 22, 27) THEN l.ParentId
 							WHEN t.Product3rdId IN (8, 28) THEN CASE WHEN l.PartyId = 14 THEN 1 ELSE 2 END
 							WHEN t.Product3rdId = 40 THEN CASE WHEN l.PartyId = 14 THEN -1 ELSE l.ParentId END
@@ -595,14 +592,14 @@ BEGIN
 			LEFT JOIN #PartyChargeInfo p ON p.PartyId = l.PartyId AND p.Product3rdId = t.Product3rdId AND t.rptDate BETWEEN p.FromDate AND p.ToDate
 					AND (p.Bettype = -1 OR p.Bettype = t.BetTypeGroup)
 					AND (
-						(t.Product3rdId IN (39) AND t.BetTypeGroup <> -1 AND p.ChargeType = 12) -- Remove Product3rdId = 11 Gold Deluxe
+						(t.Product3rdId IN (11, 39) AND t.BetTypeGroup <> -1 AND p.ChargeType = 12)
 						OR (t.Product3rdId = 15 AND p.ChargeType = 6)
-						OR (t.Product3rdId <> 15 AND ((t.Product3rdId NOT IN (39) OR t.BetTypeGroup = -1) AND p.ChargeType <> 12)) -- Remove Product3rdId = 11 Gold Deluxe
+						OR (t.Product3rdId <> 15 AND ((t.Product3rdId NOT IN (11, 39) OR t.BetTypeGroup = -1) AND p.ChargeType <> 12))
 					)
 			LEFT JOIN #PartyCharge3rdInfo rd ON rd.PartyId = l.PartyId AND rd.Product3rdId = t.Product3rdId AND t.rptDate BETWEEN rd.FromDate AND rd.ToDate
 					AND (
-						(t.Product3rdId IN (39) AND t.BetTypeGroup <> -1 AND rd.ChargeType = 12) -- Remove Product3rdId = 11 Gold Deluxe
-						OR ((t.Product3rdId NOT IN (39) OR t.BetTypeGroup = -1) AND rd.ChargeType <> 12) -- Remove Product3rdId = 11 Gold Deluxe
+						(t.Product3rdId IN (11, 39) AND t.BetTypeGroup <> -1 AND rd.ChargeType = 12)
+						OR ((t.Product3rdId NOT IN (11, 39) OR t.BetTypeGroup = -1) AND rd.ChargeType <> 12)
 					)
 			LEFT JOIN #tempVendorGlobalSetting v ON v.Product3rdId = t.Product3rdId AND v.Bettype = t.BetTypeGroup
 			
@@ -611,7 +608,7 @@ BEGIN
 		GROUP BY t.rptDate, l.PartyId, t.Product3rdId, t.AliasProductId, t.SportTypeGroup
 			,CASE WHEN t.Product3rdId = 10 THEN t.CurrencyId END
 			,CASE
-				WHEN t.Product3rdId IN (5, 34) THEN l.PartyId  -- Remove Product3rdId = 11 Gold Deluxe
+				WHEN t.Product3rdId IN (5, 11, 34) THEN l.PartyId
 				WHEN t.Product3rdId IN (10, 22, 27) THEN l.ParentId
 				WHEN t.Product3rdId IN (8, 28) THEN CASE WHEN l.PartyId = 14 THEN 1 ELSE 2 END
 				WHEN t.Product3rdId = 40 THEN CASE WHEN l.PartyId = 14 THEN -1 ELSE l.ParentId END
@@ -1072,7 +1069,7 @@ BEGIN
 				HAVING SUM(t.MemberWLMonth) < 0
 			) r
 		) t
-	WHERE r.Product3rdId IN (5, 10, 22, 27) -- Exclude GD
+	WHERE r.Product3rdId IN (5, 10, 11, 22, 27)
 		AND rptDate = 'Monthly'
 		
 		-- 1.2 Pay to supplier month
@@ -1084,7 +1081,7 @@ BEGIN
 			FROM #__tempResult t
 			WHERE t.Product3rdId = r.Product3rdId AND t.AliasProductId = r.AliasProductId
 		) t
-	WHERE r.Product3rdId NOT IN (5, 10, 22, 27) -- Exclude GD
+	WHERE r.Product3rdId NOT IN (5, 10, 11, 22, 27)
 		AND rptDate = 'Monthly'
 
 		-- 1.3 House Income = sum up Total daily

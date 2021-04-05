@@ -71,7 +71,6 @@ BEGIN
 				OR s.isDeposit = @DepositType
 			)
 			AND s.IsTest <= @IsTest
-			AND s.ProductID <> 12
 
 		;WITH CTE_Product AS (SELECT DISTINCT ProductCode FROM @Products)
 		SELECT @ProductCodes = COALESCE(@ProductCodes + ',', '') + ProductCode FROM CTE_Product
@@ -148,7 +147,7 @@ BEGIN
 							WHERE ci.DI_Rate > 0
 								AND (
 									ci.ChargeType = 1
-									--OR ci.ChargeType IN (9, 10, 11, 12) AND ci.ProductId IN (11, 21, 39) -- GD
+									OR ci.ChargeType IN (9, 10, 11, 12) AND ci.ProductId IN (11, 21, 39) -- GD
 									OR ci.ChargeType IN (6, 7) AND ci.ProductId = 15 -- CB
 									OR ci.ChargeType = 5 AND ci.ProductId = 25 -- CO
 								)'')'
@@ -249,7 +248,7 @@ BEGIN
 		INSERT INTO #__Bettype (Product3rdId, ProductCode, BetType)
 		SELECT DISTINCT p.Product3rdId, p.ProductCode, s.BetType FROM bodb02.dbo.SportBettypeMatrix s WITH (NOLOCK)
 			INNER JOIN @Products p ON s.ProductId = p.ProductId AND p.Product3rdId <> 0
-		WHERE s.BetType NOT IN (4298, 4299, 4300, 1906, 3150) -- Exclude bettype 1906, 3150 redmineID [151870]
+		WHERE s.BetType NOT IN (4298, 4299, 4300, 1906, 3150)
 
 		-- Use Valid Bet Amount
 		CREATE TABLE #__ValidBetRate (IsDeposit BIT, Product3rdId INT, FromDate DATE, ToDate DATE, CommRate FLOAT)
