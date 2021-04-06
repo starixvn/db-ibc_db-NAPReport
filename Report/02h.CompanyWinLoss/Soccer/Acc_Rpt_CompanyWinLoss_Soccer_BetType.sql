@@ -85,7 +85,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_BetType] @EndDate='2020-01-01',@StartDate='2
                      );
         INSERT INTO #DepositSuper
                SELECT CustId
-               FROM DBDW.bodb_Account.dbo.vw_Dep_CustSuper WITH (NOLOCK)
+               FROM DBWH.bodb_Account.dbo.vw_Dep_CustSuper WITH (NOLOCK)
     END;
 	BEGIN -- #SABALeagueGroup
 		CREATE TABLE #SABALeagueGroup(LeagueGroupID INT)

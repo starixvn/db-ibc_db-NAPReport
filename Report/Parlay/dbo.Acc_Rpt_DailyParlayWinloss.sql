@@ -84,7 +84,7 @@ ELSE
 BEGIN
 	CREATE TABLE #DepSuper (custid int)
 	INSERT INTO #DepSuper
-		SELECT custid FROM DBDW.bodb_Account.dbo.vw_Dep_CustSuper WITH (NOLOCK)
+		SELECT custid FROM DBWH.bodb_Account.dbo.vw_Dep_CustSuper WITH (NOLOCK)
 
 	CREATE TABLE #DepAgent (custid int primary key)
 	

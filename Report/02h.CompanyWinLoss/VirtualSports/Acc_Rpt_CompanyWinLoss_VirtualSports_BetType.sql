@@ -49,7 +49,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSports_BetType] @StartDate='2016-01-01', @En
                      );
         INSERT INTO #DepositSuper
                SELECT CustId
-               FROM DBDW.bodb_Account.dbo.vw_Dep_CustSuper WITH (NOLOCK)
+               FROM DBWH.bodb_Account.dbo.vw_Dep_CustSuper WITH (NOLOCK)
     END;
      IF EXISTS -- Virtual Sportsbook
      (

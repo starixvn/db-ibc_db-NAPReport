@@ -37,7 +37,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_SystemParlay] @EndDate='2020-01-01',@StartDate='201
         );
         INSERT INTO #DepositSuper
                SELECT CustId
-               FROM DBDW.bodb_Account.dbo.vw_Dep_CustSuper WITH (NOLOCK)
+               FROM DBWH.bodb_Account.dbo.vw_Dep_CustSuper WITH (NOLOCK)
     END;
     BEGIN -- #Data
 

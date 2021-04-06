@@ -48,7 +48,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_MetricGaming_BetType_LiveStatus] @EndDate='2018-08-
                      );
         INSERT INTO #DepositSuper
                SELECT CustId
-               FROM DBDW.bodb_Account.dbo.vw_Dep_CustSuper WITH (NOLOCK)
+               FROM DBWH.bodb_Account.dbo.vw_Dep_CustSuper WITH (NOLOCK)
     END;
     BEGIN -- #Data
         CREATE TABLE #tmp_Data

@@ -50,7 +50,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_VirtualSportsBetradar_BetType] @StartDate='2016-01-
                      );
         INSERT INTO #DepositSuper
                SELECT CustId
-               FROM DBDW.bodb_Account.dbo.vw_Dep_CustSuper WITH (NOLOCK)
+               FROM DBWH.bodb_Account.dbo.vw_Dep_CustSuper WITH (NOLOCK)
     END;
     BEGIN -- #Data
 

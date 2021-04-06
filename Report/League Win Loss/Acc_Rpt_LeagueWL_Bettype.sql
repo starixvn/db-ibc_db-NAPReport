@@ -189,7 +189,7 @@ BEGIN
 				 		WHEN dep.custid  IS NOT NULL THEN 'Deposit'
 						ELSE 'Credit' END AS SiteType
 			FROM bodb02..Customer AS s WITH(NOLOCK)
-			LEFT JOIN DBDW.bodb_Account.dbo.vw_Dep_CustSuper dep WITH (NOLOCK)
+			LEFT JOIN DBWH.bodb_Account.dbo.vw_Dep_CustSuper dep WITH (NOLOCK)
 				ON s.srecommend = dep.CustId
 			LEFT JOIN bodb02..CS_CustSuper cn88 WITH(NOLOCK) 
 				ON s.srecommend = cn88.CustId

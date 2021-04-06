@@ -71,7 +71,7 @@ BEGIN
 	*/
 	INSERT INTO #tmpDepSuper
 	SELECT CustId
-	FROM DBDW.bodb_Account.dbo.vw_Dep_CustSuper WITH (NOLOCK);
+	FROM DBWH.bodb_Account.dbo.vw_Dep_CustSuper WITH (NOLOCK);
 	
 	
 	SELECT m.SportType AS GroupId

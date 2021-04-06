@@ -110,7 +110,7 @@ BEGIN
                     ;WITH CTE_Cre AS (
                         SELECT c.CustId, c.Site
                         FROM bodb02..Customer AS c WITH(NOLOCK)
-                        LEFT JOIN DBDW.bodb_Account.dbo.vw_Dep_CustSuper dep WITH (NOLOCK)
+                        LEFT JOIN DBWH.bodb_Account.dbo.vw_Dep_CustSuper dep WITH (NOLOCK)
                             ON c.srecommend = dep.CustId
                         LEFT JOIN bodb02..CS_CustSuper cn88 WITH(NOLOCK) 
                             ON c.srecommend = cn88.CustId

@@ -44,7 +44,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Bettrade_BetType] @StartDate='2016-01-01', @EndDate
                      );
         INSERT INTO #DepositSuper
                SELECT CustId
-               FROM DBDW.bodb_Account.dbo.vw_Dep_CustSuper WITH (NOLOCK);
+               FROM DBWH.bodb_Account.dbo.vw_Dep_CustSuper WITH (NOLOCK);
     END;
     BEGIN -- Query
 

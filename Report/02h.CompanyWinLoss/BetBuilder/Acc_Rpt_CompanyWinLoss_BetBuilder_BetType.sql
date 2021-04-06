@@ -51,7 +51,7 @@ EXEC Acc_Rpt_CompanyWinLoss_BetBuilder_BetType @StartDate='2020-07-23 00:00:00',
                      );
         INSERT INTO #DepositSuper
                SELECT custid
-			   FROM DBDW.bodb_Account.dbo.vw_Dep_CustSuper WITH (NOLOCK);
+			   FROM DBWH.bodb_Account.dbo.vw_Dep_CustSuper WITH (NOLOCK);
     END;
 	BEGIN -- #tmpMatches
         CREATE TABLE #tmpMatches (

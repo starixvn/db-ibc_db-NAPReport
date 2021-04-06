@@ -214,7 +214,7 @@ Explanation's Param:
 		   custid    INT);
 	   INSERT INTO #DepSuper
 			SELECT custid
-			FROM DBDW.bodb_Account.dbo.vw_Dep_CustSuper WITH (NOLOCK)
+			FROM DBWH.bodb_Account.dbo.vw_Dep_CustSuper WITH (NOLOCK)
 	   -- #SABALeagueGroup
 		CREATE TABLE #SABALeagueGroup(LeagueGroupID INT)
 		SELECT @LeagueGroupStr = [VValue] FROM DBWH.[bodb_Account].[dbo].[SystemSettings] WHERE VID = 5

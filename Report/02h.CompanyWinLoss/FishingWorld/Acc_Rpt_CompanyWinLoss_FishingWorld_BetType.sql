@@ -54,7 +54,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_FishingWorld_BetType] @EndDate='2020-01-01',@StartD
                      );
         INSERT INTO #DepositSuper
                SELECT CustId
-               FROM DBDW.bodb_Account.dbo.vw_Dep_CustSuper WITH (NOLOCK)
+               FROM DBWH.bodb_Account.dbo.vw_Dep_CustSuper WITH (NOLOCK)
     END;
     BEGIN -- Query
 
