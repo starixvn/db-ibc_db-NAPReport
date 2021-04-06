@@ -164,9 +164,11 @@ BEGIN
 
 		,CASE WHEN dep.CustID IS NULL THEN 'C' ELSE 'L' END as [site] --credit / lisencee
 		,ar.type as [bot]
-		,CASE WHEN ci.danger > 0 THEN ' Ori@' + cast(ci.danger as varchar(2)) ELSE '' END
-		+ CASE WHEN ci.danger2 > 0 THEN ' ABI@' + cast(ci.danger2 as varchar(2)) ELSE '' END
-		+ CASE WHEN ci.danger3 > 0 THEN ' O.Sport@' + cast(ci.danger3 as varchar(2)) ELSE '' END [dgr]
+		,REPLACE(LTRIM(RTRIM(
+			CASE WHEN ci.danger > 0 THEN 'Ori@' + cast(ci.danger as varchar(3)) ELSE '' END
+			+ CASE WHEN ci.danger2 > 0 THEN ' ABI@' + cast(ci.danger2 as varchar(3)) ELSE '' END
+			+ CASE WHEN ci.danger3 > 0 THEN ' O.Sport@' + cast(ci.danger3 as varchar(3)) ELSE '' END 
+		)), ' ', ', ') [dgr]
 		,ci.CustomerClass as [CC]
 		,bi.OriginalOdds as [ori.odds]
 		,CASE 
@@ -183,7 +185,7 @@ BEGIN
 	LEFT JOIN bodb02..Dep_CustSuper AS dep WITH(NOLOCK) ON cr.srecommend = dep.CustId
 	LEFT JOIN #abnormalOrRobotUsers ar ON b.custid = ar.custid
 	INNER JOIN bodb02.dbo.custInfo ci ON b.custid = ci.custid
-	LEFT JOIN bodb02.dbo.BettransInfo bi ON b.transid = bi.transid
+	LEFT JOIN bodb02.dbo.BettransInfo14 bi ON b.transid = bi.transid
 	WHERE b.winlostdate = @EventDate
 		AND b.matchid = @matchid 
 		AND b.bettype = @bettype
