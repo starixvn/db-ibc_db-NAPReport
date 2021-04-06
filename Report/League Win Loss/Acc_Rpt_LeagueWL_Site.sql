@@ -107,10 +107,15 @@ BEGIN
                 END
             ELSE
                 BEGIN
+                    CREATE TABLE #DepositSuper (CustId INT PRIMARY KEY);
+                    INSERT INTO #DepositSuper
+                        SELECT CustId
+                        FROM DBWH.bodb_Account.dbo.vw_Dep_CustSuper WITH (NOLOCK);
+
                     ;WITH CTE_Cre AS (
                         SELECT c.CustId, c.Site
                         FROM bodb02..Customer AS c WITH(NOLOCK)
-                        LEFT JOIN DBWH.bodb_Account.dbo.vw_Dep_CustSuper dep WITH (NOLOCK)
+                        LEFT JOIN #DepositSuper dep WITH (NOLOCK)
                             ON c.srecommend = dep.CustId
                         LEFT JOIN bodb02..CS_CustSuper cn88 WITH(NOLOCK) 
                             ON c.srecommend = cn88.CustId
@@ -125,6 +130,8 @@ BEGIN
                         SELECT CustId, Site
                         FROM CTE_Cre
                         WHERE (@SiteName = 'ALL' OR Site IN (SELECT SiteName FROM #inputSites))
+
+                    DROP TABLE #DepositSuper
                 END
     END
 
