@@ -29,6 +29,7 @@ AS
 								+ Add filter by SiteName
 		- 20201016@Jaden.Tang: Refactor for code readability & performance & new drilldowns (#144387)
 		- 20210126@Jaden.Tang: global show time filter (#147450)
+		- 20210224@Jaden.Tang: Integrate Cricket AIO (#148454)
 
 	Param's Explanation:
 		- @StartDate: The start date of data to view on report
@@ -50,10 +51,9 @@ AS
 		- @GlobalShowTime: refer to to [Acc_Rpt_LeagueWL_Sporttype.sql]
 
 	Example:
-		EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Match_xtest @StartDate='2020-09-06', @EndDate='2020-09-06',
-			@LeagueName='UEFA NATIONS LEAGUE A', @IsNoDraw=0,
-			@SportBettype='1_1,1_2,10000_9,10000_29,2_1,3_1,4_1',
-			@SiteName = '12Bet,755555,INDO,789y,IBCIndo,BEST-ODDS,722222,733333,XYZBET,asiabet88'
+		EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Match @StartDate='2021-02-21', @EndDate='2021-02-28',
+			@LeagueName='CSA T20 Challenge - Score at End of Over', @IsNoDraw=0,
+			@SportBettype='10000_9,10000_29,50_3'
 */
 
 BEGIN
@@ -337,7 +337,9 @@ BEGIN
 			COALESCE(
 				MAX(home.teamname 
 					+ CASE WHEN away.teamname IS NOT NULL THEN ' -vs- ' + away.teamname ELSE '' END
-					+ CASE WHEN t.MatchCode LIKE '%hedge%' THEN ' (hedge)' ELSE '' END) --for Soccer hedge matches, append "(hedge)" to match name
+					+ CASE WHEN t.MatchCode LIKE '%hedge%' THEN ' (hedge)' ELSE '' END
+					+ ' (Code: ' + t.MatchCode + ')'
+				) --for Soccer hedge matches, append "(hedge)" to match name
 				, t.MatchCode --summary RM line
 			) AS MatchEvent,
 			CASE WHEN t.MatchCode LIKE '%hedge%' THEN 1 ELSE 0 END IsHedge,
