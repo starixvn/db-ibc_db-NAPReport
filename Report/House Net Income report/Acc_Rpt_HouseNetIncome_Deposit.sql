@@ -17,8 +17,8 @@ AS
 		- 20210202@Percy: Integrate Saba.Club Four Guardians games [RedmineID: #149122]
 		- 20210325@Sophia: Change Formula of House TO to get rate from LA setting, not use PT Setting [Redmine: #152291] 
 		- 20210405@Percy: Missing Contribution Amount & Jackpot Prize on Monthly [RedmineID: #152912]
-		- 20210331@Danny: exclude site saba789 [Redmine: #152450] 
 		- 20210402@Danny: Support Lucky Draw for AE Casino & Integrate Bonus program for credit sites for Arcadia Gaming & Remove the Gold Deluxe (#151870)
+		- 20210331@Danny: exclude site saba789 [Redmine: #152450] 
 */
 BEGIN
 	SET NOCOUNT ON

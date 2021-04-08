@@ -314,8 +314,6 @@ BEGIN
 				IF @ToDateByBatch > @TDate
 					SET @ToDateByBatch = @TDate
 				
-
-				-- Handle here
 				INSERT INTO #__tempData (rptDate, SiteId, BetTypeId, CurrencyId, Winloss)
 				SELECT f.rptDate, s.LicenseeId, CASE WHEN f.BetType = 38 THEN -3 ELSE -1 END, f.CurrencyId, SUM(CASE WHEN f.BetType = 38 THEN winlossP + commissionS ELSE winlossP + winlossA + winlossM + winlossS + commissionS END)
 				FROM bodb_Account.dbo.FactSiteWinloss f WITH (NOLOCK)
