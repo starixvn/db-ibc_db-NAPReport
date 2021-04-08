@@ -19,6 +19,7 @@ AS
 		20211201@Ned.Le: DHWL Email/Letstalk - Margin Charts - Restructure code (#148604)
 		20210122@Ned.Le: DHWL Email/Letstalk - Adjustment Letstalk (#149267)
 		20210322@Ned.Le: Email/Letstalk Reports - Integrate PP Live Casino (#133734)
+		20210401@Ned.Le: Email/Letstalk Reports - AE Casino - Support Lucky Draw (#151870)
 
 	Param's Explanation:
 		@ProductList: 'ALL' - Get data of all product
@@ -108,7 +109,7 @@ BEGIN
 	FROM bodb_Account.dbo.BettypeGroup bg (NOLOCK)
 		 LEFT JOIN bodb_Account.dbo.Product_Bettype pb (NOLOCK) ON bg.Bettype = pb.Bettype
 		 LEFT JOIN bodb_Account.dbo.Bettype b (NOLOCK) ON bg.Bettype = b.typeid
-	WHERE bg.BettypeGroupID IN (6, 10, 11)
+	WHERE bg.BettypeGroupID IN (6, 10, 11, 14)
 
 	-- #tmpProductList
 	CREATE TABLE #tmpProductList (ProductPrefix VARCHAR(20))
@@ -176,7 +177,7 @@ BEGIN
 		FROM bodb02.dbo.SportBettypeMatrix (NOLOCK)
 		WHERE ProductID IN (SELECT DISTINCT ProductID FROM #tmpHNISettings (NOLOCK) WHERE isDeposit = 0 AND isEnable = 1)
 			  AND SubProduct NOT IN ('BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss')
-			  AND BetType NOT IN (1906) --Arcadia Gaming - Bonus
+			  AND BetType NOT IN (SELECT Bettype FROM #tmpBettypeGroup WHERE BettypeGroupID = 14)
 	END
 
 	IF EXISTS (SELECT TOP 1 1 FROM #tmpProductList WHERE ProductPrefix = 'SB')
@@ -247,7 +248,7 @@ BEGIN
 		FROM bodb02.dbo.SportBettypeMatrix (NOLOCK)
 		WHERE ProductID IN (SELECT ProductID FROM CTE_Normal)
 		      AND BetType NOT IN (SELECT BetType FROM #tmpProductBettype)
-			  AND BetType NOT IN (1906) --Arcadia Gaming - Bonus
+			  AND BetType NOT IN (SELECT Bettype FROM #tmpBettypeGroup WHERE BettypeGroupID = 14)
 	END
 
 	CREATE UNIQUE CLUSTERED INDEX CIX_tmpProductBettype ON #tmpProductBettype(ProductID, Bettype)

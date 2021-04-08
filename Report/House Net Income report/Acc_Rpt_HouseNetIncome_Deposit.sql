@@ -17,8 +17,8 @@ AS
 		- 20210202@Percy: Integrate Saba.Club Four Guardians games [RedmineID: #149122]
 		- 20210325@Sophia: Change Formula of House TO to get rate from LA setting, not use PT Setting [Redmine: #152291] 
 		- 20210405@Percy: Missing Contribution Amount & Jackpot Prize on Monthly [RedmineID: #152912]
+		- 20210402@Danny: Support Lucky Draw for AE Casino & Integrate Bonus program for credit sites for Arcadia Gaming & Remove the Gold Deluxe (#151870)
 */
-
 BEGIN
 	SET NOCOUNT ON
 
@@ -259,7 +259,7 @@ BEGIN
 		FROM bodb02.dbo.SportBettypeMatrix s WITH (NOLOCK)
 			INNER JOIN @Products p ON s.ProductId = p.ProductId
 			LEFT JOIN bodb_Account.dbo.BettypeGroup bg WITH (NOLOCK) ON s.BetType = bg.Bettype
-		WHERE s.BetType NOT IN (911, 912, 1906, 4298, 4299, 4300, 1699)
+		WHERE s.BetType NOT IN (911, 912, 1906, 4298, 4299, 4300, 1699,3150)
 			AND (
 				s.ProductId <> 3
 				OR (p.SubProductCode = 'NG' AND s.sporttype = 161)
