@@ -270,7 +270,7 @@ BEGIN
 		INSERT INTO #__Bettype (Product3rdId, ProductCode, BetType)
 		SELECT DISTINCT p.Product3rdId, p.ProductCode, s.BetType FROM bodb02.dbo.SportBettypeMatrix s WITH (NOLOCK)
 			INNER JOIN @Products p ON s.ProductId = p.ProductId AND p.Product3rdId <> 0
-		WHERE s.BetType NOT IN (4298, 4299, 4300, 1906, 3150)
+		WHERE s.BetType NOT IN (4298, 4299, 4300, 3150)
 
 		-- Use Valid Bet Amount
 		CREATE TABLE #__ValidBetRate (IsDeposit BIT, Product3rdId INT, FromDate DATE, ToDate DATE, CommRate FLOAT)
