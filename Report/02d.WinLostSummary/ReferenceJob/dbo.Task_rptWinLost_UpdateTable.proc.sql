@@ -66,7 +66,7 @@ Revision:
 	- 20201225@Ned.Le: NAP Reports - Integrate MaxGame (#147570)
 	- 20210303@Cherry: Integrate Habanero (#151070)
 	- 20210303@Cherry: Integrate Sports Lottery (#151071)
-	- 20210325@Jaden: Integrate PP Live Casino (#133731)
+	- 20210325@Jaden: Integrate PP Live Casino, Exclude lucky draws from bettransLC (#133731)
 */
 
 BEGIN	
@@ -560,14 +560,19 @@ BEGIN
 			SUM((winlost-actual_stake)* actualrate)  realWinlost,
 			SUM((awinlost+mwinlost+swinlost)* actualrate) realPos,
 			SUM((scomm) * actualrate) realComm,
-			SUM((winlost-actual_stake+awinlost+mwinlost+swinlost+scomm)*actualrate) realLineTotal,
+			sum((CASE WHEN bg.BettypeGroupID = 6 THEN 0 --exclude lucky draws
+					  ELSE winlost - actual_stake + awinlost + mwinlost + swinlost + scomm 
+				 END) * actualrate) realLineTotal,
 			SUM((1-tpositiontaking)*stake*virtualrate) as virtualTurnover,
-			SUM((winlost-actual_stake+awinlost+mwinlost+swinlost+scomm)*virtualrate) as virtualLineTotal,
+			sum((CASE WHEN bg.BettypeGroupID = 6 THEN 0
+					  ELSE winlost - actual_stake + awinlost + mwinlost + swinlost + scomm 
+				 END) * virtualrate) virtualLineTotal,
 			211 SportType,
 			0 exrisk
 		FROM
 			dbo.bettransLC b WITH (NOLOCK)
 			 INNER JOIN #SportBettype sb on b.gameID = sb.Bettype
+			 LEFT JOIN #SpecialBettypeGroup bg ON b.gameID = bg.Bettype
 		WHERE
 			sb.ProductID IN (21, 39, 45, 46, 52, 51, 59, 57, 65) -- Allbet, SA Gaming, Sexy Gaming, IBCBet Live Casino, ION, WM, GDG, BG, PP Live Casino
 			AND winlostdate = @winlostdate
