@@ -57,6 +57,7 @@ Revisions:
 	20200812@Cherry: Hotfix 139420
 	20201001@Cherry: Add Licensee Odds Spread (#141750)
 	20201111@Ned.Le: NAP Report - Hotfix Tree Winloss - Block Replication (#145175)
+	20210409@Jaden.Tang: Exclude lucky draws from bettransLC (#133731)
 	
 Parameters explain:
 	@Products: instead of all @showXXX parameters, have xml structure
