@@ -16,6 +16,8 @@ AS
 
     Revisions:
         - 20200825@Jaden: Init SP
+        - 20212203@Jaden: Support SABA789 (#151326)
+
     Remarks:
         Target detail SP (level 3) in "Company winloss by Product" report for product:
             * Saba.Club
@@ -36,6 +38,10 @@ AS
         WHERE ProductID = @ProductId 
           AND IsTest    = @isTest
           AND SportType = @SportType
+    
+    CREATE TABLE #DepositSuper (CustId INT PRIMARY KEY);
+    INSERT INTO #DepositSuper
+        SELECT custid FROM DBWH.bodb_Account.dbo.vw_Dep_CustSuper WITH (NOLOCK);
     
     SELECT  b.gameID             AS GroupId, 
             MAX(bt.typenamee)    AS GroupName,
@@ -64,7 +70,7 @@ AS
     INNER JOIN #SportBetTypeMatrix AS sb 
         ON sb.BetType = b.gameID AND sb.SportType = b.productID
             --bettransRNG: ProductID is used as a place holder field to identify bet type saba.club free bets (150)
-    LEFT JOIN Dep_CustSuper AS dep WITH (NOLOCK) ON b.srecommend = dep.custid
+    LEFT JOIN #DepositSuper AS dep WITH (NOLOCK) ON b.srecommend = dep.custid
     LEFT JOIN CS_CustSuper AS cn88 WITH (NOLOCK) ON b.srecommend = cn88.CustId
     WHERE b.winlostdate = @StartDate
         AND b.statusID IN(111, 112, 113)
@@ -74,4 +80,6 @@ AS
                   ELSE 'Deposit' END 
     ORDER BY GroupId, RowName
     OPTION(RECOMPILE)
+
+    DROP TABLE #DepositSuper
 GO

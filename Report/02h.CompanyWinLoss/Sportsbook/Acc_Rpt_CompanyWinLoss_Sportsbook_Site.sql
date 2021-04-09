@@ -32,6 +32,7 @@ Revisions:
 - 20201222@Kean: Support to filter NoDraw and separate the SABA sports - NAP Report (#147451)
 - 20210323@Kean: Daily Win Loss (2h) Soccer Minor Bet Types do not use @IsSabaSport parameter (#152100)
 - 20210326@Kean: HotFix, Missing data when league.LeagueGroupId is NULL - NAP Report (#152390)
+- 20212203@Jaden: Support SABA789 (#151326)
 
 Parameters:
 @IsLive: 2 - ALL. 0 - Non-Live. 1 - Live
@@ -49,6 +50,11 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Site] @StartDate='2016-01-01', @EndDate=
          PRIMARY KEY, 
          Site   VARCHAR(50)
         );
+    
+        CREATE TABLE #DepositSuper (CustId INT PRIMARY KEY);
+        INSERT INTO #DepositSuper
+            SELECT custid FROM DBWH.bodb_Account.dbo.vw_Dep_CustSuper WITH (NOLOCK);
+
         IF @Site = 'CN88'
             BEGIN
                 INSERT INTO #Agent
@@ -65,7 +71,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Site] @StartDate='2016-01-01', @EndDate=
                            SELECT c.CustId, 
                                   c.Site
                            FROM customer AS c WITH(NOLOCK)
-                                INNER JOIN Dep_CustSuper AS dep WITH(NOLOCK) ON c.srecommend = dep.CustId
+                                INNER JOIN #DepositSuper AS dep WITH(NOLOCK) ON c.srecommend = dep.CustId
                            WHERE c.RoleID = 2
                                  AND c.CustId NOT IN(52466, 5707545);
                     INSERT INTO #Agent
@@ -78,7 +84,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Site] @StartDate='2016-01-01', @EndDate=
                            SELECT c.CustId, 
                                   c.Site
                            FROM customer AS c WITH(NOLOCK)
-                                LEFT JOIN Dep_CustSuper AS dep WITH(NOLOCK) ON c.srecommend = dep.CustId
+                                LEFT JOIN #DepositSuper AS dep WITH(NOLOCK) ON c.srecommend = dep.CustId
                                 LEFT JOIN CS_CustSuper cn88 WITH(NOLOCK) ON c.srecommend = cn88.CustId
                            WHERE c.RoleID = 2
                                  AND c.CustId NOT IN(52466, 5707545)
@@ -264,4 +270,5 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Site] @StartDate='2016-01-01', @EndDate=
     DROP TABLE #Match;
     DROP TABLE #Data;
 	DROP TABLE #SABALeagueGroup;
+    DROP TABLE #DepositSuper;
 GO

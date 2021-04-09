@@ -20,6 +20,7 @@ AS
 		- 20190925@Jacob: Group By CN88 (#118824)
 		- 20191212@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
 		- 20201225@Kean.Nguyen: Integrate HP5 Linked Games (Number Game) (#147573)
+        - 20212203@Jaden: Support SABA789 (#151326)
 
 	Explanation's Param:   
 
@@ -32,6 +33,11 @@ AS
          PRIMARY KEY, 
          Site   VARCHAR(50)
         );
+    
+        CREATE TABLE #DepositSuper (CustId INT PRIMARY KEY);
+        INSERT INTO #DepositSuper
+            SELECT custid FROM DBWH.bodb_Account.dbo.vw_Dep_CustSuper WITH (NOLOCK);
+
         IF @Site = 'CN88'
             BEGIN
                 INSERT INTO #Agent
@@ -48,7 +54,7 @@ AS
                            SELECT c.CustId, 
                                   c.Site
                            FROM customer AS c WITH(NOLOCK)
-                                INNER JOIN Dep_CustSuper AS dep WITH(NOLOCK) ON c.srecommend = dep.CustId
+                                INNER JOIN #DepositSuper AS dep WITH(NOLOCK) ON c.srecommend = dep.CustId
                            WHERE c.RoleID = 2
                                  AND c.CustId NOT IN(52466, 5707545);
                     INSERT INTO #Agent
@@ -61,7 +67,7 @@ AS
                            SELECT c.CustId, 
                                   c.Site
                            FROM customer AS c WITH(NOLOCK)
-                                LEFT JOIN Dep_CustSuper AS dep WITH(NOLOCK) ON c.srecommend = dep.CustId
+                                LEFT JOIN #DepositSuper AS dep WITH(NOLOCK) ON c.srecommend = dep.CustId
                                 LEFT JOIN CS_CustSuper cn88 WITH(NOLOCK) ON c.srecommend = cn88.CustId
                            WHERE c.RoleID = 2
                                  AND c.CustId NOT IN(52466, 5707545)
@@ -135,4 +141,5 @@ AS
     
 	DROP TABLE #Agent;
 	DROP TABLE #Match;
+    DROP TABLE #DepositSuper;
 GO

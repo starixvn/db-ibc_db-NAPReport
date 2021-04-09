@@ -22,6 +22,7 @@ Revisions:
 - 20181018@Robert: Fix performance issue on House Win Loss by Product [#103309]
 - 20161201@Jacob: Integrate Fishing World Product [#67757]
 - 20191212@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
+- 20212203@Jaden: Support SABA789 (#151326)
 
 Parameters:
     @IsLive: Jacob add this dummy parameter to make it consistent with [Acc_Rpt_CompanyWinLoss_Universal_Site]
@@ -44,6 +45,11 @@ EXEC [Acc_Rpt_CompanyWinLoss_FishingWorld_Site] @BetType = 1011,@EndDate='2020-0
                       RefTable
                FROM bodb02.dbo.f_SportBetTypeMatrix_Sel(0, 0, @BetType, 2, '', '', @isTest);
     END;
+    
+    CREATE TABLE #DepositSuper (CustId INT PRIMARY KEY);
+    INSERT INTO #DepositSuper
+        SELECT custid FROM DBWH.bodb_Account.dbo.vw_Dep_CustSuper WITH (NOLOCK);
+
     BEGIN -- #Agent
         CREATE TABLE #Agent
         (CustId INT
@@ -66,7 +72,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_FishingWorld_Site] @BetType = 1011,@EndDate='2020-0
                            SELECT c.CustId, 
                                   c.Site
                            FROM customer AS c WITH(NOLOCK)
-                                INNER JOIN Dep_CustSuper AS dep WITH(NOLOCK) ON c.srecommend = dep.CustId
+                                INNER JOIN #DepositSuper AS dep WITH(NOLOCK) ON c.srecommend = dep.CustId
                            WHERE c.RoleID = 2
                                  AND c.CustId NOT IN(52466, 5707545);
                     INSERT INTO #Agent
@@ -79,7 +85,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_FishingWorld_Site] @BetType = 1011,@EndDate='2020-0
                            SELECT c.CustId, 
                                   c.Site
                            FROM customer AS c WITH(NOLOCK)
-                                LEFT JOIN Dep_CustSuper AS dep WITH(NOLOCK) ON c.srecommend = dep.CustId
+                                LEFT JOIN #DepositSuper AS dep WITH(NOLOCK) ON c.srecommend = dep.CustId
                                 LEFT JOIN CS_CustSuper cn88 WITH(NOLOCK) ON c.srecommend = cn88.CustId
                            WHERE c.RoleID = 2
                                  AND c.CustId NOT IN(52466, 5707545)
@@ -126,4 +132,5 @@ EXEC [Acc_Rpt_CompanyWinLoss_FishingWorld_Site] @BetType = 1011,@EndDate='2020-0
     
 	DROP TABLE #SportBetType;
     DROP TABLE #Agent;
+    DROP TABLE #DepositSuper;
 GO

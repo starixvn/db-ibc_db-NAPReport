@@ -28,6 +28,7 @@ Revisions:
 - 20191212@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
 - 20200713@Ned.Le: NAP Report - Incorporate Jackpot Games (#137271)
 - 20210409@Jaden.Tang: Exclude lucky draws from bettransLC (#133731)
+- 20212203@Jaden: Support SABA789 (#151326)
 
 Example:
 EXEC [Acc_Rpt_CompanyWinLoss_Game_Site] @BetType = 2101,@EndDate='2020-01-01',@Site = 'Credit',@StartDate='2016-01-01'
@@ -54,6 +55,11 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_Site] @BetType = 2101,@EndDate='2020-01-01',@S
                       RefTable
                FROM bodb02.dbo.f_SportBetTypeMatrix_Sel(0, 0, @BetType, 2, '', '', @isTest);
     END;
+    
+    CREATE TABLE #DepositSuper (CustId INT PRIMARY KEY);
+    INSERT INTO #DepositSuper
+        SELECT custid FROM DBWH.bodb_Account.dbo.vw_Dep_CustSuper WITH (NOLOCK);
+
     BEGIN -- #Agent
         CREATE TABLE #Agent
         (CustId INT
@@ -76,7 +82,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_Site] @BetType = 2101,@EndDate='2020-01-01',@S
                            SELECT c.CustId, 
                                   c.Site
                            FROM customer AS c WITH(NOLOCK)
-                                INNER JOIN Dep_CustSuper AS dep WITH(NOLOCK) ON c.srecommend = dep.CustId
+                                INNER JOIN #DepositSuper AS dep WITH(NOLOCK) ON c.srecommend = dep.CustId
                            WHERE c.RoleID = 2
                                  AND c.CustId NOT IN(52466, 5707545);
                     INSERT INTO #Agent
@@ -89,7 +95,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_Site] @BetType = 2101,@EndDate='2020-01-01',@S
                            SELECT c.CustId, 
                                   c.Site
                            FROM customer AS c WITH(NOLOCK)
-                                LEFT JOIN Dep_CustSuper AS dep WITH(NOLOCK) ON c.srecommend = dep.CustId
+                                LEFT JOIN #DepositSuper AS dep WITH(NOLOCK) ON c.srecommend = dep.CustId
                                 LEFT JOIN CS_CustSuper cn88 WITH(NOLOCK) ON c.srecommend = cn88.CustId
                            WHERE c.RoleID = 2
                                  AND c.CustId NOT IN(52466, 5707545)
@@ -276,4 +282,5 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_Site] @BetType = 2101,@EndDate='2020-01-01',@S
     DROP TABLE #Agent;
     DROP TABLE #Data;
 	DROP TABLE #SpecialBettypeGroup;
+    DROP TABLE #DepositSuper;
 GO

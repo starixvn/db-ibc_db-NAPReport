@@ -20,6 +20,7 @@ Revisions:
 - 20181018@Robert: Fix performance issue on House Win Loss by Product [#103309]
 - 20190925@Jacob: Group By CN88 (#118824)
 - 20191212@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
+- 20212203@Jaden: Support SABA789 (#151326)
 
 Example:
 EXEC [Acc_Rpt_CompanyWinLoss_ColossusBet_Site] @StartDate='2016-01-01', @EndDate='2020-01-01', @Site = 'Credit', @BetType = 18000, @IsFreePlay = 1
@@ -28,6 +29,11 @@ EXEC [Acc_Rpt_CompanyWinLoss_ColossusBet_Site] @StartDate='2016-01-01', @EndDate
 
      SET NOCOUNT ON;
     BEGIN -- #Agent
+
+        CREATE TABLE #DepositSuper (CustId INT PRIMARY KEY);
+        INSERT INTO #DepositSuper
+            SELECT custid FROM DBWH.bodb_Account.dbo.vw_Dep_CustSuper WITH (NOLOCK);
+
         CREATE TABLE #Agent
         (CustId INT
          PRIMARY KEY, 
@@ -49,7 +55,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_ColossusBet_Site] @StartDate='2016-01-01', @EndDate
                            SELECT c.CustId, 
                                   c.Site
                            FROM customer AS c WITH(NOLOCK)
-                                INNER JOIN Dep_CustSuper AS dep WITH(NOLOCK) ON c.srecommend = dep.CustId
+                                INNER JOIN #DepositSuper AS dep WITH(NOLOCK) ON c.srecommend = dep.CustId
                            WHERE c.RoleID = 2
                                  AND c.CustId NOT IN(52466, 5707545);
                     INSERT INTO #Agent
@@ -62,7 +68,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_ColossusBet_Site] @StartDate='2016-01-01', @EndDate
                            SELECT c.CustId, 
                                   c.Site
                            FROM customer AS c WITH(NOLOCK)
-                                LEFT JOIN Dep_CustSuper AS dep WITH(NOLOCK) ON c.srecommend = dep.CustId
+                                LEFT JOIN #DepositSuper AS dep WITH(NOLOCK) ON c.srecommend = dep.CustId
                                 LEFT JOIN CS_CustSuper cn88 WITH(NOLOCK) ON c.srecommend = cn88.CustId
                            WHERE c.RoleID = 2
                                  AND c.CustId NOT IN(52466, 5707545)
@@ -113,4 +119,5 @@ EXEC [Acc_Rpt_CompanyWinLoss_ColossusBet_Site] @StartDate='2016-01-01', @EndDate
     END;
     
 	DROP TABLE #Agent;
+    DROP TABLE #DepositSuper;
 GO
