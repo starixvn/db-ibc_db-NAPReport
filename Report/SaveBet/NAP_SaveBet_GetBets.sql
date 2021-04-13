@@ -26,6 +26,7 @@ AS
 		- 20180719@Tom:Enhance_the_flow_get_Virtual_Sport(98520)
 		- 20190705@Robert - NAP Report - Incorporate new product PHAIO 4 (4a) (#116250)
 		- 20201009@Jaden: Add betcheck column (#73598)
+		- 20210329@Jaden: Savebet - Support to forecast the result with Real figures & Add some new information (#152290)
 */
 
 -- original is Dot_Admin_cteamlist
@@ -53,6 +54,16 @@ END
 
 DECLARE @homeid INT, @awayid INT,@EventDate SMALLDATETIME
 SELECT  @homeid = homeid, @awayid = awayid FROM bodb02.dbo.match WITH(NOLOCK) WHERE matchid = @matchid
+
+CREATE TABLE #abnormalOrRobotUsers (custid int, [type] varchar(10))
+
+INSERT INTO #abnormalOrRobotUsers (custid, [type])
+	SELECT ISNULL(b.custid, a.custid) custid, 
+		RTRIM(LTRIM(ISNULL('(' +b.t+ ')', '') + ' ' + ISNULL('(' +a.t+ ')', ''))) [type]
+	FROM (SELECT custid, 'R' t FROM DBONUSER.ON_USER.dbo.robotusers WITH(NOLOCK) WHERE [counter] > 10) a
+	FULL OUTER JOIN (SELECT custid, 'A' t FROM DBONUSER.ON_USER.dbo.AbnormalUsers WITH(NOLOCK) WHERE flags = 4) b
+	ON a.custid = b.custid
+	WHERE a.custid IS NOT NULL OR b.custid IS NOT NULL
 
 IF @homeid IS NOT NULL
 BEGIN
@@ -86,10 +97,31 @@ BEGIN
 		,@awayid awayid
 		,b.betid
 		,b.betcheck
+
+		,CASE WHEN dep.CustID IS NULL THEN 'C' ELSE 'L' END as [site] --credit / lisencee
+		,ar.type as [bot]
+		,REPLACE(LTRIM(RTRIM(
+			CASE WHEN ci.danger > 0 THEN 'Ori@' + cast(ci.danger as varchar(3)) ELSE '' END
+			+ CASE WHEN ci.danger2 > 0 THEN ' ABI@' + cast(ci.danger2 as varchar(3)) ELSE '' END
+			+ CASE WHEN ci.danger3 > 0 THEN ' O.Sport@' + cast(ci.danger3 as varchar(3)) ELSE '' END 
+		)), ' ', ', ') [dgr]
+		,ci.CustomerClass as [CC]
+		,bi.OriginalOdds as [ori.odds]
+		,CASE 
+		WHEN ISNULL(b.actualrate, 0) = 0 THEN 0 
+		ELSE Round(((b.virtualrate - b.actualrate) / b.actualrate) * 100, 0) END as [var]
+		,CASE
+		WHEN b.bettype IN (1, 3) and agent.site = '76666B' THEN b.oddsspread
+		ELSE NULL END as '%'
 	FROM 
 	bodb02.dbo.bettrans b with (nolock)	
 	INNER JOIN bodb02.dbo.customer cr with (nolock) ON b.creator = cr.custid
 	LEFT JOIN @MetricBettype t ON b.bettype = t.bettype	
+	INNER JOIN bodb02.dbo.customer agent with (nolock) ON b.recommend = agent.custid
+	LEFT JOIN bodb02..Dep_CustSuper AS dep WITH(NOLOCK) ON cr.srecommend = dep.CustId
+	LEFT JOIN #abnormalOrRobotUsers ar ON b.custid = ar.custid
+	INNER JOIN bodb02.dbo.custInfo ci ON b.custid = ci.custid
+	LEFT JOIN bodb02.dbo.BettransInfo bi ON b.transid = bi.transid
 	WHERE
 		b.matchid = @matchid 
 		AND b.bettype = @bettype
@@ -129,10 +161,31 @@ BEGIN
 		,@awayid awayid
 		,b.betid
 		,b.betcheck
+
+		,CASE WHEN dep.CustID IS NULL THEN 'C' ELSE 'L' END as [site] --credit / lisencee
+		,ar.type as [bot]
+		,REPLACE(LTRIM(RTRIM(
+			CASE WHEN ci.danger > 0 THEN 'Ori@' + cast(ci.danger as varchar(3)) ELSE '' END
+			+ CASE WHEN ci.danger2 > 0 THEN ' ABI@' + cast(ci.danger2 as varchar(3)) ELSE '' END
+			+ CASE WHEN ci.danger3 > 0 THEN ' O.Sport@' + cast(ci.danger3 as varchar(3)) ELSE '' END 
+		)), ' ', ', ') [dgr]
+		,ci.CustomerClass as [CC]
+		,bi.OriginalOdds as [ori.odds]
+		,CASE 
+		WHEN ISNULL(b.actualrate, 0) = 0 THEN 0 
+		ELSE Round(((b.virtualrate - b.actualrate) / b.actualrate) * 100, 0) END as [var]
+		,CASE
+		WHEN b.bettype IN (1, 3) and agent.site = '76666B' THEN b.oddsspread
+		ELSE NULL END as '%'
 	FROM 
 	bodb02.dbo.bettrans14 b with (nolock)	
 	INNER JOIN bodb02.dbo.customer cr with (nolock) ON b.creator = cr.custid
 	LEFT JOIN @MetricBettype t ON b.bettype = t.bettype	
+	INNER JOIN bodb02.dbo.customer agent with (nolock) ON b.recommend = agent.custid
+	LEFT JOIN bodb02..Dep_CustSuper AS dep WITH(NOLOCK) ON cr.srecommend = dep.CustId
+	LEFT JOIN #abnormalOrRobotUsers ar ON b.custid = ar.custid
+	INNER JOIN bodb02.dbo.custInfo ci ON b.custid = ci.custid
+	LEFT JOIN bodb02.dbo.BettransInfo14 bi ON b.transid = bi.transid
 	WHERE b.winlostdate = @EventDate
 		AND b.matchid = @matchid 
 		AND b.bettype = @bettype
