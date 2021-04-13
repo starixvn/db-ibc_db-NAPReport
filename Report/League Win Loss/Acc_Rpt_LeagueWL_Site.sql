@@ -99,7 +99,6 @@ BEGIN
                         FROM bodb02..Customer AS c WITH(NOLOCK)
                         INNER JOIN #DepositSuper AS dep WITH(NOLOCK) 
                             ON c.srecommend = dep.CustId
-                            AND dep.site <> 'Saba789'
                         WHERE c.RoleID = 2
                             AND c.CustId NOT IN (52466, 5707545)
                                     UNION
