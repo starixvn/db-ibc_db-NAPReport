@@ -1,4 +1,4 @@
-﻿/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
 USE [bodb02];
 GO
@@ -29,7 +29,8 @@ AS
 		- 20150319@Tom: Get Data by Effective Licensee (#31687)
 		- 20180301@Kean: Missing number game data of some licensee (91266)
 		- 20181031@Percy: Remove linked-server DBLIC [RedmineID: #103660]
-		- 20181219@Robert: NAP Report - Add new sporttype for Happy 5 (#104253) 
+		- 20181219@Robert: NAP Report - Add new sporttype for Happy 5 (#104253)
+		- 20210329@Roy: NAP Report - Support Saba789 (#151326)
 
     Param usage:
 		- @SiteID:
@@ -108,6 +109,26 @@ BEGIN
 
     CREATE NONCLUSTERED INDEX IX_Bettype ON #Bettype(Bettype);
 
+	CREATE TABLE #tmpLicenseeCust (
+		CustID INT
+		,licenseeID INT
+		,Currency INT
+	)
+	INSERT INTO #tmpLicenseeCust (
+		CustID
+		,licenseeID
+		,Currency
+	)
+	SELECT CustID
+		,licenseeID
+		,Currency
+	FROM DBWH.bodb_Account.dbo.vw_LicenseeCust WITH (NOLOCK)
+	WHERE roleid = 2
+	GROUP BY CustID
+		,licenseeID
+		,Currency
+	CREATE CLUSTERED INDEX [CIX_tmpLicenseeCust] ON #tmpLicenseeCust(licenseeID,CustID,Currency)
+	
     IF EXISTS
 		    (
 			   SELECT 1
@@ -122,7 +143,7 @@ BEGIN
 			    WHERE ci.custid NOT IN
 								  (
 									 SELECT custid
-									 FROM bodb_Licensee.dbo.LicenseeCust WITH (NOLOCK)
+									 FROM #tmpLicenseeCust WITH (NOLOCK)
 								  )
 					AND ci.roleid = 2
 					AND
@@ -144,14 +165,14 @@ BEGIN
 	   BEGIN
 		  INSERT INTO #tmpAg
 			    SELECT custID
-			    FROM bodb_Licensee.dbo.LicenseeCust AS lc WITH (nolock)
+			    FROM #tmpLicenseeCust AS lc WITH (nolock)
 			    WHERE LicenseeID IN
 							    (
 								   SELECT licenseeID
 								   FROM @tmpLscActive
 								   WHERE licenseeID > 0
 							    )
-					AND roleid = 2
+					--AND roleid = 2
 					AND
 					    (@currency = ''
 						OR lc.Currency IN
@@ -191,8 +212,5 @@ BEGIN
 
     DROP TABLE #tmpAg;
     DROP TABLE #Bettype;
-END;
-GO
-
-GRANT EXECUTE ON dbo.Acc_Rpt_NumberGame14 TO [bodbAdminNet];
-GO
+	DROP TABLE #tmpLicenseeCust
+END

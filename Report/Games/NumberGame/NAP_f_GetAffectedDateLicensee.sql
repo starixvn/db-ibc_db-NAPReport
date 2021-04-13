@@ -33,6 +33,7 @@ AS
 	   - 20171128@Tom: excluded condition @ExcludeLicenseeID (87164)
 	   - 20180301@Kean: Missing number game data of some licensee (91266)
 	   - 20181031@Percy: Remove linked-server DBLIC [RedmineID: #103660]
+	   - 20210329@Roy: NAP Report - Support Saba789 (#151326)
 		  
     Param's Explanation:
 		SELECT * FROM [DW_f_GetAffectedDateLicensee] (1,'1,2,3', '2014-01-01','2015-05-01',1,18,3,'NG')
@@ -52,6 +53,24 @@ BEGIN
 	INSERT INTO @tblSite (LicenseeID)
 	SELECT val
 	FROM dbo.strSplit(@SiteID, ',')
+	
+	DECLARE @tmpLicensees TABLE ( 
+		LicenseeID INT
+		,LicenseeName VARCHAR(50)
+		,IsDeposit BIT
+	)
+	INSERT INTO @tmpLicensees ( 
+		LicenseeID
+		,LicenseeName
+		,IsDeposit
+	)
+	SELECT LicenseeID
+		,LicenseeName
+		,IsDeposit
+	FROM DBWH.bodb_Account.dbo.vw_Licensees WITH (NOLOCK)
+	GROUP BY LicenseeID
+		,LicenseeName
+		,IsDeposit
 	
 	IF @iLevel = 1
 	BEGIN
@@ -79,7 +98,7 @@ BEGIN
 		FROM bodb_Licensee.dbo.LicenseeProduct3rd lp WITH (NOLOCK)
 			INNER JOIN bodb_Licensee.dbo.Product3rd p3 WITH (NOLOCK) ON lp.ProductID = p3.ProductID
 			INNER JOIN bodb_Licensee.dbo.SystemLicensee sl WITH (NOLOCK) ON lp.LicenseeID = sl.LicenseeID
-			INNER JOIN bodb_Licensee.dbo.Licensees l WITH (NOLOCK) ON lp.LicenseeID = l.LicenseeID
+			INNER JOIN @tmpLicensees l ON lp.LicenseeID = l.LicenseeID
 			INNER JOIN bodb02.dbo.Products pr WITH (NOLOCK) ON p3.ProductPrefix = pr.ProductPrefix AND pr.Enabled =1
 		WHERE sl.SystemID = @SystemID
 			AND EXISTS (
@@ -138,7 +157,7 @@ BEGIN
 		FROM bodb_Licensee.dbo.LicenseeProduct3rd lp WITH (NOLOCK)
 			INNER JOIN bodb_Licensee.dbo.Product3rd p3 WITH (NOLOCK) ON lp.ProductID = p3.ProductID
 			INNER JOIN bodb_Licensee.dbo.SystemLicensee sl WITH (NOLOCK) ON lp.LicenseeID = sl.LicenseeID
-			INNER JOIN bodb_Licensee.dbo.Licensees l WITH (NOLOCK) ON lp.LicenseeID = l.LicenseeID
+			INNER JOIN @tmpLicensees l ON lp.LicenseeID = l.LicenseeID
 			INNER JOIN bodb02.dbo.Products pr WITH (NOLOCK) ON p3.ProductPrefix = pr.ProductPrefix AND pr.Enabled =1
 			INNER JOIN bodb02.dbo.SportBettypeMatrix sbm WITH (NOLOCK) ON sbm.ProductID = pr.ProductID AND sbm.Enabled =1
 		WHERE sl.SystemID = @SystemID
@@ -199,7 +218,7 @@ BEGIN
 		FROM bodb_Licensee.dbo.LicenseeProduct3rd lp WITH (NOLOCK)
 			INNER JOIN bodb_Licensee.dbo.Product3rd p3 WITH (NOLOCK) ON lp.ProductID = p3.ProductID
 			INNER JOIN bodb_Licensee.dbo.SystemLicensee sl WITH (NOLOCK) ON lp.LicenseeID = sl.LicenseeID
-			INNER JOIN bodb_Licensee.dbo.Licensees l WITH (NOLOCK) ON lp.LicenseeID = l.LicenseeID
+			INNER JOIN @tmpLicensees l ON lp.LicenseeID = l.LicenseeID
 			INNER JOIN bodb02.dbo.Products pr WITH (NOLOCK) ON p3.ProductPrefix = pr.ProductPrefix AND pr.Enabled =1
 			INNER JOIN bodb02.dbo.SportBettypeMatrix sbm WITH (NOLOCK) ON sbm.ProductID = pr.ProductID AND sbm.Enabled =1
 		WHERE sl.SystemID = @SystemID

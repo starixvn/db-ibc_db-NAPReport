@@ -1,4 +1,4 @@
-﻿/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
 USE [bodb02];
 GO
@@ -32,6 +32,7 @@ AS
 		- 20181031@Percy: Remove linked-server DBLIC [RedmineID: #103660]
 		- 20181219@Robert: NAP Report - Add new sporttype for Happy 5 (#104253) 
 		- 20201225@Jaden: Integrate Happy 5 linked game (#147573)
+		- 20210329@Roy: NAP Report - Support Saba789 (#151326)
 		
     Param usage:
 		- @SiteID:
@@ -59,6 +60,36 @@ BEGIN
     DECLARE @licenseeCnt_db    INT
 		, @licencseeCnt      INT;
 
+	CREATE TABLE #tmpDep_CustSuper (
+		CustId INT
+		,Currency INT
+		,Site VARCHAR(20)
+	)
+	CREATE TABLE #tmpLicensees (
+		LicenseeID INT
+		,LicenseeName VARCHAR(50)
+	)
+	
+	INSERT INTO #tmpDep_CustSuper (
+		CustId
+		,Currency
+		,Site
+	)
+	SELECT CustId
+		,Currency
+		,Site
+	FROM DBWH.bodb_Account.dbo.vw_Dep_CustSuper WITH (NOLOCK)
+	GROUP BY CustId
+		,Currency
+		,Site
+	
+	INSERT INTO #tmpLicensees (LicenseeID, LicenseeName)
+	SELECT LicenseeID
+		,LicenseeName
+	FROM DBWH.bodb_Account.dbo.vw_Licensees WITH (NOLOCK)
+	GROUP BY LicenseeID
+		,LicenseeName
+	
     INSERT INTO @tmpCurrency
 		 SELECT DISTINCT
 			   val
@@ -118,13 +149,13 @@ BEGIN
 
 	   BEGIN
 		  INSERT INTO #supers(custID)
-			    SELECT s.custid
-			    FROM CustSuper AS s WITH (NOLOCK)
-				   INNER JOIN custInfo AS c WITH (NOLOCK) ON s.custid = c.custid
-			    WHERE s.custid NOT IN
+			    SELECT c.custid
+				FROM custInfo AS c WITH (NOLOCK)
+			    WHERE c.roleid = 4
+					AND c.custid NOT IN
 								 (
 									SELECT custid
-									FROM Dep_CustSuper WITH (NOLOCK)
+									FROM #tmpDep_CustSuper WITH (NOLOCK)
 								 )
 					AND
 					    (@currency = ''
@@ -144,11 +175,11 @@ BEGIN
 	   BEGIN
 		  INSERT INTO #supers(custID)
 			    SELECT s.custid
-			    FROM dbo.Dep_CustSuper AS s WITH (NOLOCK)
-				   INNER JOIN bodb_Licensee.dbo.Licensees AS l WITH (NOLOCK) ON s.site = l.licenseename
+			    FROM #tmpDep_CustSuper AS s WITH (NOLOCK)
+				   INNER JOIN #tmpLicensees AS l WITH (NOLOCK) ON s.site = l.licenseename
 			    WHERE
 				    (@currency = ''
-					OR currency IN
+					OR s.currency IN
 								(
 								    SELECT t.currency
 								    FROM @tmpCurrency AS t
@@ -195,8 +226,8 @@ BEGIN
     DROP TABLE #supers;
 
     DROP TABLE #Bettype;
+	
+	DROP TABLE #tmpDep_CustSuper;
+	
+	DROP TABLE #tmpLicensees;
 END;
-GO
-
-GRANT EXECUTE ON dbo.Acc_Rpt_NumberGame TO [bodbAdminNet];
-GO
