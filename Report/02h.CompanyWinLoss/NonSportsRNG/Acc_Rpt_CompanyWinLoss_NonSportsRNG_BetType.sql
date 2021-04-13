@@ -36,7 +36,7 @@ AS
         SELECT DISTINCT BetType, SportType --use distinct to remove "IsLive"
         FROM SportBetTypeMatrix
         WHERE ProductID = @ProductId 
-          AND IsTest    = @isTest
+          AND (IsTest = 0 OR IsTest = @isTest)
           AND SportType = @SportType
     
     CREATE TABLE #DepositSuper (CustId INT PRIMARY KEY);
