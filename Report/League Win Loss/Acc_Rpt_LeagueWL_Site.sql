@@ -87,12 +87,17 @@ BEGIN
                         AND (@SiteName = 'ALL' OR c.site IN (SELECT SiteName FROM #inputSites))
             END
         ELSE
+            CREATE TABLE #DepositSuper (CustId INT PRIMARY KEY);
+            INSERT INTO #DepositSuper
+                SELECT CustId
+                FROM DBWH.bodb_Account.dbo.vw_Dep_CustSuper WITH (NOLOCK);
+
             IF @SiteType = 'Deposit'
                 BEGIN
                     ;WITH CTE_Dep AS (
                         SELECT c.CustId, c.Site
                         FROM bodb02..Customer AS c WITH(NOLOCK)
-                        INNER JOIN bodb02..Dep_CustSuper AS dep WITH(NOLOCK) 
+                        INNER JOIN #DepositSuper AS dep WITH(NOLOCK) 
                             ON c.srecommend = dep.CustId
                             AND dep.site <> 'Saba789'
                         WHERE c.RoleID = 2
@@ -107,11 +112,6 @@ BEGIN
                 END
             ELSE
                 BEGIN
-                    CREATE TABLE #DepositSuper (CustId INT PRIMARY KEY);
-                    INSERT INTO #DepositSuper
-                        SELECT CustId
-                        FROM DBWH.bodb_Account.dbo.vw_Dep_CustSuper WITH (NOLOCK);
-
                     ;WITH CTE_Cre AS (
                         SELECT c.CustId, c.Site
                         FROM bodb02..Customer AS c WITH(NOLOCK)
@@ -130,9 +130,9 @@ BEGIN
                         SELECT CustId, Site
                         FROM CTE_Cre
                         WHERE (@SiteName = 'ALL' OR Site IN (SELECT SiteName FROM #inputSites))
-
-                    DROP TABLE #DepositSuper
                 END
+            
+            DROP TABLE #DepositSuper
     END
 
 	BEGIN /*staging data*/
