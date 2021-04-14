@@ -1108,7 +1108,6 @@ BEGIN
 				SUM((awinlost+mwinlost+swinlost)* actualrate) realPos,
 				SUM((scomm) * actualrate) realComm,
 				sum((CASE WHEN bg.BettypeGroupID = 6 THEN 0 --Prize Bettype Group
-						  WHEN bg.BettypeGroupID = 10 THEN b.ContributionStake3rd + awinlost + mwinlost + swinlost + scomm --Contribution Bettype Group
 						  ELSE winlost - actual_stake + awinlost + mwinlost + swinlost + scomm 
 					 END) * actualrate) realLineTotal,
 				SUM((1-tpositiontaking)*stake*virtualrate) as virtualTurnover,
