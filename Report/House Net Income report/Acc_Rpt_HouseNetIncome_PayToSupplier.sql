@@ -521,15 +521,15 @@ BEGIN
 	-- Check by MemberWL
 	BEGIN
 		INSERT INTO #__FullRangePayToSupplier (IsDeposit, Product3rdId, Bettype, PayToSupplier)
-		SELECT IsDeposit, Product3rdId, CASE WHEN Product3rdId = 0 THEN -1 ELSE 0 END, SUM(PayToSupplier)
+		SELECT IsDeposit, Product3rdId, CASE WHEN Product3rdId = 0 THEN Bettype ELSE 0 END, SUM(PayToSupplier)
 		FROM (
-			SELECT IsDeposit, Product3rdId, ParentId, SUM(PayMonthRate) AS PayToSupplier
+			SELECT IsDeposit, Product3rdId, ParentId, Bettype, SUM(PayMonthRate) AS PayToSupplier
 			FROM #__tempResult
-			WHERE Product3rdId IN (10, 24) OR (Product3rdId = 0 AND Bettype = -1)
-			GROUP BY IsDeposit, Product3rdId, ParentId
+			WHERE Product3rdId IN (10, 24) OR (Product3rdId = 0 AND Bettype IN (-1, -3))
+			GROUP BY IsDeposit, Product3rdId, ParentId, Bettype
 			HAVING SUM(PayMonthRate) < 0
 		) t
-		GROUP BY IsDeposit, Product3rdId
+		GROUP BY IsDeposit, Product3rdId,  CASE WHEN Product3rdId = 0 THEN Bettype ELSE 0 END
 	END
 
 	-- Others
@@ -546,7 +546,7 @@ BEGIN
 		SELECT IsDeposit, Product3rdId, CASE WHEN Product3rdId = 0 THEN Bettype ELSE 0 END, SUM(PayMonthRate)
 		FROM #__tempResult
 		WHERE Product3rdId NOT IN (10, 24)
-			AND (Product3rdId <> 0 OR Bettype <> -1)
+			AND (Product3rdId <> 0 OR Bettype NOT IN (-1, -3))
 			AND (IsDeposit = 1 OR Product3rdId NOT IN (32, 65))
 			AND (IsDeposit = 0 OR Product3rdId <> 39)
 		GROUP BY IsDeposit, Product3rdId, CASE WHEN Product3rdId = 0 THEN Bettype ELSE 0 END
