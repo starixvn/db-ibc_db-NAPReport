@@ -140,6 +140,11 @@ BEGIN
 		SELECT @LicenseeId_Saba789 = OldRefId  
 		FROM DBLIC.bodb_licensee.dbo.OAS_Party p WITH (NOLOCK)
 		WHERE PartyName = 'Saba789'
+		
+		SELECT @LicenseeId_Saba789 = MAX(OldRefId) 
+		FROM OPENQUERY (DBLIC, 'SELECT OldRefId  
+								FROM bodb_licensee.dbo.OAS_Party p WITH (NOLOCK)
+								WHERE PartyName = ''Saba789''')
 
 		DELETE t 
 		FROM #Licensees t
