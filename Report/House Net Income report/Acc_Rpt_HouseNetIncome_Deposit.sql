@@ -138,7 +138,7 @@ BEGIN
 		DECLARE @LicenseeId_Saba789 INT
 
 		SELECT @LicenseeId_Saba789 = OldRefId  
-		FROM bodb_licensee.dbo.OAS_Party p WITH (NOLOCK)
+		FROM DBLIC.bodb_licensee.dbo.OAS_Party p WITH (NOLOCK)
 		WHERE PartyName = 'Saba789'
 
 		DELETE t 
