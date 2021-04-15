@@ -18,6 +18,7 @@ AS
 		- 20210325@Sophia: Change Formula of House TO to get rate from LA setting, not use PT Setting [Redmine: #152291] 
 		- 20210405@Percy: Missing Contribution Amount & Jackpot Prize on Monthly [RedmineID: #152912]
 		- 20210402@Danny: Support Lucky Draw for AE Casino & Integrate Bonus program for credit sites for Arcadia Gaming & Remove the Gold Deluxe (#151870)
+		- 20210331@Danny: exclude site saba789 [Redmine: #152450] 
 */
 BEGIN
 	SET NOCOUNT ON
@@ -132,6 +133,23 @@ BEGIN
 								AND ci.FromDate <= ''''' + @t_date + ''''' AND ci.ToDate >= ''''' + @f_date + ''''''')'
 		INSERT INTO #Licensees (LicenseeId, PartyId, ParentId)
 		EXEC (@SQL)
+
+		-- Exclude Licensee Saba789
+		DECLARE @LicenseeId_Saba789 INT
+
+		SELECT @LicenseeId_Saba789 = MAX(OldRefId) 
+		FROM OPENQUERY (DBLIC, 'SELECT OldRefId  
+								FROM bodb_licensee.dbo.OAS_Party p WITH (NOLOCK)
+								WHERE PartyName = ''Saba789''')
+
+		DELETE t 
+		FROM #Licensees t
+		WHERE t.LicenseeId = @LicenseeId_Saba789
+
+		DELETE t 
+		FROM #AllLicensees t
+		WHERE t.LicenseeId = @LicenseeId_Saba789
+
 	END
 
 	-- Get charge rate
@@ -234,6 +252,9 @@ BEGIN
 		DECLARE @tmpSite TABLE (SiteId_DW INT, LicenseeId INT, SiteName VARCHAR(20))
 		INSERT INTO @tmpSite (LicenseeId, SiteName)
 		SELECT LicenseeId, RTRIM(LTRIM(LicenseeName)) FROM DBLIC.bodb_licensee.dbo.Licensees WITH (NOLOCK) WHERE IsDeposit = 1
+
+		-- Remove Saba789 from @tmpSite
+		DELETE FROM @tmpSite WHERE LicenseeId = @LicenseeId_Saba789
 
 		UPDATE s
 		SET s.SiteId_DW = t.SiteId

@@ -9,7 +9,7 @@ AS
 
 /*
 	Created: 20201201@Percy
-	DB: DBEXT-bodb02
+	DB: DBWH-bodb_dwrs
 	Task: House Net Income - Pay to supplier for some products
 	
 	Revisions:
@@ -18,6 +18,7 @@ AS
 		- 20210125@Percy: Return SubFigure column [RedmineID: #149267]
 		- 20210323@Percy: Integrate PP Live Casino [RedmineID: #133734]
 		- 20210402@Danny: Support Lucky Draw for AE Casino & Integrate Bonus program for credit sites for Arcadia Gaming & Remove the Gold Deluxe (#151870)
+		- 20210331@Danny: handle site saba789 follow credit term [Redmine: #152450] 
 
 */
 
@@ -114,6 +115,16 @@ BEGIN
 		INSERT INTO #AllParties (PartyId, ParentId, LicenseeId, IsDeposit)
 		EXEC (@SQL)
 
+
+		-- Handle 'Saba789' follow credit term
+		UPDATE t
+		SET t.PartyId = 30,
+			t.ParentId = 999,
+			t.IsDeposit = 0
+		FROM #AllParties t 
+		WHERE LicenseeId = 509
+		-------------------------------------
+
 		-- Licensees have setting
 		CREATE TABLE #Party (PartyId INT, ParentId INT, LicenseeId INT, IsDeposit BIT)
 		SELECT @SQL = '	SELECT PartyId, ParentId, LicenseeId, IsDeposit
@@ -131,7 +142,17 @@ BEGIN
 		INSERT INTO #Party (PartyId, ParentId, LicenseeId, IsDeposit)
 		EXEC (@SQL)
 
+		-- Handle 'Saba789' follow credit term
+		UPDATE t
+		SET t.PartyId = 30,
+			t.ParentId = 999,
+			t.IsDeposit = 0
+		FROM #Party t 
+		WHERE LicenseeId = 509
+		-------------------------------------
+
 		SELECT @PartyIds = COALESCE(@PartyIds + ',', '') + CONVERT(VARCHAR(10), PartyId) FROM #Party
+
 	END
 
 	-- Get charge rate
@@ -238,6 +259,7 @@ BEGIN
 		SET s.SiteId_DW = t.SiteId
 		FROM @tmpSite s
 			INNER JOIN bodb_Account.dbo.tbl_Site t WITH (NOLOCK) ON s.SiteName = RTRIM(LTRIM(t.Site))
+
 	END
 
 	-- Get data
@@ -248,7 +270,7 @@ BEGIN
 		INSERT INTO #__Bettype (Product3rdId, ProductCode, BetType)
 		SELECT DISTINCT p.Product3rdId, p.ProductCode, s.BetType FROM bodb02.dbo.SportBettypeMatrix s WITH (NOLOCK)
 			INNER JOIN @Products p ON s.ProductId = p.ProductId AND p.Product3rdId <> 0
-		WHERE s.BetType NOT IN (4298, 4299, 4300, 1906, 3150)
+		WHERE s.BetType NOT IN (4298, 4299, 4300, 3150)
 
 		-- Use Valid Bet Amount
 		CREATE TABLE #__ValidBetRate (IsDeposit BIT, Product3rdId INT, FromDate DATE, ToDate DATE, CommRate FLOAT)
@@ -317,8 +339,8 @@ BEGIN
 				AND SportType = 44
 				AND (
 					@DepositType = 2
-					OR (@DepositType = 0 AND SiteId > 1000)
-					OR (@DepositType = 1 AND SiteId < 1000)
+					OR (@DepositType = 0 AND (SiteId > 1000 OR SiteID = 509))
+					OR (@DepositType = 1 AND (SiteId < 1000 AND SiteID <> 509))
 				)
 			GROUP BY rptDate, SiteId, CurrencyId
 
@@ -358,8 +380,8 @@ BEGIN
 				AND StatusId NOT IN(-1, 101, 102, 103) -- Exclude Reject , Void, Refund
 				AND (
 					@DepositType = 2
-					OR (@DepositType = 0 AND SiteId > 1000)
-					OR (@DepositType = 1 AND SiteId < 1000)
+					OR (@DepositType = 0 AND (SiteId > 1000 OR SiteID = 509))
+					OR (@DepositType = 1 AND (SiteId < 1000 AND SiteID <> 509))
 				)
 			GROUP BY RptDate3rd, SiteId, BetTypeId, CurrencyId
 
@@ -373,8 +395,8 @@ BEGIN
 					AND StatusId NOT IN(-1, 101, 102, 103) -- Exclude Reject , Void, Refund
 					AND (
 						@DepositType = 2
-						OR (@DepositType = 0 AND SiteId > 1000)
-						OR (@DepositType = 1 AND SiteId < 1000)
+					OR (@DepositType = 0 AND (SiteId > 1000 OR SiteID = 509))
+					OR (@DepositType = 1 AND (SiteId < 1000 AND SiteID <> 509))
 					)
 				GROUP BY RptDate3rd, SiteId, BetTypeId, CurrencyId
 
@@ -499,15 +521,15 @@ BEGIN
 	-- Check by MemberWL
 	BEGIN
 		INSERT INTO #__FullRangePayToSupplier (IsDeposit, Product3rdId, Bettype, PayToSupplier)
-		SELECT IsDeposit, Product3rdId, CASE WHEN Product3rdId = 0 THEN -1 ELSE 0 END, SUM(PayToSupplier)
+		SELECT IsDeposit, Product3rdId, CASE WHEN Product3rdId = 0 THEN Bettype ELSE 0 END, SUM(PayToSupplier)
 		FROM (
-			SELECT IsDeposit, Product3rdId, ParentId, SUM(PayMonthRate) AS PayToSupplier
+			SELECT IsDeposit, Product3rdId, ParentId, Bettype, SUM(PayMonthRate) AS PayToSupplier
 			FROM #__tempResult
-			WHERE Product3rdId IN (10, 24) OR (Product3rdId = 0 AND Bettype = -1)
-			GROUP BY IsDeposit, Product3rdId, ParentId
+			WHERE Product3rdId IN (10, 24) OR (Product3rdId = 0 AND Bettype IN (-1, -3))
+			GROUP BY IsDeposit, Product3rdId, ParentId, Bettype
 			HAVING SUM(PayMonthRate) < 0
 		) t
-		GROUP BY IsDeposit, Product3rdId
+		GROUP BY IsDeposit, Product3rdId,  CASE WHEN Product3rdId = 0 THEN Bettype ELSE 0 END
 	END
 
 	-- Others
@@ -524,7 +546,7 @@ BEGIN
 		SELECT IsDeposit, Product3rdId, CASE WHEN Product3rdId = 0 THEN Bettype ELSE 0 END, SUM(PayMonthRate)
 		FROM #__tempResult
 		WHERE Product3rdId NOT IN (10, 24)
-			AND (Product3rdId <> 0 OR Bettype <> -1)
+			AND (Product3rdId <> 0 OR Bettype NOT IN (-1, -3))
 			AND (IsDeposit = 1 OR Product3rdId NOT IN (32, 65))
 			AND (IsDeposit = 0 OR Product3rdId <> 39)
 		GROUP BY IsDeposit, Product3rdId, CASE WHEN Product3rdId = 0 THEN Bettype ELSE 0 END
