@@ -17,6 +17,7 @@ DB: DBACC/bodb02
 Revisions:
 - 20190925@Jacob: Group By CN88 (#118824)
 - 20191212@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
+- 20212203@Jaden: Support SABA789 (#151326)
 
 Parameters:
 @IsLive: 2 - ALL. 0 - Non-Live. 1 - Live
@@ -47,7 +48,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_MetricGaming_BetType_LiveStatus] @EndDate='2018-08-
                      );
         INSERT INTO #DepositSuper
                SELECT CustId
-               FROM f_DepSuper_1('All');
+               FROM DBWH.bodb_Account.dbo.vw_Dep_CustSuper WITH (NOLOCK)
     END;
     BEGIN -- #Data
         CREATE TABLE #tmp_Data

@@ -18,6 +18,7 @@ Revisions:
 	20190925@Jacob: Group By CN88 (#118824)
 	20191212@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
 	20200320@Cherry: Support Deadball Cash Out (#130302)
+    20212203@Jaden: Support SABA789 (#151326)
 
 Parameter's Explanation:
 	- @Site: credit, deposit
@@ -34,7 +35,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_CashOut_BetType] @StartDate='2016-01-01', @EndDate=
                  );
     INSERT INTO #DepositSuper
            SELECT CustId
-           FROM f_DepSuper_1('All');
+           FROM DBWH.bodb_Account.dbo.vw_Dep_CustSuper WITH (NOLOCK)
            
     CREATE TABLE #tmp_Data
                      (LiveStatus      INT, 

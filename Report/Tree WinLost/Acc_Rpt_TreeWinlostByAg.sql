@@ -57,6 +57,7 @@ Revisions:
 	20200812@Cherry: Hotfix 139420
 	20201001@Cherry: Add Licensee Odds Spread (#141750)
 	20201111@Ned.Le: NAP Report - Hotfix Tree Winloss - Block Replication (#145175)
+	20210409@Jaden.Tang: Exclude lucky draws from bettransLC (#133731)
 	
 Parameters explain:
 	@Products: instead of all @showXXX parameters, have xml structure
@@ -425,13 +426,16 @@ BEGIN
 		 SELECT b.custid
 			 , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(19, 6)) AS                     VarianceVR
 			 , SUM(stake * (1 - tpositiontaking)) AS                                          TurnoverIBC
-			 , SUM(swinlost + mwinlost + awinlost + winlost - actual_stake) AS                WinlossIBC
+			 , SUM(CASE
+					 WHEN bg.BettypeGroupID = 6 THEN 0 /*exclude Lucky Draws*/
+					 ELSE swinlost + mwinlost + awinlost + winlost - actual_stake
+				  END) AS                                                WinlossIBC
 			 , SUM(scomm) AS                                                                  CommissionS
 			 , SUM(CASE
-					 WHEN tpositiontaking = 1
-					 THEN 0
+					 WHEN bg.BettypeGroupID = 6 THEN 0
+					 WHEN tpositiontaking = 1 THEN 0
 					 ELSE(winlost - actual_stake) * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(19, 8))
-				  END) AS                                                                    ExtraWL
+				  END) AS                                                ExtraWL
 			 , SUM(CASE
 					 WHEN tpositiontaking = 1
 					 THEN 0
@@ -444,13 +448,16 @@ BEGIN
 					  END) AS DECIMAL(19, 6)) AS                                            ExtraComm
 			 /*RM*/
 			 , SUM(stake * (1 - tpositiontaking) * actualrate) AS                             TurnoverIBC_RM
-			 , SUM((swinlost + mwinlost + awinlost + winlost - actual_stake) * actualrate) AS WinlossIBC_RM
+			 , SUM(CASE
+					 WHEN bg.BettypeGroupID = 6 THEN 0 
+					 ELSE swinlost + mwinlost + awinlost + winlost - actual_stake
+				  END * actualrate) AS                                   WinlossIBC_RM
 			 , SUM(scomm * actualrate) AS                                                     CommissionS_RM
 			 , SUM(CASE
-					 WHEN tpositiontaking = 1
-					 THEN 0
+					 WHEN bg.BettypeGroupID = 6 THEN 0 
+					 WHEN tpositiontaking = 1 THEN 0
 					 ELSE(winlost - actual_stake) * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(19, 8))
-				  END * actualrate) AS                                                       ExtraWL_RM
+				  END * actualrate) AS                                   ExtraWL_RM
 			 , SUM(CASE
 					 WHEN tpositiontaking = 1
 					 THEN 0
@@ -463,6 +470,7 @@ BEGIN
 					  END * actualrate) AS DECIMAL(19, 6)) AS                               ExtraComm_RM
 		 FROM bettransLC AS b WITH (NOLOCK)
 			  INNER JOIN #tmpBettype AS t ON t.bettype = b.gameID
+			  LEFT JOIN #PrizeBettypeGroup bg ON b.gameID = bg.Bettype
 		 WHERE winlostdate BETWEEN CAST(@FromDate AS SMALLDATETIME) AND CAST(@ToDate AS SMALLDATETIME)
 			  AND b.statusID NOT IN(0, 1, 101, 102, 103)
 			  AND b.currency <> 20

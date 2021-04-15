@@ -20,6 +20,7 @@ AS
 	Revisions:
 		- 20200424@Jaden.Tang: NAP Report - New drilldown level for League Win Loss (#138955)
         - 20201016@Jaden.Tang: Refactor for code readability & new drilldowns (#144387)
+        - 20212203@Jaden: Support SABA789 (#151326)
 
 	Param's Explanation:
 		- @StartDate: The start date of data to view on report
@@ -86,12 +87,17 @@ BEGIN
                         AND (@SiteName = 'ALL' OR c.site IN (SELECT SiteName FROM #inputSites))
             END
         ELSE
+            CREATE TABLE #DepositSuper (CustId INT PRIMARY KEY);
+            INSERT INTO #DepositSuper
+                SELECT CustId
+                FROM DBWH.bodb_Account.dbo.vw_Dep_CustSuper WITH (NOLOCK);
+
             IF @SiteType = 'Deposit'
                 BEGIN
                     ;WITH CTE_Dep AS (
                         SELECT c.CustId, c.Site
                         FROM bodb02..Customer AS c WITH(NOLOCK)
-                        INNER JOIN bodb02..Dep_CustSuper AS dep WITH(NOLOCK) 
+                        INNER JOIN #DepositSuper AS dep WITH(NOLOCK) 
                             ON c.srecommend = dep.CustId
                         WHERE c.RoleID = 2
                             AND c.CustId NOT IN (52466, 5707545)
@@ -108,7 +114,7 @@ BEGIN
                     ;WITH CTE_Cre AS (
                         SELECT c.CustId, c.Site
                         FROM bodb02..Customer AS c WITH(NOLOCK)
-                        LEFT JOIN bodb02..Dep_CustSuper AS dep WITH(NOLOCK) 
+                        LEFT JOIN #DepositSuper dep WITH (NOLOCK)
                             ON c.srecommend = dep.CustId
                         LEFT JOIN bodb02..CS_CustSuper cn88 WITH(NOLOCK) 
                             ON c.srecommend = cn88.CustId
@@ -124,6 +130,8 @@ BEGIN
                         FROM CTE_Cre
                         WHERE (@SiteName = 'ALL' OR Site IN (SELECT SiteName FROM #inputSites))
                 END
+            
+            DROP TABLE #DepositSuper
     END
 
 	BEGIN /*staging data*/

@@ -1,4 +1,8 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+
+use bodb02
+go
+
 ALTER PROCEDURE Acc_Rpt_CompanyWinLoss_BetBuilder_SportType
 	@StartDate SMALLDATETIME
 	,@EndDate SMALLDATETIME
@@ -10,7 +14,8 @@ AS
 
 	Revisions:
 		20200722@Roy: Incorporate New Basketball Sport for BetBuilder Product - NAP Report (#138082)
-
+		20212203@Jaden: Support SABA789 (#151326)
+		
 	Param's Explanation:
 	
 	Script: EXEC Acc_Rpt_CompanyWinLoss_BetBuilder_SportType @StartDate='2020-06-30 00:00:00',@EndDate='2020-06-30 00:00:00'
@@ -63,12 +68,10 @@ BEGIN
 	CREATE CLUSTERED INDEX [CIX_match] ON #tmpSportMatches( MatchId )
 	/*
 		Define Deposit Super user
-		From: f_DepSuper_1
-		To: #tmpDepSuper ( CustId )
 	*/
 	INSERT INTO #tmpDepSuper
 	SELECT CustId
-	FROM f_DepSuper_1('All')
+	FROM DBWH.bodb_Account.dbo.vw_Dep_CustSuper WITH (NOLOCK);
 	
 	
 	SELECT m.SportType AS GroupId

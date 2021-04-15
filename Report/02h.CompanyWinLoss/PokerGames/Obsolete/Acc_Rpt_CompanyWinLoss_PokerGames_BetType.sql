@@ -18,6 +18,7 @@ Revisions:
 - 20190121@Franklin: Integrate Poker Games (#107706)
 - 20190925@Jacob: Group By CN88 (#118824)
 - 20190918@Robert: Remove inactive products (#120215)
+- 20212203@Jaden: Support SABA789 (#151326)
 
 Example:
 EXEC [Acc_Rpt_CompanyWinLoss_PokerGames_BetType] @StartDate='2018-08-21', @EndDate='2018-08-21', @ProductId = 33, @SportType = 0
@@ -51,7 +52,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_PokerGames_BetType] @StartDate='2018-08-21', @EndDa
                      );
         INSERT INTO #DepositSuper
                SELECT CustId
-               FROM f_DepSuper_1('All');
+               FROM DBWH.bodb_Account.dbo.vw_Dep_CustSuper WITH (NOLOCK)
     END;
     BEGIN -- Extra PT
         CREATE TABLE #ExtraPT_Sel

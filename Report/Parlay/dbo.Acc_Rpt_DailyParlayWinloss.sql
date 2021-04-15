@@ -21,6 +21,7 @@ AS
 		- 20160826@Percy: Enhance System/Mix Parlay [RedmineID: #63022]
 		- 20180629@Franklin: Apply new concept for Virtual & Extra PT [RedmineID: #97163]
 		- 20191212@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
+		- 20212203@Jaden: Support SABA789 (#151326)
 	Parameter's Explanation:
 		- Combinations: Bettrans.betcheck is stored the number of selection by format 'm4', 'm3' ...
 		- LiveType (Livehomescore):
@@ -81,12 +82,17 @@ BEGIN
 END
 ELSE
 BEGIN
+	CREATE TABLE #DepSuper (custid int)
+	INSERT INTO #DepSuper
+		SELECT custid FROM DBWH.bodb_Account.dbo.vw_Dep_CustSuper WITH (NOLOCK)
+
 	CREATE TABLE #DepAgent (custid int primary key)
 	
 	INSERT INTO #DepAgent (custid)
 	SELECT c.custid
 	FROM custinfo c WITH(NOLOCK)
-		LEFT JOIN (select custid from f_DepSuper_1('All')) dep ON c.srecommend = dep.custid
+		LEFT JOIN #DepSuper dep with (NOLOCK)
+		ON c.srecommend = dep.custid
 	WHERE roleid = 2
 		AND 1= CASE WHEN @site = 1 AND dep.custid IS NULL THEN 1
 					WHEN @site = 2 AND dep.custid IS NOT NULL THEN 1 ELSE 0 END

@@ -27,6 +27,8 @@ Revisions:
 - 20191118@Ned.Le: Integrate Pragmatic Tournament Prize (#123685)
 - 20191212@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
 - 20200713@Ned.Le: NAP Report - Incorporate Jackpot Games (#137271)
+- 20210409@Jaden.Tang: Exclude lucky draws from bettransLC (#133731)
+- 20212203@Jaden: Support SABA789 (#151326)
 
 Example:
 EXEC [Acc_Rpt_CompanyWinLoss_Game_Site] @BetType = 2101,@EndDate='2020-01-01',@Site = 'Credit',@StartDate='2016-01-01'
@@ -53,6 +55,11 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_Site] @BetType = 2101,@EndDate='2020-01-01',@S
                       RefTable
                FROM bodb02.dbo.f_SportBetTypeMatrix_Sel(0, 0, @BetType, 2, '', '', @isTest);
     END;
+    
+    CREATE TABLE #DepositSuper (CustId INT PRIMARY KEY);
+    INSERT INTO #DepositSuper
+        SELECT custid FROM DBWH.bodb_Account.dbo.vw_Dep_CustSuper WITH (NOLOCK);
+
     BEGIN -- #Agent
         CREATE TABLE #Agent
         (CustId INT
@@ -75,7 +82,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_Site] @BetType = 2101,@EndDate='2020-01-01',@S
                            SELECT c.CustId, 
                                   c.Site
                            FROM customer AS c WITH(NOLOCK)
-                                INNER JOIN Dep_CustSuper AS dep WITH(NOLOCK) ON c.srecommend = dep.CustId
+                                INNER JOIN #DepositSuper AS dep WITH(NOLOCK) ON c.srecommend = dep.CustId
                            WHERE c.RoleID = 2
                                  AND c.CustId NOT IN(52466, 5707545);
                     INSERT INTO #Agent
@@ -88,7 +95,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_Site] @BetType = 2101,@EndDate='2020-01-01',@S
                            SELECT c.CustId, 
                                   c.Site
                            FROM customer AS c WITH(NOLOCK)
-                                LEFT JOIN Dep_CustSuper AS dep WITH(NOLOCK) ON c.srecommend = dep.CustId
+                                LEFT JOIN #DepositSuper AS dep WITH(NOLOCK) ON c.srecommend = dep.CustId
                                 LEFT JOIN CS_CustSuper cn88 WITH(NOLOCK) ON c.srecommend = cn88.CustId
                            WHERE c.RoleID = 2
                                  AND c.CustId NOT IN(52466, 5707545)
@@ -223,16 +230,23 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_Site] @BetType = 2101,@EndDate='2020-01-01',@S
                            SUM((winlost - actual_stake) * actualrate) AS MemberWinLoss, 
                            SUM((awinlost + mwinlost + swinlost) * actualrate) AS SMAWinLoss, 
                            SUM(CASE
-                                   WHEN b.tpositiontaking = 1
-                                   THEN 0
-                                   ELSE winlost - actual_stake + b.scomm / (1 - b.tpositiontaking)
-                               END * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0) * actualrate) AS ExtraPT, 
+                                   --exclude lucky draws
+                                   WHEN bg.BettypeGroupID = 6 THEN 0 -- Prize Bettype Group
+                                   ELSE CASE
+                                            WHEN tpositiontaking = 1
+                                            THEN 0
+                                            ELSE winlost - actual_stake + b.scomm / (1 - b.tpositiontaking)
+                                        END * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)
+                               END * actualrate) AS ExtraPT, 
                            SUM(scomm * actualrate) AS Commission, 
-                           SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - CASE
-                                                                                                      WHEN tpositiontaking = 1
-                                                                                                      THEN 0
-                                                                                                      ELSE winlost - actual_stake + b.scomm / (1 - b.tpositiontaking)
-                                                                                                  END * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * actualrate) AS RealIncome, 
+                           SUM(CASE
+                                   WHEN bg.BettypeGroupID = 6 THEN 0
+                                   ELSE winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - CASE
+                                                                                                              WHEN tpositiontaking = 1
+                                                                                                              THEN 0
+                                                                                                              ELSE winlost - actual_stake + b.scomm / (1 - b.tpositiontaking)
+                                                                                                          END * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)
+                               END * actualrate) AS RealIncome, 
                            SUM(CASE
                                    WHEN tpositiontaking = 1
                                    THEN 0
@@ -245,6 +259,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_Site] @BetType = 2101,@EndDate='2020-01-01',@S
                     FROM bettransLC AS b WITH(NOLOCK)
                          INNER JOIN #Agent AS dep ON b.recommend = dep.custid
                          INNER JOIN #SportBetType AS sb ON sb.BetType = b.gameId
+                         LEFT JOIN #SpecialBettypeGroup bg ON b.gameID = bg.Bettype
                     WHERE b.winlostdate = @StartDate
                           AND b.gameId = @BetType
                           AND b.statusID IN(111, 112, 113)
@@ -267,4 +282,5 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_Site] @BetType = 2101,@EndDate='2020-01-01',@S
     DROP TABLE #Agent;
     DROP TABLE #Data;
 	DROP TABLE #SpecialBettypeGroup;
+    DROP TABLE #DepositSuper;
 GO

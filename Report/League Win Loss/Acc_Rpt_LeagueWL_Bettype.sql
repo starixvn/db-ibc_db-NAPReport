@@ -30,6 +30,7 @@ AS
 		- 20201016@Jaden.Tang: Refactor for code readability & new drilldowns (#144387)
 		- 20210126@Jaden.Tang: global show time filter (#147450)
 		- 20210208@Jaden.Tang: Hotfix - change LiveIndicator type to TINYINT (#150190)
+		- 20212203@Jaden: Support SABA789 (#151326)
 
 	Param's Explanation:
 		- @StartDate: The start date of data to view on report
@@ -178,6 +179,11 @@ BEGIN
     END
 
 	BEGIN /*get a list of Supers by site type*/
+	    CREATE TABLE #DepositSuper (CustId INT PRIMARY KEY);
+		INSERT INTO #DepositSuper
+			SELECT CustId
+			FROM DBWH.bodb_Account.dbo.vw_Dep_CustSuper WITH (NOLOCK);
+
 		CREATE TABLE #super (SuperID   INT PRIMARY KEY, 
                              SiteType  VARCHAR(7))
 
@@ -188,11 +194,13 @@ BEGIN
 				 		WHEN dep.custid  IS NOT NULL THEN 'Deposit'
 						ELSE 'Credit' END AS SiteType
 			FROM bodb02..Customer AS s WITH(NOLOCK)
-			LEFT JOIN bodb02..Dep_CustSuper AS dep WITH(NOLOCK) 
+			LEFT JOIN #DepositSuper dep WITH (NOLOCK)
 				ON s.srecommend = dep.CustId
 			LEFT JOIN bodb02..CS_CustSuper cn88 WITH(NOLOCK) 
 				ON s.srecommend = cn88.CustId
 			WHERE s.RoleID = 2 -- always get Site info from Agent
+
+		DROP TABLE #DepositSuper
 	END
 
 	BEGIN -- #tmpAgentBySite: list of active agents in the list input @SiteName
