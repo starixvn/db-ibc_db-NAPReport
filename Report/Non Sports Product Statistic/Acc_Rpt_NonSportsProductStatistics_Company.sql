@@ -53,6 +53,7 @@ AS
 		20201210@Cherry: Add Real Turnover (#146137)
 		20201224@Cherry: Integrate Happy 5 Linked Games (#146537)
 		20210120@Cherry: Integrate Saba Jackpot (#148293)
+		20210324@Cherry: Consider Saba789 as Credit site (#152124)
 
 	Param's Explanation:
 		- @username:  + Search by keyword, member only
@@ -325,15 +326,24 @@ BEGIN
 
 	-- Get Site	
 	CREATE TABLE #recommend (SiteName VARCHAR(50), recommend INT, isDeposit BIT)
-	DECLARE @isDrillDownLicensee BIT
-	SELECT  @isDrillDownLicensee = 0
+	DECLARE @isDrillDownLicensee TINYINT = 2 --0:MBC Group, 1:Licensee Group, 2:Special Site
+	CREATE TABLE #tmpDep_CustSuper (CustID INT)
+	
+	INSERT INTO #tmpDep_CustSuper (CustID)
+	SELECT custid
+	FROM DBWH.bodb_Account.dbo.vw_Dep_CustSuper WITH(NOLOCK) 
+	
+	CREATE TABLE #tmpSite_DW ([Site] VARCHAR(50), isDeposit BIT)
+	INSERT INTO #tmpSite_DW ([Site], isDeposit)
+	SELECT [site], isDeposit
+	FROM DBWH.bodb_Account.dbo.tbl_Site WITH(NOLOCK) 
 
 	IF @Site = 'All'
 	BEGIN
 		INSERT INTO #recommend (SiteName, recommend, isDeposit)
 		SELECT ss.site, c.recommend, ss.isDeposit
 		FROM dbo.Customer c WITH (NOLOCK)
-			INNER JOIN dbo.Site ss WITH (NOLOCK) ON ss.Site = c.site
+			INNER JOIN #tmpSite_DW ss ON ss.Site = c.site
 		WHERE c.roleid = 2
 	END
 	ELSE IF @Site = 'Licensee Group' -- all deposit drill down
@@ -341,7 +351,7 @@ BEGIN
 		SELECT @isDrillDownLicensee = 1
 		INSERT INTO #recommend (SiteName, recommend, isDeposit)
 		SELECT c.site, c.custid, 1
-		FROM dbo.Dep_CustSuper d WITH (NOLOCK)
+		FROM #tmpDep_CustSuper d
 			INNER JOIN dbo.Customer c WITH (NOLOCK) ON d.custid = c.srecommend
 		WHERE c.roleid = 2
 	END
@@ -350,7 +360,7 @@ BEGIN
 		INSERT INTO #recommend (SiteName, recommend, isDeposit)
 			SELECT c.site, c.custid, 0
 			FROM dbo.Customer c WITH(NOLOCK)
-				LEFT JOIN dbo.Dep_CustSuper d WITH(NOLOCK) ON c.srecommend = d.custid
+				LEFT JOIN #tmpDep_CustSuper d ON c.srecommend = d.custid
 			WHERE c.roleid = 2 AND d.custid IS NULL
 	END
 	ELSE
@@ -363,21 +373,19 @@ BEGIN
 			SELECT @isDrillDownLicensee = 1
 			INSERT INTO #recommend (SiteName, recommend, isDeposit)
 			SELECT c.site, c.custid, 1
-			FROM dbo.Dep_CustSuper d WITH (NOLOCK)
+			FROM #tmpDep_CustSuper d
 				INNER JOIN dbo.Customer c WITH (NOLOCK) ON d.custid = c.srecommend
-				INNER JOIN dbo.Site ss WITH (NOLOCK) ON ss.Site = c.site
-				INNER JOIN #tmp_Site s ON ss.site = s.Site
+				INNER JOIN #tmp_Site s ON c.site = s.Site
 			WHERE c.roleid = 2
 		END
 		
 		IF EXISTS (SELECT TOP 1 1 FROM #tmp_Site WHERE Site IN ('Credit Group'))
 		BEGIN
 			INSERT INTO #recommend (SiteName, recommend, isDeposit)
-			SELECT c.site, c.custid, 1
+			SELECT c.site, c.custid, 0
 			FROM dbo.Customer c WITH(NOLOCK)
-				LEFT JOIN dbo.Dep_CustSuper d WITH(NOLOCK) ON c.srecommend = d.custid
-				INNER JOIN dbo.Site ss WITH (NOLOCK) ON ss.Site = c.site
-				INNER JOIN #tmp_Site s ON ss.site = s.Site
+				LEFT JOIN #tmpDep_CustSuper d ON c.srecommend = d.custid
+				INNER JOIN #tmp_Site s ON c.site = s.Site
 			WHERE c.roleid = 2 AND d.custid IS NULL
 		END
 
@@ -386,7 +394,7 @@ BEGIN
 			INSERT INTO #recommend (SiteName, recommend, isDeposit)
 			SELECT c.site, c.custid, ss.isDeposit
 			FROM dbo.Customer c WITH (NOLOCK) 
-				INNER JOIN dbo.Site ss WITH (NOLOCK) ON ss.Site = c.site
+				INNER JOIN #tmpSite_DW ss ON ss.Site = c.site
 				INNER JOIN #tmp_Site s ON ss.site = s.Site
 			WHERE c.roleid = 2
 		END		
@@ -1853,6 +1861,8 @@ BEGIN
 	DROP TABLE #tmpSportBetType
 	DROP TABLE #tmpNetStakeBettype
 	DROP TABLE #tmpNoBetCountBettype
+	DROP TABLE #tmpDep_CustSuper
+	DROP TABLE #tmpSite_DW
 
 END
 
