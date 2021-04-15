@@ -31,6 +31,7 @@ AS
 		- 20181219@Robert: NAP Report - Add new sporttype for Happy 5 (#104253) 
 		- 20201225@Jaden: Add new sporttype for Happy 5 Linked games (#147573)
 		- 20210222@Jaden: Adjustment for matchcode extraction
+		- 20210329@Roy: NAP Report - Support Saba789 (#151326)
 
     Param usage:
 		- @SiteID:
@@ -112,6 +113,26 @@ BEGIN
 		 FROM dbo.NAP_f_GetAffectedDateLicensee
 			 (1, @siteid, 1, @winlostdate, @winlostdate, 1, 18, 3, 'NG', @TrialData);
 
+	CREATE TABLE #tmpLicenseeCust (
+		CustID INT
+		,licenseeID INT
+		,Currency INT
+	)
+	INSERT INTO #tmpLicenseeCust (
+		CustID
+		,licenseeID
+		,Currency
+	)
+	SELECT CustID
+		,licenseeID
+		,Currency
+	FROM DBWH.bodb_Account.dbo.vw_LicenseeCust WITH (NOLOCK)
+	WHERE roleid = 2
+	GROUP BY CustID
+		,licenseeID
+		,Currency
+	CREATE CLUSTERED INDEX [CIX_tmpLicenseeCust] ON #tmpLicenseeCust(licenseeID,CustID,Currency)
+	
     IF EXISTS
 		    (
 			   SELECT 1
@@ -126,7 +147,7 @@ BEGIN
 			    WHERE ci.custid NOT IN
 								  (
 									 SELECT custid
-									 FROM bodb_Licensee.dbo.LicenseeCust WITH (NOLOCK)
+									 FROM #tmpLicenseeCust WITH (NOLOCK)
 								  )
 					AND ci.roleid = 2
 					AND
@@ -148,14 +169,14 @@ BEGIN
 	   BEGIN
 		  INSERT INTO #tmpAg
 			    SELECT custID
-			    FROM bodb_Licensee.dbo.LicenseeCust AS lc WITH (nolock)
+			    FROM #tmpLicenseeCust AS lc WITH (nolock)
 			    WHERE LicenseeID IN
 							    (
 								   SELECT licenseeID
 								   FROM @tmpLscActive
 								   WHERE licenseeID > 0
 							    )
-					AND roleid = 2
+					--AND roleid = 2
 					AND
 					    (@Currency = ''
 						OR lc.Currency IN
@@ -211,4 +232,5 @@ BEGIN
 
     DROP TABLE #Bettype;
     DROP TABLE #tmpAg;
+	DROP TABLE #tmpLicenseeCust
 END;
