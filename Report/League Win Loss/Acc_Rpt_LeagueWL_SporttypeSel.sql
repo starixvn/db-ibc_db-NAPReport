@@ -60,7 +60,7 @@ BEGIN
 		WHERE sbm.ProductID = 1
 			  AND sbm.SportType <> 27
 			  AND sbm.SubProduct NOT LIKE 'BT%'
-			  AND sbm.BetType NOT IN (9, 29)
+			  AND sbm.BetType NOT IN (9, 29, 999)
 		UNION ALL
 		-- Parlay
 		SELECT DISTINCT
@@ -74,7 +74,7 @@ BEGIN
 		FROM bodb02.dbo.SportBettypeMatrix sbm (NOLOCK)
 			 LEFT JOIN bodb02.dbo.bettype b (NOLOCK) ON sbm.BetType = b.typeid
 		WHERE sbm.ProductID = 1
-			  AND sbm.BetType IN (9, 29, 999)
+			  AND sbm.BetType IN (9, 29)
 		UNION ALL
 		-- Odds Spread Adjustment
 		SELECT 10001 SportGroupType,
