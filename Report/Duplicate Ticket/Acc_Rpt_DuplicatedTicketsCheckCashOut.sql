@@ -12,6 +12,7 @@ DB:		DBRPT/bodb_report
 Original: 
 
 Revisions:
+	- 20210416@Ned.Le: NAP Report - Duplicate Tickets - Exclude refund tickets (#153616)
 
 Param's Explanation:
 
@@ -40,7 +41,7 @@ BEGIN
 	SELECT @Sell_Stake = SUM(bt.stake) + @Sell_Stake	
 	FROM bodb02.dbo.bettrans bt WITH(NOLOCK)
 	WHERE bt.refno = @RefNo
-	AND bt.statusID NOT IN(101,102);
+	AND bt.statusID NOT IN(101,102,103);
 
 	IF (@Sell_Stake <> @Original_Stake)
 		SET @isDuplicated = 1
