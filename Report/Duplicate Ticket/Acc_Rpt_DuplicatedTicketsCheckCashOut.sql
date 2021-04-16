@@ -1,3 +1,5 @@
+/*<info serverAlias="DBRPT-bodb_report" executers="bodbAdminNet" viewers="vnteam" isFunction="0"></info>*/
+
 USE [bodb_report] 
 GO
 
