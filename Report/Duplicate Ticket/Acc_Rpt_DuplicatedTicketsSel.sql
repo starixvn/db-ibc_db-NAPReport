@@ -44,6 +44,7 @@ Revisions:
 	- 20190722@Robert: #117010 - NAP Report - Integrate Card Club on NAP Report
 	- 20200518@Ned.Le: Add betteam as a new data duplication checking condition
 	                   Exclude ticktes that have betfrom='v'
+	- 20210416@Ned.Le: NAP Report - Duplicate Tickets - Exclude refund tickets (#153616)
 	                   
 Param's Explanation:
 	- @CheckTime : The time we consider how long the job fails (Compared the last run with the current time).
@@ -115,7 +116,7 @@ BEGIN
 			and matchid > 0
 			and recommend NOT IN (5707545,52466) -- exclude members under BARM,8RM
 			and currency NOT IN (20, 27, 28)
-			And statusID NOT IN (101,102)
+			And statusID NOT IN (101,102,103)
 			AND NOT EXISTS (SELECT TOP 1 1 FROM bodb02.dbo.TradeCust t WITH (NOLOCK) WHERE b.custid = t.custid AND t.VendorID = 14)
 		GROUP BY b.custid, 
 				b.odds, 
@@ -161,7 +162,7 @@ BEGIN
 				AND b.betteam = t.betteam
 			INNER JOIN bodb02.dbo.bettype bt with(nolock) on bt.typeid = b.bettype
 		WHERE b.custid IN (SELECT custid FROM #TempCust)
-			AND b.statusID NOT IN (101,102)
+			AND b.statusID NOT IN (101,102,103)
 			AND b.bettype NOT IN (500) -- exclude 500 - charged commission
 		ORDER BY b.custid, b.odds, b.stake, b.balance, b.bettype, b.winlostdate, b.Username,b.refno, b.transid, b.transdate, b.status, b.statusID
 
@@ -185,7 +186,7 @@ BEGIN
 					ON bt.typeid = b.bettype
 		WHERE	t.Transdate >= @DateFrom 
 			AND t.Transdate < DATEADD(dd, 1, DATEDIFF(dd, 0, @DateFrom))
-			AND b.statusID NOT IN (101,102)
+			AND b.statusID NOT IN (101,102,103)
 			AND b.bettype NOT IN (500) -- exclude 500 - charged commission
 		ORDER BY b.custid, b.odds, b.stake, b.balance, b.bettype, b.winlostdate, b.Username,b.refno, b.transid, b.transdate, b.status, b.statusID 
 

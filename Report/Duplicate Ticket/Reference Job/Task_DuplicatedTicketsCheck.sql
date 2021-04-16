@@ -36,6 +36,7 @@ AS
 		 - 20181129@Dominic: Check WalletType (HotFix #105532)
 		 - 20200515@Dominic: Check betteam
 		 - 20200518@Ned.Le: Exclude tickets that have betfrom='v'
+		 - 20210416@Ned.Le: NAP Report - Duplicate Tickets - Exclude refund tickets (#153616)
 	Param's Explanation:
 
 */
@@ -84,7 +85,7 @@ BEGIN
 			AND b.betfrom <> 'v'
 			AND b.recommend NOT IN (5707545, 52466) -- exclude members under BARM,8RM
 			AND b.currency NOT IN (20, 27, 28)
-			AND b.statusID NOT IN (101, 102) 
+			AND b.statusID NOT IN (101, 102, 103) 
 			AND NOT EXISTS (SELECT TOP 1 1 FROM bodb02.dbo.TradeCust t WITH (NOLOCK) WHERE b.custid = t.custid AND t.VendorID = 14)
 	)
 	SELECT  b.custid, 
