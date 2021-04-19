@@ -19,6 +19,7 @@ AS
 		- 20210405@Percy: Missing Contribution Amount & Jackpot Prize on Monthly [RedmineID: #152912]
 		- 20210402@Danny: Support Lucky Draw for AE Casino & Integrate Bonus program for credit sites for Arcadia Gaming & Remove the Gold Deluxe (#151870)
 		- 20210331@Danny: exclude site saba789 [Redmine: #152450] 
+		- 20210419@Danny: Arcadia Gaming - Add 2 new games: Marble Mini and RPS (#153419)
 */
 BEGIN
 	SET NOCOUNT ON
@@ -273,7 +274,7 @@ BEGIN
 		INSERT INTO @tmpBetType (Product3rdId, AliasProductId, BetType, BettypeGroup, IsOnlyTO)
 		SELECT DISTINCT p.Product3rdId, CASE WHEN p.Product3rdId IN (0, 3) THEN 0 ELSE p.AliasProductId END, s.BetType
 			,CASE
-				WHEN s.BetType IN (1902, 1903, 1904, 1905) THEN s.BetType -- CC (Card Club)
+				WHEN p.Product3rdId = 34 AND bg.BettypeGroupId IS NULL THEN s.BetType -- CC (Card Club)
 				WHEN s.BetType = 3007 OR (s.ProductId = 22 AND bg.BettypeGroupId = 11) THEN 1 -- SA Gaming, VB (Macau Games)
 				ELSE -1 END AS BettypeGroup
 			,CASE WHEN p.Product3rdId IN (0, 3, 10, 11, 15, 31) THEN 1 ELSE 0 END AS IsOnlyTO

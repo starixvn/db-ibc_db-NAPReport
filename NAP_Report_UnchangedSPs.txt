@@ -1,5 +1,2 @@
-Report\Games\NumberGame\Acc_Rpt_GetLicenseesByProduct.sql
-Report\Games\NumberGame\Acc_Rpt_NumberGame.sql
-Report\Games\NumberGame\Acc_Rpt_NumberGame14.sql
-Report\Games\NumberGame\Acc_Rpt_NumberGame_Details.sql
-Report\Games\NumberGame\Acc_Rpt_NumberGame_Details14.sql
+Report\House Net Income report\Acc_Rpt_HouseNetIncome_PayToSupplier.sql
+Report\House Net Income report\Acc_Rpt_HouseNetIncome.sql
