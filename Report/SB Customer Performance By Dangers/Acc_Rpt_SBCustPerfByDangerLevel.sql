@@ -2,7 +2,7 @@
 ALTER PROCEDURE Acc_Rpt_SBCustPerfByDangerLevel
 	@WinlostDate SMALLDATETIME
 	,@Divisions VARCHAR(MAX) = 'ALL'
-	,@DangerLevels VARCHAR(500) = '1_50'
+	,@DangerLevels VARCHAR(MAX) = '1_50'
 	,@SportBettypes VARCHAR(MAX) = 'ALL'
 	,@LeagueName NVARCHAR(500) = 'All Leagues'
 	,@LeagueGroupIDs VARCHAR(MAX) = 'ALL'
