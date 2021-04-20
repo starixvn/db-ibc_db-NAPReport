@@ -67,6 +67,7 @@ AS
 		- 20210303@Cherry: Integrate Sports Lottery (#151071)
 		- 20210325@Jaden: Change bettype range from [3101 - 3199] to [3101 - 3150] (#151869)
 		- 20210325@Jaden: Integrate PP Live Casino (#133731)
+		- 20210420@Jaden: Include CG into Macau Games (#152781)
 
 	Param's Explanation:  
 	  + @MoveBetsDay: The day of moving bets to battrans14
@@ -77,7 +78,7 @@ AS
 		 220: Lottery, 160: Lucky 3, 207: Bullfighting, 163: Poker Games, 245: Virtual Games
 		 244: SA Gaming, 200: Saba.club, 243: AE Casino, 222: Table Games,
 		 241: BBIN, 242: IBCBet Live Casino, 233: WM, 236: GDG, 239: BG
-		 212: Macau Games (include: Macau Games, Pragmatic, Spadegaming, Card Club [Video Poker], PG Soft, Joker Gaming, MaxGame)
+		 212: Macau Games (include: Macau Games, Pragmatic, Spadegaming, Card Club [Video Poker], PG Soft, Joker Gaming, MaxGame, CG)
 		}
   
 */  
@@ -175,7 +176,7 @@ BEGIN
 			WHERE b.winlostdate BETWEEN @TempFromDate AND @CurrentDate
 			AND (
 					(@sportType=251 AND (b.gameID BETWEEN 2101 AND 2399 OR b.gameID BETWEEN 2901 AND 2999))
-					OR (@sportType=212 AND (b.gameID BETWEEN 4001 AND 4600 OR b.gameID BETWEEN 7001 AND 7300)) --Macau Games, Pragmatic, Spadegaming, Habanero					
+					OR (@sportType=212 AND (b.gameID BETWEEN 4001 AND 4600 OR b.gameID BETWEEN 7001 AND 7600))
 					OR b.gameID BETWEEN 1901 AND CASE WHEN @sportType=212 THEN 1999 ELSE 0 END -- Card Club [Video Poker]
 					OR b.gameID BETWEEN 6001 AND CASE WHEN @sportType=212 THEN 6300 ELSE 0 END -- PG Soft
 					OR b.gameID BETWEEN 6401 AND CASE WHEN @sportType=212 THEN 6700 ELSE 0 END -- Joker Gaming
@@ -250,7 +251,7 @@ BEGIN
 							OR b.bettype BETWEEN 3001 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 244 THEN 3099 ELSE 0 END)  -- SA Gaming
 							OR b.bettype BETWEEN 3101 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 243 THEN 3150 ELSE 0 END)  -- AE Casino
 							OR b.bettype BETWEEN 3201 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 242 THEN 3299 ELSE 0 END)  -- IBCBet Live Casino
-							OR (' + CONVERT(VARCHAR(5),@sportType) +' = 212 AND (b.bettype BETWEEN 4001 AND 4600 OR b.bettype BETWEEN 7001 AND 7300)) -- Macau Games, Pragmatic, Spadegaming, Habanero
+							OR (' + CONVERT(VARCHAR(5),@sportType) +' = 212 AND (b.bettype BETWEEN 4001 AND 4600 OR b.bettype BETWEEN 7001 AND 7600))
 							OR b.bettype BETWEEN 2501 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 213 THEN 2699 ELSE 0 END)  -- NG2
 							OR b.bettype BETWEEN 1011 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 219 THEN 1020 ELSE 0 END)  -- Fishing World
 							OR b.bettype BETWEEN 1021 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = 220 THEN 1099 ELSE 0 END   -- Loterry
