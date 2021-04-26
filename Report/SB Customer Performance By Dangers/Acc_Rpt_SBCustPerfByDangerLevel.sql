@@ -2,7 +2,7 @@
 ALTER PROCEDURE Acc_Rpt_SBCustPerfByDangerLevel
 	@WinlostDate SMALLDATETIME
 	,@Divisions VARCHAR(MAX) = 'ALL'
-	,@DangerLevels VARCHAR(500) = '50'
+	,@DangerLevels VARCHAR(MAX) = '1_50'
 	,@SportBettypes VARCHAR(MAX) = 'ALL'
 	,@LeagueName NVARCHAR(500) = 'All Leagues'
 	,@LeagueGroupIDs VARCHAR(MAX) = 'ALL'
@@ -16,10 +16,13 @@ AS
 
 	Revisions:
 		20210105@Roy: NAP Report - Implement Top Punter report (#145833)
+		20210413@Kean: Add More DangerLevel Filter (#153264)
 		
 	Param's Explanation:
 		@Divisions: List of site names
-		@DangerLevels: danger level - blank for all (can be: 50,49 for multiple)
+		@DangerLevels: List of DangerType and DangerLevel with format: DangerType_DangerLevel (ex: 1_0,2_30,3_20)
+						DangerType: 1(Original Level), 2(ABI Level), 3(O.Sports Level)
+						DangerLevel: From 1 to 50
 		@SportBettypes: List of Sporttypes and Bettypes with format: Sport_Bettype (ex: 43_2,29_9)
 		@LeagueName: exactly league name - 'All Leagues' for all
 		@LeagueGroupIDs: List of LeagueGroups by IDs
@@ -62,12 +65,15 @@ BEGIN
 		,SiteName VARCHAR(10)
 	)
 	CREATE TABLE #tmpDangerLevel (
-		DangerLevel INT
+		DangerType INT
+		,DangerLevel INT
 	)
 	CREATE TABLE #tmpRawData (
 		CustID INT
 		,UserName NVARCHAR(50)
-		,DangerLevel INT
+		,DangerLevelOriginal  INT
+		,DangerLevelABI INT
+		,DangerLevelOtherSport INT
 		,AgentID INT
 		,MasterID INT
 		,SuperID INT
@@ -83,7 +89,9 @@ BEGIN
 	CREATE TABLE #tmpFiltered (
 		CustID INT
 		,UserName NVARCHAR(50)
-		,DangerLevel INT
+		,DangerLevelOriginal  INT
+		,DangerLevelABI INT
+		,DangerLevelOtherSport INT
 		,AgentID INT
 		,MasterID INT
 		,SuperID INT
@@ -145,17 +153,17 @@ BEGIN
 	/*
 		Define DangerLevel
 		From: @DangerLevels
-		To: #tmpDangerLevel ( DangerLevel )
+		To: #tmpDangerLevel ( DangerType,DangerLevel )
 	*/
 	SET @DangerLevels = REPLACE(@DangerLevels, ' ', '')
 	IF LEN(@DangerLevels) > 0 AND @DangerLevels <> 'ALL'
 	BEGIN
-		INSERT INTO #tmpDangerLevel
-		SELECT DISTINCT CONVERT(INT, (CASE WHEN val = 'None' THEN 0 ELSE val END))
-		FROM dbo.strSplit(@DangerLevels, ',')
-		WHERE LEN(val) > 0
-			AND ( val = 'None'
-				OR ISNUMERIC(val + '.0e0') = 1)
+		INSERT INTO #tmpDangerLevel(DangerType,DangerLevel)
+		SELECT CAST(LEFT(val, CHARINDEX('_', val) - 1) AS SMALLINT) AS DangerType
+			,CAST(SUBSTRING(val, CHARINDEX('_', val) + 1, LEN(val)) AS SMALLINT) AS DangerLevel
+		FROM dbo.strSplit(REPLACE(@DangerLevels, ' ', ''), ',')
+		WHERE val <> 'ALL'
+			AND LEN(val) > 0
 	END
 	ELSE
 	BEGIN
@@ -279,7 +287,9 @@ BEGIN
 	INSERT INTO #tmpRawData (
 		CustID
 		,UserName
-		,DangerLevel
+		,DangerLevelOriginal
+		,DangerLevelABI
+		,DangerLevelOtherSport
 		,AgentID
 		,MasterID
 		,SuperID
@@ -294,7 +304,9 @@ BEGIN
 	)
 	SELECT b.CustID
 		,c.UserName
-		,ISNULL(CONVERT(INT, c.danger2), -1) AS DangerLevel
+		,ISNULL(CONVERT(INT, c.danger), -1) AS DangerLevelOriginal
+		,ISNULL(CONVERT(INT, c.danger2), -1) AS DangerLevelABI
+		,ISNULL(CONVERT(INT, c.danger3), -1) AS DangerLevelOtherSport
 		,b.Recommend
 		,b.mRecommend
 		,b.sRecommend
@@ -324,11 +336,12 @@ BEGIN
 		AND b.Bettype IN ( SELECT DISTINCT BetType FROM #tmpSportBettypes )
 		AND ISNULL(b.Liveindicator, 0) = COALESCE(@IsLive, b.Liveindicator, 0)
 		AND ('ALL' = @Divisions OR b.recommend IN (SELECT AgentID FROM #tmpAgentBySite))
-		AND ('ALL' = @DangerLevels OR c.danger2 IN (SELECT DangerLevel FROM #tmpDangerLevel))
 		AND @TopUsers > 0
 	GROUP BY b.CustID
 		,c.UserName
+		,ISNULL(CONVERT(INT, c.danger), -1)
 		,ISNULL(CONVERT(INT, c.danger2), -1)
+		,ISNULL(CONVERT(INT, c.danger3), -1)
 		,b.Recommend
 		,b.mRecommend
 		,b.sRecommend
@@ -342,7 +355,9 @@ BEGIN
 		,SportType
 		,CustID
 		,UserName
-		,DangerLevel
+		,DangerLevelOriginal
+		,DangerLevelABI
+		,DangerLevelOtherSport
 		,AgentID
 		,MasterID
 		,SuperID
@@ -357,7 +372,9 @@ BEGIN
 	INSERT INTO #tmpFiltered (
 		CustID
 		,UserName
-		,DangerLevel
+		,DangerLevelOriginal
+		,DangerLevelABI
+		,DangerLevelOtherSport
 		,AgentID
 		,MasterID
 		,SuperID
@@ -370,7 +387,9 @@ BEGIN
 	)
 	SELECT TOP (@TopUsers) CustID
 		,UserName
-		,DangerLevel
+		,DangerLevelOriginal
+		,DangerLevelABI
+		,DangerLevelOtherSport
 		,AgentID
 		,MasterID
 		,SuperID
@@ -383,7 +402,9 @@ BEGIN
 	FROM (
 		SELECT d.CustID
 			,d.UserName
-			,d.DangerLevel
+			,d.DangerLevelOriginal
+			,d.DangerLevelABI
+			,d.DangerLevelOtherSport
 			,d.AgentID
 			,d.MasterID
 			,d.SuperID
@@ -396,17 +417,25 @@ BEGIN
 		FROM #tmpRawData AS d
 			INNER JOIN #tmpSportBettypes AS sb ON d.Bettype = sb.Bettype AND sb.SportType = d.SportType
 			INNER JOIN dbo.Exchange AS e WITH (NOLOCK) ON d.Currency = e.ExchangeId
+		WHERE 'ALL' = @DangerLevels 
+			 OR d.DangerLevelOriginal IN (SELECT DangerLevel FROM #tmpDangerLevel where DangerType = 1)
+			 OR d.DangerLevelABI IN (SELECT DangerLevel FROM #tmpDangerLevel where DangerType = 2)
+			 OR d.DangerLevelOtherSport IN (SELECT DangerLevel FROM #tmpDangerLevel where DangerType = 3)
 		GROUP BY d.CustID
 			,d.UserName
-			,d.DangerLevel
+			,d.DangerLevelOriginal
+			,d.DangerLevelABI
+			,d.DangerLevelOtherSport
 			,d.AgentID
 			,d.MasterID
 			,d.SuperID
 			,e.Currency
 	) tmp
 	ORDER BY MemberWL DESC
-		,DangerLevel DESC
-		,UserName
+			,DangerLevelOriginal DESC
+			,DangerLevelABI DESC
+			,DangerLevelOtherSport DESC
+			,UserName
 
 	CREATE CLUSTERED INDEX [CIX_tmpFiltered] ON #tmpFiltered (
 		SuperID
@@ -447,7 +476,9 @@ BEGIN
 		,s.UserName SuperName
 		,a2.SiteName Division
 		,d.Currency
-		,CASE WHEN d.DangerLevel <= 0 THEN 'None' ELSE CONVERT(VARCHAR, d.DangerLevel) END DangerLevel
+		,CASE WHEN d.DangerLevelOriginal <= 0 THEN 'None' ELSE CONVERT(VARCHAR, d.DangerLevelOriginal) END DangerLevelOriginal
+		,CASE WHEN d.DangerLevelABI <= 0 THEN 'None' ELSE CONVERT(VARCHAR, d.DangerLevelABI) END DangerLevelABI
+		,CASE WHEN d.DangerLevelOtherSport <= 0 THEN 'None' ELSE CONVERT(VARCHAR, d.DangerLevelOtherSport) END DangerLevelOtherSport
 		,SUM(d.BetCount) BetCount
 		,SUM(d.MemberTO) MemberTO
 		,SUM(d.MemberWL) MemberWL
@@ -466,7 +497,9 @@ BEGIN
 		,s.UserName
 		,a2.SiteName
 		,d.Currency
-		,(CASE WHEN d.DangerLevel <= 0 THEN 'None' ELSE CONVERT(VARCHAR, d.DangerLevel) END)
+		,CASE WHEN d.DangerLevelOriginal <= 0 THEN 'None' ELSE CONVERT(VARCHAR, d.DangerLevelOriginal) END
+		,CASE WHEN d.DangerLevelABI <= 0 THEN 'None' ELSE CONVERT(VARCHAR, d.DangerLevelABI) END
+		,CASE WHEN d.DangerLevelOtherSport <= 0 THEN 'None' ELSE CONVERT(VARCHAR, d.DangerLevelOtherSport) END
 	ORDER BY SUM(d.MemberWL) DESC
 		,d.UserName
 
