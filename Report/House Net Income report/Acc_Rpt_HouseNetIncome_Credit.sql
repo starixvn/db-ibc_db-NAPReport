@@ -20,6 +20,7 @@ AS
 		20210122@Ned.Le: DHWL Email/Letstalk - Adjustment Letstalk (#149267)
 		20210322@Ned.Le: Email/Letstalk Reports - Integrate PP Live Casino (#133734)
 		20210401@Ned.Le: Email/Letstalk Reports - AE Casino - Support Lucky Draw (#151870)
+		20210414@Ned.Le: Email/Letstalk Reports - Arcadia Gaming - Add 2 new games: Marble Mini and RPS (#153419)
 
 	Param's Explanation:
 		@ProductList: 'ALL' - Get data of all product
@@ -109,7 +110,7 @@ BEGIN
 	FROM bodb_Account.dbo.BettypeGroup bg (NOLOCK)
 		 LEFT JOIN bodb_Account.dbo.Product_Bettype pb (NOLOCK) ON bg.Bettype = pb.Bettype
 		 LEFT JOIN bodb_Account.dbo.Bettype b (NOLOCK) ON bg.Bettype = b.typeid
-	WHERE bg.BettypeGroupID IN (6, 10, 11, 14)
+	WHERE bg.BettypeGroupID IN (6, 10, 11, 14, 15)
 
 	-- #tmpProductList
 	CREATE TABLE #tmpProductList (ProductPrefix VARCHAR(20))
@@ -328,9 +329,8 @@ BEGIN
 		   v.bettype
 	FROM DBCUST.CustDB.dbo.VendorGlobalSetting v WITH (NOLOCK)
 		 INNER JOIN #tmpPTSProducts p ON v.[VendorId] = p.VendorID AND v.Sporttype = p.Sporttype
-	WHERE v.VName IN ('3rdCreditWLShareRate',																					-- All Product
-					  '3rdCreditWLShareRateTX', '3rdCreditWLShareRateXD', '3rdCreditWLShareRate3D', '3rdCreditWLShareRateHL', 	-- 1902,1903,1904,1905 of Card Club
-					  '3rdCreditWLShareRateION')																				-- ION Product
+	WHERE v.VName IN ('3rdCreditWLShareRate',		-- All Product
+					  '3rdCreditWLShareRateION')	-- ION Product
 
 	-- #tmpPTSMainData
 	CREATE TABLE #tmpPTSMainData (
@@ -526,7 +526,7 @@ BEGIN
 			   CASE WHEN hni.Figure = 'Credit House Income' THEN -SUM(b.HouseWL)
 					WHEN hni.Figure = 'House Turnover' THEN SUM(b.HouseTO)
 					WHEN hni.Figure = 'Extra PT' THEN SUM(b.ExtraPT)
-					WHEN hni.Figure = 'Pay to Supplier' THEN CASE WHEN hni.ProductShortName = 'Arcadia' THEN SUM(b.MemberWLOANDA * ISNULL(v.NumberValue, 0))
+					WHEN hni.Figure = 'Pay to Supplier' THEN CASE WHEN hni.ProductShortName = 'Arcadia' THEN SUM(b.MemberWLOANDA * (CASE WHEN bg.BettypeGroupID = 15 THEN 0.025 ELSE 0.035 END))
 																  WHEN hni.ProductShortName = 'MacauG' THEN SUM(b.MemberWLOANDA * (CASE WHEN bg.BettypeGroupID = 11 THEN 0.03 ELSE 0.02 END))
 																  WHEN hni.ProductShortName = 'NG2' THEN SUM((-b.HouseWLOANDA + (CASE WHEN b.RptDate >= '2020-11-01' THEN 0 ELSE b.ExtraPTOANDA END)) * (-0.5))
 																  WHEN hni.ProductShortName = 'TableG' THEN SUM(b.MemberWLOANDA * (CASE WHEN b.RptDate >= '2020-07-01' THEN 0.036 ELSE 0.03 END))
@@ -544,7 +544,6 @@ BEGIN
 		FROM #tmpRawData b (NOLOCK)
 			 INNER JOIN #tmpHNISettings hni (NOLOCK) ON hni.isDeposit = 0 AND hni.isEnable = 1 AND hni.LogicCode = 1 AND b.ProductID = hni.AliasProductID
 			 LEFT JOIN #tmpPTSMainData pts	ON b.ProductID = pts.ProductID
-			 LEFT JOIN #tmpPTSVendorGlobalSetting v ON b.ProductID = v.ProductID AND b.Sporttype = v.Sporttype AND b.Bettype = v.Bettype
 			 LEFT JOIN #tmpBettypeGroup bg ON b.Bettype = bg.Bettype
 		GROUP BY b.RptDate,
 				 hni.isDeposit,
