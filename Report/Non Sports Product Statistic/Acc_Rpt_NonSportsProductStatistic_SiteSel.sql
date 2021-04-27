@@ -49,8 +49,8 @@ BEGIN
 	-- Get group of licensees
 	INSERT INTO #tmpGroup (GroupId, GroupName, ParentId)
 	SELECT c.GroupId, c.GroupName, ISNULL(p.GroupId, 0) AS ParentId
-	FROM DBCUST.bodb_Licensee.dbo.LA_CombinedGroup c WITH(NOLOCK)
-		LEFT JOIN DBCUST.bodb_Licensee.dbo.LA_CombinedGroup p WITH(NOLOCK) ON c.PathCode LIKE ('%/' + CAST(p.GroupId AS VARCHAR(5)) + '/')
+	FROM bodb_Licensee.dbo.LA_CombinedGroup c WITH(NOLOCK)
+		LEFT JOIN bodb_Licensee.dbo.LA_CombinedGroup p WITH(NOLOCK) ON c.PathCode LIKE ('%/' + CAST(p.GroupId AS VARCHAR(5)) + '/')
 	WHERE c.PathCode = '/'			-- top level
 		OR p.GroupId IS NOT NULL	-- any child has valid parent id
 		
@@ -62,11 +62,11 @@ BEGIN
 	-- Get terminated licensee
 	INSERT INTO #tmpLicensee (LicenseeId, LicenseeName, GroupId)
 	SELECT s.LicenseeID, s.LicenseeName, -2 GroupId
-	FROM DBCUST.bodb_Licensee.dbo.OAS_Party p WITH(NOLOCK)
-		INNER JOIN DBCUST.bodb_Licensee.dbo.OAS_PartyDetail d WITH(NOLOCK) ON p.PartyID = d.PartyID
+	FROM bodb_Licensee.dbo.OAS_Party p WITH(NOLOCK)
+		INNER JOIN bodb_Licensee.dbo.OAS_PartyDetail d WITH(NOLOCK) ON p.PartyID = d.PartyID
 		INNER JOIN #tmpSite s ON p.OldRefId = s.LicenseeID
 	WHERE   p.PartyID IN (
-		SELECT FromParty FROM DBCUST.bodb_Licensee.dbo.OAS_ChargeInfo WITH(NOLOCK)
+		SELECT FromParty FROM bodb_Licensee.dbo.OAS_ChargeInfo WITH(NOLOCK)
 		WHERE FromParty > 0 AND ChargeType NOT IN (2, 3) -- Old type & No longer used
 		GROUP BY FromParty HAVING MAX(ToDate) < CONVERT(DATE, GETDATE())
 	) AND p.PartyType = 1 AND d.IsDeposit = 1 AND d.StatusId = 1
@@ -76,10 +76,10 @@ BEGIN
 	SELECT s.LicenseeID, s.LicenseeName,
 		CASE WHEN p.OldRefID IS NULL THEN -3 ELSE ISNULL(a.GroupId, 0) END AS GroupId
 	FROM #tmpSite s 
-		LEFT JOIN DBCUST.bodb_Licensee.dbo.OAS_Party p WITH(NOLOCK) ON s.LicenseeID = p.OldRefID
-		INNER JOIN DBCUST.bodb_Licensee.dbo.OAS_PartyDetail pd WITH(NOLOCK) ON p.PartyID = pd.PartyID
-		INNER JOIN DBCUST.bodb_Licensee.dbo.Licensees l WITH(NOLOCK) ON l.LicenseeID = p.OldRefID
-		LEFT JOIN DBCUST.bodb_Licensee.dbo.LA_CombinedGroupAssignment a WITH(NOLOCK) ON p.PartyId = a.PartyId
+		LEFT JOIN bodb_Licensee.dbo.OAS_Party p WITH(NOLOCK) ON s.LicenseeID = p.OldRefID
+		INNER JOIN bodb_Licensee.dbo.OAS_PartyDetail pd WITH(NOLOCK) ON p.PartyID = pd.PartyID
+		INNER JOIN bodb_Licensee.dbo.Licensees l WITH(NOLOCK) ON l.LicenseeID = p.OldRefID
+		LEFT JOIN bodb_Licensee.dbo.LA_CombinedGroupAssignment a WITH(NOLOCK) ON p.PartyId = a.PartyId
 	WHERE p.PartyType = 1 AND pd.IsDeposit = 1 AND pd.StatusId = 1	
 		AND s.LicenseeID NOT IN (SELECT LicenseeID FROM #tmpLicensee WHERE GroupId = -2)
 	
