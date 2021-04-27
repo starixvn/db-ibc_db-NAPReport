@@ -26,6 +26,7 @@ BEGIN
 		)
 	CREATE TABLE #tmpDep_CustSuper (CustID INT)
 	CREATE TABLE #tmpLicensees (LicenseeID INT, LicenseeName VARCHAR(50), IsDeposit BIT)
+	CREATE TABLE #tmpGroup (GroupId INT, GroupName VARCHAR(50), ParentId INT)
 	
 	INSERT INTO #tmpDep_CustSuper (CustID)
 	SELECT custid
@@ -41,7 +42,49 @@ BEGIN
 		SELECT
 			val
 		FROM [dbo].strSplit(@ProductID, ',')
-	END 
+	END 		
+	
+	--1.Get group of licensees
+	INSERT INTO #tmpGroup (GroupId, GroupName, ParentId)
+	SELECT c.GroupId, c.GroupName, ISNULL(p.GroupId, 0) AS ParentId
+	FROM bodb_Licensee.dbo.LA_CombinedGroup c WITH(NOLOCK)
+		LEFT JOIN bodb_Licensee.dbo.LA_CombinedGroup p WITH(NOLOCK) ON c.PathCode LIKE ('%/' + CAST(p.GroupId AS VARCHAR(5)) + '/')
+	WHERE c.PathCode = '/'			-- top level
+		OR p.GroupId IS NOT NULL	-- any child has valid parent id
+		
+	INSERT INTO #tmpGroup (GroupId, GroupName, ParentId) VALUES
+	(-1, 'Credit Group', 0),
+	(-2, 'Terminated Licensees', 0),
+	(-3, 'Others', 0)
+	
+	--2.Get licensee and direct groups
+	SELECT p.OldRefId LicenseeID, l.LicenseeName, ISNULL(a.GroupId, 0) AS GroupId
+
+	FROM bodb_Licensee.dbo.OAS_Party p WITH(NOLOCK)
+
+		INNER JOIN bodb_Licensee.dbo.OAS_PartyDetail pd WITH(NOLOCK) ON p.PartyID=pd.PartyID
+		INNER JOIN bodb_Licensee.dbo.Licensees l (NOLOCK) ON l.LicenseeID = p.OldRefID
+
+		LEFT JOIN bodb_Licensee.dbo.LA_CombinedGroupAssignment a WITH(NOLOCK) ON p.PartyId = a.PartyId
+
+	WHERE p.PartyType = 1 AND pd.IsDeposit = 1 AND pd.StatusId = 1
+	order by l.LicenseeName
+
+	----3.Get terminated license
+	--SELECT p.OldRefId LicenseeID, p.PartyID, p.PartyName, d.BrandName
+	--FROM bodb_Licensee.dbo.OAS_Party p WITH(NOLOCK)
+
+	--INNER JOIN bodb_Licensee.dbo.OAS_PartyDetail d WITH(NOLOCK) ON p.PartyID = d.PartyID
+
+	--WHERE   p.PartyID IN (
+
+	--	SELECT FromParty FROM bodb_Licensee.dbo.OAS_ChargeInfo WITH(NOLOCK)
+
+	--	WHERE FromParty > 0 AND ChargeType NOT IN (2, 3) -- Old type & No longer used
+
+	--	GROUP BY FromParty HAVING MAX(ToDate) < CONVERT(DATE, GETDATE())
+
+	--) AND p.PartyType = 1 AND d.IsDeposit = 1 AND d.StatusId = 1
 	
 	----Get Site
 
@@ -61,46 +104,6 @@ BEGIN
 	--WHERE s.systemId = 3 AND l.IsDeposit = 1
 	--GROUP BY l.LicenseeID, l.Licenseename
 	--ORDER BY SortID, [Site]
-	
-	--1.Get group of licensees
-	SELECT c.GroupId, c.GroupName, ISNULL(p.GroupId, 0) AS ParentId
-
-	FROM DBCUST.bodb_Licensee.dbo.LA_CombinedGroup c WITH(NOLOCK)
-
-	LEFT JOIN DBCUST.bodb_Licensee.dbo.LA_CombinedGroup p WITH(NOLOCK) ON c.PathCode LIKE ('%/' + CAST(p.GroupId AS VARCHAR(5)) + '/')
-
-	WHERE c.PathCode = '/'			-- top level
-
-		OR p.GroupId IS NOT NULL	-- any child has valid parent id
-
-	--2.Get licensee and direct groups
-	SELECT p.OldRefId LicenseeID, l.LicenseeName, ISNULL(a.GroupId, 0) AS GroupId
-
-	FROM DBCUST.bodb_Licensee.dbo.OAS_Party p WITH(NOLOCK)
-
-		INNER JOIN DBCUST.bodb_Licensee.dbo.OAS_PartyDetail pd WITH(NOLOCK) ON p.PartyID=pd.PartyID
-		INNER JOIN DBCUST.bodb_Licensee.dbo.Licensees l (NOLOCK) ON l.LicenseeID = p.OldRefID
-
-		LEFT JOIN DBCUST.bodb_Licensee.dbo.LA_CombinedGroupAssignment a WITH(NOLOCK) ON p.PartyId = a.PartyId
-
-	WHERE p.PartyType = 1 AND pd.IsDeposit = 1 AND pd.StatusId = 1
-	order by l.LicenseeName
-
-	----3.Get terminated license
-	--SELECT p.OldRefId LicenseeID, p.PartyID, p.PartyName, d.BrandName
-	--FROM DBCUST.bodb_Licensee.dbo.OAS_Party p WITH(NOLOCK)
-
-	--INNER JOIN DBCUST.bodb_Licensee.dbo.OAS_PartyDetail d WITH(NOLOCK) ON p.PartyID = d.PartyID
-
-	--WHERE   p.PartyID IN (
-
-	--	SELECT FromParty FROM DBCUST.bodb_Licensee.dbo.OAS_ChargeInfo WITH(NOLOCK)
-
-	--	WHERE FromParty > 0 AND ChargeType NOT IN (2, 3) -- Old type & No longer used
-
-	--	GROUP BY FromParty HAVING MAX(ToDate) < CONVERT(DATE, GETDATE())
-
-	--) AND p.PartyType = 1 AND d.IsDeposit = 1 AND d.StatusId = 1
 
 	DROP TABLE #tmpProductID
 	DROP TABLE #tmpDep_CustSuper
