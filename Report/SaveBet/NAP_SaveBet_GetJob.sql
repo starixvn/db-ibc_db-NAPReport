@@ -1,8 +1,4 @@
-/*<info serverAlias="DBACC-bodb_ACC" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
-
-USE [bodb_ACC]
-GO
-
+/*<info serverAlias="DBWH-bodb_dwrs" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[NAP_SaveBet_GetJob]
 	@MatchID INT = 0,
 	@GroupSports INT = 0
@@ -20,6 +16,7 @@ AS
 		  1: Sportbook-OtherSport
 		  2: 3rd Sports
 	   20180719@Tom:Enhance_the_flow_get_Virtual_Sport(98520)
+	   20210423@Roy: NAP Report - Move Save bet db & service (#153147)
 		
 */
 
@@ -34,7 +31,7 @@ BEGIN
 			;WITH CTE_MatchList
 			AS (
 			SELECT TOP 1  MatchID,GenerateTime
-			FROM dbo.MatchList ml WITH(ROWLOCK) 				  
+			FROM bodb_Account.dbo.MatchList ml WITH(ROWLOCK) 				  
 			WHERE JobGenerated = 1 AND JobFinished = 0 AND (GenerateTime IS NULL OR DATEDIFF(ms,GenerateTime,GETDATE())>@imsGenerateTime)
 						AND (
 							(@GroupSports = 0 AND (ml.sporttype = 1))
@@ -49,10 +46,9 @@ BEGIN
 		END;
 
 	SELECT JobID,s.LiveIndicator,s.Bettype,s.TypeName,ml.MatchID,s.JobType,ml.EventDate 
-	FROM dbo.ServiceJob s WITH(NOLOCK)
+	FROM bodb_Account.dbo.ServiceJob s WITH(NOLOCK)
 		INNER JOIN (
-			SELECT TOP 1 * FROM dbo.MatchList ml WITH(NOLOCK) WHERE ml.MatchID = @MatchID
+			SELECT TOP 1 * FROM bodb_Account.dbo.MatchList ml WITH(NOLOCK) WHERE ml.MatchID = @MatchID
 		) ml ON ml.MatchID = s.MatchID;
 
 END
-GO

@@ -1,11 +1,5 @@
-
-SET QUOTED_IDENTIFIER ON 
-GO
-SET ANSI_NULLS ON 
-GO
-
-/****** Object:  Stored Procedure dbo.NAP_SaveBet_UpdateJobCompleted    Script Date: 9/10/2014 3:22:02 PM ******/
-CREATE PROCEDURE [dbo].[NAP_SaveBet_UpdateJobCompleted]
+/*<info serverAlias="DBWH-bodb_dwrs" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+ALTER PROCEDURE [dbo].[NAP_SaveBet_UpdateJobCompleted]
 	@MatchID INT
 AS
 
@@ -16,22 +10,76 @@ AS
 	DB: DB06.BODB02
 	
 	Revisions:
+		20210423@Roy: NAP Report - Move Save bet db & service (#153147)
 */
+BEGIN
+	SET NOCOUNT ON
+	UPDATE bodb_Account.dbo.MatchList WITH(ROWLOCK,UPDLOCK) SET JobFinished = 1 WHERE MatchID = @MatchID
+	
+	/*
+		Sync MatchList.JobFinished from DBDW to DBDW2
+			- DBDW is primary database
+			- DBDW2 is standby database
+			- Just update JobFinished - NOT handle missing MatchID
+	*/
+	DECLARE @StandbyDB NVARCHAR(128) = 'UNKNOWN'
+	CREATE TABLE #tmpMatch ( MatchID INT PRIMARY KEY )
+	---Get standby database name---
+	BEGIN TRY
+		EXEC sp_testlinkedserver N'DBSTAGING'
 
-UPDATE MatchList WITH(ROWLOCK,UPDLOCK) SET JobFinished = 1 WHERE MatchID = @MatchID
+		DECLARE @Server TABLE (StandbyDB NVARCHAR(128))
 
+		INSERT INTO @Server
+		EXEC ('SELECT @@SERVERNAME') AT DBSTAGING
 
+		SELECT @StandbyDB = StandbyDB
+		FROM @Server
+	END TRY
+	BEGIN CATCH
+		SELECT @StandbyDB = NULL
+	END CATCH
 
-GO
-
-SET QUOTED_IDENTIFIER OFF 
-GO
-SET ANSI_NULLS ON 
-GO
-
-
-GO 
- GRANT EXECUTE ON [dbo].[NAP_SaveBet_UpdateJobCompleted] TO [bodbAdminNet]
-GO 
- GRANT VIEW DEFINITION ON [dbo].[NAP_SaveBet_UpdateJobCompleted] TO [vnteam]
-GO 
+	---linkedserver is NOT OFFLINE and CurrentServer is NOT Standby---
+	IF @StandbyDB IS NOT NULL AND @@SERVERNAME <> @StandbyDB
+	BEGIN
+		DECLARE @Yesterday DATETIME
+			,@StrSQL NVARCHAR(MAX)
+			,@StrMatchID NVARCHAR(MAX) = ''
+			
+		SELECT @Yesterday = MAX(ExchangeDate)
+		FROM bodb_Account.dbo.tbl_Currency_Daily WITH (NOLOCK)
+		
+		--Get NOT Finish Match from Standby Server--
+		INSERT INTO #tmpMatch
+		SELECT MatchID
+		FROM DBSTAGING.bodb_Account.dbo.MatchList WITH (NOLOCK)
+		WHERE EventDate >= @Yesterday
+			AND JobFinished = 0
+			AND JobGenerated = 1
+		
+		--Concat multiple MatchID into single string--
+		IF EXISTS ( SELECT 1 FROM #tmpMatch )
+		BEGIN
+			SELECT @StrMatchID = @StrMatchID  + CONVERT(NVARCHAR, MatchID) + ','
+			FROM #tmpMatch
+			WHERE MatchID IN (
+					SELECT MatchID
+					FROM bodb_Account.dbo.MatchList WITH (NOLOCK)
+					WHERE EventDate >= @Yesterday
+						AND JobFinished = 1
+						AND JobGenerated = 1
+					)
+			OPTION (RECOMPILE) 
+			SELECT @StrMatchID  =  SUBSTRING ( @StrMatchID ,1 , LEN(@StrMatchID) - 1 )
+		END
+		--Update JobFinished at Standby Server--
+		IF LEN(@StrMatchID) > 0
+		BEGIN
+			SET @StrSQL = 'UPDATE bodb_Account.dbo.MatchList WITH(ROWLOCK,UPDLOCK) SET JobFinished = 1 WHERE MatchID IN ('+@StrMatchID+')'
+			EXECUTE DBSTAGING.master.dbo.sp_executesql @StrSQL
+		END
+	END
+	
+	DROP TABLE #tmpMatch
+END
