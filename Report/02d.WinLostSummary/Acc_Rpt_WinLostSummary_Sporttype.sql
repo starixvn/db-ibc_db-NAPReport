@@ -184,12 +184,10 @@ BEGIN
     DECLARE @movebetdate      DATETIME
 		, @balanceupdate    DATETIME
 		, @f_date           DATETIME
-		, @t_date           DATETIME;
+		, @t_date           DATETIME;    
     
-    CREATE TABLE #info([BalanceUpDay] DATETIME, [MoveBetsDay] DATETIME)
-    INSERT INTO #info EXEC DBACC.bodb02.dbo.Age_SelBalanceUpDay
-    SELECT @movebetdate = [MoveBetsDay] FROM #info
-    SELECT @balanceupdate = [BalanceUpDay] FROM #info
+    SELECT @movebetdate = MoveBetsDay, @balanceupdate = BalanceUpDay
+	FROM OPENQUERY(DBACC,'EXEC bodb02.dbo.Age_SelBalanceUpDay')
     
     IF @_todate > @movebetdate
 	   BEGIN

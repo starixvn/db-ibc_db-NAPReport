@@ -65,9 +65,10 @@ BEGIN
     DECLARE @movebetdate    DATETIME
 		, @f_date         DATETIME
 		, @t_date         DATETIME;
-    CREATE TABLE #info([BalanceUpDay] DATETIME, [MoveBetsDay] DATETIME)
-    INSERT INTO #info EXEC DBACC.bodb02.dbo.Age_SelBalanceUpDay
-    SELECT @movebetdate = [MoveBetsDay] FROM #info
+
+    SELECT @movebetdate = MoveBetsDay
+	FROM OPENQUERY(DBACC,'EXEC bodb02.dbo.Age_SelBalanceUpDay')
+	
     IF @todate > @movebetdate
 	   BEGIN
 		  IF @fromdate <= @movebetdate
@@ -193,5 +194,3 @@ BEGIN
 END;
 GO
 
-GRANT EXECUTE ON dbo.Acc_Rpt_WinlostSummary_Sporttype_NG TO [bodbAdminNet];
-GO

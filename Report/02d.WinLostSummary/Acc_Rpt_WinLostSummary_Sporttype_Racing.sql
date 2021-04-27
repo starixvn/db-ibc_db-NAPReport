@@ -31,10 +31,9 @@ SET NOCOUNT ON
 	Declare @movebetsday datetime,
 			@f_date datetime,
 			@t_date datetime
-	
-	CREATE TABLE #info([BalanceUpDay] DATETIME, [MoveBetsDay] DATETIME)
-    INSERT INTO #info EXEC DBACC.bodb02.dbo.Age_SelBalanceUpDay
-    SELECT @movebetsday = [MoveBetsDay] FROM #info
+
+	SELECT @movebetsday = MoveBetsDay
+	FROM OPENQUERY(DBACC,'EXEC bodb02.dbo.Age_SelBalanceUpDay')
 	
 	IF @todate > @movebetsday
 	BEGIN
