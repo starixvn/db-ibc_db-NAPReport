@@ -50,7 +50,8 @@ BEGIN
 		   WHERE matchid NOT IN( 
 								 SELECT matchlist.MatchID
 								 FROM MatchList
-								 WHERE match.eventdate BETWEEN @movebetdate AND GETDATE())
+								 WHERE match.eventdate > @movebetdate
+									AND match.eventdate <= GETDATE())
 			 AND eventdate BETWEEN DATEADD(DD, -1, @CurentDate) AND @CurentDate
 			 AND eventstatus = 'completed'
 			 AND ( sporttype < 99
