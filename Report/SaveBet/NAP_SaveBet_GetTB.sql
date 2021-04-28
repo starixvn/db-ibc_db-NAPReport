@@ -1,8 +1,4 @@
-/*<info serverAlias="DBACC-bodb_ACC" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
-
-USE [bodb_ACC]
-GO
-
+/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[NAP_SaveBet_GetTB]
 	@matchid int,
 	@bettype smallint,
@@ -20,6 +16,7 @@ AS
 		- 20160819@Robert: Add Bet Trade Winloss bettype=904 (#62630)
 		- 20170612@Percy: check bettype of Cash Out [RedmineID: #78160]
 		- 20210329@Jaden: add forecast the result with Real figures (#152290)
+		- 20210423@Roy: NAP Report - Move Save bet db & service (#153147)
 */
 
 BEGIN
@@ -52,7 +49,31 @@ BEGIN
 		RETURN
 	END 
 
-	IF EXISTS (SELECT matchid FROM bodb02.dbo.match WHERE matchid = @matchid)
+	DECLARE @EventDate DATETIME
+		,@MoveBetsDay DATETIME
+
+	---Get match info---
+	;WITH cte_match
+	AS (
+		SELECT eventdate
+		FROM bodb02.dbo.match WITH (NOLOCK)
+		WHERE matchid = @matchid
+		
+		UNION
+		
+		SELECT eventdate
+		FROM bodb02.dbo.match14 WITH (NOLOCK)
+		WHERE matchid = @matchid
+	)
+	SELECT @EventDate = MAX(eventdate)
+	FROM cte_match
+
+	---Get MoveBetsDay---
+	SELECT @MoveBetsDay = MoveBetsDay
+	FROM OPENQUERY(DBACC, 'EXEC bodb02.dbo.Age_SelBalanceUpDay')
+	
+	---Get data from bettrans---
+	IF @EventDate > @MoveBetsDay
 	BEGIN
 
 		SELECT
@@ -418,4 +439,3 @@ BEGIN
 		ABS(hdp) DESC,
 		CASE status WHEN 'LOSE' THEN 1 WHEN 'WON' THEN 2 ELSE 3 END
 END
-GO

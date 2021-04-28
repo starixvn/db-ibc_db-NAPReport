@@ -1,8 +1,4 @@
-/*<info serverAlias="DBACC-bodb_ACC" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
-
-USE [bodb_ACC]
-GO
-
+/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[NAP_SaveBet_GetMatchInfo]
 	@matchid int
 AS
@@ -14,12 +10,36 @@ AS
 	DB: DBACC.bodb_ACC
 	
 	Revisions:
+		20210423@Roy: NAP Report - Move Save bet db & service (#153147)
 */
 
 BEGIN
 	SET NOCOUNT ON
+	DECLARE @EventDate DATETIME
+	,@MoveBetsDay DATETIME
 
-	IF EXISTS (SELECT matchid FROM bodb02.dbo.match WITH(NOLOCK) WHERE matchid = @matchid)
+	---Get match info---
+	;WITH cte_match
+	AS (
+		SELECT eventdate
+		FROM bodb02.dbo.match WITH (NOLOCK)
+		WHERE matchid = @matchid
+		
+		UNION
+		
+		SELECT eventdate
+		FROM bodb02.dbo.match14 WITH (NOLOCK)
+		WHERE matchid = @matchid
+	)
+	SELECT @EventDate = MAX(eventdate)
+	FROM cte_match
+
+	---Get MoveBetsDay---
+	SELECT @MoveBetsDay = MoveBetsDay
+	FROM OPENQUERY(DBACC, 'EXEC bodb02.dbo.Age_SelBalanceUpDay')
+	
+	---Get data from bettrans---
+	IF @EventDate > @MoveBetsDay
 		SELECT
 			s.sportname,
 			s.SportType,
@@ -40,7 +60,7 @@ BEGIN
 			LEFT JOIN bodb02.dbo.team a with (nolock) ON m.awayid = a.teamid
 		WHERE
 			matchid = @matchid
-	ELSE
+	ELSE ---Get data from bettrans14---
 		SELECT
 			s.sportname,
 			s.SportType,
@@ -62,4 +82,3 @@ BEGIN
 		WHERE
 			matchid = @matchid
 END
-GO

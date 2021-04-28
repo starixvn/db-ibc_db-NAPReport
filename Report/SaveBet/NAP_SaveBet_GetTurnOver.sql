@@ -1,8 +1,4 @@
-/*<info serverAlias="DBACC-bodb_ACC" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
-
-USE [bodb_ACC]
-GO
-
+/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[NAP_SaveBet_GetTurnOver]
 	@matchid int
 AS
@@ -18,12 +14,36 @@ AS
 		- 20160819@Robert: Add Bet Trade Winloss bettype=904 (#62630)
 		- 20170612@Percy: check bettype of Cash Out [RedmineID: #78160]
 		- 20190308@Robert: #109822 - NAP Report - Integrate Bet Builder
+		- 20210423@Roy: NAP Report - Move Save bet db & service (#153147)
 */
 
 BEGIN
 	SET NOCOUNT ON
+	
+	DECLARE @EventDate DATETIME
+		,@MoveBetsDay DATETIME
+	---Get match info---
+	;WITH cte_match
+	AS (
+		SELECT eventdate
+		FROM bodb02.dbo.match WITH (NOLOCK)
+		WHERE matchid = @matchid
+		
+		UNION
+		
+		SELECT eventdate
+		FROM bodb02.dbo.match14 WITH (NOLOCK)
+		WHERE matchid = @matchid
+	)
+	SELECT @EventDate = MAX(eventdate)
+	FROM cte_match
 
-	IF EXISTS (SELECT matchid FROM bodb02.dbo.match with (nolock) WHERE matchid = @matchid)
+	---Get MoveBetsDay---
+	SELECT @MoveBetsDay = MoveBetsDay
+	FROM OPENQUERY(DBACC, 'EXEC bodb02.dbo.Age_SelBalanceUpDay')
+	
+	---Get data from bettrans---
+	IF @EventDate > @MoveBetsDay
 	--SP: Dot_Admin_turnover_detail
 	SELECT
 		IsNull(TotalA, 0) TotalA, IsNull(SuperA, 0) SuperA, IsNull(MasterA, 0) MasterA, IsNull(AgentA, 0) AgentA,
@@ -151,4 +171,3 @@ BEGIN
 			AND b.bettype NOT IN (911,912,913,914, 38)
 	) b
 END
-GO
