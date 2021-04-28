@@ -68,6 +68,7 @@ Revision:
 	- 20210303@Cherry: Integrate Sports Lottery (#151071)
 	- 20210325@Jaden: Integrate PP Live Casino, Exclude lucky draws from bettransLC (#133731)
 	- 20210420@Jaden: Include CG into Macau Games (#152781)
+	- 20210428@Ned.Le: NAP Report - Implement VGaming (#154072)
 */
 
 BEGIN	
@@ -120,7 +121,7 @@ BEGIN
          INNER JOIN SportBettypeMatrix s WITH(NOLOCK) ON sb.BetType = s.BetType 
 			AND s.ProductID IN (23, 31, 32, 33, 34, 37, 36, 38, -- NG2, Exchange, Pragmatic, Poker Games, Card Club, Spadegaming, Virtual Games
             39, 43, 45, 40, 47, 46, 52, 50, 55, 56, 51, 49, 59, -- SA Gaming, Indo 4D, Sexy Gaming, Table Games, BBIN, IBCBet Live Casino, ION, RNG War, PG Soft, Joker, WM, VS3, GDG
-			57, 60, 61, 63, 65, 62) -- BG, MXG, Habanero, Sports Lottery, PP Live Casino, CG
+			57, 60, 61, 63, 65, 62, 66) -- BG, MXG, Habanero, Sports Lottery, PP Live Casino, CG, VGaming
 	IF @winlostdate > @MoveBetsDay
 	BEGIN				
 		DELETE FROM bodb_Report.dbo.rptWinlost
@@ -294,7 +295,7 @@ BEGIN
 			inner join #SportBettype sb on b.bettype = sb.Bettype
 		WHERE
 			(b.bettype < 19999 and b.bettype not in (29,999,31,32,33,1003,2799))
-			AND sb.ProductID NOT IN (1, 15, 6, 17, 21, 22, 24, 32, 34, 36, 39, 42, 45, 46, 52, 50, 55, 56, 51, 59, 57, 60, 61, 65, 62)
+			AND sb.ProductID NOT IN (1, 15, 6, 17, 21, 22, 24, 32, 34, 36, 39, 42, 45, 46, 52, 50, 55, 56, 51, 59, 57, 60, 61, 65, 62, 66)
 			AND winlostdate = @winlostdate
 			AND statusID IN (111,112,113) --(/Won/lose/Draw)
 			AND ruben = 1
@@ -518,7 +519,7 @@ BEGIN
 			inner join #SportBettype sb on b.gameID = sb.Bettype
 			LEFT JOIN #SpecialBettypeGroup bg ON b.gameID = bg.Bettype
 		WHERE
-			sb.ProductID IN (6, 17, 22, 24, 32, 33, 34, 36, 42, 50, 55, 56, 60, 61, 62)
+			sb.ProductID IN (6, 17, 22, 24, 32, 33, 34, 36, 42, 50, 55, 56, 60, 61, 62, 66)
 			AND winlostdate = @winlostdate
 			AND b.statusID IN (111,112,113) --(/Won/lose/Draw)	
 			AND currency <> 20
@@ -654,7 +655,7 @@ BEGIN
 		SET rpt.SportType = sb.SportType
 		FROM bodb_Report.dbo.rptWinlost rpt WITH(NOLOCK)
 		  INNER JOIN #SportBettype sb on  rpt.bettype = sb.Bettype
-		WHERE sb.ProductID IN (23, 31, 32, 33, 34, 37, 36, 38, 39, 43, 45, 40, 47, 46, 52, 50, 55, 56, 51, 49, 59, 57, 60, 61, 63, 65, 62)
+		WHERE sb.ProductID IN (23, 31, 32, 33, 34, 37, 36, 38, 39, 43, 45, 40, 47, 46, 52, 50, 55, 56, 51, 49, 59, 57, 60, 61, 63, 65, 62, 66)
 		AND rpt.winlostdate =  @winlostdate
 
 		-- Happy 5 Linked Games
@@ -841,7 +842,7 @@ BEGIN
 				inner join #SportBettype sb on b.bettype = sb.Bettype
 			WHERE
 				(b.bettype < 19999 and b.bettype not in (29,999,31,32,33,1003,2799))
-				AND sb.ProductID NOT IN (1, 15, 6, 17, 21, 22, 24, 32, 34, 36, 39, 42, 45, 46, 52, 50, 55, 56, 51, 59, 57, 60, 61, 65, 62)
+				AND sb.ProductID NOT IN (1, 15, 6, 17, 21, 22, 24, 32, 34, 36, 39, 42, 45, 46, 52, 50, 55, 56, 51, 59, 57, 60, 61, 65, 62, 66)
 				AND sb.SportType <> 165
 				AND winlostdate = @winlostdate
 				AND statusID IN (111,112,113) --(/Won/lose/Draw)
@@ -1065,7 +1066,7 @@ BEGIN
 				inner join #SportBettype sb on b.gameID = sb.Bettype
 				LEFT JOIN #SpecialBettypeGroup bg ON b.gameID = bg.Bettype
 			WHERE
-				sb.ProductID IN (6, 17, 22, 24, 32, 33, 34, 36, 42, 50, 55, 56, 60, 61, 62)
+				sb.ProductID IN (6, 17, 22, 24, 32, 33, 34, 36, 42, 50, 55, 56, 60, 61, 62, 66)
 				AND winlostdate = @winlostdate
 				AND b.statusID IN (111,112,113) --(/Won/lose/Draw)	
 				AND currency <> 20
@@ -1201,7 +1202,7 @@ BEGIN
 		    SET rpt.SportType = sb.SportType
 		    FROM bodb_Report.dbo.rptWinlost rpt
 			 INNER JOIN #SportBettype sb on  rpt.bettype = sb.Bettype
-		    WHERE sb.ProductID IN (23, 31, 32, 33, 34, 37, 36, 38, 39, 43, 45, 40, 47, 46, 52, 50, 55, 56, 51, 49, 59, 57, 60, 61, 63, 65, 62)
+		    WHERE sb.ProductID IN (23, 31, 32, 33, 34, 37, 36, 38, 39, 43, 45, 40, 47, 46, 52, 50, 55, 56, 51, 49, 59, 57, 60, 61, 63, 65, 62, 66)
 		    AND rpt.winlostdate =  @winlostdate
 
 			-- Happy 5 Linked Games
