@@ -55,6 +55,7 @@ Revisions:
 - 20210303@Cherry: Change product name "Indo 4D" to "Togel 4D" (#149710)
 - 20210303@Cherry: Integrate Sports Lottery (#151071)
 - 20212203@Jaden: Support SABA789 (#151326)
+- 20210428@Ned.Le: NAP Report - Implement VGaming (#154072)
 
 Explanation's Param:
 
@@ -1265,9 +1266,7 @@ Explanation's Param:
 				, SUM(WinlossForExtraPT_actualrate) AS ExtraPT
 				, SUM(WinlossForExtraPT_actualrate + grosscomm_actualrate) AS NewExtraPT
 			FROM #src AS b
-			WHERE b.ProductId IN(5, 8, 15, 23, 25, 27, 28, 31, --Virtual Sports, Keno, Colossus Bets, NG2 (3rd), CashOut, Betradar Virtual Sports, Lottery, Exchange
-								 37, 38, 43, 40, 49, 63)           --Saba Promotion, Virtual Games, Indo 4D, Table Games, Virtual Sports 3, Sports Lottery
-				 OR b.CasinoType IN(1, 2)
+			WHERE b.ProductId NOT IN (-7, -6, -3, -2, -1, 1, 3)
 			GROUP BY site
 				  , CASE
 					   WHEN b.CasinoType = 1
@@ -1307,8 +1306,6 @@ Explanation's Param:
 				, SUM(WinlossForExtraPT_actualrate) AS ExtraPT
 				, SUM(b.WinlossForExtraPT_actualrate + grosscomm_actualrate) AS NewExtraPT
 			FROM #srcDetail AS b
-			WHERE b.ProductId IN(24, 42, 50) -- Fishing World, Saba.club, RNG War
-				 OR b.CasinoType IN(1, 2)
 			GROUP BY site
 				  , CASE
 					   WHEN b.CasinoType = 1
@@ -1429,7 +1426,8 @@ Explanation's Param:
 			(25, 42, NULL),
 			(26, 50, NULL),
 			(27, 49, NULL),
-			(28, 63, NULL);
+			(28, 63, NULL),
+			(29, 66, NULL);
 			
 	   UPDATE p
 	   SET p.ProductName = s.ProductName
