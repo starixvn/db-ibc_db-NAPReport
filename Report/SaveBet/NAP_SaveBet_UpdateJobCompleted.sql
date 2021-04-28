@@ -7,7 +7,7 @@ AS
 	Created by: Dom
 	Date:2014-05-05
 	Task: Mark the match as generated Data for excel file
-	DB: DB06.BODB02
+	DB: DBWH.bodb_dwrs
 	
 	Revisions:
 		20210423@Roy: NAP Report - Move Save bet db & service (#153147)

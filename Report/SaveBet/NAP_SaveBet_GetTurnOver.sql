@@ -7,7 +7,7 @@ AS
 	Created by: Dom
 	Date:2014-05-05
 	Task: Turnover Report 
-	DB: DBACC.bodb_ACC
+	DB: DBACC.bodb02
 	
 	Revisions:
 		- 20150728@Jim: apply Bettrade (Feature #38815)

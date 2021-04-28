@@ -7,7 +7,7 @@ AS
 	Created by: Dom
 	Date:2014-05-05
 	Task: Get match info for report
-	DB: DBACC.bodb_ACC
+	DB: DBACC.bodb02
 	
 	Revisions:
 		20210423@Roy: NAP Report - Move Save bet db & service (#153147)

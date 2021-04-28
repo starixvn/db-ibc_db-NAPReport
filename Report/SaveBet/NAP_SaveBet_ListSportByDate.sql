@@ -7,7 +7,7 @@ AS
 	Created by: Dom
 	Date:2014-05-05
 	Task: Get Sports by date
-	DB: DB06.bodb_ACC
+	DB: DBWH.bodb_dwrs
 	
 	Revisions:
 		20210423@Roy: NAP Report - Move Save bet db & service (#153147)

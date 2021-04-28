@@ -6,7 +6,7 @@ AS
 	Created by: Dom
 	Date:2014-05-05
 	Task: Generating Job for service.
-	DB: DBACC.bodb_Account
+	DB: DBWH.bodb_Account
 	
 	Revisions:
 		- 20150529@Jim: add Metric Gaming

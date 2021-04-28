@@ -6,7 +6,7 @@ AS
 	Created by: Dom
 	Date:2014-05-05
 	Task: Get Completed match.
-	DB: DBACC.bodb_Account
+	DB: DBWH.bodb_Account
 	
 	Revisions:
 		- 20170704@Robert: Integrate Betradar Virtual Sports Product [RedmineID: #78495]

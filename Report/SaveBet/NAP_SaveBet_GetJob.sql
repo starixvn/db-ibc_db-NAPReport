@@ -8,7 +8,7 @@ AS
 	Created by: Dom
 	Date:2014-04-29
 	Task: Get Job for Windows service
-	DB: DBACC.BODB_ACC
+	DB: DBWH.bodb_dwrs
 	
 	Revisions:
 	   2017.10.02@Tom-Add @GroupSports Parameter Input

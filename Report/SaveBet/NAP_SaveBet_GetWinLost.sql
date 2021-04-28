@@ -7,7 +7,7 @@ AS
 	Created by: Dom
 	Date:2014-05-05
 	Task: Winlost Report
-	DB: DBACC.bodb_ACC
+	DB: DBACC.bodb02
 	
 	Revisions:
 		- 20150529@Jim: add metrix gaming
