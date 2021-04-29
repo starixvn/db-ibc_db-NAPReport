@@ -14,6 +14,7 @@ AS
 	 - 20191231@Harry: add reasons: Robot Betting and Irrigation Bet (?)
 	 - 20201117@Jaden: from adhoc to SP
 	 - 20210122@Jaden: New changes
+     - 20210422@Jaden: Implement 229 (#153872)
 	 */
 BEGIN 
     Create table #tmp_data
@@ -106,7 +107,7 @@ BEGIN
     where
         winlostdate between @FromDate and @ToDate
         and mc.currency <> 20
-        and mc.bettype = 228
+        and mc.bettype in (228, 229)
         and mc.ruben = 1 
     --------------------------------------------------------------------------------------------------------------------------------
     update  a
@@ -146,6 +147,8 @@ BEGIN
         CASE
             when betteam = 'o' then 'Over'
             when betteam = 'u' then 'Under'
+            when betteam = 'h' then 'Home'
+            when betteam = 'a' then 'Away'
         END + ' ' + cast(oddsspread as varchar(10)) [Bet Choice],
         'Before Minute' + ' ' + CAST(hdp1 as varchar(10)) 'Bet on selection',
         case
