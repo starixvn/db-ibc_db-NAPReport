@@ -74,7 +74,7 @@ BEGIN
 	-- Get licensee and direct groups
 	INSERT INTO #tmpLicensee (LicenseeId, LicenseeName, GroupId)
 	SELECT s.LicenseeID, s.LicenseeName,
-		CASE WHEN p.OldRefID IS NULL THEN -3 ELSE ISNULL(a.GroupId, 0) END AS GroupId
+		CASE WHEN p.OldRefID IS NULL OR a.GroupId IS NULL THEN -3 ELSE a.GroupId END AS GroupId
 	FROM #tmpSite s 
 		LEFT JOIN bodb_Licensee.dbo.OAS_Party p WITH(NOLOCK) ON s.LicenseeID = p.OldRefID
 		INNER JOIN bodb_Licensee.dbo.OAS_PartyDetail pd WITH(NOLOCK) ON p.PartyID = pd.PartyID
