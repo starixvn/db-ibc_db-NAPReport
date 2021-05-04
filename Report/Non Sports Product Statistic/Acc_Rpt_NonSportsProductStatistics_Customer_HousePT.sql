@@ -45,14 +45,14 @@ AS
 		20210324@Cherry: Consider Saba789 as Credit site (#152124)
 
 	Param's Explanation:
-		- @ProductID: string filter by Product 
-		- @BetType: string filter by bettype
-		- @LeagueId: string filter by LeagueId (only use for ProductID = 3 - Number Game get LeagueId)  
-		- @Sporttype: string filter by Sporttype (only use for ProductID = 5 - Virtual Sports get Sporttype)
-		- @HousePTType: 
+		@ProductID: string filter by Product 
+		@BetType: string filter by bettype
+		@LeagueId: string filter by LeagueId (only use for ProductID = 3 - Number Game get LeagueId)  
+		@Sporttype: string filter by Sporttype (only use for ProductID = 5 - Virtual Sports get Sporttype)
+		@HousePTType: 
 			 1: >=
 			-1: <=
-		- @HousePTValue: Value to compare with 1-tpositiontaking
+		@HousePTValue: Value to compare with 1-tpositiontaking
 */
 
 BEGIN

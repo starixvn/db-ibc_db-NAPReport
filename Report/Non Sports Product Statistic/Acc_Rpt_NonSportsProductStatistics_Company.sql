@@ -56,27 +56,27 @@ AS
 		20210324@Cherry: Consider Saba789 as Credit site (#152124)
 
 	Param's Explanation:
-		- @username:  + Search by keyword, member only
-		- @Site: List of Company filter
+		@username:  + Search by keyword, member only
+		@Site: List of Company filter
 			'ALL': All sites (MBC + Licensees)
 			'MBC': MBC sites only
 			'12bet' : Specific Licensee Name 
-		- @ProductID: string filter by Product 
-		- @BetType: string filter by bettype
-		- @LeagueId: string filter by LeagueId (ProductID = 3 - Number Game get LeagueId)  
-		- @Sporttype: string filter by Sporttype (ProductID IN (5,23) - Virtual Sports, NG2 get Sporttype)
-		- @currency: 
+		@ProductID: string filter by Product 
+		@BetType: string filter by bettype
+		@LeagueId: string filter by LeagueId (ProductID = 3 - Number Game get LeagueId)  
+		@Sporttype: string filter by Sporttype (ProductID IN (5,23) - Virtual Sports, NG2 get Sporttype)
+		@currency: 
 			-1: All and convert to RM
 			>0: Filter by currency ID without convert (original)  
-		- @TotalBetType : 
+		@TotalBetType : 
 			1 : is >=
 			-1 : is <=
-		- @TotalBetValue : Value to compare with @TotalBetType
-		- @HousePTType : 
+		@TotalBetValue : Value to compare with @TotalBetType
+		@HousePTType : 
 			1 : is >=
 			-1 : is <=
-		- @HousePTValue : Value to compare with @HousePTType
-		- @IsDrillDown: If click on Grand Total or on the Grid of column Currency
+		@HousePTValue : Value to compare with @HousePTType
+		@IsDrillDown: If click on Grand Total or on the Grid of column Currency
 
 */
 BEGIN

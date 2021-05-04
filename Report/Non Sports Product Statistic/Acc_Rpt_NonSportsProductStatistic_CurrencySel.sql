@@ -81,4 +81,3 @@ BEGIN
 	DROP TABLE #tmpLicensees
 	
 END 
-GO
