@@ -16,16 +16,15 @@ AS
 		20210305@Cherry: Initial (convert from script adhoc #151160 to SP)
 		20210507@Cherry: Edit SP follow adhoc script (#151160)
 		20210517@Cherry: Change DBTP to DBTXN
+		20210504@Jaden: Prevent ticket dupplications in bettrans & bettrans14 by defining range balanceup & movebets (#154116)
+
 
 	Param's Explanation:
 */ 
 BEGIN
-	CREATE table #BU (BalanceUpDay date, MovebetsDay date)
-	INSERT INTO #bu(BalanceUpDay, MovebetsDay)
-	EXEC bodb02.dbo.Age_SelBalanceUpDay
-
-	DECLARE @BalanceUpDay DATE, @rptdate DATE
-	SELECT @BalanceUpDay =(SELECT BalanceUpDay FROM #BU)
+	DECLARE @BalanceUpDay DATE, @MoveBetsDay DATE, @rptdate DATE
+	SELECT @BalanceUpDay = BalanceUpDay, @MoveBetsDay = MoveBetsDay
+	FROM OPENQUERY(DBACC,'exec bodb02.dbo.Age_SelBalanceUpDay')
 
 	CREATE TABLE #tmp_data (
 		rptdate DATE,
@@ -69,7 +68,7 @@ BEGIN
 	FROM bodb02.dbo.bettrans mc WITH (NOLOCK)
 		INNER JOIN bodb02.dbo.match m WITH (NOLOCK) ON mc.matchid=m.matchid and m.sporttype>1
 		INNER JOIN bodb02.dbo.[TicketVoiding_VoidedTransaction] tv WITH (NOLOCK) ON mc.transid = tv.TransId
-	WHERE  winlostdate <= @Todate
+	WHERE  winlostdate <= @Todate AND winlostdate > @MoveBetsDay
 		AND mc.statusid = 102--void
 		AND mc.currency <> 20
 
@@ -96,7 +95,7 @@ BEGIN
 	FROM bodb02.dbo.bettrans14 mc WITH (NOLOCK)
 		INNER JOIN bodb02.dbo.match14 m WITH (NOLOCK) ON mc.matchid = m.matchid and m.sporttype > 1
 		INNER JOIN bodb02.dbo.[TicketVoiding_VoidedTransaction] tv WITH (NOLOCK) ON mc.transid = tv.TransId
-	WHERE winlostdate >= @BalanceUpDay
+	WHERE winlostdate >= @BalanceUpDay AND winlostdate <= @MoveBetsDay
 		AND mc.statusid = 102--void
 		AND mc.currency <> 20
 
@@ -267,7 +266,6 @@ BEGIN
 		,cu1.username 
 		,tr.ReasonEnglish
 
-	DROP TABLE #BU
 	DROP TABLE #tmp_data
 	DROP TABLE #tmpmatch
 	DROP TABLE #TicketVoiding_VoidedTransaction
