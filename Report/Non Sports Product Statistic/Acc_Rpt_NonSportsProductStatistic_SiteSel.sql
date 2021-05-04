@@ -11,10 +11,10 @@ AS
 	DB: DBACC.bodb02
 	
 	Revisions:
-		- 20170215@Percy: Integrate Fishing World [RedmineID: #71616]
-		- 20181031@Percy: Remove linked-server DBLIC [RedmineID: #103660]
-		- 20200601@Cherry: Add Credit Site (#135009)
-		- 20210324@Cherry: Consider Saba789 as Credit site (#152124)
+		20170215@Percy: Integrate Fishing World [RedmineID: #71616]
+		20181031@Percy: Remove linked-server DBLIC [RedmineID: #103660]
+		20200601@Cherry: Add Credit Site (#135009)
+		20210324@Cherry: Consider Saba789 as Credit site (#152124)
 */
 
 BEGIN
