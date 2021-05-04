@@ -1,4 +1,6 @@
 /*<info serverAlias="DBRPT-bodb_Report" executers="bodbAdminNet" viewers="" isFunction="0" isNested="1"></info>*/
+USE bodb_Report
+GO
 
 ALTER PROCEDURE dbo.Acc_Rpt_BetBuilder_GetSelectionName
 	@WinlostDate    SMALLDATETIME
@@ -11,6 +13,7 @@ AS
 	Task: Bet Builder - Daily Automail report to 3rd
 	Revisions:		
 		- 20190527@Robert: Bet Builder - Daily Automail report to 3rd [#114248]
+		- 20210504@Jaden: Use SP to get balanceup & movebets (#154116)
 
 	Param's Explanation:
 		
@@ -26,14 +29,8 @@ BEGIN
 	    MarketId         VARCHAR(50)
 	  , SelectionName    VARCHAR(MAX));
 
-    SELECT TOP 1 @balanceupdate = winlostdate
-    FROM bodb02.dbo.Bettrans WITH (NOLOCK)
-    WHERE bettype = 20000
-		AND matchid = 0
-		AND custid = 3;
-
-    SELECT @movebetdate = MAX(eventdate)
-    FROM bodb02.dbo.match14 WITH (NOLOCK);
+	SELECT @balanceupdate = BalanceUpDay, @movebetdate = MoveBetsDay
+	FROM OPENQUERY(DBACC,'exec bodb02.dbo.Age_SelBalanceUpDay')
 
     IF @WinlostDate > @movebetdate
 	  OR @IsFullRange = 1
@@ -45,13 +42,13 @@ BEGIN
 					   , Selection = STUFF(
 						(
 						    SELECT '; '+s2.SelectionName
-						    FROM SMP_MarketSelection AS s1
-							   INNER JOIN SMP_Selection AS s2 ON s1.SelectionType = s2.SelectionType
+						    FROM bodb02.dbo.SMP_MarketSelection AS s1
+							   INNER JOIN bodb02.dbo.SMP_Selection AS s2 ON s1.SelectionType = s2.SelectionType
 						    WHERE s1.MarketId = s.MarketId
 						    ORDER BY s2.SelectionName FOR XML PATH, TYPE
 						).value
 						(N'.[1]', N'varchar(max)'), 1, 2, '')
-				   FROM SMP_MarketSelection AS s
+				   FROM bodb02.dbo.SMP_MarketSelection AS s
 				   GROUP BY s.MarketId
 			    );
 	   END;
@@ -66,13 +63,13 @@ BEGIN
 					   , Selection = STUFF(
 						(
 						    SELECT '; '+s2.SelectionName
-						    FROM SMP_MarketSelection14 AS s1
-							   INNER JOIN SMP_Selection AS s2 ON s1.SelectionType = s2.SelectionType
+						    FROM bodb02.dbo.SMP_MarketSelection14 AS s1
+							   INNER JOIN bodb02.dbo.SMP_Selection AS s2 ON s1.SelectionType = s2.SelectionType
 						    WHERE s1.MarketId = s.MarketId
 						    ORDER BY s2.SelectionName FOR XML PATH, TYPE
 						).value
 						(N'.[1]', N'varchar(max)'), 1, 2, '')
-				   FROM SMP_MarketSelection14 AS s
+				   FROM bodb02.dbo.SMP_MarketSelection14 AS s
 				   GROUP BY s.MarketId
 			    );
 	   END;
@@ -88,7 +85,7 @@ BEGIN
 						(
 						    SELECT '; '+s2.SelectionName
 						    FROM bodb_Archive.dbo.SMP_MarketSelection_bk AS s1
-							   INNER JOIN SMP_Selection AS s2 ON s1.SelectionType = s2.SelectionType
+							   INNER JOIN bodb02.dbo.SMP_Selection AS s2 ON s1.SelectionType = s2.SelectionType
 						    WHERE s1.MarketId = s.MarketId
 						    ORDER BY s2.SelectionName FOR XML PATH, TYPE
 						).value
