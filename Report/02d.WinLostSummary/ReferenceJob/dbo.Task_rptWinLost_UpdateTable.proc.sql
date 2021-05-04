@@ -121,7 +121,7 @@ BEGIN
          INNER JOIN SportBettypeMatrix s WITH(NOLOCK) ON sb.BetType = s.BetType 
 			AND s.ProductID IN (23, 31, 32, 33, 34, 37, 36, 38, -- NG2, Exchange, Pragmatic, Poker Games, Card Club, Spadegaming, Virtual Games
             39, 43, 45, 40, 47, 46, 52, 50, 55, 56, 51, 49, 59, -- SA Gaming, Indo 4D, Sexy Gaming, Table Games, BBIN, IBCBet Live Casino, ION, RNG War, PG Soft, Joker, WM, VS3, GDG
-			57, 60, 61, 63, 65, 62, 66) -- BG, MXG, Habanero, Sports Lottery, PP Live Casino, CG, VGaming
+			57, 60, 61, 63, 65, 62) -- BG, MXG, Habanero, Sports Lottery, PP Live Casino, CG
 	IF @winlostdate > @MoveBetsDay
 	BEGIN				
 		DELETE FROM bodb_Report.dbo.rptWinlost
@@ -512,7 +512,7 @@ BEGIN
 				      ELSE winlost - actual_stake + awinlost + mwinlost + swinlost + scomm 
 				 END) * virtualrate) virtualLineTotal,
 
-			CASE WHEN sb.ProductID = 42 THEN ISNULL(b.productID, 0) ELSE 0 END SportType,
+			CASE WHEN sb.ProductID IN (42, 66) THEN ISNULL(b.productID, 0) ELSE 0 END SportType,
 			0 exrisk
 		FROM
 			bettransRnG b with (nolock)
@@ -528,7 +528,7 @@ BEGIN
 			CASE WHEN StatusID = 111 THEN 'DRAW'
 				WHEN StatusID = 112 THEN 'WON'
 				WHEN StatusID = 113 THEN 'LOSE' END,
-			CASE WHEN sb.ProductID = 42 THEN ISNULL(b.productID, 0) ELSE 0 END;
+			CASE WHEN sb.ProductID IN (42, 66) THEN ISNULL(b.productID, 0) ELSE 0 END;
 
 		-- calculate Live casino products from bettransLC
 		INSERT INTO bodb_Report.dbo.rptWinlost
@@ -655,7 +655,7 @@ BEGIN
 		SET rpt.SportType = sb.SportType
 		FROM bodb_Report.dbo.rptWinlost rpt WITH(NOLOCK)
 		  INNER JOIN #SportBettype sb on  rpt.bettype = sb.Bettype
-		WHERE sb.ProductID IN (23, 31, 32, 33, 34, 37, 36, 38, 39, 43, 45, 40, 47, 46, 52, 50, 55, 56, 51, 49, 59, 57, 60, 61, 63, 65, 62, 66)
+		WHERE sb.ProductID IN (23, 31, 32, 33, 34, 37, 36, 38, 39, 43, 45, 40, 47, 46, 52, 50, 55, 56, 51, 49, 59, 57, 60, 61, 63, 65, 62)
 		AND rpt.winlostdate =  @winlostdate
 
 		-- Happy 5 Linked Games
@@ -1059,7 +1059,7 @@ BEGIN
 						  ELSE winlost - actual_stake + awinlost + mwinlost + swinlost + scomm 
 					 END) * virtualrate) virtualLineTotal,
 
-				CASE WHEN sb.ProductID = 42 THEN ISNULL(b.productID, 0) ELSE 0 END SportType,
+				CASE WHEN sb.ProductID IN (42, 66) THEN ISNULL(b.productID, 0) ELSE 0 END SportType,
 				0 exrisk
 			FROM
 				dbo.bettransRnG14 b with (nolock)
@@ -1075,7 +1075,7 @@ BEGIN
 				CASE WHEN StatusID = 111 THEN 'DRAW'
 					WHEN StatusID = 112 THEN 'WON'
 					WHEN StatusID = 113 THEN 'LOSE' END,
-				CASE WHEN sb.ProductID = 42 THEN ISNULL(b.productID, 0) ELSE 0 END;
+				CASE WHEN sb.ProductID IN (42, 66) THEN ISNULL(b.productID, 0) ELSE 0 END;
 
 			-- calculate Live casino products from bettransLC
 			INSERT INTO bodb_Report.dbo.rptWinlost
@@ -1202,7 +1202,7 @@ BEGIN
 		    SET rpt.SportType = sb.SportType
 		    FROM bodb_Report.dbo.rptWinlost rpt
 			 INNER JOIN #SportBettype sb on  rpt.bettype = sb.Bettype
-		    WHERE sb.ProductID IN (23, 31, 32, 33, 34, 37, 36, 38, 39, 43, 45, 40, 47, 46, 52, 50, 55, 56, 51, 49, 59, 57, 60, 61, 63, 65, 62, 66)
+		    WHERE sb.ProductID IN (23, 31, 32, 33, 34, 37, 36, 38, 39, 43, 45, 40, 47, 46, 52, 50, 55, 56, 51, 49, 59, 57, 60, 61, 63, 65, 62)
 		    AND rpt.winlostdate =  @winlostdate
 
 			-- Happy 5 Linked Games
