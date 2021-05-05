@@ -447,7 +447,7 @@ BEGIN
 						WHEN b.Sporttype = 43 THEN -7 -- E-Sports
 						ELSE -9 -- OS
 						END AS AliasProductId
-					,CASE WHEN b.SportType = 150 THEN b.SportType ELSE -1 END AS SportTypeGroup
+					,CASE WHEN b.SportType IN (150,173) THEN b.SportType ELSE -1 END AS SportTypeGroup
 					,bt.BetTypeGroup
 					,SUM(CASE
 							WHEN bt.IsOnlyTO = 1 OR bt.bettype IN (1698, 4297, 3898) THEN 0
@@ -479,7 +479,7 @@ BEGIN
 						WHEN b.Sporttype = 43 THEN -7 -- E-Sports
 						ELSE -9 -- OS
 						END
-					,CASE WHEN b.SportType = 150 THEN b.SportType ELSE -1 END
+					,CASE WHEN b.SportType IN (150, 173) THEN b.SportType ELSE -1 END
 					,bt.BetTypeGroup
 				OPTION (RECOMPILE)
 
@@ -601,7 +601,7 @@ BEGIN
 										WHEN t.Product3rdId = 15 THEN t.MemberWL
 										WHEN t.Product3rdId IN (25, 37) THEN -t.HouseWL
 										WHEN p.PartyId IS NULL THEN -t.HouseWL
-										WHEN t.SportTypeGroup = 150 THEN -t.MemberWL -- SBC free bets
+										WHEN t.SportTypeGroup IN (150, 173) THEN -t.MemberWL -- SBC free bets
 										ELSE
 											(- t.MemberWL - (t.FullContribution - t.HouseContribution) - t.OddsSpreadAdj) * ISNULL(lc.Rate, p.Rate)
 											- t.HouseContribution - t.OddsSpreadAdj - CASE WHEN t.Product3rdId = 31 THEN t.Comm ELSE 0 END
@@ -611,7 +611,7 @@ BEGIN
 										WHEN t.Product3rdId = 37 THEN -t.HouseWL
 										WHEN p.PartyId IS NULL THEN 0
 										WHEN t.Product3rdId IN (25) THEN -t.HouseWL
-										WHEN t.SportTypeGroup = 150 THEN -t.MemberWL -- SBC free bets
+										WHEN t.SportTypeGroup IN (150, 173) THEN -t.MemberWL -- SBC free bets
 										ELSE
 											(- t.MemberWL - (t.FullContribution - t.HouseContribution) - t.OddsSpreadAdj) * ISNULL(lc.Rate, p.Rate)
 											- t.HouseContribution - t.OddsSpreadAdj - CASE WHEN t.Product3rdId = 31 THEN t.Comm ELSE 0 END
@@ -935,7 +935,7 @@ BEGIN
 		;WITH CTE_tempResult AS (
 			SELECT PartyId, Product3rdId, CASE WHEN Product3rdId = 0 THEN -2 ELSE AliasProductId END AS AliasProductId
 				,HouseTurnover	= SUM(HouseTurnover)
-				,LicenseeWL		= SUM(CASE WHEN SporttypeGroup = 150 THEN 0 ELSE -MemberWLMonth END)
+				,LicenseeWL		= SUM(CASE WHEN SporttypeGroup IN (150, 173) THEN 0 ELSE -MemberWLMonth END)
 				,HouseIncome	= SUM(HouseIncomeMonth)
 				,AComm			= SUM(CommMonth)
 			FROM #__tempResult
