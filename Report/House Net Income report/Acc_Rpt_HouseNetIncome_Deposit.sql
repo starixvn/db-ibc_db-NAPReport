@@ -266,7 +266,7 @@ BEGIN
 		FROM bodb02.dbo.SportBettypeMatrix s WITH (NOLOCK)
 			INNER JOIN @Products p ON s.ProductId = p.ProductId
 			LEFT JOIN bodb_Account.dbo.BettypeGroup bg WITH (NOLOCK) ON s.BetType = bg.Bettype
-		WHERE s.BetType NOT IN (911, 912, 1906, 4298, 4299, 4300, 1699, 3150, 3899, 3898, 1698, 4297)
+		WHERE s.BetType NOT IN (911, 912, 1906, 4298, 4299, 4300, 1699, 3150, 3899)
 			AND (
 				s.ProductId <> 3
 				OR (p.SubProductCode = 'NG' AND s.sporttype = 161)
@@ -434,11 +434,11 @@ BEGIN
 					,CASE WHEN b.SportType IN (150,173) THEN b.SportType ELSE -1 END AS SportTypeGroup
 					,bt.BetTypeGroup
 					,SUM(CASE
-							WHEN bt.IsOnlyTO = 1 OR bt.BettypeGroup = -3 THEN 0
+							WHEN bt.IsOnlyTO = 1 OR bt.bettype IN (1698, 4297, 3898) THEN 0
 							WHEN bt.BetType IN (913, 914) THEN b.WinlossP + b.WinlossA
 							ELSE b.WinlossP END
 						) AS MemberWL
-					,SUM(CASE WHEN bt.IsOnlyTO = 1 OR bt.BettypeGroup = -3 THEN 0 ELSE b.WinlossIBC + b.CommissionS END) AS HouseWL
+					,SUM(CASE WHEN bt.IsOnlyTO = 1 OR bt.bettype IN (1698, 4297, 3898) THEN 0 ELSE b.WinlossIBC + b.CommissionS END) AS HouseWL
 					,SUM(b.TurnoverIBC * CASE WHEN b.VarianceVR > 0 THEN b.VarianceVR + 1.0 ELSE 1.0 END * CASE WHEN b.TicketStatus = 3 THEN 0 WHEN b.TicketStatus IN (12, 13) THEN 0.5 ELSE 1.0 END) AS HouseTO -- VarianceVR = virtualrate/actualrate - 1
 					---- HouseTO change formula, will get MemberTO * ChargeRate
 					,SUM(b.Stake * CASE WHEN b.VarianceVR > 0 THEN b.VarianceVR + 1.0 ELSE 1.0 END * CASE WHEN b.TicketStatus = 3 THEN 0 WHEN b.TicketStatus IN (12, 13) THEN 0.5 ELSE 1.0 END) AS Stake -- VarianceVR = virtualrate/actualrate - 1
