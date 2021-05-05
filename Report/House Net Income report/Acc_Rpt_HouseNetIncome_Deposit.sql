@@ -239,9 +239,6 @@ BEGIN
 		INSERT INTO @tmpSite (LicenseeId, SiteName)
 		SELECT LicenseeId, RTRIM(LTRIM(LicenseeName)) FROM DBLIC.bodb_licensee.dbo.Licensees WITH (NOLOCK) WHERE IsDeposit = 1
 
-		-- Remove Saba789 from @tmpSite
-		DELETE FROM @tmpSite WHERE LicenseeId = @LicenseeId_Saba789
-
 		UPDATE s
 		SET s.SiteId_DW = t.SiteId
 		FROM @tmpSite s
