@@ -21,6 +21,7 @@ AS
 	Revisions:
 		- 20200526@Ned.Le: [SB R&C] Implement Performance Monitor report (#134119)
 		- 20200930@Ned.Le: NAP Reports - Licensee Odds Spread (#141750)
+		- 20210504@Kean.Nguyen: NAP Reports - Allow more time for transfer - Movebet&BalanceUp (#154116)
 
 	Param's Explanation:
 		- @fromDate: Range date to get data for report
@@ -57,8 +58,9 @@ BEGIN
 	SET NOCOUNT ON
 
 	-- Declare variables
-	DECLARE @MoveBetsDay SMALLDATETIME
-	SELECT @MoveBetsDay = MAX(eventdate) FROM bodb02.dbo.match14 WITH (NOLOCK)
+	DECLARE @BalanceUpDay SMALLDATETIME, @MoveBetsDay SMALLDATETIME
+	SELECT @BalanceUpDay = BalanceUpDay, @MoveBetsDay = MoveBetsDay
+	FROM OPENQUERY(DBACC,'EXEC bodb02.dbo.Age_SelBalanceUpDay')
 
 	DECLARE @sqlCommand VARCHAR(MAX)
 	SELECT @sqlCommand = ''
