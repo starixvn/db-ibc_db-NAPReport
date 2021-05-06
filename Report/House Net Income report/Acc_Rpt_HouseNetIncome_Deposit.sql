@@ -435,7 +435,7 @@ BEGIN
 							WHEN bt.BetType IN (913, 914) THEN b.WinlossP + b.WinlossA
 							ELSE b.WinlossP END
 						) AS MemberWL
-					,SUM(CASE WHEN bt.IsOnlyTO = 1 OR bt.bettype IN (1698, 4297, 3898) THEN 0 ELSE b.WinlossIBC + b.CommissionS END) AS HouseWL
+					,SUM(CASE WHEN bt.IsOnlyTO = 1 OR bt.bettype IN (1698, 4297, 3898, 1699, 3899) THEN 0 ELSE b.WinlossIBC + b.CommissionS END) AS HouseWL
 					,SUM(b.TurnoverIBC * CASE WHEN b.VarianceVR > 0 THEN b.VarianceVR + 1.0 ELSE 1.0 END * CASE WHEN b.TicketStatus = 3 THEN 0 WHEN b.TicketStatus IN (12, 13) THEN 0.5 ELSE 1.0 END) AS HouseTO -- VarianceVR = virtualrate/actualrate - 1
 					---- HouseTO change formula, will get MemberTO * ChargeRate
 					,SUM(b.Stake * CASE WHEN b.VarianceVR > 0 THEN b.VarianceVR + 1.0 ELSE 1.0 END * CASE WHEN b.TicketStatus = 3 THEN 0 WHEN b.TicketStatus IN (12, 13) THEN 0.5 ELSE 1.0 END) AS Stake -- VarianceVR = virtualrate/actualrate - 1
