@@ -15,6 +15,7 @@ AS
 	 - 20201117@Jaden: from adhoc to SP
 	 - 20210122@Jaden: New changes
      - 20210422@Jaden: Implement 229 (#153872)
+     - 20210506@Jaden: new bug fixes (#145519)
 	 */
 BEGIN 
     Create table #tmp_data
@@ -114,8 +115,18 @@ BEGIN
     set mission='Extra Time 1'
     from #tmp_data a
     where [minute] like '%+%'
+
+	update  a
+    set [minute]= REPLACE([minute],'1H','')
+    from #tmp_data a
+    where [minute] like '%1H%' and mission='mtimer'
+
+	update  a
+    set [minute]= cast(REPLACE([minute],'2H','') as int) + 45
+    from #tmp_data a
+    where [minute] like '%2H%' and mission='mtimer'
     --------------------------------------------------------------------------------------------------------------------------------
-    
+
     SELECT
         cast(b.rptdate as date) 'WinlossDate',
         transdate,
@@ -123,19 +134,19 @@ BEGIN
             When mission='isht' then 'Break Time'
             When mission='Extra Time 1' then 'Extra Time 1'
             When mission='mtimer' and cast([minute] as int)=0 and liveindicator = 0 then 'Early KO'
-            When mission='mtimer' and cast([minute] as int)<=45 then 'First Half'
-            When mission='mtimer' and cast([minute] as int)>45 then 'Second Half'
+            When mission='mtimer' and cast([minute] as int)<45 then 'First Half'
+            When mission='mtimer' and cast([minute] as int)>=45 then 'Second Half'
             Else 'N/A'
         end [Mission],
         Case
-            When mission='mtimer' and cast([minute] as int)>45 then convert(nvarchar(10),convert(int,left([minute],2))-45)
+            When mission='mtimer' and cast([minute] as int)>=45 then convert(nvarchar(10),convert(int,left([minute],2))-45)
             else  [minute] 
             end [GameTime],
         Bettime,        
         cast(b.transid as varchar(100)) 'transid',
         s.SportName,
         ISNULL(
-            t1.teamname + ' vs ' + t2.teamname,
+            t1.teamname + ' - vs - ' + t2.teamname,
             'Combine Parlay Match'
         ) [Match],
         CASE
@@ -145,11 +156,11 @@ BEGIN
         END [Live],
         bt.typenamee 'Bettype',
         CASE
-            when betteam = 'o' then 'Over'
-            when betteam = 'u' then 'Under'
-            when betteam = 'h' then 'Home'
-            when betteam = 'a' then 'Away'
-        END + ' ' + cast(oddsspread as varchar(10)) [Bet Choice],
+            when betteam = 'o' then 'Over' + ' ' + cast(oddsspread as varchar(10))
+            when betteam = 'u' then 'Under' + ' ' + cast(oddsspread as varchar(10))
+            when betteam = 'h' then 'Home' + ' ' + cast(oddsspread as varchar(10))
+            when betteam = 'a' then 'Away' + ' ' + cast(-oddsspread as varchar(10))
+        END  [Bet Choice],
         'Before Minute' + ' ' + CAST(hdp1 as varchar(10)) 'Bet on selection',
         case
             when liveindicator = 1 then cast(b.livehomescore as varchar(10)) + ' - ' + cast(b.liveawayscore as varchar(10))
@@ -184,6 +195,8 @@ BEGIN
         LEFT JOIN team t1 WITH (nolock) on b.homeid = t1.teamid
         LEFT JOIN team t2 WITH(nolock) on b.awayid = t2.teamid 
         LEFT JOIN match m (NOLOCK) ON b.matchid = m.matchid
+	order by cast(b.rptdate as date),
+        transdate
 
     drop table #tmp_data
 END
