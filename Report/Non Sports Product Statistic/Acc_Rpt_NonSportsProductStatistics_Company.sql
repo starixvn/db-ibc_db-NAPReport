@@ -54,6 +54,7 @@ AS
 		20201224@Cherry: Integrate Happy 5 Linked Games (#146537)
 		20210120@Cherry: Integrate Saba Jackpot (#148293)
 		20210324@Cherry: Consider Saba789 as Credit site (#152124)
+		20210506@Cherry: Integrate VGaming Jackpot (#154250)
 
 	Param's Explanation:
 		- @username:  + Search by keyword, member only
@@ -183,6 +184,7 @@ BEGIN
 	CREATE TABLE #ExtraComm (ProductID INT, SuperID INT, ExtraComm DECIMAL(9, 8))
 	CREATE TABLE #tmpContributionBettype (Bettype INT)
 	CREATE TABLE #tmpSportBetType (Sporttype INT, Bettype INT)
+	CREATE TABLE #tmpHouseProduct (ProductID INT)
 
 	-- Get Info from Pars list
 	IF @ProductId <> ''
@@ -306,9 +308,15 @@ BEGIN
 	FROM dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '', @isTest) s
 		INNER JOIN #tmp_ProductID p ON p.ProductID = s.ProductID
 
+	INSERT INTO #tmpHouseProduct (ProductID)
+	SELECT DISTINCT ProductID 
+	FROM DBWH.bodb_Account.dbo.Product_Bettype WITH (NOLOCK)
+	WHERE EventType = 255
+
 	DELETE s
 	FROM #SportBettype s
-	WHERE s.ProductID NOT IN (3, 5, 27, 23, 42) -- NumberGame, Virtual Sports, Virtual Sport 2, NG2, Saba.club
+	WHERE s.ProductID NOT IN (3, 5, 27, 23) -- NumberGame, Virtual Sports, Virtual Sport 2, NG2
+		AND s.ProductID NOT IN (SELECT ProductID FROM #tmpHouseProduct) --Saba.club, VGaming
 		AND NOT EXISTS (SELECT b.Bettype FROM #tmp_BetType b WHERE b.Bettype = s.Bettype)
 		
 	DELETE s
@@ -320,7 +328,7 @@ BEGIN
 						
 	DELETE s
 	FROM #SportBettype s
-	WHERE s.ProductID = 42
+	WHERE s.ProductID IN (SELECT ProductID FROM #tmpHouseProduct) --Saba.club, VGaming
 		AND NOT EXISTS (SELECT b.Bettype FROM #tmpSportBetType b WHERE b.Bettype = s.Bettype)
 	-- End Sport Bettype Matrix
 
@@ -581,7 +589,7 @@ BEGIN
 			FROM dbo.bettransRnG b WITH (NOLOCK)
 			WHERE b.winlostdate = @WLDate
 				AND (b.gameID IN (SELECT Bettype FROM #SportBettype WHERE RefTable = 1 AND ProductID <> 42)
-					OR EXISTS(SELECT 1 FROM #tmpSportBetType s WHERE b.productid = s.Sporttype and b.gameid = s.Bettype)
+					--OR EXISTS(SELECT 1 FROM #tmpSportBetType s WHERE b.productid = s.Sporttype and b.gameid = s.Bettype)
 				)
 				AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets	
 				AND (@ExcludeTest = 0 OR (b.Currency <> 20 AND @ExcludeTest = 1))
@@ -601,7 +609,7 @@ BEGIN
 			OPTION(RECOMPILE)
 		END
 		
-		IF (EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID = 42) AND (SELECT COUNT(1) FROM #tmp_ProductID) = 1)
+		IF (EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID = 42))-- AND (SELECT COUNT(1) FROM #tmp_ProductID) = 1)
 		BEGIN
 			INSERT INTO #Data
 				( recommend ,
@@ -658,7 +666,7 @@ BEGIN
 		
 			FROM dbo.bettransRnG b WITH (NOLOCK)
 			WHERE b.winlostdate = @WLDate
-				AND b.gameID IN (SELECT Bettype FROM #SportBettype WHERE RefTable = 1 AND ProductID = 42)
+				--AND b.gameID IN (SELECT Bettype FROM #SportBettype WHERE RefTable = 1 AND ProductID = 42)
 				AND EXISTS(SELECT 1 FROM #tmpSportBetType s WHERE b.productid = s.Sporttype and b.gameid = s.Bettype)
 				AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets	
 				AND (@ExcludeTest = 0 OR (b.Currency <> 20 AND @ExcludeTest = 1))
