@@ -582,7 +582,8 @@ BEGIN
 										WHEN t.Product3rdId = 15 THEN t.MemberWL
 										WHEN t.Product3rdId IN (25, 37) THEN -t.HouseWL
 										WHEN p.PartyId IS NULL THEN -t.HouseWL
-										WHEN t.SportTypeGroup IN (150, 173) THEN -t.MemberWL -- SBC free bets
+										WHEN t.SportTypeGroup IN (150, 173) THEN -t.MemberWL + (-(t.FullContribution - t.HouseContribution) - t.OddsSpreadAdj) * ISNULL(lc.Rate, p.Rate)
+											- t.HouseContribution - t.OddsSpreadAdj - CASE WHEN t.Product3rdId = 31 THEN t.Comm ELSE 0 END-- SBC free bets
 										ELSE
 											(- t.MemberWL - (t.FullContribution - t.HouseContribution) - t.OddsSpreadAdj) * ISNULL(lc.Rate, p.Rate)
 											- t.HouseContribution - t.OddsSpreadAdj - CASE WHEN t.Product3rdId = 31 THEN t.Comm ELSE 0 END
@@ -592,7 +593,8 @@ BEGIN
 										WHEN t.Product3rdId = 37 THEN -t.HouseWL
 										WHEN p.PartyId IS NULL THEN 0
 										WHEN t.Product3rdId IN (25) THEN -t.HouseWL
-										WHEN t.SportTypeGroup IN (150, 173) THEN -t.MemberWL -- SBC free bets
+										WHEN t.SportTypeGroup IN (150, 173) THEN -t.MemberWL + (-(t.FullContribution - t.HouseContribution) - t.OddsSpreadAdj) * ISNULL(lc.Rate, p.Rate)
+											- t.HouseContribution - t.OddsSpreadAdj - CASE WHEN t.Product3rdId = 31 THEN t.Comm ELSE 0 END-- SBC free bets
 										ELSE
 											(- t.MemberWL - (t.FullContribution - t.HouseContribution) - t.OddsSpreadAdj) * ISNULL(lc.Rate, p.Rate)
 											- t.HouseContribution - t.OddsSpreadAdj - CASE WHEN t.Product3rdId = 31 THEN t.Comm ELSE 0 END
