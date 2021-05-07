@@ -60,6 +60,7 @@ AS
 		20201210@Cherry: Add Real Turnover (#146137)
 		20201224@Cherry: Integrate Happy 5 Linked Games (#146537)
 		20210120@Cherry: Integrate Saba Jackpot (#148293)
+		20210506@Cherry: Integrate VGaming Jackpot (#154250)
 
 	Param's Explanation:
 		- @username: search keyword
@@ -161,6 +162,7 @@ BEGIN
 	CREATE TABLE #tmpCurrency		(CurrencyId INT)
 	CREATE TABLE #tmpContributionBettype (Bettype INT)
 	CREATE TABLE #tmpSportBetType (Sporttype INT, Bettype INT)
+	CREATE TABLE #tmpHouseProduct (ProductID INT)
 
 	-- Get Info from Pars list
 	IF @ProductId <> ''
@@ -260,13 +262,20 @@ BEGIN
 		dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '', @isTest) s
 		INNER JOIN #tmp_ProductID p ON s.ProductID = p.ProductID
 		INNER JOIN #tmp_BetType b ON s.BetType = b.Bettype
+		
+	INSERT INTO #tmpHouseProduct (ProductID)
+	SELECT DISTINCT ProductID 
+	FROM DBWH.bodb_Account.dbo.Product_Bettype WITH (NOLOCK)
+	WHERE EventType = 255
+		AND ProductID IN (SELECT ProductID FROM #tmp_ProductID)
 
 	INSERT INTO #SportBettype (ProductID, Bettype, EvenType, RefTable)
 	SELECT s.ProductID, s.BetType, s.EventType, s.RefTable
 	FROM
 		dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '', @isTest) s
 		INNER JOIN #tmp_ProductID p ON s.ProductID = p.ProductID
-	WHERE p.ProductID IN (3, 5, 27, 42) -- Number Game, Virtual Sports, Virtual Sports 2, Saba.club
+	WHERE (p.ProductID IN (3, 5, 27) -- Number Game, Virtual Sports, Virtual Sports 2
+		OR p.ProductID IN (SELECT ProductID FROM #tmp_ProductID))
 	
 	INSERT INTO #SportBettype (ProductID, Bettype, EvenType, RefTable)
 	SELECT s.ProductID, s.BetType, s.EventType, s.RefTable
@@ -278,7 +287,7 @@ BEGIN
 		
 	DELETE s
 	FROM #SportBettype s
-	WHERE s.ProductID = 42
+	WHERE s.ProductID IN (SELECT ProductID FROM #tmp_ProductID)
 		AND NOT EXISTS (SELECT b.Bettype FROM #tmpSportBetType b WHERE b.Bettype = s.Bettype)
 	
 	DROP TABLE #tmp_BetType
@@ -679,7 +688,7 @@ BEGIN
 	
 		OPTION(RECOMPILE)
 	
-		IF EXISTS(SELECT 1 FROM #SportBettype WHERE ProductID <> 42)
+		IF EXISTS(SELECT 1 FROM #SportBettype WHERE ProductID NOT IN (SELECT ProductID FROM #tmpHouseProduct))
 		BEGIN
 			INSERT INTO #tmp_bettrans
 			(
@@ -739,9 +748,7 @@ BEGIN
 				COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS RowNum			
 			FROM dbo.bettransRnG b WITH (NOLOCK)
 			WHERE b.winlostdate = @WLDate			
-				AND (b.gameID IN (SELECT Bettype FROM #SportBettype WHERE RefTable = 1 AND ProductID <> 42)
-					OR EXISTS(SELECT 1 FROM #tmpSportBetType s WHERE b.productid = s.Sporttype and b.gameid = s.Bettype)
-				)
+				AND b.gameID IN (SELECT Bettype FROM #SportBettype WHERE RefTable = 1 AND ProductID NOT IN (SELECT ProductID FROM #tmpHouseProduct))
 				AND b.statusID IN (111, 112, 113, 103) 
 				AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
 				AND (@Currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId))	
@@ -757,7 +764,7 @@ BEGIN
 			OPTION(RECOMPILE)
 		END
 		
-		IF (EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID = 42) AND (SELECT COUNT(1) FROM #tmp_ProductID) = 1)
+		IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID IN (SELECT ProductID FROM #tmpHouseProduct)) 
 		BEGIN
 			INSERT INTO #tmp_bettrans
 			(
@@ -817,7 +824,6 @@ BEGIN
 				COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS RowNum			
 			FROM dbo.bettransRnG b WITH (NOLOCK)
 			WHERE b.winlostdate = @WLDate			
-				AND b.gameID IN (SELECT Bettype FROM #SportBettype WHERE RefTable = 1 AND ProductID = 42)
 				AND EXISTS(SELECT 1 FROM #tmpSportBetType s WHERE b.productid = s.Sporttype and b.gameid = s.Bettype)
 				AND b.statusID IN (111, 112, 113, 103) 
 				AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
@@ -2199,6 +2205,7 @@ BEGIN
 	DROP TABLE #tmp_Device
 	DROP TABLE #tmp_LeagueID
 	DROP TABLE #tmp_ProductID
+	DROP TABLE #tmpHouseProduct
 	DROP TABLE #tmp_MemIDs
 	DROP TABLE #tmp_SportType
 	DROP TABLE #CustUser
