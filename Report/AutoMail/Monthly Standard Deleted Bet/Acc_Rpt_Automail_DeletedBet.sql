@@ -153,7 +153,7 @@ BEGIN
 	FROM bodb_archive.dbo.TicketVoiding_Reason_bk WITH (NOLOCK)
 	UNION
 	SELECT reasonid, replace(ReasonEnglish,char(10),' ') as ReasonEnglish  
-	FROM bodb02.dbo.TicketVoiding_Reason WITH (NOLOCK)
+	FROM DBTP.bodb02.dbo.TicketVoiding_Reason WITH (NOLOCK)
 
 	SELECT DISTINCT *
 	INTO #TicketVoiding_Reason_final
