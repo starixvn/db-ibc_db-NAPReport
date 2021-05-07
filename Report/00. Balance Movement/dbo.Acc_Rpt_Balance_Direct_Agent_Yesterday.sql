@@ -1,4 +1,6 @@
 ﻿/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+USE bodb02
+GO
 
 ALTER PROCEDURE Acc_Rpt_Balance_Direct_Agent_Yesterday
 	@username varchar(50) = ''
@@ -12,11 +14,16 @@ AS
 	Revisions:
 		20200930@Roy: NAP Report - Enhance the way we get Direct Balance report (#144094)
 		20201030@Ned.Le: NAP Report - BBin - Remove BBIN Transfer off Balance reports (#144071)
+		20210507@Jaden.Tang: Adjust code to prevent reading dupplicated in bettrans & bettrans14 during move bet process (#154649)
 	
 */
 BEGIN
 	SET NOCOUNT ON
-	
+
+	DECLARE @MoveBetsDay DATE
+	SELECT @MoveBetsDay = MoveBetsDay
+	FROM OPENQUERY(DBACC,'exec bodb02.dbo.Age_SelBalanceUpDay')
+
 	DECLARE @currentDate datetime 
 	SELECT  @currentDate = convert(varchar(10), CURRENT_TIMESTAMP, 120)
 	
@@ -63,7 +70,11 @@ BEGIN
 			IsNull(bal.Basebal,0) AS BaseBalance
 	FROM	#directAgent a 
 			LEFT JOIN (
-				SELECT	recommend, 
+				SELECT	--see Balance_Direct_Master report
+						case when b.winlostdate > @MoveBetsDay and bettype = 19999 then NULL
+							 when b.winlostdate = @MoveBetsDay and bettype < 19999 then NULL
+							 else b.recommend
+						end recommend,
 						isnull(sum(case when custid=recommend then winlost-actual_stake else awinlost+comm-playercomm end),0)
 						+ isnull(sum(case when custid <> recommend and custid <> mrecommend then winlost-actual_stake+playercomm else 0 end),0) 
 						- isnull(sum(case when bettype < 19001 and winlostdate >= @currentDate then awinlost+comm + winlost-actual_stake else 0 end),0) AS bal,
@@ -77,7 +88,10 @@ BEGIN
 				statusID NOT IN (101,102,103)
 				AND b.bettype NOT IN (21008, 21009)
 				AND EXISTS ( SELECT 1 FROM #directAgent d WHERE b.mrecommend = d.mrecommend )
-				GROUP BY recommend 
+				GROUP BY case when b.winlostdate > @MoveBetsDay and bettype = 19999 then NULL
+							 when b.winlostdate = @MoveBetsDay and bettype < 19999 then NULL
+							 else b.recommend
+						end 
 			)as Bal ON a.custid = Bal.recommend
 	ORDER BY a.username
 	OPTION (RECOMPILE)

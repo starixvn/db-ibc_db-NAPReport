@@ -1,4 +1,6 @@
 ﻿/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+USE bodb02
+GO
 
 ALTER PROCEDURE Acc_Rpt_Balance_Direct_Member
 	@username varchar(50) = ''
@@ -17,10 +19,15 @@ AS
 	- 20130131@Johnson: Add filter by username and currency
 	- 20200930@Roy: NAP Report - Enhance the way we get Direct Balance report (#144094)
 	- 20201030@Ned.Le: NAP Report - BBin - Remove BBIN Transfer off Balance reports (#144071)
+	- 20210507@Jaden.Tang: Adjust code to prevent reading dupplicated in bettrans & bettrans14 during move bet process (#154649)
 */
 BEGIN
 	SET NOCOUNT ON
-	
+
+	DECLARE @MoveBetsDay DATE
+	SELECT @MoveBetsDay = MoveBetsDay
+	FROM OPENQUERY(DBACC,'exec bodb02.dbo.Age_SelBalanceUpDay')
+
 	CREATE TABLE #directMember (
 		custid INT
 		,username VARCHAR(50)
@@ -64,7 +71,11 @@ BEGIN
 			IsNull(bal.BaseBal,0) BaseBalance
 	FROM	#directMember mem WITH (NOLOCK)
 			LEFT JOIN (
-				SELECT	custid,
+				SELECT	--see Balance_Direct_Master report
+						case when b.winlostdate > @MoveBetsDay and bettype = 19999 then NULL
+							 when b.winlostdate = @MoveBetsDay and bettype < 19999 then NULL
+							 else b.custid
+						end custid,
 						isnull(SUM(winlost - actual_stake + playercomm),0) bal,
 						isnull(SUM((winlost - actual_stake + playercomm)* actualrate),0) as Basebal
 				FROM	bettrans b WITH (NOLOCK)
@@ -73,7 +84,10 @@ BEGIN
 				statusID NOT IN (101,102,103)
 				AND b.bettype NOT IN (21008, 21009)
 				AND EXISTS ( SELECT 1 FROM #directMember d WITH (NOLOCK) WHERE b.recommend = d.recommend )
-				GROUP BY custid
+				GROUP BY case when b.winlostdate > @MoveBetsDay and bettype = 19999 then NULL
+							 when b.winlostdate = @MoveBetsDay and bettype < 19999 then NULL
+							 else b.custid
+						end
 			) bal ON mem.custid = bal.custid
 	ORDER BY mem.username
 	OPTION (RECOMPILE)
