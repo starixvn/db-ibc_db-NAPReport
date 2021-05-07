@@ -14,7 +14,7 @@ AS
 	
 	Revision:		
 		20210305@Cherry: Initial (convert from script adhoc #151160 to SP)
-
+		20210507@Cherry: Edit SP follow adhoc script (#151160)
 
 	Param's Explanation:
 */ 
@@ -42,13 +42,14 @@ BEGIN
 		memberTO MONEY,
 		VirtualTO MONEY,
 		VarianceTO MONEY,
-		RealTO MONEY)
+		RealTO MONEY,
+		reasonid int)
 
 
 	--bettrans data-------------------------------------------------------------------------------------------------------------------------------------------------
 	INSERT INTO #tmp_data
 	SELECT 	winlostdate
-		,transid
+		,mc.transid
 		,liveindicator
 		,bettype
 		,betteam
@@ -63,8 +64,10 @@ BEGIN
 		, ABS(Stake) * (1 - tpositiontaking - ISNULL(mc.epositiontaking,0) ) * mc.virtualrate VirtualTO
 		, ABS(Stake) * (1 - tpositiontaking - ISNULL(mc.epositiontaking,0)) * ABS(virtualrate - actualrate) VarianceTO
 		, ABS(Stake) * (1 - tpositiontaking - ISNULL(mc.epositiontaking,0)) * CASE WHEN mc.virtualrate > actualrate THEN mc.virtualrate ELSE actualrate END RealTO
+		,tv.ReasonId
 	FROM bodb02.dbo.bettrans mc WITH (NOLOCK)
 		INNER JOIN bodb02.dbo.match m WITH (NOLOCK) ON mc.matchid=m.matchid and m.sporttype>1
+		INNER JOIN bodb02.dbo.[TicketVoiding_VoidedTransaction] tv WITH (NOLOCK) ON mc.transid = tv.TransId
 	WHERE  winlostdate <= @Todate
 		AND mc.statusid = 102--void
 		AND mc.currency <> 20
@@ -73,7 +76,7 @@ BEGIN
 
 	INSERT INTO #tmp_data
 	SELECT 	winlostdate
-		,transid
+		,mc.transid
 		,liveindicator
 		,bettype
 		,betteam
@@ -88,8 +91,10 @@ BEGIN
 		,ABS(Stake) * (1 - tpositiontaking - ISNULL(mc.epositiontaking,0)) * mc.virtualrate VirtualTO
 		,ABS(Stake) * (1 - tpositiontaking - ISNULL(mc.epositiontaking,0)) * ABS(virtualrate - actualrate) VarianceTO
 		,ABS(Stake) * (1 - tpositiontaking - ISNULL(mc.epositiontaking,0)) * CASE WHEN mc.virtualrate > actualrate THEN mc.virtualrate ELSE actualrate END RealTO
+		,tv.ReasonId
 	FROM bodb02.dbo.bettrans14 mc WITH (NOLOCK)
 		INNER JOIN bodb02.dbo.match14 m WITH (NOLOCK) ON mc.matchid = m.matchid and m.sporttype > 1
+		INNER JOIN bodb02.dbo.[TicketVoiding_VoidedTransaction] tv WITH (NOLOCK) ON mc.transid = tv.TransId
 	WHERE winlostdate >= @BalanceUpDay
 		AND mc.statusid = 102--void
 		AND mc.currency <> 20
@@ -100,6 +105,12 @@ BEGIN
 	INTO #tmpmatch 
 	FROM bodb_archive.dbo.match_bk WITH(NOLOCK)
 	WHERE eventdate >= @Fromdate AND sporttype > 1
+	
+	SELECT transid,reasonid
+	INTO #TicketVoiding_VoidedTransaction
+	FROM bodb_archive.dbo.TicketVoiding_VoidedTransaction_bk WITH(NOLOCK)
+	WHERE createddate >= @Fromdate 
+
 
 	SELECT @rptdate = @Fromdate
 
@@ -108,7 +119,7 @@ BEGIN
 
 	INSERT INTO #tmp_data
 	SELECT 	winlostdate
-		,transid
+		,mc.transid
 		,liveindicator
 		,bettype
 		,betteam
@@ -123,8 +134,11 @@ BEGIN
 		,ABS(Stake) * (1 - tpositiontaking - ISNULL(mc.epositiontaking,0) ) * mc.virtualrate VirtualTO
 		,ABS(Stake) * (1 - tpositiontaking - ISNULL(mc.epositiontaking,0)) * ABS(virtualrate - actualrate) VarianceTO
 		,ABS(Stake) * (1 - tpositiontaking - ISNULL(mc.epositiontaking,0)) * CASE WHEN mc.virtualrate > actualrate THEN mc.virtualrate ELSE actualrate END RealTO
+		,tv.ReasonId
 	FROM bodb_archive.dbo.bettrans_bk mc WITH(NOLOCK)
 		INNER JOIN #tmpmatch m ON mc.matchid = m.matchid
+		INNER JOIN #TicketVoiding_VoidedTransaction tv WITH (NOLOCK) ON mc.transid = tv.TransId
+
 	WHERE winlostdate = @rptdate
 		and mc.statusid = 102--void
 		and mc.currency <> 20
@@ -134,6 +148,18 @@ BEGIN
 	END 
 
 	--Select data------------------------------------------------------------------------------------------------------------------------------
+	SELECT reasonid, replace(ReasonEnglish,char(10),' ') as ReasonEnglish 
+	INTO #TicketVoiding_Reason
+	FROM bodb_archive.dbo.TicketVoiding_Reason_bk WITH (NOLOCK)
+	UNION
+	SELECT reasonid, replace(ReasonEnglish,char(10),' ') as ReasonEnglish  
+	FROM DBTP.bodb02.dbo.TicketVoiding_Reason WITH (NOLOCK)
+
+	SELECT DISTINCT *
+	INTO #TicketVoiding_Reason_final
+	FROM #TicketVoiding_Reason
+
+
 	SELECT CONVERT(VARCHAR(10), Year(rptDate)) + '-' + CONVERT(VARCHAR(10), RIGHT('0' + RTRIM(MONTH(rptDate)), 2)) AS Monthly
 		,CAST(rptDate as DATE) 'Winlossdate'
 		,s.SportName
@@ -186,8 +212,7 @@ BEGIN
 		,cu1.username 'Creator'	
 		,tr.ReasonEnglish
 	FROM #tmp_data b WITH (NOLOCK)
-		INNER JOIN bodb02.dbo.[TicketVoiding_VoidedTransaction] tv WITH (NOLOCK) ON b.transid = tv.TransId
-		LEFT JOIN (SELECT reasonid, replace(ReasonEnglish,char(10),' ') as ReasonEnglish FROM DBTP.bodb02.dbo.TicketVoiding_Reason WITH (NOLOCK)) tr ON tr.ReasonId=tv.ReasonId
+		LEFT JOIN #TicketVoiding_Reason_final tr WITH (NOLOCK) ON tr.ReasonId=b.reasonid
 		LEFT JOIN bodb02.dbo.Sports s WITH (NOLOCK) ON s.SportType=b.sporttype 
 		LEFT JOIN bodb02.dbo.bettype bt WITH (NOLOCK) ON bt.typeid=b.bettype  
 		LEFT JOIN bodb02.dbo.vw_Customer cu WITH (NOLOCK) ON cu.custid=b.custid  
@@ -244,5 +269,9 @@ BEGIN
 	DROP TABLE #BU
 	DROP TABLE #tmp_data
 	DROP TABLE #tmpmatch
+	DROP TABLE #TicketVoiding_VoidedTransaction
+	DROP TABLE #TicketVoiding_Reason
+	DROP TABLE #TicketVoiding_Reason_final
+	
 	
 END  
