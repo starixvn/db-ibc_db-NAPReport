@@ -18,9 +18,14 @@ Revisions:
 	- 20131118@Lukas: add filter to exclude running tickets
 	- 20190923@Bobby: Enhance SMA Balance report [redmine: #119990]
 	- 20201027@Ned.Le: NAP Report - BBin - Remove BBIN Transfer off Balance reports (#144071)
+	- 20210507@Jaden.Tang: Adjust code to prevent reading dupplicated in bettrans & bettrans14 during move bet process (#154649)
 */
 BEGIN
 	SET NOCOUNT ON
+
+	DECLARE @MoveBetsDay DATE
+	SELECT @MoveBetsDay = MoveBetsDay
+	FROM OPENQUERY(DBACC,'exec bodb02.dbo.Age_SelBalanceUpDay')
 
 	DECLARE @currentDate		SMALLDATETIME
 			, @yesterday		SMALLDATETIME
@@ -45,7 +50,12 @@ BEGIN
 				SUM(bet.winlost * b.actualrate) AS baseBalance
 			FROM dbo.bettrans b with (nolock)
 			CROSS APPLY (
-				SELECT CASE 
+				SELECT 
+						--skip volatile rows during move bet process (see Balance_Direct_Master report)
+						CASE WHEN (b.winlostdate > @MoveBetsDay AND bettype = 19999) OR (b.winlostdate = @MoveBetsDay and bettype < 19999)
+							THEN 0 ELSE 1 END
+						*
+						CASE 
 							WHEN b.bettype >= 20000 OR b.winlostdate <= @yesterday THEN (winlost - actual_stake + playercomm) 
 							ELSE 0
 						END

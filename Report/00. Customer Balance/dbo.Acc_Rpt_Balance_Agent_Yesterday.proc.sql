@@ -18,9 +18,14 @@ Revisions:
 	- 20131119@Lukas: remove running/void/reject/refund tickets
 	- 20190919@Bobby: Enhance SMA Balance report [redmine: #119990]
 	- 20201027@Ned.Le: NAP Report - BBin - Remove BBIN Transfer off Balance reports (#144071)
+	- 20210507@Jaden.Tang: Adjust code to prevent reading dupplicated in bettrans & bettrans14 during move bet process (#154649)
 */
 BEGIN
 	SET NOCOUNT ON 
+
+	DECLARE @MoveBetsDay DATE
+	SELECT @MoveBetsDay = MoveBetsDay
+	FROM OPENQUERY(DBACC,'exec bodb02.dbo.Age_SelBalanceUpDay')
 
 	DECLARE @currentDate	SMALLDATETIME
 		, @yesterday		SMALLDATETIME
@@ -53,6 +58,10 @@ BEGIN
 		ON b.recommend = ai.custid
 		CROSS APPLY (
 			SELECT 
+				--skip volatile rows during move bet process (see Balance_Direct_Master report)
+				CASE WHEN (b.winlostdate > @MoveBetsDay AND bettype = 19999) OR (b.winlostdate = @MoveBetsDay and bettype < 19999)
+					THEN 0 ELSE 1 END
+				*
 				CASE 
 					WHEN (b.bettype >= 20000 OR b.winlostdate <= @yesterday) THEN
 						(CASE WHEN b.custid = b.recommend THEN winlost-actual_stake ELSE awinlost+comm-playercomm END) -- agent level
