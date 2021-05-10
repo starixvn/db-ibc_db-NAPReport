@@ -51,8 +51,8 @@ SET NOCOUNT ON
 			ROUND(SUM(
 				CASE WHEN (b.winlostdate > @MoveBetsDay AND bettype = 19999) 
 						OR (b.winlostdate = @MoveBetsDay and bettype < 19999)
-					THEN winlost-actual_stake + playercomm
-					ELSE 0 END --skip volatile rows during move bet process
+					THEN 0 --skip volatile rows during move bet process
+					ELSE winlost-actual_stake + playercomm END 
 				)
 			,2) AS Balance
 	FROM 
