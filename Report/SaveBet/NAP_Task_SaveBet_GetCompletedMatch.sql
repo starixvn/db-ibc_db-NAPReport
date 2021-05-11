@@ -17,11 +17,11 @@ AS
 
 BEGIN
 	SET NOCOUNT ON
-	DECLARE @movebetdate DATETIME,
+	DECLARE @MoveBetsDay DATETIME,
 			@CurentDate  DATETIME
 	SELECT @CurentDate = CONVERT( VARCHAR(10), GETDATE(), 120)
 	
-	SELECT @movebetdate = MoveBetsDay
+	SELECT @MoveBetsDay = MoveBetsDay
 	FROM OPENQUERY(DBACC, 'exec bodb02.dbo.[Age_SelBalanceUpDay]')
 
 	INSERT INTO dbo.MatchList
@@ -48,9 +48,9 @@ BEGIN
 				  AwayID
 		   FROM bodb02.dbo.match WITH ( NOLOCK )
 		   WHERE matchid NOT IN( 
-								 SELECT matchlist.MatchID
+								 SELECT MatchList.MatchID
 								 FROM MatchList
-								 WHERE match.eventdate > @movebetdate
+								 WHERE match.eventdate > @MoveBetsDay
 									AND match.eventdate <= GETDATE())
 			 AND eventdate BETWEEN DATEADD(DD, -1, @CurentDate) AND @CurentDate
 			 AND eventstatus = 'completed'

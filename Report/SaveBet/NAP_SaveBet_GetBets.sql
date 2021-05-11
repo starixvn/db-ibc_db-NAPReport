@@ -54,7 +54,12 @@ BEGIN
 	,@EventDate DATETIME
 	,@MoveBetsDay DATETIME
 
+	---Get MoveBetsDay---
+	SELECT @MoveBetsDay = MoveBetsDay
+	FROM OPENQUERY(DBACC, 'EXEC bodb02.dbo.Age_SelBalanceUpDay')
+	
 	---Get match info---
+	--Warning: can be incorrect if DATEPART(hour/minute/second , MoveBetsDay/eventdate) <> 0--
 	;WITH cte_match
 	AS (
 		SELECT eventdate
@@ -62,6 +67,7 @@ BEGIN
 			,awayid
 		FROM bodb02.dbo.match WITH (NOLOCK)
 		WHERE matchid = @matchid
+			AND eventdate > @MoveBetsDay
 		
 		UNION
 		
@@ -70,15 +76,12 @@ BEGIN
 			,awayid
 		FROM bodb02.dbo.match14 WITH (NOLOCK)
 		WHERE matchid = @matchid
+			AND eventdate <= @MoveBetsDay
 	)
 	SELECT @homeid = MAX(homeid)
 		,@awayid = MAX(awayid)
 		,@EventDate = MAX(eventdate)
 	FROM cte_match
-
-	---Get MoveBetsDay---
-	SELECT @MoveBetsDay = MoveBetsDay
-	FROM OPENQUERY(DBACC, 'EXEC bodb02.dbo.Age_SelBalanceUpDay')
 	
 	CREATE TABLE #abnormalOrRobotUsers (custid int, [type] varchar(10))
 
