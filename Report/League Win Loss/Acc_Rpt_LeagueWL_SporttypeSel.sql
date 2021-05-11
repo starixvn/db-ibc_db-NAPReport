@@ -15,6 +15,7 @@ AS
 		- 20200520@Ned.Le: NAP Report - Enhancement for League Win Loss (#134439)
 		- 20200806@Jaden.Tang: NAP Report - Enhancement for League Win Loss (#138995)
 		- 20200930@Jaden.Tang: Odds Spread Adjustment (#141750)
+		- 20210420@Jaden.Tang: Move E-Sports out of 'Others' (#153352)
 
 	Param's Explanation:
 
@@ -31,9 +32,11 @@ BEGIN
 		SELECT DISTINCT
 			   CASE WHEN sbm.SportType = 1 THEN 1
 			   		WHEN sbm.SportType = 2 THEN 2
+			   		WHEN sbm.SportType = 43 THEN 43
 					ELSE 20000 END SportGroupType,
 			   CASE WHEN sbm.SportType = 1 THEN 'Soccer'
 			   		WHEN sbm.SportType = 2 THEN 'Basketball'
+			   		WHEN sbm.SportType = 43 THEN 'E-Sports'
 					ELSE 'Others' END SportGroupName,
 			   sbm.SportType,
 			   s.SportName SportName,
