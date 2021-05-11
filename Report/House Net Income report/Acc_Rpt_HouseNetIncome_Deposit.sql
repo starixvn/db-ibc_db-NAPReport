@@ -603,7 +603,8 @@ BEGIN
 			INNER JOIN #AllLicensees l ON t.SiteId_DW = l.SiteId_DW
 			INNER JOIN @ExchangeOANDA e ON t.CurrencyId = e.ExchangeId
 			LEFT JOIN #PartyChargeInfo p ON p.PartyId = l.PartyId AND p.Product3rdId = t.Product3rdId AND t.rptDate BETWEEN p.FromDate AND p.ToDate
-					AND ((p.Bettype = -1 AND t.BetTypeGroup = -1) OR p.Bettype = t.BetTypeGroup)
+					AND (p.Bettype = -1 OR p.Bettype = t.BetTypeGroup)
+					AND (t.BetTypeGroup <> -3)
 					AND (
 						(t.Product3rdId IN (11, 39) AND t.BetTypeGroup <> -1 AND p.ChargeType = 12)
 						OR (t.Product3rdId = 15 AND p.ChargeType = 6)
