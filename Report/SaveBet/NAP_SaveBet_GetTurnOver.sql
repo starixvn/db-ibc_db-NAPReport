@@ -28,20 +28,17 @@ BEGIN
 	FROM OPENQUERY(DBACC, 'EXEC bodb02.dbo.Age_SelBalanceUpDay')
 	
 	---Get match info---
-	--Warning: can be incorrect if DATEPART(hour/minute/second , MoveBetsDay/eventdate) <> 0--
 	;WITH cte_match
 	AS (
 		SELECT eventdate
 		FROM bodb02.dbo.match WITH (NOLOCK)
 		WHERE matchid = @matchid
-			AND eventdate > @MoveBetsDay
 		
 		UNION
 		
 		SELECT eventdate
 		FROM bodb02.dbo.match14 WITH (NOLOCK)
 		WHERE matchid = @matchid
-			AND eventdate <= @MoveBetsDay
 	)
 	SELECT @EventDate = MAX(eventdate)
 	FROM cte_match
@@ -111,7 +108,7 @@ BEGIN
 			AND b.bettype NOT IN (911,912,913,914, 38)
 	) b
 
-	ELSE
+	ELSE -- get from bettrans14 --
 
 	SELECT
 		IsNull(TotalA, 0) TotalA, IsNull(SuperA, 0) SuperA, IsNull(MasterA, 0) MasterA, IsNull(AgentA, 0) AgentA,
