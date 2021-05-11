@@ -21,7 +21,10 @@ BEGIN
 	SET NOCOUNT ON 
 
 	DECLARE @BalanceUpDay SMALLDATETIME
+		,@MoveBetsDay SMALLDATETIME
 	SET @BalanceUpDay = DATEADD(DAY,-7,CONVERT(VARCHAR(10), CURRENT_TIMESTAMP, 120))
+	SELECT @MoveBetsDay = MoveBetsDay
+	FROM OPENQUERY(DBSUM,'exec bodb02.dbo.Age_SelBalanceUpDay')
 
 	IF (DATEPART(weekday,@BalanceUpDay)<> 6)
 	BEGIN
@@ -39,8 +42,11 @@ BEGIN
 			FROM bodb02.dbo.bettrans b WITH (NOLOCK)
 				INNER JOIN bodb02.dbo.custinfo ci (NOLOCK) ON b.custid = ci.custid
 				INNER JOIN bodb02.dbo.exchange e (NOLOCK) ON ci.currency = e.exchangeid
-			WHERE
-				ruben=1 AND CONVERT(DATE, b.winlostdate) <= @BalanceUpDay
+			WHERE ruben=1
+				AND b.winlostdate <= @BalanceUpDay
+				AND 1 = (CASE WHEN b.bettype = 19999 AND CONVERT(DATE, b.winlostdate) > @MoveBetsDay THEN 0	--new sum
+						WHEN b.bettype < 19999 AND CONVERT(DATE, b.winlostdate) = @MoveBetsDay THEN 0		--old bet
+						ELSE 1 END)
 		) a
 		WHERE ABS(a.diff) > 0.01
 	)
@@ -64,8 +70,11 @@ BEGIN
 	FROM bodb02.dbo.bettrans b WITH (NOLOCK)
 		INNER JOIN bodb02.dbo.custinfo ci (NOLOCK) ON b.custid = ci.custid
 		INNER JOIN bodb02.dbo.exchange e (NOLOCK) ON ci.currency = e.exchangeid
-	WHERE
-		ruben=1 AND winlostdate <= @BalanceUpday
+	WHERE ruben=1
+		AND winlostdate <= @BalanceUpday
+		AND 1 = (CASE WHEN b.bettype = 19999 AND CONVERT(DATE, b.winlostdate) > @MoveBetsDay THEN 0		--new sum
+						WHEN b.bettype < 19999 AND CONVERT(DATE, b.winlostdate) = @MoveBetsDay THEN 0	--old bet
+						ELSE 1 END)
 	GROUP BY  exchangeid
 
 END
