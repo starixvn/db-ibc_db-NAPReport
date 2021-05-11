@@ -325,6 +325,7 @@ BEGIN
 	DROP TABLE #tmpAgent
 	DROP TABLE #tmpData
 	DROP TABLE #tmpFinal
+	DROP TABLE #tmpBettypeGroup
 
 END
 GO
