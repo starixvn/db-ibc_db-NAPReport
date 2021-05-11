@@ -19,9 +19,14 @@ AS
 			+ Remove columns: creditgrade, preagreeamount, accountremark, accountremarkdate
 		- 20160322@Robert: Moving customers to new lines  [Redmine: #53554]
 		- 20201027@Ned.Le: NAP Report - BBin - Remove BBIN Transfer off Balance reports (#144071)
+		- 20210507@Jaden.Tang: Adjust code to prevent reading dupplicated in bettrans & bettrans14 during move bet process (#154649)
 */	
 
 SET NOCOUNT ON
+
+	DECLARE @MoveBetsDay DATE
+	SELECT @MoveBetsDay = MoveBetsDay
+	FROM OPENQUERY(DBACC,'exec bodb02.dbo.Age_SelBalanceUpDay')
 
 	DECLARE @tmpCust TABLE (
 		custid				INT,
@@ -66,6 +71,8 @@ BEGIN
 				FROM	bettrans WITH (NOLOCK)
 				WHERE	ruben = 1
 						AND bettrans.bettype NOT IN (21008, 21009)
+						AND CASE WHEN (bettrans.winlostdate > @MoveBetsDay AND bettype = 19999) OR (bettrans.winlostdate = @MoveBetsDay and bettype < 19999)
+								THEN 0 ELSE 1 END = 1
 				GROUP BY custID
 			) b ON ca.custid = b.custid
 	order by ca.username 
@@ -106,6 +113,8 @@ BEGIN
 					sum(case when bettrans.custid <> bettrans.recommend and ruben=1 then (winlost-actual_stake+playercomm)*actualrate else 0 end) bal_base				
 				FROM bettrans (nolock)
 				WHERE bettrans.bettype NOT IN (21008, 21009)
+					AND CASE WHEN (bettrans.winlostdate > @MoveBetsDay AND bettype = 19999) OR (bettrans.winlostdate = @MoveBetsDay and bettype < 19999)
+							THEN 0 ELSE 1 END = 1
 				GROUP BY bettrans.recommend
 			) bal ON ca.custid = bal.recommend
 	order by username
@@ -131,6 +140,8 @@ BEGIN
 					sum(case when bettrans.custid <> bettrans.recommend and bettrans.custid <> bettrans.mrecommend and ruben=1 then (winlost-actual_stake+playercomm)*actualrate else 0 end) Bal_base
 				FROM bettrans (nolock)
 				WHERE bettrans.bettype NOT IN (21008, 21009)
+					AND CASE WHEN (bettrans.winlostdate > @MoveBetsDay AND bettype = 19999) OR (bettrans.winlostdate = @MoveBetsDay and bettype < 19999)
+							THEN 0 ELSE 1 END = 1				
 				GROUP BY bettrans.mrecommend
 			) bal ON c.custid = bal.mrecommend
 			INNER JOIN custAccount ca (nolock) ON c.custid = ca.custid and ca.installmentamount > 0
@@ -177,6 +188,8 @@ BEGIN
 					+ IsNull(sum(case when custid <> recommend and custid <> mrecommend and custid <> srecommend and ruben=1 then (winlost-actual_stake+playercomm)*actualrate else 0 end),0) Bal_base
 				FROM bettrans (nolock)
 				WHERE bettrans.bettype NOT IN (21008, 21009)
+					AND CASE WHEN (bettrans.winlostdate > @MoveBetsDay AND bettype = 19999) OR (bettrans.winlostdate = @MoveBetsDay and bettype < 19999)
+							THEN 0 ELSE 1 END = 1
 				GROUP BY bettrans.srecommend
 			) bal ON ca.custid = bal.srecommend
 	order by CASE when (ca.custid < 100 or ca.custid in (21278849, 21278858))then 0 ELSE 1 END, ca.username

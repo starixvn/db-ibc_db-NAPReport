@@ -20,12 +20,18 @@ AS
 		- 20130820@Viet: enhance SP
 		- 20130810@Thien: fix to show TOTAL BALANCE for Agent level, instead of Cash balance
 		- 20201027@Ned.Le: NAP Report - BBin - Remove BBIN Transfer off Balance reports (#144071)
+		- 20210507@Jaden.Tang: Adjust code to prevent reading dupplicated in bettrans & bettrans14 during move bet process (#154649)
 	Param's Explanation:
 
 */
 
 SET NOCOUNT ON
 BEGIN
+
+	DECLARE @MoveBetsDay DATE
+	SELECT @MoveBetsDay = MoveBetsDay
+	FROM OPENQUERY(DBACC,'exec bodb02.dbo.Age_SelBalanceUpDay')
+
 	create table #groupHeadLine
 	(
 		groupID smallint PRIMARY KEY, 
@@ -82,6 +88,8 @@ BEGIN
 		FROM dbo.bettrans b with(nolock)
 		WHERE b.srecommend in (select custid from #super)
 			  AND b.bettype NOT IN (21008, 21009)
+			  AND CASE WHEN (b.winlostdate > @MoveBetsDay AND bettype = 19999) OR (b.winlostdate = @MoveBetsDay and bettype < 19999)
+				THEN 0 ELSE 1 END = 1
 		GROUP BY b.srecommend
 	)	
 	INSERT INTO #Balance(custid, groupID, Balance)
@@ -107,6 +115,8 @@ BEGIN
 		INNER JOIN dbo.bettrans b with(nolock) on a.custid = b.mrecommend
 	WHERE  b.srecommend = a.uplineid
 		   AND b.bettype NOT IN (21008, 21009)
+		   AND CASE WHEN (b.winlostdate > @MoveBetsDay AND bettype = 19999) OR (b.winlostdate = @MoveBetsDay and bettype < 19999)
+				THEN 0 ELSE 1 END = 1
 	GROUP BY a.custid, a.groupid
 	
 	UNION ALL --agent
@@ -119,6 +129,8 @@ BEGIN
 			INNER JOIN custAccount a with(nolock) on c.custid = a.custid
 	WHERE roleid = 2 AND (PreAgreeAmount > 0 OR groupID > 0)
 		  AND b.bettype NOT IN (21008, 21009)
+		  AND CASE WHEN (b.winlostdate > @MoveBetsDay AND bettype = 19999) OR (b.winlostdate = @MoveBetsDay and bettype < 19999)
+			THEN 0 ELSE 1 END = 1
 	GROUP BY b.recommend, a.groupid	
 	
 	UNION ALL
@@ -132,6 +144,8 @@ BEGIN
 		AND c.roleid = 1	
 		AND (PreAgreeAmount > 0 OR groupID > 0)
 		AND b.bettype NOT IN (21008, 21009)
+		AND CASE WHEN (b.winlostdate > @MoveBetsDay AND bettype = 19999) OR (b.winlostdate = @MoveBetsDay and bettype < 19999)
+			THEN 0 ELSE 1 END = 1
 	GROUP BY a.custid, a.groupid	
 
 	UPDATE #Balance
