@@ -652,7 +652,7 @@ BEGIN
 					  ExtraPT,
 					  ExtraPTBase
 					)
-			SELECT	CASE WHEN b.gameID = 1698 THEN b.productID ELSE b.gameID END ReportBy, b.gameID, b.srecommend,
+			SELECT	CASE WHEN s.Bettype IS NOT NULL THEN b.productID ELSE b.gameID END ReportBy, b.gameID, b.srecommend,
 					CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END AS custid,
 					0 AS BetCount, b.currency, 
 
@@ -684,10 +684,11 @@ BEGIN
 								ELSE scomm / (1 - tpositiontaking) END) * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8)) * actualrate) ExtraPTBase
 			
 			FROM dbo.bettransRnG b WITH (NOLOCK)
+				LEFT JOIN #tmpSportBetType s ON b.gameID = s.Bettype
 			WHERE b.winlostdate = @WLDate
 				AND b.gameID IN (SELECT Bettype FROM #tmpContributionBettype) 
-				AND (b.gameID NOT IN (SELECT Bettype FROM #tmpSportBetType)
-					OR EXISTS(SELECT 1 FROM #tmpSportBetType s WHERE b.productid = s.Sporttype and b.gameid = s.Bettype)
+				AND (s.Bettype IS NULL
+					OR b.productid = s.Sporttype and b.gameid = s.Bettype
 					)
 				AND b.statusID IN (111, 112, 113, 103) 	
 				AND (@ExcludeTest = 0 OR (b.Currency <> 20 AND @ExcludeTest = 1))
@@ -702,7 +703,7 @@ BEGIN
 					OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) 
 					OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
 				)
-			GROUP BY CASE WHEN b.gameID = 1698 THEN b.productID ELSE b.gameID END,
+			GROUP BY CASE WHEN s.Bettype IS NOT NULL THEN b.productID ELSE b.gameID END,
 				b.gameID, b.srecommend, CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END, b.currency
 			OPTION(RECOMPILE)
 		END
@@ -1470,7 +1471,7 @@ BEGIN
 		SET ReportByName = 'Happy 5 Linked Games'
 		WHERE ReportBy = 168
 	END
-	ELSE IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID IN (5,27,42))
+	ELSE IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID IN (5,27) OR ProductID IN (SELECT ProductID FROM #tmpHouseProduct))
 	BEGIN
 		UPDATE d
 		SET d.ReportByName = s.SportName
