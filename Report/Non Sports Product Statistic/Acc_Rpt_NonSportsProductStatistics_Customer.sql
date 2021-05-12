@@ -193,7 +193,7 @@ BEGIN
 		END
 	END
 	
-	IF @SportBetType <> '' AND EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID = 42)
+	IF @SportBetType <> ''
     BEGIN
 		IF substring (@SportBetType, len(@SportBetType), 1) <> @splitter1
 			SET @SportBetType = @SportBetType + @splitter1
@@ -279,6 +279,10 @@ BEGIN
 	FROM #SportBettype s
 	WHERE s.ProductID IN (SELECT ProductID FROM #tmpHouseProduct)
 		AND NOT EXISTS (SELECT b.Bettype FROM #tmpSportBetType b WHERE b.Bettype = s.Bettype)
+		
+	DELETE t
+	FROM #tmpSportBetType t LEFT JOIN #SportBettype s ON t.Bettype = s.Bettype
+	WHERE s.Bettype IS NULL
 		
 	DROP TABLE #tmp_BetType
 	-- End Get Sport Bettype Matrix --

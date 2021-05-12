@@ -111,7 +111,7 @@ BEGIN
 		END
 	END
 	
-	IF @SportBetType <> '' AND EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID = 42)
+	IF @SportBetType <> '' 
     BEGIN
 		IF substring (@SportBetType, len(@SportBetType), 1) <> @splitter1
 			SET @SportBetType = @SportBetType + @splitter1
@@ -178,6 +178,10 @@ BEGIN
 		INNER JOIN #tmp_SportType t ON s.SportType = t.Sporttype 
 	WHERE p.ProductID = 23 --NG2
 		AND (s.IsTest = 0 OR s.IsTest = @isTest)
+		
+	DELETE t
+	FROM #tmpSportBetType t LEFT JOIN #SportBettype s ON t.Bettype = s.Bettype
+	WHERE s.Bettype IS NULL
 
 	DROP TABLE #tmp_ProductID
 	DROP TABLE #tmp_BetType

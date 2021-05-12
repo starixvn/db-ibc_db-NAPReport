@@ -251,7 +251,7 @@ SET NOCOUNT ON
 		END
 	END
 	
-	IF @SportBetType <> '' AND EXISTS (SELECT 1 FROM #tmpProductID WHERE ProductID = 42)
+	IF @SportBetType <> '' 
     BEGIN
 		IF substring (@SportBetType, len(@SportBetType), 1) <> @splitter1
 			SET @SportBetType = @SportBetType + @splitter1
@@ -365,6 +365,10 @@ SET NOCOUNT ON
 	FROM #SportBettype s
 	WHERE s.ProductID IN (SELECT ProductID FROM #tmpHouseProduct) --Saba.club, VGaming
 		AND NOT EXISTS (SELECT b.Bettype FROM #tmpSportBetType b WHERE b.Bettype = s.Bettype)
+		
+	DELETE t
+	FROM #tmpSportBetType t LEFT JOIN #SportBettype s ON t.Bettype = s.Bettype
+	WHERE s.Bettype IS NULL
 	
 	INSERT INTO #tmpContributionBettype (Bettype)
 	SELECT Bettype
