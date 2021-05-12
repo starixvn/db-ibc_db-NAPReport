@@ -1457,7 +1457,7 @@ BEGIN
     DROP TABLE #TempMatch;
     DROP TABLE #TempData;
     DROP TABLE #Result;
-    DROP TABLE #info;
+
 END;
 GO
 
