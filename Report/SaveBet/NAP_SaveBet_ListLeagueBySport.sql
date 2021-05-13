@@ -1,12 +1,5 @@
-
-SET QUOTED_IDENTIFIER ON 
-GO
-SET ANSI_NULLS ON 
-GO
-
-/****** Object:  Stored Procedure dbo.NAP_SaveBet_ListLeagueBySport    Script Date: 9/10/2014 3:22:01 PM ******/
-
-CREATE PROCEDURE [dbo].[NAP_SaveBet_ListLeagueBySport]
+/*<info serverAlias="DBWH-bodb_dwrs" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+ALTER PROCEDURE [dbo].[NAP_SaveBet_ListLeagueBySport]
 	@Date DATETIME,
 	@SportType INT
 AS
@@ -15,28 +8,18 @@ AS
 	Created by: Dom
 	Date:2014-05-05
 	Task: Get Leagues by sportid
-	DB: DB06.bodb_ACC
+	DB: DBWH.bodb_dwrs
 	
 	Revisions:
+		20210423@Roy: NAP Report - Move Save bet db & service (#153147)
 */	
-
-SELECT DISTINCT ml.leagueid, l.leaguename
-FROM MatchList ml WITH(NOLOCK)
-INNER JOIN bodb02.dbo.League l WITH(NOLOCK) ON l.leagueid = ml.LeagueID
-WHERE ML.EventDate=@Date
-AND ml.sporttype = @SportType
-ORDER BY l.leaguename
-
-GO
-
-SET QUOTED_IDENTIFIER OFF 
-GO
-SET ANSI_NULLS ON 
-GO
-
-
-GO 
- GRANT EXECUTE ON [dbo].[NAP_SaveBet_ListLeagueBySport] TO [bodbAdminNet]
-GO 
- GRANT VIEW DEFINITION ON [dbo].[NAP_SaveBet_ListLeagueBySport] TO [vnteam]
-GO 
+BEGIN
+	SET NOCOUNT ON
+	SELECT DISTINCT ml.LeagueID
+		,l.LeagueName
+	FROM bodb_Account.dbo.MatchList ml WITH (NOLOCK)
+	INNER JOIN bodb02.dbo.League l WITH (NOLOCK) ON l.LeagueID = ml.LeagueID
+	WHERE ml.EventDate = @Date
+		AND ml.sporttype = @SportType
+	ORDER BY l.LeagueName
+END

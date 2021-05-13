@@ -1,8 +1,4 @@
-/*<info serverAlias="DBACC-bodb_ACC" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
-
-USE [bodb_ACC]
-GO
-
+/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[NAP_SaveBet_GetMatchInfo]
 	@matchid int
 AS
@@ -11,14 +7,16 @@ AS
 	Created by: Dom
 	Date:2014-05-05
 	Task: Get match info for report
-	DB: DBACC.bodb_ACC
+	DB: DBACC.bodb02
 	
 	Revisions:
+		20210423@Roy: NAP Report - Move Save bet db & service (#153147)
 */
 
 BEGIN
 	SET NOCOUNT ON
-
+	
+	---Get data from bettrans---
 	IF EXISTS (SELECT matchid FROM bodb02.dbo.match WITH(NOLOCK) WHERE matchid = @matchid)
 		SELECT
 			s.sportname,
@@ -40,7 +38,7 @@ BEGIN
 			LEFT JOIN bodb02.dbo.team a with (nolock) ON m.awayid = a.teamid
 		WHERE
 			matchid = @matchid
-	ELSE
+	ELSE ---Get data from bettrans14---
 		SELECT
 			s.sportname,
 			s.SportType,
@@ -62,4 +60,3 @@ BEGIN
 		WHERE
 			matchid = @matchid
 END
-GO

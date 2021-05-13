@@ -1,12 +1,5 @@
-
-SET QUOTED_IDENTIFIER ON 
-GO
-SET ANSI_NULLS ON 
-GO
-
-/****** Object:  Stored Procedure dbo.NAP_SaveBet_ListSportByDate    Script Date: 9/10/2014 3:22:01 PM ******/
-
-CREATE PROCEDURE [dbo].[NAP_SaveBet_ListSportByDate]-- '20140501'
+/*<info serverAlias="DBWH-bodb_dwrs" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+ALTER PROCEDURE [dbo].[NAP_SaveBet_ListSportByDate]
 	@Date DATETIME
 AS
 
@@ -14,25 +7,19 @@ AS
 	Created by: Dom
 	Date:2014-05-05
 	Task: Get Sports by date
-	DB: DB06.bodb_ACC
+	DB: DBWH.bodb_dwrs
 	
 	Revisions:
+		20210423@Roy: NAP Report - Move Save bet db & service (#153147)
 */	
+BEGIN
+	SET NOCOUNT ON
 
-SELECT DISTINCT ml.SportType,s.SportName 
-FROM MatchList ml WITH(NOLOCK) INNER JOIN bodb02.dbo.Sports s WITH(NOLOCK) ON s.sporttype = ml.sporttype
-WHERE EventDate=@Date
-ORDER BY ml.SportType
-GO
+	SELECT DISTINCT ml.SportType
+		,s.SportName
+	FROM bodb_Account.dbo.MatchList ml WITH (NOLOCK)
+	INNER JOIN bodb02.dbo.Sports s WITH (NOLOCK) ON s.sporttype = ml.sporttype
+	WHERE EventDate = @Date
+	ORDER BY ml.SportType
 
-SET QUOTED_IDENTIFIER OFF 
-GO
-SET ANSI_NULLS ON 
-GO
-
-
-GO 
- GRANT EXECUTE ON [dbo].[NAP_SaveBet_ListSportByDate] TO [bodbAdminNet]
-GO 
- GRANT VIEW DEFINITION ON [dbo].[NAP_SaveBet_ListSportByDate] TO [vnteam]
-GO 
+END
