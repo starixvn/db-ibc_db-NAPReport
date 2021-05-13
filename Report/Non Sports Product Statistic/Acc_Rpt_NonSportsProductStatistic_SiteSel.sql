@@ -73,15 +73,19 @@ BEGIN
 	
 	-- Get licensee and direct groups
 	INSERT INTO #tmpLicensee (LicenseeId, LicenseeName, GroupId)
-	SELECT s.LicenseeID, s.LicenseeName,
-		CASE WHEN p.OldRefID IS NULL OR a.GroupId IS NULL THEN -3 ELSE a.GroupId END AS GroupId
+	SELECT s.LicenseeID, s.LicenseeName, a.GroupId 
 	FROM #tmpSite s 
-		LEFT JOIN bodb_Licensee.dbo.OAS_Party p WITH(NOLOCK) ON s.LicenseeID = p.OldRefID
+		INNER JOIN bodb_Licensee.dbo.OAS_Party p WITH(NOLOCK) ON s.LicenseeID = p.OldRefID
 		INNER JOIN bodb_Licensee.dbo.OAS_PartyDetail pd WITH(NOLOCK) ON p.PartyID = pd.PartyID
 		INNER JOIN bodb_Licensee.dbo.Licensees l WITH(NOLOCK) ON l.LicenseeID = p.OldRefID
-		LEFT JOIN bodb_Licensee.dbo.LA_CombinedGroupAssignment a WITH(NOLOCK) ON p.PartyId = a.PartyId
+		INNER JOIN bodb_Licensee.dbo.LA_CombinedGroupAssignment a WITH(NOLOCK) ON p.PartyId = a.PartyId
 	WHERE p.PartyType = 1 AND pd.IsDeposit = 1 AND pd.StatusId = 1	
 		AND s.LicenseeID NOT IN (SELECT LicenseeID FROM #tmpLicensee WHERE GroupId = -2)
+		
+	INSERT INTO #tmpLicensee (LicenseeId, LicenseeName, GroupId)
+	SELECT LicenseeID, LicenseeName, -3 GroupId
+	FROM #tmpSite
+	WHERE LicenseeID NOT IN (SELECT LicenseeID FROM #tmpLicensee)
 	
 	-- Get Group
 	SELECT GroupId, GroupName, ParentId
