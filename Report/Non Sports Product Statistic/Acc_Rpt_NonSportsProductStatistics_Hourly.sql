@@ -344,7 +344,7 @@ SET NOCOUNT ON
 	SELECT DISTINCT ProductID 
 	FROM DBWH.bodb_Account.dbo.Product_Bettype WITH (NOLOCK)
 	WHERE EventType = 255
-		AND ProductID IN (SELECT ProductID FROM #tmp_ProductID)
+		AND ProductID IN (SELECT ProductID FROM #tmpProductID)
 
 	DELETE	s
 	FROM	#SportBettype s
