@@ -101,7 +101,7 @@ BEGIN
 		WHERE ruben = 1
 			AND bt.bettype NOT IN (21008, 21009) --Remove BBIN Transfer
 			AND 1 = (CASE WHEN bt.bettype = 19999 AND CONVERT(DATE, bt.winlostdate) > @MoveBetsDay THEN 0	--new sum
-						WHEN bt.bettype < 19999 AND CONVERT(DATE, bt.winlostdate) = @MoveBetsDay THEN 0		--old bet
+						WHEN bt.bettype < 19999 AND CONVERT(DATE, bt.winlostdate) <= @MoveBetsDay THEN 0	--old bet
 						ELSE 1 END)
 		GROUP BY currency
 			,currencyname
@@ -124,7 +124,7 @@ BEGIN
 			AND winlostdate <= @Today
 			AND bt.bettype NOT IN (21008, 21009) --Remove BBIN Transfer
 			AND 1 = (CASE WHEN bt.bettype = 19999 AND CONVERT(DATE, bt.winlostdate) > @MoveBetsDay THEN 0	--new sum
-						WHEN bt.bettype < 19999 AND CONVERT(DATE, bt.winlostdate) = @MoveBetsDay THEN 0		--old bet
+						WHEN bt.bettype < 19999 AND CONVERT(DATE, bt.winlostdate) <=  @MoveBetsDay THEN 0	--old bet
 						ELSE 1 END)
 		GROUP BY currency
 			,currencyname
