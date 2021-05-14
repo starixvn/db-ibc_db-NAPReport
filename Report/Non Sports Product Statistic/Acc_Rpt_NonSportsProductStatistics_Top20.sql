@@ -287,7 +287,7 @@ BEGIN
 		
 	DELETE s
 	FROM #SportBettype s
-	WHERE s.ProductID IN (SELECT ProductID FROM #tmp_ProductID)
+	WHERE s.ProductID IN (SELECT ProductID FROM #tmpHouseProduct)
 		AND NOT EXISTS (SELECT b.Bettype FROM #tmpSportBetType b WHERE b.Bettype = s.Bettype)
 		
 	DELETE t
