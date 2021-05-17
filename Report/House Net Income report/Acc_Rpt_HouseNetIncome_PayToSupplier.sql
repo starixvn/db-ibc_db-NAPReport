@@ -19,9 +19,8 @@ AS
 		- 20210323@Percy: Integrate PP Live Casino [RedmineID: #133734]
 		- 20210402@Danny: Support Lucky Draw for AE Casino & Integrate Bonus program for credit sites for Arcadia Gaming & Remove the Gold Deluxe (#151870)
 		- 20210331@Danny: handle site saba789 follow credit term [Redmine: #152450] 
-
+		- 20210517@Danny: Remove the following term for Allbet (#155119)
 */
-
 BEGIN
     SET NOCOUNT ON
 
@@ -384,21 +383,6 @@ BEGIN
 					OR (@DepositType = 1 AND (SiteId < 1000 AND SiteID <> 509))
 				)
 			GROUP BY RptDate3rd, SiteId, BetTypeId, CurrencyId
-
-			IF @DepositType IN (0, 2) AND @IsOldView = 0
-				INSERT INTO #__tempData (rptDate, SiteId, BetTypeId, CurrencyId, Winloss, ValidBetAmount, ProgressiveContribution)
-				SELECT RptDate3rd, SiteId, BetTypeId, CurrencyId, SUM(Winloss), SUM(ValidBetAmount), SUM(ProgressiveContribution)
-				FROM DBLIC.bodb_LicenseeReport.dbo.rpt_CustomerWL_ExtraGMT WITH (NOLOCK)
-				WHERE RptDate BETWEEN @FDate_GMT AND @TDate_GMT
-					AND RptDate3rd BETWEEN @FDate AND @TDate
-					AND CurrencyID <> 20
-					AND StatusId NOT IN(-1, 101, 102, 103) -- Exclude Reject , Void, Refund
-					AND (
-						@DepositType = 2
-					OR (@DepositType = 0 AND (SiteId > 1000 OR SiteID = 509))
-					OR (@DepositType = 1 AND (SiteId < 1000 AND SiteID <> 509))
-					)
-				GROUP BY RptDate3rd, SiteId, BetTypeId, CurrencyId
 
 			INSERT INTO #__tempResult (rptDate, ParentId, IsDeposit, Product3rdId, Bettype, CurrencyId, PlayCurrency, PayDaily, PayDailyRate, PayMonth, PayMonthRate, MemberWLDailyRate, MemberWLMonthRate)
 			SELECT d.rptDate, tp.ParentId, tp.IsDeposit, bt.Product3rdId, CASE WHEN d.BetTypeId = 3007 THEN 3007 ELSE 0 END, d.CurrencyId, ISNULL(pc.PlayCurrency, d.CurrencyId) AS PlayCurrency
