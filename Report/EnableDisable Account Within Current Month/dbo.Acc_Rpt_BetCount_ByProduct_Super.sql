@@ -70,6 +70,7 @@ AS
 		- 20210420@Jaden: Include CG into Macau Games (#152781)
 		- 20210428@Ned.Le: NAP Report - Implement VGaming (#154072)
 		- 20210506@Ned.Le: NAP Report - Implement Advantplay (#154677)
+		- 20210517@Ned.Le: NAP Reports - Integrate AdvantPlay Mini (#155174)
 
 	Param's Explanation:  
 	  + @MoveBetsDay: The day of moving bets to battrans14
@@ -80,7 +81,7 @@ AS
 		 220: Lottery, 160: Lucky 3, 207: Bullfighting, 163: Poker Games, 245: Virtual Games
 		 244: SA Gaming, 200: Saba.club, 243: AE Casino, 222: Table Games,
 		 241: BBIN, 242: IBCBet Live Casino, 233: WM, 236: GDG, 239: BG
-		 212: Macau Games (include: Macau Games, Pragmatic, Spadegaming, Card Club [Video Poker], PG Soft, Joker Gaming, MaxGame, CG, AdvantPlay)
+		 212: Macau Games (include: Macau Games, Pragmatic, Spadegaming, Card Club [Video Poker], PG Soft, Joker Gaming, MaxGame, CG, AdvantPlay, AdvantPlay Mini)
 		 171: VGaming
 		}
   
@@ -185,6 +186,7 @@ BEGIN
 					OR b.gameID BETWEEN 6401 AND CASE WHEN @sportType=212 THEN 6700 ELSE 0 END -- Joker Gaming
 					OR b.gameID BETWEEN 5401 AND CASE WHEN @sportType=212 THEN 5499 ELSE 0 END -- MaxGame
 					OR b.gameID BETWEEN 7701 AND CASE WHEN @sportType=212 THEN 7799 ELSE 0 END -- AdvantPlay
+					OR b.gameID BETWEEN 7801 AND CASE WHEN @sportType=212 THEN 7899 ELSE 0 END -- AdvantPlay Mini
 					OR b.gameID BETWEEN 1011 AND CASE WHEN @sportType=219 THEN 1020 ELSE 0 END -- Fishing World
 					OR b.gameID BETWEEN 1611 AND CASE WHEN @sportType=200 THEN 1699 ELSE 0 END -- Saba.club
 					OR b.gameID BETWEEN 5500 AND CASE WHEN @sportType=224 THEN 5599 ELSE 0 END -- RNG War
@@ -270,6 +272,7 @@ BEGIN
 							OR b.bettype BETWEEN 6401 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = 212 THEN 6700 ELSE 0 END   -- Joker Gaming
 							OR b.bettype BETWEEN 5401 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = 212 THEN 6499 ELSE 0 END   -- MaxGame
 							OR b.bettype BETWEEN 7701 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = 212 THEN 7799 ELSE 0 END   -- AdvantPlay
+							OR b.bettype BETWEEN 7801 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = 212 THEN 7899 ELSE 0 END   -- AdvantPlay Mini
 							OR b.bettype BETWEEN 3401 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = 233 THEN 3499 ELSE 0 END   -- WM
 							OR b.bettype BETWEEN 5701 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = 236 THEN 5799 ELSE 0 END   -- GDG
 							OR b.bettype BETWEEN 3501 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = 239 THEN 3599 ELSE 0 END   -- BG
