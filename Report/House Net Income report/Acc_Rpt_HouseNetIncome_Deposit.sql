@@ -20,6 +20,7 @@ AS
 		- 20210402@Danny: Support Lucky Draw for AE Casino & Integrate Bonus program for credit sites for Arcadia Gaming & Remove the Gold Deluxe (#151870)
 		- 20210331@Danny: exclude site saba789 [Redmine: #152450] 
 		- 20210419@Danny: Arcadia Gaming - Add 2 new games: Marble Mini and RPS (#153419)
+		- 20210405@Danny: Integrate VGaming Casino games (#154157)
 */
 BEGIN
 	SET NOCOUNT ON
@@ -135,22 +136,6 @@ BEGIN
 		INSERT INTO #Licensees (LicenseeId, PartyId, ParentId)
 		EXEC (@SQL)
 
-		-- Exclude Licensee Saba789
-		DECLARE @LicenseeId_Saba789 INT
-
-		SELECT @LicenseeId_Saba789 = MAX(OldRefId) 
-		FROM OPENQUERY (DBLIC, 'SELECT OldRefId  
-								FROM bodb_licensee.dbo.OAS_Party p WITH (NOLOCK)
-								WHERE PartyName = ''Saba789''')
-
-		DELETE t 
-		FROM #Licensees t
-		WHERE t.LicenseeId = @LicenseeId_Saba789
-
-		DELETE t 
-		FROM #AllLicensees t
-		WHERE t.LicenseeId = @LicenseeId_Saba789
-
 	END
 
 	-- Get charge rate
@@ -254,9 +239,6 @@ BEGIN
 		INSERT INTO @tmpSite (LicenseeId, SiteName)
 		SELECT LicenseeId, RTRIM(LTRIM(LicenseeName)) FROM DBLIC.bodb_licensee.dbo.Licensees WITH (NOLOCK) WHERE IsDeposit = 1
 
-		-- Remove Saba789 from @tmpSite
-		DELETE FROM @tmpSite WHERE LicenseeId = @LicenseeId_Saba789
-
 		UPDATE s
 		SET s.SiteId_DW = t.SiteId
 		FROM @tmpSite s
@@ -281,14 +263,14 @@ BEGIN
 		FROM bodb02.dbo.SportBettypeMatrix s WITH (NOLOCK)
 			INNER JOIN @Products p ON s.ProductId = p.ProductId
 			LEFT JOIN bodb_Account.dbo.BettypeGroup bg WITH (NOLOCK) ON s.BetType = bg.Bettype
-		WHERE s.BetType NOT IN (911, 912, 1906, 4298, 4299, 4300, 1699,3150)
+		WHERE s.BetType NOT IN (911, 912, 1906, 4298, 4299, 4300, 1699, 3150, 3899)
 			AND (
 				s.ProductId <> 3
 				OR (p.SubProductCode = 'NG' AND s.sporttype = 161)
 				OR (p.SubProductCode = 'H5' AND s.sporttype = 164)
 				OR (p.SubProductCode = 'H5LG' AND s.sporttype = 168)
 			)
-			AND p.SubProductCode NOT IN ('PP-JP', 'SBC-JP')
+			AND p.SubProductCode NOT IN ('PP-JP', 'SBC-JP', 'VGA-JP')
 
 		IF EXISTS (SELECT 1 FROM @Products WHERE SubProductCode = 'PP-JP')
 			INSERT INTO @tmpBetType (Product3rdId, AliasProductId, BetType, BettypeGroup, IsOnlyTO)
@@ -296,11 +278,18 @@ BEGIN
 			FROM (SELECT Product3rdId, AliasProductId FROM @Products WHERE SubProductCode = 'PP-JP') p
 				CROSS JOIN (SELECT 4297 AS BetType UNION ALL SELECT 4298) b
 
-		IF EXISTS (SELECT 1 FROM @Products WHERE SubProductCode = 'SBC-JP')
+		IF EXISTS (SELECT 1 FROM @Products WHERE SubProductCode IN ('SBC-JP', 'VGA-JP'))
+		BEGIN
 			INSERT INTO @tmpBetType (Product3rdId, AliasProductId, BetType, BettypeGroup, IsOnlyTO)
 			SELECT p.Product3rdId, p.AliasProductId, b.BetType, -3, 0
 			FROM (SELECT Product3rdId, AliasProductId FROM @Products WHERE SubProductCode = 'SBC-JP') p
 				CROSS JOIN (SELECT 1698 AS BetType UNION ALL SELECT 1699) b
+
+			INSERT INTO @tmpBetType (Product3rdId, AliasProductId, BetType, BettypeGroup, IsOnlyTO)
+			SELECT p.Product3rdId, p.AliasProductId, b.BetType, -3, 0
+			FROM (SELECT Product3rdId, AliasProductId FROM @Products WHERE SubProductCode = 'VGA-JP') p
+				CROSS JOIN (SELECT 3898 AS BetType UNION ALL SELECT 3899) b
+		END
 
 		CREATE TABLE #__SabaLeague (LeagueId INT, LeagueGroupId INT)
 
@@ -439,19 +428,19 @@ BEGIN
 						WHEN b.Sporttype = 43 THEN -7 -- E-Sports
 						ELSE -9 -- OS
 						END AS AliasProductId
-					,CASE WHEN b.SportType = 150 THEN b.SportType ELSE -1 END AS SportTypeGroup
+					,CASE WHEN b.SportType IN (150,173) THEN b.SportType ELSE -1 END AS SportTypeGroup
 					,bt.BetTypeGroup
 					,SUM(CASE
-							WHEN bt.IsOnlyTO = 1 OR bt.bettype IN (1698, 4297) THEN 0
+							WHEN bt.IsOnlyTO = 1 OR bt.bettype IN (1698, 4297, 3898) THEN 0
 							WHEN bt.BetType IN (913, 914) THEN b.WinlossP + b.WinlossA
 							ELSE b.WinlossP END
 						) AS MemberWL
-					,SUM(CASE WHEN bt.IsOnlyTO = 1 OR bt.bettype IN (1698, 4297) THEN 0 ELSE b.WinlossIBC + b.CommissionS END) AS HouseWL
+					,SUM(CASE WHEN bt.IsOnlyTO = 1 OR bt.bettype IN (1698, 4297, 3898) THEN 0 ELSE b.WinlossIBC + b.CommissionS END) AS HouseWL
 					,SUM(b.TurnoverIBC * CASE WHEN b.VarianceVR > 0 THEN b.VarianceVR + 1.0 ELSE 1.0 END * CASE WHEN b.TicketStatus = 3 THEN 0 WHEN b.TicketStatus IN (12, 13) THEN 0.5 ELSE 1.0 END) AS HouseTO -- VarianceVR = virtualrate/actualrate - 1
 					---- HouseTO change formula, will get MemberTO * ChargeRate
 					,SUM(b.Stake * CASE WHEN b.VarianceVR > 0 THEN b.VarianceVR + 1.0 ELSE 1.0 END * CASE WHEN b.TicketStatus = 3 THEN 0 WHEN b.TicketStatus IN (12, 13) THEN 0.5 ELSE 1.0 END) AS Stake -- VarianceVR = virtualrate/actualrate - 1
-					,SUM(CASE WHEN bt.bettype IN (1698, 4297) THEN b.WinlossIBC ELSE 0 END) AS HouseContribution
-					,SUM(CASE WHEN bt.bettype IN (1698, 4297) THEN b.WinlossIBC-b.WinlossS-b.WinlossM-b.WinlossA ELSE 0 END) AS FullContribution
+					,SUM(CASE WHEN bt.bettype IN (1698, 4297, 3898) THEN  b.WinlossIBC ELSE 0 END) AS HouseContribution
+					,SUM(CASE WHEN bt.bettype IN (1698, 4297, 3898) THEN b.WinlossIBC-b.WinlossS-b.WinlossM-b.WinlossA ELSE 0 END) AS FullContribution
 				FROM bodb_Account.dbo.FactSiteWinloss b WITH (NOLOCK)
 					INNER JOIN @tmpBetType bt ON b.BetType = bt.BetType
 					LEFT JOIN #__SabaLeague s ON b.LeagueId = s.LeagueId AND bt.Product3rdId = 0
@@ -471,7 +460,7 @@ BEGIN
 						WHEN b.Sporttype = 43 THEN -7 -- E-Sports
 						ELSE -9 -- OS
 						END
-					,CASE WHEN b.SportType = 150 THEN b.SportType ELSE -1 END
+					,CASE WHEN b.SportType IN (150, 173) THEN b.SportType ELSE -1 END
 					,bt.BetTypeGroup
 				OPTION (RECOMPILE)
 
@@ -593,7 +582,8 @@ BEGIN
 										WHEN t.Product3rdId = 15 THEN t.MemberWL
 										WHEN t.Product3rdId IN (25, 37) THEN -t.HouseWL
 										WHEN p.PartyId IS NULL THEN -t.HouseWL
-										WHEN t.SportTypeGroup = 150 THEN -t.MemberWL -- SBC free bets
+										WHEN t.SportTypeGroup IN (150, 173) THEN -t.MemberWL + (-(t.FullContribution - t.HouseContribution) - t.OddsSpreadAdj) * ISNULL(lc.Rate, p.Rate)
+											- t.HouseContribution - t.OddsSpreadAdj - CASE WHEN t.Product3rdId = 31 THEN t.Comm ELSE 0 END-- SBC free bets
 										ELSE
 											(- t.MemberWL - (t.FullContribution - t.HouseContribution) - t.OddsSpreadAdj) * ISNULL(lc.Rate, p.Rate)
 											- t.HouseContribution - t.OddsSpreadAdj - CASE WHEN t.Product3rdId = 31 THEN t.Comm ELSE 0 END
@@ -603,7 +593,8 @@ BEGIN
 										WHEN t.Product3rdId = 37 THEN -t.HouseWL
 										WHEN p.PartyId IS NULL THEN 0
 										WHEN t.Product3rdId IN (25) THEN -t.HouseWL
-										WHEN t.SportTypeGroup = 150 THEN -t.MemberWL -- SBC free bets
+										WHEN t.SportTypeGroup IN (150, 173) THEN -t.MemberWL + (-(t.FullContribution - t.HouseContribution) - t.OddsSpreadAdj) * ISNULL(lc.Rate, p.Rate)
+											- t.HouseContribution - t.OddsSpreadAdj - CASE WHEN t.Product3rdId = 31 THEN t.Comm ELSE 0 END-- SBC free bets
 										ELSE
 											(- t.MemberWL - (t.FullContribution - t.HouseContribution) - t.OddsSpreadAdj) * ISNULL(lc.Rate, p.Rate)
 											- t.HouseContribution - t.OddsSpreadAdj - CASE WHEN t.Product3rdId = 31 THEN t.Comm ELSE 0 END
@@ -613,6 +604,7 @@ BEGIN
 			INNER JOIN @ExchangeOANDA e ON t.CurrencyId = e.ExchangeId
 			LEFT JOIN #PartyChargeInfo p ON p.PartyId = l.PartyId AND p.Product3rdId = t.Product3rdId AND t.rptDate BETWEEN p.FromDate AND p.ToDate
 					AND (p.Bettype = -1 OR p.Bettype = t.BetTypeGroup)
+					AND (t.BetTypeGroup <> -3)
 					AND (
 						(t.Product3rdId IN (11, 39) AND t.BetTypeGroup <> -1 AND p.ChargeType = 12)
 						OR (t.Product3rdId = 15 AND p.ChargeType = 6)
@@ -927,7 +919,7 @@ BEGIN
 		;WITH CTE_tempResult AS (
 			SELECT PartyId, Product3rdId, CASE WHEN Product3rdId = 0 THEN -2 ELSE AliasProductId END AS AliasProductId
 				,HouseTurnover	= SUM(HouseTurnover)
-				,LicenseeWL		= SUM(CASE WHEN SporttypeGroup = 150 THEN 0 ELSE -MemberWLMonth END)
+				,LicenseeWL		= SUM(CASE WHEN SporttypeGroup IN (150, 173) THEN 0 ELSE -MemberWLMonth END)
 				,HouseIncome	= SUM(HouseIncomeMonth)
 				,AComm			= SUM(CommMonth)
 			FROM #__tempResult
@@ -1004,7 +996,7 @@ BEGIN
 		SET r.HouseIncome = CASE WHEN r.HouseIncome > 0 OR r.Product3rdId = 3 THEN r.HouseIncome ELSE 0 END
 			,r.LicenseeFee = CASE
 						WHEN r.Product3rdId = 25 THEN LicenseeFee
-						WHEN r.Product3rdId = 42 THEN CASE WHEN r.LicenseeWL > 0 THEN r.LicenseeFee ELSE 0 END
+						WHEN r.Product3rdId IN (42, 66) THEN CASE WHEN r.LicenseeWL > 0 THEN r.LicenseeFee ELSE 0 END
 						WHEN r.LicenseeFee > 0 THEN r.LicenseeFee ELSE 0 END
 		FROM @tmpResult r
 		WHERE r.Product3rdId <> 2
@@ -1118,7 +1110,7 @@ BEGIN
 	SET r.FullContribution = ISNULL(m.FullContribution, 0), r.JackpotPrize = ISNULL(m.JackpotPrize, 0)
 	FROM #Result r
 		INNER JOIN #Result m ON m.Product3rdId = r.Product3rdId AND m.AliasProductId = r.AliasProductId AND r.rptDate = 'Monthly' AND m.rptDate = 'MTD'
-	WHERE r.Product3rdId IN (32, 42)
+	WHERE r.Product3rdId IN (32, 42, 66)
 
 	DECLARE @DateList VARCHAR(2000)
 	;WITH CTE_Date AS
