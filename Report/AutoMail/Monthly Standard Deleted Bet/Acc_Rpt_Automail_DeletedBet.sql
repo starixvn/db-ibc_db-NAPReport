@@ -15,6 +15,7 @@ AS
 	Revision:		
 		20210305@Cherry: Initial (convert from script adhoc #151160 to SP)
 		20210507@Cherry: Edit SP follow adhoc script (#151160)
+		20210517@Cherry: Change DBTP to DBTXN
 
 	Param's Explanation:
 */ 
@@ -153,7 +154,7 @@ BEGIN
 	FROM bodb_archive.dbo.TicketVoiding_Reason_bk WITH (NOLOCK)
 	UNION
 	SELECT reasonid, replace(ReasonEnglish,char(10),' ') as ReasonEnglish  
-	FROM DBTP.bodb02.dbo.TicketVoiding_Reason WITH (NOLOCK)
+	FROM DBTXN.bodb02.dbo.TicketVoiding_Reason WITH (NOLOCK)
 
 	SELECT DISTINCT *
 	INTO #TicketVoiding_Reason_final
