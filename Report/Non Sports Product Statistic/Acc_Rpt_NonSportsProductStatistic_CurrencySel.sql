@@ -14,9 +14,10 @@ AS
 	Revisions:
 		20201020@Cherry: Get Currency dropdown by Site [Redmine: #140386]
 		20210324@Cherry: Consider Saba789 as Credit site (#152124)
+		20210428@Cherry: Add LicenseeGroup (#153736)
 		
 	Param: 
-		@SiteId = -1 : All, 0: Credit, >0: Deposit
+		@SiteId = -1: Credit, >0: Deposit
 
 */
 
@@ -27,30 +28,28 @@ BEGIN
 	CREATE TABLE #tmpLicensees (LicenseeID INT, LicenseeName VARCHAR(50))
 	DECLARE @IsCredit BIT = 0
 	
-	IF @SiteId <> '-1'
+	IF @SiteId <> ''
 	BEGIN 
 		INSERT INTO #tmpSite (SiteID)
 		SELECT
 			val
 		FROM [dbo].strSplit(@SiteId, ',')
 		
-		IF EXISTS(SELECT TOP 1 1 FROM #tmpSite WHERE SiteID = 0)
+		IF EXISTS(SELECT TOP 1 1 FROM #tmpSite WHERE SiteID = -1)
 		BEGIN
 			SELECT @IsCredit = 1
-			DELETE FROM #tmpSite WHERE SiteID = 0
+			DELETE FROM #tmpSite WHERE SiteID = -1
 		END
 	END 
 	
-	IF @SiteId = '-1' OR @IsCredit = 1
+	IF @IsCredit = 1
 	BEGIN
 		INSERT INTO #Currency (ExchangeId, Currency)
 		SELECT DISTINCT ExchangeId, Currency 
 		FROM dbo.exchange WITH(NOLOCK) 
 		WHERE IsActive = 1
 			AND (@ExcludeTest = 0 OR (@ExcludeTest = 1 AND exchangeid <> 20))
-			AND (@SiteId = '-1'
-				OR (@IsCredit = 1 AND OfferSite IN (0,1)) 
-				)
+			AND OfferSite IN (0,1)
 	END
 	
 	INSERT INTO #tmpLicensees (LicenseeID, LicenseeName)
