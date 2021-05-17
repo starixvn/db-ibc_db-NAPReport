@@ -28,6 +28,8 @@ BEGIN
 	CREATE TABLE #tmpSite (LicenseeID INT, LicenseeName VARCHAR(50))
 	CREATE TABLE #tmpGroup (GroupId INT, GroupName VARCHAR(50), ParentId INT)
 	CREATE TABLE #tmpLicensee (LicenseeId INT, LicenseeName VARCHAR(50), GroupId INT)
+	CREATE TABLE #LA_CombinedGroup (GroupId INT, GroupName VARCHAR(50), PathCode VARCHAR(50))
+	CREATE TABLE #LA_CombinedGroupAssignment (GroupId INT, PartyId INT, GroupType INT)
 	
 	INSERT INTO #tmpDep_CustSuper (CustID)
 	SELECT custid
@@ -46,11 +48,15 @@ BEGIN
 		FROM [dbo].strSplit(@ProductID, ',')
 	END 		
 	
+	INSERT INTO #LA_CombinedGroup (GroupId, GroupName, PathCode)
+	SELECT GroupId, GroupName, PathCode
+	FROM DBCUST.bodb_Licensee.dbo.LA_CombinedGroup WITH(NOLOCK)
+	
 	-- Get group of licensees
 	INSERT INTO #tmpGroup (GroupId, GroupName, ParentId)
 	SELECT c.GroupId, c.GroupName, ISNULL(p.GroupId, 0) AS ParentId
-	FROM bodb_Licensee.dbo.LA_CombinedGroup c WITH(NOLOCK)
-		LEFT JOIN bodb_Licensee.dbo.LA_CombinedGroup p WITH(NOLOCK) ON c.PathCode LIKE ('%/' + CAST(p.GroupId AS VARCHAR(5)) + '/')
+	FROM #LA_CombinedGroup c
+		LEFT JOIN #LA_CombinedGroup p ON c.PathCode LIKE ('%/' + CAST(p.GroupId AS VARCHAR(5)) + '/')
 	WHERE c.PathCode = '/'			-- top level
 		OR p.GroupId IS NOT NULL	-- any child has valid parent id
 		
@@ -71,6 +77,10 @@ BEGIN
 		GROUP BY FromParty HAVING MAX(ToDate) < CONVERT(DATE, GETDATE())
 	) AND p.PartyType = 1 AND d.IsDeposit = 1 AND d.StatusId = 1
 	
+	INSERT INTO #LA_CombinedGroupAssignment (GroupId, PartyId, GroupType)
+	SELECT GroupId, PartyId, GroupType
+	FROM DBCUST.bodb_Licensee.dbo.LA_CombinedGroupAssignment WITH(NOLOCK)
+	
 	-- Get licensee and direct groups
 	INSERT INTO #tmpLicensee (LicenseeId, LicenseeName, GroupId)
 	SELECT s.LicenseeID, s.LicenseeName, a.GroupId 
@@ -78,7 +88,7 @@ BEGIN
 		INNER JOIN bodb_Licensee.dbo.OAS_Party p WITH(NOLOCK) ON s.LicenseeID = p.OldRefID
 		INNER JOIN bodb_Licensee.dbo.OAS_PartyDetail pd WITH(NOLOCK) ON p.PartyID = pd.PartyID
 		INNER JOIN bodb_Licensee.dbo.Licensees l WITH(NOLOCK) ON l.LicenseeID = p.OldRefID
-		INNER JOIN bodb_Licensee.dbo.LA_CombinedGroupAssignment a WITH(NOLOCK) ON p.PartyId = a.PartyId
+		INNER JOIN #LA_CombinedGroupAssignment a ON p.PartyId = a.PartyId
 	WHERE p.PartyType = 1 AND pd.IsDeposit = 1 AND pd.StatusId = 1	
 		AND s.LicenseeID NOT IN (SELECT LicenseeID FROM #tmpLicensee WHERE GroupId = -2)
 		
@@ -111,6 +121,8 @@ BEGIN
 	DROP TABLE #tmpDep_CustSuper
 	DROP TABLE #tmpLicensee
 	DROP TABLE #tmpSite
+	DROP TABLE #LA_CombinedGroup
+	DROP TABLE #LA_CombinedGroupAssignment
 	
 END 
 GO
