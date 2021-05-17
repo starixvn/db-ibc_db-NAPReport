@@ -1009,10 +1009,8 @@ BEGIN
 		FROM @tmpResult r
 		WHERE r.Product3rdId <> 2
 			AND (
-				r.Product3rdId <> 0
-				OR r.PartyId NOT IN (
-					SELECT p.PartyId FROM @9wLicenseeList p
-				)
+				r.Product3rdId = 25 -- Cashout
+				OR r.PartyId NOT IN (SELECT p.PartyId FROM @9wLicenseeList p)
 			)
 	END
 
