@@ -73,7 +73,7 @@ BEGIN
 								--prevent accessing the summary records BEFORE movebetday is updated
 								--those are in the process of being inserted and in volatile state
 								then NULL
-							 when b.winlostdate = @MoveBetsDay and bettype < 19999 
+							 when b.winlostdate <= @MoveBetsDay and bettype < 19999 
 							 	--prevent accessing bet transactions AFTER movebetday is updated
 								--those are in the process of being deleted (as they were copied to bettrans14) and in volatile state
 							 	then NULL
@@ -93,7 +93,7 @@ BEGIN
 				AND b.bettype NOT IN (21008, 21009)
 				AND EXISTS ( SELECT 1 FROM #directMaster d WITH (NOLOCK) WHERE b.srecommend = d.srecommend )
 				GROUP BY case when b.winlostdate > @MoveBetsDay and bettype = 19999 then NULL
-							when b.winlostdate = @MoveBetsDay and bettype < 19999 then NULL
+							when b.winlostdate <= @MoveBetsDay and bettype < 19999 then NULL
 							else b.mrecommend
 						end
 			) as  bal ON m.custid = bal.mrecommend

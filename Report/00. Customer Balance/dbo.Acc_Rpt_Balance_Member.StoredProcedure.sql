@@ -43,7 +43,7 @@ BEGIN
 		LEFT OUTER JOIN (
 			SELECT	--skip volatile rows during move bet process, see Balance_Direct_Master report
 					case when b.winlostdate > @MoveBetsDay and bettype = 19999 then NULL
-						 when b.winlostdate = @MoveBetsDay and bettype < 19999 then NULL
+						 when b.winlostdate <= @MoveBetsDay and bettype < 19999 then NULL
 						 else b.custid
 					end custid,
 					SUM(b.winlost - b.actual_stake + b.playercomm) AS Balance,
@@ -55,7 +55,7 @@ BEGIN
 				AND b.statusID NOT IN (101,102,103)
 				AND b.bettype NOT IN (21008, 21009)
 			GROUP BY case when b.winlostdate > @MoveBetsDay and bettype = 19999 then NULL
-						when b.winlostdate = @MoveBetsDay and bettype < 19999 then NULL
+						when b.winlostdate <= @MoveBetsDay and bettype < 19999 then NULL
 						else b.custid
 					end
 		) AS b ON c.custid = b.custid

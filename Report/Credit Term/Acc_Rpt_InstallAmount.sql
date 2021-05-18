@@ -140,7 +140,7 @@ BEGIN
 					sum(case when bettrans.custid <> bettrans.recommend and bettrans.custid <> bettrans.mrecommend and ruben=1 then (winlost-actual_stake+playercomm)*actualrate else 0 end) Bal_base
 				FROM bettrans (nolock)
 				WHERE bettrans.bettype NOT IN (21008, 21009)
-					AND CASE WHEN (bettrans.winlostdate > @MoveBetsDay AND bettype = 19999) OR (bettrans.winlostdate = @MoveBetsDay and bettype < 19999)
+					AND CASE WHEN (bettrans.winlostdate > @MoveBetsDay AND bettype = 19999) OR (bettrans.winlostdate <= @MoveBetsDay and bettype < 19999)
 							THEN 0 ELSE 1 END = 1				
 				GROUP BY bettrans.mrecommend
 			) bal ON c.custid = bal.mrecommend

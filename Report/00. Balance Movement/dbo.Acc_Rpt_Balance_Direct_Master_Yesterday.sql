@@ -68,7 +68,7 @@ BEGIN
 			LEFT JOIN (
 				SELECT 	--see Balance_Direct_Master report
 						case when b.winlostdate > @MoveBetsDay and bettype = 19999 then NULL
-							 when b.winlostdate = @MoveBetsDay and bettype < 19999 then NULL
+							 when b.winlostdate <= @MoveBetsDay and bettype < 19999 then NULL
 							 else b.mrecommend
 						end mrecommend,
 						isnull(sum(case when custid=mrecommend then winlost-actual_stake else mwinlost+acomm-comm end),0)
@@ -87,7 +87,7 @@ BEGIN
 				AND b.bettype NOT IN (21008, 21009)
 				AND EXISTS ( SELECT 1 FROM #directMaster d WITH (NOLOCK) WHERE b.srecommend = d.srecommend )
 				GROUP BY case when b.winlostdate > @MoveBetsDay and bettype = 19999 then NULL
-							when b.winlostdate = @MoveBetsDay and bettype < 19999 then NULL
+							when b.winlostdate <= @MoveBetsDay and bettype < 19999 then NULL
 							else b.mrecommend
 						end
 			) as  bal ON m.custid = bal.mrecommend

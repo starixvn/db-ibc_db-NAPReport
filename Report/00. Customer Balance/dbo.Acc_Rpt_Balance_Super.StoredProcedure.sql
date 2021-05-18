@@ -127,7 +127,7 @@ BEGIN
 		CROSS APPLY (
 			SELECT
 				--skip volatile rows during move bet process (see Balance_Direct_Master report)
-				CASE WHEN (b.winlostdate > @MoveBetsDay AND bettype = 19999) OR (b.winlostdate = @MoveBetsDay and bettype < 19999)
+				CASE WHEN (b.winlostdate > @MoveBetsDay AND bettype = 19999) OR (b.winlostdate <= @MoveBetsDay and bettype < 19999)
 					THEN 0 ELSE 1 END
 				*
 				((CASE WHEN b.custid = b.srecommend THEN winlost-actual_stake ELSE swinlost+scomm-acomm END) -- super level
@@ -160,7 +160,7 @@ BEGIN
 			CROSS APPLY (
 				SELECT 
 				--skip volatile rows during move bet process (see Balance_Direct_Master report)
-				CASE WHEN (b.winlostdate > @MoveBetsDay AND bettype = 19999) OR (b.winlostdate = @MoveBetsDay and bettype < 19999)
+				CASE WHEN (b.winlostdate > @MoveBetsDay AND bettype = 19999) OR (b.winlostdate <= @MoveBetsDay and bettype < 19999)
 					THEN 0 ELSE 1 END
 				*
 				(winlost - actual_stake) AS winlost

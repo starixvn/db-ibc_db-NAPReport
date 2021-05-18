@@ -88,7 +88,7 @@ BEGIN
 		FROM dbo.bettrans b with(nolock)
 		WHERE b.srecommend in (select custid from #super)
 			  AND b.bettype NOT IN (21008, 21009)
-			  AND CASE WHEN (b.winlostdate > @MoveBetsDay AND bettype = 19999) OR (b.winlostdate = @MoveBetsDay and bettype < 19999)
+			  AND CASE WHEN (b.winlostdate > @MoveBetsDay AND bettype = 19999) OR (b.winlostdate <= @MoveBetsDay and bettype < 19999)
 				THEN 0 ELSE 1 END = 1
 		GROUP BY b.srecommend
 	)	
@@ -115,7 +115,7 @@ BEGIN
 		INNER JOIN dbo.bettrans b with(nolock) on a.custid = b.mrecommend
 	WHERE  b.srecommend = a.uplineid
 		   AND b.bettype NOT IN (21008, 21009)
-		   AND CASE WHEN (b.winlostdate > @MoveBetsDay AND bettype = 19999) OR (b.winlostdate = @MoveBetsDay and bettype < 19999)
+		   AND CASE WHEN (b.winlostdate > @MoveBetsDay AND bettype = 19999) OR (b.winlostdate <= @MoveBetsDay and bettype < 19999)
 				THEN 0 ELSE 1 END = 1
 	GROUP BY a.custid, a.groupid
 	
@@ -129,7 +129,7 @@ BEGIN
 			INNER JOIN custAccount a with(nolock) on c.custid = a.custid
 	WHERE roleid = 2 AND (PreAgreeAmount > 0 OR groupID > 0)
 		  AND b.bettype NOT IN (21008, 21009)
-		  AND CASE WHEN (b.winlostdate > @MoveBetsDay AND bettype = 19999) OR (b.winlostdate = @MoveBetsDay and bettype < 19999)
+		  AND CASE WHEN (b.winlostdate > @MoveBetsDay AND bettype = 19999) OR (b.winlostdate <= @MoveBetsDay and bettype < 19999)
 			THEN 0 ELSE 1 END = 1
 	GROUP BY b.recommend, a.groupid	
 	
@@ -144,7 +144,7 @@ BEGIN
 		AND c.roleid = 1	
 		AND (PreAgreeAmount > 0 OR groupID > 0)
 		AND b.bettype NOT IN (21008, 21009)
-		AND CASE WHEN (b.winlostdate > @MoveBetsDay AND bettype = 19999) OR (b.winlostdate = @MoveBetsDay and bettype < 19999)
+		AND CASE WHEN (b.winlostdate > @MoveBetsDay AND bettype = 19999) OR (b.winlostdate <= @MoveBetsDay and bettype < 19999)
 			THEN 0 ELSE 1 END = 1
 	GROUP BY a.custid, a.groupid	
 

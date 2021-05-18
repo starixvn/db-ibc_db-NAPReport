@@ -50,7 +50,7 @@ SET NOCOUNT ON
 			s.currencyName, 
 			ROUND(SUM(
 				CASE WHEN (b.winlostdate > @MoveBetsDay AND bettype = 19999) 
-						OR (b.winlostdate = @MoveBetsDay and bettype < 19999)
+						OR (b.winlostdate <= @MoveBetsDay and bettype < 19999)
 					THEN 0 --skip volatile rows during move bet process
 					ELSE winlost-actual_stake + playercomm END 
 				)
