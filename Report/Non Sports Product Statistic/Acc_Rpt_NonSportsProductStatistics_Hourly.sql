@@ -492,10 +492,17 @@ SET NOCOUNT ON
 					ELSE  DATEPART(HOUR, b.transdate) END, 
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.bettype
 				
-		OPTION(RECOMPILE)		 
+		OPTION(RECOMPILE)
+		
+		CREATE TABLE #tmpBettypeRNG (Bettype SMALLINT)
+		INSERT INTO #tmpBettypeRNG (Bettype)
+		SELECT Bettype
+		FROM #SportBettype
+		WHERE RefTable = 1 AND ProductID NOT IN (SELECT ProductID FROM #tmpHouseProduct)
+		CREATE CLUSTERED INDEX IX_bettype ON  #tmpBettypeRNG(Bettype)		 
 
 		---1b. By bettype for Casino Product
-		IF EXISTS(SELECT 1 FROM #SportBettype WHERE ProductID NOT IN (SELECT ProductID FROM #tmpHouseProduct))
+		IF EXISTS(SELECT 1 FROM #tmpBettypeRNG)
 		BEGIN
 			INSERT INTO #Data (  [Hour] , 
 							   srecommend, 
@@ -537,7 +544,7 @@ SET NOCOUNT ON
 			FROM  dbo.BettransRNG b WITH (NOLOCK)
 			
 			WHERE b.WinlostDate = @WLDate
-				AND b.gameID IN (SELECT Bettype FROM #SportBettype WHERE RefTable = 1 AND ProductID NOT IN (SELECT ProductID FROM #tmpHouseProduct))
+				AND b.gameID IN (SELECT Bettype FROM #tmpBettypeRNG)
 				AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
 				AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
 				AND (EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId) OR @currency = '-1') 			
@@ -1304,6 +1311,7 @@ SET NOCOUNT ON
 	DROP TABLE #tmpSportBetType
 	DROP TABLE #tmpNetStakeBettype	
 	DROP TABLE #tmpNoBetCountBettype
+	DROP TABLE #tmpBettypeRNG
 
 END 
 

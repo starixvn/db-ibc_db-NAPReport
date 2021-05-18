@@ -491,8 +491,15 @@ BEGIN
 		GROUP BY b.srecommend, b.bettype, CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END, b.currency
 	
 		OPTION(RECOMPILE)
+		
+		CREATE TABLE #tmpBettypeRNG (Bettype SMALLINT)
+		INSERT INTO #tmpBettypeRNG (Bettype)
+		SELECT Bettype
+		FROM #SportBettype
+		WHERE RefTable = 1 AND ProductID NOT IN (SELECT ProductID FROM #tmpHouseProduct)
+		CREATE CLUSTERED INDEX IX_bettype ON  #tmpBettypeRNG(Bettype)
 	
-		IF EXISTS(SELECT 1 FROM #SportBettype WHERE ProductID NOT IN (SELECT ProductID FROM #tmpHouseProduct))
+		IF EXISTS(SELECT 1 FROM #tmpBettypeRNG)
 		BEGIN
 			INSERT INTO #tmp_bettrans
 					( CustID ,
@@ -549,7 +556,7 @@ BEGIN
 
 			FROM  dbo.bettransRnG b WITH (NOLOCK)
 			WHERE b.winlostdate = @WLDate
-				AND b.gameID IN (SELECT Bettype FROM #SportBettype WHERE RefTable = 1 AND ProductID NOT IN (SELECT ProductID FROM #tmpHouseProduct))
+				AND b.gameID IN (SELECT Bettype FROM #tmpBettypeRNG)
 				AND b.statusID IN (111, 112, 113, 103) 
 				AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
 				AND (@Currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId))	
@@ -1700,6 +1707,7 @@ BEGIN
 	DROP TABLE #tmpSportBetType
 	DROP TABLE #tmpNetStakeBettype	
 	DROP TABLE #tmpNoBetCountBettype
+	DROP TABLE #tmpBettypeRNG
 	
 END
 
