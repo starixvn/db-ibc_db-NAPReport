@@ -72,8 +72,8 @@ AS
 				, b.SubIssueTypeId
 			FROM bodb02.dbo.TicketVoiding_VoidedTransaction AS b WITH(NOLOCK)
 			WHERE b.CustID > 0
-				 AND b.CreatedDate >= @RptDate_From
-				 AND b.CreatedDate < @RptDate_To
+				-- AND b.CreatedDate >= @RptDate_From
+				-- AND b.CreatedDate < @RptDate_To
 				 AND b.IssueTypeID = 11;
 
 	   INSERT INTO #TmpBettype(bettype
