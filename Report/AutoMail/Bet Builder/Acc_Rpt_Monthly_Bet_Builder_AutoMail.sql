@@ -1,4 +1,6 @@
 /*<info serverAlias="DBRPT-bodb_Report" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE bodb_Report
+GO
 
 ALTER PROCEDURE dbo.Acc_Rpt_Monthly_Bet_Builder_AutoMail
 	@RptDate    SMALLDATETIME = NULL
@@ -11,6 +13,7 @@ AS
 	Revisions:		
 		- 20190527@Robert: Bet Builder - Daily Automail report to 3rd [#114248]
 		- 20200723@Jaden: Bet Builder - Remove hardcoding (soccer), add basketball [#138082]
+		- 20210504@Jaden: Use SP to get balanceup & movebets (#154116)
 
 	Param's Explanation:	 
 */
@@ -127,14 +130,8 @@ BEGIN
 
     CREATE CLUSTERED INDEX CIX_ExchangeOANDA ON #ExchangeOANDA(ExchangeDate ASC, ExchangeId ASC);
 
-    SELECT TOP 1 @balanceupdate = winlostdate
-    FROM bodb02.dbo.Bettrans WITH (NOLOCK)
-    WHERE bettype = 20000
-		AND matchid = 0
-		AND custid = 3;
-
-    SELECT @movebetdate = MAX(eventdate)
-    FROM bodb02.dbo.match14 WITH (NOLOCK);
+	SELECT @balanceupdate = BalanceUpDay, @movebetdate = MoveBetsDay
+	FROM OPENQUERY(DBACC,'exec bodb02.dbo.Age_SelBalanceUpDay')
 
     INSERT INTO #HistoryData(TransId
 					  , MatchId

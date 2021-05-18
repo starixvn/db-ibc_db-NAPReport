@@ -1,4 +1,6 @@
 /*<info serverAlias="DBRPT-bodb_Report" selecters="bodbAdminNet" viewers="" isFunction="1" isNested="1"></info>*/
+USE bodb_Report
+GO
 
 ALTER FUNCTION dbo.f_BetBuilder_GetSelectionName(
 	@MarketId       VARCHAR(20)
@@ -10,6 +12,7 @@ ALTER FUNCTION dbo.f_BetBuilder_GetSelectionName(
 	Task: Bet Builder - Daily Automail report to 3rd
 	Revisions:		
 		- 20190527@Robert: Bet Builder - Daily Automail report to 3rd [#114248]
+		- 20210504@Jaden: Use SP to get balanceup & movebets (#154116)
 
 	Param's Explanation:
 		
@@ -22,14 +25,8 @@ BEGIN
 		, @movebetdate      DATETIME
 		, @balanceupdate    DATETIME;
 
-    SELECT TOP 1 @balanceupdate = winlostdate
-    FROM bodb02.dbo.Bettrans WITH (NOLOCK)
-    WHERE bettype = 20000
-		AND matchid = 0
-		AND custid = 3;
-
-    SELECT @movebetdate = MAX(eventdate)
-    FROM bodb02.dbo.match14 WITH (NOLOCK);
+	SELECT @balanceupdate = BalanceUpDay, @movebetdate = MoveBetsDay
+	FROM OPENQUERY(DBACC,'exec bodb02.dbo.Age_SelBalanceUpDay')
 
     IF @WinlostDate > @movebetdate
 	   BEGIN

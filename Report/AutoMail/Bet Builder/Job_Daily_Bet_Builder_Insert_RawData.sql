@@ -1,4 +1,6 @@
 /*<info serverAlias="DBRPT-bodb_Report" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE bodb_Report
+GO
 
 ALTER PROCEDURE dbo.Job_Daily_Bet_Builder_Insert_RawData
 	@WinlostDate    SMALLDATETIME = NULL
@@ -10,6 +12,7 @@ AS
 	Task: Bet Builder - Daily Automail report to 3rd
 	Revisions:		
 		- 20190527@Robert: Bet Builder - Daily Automail report to 3rd [#114248]
+		- 20210504@Jaden: Use SP to get balanceup & movebets (#154116)
 
 	Param's Explanation:	   
 				    - @IsCaptureData:
@@ -50,14 +53,8 @@ BEGIN
 		, @EndId            INT;
 
 
-    SELECT TOP 1 @balanceupdate = winlostdate
-    FROM bodb02.dbo.Bettrans WITH (NOLOCK)
-    WHERE bettype = 20000
-		AND matchid = 0
-		AND custid = 3;
-
-    SELECT @movebetdate = MAX(eventdate)
-    FROM bodb02.dbo.match14 WITH (NOLOCK);
+	SELECT @balanceupdate = BalanceUpDay, @movebetdate = MoveBetsDay
+	FROM OPENQUERY(DBACC,'exec bodb02.dbo.Age_SelBalanceUpDay')
 
     IF @WinlostDate IS NULL
 	   SELECT @WinlostDate = CONVERT(VARCHAR(10), DATEADD(DAY, -1, GETDATE()), 110);
