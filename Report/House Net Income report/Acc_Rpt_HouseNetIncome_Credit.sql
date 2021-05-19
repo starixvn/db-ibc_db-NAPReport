@@ -299,12 +299,16 @@ BEGIN
 
 	-- #tmpLeague
 	CREATE TABLE #tmpLeague (
-		LeagueID INT,
-		LeagueGroupID INT
+		LeagueGroupType INT,
+		LeagueGroupID INT,
+		LeagueID INT
 	)
 
-	INSERT INTO #tmpLeague (LeagueID, LeagueGroupID)
-	SELECT leagueID, LeagueGroupID
+	INSERT INTO #tmpLeague (LeagueGroupType, LeagueGroupID, LeagueID)
+	SELECT CASE WHEN LeagueGroupID = 113 THEN 2
+		        ELSE 1 END LeagueGroupType,
+		   LeagueGroupID,
+		   leagueid LeagueID
 	FROM bodb02.dbo.League (NOLOCK)
 	WHERE LeagueGroupID IN (SELECT LeagueGroupID FROM #tmpSABALeagueGroup)
 
@@ -433,10 +437,10 @@ BEGIN
 			   b.RptDate,
 			   s.site Site,
 			   CASE WHEN b.Bettype IN (9, 29) THEN -10									--Parlay
-					WHEN b.SportType = 1 AND l.LeagueGroupID IN (42, 74, 108) THEN -3	--Saba Soc
-					WHEN b.SportType = 1 AND l.LeagueGroupID IN (113) THEN -14	        --Saba Soc PGoal
-					WHEN b.SportType = 2 AND l.LeagueGroupID IN (42) THEN -5			--Saba Bas
-					WHEN b.SportType = 50 AND l.LeagueGroupID IN (42) THEN -8			--Saba Cric
+					WHEN b.SportType = 1 AND l.LeagueGroupType = 1 THEN -3	            --Saba Soc
+					WHEN b.SportType = 1 AND l.LeagueGroupType = 2 THEN -14	            --Saba Soc PGoal
+					WHEN b.SportType = 2 AND l.LeagueGroupType = 1 THEN -5			    --Saba Bas
+					WHEN b.SportType = 50 AND l.LeagueGroupType = 1 THEN -8			    --Saba Cric
 					WHEN b.SportType = 1 THEN -2										--Real Soc
 					WHEN b.SportType = 2 THEN -4										--Real Bas
 					WHEN b.SportType = 5 THEN -6										--Tennis
@@ -476,10 +480,10 @@ BEGIN
 		GROUP BY b.RptDate,
 				 s.site,
 				 CASE WHEN b.Bettype IN (9, 29) THEN -10								--Parlay
-					  WHEN b.SportType = 1 AND l.LeagueGroupID IN (42, 74, 108) THEN -3	--Saba Soc
-					  WHEN b.SportType = 1 AND l.LeagueGroupID IN (113) THEN -14	    --Saba Soc PGoal
-					  WHEN b.SportType = 2 AND l.LeagueGroupID IN (42) THEN -5			--Saba Bas
-					  WHEN b.SportType = 50 AND l.LeagueGroupID IN (42) THEN -8			--Saba Cric
+					  WHEN b.SportType = 1 AND l.LeagueGroupType = 1 THEN -3	        --Saba Soc
+					WHEN b.SportType = 1 AND l.LeagueGroupType = 2 THEN -14	            --Saba Soc PGoal
+					WHEN b.SportType = 2 AND l.LeagueGroupType = 1 THEN -5			    --Saba Bas
+					WHEN b.SportType = 50 AND l.LeagueGroupType = 1 THEN -8			    --Saba Cric
 					  WHEN b.SportType = 1 THEN -2										--Real Soc
 					  WHEN b.SportType = 2 THEN -4										--Real Bas
 					  WHEN b.SportType = 5 THEN -6										--Tennis
