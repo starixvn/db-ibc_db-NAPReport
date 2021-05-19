@@ -68,6 +68,9 @@ AS
 		- 20210325@Jaden: Change bettype range from [3101 - 3199] to [3101 - 3150] (#151869)
 		- 20210325@Jaden: Integrate PP Live Casino (#133731)
 		- 20210420@Jaden: Include CG into Macau Games (#152781)
+		- 20210428@Ned.Le: NAP Report - Implement VGaming (#154072)
+		- 20210506@Ned.Le: NAP Report - Implement Advantplay (#154677)
+		- 20210517@Ned.Le: NAP Reports - Integrate AdvantPlay Mini (#155174)
 
 	Param's Explanation:  
 	  + @MoveBetsDay: The day of moving bets to battrans14
@@ -78,7 +81,8 @@ AS
 		 220: Lottery, 160: Lucky 3, 207: Bullfighting, 163: Poker Games, 245: Virtual Games
 		 244: SA Gaming, 200: Saba.club, 243: AE Casino, 222: Table Games,
 		 241: BBIN, 242: IBCBet Live Casino, 233: WM, 236: GDG, 239: BG
-		 212: Macau Games (include: Macau Games, Pragmatic, Spadegaming, Card Club [Video Poker], PG Soft, Joker Gaming, MaxGame, CG)
+		 212: Macau Games (include: Macau Games, Pragmatic, Spadegaming, Card Club [Video Poker], PG Soft, Joker Gaming, MaxGame, CG, AdvantPlay, AdvantPlay Mini)
+		 171: VGaming
 		}
   
 */  
@@ -166,7 +170,7 @@ BEGIN
 		GROUP BY b.custid,b.[status], b.bettype
 		
 		-- Get data from bettransRnG
-		IF @sportType IN (251, 212, 219, 200, 224)
+		IF @sportType IN (251, 212, 219, 200, 224, 171)
 		BEGIN
 			INSERT INTO #AvailableMember
 			SELECT b.custid,
@@ -181,9 +185,12 @@ BEGIN
 					OR b.gameID BETWEEN 6001 AND CASE WHEN @sportType=212 THEN 6300 ELSE 0 END -- PG Soft
 					OR b.gameID BETWEEN 6401 AND CASE WHEN @sportType=212 THEN 6700 ELSE 0 END -- Joker Gaming
 					OR b.gameID BETWEEN 5401 AND CASE WHEN @sportType=212 THEN 5499 ELSE 0 END -- MaxGame
+					OR b.gameID BETWEEN 7701 AND CASE WHEN @sportType=212 THEN 7799 ELSE 0 END -- AdvantPlay
+					OR b.gameID BETWEEN 7801 AND CASE WHEN @sportType=212 THEN 7899 ELSE 0 END -- AdvantPlay Mini
 					OR b.gameID BETWEEN 1011 AND CASE WHEN @sportType=219 THEN 1020 ELSE 0 END -- Fishing World
 					OR b.gameID BETWEEN 1611 AND CASE WHEN @sportType=200 THEN 1699 ELSE 0 END -- Saba.club
 					OR b.gameID BETWEEN 5500 AND CASE WHEN @sportType=224 THEN 5599 ELSE 0 END -- RNG War
+					OR b.gameID BETWEEN 3801 AND CASE WHEN @sportType=171 THEN 3899 ELSE 0 END -- VGaming
 				) 
 			AND (
 					b.statusId IN (111,112,113,0) 
@@ -264,10 +271,13 @@ BEGIN
 							OR b.bettype BETWEEN 6001 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = 212 THEN 6300 ELSE 0 END   -- PG Soft
 							OR b.bettype BETWEEN 6401 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = 212 THEN 6700 ELSE 0 END   -- Joker Gaming
 							OR b.bettype BETWEEN 5401 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = 212 THEN 6499 ELSE 0 END   -- MaxGame
+							OR b.bettype BETWEEN 7701 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = 212 THEN 7799 ELSE 0 END   -- AdvantPlay
+							OR b.bettype BETWEEN 7801 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = 212 THEN 7899 ELSE 0 END   -- AdvantPlay Mini
 							OR b.bettype BETWEEN 3401 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = 233 THEN 3499 ELSE 0 END   -- WM
 							OR b.bettype BETWEEN 5701 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = 236 THEN 5799 ELSE 0 END   -- GDG
 							OR b.bettype BETWEEN 3501 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = 239 THEN 3599 ELSE 0 END   -- BG
 							OR b.bettype BETWEEN 3611 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = 169 THEN 3620 ELSE 0 END   -- Sports Lottery
+							OR b.bettype BETWEEN 3801 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = 171 THEN 3899 ELSE 0 END   -- VGaming
 						) 
 						AND b.bettype NOT IN (38)
 						AND b.status IN (3  ---DRAW
@@ -349,7 +359,7 @@ BEGIN
 			LEFT JOIN CustEnableKeno ce ON ce.CustID = av.custid    
 		WHERE ce.CustID IS NULL
 	END
-	IF @sportType IN (211,212,213,219,220,180,245,244,200,243,222,241,242,224,225,233,236,239,169, 170)
+	IF @sportType IN (211,212,213,219,220,180,245,244,200,243,222,241,242,224,225,233,236,239,169,170,171)
     BEGIN
 		DECLARE @bitmapOrder TABLE (bitmapOrder TINYINT)
 		INSERT INTO @bitmapOrder (bitmapOrder)
