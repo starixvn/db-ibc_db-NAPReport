@@ -62,12 +62,12 @@ BEGIN
 		
 	INSERT INTO #tmpGroup (GroupId, GroupName, ParentId) VALUES
 	(-1, 'Credit Group', 0),
-	(-2, 'Terminated Licensees', 0),
-	(-3, 'Others', 0)
+	(-2, 'Others', 0),
+	(-3, 'Terminated Licensees', 0)
 	
 	-- Get terminated licensee
 	INSERT INTO #tmpLicensee (LicenseeId, LicenseeName, GroupId)
-	SELECT s.LicenseeID, s.LicenseeName, -2 GroupId
+	SELECT s.LicenseeID, s.LicenseeName, -3 GroupId
 	FROM bodb_Licensee.dbo.OAS_Party p WITH(NOLOCK)
 		INNER JOIN bodb_Licensee.dbo.OAS_PartyDetail d WITH(NOLOCK) ON p.PartyID = d.PartyID
 		INNER JOIN #tmpSite s ON p.OldRefId = s.LicenseeID
@@ -93,7 +93,7 @@ BEGIN
 		AND s.LicenseeID NOT IN (SELECT LicenseeID FROM #tmpLicensee WHERE GroupId = -2)
 		
 	INSERT INTO #tmpLicensee (LicenseeId, LicenseeName, GroupId)
-	SELECT LicenseeID, LicenseeName, -3 GroupId
+	SELECT LicenseeID, LicenseeName, -2 GroupId
 	FROM #tmpSite
 	WHERE LicenseeID NOT IN (SELECT LicenseeID FROM #tmpLicensee)
 	
