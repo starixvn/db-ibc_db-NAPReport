@@ -3,7 +3,7 @@ USE [bodb02]
 GO
  
 ALTER PROCEDURE [dbo].[Acc_Rpt_NonSportsProductStatistic_CurrencySel]
-	@SiteId VARCHAR(MAX) = '-1',
+	@SiteId VARCHAR(MAX) = 'All',
 	@ExcludeTest BIT = 0
 AS
 /*
@@ -17,7 +17,7 @@ AS
 		20210428@Cherry: Add LicenseeGroup (#153736)
 		
 	Param: 
-		@SiteId = -1: Credit, >0: Deposit
+		@SiteId = -1: Credit, >0: Deposit, 'All': Credit + Deposit
 
 */
 
@@ -28,7 +28,7 @@ BEGIN
 	CREATE TABLE #tmpLicensees (LicenseeID INT, LicenseeName VARCHAR(50))
 	DECLARE @IsCredit BIT = 0
 	
-	IF @SiteId <> ''
+	IF @SiteId <> 'All'
 	BEGIN 
 		INSERT INTO #tmpSite (SiteID)
 		SELECT
@@ -42,14 +42,16 @@ BEGIN
 		END
 	END 
 	
-	IF @IsCredit = 1
+	IF @SiteId = 'All' OR @IsCredit = 1
 	BEGIN
 		INSERT INTO #Currency (ExchangeId, Currency)
 		SELECT DISTINCT ExchangeId, Currency 
 		FROM dbo.exchange WITH(NOLOCK) 
 		WHERE IsActive = 1
 			AND (@ExcludeTest = 0 OR (@ExcludeTest = 1 AND exchangeid <> 20))
-			AND OfferSite IN (0,1)
+			AND (@SiteId = 'All'
+				OR (@IsCredit = 1 AND OfferSite IN (0,1)) 
+				)
 	END
 	
 	INSERT INTO #tmpLicensees (LicenseeID, LicenseeName)
