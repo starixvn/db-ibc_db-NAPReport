@@ -1,17 +1,18 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 USE bodb02
 GO
-ALTER PROCEDURE [dbo].[Acc_Rpt_N88_SB_Member_Performance_Weekly] 
+ALTER PROCEDURE [dbo].[Acc_Rpt_N88_SB_Member_Performance_Daily] 
 	@FromDate SMALLDATETIME,
 	@ToDate SMALLDATETIME 
 AS
 	/*
 	 Created: 20191101@Harry
-	 Task: #145586 - SAS - Weekly report - N88 Member Data
+	 Task: #145586 - SAS - Daily report - N88 Member Data
 	 DB: DB061.BODB02
 	 
 	 Revisions:
 	 - 20201117@Jaden: from adhoc to SP
+	 - 20210519@Jaden: Switch to daily report
 	 */
 BEGIN 
 	Create table #tmp_data
@@ -39,7 +40,7 @@ BEGIN
 		homeid,
 		awayid,
 		mc.username,
-		count(1) as [betcount],
+		(case when t.custid is not null then 0 else 1 end) [betcount],
 		sum(winlost - actual_stake),
 		sum(abs(stake)),
 		sum(abs(winlost - actual_stake))
@@ -48,61 +49,25 @@ BEGIN
 		Inner join match m with (nolock) on mc.matchid = m.matchid
 		and m.sporttype < 100
 		Inner join vw_customer c with (nolock) on c.custid = mc.srecommend
+		left join bodb02.dbo.TradeCust t with (nolock) on t.custid = mc.custid
 	where
 		mc.ruben = 1
-		and winlostdate <= @ToDate
+		and winlostdate >= @FromDate and winlostdate <= @ToDate
 		and mc.statusID in (111, 112, 113)
 		and mc.Currency <> 20
-		and mc.bettype <= 9999
 		and mc.bettype not in (38, 901, 902, 903, 904, 911, 912, 913, 914)
 		and c.site = 'N88'
 	group by
 		winlostdate,
 		transid,
-		mc.CurrencyName,
-		m.leagueid,
-		m.sporttype,
-		homeid,
-		awayid,
-		mc.username 
-	
-	--Bettrans14---------------------------------------------------------------------------------------------------------------
-	insert into #tmp_data
-	select
-		winlostdate,
 		mc.CurrencyName,
 		m.leagueid,
 		m.sporttype,
 		homeid,
 		awayid,
 		mc.username,
-		count(1) as [betcount],
-		sum(winlost - actual_stake),
-		sum(abs(stake)),
-		sum(abs(winlost - actual_stake))
-	from
-		bettrans14 mc with (nolock)
-		Inner join match14 m with (nolock) on mc.matchid = m.matchid
-		and m.sporttype < 100
-		Inner join vw_customer c with (nolock) on c.custid = mc.srecommend
-	where
-		mc.ruben = 1
-		and winlostdate >= @FromDate
-		and mc.statusID in (111, 112, 113)
-		and mc.Currency <> 20
-		and mc.bettype <= 9999
-		and mc.bettype not in (38, 901, 902, 903, 904, 911, 912, 913, 914)
-		and c.site = 'N88'
-	group by
-		winlostdate,
-		transid,
-		mc.CurrencyName,
-		m.leagueid,
-		m.sporttype,
-		homeid,
-		awayid,
-		mc.username 
-		
+		case when t.custid is not null then 0 else 1 end
+	
 	--------------------------------------------------------------------------------------------------------------------------------
 	SELECT
 		CAST(winlostdate as date) 'Date',
