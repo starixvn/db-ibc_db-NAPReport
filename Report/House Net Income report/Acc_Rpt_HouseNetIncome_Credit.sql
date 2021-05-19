@@ -21,6 +21,7 @@ AS
 		20210322@Ned.Le: Email/Letstalk Reports - Integrate PP Live Casino (#133734)
 		20210401@Ned.Le: Email/Letstalk Reports - AE Casino - Support Lucky Draw (#151870)
 		20210414@Ned.Le: Email/Letstalk Reports - Arcadia Gaming - Add 2 new games: Marble Mini and RPS (#153419)
+		20210519@Ned.Le: Email/Letstalk Reports - Incorporate Saba Soccer PinGoal (#155373)
 
 	Param's Explanation:
 		@ProductList: 'ALL' - Get data of all product
@@ -53,6 +54,7 @@ BEGIN
 	-- 3. Other Metadata tables                                --
 	--    -> #tmpExchangeSystem                                --
 	--    -> #tmpExchangeOANDA                                 --
+	--    -> #tmpSABALeagueGroup                               --
 	--    -> #tmpLeague                                        --
 	--    -> #tmpPTSProducts                                   --
 	--    -> #tmpPTSVendorGlobalSetting                        --
@@ -91,6 +93,9 @@ BEGIN
 	SET @FromDate_e = @FromDate
 	SET @ToDate_e = DATEADD(DAY, @interval, @FromDate_e)
 	IF (@ToDate_e > @ToDate) SET @ToDate_e = @ToDate
+
+	DECLARE @SABALeagueGroupStr VARCHAR(500)
+	SELECT @SABALeagueGroupStr = VValue FROM bodb_Account.dbo.SystemSettings (NOLOCK) WHERE VID = 5
 
 
 	------------------------
@@ -286,6 +291,12 @@ BEGIN
 	WHERE ExchangeDate BETWEEN @FromDate AND @ToDate
 		  AND ToCurrencyID IN (SELECT exchangeid FROM bodb02.dbo.exchange (NOLOCK) WHERE currency = 'RM')
 
+    -- #tmpSABALeagueGroup
+	CREATE TABLE #tmpSABALeagueGroup (LeagueGroupID INT)
+    INSERT INTO #tmpSABALeagueGroup (LeagueGroupID)
+    SELECT val LeagueGroupID
+    FROM bodb02.dbo.strSplit(@SABALeagueGroupStr, ',')
+
 	-- #tmpLeague
 	CREATE TABLE #tmpLeague (
 		LeagueID INT,
@@ -295,8 +306,7 @@ BEGIN
 	INSERT INTO #tmpLeague (LeagueID, LeagueGroupID)
 	SELECT leagueID, LeagueGroupID
 	FROM bodb02.dbo.League (NOLOCK)
-	WHERE sporttype IN (1, 2, 50)
-		  AND LeagueGroupID IN (42, 74, 108)
+	WHERE LeagueGroupID IN (SELECT LeagueGroupID FROM #tmpSABALeagueGroup)
 
 	-- #tmpPTSProducts
 	CREATE TABLE #tmpPTSProducts (
@@ -424,6 +434,7 @@ BEGIN
 			   s.site Site,
 			   CASE WHEN b.Bettype IN (9, 29) THEN -10									--Parlay
 					WHEN b.SportType = 1 AND l.LeagueGroupID IN (42, 74, 108) THEN -3	--Saba Soc
+					WHEN b.SportType = 1 AND l.LeagueGroupID IN (113) THEN -14	        --Saba Soc PGoal
 					WHEN b.SportType = 2 AND l.LeagueGroupID IN (42) THEN -5			--Saba Bas
 					WHEN b.SportType = 50 AND l.LeagueGroupID IN (42) THEN -8			--Saba Cric
 					WHEN b.SportType = 1 THEN -2										--Real Soc
@@ -466,6 +477,7 @@ BEGIN
 				 s.site,
 				 CASE WHEN b.Bettype IN (9, 29) THEN -10								--Parlay
 					  WHEN b.SportType = 1 AND l.LeagueGroupID IN (42, 74, 108) THEN -3	--Saba Soc
+					  WHEN b.SportType = 1 AND l.LeagueGroupID IN (113) THEN -14	    --Saba Soc PGoal
 					  WHEN b.SportType = 2 AND l.LeagueGroupID IN (42) THEN -5			--Saba Bas
 					  WHEN b.SportType = 50 AND l.LeagueGroupID IN (42) THEN -8			--Saba Cric
 					  WHEN b.SportType = 1 THEN -2										--Real Soc
@@ -768,6 +780,7 @@ BEGIN
 
 	DROP TABLE #tmpExchangeSystem
 	DROP TABLE #tmpExchangeOANDA
+	DROP TABLE #tmpSABALeagueGroup
 	DROP TABLE #tmpLeague
 	DROP TABLE #tmpPTSProducts
 	DROP TABLE #tmpPTSVendorGlobalSetting
