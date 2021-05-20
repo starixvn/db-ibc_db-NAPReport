@@ -43,6 +43,7 @@ AS
 		20201224@Cherry: Integrate Happy 5 Linked Games (#146537)
 		20210120@Cherry: Integrate Saba Jackpot (#148293)	
 		20210324@Cherry: Consider Saba789 as Credit site (#152124)
+		20210506@Cherry: Integrate VGaming Jackpot (#154250)
 
 	Param's Explanation:
 		- @ProductID: string filter by Product 
@@ -69,6 +70,7 @@ BEGIN
 	CREATE TABLE #tmp_Devide		(Betfrom NVARCHAR(2))
 	CREATE TABLE #tmpContributionBettype (Bettype INT)
 	CREATE TABLE #tmpSportBetType (Sporttype INT, Bettype INT)
+	CREATE TABLE #tmpHouseProduct (ProductID INT)
 
 	-- Get Info from Pars list
 	IF @ProductId <> ''
@@ -109,7 +111,7 @@ BEGIN
 		END
 	END
 	
-	IF @SportBetType <> '' AND EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID = 42)
+	IF @SportBetType <> '' 
     BEGIN
 		IF substring (@SportBetType, len(@SportBetType), 1) <> @splitter1
 			SET @SportBetType = @SportBetType + @splitter1
@@ -154,13 +156,20 @@ BEGIN
 		dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '', @isTest) s
 		INNER JOIN #tmp_ProductID p ON s.ProductID = p.ProductID
 		INNER JOIN #tmp_BetType b ON s.BetType = b.Bettype
+		
+	INSERT INTO #tmpHouseProduct (ProductID)
+	SELECT DISTINCT ProductID 
+	FROM DBWH.bodb_Account.dbo.Product_Bettype WITH (NOLOCK)
+	WHERE EventType = 255
+		AND ProductID IN (SELECT ProductID FROM #tmp_ProductID)
 
 	INSERT INTO #SportBettype (ProductID, Bettype, EvenType, RefTable)
 	SELECT s.ProductID, s.BetType, s.EventType, s.RefTable
 	FROM
 		dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '', @isTest) s
 		INNER JOIN #tmp_ProductID p ON s.ProductID = p.ProductID
-	WHERE p.ProductID IN (3, 5, 27, 42) -- Number Game, Virtual Sports, Virtual Sports 2, Saba.club
+	WHERE (p.ProductID IN (3, 5, 27) -- Number Game, Virtual Sports, Virtual Sports 2
+		OR p.ProductID IN (SELECT ProductID FROM #tmp_ProductID))
 	
 	INSERT INTO #SportBettype (ProductID, Bettype, EvenType, RefTable)
 	SELECT s.ProductID, s.BetType, s.EventType, s.RefTable
@@ -169,6 +178,10 @@ BEGIN
 		INNER JOIN #tmp_SportType t ON s.SportType = t.Sporttype 
 	WHERE p.ProductID = 23 --NG2
 		AND (s.IsTest = 0 OR s.IsTest = @isTest)
+		
+	DELETE t
+	FROM #tmpSportBetType t LEFT JOIN #SportBettype s ON t.Bettype = s.Bettype
+	WHERE s.Bettype IS NULL
 
 	DROP TABLE #tmp_ProductID
 	DROP TABLE #tmp_BetType
@@ -334,7 +347,7 @@ BEGIN
 					INNER JOIN #SportBettype s ON s.Bettype = b.gameID
 					LEFT JOIN #tmpContributionBettype bt ON bt.Bettype = b.gameID
 				WHERE b.winlostdate = @WLDate
-					AND (s.ProductID <> 42
+					AND (s.ProductID NOT IN (SELECT ProductID FROM #tmp_ProductID)
 						OR EXISTS(SELECT 1 FROM #tmpSportBetType sb where b.productid = sb.Sporttype and b.gameid = sb.Bettype)
 					)
 					AND b.custid = @CID
@@ -803,4 +816,6 @@ BEGIN
 	DROP TABLE #tmpSportBetType
 	DROP TABLE #tmpNoBetCountBettype
 	DROP TABLE #tmpDep_CustSuper
+	DROP TABLE #tmpHouseProduct
+	
 END

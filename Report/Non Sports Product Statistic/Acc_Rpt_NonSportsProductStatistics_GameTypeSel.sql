@@ -25,6 +25,7 @@ AS
 		20200828@Cherry: Integrate Saba.club Free Bet (#140109)
 		20201224@Cherry: Integrate Happy 5 Linked Games (#146537)
 		20210120@Cherry: Integrate Saba Jackpot (#148293)
+		20210506@Cherry: Integrate VGaming Jackpot (#154250)
 */
  
 BEGIN
@@ -44,13 +45,22 @@ SET NOCOUNT ON
 	SELECT Bettype
 	FROM DBWH.bodb_Account.dbo.BettypeGroup WITH (NOLOCK)
 	WHERE BettypeGroupID = 6
-		AND Bettype <> 1699
+		AND Bettype NOT IN (SELECT Bettype
+							FROM DBWH.bodb_Account.dbo.BettypeGroup WITH (NOLOCK)
+							WHERE BettypeGroupID = 16)
+							
+	CREATE TABLE #tmpHouseProduct (ProductID INT)
+	INSERT INTO #tmpHouseProduct (ProductID)
+	SELECT DISTINCT ProductID 
+	FROM DBWH.bodb_Account.dbo.Product_Bettype WITH (NOLOCK)
+	WHERE EventType = 255
 	
 	CREATE TABLE #tmpProduct (ProductID INT)
 	INSERT INTO #tmpProduct (ProductID)
 	SELECT DISTINCT ProductID 
 	FROM DBWH.bodb_Account.dbo.NonSportSetting WITH (NOLOCK)
-	WHERE ProductID NOT IN (5, 27, 23, 31) --Virtual Sports, Virtual Sports 2, NG2, Exchange
+	WHERE ProductID NOT IN (5, 27, 23, 31) --Virtual Sports, Virtual Sports 2, NG2, Exchange 
+		AND ProductID NOT IN (SELECT ProductID FROM #tmpHouseProduct) -- Saba.club, VGaming	
 	
     -- Get Bettype
 	INSERT INTO #SportBettype (ProductID, TypeId, TypeName, GameType)
@@ -59,18 +69,16 @@ SET NOCOUNT ON
 		INNER JOIN dbo.Bettype b WITH (NOLOCK) ON s.Bettype = b.TypeId 
 		LEFT JOIN #tmpBettype t ON s.Bettype = t.Bettype 
 	WHERE  (s.CasinoType IN (1,2) 
-			OR s.ProductID IN (SELECT ProductID 
-								FROM #tmpProduct)
+			OR s.ProductID IN (SELECT ProductID FROM #tmpProduct)
 			)  	 
 		   AND t.Bettype IS NULL
-		   AND s.ProductID <> 42
 		   
 	INSERT INTO #SportBettype (ProductID, TypeId, TypeName, GameType)
 	SELECT	s.ProductID ProductID, s.Bettype as TypeId, b.typenamee AS TypeName, s.SportType AS GameType
 	FROM dbo.SportBettypeMatrix s WITH (NOLOCK)
 		INNER JOIN dbo.Bettype b WITH (NOLOCK) ON s.Bettype = b.TypeId 
 		LEFT JOIN #tmpBettype t ON s.Bettype = t.Bettype 
-	WHERE  s.ProductID = 42
+	WHERE  s.ProductID IN (SELECT ProductID FROM #tmpHouseProduct)
 		   AND (IsTest = 0 OR s.IsTest = @isTest)
 		   AND t.Bettype IS NULL
 		   	
@@ -92,7 +100,7 @@ SET NOCOUNT ON
 	SELECT DISTINCT sb.ProductID, sb.SportType, s.SportName, 1 AS GameType
 	FROM dbo.SportBettypeMatrix sb WITH (NOLOCK)
 		INNER JOIN dbo.Sports s WITH (NOLOCK) ON sb.SportType = s.SportType 
-	WHERE sb.ProductID IN (5, 27, 23, 42)
+	WHERE (sb.ProductID IN (5, 27, 23) OR sb.ProductID IN (SELECT ProductID FROM #tmpHouseProduct))
 		AND (sb.IsTest = 0 OR sb.IsTest = @isTest)	
 			
 	SELECT	* 
@@ -102,6 +110,7 @@ SET NOCOUNT ON
 	DROP TABLE #SportBettype
 	DROP TABLE #tmpBettype
 	DROP TABLE #tmpProduct
+	DROP TABLE #tmpHouseProduct
 
 END
 

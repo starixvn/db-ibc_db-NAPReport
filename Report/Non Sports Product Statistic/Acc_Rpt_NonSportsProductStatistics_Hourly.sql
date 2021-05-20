@@ -57,6 +57,7 @@ AS
 		20200928@Cherry: Hot fix (#142436)
 		20201210@Cherry: Add Real Turnover (#146137)
 		20210120@Cherry: Integrate Saba Jackpot (#148293)
+		20210506@Cherry: Integrate VGaming Jackpot (#154250)
 
 	Param's Explanation:
 			 - @username:  + Search by keyword, member only
@@ -193,7 +194,6 @@ SET NOCOUNT ON
 	CREATE TABLE #tmpSporttype (
         Sporttype INT
     )
-
 	CREATE TABLE #tmpSiteSuper (
         Srecommend INT
     )
@@ -203,18 +203,15 @@ SET NOCOUNT ON
 	CREATE TABLE #tmpDevice (
         Betfrom NVARCHAR(2)
     )
-
 	CREATE TABLE #NonSportSetting(
 		ProductID INT,
 		Bettype INT,
 		WalletType VARCHAR(50)
-	)
-	
-	CREATE TABLE #tmpCurrency (CurrencyId INT)
-	
-	CREATE TABLE #tmpContributionBettype (Bettype INT)
-	
-	CREATE TABLE #tmpSportBetType (Sporttype INT, Bettype INT)
+	)	
+	CREATE TABLE #tmpCurrency (CurrencyId INT)	
+	CREATE TABLE #tmpContributionBettype (Bettype INT)	
+	CREATE TABLE #tmpSportBetType (Sporttype INT, Bettype INT)	
+	CREATE TABLE #tmpHouseProduct (ProductID INT)
 
 	IF @ProductID <> ''
     BEGIN
@@ -254,7 +251,7 @@ SET NOCOUNT ON
 		END
 	END
 	
-	IF @SportBetType <> '' AND EXISTS (SELECT 1 FROM #tmpProductID WHERE ProductID = 42)
+	IF @SportBetType <> '' 
     BEGIN
 		IF substring (@SportBetType, len(@SportBetType), 1) <> @splitter1
 			SET @SportBetType = @SportBetType + @splitter1
@@ -342,10 +339,17 @@ SET NOCOUNT ON
      FROM dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '', @isTest) s
 		INNER JOIN #tmpProductID p 
 				ON p.ProductId = s.ProductId	
+				
+	INSERT INTO #tmpHouseProduct (ProductID)
+	SELECT DISTINCT ProductID 
+	FROM DBWH.bodb_Account.dbo.Product_Bettype WITH (NOLOCK)
+	WHERE EventType = 255
+		AND ProductID IN (SELECT ProductID FROM #tmpProductID)
 
 	DELETE	s
 	FROM	#SportBettype s
-	WHERE	s.ProductID NOT IN (3, 5, 27, 42)   ---- NumberGame , Virtual Sports, Virtual Sports 2, Saba.club
+	WHERE	s.ProductID NOT IN (3, 5, 27)   ---- NumberGame , Virtual Sports, Virtual Sports 2
+			AND s.ProductID NOT IN (SELECT ProductID FROM #tmpHouseProduct) --Saba.club, VGaming
 			AND NOT EXISTS (SELECT Bettype FROM #tmpBetType b WHERE b.Bettype = s.Bettype)
 
 	INSERT INTO #NonSportSetting (ProductID, Bettype, WalletType)
@@ -359,8 +363,12 @@ SET NOCOUNT ON
 	
 	DELETE s
 	FROM #SportBettype s
-	WHERE s.ProductID = 42
+	WHERE s.ProductID IN (SELECT ProductID FROM #tmpHouseProduct) --Saba.club, VGaming
 		AND NOT EXISTS (SELECT b.Bettype FROM #tmpSportBetType b WHERE b.Bettype = s.Bettype)
+		
+	DELETE t
+	FROM #tmpSportBetType t LEFT JOIN #SportBettype s ON t.Bettype = s.Bettype
+	WHERE s.Bettype IS NULL
 	
 	INSERT INTO #tmpContributionBettype (Bettype)
 	SELECT Bettype
@@ -484,10 +492,17 @@ SET NOCOUNT ON
 					ELSE  DATEPART(HOUR, b.transdate) END, 
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.bettype
 				
-		OPTION(RECOMPILE)		 
+		OPTION(RECOMPILE)
+		
+		CREATE TABLE #tmpBettypeRNG (Bettype SMALLINT)
+		INSERT INTO #tmpBettypeRNG (Bettype)
+		SELECT Bettype
+		FROM #SportBettype
+		WHERE RefTable = 1 AND ProductID NOT IN (SELECT ProductID FROM #tmpHouseProduct)
+		CREATE CLUSTERED INDEX IX_bettype ON  #tmpBettypeRNG(Bettype)		 
 
 		---1b. By bettype for Casino Product
-		IF EXISTS(SELECT 1 FROM #SportBettype WHERE ProductID <> 42)
+		IF EXISTS(SELECT 1 FROM #tmpBettypeRNG)
 		BEGIN
 			INSERT INTO #Data (  [Hour] , 
 							   srecommend, 
@@ -529,9 +544,7 @@ SET NOCOUNT ON
 			FROM  dbo.BettransRNG b WITH (NOLOCK)
 			
 			WHERE b.WinlostDate = @WLDate
-				AND (b.gameID IN (SELECT Bettype FROM #SportBettype WHERE RefTable = 1 AND ProductID <> 42)
-					OR EXISTS(SELECT 1 FROM #tmpSportBetType s WHERE b.productid = s.Sporttype and b.gameid = s.Bettype)
-				)
+				AND b.gameID IN (SELECT Bettype FROM #tmpBettypeRNG)
 				AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
 				AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
 				AND (EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId) OR @currency = '-1') 			
@@ -552,7 +565,7 @@ SET NOCOUNT ON
 			OPTION(RECOMPILE)	
 		END
 		
-		IF (EXISTS (SELECT 1 FROM #tmpProductID WHERE ProductID = 42) AND (SELECT COUNT(1) FROM #tmpProductID) = 1)
+		IF EXISTS (SELECT 1 FROM #tmpProductID WHERE ProductID IN (SELECT ProductID FROM #tmpHouseProduct)) 
 		BEGIN
 			INSERT INTO #Data (  [Hour] , 
 							   srecommend, 
@@ -594,7 +607,6 @@ SET NOCOUNT ON
 			FROM  dbo.BettransRNG b WITH (NOLOCK)
 			
 			WHERE b.WinlostDate = @WLDate
-				AND b.gameID IN (SELECT Bettype FROM #SportBettype WHERE RefTable = 1 AND ProductID = 42)
 				AND EXISTS(SELECT 1 FROM #tmpSportBetType s WHERE b.productid = s.Sporttype and b.gameid = s.Bettype)
 				AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
 				AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
@@ -1287,6 +1299,7 @@ SET NOCOUNT ON
 	DROP TABLE #tmpDevice
 	DROP TABLE #tmpLeagueId
 	DROP TABLE #tmpProductID
+	DROP TABLE #tmpHouseProduct
 	DROP TABLE #tmpSite
 	DROP TABLE #tmpSiteSuper
 	DROP TABLE #tmpSporttype
@@ -1298,6 +1311,7 @@ SET NOCOUNT ON
 	DROP TABLE #tmpSportBetType
 	DROP TABLE #tmpNetStakeBettype	
 	DROP TABLE #tmpNoBetCountBettype
+	DROP TABLE #tmpBettypeRNG
 
 END 
 
