@@ -280,7 +280,19 @@ BEGIN
 				OPTION (RECOMPILE)
 		
 		-- + Parlay, Odds Spread Adjustment (#141750)
-		INSERT INTO #tmpData
+		INSERT INTO #tmpData (
+			SportType
+			,LeagueName
+			,MemberWinLoss
+			,SMAWinLoss
+			,ExtraPT
+			,Commission
+			,RealIncome
+			,VirtualIncome
+			,VarianceIncome
+			,RealTurnover
+			,VirtualTurnover
+		)
 			SELECT CASE WHEN sd.bettype IN (9, 29) THEN 10000
 						WHEN sd.bettype = 999 	   THEN 10001
 				   END 					AS SportType,
@@ -303,7 +315,19 @@ BEGIN
 			OPTION (RECOMPILE)
 
 		-- + RM
-		INSERT INTO #tmpData
+		INSERT INTO #tmpData (
+			SportType
+			,LeagueName
+			,MemberWinLoss
+			,SMAWinLoss
+			,ExtraPT
+			,Commission
+			,RealIncome
+			,VirtualIncome
+			,VarianceIncome
+			,RealTurnover
+			,VirtualTurnover
+		)
 			SELECT CASE WHEN m.SportType = 1 AND sd.recommend = 52466	  THEN 100001
 						WHEN m.SportType =-1 AND sd.recommend = 52466     THEN 100002
 						WHEN ABS(m.SportType)>1 AND sd.recommend = 52466  THEN 100003
