@@ -242,6 +242,12 @@ BEGIN
 		HousePT SMALLMONEY,
 		RowNum INT
 	)
+	
+	CREATE TABLE #tmpNoBetCountBettype (Bettype INT)
+	INSERT INTO #tmpNoBetCountBettype (Bettype)
+	SELECT Bettype
+	FROM DBWH.bodb_Account.dbo.BettypeGroup WITH (NOLOCK)
+	WHERE BettypeGroupID = 12
 
 	IF @CID <> -1
 	BEGIN
@@ -596,13 +602,7 @@ BEGIN
 			END
 		END
 		
-		-- Update BetCount = 0
-		CREATE TABLE #tmpNoBetCountBettype (Bettype INT)
-		INSERT INTO #tmpNoBetCountBettype (Bettype)
-		SELECT Bettype
-		FROM DBWH.bodb_Account.dbo.BettypeGroup WITH (NOLOCK)
-		WHERE BettypeGroupID = 12
-		
+		-- Update BetCount = 0		
 		UPDATE #tmp_bettrans
 		SET BetCount = 0
 		WHERE bettype IN (SELECT Bettype FROM #tmpNoBetCountBettype)
