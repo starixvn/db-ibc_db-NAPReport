@@ -25,6 +25,7 @@ AS
 		- 20200930@Jaden.Tang: Odds Spread Adjustment (#141750)
 		- 20201016@Jaden.Tang: Refactor for code readability & performance
 		- 20201221@Jaden.Tang: Add live status & global show time filter (#147450), separate SABA sports
+		- 20210520@Jaden.Tang: SABA Soccer Pin Goal (#155447)
 
 	Param's Explanation:
 		- @StartDate: The start date of data to view on report
@@ -63,6 +64,7 @@ AS
 	Remarks: 
 		- Only show Parlay & Odds data when specific @GlobalShowTime/@LiveIndicator is specified
 		- SABA sports are separated into different groups [#147450]
+			* SABA Soccer Pingoal should have a line of its own
 		- Custom sport id (>= 10000) used to represents Parlay, SB Adjustment & RM metrics
 		Example result:
 			| SportType |       Sport       |     LeagueName    | Other metrics |
@@ -157,7 +159,9 @@ BEGIN
 								SportType 	INT,
 								LeagueID 	INT,
 								LeagueName 	VARCHAR(500),
-								MatchType 	TINYINT)
+								MatchType 	TINYINT,
+								AltSportName VARCHAR(100)) /* special grouping column to display leagues that viewed explicitly, 
+															  report shows this name if it is not null, otherwise use value from [Sports] */
 
 		;WITH CTE_Match AS (
 			SELECT matchid, leagueid, 0 AS matchtype, GlobalShowTime FROM match WITH (NOLOCK) WHERE eventdate = @StartDate
@@ -167,14 +171,15 @@ BEGIN
 		), CTE_SABA_Groups AS (
 			SELECT val FROM bodb02.dbo.strSplit(@SABA_GROUPIDS, ',')
 		)
-		INSERT INTO #tmpMatch(MatchID, SportType, LeagueID, LeagueName, MatchType)
+		INSERT INTO #tmpMatch(MatchID, SportType, LeagueID, LeagueName, MatchType, AltSportName)
 			SELECT 
 				m.matchid, 
 				CASE WHEN l.LeagueGroupID IN (SELECT val FROM CTE_SABA_Groups) THEN -l.sporttype
 					 ELSE l.sporttype END sporttype,
 				l.leagueid, 
 				l.leaguename, 
-				m.matchtype
+				m.matchtype,
+				CASE WHEN l.LeagueGroupID IN (SELECT val FROM CTE_SABA_Groups WHERE val = 113) THEN 'SABA Soccer PinGoal' END AltSportName
 			FROM CTE_Match m
 			INNER JOIN bodb02.dbo.league l WITH (NOLOCK) 
 				ON m.leagueid = l.leagueid
@@ -248,6 +253,7 @@ BEGIN
 	-- #tmpData: display tmp (sport / league)
 	CREATE TABLE #tmpData ( SportType		INT,
 							LeagueName		VARCHAR(150),
+							AltSportName 	VARCHAR(100),
 							MemberWinLoss	MONEY,
 							SMAWinLoss		MONEY,
 							ExtraPT			MONEY,
@@ -262,6 +268,7 @@ BEGIN
 		INSERT INTO #tmpData
 			SELECT  m.SportType,
 					m.LeagueName,
+					m.AltSportName,
 					SUM(MemberWinLoss), 
 					SUM(SMAWinLoss), 
 					SUM(ExtraPT),
@@ -276,7 +283,8 @@ BEGIN
 					ON sd.matchid = m.matchid
 					AND CASE WHEN sd.bettype = 10 THEN 1 ELSE 0 END = m.matchtype
 				GROUP BY  m.SportType,
-						  m.LeagueName
+						  m.LeagueName,
+						  m.AltSportName
 				OPTION (RECOMPILE)
 		
 		-- + Parlay, Odds Spread Adjustment (#141750)
@@ -377,7 +385,8 @@ BEGIN
 	(
 		SELECT ABS(t.SportType) SportType, -- rollback to orig sport id for SABAs to keep consistency with other reports
 			CASE WHEN t.SportType < 0 THEN 1 ELSE 0 END AS IsSabaSport,
-			CASE WHEN t.SportType = 10000  THEN 'Parlay'
+			CASE WHEN t.AltSportName IS NOT NULL THEN t.AltSportName
+				 WHEN t.SportType = 10000  THEN 'Parlay'
 				 WHEN t.SportType = 10001  THEN 'SB Adjustment'
 				 WHEN t.SportType > 100000 THEN LeagueName
 				 WHEN t.SportType < 0 	   THEN 'SABA ' + SportName
@@ -398,11 +407,11 @@ BEGIN
 		WHERE MemberWinLoss IS NOT NULL
 	) AS s
 	ORDER BY CASE WHEN Sport = 'Soccer' 		 THEN 1
-				  WHEN Sport = 'SABA Soccer' 	 THEN 2
+				  WHEN Sport LIKE 'SABA Soccer%' AND SportType <= 100000 THEN 2
 				  WHEN Sport = 'Parlay' 		 THEN 3
 				  WHEN Sport = 'SB Adjustment'   THEN 4
 				  WHEN Sport = 'Basketball'  	 THEN 5
-				  WHEN Sport = 'SABA Basketball' THEN 6
+				  WHEN Sport LIKE 'SABA Basketball%' AND SportType <= 100000 THEN 6
 				  WHEN Sport = 'Tennis'		 	 THEN 7
 				  WHEN Sport = 'E-Sports'	 	 THEN 8 --fix some sports at top
 				  ELSE 
@@ -410,7 +419,7 @@ BEGIN
 			 END
 			,CASE -- then sort by alphabetic order; except for SABA sports: fix them after their primary sport
 				  WHEN Sport LIKE '%SABA%' THEN LTRIM(REPLACE(Sport, 'SABA', '')) + '~' 
-				  ELSE Sport END
+				  ELSE Sport END DESC
 			,LeagueName -- lastly, sort by league name
 
 	DROP TABLE #tmpSportBettypeMatrix
