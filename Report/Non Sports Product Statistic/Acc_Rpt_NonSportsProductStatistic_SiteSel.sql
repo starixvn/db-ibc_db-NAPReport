@@ -90,7 +90,7 @@ BEGIN
 		INNER JOIN bodb_Licensee.dbo.Licensees l WITH(NOLOCK) ON l.LicenseeID = p.OldRefID
 		INNER JOIN #LA_CombinedGroupAssignment a ON p.PartyId = a.PartyId
 	WHERE p.PartyType = 1 AND pd.IsDeposit = 1 AND pd.StatusId = 1	
-		AND s.LicenseeID NOT IN (SELECT LicenseeID FROM #tmpLicensee WHERE GroupId = -2)
+		AND s.LicenseeID NOT IN (SELECT LicenseeID FROM #tmpLicensee WHERE GroupId = -3)
 		
 	INSERT INTO #tmpLicensee (LicenseeId, LicenseeName, GroupId)
 	SELECT LicenseeID, LicenseeName, -2 GroupId
