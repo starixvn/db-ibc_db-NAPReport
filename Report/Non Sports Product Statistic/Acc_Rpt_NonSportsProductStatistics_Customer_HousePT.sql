@@ -600,7 +600,7 @@ BEGIN
 				GROUP BY s.ProductID, b.gameID 
 				OPTION(RECOMPILE)
 			END
-		END
+		END		
 		
 		-- Update BetCount = 0		
 		UPDATE #tmp_bettrans
