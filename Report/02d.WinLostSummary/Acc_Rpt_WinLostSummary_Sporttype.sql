@@ -456,7 +456,7 @@ BEGIN
 				    , virtualTurnover)
 /*Casino*/
 		 SELECT 251 AS sporttype
-			 , 71 AS bettype
+			 , CASE WHEN b.bettype <> 71 THEN 71 ELSE b.bettype END AS bettype 
 			 , 0 AS liveindicator
 			 , 0 AS ibc
 			 , 0 AS IsHedge
@@ -482,7 +482,9 @@ BEGIN
 			INNER JOIN @SportBettype AS s ON s.Bettype = b.bettype
 									   AND b.liveindicator = s.liveindicator
 		 WHERE b.winlostdate BETWEEN @_fromdate AND @_todate
-			  AND s.ProductId = 6;
+			  AND s.ProductId = 6
+		 GROUP BY CASE WHEN b.bettype <> 71 THEN 71 ELSE b.bettype END
+		 
     INSERT INTO #TempData(sporttype
 				    , bettype
 				    , liveindicator
@@ -1459,8 +1461,4 @@ BEGIN
     DROP TABLE #Result;
 
 END;
-GO
-
-GRANT EXECUTE ON dbo.Acc_Rpt_WinlostSummary_Sporttype TO [bodbAdminNet];
-
 GO
