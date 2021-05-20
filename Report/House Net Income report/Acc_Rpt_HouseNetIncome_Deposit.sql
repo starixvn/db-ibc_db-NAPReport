@@ -21,6 +21,7 @@ AS
 		- 20210331@Danny: exclude site saba789 [Redmine: #152450] 
 		- 20210419@Danny: Arcadia Gaming - Add 2 new games: Marble Mini and RPS (#153419)
 		- 20210405@Danny: Integrate VGaming Casino games (#154157)
+		- 20210517@Danny: Special term when billing between OneWorks and 9w licensee (#155045)
 */
 BEGIN
 	SET NOCOUNT ON
@@ -992,6 +993,26 @@ BEGIN
 				INNER JOIN (SELECT PartyId FROM @tmpResult WHERE Product3rdId = 2 GROUP BY PartyId HAVING SUM(LicenseeFee) < 0) r ON t.PartyId = r.PartyId
 			WHERE t.Product3rdId = 2
 
+		/*
+			GET 9w licensee list
+		*/
+		--DECLARE @9wLicenseeList TABLE (PartyId INT)
+		--INSERT INTO @9wLicenseeList (PartyId)
+		--SELECT PartyId FROM OPENQUERY(DBLIC, 'SELECT PartyId FROM bodb_licensee.dbo.LA_f_JVPartyListSel()')
+		
+		--UPDATE r
+		--SET r.HouseIncome = CASE WHEN r.HouseIncome > 0 OR r.Product3rdId = 3 THEN r.HouseIncome ELSE 0 END
+		--	,r.LicenseeFee = CASE
+		--				WHEN r.Product3rdId = 25 THEN LicenseeFee
+		--				WHEN r.Product3rdId IN (42, 66) THEN CASE WHEN r.LicenseeWL > 0 THEN r.LicenseeFee ELSE 0 END
+		--				WHEN r.LicenseeFee > 0 THEN r.LicenseeFee ELSE 0 END
+		--FROM @tmpResult r
+		--WHERE r.Product3rdId <> 2
+		--	AND (
+		--		r.Product3rdId = 25 -- Cashout
+		--		OR r.PartyId NOT IN (SELECT p.PartyId FROM @9wLicenseeList p)
+		--	)
+
 		UPDATE r
 		SET r.HouseIncome = CASE WHEN r.HouseIncome > 0 OR r.Product3rdId = 3 THEN r.HouseIncome ELSE 0 END
 			,r.LicenseeFee = CASE
@@ -1001,12 +1022,15 @@ BEGIN
 		FROM @tmpResult r
 		WHERE r.Product3rdId <> 2
 			AND (
-				r.Product3rdId <> 0
+				r.Product3rdId = 25 -- Cashout
 				OR r.PartyId NOT IN (
 					SELECT p.PartyId FROM DBLIC.bodb_Licensee.dbo.OAS_Party p WITH (NOLOCK)
-					WHERE p.PartyName IN ('9wickets', '9Wsports')
+					WHERE p.PartyName IN ('9wickets', '9Wsports', '9w')
 				)
 			)
+
+
+
 	END
 
 	-- Calculate result
