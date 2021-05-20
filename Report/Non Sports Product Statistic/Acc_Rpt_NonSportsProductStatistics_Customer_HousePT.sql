@@ -182,9 +182,7 @@ BEGIN
 	DELETE t
 	FROM #tmpSportBetType t LEFT JOIN #SportBettype s ON t.Bettype = s.Bettype
 	WHERE s.Bettype IS NULL
-
-	DROP TABLE #tmp_ProductID
-	DROP TABLE #tmp_BetType
+	
 	-- End Get Sport Bettype Matrix --
 	
 	INSERT INTO #tmpContributionBettype (Bettype)
@@ -817,5 +815,7 @@ BEGIN
 	DROP TABLE #tmpNoBetCountBettype
 	DROP TABLE #tmpDep_CustSuper
 	DROP TABLE #tmpHouseProduct
+	DROP TABLE #tmp_ProductID
+	DROP TABLE #tmp_BetType
 	
 END
