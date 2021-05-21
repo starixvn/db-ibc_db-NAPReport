@@ -56,6 +56,7 @@ Revisions:
 - 20210303@Cherry: Integrate Sports Lottery (#151071)
 - 20212203@Jaden: Support SABA789 (#151326)
 - 20210428@Ned.Le: NAP Report - Implement VGaming (#154072)
+- 20210520@Kean: SABA Soccer PinGoal - NAP Report (#155447)
 
 Explanation's Param:
 
@@ -222,18 +223,34 @@ Explanation's Param:
 
 		INSERT INTO #SABALeagueGroup
 		SELECT val FROM dbo.strSplit(@LeagueGroupStr,',')
+
+		CREATE TABLE #SABALeague (
+				LeagueGroupType INT,
+				LeagueGroupID INT,
+				LeagueID INT
+		)
+		INSERT INTO #SABALeague(LeagueGroupType, LeagueGroupID, LeagueID)
+		SELECT CASE WHEN LeagueGroupID = 113 THEN 2
+		        ELSE 1 END LeagueGroupType,
+		   LeagueGroupID,
+		   leagueid LeagueID
+		FROM bodb02.dbo.League (NOLOCK)
+		WHERE LeagueGroupID IN (SELECT LeagueGroupID FROM #SABALeagueGroup)
+
 	   -- Match
 	   CREATE TABLE #Match(
 		   MatchId      INT
 		 , sporttype    SMALLINT
 		 , type         TINYINT
-		 , IsSabaSport BIT);--, primary key(MatchId, type))
+		 , IsSabaSport TINYINT);--, primary key(MatchId, type))
 	   
 	   INSERT INTO #Match
 			SELECT m.MatchId
 				, s.sporttype
 				, m.type
-				, CASE WHEN saba.LeagueGroupID IS NULL THEN 0 ELSE 1 END IsSabaSport
+				, CASE WHEN sl.LeagueGroupType = 2 THEN 2 -- SABA PinGoal
+					   WHEN sl.LeagueGroupType = 1 THEN 1 -- SABA Soccer
+				 ELSE 0 END IsSabaSport
 			FROM
 				(
 				    SELECT MatchId
@@ -254,7 +271,7 @@ Explanation's Param:
 				) AS m
 			    INNER JOIN league AS l WITH(NOLOCK) ON m.LeagueId = l.LeagueId
 			    INNER JOIN Sports AS s WITH(NOLOCK) ON l.sporttype = s.sporttype
-				LEFT JOIN #SABALeagueGroup saba ON l.LeagueGroupID = saba.LeagueGroupID;
+				LEFT JOIN #SABALeague sl ON l.leagueid = sl.LeagueID;
 	   CREATE CLUSTERED INDEX CIX_MatchID ON #Match(MatchID, Type);
 	   --
 	   --1. Sportsbook only and outright
@@ -286,6 +303,7 @@ Explanation's Param:
 					 THEN 44
 					 WHEN m.Sporttype = 1 AND m.IsSabaSport = 0 THEN 1 -- Real Soccer
 					 WHEN m.Sporttype = 1 AND m.IsSabaSport = 1 THEN -1 -- SABA Soccer
+					 WHEN m.Sporttype = 1 AND m.IsSabaSport = 2 THEN -2 -- SABA PinGoal
 					 ELSE 2
 				  END AS SportType
 				, SUM((winlost - actual_stake) * actualrate) AS winlost_actualrate
@@ -406,6 +424,7 @@ Explanation's Param:
 					   THEN 44
 					   WHEN m.Sporttype = 1 AND m.IsSabaSport = 0 THEN 1 -- Real Soccer
 					   WHEN m.Sporttype = 1 AND m.IsSabaSport = 1 THEN -1 -- SABA Soccer
+					   WHEN m.Sporttype = 1 AND m.IsSabaSport = 2 THEN -2 -- SABA PinGoal
 					   ELSE 2
 				    END OPTION(RECOMPILE);
 	   --Remove betype of MertricGaming and Bettrade AND Bet Builder
@@ -489,6 +508,7 @@ Explanation's Param:
 					 THEN 44
 					 WHEN m.Sporttype = 1 AND m.IsSabaSport = 0 THEN 1 -- Real Soccer
 					 WHEN m.Sporttype = 1 AND m.IsSabaSport = 1 THEN -1 -- SABA Soccer
+					 WHEN m.Sporttype = 1 AND m.IsSabaSport = 2 THEN -2 -- SABA Soccer PinGoal
 					 ELSE 2
 				  END AS SportType
 				, SUM((winlost - actual_stake) * actualrate) AS winlost_actualrate
@@ -600,6 +620,7 @@ Explanation's Param:
 					   THEN 44
 					   WHEN m.Sporttype = 1 AND m.IsSabaSport = 0 THEN 1 -- Real Soccer
 					   WHEN m.Sporttype = 1 AND m.IsSabaSport = 1 THEN -1 -- SABA Soccer
+					   WHEN m.Sporttype = 1 AND m.IsSabaSport = 2 THEN -2 -- SABA Soccer PinGoal
 					   ELSE 2
 				    END;
 	   -- Minus data of BARM 
@@ -1122,6 +1143,7 @@ Explanation's Param:
 					 WHEN b.Sporttype = 1
 					 THEN-5
 					 WHEN b.Sporttype = -1 THEN -1000 -- Harcode for SABA
+					 WHEN b.Sporttype = -2 THEN -1002 -- Harcode for SABA PinGoal
 					 WHEN b.sporttype IN(2, 44)
 					 THEN-4
 				  END AS ProductID
@@ -1142,6 +1164,7 @@ Explanation's Param:
 					   WHEN b.Sporttype = 1
 					   THEN-5
 					   WHEN b.Sporttype = -1 THEN -1000 -- Harcode for SABA
+					   WHEN b.Sporttype = -2 THEN -1002 -- Harcode for SABA PinGoal
 					   WHEN b.sporttype IN(2, 44)
 					   THEN-4
 				    END
@@ -1331,6 +1354,7 @@ Explanation's Param:
 			SELECT CASE
 					 WHEN m.Sporttype = 1 AND m.IsSabaSport = 0 THEN -98
 					 WHEN m.Sporttype = 1 AND m.IsSabaSport = 1 THEN -1001
+					 WHEN m.Sporttype = 1 AND m.IsSabaSport = 2 THEN -1003
 					 ELSE-99
 				  END AS ProductId
 				, CASE b.recommend
@@ -1378,6 +1402,7 @@ Explanation's Param:
 			GROUP BY CASE
 					  WHEN m.Sporttype = 1 AND m.IsSabaSport = 0 THEN -98
 					  WHEN m.Sporttype = 1 AND m.IsSabaSport = 1 THEN -1001
+					  WHEN m.Sporttype = 1 AND m.IsSabaSport = 2 THEN -1003
 					   ELSE-99
 				    END
 				  , CASE b.recommend
@@ -1401,33 +1426,34 @@ Explanation's Param:
 	   VALUES
 			(1, -5, 'Soccer'),
 			(2, -1000, 'SABA Soccer'),
-			(3, -4, 'Other Sports'),
-			(4, -3, 'Parlay'),
-			(5, -7, 'SB Adjustment'),
-			(6, -1, 'Metric Gaming - Superlive'),
-			(7, -6, 'Bet Builder'),
-			(8, 8, NULL),
-			(9, 3, NULL),
-			(10, 4, 'Live Casino'),
-			(11, 6, 'Casino'),
-			(12, 5, NULL),
-			(13, 27, NULL),
-			(14, 28, NULL),
-			(15, 23, NULL),
-			(16, -2, 'Bettrade'),
-			(17, 25, NULL),
-			(18, 15, NULL),
-			(19, 24, NULL),
-			(20, 31, NULL),
-			(21, 37, NULL),
-			(22, 38, NULL),
-			(23, 43, NULL),
-			(24, 40, NULL),
-			(25, 42, NULL),
-			(26, 50, NULL),
-			(27, 49, NULL),
-			(28, 63, NULL),
-			(29, 66, NULL);
+			(3, -1002, 'SABA Soccer PinGoal'),
+			(4, -4, 'Other Sports'),
+			(5, -3, 'Parlay'),
+			(6, -7, 'SB Adjustment'),
+			(7, -1, 'Metric Gaming - Superlive'),
+			(8, -6, 'Bet Builder'),
+			(9, 8, NULL),
+			(10, 3, NULL),
+			(11, 4, 'Live Casino'),
+			(12, 6, 'Casino'),
+			(13, 5, NULL),
+			(14, 27, NULL),
+			(15, 28, NULL),
+			(16, 23, NULL),
+			(17, -2, 'Bettrade'),
+			(18, 25, NULL),
+			(19, 15, NULL),
+			(20, 24, NULL),
+			(21, 31, NULL),
+			(22, 37, NULL),
+			(23, 38, NULL),
+			(24, 43, NULL),
+			(25, 40, NULL),
+			(26, 42, NULL),
+			(27, 50, NULL),
+			(28, 49, NULL),
+			(29, 63, NULL),
+			(30, 66, NULL);
 			
 	   UPDATE p
 	   SET p.ProductName = s.ProductName
@@ -1444,9 +1470,11 @@ Explanation's Param:
 			(100, -98, 'Soccer BARM', 2),
 			(101, -1001, 'SABA Soccer 8RM', 1),
 			(101, -1001, 'SABA Soccer BARM', 2),
+			(102, -1003, 'SABA Soccer PinGoal 8RM', 1),
+			(102, -1003, 'SABA Soccer PinGoal BARM', 2),
 
-			(102, -99, 'Other Sports 8RM', 1),
-			(102, -99, 'Other Sports BARM', 2);
+			(103, -99, 'Other Sports 8RM', 1),
+			(103, -99, 'Other Sports BARM', 2);
 	   UPDATE R
 			SET 
 			    DisplayOrder = P.DisplayOrder
@@ -1459,12 +1487,12 @@ Explanation's Param:
 											    ELSE 0
 											END;
 	   SELECT CASE
-			    WHEN d.DisplayOrder IN(100, 101, 102)
+			    WHEN d.DisplayOrder IN(100, 101, 102, 103)
 			    THEN 'RM'
 			    ELSE d.ProductName
 			END AS GroupName
 		   , CASE
-			    WHEN d.DisplayOrder IN(100, 101, 102)
+			    WHEN d.DisplayOrder IN(100, 101, 102, 103)
 			    THEN d.ProductName
 			    WHEN d.Site = 1
 			    THEN 'Credit'
@@ -1490,12 +1518,12 @@ Explanation's Param:
 			    END) AS extraPT
 	   FROM #Result AS d
 	   GROUP BY CASE
-				 WHEN d.DisplayOrder IN(100, 101, 102)
+				 WHEN d.DisplayOrder IN(100, 101, 102, 103)
 				 THEN 'RM'
 				 ELSE d.ProductName
 			  END
 			, CASE
-				 WHEN d.DisplayOrder IN(100, 101, 102)
+				 WHEN d.DisplayOrder IN(100, 101, 102, 103)
 				 THEN d.ProductName
 				 WHEN d.Site = 1
 				 THEN 'Credit'
@@ -1518,6 +1546,7 @@ Explanation's Param:
 	   DROP TABLE #SportBettype;
 	   DROP TABLE #SpecialBettypeGroup
 	   DROP TABLE #SABALeagueGroup;
+	   DROP TABLE #SABALeague;
 	   DROP TABLE #ProductOrder;
     END
 GO

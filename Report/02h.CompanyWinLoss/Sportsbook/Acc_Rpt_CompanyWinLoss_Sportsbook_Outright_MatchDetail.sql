@@ -25,9 +25,10 @@ Revisions:
 - 20201222@Kean: Support to filter NoDraw and separate the SABA sports - NAP Report (#147451)
 - 20210323@Kean: Daily Win Loss (2h) Soccer Minor Bet Types do not use @IsSabaSport parameter (#152100)
 - 20210326@Kean: HotFix, Missing data when league.LeagueGroupId is NULL - NAP Report (#152390)
+- 20210520@Kean: SABA Soccer PinGoal - NAP Report (#155447)
 
 Parameters:
-@IsSabaSport: 2 - ALL. 0 - Non-SABA. 1 - SABA 
+@IsSabaSport: 2 - ALL. 0 - Non-SABA. 1 - SABA. 3 - SABA PinGoal 
 Example:
 EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Outright_MatchDetail] @EndDate='2020-01-01',@StartDate='2016-01-01', @SportType=2
 
@@ -41,6 +42,19 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Outright_MatchDetail] @EndDate='2020-01-
 
 		INSERT INTO #SABALeagueGroup
 		SELECT val FROM dbo.strSplit(@LeagueGroupStr,',')
+
+		CREATE TABLE #SABALeague (
+				LeagueGroupType INT,
+				LeagueGroupID INT,
+				LeagueID INT
+		)
+		INSERT INTO #SABALeague(LeagueGroupType, LeagueGroupID, LeagueID)
+		SELECT CASE WHEN LeagueGroupID = 113 THEN 2
+		        ELSE 1 END LeagueGroupType,
+		   LeagueGroupID,
+		   leagueid LeagueID
+		FROM bodb02.dbo.League (NOLOCK)
+		WHERE LeagueGroupID IN (SELECT LeagueGroupID FROM #SABALeagueGroup)
 	END;
     BEGIN -- #Match
 
@@ -60,9 +74,10 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Outright_MatchDetail] @EndDate='2020-01-
                WHERE EventDate = @StartDate
                      AND l.sporttype = @SportType
 					 AND (@IsSabaSport = 2
-							OR (@IsSabaSport = 0 AND (l.LeagueGroupID NOT IN (SELECT LeagueGroupID FROM #SABALeagueGroup) OR l.LeagueGroupID IS NULL) ) 
-							OR (@IsSabaSport = 1 AND l.LeagueGroupID IN (SELECT LeagueGroupID FROM #SABALeagueGroup))
-						);
+								OR (@IsSabaSport = 0 AND l.leagueid NOT IN (SELECT LeagueID FROM #SABALeague))
+								OR (@IsSabaSport = 1 AND l.leagueid IN (SELECT LeagueID FROM #SABALeague WHERE LeagueGroupType = 1))
+								OR (@IsSabaSport = 3 AND l.leagueid IN (SELECT LeagueID FROM #SABALeague WHERE LeagueGroupType = 2))
+					);
     END;
     BEGIN -- #Data
 
@@ -289,4 +304,5 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Outright_MatchDetail] @EndDate='2020-01-
 	DROP TABLE #Match;
     DROP TABLE #Data;
 	DROP TABLE #SABALeagueGroup;
+	DROP TABLE #SABALeague;
 GO
