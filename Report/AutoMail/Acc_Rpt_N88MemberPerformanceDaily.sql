@@ -13,6 +13,7 @@ AS
 	 Revisions:
 	 - 20201117@Jaden: from adhoc to SP
 	 - 20210519@Jaden: Switch to daily report
+	 - 20210520@Jaden: Add column bettype
 	 */
 BEGIN 
 	Create table #tmp_data
@@ -21,6 +22,7 @@ BEGIN
 		CurrencyName nvarchar(10),
 		leagueid int,
 		sporttype int,
+		bettype int,
 		homeid int,
 		awayid int,
 		username nvarchar (100),
@@ -37,6 +39,7 @@ BEGIN
 		mc.CurrencyName,
 		m.leagueid,
 		m.sporttype,
+		bettype,
 		homeid,
 		awayid,
 		mc.username,
@@ -63,6 +66,7 @@ BEGIN
 		mc.CurrencyName,
 		m.leagueid,
 		m.sporttype,
+		bettype,
 		homeid,
 		awayid,
 		mc.username,
@@ -79,6 +83,7 @@ BEGIN
 			'Combine Parlay Match'
 		) [Match],
 		CurrencyName,
+		bt.typenamee [Bettype],
 		SUM(betcount) BetCount,
 		SUM(b.Stake) AS [Turnover Member],
 		SUM(b.WinlossP) AS [Winloss Member],
@@ -87,6 +92,7 @@ BEGIN
 		#tmp_data b WITH (NOLOCK)
 		LEFT join League l with (nolock) on l.leagueid = b.leagueid
 		LEFT join Sports s with (nolock) on s.SportType = b.sporttype
+		LEFT join bettype bt with (nolock) on bt.typeid=b.bettype
 		LEFT JOIN bodb02.dbo.team t1 WITH (nolock) on b.homeid = t1.teamid
 		LEFT JOIN bodb02.dbo.team t2 WITH(nolock) on b.awayid = t2.teamid
 	group by
@@ -96,6 +102,7 @@ BEGIN
 		b.leagueid,
 		CurrencyName,
 		s.SportName,
+		bt.typenamee,
 		ISNULL(
 			t1.teamname + ' vs ' + t2.teamname,
 			'Combine Parlay Match'
