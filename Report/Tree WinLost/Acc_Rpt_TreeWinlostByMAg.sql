@@ -59,6 +59,7 @@ Revisions:
 	20201001@Cherry: Add Licensee Odds Spread (#141750)
 	20201111@Ned.Le: NAP Report - Hotfix Tree Winloss - Block Replication (#145175)
 	20210409@Jaden.Tang: Exclude lucky draws from bettransLC (#133731)
+	20210520@Jaden:  Support new way to view VR setting (#154903)
 */
 
 BEGIN
@@ -468,11 +469,25 @@ BEGIN
 			  AND b.mrecommend = @mrecommend
 		 GROUP BY b.recommend
 			   , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(19, 6)) OPTION(RECOMPILE);
+
+	-- get top 1 vr record of each cust 
+	CREATE TABLE #custVRRef (CustID INT, VirtualMultiplier SMALLMONEY);
+	INSERT INTO #custVRRef
+		SELECT custinfo.custid, ca.virtualMultiplier - 1
+		FROM bodb02.dbo.custInfo AS custinfo WITH (NOLOCK)
+		CROSS APPLY (SELECT TOP 1 cvs.custid, pvs.bettype,
+						bodb02.dbo.f_GetVirtualSetting(cvs.bitmapVirtual, pvs.profileID) AS virtualMultiplier
+					FROM bodb02.dbo.CustVirtualSetting cvs WITH (NOLOCK)
+					INNER JOIN bodb02.dbo.ProfileVirtualSetting AS pvs WITH (NOLOCK) 
+						ON cvs.seqNo = pvs.seqNo
+					WHERE cvs.custid = custinfo.custid
+					AND pvs.sporttype NOT IN (43, 2) AND pvs.isActive = 1) ca
+		WHERE custinfo.custid IN (select recommend from #TmpResultAll)
 	
 	/*-record set main data*/
     SELECT b.recommend
 	    , ca.username
-	    , ISNULL(ca.virtualmultiplier, 1) AS                                                              EnableVirtualrate
+	    , ISNULL(CAST(ref.VirtualMultiplier AS VARCHAR(5)), 'N/A') 									AS VirtualRate
 	    , SUM(CASE
 			    WHEN TurnoverIBC = 0
 			    THEN 0
@@ -554,9 +569,10 @@ BEGIN
 			END * ABS(VarianceVR)) AS                                                                   TOVarianceTotal
     FROM #TmpResultAll AS b
 	   INNER JOIN custinfo AS ca WITH (NOLOCK) ON b.recommend = ca.custid
+	   LEFT JOIN #custVRRef AS ref WITH (NOLOCK) ON b.recommend = ref.CustID
     GROUP BY b.recommend
 		 , ca.username
-		 , ISNULL(ca.virtualmultiplier, 1)
+		 , ISNULL(CAST(ref.VirtualMultiplier AS VARCHAR(5)), 'N/A')
     ORDER BY username;
 
 	-- Drop temp tables
