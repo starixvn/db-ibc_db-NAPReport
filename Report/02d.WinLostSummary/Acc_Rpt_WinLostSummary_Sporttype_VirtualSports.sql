@@ -96,7 +96,7 @@ SET NOCOUNT ON
 			,ISNULL(SUM(realLineTotal),0) as virtualLineTotal
 			,ISNULL(SUM(realTurnover),0) as virtualTurnover							
 		FROM bodb_Account.dbo.rptWinlost b WITH(NOLOCK)
-			INNER JOIN bodb02.dbo.match14 m WITH(NOLOCK) ON b.matchid = m.matchid
+			INNER JOIN bodb_archive.dbo.match m WITH(NOLOCK) ON b.matchid = m.matchid
 		WHERE winlostdate BETWEEN @f_date AND @t_date
 			AND b.sporttype = @sporttype			
 		GROUP BY matchcode, homeid, awayid, bettype, leagueid

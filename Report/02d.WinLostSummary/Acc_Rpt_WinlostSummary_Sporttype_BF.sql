@@ -163,7 +163,7 @@ AS
                            0 AS isNeutral
                     FROM bodb_Account.dbo.rptWinlost b WITH (NOLOCK)
                          INNER JOIN @SportBettype sb ON b.bettype = sb.Bettype
-                         INNER JOIN bodb02.dbo.Match3rd14 m WITH (NOLOCK) ON b.matchid = m.Match3rdId
+                         INNER JOIN bodb_archive.dbo.Match3rd m WITH (NOLOCK) ON b.matchid = m.Match3rdId
                          INNER JOIN bodb02.dbo.League3rd l WITH (nolock) ON l.League3rdId = m.League3rdId
                     WHERE winlostdate BETWEEN @f_date AND @t_date
                           AND sb.ProductID = 30

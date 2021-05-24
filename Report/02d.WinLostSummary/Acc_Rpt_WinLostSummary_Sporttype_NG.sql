@@ -165,7 +165,7 @@ BEGIN
 				    , ISNULL(SUM(virtualLineTotal), 0)
 				    , m.isNeutral
 			    FROM bodb_Account.dbo.rptWinlost AS b WITH (NOLOCK)
-				   INNER JOIN bodb02.dbo.match14 AS m WITH (NOLOCK) ON b.matchid = m.matchid
+				   INNER JOIN bodb_archive.dbo.match AS m WITH (NOLOCK) ON b.matchid = m.matchid
 				   INNER JOIN @SportBettype AS sb ON sb.Bettype = b.bettype
 			    WHERE winlostdate BETWEEN @f_date AND @t_date
 					AND m.matchcode NOT LIKE '%hedge%'

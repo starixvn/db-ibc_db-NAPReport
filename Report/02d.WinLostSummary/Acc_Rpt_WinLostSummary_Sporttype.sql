@@ -229,21 +229,21 @@ BEGIN
 			    SELECT m.matchid
 				    , m.matchcode
 				    , 1
-			    FROM bodb02.dbo.match14
+			    FROM bodb_archive.dbo.match
 				    (nolock) AS m
 			    WHERE m.eventdate BETWEEN @f_date AND @t_date
 			    UNION ALL
 			    SELECT m.orid AS matchid
 				    , m.matchcode
 				    , 2
-			    FROM bodb02.dbo.Outright14
+			    FROM bodb_archive.dbo.Outright
 				    (nolock) AS m
 			    WHERE m.eventdate BETWEEN @f_date AND @t_date
 			    UNION ALL
 			    SELECT Match3rdId
 				    , MatchNo
 				    , 5
-			    FROM bodb02.dbo.Match3rd14
+			    FROM bodb_archive.dbo.Match3rd
 				    (nolock)
 			    WHERE EventDate BETWEEN @f_date AND @t_date;
 	   END;
@@ -258,21 +258,21 @@ BEGIN
 			    SELECT m.matchid
 				    , m.matchcode
 				    , 1
-			    FROM bodb_archive.dbo.match_bk
+			    FROM bodb_archive.dbo.match
 				    (nolock) AS m
 			    WHERE m.eventdate BETWEEN @f_date AND @t_date
 			    UNION ALL
 			    SELECT m.orid AS matchid
 				    , m.matchcode
 				    , 2
-			    FROM bodb_archive.dbo.Outright_bk
+			    FROM bodb_archive.dbo.Outright
 				    (nolock) AS m
 			    WHERE m.eventdate BETWEEN @f_date AND @t_date
 			    UNION ALL
 			    SELECT Match3rdId
 				    , MatchNo
 				    , 5
-			    FROM bodb_Archive.dbo.Match3rd_bk
+			    FROM bodb_Archive.dbo.Match3rd
 				    (nolock)
 			    WHERE EventDate BETWEEN @f_date AND @t_date;
 	   END;

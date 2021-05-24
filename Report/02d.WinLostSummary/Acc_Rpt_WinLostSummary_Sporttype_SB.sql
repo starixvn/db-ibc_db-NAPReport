@@ -405,7 +405,7 @@ BEGIN
 						  , m.isNeutral
 					  FROM bodb_Account.dbo.rptWinlost AS b WITH (NOLOCK)
 					     INNER JOIN @SportBettype AS sb ON b.bettype = sb.Bettype
-						 INNER JOIN bodb02.dbo.match14 AS m WITH (NOLOCK) ON b.matchid = m.matchid
+						 INNER JOIN bodb_archive.dbo.match AS m WITH (NOLOCK) ON b.matchid = m.matchid
 					  WHERE winlostdate BETWEEN @f_date AND @t_date
 						   AND b.sporttype = CASE
 											WHEN @sporttype = -38
@@ -477,7 +477,7 @@ BEGIN
 								, ISNULL(SUM(virtualLineTotal), 0)
 								, CONVERT(BIT, 0) AS IsNeutral
 							FROM bodb_Account.dbo.rptWinlost AS b WITH (NOLOCK)
-							    INNER JOIN bodb02.dbo.outright14 AS m WITH (NOLOCK) ON b.matchid = m.orid
+							    INNER JOIN bodb_archive.dbo.outright AS m WITH (NOLOCK) ON b.matchid = m.orid
 							WHERE winlostdate BETWEEN @f_date AND @t_date
 								 AND b.sporttype = @sporttype
 								 AND b.bettype = 10
@@ -535,7 +535,7 @@ BEGIN
 						  , m.isNeutral
 					  FROM bodb_Account.dbo.rptWinlost AS b WITH (NOLOCK)
 						 INNER JOIN @SportBettype AS sb ON b.bettype = sb.Bettype
-						 INNER JOIN bodb02.dbo.match14 AS m WITH (NOLOCK) ON b.matchid = m.matchid
+						 INNER JOIN bodb_archive.dbo.match AS m WITH (NOLOCK) ON b.matchid = m.matchid
 					  WHERE winlostdate BETWEEN @f_date AND @t_date
 						   AND b.sporttype = @sporttype
 						   AND CASE
@@ -607,7 +607,7 @@ BEGIN
 								, CONVERT(BIT, 0) AS IsNeutral
 							FROM bodb_Account.dbo.rptWinlost AS b WITH (NOLOCK)
 							    INNER JOIN @SportBettype AS sb ON b.bettype = sb.Bettype
-							    INNER JOIN bodb02.dbo.outright14 AS m WITH (NOLOCK) ON b.matchid = m.orid
+							    INNER JOIN bodb_archive.dbo.outright AS m WITH (NOLOCK) ON b.matchid = m.orid
 							WHERE winlostdate BETWEEN @f_date AND @t_date
 								 AND b.sporttype = @sporttype
 								 AND b.bettype = 10
