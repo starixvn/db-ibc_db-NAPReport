@@ -35,6 +35,14 @@ SET NOCOUNT ON
     SELECT @movebetdate = MoveBetsDay
 	FROM OPENQUERY(DBACC,'EXEC bodb02.dbo.Age_SelBalanceUpDay')
 	
+	CREATE TABLE #tmpmatch
+		(matchid INT, 
+		leagueid INT, 
+		homeid INT,
+		awayid INT,
+		eventdate DATETIME, 
+		matchcode NVARCHAR(50))
+	
 	IF @todate > @movebetdate
 	BEGIN
 		IF @fromdate <= @movebetdate
@@ -77,6 +85,24 @@ SET NOCOUNT ON
 			SELECT @t_date = @movebetdate
 			
 		SELECT @f_date = @fromdate
+		
+		INSERT INTO #tmpmatch
+					(matchid, 
+					leagueid, 
+					homeid,
+					awayid,
+					eventdate, 
+					matchcode)
+				SELECT matchid, 
+					leagueid, 
+					homeid,
+					awayid,
+					eventdate, 
+					matchcode
+				FROM bodb_archive.dbo.match WITH(NOLOCK)
+				WHERE eventdate BETWEEN @f_date AND @t_date
+				
+				CREATE CLUSTERED INDEX IX_Matchid ON #tmpmatch (matchid) 
 	
 		INSERT INTO @RPT(
 			matchcode, homeid, awayid, bettype, leagueid, 
@@ -96,7 +122,7 @@ SET NOCOUNT ON
 			,ISNULL(SUM(realLineTotal),0) as virtualLineTotal
 			,ISNULL(SUM(realTurnover),0) as virtualTurnover							
 		FROM bodb_Account.dbo.rptWinlost b WITH(NOLOCK)
-			INNER JOIN bodb_archive.dbo.match m WITH(NOLOCK) ON b.matchid = m.matchid
+			INNER JOIN #tmpmatch m ON b.matchid = m.matchid
 		WHERE winlostdate BETWEEN @f_date AND @t_date
 			AND b.sporttype = @sporttype			
 		GROUP BY matchcode, homeid, awayid, bettype, leagueid

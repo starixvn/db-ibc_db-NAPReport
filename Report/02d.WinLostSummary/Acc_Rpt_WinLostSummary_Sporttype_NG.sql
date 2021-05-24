@@ -69,6 +69,15 @@ BEGIN
     SELECT @movebetdate = MoveBetsDay
 	FROM OPENQUERY(DBACC,'EXEC bodb02.dbo.Age_SelBalanceUpDay')
 	
+	CREATE TABLE #tmpmatch
+		(matchid INT, 
+		leagueid INT, 
+		homeid INT,
+		awayid INT,
+		eventdate DATETIME, 
+		matchcode NVARCHAR(50),
+		IsNeutral BIT)
+	
     IF @todate > @movebetdate
 	   BEGIN
 		  IF @fromdate <= @movebetdate
@@ -131,6 +140,26 @@ BEGIN
 			 ELSE
 		  SELECT @t_date = @movebetdate;
 		  SELECT @f_date = @fromdate;
+		  
+		  INSERT INTO #tmpmatch
+					(matchid, 
+					leagueid, 
+					homeid,
+					awayid,
+					eventdate, 
+					matchcode,
+					IsNeutral)
+				SELECT matchid, 
+					leagueid, 
+					homeid,
+					awayid,
+					eventdate, 
+					matchcode,
+					IsNeutral 
+				FROM bodb_archive.dbo.match WITH(NOLOCK)
+				WHERE eventdate BETWEEN @f_date AND @t_date
+				
+				CREATE CLUSTERED INDEX IX_Matchid ON #tmpmatch (matchid) 
 
 		  INSERT INTO @RPT(eventdate
 					  , matchid
@@ -165,7 +194,7 @@ BEGIN
 				    , ISNULL(SUM(virtualLineTotal), 0)
 				    , m.isNeutral
 			    FROM bodb_Account.dbo.rptWinlost AS b WITH (NOLOCK)
-				   INNER JOIN bodb_archive.dbo.match AS m WITH (NOLOCK) ON b.matchid = m.matchid
+				   INNER JOIN #tmpmatch AS m ON b.matchid = m.matchid
 				   INNER JOIN @SportBettype AS sb ON sb.Bettype = b.bettype
 			    WHERE winlostdate BETWEEN @f_date AND @t_date
 					AND m.matchcode NOT LIKE '%hedge%'

@@ -59,6 +59,14 @@ AS
      SELECT @movebetdate = MoveBetsDay
 	 FROM OPENQUERY(DBACC,'EXEC bodb02.dbo.Age_SelBalanceUpDay')
 
+	CREATE TABLE #tmpmatch3rd
+		(Match3rdId INT, 
+		leagueid INT, 
+		homeid INT,
+		awayid INT,
+		eventdate DATE, 
+		MatchNo VARCHAR(50))
+
      IF @todate > @movebetdate
          BEGIN	    		  
              IF @fromdate <= @movebetdate
@@ -125,6 +133,25 @@ AS
              ELSE
              SELECT @t_date = @movebetdate;
              SELECT @f_date = @fromdate;
+             
+             INSERT INTO #tmpmatch3rd
+					(Match3rdId, 
+					leagueid, 
+					homeid,
+					awayid,
+					eventdate, 
+					MatchNo)
+				SELECT Match3rdId, 
+					leagueid, 
+					homeid,
+					awayid,
+					eventdate, 
+					MatchNo
+				FROM bodb_archive.dbo.match3rd WITH(NOLOCK)
+				WHERE eventdate BETWEEN @f_date AND @t_date
+				
+				CREATE CLUSTERED INDEX IX_Match3rdId ON #tmpmatch3rd (Match3rdId) 
+				
              INSERT INTO @RPT
              (eventdate,
               matchid,
@@ -163,7 +190,7 @@ AS
                            0 AS isNeutral
                     FROM bodb_Account.dbo.rptWinlost b WITH (NOLOCK)
                          INNER JOIN @SportBettype sb ON b.bettype = sb.Bettype
-                         INNER JOIN bodb_archive.dbo.Match3rd m WITH (NOLOCK) ON b.matchid = m.Match3rdId
+                         INNER JOIN #tmpmatch3rd m ON b.matchid = m.Match3rdId
                          INNER JOIN bodb02.dbo.League3rd l WITH (nolock) ON l.League3rdId = m.LeagueID - 1000000000
                     WHERE winlostdate BETWEEN @f_date AND @t_date
                           AND sb.ProductID = 30

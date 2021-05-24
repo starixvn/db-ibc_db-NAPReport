@@ -91,6 +91,22 @@ BEGIN
     SELECT @movebetdate = MoveBetsDay
 	FROM OPENQUERY(DBACC,'EXEC bodb02.dbo.Age_SelBalanceUpDay')
 	
+	CREATE TABLE #tmpmatch
+		(matchid INT, 
+		leagueid INT, 
+		homeid INT,
+		awayid INT,
+		eventdate DATETIME, 
+		matchcode NVARCHAR(50),
+		IsNeutral BIT)
+		
+	CREATE TABLE #tmpoutright
+		(orid INT, 
+		leagueid INT, 
+		teamid INT,
+		eventdate DATETIME, 
+		matchcode VARCHAR(10))
+
     IF @todate > @movebetdate
 	   BEGIN
 		  IF @fromdate <= @movebetdate
@@ -369,8 +385,45 @@ BEGIN
 			 ELSE
 		  SELECT @t_date = @movebetdate;
 		  SELECT @f_date = @fromdate;
+		  
+		  INSERT INTO #tmpmatch
+					(matchid, 
+					leagueid, 
+					homeid,
+					awayid,
+					eventdate, 
+					matchcode,
+					IsNeutral)
+				SELECT matchid, 
+					leagueid, 
+					homeid,
+					awayid,
+					eventdate, 
+					matchcode,
+					IsNeutral 
+				FROM bodb_archive.dbo.match WITH(NOLOCK)
+				WHERE eventdate BETWEEN @f_date AND @t_date
+				
+				CREATE CLUSTERED INDEX IX_Matchid ON #tmpmatch (matchid) 
+		  
+		  INSERT INTO #tmpoutright
+							(orid, 
+							leagueid, 
+							teamid,
+							eventdate, 
+							matchcode)
+						SELECT orid, 
+							leagueid, 
+							teamid,
+							eventdate, 
+							matchcode
+						FROM bodb_archive.dbo.outright WITH(NOLOCK)
+						WHERE eventdate BETWEEN @f_date AND @t_date
+						
+			CREATE CLUSTERED INDEX IX_orid ON #tmpoutright (orid) 
+			
 		  IF @drilldownbytype = 2
-			 BEGIN
+			 BEGIN								
 				INSERT INTO @RPT(eventdate
 							, matchid
 							, matchcode
@@ -405,7 +458,7 @@ BEGIN
 						  , m.isNeutral
 					  FROM bodb_Account.dbo.rptWinlost AS b WITH (NOLOCK)
 					     INNER JOIN @SportBettype AS sb ON b.bettype = sb.Bettype
-						 INNER JOIN bodb_archive.dbo.match AS m WITH (NOLOCK) ON b.matchid = m.matchid
+						 INNER JOIN #tmpmatch AS m ON b.matchid = m.matchid
 					  WHERE winlostdate BETWEEN @f_date AND @t_date
 						   AND b.sporttype = CASE
 											WHEN @sporttype = -38
@@ -443,7 +496,7 @@ BEGIN
 						    , isNeutral;
 				IF @bettype IN(0, 19999)
 				   AND @sporttype <= 99
-				    BEGIN
+				    BEGIN												
 					   INSERT INTO @RPT(eventdate
 								   , matchid
 								   , matchcode
@@ -477,7 +530,7 @@ BEGIN
 								, ISNULL(SUM(virtualLineTotal), 0)
 								, CONVERT(BIT, 0) AS IsNeutral
 							FROM bodb_Account.dbo.rptWinlost AS b WITH (NOLOCK)
-							    INNER JOIN bodb_archive.dbo.outright AS m WITH (NOLOCK) ON b.matchid = m.orid
+							    INNER JOIN #tmpoutright AS m ON b.matchid = m.orid
 							WHERE winlostdate BETWEEN @f_date AND @t_date
 								 AND b.sporttype = @sporttype
 								 AND b.bettype = 10
@@ -535,7 +588,7 @@ BEGIN
 						  , m.isNeutral
 					  FROM bodb_Account.dbo.rptWinlost AS b WITH (NOLOCK)
 						 INNER JOIN @SportBettype AS sb ON b.bettype = sb.Bettype
-						 INNER JOIN bodb_archive.dbo.match AS m WITH (NOLOCK) ON b.matchid = m.matchid
+						 INNER JOIN #tmpmatch AS m ON b.matchid = m.matchid
 					  WHERE winlostdate BETWEEN @f_date AND @t_date
 						   AND b.sporttype = @sporttype
 						   AND CASE
@@ -607,7 +660,7 @@ BEGIN
 								, CONVERT(BIT, 0) AS IsNeutral
 							FROM bodb_Account.dbo.rptWinlost AS b WITH (NOLOCK)
 							    INNER JOIN @SportBettype AS sb ON b.bettype = sb.Bettype
-							    INNER JOIN bodb_archive.dbo.outright AS m WITH (NOLOCK) ON b.matchid = m.orid
+							    INNER JOIN #tmpoutright AS m ON b.matchid = m.orid
 							WHERE winlostdate BETWEEN @f_date AND @t_date
 								 AND b.sporttype = @sporttype
 								 AND b.bettype = 10

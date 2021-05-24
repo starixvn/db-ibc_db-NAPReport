@@ -65,6 +65,12 @@ SET NOCOUNT ON
 			GROUP BY m.groupmatch, b.bettype, m.leagueid
 	END
 	
+	CREATE TABLE #tmpoutright
+		(orid INT, 
+		leagueid INT, 
+		eventdate DATETIME, 
+		groupmatch VARCHAR(20))
+	
 	IF @fromdate <=@movebetsday
 	BEGIN
 		IF @todate <= @movebetsday
@@ -73,6 +79,20 @@ SET NOCOUNT ON
 			SELECT @t_date = @movebetsday
 			
 		SELECT @f_date = @fromdate
+		
+		INSERT INTO #tmpoutright
+							(orid, 
+							leagueid, 
+							eventdate, 
+							groupmatch)
+						SELECT orid, 
+							leagueid, 
+							eventdate, 
+							groupmatch
+						FROM bodb_archive.dbo.outright WITH(NOLOCK)
+						WHERE eventdate BETWEEN @f_date AND @t_date
+						
+			CREATE CLUSTERED INDEX IX_orid ON #tmpoutright (orid) 
 				
 		INSERT INTO @RPT(
 			race, bettype, meetingid, realWinlost, realPosition, realCommission, realTurnover, realLineTotal,
@@ -89,7 +109,7 @@ SET NOCOUNT ON
 			,ISNULL(SUM(realTurnover),0) as virtualTurnover
 			,ISNULL(SUM(realLineTotal),0) as virtualLineTotal
 		FROM bodb_Account.dbo.rptWinlost b WITH(NOLOCK)
-			INNER JOIN bodb_archive.dbo.outright m WITH(NOLOCK) ON b.matchid = m.orid
+			INNER JOIN #tmpoutright m ON b.matchid = m.orid
 		WHERE b.winlostdate between @f_date and @t_date
 			AND b.sporttype = @sporttype
 		GROUP BY m.groupmatch,b.bettype,m.leagueid
