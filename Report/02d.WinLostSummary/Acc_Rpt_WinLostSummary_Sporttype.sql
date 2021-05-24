@@ -189,7 +189,7 @@ BEGIN
     SELECT @movebetdate = MoveBetsDay, @balanceupdate = BalanceUpDay
 	FROM OPENQUERY(DBACC,'EXEC bodb02.dbo.Age_SelBalanceUpDay')
     
-    IF @_todate > @movebetdate
+    IF @_todate >= @movebetdate
 	   BEGIN
 		  IF @_fromdate < @movebetdate
 			 SELECT @f_date = @movebetdate;
@@ -218,13 +218,16 @@ BEGIN
 				    (nolock)
 			    WHERE EventDate BETWEEN @f_date AND @t_date;
 	   END;
-    IF @_fromdate <= @movebetdate
+    IF @_fromdate < @movebetdate
 	   BEGIN
 		  IF @_todate < @movebetdate
 			 SELECT @t_date = @_todate;
-			 ELSE
-		  SELECT @t_date = @movebetdate;
-		  SELECT @f_date = @_fromdate;
+		  ELSE
+			 SELECT @t_date = @movebetdate - 1;
+		  IF @_fromdate <= @balanceupdate
+			 SELECT @f_date = @balanceupdate; 
+		  ELSE 
+			 SELECT @f_date =  @_fromdate;
 		  INSERT INTO #TempMatch
 			    SELECT m.matchid
 				    , m.matchcode
