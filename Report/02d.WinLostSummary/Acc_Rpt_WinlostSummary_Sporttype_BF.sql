@@ -150,9 +150,9 @@ AS
                            homeid,
                            awayid,
                            b.liveindicator,
-					  b.bettype,                           
-                           m.League3rdId AS leagueid,
-					  l.LeagueCode,                           
+						   b.bettype,                           
+                           l.League3rdId AS leagueid,
+					       l.LeagueCode,                           
                            ISNULL(SUM(realWinlost), 0),
                            ISNULL(SUM(realPosition), 0),
                            ISNULL(SUM(realCommission), 0),
@@ -164,7 +164,7 @@ AS
                     FROM bodb_Account.dbo.rptWinlost b WITH (NOLOCK)
                          INNER JOIN @SportBettype sb ON b.bettype = sb.Bettype
                          INNER JOIN bodb_archive.dbo.Match3rd m WITH (NOLOCK) ON b.matchid = m.Match3rdId
-                         INNER JOIN bodb02.dbo.League3rd l WITH (nolock) ON l.League3rdId = m.League3rdId
+                         INNER JOIN bodb02.dbo.League3rd l WITH (nolock) ON l.League3rdId = m.LeagueID - 1000000000
                     WHERE winlostdate BETWEEN @f_date AND @t_date
                           AND sb.ProductID = 30
                     GROUP BY eventdate,
@@ -174,7 +174,7 @@ AS
                              awayid,
                              liveindicator,
                              b.bettype,
-                             m.League3rdId,
+                             l.League3rdId,
                              l.LeagueCode;
          END;
 
