@@ -31,72 +31,59 @@ SET NOCOUNT ON
 	Declare @movebetsday datetime,
 			@f_date datetime,
 			@t_date datetime
-
-	SELECT @movebetsday = MoveBetsDay
-	FROM OPENQUERY(DBACC,'EXEC bodb02.dbo.Age_SelBalanceUpDay')
+	SELECT @f_date = @fromdate, @t_date = @todate
 	
-	IF @todate > @movebetsday
-	BEGIN
-		IF @fromdate <= @movebetsday
-				SELECT @f_date = @movebetsday + 1
-			ELSE
-				SELECT @f_date = @fromdate
-				
-			SELECT @t_date = @todate
+	CREATE TABLE #tmpoutright
+		(orid INT, 
+		leagueid INT, 
+		eventdate DATETIME, 
+		groupmatch VARCHAR(20))
 			
-			INSERT INTO @RPT(
+	INSERT INTO #tmpoutright
+		(orid, 
+		leagueid, 
+		eventdate, 
+		groupmatch)
+	SELECT matchid, 
+		leagueid, 
+		eventdate, 
+		groupmatch
+	FROM bodb_Account.dbo.outright WITH(NOLOCK)
+	WHERE eventdate BETWEEN @f_date AND @t_date
+	UNION
+	SELECT orid, 
+		leagueid, 
+		eventdate, 
+		groupmatch
+	FROM bodb_archive.dbo.outright WITH(NOLOCK)
+	WHERE eventdate BETWEEN @f_date AND @t_date
+						
+	CREATE CLUSTERED INDEX IX_orid ON #tmpoutright (orid) 
+
+	INSERT INTO @RPT(
 				race, bettype, meetingid, realWinlost, realPosition, realCommission, realTurnover, realLineTotal,
 				virtualTurnover, virtualLineTotal
 			)
-			SELECT m.groupmatch as race
-				,b.bettype
-				,m.leagueid
-				,ISNULL(SUM(realWinlost),0)
-				,ISNULL(SUM(realPosition),0)
-				,ISNULL(SUM(realCommission),0)
-				,ISNULL(SUM(realTurnover),0)
-				,ISNULL(SUM(realLineTotal),0)
-				,ISNULL(SUM(realTurnover),0) as virtualTurnover
-				,ISNULL(SUM(realLineTotal),0) as virtualLineTotal
-			FROM bodb_Account.dbo.rptWinlost b WITH(NOLOCK)
-				INNER JOIN bodb02.dbo.outright m WITH(NOLOCK) ON b.matchid = m.orid
-			WHERE b.winlostdate between @f_date and @t_date
-				AND b.sporttype = @sporttype
-			GROUP BY m.groupmatch, b.bettype, m.leagueid
-	END
-	
-	IF @fromdate <=@movebetsday
-	BEGIN
-		IF @todate <= @movebetsday
-			SELECT @t_date = @todate
-		ELSE
-			SELECT @t_date = @movebetsday
-			
-		SELECT @f_date = @fromdate
-				
-		INSERT INTO @RPT(
-			race, bettype, meetingid, realWinlost, realPosition, realCommission, realTurnover, realLineTotal,
-			virtualTurnover, virtualLineTotal
-		)
-		SELECT m.groupmatch as race
-			,b.bettype
-			,m.leagueid
-			,ISNULL(SUM(realWinlost),0)
-			,ISNULL(SUM(realPosition),0)
-			,ISNULL(SUM(realCommission),0)
-			,ISNULL(SUM(realTurnover),0)
-			,ISNULL(SUM(realLineTotal),0)
-			,ISNULL(SUM(realTurnover),0) as virtualTurnover
-			,ISNULL(SUM(realLineTotal),0) as virtualLineTotal
-		FROM bodb_Account.dbo.rptWinlost b WITH(NOLOCK)
-			INNER JOIN bodb02.dbo.outright14 m WITH(NOLOCK) ON b.matchid = m.orid
-		WHERE b.winlostdate between @f_date and @t_date
-			AND b.sporttype = @sporttype
-		GROUP BY m.groupmatch,b.bettype,m.leagueid
-	END
+	SELECT m.groupmatch as race
+		,b.bettype
+		,m.leagueid
+		,ISNULL(SUM(realWinlost),0)
+		,ISNULL(SUM(realPosition),0)
+		,ISNULL(SUM(realCommission),0)
+		,ISNULL(SUM(realTurnover),0)
+		,ISNULL(SUM(realLineTotal),0)
+		,ISNULL(SUM(realTurnover),0) as virtualTurnover
+		,ISNULL(SUM(realLineTotal),0) as virtualLineTotal
+	FROM bodb_Account.dbo.rptWinlost b WITH(NOLOCK)
+		INNER JOIN #tmpoutright m ON b.matchid = m.orid
+	WHERE b.winlostdate between @f_date and @t_date
+		AND b.sporttype = @sporttype
+	GROUP BY m.groupmatch, b.bettype, m.leagueid		
 	
 	SELECT * FROM @RPT
 	ORDER BY bettype,meetingid,CAST(race AS TINYINT)
+	
+	DROP TABLE #tmpoutright
 
 GO
 
