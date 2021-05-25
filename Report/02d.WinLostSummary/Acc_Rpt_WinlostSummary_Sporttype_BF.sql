@@ -54,105 +54,47 @@ AS
                    SubProduct
             FROM bodb02.dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '', @isTest)
             WHERE ProductID = 30;
-     DECLARE @movebetdate DATETIME, @f_date DATETIME, @t_date DATETIME;
+            
+    DECLARE @f_date DATETIME, @t_date DATETIME;
+    SELECT @f_date = @fromdate;
+    SELECT @t_date = @todate;
      
-     SELECT @movebetdate = MoveBetsDay
-	 FROM OPENQUERY(DBACC,'EXEC bodb02.dbo.Age_SelBalanceUpDay')
-
 	CREATE TABLE #tmpmatch3rd
 		(Match3rdId INT, 
-		leagueid INT, 
+		League3rdId INT, 
 		homeid INT,
 		awayid INT,
 		eventdate DATE, 
 		MatchNo VARCHAR(50))
-
-     IF @todate > @movebetdate
-         BEGIN	    		  
-             IF @fromdate <= @movebetdate
-                 SELECT @f_date = @movebetdate + 1;
-             ELSE
-             SELECT @f_date = @fromdate;
-             SELECT @t_date = @todate;
-             INSERT INTO @RPT
-             (eventdate,
-              matchid,
-              matchcode,
-              homeid,
-              awayid,
-              liveindicator,
-              bettype,
-              leagueid,
-              LeagueCode,
-              realWinlost,
-              realPosition,
-              realCommission,
-              realTurnover,
-              realLineTotal,
-              virtualTurnover,
-              virtualLineTotal,
-              isNeutral
-             )
-                    SELECT m.eventdate,
-                           b.matchid,
-                           m.MatchNo AS matchcode,
-                           homeid,
-                           awayid,
-                           b.liveindicator,
-                           b.bettype,
-                           m.League3rdId AS leagueid,
-                           l.LeagueCode,
-                           ISNULL(SUM(realWinlost), 0),
-                           ISNULL(SUM(realPosition), 0),
-                           ISNULL(SUM(realCommission), 0),
-                           ISNULL(SUM(realTurnover), 0),
-                           ISNULL(SUM(realLineTotal), 0),
-                           ISNULL(SUM(virtualTurnover), 0),
-                           ISNULL(SUM(virtualLineTotal), 0),
-                           0 AS isNeutral
-                    FROM bodb_Account.dbo.rptWinlost b WITH (NOLOCK)
-                         INNER JOIN @SportBettype sb ON b.bettype = sb.Bettype
-                         INNER JOIN bodb02.dbo.Match3rd m WITH (NOLOCK) ON b.matchid = m.Match3rdId
-                         INNER JOIN bodb02.dbo.League3rd l WITH (nolock) ON l.League3rdId = m.League3rdId
-                    WHERE winlostdate BETWEEN @f_date AND @t_date
-                          AND sb.ProductID = 30
-                    GROUP BY eventdate,
-                             b.matchid,
-                             m.MatchNo,
-                             homeid,
-                             awayid,
-                             liveindicator,
-                             b.bettype,
-                             m.League3rdId,
-                             l.LeagueCode;
-         END;
-     IF @fromdate <= @movebetdate	   
-         BEGIN
-             IF @todate <= @movebetdate
-                 SELECT @t_date = @todate;
-             ELSE
-             SELECT @t_date = @movebetdate;
-             SELECT @f_date = @fromdate;
-             
-             INSERT INTO #tmpmatch3rd
+		
+	INSERT INTO #tmpmatch3rd
 					(Match3rdId, 
-					leagueid, 
+					League3rdId, 
 					homeid,
 					awayid,
 					eventdate, 
 					MatchNo)
-				SELECT Match3rdId, 
-					leagueid, 
-					homeid,
-					awayid,
-					eventdate, 
-					MatchNo
-				FROM bodb_archive.dbo.match3rd WITH(NOLOCK)
-				WHERE eventdate BETWEEN @f_date AND @t_date
-				
-				CREATE CLUSTERED INDEX IX_Match3rdId ON #tmpmatch3rd (Match3rdId) 
-				
-             INSERT INTO @RPT
+	SELECT Match3rdId, 
+		League3rdId, 
+		homeid,
+		awayid,
+		eventdate, 
+		MatchNo
+	FROM bodb_Account.dbo.match3rd WITH(NOLOCK)
+	WHERE eventdate BETWEEN @f_date AND @t_date
+	UNION
+	SELECT Match3rdId, 
+		LeagueID - 1000000000, 
+		homeid,
+		awayid,
+		eventdate, 
+		MatchNo
+	FROM bodb_archive.dbo.match3rd WITH(NOLOCK)
+	WHERE eventdate BETWEEN @f_date AND @t_date
+	
+	CREATE CLUSTERED INDEX IX_Match3rdId ON #tmpmatch3rd (Match3rdId) 
+
+	INSERT INTO @RPT
              (eventdate,
               matchid,
               matchcode,
@@ -171,39 +113,39 @@ AS
               virtualLineTotal,
               isNeutral
              )
-                    SELECT m.eventdate,
-                           b.matchid,
-                           m.MatchNo AS matchcode,
-                           homeid,
-                           awayid,
-                           b.liveindicator,
-						   b.bettype,                           
-                           l.League3rdId AS leagueid,
-					       l.LeagueCode,                           
-                           ISNULL(SUM(realWinlost), 0),
-                           ISNULL(SUM(realPosition), 0),
-                           ISNULL(SUM(realCommission), 0),
-                           ISNULL(SUM(realTurnover), 0),
-                           ISNULL(SUM(realLineTotal), 0),
-                           ISNULL(SUM(virtualTurnover), 0),
-                           ISNULL(SUM(virtualLineTotal), 0),
-                           0 AS isNeutral
-                    FROM bodb_Account.dbo.rptWinlost b WITH (NOLOCK)
-                         INNER JOIN @SportBettype sb ON b.bettype = sb.Bettype
-                         INNER JOIN #tmpmatch3rd m ON b.matchid = m.Match3rdId
-                         INNER JOIN bodb02.dbo.League3rd l WITH (nolock) ON l.League3rdId = m.LeagueID - 1000000000
-                    WHERE winlostdate BETWEEN @f_date AND @t_date
-                          AND sb.ProductID = 30
-                    GROUP BY eventdate,
-                             b.matchid,
-                             m.MatchNo,
-                             homeid,
-                             awayid,
-                             liveindicator,
-                             b.bettype,
-                             l.League3rdId,
-                             l.LeagueCode;
-         END;
+    SELECT m.eventdate,
+           b.matchid,
+           m.MatchNo AS matchcode,
+           homeid,
+           awayid,
+           b.liveindicator,
+		   b.bettype,                           
+           l.League3rdId AS leagueid,
+	       l.LeagueCode,                           
+           ISNULL(SUM(realWinlost), 0),
+           ISNULL(SUM(realPosition), 0),
+           ISNULL(SUM(realCommission), 0),
+           ISNULL(SUM(realTurnover), 0),
+           ISNULL(SUM(realLineTotal), 0),
+           ISNULL(SUM(virtualTurnover), 0),
+           ISNULL(SUM(virtualLineTotal), 0),
+           0 AS isNeutral
+    FROM bodb_Account.dbo.rptWinlost b WITH (NOLOCK)
+         INNER JOIN @SportBettype sb ON b.bettype = sb.Bettype
+         INNER JOIN #tmpmatch3rd m ON b.matchid = m.Match3rdId
+         INNER JOIN bodb02.dbo.League3rd l WITH (nolock) ON l.League3rdId = m.League3rdId
+    WHERE winlostdate BETWEEN @f_date AND @t_date
+          AND sb.ProductID = 30
+    GROUP BY eventdate,
+             b.matchid,
+             m.MatchNo,
+             homeid,
+             awayid,
+             liveindicator,
+             b.bettype,
+             l.League3rdId,
+             l.LeagueCode;
+
 
      -- select result
      SELECT eventdate,

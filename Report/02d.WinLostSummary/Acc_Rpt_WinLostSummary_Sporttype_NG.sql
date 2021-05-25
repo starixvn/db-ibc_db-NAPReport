@@ -48,6 +48,7 @@ BEGIN
 	  , Bettype       INT
 	  , EventType     INT
 	  , SubProduct    VARCHAR(500));
+	  
     INSERT INTO @SportBettype
 		 SELECT DISTINCT
 			   ProductID
@@ -65,10 +66,10 @@ BEGIN
     DECLARE @movebetdate    DATETIME
 		, @f_date         DATETIME
 		, @t_date         DATETIME;
-
-    SELECT @movebetdate = MoveBetsDay
-	FROM OPENQUERY(DBACC,'EXEC bodb02.dbo.Age_SelBalanceUpDay')
-	
+		
+	SELECT @f_date = @fromdate,
+			@t_date = @todate
+			
 	CREATE TABLE #tmpmatch
 		(matchid INT, 
 		leagueid INT, 
@@ -77,71 +78,8 @@ BEGIN
 		eventdate DATETIME, 
 		matchcode NVARCHAR(50),
 		IsNeutral BIT)
-	
-    IF @todate > @movebetdate
-	   BEGIN
-		  IF @fromdate <= @movebetdate
-			 SELECT @f_date = @movebetdate + 1;
-			 ELSE
-		  SELECT @f_date = @fromdate;
-		  SELECT @t_date = @todate;
 
-		  INSERT INTO @RPT(eventdate
-					  , matchid
-					  , matchcode
-					  , homeid
-					  , awayid
-					  , liveindicator
-					  , bettype
-					  , leagueid
-					  , realWinlost
-					  , realPosition
-					  , realCommission
-					  , realTurnover
-					  , realLineTotal
-					  , virtualTurnover
-					  , virtualLineTotal
-					  , isNeutral)
-			    SELECT m.eventdate
-				    , b.matchid
-				    , matchcode
-				    , homeid
-				    , awayid
-				    , 0 AS liveindicator
-				    , b.bettype
-				    , m.leagueid
-				    , ISNULL(SUM(realWinlost), 0)
-				    , ISNULL(SUM(realPosition), 0)
-				    , ISNULL(SUM(realCommission), 0)
-				    , ISNULL(SUM(realTurnover), 0)
-				    , ISNULL(SUM(realLineTotal), 0)
-				    , ISNULL(SUM(virtualTurnover), 0)
-				    , ISNULL(SUM(virtualLineTotal), 0)
-				    , m.isNeutral
-			    FROM bodb_Account.dbo.rptWinlost AS b WITH (NOLOCK)
-				   INNER JOIN bodb02.dbo.match AS m WITH (NOLOCK) ON b.matchid = m.matchid
-				   INNER JOIN @SportBettype AS sb ON sb.Bettype = b.bettype
-			    WHERE winlostdate BETWEEN @f_date AND @t_date
-					AND m.matchcode NOT LIKE '%hedge%'
-					AND B.IBC = 0
-			    GROUP BY eventdate
-					 , b.matchid
-					 , matchcode
-					 , homeid
-					 , awayid
-					 , b.bettype
-					 , leagueid
-					 , isNeutral;
-	   END;
-    IF @fromdate <= @movebetdate
-	   BEGIN
-		  IF @todate <= @movebetdate
-			 SELECT @t_date = @todate;
-			 ELSE
-		  SELECT @t_date = @movebetdate;
-		  SELECT @f_date = @fromdate;
-		  
-		  INSERT INTO #tmpmatch
+   INSERT INTO #tmpmatch
 					(matchid, 
 					leagueid, 
 					homeid,
@@ -149,19 +87,29 @@ BEGIN
 					eventdate, 
 					matchcode,
 					IsNeutral)
-				SELECT matchid, 
-					leagueid, 
-					homeid,
-					awayid,
-					eventdate, 
-					matchcode,
-					IsNeutral 
-				FROM bodb_archive.dbo.match WITH(NOLOCK)
-				WHERE eventdate BETWEEN @f_date AND @t_date
+	SELECT matchid, 
+		leagueid, 
+		homeid,
+		awayid,
+		eventdate, 
+		matchcode,
+		IsNeutral 
+	FROM bodb_Account.dbo.match WITH(NOLOCK)
+	WHERE eventdate BETWEEN @f_date AND @t_date
+	UNION
+	SELECT matchid, 
+		leagueid, 
+		homeid,
+		awayid,
+		eventdate, 
+		matchcode,
+		IsNeutral 
+	FROM bodb_archive.dbo.match WITH(NOLOCK)
+	WHERE eventdate BETWEEN @f_date AND @t_date
 				
-				CREATE CLUSTERED INDEX IX_Matchid ON #tmpmatch (matchid) 
-
-		  INSERT INTO @RPT(eventdate
+	CREATE CLUSTERED INDEX IX_Matchid ON #tmpmatch (matchid) 
+			
+	 INSERT INTO @RPT(eventdate
 					  , matchid
 					  , matchcode
 					  , homeid
@@ -177,39 +125,37 @@ BEGIN
 					  , virtualTurnover
 					  , virtualLineTotal
 					  , isNeutral)
-			    SELECT m.eventdate
-				    , b.matchid
-				    , matchcode
-				    , homeid
-				    , awayid
-				    , 0 AS liveindicator
-				    , b.bettype
-				    , m.leagueid
-				    , ISNULL(SUM(realWinlost), 0)
-				    , ISNULL(SUM(realPosition), 0)
-				    , ISNULL(SUM(realCommission), 0)
-				    , ISNULL(SUM(realTurnover), 0)
-				    , ISNULL(SUM(realLineTotal), 0)
-				    , ISNULL(SUM(virtualTurnover), 0)
-				    , ISNULL(SUM(virtualLineTotal), 0)
-				    , m.isNeutral
-			    FROM bodb_Account.dbo.rptWinlost AS b WITH (NOLOCK)
-				   INNER JOIN #tmpmatch AS m ON b.matchid = m.matchid
-				   INNER JOIN @SportBettype AS sb ON sb.Bettype = b.bettype
-			    WHERE winlostdate BETWEEN @f_date AND @t_date
-					AND m.matchcode NOT LIKE '%hedge%'
-					AND B.IBC = 0
-			    GROUP BY eventdate
-					 , b.matchid
-					 , matchcode
-					 , homeid
-					 , awayid
-					 , b.bettype
-					 , leagueid
-					 , isNeutral;
-	   END;
-
-
+    SELECT m.eventdate
+	    , b.matchid
+	    , matchcode
+	    , homeid
+	    , awayid
+	    , 0 AS liveindicator
+	    , b.bettype
+	    , m.leagueid
+	    , ISNULL(SUM(realWinlost), 0)
+	    , ISNULL(SUM(realPosition), 0)
+	    , ISNULL(SUM(realCommission), 0)
+	    , ISNULL(SUM(realTurnover), 0)
+	    , ISNULL(SUM(realLineTotal), 0)
+	    , ISNULL(SUM(virtualTurnover), 0)
+	    , ISNULL(SUM(virtualLineTotal), 0)
+	    , m.isNeutral
+    FROM bodb_Account.dbo.rptWinlost AS b WITH (NOLOCK)
+	   INNER JOIN #tmpmatch AS m ON b.matchid = m.matchid
+	   INNER JOIN @SportBettype AS sb ON sb.Bettype = b.bettype
+    WHERE winlostdate BETWEEN @f_date AND @t_date
+		AND m.matchcode NOT LIKE '%hedge%'
+		AND B.IBC = 0
+    GROUP BY eventdate
+		 , b.matchid
+		 , matchcode
+		 , homeid
+		 , awayid
+		 , b.bettype
+		 , leagueid
+		 , isNeutral;
+	
     SELECT '' AS HedgeGroup
 	    , 0 AS  IsHedge
 	    , r.*
@@ -220,6 +166,8 @@ BEGIN
 		 , r.leagueid
 		 , r.matchcode
 		 , r.bettype;
+		 
+	DROP TABLE #tmpmatch
 END;
 GO
 
