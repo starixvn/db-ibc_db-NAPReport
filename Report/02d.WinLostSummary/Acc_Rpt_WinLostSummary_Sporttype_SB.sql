@@ -142,7 +142,7 @@ BEGIN
 		matchcode)
 	SELECT matchid, 
 		leagueid, 
-		teamid,
+		homeid,
 		eventdate, 
 		matchcode
 	FROM bodb_Account.dbo.outright WITH (NOLOCK) 
