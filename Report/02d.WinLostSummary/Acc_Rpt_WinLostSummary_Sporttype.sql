@@ -181,105 +181,35 @@ BEGIN
 	  , virtualLineTotal    MONEY
 	  , realTurnover        MONEY
 	  , virtualTurnover     MONEY);
-    DECLARE @movebetdate      DATETIME
-		, @balanceupdate    DATETIME
-		, @f_date           DATETIME
-		, @t_date           DATETIME;    
     
-    SELECT @movebetdate = MoveBetsDay, @balanceupdate = BalanceUpDay
-	FROM OPENQUERY(DBACC,'EXEC bodb02.dbo.Age_SelBalanceUpDay')
+    INSERT INTO #TempMatch (matchid, matchcode, EventType)
+    SELECT matchid, matchcode, 1 EventType
+    FROM bodb_Account.dbo.match WITH (NOLOCK) 
+    WHERE eventdate BETWEEN @_fromdate AND @_todate
+    UNION
+    SELECT matchid, matchcode, 1 EventType
+    FROM bodb_archive.dbo.match WITH (NOLOCK) 
+    WHERE eventdate BETWEEN @_fromdate AND @_todate
     
-    IF @_todate >= @movebetdate
-	   BEGIN
-		  IF @_fromdate < @movebetdate
-			 SELECT @f_date = @movebetdate;
-			 ELSE
-		  SELECT @f_date = @_fromdate;
-		  SELECT @t_date = @_todate;
-		  INSERT INTO #TempMatch
-			    SELECT m.matchid
-				    , m.matchcode
-				    , 1
-			    FROM bodb02.dbo.match
-				    (nolock) AS m
-			    WHERE m.eventdate BETWEEN @f_date AND @t_date
-			    UNION ALL
-			    SELECT m.orid AS matchid
-				    , m.matchcode
-				    , 2
-			    FROM bodb02.dbo.Outright
-				    (nolock) AS m
-			    WHERE m.eventdate BETWEEN @f_date AND @t_date
-			    UNION ALL
-			    SELECT Match3rdId
-				    , MatchNo
-				    , 5
-			    FROM bodb02.dbo.Match3rd
-				    (nolock)
-			    WHERE EventDate BETWEEN @f_date AND @t_date;
-	   END;
-    IF @_fromdate < @movebetdate
-	   BEGIN
-		  IF @_todate < @movebetdate
-			 SELECT @t_date = @_todate;
-		  ELSE
-			 SELECT @t_date = @movebetdate - 1;
-		  IF @_fromdate <= @balanceupdate
-			 SELECT @f_date = @balanceupdate; 
-		  ELSE 
-			 SELECT @f_date =  @_fromdate;
-		  INSERT INTO #TempMatch
-			    SELECT m.matchid
-				    , m.matchcode
-				    , 1
-			    FROM bodb_archive.dbo.match
-				    (nolock) AS m
-			    WHERE m.eventdate BETWEEN @f_date AND @t_date
-			    UNION ALL
-			    SELECT m.orid AS matchid
-				    , m.matchcode
-				    , 2
-			    FROM bodb_archive.dbo.Outright
-				    (nolock) AS m
-			    WHERE m.eventdate BETWEEN @f_date AND @t_date
-			    UNION ALL
-			    SELECT Match3rdId
-				    , MatchNo
-				    , 5
-			    FROM bodb_archive.dbo.Match3rd
-				    (nolock)
-			    WHERE EventDate BETWEEN @f_date AND @t_date;
-	   END;
-    IF @_fromdate < @balanceupdate
-	   BEGIN
-		  IF @_todate < @balanceupdate
-			 SELECT @t_date = @_todate;
-			 ELSE
-		  SELECT @t_date = @balanceupdate - 1;
-		  SELECT @f_date = @_fromdate;
-		  INSERT INTO #TempMatch
-			    SELECT m.matchid
-				    , m.matchcode
-				    , 1
-			    FROM bodb_archive.dbo.match
-				    (nolock) AS m
-			    WHERE m.eventdate BETWEEN @f_date AND @t_date
-			    UNION ALL
-			    SELECT m.orid AS matchid
-				    , m.matchcode
-				    , 2
-			    FROM bodb_archive.dbo.Outright
-				    (nolock) AS m
-			    WHERE m.eventdate BETWEEN @f_date AND @t_date
-			    UNION ALL
-			    SELECT Match3rdId
-				    , MatchNo
-				    , 5
-			    FROM bodb_Archive.dbo.Match3rd
-				    (nolock)
-			    WHERE EventDate BETWEEN @f_date AND @t_date;
-	   END;
-    WITH CTE_bettype_eventtype(BetTypeID
+    INSERT INTO #TempMatch (matchid, matchcode, EventType)
+    SELECT matchid, matchcode, 2 EventType
+    FROM bodb_Account.dbo.outright WITH (NOLOCK) 
+    WHERE eventdate BETWEEN @_fromdate AND @_todate
+    UNION
+    SELECT orid, matchcode, 2 EventType
+    FROM bodb_archive.dbo.outright WITH (NOLOCK) 
+    WHERE eventdate BETWEEN @_fromdate AND @_todate
+    
+    INSERT INTO #TempMatch (matchid, matchcode, EventType)
+    SELECT Match3rdId, MatchNo, 5 EventType
+    FROM bodb_Account.dbo.match3rd WITH (NOLOCK) 
+    WHERE eventdate BETWEEN @_fromdate AND @_todate
+    UNION
+    SELECT Match3rdId, MatchNo, 5 EventType
+    FROM bodb_archive.dbo.match3rd WITH (NOLOCK) 
+    WHERE eventdate BETWEEN @_fromdate AND @_todate
+       
+    ;WITH CTE_bettype_eventtype(BetTypeID
 					    , EventType)
 	    AS (
 	    SELECT DISTINCT
