@@ -23,6 +23,7 @@ Revisions:
 - 20201222@Kean: Support to filter NoDraw and separate the SABA sports - NAP Report (#147451)
 - 20210326@Kean: HotFix, Missing data when league.LeagueGroupId is NULL - NAP Report (#152390)
 - 20212203@Jaden: Support SABA789 (#151326)
+- 20210520@Kean: SABA Soccer PinGoal - NAP Report (#155447)
 
 Parameters:
 @IsLive: 2 - ALL. 0 - Non-Live. 1 - Live
@@ -88,14 +89,16 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus] @EndDate='2018-07-31
         CREATE TABLE #Match
                      (MatchId   INT, 
                       MatchCode NVARCHAR(50), 
-                      type      VARCHAR(10), 
+                      type      VARCHAR(10),
+					  leagueid        INT, 
                       PRIMARY KEY(MatchId, type)
                      );
         INSERT INTO #Match
                SELECT DISTINCT 
                       m.MatchId, 
                       m.MatchCode, 
-                      m.type
+                      m.type,
+					  m.leagueid
                FROM
                (
                    SELECT MatchId, 
@@ -125,6 +128,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus] @EndDate='2018-07-31
 					  srecommend      INT,
 					  AccountType     TINYINT, -- 0: Normal, 1: 8RM(recommend = 52466), 2: BARM(recommend = 5707545)  
                       bettype         INT, 
+					  leagueid        INT, 
                       liveindicator   BIT, 
                       MemberWinLoss   MONEY, 
                       SMAWinLoss      MONEY, 
@@ -158,6 +162,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus] @EndDate='2018-07-31
                            WHEN b.recommend = 5707545 THEN 2 -- BARM
 					  ELSE 0 END,
                       bettype, 
+					  m.leagueid,
                       liveindicator, 
                       SUM((winlost - actual_stake) * actualrate) MemberWinLoss, 
                       SUM((awinlost + mwinlost + swinlost) * actualrate) AS SMAWinLoss, 
@@ -242,13 +247,23 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus] @EndDate='2018-07-31
 						CASE WHEN b.recommend = 52466   THEN 1 -- 8RM
 							 WHEN b.recommend = 5707545 THEN 2 -- BARM
 						  ELSE 0 END,
-                        bettype, 
-                        liveindicator OPTION(RECOMPILE);
+                        bettype,
+						m.leagueid, 
+                        liveindicator 
+					OPTION(RECOMPILE);
+
         INSERT INTO #Data
                SELECT sb.IsMajor AS GroupId,
 					  CASE WHEN @IsSabaSport = 1 THEN (CASE WHEN sb.IsMajor = 1 THEN 'SABA Soccer-Major Bet Types' ELSE 'SABA Soccer-Minor Bet Types' END)
 					       WHEN @IsSabaSport = 3 THEN (CASE WHEN sb.IsMajor = 1 THEN 'SABA Soccer PinGoal-Major Bet Types' ELSE 'SABA Soccer PinGoal-Minor Bet Types' END) 
-						   ELSE (CASE WHEN sb.IsMajor = 1 THEN 'Soccer-Major Bet Types' ELSE 'Soccer-Minor Bet Types' END) 
+						   WHEN @IsSabaSport = 0 THEN (CASE WHEN sb.IsMajor = 1 THEN 'Soccer-Major Bet Types' ELSE 'Soccer-Minor Bet Types' END) 
+						   ELSE (CASE WHEN sl.LeagueGroupType = 1 THEN (CASE WHEN sb.IsMajor = 1 THEN 'SABA Soccer-Major Bet Types' 
+																			 ELSE 'SABA Soccer-Minor Bet Types' END)
+									  WHEN sl.LeagueGroupType = 2 THEN (CASE WHEN sb.IsMajor = 1 THEN 'SABA Soccer PinGoal-Major Bet Types' 
+																			 ELSE 'SABA Soccer PinGoal-Minor Bet Types' END)
+								ELSE (CASE WHEN sb.IsMajor = 1 THEN 'Soccer-Major Bet Types' 
+																			 ELSE 'Soccer-Minor Bet Types' END)									 
+								END) 
 					  END,
                       CASE WHEN dep.CustId IS NULL AND cn88.CustId IS NOT NULL THEN 'CN88'
                           WHEN dep.CustId IS NULL AND cn88.CustId IS NULL THEN 'Credit'
@@ -265,14 +280,22 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus] @EndDate='2018-07-31
                       SUM(VirtualTurnover) AS VirtualTurnover
                FROM #tmp_Data AS b
                     INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
+					LEFT JOIN #SABALeague sl ON b.leagueid = sl.LeagueID
                     LEFT JOIN #DepositSuper AS dep ON b.srecommend = dep.CustId
                     LEFT JOIN CS_CustSuper AS cn88 WITH(NOLOCK) ON b.srecommend = cn88.CustId
                WHERE @IsLive > 1
                      OR b.liveIndicator = @IsLive
                GROUP BY sb.IsMajor,
-                        CASE WHEN @IsSabaSport = 1 THEN (CASE WHEN sb.IsMajor = 1 THEN 'SABA Soccer-Major Bet Types' ELSE 'SABA Soccer-Minor Bet Types' END)
-					         WHEN @IsSabaSport = 3 THEN (CASE WHEN sb.IsMajor = 1 THEN 'SABA Soccer PinGoal-Major Bet Types' ELSE 'SABA Soccer PinGoal-Minor Bet Types' END) 
-						   ELSE (CASE WHEN sb.IsMajor = 1 THEN 'Soccer-Major Bet Types' ELSE 'Soccer-Minor Bet Types' END) 
+                      CASE WHEN @IsSabaSport = 1 THEN (CASE WHEN sb.IsMajor = 1 THEN 'SABA Soccer-Major Bet Types' ELSE 'SABA Soccer-Minor Bet Types' END)
+					       WHEN @IsSabaSport = 3 THEN (CASE WHEN sb.IsMajor = 1 THEN 'SABA Soccer PinGoal-Major Bet Types' ELSE 'SABA Soccer PinGoal-Minor Bet Types' END) 
+						   WHEN @IsSabaSport = 0 THEN (CASE WHEN sb.IsMajor = 1 THEN 'Soccer-Major Bet Types' ELSE 'Soccer-Minor Bet Types' END) 
+						   ELSE (CASE WHEN sl.LeagueGroupType = 1 THEN (CASE WHEN sb.IsMajor = 1 THEN 'SABA Soccer-Major Bet Types' 
+																			 ELSE 'SABA Soccer-Minor Bet Types' END)
+									  WHEN sl.LeagueGroupType = 2 THEN (CASE WHEN sb.IsMajor = 1 THEN 'SABA Soccer PinGoal-Major Bet Types' 
+																			 ELSE 'SABA Soccer PinGoal-Minor Bet Types' END)
+								ELSE (CASE WHEN sb.IsMajor = 1 THEN 'Soccer-Major Bet Types' 
+																			 ELSE 'Soccer-Minor Bet Types' END)
+								END) 
 					  END,
                         CASE WHEN dep.CustId IS NULL AND cn88.CustId IS NOT NULL THEN 'CN88'
                           WHEN dep.CustId IS NULL AND cn88.CustId IS NULL THEN 'Credit'
@@ -320,7 +343,14 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus] @EndDate='2018-07-31
                SELECT sb.IsMajor AS GroupId,
                       CASE WHEN @IsSabaSport = 1 THEN (CASE WHEN sb.IsMajor = 1 THEN 'SABA Soccer-Major Bet Types' ELSE 'SABA Soccer-Minor Bet Types' END)
 					       WHEN @IsSabaSport = 3 THEN (CASE WHEN sb.IsMajor = 1 THEN 'SABA Soccer PinGoal-Major Bet Types' ELSE 'SABA Soccer PinGoal-Minor Bet Types' END) 
-						   ELSE (CASE WHEN sb.IsMajor = 1 THEN 'Soccer-Major Bet Types' ELSE 'Soccer-Minor Bet Types' END) 
+						   WHEN @IsSabaSport = 0 THEN (CASE WHEN sb.IsMajor = 1 THEN 'Soccer-Major Bet Types' ELSE 'Soccer-Minor Bet Types' END) 
+						   ELSE (CASE WHEN sl.LeagueGroupType = 1 THEN (CASE WHEN sb.IsMajor = 1 THEN 'SABA Soccer-Major Bet Types' 
+																			 ELSE 'SABA Soccer-Minor Bet Types' END)
+									  WHEN sl.LeagueGroupType = 2 THEN (CASE WHEN sb.IsMajor = 1 THEN 'SABA Soccer PinGoal-Major Bet Types' 
+																			 ELSE 'SABA Soccer PinGoal-Minor Bet Types' END)
+								ELSE (CASE WHEN sb.IsMajor = 1 THEN 'Soccer-Major Bet Types' 
+																			 ELSE 'Soccer-Minor Bet Types' END)
+								END ) 
 					  END, 
                       'BARM' AS RowName, 
                         SUM(MemberWinLoss) MemberWinLoss, 
@@ -334,12 +364,20 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus] @EndDate='2018-07-31
 						SUM(VirtualTurnover) AS VirtualTurnover
                FROM #tmp_Data AS b 
                     INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
+					LEFT JOIN #SABALeague sl ON b.leagueid = sl.LeagueID
                WHERE b.AccountType = 2
                GROUP BY sb.IsMajor,
                         CASE WHEN @IsSabaSport = 1 THEN (CASE WHEN sb.IsMajor = 1 THEN 'SABA Soccer-Major Bet Types' ELSE 'SABA Soccer-Minor Bet Types' END)
-						     WHEN @IsSabaSport = 3 THEN (CASE WHEN sb.IsMajor = 1 THEN 'SABA Soccer PinGoal-Major Bet Types' ELSE 'SABA Soccer PinGoal-Minor Bet Types' END) 
-						   ELSE (CASE WHEN sb.IsMajor = 1 THEN 'Soccer-Major Bet Types' ELSE 'Soccer-Minor Bet Types' END) 
-						END;
+					       WHEN @IsSabaSport = 3 THEN (CASE WHEN sb.IsMajor = 1 THEN 'SABA Soccer PinGoal-Major Bet Types' ELSE 'SABA Soccer PinGoal-Minor Bet Types' END) 
+						   WHEN @IsSabaSport = 0 THEN (CASE WHEN sb.IsMajor = 1 THEN 'Soccer-Major Bet Types' ELSE 'Soccer-Minor Bet Types' END) 
+						   ELSE (CASE WHEN sl.LeagueGroupType = 1 THEN (CASE WHEN sb.IsMajor = 1 THEN 'SABA Soccer-Major Bet Types' 
+																			 ELSE 'SABA Soccer-Minor Bet Types' END)
+									  WHEN sl.LeagueGroupType = 2 THEN (CASE WHEN sb.IsMajor = 1 THEN 'SABA Soccer PinGoal-Major Bet Types' 
+																			 ELSE 'SABA Soccer PinGoal-Minor Bet Types' END)
+								ELSE (CASE WHEN sb.IsMajor = 1 THEN 'Soccer-Major Bet Types' 
+																			 ELSE 'Soccer-Minor Bet Types' END)
+								END ) 
+					  END;
         IF @IsLive = 2
             BEGIN
                 INSERT INTO #Data
