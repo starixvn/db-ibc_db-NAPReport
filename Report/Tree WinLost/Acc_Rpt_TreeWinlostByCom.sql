@@ -483,7 +483,7 @@ BEGIN
 	/*-record set main data*/
     SELECT b.srecommend
 	    , cs.UserName
-	    , ISNULL(CAST(ref.VirtualMultiplier AS VARCHAR(5)), 'N/A') 									AS VirtualRate
+	    , ISNULL(CAST(ref.VirtualMultiplier * 100 AS VARCHAR(10)) + '%', 'N/A') 									AS VirtualRate
 	    , SUM(CASE
 			    WHEN TurnoverIBC = 0
 			    THEN 0
@@ -567,7 +567,7 @@ BEGIN
 	   INNER JOIN custinfo AS cs WITH (NOLOCK) ON b.srecommend = cs.custid
 	   LEFT JOIN #custVRRef AS ref WITH (NOLOCK) ON b.srecommend = ref.CustID
     GROUP BY b.srecommend
-		 , ISNULL(CAST(ref.VirtualMultiplier AS VARCHAR(5)), 'N/A')
+		 , ISNULL(CAST(ref.VirtualMultiplier * 100 AS VARCHAR(10)) + '%', 'N/A')
 		 , cs.username
     ORDER BY username;
 
