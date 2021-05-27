@@ -1,7 +1,7 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
 ALTER PROCEDURE dbo.Acc_Rpt_AbnormalBetAutoMail_Daily_For_CSD 
-	@RptDate    DATETIME
+	@RptDate    DATETIME 
    , @IsTest     BIT      = 1
 AS
 /*
@@ -63,9 +63,9 @@ AS
 			    INNER JOIN dbo.TicketVoiding_VoidingHistory AS tvh WITH(NOLOCK) ON tv.reasonid = tvh.reasonid
 			    INNER JOIN dbo.bettrans AS bt WITH(NOLOCK) ON tv.TransId = bt.transid
 			    INNER JOIN dbo.match AS m WITH(NOLOCK) ON m.matchid = bt.matchid
-			WHERE tv.IssueTypeID = 11
-				 AND m.eventdate >= @RptDate_From
-				 AND m.eventdate < @RptDate_To OPTION(MAXDOP 1);
+			--WHERE tv.IssueTypeID = 11
+			--	 AND m.eventdate >= @RptDate_From
+			--	 AND m.eventdate < @RptDate_To OPTION(MAXDOP 1);
 
 	   CREATE CLUSTERED INDEX IX_TransId_RequestId ON #TmpVoidedTransaction(TransId ASC, RequestId ASC);
 

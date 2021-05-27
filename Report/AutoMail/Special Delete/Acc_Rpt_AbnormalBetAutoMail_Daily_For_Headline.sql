@@ -1,7 +1,7 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
 ALTER PROCEDURE dbo.Acc_Rpt_AbnormalBetAutoMail_Daily_For_Headline 
-	@RptDate      DATETIME
+	@RptDate      DATETIME 
    , @GroupName    VARCHAR(50) = 'INDOWIN'
    , @IsTest       BIT         = 0
 AS
@@ -85,10 +85,10 @@ AS
 				, b.SubIssueTypeId
 				, b.CustID
 			FROM bodb02.dbo.TicketVoiding_VoidedTransaction AS b WITH(NOLOCK)
-			WHERE b.CustID > 0
-				 AND b.CreatedDate >= @RptDate_From
-				 AND b.CreatedDate < @RptDate_To
-				 AND b.IssueTypeID = 11;
+			--WHERE b.CustID > 0
+			--	 AND b.CreatedDate >= @RptDate_From
+			--	 AND b.CreatedDate < @RptDate_To
+			--	 AND b.IssueTypeID = 11;
 
 	   INSERT INTO #TmpBettype(bettype
 						, SupportMultipleOdds)
@@ -160,15 +160,15 @@ AS
 			    LEFT JOIN bodb02.dbo.match AS m WITH(NOLOCK) ON b.matchid = m.matchid
 			    LEFT JOIN bodb02.dbo.league AS l WITH(NOLOCK) ON m.leagueid = l.leagueid
 			    LEFT JOIN bodb02.dbo.Customer AS c WITH(NOLOCK) ON b.srecommend = c.custid
-			WHERE 1 = CASE
-					    WHEN @IsTest = 0
-						    AND b.Currency <> 20
-					    THEN 1
-					    WHEN @IsTest = 1
-						    AND b.Currency = 20
-					    THEN 1
-					    ELSE 0
-					END
+			--WHERE 1 = CASE
+			--		    WHEN @IsTest = 0
+			--			    AND b.Currency <> 20
+			--		    THEN 1
+			--		    WHEN @IsTest = 1
+			--			    AND b.Currency = 20
+			--		    THEN 1
+			--		    ELSE 0
+			--		END
 			ORDER BY m.kickofftime DESC
 				  , b.liveindicator DESC
 				  , b.bettype DESC;
