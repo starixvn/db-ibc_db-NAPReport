@@ -8,6 +8,7 @@ ALTER PROCEDURE dbo.Acc_Rpt_LeagueWL_Bettype @StartDate SMALLDATETIME,
 											 @SportBettype VARCHAR(MAX),
 											 @SiteName VARCHAR(MAX) = 'ALL',
 											 @GlobalShowTime VARCHAR(MAX) = '0',
+											 @SportName NVARCHAR(100) = 'Soccer',
 											 @LeagueName VARCHAR(500) = '', /*1st report flow*/
 											 @MatchID INT = -1,				/*2nd report flow*/
 											 @IsNoDraw BIT = 0,
@@ -70,6 +71,7 @@ AS
 				Handicap		 |	8,000
 				Handicap (hedge) |	2,000
 		- @GlobalShowTime: refer to to [Acc_Rpt_LeagueWL_Sporttype.sql]
+		- @SportName: The user selected sport coming from SportType report
 
 	Example:
 		EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Bettype_xtest @StartDate='2020-09-06', @EndDate='2020-09-06', 
@@ -295,9 +297,9 @@ BEGIN
                               			VarianceIncome,
                               			RealTurnover,
                               			VirtualTurnover)
-            SELECT  CASE WHEN @SportType = 1 AND t.AgentId = 52466   THEN 1 -- dummy for 'Soccer 8RM'
+            SELECT  CASE WHEN @SportType = 1 AND t.AgentId = 52466   THEN 1 -- dummy for @SportName + ' 8RM'
                          WHEN @SportType > 1 AND t.AgentId = 52466   THEN 2 -- dummy for 'Other Sports 8RM'
-                         WHEN @SportType = 1 AND t.AgentId = 5707545 THEN 3 -- dummy for 'Soccer BARM'
+                         WHEN @SportType = 1 AND t.AgentId = 5707545 THEN 3 -- dummy for @SportName + ' BARM'
                          WHEN @SportType > 1 AND t.AgentId = 5707545 THEN 4 -- dummy for 'Other Sports BARM'
                          ELSE 0 END AS SummaryLineIdentifier,
                     - SUM(MemberWinLoss) AS MemberWinLoss,
@@ -329,9 +331,9 @@ BEGIN
 					 WHEN t.MatchCode     LIKE '%hedge%' THEN 1
 				END 
 			 END AS IsHedge,
-			CASE WHEN t.SummaryLineIdentifier = 1 THEN 'Soccer 8RM'
+			CASE WHEN t.SummaryLineIdentifier = 1 THEN @SportName + ' 8RM'
 				 WHEN t.SummaryLineIdentifier = 2 THEN 'Other Sports 8RM'
-				 WHEN t.SummaryLineIdentifier = 3 THEN 'Soccer BARM'
+				 WHEN t.SummaryLineIdentifier = 3 THEN @SportName + ' BARM'
 				 WHEN t.SummaryLineIdentifier = 4 THEN 'Other Sports BARM'
 				 ELSE CASE WHEN @IsIncludeSiteType = 1 THEN super.SiteType END
 			END AS SiteType,
@@ -356,9 +358,9 @@ BEGIN
 				END 
 			 END
 			, t.SummaryLineIdentifier
-			,CASE WHEN t.SummaryLineIdentifier = 1 THEN 'Soccer 8RM'
+			,CASE WHEN t.SummaryLineIdentifier = 1 THEN @SportName + ' 8RM'
 				  WHEN t.SummaryLineIdentifier = 2 THEN 'Other Sports 8RM'
-				  WHEN t.SummaryLineIdentifier = 3 THEN 'Soccer BARM'
+				  WHEN t.SummaryLineIdentifier = 3 THEN @SportName + ' BARM'
 				  WHEN t.SummaryLineIdentifier = 4 THEN 'Other Sports BARM'
 				  ELSE CASE WHEN @IsIncludeSiteType = 1 THEN super.SiteType END
 			 END

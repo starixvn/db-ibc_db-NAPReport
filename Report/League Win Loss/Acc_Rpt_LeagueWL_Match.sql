@@ -9,6 +9,7 @@ ALTER PROCEDURE dbo.Acc_Rpt_LeagueWL_Match @StartDate SMALLDATETIME,
 										   @BetType	INT = -1,					/*1st report flow = -1; 2nd report flow = input from Bet type report*/	
 										   @SiteName VARCHAR(MAX) = 'ALL',
 										   @GlobalShowTime VARCHAR(MAX) = '0',
+										   @SportName NVARCHAR(100) = 'Soccer',
 										   @LeagueName VARCHAR(500),
 										   @IsNoDraw BIT = 0,
 										   @LiveIndicator TINYINT = 2,			/*1st report flow = 2; 2nd report flow = 0 or 1*/
@@ -34,6 +35,7 @@ AS
 	Param's Explanation:
 		- @StartDate: The start date of data to view on report
 		- @EndDate: The end date of data to view on report
+		- @SportName: The user selected sport coming from SportType report
 		- @SportBettype: List of Sporttypes and Bettypes that correspond to each other, this list is build from the drop-down list of
 						 front-end website, correspond to selections of user
 		                 Example '1_1,1_3' --> 'Soccer_Handicap,Soccer_Over/Under...'
@@ -295,9 +297,9 @@ BEGIN
 									  VarianceIncome,
 									  RealTurnover,
 									  VirtualTurnover)
-            SELECT  CASE WHEN @SportType = 1 AND recommend = 52466   THEN 'Soccer 8RM'
+            SELECT  CASE WHEN @SportType = 1 AND recommend = 52466   THEN @SportName + ' 8RM'
                          WHEN @SportType > 1 AND recommend = 52466   THEN 'Other Sports 8RM'
-                         WHEN @SportType = 1 AND recommend = 5707545 THEN 'Soccer BARM'
+                         WHEN @SportType = 1 AND recommend = 5707545 THEN @SportName + ' BARM'
                          WHEN @SportType > 1 AND recommend = 5707545 THEN 'Other Sports BARM'
                          ELSE '' END AS MatchCode, --place holder
                     - SUM(MemberWinLoss) AS MemberWinLoss,
@@ -321,9 +323,9 @@ BEGIN
 				AND currency NOT IN (20, 27, 28)
 				AND t.bettype NOT IN (9, 29)
 				AND CASE WHEN @ShowHedgeMatchOnly = 1 THEN CHARINDEX('hedge', m.matchcode) ELSE 1 END > 0
-            GROUP BY CASE WHEN @SportType = 1 AND recommend = 52466   THEN 'Soccer 8RM'
+            GROUP BY CASE WHEN @SportType = 1 AND recommend = 52466   THEN @SportName + ' 8RM'
                           WHEN @SportType > 1 AND recommend = 52466   THEN 'Other Sports 8RM'
-                          WHEN @SportType = 1 AND recommend = 5707545 THEN 'Soccer BARM'
+                          WHEN @SportType = 1 AND recommend = 5707545 THEN @SportName + ' BARM'
                           WHEN @SportType > 1 AND recommend = 5707545 THEN 'Other Sports BARM'
                           ELSE '' END
 			OPTION (RECOMPILE)
@@ -361,9 +363,9 @@ BEGIN
 	GROUP BY t.MatchID
 		, CASE WHEN @IsLive IS NULL THEN t.LiveIndicator ELSE @IsLive END
 		, t.MatchCode
-	ORDER BY CASE WHEN t.MatchCode = 'Soccer 8RM'        THEN 2
+	ORDER BY CASE WHEN t.MatchCode = @SportName + ' 8RM' THEN 2
 				  WHEN t.MatchCode = 'Other Sports 8RM'  THEN 3
-				  WHEN t.MatchCode = 'Soccer BARM'       THEN 4
+				  WHEN t.MatchCode = @SportName + ' BARM' THEN 4
 				  WHEN t.MatchCode = 'Other Sports BARM' THEN 5
 				  ELSE 1 END
 			, MatchID DESC, MatchEvent, LiveIndicator ASC
