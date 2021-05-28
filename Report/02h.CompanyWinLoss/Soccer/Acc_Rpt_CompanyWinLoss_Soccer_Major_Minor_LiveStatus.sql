@@ -510,7 +510,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus] @EndDate='2018-07-31
                       'RM' GroupName,
                       CASE
                           WHEN b.AccountType = 1 THEN '8RM Total'
-                          WHEN b.AccountType = 1 THEN 'BARM Total'
+                          WHEN b.AccountType = 2 THEN 'BARM Total'
                           ELSE ''
                       END AS RowName, 
                     -SUM(MemberWinLoss) MemberWinLoss, 
@@ -529,7 +529,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus] @EndDate='2018-07-31
                     AND b.AccountType IN(1, 2)
                GROUP BY CASE
                           WHEN b.AccountType = 1 THEN '8RM Total'
-                          WHEN b.AccountType = 1 THEN 'BARM Total'
+                          WHEN b.AccountType = 2 THEN 'BARM Total'
                           ELSE ''
                       END;
     END;
