@@ -366,6 +366,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus] @EndDate='2018-07-31
                     INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
 					LEFT JOIN #SABALeague sl ON b.leagueid = sl.LeagueID
                WHERE b.AccountType = 2
+					AND (@IsLive > 1 OR b.liveIndicator = @IsLive)
                GROUP BY sb.IsMajor,
                         CASE WHEN @IsSabaSport = 1 THEN (CASE WHEN sb.IsMajor = 1 THEN 'SABA Soccer-Major Bet Types' ELSE 'SABA Soccer-Minor Bet Types' END)
 					       WHEN @IsSabaSport = 3 THEN (CASE WHEN sb.IsMajor = 1 THEN 'SABA Soccer PinGoal-Major Bet Types' ELSE 'SABA Soccer PinGoal-Minor Bet Types' END) 
