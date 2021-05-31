@@ -22,6 +22,7 @@ AS
 		- 20210419@Danny: Arcadia Gaming - Add 2 new games: Marble Mini and RPS (#153419)
 		- 20210405@Danny: Integrate VGaming Casino games (#154157)
 		- 20210517@Danny: Special term when billing between OneWorks and 9w licensee (#155045)
+		- 20210520@Danny: Incorporate Saba Soccer PinGoal (#155373)
 */
 BEGIN
 	SET NOCOUNT ON
@@ -318,7 +319,7 @@ BEGIN
 		IF EXISTS (SELECT 1 FROM @Products WHERE Product3rdId IN (0, 3))
 		BEGIN
 			INSERT INTO #__SabaLeague (LeagueId, LeagueGroupId)
-			SELECT LeagueId, LeagueGroupId FROM bodb02.dbo.League WITH (NOLOCK) WHERE sporttype IN (1, 2, 50) AND LeagueGroupId IN (42, 74, 108)
+			SELECT LeagueId, LeagueGroupId FROM bodb02.dbo.League WITH (NOLOCK) WHERE sporttype IN (1, 2, 50) AND LeagueGroupId IN (42, 74, 108, 113)
 
 			;WITH CTE_SB AS (
 				SELECT rptDate, SiteId, CurrencyId, ProductId, LeagueId
@@ -348,6 +349,7 @@ BEGIN
 			SELECT t.rptDate, t.SiteId, t.CurrencyId, CASE WHEN t.ProductId = 10001 THEN 0 ELSE 3 END AS ProductId
 				,CASE
 					WHEN l.LeagueGroupId IN (42, 74, 108) AND t.SportType = 1 THEN -3 -- Saba Soccer
+					WHEN l.LeagueGroupId = 113 AND t.SportType = 1 THEN -14 --Saba Soc PGoal
 					WHEN l.LeagueGroupId IN (42) AND t.SportType = 2 THEN -5 -- Saba Basketball
 					WHEN l.LeagueGroupId IN (42) AND t.SportType = 50 THEN -8 -- Saba Cricket
 					WHEN t.Sporttype = 1 THEN -2 -- Soccer
@@ -365,6 +367,7 @@ BEGIN
 			GROUP BY t.rptDate, t.SiteId, t.CurrencyId, CASE WHEN t.ProductId = 10001 THEN 0 ELSE 3 END
 				,CASE
 					WHEN l.LeagueGroupId IN (42, 74, 108) AND t.SportType = 1 THEN -3 -- Saba Soccer
+					WHEN l.LeagueGroupId = 113 AND t.SportType = 1 THEN -14 --Saba Soc PGoal
 					WHEN l.LeagueGroupId IN (42) AND t.SportType = 2 THEN -5 -- Saba Basketball
 					WHEN l.LeagueGroupId IN (42) AND t.SportType = 50 THEN -8 -- Saba Cricket
 					WHEN t.Sporttype = 1 THEN -2 -- Soccer
@@ -421,6 +424,7 @@ BEGIN
 						WHEN bt.Product3rdId <> 0 THEN bt.AliasProductId
 						WHEN bt.BetType IN (9, 29) THEN -10 -- Parlay
 						WHEN s.LeagueGroupId IN (42, 74, 108) AND b.SportType = 1 THEN -3 -- Saba Soccer
+						WHEN s.LeagueGroupId = 113 AND b.SportType = 1 THEN -14 --Saba Soc PGoal
 						WHEN s.LeagueGroupId IN (42) AND b.SportType = 2 THEN -5 -- Saba Basketball
 						WHEN s.LeagueGroupId IN (42) AND b.SportType = 50 THEN -8 -- Saba Cricket
 						WHEN b.Sporttype = 1 THEN -2 -- Soccer
@@ -453,6 +457,7 @@ BEGIN
 						WHEN bt.Product3rdId <> 0 THEN bt.AliasProductId
 						WHEN bt.BetType IN (9, 29) THEN -10 -- Parlay
 						WHEN s.LeagueGroupId IN (42, 74, 108) AND b.SportType = 1 THEN -3 -- Saba Soccer
+						WHEN s.LeagueGroupId = 113 AND b.SportType = 1 THEN -14 --Saba Soc PGoal
 						WHEN s.LeagueGroupId IN (42) AND b.SportType = 2 THEN -5 -- Saba Basketball
 						WHEN s.LeagueGroupId IN (42) AND b.SportType = 50 THEN -8 -- Saba Cricket
 						WHEN b.Sporttype = 1 THEN -2 -- Soccer
@@ -918,13 +923,13 @@ BEGIN
 			,Discount		MONEY DEFAULT(0)
 		)
 		;WITH CTE_tempResult AS (
-			SELECT PartyId, Product3rdId, CASE WHEN Product3rdId = 0 THEN -2 ELSE AliasProductId END AS AliasProductId
+			SELECT PartyId, Product3rdId, CASE WHEN Product3rdId = 0 AND AliasProductId <> -14  THEN -2 ELSE AliasProductId END AS AliasProductId
 				,HouseTurnover	= SUM(HouseTurnover)
 				,LicenseeWL		= SUM(CASE WHEN SporttypeGroup IN (150, 173) THEN 0 ELSE -MemberWLMonth END)
 				,HouseIncome	= SUM(HouseIncomeMonth)
 				,AComm			= SUM(CommMonth)
 			FROM #__tempResult
-			GROUP BY PartyId, Product3rdId, CASE WHEN Product3rdId = 0 THEN -2 ELSE AliasProductId END
+			GROUP BY PartyId, Product3rdId, CASE WHEN Product3rdId = 0  AND AliasProductId <> -14 THEN -2 ELSE AliasProductId END
 		), CTE_Result AS (
 			SELECT
 				PartyId = ISNULL(t.PartyId, m.PartyId)
