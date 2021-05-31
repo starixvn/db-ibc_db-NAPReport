@@ -3,7 +3,7 @@
 USE [bodb02]
 GO
 
-ALTER PROCEDURE dbo.Acc_Rpt_TreeWinlostByMAg
+CREATE PROCEDURE dbo.Acc_Rpt_TreeWinlostByMAg
 	@FromDate      DATETIME
    , @ToDate        DATETIME
    , @mrecommend    INT
@@ -471,23 +471,27 @@ BEGIN
 			   , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(19, 6)) OPTION(RECOMPILE);
 
 	-- get top 1 vr record of each cust 
-	CREATE TABLE #custVRRef (CustID INT, VirtualMultiplier SMALLMONEY);
+	CREATE TABLE #custVRRef (CustID INT, Username NVARCHAR(100), VirtualRate VARCHAR(10));
 	INSERT INTO #custVRRef
-		SELECT custinfo.custid, ca.virtualMultiplier - 1
-		FROM bodb02.dbo.custInfo AS custinfo WITH (NOLOCK)
-		CROSS APPLY (SELECT TOP 1 cvs.custid, pvs.bettype,
+		SELECT ci.custid, 
+			ci.username,
+			CASE WHEN ci.virtualmultiplier = 0 THEN 'Disabled'
+				 WHEN ca.virtualMultiplier IS NULL THEN 'N/A'
+				 ELSE CAST((ca.virtualMultiplier - 1) * 100 AS VARCHAR(10)) + '%' END
+		FROM custinfo AS ci
+		OUTER APPLY (SELECT TOP 1 cvs.custid, pvs.bettype,
 						bodb02.dbo.f_GetVirtualSetting(cvs.bitmapVirtual, pvs.profileID) AS virtualMultiplier
 					FROM bodb02.dbo.CustVirtualSetting cvs WITH (NOLOCK)
 					INNER JOIN bodb02.dbo.ProfileVirtualSetting AS pvs WITH (NOLOCK) 
 						ON cvs.seqNo = pvs.seqNo
-					WHERE cvs.custid = custinfo.custid
+					WHERE cvs.custid = ci.custid
 					AND pvs.sporttype NOT IN (43, 2) AND pvs.isActive = 1) ca
-		WHERE custinfo.custid IN (select recommend from #TmpResultAll)
+		WHERE ci.custid IN (select recommend from #TmpResultAll)
 	
 	/*-record set main data*/
     SELECT b.recommend
-	    , ca.username
-	    , ISNULL(CAST(ref.VirtualMultiplier * 100 AS VARCHAR(10)) + '%', 'N/A') 									AS VirtualRate
+	    , ref.username
+	    , ref.VirtualRate
 	    , SUM(CASE
 			    WHEN TurnoverIBC = 0
 			    THEN 0
@@ -568,11 +572,10 @@ BEGIN
 			    ELSE TurnoverIBC_RM - ExtraTO_RM
 			END * ABS(VarianceVR)) AS                                                                   TOVarianceTotal
     FROM #TmpResultAll AS b
-	   INNER JOIN custinfo AS ca WITH (NOLOCK) ON b.recommend = ca.custid
 	   LEFT JOIN #custVRRef AS ref WITH (NOLOCK) ON b.recommend = ref.CustID
     GROUP BY b.recommend
-		 , ca.username
-		 , ISNULL(CAST(ref.VirtualMultiplier * 100 AS VARCHAR(10)) + '%', 'N/A')
+		 , ref.username
+		 , ref.VirtualRate
     ORDER BY username;
 
 	-- Drop temp tables
