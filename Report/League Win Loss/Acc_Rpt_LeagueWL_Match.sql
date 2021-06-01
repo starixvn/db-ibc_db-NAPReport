@@ -31,6 +31,7 @@ AS
 		- 20201016@Jaden.Tang: Refactor for code readability & performance & new drilldowns (#144387)
 		- 20210126@Jaden.Tang: global show time filter (#147450)
 		- 20210224@Jaden.Tang: Integrate Cricket AIO (#148454)
+		- 20210520@Jaden.Tang: SABA Soccer Pin Goal (#155447)
 
 	Param's Explanation:
 		- @StartDate: The start date of data to view on report

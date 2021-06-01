@@ -20,6 +20,7 @@ AS
 	Revisions:
 		- 20200812@Jaden.Tang: NAP Report - New drilldown level for League Win Loss (#138955)
         - 20201016@Jaden.Tang: Refactor for code readability & new drilldowns (#144387)
+        - 20210520@Jaden.Tang: SABA Soccer Pin Goal (#155447)
 
 	Param's Explanation:
 		- @StartDate: The start date of data to view on report

@@ -32,6 +32,7 @@ AS
 		- 20210126@Jaden.Tang: global show time filter (#147450)
 		- 20210208@Jaden.Tang: Hotfix - change LiveIndicator type to TINYINT (#150190)
 		- 20212203@Jaden: Support SABA789 (#151326)
+		- 20210520@Jaden.Tang: SABA Soccer Pin Goal (#155447)
 
 	Param's Explanation:
 		- @StartDate: The start date of data to view on report
