@@ -14,6 +14,7 @@ AS
 	 - 20201117@Jaden: from adhoc to SP
 	 - 20210519@Jaden: Switch to daily report
 	 - 20210520@Jaden: Add column bettype
+	 - 20210602@Jaden: Add more sites
 	 */
 BEGIN 
 	Create table #tmp_data
@@ -26,6 +27,7 @@ BEGIN
 		homeid int,
 		awayid int,
 		username nvarchar (100),
+		Sitename nvarchar (100),
 		betcount int,
 		WinlossP money,
 		stake money,
@@ -43,6 +45,7 @@ BEGIN
 		homeid,
 		awayid,
 		mc.username,
+		c.site,
 		(case when t.custid is not null then 0 else 1 end) [betcount],
 		sum(winlost - actual_stake),
 		sum(abs(stake)),
@@ -59,7 +62,7 @@ BEGIN
 		and mc.statusID in (111, 112, 113)
 		and mc.Currency <> 20
 		and mc.bettype not in (38, 901, 902, 903, 904, 911, 912, 913, 914)
-		and c.site = 'N88'
+		and c.site in ('N88','N8B','N8G')
 	group by
 		winlostdate,
 		transid,
@@ -70,11 +73,13 @@ BEGIN
 		homeid,
 		awayid,
 		mc.username,
+		c.site,
 		case when t.custid is not null then 0 else 1 end
 	
 	--------------------------------------------------------------------------------------------------------------------------------
 	SELECT
 		CAST(winlostdate as date) 'Date',
+		b.sitename,
 		b.username,
 		s.SportName,
 		l.leaguename,
@@ -97,6 +102,7 @@ BEGIN
 		LEFT JOIN bodb02.dbo.team t2 WITH(nolock) on b.awayid = t2.teamid
 	group by
 		CAST(winlostdate as date),
+		b.sitename,
 		username,
 		l.leaguename,
 		b.leagueid,
