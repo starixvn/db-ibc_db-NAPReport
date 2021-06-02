@@ -423,20 +423,18 @@ BEGIN
 			ON Sports.SportType = ABS(t.SportType)
 		WHERE MemberWinLoss IS NOT NULL
 	) AS s
-	ORDER BY CASE WHEN Sport = 'Soccer' 		 THEN 1
-				  WHEN Sport LIKE 'SABA Soccer%' AND SportType <= 100000 THEN 2
-				  WHEN Sport = 'Parlay' 		 THEN 3
-				  WHEN Sport = 'SB Adjustment'   THEN 4
-				  WHEN Sport = 'Basketball'  	 THEN 5
-				  WHEN Sport LIKE 'SABA Basketball%' AND SportType <= 100000 THEN 6
-				  WHEN Sport = 'Tennis'		 	 THEN 7
-				  WHEN Sport = 'E-Sports'	 	 THEN 8 --fix some sports at top
-				  ELSE 
-				  	CASE WHEN SportType > 100000 THEN SportType ELSE 9 END --fix summary lines at bottom
-			 END
-			,CASE -- then sort by alphabetic order; except for SABA sports: fix them after their primary sport
+	ORDER BY CASE --fix some sports at top
+				  WHEN Sport LIKE '%Soccer%' AND SportType <= 100000     THEN 100 + LEN(Sport) --sub group like 'SABA Soccer..' pinned after main
+				  WHEN Sport = 'Parlay' 		 					     THEN 200
+				  WHEN Sport = 'SB Adjustment'   					     THEN 300
+				  WHEN Sport LIKE '%Basketball%' AND SportType <= 100000 THEN 400 + LEN(Sport)
+				  WHEN Sport = 'Tennis'		 	 						 THEN 500
+				  WHEN Sport = 'E-Sports'	 	 						 THEN 600
+				  WHEN SportType < 100000 					 			 THEN 1000 --for others		 
+				  ELSE 														  SportType END --fix summary lines at bottom
+			,CASE -- [others] sort by alphabetic order; except for SABA sports: fix them after their primary sport
 				  WHEN Sport LIKE '%SABA%' THEN LTRIM(REPLACE(Sport, 'SABA', '')) + '~' 
-				  ELSE Sport END DESC
+				  ELSE Sport END
 			,LeagueName -- lastly, sort by league name
 
 	DROP TABLE #tmpSportBettypeMatrix
