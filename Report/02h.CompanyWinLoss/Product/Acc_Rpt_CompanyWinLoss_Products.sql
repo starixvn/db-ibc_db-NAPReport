@@ -7,6 +7,8 @@ ALTER PROCEDURE dbo.Acc_Rpt_CompanyWinLoss_Products
 	@StartDate    SMALLDATETIME 
    , @EndDate      SMALLDATETIME 
    , @IsNoDraw BIT = 0
+   , @LeagueName VARCHAR(500) = 'ALL'
+   , @Divisions VARCHAR(MAX) = 'ALL'
 AS
     BEGIN
 /*	Creator: Sophia.Nguyen
@@ -56,6 +58,7 @@ Revisions:
 - 20210303@Cherry: Integrate Sports Lottery (#151071)
 - 20212203@Jaden: Support SABA789 (#151326)
 - 20210428@Ned.Le: NAP Report - Implement VGaming (#154072)
+- 20210601@Jaden: Add League textbox & Division dropdown (#155993)
 
 Explanation's Param:
 
@@ -254,8 +257,29 @@ Explanation's Param:
 				) AS m
 			    INNER JOIN league AS l WITH(NOLOCK) ON m.LeagueId = l.LeagueId
 			    INNER JOIN Sports AS s WITH(NOLOCK) ON l.sporttype = s.sporttype
-				LEFT JOIN #SABALeagueGroup saba ON l.LeagueGroupID = saba.LeagueGroupID;
+				LEFT JOIN #SABALeagueGroup saba ON l.LeagueGroupID = saba.LeagueGroupID
+			WHERE 
+				'ALL' = @LeagueName OR leaguename LIKE '%' + @LeagueName + '%'
 	   CREATE CLUSTERED INDEX CIX_MatchID ON #Match(MatchID, Type);
+
+		CREATE TABLE #tmpAgentBySite (
+			  AgentID INT
+			, SiteName VARCHAR(10)
+		)
+		IF @Divisions != 'ALL' BEGIN
+			;WITH CTE_Sites AS (
+				SELECT val SiteName
+				FROM dbo.strSplit(@Divisions, ',')
+				WHERE LEN(val) > 0
+				GROUP BY val
+			)
+			INSERT INTO #tmpAgentBySite (AgentID, SiteName)
+			SELECT c.custid ,c.site
+			FROM dbo.CustAgent AS c WITH (NOLOCK)
+			WHERE @Divisions = 'ALL' OR c.site IN ( SELECT SiteName FROM CTE_Sites )
+			GROUP BY c.custid, c.site
+		END
+
 	   --
 	   --1. Sportsbook only and outright
 	   INSERT INTO #tmp_src(srecommend
@@ -399,6 +423,7 @@ Explanation's Param:
 			WHERE winlostdate = @StartDate
 				 AND b.ruben = 1
 				 AND  ((@IsNoDraw = 0 AND b.statusID IN(111, 112, 113)) OR (@IsNoDraw = 1 AND statusID IN (112, 113)))
+				 AND ('ALL' = @Divisions OR b.recommend IN (SELECT AgentID FROM #tmpAgentBySite))
 			GROUP BY srecommend
 				  , b.bettype
 				  , CASE
@@ -595,6 +620,7 @@ Explanation's Param:
 				 AND s.productID = 1
 				 AND s.EventType IN(1, 2)
 				 AND s.SubProduct NOT IN('MG-SuperLive', 'BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss', 'Bet Builder')
+				 AND ('ALL' = @Divisions OR b.recommend IN (SELECT AgentID FROM #tmpAgentBySite))
 			GROUP BY CASE
 					   WHEN m.sporttype = 44
 					   THEN 44
@@ -777,6 +803,8 @@ Explanation's Param:
 					(s.productID <> 1 AND s.RefTable NOT IN(1, 2)
 					 OR s.productID = 1 AND s.SubProduct IN('MG-SuperLive', 'BT-Comm', 'BT-Winloss', 'Bet Builder')
 					 OR s.productID = 1 AND s.EventType = 0) /*include "Odds Spread Adjustment" & "Parlay"*/
+				 AND ('ALL' = @LeagueName OR b.matchid IN (SELECT matchid FROM #Match))
+				 AND ('ALL' = @Divisions OR b.recommend IN (SELECT AgentID FROM #tmpAgentBySite))
 			GROUP BY srecommend
 				  , CASE s.SubProduct
 					   WHEN 'MG-SuperLive'
@@ -908,6 +936,7 @@ Explanation's Param:
 			FROM bettransRNG AS b WITH(NOLOCK)
 			WHERE winlostdate = @StartDate
 				 AND b.statusID IN(111, 112, 113)
+				 AND ('ALL' = @Divisions OR b.recommend IN (SELECT AgentID FROM #tmpAgentBySite))
 			GROUP BY b.srecommend
 				  , b.gameID OPTION(RECOMPILE);
 	   -- Get bettransLC data
@@ -1004,6 +1033,7 @@ Explanation's Param:
 			FROM bettransLC AS b WITH(NOLOCK)
 			WHERE winlostdate = @StartDate
 				 AND b.statusID IN(111, 112, 113)
+				 AND ('ALL' = @Divisions OR b.recommend IN (SELECT AgentID FROM #tmpAgentBySite))
 			GROUP BY b.srecommend
 				  , b.gameID OPTION(RECOMPILE);
 	   --3. Get from Temporary Detail table --
@@ -1519,5 +1549,6 @@ Explanation's Param:
 	   DROP TABLE #SpecialBettypeGroup
 	   DROP TABLE #SABALeagueGroup;
 	   DROP TABLE #ProductOrder;
+       DROP TABLE #tmpAgentBySite;
     END
 GO

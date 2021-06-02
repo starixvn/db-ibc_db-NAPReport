@@ -7,7 +7,9 @@ ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus] @St
                                                                              @EndDate   SMALLDATETIME, 
                                                                              @IsLive    INT           = 2,
 																			 @IsSabaSport BIT = 0,
-																			 @IsNoDraw BIT = 0
+																			 @IsNoDraw BIT = 0,
+                                                                             @LeagueName VARCHAR(500) = 'ALL',
+                                                                             @Divisions VARCHAR(MAX) = 'ALL'
 AS
 
 /*
@@ -23,6 +25,7 @@ Revisions:
 - 20201222@Kean: Support to filter NoDraw and separate the SABA sports - NAP Report (#147451)
 - 20210326@Kean: HotFix, Missing data when league.LeagueGroupId is NULL - NAP Report (#152390)
 - 20212203@Jaden: Support SABA789 (#151326)
+- 20210601@Jaden: Add League textbox & Division dropdown (#155993)
 
 Parameters:
 @IsLive: 2 - ALL. 0 - Non-Live. 1 - Live
@@ -102,8 +105,28 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus] @EndDate='2018-07-31
                WHERE l.sporttype = 1 
 			   AND ((@IsSabaSport = 0 AND (l.LeagueGroupID NOT IN (SELECT LeagueGroupID FROM #SABALeagueGroup) OR l.LeagueGroupID IS NULL) ) 
 						OR (@IsSabaSport = 1 AND l.LeagueGroupID IN (SELECT LeagueGroupID FROM #SABALeagueGroup))
-					);
+					)
+               AND ('ALL' = @LeagueName OR leaguename LIKE '%' + @LeagueName + '%')
     END;
+    BEGIN -- # Agents (filter)
+		CREATE TABLE #tmpAgentBySite (
+			  AgentID INT
+			, SiteName VARCHAR(10)
+		)
+		IF @Divisions != 'ALL' BEGIN
+			;WITH CTE_Sites AS (
+				SELECT val SiteName
+				FROM dbo.strSplit(@Divisions, ',')
+				WHERE LEN(val) > 0
+				GROUP BY val
+			)
+			INSERT INTO #tmpAgentBySite (AgentID, SiteName)
+			SELECT c.custid ,c.site
+			FROM dbo.CustAgent AS c WITH (NOLOCK)
+			WHERE @Divisions = 'ALL' OR c.site IN ( SELECT SiteName FROM CTE_Sites )
+			GROUP BY c.custid, c.site
+		END
+    END
     BEGIN -- #Data
         CREATE TABLE #tmp_Data
                      (srecommend      INT, 
@@ -218,6 +241,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus] @EndDate='2018-07-31
                                   END
                      AND b.ruben = 1
                      AND  ((@IsNoDraw = 0 AND b.statusID IN(111, 112, 113)) OR (@IsNoDraw = 1 AND statusID IN (112, 113)))
+				     AND ('ALL' = @Divisions OR b.recommend IN (SELECT AgentID FROM #tmpAgentBySite))
                GROUP BY srecommend, 
                         bettype, 
                         liveindicator OPTION(RECOMPILE);
@@ -248,8 +272,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus] @EndDate='2018-07-31
                     INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
                     LEFT JOIN #DepositSuper AS dep ON b.srecommend = dep.CustId
                     LEFT JOIN CS_CustSuper AS cn88 WITH(NOLOCK) ON b.srecommend = cn88.CustId
-               WHERE @IsLive > 1
-                     OR b.liveIndicator = @IsLive
+               WHERE ( @IsLive > 1 OR b.liveIndicator = @IsLive )
                GROUP BY sb.IsMajor,
                         CASE WHEN @IsSabaSport = 1 THEN (CASE WHEN sb.IsMajor = 1 THEN 'SABA Soccer-Major Bet Types' ELSE 'SABA Soccer-Minor Bet Types' END) 
 						   ELSE (CASE WHEN sb.IsMajor = 1 THEN 'Soccer-Major Bet Types' ELSE 'Soccer-Minor Bet Types' END) 
@@ -722,4 +745,5 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus] @EndDate='2018-07-31
     DROP TABLE #tmp_Data;
     DROP TABLE #Match;
 	DROP TABLE #SABALeagueGroup;
+    DROP TABLE #tmpAgentBySite;
 GO
