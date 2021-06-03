@@ -6,6 +6,7 @@ GO
 ALTER PROCEDURE dbo.Acc_Rpt_LeagueWL_Super @StartDate SMALLDATETIME,
                                            @EndDate SMALLDATETIME,
                                            @SiteID INT,
+                                           @SportName NVARCHAR(100) = 'Soccer',
                                            @MatchID INT,
                                            @LiveIndicator TINYINT,
 										   @BetType INT,
@@ -19,11 +20,13 @@ AS
 	Revisions:
 		- 20200812@Jaden.Tang: NAP Report - New drilldown level for League Win Loss (#138955)
         - 20201016@Jaden.Tang: Refactor for code readability & new drilldowns (#144387)
+        - 20210520@Jaden.Tang: SABA Soccer Pin Goal (#155447)
 
 	Param's Explanation:
 		- @StartDate: The start date of data to view on report
 		- @EndDate: The end date of data to view on report
         - @SiteID: The site id of data to view on report (coming from 4th level drill)
+        - @SportName: The user selected sport coming from SportType report
         - @MatchID: The specific match to view on report
         - @LiveIndicator: To indicate the live status to view on report
 		- @BetType: The bettype to view on report
@@ -139,9 +142,9 @@ BEGIN
                             VarianceIncome,
                             RealTurnover,
                             VirtualTurnover)
-            SELECT  CASE    WHEN @SportType = 1 AND t.AgentId = 52466   THEN 'Soccer 8RM'
+            SELECT  CASE    WHEN @SportType = 1 AND t.AgentId = 52466   THEN @SportName + ' 8RM'
                             WHEN @SportType > 1 AND t.AgentId = 52466   THEN 'Other Sports 8RM'
-                            WHEN @SportType = 1 AND t.AgentId = 5707545 THEN 'Soccer BARM'
+                            WHEN @SportType = 1 AND t.AgentId = 5707545 THEN @SportName + ' BARM'
                             WHEN @SportType > 1 AND t.AgentId = 5707545 THEN 'Other Sports BARM'
                             ELSE '' END AS SuperName, --place holder
                     - SUM(MemberWinLoss) AS MemberWinLoss,
@@ -155,9 +158,9 @@ BEGIN
                     SUM(VirtualTurnover) AS VirtualTurnover
             FROM #tmpData t
             WHERE t.AgentId IN (52466, 5707545)
-            GROUP BY CASE WHEN @SportType = 1 AND t.AgentId = 52466   THEN 'Soccer 8RM'
+            GROUP BY CASE WHEN @SportType = 1 AND t.AgentId = 52466   THEN @SportName + ' 8RM'
                           WHEN @SportType > 1 AND t.AgentId = 52466   THEN 'Other Sports 8RM'
-                          WHEN @SportType = 1 AND t.AgentId = 5707545 THEN 'Soccer BARM'
+                          WHEN @SportType = 1 AND t.AgentId = 5707545 THEN @SportName + ' BARM'
                           WHEN @SportType > 1 AND t.AgentId = 5707545 THEN 'Other Sports BARM'
                           ELSE '' END
     END
@@ -186,9 +189,9 @@ BEGIN
                  AS BIT) HasVR
 	FROM #tmpData t
     GROUP BY t.SuperID, t.SuperName
-    ORDER BY CASE WHEN t.SuperName = 'Soccer 8RM'        THEN 2
+    ORDER BY CASE WHEN t.SuperName = @SportName + ' 8RM' THEN 2
                   WHEN t.SuperName = 'Other Sports 8RM'  THEN 3
-                  WHEN t.SuperName = 'Soccer BARM'       THEN 4
+                  WHEN t.SuperName = @SportName + ' BARM' THEN 4
                   WHEN t.SuperName = 'Other Sports BARM' THEN 5
                   ELSE 1 END, SuperName
 

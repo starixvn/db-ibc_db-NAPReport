@@ -6,6 +6,7 @@ GO
 ALTER PROCEDURE dbo.Acc_Rpt_LeagueWL_Site @StartDate SMALLDATETIME,
                                           @EndDate SMALLDATETIME,
                                           @SiteName VARCHAR(MAX) = 'ALL',
+                                          @SportName NVARCHAR(100) = 'Soccer',
                                           @MatchID INT,
                                           @LiveIndicator TINYINT,
 										  @BetType INT,
@@ -21,11 +22,13 @@ AS
 		- 20200424@Jaden.Tang: NAP Report - New drilldown level for League Win Loss (#138955)
         - 20201016@Jaden.Tang: Refactor for code readability & new drilldowns (#144387)
         - 20212203@Jaden: Support SABA789 (#151326)
+        - 20210520@Jaden.Tang: SABA Soccer Pin Goal (#155447)
 
 	Param's Explanation:
 		- @StartDate: The start date of data to view on report
 		- @EndDate: The end date of data to view on report
         - @SiteName: Filter by list of site names (delimited by commas)
+        - @SportName: The user selected sport coming from SportType report
         - @MatchID: The specific match to view on report
         - @LiveIndicator: To indicate the live status to view on report
 		- @BetType: The bettype to view on report
@@ -196,9 +199,9 @@ BEGIN
                             RealTurnover,
                             VirtualTurnover)
             SELECT  '' AS AgentId,
-                    CASE    WHEN @SportType = 1 AND t.AgentId = 52466   THEN 'Soccer 8RM'
+                    CASE    WHEN @SportType = 1 AND t.AgentId = 52466   THEN @SportName + ' 8RM'
                             WHEN @SportType > 1 AND t.AgentId = 52466   THEN 'Other Sports 8RM'
-                            WHEN @SportType = 1 AND t.AgentId = 5707545 THEN 'Soccer BARM'
+                            WHEN @SportType = 1 AND t.AgentId = 5707545 THEN @SportName + ' BARM'
                             WHEN @SportType > 1 AND t.AgentId = 5707545 THEN 'Other Sports BARM'
                             ELSE '' END AS Site,
                     - SUM(MemberWinLoss) AS MemberWinLoss,
@@ -212,9 +215,9 @@ BEGIN
                     SUM(VirtualTurnover) AS VirtualTurnover
             FROM #tmpData t
             WHERE t.AgentId IN (52466, 5707545)
-            GROUP BY CASE WHEN @SportType = 1 AND t.AgentId = 52466   THEN 'Soccer 8RM'
+            GROUP BY CASE WHEN @SportType = 1 AND t.AgentId = 52466   THEN @SportName + ' 8RM'
                           WHEN @SportType > 1 AND t.AgentId = 52466   THEN 'Other Sports 8RM'
-                          WHEN @SportType = 1 AND t.AgentId = 5707545 THEN 'Soccer BARM'
+                          WHEN @SportType = 1 AND t.AgentId = 5707545 THEN @SportName + ' BARM'
                           WHEN @SportType > 1 AND t.AgentId = 5707545 THEN 'Other Sports BARM'
                           ELSE '' END
     END
@@ -235,9 +238,9 @@ BEGIN
     LEFT JOIN bodb02.dbo.Site s WITH (NOLOCK)
         ON t.Site = s.site
     GROUP BY s.siteid
-    ORDER BY CASE WHEN MAX(t.Site) = 'Soccer 8RM'        THEN 2
+    ORDER BY CASE WHEN MAX(t.Site) = @SportName + ' 8RM'        THEN 2
                   WHEN MAX(t.Site) = 'Other Sports 8RM'  THEN 3
-                  WHEN MAX(t.Site) = 'Soccer BARM'       THEN 4
+                  WHEN MAX(t.Site) = @SportName + ' BARM'       THEN 4
                   WHEN MAX(t.Site) = 'Other Sports BARM' THEN 5
                   ELSE 1 END, SiteName
 
