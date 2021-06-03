@@ -16,6 +16,7 @@ AS
 	 - 20210122@Jaden: New changes
      - 20210422@Jaden: Implement 229 (#153872)
      - 20210506@Jaden: new bug fixes (#145519)
+     - 20210603@Jaden: Include 8RM data (#145586)
 	 */
 BEGIN 
     Create table #tmp_data
@@ -87,12 +88,12 @@ BEGIN
         abs(stake) * actualrate,
         (ABS(Stake) * (1-tpositiontaking-isnull(mc.epositiontaking,0) ) * mc.virtualrate) VirtualTO,
         - ((winlost-actual_stake)* (1-tpositiontaking-isnull(mc.epositiontaking,0))* mc.virtualrate 
-+ (Scomm - case when tpositiontaking = 1  then 0 else Scomm / (1-tpositiontaking) * isnull(mc.epositiontaking,0) end) * case when virtualrate < actualrate then virtualrate else actualrate end*case when recommend in (52466) then 0 else 1 end ) VirtualWL,
++ (Scomm - case when tpositiontaking = 1  then 0 else Scomm / (1-tpositiontaking) * isnull(mc.epositiontaking,0) end) * case when virtualrate < actualrate then virtualrate else actualrate end ) VirtualWL,
         (ABS(Stake) * (1-tpositiontaking -isnull(mc.epositiontaking,0)) * abs(virtualrate - actualrate)) VarianceTO,
         (((winlost-actual_stake)*(1-tpositiontaking-isnull(mc.epositiontaking,0)) + case when mc.virtualrate< actualrate then (scomm - case when tpositiontaking = 1  then 0 else Scomm / (1-tpositiontaking) * isnull(mc.epositiontaking,0) end) else 0 end)*(mc.virtualrate - actualrate)) VarianceWL,
         (ABS(Stake) * (1-tpositiontaking-isnull(mc.epositiontaking,0)) * case when mc.virtualrate > actualrate then mc.virtualrate else actualrate end) RealTO,
-        - (((winlost-actual_stake)*(1-tpositiontaking-isnull(mc.epositiontaking,0))+ (Scomm - case when tpositiontaking = 1  then 0 else Scomm / (1-tpositiontaking) * isnull(mc.epositiontaking,0) end))*actualrate*case when recommend in (52466) then 0 else 1 end ) RealWL,
-        mc.matchid,            
+        - (((winlost-actual_stake)*(1-tpositiontaking-isnull(mc.epositiontaking,0))+ (Scomm - case when tpositiontaking = 1  then 0 else Scomm / (1-tpositiontaking) * isnull(mc.epositiontaking,0) end))*actualrate) RealWL,
+        mc.matchid,      
          CASE WHEN  CAST(extrainfo AS XML).value('(/p1/@isht)[1]', 'varchar(50)') IS NOT NULL 
                                     THEN 'isht' 
                             ELSE   'mtimer'  
