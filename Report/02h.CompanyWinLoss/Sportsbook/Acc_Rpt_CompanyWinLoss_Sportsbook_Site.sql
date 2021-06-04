@@ -33,11 +33,12 @@ Revisions:
 - 20210323@Kean: Daily Win Loss (2h) Soccer Minor Bet Types do not use @IsSabaSport parameter (#152100)
 - 20210326@Kean: HotFix, Missing data when league.LeagueGroupId is NULL - NAP Report (#152390)
 - 20212203@Jaden: Support SABA789 (#151326)
+- 20210520@Kean: SABA Soccer PinGoal - NAP Report (#155447)
 
 Parameters:
 @IsLive: 2 - ALL. 0 - Non-Live. 1 - Live
 @IsHedge: 2 - ALL. 0 - Non-Hedge. 1 - Hedge
-@IsSabaSport: 2 - ALL. 0 - Non-SABA. 1 - SABA 
+@IsSabaSport: 2 - ALL. 0 - Non-SABA. 1 - SABA. 3 - SABA PinGoal 
 
 Example: 
 EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Site] @StartDate='2016-01-01', @EndDate='2020-01-01', @SportType = 1, @BetType = 1, @IsHedge=0, @IsLive=2,  @Site = 'Credit'
@@ -102,6 +103,19 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Site] @StartDate='2016-01-01', @EndDate=
 
 		INSERT INTO #SABALeagueGroup
 		SELECT val FROM dbo.strSplit(@LeagueGroupStr,',')
+
+		CREATE TABLE #SABALeague (
+				LeagueGroupType INT,
+				LeagueGroupID INT,
+				LeagueID INT
+		)
+		INSERT INTO #SABALeague(LeagueGroupType, LeagueGroupID, LeagueID)
+		SELECT CASE WHEN LeagueGroupID = 113 THEN 2
+		        ELSE 1 END LeagueGroupType,
+		   LeagueGroupID,
+		   leagueid LeagueID
+		FROM bodb02.dbo.League (NOLOCK)
+		WHERE LeagueGroupID IN (SELECT LeagueGroupID FROM #SABALeagueGroup)
 	END;
     BEGIN -- Match
         CREATE TABLE #Match
@@ -123,10 +137,11 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Site] @StartDate='2016-01-01', @EndDate=
                        ) AS m
                        INNER JOIN league AS l WITH(NOLOCK) ON m.LeagueId = l.LeagueId
                        WHERE l.sporttype = @sporttype
-						   AND (@IsSabaSport = 2
-						   OR (@IsSabaSport = 0 AND (l.LeagueGroupID NOT IN (SELECT LeagueGroupID FROM #SABALeagueGroup) OR l.LeagueGroupID IS NULL) ) 
-							OR (@IsSabaSport = 1 AND l.LeagueGroupID IN (SELECT LeagueGroupID FROM #SABALeagueGroup))
-						);
+						    AND (@IsSabaSport = 2
+								OR (@IsSabaSport = 0 AND l.leagueid NOT IN (SELECT LeagueID FROM #SABALeague))
+								OR (@IsSabaSport = 1 AND l.leagueid IN (SELECT LeagueID FROM #SABALeague WHERE LeagueGroupType = 1))
+								OR (@IsSabaSport = 3 AND l.leagueid IN (SELECT LeagueID FROM #SABALeague WHERE LeagueGroupType = 2))
+					);
         END;
             ELSE
             BEGIN
@@ -148,10 +163,11 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Site] @StartDate='2016-01-01', @EndDate=
                        ) AS m
                        INNER JOIN league AS l WITH(NOLOCK) ON m.LeagueId = l.LeagueId
                        WHERE l.sporttype = @sporttype
-						   AND (@IsSabaSport = 2
-						    OR (@IsSabaSport = 0 AND (l.LeagueGroupID NOT IN (SELECT LeagueGroupID FROM #SABALeagueGroup) OR l.LeagueGroupID IS NULL) ) 
-							OR (@IsSabaSport = 1 AND l.LeagueGroupID IN (SELECT LeagueGroupID FROM #SABALeagueGroup))
-						);
+						    AND (@IsSabaSport = 2
+								OR (@IsSabaSport = 0 AND l.leagueid NOT IN (SELECT LeagueID FROM #SABALeague))
+								OR (@IsSabaSport = 1 AND l.leagueid IN (SELECT LeagueID FROM #SABALeague WHERE LeagueGroupType = 1))
+								OR (@IsSabaSport = 3 AND l.leagueid IN (SELECT LeagueID FROM #SABALeague WHERE LeagueGroupType = 2))
+					);
         END;
     END;
     BEGIN  --#Data
@@ -270,5 +286,6 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Site] @StartDate='2016-01-01', @EndDate=
     DROP TABLE #Match;
     DROP TABLE #Data;
 	DROP TABLE #SABALeagueGroup;
+	DROP TABLE #SABALeague;
     DROP TABLE #DepositSuper;
 GO

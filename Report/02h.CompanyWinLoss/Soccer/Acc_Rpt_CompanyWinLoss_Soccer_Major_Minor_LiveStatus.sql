@@ -6,7 +6,7 @@ GO
 ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus] @StartDate SMALLDATETIME, 
                                                                              @EndDate   SMALLDATETIME, 
                                                                              @IsLive    INT           = 2,
-																			 @IsSabaSport BIT = 0,
+																			 @IsSabaSport TINYINT = 0,
 																			 @IsNoDraw BIT = 0
 AS
 
@@ -23,9 +23,11 @@ Revisions:
 - 20201222@Kean: Support to filter NoDraw and separate the SABA sports - NAP Report (#147451)
 - 20210326@Kean: HotFix, Missing data when league.LeagueGroupId is NULL - NAP Report (#152390)
 - 20212203@Jaden: Support SABA789 (#151326)
+- 20210520@Kean: SABA Soccer PinGoal - NAP Report (#155447)
 
 Parameters:
 @IsLive: 2 - ALL. 0 - Non-Live. 1 - Live
+@IsSabaSport: 2 - ALL. 0 - Non-SABA. 1 - SABA. 3 - SABA PinGoal
 Example:
 EXEC [Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus] @EndDate='2018-07-31',@StartDate='2018-07-31', @IsLive = 2
 EXEC [Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus] @EndDate='2018-07-31',@StartDate='2018-07-31', @IsLive = 1
@@ -68,20 +70,35 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus] @EndDate='2018-07-31
 
 		INSERT INTO #SABALeagueGroup
 		SELECT val FROM dbo.strSplit(@LeagueGroupStr,',')
+
+		CREATE TABLE #SABALeague (
+				LeagueGroupType INT,
+				LeagueGroupID INT,
+				LeagueID INT
+		)
+		INSERT INTO #SABALeague(LeagueGroupType, LeagueGroupID, LeagueID)
+		SELECT CASE WHEN LeagueGroupID = 113 THEN 2
+		        ELSE 1 END LeagueGroupType,
+		   LeagueGroupID,
+		   leagueid LeagueID
+		FROM bodb02.dbo.League (NOLOCK)
+		WHERE LeagueGroupID IN (SELECT LeagueGroupID FROM #SABALeagueGroup)
 	END;
     BEGIN -- #Match
 
         CREATE TABLE #Match
                      (MatchId   INT, 
                       MatchCode NVARCHAR(50), 
-                      type      VARCHAR(10), 
+                      type      VARCHAR(10),
+					  leagueid        INT, 
                       PRIMARY KEY(MatchId, type)
                      );
         INSERT INTO #Match
                SELECT DISTINCT 
                       m.MatchId, 
                       m.MatchCode, 
-                      m.type
+                      m.type,
+					  m.leagueid
                FROM
                (
                    SELECT MatchId, 
@@ -100,14 +117,18 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus] @EndDate='2018-07-31
                ) m
                INNER JOIN league l WITH(NOLOCK) ON m.LeagueId = l.LeagueId
                WHERE l.sporttype = 1 
-			   AND ((@IsSabaSport = 0 AND (l.LeagueGroupID NOT IN (SELECT LeagueGroupID FROM #SABALeagueGroup) OR l.LeagueGroupID IS NULL) ) 
-						OR (@IsSabaSport = 1 AND l.LeagueGroupID IN (SELECT LeagueGroupID FROM #SABALeagueGroup))
+			    AND (@IsSabaSport = 2
+						OR (@IsSabaSport = 0 AND l.leagueid NOT IN (SELECT LeagueID FROM #SABALeague))
+						OR (@IsSabaSport = 1 AND l.leagueid IN (SELECT LeagueID FROM #SABALeague WHERE LeagueGroupType = 1))
+						OR (@IsSabaSport = 3 AND l.leagueid IN (SELECT LeagueID FROM #SABALeague WHERE LeagueGroupType = 2))
 					);
     END;
     BEGIN -- #Data
-        CREATE TABLE #tmp_Data
-                     (srecommend      INT, 
+		CREATE TABLE #tmp_Data (
+					  srecommend      INT,
+					  AccountType     TINYINT, -- 0: Normal, 1: 8RM(recommend = 52466), 2: BARM(recommend = 5707545)  
                       bettype         INT, 
+					  leagueid        INT, 
                       liveindicator   BIT, 
                       MemberWinLoss   MONEY, 
                       SMAWinLoss      MONEY, 
@@ -118,7 +139,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus] @EndDate='2018-07-31
                       VarianceIncome  MONEY, 
                       RealTurnover    MONEY, 
                       VirtualTurnover MONEY
-                     );
+					  );
         CREATE TABLE #Data
                      (GroupId         INT, 
                       GroupName       NVARCHAR(50), 
@@ -137,7 +158,11 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus] @EndDate='2018-07-31
     BEGIN -- Major AND Minor
         INSERT INTO #tmp_Data
                SELECT srecommend, 
+					  CASE WHEN b.recommend = 52466   THEN 1 -- 8RM
+                           WHEN b.recommend = 5707545 THEN 2 -- BARM
+					  ELSE 0 END,
                       bettype, 
+					  m.leagueid,
                       liveindicator, 
                       SUM((winlost - actual_stake) * actualrate) MemberWinLoss, 
                       SUM((awinlost + mwinlost + swinlost) * actualrate) AS SMAWinLoss, 
@@ -219,20 +244,29 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus] @EndDate='2018-07-31
                      AND b.ruben = 1
                      AND  ((@IsNoDraw = 0 AND b.statusID IN(111, 112, 113)) OR (@IsNoDraw = 1 AND statusID IN (112, 113)))
                GROUP BY srecommend, 
-                        bettype, 
-                        liveindicator OPTION(RECOMPILE);
+						CASE WHEN b.recommend = 52466   THEN 1 -- 8RM
+							 WHEN b.recommend = 5707545 THEN 2 -- BARM
+						  ELSE 0 END,
+                        bettype,
+						m.leagueid, 
+                        liveindicator 
+					OPTION(RECOMPILE);
+
         INSERT INTO #Data
                SELECT sb.IsMajor AS GroupId,
-					  CASE WHEN @IsSabaSport = 1 THEN (CASE WHEN sb.IsMajor = 1 THEN 'SABA Soccer-Major Bet Types' ELSE 'SABA Soccer-Minor Bet Types' END) 
-						   ELSE (CASE WHEN sb.IsMajor = 1 THEN 'Soccer-Major Bet Types' ELSE 'Soccer-Minor Bet Types' END) 
+					  CASE WHEN @IsSabaSport = 1 THEN (CASE WHEN sb.IsMajor = 1 THEN 'SABA Soccer-Major Bet Types' ELSE 'SABA Soccer-Minor Bet Types' END)
+					       WHEN @IsSabaSport = 3 THEN (CASE WHEN sb.IsMajor = 1 THEN 'SABA Soccer PinGoal-Major Bet Types' ELSE 'SABA Soccer PinGoal-Minor Bet Types' END) 
+						   WHEN @IsSabaSport = 0 THEN (CASE WHEN sb.IsMajor = 1 THEN 'Soccer-Major Bet Types' ELSE 'Soccer-Minor Bet Types' END) 
+						   ELSE (CASE WHEN sl.LeagueGroupType = 1 THEN (CASE WHEN sb.IsMajor = 1 THEN 'SABA Soccer-Major Bet Types' 
+																			 ELSE 'SABA Soccer-Minor Bet Types' END)
+									  WHEN sl.LeagueGroupType = 2 THEN (CASE WHEN sb.IsMajor = 1 THEN 'SABA Soccer PinGoal-Major Bet Types' 
+																			 ELSE 'SABA Soccer PinGoal-Minor Bet Types' END)
+								ELSE (CASE WHEN sb.IsMajor = 1 THEN 'Soccer-Major Bet Types' 
+																			 ELSE 'Soccer-Minor Bet Types' END)									 
+								END) 
 					  END,
-                      CASE
-                          WHEN dep.CustId IS NULL
-                               AND cn88.CustId IS NOT NULL
-                          THEN 'CN88'
-                          WHEN dep.CustId IS NULL
-                               AND cn88.CustId IS NULL
-                          THEN 'Credit'
+                      CASE WHEN dep.CustId IS NULL AND cn88.CustId IS NOT NULL THEN 'CN88'
+                          WHEN dep.CustId IS NULL AND cn88.CustId IS NULL THEN 'Credit'
                           ELSE 'Deposit'
                       END AS RowName, 
                       SUM(MemberWinLoss) MemberWinLoss, 
@@ -246,37 +280,37 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus] @EndDate='2018-07-31
                       SUM(VirtualTurnover) AS VirtualTurnover
                FROM #tmp_Data AS b
                     INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
+					LEFT JOIN #SABALeague sl ON b.leagueid = sl.LeagueID
                     LEFT JOIN #DepositSuper AS dep ON b.srecommend = dep.CustId
                     LEFT JOIN CS_CustSuper AS cn88 WITH(NOLOCK) ON b.srecommend = cn88.CustId
                WHERE @IsLive > 1
                      OR b.liveIndicator = @IsLive
                GROUP BY sb.IsMajor,
-                        CASE WHEN @IsSabaSport = 1 THEN (CASE WHEN sb.IsMajor = 1 THEN 'SABA Soccer-Major Bet Types' ELSE 'SABA Soccer-Minor Bet Types' END) 
-						   ELSE (CASE WHEN sb.IsMajor = 1 THEN 'Soccer-Major Bet Types' ELSE 'Soccer-Minor Bet Types' END) 
+                      CASE WHEN @IsSabaSport = 1 THEN (CASE WHEN sb.IsMajor = 1 THEN 'SABA Soccer-Major Bet Types' ELSE 'SABA Soccer-Minor Bet Types' END)
+					       WHEN @IsSabaSport = 3 THEN (CASE WHEN sb.IsMajor = 1 THEN 'SABA Soccer PinGoal-Major Bet Types' ELSE 'SABA Soccer PinGoal-Minor Bet Types' END) 
+						   WHEN @IsSabaSport = 0 THEN (CASE WHEN sb.IsMajor = 1 THEN 'Soccer-Major Bet Types' ELSE 'Soccer-Minor Bet Types' END) 
+						   ELSE (CASE WHEN sl.LeagueGroupType = 1 THEN (CASE WHEN sb.IsMajor = 1 THEN 'SABA Soccer-Major Bet Types' 
+																			 ELSE 'SABA Soccer-Minor Bet Types' END)
+									  WHEN sl.LeagueGroupType = 2 THEN (CASE WHEN sb.IsMajor = 1 THEN 'SABA Soccer PinGoal-Major Bet Types' 
+																			 ELSE 'SABA Soccer PinGoal-Minor Bet Types' END)
+								ELSE (CASE WHEN sb.IsMajor = 1 THEN 'Soccer-Major Bet Types' 
+																			 ELSE 'Soccer-Minor Bet Types' END)
+								END) 
 					  END,
-                        CASE
-                            WHEN dep.CustId IS NULL
-                                 AND cn88.CustId IS NOT NULL
-                            THEN 'CN88'
-                            WHEN dep.CustId IS NULL
-                                 AND cn88.CustId IS NULL
-                            THEN 'Credit'
-                            ELSE 'Deposit'
+                        CASE WHEN dep.CustId IS NULL AND cn88.CustId IS NOT NULL THEN 'CN88'
+                          WHEN dep.CustId IS NULL AND cn88.CustId IS NULL THEN 'Credit'
+                          ELSE 'Deposit'
                         END;
         IF @IsLive = 2
             BEGIN
                 INSERT INTO #Data
                        SELECT b.liveindicator AS GroupId,
-                              CASE WHEN @IsSabaSport = 1 THEN (CASE b.liveindicator WHEN 1 THEN 'SABA Soccer Live' ELSE 'SABA Soccer Non-Live' END) 
+                              CASE WHEN @IsSabaSport = 1 THEN (CASE b.liveindicator WHEN 1 THEN 'SABA Soccer Live' ELSE 'SABA Soccer Non-Live' END)
+								   WHEN @IsSabaSport = 3 THEN (CASE b.liveindicator WHEN 1 THEN 'SABA Soccer PinGoal Live' ELSE 'SABA Soccer PinGoal Non-Live' END) 
 								ELSE (CASE b.liveindicator WHEN 1 THEN 'Soccer Live' ELSE 'Soccer Non-Live' END) 
 							 END AS GroupName,
-                              CASE
-                                  WHEN dep.CustId IS NULL
-                                       AND cn88.CustId IS NOT NULL
-                                  THEN 'CN88'
-                                  WHEN dep.CustId IS NULL
-                                       AND cn88.CustId IS NULL
-                                  THEN 'Credit'
+                              CASE WHEN dep.CustId IS NULL AND cn88.CustId IS NOT NULL THEN 'CN88'
+                                  WHEN dep.CustId IS NULL AND cn88.CustId IS NULL THEN 'Credit'
                                   ELSE 'Deposit'
                               END AS RowName, 
                               SUM(MemberWinLoss) MemberWinLoss, 
@@ -293,206 +327,82 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus] @EndDate='2018-07-31
                             LEFT JOIN #DepositSuper AS dep ON b.srecommend = dep.CustId
                             LEFT JOIN CS_CustSuper AS cn88 WITH(NOLOCK) ON b.srecommend = cn88.CustId
                        GROUP BY liveindicator,
-                                CASE WHEN @IsSabaSport = 1 THEN (CASE b.liveindicator WHEN 1 THEN 'SABA Soccer Live' ELSE 'SABA Soccer Non-Live' END) 
+                                CASE WHEN @IsSabaSport = 1 THEN (CASE b.liveindicator WHEN 1 THEN 'SABA Soccer Live' ELSE 'SABA Soccer Non-Live' END)
+									 WHEN @IsSabaSport = 3 THEN (CASE b.liveindicator WHEN 1 THEN 'SABA Soccer PinGoal Live' ELSE 'SABA Soccer PinGoal Non-Live' END) 
 									 ELSE (CASE b.liveindicator WHEN 1 THEN 'Soccer Live' ELSE 'Soccer Non-Live' END) 
 							  END,
-                                CASE
-                                    WHEN dep.CustId IS NULL
-                                         AND cn88.CustId IS NOT NULL
-                                    THEN 'CN88'
-                                    WHEN dep.CustId IS NULL
-                                         AND cn88.CustId IS NULL
-                                    THEN 'Credit'
-                                    ELSE 'Deposit'
-                                END;
+                                CASE WHEN dep.CustId IS NULL AND cn88.CustId IS NOT NULL THEN 'CN88'
+                                  WHEN dep.CustId IS NULL AND cn88.CustId IS NULL THEN 'Credit'
+                                  ELSE 'Deposit'
+                              END;
         END;
     END;
     BEGIN -- Sophia
         -- BARM (site only)
         INSERT INTO #Data
                SELECT sb.IsMajor AS GroupId,
-                      CASE WHEN @IsSabaSport = 1 THEN (CASE WHEN sb.IsMajor = 1 THEN 'SABA Soccer-Major Bet Types' ELSE 'SABA Soccer-Minor Bet Types' END) 
-						   ELSE (CASE WHEN sb.IsMajor = 1 THEN 'Soccer-Major Bet Types' ELSE 'Soccer-Minor Bet Types' END) 
+                      CASE WHEN @IsSabaSport = 1 THEN (CASE WHEN sb.IsMajor = 1 THEN 'SABA Soccer-Major Bet Types' ELSE 'SABA Soccer-Minor Bet Types' END)
+					       WHEN @IsSabaSport = 3 THEN (CASE WHEN sb.IsMajor = 1 THEN 'SABA Soccer PinGoal-Major Bet Types' ELSE 'SABA Soccer PinGoal-Minor Bet Types' END) 
+						   WHEN @IsSabaSport = 0 THEN (CASE WHEN sb.IsMajor = 1 THEN 'Soccer-Major Bet Types' ELSE 'Soccer-Minor Bet Types' END) 
+						   ELSE (CASE WHEN sl.LeagueGroupType = 1 THEN (CASE WHEN sb.IsMajor = 1 THEN 'SABA Soccer-Major Bet Types' 
+																			 ELSE 'SABA Soccer-Minor Bet Types' END)
+									  WHEN sl.LeagueGroupType = 2 THEN (CASE WHEN sb.IsMajor = 1 THEN 'SABA Soccer PinGoal-Major Bet Types' 
+																			 ELSE 'SABA Soccer PinGoal-Minor Bet Types' END)
+								ELSE (CASE WHEN sb.IsMajor = 1 THEN 'Soccer-Major Bet Types' 
+																			 ELSE 'Soccer-Minor Bet Types' END)
+								END ) 
 					  END, 
                       'BARM' AS RowName, 
-                      SUM((winlost - actual_stake) * actualrate) MemberWinLoss, 
-                      SUM((awinlost + mwinlost + swinlost) * actualrate) AS SMAWinLoss, 
-                      SUM((CASE
-                               WHEN b.tpositiontaking = 1
-                               THEN 0
-                               ELSE(winlost - actual_stake) + b.scomm / (1 - b.tpositiontaking)
-                           END) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0) * actualrate) AS ExtraPT, 
-                      SUM(scomm * actualrate) Commission, 
-                      SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - (CASE
-                                                                                                  WHEN tpositiontaking = 1
-                                                                                                  THEN 0
-                                                                                                  ELSE winlost - actual_stake + b.scomm / (1 - b.tpositiontaking)
-                                                                                              END) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * actualrate) AS RealIncome, 
-                      SUM((winlost - actual_stake + awinlost + mwinlost + swinlost - CASE
-                                                                                         WHEN tpositiontaking = 1
-                                                                                         THEN 0
-                                                                                         ELSE(winlost - actual_stake) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)
-                                                                                     END) * virtualrate + (scomm - (CASE
-                                                                                                                        WHEN tpositiontaking = 1
-                                                                                                                        THEN 0
-                                                                                                                        ELSE b.scomm / (1 - b.tpositiontaking)
-                                                                                                                    END) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * actualrate * CASE
-                                                                                                                                                                    WHEN virtualrate < actualrate
-                                                                                                                                                                    THEN virtualrate / actualrate
-                                                                                                                                                                    ELSE 1
-                                                                                                                                                                END) VirtualIncome, 
-                      SUM((winlost - actual_stake + awinlost + mwinlost + swinlost - CASE
-                                                                                         WHEN tpositiontaking = 1
-                                                                                         THEN 0
-                                                                                         ELSE(winlost - actual_stake) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)
-                                                                                     END + CASE
-                                                                                               WHEN virtualrate < actualrate
-                                                                                               THEN(b.scomm - (CASE
-                                                                                                                   WHEN tpositiontaking = 1
-                                                                                                                   THEN 0
-                                                                                                                   ELSE b.scomm / (1 - b.tpositiontaking)
-                                                                                                               END) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0))
-                                                                                               ELSE 0
-                                                                                           END) * (actualrate - virtualrate)) VarianceIncome, 
-                      SUM(CASE
-                              WHEN tpositiontaking = 1
-                              THEN 0
-                              ELSE(1 - b.tpositiontaking - ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * ABS(b.stake) * CASE
-                                                                                                      WHEN virtualrate > actualrate
-                                                                                                      THEN virtualrate
-                                                                                                      ELSE actualrate
-                                                                                                  END
-                          END *
-							CASE WHEN @IsNoDraw = 1 
-								THEN CASE WHEN (b.bettype < 999 OR b.bettype BETWEEN 1301 AND 1399 OR b.bettype BETWEEN 9001 AND 9399) --SportBooks
-												AND b.bettype NOT IN (29, 38, 911, 912, 913, 914) --exclude parlay, bet builder, cashout
-												AND b.bettype NOT BETWEEN 81 AND 120 --exclude number game
-												AND ABS(modds) = 0.25 --to identify Half won/lost tickets
-										THEN 0.5
-									ELSE 1 END
-								ELSE 1 END) AS RealTurnover, 
-                      SUM(CASE
-                              WHEN tpositiontaking = 1
-                              THEN 0
-                              ELSE(1 - b.tpositiontaking - ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * ABS(b.stake) * virtualrate
-                          END *
-							CASE WHEN @IsNoDraw = 1 
-								THEN CASE WHEN (b.bettype < 999 OR b.bettype BETWEEN 1301 AND 1399 OR b.bettype BETWEEN 9001 AND 9399) --SportBooks
-												AND b.bettype NOT IN (29, 38, 911, 912, 913, 914) --exclude parlay, bet builder, cashout
-												AND b.bettype NOT BETWEEN 81 AND 120 --exclude number game
-												AND ABS(modds) = 0.25 --to identify Half won/lost tickets
-										THEN 0.5
-									ELSE 1 END
-								ELSE 1 END) AS VirtualTurnover
-               FROM bettrans AS b WITH(NOLOCK)
+                        SUM(MemberWinLoss) MemberWinLoss, 
+						SUM(SMAWinLoss) AS SMAWinLoss, 
+						SUM(ExtraPT) AS ExtraPT, 
+						SUM(Commission) Commission, 
+						SUM(RealIncome) AS RealIncome, 
+						SUM(VirtualIncome) VirtualIncome, 
+						SUM(VarianceIncome) VarianceIncome, 
+						SUM(RealTurnover) AS RealTurnover, 
+						SUM(VirtualTurnover) AS VirtualTurnover
+               FROM #tmp_Data AS b 
                     INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
-                    INNER JOIN #Match m ON b.MatchId = m.MatchId
-               WHERE b.recommend = 5707545
-                     AND b.winlostdate = @StartDate
-                     AND (@IsLive > 1
-                          OR b.liveIndicator = @IsLive)
-                     AND m.type = CASE
-                                      WHEN b.BetType = 10
-                                      THEN 'outright'
-                                      ELSE 'match'
-                                  END
-                     AND b.ruben = 1
-                     AND  ((@IsNoDraw = 0 AND b.statusID IN(111, 112, 113)) OR (@IsNoDraw = 1 AND statusID IN (112, 113)))
+					LEFT JOIN #SABALeague sl ON b.leagueid = sl.LeagueID
+               WHERE b.AccountType = 2
+					AND (@IsLive > 1 OR b.liveIndicator = @IsLive)
                GROUP BY sb.IsMajor,
-                        CASE WHEN @IsSabaSport = 1 THEN (CASE WHEN sb.IsMajor = 1 THEN 'SABA Soccer-Major Bet Types' ELSE 'SABA Soccer-Minor Bet Types' END) 
-						   ELSE (CASE WHEN sb.IsMajor = 1 THEN 'Soccer-Major Bet Types' ELSE 'Soccer-Minor Bet Types' END) 
-						END;
+                        CASE WHEN @IsSabaSport = 1 THEN (CASE WHEN sb.IsMajor = 1 THEN 'SABA Soccer-Major Bet Types' ELSE 'SABA Soccer-Minor Bet Types' END)
+					       WHEN @IsSabaSport = 3 THEN (CASE WHEN sb.IsMajor = 1 THEN 'SABA Soccer PinGoal-Major Bet Types' ELSE 'SABA Soccer PinGoal-Minor Bet Types' END) 
+						   WHEN @IsSabaSport = 0 THEN (CASE WHEN sb.IsMajor = 1 THEN 'Soccer-Major Bet Types' ELSE 'Soccer-Minor Bet Types' END) 
+						   ELSE (CASE WHEN sl.LeagueGroupType = 1 THEN (CASE WHEN sb.IsMajor = 1 THEN 'SABA Soccer-Major Bet Types' 
+																			 ELSE 'SABA Soccer-Minor Bet Types' END)
+									  WHEN sl.LeagueGroupType = 2 THEN (CASE WHEN sb.IsMajor = 1 THEN 'SABA Soccer PinGoal-Major Bet Types' 
+																			 ELSE 'SABA Soccer PinGoal-Minor Bet Types' END)
+								ELSE (CASE WHEN sb.IsMajor = 1 THEN 'Soccer-Major Bet Types' 
+																			 ELSE 'Soccer-Minor Bet Types' END)
+								END ) 
+					  END;
         IF @IsLive = 2
             BEGIN
                 INSERT INTO #Data
                        SELECT liveindicator AS GroupId,
-                              CASE WHEN @IsSabaSport = 1 THEN (CASE liveindicator WHEN 1 THEN 'SABA Soccer Live' ELSE 'SABA Soccer Non-Live' END) 
+                              CASE WHEN @IsSabaSport = 1 THEN (CASE liveindicator WHEN 1 THEN 'SABA Soccer Live' ELSE 'SABA Soccer Non-Live' END)
+							       WHEN @IsSabaSport = 3 THEN (CASE liveindicator WHEN 1 THEN 'SABA Soccer PinGoal Live' ELSE 'SABA Soccer PinGoal Non-Live' END) 
 								   ELSE (CASE liveindicator WHEN 1 THEN 'Soccer Live' ELSE 'Soccer Non-Live' END) 
 							  END AS GroupName, 
                               'BARM' AS RowName, 
-                              SUM((winlost - actual_stake) * actualrate) MemberWinLoss, 
-                              SUM((awinlost + mwinlost + swinlost) * actualrate) AS SMAWinLoss, 
-                              SUM((CASE
-                                       WHEN b.tpositiontaking = 1
-                                       THEN 0
-                                       ELSE(winlost - actual_stake) + b.scomm / (1 - b.tpositiontaking)
-                                   END) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0) * actualrate) AS ExtraPT, 
-                              SUM(scomm * actualrate) Commission, 
-                              SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - (CASE
-                                                                                                          WHEN tpositiontaking = 1
-                                                                                                          THEN 0
-                                                                                                          ELSE winlost - actual_stake + b.scomm / (1 - b.tpositiontaking)
-                                                                                                      END) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * actualrate) AS RealIncome, 
-                              SUM((winlost - actual_stake + awinlost + mwinlost + swinlost - CASE
-                                                                                                 WHEN tpositiontaking = 1
-                                                                                                 THEN 0
-                                                                                                 ELSE(winlost - actual_stake) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)
-                                                                                             END) * virtualrate + (scomm - (CASE
-                                                                                                                                WHEN tpositiontaking = 1
-                                                                                                                                THEN 0
-                                                                                                                                ELSE b.scomm / (1 - b.tpositiontaking)
-                                                                                                                            END) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * actualrate * CASE
-                                                                                                                                                                            WHEN virtualrate < actualrate
-                                                                                                                                                                            THEN virtualrate / actualrate
-                                                                                                                                                                            ELSE 1
-                                                                                                                                                                        END) VirtualIncome, 
-                              SUM((winlost - actual_stake + awinlost + mwinlost + swinlost - CASE
-                                                                                                 WHEN tpositiontaking = 1
-                                                                                                 THEN 0
-                                                                                                 ELSE(winlost - actual_stake) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)
-                                                                                             END + CASE
-                                                                                                       WHEN virtualrate < actualrate
-                                                                                                       THEN(b.scomm - (CASE
-                                                                                                                           WHEN tpositiontaking = 1
-                                                                                                                           THEN 0
-                                                                                                                           ELSE b.scomm / (1 - b.tpositiontaking)
-                                                                                                                       END) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0))
-                                                                                                       ELSE 0
-                                                                                                   END) * (actualrate - virtualrate)) VarianceIncome, 
-                              SUM(CASE
-                                      WHEN tpositiontaking = 1
-                                      THEN 0
-                                      ELSE(1 - b.tpositiontaking - ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * ABS(b.stake) * CASE
-                                                                                                              WHEN virtualrate > actualrate
-                                                                                                              THEN virtualrate
-                                                                                                              ELSE actualrate
-                                                                                                          END
-                                  END *
-									CASE WHEN @IsNoDraw = 1 
-										THEN CASE WHEN (b.bettype < 999 OR b.bettype BETWEEN 1301 AND 1399 OR b.bettype BETWEEN 9001 AND 9399) --SportBooks
-														AND b.bettype NOT IN (29, 38, 911, 912, 913, 914) --exclude parlay, bet builder, cashout
-														AND b.bettype NOT BETWEEN 81 AND 120 --exclude number game
-														AND ABS(modds) = 0.25 --to identify Half won/lost tickets
-												THEN 0.5
-											ELSE 1 END
-										ELSE 1 END) AS RealTurnover, 
-                              SUM(CASE
-                                      WHEN tpositiontaking = 1
-                                      THEN 0
-                                      ELSE(1 - b.tpositiontaking - ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * ABS(b.stake) * virtualrate
-                                  END *
-									CASE WHEN @IsNoDraw = 1 
-										THEN CASE WHEN (b.bettype < 999 OR b.bettype BETWEEN 1301 AND 1399 OR b.bettype BETWEEN 9001 AND 9399) --SportBooks
-														AND b.bettype NOT IN (29, 38, 911, 912, 913, 914) --exclude parlay, bet builder, cashout
-														AND b.bettype NOT BETWEEN 81 AND 120 --exclude number game
-														AND ABS(modds) = 0.25 --to identify Half won/lost tickets
-												THEN 0.5
-											ELSE 1 END
-										ELSE 1 END) AS VirtualTurnover
-                       FROM bettrans AS b WITH(NOLOCK)
-                            INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
-                            INNER JOIN #Match m ON b.MatchId = m.MatchId
-                       WHERE b.recommend = 5707545
-                             AND b.winlostdate = @StartDate
-                             AND m.type = CASE
-                                              WHEN b.BetType = 10
-                                              THEN 'outright'
-                                              ELSE 'match'
-                                          END
-                             AND b.ruben = 1
-                             AND  ((@IsNoDraw = 0 AND b.statusID IN(111, 112, 113)) OR (@IsNoDraw = 1 AND statusID IN (112, 113)))
+                              SUM(MemberWinLoss) MemberWinLoss, 
+								SUM(SMAWinLoss) AS SMAWinLoss, 
+								SUM(ExtraPT) AS ExtraPT, 
+								SUM(Commission) Commission, 
+								SUM(RealIncome) AS RealIncome, 
+								SUM(VirtualIncome) VirtualIncome, 
+								SUM(VarianceIncome) VarianceIncome, 
+								SUM(RealTurnover) AS RealTurnover, 
+								SUM(VirtualTurnover) AS VirtualTurnover
+                        FROM #tmp_Data AS b 
+                           INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
+						WHERE b.AccountType = 2
                        GROUP BY liveindicator,
-                                CASE WHEN @IsSabaSport = 1 THEN (CASE liveindicator WHEN 1 THEN 'SABA Soccer Live' ELSE 'SABA Soccer Non-Live' END) 
+                                CASE WHEN @IsSabaSport = 1 THEN (CASE liveindicator WHEN 1 THEN 'SABA Soccer Live' ELSE 'SABA Soccer Non-Live' END)
+								     WHEN @IsSabaSport = 3 THEN (CASE liveindicator WHEN 1 THEN 'SABA Soccer PinGoal Live' ELSE 'SABA Soccer PinGoal Non-Live' END) 
 								   ELSE (CASE liveindicator WHEN 1 THEN 'Soccer Live' ELSE 'Soccer Non-Live' END) 
 							  END;
         END;
@@ -600,102 +510,29 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus] @EndDate='2018-07-31
                SELECT 0 AS GroupId, 
                       'RM' GroupName,
                       CASE
-                          WHEN b.recommend = 52466
-                          THEN '8RM Total'
-                          WHEN b.recommend = 5707545
-                          THEN 'BARM Total'
+                          WHEN b.AccountType = 1 THEN '8RM Total'
+                          WHEN b.AccountType = 2 THEN 'BARM Total'
                           ELSE ''
                       END AS RowName, 
-                      -SUM((winlost - actual_stake) * actualrate) MemberWinLoss, 
-                      -SUM((awinlost + mwinlost + swinlost) * actualrate) AS SMAWinLoss, 
-                      SUM((CASE
-                               WHEN b.tpositiontaking = 1
-                               THEN 0
-                               ELSE(winlost - actual_stake) + b.scomm / (1 - b.tpositiontaking)
-                           END) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0) * actualrate) AS ExtraPT, 
-                      SUM(scomm * actualrate) Commission, 
-                      -SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - (CASE
-                                                                                                   WHEN tpositiontaking = 1
-                                                                                                   THEN 0
-                                                                                                   ELSE winlost - actual_stake + b.scomm / (1 - b.tpositiontaking)
-                                                                                               END) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * actualrate) AS RealIncome, 
-                      -SUM((winlost - actual_stake + awinlost + mwinlost + swinlost - CASE
-                                                                                          WHEN tpositiontaking = 1
-                                                                                          THEN 0
-                                                                                          ELSE(winlost - actual_stake) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)
-                                                                                      END) * virtualrate + (scomm - (CASE
-                                                                                                                         WHEN tpositiontaking = 1
-                                                                                                                         THEN 0
-                                                                                                                         ELSE b.scomm / (1 - b.tpositiontaking)
-                                                                                                                     END) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * actualrate * CASE
-                                                                                                                                                                     WHEN virtualrate < actualrate
-                                                                                                                                                                     THEN virtualrate / actualrate
-                                                                                                                                                                     ELSE 1
-                                                                                                                                                                 END) VirtualIncome, 
-                      -SUM((winlost - actual_stake + awinlost + mwinlost + swinlost - CASE
-                                                                                          WHEN tpositiontaking = 1
-                                                                                          THEN 0
-                                                                                          ELSE(winlost - actual_stake) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)
-                                                                                      END + CASE
-                                                                                                WHEN virtualrate < actualrate
-                                                                                                THEN(b.scomm - (CASE
-                                                                                                                    WHEN tpositiontaking = 1
-                                                                                                                    THEN 0
-                                                                                                                    ELSE b.scomm / (1 - b.tpositiontaking)
-                                                                                                                END) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0))
-                                                                                                ELSE 0
-                                                                                            END) * (actualrate - virtualrate)) VarianceIncome, 
-                      SUM(CASE
-                              WHEN tpositiontaking = 1
-                              THEN 0
-                              ELSE(1 - b.tpositiontaking - ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * ABS(b.stake) * CASE
-                                                                                                      WHEN virtualrate > actualrate
-                                                                                                      THEN virtualrate
-                                                                                                      ELSE actualrate
-                                                                                                  END
-                          END *
-							CASE WHEN @IsNoDraw = 1 
-								THEN CASE WHEN (b.bettype < 999 OR b.bettype BETWEEN 1301 AND 1399 OR b.bettype BETWEEN 9001 AND 9399) --SportBooks
-												AND b.bettype NOT IN (29, 38, 911, 912, 913, 914) --exclude parlay, bet builder, cashout
-												AND b.bettype NOT BETWEEN 81 AND 120 --exclude number game
-												AND ABS(modds) = 0.25 --to identify Half won/lost tickets
-										THEN 0.5
-									ELSE 1 END
-								ELSE 1 END) AS RealTurnover, 
-                      SUM(CASE
-                              WHEN tpositiontaking = 1
-                              THEN 0
-                              ELSE(1 - b.tpositiontaking - ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * ABS(b.stake) * virtualrate
-                          END *
-							CASE WHEN @IsNoDraw = 1 
-								THEN CASE WHEN (b.bettype < 999 OR b.bettype BETWEEN 1301 AND 1399 OR b.bettype BETWEEN 9001 AND 9399) --SportBooks
-												AND b.bettype NOT IN (29, 38, 911, 912, 913, 914) --exclude parlay, bet builder, cashout
-												AND b.bettype NOT BETWEEN 81 AND 120 --exclude number game
-												AND ABS(modds) = 0.25 --to identify Half won/lost tickets
-										THEN 0.5
-									ELSE 1 END
-								ELSE 1 END) AS VirtualTurnover
-               FROM bettrans b WITH(NOLOCK)
+                    -SUM(MemberWinLoss) MemberWinLoss, 
+					-SUM(SMAWinLoss) AS SMAWinLoss, 
+					 SUM(ExtraPT) AS ExtraPT, 
+					 SUM(Commission) Commission, 
+					-SUM(RealIncome) AS RealIncome, 
+					-SUM(VirtualIncome) VirtualIncome, 
+					-SUM(VarianceIncome) VarianceIncome, 
+					 SUM(RealTurnover) AS RealTurnover, 
+					 SUM(VirtualTurnover) AS VirtualTurnover
+               FROM #tmp_Data AS b 
                     INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
-                    INNER JOIN #Match m ON b.MatchId = m.MatchId
-               WHERE b.winlostdate = @StartDate
-                     AND (@IsLive > 1
+               WHERE (@IsLive > 1
                           OR b.liveIndicator = @IsLive)
-                     AND m.type = CASE
-                                      WHEN b.BetType = 10
-                                      THEN 'outright'
-                                      ELSE 'match'
-                                  END
-                     AND b.ruben = 1
-                     AND  ((@IsNoDraw = 0 AND b.statusID IN(111, 112, 113)) OR (@IsNoDraw = 1 AND statusID IN (112, 113)))
-                    AND b.recommend IN(52466, 5707545)
+                    AND b.AccountType IN(1, 2)
                GROUP BY CASE
-                            WHEN b.recommend = 52466
-                            THEN '8RM Total'
-                            WHEN b.recommend = 5707545
-                            THEN 'BARM Total'
-                            ELSE ''
-                        END;
+                          WHEN b.AccountType = 1 THEN '8RM Total'
+                          WHEN b.AccountType = 2 THEN 'BARM Total'
+                          ELSE ''
+                      END;
     END;
     BEGIN -- Query
 
@@ -722,4 +559,5 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_Major_Minor_LiveStatus] @EndDate='2018-07-31
     DROP TABLE #tmp_Data;
     DROP TABLE #Match;
 	DROP TABLE #SABALeagueGroup;
+	DROP TABLE #SABALeague;
 GO
