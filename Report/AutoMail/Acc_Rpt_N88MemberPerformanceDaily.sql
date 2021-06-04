@@ -14,7 +14,7 @@ AS
 	 - 20201117@Jaden: from adhoc to SP
 	 - 20210519@Jaden: Switch to daily report
 	 - 20210520@Jaden: Add column bettype
-	 - 20210602@Jaden: Add more sites, Live indicator
+	 - 20210602@Jaden: Add more sites, Live indicator, Odds
 	 */
 BEGIN 
 	Create table #tmp_data
@@ -22,6 +22,8 @@ BEGIN
 		winlostdate date,
 		CurrencyName nvarchar(10),
 		liveindicator int,
+		odds smallmoney,
+        oddstype money,
 		leagueid int,
 		sporttype int,
 		bettype int,
@@ -41,6 +43,8 @@ BEGIN
 		winlostdate,
 		mc.CurrencyName,
 		liveindicator,
+		odds,
+        oddstype,
 		m.leagueid,
 		m.sporttype,
 		bettype,
@@ -70,6 +74,8 @@ BEGIN
 		transid,
 		mc.CurrencyName,
 		liveindicator,
+		odds,
+        oddstype,
 		m.leagueid,
 		m.sporttype,
 		bettype,
@@ -98,6 +104,18 @@ BEGIN
 				  THEN 'Live'
 			 ELSE 'Live & Non-Live'
 		 END [Live],
+		CASE
+            WHEN b.oddstype = 1 THEN odds+1
+            WHEN b.oddstype = 5 THEN odds*100
+            Else odds
+        END [odds],
+        CASE
+            WHEN b.oddstype = 1 THEN 'Dec'
+            WHEN b.oddstype = 2 THEN 'HK'
+            WHEN b.oddstype = 3 THEN 'Indo'
+            WHEN b.oddstype = 4 THEN 'MY'
+            WHEN b.oddstype = 5 THEN 'US'
+        END [Odd Type],
 		bt.typenamee [Bettype],
 		SUM(betcount) BetCount,
 		SUM(b.Stake) AS [Turnover Member],
@@ -124,6 +142,18 @@ BEGIN
 				  THEN 'Live'
 			 ELSE 'Live & Non-Live'
 		 END,
+		CASE
+            WHEN b.oddstype = 1 THEN odds+1
+            WHEN b.oddstype = 5 THEN odds*100
+            Else odds
+        END,
+        CASE
+            WHEN b.oddstype = 1 THEN 'Dec'
+            WHEN b.oddstype = 2 THEN 'HK'
+            WHEN b.oddstype = 3 THEN 'Indo'
+            WHEN b.oddstype = 4 THEN 'MY'
+            WHEN b.oddstype = 5 THEN 'US'
+        END,
 		s.SportName,
 		bt.typenamee,
 		ISNULL(
