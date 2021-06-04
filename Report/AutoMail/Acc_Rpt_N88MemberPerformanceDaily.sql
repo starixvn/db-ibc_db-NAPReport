@@ -14,13 +14,14 @@ AS
 	 - 20201117@Jaden: from adhoc to SP
 	 - 20210519@Jaden: Switch to daily report
 	 - 20210520@Jaden: Add column bettype
-	 - 20210602@Jaden: Add more sites
+	 - 20210602@Jaden: Add more sites, Live indicator
 	 */
 BEGIN 
 	Create table #tmp_data
 	(
 		winlostdate date,
 		CurrencyName nvarchar(10),
+		liveindicator int,
 		leagueid int,
 		sporttype int,
 		bettype int,
@@ -39,6 +40,7 @@ BEGIN
 	select
 		winlostdate,
 		mc.CurrencyName,
+		liveindicator,
 		m.leagueid,
 		m.sporttype,
 		bettype,
@@ -67,6 +69,7 @@ BEGIN
 		winlostdate,
 		transid,
 		mc.CurrencyName,
+		liveindicator,
 		m.leagueid,
 		m.sporttype,
 		bettype,
@@ -88,6 +91,13 @@ BEGIN
 			'Combine Parlay Match'
 		) [Match],
 		CurrencyName,
+		CASE 
+			 WHEN liveindicator = 0
+				  THEN 'Non-Live'
+			 WHEN liveindicator = 1
+				  THEN 'Live'
+			 ELSE 'Live & Non-Live'
+		 END [Live],
 		bt.typenamee [Bettype],
 		SUM(betcount) BetCount,
 		SUM(b.Stake) AS [Turnover Member],
@@ -107,6 +117,13 @@ BEGIN
 		l.leaguename,
 		b.leagueid,
 		CurrencyName,
+		CASE 
+			 WHEN liveindicator = 0
+				  THEN 'Non-Live'
+			 WHEN liveindicator = 1
+				  THEN 'Live'
+			 ELSE 'Live & Non-Live'
+		 END,
 		s.SportName,
 		bt.typenamee,
 		ISNULL(
