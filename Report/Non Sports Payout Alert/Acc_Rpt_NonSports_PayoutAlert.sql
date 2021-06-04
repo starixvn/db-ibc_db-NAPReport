@@ -1,0 +1,310 @@
+/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+ALTER PROCEDURE [dbo].[Acc_Rpt_NonSports_PayoutAlert]
+	@FromGMT8Time DATETIME
+	,@TimeInterval TINYINT = 1 --hour
+	,@TLV DECIMAL(19,4) = 400 --400%
+	,@MWinLV DECIMAL(19,4) = 10000
+AS
+/*
+	Created: 20210519@Roy
+	Task :	Detect the payout of 3rd products which reaches limit (400%)
+	DB:		DBACC@bodb02
+	Revisions:
+		20210519@Roy: CWL - New Request to monitor game payout levels (#154598)
+
+	Param's Explanation:
+		@FromGMT8Time: start of time range in GMT+8 with format 2021-05-20 19:00:00
+		@TimeInterval: time interval in hour
+		@TLV: threshold limit value, the notification will send email to NSD if Game Payout reaches @TLV
+		@MWinLV: member win limit value
+			
+	Script:
+		EXEC Acc_Rpt_NonSports_PayoutAlert @FromGMT8Time = '2021-05-20 19:00:00'
+*/
+
+BEGIN
+	SET NOCOUNT ON
+	/*
+		Exclude Products
+		4	- SLI Live Casino
+		12	- Gold Deluxe
+		11	- AG Casino
+		13	- Microgaming- Live Casino
+		17	- Microgaming- RNG Casino
+		14	- Macau
+		24	- Fishing World
+		26	- Lucky 3
+		30	- Bullfighting
+		33	- Poker Games
+		15	- Colossus Bet
+		23	- NG2
+		47	- BBIN
+	*/
+	DECLARE @ExcludeProduct VARCHAR(MAX) = '4,12,11,13,17,14,24,26,30,33,15,23,47'
+
+	DECLARE @isTest BIT = 0
+		,@From4GMTTime DATETIME
+		,@To4GMTTime DATETIME
+		,@FromWLDate SMALLDATETIME
+		,@ToWLDate SMALLDATETIME
+	
+	---create tmp tables---
+	CREATE TABLE #tmpDrawData (
+		BetType INT
+		,BetCount INT
+		,TotalBetsRM DECIMAL(19, 4)
+		,TotalWinsRM DECIMAL(19, 4)
+	)
+	
+	CREATE TABLE #tmpResult (
+		ProductID INT
+		,BetType INT
+		,BetCount INT
+		,TotalBetsRM DECIMAL(19, 4)
+		,TotalWinsRM DECIMAL(19, 4)
+		,GamePayout DECIMAL(19, 4)
+	)
+	
+	CREATE TABLE #tmpProductBetType (
+		ProductID INT
+		,BetType INT
+		,RefTable SMALLINT
+	)
+	
+	CREATE TABLE #tmpNonSportSetting (
+		ProductID INT
+		,BetType INT
+	)
+	
+	CREATE TABLE #tmpMatch ( MatchID INT NOT NULL PRIMARY KEY )
+	
+	/*
+		special BetTypes, special handling
+			GroupID = 6: Prize
+			GroupID = 10: Contribution
+			GroupID = 12: No BetCount
+	*/
+	CREATE TABLE #tmpSpecialBetType (
+		GroupID INT
+		,BetType INT
+	)
+	
+	/*
+		Convert GMT+8 to GMT-4
+		Ex: @FromGMT8Time = 2021-05-20 19:59:59
+			=> @From4GMTTime = 2021-05-20 07:00:00
+	*/
+	SET @From4GMTTime = DATEADD(hh, DATEDIFF(hh, 0, DATEADD(hh, - 12, @FromGMT8Time)), 0) --Remove minute and second
+	SET @To4GMTTime = DATEADD(hh, @TimeInterval, @From4GMTTime)
+	
+	/*
+		Define WinlostDate
+			- Only >>>1<<< day based on @From4GMTTime
+	*/
+	SET @FromWLDate = CAST(@From4GMTTime AS DATE)
+	SET @ToWLDate = DATEADD(dd, 1, @FromWLDate) --to compare < @ToWLDate--
+	
+	---Define BetType---
+	/*
+		All Non-sport BetType
+	*/
+	INSERT INTO #tmpNonSportSetting (
+		ProductID
+		,BetType
+		)
+	SELECT ProductID
+		,BetType
+	FROM DBDW.bodb_Account.dbo.NonSportSetting WITH (NOLOCK)
+	WHERE [Enable] = 1
+		AND WalletType = 'SingleWallet' --only SingleWallet
+	
+	SELECT @isTest = dbo.f_CheckSPVersion(@@PROCID)
+	
+	;WITH CTE_ExcludeProduct AS (
+		SELECT CONVERT(INT, val) AS ProductID
+		FROM dbo.strSplit(REPLACE(@ExcludeProduct, ' ', ''), ',')
+		WHERE ISNUMERIC(val + '.0e0') = 1
+		GROUP BY val
+	)
+	INSERT INTO #tmpProductBetType (
+		ProductID
+		,BetType
+		,RefTable
+		)
+	SELECT s.ProductID
+		,s.BetType
+		,MAX(s.RefTable) RefTable
+	FROM dbo.f_SportBetTypeMatrix_Sel(0, 0, 0, 2, '', '', @isTest) AS s
+		INNER JOIN #tmpNonSportSetting AS ns WITH (NOLOCK) ON s.ProductID = ns.ProductID AND s.BetType = ns.BetType
+	WHERE s.ProductID NOT IN ( SELECT ProductID FROM CTE_ExcludeProduct )
+	GROUP BY s.ProductID
+		,s.BetType
+	
+	CREATE CLUSTERED INDEX CIX_tmpProductBetType ON #tmpProductBetType (BetType, ProductID, RefTable)
+	
+	/*
+		Special BetType
+			1.Treat Contribution tickets as normal tickets
+				=> NO action - exists in #tmpProductBetType
+			2.For internal products like Saba.club/Vgaming, the data includes 'Free Bets' and normal bet
+				=> NO action - exists in #tmpProductBetType (just group Product/BetType - NOT divided SportType/BetType)
+			3.Prize BetTypes
+				=> exclude
+			4.Prize/Contribution/Odds Spread Adjustment/etc. BetTypes
+				=> empty betcount
+	*/
+	INSERT INTO #tmpSpecialBetType (
+		GroupID
+		,BetType
+	)
+	SELECT BetTypeGroupID
+		,BetType
+	FROM DBWH.bodb_Account.dbo.BetTypeGroup WITH (NOLOCK)
+	WHERE BetTypeGroupID in (6, 12) --Prize, No BetCount
+	
+	CREATE CLUSTERED INDEX CIX_tmpSpecialBetType ON #tmpSpecialBetType (GroupID, BetType)
+		
+	--Exclude Prize BetTypes--
+	DELETE #tmpProductBetType
+	WHERE BetType IN ( SELECT BetType FROM #tmpSpecialBetType WHERE GroupID = 6 )
+	
+	----------------------------------------------
+	/*
+		Get MatchID to reduce memory usage when select data from Bettrans
+	*/
+	INSERT INTO #tmpMatch ( MatchID )
+	SELECT MatchID
+	FROM dbo.Bettrans WITH (NOLOCK)
+	WHERE WinlostDate >= @FromWLDate
+		AND WinlostDate < @ToWLDate
+		AND BetType IN (SELECT BetType FROM #tmpProductBetType WHERE RefTable IN (0,3) GROUP BY BetType)
+		AND StatusID IN (111, 112, 113) -- won/lose/draw tickets
+		AND Currency <> 20
+		AND MatchID IS NOT NULL
+	GROUP BY MatchID
+	/*
+		Get all data of Non-Sports
+	*/
+	---Get from Bettrans - RefTable IN (0,3)---
+	INSERT INTO #tmpDrawData (
+		BetType
+		,BetCount
+		,TotalBetsRM
+		,TotalWinsRM
+	)
+	SELECT b.BetType
+		,COUNT(b.TransId) AS BetCount
+		,SUM(b.actual_stake * b.actualrate) AS TotalBetsRM
+		,SUM(b.winlost * b.actualrate) AS TotalWinsRM
+	FROM dbo.Bettrans b WITH (NOLOCK)
+	WHERE b.WinlostDate >= @FromWLDate
+		AND b.WinlostDate < @ToWLDate
+		AND b.transdate >= @From4GMTTime
+		AND b.transdate < @To4GMTTime
+		AND b.BetType IN (SELECT BetType FROM #tmpProductBetType WHERE RefTable IN (0,3) GROUP BY BetType)
+		-- AND b.ruben = 1
+		AND b.statusID IN (111, 112, 113) -- won/lose/draw tickets
+		AND b.Currency <> 20
+		AND b.MatchID IN (SELECT MatchID FROM #tmpMatch)
+	GROUP BY b.BetType
+	OPTION (RECOMPILE)
+
+	---Get from BettransRNG - RefTable = 1---
+	INSERT INTO #tmpDrawData (
+		BetType
+		,BetCount
+		,TotalBetsRM
+		,TotalWinsRM
+	)
+	SELECT b.GameID AS BetType
+		,COUNT(b.TransId) AS BetCount
+		,SUM(b.actual_stake * b.actualrate) AS TotalBetsRM
+		,SUM(b.winlost * b.actualrate) AS TotalWinsRM
+	FROM dbo.BettransRNG b WITH (NOLOCK)
+	WHERE b.WinlostDate >= @FromWLDate
+		AND b.WinlostDate < @ToWLDate
+		AND b.transdate >= @From4GMTTime
+		AND b.transdate < @To4GMTTime
+		AND b.GameID IN (SELECT BetType FROM #tmpProductBetType WHERE RefTable = 1 GROUP BY BetType)
+		AND b.statusID IN (111, 112, 113) -- won/lose/draw tickets
+		AND b.Currency <> 20
+	GROUP BY b.GameID
+	OPTION (RECOMPILE)
+	
+	---Get from BettransLC - RefTable = 2---
+	INSERT INTO #tmpDrawData (
+		BetType
+		,BetCount
+		,TotalBetsRM
+		,TotalWinsRM
+	)
+	SELECT b.GameID AS BetType
+		,COUNT(b.TransId) AS BetCount
+		,SUM(b.actual_stake * b.actualrate) AS TotalBetsRM
+		,SUM(b.winlost * b.actualrate) AS TotalWinsRM
+	FROM dbo.BettransLC b WITH (NOLOCK)
+	WHERE b.WinlostDate >= @FromWLDate
+		AND b.WinlostDate < @ToWLDate
+		AND b.transdate >= @From4GMTTime
+		AND b.transdate < @To4GMTTime
+		AND b.GameID IN (SELECT BetType FROM #tmpProductBetType WHERE RefTable = 2 GROUP BY BetType)
+		AND b.statusID IN (111, 112, 113) -- won/lose/draw tickets
+		AND b.Currency <> 20
+	GROUP BY b.GameID
+	OPTION (RECOMPILE)
+
+	CREATE CLUSTERED INDEX CIX_tmpDrawData ON #tmpDrawData (BetType)
+	
+	/*
+		Filter Payout limit value
+	*/
+	;WITH CTE_Payout AS (
+		SELECT d.BetType
+			,SUM(CASE WHEN nbc.BetType IS NOT NULL THEN 0 ELSE d.BetCount END) BetCount
+			,SUM(TotalBetsRM) TotalBetsRM
+			,SUM(TotalWinsRM) TotalWinsRM
+			,CASE WHEN SUM(ISNULL(TotalBetsRM,0)) = 0 THEN 0 ELSE (SUM(TotalWinsRM)/SUM(TotalBetsRM)) END AS GamePayout
+		FROM #tmpDrawData AS d
+			LEFT JOIN #tmpSpecialBetType AS nbc ON nbc.GroupID = 12 AND d.BetType = nbc.BetType
+		GROUP BY d.BetType
+	)
+	INSERT INTO #tmpResult (
+		ProductID
+		,BetType
+		,BetCount
+		,TotalBetsRM
+		,TotalWinsRM
+		,GamePayout
+	)
+	SELECT pb.ProductID
+		,po.BetType
+		,po.BetCount
+		,po.TotalBetsRM
+		,po.TotalWinsRM
+		,po.GamePayout
+	FROM CTE_Payout AS po
+		LEFT JOIN #tmpProductBetType AS pb ON po.BetType = pb.BetType
+	WHERE GamePayout >= (@TLV / 100)
+		AND po.TotalWinsRM >= @MWinLV
+	OPTION (RECOMPILE)
+	
+	---Return Result---
+	SELECT p.ProductName AS Product
+		,b.typenamee AS GameType	
+		,r.BetCount
+		,r.TotalBetsRM
+		,r.TotalWinsRM
+		,r.GamePayout
+	FROM #tmpResult AS r
+		LEFT JOIN dbo.Products AS p ON r.ProductID = p.ProductID
+		LEFT JOIN dbo.BetType AS b ON r.BetType = b.TypeID
+	ORDER BY GamePayout DESC
+		,b.typenamee
+	
+	DROP TABLE #tmpDrawData
+	DROP TABLE #tmpResult
+	DROP TABLE #tmpProductBetType
+	DROP TABLE #tmpNonSportSetting
+	DROP TABLE #tmpSpecialBetType
+	DROP TABLE #tmpMatch
+END
