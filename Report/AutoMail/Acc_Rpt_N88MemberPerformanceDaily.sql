@@ -105,7 +105,6 @@ BEGIN
 			 ELSE 'Live & Non-Live'
 		 END [Live],
 		CASE
-            WHEN b.oddstype = 1 THEN odds+1
             WHEN b.oddstype = 5 THEN odds*100
             Else odds
         END [odds],
@@ -115,6 +114,7 @@ BEGIN
             WHEN b.oddstype = 3 THEN 'Indo'
             WHEN b.oddstype = 4 THEN 'MY'
             WHEN b.oddstype = 5 THEN 'US'
+			ELSE ''
         END [Odd Type],
 		bt.typenamee [Bettype],
 		SUM(betcount) BetCount,
@@ -143,7 +143,6 @@ BEGIN
 			 ELSE 'Live & Non-Live'
 		 END,
 		CASE
-            WHEN b.oddstype = 1 THEN odds+1
             WHEN b.oddstype = 5 THEN odds*100
             Else odds
         END,
@@ -153,6 +152,7 @@ BEGIN
             WHEN b.oddstype = 3 THEN 'Indo'
             WHEN b.oddstype = 4 THEN 'MY'
             WHEN b.oddstype = 5 THEN 'US'
+			ELSE ''
         END,
 		s.SportName,
 		bt.typenamee,
