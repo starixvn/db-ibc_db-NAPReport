@@ -474,7 +474,7 @@ BEGIN
 			CASE WHEN ci.virtualmultiplier = 0 THEN 'Disabled'
 				 WHEN ca.virtualMultiplier IS NULL THEN 'N/A'
 				 ELSE CAST((ca.virtualMultiplier - 1) * 100 AS VARCHAR(10)) + '%' END
-		FROM custinfo AS ci
+		FROM custinfo AS ci WITH (NOLOCK)
 		OUTER APPLY (SELECT TOP 1 cvs.custid, pvs.bettype,
 						bodb02.dbo.f_GetVirtualSetting(cvs.bitmapVirtual, pvs.profileID) AS virtualMultiplier
 					FROM bodb02.dbo.CustVirtualSetting cvs WITH (NOLOCK)
