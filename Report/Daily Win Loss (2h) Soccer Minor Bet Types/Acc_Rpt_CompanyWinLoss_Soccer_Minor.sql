@@ -18,6 +18,7 @@ Revisions:
     20190308@Cherry: Integrate Bet Builder (#109822)
 	20191212@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
 	20212203@Jaden: Support SABA789 (#151326)
+	20210601@Kean: SABA Soccer PinGoal - NAP Report (#156077)
 
 Parameters:
 
@@ -28,7 +29,7 @@ Example:
 SET NOCOUNT ON;
 BEGIN /* #SportBetType	*/
 
-    DECLARE @isTest    BIT = 0;
+    DECLARE @isTest    BIT = 0, @LeagueGroupStr VARCHAR(500);
     SELECT @isTest = dbo.f_CheckSPVersion
 		 (@@PROCID);
     CREATE TABLE #SportBetType(
@@ -53,6 +54,27 @@ BEGIN /* #DepositSuper*/
 		 SELECT CustId
 		 FROM DBWH.bodb_Account.dbo.vw_Dep_CustSuper WITH (NOLOCK)
 END;
+BEGIN -- #SABALeagueGroup
+		CREATE TABLE #SABALeagueGroup(LeagueGroupID INT)
+		SELECT @LeagueGroupStr = [VValue] FROM DBWH.[bodb_Account].[dbo].[SystemSettings] WHERE VID = 5
+
+		INSERT INTO #SABALeagueGroup
+		SELECT val FROM dbo.strSplit(@LeagueGroupStr,',')
+
+		CREATE TABLE #SABALeague (
+				LeagueGroupType INT,
+				LeagueGroupID INT,
+				LeagueID INT
+		)
+		INSERT INTO #SABALeague(LeagueGroupType, LeagueGroupID, LeagueID)
+		SELECT CASE WHEN LeagueGroupID = 113 THEN 2
+		        ELSE 1 END LeagueGroupType,
+		   LeagueGroupID,
+		   leagueid LeagueID
+		FROM bodb02.dbo.League (NOLOCK)
+		WHERE LeagueGroupID IN (SELECT LeagueGroupID FROM #SABALeagueGroup)
+	END;
+
 BEGIN /* #Match*/
 
 
@@ -60,12 +82,14 @@ BEGIN /* #Match*/
 	    MatchId      INT
 	  , MatchCode    NVARCHAR(50)
 	  , type         VARCHAR(10)
+	  , leagueid        INT
 	  , PRIMARY KEY(MatchId, type));
     INSERT INTO #Match
 		 SELECT DISTINCT
 			   m.MatchId
 			 , m.MatchCode
 			 , m.type
+			 , m.leagueid
 		 FROM
 			 (
 				SELECT MatchId
@@ -90,6 +114,7 @@ BEGIN /* #Data*/
     CREATE TABLE #tmp_Data(
 	    srecommend         INT
 	  , bettype            INT
+	  , leagueid        INT
 	  , liveindicator      BIT
 	  , MemberWinLoss      DECIMAL(19, 6)
 	  , SMAWinLoss         DECIMAL(19, 6)
@@ -119,6 +144,7 @@ BEGIN /*Minor*/
     INSERT INTO #tmp_Data
 		 SELECT srecommend
 			 , bettype
+			 , m.leagueid
 			 , liveindicator
 			 , SUM((winlost - actual_stake) * actualrate) AS                                                                                                   MemberWinLoss
 			 , SUM((awinlost + mwinlost + swinlost) * actualrate) AS                                                                                           SMAWinLoss
@@ -185,11 +211,15 @@ BEGIN /*Minor*/
 			  AND b.statusID IN(111, 112, 113)
 		 GROUP BY srecommend
 			   , bettype
+			   , m.leagueid
 			   , liveindicator OPTION(RECOMPILE);
 
     INSERT INTO #Data
 		 SELECT sb.IsMajor AS           GroupId
-			 , 'Soccer-Minor Bet Types'
+			 , CASE WHEN sl.LeagueGroupType = 1 THEN 'SABA Soccer-Minor Bet Types'
+					WHEN sl.LeagueGroupType = 2 THEN 'SABA Soccer PinGoal-Minor Bet Types'
+					ELSE 'Soccer-Minor Bet Types' 
+				END
 			 , CASE
 				  WHEN dep.CustId IS NULL
 				  THEN 'Credit'
@@ -206,8 +236,13 @@ BEGIN /*Minor*/
 			 , SUM(VirtualTurnover) AS VirtualTurnover
 		 FROM #tmp_Data AS b
 			INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
+			LEFT JOIN #SABALeague sl ON b.leagueid = sl.LeagueID
 			LEFT JOIN #DepositSuper AS dep ON b.srecommend = dep.CustId
 		 GROUP BY sb.IsMajor
+			   , CASE WHEN sl.LeagueGroupType = 1 THEN 'SABA Soccer-Minor Bet Types'
+					  WHEN sl.LeagueGroupType = 2 THEN 'SABA Soccer PinGoal-Minor Bet Types'
+				    ELSE 'Soccer-Minor Bet Types' 
+				 END
 			   , CASE
 				    WHEN dep.CustId IS NULL
 				    THEN 'Credit'
@@ -218,7 +253,10 @@ BEGIN /*BARM (site only)*/
 
     INSERT INTO #Data
 		 SELECT sb.IsMajor AS                                                                                                                                   GroupId
-			 , 'Soccer-Minor Bet Types'
+			 , CASE WHEN sl.LeagueGroupType = 1 THEN 'SABA Soccer-Minor Bet Types'
+					WHEN sl.LeagueGroupType = 2 THEN 'SABA Soccer PinGoal-Minor Bet Types'
+				    ELSE 'Soccer-Minor Bet Types' 
+				 END
 			 , 'BARM' AS                                                                                                                                       RowName
 			 , SUM((winlost - actual_stake) * actualrate) AS                                                                                                   MemberWinLoss
 			 , SUM((awinlost + mwinlost + swinlost) * actualrate) AS                                                                                           SMAWinLoss
@@ -276,6 +314,7 @@ BEGIN /*BARM (site only)*/
 		 FROM dbo.bettrans AS b WITH (NOLOCK)
 			INNER JOIN #SportBetType AS sb ON sb.BetType = b.BetType
 			INNER JOIN #Match AS m ON b.MatchId = m.MatchId
+			LEFT JOIN #SABALeague sl ON m.leagueid = sl.LeagueID
 		 WHERE b.recommend = 5707545
 			  AND b.winlostdate = @StartDate
 			  AND m.type = CASE
@@ -285,7 +324,11 @@ BEGIN /*BARM (site only)*/
 						END
 			  AND b.ruben = 1
 			  AND b.statusID IN(111, 112, 113)
-		 GROUP BY sb.IsMajor;
+		 GROUP BY sb.IsMajor
+				, CASE WHEN sl.LeagueGroupType = 1 THEN 'SABA Soccer-Minor Bet Types'
+					  WHEN sl.LeagueGroupType = 2 THEN 'SABA Soccer PinGoal-Minor Bet Types'
+				    ELSE 'Soccer-Minor Bet Types' 
+				 END;
 /*- set data default for 'Deposit' if there is no data*/
 
     INSERT INTO #Data(GroupId
@@ -493,4 +536,7 @@ DROP TABLE #DepositSuper;
 DROP TABLE #Data;
 DROP TABLE #tmp_Data;
 DROP TABLE #Match;
+DROP TABLE #SABALeagueGroup;
+DROP TABLE #SABALeague;
+
 GO

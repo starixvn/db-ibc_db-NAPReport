@@ -7,6 +7,7 @@ ALTER PROCEDURE Acc_Rpt_CompanyWinLoss_Soccer_Minor_Bettypes
 	@StartDate    SMALLDATETIME
    , @EndDate      SMALLDATETIME
    , @IsLive       INT           = 2
+   , @IsSabaSport TINYINT = 0
 AS
 /*
 Creator: Robert
@@ -19,9 +20,10 @@ Revisions:
     20190308@Cherry: Integrate Bet Builder (#109822)
 	20191212@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
 	20212203@Jaden: Support SABA789 (#151326)
+	20210601@Kean: SABA Soccer PinGoal - NAP Report (#156077)
 	
 Parameters:
-
+@IsSabaSport: 2 - ALL. 0 - Non-SABA. 1 - SABA. 3 - SABA PinGoal
 Example:
 
 */
@@ -29,7 +31,7 @@ Example:
 SET NOCOUNT ON;
 BEGIN /*#SportBetType     */
 
-    DECLARE @isTest    BIT = 0;
+    DECLARE @isTest    BIT = 0,  @LeagueGroupStr VARCHAR(500);
     SELECT @isTest = dbo.f_CheckSPVersion
 		 (@@PROCID);
     CREATE TABLE #SportBetType(
@@ -79,6 +81,26 @@ BEGIN /* #DepositSuper*/
 		 SELECT CustId
 		 FROM DBWH.bodb_Account.dbo.vw_Dep_CustSuper WITH (NOLOCK)
 END;
+BEGIN -- #SABALeagueGroup
+		CREATE TABLE #SABALeagueGroup(LeagueGroupID INT)
+		SELECT @LeagueGroupStr = [VValue] FROM DBWH.[bodb_Account].[dbo].[SystemSettings] WHERE VID = 5
+
+		INSERT INTO #SABALeagueGroup
+		SELECT val FROM dbo.strSplit(@LeagueGroupStr,',')
+
+		CREATE TABLE #SABALeague (
+				LeagueGroupType INT,
+				LeagueGroupID INT,
+				LeagueID INT
+		)
+		INSERT INTO #SABALeague(LeagueGroupType, LeagueGroupID, LeagueID)
+		SELECT CASE WHEN LeagueGroupID = 113 THEN 2
+		        ELSE 1 END LeagueGroupType,
+		   LeagueGroupID,
+		   leagueid LeagueID
+		FROM bodb02.dbo.League (NOLOCK)
+		WHERE LeagueGroupID IN (SELECT LeagueGroupID FROM #SABALeagueGroup)
+	END;
 BEGIN /* #Match*/
 
     CREATE TABLE #Match(
@@ -108,7 +130,13 @@ BEGIN /* #Match*/
 				WHERE EventDate = @StartDate
 			 ) AS m
 			INNER JOIN dbo.league AS l WITH (NOLOCK) ON m.LeagueId = l.LeagueId
-		 WHERE l.sporttype = 1;
+		 WHERE l.sporttype = 1
+		 AND (@IsSabaSport = 2
+			OR (@IsSabaSport = 0 AND l.leagueid NOT IN (SELECT LeagueID FROM #SABALeague))
+			OR (@IsSabaSport = 1 AND l.leagueid IN (SELECT LeagueID FROM #SABALeague WHERE LeagueGroupType = 1))
+			OR (@IsSabaSport = 3 AND l.leagueid IN (SELECT LeagueID FROM #SABALeague WHERE LeagueGroupType = 2))
+			);
+;
 END;
 BEGIN /* #Data*/
 
@@ -584,4 +612,6 @@ DROP TABLE #DepositSuper;
 DROP TABLE #Match;
 DROP TABLE #Data;
 DROP TABLE #tmp_Data;
+DROP TABLE #SABALeagueGroup;
+DROP TABLE #SABALeague;
 GO
