@@ -483,7 +483,8 @@ BEGIN
 					INNER JOIN bodb02.dbo.ProfileVirtualSetting AS pvs WITH (NOLOCK) 
 						ON cvs.seqNo = pvs.seqNo
 					WHERE cvs.custid = ci.custid
-					AND pvs.sporttype NOT IN (43, 2) AND pvs.isActive = 1) ca
+					AND pvs.sporttype NOT IN (43, 2) AND pvs.isActive = 1
+             		AND sporttype = 1 AND bettype = 1 AND isLive = 1) ca
 		WHERE ci.custid IN (select mrecommend from #TmpResultAll)
 	
 	/*-record set main data*/
