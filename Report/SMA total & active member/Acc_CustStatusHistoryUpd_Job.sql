@@ -23,25 +23,60 @@ BEGIN
 
 	SET NOCOUNT ON 
 	
+	-- Declare variables
 	DECLARE @maxCustID INT
 	
 	SELECT @maxCustID = ISNULL(MAX(custid),0)
 	FROM CustStatusHistory WITH(NOLOCK)
+
+	-- #tmpcustInfo
+	CREATE TABLE #tmpcustInfo (
+		custid     INT,
+		username   NVARCHAR(50),
+		currency   INT,
+		roleid     TINYINT,
+		srecommend INT,
+		reject     BIT,
+		closed     BIT,
+		Enabled    BIT
+	)
+
+	INSERT INTO #tmpcustInfo (custid, username, currency, roleid, srecommend, reject, closed, Enabled)
+	SELECT ci.custid,
+	       ci.username,
+	       ci.currency,
+		   ci.roleid,
+		   ci.srecommend,
+		   ci.reject,
+		   ci.closed,
+		   ci.Enabled
+	FROM bodb02.dbo.custInfo ci (NOLOCK)
+	WHERE roleid IN (2, 3, 4)
+	      AND NOT EXISTS (SELECT TOP 1 1
+	                      FROM bodb02.dbo.Dep_CustSuper cs (NOLOCK)
+					      WHERE cs.custid = ci.srecommend)
 	
+	CREATE CLUSTERED INDEX CIX_tmpcustInfo ON #tmpcustInfo(custid)
+	CREATE NONCLUSTERED INDEX IX_tmpcustInfo_username ON #tmpcustInfo(username)
+	CREATE NONCLUSTERED INDEX IX_tmpcustInfo_currency ON #tmpcustInfo(currency)
+	CREATE NONCLUSTERED INDEX IX_tmpcustInfo_srecommend ON #tmpcustInfo(srecommend)
+
+	UPDATE tmp
+	SET tmp.reject = CASE WHEN cp.SuspendInfo > 1 THEN 1 ELSE cp.SuspendInfo END,
+	    tmp.closed = CASE WHEN cp.CloseInfo > 1 THEN 1 ELSE cp.CloseInfo END
+	FROM #tmpcustInfo tmp
+	     INNER JOIN bodb02.dbo.CustProductStatus cp (NOLOCK) ON tmp.custid = cp.CustID
+
 	-- check for new customers
 	IF EXISTS (	SELECT TOP 1 1 
-				FROM bodb02.dbo.custinfo WITH(NOLOCK) 
+				FROM #tmpcustInfo
 				WHERE custid > @maxCustID
-					AND srecommend NOT IN (SELECT custid FROM bodb02.dbo.f_depsuper_1('ALL'))
-					AND roleid IN (2,3,4)
 			   )
 	BEGIN
 		INSERT INTO CustStatusHistory
 		SELECT custid, 0, 0, 0
-		FROM bodb02.dbo.custinfo WITH(NOLOCK)
+		FROM #tmpcustInfo
 		WHERE custid > @maxCustID
-			AND srecommend NOT IN (SELECT custid FROM bodb02.dbo.f_depsuper_1('ALL'))
-			AND roleid IN (2,3,4)
 	END
 	
 	/* record yesterday customer status */
@@ -68,7 +103,7 @@ BEGIN
 			closed  = @onDay*c.closed,
 			enabled = @onDay*c.enabled
 		FROM CustStatusHistory csh 
-			INNER JOIN bodb02.dbo.custinfo c WITH(NOLOCK) ON csh.custid = c.custid
+			INNER JOIN #tmpcustInfo c ON csh.custid = c.custid
 		WHERE csh.custid <= @maxCustID
 	END
 	ELSE	-- set yesterday status
@@ -78,6 +113,6 @@ BEGIN
 			closed  = csh.closed | @onDay*c.closed,
 			enabled = csh.enabled | @onDay*c.enabled
 		FROM CustStatusHistory csh 
-			INNER JOIN bodb02.dbo.custinfo c WITH(NOLOCK) ON csh.custid = c.custid
+			INNER JOIN #tmpcustInfo c ON csh.custid = c.custid
 	END	
 END

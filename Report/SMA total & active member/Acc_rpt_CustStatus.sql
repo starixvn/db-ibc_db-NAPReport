@@ -54,6 +54,48 @@ BEGIN
 	
 	CREATE TABLE #customer(custid INT PRIMARY KEY, roleid INT, closed BIGINT, reject BIGINT, enabled BIGINT, sitename VARCHAR(30))
 
+	--------------------------
+	-- BEGIN - #tmpcustInfo --
+
+	CREATE TABLE #tmpcustInfo (
+		custid     INT,
+		username   NVARCHAR(50),
+		currency   INT,
+		roleid     TINYINT,
+		srecommend INT,
+		reject     BIT,
+		closed     BIT,
+		Enabled    BIT
+	)
+
+	INSERT INTO #tmpcustInfo (custid, username, currency, roleid, srecommend, reject, closed, Enabled)
+	SELECT ci.custid,
+	       ci.username,
+	       ci.currency,
+		   ci.roleid,
+		   ci.srecommend,
+		   ci.reject,
+		   ci.closed,
+		   ci.Enabled
+	FROM bodb02.dbo.custInfo ci (NOLOCK)
+	WHERE roleid IN (2, 3, 4)
+	      AND NOT EXISTS (SELECT TOP 1 1
+	                      FROM bodb02.dbo.Dep_CustSuper cs (NOLOCK)
+					      WHERE cs.custid = ci.srecommend)
+	
+	CREATE CLUSTERED INDEX CIX_tmpcustInfo ON #tmpcustInfo(custid)
+	CREATE NONCLUSTERED INDEX IX_tmpcustInfo_username ON #tmpcustInfo(username)
+	CREATE NONCLUSTERED INDEX IX_tmpcustInfo_currency ON #tmpcustInfo(currency)
+	CREATE NONCLUSTERED INDEX IX_tmpcustInfo_srecommend ON #tmpcustInfo(srecommend)
+
+	UPDATE tmp
+	SET tmp.reject = CASE WHEN cp.SuspendInfo > 1 THEN 1 ELSE cp.SuspendInfo END,
+	    tmp.closed = CASE WHEN cp.CloseInfo > 1 THEN 1 ELSE cp.CloseInfo END
+	FROM #tmpcustInfo tmp
+	     INNER JOIN bodb02.dbo.CustProductStatus cp (NOLOCK) ON tmp.custid = cp.CustID
+
+	-- END - #tmpcustInfo --
+	------------------------
 
 	IF DATEPART(DAY,GETDATE()) = 1
 	BEGIN
@@ -66,9 +108,9 @@ BEGIN
 				,ISNULL(csh.closed,0)*POWER(@2,1)  | @bigint | ci.closed*POWER(@2,32) closed
 				,ISNULL(csh.reject,0)*POWER(@2,1)  | @bigint | ci.reject*POWER(@2,32) reject
 		FROM bodb02.dbo.customer c WITH(NOLOCK)
-			INNER JOIN bodb02.dbo.custinfo ci WITH(NOLOCK) ON c.custid = ci.custid AND c.site IN (SELECT sitename FROM #site)
+			INNER JOIN #tmpcustInfo ci ON c.custid = ci.custid AND c.site IN (SELECT sitename FROM #site)
 			LEFT JOIN custStatusHistory csh WITH(NOLOCK) ON csh.custid = ci.custid 
-			--INNER JOIN bodb02.dbo.exchange e WITH(NOLOCK) on e.exchangeid = c.currency
+			INNER JOIN bodb02.dbo.exchange e WITH(NOLOCK) on e.exchangeid = c.currency
 		WHERE c.roleid BETWEEN 2 AND 4
 
 	END		
@@ -83,8 +125,8 @@ BEGIN
 				,(ISNULL(csh.closed,0) | ci.closed*POWER(@2,DATEPART(DAY,GETDATE())-1))*POWER(@2,32) closed
 				,(ISNULL(csh.reject,0) | ci.reject*POWER(@2,DATEPART(DAY,GETDATE())-1))*POWER(@2,32) reject
 		FROM bodb02.dbo.customer c WITH(NOLOCK)
-			INNER JOIN bodb02.dbo.custinfo ci WITH(NOLOCK) ON c.custid = ci.custid AND c.site IN (SELECT sitename FROM #site)
-			--INNER JOIN bodb02.dbo.exchange e WITH(NOLOCK) on e.exchangeid = c.currency
+			INNER JOIN #tmpcustInfo ci ON c.custid = ci.custid AND c.site IN (SELECT sitename FROM #site)
+			INNER JOIN bodb02.dbo.exchange e WITH(NOLOCK) on e.exchangeid = c.currency
 			LEFT JOIN custStatusHistory csh WITH(NOLOCK) ON csh.custid = ci.custid 
 		WHERE c.roleid BETWEEN 2 AND 4
 
@@ -160,7 +202,7 @@ BEGIN
 						  ) BETWEEN @f AND @t
 						) THEN 1 ELSE 0 
 				 END ) ClosedCnt
-			INTO #result
+	INTO #result
 	FROM #customer
 	GROUP BY roleid, sitename
 

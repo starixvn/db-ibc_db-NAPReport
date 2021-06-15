@@ -73,6 +73,49 @@ BEGIN
 	DECLARE @RowStart INT, 
 			@RowEnd INT	
 
+	--------------------------
+	-- BEGIN - #tmpcustInfo --
+
+	CREATE TABLE #tmpcustInfo (
+		custid     INT,
+		username   NVARCHAR(50),
+		currency   INT,
+		roleid     TINYINT,
+		srecommend INT,
+		reject     BIT,
+		closed     BIT,
+		Enabled    BIT
+	)
+
+	INSERT INTO #tmpcustInfo (custid, username, currency, roleid, srecommend, reject, closed, Enabled)
+	SELECT ci.custid,
+	       ci.username,
+	       ci.currency,
+		   ci.roleid,
+		   ci.srecommend,
+		   ci.reject,
+		   ci.closed,
+		   ci.Enabled
+	FROM bodb02.dbo.custInfo ci (NOLOCK)
+	WHERE roleid IN (2, 3, 4)
+	      AND NOT EXISTS (SELECT TOP 1 1
+	                      FROM bodb02.dbo.Dep_CustSuper cs (NOLOCK)
+					      WHERE cs.custid = ci.srecommend)
+	
+	CREATE CLUSTERED INDEX CIX_tmpcustInfo ON #tmpcustInfo(custid)
+	CREATE NONCLUSTERED INDEX IX_tmpcustInfo_username ON #tmpcustInfo(username)
+	CREATE NONCLUSTERED INDEX IX_tmpcustInfo_currency ON #tmpcustInfo(currency)
+	CREATE NONCLUSTERED INDEX IX_tmpcustInfo_srecommend ON #tmpcustInfo(srecommend)
+
+	UPDATE tmp
+	SET tmp.reject = CASE WHEN cp.SuspendInfo > 1 THEN 1 ELSE cp.SuspendInfo END,
+	    tmp.closed = CASE WHEN cp.CloseInfo > 1 THEN 1 ELSE cp.CloseInfo END
+	FROM #tmpcustInfo tmp
+	     INNER JOIN bodb02.dbo.CustProductStatus cp (NOLOCK) ON tmp.custid = cp.CustID
+
+	-- END - #tmpcustInfo --
+	------------------------
+
 	--- show new							
 	IF @showDetailNew = 1
 	BEGIN		
@@ -94,10 +137,10 @@ BEGIN
 			    ,c.creatdate
 			    ,cr.username
 		FROM bodb02.dbo.Customer c WITH(NOLOCK)
-			INNER JOIN bodb02.dbo.custinfo ci WITH (NOLOCK)	ON ci.custid = c.custid
+			INNER JOIN #tmpcustInfo ci ON ci.custid = c.custid
 			LEFT JOIN bodb02.dbo.custAccount ca WITH(NOLOCK) ON ca.custid = c.custid				
 			INNER JOIN bodb02.dbo.exchange e WITH(NOLOCK) ON c.currency = e.exchangeid
-			LEFT JOIN bodb02.dbo.custinfo cr WITH(NOLOCK) ON cr.custid = c.creator
+			LEFT JOIN #tmpcustInfo cr ON cr.custid = c.creator
 		WHERE  c.creatdate BETWEEN @fromdate AND @todate			
 				AND c.site IN (SELECT sitename FROM #site)
 				AND c.roleid = CASE WHEN @roleid = 0 THEN c.roleid ELSE @roleid END
@@ -117,7 +160,7 @@ BEGIN
 					t.creatdate, t.creator, ROW_NUMBER() OVER (ORDER BY ISNULL(c.username,'N/A') , t.date ) AS rownumber 
 			FROM #result t
 				LEFT JOIN bodb02.dbo.custAccount ca WITH(NOLOCK) ON ca.groupID = t.groupID AND ca.isGroupHeadline = 1
-				LEFT JOIN bodb02.dbo.custinfo c WITH(NOLOCK) ON c.custid = ca.custid
+				LEFT JOIN #tmpcustInfo c ON c.custid = ca.custid
 		)			
 		SELECT	rs.date, 
 				rs.groupHeadline,
@@ -154,7 +197,7 @@ BEGIN
 				,ISNULL(csh.closed,0)*POWER(@2,1)  | @bigint | ci.closed*POWER(@2,32) closed
 				,ISNULL(csh.reject,0)*POWER(@2,1)  | @bigint | ci.reject*POWER(@2,32) reject
 		FROM bodb02.dbo.customer c WITH(NOLOCK)
-			INNER JOIN bodb02.dbo.custinfo ci WITH(NOLOCK) ON c.custid = ci.custid AND c.site IN (SELECT sitename FROM #site)
+			INNER JOIN #tmpcustInfo ci ON c.custid = ci.custid AND c.site IN (SELECT sitename FROM #site)
 			LEFT JOIN custStatusHistory csh WITH(NOLOCK) ON csh.custid = ci.custid 
 		WHERE c.roleid = CASE WHEN @roleid = 0 THEN c.roleid ELSE @roleid END
 
@@ -170,7 +213,7 @@ BEGIN
 				,(ISNULL(csh.closed,0) | ci.closed*POWER(@2,DATEPART(DAY,GETDATE())-1))*POWER(@2,32) closed
 				,(ISNULL(csh.reject,0) | ci.reject*POWER(@2,DATEPART(DAY,GETDATE())-1))*POWER(@2,32) reject
 		FROM bodb02.dbo.customer c WITH(NOLOCK)
-			INNER JOIN bodb02.dbo.custinfo ci WITH(NOLOCK) ON c.custid = ci.custid AND c.site IN (SELECT sitename FROM #site)
+			INNER JOIN #tmpcustInfo ci ON c.custid = ci.custid AND c.site IN (SELECT sitename FROM #site)
 			LEFT JOIN custStatusHistory csh WITH(NOLOCK) ON csh.custid = ci.custid 
 		WHERE c.roleid = CASE WHEN @roleid = 0 THEN c.roleid ELSE @roleid END
 
@@ -281,7 +324,7 @@ BEGIN
 			INNER JOIN bodb02.dbo.customer c WITH(NOLOCK) ON rs.custid = c.custid 
 			LEFT JOIN bodb02.dbo.custAccount ca WITH(NOLOCK) ON ca.custid = c.custid				
 			INNER JOIN bodb02.dbo.exchange e WITH(NOLOCK) ON c.currency = e.exchangeid
-			LEFT JOIN bodb02.dbo.custinfo cr WITH(NOLOCK) ON cr.custid = c.creator
+			LEFT JOIN #tmpcustInfo cr ON cr.custid = c.creator
 		WHERE rs.closed = 1		
 	END
 	
@@ -346,7 +389,7 @@ BEGIN
 			INNER JOIN bodb02.dbo.customer c WITH(NOLOCK) ON rs.custid = c.custid 
 			LEFT JOIN bodb02.dbo.custAccount ca WITH(NOLOCK) ON ca.custid = rs.custid				
 			INNER JOIN bodb02.dbo.exchange e WITH(NOLOCK) ON c.currency = e.exchangeid
-			LEFT JOIN bodb02.dbo.custinfo cr WITH(NOLOCK) ON cr.custid = c.creator
+			LEFT JOIN #tmpcustInfo cr ON cr.custid = c.creator
 		WHERE rs.reject = 1
 	END
 	
@@ -365,9 +408,9 @@ BEGIN
 				t.[status], t.[site], t.currency, t.position,			
 				t.creatdate, t.creator, ROW_NUMBER() OVER (ORDER BY ISNULL(c.username,'N/A'),  t.date ) AS rownumber 
 		FROM #result t
-			inner join bodb02.dbo.custinfo ci with(nolocK) on t.username = ci.username
+			inner join #tmpcustInfo ci on t.username = ci.username
 			LEFT JOIN bodb02.dbo.custAccount ca WITH(NOLOCK) ON ca.groupID = t.groupID AND ca.isGroupHeadline = 1
-			LEFT JOIN bodb02.dbo.custinfo c WITH(NOLOCK) ON c.custid = ca.custid
+			LEFT JOIN #tmpcustInfo c ON c.custid = ca.custid
 
 	)			
 	SELECT	rs.date, 
