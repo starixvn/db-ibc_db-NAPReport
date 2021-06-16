@@ -11,7 +11,7 @@ ALTER PROCEDURE [dbo].[Acc_Rpt_CustStatusDetails]
 	@showDetailNew BIT,
 	@showDetailReject BIT,
 	@showDetailClosed BIT,
-	@totalRow INT =0 OUTPUT,
+	@totalRow INT = 0 OUTPUT,
 	@pagesize INT = 1000,
 	@pageindex INT = 1
 AS
@@ -20,21 +20,66 @@ AS
 	Created: 20130819@Lukas
 	Task : view total SMA And Member Active Report detail
 	DB: DBRPT/bodb_report
-	Original SP:
 	
 	Revisions:
 		20210615@Ned.Le: NAP Report - Change the way to get close/suspend (#156803)
 	
 	Param's Explanation:	
-		@roleid: = 0: show info of super, Master, agent
-		@showDetailNew: = 1:  to show info of New Created details table
-		@showDetailReject: = 1: to show info of Suspended details table
-		@showDetailClosed: = 1: to show info of Closed details table
-*/ 
+		@fromdate:         begin date to get data for report
+		@todate:           end date to get data for report
+		@sitelist:         be used to filter data for report
+		@roleid:           show info of SMA [0-All|2-Agent|3-Master|4-Super]
+		@showDetailNew:    show info of New Created details table [0-No|1-Yes]
+		@showDetailReject: show info of Suspended details table [0-No|1-Yes]
+		@showDetailClosed: show info of Closed details table [0-No|1-Yes]
+*/
 
-BEGIN
+BEGIN 
 
 	SET NOCOUNT ON
+
+	--------------------------
+	-- BEGIN - #tmpcustInfo --
+
+	CREATE TABLE #tmpcustInfo (
+		custid     INT,
+		username   NVARCHAR(50),
+		currency   INT,
+		roleid     TINYINT,
+		srecommend INT,
+		reject     BIT,
+		closed     BIT,
+		Enabled    BIT
+	)
+
+	INSERT INTO #tmpcustInfo (custid, username, currency, roleid, srecommend, reject, closed, Enabled)
+	SELECT ci.custid,
+	       ci.username,
+	       ci.currency,
+		   ci.roleid,
+		   ci.srecommend,
+		   ci.reject,
+		   ci.closed,
+		   ci.Enabled
+	FROM bodb02.dbo.custInfo ci (NOLOCK)
+	WHERE roleid IN (2, 3, 4)
+	      AND NOT EXISTS (SELECT TOP 1 1
+	                      FROM bodb02.dbo.Dep_CustSuper cs (NOLOCK)
+					      WHERE cs.custid = ci.srecommend)
+	
+	CREATE CLUSTERED INDEX CIX_tmpcustInfo ON #tmpcustInfo(custid)
+	CREATE NONCLUSTERED INDEX IX_tmpcustInfo_username ON #tmpcustInfo(username)
+	CREATE NONCLUSTERED INDEX IX_tmpcustInfo_currency ON #tmpcustInfo(currency)
+	CREATE NONCLUSTERED INDEX IX_tmpcustInfo_srecommend ON #tmpcustInfo(srecommend)
+
+	UPDATE tmp
+	SET tmp.reject = CASE WHEN cp.SuspendInfo >= 1 THEN 1 ELSE 0 END,
+	    tmp.closed = CASE WHEN cp.CloseInfo >= 1 THEN 1 ELSE 0 END
+	FROM #tmpcustInfo tmp
+	     INNER JOIN bodb02.dbo.CustProductStatus cp (NOLOCK) ON tmp.custid = cp.CustID
+
+	-- END - #tmpcustInfo --
+	------------------------
 	
 	IF @fromdate > @todate
 		RETURN
@@ -73,49 +118,6 @@ BEGIN
 	DECLARE @RowStart INT, 
 			@RowEnd INT	
 
-	--------------------------
-	-- BEGIN - #tmpcustInfo --
-
-	CREATE TABLE #tmpcustInfo (
-		custid     INT,
-		username   NVARCHAR(50),
-		currency   INT,
-		roleid     TINYINT,
-		srecommend INT,
-		reject     BIT,
-		closed     BIT,
-		Enabled    BIT
-	)
-
-	INSERT INTO #tmpcustInfo (custid, username, currency, roleid, srecommend, reject, closed, Enabled)
-	SELECT ci.custid,
-	       ci.username,
-	       ci.currency,
-		   ci.roleid,
-		   ci.srecommend,
-		   ci.reject,
-		   ci.closed,
-		   ci.Enabled
-	FROM bodb02.dbo.custInfo ci (NOLOCK)
-	WHERE roleid IN (2, 3, 4)
-	      AND NOT EXISTS (SELECT TOP 1 1
-	                      FROM bodb02.dbo.Dep_CustSuper cs (NOLOCK)
-					      WHERE cs.custid = ci.srecommend)
-	
-	CREATE CLUSTERED INDEX CIX_tmpcustInfo ON #tmpcustInfo(custid)
-	CREATE NONCLUSTERED INDEX IX_tmpcustInfo_username ON #tmpcustInfo(username)
-	CREATE NONCLUSTERED INDEX IX_tmpcustInfo_currency ON #tmpcustInfo(currency)
-	CREATE NONCLUSTERED INDEX IX_tmpcustInfo_srecommend ON #tmpcustInfo(srecommend)
-
-	UPDATE tmp
-	SET tmp.reject = CASE WHEN cp.SuspendInfo > 1 THEN 1 ELSE cp.SuspendInfo END,
-	    tmp.closed = CASE WHEN cp.CloseInfo > 1 THEN 1 ELSE cp.CloseInfo END
-	FROM #tmpcustInfo tmp
-	     INNER JOIN bodb02.dbo.CustProductStatus cp (NOLOCK) ON tmp.custid = cp.CustID
-
-	-- END - #tmpcustInfo --
-	------------------------
-
 	--- show new							
 	IF @showDetailNew = 1
 	BEGIN		
@@ -144,14 +146,13 @@ BEGIN
 		WHERE  c.creatdate BETWEEN @fromdate AND @todate			
 				AND c.site IN (SELECT sitename FROM #site)
 				AND c.roleid = CASE WHEN @roleid = 0 THEN c.roleid ELSE @roleid END
-		
 		--- paging		
 		SELECT @totalRow = COUNT(1)
 		FROM #result	
 		
 		IF @pageSize = 0 AND @pageindex = 1
 		SELECT @pageSize = @totalRow
-
+		
 		SELECT @pageindex = @pageindex - 1, @RowStart = @PageSize * @pageindex + 1, @RowEnd = @RowStart + @PageSize - 1 	
 		;WITH rs AS
 		(
@@ -200,7 +201,6 @@ BEGIN
 			INNER JOIN #tmpcustInfo ci ON c.custid = ci.custid AND c.site IN (SELECT sitename FROM #site)
 			LEFT JOIN custStatusHistory csh WITH(NOLOCK) ON csh.custid = ci.custid 
 		WHERE c.roleid = CASE WHEN @roleid = 0 THEN c.roleid ELSE @roleid END
-
 	END		
 	ELSE
 	BEGIN
@@ -216,8 +216,8 @@ BEGIN
 			INNER JOIN #tmpcustInfo ci ON c.custid = ci.custid AND c.site IN (SELECT sitename FROM #site)
 			LEFT JOIN custStatusHistory csh WITH(NOLOCK) ON csh.custid = ci.custid 
 		WHERE c.roleid = CASE WHEN @roleid = 0 THEN c.roleid ELSE @roleid END
-
-		IF @fromdate <= @maxArcDate
+			
+		IF @fromdate <= DATEADD(DAY,1,@maxArcDate)
 		BEGIN
 			UPDATE c
 			SET	 c.enabled = c.enabled | csb.enabled*POWER(@2,1)

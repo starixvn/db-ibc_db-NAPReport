@@ -6,7 +6,7 @@ GO
 ALTER PROCEDURE [dbo].[Acc_Rpt_CustStatus]
 	@fromdate DATETIME,
 	@todate DATETIME,
-	@sitelist VARCHAR(500) -- 1,2,3,4
+	@sitelist VARCHAR(500)
 AS
 
 /*
@@ -18,41 +18,17 @@ AS
 		20210615@Ned.Le: NAP Report - Change the way to get close/suspend (#156803)
 	
 	Param's Explanation:
+		@fromdate: begin date to get data for report
+		@todate:   end date to get data for report
+		@sitelist: be used to filter data for report
+	
+	Example:
+		EXEC bodb_Report.dbo.Acc_Rpt_CustStatus '20210601', '20210605', '1,2,3,4'
 */
 
 BEGIN
 
 	SET NOCOUNT ON
-	
-	IF @fromdate > @todate
-		RETURN
-	IF @todate > GETDATE()
-		SET @todate = GETDATE()
-		
-	SELECT	@fromdate = CONVERT(datetime,CONVERT(NVARCHAR(20),@fromdate, 23)+ ' 00:00:00'), 
-			@todate =  CONVERT(datetime,CONVERT(NVARCHAR(20),@todate, 23)+ ' 23:59:59.997')
-	
-	CREATE TABLE #site (siteID int, sitename VARCHAR(30))
-	INSERT INTO #site(siteID, sitename)
-	SELECT s.siteid, s.site
-	FROM bodb02.dbo.site s WITH(NOLOCK)
-		INNER JOIN bodb02.dbo.strSplit(@sitelist,',') t ON s.siteid = CONVERT(INT,t.val)
-	
-	DECLARE @maxArcDate DATETIME			
-
-	DECLARE @bigint BIGINT,
-			@bit	BIT,
-			@2		BIGINT,
-			@bitMask BIGINT,
-			@dateMask BIGINT
-
-	SELECT	@maxArcDate = MAX(arcDate),
-			@bigint = 0,
-			@bit	= 0,
-			@2		= 2
-	FROM custstatusHistory_bk WITH(NOLOCK)
-	
-	CREATE TABLE #customer(custid INT PRIMARY KEY, roleid INT, closed BIGINT, reject BIGINT, enabled BIGINT, sitename VARCHAR(30))
 
 	--------------------------
 	-- BEGIN - #tmpcustInfo --
@@ -89,13 +65,44 @@ BEGIN
 	CREATE NONCLUSTERED INDEX IX_tmpcustInfo_srecommend ON #tmpcustInfo(srecommend)
 
 	UPDATE tmp
-	SET tmp.reject = CASE WHEN cp.SuspendInfo > 1 THEN 1 ELSE cp.SuspendInfo END,
-	    tmp.closed = CASE WHEN cp.CloseInfo > 1 THEN 1 ELSE cp.CloseInfo END
+	SET tmp.reject = CASE WHEN cp.SuspendInfo >= 1 THEN 1 ELSE 0 END,
+	    tmp.closed = CASE WHEN cp.CloseInfo >= 1 THEN 1 ELSE 0 END
 	FROM #tmpcustInfo tmp
 	     INNER JOIN bodb02.dbo.CustProductStatus cp (NOLOCK) ON tmp.custid = cp.CustID
 
 	-- END - #tmpcustInfo --
 	------------------------
+	
+	IF @fromdate > @todate
+		RETURN
+	IF @todate > GETDATE()
+		SET @todate = GETDATE()
+		
+	SELECT	@fromdate = CONVERT(datetime,CONVERT(NVARCHAR(20),@fromdate, 23)+ ' 00:00:00'), 
+			@todate =  CONVERT(datetime,CONVERT(NVARCHAR(20),@todate, 23)+ ' 23:59:59.997')
+	
+	CREATE TABLE #site (siteID int, sitename VARCHAR(30))
+	INSERT INTO #site(siteID, sitename)
+	SELECT s.siteid, s.site
+	FROM bodb02.dbo.site s WITH(NOLOCK)
+		INNER JOIN bodb02.dbo.strSplit(@sitelist,',') t ON s.siteid = CONVERT(INT,t.val)
+	
+	DECLARE @maxArcDate DATETIME			
+
+	DECLARE @bigint BIGINT,
+			@bit	BIT,
+			@2		BIGINT,
+			@bitMask BIGINT,
+			@dateMask BIGINT
+
+	SELECT	@maxArcDate = MAX(arcDate),
+			@bigint = 0,
+			@bit	= 0,
+			@2		= 2
+	FROM custstatusHistory_bk WITH(NOLOCK)
+	
+	CREATE TABLE #customer(custid INT PRIMARY KEY, roleid INT, closed BIGINT, reject BIGINT, enabled BIGINT, sitename VARCHAR(30))
+
 
 	IF DATEPART(DAY,GETDATE()) = 1
 	BEGIN
@@ -112,7 +119,6 @@ BEGIN
 			LEFT JOIN custStatusHistory csh WITH(NOLOCK) ON csh.custid = ci.custid 
 			INNER JOIN bodb02.dbo.exchange e WITH(NOLOCK) on e.exchangeid = c.currency
 		WHERE c.roleid BETWEEN 2 AND 4
-
 	END		
 	ELSE
 	BEGIN
@@ -129,8 +135,8 @@ BEGIN
 			INNER JOIN bodb02.dbo.exchange e WITH(NOLOCK) on e.exchangeid = c.currency
 			LEFT JOIN custStatusHistory csh WITH(NOLOCK) ON csh.custid = ci.custid 
 		WHERE c.roleid BETWEEN 2 AND 4
-
-		IF @fromdate <= @maxArcDate
+			
+		IF @fromdate <= DATEADD(DAY,1,@maxArcDate)
 		BEGIN
 			UPDATE c
 			SET	 c.enabled = c.enabled | csb.enabled*POWER(@2,1)
@@ -202,7 +208,7 @@ BEGIN
 						  ) BETWEEN @f AND @t
 						) THEN 1 ELSE 0 
 				 END ) ClosedCnt
-	INTO #result
+			INTO #result
 	FROM #customer
 	GROUP BY roleid, sitename
 
