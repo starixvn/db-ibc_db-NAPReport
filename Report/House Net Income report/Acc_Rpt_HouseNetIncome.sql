@@ -32,6 +32,12 @@ AS
 	
 	Example:
 		EXEC bodb_dwrs.dbo.Acc_Rpt_HouseNetIncome '20200901', '20200930', 'ALL', 2, 0
+
+	--- Licensee Performance view mode:
+		TO => Get data from Figure "Licensee Turnover"
+		WL => Get data from Figure "Licensee Winloss"
+		Licensee fee => Get data from Figure "Licensee House Income"
+		Royalty Fees to 3rd Parties => SUM all data from Figure "Pay to Supplier"
 */
 
 BEGIN
