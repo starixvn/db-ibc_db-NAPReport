@@ -59,8 +59,8 @@ BEGIN
 	CREATE NONCLUSTERED INDEX IX_tmpcustInfo_srecommend ON #tmpcustInfo(srecommend)
 
 	UPDATE tmp
-	SET tmp.reject = CASE WHEN cp.SuspendInfo >= 1 THEN 1 ELSE 0 END,
-	    tmp.closed = CASE WHEN cp.CloseInfo >= 1 THEN 1 ELSE 0 END
+	SET tmp.reject = CASE WHEN cp.SuspendInfo > 0 THEN 1 ELSE 0 END,
+	    tmp.closed = CASE WHEN cp.CloseInfo > 0 THEN 1 ELSE 0 END
 	FROM #tmpcustInfo tmp
 	     INNER JOIN bodb02.dbo.CustProductStatus cp (NOLOCK) ON tmp.custid = cp.CustID
 
