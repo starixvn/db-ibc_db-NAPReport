@@ -19,6 +19,7 @@ Revisions:
 		2. Add 2 new columns Today Rate and Yesterday Rate
 	- 20151221@Sophia: Company Yesterday Balance [Redmine: #49458]
 	- 20201027@Ned.Le: NAP Report - BBin - Remove BBIN Transfer off Balance reports (#144071)
+	- 20210505@Sol: NAP - Alpha - Allow more time for transfer - [Redmine: #149927]
 */
 BEGIN
 	SET NOCOUNT ON
@@ -37,7 +38,15 @@ BEGIN
 		,Yesterday FLOAT
 		)
 
-	
+	-- get move bet date
+	DECLARE @balanceUpDay SMALLDATETIME, @moveBetsDay SMALLDATETIME
+	DECLARE @tblMoveBetBalanceUp AS TABLE (BalanceUpDay SMALLDATETIME, MoveBetsDay SMALLDATETIME)
+
+	INSERT INTO @tblMoveBetBalanceUp(BalanceUpDay,MoveBetsDay)
+	EXEC bodb02.dbo.Age_SelBalanceUpDay
+
+	SELECT @balanceUpDay = BalanceUpDay, @moveBetsDay = MoveBetsDay FROM @tblMoveBetBalanceUp
+
 	IF OBJECT_ID('tempdb..#TblBalance') IS NOT NULL
 	BEGIN
 		DROP TABLE #TblBalance
@@ -99,6 +108,10 @@ BEGIN
 		FROM dbo.bettrans bt WITH (NOLOCK)
 		WHERE ruben = 1
 			  AND bt.bettype NOT IN (21008, 21009)
+			  AND 1 = CASE 
+						WHEN bettype = 19999 and winlostdate > @moveBetsDay THEN 0 --> get data from ticket detail
+						WHEN bettype < 19999 and winlostdate <= @moveBetsDay THEN 0 --> get data from sum record
+					ELSE 1 END
 		GROUP BY currency
 			,currencyname
 
@@ -122,6 +135,10 @@ BEGIN
 		WHERE ruben = 1
 			  AND winlostdate <= @Today
 			  AND bt.bettype NOT IN (21008, 21009)
+			  AND 1 = CASE 
+						WHEN bettype = 19999 and winlostdate > @moveBetsDay THEN 0 --> get data from ticket detail
+						WHEN bettype < 19999 and winlostdate <= @moveBetsDay THEN 0 --> get data from sum record
+					ELSE 1 END
 		GROUP BY currency
 			,currencyname
 	END 
