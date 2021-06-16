@@ -1223,9 +1223,9 @@ BEGIN
 					FROM		bodb_Account.dbo.HNISettings s WITH (NOLOCK) WHERE isDeposit = 1 and LogicCode = 2
 					GROUP BY	isDePosit, OrderByProduct,  ProductID,  AliasProductID, ProductPrefix, ProductCategory, ProductGroup, ProductName,  ProductShortName  
 				)t 
-				CROSS APPLY (	SELECT ''Licensee Performance'' AS Figure, ''Member Turnover'' AS SubFigure, 0 AS isTest, 1 AS isEnable, NULL AS EndOfSupportDate, 2 AS LogicCode, '''' AS LogicDescription
+				CROSS APPLY (	SELECT ''Licensee Turnover'' AS Figure, ''Licensee Turnover'' AS SubFigure, 0 AS isTest, 1 AS isEnable, NULL AS EndOfSupportDate, 2 AS LogicCode, '''' AS LogicDescription
 								UNION ALL
-								SELECT ''Licensee Performance'' AS Figure, ''Member Winloss'' AS SubFigure, 0 AS isTest, 1 AS isEnable, NULL AS EndOfSupportDate, 2 AS LogicCode, '''' AS LogicDescription
+								SELECT ''Licensee Winloss'' AS Figure, ''Licensee Winloss'' AS SubFigure, 0 AS isTest, 1 AS isEnable, NULL AS EndOfSupportDate, 2 AS LogicCode, '''' AS LogicDescription
 							)  AS u
 				UNION ALL
 				SELECT	s.isDePosit, s.OrderByProduct, s.OrderByFigure, s.ProductID, s.AliasProductID, s.ProductPrefix, s.ProductCategory, s.ProductGroup, s.ProductName, s.ProductShortName  
@@ -1254,8 +1254,8 @@ BEGIN
 				'
 				+ CASE WHEN @IsLicperf = 1 THEN 
 				'
-				UNION ALL SELECT MemberTurnover, ''Licensee Performance'', ''Member Turnover''
-				UNION ALL SELECT MemberWL, ''Licensee Performance'', ''Member Winloss''
+				UNION ALL SELECT MemberTurnover, ''Licensee Turnover'', ''Licensee Turnover''
+				UNION ALL SELECT -MemberWL, ''Licensee Winloss'', ''Licensee Winloss''
 				'
 				ELSE '' END
 				+ '
