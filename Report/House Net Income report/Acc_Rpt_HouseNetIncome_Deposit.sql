@@ -348,7 +348,6 @@ BEGIN
 					,SUM(MemberWinloss) AS MemberWinloss
 					,SUM(CASE WHEN bettype = 999 THEN AgentWinloss ELSE 0 END) AS AgentWinloss
 					,SUM(CASE WHEN ProductId = 10004 THEN AgentComm ELSE 0 END) AS AgentComm
-					,SUM(MemberTurnover) AS MemberTurnover
 				FROM bodb_Account.dbo.FactLADailyWinloss WITH (NOLOCK)
 				WHERE rptDate BETWEEN @FDate AND @TDate
 					AND SiteId IN (SELECT SiteId_DW FROM @tmpSite)
@@ -363,7 +362,7 @@ BEGIN
 						ELSE 99 -- Other Sports
 						END
 			)
-			INSERT INTO #__tempData (rptDate, SiteId_DW, CurrencyId, Product3rdId, AliasProductId, MemberWL, OddsSpreadAdj, Comm, MemberTurnover)
+			INSERT INTO #__tempData (rptDate, SiteId_DW, CurrencyId, Product3rdId, AliasProductId, MemberWL, OddsSpreadAdj, Comm)
 			SELECT t.rptDate, t.SiteId, t.CurrencyId, CASE WHEN t.ProductId = 10001 THEN 0 ELSE 3 END AS ProductId
 				,CASE
 					WHEN l.LeagueGroupId IN (42, 74, 108) AND t.SportType = 1 THEN -3 -- Saba Soccer
@@ -380,7 +379,6 @@ BEGIN
 				,SUM(t.MemberWinloss) AS MemberWL
 				,SUM(t.AgentWinloss) AS OddsSpreadAdj -- Odds Spread Adjustment
 				,SUM(t.AgentComm) AS Comm -- BA Commission
-				,SUM(t.MemberTurnover)
 			FROM CTE_SB t
 				LEFT JOIN #__SabaLeague l ON t.LeagueId = l.LeagueId
 			GROUP BY t.rptDate, t.SiteId, t.CurrencyId, CASE WHEN t.ProductId = 10001 THEN 0 ELSE 3 END
@@ -401,14 +399,14 @@ BEGIN
 		-- CB, AG, GD, EX
 		IF EXISTS (SELECT 1 FROM @Products WHERE Product3rdId IN (10, 11, 15, 31))
 		BEGIN
-			CREATE TABLE #__BettingByProduct (rptDate DATE, LicenseeId INT, CurrencyId INT, Product3rdId INT, BetTypeGroup INT, ValidBetAmount MONEY, MemberWL MONEY, Comm MONEY, MemberTurnover MONEY)
-			INSERT INTO #__BettingByProduct (rptDate, LicenseeId, CurrencyId, Product3rdId, BetTypeGroup, ValidBetAmount, MemberWL, Comm, MemberTurnover)
+			CREATE TABLE #__BettingByProduct (rptDate DATE, LicenseeId INT, CurrencyId INT, Product3rdId INT, BetTypeGroup INT, ValidBetAmount MONEY, MemberWL MONEY, Comm MONEY)
+			INSERT INTO #__BettingByProduct (rptDate, LicenseeId, CurrencyId, Product3rdId, BetTypeGroup, ValidBetAmount, MemberWL, Comm)
 			SELECT rptDate, SiteId, CurrencyId, ProductId
 				,BetTypeGroup	= CASE WHEN bettype = 1706 THEN 1706 ELSE -1 END
 				,ValidBetAmount	= SUM(CASE WHEN ProductId = 11 AND bettype = -1 THEN ValidBetAmount ELSE 0 END)
 				,MemberWL		= SUM(CASE WHEN ProductId = 15 THEN Turnover * 0.0405 + BuyBackAmount * 0.15 ELSE MemberWL END)
 				,Comm			= SUM(CASE WHEN ProductId = 31 THEN CommissionP + CommissionA ELSE 0 END)
-				,MemberTurnover = SUM(Turnover)
+
 			FROM DBLIC.bodb_LicenseeReport.dbo.rpt_BettingByProduct WITH (NOLOCK)
 			WHERE rptDate BETWEEN @FDate AND @TDate
 				AND ProductId IN (10, 11, 15, 31)
@@ -418,8 +416,8 @@ BEGIN
 				AND SiteId < 1000 -- Deposit only
 			GROUP BY rptDate, SiteId, CurrencyId, ProductId, CASE WHEN bettype = 1706 THEN 1706 ELSE -1 END
 
-			INSERT INTO #__tempData (rptDate, SiteId_DW, CurrencyId, Product3rdId, AliasProductId, BetTypeGroup, ValidBetAmount, MemberWL, Comm, MemberTurnover)
-			SELECT b.rptDate, s.SiteId_DW, b.CurrencyId, b.Product3rdId, p.AliasProductId, b.BetTypeGroup, b.ValidBetAmount, b.MemberWL, b.Comm, b.MemberTurnover
+			INSERT INTO #__tempData (rptDate, SiteId_DW, CurrencyId, Product3rdId, AliasProductId, BetTypeGroup, ValidBetAmount, MemberWL, Comm)
+			SELECT b.rptDate, s.SiteId_DW, b.CurrencyId, b.Product3rdId, p.AliasProductId, b.BetTypeGroup, b.ValidBetAmount, b.MemberWL, b.Comm
 			FROM #__BettingByProduct b
 				INNER JOIN @Products p ON b.Product3rdId = p.Product3rdId AND p.Product3rdId IN (10, 11, 15, 31)
 				INNER JOIN @tmpSite s ON b.LicenseeId = s.LicenseeId
@@ -587,7 +585,7 @@ BEGIN
 			,MemberWLDailyMonth		= SUM(t.MemberWL * e.Rate)
 			,MemberTurnoverDaily    = SUM(t.MemberTurnover  * e.Rate)
 			,MemberWLMonth			= SUM(CASE WHEN t.Product3rdId = 37 OR p.PartyId IS NOT NULL THEN t.MemberWL ELSE 0 END * e.Rate)
-			,MemberTurnoverMonth	= SUM(CASE WHEN t.Product3rdId = 37 OR p.PartyId IS NOT NULL THEN t.MemberTurnover  ELSE 0 END * e.Rate)
+			,MemberTurnoverMonth	= SUM(CASE WHEN t.Product3rdId = 37 OR p.PartyId IS NOT NULL THEN t.MemberTurnover ELSE 0 END * e.Rate)
 			--- End Turnover
 			,CommDaily				= SUM(t.Comm * e.Rate)
 			,CommMonth				= SUM(CASE WHEN t.Product3rdId = 37 OR p.PartyId IS NOT NULL THEN t.Comm ELSE 0 END * e.Rate)
