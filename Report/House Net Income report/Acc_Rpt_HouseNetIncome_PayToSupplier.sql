@@ -5,8 +5,8 @@ ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_PayToSupplier]
 	,@ProductList	VARCHAR(MAX) = 'all'
 	,@DepositType	TINYINT = 2
 	,@IsOldView		BIT = 0
-	,@IsLicperf		BIT = 0
-	,@BaseCurrencyName  VARCHAR(10) = 'RMB'
+	,@IsLicPerf		BIT = 0
+	,@BaseCurrencyName  VARCHAR(10) = 'MYR'
 AS
 
 /*
@@ -95,7 +95,7 @@ BEGIN
 		SELECT ExchangeId, MYR, CNY, USD FROM bodb02.dbo.ExchangeDailyOanda WITH (NOLOCK) WHERE ExchangeDate = @ExDate
 
 		-- Update Rate based on @BaseCurrencyName Input
-		IF @IsLicperf = 1 
+		IF @IsLicPerf = 1 
 		BEGIN
 			UPDATE t 
 			SET  t.Rate = u.BaseCurrencyRate

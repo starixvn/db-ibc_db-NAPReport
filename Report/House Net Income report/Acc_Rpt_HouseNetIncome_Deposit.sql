@@ -1,10 +1,10 @@
 /*<info serverAlias="DBWH-bodb_dwrs" executers="dwrs" isFunction="0" isNested="1"></info>*/
 ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_Deposit]
-	@FromDate		DATE
-	,@ToDate		DATE
-	,@ProductList	VARCHAR(MAX) = 'all'
-	,@IsLicperf		BIT = 0
-	,@BaseCurrencyName  VARCHAR(10) = 'RMB'
+	@FromDate			DATE
+	,@ToDate			DATE
+	,@ProductList		VARCHAR(MAX) = 'all'
+	,@IsLicPerf			BIT = 0
+	,@BaseCurrencyName  VARCHAR(10) = 'MYR'
 AS
 
 /*
@@ -109,7 +109,7 @@ BEGIN
 		SELECT ExchangeId, MYR, CNY, USD FROM bodb02.dbo.ExchangeDailyOanda WITH (NOLOCK) WHERE ExchangeDate = @ExDate
 
 		-- Update Rate based on @BaseCurrencyName Input
-		IF @IsLicperf = 1 
+		IF @IsLicPerf = 1 
 		BEGIN
 			UPDATE t 
 			SET  t.Rate = u.BaseCurrencyRate
@@ -418,8 +418,8 @@ BEGIN
 				AND SiteId < 1000 -- Deposit only
 			GROUP BY rptDate, SiteId, CurrencyId, ProductId, CASE WHEN bettype = 1706 THEN 1706 ELSE -1 END
 
-			INSERT INTO #__tempData (rptDate, SiteId_DW, CurrencyId, Product3rdId, AliasProductId, BetTypeGroup, ValidBetAmount, MemberWL, Comm)
-			SELECT b.rptDate, s.SiteId_DW, b.CurrencyId, b.Product3rdId, p.AliasProductId, b.BetTypeGroup, b.ValidBetAmount, b.MemberWL, b.Comm
+			INSERT INTO #__tempData (rptDate, SiteId_DW, CurrencyId, Product3rdId, AliasProductId, BetTypeGroup, ValidBetAmount, MemberWL, Comm, MemberTurnover)
+			SELECT b.rptDate, s.SiteId_DW, b.CurrencyId, b.Product3rdId, p.AliasProductId, b.BetTypeGroup, b.ValidBetAmount, b.MemberWL, b.Comm, b.MemberTurnover
 			FROM #__BettingByProduct b
 				INNER JOIN @Products p ON b.Product3rdId = p.Product3rdId AND p.Product3rdId IN (10, 11, 15, 31)
 				INNER JOIN @tmpSite s ON b.LicenseeId = s.LicenseeId
@@ -466,7 +466,7 @@ BEGIN
 					,SUM(b.Stake * CASE WHEN b.VarianceVR > 0 THEN b.VarianceVR + 1.0 ELSE 1.0 END * CASE WHEN b.TicketStatus = 3 THEN 0 WHEN b.TicketStatus IN (12, 13) THEN 0.5 ELSE 1.0 END) AS Stake -- VarianceVR = virtualrate/actualrate - 1
 					,SUM(CASE WHEN bt.bettype IN (1698, 4297, 3898) THEN  b.WinlossIBC ELSE 0 END) AS HouseContribution
 					,SUM(CASE WHEN bt.bettype IN (1698, 4297, 3898) THEN b.WinlossIBC-b.WinlossS-b.WinlossM-b.WinlossA ELSE 0 END) AS FullContribution
-					,SUM(CASE WHEN bt.IsOnlyTO = 1 OR bt.bettype IN (1698, 4297, 3898) THEN 0 ELSE b.ActualStake END) AS MemberTurnover
+					,SUM(b.Stake *  CASE WHEN b.TicketStatus = 3 THEN 0 WHEN b.TicketStatus IN (12, 13) THEN 0.5 ELSE 1.0 END) AS MemberTurnover
 				FROM bodb_Account.dbo.FactSiteWinloss b WITH (NOLOCK)
 					INNER JOIN @tmpBetType bt ON b.BetType = bt.BetType
 					LEFT JOIN #__SabaLeague s ON b.LeagueId = s.LeagueId AND bt.Product3rdId = 0
@@ -581,14 +581,14 @@ BEGIN
 							END
 			,OriginalMemberWLDaily	= SUM(t.MemberWL)
 			,OriginalMemberWLMonth	= SUM(CASE WHEN t.Product3rdId = 37 OR p.PartyId IS NOT NULL THEN t.MemberWL ELSE 0 END)
-			-- Turnover
+			-- Licensee performance
 			,OriginalMemberTurnoverDaily	= SUM(t.MemberTurnover)
 			,OriginalMemberTurnoverMonth	= SUM(CASE WHEN t.Product3rdId = 37 OR p.PartyId IS NOT NULL THEN t.MemberTurnover ELSE 0 END)
-			--- End Turnover
 			,MemberWLDailyMonth		= SUM(t.MemberWL * e.Rate)
-			,MemberTurnoverDaily    = SUM(t.MemberTurnover * e.Rate)
+			,MemberTurnoverDaily    = SUM(t.MemberTurnover  * e.Rate)
 			,MemberWLMonth			= SUM(CASE WHEN t.Product3rdId = 37 OR p.PartyId IS NOT NULL THEN t.MemberWL ELSE 0 END * e.Rate)
-			,MemberTurnoverMonth	= SUM(CASE WHEN t.Product3rdId = 37 OR p.PartyId IS NOT NULL THEN t.MemberTurnover ELSE 0 END * e.Rate)
+			,MemberTurnoverMonth	= SUM(CASE WHEN t.Product3rdId = 37 OR p.PartyId IS NOT NULL THEN t.MemberTurnover  ELSE 0 END * e.Rate)
+			--- End Turnover
 			,CommDaily				= SUM(t.Comm * e.Rate)
 			,CommMonth				= SUM(CASE WHEN t.Product3rdId = 37 OR p.PartyId IS NOT NULL THEN t.Comm ELSE 0 END * e.Rate)
 			,PayToSupplierDaily	= SUM((t.MemberWL *
@@ -918,12 +918,6 @@ BEGIN
 			,RebateRemark		VARCHAR(MAX)
 
 		)
-
-		DECLARE @BaseCurrency VARCHAR(10) = 'MYR'
-		IF @IsLicperf = 1
-		BEGIN
-			SELECT  @BaseCurrency = @BaseCurrencyName
-		END 
 
 		INSERT INTO @DiscountData
 		(

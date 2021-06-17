@@ -8,8 +8,8 @@ ALTER PROCEDURE dbo.Acc_Rpt_HouseNetIncome @FromDate DATE,
 										   @ProductList VARCHAR(MAX) = 'ALL',
 										   @DepositType	TINYINT = 2,
 										   @IsOldView BIT = 0,
-										   @IsLicperf		BIT = 0,
-										   @BaseCurrencyName  VARCHAR(10) = 'RMB'
+										   @IsLicPerf		BIT = 0,
+										   @BaseCurrencyName  VARCHAR(10) = 'MYR'
 
 AS
 
@@ -48,7 +48,7 @@ BEGIN
 		EXEC bodb_dwrs.dbo.Acc_Rpt_HouseNetIncome_Deposit		 @FromDate = @FromDate,
 																 @ToDate = @ToDate,
 																 @ProductList = @ProductList,
-																 @IsLicperf = @IsLicperf,
+																 @IsLicPerf = @IsLicPerf,
 																 @BaseCurrencyName = @BaseCurrencyName
 
 		-- Acc_Rpt_HouseNetIncome_PayToSupplier
@@ -57,7 +57,7 @@ BEGIN
 																 @ProductList = @ProductList,
 																 @DepositType = 1,
 																 @IsOldView = @IsOldView,
-																 @IsLicperf = @IsLicperf,
+																 @IsLicPerf = @IsLicPerf,
 																 @BaseCurrencyName = @BaseCurrencyName
 	END
 	ELSE
