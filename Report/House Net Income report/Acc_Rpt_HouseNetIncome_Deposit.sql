@@ -938,7 +938,7 @@ BEGIN
 			,@ToDate		= @TDate
 			,@PartyIds		= @Discount_PartyIds
 			,@ProductCodes	= @Discount_ProductCodes
-			,@BaseCurrency	= @BaseCurrency
+			,@BaseCurrency	= @BaseCurrencyName
 			,@CurrencyId	= 0
 
 		DECLARE @tmpResult TABLE
