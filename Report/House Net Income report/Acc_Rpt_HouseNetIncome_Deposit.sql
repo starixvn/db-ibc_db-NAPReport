@@ -1201,9 +1201,14 @@ BEGIN
 
 	IF @IsLicperf = 1
 	BEGIN
+
+	 INSERT INTO #Result (rptDate, Product3rdId, AliasProductId, MemberWL, MemberTurnover)
+		 SELECT rptDate, Product3rdId, -AliasProductId, JackpotPrize , 0 FROM #Result 
+		 WHERE Product3rdId IN (32,42,66)
+
 		SET @SQL_licperf = '
 			(
-				SELECT  isDePosit, OrderByProduct, OrderByFigure +1 AS OrderByFigure, ProductID, AliasProductID, ProductPrefix, ProductCategory, ProductGroup, ProductName, ProductShortName  
+				SELECT  isDePosit, OrderByProduct, OrderByFigure +1 AS OrderByFigure, ProductID, CASE WHEN ProductPrefix IN (''PP-JP'',''SBC-JP'',''VGA-JP'') THEN -AliasProductID ELSE AliasProductID END AliasProductID, ProductPrefix, ProductCategory, ProductGroup, ProductName, ProductShortName  
 						,u.Figure, u.SubFigure, u.isTest, u.isEnable, u.EndOfSupportDate, u.LogicCode, u.LogicDescription 
 				FROM 
 				(
@@ -1218,7 +1223,6 @@ BEGIN
 							ProductName, 
 							ProductShortName  
 					FROM		bodb_Account.dbo.HNISettings s WITH (NOLOCK) WHERE isDeposit = 1 and LogicCode = 2
-					AND s.ProductPrefix NOT IN (''PP-JP'',''SBC-JP'',''VGA-JP'')
 					GROUP BY	isDePosit, OrderByProduct,  ProductID,  AliasProductID, ProductPrefix, ProductCategory, ProductGroup, ProductName,  ProductShortName  
 				)t 
 				CROSS APPLY (	SELECT ''Licensee Turnover'' AS Figure, ''Licensee Turnover'' AS SubFigure, 0 AS isTest, 1 AS isEnable, NULL AS EndOfSupportDate, 2 AS LogicCode, '''' AS LogicDescription
