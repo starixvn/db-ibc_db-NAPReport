@@ -334,7 +334,8 @@ BEGIN
 			,Comm				MONEY DEFAULT(0) -- SB: BA Comm, Exchange: AComm + PComm
 			,HouseContribution	MONEY DEFAULT(0) -- FullContribution - LicenseeContribution
 			,FullContribution	MONEY DEFAULT(0) -- FullContribution
-			,MemberTurnover		MONEY DEFAULT(0) 
+			,LicenseeTO			MONEY DEFAULT(0) 
+			,LicenseeWL			MONEY DEFAULT(0) -- General formula -(winlost - actual_stake)
 		)
 
 		-- SB
@@ -353,6 +354,8 @@ BEGIN
 					,SUM(MemberWinloss) AS MemberWinloss
 					,SUM(CASE WHEN bettype = 999 THEN AgentWinloss ELSE 0 END) AS AgentWinloss
 					,SUM(CASE WHEN ProductId = 10004 THEN AgentComm ELSE 0 END) AS AgentComm
+					,-SUM(MemberWinloss)  AS LicenseeWL
+					,SUM(MemberTurnover  *  CASE WHEN TicketStatus = 3 THEN 0 WHEN TicketStatus IN (12, 13) THEN 0.5 ELSE 1.0 END) AS LicenseeTO
 				FROM bodb_Account.dbo.FactLADailyWinloss WITH (NOLOCK)
 				WHERE rptDate BETWEEN @FDate AND @TDate
 					AND SiteId IN (SELECT SiteId_DW FROM @tmpSite)
@@ -367,7 +370,7 @@ BEGIN
 						ELSE 99 -- Other Sports
 						END
 			)
-			INSERT INTO #__tempData (rptDate, SiteId_DW, CurrencyId, Product3rdId, AliasProductId, MemberWL, OddsSpreadAdj, Comm)
+			INSERT INTO #__tempData (rptDate, SiteId_DW, CurrencyId, Product3rdId, AliasProductId, MemberWL, OddsSpreadAdj, Comm, LicenseeWL, LicenseeTO)
 			SELECT t.rptDate, t.SiteId, t.CurrencyId, CASE WHEN t.ProductId = 10001 THEN 0 ELSE 3 END AS ProductId
 				,CASE
 					WHEN l.LeagueGroupId IN (42, 74, 108) AND t.SportType = 1 THEN -3 -- Saba Soccer
@@ -384,6 +387,8 @@ BEGIN
 				,SUM(t.MemberWinloss) AS MemberWL
 				,SUM(t.AgentWinloss) AS OddsSpreadAdj -- Odds Spread Adjustment
 				,SUM(t.AgentComm) AS Comm -- BA Commission
+				,SUM(t.LicenseeWL)
+				,SUM(t.LicenseeTO)
 			FROM CTE_SB t
 				LEFT JOIN #__SabaLeague l ON t.LeagueId = l.LeagueId
 			GROUP BY t.rptDate, t.SiteId, t.CurrencyId, CASE WHEN t.ProductId = 10001 THEN 0 ELSE 3 END
@@ -404,14 +409,15 @@ BEGIN
 		-- CB, AG, GD, EX
 		IF EXISTS (SELECT 1 FROM @Products WHERE Product3rdId IN (10, 11, 15, 31))
 		BEGIN
-			CREATE TABLE #__BettingByProduct (rptDate DATE, LicenseeId INT, CurrencyId INT, Product3rdId INT, BetTypeGroup INT, ValidBetAmount MONEY, MemberWL MONEY, Comm MONEY)
-			INSERT INTO #__BettingByProduct (rptDate, LicenseeId, CurrencyId, Product3rdId, BetTypeGroup, ValidBetAmount, MemberWL, Comm)
+			CREATE TABLE #__BettingByProduct (rptDate DATE, LicenseeId INT, CurrencyId INT, Product3rdId INT, BetTypeGroup INT, ValidBetAmount MONEY, MemberWL MONEY, Comm MONEY, LicenseeWL MONEY, LicenseeTO MONEY)
+			INSERT INTO #__BettingByProduct (rptDate, LicenseeId, CurrencyId, Product3rdId, BetTypeGroup, ValidBetAmount, MemberWL, Comm, LicenseeWL, LicenseeTO)
 			SELECT rptDate, SiteId, CurrencyId, ProductId
 				,BetTypeGroup	= CASE WHEN bettype = 1706 THEN 1706 ELSE -1 END
 				,ValidBetAmount	= SUM(CASE WHEN ProductId = 11 AND bettype = -1 THEN ValidBetAmount ELSE 0 END)
 				,MemberWL		= SUM(CASE WHEN ProductId = 15 THEN Turnover * 0.0405 + BuyBackAmount * 0.15 ELSE MemberWL END)
 				,Comm			= SUM(CASE WHEN ProductId = 31 THEN CommissionP + CommissionA ELSE 0 END)
-
+				,LicenseeWL		= -SUM(MemberWL)
+				,LicensesTO		= SUM(Turnover)
 			FROM DBLIC.bodb_LicenseeReport.dbo.rpt_BettingByProduct WITH (NOLOCK)
 			WHERE rptDate BETWEEN @FDate AND @TDate
 				AND ProductId IN (10, 11, 15, 31)
@@ -421,8 +427,8 @@ BEGIN
 				AND SiteId < 1000 -- Deposit only
 			GROUP BY rptDate, SiteId, CurrencyId, ProductId, CASE WHEN bettype = 1706 THEN 1706 ELSE -1 END
 
-			INSERT INTO #__tempData (rptDate, SiteId_DW, CurrencyId, Product3rdId, AliasProductId, BetTypeGroup, ValidBetAmount, MemberWL, Comm)
-			SELECT b.rptDate, s.SiteId_DW, b.CurrencyId, b.Product3rdId, p.AliasProductId, b.BetTypeGroup, b.ValidBetAmount, b.MemberWL, b.Comm
+			INSERT INTO #__tempData (rptDate, SiteId_DW, CurrencyId, Product3rdId, AliasProductId, BetTypeGroup, ValidBetAmount, MemberWL, Comm, LicenseeWL, LicenseeTO)
+			SELECT b.rptDate, s.SiteId_DW, b.CurrencyId, b.Product3rdId, p.AliasProductId, b.BetTypeGroup, b.ValidBetAmount, b.MemberWL, b.Comm, b.LicenseeWL, b.LicenseeTO
 			FROM #__BettingByProduct b
 				INNER JOIN @Products p ON b.Product3rdId = p.Product3rdId AND p.Product3rdId IN (10, 11, 15, 31)
 				INNER JOIN @tmpSite s ON b.LicenseeId = s.LicenseeId
@@ -441,7 +447,7 @@ BEGIN
 				IF @ToDateByBatch > @TDate
 					SET @ToDateByBatch = @TDate
 
-				INSERT INTO #__tempData (rptDate, SiteId_DW, CurrencyId, Product3rdId, AliasProductId, SportTypeGroup, BetTypeGroup, MemberWL, HouseWL, HouseTO, Stake, HouseContribution, FullContribution, MemberTurnover)
+				INSERT INTO #__tempData (rptDate, SiteId_DW, CurrencyId, Product3rdId, AliasProductId, SportTypeGroup, BetTypeGroup, MemberWL, HouseWL, HouseTO, Stake, HouseContribution, FullContribution, LicenseeWL, LicenseeTO)
 				SELECT b.rptDate, b.SiteId, b.CurrencyId, bt.Product3rdId
 					,CASE
 						WHEN bt.Product3rdId <> 0 THEN bt.AliasProductId
@@ -469,7 +475,16 @@ BEGIN
 					,SUM(b.Stake * CASE WHEN b.VarianceVR > 0 THEN b.VarianceVR + 1.0 ELSE 1.0 END * CASE WHEN b.TicketStatus = 3 THEN 0 WHEN b.TicketStatus IN (12, 13) THEN 0.5 ELSE 1.0 END) AS Stake -- VarianceVR = virtualrate/actualrate - 1
 					,SUM(CASE WHEN bt.bettype IN (1698, 4297, 3898) THEN  b.WinlossIBC ELSE 0 END) AS HouseContribution
 					,SUM(CASE WHEN bt.bettype IN (1698, 4297, 3898) THEN b.WinlossIBC-b.WinlossS-b.WinlossM-b.WinlossA ELSE 0 END) AS FullContribution
-					,SUM(b.Stake *  CASE WHEN b.TicketStatus = 3 THEN 0 WHEN b.TicketStatus IN (12, 13) THEN 0.5 ELSE 1.0 END) AS MemberTurnover
+
+					-- Licensee performance
+					,-SUM(CASE
+							WHEN bt.IsOnlyTO = 1 OR bt.bettype IN (1698, 4297, 3898) THEN 0
+							ELSE b.WinlossP END
+						) AS LicenseeWL
+					,SUM(CASE
+							WHEN bt.IsOnlyTO = 1 OR bt.bettype IN (1698, 4297, 3898) THEN 0
+							ELSE b.Stake END *  CASE WHEN b.TicketStatus = 3 THEN 0 WHEN b.TicketStatus IN (12, 13) THEN 0.5 ELSE 1.0 END) AS LicenseeTO
+					
 				FROM bodb_Account.dbo.FactSiteWinloss b WITH (NOLOCK)
 					INNER JOIN @tmpBetType bt ON b.BetType = bt.BetType
 					LEFT JOIN #__SabaLeague s ON b.LeagueId = s.LeagueId AND bt.Product3rdId = 0
@@ -528,9 +543,7 @@ BEGIN
 			,PayToSupplierDaily		MONEY
 			,CurrencyPlayDaily		MONEY
 			,HouseIncomeDaily		MONEY
-			,OriginalMemberTurnoverDaily	MONEY
-			,MemberTurnoverDaily			MONEY
-			
+	
 			-- for Monthly
 			,OriginalMemberWLMonth	MONEY
 			,MemberWLMonth			MONEY
@@ -538,13 +551,17 @@ BEGIN
 			,PayToSupplierMonth		MONEY
 			,CurrencyPlayMonth		MONEY
 			,HouseIncomeMonth		MONEY
-			,OriginalMemberTurnoverMonth	MONEY
-			,MemberTurnoverMonth			MONEY
+		
 			
 			,FullContribution	MONEY
 			,JackpotPrize		MONEY
 			,HouseTurnover		MONEY
 			,IsApplyMinFee		BIT DEFAULT (1) -- for calculate min fee
+
+			-- for Licensee Performance Only
+			,LicenseeTODaily	MONEY
+			,LicenseeWLDaily	MONEY
+
 		)
 
 		INSERT INTO #__tempResult
@@ -558,12 +575,8 @@ BEGIN
 			,ParentId
 			,OriginalMemberWLDaily
 			,OriginalMemberWLMonth
-			,OriginalMemberTurnoverDaily
-			,OriginalMemberTurnoverMonth
 			,MemberWLDaily
-			,MemberTurnoverDaily
 			,MemberWLMonth
-			,MemberTurnoverMonth
 			,CommDaily
 			,CommMonth
 			,PayToSupplierDaily
@@ -573,6 +586,8 @@ BEGIN
 			,HouseTurnover
 			,HouseIncomeDaily
 			,HouseIncomeMonth
+			,LicenseeTODaily
+			,LicenseeWLDaily
 		)
 		SELECT t.rptDate, l.PartyId, t.Product3rdId, t.AliasProductId, t.SportTypeGroup
 			,CurrencyId	= CASE WHEN t.Product3rdId = 10 THEN t.CurrencyId END
@@ -584,14 +599,8 @@ BEGIN
 							END
 			,OriginalMemberWLDaily	= SUM(t.MemberWL)
 			,OriginalMemberWLMonth	= SUM(CASE WHEN t.Product3rdId = 37 OR p.PartyId IS NOT NULL THEN t.MemberWL ELSE 0 END)
-			-- Licensee performance
-			,OriginalMemberTurnoverDaily	= SUM(t.MemberTurnover)
-			,OriginalMemberTurnoverMonth	= SUM(CASE WHEN t.Product3rdId = 37 OR p.PartyId IS NOT NULL THEN t.MemberTurnover ELSE 0 END)
 			,MemberWLDailyMonth		= SUM(t.MemberWL * e.Rate)
-			,MemberTurnoverDaily    = SUM(t.MemberTurnover  * e.Rate)
 			,MemberWLMonth			= SUM(CASE WHEN t.Product3rdId = 37 OR p.PartyId IS NOT NULL THEN t.MemberWL ELSE 0 END * e.Rate)
-			,MemberTurnoverMonth	= SUM(CASE WHEN t.Product3rdId = 37 OR p.PartyId IS NOT NULL THEN t.MemberTurnover ELSE 0 END * e.Rate)
-			--- End Turnover
 			,CommDaily				= SUM(t.Comm * e.Rate)
 			,CommMonth				= SUM(CASE WHEN t.Product3rdId = 37 OR p.PartyId IS NOT NULL THEN t.Comm ELSE 0 END * e.Rate)
 			,PayToSupplierDaily	= SUM((t.MemberWL *
@@ -644,6 +653,9 @@ BEGIN
 											(- t.MemberWL - (t.FullContribution - t.HouseContribution) - t.OddsSpreadAdj) * ISNULL(lc.Rate, p.Rate)
 											- t.HouseContribution - t.OddsSpreadAdj - CASE WHEN t.Product3rdId = 31 THEN t.Comm ELSE 0 END
 										END * e.Rate)
+			 ---- Licensee performance
+			 ,LicenseeTODaily = SUM(t.LicenseeTO * e.Rate)
+			 ,LicenseeWLDaily = SUM(t.LicenseeWL * e.Rate)
 		FROM #__tempData t
 			INNER JOIN #AllLicensees l ON t.SiteId_DW = l.SiteId_DW
 			INNER JOIN @ExchangeOANDA e ON t.CurrencyId = e.ExchangeId
@@ -961,8 +973,6 @@ BEGIN
 			,LicenseeFee	MONEY DEFAULT(0)
 			,Rebate			MONEY DEFAULT(0)
 			,Discount		MONEY DEFAULT(0)
-			,MemberTurnover MONEY DEFAULT(0)
-			,MemberWL		MONEY DEFAULT(0)
 		)
 		;WITH CTE_tempResult AS (
 			SELECT PartyId, Product3rdId, CASE WHEN Product3rdId = 0 AND AliasProductId <> -14  THEN -2 ELSE AliasProductId END AS AliasProductId
@@ -970,8 +980,7 @@ BEGIN
 				,LicenseeWL		= SUM(CASE WHEN SporttypeGroup IN (150, 173) THEN 0 ELSE -MemberWLMonth END)
 				,HouseIncome	= SUM(HouseIncomeMonth)
 				,AComm			= SUM(CommMonth)
-				,MemberTurnover = SUM(MemberTurnoverDaily)
-				,MemberWL		= SUM(MemberWLDaily)
+		
 			FROM #__tempResult
 			GROUP BY PartyId, Product3rdId, CASE WHEN Product3rdId = 0  AND AliasProductId <> -14 THEN -2 ELSE AliasProductId END
 		), CTE_Result AS (
@@ -984,13 +993,12 @@ BEGIN
 				,LicenseeWL = ISNULL(t.LicenseeWL, 0)
 				,HouseIncome = ISNULL(t.HouseIncome, 0)
 				,AComm = ISNULL(t.AComm, 0)
-				,MemberTurnover = ISNULL(t.MemberTurnover, 0)
-				,MemberWL = ISNULL(t.MemberWL,0)
+
 			FROM CTE_tempResult t
 				FULL OUTER JOIN @MinFee m ON t.PartyId = m.PartyId AND t.Product3rdId = m.Product3rdId			
 		)
-		INSERT INTO @tmpResult (PartyId, Product3rdId, GroupMinFeeId, AliasProductId, HouseTurnover, LicenseeWL, HouseIncome, AComm, MemberTurnover, MemberWL)
-		SELECT r.PartyId, r.Product3rdId, r.GroupMinFeeId, r.AliasProductId, r.HouseTurnover, r.LicenseeWL, r.HouseIncome, r.AComm, r.MemberTurnover, r.MemberWL
+		INSERT INTO @tmpResult (PartyId, Product3rdId, GroupMinFeeId, AliasProductId, HouseTurnover, LicenseeWL, HouseIncome, AComm)
+		SELECT r.PartyId, r.Product3rdId, r.GroupMinFeeId, r.AliasProductId, r.HouseTurnover, r.LicenseeWL, r.HouseIncome, r.AComm
 		FROM CTE_Result r
 			INNER JOIN (SELECT DISTINCT PartyId, Product3rdId FROM #PartyChargeInfo) p ON p.PartyId = r.PartyId AND p.Product3rdId = r.Product3rdId
 
@@ -1105,25 +1113,26 @@ BEGIN
 		,MinFee				MONEY
 		,Discount			MONEY
 		,Rebate				MONEY
-		,MemberTurnover		MONEY
-		,MemberWL           MONEY
+		-- Licensee performance 
+		,LicenseeTO_licperf			MONEY
+		,LicenseeWL_licperf         MONEY
 	)
 
 	-- Daily
-	INSERT INTO #Result (rptDate, Product3rdId, AliasProductId, BAComm, PayToSupplier, FullContribution, JackpotPrize, HouseTurnover, HouseIncome, MemberTurnover, MemberWL)
-	SELECT CONVERT(VARCHAR(2), rptDate, 106), Product3rdId, AliasProductId, -SUM(CommDaily), SUM(PayToSupplierDaily), SUM(FullContribution), SUM(JackpotPrize), SUM(HouseTurnover), SUM(HouseIncomeDaily), SUM(MemberTurnoverDaily), SUM(MemberWLDaily)
+	INSERT INTO #Result (rptDate, Product3rdId, AliasProductId, BAComm, PayToSupplier, FullContribution, JackpotPrize, HouseTurnover, HouseIncome, LicenseeTO_licperf, LicenseeWL_licperf)
+	SELECT CONVERT(VARCHAR(2), rptDate, 106), Product3rdId, AliasProductId, -SUM(CommDaily), SUM(PayToSupplierDaily), SUM(FullContribution), SUM(JackpotPrize), SUM(HouseTurnover), SUM(HouseIncomeDaily), SUM(LicenseeTODaily), SUM(LicenseeWLDaily)
 	FROM #__tempResult
 	GROUP BY CONVERT(VARCHAR(2), rptDate, 106), Product3rdId, AliasProductId
 
 	-- MTD (month-to-date)
-	INSERT INTO #Result (rptDate, Product3rdId, AliasProductId, BAComm, PayToSupplier, FullContribution, JackpotPrize, HouseTurnover, HouseIncome, MemberTurnover, MemberWL)
-	SELECT 'MTD', Product3rdId, AliasProductId, SUM(BAComm), SUM(PayToSupplier), SUM(FullContribution), SUM(JackpotPrize), SUM(HouseTurnover), SUM(HouseIncome), SUM(MemberTurnover), SUM(MemberWL)
+	INSERT INTO #Result (rptDate, Product3rdId, AliasProductId, BAComm, PayToSupplier, FullContribution, JackpotPrize, HouseTurnover, HouseIncome, LicenseeTO_licperf, LicenseeWL_licperf)
+	SELECT 'MTD', Product3rdId, AliasProductId, SUM(BAComm), SUM(PayToSupplier), SUM(FullContribution), SUM(JackpotPrize), SUM(HouseTurnover), SUM(HouseIncome), SUM(LicenseeTO_licperf), SUM(LicenseeWL_licperf)
 	FROM #Result
 	GROUP BY Product3rdId, AliasProductId
 
 	-- Monthly
-	INSERT INTO #Result (rptDate, Product3rdId, AliasProductId, HouseTurnover, HouseIncome, MinFee, Discount, Rebate, MemberTurnover, MemberWL)
-	SELECT 'Monthly', Product3rdId, AliasProductId, SUM(HouseTurnover), SUM(LicenseeFee), SUM(LicenseeMinFee), SUM(Discount), SUM(Rebate), SUM(MemberTurnover), SUM(MemberWL)
+	INSERT INTO #Result (rptDate, Product3rdId, AliasProductId, HouseTurnover, HouseIncome, MinFee, Discount, Rebate)
+	SELECT 'Monthly', Product3rdId, AliasProductId, SUM(HouseTurnover), SUM(LicenseeFee), SUM(LicenseeMinFee), SUM(Discount), SUM(Rebate)
 	FROM @tmpResult
 	GROUP BY Product3rdId, AliasProductId
 
@@ -1202,7 +1211,7 @@ BEGIN
 	IF @IsLicperf = 1
 	BEGIN
 
-	 INSERT INTO #Result (rptDate, Product3rdId, AliasProductId, MemberWL, MemberTurnover)
+	 INSERT INTO #Result (rptDate, Product3rdId, AliasProductId, LicenseeWL_licperf, LicenseeTO_licperf)
 		 SELECT rptDate, Product3rdId, -AliasProductId, JackpotPrize , 0 FROM #Result 
 		 WHERE Product3rdId IN (32,42,66)
 
@@ -1256,8 +1265,8 @@ BEGIN
 				'
 				+ CASE WHEN @IsLicperf = 1 THEN 
 				'
-				UNION ALL SELECT MemberTurnover, ''Licensee Turnover'', ''Licensee Turnover''
-				UNION ALL SELECT -MemberWL, ''Licensee Winloss'', ''Licensee Winloss''
+				UNION ALL SELECT LicenseeTO_licperf, ''Licensee Turnover'', ''Licensee Turnover''
+				UNION ALL SELECT LicenseeWL_licperf, ''Licensee Winloss'', ''Licensee Winloss''
 				'
 				ELSE '' END
 				+ '
