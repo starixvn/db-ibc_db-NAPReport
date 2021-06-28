@@ -1211,9 +1211,15 @@ BEGIN
 	IF @IsLicperf = 1
 	BEGIN
 
-		INSERT INTO #Result (rptDate, Product3rdId, AliasProductId, LicenseeWL_licperf, LicenseeTO_licperf, HouseIncome)
+		 INSERT INTO #Result (rptDate, Product3rdId, AliasProductId, LicenseeWL_licperf, LicenseeTO_licperf, HouseIncome)
 		 SELECT rptDate, Product3rdId, -AliasProductId, JackpotPrize , 0, FullContribution + JackpotPrize FROM #Result 
 		 WHERE Product3rdId IN (32,42,66)
+
+		 -- Add BAcommission to Licensee House Income
+		 UPDATE #Result
+		 SET   HouseIncome = HouseIncome + BAComm
+		 WHERE Product3rdId = 0
+
 
 		SET @SQL_licperf = '
 			(
@@ -1245,7 +1251,7 @@ BEGIN
 
 				UNION ALL
 				SELECT	s.isDePosit, s.OrderByProduct, s.OrderByFigure, s.ProductID, -s.AliasProductID, s.ProductPrefix, s.ProductCategory, s.ProductGroup, s.ProductName, s.ProductShortName  
-					,''Licensee House Income'' Figure, ''Licensee House Income'' SubFigure, s.isTest, s.isEnable, s.EndOfSupportDate, s.LogicCode, s.LogicDescription 	  
+						,''Licensee House Income'' Figure, ''Licensee House Income'' SubFigure, s.isTest, s.isEnable, s.EndOfSupportDate, s.LogicCode, s.LogicDescription 	  
 				FROM	bodb_Account.dbo.HNISettings s WITH (NOLOCK) WHERE isDeposit = 1 and LogicCode = 2	and ProductPrefix IN (''PP-JP'',''SBC-JP'',''VGA-JP'') AND s.Figure = ''Jackpot Prize''
 			) s
 		'
