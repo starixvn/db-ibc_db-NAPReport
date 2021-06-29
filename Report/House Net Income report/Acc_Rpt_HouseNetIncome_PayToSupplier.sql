@@ -5,6 +5,8 @@ ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_PayToSupplier]
 	,@ProductList	VARCHAR(MAX) = 'all'
 	,@DepositType	TINYINT = 2
 	,@IsOldView		BIT = 0
+	,@IsLicPerf		BIT = 0
+	,@BaseCurrencyName  VARCHAR(10) = 'MYR'
 AS
 
 /*
@@ -20,6 +22,7 @@ AS
 		- 20210402@Danny: Support Lucky Draw for AE Casino & Integrate Bonus program for credit sites for Arcadia Gaming & Remove the Gold Deluxe (#151870)
 		- 20210331@Danny: handle site saba789 follow credit term [Redmine: #152450] 
 		- 20210517@Danny: Remove the following term for Allbet (#155119)
+		- 20210616@Danny: Support @BaseCurrencyName with Licensee Performance view mode (#156727)
 */
 BEGIN
     SET NOCOUNT ON
@@ -90,6 +93,24 @@ BEGIN
 
 		INSERT INTO @ExchangeOANDA (ExchangeId, Rate, CNY, USD)
 		SELECT ExchangeId, MYR, CNY, USD FROM bodb02.dbo.ExchangeDailyOanda WITH (NOLOCK) WHERE ExchangeDate = @ExDate
+
+		DECLARE @LA_f_ExchangeDailySel TABLE (ExchangeId INT, BaseCurrencyRate FLOAT)
+		DECLARE @SQLExchangeDailySel VARCHAR(MAX)
+		SELECT @SQLExchangeDailySel = ' SELECT ExchangeId, BaseCurrencyRate
+						FROM OPENQUERY (DBLIC, ''SELECT ExchangeId, BaseCurrencyRate FROM bodb02.dbo.LA_f_ExchangeDailySel(''''' + CONVERT(VARCHAR(10), @ExDate, 120) + ''''', ''''' +  CONVERT(VARCHAR(10), @ExDate, 120) + ''''', ''''' + @BaseCurrencyName + ''''')'')'
+	
+
+		INSERT INTO @LA_f_ExchangeDailySel(ExchangeId, BaseCurrencyRate)
+		EXEC (@SQLExchangeDailySel)
+
+		-- Update Rate based on @BaseCurrencyName Input
+		IF @IsLicPerf = 1 
+		BEGIN
+			UPDATE t 
+			SET  t.Rate = u.BaseCurrencyRate
+			FROM @ExchangeOANDA t
+			INNER JOIN @LA_f_ExchangeDailySel u ON t.ExchangeId = u.ExchangeId
+		END
 	END
 
 	-- Get Licensees
