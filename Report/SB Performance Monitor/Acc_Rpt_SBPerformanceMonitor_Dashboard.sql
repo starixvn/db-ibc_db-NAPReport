@@ -12,7 +12,8 @@ ALTER PROCEDURE dbo.Acc_Rpt_SBPerformanceMonitor_Dashboard @fromDate SMALLDATETI
 														    @isShowCust BIT,
 															@margin FLOAT = NULL,
 															@top BIGINT = 50,
-															@topBy VARCHAR(20) = 'RealTurnover'
+															@topBy VARCHAR(20) = 'RealTurnover',
+															@excludeDrawTickets BIT = 0
 AS
 /*
 	Created: Ned.Le@20200526
@@ -41,6 +42,9 @@ AS
 		- @top: Value for filter data in the situation of league or cust
 		- @topBy: The metric to order by, depends on display type (@isShowSite, @isShowCust...), see spec for details
 				  Select from 3 options: "RealTurnover", "RealIncome", "Margin"
+		- @excludeDrawTickets: 
+						 0: Include all tickets
+						 1: Exclude draw tickets
 
 	Example:
 		EXEC bodb02.dbo.Acc_Rpt_SBPerformanceMonitor_Dashboard @fromDate='20200520', @toDate='20200520',
@@ -180,8 +184,18 @@ BEGIN
 					ELSE (1 - sd.tpositiontaking - ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0))
 						 * ABS(sd.stake)
 						 * CASE WHEN sd.virtualrate > sd.actualrate THEN sd.virtualrate ELSE sd.actualrate END
-			   END) AS RealTurnover
-	FROM bodb02.dbo.bettrans sd (NOLOCK)
+			   END * 
+			   CASE WHEN @excludeDrawTickets = 1 
+                 THEN CASE WHEN (sd.bettype < 999 OR sd.bettype BETWEEN 1301 AND 1399 OR sd.bettype BETWEEN 9001 AND 9399)
+                                 AND sd.bettype NOT IN (29, 38, 911, 912, 913, 914)
+                                 AND sd.bettype NOT BETWEEN 81 AND 120
+                                 AND sd.statusID IN (112, 113)
+                                 AND ABS(sd.modds) = 0.25
+                           THEN 0.5
+                      ELSE 1 END
+                 ELSE 1 END)
+			   AS RealTurnover
+	FROM bodb02.dbo.bettrans sd (NOLOCK) /*TODO: use with f_bettrans_measures */
 		 LEFT JOIN #tmpAgent a ON sd.recommend = a.CustID
 		 LEFT JOIN #tmpMatch m ON sd.matchid = m.matchid
 								  AND CASE WHEN sd.bettype = 10 THEN 1 ELSE 0 END = m.matchtype
@@ -194,6 +208,7 @@ BEGIN
 		  AND EXISTS (SELECT TOP 1 1
 					  FROM #tmpSportBettypeMatrix sbm
 					  WHERE sd.BetType = sbm.BetType)
+          AND (@excludeDrawTickets = 0 OR (@excludeDrawTickets = 1 AND statusID NOT IN (111))) -- exclude draw tickets if flag is turned on
 	GROUP BY CASE WHEN @isShowSite = 0 THEN NULL ELSE a.SiteID END,
 		     CASE WHEN @isShowSport = 0 THEN NULL ELSE m.SportType END,
 			 CASE WHEN @isShowLeague = 0 THEN NULL ELSE m.leagueid END,
@@ -222,7 +237,17 @@ BEGIN
 						ELSE (1 - sd.tpositiontaking - ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0))
 							 * ABS(sd.stake)
 							 * CASE WHEN sd.virtualrate > sd.actualrate THEN sd.virtualrate ELSE sd.actualrate END
-				   END) AS RealTurnover
+				   END * 
+				   CASE WHEN @excludeDrawTickets = 1 
+						THEN CASE WHEN (sd.bettype < 999 OR sd.bettype BETWEEN 1301 AND 1399 OR sd.bettype BETWEEN 9001 AND 9399)
+										AND sd.bettype NOT IN (29, 38, 911, 912, 913, 914)
+										AND sd.bettype NOT BETWEEN 81 AND 120
+										AND sd.statusID IN (112, 113)
+										AND ABS(sd.modds) = 0.25
+								THEN 0.5
+							ELSE 1 END
+						ELSE 1 END)
+				   AS RealTurnover
 		FROM bodb02.dbo.bettrans14 sd (NOLOCK)
 			 LEFT JOIN #tmpAgent a ON sd.recommend = a.CustID
 			 LEFT JOIN #tmpMatch m ON sd.matchid = m.matchid
@@ -236,6 +261,7 @@ BEGIN
 			  AND EXISTS (SELECT TOP 1 1
 						  FROM #tmpSportBettypeMatrix sbm
 						  WHERE sd.BetType = sbm.BetType)
+          	  AND (@excludeDrawTickets = 0 OR (@excludeDrawTickets = 1 AND statusID NOT IN (111)))
 		GROUP BY CASE WHEN @isShowSite = 0 THEN NULL ELSE a.SiteID END,
 				 CASE WHEN @isShowSport = 0 THEN NULL ELSE m.SportType END,
 				 CASE WHEN @isShowLeague = 0 THEN NULL ELSE m.leagueid END,
