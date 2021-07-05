@@ -11,7 +11,8 @@ ALTER PROCEDURE dbo.Acc_Rpt_SBPerformanceMonitor_Dashboard @fromDate SMALLDATETI
 															@isShowLeague BIT,
 														    @isShowCust BIT,
 															@margin FLOAT = NULL,
-															@top INT = 50
+															@top BIGINT = 50,
+															@topBy VARCHAR(20) = 'RealTurnover'
 AS
 /*
 	Created: Ned.Le@20200526
@@ -22,6 +23,7 @@ AS
 		- 20200526@Ned.Le: [SB R&C] Implement Performance Monitor report (#134119)
 		- 20200930@Ned.Le: NAP Reports - Licensee Odds Spread (#141750)
 		- 20210504@Kean.Nguyen: NAP Reports - Allow more time for transfer - Movebet&BalanceUp (#154116)
+		- 20210705@Jaden.Tang: Enhance SB Performance, add more options (#157997)
 
 	Param's Explanation:
 		- @fromDate: Range date to get data for report
@@ -37,6 +39,8 @@ AS
 		- @margin: Value for filter data in the situation of site or sport
 						 NULL: Get ALL
 		- @top: Value for filter data in the situation of league or cust
+		- @topBy: The metric to order by, depends on display type (@isShowSite, @isShowCust...), see spec for details
+				  Select from 3 options: "RealTurnover", "RealIncome", "Margin"
 
 	Example:
 		EXEC bodb02.dbo.Acc_Rpt_SBPerformanceMonitor_Dashboard @fromDate='20200520', @toDate='20200520',
@@ -61,9 +65,6 @@ BEGIN
 	DECLARE @BalanceUpDay SMALLDATETIME, @MoveBetsDay SMALLDATETIME
 	SELECT @BalanceUpDay = BalanceUpDay, @MoveBetsDay = MoveBetsDay
 	FROM OPENQUERY(DBACC,'EXEC bodb02.dbo.Age_SelBalanceUpDay')
-
-	DECLARE @sqlCommand VARCHAR(MAX)
-	SELECT @sqlCommand = ''
 	
 	-- #tmpBettypeGroup
 	CREATE TABLE #tmpBettypeGroup (BettypeGroupID SMALLINT, Bettype INT)
@@ -301,23 +302,38 @@ BEGIN
 		 LEFT JOIN bodb02.dbo.league l (NOLOCK) ON cte.LeagueID = l.leagueid
 		 LEFT JOIN bodb02.dbo.Customer c (NOLOCK) ON cte.CustID = c.custid
 	
+	-- 1 = ASC; -1 = DESC
+	DECLARE @orderDirection SMALLINT = 
+		CASE WHEN @isShowLeague = 1 THEN
+				CASE @topBy
+					WHEN 'RealTurnover' THEN -1
+					ELSE 1
+				END
+			 WHEN @isShowCust = 1 THEN -1
+			 ELSE NULL
+		END
+
 	-- Return data
-	SELECT @sqlCommand =
-		   @sqlCommand +
-		   'SELECT ' + 
-		   CASE WHEN (@isShowLeague = 1 OR @isShowCust = 1) THEN 'TOP(' + CAST(@top AS VARCHAR(10)) + ') ' ELSE '' END +
-		   CASE WHEN @isShowSite = 1 THEN 'SiteID AS ID, SiteName AS Name, '
-				WHEN @isShowSport = 1 THEN 'SportID AS ID, SportName AS Name, '
-				WHEN @isShowLeague = 1 THEN 'LeagueID AS ID, LeagueName AS Name, '
-				WHEN @isShowCust = 1 THEN 'CustID AS ID, CustName AS Name, '
-				ELSE '' END +
-		   'BetCount, RealIncome, RealTurnover, RealMargin' + CHAR(13) +
-		   'FROM #tmpFinal' + CHAR(13) +
-		   CASE WHEN ISNULL(@margin, '') = '' THEN '' ELSE 'WHERE RealMargin <= ' + CAST(@margin AS VARCHAR(10)) + CHAR(13) END +
-		   'ORDER BY RealMargin' + CHAR(13) +
-		   'OPTION (RECOMPILE)'
-	
-	EXEC (@sqlCommand)
+	SELECT TOP (CASE WHEN @isShowLeague = 1 OR @isShowCust = 1 THEN @top ELSE 0x7fffffffffffffff END)
+		CASE WHEN @isShowSite = 1 THEN SiteID
+			 WHEN @isShowSport = 1 THEN SportID
+			 WHEN @isShowLeague = 1 THEN LeagueID
+			 WHEN @isShowCust = 1 THEN CustID END AS [ID],
+		CASE WHEN @isShowSite = 1 THEN SiteName
+			 WHEN @isShowSport = 1 THEN SportName
+			 WHEN @isShowLeague = 1 THEN LeagueName
+			 WHEN @isShowCust = 1 THEN CustName END AS [Name],
+		BetCount, RealIncome, RealTurnover, RealMargin
+	FROM #tmpFinal
+	WHERE RealMargin <= ISNULL(@margin, RealMargin)
+	ORDER BY 
+		CASE WHEN @isShowLeague = 1 OR @isShowCust = 1 THEN 
+				CASE @topBy 
+					WHEN 'RealTurnover' THEN RealTurnover
+				 	WHEN 'RealIncome' THEN RealIncome
+					WHEN 'Margin' THEN RealMargin END
+		END * @orderDirection
+	OPTION (RECOMPILE)
 
 	-- Drop temp tables
 	DROP TABLE #tmpSportBettypeMatrix
