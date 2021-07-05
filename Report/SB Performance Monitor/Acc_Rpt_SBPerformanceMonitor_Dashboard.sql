@@ -356,7 +356,8 @@ BEGIN
 			 WHEN @isShowCust = 1 THEN CustName END AS [Name],
 		BetCount, RealIncome, RealTurnover, RealMargin
 	FROM #tmpFinal
-	WHERE RealMargin <= ISNULL(@margin, RealMargin)
+	WHERE (@isShowLeague = 1 OR @isShowCust = 1 AND RealMargin <= ISNULL(@margin, RealMargin))
+	   OR (@isShowLeague = 0 AND @isShowCust = 0) -- @margin filter is not applied on top league & top member reports
 	ORDER BY 
 		CASE WHEN @isShowLeague = 1 OR @isShowCust = 1 THEN 
 				CASE @topBy 
