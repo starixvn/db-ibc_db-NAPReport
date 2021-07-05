@@ -13,7 +13,8 @@ ALTER PROCEDURE dbo.Acc_Rpt_SBPerformanceMonitor_Dashboard @fromDate SMALLDATETI
 															@margin FLOAT = NULL,
 															@top BIGINT = 50,
 															@topBy VARCHAR(20) = 'RealTurnover',
-															@excludeDrawTickets BIT = 0
+															@excludeDrawTickets BIT = 0,
+															@excludeParlay BIT = 1
 AS
 /*
 	Created: Ned.Le@20200526
@@ -45,6 +46,7 @@ AS
 		- @excludeDrawTickets: 
 						 0: Include all tickets
 						 1: Exclude draw tickets
+		- @excludeParlay: Exclude parlay tickets, filter not in effect when using with @isShowLeague = 1
 
 	Example:
 		EXEC bodb02.dbo.Acc_Rpt_SBPerformanceMonitor_Dashboard @fromDate='20200520', @toDate='20200520',
@@ -69,6 +71,8 @@ BEGIN
 	DECLARE @BalanceUpDay SMALLDATETIME, @MoveBetsDay SMALLDATETIME
 	SELECT @BalanceUpDay = BalanceUpDay, @MoveBetsDay = MoveBetsDay
 	FROM OPENQUERY(DBACC,'EXEC bodb02.dbo.Age_SelBalanceUpDay')
+ 
+	IF @isShowLeague = 1 SET @excludeParlay = 1
 	
 	-- #tmpBettypeGroup
 	CREATE TABLE #tmpBettypeGroup (BettypeGroupID SMALLINT, Bettype INT)
@@ -86,7 +90,8 @@ BEGIN
 	FROM bodb02.dbo.SportBettypeMatrix sbm (NOLOCK)
 	WHERE sbm.ProductID = 1
 		  AND sbm.SubProduct NOT LIKE 'BT%'
-		  AND sbm.BetType NOT IN (9, 29, 999)
+		  AND ((sbm.BetType NOT IN (9, 29, 999) AND @excludeParlay = 1)
+		   OR @excludeParlay = 0)
 
 	CREATE UNIQUE CLUSTERED INDEX PK_tmpSportBettypeMatrix ON #tmpSportBettypeMatrix(BetType)
 
