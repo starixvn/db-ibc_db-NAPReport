@@ -27,6 +27,7 @@ AS
 		- 20210520@Danny: Incorporate Saba Soccer PinGoal (#155373)
 		- 20210616@Danny: Add measure Member TO, Member WL to support Licensee Performance (#156727)
 		- 20210708@Danny: Missing BA WL in Licensee House Income for monthly report (#158191)
+		- 20210706@Danny: Split Licensee House Income by Sport for SB (#157953)
 */
 BEGIN
 	SET NOCOUNT ON
@@ -1056,23 +1057,10 @@ BEGIN
 		/*
 			GET 9w licensee list
 		*/
-		--DECLARE @9wLicenseeList TABLE (PartyId INT)
-		--INSERT INTO @9wLicenseeList (PartyId)
-		--SELECT PartyId FROM OPENQUERY(DBLIC, 'SELECT PartyId FROM bodb_licensee.dbo.LA_f_JVPartyListSel()')
+		DECLARE @9wLicenseeList TABLE (PartyId INT)
+		INSERT INTO @9wLicenseeList (PartyId)
+		SELECT PartyId FROM OPENQUERY(DBLIC, 'SELECT PartyId FROM bodb_licensee.dbo.LA_f_JVPartyListSel()')
 		
-		--UPDATE r
-		--SET r.HouseIncome = CASE WHEN r.HouseIncome > 0 OR r.Product3rdId = 3 THEN r.HouseIncome ELSE 0 END
-		--	,r.LicenseeFee = CASE
-		--				WHEN r.Product3rdId = 25 THEN LicenseeFee
-		--				WHEN r.Product3rdId IN (42, 66) THEN CASE WHEN r.LicenseeWL > 0 THEN r.LicenseeFee ELSE 0 END
-		--				WHEN r.LicenseeFee > 0 THEN r.LicenseeFee ELSE 0 END
-		--FROM @tmpResult r
-		--WHERE r.Product3rdId <> 2
-		--	AND (
-		--		r.Product3rdId = 25 -- Cashout
-		--		OR r.PartyId NOT IN (SELECT p.PartyId FROM @9wLicenseeList p)
-		--	)
-
 		UPDATE r
 		SET r.HouseIncome = CASE WHEN r.HouseIncome > 0 OR r.Product3rdId = 3 THEN r.HouseIncome ELSE 0 END
 			,r.LicenseeFee = CASE
@@ -1083,11 +1071,60 @@ BEGIN
 		WHERE r.Product3rdId <> 2
 			AND (
 				r.Product3rdId IN (3,25) -- BA, Cashout
-				OR r.PartyId NOT IN (
-					SELECT p.PartyId FROM DBLIC.bodb_Licensee.dbo.OAS_Party p WITH (NOLOCK)
-					WHERE p.PartyName IN ('9wickets', '9Wsports', '9w')
-				)
+				OR r.PartyId NOT IN (SELECT p.PartyId FROM @9wLicenseeList p)
 			)
+
+	END
+	
+
+	DECLARE @SB_LicenseeHouseIncomeBySport TABLE 
+	(
+		rptDate				VARCHAR(10)
+		,Product3rdId		INT
+		,AliasProductId		INT
+		,HouseIncome		MONEY
+	)
+	IF @IsLicPerf = 1 
+	BEGIN
+		;WITH t_@tmpResult AS
+		(
+			SELECT PartyId, Product3rdId, SUM(LicenseeFee ) AS LicenseeFee
+			FROM @tmpResult WHERE Product3rdId = 0 AND AliasProductId = -2 AND (
+														LicenseeFee > 0 
+														OR PartyId IN (	SELECT p.PartyId FROM @9wLicenseeList p)
+														)
+			GROUP BY  PartyId, Product3rdId
+		), t_#__tempResult  AS
+		(
+			SELECT  t.PartyId, t.Product3rdId, t.AliasProductId,  SUM(t.HouseIncomeMonth) HouseIncome
+			FROM	#__tempResult t
+			INNER JOIN t_@tmpResult tf ON t.PartyId = tf.PartyId AND t.Product3rdId = tf.Product3rdId
+			WHERE t.Product3rdId = 0 AND t.AliasProductId NOT IN (-14, -2)
+			GROUP BY t.PartyId, t.Product3rdId,  t.AliasProductId
+		),t_remaining AS
+		(
+			SELECT  t.PartyId, t.Product3rdId, -2 AS AliasProductId,  t.LicenseeFee - x.HouseIncome  AS HouseIncome
+			FROM	t_@tmpResult t
+			OUTER APPLY
+			(	
+				SELECT SUM(tf.HouseIncome) HouseIncome
+				FROM  t_#__tempResult tf WHERE tf.PartyId = t.PartyId  AND tf.Product3rdId = t.Product3rdId
+				GROUP BY tf.PartyId, tf.Product3rdId
+			) x
+		)
+		INSERT INTO @SB_LicenseeHouseIncomeBySport (rptDate, Product3rdId, AliasProductId, HouseIncome)
+		SELECT 'Monthly', Product3rdId, AliasProductId, HouseIncome
+		FROM t_#__tempResult
+		UNION ALL
+		SELECT 'Monthly', Product3rdId, AliasProductId, HouseIncome
+		FROM t_remaining
+
+		UPDATE t
+		SET t.HouseIncome = t.HouseIncome + u.HouseIncome
+		FROM @SB_LicenseeHouseIncomeBySport t
+		INNER JOIN @tmpResult u ON t.AliasProductId = u.AliasProductId AND u.Product3rdId = 3
+
+
 	END
 
 	-- Calculate result
@@ -1100,6 +1137,7 @@ BEGIN
 	DELETE @tmpResult WHERE Product3rdId = 3
 	UPDATE #__tempResult SET Product3rdId = 0 WHERE Product3rdId = 3
 
+		
 	CREATE TABLE #Result
 	(
 		rptDate				VARCHAR(10)
@@ -1151,8 +1189,23 @@ BEGIN
 		VALUES
 		('Monthly', Product3rdId, AliasProductId, HouseTurnover);
 	
-	UPDATE #Result SET HouseIncome = HouseIncome + @BAWinloss, BAComm = @BAComm WHERE Product3rdId = 0 AND AliasProductId = -2 AND rptDate = 'Monthly'
+	IF @IsLicPerf = 0 
+	BEGIN
+		UPDATE #Result SET HouseIncome = HouseIncome + @BAWinloss, BAComm = @BAComm WHERE Product3rdId = 0 AND AliasProductId = -2 AND rptDate = 'Monthly'
+	END
+	ELSE
+	BEGIN
+		UPDATE t
+		SET t.HouseIncome = u.HouseIncome
+		FROM #Result t
+		INNER JOIN @SB_LicenseeHouseIncomeBySport u ON t.Product3rdId = u.Product3rdId AND t.AliasProductId = u.AliasProductId AND t.rptDate = u.rptDate
 
+		INSERT INTO #Result (rptDate, Product3rdId, AliasProductId, HouseIncome)
+		SELECT rptDate, Product3rdId, AliasProductId, HouseIncome
+		FROM  @SB_LicenseeHouseIncomeBySport t
+		WHERE NOT EXISTS (SELECT 1 FROM #Result r WHERE r.Product3rdId = t.Product3rdId AND r.AliasProductId = t.AliasProductId AND r.rptDate = t.rptDate)
+
+	END
 		-- 1.1 Pay to supplier Base on MemberWL < 0
 	UPDATE r
 	SET r.PayToSupplier = ISNULL(t.PayToSupplier, 0)
@@ -1215,12 +1268,6 @@ BEGIN
 		 INSERT INTO #Result (rptDate, Product3rdId, AliasProductId, LicenseeWL_licperf, LicenseeTO_licperf, HouseIncome)
 		 SELECT rptDate, Product3rdId, -AliasProductId, JackpotPrize , 0, FullContribution + JackpotPrize FROM #Result 
 		 WHERE Product3rdId IN (32,42,66)
-
-		 -- Add BAcommission to Licensee House Income
-		 UPDATE #Result
-		 SET   HouseIncome = HouseIncome + BAComm
-		 WHERE Product3rdId = 0
-
 
 		SET @SQL_licperf = '
 			(
