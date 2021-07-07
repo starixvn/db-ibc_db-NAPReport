@@ -200,14 +200,23 @@ BEGIN
                       ELSE 1 END
                  ELSE 1 END)
 			   AS RealTurnover
-	FROM bodb02.dbo.bettrans sd (NOLOCK) /*TODO: use with f_bettrans_measures */
+	FROM (
+		 SELECT custid, recommend, winlost, actual_stake, awinlost, mwinlost, swinlost, scomm, tpositiontaking, epositiontaking, stake
+		 	, virtualrate, actualrate, bettype, statusID, modds, matchid, currency, ruben
+		 	FROM bodb02.dbo.bettrans (NOLOCK) /*TODO: use with f_bettrans_measures */
+		 	WHERE winlostdate >= @fromDate AND winlostdate <= @toDate
+		 UNION ALL
+		 SELECT custid, recommend, winlost, actual_stake, awinlost, mwinlost, swinlost, scomm, tpositiontaking, epositiontaking, stake
+		 	, virtualrate, actualrate, bettype, statusID, modds, matchid, currency, ruben
+		 	FROM bodb02.dbo.bettrans14 (NOLOCK) 
+		 	WHERE @fromDate <= @MoveBetsDay AND winlostdate > @fromDate AND winlostdate <= @MoveBetsDay
+		) sd
 		 LEFT JOIN #tmpAgent a ON sd.recommend = a.CustID
 		 LEFT JOIN #tmpMatch m ON sd.matchid = m.matchid
 								  AND CASE WHEN sd.bettype = 10 THEN 1 ELSE 0 END = m.matchtype
 		 LEFT JOIN bodb02.dbo.TradeCust AS td WITH (NOLOCK) ON sd.custid = td.custid
 		 LEFT JOIN #tmpBettypeGroup bg ON sd.bettype = bg.Bettype
-	WHERE sd.winlostdate >= @fromDate AND sd.winlostdate <= @toDate
-		  AND sd.ruben = 1
+	WHERE sd.ruben = 1
 		  AND sd.statusID IN (111, 112, 113)
 		  AND sd.currency NOT IN (20, 27, 28)
 		  AND EXISTS (SELECT TOP 1 1
@@ -219,60 +228,6 @@ BEGIN
 			 CASE WHEN @isShowLeague = 0 THEN NULL ELSE m.leagueid END,
 		     CASE WHEN @isShowCust = 0 THEN NULL ELSE sd.custid END
 	OPTION (RECOMPILE)
-
-	IF (@fromDate <= @MoveBetsDay)
-	BEGIN
-		INSERT INTO #tmpData (SiteID, SportID, LeagueID, CustID, BetCount, RealIncome, RealTurnover)
-		SELECT -- DIMENSION
-			   CASE WHEN @isShowSite = 0 THEN NULL ELSE a.SiteID END AS SiteID,
-			   CASE WHEN @isShowSport = 0 THEN NULL ELSE m.SportType END AS SportID,
-			   CASE WHEN @isShowLeague = 0 THEN NULL ELSE m.leagueid END AS LeagueID,
-			   CASE WHEN @isShowCust = 0 THEN NULL ELSE sd.custid END AS CustID,
-			   -- MEASURE
-			   SUM(CASE WHEN bg.Bettype IS NOT NULL OR td.[VendorID] = 14 THEN 0 
-						ELSE 1 END) AS BetCount,
-			   SUM(CASE WHEN sd.recommend IN (52466, 5707545) THEN 0
-			            ELSE (-(sd.winlost - sd.actual_stake +
-			                  sd.awinlost + sd.mwinlost + sd.swinlost +
-			                  sd.scomm - (CASE WHEN sd.tpositiontaking = 1 THEN 0
-								               ELSE sd.winlost - sd.actual_stake + sd.scomm / (1 - sd.tpositiontaking)
-						                  END) * ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0)) * sd.actualrate)
-			       END) AS RealIncome,
-			   SUM(CASE WHEN sd.tpositiontaking = 1 THEN 0
-						ELSE (1 - sd.tpositiontaking - ISNULL(CAST(sd.epositiontaking AS DECIMAL(9, 8)), 0))
-							 * ABS(sd.stake)
-							 * CASE WHEN sd.virtualrate > sd.actualrate THEN sd.virtualrate ELSE sd.actualrate END
-				   END * 
-				   CASE WHEN @excludeDrawTickets = 1 
-						THEN CASE WHEN (sd.bettype < 999 OR sd.bettype BETWEEN 1301 AND 1399 OR sd.bettype BETWEEN 9001 AND 9399)
-										AND sd.bettype NOT IN (29, 38, 911, 912, 913, 914)
-										AND sd.bettype NOT BETWEEN 81 AND 120
-										AND sd.statusID IN (112, 113)
-										AND ABS(sd.modds) = 0.25
-								THEN 0.5
-							ELSE 1 END
-						ELSE 1 END)
-				   AS RealTurnover
-		FROM bodb02.dbo.bettrans14 sd (NOLOCK)
-			 LEFT JOIN #tmpAgent a ON sd.recommend = a.CustID
-			 LEFT JOIN #tmpMatch m ON sd.matchid = m.matchid
-									  AND CASE WHEN sd.bettype = 10 THEN 1 ELSE 0 END = m.matchtype
-			 LEFT JOIN bodb02.dbo.TradeCust AS td WITH (NOLOCK) ON sd.custid = td.custid
-			 LEFT JOIN #tmpBettypeGroup bg ON sd.bettype = bg.Bettype
-		WHERE sd.winlostdate >= @fromDate AND sd.winlostdate <= @MoveBetsDay
-			  AND sd.ruben = 1
-			  AND sd.statusID IN (111, 112, 113)
-			  AND sd.currency NOT IN (20, 27, 28)
-			  AND EXISTS (SELECT TOP 1 1
-						  FROM #tmpSportBettypeMatrix sbm
-						  WHERE sd.BetType = sbm.BetType)
-          	  AND (@excludeDrawTickets = 0 OR (@excludeDrawTickets = 1 AND statusID NOT IN (111)))
-		GROUP BY CASE WHEN @isShowSite = 0 THEN NULL ELSE a.SiteID END,
-				 CASE WHEN @isShowSport = 0 THEN NULL ELSE m.SportType END,
-				 CASE WHEN @isShowLeague = 0 THEN NULL ELSE m.leagueid END,
-				 CASE WHEN @isShowCust = 0 THEN NULL ELSE sd.custid END
-		OPTION (RECOMPILE)
-	END
 
 	-- #tmpFinal
 	CREATE TABLE #tmpFinal (SiteID INT,
