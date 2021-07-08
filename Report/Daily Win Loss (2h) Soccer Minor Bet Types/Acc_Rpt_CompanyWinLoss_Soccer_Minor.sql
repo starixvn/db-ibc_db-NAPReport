@@ -552,7 +552,7 @@ BEGIN /* Query*/
 	    , d.RealTurnover AS    RealTurnover
 	    , d.VirtualTurnover AS VirtualTurnover
     FROM #Data AS d
-    ORDER BY GroupName ASC
+    ORDER BY IsSabaSport, GroupName ASC
 		 , RowName;
 END;
 DROP TABLE #SportBetType;
