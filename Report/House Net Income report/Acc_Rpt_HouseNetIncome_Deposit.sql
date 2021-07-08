@@ -26,6 +26,7 @@ AS
 		- 20210517@Danny: Special term when billing between OneWorks and 9w licensee (#155045)
 		- 20210520@Danny: Incorporate Saba Soccer PinGoal (#155373)
 		- 20210616@Danny: Add measure Member TO, Member WL to support Licensee Performance (#156727)
+		- 20210708@Danny: Missing BA WL in Licensee House Income for monthly report (#158191)
 */
 BEGIN
 	SET NOCOUNT ON
@@ -1093,7 +1094,7 @@ BEGIN
 	DELETE @Products WHERE Product3rdId = 3 -- BA
 
 	DECLARE @BAComm MONEY, @BAWinloss MONEY
-    SELECT  @BAComm = -SUM(AComm), @BAWinloss = SUM(HouseIncome) FROM @tmpResult WHERE Product3rdId = 3
+    SELECT  @BAComm = -SUM(AComm), @BAWinloss = SUM(LicenseeFee) FROM @tmpResult WHERE Product3rdId = 3
 	SELECT  @BAComm = ISNULL(@BAComm, 0), @BAWinloss = ISNULL(@BAWinloss, 0)
 
 	DELETE @tmpResult WHERE Product3rdId = 3
