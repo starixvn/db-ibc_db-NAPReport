@@ -356,8 +356,8 @@ BEGIN
 					,SUM(MemberWinloss) AS MemberWinloss
 					,SUM(CASE WHEN bettype = 999 THEN AgentWinloss ELSE 0 END) AS AgentWinloss
 					,SUM(CASE WHEN ProductId = 10004 THEN AgentComm ELSE 0 END) AS AgentComm
-					,-SUM(MemberWinloss)  AS LicenseeWL
-					,SUM(MemberTurnover  *  CASE WHEN TicketStatus = 3 THEN 0 WHEN TicketStatus IN (12, 13) THEN 0.5 ELSE 1.0 END) AS LicenseeTO
+					,-SUM(CASE WHEN ProductID = 10004 THEN 0 ELSE MemberWinloss END)  AS LicenseeWL
+					,SUM(MemberTurnover  *  CASE WHEN TicketStatus = 3 OR ProductID = 10004 THEN 0 WHEN TicketStatus IN (12, 13) THEN 0.5 ELSE 1.0 END) AS LicenseeTO
 				FROM bodb_Account.dbo.FactLADailyWinloss WITH (NOLOCK)
 				WHERE rptDate BETWEEN @FDate AND @TDate
 					AND SiteId IN (SELECT SiteId_DW FROM @tmpSite)
@@ -1265,9 +1265,84 @@ BEGIN
 	IF @IsLicperf = 1
 	BEGIN
 
-		 INSERT INTO #Result (rptDate, Product3rdId, AliasProductId, LicenseeWL_licperf, LicenseeTO_licperf, HouseIncome)
-		 SELECT rptDate, Product3rdId, -AliasProductId, JackpotPrize , 0, FullContribution + JackpotPrize FROM #Result 
-		 WHERE Product3rdId IN (32,42,66)
+		INSERT INTO #Result (rptDate, Product3rdId, AliasProductId, LicenseeWL_licperf, LicenseeTO_licperf, HouseIncome)
+		SELECT rptDate, Product3rdId, -AliasProductId, JackpotPrize , 0, FullContribution + JackpotPrize FROM #Result 
+		WHERE Product3rdId IN (32,42,66)
+
+		-- HouseIncome Include LicenseeMinFee,Rebate,Discount without SB
+		UPDATE #Result 
+		SET  HouseIncome = ISNULL(HouseIncome,0) + ISNULL(MinFee,0) + ISNULL(Rebate,0) + ISNULL(Discount,0)
+		WHERE Product3rdId <> 0 AND rptDate = 'Monthly'
+		-- END
+
+		-- HouseIncome Include LicenseeMinFee,Rebate,Discount calculated in Real Soccer 
+		-- Remaining Sports include LicenseeWL * ChargeRate Only (Force 0 If PartyId have LicenseeMinFee > 0)
+
+		DECLARE @SB_HouseIncome_total MONEY
+		SELECT @SB_HouseIncome_total = ISNULL(HouseIncome,0) + ISNULL(MinFee,0) - ISNULL(Discount,0) - ISNULL(Rebate,0)
+		FROM #Result WHERE Product3rdId =0 AND AliasProductId = -2 AND rptDate = 'Monthly'
+
+		DECLARE @tmpResult_licperf TABLE
+		(
+			PartyId			INT
+			,Product3rdId	INT
+			,AliasProductId	INT
+			,GroupMinFeeId	INT
+			,IsPrimaryFee	BIT DEFAULT(0)
+			,HouseTurnover	MONEY DEFAULT(0)
+			,LicenseeWL		MONEY DEFAULT(0)
+			,HouseIncome	MONEY DEFAULT(0)
+			,AComm			MONEY DEFAULT(0)
+			,LicenseeMinFee MONEY DEFAULT(0)
+			,LicenseeFee	MONEY DEFAULT(0)
+			,Rebate			MONEY DEFAULT(0)
+			,Discount		MONEY DEFAULT(0)
+		)
+
+		INSERT INTO @tmpResult_licperf(PartyId,Product3rdId,AliasProductId,GroupMinFeeId,IsPrimaryFee,LicenseeWL,HouseIncome,AComm,LicenseeMinFee,LicenseeFee,Rebate,Discount)
+		SELECT PartyId,Product3rdId,AliasProductId,GroupMinFeeId,IsPrimaryFee,LicenseeWL,HouseIncome,AComm,LicenseeMinFee,LicenseeFee,Rebate,Discount
+		FROM @tmpResult WHERE Product3rdId  = 0 AND AliasProductId = -2 AND LicenseeMinFee = 0 AND LicenseeFee > 0
+		
+		DECLARE @SBGrossHouseIncome TABLE (Product3rdId	INT, AliasProductId INT, HouseIncome MONEY DEFAULT(0))
+		
+		;WITH t AS
+		(
+			SELECT PartyId, Product3rdId, AliasProductId, HouseIncomeMonth FROM #__tempResult WHERE Product3rdId IN (0,3)
+		)INSERT INTO @SBGrossHouseIncome (Product3rdId, AliasProductId, HouseIncome)
+		SELECT  t.Product3rdId, t.AliasProductId, SUM(t.HouseIncomeMonth)
+		FROM	t 
+		INNER JOIN @tmpResult_licperf tr ON t.PartyId = tr.PartyId AND t.Product3rdId = tr.Product3rdId
+		WHERE t.AliasProductId <> - 2 AND t.Product3rdId = 0
+		GROUP BY t.Product3rdId, t.AliasProductId
+
+		;MERGE #Result AS t
+		USING @SBGrossHouseIncome AS s ON t.Product3rdId = s.Product3rdId AND t.AliasProductId = s.AliasProductId AND t.rptDate = 'Monthly'
+		WHEN MATCHED THEN UPDATE
+			SET HouseIncome = s.HouseIncome
+		WHEN NOT MATCHED THEN
+		INSERT
+		(
+			rptDate, Product3rdId, AliasProductId, HouseIncome
+		)
+		VALUES
+		(
+			'Monthly', s.Product3rdId, s.AliasProductId, s.HouseIncome
+		);
+
+
+		--- Force remaining fee to real soc
+		DECLARE @SBHouseIncomeRealSoc MONEY
+		DECLARE @SBHouseIncomeOthers MONEY
+
+		SELECT @SBHouseIncomeOthers = SUM(ISNULL(HouseIncome,0))
+		FROM #Result 
+		WHERE rptDate = 'Monthly' AND AliasProductId <> -2 AND Product3rdId = 0
+
+		SELECT @SBHouseIncomeRealSoc = @SB_HouseIncome_total - @SBHouseIncomeOthers
+
+		UPDATE #Result 
+		SET HouseIncome = @SBHouseIncomeRealSoc
+		WHERE rptDate = 'Monthly' AND AliasProductId = -2 AND Product3rdId = 0
 
 		SET @SQL_licperf = '
 			(
