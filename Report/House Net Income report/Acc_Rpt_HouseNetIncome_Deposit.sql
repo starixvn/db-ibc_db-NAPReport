@@ -1075,58 +1075,6 @@ BEGIN
 			)
 
 	END
-	
-
-	DECLARE @SB_LicenseeHouseIncomeBySport TABLE 
-	(
-		rptDate				VARCHAR(10)
-		,Product3rdId		INT
-		,AliasProductId		INT
-		,HouseIncome		MONEY
-	)
-	IF @IsLicPerf = 1 
-	BEGIN
-		;WITH t_@tmpResult AS
-		(
-			SELECT PartyId, Product3rdId, SUM(LicenseeFee ) AS LicenseeFee
-			FROM @tmpResult WHERE Product3rdId = 0 AND AliasProductId = -2 AND (
-														LicenseeFee > 0 
-														OR PartyId IN (	SELECT p.PartyId FROM @9wLicenseeList p)
-														)
-			GROUP BY  PartyId, Product3rdId
-		), t_#__tempResult  AS
-		(
-			SELECT  t.PartyId, t.Product3rdId, t.AliasProductId,  SUM(t.HouseIncomeMonth) HouseIncome
-			FROM	#__tempResult t
-			INNER JOIN t_@tmpResult tf ON t.PartyId = tf.PartyId AND t.Product3rdId = tf.Product3rdId
-			WHERE t.Product3rdId = 0 AND t.AliasProductId NOT IN (-14, -2)
-			GROUP BY t.PartyId, t.Product3rdId,  t.AliasProductId
-		),t_remaining AS
-		(
-			SELECT  t.PartyId, t.Product3rdId, -2 AS AliasProductId,  t.LicenseeFee - x.HouseIncome  AS HouseIncome
-			FROM	t_@tmpResult t
-			OUTER APPLY
-			(	
-				SELECT SUM(tf.HouseIncome) HouseIncome
-				FROM  t_#__tempResult tf WHERE tf.PartyId = t.PartyId  AND tf.Product3rdId = t.Product3rdId
-				GROUP BY tf.PartyId, tf.Product3rdId
-			) x
-		)
-		INSERT INTO @SB_LicenseeHouseIncomeBySport (rptDate, Product3rdId, AliasProductId, HouseIncome)
-		SELECT 'Monthly', Product3rdId, AliasProductId, HouseIncome
-		FROM t_#__tempResult
-		UNION ALL
-		SELECT 'Monthly', Product3rdId, AliasProductId, HouseIncome
-		FROM t_remaining
-
-		UPDATE t
-		SET t.HouseIncome = t.HouseIncome + u.HouseIncome
-		FROM @SB_LicenseeHouseIncomeBySport t
-		INNER JOIN @tmpResult u ON t.AliasProductId = u.AliasProductId AND u.Product3rdId = 3
-
-
-	END
-
 	-- Calculate result
 	DELETE @Products WHERE Product3rdId = 3 -- BA
 
@@ -1192,19 +1140,6 @@ BEGIN
 	IF @IsLicPerf = 0 
 	BEGIN
 		UPDATE #Result SET HouseIncome = HouseIncome + @BAWinloss, BAComm = @BAComm WHERE Product3rdId = 0 AND AliasProductId = -2 AND rptDate = 'Monthly'
-	END
-	ELSE
-	BEGIN
-		UPDATE t
-		SET t.HouseIncome = u.HouseIncome
-		FROM #Result t
-		INNER JOIN @SB_LicenseeHouseIncomeBySport u ON t.Product3rdId = u.Product3rdId AND t.AliasProductId = u.AliasProductId AND t.rptDate = u.rptDate
-
-		INSERT INTO #Result (rptDate, Product3rdId, AliasProductId, HouseIncome)
-		SELECT rptDate, Product3rdId, AliasProductId, HouseIncome
-		FROM  @SB_LicenseeHouseIncomeBySport t
-		WHERE NOT EXISTS (SELECT 1 FROM #Result r WHERE r.Product3rdId = t.Product3rdId AND r.AliasProductId = t.AliasProductId AND r.rptDate = t.rptDate)
-
 	END
 		-- 1.1 Pay to supplier Base on MemberWL < 0
 	UPDATE r
