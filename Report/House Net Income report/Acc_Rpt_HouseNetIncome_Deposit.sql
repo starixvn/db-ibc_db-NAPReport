@@ -26,6 +26,7 @@ AS
 		- 20210517@Danny: Special term when billing between OneWorks and 9w licensee (#155045)
 		- 20210520@Danny: Incorporate Saba Soccer PinGoal (#155373)
 		- 20210616@Danny: Add measure Member TO, Member WL to support Licensee Performance (#156727)
+		- 20210708@Danny: Missing BA WL in Licensee House Income for monthly report (#158191)
 */
 BEGIN
 	SET NOCOUNT ON
@@ -1075,13 +1076,13 @@ BEGIN
 		UPDATE r
 		SET r.HouseIncome = CASE WHEN r.HouseIncome > 0 OR r.Product3rdId = 3 THEN r.HouseIncome ELSE 0 END
 			,r.LicenseeFee = CASE
-						WHEN r.Product3rdId = 25 THEN LicenseeFee
+						WHEN r.Product3rdId IN (3,25) THEN LicenseeFee
 						WHEN r.Product3rdId IN (42, 66) THEN CASE WHEN r.LicenseeWL > 0 THEN r.LicenseeFee ELSE 0 END
 						WHEN r.LicenseeFee > 0 THEN r.LicenseeFee ELSE 0 END
 		FROM @tmpResult r
 		WHERE r.Product3rdId <> 2
 			AND (
-				r.Product3rdId = 25 -- Cashout
+				r.Product3rdId IN (3,25) -- BA, Cashout
 				OR r.PartyId NOT IN (
 					SELECT p.PartyId FROM DBLIC.bodb_Licensee.dbo.OAS_Party p WITH (NOLOCK)
 					WHERE p.PartyName IN ('9wickets', '9Wsports', '9w')
@@ -1093,7 +1094,7 @@ BEGIN
 	DELETE @Products WHERE Product3rdId = 3 -- BA
 
 	DECLARE @BAComm MONEY, @BAWinloss MONEY
-    SELECT  @BAComm = -SUM(AComm), @BAWinloss = SUM(HouseIncome) FROM @tmpResult WHERE Product3rdId = 3
+    SELECT  @BAComm = -SUM(AComm), @BAWinloss = SUM(LicenseeFee) FROM @tmpResult WHERE Product3rdId = 3
 	SELECT  @BAComm = ISNULL(@BAComm, 0), @BAWinloss = ISNULL(@BAWinloss, 0)
 
 	DELETE @tmpResult WHERE Product3rdId = 3
