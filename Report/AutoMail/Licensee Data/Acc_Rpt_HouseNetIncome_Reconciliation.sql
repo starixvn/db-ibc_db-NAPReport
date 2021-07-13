@@ -11,6 +11,7 @@ AS
 	
 	Revisions:
 		- 20210129@Percy: Initiliaze SP [RedmineID: #148805]
+		- 20210708@Danny: Handle JV parties (#158191)
 */
 
 BEGIN
@@ -636,7 +637,7 @@ BEGIN
 		FROM @tmpResult r
 		WHERE r.PartyId NOT IN (
 					SELECT p.PartyId FROM DBLIC.bodb_Licensee.dbo.OAS_Party p WITH (NOLOCK)
-					WHERE p.PartyName IN ('9wickets', '9Wsports')
+					WHERE p.PartyName IN ('9wickets', '9Wsports', '9w')
 				)
 
 		UPDATE @tmpResult
