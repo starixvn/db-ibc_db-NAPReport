@@ -58,6 +58,7 @@ Revisions:
 	20201001@Cherry: Add Licensee Odds Spread (#141750)
 	20201111@Ned.Le: NAP Report - Hotfix Tree Winloss - Block Replication (#145175)
 	20210409@Jaden.Tang: Exclude lucky draws from bettransLC (#133731)
+	20210520@Jaden:  Support new way to view VR setting (#154903)
 */
 
 BEGIN
@@ -467,10 +468,29 @@ BEGIN
 		 GROUP BY b.mrecommend
 			   , CAST(b.virtualrate / b.actualrate - 1 AS DECIMAL(19, 6)) OPTION(RECOMPILE);
 
+	-- get top 1 vr record of each cust 
+	CREATE TABLE #custVRRef (CustID INT, Username NVARCHAR(100), VirtualRate VARCHAR(10));
+	INSERT INTO #custVRRef
+		SELECT ci.custid, 
+			ci.username,
+			CASE WHEN ci.virtualmultiplier = 0 THEN 'Disabled'
+				 WHEN ca.virtualMultiplier IS NULL THEN 'N/A'
+				 ELSE CAST((ca.virtualMultiplier - 1) * 100 AS VARCHAR(10)) + '%' END
+		FROM custinfo AS ci WITH (NOLOCK)
+		OUTER APPLY (SELECT TOP 1 cvs.custid, pvs.bettype,
+						bodb02.dbo.f_GetVirtualSetting(cvs.bitmapVirtual, pvs.profileID) AS virtualMultiplier
+					FROM bodb02.dbo.CustVirtualSetting cvs WITH (NOLOCK)
+					INNER JOIN bodb02.dbo.ProfileVirtualSetting AS pvs WITH (NOLOCK) 
+						ON cvs.seqNo = pvs.seqNo
+					WHERE cvs.custid = ci.custid
+					AND pvs.sporttype NOT IN (43, 2) AND pvs.isActive = 1
+             		AND sporttype = 1 AND bettype = 1 AND isLive = 1) ca
+		WHERE ci.custid IN (select mrecommend from #TmpResultAll)
+	
 	/*-record set main data*/
     SELECT b.mrecommend
-	    , cm.username
-	    , ISNULL(cm.virtualmultiplier, 1) AS                                                              EnableVirtualrate
+	    , ref.username
+	    , ref.VirtualRate
 	    , SUM(CASE
 			    WHEN TurnoverIBC = 0
 			    THEN 0
@@ -551,10 +571,10 @@ BEGIN
 			    ELSE TurnoverIBC_RM - ExtraTO_RM
 			END * ABS(VarianceVR)) AS                                                                   TOVarianceTotal
     FROM #TmpResultAll AS b
-	   INNER JOIN custinfo AS cm WITH (NOLOCK) ON b.mrecommend = cm.custid
+	   LEFT JOIN #custVRRef AS ref WITH (NOLOCK) ON b.mrecommend = ref.CustID
     GROUP BY b.mrecommend
-		 , cm.username
-		 , ISNULL(cm.virtualmultiplier, 1)
+		 , ref.username
+		 , ref.VirtualRate
     ORDER BY username;
 
 	-- Drop temp tables
