@@ -172,7 +172,9 @@ BEGIN
 	INSERT INTO #tmpData (SiteID, SportID, LeagueID, CustID, BetCount, RealIncome, RealTurnover)
 	SELECT -- DIMENSION
 		   CASE WHEN @isShowSite = 0 THEN NULL ELSE a.SiteID END AS SiteID,
-		   CASE WHEN @isShowSport = 0 THEN NULL ELSE m.SportType END AS SportID,
+		   CASE WHEN @isShowSport = 0 THEN NULL 
+		   		WHEN sd.bettype IN (9, 29) THEN -9
+		   	    ELSE m.SportType END AS SportID,
 		   CASE WHEN @isShowLeague = 0 THEN NULL ELSE m.leagueid END AS LeagueID,
 		   CASE WHEN @isShowCust = 0 THEN NULL ELSE sd.custid END AS CustID,
 		   -- MEASURE
@@ -224,7 +226,9 @@ BEGIN
 					  WHERE sd.BetType = sbm.BetType)
           AND (@excludeDrawTickets = 0 OR (@excludeDrawTickets = 1 AND statusID NOT IN (111))) -- exclude draw tickets if flag is turned on
 	GROUP BY CASE WHEN @isShowSite = 0 THEN NULL ELSE a.SiteID END,
-		     CASE WHEN @isShowSport = 0 THEN NULL ELSE m.SportType END,
+		     CASE WHEN @isShowSport = 0 THEN NULL 
+			 	  WHEN sd.bettype IN (9, 29) THEN -9
+			 	  ELSE m.SportType END,
 			 CASE WHEN @isShowLeague = 0 THEN NULL ELSE m.leagueid END,
 		     CASE WHEN @isShowCust = 0 THEN NULL ELSE sd.custid END
 	OPTION (RECOMPILE)
@@ -273,7 +277,7 @@ BEGIN
 	SELECT cte.SiteID,
 		   si.site SiteName,
 		   cte.SportID,
-		   sp.SportName SportName,
+		   CASE WHEN cte.SportID = -9 THEN 'Parlay' ELSE sp.SportName END SportName,
 		   cte.LeagueID,
 		   l.leaguename LeagueName,
 		   cte.CustID,
