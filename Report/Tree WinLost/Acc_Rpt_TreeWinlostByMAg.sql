@@ -60,6 +60,7 @@ Revisions:
 	20201111@Ned.Le: NAP Report - Hotfix Tree Winloss - Block Replication (#145175)
 	20210409@Jaden.Tang: Exclude lucky draws from bettransLC (#133731)
 	20210520@Jaden:  Support new way to view VR setting (#154903)
+	20210716@Ned.Le: Report get invalid tickets of Maxgame,Sabaclub,Vgaming (HotFix #158536)
 */
 
 BEGIN
@@ -335,7 +336,7 @@ BEGIN
 			  INNER JOIN #tmpBettype AS t ON t.bettype = b.gameID
 			  LEFT JOIN #PrizeBettypeGroup bg ON b.gameID = bg.Bettype
 		 WHERE winlostdate BETWEEN CAST(@FromDate AS SMALLDATETIME) AND CAST(@ToDate AS SMALLDATETIME)
-			  AND b.statusID NOT IN(0, 1, 101, 102, 103)
+			  AND b.statusID IN (111, 112, 113)
 			  AND b.currency <> 20
 			  AND b.mrecommend = @mrecommend
 		 GROUP BY b.recommend
@@ -402,7 +403,7 @@ BEGIN
 			INNER JOIN #tmpBettype AS t ON t.RefTable NOT IN (1, 2) AND t.bettype = b.bettype
 		 WHERE winlostdate BETWEEN CAST(@FromDate AS SMALLDATETIME) AND CAST(@ToDate AS SMALLDATETIME)
 			  AND b.ruben = 1
-			  AND b.statusID NOT IN(101, 102, 103)
+			  AND b.statusID IN (111, 112, 113)
 			  AND b.currency <> 20
 			  AND b.mrecommend = @mrecommend
 			  AND (t.bettype IN (9,29,999)
@@ -464,7 +465,7 @@ BEGIN
 		      INNER JOIN #tmpBettype AS t ON t.bettype = b.gameID
 			  LEFT JOIN #PrizeBettypeGroup bg ON b.gameID = bg.Bettype
 		 WHERE winlostdate BETWEEN CAST(@FromDate AS SMALLDATETIME) AND CAST(@ToDate AS SMALLDATETIME)
-			  AND b.statusID NOT IN(0, 1, 101, 102, 103)
+			  AND b.statusID IN (111, 112, 113)
 			  AND b.currency <> 20
 			  AND b.mrecommend = @mrecommend
 		 GROUP BY b.recommend
