@@ -90,8 +90,9 @@ BEGIN
 	FROM bodb02.dbo.SportBettypeMatrix sbm (NOLOCK)
 	WHERE sbm.ProductID = 1
 		  AND sbm.SubProduct NOT LIKE 'BT%'
-		  AND ((sbm.BetType NOT IN (9, 29, 999) AND @excludeParlay = 1)
+		  AND ((sbm.BetType NOT IN (9, 29) AND @excludeParlay = 1)
 		   OR @excludeParlay = 0)
+		  AND sbm.BetType != 999
 
 	CREATE UNIQUE CLUSTERED INDEX PK_tmpSportBettypeMatrix ON #tmpSportBettypeMatrix(BetType)
 
