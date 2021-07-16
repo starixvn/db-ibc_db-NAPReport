@@ -1236,7 +1236,7 @@ BEGIN
 
 		INSERT INTO @tmpResult_licperf(PartyId,Product3rdId,AliasProductId,GroupMinFeeId,IsPrimaryFee,LicenseeWL,HouseIncome,AComm,LicenseeMinFee,LicenseeFee,Rebate,Discount)
 		SELECT PartyId,Product3rdId,AliasProductId,GroupMinFeeId,IsPrimaryFee,LicenseeWL,HouseIncome,AComm,LicenseeMinFee,LicenseeFee,Rebate,Discount
-		FROM @tmpResult WHERE Product3rdId  = 0 AND AliasProductId = -2 AND LicenseeMinFee = 0 AND LicenseeFee > 0
+		FROM @tmpResult WHERE Product3rdId  = 0 AND AliasProductId = -2 AND ISNULL(LicenseeMinFee,0) = 0 AND LicenseeFee <> 0
 		
 		DECLARE @SBGrossHouseIncome TABLE (Product3rdId	INT, AliasProductId INT, HouseIncome MONEY DEFAULT(0))
 		
