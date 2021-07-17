@@ -303,13 +303,16 @@ BEGIN
 			FROM (SELECT Product3rdId, AliasProductId FROM @Products WHERE SubProductCode = 'PP-JP') p
 				CROSS JOIN (SELECT 4297 AS BetType UNION ALL SELECT 4298) b
 
-		IF EXISTS (SELECT 1 FROM @Products WHERE SubProductCode IN ('SBC-JP', 'VGA-JP'))
+		IF EXISTS (SELECT 1 FROM @Products WHERE SubProductCode = 'SBC-JP')
 		BEGIN
 			INSERT INTO @tmpBetType (Product3rdId, AliasProductId, BetType, BettypeGroup, IsOnlyTO)
 			SELECT p.Product3rdId, p.AliasProductId, b.BetType, -3, 0
 			FROM (SELECT Product3rdId, AliasProductId FROM @Products WHERE SubProductCode = 'SBC-JP') p
 				CROSS JOIN (SELECT 1698 AS BetType UNION ALL SELECT 1699) b
+		END
 
+		IF EXISTS (SELECT 1 FROM @Products WHERE SubProductCode = 'VGA-JP')
+		BEGIN
 			INSERT INTO @tmpBetType (Product3rdId, AliasProductId, BetType, BettypeGroup, IsOnlyTO)
 			SELECT p.Product3rdId, p.AliasProductId, b.BetType, -3, 0
 			FROM (SELECT Product3rdId, AliasProductId FROM @Products WHERE SubProductCode = 'VGA-JP') p
@@ -1202,12 +1205,19 @@ BEGIN
 
 		INSERT INTO #Result (rptDate, Product3rdId, AliasProductId, LicenseeWL_licperf, LicenseeTO_licperf, HouseIncome)
 		SELECT rptDate, Product3rdId, -AliasProductId, JackpotPrize , 0, FullContribution + JackpotPrize FROM #Result 
-		WHERE Product3rdId IN (32,42,66)
+		WHERE Product3rdId IN (32,42,66) AND  rptDate = 'Monthly'
 
 		-- HouseIncome Include LicenseeMinFee,Rebate,Discount without SB
-		UPDATE #Result 
-		SET  HouseIncome = ISNULL(HouseIncome,0) + ISNULL(MinFee,0) + ISNULL(Rebate,0) + ISNULL(Discount,0)
-		WHERE Product3rdId <> 0 AND rptDate = 'Monthly'
+		UPDATE	t
+		SET		t.HouseIncome = ISNULL(t.HouseIncome,0) 
+								+ CASE WHEN rb.AliasProductID IS NOT NULL THEN ISNULL(-t.Rebate,0) ELSE 0 END
+								+ CASE WHEN dc.AliasProductID IS NOT NULL THEN ISNULL(-t.Discount,0) ELSE 0 END
+
+		FROM	#Result t
+		LEFT JOIN bodb_Account.dbo.HNISettings rb WITH (NOLOCK) ON  rb.AliasProductID = t.AliasProductId AND  rb.isDeposit = 1 and rb.LogicCode = 2 AND rb.SubFigure = 'Rebate'
+		LEFT JOIN bodb_Account.dbo.HNISettings dc WITH (NOLOCK) ON  dc.AliasProductID = t.AliasProductId AND  dc.isDeposit = 1 and dc.LogicCode = 2 AND dc.SubFigure = 'Discount'
+		WHERE t.Product3rdId NOT IN (0,32,42,66) AND t.rptDate = 'Monthly'
+
 		-- END
 
 		-- HouseIncome Include LicenseeMinFee,Rebate,Discount calculated in Real Soccer 
