@@ -641,8 +641,7 @@ BEGIN
 										WHEN t.Product3rdId = 15 THEN t.MemberWL
 										WHEN t.Product3rdId IN (25, 37) THEN -t.HouseWL
 										WHEN p.PartyId IS NULL THEN -t.HouseWL
-										WHEN t.SportTypeGroup IN (150, 173) THEN -t.MemberWL + (-(t.FullContribution - t.HouseContribution) - t.OddsSpreadAdj) * ISNULL(lc.Rate, p.Rate)
-											- t.HouseContribution - t.OddsSpreadAdj - CASE WHEN t.Product3rdId = 31 THEN t.Comm ELSE 0 END-- SBC free bets
+										WHEN t.SportTypeGroup IN (150, 173) THEN -t.MemberWL
 										ELSE
 											(- t.MemberWL - (t.FullContribution - t.HouseContribution) - t.OddsSpreadAdj) * ISNULL(lc.Rate, p.Rate)
 											- t.HouseContribution - t.OddsSpreadAdj - CASE WHEN t.Product3rdId = 31 THEN t.Comm ELSE 0 END
@@ -652,8 +651,7 @@ BEGIN
 										WHEN t.Product3rdId = 37 THEN -t.HouseWL
 										WHEN p.PartyId IS NULL THEN 0
 										WHEN t.Product3rdId IN (25) THEN -t.HouseWL
-										WHEN t.SportTypeGroup IN (150, 173) THEN -t.MemberWL + (-(t.FullContribution - t.HouseContribution) - t.OddsSpreadAdj) * ISNULL(lc.Rate, p.Rate)
-											- t.HouseContribution - t.OddsSpreadAdj - CASE WHEN t.Product3rdId = 31 THEN t.Comm ELSE 0 END-- SBC free bets
+										WHEN t.SportTypeGroup IN (150, 173) THEN -t.MemberWL
 										ELSE
 											(- t.MemberWL - (t.FullContribution - t.HouseContribution) - t.OddsSpreadAdj) * ISNULL(lc.Rate, p.Rate)
 											- t.HouseContribution - t.OddsSpreadAdj - CASE WHEN t.Product3rdId = 31 THEN t.Comm ELSE 0 END
@@ -1207,7 +1205,7 @@ BEGIN
 		SELECT rptDate, Product3rdId, -AliasProductId, JackpotPrize , 0, FullContribution + JackpotPrize FROM #Result 
 		WHERE Product3rdId IN (32,42,66) AND  rptDate = 'Monthly'
 
-		-- HouseIncome Include LicenseeMinFee,Rebate,Discount without SB
+		-- HouseIncome Include LicenseeMinFee,Rebate,Discount except SB
 		UPDATE	t
 		SET		t.HouseIncome = ISNULL(t.HouseIncome,0) 
 								+ CASE WHEN rb.AliasProductID IS NOT NULL THEN ISNULL(-t.Rebate,0) ELSE 0 END
@@ -1232,27 +1230,17 @@ BEGIN
 			PartyId			INT
 			,Product3rdId	INT
 			,AliasProductId	INT
-			,GroupMinFeeId	INT
-			,IsPrimaryFee	BIT DEFAULT(0)
-			,HouseTurnover	MONEY DEFAULT(0)
-			,LicenseeWL		MONEY DEFAULT(0)
-			,HouseIncome	MONEY DEFAULT(0)
-			,AComm			MONEY DEFAULT(0)
-			,LicenseeMinFee MONEY DEFAULT(0)
-			,LicenseeFee	MONEY DEFAULT(0)
-			,Rebate			MONEY DEFAULT(0)
-			,Discount		MONEY DEFAULT(0)
 		)
 
-		INSERT INTO @tmpResult_licperf(PartyId,Product3rdId,AliasProductId,GroupMinFeeId,IsPrimaryFee,LicenseeWL,HouseIncome,AComm,LicenseeMinFee,LicenseeFee,Rebate,Discount)
-		SELECT PartyId,Product3rdId,AliasProductId,GroupMinFeeId,IsPrimaryFee,LicenseeWL,HouseIncome,AComm,LicenseeMinFee,LicenseeFee,Rebate,Discount
-		FROM @tmpResult WHERE Product3rdId  = 0 AND AliasProductId = -2 AND ISNULL(LicenseeMinFee,0) = 0 AND LicenseeFee <> 0
+		INSERT INTO @tmpResult_licperf(PartyId,Product3rdId,AliasProductId)
+		SELECT PartyId,Product3rdId,AliasProductId
+		FROM @tmpResult WHERE Product3rdId  = 0 AND AliasProductId = -2 AND ISNULL(LicenseeMinFee,0) = 0 AND ISNULL(LicenseeFee,0) <> 0
 		
 		DECLARE @SBGrossHouseIncome TABLE (Product3rdId	INT, AliasProductId INT, HouseIncome MONEY DEFAULT(0))
 		
 		;WITH t AS
 		(
-			SELECT PartyId, Product3rdId, AliasProductId, HouseIncomeMonth FROM #__tempResult WHERE Product3rdId IN (0,3)
+			SELECT PartyId, Product3rdId, AliasProductId, HouseIncomeMonth FROM #__tempResult WHERE Product3rdId = 0
 		)INSERT INTO @SBGrossHouseIncome (Product3rdId, AliasProductId, HouseIncome)
 		SELECT  t.Product3rdId, t.AliasProductId, SUM(t.HouseIncomeMonth)
 		FROM	t 
