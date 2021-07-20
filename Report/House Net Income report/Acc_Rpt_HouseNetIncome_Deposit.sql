@@ -957,7 +957,7 @@ BEGIN
 			IsChargedByMinFee , 
 			IsChargedByGroupMinFee 
 		)
-		EXEC bodb_licensee.dbo.LA_AmountToCompanyByDiscountCurrencySel
+		EXEC DBLIC.bodb_licensee.dbo.LA_AmountToCompanyByDiscountCurrencySel
 			@FromDate			= @FDate,
 			@ToDate				= @TDate,
 			@PartyIds			= @Discount_PartyIds,
