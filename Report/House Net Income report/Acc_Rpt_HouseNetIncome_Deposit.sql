@@ -768,20 +768,37 @@ BEGIN
 		WHERE FeeTypeId IN (1, 2)
 			AND FromDate <= @LastDate AND ToDate >= @FirstDate
 
-		DECLARE @GroupMinFeeSetting TABLE (PartyId INT, GroupMinFeeId SMALLINT, IsPrimary BIT)
-		SELECT @SQL = '	SELECT PartyId, GroupMinFeeId, IsPrimary
-						FROM OPENQUERY (DBLIC, ''	SELECT TOP (1) WITH TIES a.PartyId, h.GroupMinFeeId, a.IsPrimary
+		DECLARE @GroupMinFeeSetting TABLE (PartyId INT, GroupMinFeeId SMALLINT, IsPrimary BIT, Product3rdId	INT, CurrencyId INT, FromDate DATE, ToDate DATE)
+		SELECT @SQL = '	SELECT PartyId, GroupMinFeeId, IsPrimary, ProductId, CurrencyId, FromDate, ToDate
+						FROM OPENQUERY (DBLIC, ''	SELECT TOP (1) WITH TIES a.PartyId, 
+																				h.GroupMinFeeId, 
+																				a.IsPrimary, 
+																				d.ProductId, 
+																				d.CurrencyId,
+																				CASE WHEN ''''' + @f_date + ''''' > h.FromDate THEN ''''' + @f_date + ''''' ELSE h.FromDate END AS FromDate,
+																				CASE WHEN ''''' + @t_date + ''''' < h.ToDate   THEN ''''' + @t_date + ''''' ELSE h.ToDate END AS ToDate
 													FROM bodb_Licensee.dbo.LA_GroupMinFeeAssignment a WITH (NOLOCK)
 														INNER JOIN bodb_Licensee.dbo.LA_GroupMinFeeHeader h WITH (NOLOCK) ON a.GroupMinFeeId = h.GroupMinFeeId
+														INNER JOIN bodb_Licensee.dbo.LA_GroupMinFeeDetail d WITH (NOLOCK) ON a.GroupMinFeeId = d.GroupMinFeeId
 													WHERE ''''' + @f_date + ''''' BETWEEN h.FromDate AND h.ToDate
-													ORDER BY ROW_NUMBER() OVER(PARTITION BY a.PartyID ORDER BY h.ToDate DESC)'')'
-		INSERT INTO @GroupMinFeeSetting (PartyId, GroupMinFeeId, IsPrimary)
+													ORDER BY ROW_NUMBER() OVER(PARTITION BY a.PartyID, d.ProductId ORDER BY h.ToDate DESC)'')'
+		INSERT INTO @GroupMinFeeSetting (PartyId, GroupMinFeeId, IsPrimary, Product3rdId, CurrencyId, FromDate, ToDate)
 		EXEC (@SQL)
+
+
 
 		UPDATE m
 		SET m.GroupMinFeeId = g.GroupMinFeeId, m.IsPrimary = g.IsPrimary, m.IndividualMinFee = 0
 		FROM @MinFee m
 			INNER JOIN @GroupMinFeeSetting g ON m.PartyId = g.PartyId
+
+		--GET more group Minfee
+		INSERT INTO @MinFee(FeeTypeId,GroupMinFeeId,PartyId,Product3rdId,IsPrimary,CurrencyId,IndividualMinFee,FromDate,ToDate)
+		SELECT 1, g.GroupMinFeeId, g.PartyId, g.Product3rdId, g.IsPrimary, g.CurrencyId , 0, g.FromDate, g.ToDate
+		FROM	@GroupMinFeeSetting g
+			LEFT JOIN @MinFee m ON g.PartyId = m.PartyId
+		WHERE m.PartyId IS NULL
+
 
 		UPDATE m
 		SET m.IndividualMinFee = m.IndividualMinFee * e.Rate
@@ -919,47 +936,38 @@ BEGIN
 		;WITH CTE_ProductCode AS (SELECT DISTINCT ProductCode FROM @DiscountGroup)
 		SELECT @Discount_ProductCodes = COALESCE(@Discount_ProductCodes + ',', '') + ProductCode FROM CTE_ProductCode
 
+
+		DECLARE @BaseCurrencyId INT
+		SELECT @BaseCurrencyId = ExchangeId FROM bodb02.dbo.Exchange WITH(NOLOCK) WHERE code = @BaseCurrencyName
+
 		DECLARE @DiscountData TABLE
-		(
-			PartyId				INT
-			,Product3rdId		INT
-			,Winloss			MONEY
-			,Fee				MONEY
-			,NegativeFee		MONEY
-			,Minfee				MONEY
-			,IsChargedByMinFee	BIT
-			,Discount			MONEY
-			,DiscountRate		MONEY
-			,DiscountRemark		NVARCHAR(MAX)
-			,Rebate				MONEY
-			,RebateRate			MONEY
-			,RebateRemark		VARCHAR(MAX)
-
+		(	
+			PartyId			INT, 
+			Product3rdId	INT, 
+			Fee				MONEY,
+			Discount		MONEY, 
+			Rebate			MONEY, 
+			IsChargedByMinFee BIT, 
+			IsChargedByGroupMinFee BIT
+		
 		)
-
-		INSERT INTO @DiscountData
-		(
-			PartyId
-			,Product3rdId
-			,Winloss
-			,Fee
-			,NegativeFee
-			,Minfee
-			,IsChargedByMinFee
-			,Discount
-			,DiscountRate
-			,DiscountRemark
-			,Rebate
-			,RebateRate
-			,RebateRemark
+		INSERT INTO @DiscountData (
+			PartyId			, 
+			Product3rdId	, 
+			Fee				,
+			Discount		, 
+			Rebate			, 
+			IsChargedByMinFee , 
+			IsChargedByGroupMinFee 
 		)
-		EXEC DBLIC.bodb_licensee.dbo.LA_AmountToCompanySel
-			@FromDate		= @FDate
-			,@ToDate		= @TDate
-			,@PartyIds		= @Discount_PartyIds
-			,@ProductCodes	= @Discount_ProductCodes
-			,@BaseCurrency	= @BaseCurrencyName
-			,@CurrencyId	= 0
+		EXEC bodb_licensee.dbo.LA_AmountToCompanyByDiscountCurrencySel
+			@FromDate			= @FDate,
+			@ToDate				= @TDate,
+			@PartyIds			= @Discount_PartyIds,
+			@ProductCodes		= @Discount_ProductCodes,
+			@BaseCurrencyName	= @BaseCurrencyName,
+			@BaseCurrencyId		= @BaseCurrencyId,
+			@CurrencyId			= 0
 
 		DECLARE @tmpResult TABLE
 		(
