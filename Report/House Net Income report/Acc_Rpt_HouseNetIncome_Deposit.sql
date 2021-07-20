@@ -785,8 +785,6 @@ BEGIN
 		INSERT INTO @GroupMinFeeSetting (PartyId, GroupMinFeeId, IsPrimary, Product3rdId, CurrencyId, FromDate, ToDate)
 		EXEC (@SQL)
 
-
-
 		UPDATE m
 		SET m.GroupMinFeeId = g.GroupMinFeeId, m.IsPrimary = g.IsPrimary, m.IndividualMinFee = 0
 		FROM @MinFee m
@@ -798,7 +796,6 @@ BEGIN
 		FROM	@GroupMinFeeSetting g
 			LEFT JOIN @MinFee m ON g.PartyId = m.PartyId
 		WHERE m.PartyId IS NULL
-
 
 		UPDATE m
 		SET m.IndividualMinFee = m.IndividualMinFee * e.Rate
