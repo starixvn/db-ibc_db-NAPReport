@@ -287,20 +287,34 @@ BEGIN
 			AND FromDate <= @LastDate AND ToDate >= @FirstDate
 			AND ProductId = 0
 
-		DECLARE @GroupMinFeeSetting TABLE (PartyId INT, GroupMinFeeId SMALLINT, IsPrimary BIT)
-		SELECT @SQL = '	SELECT PartyId, GroupMinFeeId, IsPrimary
-						FROM OPENQUERY (DBLIC, ''	SELECT TOP (1) WITH TIES a.PartyId, h.GroupMinFeeId, a.IsPrimary
+		DECLARE @GroupMinFeeSetting TABLE (PartyId INT, GroupMinFeeId SMALLINT, IsPrimary BIT, Product3rdId	INT, CurrencyId INT, FromDate DATE, ToDate DATE)
+		SELECT @SQL = '	SELECT PartyId, GroupMinFeeId, IsPrimary, ProductId, CurrencyId, FromDate, ToDate
+						FROM OPENQUERY (DBLIC, ''	SELECT TOP (1) WITH TIES a.PartyId, 
+																				h.GroupMinFeeId, 
+																				a.IsPrimary, 
+																				d.ProductId, 
+																				d.CurrencyId,
+																				CASE WHEN ''''' + @f_date + ''''' > h.FromDate THEN ''''' + @f_date + ''''' ELSE h.FromDate END AS FromDate,
+																				CASE WHEN ''''' + @t_date + ''''' < h.ToDate   THEN ''''' + @t_date + ''''' ELSE h.ToDate END AS ToDate
 													FROM bodb_Licensee.dbo.LA_GroupMinFeeAssignment a WITH (NOLOCK)
 														INNER JOIN bodb_Licensee.dbo.LA_GroupMinFeeHeader h WITH (NOLOCK) ON a.GroupMinFeeId = h.GroupMinFeeId
+														INNER JOIN bodb_Licensee.dbo.LA_GroupMinFeeDetail d WITH (NOLOCK) ON a.GroupMinFeeId = d.GroupMinFeeId
 													WHERE ''''' + @f_date + ''''' BETWEEN h.FromDate AND h.ToDate
-													ORDER BY ROW_NUMBER() OVER(PARTITION BY a.PartyID ORDER BY h.ToDate DESC)'')'
-		INSERT INTO @GroupMinFeeSetting (PartyId, GroupMinFeeId, IsPrimary)
+													ORDER BY ROW_NUMBER() OVER(PARTITION BY a.PartyID, d.ProductId ORDER BY h.ToDate DESC)'')'
+		INSERT INTO @GroupMinFeeSetting (PartyId, GroupMinFeeId, IsPrimary, Product3rdId, CurrencyId, FromDate, ToDate)
 		EXEC (@SQL)
 
 		UPDATE m
 		SET m.GroupMinFeeId = g.GroupMinFeeId, m.IsPrimary = g.IsPrimary, m.IndividualMinFee_e = 0, m.IndividualMinFee_oa = 0
 		FROM @MinFee m
 			INNER JOIN @GroupMinFeeSetting g ON m.PartyId = g.PartyId
+
+		--GET more group Minfee
+		INSERT INTO @MinFee(FeeTypeId,GroupMinFeeId,PartyId,IsPrimary,CurrencyId,IndividualMinFee_e,IndividualMinFee_oa,FromDate,ToDate)
+		SELECT 1, g.GroupMinFeeId, g.PartyId, g.IsPrimary, g.CurrencyId , 0, 0,g.FromDate, g.ToDate
+		FROM	@GroupMinFeeSetting g
+			LEFT JOIN @MinFee m ON g.PartyId = m.PartyId
+		WHERE m.PartyId IS NULL
 
 		UPDATE m
 		SET m.IndividualMinFee_e = m.IndividualMinFee_e * e.Rate, m.IndividualMinFee_oa = m.IndividualMinFee_oa * oa.Rate
@@ -490,7 +504,6 @@ BEGIN
 			,Rebate				MONEY
 			,RebateRate			MONEY
 			,RebateRemark		VARCHAR(MAX)
-
 		)
 		INSERT INTO @DiscountData
 		(
@@ -515,6 +528,8 @@ BEGIN
 			,@ProductCodes	= 'SB'
 			,@BaseCurrency	= 'MYR'
 			,@CurrencyId	= 0
+
+
 
 		DECLARE @tmpResult TABLE
 		(
