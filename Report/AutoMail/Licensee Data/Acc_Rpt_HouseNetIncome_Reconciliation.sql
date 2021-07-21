@@ -12,8 +12,8 @@ AS
 	Revisions:
 		- 20210129@Percy: Initiliaze SP [RedmineID: #148805]
 		- 20210708@Danny: Handle JV parties (#158191)
+		- 20210706@Danny: Change HouseIncome calculation formula (#157953)
 */
-
 BEGIN
 	SET NOCOUNT ON
 
@@ -217,12 +217,12 @@ BEGIN
 			,AgentWL_e		= SUM(t.AgentWL * e.Rate)
 			,AgentComm_e	= SUM(t.AgentComm * e.Rate)
 			,HouseWL_e		= SUM(-(t.MemberWL + t.AgentWL + t.AgentComm) * e.Rate)
-			,HouseIncome_e	= SUM(((- t.MemberWL - t.OddsSpreadAdj) * ISNULL(lc.Rate, p.Rate) - t.OddsSpreadAdj) * e.Rate)
+			,HouseIncome_e	= SUM(((- t.MemberWL) * ISNULL(lc.Rate, p.Rate) - t.OddsSpreadAdj) * e.Rate)
 			,MemberWL_oa	= SUM(t.MemberWL * oa.Rate)
 			,AgentWL_oa		= SUM(t.AgentWL * oa.Rate)
 			,AgentComm_oa	= SUM(t.AgentComm * oa.Rate)
 			,HouseWL_oa		= SUM(-(t.MemberWL + t.AgentWL + t.AgentComm) * oa.Rate)
-			,HouseIncome_oa = SUM(((- t.MemberWL - t.OddsSpreadAdj) * ISNULL(lc.Rate, p.Rate) - t.OddsSpreadAdj) * oa.Rate)
+			,HouseIncome_oa = SUM(((- t.MemberWL) * ISNULL(lc.Rate, p.Rate) - t.OddsSpreadAdj) * oa.Rate)
 		FROM #__tempData t
 			INNER JOIN #AllLicensees l ON t.SiteId_DW = l.SiteId_DW
 			INNER JOIN #PartyChargeInfo p ON p.PartyId = l.PartyId AND t.rptDate BETWEEN p.FromDate AND p.ToDate
