@@ -142,7 +142,7 @@ BEGIN
 			INNER JOIN #tmpcustInfo ci ON ci.custid = c.custid
 			LEFT JOIN bodb02.dbo.custAccount ca WITH(NOLOCK) ON ca.custid = c.custid				
 			INNER JOIN bodb02.dbo.exchange e WITH(NOLOCK) ON c.currency = e.exchangeid
-			LEFT JOIN #tmpcustInfo cr ON cr.custid = c.creator
+			LEFT JOIN bodb02.dbo.custInfo cr ON cr.custid = c.creator
 		WHERE  c.creatdate BETWEEN @fromdate AND @todate			
 				AND c.site IN (SELECT sitename FROM #site)
 				AND c.roleid = CASE WHEN @roleid = 0 THEN c.roleid ELSE @roleid END
@@ -161,7 +161,7 @@ BEGIN
 					t.creatdate, t.creator, ROW_NUMBER() OVER (ORDER BY ISNULL(c.username,'N/A') , t.date ) AS rownumber 
 			FROM #result t
 				LEFT JOIN bodb02.dbo.custAccount ca WITH(NOLOCK) ON ca.groupID = t.groupID AND ca.isGroupHeadline = 1
-				LEFT JOIN #tmpcustInfo c ON c.custid = ca.custid
+				LEFT JOIN bodb02.dbo.custInfo c ON c.custid = ca.custid
 		)			
 		SELECT	rs.date, 
 				rs.groupHeadline,
@@ -324,7 +324,7 @@ BEGIN
 			INNER JOIN bodb02.dbo.customer c WITH(NOLOCK) ON rs.custid = c.custid 
 			LEFT JOIN bodb02.dbo.custAccount ca WITH(NOLOCK) ON ca.custid = c.custid				
 			INNER JOIN bodb02.dbo.exchange e WITH(NOLOCK) ON c.currency = e.exchangeid
-			LEFT JOIN #tmpcustInfo cr ON cr.custid = c.creator
+			LEFT JOIN bodb02.dbo.custInfo cr ON cr.custid = c.creator
 		WHERE rs.closed = 1		
 	END
 	
@@ -389,7 +389,7 @@ BEGIN
 			INNER JOIN bodb02.dbo.customer c WITH(NOLOCK) ON rs.custid = c.custid 
 			LEFT JOIN bodb02.dbo.custAccount ca WITH(NOLOCK) ON ca.custid = rs.custid				
 			INNER JOIN bodb02.dbo.exchange e WITH(NOLOCK) ON c.currency = e.exchangeid
-			LEFT JOIN #tmpcustInfo cr ON cr.custid = c.creator
+			LEFT JOIN bodb02.dbo.custInfo cr ON cr.custid = c.creator
 		WHERE rs.reject = 1
 	END
 	
@@ -410,7 +410,7 @@ BEGIN
 		FROM #result t
 			inner join #tmpcustInfo ci on t.username = ci.username
 			LEFT JOIN bodb02.dbo.custAccount ca WITH(NOLOCK) ON ca.groupID = t.groupID AND ca.isGroupHeadline = 1
-			LEFT JOIN #tmpcustInfo c ON c.custid = ca.custid
+			LEFT JOIN bodb02.dbo.custInfo c ON c.custid = ca.custid
 
 	)			
 	SELECT	rs.date, 
