@@ -58,8 +58,8 @@ BEGIN
 	       ci.currency,
 		   ci.roleid,
 		   ci.srecommend,
-		   ci.reject,
-		   ci.closed,
+		   ISNULL(ci.reject, 0) reject,
+		   ISNULL(ci.closed, 0) closed,
 		   ci.Enabled
 	FROM bodb02.dbo.custInfo ci (NOLOCK)
 	WHERE roleid IN (2, 3, 4)

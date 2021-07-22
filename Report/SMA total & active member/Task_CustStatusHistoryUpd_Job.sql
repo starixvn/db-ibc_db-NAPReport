@@ -44,8 +44,8 @@ BEGIN
 	       ci.currency,
 		   ci.roleid,
 		   ci.srecommend,
-		   ci.reject,
-		   ci.closed,
+		   ISNULL(ci.reject, 0) reject,
+		   ISNULL(ci.closed, 0) closed,
 		   ci.Enabled
 	FROM bodb02.dbo.custInfo ci (NOLOCK)
 	WHERE roleid IN (2, 3, 4)
@@ -112,7 +112,7 @@ BEGIN
 			closed  = @onDay*c.closed,
 			enabled = @onDay*c.enabled
 		FROM CustStatusHistory csh 
-			INNER JOIN #tmpcustInfo c ON csh.custid = c.custid		
+			 INNER JOIN #tmpcustInfo c ON csh.custid = c.custid		
 	END
 	ELSE	-- set yesterday status
 	BEGIN
@@ -121,7 +121,7 @@ BEGIN
 			closed  = csh.closed | @onDay*c.closed,
 			enabled = csh.enabled | @onDay*c.enabled
 		FROM CustStatusHistory csh 
-			INNER JOIN #tmpcustInfo c ON csh.custid = c.custid
+			 INNER JOIN #tmpcustInfo c ON csh.custid = c.custid
 	END	
 
 	-- DROP temp table
