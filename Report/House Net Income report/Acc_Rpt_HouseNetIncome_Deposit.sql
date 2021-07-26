@@ -653,7 +653,7 @@ BEGIN
 										WHEN t.Product3rdId IN (25) THEN -t.HouseWL
 										WHEN t.SportTypeGroup IN (150, 173) THEN -t.MemberWL
 										ELSE
-											(- t.MemberWL - (t.FullContribution - t.HouseContribution)) * ISNULL(lc.Rate, p.Rate)
+											CASE WHEN t.Product3rdId IN (42,66,32) AND (- t.MemberWL - (t.FullContribution - t.HouseContribution)) < 0 THEN 0 ELSE  (- t.MemberWL - (t.FullContribution - t.HouseContribution)) END * ISNULL(lc.Rate, p.Rate)
 											- t.HouseContribution - t.OddsSpreadAdj - CASE WHEN t.Product3rdId = 31 THEN t.Comm ELSE 0 END
 										END * e.Rate)
 			 ---- Licensee performance
@@ -1071,13 +1071,13 @@ BEGIN
 		UPDATE r
 		SET r.HouseIncome = CASE WHEN r.HouseIncome > 0 THEN r.HouseIncome ELSE 0 END
 			,r.LicenseeFee = CASE
-						WHEN r.Product3rdId IN (3,25,31) THEN LicenseeFee
+						WHEN r.Product3rdId IN (3,25,31,32,42,66) THEN LicenseeFee
 						--WHEN r.Product3rdId IN (42, 66) THEN CASE WHEN r.LicenseeWL > 0 THEN r.LicenseeFee ELSE 0 END
 						WHEN r.LicenseeFee > 0 THEN r.LicenseeFee ELSE 0 END
 		FROM @tmpResult r
 		WHERE r.Product3rdId <> 2
 			AND (
-				r.Product3rdId IN (3,25,31) -- BA, Cashout
+				r.Product3rdId IN (3,25,31,32,42,66) -- BA, Cashout
 				OR r.PartyId NOT IN (SELECT p.PartyId FROM @9wLicenseeList p)
 			)
 
