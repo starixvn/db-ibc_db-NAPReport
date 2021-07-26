@@ -1050,6 +1050,14 @@ BEGIN
 		WHERE s.GroupMinFeeId > 0
 			AND (g.LicenseeFee - g.Discount) < g.GroupMinFee
 			AND s.IsPrimaryFee = 1
+		
+
+		/*
+			GET 9w licensee list
+		*/
+		DECLARE @9wLicenseeList TABLE (PartyId INT)
+		INSERT INTO @9wLicenseeList (PartyId)
+		SELECT PartyId FROM OPENQUERY(DBLIC, 'SELECT PartyId FROM bodb_licensee.dbo.LA_f_JVPartyListSel()')
 
 		-- Check LicenseeWL > 0
 			-- NG include all sports as H5, H5LG
@@ -1058,20 +1066,13 @@ BEGIN
 			SET t.LicenseeFee = 0
 			FROM @tmpResult t
 				INNER JOIN (SELECT PartyId FROM @tmpResult WHERE Product3rdId = 2 GROUP BY PartyId HAVING SUM(LicenseeFee) < 0) r ON t.PartyId = r.PartyId
-			WHERE t.Product3rdId = 2
+			WHERE t.Product3rdId = 2 AND  t.PartyId NOT IN (SELECT p.PartyId FROM @9wLicenseeList p)
 
-		/*
-			GET 9w licensee list
-		*/
-		DECLARE @9wLicenseeList TABLE (PartyId INT)
-		INSERT INTO @9wLicenseeList (PartyId)
-		SELECT PartyId FROM OPENQUERY(DBLIC, 'SELECT PartyId FROM bodb_licensee.dbo.LA_f_JVPartyListSel()')
-		
 		UPDATE r
 		SET r.HouseIncome = CASE WHEN r.HouseIncome > 0 THEN r.HouseIncome ELSE 0 END
 			,r.LicenseeFee = CASE
 						WHEN r.Product3rdId IN (3,25,31) THEN LicenseeFee
-						WHEN r.Product3rdId IN (42, 66) THEN CASE WHEN r.LicenseeWL > 0 THEN r.LicenseeFee ELSE 0 END
+						--WHEN r.Product3rdId IN (42, 66) THEN CASE WHEN r.LicenseeWL > 0 THEN r.LicenseeFee ELSE 0 END
 						WHEN r.LicenseeFee > 0 THEN r.LicenseeFee ELSE 0 END
 		FROM @tmpResult r
 		WHERE r.Product3rdId <> 2
