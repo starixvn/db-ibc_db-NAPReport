@@ -538,8 +538,8 @@ BEGIN
 			   hni.ProductShortName,
 			   hni.Figure,
 			   hni.SubFigure,
-			   CASE WHEN hni.Figure = 'Credit House Income' THEN CASE WHEN bg2.BettypeGroupID = 14 THEN -SUM(b.MemberWL)
-			                                                          ELSE -SUM(b.HouseWL) END
+			   CASE WHEN hni.Figure = 'Credit House Income' THEN SUM(CASE WHEN bg2.BettypeGroupID = 14 THEN -(b.MemberWL)
+			                                                                   ELSE -(b.HouseWL) END)
 					WHEN hni.Figure = 'House Turnover' THEN SUM(b.HouseTO)
 					WHEN hni.Figure = 'Extra PT' THEN SUM(b.ExtraPT)
 					WHEN hni.Figure = 'Pay to Supplier' THEN CASE WHEN hni.ProductShortName = 'Arcadia' THEN SUM(b.MemberWLOANDA * (CASE WHEN bg2.BettypeGroupID = 14 THEN 1
