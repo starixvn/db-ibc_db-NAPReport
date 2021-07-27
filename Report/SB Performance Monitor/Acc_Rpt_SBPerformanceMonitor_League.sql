@@ -221,14 +221,14 @@ BEGIN
                                             ELSE 1
                                        END
 
-    CREATE TABLE #tmpFinal (ID               INT,
-                            Name             VARCHAR(5000),
-                            [No.Matches]     INT,
-                            [Bet Count]      INT,
-                            [Active Members] INT,
-                            [Real Income]    DECIMAL(19, 4),
-                            [Real Turnover]  DECIMAL(19, 4),
-                            [Margin]         DECIMAL(19, 4))
+    CREATE TABLE #tmpFinal (ID              INT,
+                            Name            VARCHAR(5000),
+                            [NoMatches]     INT,
+                            [BetCount]      INT,
+                            [ActiveMembers] INT,
+                            [RealIncome]    DECIMAL(19, 4),
+                            [RealTurnover]  DECIMAL(19, 4),
+                            [Margin]        DECIMAL(19, 4))
     
     ;WITH CTE_Extra AS (
         SELECT s.SiteID, 
@@ -333,7 +333,7 @@ BEGIN
     SET @SQL = 'SELECT ID, ' +
                     'Name AS ' + CASE WHEN @bettype IS NOT NULL                           THEN '[Username]'     
                                       WHEN @liveIndicator IS NOT NULL            
-                                       AND @matchID IS NOT NULL                           THEN '[Bet Type]'      
+                                       AND @matchID IS NOT NULL                           THEN '[BetType]'      
                                       WHEN @liveIndicator IS NOT NULL            
                                        AND @matchID IS NULL                               THEN '[Match]'      
                                       WHEN @liveIndicator IS NULL 
@@ -345,11 +345,11 @@ BEGIN
                                                 END
                                       WHEN @siteID IS NULL                                THEN '[Site]'       
                                  END + ',' +
-                    CASE WHEN @siteID IS NULL THEN '[No.Matches], ' ELSE '' END + 
-                    '[Bet Count], ' +
-                    '[Active Members], ' +
-                    '[Real Income], ' +
-                    '[Real Turnover], ' +
+                    CASE WHEN @siteID IS NULL THEN '[NoMatches], ' ELSE '' END + 
+                    '[BetCount], ' +
+                    '[ActiveMembers], ' +
+                    '[RealIncome], ' +
+                    '[RealTurnover], ' +
                     '[Margin] ' +
         'FROM #tmpFinal'
     -- PRINT @SQL

@@ -218,15 +218,15 @@ BEGIN
         OPTION (RECOMPILE)
     END
 
-    CREATE TABLE #tmpFinal (ID               INT,
-                            Name             VARCHAR(5000),
-                            [No.Matches]     INT,
-                            [No.Bet Types]   INT,
-                            [Bet Count]      INT,
-                            [Active Members] INT,
-                            [Real Income]    DECIMAL(19, 4),
-                            [Real Turnover]  DECIMAL(19, 4),
-                            [Margin]         DECIMAL(19, 4))
+    CREATE TABLE #tmpFinal (ID              INT,
+                            Name            VARCHAR(5000),
+                            [NoMatches]     INT,
+                            [NoBetTypes]    INT,
+                            [BetCount]      INT,
+                            [ActiveMembers] INT,
+                            [RealIncome]    DECIMAL(19, 4),
+                            [RealTurnover]  DECIMAL(19, 4),
+                            [Margin]        DECIMAL(19, 4))
     
     ;WITH CTE_Extra AS (
         SELECT s.SiteID,
@@ -314,23 +314,23 @@ BEGIN
     -- Dynamic query to display additional column aliases for report view by live indicator (level 3)
     DECLARE @SQL VARCHAR(MAX)
     SET @SQL = 'SELECT ID, ' +
-                    'Name AS ' + CASE WHEN @matchID IS NOT NULL       THEN '[Bet Type] '       -- level 5
+                    'Name AS ' + CASE WHEN @matchID IS NOT NULL       THEN '[BetType] '       -- level 5
                                       WHEN @liveIndicator IS NOT NULL THEN
                                            CASE @showBy
                                            WHEN 'Match'               THEN '[Match] '          -- level 4
-                                           ELSE                            '[Bet Type] '       -- level 4
+                                           ELSE                            '[BetType] '       -- level 4
                                            END
                                       WHEN @leagueID IS NOT NULL      THEN '[Event] '          -- level 3
                                       WHEN @siteID IS NOT NULL        THEN '[League] '         -- level 2
                                       WHEN @siteID IS NULL            THEN '[Site] '          -- level 1
                                       ELSE ''
                                  END + ',' +
-                    CASE WHEN @leagueID IS NOT NULL AND @liveIndicator IS NULL THEN '[No.Matches], ' ELSE '' END + 
-                    CASE WHEN @leagueID IS NOT NULL AND @liveIndicator IS NULL THEN '[No.Bet Types], ' ELSE '' END + 
-                    '[Bet Count], ' +
-                    '[Active Members], ' +
-                    '[Real Income], ' +
-                    '[Real Turnover], ' +
+                    CASE WHEN @leagueID IS NOT NULL AND @liveIndicator IS NULL THEN '[NoMatches], ' ELSE '' END + 
+                    CASE WHEN @leagueID IS NOT NULL AND @liveIndicator IS NULL THEN '[NoBetTypes], ' ELSE '' END + 
+                    '[BetCount], ' +
+                    '[ActiveMembers], ' +
+                    '[RealIncome], ' +
+                    '[RealTurnover], ' +
                     '[Margin] ' +
         'FROM #tmpFinal ' + 
         'ORDER BY [Margin]'
