@@ -470,7 +470,7 @@ BEGIN
 						WHEN wl.MemberWLRate > (ci.MaxAmount * ex.Rate) THEN (ci.MaxAmount - ci.MinAmount) * ex.Rate
 						ELSE wl.MemberWLRate - (ci.MinAmount * ex.Rate) END
 				ELSE 0 END
-			) * ci.Rate) AS PayToSupplier, wl.BonusRate
+			) * ci.Rate) AS PayToSupplier, SUM(wl.BonusRate) AS BonusRate
 		FROM
 		(
 			SELECT Product3rdId, IsDeposit, SUM(MemberWLMonthRate) AS MemberWLRate, SUM(BonusRate) AS BonusRate
