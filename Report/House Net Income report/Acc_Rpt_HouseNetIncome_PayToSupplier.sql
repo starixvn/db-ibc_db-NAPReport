@@ -292,7 +292,7 @@ BEGIN
 		INSERT INTO #__Bettype (Product3rdId, ProductCode, BetType)
 		SELECT DISTINCT p.Product3rdId, p.ProductCode, s.BetType FROM bodb02.dbo.SportBettypeMatrix s WITH (NOLOCK)
 			INNER JOIN @Products p ON s.ProductId = p.ProductId AND p.Product3rdId <> 0
-		--WHERE s.BetType NOT IN (4298, 4299, 4300, 3150) -- Remove for implement bonus amount
+		WHERE s.BetType NOT IN (4298) -- Remove for implement bonus amount  4299, 4300, 3150
 
 		-- Use Valid Bet Amount
 		CREATE TABLE #__ValidBetRate (IsDeposit BIT, Product3rdId INT, FromDate DATE, ToDate DATE, CommRate FLOAT)
@@ -409,13 +409,13 @@ BEGIN
 
 			INSERT INTO #__tempResult (rptDate, ParentId, IsDeposit, Product3rdId, Bettype, CurrencyId, PlayCurrency, PayDaily, PayDailyRate, PayMonth, PayMonthRate, MemberWLDailyRate, MemberWLMonthRate, BonusRate)
 			SELECT d.rptDate, tp.ParentId, tp.IsDeposit, bt.Product3rdId, CASE WHEN d.BetTypeId = 3007 THEN 3007 ELSE 0 END, d.CurrencyId, ISNULL(pc.PlayCurrency, d.CurrencyId) AS PlayCurrency
-				,SUM(CASE WHEN d.BetTypeId NOT IN (4298, 4299, 4300, 3150) THEN (CASE WHEN d.BetTypeId = 4297 THEN d.ProgressiveContribution ELSE d.Winloss END + ISNULL(d.ValidBetAmount * v.CommRate, 0)) * ISNULL(ISNULL(p3.Rate, vs.ChargeRate3rd), 0) ELSE 0 END) AS PayDaily
-				,SUM(CASE WHEN d.BetTypeId NOT IN (4298, 4299, 4300, 3150) THEN (CASE WHEN d.BetTypeId = 4297 THEN d.ProgressiveContribution ELSE d.Winloss END + ISNULL(d.ValidBetAmount * v.CommRate, 0)) * e.Rate * ISNULL(ISNULL(p3.Rate, vs.ChargeRate3rd), 0) ELSE 0 END) AS PayDailyRate
-				,SUM(CASE WHEN d.BetTypeId NOT IN (4298, 4299, 4300, 3150) THEN (CASE WHEN d.BetTypeId = 4297 THEN d.ProgressiveContribution ELSE d.Winloss END + ISNULL(d.ValidBetAmount * v.CommRate, 0)) * CASE WHEN p.LicenseeId IS NULL OR p3.LicenseeId IS NULL THEN 0 ELSE p3.Rate END ELSE 0 END) AS PayMonth
-				,SUM(CASE WHEN d.BetTypeId NOT IN (4298, 4299, 4300, 3150) THEN (CASE WHEN d.BetTypeId = 4297 THEN d.ProgressiveContribution ELSE d.Winloss END + ISNULL(d.ValidBetAmount * v.CommRate, 0)) * e.Rate * CASE WHEN p.LicenseeId IS NULL OR p3.LicenseeId IS NULL THEN 0 ELSE p3.Rate END  ELSE 0 END) AS PayMonthRate
-				,SUM(CASE WHEN d.BetTypeId NOT IN (4298, 4299, 4300, 3150) THEN CASE WHEN d.BetTypeId = 4297 THEN d.ProgressiveContribution ELSE d.Winloss END * e.Rate ELSE 0 END) AS MemberWLDailyRate
-				,SUM(CASE WHEN d.BetTypeId NOT IN (4298, 4299, 4300, 3150) THEN CASE WHEN d.BetTypeId = 4297 THEN d.ProgressiveContribution ELSE d.Winloss END * e.Rate * CASE WHEN p.LicenseeId IS NULL THEN 0.0 ELSE 1.0 END ELSE 0 END) AS MemberWLMonthRate
-				,SUM(CASE WHEN  d.BetTypeId  IN (4298, 4299, 4300, 3150) THEN d.Winloss * e.Rate ELSE 0 END) AS BonusRate
+				,SUM(CASE WHEN d.BetTypeId NOT IN ( 4299, 4300, 3150) THEN (CASE WHEN d.BetTypeId = 4297 THEN d.ProgressiveContribution ELSE d.Winloss END + ISNULL(d.ValidBetAmount * v.CommRate, 0)) * ISNULL(ISNULL(p3.Rate, vs.ChargeRate3rd), 0) ELSE 0 END) AS PayDaily
+				,SUM(CASE WHEN d.BetTypeId NOT IN ( 4299, 4300, 3150) THEN (CASE WHEN d.BetTypeId = 4297 THEN d.ProgressiveContribution ELSE d.Winloss END + ISNULL(d.ValidBetAmount * v.CommRate, 0)) * e.Rate * ISNULL(ISNULL(p3.Rate, vs.ChargeRate3rd), 0) ELSE 0 END) AS PayDailyRate
+				,SUM(CASE WHEN d.BetTypeId NOT IN ( 4299, 4300, 3150) THEN (CASE WHEN d.BetTypeId = 4297 THEN d.ProgressiveContribution ELSE d.Winloss END + ISNULL(d.ValidBetAmount * v.CommRate, 0)) * CASE WHEN p.LicenseeId IS NULL OR p3.LicenseeId IS NULL THEN 0 ELSE p3.Rate END ELSE 0 END) AS PayMonth
+				,SUM(CASE WHEN d.BetTypeId NOT IN ( 4299, 4300, 3150) THEN (CASE WHEN d.BetTypeId = 4297 THEN d.ProgressiveContribution ELSE d.Winloss END + ISNULL(d.ValidBetAmount * v.CommRate, 0)) * e.Rate * CASE WHEN p.LicenseeId IS NULL OR p3.LicenseeId IS NULL THEN 0 ELSE p3.Rate END  ELSE 0 END) AS PayMonthRate
+				,SUM(CASE WHEN d.BetTypeId NOT IN ( 4299, 4300, 3150) THEN CASE WHEN d.BetTypeId = 4297 THEN d.ProgressiveContribution ELSE d.Winloss END * e.Rate ELSE 0 END) AS MemberWLDailyRate
+				,SUM(CASE WHEN d.BetTypeId NOT IN ( 4299, 4300, 3150) THEN CASE WHEN d.BetTypeId = 4297 THEN d.ProgressiveContribution ELSE d.Winloss END * e.Rate * CASE WHEN p.LicenseeId IS NULL THEN 0.0 ELSE 1.0 END ELSE 0 END) AS MemberWLMonthRate
+				,SUM(CASE WHEN  d.BetTypeId  IN ( 4299, 4300, 3150) THEN d.Winloss * e.Rate ELSE 0 END) AS BonusRate
 			FROM #__tempData d
 				INNER JOIN #__Bettype bt ON d.BetTypeId = bt.BetType
 				INNER JOIN #AllParties tp ON tp.LicenseeId = d.SiteId
