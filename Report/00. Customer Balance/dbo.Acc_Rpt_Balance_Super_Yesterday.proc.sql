@@ -29,7 +29,6 @@ Revisions:
 	- 20190909@Viet: Workaround - include CN88 Headline amount [redmine: #119921]
 	- 20190917@Bobby: Enhance SMA Balance report [redmine: #119990]
 	- 20201027@Ned.Le: NAP Report - BBin - Remove BBIN Transfer off Balance reports (#144071)
-	- 20210507@Jaden.Tang: Adjust code to prevent reading dupplicated in bettrans & bettrans14 during move bet process (#154649)
 							
 Parameters Explanation:
 	- Search keyword: '%keyword%'
@@ -40,10 +39,6 @@ Parameters Explanation:
 */
 BEGIN
 	SET NOCOUNT ON
-
-	DECLARE @MoveBetsDay DATE
-	SELECT @MoveBetsDay = MoveBetsDay
-	FROM OPENQUERY(DBACC,'exec bodb02.dbo.Age_SelBalanceUpDay')
 
 	DECLARE @currentDate	SMALLDATETIME
 		,@yesterday			SMALLDATETIME
@@ -124,14 +119,10 @@ BEGIN
 			,SUM(bal.totalBalance) AS Balance
 			,SUM(bal.totalBalance*b.actualrate) AS BaseBalance
 		FROM #SuperInfo si
-		INNER JOIN dbo.bettrans b with (NOLOCK)
+		INNER JOIN dbo.bettrans b with (READPAST)
 			ON b.srecommend = si.custid AND si.roleId = 4
 		CROSS APPLY (
 			SELECT
-				--skip volatile rows during move bet process (see Balance_Direct_Master report)
-				CASE WHEN (b.winlostdate > @MoveBetsDay AND bettype = 19999) OR (b.winlostdate <= @MoveBetsDay and bettype < 19999)
-					THEN 0 ELSE 1 END
-				*
 				CASE 
 					WHEN (b.bettype >= 20000 OR b.winlostdate <= @yesterday) THEN
 						(CASE WHEN b.custid = b.srecommend THEN winlost-actual_stake ELSE swinlost+scomm-acomm END) -- super level
@@ -160,15 +151,10 @@ BEGIN
 				,SUM(bal.winlost) AS Balance
 				,SUM(bal.winlost*b.actualrate) AS BaseBalance
 			FROM #SuperInfo si
-			INNER JOIN dbo.bettrans b with (NOLOCK) 
+			INNER JOIN dbo.bettrans b with (READPAST) 
 				ON b.custid = si.custid AND si.roleId = 0
 			CROSS APPLY (
-				SELECT 
-				--skip volatile rows during move bet process (see Balance_Direct_Master report)
-				CASE WHEN (b.winlostdate > @MoveBetsDay AND bettype = 19999) OR (b.winlostdate <= @MoveBetsDay and bettype < 19999)
-					THEN 0 ELSE 1 END
-				*
-				(winlost - actual_stake) AS winlost
+				SELECT (winlost - actual_stake) AS winlost
 			) AS bal
 			WHERE b.winlostdate <= @currentDate
 				  AND b.bettype NOT IN (21008, 21009)
