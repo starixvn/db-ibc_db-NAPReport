@@ -1174,6 +1174,21 @@ BEGIN
 	FROM @tmpResult
 	GROUP BY Product3rdId, AliasProductId
 
+	--- Get PayToSupplier For CC
+	DECLARE @CC_PayToSupplier MONEY
+	SELECT @CC_PayToSupplier = SUM (-t.Bonus + t.PayToSupplierMonth)
+	FROM @tmpResult x 
+	--INNER JOIN bodb_licensee.dbo.OAS_Party op WITH(NOLOCK) ON x.PartyId = op.PartyID
+	CROSS APPLY (SELECT SUM(t.Bonus) AS Bonus, SUM(PayToSupplierMonth) PayToSupplierMonth
+						FROM #__tempResult t WHERE t.PartyId = x.PartyId AND t.Product3rdId = x.Product3rdId) t
+	WHERE x.Product3rdId = 34
+
+	UPDATE #Result
+	SET PayToSupplier = @CC_PayToSupplier
+	WHERE rptDate = 'Monthly'  AND  Product3rdId = 34
+
+	--- END PayToSupplier For CC
+
 	-- Update full range
 	;WITH CTE_HouseTO AS
 	(
@@ -1219,14 +1234,14 @@ BEGIN
 		
 		-- 1.2 Pay to supplier month
 	UPDATE r
-	SET r.PayToSupplier = ISNULL(t.PayToSupplier, 0) + CASE WHEN r.Product3rdId  = 34 THEN ISNULL(-t.Bonus,0) ELSE 0 END 
+	SET r.PayToSupplier = ISNULL(t.PayToSupplier, 0)
 	FROM #Result r
 		CROSS APPLY (
 			SELECT SUM(t.PayToSupplierMonth) AS PayToSupplier, SUM(t.Bonus) AS Bonus
 			FROM #__tempResult t
 			WHERE t.Product3rdId = r.Product3rdId AND t.AliasProductId = r.AliasProductId
 		) t
-	WHERE r.Product3rdId NOT IN (5, 10, 11, 22, 27)
+	WHERE r.Product3rdId NOT IN (5, 10, 11, 22, 27, 34)
 		AND rptDate = 'Monthly'
 
 		-- 1.3 House Income = sum up Total daily
