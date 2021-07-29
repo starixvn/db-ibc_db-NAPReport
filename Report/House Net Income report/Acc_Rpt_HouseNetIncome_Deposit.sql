@@ -1175,8 +1175,8 @@ BEGIN
 	GROUP BY Product3rdId, AliasProductId
 
 	--- Get PayToSupplier For CC
-	DECLARE @CC_PayToSupplier MONEY
-	SELECT @CC_PayToSupplier = SUM (-t.Bonus + t.PayToSupplierMonth)
+	DECLARE @CC_PayToSupplier MONEY, @CC_Bonus MONEY
+	SELECT @CC_PayToSupplier = SUM (-t.Bonus + t.PayToSupplierMonth), @CC_Bonus = SUM(t.Bonus)
 	FROM @tmpResult x 
 	--INNER JOIN bodb_licensee.dbo.OAS_Party op WITH(NOLOCK) ON x.PartyId = op.PartyID
 	CROSS APPLY (SELECT SUM(t.Bonus) AS Bonus, SUM(PayToSupplierMonth) PayToSupplierMonth
@@ -1184,7 +1184,7 @@ BEGIN
 	WHERE x.Product3rdId = 34
 
 	UPDATE #Result
-	SET PayToSupplier = @CC_PayToSupplier
+	SET PayToSupplier = @CC_PayToSupplier, Bonus = @CC_Bonus
 	WHERE rptDate = 'Monthly'  AND  Product3rdId = 34
 
 	--- END PayToSupplier For CC
@@ -1213,7 +1213,7 @@ BEGIN
 	SET r.Bonus = ISNULL(m.Bonus, 0)
 	FROM #Result r
 		INNER JOIN #Result m ON m.Product3rdId = r.Product3rdId AND m.AliasProductId = r.AliasProductId AND r.rptDate = 'Monthly' AND m.rptDate = 'MTD'
-	WHERE r.Product3rdId IN (32, 34, 45)
+	WHERE r.Product3rdId IN (32, 45)
 
 		-- 1.1 Pay to supplier Base on MemberWL < 0
 	UPDATE r
@@ -1257,7 +1257,6 @@ BEGIN
 	FROM #Result r
 		INNER JOIN #Result m ON m.Product3rdId = r.Product3rdId AND m.AliasProductId = r.AliasProductId AND r.rptDate = 'Monthly' AND m.rptDate = 'MTD'
 	WHERE r.Product3rdId IN (32, 42, 66)
-
 
 		-- 1.5 Bonus
 	UPDATE r
