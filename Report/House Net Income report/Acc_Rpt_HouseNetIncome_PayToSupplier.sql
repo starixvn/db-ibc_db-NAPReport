@@ -392,8 +392,10 @@ BEGIN
 		IF EXISTS (SELECT 1 FROM @Products WHERE Product3rdId <> 0)
 		BEGIN
 			DELETE #__tempData
+			INSERT INTO #__Bettype (Product3rdId, ProductCode, BetType)
+			SELECT TOP(1) Product3rdId, ProductCode, -1  AS BetType FROM #__Bettype WHERE Product3rdId = 59
 
-			UPDATE #__Bettype SET BetType = -1 WHERE Product3rdId = 59
+			DELETE FROM #__Bettype WHERE Product3rdId = 59 AND BetType <> -1
 
 			-- get data for GDG
 			INSERT INTO #__tempData (rptDate, SiteId, BetTypeId, CurrencyId, Winloss, ValidBetAmount, ProgressiveContribution)
