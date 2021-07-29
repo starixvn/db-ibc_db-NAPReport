@@ -393,13 +393,13 @@ BEGIN
 		BEGIN
 			DELETE #__tempData
 			INSERT INTO #__Bettype (Product3rdId, ProductCode, BetType)
-			SELECT TOP(1) Product3rdId, ProductCode, -1  AS BetType FROM #__Bettype WHERE Product3rdId = 59
+			SELECT TOP(1) Product3rdId, ProductCode, -59  AS BetType FROM #__Bettype WHERE Product3rdId = 59
 
-			DELETE FROM #__Bettype WHERE Product3rdId = 59 AND BetType <> -1
+			DELETE FROM #__Bettype WHERE Product3rdId = 59 AND BetType <> -59
 
 			-- get data for GDG
 			INSERT INTO #__tempData (rptDate, SiteId, BetTypeId, CurrencyId, Winloss, ValidBetAmount, ProgressiveContribution)
-			SELECT RptDate, SiteId, BetType, CurrencyId, SUM(MemberWL), SUM(ValidBetAmount), 0
+			SELECT RptDate, SiteId, -59 AS BetTypeId, CurrencyId, SUM(MemberWL), SUM(ValidBetAmount), 0
 			FROM DBLIC.bodb_LicenseeReport.dbo.rpt_BettingByProduct WITH (NOLOCK)
 			WHERE RptDate BETWEEN @FDate AND @TDate
 				AND ProductID = 59
@@ -649,6 +649,16 @@ BEGIN
 	FROM CTE_RptDate d
 		INNER JOIN #__DailyPayToSupplier t ON d.Product3rdId = t.Product3rdId
 	GROUP BY t.IsDeposit, d.Product3rdId, d.ProductCode + CASE WHEN Bettype <> 0 THEN CONVERT(VARCHAR(5), Bettype) ELSE '' END, CONVERT(VARCHAR(2), t.rptDate, 106)
+
+
+	UPDATE x
+	SET  x.PayToSupplier = t.PayToSupplier
+	FROM #__FinalResult x 
+	CROSS APPLY (SELECT t.PayToSupplier 
+				 FROM	#__FinalResult t 
+				 WHERE  t.rptDate = 'MTD' AND t.Product3rdId =  x.Product3rdId AND t.IsDeposit = t.IsDeposit) t
+	WHERE x.rptDate = 'Monthly' AND x.Product3rdId = 59 
+
 
 	DECLARE @DateList VARCHAR(2000)
 	;WITH CTE_Date AS
