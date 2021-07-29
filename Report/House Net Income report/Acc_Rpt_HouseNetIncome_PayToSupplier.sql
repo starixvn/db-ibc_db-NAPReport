@@ -393,6 +393,21 @@ BEGIN
 		BEGIN
 			DELETE #__tempData
 
+			-- get data for GDG
+			INSERT INTO #__tempData (rptDate, SiteId, BetTypeId, CurrencyId, Winloss, ValidBetAmount, ProgressiveContribution)
+			SELECT RptDate, SiteId, BetType, CurrencyId, SUM(MemberWL), SUM(ValidBetAmount), 0
+			FROM DBLIC.bodb_LicenseeReport.dbo.rpt_BettingByProduct WITH (NOLOCK)
+			WHERE RptDate BETWEEN @FDate AND @TDate
+				AND ProductID = 59
+ 				AND CurrencyID <> 20
+				AND StatusId NOT IN(-1, 101, 102, 103) -- Exclude Reject , Void, Refund
+				AND (
+					@DepositType = 2
+					OR (@DepositType = 0 AND (SiteId > 1000 OR SiteID = 509))
+					OR (@DepositType = 1 AND (SiteId < 1000 AND SiteID <> 509))
+				)
+			GROUP BY RptDate, SiteId, BetType, CurrencyId
+
 			INSERT INTO #__tempData (rptDate, SiteId, BetTypeId, CurrencyId, Winloss, ValidBetAmount, ProgressiveContribution)
 			SELECT RptDate3rd, SiteId, BetTypeId, CurrencyId, SUM(Winloss), SUM(ValidBetAmount), SUM(ProgressiveContribution)
 			FROM DBLIC.bodb_LicenseeReport.dbo.rpt_ThirdPartyWL_ExtraGMT WITH (NOLOCK)
