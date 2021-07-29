@@ -393,6 +393,8 @@ BEGIN
 		BEGIN
 			DELETE #__tempData
 
+			UPDATE #__Bettype SET BetType = -1 WHERE Product3rdId = 59
+
 			-- get data for GDG
 			INSERT INTO #__tempData (rptDate, SiteId, BetTypeId, CurrencyId, Winloss, ValidBetAmount, ProgressiveContribution)
 			SELECT RptDate, SiteId, BetType, CurrencyId, SUM(MemberWL), SUM(ValidBetAmount), 0
