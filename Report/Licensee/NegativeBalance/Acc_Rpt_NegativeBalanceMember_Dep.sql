@@ -25,8 +25,10 @@ BEGIN
 SET NOCOUNT ON	
 
 	DECLARE @MoveBetsDay DATE
-	SELECT @MoveBetsDay = MoveBetsDay
-	FROM OPENQUERY(DBACC,'exec bodb02.dbo.Age_SelBalanceUpDay')
+	CREATE TABLE #MBUDate (BalanceUpDay DATE, MoveBetsDay DATE)
+	INSERT INTO #MBUDate (BalanceUpDay, MoveBetsDay)
+	  EXEC bodb02.dbo.Age_SelBalanceUpDay
+	SELECT @MoveBetsDay = MoveBetsDay FROM #MBUDate
 
 	DECLARE @Super AS TABLE (custid int primary key, currency int,site varchar(50),currencyName nvarchar(50))
 	
@@ -76,6 +78,7 @@ SET NOCOUNT ON
 	ORDER BY site,username
 	
 	DROP TABLE #Data
+	DROP TABLE #MBUDate
 		
 END
 GO
