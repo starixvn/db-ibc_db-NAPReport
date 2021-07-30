@@ -42,8 +42,10 @@ BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @MoveBetsDay DATE
-	SELECT @MoveBetsDay = MoveBetsDay
-	FROM OPENQUERY(DBACC,'exec bodb02.dbo.Age_SelBalanceUpDay')
+	CREATE TABLE #MBUDate (BalanceUpDay DATE, MoveBetsDay DATE)
+	INSERT INTO #MBUDate (BalanceUpDay, MoveBetsDay)
+	  EXEC bodb02.dbo.Age_SelBalanceUpDay
+	SELECT @MoveBetsDay = MoveBetsDay FROM #MBUDate
 
 	DECLARE @currentDate	SMALLDATETIME
 		,@yesterday			SMALLDATETIME
@@ -124,7 +126,7 @@ BEGIN
 			,SUM(bal.totalBalance) AS Balance
 			,SUM(bal.totalBalance*b.actualrate) AS BaseBalance
 		FROM #SuperInfo si
-		INNER JOIN dbo.bettrans b with (NOLOCK)
+		INNER JOIN dbo.bettrans b with (READPAST)
 			ON b.srecommend = si.custid AND si.roleId = 4
 		CROSS APPLY (
 			SELECT
@@ -160,7 +162,7 @@ BEGIN
 				,SUM(bal.winlost) AS Balance
 				,SUM(bal.winlost*b.actualrate) AS BaseBalance
 			FROM #SuperInfo si
-			INNER JOIN dbo.bettrans b with (NOLOCK) 
+			INNER JOIN dbo.bettrans b with (READPAST) 
 				ON b.custid = si.custid AND si.roleId = 0
 			CROSS APPLY (
 				SELECT 
@@ -206,5 +208,6 @@ BEGIN
 
 	DROP TABLE #SuperInfo
 	DROP TABLE #superBalance
+	DROP TABLE #MBUDate
 END
 GO 
