@@ -1,4 +1,4 @@
-/*<info serverAlias="DBTXN-bodb02,DBACC-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 
 USE bodb02
 GO
