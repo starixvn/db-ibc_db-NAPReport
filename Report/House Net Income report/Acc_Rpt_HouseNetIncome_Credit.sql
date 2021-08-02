@@ -22,6 +22,8 @@ AS
 		20210401@Ned.Le: Email/Letstalk Reports - AE Casino - Support Lucky Draw (#151870)
 		20210414@Ned.Le: Email/Letstalk Reports - Arcadia Gaming - Add 2 new games: Marble Mini and RPS (#153419)
 		20210519@Ned.Le: Email/Letstalk Reports - Incorporate Saba Soccer PinGoal (#155373)
+        20210726@Ned.Le: Letstalk Reports - Apply monthly formula for MTD value like LA Reports (#157953)
+		20210726@Ned.Le: HNI Email/Letstalk - Change the formula to calculate House Income, Pay To Supplier for Arcadia Gaming/PP Promotion tickets (#158971)
 
 	Param's Explanation:
 		@ProductList: 'ALL' - Get data of all product
@@ -183,7 +185,6 @@ BEGIN
 		FROM bodb02.dbo.SportBettypeMatrix (NOLOCK)
 		WHERE ProductID IN (SELECT DISTINCT ProductID FROM #tmpHNISettings (NOLOCK) WHERE isDeposit = 0 AND isEnable = 1)
 			  AND SubProduct NOT IN ('BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss')
-			  AND BetType NOT IN (SELECT Bettype FROM #tmpBettypeGroup WHERE BettypeGroupID = 14)
 	END
 
 	IF EXISTS (SELECT TOP 1 1 FROM #tmpProductList WHERE ProductPrefix = 'SB')
@@ -254,7 +255,6 @@ BEGIN
 		FROM bodb02.dbo.SportBettypeMatrix (NOLOCK)
 		WHERE ProductID IN (SELECT ProductID FROM CTE_Normal)
 		      AND BetType NOT IN (SELECT BetType FROM #tmpProductBettype)
-			  AND BetType NOT IN (SELECT Bettype FROM #tmpBettypeGroup WHERE BettypeGroupID = 14)
 	END
 
 	CREATE UNIQUE CLUSTERED INDEX CIX_tmpProductBettype ON #tmpProductBettype(ProductID, Bettype)
@@ -404,6 +404,7 @@ BEGIN
 	--				MemberWLOANDA [WinlossP * OANDARate]										 --
 	--				ScommOANDA [CommissionS * OANDARate]										 --
 	--				Contribution [(WinlossIBC - WinlossS - WinlossM - WinlossA) * SystemRate]    --
+    --              NetStakeOANDA [NetStake * OANDARate]										 --
 	-----------------------------------------------------------------------------------------------
 
 	CREATE TABLE #tmpRawData (
@@ -421,7 +422,8 @@ BEGIN
 		MemberWL DECIMAL(19, 4),
 		MemberWLOANDA DECIMAL(19, 4),
 		ScommOANDA DECIMAL(19, 4),
-		Contribution DECIMAL(19, 4)
+		Contribution DECIMAL(19, 4),
+        NetStakeOANDA DECIMAL(19, 4)
 	)
 
 	WHILE @ToDate_e <= @ToDate
@@ -432,23 +434,24 @@ BEGIN
 								 ExtraPT, ExtraPTOANDA,
 								 MemberWL, MemberWLOANDA,
 								 ScommOANDA,
-								 Contribution)
+								 Contribution,
+                                 NetStakeOANDA)
 		SELECT -- *** DIMENSION *** --
 			   b.RptDate,
 			   s.site Site,
-			   CASE WHEN b.Bettype IN (9, 29) THEN -10									--Parlay
-					WHEN b.SportType = 1 AND l.LeagueGroupType = 1 THEN -3	            --Saba Soc
-					WHEN b.SportType = 1 AND l.LeagueGroupType = 2 THEN -14	            --Saba Soc PGoal
-					WHEN b.SportType = 2 AND l.LeagueGroupType = 1 THEN -5			    --Saba Bas
-					WHEN b.SportType = 50 AND l.LeagueGroupType = 1 THEN -8			    --Saba Cric
-					WHEN b.SportType = 1 THEN -2										--Real Soc
-					WHEN b.SportType = 2 THEN -4										--Real Bas
-					WHEN b.SportType = 5 THEN -6										--Tennis
-					WHEN b.SportType = 43 THEN -7										--E-Sports
-					WHEN pb.ProductID = 1 THEN -9										--OtherSp
-					WHEN pb.ProductID = 3 AND b.Sporttype = 161 THEN -11				--NumG
-					WHEN pb.ProductID = 3 AND Sporttype = 164 THEN -12					--Happy5
-					WHEN pb.ProductID = 3 AND Sporttype = 168 THEN -13					--Happy5 LG
+			   CASE WHEN b.Bettype IN (9, 29)                           THEN -10		--Parlay
+					WHEN b.SportType = 1 AND l.LeagueGroupType = 1      THEN -3	        --Saba Soc
+					WHEN b.SportType = 1 AND l.LeagueGroupType = 2      THEN -14        --Saba Soc PGoal
+					WHEN b.SportType = 2 AND l.LeagueGroupType = 1      THEN -5			--Saba Bas
+					WHEN b.SportType = 50 AND l.LeagueGroupType = 1     THEN -8			--Saba Cric
+					WHEN b.SportType = 1                                THEN -2			--Real Soc
+					WHEN b.SportType = 2                                THEN -4			--Real Bas
+					WHEN b.SportType = 5                                THEN -6			--Tennis
+					WHEN b.SportType = 43                               THEN -7			--E-Sports
+					WHEN pb.ProductID = 1                               THEN -9			--OtherSp
+					WHEN pb.ProductID = 3 AND b.Sporttype = 161         THEN -11		--NumG
+					WHEN pb.ProductID = 3 AND Sporttype = 164           THEN -12		--Happy5
+					WHEN pb.ProductID = 3 AND Sporttype = 168           THEN -13		--Happy5 LG
 					ELSE ISNULL(pb.ProductID, -1) END ProductID,						--Unknown
 			   b.SportType,
 			   b.BetType,
@@ -466,7 +469,8 @@ BEGIN
 			   SUM(b.WinlossP * ISNULL(es.Rate, 0)) MemberWL,
 			   SUM(b.WinlossP * ISNULL(eo.Rate, 0)) MemberWLOANDA,
 			   SUM(b.CommissionS * ISNULL(eo.Rate, 0)) ScommOANDA,
-			   SUM((b.WinlossIBC - b.WinlossS - b.WinlossM - b.WinlossA) * ISNULL(es.Rate, 0)) Contribution
+			   SUM((b.WinlossIBC - b.WinlossS - b.WinlossM - b.WinlossA) * ISNULL(es.Rate, 0)) Contribution,
+               SUM(b.NetStake * ISNULL(eo.Rate, 0)) NetStakeOANDA
 		FROM bodb_Account.dbo.FactSiteWinloss b (NOLOCK)
 			 INNER JOIN bodb_Account.dbo.tbl_Site s (NOLOCK) ON s.isDeposit = 0 AND b.SiteID = s.siteid
 			 LEFT JOIN #tmpProductBettype pb (NOLOCK) ON b.Bettype = pb.Bettype
@@ -479,19 +483,19 @@ BEGIN
 			  AND b.BetType IN (SELECT Bettype FROM #tmpProductBettype)
 		GROUP BY b.RptDate,
 				 s.site,
-				 CASE WHEN b.Bettype IN (9, 29) THEN -10								--Parlay
-					  WHEN b.SportType = 1 AND l.LeagueGroupType = 1 THEN -3	        --Saba Soc
-					WHEN b.SportType = 1 AND l.LeagueGroupType = 2 THEN -14	            --Saba Soc PGoal
-					WHEN b.SportType = 2 AND l.LeagueGroupType = 1 THEN -5			    --Saba Bas
-					WHEN b.SportType = 50 AND l.LeagueGroupType = 1 THEN -8			    --Saba Cric
-					  WHEN b.SportType = 1 THEN -2										--Real Soc
-					  WHEN b.SportType = 2 THEN -4										--Real Bas
-					  WHEN b.SportType = 5 THEN -6										--Tennis
-					  WHEN b.SportType = 43 THEN -7										--E-Sports
-					  WHEN pb.ProductID = 1 THEN -9										--OtherSp
-					  WHEN pb.ProductID = 3 AND b.Sporttype = 161 THEN -11				--NumG
-					  WHEN pb.ProductID = 3 AND Sporttype = 164 THEN -12				--Happy5
-					  WHEN pb.ProductID = 3 AND Sporttype = 168 THEN -13				--Happy5 LG
+				 CASE WHEN b.Bettype IN (9, 29)                         THEN -10		--Parlay
+					  WHEN b.SportType = 1 AND l.LeagueGroupType = 1    THEN -3	        --Saba Soc
+					  WHEN b.SportType = 1 AND l.LeagueGroupType = 2    THEN -14	    --Saba Soc PGoal
+					  WHEN b.SportType = 2 AND l.LeagueGroupType = 1    THEN -5			--Saba Bas
+					  WHEN b.SportType = 50 AND l.LeagueGroupType = 1   THEN -8			--Saba Cric
+					  WHEN b.SportType = 1                              THEN -2			--Real Soc
+					  WHEN b.SportType = 2                              THEN -4			--Real Bas
+					  WHEN b.SportType = 5                              THEN -6			--Tennis
+					  WHEN b.SportType = 43                             THEN -7			--E-Sports
+					  WHEN pb.ProductID = 1                             THEN -9			--OtherSp
+					  WHEN pb.ProductID = 3 AND b.Sporttype = 161       THEN -11		--NumG
+					  WHEN pb.ProductID = 3 AND Sporttype = 164         THEN -12		--Happy5
+					  WHEN pb.ProductID = 3 AND Sporttype = 168         THEN -13		--Happy5 LG
 					  ELSE ISNULL(pb.ProductID, -1) END,								--Unknown
 				 b.SportType,
 				 b.BetType,
@@ -539,11 +543,14 @@ BEGIN
 			   hni.ProductShortName,
 			   hni.Figure,
 			   hni.SubFigure,
-			   CASE WHEN hni.Figure = 'Credit House Income' THEN -SUM(b.HouseWL)
+			   CASE WHEN hni.Figure = 'Credit House Income' THEN SUM(CASE WHEN bg2.BettypeGroupID = 14 THEN -(b.MemberWL)
+			                                                                   ELSE -(b.HouseWL) END)
 					WHEN hni.Figure = 'House Turnover' THEN SUM(b.HouseTO)
 					WHEN hni.Figure = 'Extra PT' THEN SUM(b.ExtraPT)
-					WHEN hni.Figure = 'Pay to Supplier' THEN CASE WHEN hni.ProductShortName = 'Arcadia' THEN SUM(b.MemberWLOANDA * (CASE WHEN bg.BettypeGroupID = 15 THEN 0.025 ELSE 0.035 END))
-																  WHEN hni.ProductShortName = 'MacauG' THEN SUM(b.MemberWLOANDA * (CASE WHEN bg.BettypeGroupID = 11 THEN 0.03 ELSE 0.02 END))
+					WHEN hni.Figure = 'Pay to Supplier' THEN CASE WHEN hni.ProductShortName = 'Arcadia' THEN SUM(b.MemberWLOANDA * (CASE WHEN bg2.BettypeGroupID = 14 THEN 1
+					                                                                                                                     WHEN bg1.BettypeGroupID = 15 THEN 0.025
+					                                                                                                                     ELSE 0.035 END))
+																  WHEN hni.ProductShortName = 'MacauG' THEN SUM(b.MemberWLOANDA * (CASE WHEN bg1.BettypeGroupID = 11 THEN 0.03 ELSE 0.02 END))
 																  WHEN hni.ProductShortName = 'NG2' THEN SUM((-b.HouseWLOANDA + (CASE WHEN b.RptDate >= '2020-11-01' THEN 0 ELSE b.ExtraPTOANDA END)) * (-0.5))
 																  WHEN hni.ProductShortName = 'TableG' THEN SUM(b.MemberWLOANDA * (CASE WHEN b.RptDate >= '2020-07-01' THEN 0.036 ELSE 0.03 END))
 																  WHEN hni.ProductShortName IN ('MKeno', 'MLotte') THEN SUM(b.MemberWLOANDA * (CASE WHEN b.Site = 'CN88' THEN 0.015 ELSE (CASE WHEN b.RptDate >= '2020-07-01' THEN 0.036 ELSE 0.03 END) END))
@@ -551,16 +558,18 @@ BEGIN
 																  WHEN hni.ProductShortName IN ('NumG', 'Happy5', 'Happy5 LG') THEN CASE WHEN b.Site = 'CN88' THEN SUM(b.MemberWLOANDA * 0.015)
 																													                     WHEN b.Site IN ('IBCIndo', '76666b') THEN SUM((-b.HouseWLOANDA + b.ExtraPTOANDA) * (-0.5))
 																													                     ELSE SUM((-b.HouseWLOANDA + (CASE WHEN b.RptDate >= '2020-11-01' THEN 0 ELSE b.ExtraPTOANDA END)) * (-0.5)) END
-																  ELSE SUM(b.MemberWLOANDA * ISNULL( pts.Rate, 0)) END
+																  WHEN hni.ProductShortName IN ('GDG LC') THEN SUM((b.MemberWLOANDA + (b.NetStakeOANDA * 0.01)) * ISNULL( pts.Rate, 0))
+                                                                  ELSE SUM(b.MemberWLOANDA * ISNULL( pts.Rate, 0)) END
 					WHEN hni.Figure = 'Pay to Bet Genius' THEN SUM((b.MemberWLOANDA + b.ScommOANDA) * 0.04 * (CASE WHEN b.Bettype = 38 THEN 1 ELSE 0 END))
-					WHEN hni.Figure = 'Contribution Amount' THEN SUM(b.Contribution * (CASE WHEN bg.BettypeGroupID = 10 AND bg.BettypeName LIKE '%Jackpot%' THEN 1 ELSE 0 END))
-					WHEN hni.Figure = 'Mega Prize'  THEN -SUM(b.MemberWL * (CASE WHEN bg.BettypeGroupID = 6 AND bg.BettypeName LIKE '%Jackpot%' THEN 1 ELSE 0 END))
-					WHEN hni.Figure = 'Jackpot Prize'  THEN -SUM(b.MemberWL * (CASE WHEN bg.BettypeGroupID = 6 AND bg.BettypeName LIKE '%Jackpot%' THEN 1 ELSE 0 END))
+					WHEN hni.Figure = 'Contribution Amount' THEN SUM(b.Contribution * (CASE WHEN bg1.BettypeGroupID = 10 AND bg1.BettypeName LIKE '%Jackpot%' THEN 1 ELSE 0 END))
+					WHEN hni.Figure = 'Mega Prize'  THEN -SUM(b.MemberWL * (CASE WHEN bg1.BettypeGroupID = 6 AND bg1.BettypeName LIKE '%Jackpot%' THEN 1 ELSE 0 END))
+					WHEN hni.Figure = 'Jackpot Prize'  THEN -SUM(b.MemberWL * (CASE WHEN bg1.BettypeGroupID = 6 AND bg1.BettypeName LIKE '%Jackpot%' THEN 1 ELSE 0 END))
 					ELSE NULL END DataValue
 		FROM #tmpRawData b (NOLOCK)
 			 INNER JOIN #tmpHNISettings hni (NOLOCK) ON hni.isDeposit = 0 AND hni.isEnable = 1 AND hni.LogicCode = 1 AND b.ProductID = hni.AliasProductID
 			 LEFT JOIN #tmpPTSMainData pts	ON b.ProductID = pts.ProductID
-			 LEFT JOIN #tmpBettypeGroup bg ON b.Bettype = bg.Bettype
+			 LEFT JOIN #tmpBettypeGroup bg1 ON bg1.BettypeGroupID IN (6, 10, 11, 15) AND b.Bettype = bg1.Bettype
+			 LEFT JOIN #tmpBettypeGroup bg2 ON bg2.BettypeGroupID IN (14) AND b.Bettype = bg2.Bettype
 		GROUP BY b.RptDate,
 				 hni.isDeposit,
 			     hni.OrderByProduct,
