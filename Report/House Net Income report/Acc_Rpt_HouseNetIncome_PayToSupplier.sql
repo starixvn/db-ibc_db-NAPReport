@@ -7,6 +7,7 @@ ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_PayToSupplier]
 	,@IsOldView		BIT = 0
 	,@IsLicPerf		BIT = 0
 	,@BaseCurrencyName  VARCHAR(10) = 'MYR'
+	,@isGetDataFromBettrans BIT = 0
 AS
 
 /*
@@ -24,6 +25,7 @@ AS
 		- 20210517@Danny: Remove the following term for Allbet (#155119)
 		- 20210616@Danny: Support @BaseCurrencyName with Licensee Performance view mode (#156727)
 		- 20210727@Danny: HNI Email/Letstalk - Change the formula to calculate House Income, Pay To Supplier for Arcadia Gaming/PP Promotion tickets (#158971)
+		- 20210803@Danny: Change Data Source to retrieve yesterday data from Bettrans table (#151993)
 */
 BEGIN
     SET NOCOUNT ON
@@ -285,6 +287,23 @@ BEGIN
 
 	-- Get data
 	BEGIN
+		--- 
+		DECLARE @FDateGetData	DATE 
+		DECLARE	@TDateGetData	DATE
+		DECLARE	@yesterday		DATE = DATEADD(DAY,-1,CONVERT(date, GETDATE()))
+
+		IF @isGetDataFromBettrans = 1 AND @ToDate = @yesterday AND @IsLicPerf = 0
+		BEGIN
+			SELECT @FDateGetData = @FromDate
+			SELECT @TDateGetData = DATEADD(DAY,-1,@ToDate)
+		END
+		ELSE 
+		BEGIN
+			SELECT @FDateGetData = @FromDate
+			SELECT @TDateGetData = @ToDate
+		END
+		-----
+		
 		CREATE TABLE #__tempResult (rptDate DATE, ParentId INT, IsDeposit BIT, Product3rdId INT, Bettype INT, CurrencyId INT, PlayCurrency INT, 
 									PayDaily MONEY, PayDailyRate MONEY, PayMonth MONEY, PayMonthRate MONEY, MemberWLDailyRate MONEY, MemberWLMonthRate MONEY, BonusRate MONEY)
 
@@ -327,14 +346,14 @@ BEGIN
 			DELETE #__tempData
 
 			-- Metric Gaming, Bet Builder
-			SELECT @FromDateByBatch = @FDate
+			SELECT @FromDateByBatch = @FDateGetData
 
-			WHILE @FromDateByBatch <= @TDate
+			WHILE @FromDateByBatch <= @TDateGetData
 			BEGIN
 				SELECT @ToDateByBatch = DATEADD(DAY, 7, @FromDateByBatch)
 
-				IF @ToDateByBatch > @TDate
-					SET @ToDateByBatch = @TDate
+				IF @ToDateByBatch > @TDateGetData
+					SET @ToDateByBatch = @TDateGetData
 				
 				INSERT INTO #__tempData (rptDate, SiteId, BetTypeId, CurrencyId, Winloss)
 				SELECT f.rptDate, s.LicenseeId, CASE WHEN f.BetType = 38 THEN -3 ELSE -1 END, f.CurrencyId, SUM(CASE WHEN f.BetType = 38 THEN winlossP + commissionS ELSE winlossP + winlossA + winlossM + winlossS + commissionS END)
@@ -350,11 +369,18 @@ BEGIN
 				SELECT @FromDateByBatch = DATEADD(DAY, 1, @ToDateByBatch)
 			END
 
+			-- Get Metric Gaming, Bet Builder yesterday
+			IF @isGetDataFromBettrans = 1 AND @ToDate = @yesterday AND @IsLicPerf = 0
+			BEGIN
+				INSERT INTO #__tempData (rptDate, SiteId, BetTypeId, CurrencyId, Winloss)
+				EXEC DBACC.bodb02.dbo.Acc_rpt_FactSiteWinloss_Bettrans @Winlostdate = @yesterday, @isUseForPayToSupplier = 1
+			END
+
 			-- Muay Thai
 			INSERT INTO #__tempData (rptDate, SiteId, BetTypeId, CurrencyId, Winloss)
 			SELECT rptDate, SiteId, -2, CurrencyId, SUM(ISNULL(AdjustedCustomerWL * 0.03, 0) - ISNULL(AdjustedCommShare, 0))
 			FROM DBLIC.bodb_LicenseeReport.dbo.rpt_BettingBySport WITH (NOLOCK)
-			WHERE rptDate BETWEEN @FDate AND @TDate
+			WHERE rptDate BETWEEN @FDateGetData AND @TDateGetData
 				AND CurrencyId <> 20
 				AND StatusId IN (111, 112, 113)
 				AND customercategory NOT IN (27, 28)
@@ -365,6 +391,13 @@ BEGIN
 					OR (@DepositType = 1 AND (SiteId < 1000 AND SiteID <> 509))
 				)
 			GROUP BY rptDate, SiteId, CurrencyId
+
+			-- Muay Thai yesterday
+			IF @isGetDataFromBettrans = 1 AND @ToDate = @yesterday AND @IsLicPerf = 0
+			BEGIN
+				INSERT INTO #__tempData (rptDate, SiteId, BetTypeId, CurrencyId, Winloss)
+				EXEC DBACC.bodb02.dbo.Acc_rpt_rptBettingBySport_Bettrans @Date = @yesterday ,@DepositType = @DepositType
+			END
 
 			INSERT INTO #__tempResult (rptDate, ParentId, IsDeposit, Product3rdId, Bettype, CurrencyId, PlayCurrency, PayDailyRate)
 			SELECT d.rptDate, 0, a.IsDeposit, 0, d.BetTypeId, d.CurrencyId, d.CurrencyId
@@ -391,6 +424,22 @@ BEGIN
 
 		IF EXISTS (SELECT 1 FROM @Products WHERE Product3rdId <> 0)
 		BEGIN
+			-- handle GTM param
+			DECLARE @FDate_GMT_getdata DATETIME, @TDate_GMT_getdata DATETIME
+			DECLARE @Today DATETIME = CONVERT(DATE, GETDATE())
+
+			IF @isGetDataFromBettrans = 1 AND @TDate = @yesterday AND @IsLicPerf = 0
+			BEGIN
+				SELECT @FDate_GMT_getdata = @FDate_GMT
+				SELECT @TDate_GMT_getdata = @Today
+			END
+			ELSE 
+			BEGIN
+				SELECT @FDate_GMT_getdata = @FDate_GMT
+				SELECT @TDate_GMT_getdata = @TDate_GMT
+			END
+			---------
+
 			DELETE #__tempData
 			INSERT INTO #__Bettype (Product3rdId, ProductCode, BetType)
 			SELECT TOP(1) Product3rdId, ProductCode, -59  AS BetType FROM #__Bettype WHERE Product3rdId = 59
@@ -401,7 +450,7 @@ BEGIN
 			INSERT INTO #__tempData (rptDate, SiteId, BetTypeId, CurrencyId, Winloss, ValidBetAmount, ProgressiveContribution)
 			SELECT RptDate, SiteId, -59 AS BetTypeId, CurrencyId, SUM(MemberWL), SUM(ValidBetAmount), 0
 			FROM DBLIC.bodb_LicenseeReport.dbo.rpt_BettingByProduct WITH (NOLOCK)
-			WHERE RptDate BETWEEN @FDate AND @TDate
+			WHERE RptDate BETWEEN @FDateGetData AND @TDateGetData
 				AND ProductID = 59
  				AND CurrencyID <> 20
 				AND StatusId NOT IN(-1, 101, 102, 103) -- Exclude Reject , Void, Refund
@@ -415,8 +464,8 @@ BEGIN
 			INSERT INTO #__tempData (rptDate, SiteId, BetTypeId, CurrencyId, Winloss, ValidBetAmount, ProgressiveContribution)
 			SELECT RptDate3rd, SiteId, BetTypeId, CurrencyId, SUM(Winloss), SUM(ValidBetAmount), SUM(ProgressiveContribution)
 			FROM DBLIC.bodb_LicenseeReport.dbo.rpt_ThirdPartyWL_ExtraGMT WITH (NOLOCK)
-			WHERE RptDate BETWEEN @FDate_GMT AND @TDate_GMT
-				AND RptDate3rd BETWEEN @FDate AND @TDate
+			WHERE RptDate BETWEEN @FDate_GMT_getdata AND @TDate_GMT_getdata
+				AND RptDate3rd BETWEEN @FDateGetData AND @TDateGetData
 				AND CurrencyID <> 20
 				AND StatusId NOT IN(-1, 101, 102, 103) -- Exclude Reject , Void, Refund
 				AND (
@@ -425,6 +474,12 @@ BEGIN
 					OR (@DepositType = 1 AND (SiteId < 1000 AND SiteID <> 509))
 				)
 			GROUP BY RptDate3rd, SiteId, BetTypeId, CurrencyId
+
+			IF @isGetDataFromBettrans = 1 AND @ToDate = @yesterday AND @IsLicPerf = 0
+			BEGIN				
+				INSERT INTO #__tempData (rptDate, SiteId, BetTypeId, CurrencyId, Winloss, ValidBetAmount, ProgressiveContribution)
+				EXEC DBACC.bodb02.dbo.Acc_rpt_ThirdPartyWL_ExtraGMT_Bettrans @Winlostdate = @yesterday,  @DepositType = @DepositType
+			END
 
 			INSERT INTO #__tempResult (rptDate, ParentId, IsDeposit, Product3rdId, Bettype, CurrencyId, PlayCurrency, PayDaily, PayDailyRate, PayMonth, PayMonthRate, MemberWLDailyRate, MemberWLMonthRate, BonusRate)
 			SELECT d.rptDate, tp.ParentId, tp.IsDeposit, bt.Product3rdId, CASE WHEN d.BetTypeId = 3007 THEN 3007 ELSE 0 END, d.CurrencyId, ISNULL(pc.PlayCurrency, d.CurrencyId) AS PlayCurrency

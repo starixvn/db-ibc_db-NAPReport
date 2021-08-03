@@ -5,6 +5,7 @@ ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_Deposit]
 	,@ProductList		VARCHAR(MAX) = 'all'
 	,@IsLicPerf			BIT = 0
 	,@BaseCurrencyName  VARCHAR(10) = 'MYR'
+	,@isGetDataFromBettrans BIT = 0
 AS
 
 /*
@@ -29,6 +30,7 @@ AS
 		- 20210708@Danny: Missing BA WL in Licensee House Income for monthly report (#158191)
 		- 20210706@Danny: Split Licensee House Income by Sport for SB (#157953)
 		- 20210727@Danny: HNI Email/Letstalk - Change the formula to calculate House Income, Pay To Supplier for Arcadia Gaming/PP Promotion tickets (#158971)
+		- 20210803@Danny: Change Data Source to retrieve yesterday data from Bettrans table (#151993)
 */
 BEGIN
 	SET NOCOUNT ON
@@ -346,11 +348,39 @@ BEGIN
 			,LicenseeWL			MONEY DEFAULT(0) -- General formula -(winlost - actual_stake)
 		)
 
+		--- 
+		DECLARE @FDateGetData	DATE 
+		DECLARE	@TDateGetData	DATE
+		DECLARE	@yesterday		DATE =  DATEADD(DAY,-1,CONVERT(date, GETDATE()))
+
+		IF @isGetDataFromBettrans = 1 AND @ToDate = @yesterday AND @IsLicPerf = 0
+		BEGIN
+			SELECT @FDateGetData = @FromDate
+			SELECT @TDateGetData = DATEADD(DAY,-1,@ToDate)
+		END
+		ELSE 
+		BEGIN
+			SELECT @FDateGetData = @FromDate
+			SELECT @TDateGetData = @ToDate
+		END
+		-----
+
 		-- SB
 		IF EXISTS (SELECT 1 FROM @Products WHERE Product3rdId IN (0, 3))
 		BEGIN
 			INSERT INTO #__SabaLeague (LeagueId, LeagueGroupId)
 			SELECT LeagueId, LeagueGroupId FROM bodb02.dbo.League WITH (NOLOCK) WHERE sporttype IN (1, 2, 50) AND LeagueGroupId IN (42, 74, 108, 113)
+
+			-- retrieve data yesterday if flag is turned on
+			IF @isGetDataFromBettrans = 1 AND @ToDate = @yesterday AND @IsLicPerf = 0
+			BEGIN
+				INSERT INTO #__tempData (rptDate, SiteId_DW, CurrencyId, Product3rdId, AliasProductId, MemberWL, OddsSpreadAdj, Comm, LicenseeWL, LicenseeTO)
+				EXEC DBACC.bodb02.dbo.Acc_rpt_FactLADailyWinloss_Bettrans @Winlostdate = @yesterday
+
+				DELETE t
+				FROM  #__tempData t 
+				WHERE t.SiteId_DW  NOT IN (SELECT SiteId_DW FROM @tmpSite)
+			END
 
 			;WITH CTE_SB AS (
 				SELECT rptDate, SiteId, CurrencyId, ProductId, LeagueId
@@ -365,7 +395,7 @@ BEGIN
 					,-SUM(CASE WHEN ProductID = 10004 THEN 0 ELSE MemberWinloss END)  AS LicenseeWL
 					,SUM(MemberTurnover  *  CASE WHEN TicketStatus = 3 OR ProductID = 10004 THEN 0 WHEN TicketStatus IN (12, 13) THEN 0.5 ELSE 1.0 END) AS LicenseeTO
 				FROM bodb_Account.dbo.FactLADailyWinloss WITH (NOLOCK)
-				WHERE rptDate BETWEEN @FDate AND @TDate
+				WHERE rptDate BETWEEN @FDateGetData AND @TDateGetData
 					AND SiteId IN (SELECT SiteId_DW FROM @tmpSite)
 					AND ProductId IN (10001, 10004)
 					AND Bettype NOT IN (901, 902, 903, 904)
@@ -427,13 +457,19 @@ BEGIN
 				,LicenseeWL		= -SUM(MemberWL)
 				,LicensesTO		= SUM(Turnover)
 			FROM DBLIC.bodb_LicenseeReport.dbo.rpt_BettingByProduct WITH (NOLOCK)
-			WHERE rptDate BETWEEN @FDate AND @TDate
+			WHERE rptDate BETWEEN @FDateGetData AND @TDateGetData
 				AND ProductId IN (10, 11, 15, 31)
 				AND CurrencyId <> 20
 				AND CustomerCategory NOT IN (27, 28)
 				AND StatusId NOT IN (-1, 101, 102, 103)
 				AND SiteId < 1000 -- Deposit only
 			GROUP BY rptDate, SiteId, CurrencyId, ProductId, CASE WHEN bettype = 1706 THEN 1706 ELSE -1 END
+
+			IF @isGetDataFromBettrans = 1 AND @ToDate = @yesterday AND @IsLicPerf = 0
+			BEGIN
+				INSERT INTO #__BettingByProduct (rptDate, LicenseeId, CurrencyId, Product3rdId, BetTypeGroup, ValidBetAmount, MemberWL, Comm, LicenseeWL, LicenseeTO)
+				EXEC DBEXT.bodb02.dbo.Acc_rpt_rptBettingByProduct_Bettrans @winlostdate = @yesterday
+			END
 
 			INSERT INTO #__tempData (rptDate, SiteId_DW, CurrencyId, Product3rdId, AliasProductId, BetTypeGroup, ValidBetAmount, MemberWL, Comm, LicenseeWL, LicenseeTO)
 			SELECT b.rptDate, s.SiteId_DW, b.CurrencyId, b.Product3rdId, p.AliasProductId, b.BetTypeGroup, b.ValidBetAmount, b.MemberWL, b.Comm, b.LicenseeWL, b.LicenseeTO
@@ -446,9 +482,9 @@ BEGIN
 
 		-- Others
 		BEGIN
-			SELECT @FromDateByBatch = @FDate
+			SELECT @FromDateByBatch = @FDateGetData
 
-			WHILE @FromDateByBatch <= @TDate
+			WHILE @FromDateByBatch <= @TDateGetData
 			BEGIN
 				SELECT @ToDateByBatch = DATEADD(DAY, 7, @FromDateByBatch)
 
@@ -518,6 +554,90 @@ BEGIN
 				OPTION (RECOMPILE)
 
 				SELECT @FromDateByBatch = DATEADD(DAY, 1, @ToDateByBatch)
+			END
+
+			IF @isGetDataFromBettrans = 1 AND @ToDate = @yesterday AND @IsLicPerf = 0
+			BEGIN 
+				-- FactSiteWinloss
+				CREATE TABLE #FactSiteWinloss(
+					[RptDate] [date],
+					[SiteID] [int],
+					[CurrencyID] [int] ,
+					[BetType] [int],
+					[LeagueID] [int] ,
+					[SportType] [int] ,
+					[TicketStatus] [tinyint],
+					[VarianceVR] [decimal](9, 6),
+					[Stake] [decimal](19, 4),
+					[WinlossIBC] [decimal](19, 4),
+					[WinlossS] [decimal](19, 4),
+					[WinlossM] [decimal](19, 4),
+					[WinlossA] [decimal](19, 4),
+					[WinlossP] [decimal](19, 4),
+					[TurnoverIBC] [decimal](19, 4),
+					[CommissionS] [decimal](19, 4)	
+				)
+				INSERT INTO #FactSiteWinloss(RptDate,SiteID,CurrencyID,Sporttype,Bettype,LeagueID,TicketStatus,VarianceVR,TurnoverIBC,WinlossIBC,WinlossP,WinlossS,WinlossM,WinlossA,CommissionS,Stake)
+				EXEC DBACC.bodb02.dbo.Acc_rpt_FactSiteWinloss_Bettrans @Winlostdate = @yesterday
+			
+				INSERT INTO #__tempData (rptDate, SiteId_DW, CurrencyId, Product3rdId, AliasProductId, SportTypeGroup, BetTypeGroup, MemberWL, HouseWL, HouseTO, Stake, HouseContribution, FullContribution, LicenseeWL, LicenseeTO)
+				SELECT b.rptDate, b.SiteId, b.CurrencyId, bt.Product3rdId
+					,CASE
+						WHEN bt.Product3rdId <> 0 THEN bt.AliasProductId
+						WHEN bt.BetType IN (9, 29) THEN -10 -- Parlay
+						WHEN s.LeagueGroupId IN (42, 74, 108) AND b.SportType = 1 THEN -3 -- Saba Soccer
+						WHEN s.LeagueGroupId IN (42) AND b.SportType = 2 THEN -5 -- Saba Basketball
+						WHEN s.LeagueGroupId IN (42) AND b.SportType = 50 THEN -8 -- Saba Cricket
+						WHEN b.Sporttype = 1 THEN -2 -- Soccer
+						WHEN b.Sporttype = 2 THEN -4 -- Basketball
+						WHEN b.Sporttype = 5 THEN -6 -- Tennis
+						WHEN b.Sporttype = 43 THEN -7 -- E-Sports
+						ELSE -9 -- OS
+						END AS AliasProductId
+					,CASE WHEN b.SportType IN (150, 173) THEN b.SportType ELSE -1 END AS SportTypeGroup
+					,bt.BetTypeGroup
+					,SUM(CASE
+							WHEN bt.IsOnlyTO = 1 OR bt.bettype IN (1698, 4297, 3898) THEN 0
+							WHEN bt.BetType IN (913, 914) THEN b.WinlossP + b.WinlossA
+							ELSE b.WinlossP END
+						) AS MemberWL
+					,SUM(CASE WHEN bt.IsOnlyTO = 1 OR bt.bettype IN (1698, 4297, 3898) THEN 0 ELSE b.WinlossIBC + b.CommissionS END) AS HouseWL
+					,SUM(b.TurnoverIBC * CASE WHEN b.VarianceVR > 0 THEN b.VarianceVR + 1.0 ELSE 1.0 END * CASE WHEN b.TicketStatus = 3 THEN 0 WHEN b.TicketStatus IN (12, 13) THEN 0.5 ELSE 1.0 END) AS HouseTO -- VarianceVR = virtualrate/actualrate - 1
+					---- HouseTO change formula, will get MemberTO * ChargeRate
+					,SUM(b.Stake * CASE WHEN b.VarianceVR > 0 THEN b.VarianceVR + 1.0 ELSE 1.0 END * CASE WHEN b.TicketStatus = 3 THEN 0 WHEN b.TicketStatus IN (12, 13) THEN 0.5 ELSE 1.0 END) AS Stake -- VarianceVR = virtualrate/actualrate - 1
+					,SUM(CASE WHEN bt.bettype IN (1698, 4297, 3898) THEN b.WinlossIBC ELSE 0 END) AS HouseContribution
+					,SUM(CASE WHEN bt.bettype IN (1698, 4297, 3898) THEN b.WinlossIBC-b.WinlossS-b.WinlossM-b.WinlossA ELSE 0 END) AS FullContribution
+					-- Licensee performance
+					,-SUM(CASE
+							WHEN bt.IsOnlyTO = 1 OR bt.bettype IN (1698, 4297, 3898) THEN 0
+							ELSE b.WinlossP END
+						) AS LicenseeWL
+					,SUM(CASE
+							WHEN bt.IsOnlyTO = 1 OR bt.bettype IN (1698, 4297, 3898) THEN 0
+							ELSE b.Stake END *  CASE WHEN b.TicketStatus = 3 THEN 0 WHEN b.TicketStatus IN (12, 13) THEN 0.5 ELSE 1.0 END) AS LicenseeTO
+				FROM #FactSiteWinloss b 
+					INNER JOIN @tmpBetType bt ON b.BetType = bt.BetType
+					LEFT JOIN #__SabaLeague s ON b.LeagueId = s.LeagueId AND bt.Product3rdId = 0
+				WHERE b.CurrencyId <> 20
+					AND b.TicketStatus NOT IN (-1, 18, 9, 10, 14)
+				GROUP BY b.rptDate, b.SiteId, b.CurrencyId, bt.Product3rdId
+					,CASE
+						WHEN bt.Product3rdId <> 0 THEN bt.AliasProductId
+						WHEN bt.BetType IN (9, 29) THEN -10 -- Parlay
+						WHEN s.LeagueGroupId IN (42, 74, 108) AND b.SportType = 1 THEN -3 -- Saba Soccer
+						WHEN s.LeagueGroupId IN (42) AND b.SportType = 2 THEN -5 -- Saba Basketball
+						WHEN s.LeagueGroupId IN (42) AND b.SportType = 50 THEN -8 -- Saba Cricket
+						WHEN b.Sporttype = 1 THEN -2 -- Soccer
+						WHEN b.Sporttype = 2 THEN -4 -- Basketball
+						WHEN b.Sporttype = 5 THEN -6 -- Tennis
+						WHEN b.Sporttype = 43 THEN -7 -- E-Sports
+						ELSE -9 -- OS
+						END
+					,CASE WHEN b.SportType IN (150, 173) THEN b.SportType ELSE -1 END
+					,bt.BetTypeGroup
+
+				DROP TABLE #FactSiteWinloss
+
 			END
 		END
 
