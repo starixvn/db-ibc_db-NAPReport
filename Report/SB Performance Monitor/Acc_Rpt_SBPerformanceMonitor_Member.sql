@@ -116,6 +116,10 @@ BEGIN
         WHERE s.SportType = ISNULL(@sportID, s.SportType)
           AND l.LeagueID = ISNULL(@leagueID, l.LeagueID)
           AND m.MatchID = ISNULL(@matchID, m.MatchID)
+              UNION ALL
+        SELECT -2, -2, 9, 0, NULL, -1, -1 WHERE @excludeParlay = 0 
+              UNION ALL
+        SELECT -2, -2, 29, 0, NULL, -1, -1 WHERE @excludeParlay = 0
         OPTION (RECOMPILE)
         
         CREATE UNIQUE CLUSTERED INDEX PK_tmpMatch ON #tmpMatch(MatchID, MatchType)
@@ -225,7 +229,7 @@ BEGIN
                RealIncome, 
                RealTurnover,
                CASE WHEN RealTurnover = 0 THEN 0 ELSE ((RealIncome / RealTurnover) * 100) END Margin,
-               sp.SportName,
+               CASE WHEN s.SportID = -2 THEN 'Parlay' ELSE sp.SportName END SportName,
                l.leaguename LeagueName,
                bt.typenamee BetTypeName
           FROM #staging s
