@@ -23,7 +23,8 @@ AS
 		20210414@Ned.Le: Email/Letstalk Reports - Arcadia Gaming - Add 2 new games: Marble Mini and RPS (#153419)
 		20210519@Ned.Le: Email/Letstalk Reports - Incorporate Saba Soccer PinGoal (#155373)
         20210726@Ned.Le: Letstalk Reports - Apply monthly formula for MTD value like LA Reports (#157953)
-		20210726@Ned.Le: HNI Email/Letstalk - Change the formula to calculate House Income, Pay To Supplier for Arcadia Gaming/PP Promotion tickets (#158971)
+        20210726@Ned.Le: HNI Email/Letstalk - Change the formula to calculate House Income, Pay To Supplier for Arcadia Gaming/PP Promotion tickets (#158971)
+        20210815@Ned.Le: Email/Letstalk Reports - Change Data Source to retrieve yesterday data from DW into Bettrans table (#151993)
 
 	Param's Explanation:
 		@ProductList: 'ALL' - Get data of all product
@@ -62,18 +63,21 @@ BEGIN
 	--    -> #tmpPTSVendorGlobalSetting                        --
 	--    -> #tmpPTSMainData                                   --
 	--                                                         --
-	-- 4. Getting raw data                                     --
+	-- 4. Getting source data                                  --
+	--    -> #tmpSourceData                                    --
+	--                                                         --
+	-- 5. Getting raw data                                     --
 	--    -> #tmpRawData                                       --
 	--                                                         --
-	-- 5. Getting detail data                                  --
+	-- 6. Getting detail data                                  --
 	--    -> #tmpDetailData                                    --
 	--                                                         --
-	-- 6. Pivot detail data to get the final expected data set --
+	-- 7. Pivot detail data to get the final expected data set --
 	--    -> #tmpFinalData                                     --
 	--                                                         --
-	-- 7. Select data                                          --
+	-- 8. Select data                                          --
 	--                                                         --
-	-- 8. Drop temp tables                                     --
+	-- 9. Drop temp tables                                     --
 	--                                                         --
 	-------------------------------------------------------------
 
@@ -82,19 +86,46 @@ BEGIN
 	-- 1. Declare variables --
 	--------------------------
 
-	DECLARE @isTest BIT= 0
+	DECLARE @isTest BIT = 0
     SET @isTest = bodb_dwrs.dbo.f_CheckSPVersion(@@PROCID)
 
 	DECLARE @sqlQuery VARCHAR(MAX)
 	DECLARE @sqlSupport VARCHAR(MAX)
+	DECLARE @bettypeList VARCHAR(MAX)
+	
+	DECLARE @OANDA_ExchangeDate DATE
+	DECLARE @OANDA_LastMonthDate DATE
+	DECLARE @finalDataDate DATE
 
-	DECLARE @FromDate_e DATE
-	DECLARE @ToDate_e DATE
-	DECLARE @execDate DATE
-	DECLARE @interval INT = 6
-	SET @FromDate_e = @FromDate
-	SET @ToDate_e = DATEADD(DAY, @interval, @FromDate_e)
-	IF (@ToDate_e > @ToDate) SET @ToDate_e = @ToDate
+	DECLARE @checkDate DATE
+	SET @checkDate = DATEADD(DAY, -2, CAST(GETDATE() AS DATE))
+	--SELECT @checkDate = CAST(MoveBetsDay AS DATE)
+	--FROM OPENQUERY(DBACC, 'EXEC bodb02.dbo.Age_SelBalanceUpDay')
+	
+	DECLARE @FromDate_DW DATE
+	DECLARE @ToDate_DW DATE
+	DECLARE @FromDate_OLTP DATE
+	DECLARE @ToDate_OLTP DATE
+	DECLARE @isGetDataFromBettrans BIT
+	
+	IF (@ToDate <= @checkDate)
+	BEGIN
+		SET @isGetDataFromBettrans = 0
+		SET @FromDate_DW = @FromDate
+		SET @ToDate_DW = @ToDate
+	END
+	ELSE
+	BEGIN
+		SET @isGetDataFromBettrans = 1
+		SET @FromDate_DW = @FromDate
+		SET @ToDate_DW = @checkDate
+		SET @FromDate_OLTP = DATEADD(DAY, 1, @checkDate)
+		SET @ToDate_OLTP = @ToDate
+	END
+
+	DECLARE @loop_FromDate DATE
+	DECLARE @loop_ToDate DATE
+	DECLARE @loop_Interval INT = 6
 
 	DECLARE @SABALeagueGroupStr VARCHAR(500)
 	SELECT @SABALeagueGroupStr = VValue FROM bodb_Account.dbo.SystemSettings (NOLOCK) WHERE VID = 5
@@ -119,6 +150,8 @@ BEGIN
 		 LEFT JOIN bodb_Account.dbo.Bettype b (NOLOCK) ON bg.Bettype = b.typeid
 	WHERE bg.BettypeGroupID IN (6, 10, 11, 14, 15)
 
+	CREATE CLUSTERED INDEX CIX_#tmpBettypeGroup ON #tmpBettypeGroup(BettypeGroupID, Bettype)
+
 	-- #tmpProductList
 	CREATE TABLE #tmpProductList (ProductPrefix VARCHAR(20))
 
@@ -126,6 +159,8 @@ BEGIN
 	SELECT val ProductPrefix
 	FROM bodb_dwrs.dbo.strSplit(@ProductList, ',')
 	WHERE LEN(val) > 0
+
+	CREATE CLUSTERED INDEX CIX_tmpProductList ON #tmpProductList(ProductPrefix)
 
 	-- #tmpHNISettings
 	CREATE TABLE #tmpHNISettings (
@@ -171,6 +206,7 @@ BEGIN
 		      AND (isTest = 0 OR isTest = @isTest)
 	END
 
+	CREATE CLUSTERED INDEX CIX_tmpHNISettings ON #tmpHNISettings(isDeposit, ProductID, AliasProductID)
 
 	-- #tmpProductBettype
 	CREATE TABLE #tmpProductBettype (
@@ -263,7 +299,7 @@ BEGIN
 	------------------------------
 	-- 3. Other Metadata tables --
 	------------------------------
-
+	
 	-- #tmpExchangeSystem
 	CREATE TABLE #tmpExchangeSystem (
 		ExchangeDate DATE,
@@ -276,22 +312,26 @@ BEGIN
 	FROM bodb_Account.dbo.tbl_Currency_Daily (NOLOCK)
 	WHERE ExchangeDate BETWEEN @FromDate AND @ToDate
 
+	CREATE CLUSTERED INDEX CIX_#tmpExchangeSystem ON #tmpExchangeSystem(ExchangeDate, ExchangeID)
+
 	-- #tmpExchangeOANDA
 	CREATE TABLE #tmpExchangeOANDA (
-		ExchangeDate DATE,
 		ExchangeID INT,
 		Rate FLOAT
 	)
+	
+	SELECT @OANDA_ExchangeDate = MAX(ExchangeDate) FROM bodb02.dbo.ExchangeDailyOanda (NOLOCK)
+	SELECT @OANDA_LastMonthDate = DATEADD(DAY, -1, DATEADD(MONTH, DATEDIFF(MONTH, -1, @ToDate), 0))
+	IF (@OANDA_ExchangeDate > @OANDA_LastMonthDate) SELECT @OANDA_ExchangeDate = @OANDA_LastMonthDate
+	
+	INSERT INTO #tmpExchangeOANDA (ExchangeID, Rate)
+	SELECT ExchangeId ExchangeID, MYR Rate
+	FROM bodb02.dbo.ExchangeDailyOanda (NOLOCK)
+	WHERE ExchangeDate = @OANDA_ExchangeDate
 
-	INSERT INTO #tmpExchangeOANDA (ExchangeDate, ExchangeID, Rate)
-	SELECT ExchangeDate,
-		   FromCurrencyID ExchangeID,
-		   EndOfMonthRate Rate
-	FROM bodb_Account.dbo.FactLAExchangeDailyOanda (NOLOCK)
-	WHERE ExchangeDate BETWEEN @FromDate AND @ToDate
-		  AND ToCurrencyID IN (SELECT exchangeid FROM bodb02.dbo.exchange (NOLOCK) WHERE currency = 'RM')
-
-    -- #tmpSABALeagueGroup
+	CREATE CLUSTERED INDEX CIX_tmpExchangeOANDA ON #tmpExchangeOANDA(ExchangeID)
+	
+	-- #tmpSABALeagueGroup
 	CREATE TABLE #tmpSABALeagueGroup (LeagueGroupID INT)
     INSERT INTO #tmpSABALeagueGroup (LeagueGroupID)
     SELECT val LeagueGroupID
@@ -312,6 +352,8 @@ BEGIN
 	FROM bodb02.dbo.League (NOLOCK)
 	WHERE LeagueGroupID IN (SELECT LeagueGroupID FROM #tmpSABALeagueGroup)
 
+	CREATE CLUSTERED INDEX CIX_tmpLeague ON #tmpLeague(LeagueID)
+
 	-- #tmpPTSProducts
 	CREATE TABLE #tmpPTSProducts (
 		ProductID INT,
@@ -325,6 +367,8 @@ BEGIN
 	FROM bodb02.dbo.Products p (NOLOCK)
 		 INNER JOIN bodb02.dbo.SportBettypeMatrix sbm (NOLOCK) ON p.ProductID = sbm.ProductID
 	WHERE p.ProductID IN (SELECT DISTINCT ProductID FROM #tmpHNISettings (NOLOCK) WHERE isDeposit = 0 AND isEnable = 1 AND LogicCode = 1 AND Figure = 'Pay to Supplier')
+
+	CREATE CLUSTERED INDEX CIX_tmpPTSProducts ON #tmpPTSProducts (VendorID, Sporttype)
 
 	-- #tmpPTSVendorGlobalSetting
 	CREATE TABLE #tmpPTSVendorGlobalSetting (
@@ -345,6 +389,8 @@ BEGIN
 		 INNER JOIN #tmpPTSProducts p ON v.[VendorId] = p.VendorID AND v.Sporttype = p.Sporttype
 	WHERE v.VName IN ('3rdCreditWLShareRate',		-- All Product
 					  '3rdCreditWLShareRateION')	-- ION Product
+	
+	CREATE CLUSTERED INDEX CIX_tmpPTSVendorGlobalSetting ON #tmpPTSVendorGlobalSetting(ProductID, Sporttype, Bettype)
 
 	-- #tmpPTSMainData
 	CREATE TABLE #tmpPTSMainData (
@@ -379,9 +425,132 @@ BEGIN
 	WHERE v.ProductID NOT IN (SELECT ProductID FROM #tmpPTSMainData)
 		  AND v.VName IN ('3rdCreditWLShareRate', '3rdCreditWLShareRateION')
 
+	CREATE CLUSTERED INDEX CIX_tmpPTSMainData ON #tmpPTSMainData(ProductID)
+
 
 	-----------------------------------------------------------------------------------------------
-	-- 4. Getting raw data																	     --
+	-- 4. Getting source data   															     --
+	-----------------------------------------------------------------------------------------------
+	--                                                                                           --
+	-- Time period: After MoveBetsDay	     [bodb02.dbo.bettrans]                               --
+	--              From MoveBetsDay onwards [bodb_Account.dbo.FactSiteWinloss]                  --
+	--                                                                                           --
+	-- Dimension:	RptDate																		 --
+	--				SiteID																		 --
+	--				CurrencyID																	 --
+	--				Sporttype																	 --
+	--				Bettype																		 --
+	--				LeagueID																	 --
+	--              TicketStatus                                                                 --
+	--              VarianceVR                                                                   --
+	--                                                                                           --
+	-- Measure:		TurnoverIBC                                                                  --
+	--              WinlossIBC                                                                   --
+	--              WinlossP                                                                     --
+	--              WinlossS                                                                     --
+	--              WinlossM                                                                     --
+	--              WinlossA                                                                     --
+	--              CommissionS							                                         --
+	--              ExtraTO                                                                      --
+	--              ExtraWL                                                                      --
+	--              ExtraComm                                                                    --
+    --              NetStake                                                                     --
+	--                                                                                           --
+	-----------------------------------------------------------------------------------------------
+
+	CREATE TABLE #tmpSourceData (
+		RptDate			DATE,
+		SiteID			INT,
+		CurrencyID      INT,
+		Sporttype		INT,
+		Bettype			INT,
+		LeagueID		INT,
+		TicketStatus	INT,
+		VarianceVR		DECIMAL (19, 4),
+		TurnoverIBC		DECIMAL (19, 4),
+		WinlossIBC		DECIMAL (19, 4),
+		WinlossP		DECIMAL (19, 4),
+		WinlossS		DECIMAL (19, 4),
+		WinlossM		DECIMAL (19, 4),
+		WinlossA		DECIMAL (19, 4),
+		CommissionS		DECIMAL (19, 4),
+		ExtraTO			DECIMAL (19, 6),
+		ExtraWL			DECIMAL (19, 6),
+		ExtraComm		DECIMAL (19, 6),
+        NetStake		DECIMAL (19, 4)
+	)
+
+	SELECT @bettypeList = COALESCE(@bettypeList + ',', '') + CONVERT(VARCHAR(20), Bettype)
+	FROM #tmpProductBettype
+	ORDER BY Bettype
+	
+	IF (@isGetDataFromBettrans = 1)
+	BEGIN
+		WHILE (@FromDate_OLTP <= @ToDate_OLTP)
+		BEGIN
+			INSERT INTO #tmpSourceData (RptDate, SiteID, CurrencyID, Sporttype, Bettype, LeagueID, TicketStatus, VarianceVR,
+									    TurnoverIBC, WinlossIBC, WinlossP, WinlossS, WinlossM, WinlossA, CommissionS, ExtraTO, ExtraWL, ExtraComm, NetStake)
+			EXEC DBACC.bodb02.dbo.Acc_Rpt_HouseNetIncome_Credit_Bettrans @FromDate_OLTP, @bettypeList
+
+			SET @FromDate_OLTP = DATEADD(DAY, 1, @FromDate_OLTP)
+		END
+	END
+
+	SET @loop_FromDate = @FromDate_DW
+	SET @loop_ToDate = DATEADD(DAY, @loop_Interval, @loop_FromDate)
+	IF (@loop_ToDate > @ToDate_DW) SET @loop_ToDate = @ToDate_DW
+
+	WHILE @loop_ToDate <= @ToDate_DW
+	BEGIN
+		
+		INSERT INTO #tmpSourceData (RptDate, SiteID, CurrencyID, Sporttype, Bettype, LeagueID, TicketStatus, VarianceVR,
+									TurnoverIBC, WinlossIBC, WinlossP, WinlossS, WinlossM, WinlossA, CommissionS, ExtraTO, ExtraWL, ExtraComm, NetStake)
+		SELECT -- *** DIMENSION *** --
+			   f.RptDate				RptDate,
+			   f.SiteID					SiteID,
+			   f.CurrencyID				CurrencyID,
+			   f.SportType				Sporttype,
+			   f.BetType				Bettype,
+			   f.LeagueID				LeagueID,
+			   f.TicketStatus			TicketStatus,
+			   f.VarianceVR				VarianceVR,
+			   -- *** MEASURE *** --
+			   SUM(f.TurnoverIBC)		TurnoverIBC,
+			   SUM(f.WinlossIBC)		WinlossIBC,
+			   SUM(f.WinlossP)			WinlossP,
+			   SUM(f.WinlossS)			WinlossS,
+			   SUM(f.WinlossM)			WinlossM,
+			   SUM(f.WinlossA)			WinlossA,
+			   SUM(f.CommissionS)		CommissionS,
+			   SUM(f.ExtraTO)			ExtraTO,
+			   SUM(f.ExtraWL)			ExtraWL,
+			   SUM(f.ExtraComm)			ExtraComm,
+               SUM(f.NetStake)          NetStake
+		FROM bodb_Account.dbo.FactSiteWinloss f (NOLOCK)
+		WHERE f.RptDate >= @loop_FromDate AND f.RptDate <= @loop_ToDate
+		      AND f.BetType IN (SELECT Bettype FROM #tmpProductBettype)
+		GROUP BY f.RptDate,
+				 f.SiteID,
+				 f.CurrencyID,
+				 f.SportType,
+				 f.BetType,
+				 f.LeagueID,
+				 f.TicketStatus,
+				 f.VarianceVR
+		OPTION(RECOMPILE)
+
+		IF (@loop_ToDate = @ToDate_DW)	BREAK
+			
+		SELECT @loop_FromDate = DATEADD(DAY, 1, @loop_ToDate)
+		SELECT @loop_ToDate = DATEADD(DAY, @loop_Interval, @loop_FromDate)
+		IF (@loop_ToDate > @ToDate_DW) SET @loop_ToDate = @ToDate_DW
+	END
+
+	CREATE CLUSTERED INDEX CIX_tmpSourceData ON #tmpSourceData(RptDate, SiteID, CurrencyID, Sporttype, Bettype, LeagueID, TicketStatus, VarianceVR)
+
+
+	-----------------------------------------------------------------------------------------------
+	-- 5. Getting raw data																	     --
 	-----------------------------------------------------------------------------------------------
 	--                                                                                           --
 	-- Dimension:	RptDate																		 --
@@ -404,7 +573,8 @@ BEGIN
 	--				MemberWLOANDA [WinlossP * OANDARate]										 --
 	--				ScommOANDA [CommissionS * OANDARate]										 --
 	--				Contribution [(WinlossIBC - WinlossS - WinlossM - WinlossA) * SystemRate]    --
-    --              NetStakeOANDA [NetStake * OANDARate]										 --
+    --              NetStakeOANDA [NetStake * OANDARate]                                         --
+	--                                                                                           --
 	-----------------------------------------------------------------------------------------------
 
 	CREATE TABLE #tmpRawData (
@@ -425,8 +595,12 @@ BEGIN
 		Contribution DECIMAL(19, 4),
         NetStakeOANDA DECIMAL(19, 4)
 	)
+	
+	SET @loop_FromDate = @FromDate
+	SET @loop_ToDate = DATEADD(DAY, @loop_Interval, @loop_FromDate)
+	IF (@loop_ToDate > @ToDate) SET @loop_ToDate = @ToDate
 
-	WHILE @ToDate_e <= @ToDate
+	WHILE @loop_ToDate <= @ToDate
 	BEGIN
 		INSERT INTO #tmpRawData (RptDate, Site, ProductID, Sporttype, Bettype, LeagueID,
 		                         HouseWL, HouseWLOANDA,
@@ -439,20 +613,20 @@ BEGIN
 		SELECT -- *** DIMENSION *** --
 			   b.RptDate,
 			   s.site Site,
-			   CASE WHEN b.Bettype IN (9, 29)                           THEN -10		--Parlay
-					WHEN b.SportType = 1 AND l.LeagueGroupType = 1      THEN -3	        --Saba Soc
-					WHEN b.SportType = 1 AND l.LeagueGroupType = 2      THEN -14        --Saba Soc PGoal
-					WHEN b.SportType = 2 AND l.LeagueGroupType = 1      THEN -5			--Saba Bas
-					WHEN b.SportType = 50 AND l.LeagueGroupType = 1     THEN -8			--Saba Cric
-					WHEN b.SportType = 1                                THEN -2			--Real Soc
-					WHEN b.SportType = 2                                THEN -4			--Real Bas
-					WHEN b.SportType = 5                                THEN -6			--Tennis
-					WHEN b.SportType = 43                               THEN -7			--E-Sports
-					WHEN pb.ProductID = 1                               THEN -9			--OtherSp
-					WHEN pb.ProductID = 3 AND b.Sporttype = 161         THEN -11		--NumG
-					WHEN pb.ProductID = 3 AND Sporttype = 164           THEN -12		--Happy5
-					WHEN pb.ProductID = 3 AND Sporttype = 168           THEN -13		--Happy5 LG
-					ELSE ISNULL(pb.ProductID, -1) END ProductID,						--Unknown
+			   CASE WHEN b.Bettype IN (9, 29)                       THEN -10 --Parlay
+					WHEN b.SportType = 1 AND l.LeagueGroupType = 1  THEN -3	 --Saba Soc
+					WHEN b.SportType = 1 AND l.LeagueGroupType = 2  THEN -14 --Saba Soc PGoal
+					WHEN b.SportType = 2 AND l.LeagueGroupType = 1  THEN -5	 --Saba Bas
+					WHEN b.SportType = 50 AND l.LeagueGroupType = 1 THEN -8	 --Saba Cric
+					WHEN b.SportType = 1                            THEN -2	 --Real Soc
+					WHEN b.SportType = 2                            THEN -4	 --Real Bas
+					WHEN b.SportType = 5                            THEN -6	 --Tennis
+					WHEN b.SportType = 43                           THEN -7	 --E-Sports
+					WHEN pb.ProductID = 1                           THEN -9	 --OtherSp
+					WHEN pb.ProductID = 3 AND b.Sporttype = 161     THEN -11 --NumG
+					WHEN pb.ProductID = 3 AND Sporttype = 164       THEN -12 --Happy5
+					WHEN pb.ProductID = 3 AND Sporttype = 168       THEN -13 --Happy5 LG
+					ELSE ISNULL(pb.ProductID, -1) END ProductID,			 --Unknown
 			   b.SportType,
 			   b.BetType,
 			   b.LeagueID,
@@ -471,45 +645,45 @@ BEGIN
 			   SUM(b.CommissionS * ISNULL(eo.Rate, 0)) ScommOANDA,
 			   SUM((b.WinlossIBC - b.WinlossS - b.WinlossM - b.WinlossA) * ISNULL(es.Rate, 0)) Contribution,
                SUM(b.NetStake * ISNULL(eo.Rate, 0)) NetStakeOANDA
-		FROM bodb_Account.dbo.FactSiteWinloss b (NOLOCK)
+		FROM #tmpSourceData b (NOLOCK)
 			 INNER JOIN bodb_Account.dbo.tbl_Site s (NOLOCK) ON s.isDeposit = 0 AND b.SiteID = s.siteid
 			 LEFT JOIN #tmpProductBettype pb (NOLOCK) ON b.Bettype = pb.Bettype
 			 LEFT JOIN #tmpExchangeSystem es ON b.rptdate = es.ExchangeDate AND b.CurrencyID = es.ExchangeID
-			 LEFT JOIN #tmpExchangeOANDA eo ON b.RptDate = eo.ExchangeDate AND b.CurrencyID = eo.ExchangeID
+			 LEFT JOIN #tmpExchangeOANDA eo ON b.CurrencyID = eo.ExchangeID
 			 LEFT JOIN #tmpLeague l ON b.LeagueID = l.LeagueID
-		WHERE RptDate >= @FromDate_e AND RptDate <= @ToDate_e
+		WHERE RptDate >= @loop_FromDate AND RptDate <= @loop_ToDate
 			  AND b.TicketStatus NOT IN (-1, 18, 9, 10, 14)
 			  AND b.CurrencyID <> 20
 			  AND b.BetType IN (SELECT Bettype FROM #tmpProductBettype)
 		GROUP BY b.RptDate,
 				 s.site,
-				 CASE WHEN b.Bettype IN (9, 29)                         THEN -10		--Parlay
-					  WHEN b.SportType = 1 AND l.LeagueGroupType = 1    THEN -3	        --Saba Soc
-					  WHEN b.SportType = 1 AND l.LeagueGroupType = 2    THEN -14	    --Saba Soc PGoal
-					  WHEN b.SportType = 2 AND l.LeagueGroupType = 1    THEN -5			--Saba Bas
-					  WHEN b.SportType = 50 AND l.LeagueGroupType = 1   THEN -8			--Saba Cric
-					  WHEN b.SportType = 1                              THEN -2			--Real Soc
-					  WHEN b.SportType = 2                              THEN -4			--Real Bas
-					  WHEN b.SportType = 5                              THEN -6			--Tennis
-					  WHEN b.SportType = 43                             THEN -7			--E-Sports
-					  WHEN pb.ProductID = 1                             THEN -9			--OtherSp
-					  WHEN pb.ProductID = 3 AND b.Sporttype = 161       THEN -11		--NumG
-					  WHEN pb.ProductID = 3 AND Sporttype = 164         THEN -12		--Happy5
-					  WHEN pb.ProductID = 3 AND Sporttype = 168         THEN -13		--Happy5 LG
-					  ELSE ISNULL(pb.ProductID, -1) END,								--Unknown
+				 CASE WHEN b.Bettype IN (9, 29)                       THEN -10 --Parlay
+					  WHEN b.SportType = 1 AND l.LeagueGroupType = 1  THEN -3  --Saba Soc
+					  WHEN b.SportType = 1 AND l.LeagueGroupType = 2  THEN -14 --Saba Soc PGoal
+					  WHEN b.SportType = 2 AND l.LeagueGroupType = 1  THEN -5  --Saba Bas
+					  WHEN b.SportType = 50 AND l.LeagueGroupType = 1 THEN -8  --Saba Cric
+					  WHEN b.SportType = 1                            THEN -2  --Real Soc
+					  WHEN b.SportType = 2                            THEN -4  --Real Bas
+					  WHEN b.SportType = 5                            THEN -6  --Tennis
+					  WHEN b.SportType = 43                           THEN -7  --E-Sports
+					  WHEN pb.ProductID = 1                           THEN -9  --OtherSp
+					  WHEN pb.ProductID = 3 AND b.Sporttype = 161     THEN -11 --NumG
+					  WHEN pb.ProductID = 3 AND Sporttype = 164       THEN -12 --Happy5
+					  WHEN pb.ProductID = 3 AND Sporttype = 168       THEN -13 --Happy5 LG
+					  ELSE ISNULL(pb.ProductID, -1) END,					   --Unknown
 				 b.SportType,
 				 b.BetType,
 				 b.LeagueID
 		OPTION(RECOMPILE)
 
-		IF @ToDate_e = @ToDate
-			BREAK
+		IF (@loop_ToDate = @ToDate)	BREAK
 			
-		SELECT @FromDate_e = DATEADD(DAY, 1, @ToDate_e)
-		SELECT @ToDate_e = DATEADD(DAY, @interval, @FromDate_e)
-		IF @ToDate_e > @ToDate
-			SET @ToDate_e = @ToDate
+		SELECT @loop_FromDate = DATEADD(DAY, 1, @loop_ToDate)
+		SELECT @loop_ToDate = DATEADD(DAY, @loop_Interval, @loop_FromDate)
+		IF (@loop_ToDate > @ToDate) SET @loop_ToDate = @ToDate
 	END
+
+	CREATE CLUSTERED INDEX CIX_tmpRawData ON #tmpRawData(RptDate, Site, ProductID, Sporttype, Bettype, LeagueID)
 
 
 	----------------------------
@@ -544,7 +718,7 @@ BEGIN
 			   hni.Figure,
 			   hni.SubFigure,
 			   CASE WHEN hni.Figure = 'Credit House Income' THEN SUM(CASE WHEN bg2.BettypeGroupID = 14 THEN -(b.MemberWL)
-			                                                                   ELSE -(b.HouseWL) END)
+			                                                              ELSE -(b.HouseWL) END)
 					WHEN hni.Figure = 'House Turnover' THEN SUM(b.HouseTO)
 					WHEN hni.Figure = 'Extra PT' THEN SUM(b.ExtraPT)
 					WHEN hni.Figure = 'Pay to Supplier' THEN CASE WHEN hni.ProductShortName = 'Arcadia' THEN SUM(b.MemberWLOANDA * (CASE WHEN bg2.BettypeGroupID = 14 THEN 1
@@ -685,9 +859,9 @@ BEGIN
 		  AND ((EndOfSupportDate IS NULL) OR (EndOfSupportDate IS NOT NULL AND EndOfSupportDate >= @FromDate))
 
 	-- Insert detail data to table #tmpFinalData
-	SET @execDate = @FromDate
+	SET @finalDataDate = @FromDate
 
-	WHILE (@execDate <= @ToDate)
+	WHILE (@finalDataDate <= @ToDate)
 	BEGIN
 		SET @sqlQuery =
 		'
@@ -704,9 +878,9 @@ BEGIN
 				   detail.SubFigure,
 				   detail.DataValue
 			FROM #tmpDetailData detail
-			WHERE detail.RptDate = ''' + CONVERT(VARCHAR(10), @execDate, 112) + ''')' + CHAR(13) +
+			WHERE detail.RptDate = ''' + CONVERT(VARCHAR(10), @finalDataDate, 112) + ''')' + CHAR(13) +
 		'UPDATE main
-		SET main.[' + LEFT(CONVERT(VARCHAR(10), @execDate, 106), 2) + ']' + '= cte.DataValue
+		SET main.[' + LEFT(CONVERT(VARCHAR(10), @finalDataDate, 106), 2) + ']' + '= cte.DataValue
 		FROM #tmpFinalData main
 			 INNER JOIN CTE_Detail cte ON main.[OrderByProduct] = cte.OrderByProduct
 				                          AND main.[OrderByFigure] = cte.OrderByFigure
@@ -717,7 +891,7 @@ BEGIN
 
 		EXEC (@sqlQuery)
 
-		SET @execDate = DATEADD(DAY, 1, @execDate)
+		SET @finalDataDate = DATEADD(DAY, 1, @finalDataDate)
 	END
 
 	-- Calculate for MTD column in #tmpFinalData
@@ -798,6 +972,8 @@ BEGIN
 	DROP TABLE #tmpPTSProducts
 	DROP TABLE #tmpPTSVendorGlobalSetting
 	DROP TABLE #tmpPTSMainData
+
+	DROP TABLE #tmpSourceData
 
 	DROP TABLE #tmpRawData
 
