@@ -481,7 +481,7 @@ BEGIN
 	)
 
 	INSERT INTO #tmpFactSiteWinloss (RptDate, SiteID, CurrencyID, Sporttype, Bettype, LeagueID, TicketStatus, VarianceVR,
-									 TurnoverIBC, WinlossIBC, WinlossP, WinlossS, WinlossM, WinlossA, CommissionS, ExtraTO, ExtraWL, ExtraComm)
+									 TurnoverIBC, WinlossIBC, WinlossP, WinlossS, WinlossM, WinlossA, CommissionS, ExtraTO, ExtraWL, ExtraComm, NetStake)
 	SELECT -- *** DIMENSION *** --
 	       mc.winlostdate																																		RptDate,
 		   CASE WHEN mc.recommend = 52466 THEN -2   --8RM
