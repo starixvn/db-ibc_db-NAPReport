@@ -9,7 +9,8 @@ ALTER PROCEDURE dbo.Acc_Rpt_HouseNetIncome @FromDate DATE,
 										   @DepositType	TINYINT = 2,
 										   @IsOldView BIT = 0,
 										   @IsLicPerf		BIT = 0,
-										   @BaseCurrencyName  VARCHAR(10) = 'MYR'
+										   @BaseCurrencyName  VARCHAR(10) = 'MYR',
+										   @isGetDataFromBettrans	BIT = 0
 
 AS
 
@@ -21,6 +22,7 @@ AS
     Revisions:
 		20201117@Ned.Le: DHWL Email/Letstalk - Restructure source code to improve performance & Separate House Income into Credit Income and Licensee Income (#143208)
 		20210616@Danny: Support Licensee Performance view mode (#156727)
+		20210803@Danny: Change Data Source to retrieve yesterday data from Bettrans table (#151993)
 
 	Param's Explanation:
 		@ProductList: 'ALL' - Get data of all product
@@ -66,18 +68,21 @@ BEGIN
 		EXEC bodb_dwrs.dbo.Acc_Rpt_HouseNetIncome_Credit		 @FromDate = @FromDate,
 																 @ToDate = @ToDate,
 																 @ProductList = @ProductList
+																
 
 		-- Acc_Rpt_HouseNetIncome_Deposit
 		EXEC bodb_dwrs.dbo.Acc_Rpt_HouseNetIncome_Deposit		 @FromDate = @FromDate,
 																 @ToDate = @ToDate,
-																 @ProductList = @ProductList
+																 @ProductList = @ProductList,
+																 @isGetDataFromBettrans = @isGetDataFromBettrans
 
 		-- Acc_Rpt_HouseNetIncome_PayToSupplier
 		EXEC bodb_dwrs.dbo.Acc_Rpt_HouseNetIncome_PayToSupplier	 @FromDate = @FromDate,
 																 @ToDate = @ToDate,
 																 @ProductList = @ProductList,
 																 @DepositType = @DepositType,
-																 @IsOldView = @IsOldView
+																 @IsOldView = @IsOldView,
+																 @isGetDataFromBettrans = @isGetDataFromBettrans
 	 END
 
 END
