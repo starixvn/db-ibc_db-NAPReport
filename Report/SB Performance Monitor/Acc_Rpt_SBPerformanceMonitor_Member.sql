@@ -117,9 +117,9 @@ BEGIN
           AND l.LeagueID = ISNULL(@leagueID, l.LeagueID)
           AND m.MatchID = ISNULL(@matchID, m.MatchID)
               UNION ALL
-        SELECT -2, -2, 9, 0, NULL, -1, -1 WHERE @excludeParlay = 0 
-              UNION ALL
-        SELECT -2, -2, 29, 0, NULL, -1, -1 WHERE @excludeParlay = 0
+        SELECT -2, -2, 9, 0, NULL, -1, -1 WHERE @excludeParlay = 0 AND @sportID IS NULL -- show Parlay at top level only, exclude when
+              UNION ALL                                                                 -- drill from sports
+        SELECT -2, -2, 29, 0, NULL, -1, -1 WHERE @excludeParlay = 0 AND @sportID IS NULL
         OPTION (RECOMPILE)
         
         CREATE UNIQUE CLUSTERED INDEX PK_tmpMatch ON #tmpMatch(MatchID, MatchType)

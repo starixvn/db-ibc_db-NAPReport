@@ -9,7 +9,7 @@ ALTER PROCEDURE dbo.Acc_Rpt_SBPerformanceMonitor_Sport @fromDate SMALLDATETIME,
                                                        @timeRange SMALLINT = -1,
                                                        @margin FLOAT = NULL,
                                                        @excludeDrawTickets BIT = 0,
-                                                       @excludeParlay BIT = 1,
+                                                       @excludeParlay BIT = 1,       -- Not used in Sport reports
                                                        @topBy VARCHAR(20) = NULL,    -- Not used with "Margin By" reports
                                                        @sportID INT, 			     -- level 1
                                                        @siteID INT = NULL, 			 -- level 2
@@ -66,8 +66,7 @@ BEGIN
           FROM bodb02.dbo.SportBettypeMatrix sbm (NOLOCK)
          WHERE sbm.ProductID = 1
            AND sbm.SubProduct NOT LIKE 'BT%'
-           AND ((sbm.BetType NOT IN (9, 29) AND @excludeParlay = 1) OR @excludeParlay = 0)
-           AND sbm.BetType != 999
+           AND sbm.BetType NOT IN (9, 29, 999)
 
         CREATE UNIQUE CLUSTERED INDEX PK_tmpSportBettypeMatrix ON #tmpSportBettypeMatrix(BetType)
     END
