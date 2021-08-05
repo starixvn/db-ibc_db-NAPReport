@@ -315,8 +315,8 @@ BEGIN
                     CASE WHEN @leagueID IS NOT NULL AND @liveIndicator IS NULL THEN '[NoMatches], ' ELSE '' END + 
                     CASE WHEN @leagueID IS NOT NULL AND @liveIndicator IS NULL THEN '[NoBetTypes], ' ELSE '' END + 
                     '[BetCount], ' +
-                    CASE WHEN @showBy != 'Match' THEN '[RealIncome] AS [HouseIncome], ' ELSE '[RealIncome], ' END +
-                    CASE WHEN @showBy != 'Match' THEN '[RealTurnover] AS [HouseTurnover], ' ELSE '[RealTurnover], ' END +
+                    '[RealIncome], ' +
+                    '[RealTurnover], ' +
                     '[Margin] ' +
         'FROM #tmpFinal'
     -- PRINT @SQL
