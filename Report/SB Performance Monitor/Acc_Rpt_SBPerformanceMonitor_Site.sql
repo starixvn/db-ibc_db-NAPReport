@@ -46,6 +46,10 @@ BEGIN
     DECLARE @BalanceUpDay SMALLDATETIME, @MoveBetsDay SMALLDATETIME
     SELECT @BalanceUpDay = BalanceUpDay, @MoveBetsDay = MoveBetsDay
       FROM OPENQUERY(DBACC,'EXEC bodb02.dbo.Age_SelBalanceUpDay')
+
+    -- show Parlay at top level only, always exclude when drilldown from Sport level
+    DECLARE @parlayFlag BIT = CASE WHEN @sportID IS NOT NULL THEN 0
+								   ELSE @excludeParlay^1 END
      
     -- #tmpBettypeGroup
     BEGIN
@@ -66,7 +70,7 @@ BEGIN
           FROM bodb02.dbo.SportBettypeMatrix sbm (NOLOCK)
          WHERE sbm.ProductID = 1
            AND sbm.SubProduct NOT LIKE 'BT%'
-           AND ((sbm.BetType NOT IN (9, 29) AND @excludeParlay = 1) OR @excludeParlay = 0)
+           AND ((sbm.BetType NOT IN (9, 29) AND @parlayFlag = 0) OR @parlayFlag = 1)
            AND sbm.BetType != 999
 
         CREATE UNIQUE CLUSTERED INDEX PK_tmpSportBettypeMatrix ON #tmpSportBettypeMatrix(BetType)
@@ -116,9 +120,9 @@ BEGIN
           AND l.LeagueID = ISNULL(@leagueID, l.LeagueID)
           AND m.MatchID = ISNULL(@matchID, m.MatchID)
               UNION ALL
-        SELECT -2, -2, 9, 0, NULL, -1, -1 WHERE @excludeParlay = 0 AND @sportID IS NULL -- show Parlay at top level only, exclude when
-              UNION ALL                                                                 -- drill from sports
-        SELECT -2, -2, 29, 0, NULL, -1, -1 WHERE @excludeParlay = 0 AND @sportID IS NULL
+        SELECT -2, -2, 9, 0, NULL, -1, -1 WHERE @parlayFlag = 1
+              UNION ALL
+        SELECT -2, -2, 29, 0, NULL, -1, -1 WHERE @parlayFlag = 1
 
         OPTION (RECOMPILE)
         
