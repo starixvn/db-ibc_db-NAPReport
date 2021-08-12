@@ -214,7 +214,7 @@ BEGIN
                             [BetCount]      INT,
                             [RealIncome]    DECIMAL(19, 4),
                             [RealTurnover]  DECIMAL(19, 4),
-                            [Margin]        DECIMAL(19, 4))
+                            [RealMargin]    DECIMAL(19, 4))
     
     ;WITH CTE_Extra AS (
         SELECT SportID,
@@ -282,7 +282,7 @@ BEGIN
            SUM(BetCount)                  AS [Bet Count],
            SUM(RealIncome)                AS [Real Income],
            SUM(RealTurnover)              AS [Real Turnover],
-           SUM(Margin)                    AS [Margin]
+           SUM(Margin)                    AS [RealMargin]
       FROM CTE_Extra cte
      GROUP BY CASE WHEN @matchID IS NOT NULL       THEN cte.BetType    
                    WHEN @liveIndicator IS NOT NULL THEN
@@ -319,7 +319,7 @@ BEGIN
                     '[BetCount], ' +
                     '[RealIncome], ' +
                     '[RealTurnover], ' +
-                    '[Margin] ' +
+                    '[RealMargin] ' +
         'FROM #tmpFinal'
     -- PRINT @SQL
     EXECUTE (@SQL)

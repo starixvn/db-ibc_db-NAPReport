@@ -235,7 +235,7 @@ BEGIN
                             [ActiveMembers]  INT,
                             [RealIncome]     DECIMAL(19, 4),
                             [RealTurnover]   DECIMAL(19, 4),
-                            [Margin]         DECIMAL(19, 4))
+                            [RealMargin]     DECIMAL(19, 4))
     
     ;WITH CTE_Extra AS (
         SELECT SportID,
@@ -306,7 +306,7 @@ BEGIN
            COUNT(DISTINCT CustID_ForCnt)  AS [Active Members],
            SUM(RealIncome)                AS [Real Income],
            SUM(RealTurnover)              AS [Real Turnover],
-           SUM(Margin)                    AS [Margin]
+           SUM(Margin)                    AS [RealMargin]
       FROM CTE_Extra cte
      WHERE Margin <= ISNULL(@margin, Margin)
      GROUP BY CASE WHEN @matchID IS NOT NULL       THEN cte.BetType    
@@ -340,9 +340,9 @@ BEGIN
                     '[ActiveMembers], ' +
                     '[RealIncome], ' +
                     '[RealTurnover], ' +
-                    '[Margin] ' +
+                    '[RealMargin] ' +
         'FROM #tmpFinal ' + 
-        'ORDER BY [Margin]'
+        'ORDER BY [RealMargin]'
     -- PRINT @SQL
     EXECUTE (@SQL)
 

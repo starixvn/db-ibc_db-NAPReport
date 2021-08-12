@@ -228,7 +228,7 @@ BEGIN
                             [ActiveMembers] INT,
                             [RealIncome]    DECIMAL(19, 4),
                             [RealTurnover]  DECIMAL(19, 4),
-                            [Margin]        DECIMAL(19, 4))
+                            [RealMargin]    DECIMAL(19, 4))
     
     ;WITH CTE_Extra AS (
         SELECT s.SiteID, 
@@ -307,7 +307,7 @@ BEGIN
            COUNT(DISTINCT CustID_ForCnt)  AS [Active Members],
            SUM(RealIncome)                AS [Real Income],
            SUM(RealTurnover)              AS [Real Turnover],
-           SUM(Margin)                    AS [Margin]
+           SUM(Margin)                    AS [RealMargin]
       FROM CTE_Extra cte
      GROUP BY CASE WHEN @bettype IS NOT NULL                          THEN cte.CustID      
                  WHEN @liveIndicator IS NOT NULL            
@@ -350,7 +350,7 @@ BEGIN
                     '[ActiveMembers], ' +
                     '[RealIncome], ' +
                     '[RealTurnover], ' +
-                    '[Margin] ' +
+                    '[RealMargin] ' +
         'FROM #tmpFinal'
     -- PRINT @SQL
     EXECUTE (@SQL)
