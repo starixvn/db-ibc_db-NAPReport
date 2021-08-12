@@ -230,7 +230,6 @@ BEGIN
                CASE WHEN bg.Bettype IS NOT NULL OR td.[VendorID] = 14 THEN 0 ELSE BetCount END AS BetCount, 
                RealIncome, 
                RealTurnover,
-               CASE WHEN RealTurnover = 0 THEN 0 ELSE ((RealIncome / RealTurnover) * 100) END Margin,
                CASE WHEN s.SportID = -2 THEN 'Parlay' ELSE sp.SportName END SportName,
                l.leaguename LeagueName,
                bt.typenamee BetTypeName
@@ -252,53 +251,57 @@ BEGIN
                LEFT JOIN bodb02.dbo.bettype bt WITH (NOLOCK) ON s.BetType = bt.typeid -- for displaying bet types, 4th or 5th level
                                                             AND (@matchID IS NOT NULL 
                                                              OR (@liveIndicator IS NOT NULL AND @showBy != 'Match'))
+    ),
+    CTE_Grouped AS (
+        /*remember to order it desc by level as TSQL case when stops at first hit*/
+        SELECT CASE WHEN @matchID IS NOT NULL       THEN cte.BetType        -- level 5
+                    WHEN @liveIndicator IS NOT NULL THEN
+                         CASE @showBy
+                         WHEN 'Match'               THEN cte.MatchID        -- level 4
+                         ELSE                            cte.BetType        -- level 4
+                         END
+                    WHEN @leagueID IS NOT NULL      THEN cte.LiveIndicator  -- level 3
+                    WHEN @sportID IS NOT NULL       THEN cte.LeagueID       -- level 2
+                    WHEN @sportID IS NULL           THEN cte.SportID        -- level 1
+               END AS [ID], 
+            MAX(
+                CASE WHEN @matchID IS NOT NULL       THEN cte.BetTypeName
+                    WHEN @liveIndicator IS NOT NULL  THEN
+                         CASE @showBy 
+                         WHEN 'Match'                THEN cte.MatchName       
+                         ELSE                             cte.BetTypeName       
+                         END      
+                    WHEN @leagueID IS NOT NULL       THEN cte.LiveIndicatorDisplay   
+                    WHEN @sportID IS NOT NULL        THEN cte.LeagueName
+                    WHEN @sportID IS NULL            THEN cte.SportName                            
+                END 
+            )AS [Name],
+            COUNT(DISTINCT MatchID_ForCnt) AS [No.Matches],
+            COUNT(DISTINCT BetType)        AS [No.Bet Types],
+            SUM(BetCount)                  AS [Bet Count],
+            SUM(RealIncome)                AS [Real Income],
+            SUM(RealTurnover)              AS [Real Turnover],
+            CASE WHEN SUM(RealTurnover) != 0 THEN (SUM(RealIncome) / SUM(RealTurnover)) * 100
+                 ELSE 0 END                AS [Real Margin]
+        FROM CTE_Extra cte
+        GROUP BY CASE WHEN @matchID IS NOT NULL       THEN cte.BetType        -- level 5
+                      WHEN @liveIndicator IS NOT NULL THEN
+                           CASE @showBy
+                           WHEN 'Match'               THEN cte.MatchID        -- level 4
+                           ELSE                            cte.BetType        -- level 4
+                           END
+                      WHEN @leagueID IS NOT NULL      THEN cte.LiveIndicator  -- level 3
+                      WHEN @sportID IS NOT NULL       THEN cte.LeagueID       -- level 2
+                      WHEN @sportID IS NULL           THEN cte.SportID        -- level 1
+                 END        
     ) 
     INSERT INTO #tmpFinal
-    /*remember to order it desc by level as TSQL case when stops at first hit*/
-    SELECT CASE WHEN @matchID IS NOT NULL       THEN cte.BetType        -- level 5
-                WHEN @liveIndicator IS NOT NULL THEN
-                     CASE @showBy
-                     WHEN 'Match'               THEN cte.MatchID        -- level 4
-                     ELSE                            cte.BetType        -- level 4
-                     END
-                WHEN @leagueID IS NOT NULL      THEN cte.LiveIndicator  -- level 3
-                WHEN @sportID IS NOT NULL       THEN cte.LeagueID       -- level 2
-                WHEN @sportID IS NULL           THEN cte.SportID        -- level 1
-           END AS [ID], 
-           MAX(
-            CASE WHEN @matchID IS NOT NULL       THEN cte.BetTypeName
-                 WHEN @liveIndicator IS NOT NULL THEN
-                      CASE @showBy
-                      WHEN 'Match'               THEN cte.MatchName       
-                      ELSE                            cte.BetTypeName       
-                      END     
-                 WHEN @leagueID IS NOT NULL      THEN cte.LiveIndicatorDisplay   
-                 WHEN @sportID IS NOT NULL       THEN cte.LeagueName
-                 WHEN @sportID IS NULL           THEN cte.SportName                            
-            END 
-           )AS [Name],
-           COUNT(DISTINCT MatchID_ForCnt) AS [No.Matches],
-           COUNT(DISTINCT BetType)        AS [No.Bet Types],
-           SUM(BetCount)                  AS [Bet Count],
-           SUM(RealIncome)                AS [Real Income],
-           SUM(RealTurnover)              AS [Real Turnover],
-           SUM(Margin)                    AS [RealMargin]
-      FROM CTE_Extra cte
-     GROUP BY CASE WHEN @matchID IS NOT NULL       THEN cte.BetType    
-                   WHEN @liveIndicator IS NOT NULL THEN
-                        CASE @showBy
-                        WHEN 'Match'               THEN cte.MatchID      
-                        ELSE                            cte.BetType      
-                        END
-                   WHEN @leagueID IS NOT NULL      THEN cte.LiveIndicator
-                   WHEN @sportID IS NOT NULL       THEN cte.LeagueID     
-                   WHEN @sportID IS NULL           THEN cte.SportID      
-              END
+    SELECT * FROM CTE_Grouped
      ORDER BY 
            CASE @topBy 
-           WHEN 'RealTurnover' THEN SUM(RealTurnover)
-           WHEN 'RealIncome' THEN SUM(RealIncome)
-           WHEN 'Margin' THEN SUM(Margin) END * @orderDirection
+           WHEN 'RealTurnover' THEN [Real Turnover]
+           WHEN 'RealIncome' THEN [Real Income]
+           WHEN 'Margin' THEN [Real Margin] END * @orderDirection
 
     -- Dynamic query to display additional column aliases for report view by live indicator (level 3)
     DECLARE @SQL VARCHAR(MAX)

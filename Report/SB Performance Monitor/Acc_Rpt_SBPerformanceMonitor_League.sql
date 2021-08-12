@@ -245,7 +245,6 @@ BEGIN
                CASE WHEN bg.Bettype IS NOT NULL OR td.[VendorID] = 14 THEN 0 ELSE BetCount END AS BetCount, 
                RealIncome, 
                RealTurnover,
-               CASE WHEN RealTurnover = 0 THEN 0 ELSE ((RealIncome / RealTurnover) * 100) END Margin,
                c.username CustName,
                st.site SiteName,
                bt.typenamee BetTypeName
@@ -269,65 +268,69 @@ BEGIN
 
                LEFT JOIN bodb02.dbo.Customer c WITH (NOLOCK) ON s.CustID = c.custid -- for display customers, 5th level
                                                             AND @bettype IS NOT NULL
+    ),
+    CTE_Grouped AS (
+        /*remember to order it desc by level as TSQL case when stops at first hit*/
+        SELECT CASE WHEN @bettype IS NOT NULL                          THEN cte.CustID               -- level 5
+                    WHEN @liveIndicator IS NOT NULL            
+                    AND @matchID IS NOT NULL                           THEN cte.BetType              -- level 4
+                    WHEN @liveIndicator IS NOT NULL            
+                    AND @matchID IS NULL                               THEN cte.MatchID              -- level 3
+                    WHEN @liveIndicator IS NULL 
+                    AND @matchID IS NOT NULL                           THEN cte.LiveIndicator        -- level 3
+                    WHEN @siteID IS NOT NULL                           THEN 
+                        CASE @showBy
+                            WHEN 'Match'                               THEN cte.MatchID              -- level 2
+                            ELSE                                            cte.LiveIndicator        -- level 2
+                            END
+                    WHEN @siteID IS NULL                               THEN cte.SiteID               -- level 1
+               END AS [ID], 
+            MAX(
+                CASE WHEN @bettype IS NOT NULL                          THEN cte.CustName              
+                     WHEN @liveIndicator IS NOT NULL            
+                     AND @matchID IS NOT NULL                           THEN cte.BetTypeName            
+                     WHEN @liveIndicator IS NOT NULL            
+                     AND @matchID IS NULL                               THEN cte.MatchName           
+                     WHEN @liveIndicator IS NULL 
+                     AND @matchID IS NOT NULL                           THEN cte.LiveIndicatorDisplay
+                     WHEN @siteID IS  NOT NULL                          THEN
+                         CASE @showBy
+                             WHEN 'Match'                               THEN cte.MatchName             
+                             ELSE                                            cte.LiveIndicatorDisplay       
+                             END
+                     WHEN @siteID IS NULL                               THEN cte.SiteName              
+                END
+            )AS [Name],
+            COUNT(DISTINCT MatchID_ForCnt) AS [No.Matches],
+            SUM(BetCount)                  AS [Bet Count],
+            COUNT(DISTINCT CustID_ForCnt)  AS [Active Members],
+            SUM(RealIncome)                AS [Real Income],
+            SUM(RealTurnover)              AS [Real Turnover],
+            CASE WHEN SUM(RealTurnover) != 0 THEN (SUM(RealIncome) / SUM(RealTurnover)) * 100
+                 ELSE 0 END                AS [Real Margin]
+        FROM CTE_Extra cte
+        GROUP BY CASE WHEN @bettype IS NOT NULL                        THEN cte.CustID      
+                    WHEN @liveIndicator IS NOT NULL            
+                    AND @matchID IS NOT NULL                           THEN cte.BetType      
+                    WHEN @liveIndicator IS NOT NULL            
+                    AND @matchID IS NULL                               THEN cte.MatchID      
+                    WHEN @liveIndicator IS NULL 
+                    AND @matchID IS NOT NULL                           THEN cte.LiveIndicator
+                    WHEN @siteID IS  NOT NULL                          THEN
+                        CASE @showBy
+                            WHEN 'Match'                               THEN cte.MatchID      
+                            ELSE                                            cte.LiveIndicator
+                            END
+                    WHEN @siteID IS NULL                               THEN cte.SiteID       
+                END
     ) 
     INSERT INTO #tmpFinal
-    /*remember to order it desc by level as TSQL case when stops at first hit*/
-    SELECT CASE WHEN @bettype IS NOT NULL                           THEN cte.CustID               -- level 5
-                WHEN @liveIndicator IS NOT NULL            
-                 AND @matchID IS NOT NULL                           THEN cte.BetType              -- level 4
-                WHEN @liveIndicator IS NOT NULL            
-                 AND @matchID IS NULL                               THEN cte.MatchID              -- level 3
-                WHEN @liveIndicator IS NULL 
-                 AND @matchID IS NOT NULL                           THEN cte.LiveIndicator        -- level 3
-                WHEN @siteID IS NOT NULL                            THEN 
-                     CASE @showBy
-                          WHEN 'Match'                              THEN cte.MatchID              -- level 2
-                          ELSE                                           cte.LiveIndicator        -- level 2
-                          END
-                WHEN @siteID IS NULL                                THEN cte.SiteID               -- level 1
-           END AS [ID], 
-           MAX(
-            CASE WHEN @bettype IS NOT NULL                           THEN cte.CustName              
-                 WHEN @liveIndicator IS NOT NULL            
-                  AND @matchID IS NOT NULL                           THEN cte.BetTypeName            
-                 WHEN @liveIndicator IS NOT NULL            
-                  AND @matchID IS NULL                               THEN cte.MatchName           
-                 WHEN @liveIndicator IS NULL 
-                  AND @matchID IS NOT NULL                           THEN cte.LiveIndicatorDisplay
-                 WHEN @siteID IS  NOT NULL                           THEN
-                      CASE @showBy
-                           WHEN 'Match'                              THEN cte.MatchName             
-                           ELSE                                           cte.LiveIndicatorDisplay       
-                           END
-                 WHEN @siteID IS NULL                                THEN cte.SiteName              
-            END
-           )AS [Name],
-           COUNT(DISTINCT MatchID_ForCnt) AS [No.Matches],
-           SUM(BetCount)                  AS [Bet Count],
-           COUNT(DISTINCT CustID_ForCnt)  AS [Active Members],
-           SUM(RealIncome)                AS [Real Income],
-           SUM(RealTurnover)              AS [Real Turnover],
-           SUM(Margin)                    AS [RealMargin]
-      FROM CTE_Extra cte
-     GROUP BY CASE WHEN @bettype IS NOT NULL                          THEN cte.CustID      
-                 WHEN @liveIndicator IS NOT NULL            
-                  AND @matchID IS NOT NULL                           THEN cte.BetType      
-                 WHEN @liveIndicator IS NOT NULL            
-                  AND @matchID IS NULL                               THEN cte.MatchID      
-                 WHEN @liveIndicator IS NULL 
-                  AND @matchID IS NOT NULL                           THEN cte.LiveIndicator
-                 WHEN @siteID IS  NOT NULL                           THEN
-                      CASE @showBy
-                           WHEN 'Match'                              THEN cte.MatchID      
-                           ELSE                                           cte.LiveIndicator
-                           END
-                 WHEN @siteID IS NULL                                THEN cte.SiteID       
-             END
+    SELECT * FROM CTE_Grouped
      ORDER BY 
            CASE @topBy 
-           WHEN 'RealTurnover' THEN SUM(RealTurnover)
-           WHEN 'RealIncome' THEN SUM(RealIncome)
-           WHEN 'Margin' THEN SUM(Margin) END * @orderDirection
+           WHEN 'RealTurnover' THEN [Real Turnover]
+           WHEN 'RealIncome' THEN [Real Income]
+           WHEN 'Margin' THEN [Real Margin] END * @orderDirection
 
     DECLARE @SQL VARCHAR(MAX)
     SET @SQL = 'SELECT ID, ' +
