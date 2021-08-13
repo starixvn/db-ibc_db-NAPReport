@@ -301,7 +301,7 @@ BEGIN
 					ELSE 1
 				END
 			 WHEN @isShowCust = 1 THEN -1
-			 ELSE NULL
+			 ELSE 1
 		END
 
 	-- Return data
@@ -324,6 +324,7 @@ BEGIN
 					WHEN 'RealTurnover' THEN RealTurnover
 				 	WHEN 'RealIncome' THEN RealIncome
 					WHEN 'Margin' THEN RealMargin END
+		ELSE RealMargin
 		END * @orderDirection
 	OPTION (RECOMPILE)
 
