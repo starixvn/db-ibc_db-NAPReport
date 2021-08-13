@@ -1,4 +1,9 @@
-﻿ALTER PROCEDURE [dbo].[Acc_Rpt_NegativeBalanceMember_Dep]
+﻿/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+
+USE bodb02
+GO
+
+ALTER PROCEDURE [dbo].[Acc_Rpt_NegativeBalanceMember_Dep]
 	@Site	NVARCHAR(50) = 'All'
 AS
 /*
@@ -11,12 +16,19 @@ AS
 		- 20110525@Jamie: Correct code for getting member's balance
 		- 20110530@Kiwi: Get currencyname from exchange for temporary to avoid the mistake from deposit site once inserting 'Q' instead 'INH' for VND
 		- 20121116@Henry: change DB from DB06 to DB052 + remove dummy members
+		- 20210507@Jaden.Tang: Adjust code to prevent reading dupplicated in bettrans & bettrans14 during move bet process (#154649)
 	Param's Explanation:
 	• @Site: All - get all
 			 12Bet: particular site
 */
 BEGIN	
 SET NOCOUNT ON	
+
+	DECLARE @MoveBetsDay DATE
+	CREATE TABLE #MBUDate (BalanceUpDay DATE, MoveBetsDay DATE)
+	INSERT INTO #MBUDate (BalanceUpDay, MoveBetsDay)
+	  EXEC bodb02.dbo.Age_SelBalanceUpDay
+	SELECT @MoveBetsDay = MoveBetsDay FROM #MBUDate
 
 	DECLARE @Super AS TABLE (custid int primary key, currency int,site varchar(50),currencyName nvarchar(50))
 	
@@ -38,7 +50,13 @@ SET NOCOUNT ON
 	SELECT	s.site, 
 			b.custid, 
 			s.currencyName, 
-			ROUND(SUM(winlost-actual_stake + playercomm),2) Balance
+			ROUND(SUM(
+				CASE WHEN (b.winlostdate > @MoveBetsDay AND bettype = 19999) 
+						OR (b.winlostdate <= @MoveBetsDay and bettype < 19999)
+					THEN 0 --skip volatile rows during move bet process
+					ELSE winlost-actual_stake + playercomm END 
+				)
+			,2) AS Balance
 	FROM 
 			bettrans b WITH(NOLOCK,INDEX=IX_srecommend)
 			INNER JOIN @Super s ON b.srecommend = s.custid
@@ -60,9 +78,7 @@ SET NOCOUNT ON
 	ORDER BY site,username
 	
 	DROP TABLE #Data
+	DROP TABLE #MBUDate
 		
 END
 GO
-GRANT EXECUTE ON [dbo].[Acc_Rpt_NegativeBalanceMember_Dep] TO [bodbAdminNet]
-GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_Rpt_NegativeBalanceMember_Dep] TO [vnteam]
