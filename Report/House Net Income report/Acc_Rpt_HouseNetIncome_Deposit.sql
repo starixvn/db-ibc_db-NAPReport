@@ -586,6 +586,7 @@ BEGIN
 						WHEN bt.Product3rdId <> 0 THEN bt.AliasProductId
 						WHEN bt.BetType IN (9, 29) THEN -10 -- Parlay
 						WHEN s.LeagueGroupId IN (42, 74, 108) AND b.SportType = 1 THEN -3 -- Saba Soccer
+						WHEN s.LeagueGroupId  = 113 AND b.SportType = 1 THEN -14 --Saba Soc PGoal
 						WHEN s.LeagueGroupId IN (42) AND b.SportType = 2 THEN -5 -- Saba Basketball
 						WHEN s.LeagueGroupId IN (42) AND b.SportType = 50 THEN -8 -- Saba Cricket
 						WHEN b.Sporttype = 1 THEN -2 -- Soccer
@@ -625,6 +626,7 @@ BEGIN
 						WHEN bt.Product3rdId <> 0 THEN bt.AliasProductId
 						WHEN bt.BetType IN (9, 29) THEN -10 -- Parlay
 						WHEN s.LeagueGroupId IN (42, 74, 108) AND b.SportType = 1 THEN -3 -- Saba Soccer
+						WHEN s.LeagueGroupId  = 113 AND b.SportType = 1 THEN -14 --Saba Soc PGoal
 						WHEN s.LeagueGroupId IN (42) AND b.SportType = 2 THEN -5 -- Saba Basketball
 						WHEN s.LeagueGroupId IN (42) AND b.SportType = 50 THEN -8 -- Saba Cricket
 						WHEN b.Sporttype = 1 THEN -2 -- Soccer

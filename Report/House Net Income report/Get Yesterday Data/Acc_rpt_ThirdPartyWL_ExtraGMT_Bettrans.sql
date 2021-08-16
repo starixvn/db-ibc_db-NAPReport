@@ -34,26 +34,6 @@ BEGIN
 				[ProgressiveContribution] [money] NOT NULL,
 				[ValidBetAmount] [money] NULL
 				)
-
-	-- get data for GDG
-	INSERT INTO #rpt_ThirdPartyWL_ExtraGMT (rptDate, SiteId, BetTypeId, CurrencyId, Winloss, ValidBetAmount, ProgressiveContribution)
-	SELECT winlostdate RptDate, 
-			ISNULL(site.SiteID, -1) AS siteid, 
-			-59 AS BetTypeId, 
-			b.Currency, 
-			SUM(winlost - actual_stake), 
-			SUM(oddsspread), 
-			0
-	FROM  bodb02.dbo.bettrans b WITH (NOLOCK)
-		LEFT JOIN bodb02.dbo.Customer c WITH (NOLOCK) ON b.recommend = c.custid AND c.roleid = 2
-		LEFT JOIN bodb02.dbo.Site s WITH (NOLOCK) ON c.site = s.site
-		LEFT JOIN bodb_licensee.dbo.view_site_list [site] (NOLOCK) ON s.siteid = site.IbcSiteID	
-	WHERE b.winlostdate BETWEEN @FDate AND  @TDate
-		AND b.bettype BETWEEN 5701 AND 5704
- 		AND b.currency <> 20
-		AND StatusId NOT IN(-1, 101, 102, 103) -- Exclude Reject , Void, Refund
-
-	GROUP BY winlostdate, ISNULL(site.SiteID, -1), BetType, b.Currency
 	
 	INSERT INTO #rpt_ThirdPartyWL_ExtraGMT(	RptDate,RptDate3rd ,SiteId,BetTypeId,CurrencyId,StatusId,Winloss,ProgressiveContribution,ValidBetAmount)
 	SELECT CAST(b.winlostdate AS DATE)	AS Rptdate,
