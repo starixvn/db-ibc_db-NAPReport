@@ -292,7 +292,7 @@ BEGIN
 		DECLARE	@TDateGetData	DATE
 		DECLARE	@yesterday		DATE = DATEADD(DAY,-1,CONVERT(date, GETDATE()))
 
-		IF @isGetDataFromBettrans = 1 AND @ToDate = @yesterday AND @IsLicPerf = 0
+		IF @isGetDataFromBettrans = 1 AND @ToDate = @yesterday
 		BEGIN
 			SELECT @FDateGetData = @FromDate
 			SELECT @TDateGetData = DATEADD(DAY,-1,@ToDate)
@@ -370,7 +370,7 @@ BEGIN
 			END
 
 			-- Get Metric Gaming, Bet Builder yesterday
-			IF @isGetDataFromBettrans = 1 AND @ToDate = @yesterday AND @IsLicPerf = 0
+			IF @isGetDataFromBettrans = 1 AND @ToDate = @yesterday
 			BEGIN
 				INSERT INTO #__tempData (rptDate, SiteId, BetTypeId, CurrencyId, Winloss)
 				EXEC DBACC.bodb02.dbo.Acc_rpt_FactSiteWinloss_Bettrans @Winlostdate = @yesterday, @isUseForPayToSupplier = 1
@@ -393,7 +393,7 @@ BEGIN
 			GROUP BY rptDate, SiteId, CurrencyId
 
 			-- Muay Thai yesterday
-			IF @isGetDataFromBettrans = 1 AND @ToDate = @yesterday AND @IsLicPerf = 0
+			IF @isGetDataFromBettrans = 1 AND @ToDate = @yesterday
 			BEGIN
 				INSERT INTO #__tempData (rptDate, SiteId, BetTypeId, CurrencyId, Winloss)
 				EXEC DBACC.bodb02.dbo.Acc_rpt_rptBettingBySport_Bettrans @Date = @yesterday ,@DepositType = @DepositType
@@ -428,7 +428,7 @@ BEGIN
 			DECLARE @FDate_GMT_getdata DATETIME, @TDate_GMT_getdata DATETIME
 			DECLARE @Today DATETIME = CONVERT(DATE, GETDATE())
 
-			IF @isGetDataFromBettrans = 1 AND @TDate = @yesterday AND @IsLicPerf = 0
+			IF @isGetDataFromBettrans = 1 AND @TDate = @yesterday
 			BEGIN
 				SELECT @FDate_GMT_getdata = @FDate_GMT
 				SELECT @TDate_GMT_getdata = @Today
@@ -475,7 +475,7 @@ BEGIN
 				)
 			GROUP BY RptDate3rd, SiteId, BetTypeId, CurrencyId
 
-			IF @isGetDataFromBettrans = 1 AND @ToDate = @yesterday AND @IsLicPerf = 0
+			IF @isGetDataFromBettrans = 1 AND @ToDate = @yesterday
 			BEGIN				
 				INSERT INTO #__tempData (rptDate, SiteId, BetTypeId, CurrencyId, Winloss, ValidBetAmount, ProgressiveContribution)
 				EXEC DBACC.bodb02.dbo.Acc_rpt_ThirdPartyWL_ExtraGMT_Bettrans @Winlostdate = @yesterday,  @DepositType = @DepositType

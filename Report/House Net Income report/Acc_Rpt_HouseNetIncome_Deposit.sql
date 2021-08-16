@@ -353,7 +353,7 @@ BEGIN
 		DECLARE	@TDateGetData	DATE
 		DECLARE	@yesterday		DATE =  DATEADD(DAY,-1,CONVERT(date, GETDATE()))
 
-		IF @isGetDataFromBettrans = 1 AND @ToDate = @yesterday AND @IsLicPerf = 0
+		IF @isGetDataFromBettrans = 1 AND @ToDate = @yesterday
 		BEGIN
 			SELECT @FDateGetData = @FromDate
 			SELECT @TDateGetData = DATEADD(DAY,-1,@ToDate)
@@ -372,7 +372,7 @@ BEGIN
 			SELECT LeagueId, LeagueGroupId FROM bodb02.dbo.League WITH (NOLOCK) WHERE sporttype IN (1, 2, 50) AND LeagueGroupId IN (42, 74, 108, 113)
 
 			-- retrieve data yesterday if flag is turned on
-			IF @isGetDataFromBettrans = 1 AND @ToDate = @yesterday AND @IsLicPerf = 0
+			IF @isGetDataFromBettrans = 1 AND @ToDate = @yesterday
 			BEGIN
 				INSERT INTO #__tempData (rptDate, SiteId_DW, CurrencyId, Product3rdId, AliasProductId, MemberWL, OddsSpreadAdj, Comm, LicenseeWL, LicenseeTO)
 				EXEC DBACC.bodb02.dbo.Acc_rpt_FactLADailyWinloss_Bettrans @Winlostdate = @yesterday
@@ -465,7 +465,7 @@ BEGIN
 				AND SiteId < 1000 -- Deposit only
 			GROUP BY rptDate, SiteId, CurrencyId, ProductId, CASE WHEN bettype = 1706 THEN 1706 ELSE -1 END
 
-			IF @isGetDataFromBettrans = 1 AND @ToDate = @yesterday AND @IsLicPerf = 0
+			IF @isGetDataFromBettrans = 1 AND @ToDate = @yesterday
 			BEGIN
 				INSERT INTO #__BettingByProduct (rptDate, LicenseeId, CurrencyId, Product3rdId, BetTypeGroup, ValidBetAmount, MemberWL, Comm, LicenseeWL, LicenseeTO)
 				EXEC DBEXT.bodb02.dbo.Acc_rpt_rptBettingByProduct_Bettrans @winlostdate = @yesterday
@@ -556,7 +556,7 @@ BEGIN
 				SELECT @FromDateByBatch = DATEADD(DAY, 1, @ToDateByBatch)
 			END
 
-			IF @isGetDataFromBettrans = 1 AND @ToDate = @yesterday AND @IsLicPerf = 0
+			IF @isGetDataFromBettrans = 1 AND @ToDate = @yesterday
 			BEGIN 
 				-- FactSiteWinloss
 				CREATE TABLE #FactSiteWinloss(
