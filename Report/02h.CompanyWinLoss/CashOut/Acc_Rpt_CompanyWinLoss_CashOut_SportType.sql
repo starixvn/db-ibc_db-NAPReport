@@ -3,7 +3,7 @@
 USE bodb02
 GO
 
-ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_CashOut_BetType] 
+ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_CashOut_SportType] 
 	@StartDate SMALLDATETIME, 
     @EndDate   SMALLDATETIME,
     @IsLive    INT           = 2
@@ -19,12 +19,13 @@ Revisions:
 	20191212@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
 	20200320@Cherry: Support Deadball Cash Out (#130302)
     20212203@Jaden: Support SABA789 (#151326)
+	20210812@Kean: Cashout For Basketball (#146083)
 
 Parameter's Explanation:
 	- @Site: credit, deposit
 Example:
 Example:
-EXEC [Acc_Rpt_CompanyWinLoss_CashOut_BetType] @StartDate='2016-01-01', @EndDate='2020-01-01', @IsLive=2
+EXEC [Acc_Rpt_CompanyWinLoss_CashOut_SportType] @StartDate='2016-01-01', @EndDate='2020-01-01', @IsLive=2
 */
 
     SET NOCOUNT ON;
@@ -36,10 +37,27 @@ EXEC [Acc_Rpt_CompanyWinLoss_CashOut_BetType] @StartDate='2016-01-01', @EndDate=
     INSERT INTO #DepositSuper
            SELECT CustId
            FROM DBWH.bodb_Account.dbo.vw_Dep_CustSuper WITH (NOLOCK)
-           
+     
+	 CREATE TABLE #Match
+                    (MatchId   INT, 
+                    SportName   NVARCHAR(50)
+                    );
+    INSERT INTO #Match(MatchId, SportName)
+        SELECT DISTINCT m.MatchId,s.SportName
+        FROM
+        (
+            SELECT MatchId, 
+                    LeagueId
+            FROM bodb02.dbo.match WITH(NOLOCK)
+			WHERE EventDate = @StartDate
+        ) m
+        INNER JOIN bodb02.dbo.league l WITH(NOLOCK) ON m.LeagueId = l.LeagueId
+		LEFT JOIN bodb02.dbo.Sports s WITH(NOLOCK) ON l.sporttype = s.SportType
+        WHERE l.sporttype IN (1, 2)
+	       
     CREATE TABLE #tmp_Data
                      (LiveStatus      INT, 
-                      BetTypeName     VARCHAR(50), 
+                      SportName     VARCHAR(50), 
                       RowName         VARCHAR(50), 
                       MemberWinLoss   MONEY, 
                       SMAWinLoss      MONEY, 
@@ -62,7 +80,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_CashOut_BetType] @StartDate='2016-01-01', @EndDate=
                      
     INSERT INTO #tmp_Data
     SELECT liveindicator, 
-          'Cash Out' BetTypeName,
+          m.SportName,
           CASE
               WHEN dep.CustId IS NULL
                    AND cn88.CustId IS NOT NULL
@@ -94,16 +112,17 @@ EXEC [Acc_Rpt_CompanyWinLoss_CashOut_BetType] @StartDate='2016-01-01', @EndDate=
                                                                                           ELSE actualrate
                                                                                       END
               END) RealTurnover
-    FROM bettrans AS b WITH(NOLOCK)
+    FROM bodb02.dbo.bettrans AS b WITH(NOLOCK)
          LEFT JOIN #DepositSuper AS dep ON b.srecommend = dep.CustId
          LEFT JOIN CS_CustSuper AS cn88 WITH(NOLOCK) ON b.srecommend = cn88.CustId
+		 LEFT JOIN #Match m ON m.MatchId = b.MatchId
     WHERE b.winlostdate = @StartDate
          AND (@IsLive > 1
               OR b.liveindicator = @IsLive)
          AND b.ruben = 1
          AND b.statusID IN(111, 112, 113)
          AND b.bettype IN (913,914)
-    GROUP BY liveindicator, 
+    GROUP BY liveindicator,m.SportName, 
             CASE
                 WHEN dep.CustId IS NULL
                      AND cn88.CustId IS NOT NULL
@@ -118,7 +137,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_CashOut_BetType] @StartDate='2016-01-01', @EndDate=
                         
     INSERT INTO #Data
     SELECT 2 GroupId, 
-           b.BetTypeName GroupName, 
+           b.SportName GroupName, 
            b.RowName AS RowName, 
            SUM(MemberWinLoss) MemberWinLoss, 
            SUM(SMAWinLoss) SMAWinLoss, 
@@ -127,17 +146,13 @@ EXEC [Acc_Rpt_CompanyWinLoss_CashOut_BetType] @StartDate='2016-01-01', @EndDate=
            SUM(RealIncome) RealIncome, 
            SUM(RealTurnover) RealTurnover 
     FROM #tmp_Data AS b
-    GROUP BY b.BetTypeName, 
+    GROUP BY b.SportName, 
             b.RowName
                         
     IF @IsLive = 2
         INSERT INTO #Data
         SELECT LiveStatus AS GroupId,
-              CASE LiveStatus
-                  WHEN 1
-                  THEN 'Cash Out Live'
-                  ELSE 'Cash Out Non-Live'
-              END AS GroupName, 
+              b.SportName + CASE LiveStatus WHEN 1 THEN ' Live' ELSE ' Non-Live' END AS GroupName,  
               b.RowName AS RowName, 
               SUM(MemberWinLoss) MemberWinLoss, 
               SUM(SMAWinLoss) AS SMAWinLoss, 
@@ -147,11 +162,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_CashOut_BetType] @StartDate='2016-01-01', @EndDate=
               SUM(RealTurnover) AS RealTurnover 
         FROM #tmp_Data b
         GROUP BY b.LiveStatus,
-                CASE b.LiveStatus
-                    WHEN 1
-                    THEN 'Cash Out Live'
-                    ELSE 'Cash Out Non-Live'
-                END, 
+                b.SportName + CASE LiveStatus WHEN 1 THEN ' Live' ELSE ' Non-Live' END, 
                 b.RowName
 
     SELECT d.GroupId GroupId, 
@@ -170,4 +181,5 @@ EXEC [Acc_Rpt_CompanyWinLoss_CashOut_BetType] @StartDate='2016-01-01', @EndDate=
 	DROP TABLE #DepositSuper
 	DROP TABLE #Data
     DROP TABLE #tmp_Data
+	DROP TABLE #Match
 GO
