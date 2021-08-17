@@ -10,7 +10,7 @@ ALTER PROCEDURE dbo.Acc_Rpt_HouseNetIncome @FromDate DATE,
 										   @IsOldView BIT = 0,
 										   @IsLicPerf		BIT = 0,
 										   @BaseCurrencyName  VARCHAR(10) = 'MYR',
-										   @isGetDataFromBettrans	BIT = 0
+										   @isGetDataFromBettrans	BIT = 1
 
 AS
 
