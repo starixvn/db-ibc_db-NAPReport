@@ -51,7 +51,8 @@ BEGIN
 																 @ToDate = @ToDate,
 																 @ProductList = @ProductList,
 																 @IsLicPerf = @IsLicPerf,
-																 @BaseCurrencyName = @BaseCurrencyName
+																 @BaseCurrencyName = @BaseCurrencyName,
+																 @isGetDataFromBettrans	= @isGetDataFromBettrans
 
 		-- Acc_Rpt_HouseNetIncome_PayToSupplier
 		EXEC bodb_dwrs.dbo.Acc_Rpt_HouseNetIncome_PayToSupplier	 @FromDate = @FromDate,
@@ -60,7 +61,8 @@ BEGIN
 																 @DepositType = 1,
 																 @IsOldView = @IsOldView,
 																 @IsLicPerf = @IsLicPerf,
-																 @BaseCurrencyName = @BaseCurrencyName
+																 @BaseCurrencyName = @BaseCurrencyName,
+																 @isGetDataFromBettrans	= @isGetDataFromBettrans
 	END
 	ELSE
 	BEGIN
