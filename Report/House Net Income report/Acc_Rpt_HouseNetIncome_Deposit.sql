@@ -1516,7 +1516,7 @@ BEGIN
 
 	SELECT @SQL = '
 	;WITH CTE_Result AS (
-		SELECT Product3rdId, AliasProductId, Figure, SubFigure, ISNULL(Monthly, 0) AS Monthly, MTD, ' + @DateList + '
+		SELECT Product3rdId, AliasProductId, Figure, SubFigure, ISNULL(Monthly, 0) AS Monthly, MTD, [01],[02],[03],[04],[05],[06],[07],[08],[09],[10],[11],[12],[13],[14],[15],[16],[17],[18],[19],[20],[21],[22],[23],[24],[25],[26],[27],[28],[29],[30],[31]
 		FROM (
 			SELECT r.Product3rdId, r.AliasProductId, ISNULL(f.Value, 0) AS Value, f.Figure, f.SubFigure, r.rptDate
 			FROM #Result r
@@ -1542,10 +1542,10 @@ BEGIN
 		) t
 		PIVOT (
 			MAX(Value)
-			FOR rptDate IN (Monthly, MTD, ' + @DateList + ')
+			FOR rptDate IN (Monthly, MTD, [01],[02],[03],[04],[05],[06],[07],[08],[09],[10],[11],[12],[13],[14],[15],[16],[17],[18],[19],[20],[21],[22],[23],[24],[25],[26],[27],[28],[29],[30],[31])
 		) p
 	)
-	SELECT DISTINCT s.isDeposit, s.OrderByProduct, s.OrderByFigure, ''Licensee'' AS SiteGroup, s.ProductCategory, s.ProductGroup, s.ProductName, s.ProductShortName, s.Figure, s.SubFigure, r.Monthly, r.MTD, ' + @DateList + '
+	SELECT DISTINCT s.isDeposit, s.OrderByProduct, s.OrderByFigure, ''Licensee'' AS SiteGroup, s.ProductCategory, s.ProductGroup, s.ProductName, s.ProductShortName, s.Figure, s.SubFigure, r.Monthly, r.MTD, [01],[02],[03],[04],[05],[06],[07],[08],[09],[10],[11],[12],[13],[14],[15],[16],[17],[18],[19],[20],[21],[22],[23],[24],[25],[26],[27],[28],[29],[30],[31]
 	FROM '+ CASE WHEN @IsLicperf = 1 THEN @SQL_licperf ELSE ' bodb_Account.dbo.HNISettings s WITH (NOLOCK) '  END + '
 		LEFT JOIN CTE_Result r ON r.AliasProductId = s.AliasProductId AND r.Figure = s.Figure AND r.SubFigure = ISNULL(s.SubFigure, '''')
 	WHERE s.isDeposit = 1 AND s.LogicCode = 2

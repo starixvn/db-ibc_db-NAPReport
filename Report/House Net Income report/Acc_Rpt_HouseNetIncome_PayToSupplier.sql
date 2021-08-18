@@ -729,7 +729,7 @@ BEGIN
 
 	SELECT @SQL = '
 	;WITH CTE_Result AS (
-		SELECT IsDeposit, ProductCode, Figure, Monthly, MTD, ' + @DateList + '
+		SELECT IsDeposit, ProductCode, Figure, Monthly, MTD, [01],[02],[03],[04],[05],[06],[07],[08],[09],[10],[11],[12],[13],[14],[15],[16],[17],[18],[19],[20],[21],[22],[23],[24],[25],[26],[27],[28],[29],[30],[31]
 		FROM (
 			SELECT r.IsDeposit, f.ProductCode, Value, Figure, rptDate
 			FROM #__FinalResult r
@@ -743,12 +743,12 @@ BEGIN
 		) t
 		PIVOT (
 			MAX(Value)
-			FOR rptDate IN (Monthly, MTD, ' + @DateList + ')
+			FOR rptDate IN (Monthly, MTD, [01],[02],[03],[04],[05],[06],[07],[08],[09],[10],[11],[12],[13],[14],[15],[16],[17],[18],[19],[20],[21],[22],[23],[24],[25],[26],[27],[28],[29],[30],[31])
 		) p
 	)
 	SELECT
 		s.IsDeposit, s.OrderByProduct, s.OrderByFigure, CASE WHEN s.IsDeposit = 0 THEN ''Credit'' ELSE ''Licensee'' END AS SiteGroup, s.ProductCategory, s.ProductGroup, s.ProductName, s.ProductShortName
-		,s.Figure, s.SubFigure, r.Monthly, r.MTD, ' + @DateList + '
+		,s.Figure, s.SubFigure, r.Monthly, r.MTD, [01],[02],[03],[04],[05],[06],[07],[08],[09],[10],[11],[12],[13],[14],[15],[16],[17],[18],[19],[20],[21],[22],[23],[24],[25],[26],[27],[28],[29],[30],[31]
 	FROM bodb_Account.dbo.HNISettings s WITH (NOLOCK)
 		LEFT JOIN CTE_Result r ON r.ProductCode = s.ProductPrefix AND r.IsDeposit = s.IsDeposit AND r.Figure = s.Figure
 	WHERE s.LogicCode = 3
