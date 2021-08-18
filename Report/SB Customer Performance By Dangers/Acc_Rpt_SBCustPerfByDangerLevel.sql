@@ -1,6 +1,7 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE Acc_Rpt_SBCustPerfByDangerLevel
-	@WinlostDate SMALLDATETIME
+	@FromDate SMALLDATETIME
+	,@ToDate SMALLDATETIME
 	,@Divisions VARCHAR(MAX) = 'ALL'
 	,@DangerLevels VARCHAR(MAX) = '1_50'
 	,@SportBettypes VARCHAR(MAX) = 'ALL'
