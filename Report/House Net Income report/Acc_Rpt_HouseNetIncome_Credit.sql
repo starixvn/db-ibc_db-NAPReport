@@ -90,7 +90,6 @@ BEGIN
     SET @isTest = bodb_dwrs.dbo.f_CheckSPVersion(@@PROCID)
 
 	DECLARE @sqlQuery VARCHAR(MAX)
-	DECLARE @sqlSupport VARCHAR(MAX)
 	DECLARE @bettypeList VARCHAR(MAX)
 	
 	DECLARE @OANDA_ExchangeDate DATE
@@ -939,21 +938,11 @@ BEGIN
 	-- 7. Select data --
 	--------------------
 
-	SET @sqlSupport = NULL
-
-	;WITH CTE_RptDate AS (
-		SELECT ('f.[' + LEFT(CONVERT(VARCHAR(5), PK_DATE, 106), 2) + ']') RptDate
-		FROM bodb_Account.dbo.DimDate
-		WHERE PK_Date >= @FromDate AND PK_Date <= @ToDate
-	)
-	SELECT @sqlSupport = COALESCE(@sqlSupport + ', ' + RptDate, RptDate)
-	FROM CTE_RptDate
-
-	SET @sqlQuery = 'SELECT f.[isDeposit], f.[OrderByProduct], f.[OrderByFigure], f.[SiteGroup], f.[ProductCategory], f.[ProductGroup], f.[ProductName], f.[ProductShortName], f.[Figure], f.[SubFigure], f.[Monthly], f.[MTD], ' + @sqlSupport + CHAR(13) +
-					'FROM #tmpFinalData f' + CHAR(13) +
-					'ORDER BY f.[isDeposit], f.[SiteGroup], f.[OrderByProduct], f.[OrderByFigure]'
-
-	EXEC (@sqlQuery)
+	SELECT f.[isDeposit], f.[OrderByProduct], f.[OrderByFigure], f.[SiteGroup], f.[ProductCategory], f.[ProductGroup], f.[ProductName], f.[ProductShortName], f.[Figure], f.[SubFigure],
+           f.[Monthly], f.[MTD],
+           f.[01], f.[02], f.[03], f.[04], f.[05], f.[06], f.[07], f.[08], f.[09], f.[10], f.[11], f.[12], f.[13], f.[14], f.[15], f.[16], f.[17], f.[18], f.[19], f.[20], f.[21], f.[22], f.[23], f.[24], f.[25], f.[26], f.[27], f.[28], f.[29], f.[30], f.[31]
+	FROM #tmpFinalData f
+	ORDER BY f.[isDeposit], f.[SiteGroup], f.[OrderByProduct], f.[OrderByFigure]
 
 
 	-------------------------
