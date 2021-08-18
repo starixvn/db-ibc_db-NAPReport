@@ -17,6 +17,7 @@ AS
 	Revisions:
 		20210105@Roy: NAP Report - Implement Top Punter report (#145833)
 		20210413@Kean: Add More DangerLevel Filter (#153264)
+		20210818@Roy: NAP Report - SB Customer Performance By Dangers Report - Support filter multiple days (#160348)
 		
 	Param's Explanation:
 		@Divisions: List of site names
@@ -109,8 +110,8 @@ BEGIN
 	/*
 		parse and clean up parameters
 	*/
-	SET @StartDate = CAST(@WinlostDate AS date)--remove time part
-	SET @EndDate = DATEADD(dd, 1, @StartDate)
+	SET @StartDate = CAST(@FromDate AS DATE)--remove time part
+	SET @EndDate = DATEADD(dd, 1, CAST(@ToDate AS DATE))
 	
 	---TopUsers---
 	IF @TopUsers < 0
@@ -246,7 +247,7 @@ BEGIN
 			,0 MatchType
 			,LeagueID
 		FROM dbo.match WITH (NOLOCK)
-		WHERE eventdate = @StartDate
+		WHERE eventdate BETWEEN @StartDate AND @EndDate
 		
 		UNION ALL
 		
@@ -254,7 +255,7 @@ BEGIN
 			,1 MatchType
 			,LeagueID
 		FROM dbo.outright WITH (NOLOCK)
-		WHERE eventdate = @StartDate
+		WHERE eventdate BETWEEN @StartDate AND @EndDate
 	)
 	INSERT INTO #tmpMatch (
 		MatchID
@@ -286,10 +287,6 @@ BEGIN
 	*/
 	INSERT INTO #tmpRawData (
 		CustID
-		,UserName
-		,DangerLevelOriginal
-		,DangerLevelABI
-		,DangerLevelOtherSport
 		,AgentID
 		,MasterID
 		,SuperID
@@ -303,10 +300,6 @@ BEGIN
 		,RealTurnover
 	)
 	SELECT b.CustID
-		,c.UserName
-		,ISNULL(CONVERT(INT, c.danger), -1) AS DangerLevelOriginal
-		,ISNULL(CONVERT(INT, c.danger2), -1) AS DangerLevelABI
-		,ISNULL(CONVERT(INT, c.danger3), -1) AS DangerLevelOtherSport
 		,b.Recommend
 		,b.mRecommend
 		,b.sRecommend
@@ -327,7 +320,6 @@ BEGIN
 			END) AS RealTurnover
 	FROM dbo.bettrans AS b WITH (NOLOCK)
 		INNER JOIN #tmpMatch AS m ON (b.Matchid = m.Matchid AND (CASE WHEN b.Bettype = 10 THEN 1 ELSE 0 END) = m.MatchType)
-		LEFT JOIN dbo.custInfo AS c WITH (NOLOCK) ON (c.roleid = 1 AND b.CustID = c.CustID)
 		LEFT JOIN dbo.TradeCust AS co WITH (NOLOCK) ON b.CustID = co.CustID
 	WHERE b.Winlostdate >= @StartDate AND b.Winlostdate < @EndDate
 		AND b.Ruben = 1
@@ -338,10 +330,6 @@ BEGIN
 		AND ('ALL' = @Divisions OR b.recommend IN (SELECT AgentID FROM #tmpAgentBySite))
 		AND @TopUsers > 0
 	GROUP BY b.CustID
-		,c.UserName
-		,ISNULL(CONVERT(INT, c.danger), -1)
-		,ISNULL(CONVERT(INT, c.danger2), -1)
-		,ISNULL(CONVERT(INT, c.danger3), -1)
 		,b.Recommend
 		,b.mRecommend
 		,b.sRecommend
@@ -401,10 +389,10 @@ BEGIN
 		,RealTurnover
 	FROM (
 		SELECT d.CustID
-			,d.UserName
-			,d.DangerLevelOriginal
-			,d.DangerLevelABI
-			,d.DangerLevelOtherSport
+			,c.UserName
+			,ISNULL(CONVERT(INT, c.danger), -1) AS DangerLevelOriginal
+			,ISNULL(CONVERT(INT, c.danger2), -1) AS DangerLevelABI
+			,ISNULL(CONVERT(INT, c.danger3), -1) AS DangerLevelOtherSport
 			,d.AgentID
 			,d.MasterID
 			,d.SuperID
@@ -417,15 +405,16 @@ BEGIN
 		FROM #tmpRawData AS d
 			INNER JOIN #tmpSportBettypes AS sb ON d.Bettype = sb.Bettype AND sb.SportType = d.SportType
 			INNER JOIN dbo.Exchange AS e WITH (NOLOCK) ON d.Currency = e.ExchangeId
+			LEFT JOIN dbo.custInfo AS c WITH (NOLOCK) ON (c.roleid = 1 AND d.CustID = c.CustID)
 		WHERE 'ALL' = @DangerLevels 
-			 OR d.DangerLevelOriginal IN (SELECT DangerLevel FROM #tmpDangerLevel where DangerType = 1)
-			 OR d.DangerLevelABI IN (SELECT DangerLevel FROM #tmpDangerLevel where DangerType = 2)
-			 OR d.DangerLevelOtherSport IN (SELECT DangerLevel FROM #tmpDangerLevel where DangerType = 3)
+			 OR ISNULL(CONVERT(INT, c.danger), -1) IN (SELECT DangerLevel FROM #tmpDangerLevel where DangerType = 1)
+			 OR ISNULL(CONVERT(INT, c.danger2), -1) IN (SELECT DangerLevel FROM #tmpDangerLevel where DangerType = 2)
+			 OR ISNULL(CONVERT(INT, c.danger3), -1) IN (SELECT DangerLevel FROM #tmpDangerLevel where DangerType = 3)
 		GROUP BY d.CustID
-			,d.UserName
-			,d.DangerLevelOriginal
-			,d.DangerLevelABI
-			,d.DangerLevelOtherSport
+			,c.UserName
+			,ISNULL(CONVERT(INT, c.danger), -1)
+			,ISNULL(CONVERT(INT, c.danger2), -1)
+			,ISNULL(CONVERT(INT, c.danger3), -1)
 			,d.AgentID
 			,d.MasterID
 			,d.SuperID
