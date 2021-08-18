@@ -5,7 +5,8 @@ GO
 
 ALTER PROCEDURE dbo.Acc_Rpt_HouseNetIncome @MonthDate DATE,
 										   @BaseCurrencyName VARCHAR(10) = 'MYR',
-                                           @DepositType TINYINT = 2
+                                           @DepositType TINYINT = 2,
+                                           @DataMode TINYINT = 1
 AS
 
 /*
@@ -21,9 +22,11 @@ AS
 	Param's Explanation:
 		@MonthDate:        The firstdate of month to get data (current month or last month)
         @BaseCurrencyName: 'MYR' or 'CNY'
-		@DepositType:      0 Credit Only
-					       1 Deposit Only
-					       2 All
+		@DepositType:      0 - Credit Only
+					       1 - Deposit Only
+					       2 - All
+        @DataMode:         1 - Get data from ORI table
+                           2 - Get data from UAT table
 	
 	Example:
 		EXEC bodb_dwrs.dbo.Acc_Rpt_HouseNetIncome '20200901', '20200930', 'ALL', 2, 0
@@ -105,7 +108,7 @@ BEGIN
     )
 
     -- Get UAT data for temp table
-    IF (@isTest = 1)
+    IF (@isTest = 1 OR @DataMode = 2)
     BEGIN
         INSERT INTO #tmpHNIResultDataset (
             [MonthDate],
@@ -126,7 +129,7 @@ BEGIN
     END
 
     -- Get PRO data for temp table
-    IF (@isTest = 0)
+    IF (@isTest = 0 AND @DataMode = 1)
     BEGIN
         INSERT INTO #tmpHNIResultDataset (
             [MonthDate],
