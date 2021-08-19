@@ -42,8 +42,8 @@ BEGIN
     -----------------------
     -- DECLARE variables --
 
-    DECLARE @sqlSupport                         VARCHAR(MAX),
-            @sqlQuery                           VARCHAR(MAX)
+    DECLARE @sqlSupport VARCHAR(MAX),
+            @sqlQuery   VARCHAR(MAX)
 
 
     -----------------------
@@ -53,7 +53,7 @@ BEGIN
     CREATE TABLE #tmpHNIResultDataset (
         [FromDate]          DATE,
         [ToDate]            DATE,
-        [BaseCurrencyName]  DATE,
+        [BaseCurrencyName]  VARCHAR(50),
         [isDeposit]			SMALLINT,
         [OrderByProduct]	SMALLINT,
         [OrderByFigure]		SMALLINT,
