@@ -3,7 +3,8 @@
 USE bodb_dwrs
 GO
 
-ALTER PROCEDURE dbo.Acc_Rpt_HouseNetIncome @MonthDate DATE,
+ALTER PROCEDURE dbo.Acc_Rpt_HouseNetIncome @FromDate DATE,
+                                           @ToDate DATE,
 										   @BaseCurrencyName VARCHAR(10) = 'MYR',
                                            @DepositType TINYINT = 2,
                                            @DataMode TINYINT = 1
@@ -20,7 +21,8 @@ AS
 		20210803@Danny:  Change Data Source to retrieve yesterday data from Bettrans table (#151993)
 
 	Param's Explanation:
-		@MonthDate:        The firstdate of month to get data (current month or last month)
+		@FromDate:         Begin date of data report
+        @ToDate:           End date of data report
         @BaseCurrencyName: 'MYR' or 'CNY'
 		@DepositType:      0 - Credit Only
 					       1 - Deposit Only
@@ -29,7 +31,7 @@ AS
                            2 - Get data from UAT table
 	
 	Example:
-		EXEC bodb_dwrs.dbo.Acc_Rpt_HouseNetIncome '20200901', '20200930', 'ALL', 2, 0
+		EXEC bodb_dwrs.dbo.Acc_Rpt_HouseNetIncome '20210801', '20210818', 'MYR', 2, 1
 */
 
 BEGIN
@@ -40,15 +42,7 @@ BEGIN
     -----------------------
     -- DECLARE variables --
 
-    DECLARE @Today                              DATE         = CAST(GETDATE() AS DATE)
-    DECLARE @Yesterday                          DATE         = DATEADD(DAY, -1, @Today)
-    DECLARE @Yesterday_CurrentMonth_FirstDate   DATE         = DATEADD(MONTH, DATEDIFF(MONTH,  0, @Yesterday)    ,  0),
-            @Yesterday_LastMonth_FirstDate      DATE         = DATEADD(MONTH, DATEDIFF(MONTH,  0, @Yesterday) - 1,  0),
-            @Yesterday_LastMonth_LastDate       DATE         = DATEADD(MONTH, DATEDIFF(MONTH, -1, @Yesterday) - 1, -1)
-
-    DECLARE @FromDate                           DATE,
-            @ToDate                             DATE,
-            @sqlSupport                         VARCHAR(MAX),
+    DECLARE @sqlSupport                         VARCHAR(MAX),
             @sqlQuery                           VARCHAR(MAX)
 
 	DECLARE @isTest BIT = 0
@@ -60,7 +54,8 @@ BEGIN
 
     -- CREATE temp table
     CREATE TABLE #tmpHNIResultDataset (
-        [MonthDate]         DATE,
+        [FromDate]          DATE,
+        [ToDate]            DATE,
         [BaseCurrencyName]  DATE,
         [isDeposit]			SMALLINT,
         [OrderByProduct]	SMALLINT,
@@ -111,19 +106,22 @@ BEGIN
     IF (@isTest = 1 OR @DataMode = 2)
     BEGIN
         INSERT INTO #tmpHNIResultDataset (
-            [MonthDate],
+            [FromDate],
+            [ToDate],
             [BaseCurrencyName],
             [isDeposit], [OrderByProduct], [OrderByFigure], [SiteGroup], [ProductCategory], [ProductGroup], [ProductName], [ProductShortName], [Figure], [SubFigure],
             [Monthly], [MTD],
             [01], [02], [03], [04], [05], [06], [07], [08], [09], [10], [11], [12], [13], [14], [15], [16], [17], [18], [19], [20], [21], [22], [23], [24], [25], [26], [27], [28], [29], [30], [31]
         )
-        SELECT [MonthDate],
+        SELECT [FromDate],
+               [ToDate],
                [BaseCurrencyName],
                [isDeposit], [OrderByProduct], [OrderByFigure], [SiteGroup], [ProductCategory], [ProductGroup], [ProductName], [ProductShortName], [Figure], [SubFigure],
                [Monthly], [MTD],
                [01], [02], [03], [04], [05], [06], [07], [08], [09], [10], [11], [12], [13], [14], [15], [16], [17], [18], [19], [20], [21], [22], [23], [24], [25], [26], [27], [28], [29], [30], [31]
-        FROM bodb_Account.dbo.HNIResultDataset (NOLOCK)
-        WHERE [MonthDate] = @MonthDate
+        FROM bodb_Account.dbo.HNIResultDatasetUAT (NOLOCK)
+        WHERE [FromDate] = @FromDate
+              AND [ToDate] = @ToDate
               AND [BaseCurrencyName] = @BaseCurrencyName
               AND ((@DepositType = 2) OR ([isDeposit] = @DepositType))
     END
@@ -132,19 +130,22 @@ BEGIN
     IF (@isTest = 0 AND @DataMode = 1)
     BEGIN
         INSERT INTO #tmpHNIResultDataset (
-            [MonthDate],
+            [FromDate],
+            [ToDate],
             [BaseCurrencyName],
             [isDeposit], [OrderByProduct], [OrderByFigure], [SiteGroup], [ProductCategory], [ProductGroup], [ProductName], [ProductShortName], [Figure], [SubFigure],
             [Monthly], [MTD],
             [01], [02], [03], [04], [05], [06], [07], [08], [09], [10], [11], [12], [13], [14], [15], [16], [17], [18], [19], [20], [21], [22], [23], [24], [25], [26], [27], [28], [29], [30], [31]
         )
-        SELECT [MonthDate],
+        SELECT [FromDate],
+               [ToDate],
                [BaseCurrencyName],
                [isDeposit], [OrderByProduct], [OrderByFigure], [SiteGroup], [ProductCategory], [ProductGroup], [ProductName], [ProductShortName], [Figure], [SubFigure],
                [Monthly], [MTD],
                [01], [02], [03], [04], [05], [06], [07], [08], [09], [10], [11], [12], [13], [14], [15], [16], [17], [18], [19], [20], [21], [22], [23], [24], [25], [26], [27], [28], [29], [30], [31]
         FROM bodb_Account.dbo.HNIResultDataset (NOLOCK)
-        WHERE [MonthDate] = @MonthDate
+        WHERE [FromDate] = @FromDate
+              AND [ToDate] = @ToDate
               AND [BaseCurrencyName] = @BaseCurrencyName
               AND ((@DepositType = 2) OR ([isDeposit] = @DepositType))
     END
@@ -152,18 +153,6 @@ BEGIN
 
     ----------------------------
     -- SELECT data for report --
-
-    IF (@MonthDate = @Yesterday_CurrentMonth_FirstDate)
-    BEGIN
-        SET @FromDate = @Yesterday_CurrentMonth_FirstDate
-        SET @ToDate   = @Yesterday
-    END
-
-    IF (@MonthDate = @Yesterday_LastMonth_FirstDate)
-    BEGIN
-        SET @FromDate = @Yesterday_LastMonth_FirstDate
-        SET @ToDate   = @Yesterday_LastMonth_LastDate
-    END
 
 	SET @sqlSupport = NULL
 
