@@ -45,9 +45,6 @@ BEGIN
     DECLARE @sqlSupport                         VARCHAR(MAX),
             @sqlQuery                           VARCHAR(MAX)
 
-	DECLARE @isTest BIT = 0
-    SET @isTest = bodb_dwrs.dbo.f_CheckSPVersion(@@PROCID)
-
 
     -----------------------
     -- CREATE temp table --
@@ -103,7 +100,7 @@ BEGIN
     )
 
     -- Get UAT data for temp table
-    IF (@isTest = 1 OR @DataMode = 2)
+    IF (@DataMode = 2)
     BEGIN
         INSERT INTO #tmpHNIResultDataset (
             [FromDate],
@@ -127,7 +124,7 @@ BEGIN
     END
 
     -- Get PRO data for temp table
-    IF (@isTest = 0 AND @DataMode = 1)
+    IF (@DataMode = 1)
     BEGIN
         INSERT INTO #tmpHNIResultDataset (
             [FromDate],
