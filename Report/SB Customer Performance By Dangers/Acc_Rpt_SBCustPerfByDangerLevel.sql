@@ -109,10 +109,19 @@ BEGIN
 		,NoAssoc INT
 	)
 	/*
-		parse and clean up parameters
+		parse and clean up parameters (remove time part)
+		make sure get data in range bettrans
 	*/
-	SET @StartDate = CAST(@FromDate AS DATE)--remove time part
-	SET @EndDate = DATEADD(dd, 1, CAST(@ToDate AS DATE))
+	SELECT @StartDate = MAX(FromDate)
+		,@EndDate = DATEADD(DAY, 1, CAST(@ToDate AS DATE))
+	FROM (
+		SELECT DATEADD(DAY, 1, CAST(MoveBetsDay AS DATE)) AS FromDate
+		FROM OPENQUERY(DBACC, 'EXEC bodb02.dbo.Age_SelBalanceUpDay')
+
+		UNION ALL
+
+		SELECT CAST(@FromDate AS DATE)
+	) AS t
 	
 	---TopUsers---
 	IF @TopUsers < 0
@@ -149,6 +158,7 @@ BEGIN
 	)
 	GROUP BY c.custid
 		,c.site
+	OPTION (RECOMPILE)
 	
 	CREATE CLUSTERED INDEX [CIX_tmpAgentBySite] ON #tmpAgentBySite( AgentID, SiteName )
 
@@ -207,6 +217,7 @@ BEGIN
 					AND sbm.BetType = psb.BetType
 				)
 			)
+	OPTION (RECOMPILE)
 	CREATE CLUSTERED INDEX [CIX_tmpsb] ON #tmpSportBettypes( SportType, BetType )
 
 	/*
@@ -248,7 +259,8 @@ BEGIN
 			,0 MatchType
 			,LeagueID
 		FROM dbo.match WITH (NOLOCK)
-		WHERE eventdate BETWEEN @StartDate AND @EndDate
+		WHERE eventdate >= @StartDate
+			AND eventdate < @EndDate
 		
 		UNION ALL
 		
@@ -256,7 +268,8 @@ BEGIN
 			,1 MatchType
 			,LeagueID
 		FROM dbo.outright WITH (NOLOCK)
-		WHERE eventdate BETWEEN @StartDate AND @EndDate
+		WHERE eventdate >= @StartDate
+			AND eventdate < @EndDate
 	)
 	INSERT INTO #tmpMatch (
 		MatchID
@@ -426,7 +439,8 @@ BEGIN
 			,DangerLevelABI DESC
 			,DangerLevelOtherSport DESC
 			,UserName
-
+	OPTION (RECOMPILE)
+	
 	CREATE CLUSTERED INDEX [CIX_tmpFiltered] ON #tmpFiltered (
 		SuperID
 		,MasterID
