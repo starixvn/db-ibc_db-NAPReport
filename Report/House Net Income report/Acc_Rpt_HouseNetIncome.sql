@@ -5,6 +5,7 @@ GO
 
 ALTER PROCEDURE dbo.Acc_Rpt_HouseNetIncome @FromDate DATE,
                                            @ToDate DATE,
+                                           @IsLicPerf BIT = 0,
 										   @BaseCurrencyName VARCHAR(10) = 'MYR',
                                            @DepositType TINYINT = 2,
                                            @DataMode TINYINT = 1
@@ -23,6 +24,7 @@ AS
 	Param's Explanation:
 		@FromDate:         Begin date of data report
         @ToDate:           End date of data report
+        @IsLicPerf:        0 or 1
         @BaseCurrencyName: 'MYR' or 'CNY'
 		@DepositType:      0 - Credit Only
 					       1 - Deposit Only
@@ -31,7 +33,7 @@ AS
                            2 - Get data from UAT table
 	
 	Example:
-		EXEC bodb_dwrs.dbo.Acc_Rpt_HouseNetIncome '20210801', '20210818', 'MYR', 2, 1
+		EXEC bodb_dwrs.dbo.Acc_Rpt_HouseNetIncome '20210801', '20210818', 0, 'MYR', 2, 1
 */
 
 BEGIN
@@ -53,6 +55,7 @@ BEGIN
     CREATE TABLE #tmpHNIResultDataset (
         [FromDate]          DATE,
         [ToDate]            DATE,
+        [isLicPerf]         SMALLINT,
         [BaseCurrencyName]  VARCHAR(50),
         [isDeposit]			SMALLINT,
         [OrderByProduct]	SMALLINT,
@@ -105,6 +108,7 @@ BEGIN
         INSERT INTO #tmpHNIResultDataset (
             [FromDate],
             [ToDate],
+            [isLicPerf],
             [BaseCurrencyName],
             [isDeposit], [OrderByProduct], [OrderByFigure], [SiteGroup], [ProductCategory], [ProductGroup], [ProductName], [ProductShortName], [Figure], [SubFigure],
             [Monthly], [MTD],
@@ -112,6 +116,7 @@ BEGIN
         )
         SELECT [FromDate],
                [ToDate],
+               [isLicPerf],
                [BaseCurrencyName],
                [isDeposit], [OrderByProduct], [OrderByFigure], [SiteGroup], [ProductCategory], [ProductGroup], [ProductName], [ProductShortName], [Figure], [SubFigure],
                [Monthly], [MTD],
@@ -119,6 +124,7 @@ BEGIN
         FROM bodb_Account.dbo.HNIResultDatasetUAT (NOLOCK)
         WHERE [FromDate] = @FromDate
               AND [ToDate] = @ToDate
+              AND [isLicPerf] = @IsLicPerf
               AND [BaseCurrencyName] = @BaseCurrencyName
               AND ((@DepositType = 2) OR ([isDeposit] = @DepositType))
     END
@@ -129,6 +135,7 @@ BEGIN
         INSERT INTO #tmpHNIResultDataset (
             [FromDate],
             [ToDate],
+            [isLicPerf],
             [BaseCurrencyName],
             [isDeposit], [OrderByProduct], [OrderByFigure], [SiteGroup], [ProductCategory], [ProductGroup], [ProductName], [ProductShortName], [Figure], [SubFigure],
             [Monthly], [MTD],
@@ -136,6 +143,7 @@ BEGIN
         )
         SELECT [FromDate],
                [ToDate],
+               [isLicPerf],
                [BaseCurrencyName],
                [isDeposit], [OrderByProduct], [OrderByFigure], [SiteGroup], [ProductCategory], [ProductGroup], [ProductName], [ProductShortName], [Figure], [SubFigure],
                [Monthly], [MTD],
@@ -143,6 +151,7 @@ BEGIN
         FROM bodb_Account.dbo.HNIResultDataset (NOLOCK)
         WHERE [FromDate] = @FromDate
               AND [ToDate] = @ToDate
+              AND [isLicPerf] = @IsLicPerf
               AND [BaseCurrencyName] = @BaseCurrencyName
               AND ((@DepositType = 2) OR ([isDeposit] = @DepositType))
     END
