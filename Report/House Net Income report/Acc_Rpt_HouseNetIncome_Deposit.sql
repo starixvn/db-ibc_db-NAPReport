@@ -488,8 +488,8 @@ BEGIN
 			BEGIN
 				SELECT @ToDateByBatch = DATEADD(DAY, 7, @FromDateByBatch)
 
-				IF @ToDateByBatch > @TDate
-					SET @ToDateByBatch = @TDate
+				IF @ToDateByBatch > @TDateGetData
+					SET @ToDateByBatch = @TDateGetData
 
 				INSERT INTO #__tempData (rptDate, SiteId_DW, CurrencyId, Product3rdId, AliasProductId, SportTypeGroup, BetTypeGroup, MemberWL, HouseWL, HouseTO, Stake, HouseContribution, FullContribution, LicenseeWL, LicenseeTO)
 				SELECT b.rptDate, b.SiteId, b.CurrencyId, bt.Product3rdId
