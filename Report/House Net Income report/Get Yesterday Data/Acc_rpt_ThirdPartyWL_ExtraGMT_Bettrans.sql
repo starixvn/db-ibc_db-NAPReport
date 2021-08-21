@@ -70,9 +70,9 @@ BEGIN
 	UNION
 
 	SELECT CAST(b.winlostdate AS DATE)	AS Rptdate,
-			CAST(b.Transdate3rd AS DATE)	AS RptDate3rd
+		 CASE WHEN b.gameID BETWEEN 5701 AND 5704 THEN CAST(b.winlostdate AS DATE) ELSE CAST(b.Transdate3rd AS DATE) END AS RptDate3rd
 		, ISNULL(site.SiteID, -1) AS siteid
-		, b.gameID AS BetTypeId		
+		, CASE WHEN b.gameID BETWEEN 5701 AND 5704 THEN -59 ELSE b.gameID END AS BetTypeId		
 		, b.currency
 		, b.statusID
 		, SUM(winlost - actual_stake) AS Winloss		
@@ -82,8 +82,15 @@ BEGIN
 		LEFT JOIN bodb02.dbo.Customer c WITH (NOLOCK) ON b.recommend = c.custid AND c.roleid = 2
 		LEFT JOIN bodb02.dbo.Site s WITH (NOLOCK) ON c.site = s.site
 		LEFT JOIN bodb_licensee.dbo.view_site_list  [site] (NOLOCK) ON s.siteid = site.IbcSiteID			
-	WHERE b.winlostdate  BETWEEN @FDate AND  @TDate
-		AND b.Transdate3rd >= @Winlostdate AND b.Transdate3rd < @TDate
+	WHERE (
+			(	b.winlostdate  BETWEEN @FDate AND  @TDate
+				AND b.Transdate3rd >= @Winlostdate AND b.Transdate3rd < @TDate AND  b.gameID NOT BETWEEN 5701 AND 5704
+			)
+			OR
+			(
+				b.winlostdate = @Winlostdate AND  b.gameID BETWEEN 5701 AND 5704 -- GDG
+			)
+		)
 		AND b.statusID NOT IN (0, 1, 101, 102, 121)
 		AND (
 				b.gameID BETWEEN 2401 AND 2499 -- AllBet
@@ -94,7 +101,8 @@ BEGIN
 			OR  b.gameID BETWEEN 5701 AND 5704 -- GDG
 			) 
 	GROUP BY CAST(b.winlostdate AS DATE), 
-			CAST(b.Transdate3rd AS DATE), ISNULL(site.SiteID, -1), b.gameID
+			CASE WHEN b.gameID BETWEEN 5701 AND 5704 THEN CAST(b.winlostdate AS DATE) ELSE CAST(b.Transdate3rd AS DATE) END, 
+			ISNULL(site.SiteID, -1), CASE WHEN b.gameID BETWEEN 5701 AND 5704 THEN -59 ELSE b.gameID END
 		, b.currency, b.statusID	
 
 
