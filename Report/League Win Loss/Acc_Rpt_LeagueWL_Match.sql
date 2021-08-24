@@ -9,7 +9,8 @@ ALTER PROCEDURE dbo.Acc_Rpt_LeagueWL_Match @StartDate SMALLDATETIME,
 										   @BetType	INT = -1,					/*1st report flow = -1; 2nd report flow = input from Bet type report*/	
 										   @SiteName VARCHAR(MAX) = 'ALL',
 										   @GlobalShowTime VARCHAR(MAX) = '0',
-										   @SportName NVARCHAR(100) = 'Soccer',
+										   @SportType INT,
+										   @SportName NVARCHAR(100) = 'Soccer', /*Not related to @SportType above*/
 										   @LeagueName VARCHAR(500),
 										   @IsNoDraw BIT = 0,
 										   @LiveIndicator TINYINT = 2,			/*1st report flow = 2; 2nd report flow = 0 or 1*/
@@ -32,6 +33,7 @@ AS
 		- 20210126@Jaden.Tang: global show time filter (#147450)
 		- 20210224@Jaden.Tang: Integrate Cricket AIO (#148454)
 		- 20210520@Jaden.Tang: SABA Soccer Pin Goal (#155447)
+		- 20210824@Jaden.Tang: Hotfix #160586 - incorrect bet type when drilldown from leagues with same name across different sports
 
 	Param's Explanation:
 		- @StartDate: The start date of data to view on report
@@ -52,11 +54,15 @@ AS
 			- 2: no filter
 		- @ShowHedgeMatchOnly: Only show hedge matches
 		- @GlobalShowTime: refer to to [Acc_Rpt_LeagueWL_Sporttype.sql]
+		- @SportType: the selected sport ID from SportType report result set
+		- @SportName: The user selected sport group coming from SportType report
+			Example: Soccer, SABA Soccer, SABA Soccer PinGoal, Basketball...
 
 	Example:
 		EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Match @StartDate='2021-02-21', @EndDate='2021-02-28',
 			@LeagueName='CSA T20 Challenge - Score at End of Over', @IsNoDraw=0,
-			@SportBettype='10000_9,10000_29,50_3'
+			@SportBettype='10000_9,10000_29,50_3',
+			@SportType = 1
 */
 
 BEGIN
@@ -148,6 +154,7 @@ BEGIN
 			FROM bodb02.dbo.league WITH (NOLOCK)
 			WHERE leaguename = @LeagueName
 				AND isTest = 0
+				AND sporttype = @SportType
 		)
 		INSERT INTO #tmpMatch (matchid, matchcode, matchtype, homeid, awayid, sporttype)
 			SELECT  matchid,
@@ -163,12 +170,6 @@ BEGIN
 			WHERE @GlobalShowTime = '0'
 			   OR (@GlobalShowTime != '0' AND CONVERT(TIME, m.GlobalShowTime) BETWEEN gst.[From] AND gst.[To])
 			OPTION (RECOMPILE)
-	END
-
-	DECLARE @SportType INT 
-	BEGIN /*as the @SportBetType array passed from the WEB does not get filtered by the 2nd drilldown
-		(always same as the parameter from first report), using data from that parameter is not the correct way to retrieve sport*/
-		SELECT TOP 1 @SportType = SportType FROM #tmpMatch
 	END
 
 	BEGIN /*split the array @SportBettype into a temp table*/

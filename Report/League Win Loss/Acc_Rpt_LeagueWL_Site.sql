@@ -6,7 +6,8 @@ GO
 ALTER PROCEDURE dbo.Acc_Rpt_LeagueWL_Site @StartDate SMALLDATETIME,
                                           @EndDate SMALLDATETIME,
                                           @SiteName VARCHAR(MAX) = 'ALL',
-                                          @SportName NVARCHAR(100) = 'Soccer',
+                                          @SportType INT,
+                                          @SportName NVARCHAR(100) = 'Soccer', /*Not related to @SportType above*/
                                           @MatchID INT,
                                           @LiveIndicator TINYINT,
 										  @BetType INT,
@@ -23,6 +24,7 @@ AS
         - 20201016@Jaden.Tang: Refactor for code readability & new drilldowns (#144387)
         - 20212203@Jaden: Support SABA789 (#151326)
         - 20210520@Jaden.Tang: SABA Soccer Pin Goal (#155447)
+		- 20210824@Jaden.Tang: Hotfix #160586 - incorrect bet type when drilldown from leagues with same name across different sports
 
 	Param's Explanation:
 		- @StartDate: The start date of data to view on report
@@ -36,34 +38,19 @@ AS
 		- @IsNoDraw: To get the draw tickets to report or not
 		             0 - Get draw ticktes to report
 					 1 - No get draw ticktes to report
+		- @SportType: the selected sport ID from SportType report result set
+		- @SportName: The user selected sport group coming from SportType report
+			Example: Soccer, SABA Soccer, SABA Soccer PinGoal, Basketball...
 
 	Example:
         EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Site_xtest @StartDate='2020-09-06', @EndDate='2020-09-06'
                 , @MatchID=38236262, @LiveIndicator=1, @SiteType='Credit', @BetType=2, @IsNoDraw=0
                 , @SiteName = 'XYZBET,BEST-ODDS,611111'
+                , @SportType = 1
 */
 
 BEGIN
 	SET NOCOUNT ON
-
-    DECLARE @SportType INT
-    BEGIN /*get sport type from league*/
-        SELECT @SportType = sporttype 
-        FROM (
-            SELECT l.sporttype
-            FROM bodb02.dbo.league l WITH (NOLOCK)
-            INNER JOIN bodb02.dbo.match m WITH (NOLOCK)
-                ON l.leagueid = m.leagueid
-            WHERE m.matchid = @MatchID AND m.eventdate = @StartDate
-            UNION ALL 
-            SELECT l.sporttype
-            FROM bodb02.dbo.league l WITH (NOLOCK)
-            INNER JOIN bodb02.dbo.outright o WITH (NOLOCK)
-                ON l.leagueid = o.leagueid
-            WHERE o.orid = @MatchID AND o.eventdate = @StartDate
-        ) t
-        OPTION (RECOMPILE)
-    END
 
     BEGIN /*filter by input site list*/
 		CREATE TABLE #inputSites (SiteName NVARCHAR(100))

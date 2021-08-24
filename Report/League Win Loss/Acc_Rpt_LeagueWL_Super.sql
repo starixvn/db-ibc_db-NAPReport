@@ -6,7 +6,8 @@ GO
 ALTER PROCEDURE dbo.Acc_Rpt_LeagueWL_Super @StartDate SMALLDATETIME,
                                            @EndDate SMALLDATETIME,
                                            @SiteID INT,
-                                           @SportName NVARCHAR(100) = 'Soccer',
+                                           @SportType INT,
+                                           @SportName NVARCHAR(100) = 'Soccer', /*Not related to @SportType above*/
                                            @MatchID INT,
                                            @LiveIndicator TINYINT,
 										   @BetType INT,
@@ -33,33 +34,18 @@ AS
 		- @IsNoDraw: To get the draw tickets to report or not
 		             0 - Get draw ticktes to report
 					 1 - No get draw ticktes to report
+		- @SportType: the selected sport ID from SportType report result set
+		- @SportName: The user selected sport group coming from SportType report
+			Example: Soccer, SABA Soccer, SABA Soccer PinGoal, Basketball...
 
 	Example:
        EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Super_xtest @StartDate='20200620', @EndDate='20200630'
                 , @MatchID=36693927, @SiteID = 3, @LiveIndicator=0, @BetType=1, @IsNoDraw=0
+                , @SportType = 1
 */
 
 BEGIN
 	SET NOCOUNT ON
-
-    DECLARE @SportType INT
-    BEGIN /*get sport type from league*/
-        SELECT @SportType = sporttype 
-        FROM (
-            SELECT l.sporttype
-            FROM bodb02.dbo.league l WITH (NOLOCK)
-            INNER JOIN bodb02.dbo.match m WITH (NOLOCK)
-                ON l.leagueid = m.leagueid
-            WHERE m.matchid = @MatchID AND m.eventdate = @StartDate
-            UNION ALL 
-            SELECT l.sporttype
-            FROM bodb02.dbo.league l WITH (NOLOCK)
-            INNER JOIN bodb02.dbo.outright o WITH (NOLOCK)
-                ON l.leagueid = o.leagueid
-            WHERE o.orid = @MatchID AND o.eventdate = @StartDate
-        ) t
-        OPTION (RECOMPILE)
-    END
 
     BEGIN /*gather agent-super data depending on @SiteID*/
         CREATE TABLE #agentSuper (AgentID   INT PRIMARY KEY, 

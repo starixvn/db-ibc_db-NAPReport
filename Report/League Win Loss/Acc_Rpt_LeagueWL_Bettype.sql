@@ -8,7 +8,8 @@ ALTER PROCEDURE dbo.Acc_Rpt_LeagueWL_Bettype @StartDate SMALLDATETIME,
 											 @SportBettype VARCHAR(MAX),
 											 @SiteName VARCHAR(MAX) = 'ALL',
 											 @GlobalShowTime VARCHAR(MAX) = '0',
-											 @SportName NVARCHAR(100) = 'Soccer',
+											 @SportType INT,
+											 @SportName NVARCHAR(100) = 'Soccer', /*Not related to @SportType above*/
 											 @LeagueName VARCHAR(500) = '', /*1st report flow*/
 											 @MatchID INT = -1,				/*2nd report flow*/
 											 @IsNoDraw BIT = 0,
@@ -33,6 +34,7 @@ AS
 		- 20210208@Jaden.Tang: Hotfix - change LiveIndicator type to TINYINT (#150190)
 		- 20212203@Jaden: Support SABA789 (#151326)
 		- 20210520@Jaden.Tang: SABA Soccer Pin Goal (#155447)
+		- 20210824@Jaden.Tang: Hotfix #160586 - incorrect bet type when drilldown from leagues with same name across different sports
 
 	Param's Explanation:
 		- @StartDate: The start date of data to view on report
@@ -72,12 +74,15 @@ AS
 				Handicap		 |	8,000
 				Handicap (hedge) |	2,000
 		- @GlobalShowTime: refer to to [Acc_Rpt_LeagueWL_Sporttype.sql]
-		- @SportName: The user selected sport coming from SportType report
+		- @SportType: the selected sport ID from SportType report result set
+		- @SportName: The user selected sport group coming from SportType report
+			Example: Soccer, SABA Soccer, SABA Soccer PinGoal, Basketball...
 
 	Example:
 		EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Bettype_xtest @StartDate='2020-09-06', @EndDate='2020-09-06', 
 			@MatchID=38236262, @LiveIndicator=1, @IsNoDraw=0, 
 			@SportBettype='1_1,1_2,10000_9,10000_29,2_1,3_1,4_1',
+			@SportType = 1,
 			@SiteName = '12Bet,755555,INDO,789y,IBCIndo,BEST-ODDS,722222,733333,XYZBET,asiabet88'
 */
 
@@ -151,8 +156,7 @@ BEGIN
 			ON CTE_EnumDict.ID = s.val
 	END
 
-	DECLARE @SportType INTEGER
-    BEGIN /*get sport type from @MatchID or @LeagueID*/
+    BEGIN
 		CREATE TABLE #tmpMatch (SportType INT, MatchID INT, MatchCode NVARCHAR(100), IsOutright BIT)
 
 		INSERT INTO #tmpMatch
@@ -163,6 +167,7 @@ BEGIN
             INNER JOIN bodb02.dbo.match m WITH (NOLOCK)
                 ON l.leagueid = m.leagueid
             WHERE (m.matchid = ISNULL(@MatchID, m.matchid) AND l.leaguename = ISNULL(@LeagueName, l.leaguename))
+				AND l.sporttype = @SportType
 				AND m.eventdate = @StartDate
             UNION ALL 
             SELECT l.sporttype, o.orid, o.matchcode, 1 AS IsOutright, NULL
@@ -170,6 +175,7 @@ BEGIN
             INNER JOIN bodb02.dbo.outright o WITH (NOLOCK)
                 ON l.leagueid = o.leagueid
             WHERE (o.orid = ISNULL(@MatchID, o.orid) AND l.leaguename = ISNULL(@LeagueName, l.leaguename))
+				AND l.sporttype = @SportType
 				AND o.eventdate = @StartDate
 				AND @GlobalShowTime = '0' /* if user filters by GlobalShowTime, then ignore outright data*/
         ) t
@@ -177,8 +183,6 @@ BEGIN
 		WHERE @GlobalShowTime = '0'
 		   OR (@GlobalShowTime != '0' AND CONVERT(TIME, t.GlobalShowTime) BETWEEN gst.[From] AND gst.[To])
         OPTION (RECOMPILE)
-
-		SELECT TOP 1 @SportType = sporttype FROM #tmpMatch
     END
 
 	BEGIN /*get a list of Supers by site type*/
