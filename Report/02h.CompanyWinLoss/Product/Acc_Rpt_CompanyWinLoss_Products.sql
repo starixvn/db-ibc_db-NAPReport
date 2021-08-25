@@ -57,6 +57,7 @@ Revisions:
 - 20212203@Jaden: Support SABA789 (#151326)
 - 20210428@Ned.Le: NAP Report - Implement VGaming (#154072)
 - 20210520@Kean: SABA Soccer PinGoal - NAP Report (#155447)
+- 20210811@Jaden: Integrate Bitcoin (#159046)
 
 Explanation's Param:
 
@@ -1453,7 +1454,8 @@ Explanation's Param:
 			(27, 50, NULL),
 			(28, 49, NULL),
 			(29, 63, NULL),
-			(30, 66, NULL);
+			(30, 66, NULL),
+			(31, 69, NULL);
 			
 	   UPDATE p
 	   SET p.ProductName = s.ProductName

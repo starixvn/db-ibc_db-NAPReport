@@ -49,6 +49,7 @@ AS
 		- 20210303@Cherry: Integrate Sports Lottery (#151071)
 		- 20210325@Jaden: Integrate PP Live Casino (#133731)
 		- 20210428@Ned.Le: NAP Report - Implement VGaming (#154072)
+		- 20210811@Jaden: Integrate Bitcoin (#159046)
 
 	Param's Explanation:  
 	  + @ListCurrency: The specified date used as one of the filter criterias, if its value is 'all' then no need to be filtered by currency
@@ -98,8 +99,9 @@ BEGIN
 
     DECLARE @bitmap    TINYINT; /* using for sporttype that has 1 setting*/
 
-    IF @SportType IN(212, 213, 219, 220, 180, 245, 244, 200, 243, 222, 241, 242, 224, 225, 233, 236, 239, 169, 170, 171) 
-    /* Macau Games, NG2, Fishing World, Virtual Sports, Lottery, Virtual Games, SA Gaming, Saba.club, Sexy Gaming, Table Games, BBIN, IBCBet Live Casino, RNG War, ION, WM, GDG, BG, Sports Lottery, PP Live Casino, VGaming */
+    IF @SportType IN(212, 213, 219, 220, 180, 245, 244, 200, 243, 222, 241, 242, 224, 225, 233, 236, 239, 169, 170, 171, 175) 
+    /* Macau Games, NG2, Fishing World, Virtual Sports, Lottery, Virtual Games, SA Gaming, Saba.club, Sexy Gaming, Table Games
+	, BBIN, IBCBet Live Casino, RNG War, ION, WM, GDG, BG, Sports Lottery, PP Live Casino, VGaming, Bitcoin */
 
 	   BEGIN
 		  SELECT @bitmap = bitmapOrder
@@ -149,7 +151,7 @@ BEGIN
 							 (cps.bitmapIsDisabled, b.bitmapOrder) AS f
 						 WHERE custid = ci.custid
 					  )
-				  WHEN @SportType IN(212, 213, 219, 220, 180, 245, 244, 200, 243, 222, 241, 242, 224, 225, 233, 236, 239, 169, 170, 171)
+				  WHEN @SportType IN(212, 213, 219, 220, 180, 245, 244, 200, 243, 222, 241, 242, 224, 225, 233, 236, 239, 169, 170, 171, 175)
 				  THEN
 					  (
 						 SELECT CASE(SELECT value
@@ -470,9 +472,10 @@ BEGIN
 				 GROUP BY fda.CustID
 			  ) A ON fda.CustID = A.CustID;
 	   END;
-/* Macau Games, NG2, Fishing World, Virtual Sports, Lottery, Virtual Games, SA Gaming, Saba.club, Sexy Gaming, Table Games, BBIN, IBCBet Live Casino, RNG War, ION, WM, GDG, BG */
+/* Macau Games, NG2, Fishing World, Virtual Sports, Lottery, Virtual Games, SA Gaming, Saba.club, Sexy Gaming, Table Games
+, BBIN, IBCBet Live Casino, RNG War, ION, WM, GDG, BG, Bitcoin */
 
-    IF @sportType IN(212, 213, 219, 220, 180, 245, 244, 200, 243, 222, 241, 242, 224, 225, 233, 236, 239, 169, 170, 171)
+    IF @sportType IN(212, 213, 219, 220, 180, 245, 244, 200, 243, 222, 241, 242, 224, 225, 233, 236, 239, 169, 170, 171, 175)
 	   BEGIN
 		  INSERT INTO #FiltedDownlineAcc
 			    SELECT sup.CustID

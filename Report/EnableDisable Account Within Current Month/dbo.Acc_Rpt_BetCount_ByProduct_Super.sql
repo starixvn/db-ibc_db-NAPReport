@@ -71,6 +71,7 @@ AS
 		- 20210428@Ned.Le: NAP Report - Implement VGaming (#154072)
 		- 20210506@Ned.Le: NAP Report - Implement Advantplay (#154677)
 		- 20210517@Ned.Le: NAP Reports - Integrate AdvantPlay Mini (#155174)
+		- 20210811@Jaden: Integrate Bitcoin (#159046)
 
 	Param's Explanation:  
 	  + @MoveBetsDay: The day of moving bets to battrans14
@@ -159,6 +160,7 @@ BEGIN
 			OR b.bettype BETWEEN 1021 AND CASE WHEN @sportType = 220 THEN 1099 ELSE 0 END --Loterry
 			OR (@sportType=180 AND (b.bettype BETWEEN 1201 AND 1299 OR b.bettype BETWEEN 2700 AND 2899 OR b.bettype BETWEEN 5301 AND 5399)) --Virtual Sports, Betradar Virtual Sports, Virtual Sports 3		
 			OR b.bettype BETWEEN 3611 AND CASE WHEN @sportType = 169 THEN 3620 ELSE 0 END -- Sports Loterry
+			OR b.bettype BETWEEN 7901 AND CASE WHEN @sportType = 175 THEN 7999 ELSE 0 END -- Bitcoin
 		) 
 		AND ( 
 				----b.status IN ('WON','LOSE','DRAW','running') 
@@ -278,6 +280,7 @@ BEGIN
 							OR b.bettype BETWEEN 3501 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = 239 THEN 3599 ELSE 0 END   -- BG
 							OR b.bettype BETWEEN 3611 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = 169 THEN 3620 ELSE 0 END   -- Sports Lottery
 							OR b.bettype BETWEEN 3801 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = 171 THEN 3899 ELSE 0 END   -- VGaming
+							OR b.bettype BETWEEN 7901 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = 175 THEN 7999 ELSE 0 END   -- Bitcoin
 						) 
 						AND b.bettype NOT IN (38)
 						AND b.status IN (3  ---DRAW
@@ -359,7 +362,7 @@ BEGIN
 			LEFT JOIN CustEnableKeno ce ON ce.CustID = av.custid    
 		WHERE ce.CustID IS NULL
 	END
-	IF @sportType IN (211,212,213,219,220,180,245,244,200,243,222,241,242,224,225,233,236,239,169,170,171)
+	IF @sportType IN (211,212,213,219,220,180,245,244,200,243,222,241,242,224,225,233,236,239,169,170,171,175)
     BEGIN
 		DECLARE @bitmapOrder TABLE (bitmapOrder TINYINT)
 		INSERT INTO @bitmapOrder (bitmapOrder)
