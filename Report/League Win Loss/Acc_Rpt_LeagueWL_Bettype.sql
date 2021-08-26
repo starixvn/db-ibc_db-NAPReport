@@ -10,7 +10,7 @@ ALTER PROCEDURE dbo.Acc_Rpt_LeagueWL_Bettype @StartDate SMALLDATETIME,
 											 @GlobalShowTime VARCHAR(MAX) = '0',
 											 @SportType INT,
 											 @SportName NVARCHAR(100) = 'Soccer', /*Not related to @SportType above*/
-											 @LeagueName VARCHAR(500) = '', /*1st report flow*/
+											 @LeagueID VARCHAR(MAX) = '', 	/*1st report flow*/
 											 @MatchID INT = -1,				/*2nd report flow*/
 											 @IsNoDraw BIT = 0,
 											 @LiveIndicator TINYINT = 2,		/*for 2nd report flow, this SP would be called 2 times*/
@@ -43,7 +43,7 @@ AS
 		                 Example '1_1,2_1' --> 'Soccer_Handicap,Basketball_Handicap'
 		- @SiteName: Filter by list of site names (delimited by commas)
 		- @MatchID: The specific match to view on report
-		- @LeagueName: The specific league to view on report, can be used without matchid
+		- @LeagueID: The specific leagues to view on report, a list delimited by comma, can be used without matchid
 		- @IsNoDraw: To get the draw tickets to report or not
 		             0 - Get draw ticktes to report
 					 1 - No get draw ticktes to report
@@ -54,7 +54,7 @@ AS
 				----------------------------------
 				Handicap		 |	10,000
 			
-			- @IsIncludeHedge = 1
+			- @IsIncludeSiteType = 1
 				Bet type		 |	Member Winloss
 				----------------------------------
 				Handicap		 |	10,000
@@ -91,7 +91,7 @@ BEGIN
 	SET NOCOUNT ON
 
 	-- web can't send NULLs
-	IF @LeagueName = '' SET @LeagueName = NULL
+	IF @LeagueID = '' SET @LeagueID = NULL
 	IF @MatchID = -1 SET @MatchID = NULL
 
 	DECLARE @IsLive BIT = NULL
@@ -159,6 +159,9 @@ BEGIN
     BEGIN
 		CREATE TABLE #tmpMatch (SportType INT, MatchID INT, MatchCode NVARCHAR(100), IsOutright BIT)
 
+		;WITH CTE_Param AS (
+			SELECT val LeagueID FROM bodb02.dbo.strSplit(@LeagueID, ',')
+		)
 		INSERT INTO #tmpMatch
 		SELECT sporttype, matchid, matchcode, IsOutright
         FROM (
@@ -166,7 +169,8 @@ BEGIN
             FROM bodb02.dbo.league l WITH (NOLOCK)
             INNER JOIN bodb02.dbo.match m WITH (NOLOCK)
                 ON l.leagueid = m.leagueid
-            WHERE (m.matchid = ISNULL(@MatchID, m.matchid) AND l.leaguename = ISNULL(@LeagueName, l.leaguename))
+            WHERE (m.matchid = ISNULL(@MatchID, m.matchid) 
+				AND (l.leagueid IN (SELECT LeagueID FROM CTE_Param) OR @LeagueID IS NULL))
 				AND l.sporttype = @SportType
 				AND m.eventdate = @StartDate
             UNION ALL 
@@ -174,7 +178,8 @@ BEGIN
             FROM bodb02.dbo.league l WITH (NOLOCK)
             INNER JOIN bodb02.dbo.outright o WITH (NOLOCK)
                 ON l.leagueid = o.leagueid
-            WHERE (o.orid = ISNULL(@MatchID, o.orid) AND l.leaguename = ISNULL(@LeagueName, l.leaguename))
+            WHERE (o.orid = ISNULL(@MatchID, o.orid)
+				AND (l.leagueid IN (SELECT LeagueID FROM CTE_Param) OR @LeagueID IS NULL))
 				AND l.sporttype = @SportType
 				AND o.eventdate = @StartDate
 				AND @GlobalShowTime = '0' /* if user filters by GlobalShowTime, then ignore outright data*/

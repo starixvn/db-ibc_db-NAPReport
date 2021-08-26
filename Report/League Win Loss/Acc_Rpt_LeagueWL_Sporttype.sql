@@ -26,6 +26,7 @@ AS
 		- 20201016@Jaden.Tang: Refactor for code readability & performance
 		- 20201221@Jaden.Tang: Add live status & global show time filter (#147450), separate SABA sports
 		- 20210520@Jaden.Tang: SABA Soccer Pin Goal (#155447)
+		- 20210824@Jaden.Tang: Hotfix #160586 - incorrect bet type when drilldown from leagues with same name across different sports
 
 	Param's Explanation:
 		- @StartDate: The start date of data to view on report
@@ -258,6 +259,7 @@ BEGIN
 
 	-- #tmpData: display tmp (sport / league)
 	CREATE TABLE #tmpData ( SportType		INT,
+							LeagueID		INT,
 							LeagueName		VARCHAR(150),
 							AltSportName 	VARCHAR(100),
 							MemberWinLoss	MONEY,
@@ -273,7 +275,8 @@ BEGIN
 		-- + Soccer, Other Sports
 		INSERT INTO #tmpData
 			SELECT  m.SportType,
-					m.LeagueName,
+					m.LeagueID,
+					MAX(m.LeagueName),
 					m.AltSportName,
 					SUM(MemberWinLoss), 
 					SUM(SMAWinLoss), 
@@ -289,14 +292,13 @@ BEGIN
 					ON sd.matchid = m.matchid
 					AND CASE WHEN sd.bettype = 10 THEN 1 ELSE 0 END = m.matchtype
 				GROUP BY  m.SportType,
-						  m.LeagueName,
+						  m.LeagueID,
 						  m.AltSportName
 				OPTION (RECOMPILE)
 		
 		-- + Parlay, Odds Spread Adjustment (#141750)
 		INSERT INTO #tmpData (
 			SportType
-			,LeagueName
 			,MemberWinLoss
 			,SMAWinLoss
 			,ExtraPT
@@ -310,7 +312,6 @@ BEGIN
 			SELECT CASE WHEN sd.bettype IN (9, 29) THEN 10000
 						WHEN sd.bettype = 999 	   THEN 10001
 				   END 					AS SportType,
-				   '' 					AS LeagueName,
 				   SUM(MemberWinLoss), 
 				   SUM(SMAWinLoss), 
 				   SUM(ExtraPT),
@@ -395,9 +396,7 @@ BEGIN
 	END
 
 	-- Get Data
-	SELECT * 
-	FROM 
-	(
+	;WITH CTE_Data AS (
 		SELECT ABS(t.SportType) SportType, -- rollback to orig sport id for SABAs to keep consistency with other reports
 			CASE WHEN t.SportType < 0 AND t.AltSportName = @SABA_PINGOALNAME THEN 2 
 				 WHEN t.SportType < 0 THEN 1
@@ -408,6 +407,7 @@ BEGIN
 				 WHEN t.SportType > 100000 THEN LeagueName
 				 WHEN t.SportType < 0 	   THEN 'SABA ' + SportName
 				 ELSE SportName END AS Sport,
+			CAST(LeagueID AS VARCHAR(10)) LeagueID,
 			LeagueName,
 			MemberWinLoss,
 			SMAWinLoss,
@@ -421,8 +421,30 @@ BEGIN
 		FROM #tmpData t
 		LEFT JOIN bodb02.dbo.Sports WITH (NOLOCK)
 			ON Sports.SportType = ABS(t.SportType)
-		WHERE MemberWinLoss IS NOT NULL
-	) AS s
+		WHERE MemberWinLoss IS NOT NULL		
+	)
+	SELECT
+		SportType,
+		MAX(IsSabaSport) 						IsSabaSport,
+		Sport,
+		STUFF((
+       		SELECT ',' + t1.LeagueID
+         	  FROM CTE_Data t1
+             WHERE t1.LeagueName = t0.LeagueName AND t1.SportType = t0.SportType
+             ORDER BY t1.LeagueID
+            FOR XML PATH('')), 1, LEN(','), '') LeagueID, -- aggregate the ids into one line delimited by ',' to pass into subsequent reports
+		LeagueName,
+		SUM(MemberWinloss)						MemberWinloss,
+		SUM(SMAWinLoss)							SMAWinLoss,
+		SUM(ExtraPT)							ExtraPT,
+		SUM(Commission)							Commission,
+		SUM(RealIncome)							RealIncome,
+		SUM(VirtualIncome)						VirtualIncome,
+		SUM(VarianceIncome)						VarianceIncome,
+		SUM(RealTurnover)						RealTurnover,
+		SUM(VirtualTurnover)					VirtualTurnover
+	FROM CTE_Data AS t0
+	GROUP BY SportType, Sport, LeagueName
 	ORDER BY CASE --fix some sports at top
 				  WHEN Sport LIKE '%Soccer%' AND SportType <= 100000     THEN 100 + LEN(Sport) --sub group like 'SABA Soccer..' pinned after main
 				  WHEN Sport = 'Parlay' 		 					     THEN 200
