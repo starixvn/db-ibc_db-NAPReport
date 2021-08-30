@@ -6,6 +6,7 @@ GO
 ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_CashOut_MatchDetail] 
 	@StartDate SMALLDATETIME, 
     @EndDate   SMALLDATETIME, 
+	@SportType INT      = 1,
     @IsLive    INT           = 2
 AS
 
@@ -17,6 +18,7 @@ DB: DBACC/bodb02
 
 Revisions:
 	20200320@Cherry: Initial
+	20210812@Kean: Cashout For Basketball (#146083)
 
 Parameters:
 @IsLive: 2 - ALL. 0 - Non-Live. 1 - Live
@@ -47,7 +49,9 @@ EXEC [Acc_Rpt_CompanyWinLoss_CashOut_MatchDetail] @EndDate='2020-01-01',@StartDa
           m.HomeId, 
           m.AwayId
     FROM Match m WITH(NOLOCK)
+	INNER JOIN league AS l WITH(NOLOCK) ON m.LeagueId = l.LeagueId
     WHERE EventDate = @StartDate
+		 AND l.sporttype = @SportType
 
     CREATE TABLE #Data
                  (MatchId         INT, 
@@ -98,7 +102,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_CashOut_MatchDetail] @EndDate='2020-01-01',@StartDa
                                                                                       END
               END) RealTurnover
     FROM bettrans b WITH(NOLOCK)
-        INNER JOIN match m WITH(NOLOCK) ON b.MatchId = m.MatchId
+        INNER JOIN #Match m  ON b.MatchId = m.MatchId
     WHERE b.winlostdate = @StartDate
          AND b.bettype IN (913,914)
          AND m.EventDate = @StartDate
@@ -107,6 +111,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_CashOut_MatchDetail] @EndDate='2020-01-01',@StartDa
          AND b.MatchId > 0
          AND b.ruben = 1
          AND statusID IN(111, 112, 113)
+		 
     GROUP BY b.MatchId, 
             m.MatchCode, 
             m.IsNeutral, 
