@@ -9,8 +9,9 @@ ALTER PROCEDURE dbo.Acc_Rpt_LeagueWL_Match @StartDate SMALLDATETIME,
 										   @BetType	INT = -1,					/*1st report flow = -1; 2nd report flow = input from Bet type report*/	
 										   @SiteName VARCHAR(MAX) = 'ALL',
 										   @GlobalShowTime VARCHAR(MAX) = '0',
-										   @SportName NVARCHAR(100) = 'Soccer',
-										   @LeagueName VARCHAR(500),
+										   @SportType INT,
+										   @SportName NVARCHAR(100) = 'Soccer', /*Not related to @SportType above*/
+										   @LeagueID VARCHAR(MAX),
 										   @IsNoDraw BIT = 0,
 										   @LiveIndicator TINYINT = 2,			/*1st report flow = 2; 2nd report flow = 0 or 1*/
 										   @ShowHedgeMatchOnly BIT = 0			/*1st report flow = 0; 2nd report flow = input from Bet type report*/
@@ -32,6 +33,7 @@ AS
 		- 20210126@Jaden.Tang: global show time filter (#147450)
 		- 20210224@Jaden.Tang: Integrate Cricket AIO (#148454)
 		- 20210520@Jaden.Tang: SABA Soccer Pin Goal (#155447)
+		- 20210824@Jaden.Tang: Hotfix #160586 - incorrect bet type when drilldown from leagues with same name across different sports
 
 	Param's Explanation:
 		- @StartDate: The start date of data to view on report
@@ -42,7 +44,7 @@ AS
 		                 Example '1_1,1_3' --> 'Soccer_Handicap,Soccer_Over/Under...'
 		- @BetType: The specific bet type to view, included in new drilldown flow from #144387
 		- @SiteName: Filter by list of site names (delimited by commas)
-		- @LeagueName: The leaguename to view on report
+		- @LeagueID: The specific leagues to view on report, a list delimited by comma, can be used without matchid
 		- @IsNoDraw: To get the draw tickets to report or not
 		             0 - Get draw ticktes to report
 					 1 - No get draw ticktes to report
@@ -52,11 +54,15 @@ AS
 			- 2: no filter
 		- @ShowHedgeMatchOnly: Only show hedge matches
 		- @GlobalShowTime: refer to to [Acc_Rpt_LeagueWL_Sporttype.sql]
+		- @SportType: the selected sport ID from SportType report result set
+		- @SportName: The user selected sport group coming from SportType report
+			Example: Soccer, SABA Soccer, SABA Soccer PinGoal, Basketball...
 
 	Example:
 		EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Match @StartDate='2021-02-21', @EndDate='2021-02-28',
-			@LeagueName='CSA T20 Challenge - Score at End of Over', @IsNoDraw=0,
-			@SportBettype='10000_9,10000_29,50_3'
+			@LeagueID='3,4,5', @IsNoDraw=0,
+			@SportBettype='10000_9,10000_29,50_3',
+			@SportType = 1
 */
 
 BEGIN
@@ -113,13 +119,12 @@ BEGIN
 			ON CTE_EnumDict.ID = s.val
 	END
 
-	BEGIN /*get match data from @LeagueName by @StartDate*/
+	BEGIN /*get match data from @LeagueID by @StartDate*/
 		CREATE TABLE #tmpMatch (matchid 	 INT,
 								matchcode 	 NVARCHAR(100),
 								matchtype 	 TINYINT,
 								homeid 		 INT,
-								awayid 		 INT,
-								sporttype	 INT)
+								awayid 		 INT)
 
 		;WITH CTE_all_matches_by_day AS (
 			SELECT  matchid,
@@ -143,32 +148,22 @@ BEGIN
 			WHERE eventdate = @StartDate
 				AND @GlobalShowTime = '0' /* if user filters by GlobalShowTime, then ignore outright data*/
 		),
-		CTE_league_ids AS (
-			SELECT leagueid, sporttype
-			FROM bodb02.dbo.league WITH (NOLOCK)
-			WHERE leaguename = @LeagueName
-				AND isTest = 0
+		CTE_Param AS (
+			SELECT val LeagueID FROM bodb02.dbo.strSplit(@LeagueID, ',')
 		)
-		INSERT INTO #tmpMatch (matchid, matchcode, matchtype, homeid, awayid, sporttype)
+		INSERT INTO #tmpMatch (matchid, matchcode, matchtype, homeid, awayid)
 			SELECT  matchid,
 					matchcode,
 					matchtype,
 					homeid,
-					awayid,
-					sporttype
+					awayid
 			FROM CTE_all_matches_by_day m
-			INNER JOIN CTE_league_ids l
-			ON m.leagueid = l.leagueid
+			INNER JOIN CTE_Param l
+			ON m.leagueid = l.LeagueID
 			, #tmpGlobalShowTime gst
 			WHERE @GlobalShowTime = '0'
 			   OR (@GlobalShowTime != '0' AND CONVERT(TIME, m.GlobalShowTime) BETWEEN gst.[From] AND gst.[To])
 			OPTION (RECOMPILE)
-	END
-
-	DECLARE @SportType INT 
-	BEGIN /*as the @SportBetType array passed from the WEB does not get filtered by the 2nd drilldown
-		(always same as the parameter from first report), using data from that parameter is not the correct way to retrieve sport*/
-		SELECT TOP 1 @SportType = SportType FROM #tmpMatch
 	END
 
 	BEGIN /*split the array @SportBettype into a temp table*/
@@ -236,11 +231,9 @@ BEGIN
 				SUM(sd.VirtualHouseTurnover) 	AS VirtualTurnover
 			FROM bodb02.dbo.f_bettrans_measures(@IsNoDraw) sd
 			WHERE sd.winlostdate = @StartDate
-					/* -- hint use statistics: IX_bettype -- */
 					AND sd.ruben = 1
 					AND sd.statusID IN (111, 112, 113)
 					AND sd.currency NOT IN (20, 27, 28)
-					/* -------------------------------------------- */
 					AND ('ALL' = @SiteName OR sd.recommend IN (SELECT AgentID FROM #tmpAgentBySite))
 					AND sd.bettype IN (SELECT BetType FROM #tmpSportBettypeMatrix)
 					AND sd.liveindicator = ISNULL(@IsLive, sd.liveindicator)
@@ -316,7 +309,7 @@ BEGIN
 				INNER JOIN #tmpMatch m 
 					ON t.matchid = m.MatchID AND CASE WHEN t.bettype = 10 THEN 1 ELSE 0 END = m.matchtype
 				INNER JOIN #tmpSportBettypeMatrix sbm 
-					ON m.SportType = sbm.SportType AND t.BetType = sbm.BetType
+					ON sbm.SportType = @SportType AND t.BetType = sbm.BetType
             WHERE winlostdate = @StartDate
 				AND recommend IN (52466, 5707545)
 				AND ruben = 1

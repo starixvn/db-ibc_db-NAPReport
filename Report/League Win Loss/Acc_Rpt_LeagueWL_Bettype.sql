@@ -8,8 +8,9 @@ ALTER PROCEDURE dbo.Acc_Rpt_LeagueWL_Bettype @StartDate SMALLDATETIME,
 											 @SportBettype VARCHAR(MAX),
 											 @SiteName VARCHAR(MAX) = 'ALL',
 											 @GlobalShowTime VARCHAR(MAX) = '0',
-											 @SportName NVARCHAR(100) = 'Soccer',
-											 @LeagueName VARCHAR(500) = '', /*1st report flow*/
+											 @SportType INT,
+											 @SportName NVARCHAR(100) = 'Soccer', /*Not related to @SportType above*/
+											 @LeagueID VARCHAR(MAX) = '', 	/*1st report flow*/
 											 @MatchID INT = -1,				/*2nd report flow*/
 											 @IsNoDraw BIT = 0,
 											 @LiveIndicator TINYINT = 2,		/*for 2nd report flow, this SP would be called 2 times*/
@@ -33,6 +34,7 @@ AS
 		- 20210208@Jaden.Tang: Hotfix - change LiveIndicator type to TINYINT (#150190)
 		- 20212203@Jaden: Support SABA789 (#151326)
 		- 20210520@Jaden.Tang: SABA Soccer Pin Goal (#155447)
+		- 20210824@Jaden.Tang: Hotfix #160586 - incorrect bet type when drilldown from leagues with same name across different sports
 
 	Param's Explanation:
 		- @StartDate: The start date of data to view on report
@@ -41,7 +43,7 @@ AS
 		                 Example '1_1,2_1' --> 'Soccer_Handicap,Basketball_Handicap'
 		- @SiteName: Filter by list of site names (delimited by commas)
 		- @MatchID: The specific match to view on report
-		- @LeagueName: The specific league to view on report, can be used without matchid
+		- @LeagueID: The specific leagues to view on report, a list delimited by comma, can be used without matchid
 		- @IsNoDraw: To get the draw tickets to report or not
 		             0 - Get draw ticktes to report
 					 1 - No get draw ticktes to report
@@ -52,7 +54,7 @@ AS
 				----------------------------------
 				Handicap		 |	10,000
 			
-			- @IsIncludeHedge = 1
+			- @IsIncludeSiteType = 1
 				Bet type		 |	Member Winloss
 				----------------------------------
 				Handicap		 |	10,000
@@ -72,12 +74,15 @@ AS
 				Handicap		 |	8,000
 				Handicap (hedge) |	2,000
 		- @GlobalShowTime: refer to to [Acc_Rpt_LeagueWL_Sporttype.sql]
-		- @SportName: The user selected sport coming from SportType report
+		- @SportType: the selected sport ID from SportType report result set
+		- @SportName: The user selected sport group coming from SportType report
+			Example: Soccer, SABA Soccer, SABA Soccer PinGoal, Basketball...
 
 	Example:
 		EXEC bodb02.dbo.Acc_Rpt_LeagueWL_Bettype_xtest @StartDate='2020-09-06', @EndDate='2020-09-06', 
 			@MatchID=38236262, @LiveIndicator=1, @IsNoDraw=0, 
 			@SportBettype='1_1,1_2,10000_9,10000_29,2_1,3_1,4_1',
+			@SportType = 1,
 			@SiteName = '12Bet,755555,INDO,789y,IBCIndo,BEST-ODDS,722222,733333,XYZBET,asiabet88'
 */
 
@@ -86,7 +91,7 @@ BEGIN
 	SET NOCOUNT ON
 
 	-- web can't send NULLs
-	IF @LeagueName = '' SET @LeagueName = NULL
+	IF @LeagueID = '' SET @LeagueID = NULL
 	IF @MatchID = -1 SET @MatchID = NULL
 
 	DECLARE @IsLive BIT = NULL
@@ -151,10 +156,12 @@ BEGIN
 			ON CTE_EnumDict.ID = s.val
 	END
 
-	DECLARE @SportType INTEGER
-    BEGIN /*get sport type from @MatchID or @LeagueID*/
+    BEGIN
 		CREATE TABLE #tmpMatch (SportType INT, MatchID INT, MatchCode NVARCHAR(100), IsOutright BIT)
 
+		;WITH CTE_Param AS (
+			SELECT val LeagueID FROM bodb02.dbo.strSplit(@LeagueID, ',')
+		)
 		INSERT INTO #tmpMatch
 		SELECT sporttype, matchid, matchcode, IsOutright
         FROM (
@@ -162,14 +169,18 @@ BEGIN
             FROM bodb02.dbo.league l WITH (NOLOCK)
             INNER JOIN bodb02.dbo.match m WITH (NOLOCK)
                 ON l.leagueid = m.leagueid
-            WHERE (m.matchid = ISNULL(@MatchID, m.matchid) AND l.leaguename = ISNULL(@LeagueName, l.leaguename))
+            WHERE (m.matchid = ISNULL(@MatchID, m.matchid) 
+				AND (l.leagueid IN (SELECT LeagueID FROM CTE_Param) OR @LeagueID IS NULL))
+				AND l.sporttype = @SportType
 				AND m.eventdate = @StartDate
             UNION ALL 
             SELECT l.sporttype, o.orid, o.matchcode, 1 AS IsOutright, NULL
             FROM bodb02.dbo.league l WITH (NOLOCK)
             INNER JOIN bodb02.dbo.outright o WITH (NOLOCK)
                 ON l.leagueid = o.leagueid
-            WHERE (o.orid = ISNULL(@MatchID, o.orid) AND l.leaguename = ISNULL(@LeagueName, l.leaguename))
+            WHERE (o.orid = ISNULL(@MatchID, o.orid)
+				AND (l.leagueid IN (SELECT LeagueID FROM CTE_Param) OR @LeagueID IS NULL))
+				AND l.sporttype = @SportType
 				AND o.eventdate = @StartDate
 				AND @GlobalShowTime = '0' /* if user filters by GlobalShowTime, then ignore outright data*/
         ) t
@@ -177,8 +188,6 @@ BEGIN
 		WHERE @GlobalShowTime = '0'
 		   OR (@GlobalShowTime != '0' AND CONVERT(TIME, t.GlobalShowTime) BETWEEN gst.[From] AND gst.[To])
         OPTION (RECOMPILE)
-
-		SELECT TOP 1 @SportType = sporttype FROM #tmpMatch
     END
 
 	BEGIN /*get a list of Supers by site type*/
