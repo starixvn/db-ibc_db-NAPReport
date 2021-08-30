@@ -1265,7 +1265,7 @@ BEGIN
 		GROUP BY PartyId, Product3rdId, AliasProductId 
 		 
 		-- Add PartyID have SB LicenseeFee <> 0 AND Have data BTC
-		MERGE @tmpResult AS s
+		;MERGE @tmpResult AS s
 		USING @BTC_data AS t ON s.Product3rdId = t.Product3rdId AND s.AliasProductId = t.AliasProductId AND s.PartyId = t.PartyId
 		WHEN MATCHED THEN UPDATE
 			SET s.HouseTurnover = t.HouseTurnover,
