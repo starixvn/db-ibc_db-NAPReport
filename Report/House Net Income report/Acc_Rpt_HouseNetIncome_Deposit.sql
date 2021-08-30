@@ -31,6 +31,7 @@ AS
 		- 20210706@Danny: Split Licensee House Income by Sport for SB (#157953)
 		- 20210727@Danny: HNI Email/Letstalk - Change the formula to calculate House Income, Pay To Supplier for Arcadia Gaming/PP Promotion tickets (#158971)
 		- 20210803@Danny: Change Data Source to retrieve yesterday data from Bettrans table (#151993)
+		- 20210830@Danny: Integrate Bitcoin Product (#159045)
 */
 BEGIN
 	SET NOCOUNT ON
@@ -806,7 +807,7 @@ BEGIN
 		FROM #__tempData t
 			INNER JOIN #AllLicensees l ON t.SiteId_DW = l.SiteId_DW
 			INNER JOIN @ExchangeOANDA e ON t.CurrencyId = e.ExchangeId
-			LEFT JOIN #PartyChargeInfo p ON p.PartyId = l.PartyId AND p.Product3rdId = t.Product3rdId AND t.rptDate BETWEEN p.FromDate AND p.ToDate
+			LEFT JOIN #PartyChargeInfo p ON p.PartyId = l.PartyId AND p.Product3rdId = CASE WHEN t.Product3rdId IN (0,69) THEN 0 ELSE t.Product3rdId END  AND t.rptDate BETWEEN p.FromDate AND p.ToDate
 					AND (p.Bettype = -1 OR p.Bettype = t.BetTypeGroup)
 					AND (t.BetTypeGroup NOT IN (-3, -4))
 					AND (
@@ -1147,14 +1148,14 @@ BEGIN
 					 CASE WHEN t.GrossWL < 0 THEN 0 ELSE  t.GrossWL END - HouseContribution + FreeBet AS HouseIncome
 			FROM	 ReCalHouseIncome42_32_66 t
 		), CTE_tempResult AS (
-			SELECT PartyId, Product3rdId, CASE WHEN Product3rdId = 0 THEN -2 ELSE AliasProductId END AS AliasProductId
+			SELECT PartyId, Product3rdId, CASE WHEN Product3rdId IN (0,69) THEN -2 ELSE AliasProductId END AS AliasProductId
 				,HouseTurnover	= SUM(HouseTurnover)
 				,LicenseeWL		= SUM(CASE WHEN SporttypeGroup IN (150, 173) THEN 0 ELSE -MemberWLMonth END)
 				,HouseIncome	= SUM(HouseIncomeMonth)
 				,AComm			= SUM(CommMonth)
 		
 			FROM #__tempResult
-			GROUP BY PartyId, Product3rdId, CASE WHEN Product3rdId = 0 THEN -2 ELSE AliasProductId END
+			GROUP BY PartyId, Product3rdId, CASE WHEN Product3rdId IN (0,69) THEN -2 ELSE AliasProductId END
 		), CTE_Result AS (
 			SELECT
 				PartyId = ISNULL(t.PartyId, m.PartyId)
@@ -1246,6 +1247,42 @@ BEGIN
 				OR r.PartyId NOT IN (SELECT p.PartyId FROM @9wLicenseeList p)
 			)
 
+		-- Handle Bitcoin
+		DECLARE @BTC_data TABLE (PartyId INT,Product3rdId INT, AliasProductId INT, HouseTurnover MONEY, LicenseeFee MONEY)
+
+		; WITH btc_partyList AS
+		(
+			SELECT PartyId, LicenseeFee
+			FROM @tmpResult WHERE Product3rdId = 0 AND AliasProductId = -2 AND LicenseeFee <> 0
+		)
+		INSERT INTO @BTC_data(PartyId, Product3rdId, AliasProductId, HouseTurnover, LicenseeFee)
+		SELECT PartyId, Product3rdId, AliasProductId
+			,HouseTurnover	= SUM(HouseTurnover)
+			,LicenseeFee	= SUM(HouseIncomeMonth)
+		
+		FROM #__tempResult t
+		WHERE Product3rdId  = 69 AND PartyId IN (SELECT x.PartyId FROM btc_partyList x)
+		GROUP BY PartyId, Product3rdId, AliasProductId 
+		 
+		-- Add PartyID have SB LicenseeFee <> 0 AND Have data BTC
+		MERGE @tmpResult AS s
+		USING @BTC_data AS t ON s.Product3rdId = t.Product3rdId AND s.AliasProductId = t.AliasProductId AND s.PartyId = t.PartyId
+		WHEN MATCHED THEN UPDATE
+			SET s.HouseTurnover = t.HouseTurnover,
+				s.LicenseeFee = t.LicenseeFee
+		WHEN NOT MATCHED THEN INSERT
+			(PartyId, Product3rdId, AliasProductId, HouseTurnover, LicenseeFee)
+			VALUES
+			(t.PartyId, t.Product3rdId, t.AliasProductId, t.HouseTurnover, t.LicenseeFee);
+	
+		UPDATE  t
+		SET  t.LicenseeFee = t.LicenseeFee - u.LicenseeFee
+		FROM @tmpResult t
+		INNER JOIN @BTC_data u ON t.PartyId = u.PartyId
+		WHERE t.Product3rdId = 0 AND t.AliasProductId = -2 AND t.LicenseeFee <> 0
+		-- 
+
+		 
 	END
 	-- Calculate result
 	DELETE @Products WHERE Product3rdId = 3 -- BA
