@@ -181,28 +181,12 @@ BEGIN
 			FROM bodb_Account.dbo.FactLADailyWinloss WITH (NOLOCK)
 			WHERE rptDate BETWEEN @FromDateByBatch AND @ToDateByBatch
 				AND SiteId IN (SELECT SiteId_DW FROM #__tmpSite)
-				AND ProductId = 10001 -- SB only (not include BA)
+				AND ProductId IN (10001, 69) -- SB only And Bitcoin (not include BA)
 				AND Bettype NOT IN (901, 902, 903, 904)
 				AND CurrencyId <> 20
 				AND TicketStatus NOT IN (-1, 18, 9, 10, 14)
 			GROUP BY rptDate, SiteId, CurrencyId
 			OPTION (RECOMPILE)
-
-			INSERT INTO #__tempData (rptDate, SiteId_DW, CurrencyId, MemberWL, AgentWL, AgentComm, OddsSpreadAdj)
-			SELECT rptDate, SiteId, CurrencyId
-				,SUM(WinlossP) AS MemberWL
-				,SUM(WinlossA)	AS AgentWL
-				,SUM(CommissionA)		AS AgentComm
-				,0 AS OddsSpreadAdj
-			FROM bodb_Account.dbo.FactSiteWinloss WITH (NOLOCK)
-			WHERE rptDate BETWEEN @FromDateByBatch AND @ToDateByBatch
-				AND SiteId IN (SELECT SiteId_DW FROM #__tmpSite)
-				AND Bettype = 7901 -- Bitcoin only
-				AND CurrencyId <> 20
-				AND TicketStatus NOT IN (-1, 18, 9, 10, 14)
-			GROUP BY rptDate, SiteId, CurrencyId
-			OPTION (RECOMPILE)
-
 
 			SELECT @FromDateByBatch = DATEADD(DAY, 1, @ToDateByBatch)
 		END
