@@ -13,6 +13,7 @@ AS
 		- 20210129@Percy: Initiliaze SP [RedmineID: #148805]
 		- 20210708@Danny: Handle JV parties (#158191)
 		- 20210706@Danny: Change HouseIncome calculation formula (#157953)
+		- 20210830@Danny: Integrate Bitcoin Product (#159045)
 */
 BEGIN
 	SET NOCOUNT ON
@@ -186,6 +187,22 @@ BEGIN
 				AND TicketStatus NOT IN (-1, 18, 9, 10, 14)
 			GROUP BY rptDate, SiteId, CurrencyId
 			OPTION (RECOMPILE)
+
+			INSERT INTO #__tempData (rptDate, SiteId_DW, CurrencyId, MemberWL, AgentWL, AgentComm, OddsSpreadAdj)
+			SELECT rptDate, SiteId, CurrencyId
+				,SUM(WinlossP) AS MemberWL
+				,SUM(WinlossA)	AS AgentWL
+				,SUM(CommissionA)		AS AgentComm
+				,0 AS OddsSpreadAdj
+			FROM bodb_Account.dbo.FactSiteWinloss WITH (NOLOCK)
+			WHERE rptDate BETWEEN @FromDateByBatch AND @ToDateByBatch
+				AND SiteId IN (SELECT SiteId_DW FROM #__tmpSite)
+				AND Bettype = 7901 -- Bitcoin only
+				AND CurrencyId <> 20
+				AND TicketStatus NOT IN (-1, 18, 9, 10, 14)
+			GROUP BY rptDate, SiteId, CurrencyId
+			OPTION (RECOMPILE)
+
 
 			SELECT @FromDateByBatch = DATEADD(DAY, 1, @ToDateByBatch)
 		END
