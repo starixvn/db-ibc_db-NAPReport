@@ -39,11 +39,12 @@ EXEC [Acc_Rpt_CompanyWinLoss_CashOut_SportType] @StartDate='2016-01-01', @EndDat
            FROM DBWH.bodb_Account.dbo.vw_Dep_CustSuper WITH (NOLOCK)
      
 	 CREATE TABLE #Match
-                    (MatchId   INT, 
+                    (MatchId   INT,
+					SportType  INT, 
                     SportName   NVARCHAR(50)
                     );
-    INSERT INTO #Match(MatchId, SportName)
-        SELECT DISTINCT m.MatchId,s.SportName
+    INSERT INTO #Match(MatchId, SportType, SportName)
+        SELECT DISTINCT m.MatchId,s.SportType,s.SportName
         FROM
         (
             SELECT MatchId, 
@@ -57,6 +58,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_CashOut_SportType] @StartDate='2016-01-01', @EndDat
 	       
     CREATE TABLE #tmp_Data
                      (LiveStatus      INT, 
+					  SportType		  INT, 
                       SportName     VARCHAR(50), 
                       RowName         VARCHAR(50), 
                       MemberWinLoss   MONEY, 
@@ -67,7 +69,8 @@ EXEC [Acc_Rpt_CompanyWinLoss_CashOut_SportType] @StartDate='2016-01-01', @EndDat
                       RealTurnover    MONEY 
                      )
     CREATE TABLE #Data
-                     (GroupId         INT, 
+                     (SportType		  INT, 
+					  GroupId         INT, 
                       GroupName       NVARCHAR(50), 
                       RowName         NVARCHAR(50), 
                       MemberWinLoss   MONEY, 
@@ -79,7 +82,8 @@ EXEC [Acc_Rpt_CompanyWinLoss_CashOut_SportType] @StartDate='2016-01-01', @EndDat
                      )
                      
     INSERT INTO #tmp_Data
-    SELECT liveindicator, 
+    SELECT liveindicator,
+		  m.SportType, 
           m.SportName,
           CASE
               WHEN dep.CustId IS NULL
@@ -122,7 +126,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_CashOut_SportType] @StartDate='2016-01-01', @EndDat
          AND b.ruben = 1
          AND b.statusID IN(111, 112, 113)
          AND b.bettype IN (913,914)
-    GROUP BY liveindicator,m.SportName, 
+    GROUP BY liveindicator,m.SportType,m.SportName, 
             CASE
                 WHEN dep.CustId IS NULL
                      AND cn88.CustId IS NOT NULL
@@ -136,7 +140,8 @@ EXEC [Acc_Rpt_CompanyWinLoss_CashOut_SportType] @StartDate='2016-01-01', @EndDat
     OPTION(RECOMPILE)
                         
     INSERT INTO #Data
-    SELECT 2 GroupId, 
+    SELECT b.SportType,
+		   2 GroupId, 
            b.SportName GroupName, 
            b.RowName AS RowName, 
            SUM(MemberWinLoss) MemberWinLoss, 
@@ -146,12 +151,14 @@ EXEC [Acc_Rpt_CompanyWinLoss_CashOut_SportType] @StartDate='2016-01-01', @EndDat
            SUM(RealIncome) RealIncome, 
            SUM(RealTurnover) RealTurnover 
     FROM #tmp_Data AS b
-    GROUP BY b.SportName, 
+    GROUP BY b.SportType,
+			b.SportName, 
             b.RowName
                         
     IF @IsLive = 2
         INSERT INTO #Data
-        SELECT LiveStatus AS GroupId,
+        SELECT b.SportType,
+			  LiveStatus AS GroupId,
               b.SportName + CASE LiveStatus WHEN 1 THEN ' Live' ELSE ' Non-Live' END AS GroupName,  
               b.RowName AS RowName, 
               SUM(MemberWinLoss) MemberWinLoss, 
@@ -161,11 +168,13 @@ EXEC [Acc_Rpt_CompanyWinLoss_CashOut_SportType] @StartDate='2016-01-01', @EndDat
               SUM(RealIncome) AS RealIncome, 
               SUM(RealTurnover) AS RealTurnover 
         FROM #tmp_Data b
-        GROUP BY b.LiveStatus,
+        GROUP BY b.SportType,
+				b.LiveStatus,
                 b.SportName + CASE LiveStatus WHEN 1 THEN ' Live' ELSE ' Non-Live' END, 
                 b.RowName
 
-    SELECT d.GroupId GroupId, 
+    SELECT	d.SportType AS SportType,
+			   d.GroupId GroupId, 
                d.GroupName AS GroupName, 
                d.RowName AS RowName, 
                d.MemberWinLoss AS MemberWinLoss, 
