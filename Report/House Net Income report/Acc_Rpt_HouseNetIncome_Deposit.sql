@@ -219,7 +219,7 @@ BEGIN
 		SELECT p3.ChargeType, p.PartyId, p3.Product3rdId, p3.FromDate, p3.ToDate, p3.Rate
 		FROM @PartyCharge3rd p3
 			INNER JOIN #AllLicensees l ON p3.PartyId = l.ParentId
-			INNER JOIN #PartyChargeInfo p ON p.PartyId = l.PartyId AND p.Product3rdId = p3.Product3rdId
+			INNER JOIN #PartyChargeInfo p ON p.PartyId = l.PartyId  AND CASE WHEN p.Product3rdId IN (0, 69) THEN 69 ELSE p.Product3rdId END = p3.Product3rdId
 		WHERE NOT EXISTS (SELECT 1 FROM #PartyCharge3rdInfo rd WHERE p.PartyId = rd.PartyId AND p.Product3rdId = rd.Product3rdId)
 
 		SELECT @BobbetId = PartyId FROM DBLIC.bodb_Licensee.dbo.OAS_Party WITH (NOLOCK) WHERE PartyName = 'Bobbet'
