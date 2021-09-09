@@ -988,7 +988,7 @@ BEGIN
 			,m1.LicenseeFee = ISNULL((
 									SELECT SUM(r.HouseIncomeMonth)
 									FROM #__tempResult r
-									WHERE m1.PartyId = r.PartyId AND m1.Product3rdId = r.Product3rdId AND r.IsApplyMinFee = 1 AND r.rptDate BETWEEN m1.FromDate AND m1.ToDate
+									WHERE m1.PartyId = r.PartyId AND m1.Product3rdId = CASE WHEN r.Product3rdId IN (0,69) THEN 0 ELSE r.Product3rdId END AND r.IsApplyMinFee = 1 AND r.rptDate BETWEEN m1.FromDate AND m1.ToDate
 								), 0)
 		FROM @MinFee m1
 		WHERE m1.FeeTypeId = 1
