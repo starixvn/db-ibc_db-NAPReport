@@ -493,9 +493,9 @@ BEGIN
 		,REPLACE(LTRIM(RTRIM(
 				CASE WHEN d.danger > 0 THEN 'Ori@' + cast(d.danger as varchar(3)) ELSE '' END
 				+ CASE WHEN d.danger2 > 0 THEN ' ABI@' + cast(d.danger2 as varchar(3)) ELSE '' END
-				+ CASE WHEN d.danger3 > 0 THEN ' O.Sport@' + cast(d.danger3 as varchar(3)) ELSE '' END 
 				+ CASE WHEN d.danger4 > 0 THEN ' Basket@' + cast(d.danger4 as varchar(3)) ELSE '' END 
 				+ CASE WHEN d.danger5 > 0 THEN ' E-Sport@' + cast(d.danger5 as varchar(3)) ELSE '' END 
+				+ CASE WHEN d.danger3 > 0 THEN ' O.Sport@' + cast(d.danger3 as varchar(3)) ELSE '' END 
 			)), ' ', ', ') [DangerLevel]
 		,SUM(d.BetCount) BetCount
 		,SUM(d.MemberTO) MemberTO
@@ -518,9 +518,9 @@ BEGIN
 		,REPLACE(LTRIM(RTRIM(
 				CASE WHEN d.danger > 0 THEN 'Ori@' + cast(d.danger as varchar(3)) ELSE '' END
 				+ CASE WHEN d.danger2 > 0 THEN ' ABI@' + cast(d.danger2 as varchar(3)) ELSE '' END
-				+ CASE WHEN d.danger3 > 0 THEN ' O.Sport@' + cast(d.danger3 as varchar(3)) ELSE '' END 
 				+ CASE WHEN d.danger4 > 0 THEN ' Basket@' + cast(d.danger4 as varchar(3)) ELSE '' END 
 				+ CASE WHEN d.danger5 > 0 THEN ' E-Sport@' + cast(d.danger5 as varchar(3)) ELSE '' END 
+				+ CASE WHEN d.danger3 > 0 THEN ' O.Sport@' + cast(d.danger3 as varchar(3)) ELSE '' END 
 			)), ' ', ', ')
 	ORDER BY SUM(d.MemberWL) DESC
 		,d.UserName

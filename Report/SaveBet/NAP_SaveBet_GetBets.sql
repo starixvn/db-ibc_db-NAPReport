@@ -130,9 +130,9 @@ BEGIN
 			,REPLACE(LTRIM(RTRIM(
 				CASE WHEN ci.danger > 0 THEN 'Ori@' + cast(ci.danger as varchar(3)) ELSE '' END
 				+ CASE WHEN ci.danger2 > 0 THEN ' ABI@' + cast(ci.danger2 as varchar(3)) ELSE '' END
-				+ CASE WHEN ci.danger3 > 0 THEN ' O.Sport@' + cast(ci.danger3 as varchar(3)) ELSE '' END 
 				+ CASE WHEN ci.danger4 > 0 THEN ' Basket@' + cast(ci.danger4 as varchar(3)) ELSE '' END 
 				+ CASE WHEN ci.danger5 > 0 THEN ' E-Sport@' + cast(ci.danger5 as varchar(3)) ELSE '' END 
+				+ CASE WHEN ci.danger3 > 0 THEN ' O.Sport@' + cast(ci.danger3 as varchar(3)) ELSE '' END 
 			)), ' ', ', ') [dgr]
 			,ci.CustomerClass as [CC]
 			,bi.OriginalOdds as [ori.odds]
@@ -194,9 +194,9 @@ BEGIN
 			,REPLACE(LTRIM(RTRIM(
 				CASE WHEN ci.danger > 0 THEN 'Ori@' + cast(ci.danger as varchar(3)) ELSE '' END
 				+ CASE WHEN ci.danger2 > 0 THEN ' ABI@' + cast(ci.danger2 as varchar(3)) ELSE '' END
-				+ CASE WHEN ci.danger3 > 0 THEN ' O.Sport@' + cast(ci.danger3 as varchar(3)) ELSE '' END 
 				+ CASE WHEN ci.danger4 > 0 THEN ' Basket@' + cast(ci.danger4 as varchar(3)) ELSE '' END 
 				+ CASE WHEN ci.danger5 > 0 THEN ' E-Sport@' + cast(ci.danger5 as varchar(3)) ELSE '' END 
+				+ CASE WHEN ci.danger3 > 0 THEN ' O.Sport@' + cast(ci.danger3 as varchar(3)) ELSE '' END 
 			)), ' ', ', ') [dgr]
 			,ci.CustomerClass as [CC]
 			,bi.OriginalOdds as [ori.odds]
