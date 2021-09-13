@@ -34,6 +34,7 @@ AS
 		- 20210224@Jaden.Tang: Integrate Cricket AIO (#148454)
 		- 20210520@Jaden.Tang: SABA Soccer Pin Goal (#155447)
 		- 20210824@Jaden.Tang: Hotfix #160586 - incorrect bet type when drilldown from leagues with same name across different sports
+		- 20210910@Jaden.Tang: Split match code into separate column (#160196)
 
 	Param's Explanation:
 		- @StartDate: The start date of data to view on report
@@ -334,10 +335,10 @@ BEGIN
 				MAX(home.teamname 
 					+ CASE WHEN away.teamname IS NOT NULL THEN ' -vs- ' + away.teamname ELSE '' END
 					+ CASE WHEN t.MatchCode LIKE '%hedge%' THEN ' (hedge)' ELSE '' END
-					+ ' (Code: ' + t.MatchCode + ')'
 				) --for Soccer hedge matches, append "(hedge)" to match name
 				, t.MatchCode --summary RM line
 			) AS MatchEvent,
+			t.MatchCode,
 			CASE WHEN t.MatchCode LIKE '%hedge%' THEN 1 ELSE 0 END IsHedge,
             CASE WHEN @IsLive IS NULL THEN t.LiveIndicator ELSE @IsLive END AS LiveIndicator,
 		    SUM(MemberWinLoss) AS MemberWinLoss,
