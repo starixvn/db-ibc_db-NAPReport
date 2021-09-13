@@ -377,7 +377,7 @@ BEGIN
 				END 
 			END AS IsHedge,
 			trd.TraderID,
-			MAX(trd.TraderName) TraderName,
+			ISNULL(MAX(trd.TraderName), CASE WHEN @MatchID IS NOT NULL THEN 'Unassigned' ELSE NULL END) TraderName,
 			CASE WHEN t.SummaryLineIdentifier = 1 THEN @SportName + ' 8RM'
 				 WHEN t.SummaryLineIdentifier = 2 THEN 'Other Sports 8RM'
 				 WHEN t.SummaryLineIdentifier = 3 THEN @SportName + ' BARM'
