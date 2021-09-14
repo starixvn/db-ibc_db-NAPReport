@@ -6,6 +6,7 @@ GO
 ALTER PROCEDURE dbo.Acc_Rpt_CompanyWinLoss_CashOut_Site 
 	@StartDate SMALLDATETIME, 
     @EndDate   SMALLDATETIME, 
+	@SportType INT      = 1,
     @Site      VARCHAR(50),
     @IsLive    INT           = 2
 AS
@@ -21,6 +22,7 @@ Revisions:
 	20191212@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
 	20200320@Cherry: Support deadball Cash Out (#130302)
     20212203@Jaden: Support SABA789 (#151326)
+	20210812@Kean: Cashout For Basketball (#146083)
 
 Parameter's Explanation:
 	- @Site: credit, deposit
@@ -81,6 +83,30 @@ EXEC [Acc_Rpt_CompanyWinLoss_CashOut_Site] @StartDate='2016-08-24', @EndDate='20
                                   'XYZBET';--8RM;
             END
     END
+
+	CREATE TABLE #Match
+                 (MatchId   INT, 
+                  MatchCode NVARCHAR(50), 
+                  IsNeutral BIT, 
+                  EventDate DATETIME, 
+                  SportType INT, 
+                  LeagueId  INT, 
+                  HomeId    INT, 
+                  AwayId    INT
+                 );
+    INSERT INTO #Match
+    SELECT m.MatchId, 
+          m.MatchCode, 
+          m.IsNeutral, 
+          m.EventDate, 
+          m.SportType, 
+          m.LeagueId, 
+          m.HomeId, 
+          m.AwayId
+    FROM Match m WITH(NOLOCK)
+	INNER JOIN league AS l WITH(NOLOCK) ON m.LeagueId = l.LeagueId
+    WHERE EventDate = @StartDate
+		 AND l.sporttype = @SportType
     
     CREATE TABLE #Data
         (RowName         NVARCHAR(50), 
@@ -118,6 +144,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_CashOut_Site] @StartDate='2016-08-24', @EndDate='20
 			  END) AS RealTurnover
 	FROM bettrans AS b WITH(NOLOCK)
 			INNER JOIN #Agent AS ag ON b.recommend = ag.custid
+			INNER JOIN #Match m  ON b.MatchId = m.MatchId
 	WHERE b.winlostdate = @StartDate
 			 AND b.bettype IN (913,914)
 			 AND (@IsLive > 1
@@ -141,4 +168,5 @@ EXEC [Acc_Rpt_CompanyWinLoss_CashOut_Site] @StartDate='2016-08-24', @EndDate='20
 	DROP TABLE #Agent
 	DROP TABLE #Data
     DROP TABLE #DepositSuper
+	DROP TABLE #Match
 GO

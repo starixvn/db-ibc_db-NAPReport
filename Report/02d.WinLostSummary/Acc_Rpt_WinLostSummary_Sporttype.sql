@@ -47,6 +47,7 @@ AS
 		  20201001@Ned.Le: NAP Reports - Licensee Odds Spread (#141750)
 		  20201225@Ned.Le: NAP Reports - Integrate Linked Games (Number Game) (#147573)
 		  20210420@Cherry: Renovation, change source table to DW (#153530)
+		  20210812@Kean: Cashout For Basketball (#146355)
 
         Parameter's Explanation:
 
@@ -1116,8 +1117,8 @@ BEGIN
 				    , realTurnover
 				    , virtualTurnover)
 /*	Cashout*/
-		 SELECT-3 AS sporttype
-			, 913 AS bettype
+		 SELECT b.SportType AS sporttype
+			, b.bettype AS bettype
 			, b.liveindicator
 			, ibc
 			, 0 AS IsHedge
@@ -1137,8 +1138,10 @@ BEGIN
 		 WHERE winlostdate BETWEEN @_fromdate AND @_todate
 			  AND s.ProductId = 25
 			  AND b.bettype IN(913, 914)
-		 GROUP BY b.liveindicator
-			   , ibc;
+		 GROUP BY b.SportType
+				, b.bettype
+				, b.liveindicator
+			    , ibc;
     INSERT INTO #TempData(sporttype
 				    , bettype
 				    , liveindicator
