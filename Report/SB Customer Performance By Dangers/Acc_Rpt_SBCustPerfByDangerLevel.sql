@@ -179,6 +179,8 @@ BEGIN
 		FROM dbo.strSplit(REPLACE(@DangerLevels, ' ', ''), ',')
 		WHERE val <> 'ALL'
 			AND LEN(val) > 0
+
+		CREATE UNIQUE INDEX [CIX_tmpDangerLevel] ON #tmpDangerLevel(DangerType,DangerLevel)
 	END
 	ELSE
 	BEGIN
@@ -484,26 +486,36 @@ BEGIN
 	END
 
 	---Return result---
+	;WITH CTE_Filtered AS (
+		SELECT *, 
+			REPLACE(LTRIM(RTRIM(
+				CASE WHEN d.danger > 0 AND EXISTS (SELECT 1 FROM #tmpDangerLevel WHERE DangerType = 1 AND DangerLevel = d.danger)
+						THEN 'Ori@' + cast(d.danger as varchar(3)) ELSE '' END
+				+ CASE WHEN d.danger2 > 0 AND EXISTS (SELECT 1 FROM #tmpDangerLevel WHERE DangerType = 2 AND DangerLevel = d.danger2)
+						THEN ' ABI@' + cast(d.danger2 as varchar(3)) ELSE '' END
+				+ CASE WHEN d.danger4 > 0 AND EXISTS (SELECT 1 FROM #tmpDangerLevel WHERE DangerType = 4 AND DangerLevel = d.danger4)
+						THEN ' Basket@' + cast(d.danger4 as varchar(3)) ELSE '' END 
+				+ CASE WHEN d.danger5 > 0 AND EXISTS (SELECT 1 FROM #tmpDangerLevel WHERE DangerType = 5 AND DangerLevel = d.danger5)
+						THEN ' E-Sport@' + cast(d.danger5 as varchar(3)) ELSE '' END 
+				+ CASE WHEN d.danger3 > 0 AND EXISTS (SELECT 1 FROM #tmpDangerLevel WHERE DangerType = 3 AND DangerLevel = d.danger3)
+						THEN ' O.Sport@' + cast(d.danger3 as varchar(3)) ELSE '' END 
+			)), ' ', ', ') [DangerLevel]
+		FROM #tmpFiltered AS d
+	)
 	SELECT d.UserName
 		,a.UserName AgentName
 		,m.UserName MasterName
 		,s.UserName SuperName
 		,a2.SiteName Division
 		,d.Currency
-		,REPLACE(LTRIM(RTRIM(
-				CASE WHEN d.danger > 0 THEN 'Ori@' + cast(d.danger as varchar(3)) ELSE '' END
-				+ CASE WHEN d.danger2 > 0 THEN ' ABI@' + cast(d.danger2 as varchar(3)) ELSE '' END
-				+ CASE WHEN d.danger4 > 0 THEN ' Basket@' + cast(d.danger4 as varchar(3)) ELSE '' END 
-				+ CASE WHEN d.danger5 > 0 THEN ' E-Sport@' + cast(d.danger5 as varchar(3)) ELSE '' END 
-				+ CASE WHEN d.danger3 > 0 THEN ' O.Sport@' + cast(d.danger3 as varchar(3)) ELSE '' END 
-			)), ' ', ', ') [DangerLevel]
+		,[DangerLevel]
 		,SUM(d.BetCount) BetCount
 		,SUM(d.MemberTO) MemberTO
 		,SUM(d.MemberWL) MemberWL
 		,SUM(d.RealTurnover) HouseTO
 		,SUM(d.RealIncome) 	HouseIncome		
 		,SUM(ISNULL(assoc.NoAssoc, 0)) NumberOfAssociatedAccount 
-	FROM #tmpFiltered AS d
+	FROM CTE_Filtered AS d
 		LEFT JOIN dbo.Customer AS s WITH (NOLOCK) ON ( s.roleid = 4 AND d.SuperID = s.CustID )
 		LEFT JOIN dbo.Customer AS m WITH (NOLOCK) ON ( m.roleid = 3 AND d.MasterID = m.CustID )
 		LEFT JOIN dbo.Customer AS a WITH (NOLOCK) ON ( a.roleid = 2 AND d.AgentID = a.CustID )
@@ -515,13 +527,7 @@ BEGIN
 		,s.UserName
 		,a2.SiteName
 		,d.Currency
-		,REPLACE(LTRIM(RTRIM(
-				CASE WHEN d.danger > 0 THEN 'Ori@' + cast(d.danger as varchar(3)) ELSE '' END
-				+ CASE WHEN d.danger2 > 0 THEN ' ABI@' + cast(d.danger2 as varchar(3)) ELSE '' END
-				+ CASE WHEN d.danger4 > 0 THEN ' Basket@' + cast(d.danger4 as varchar(3)) ELSE '' END 
-				+ CASE WHEN d.danger5 > 0 THEN ' E-Sport@' + cast(d.danger5 as varchar(3)) ELSE '' END 
-				+ CASE WHEN d.danger3 > 0 THEN ' O.Sport@' + cast(d.danger3 as varchar(3)) ELSE '' END 
-			)), ' ', ', ')
+		,[DangerLevel]
 	ORDER BY SUM(d.MemberWL) DESC
 		,d.UserName
 
