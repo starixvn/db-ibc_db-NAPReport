@@ -24,6 +24,7 @@ AS
 		- 20201009@Jaden: Add betcheck column (#73598)
 		- 20210329@Jaden: Savebet - Support to forecast the result with Real figures & Add some new information (#152290)
 		- 20210423@Roy: NAP Report - Move Save bet db & service (#153147)
+		- 202109001@Jaden: Add 2 more Dangerous types (#159779)
 */
 BEGIN
 	SET NOCOUNT ON
@@ -129,6 +130,8 @@ BEGIN
 			,REPLACE(LTRIM(RTRIM(
 				CASE WHEN ci.danger > 0 THEN 'Ori@' + cast(ci.danger as varchar(3)) ELSE '' END
 				+ CASE WHEN ci.danger2 > 0 THEN ' ABI@' + cast(ci.danger2 as varchar(3)) ELSE '' END
+				+ CASE WHEN ci.danger4 > 0 THEN ' Basket@' + cast(ci.danger4 as varchar(3)) ELSE '' END 
+				+ CASE WHEN ci.danger5 > 0 THEN ' E-Sport@' + cast(ci.danger5 as varchar(3)) ELSE '' END 
 				+ CASE WHEN ci.danger3 > 0 THEN ' O.Sport@' + cast(ci.danger3 as varchar(3)) ELSE '' END 
 			)), ' ', ', ') [dgr]
 			,ci.CustomerClass as [CC]
@@ -191,6 +194,8 @@ BEGIN
 			,REPLACE(LTRIM(RTRIM(
 				CASE WHEN ci.danger > 0 THEN 'Ori@' + cast(ci.danger as varchar(3)) ELSE '' END
 				+ CASE WHEN ci.danger2 > 0 THEN ' ABI@' + cast(ci.danger2 as varchar(3)) ELSE '' END
+				+ CASE WHEN ci.danger4 > 0 THEN ' Basket@' + cast(ci.danger4 as varchar(3)) ELSE '' END 
+				+ CASE WHEN ci.danger5 > 0 THEN ' E-Sport@' + cast(ci.danger5 as varchar(3)) ELSE '' END 
 				+ CASE WHEN ci.danger3 > 0 THEN ' O.Sport@' + cast(ci.danger3 as varchar(3)) ELSE '' END 
 			)), ' ', ', ') [dgr]
 			,ci.CustomerClass as [CC]
