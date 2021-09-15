@@ -9,6 +9,7 @@ AS
 
 	Revisions:
 		- 20210413@Danny: Initialize SP [RedmineID: #151993]
+		- 20210914@Danny: Edit CB Winloss (#159045)
 
 	Exec [Acc_Rpt_rptBettingByProduct_Bettrans] '2021-05-12'
 
@@ -140,6 +141,7 @@ BEGIN
 		FROM #rpt_Betting b WITH (NOLOCK)
 		WHERE b.Status IN (111,112,113,114,115,101,102,103)
 			AND b.CurrencyID <> 20
+			AND Bettype = 18000
 		GROUP BY b.rptDate
 			,b.SiteID
 			,b.Bettype
