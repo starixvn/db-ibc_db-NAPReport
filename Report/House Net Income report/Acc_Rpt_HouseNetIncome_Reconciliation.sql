@@ -13,6 +13,7 @@ AS
 		- 20210129@Percy: Initiliaze SP [RedmineID: #148805]
 		- 20210708@Danny: Handle JV parties (#158191)
 		- 20210706@Danny: Change HouseIncome calculation formula (#157953)
+		- 20210830@Danny: Integrate Bitcoin Product (#159045)
 */
 BEGIN
 	SET NOCOUNT ON
@@ -180,7 +181,7 @@ BEGIN
 			FROM bodb_Account.dbo.FactLADailyWinloss WITH (NOLOCK)
 			WHERE rptDate BETWEEN @FromDateByBatch AND @ToDateByBatch
 				AND SiteId IN (SELECT SiteId_DW FROM #__tmpSite)
-				AND ProductId = 10001 -- SB only (not include BA)
+				AND ProductId IN (10001, 69) -- SB only And Bitcoin (not include BA)
 				AND Bettype NOT IN (901, 902, 903, 904)
 				AND CurrencyId <> 20
 				AND TicketStatus NOT IN (-1, 18, 9, 10, 14)
