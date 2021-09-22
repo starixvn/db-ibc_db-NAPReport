@@ -35,6 +35,7 @@ AS
 		- 20212203@Jaden: Support SABA789 (#151326)
 		- 20210520@Jaden.Tang: SABA Soccer Pin Goal (#155447)
 		- 20210824@Jaden.Tang: Hotfix #160586 - incorrect bet type when drilldown from leagues with same name across different sports
+		- 20210910@Jaden.Tang: Add the trader name after the bet type name (#160196)
 
 	Param's Explanation:
 		- @StartDate: The start date of data to view on report
@@ -330,17 +331,53 @@ BEGIN
                           ELSE 0 END
 	END
 
+	/*Trader*/
+	CREATE TABLE #tmpDot_Admin_Assignment_Trader (
+		MatchID 		INT,
+		BetType 		SMALLINT,
+		TraderID 		INT,
+		TraderName		VARCHAR(MAX)
+	)
+
+	IF @MatchID IS NOT NULL
+	BEGIN
+		;WITH Trader AS (
+			SELECT t.ID,
+			       t.matchid,
+			       t.bettype,
+			       t.liveindicator,
+			       t.TraderID,
+			       t.UpdatedTime,
+				   RANK() OVER(PARTITION BY t.MatchID, t.BetType, t.LiveIndicator ORDER BY t.UpdatedTime DESC, t.ID DESC) Rank_
+		  	  FROM bodb02.dbo.Dot_Admin_Assignment_Trader t (NOLOCK)
+		 	 WHERE t.matchid = @MatchID
+		   	   AND t.liveindicator = ISNULL(@IsLive, t.liveindicator)
+			   AND t.TraderID <> 0
+		)
+		INSERT INTO #tmpDot_Admin_Assignment_Trader (MatchID, BetType, TraderID, TraderName)
+		SELECT t.MatchID,
+			   t.BetType,
+			   t.TraderID,
+			   CASE WHEN t.BetType in (9,29,999) THEN '' ELSE c.username END TraderName
+		 FROM Trader t
+		INNER JOIN bodb02.dbo.Customer c
+		   ON t.TraderID = c.custid 
+		WHERE t.Rank_ = 1
+	END
+
 	/* final aggregation by: 
 		- if @IsIncludeSiteType = 1: bet type and site types
 		- if @IsIncludeSiteType = 0: bet type only 
 		- if @IsIncludeHedge = 1: also group by hedge matches or non-hedge matches*/
-	SELECT  Bettype AS BetTypeID,
+	SELECT  t.Bettype AS BetTypeID,
 			MAX(bt.typenamee) AS BetTypeName,
 			CASE WHEN @IsIncludeHedge = 1 THEN 
 				CASE WHEN t.MatchCode NOT LIKE '%hedge%' THEN 0 
 					 WHEN t.MatchCode     LIKE '%hedge%' THEN 1
 				END 
-			 END AS IsHedge,
+			END AS IsHedge,
+			trd.TraderID,
+			ISNULL(MAX(trd.TraderName), CASE WHEN @MatchID IS NOT NULL THEN 'Unassigned' ELSE NULL END) TraderName,
 			CASE WHEN t.SummaryLineIdentifier = 1 THEN @SportName + ' 8RM'
 				 WHEN t.SummaryLineIdentifier = 2 THEN 'Other Sports 8RM'
 				 WHEN t.SummaryLineIdentifier = 3 THEN @SportName + ' BARM'
@@ -361,12 +398,15 @@ BEGIN
 		ON t.Bettype = bt.typeid
 	LEFT JOIN #super AS super
 		ON t.SuperID = super.SuperID
-	GROUP BY Bettype
+	LEFT JOIN #tmpDot_Admin_Assignment_Trader trd
+		ON t.Bettype = trd.BetType
+	GROUP BY t.Bettype
 			,CASE WHEN @IsIncludeHedge = 1 THEN 
 				CASE WHEN t.MatchCode NOT LIKE '%hedge%' THEN 0 
 					 WHEN t.MatchCode     LIKE '%hedge%' THEN 1
 				END 
 			 END
+			, trd.TraderID
 			, t.SummaryLineIdentifier
 			,CASE WHEN t.SummaryLineIdentifier = 1 THEN @SportName + ' 8RM'
 				  WHEN t.SummaryLineIdentifier = 2 THEN 'Other Sports 8RM'
@@ -374,19 +414,19 @@ BEGIN
 				  WHEN t.SummaryLineIdentifier = 4 THEN 'Other Sports BARM'
 				  ELSE CASE WHEN @IsIncludeSiteType = 1 THEN super.SiteType END
 			 END
-	ORDER BY CASE WHEN BetType = 1		THEN 1		--Handicap
-				  WHEN BetType = 301	THEN 2		--% Handicap
-				  WHEN BetType = 3		THEN 3		--Over/Under
-				  WHEN BetType = 302	THEN 4		--% Over/Under
-				  WHEN BetType = 7		THEN 5		--1st Half Handicap
-				  WHEN BetType = 303	THEN 6		--1H % Handicap
-				  WHEN BetType = 8		THEN 7		--1st Half Over/Under
-				  WHEN BetType = 304	THEN 8		--1H % Over/Under
-				  WHEN BetType = 2		THEN 9		--Odd/Even
-				  WHEN BetType = 5		THEN 10		--1X2
-				  WHEN BetType = 4		THEN 11		--Correct Score
-				  WHEN BetType = 6		THEN 12		--Total Goal
-				  WHEN BetType = 10		THEN 13		--Outright
+	ORDER BY CASE WHEN t.BetType = 1		THEN 1		--Handicap
+				  WHEN t.BetType = 301		THEN 2		--% Handicap
+				  WHEN t.BetType = 3		THEN 3		--Over/Under
+				  WHEN t.BetType = 302		THEN 4		--% Over/Under
+				  WHEN t.BetType = 7		THEN 5		--1st Half Handicap
+				  WHEN t.BetType = 303		THEN 6		--1H % Handicap
+				  WHEN t.BetType = 8		THEN 7		--1st Half Over/Under
+				  WHEN t.BetType = 304		THEN 8		--1H % Over/Under
+				  WHEN t.BetType = 2		THEN 9		--Odd/Even
+				  WHEN t.BetType = 5		THEN 10		--1X2
+				  WHEN t.BetType = 4		THEN 11		--Correct Score
+				  WHEN t.BetType = 6		THEN 12		--Total Goal
+				  WHEN t.BetType = 10		THEN 13		--Outright
 				  ELSE 
 				  	CASE WHEN t.SummaryLineIdentifier > 0 THEN 99 ELSE 14 END
 			 END -- first priority bet type group
