@@ -1278,7 +1278,7 @@ BEGIN
 							ProductGroup, 
 							ProductName, 
 							ProductShortName  
-					FROM	bodb_Account.dbo.HNISettings s WITH (NOLOCK) WHERE isDeposit = 1 and LogicCode = 2
+					FROM	bodb_Account.dbo.HNISettings s WITH (NOLOCK)
 					WHERE s.isDeposit = 1 AND s.LogicCode = 2
 							AND (
 									s.EndOfSupportDate IS NULL AND s.isEnable = 1
