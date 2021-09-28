@@ -868,15 +868,7 @@ BEGIN
 
 		-- Licensee Min Fee
 	BEGIN
-		DECLARE @SupportedProductList VARCHAR(200) = ''
-
-		;WITH CTE_Product AS (
-			SELECT DISTINCT ProductPrefix 
-			FROM bodb_Account.dbo.HNISettings s WITH (NOLOCK)
-			WHERE isDeposit = 1 AND isTest <= @IsTest
-			AND SubFigure IN ('Rebate','Discount','Licensing Minimum Fee')
-		)
-		SELECT @SupportedProductList = COALESCE(@SupportedProductList + ',', '') + CONVERT(VARCHAR(3), ProductPrefix) FROM CTE_Product
+		DECLARE @SupportedProductList VARCHAR(200) = 'SB,VS,NG,VS2'
 
 		DECLARE @LicenseeFeeAndRebateDiscount TABLE
 		(
@@ -944,7 +936,7 @@ BEGIN
 			SELECT
 				PartyId = ISNULL(t.PartyId, m.PartyId)
 				,Product3rdId = ISNULL(t.Product3rdId, m.ProductId)
-				,AliasProductId = ISNULL(t.AliasProductId, -2)
+				,AliasProductId = ISNULL(t.AliasProductId, CASE WHEN ISNULL(t.Product3rdId, m.ProductId) = 0 THEN -2 ELSE m.ProductId END)
 				,HouseTurnover = ISNULL(t.HouseTurnover, 0)
 				,LicenseeWL = ISNULL(t.LicenseeWL, 0)
 				,HouseIncome = CASE WHEN t.Product3rdId IN (32,42,66) THEN ISNULL(f.HouseIncome,0) ELSE ISNULL(t.HouseIncome, 0) END
