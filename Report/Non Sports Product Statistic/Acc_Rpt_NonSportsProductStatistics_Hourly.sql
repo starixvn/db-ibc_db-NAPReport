@@ -58,6 +58,7 @@ AS
 		20201210@Cherry: Add Real Turnover (#146137)
 		20210120@Cherry: Integrate Saba Jackpot (#148293)
 		20210506@Cherry: Integrate VGaming Jackpot (#154250)
+		20210928@Cherry: Modify Hourly Report to count tickets on old day to 00:00 of new day (#162272)
 
 	Param's Explanation:
 			 - @username:  + Search by keyword, member only
@@ -443,7 +444,7 @@ SET NOCOUNT ON
 						   ExtraPT		   
 							   )
 	
-		SELECT  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 THEN 0
+		SELECT  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) <> 0 THEN 0
 					ELSE  DATEPART(HOUR, b.transdate) END AS [Hour], srecommend, b.bettype,					
 				
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
@@ -488,7 +489,7 @@ SET NOCOUNT ON
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 			)
-		GROUP BY  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 THEN 0
+		GROUP BY  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) <> 0 THEN 0
 					ELSE  DATEPART(HOUR, b.transdate) END, 
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.bettype
 				
@@ -518,7 +519,7 @@ SET NOCOUNT ON
 							   ExtraPT							   
 								)
 		
-			SELECT  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 THEN 0
+			SELECT  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) <> 0 THEN 0
 						ELSE  DATEPART(HOUR, b.transdate) END AS [Hour], srecommend, b.gameID,
 					CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
 
@@ -558,7 +559,7 @@ SET NOCOUNT ON
 					OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 					OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 				)
-			GROUP BY  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 THEN 0
+			GROUP BY  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) <> 0 THEN 0
 						ELSE  DATEPART(HOUR, b.transdate) END, 
 					CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.gameID
 					
@@ -581,7 +582,7 @@ SET NOCOUNT ON
 							   ExtraPT							   
 								)
 		
-			SELECT  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 THEN 0
+			SELECT  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) <> 0 THEN 0
 						ELSE  DATEPART(HOUR, b.transdate) END AS [Hour], srecommend, b.gameID,
 					CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
 
@@ -621,7 +622,7 @@ SET NOCOUNT ON
 					OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 					OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 				)
-			GROUP BY  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 THEN 0
+			GROUP BY  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) <> 0 THEN 0
 						ELSE  DATEPART(HOUR, b.transdate) END, 
 					CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.gameID
 					
@@ -648,7 +649,7 @@ SET NOCOUNT ON
 							   ExtraPT								   
 								)
 		
-			SELECT  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 THEN 0
+			SELECT  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) <> 0 THEN 0
 						ELSE  DATEPART(HOUR, b.transdate) END AS [Hour], srecommend, b.gameID,
 					CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
 
@@ -687,7 +688,7 @@ SET NOCOUNT ON
 					OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 					OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 				)
-			GROUP BY  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 THEN 0
+			GROUP BY  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) <> 0 THEN 0
 						ELSE  DATEPART(HOUR, b.transdate) END, 
 					CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.gameID
 					
@@ -710,7 +711,7 @@ SET NOCOUNT ON
 						   ExtraPT				   
 							)
 	
-		SELECT   CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 THEN 0
+		SELECT   CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) <> 0 THEN 0
 					ELSE  DATEPART(HOUR, b.transdate) END AS [Hour], srecommend, b.gameID,
 					
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
@@ -754,7 +755,7 @@ SET NOCOUNT ON
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 			)
-		GROUP BY   CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 THEN 0
+		GROUP BY   CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) <> 0 THEN 0
 					ELSE  DATEPART(HOUR, b.transdate) END, 
 					CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.gameID
 					
@@ -904,7 +905,7 @@ SET NOCOUNT ON
 						   ExtraPT						   
 					   )
 	
-		SELECT  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 
+		SELECT  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) <> 0
 						THEN 0 --bet at 23PM then convert to 0 AM 
 					ELSE  DATEPART(HOUR, b.transdate) 
 				END AS [Hour], srecommend, b.bettype,	
@@ -946,7 +947,7 @@ SET NOCOUNT ON
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 			)
-		GROUP BY CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 
+		GROUP BY CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) <> 0
 						THEN 0 --bet at 23PM then convert to 0 AM 
 					ELSE  DATEPART(HOUR, b.transdate) END,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END,srecommend, b.bettype
@@ -967,7 +968,7 @@ SET NOCOUNT ON
 						   ExtraPT						   
 					   )
 	
-		SELECT  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 
+		SELECT  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) <> 0
 						THEN 0 --bet at 23PM then convert to 0 AM 
 					ELSE  DATEPART(HOUR, b.transdate) 
 				END AS [Hour],	srecommend, b.bettype,
@@ -1010,7 +1011,7 @@ SET NOCOUNT ON
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 			)
-		GROUP BY CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 
+		GROUP BY CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) <> 0
 						THEN 0 --bet at 23PM then convert to 0 AM 
 					ELSE  DATEPART(HOUR, b.transdate) END,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.bettype
@@ -1031,9 +1032,8 @@ SET NOCOUNT ON
 						   ExtraPT					   
 					   )
 	
-		SELECT  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 
-					THEN 0 --bet at 23PM then convert to 0 AM 
-				ELSE  DATEPART(HOUR, b.transdate) 
+		SELECT  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) <> 0 THEN 0 --bet at 23PM then convert to 0 AM 
+					ELSE  DATEPART(HOUR, b.transdate) 
 				END AS [Hour], srecommend, b.bettype,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
 
@@ -1074,7 +1074,7 @@ SET NOCOUNT ON
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 			)
-		GROUP BY  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 THEN 0 
+		GROUP BY  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) <> 0 THEN 0 
 				ELSE  DATEPART(HOUR, b.transdate) END,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.bettype
 		OPTION(RECOMPILE)
@@ -1095,7 +1095,7 @@ SET NOCOUNT ON
 						   ExtraPT				   
 					   )
 	
-		SELECT  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 THEN 0 
+		SELECT  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) <> 0 THEN 0 
 					ELSE  DATEPART(HOUR, b.transdate) 
 				END AS [Hour],	srecommend, b.bettype,
 				
@@ -1140,7 +1140,7 @@ SET NOCOUNT ON
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 			)
-		GROUP BY CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 THEN 0 
+		GROUP BY CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) <> 0 THEN 0 
 					ELSE  DATEPART(HOUR, b.transdate) END,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.bettype
 		OPTION(RECOMPILE)
@@ -1164,7 +1164,7 @@ SET NOCOUNT ON
 						   ExtraPT				   
 					   )
 	
-		SELECT  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 THEN 0 
+		SELECT  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) <> 0 THEN 0 
 					ELSE  DATEPART(HOUR, b.transdate) 
 				END AS [Hour],	srecommend, b.bettype,
 				
@@ -1207,7 +1207,7 @@ SET NOCOUNT ON
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 			)
-		GROUP BY CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) = 1 and DATEPART(HOUR, b.transdate) = 23 THEN 0 
+		GROUP BY CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) <> 0 THEN 0 
 					ELSE  DATEPART(HOUR, b.transdate) END,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.bettype
 		OPTION(RECOMPILE)
