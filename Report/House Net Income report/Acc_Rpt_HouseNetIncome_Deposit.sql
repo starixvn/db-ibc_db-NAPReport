@@ -936,7 +936,7 @@ BEGIN
 			SELECT
 				PartyId = ISNULL(t.PartyId, m.PartyId)
 				,Product3rdId = ISNULL(t.Product3rdId, m.ProductId)
-				,AliasProductId = ISNULL(t.AliasProductId, CASE WHEN ISNULL(t.Product3rdId, m.ProductId) = 0 THEN -2 ELSE m.ProductId END)
+				,AliasProductId = ISNULL(t.AliasProductId, CASE WHEN ISNULL(t.Product3rdId, m.ProductId) = 0 THEN -2  WHEN ISNULL(t.Product3rdId, m.ProductId) = 2 THEN -11  ELSE m.ProductId END)
 				,HouseTurnover = ISNULL(t.HouseTurnover, 0)
 				,LicenseeWL = ISNULL(t.LicenseeWL, 0)
 				,HouseIncome = CASE WHEN t.Product3rdId IN (32,42,66) THEN ISNULL(f.HouseIncome,0) ELSE ISNULL(t.HouseIncome, 0) END
@@ -952,17 +952,19 @@ BEGIN
 			INNER JOIN (SELECT DISTINCT PartyId, Product3rdId FROM #PartyChargeInfo) p ON p.PartyId = r.PartyId AND p.Product3rdId = r.Product3rdId
 
 		UPDATE s
-		SET s.LicenseeMinFee	= CASE WHEN m.PartyId IS NULL THEN 0 
+		SET s.LicenseeMinFee	= CASE WHEN m.PartyId IS NULL OR m.ProductId <> 0 THEN 0 
 									   ELSE CASE WHEN m.IsChargedByGroupMinFee = 1 OR m.IsChargedByMinFee = 1 THEN m.LicensingFee ELSE 0 END 
 								  END
 			,s.LicenseeFee		= CASE
-									WHEN m.PartyId IS NULL THEN s.HouseIncome
+									WHEN m.PartyId IS NULL OR m.ProductId <> 0 THEN s.HouseIncome
 									ELSE CASE WHEN m.IsChargedByGroupMinFee = 0 AND m.IsChargedByMinFee = 0 THEN m.LicensingFee ELSE 0 END
 								  END
 			,s.Rebate			= ISNULL(m.Rebate, 0)
 			,s.Discount			= ISNULL(m.Discount, 0)
 		FROM @tmpResult s
 			LEFT JOIN @LicenseeFeeAndRebateDiscount m ON m.PartyId = s.PartyId AND m.ProductId = s.Product3rdId
+
+
 
 		/*
 			GET 9w licensee list
