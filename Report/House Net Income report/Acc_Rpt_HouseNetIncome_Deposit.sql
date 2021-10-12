@@ -872,12 +872,12 @@ BEGIN
 
 		DECLARE @LicenseeFeeAndRebateDiscount TABLE
 		(
-			PartyId INT, ProductId INT, LicensingFeeTypeId TINYINT, LicensingFee MONEY, ExtraAmount MONEY, IsChargedByGroupMinFee BIT, IsChargedByMinFee BIT
+			PartyId INT, ProductId INT, LicensingFeeTypeId TINYINT, GrossLicensingFee MONEY, LicensingFee MONEY, ExtraAmount MONEY, IsChargedByGroupMinFee BIT, IsChargedByMinFee BIT
 			,Discount MONEY, DiscountRate MONEY, DiscountRemark NVARCHAR(4000), Rebate MONEY, RebateRate MONEY, RebateRemark NVARCHAR(4000)
 		)
 		INSERT INTO @LicenseeFeeAndRebateDiscount
 		(
-				PartyId, ProductId, LicensingFeeTypeId, LicensingFee, ExtraAmount, IsChargedByGroupMinFee, IsChargedByMinFee
+				PartyId, ProductId, LicensingFeeTypeId, GrossLicensingFee, LicensingFee, ExtraAmount, IsChargedByGroupMinFee, IsChargedByMinFee
 				,Discount, DiscountRate, DiscountRemark, Rebate, RebateRate, RebateRemark
 		)
 		EXEC DBLIC.bodb_licensee.dbo.LA_AmountToCompanyByProduct
