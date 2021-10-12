@@ -55,7 +55,7 @@ AS
 		 , liveawayscore     SMALLINT
 		 , transdate         DATETIME
 		 , oddstype          SMALLINT
-		 , ip                NVARCHAR(15)
+		 , ip                VARCHAR(45)
 		 , CustId            INT
 		 , AfterPT			 MONEY
 		 );

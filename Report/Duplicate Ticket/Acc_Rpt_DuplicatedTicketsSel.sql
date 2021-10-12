@@ -84,7 +84,7 @@ BEGIN
 			bettype INT,
 			winlostdate SMALLDATETIME,
 			matchid INT,
-			ip nvarchar(30),
+			ip VARCHAR(45),
 			RefNo BIGINT,
 			WalletType SMALLINT,
 			betteam NVARCHAR(10)
