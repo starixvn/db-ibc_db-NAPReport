@@ -868,6 +868,13 @@ BEGIN
 
 		-- Licensee Min Fee
 	BEGIN
+		DECLARE @PartyIdsLATab TABLE (PartyID INT, PartyName NVARCHAR(100), BrandName NVARCHAR(100), ParentID INT ) 
+		INSERT INTO @PartyIdsLATab (PartyID, PartyName, BrandName, ParentID)
+		EXEC  DBLIC.bodb_licensee.dbo.LA_PartyListSel  @UserID=, @FunctionKey=N''
+
+		DECLARE @LA_PartyIds VARCHAR(MAX) 
+
+		SELECT @LA_PartyIds = COALESCE(@LA_PartyIds + ',', '') + CONVERT(VARCHAR(10), PartyId) FROM @PartyIdsLATab WHERE ParentID NOT IN  (0,999)
 		DECLARE @SupportedProductList VARCHAR(200) = 'SB,VS,NG,VS2'
 
 		DECLARE @LicenseeFeeAndRebateDiscount TABLE
@@ -881,7 +888,7 @@ BEGIN
 				,Discount, DiscountRate, DiscountRemark, Rebate, RebateRate, RebateRemark
 		)
 		EXEC DBLIC.bodb_licensee.dbo.LA_AmountToCompanyByProduct
-			@PartyIds				= @PartyIds
+			@PartyIds				= @LA_PartyIds
 			,@ProductCodes			= @SupportedProductList
 			,@Currencies			= ''
 			,@FromDate				= @FDate
@@ -950,6 +957,12 @@ BEGIN
 		SELECT r.PartyId, r.Product3rdId, r.AliasProductId, r.HouseTurnover, r.LicenseeWL, r.HouseIncome, r.AComm
 		FROM CTE_Result r
 			INNER JOIN (SELECT DISTINCT PartyId, Product3rdId FROM #PartyChargeInfo) p ON p.PartyId = r.PartyId AND p.Product3rdId = r.Product3rdId
+		UNION ALL
+		
+		SELECT r.PartyId, r.Product3rdId, r.AliasProductId, r.HouseTurnover, r.LicenseeWL, r.HouseIncome, r.AComm
+		FROM CTE_Result r
+		WHERE  r.Product3rdId = 0 AND r.PartyId  NOT IN (SELECT p.PartyId FROM #PartyChargeInfo p WHERE p.Product3rdId = 0) 
+		 
 
 		UPDATE s
 		SET s.LicenseeMinFee	= CASE WHEN m.PartyId IS NULL OR m.ProductId <> 0 THEN 0 
