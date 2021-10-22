@@ -45,6 +45,7 @@ Revisions:
 	- 20200518@Ned.Le: Add betteam as a new data duplication checking condition
 	                   Exclude ticktes that have betfrom='v'
 	- 20210416@Ned.Le: NAP Report - Duplicate Tickets - Exclude refund tickets (#153616)
+	- 20211013@Jaden: Change datatype for ipv6 (#162587)
 	                   
 Param's Explanation:
 	- @CheckTime : The time we consider how long the job fails (Compared the last run with the current time).

@@ -16,6 +16,7 @@ AS
 		- 20200312@Robert: NAP Report - Daily Abnormal Bet Report for Headline - [130183]
 		- 20200325@Robert: [NAP] - Implement Daily Auto Mail for Abnormal Bets - [121920] - add more ExternalID
 		- 20200615@Robert: NAP Report - Adjustment CN88's Abnormal Bet report - [135393]
+		- 20211013@Jaden: Change datatype for ipv6 (#162587)
 
 	Param's Explanation:	 
 */

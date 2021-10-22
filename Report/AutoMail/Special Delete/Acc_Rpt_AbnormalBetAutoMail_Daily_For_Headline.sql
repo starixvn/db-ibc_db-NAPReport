@@ -12,6 +12,7 @@ AS
 	Task: [Special Delete] - Implement Daily Auto Mail for Abnormal Bets
 	Revisions:				
 		- 20200312@Robert: NAP Report - Daily Abnormal Bet Report for Headline - [130183]
+		- 20211013@Jaden: Change datatype for ipv6 (#162587)
 
 	Param's Explanation:	 
 */
