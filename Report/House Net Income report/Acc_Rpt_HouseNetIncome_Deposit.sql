@@ -870,7 +870,7 @@ BEGIN
 	BEGIN
 		DECLARE @PartyIdsLATab TABLE (PartyID INT, PartyName NVARCHAR(100), BrandName NVARCHAR(100), ParentID INT ) 
 		INSERT INTO @PartyIdsLATab (PartyID, PartyName, BrandName, ParentID)
-		EXEC  DBLIC.bodb_licensee.dbo.LA_PartyListSel  @UserID=, @FunctionKey=N''
+		EXEC  DBLIC.bodb_licensee.dbo.LA_PartyListSel  @UserID=0, @FunctionKey=N''
 
 		DECLARE @LA_PartyIds VARCHAR(MAX) 
 
