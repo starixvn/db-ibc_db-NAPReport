@@ -868,13 +868,6 @@ BEGIN
 
 		-- Licensee Min Fee
 	BEGIN
-		DECLARE @PartyIdsLATab TABLE (PartyID INT, PartyName NVARCHAR(100), BrandName NVARCHAR(100), ParentID INT ) 
-		INSERT INTO @PartyIdsLATab (PartyID, PartyName, BrandName, ParentID)
-		EXEC  DBLIC.bodb_licensee.dbo.LA_PartyListSel  @UserID=0, @FunctionKey=N''
-
-		DECLARE @LA_PartyIds VARCHAR(MAX) 
-
-		SELECT @LA_PartyIds = COALESCE(@LA_PartyIds + ',', '') + CONVERT(VARCHAR(10), PartyId) FROM @PartyIdsLATab WHERE ParentID NOT IN  (0,999)
 		DECLARE @SupportedProductList VARCHAR(200) = 'SB,VS,NG,VS2'
 
 		DECLARE @LicenseeFeeAndRebateDiscount TABLE
@@ -888,7 +881,7 @@ BEGIN
 				,Discount, DiscountRate, DiscountRemark, Rebate, RebateRate, RebateRemark
 		)
 		EXEC DBLIC.bodb_licensee.dbo.LA_AmountToCompanyByProduct
-			@PartyIds				= @LA_PartyIds
+			@PartyIds				= @PartyIds
 			,@ProductCodes			= @SupportedProductList
 			,@Currencies			= ''
 			,@FromDate				= @FDate
