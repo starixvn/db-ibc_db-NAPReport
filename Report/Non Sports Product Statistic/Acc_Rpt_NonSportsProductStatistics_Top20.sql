@@ -61,6 +61,7 @@ AS
 		20201224@Cherry: Integrate Happy 5 Linked Games (#146537)
 		20210120@Cherry: Integrate Saba Jackpot (#148293)
 		20210506@Cherry: Integrate VGaming Jackpot (#154250)
+		20211025@Cherry: Hot fix (#163601)
 
 	Param's Explanation:
 		- @username: search keyword
@@ -261,40 +262,35 @@ BEGIN
 	FROM
 		dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '', @isTest) s
 		INNER JOIN #tmp_ProductID p ON s.ProductID = p.ProductID
-		INNER JOIN #tmp_BetType b ON s.BetType = b.Bettype
 		
 	INSERT INTO #tmpHouseProduct (ProductID)
 	SELECT DISTINCT ProductID 
 	FROM DBWH.bodb_Account.dbo.Product_Bettype WITH (NOLOCK)
 	WHERE EventType = 255
 		AND ProductID IN (SELECT ProductID FROM #tmp_ProductID)
-
-	INSERT INTO #SportBettype (ProductID, Bettype, EvenType, RefTable)
-	SELECT s.ProductID, s.BetType, s.EventType, s.RefTable
-	FROM
-		dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '', @isTest) s
-		INNER JOIN #tmp_ProductID p ON s.ProductID = p.ProductID
-	WHERE (p.ProductID IN (3, 5, 27) -- Number Game, Virtual Sports, Virtual Sports 2
-		OR p.ProductID IN (SELECT ProductID FROM #tmp_ProductID))
 	
-	INSERT INTO #SportBettype (ProductID, Bettype, EvenType, RefTable)
-	SELECT s.ProductID, s.BetType, s.EventType, s.RefTable
-	FROM bodb02.dbo.SportBettypeMatrix s WITH(NOLOCK) 
-		INNER JOIN #tmp_ProductID p ON s.ProductID = p.ProductID
-		INNER JOIN #tmp_SportType t ON s.SportType = t.Sporttype 
-	WHERE p.ProductID = 23 --NG2
-		AND (s.IsTest = 0 OR s.IsTest = @isTest)
-		
+	DELETE	s
+	FROM	#SportBettype s
+	WHERE	s.ProductID NOT IN (3, 5, 27, 23)   ---- NumberGame , Virtual Sports, Virtual Sports 2, NG2
+			AND s.ProductID NOT IN (SELECT ProductID FROM #tmpHouseProduct) --Saba.club, VGaming
+			AND NOT EXISTS (SELECT Bettype FROM #tmp_BetType b WHERE b.Bettype = s.Bettype)
+			
 	DELETE s
 	FROM #SportBettype s
-	WHERE s.ProductID IN (SELECT ProductID FROM #tmpHouseProduct)
+	WHERE s.ProductID = 23 --NG2
+		AND NOT EXISTS (SELECT b.Bettype 
+						FROM #tmp_Sporttype st INNER JOIN bodb02.dbo.SportBettypeMatrix b WITH(NOLOCK) ON st.Sporttype = b.SportType 
+						WHERE b.BetType = s.Bettype AND (b.IsTest = 0 OR b.IsTest = @isTest))
+						
+	DELETE s
+	FROM #SportBettype s
+	WHERE s.ProductID IN (SELECT ProductID FROM #tmpHouseProduct) --Saba.club, VGaming
 		AND NOT EXISTS (SELECT b.Bettype FROM #tmpSportBetType b WHERE b.Bettype = s.Bettype)
 		
 	DELETE t
 	FROM #tmpSportBetType t LEFT JOIN #SportBettype s ON t.Bettype = s.Bettype
 	WHERE s.Bettype IS NULL
-	
-	DROP TABLE #tmp_BetType
+		
 	-- End Get Sport Bettype Matrix --
 
 	-- Get Site	
@@ -2210,6 +2206,7 @@ BEGIN
 		FROM #Result
 	END
 
+	DROP TABLE #tmp_BetType
 	DROP TABLE #Data
 	DROP TABLE #SportBettype
 	DROP TABLE #tmp_bettrans
