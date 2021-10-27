@@ -959,11 +959,11 @@ BEGIN
 
 		UPDATE s
 		SET s.LicenseeMinFee	= CASE WHEN m.PartyId IS NULL OR m.ProductId <> 0 THEN 0 
-									   ELSE CASE WHEN m.IsChargedByGroupMinFee = 1 OR m.IsChargedByMinFee = 1 THEN m.LicensingFee ELSE 0 END 
+									   ELSE CASE WHEN m.IsChargedByGroupMinFee = 1 OR m.IsChargedByMinFee = 1 THEN m.LicensingFee + m.ExtraAmount ELSE 0 END 
 								  END
 			,s.LicenseeFee		= CASE
 									WHEN m.PartyId IS NULL OR m.ProductId <> 0 THEN s.HouseIncome
-									ELSE CASE WHEN m.IsChargedByGroupMinFee = 0 AND m.IsChargedByMinFee = 0 THEN m.LicensingFee ELSE 0 END
+									ELSE CASE WHEN m.IsChargedByGroupMinFee = 0 AND m.IsChargedByMinFee = 0 THEN m.LicensingFee + m.ExtraAmount ELSE 0 END
 								  END
 			,s.Rebate			= ISNULL(m.Rebate, 0)
 			,s.Discount			= ISNULL(m.Discount, 0)
