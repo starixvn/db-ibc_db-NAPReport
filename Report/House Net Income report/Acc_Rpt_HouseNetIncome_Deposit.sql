@@ -889,7 +889,6 @@ BEGIN
 			,@IsConvertExRate		= 1
 			,@LicensingFeeTypeIds	= '0'
 			,@BaseCurrencyName		= @BaseCurrencyName
-			--,@isGetdataFromBettrans	BIT = 0
 
 		DECLARE @tmpResult TABLE
 		(
@@ -950,11 +949,11 @@ BEGIN
 		SELECT r.PartyId, r.Product3rdId, r.AliasProductId, r.HouseTurnover, r.LicenseeWL, r.HouseIncome, r.AComm
 		FROM CTE_Result r
 			INNER JOIN (SELECT DISTINCT PartyId, Product3rdId FROM #PartyChargeInfo) p ON p.PartyId = r.PartyId AND p.Product3rdId = r.Product3rdId
-		UNION ALL
-		
+		UNION 
 		SELECT r.PartyId, r.Product3rdId, r.AliasProductId, r.HouseTurnover, r.LicenseeWL, r.HouseIncome, r.AComm
 		FROM CTE_Result r
-		WHERE  r.Product3rdId = 0 AND r.PartyId  NOT IN (SELECT p.PartyId FROM #PartyChargeInfo p WHERE p.Product3rdId = 0) 
+		WHERE  (r.Product3rdId = 0 AND r.PartyId  NOT IN (SELECT p.PartyId FROM #PartyChargeInfo p WHERE p.Product3rdId = 0)  )
+				OR r.Product3rdId = 37
 		 
 
 		UPDATE s
@@ -962,15 +961,13 @@ BEGIN
 									   ELSE CASE WHEN m.IsChargedByGroupMinFee = 1 OR m.IsChargedByMinFee = 1 THEN m.LicensingFee + m.ExtraAmount ELSE 0 END 
 								  END
 			,s.LicenseeFee		= CASE
-									WHEN m.PartyId IS NULL OR m.ProductId <> 0 THEN s.HouseIncome
-									ELSE CASE WHEN m.IsChargedByGroupMinFee = 0 AND m.IsChargedByMinFee = 0 THEN m.LicensingFee + m.ExtraAmount ELSE 0 END
+									WHEN m.PartyId IS NULL OR m.ProductId NOT IN (0,37) THEN s.HouseIncome
+									ELSE CASE WHEN m.IsChargedByGroupMinFee = 0 AND m.IsChargedByMinFee = 0 THEN CASE WHEN m.ProductId = 37 THEN -m.LicensingFee ELSE m.LicensingFee + m.ExtraAmount END ELSE 0 END
 								  END
 			,s.Rebate			= ISNULL(m.Rebate, 0)
 			,s.Discount			= ISNULL(m.Discount, 0)
 		FROM @tmpResult s
 			LEFT JOIN @LicenseeFeeAndRebateDiscount m ON m.PartyId = s.PartyId AND m.ProductId = s.Product3rdId
-
-
 
 		/*
 			GET 9w licensee list
@@ -991,13 +988,13 @@ BEGIN
 		UPDATE r
 		SET r.HouseIncome = CASE WHEN r.HouseIncome > 0 THEN r.HouseIncome ELSE 0 END
 			,r.LicenseeFee = CASE
-						WHEN r.Product3rdId IN (3,25,31,32,42,66) THEN LicenseeFee
+						WHEN r.Product3rdId IN (3,25,31,32,42,66,37) THEN LicenseeFee
 						--WHEN r.Product3rdId IN (42, 66) THEN CASE WHEN r.LicenseeWL > 0 THEN r.LicenseeFee ELSE 0 END
 						WHEN r.LicenseeFee > 0 THEN r.LicenseeFee ELSE 0 END
 		FROM @tmpResult r
 		WHERE r.Product3rdId <> 2
 			AND (
-				r.Product3rdId IN (3,25,31,32,42,66) -- BA, Cashout
+				r.Product3rdId IN (3,25,31,32,42,66,37) -- BA, Cashout
 				OR r.PartyId NOT IN (SELECT p.PartyId FROM @9wLicenseeList p)
 			)
 
@@ -1163,7 +1160,7 @@ BEGIN
 	SET r.HouseIncome = ISNULL(m.HouseIncome, 0)
 	FROM #Result r
 		INNER JOIN #Result m ON m.Product3rdId = r.Product3rdId AND m.AliasProductId = r.AliasProductId AND r.rptDate = 'Monthly' AND m.rptDate = 'MTD'
-	WHERE r.Product3rdId IN (15, 37)
+	WHERE r.Product3rdId = 15
 
 		-- 1.4 FullContribution, JackpotPrize
 	UPDATE r
