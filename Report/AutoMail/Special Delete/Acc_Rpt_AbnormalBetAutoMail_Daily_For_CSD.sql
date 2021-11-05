@@ -151,8 +151,8 @@ AS
 
 	   SELECT b.RequestId
 		   , @RptDate AS Date
-		   , CASE WHEN d.bettype = 29 THEN 0 ELSE b.sporttype END sporttype
-		   , CASE WHEN d.bettype = 29 THEN 0 ELSE b.leagueid END leagueid
+		   , CASE WHEN b.bettype = 29 THEN 0 ELSE b.sporttype END sporttype
+		   , CASE WHEN b.bettype = 29 THEN 0 ELSE b.leagueid END leagueid
 		   , b.homeid
 		   , b.awayid
 		   , b.GlobalShowTime
@@ -196,8 +196,8 @@ AS
 	   FROM #Data AS b
 		  INNER JOIN bodb02.dbo.TicketVoiding_SubIssueType AS ss WITH(NOLOCK) ON b.SubIssueTypeID = ss.SubIssueTypeId
 	   GROUP BY b.RequestId
-			, CASE WHEN d.bettype = 29 THEN 0 ELSE b.sporttype END
-			, CASE WHEN d.bettype = 29 THEN 0 ELSE b.leagueid END
+			, CASE WHEN b.bettype = 29 THEN 0 ELSE b.sporttype END
+			, CASE WHEN b.bettype = 29 THEN 0 ELSE b.leagueid END
 			, b.homeid
 			, b.awayid
 			, b.GlobalShowTime
@@ -210,8 +210,8 @@ AS
 			, b.finalawayscore
 			, b.Username
 			, b.AffectedSite
-	   ORDER BY b.sporttype
-			, b.leagueid
+	   ORDER BY CASE WHEN b.bettype = 29 THEN 0 ELSE b.sporttype END
+			, CASE WHEN b.bettype = 29 THEN 0 ELSE b.leagueid END
 			, b.homeid
 			, b.awayid;
 
