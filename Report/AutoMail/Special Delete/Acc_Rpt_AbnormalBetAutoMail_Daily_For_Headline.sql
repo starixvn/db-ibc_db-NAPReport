@@ -13,6 +13,7 @@ AS
 	Revisions:				
 		- 20200312@Robert: NAP Report - Daily Abnormal Bet Report for Headline - [130183]
 		- 20211013@Jaden: Change datatype for ipv6 (#162587)
+		- 2021105@Cherry: Support void mix parlay (#164192)
 
 	Param's Explanation:	 
 */
@@ -134,7 +135,7 @@ AS
 				, m.homeid
 				, m.awayid
 				, m.GlobalShowTime
-				, b.liveindicator
+				, CASE WHEN b.bettype = 29 THEN b.livehomescore ELSE b.liveindicator END
 				, b.bettype
 				, b.betteam
 				, tmp.SubIssueTypeId
@@ -187,14 +188,14 @@ AS
 	   FROM #Data d
 		  INNER JOIN #TmpBettype bt ON d.bettype = bt.bettype;
 
-	   SELECT d.sporttype
-		   , d.leagueid
+	   SELECT CASE WHEN d.bettype = 29 THEN 0 ELSE d.sporttype END sporttype
+		   , CASE WHEN d.bettype = 29 THEN 0 ELSE d.leagueid END leagueid
 		   , d.homeid
 		   , d.awayid
 		   , d.kickofftime
 		   , d.liveindicator
 		   , d.bettype
-		   , d.betteam
+		   , CASE WHEN d.bettype = 29 THEN '-' ELSE d.betteam END betteam
 		   , ss.SubIssueTypeName + ' ' + ss.SubIssueTypeNameCS AS Reason
 		   , d.finalhomescore
 		   , d.finalawayscore
@@ -202,21 +203,21 @@ AS
 		   , COUNT(TransId) AS NumberOfTickets
 	   FROM #Data AS d
 		  INNER JOIN bodb02.dbo.TicketVoiding_SubIssueType AS ss WITH(NOLOCK) ON d.SubIssueTypeID = ss.SubIssueTypeId
-	   GROUP BY d.sporttype
-			, d.leagueid
+	   GROUP BY CASE WHEN d.bettype = 29 THEN 0 ELSE d.sporttype END
+			, CASE WHEN d.bettype = 29 THEN 0 ELSE d.leagueid END
 			, d.homeid
 			, d.awayid
 			, d.kickofftime
 			, d.liveindicator
 			, d.bettype
-			, d.betteam
+			, CASE WHEN d.bettype = 29 THEN '-' ELSE d.betteam END
 			, ss.SubIssueTypeName + ' ' + ss.SubIssueTypeNameCS
 			, d.finalhomescore
 			, d.finalawayscore;
 
 	   SELECT d.TransId
-		   , d.sporttype
-		   , d.leagueid
+		   , CASE WHEN d.bettype = 29 THEN 0 ELSE d.sporttype END sporttype
+		   , CASE WHEN d.bettype = 29 THEN 0 ELSE d.leagueid END leagueid
 		   , d.homeid
 		   , d.awayid
 		   , d.kickofftime

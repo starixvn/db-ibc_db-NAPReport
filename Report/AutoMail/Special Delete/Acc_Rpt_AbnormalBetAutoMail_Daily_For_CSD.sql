@@ -12,6 +12,7 @@ AS
 	Revisions:		
 		- 20191205@Robert: NAP Report - Automate daily abnormal bets report for CSD [122800]
 		- 20191226@Robert: NAP Report - Automate daily abnormal bets report for CSD [122800] - change request
+		- 2021105@Cherry: Support void mix parlay (#164192)
 
 	Param's Explanation:	 
 */
@@ -106,7 +107,7 @@ AS
 				, m.homeid
 				, m.awayid
 				, m.GlobalShowTime
-				, b.liveindicator
+				, CASE WHEN b.bettype = 29 THEN b.livehomescore ELSE b.liveindicator END
 				, b.bettype
 				, tmp.SubIssueTypeId
 				, m.hthomescore
@@ -150,8 +151,8 @@ AS
 
 	   SELECT b.RequestId
 		   , @RptDate AS Date
-		   , b.sporttype
-		   , b.leagueid
+		   , CASE WHEN d.bettype = 29 THEN 0 ELSE b.sporttype END
+		   , CASE WHEN d.bettype = 29 THEN 0 ELSE b.leagueid END
 		   , b.homeid
 		   , b.awayid
 		   , b.GlobalShowTime
@@ -195,8 +196,8 @@ AS
 	   FROM #Data AS b
 		  INNER JOIN bodb02.dbo.TicketVoiding_SubIssueType AS ss WITH(NOLOCK) ON b.SubIssueTypeID = ss.SubIssueTypeId
 	   GROUP BY b.RequestId
-			, b.sporttype
-			, b.leagueid
+			, CASE WHEN d.bettype = 29 THEN 0 ELSE b.sporttype END
+			, CASE WHEN d.bettype = 29 THEN 0 ELSE b.leagueid END
 			, b.homeid
 			, b.awayid
 			, b.GlobalShowTime
