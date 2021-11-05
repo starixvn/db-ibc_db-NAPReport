@@ -12,7 +12,7 @@ AS
 	Revisions:		
 		- 20191205@Robert: NAP Report - Automate daily abnormal bets report for CSD [122800]
 		- 20191226@Robert: NAP Report - Automate daily abnormal bets report for CSD [122800] - change request
-		- 2021105@Cherry: Support void mix parlay (#164192)
+		- 20211105@Cherry: Support void mix parlay (#164192)
 
 	Param's Explanation:	 
 */
@@ -151,8 +151,8 @@ AS
 
 	   SELECT b.RequestId
 		   , @RptDate AS Date
-		   , CASE WHEN d.bettype = 29 THEN 0 ELSE b.sporttype END
-		   , CASE WHEN d.bettype = 29 THEN 0 ELSE b.leagueid END
+		   , CASE WHEN d.bettype = 29 THEN 0 ELSE b.sporttype END sporttype
+		   , CASE WHEN d.bettype = 29 THEN 0 ELSE b.leagueid END leagueid
 		   , b.homeid
 		   , b.awayid
 		   , b.GlobalShowTime

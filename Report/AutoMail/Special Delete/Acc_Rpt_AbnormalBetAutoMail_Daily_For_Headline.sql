@@ -13,7 +13,7 @@ AS
 	Revisions:				
 		- 20200312@Robert: NAP Report - Daily Abnormal Bet Report for Headline - [130183]
 		- 20211013@Jaden: Change datatype for ipv6 (#162587)
-		- 2021105@Cherry: Support void mix parlay (#164192)
+		- 20211105@Cherry: Support void mix parlay (#164192)
 
 	Param's Explanation:	 
 */
