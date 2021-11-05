@@ -17,7 +17,7 @@ AS
 		- 20200325@Robert: [NAP] - Implement Daily Auto Mail for Abnormal Bets - [121920] - add more ExternalID
 		- 20200615@Robert: NAP Report - Adjustment CN88's Abnormal Bet report - [135393]
 		- 20211013@Jaden: Change datatype for ipv6 (#162587)
-		- 2021105@Cherry: Support void mix parlay (#164192)
+		- 20211105@Cherry: Support void mix parlay (#164192)
 
 	Param's Explanation:	 
 */
@@ -186,8 +186,8 @@ AS
 	   FROM #Data d
 		  INNER JOIN #TmpBettype bt ON d.bettype = bt.bettype;
 
-	   SELECT CASE WHEN d.bettype = 29 THEN 0 ELSE d.sporttype END
-		   , CASE WHEN d.bettype = 29 THEN 0 ELSE d.leagueid END
+	   SELECT CASE WHEN d.bettype = 29 THEN 0 ELSE d.sporttype END sporttype
+		   , CASE WHEN d.bettype = 29 THEN 0 ELSE d.leagueid END leagueid
 		   , d.homeid
 		   , d.awayid
 		   , d.kickofftime
@@ -214,8 +214,8 @@ AS
 			, d.finalawayscore;
 
 	   SELECT TransId
-		   , CASE WHEN d.bettype = 29 THEN 0 ELSE sporttype END
-		   , CASE WHEN d.bettype = 29 THEN 0 ELSE leagueid END
+		   , CASE WHEN d.bettype = 29 THEN 0 ELSE sporttype END sporttype
+		   , CASE WHEN d.bettype = 29 THEN 0 ELSE leagueid END leagueid
 		   , homeid
 		   , awayid
 		   , kickofftime
