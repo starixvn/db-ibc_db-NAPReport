@@ -1,8 +1,8 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
-ALTER PROCEDURE dbo.Acc_Rpt_AbnormalBetAutoMail_Daily_For_Headline 
-	@RptDate      DATETIME
-   , @GroupName    VARCHAR(50) = 'INDOWIN'
+ALTER PROCEDURE dbo.Acc_Rpt_AbnormalBetAutoMail_Daily_For_Headline
+	@RptDate      DATETIME 
+   , @GroupName    VARCHAR(50)
    , @IsTest       BIT         = 0
 AS
 /*
@@ -218,23 +218,23 @@ AS
 	   SELECT d.TransId
 		   , CASE WHEN d.bettype = 29 THEN NULL ELSE d.sporttype END sporttype
 		   , CASE WHEN d.bettype = 29 THEN NULL ELSE d.leagueid END leagueid
-		   , CASE WHEN b.bettype = 29 THEN NULL ELSE d.homeid END homeid
-		   , CASE WHEN b.bettype = 29 THEN NULL ELSE d.awayid END awayid
-		   , CASE WHEN b.bettype = 29 THEN NULL ELSE d.kickofftime END kickofftime
+		   , CASE WHEN d.bettype = 29 THEN NULL ELSE d.homeid END homeid
+		   , CASE WHEN d.bettype = 29 THEN NULL ELSE d.awayid END awayid
+		   , CASE WHEN d.bettype = 29 THEN NULL ELSE d.kickofftime END kickofftime
 		   , d.liveindicator
 		   , d.bettype
 		   , CASE WHEN d.bettype = 29 THEN '-' ELSE d.betteam END betteam
 		   , ss.SubIssueTypeName + ' ' + ss.SubIssueTypeNameCS AS Reason
-		   , CASE WHEN b.bettype = 29 THEN NULL ELSE d.finalhomescore END finalhomescore
-		   , CASE WHEN b.bettype = 29 THEN NULL ELSE d.finalawayscore END finalawayscore
+		   , CASE WHEN d.bettype = 29 THEN NULL ELSE d.finalhomescore END finalhomescore
+		   , CASE WHEN d.bettype = 29 THEN NULL ELSE d.finalawayscore END finalawayscore
 		   , d.site
 		   , d.Username
-		   , CASE WHEN b.bettype = 29 THEN NULL ELSE d.odds END odds
+		   , CASE WHEN d.bettype = 29 THEN NULL ELSE d.odds END odds
 		   , d.CurrencyName
 		   , d.stake
-		   , CASE WHEN b.bettype = 29 THEN NULL ELSE d.HDP END HDP
-		   , CASE WHEN b.bettype = 29 THEN NULL ELSE d.livehomescore END livehomescore
-		   , CASE WHEN b.bettype = 29 THEN NULL ELSE d.liveawayscore END liveawayscore
+		   , CASE WHEN d.bettype = 29 THEN NULL ELSE d.HDP END HDP
+		   , CASE WHEN d.bettype = 29 THEN NULL ELSE d.livehomescore END livehomescore
+		   , CASE WHEN d.bettype = 29 THEN NULL ELSE d.liveawayscore END liveawayscore
 		   , d.transdate
 		   , d.ip
 		   , d.Super
