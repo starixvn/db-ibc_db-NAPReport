@@ -223,7 +223,7 @@ AS
 		   , d.kickofftime
 		   , d.liveindicator
 		   , d.bettype
-		   , d.betteam
+		   , CASE WHEN d.bettype = 29 THEN '-' ELSE d.betteam END betteam
 		   , ss.SubIssueTypeName + ' ' + ss.SubIssueTypeNameCS AS Reason
 		   , d.finalhomescore
 		   , d.finalawayscore
