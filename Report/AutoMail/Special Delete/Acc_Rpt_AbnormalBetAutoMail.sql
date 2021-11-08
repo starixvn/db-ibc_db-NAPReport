@@ -193,7 +193,7 @@ AS
 		   , d.kickofftime
 		   , d.liveindicator
 		   , d.bettype
-		   , d.betteam
+		   , CASE WHEN bettype = 29 THEN '-' ELSE d.betteam END betteam
 		   , ss.SubIssueTypeName + ' ' + ss.SubIssueTypeNameCS AS Reason
 		   , d.finalhomescore
 		   , d.finalawayscore
@@ -208,7 +208,7 @@ AS
 			, d.kickofftime
 			, d.liveindicator
 			, d.bettype
-			, d.betteam
+			, CASE WHEN bettype = 29 THEN '-' ELSE d.betteam END
 			, ss.SubIssueTypeName + ' ' + ss.SubIssueTypeNameCS
 			, d.finalhomescore
 			, d.finalawayscore;
@@ -221,7 +221,7 @@ AS
 		   , kickofftime
 		   , liveindicator
 		   , bettype
-		   , betteam
+		   , CASE WHEN bettype = 29 THEN '-' ELSE betteam END betteam
 		   , ss.SubIssueTypeName + ' ' + ss.SubIssueTypeNameCS AS Reason
 		   , finalhomescore
 		   , finalawayscore
