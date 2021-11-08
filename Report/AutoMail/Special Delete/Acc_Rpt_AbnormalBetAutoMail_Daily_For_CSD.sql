@@ -151,16 +151,16 @@ AS
 
 	   SELECT b.RequestId
 		   , @RptDate AS Date
-		   , CASE WHEN b.bettype = 29 THEN 0 ELSE b.sporttype END sporttype
-		   , CASE WHEN b.bettype = 29 THEN 0 ELSE b.leagueid END leagueid
-		   , b.homeid
-		   , b.awayid
-		   , b.GlobalShowTime
-		   , b.CreatedDate
-		   , b.hthomescore
-		   , b.htawayscore
-		   , b.finalhomescore
-		   , b.finalawayscore
+		   , CASE WHEN b.bettype = 29 THEN NULL ELSE b.sporttype END sporttype
+		   , CASE WHEN b.bettype = 29 THEN NULL ELSE b.leagueid END leagueid
+		   , CASE WHEN b.bettype = 29 THEN NULL ELSE b.homeid END homeid
+		   , CASE WHEN b.bettype = 29 THEN NULL ELSE b.awayid END awayid
+		   , CASE WHEN b.bettype = 29 THEN NULL ELSE b.GlobalShowTime END GlobalShowTime
+		   , CASE WHEN b.bettype = 29 THEN NULL ELSE b.CreatedDate END CreatedDate
+		   , CASE WHEN b.bettype = 29 THEN NULL ELSE b.hthomescore END hthomescore
+		   , CASE WHEN b.bettype = 29 THEN NULL ELSE b.htawayscore END htawayscore
+		   , CASE WHEN b.bettype = 29 THEN NULL ELSE b.finalhomescore END finalhomescore
+		   , CASE WHEN b.bettype = 29 THEN NULL ELSE b.finalawayscore END finalawayscore
 		   , b.Username
 		   , SUM(CASE
 				   WHEN b.liveindicator = 1
@@ -196,24 +196,24 @@ AS
 	   FROM #Data AS b
 		  INNER JOIN bodb02.dbo.TicketVoiding_SubIssueType AS ss WITH(NOLOCK) ON b.SubIssueTypeID = ss.SubIssueTypeId
 	   GROUP BY b.RequestId
-			, CASE WHEN b.bettype = 29 THEN 0 ELSE b.sporttype END
-			, CASE WHEN b.bettype = 29 THEN 0 ELSE b.leagueid END
-			, b.homeid
-			, b.awayid
-			, b.GlobalShowTime
-			, b.CreatedDate
+			, CASE WHEN b.bettype = 29 THEN NULL ELSE b.sporttype END
+			, CASE WHEN b.bettype = 29 THEN NULL ELSE b.leagueid END
+			, CASE WHEN b.bettype = 29 THEN NULL ELSE b.homeid END
+			, CASE WHEN b.bettype = 29 THEN NULL ELSE b.awayid END
+			, CASE WHEN b.bettype = 29 THEN NULL ELSE b.GlobalShowTime END
+			, CASE WHEN b.bettype = 29 THEN NULL ELSE b.CreatedDate END
 			, b.SubIssueTypeId
 			, ss.SubIssueTypeName
-			, b.hthomescore
-			, b.htawayscore
-			, b.finalhomescore
-			, b.finalawayscore
+			, CASE WHEN b.bettype = 29 THEN NULL ELSE b.hthomescore END
+			, CASE WHEN b.bettype = 29 THEN NULL ELSE b.htawayscore END
+			, CASE WHEN b.bettype = 29 THEN NULL ELSE b.finalhomescore END
+			, CASE WHEN b.bettype = 29 THEN NULL ELSE b.finalawayscore END
 			, b.Username
 			, b.AffectedSite
-	   ORDER BY CASE WHEN b.bettype = 29 THEN 0 ELSE b.sporttype END
-			, CASE WHEN b.bettype = 29 THEN 0 ELSE b.leagueid END
-			, b.homeid
-			, b.awayid;
+	   ORDER BY CASE WHEN b.bettype = 29 THEN NULL ELSE b.sporttype END
+			, CASE WHEN b.bettype = 29 THEN NULL ELSE b.leagueid END
+			, CASE WHEN b.bettype = 29 THEN NULL ELSE b.homeid END
+			, CASE WHEN b.bettype = 29 THEN NULL ELSE b.awayid END
 
 	   DROP TABLE #TmpVoidedTransaction;
 	   DROP TABLE #Data;
