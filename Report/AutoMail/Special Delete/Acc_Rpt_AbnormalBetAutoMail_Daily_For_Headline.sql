@@ -87,10 +87,10 @@ AS
 				, b.SubIssueTypeId
 				, b.CustID
 			FROM bodb02.dbo.TicketVoiding_VoidedTransaction AS b WITH(NOLOCK)
-			WHERE b.CustID > 0
-				 AND b.CreatedDate >= @RptDate_From
-				 AND b.CreatedDate < @RptDate_To
-				 AND b.IssueTypeID = 11;
+			--WHERE b.CustID > 0
+			--	 AND b.CreatedDate >= @RptDate_From
+			--	 AND b.CreatedDate < @RptDate_To
+			--	 AND b.IssueTypeID = 11;
 
 	   INSERT INTO #TmpBettype(bettype
 						, SupportMultipleOdds)
@@ -153,12 +153,12 @@ AS
 				, b.oddstype
 				, b.ip
 				, b.custid
-				, mem.Super
-				, mem.Master
-				, mem.Agent
+				, ''-- mem.Super
+				, ''-- mem.Master
+				, ''--mem.Agent
 			FROM bodb02.dbo.bettrans AS b WITH(NOLOCK)
 			    INNER JOIN #TmpVoidedTransaction AS tmp ON b.transid = tmp.TransId
-			    INNER JOIN #TmpMember AS mem ON mem.MemberId = tmp.CustId
+			    --INNER JOIN #TmpMember AS mem ON mem.MemberId = tmp.CustId
 			    LEFT JOIN bodb02.dbo.match AS m WITH(NOLOCK) ON b.matchid = m.matchid
 			    LEFT JOIN bodb02.dbo.league AS l WITH(NOLOCK) ON m.leagueid = l.leagueid
 			    LEFT JOIN bodb02.dbo.Customer AS c WITH(NOLOCK) ON b.srecommend = c.custid
@@ -171,6 +171,7 @@ AS
 					    THEN 1
 					    ELSE 0
 					END
+					and b.bettype in (9,29)
 			ORDER BY m.kickofftime DESC
 				  , b.liveindicator DESC
 				  , b.bettype DESC;
