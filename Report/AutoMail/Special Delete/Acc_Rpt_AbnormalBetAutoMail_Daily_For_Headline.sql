@@ -222,7 +222,7 @@ AS
 		   , CASE WHEN d.bettype = 29 THEN NULL ELSE d.awayid END awayid
 		   , CASE WHEN d.bettype = 29 THEN NULL ELSE d.kickofftime END kickofftime
 		   , d.liveindicator
-		   , CASE WHEN d.bettype = 29 AND d.betteam = '1' THEN 9 ELSE d.bettype END
+		   , CASE WHEN d.bettype = 29 AND d.betteam = '1' THEN 9 ELSE d.bettype END bettype
 		   , CASE WHEN d.bettype = 29 THEN '-' ELSE d.betteam END betteam
 		   , ss.SubIssueTypeName + ' ' + ss.SubIssueTypeNameCS AS Reason
 		   , CASE WHEN d.bettype = 29 THEN NULL ELSE d.finalhomescore END finalhomescore
