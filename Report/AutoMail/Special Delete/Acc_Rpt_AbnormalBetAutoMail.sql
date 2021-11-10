@@ -40,7 +40,7 @@ AS
 		 , homeid            INT
 		 , awayid            INT
 		 , kickofftime       DATETIME
-		 , liveindicator     BIT
+		 , liveindicator     TINYINT
 		 , bettype           SMALLINT
 		 , betteam           VARCHAR(10)
 		 , SubIssueTypeId    TINYINT

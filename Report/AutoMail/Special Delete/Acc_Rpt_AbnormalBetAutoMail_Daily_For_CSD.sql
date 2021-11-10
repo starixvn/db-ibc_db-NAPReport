@@ -34,7 +34,7 @@ AS
 		 , homeid            INT
 		 , awayid            INT
 		 , GlobalShowTime    DATETIME
-		 , liveindicator     BIT
+		 , liveindicator     TINYINT
 		 , bettype           SMALLINT
 		 , SubIssueTypeId    TINYINT
 		 , hthomescore       INT
