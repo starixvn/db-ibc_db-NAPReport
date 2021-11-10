@@ -19,6 +19,7 @@ Revisions:
 	- 20190923@Bobby: Enhance SMA Balance report [redmine: #119990]
 	- 20201027@Ned.Le: NAP Report - BBin - Remove BBIN Transfer off Balance reports (#144071)
 	- 20210507@Jaden.Tang: Adjust code to prevent reading dupplicated in bettrans & bettrans14 during move bet process (#154649)
+	- 20211111@Cherry: Split transfer table (#164378)
 */
 BEGIN
 	SET NOCOUNT ON
@@ -35,41 +36,79 @@ BEGIN
 			,@yesterday			= @currentDate -1
 			,@_agentid			= ISNULL(@agentid, 0)
 
+	CREATE TABLE #Data 
+	(
+		Custid INT,
+		Balance MONEY,
+		BaseBalance MONEY
+	)
+	
+	INSERT INTO #Data (Custid, Balance, BaseBalance)
+	SELECT
+			custid,
+			SUM(bet.winlost) AS balance,
+			SUM(bet.winlost * b.actualrate) AS baseBalance
+	FROM dbo.bettrans b with (nolock)
+		CROSS APPLY (
+			SELECT 
+					--skip volatile rows during move bet process (see Balance_Direct_Master report)
+					CASE WHEN b.winlostdate <= @MoveBetsDay 
+						THEN 0 ELSE 1 END
+					*
+					CASE 
+						WHEN b.bettype >= 20000 OR b.winlostdate <= @yesterday THEN (winlost - actual_stake + playercomm) 
+						ELSE 0
+					END
+				AS winlost
+		) AS bet
+	WHERE b.recommend = @_agentid
+		AND b.winlostdate <= @currentDate
+		AND b.ruben = 1
+		AND b.statusID NOT IN (101,102,103)
+		AND b.bettype < 19999
+	GROUP BY b.custid
+	
+	INSERT INTO #Data (Custid, Balance, BaseBalance)
+	SELECT
+			custid,
+			SUM(bet.winlost) AS balance,
+			SUM(bet.winlost * b.actualrate) AS baseBalance
+	FROM dbo.[Transfer] b with (nolock)
+		CROSS APPLY (
+			SELECT 
+					--skip volatile rows during move bet process (see Balance_Direct_Master report)
+					CASE WHEN b.winlostdate > @MoveBetsDay AND bettype = 19999
+						THEN 0 ELSE 1 END
+					*
+					CASE 
+						WHEN b.bettype >= 20000 OR b.winlostdate <= @yesterday THEN (winlost - actual_stake + playercomm) 
+						ELSE 0
+					END
+				AS winlost
+		) AS bet
+	WHERE b.srecommend IN (SELECT srecommend FROM dbo.custinfo WHERE custid = @_agentid)
+		AND b.winlostdate <= @currentDate
+		AND b.statusID NOT IN (101,102,103)
+		AND b.bettype NOT IN (21008, 21009)
+	GROUP BY b.custid
+		
 	SELECT
 		c.custid, 
 		c.username, 
 		c.currency,
-		IsNull(b.balance, 0) Balance,
-		IsNull(baseBalance,0) AS BaseBalance
+		IsNull(SUM(b.balance), 0) Balance,
+		IsNull(SUM(baseBalance),0) AS BaseBalance
 	FROM
 		dbo.custinfo c (nolock)
-		LEFT OUTER JOIN (
-			SELECT
-				custid,
-				SUM(bet.winlost) AS balance,
-				SUM(bet.winlost * b.actualrate) AS baseBalance
-			FROM dbo.bettrans b with (nolock)
-			CROSS APPLY (
-				SELECT 
-						--skip volatile rows during move bet process (see Balance_Direct_Master report)
-						CASE WHEN (b.winlostdate > @MoveBetsDay AND bettype = 19999) OR (b.winlostdate <= @MoveBetsDay and bettype < 19999)
-							THEN 0 ELSE 1 END
-						*
-						CASE 
-							WHEN b.bettype >= 20000 OR b.winlostdate <= @yesterday THEN (winlost - actual_stake + playercomm) 
-							ELSE 0
-						END
-					AS winlost
-			) AS bet
-			WHERE b.recommend = @_agentid
-				AND b.winlostdate <= @currentDate
-				AND b.ruben = 1
-				AND b.statusID NOT IN (101,102,103)
-				AND b.bettype NOT IN (21008, 21009)
-			GROUP BY b.custid
-		) AS b ON c.custid = b.custid
+		LEFT JOIN #Data b ON c.custid = b.custid
 	WHERE
 		c.roleid = 1 AND c.recommend = @_agentid 
+	GROUP BY 
+		c.custid, 
+		c.username, 
+		c.currency
 	ORDER BY c.username
+	
+	DROP TABLE #Data
 END
 GO
