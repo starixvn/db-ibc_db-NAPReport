@@ -56,17 +56,38 @@ AS
 								, TransId
 								, SubIssueTypeId
 								, CreatedDate)
-			SELECT tvh.RequestId
-				, tv.TransId
-				, tv.SubIssueTypeID
-				, tv.CreatedDate
-			FROM dbo.TicketVoiding_VoidedTransaction AS tv WITH(NOLOCK)
-			    INNER JOIN dbo.TicketVoiding_VoidingHistory AS tvh WITH(NOLOCK) ON tv.reasonid = tvh.reasonid
-			    INNER JOIN dbo.bettrans AS bt WITH(NOLOCK) ON tv.TransId = bt.transid
-			    INNER JOIN dbo.match AS m WITH(NOLOCK) ON m.matchid = bt.matchid
-			WHERE tv.IssueTypeID = 11
-				 AND m.eventdate >= @RptDate_From
-				 AND m.eventdate < @RptDate_To OPTION(MAXDOP 1);
+		SELECT tvh.RequestId
+			, tv.TransId
+			, tv.SubIssueTypeID
+			, tv.CreatedDate
+		FROM dbo.TicketVoiding_VoidedTransaction AS tv WITH(NOLOCK)
+		    INNER JOIN dbo.TicketVoiding_VoidingHistory AS tvh WITH(NOLOCK) ON tv.reasonid = tvh.reasonid
+		    INNER JOIN dbo.bettrans AS bt WITH(NOLOCK) ON tv.TransId = bt.transid
+		    INNER JOIN dbo.match AS m WITH(NOLOCK) ON m.matchid = bt.matchid
+		WHERE tv.IssueTypeID = 11
+			 AND bt.bettype <> 29
+			 AND m.eventdate >= @RptDate_From
+			 AND m.eventdate < @RptDate_To 
+				 
+		OPTION(MAXDOP 1)
+		
+		INSERT INTO #TmpVoidedTransaction(RequestId
+								, TransId
+								, SubIssueTypeId
+								, CreatedDate)
+		SELECT tvh.RequestId
+			, tv.TransId
+			, tv.SubIssueTypeID
+			, tv.CreatedDate
+		FROM dbo.TicketVoiding_VoidedTransaction AS tv WITH(NOLOCK)
+		    INNER JOIN dbo.TicketVoiding_VoidingHistory AS tvh WITH(NOLOCK) ON tv.reasonid = tvh.reasonid
+		    INNER JOIN dbo.bettrans AS bt WITH(NOLOCK) ON tv.TransId = bt.transid
+		WHERE tv.IssueTypeID = 11
+			 AND bt.bettype = 29
+			 AND bt.winlostdate >= @RptDate_From
+			 AND bt.winlostdate < @RptDate_To 
+				 
+		OPTION(MAXDOP 1)	 
 
 	   CREATE CLUSTERED INDEX IX_TransId_RequestId ON #TmpVoidedTransaction(TransId ASC, RequestId ASC);
 
