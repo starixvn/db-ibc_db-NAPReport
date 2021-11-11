@@ -26,6 +26,7 @@ Revisions:
 		- 20190919@Bobby: Enhance SMA Balance report [redmine: #119990]
 		- 20201027@Ned.Le: NAP Report - BBin - Remove BBIN Transfer off Balance reports (#144071)
 		- 20210507@Jaden.Tang: Adjust code to prevent reading dupplicated in bettrans & bettrans14 during move bet process (#154649)
+		- 20211111@Cherry: Split transfer table (#164378)
 */
 BEGIN
 	SET NOCOUNT ON
