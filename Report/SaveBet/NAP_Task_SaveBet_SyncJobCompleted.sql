@@ -9,6 +9,7 @@ AS
 	
 	Revisions:
 		20210423@Roy: NAP Report - Move Save bet db & service (#153147)
+		20211112@Roy: NAP Report - Update date range to sync job completed
 */
 BEGIN
 	SET NOCOUNT ON
@@ -39,18 +40,18 @@ BEGIN
 	---linkedserver is NOT OFFLINE and CurrentServer is NOT Standby---
 	IF @StandbyDB IS NOT NULL AND @@SERVERNAME <> @StandbyDB
 	BEGIN
-		DECLARE @Yesterday DATETIME
+		DECLARE @EventDate DATETIME
 			,@StrSQL NVARCHAR(MAX)
 			,@StrMatchID NVARCHAR(MAX) = ''
 			
-		SELECT @Yesterday = MAX(ExchangeDate)
+		SELECT @EventDate = DATEADD(DAY,-2,MAX(ExchangeDate))
 		FROM bodb_Account.dbo.tbl_Currency_Daily WITH (NOLOCK)
 		
 		--Get NOT Finish Match from Standby Server--
 		INSERT INTO #tmpMatch
 		SELECT MatchID
 		FROM DBSTAGING.bodb_Account.dbo.MatchList WITH (NOLOCK)
-		WHERE EventDate >= @Yesterday
+		WHERE EventDate >= @EventDate
 			AND JobFinished = 0
 			AND JobGenerated = 1
 		
@@ -60,7 +61,7 @@ BEGIN
 		WHERE MatchID IN (
 				SELECT MatchID
 				FROM bodb_Account.dbo.MatchList WITH (NOLOCK)
-				WHERE EventDate >= @Yesterday
+				WHERE EventDate >= @EventDate
 					AND JobFinished = 1
 					AND JobGenerated = 1
 				)
