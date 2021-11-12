@@ -119,20 +119,47 @@ BEGIN
 	WHERE EXISTS(SELECT TOP 1 1 FROM #SuperInfo WHERE roleid = 0)
 
 	-- cal Super's balance
-	;
-	WITH cte_bettrans AS
-	(
-		SELECT 
+	INSERT #superBalance (CustID, Balance, BaseBalance)
+	SELECT 
 			si.custid
 			,SUM(bal.totalBalance) AS Balance
 			,SUM(bal.totalBalance*b.actualrate) AS BaseBalance
-		FROM #SuperInfo si
+	FROM #SuperInfo si
 		INNER JOIN dbo.bettrans b with (READPAST)
 			ON b.srecommend = si.custid AND si.roleId = 4
 		CROSS APPLY (
 			SELECT
 				--skip volatile rows during move bet process (see Balance_Direct_Master report)
-				CASE WHEN (b.winlostdate > @MoveBetsDay AND bettype = 19999) OR (b.winlostdate <= @MoveBetsDay and bettype < 19999)
+				CASE WHEN b.winlostdate <= @MoveBetsDay 
+					THEN 0 ELSE 1 END
+				*
+				CASE 
+					WHEN b.winlostdate <= @yesterday THEN
+						(CASE WHEN b.custid = b.srecommend THEN winlost-actual_stake ELSE swinlost+scomm-acomm END) -- super level
+						+ (CASE WHEN b.custid = b.mrecommend THEN winlost-actual_stake ELSE mwinlost+acomm-comm END) -- master level
+						+ (CASE WHEN b.custid = b.recommend THEN winlost-actual_stake ELSE awinlost+comm-playercomm END) -- agent level
+						+ (CASE WHEN b.custid <> b.recommend AND b.custid <> b.mrecommend AND b.custid <> b.srecommend THEN winlost-actual_stake+playercomm ELSE 0 END) --member level
+				ELSE 0 
+				END AS totalBalance
+		) AS bal
+	WHERE b.winlostdate <= @currentDate
+		AND ruben = 1
+		AND statusID NOT IN (101,102,103)
+		AND b.bettype < 19999
+	GROUP BY si.custid
+	
+	INSERT #superBalance (CustID, Balance, BaseBalance)
+	SELECT 
+			si.custid
+			,SUM(bal.totalBalance) AS Balance
+			,SUM(bal.totalBalance*b.actualrate) AS BaseBalance
+	FROM #SuperInfo si
+		INNER JOIN dbo.[Transfer] b with (READPAST)
+			ON b.srecommend = si.custid AND si.roleId = 4
+		CROSS APPLY (
+			SELECT
+				--skip volatile rows during move bet process (see Balance_Direct_Master report)
+				CASE WHEN b.winlostdate > @MoveBetsDay AND bettype = 19999
 					THEN 0 ELSE 1 END
 				*
 				CASE 
@@ -144,42 +171,53 @@ BEGIN
 				ELSE 0 
 				END AS totalBalance
 		) AS bal
-		WHERE b.winlostdate <= @currentDate
-			AND ruben = 1
-			AND statusID NOT IN (101,102,103)
-			AND b.bettype NOT IN (21008, 21009)
-		GROUP BY si.custid
-	)
-	INSERT #superBalance (CustID, Balance, BaseBalance)
-	SELECT CustID, Balance, BaseBalance
-	FROM cte_bettrans
+	WHERE b.winlostdate <= @currentDate
+		AND statusID NOT IN (101,102,103)
+		AND b.bettype NOT IN (21008, 21009)
+	GROUP BY si.custid
 
 	-- re-CAL headline balance = [headline's all transfer]
 	IF(@isSearchHeadline = 1)
 	BEGIN
-		WITH CTE_HeadlineTransfer AS (
-			SELECT 
+		INSERT #superBalance (CustID, Balance, BaseBalance)
+		SELECT 
 				si.custid
 				,SUM(bal.winlost) AS Balance
 				,SUM(bal.winlost*b.actualrate) AS BaseBalance
-			FROM #SuperInfo si
+		FROM #SuperInfo si
 			INNER JOIN dbo.bettrans b with (READPAST) 
 				ON b.custid = si.custid AND si.roleId = 0
 			CROSS APPLY (
 				SELECT 
 				--skip volatile rows during move bet process (see Balance_Direct_Master report)
-				CASE WHEN (b.winlostdate > @MoveBetsDay AND bettype = 19999) OR (b.winlostdate <= @MoveBetsDay and bettype < 19999)
+				CASE WHEN b.winlostdate <= @MoveBetsDay 
 					THEN 0 ELSE 1 END
 				*
 				(winlost - actual_stake) AS winlost
 			) AS bal
-			WHERE b.winlostdate <= @currentDate
-				  AND b.bettype NOT IN (21008, 21009)
-			GROUP BY si.custid
-		)
+		WHERE b.winlostdate <= @currentDate
+			  AND b.bettype < 19999
+		GROUP BY si.custid
+		
 		INSERT #superBalance (CustID, Balance, BaseBalance)
-		SELECT CustID, Balance, BaseBalance
-		FROM CTE_HeadlineTransfer
+		SELECT 
+				si.custid
+				,SUM(bal.winlost) AS Balance
+				,SUM(bal.winlost*b.actualrate) AS BaseBalance
+		FROM #SuperInfo si
+			INNER JOIN dbo.[Transfer] b with (READPAST) 
+				ON b.custid = si.custid AND si.roleId = 0
+			CROSS APPLY (
+				SELECT 
+				--skip volatile rows during move bet process (see Balance_Direct_Master report)
+				CASE WHEN b.winlostdate > @MoveBetsDay AND bettype = 19999
+					THEN 0 ELSE 1 END
+				*
+				(winlost - actual_stake) AS winlost
+			) AS bal
+		WHERE b.winlostdate <= @currentDate
+			  AND b.bettype NOT IN (21008, 21009)
+		GROUP BY si.custid
 	END
 
 	IF @IsViewTotalOnly = 0	

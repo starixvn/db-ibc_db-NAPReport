@@ -162,10 +162,11 @@ BEGIN
 	GROUP BY b.mrecommend
 	
 	SELECT mi.custid, mi.username, mi.currency 
-		, ISNULL(bal.Balance,0) AS Balance
-		, ISNULL(bal.BaseBalance,0) AS BaseBalance
+		, ISNULL(SUM(bal.Balance),0) AS Balance
+		, ISNULL(SUM(bal.BaseBalance),0) AS BaseBalance
 	FROM #MasterInfo mi
 		LEFT JOIN #Data bal ON bal.custid = mi.custid
+	GROUP BY mi.custid, mi.username, mi.currency 
 	ORDER BY mi.username   
 
 	DROP TABLE #MasterInfo
