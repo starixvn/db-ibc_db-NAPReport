@@ -26,6 +26,7 @@ AS
 		- 20210616@Danny: Support @BaseCurrencyName with Licensee Performance view mode (#156727)
 		- 20210727@Danny: HNI Email/Letstalk - Change the formula to calculate House Income, Pay To Supplier for Arcadia Gaming/PP Promotion tickets (#158971)
 		- 20210803@Danny: Change Data Source to retrieve yesterday data from Bettrans table (#151993)
+		- 20210917@Danny: Split Basketball betbuilder (#160737)
 */
 BEGIN
     SET NOCOUNT ON
@@ -356,14 +357,14 @@ BEGIN
 					SET @ToDateByBatch = @TDateGetData
 				
 				INSERT INTO #__tempData (rptDate, SiteId, BetTypeId, CurrencyId, Winloss)
-				SELECT f.rptDate, s.LicenseeId, CASE WHEN f.BetType = 38 THEN -3 ELSE -1 END, f.CurrencyId, SUM(CASE WHEN f.BetType = 38 THEN winlossP + commissionS ELSE winlossP + winlossA + winlossM + winlossS + commissionS END)
+				SELECT f.rptDate, s.LicenseeId, CASE WHEN f.BetType = 38 THEN CASE WHEN f.SportType = 2 THEN -4 ELSE -3 END ELSE -1 END, f.CurrencyId, SUM(CASE WHEN f.BetType = 38 THEN winlossP + commissionS ELSE winlossP + winlossA + winlossM + winlossS + commissionS END)
 				FROM bodb_Account.dbo.FactSiteWinloss f WITH (NOLOCK)
 					INNER JOIN @tmpSite s ON f.SiteId = s.SiteId_DW
 				WHERE f.rptDate BETWEEN @FromDateByBatch AND @ToDateByBatch
 					AND f.TicketStatus NOT IN (-1, 18, 9, 10, 14)
 					AND f.CurrencyId <> 20
 					AND (f.BetType = 38 OR f.BetType BETWEEN 801 AND 899)
-				GROUP BY f.rptDate, s.LicenseeId, CASE WHEN f.BetType = 38 THEN -3 ELSE -1 END, f.CurrencyId
+				GROUP BY f.rptDate, s.LicenseeId, CASE WHEN f.BetType = 38 THEN CASE WHEN f.SportType = 2 THEN -4 ELSE -3 END ELSE -1 END, f.CurrencyId
 				OPTION (RECOMPILE)
 
 				SELECT @FromDateByBatch = DATEADD(DAY, 1, @ToDateByBatch)
@@ -403,7 +404,7 @@ BEGIN
 			SELECT d.rptDate, 0, a.IsDeposit, 0, d.BetTypeId, d.CurrencyId, d.CurrencyId
 				,SUM(CASE 
 						WHEN d.BetTypeId = -2 THEN Winloss * e.Rate
-						WHEN d.BetTypeId = -3 THEN Winloss * e.Rate * 0.04
+						WHEN d.BetTypeId IN (-3, -4) THEN Winloss * e.Rate * 0.04
 						WHEN (-d.Winloss * p.Rate * e.Rate < 0 AND m.MinAmount = 0) OR -d.Winloss * p.Rate * e.Rate >= m.MinAmount
 								THEN CASE WHEN -d.Winloss * p.Rate * e.Rate > m.MaxAmount THEN -(m.MaxAmount - m.MinAmount) ELSE -(-d.Winloss * p.Rate * e.Rate - m.MinAmount) END * m.Rate 
 						ELSE 0 END)
@@ -607,7 +608,7 @@ BEGIN
 		FROM (
 			SELECT IsDeposit, Product3rdId, ParentId, Bettype, SUM(PayMonthRate) AS PayToSupplier
 			FROM #__tempResult
-			WHERE Product3rdId IN (10, 24) OR (Product3rdId = 0 AND Bettype IN (-1, -3))
+			WHERE Product3rdId IN (10, 24) OR (Product3rdId = 0 AND Bettype IN (-1, -3, -4))
 			GROUP BY IsDeposit, Product3rdId, ParentId, Bettype
 			HAVING SUM(PayMonthRate) < 0
 		) t
@@ -628,7 +629,7 @@ BEGIN
 		SELECT IsDeposit, Product3rdId, CASE WHEN Product3rdId = 0 THEN Bettype ELSE 0 END, SUM(PayMonthRate), SUM(BonusRate)
 		FROM #__tempResult
 		WHERE Product3rdId NOT IN (10, 24)
-			AND (Product3rdId <> 0 OR Bettype NOT IN (-1, -3))
+			AND (Product3rdId <> 0 OR Bettype NOT IN (-1, -3, -4))
 			AND (IsDeposit = 1 OR Product3rdId NOT IN (32, 65))
 			AND (IsDeposit = 0 OR Product3rdId <> 39)
 		GROUP BY IsDeposit, Product3rdId, CASE WHEN Product3rdId = 0 THEN Bettype ELSE 0 END
@@ -739,6 +740,7 @@ BEGIN
 				UNION ALL SELECT ''Soccer'', PayToSupplier, ''Pay to Metric Gaming'' WHERE ProductCode = ''SB-1''
 				UNION ALL SELECT ''OS'', PayToSupplier, ''Pay to Muay Thai'' WHERE ProductCode = ''SB-2''
 				UNION ALL SELECT ''Soccer'', PayToSupplier, ''Pay to Bet Genius'' WHERE ProductCode = ''SB-3''
+				UNION ALL SELECT ''Basketball'', PayToSupplier, ''Pay to Bet Genius'' WHERE ProductCode = ''SB-4''
 			) f
 		) t
 		PIVOT (

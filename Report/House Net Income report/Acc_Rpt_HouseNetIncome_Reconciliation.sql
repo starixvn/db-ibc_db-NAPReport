@@ -15,6 +15,7 @@ AS
 		- 20210706@Danny: Change HouseIncome calculation formula (#157953)
 		- 20210830@Danny: Integrate Bitcoin Product (#159045)
 		- 20211125@Danny: Add BA information (#165135)
+		- 20210917@Danny: Prorated minfee for the group min fee (#160737)
 */
 BEGIN
 	SET NOCOUNT ON
@@ -116,30 +117,7 @@ BEGIN
 		INSERT INTO #PartyChargeByCurrencyInfo (ChargeId, CurrencyId, Rate)
 		EXEC (@SQL)
 
-		DECLARE @PartyCharge3rd TABLE (PartyId INT, ChargeType INT, FromDate DATE, ToDate DATE, Rate FLOAT)
-		SELECT @SQL = '	SELECT PartyId, ChargeType, FromDate, ToDate, Rate
-						FROM OPENQUERY (DBLIC, ''SELECT DISTINCT PartyId, ChargeType, FromDate, ToDate, CASE WHEN ProductId = 10 THEN 0 ELSE DI_Rate END AS Rate
-												 FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd (''''' + @f_date + ''''', ''''' + @t_date + ''''', ''''SB'''', ''''OA'''')
-												 WHERE DI_Rate > 0
-													AND (
-														ChargeType = 1
-														OR (ChargeType IN (9, 10, 12) AND ProductId = 11) -- GD
-													)'')'
-		INSERT INTO @PartyCharge3rd (PartyId, ChargeType, FromDate, ToDate, Rate)
-		EXEC (@SQL)
 
-		CREATE TABLE #PartyCharge3rdInfo (ChargeType INT, PartyId INT, FromDate DATE, ToDate DATE, Rate FLOAT)
-		INSERT INTO #PartyCharge3rdInfo (ChargeType, PartyId, FromDate, ToDate, Rate)
-		SELECT p3.ChargeType, p.PartyId, p3.FromDate, p3.ToDate, p3.Rate
-		FROM @PartyCharge3rd p3
-			INNER JOIN #PartyChargeInfo p ON p.PartyId = p3.PartyId
-
-		INSERT INTO #PartyCharge3rdInfo (ChargeType, PartyId, FromDate, ToDate, Rate)
-		SELECT p3.ChargeType, p.PartyId, p3.FromDate, p3.ToDate, p3.Rate
-		FROM @PartyCharge3rd p3
-			INNER JOIN #AllLicensees l ON p3.PartyId = l.ParentId
-			INNER JOIN #PartyChargeInfo p ON p.PartyId = l.PartyId
-		WHERE NOT EXISTS (SELECT 1 FROM #PartyCharge3rdInfo rd WHERE p.PartyId = rd.PartyId)
 	END
 
 	-- Get mapping site
@@ -161,8 +139,8 @@ BEGIN
 
 	-- Get data
 	BEGIN
-		CREATE TABLE #__tempData (rptDate DATE, ProductID INT, SiteId_DW INT, CurrencyId INT, MemberWL MONEY, AgentWL MONEY, AgentComm MONEY, OddsSpreadAdj MONEY)
-		CREATE CLUSTERED INDEX CIX_tempData ON #__tempData (ProductID, SiteId_DW, rptDate)
+		CREATE TABLE #__tempData (rptDate DATE, ProductID INT ,SiteId_DW INT, CurrencyId INT, MemberWL MONEY, AgentWL MONEY, AgentComm MONEY, OddsSpreadAdj MONEY)
+		CREATE CLUSTERED INDEX CIX_tempData ON #__tempData (SiteId_DW, rptDate, ProductID)
 
 		SELECT @FromDateByBatch = @FDate
 
@@ -173,8 +151,11 @@ BEGIN
 			IF @ToDateByBatch > @TDate
 				SET @ToDateByBatch = @TDate
 		
-			INSERT INTO #__tempData (rptDate, ProductID ,SiteId_DW, CurrencyId, MemberWL, AgentWL, AgentComm, OddsSpreadAdj)
-			SELECT rptDate, ProductID, SiteId, CurrencyId
+			INSERT INTO #__tempData (rptDate, ProductID, SiteId_DW, CurrencyId, MemberWL, AgentWL, AgentComm, OddsSpreadAdj)
+			SELECT rptDate
+				,ProductId
+				,SiteId
+				,CurrencyId
 				,SUM(MemberWinloss) AS MemberWL
 				,SUM(AgentWinloss)	AS AgentWL
 				,SUM(AgentComm)		AS AgentComm
@@ -182,11 +163,11 @@ BEGIN
 			FROM bodb_Account.dbo.FactLADailyWinloss WITH (NOLOCK)
 			WHERE rptDate BETWEEN @FromDateByBatch AND @ToDateByBatch
 				AND SiteId IN (SELECT SiteId_DW FROM #__tmpSite)
-				AND ProductId IN (10001, 10070, 10004) -- (SB, BTC, BA)
+				AND ProductId IN (10001, 10070, 10004) -- SB only And Bitcoin And BA
 				AND Bettype NOT IN (901, 902, 903, 904)
 				AND CurrencyId <> 20
 				AND TicketStatus NOT IN (-1, 18, 9, 10, 14)
-			GROUP BY rptDate, ProductID, SiteId, CurrencyId
+			GROUP BY rptDate, SiteId, CurrencyId, ProductId
 			OPTION (RECOMPILE)
 
 			SELECT @FromDateByBatch = DATEADD(DAY, 1, @ToDateByBatch)
@@ -208,29 +189,8 @@ BEGIN
 			,AgentComm_oa MONEY
 			,HouseWL_oa MONEY
 			,HouseIncome_oa MONEY
-
-			, IsApplyMinFee BIT DEFAULT (1)
 		)
 		CREATE CLUSTERED INDEX CIX_tempResult ON #__tempResult (PartyId, rptDate)
-
-
-		CREATE TABLE #__tempResult_SB (
-			rptDate DATETIME
-			,PartyId INT
-			-- SystemRate
-			,MemberWL_e MONEY
-			,AgentWL_e MONEY
-			,AgentComm_e MONEY
-			,HouseWL_e MONEY
-			,HouseIncome_e MONEY
-			-- Oanda Rate
-			,MemberWL_oa MONEY
-			,AgentWL_oa MONEY
-			,AgentComm_oa MONEY
-			,HouseWL_oa MONEY
-			,HouseIncome_oa MONEY
-		)
-		CREATE CLUSTERED INDEX CIX_tempResultSB ON #__tempResult_SB (PartyId, rptDate)
 
 		CREATE TABLE #__tempResult_BA (
 			rptDate DATETIME
@@ -252,7 +212,7 @@ BEGIN
 		)
 		CREATE CLUSTERED INDEX CIX_tempResult_BTC ON #__tempResult_BTC (PartyId)
 
-		-- BTC only
+
 		INSERT INTO #__tempResult_BTC(PartyId, HouseIncome_e, HouseIncome_oa)
 		SELECT 	l.PartyId
 				,HouseIncome_e	= SUM(((- t.MemberWL) * ISNULL(lc.Rate, p.Rate)) * e.Rate)
@@ -265,6 +225,39 @@ BEGIN
 		INNER JOIN @ExchangeOANDA oa ON t.CurrencyId = oa.ExchangeId
 		WHERE t.ProductID = 10070
 		GROUP BY l.PartyId
+
+		INSERT INTO #__tempResult (	rptDate 
+									,PartyId 
+									,MemberWL_e 
+									,AgentWL_e 
+									,AgentComm_e 
+									,HouseWL_e 
+									,HouseIncome_e 
+									,MemberWL_oa 
+									,AgentWL_oa
+									,AgentComm_oa 
+									,HouseWL_oa 
+									,HouseIncome_oa
+									)
+		SELECT t.rptDate, l.PartyId
+			,MemberWL_e		= SUM(t.MemberWL * e.Rate)
+			,AgentWL_e		= SUM(t.AgentWL * e.Rate)
+			,AgentComm_e	= SUM(t.AgentComm * e.Rate)
+			,HouseWL_e		= SUM(-(t.MemberWL + t.AgentWL + t.AgentComm) * e.Rate)
+			,HouseIncome_e	= SUM(((- t.MemberWL) * ISNULL(lc.Rate, p.Rate) - t.OddsSpreadAdj) * e.Rate)
+			,MemberWL_oa	= SUM(t.MemberWL * oa.Rate)
+			,AgentWL_oa		= SUM(t.AgentWL * oa.Rate)
+			,AgentComm_oa	= SUM(t.AgentComm * oa.Rate)
+			,HouseWL_oa		= SUM(-(t.MemberWL + t.AgentWL + t.AgentComm) * oa.Rate)
+			,HouseIncome_oa = SUM(((- t.MemberWL) * ISNULL(lc.Rate, p.Rate) - t.OddsSpreadAdj) * oa.Rate)
+		FROM #__tempData t
+			INNER JOIN #AllLicensees l ON t.SiteId_DW = l.SiteId_DW
+			INNER JOIN #PartyChargeInfo p ON p.PartyId = l.PartyId AND t.rptDate BETWEEN p.FromDate AND p.ToDate
+			LEFT JOIN #PartyChargeByCurrencyInfo lc ON p.ChargeId = lc.ChargeId AND t.CurrencyId = lc.CurrencyId
+			INNER JOIN #Exchange e ON t.CurrencyId = e.ExchangeId AND t.rptDate = e.ExchangeDate
+			INNER JOIN @ExchangeOANDA oa ON t.CurrencyId = oa.ExchangeId
+		WHERE t.ProductID = 10001
+		GROUP BY t.rptDate, l.PartyId
 
 		INSERT INTO #__tempResult_BA (	rptDate 
 										,PartyId 
@@ -286,345 +279,33 @@ BEGIN
 		WHERE t.ProductID = 10004
 		GROUP BY t.rptDate, l.PartyId
 
-		INSERT INTO #__tempResult_SB (rptDate, PartyId, MemberWL_e, AgentWL_e, AgentComm_e, HouseWL_e, HouseIncome_e, MemberWL_oa, AgentWL_oa, AgentComm_oa, HouseWL_oa, HouseIncome_oa)
-		SELECT t.rptDate, l.PartyId
-			,MemberWL_e		= SUM(t.MemberWL * e.Rate)
-			,AgentWL_e		= SUM(t.AgentWL * e.Rate)
-			,AgentComm_e	= SUM(t.AgentComm * e.Rate)
-			,HouseWL_e		= SUM(-(t.MemberWL + t.AgentWL + t.AgentComm) * e.Rate)
-			,HouseIncome_e	= SUM(((- t.MemberWL) * ISNULL(lc.Rate, p.Rate) - t.OddsSpreadAdj) * e.Rate)
-			,MemberWL_oa	= SUM(t.MemberWL * oa.Rate)
-			,AgentWL_oa		= SUM(t.AgentWL * oa.Rate)
-			,AgentComm_oa	= SUM(t.AgentComm * oa.Rate)
-			,HouseWL_oa		= SUM(-(t.MemberWL + t.AgentWL + t.AgentComm) * oa.Rate)
-			,HouseIncome_oa = SUM(((- t.MemberWL) * ISNULL(lc.Rate, p.Rate) - t.OddsSpreadAdj) * oa.Rate)
-		FROM #__tempData t
-			INNER JOIN #AllLicensees l ON t.SiteId_DW = l.SiteId_DW
-			INNER JOIN #PartyChargeInfo p ON p.PartyId = l.PartyId AND t.rptDate BETWEEN p.FromDate AND p.ToDate
-			LEFT JOIN #PartyChargeByCurrencyInfo lc ON p.ChargeId = lc.ChargeId AND t.CurrencyId = lc.CurrencyId
-			INNER JOIN #Exchange e ON t.CurrencyId = e.ExchangeId AND t.rptDate = e.ExchangeDate
-			INNER JOIN @ExchangeOANDA oa ON t.CurrencyId = oa.ExchangeId
-		WHERE t.ProductID = 10001
-		GROUP BY t.rptDate, l.PartyId
 
-		INSERT INTO #__tempResult (rptDate, PartyId, MemberWL_e, AgentWL_e, AgentComm_e, HouseWL_e, HouseIncome_e, MemberWL_oa, AgentWL_oa, AgentComm_oa, HouseWL_oa, HouseIncome_oa)
-		SELECT t.rptDate, l.PartyId
-			,MemberWL_e		= SUM(t.MemberWL * e.Rate)
-			,AgentWL_e		= SUM(t.AgentWL * e.Rate)
-			,AgentComm_e	= SUM(t.AgentComm * e.Rate)
-			,HouseWL_e		= SUM(-(t.MemberWL + t.AgentWL + t.AgentComm) * e.Rate)
-			,HouseIncome_e	= SUM(((- t.MemberWL) * ISNULL(lc.Rate, p.Rate) - t.OddsSpreadAdj) * e.Rate)
-			,MemberWL_oa	= SUM(t.MemberWL * oa.Rate)
-			,AgentWL_oa		= SUM(t.AgentWL * oa.Rate)
-			,AgentComm_oa	= SUM(t.AgentComm * oa.Rate)
-			,HouseWL_oa		= SUM(-(t.MemberWL + t.AgentWL + t.AgentComm) * oa.Rate)
-			,HouseIncome_oa = SUM(((- t.MemberWL) * ISNULL(lc.Rate, p.Rate) - t.OddsSpreadAdj) * oa.Rate)
-		FROM #__tempData t
-			INNER JOIN #AllLicensees l ON t.SiteId_DW = l.SiteId_DW
-			INNER JOIN #PartyChargeInfo p ON p.PartyId = l.PartyId AND t.rptDate BETWEEN p.FromDate AND p.ToDate
-			LEFT JOIN #PartyChargeByCurrencyInfo lc ON p.ChargeId = lc.ChargeId AND t.CurrencyId = lc.CurrencyId
-			INNER JOIN #Exchange e ON t.CurrencyId = e.ExchangeId AND t.rptDate = e.ExchangeDate
-			INNER JOIN @ExchangeOANDA oa ON t.CurrencyId = oa.ExchangeId
-		WHERE t.ProductID IN (10001, 10070)
-		GROUP BY t.rptDate, l.PartyId
 	END
 
-		-- Licensee Min Fee
+	-- Licensee Min Fee (get data from LA core function - supported OANDA rate Only)
 	BEGIN
-		DECLARE @FirstDate		DATETIME = DATEADD(MONTH, DATEDIFF(MONTH, 0, @FDate), 0)
-		DECLARE @LastDate		DATETIME = DATEADD(DAY, -1, DATEADD(MONTH, 1, @FirstDate))
-		DECLARE @DaysInMonth	INT = DATEDIFF(DAY, @FirstDate, @LastDate) + 1
-
-		DECLARE @MinFee TABLE
+		DECLARE @LicenseeFeeAndRebateDiscount TABLE
 		(
-			FeeTypeId			TINYINT -- 1: normal, 2: waive
-			,GroupMinFeeId		SMALLINT
-			,PartyId			INT
-			,IsPrimary			BIT
-			,CurrencyId         INT
-			,FromDate			DATE
-			,ToDate				DATE
-			
-			,IndividualMinFee_e		MONEY -- Setting min fee
-			,ProrateMinFee_e		MONEY
-			,WaivedFee_e			MONEY
-			,LicenseeFee_e			MONEY
-			,ActualFee_e			MONEY
-
-			,IndividualMinFee_oa	MONEY -- Setting min fee
-			,ProrateMinFee_oa		MONEY
-			,WaivedFee_oa			MONEY
-			,LicenseeFee_oa			MONEY
-			,ActualFee_oa			MONEY
+			PartyId INT, ProductId INT, LicensingFeeTypeId TINYINT, GrossLicensingFee MONEY, LicensingFee MONEY, ExtraAmount MONEY, IsChargedByGroupMinFee BIT, IsChargedByMinFee BIT
+			,Discount MONEY, DiscountRate MONEY, DiscountRemark NVARCHAR(4000), Rebate MONEY, RebateRate MONEY, RebateRemark NVARCHAR(4000)
 		)
-		INSERT INTO @MinFee
+		INSERT INTO @LicenseeFeeAndRebateDiscount
 		(
-			FeeTypeId
-			,GroupMinFeeId
-			,PartyId
-			,IsPrimary
-			,CurrencyId
-			,IndividualMinFee_e
-			,IndividualMinFee_oa
-			,FromDate
-			,ToDate
+				PartyId, ProductId, LicensingFeeTypeId, GrossLicensingFee, LicensingFee, ExtraAmount, IsChargedByGroupMinFee, IsChargedByMinFee
+				,Discount, DiscountRate, DiscountRemark, Rebate, RebateRate, RebateRemark
 		)
-		SELECT
-			FeeTypeId
-			,-PartyId AS GroupMinFeeId
-			,PartyId
-			,0 AS IsPrimary
-			,CurrencyId
-			,FeeAmount
-			,FeeAmount
-			,CASE WHEN @FDate > FromDate THEN @FDate ELSE FromDate END AS FromDate
-			,CASE WHEN @TDate < ToDate THEN @TDate ELSE ToDate END AS ToDate
-		FROM DBLIC.bodb_licensee.dbo.LA_MinFee WITH (NOLOCK)
-		WHERE FeeTypeId IN (1, 2)
-			AND FromDate <= @LastDate AND ToDate >= @FirstDate
-			AND ProductId = 0
+		EXEC DBLIC.bodb_licensee.dbo.LA_AmountToCompanyByProduct
+			@PartyIds				= @PartyIds
+			,@ProductCodes			= 'SB'
+			,@Currencies			= ''
+			,@FromDate				= @FDate
+			,@ToDate				= @TDate
+			,@IsConvertExRate		= 1
+			,@LicensingFeeTypeIds	= '0'
+			,@BaseCurrencyName		= 'MYR'
 
-		DECLARE @GroupMinFeeSetting TABLE (PartyId INT, GroupMinFeeId SMALLINT, IsPrimary BIT, Product3rdId	INT, CurrencyId INT, FromDate DATE, ToDate DATE)
-		SELECT @SQL = '	SELECT PartyId, GroupMinFeeId, IsPrimary, ProductId, CurrencyId, FromDate, ToDate
-						FROM OPENQUERY (DBLIC, ''	SELECT TOP (1) WITH TIES a.PartyId, 
-																				h.GroupMinFeeId, 
-																				a.IsPrimary, 
-																				d.ProductId, 
-																				d.CurrencyId,
-																				CASE WHEN ''''' + @f_date + ''''' > h.FromDate THEN ''''' + @f_date + ''''' ELSE h.FromDate END AS FromDate,
-																				CASE WHEN ''''' + @t_date + ''''' < h.ToDate   THEN ''''' + @t_date + ''''' ELSE h.ToDate END AS ToDate
-													FROM bodb_Licensee.dbo.LA_GroupMinFeeAssignment a WITH (NOLOCK)
-														INNER JOIN bodb_Licensee.dbo.LA_GroupMinFeeHeader h WITH (NOLOCK) ON a.GroupMinFeeId = h.GroupMinFeeId
-														INNER JOIN bodb_Licensee.dbo.LA_GroupMinFeeDetail d WITH (NOLOCK) ON a.GroupMinFeeId = d.GroupMinFeeId
-													WHERE ''''' + @f_date + ''''' BETWEEN h.FromDate AND h.ToDate
-													ORDER BY ROW_NUMBER() OVER(PARTITION BY a.PartyID, d.ProductId ORDER BY h.ToDate DESC)'')'
-		INSERT INTO @GroupMinFeeSetting (PartyId, GroupMinFeeId, IsPrimary, Product3rdId, CurrencyId, FromDate, ToDate)
-		EXEC (@SQL)
-
-		UPDATE m
-		SET m.GroupMinFeeId = g.GroupMinFeeId, m.IsPrimary = g.IsPrimary, m.IndividualMinFee_e = 0, m.IndividualMinFee_oa = 0
-		FROM @MinFee m
-			INNER JOIN @GroupMinFeeSetting g ON m.PartyId = g.PartyId
-
-		--GET more group Minfee
-		INSERT INTO @MinFee(FeeTypeId,GroupMinFeeId,PartyId,IsPrimary,CurrencyId,IndividualMinFee_e,IndividualMinFee_oa,FromDate,ToDate)
-		SELECT 1, g.GroupMinFeeId, g.PartyId, g.IsPrimary, g.CurrencyId , 0, 0,g.FromDate, g.ToDate
-		FROM	@GroupMinFeeSetting g
-			LEFT JOIN @MinFee m ON g.PartyId = m.PartyId
-		WHERE m.PartyId IS NULL
-
-		UPDATE m
-		SET m.IndividualMinFee_e = m.IndividualMinFee_e * e.Rate, m.IndividualMinFee_oa = m.IndividualMinFee_oa * oa.Rate
-		FROM @MinFee m
-			INNER JOIN #Exchange e ON m.CurrencyId = e.ExchangeId AND e.ExchangeDate = @TDate
-			INNER JOIN @ExchangeOANDA oa ON m.CurrencyId = oa.ExchangeId
-		WHERE m.GroupMinFeeId < 0
-
-		UPDATE t
-		SET t.IsApplyMinFee = 0
-		FROM #__tempResult t
-			INNER JOIN @MinFee m ON t.PartyId = m.PartyId AND t.rptDate BETWEEN m.FromDate AND m.ToDate
-		WHERE m.FeeTypeId = 2
-
-		UPDATE m1
-		SET m1.ProrateMinFee_e = (
-					(
-						SELECT TOP 1 m2.IndividualMinFee_e
-						FROM @MinFee m2
-						WHERE m2.FeeTypeId = 1 AND m1.PartyId = m2.PartyId
-					) / @DaysInMonth) * (DATEDIFF(DAY, FromDate, ToDate) + 1)
-			,m1.WaivedFee_e = ISNULL(
-					(
-						SELECT SUM(r.HouseIncome_e)
-						FROM #__tempResult r
-						WHERE m1.PartyId = r.PartyId AND r.rptDate BETWEEN m1.FromDate AND m1.ToDate
-					), 0)
-			,m1.ProrateMinFee_oa = (
-					(
-						SELECT TOP 1 m2.IndividualMinFee_oa
-						FROM @MinFee m2
-						WHERE m2.FeeTypeId = 1 AND m1.PartyId = m2.PartyId
-					) / @DaysInMonth) * (DATEDIFF(DAY, FromDate, ToDate) + 1)
-			,m1.WaivedFee_oa = ISNULL(
-					(
-						SELECT SUM(r.HouseIncome_oa)
-						FROM #__tempResult r
-						WHERE m1.PartyId = r.PartyId AND r.rptDate BETWEEN m1.FromDate AND m1.ToDate
-					), 0)
-		FROM @MinFee m1
-		WHERE m1.FeeTypeId = 2
-
-		UPDATE m1
-		SET m1.ProrateMinFee_e = ROUND(
-								(m1.IndividualMinFee_e / @DaysInMonth) * (DATEDIFF(DAY, FromDate, ToDate) + 1)
-								- ISNULL((
-									SELECT SUM(m2.ProrateMinFee_e)
-									FROM @MinFee m2
-									WHERE m2.FeeTypeId = 2 AND m1.PartyId = m2.PartyId
-									), 0)
-								, 2)
-			,m1.WaivedFee_e = ISNULL((
-									SELECT SUM(m2.WaivedFee_e)
-									FROM @MinFee m2
-									WHERE m2.FeeTypeId = 2 AND m1.PartyId = m2.PartyId
-									HAVING SUM(m2.WaivedFee_e) > 0
-								), 0)
-			,m1.LicenseeFee_e = ISNULL((
-									SELECT SUM(r.HouseIncome_e)
-									FROM #__tempResult r
-									WHERE m1.PartyId = r.PartyId AND r.IsApplyMinFee = 1 AND r.rptDate BETWEEN m1.FromDate AND m1.ToDate
-								), 0)
-			,m1.ProrateMinFee_oa = ROUND(
-								(m1.IndividualMinFee_oa / @DaysInMonth) * (DATEDIFF(DAY, FromDate, ToDate) + 1)
-								- ISNULL((
-									SELECT SUM(m2.ProrateMinFee_oa)
-									FROM @MinFee m2
-									WHERE m2.FeeTypeId = 2 AND m1.PartyId = m2.PartyId
-									), 0)
-								, 2)
-			,m1.WaivedFee_oa = ISNULL((
-									SELECT SUM(m2.WaivedFee_oa)
-									FROM @MinFee m2
-									WHERE m2.FeeTypeId = 2 AND m1.PartyId = m2.PartyId
-									HAVING SUM(m2.WaivedFee_e) > 0
-								), 0)
-			,m1.LicenseeFee_oa = ISNULL((
-									SELECT SUM(r.HouseIncome_oa)
-									FROM #__tempResult r
-									WHERE m1.PartyId = r.PartyId AND r.IsApplyMinFee = 1 AND r.rptDate BETWEEN m1.FromDate AND m1.ToDate
-								), 0)
-		FROM @MinFee m1
-		WHERE m1.FeeTypeId = 1
-
-		DELETE @MinFee WHERE FeeTypeId = 2
-
-		UPDATE @MinFee
-		SET ActualFee_e = CASE
-							WHEN LicenseeFee_e < ProrateMinFee_e THEN ProrateMinFee_e
-							ELSE LicenseeFee_e END + WaivedFee_e
-			,ActualFee_oa = CASE
-							WHEN LicenseeFee_oa < ProrateMinFee_oa THEN ProrateMinFee_oa
-							ELSE LicenseeFee_oa END + WaivedFee_oa
-
-		-- Group min fee
-		DECLARE @GroupMinFee TABLE
-		(
-			GroupMinFeeId	INT
-			,CurrencyId		INT
-			,Rebate			MONEY DEFAULT(0)
-			,Discount		MONEY DEFAULT(0)
-			
-			,GroupMinFee_e	MONEY DEFAULT(0)
-			,HouseWL_e		MONEY DEFAULT(0)
-			,LicenseeFee_e	MONEY DEFAULT(0)
-
-			,GroupMinFee_oa	MONEY DEFAULT(0)
-			,HouseWL_oa		MONEY DEFAULT(0)
-			,LicenseeFee_oa	MONEY DEFAULT(0)
-		)
-		INSERT INTO @GroupMinFee (GroupMinFeeId, CurrencyId, GroupMinFee_e, GroupMinFee_oa)
-		SELECT TOP(1) WITH TIES GroupMinFeeID, CurrencyId, MinimumFee, MinimumFee
-		FROM DBLIC.bodb_Licensee.dbo.LA_GroupMinFeeDetail WITH (NOLOCK)
-		WHERE @FDate BETWEEN FromDate AND ToDate
-			AND ProductId = 0
-		ORDER BY ROW_NUMBER() OVER(PARTITION BY GroupMinFeeId ORDER BY ToDate DESC)
-
-		UPDATE g
-		SET g.GroupMinFee_e = g.GroupMinFee_e * e.Rate, g.GroupMinFee_oa = g.GroupMinFee_oa * oa.Rate
-		FROM @GroupMinFee g
-			INNER JOIN #Exchange e ON e.ExchangeId = g.CurrencyId AND e.ExchangeDate = @TDate
-			INNER JOIN @ExchangeOANDA oa ON oa.ExchangeId = g.CurrencyId
-
-		-- HouseWL
-		UPDATE g
-		SET g.HouseWL_e = ISNULL(m.HouseWL_e, 0), g.HouseWL_oa = ISNULL(m.HouseWL_oa, 0)
-		FROM @GroupMinFee g
-			CROSS APPLY (
-				SELECT SUM(CASE WHEN m.LicenseeFee_e > 0 THEN m.LicenseeFee_e ELSE 0 END + m.WaivedFee_e) AS HouseWL_e
-					,SUM(CASE WHEN m.LicenseeFee_oa > 0 THEN m.LicenseeFee_oa ELSE 0 END + m.WaivedFee_oa) AS HouseWL_oa
-				FROM @MinFee m
-				WHERE g.GroupMinFeeId = m.GroupMinFeeId 
-			) m
-		
-		-- Include left over min fee into primary licensees
-		UPDATE m
-		SET m.ActualFee_e = CASE
-								WHEN g.HouseWL_e >= g.GroupMinFee_e THEN ActualFee_e
-								WHEN m.LicenseeFee_e < 0 THEN g.GroupMinFee_e - g.HouseWL_e
-								ELSE m.LicenseeFee_e + g.GroupMinFee_e - g.HouseWL_e END
-			,m.ActualFee_oa = CASE
-								WHEN g.HouseWL_oa >= g.GroupMinFee_oa THEN ActualFee_oa
-								WHEN m.LicenseeFee_oa < 0 THEN g.GroupMinFee_oa - g.HouseWL_oa
-								ELSE m.LicenseeFee_oa + g.GroupMinFee_oa - g.HouseWL_oa END
-		FROM @MinFee m
-			INNER JOIN @GroupMinFee g ON g.GroupMinFeeId = m.GroupMinFeeId
-		WHERE m.IsPrimary = 1
-
-		-- Licensee Fee & Licensee Min Fee
-		UPDATE g
-		SET g.LicenseeFee_e = ISNULL(m.ActualFee_e, 0), g.LicenseeFee_oa = ISNULL(m.ActualFee_oa, 0)
-		FROM @GroupMinFee g
-			CROSS APPLY (
-				SELECT SUM(m.ActualFee_e) AS ActualFee_e, SUM(m.ActualFee_oa) AS ActualFee_oa
-				FROM @MinFee m
-				WHERE g.GroupMinFeeId = m.GroupMinFeeId
-			) m
-
-		-- Rebate & Discount
-		DECLARE @DiscountGroup TABLE (PartyId INT)
-		SELECT @SQL = 'SELECT PartyId
-						FROM OPENQUERY (DBLIC, ''	SELECT TOP(1) WITH TIES da.PartyId
-													FROM bodb_Licensee.dbo.LA_DiscountGroupHeader dh WITH (NOLOCK)
-														INNER JOIN bodb_Licensee.dbo.LA_DiscountGroupAssignment da WITH (NOLOCK) ON da.DiscountGroupId = dh.DiscountGroupId
-														INNER JOIN bodb_Licensee.dbo.LA_DiscountGroupProduct dp WITH (NOLOCK) ON dp.DiscountGroupId = dh.DiscountGroupId
-													WHERE dh.FromDate <= ''''' + @t_date + ''''' AND dh.ToDate >= ''''' + @f_date + '''''
-														AND dp.ProductId = 0
-													ORDER BY ROW_NUMBER() OVER(PARTITION BY da.PartyId ORDER BY dh.ToDate DESC)'')'
-		INSERT INTO @DiscountGroup (PartyId)
-		EXEC (@SQL)
-
-		;WITH CTE_PartyId AS (SELECT DISTINCT PartyId FROM @DiscountGroup)
-		SELECT @Discount_PartyIds = COALESCE(@Discount_PartyIds + ',', '') + CONVERT(VARCHAR(20), PartyId) FROM CTE_PartyId
-
-		DECLARE @DiscountData TABLE
-		(
-			PartyId				INT
-			,ProductId			INT
-			,Winloss			MONEY
-			,Fee				MONEY
-			,NegativeFee		MONEY
-			,Minfee				MONEY
-			,IsChargedByMinFee	BIT
-			,Discount			MONEY
-			,DiscountRate		MONEY
-			,DiscountRemark		NVARCHAR(MAX)
-			,Rebate				MONEY
-			,RebateRate			MONEY
-			,RebateRemark		VARCHAR(MAX)
-		)
-		INSERT INTO @DiscountData
-		(
-			PartyId
-			,ProductId
-			,Winloss
-			,Fee
-			,NegativeFee
-			,Minfee
-			,IsChargedByMinFee
-			,Discount
-			,DiscountRate
-			,DiscountRemark
-			,Rebate
-			,RebateRate
-			,RebateRemark
-		)
-		EXEC DBLIC.bodb_licensee.dbo.LA_AmountToCompanySel
-			@FromDate		= @FDate
-			,@ToDate		= @TDate
-			,@PartyIds		= @Discount_PartyIds
-			,@ProductCodes	= 'SB'
-			,@BaseCurrency	= 'MYR'
-			,@CurrencyId	= 0
+		DELETE @LicenseeFeeAndRebateDiscount
+		WHERE ProductId <> 0
 
 		DECLARE @tmpResult_BA TABLE
 		(
@@ -637,13 +318,12 @@ BEGIN
 			,LicenseeWL_oa		MONEY DEFAULT(0)
 			,BAcomm_oa			MONEY DEFAULT(0)
 			,LicenseeFee_oa		MONEY DEFAULT(0)
-		)
 
+		)
+		
 		DECLARE @tmpResult TABLE
 		(
 			PartyId			INT
-			,GroupMinFeeId	INT
-			,IsPrimaryFee	BIT DEFAULT(0)
 			,Rebate				MONEY DEFAULT(0)
 			,RebateRate			MONEY DEFAULT(0)
 			,Discount			MONEY DEFAULT(0)
@@ -671,98 +351,34 @@ BEGIN
 				,LicenseeWL_oa	= SUM(-MemberWL_oa)
 				,HouseWL_oa		= SUM(HouseWL_oa)
 				,HouseIncome_oa	= SUM(HouseIncome_oa)
-			FROM #__tempResult_SB
+			FROM #__tempResult
 			GROUP BY PartyId
-		), CTE_Result AS (
-			SELECT
-				PartyId			= ISNULL(t.PartyId, m.PartyId)
-				,GroupMinFeeId	= ISNULL(m.GroupMinFeeId, -t.PartyId)
-				,LicenseeWL_e	= ISNULL(t.LicenseeWL_e, 0)
-				,HouseWL_e		= ISNULL(t.HouseWL_e, 0)
-				,HouseIncome_e	= ISNULL(t.HouseIncome_e, 0)
-				,LicenseeWL_oa	= ISNULL(t.LicenseeWL_oa, 0)
-				,HouseWL_oa		= ISNULL(t.HouseWL_oa, 0)
-				,HouseIncome_oa = ISNULL(t.HouseIncome_oa, 0)
-			FROM CTE_tempResult t
-				FULL OUTER JOIN @MinFee m ON t.PartyId = m.PartyId
 		)
-		INSERT INTO @tmpResult (PartyId, GroupMinFeeId, LicenseeWL_e, HouseWL_e, HouseIncome_e, LicenseeWL_oa, HouseWL_oa, HouseIncome_oa)
-		SELECT r.PartyId, r.GroupMinFeeId, r.LicenseeWL_e, r.HouseWL_e, r.HouseIncome_e, r.LicenseeWL_oa, r.HouseWL_oa, r.HouseIncome_oa
+		,CTE_Result AS (
+			SELECT
+				PartyId				= m.PartyId
+				,LicenseeWL_e		= ISNULL(t.LicenseeWL_e, 0)
+				,HouseWL_e			= ISNULL(t.HouseWL_e, 0)
+				,HouseIncome_e		= ISNULL(t.HouseIncome_e, 0)
+				,LicenseeWL_oa		= ISNULL(t.LicenseeWL_oa, 0)
+				,HouseWL_oa			= ISNULL(t.HouseWL_oa, 0)
+				,HouseIncome_oa		= ISNULL(t.HouseIncome_oa, 0)
+				,Rebate				= m.Rebate
+				,RebateRate			= m.RebateRate
+				,Discount			= m.Discount
+				,DiscountRate		= m.DiscountRate
+				,LicenseeMinFee_e	= CASE WHEN m.IsChargedByGroupMinFee = 1 OR m.IsChargedByMinFee = 1 THEN m.LicensingFee + m.ExtraAmount ELSE 0 END 					
+				,LicenseeFee_e		= CASE WHEN m.IsChargedByGroupMinFee = 0 AND m.IsChargedByMinFee = 0 THEN m.LicensingFee + m.ExtraAmount ELSE 0 END
+								
+				,LicenseeMinFee_oa	= CASE WHEN m.IsChargedByGroupMinFee = 1 OR m.IsChargedByMinFee = 1 THEN m.LicensingFee + m.ExtraAmount ELSE 0 END
+				,LicenseeFee_oa		= CASE WHEN m.IsChargedByGroupMinFee = 0 AND m.IsChargedByMinFee = 0 THEN m.LicensingFee + m.ExtraAmount ELSE 0 END
+			FROM @LicenseeFeeAndRebateDiscount m 
+				LEFT JOIN CTE_tempResult t ON t.PartyId = m.PartyId
+		)
+		INSERT INTO @tmpResult (PartyId, LicenseeWL_e, HouseWL_e, HouseIncome_e, LicenseeWL_oa, HouseWL_oa, HouseIncome_oa, Rebate, RebateRate, Discount, DiscountRate, LicenseeMinFee_e, LicenseeFee_e, LicenseeMinFee_oa, LicenseeFee_oa)
+		SELECT r.PartyId, r.LicenseeWL_e, r.HouseWL_e, r.HouseIncome_e, r.LicenseeWL_oa, r.HouseWL_oa, r.HouseIncome_oa, r.Rebate, r.RebateRate, r.Discount, r.DiscountRate, r.LicenseeMinFee_e, r.LicenseeFee_e, r.LicenseeMinFee_oa, r.LicenseeFee_oa
 		FROM CTE_Result r
-			INNER JOIN (SELECT DISTINCT PartyId FROM #PartyChargeInfo) p ON p.PartyId = r.PartyId
 
-		DELETE @tmpResult WHERE GroupMinFeeId IS NULL
-
-		UPDATE s
-		SET s.IsPrimaryFee		= m.IsPrimary
-			,s.Rebate			= ISNULL(d.Rebate, 0)
-			,s.RebateRate		= ISNULL(d.RebateRate, 0)
-			,s.Discount			= ISNULL(d.Discount, 0)
-			,s.DiscountRate		= ISNULL(d.DiscountRate, 0)
-			,s.LicenseeMinFee_e		= CASE
-										WHEN m.PartyId IS NULL THEN 0
-										WHEN m.LicenseeFee_e + m.WaivedFee_e = m.ActualFee_e THEN 0
-										ELSE m.ActualFee_e END
-			,s.LicenseeFee_e		= CASE
-										WHEN m.PartyId IS NULL THEN s.HouseIncome_e
-										WHEN m.LicenseeFee_e + m.WaivedFee_e = m.ActualFee_e THEN m.ActualFee_e
-										ELSE 0 END
-			,s.LicenseeMinFee_oa	= CASE
-										WHEN m.PartyId IS NULL THEN 0
-										WHEN m.LicenseeFee_oa + m.WaivedFee_oa = m.ActualFee_oa THEN 0
-										ELSE m.ActualFee_oa END
-			,s.LicenseeFee_oa		= CASE
-										WHEN m.PartyId IS NULL THEN s.HouseIncome_oa
-										WHEN m.LicenseeFee_oa + m.WaivedFee_oa = m.ActualFee_oa THEN m.ActualFee_oa
-										ELSE 0 END
-		FROM @tmpResult s
-			LEFT JOIN @MinFee m ON m.PartyId = s.PartyId
-			LEFT JOIN @DiscountData d ON d.PartyId = s.PartyId
-
-		UPDATE g
-		SET g.Rebate = ISNULL(d.Rebate, 0), g.Discount = ISNULL(d.Discount, 0)
-		FROM @GroupMinFee g
-			CROSS APPLY (
-				SELECT SUM(s.Rebate) AS Rebate, SUM(s.Discount) AS Discount
-				FROM @tmpResult s
-				WHERE s.GroupMinFeeId = g.GroupMinFeeId
-			) d
-
-		UPDATE s
-		SET s.LicenseeFee_e		= CASE
-									WHEN s.Discount = 0 THEN 0
-									ELSE s.LicenseeFee_e + (g.GroupMinFee_e - (g.LicenseeFee_e - g.Discount)) END
-			,s.LicenseeMinFee_e = CASE
-									WHEN s.Discount <> 0 THEN 0
-									ELSE s.LicenseeMinFee_e + (g.GroupMinFee_e - (g.LicenseeFee_e - g.Discount)) END
-		FROM @tmpResult s
-			INNER JOIN @GroupMinFee g ON s.GroupMinFeeId = g.GroupMinFeeId
-		WHERE s.GroupMinFeeId > 0
-			AND (g.LicenseeFee_e - g.Discount) < g.GroupMinFee_e
-			AND s.IsPrimaryFee = 1
-
-		UPDATE s
-		SET s.LicenseeFee_oa	= CASE
-									WHEN s.Discount = 0 THEN 0
-									ELSE s.LicenseeFee_oa + (g.GroupMinFee_oa - (g.LicenseeFee_oa - g.Discount)) END
-			,s.LicenseeMinFee_oa = CASE
-									WHEN s.Discount <> 0 THEN 0
-									ELSE s.LicenseeMinFee_oa + (g.GroupMinFee_oa - (g.LicenseeFee_oa - g.Discount)) END
-		FROM @tmpResult s
-			INNER JOIN @GroupMinFee g ON s.GroupMinFeeId = g.GroupMinFeeId
-		WHERE s.GroupMinFeeId > 0
-			AND (g.LicenseeFee_oa - g.Discount) < g.GroupMinFee_oa
-			AND s.IsPrimaryFee = 1
-
-		UPDATE r
-		SET r.LicenseeFee_e = CASE WHEN r.LicenseeFee_e > 0 THEN r.LicenseeFee_e ELSE 0 END
-			,r.LicenseeFee_oa = CASE WHEN r.LicenseeFee_oa > 0 THEN r.LicenseeFee_oa ELSE 0 END
-		FROM @tmpResult r
-		WHERE r.PartyId NOT IN (
-					SELECT p.PartyId FROM DBLIC.bodb_Licensee.dbo.OAS_Party p WITH (NOLOCK)
-					WHERE p.PartyName IN ('9wickets', '9Wsports', '9w')
-				)
-		
 		UPDATE t
 		SET t.LicenseeFee_e =  ISNULL(LicenseeFee_e, 0) - ISNULL(u.HouseIncome_e,0),
 			t.LicenseeFee_oa = ISNULL(LicenseeFee_oa, 0) - ISNULL(u.HouseIncome_oa,0)
@@ -810,6 +426,7 @@ BEGIN
 	INSERT INTO #__HousePT (PartyId, CurrencyId, HousePT)
 	EXEC DBACC.bodb02.dbo.Acc_Licensee_HousePT @Sites = @Sites, @SiteCurrencies = @SiteCurrencies
 
+
 	-- BA sheet data
 	BEGIN	
 		INSERT INTO @tmpResult_BA(PartyId, LicenseeWL_e, BAcomm_e, LicenseeFee_e, LicenseeWL_oa, BAcomm_oa, LicenseeFee_oa)
@@ -828,13 +445,10 @@ BEGIN
 	-- Return Data
 	CREATE TABLE #__Result (OrderId TINYINT, PartyId INT, Product VARCHAR(10), SiteName VARCHAR(50)
 		,MemberWL_SysRate MONEY, MemberWL_OaRate MONEY, LicenseeWL_SysRate MONEY, LicenseeWL_OaRate MONEY
-		,HousePT VARCHAR(200), HouseWL_SysRate MONEY, HouseWL_OaRate MONEY
-		,ChargeRate VARCHAR(200), GrossLicenseeFee_SysRate MONEY, GrossLicenseeFee_OaRate MONEY
-		,LicenseeMinFee_SysRate MONEY, LicenseeMinFee_OaRate MONEY, LicenseeFee_SysRate MONEY, LicenseeFee_OaRate MONEY
-		,LicenseeFeeAfterMinFee_SysRate MONEY, LicenseeFeeAfterMinFee_OaRate MONEY
-		,RebateRate FLOAT, Rebate MONEY, DiscountRate FLOAT, Discount MONEY, RebateDiscount MONEY
-		,ActualLicenseeFee_SysRate MONEY, ActualLicenseeFee_OaRate MONEY)
-
+		,HousePT VARCHAR(200), HouseWL_SysRate MONEY, HouseWL_OaRate MONEY,ChargeRate VARCHAR(200)
+		, GrossLicenseeFee_SysRate MONEY, GrossLicenseeFee_OaRate MONEY, LicenseeMinFee_OaRate MONEY
+		, LicenseeFee_OaRate MONEY, LicenseeFeeAfterMinFee_OaRate MONEY, RebateRate FLOAT, Rebate MONEY
+		, DiscountRate FLOAT, Discount MONEY, RebateDiscount MONEY, ActualLicenseeFee_OaRate MONEY)
 
 	CREATE TABLE #__Result_BA (OrderId TINYINT, PartyId INT, Product VARCHAR(10), SiteName VARCHAR(50)
 		,MemberWL_SysRate MONEY, MemberWL_OaRate MONEY, LicenseeWL_SysRate MONEY, LicenseeWL_OaRate MONEY
@@ -879,14 +493,15 @@ BEGIN
 		INNER JOIN DBLIC.bodb_Licensee.dbo.view_site_list s WITH (NOLOCK) ON l.LicenseeId = s.SiteId
 	WHERE ISNULL(tr.LicenseeWL_e, 0) <> 0 OR ISNULL(tr.BAcomm_e, 0) <> 0
 
+
 	INSERT INTO #__Result (OrderId, PartyId, Product, SiteName
 		,MemberWL_SysRate, MemberWL_OaRate, LicenseeWL_SysRate, LicenseeWL_OaRate
 		,HousePT, HouseWL_SysRate, HouseWL_OaRate
 		,ChargeRate, GrossLicenseeFee_SysRate, GrossLicenseeFee_OaRate
-		,LicenseeMinFee_SysRate, LicenseeMinFee_OaRate, LicenseeFee_SysRate, LicenseeFee_OaRate
-		,LicenseeFeeAfterMinFee_SysRate, LicenseeFeeAfterMinFee_OaRate
+		,LicenseeMinFee_OaRate, LicenseeFee_OaRate
+		,LicenseeFeeAfterMinFee_OaRate
 		,RebateRate, Rebate, DiscountRate, Discount, RebateDiscount
-		,ActualLicenseeFee_SysRate, ActualLicenseeFee_OaRate)
+		, ActualLicenseeFee_OaRate)
 	SELECT
 		1 AS OrderId
 		,0 AS PartyId
@@ -902,18 +517,14 @@ BEGIN
 		,NULL	AS ChargeRate
 		,SUM(ISNULL(tr.HouseIncome_e, 0))		AS GrossLicenseeFee_SysRate
 		,SUM(ISNULL(tr.HouseIncome_oa, 0))		AS GrossLicenseeFee_OaRate
-		,SUM(ISNULL(tr.LicenseeMinFee_e, 0))	AS LicenseeMinFee_SysRate
 		,SUM(ISNULL(tr.LicenseeMinFee_oa, 0))	AS LicenseeMinFee_OaRate
-		,SUM(ISNULL(tr.LicenseeFee_e, 0))		AS LicenseeFee_SysRate
 		,SUM(ISNULL(tr.LicenseeFee_oa, 0))		AS LicenseeFee_OaRate
-		,SUM(ISNULL(tr.ActualWLFee_e, 0))		AS LicenseeFeeAfterMinFee_SysRate
 		,SUM(ISNULL(tr.ActualWLFee_oa, 0))		AS LicenseeFeeAfterMinFee_OaRate
 		,NULL							AS RebateRate
 		,SUM(ISNULL(tr.Rebate, 0))		AS Rebate
 		,NULL							AS DiscountRate
 		,SUM(ISNULL(tr.Discount, 0))	AS Discount
 		,SUM(ISNULL(tr.Rebate, 0) + ISNULL(tr.Discount, 0)) AS RebateDiscount
-		,SUM(ISNULL(tr.ActualWLFee_e, 0) - ISNULL(tr.Discount, 0) - ISNULL(tr.Rebate, 0))	AS ActualLicenseeFee_SysRate
 		,SUM(ISNULL(tr.ActualWLFee_oa, 0) - ISNULL(tr.Discount, 0) - ISNULL(tr.Rebate, 0))	AS ActualLicenseeFee_OaRate
 	FROM @tmpResult tr
 
@@ -933,18 +544,14 @@ BEGIN
 		,''	AS ChargeRate
 		,ISNULL(tr.HouseIncome_e, 0)	AS GrossLicenseeFee_SysRate
 		,ISNULL(tr.HouseIncome_oa, 0)	AS GrossLicenseeFee_OaRate
-		,ISNULL(tr.LicenseeMinFee_e, 0)		AS LicenseeMinFee_SysRate
 		,ISNULL(tr.LicenseeMinFee_oa, 0)	AS LicenseeMinFee_OaRate
-		,ISNULL(tr.LicenseeFee_e, 0)		AS LicenseeFee_SysRate
 		,ISNULL(tr.LicenseeFee_oa, 0)		AS LicenseeFee_OaRate
-		,ISNULL(tr.ActualWLFee_e, 0)		AS LicenseeFeeAfterMinFee_SysRate
 		,ISNULL(tr.ActualWLFee_oa, 0)		AS LicenseeFeeAfterMinFee_OaRate
 		,ISNULL(tr.RebateRate, 0)	AS RebateRate
 		,ISNULL(tr.Rebate, 0)		AS Rebate
 		,ISNULL(tr.DiscountRate, 0) AS DiscountRate
 		,ISNULL(tr.Discount, 0)		AS Discount
 		,ISNULL(tr.Rebate, 0) + ISNULL(tr.Discount, 0) AS RebateDiscount
-		,ISNULL(tr.ActualWLFee_e, 0) - ISNULL(tr.Discount, 0) - ISNULL(tr.Rebate, 0) AS ActualLicenseeFee_SysRate
 		,ISNULL(tr.ActualWLFee_oa, 0) - ISNULL(tr.Discount, 0) - ISNULL(tr.Rebate, 0) AS ActualLicenseeFee_OaRate
 	FROM @tmpResult tr
 		INNER JOIN #AllLicensees l ON tr.PartyId = l.PartyId
@@ -995,23 +602,31 @@ BEGIN
 		INNER JOIN CTE_HousePTByCurrency c ON r.PartyId = c.PartyId
 	WHERE r.Product = 'SB'
 
-	SELECT Product, SiteName
-		,MemberWL_SysRate, MemberWL_OaRate, LicenseeWL_SysRate, LicenseeWL_OaRate
-		,HousePT, HouseWL_SysRate, HouseWL_OaRate
-		,ChargeRate, GrossLicenseeFee_SysRate, GrossLicenseeFee_OaRate,
-		--,LicenseeMinFee_SysRate, 
-		LicenseeMinFee_OaRate, 
-		--LicenseeFee_SysRate, 
-		LicenseeFee_OaRate,
-		--LicenseeFeeAfterMinFee_SysRate, 
-		LicenseeFeeAfterMinFee_OaRate
-		,RebateRate, Rebate, DiscountRate, Discount, RebateDiscount,
-		--ActualLicenseeFee_SysRate, 
-		ActualLicenseeFee_OaRate
+	SELECT Product
+		,SiteName
+		,MemberWL_SysRate
+		,MemberWL_OaRate
+		,LicenseeWL_SysRate
+		,LicenseeWL_OaRate
+		,HousePT
+		,HouseWL_SysRate
+		,HouseWL_OaRate
+		,ChargeRate
+		,GrossLicenseeFee_SysRate
+		,GrossLicenseeFee_OaRate
+		,LicenseeMinFee_OaRate
+		,LicenseeFee_OaRate
+		,LicenseeFeeAfterMinFee_OaRate
+		,RebateRate
+		,Rebate
+		,DiscountRate
+		,Discount
+		,RebateDiscount
+		,ActualLicenseeFee_OaRate
 	FROM #__Result
 	ORDER BY OrderId, SiteName
 
-	SELECT Product
+		SELECT Product
 		,SiteName
 		,MemberWL_SysRate
 		,MemberWL_OaRate
@@ -1028,14 +643,13 @@ BEGIN
 	DROP TABLE #__Result
 	DROP TABLE #__Result_BA
 	DROP TABLE #__tempData
-	DROP TABLE #__tempResult
-	DROP TABLE #__tempResult_SB
 	DROP TABLE #__tempResult_BA
+	DROP TABLE #__tempResult_BTC
+	DROP TABLE #__tempResult
 	DROP TABLE #__tmpSite
 	DROP TABLE #AllLicensees
 	DROP TABLE #Exchange
 	DROP TABLE #Licensees
-	DROP TABLE #PartyCharge3rdInfo
 	DROP TABLE #PartyChargeByCurrencyInfo
 	DROP TABLE #PartyChargeInfo
 END
