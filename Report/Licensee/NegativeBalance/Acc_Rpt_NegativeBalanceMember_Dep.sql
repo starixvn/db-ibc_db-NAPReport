@@ -17,6 +17,7 @@ AS
 		- 20110530@Kiwi: Get currencyname from exchange for temporary to avoid the mistake from deposit site once inserting 'Q' instead 'INH' for VND
 		- 20121116@Henry: change DB from DB06 to DB052 + remove dummy members
 		- 20210507@Jaden.Tang: Adjust code to prevent reading dupplicated in bettrans & bettrans14 during move bet process (#154649)
+		- 20211118@Cherry: Split transfer table (#164378)
 	Param's Explanation:
 	• @Site: All - get all
 			 12Bet: particular site
@@ -51,8 +52,7 @@ SET NOCOUNT ON
 			b.custid, 
 			s.currencyName, 
 			ROUND(SUM(
-				CASE WHEN (b.winlostdate > @MoveBetsDay AND bettype = 19999) 
-						OR (b.winlostdate <= @MoveBetsDay and bettype < 19999)
+				CASE WHEN b.winlostdate <= @MoveBetsDay
 					THEN 0 --skip volatile rows during move bet process
 					ELSE winlost-actual_stake + playercomm END 
 				)
@@ -62,19 +62,40 @@ SET NOCOUNT ON
 			INNER JOIN @Super s ON b.srecommend = s.custid
 			INNER JOIN bodb_licensee.dbo.LicenseeCust lc WITH (NOLOCK) ON b.recommend = lc.custid
 	WHERE	
-			b.statusID NOT IN (0,1)
+			b.statusID NOT IN (0,1) AND b.bettype < 19999
 	GROUP BY b.custid, s.currencyName, s.site
 	HAVING ROUND(SUM(winlost-actual_stake + playercomm),2) < 0
 	
+	INSERT INTO #Data (site,custid,currencyName,Balance)
+	SELECT	s.site, 
+			b.custid, 
+			s.currencyName, 
+			ROUND(SUM(
+				CASE WHEN (b.winlostdate > @MoveBetsDay AND bettype = 19999) 						
+					THEN 0 --skip volatile rows during move bet process
+					ELSE winlost-actual_stake + playercomm END 
+				)
+			,2) AS Balance
+	FROM 
+			[Transfer] b WITH(NOLOCK,INDEX=IX_srecommend)
+			INNER JOIN @Super s ON b.srecommend = s.custid
+			INNER JOIN bodb_licensee.dbo.LicenseeCust lc WITH (NOLOCK) ON b.recommend = lc.custid
+	WHERE	
+			b.statusID NOT IN (0,1)
+	GROUP BY b.custid, s.currencyName, s.site
+	HAVING ROUND(SUM(winlost-actual_stake + playercomm),2) < 0
 		
 	SELECT	
 		site,
 		username,
 		currencyname,
-		balance
+		SUM(balance) balance
 	FROM #Data d
 	INNER JOIN Custinfo c WITH (NOLOCK) ON d.custid = c.custid
 	WHERE c.roleid =1
+	GROUP BY site,
+		username,
+		currencyname
 	ORDER BY site,username
 	
 	DROP TABLE #Data
