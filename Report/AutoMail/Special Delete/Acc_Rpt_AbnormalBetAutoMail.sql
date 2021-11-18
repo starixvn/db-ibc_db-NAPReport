@@ -17,6 +17,7 @@ AS
 		- 20200325@Robert: [NAP] - Implement Daily Auto Mail for Abnormal Bets - [121920] - add more ExternalID
 		- 20200615@Robert: NAP Report - Adjustment CN88's Abnormal Bet report - [135393]
 		- 20211013@Jaden: Change datatype for ipv6 (#162587)
+		- 20211105@Cherry: Support void mix parlay (#164192)
 
 	Param's Explanation:	 
 */
@@ -39,7 +40,7 @@ AS
 		 , homeid            INT
 		 , awayid            INT
 		 , kickofftime       DATETIME
-		 , liveindicator     BIT
+		 , liveindicator     TINYINT
 		 , bettype           SMALLINT
 		 , betteam           VARCHAR(10)
 		 , SubIssueTypeId    TINYINT
@@ -118,7 +119,7 @@ AS
 				, m.homeid
 				, m.awayid
 				, m.GlobalShowTime
-				, b.liveindicator
+				, CASE WHEN b.bettype = 29 THEN b.livehomescore ELSE b.liveindicator END
 				, b.bettype
 				, b.betteam
 				, tmp.SubIssueTypeId
@@ -185,54 +186,54 @@ AS
 	   FROM #Data d
 		  INNER JOIN #TmpBettype bt ON d.bettype = bt.bettype;
 
-	   SELECT d.sporttype
-		   , d.leagueid
-		   , d.homeid
-		   , d.awayid
-		   , d.kickofftime
+	   SELECT CASE WHEN d.bettype = 29 THEN NULL ELSE d.sporttype END sporttype
+		   , CASE WHEN d.bettype = 29 THEN NULL ELSE d.leagueid END leagueid
+		   , CASE WHEN d.bettype = 29 THEN NULL ELSE d.homeid END homeid
+		   , CASE WHEN d.bettype = 29 THEN NULL ELSE d.awayid END awayid
+		   , CASE WHEN d.bettype = 29 THEN NULL ELSE d.kickofftime END kickofftime
 		   , d.liveindicator
-		   , d.bettype
-		   , d.betteam
+		   , CASE WHEN d.bettype = 29 AND d.betteam = '1' THEN 9 ELSE d.bettype END bettype
+		   , CASE WHEN bettype = 29 THEN '-' ELSE d.betteam END betteam
 		   , ss.SubIssueTypeName + ' ' + ss.SubIssueTypeNameCS AS Reason
-		   , d.finalhomescore
-		   , d.finalawayscore
+		   , CASE WHEN d.bettype = 29 THEN NULL ELSE d.finalhomescore END finalhomescore
+		   , CASE WHEN d.bettype = 29 THEN NULL ELSE d.finalawayscore END finalawayscore
 		   , COUNT(DISTINCT site) AS NumberOfLicensees
 		   , COUNT(TransId) AS NumberOfTickets
 	   FROM #Data AS d
 		  INNER JOIN bodb02.dbo.TicketVoiding_SubIssueType AS ss WITH(NOLOCK) ON d.SubIssueTypeID = ss.SubIssueTypeId
-	   GROUP BY d.sporttype
-			, d.leagueid
-			, d.homeid
-			, d.awayid
-			, d.kickofftime
+	   GROUP BY CASE WHEN d.bettype = 29 THEN NULL ELSE d.sporttype END
+			, CASE WHEN d.bettype = 29 THEN NULL ELSE d.leagueid END
+			, CASE WHEN d.bettype = 29 THEN NULL ELSE d.homeid END
+			, CASE WHEN d.bettype = 29 THEN NULL ELSE d.awayid END
+			, CASE WHEN d.bettype = 29 THEN NULL ELSE d.kickofftime END
 			, d.liveindicator
-			, d.bettype
-			, d.betteam
+			, CASE WHEN d.bettype = 29 AND d.betteam = '1' THEN 9 ELSE d.bettype END
+			, CASE WHEN bettype = 29 THEN '-' ELSE d.betteam END
 			, ss.SubIssueTypeName + ' ' + ss.SubIssueTypeNameCS
-			, d.finalhomescore
-			, d.finalawayscore;
+			, CASE WHEN d.bettype = 29 THEN NULL ELSE d.finalhomescore END
+			, CASE WHEN d.bettype = 29 THEN NULL ELSE d.finalawayscore END
 
 	   SELECT TransId
-		   , sporttype
-		   , leagueid
-		   , homeid
-		   , awayid
-		   , kickofftime
+		   , CASE WHEN d.bettype = 29 THEN NULL ELSE sporttype END sporttype
+		   , CASE WHEN d.bettype = 29 THEN NULL ELSE leagueid END leagueid
+		   , CASE WHEN d.bettype = 29 THEN NULL ELSE homeid END homeid
+		   , CASE WHEN d.bettype = 29 THEN NULL ELSE awayid END awayid
+		   , CASE WHEN d.bettype = 29 THEN NULL ELSE kickofftime END kickofftime
 		   , liveindicator
-		   , bettype
-		   , betteam
+		   , CASE WHEN d.bettype = 29 AND d.betteam = '1' THEN 9 ELSE d.bettype END bettype
+		   , CASE WHEN bettype = 29 THEN '-' ELSE betteam END betteam
 		   , ss.SubIssueTypeName + ' ' + ss.SubIssueTypeNameCS AS Reason
-		   , finalhomescore
-		   , finalawayscore
+		   , CASE WHEN d.bettype = 29 THEN NULL ELSE finalhomescore END finalhomescore
+		   , CASE WHEN d.bettype = 29 THEN NULL ELSE finalawayscore END finalawayscore
 		   , site
 		   , Username
 		   , Username2
-		   , odds
+		   , CASE WHEN bettype = 29 THEN NULL ELSE odds END odds
 		   , CurrencyName
 		   , stake
-		   , HDP
-		   , livehomescore
-		   , liveawayscore
+		   , CASE WHEN bettype = 29 THEN NULL ELSE HDP END HDP
+		   , CASE WHEN bettype = 29 THEN NULL ELSE livehomescore END livehomescore
+		   , CASE WHEN bettype = 29 THEN NULL ELSE liveawayscore END liveawayscore
 		   , transdate
 		   , ip
 		   , AfterPT

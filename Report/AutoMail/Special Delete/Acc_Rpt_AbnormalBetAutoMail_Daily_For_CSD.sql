@@ -12,6 +12,7 @@ AS
 	Revisions:		
 		- 20191205@Robert: NAP Report - Automate daily abnormal bets report for CSD [122800]
 		- 20191226@Robert: NAP Report - Automate daily abnormal bets report for CSD [122800] - change request
+		- 20211105@Cherry: Support void mix parlay (#164192)
 
 	Param's Explanation:	 
 */
@@ -33,7 +34,7 @@ AS
 		 , homeid            INT
 		 , awayid            INT
 		 , GlobalShowTime    DATETIME
-		 , liveindicator     BIT
+		 , liveindicator     TINYINT
 		 , bettype           SMALLINT
 		 , SubIssueTypeId    TINYINT
 		 , hthomescore       INT
@@ -55,17 +56,38 @@ AS
 								, TransId
 								, SubIssueTypeId
 								, CreatedDate)
-			SELECT tvh.RequestId
-				, tv.TransId
-				, tv.SubIssueTypeID
-				, tv.CreatedDate
-			FROM dbo.TicketVoiding_VoidedTransaction AS tv WITH(NOLOCK)
-			    INNER JOIN dbo.TicketVoiding_VoidingHistory AS tvh WITH(NOLOCK) ON tv.reasonid = tvh.reasonid
-			    INNER JOIN dbo.bettrans AS bt WITH(NOLOCK) ON tv.TransId = bt.transid
-			    INNER JOIN dbo.match AS m WITH(NOLOCK) ON m.matchid = bt.matchid
-			WHERE tv.IssueTypeID = 11
-				 AND m.eventdate >= @RptDate_From
-				 AND m.eventdate < @RptDate_To OPTION(MAXDOP 1);
+		SELECT tvh.RequestId
+			, tv.TransId
+			, tv.SubIssueTypeID
+			, tv.CreatedDate
+		FROM dbo.TicketVoiding_VoidedTransaction AS tv WITH(NOLOCK)
+		    INNER JOIN dbo.TicketVoiding_VoidingHistory AS tvh WITH(NOLOCK) ON tv.reasonid = tvh.reasonid
+		    INNER JOIN dbo.bettrans AS bt WITH(NOLOCK) ON tv.TransId = bt.transid
+		    INNER JOIN dbo.match AS m WITH(NOLOCK) ON m.matchid = bt.matchid
+		WHERE tv.IssueTypeID = 11
+			 AND bt.bettype <> 29
+			 AND m.eventdate >= @RptDate_From
+			 AND m.eventdate < @RptDate_To 
+				 
+		OPTION(MAXDOP 1)
+		
+		INSERT INTO #TmpVoidedTransaction(RequestId
+								, TransId
+								, SubIssueTypeId
+								, CreatedDate)
+		SELECT tvh.RequestId
+			, tv.TransId
+			, tv.SubIssueTypeID
+			, tv.CreatedDate
+		FROM dbo.TicketVoiding_VoidedTransaction AS tv WITH(NOLOCK)
+		    INNER JOIN dbo.TicketVoiding_VoidingHistory AS tvh WITH(NOLOCK) ON tv.reasonid = tvh.reasonid
+		    INNER JOIN dbo.bettrans AS bt WITH(NOLOCK) ON tv.TransId = bt.transid
+		WHERE tv.IssueTypeID = 11
+			 AND bt.bettype = 29
+			 AND bt.winlostdate >= @RptDate_From
+			 AND bt.winlostdate < @RptDate_To 
+				 
+		OPTION(MAXDOP 1)	 
 
 	   CREATE CLUSTERED INDEX IX_TransId_RequestId ON #TmpVoidedTransaction(TransId ASC, RequestId ASC);
 
@@ -106,8 +128,8 @@ AS
 				, m.homeid
 				, m.awayid
 				, m.GlobalShowTime
-				, b.liveindicator
-				, b.bettype
+				, CASE WHEN b.bettype = 29 THEN b.livehomescore ELSE b.liveindicator END
+				, CASE WHEN b.bettype = 29 AND b.betteam = '1' THEN 9 ELSE b.bettype END
 				, tmp.SubIssueTypeId
 				, m.hthomescore
 				, m.htawayscore
@@ -150,16 +172,16 @@ AS
 
 	   SELECT b.RequestId
 		   , @RptDate AS Date
-		   , b.sporttype
-		   , b.leagueid
-		   , b.homeid
-		   , b.awayid
-		   , b.GlobalShowTime
-		   , b.CreatedDate
-		   , b.hthomescore
-		   , b.htawayscore
-		   , b.finalhomescore
-		   , b.finalawayscore
+		   , CASE WHEN b.bettype IN (9,29) THEN NULL ELSE b.sporttype END sporttype
+		   , CASE WHEN b.bettype IN (9,29) THEN NULL ELSE b.leagueid END leagueid
+		   , CASE WHEN b.bettype IN (9,29) THEN NULL ELSE b.homeid END homeid
+		   , CASE WHEN b.bettype IN (9,29) THEN NULL ELSE b.awayid END awayid
+		   , CASE WHEN b.bettype IN (9,29) THEN NULL ELSE b.GlobalShowTime END GlobalShowTime
+		   , CASE WHEN b.bettype IN (9,29) THEN NULL ELSE b.CreatedDate END CreatedDate
+		   , CASE WHEN b.bettype IN (9,29) THEN NULL ELSE b.hthomescore END hthomescore
+		   , CASE WHEN b.bettype IN (9,29) THEN NULL ELSE b.htawayscore END htawayscore
+		   , CASE WHEN b.bettype IN (9,29) THEN NULL ELSE b.finalhomescore END finalhomescore
+		   , CASE WHEN b.bettype IN (9,29) THEN NULL ELSE b.finalawayscore END finalawayscore
 		   , b.Username
 		   , SUM(CASE
 				   WHEN b.liveindicator = 1
@@ -171,6 +193,11 @@ AS
 				   THEN 1
 				   ELSE 0
 			    END) AS NonLive
+		    , SUM(CASE
+				   WHEN b.liveindicator > 1
+				   THEN 1
+				   ELSE 0
+			    END) AS [Mixed]
 		   , COUNT(TransId) AS TotalOfTickets
 		   , ss.SubIssueTypeName AS Reason
 		   , b.AffectedSite
@@ -195,24 +222,24 @@ AS
 	   FROM #Data AS b
 		  INNER JOIN bodb02.dbo.TicketVoiding_SubIssueType AS ss WITH(NOLOCK) ON b.SubIssueTypeID = ss.SubIssueTypeId
 	   GROUP BY b.RequestId
-			, b.sporttype
-			, b.leagueid
-			, b.homeid
-			, b.awayid
-			, b.GlobalShowTime
-			, b.CreatedDate
+			, CASE WHEN b.bettype IN (9,29) THEN NULL ELSE b.sporttype END
+			, CASE WHEN b.bettype IN (9,29) THEN NULL ELSE b.leagueid END
+			, CASE WHEN b.bettype IN (9,29) THEN NULL ELSE b.homeid END
+			, CASE WHEN b.bettype IN (9,29) THEN NULL ELSE b.awayid END
+			, CASE WHEN b.bettype IN (9,29) THEN NULL ELSE b.GlobalShowTime END
+			, CASE WHEN b.bettype IN (9,29) THEN NULL ELSE b.CreatedDate END
 			, b.SubIssueTypeId
 			, ss.SubIssueTypeName
-			, b.hthomescore
-			, b.htawayscore
-			, b.finalhomescore
-			, b.finalawayscore
+			, CASE WHEN b.bettype IN (9,29) THEN NULL ELSE b.hthomescore END
+			, CASE WHEN b.bettype IN (9,29) THEN NULL ELSE b.htawayscore END
+			, CASE WHEN b.bettype IN (9,29) THEN NULL ELSE b.finalhomescore END
+			, CASE WHEN b.bettype IN (9,29) THEN NULL ELSE b.finalawayscore END
 			, b.Username
 			, b.AffectedSite
-	   ORDER BY b.sporttype
-			, b.leagueid
-			, b.homeid
-			, b.awayid;
+	   ORDER BY CASE WHEN b.bettype IN (9,29) THEN NULL ELSE b.sporttype END
+			, CASE WHEN b.bettype IN (9,29) THEN NULL ELSE b.leagueid END
+			, CASE WHEN b.bettype IN (9,29) THEN NULL ELSE b.homeid END
+			, CASE WHEN b.bettype IN (9,29) THEN NULL ELSE b.awayid END
 
 	   DROP TABLE #TmpVoidedTransaction;
 	   DROP TABLE #Data;
