@@ -19,7 +19,8 @@ Task : Voiding Settled Tickets
 DB: DBBAH.bodb02  
 Original SP:   
 Revisions:  
-	20201010@Cherry : Voiding Settled Tickets (#142454)	
+	20201010@Cherry : Voiding Settled Tickets (#142454)
+    20211201@Ned.Le : NAP Report - Incorporate new Cash Out model (#164998)
 	
 Param's Explanation:
 	@ProductGroupID: 
@@ -133,6 +134,7 @@ BEGIN
 		INNER JOIN bodb02.dbo.bettrans b (NOLOCK) ON z.custid = b.custid AND z.transid = b.transid 
 	WHERE b.Bettype in (SELECT Bettype FROM #Bettype)
 		  AND z.status in ('WON','LOSE','DRAW')
+          AND z.comstatus <> 'CO'
 		  AND b.winlostdate = @WinlostDate
 		  AND (@VoidTime = '' OR z.transdate >= @VoidTime)
 		  AND b.currency <> 20
