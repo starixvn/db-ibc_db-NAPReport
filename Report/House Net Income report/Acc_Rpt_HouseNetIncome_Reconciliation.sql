@@ -14,6 +14,7 @@ AS
 		- 20210708@Danny: Handle JV parties (#158191)
 		- 20210706@Danny: Change HouseIncome calculation formula (#157953)
 		- 20210830@Danny: Integrate Bitcoin Product (#159045)
+		- 20211125@Danny: Add BA information (#165135)
 */
 BEGIN
 	SET NOCOUNT ON
@@ -160,8 +161,8 @@ BEGIN
 
 	-- Get data
 	BEGIN
-		CREATE TABLE #__tempData (rptDate DATE, SiteId_DW INT, CurrencyId INT, MemberWL MONEY, AgentWL MONEY, AgentComm MONEY, OddsSpreadAdj MONEY)
-		CREATE CLUSTERED INDEX CIX_tempData ON #__tempData (SiteId_DW, rptDate)
+		CREATE TABLE #__tempData (rptDate DATE, ProductID INT, SiteId_DW INT, CurrencyId INT, MemberWL MONEY, AgentWL MONEY, AgentComm MONEY, OddsSpreadAdj MONEY)
+		CREATE CLUSTERED INDEX CIX_tempData ON #__tempData (ProductID, SiteId_DW, rptDate)
 
 		SELECT @FromDateByBatch = @FDate
 
@@ -172,8 +173,8 @@ BEGIN
 			IF @ToDateByBatch > @TDate
 				SET @ToDateByBatch = @TDate
 		
-			INSERT INTO #__tempData (rptDate, SiteId_DW, CurrencyId, MemberWL, AgentWL, AgentComm, OddsSpreadAdj)
-			SELECT rptDate, SiteId, CurrencyId
+			INSERT INTO #__tempData (rptDate, ProductID ,SiteId_DW, CurrencyId, MemberWL, AgentWL, AgentComm, OddsSpreadAdj)
+			SELECT rptDate, ProductID, SiteId, CurrencyId
 				,SUM(MemberWinloss) AS MemberWL
 				,SUM(AgentWinloss)	AS AgentWL
 				,SUM(AgentComm)		AS AgentComm
@@ -181,11 +182,11 @@ BEGIN
 			FROM bodb_Account.dbo.FactLADailyWinloss WITH (NOLOCK)
 			WHERE rptDate BETWEEN @FromDateByBatch AND @ToDateByBatch
 				AND SiteId IN (SELECT SiteId_DW FROM #__tmpSite)
-				AND ProductId IN (10001, 69) -- SB only And Bitcoin (not include BA)
+				AND ProductId IN (10001, 10070, 10004) -- (SB, BTC, BA)
 				AND Bettype NOT IN (901, 902, 903, 904)
 				AND CurrencyId <> 20
 				AND TicketStatus NOT IN (-1, 18, 9, 10, 14)
-			GROUP BY rptDate, SiteId, CurrencyId
+			GROUP BY rptDate, ProductID, SiteId, CurrencyId
 			OPTION (RECOMPILE)
 
 			SELECT @FromDateByBatch = DATEADD(DAY, 1, @ToDateByBatch)
@@ -212,6 +213,100 @@ BEGIN
 		)
 		CREATE CLUSTERED INDEX CIX_tempResult ON #__tempResult (PartyId, rptDate)
 
+
+		CREATE TABLE #__tempResult_SB (
+			rptDate DATETIME
+			,PartyId INT
+			-- SystemRate
+			,MemberWL_e MONEY
+			,AgentWL_e MONEY
+			,AgentComm_e MONEY
+			,HouseWL_e MONEY
+			,HouseIncome_e MONEY
+			-- Oanda Rate
+			,MemberWL_oa MONEY
+			,AgentWL_oa MONEY
+			,AgentComm_oa MONEY
+			,HouseWL_oa MONEY
+			,HouseIncome_oa MONEY
+		)
+		CREATE CLUSTERED INDEX CIX_tempResultSB ON #__tempResult_SB (PartyId, rptDate)
+
+		CREATE TABLE #__tempResult_BA (
+			rptDate DATETIME
+			,PartyId INT
+			-- SystemRate
+			,BAWinLoss_e MONEY
+			,BAComm_e	MONEY
+			-- Oanda Rate
+			,BAWinLoss_oa MONEY
+			,BAComm_oa	MONEY
+		)
+		CREATE CLUSTERED INDEX CIX_tempResult_BA ON #__tempResult_BA (PartyId, rptDate)
+
+		CREATE TABLE #__tempResult_BTC (
+			
+			PartyId INT,
+			HouseIncome_e MONEY,
+			HouseIncome_oa MONEY
+		)
+		CREATE CLUSTERED INDEX CIX_tempResult_BTC ON #__tempResult_BTC (PartyId)
+
+		-- BTC only
+		INSERT INTO #__tempResult_BTC(PartyId, HouseIncome_e, HouseIncome_oa)
+		SELECT 	l.PartyId
+				,HouseIncome_e	= SUM(((- t.MemberWL) * ISNULL(lc.Rate, p.Rate)) * e.Rate)
+				,HouseIncome_oa = SUM(((- t.MemberWL) * ISNULL(lc.Rate, p.Rate)) * oa.Rate)
+		FROM	#__tempData t
+		INNER JOIN #AllLicensees l ON t.SiteId_DW = l.SiteId_DW
+		INNER JOIN #PartyChargeInfo p ON p.PartyId = l.PartyId AND t.rptDate BETWEEN p.FromDate AND p.ToDate
+		LEFT JOIN #PartyChargeByCurrencyInfo lc ON p.ChargeId = lc.ChargeId AND t.CurrencyId = lc.CurrencyId
+		INNER JOIN #Exchange e ON t.CurrencyId = e.ExchangeId AND t.rptDate = e.ExchangeDate
+		INNER JOIN @ExchangeOANDA oa ON t.CurrencyId = oa.ExchangeId
+		WHERE t.ProductID = 10070
+		GROUP BY l.PartyId
+
+		INSERT INTO #__tempResult_BA (	rptDate 
+										,PartyId 
+										,BAWinLoss_e
+										,BAComm_e
+										,BAWinLoss_oa
+										,BAComm_oa
+									)
+		SELECT t.rptDate, l.PartyId
+			,BAWinLoss_e		= SUM(-(t.MemberWL) * e.Rate)
+			,BAComm_e			= SUM(t.AgentComm * e.Rate)
+			,BAWinLoss_oa		= SUM(-(t.MemberWL) * oa.Rate)
+			,BAComm_oa			= SUM(t.AgentComm * oa.Rate)
+			
+		FROM #__tempData t
+			INNER JOIN #AllLicensees l ON t.SiteId_DW = l.SiteId_DW
+			INNER JOIN #Exchange e ON t.CurrencyId = e.ExchangeId AND t.rptDate = e.ExchangeDate
+			INNER JOIN @ExchangeOANDA oa ON t.CurrencyId = oa.ExchangeId
+		WHERE t.ProductID = 10004
+		GROUP BY t.rptDate, l.PartyId
+
+		INSERT INTO #__tempResult_SB (rptDate, PartyId, MemberWL_e, AgentWL_e, AgentComm_e, HouseWL_e, HouseIncome_e, MemberWL_oa, AgentWL_oa, AgentComm_oa, HouseWL_oa, HouseIncome_oa)
+		SELECT t.rptDate, l.PartyId
+			,MemberWL_e		= SUM(t.MemberWL * e.Rate)
+			,AgentWL_e		= SUM(t.AgentWL * e.Rate)
+			,AgentComm_e	= SUM(t.AgentComm * e.Rate)
+			,HouseWL_e		= SUM(-(t.MemberWL + t.AgentWL + t.AgentComm) * e.Rate)
+			,HouseIncome_e	= SUM(((- t.MemberWL) * ISNULL(lc.Rate, p.Rate) - t.OddsSpreadAdj) * e.Rate)
+			,MemberWL_oa	= SUM(t.MemberWL * oa.Rate)
+			,AgentWL_oa		= SUM(t.AgentWL * oa.Rate)
+			,AgentComm_oa	= SUM(t.AgentComm * oa.Rate)
+			,HouseWL_oa		= SUM(-(t.MemberWL + t.AgentWL + t.AgentComm) * oa.Rate)
+			,HouseIncome_oa = SUM(((- t.MemberWL) * ISNULL(lc.Rate, p.Rate) - t.OddsSpreadAdj) * oa.Rate)
+		FROM #__tempData t
+			INNER JOIN #AllLicensees l ON t.SiteId_DW = l.SiteId_DW
+			INNER JOIN #PartyChargeInfo p ON p.PartyId = l.PartyId AND t.rptDate BETWEEN p.FromDate AND p.ToDate
+			LEFT JOIN #PartyChargeByCurrencyInfo lc ON p.ChargeId = lc.ChargeId AND t.CurrencyId = lc.CurrencyId
+			INNER JOIN #Exchange e ON t.CurrencyId = e.ExchangeId AND t.rptDate = e.ExchangeDate
+			INNER JOIN @ExchangeOANDA oa ON t.CurrencyId = oa.ExchangeId
+		WHERE t.ProductID = 10001
+		GROUP BY t.rptDate, l.PartyId
+
 		INSERT INTO #__tempResult (rptDate, PartyId, MemberWL_e, AgentWL_e, AgentComm_e, HouseWL_e, HouseIncome_e, MemberWL_oa, AgentWL_oa, AgentComm_oa, HouseWL_oa, HouseIncome_oa)
 		SELECT t.rptDate, l.PartyId
 			,MemberWL_e		= SUM(t.MemberWL * e.Rate)
@@ -230,6 +325,7 @@ BEGIN
 			LEFT JOIN #PartyChargeByCurrencyInfo lc ON p.ChargeId = lc.ChargeId AND t.CurrencyId = lc.CurrencyId
 			INNER JOIN #Exchange e ON t.CurrencyId = e.ExchangeId AND t.rptDate = e.ExchangeDate
 			INNER JOIN @ExchangeOANDA oa ON t.CurrencyId = oa.ExchangeId
+		WHERE t.ProductID IN (10001, 10070)
 		GROUP BY t.rptDate, l.PartyId
 	END
 
@@ -530,7 +626,18 @@ BEGIN
 			,@BaseCurrency	= 'MYR'
 			,@CurrencyId	= 0
 
-
+		DECLARE @tmpResult_BA TABLE
+		(
+			PartyId			INT
+			-- System Rate
+			,LicenseeWL_e		MONEY DEFAULT(0)
+			,BAcomm_e			MONEY DEFAULT(0)
+			,LicenseeFee_e		MONEY DEFAULT(0)
+			-- Oanda Rate
+			,LicenseeWL_oa		MONEY DEFAULT(0)
+			,BAcomm_oa			MONEY DEFAULT(0)
+			,LicenseeFee_oa		MONEY DEFAULT(0)
+		)
 
 		DECLARE @tmpResult TABLE
 		(
@@ -564,7 +671,7 @@ BEGIN
 				,LicenseeWL_oa	= SUM(-MemberWL_oa)
 				,HouseWL_oa		= SUM(HouseWL_oa)
 				,HouseIncome_oa	= SUM(HouseIncome_oa)
-			FROM #__tempResult
+			FROM #__tempResult_SB
 			GROUP BY PartyId
 		), CTE_Result AS (
 			SELECT
@@ -655,6 +762,13 @@ BEGIN
 					SELECT p.PartyId FROM DBLIC.bodb_Licensee.dbo.OAS_Party p WITH (NOLOCK)
 					WHERE p.PartyName IN ('9wickets', '9Wsports', '9w')
 				)
+		
+		UPDATE t
+		SET t.LicenseeFee_e =  ISNULL(LicenseeFee_e, 0) - ISNULL(u.HouseIncome_e,0),
+			t.LicenseeFee_oa = ISNULL(LicenseeFee_oa, 0) - ISNULL(u.HouseIncome_oa,0)
+		FROM @tmpResult t
+		LEFT JOIN #__tempResult_BTC u ON t.PartyId = u.PartyId
+		WHERE  ISNULL(LicenseeFee_e, 0) <> 0  OR  ISNULL(LicenseeFee_oa, 0) <> 0
 
 		UPDATE @tmpResult
 		SET ActualWLFee_e = ISNULL(LicenseeMinFee_e, 0) + ISNULL(LicenseeFee_e, 0)
@@ -696,6 +810,21 @@ BEGIN
 	INSERT INTO #__HousePT (PartyId, CurrencyId, HousePT)
 	EXEC DBACC.bodb02.dbo.Acc_Licensee_HousePT @Sites = @Sites, @SiteCurrencies = @SiteCurrencies
 
+	-- BA sheet data
+	BEGIN	
+		INSERT INTO @tmpResult_BA(PartyId, LicenseeWL_e, BAcomm_e, LicenseeFee_e, LicenseeWL_oa, BAcomm_oa, LicenseeFee_oa)
+		SELECT PartyId
+				,LicenseeWL_e	= SUM(-BAWinLoss_e)
+				,BAcomm_e		= SUM(BAComm_e)
+				,LicenseeFee_e	= SUM(BAWinLoss_e - BAComm_e)
+				,LicenseeWL_oa	= SUM(-BAWinLoss_oa)
+				,BAcomm_oa		= SUM(BAComm_oa)
+				,LicenseeFee_oa	= SUM(BAWinLoss_oa - BAComm_oa)
+		FROM	#__tempResult_BA
+		GROUP BY PartyId
+	END
+	--
+
 	-- Return Data
 	CREATE TABLE #__Result (OrderId TINYINT, PartyId INT, Product VARCHAR(10), SiteName VARCHAR(50)
 		,MemberWL_SysRate MONEY, MemberWL_OaRate MONEY, LicenseeWL_SysRate MONEY, LicenseeWL_OaRate MONEY
@@ -705,6 +834,50 @@ BEGIN
 		,LicenseeFeeAfterMinFee_SysRate MONEY, LicenseeFeeAfterMinFee_OaRate MONEY
 		,RebateRate FLOAT, Rebate MONEY, DiscountRate FLOAT, Discount MONEY, RebateDiscount MONEY
 		,ActualLicenseeFee_SysRate MONEY, ActualLicenseeFee_OaRate MONEY)
+
+
+	CREATE TABLE #__Result_BA (OrderId TINYINT, PartyId INT, Product VARCHAR(10), SiteName VARCHAR(50)
+		,MemberWL_SysRate MONEY, MemberWL_OaRate MONEY, LicenseeWL_SysRate MONEY, LicenseeWL_OaRate MONEY
+		,BAComm_SysRate MONEY, BAComm_OaRate MONEY, ActualLicensingFee_SysRate MONEY, ActualLicensingFee_OaRate MONEY)
+
+
+	INSERT INTO  #__Result_BA (OrderId, PartyId, Product, SiteName 
+		,MemberWL_SysRate , MemberWL_OaRate, LicenseeWL_SysRate , LicenseeWL_OaRate 
+		,BAComm_SysRate , BAComm_OaRate, ActualLicensingFee_SysRate , ActualLicensingFee_OaRate)
+
+	SELECT
+		1 AS OrderId
+		,0 AS PartyId
+		,'BA Total'	AS Product
+		,''			AS SiteName
+		,-SUM(ISNULL(tr.LicenseeWL_e, 0))	AS MemberWL_SysRate
+		,-SUM(ISNULL(tr.LicenseeWL_oa, 0))	AS MemberWL_OaRate
+		,SUM(ISNULL(tr.LicenseeWL_e, 0))	AS LicenseeWL_SysRate
+		,SUM(ISNULL(tr.LicenseeWL_oa, 0))	AS LicenseeWL_OaRate
+		,SUM(ISNULL(tr.BAcomm_e, 0))		AS BAComm_SysRate
+		,SUM(ISNULL(tr.BAcomm_oa, 0))		AS BAComm_OaRate
+		,SUM(ISNULL(tr.LicenseeFee_e, 0))		AS ActualLicensingFee_SysRate
+		,SUM(ISNULL(tr.LicenseeFee_oa, 0))		AS ActualLicensingFee_OaRate
+	FROM @tmpResult_BA tr
+
+	UNION ALL
+	SELECT
+		2 AS OrderId
+		,tr.PartyId
+		,'BA' AS Product
+		,s.SiteName
+		,-ISNULL(tr.LicenseeWL_e, 0)	AS MemberWL_SysRate
+		,-ISNULL(tr.LicenseeWL_oa, 0)	AS MemberWL_OaRate
+		,ISNULL(tr.LicenseeWL_e, 0)	AS LicenseeWL_SysRate
+		,ISNULL(tr.LicenseeWL_oa, 0)	AS LicenseeWL_OaRate
+		,ISNULL(tr.BAcomm_e, 0)		AS BAComm_SysRate
+		,ISNULL(tr.BAcomm_oa, 0)		AS BAComm_OaRate
+		,ISNULL(tr.LicenseeFee_e, 0)		AS ActualLicensingFee_SysRate
+		,ISNULL(tr.LicenseeFee_oa, 0)		AS ActualLicensingFee_OaRate
+	FROM @tmpResult_BA tr
+		INNER JOIN #AllLicensees l ON tr.PartyId = l.PartyId
+		INNER JOIN DBLIC.bodb_Licensee.dbo.view_site_list s WITH (NOLOCK) ON l.LicenseeId = s.SiteId
+	WHERE ISNULL(tr.LicenseeWL_e, 0) <> 0 OR ISNULL(tr.BAcomm_e, 0) <> 0
 
 	INSERT INTO #__Result (OrderId, PartyId, Product, SiteName
 		,MemberWL_SysRate, MemberWL_OaRate, LicenseeWL_SysRate, LicenseeWL_OaRate
@@ -825,18 +998,39 @@ BEGIN
 	SELECT Product, SiteName
 		,MemberWL_SysRate, MemberWL_OaRate, LicenseeWL_SysRate, LicenseeWL_OaRate
 		,HousePT, HouseWL_SysRate, HouseWL_OaRate
-		,ChargeRate, GrossLicenseeFee_SysRate, GrossLicenseeFee_OaRate
-		,LicenseeMinFee_SysRate, LicenseeMinFee_OaRate, LicenseeFee_SysRate, LicenseeFee_OaRate
-		,LicenseeFeeAfterMinFee_SysRate, LicenseeFeeAfterMinFee_OaRate
-		,RebateRate, Rebate, DiscountRate, Discount, RebateDiscount
-		,ActualLicenseeFee_SysRate, ActualLicenseeFee_OaRate
+		,ChargeRate, GrossLicenseeFee_SysRate, GrossLicenseeFee_OaRate,
+		--,LicenseeMinFee_SysRate, 
+		LicenseeMinFee_OaRate, 
+		--LicenseeFee_SysRate, 
+		LicenseeFee_OaRate,
+		--LicenseeFeeAfterMinFee_SysRate, 
+		LicenseeFeeAfterMinFee_OaRate
+		,RebateRate, Rebate, DiscountRate, Discount, RebateDiscount,
+		--ActualLicenseeFee_SysRate, 
+		ActualLicenseeFee_OaRate
 	FROM #__Result
+	ORDER BY OrderId, SiteName
+
+	SELECT Product
+		,SiteName
+		,MemberWL_SysRate
+		,MemberWL_OaRate
+		,LicenseeWL_SysRate
+		,LicenseeWL_OaRate
+		,BAComm_SysRate
+		,BAComm_OaRate
+		,ActualLicensingFee_SysRate
+		,ActualLicensingFee_OaRate
+	FROM #__Result_BA
 	ORDER BY OrderId, SiteName
 
 	DROP TABLE #__HousePT
 	DROP TABLE #__Result
+	DROP TABLE #__Result_BA
 	DROP TABLE #__tempData
 	DROP TABLE #__tempResult
+	DROP TABLE #__tempResult_SB
+	DROP TABLE #__tempResult_BA
 	DROP TABLE #__tmpSite
 	DROP TABLE #AllLicensees
 	DROP TABLE #Exchange
