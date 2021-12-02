@@ -72,6 +72,7 @@ AS
 		- 20210506@Ned.Le: NAP Report - Implement Advantplay (#154677)
 		- 20210517@Ned.Le: NAP Reports - Integrate AdvantPlay Mini (#155174)
 		- 20210811@Jaden: Integrate Bitcoin (#159046)
+        - 20211201@Ned.Le: NAP Report - Support new bettype on Total Credit (#165616)
 
 	Param's Explanation:  
 	  + @MoveBetsDay: The day of moving bets to battrans14
@@ -182,7 +183,7 @@ BEGIN
 			WHERE b.winlostdate BETWEEN @TempFromDate AND @CurrentDate
 			AND (
 					(@sportType=251 AND (b.gameID BETWEEN 2101 AND 2399 OR b.gameID BETWEEN 2901 AND 2999))
-					OR (@sportType=212 AND (b.gameID BETWEEN 4001 AND 4600 OR b.gameID BETWEEN 7001 AND 7600))
+					OR (@sportType=212 AND (b.gameID BETWEEN 4001 AND 4600 OR b.gameID BETWEEN 6701 AND 7000 OR b.gameID BETWEEN 7001 AND 7600))
 					OR b.gameID BETWEEN 1901 AND CASE WHEN @sportType=212 THEN 1999 ELSE 0 END -- Card Club [Video Poker]
 					OR b.gameID BETWEEN 6001 AND CASE WHEN @sportType=212 THEN 6300 ELSE 0 END -- PG Soft
 					OR b.gameID BETWEEN 6401 AND CASE WHEN @sportType=212 THEN 6700 ELSE 0 END -- Joker Gaming
@@ -260,7 +261,7 @@ BEGIN
 							OR b.bettype BETWEEN 3001 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 244 THEN 3099 ELSE 0 END)  -- SA Gaming
 							OR b.bettype BETWEEN 3101 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 243 THEN 3150 ELSE 0 END)  -- AE Casino
 							OR b.bettype BETWEEN 3201 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 242 THEN 3299 ELSE 0 END)  -- IBCBet Live Casino
-							OR (' + CONVERT(VARCHAR(5),@sportType) +' = 212 AND (b.bettype BETWEEN 4001 AND 4600 OR b.bettype BETWEEN 7001 AND 7600))
+							OR (' + CONVERT(VARCHAR(5),@sportType) +' = 212 AND (b.bettype BETWEEN 4001 AND 4600 OR b.gameID BETWEEN 6701 AND 7000 OR b.bettype BETWEEN 7001 AND 7600))
 							OR b.bettype BETWEEN 2501 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 213 THEN 2699 ELSE 0 END)  -- NG2
 							OR b.bettype BETWEEN 1011 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 219 THEN 1020 ELSE 0 END)  -- Fishing World
 							OR b.bettype BETWEEN 1021 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = 220 THEN 1099 ELSE 0 END   -- Loterry
