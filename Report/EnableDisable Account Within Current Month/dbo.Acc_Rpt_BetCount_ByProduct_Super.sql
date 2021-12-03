@@ -3,234 +3,335 @@
 USE bodb02
 GO
 
-ALTER PROCEDURE [dbo].[Acc_Rpt_BetCount_ByProduct_Super]
-	@MoveBetsDay	SMALLDATETIME,
-	@BalanceUpDay	SMALLDATETIME,
-	@CustID			INT,
-	@SportType		INT
-AS  
-/*  Created: Dominic 
-	Date: 2014-06-02  
+ALTER PROCEDURE [dbo].[Acc_Rpt_BetCount_ByProduct_Super] @MoveBetsDay  SMALLDATETIME,
+                                                         @BalanceUpDay SMALLDATETIME,
+                                                         @CustID       INT,
+                                                         @SportType    INT
+AS
+/*
+    Created: Dominic
+	Date: 2014-06-02
     Task : Total settled/running bets count per Product by super within current month
-    DB: DBAGE/bodb02  
-   
-    Revisions:  
-		- 20140701@Dominic: Get running Keno bets from table Translog
-		- 20150617@Elodie: Migrate CustDB to DBCUST (call CustGameType by link server DBACC)
-		- 20150828@Jim: support GoldDeluxe & Metric Gaming(#40262)
-		- 20150828@Jim: support Colossus Bet (#42608)
-		- 20151215@Percy: suport Cockfighting [Redmine: #49027]
-		- 20160108@Percy: Add new range bettype for Casino [Redmine: #49134]
-		- 20160203@Sophia:	. Change the way to get report 
-							. Apply RNG Casino [Redmine: #49134]
-							. Appy Metric gaming - Superlive
-		- 20160229@Jim: Offer Allbet [Redmine #50921]
-		- 20160407@Sophia: Fix bug low performance - need to call Openquery [redmine: #55623]
-		- 20160411@Robert: Integrate Voidbridge Credit - Single Wallet model [RedmineID: #55589]
-		- 20160916@Robert:
-			1. Integrate new product NG2 [RedmindID: #63460]
-			2. Clean code of Cockfighting
-		- 20161129@Robert: NAP Reports - Integrate Fishing World Product [RedmindID: #67757]  
-		- 20170627@Cherry: Integrate Lottery and Betradar Virtual Sports (#78184, 78495)
-		- 20170808@Cherry: Integrate RNG Tablet Games (#78424)
-		- 20170825@Cherry: Integrate Lucky 3 (#78214)
-		- 20171030@Kean: Integrate Bullfighting (#85712)
-		- 20171110@Kean: Should count the running tickets from translogs table (#86319)
-		- 20171113@Kean:  (#86319) Include GoldDeluxe for counting of running tickets from translog table(#86319)
-		- 2018.03.19@Franklin: Integrate  ONE RNG Jackpot (#91712)
-		- 20180411@Franklin: Integrate Pragmatic (#92642)
-		- 20180816@Cherry: Integrate Poker Games (#97830)
-		- 20181219@Robert: NAP Report - Add new sporttype for Happy 5 (#104253) 
-		- 20190128@Robert: Video Poker - Integrate into NAP Reports[#107706]
-		- 20190308@Robert: #109822 - NAP Report - Integrate Bet Builder
-		- 20190722@Robert: #117010 - NAP Report - Integrate Card Club on NAP Report
-		- 20190917@Dominic: Remove inactive products [#120215]
-		- 20191225@Cherry: Integrate Spadegaming (#125788)
-		- 20200313@Ned.Le: NAP Report - Incorporate Virtual Games (#130326)
-		- 20200317@Ned.Le: Hotfix - Miss get data Card Club From bodb_account.dbo.mcCustBettingDaily table (#130535)
-		- 20200323@Ned.Le: NAP Report - Incorprorate SA Gaming (#129349) | Saba.club (#130776) | Sexy Gaming (#130853)
-		- 20200331@Ned.Le: NAP Report - Incorporate new Table Games (#131095)
-		- 20200409@Ned.Le: NAP Report - Incorporate BBIN Live Casino (#131357)
-		- 20200422@Ned.Le: NAP Report - Incorporate IBCBet Live Casino (#132961)
-		- 20200521@Cherry: Missing running betcount for sports: Saba, SA Gaming, Sexy Gaming, IBCBet Live Casino (#134571)
-		- 20200522@Cherry: Nap Report - Integrate ION Live Casino (#132324) & RNG War (#132009)
-		- 20200713@Ned.Le: NAP Report - Incorporate Jackpot Games (#137271)
-		- 20200723@Jaden.Tang: NAP Report - Add new range for lottery (#137715)
-		- 20200814@Roy: NAP Report - Integrate PG Soft (#137770)
-		- 20200921@Jaden.Tang: NAP Report - Incorporate Joker Gaming (#131611) & WM (#131583)
-		- 20200930@Ned.Le: NAP Reports - Licensee Odds Spread (#141750)
-		- 20201126@Cherry: Integrate Virtual Sports 3 (#146010) & GDG (#146008)
-		- 20201225@Ned.Le: NAP Reports - Integrate Linked Games (Number Game) (#147573)
-		- 20201225@Ned.Le: NAP Reports - Integrate Big Gaming (#142481)
-		- 20201225@Ned.Le: NAP Reports - Integrate MaxGame (#147570)
-		- 20210303@Cherry: Integrate Habanero (#151070)
-		- 20210303@Cherry: Integrate Sports Lottery (#151071)
-		- 20210325@Jaden: Change bettype range from [3101 - 3199] to [3101 - 3150] (#151869)
-		- 20210325@Jaden: Integrate PP Live Casino (#133731)
-		- 20210420@Jaden: Include CG into Macau Games (#152781)
-		- 20210428@Ned.Le: NAP Report - Implement VGaming (#154072)
-		- 20210506@Ned.Le: NAP Report - Implement Advantplay (#154677)
-		- 20210517@Ned.Le: NAP Reports - Integrate AdvantPlay Mini (#155174)
-		- 20210811@Jaden: Integrate Bitcoin (#159046)
-        - 20211201@Ned.Le: NAP Report - Support new bettype on Total Credit (#165616)
+    DB: DBAGE/bodb02
 
-	Param's Explanation:  
-	  + @MoveBetsDay: The day of moving bets to battrans14
-	  + @BalanceUpDay: The day of moving bets to battransbk
-	  + @CustID: SuperID
-	  + @SportType
-		{251: Casino (include : 251, 208, 209, 210), 151:Racing, 252:Bingo, 161:Number Game, 162:Live Casino, 180:Virtual Sports, 202:Keno,  -1 : Metric Gaming - Superlive
-		 220: Lottery, 160: Lucky 3, 207: Bullfighting, 163: Poker Games, 245: Virtual Games
-		 244: SA Gaming, 200: Saba.club, 243: AE Casino, 222: Table Games,
-		 241: BBIN, 242: IBCBet Live Casino, 233: WM, 236: GDG, 239: BG
-		 212: Macau Games (include: Macau Games, Pragmatic, Spadegaming, Card Club [Video Poker], PG Soft, Joker Gaming, MaxGame, CG, AdvantPlay, AdvantPlay Mini)
-		 171: VGaming
-		}
-  
-*/  
+    Revisions:
+        - 20140701@Dominic: Get running Keno bets from table Translog
+        - 20150617@Elodie: Migrate CustDB to DBCUST (call CustGameType by link server DBACC)
+        - 20150828@Jim: support GoldDeluxe & Metric Gaming(#40262)
+        - 20150828@Jim: support Colossus Bet (#42608)
+        - 20151215@Percy: suport Cockfighting [Redmine: #49027]
+        - 20160108@Percy: Add new range bettype for Casino [Redmine: #49134]
+        - 20160203@Sophia: . Change the way to get report
+                           . Apply RNG Casino [Redmine: #49134]
+                           . Appy Metric gaming - Superlive
+        - 20160229@Jim: Offer Allbet [Redmine #50921]
+        - 20160407@Sophia: Fix bug low performance - need to call Openquery [redmine: #55623]
+        - 20160411@Robert: Integrate Voidbridge Credit - Single Wallet model [RedmineID: #55589]
+        - 20160916@Robert:
+            1. Integrate new product NG2 [RedmindID: #63460]
+            2. Clean code of Cockfighting
+        - 20161129@Robert: NAP Reports - Integrate Fishing World Product [RedmindID: #67757]  
+        - 20170627@Cherry: Integrate Lottery and Betradar Virtual Sports (#78184, 78495)
+        - 20170808@Cherry: Integrate RNG Tablet Games (#78424)
+        - 20170825@Cherry: Integrate Lucky 3 (#78214)
+        - 20171030@Kean: Integrate Bullfighting (#85712)
+        - 20171110@Kean: Should count the running tickets from translogs table (#86319)
+        - 20171113@Kean:  (#86319) Include GoldDeluxe for counting of running tickets from translog table(#86319)
+        - 2018.03.19@Franklin: Integrate  ONE RNG Jackpot (#91712)
+        - 20180411@Franklin: Integrate Pragmatic (#92642)
+        - 20180816@Cherry: Integrate Poker Games (#97830)
+        - 20181219@Robert: NAP Report - Add new sporttype for Happy 5 (#104253) 
+        - 20190128@Robert: Video Poker - Integrate into NAP Reports[#107706]
+        - 20190308@Robert: #109822 - NAP Report - Integrate Bet Builder
+        - 20190722@Robert: #117010 - NAP Report - Integrate Card Club on NAP Report
+        - 20190917@Dominic: Remove inactive products [#120215]
+        - 20191225@Cherry: Integrate Spadegaming (#125788)
+        - 20200313@Ned.Le: NAP Report - Incorporate Virtual Games (#130326)
+        - 20200317@Ned.Le: Hotfix - Miss get data Card Club From bodb_account.dbo.mcCustBettingDaily table (#130535)
+        - 20200323@Ned.Le: NAP Report - Incorprorate SA Gaming (#129349) | Saba.club (#130776) | Sexy Gaming (#130853)
+        - 20200331@Ned.Le: NAP Report - Incorporate new Table Games (#131095)
+        - 20200409@Ned.Le: NAP Report - Incorporate BBIN Live Casino (#131357)
+        - 20200422@Ned.Le: NAP Report - Incorporate IBCBet Live Casino (#132961)
+        - 20200521@Cherry: Missing running betcount for sports: Saba, SA Gaming, Sexy Gaming, IBCBet Live Casino (#134571)
+        - 20200522@Cherry: Nap Report - Integrate ION Live Casino (#132324) & RNG War (#132009)
+        - 20200713@Ned.Le: NAP Report - Incorporate Jackpot Games (#137271)
+        - 20200723@Jaden.Tang: NAP Report - Add new range for lottery (#137715)
+        - 20200814@Roy: NAP Report - Integrate PG Soft (#137770)
+        - 20200921@Jaden.Tang: NAP Report - Incorporate Joker Gaming (#131611) & WM (#131583)
+        - 20200930@Ned.Le: NAP Reports - Licensee Odds Spread (#141750)
+        - 20201126@Cherry: Integrate Virtual Sports 3 (#146010) & GDG (#146008)
+        - 20201225@Ned.Le: NAP Reports - Integrate Linked Games (Number Game) (#147573)
+        - 20201225@Ned.Le: NAP Reports - Integrate Big Gaming (#142481)
+        - 20201225@Ned.Le: NAP Reports - Integrate MaxGame (#147570)
+        - 20210303@Cherry: Integrate Habanero (#151070)
+        - 20210303@Cherry: Integrate Sports Lottery (#151071)
+        - 20210325@Jaden: Change bettype range from [3101 - 3199] to [3101 - 3150] (#151869)
+        - 20210325@Jaden: Integrate PP Live Casino (#133731)
+        - 20210420@Jaden: Include CG into Macau Games (#152781)
+        - 20210428@Ned.Le: NAP Report - Implement VGaming (#154072)
+        - 20210506@Ned.Le: NAP Report - Implement Advantplay (#154677)
+        - 20210517@Ned.Le: NAP Reports - Integrate AdvantPlay Mini (#155174)
+        - 20210811@Jaden: Integrate Bitcoin (#159046)
+        - 20211203@Ned.Le: NAP Report - Tune report "Total Credit Accounts" (#165615)
+
+    Param's Explanation:
+        + @MoveBetsDay:  The day of moving bets to battrans14
+        + @BalanceUpDay: The day of moving bets to battransbk
+        + @CustID:       SuperID
+        + @SportType:    Sporttype that be define at WEB stage
+*/
+
 BEGIN
-	SET NOCOUNT ON
-	
-	DECLARE @CurrentDate SMALLDATETIME
-	DECLARE @FirstDate SMALLDATETIME
-	DECLARE @TempFromDate SMALLDATETIME
-	DECLARE @TempToDate SMALLDATETIME
-	
-	--Table of special bettype group
-	CREATE TABLE #SpecialBettypeGroup (BettypeGroupID SMALLINT, Bettype INT)
-	INSERT INTO #SpecialBettypeGroup (BettypeGroupID, Bettype)
-	SELECT BettypeGroupID, Bettype FROM DBWH.bodb_Account.dbo.BettypeGroup WHERE BettypeGroupID IN (12)
 
-	--Table of Super/master/Member that belong to real super above	
-	CREATE TABLE #FiltedDownlineAcc(
-		CustID		INT,
-		IsDisable	BIT,
-		BetStatus	NVARCHAR(10), 
-		BetCount	INT
-		)
-		
-	--Table of member that played bet within current month	
-	CREATE TABLE #AvailableMember(CustID INT, BetStatus NVARCHAR(10), BetCount INT)	
-	
+    SET NOCOUNT ON
+
+
+    -----------------------
+    -- DECLARE VARIABLES --
+    -----------------------
+
+	DECLARE @CurrentDate  SMALLDATETIME
+	DECLARE @FirstDate    SMALLDATETIME
+	DECLARE @TempFromDate SMALLDATETIME
+	DECLARE @TempToDate   SMALLDATETIME
+
 	SELECT @CurrentDate = CAST(GETDATE() AS DATE)
-	SELECT @FirstDate = CONVERT(VARCHAR(25),DATEADD(dd,-(DAY(@CurrentDate)-1),@CurrentDate),101)   --- First date of the month
-    
-    --Get running Keno, Colossus Bet, Lottery, GoldDeluxe, MG-Superlive, Virtual Games, Table Games, Virtual Sports 3, Happy 5 Linked Games, Sports Lottery
-    IF @sportType IN (202,204,220,255,-1,245,222,180,161,169)
+	SELECT @FirstDate   = CONVERT(VARCHAR(25) ,DATEADD(dd, -(DAY(@CurrentDate) -1), @CurrentDate), 101)
+
+
+    ---------------
+    -- META DATA --
+    ---------------
+
+	-----------------------
+    -- #SpecialBettypeGroup
+
+    -- Create temp table
+	CREATE TABLE #SpecialBettypeGroup (BettypeGroupID SMALLINT, Bettype INT)
+
+    -- Get data of BettypeGroupID=12 [No BetCount]
+	INSERT INTO #SpecialBettypeGroup (BettypeGroupID, Bettype)
+	SELECT BettypeGroupID, Bettype
+    FROM DBWH.bodb_Account.dbo.BettypeGroup WITH (NOLOCK)
+    WHERE BettypeGroupID IN (12)
+
+    ----------------------
+    -- #SportGroupSettings
+
+    -- Create temp table
+    CREATE TABLE #SportGroupSettings (
+        SportGroupID   INT,
+        SportGroupName VARCHAR(100),
+        SportType      INT
+    )
+
+    -- Number Game group
+    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (161, 'Number Game',    161)
+    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (161, 'Number Game',    164)
+    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (161, 'Number Game',    168)
+
+    -- RNG Casino group
+    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (251, 'RNG Casino',     208)
+    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (251, 'RNG Casino',     209)
+    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (251, 'RNG Casino',     210)
+
+    -- Virtual Sports group
+    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (180, 'Virtual Sports', 180)
+    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (180, 'Virtual Sports', 181)
+    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (180, 'Virtual Sports', 182)
+    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (180, 'Virtual Sports', 183)
+    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (180, 'Virtual Sports', 184)
+    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (180, 'Virtual Sports', 185)
+    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (180, 'Virtual Sports', 186)
+    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (180, 'Virtual Sports', 190)
+    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (180, 'Virtual Sports', 191)
+    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (180, 'Virtual Sports', 192)
+    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (180, 'Virtual Sports', 193)
+    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (180, 'Virtual Sports', 194)
+    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (180, 'Virtual Sports', 195)
+    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (180, 'Virtual Sports', 196)
+    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (180, 'Virtual Sports', 197)
+    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (180, 'Virtual Sports', 231)
+
+    -- Macau Games group
+    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (212, 'Macau Games',    165)
+    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (212, 'Macau Games',    167)
+    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (212, 'Macau Games',    172)
+    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (212, 'Macau Games',    174)
+    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (212, 'Macau Games',    212)
+    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (212, 'Macau Games',    224)
+    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (212, 'Macau Games',    225)
+    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (212, 'Macau Games',    232)
+    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (212, 'Macau Games',    234)
+    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (212, 'Macau Games',    236)
+    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (212, 'Macau Games',    237)
+    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (212, 'Macau Games',    238)
+    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (212, 'Macau Games',    247)
+    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (212, 'Macau Games',    248)
+
+    ---------------
+    -- #SportFilter
+
+    -- Create temp table
+    CREATE TABLE #SportFilter (SportGroupID INT, SportType INT)
+
+    -- Gen data to temp table
+    IF EXISTS (SELECT TOP 1 1 FROM #SportGroupSettings WHERE SportGroupID = @SportType)
     BEGIN
-		INSERT INTO #AvailableMember
-		SELECT tl.custid,tl.[status],COUNT(1) 
-		FROM dbo.translog tl WITH(NOLOCK)
-		WHERE (tl.productID = @sportType
-			  OR (@sportType = -1 AND tl.GameID BETWEEN 801 AND 806)
-			  OR (@sportType = 180 AND tl.GameID BETWEEN 5301 AND 5399) -- Virtual Sports 3 using the same setting with Virtual Sport
-			  OR (@sportType = 161 AND tl.GameID BETWEEN 3601 AND 3610) -- Happy 5 Linked Games
-			  OR (@sportType = 169 AND tl.GameID BETWEEN 3611 AND 3620) -- Sports Lottery
-			)
-			AND tl.srecommend = @CustID
-			AND tl.StatusId = 0 
-		GROUP BY tl.custid,tl.[status]
+        INSERT INTO #SportFilter (SportGroupID, SportType)
+        SELECT SportGroupID, SportType
+        FROM #SportGroupSettings
+        WHERE SportGroupID = @SportType
     END
+    ELSE
+    BEGIN
+        INSERT INTO #SportFilter (SportGroupID, SportType) VALUES (@SportType, @SportType)
+    END
+
+    ----------------
+    -- #SportBettype
+
+    -- Create temp table
+    CREATE TABLE #SportBettype (
+        SportGroupID INT,
+        SportType    INT,
+        Bettype      INT,
+        RefTable     INT
+    )
     
-    
-    -- Get data from bettrans
-	IF @CurrentDate > @MoveBetsDay
+    -- Gen data to temp table
+    IF (@SportType = -1)
+    BEGIN
+        INSERT INTO #SportBettype (SportGroupID, SportType, Bettype, RefTable)
+        SELECT DISTINCT
+              -1         SportGroupID,
+               SportType SportType,
+               BetType   Bettype,
+               RefTable  RefTable
+        FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)
+        WHERE SubProduct = 'MG-SuperLive'
+    END
+    ELSE
+    BEGIN
+        INSERT INTO #SportBettype (SportGroupID, SportType, Bettype, RefTable)
+        SELECT DISTINCT sf.SportGroupID, sbm.SportType, sbm.BetType, sbm.RefTable
+        FROM bodb02.dbo.SportBettypeMatrix sbm WITH (NOLOCK)
+             INNER JOIN #SportFilter sf ON sbm.SportType = sf.SportType
+    END
+
+    -- Update data for column RefTable
+    UPDATE sb
+    SET sb.RefTable = 3
+    FROM #SportBettype sb
+    WHERE sb.SportGroupID IN (202, 204, 220, 255, -1, 245, 222, 180, 161, 169)
+          OR sb.SportType IN (202, 204, 220, 255, -1, 245, 222, 180, 161, 169)
+
+
+    ---------------
+    -- MAIN DATA --
+    ---------------
+
+    -------------------
+	-- #AvailableMember
+
+    -- Create temp table
+	CREATE TABLE #AvailableMember (
+        CustID    INT,
+        BetStatus NVARCHAR(10),
+        BetCount  INT
+    )
+
+    -- Get data from translog
+    BEGIN
+	    INSERT INTO #AvailableMember (CustID, BetStatus, BetCount)
+	    SELECT tl.custid   CustID,
+               tl.[status] BetStatus,
+               COUNT(1)    BetCount
+	    FROM bodb02.dbo.translog tl WITH (NOLOCK)
+	    WHERE EXISTS (SELECT TOP 1 1
+                      FROM #SportBettype sb
+                      WHERE sb.RefTable IN (3) AND sb.Bettype = tl.gameID)
+              AND tl.srecommend = @CustID
+              AND tl.StatusId = 0 
+        GROUP BY tl.custid,
+                 tl.[status]
+        OPTION (RECOMPILE)
+    END
+
+    -- Get data from OLTP System
+    IF (@CurrentDate > @MoveBetsDay)
 	BEGIN
-		IF @FirstDate <= @MoveBetsDay 
-			SET @TempFromDate =  DATEADD(DAY,1,@MoveBetsDay)
-		ELSE
-			SET @TempFromDate = @FirstDate
-			
-		INSERT INTO #AvailableMember
-		SELECT b.custid,b.[status],
-				CASE WHEN b.bettype BETWEEN 1401 AND 1499 THEN SUM(b.betid) ELSE COUNT(1) END BetCount
-		FROM dbo.bettrans b WITH(NOLOCK)
-		WHERE b.winlostdate BETWEEN @TempFromDate AND @CurrentDate
-		AND (
-			b.bettype BETWEEN 81 AND (CASE WHEN @sportType=161 THEN 120 ELSE 0 END) -- Number Game
-			OR b.bettype BETWEEN 8101 AND (CASE WHEN @sportType=161 THEN 8120 ELSE 0 END) -- Happy 5
-			OR b.bettype BETWEEN 3601 AND (CASE WHEN @sportType=161 THEN 3610 ELSE 0 END) -- Happy 5 Linked Games
-			OR b.bettype BETWEEN 801 AND (CASE WHEN @sportType= -1 AND b.StatusID <> 0 THEN 806 ELSE 0 END)
-			OR b.bettype BETWEEN 1501 AND (CASE WHEN @sportType=202 AND b.StatusID <> 0 THEN 1599 ELSE 0 END)
-			OR b.bettype BETWEEN 4601 AND (CASE WHEN @sportType=245 AND b.StatusID <> 0 THEN 4900 ELSE 0 END)
-			OR b.bettype BETWEEN 4901 AND (CASE WHEN @sportType=222 AND b.StatusID <> 0 THEN 5000 ELSE 0 END)
-			OR b.bettype BETWEEN 1701 AND (CASE WHEN @sportType= 255 THEN 1703 ELSE 0 END) -- GoldDeluxe
-			OR b.bettype BETWEEN 3300 AND (CASE WHEN @sportType= 241 THEN 3300 ELSE 0 END) -- BBIN
-			OR b.bettype BETWEEN 18000 AND (CASE WHEN @sportType= 204 THEN 18005 ELSE 0 END) -- Colossus Bet
-			OR b.bettype BETWEEN 2501 AND (CASE WHEN @SportType = 213 AND b.StatusID <> 0 THEN 2699 ELSE 0 END) -- NG2	
-			OR b.bettype BETWEEN 1021 AND CASE WHEN @sportType = 220 THEN 1099 ELSE 0 END --Loterry
-			OR (@sportType=180 AND (b.bettype BETWEEN 1201 AND 1299 OR b.bettype BETWEEN 2700 AND 2899 OR b.bettype BETWEEN 5301 AND 5399)) --Virtual Sports, Betradar Virtual Sports, Virtual Sports 3		
-			OR b.bettype BETWEEN 3611 AND CASE WHEN @sportType = 169 THEN 3620 ELSE 0 END -- Sports Loterry
-			OR b.bettype BETWEEN 7901 AND CASE WHEN @sportType = 175 THEN 7999 ELSE 0 END -- Bitcoin
-		) 
-		AND ( 
-				----b.status IN ('WON','LOSE','DRAW','running') 
-				b.statusId IN (111,112,113,0) 
-			)	
-		AND b.srecommend = @CustID
-		AND b.bettype NOT IN (38)
-		AND b.bettype NOT IN (SELECT Bettype FROM #SpecialBettypeGroup)
-		GROUP BY b.custid,b.[status], b.bettype
+        -- + Settings time range
+        IF (@FirstDate <= @MoveBetsDay)
+        BEGIN
+            SET @TempFromDate =  DATEADD(DAY, 1, @MoveBetsDay)
+        END
+        ELSE
+        BEGIN
+            SET @TempFromDate = @FirstDate
+        END
+
+        -- + Get data from bettrans
+        BEGIN
+            INSERT INTO #AvailableMember (CustID, BetStatus, BetCount)
+		    SELECT b.custid                                                                      CustID,
+                   b.[status]                                                                    BetStatus,
+                   CASE WHEN b.bettype BETWEEN 1401 AND 1499 THEN SUM(b.betid) ELSE COUNT(1) END BetCount
+		    FROM dbo.bettrans b WITH (NOLOCK)
+		    WHERE b.winlostdate BETWEEN @TempFromDate AND @CurrentDate
+                  AND EXISTS (SELECT TOP 1 1
+                              FROM #SportBettype sb
+                              WHERE sb.RefTable IN (0, 3) AND sb.Bettype = b.bettype)
+                  AND b.statusId IN (111, 112, 113, 0)
+                  AND b.srecommend = @CustID
+                  AND b.bettype NOT IN (38)
+                  AND b.bettype NOT IN (SELECT Bettype FROM #SpecialBettypeGroup)
+            GROUP BY b.custid,
+                     b.[status],
+                     b.bettype
+            OPTION (RECOMPILE)
+        END
 		
-		-- Get data from bettransRnG
-		IF @sportType IN (251, 212, 219, 200, 224, 171)
-		BEGIN
-			INSERT INTO #AvailableMember
-			SELECT b.custid,
-					b.[status],
-					COUNT(1) BetCount
-			FROM dbo.bettransRNG b WITH(NOLOCK)
-			WHERE b.winlostdate BETWEEN @TempFromDate AND @CurrentDate
-			AND (
-					(@sportType=251 AND (b.gameID BETWEEN 2101 AND 2399 OR b.gameID BETWEEN 2901 AND 2999))
-					OR (@sportType=212 AND (b.gameID BETWEEN 4001 AND 4600 OR b.gameID BETWEEN 6701 AND 7000 OR b.gameID BETWEEN 7001 AND 7600))
-					OR b.gameID BETWEEN 1901 AND CASE WHEN @sportType=212 THEN 1999 ELSE 0 END -- Card Club [Video Poker]
-					OR b.gameID BETWEEN 6001 AND CASE WHEN @sportType=212 THEN 6300 ELSE 0 END -- PG Soft
-					OR b.gameID BETWEEN 6401 AND CASE WHEN @sportType=212 THEN 6700 ELSE 0 END -- Joker Gaming
-					OR b.gameID BETWEEN 5401 AND CASE WHEN @sportType=212 THEN 5499 ELSE 0 END -- MaxGame
-					OR b.gameID BETWEEN 7701 AND CASE WHEN @sportType=212 THEN 7799 ELSE 0 END -- AdvantPlay
-					OR b.gameID BETWEEN 7801 AND CASE WHEN @sportType=212 THEN 7899 ELSE 0 END -- AdvantPlay Mini
-					OR b.gameID BETWEEN 1011 AND CASE WHEN @sportType=219 THEN 1020 ELSE 0 END -- Fishing World
-					OR b.gameID BETWEEN 1611 AND CASE WHEN @sportType=200 THEN 1699 ELSE 0 END -- Saba.club
-					OR b.gameID BETWEEN 5500 AND CASE WHEN @sportType=224 THEN 5599 ELSE 0 END -- RNG War
-					OR b.gameID BETWEEN 3801 AND CASE WHEN @sportType=171 THEN 3899 ELSE 0 END -- VGaming
-				) 
-			AND (
-					b.statusId IN (111,112,113,0) 
-				)	
-			AND b.srecommend = @CustID
-			AND b.gameID NOT IN (SELECT Bettype FROM #SpecialBettypeGroup)
-			GROUP BY b.custid,b.[status]
-		END	
+        -- Get data from bettransRnG
+        BEGIN
+            INSERT INTO #AvailableMember (CustID, BetStatus, BetCount)
+	        SELECT b.custid   CustID,
+                   b.[status] BetStatus,
+                   COUNT(1)   BetCount
+            FROM dbo.bettransRNG b WITH (NOLOCK)
+	        WHERE b.winlostdate BETWEEN @TempFromDate AND @CurrentDate
+                  AND EXISTS (SELECT TOP 1 1
+                              FROM #SportBettype sb
+                              WHERE sb.RefTable IN (1) AND sb.Bettype = b.gameID)
+                  AND b.statusId IN (111, 112, 113, 0)
+                  AND b.srecommend = @CustID
+                  AND b.gameID NOT IN (SELECT Bettype FROM #SpecialBettypeGroup)
+            GROUP BY b.custid,
+                     b.[status]
+            OPTION (RECOMPILE)
+        END	
 
 		-- Get data from bettransLC
-		IF @sportType IN (211, 244, 243, 242, 225, 236, 239, 170)
 		BEGIN
-			INSERT INTO #AvailableMember
-			SELECT b.custid,b.[status],COUNT(1) 
-			FROM dbo.bettransLC b WITH(NOLOCK)
+            INSERT INTO #AvailableMember (CustID, BetStatus, BetCount)
+	        SELECT b.custid   CustID,
+                   b.[status] BetStatus,
+                   COUNT(1)   BetCount
+			FROM dbo.bettransLC b WITH (NOLOCK)
 			WHERE b.winlostdate BETWEEN @TempFromDate AND @CurrentDate
-			AND (
-					b.gameID BETWEEN 2401 AND CASE WHEN @sportType=211 THEN 2499 ELSE 0 END -- Allbet
-					OR b.gameID BETWEEN 3001 AND CASE WHEN @sportType=244 THEN 3099 ELSE 0 END -- SA Gaming
-					OR b.gameID BETWEEN 3101 AND CASE WHEN @sportType=243 THEN 3150 ELSE 0 END -- AE Casino
-					OR b.gameID BETWEEN 3201 AND CASE WHEN @sportType=242 THEN 3299 ELSE 0 END -- IBCBet Live Casino
-					OR b.gameID BETWEEN 5601 AND CASE WHEN @sportType=225 THEN 5699 ELSE 0 END -- ION Live Casino
-					OR b.gameID BETWEEN 3701 AND CASE WHEN @sportType=170 THEN 3799 ELSE 0 END -- PP Live Casino
-					OR b.gameID BETWEEN 3401 AND CASE WHEN @sportType=233 THEN 3499 ELSE 0 END -- WM
-					OR b.gameID BETWEEN 5701 AND CASE WHEN @sportType=236 THEN 5799 ELSE 0 END -- GDG
-					OR b.gameID BETWEEN 3501 AND CASE WHEN @sportType=239 THEN 3599 ELSE 0 END -- BG
-				) 
-			AND (
-					b.statusId IN (111,112,113,0) 
-				)	
-			AND b.srecommend = @CustID
-			AND b.gameID NOT IN (SELECT Bettype FROM #SpecialBettypeGroup)
-			GROUP BY b.custid,b.[status]
+                  AND EXISTS (SELECT TOP 1 1
+                              FROM #SportBettype sb
+                              WHERE sb.RefTable IN (2) AND sb.Bettype = b.gameID)
+                  AND b.statusId IN (111, 112, 113, 0)
+                  AND b.srecommend = @CustID
+                  AND b.gameID NOT IN (SELECT Bettype FROM #SpecialBettypeGroup)
+            GROUP BY b.custid,
+                     b.[status]
+            OPTION (RECOMPILE)
 		END
 	END
 
-	--Get data from bodb_account.dbo.mcCustBettingDaily
+	-- Get data from DW System
 	IF @FirstDate <= @MoveBetsDay
 	BEGIN
 		IF @CurrentDate >= @MoveBetsDay
@@ -261,7 +362,7 @@ BEGIN
 							OR b.bettype BETWEEN 3001 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 244 THEN 3099 ELSE 0 END)  -- SA Gaming
 							OR b.bettype BETWEEN 3101 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 243 THEN 3150 ELSE 0 END)  -- AE Casino
 							OR b.bettype BETWEEN 3201 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 242 THEN 3299 ELSE 0 END)  -- IBCBet Live Casino
-							OR (' + CONVERT(VARCHAR(5),@sportType) +' = 212 AND (b.bettype BETWEEN 4001 AND 4600 OR b.gameID BETWEEN 6701 AND 7000 OR b.bettype BETWEEN 7001 AND 7600))
+							OR (' + CONVERT(VARCHAR(5),@sportType) +' = 212 AND (b.bettype BETWEEN 4001 AND 4600 OR b.bettype BETWEEN 7001 AND 7600))
 							OR b.bettype BETWEEN 2501 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 213 THEN 2699 ELSE 0 END)  -- NG2
 							OR b.bettype BETWEEN 1011 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 219 THEN 1020 ELSE 0 END)  -- Fishing World
 							OR b.bettype BETWEEN 1021 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = 220 THEN 1099 ELSE 0 END   -- Loterry
@@ -302,6 +403,14 @@ BEGIN
 	END
 	
 	--Get data for downline list 
+	-- #FiltedDownlineAcc
+	CREATE TABLE #FiltedDownlineAcc (
+        CustID    INT,
+        IsDisable BIT,
+        BetStatus NVARCHAR(10), 
+        BetCount  INT
+    )
+
 	IF @sportType IN (161)
     BEGIN            
 		INSERT INTO #FiltedDownlineAcc
@@ -400,4 +509,3 @@ BEGIN
 
 END
 GO 
-
