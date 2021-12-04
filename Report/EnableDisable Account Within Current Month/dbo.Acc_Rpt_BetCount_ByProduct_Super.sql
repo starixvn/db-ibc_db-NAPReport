@@ -3,10 +3,10 @@
 USE bodb02
 GO
 
-ALTER PROCEDURE [dbo].[Acc_Rpt_BetCount_ByProduct_Super] @MoveBetsDay  SMALLDATETIME,
-                                                         @BalanceUpDay SMALLDATETIME,
-                                                         @CustID       INT,
-                                                         @SportType    INT
+ALTER PROCEDURE dbo.Acc_Rpt_BetCount_ByProduct_Super @MoveBetsDay  SMALLDATETIME,
+                                                     @BalanceUpDay SMALLDATETIME,
+                                                     @CustID       INT,
+                                                     @SportType    INT
 AS
 /*
     Created: Dominic
@@ -98,10 +98,23 @@ BEGIN
 	SELECT @CurrentDate = CAST(GETDATE() AS DATE)
 	SELECT @FirstDate   = CONVERT(VARCHAR(25) ,DATEADD(dd, -(DAY(@CurrentDate) -1), @CurrentDate), 101)
 
+    DECLARE @SQLQuery VARCHAR(MAX)
+    DECLARE @ListBettype VARCHAR(MAX)
+
 
     ---------------
     -- META DATA --
     ---------------
+
+    ---------------
+    -- #BitmapOrder
+
+    CREATE TABLE #BitmapOrder (bitmapOrder INT)
+
+    INSERT INTO #BitmapOrder (bitmapOrder)
+    SELECT bitmapOrder
+    FROM bodb02.dbo.ProductStatusProfile WITH (NOLOCK) 
+    WHERE Sporttype = @SportType
 
 	-----------------------
     -- #SpecialBettypeGroup
@@ -134,6 +147,7 @@ BEGIN
     INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (251, 'RNG Casino',     208)
     INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (251, 'RNG Casino',     209)
     INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (251, 'RNG Casino',     210)
+    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (251, 'RNG Casino',     251)
 
     -- Virtual Sports group
     INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (180, 'Virtual Sports', 180)
@@ -258,7 +272,7 @@ BEGIN
         OPTION (RECOMPILE)
     END
 
-    -- Get data from OLTP System
+    -- Get data from bettrans table group
     IF (@CurrentDate > @MoveBetsDay)
 	BEGIN
         -- + Settings time range
@@ -328,184 +342,161 @@ BEGIN
             GROUP BY b.custid,
                      b.[status]
             OPTION (RECOMPILE)
-		END
-	END
+        END
+    END
 
-	-- Get data from DW System
-	IF @FirstDate <= @MoveBetsDay
+    -- Get data from mcCustBettingDaily
+    IF (@FirstDate <= @MoveBetsDay)
 	BEGIN
-		IF @CurrentDate >= @MoveBetsDay
-			SET @TempToDate = @MoveBetsDay
-		ELSE
-			SET  @TempToDate = @CurrentDate
+        -- + Settings time range
+        IF (@CurrentDate >= @MoveBetsDay)
+        BEGIN
+            SET @TempToDate = @MoveBetsDay
+        END
+        ELSE
+        BEGIN
+            SET @TempToDate = @CurrentDate
+        END
 
-		DECLARE @sql VARCHAR(MAX) 
-		SET @sql = 	'
-				SELECT * FROM  OPENQUERY ( DBWH ,''
-				SELECT b.custid,''''SETTLED'''',SUM(b.BetCount)
-				FROM bodb_account.dbo.mcCustBettingDaily b WITH (NOLOCK)					 
-				WHERE	b.rptDate BETWEEN '''''+ CONVERT(VARCHAR(10),@FirstDate, 121)+ ''''' AND '''''+  CONVERT(VARCHAR(10),@TempToDate, 121)  + '''''
-						AND 
-						(
-							b.bettype BETWEEN 81 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'       = 161 THEN 120 ELSE 0 END)	 -- Number Game
-							OR b.bettype BETWEEN 8101 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 161 THEN 8120 ELSE 0 END)  -- Happy 5
-							OR b.bettype BETWEEN 3601 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 161 THEN 3610 ELSE 0 END)  -- Happy 5 Linked Games
-							OR (' + CONVERT(VARCHAR(5),@sportType) +' = 251 AND (b.bettype BETWEEN 2101 AND 2399 OR b.bettype BETWEEN 2901 AND 2999)) -- RNG Casino
-							OR b.bettype BETWEEN 801 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = -1 THEN 806 ELSE 0 END)
-							OR b.bettype BETWEEN 1501 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 202 THEN 1599 ELSE 0 END)
-							OR b.bettype BETWEEN 4601 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 245 THEN 4900 ELSE 0 END)  -- Virtual Games
-							OR b.bettype BETWEEN 4901 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 222 THEN 5000 ELSE 0 END)  -- Table Games
-							OR b.bettype BETWEEN 1701 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 255 THEN 1703 ELSE 0 END)  -- GoldDeluxe
-							OR b.bettype BETWEEN 3300 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 241 THEN 3300 ELSE 0 END)  -- BBIN
-							OR b.bettype BETWEEN 18000 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +' = 204 THEN 18005 ELSE 0 END) -- Colossus Bet
-							OR b.bettype BETWEEN 2401 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 211 THEN 2499 ELSE 0 END)  -- AllBet
-							OR b.bettype BETWEEN 3001 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 244 THEN 3099 ELSE 0 END)  -- SA Gaming
-							OR b.bettype BETWEEN 3101 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 243 THEN 3150 ELSE 0 END)  -- AE Casino
-							OR b.bettype BETWEEN 3201 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 242 THEN 3299 ELSE 0 END)  -- IBCBet Live Casino
-							OR (' + CONVERT(VARCHAR(5),@sportType) +' = 212 AND (b.bettype BETWEEN 4001 AND 4600 OR b.bettype BETWEEN 7001 AND 7600))
-							OR b.bettype BETWEEN 2501 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 213 THEN 2699 ELSE 0 END)  -- NG2
-							OR b.bettype BETWEEN 1011 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 219 THEN 1020 ELSE 0 END)  -- Fishing World
-							OR b.bettype BETWEEN 1021 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = 220 THEN 1099 ELSE 0 END   -- Loterry
-							OR (' + CONVERT(VARCHAR(5),@sportType) +' =180 AND (b.bettype BETWEEN 1201 AND 1299 OR b.bettype BETWEEN 2700 AND 2899 OR b.bettype BETWEEN 5301 AND 5399)) -- Virtual Sports
-							OR b.bettype BETWEEN 1901 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = 212 THEN 1999 ELSE 0 END   -- Card Club [Video Poker]
-							OR b.bettype BETWEEN 1611 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 200 THEN 1699 ELSE 0 END)  -- Saba.club
-							OR b.bettype BETWEEN 5601 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 225 THEN 5699 ELSE 0 END)  -- ION Live Casino
-							OR b.bettype BETWEEN 3701 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 170 THEN 3799 ELSE 0 END)  -- PP Live Casino
-							OR b.bettype BETWEEN 5500 AND (CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'  = 224 THEN 5599 ELSE 0 END)  -- RNG War
-							OR b.bettype BETWEEN 6001 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = 212 THEN 6300 ELSE 0 END   -- PG Soft
-							OR b.bettype BETWEEN 6401 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = 212 THEN 6700 ELSE 0 END   -- Joker Gaming
-							OR b.bettype BETWEEN 5401 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = 212 THEN 6499 ELSE 0 END   -- MaxGame
-							OR b.bettype BETWEEN 7701 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = 212 THEN 7799 ELSE 0 END   -- AdvantPlay
-							OR b.bettype BETWEEN 7801 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = 212 THEN 7899 ELSE 0 END   -- AdvantPlay Mini
-							OR b.bettype BETWEEN 3401 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = 233 THEN 3499 ELSE 0 END   -- WM
-							OR b.bettype BETWEEN 5701 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = 236 THEN 5799 ELSE 0 END   -- GDG
-							OR b.bettype BETWEEN 3501 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = 239 THEN 3599 ELSE 0 END   -- BG
-							OR b.bettype BETWEEN 3611 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = 169 THEN 3620 ELSE 0 END   -- Sports Lottery
-							OR b.bettype BETWEEN 3801 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = 171 THEN 3899 ELSE 0 END   -- VGaming
-							OR b.bettype BETWEEN 7901 AND CASE WHEN ' + CONVERT(VARCHAR(5),@sportType) +'   = 175 THEN 7999 ELSE 0 END   -- Bitcoin
-						) 
-						AND b.bettype NOT IN (38)
-						AND b.status IN (3  ---DRAW
-										,12	---HALF LOSE
-										,13	---HALF WON
-										,4	---LOSE
-										,8	---WON								 
-										)	
-						AND CustID IN ( 
-										SELECT	CustID 
-										FROM	bodb02.dbo.CustInfo WITH(NOLOCK)
-										WHERE	srecommend = '+ CONVERT(VARCHAR(50),@CustID) +' AND RoleID = 1 )
-						GROUP BY b.custid '' )'		 
+        -- + Get list bettype
+        SELECT @ListBettype = COALESCE(@ListBettype + ', ' + CAST(Bettype AS VARCHAR(10)), CAST(Bettype AS VARCHAR(10))) FROM #SportBettype
+
+        -- + Get data
+        SET @SQLQuery =
+        '
+        SELECT b.CustID        CustID,
+               ''SETTLED''     BetStatus,
+               SUM(b.BetCount) BetCount
+        FROM bodb_account.dbo.mcCustBettingDaily b WITH (NOLOCK)
+        WHERE b.rptDate BETWEEN ''' + CONVERT(VARCHAR(10), @FirstDate, 121) + ''' AND ''' + CONVERT(VARCHAR(10), @TempToDate, 121) + '''
+              AND b.bettype IN (' + @ListBettype + ')
+              AND b.bettype NOT IN (38)
+              AND b.status IN (3, 4, 8, 12, 13)
+              AND b.CustID IN (SELECT custid
+                               FROM bodb02.dbo.CustInfo WITH (NOLOCK)
+                               WHERE srecommend = ' + CONVERT(VARCHAR(50), @CustID) + ' AND RoleID = 1)
+        GROUP BY b.CustID
+        '
 		
-				
-		INSERT INTO #AvailableMember 
-		EXEC (@sql)	
+        INSERT INTO #AvailableMember (CustID, BetStatus, BetCount)
+		EXEC (@SQLQuery) AT DBWH
 	END
-	
-	--Get data for downline list 
+
+    ---------------------
 	-- #FiltedDownlineAcc
-	CREATE TABLE #FiltedDownlineAcc (
+
+    -- Create temp table
+    CREATE TABLE #FiltedDownlineAcc (
         CustID    INT,
         IsDisable BIT,
-        BetStatus NVARCHAR(10), 
+        BetStatus NVARCHAR(10),
         BetCount  INT
     )
 
-	IF @sportType IN (161)
-    BEGIN            
-		INSERT INTO #FiltedDownlineAcc
-		SELECT ci.custid,
-			ci.DisableNumber,
-			av.BetStatus,
-			av.BetCount
-		FROM dbo.custInfo ci WITH(NOLOCK)
-		JOIN #AvailableMember av ON av.CustID = ci.custid                  
+    -- Gen data to temp table
+    -- + [161] Number Game
+    IF (@sportType IN (161))
+    BEGIN
+        INSERT INTO #FiltedDownlineAcc (CustID, IsDisable, BetStatus, BetCount)
+        SELECT ci.custid,
+               ci.DisableNumber,
+               av.BetStatus,
+               av.BetCount
+        FROM bodb02.dbo.custInfo ci WITH (NOLOCK)
+             INNER JOIN #AvailableMember av ON av.CustID = ci.custid
 	END
-
-	IF @sportType IN (-1,255,204)
-    BEGIN            
-		INSERT INTO #FiltedDownlineAcc
-		SELECT ci.custid,
-			CASE WHEN @sportType = -1  THEN  ci.DisableSuperLive
-				 WHEN @sportType = 255 THEN  ci.DisableGoldDeluxe
-				 WHEN @sportType = 204 THEN  ci.DisableColossusBet
-				 END ,
-			av.BetStatus,
-			av.BetCount
-		FROM dbo.custInfo ci WITH(NOLOCK)
-		JOIN #AvailableMember av ON av.CustID = ci.custid               
+    -- + [251] Casino
+    ELSE IF (@sportType IN (251))
+    BEGIN
+        INSERT INTO #FiltedDownlineAcc (CustID, IsDisable, BetStatus, BetCount)
+        SELECT ci.custid,
+			   (~ci.SyncCasino |(ci.DisableCasino)),
+               av.BetStatus,
+               av.BetCount
+        FROM bodb02.dbo.custInfo ci WITH(NOLOCK)
+             INNER JOIN #AvailableMember av ON av.CustID = ci.custid
 	END
-	IF @sportType IN (251) -----251, 208, 209, 210
-    BEGIN            
-		INSERT INTO #FiltedDownlineAcc
-		SELECT ci.custid,
-			(~ci.SyncCasino |(ci.DisableCasino)),
-			av.BetStatus,
-			av.BetCount
-		FROM dbo.custInfo ci WITH(NOLOCK)
-		JOIN #AvailableMember av ON av.CustID = ci.custid             
-	END
-
-	IF @sportType = 202
-    BEGIN      
-		WITH CustEnableKeno (CustID)
-		AS(
-			SELECT gt.CustID
-			FROM DBACC.bodb02.dbo.CustGameType gt WITH (NOLOCK) 
-				JOIN #AvailableMember av ON av.CustID = gt.CustID
-			WHERE gt.IsDisabled = 0
-			GROUP BY gt.CustID
-		)
-		INSERT INTO #FiltedDownlineAcc
+    -- + [202] RNG Keno
+    ELSE IF (@sportType IN (202))
+    BEGIN
+        ;WITH CustEnableKeno (CustID) AS (
+            SELECT gt.CustID
+            FROM DBACC.bodb02.dbo.CustGameType gt WITH (NOLOCK) 
+                 INNER JOIN #AvailableMember av ON av.CustID = gt.CustID
+            WHERE gt.IsDisabled = 0
+            GROUP BY gt.CustID
+        )
+        INSERT INTO #FiltedDownlineAcc (CustID, IsDisable, BetStatus, BetCount)
 		SELECT av.custid,
-			0,
-			av.BetStatus,
-			av.BetCount
-		FROM #AvailableMember av              
-			INNER JOIN CustEnableKeno ce ON ce.CustID = av.custid    
-		UNION ALL
+               0,
+               av.BetStatus,
+               av.BetCount
+        FROM #AvailableMember av
+             INNER JOIN CustEnableKeno ce ON ce.CustID = av.custid
+        UNION ALL
 		SELECT av.custid,
-			1,
-			av.BetStatus,
-			av.BetCount
-		FROM #AvailableMember av              
-			LEFT JOIN CustEnableKeno ce ON ce.CustID = av.custid    
+               1,
+               av.BetStatus,
+               av.BetCount
+		FROM #AvailableMember av
+             LEFT JOIN CustEnableKeno ce ON ce.CustID = av.custid
 		WHERE ce.CustID IS NULL
 	END
-	IF @sportType IN (211,212,213,219,220,180,245,244,200,243,222,241,242,224,225,233,236,239,169,170,171,175)
+    -- + [-1] Metric Gamming | [255] Gold Deluxe | [204] Colossus
+	ELSE IF (@sportType IN (-1, 255, 204))
     BEGIN
-		DECLARE @bitmapOrder TABLE (bitmapOrder TINYINT)
-		INSERT INTO @bitmapOrder (bitmapOrder)
-		SELECT bitmapOrder 
-		FROM dbo.ProductStatusProfile WITH(NOLOCK) 
-		WHERE Sporttype = @SportType 
-	    
-		INSERT INTO #FiltedDownlineAcc
-		SELECT ci.custid,
-				(SELECT CASE MIN(CONVERT(INT, f.value)) WHEN 0 THEN 0 ELSE 1 END
-			FROM CustProductStatus cps WITH(NOLOCK)
-				CROSS APPLY @bitmapOrder b
-				CROSS APPLY f_CustSetting_ProductStatusSel(cps.bitmapIsDisabled, b.bitmapOrder) f
-			WHERE custid = ci.custid),
-			av.BetStatus,
-			av.BetCount
-		FROM dbo.custInfo ci WITH(NOLOCK)
-		JOIN #AvailableMember av ON av.CustID = ci.custid                   
+        INSERT INTO #FiltedDownlineAcc (CustID, IsDisable, BetStatus, BetCount)
+        SELECT ci.custid,
+			   CASE WHEN @sportType = -1  THEN ci.DisableSuperLive
+                    WHEN @sportType = 255 THEN ci.DisableGoldDeluxe
+                    WHEN @sportType = 204 THEN ci.DisableColossusBet END,
+               av.BetStatus,
+               av.BetCount
+        FROM bodb02.dbo.custInfo ci WITH (NOLOCK)
+             INNER JOIN #AvailableMember av ON av.CustID = ci.custid
 	END
-	
-	--Return result
-	SELECT cs.custid,cs.username,rs.IsDisable,
-			SUM(CASE WHEN rs.BetStatus <> 'running' THEN rs.BetCount ELSE 0 END) SettledBets,
-			SUM(CASE WHEN rs.BetStatus = 'running' THEN rs.BetCount ELSE 0 END)  RunningBets
+	ELSE
+    BEGIN
+		INSERT INTO #FiltedDownlineAcc (CustID, IsDisable, BetStatus, BetCount)
+        SELECT ci.custid,
+			   (SELECT CASE MIN(CONVERT(INT, f.value)) WHEN 0 THEN 0 ELSE 1 END
+                FROM bodb02.dbo.CustProductStatus cps WITH (NOLOCK)
+                     CROSS APPLY #BitmapOrder b
+                     CROSS APPLY f_CustSetting_ProductStatusSel(cps.bitmapIsDisabled, b.bitmapOrder) f
+                WHERE custid = ci.custid),
+               av.BetStatus,
+               av.BetCount
+        FROM bodb02.dbo.custInfo ci WITH (NOLOCK)
+             INNER JOIN #AvailableMember av ON av.CustID = ci.custid
+	END
+
+
+    -------------------
+    -- RETURN RESULT --
+    -------------------
+
+	SELECT cs.custid,
+           cs.username,
+           rs.IsDisable,
+           SUM(CASE WHEN rs.BetStatus <> 'running' THEN rs.BetCount ELSE 0 END) SettledBets,
+           SUM(CASE WHEN rs.BetStatus =  'running' THEN rs.BetCount ELSE 0 END) RunningBets
 	FROM #FiltedDownlineAcc rs
-	JOIN dbo.Customer cs ON cs.custid = rs.CustID
-	GROUP BY cs.custid,cs.username,rs.IsDisable
+         INNER JOIN bodb02.dbo.Customer cs ON cs.custid = rs.CustID
+	GROUP BY cs.custid, cs.username, rs.IsDisable
 	ORDER BY cs.username
 	
-	--Drop temp tables
-	DROP TABLE #FiltedDownlineAcc
-	DROP TABLE #AvailableMember
-	DROP TABLE #SpecialBettypeGroup
+
+    ----------------------
+    -- DROP TEMP TABLES --
+    ----------------------
+
+    DROP TABLE #BitmapOrder
+    DROP TABLE #SpecialBettypeGroup
+    DROP TABLE #SportGroupSettings
+    DROP TABLE #SportFilter
+    DROP TABLE #SportBettype
+    DROP TABLE #AvailableMember
+    DROP TABLE #FiltedDownlineAcc
 
 END
 GO 

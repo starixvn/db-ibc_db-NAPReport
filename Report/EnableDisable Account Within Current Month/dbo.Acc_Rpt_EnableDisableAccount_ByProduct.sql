@@ -64,8 +64,8 @@ BEGIN
     -----------------
     -- DCS setting --
 
-    CREATE TABLE #BitmapOrder (bitmapOrder TINYINT) --Using for sporttype that has many settings
-    DECLARE @bitmap    TINYINT                      --Using for sporttype that has 1 setting
+    CREATE TABLE #BitmapOrder (bitmapOrder INT) --Using for sporttype that has many settings
+    DECLARE @bitmap    TINYINT                  --Using for sporttype that has 1 setting
 
     IF (@SportType IN (211))
     BEGIN
