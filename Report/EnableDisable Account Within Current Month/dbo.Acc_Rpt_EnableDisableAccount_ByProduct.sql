@@ -53,8 +53,8 @@ AS
         - 20211203@Ned.Le: NAP Report - Tune report "Total Credit Accounts" (#165615)
 
     Param's Explanation:
-      + @ListCurrency: The specified date used as one of the filter criterias, if its value is 'all' then no need to be filtered by currency
-      + @SportType:    Sporttype that be define at WEB stage
+        + @ListCurrency: The specified date used as one of the filter criterias, if its value is 'all' then no need to be filtered by currency
+        + @SportType:    Sporttype that be define at WEB stage
 */
 
 BEGIN
@@ -159,6 +159,7 @@ BEGIN
     -- + [161] Number Game
     IF (@sportType IN (161))
     BEGIN
+        -- -> Master
         INSERT INTO #FiltedDownlineAcc (SuperID, CustID, RoleID, IsDisable)
         SELECT sup.CustID,
                ci.custid,
@@ -169,7 +170,7 @@ BEGIN
              INNER JOIN #FiltedCreditSuper AS sup ON ci.srecommend = sup.CustID
         WHERE ci.Enabled = 1
               AND ci.roleid = 3
-
+        -- -> Agent
         INSERT INTO #FiltedDownlineAcc (SuperID, CustID, RoleID, IsDisable)
         SELECT sup.CustID,
                ci.custid,
@@ -180,7 +181,7 @@ BEGIN
              INNER JOIN #FiltedCreditSuper sup ON ci.srecommend = sup.CustID
         WHERE ci.Enabled = 1
               AND ci.roleid = 2
-
+        -- -> Member
         INSERT INTO #FiltedDownlineAcc (SuperID, CustID, RoleID, IsDisable)
         SELECT sup.CustID,
                ci.custid,
@@ -194,6 +195,7 @@ BEGIN
     -- + [251] Casino
     ELSE IF (@sportType IN (251))
     BEGIN
+        -- -> Master
         INSERT INTO #FiltedDownlineAcc (SuperID, CustID, RoleID, IsDisable)
         SELECT sup.CustID,
                ci.custid,
@@ -204,7 +206,7 @@ BEGIN
              INNER JOIN #FiltedCreditSuper sup ON ci.srecommend = sup.CustID
         WHERE ci.Enabled = 1
               AND ci.roleid = 3
-
+        -- -> Agent
         INSERT INTO #FiltedDownlineAcc (SuperID, CustID, RoleID, IsDisable)
         SELECT sup.CustID,
                ci.custid,
@@ -215,7 +217,7 @@ BEGIN
              INNER JOIN #FiltedCreditSuper sup ON ci.srecommend = sup.CustID
         WHERE ci.Enabled = 1
               AND ci.roleid = 2
-
+        -- -> Member
         INSERT INTO #FiltedDownlineAcc (SuperID, CustID, RoleID, IsDisable)
         SELECT sup.CustID,
                ci.custid,
@@ -229,6 +231,7 @@ BEGIN
     -- + [202] RNG Keno
     ELSE IF (@sportType IN (202))
     BEGIN
+        -- -> Master
         INSERT INTO #FiltedDownlineAcc (SuperID, CustID, RoleID, IsDisable)
         SELECT sup.CustID,
                ci.custid,
@@ -241,7 +244,7 @@ BEGIN
              INNER JOIN #FiltedCreditSuper sup ON ci.srecommend = sup.CustID
         WHERE ci.Enabled = 1
               AND ci.roleid = 3
-
+        -- -> Agent
         INSERT INTO #FiltedDownlineAcc (SuperID, CustID, RoleID, IsDisable)
         SELECT sup.CustID,
                ci.custid,
@@ -254,7 +257,7 @@ BEGIN
              INNER JOIN #FiltedCreditSuper sup ON ci.srecommend = sup.CustID
         WHERE ci.Enabled = 1
               AND ci.roleid = 2
-
+        -- -> Member
         INSERT INTO #FiltedDownlineAcc (SuperID, CustID, RoleID, IsDisable)
         SELECT sup.CustID,
                ci.custid,
@@ -270,6 +273,7 @@ BEGIN
     -- + [-1] Metric Gamming | [255] Gold Deluxe | [204] Colossus
     ELSE IF (@sportType IN (-1, 255, 204))
     BEGIN
+        -- -> Master
         INSERT INTO #FiltedDownlineAcc (SuperID, CustID, RoleID, IsDisable)
         SELECT sup.CustID,
                ci.custid,
@@ -282,7 +286,7 @@ BEGIN
              INNER JOIN #FiltedCreditSuper sup ON ci.srecommend = sup.CustID
         WHERE ci.Enabled = 1
               AND ci.roleid = 3
-
+        -- -> Agent
         INSERT INTO #FiltedDownlineAcc (SuperID, CustID, RoleID, IsDisable)
         SELECT sup.CustID,
                ci.custid,
@@ -295,7 +299,7 @@ BEGIN
              INNER JOIN #FiltedCreditSuper AS sup ON ci.srecommend = sup.CustID
         WHERE ci.Enabled = 1
               AND ci.roleid = 2
-
+        -- -> Member
         INSERT INTO #FiltedDownlineAcc (SuperID, CustID, RoleID, IsDisable)
         SELECT sup.CustID,
                ci.custid,
@@ -311,6 +315,7 @@ BEGIN
     -- + [211] Allbet
     ELSE IF @sportType IN (211)
     BEGIN
+        -- -> Master
         INSERT INTO #FiltedDownlineAcc (SuperID, CustID, RoleID, IsDisable)
         SELECT sup.CustID,
                ci.custid,
@@ -321,7 +326,7 @@ BEGIN
              INNER JOIN #FiltedCreditSuper sup ON ci.srecommend = sup.CustID
         WHERE ci.Enabled = 1
               AND ci.roleid = 3
-
+        -- -> Agent
         INSERT INTO #FiltedDownlineAcc (SuperID, CustID, RoleID, IsDisable)
         SELECT sup.CustID,
                ci.custid,
@@ -332,7 +337,7 @@ BEGIN
              INNER JOIN #FiltedCreditSuper sup ON ci.srecommend = sup.CustID
         WHERE ci.Enabled = 1
               AND ci.roleid = 2
-
+        -- -> Member
         INSERT INTO #FiltedDownlineAcc (SuperID, CustID, RoleID, IsDisable)
         SELECT sup.CustID,
                ci.custid,
@@ -342,7 +347,7 @@ BEGIN
              INNER JOIN #FiltedCreditSuper sup ON ci.srecommend = sup.CustID
         WHERE ci.Enabled = 1
               AND ci.roleid = 1
-
+        -- -> Update status
         UPDATE fda
         SET fda.IsDisable = A.IsDisable
         FROM #FiltedDownlineAcc fda
@@ -357,6 +362,7 @@ BEGIN
     -- + The rest
     ELSE
     BEGIN
+        -- -> Master
         INSERT INTO #FiltedDownlineAcc (SuperID, CustID, RoleID, IsDisable)
         SELECT sup.CustID,
                ci.custid,
@@ -369,7 +375,7 @@ BEGIN
              INNER JOIN #FiltedCreditSuper sup ON ci.srecommend = sup.CustID
         WHERE ci.Enabled = 1
               AND ci.roleid = 3
-
+        -- -> Agent
         INSERT INTO #FiltedDownlineAcc (SuperID, CustID, RoleID, IsDisable)
         SELECT sup.CustID,
                ci.custid,
@@ -382,7 +388,7 @@ BEGIN
              INNER JOIN #FiltedCreditSuper sup ON ci.srecommend = sup.CustID
         WHERE ci.Enabled = 1
               AND ci.roleid = 2
-
+        -- -> Member
         INSERT INTO #FiltedDownlineAcc (SuperID, CustID, RoleID, IsDisable)
         SELECT sup.CustID,
                ci.custid,
@@ -426,7 +432,7 @@ BEGIN
 
     ----------------------
     -- DROP TEMP TABLES --
-    
+
     DROP TABLE #BitmapOrder
     DROP TABLE #DepositDummySuper
     DROP TABLE #FiltedCreditSuper

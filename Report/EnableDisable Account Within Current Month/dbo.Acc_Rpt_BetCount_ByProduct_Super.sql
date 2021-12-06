@@ -10,7 +10,7 @@ ALTER PROCEDURE dbo.Acc_Rpt_BetCount_ByProduct_Super @MoveBetsDay  SMALLDATETIME
 AS
 /*
     Created: Dominic
-	Date: 2014-06-02
+    Date: 2014-06-02
     Task : Total settled/running bets count per Product by super within current month
     DB: DBAGE/bodb02
 
@@ -30,7 +30,7 @@ AS
         - 20160916@Robert:
             1. Integrate new product NG2 [RedmindID: #63460]
             2. Clean code of Cockfighting
-        - 20161129@Robert: NAP Reports - Integrate Fishing World Product [RedmindID: #67757]  
+        - 20161129@Robert: NAP Reports - Integrate Fishing World Product [RedmindID: #67757]
         - 20170627@Cherry: Integrate Lottery and Betradar Virtual Sports (#78184, 78495)
         - 20170808@Cherry: Integrate RNG Tablet Games (#78424)
         - 20170825@Cherry: Integrate Lucky 3 (#78214)
@@ -40,7 +40,7 @@ AS
         - 2018.03.19@Franklin: Integrate  ONE RNG Jackpot (#91712)
         - 20180411@Franklin: Integrate Pragmatic (#92642)
         - 20180816@Cherry: Integrate Poker Games (#97830)
-        - 20181219@Robert: NAP Report - Add new sporttype for Happy 5 (#104253) 
+        - 20181219@Robert: NAP Report - Add new sporttype for Happy 5 (#104253)
         - 20190128@Robert: Video Poker - Integrate into NAP Reports[#107706]
         - 20190308@Robert: #109822 - NAP Report - Integrate Bet Builder
         - 20190722@Robert: #117010 - NAP Report - Integrate Card Club on NAP Report
@@ -90,13 +90,13 @@ BEGIN
     -- DECLARE VARIABLES --
     -----------------------
 
-	DECLARE @CurrentDate  SMALLDATETIME
-	DECLARE @FirstDate    SMALLDATETIME
-	DECLARE @TempFromDate SMALLDATETIME
-	DECLARE @TempToDate   SMALLDATETIME
+    DECLARE @CurrentDate  SMALLDATETIME
+    DECLARE @FirstDate    SMALLDATETIME
+    DECLARE @TempFromDate SMALLDATETIME
+    DECLARE @TempToDate   SMALLDATETIME
 
-	SELECT @CurrentDate = CAST(GETDATE() AS DATE)
-	SELECT @FirstDate   = CONVERT(VARCHAR(25) ,DATEADD(dd, -(DAY(@CurrentDate) -1), @CurrentDate), 101)
+    SELECT @CurrentDate = CAST(GETDATE() AS DATE)
+    SELECT @FirstDate   = CONVERT(VARCHAR(25) ,DATEADD(dd, -(DAY(@CurrentDate) -1), @CurrentDate), 101)
 
     DECLARE @SQLQuery VARCHAR(MAX)
     DECLARE @ListBettype VARCHAR(MAX)
@@ -113,18 +113,18 @@ BEGIN
 
     INSERT INTO #BitmapOrder (bitmapOrder)
     SELECT bitmapOrder
-    FROM bodb02.dbo.ProductStatusProfile WITH (NOLOCK) 
+    FROM bodb02.dbo.ProductStatusProfile WITH (NOLOCK)
     WHERE Sporttype = @SportType
 
-	-----------------------
+    -----------------------
     -- #SpecialBettypeGroup
 
     -- Create temp table
-	CREATE TABLE #SpecialBettypeGroup (BettypeGroupID SMALLINT, Bettype INT)
+    CREATE TABLE #SpecialBettypeGroup (BettypeGroupID SMALLINT, Bettype INT)
 
     -- Get data of BettypeGroupID=12 [No BetCount]
-	INSERT INTO #SpecialBettypeGroup (BettypeGroupID, Bettype)
-	SELECT BettypeGroupID, Bettype
+    INSERT INTO #SpecialBettypeGroup (BettypeGroupID, Bettype)
+    SELECT BettypeGroupID, Bettype
     FROM DBWH.bodb_Account.dbo.BettypeGroup WITH (NOLOCK)
     WHERE BettypeGroupID IN (12)
 
@@ -209,7 +209,7 @@ BEGIN
         Bettype      INT,
         RefTable     INT
     )
-    
+
     -- Gen data to temp table
     IF (@SportType = -1)
     BEGIN
@@ -243,10 +243,10 @@ BEGIN
     ---------------
 
     -------------------
-	-- #AvailableMember
+    -- #AvailableMember
 
     -- Create temp table
-	CREATE TABLE #AvailableMember (
+    CREATE TABLE #AvailableMember (
         CustID    INT,
         BetStatus NVARCHAR(10),
         BetCount  INT
@@ -254,16 +254,16 @@ BEGIN
 
     -- Get data from translog
     BEGIN
-	    INSERT INTO #AvailableMember (CustID, BetStatus, BetCount)
-	    SELECT tl.custid   CustID,
+        INSERT INTO #AvailableMember (CustID, BetStatus, BetCount)
+        SELECT tl.custid   CustID,
                tl.[status] BetStatus,
                COUNT(1)    BetCount
-	    FROM bodb02.dbo.translog tl WITH (NOLOCK)
-	    WHERE EXISTS (SELECT TOP 1 1
+        FROM bodb02.dbo.translog tl WITH (NOLOCK)
+        WHERE EXISTS (SELECT TOP 1 1
                       FROM #SportBettype sb
                       WHERE sb.RefTable IN (3) AND sb.Bettype = tl.gameID)
               AND tl.srecommend = @CustID
-              AND tl.StatusId = 0 
+              AND tl.StatusId = 0
         GROUP BY tl.custid,
                  tl.[status]
         OPTION (RECOMPILE)
@@ -271,7 +271,7 @@ BEGIN
 
     -- Get data from bettrans table group
     IF (@CurrentDate > @MoveBetsDay)
-	BEGIN
+    BEGIN
         -- + Settings time range
         IF (@FirstDate <= @MoveBetsDay)
         BEGIN
@@ -285,11 +285,11 @@ BEGIN
         -- + Get data from bettrans
         BEGIN
             INSERT INTO #AvailableMember (CustID, BetStatus, BetCount)
-		    SELECT b.custid                                                                      CustID,
+            SELECT b.custid                                                                      CustID,
                    b.[status]                                                                    BetStatus,
                    CASE WHEN b.bettype BETWEEN 1401 AND 1499 THEN SUM(b.betid) ELSE COUNT(1) END BetCount
-		    FROM dbo.bettrans b WITH (NOLOCK)
-		    WHERE b.winlostdate BETWEEN @TempFromDate AND @CurrentDate
+            FROM dbo.bettrans b WITH (NOLOCK)
+            WHERE b.winlostdate BETWEEN @TempFromDate AND @CurrentDate
                   AND EXISTS (SELECT TOP 1 1
                               FROM #SportBettype sb
                               WHERE sb.RefTable IN (0, 3) AND sb.Bettype = b.bettype)
@@ -302,15 +302,15 @@ BEGIN
                      b.bettype
             OPTION (RECOMPILE)
         END
-		
+
         -- Get data from bettransRnG
         BEGIN
             INSERT INTO #AvailableMember (CustID, BetStatus, BetCount)
-	        SELECT b.custid   CustID,
+            SELECT b.custid   CustID,
                    b.[status] BetStatus,
                    COUNT(1)   BetCount
             FROM dbo.bettransRNG b WITH (NOLOCK)
-	        WHERE b.winlostdate BETWEEN @TempFromDate AND @CurrentDate
+            WHERE b.winlostdate BETWEEN @TempFromDate AND @CurrentDate
                   AND EXISTS (SELECT TOP 1 1
                               FROM #SportBettype sb
                               WHERE sb.RefTable IN (1) AND sb.Bettype = b.gameID)
@@ -320,16 +320,16 @@ BEGIN
             GROUP BY b.custid,
                      b.[status]
             OPTION (RECOMPILE)
-        END	
+        END
 
-		-- Get data from bettransLC
-		BEGIN
+        -- Get data from bettransLC
+        BEGIN
             INSERT INTO #AvailableMember (CustID, BetStatus, BetCount)
-	        SELECT b.custid   CustID,
+            SELECT b.custid   CustID,
                    b.[status] BetStatus,
                    COUNT(1)   BetCount
-			FROM dbo.bettransLC b WITH (NOLOCK)
-			WHERE b.winlostdate BETWEEN @TempFromDate AND @CurrentDate
+            FROM dbo.bettransLC b WITH (NOLOCK)
+            WHERE b.winlostdate BETWEEN @TempFromDate AND @CurrentDate
                   AND EXISTS (SELECT TOP 1 1
                               FROM #SportBettype sb
                               WHERE sb.RefTable IN (2) AND sb.Bettype = b.gameID)
@@ -344,7 +344,7 @@ BEGIN
 
     -- Get data from mcCustBettingDaily
     IF (@FirstDate <= @MoveBetsDay)
-	BEGIN
+    BEGIN
         -- + Settings time range
         IF (@CurrentDate >= @MoveBetsDay)
         BEGIN
@@ -374,13 +374,13 @@ BEGIN
                                WHERE srecommend = ' + CONVERT(VARCHAR(50), @CustID) + ' AND RoleID = 1)
         GROUP BY b.CustID
         '
-		
+
         INSERT INTO #AvailableMember (CustID, BetStatus, BetCount)
-		EXEC (@SQLQuery) AT DBWH
-	END
+        EXEC (@SQLQuery) AT DBWH
+    END
 
     ---------------------
-	-- #FiltedDownlineAcc
+    -- #FiltedDownlineAcc
 
     -- Create temp table
     CREATE TABLE #FiltedDownlineAcc (
@@ -401,62 +401,62 @@ BEGIN
                av.BetCount
         FROM bodb02.dbo.custInfo ci WITH (NOLOCK)
              INNER JOIN #AvailableMember av ON av.CustID = ci.custid
-	END
+    END
     -- + [251] Casino
     ELSE IF (@sportType IN (251))
     BEGIN
         INSERT INTO #FiltedDownlineAcc (CustID, IsDisable, BetStatus, BetCount)
         SELECT ci.custid,
-			   (~ci.SyncCasino |(ci.DisableCasino)),
+               (~ci.SyncCasino |(ci.DisableCasino)),
                av.BetStatus,
                av.BetCount
         FROM bodb02.dbo.custInfo ci WITH(NOLOCK)
              INNER JOIN #AvailableMember av ON av.CustID = ci.custid
-	END
+    END
     -- + [202] RNG Keno
     ELSE IF (@sportType IN (202))
     BEGIN
         ;WITH CustEnableKeno (CustID) AS (
             SELECT gt.CustID
-            FROM DBACC.bodb02.dbo.CustGameType gt WITH (NOLOCK) 
+            FROM DBACC.bodb02.dbo.CustGameType gt WITH (NOLOCK)
                  INNER JOIN #AvailableMember av ON av.CustID = gt.CustID
             WHERE gt.IsDisabled = 0
             GROUP BY gt.CustID
         )
         INSERT INTO #FiltedDownlineAcc (CustID, IsDisable, BetStatus, BetCount)
-		SELECT av.custid,
+        SELECT av.custid,
                0,
                av.BetStatus,
                av.BetCount
         FROM #AvailableMember av
              INNER JOIN CustEnableKeno ce ON ce.CustID = av.custid
         UNION ALL
-		SELECT av.custid,
+        SELECT av.custid,
                1,
                av.BetStatus,
                av.BetCount
-		FROM #AvailableMember av
+        FROM #AvailableMember av
              LEFT JOIN CustEnableKeno ce ON ce.CustID = av.custid
-		WHERE ce.CustID IS NULL
-	END
+        WHERE ce.CustID IS NULL
+    END
     -- + [-1] Metric Gamming | [255] Gold Deluxe | [204] Colossus
-	ELSE IF (@sportType IN (-1, 255, 204))
+    ELSE IF (@sportType IN (-1, 255, 204))
     BEGIN
         INSERT INTO #FiltedDownlineAcc (CustID, IsDisable, BetStatus, BetCount)
         SELECT ci.custid,
-			   CASE WHEN @sportType = -1  THEN ci.DisableSuperLive
+               CASE WHEN @sportType = -1  THEN ci.DisableSuperLive
                     WHEN @sportType = 255 THEN ci.DisableGoldDeluxe
                     WHEN @sportType = 204 THEN ci.DisableColossusBet END,
                av.BetStatus,
                av.BetCount
         FROM bodb02.dbo.custInfo ci WITH (NOLOCK)
              INNER JOIN #AvailableMember av ON av.CustID = ci.custid
-	END
-	ELSE
+    END
+    ELSE
     BEGIN
-		INSERT INTO #FiltedDownlineAcc (CustID, IsDisable, BetStatus, BetCount)
+        INSERT INTO #FiltedDownlineAcc (CustID, IsDisable, BetStatus, BetCount)
         SELECT ci.custid,
-			   (SELECT CASE MIN(CONVERT(INT, f.value)) WHEN 0 THEN 0 ELSE 1 END
+               (SELECT CASE MIN(CONVERT(INT, f.value)) WHEN 0 THEN 0 ELSE 1 END
                 FROM bodb02.dbo.CustProductStatus cps WITH (NOLOCK)
                      CROSS APPLY #BitmapOrder b
                      CROSS APPLY f_CustSetting_ProductStatusSel(cps.bitmapIsDisabled, b.bitmapOrder) f
@@ -465,23 +465,23 @@ BEGIN
                av.BetCount
         FROM bodb02.dbo.custInfo ci WITH (NOLOCK)
              INNER JOIN #AvailableMember av ON av.CustID = ci.custid
-	END
+    END
 
 
     -------------------
     -- RETURN RESULT --
     -------------------
 
-	SELECT cs.custid,
+    SELECT cs.custid,
            cs.username,
            rs.IsDisable,
            SUM(CASE WHEN rs.BetStatus <> 'running' THEN rs.BetCount ELSE 0 END) SettledBets,
            SUM(CASE WHEN rs.BetStatus =  'running' THEN rs.BetCount ELSE 0 END) RunningBets
-	FROM #FiltedDownlineAcc rs
+    FROM #FiltedDownlineAcc rs
          INNER JOIN bodb02.dbo.Customer cs ON cs.custid = rs.CustID
-	GROUP BY cs.custid, cs.username, rs.IsDisable
-	ORDER BY cs.username
-	
+    GROUP BY cs.custid, cs.username, rs.IsDisable
+    ORDER BY cs.username
+
 
     ----------------------
     -- DROP TEMP TABLES --
@@ -496,4 +496,4 @@ BEGIN
     DROP TABLE #FiltedDownlineAcc
 
 END
-GO 
+GO
