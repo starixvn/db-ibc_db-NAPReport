@@ -46,6 +46,7 @@ Revisions:
 	                   Exclude ticktes that have betfrom='v'
 	- 20210416@Ned.Le: NAP Report - Duplicate Tickets - Exclude refund tickets (#153616)
 	- 20211013@Jaden: Change datatype for ipv6 (#162587)
+    - 20211209@Ned.Le: NAP Report - Duplicate ticket report cannot be loaded (#165870)
 	                   
 Param's Explanation:
 	- @CheckTime : The time we consider how long the job fails (Compared the last run with the current time).
@@ -190,7 +191,7 @@ BEGIN
 			AND b.statusID NOT IN (101,102,103)
 			AND b.bettype NOT IN (500) -- exclude 500 - charged commission
 		ORDER BY b.custid, b.odds, b.stake, b.balance, b.bettype, b.winlostdate, b.Username,b.refno, b.transid, b.transdate, b.status, b.statusID 
-
+        OPTION (RECOMPILE)
 
 	END
 		
