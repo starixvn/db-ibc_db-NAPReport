@@ -17,7 +17,7 @@ AS
 
 	   SET NOCOUNT ON;
 
-	   WITH Cust_CTE(Custid
+	   ;WITH Cust_CTE(Custid
 				, SuperId)
 		   AS (SELECT c.custid
 				  , s.custid AS SuperId
@@ -30,11 +30,11 @@ AS
 			   , m.username AS Master
 			   , a.username AS Agent
 		   FROM Cust_CTE AS cte
-			  INNER JOIN dbo.Customer AS c ON c.srecommend = cte.SuperId
+			  INNER JOIN dbo.Customer AS c WITH (NOLOCK) ON c.srecommend = cte.SuperId
 									    AND c.roleid = 1
-			  INNER JOIN dbo.Customer AS s ON s.custid = c.srecommend
+			  INNER JOIN dbo.Customer AS s WITH (NOLOCK) ON s.custid = c.srecommend
 									    AND s.roleid = 4
-			  INNER JOIN dbo.Customer AS m ON m.custid = c.mrecommend
+			  INNER JOIN dbo.Customer AS m WITH (NOLOCK) ON m.custid = c.mrecommend
 									    AND m.roleid = 3
-			  INNER JOIN dbo.Customer AS a ON a.custid = c.recommend;
+			  INNER JOIN dbo.Customer AS a WITH (NOLOCK) ON a.custid = c.recommend;
     END;
