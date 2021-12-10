@@ -15,13 +15,13 @@ AS
 	Param's Explanation:	 
 */
 
-	   SET NOCOUNT ON;
+	   SET NOCOUNT ON
 
 	   ;WITH Cust_CTE(Custid
 				, SuperId)
 		   AS (SELECT c.custid
 				  , s.custid AS SuperId
-			  FROM dbo.Acc_CustGroup AS c
+			  FROM dbo.Acc_CustGroup AS c WITH (NOLOCK)
 				 LEFT JOIN dbo.Customer AS s WITH(NOLOCK) ON s.srecommend = c.custid
 			  WHERE c.GroupName = @GroupName)
 		   SELECT cte.Custid
@@ -37,4 +37,4 @@ AS
 			  INNER JOIN dbo.Customer AS m WITH (NOLOCK) ON m.custid = c.mrecommend
 									    AND m.roleid = 3
 			  INNER JOIN dbo.Customer AS a WITH (NOLOCK) ON a.custid = c.recommend;
-    END;
+    END
