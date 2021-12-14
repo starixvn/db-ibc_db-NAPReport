@@ -209,7 +209,7 @@ BEGIN
 			THEN 0 ELSE 1 END = 1
 	GROUP BY a.custid, a.groupid	
 	
-	OPTION (RECOMPLIE)
+	OPTION (RECOMPILE)
 	
 	INSERT INTO #Balance (custid, groupID, Balance)
 	SELECT custid, groupID, SUM(Balance)
