@@ -144,7 +144,7 @@ BEGIN
 	SELECT a.custid, a.groupid, --master
 		IsNull(SUM(case when b.custid=b.mrecommend then winlost-actual_stake else mwinlost+acomm-comm end) ,0) + 
 		IsNull(SUM(case when b.custid=b.recommend then winlost-actual_stake else awinlost+comm-playercomm end) ,0) +  
-		IsNull(SUM(case when b.custid<>b.recommend AND b.custid <> b.mrecommend AND ruben=1 then winlost-actual_stake+playercomm else 0 end) ,0) 
+		IsNull(SUM(case when b.custid<>b.recommend AND b.custid <> b.mrecommend then winlost-actual_stake+playercomm else 0 end) ,0) 
 	FROM sMaster a
 		INNER JOIN dbo.[Transfer] b with(nolock) on a.custid = b.mrecommend
 	WHERE  b.srecommend = a.uplineid
@@ -169,7 +169,7 @@ BEGIN
 	UNION ALL
 	SELECT b.recommend, a.groupID,
 		ISNULL(SUM(CASE WHEN b.recommend = b.custid THEN b.winlost-b.actual_stake ELSE b.awinlost+b.comm-b.playercomm END),0)
-		+ IsNull(SUM(case when b.custid<>b.recommend AND b.ruben=1 then winlost-actual_stake+playercomm else 0 end) ,0)
+		+ IsNull(SUM(case when b.custid<>b.recommend then winlost-actual_stake+playercomm else 0 end) ,0)
 	FROM [Transfer] b with(nolock, index=IX_recommend)
 		INNER JOIN custInfo c with(nolock) on c.custid = b.recommend
 			INNER JOIN custAccount a with(nolock) on c.custid = a.custid
