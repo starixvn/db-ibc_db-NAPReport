@@ -105,7 +105,7 @@ BEGIN
 			IsNull(SUM(case when b.custid=b.srecommend then winlost-actual_stake else swinlost+scomm-acomm end) ,0) +
 			IsNull(SUM(case when b.custid=b.mrecommend then winlost-actual_stake else mwinlost+acomm- comm end) ,0) + 
 			IsNull(SUM(case when b.custid=b.recommend  then winlost-actual_stake else awinlost+comm-playercomm end) ,0)  +
-			IsNull(SUM(case when b.custid<>b.recommend AND b.custid <> b.mrecommend AND b.custid <> b.srecommend AND b.ruben=1 then winlost-actual_stake+playercomm else 0 end) ,0) Balance
+			IsNull(SUM(case when b.custid<>b.recommend AND b.custid <> b.mrecommend AND b.custid <> b.srecommend then winlost-actual_stake+playercomm else 0 end) ,0) Balance
 		FROM dbo.[Transfer] b with(nolock)
 		WHERE b.srecommend in (select custid from #super)
 			  AND b.bettype NOT IN (21008, 21009)
