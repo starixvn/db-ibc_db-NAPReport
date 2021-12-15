@@ -96,7 +96,7 @@ BEGIN
 		FROM dbo.bettrans b with(nolock)
 		WHERE b.srecommend in (select custid from #super)
 			  AND b.bettype < 19999
-			  AND CASE WHEN b.winlostdate <= @MoveBetsDay and bettype < 19999
+			  AND CASE WHEN b.winlostdate <= @MoveBetsDay
 				THEN 0 ELSE 1 END = 1
 		GROUP BY b.srecommend
 		
