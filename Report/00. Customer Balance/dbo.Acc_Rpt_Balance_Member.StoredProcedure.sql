@@ -65,7 +65,7 @@ BEGIN
 					SUM(b.winlost - b.actual_stake + b.playercomm) AS Balance,
 					SUM((b.winlost - b.actual_stake + b.playercomm)* b.actualrate) AS BaseBalance
 	FROM	dbo.[Transfer] b with (nolock)
-	WHERE	b.srecommend IN (SELECT srecommend FROM dbo.custinfo WHERE custid = @_agentid)
+	WHERE	b.srecommend IN (SELECT srecommend FROM dbo.custinfo with (nolock) WHERE custid = @_agentid)
 		AND b.winlostdate <= @currentDate		
 		AND b.statusID NOT IN (101,102,103)
 		AND b.bettype NOT IN (21008, 21009)

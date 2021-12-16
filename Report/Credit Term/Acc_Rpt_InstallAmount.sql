@@ -248,7 +248,7 @@ BEGIN
 					+ IsNull(sum(case when custid=mrecommend then (winlost-actual_stake)*actualrate else (mwinlost+acomm-comm)*actualrate end),0)
 					+ IsNull(sum(case when custid=recommend  then (winlost-actual_stake)*actualrate else (awinlost+comm-playercomm)*actualrate end),0)
 					+ IsNull(sum(case when custid <> recommend and custid <> mrecommend and custid <> srecommend then (winlost-actual_stake+playercomm)*actualrate else 0 end),0) Bal_base
-				FROM bettrans (nolock)
+				FROM [Transfer] (nolock)
 				WHERE bettype NOT IN (21008, 21009)
 					AND CASE WHEN winlostdate > @MoveBetsDay AND bettype = 19999
 							THEN 0 ELSE 1 END = 1
