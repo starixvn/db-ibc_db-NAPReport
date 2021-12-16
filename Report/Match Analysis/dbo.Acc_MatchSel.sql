@@ -1,3 +1,6 @@
+/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+use bodb02
+GO
 ALTER PROCEDURE [dbo].[Acc_MatchSel]
 	@eventdate datetime,
 	@leagueids1 varchar(8000) = null,
@@ -16,6 +19,7 @@ AS
 		- 20120920@Sophia: Only support sportbook
 		- 20120215@Elodie: Change linked server DB06 to DBARC
 		- 20131209@Kathy: Add Hr Fixed Odds (154) [Redmine:#6505]
+		- 20211216@Jaden: Add IsDeleted column check (#164376)
 	Parameters Explanations:			
 */
 SET NOCOUNT ON
@@ -35,6 +39,7 @@ BEGIN
 		AND m.matchcode not like '%hedge%'	--exclude hedge match
 		AND m.eventstatus = 'completed'
 		AND m.betstatus <> 'Refund'
+		AND m.IsDeleted = 0
 	ORDER BY sporttype, leagueid, 	matchcode
 END
 ELSE IF (@eventdate>=@BalanceUpDay)
