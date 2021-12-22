@@ -3,7 +3,7 @@
 USE [bodb_Summary]
 GO
 
-CREATE PROCEDURE [dbo].[Task_BalanceCompany_HistoryIns]
+ALTER PROCEDURE [dbo].[Task_BalanceCompany_HistoryIns]
 AS
 
 /*
@@ -34,19 +34,17 @@ BEGIN
 	
 	INSERT INTO #tmpDiff (diff)
 	SELECT
-		SUM((winlost-actual_stake+awinlost+mwinlost+swinlost+scomm)*(b.actualrate - e.actualrate)) diff
-	FROM bodb02.dbo.bettrans b WITH (READPAST)
-		INNER JOIN bodb02.dbo.custinfo ci (READPAST) ON b.custid = ci.custid
-		INNER JOIN bodb02.dbo.exchange e (READPAST) ON ci.currency = e.exchangeid
+		SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm)*(b.actualrate - e.actualrate)) diff
+	FROM bodb02.dbo.bettrans b WITH (NOLOCK)		
+		INNER JOIN bodb02.dbo.exchange e WITH (NOLOCK) ON b.currency = e.exchangeid
 	WHERE
-		ruben=1 AND winlostdate <= @BalanceUpDay AND bettype < 19999
+		ruben = 1 AND winlostdate <= @BalanceUpDay AND bettype < 19999
 	
 	INSERT INTO #tmpDiff (diff)	
 	SELECT
-		SUM((winlost-actual_stake+awinlost+mwinlost+swinlost+scomm)*(b.actualrate - e.actualrate)) diff
-	FROM bodb02.dbo.[Transfer] b WITH (READPAST)
-		INNER JOIN bodb02.dbo.custinfo ci (READPAST) ON b.custid = ci.custid
-		INNER JOIN bodb02.dbo.exchange e (READPAST) ON ci.currency = e.exchangeid
+		SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm)*(b.actualrate - e.actualrate)) diff
+	FROM bodb02.dbo.[Transfer] b WITH (NOLOCK)
+		INNER JOIN bodb02.dbo.exchange e WITH (NOLOCK) ON b.currency = e.exchangeid
 	WHERE
 		winlostdate <= @BalanceUpDay		
 
@@ -75,23 +73,21 @@ BEGIN
 	INSERT INTO #tmpData(Currency, CompBalBefore, CompBalAfter)
 	SELECT    		
 		exchangeid AS currency,
-		SUM( (winlost-actual_stake+awinlost+mwinlost+swinlost+scomm)* b.actualrate) CompBalBefore,
-		SUM((winlost-actual_stake+awinlost+mwinlost+swinlost+scomm)* e.actualrate) CompBalAfter
-	FROM bodb02.dbo.bettrans b WITH (READPAST)
-		INNER JOIN bodb02.dbo.custinfo ci (READPAST) ON b.custid = ci.custid
-		INNER JOIN bodb02.dbo.exchange e (READPAST) ON ci.currency = e.exchangeid
+		SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm)* b.actualrate) CompBalBefore,
+		SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm)* e.actualrate) CompBalAfter
+	FROM bodb02.dbo.bettrans b WITH (NOLOCK)
+		INNER JOIN bodb02.dbo.exchange e WITH (NOLOCK) ON b.currency = e.exchangeid
 	WHERE
-		ruben=1 AND winlostdate <= @BalanceUpday AND bettype < 19999
+		ruben = 1 AND winlostdate <= @BalanceUpday AND bettype < 19999
 	GROUP BY  exchangeid
 	
 	INSERT INTO #tmpData(Currency, CompBalBefore, CompBalAfter)
 	SELECT    		
 		exchangeid AS currency,
-		SUM( (winlost-actual_stake+awinlost+mwinlost+swinlost+scomm)* b.actualrate) CompBalBefore,
-		SUM((winlost-actual_stake+awinlost+mwinlost+swinlost+scomm)* e.actualrate) CompBalAfter
-	FROM bodb02.dbo.[Transfer] b WITH (READPAST)
-		INNER JOIN bodb02.dbo.custinfo ci (READPAST) ON b.custid = ci.custid
-		INNER JOIN bodb02.dbo.exchange e (READPAST) ON ci.currency = e.exchangeid
+		SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm)* b.actualrate) CompBalBefore,
+		SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm)* e.actualrate) CompBalAfter
+	FROM bodb02.dbo.[Transfer] b WITH (NOLOCK)
+		INNER JOIN bodb02.dbo.exchange e WITH (NOLOCK) ON b.currency = e.exchangeid
 	WHERE
 		winlostdate <= @BalanceUpday
 	GROUP BY  exchangeid
