@@ -32,14 +32,13 @@ BEGIN
 		,username VARCHAR(50)
 		,currency INT
 		,mrecommend INT
-		,srecommend INT)
+		)
 	---get directAgent---
 	INSERT INTO #directAgent
 	SELECT DISTINCT ci.custid
 		,ci.username
 		,ci.currency
 		,ci.mrecommend
-		,ci.srecommend
 	FROM dbo.custinfo ci WITH (NOLOCK)
 		INNER JOIN dbo.CustDirectAccount d WITH (NOLOCK) ON ci.roleid = 2 AND ci.custid = d.custid
 	WHERE ci.username LIKE '%' + @username + '%'
@@ -53,7 +52,6 @@ BEGIN
 		,ci.username
 		,ci.currency
 		,ci.mrecommend
-		,ci.srecommend
 	FROM dbo.CustAgent AS ca WITH (NOLOCK)
 		INNER JOIN dbo.custinfo ci WITH (NOLOCK) ON ci.roleid = 2 AND ca.custid = ci.custid
 	WHERE ca.IsInternal = 1
@@ -111,7 +109,7 @@ BEGIN
 	FROM	[Transfer] b WITH (NOLOCK)
 	WHERE	statusID NOT IN (101,102,103)
 		AND b.bettype NOT IN (21008, 21009)
-		AND EXISTS ( SELECT 1 FROM #directAgent d WHERE b.srecommend = d.srecommend )
+		AND EXISTS ( SELECT 1 FROM #directAgent d WHERE b.mrecommend = d.mrecommend )
 	GROUP BY case when b.winlostdate > @MoveBetsDay and bettype = 19999 then NULL
 				 else b.recommend
 			end 

@@ -29,6 +29,7 @@ BEGIN
 
 	DECLARE @currentDate	SMALLDATETIME
 		, @_masterid		INT
+		, @srecommend INT
 
 	SELECT @currentDate		= CAST(CURRENT_TIMESTAMP AS DATE)
 		,@_masterid			= ISNULL(@masterid,0)
@@ -36,15 +37,19 @@ BEGIN
 	CREATE TABLE #AgentInfo (
 		custid				INT PRIMARY KEY
 		, username			NVARCHAR(50)
-		, currency			INT
-		, srecommend		INT
+		, currency			INT		
 	)
 
-	INSERT INTO #AgentInfo (custid, username, currency, srecommend)
-	SELECT c.custid, c.username,c.currency, c.srecommend
+	INSERT INTO #AgentInfo (custid, username, currency)
+	SELECT c.custid, c.username,c.currency
 	FROM dbo.custinfo c (nolock)
 	WHERE c.mrecommend = @_masterid
 		AND c.roleid = 2
+		
+	SELECT @srecommend = srecommend
+	FROM dbo.custinfo  (nolock)
+	WHERE mrecommend = @_masterid
+		AND roleid = 2
 	
 	CREATE TABLE #Data 
 	(
@@ -81,7 +86,7 @@ BEGIN
 			,SUM(bet.Balance) AS Balance
 			,SUM(bet.Balance * b.actualrate) AS BaseBalance
 	FROM #AgentInfo ai
-		INNER JOIN dbo.[Transfer] b WITH (NOLOCK) ON b.srecommend = ai.srecommend
+		INNER JOIN dbo.[Transfer] b WITH (NOLOCK) ON b.recommend = ai.custid 
 		CROSS APPLY (
 			SELECT 
 				--skip volatile rows during move bet process (see Balance_Direct_Master report)
@@ -96,6 +101,7 @@ BEGIN
 	WHERE b.winlostdate <= @currentDate
 		AND b.statusID NOT IN (101,102,103)
 		AND b.bettype NOT IN (21008, 21009)
+		AND b.srecommend = @srecommend
 	GROUP BY b.recommend
 	
 	SELECT c.custid, c.username,c.currency
@@ -107,5 +113,6 @@ BEGIN
 	ORDER BY c.username
 	
 	DROP TABLE #Data
+	DROP TABLE #AgentInfo
 END
 GO

@@ -29,9 +29,15 @@ BEGIN
 
 	DECLARE @currentDate		SMALLDATETIME
 			, @_agentid			INT
+			, @srecommend		INT
 
 	SELECT @currentDate		= CAST(CURRENT_TIMESTAMP AS DATE)
 		,@_agentid			= ISNULL(@agentid, 0)
+		
+	SELECT @srecommend = srecommend
+	FROM dbo.custinfo  (nolock)
+	WHERE custid = @_agentid
+		AND roleid = 2
 
 	CREATE TABLE #Data 
 	(
@@ -65,7 +71,8 @@ BEGIN
 					SUM(b.winlost - b.actual_stake + b.playercomm) AS Balance,
 					SUM((b.winlost - b.actual_stake + b.playercomm)* b.actualrate) AS BaseBalance
 	FROM	dbo.[Transfer] b with (nolock)
-	WHERE	b.srecommend IN (SELECT srecommend FROM dbo.custinfo with (nolock) WHERE custid = @_agentid)
+	WHERE	b.recommend = @_agentid
+		AND b.srecommend = @srecommend
 		AND b.winlostdate <= @currentDate		
 		AND b.statusID NOT IN (101,102,103)
 		AND b.bettype NOT IN (21008, 21009)

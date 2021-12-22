@@ -31,10 +31,16 @@ BEGIN
 	DECLARE @currentDate		SMALLDATETIME
 			, @yesterday		SMALLDATETIME
 			, @_agentid			INT
+			, @srecommend		INT
 
 		SELECT @currentDate		= CAST(CURRENT_TIMESTAMP AS DATE)
 			,@yesterday			= @currentDate -1
 			,@_agentid			= ISNULL(@agentid, 0)
+			
+	SELECT @srecommend = srecommend
+	FROM dbo.custinfo  (nolock)
+	WHERE custid = @_agentid
+		AND roleid = 2
 
 	CREATE TABLE #Data 
 	(
@@ -86,7 +92,8 @@ BEGIN
 					END
 				AS winlost
 		) AS bet
-	WHERE b.srecommend IN (SELECT srecommend FROM dbo.custinfo with (nolock) WHERE custid = @_agentid)
+	WHERE b.recommend = @_agentid
+		AND b.srecommend = @srecommend
 		AND b.winlostdate <= @currentDate
 		AND b.statusID NOT IN (101,102,103)
 		AND b.bettype NOT IN (21008, 21009)

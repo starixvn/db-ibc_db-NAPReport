@@ -34,7 +34,8 @@ BEGIN
 		,username VARCHAR(50)
 		,currency INT
 		,mrecommend INT
-		,srecommend INT)
+		,srecommend INT
+		)
 	---get directAgent---
 	INSERT INTO #directAgent
 	SELECT DISTINCT ci.custid
@@ -55,7 +56,7 @@ BEGIN
 		,ci.username
 		,ci.currency
 		,ci.mrecommend
-		,ci.srecommend
+		,ci.srecommend 
 	FROM dbo.CustAgent AS ca WITH (NOLOCK)
 		INNER JOIN dbo.custinfo ci WITH (NOLOCK) ON ci.roleid = 2 AND ca.custid = ci.custid
 	WHERE ca.IsInternal = 1
@@ -66,6 +67,10 @@ BEGIN
 	OPTION (RECOMPILE)
 
 	CREATE CLUSTERED INDEX [CIX_Direct] ON #directAgent( mrecommend, custid )
+	
+	DECLARE @srecommend INT
+	SELECT @srecommend = srecommend
+	FROM #directAgent
 	
 	CREATE TABLE #Data 
 	(
@@ -109,7 +114,8 @@ BEGIN
 	FROM	[Transfer] b WITH (NOLOCK)
 	WHERE	statusID NOT IN (101,102,103)
 		AND b.bettype NOT IN (21008, 21009)
-		AND EXISTS ( SELECT 1 FROM #directAgent d WITH (NOLOCK) WHERE b.srecommend = d.srecommend )
+		AND EXISTS ( SELECT 1 FROM #directAgent d WITH (NOLOCK) WHERE b.mrecommend = d.mrecommend )
+		AND b.srecommend = @srecommend
 	GROUP BY case when b.winlostdate > @MoveBetsDay and bettype = 19999 then NULL
 				 else b.recommend
 			end
