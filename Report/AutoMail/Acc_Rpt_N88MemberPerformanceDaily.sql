@@ -3,7 +3,7 @@ USE bodb02
 GO
 ALTER PROCEDURE [dbo].[Acc_Rpt_N88_SB_Member_Performance_Daily] 
 	@FromDate SMALLDATETIME,
-	@ToDate SMALLDATETIME 
+	@ToDate SMALLDATETIME
 AS
 	/*
 	 Created: 20191101@Harry
@@ -15,6 +15,7 @@ AS
 	 - 20210519@Jaden: Switch to daily report
 	 - 20210520@Jaden: Add column bettype
 	 - 20210602@Jaden: Add more sites, Live indicator, Odds
+	 - 20211222@Jaden: Add parlay
 	 */
 BEGIN 
 	Create table #tmp_data
@@ -85,19 +86,65 @@ BEGIN
 		c.site,
 		case when t.custid is not null then 0 else 1 end
 	
+	--Add parlay bettype
+	insert into #tmp_data
+	select
+		winlostdate,
+		mc.CurrencyName,
+		-11111,
+		odds,
+        -11111,
+		-11111,
+		-11111,
+		CASE
+			WHEN bettype = 29 AND betteam = 1 THEN 9
+			ELSE 29 end,
+		-11111,
+		-11111,
+		mc.username,
+		c.site,
+		(case when t.custid is not null then 0 else 1 end) [betcount],
+		sum(winlost - actual_stake),
+		sum(abs(stake)),
+		sum(abs(winlost - actual_stake))
+	from
+		bettrans mc with (nolock)
+		Inner join vw_customer c with (nolock) on c.custid = mc.srecommend
+		left join bodb02.dbo.TradeCust t with (nolock) on t.custid = mc.custid
+	where
+		mc.ruben = 1
+		and winlostdate >= @FromDate and winlostdate <= @ToDate
+		and mc.statusID in (111, 112, 113)
+		and mc.Currency <> 20
+		and mc.bettype in (9,29)
+		and c.site in ('N88','N8B','N8G')
+	group by
+		winlostdate,
+		transid,
+		mc.CurrencyName,
+		odds,	
+		CASE
+			WHEN bettype = 29 AND betteam = 1 THEN 9
+			ELSE 29 end,
+		mc.username,
+		c.site,
+		case when t.custid is not null then 0 else 1 end
+		
 	--------------------------------------------------------------------------------------------------------------------------------
 	SELECT
 		CAST(winlostdate as date) 'Date',
 		b.sitename,
 		b.username,
-		s.SportName,
-		l.leaguename,
+		ISNULL(s.SportName,'Combine Parlay') [SportName],
+		ISNULL(l.leaguename,'Combine Parlay') [leaguename],
 		ISNULL(
 			t1.teamname + ' vs ' + t2.teamname,
-			'Combine Parlay Match'
+			'Combine Parlay'
 		) [Match],
 		CurrencyName,
 		CASE 
+			 WHEN liveindicator = -11111
+				  THEN 'Combine Parlay'
 			 WHEN liveindicator = 0
 				  THEN 'Non-Live'
 			 WHEN liveindicator = 1
@@ -132,10 +179,12 @@ BEGIN
 		CAST(winlostdate as date),
 		b.sitename,
 		username,
-		l.leaguename,
-		b.leagueid,
+		ISNULL(s.SportName,'Combine Parlay'),
+		ISNULL(l.leaguename,'Combine Parlay'),
 		CurrencyName,
 		CASE 
+			 WHEN liveindicator = -11111
+				  THEN 'Combine Parlay'
 			 WHEN liveindicator = 0
 				  THEN 'Non-Live'
 			 WHEN liveindicator = 1
@@ -154,17 +203,16 @@ BEGIN
             WHEN b.oddstype = 5 THEN 'US'
 			ELSE ''
         END,
-		s.SportName,
 		bt.typenamee,
 		ISNULL(
 			t1.teamname + ' vs ' + t2.teamname,
-			'Combine Parlay Match'
+			'Combine Parlay'
 		)
 	order by
 		CAST(winlostdate as date),
 		username,
-		s.SportName,
-		l.leaguename,
+		ISNULL(s.SportName,'Combine Parlay'),
+		ISNULL(l.leaguename,'Combine Parlay'),
 		CurrencyName 
 	
 	drop table #tmp_data
