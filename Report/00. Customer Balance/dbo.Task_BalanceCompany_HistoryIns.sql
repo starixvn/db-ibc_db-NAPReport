@@ -66,8 +66,8 @@ BEGIN
 	
 	CREATE TABLE #tmpData 
 	(	Currency INT,
-		CompBalBefore MONEY,
-		CompBalAfter MONEY
+		CompBalBefore FLOAT,
+		CompBalAfter FLOAT
 	)
 	
 	INSERT INTO #tmpData(Currency, CompBalBefore, CompBalAfter)
