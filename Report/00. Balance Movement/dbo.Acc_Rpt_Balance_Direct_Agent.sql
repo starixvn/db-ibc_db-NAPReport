@@ -33,16 +33,14 @@ BEGIN
 		custid INT
 		,username VARCHAR(50)
 		,currency INT
-		,mrecommend INT
-		,srecommend INT
+		,mrecommend INT		
 		)
 	---get directAgent---
 	INSERT INTO #directAgent
 	SELECT DISTINCT ci.custid
 		,ci.username
 		,ci.currency
-		,ci.mrecommend
-		,ci.srecommend
+		,ci.mrecommend		
 	FROM dbo.custinfo ci WITH (NOLOCK)
 		INNER JOIN dbo.CustDirectAccount d WITH (NOLOCK) ON ci.roleid = 2 AND ci.custid = d.custid
 	WHERE ci.username LIKE '%' + @username + '%'
@@ -55,8 +53,7 @@ BEGIN
 	SELECT DISTINCT ci.custid
 		,ci.username
 		,ci.currency
-		,ci.mrecommend
-		,ci.srecommend 
+		,ci.mrecommend		
 	FROM dbo.CustAgent AS ca WITH (NOLOCK)
 		INNER JOIN dbo.custinfo ci WITH (NOLOCK) ON ci.roleid = 2 AND ca.custid = ci.custid
 	WHERE ca.IsInternal = 1
@@ -66,11 +63,7 @@ BEGIN
 		AND NOT EXISTS ( SELECT 1 FROM #directAgent d WHERE ca.custid = d.custid )
 	OPTION (RECOMPILE)
 
-	CREATE CLUSTERED INDEX [CIX_Direct] ON #directAgent( mrecommend, custid )
-	
-	DECLARE @srecommend INT
-	SELECT @srecommend = srecommend
-	FROM #directAgent
+	CREATE CLUSTERED INDEX [CIX_Direct] ON #directAgent( mrecommend, custid )		
 	
 	CREATE TABLE #Data 
 	(
@@ -112,10 +105,8 @@ BEGIN
 			isnull(sum((case when custid=recommend then winlost-actual_stake else awinlost+comm-playercomm end)* actualrate),0)
 			+ isnull(sum((case when custid <> recommend and custid <> mrecommend then winlost-actual_stake+playercomm else 0 end)* actualrate),0) AS Basebal
 	FROM	[Transfer] b WITH (NOLOCK)
-	WHERE	statusID NOT IN (101,102,103)
-		AND b.bettype NOT IN (21008, 21009)
-		AND EXISTS ( SELECT 1 FROM #directAgent d WITH (NOLOCK) WHERE b.mrecommend = d.mrecommend )
-		AND b.srecommend = @srecommend
+	WHERE	b.bettype NOT IN (21008, 21009)
+		AND EXISTS ( SELECT 1 FROM #directAgent d WITH (NOLOCK) WHERE b.mrecommend = d.mrecommend )		
 	GROUP BY case when b.winlostdate > @MoveBetsDay and bettype = 19999 then NULL
 				 else b.recommend
 			end

@@ -107,8 +107,7 @@ BEGIN
 				END 
 				AS Balance
 			) AS bet
-	WHERE b.winlostdate <= @currentDate
-		AND b.statusID NOT IN (101,102,103)
+	WHERE b.winlostdate <= @currentDate		
 		AND b.bettype NOT IN (21008, 21009)
 		AND b.srecommend = @srecommend
 	GROUP BY b.recommend

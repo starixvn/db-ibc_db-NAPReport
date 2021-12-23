@@ -94,8 +94,7 @@ BEGIN
 		) AS bet
 	WHERE b.recommend = @_agentid
 		AND b.srecommend = @srecommend
-		AND b.winlostdate <= @currentDate
-		AND b.statusID NOT IN (101,102,103)
+		AND b.winlostdate <= @currentDate		
 		AND b.bettype NOT IN (21008, 21009)
 	GROUP BY b.custid
 		

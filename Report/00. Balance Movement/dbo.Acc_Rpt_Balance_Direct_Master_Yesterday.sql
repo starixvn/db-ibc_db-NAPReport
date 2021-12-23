@@ -106,8 +106,7 @@ BEGIN
 			+ isnull(sum((case when custid <> recommend and custid <> mrecommend then winlost-actual_stake+playercomm else 0 end)* actualrate),0) 
 			- isnull(sum((case when bettype < 19001 and winlostdate >= @currentDate then mwinlost+acomm + awinlost + winlost-actual_stake else 0 end )*actualrate),0) AS Basebal								
 	FROM	[Transfer] b WITH (NOLOCK)	
-	WHERE	statusID NOT IN (101,102,103)
-		AND b.bettype NOT IN (21008, 21009)
+	WHERE	b.bettype NOT IN (21008, 21009)
 		AND EXISTS ( SELECT 1 FROM #directMaster d WITH (NOLOCK) WHERE b.srecommend = d.srecommend )
 	GROUP BY case when b.winlostdate > @MoveBetsDay and bettype = 19999 then NULL
 				else b.mrecommend

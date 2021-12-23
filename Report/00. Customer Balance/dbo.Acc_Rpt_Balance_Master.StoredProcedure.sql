@@ -156,8 +156,7 @@ BEGIN
 				 ) AS totalBalance
 			) AS bal
 	WHERE EXISTS (SELECT TOP 1 1 FROM #MasterInfo mt WHERE b.mrecommend = mt.custid)
-		AND b.winlostdate <= @currentDate
-		AND b.statusID NOT IN (101,102,103)
+		AND b.winlostdate <= @currentDate		
 		AND b.bettype NOT IN (21008, 21009)
 	GROUP BY b.mrecommend
 	

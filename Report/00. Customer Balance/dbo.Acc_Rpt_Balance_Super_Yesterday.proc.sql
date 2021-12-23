@@ -171,8 +171,7 @@ BEGIN
 				ELSE 0 
 				END AS totalBalance
 		) AS bal
-	WHERE b.winlostdate <= @currentDate
-		AND statusID NOT IN (101,102,103)
+	WHERE b.winlostdate <= @currentDate		
 		AND b.bettype NOT IN (21008, 21009)
 	GROUP BY si.custid
 
