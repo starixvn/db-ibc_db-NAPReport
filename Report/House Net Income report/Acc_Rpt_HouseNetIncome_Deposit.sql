@@ -10,7 +10,7 @@ AS
 
 /*
 	Created: 20201201@Percy
-	DB: DBEXT-bodb02
+	DB: DBWH-bodb_dwrs
 	Task: House Net Income - Deposit
 	
 	Revisions:
@@ -33,6 +33,7 @@ AS
 		- 20210803@Danny: Change Data Source to retrieve yesterday data from Bettrans table (#151993)
 		- 20210830@Danny: Integrate Bitcoin Product (#159045)
 		- 20210917@Danny: Prorated minfee for the group min fee (#160737)
+		- 20211102@Danny: Treat Sports Lottery as Sportsbook data in licensee billing (#163175)
 */
 BEGIN
 	SET NOCOUNT ON
@@ -64,9 +65,10 @@ BEGIN
 	BEGIN
 		DECLARE @Product3rd TABLE (Product3rdId INT, ProductPrefix VARCHAR(10))
 		INSERT INTO @Product3rd (Product3rdId, ProductPrefix)
-		SELECT ProductId, ProductPrefix FROM DBLIC.bodb_Licensee.dbo.Product3rd WITH (NOLOCK)
+		SELECT ProductId, ProductPrefix 
+		FROM OPENQUERY (DBLIC,'SELECT ProductId, ProductPrefix FROM bodb_Licensee.dbo.Product3rd WITH (NOLOCK)')
 
-		DECLARE @Products TABLE (ProductId INT, Product3rdId INT, AliasProductId INT, ProductCode VARCHAR(50), SubProductCode VARCHAR(50), IsPayToSupplier BIT DEFAULT (0))
+		DECLARE @Products TABLE (ProductId INT, Product3rdId INT, AliasProductId INT, ProductCode VARCHAR(50), SubProductCode VARCHAR(50), IsPayToSupplier BIT DEFAULT (0), isOnlyTO BIT DEFAULT (0))
 		INSERT INTO @Products (ProductId, Product3rdId, AliasProductId, ProductCode, SubProductCode)
 		SELECT DISTINCT s.ProductId, CASE WHEN s.ProductId = 1 THEN 0 ELSE p3.Product3rdId END, s.AliasProductId, p.ProductPrefix, s.ProductPrefix
 		FROM bodb_Account.dbo.HNISettings s WITH (NOLOCK)
@@ -89,6 +91,8 @@ BEGIN
 		IF EXISTS (SELECT 1 FROM @Products WHERE ProductId = 1)
 			INSERT INTO @Products (ProductId, Product3rdId, AliasProductId, ProductCode, SubProductCode)
 			VALUES (0, 3, 0, 'BA', 'BA')
+
+		UPDATE @Products SET IsOnlyTO = 1 WHERE Product3rdId IN (0, 3, 10, 11, 15, 31)
 
 		;WITH CTE_Product AS (SELECT DISTINCT Product3rdId FROM @Products)
 		SELECT @Product3rdIds = COALESCE(@Product3rdIds + ',', '') + CONVERT(VARCHAR(3), Product3rdId) FROM CTE_Product
@@ -120,7 +124,6 @@ BEGIN
 		SELECT @SQLExchangeDailySel = ' SELECT ExchangeId, BaseCurrencyRate
 						FROM OPENQUERY (DBLIC, ''SELECT ExchangeId, BaseCurrencyRate FROM bodb02.dbo.LA_f_ExchangeDailySel(''''' + CONVERT(VARCHAR(10), @ExDate, 120) + ''''', ''''' +  CONVERT(VARCHAR(10), @ExDate, 120) + ''''', ''''' + @BaseCurrencyName + ''''')'')'
 	
-
 		INSERT INTO @LA_f_ExchangeDailySel(ExchangeId, BaseCurrencyRate)
 		EXEC (@SQLExchangeDailySel)
 
@@ -165,7 +168,6 @@ BEGIN
 								AND ci.FromDate <= ''''' + @t_date + ''''' AND ci.ToDate >= ''''' + @f_date + ''''''')'
 		INSERT INTO #Licensees (LicenseeId, PartyId, ParentId)
 		EXEC (@SQL)
-
 	END
 
 	-- Get charge rate
@@ -223,8 +225,12 @@ BEGIN
 			INNER JOIN #PartyChargeInfo p ON p.PartyId = l.PartyId  AND CASE WHEN p.Product3rdId IN (0, 69) THEN 69 ELSE p.Product3rdId END = p3.Product3rdId
 		WHERE NOT EXISTS (SELECT 1 FROM #PartyCharge3rdInfo rd WHERE p.PartyId = rd.PartyId AND p.Product3rdId = rd.Product3rdId)
 
-		SELECT @BobbetId = PartyId FROM DBLIC.bodb_Licensee.dbo.OAS_Party WITH (NOLOCK) WHERE PartyName = 'Bobbet'
-		SELECT @TianboId = PartyId FROM DBLIC.bodb_Licensee.dbo.OAS_Party WITH (NOLOCK) WHERE PartyName = 'Tianbo'
+		SELECT	@BobbetId = BobbetId , 
+				@TianboId = TianboId
+		FROM OPENQUERY (DBLIC,' SELECT MAX(CASE WHEN PartyName = ''Bobbet'' THEN PartyId ELSE NULL END) BobbetId,
+									   MAX(CASE WHEN PartyName = ''Tianbo'' THEN PartyId ELSE NULL END) TianboId
+								FROM bodb_Licensee.dbo.OAS_Party WITH (NOLOCK) WHERE PartyName IN (''Bobbet'', ''Tianbo'')'
+					    )   
 
 		-- Update charge rate for Keno, Lottery, Table Game
 		DECLARE @tmp_PartyCharge3rdInfo TABLE (ChargeType INT, PartyId INT, Product3rdId INT, FromDate DATE, ToDate DATE, Rate MONEY)
@@ -259,43 +265,51 @@ BEGIN
 		CREATE TABLE #tempVendorGlobalSetting (Product3rdId INT, Bettype INT, ChargeRate3rd FLOAT)
 		INSERT INTO #tempVendorGlobalSetting (Bettype, ChargeRate3rd)
 		SELECT Bettype, NumberValue
-		FROM DBCUST.CustDB.dbo.VendorGlobalSetting WITH (NOLOCK)
-		WHERE VName LIKE '3rdCashWLShareRate%'
+		FROM   OPENQUERY(DBCUST,'SELECT Bettype, NumberValue FROM CustDB.dbo.VendorGlobalSetting WITH(NOLOCK) WHERE VName LIKE ''3rdCashWLShareRate%''')
 	END
 
 	-- Get mapping site
 	BEGIN
-		DECLARE @tmpSite TABLE (SiteId_DW INT, LicenseeId INT, SiteName VARCHAR(20))
-		INSERT INTO @tmpSite (LicenseeId, SiteName)
-		SELECT LicenseeId, RTRIM(LTRIM(LicenseeName)) FROM DBLIC.bodb_licensee.dbo.Licensees WITH (NOLOCK) WHERE IsDeposit = 1
+		CREATE TABLE #tmpSite (SiteId_DW INT, LicenseeId INT, SiteName VARCHAR(20))
 
+		INSERT INTO #tmpSite (LicenseeId, SiteName)
+		SELECT LicenseeId, SiteName FROM OPENQUERY(DBLIC,'	SELECT LicenseeId, RTRIM(LTRIM(LicenseeName)) SiteName 
+															FROM bodb_licensee.dbo.Licensees WITH(NOLOCK) 
+															WHERE IsDeposit = 1')
 		UPDATE s
 		SET s.SiteId_DW = t.SiteId
-		FROM @tmpSite s
+		FROM #tmpSite s
 			INNER JOIN bodb_Account.dbo.tbl_Site t WITH (NOLOCK) ON s.SiteName = RTRIM(LTRIM(t.Site))
 
 		UPDATE l
 		SET l.SiteId_DW = s.SiteId_DW
 		FROM #AllLicensees l
-			INNER JOIN @tmpSite s ON l.LicenseeId = s.LicenseeId
+			INNER JOIN #tmpSite s ON l.LicenseeId = s.LicenseeId
 	END
 
 	-- Get data
 	BEGIN
-		DECLARE @tmpBetType TABLE (Product3rdId INT, AliasProductId INT, BetType INT, BettypeGroup INT, IsOnlyTO BIT)
-		INSERT INTO @tmpBetType (Product3rdId, AliasProductId, BetType, BettypeGroup, IsOnlyTO)
+		DECLARE  @GroupBettype TABLE (ProductId INT , Bettype INT , TypeId SMALLINT , TypeName VARCHAR(100))
+		INSERT INTO @GroupBettype (ProductId, Bettype, TypeId, TypeName)
+		SELECT ProductId, Bettype, TypeId, TypeName FROM OPENQUERY (DBLIC, 'SELECT ProductId, Bettype, TypeId, TypeName FROM bodb_Licensee.dbo.LA_f_GroupBettype()')
+
+		CREATE TABLE #tmpBetType (Product3rdId INT, AliasProductId INT, BetType INT, BettypeGroup INT, IsOnlyTO BIT)
+		CREATE CLUSTERED INDEX CIX_#tmpBetType ON #tmpBetType(BetType, BettypeGroup)
+
+		INSERT INTO #tmpBetType (Product3rdId, AliasProductId, BetType, BettypeGroup, IsOnlyTO)
 		SELECT DISTINCT p.Product3rdId, CASE WHEN p.Product3rdId IN (0, 3) THEN 0 ELSE p.AliasProductId END, s.BetType
 			,CASE
-				WHEN p.Product3rdId = 34 AND s.BetType <> 1906 AND bg.BettypeGroupId IS NULL THEN s.BetType -- CC (Card Club)
-				WHEN s.BetType = 3007 OR (s.ProductId = 22 AND bg.BettypeGroupId = 11) THEN 1 -- SA Gaming, VB (Macau Games)
-				WHEN bg_bonus.Bettype IS NOT NULL THEN -4
+				WHEN p.Product3rdId = 34  AND s.SubProduct = 'Mini Game' THEN s.BetType -- CC (Card Club)
+				WHEN gb.TypeID = 1 OR (s.ProductId = 22 AND s.SubProduct = 'Blueprint') THEN 1 -- SA Gaming, VB (Macau Games)
+				WHEN gb.TypeID IN (4,5,6) THEN -4 -- BOnus, Prize
+				WHEN gb.TypeID = 2 THEN -1
+				WHEN gb.TypeID = 3 THEN -999 -- Remove later
 				ELSE -1 END AS BettypeGroup
-			,CASE WHEN p.Product3rdId IN (0, 3, 10, 11, 15, 31) THEN 1 ELSE 0 END AS IsOnlyTO
+			,p.IsOnlyTO
 		FROM bodb02.dbo.SportBettypeMatrix s WITH (NOLOCK)
 			INNER JOIN @Products p ON s.ProductId = p.ProductId
-			LEFT JOIN bodb_Account.dbo.BettypeGroup bg WITH (NOLOCK) ON s.BetType = bg.Bettype
-			LEFT JOIN bodb_Account.dbo.BettypeGroup bg_bonus WITH (NOLOCK) ON s.BetType = bg_bonus.Bettype AND bg_bonus.BettypeGroupID = 14 
-		WHERE s.BetType NOT IN (911, 912, 4298, 1699,3899) -- Include (1906, 3150, 4299, 4300) to calculate bonus
+			LEFT JOIN  @GroupBettype gb ON s.BetType = gb.bettype
+		WHERE (s.BetType NOT IN (911, 912))
 			AND (
 				s.ProductId <> 3
 				OR (p.SubProductCode = 'NG' AND s.sporttype = 161)
@@ -304,27 +318,13 @@ BEGIN
 			)
 			AND p.SubProductCode NOT IN ('PP-JP', 'SBC-JP', 'VGA-JP')
 
-		IF EXISTS (SELECT 1 FROM @Products WHERE SubProductCode = 'PP-JP')
-			INSERT INTO @tmpBetType (Product3rdId, AliasProductId, BetType, BettypeGroup, IsOnlyTO)
-			SELECT p.Product3rdId, p.AliasProductId, b.BetType, -3, 0
-			FROM (SELECT Product3rdId, AliasProductId FROM @Products WHERE SubProductCode = 'PP-JP') p
-				CROSS JOIN (SELECT 4297 AS BetType UNION ALL SELECT 4298) b
+		DELETE #tmpBetType WHERE BettypeGroup = -999
 
-		IF EXISTS (SELECT 1 FROM @Products WHERE SubProductCode = 'SBC-JP')
-		BEGIN
-			INSERT INTO @tmpBetType (Product3rdId, AliasProductId, BetType, BettypeGroup, IsOnlyTO)
-			SELECT p.Product3rdId, p.AliasProductId, b.BetType, -3, 0
-			FROM (SELECT Product3rdId, AliasProductId FROM @Products WHERE SubProductCode = 'SBC-JP') p
-				CROSS JOIN (SELECT 1698 AS BetType UNION ALL SELECT 1699) b
-		END
-
-		IF EXISTS (SELECT 1 FROM @Products WHERE SubProductCode = 'VGA-JP')
-		BEGIN
-			INSERT INTO @tmpBetType (Product3rdId, AliasProductId, BetType, BettypeGroup, IsOnlyTO)
-			SELECT p.Product3rdId, p.AliasProductId, b.BetType, -3, 0
-			FROM (SELECT Product3rdId, AliasProductId FROM @Products WHERE SubProductCode = 'VGA-JP') p
-				CROSS JOIN (SELECT 3898 AS BetType UNION ALL SELECT 3899) b
-		END
+		INSERT INTO #tmpBetType (Product3rdId, AliasProductId, BetType, BettypeGroup, IsOnlyTO)
+		SELECT p.Product3rdId, p.AliasProductId, gb.Bettype, -3 BettypeGroup, p.IsOnlyTO
+		FROM @Products p
+		INNER JOIN @GroupBettype gb oN p.Product3rdId = gb.ProductID AND gb.TypeID IN (2,3)
+		WHERE p.SubProductCode IN ('PP-JP', 'VGA-JP', 'SBC-JP')
 
 		CREATE TABLE #__SabaLeague (LeagueId INT, LeagueGroupId INT)
 
@@ -381,7 +381,7 @@ BEGIN
 
 				DELETE t
 				FROM  #__tempData t 
-				WHERE t.SiteId_DW  NOT IN (SELECT SiteId_DW FROM @tmpSite)
+				WHERE t.SiteId_DW  NOT IN (SELECT SiteId_DW FROM #tmpSite)
 			END
 
 			;WITH CTE_SB AS (
@@ -398,7 +398,7 @@ BEGIN
 					,SUM(MemberTurnover  *  CASE WHEN TicketStatus = 3 OR ProductID = 10004 THEN 0 WHEN TicketStatus IN (12, 13) THEN 0.5 ELSE 1.0 END) AS LicenseeTO
 				FROM bodb_Account.dbo.FactLADailyWinloss WITH (NOLOCK)
 				WHERE rptDate BETWEEN @FDateGetData AND @TDateGetData
-					AND SiteId IN (SELECT SiteId_DW FROM @tmpSite)
+					AND SiteId IN (SELECT SiteId_DW FROM #tmpSite)
 					AND ProductId IN (10001, 10004)
 					AND Bettype NOT IN (901, 902, 903, 904)
 					AND CurrencyId <> 20
@@ -449,23 +449,32 @@ BEGIN
 		-- CB, AG, GD, EX
 		IF EXISTS (SELECT 1 FROM @Products WHERE Product3rdId IN (10, 11, 15, 31))
 		BEGIN
+
+			DECLARE @Exec_rpt_BettingByProduct VARCHAR(MAX)
+			SELECT @Exec_rpt_BettingByProduct = '
+								SELECT rptDate, SiteId, CurrencyId, ProductId, BetTypeGroup, ValidBetAmount, MemberWL, Comm, LicenseeWL, LicensesTO
+								FROM OPENQUERY (DBLIC,''	
+													SELECT  rptDate, SiteId, CurrencyId, ProductId
+															,BetTypeGroup	= CASE WHEN bettype = 1706 THEN 1706 ELSE -1 END
+															,ValidBetAmount	= SUM(CASE WHEN ProductId = 11 AND bettype = -1 THEN ValidBetAmount ELSE 0 END)
+															,MemberWL		= SUM(CASE WHEN ProductId = 15 THEN Turnover * 0.0405 + BuyBackAmount * 0.15 ELSE MemberWL END)
+															,Comm			= SUM(CASE WHEN ProductId = 31 THEN CommissionP + CommissionA ELSE 0 END)
+															,LicenseeWL		= -SUM(MemberWL)
+															,LicensesTO		= SUM(Turnover)
+														FROM bodb_LicenseeReport.dbo.rpt_BettingByProduct WITH (NOLOCK)
+														WHERE rptDate BETWEEN ''''' + CONVERT(VARCHAR(10),@FDateGetData,120) +''''' AND ''''' + CONVERT(VARCHAR(10),@TDateGetData,120) +'''''
+															AND ProductId IN (10, 11, 15, 31)
+															AND CurrencyId <> 20
+															AND CustomerCategory NOT IN (27, 28)
+															AND StatusId NOT IN (-1, 101, 102, 103)
+															AND SiteId < 1000 
+														GROUP BY rptDate, SiteId, CurrencyId, ProductId, CASE WHEN bettype = 1706 THEN 1706 ELSE -1 END
+													'')
+			'
+
 			CREATE TABLE #__BettingByProduct (rptDate DATE, LicenseeId INT, CurrencyId INT, Product3rdId INT, BetTypeGroup INT, ValidBetAmount MONEY, MemberWL MONEY, Comm MONEY, LicenseeWL MONEY, LicenseeTO MONEY)
 			INSERT INTO #__BettingByProduct (rptDate, LicenseeId, CurrencyId, Product3rdId, BetTypeGroup, ValidBetAmount, MemberWL, Comm, LicenseeWL, LicenseeTO)
-			SELECT rptDate, SiteId, CurrencyId, ProductId
-				,BetTypeGroup	= CASE WHEN bettype = 1706 THEN 1706 ELSE -1 END
-				,ValidBetAmount	= SUM(CASE WHEN ProductId = 11 AND bettype = -1 THEN ValidBetAmount ELSE 0 END)
-				,MemberWL		= SUM(CASE WHEN ProductId = 15 THEN Turnover * 0.0405 + BuyBackAmount * 0.15 ELSE MemberWL END)
-				,Comm			= SUM(CASE WHEN ProductId = 31 THEN CommissionP + CommissionA ELSE 0 END)
-				,LicenseeWL		= -SUM(MemberWL)
-				,LicensesTO		= SUM(Turnover)
-			FROM DBLIC.bodb_LicenseeReport.dbo.rpt_BettingByProduct WITH (NOLOCK)
-			WHERE rptDate BETWEEN @FDateGetData AND @TDateGetData
-				AND ProductId IN (10, 11, 15, 31)
-				AND CurrencyId <> 20
-				AND CustomerCategory NOT IN (27, 28)
-				AND StatusId NOT IN (-1, 101, 102, 103)
-				AND SiteId < 1000 -- Deposit only
-			GROUP BY rptDate, SiteId, CurrencyId, ProductId, CASE WHEN bettype = 1706 THEN 1706 ELSE -1 END
+			EXEC (@Exec_rpt_BettingByProduct)
 
 			IF @isGetDataFromBettrans = 1 AND @ToDate = @yesterday
 			BEGIN
@@ -477,7 +486,7 @@ BEGIN
 			SELECT b.rptDate, s.SiteId_DW, b.CurrencyId, b.Product3rdId, p.AliasProductId, b.BetTypeGroup, b.ValidBetAmount, b.MemberWL, b.Comm, b.LicenseeWL, b.LicenseeTO
 			FROM #__BettingByProduct b
 				INNER JOIN @Products p ON b.Product3rdId = p.Product3rdId AND p.Product3rdId IN (10, 11, 15, 31)
-				INNER JOIN @tmpSite s ON b.LicenseeId = s.LicenseeId
+				INNER JOIN #tmpSite s ON b.LicenseeId = s.LicenseeId
 
 			DROP TABLE #__BettingByProduct
 		END
@@ -532,7 +541,7 @@ BEGIN
 							ELSE b.Stake END *  CASE WHEN b.TicketStatus = 3 THEN 0 WHEN b.TicketStatus IN (12, 13) THEN 0.5 ELSE 1.0 END) AS LicenseeTO
 					
 				FROM bodb_Account.dbo.FactSiteWinloss b WITH (NOLOCK)
-					INNER JOIN @tmpBetType bt ON b.BetType = bt.BetType
+					INNER JOIN #tmpBetType bt ON b.BetType = bt.BetType
 					LEFT JOIN #__SabaLeague s ON b.LeagueId = s.LeagueId AND bt.Product3rdId = 0
 				WHERE b.rptDate BETWEEN @FromDateByBatch AND @ToDateByBatch
 					AND b.CurrencyId <> 20
@@ -619,7 +628,7 @@ BEGIN
 							WHEN bt.IsOnlyTO = 1 OR bt.bettype IN (1698, 4297, 3898) THEN 0
 							ELSE b.Stake END *  CASE WHEN b.TicketStatus = 3 THEN 0 WHEN b.TicketStatus IN (12, 13) THEN 0.5 ELSE 1.0 END) AS LicenseeTO
 				FROM #FactSiteWinloss b 
-					INNER JOIN @tmpBetType bt ON b.BetType = bt.BetType
+					INNER JOIN #tmpBetType bt ON b.BetType = bt.BetType
 					LEFT JOIN #__SabaLeague s ON b.LeagueId = s.LeagueId AND bt.Product3rdId = 0
 				WHERE b.CurrencyId <> 20
 					AND b.TicketStatus NOT IN (-1, 18, 9, 10, 14)
@@ -648,14 +657,14 @@ BEGIN
 		UPDATE v
 		SET v.Product3rdId = s.Product3rdId
 		FROM #tempVendorGlobalSetting v
-			CROSS APPLY (SELECT TOP 1 b.Product3rdId FROM @tmpBetType b WHERE v.Bettype = b.BetType) s
+			CROSS APPLY (SELECT TOP 1 b.Product3rdId FROM #tmpBetType b WHERE v.Bettype = b.BetType) s
 
 		DELETE #tempVendorGlobalSetting WHERE Product3rdId IS NULL
 
 		UPDATE v
 		SET v.Bettype = -1
 		FROM #tempVendorGlobalSetting v
-			LEFT JOIN @tmpBetType b ON v.Bettype = b.BetTypeGroup
+			LEFT JOIN #tmpBetType b ON v.Bettype = b.BetTypeGroup
 		WHERE b.BetTypeGroup IS NULL
 
 		-- Process data
@@ -808,7 +817,10 @@ BEGIN
 		FROM #__tempData t
 			INNER JOIN #AllLicensees l ON t.SiteId_DW = l.SiteId_DW
 			INNER JOIN @ExchangeOANDA e ON t.CurrencyId = e.ExchangeId
-			LEFT JOIN #PartyChargeInfo p ON p.PartyId = l.PartyId AND p.Product3rdId = CASE WHEN t.Product3rdId IN (0,69) THEN 0 ELSE t.Product3rdId END  AND t.rptDate BETWEEN p.FromDate AND p.ToDate
+			LEFT JOIN #PartyChargeInfo p ON p.PartyId = l.PartyId 
+					AND p.Product3rdId =  CASE	 WHEN @FromDate > '2021-11-30' THEN   CASE WHEN t.Product3rdId IN (0,69,63) THEN 0 ELSE t.Product3rdId END
+										  ELSE   CASE WHEN t.Product3rdId IN (0,69) THEN 0 ELSE t.Product3rdId END  END
+					AND t.rptDate BETWEEN p.FromDate AND p.ToDate
 					AND (p.Bettype = -1 OR p.Bettype = t.BetTypeGroup)
 					AND (t.BetTypeGroup NOT IN (-3, -4))
 					AND (
@@ -837,12 +849,12 @@ BEGIN
 		CREATE CLUSTERED INDEX CIX_Product3rdId ON #__tempResult (Product3rdId, PartyId)
 
 		-- For special PayToSupplier
-			-- 1. NG, H5
+		-- 1. NG, H5
 		UPDATE #__tempResult
 		SET PayToSupplierDaily = -0.5 * HouseIncomeDaily, PayToSupplierMonth = -0.5 * HouseIncomeMonth
 		WHERE Product3rdId = 2 -- NG, H5
 
-			-- 2. AGC
+		-- 2. AGC
 		;WITH CTE_Sum AS
 		(
 			SELECT ParentId, Product3rdId
@@ -889,9 +901,8 @@ BEGIN
 			,@IsConvertExRate		= 1
 			,@LicensingFeeTypeIds	= '0'
 			,@BaseCurrencyName		= @BaseCurrencyName
-			--,@isGetdataFromBettrans	BIT = 0
 
-		DECLARE @tmpResult TABLE
+		CREATE TABLE #tmpResult 
 		(
 			PartyId			INT
 			,Product3rdId	INT
@@ -905,6 +916,9 @@ BEGIN
 			,Rebate			MONEY DEFAULT(0)
 			,Discount		MONEY DEFAULT(0)
 		)
+		CREATE CLUSTERED INDEX CIX_#tmpResult ON #tmpResult(Product3rdId, PartyId, AliasProductId)
+
+
 		;WITH ReCalHouseIncome42_32_66 AS
 		(
 			SELECT  t.PartyId,
@@ -946,31 +960,28 @@ BEGIN
 				FULL OUTER JOIN @LicenseeFeeAndRebateDiscount m ON t.PartyId = m.PartyId AND t.Product3rdId = m.ProductId		
 				LEFT JOIN	FinalHouseIncome42_32_66 f ON t.PartyId = f.PartyId AND t.Product3rdId = f.Product3rdId AND t.AliasProductId = f.AliasProductId
 		)
-		INSERT INTO @tmpResult (PartyId, Product3rdId, AliasProductId, HouseTurnover, LicenseeWL, HouseIncome, AComm)
+		INSERT INTO #tmpResult (PartyId, Product3rdId, AliasProductId, HouseTurnover, LicenseeWL, HouseIncome, AComm)
 		SELECT r.PartyId, r.Product3rdId, r.AliasProductId, r.HouseTurnover, r.LicenseeWL, r.HouseIncome, r.AComm
 		FROM CTE_Result r
 			INNER JOIN (SELECT DISTINCT PartyId, Product3rdId FROM #PartyChargeInfo) p ON p.PartyId = r.PartyId AND p.Product3rdId = r.Product3rdId
-		UNION ALL
-		
+		UNION 
 		SELECT r.PartyId, r.Product3rdId, r.AliasProductId, r.HouseTurnover, r.LicenseeWL, r.HouseIncome, r.AComm
 		FROM CTE_Result r
-		WHERE  r.Product3rdId = 0 AND r.PartyId  NOT IN (SELECT p.PartyId FROM #PartyChargeInfo p WHERE p.Product3rdId = 0) 
+		WHERE  (r.Product3rdId = 0 AND r.PartyId  NOT IN (SELECT p.PartyId FROM #PartyChargeInfo p WHERE p.Product3rdId = 0)  )
+				OR r.Product3rdId = 37
 		 
-
 		UPDATE s
 		SET s.LicenseeMinFee	= CASE WHEN m.PartyId IS NULL OR m.ProductId <> 0 THEN 0 
 									   ELSE CASE WHEN m.IsChargedByGroupMinFee = 1 OR m.IsChargedByMinFee = 1 THEN m.LicensingFee + m.ExtraAmount ELSE 0 END 
 								  END
 			,s.LicenseeFee		= CASE
-									WHEN m.PartyId IS NULL OR m.ProductId <> 0 THEN s.HouseIncome
-									ELSE CASE WHEN m.IsChargedByGroupMinFee = 0 AND m.IsChargedByMinFee = 0 THEN m.LicensingFee + m.ExtraAmount ELSE 0 END
+									WHEN m.PartyId IS NULL OR m.ProductId NOT IN (0,37) THEN s.HouseIncome
+									ELSE CASE WHEN m.IsChargedByGroupMinFee = 0 AND m.IsChargedByMinFee = 0 THEN CASE WHEN m.ProductId = 37 THEN -m.LicensingFee ELSE m.LicensingFee + m.ExtraAmount END ELSE 0 END
 								  END
 			,s.Rebate			= ISNULL(m.Rebate, 0)
 			,s.Discount			= ISNULL(m.Discount, 0)
-		FROM @tmpResult s
+		FROM #tmpResult s
 			LEFT JOIN @LicenseeFeeAndRebateDiscount m ON m.PartyId = s.PartyId AND m.ProductId = s.Product3rdId
-
-
 
 		/*
 			GET 9w licensee list
@@ -980,34 +991,34 @@ BEGIN
 		SELECT PartyId FROM OPENQUERY(DBLIC, 'SELECT PartyId FROM bodb_licensee.dbo.LA_f_JVPartyListSel()')
 
 		-- Check LicenseeWL > 0
-			-- NG include all sports as H5, H5LG
-		IF EXISTS (SELECT 1 FROM @tmpResult WHERE Product3rdId = 2)
+		-- NG include all sports as H5, H5LG
+		IF EXISTS (SELECT 1 FROM #tmpResult WHERE Product3rdId = 2)
 			UPDATE t
 			SET t.LicenseeFee = 0
-			FROM @tmpResult t
-				INNER JOIN (SELECT PartyId FROM @tmpResult WHERE Product3rdId = 2 GROUP BY PartyId HAVING SUM(LicenseeFee) < 0) r ON t.PartyId = r.PartyId
+			FROM #tmpResult t
+				INNER JOIN (SELECT PartyId FROM #tmpResult WHERE Product3rdId = 2 GROUP BY PartyId HAVING SUM(LicenseeFee) < 0) r ON t.PartyId = r.PartyId
 			WHERE t.Product3rdId = 2 AND  t.PartyId NOT IN (SELECT p.PartyId FROM @9wLicenseeList p)
 
 		UPDATE r
 		SET r.HouseIncome = CASE WHEN r.HouseIncome > 0 THEN r.HouseIncome ELSE 0 END
 			,r.LicenseeFee = CASE
-						WHEN r.Product3rdId IN (3,25,31,32,42,66) THEN LicenseeFee
-						--WHEN r.Product3rdId IN (42, 66) THEN CASE WHEN r.LicenseeWL > 0 THEN r.LicenseeFee ELSE 0 END
+						WHEN r.Product3rdId IN (3,25,31,32,42,66,37) THEN LicenseeFee
 						WHEN r.LicenseeFee > 0 THEN r.LicenseeFee ELSE 0 END
-		FROM @tmpResult r
+		FROM #tmpResult r
 		WHERE r.Product3rdId <> 2
 			AND (
-				r.Product3rdId IN (3,25,31,32,42,66) -- BA, Cashout
+				r.Product3rdId IN (3,25,31,32,42,66,37) -- BA, Cashout
 				OR r.PartyId NOT IN (SELECT p.PartyId FROM @9wLicenseeList p)
 			)
 
-		-- Handle Bitcoin
+		-- Handle Bitcoin, SLT (Cutoff 2021-11-30)
 		DECLARE @BTC_data TABLE (PartyId INT,Product3rdId INT, AliasProductId INT, HouseTurnover MONEY, LicenseeFee MONEY)
+		DECLARE @SLT_data TABLE (PartyId INT,Product3rdId INT, AliasProductId INT, HouseTurnover MONEY, LicenseeFee MONEY)
 
-		; WITH btc_partyList AS
+		;WITH btc_partyList AS
 		(
 			SELECT PartyId, LicenseeFee
-			FROM @tmpResult WHERE Product3rdId = 0 AND AliasProductId = -2 AND LicenseeFee <> 0
+			FROM #tmpResult WHERE Product3rdId = 0 AND AliasProductId = -2 AND LicenseeFee <> 0
 		)
 		INSERT INTO @BTC_data(PartyId, Product3rdId, AliasProductId, HouseTurnover, LicenseeFee)
 		SELECT PartyId, Product3rdId, AliasProductId
@@ -1017,9 +1028,9 @@ BEGIN
 		FROM #__tempResult t
 		WHERE Product3rdId  = 69 AND PartyId IN (SELECT x.PartyId FROM btc_partyList x)
 		GROUP BY PartyId, Product3rdId, AliasProductId 
-		 
+
 		-- Add PartyID have SB LicenseeFee <> 0 AND Have data BTC
-		;MERGE @tmpResult AS s
+		;MERGE #tmpResult AS s
 		USING @BTC_data AS t ON s.Product3rdId = t.Product3rdId AND s.AliasProductId = t.AliasProductId AND s.PartyId = t.PartyId
 		WHEN MATCHED THEN UPDATE
 			SET s.HouseTurnover = t.HouseTurnover,
@@ -1028,28 +1039,62 @@ BEGIN
 			(PartyId, Product3rdId, AliasProductId, HouseTurnover, LicenseeFee)
 			VALUES
 			(t.PartyId, t.Product3rdId, t.AliasProductId, t.HouseTurnover, t.LicenseeFee);
-	
+
 		UPDATE  t
 		SET  t.LicenseeFee = t.LicenseeFee - u.LicenseeFee,
 			 t.HouseTurnover = t.HouseTurnover - u.HouseTurnover
-		FROM @tmpResult t
+		FROM #tmpResult t
 		INNER JOIN @BTC_data u ON t.PartyId = u.PartyId
-		WHERE t.Product3rdId = 0 AND t.AliasProductId = -2 AND t.LicenseeFee <> 0
-		-- 
+		WHERE t.Product3rdId = 0 AND t.AliasProductId = -2
+		
+		-- SLT
+		IF @FromDate > '2021-11-30'
+		BEGIN
+			DELETE #tmpResult WHERE Product3rdId = 63
 
-		 
+			;WITH slt_partyList AS
+			(
+				SELECT PartyId, LicenseeFee
+				FROM #tmpResult WHERE Product3rdId = 0 AND AliasProductId = -2 AND LicenseeFee <> 0
+			)
+			INSERT INTO @SLT_data(PartyId, Product3rdId, AliasProductId, HouseTurnover, LicenseeFee)
+			SELECT PartyId, Product3rdId, AliasProductId
+				,HouseTurnover	= SUM(HouseTurnover)
+				,LicenseeFee	= SUM(HouseIncomeMonth)
+		
+			FROM #__tempResult t
+			WHERE Product3rdId  = 63 AND PartyId IN (SELECT x.PartyId FROM  slt_partyList x)
+			GROUP BY PartyId, Product3rdId, AliasProductId 
+
+			-- Add PartyID have SB LicenseeFee <> 0 AND Have data BTC
+			;MERGE #tmpResult AS s
+			USING @SLT_data AS t ON s.Product3rdId = t.Product3rdId AND s.AliasProductId = t.AliasProductId AND s.PartyId = t.PartyId
+			WHEN MATCHED THEN UPDATE
+				SET s.HouseTurnover = t.HouseTurnover,
+					s.LicenseeFee = t.LicenseeFee
+			WHEN NOT MATCHED THEN INSERT
+				(PartyId, Product3rdId, AliasProductId, HouseTurnover, LicenseeFee)
+				VALUES
+				(t.PartyId, t.Product3rdId, t.AliasProductId, t.HouseTurnover, t.LicenseeFee);
+
+			UPDATE  t
+			SET  t.LicenseeFee = t.LicenseeFee - u.LicenseeFee,
+					t.HouseTurnover = t.HouseTurnover - u.HouseTurnover
+			FROM #tmpResult t
+			INNER JOIN @SLT_data u ON t.PartyId = u.PartyId
+			WHERE t.Product3rdId = 0 AND t.AliasProductId = -2
+		END
 	END
 	-- Calculate result
 	DELETE @Products WHERE Product3rdId = 3 -- BA
 
 	DECLARE @BAComm MONEY, @BAWinloss MONEY
-    SELECT  @BAComm = -SUM(AComm), @BAWinloss = SUM(LicenseeFee) FROM @tmpResult WHERE Product3rdId = 3
+    SELECT  @BAComm = -SUM(AComm), @BAWinloss = SUM(LicenseeFee) FROM #tmpResult WHERE Product3rdId = 3
 	SELECT  @BAComm = ISNULL(@BAComm, 0), @BAWinloss = ISNULL(@BAWinloss, 0)
 
-	DELETE @tmpResult WHERE Product3rdId = 3
+	DELETE #tmpResult WHERE Product3rdId = 3
 	UPDATE #__tempResult SET Product3rdId = 0 WHERE Product3rdId = 3
 
-		
 	CREATE TABLE #Result
 	(
 		rptDate				VARCHAR(10)
@@ -1085,14 +1130,13 @@ BEGIN
 	-- Monthly
 	INSERT INTO #Result (rptDate, Product3rdId, AliasProductId, HouseTurnover, HouseIncome, MinFee, Discount, Rebate)
 	SELECT 'Monthly', Product3rdId, AliasProductId, SUM(HouseTurnover), SUM(LicenseeFee), SUM(LicenseeMinFee), SUM(Discount), SUM(Rebate)
-	FROM @tmpResult
+	FROM #tmpResult
 	GROUP BY Product3rdId, AliasProductId
 
 	--- Get PayToSupplier For CC
 	DECLARE @CC_PayToSupplier MONEY, @CC_Bonus MONEY
 	SELECT @CC_PayToSupplier = SUM (-t.Bonus + t.PayToSupplierMonth), @CC_Bonus = SUM(t.Bonus)
-	FROM @tmpResult x 
-	--INNER JOIN bodb_licensee.dbo.OAS_Party op WITH(NOLOCK) ON x.PartyId = op.PartyID
+	FROM #tmpResult x 
 	CROSS APPLY (SELECT SUM(t.Bonus) AS Bonus, SUM(PayToSupplierMonth) PayToSupplierMonth
 						FROM #__tempResult t WHERE t.PartyId = x.PartyId AND t.Product3rdId = x.Product3rdId) t
 	WHERE x.Product3rdId = 34
@@ -1163,7 +1207,7 @@ BEGIN
 	SET r.HouseIncome = ISNULL(m.HouseIncome, 0)
 	FROM #Result r
 		INNER JOIN #Result m ON m.Product3rdId = r.Product3rdId AND m.AliasProductId = r.AliasProductId AND r.rptDate = 'Monthly' AND m.rptDate = 'MTD'
-	WHERE r.Product3rdId IN (15, 37)
+	WHERE r.Product3rdId = 15
 
 		-- 1.4 FullContribution, JackpotPrize
 	UPDATE r
@@ -1178,19 +1222,7 @@ BEGIN
 	FROM #Result r
 	WHERE r.Product3rdId IN (32, 34, 45)
 
-	DECLARE @DateList VARCHAR(2000)
-	;WITH CTE_Date AS
-	(
-		SELECT @FDate AS rptDate
-		UNION ALL
-		SELECT DATEADD(DAY, 1, rptDate)
-		FROM CTE_Date
-		WHERE rptDate < @TDate
-	)
-	SELECT @DateList = COALESCE(@DateList + ',', '') + '[' + CONVERT(VARCHAR(2), rptDate, 106) + ']' FROM CTE_Date ORDER BY rptDate
-
 	DECLARE @SQL_licperf VARCHAR(MAX) = ''
-
 	IF @IsLicperf = 1
 	BEGIN
 
@@ -1227,7 +1259,7 @@ BEGIN
 
 		INSERT INTO @tmpResult_licperf(PartyId,Product3rdId,AliasProductId)
 		SELECT PartyId,Product3rdId,AliasProductId
-		FROM @tmpResult WHERE Product3rdId  = 0 AND AliasProductId = -2 AND ISNULL(LicenseeMinFee,0) = 0 AND ISNULL(LicenseeFee,0) <> 0
+		FROM #tmpResult WHERE Product3rdId  = 0 AND AliasProductId = -2 AND ISNULL(LicenseeMinFee,0) = 0 AND ISNULL(LicenseeFee,0) <> 0
 		
 		DECLARE @SBGrossHouseIncome TABLE (Product3rdId	INT, AliasProductId INT, HouseIncome MONEY DEFAULT(0))
 		
@@ -1365,9 +1397,12 @@ BEGIN
 	ORDER BY s.OrderByProduct, s.OrderByFigure'
 
 	EXEC (@SQL)
-	
+
+	DROP TABLE #tmpSite
+	DROP TABLE #tmpBetType
 	DROP TABLE #__tempData
 	DROP TABLE #__tempResult
+	DROP TABLE #tmpResult
 	DROP TABLE #AllLicensees
 	DROP TABLE #Licensees
 	DROP TABLE #PartyCharge3rdInfo

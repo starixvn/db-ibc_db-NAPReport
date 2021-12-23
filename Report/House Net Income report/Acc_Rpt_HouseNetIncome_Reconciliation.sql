@@ -212,7 +212,6 @@ BEGIN
 		)
 		CREATE CLUSTERED INDEX CIX_tempResult_BTC ON #__tempResult_BTC (PartyId)
 
-
 		INSERT INTO #__tempResult_BTC(PartyId, HouseIncome_e, HouseIncome_oa)
 		SELECT 	l.PartyId
 				,HouseIncome_e	= SUM(((- t.MemberWL) * ISNULL(lc.Rate, p.Rate)) * e.Rate)
@@ -380,7 +379,7 @@ BEGIN
 		FROM CTE_Result r
 
 		UPDATE t
-		SET t.LicenseeFee_e =  ISNULL(LicenseeFee_e, 0) - ISNULL(u.HouseIncome_e,0),
+		SET t.LicenseeFee_e =  ISNULL(LicenseeFee_e, 0) - ISNULL(u.HouseIncome_e,0), 
 			t.LicenseeFee_oa = ISNULL(LicenseeFee_oa, 0) - ISNULL(u.HouseIncome_oa,0)
 		FROM @tmpResult t
 		LEFT JOIN #__tempResult_BTC u ON t.PartyId = u.PartyId
