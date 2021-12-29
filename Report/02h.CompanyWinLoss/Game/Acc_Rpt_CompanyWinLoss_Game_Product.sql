@@ -29,6 +29,7 @@ Revisions:
 - 20200713@Ned.Le: NAP Report - Incorporate Jackpot Games (#137271)
 - 20210409@Jaden.Tang: Exclude lucky draws from bettransLC (#133731)
 - 20212203@Jaden: Support SABA789 (#151326)
+- 20211229@Jaden: Remove the hardcoding for ProductID = 6 (#)
 
 Example:
 EXEC [Acc_Rpt_CompanyWinLoss_Game_Product] @EndDate='2020-01-01',@StartDate='2017-01-05', @CasinoType = 1
@@ -53,11 +54,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Game_Product] @EndDate='2020-01-01',@StartDate='201
                      );
         INSERT INTO #SportBetType
                SELECT s.ProductID,
-                      CASE                          
-                          WHEN s.ProductID = 6
-                          THEN 'MBC - RNG Casino'
-                          ELSE p.ProductName
-                      END, 
+                      p.ProductName, 
                       s.BetType, 
                       s.RefTable
                FROM dbo.f_SportBetTypeMatrix_Sel(0, 0, 0, 2, '', '', @isTest) s
