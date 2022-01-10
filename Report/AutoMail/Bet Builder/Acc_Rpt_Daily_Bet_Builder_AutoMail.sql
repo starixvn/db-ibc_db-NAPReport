@@ -14,6 +14,7 @@ AS
 		- 20190527@Robert: Bet Builder - Daily Automail report to 3rd [#114248]
 		- 20200723@Jaden: Bet Builder - Remove hardcoding (soccer), add basketball [#138082]
 		- 20210504@Jaden: Use SP to get balanceup & movebets (#154116)
+		- 20220110@Roy: Automail Report - Tune sp performance of Bet Builder repo (#167198)
 
 	Param's Explanation:	 
 */
@@ -41,10 +42,14 @@ BEGIN
 	  , Payout            MONEY
 	  , Commission        MONEY
 	  , GrossRevenue      MONEY);
-
+	
+	CREATE TABLE #tmpBetDesc (
+		MarketId VARCHAR(20)
+		,SelectionName VARCHAR(210)
+	)
+	
     DECLARE @movebetdate      DATETIME
 		, @balanceupdate    DATETIME
-		, @CapturedDate DATETIME= CONVERT(VARCHAR(10), GETDATE(), 110);
 
     DECLARE @BetFrom TABLE(
 	    Betfrom        VARCHAR(1)
@@ -103,7 +108,6 @@ BEGIN
 				, Payout
 				, Commission
 				, GrossRevenue)
-		 (
 			SELECT TransId
 				, MatchId
 				, 0 AS LeagueId
@@ -125,7 +129,7 @@ BEGIN
 				, b.stake - b.winlost - b.scomm AS GrossRevenue
 			FROM bodb_Report.dbo.BetBuilder_BetHistoryAutomail AS b WITH (NOLOCK)
 			WHERE b.WinlostDate = @WinlostDate
-		 );
+			OPTION (RECOMPILE)
 
     CREATE CLUSTERED INDEX CIX_MatchId ON #Data(MatchId ASC);
 
@@ -142,7 +146,7 @@ BEGIN
 			 INNER JOIN bodb02.dbo.match AS m WITH (NOLOCK) ON m.matchid = d.matchid;
 	   END;
 
-    IF @WinlostDate <= @movebetdate
+    IF @WinlostDate BETWEEN @balanceupdate AND @movebetdate
 	   BEGIN
 		  UPDATE d
 			    SET
@@ -167,19 +171,91 @@ BEGIN
 		  FROM #Data AS d
 			 INNER JOIN bodb_Archive.dbo.match_bk AS m WITH (NOLOCK) ON m.matchid = d.matchid;
 	   END;
-    SELECT (SELECT SportName FROM bodb02.dbo.Sports WHERE SportType = d.SportType) AS Sport
+	   
+	--Get BetDescription - replace f_BetBuilder_GetSelectionName by temp table
+	IF @WinlostDate > @movebetdate --range bettrans
+	BEGIN
+		;WITH CTE_Market AS (
+			SELECT DISTINCT MatchId
+				,MarketId
+			FROM #Data
+		)
+		INSERT INTO #tmpBetDesc (
+			MarketId
+			,SelectionName
+		)
+		SELECT s1.MarketId
+			,s2.SelectionName
+		FROM CTE_Market AS b
+			INNER JOIN bodb02.dbo.SMP_MarketSelection AS s1 WITH (NOLOCK) ON b.MatchId = s1.MatchId AND b.MarketId = s1.MarketId
+			INNER JOIN bodb02.dbo.SMP_Selection AS s2 WITH (NOLOCK) ON s1.SelectionType = s2.SelectionType
+		GROUP BY s1.MarketId
+			,s2.SelectionName
+		OPTION (RECOMPILE)
+	END
+	
+	ELSE IF @WinlostDate BETWEEN @balanceupdate AND @movebetdate --range bettrans14
+	BEGIN
+		;WITH CTE_Market AS (
+			SELECT DISTINCT MatchId
+				,MarketId
+			FROM #Data
+		)
+		INSERT INTO #tmpBetDesc (
+			MarketId
+			,SelectionName
+		)
+		SELECT s1.MarketId
+			,s2.SelectionName
+		FROM CTE_Market AS b
+			INNER JOIN bodb02.dbo.SMP_MarketSelection14 AS s1 WITH (NOLOCK) ON b.MatchId = s1.MatchId AND b.MarketId = s1.MarketId
+			INNER JOIN bodb02.dbo.SMP_Selection AS s2 WITH (NOLOCK) ON s1.SelectionType = s2.SelectionType
+		GROUP BY s1.MarketId
+			,s2.SelectionName
+		OPTION (RECOMPILE)
+	END
+	
+	ELSE --range bettrans_bk
+	BEGIN
+		;WITH CTE_Market AS (
+			SELECT DISTINCT MatchId
+				,MarketId
+			FROM #Data
+		)
+		INSERT INTO #tmpBetDesc (
+			MarketId
+			,SelectionName
+		)
+		SELECT s1.MarketId
+			,s2.SelectionName
+		FROM CTE_Market AS b
+			INNER JOIN bodb_Archive.dbo.SMP_MarketSelection_bk AS s1 WITH (NOLOCK) ON b.MatchId = s1.MatchId AND b.MarketId = s1.MarketId
+			INNER JOIN bodb02.dbo.SMP_Selection AS s2 WITH (NOLOCK) ON s1.SelectionType = s2.SelectionType
+		GROUP BY s1.MarketId
+			,s2.SelectionName
+		OPTION (RECOMPILE)
+	END
+	
+	;WITH CTE_BetDesc AS (
+		SELECT MarketId
+			,BetDesc = STUFF((
+					SELECT '; ' + SelectionName
+					FROM #tmpBetDesc AS t1 WITH (NOLOCK)
+					WHERE t1.MarketId = t2.MarketId
+					ORDER BY t1.SelectionName
+					FOR XML PATH('')
+					), 1, 2, '')
+		FROM #tmpBetDesc AS t2 WITH (NOLOCK)
+		GROUP BY MarketId
+	)
+    SELECT s.SportName AS Sport
 	    , d.LeagueId
 	    , d.HomeId
 	    , d.AwayId
 	    , d.GlobalShowTime
 	    , d.MarketId
 	    , d.DateTimePlaced
-	    ,
-		 (
-			SELECT Selection
-			FROM f_BetBuilder_GetSelectionName
-				(d.MarketId, @WinlostDate)
-		 ) AS BetDescription
+	    , bd.BetDesc AS BetDescription
 	    , d.NoOfLegsPerBet
 	    , 'Settled' AS BetStatus
 	    , bf.DeviceGroup
@@ -200,6 +276,8 @@ BEGIN
     FROM #Data AS d
 	   INNER JOIN @BetFrom AS bf ON d.Betfrom = bf.betfrom
 	   INNER JOIN @ExchangeOANDA AS e ON d.Currency = e.ExchangeID
+	   LEFT JOIN bodb02.dbo.Sports AS s WITH (NOLOCK) ON s.SportType = d.SportType
+	   LEFT JOIN CTE_BetDesc AS bd ON d.MarketId = bd.MarketId
     UNION ALL
     SELECT '' AS Sport
 	    , 0 AS LeagueId
@@ -223,4 +301,5 @@ BEGIN
 	   INNER JOIN @ExchangeOANDA AS e ON d.Currency = e.ExchangeID;
 
     DROP TABLE #Data;
+	DROP TABLE #tmpBetDesc;
 END;

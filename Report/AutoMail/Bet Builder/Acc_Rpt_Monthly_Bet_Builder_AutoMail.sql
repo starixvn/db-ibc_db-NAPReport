@@ -14,6 +14,7 @@ AS
 		- 20190527@Robert: Bet Builder - Daily Automail report to 3rd [#114248]
 		- 20200723@Jaden: Bet Builder - Remove hardcoding (soccer), add basketball [#138082]
 		- 20210504@Jaden: Use SP to get balanceup & movebets (#154116)
+		- 20220110@Roy: Automail Report - Tune sp performance of Bet Builder repo (#167198)
 
 	Param's Explanation:	 
 */
@@ -81,9 +82,14 @@ BEGIN
 	  , CommissionBefore      MONEY
 	  , CommissionAfter       MONEY
 	  , GrossRevenueBefore    MONEY
-	  , GrossRevenueAfter     MONEY
-	  , BetDescription        VARCHAR(MAX));
-
+	  , GrossRevenueAfter     MONEY);
+	
+	CREATE TABLE #tmpBetDesc (
+		WinLostDate SMALLDATETIME
+		,MarketId VARCHAR(20)
+		,SelectionName VARCHAR(210)
+	)
+	
     DECLARE @movebetdate      DATETIME
 		, @balanceupdate    DATETIME
 		, @DateStart        SMALLDATETIME
@@ -151,7 +157,6 @@ BEGIN
 					  , Payout
 					  , Commission
 					  , GrossRevenue)
-		 (
 			SELECT TransId
 				, MatchId
 				, b.WinlostDate
@@ -172,7 +177,7 @@ BEGIN
 				, b.stake - b.winlost - b.scomm AS GrossRevenue
 			FROM bodb_Report.dbo.BetBuilder_BetHistoryAutomail AS b WITH (NOLOCK)
 			WHERE b.WinlostDate BETWEEN @DateStart AND @DateEnd
-		 );
+			OPTION (RECOMPILE)
 
     CREATE CLUSTERED INDEX CIX_HistoryData_TransId ON #HistoryData(TransId ASC);
 
@@ -194,7 +199,6 @@ BEGIN
 								    , hdp2
 								    , Odds
 								    , Currency)
-					  (
 						 SELECT TransId
 							 , matchid
 							 , WinLostDate
@@ -213,7 +217,7 @@ BEGIN
 						 WHERE b.winlostdate = @WinlostDate
 							  AND bettype = 38
 							  AND b.statusID IN(112, 113, 111, 102, 103)
-					  );
+						OPTION (RECOMPILE)
 			 END;
 		  IF @WinlostDate BETWEEN @balanceupdate AND @movebetdate --bettrans_14
 			 BEGIN
@@ -231,7 +235,6 @@ BEGIN
 								    , hdp2
 								    , Odds
 								    , Currency)
-					  (
 						 SELECT TransId
 							 , matchid
 							 , WinLostDate
@@ -249,7 +252,7 @@ BEGIN
 						 FROM bodb02.dbo.bettrans14 AS b WITH (NOLOCK)
 						 WHERE b.winlostdate = @WinlostDate
 							  AND bettype = 38
-					  );
+						OPTION (RECOMPILE)
 			 END;
 		  IF @WinlostDate < @balanceupdate --bettrans_bk
 			 BEGIN
@@ -267,7 +270,6 @@ BEGIN
 								    , hdp2
 								    , Odds
 								    , Currency)
-					  (
 						 SELECT TransId
 							 , matchid
 							 , WinLostDate
@@ -285,7 +287,7 @@ BEGIN
 						 FROM bodb_Archive.dbo.bettrans_bk AS b WITH (NOLOCK)
 						 WHERE b.winlostdate = @WinlostDate
 							  AND bettype = 38
-					  );
+						OPTION (RECOMPILE)
 			 END;
 		  SELECT @WinlostDate = DATEADD(DD, 1, @WinlostDate);
 	   END;
@@ -385,7 +387,7 @@ BEGIN
 		 );
 
 
-    CREATE CLUSTERED INDEX CIX_Result_Betfrom_Currency_WinLostDate ON #Result(Betfrom ASC, Currency ASC, WinLostDate ASC, MatchId ASC);
+    CREATE CLUSTERED INDEX CIX_Result_Betfrom_Currency_WinLostDate ON #Result( WinLostDate ASC, MatchId ASC, Betfrom ASC, Currency ASC, WinLostDate ASC);
 
     SELECT @WinlostDate = @DateStart;
     WHILE @WinlostDate <= @DateEnd
@@ -399,18 +401,13 @@ BEGIN
 					    , d.AwayId = m.awayid
 						, d.SportType = m.sporttype
 					    , d.GlobalShowTime = m.GlobalShowTime
-					    , d.BetDescription =
-						 (
-							SELECT Selection
-							FROM f_BetBuilder_GetSelectionName
-								(d.MarketId, @WinlostDate)
-						 )
 				FROM #Result AS d
 				    INNER JOIN bodb02.dbo.match AS m WITH (NOLOCK) ON m.matchid = d.matchid
-				WHERE d.winlostdate = @WinlostDate;
+				WHERE d.winlostdate = @WinlostDate
+				OPTION (RECOMPILE)
 			 END;
 
-		  IF @WinlostDate <= @movebetdate
+		  IF IF @WinlostDate BETWEEN @balanceupdate AND @movebetdate
 			 BEGIN
 				UPDATE d
 					  SET
@@ -419,15 +416,10 @@ BEGIN
 					    , d.AwayId = m.awayid
 						, d.SportType = m.sporttype
 					    , d.GlobalShowTime = m.GlobalShowTime
-					    , d.BetDescription =
-						 (
-							SELECT Selection
-							FROM f_BetBuilder_GetSelectionName
-								(d.MarketId, @WinlostDate)
-						 )
 				FROM #Result AS d
 				    INNER JOIN bodb02.dbo.match14 AS m WITH (NOLOCK) ON m.matchid = d.matchid
-				WHERE d.winlostdate = @WinlostDate;
+				WHERE d.winlostdate = @WinlostDate
+				OPTION (RECOMPILE)
 			 END;
 
 		  IF @WinlostDate < @balanceupdate
@@ -439,21 +431,104 @@ BEGIN
 					    , d.AwayId = m.awayid
 						, d.SportType = m.sporttype
 					    , d.GlobalShowTime = m.GlobalShowTime
-					    , d.BetDescription =
-						 (
-							SELECT Selection
-							FROM f_BetBuilder_GetSelectionName
-								(d.MarketId, @WinlostDate)
-						 )
 				FROM #Result AS d
 				    INNER JOIN bodb_Archive.dbo.match_bk AS m WITH (NOLOCK) ON m.matchid = d.matchid
-				WHERE d.winlostdate = @WinlostDate;
+				WHERE d.winlostdate = @WinlostDate
+				OPTION (RECOMPILE)
 			 END;
 		  SELECT @WinlostDate = DATEADD(DD, 1, @WinlostDate);
 	   END;
+	
+	UPDATE STATISTICS #Result
+	--Get BetDescription - replace f_BetBuilder_GetSelectionName by temp table
+   --range bettrans
+	;WITH CTE_Market AS (
+		SELECT DISTINCT WinLostDate
+			,MatchId
+			,MarketId
+		FROM #Result
+		WHERE WinLostDate > @movebetdate
+	)
+	INSERT INTO #tmpBetDesc (
+		WinLostDate
+		,MarketId
+		,SelectionName
+	)
+	SELECT b.WinLostDate
+		,s1.MarketId
+		,s2.SelectionName
+	FROM CTE_Market AS b
+		INNER JOIN bodb02.dbo.SMP_MarketSelection AS s1 WITH (NOLOCK) ON b.MatchId = s1.MatchId AND b.MarketId = s1.MarketId
+		INNER JOIN bodb02.dbo.SMP_Selection AS s2 WITH (NOLOCK) ON s1.SelectionType = s2.SelectionType
+	GROUP BY b.WinLostDate
+		,s1.MarketId
+		,s2.SelectionName
+	OPTION (RECOMPILE)
+	
+	--range bettrans14
+	;WITH CTE_Market AS (
+		SELECT DISTINCT WinLostDate
+			,MatchId
+			,MarketId
+		FROM #Result
+		WHERE WinLostDate BETWEEN @balanceupdate AND @movebetdate
+	)
+	INSERT INTO #tmpBetDesc (
+		WinLostDate
+		,MarketId
+		,SelectionName
+	)
+	SELECT b.WinLostDate
+		,s1.MarketId
+		,s2.SelectionName
+	FROM CTE_Market AS b
+		INNER JOIN bodb02.dbo.SMP_MarketSelection14 AS s1 WITH (NOLOCK) ON b.MatchId = s1.MatchId AND b.MarketId = s1.MarketId
+		INNER JOIN bodb02.dbo.SMP_Selection AS s2 WITH (NOLOCK) ON s1.SelectionType = s2.SelectionType
+	GROUP BY b.WinLostDate
+		,s1.MarketId
+		,s2.SelectionName
+	OPTION (RECOMPILE)
+	
+	--range bettrans_bk
+	;WITH CTE_Market AS (
+		SELECT DISTINCT WinLostDate
+			,MatchId
+			,MarketId
+		FROM #Result
+		WHERE WinLostDate < @balanceupdate
+	)
+	INSERT INTO #tmpBetDesc (
+		WinLostDate
+		,MarketId
+		,SelectionName
+	)
+	SELECT b.WinLostDate
+		,s1.MarketId
+		,s2.SelectionName
+	FROM CTE_Market AS b
+		INNER JOIN bodb_Archive.dbo.SMP_MarketSelection_bk AS s1 WITH (NOLOCK) ON b.MatchId = s1.MatchId AND b.MarketId = s1.MarketId
+		INNER JOIN bodb02.dbo.SMP_Selection AS s2 WITH (NOLOCK) ON s1.SelectionType = s2.SelectionType
+	GROUP BY b.WinLostDate
+		,s1.MarketId
+		,s2.SelectionName
+	OPTION (RECOMPILE)
 
-
-    SELECT (SELECT SportName FROM bodb02.dbo.Sports WHERE SportType = d.SportType) AS Sport
+	;WITH CTE_BetDesc AS (
+		SELECT WinLostDate
+			,MarketId
+			,BetDesc = STUFF((
+					SELECT '; ' + SelectionName
+					FROM #tmpBetDesc AS t1 WITH (NOLOCK)
+					WHERE t1.WinLostDate = t2.WinLostDate
+						AND t1.MarketId = t2.MarketId
+					ORDER BY t1.SelectionName
+					FOR XML PATH('')
+					), 1, 2, '')
+		FROM #tmpBetDesc AS t2 WITH (NOLOCK)
+		GROUP BY WinLostDate
+			,MarketId
+	)
+    SELECT s.SportName AS Sport
 	    , d.LeagueId
 	    , d.HomeId
 	    , d.AwayId
@@ -462,7 +537,7 @@ BEGIN
 	    , d.DateTimePlaced
 	    , d.WinLostDate
 	    , d.TransId
-	    , d.BetDescription
+	    , bd.BetDesc AS BetDescription
 	    , d.NoOfLegsPerBet
 	    , 'Settled' AS BetStatus
 	    , bf.DeviceGroup
@@ -503,10 +578,13 @@ BEGIN
     FROM #Result AS d
 	   INNER JOIN @BetFrom AS bf ON d.Betfrom = bf.betfrom
 	   INNER JOIN #ExchangeOANDA AS e ON d.Currency = e.ExchangeID
-								  AND d.WinLostDate = e.ExchangeDate;
+								  AND d.WinLostDate = e.ExchangeDate
+	   LEFT JOIN bodb02.dbo.Sports AS s WITH (NOLOCK) ON s.SportType = d.SportType
+	   LEFT JOIN CTE_BetDesc AS bd ON d.WinLostDate = bd.WinLostDate AND d.MarketId = bd.MarketId
 
     DROP TABLE #HistoryData;
     DROP TABLE #BetTransData;
     DROP TABLE #Result;
     DROP TABLE #ExchangeOANDA;
+	DROP TABLE #tmpBetDesc;
 END;
