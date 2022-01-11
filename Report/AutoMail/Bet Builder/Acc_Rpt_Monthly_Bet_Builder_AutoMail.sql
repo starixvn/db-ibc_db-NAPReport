@@ -387,7 +387,7 @@ BEGIN
 		 );
 
 
-    CREATE CLUSTERED INDEX CIX_Result_Betfrom_Currency_WinLostDate ON #Result( WinLostDate ASC, MatchId ASC, Betfrom ASC, Currency ASC, WinLostDate ASC);
+    CREATE CLUSTERED INDEX CIX_Result_Betfrom_Currency_WinLostDate ON #Result( WinLostDate ASC, MatchId ASC, Betfrom ASC, Currency ASC);
 
     SELECT @WinlostDate = @DateStart;
     WHILE @WinlostDate <= @DateEnd
@@ -407,7 +407,7 @@ BEGIN
 				OPTION (RECOMPILE)
 			 END;
 
-		  IF IF @WinlostDate BETWEEN @balanceupdate AND @movebetdate
+		  IF @WinlostDate BETWEEN @balanceupdate AND @movebetdate
 			 BEGIN
 				UPDATE d
 					  SET
