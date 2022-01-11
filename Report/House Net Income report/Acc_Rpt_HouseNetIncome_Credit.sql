@@ -25,6 +25,7 @@ AS
         20210726@Ned.Le: Letstalk Reports - Apply monthly formula for MTD value like LA Reports (#157953)
         20210726@Ned.Le: HNI Email/Letstalk - Change the formula to calculate House Income, Pay To Supplier for Arcadia Gaming/PP Promotion tickets (#158971)
         20210815@Ned.Le: Email/Letstalk Reports - Change Data Source to retrieve yesterday data from DW into Bettrans table (#151993)
+		20220110@Kean.Nguyen: Email/Letstalk Reports - Integrate Spadegaming Jackpot (#166684)
 
 	Param's Explanation:
 		@ProductList: 'ALL' - Get data of all product
@@ -270,6 +271,15 @@ BEGIN
 		FROM bodb02.dbo.SportBettypeMatrix (NOLOCK)
 		WHERE BetType IN (SELECT Bettype FROM #tmpBettypeGroup WHERE ProductID = 32 AND BettypeGroupID = 10 AND BettypeName LIKE '%Jackpot%')
 			  OR BetType IN (SELECT Bettype FROM #tmpBettypeGroup WHERE ProductID = 32 AND BettypeGroupID = 6 AND BettypeName LIKE '%Jackpot%')
+	END
+
+	IF EXISTS (SELECT TOP 1 1 FROM #tmpProductList WHERE ProductPrefix = 'SG-JP')
+	BEGIN
+		INSERT INTO #tmpProductBettype (ProductID, Bettype)
+		SELECT DISTINCT ProductID, BetType
+		FROM bodb02.dbo.SportBettypeMatrix (NOLOCK)
+		WHERE BetType IN (SELECT Bettype FROM #tmpBettypeGroup WHERE ProductID = 36 AND BettypeGroupID = 10 AND BettypeName LIKE '%Jackpot%')
+			  OR BetType IN (SELECT Bettype FROM #tmpBettypeGroup WHERE ProductID = 36 AND BettypeGroupID = 6 AND BettypeName LIKE '%Jackpot%')
 	END
 
 	BEGIN
