@@ -9,6 +9,7 @@ AS
 	 DB: DBACC-bodb02
 	 Revisions: 
 		- 20210413@Danny: Initialize SP [RedmineID: #151993]
+		- 20211102@Danny: SG integrate JP, Contribution (#166684)
 
 	 Param's Explanation:
 
@@ -43,7 +44,7 @@ BEGIN
 		, b.currency
 		, b.statusID
 		, SUM(winlost - actual_stake) AS Winloss		
-		, SUM(CASE WHEN b.gameID = 4297 THEN ContributionStake3rd ELSE 0 END) AS ProgressiveContribution -- Full Contribution(PP-4297)
+		, SUM(CASE WHEN b.gameID IN (4297, 4599) THEN ContributionStake3rd ELSE 0 END) AS ProgressiveContribution -- Full Contribution(PP-4297)
 		, 0 AS ValidBetAmount
 	FROM bodb02.dbo.bettransRnG b WITH (NOLOCK)
 		LEFT JOIN DBTXN.bodb02.dbo.PayoutTrans p ON b.transid = p.RefNo
@@ -55,6 +56,7 @@ BEGIN
 		AND b.statusID NOT IN (0, 1, 101, 102, 121)
 		AND (b.gameID BETWEEN 1011 AND 1020 -- FW
 			OR b.gameID BETWEEN 4101 AND 4300 -- PP
+			OR b.gameID BETWEEN 6701 AND 7000 -- PP
 			OR b.gameID BETWEEN 1901 AND 1999 -- CC
 			OR b.gameID BETWEEN 4301 AND 4600 -- SG
 			OR b.gameID BETWEEN 6401 AND 6700 -- JK
