@@ -304,5 +304,4 @@ AS
 	   DROP TABLE #Data;
 	   DROP TABLE #tmpBetDesc
 
-	   DROP TABLE #tmpReturn
     END;
