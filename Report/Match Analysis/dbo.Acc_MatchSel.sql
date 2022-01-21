@@ -3,7 +3,7 @@ use bodb02
 GO
 ALTER PROCEDURE [dbo].[Acc_MatchSel]
 	@eventdate datetime,
-	@leagueids1 varchar(8000) = null,
+	@leagueids varchar(8000) = null,
 	@MoveBetsDay	SMALLDATETIME,
 	@BalanceUpDay	SMALLDATETIME	
 AS
@@ -25,8 +25,8 @@ AS
 SET NOCOUNT ON
 DECLARE @tmp TABLE (ID INT IDENTITY PRIMARY KEY, val INT)
 
-IF (@leagueids1 IS NOT NULL)
-	INSERT INTO @tmp(val) SELECT CONVERT(INT,val) FROM dbo.strSplit(@leagueids1,',')
+IF (@leagueids IS NOT NULL)
+	INSERT INTO @tmp(val) SELECT CONVERT(INT,val) FROM dbo.strSplit(@leagueids,',')
 
 IF (@eventdate>@MoveBetsDay)
 BEGIN
@@ -35,7 +35,7 @@ BEGIN
 	FROM dbo.match m WITH (NOLOCK) 
  	WHERE eventdate = @eventdate
 		AND (m.sporttype <=99 OR m.sporttype = 154)  --support sportbook
-		AND (@leagueids1 IS NULL OR leagueid IN (SELECT val FROM @tmp))		
+		AND (@leagueids IS NULL OR leagueid IN (SELECT val FROM @tmp))		
 		AND m.matchcode not like '%hedge%'	--exclude hedge match
 		AND m.eventstatus = 'completed'
 		AND m.betstatus <> 'Refund'
@@ -49,7 +49,7 @@ BEGIN
 	FROM match14 m WITH (NOLOCK) 
  	WHERE eventdate = @eventdate
 		AND (m.sporttype <=99 OR m.sporttype = 154) --support sportbook
-		AND (@leagueids1 IS NULL OR leagueid IN (SELECT val FROM @tmp))			
+		AND (@leagueids IS NULL OR leagueid IN (SELECT val FROM @tmp))			
 		AND m.matchcode not like '%hedge%'	--exclude hedge match
 		AND m.eventstatus = 'completed'
 		AND m.betstatus <> 'Refund'
@@ -62,7 +62,7 @@ BEGIN
 	FROM DBARC.BODB_Archive.dbo.match_bk m WITH (NOLOCK) 
  	WHERE eventdate = @eventdate
 		AND (m.sporttype <=99 OR m.sporttype = 154)   --support sportbook
-		AND (@leagueids1 IS NULL OR leagueid IN (SELECT val FROM @tmp))				
+		AND (@leagueids IS NULL OR leagueid IN (SELECT val FROM @tmp))				
 		AND m.matchcode not like '%hedge%'	--exclude hedge match
 		AND m.eventstatus = 'completed'
 		AND m.betstatus <> 'Refund'
