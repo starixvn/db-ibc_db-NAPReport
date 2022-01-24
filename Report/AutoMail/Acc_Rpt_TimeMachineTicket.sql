@@ -17,6 +17,7 @@ AS
      - 20210422@Jaden: Implement 229 (#153872)
      - 20210506@Jaden: new bug fixes (#145519)
      - 20210603@Jaden: Include 8RM data (#145586)
+     - 20220124@Jaden: Separate TM corners bet type (#145519)
 	 */
 BEGIN 
     Create table #tmp_data
@@ -54,8 +55,8 @@ BEGIN
         company_RealWL money,
         matchid int,
         mission nvarchar (100),
-        [minute] nvarchar (10)
-        ,extrainfo nvarchar (100)
+        [minute] nvarchar (10),
+        extrainfo nvarchar (100)
     ) 
     
     --bettrans data-------------------------------------------------------------------------------------------------------------------------------------------------
@@ -155,7 +156,10 @@ BEGIN
             WHEN liveindicator = 1 THEN 'Live'
             ELSE 'Live & Non-Live'
         END [Live],
-        bt.typenamee 'Bettype',
+        Case 
+			When childmatchtype=204 then bt.typenamee + ' (Corners)'
+			else bt.typenamee 
+        end 'Bettype',
         CASE
             when betteam = 'o' then 'Over' + ' ' + cast(oddsspread as varchar(10))
             when betteam = 'u' then 'Under' + ' ' + cast(oddsspread as varchar(10))
