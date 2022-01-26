@@ -21,6 +21,7 @@ Revisions:
 	20191212@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
 	20212203@Jaden: Support SABA789 (#151326)
 	20210601@Kean: SABA Soccer PinGoal - NAP Report (#156077)
+	20220125@Jaden: Separate Corner from Time Machine (#167882)
 	
 Parameters:
 @IsSabaSport: 2 - ALL. 0 - Non-SABA. 1 - SABA. 3 - SABA PinGoal
@@ -100,32 +101,53 @@ BEGIN -- #SABALeagueGroup
 		   leagueid LeagueID
 		FROM bodb02.dbo.League (NOLOCK)
 		WHERE LeagueGroupID IN (SELECT LeagueGroupID FROM #SABALeagueGroup)
-	END;
+END;
+
+BEGIN -- #SubType: extra grouping condition for extra row display
+	  -- example: separate Time Machine Corners out of Time Machine (goals + corners)
+	CREATE TABLE #SubType(
+	    SubType 	     		  VARCHAR(15)
+	  , MatchingBetId   		  INT
+	  , MatchingSportId 		  INT
+	  , MatchingChildMatchType	  INT
+	  , CONSTRAINT UC_SubType UNIQUE (MatchingBetId, MatchingSportId, MatchingChildMatchType)
+	);
+
+	INSERT INTO #SubType (SubType, MatchingBetId, MatchingSportId, MatchingChildMatchType)
+	VALUES (' (Corners)', 228, 1, 204), (' (Corners)', 229, 1, 204); -- Time Machine
+END;
+
 BEGIN /* #Match*/
 
     CREATE TABLE #Match(
-	    MatchId      INT
-	  , MatchCode    NVARCHAR(50)
-	  , type         VARCHAR(10)
-	  , PRIMARY KEY(MatchId, type));
+	    MatchId      			INT
+	  , MatchCode    			NVARCHAR(50)
+	  , ChildMatchType			INT
+	  , SportType				INT
+	  , source       			VARCHAR(10)
+	  , PRIMARY KEY(MatchId));
     INSERT INTO #Match
 		 SELECT DISTINCT
 			   m.MatchId
 			 , m.MatchCode
-			 , m.type
+			 , m.ChildMatchType
+			 , l.sporttype
+			 , m.source
 		 FROM
 			 (
 				SELECT MatchId
 					, LeagueId
 					, MatchCode
-					, 'match' AS type
+					, ChildMatchType
+					, 'match' AS source
 				FROM dbo.Match WITH (NOLOCK)
 				WHERE EventDate = @StartDate
 				UNION ALL
 				SELECT orid
 					, LeagueId
 					, MatchCode
-					, 'outright' AS type
+					, -1
+					, 'outright' AS source
 				FROM dbo.outright WITH (NOLOCK)
 				WHERE EventDate = @StartDate
 			 ) AS m
@@ -143,6 +165,7 @@ BEGIN /* #Data*/
     CREATE TABLE #tmp_Data(
 	    srecommend         INT
 	  , bettype            INT
+	  , subtype			   VARCHAR(15)
 	  , liveindicator      BIT
 	  , isHedgeMatch       BIT
 	  , MemberWinLoss      DECIMAL(19, 6)
@@ -174,6 +197,7 @@ BEGIN /* Bet Type*/
 
     INSERT INTO #tmp_Data(srecommend
 				    , bettype
+					, subtype
 				    , liveindicator
 				    , isHedgeMatch
 				    , MemberWinLoss
@@ -187,6 +211,7 @@ BEGIN /* Bet Type*/
 				    , VirtualTurnover)
 		 SELECT srecommend
 			 , bettype
+			 , st.SubType
 			 , liveindicator
 			 , CASE
 				  WHEN m.MatchCode LIKE '%hedge%'
@@ -248,8 +273,11 @@ BEGIN /* Bet Type*/
 				  END) AS                                                                                                                                     VirtualTurnover
 		 FROM dbo.bettrans AS b WITH (NOLOCK)
 			INNER JOIN #Match AS m ON b.MatchId = m.MatchId
+			LEFT JOIN #SubType AS st ON b.bettype = ISNULL(st.MatchingBetId, b.bettype) 
+									AND m.SportType = ISNULL(st.MatchingSportId, m.SportType)
+									AND (m.ChildMatchType = st.MatchingChildMatchType OR ISNULL(m.ChildMatchType, st.MatchingChildMatchType) IS NULL)
 		 WHERE b.winlostdate = @StartDate
-			  AND m.type = CASE
+			  AND m.source = CASE
 						    WHEN b.BetType = 10
 						    THEN 'outright'
 						    ELSE 'match'
@@ -258,6 +286,7 @@ BEGIN /* Bet Type*/
 			  AND b.statusID IN(111, 112, 113)
 		 GROUP BY srecommend
 			   , bettype
+			   , st.SubType
 			   , liveindicator
 			   , CASE
 				    WHEN m.MatchCode LIKE '%hedge%'
@@ -268,9 +297,8 @@ BEGIN /* Bet Type*/
     INSERT INTO #Data
 		 SELECT sb.BetType AS           GroupId
 			 , CASE
-				  WHEN b.isHedgeMatch = 1
-				  THEN sb.BetTypeName+' (hedge)'
-				  ELSE sb.BetTypeName
+				  WHEN b.isHedgeMatch = 1 THEN sb.BetTypeName+' (hedge)'
+				  ELSE sb.BetTypeName + CASE WHEN b.subtype IS NOT NULL THEN b.subtype ELSE '' END
 			   END AS                  GroupName
 			 , sb.DisplayOrder
 			 , CASE
@@ -294,9 +322,8 @@ BEGIN /* Bet Type*/
 			  OR b.liveindicator = @IsLive
 		 GROUP BY sb.BetType
 			   , CASE
-				    WHEN b.isHedgeMatch = 1
-				    THEN sb.BetTypeName+' (hedge)'
-				    ELSE sb.BetTypeName
+				    WHEN b.isHedgeMatch = 1 THEN sb.BetTypeName+' (hedge)'
+				    ELSE sb.BetTypeName + CASE WHEN b.subtype IS NOT NULL THEN b.subtype ELSE '' END
 				END
 			   , sb.DisplayOrder
 			   , CASE
@@ -377,7 +404,7 @@ BEGIN /* BARM (site only)*/
 			  AND
 				 (@IsLive > 1
 				  OR b.liveindicator = @IsLive)
-			  AND m.type = CASE
+			  AND m.source = CASE
 						    WHEN b.BetType = 10
 						    THEN 'outright'
 						    ELSE 'match'
@@ -391,7 +418,7 @@ BEGIN /* BARM (site only)*/
 				    ELSE sb.BetTypeName
 				END
 			   , sb.DisplayOrder;
-/*- set data default for 'Deposit' if there is no data*/
+	/*- set data default for 'Deposit' if there is no data*/
 
     INSERT INTO #Data(GroupId
 				, GroupName
@@ -433,7 +460,7 @@ BEGIN /* BARM (site only)*/
 				FROM #Data
 				WHERE RowName = 'Deposit'
 			 ) AS D;
-/*-- Update Credit = Credit - BARM, Deposit = Deposit + BARM*/
+	/*-- Update Credit = Credit - BARM, Deposit = Deposit + BARM*/
 
     UPDATE c
 		 SET
@@ -487,7 +514,7 @@ BEGIN /* BARM (site only)*/
 					    AND c.GroupName = d.GroupName
 					    AND d.RowName = 'BARM'
 					    AND c.RowName IN('Credit', 'Deposit');
-/*---Delete BARM row used for calculate*/
+	/*---Delete BARM row used for calculate*/
 
     DELETE #Data
     WHERE RowName = 'BARM';
@@ -566,7 +593,7 @@ BEGIN /* RM   */
 			  AND
 				 (@IsLive > 1
 				  OR b.liveindicator = @IsLive)
-			  AND m.type = CASE
+			  AND m.source = CASE
 						    WHEN b.BetType = 10
 						    THEN 'outright'
 						    ELSE 'match'
@@ -605,7 +632,8 @@ BEGIN /* Query*/
 			  ELSE 0
 		   END
 		 , d.DisplayOrder
-		 , d.RowName;
+		 , d.RowName
+		 , d.GroupName;
 END;
 DROP TABLE #SportBetType;
 DROP TABLE #DepositSuper;
