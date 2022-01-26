@@ -106,15 +106,19 @@ END;
 BEGIN -- #SubType: extra grouping condition for extra row display
 	  -- example: separate Time Machine Corners out of Time Machine (goals + corners)
 	CREATE TABLE #SubType(
-	    SubType 	     		  VARCHAR(15)
+	    SubType 	     		  VARCHAR(15) NOT NULL
 	  , MatchingBetId   		  INT
 	  , MatchingSportId 		  INT
 	  , MatchingChildMatchType	  INT
-	  , CONSTRAINT UC_SubType UNIQUE (MatchingBetId, MatchingSportId, MatchingChildMatchType)
+	  , MatchingMatchCode		  NVARCHAR(50)
+	  , CONSTRAINT UC_SubType UNIQUE (MatchingBetId, MatchingSportId, MatchingChildMatchType, MatchingMatchCode)
 	);
 
 	INSERT INTO #SubType (SubType, MatchingBetId, MatchingSportId, MatchingChildMatchType)
 	VALUES (' (Corners)', 228, 1, 204), (' (Corners)', 229, 1, 204); -- Time Machine
+
+	INSERT INTO #SubType (SubType, MatchingMatchCode)
+	VALUES (' (hedge)', '%hedge%');
 END;
 
 BEGIN /* #Match*/
@@ -167,7 +171,6 @@ BEGIN /* #Data*/
 	  , bettype            INT
 	  , subtype			   VARCHAR(15)
 	  , liveindicator      BIT
-	  , isHedgeMatch       BIT
 	  , MemberWinLoss      DECIMAL(19, 6)
 	  , SMAWinLoss         DECIMAL(19, 6)
 	  , ExtraPT            DECIMAL(19, 6)
@@ -199,7 +202,6 @@ BEGIN /* Bet Type*/
 				    , bettype
 					, subtype
 				    , liveindicator
-				    , isHedgeMatch
 				    , MemberWinLoss
 				    , SMAWinLoss
 				    , ExtraPT
@@ -213,11 +215,6 @@ BEGIN /* Bet Type*/
 			 , bettype
 			 , st.SubType
 			 , liveindicator
-			 , CASE
-				  WHEN m.MatchCode LIKE '%hedge%'
-				  THEN 1
-				  ELSE 0
-			   END AS                                                                                                                                          isHedgeMatch
 			 , SUM((winlost - actual_stake) * actualrate) AS                                                                                                   MemberWinLoss
 			 , SUM((awinlost + mwinlost + swinlost) * actualrate) AS                                                                                           SMAWinLoss
 			 , SUM(CASE
@@ -275,7 +272,10 @@ BEGIN /* Bet Type*/
 			INNER JOIN #Match AS m ON b.MatchId = m.MatchId
 			LEFT JOIN #SubType AS st ON b.bettype = ISNULL(st.MatchingBetId, b.bettype) 
 									AND m.SportType = ISNULL(st.MatchingSportId, m.SportType)
-									AND (m.ChildMatchType = st.MatchingChildMatchType OR ISNULL(m.ChildMatchType, st.MatchingChildMatchType) IS NULL)
+									AND (st.MatchingChildMatchType IS NULL OR 
+										 m.ChildMatchType = st.MatchingChildMatchType OR ISNULL(m.ChildMatchType, st.MatchingChildMatchType) IS NULL)
+									AND (st.MatchingMatchCode IS NULL OR
+										 m.MatchCode LIKE st.MatchingMatchCode OR ISNULL(m.MatchCode, st.MatchingMatchCode) IS NULL)
 		 WHERE b.winlostdate = @StartDate
 			  AND m.source = CASE
 						    WHEN b.BetType = 10
@@ -288,18 +288,11 @@ BEGIN /* Bet Type*/
 			   , bettype
 			   , st.SubType
 			   , liveindicator
-			   , CASE
-				    WHEN m.MatchCode LIKE '%hedge%'
-				    THEN 1
-				    ELSE 0
-				END OPTION(RECOMPILE);
+		 OPTION(RECOMPILE);
 
     INSERT INTO #Data
 		 SELECT sb.BetType AS           GroupId
-			 , CASE
-				  WHEN b.isHedgeMatch = 1 THEN sb.BetTypeName+' (hedge)'
-				  ELSE sb.BetTypeName + CASE WHEN b.subtype IS NOT NULL THEN b.subtype ELSE '' END
-			   END AS                  GroupName
+			 , sb.BetTypeName + CASE WHEN b.subtype IS NOT NULL THEN b.subtype ELSE '' END AS GroupName
 			 , sb.DisplayOrder
 			 , CASE
 				  WHEN dep.CustId IS NULL
@@ -321,10 +314,7 @@ BEGIN /* Bet Type*/
 		 WHERE @IsLive > 1
 			  OR b.liveindicator = @IsLive
 		 GROUP BY sb.BetType
-			   , CASE
-				    WHEN b.isHedgeMatch = 1 THEN sb.BetTypeName+' (hedge)'
-				    ELSE sb.BetTypeName + CASE WHEN b.subtype IS NOT NULL THEN b.subtype ELSE '' END
-				END
+			   , sb.BetTypeName + CASE WHEN b.subtype IS NOT NULL THEN b.subtype ELSE '' END
 			   , sb.DisplayOrder
 			   , CASE
 				    WHEN dep.CustId IS NULL
@@ -626,12 +616,7 @@ BEGIN /* Query*/
 	    , d.RealTurnover AS    RealTurnover
 	    , d.VirtualTurnover AS VirtualTurnover
     FROM #Data AS d
-    ORDER BY CASE
-			  WHEN d.GroupName LIKE '%(hedge)%'
-			  THEN 1
-			  ELSE 0
-		   END
-		 , d.DisplayOrder
+    ORDER BY d.DisplayOrder
 		 , d.RowName
 		 , d.GroupName;
 END;
