@@ -116,7 +116,7 @@ BEGIN -- #SubType: extra grouping condition for extra row display
 	  , MatchingSportId 		  INT
 	  , MatchingChildMatchType	  INT
 	  , MatchingMatchCode		  NVARCHAR(50)
-	  , CONSTRAINT UC_SubType UNIQUE (MatchingBetId, MatchingSportId, MatchingChildMatchType, MatchingMatchCode)
+	  , PRIMARY KEY CLUSTERED (MatchingBetId, MatchingSportId, MatchingChildMatchType, MatchingMatchCode)
 	);
 
 	INSERT INTO #SubType (SubType, MatchingBetId, MatchingSportId, MatchingChildMatchType)
