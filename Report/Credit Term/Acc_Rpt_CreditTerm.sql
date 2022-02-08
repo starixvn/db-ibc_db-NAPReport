@@ -170,7 +170,7 @@ BEGIN
 	SELECT b.recommend, a.groupID,
 		ISNULL(SUM(CASE WHEN b.recommend = b.custid THEN b.winlost-b.actual_stake ELSE b.awinlost+b.comm-b.playercomm END),0)
 		+ IsNull(SUM(case when b.custid<>b.recommend then winlost-actual_stake+playercomm else 0 end) ,0)
-	FROM [Transfer] b with(nolock, index=IX_recommend)
+	FROM [Transfer] b with(nolock)
 		INNER JOIN custInfo c with(nolock) on c.custid = b.recommend
 			INNER JOIN custAccount a with(nolock) on c.custid = a.custid
 	WHERE roleid = 2 AND (PreAgreeAmount > 0 OR groupID > 0)
