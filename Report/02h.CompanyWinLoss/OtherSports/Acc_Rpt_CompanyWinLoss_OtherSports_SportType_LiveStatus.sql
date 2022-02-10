@@ -21,6 +21,7 @@ Revisions:
 - 20200722@Roy: Incorporate New Basketball Sport for BetBuilder Product - NAP Report (#138082)
 - 20201222@Kean: Support to filter NoDraw and separate the SABA sports - NAP Report (#147451)
 - 20212203@Jaden: Support SABA789 (#151326)
+- 20220210@Ned.Le: NAP Report - Incorporate SABA Basketball PinGoal (#168364)
 
 Parameters:
 @IsLive: 2 - ALL. 0 - Non-Live. 1 - Live
@@ -33,7 +34,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_SportType_LiveStatus] @EndDate='2018-08
 
           SET NOCOUNT ON;
     BEGIN --#SportBetType
-        DECLARE @isTest BIT= 0, @LeagueGroupStr VARCHAR(500);
+        DECLARE @isTest BIT= 0;
         SELECT @isTest = dbo.f_CheckSPVersion(@@PROCID);
         CREATE TABLE #SportBetType(BetType INT);
         INSERT INTO #SportBetType
@@ -53,9 +54,10 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_SportType_LiveStatus] @EndDate='2018-08
                FROM DBWH.bodb_Account.dbo.vw_Dep_CustSuper WITH (NOLOCK)
     END;
 	BEGIN -- #SABALeagueGroup
-		CREATE TABLE #SABALeagueGroup(LeagueGroupID INT)
+        DECLARE @LeagueGroupStr VARCHAR(500)
 		SELECT @LeagueGroupStr = [VValue] FROM DBWH.[bodb_Account].[dbo].[SystemSettings] WHERE VID = 5
 
+        CREATE TABLE #SABALeagueGroup(LeagueGroupID INT)
 		INSERT INTO #SABALeagueGroup
 		SELECT val FROM dbo.strSplit(@LeagueGroupStr,',')
 	END;
@@ -67,6 +69,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_SportType_LiveStatus] @EndDate='2018-08
                       SportType INT, 
                       SportName NVARCHAR(50),
 					  IsSabaSport BIT,  
+                      LeagueGroupID INT,
                       PRIMARY KEY(MatchId, type)
                      );
         INSERT INTO #Match
@@ -75,7 +78,8 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_SportType_LiveStatus] @EndDate='2018-08
                       m.type, 
                       s.sporttype, 
                       s.sportname,
-					  CASE WHEN saba.LeagueGroupID IS NULL THEN 0 ELSE 1 END IsSabaSport
+					  CASE WHEN saba.LeagueGroupID IS NULL THEN 0 ELSE 1 END IsSabaSport,
+                      l.LeagueGroupID
                FROM
                (
                    SELECT MatchId, 
@@ -131,10 +135,12 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_SportType_LiveStatus] @EndDate='2018-08
     END;
     BEGIN -- Sport Type
         INSERT INTO #tmp_Data
-               SELECT srecommend, 
-                      bettype, 
-                      m.SportType, 
-                      CASE WHEN m.IsSabaSport = 1 THEN 'SABA ' + m.SportName ELSE m.SportName END SportName,
+               SELECT srecommend,
+                      bettype,
+                      m.SportType,
+					  CASE WHEN m.IsSabaSport = 1 THEN CASE WHEN m.LeagueGroupID = 122 THEN 'SABA ' + m.SportName + ' PinGoal'
+                                                            ELSE 'SABA ' + m.SportName END
+                           ELSE m.SportName END SportName,
 					  m.IsSabaSport, 
                       liveindicator, 
                       SUM((winlost - actual_stake) * actualrate) MemberWinLoss, 
@@ -219,7 +225,9 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_SportType_LiveStatus] @EndDate='2018-08
                GROUP BY srecommend, 
                         bettype, 
                         m.SportType, 
-                        CASE WHEN m.IsSabaSport = 1 THEN 'SABA ' + m.SportName ELSE m.SportName END,
+                        CASE WHEN m.IsSabaSport = 1 THEN CASE WHEN m.LeagueGroupID = 122 THEN 'SABA ' + m.SportName + ' PinGoal'
+                                                              ELSE 'SABA ' + m.SportName END
+                             ELSE m.SportName END,
 						m.IsSabaSport, 
                         liveindicator OPTION(RECOMPILE);
         INSERT INTO #Data
@@ -315,7 +323,9 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_SportType_LiveStatus] @EndDate='2018-08
         -- BARM only
         INSERT INTO #Data
                SELECT m.SportType GroupId, 
-                      CASE WHEN m.IsSabaSport = 1 THEN 'SABA ' + m.SportName ELSE m.SportName END GroupName,
+					  CASE WHEN m.IsSabaSport = 1 THEN CASE WHEN m.LeagueGroupID = 122 THEN 'SABA ' + m.SportName + ' PinGoal'
+                                                            ELSE 'SABA ' + m.SportName END
+                           ELSE m.SportName END SportName,
 					  m.IsSabaSport, 
                       'BARM' AS RowName, 
                       SUM((winlost - actual_stake) * actualrate) MemberWinLoss, 
@@ -402,7 +412,9 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_SportType_LiveStatus] @EndDate='2018-08
                      AND b.ruben = 1
                      AND  ((@IsNoDraw = 0 AND b.statusID IN(111, 112, 113)) OR (@IsNoDraw = 1 AND statusID IN (112, 113)))
                GROUP BY m.SportType, 
-                        CASE WHEN m.IsSabaSport = 1 THEN 'SABA ' + m.SportName ELSE m.SportName END,
+                        CASE WHEN m.IsSabaSport = 1 THEN CASE WHEN m.LeagueGroupID = 122 THEN 'SABA ' + m.SportName + ' PinGoal'
+                                                              ELSE 'SABA ' + m.SportName END
+                             ELSE m.SportName END,
 						m.IsSabaSport;
         IF @IsLive = 2
             BEGIN

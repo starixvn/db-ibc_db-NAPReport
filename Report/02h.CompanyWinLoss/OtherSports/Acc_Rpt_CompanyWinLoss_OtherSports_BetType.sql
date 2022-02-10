@@ -27,9 +27,11 @@ Revisions:
 - 20201222@Kean: Support to filter NoDraw and separate the SABA sports - NAP Report (#147451)
 - 20210326@Kean: HotFix, Missing data when league.LeagueGroupId is NULL - NAP Report (#152390)
 - 20212203@Jaden: Support SABA789 (#151326)
+- 20220210@Ned.Le: NAP Report - Incorporate SABA Basketball PinGoal (#168364)
 
 Parameters:
 @IsLive: 2 - ALL. 0 - Non-Live. 1 - Live
+@IsSabaSport: 2 - ALL. 0 - Non-SABA. 1 - SABA. 4 - SABA Basketball PinGoal
 Example:
 EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_BetType] @EndDate='2020-01-01',@StartDate='2016-01-01', @SportType = 2, @IsLive = 2
 
@@ -37,7 +39,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_BetType] @EndDate='2020-01-01',@StartDa
 
      SET NOCOUNT ON;
     BEGIN --#SportBetType
-        DECLARE @isTest BIT= 0, @LeagueGroupStr VARCHAR(500);
+        DECLARE @isTest BIT= 0;
         SELECT @isTest = dbo.f_CheckSPVersion(@@PROCID);
         CREATE TABLE #SportBetType
                      (BetType     INT, 
@@ -62,9 +64,10 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_BetType] @EndDate='2020-01-01',@StartDa
                FROM DBWH.bodb_Account.dbo.vw_Dep_CustSuper WITH (NOLOCK)
     END;
 	BEGIN -- #SABALeagueGroup
-		CREATE TABLE #SABALeagueGroup(LeagueGroupID INT)
+        DECLARE @LeagueGroupStr VARCHAR(500)
 		SELECT @LeagueGroupStr = [VValue] FROM DBWH.[bodb_Account].[dbo].[SystemSettings] WHERE VID = 5
 
+        CREATE TABLE #SABALeagueGroup(LeagueGroupID INT)
 		INSERT INTO #SABALeagueGroup
 		SELECT val FROM dbo.strSplit(@LeagueGroupStr,',')
 	END;
@@ -95,9 +98,10 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_BetType] @EndDate='2020-01-01',@StartDa
                ) m
                INNER JOIN league l WITH(NOLOCK) ON m.LeagueId = l.LeagueId
                WHERE l.sporttype = @SportType
-			    AND ((@IsSabaSport = 0 AND (l.LeagueGroupID NOT IN (SELECT LeagueGroupID FROM #SABALeagueGroup) OR l.LeagueGroupID IS NULL) ) 
-						OR (@IsSabaSport = 1 AND l.LeagueGroupID IN (SELECT LeagueGroupID FROM #SABALeagueGroup))
-					);
+			         AND ((@IsSabaSport = 2) OR
+                          (@IsSabaSport = 0 AND (l.LeagueGroupID NOT IN (SELECT LeagueGroupID FROM #SABALeagueGroup) OR l.LeagueGroupID IS NULL)) OR
+					      (@IsSabaSport = 1 AND (l.LeagueGroupID IN (SELECT LeagueGroupID FROM #SABALeagueGroup WHERE LeagueGroupID <> 122))) OR
+                          (@IsSabaSport = 4 AND (l.LeagueGroupID IN (122))))
     END;
     BEGIN -- #Data
         CREATE TABLE #tmp_Data

@@ -30,11 +30,12 @@ Revisions:
 - 20210323@Kean: Daily Win Loss (2h) Soccer Minor Bet Types do not use @IsSabaSport parameter (#152100)
 - 20210326@Kean: HotFix, Missing data when league.LeagueGroupId is NULL - NAP Report (#152390)
 - 20210520@Kean: SABA Soccer PinGoal - NAP Report (#155447)
+- 20220210@Ned.Le: NAP Report - Incorporate SABA Basketball PinGoal (#168364)
 
 Parameters:
 @IsLive: 2 - ALL. 0 - Non-Live. 1 - Live
 @IsHedge: 2 - ALL. 0 - Non-Hedge. 1 - Hedge
-@IsSabaSport: 2 - ALL. 0 - Non-SABA. 1 - SABA. 3 - SABA PinGoal
+@IsSabaSport: 2 - ALL. 0 - Non-SABA. 1 - SABA. 3 - SABA Soccer PinGoal. 4 - SABA Basketball PinGoal
 Example:
 EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_MatchDetail] @EndDate='2020-01-01',@StartDate='2016-01-01', @SportType=2, @BetType=1, @IsHedge = 0, @IsLive = 2
 
@@ -42,10 +43,10 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_MatchDetail] @EndDate='2020-01-01',@Star
 
      SET NOCOUNT ON;
 	BEGIN -- #SABALeagueGroup
-		DECLARE @LeagueGroupStr VARCHAR(500);
-		CREATE TABLE #SABALeagueGroup(LeagueGroupID INT)
+		DECLARE @LeagueGroupStr VARCHAR(500)
 		SELECT @LeagueGroupStr = [VValue] FROM DBWH.[bodb_Account].[dbo].[SystemSettings] WHERE VID = 5
 
+        CREATE TABLE #SABALeagueGroup(LeagueGroupID INT)
 		INSERT INTO #SABALeagueGroup
 		SELECT val FROM dbo.strSplit(@LeagueGroupStr,',')
 
@@ -56,11 +57,13 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_MatchDetail] @EndDate='2020-01-01',@Star
 		)
 		INSERT INTO #SABALeague(LeagueGroupType, LeagueGroupID, LeagueID)
 		SELECT CASE WHEN LeagueGroupID = 113 THEN 2
-		        ELSE 1 END LeagueGroupType,
-		   LeagueGroupID,
-		   leagueid LeagueID
-		FROM bodb02.dbo.League (NOLOCK)
-		WHERE LeagueGroupID IN (SELECT LeagueGroupID FROM #SABALeagueGroup)
+                    WHEN LeagueGroupID = 122 THEN 3
+		            ELSE 1 END LeagueGroupType,
+		       LeagueGroupID,
+		       leagueid LeagueID
+		FROM bodb02.dbo.League l (NOLOCK)
+		WHERE l.sporttype = @SportType
+			AND LeagueGroupID IN (SELECT LeagueGroupID FROM #SABALeagueGroup)
 	END;
     BEGIN -- #Match
 
@@ -90,11 +93,11 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_MatchDetail] @EndDate='2020-01-01',@Star
                               AND m.MatchCode LIKE '%hedge%')
                           OR (@IsHedge = 0
                               AND m.MatchCode NOT LIKE '%hedge%'))
-					 AND (@IsSabaSport = 2
-								OR (@IsSabaSport = 0 AND l.leagueid NOT IN (SELECT LeagueID FROM #SABALeague))
-								OR (@IsSabaSport = 1 AND l.leagueid IN (SELECT LeagueID FROM #SABALeague WHERE LeagueGroupType = 1))
-								OR (@IsSabaSport = 3 AND l.leagueid IN (SELECT LeagueID FROM #SABALeague WHERE LeagueGroupType = 2))
-					);
+					 AND ((@IsSabaSport = 2) OR
+						  (@IsSabaSport = 0 AND l.leagueid NOT IN (SELECT LeagueID FROM #SABALeague)) OR
+						  (@IsSabaSport = 1 AND l.leagueid IN (SELECT LeagueID FROM #SABALeague WHERE LeagueGroupType = 1)) OR
+						  (@IsSabaSport = 3 AND l.leagueid IN (SELECT LeagueID FROM #SABALeague WHERE LeagueGroupType = 2)) OR
+                          (@IsSabaSport = 4 AND l.leagueid IN (SELECT LeagueID FROM #SABALeague WHERE LeagueGroupType = 3)))
     END;
     BEGIN -- #Data	
         CREATE TABLE #Data
