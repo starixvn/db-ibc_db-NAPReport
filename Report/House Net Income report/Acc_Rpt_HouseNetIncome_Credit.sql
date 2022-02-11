@@ -26,6 +26,7 @@ AS
         20210726@Ned.Le: HNI Email/Letstalk - Change the formula to calculate House Income, Pay To Supplier for Arcadia Gaming/PP Promotion tickets (#158971)
         20210815@Ned.Le: Email/Letstalk Reports - Change Data Source to retrieve yesterday data from DW into Bettrans table (#151993)
 		20220110@Kean.Nguyen: Email/Letstalk Reports - Integrate Spadegaming Jackpot (#166684)
+		20220210@Kean.Nguyen: Email/Letstalk Reports - Incorporate Saba Basketball Soccer PinGoal (#168373)
 
 	Param's Explanation:
 		@ProductList: 'ALL' - Get data of all product
@@ -355,6 +356,7 @@ BEGIN
 
 	INSERT INTO #tmpLeague (LeagueGroupType, LeagueGroupID, LeagueID)
 	SELECT CASE WHEN LeagueGroupID = 113 THEN 2
+			    WHEN LeagueGroupID = 122 THEN 3
 		        ELSE 1 END LeagueGroupType,
 		   LeagueGroupID,
 		   leagueid LeagueID
@@ -626,6 +628,7 @@ BEGIN
 					WHEN b.SportType = 1 AND l.LeagueGroupType = 1  THEN -3	 --Saba Soc
 					WHEN b.SportType = 1 AND l.LeagueGroupType = 2  THEN -14 --Saba Soc PGoal
 					WHEN b.SportType = 2 AND l.LeagueGroupType = 1  THEN -5	 --Saba Bas
+					WHEN b.SportType = 2 AND l.LeagueGroupType = 3  THEN -15 --Saba Bas PGoal
 					WHEN b.SportType = 50 AND l.LeagueGroupType = 1 THEN -8	 --Saba Cric
 					WHEN b.SportType = 1                            THEN -2	 --Real Soc
 					WHEN b.SportType = 2                            THEN -4	 --Real Bas
@@ -670,6 +673,7 @@ BEGIN
 					  WHEN b.SportType = 1 AND l.LeagueGroupType = 1  THEN -3  --Saba Soc
 					  WHEN b.SportType = 1 AND l.LeagueGroupType = 2  THEN -14 --Saba Soc PGoal
 					  WHEN b.SportType = 2 AND l.LeagueGroupType = 1  THEN -5  --Saba Bas
+					  WHEN b.SportType = 2 AND l.LeagueGroupType = 3  THEN -15 --Saba Bas PGoal
 					  WHEN b.SportType = 50 AND l.LeagueGroupType = 1 THEN -8  --Saba Cric
 					  WHEN b.SportType = 1                            THEN -2  --Real Soc
 					  WHEN b.SportType = 2                            THEN -4  --Real Bas
