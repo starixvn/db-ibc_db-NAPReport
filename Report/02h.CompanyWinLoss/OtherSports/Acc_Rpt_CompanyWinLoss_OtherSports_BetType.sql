@@ -43,7 +43,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_BetType] @EndDate='2020-01-01',@StartDa
         SELECT @isTest = dbo.f_CheckSPVersion(@@PROCID);
         CREATE TABLE #SportBetType
                      (BetType     INT, 
-                      BetTypeName NVARCHAR(50)
+                      BetTypeName NVARCHAR(200)
                      );
         INSERT INTO #SportBetType
                SELECT DISTINCT b.typeid, 
