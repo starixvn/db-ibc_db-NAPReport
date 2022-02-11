@@ -28,10 +28,12 @@ Revisions:
 - 20210326@Kean: HotFix, Missing data when league.LeagueGroupId is NULL - NAP Report (#152390)
 - 20212203@Jaden: Support SABA789 (#151326)
 - 20220210@Ned.Le: NAP Report - Incorporate SABA Basketball PinGoal (#168364)
+- 20220211@Ned.Le: Extend range for column BettypeName
 
 Parameters:
 @IsLive: 2 - ALL. 0 - Non-Live. 1 - Live
 @IsSabaSport: 2 - ALL. 0 - Non-SABA. 1 - SABA. 4 - SABA Basketball PinGoal
+
 Example:
 EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_BetType] @EndDate='2020-01-01',@StartDate='2016-01-01', @SportType = 2, @IsLive = 2
 
