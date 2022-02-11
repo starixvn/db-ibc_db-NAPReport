@@ -55,7 +55,7 @@ BEGIN /* Bet Type*/
     DECLARE @BetType TABLE(
 	    BetType         INT
 	    PRIMARY KEY
-	  , BetTypeName     NVARCHAR(50)
+	  , BetTypeName     NVARCHAR(200)
 	  , DisplayOrder    INT IDENTITY(1, 1));
     INSERT INTO @BetType(BetType)
     VALUES
@@ -172,7 +172,7 @@ END;
 BEGIN /* #Data*/
     CREATE TABLE #Data(
 	    GroupId            INT
-	  , GroupName          NVARCHAR(50)
+	  , GroupName          NVARCHAR(200)
 	  , RowName            NVARCHAR(50)
 	  , MemberWinLoss      DECIMAL(19, 6)
 	  , SMAWinLoss         DECIMAL(19, 6)
