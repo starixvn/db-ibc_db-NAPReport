@@ -7,7 +7,7 @@ ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_OtherSports_BetType] @StartDate SM
                                                                    @EndDate   SMALLDATETIME, 
                                                                    @SportType INT, 
                                                                    @IsLive    INT           = 2,
-																   @IsSabaSport BIT = 0,
+																   @IsSabaSport TINYINT = 0,
 																   @IsNoDraw BIT = 0
 AS
 
