@@ -93,8 +93,8 @@ BEGIN
 	SET NOCOUNT ON
 
 	-- Special sports
-	DECLARE @SABA_PINGOALNAME CHAR(19) = 'SABA Soccer PinGoal'
-	DECLARE @SABA_PINGOALLEAGUEGROUPID INT = 113
+	DECLARE @SABA_SOCCER_PINGOALNAME CHAR(19) = 'SABA Soccer PinGoal'
+	DECLARE @SABA_SOCCER_PINGOALLEAGUEGROUPID INT = 113
 
 	IF @LiveIndicator > 1 SET @LiveIndicator = NULL
 
@@ -185,8 +185,8 @@ BEGIN
 				l.leagueid, 
 				l.leaguename, 
 				m.matchtype,
-				CASE WHEN l.LeagueGroupID IN (SELECT val FROM CTE_SABA_Groups WHERE val = @SABA_PINGOALLEAGUEGROUPID) 
-					 THEN @SABA_PINGOALNAME END AltSportName
+				CASE WHEN l.LeagueGroupID IN (SELECT val FROM CTE_SABA_Groups WHERE val = @SABA_SOCCER_PINGOALLEAGUEGROUPID) 
+					 THEN @SABA_SOCCER_PINGOALNAME END AltSportName
 			FROM CTE_Match m
 			INNER JOIN bodb02.dbo.league l WITH (NOLOCK) 
 				ON m.leagueid = l.leagueid
@@ -344,21 +344,21 @@ BEGIN
 			,VirtualTurnover
 		)
 			SELECT CASE 
-						WHEN m.SportType =-1 AND sd.recommend = 52466 AND m.AltSportName = @SABA_PINGOALNAME THEN 100003 
+						WHEN m.SportType =-1 AND sd.recommend = 52466 AND m.AltSportName = @SABA_SOCCER_PINGOALNAME THEN 100003 
 						WHEN m.SportType = 1 AND sd.recommend = 52466	  THEN 100001
 						WHEN m.SportType =-1 AND sd.recommend = 52466     THEN 100002
 						WHEN ABS(m.SportType)>1 AND sd.recommend = 52466  THEN 100004
-						WHEN m.SportType =-1 AND sd.recommend = 5707545 AND m.AltSportName = @SABA_PINGOALNAME THEN 100007
+						WHEN m.SportType =-1 AND sd.recommend = 5707545 AND m.AltSportName = @SABA_SOCCER_PINGOALNAME THEN 100007
 						WHEN m.SportType = 1 AND sd.recommend = 5707545   THEN 100005
 						WHEN m.SportType =-1 AND sd.recommend = 5707545   THEN 100006
 						WHEN ABS(m.SportType)>1 AND sd.recommend = 5707545 THEN 100008
 				   END AS SportType,
 				   MAX(CASE 
-				   		WHEN m.SportType =-1 AND sd.recommend = 52466 AND m.AltSportName = @SABA_PINGOALNAME THEN @SABA_PINGOALNAME + ' 8RM'
+				   		WHEN m.SportType =-1 AND sd.recommend = 52466 AND m.AltSportName = @SABA_SOCCER_PINGOALNAME THEN @SABA_SOCCER_PINGOALNAME + ' 8RM'
 						WHEN m.SportType = 1 AND sd.recommend = 52466	  THEN 'Soccer 8RM'
 						WHEN m.SportType =-1 AND sd.recommend = 52466     THEN 'SABA Soccer 8RM'
 						WHEN ABS(m.SportType)>1 AND sd.recommend = 52466  THEN 'Other Sports 8RM'
-						WHEN m.SportType =-1 AND sd.recommend = 5707545 AND m.AltSportName = @SABA_PINGOALNAME THEN @SABA_PINGOALNAME + ' BARM'
+						WHEN m.SportType =-1 AND sd.recommend = 5707545 AND m.AltSportName = @SABA_SOCCER_PINGOALNAME THEN @SABA_SOCCER_PINGOALNAME + ' BARM'
 						WHEN m.SportType = 1 AND sd.recommend = 5707545   THEN 'Soccer BARM'
 						WHEN m.SportType =-1 AND sd.recommend = 5707545   THEN 'SABA Soccer BARM'
 						WHEN ABS(m.SportType)>1 AND sd.recommend = 5707545 THEN 'Other Sports BARM' 
@@ -384,11 +384,11 @@ BEGIN
 				AND sd.recommend IN (52466, 5707545)
 				AND (@IsNoDraw = 0 OR (@IsNoDraw = 1 AND sd.statusID NOT IN (111)))
 				AND sd.liveindicator = ISNULL(@LiveIndicator, sd.liveindicator)
-			GROUP BY CASE WHEN m.SportType =-1 AND sd.recommend = 52466 AND m.AltSportName = @SABA_PINGOALNAME THEN 100003
+			GROUP BY CASE WHEN m.SportType =-1 AND sd.recommend = 52466 AND m.AltSportName = @SABA_SOCCER_PINGOALNAME THEN 100003
 						  WHEN m.SportType = 1 AND sd.recommend = 52466	  	THEN 100001
 						  WHEN m.SportType =-1 AND sd.recommend = 52466     THEN 100002
 						  WHEN ABS(m.SportType)>1 AND sd.recommend = 52466  THEN 100004
-						  WHEN m.SportType =-1 AND sd.recommend = 5707545 AND m.AltSportName = @SABA_PINGOALNAME THEN 100007
+						  WHEN m.SportType =-1 AND sd.recommend = 5707545 AND m.AltSportName = @SABA_SOCCER_PINGOALNAME THEN 100007
 						  WHEN m.SportType = 1 AND sd.recommend = 5707545   THEN 100005
 						  WHEN m.SportType =-1 AND sd.recommend = 5707545   THEN 100006
 						  WHEN ABS(m.SportType)>1 AND sd.recommend = 5707545 THEN 100008 END
@@ -398,7 +398,7 @@ BEGIN
 	-- Get Data
 	;WITH CTE_Data AS (
 		SELECT ABS(t.SportType) SportType, -- rollback to orig sport id for SABAs to keep consistency with other reports
-			CASE WHEN t.SportType < 0 AND t.AltSportName = @SABA_PINGOALNAME THEN 2 
+			CASE WHEN t.SportType < 0 AND t.AltSportName = @SABA_SOCCER_PINGOALNAME THEN 2 
 				 WHEN t.SportType < 0 THEN 1
 				 ELSE 0 END AS IsSabaSport,
 			CASE WHEN t.AltSportName IS NOT NULL THEN t.AltSportName
