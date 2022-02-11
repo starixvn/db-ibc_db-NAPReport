@@ -27,6 +27,7 @@ AS
 		- 20201221@Jaden.Tang: Add live status & global show time filter (#147450), separate SABA sports
 		- 20210520@Jaden.Tang: SABA Soccer Pin Goal (#155447)
 		- 20210824@Jaden.Tang: Hotfix #160586 - incorrect bet type when drilldown from leagues with same name across different sports
+		- 20220210@Jaden.Tang: SABA Basketball Pin Goal (#168364)
 
 	Param's Explanation:
 		- @StartDate: The start date of data to view on report
@@ -75,12 +76,12 @@ AS
 			|     1     |    SABA Soccer    |  SABA Tournament  | ...           |
 			|   10000   |       Parlay      |                   | ...           |
 			|   10001   |   SB Adjustment   |                   | ...           |
-			|   100001  |     Soccer 8RM    |     Soccer 8RM    | ...           |
-			|   100002  |  SABA Soccer 8RM  |  SABA Soccer 8RM  | ...           |
-			|   100003  |  Other Sports 8RM |  Other Sports 8RM | ...           |
-			|   100004  |    Soccer BARM    |    Soccer BARM    | ...           |
-			|   100005  |  SABA Soccer BARM |  SABA Soccer BARM | ...           |
-			|   100006  | Other Sports BARM | Other Sports BARM | ...           |
+			|           |     Soccer 8RM    |     Soccer 8RM    | ...           |
+			|           |  SABA Soccer 8RM  |  SABA Soccer 8RM  | ...           |
+			|           |  Other Sports 8RM |  Other Sports 8RM | ...           |
+			|           |    Soccer BARM    |    Soccer BARM    | ...           |
+			|           |  SABA Soccer BARM |  SABA Soccer BARM | ...           |
+			|           | Other Sports BARM | Other Sports BARM | ...           |
 */
 
 BEGIN
@@ -94,7 +95,9 @@ BEGIN
 
 	-- Special sports
 	DECLARE @SABA_SOCCER_PINGOALNAME CHAR(19) = 'SABA Soccer PinGoal'
+	DECLARE @SABA_BASKETBALL_PINGOALNAME CHAR(23) = 'SABA Basketball PinGoal'
 	DECLARE @SABA_SOCCER_PINGOALLEAGUEGROUPID INT = 113
+	DECLARE @SABA_BASKETBALL_PINGOALLEAGUEGROUPID INT = 122
 
 	IF @LiveIndicator > 1 SET @LiveIndicator = NULL
 
@@ -186,7 +189,9 @@ BEGIN
 				l.leaguename, 
 				m.matchtype,
 				CASE WHEN l.LeagueGroupID IN (SELECT val FROM CTE_SABA_Groups WHERE val = @SABA_SOCCER_PINGOALLEAGUEGROUPID) 
-					 THEN @SABA_SOCCER_PINGOALNAME END AltSportName
+					 THEN @SABA_SOCCER_PINGOALNAME
+				     WHEN l.LeagueGroupID IN (SELECT val FROM CTE_SABA_Groups WHERE val = @SABA_BASKETBALL_PINGOALLEAGUEGROUPID) 
+					 THEN @SABA_BASKETBALL_PINGOALNAME END AltSportName
 			FROM CTE_Match m
 			INNER JOIN bodb02.dbo.league l WITH (NOLOCK) 
 				ON m.leagueid = l.leagueid
@@ -361,7 +366,7 @@ BEGIN
 						WHEN m.SportType =-1 AND sd.recommend = 5707545 AND m.AltSportName = @SABA_SOCCER_PINGOALNAME THEN @SABA_SOCCER_PINGOALNAME + ' BARM'
 						WHEN m.SportType = 1 AND sd.recommend = 5707545   THEN 'Soccer BARM'
 						WHEN m.SportType =-1 AND sd.recommend = 5707545   THEN 'SABA Soccer BARM'
-						WHEN ABS(m.SportType)>1 AND sd.recommend = 5707545 THEN 'Other Sports BARM' 
+						WHEN ABS(m.SportType)>1 AND sd.recommend = 5707545 THEN 'Other Sports BARM'
 				   END) AS LeagueName,
 				   - SUM(sd.MemberWinLoss),
 				   - SUM(sd.SMAWinLoss),
