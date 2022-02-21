@@ -28,6 +28,7 @@ Revisions:
 - 20210326@Kean: HotFix, Missing data when league.LeagueGroupId is NULL - NAP Report (#152390)
 - 20212203@Jaden: Support SABA789 (#151326)
 - 20210520@Kean: SABA Soccer PinGoal - NAP Report (#155447)
+- 20220211@Ned.Le: Extend range for column BettypeName
 
 Parameters:
 @IsLive: 2 - ALL. 0 - Non-Live. 1 - Live
@@ -52,7 +53,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_BetType] @EndDate='2020-01-01',@StartDate='2
         CREATE TABLE #BetType
                                (BetType      INT
                                 PRIMARY KEY, 
-                                BetTypeName  NVARCHAR(50), 
+                                BetTypeName  NVARCHAR(200), 
                                 DisplayOrder INT IDENTITY(1, 1)
                                );
         INSERT INTO #BetType(BetType)
