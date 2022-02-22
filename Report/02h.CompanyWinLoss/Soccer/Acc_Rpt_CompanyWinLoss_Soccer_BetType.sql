@@ -320,8 +320,8 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_BetType] @EndDate='2020-01-01',@StartDate='2
                OPTION(RECOMPILE);
         INSERT INTO #Data
                SELECT sb.BetType GroupId,
-                      CASE WHEN b.isHedgeMatch = 1   THEN sb.BetTypeName + ' (hedge)'
-                           WHEN b.isCornersMatch = 1 THEN sb.BetTypeName + ' (Corners)'
+                      CASE WHEN b.isHedgeMatch = 1 THEN sb.BetTypeName + ' (hedge)'
+                           WHEN b.isCornersMatch = 1 AND b.bettype IN (228, 229) THEN sb.BetTypeName + ' (Corners)'
                            ELSE sb.BetTypeName
                       END GroupName, 
                       sb.DisplayOrder,
@@ -350,8 +350,8 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_BetType] @EndDate='2020-01-01',@StartDate='2
                WHERE @IsLive > 1
                      OR b.liveindicator = @IsLive
                GROUP BY sb.BetType,
-                        CASE WHEN b.isHedgeMatch = 1   THEN sb.BetTypeName + ' (hedge)'
-                             WHEN b.isCornersMatch = 1 THEN sb.BetTypeName + ' (Corners)'
+                        CASE WHEN b.isHedgeMatch = 1 THEN sb.BetTypeName + ' (hedge)'
+                             WHEN b.isCornersMatch = 1 AND b.bettype IN (228, 229) THEN sb.BetTypeName + ' (Corners)'
                              ELSE sb.BetTypeName
                         END, 
                         sb.DisplayOrder,
@@ -369,8 +369,8 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_BetType] @EndDate='2020-01-01',@StartDate='2
         -- BARM (site only)
         INSERT INTO #Data
                SELECT sb.BetType GroupId,
-                      CASE WHEN b.isHedgeMatch = 1   THEN sb.BetTypeName + ' (hedge)'
-                           WHEN b.isCornersMatch = 1 THEN sb.BetTypeName + ' (Corners)'
+                      CASE WHEN b.isHedgeMatch = 1 THEN sb.BetTypeName + ' (hedge)'
+                           WHEN b.isCornersMatch = 1 AND b.bettype IN (228, 229) THEN sb.BetTypeName + ' (Corners)'
                            ELSE sb.BetTypeName
                       END GroupName, 
                       sb.DisplayOrder, 
@@ -390,8 +390,8 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_BetType] @EndDate='2020-01-01',@StartDate='2
                      AND (@IsLive > 1
                           OR b.liveindicator = @IsLive)
                GROUP BY sb.BetType,
-                        CASE WHEN b.isHedgeMatch = 1   THEN sb.BetTypeName + ' (hedge)'
-                             WHEN b.isCornersMatch = 1 THEN sb.BetTypeName + ' (Corners)'
+                        CASE WHEN b.isHedgeMatch = 1 THEN sb.BetTypeName + ' (hedge)'
+                             WHEN b.isCornersMatch = 1 AND b.bettype IN (228, 229) THEN sb.BetTypeName + ' (Corners)'
                              ELSE sb.BetTypeName
                         END, 
                         sb.DisplayOrder;
@@ -552,6 +552,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_BetType] @EndDate='2020-01-01',@StartDate='2
                  DisplayOrder;
     END;
     
+    DROP TABLE #BetType
 	DROP TABLE #SportBetType;
     DROP TABLE #DepositSuper;
     DROP TABLE #Match;
