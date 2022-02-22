@@ -1,3 +1,6 @@
+/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+use bodb02
+GO
 ALTER PROCEDURE [dbo].[Acc_LeagueSel]
 	@eventdate datetime,
 	@MoveBetsDay	SMALLDATETIME,
@@ -15,6 +18,7 @@ AS
 		- 20120920@Sophia: Only support sportbook
 		- 20120215@Elodie: Change linked server DB06 to DBARC
 		- 20131204@Kathy: Add HR Fixed Odds (154) [Redmine:#6505]
+		- 20211216@Jaden: Add IsDeleted column check (#164376)
 	Parameters Explanations:			
 */
 SET NOCOUNT ON
@@ -31,6 +35,7 @@ BEGIN
 		and m.eventstatus = 'completed'
 		and m.betstatus <> 'Refund'
 		and l.isTest = 0
+		and m.isDeleted = 0
 	ORDER BY m.sporttype, m.leagueid	
 END
 ELSE IF (@eventdate>=@BalanceUpDay)

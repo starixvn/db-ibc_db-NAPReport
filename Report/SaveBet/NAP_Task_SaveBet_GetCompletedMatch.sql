@@ -1,4 +1,6 @@
 /*<info serverAlias="DBWH-bodb_Account" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+use bodb_Account
+GO
 ALTER PROCEDURE [dbo].[NAP_Task_SaveBet_GetCompletedMatch]
 AS
 
@@ -13,6 +15,7 @@ AS
 		- 20180320@Franklin: VS2  [RedmineID: #91098]
 		- 20200325@Ned.Le: NAP Report - Incorporate two new sports of Betradar VS (#131117)
 		- 20210423@Roy: NAP Report - Move Save bet db & service (#153147)
+		- 20211216@Jaden: Add IsDeleted column check (#164376)
 */
 
 BEGIN
@@ -60,5 +63,6 @@ BEGIN
 								 WHERE sbm.ProductID IN (5,27)
 									   AND sbm.EventType = 1)
 				)
+			 AND IsDeleted = 0
 			OPTION (RECOMPILE)
 END
