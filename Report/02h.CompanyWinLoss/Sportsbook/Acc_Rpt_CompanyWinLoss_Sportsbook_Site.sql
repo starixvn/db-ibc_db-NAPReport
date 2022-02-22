@@ -163,8 +163,8 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_Site] @StartDate='2016-01-01', @EndDate=
                                  AND EventDate = @StartDate
                                  AND (@IsHedge = 2 OR (@IsHedge = 1 AND MatchCode LIKE '%Hedge%')
                                                    OR (@IsHedge = 0 AND MatchCode NOT LIKE '%Hedge%'))
-                                 AND (@IsCorners = 2 OR (@IsCorners = 1 AND ChildMatchType = 204)
-                                                     OR (@IsCorners = 0 AND ChildMatchType <> 204))
+                                 AND (@IsCorners = 2 OR (@IsCorners = 1 AND ISNULL(ChildMatchType, 0) = 204)
+                                                     OR (@IsCorners = 0 AND ISNULL(ChildMatchType, 0) <> 204))
                        ) AS m
                        INNER JOIN league AS l WITH(NOLOCK) ON m.LeagueId = l.LeagueId
                        WHERE l.sporttype = @sporttype
