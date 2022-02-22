@@ -116,7 +116,6 @@ BEGIN -- #SubType: extra grouping condition for extra row display
 	  , MatchingSportId 		  INT
 	  , MatchingChildMatchType	  INT
 	  , MatchingMatchCode		  NVARCHAR(50)
-	  , CONSTRAINT UniqueTempConstraint_SubType UNIQUE (MatchingBetId, MatchingSportId, MatchingChildMatchType, MatchingMatchCode)
 	);
 
 	INSERT INTO #SubType (SubType, MatchingBetId, MatchingSportId, MatchingChildMatchType)
