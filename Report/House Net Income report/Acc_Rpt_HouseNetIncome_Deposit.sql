@@ -35,6 +35,7 @@ AS
 		- 20210917@Danny: Prorated minfee for the group min fee (#160737)
 		- 20211102@Danny: Treat Sports Lottery as Sportsbook data in licensee billing (#163175)
 		- 20211102@Danny: SG integrate JP, Contribution (#166684)
+		- 20220211@Danny: Email/Letstalk Reports - Incorporate Saba Basketball Soccer PinGoal (#168373)
 */
 BEGIN
 	SET NOCOUNT ON
@@ -384,7 +385,7 @@ BEGIN
 		IF EXISTS (SELECT 1 FROM @Products WHERE Product3rdId IN (0, 3))
 		BEGIN
 			INSERT INTO #__SabaLeague (LeagueId, LeagueGroupId)
-			SELECT LeagueId, LeagueGroupId FROM bodb02.dbo.League WITH (NOLOCK) WHERE sporttype IN (1, 2, 50) AND LeagueGroupId IN (42, 74, 108, 113)
+			SELECT LeagueId, LeagueGroupId FROM bodb02.dbo.League WITH (NOLOCK) WHERE sporttype IN (1, 2, 50) AND LeagueGroupId IN (42, 74, 108, 113, 122)
 
 			-- retrieve data yesterday if flag is turned on
 			IF @isGetDataFromBettrans = 1 AND @ToDate = @yesterday
@@ -428,6 +429,7 @@ BEGIN
 				,CASE
 					WHEN l.LeagueGroupId IN (42, 74, 108) AND t.SportType = 1 THEN -3 -- Saba Soccer
 					WHEN l.LeagueGroupId = 113 AND t.SportType = 1 THEN -14 --Saba Soc PGoal
+					WHEN l.LeagueGroupId = 122 AND t.SportType = 2 THEN -15 --Saba Bas PGoal
 					WHEN l.LeagueGroupId IN (42) AND t.SportType = 2 THEN -5 -- Saba Basketball
 					WHEN l.LeagueGroupId IN (42) AND t.SportType = 50 THEN -8 -- Saba Cricket
 					WHEN t.Sporttype = 1 THEN -2 -- Soccer
@@ -448,6 +450,7 @@ BEGIN
 				,CASE
 					WHEN l.LeagueGroupId IN (42, 74, 108) AND t.SportType = 1 THEN -3 -- Saba Soccer
 					WHEN l.LeagueGroupId = 113 AND t.SportType = 1 THEN -14 --Saba Soc PGoal
+					WHEN l.LeagueGroupId = 122 AND t.SportType = 2 THEN -15 --Saba Bas PGoal
 					WHEN l.LeagueGroupId IN (42) AND t.SportType = 2 THEN -5 -- Saba Basketball
 					WHEN l.LeagueGroupId IN (42) AND t.SportType = 50 THEN -8 -- Saba Cricket
 					WHEN t.Sporttype = 1 THEN -2 -- Soccer
@@ -522,6 +525,7 @@ BEGIN
 						WHEN bt.BetType IN (9, 29) THEN -10 -- Parlay
 						WHEN s.LeagueGroupId IN (42, 74, 108) AND b.SportType = 1 THEN -3 -- Saba Soccer
 						WHEN s.LeagueGroupId = 113 AND b.SportType = 1 THEN -14 --Saba Soc PGoal
+						WHEN s.LeagueGroupId = 122 AND b.SportType = 2 THEN -15 --Saba Bas PGoal
 						WHEN s.LeagueGroupId IN (42) AND b.SportType = 2 THEN -5 -- Saba Basketball
 						WHEN s.LeagueGroupId IN (42) AND b.SportType = 50 THEN -8 -- Saba Cricket
 						WHEN b.Sporttype = 1 THEN -2 -- Soccer
@@ -565,6 +569,7 @@ BEGIN
 						WHEN bt.BetType IN (9, 29) THEN -10 -- Parlay
 						WHEN s.LeagueGroupId IN (42, 74, 108) AND b.SportType = 1 THEN -3 -- Saba Soccer
 						WHEN s.LeagueGroupId = 113 AND b.SportType = 1 THEN -14 --Saba Soc PGoal
+						WHEN s.LeagueGroupId = 122 AND b.SportType = 2 THEN -15 --Saba Bas PGoal
 						WHEN s.LeagueGroupId IN (42) AND b.SportType = 2 THEN -5 -- Saba Basketball
 						WHEN s.LeagueGroupId IN (42) AND b.SportType = 50 THEN -8 -- Saba Cricket
 						WHEN b.Sporttype = 1 THEN -2 -- Soccer
@@ -610,7 +615,8 @@ BEGIN
 						WHEN bt.Product3rdId <> 0 THEN bt.AliasProductId
 						WHEN bt.BetType IN (9, 29) THEN -10 -- Parlay
 						WHEN s.LeagueGroupId IN (42, 74, 108) AND b.SportType = 1 THEN -3 -- Saba Soccer
-						WHEN s.LeagueGroupId  = 113 AND b.SportType = 1 THEN -14 --Saba Soc PGoal
+						WHEN s.LeagueGroupId = 113 AND b.SportType = 1 THEN -14 --Saba Soc PGoal
+						WHEN s.LeagueGroupId = 122 AND b.SportType = 2 THEN -15 --Saba Bas PGoal
 						WHEN s.LeagueGroupId IN (42) AND b.SportType = 2 THEN -5 -- Saba Basketball
 						WHEN s.LeagueGroupId IN (42) AND b.SportType = 50 THEN -8 -- Saba Cricket
 						WHEN b.Sporttype = 1 THEN -2 -- Soccer
@@ -650,7 +656,8 @@ BEGIN
 						WHEN bt.Product3rdId <> 0 THEN bt.AliasProductId
 						WHEN bt.BetType IN (9, 29) THEN -10 -- Parlay
 						WHEN s.LeagueGroupId IN (42, 74, 108) AND b.SportType = 1 THEN -3 -- Saba Soccer
-						WHEN s.LeagueGroupId  = 113 AND b.SportType = 1 THEN -14 --Saba Soc PGoal
+						WHEN s.LeagueGroupId = 113 AND b.SportType = 1 THEN -14 --Saba Soc PGoal
+						WHEN s.LeagueGroupId = 122 AND b.SportType = 2 THEN -15 --Saba Bas PGoal
 						WHEN s.LeagueGroupId IN (42) AND b.SportType = 2 THEN -5 -- Saba Basketball
 						WHEN s.LeagueGroupId IN (42) AND b.SportType = 50 THEN -8 -- Saba Cricket
 						WHEN b.Sporttype = 1 THEN -2 -- Soccer
