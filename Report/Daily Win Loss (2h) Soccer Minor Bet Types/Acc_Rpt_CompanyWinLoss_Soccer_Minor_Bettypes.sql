@@ -21,10 +21,16 @@ Revisions:
 	20191212@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
 	20212203@Jaden: Support SABA789 (#151326)
 	20210601@Kean: SABA Soccer PinGoal - NAP Report (#156077)
+	20220125@Jaden: Separate Corner from Time Machine (#167882)
 	
 Parameters:
 @IsSabaSport: 2 - ALL. 0 - Non-SABA. 1 - SABA. 3 - SABA PinGoal
 Example:
+
+Remarks:
+	- 3 drilldown levels: Acc_Rpt_CompanyWinLoss_Soccer_Minor > Acc_Rpt_CompanyWinLoss_Soccer_Minor_Bettypes > Acc_Rpt_CompanyWinLoss_Sportsbook_Site
+	- Last drilldown accept extra paramater such as @IsHedge, which is inferred from client side (web) from this SP's final result set -> no need to
+	return IsHedge column from here
 
 */
 
@@ -49,7 +55,7 @@ BEGIN /* Bet Type*/
     DECLARE @BetType TABLE(
 	    BetType         INT
 	    PRIMARY KEY
-	  , BetTypeName     NVARCHAR(50)
+	  , BetTypeName     NVARCHAR(200)
 	  , DisplayOrder    INT IDENTITY(1, 1));
     INSERT INTO @BetType(BetType)
     VALUES
@@ -100,32 +106,56 @@ BEGIN -- #SABALeagueGroup
 		   leagueid LeagueID
 		FROM bodb02.dbo.League (NOLOCK)
 		WHERE LeagueGroupID IN (SELECT LeagueGroupID FROM #SABALeagueGroup)
-	END;
+END;
+
+BEGIN -- #SubType: extra grouping condition for extra row display
+	  -- example: separate Time Machine Corners out of Time Machine (goals + corners)
+	CREATE TABLE #SubType(
+	    SubType 	     		  VARCHAR(15) NOT NULL
+	  , MatchingBetId   		  INT
+	  , MatchingSportId 		  INT
+	  , MatchingChildMatchType	  INT
+	  , MatchingMatchCode		  NVARCHAR(50)
+	);
+
+	INSERT INTO #SubType (SubType, MatchingBetId, MatchingSportId, MatchingChildMatchType)
+	VALUES (' (Corners)', 228, 1, 204), (' (Corners)', 229, 1, 204); -- Time Machine
+
+	INSERT INTO #SubType (SubType, MatchingMatchCode)
+	VALUES (' (hedge)', '%hedge%');
+END;
+
 BEGIN /* #Match*/
 
     CREATE TABLE #Match(
-	    MatchId      INT
-	  , MatchCode    NVARCHAR(50)
-	  , type         VARCHAR(10)
-	  , PRIMARY KEY(MatchId, type));
+	    MatchId      			INT
+	  , MatchCode    			NVARCHAR(50)
+	  , ChildMatchType			INT
+	  , SportType				INT
+	  , source       			VARCHAR(10)
+	  , PRIMARY KEY(MatchId));
     INSERT INTO #Match
 		 SELECT DISTINCT
 			   m.MatchId
 			 , m.MatchCode
-			 , m.type
+			 , m.ChildMatchType
+			 , l.sporttype
+			 , m.source
 		 FROM
 			 (
 				SELECT MatchId
 					, LeagueId
 					, MatchCode
-					, 'match' AS type
+					, ChildMatchType
+					, 'match' AS source
 				FROM dbo.Match WITH (NOLOCK)
 				WHERE EventDate = @StartDate
 				UNION ALL
 				SELECT orid
 					, LeagueId
 					, MatchCode
-					, 'outright' AS type
+					, -1
+					, 'outright' AS source
 				FROM dbo.outright WITH (NOLOCK)
 				WHERE EventDate = @StartDate
 			 ) AS m
@@ -139,26 +169,9 @@ BEGIN /* #Match*/
 ;
 END;
 BEGIN /* #Data*/
-
-    CREATE TABLE #tmp_Data(
-	    srecommend         INT
-	  , bettype            INT
-	  , liveindicator      BIT
-	  , isHedgeMatch       BIT
-	  , MemberWinLoss      DECIMAL(19, 6)
-	  , SMAWinLoss         DECIMAL(19, 6)
-	  , ExtraPT            DECIMAL(19, 6)
-	  , Commission         DECIMAL(19, 6)
-	  , RealIncome         DECIMAL(19, 6)
-	  , VirtualIncome      DECIMAL(19, 6)
-	  , VarianceIncome     DECIMAL(19, 6)
-	  , RealTurnover       DECIMAL(19, 6)
-	  , VirtualTurnover    DECIMAL(19, 6));
-
     CREATE TABLE #Data(
 	    GroupId            INT
-	  , GroupName          NVARCHAR(50)
-	  , DisplayOrder       INT
+	  , GroupName          NVARCHAR(200)
 	  , RowName            NVARCHAR(50)
 	  , MemberWinLoss      DECIMAL(19, 6)
 	  , SMAWinLoss         DECIMAL(19, 6)
@@ -172,10 +185,9 @@ BEGIN /* #Data*/
 END;
 BEGIN /* Bet Type*/
 
-    INSERT INTO #tmp_Data(srecommend
-				    , bettype
-				    , liveindicator
-				    , isHedgeMatch
+    INSERT INTO #Data(GroupId
+				    , GroupName
+					, RowName
 				    , MemberWinLoss
 				    , SMAWinLoss
 				    , ExtraPT
@@ -185,14 +197,11 @@ BEGIN /* Bet Type*/
 				    , VarianceIncome
 				    , RealTurnover
 				    , VirtualTurnover)
-		 SELECT srecommend
-			 , bettype
-			 , liveindicator
-			 , CASE
-				  WHEN m.MatchCode LIKE '%hedge%'
-				  THEN 1
-				  ELSE 0
-			   END AS                                                                                                                                          isHedgeMatch
+		 SELECT sb.BetType																	 AS GroupId
+			 , sb.BetTypeName + CASE WHEN st.SubType IS NOT NULL THEN st.SubType ELSE '' END AS GroupName
+			 , CASE WHEN dep.CustId IS NULL AND b.recommend != 5707545 THEN 'Credit'
+					ELSE 'Deposit' -- all BARM (recommend = 5707545) counts as Deposits even though originally they're Credits
+			   END				 										  				  	  AS RowName
 			 , SUM((winlost - actual_stake) * actualrate) AS                                                                                                   MemberWinLoss
 			 , SUM((awinlost + mwinlost + swinlost) * actualrate) AS                                                                                           SMAWinLoss
 			 , SUM(CASE
@@ -248,257 +257,37 @@ BEGIN /* Bet Type*/
 				  END) AS                                                                                                                                     VirtualTurnover
 		 FROM dbo.bettrans AS b WITH (NOLOCK)
 			INNER JOIN #Match AS m ON b.MatchId = m.MatchId
-		 WHERE b.winlostdate = @StartDate
-			  AND m.type = CASE
-						    WHEN b.BetType = 10
-						    THEN 'outright'
-						    ELSE 'match'
-						END
-			  AND b.ruben = 1
-			  AND b.statusID IN(111, 112, 113)
-		 GROUP BY srecommend
-			   , bettype
-			   , liveindicator
-			   , CASE
-				    WHEN m.MatchCode LIKE '%hedge%'
-				    THEN 1
-				    ELSE 0
-				END OPTION(RECOMPILE);
-
-    INSERT INTO #Data
-		 SELECT sb.BetType AS           GroupId
-			 , CASE
-				  WHEN b.isHedgeMatch = 1
-				  THEN sb.BetTypeName+' (hedge)'
-				  ELSE sb.BetTypeName
-			   END AS                  GroupName
-			 , sb.DisplayOrder
-			 , CASE
-				  WHEN dep.CustId IS NULL
-				  THEN 'Credit'
-				  ELSE 'Deposit'
-			   END AS                  RowName
-			 , SUM(MemberWinLoss) AS   MemberWinLoss
-			 , SUM(SMAWinLoss) AS      SMAWinLoss
-			 , SUM(ExtraPT) AS         ExtraPT
-			 , SUM(Commission) AS      Commission
-			 , SUM(RealIncome) AS      RealIncome
-			 , SUM(VirtualIncome) AS   VirtualIncome
-			 , SUM(VarianceIncome) AS  VarianceIncome
-			 , SUM(RealTurnover) AS    RealTurnover
-			 , SUM(VirtualTurnover) AS VirtualTurnover
-		 FROM #tmp_Data AS b WITH (NOLOCK)
 			INNER JOIN @BetType AS sb ON sb.BetType = b.BetType
 			LEFT JOIN #DepositSuper AS dep ON b.srecommend = dep.CustId
-		 WHERE @IsLive > 1
-			  OR b.liveindicator = @IsLive
-		 GROUP BY sb.BetType
-			   , CASE
-				    WHEN b.isHedgeMatch = 1
-				    THEN sb.BetTypeName+' (hedge)'
-				    ELSE sb.BetTypeName
-				END
-			   , sb.DisplayOrder
-			   , CASE
-				    WHEN dep.CustId IS NULL
-				    THEN 'Credit'
-				    ELSE 'Deposit'
-				END;
-END;
-BEGIN /* BARM (site only)*/
-
-    INSERT INTO #Data
-		 SELECT sb.BetType AS                                                                                                                                   GroupId
-			 , CASE
-				  WHEN m.MatchCode LIKE '%hedge%'
-				  THEN sb.BetTypeName+' (hedge)'
-				  ELSE sb.BetTypeName
-			   END AS                                                                                                                                          GroupName
-			 , sb.DisplayOrder
-			 , 'BARM' AS                                                                                                                                       RowName
-			 , SUM((winlost - actual_stake) * actualrate) AS                                                                                                   MemberWinLoss
-			 , SUM((awinlost + mwinlost + swinlost) * actualrate) AS                                                                                           SMAWinLoss
-			 , SUM(CASE
-					 WHEN b.tpositiontaking = 1
-					 THEN 0
-					 ELSE winlost - actual_stake + b.scomm / (1 - b.tpositiontaking)
-				  END * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0) * actualrate) AS                                                                                                 ExtraPT
-			 , SUM(scomm * actualrate) AS                                                                                                                      Commission
-			 , SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm - CASE
-																		   WHEN tpositiontaking = 1
-																		   THEN 0
-																		   ELSE winlost - actual_stake + b.scomm / (1 - b.tpositiontaking)
-																	    END * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * actualrate) AS                             RealIncome
-			 , SUM((winlost - actual_stake + awinlost + mwinlost + swinlost - CASE
-																	WHEN tpositiontaking = 1
-																	THEN 0
-																	ELSE(winlost - actual_stake) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)
-																 END) * virtualrate + (scomm - CASE
-																							WHEN tpositiontaking = 1
-																							THEN 0
-																							ELSE b.scomm / (1 - b.tpositiontaking)
-																						 END * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * actualrate * CASE
-																															   WHEN virtualrate < actualrate
-																															   THEN virtualrate / actualrate
-																															   ELSE 1
-																														    END) AS VirtualIncome
-			 , SUM((winlost - actual_stake + awinlost + mwinlost + swinlost - CASE
-																	WHEN tpositiontaking = 1
-																	THEN 0
-																	ELSE(winlost - actual_stake) * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)
-																 END + CASE
-																		 WHEN virtualrate < actualrate
-																		 THEN b.scomm - CASE
-																						WHEN tpositiontaking = 1
-																						THEN 0
-																						ELSE b.scomm / (1 - b.tpositiontaking)
-																					 END * ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)
-																		 ELSE 0
-																	  END) * (actualrate - virtualrate)) AS                                      VarianceIncome
-			 , SUM(CASE
-					 WHEN tpositiontaking = 1
-					 THEN 0
-					 ELSE(1 - b.tpositiontaking - ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * ABS(b.stake) * CASE
-																			   WHEN virtualrate > actualrate
-																			   THEN virtualrate
-																			   ELSE actualrate
-																		    END
-				  END) AS                                                                                                                                     RealTurnover
-			 , SUM(CASE
-					 WHEN tpositiontaking = 1
-					 THEN 0
-					 ELSE(1 - b.tpositiontaking - ISNULL(CAST(b.epositiontaking AS DECIMAL(9, 8)), 0)) * ABS(b.stake) * virtualrate
-				  END) AS                                                                                                                                     VirtualTurnover
-		 FROM dbo.bettrans AS b WITH (NOLOCK)
-			INNER JOIN @BetType AS sb ON sb.BetType = b.BetType
-			INNER JOIN #Match AS m ON b.MatchId = m.MatchId
-		 WHERE b.recommend = 5707545
-			  AND b.winlostdate = @StartDate
-			  AND
-				 (@IsLive > 1
-				  OR b.liveindicator = @IsLive)
-			  AND m.type = CASE
+			LEFT JOIN #SubType AS st ON b.bettype = ISNULL(st.MatchingBetId, b.bettype) 
+									AND m.SportType = ISNULL(st.MatchingSportId, m.SportType)
+									AND (st.MatchingChildMatchType IS NULL OR 
+										 m.ChildMatchType = st.MatchingChildMatchType OR ISNULL(m.ChildMatchType, st.MatchingChildMatchType) IS NULL)
+									AND (st.MatchingMatchCode IS NULL OR
+										 m.MatchCode LIKE st.MatchingMatchCode OR ISNULL(m.MatchCode, st.MatchingMatchCode) IS NULL)
+		 WHERE b.winlostdate = @StartDate
+			  AND m.source = CASE
 						    WHEN b.BetType = 10
 						    THEN 'outright'
 						    ELSE 'match'
 						END
 			  AND b.ruben = 1
 			  AND b.statusID IN(111, 112, 113)
+			  AND (@IsLive > 1 OR b.liveindicator = @IsLive)
 		 GROUP BY sb.BetType
-			   , CASE
-				    WHEN m.MatchCode LIKE '%hedge%'
-				    THEN sb.BetTypeName+' (hedge)'
-				    ELSE sb.BetTypeName
-				END
-			   , sb.DisplayOrder;
-/*- set data default for 'Deposit' if there is no data*/
-
-    INSERT INTO #Data(GroupId
-				, GroupName
-				, DisplayOrder
-				, RowName
-				, MemberWinLoss
-				, SMAWinLoss
-				, ExtraPT
-				, Commission
-				, RealIncome
-				, VirtualIncome
-				, VarianceIncome
-				, RealTurnover
-				, VirtualTurnover)
-		 SELECT GroupId
-			 , GroupName
-			 , DisplayOrder
-			 , 'Deposit' AS RowName
-			 , 0 AS         MemberWinLoss
-			 , 0 AS         SMAWinLoss
-			 , 0 AS         ExtraPT
-			 , 0 AS         Commission
-			 , 0 AS         RealIncome
-			 , 0 AS         VirtualIncome
-			 , 0 AS         VarianceIncome
-			 , 0 AS         RealTurnover
-			 , 0 AS         VirtualTurnover
-		 FROM
-			 (
-				SELECT GroupId
-					, GroupName
-					, DisplayOrder
-				FROM #Data
-				WHERE RowName = 'BARM'
-				EXCEPT
-				SELECT GroupId
-					, GroupName
-					, DisplayOrder
-				FROM #Data
-				WHERE RowName = 'Deposit'
-			 ) AS D;
-/*-- Update Credit = Credit - BARM, Deposit = Deposit + BARM*/
-
-    UPDATE c
-		 SET
-			c.MemberWinLoss = ISNULL(c.MemberWinLoss, 0)+CASE
-												    WHEN c.RowName = 'Credit'
-												    THEN-ISNULL(d.MemberWinLoss, 0)
-												    ELSE ISNULL(d.MemberWinLoss, 0)
-												END
-		   , c.SMAWinLoss = ISNULL(c.SMAWinLoss, 0)+CASE
-											   WHEN c.RowName = 'Credit'
-											   THEN-ISNULL(d.SMAWinLoss, 0)
-											   ELSE ISNULL(d.SMAWinLoss, 0)
-										    END
-		   , c.ExtraPT = ISNULL(c.ExtraPT, 0)+CASE
-										  WHEN c.RowName = 'Credit'
-										  THEN-ISNULL(d.ExtraPT, 0)
-										  ELSE ISNULL(d.ExtraPT, 0)
-									   END
-		   , c.Commission = ISNULL(c.Commission, 0)+CASE
-											   WHEN c.RowName = 'Credit'
-											   THEN-ISNULL(d.Commission, 0)
-											   ELSE ISNULL(d.Commission, 0)
-										    END
-		   , c.RealIncome = ISNULL(c.RealIncome, 0)+CASE
-											   WHEN c.RowName = 'Credit'
-											   THEN-ISNULL(d.RealIncome, 0)
-											   ELSE ISNULL(d.RealIncome, 0)
-										    END
-		   , c.VirtualIncome = ISNULL(c.VirtualIncome, 0)+CASE
-												    WHEN c.RowName = 'Credit'
-												    THEN-ISNULL(d.VirtualIncome, 0)
-												    ELSE ISNULL(d.VirtualIncome, 0)
-												END
-		   , c.VarianceIncome = ISNULL(c.VarianceIncome, 0)+CASE
-													 WHEN c.RowName = 'Credit'
-													 THEN-ISNULL(d.VarianceIncome, 0)
-													 ELSE ISNULL(d.VarianceIncome, 0)
-												  END
-		   , c.RealTurnover = ISNULL(c.RealTurnover, 0)+CASE
-												  WHEN c.RowName = 'Credit'
-												  THEN-ISNULL(d.RealTurnover, 0)
-												  ELSE ISNULL(d.RealTurnover, 0)
-											   END
-		   , c.VirtualTurnover = ISNULL(c.VirtualTurnover, 0)+CASE
-													   WHEN c.RowName = 'Credit'
-													   THEN-ISNULL(d.VirtualTurnover, 0)
-													   ELSE ISNULL(d.VirtualTurnover, 0)
-												    END
-    FROM #Data c
-	   FULL JOIN #Data d ON c.GroupId = d.GroupId
-					    AND c.GroupName = d.GroupName
-					    AND d.RowName = 'BARM'
-					    AND c.RowName IN('Credit', 'Deposit');
-/*---Delete BARM row used for calculate*/
-
-    DELETE #Data
-    WHERE RowName = 'BARM';
+			   , sb.BetTypeName + CASE WHEN st.SubType IS NOT NULL THEN st.SubType ELSE '' END
+			   , CASE WHEN dep.CustId IS NULL AND b.recommend != 5707545 THEN 'Credit'
+					ELSE 'Deposit'
+			     END
+		 OPTION(RECOMPILE);
 END;
+
 BEGIN /* RM   */
 
 
     INSERT INTO #Data
-		 SELECT 0
+		 SELECT 10000
 			 , 'RM'
-			 , 10000000
 			 , CASE
 				  WHEN b.recommend = 52466
 				  THEN '8RM Total'
@@ -566,7 +355,7 @@ BEGIN /* RM   */
 			  AND
 				 (@IsLive > 1
 				  OR b.liveindicator = @IsLive)
-			  AND m.type = CASE
+			  AND m.source = CASE
 						    WHEN b.BetType = 10
 						    THEN 'outright'
 						    ELSE 'match'
@@ -587,7 +376,6 @@ BEGIN /* Query*/
 
     SELECT d.GroupId AS         GroupId
 	    , d.GroupName AS       GroupName
-	    , d.DisplayOrder
 	    , d.RowName AS         RowName
 	    , d.MemberWinLoss AS   MemberWinLoss
 	    , d.SMAWinLoss AS      SMAWinLoss
@@ -599,19 +387,12 @@ BEGIN /* Query*/
 	    , d.RealTurnover AS    RealTurnover
 	    , d.VirtualTurnover AS VirtualTurnover
     FROM #Data AS d
-    ORDER BY CASE
-			  WHEN d.GroupName LIKE '%(hedge)%'
-			  THEN 1
-			  ELSE 0
-		   END
-		 , d.DisplayOrder
-		 , d.RowName;
+    ORDER BY d.GroupId, d.GroupName, d.RowName
 END;
 DROP TABLE #SportBetType;
 DROP TABLE #DepositSuper;
 DROP TABLE #Match;
 DROP TABLE #Data;
-DROP TABLE #tmp_Data;
 DROP TABLE #SABALeagueGroup;
 DROP TABLE #SABALeague;
 GO
