@@ -28,6 +28,7 @@ Revisions:
 - 20210326@Kean: HotFix, Missing data when league.LeagueGroupId is NULL - NAP Report (#152390)
 - 20212203@Jaden: Support SABA789 (#151326)
 - 20210520@Kean: SABA Soccer PinGoal - NAP Report (#155447)
+- 20220125@Ned.Le: NAP Report - Separate Time Machine Corner with TW (#167882)
 - 20220211@Ned.Le: Extend range for column BettypeName
 
 Parameters:
@@ -117,6 +118,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_BetType] @EndDate='2020-01-01',@StartDate='2
         CREATE TABLE #Match
                      (MatchId   INT, 
                       MatchCode NVARCHAR(50), 
+                      ChildMatchType INT,
                       type      VARCHAR(10), 
                       PRIMARY KEY(MatchId, type)
                      );
@@ -124,12 +126,14 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_BetType] @EndDate='2020-01-01',@StartDate='2
                SELECT DISTINCT 
                       m.MatchId, 
                       m.MatchCode, 
+                      m.ChildMatchType,
                       m.type
                FROM
                (
                    SELECT MatchId, 
                           LeagueId, 
                           MatchCode, 
+                          ChildMatchType,
                           'match' AS type
                    FROM Match WITH(NOLOCK)
                    WHERE EventDate = @StartDate
@@ -137,6 +141,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_BetType] @EndDate='2020-01-01',@StartDate='2
                    SELECT orid, 
                           LeagueId, 
                           MatchCode, 
+                          -1 ChildMatchType,
                           'outright' AS type
                    FROM outright WITH(NOLOCK)
                    WHERE EventDate = @StartDate
@@ -156,6 +161,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_BetType] @EndDate='2020-01-01',@StartDate='2
                       bettype         INT, 
                       liveindicator   BIT, 
                       isHedgeMatch    BIT, 
+                      isCornersMatch  BIT,
                       MemberWinLoss   MONEY, 
                       SMAWinLoss      MONEY, 
                       ExtraPT         MONEY, 
@@ -189,6 +195,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_BetType] @EndDate='2020-01-01',@StartDate='2
                 bettype, 
                 liveindicator, 
                 isHedgeMatch, 
+                isCornersMatch,
                 MemberWinLoss, 
                 SMAWinLoss, 
                 ExtraPT, 
@@ -210,6 +217,11 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_BetType] @EndDate='2020-01-01',@StartDate='2
                           THEN 1
                           ELSE 0
                       END AS isHedgeMatch, 
+                      CASE
+                          WHEN m.ChildMatchType = 204
+                          THEN 1
+                          ELSE 0
+                      END AS isCornersMatch, 
                       SUM((winlost - actual_stake) * actualrate) MemberWinLoss, 
                       SUM((awinlost + mwinlost + swinlost) * actualrate) AS SMAWinLoss, 
                       SUM((CASE
@@ -299,13 +311,18 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_BetType] @EndDate='2020-01-01',@StartDate='2
                             WHEN m.MatchCode LIKE '%hedge%'
                             THEN 1
                             ELSE 0
-                        END OPTION(RECOMPILE);
+                        END,
+                        CASE
+                            WHEN m.ChildMatchType = 204
+                            THEN 1
+                            ELSE 0
+                        END
+               OPTION(RECOMPILE);
         INSERT INTO #Data
                SELECT sb.BetType GroupId,
-                      CASE
-                          WHEN b.isHedgeMatch = 1
-                          THEN sb.BetTypeName + ' (hedge)'
-                          ELSE sb.BetTypeName
+                      CASE WHEN b.isHedgeMatch = 1 THEN sb.BetTypeName + ' (hedge)'
+                           WHEN b.isCornersMatch = 1 AND b.bettype IN (228, 229) THEN sb.BetTypeName + ' (Corners)'
+                           ELSE sb.BetTypeName
                       END GroupName, 
                       sb.DisplayOrder,
                       CASE
@@ -333,10 +350,9 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_BetType] @EndDate='2020-01-01',@StartDate='2
                WHERE @IsLive > 1
                      OR b.liveindicator = @IsLive
                GROUP BY sb.BetType,
-                        CASE
-                            WHEN b.isHedgeMatch = 1
-                            THEN sb.BetTypeName + ' (hedge)'
-                            ELSE sb.BetTypeName
+                        CASE WHEN b.isHedgeMatch = 1 THEN sb.BetTypeName + ' (hedge)'
+                             WHEN b.isCornersMatch = 1 AND b.bettype IN (228, 229) THEN sb.BetTypeName + ' (Corners)'
+                             ELSE sb.BetTypeName
                         END, 
                         sb.DisplayOrder,
                         CASE
@@ -354,7 +370,8 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_BetType] @EndDate='2020-01-01',@StartDate='2
         INSERT INTO #Data
                SELECT sb.BetType GroupId,
                       CASE WHEN b.isHedgeMatch = 1 THEN sb.BetTypeName + ' (hedge)'
-                          ELSE sb.BetTypeName
+                           WHEN b.isCornersMatch = 1 AND b.bettype IN (228, 229) THEN sb.BetTypeName + ' (Corners)'
+                           ELSE sb.BetTypeName
                       END GroupName, 
                       sb.DisplayOrder, 
                       'BARM' AS RowName, 
@@ -374,7 +391,8 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_BetType] @EndDate='2020-01-01',@StartDate='2
                           OR b.liveindicator = @IsLive)
                GROUP BY sb.BetType,
                         CASE WHEN b.isHedgeMatch = 1 THEN sb.BetTypeName + ' (hedge)'
-                          ELSE sb.BetTypeName
+                             WHEN b.isCornersMatch = 1 AND b.bettype IN (228, 229) THEN sb.BetTypeName + ' (Corners)'
+                             ELSE sb.BetTypeName
                         END, 
                         sb.DisplayOrder;
 
@@ -534,6 +552,7 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_BetType] @EndDate='2020-01-01',@StartDate='2
                  DisplayOrder;
     END;
     
+    DROP TABLE #BetType
 	DROP TABLE #SportBetType;
     DROP TABLE #DepositSuper;
     DROP TABLE #Match;

@@ -8,6 +8,7 @@ ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_Sportsbook_MatchDetail] @StartDate
                                                                       @SportType SMALLINT      = 1, 
                                                                       @BetType   INT           = 1, 
                                                                       @IsHedge   INT           = 2, 
+                                                                      @IsCorners INT           = 2,
                                                                       @IsLive    INT           = 2,
 																	  @IsSabaSport TINYINT = 0,
 																	  @IsNoDraw BIT = 0 
@@ -30,14 +31,17 @@ Revisions:
 - 20210323@Kean: Daily Win Loss (2h) Soccer Minor Bet Types do not use @IsSabaSport parameter (#152100)
 - 20210326@Kean: HotFix, Missing data when league.LeagueGroupId is NULL - NAP Report (#152390)
 - 20210520@Kean: SABA Soccer PinGoal - NAP Report (#155447)
+- 20220125@Ned.Le: NAP Report - Separate Time Machine Corner with TW (#167882)
 - 20220210@Ned.Le: NAP Report - Incorporate SABA Basketball PinGoal (#168364)
 
 Parameters:
 @IsLive: 2 - ALL. 0 - Non-Live. 1 - Live
 @IsHedge: 2 - ALL. 0 - Non-Hedge. 1 - Hedge
+@IsCorners: 2 - ALL. 0 - Non-Corners. 1 - Corners
 @IsSabaSport: 2 - ALL. 0 - Non-SABA. 1 - SABA. 3 - SABA Soccer PinGoal. 4 - SABA Basketball PinGoal
+
 Example:
-EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_MatchDetail] @EndDate='2020-01-01',@StartDate='2016-01-01', @SportType=2, @BetType=1, @IsHedge = 0, @IsLive = 2
+EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_MatchDetail] @EndDate='2020-01-01',@StartDate='2016-01-01', @SportType=2, @BetType=1, @IsHedge = 0, @IsCorners=2, @IsLive = 2
 
 */
 
@@ -88,15 +92,14 @@ EXEC [Acc_Rpt_CompanyWinLoss_Sportsbook_MatchDetail] @EndDate='2020-01-01',@Star
 			   INNER JOIN league AS l WITH(NOLOCK) ON m.LeagueId = l.LeagueId
                WHERE m.sporttype = @SportType
                      AND EventDate = @StartDate
-                     AND (@IsHedge = 2
-                          OR (@IsHedge = 1
-                              AND m.MatchCode LIKE '%hedge%')
-                          OR (@IsHedge = 0
-                              AND m.MatchCode NOT LIKE '%hedge%'))
-					 AND ((@IsSabaSport = 2) OR
-						  (@IsSabaSport = 0 AND l.leagueid NOT IN (SELECT LeagueID FROM #SABALeague)) OR
-						  (@IsSabaSport = 1 AND l.leagueid IN (SELECT LeagueID FROM #SABALeague WHERE LeagueGroupType = 1)) OR
-						  (@IsSabaSport = 3 AND l.leagueid IN (SELECT LeagueID FROM #SABALeague WHERE LeagueGroupType = 2)) OR
+                     AND (@IsHedge = 2 OR (@IsHedge = 1 AND MatchCode LIKE '%Hedge%')
+                                       OR (@IsHedge = 0 AND MatchCode NOT LIKE '%Hedge%'))
+                     AND (@IsCorners = 2 OR (@IsCorners = 1 AND ISNULL(ChildMatchType, 0) = 204)
+                                         OR (@IsCorners = 0 AND ISNULL(ChildMatchType, 0) <> 204))
+		     AND ((@IsSabaSport = 2) OR
+			  (@IsSabaSport = 0 AND l.leagueid NOT IN (SELECT LeagueID FROM #SABALeague)) OR
+			  (@IsSabaSport = 1 AND l.leagueid IN (SELECT LeagueID FROM #SABALeague WHERE LeagueGroupType = 1)) OR
+			  (@IsSabaSport = 3 AND l.leagueid IN (SELECT LeagueID FROM #SABALeague WHERE LeagueGroupType = 2)) OR
                           (@IsSabaSport = 4 AND l.leagueid IN (SELECT LeagueID FROM #SABALeague WHERE LeagueGroupType = 3)))
     END;
     BEGIN -- #Data	
