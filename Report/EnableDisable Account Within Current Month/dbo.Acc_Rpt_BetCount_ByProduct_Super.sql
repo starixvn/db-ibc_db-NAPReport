@@ -144,11 +144,11 @@ BEGIN
     INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (161, 'Number Game',    164)
     INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (161, 'Number Game',    168)
 
-    -- RNG Casino group
-    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (208, 'RNG Casino',     208)
-    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (208, 'RNG Casino',     209)
-    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (208, 'RNG Casino',     210)
-    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (208, 'RNG Casino',     251)
+    -- Saba Casino group
+    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (208, 'Saba Casino',     208)
+    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (208, 'Saba Casino',     209)
+    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (208, 'Saba Casino',     210)
+    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (208, 'Saba Casino',     251)
 
     -- Virtual Sports group
     INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (180, 'Virtual Sports', 180)
