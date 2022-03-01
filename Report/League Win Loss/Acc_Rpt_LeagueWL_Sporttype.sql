@@ -403,7 +403,7 @@ BEGIN
 	-- Get Data
 	;WITH CTE_Data AS (
 		SELECT ABS(t.SportType) SportType, -- rollback to orig sport id for SABAs to keep consistency with other reports
-			CASE WHEN t.SportType < 0 AND t.AltSportName = @SABA_SOCCER_PINGOALNAME THEN 2 
+			CASE WHEN t.SportType < 0 AND t.AltSportName IN (@SABA_SOCCER_PINGOALNAME, @SABA_BASKETBALL_PINGOALNAME) THEN 2 
 				 WHEN t.SportType < 0 THEN 1
 				 ELSE 0 END AS IsSabaSport,
 			CASE WHEN t.AltSportName IS NOT NULL THEN t.AltSportName
