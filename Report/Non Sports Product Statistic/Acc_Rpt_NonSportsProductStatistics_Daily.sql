@@ -23,8 +23,8 @@ ALTER PROCEDURE [dbo].[Acc_Rpt_NonSportsProductStatistics_Daily]
 	@HousePTValue   MONEY = 0,
 	@IsDrillDown	BIT = 0,
 	@UsernameDrillDown	BIT = 0,
-	@IsGrandTotal	BIT = 0 -- dont need to use in this report
-
+	@IsGrandTotal	BIT = 0, -- dont need to use in this report
+	@IsExactly BIT = 0
 
 AS
 /*
@@ -59,6 +59,7 @@ AS
 		20201224@Cherry: Integrate Happy 5 Linked Games (#146537)
 		20210120@Cherry: Integrate Saba Jackpot (#148293)
 		20210506@Cherry: Integrate VGaming Jackpot (#154250)
+		20220304@Cherry: Enhance username search for Non-sport games statistics report (#144260)
 
 	Param's Explanation:
 			 - @username:  + Search by keyword, member only
@@ -101,7 +102,7 @@ SET NOCOUNT ON
 	
 	IF CHARINDEX(',', @Username) <> 0
 	BEGIN
-		EXEC dbo.Acc_CustomerSelCustByUsernameList @Username = @Username, @RoleId = 1, @CustList = @CustList OUTPUT
+		EXEC dbo.Acc_Rpt_NonSportsProductStatistics_CustSelByUsername @Username = @Username, @RoleId = 1, @IsExactly = @IsExactly, @CustList = @CustList OUTPUT
 
 		IF @CustList IS NULL -- invalid username
 		BEGIN
@@ -278,10 +279,16 @@ SET NOCOUNT ON
 		END
 		ELSE
 		BEGIN
-			INSERT INTO #Temp_MemIDs (CustID)
-			SELECT custid
-			FROM dbo.Customer WITH(NOLOCK)
-			WHERE username LIKE @Username + '%' AND roleid = 1
+			IF @IsExactly = 0
+				INSERT INTO #Temp_MemIDs (CustID)
+				SELECT custid
+				FROM dbo.Customer WITH(NOLOCK)
+				WHERE username LIKE @Username + '%' AND roleid = 1
+			ELSE
+				INSERT INTO #Temp_MemIDs (CustID)
+				SELECT custid
+				FROM dbo.Customer WITH(NOLOCK)
+				WHERE username = @Username AND roleid = 1
 
 			IF @Username NOT LIKE '%[^0-9]%' AND LEN(@Username) < 10
 			BEGIN
