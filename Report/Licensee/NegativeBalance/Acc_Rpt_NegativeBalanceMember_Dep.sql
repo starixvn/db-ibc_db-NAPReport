@@ -34,6 +34,7 @@ SET NOCOUNT ON
 	DECLARE @Super AS TABLE (custid int primary key, currency int,site varchar(50),currencyName nvarchar(50))
 	
 	CREATE TABLE #Data(site varchar(50),custid int,currencyName nvarchar(50),Balance MONEY)
+	CREATE TABLE #Result(site varchar(50),custid int,currencyName nvarchar(50),Balance MONEY)
 
 	IF ISNULL(@Site,'') = ''
 		SET @Site = 'ALL'
@@ -51,12 +52,11 @@ SET NOCOUNT ON
 	SELECT	s.site, 
 			b.custid, 
 			s.currencyName, 
-			ROUND(SUM(
+			SUM(
 				CASE WHEN b.winlostdate <= @MoveBetsDay
 					THEN 0 --skip volatile rows during move bet process
-					ELSE winlost-actual_stake + playercomm END 
-				)
-			,2) AS Balance
+					ELSE winlost - actual_stake + playercomm END 
+				) AS Balance
 	FROM 
 			bettrans b WITH(NOLOCK,INDEX=IX_srecommend)
 			INNER JOIN @Super s ON b.srecommend = s.custid
@@ -64,35 +64,38 @@ SET NOCOUNT ON
 	WHERE	
 			b.statusID NOT IN (0,1) AND b.bettype < 19999
 	GROUP BY b.custid, s.currencyName, s.site
-	HAVING ROUND(SUM(winlost-actual_stake + playercomm),2) < 0
 	
 	INSERT INTO #Data (site,custid,currencyName,Balance)
 	SELECT	s.site, 
 			b.custid, 
 			s.currencyName, 
-			ROUND(SUM(
+			SUM(
 				CASE WHEN (b.winlostdate > @MoveBetsDay AND bettype = 19999) 						
 					THEN 0 --skip volatile rows during move bet process
-					ELSE winlost-actual_stake + playercomm END 
-				)
-			,2) AS Balance
+					ELSE winlost - actual_stake + playercomm END 
+				) AS Balance
 	FROM 
-			[Transfer] b WITH(NOLOCK,INDEX=IX_srecommend)
+			[Transfer] b WITH(NOLOCK)
 			INNER JOIN @Super s ON b.srecommend = s.custid
 			INNER JOIN bodb_licensee.dbo.LicenseeCust lc WITH (NOLOCK) ON b.recommend = lc.custid
 	WHERE	
 			b.statusID NOT IN (0,1)
 	GROUP BY b.custid, s.currencyName, s.site
-	HAVING ROUND(SUM(winlost-actual_stake + playercomm),2) < 0
+	
+	INSERT INTO #Result (site,custid,currencyName,Balance)
+	SELECT site, custid, currencyName, ROUND(SUM(Balance),2)
+	FROM #Data
+	GROUP BY site, custid, currencyName
+	HAVING ROUND(SUM(Balance),2) < 0
 		
 	SELECT	
 		site,
 		username,
 		currencyname,
 		SUM(balance) balance
-	FROM #Data d
-	INNER JOIN Custinfo c WITH (NOLOCK) ON d.custid = c.custid
-	WHERE c.roleid =1
+	FROM #Result d
+		INNER JOIN Custinfo c WITH (NOLOCK) ON d.custid = c.custid
+	WHERE c.roleid = 1
 	GROUP BY site,
 		username,
 		currencyname
@@ -100,6 +103,7 @@ SET NOCOUNT ON
 	
 	DROP TABLE #Data
 	DROP TABLE #MBUDate
+	DROP TABLE #Result
 		
 END
 GO

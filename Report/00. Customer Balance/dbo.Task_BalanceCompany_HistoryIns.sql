@@ -51,7 +51,7 @@ BEGIN
 	IF NOT EXISTS(
 		SELECT 1
 		FROM #tmpDiff		
-		WHERE ABS(diff) > 0.01
+		WHERE ABS(SUM(diff)) > 0.01
 	)
 	BEGIN
 		PRINT 'No difference'

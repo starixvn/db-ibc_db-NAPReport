@@ -29,7 +29,7 @@ SET NOCOUNT ON
 	SELECT @MoveBetsDay = MoveBetsDay
 	FROM OPENQUERY(DBACC,'exec bodb02.dbo.Age_SelBalanceUpDay')
 
-	DECLARE @tmpCust TABLE (
+	CREATE TABLE #tmpCust (
 		custid				INT,
 		username			VARCHAR(50),
 		curr				INT,
@@ -37,10 +37,16 @@ SET NOCOUNT ON
 		installmentdate		VARCHAR(50),
 		installmentamount	MONEY
 	)
+	
+	CREATE TABLE #tmpData (
+		custid INT,
+		bal MONEY,
+		bal_base MONEY
+	)
 
 if @RoleID = 1 --member
 BEGIN
-	INSERT INTO @tmpCust(
+	INSERT INTO #tmpCust(
 		custid, 
 		username, 
 		curr,
@@ -56,6 +62,29 @@ BEGIN
 			INNER JOIN CustAccount ca WITH (NOLOCK) ON c.custid = ca.custid 
 	WHERE	c.roleid = 1 AND ca.installmentAmount > 0 
 	
+	INSERT INTO #tmpData (
+		custid,
+		bal,
+		bal_base)
+	SELECT	custID,
+			SUM(winlost-actual_stake+playercomm) as balance,
+			SUM((winlost-actual_stake+playercomm)*actualrate) as balance_base
+	FROM	bettrans WITH (NOLOCK)
+	WHERE	ruben = 1
+			AND bettype < 19999
+			AND CASE WHEN winlostdate <= @MoveBetsDay
+					THEN 0 ELSE 1 END = 1
+	GROUP BY custID	
+	UNION ALL
+	SELECT	custID,
+			SUM(winlost-actual_stake+playercomm) as balance,
+			SUM((winlost-actual_stake+playercomm)*actualrate) as balance_base
+	FROM	[Transfer] WITH (NOLOCK)
+	WHERE	bettype NOT IN (21008, 21009)
+			AND CASE WHEN winlostdate > @MoveBetsDay AND bettype = 19999
+					THEN 0 ELSE 1 END = 1
+	GROUP BY custID
+	
 	SELECT	
 			ca.custid as custid
 			, ca.username 
@@ -64,27 +93,13 @@ BEGIN
 			, SUM(ISNULL(b.balance_base,0)) as balance_base
 			, SUM(ca.installmentamount) installmentamount
 			, ca.installmentdate
-	from	@tmpCust ca
+	from	#tmpCust ca
 			LEFT JOIN (
-				SELECT	custID,
-						SUM(winlost-actual_stake+playercomm) as balance,
-						SUM((winlost-actual_stake+playercomm)*actualrate) as balance_base
-				FROM	bettrans WITH (NOLOCK)
-				WHERE	ruben = 1
-						AND bettype < 19999
-						AND CASE WHEN winlostdate = @MoveBetsDay
-								THEN 0 ELSE 1 END = 1
-				GROUP BY custID
-				
-				UNION ALL
-				SELECT	custID,
-						SUM(winlost-actual_stake+playercomm) as balance,
-						SUM((winlost-actual_stake+playercomm)*actualrate) as balance_base
-				FROM	[Transfer] WITH (NOLOCK)
-				WHERE	bettype NOT IN (21008, 21009)
-						AND CASE WHEN winlostdate > @MoveBetsDay AND bettype = 19999
-								THEN 0 ELSE 1 END = 1
-				GROUP BY custID
+				SELECT custid,
+					SUM(bal) balance,
+					SUM(bal_base) balance_base
+				FROM #tmpData
+				GROUP BY custid
 			) b ON ca.custid = b.custid
 	group by ca.custid 
 			, ca.username 
@@ -94,7 +109,7 @@ BEGIN
 END
 else if @RoleID = 2 --agent
 BEGIN
-	INSERT INTO @tmpCust(
+	INSERT INTO #tmpCust(
 		custid, 
 		username, 
 		curr,
@@ -110,6 +125,31 @@ BEGIN
 			INNER JOIN CustAccount ca WITH (NOLOCK) ON c.custid = ca.custid 
 	WHERE	c.roleid = 2 AND ca.installmentAmount > 0 	
 		
+	INSERT INTO #tmpData (
+		custid,
+		bal,
+		bal_base)
+	SELECT recommend,
+		sum(case when custid=recommend then winlost-actual_stake else awinlost+comm-playercomm end)+ 
+		sum(case when custid <> recommend and ruben=1 then winlost-actual_stake+playercomm else 0 end) Bal,
+		sum(case when custid=recommend then (winlost-actual_stake)*actualrate else (awinlost+comm-playercomm)*actualrate end)+ 
+		sum(case when custid <> recommend and ruben=1 then (winlost-actual_stake+playercomm)*actualrate else 0 end) bal_base				
+	FROM bettrans (nolock)
+	WHERE bettype < 19999
+		AND CASE WHEN winlostdate <= @MoveBetsDay 
+				THEN 0 ELSE 1 END = 1
+	GROUP BY bettrans.recommend
+	UNION ALL
+	SELECT recommend,
+		sum(case when custid=recommend then winlost-actual_stake else awinlost+comm-playercomm end)+ 
+		sum(case when custid <> recommend then winlost-actual_stake+playercomm else 0 end) Bal,
+		sum(case when custid=recommend then (winlost-actual_stake)*actualrate else (awinlost+comm-playercomm)*actualrate end)+ 
+		sum(case when custid <> recommend then (winlost-actual_stake+playercomm)*actualrate else 0 end) bal_base				
+	FROM [Transfer] (nolock)
+	WHERE bettype NOT IN (21008, 21009)
+		AND CASE WHEN winlostdate > @MoveBetsDay AND bettype = 19999
+				THEN 0 ELSE 1 END = 1
+	GROUP BY recommend
 
 	SELECT 
 			ca.custid
@@ -119,30 +159,14 @@ BEGIN
 			,SUM(IsNull(bal_base,0)) balance_base 
 			,ca.installmentdate
 			,SUM(ca.installmentamount) installmentamount
-	FROM	@tmpCust ca
+	FROM	#tmpCust ca
 			LEFT OUTER JOIN (
-				SELECT recommend,
-					sum(case when custid=recommend then winlost-actual_stake else awinlost+comm-playercomm end)+ 
-					sum(case when custid <> recommend and ruben=1 then winlost-actual_stake+playercomm else 0 end) Bal,
-					sum(case when custid=recommend then (winlost-actual_stake)*actualrate else (awinlost+comm-playercomm)*actualrate end)+ 
-					sum(case when custid <> recommend and ruben=1 then (winlost-actual_stake+playercomm)*actualrate else 0 end) bal_base				
-				FROM bettrans (nolock)
-				WHERE bettype < 19999
-					AND CASE WHEN winlostdate = @MoveBetsDay 
-							THEN 0 ELSE 1 END = 1
-				GROUP BY bettrans.recommend
-				UNION ALL
-				SELECT recommend,
-					sum(case when custid=recommend then winlost-actual_stake else awinlost+comm-playercomm end)+ 
-					sum(case when custid <> recommend then winlost-actual_stake+playercomm else 0 end) Bal,
-					sum(case when custid=recommend then (winlost-actual_stake)*actualrate else (awinlost+comm-playercomm)*actualrate end)+ 
-					sum(case when custid <> recommend then (winlost-actual_stake+playercomm)*actualrate else 0 end) bal_base				
-				FROM [Transfer] (nolock)
-				WHERE bettype NOT IN (21008, 21009)
-					AND CASE WHEN winlostdate > @MoveBetsDay AND bettype = 19999
-							THEN 0 ELSE 1 END = 1
-				GROUP BY recommend
-			) bal ON ca.custid = bal.recommend
+				SELECT custid,
+					SUM(bal) bal,
+					SUM(bal_base) bal_base
+				FROM #tmpData
+				GROUP BY custid
+			) bal ON ca.custid = bal.custid
 	GROUP BY ca.custid
 			,ca.username
 			,ca.curr
@@ -151,6 +175,36 @@ BEGIN
 END
 else if @RoleID = 3 --master
 BEGIN
+	INSERT INTO #tmpData (
+		custid,
+		bal,
+		bal_base)
+	SELECT mrecommend,
+		sum(case when custid=mrecommend then winlost-actual_stake else mwinlost+acomm-comm end)+
+		sum(case when custid=recommend then winlost-actual_stake else awinlost+comm-playercomm end)+ 
+		sum(case when custid <> recommend and custid <> mrecommend and ruben=1 then winlost-actual_stake+playercomm else 0 end) Bal,
+		sum(case when custid=mrecommend then (winlost-actual_stake)*actualrate else (mwinlost+acomm-comm)*actualrate end)+
+		sum(case when custid=recommend then (winlost-actual_stake)*actualrate else (awinlost+comm-playercomm)*actualrate end)+ 
+		sum(case when custid <> recommend and custid <> mrecommend and ruben=1 then (winlost-actual_stake+playercomm)*actualrate else 0 end) Bal_base
+	FROM bettrans (nolock)
+	WHERE bettype < 19999
+		AND CASE WHEN winlostdate <= @MoveBetsDay 
+				THEN 0 ELSE 1 END = 1				
+	GROUP BY mrecommend
+	UNION ALL
+	SELECT mrecommend,
+		sum(case when custid=mrecommend then winlost-actual_stake else mwinlost+acomm-comm end)+
+		sum(case when custid=recommend then winlost-actual_stake else awinlost+comm-playercomm end)+ 
+		sum(case when custid <> recommend and custid <> mrecommend then winlost-actual_stake+playercomm else 0 end) Bal,
+		sum(case when custid=mrecommend then (winlost-actual_stake)*actualrate else (mwinlost+acomm-comm)*actualrate end)+
+		sum(case when custid=recommend then (winlost-actual_stake)*actualrate else (awinlost+comm-playercomm)*actualrate end)+ 
+		sum(case when custid <> recommend and custid <> mrecommend then (winlost-actual_stake+playercomm)*actualrate else 0 end) Bal_base
+	FROM [Transfer] (nolock)
+	WHERE bettype NOT IN (21008, 21009)
+		AND CASE WHEN winlostdate > @MoveBetsDay AND bettype = 19999
+				THEN 0 ELSE 1 END = 1				
+	GROUP BY mrecommend
+	
 	SELECT
 			c.custid
 			,c.username
@@ -161,32 +215,12 @@ BEGIN
 			,SUM(ca.installmentamount) installmentamount
 	FROM	customer c (nolock)
 			LEFT OUTER JOIN (
-				SELECT mrecommend,
-					sum(case when custid=mrecommend then winlost-actual_stake else mwinlost+acomm-comm end)+
-					sum(case when custid=recommend then winlost-actual_stake else awinlost+comm-playercomm end)+ 
-					sum(case when custid <> recommend and custid <> mrecommend and ruben=1 then winlost-actual_stake+playercomm else 0 end) Bal,
-					sum(case when custid=mrecommend then (winlost-actual_stake)*actualrate else (mwinlost+acomm-comm)*actualrate end)+
-					sum(case when custid=recommend then (winlost-actual_stake)*actualrate else (awinlost+comm-playercomm)*actualrate end)+ 
-					sum(case when custid <> recommend and custid <> mrecommend and ruben=1 then (winlost-actual_stake+playercomm)*actualrate else 0 end) Bal_base
-				FROM bettrans (nolock)
-				WHERE bettype < 19999
-					AND CASE WHEN winlostdate <= @MoveBetsDay 
-							THEN 0 ELSE 1 END = 1				
-				GROUP BY mrecommend
-				UNION ALL
-				SELECT mrecommend,
-					sum(case when custid=mrecommend then winlost-actual_stake else mwinlost+acomm-comm end)+
-					sum(case when custid=recommend then winlost-actual_stake else awinlost+comm-playercomm end)+ 
-					sum(case when custid <> recommend and custid <> mrecommend then winlost-actual_stake+playercomm else 0 end) Bal,
-					sum(case when custid=mrecommend then (winlost-actual_stake)*actualrate else (mwinlost+acomm-comm)*actualrate end)+
-					sum(case when custid=recommend then (winlost-actual_stake)*actualrate else (awinlost+comm-playercomm)*actualrate end)+ 
-					sum(case when custid <> recommend and custid <> mrecommend then (winlost-actual_stake+playercomm)*actualrate else 0 end) Bal_base
-				FROM [Transfer] (nolock)
-				WHERE bettype NOT IN (21008, 21009)
-					AND CASE WHEN winlostdate > @MoveBetsDay AND bettype = 19999
-							THEN 0 ELSE 1 END = 1				
-				GROUP BY mrecommend
-			) bal ON c.custid = bal.mrecommend
+				SELECT custid,
+					SUM(bal) bal,
+					SUM(bal_base) bal_base
+				FROM #tmpData
+				GROUP BY custid
+			) bal ON c.custid = bal.custid
 			INNER JOIN custAccount ca (nolock) ON c.custid = ca.custid and ca.installmentamount > 0
 	WHERE c.roleID = 3 
 	GROUP BY c.custid
@@ -198,7 +232,7 @@ END
 else if @RoleID = 4 --partner
 BEGIN
 	
-	INSERT INTO @tmpCust(
+	INSERT INTO #tmpCust(
 		custid, 
 		username, 
 		curr,
@@ -213,6 +247,40 @@ BEGIN
 	FROM	Customer c WITH (NOLOCK)
 			INNER JOIN CustAccount ca WITH (NOLOCK) ON c.custid = ca.custid 
 	WHERE	c.roleid = 4 AND ca.installmentAmount > 0 
+	
+	INSERT INTO #tmpData (
+		custid,
+		bal,
+		bal_base)
+	SELECT srecommend,
+		IsNull(sum(case when custid=srecommend then winlost-actual_stake else swinlost+scomm-acomm end),0)
+		+ IsNull(sum(case when custid=mrecommend then winlost-actual_stake else mwinlost+acomm-comm end),0)
+		+ IsNull(sum(case when custid=recommend  then winlost-actual_stake else awinlost+comm-playercomm end),0)
+		+ IsNull(sum(case when custid <> recommend and custid <> mrecommend and custid <> srecommend and ruben=1 then winlost-actual_stake+playercomm else 0 end),0) Bal,
+		IsNull(sum(case when custid=srecommend then (winlost-actual_stake)*actualrate else (swinlost+scomm-acomm)*actualrate end),0)
+		+ IsNull(sum(case when custid=mrecommend then (winlost-actual_stake)*actualrate else (mwinlost+acomm-comm)*actualrate end),0)
+		+ IsNull(sum(case when custid=recommend  then (winlost-actual_stake)*actualrate else (awinlost+comm-playercomm)*actualrate end),0)
+		+ IsNull(sum(case when custid <> recommend and custid <> mrecommend and custid <> srecommend and ruben=1 then (winlost-actual_stake+playercomm)*actualrate else 0 end),0) Bal_base
+	FROM bettrans (nolock)
+	WHERE bettype < 19999
+		AND CASE WHEN winlostdate <= @MoveBetsDay 
+				THEN 0 ELSE 1 END = 1
+	GROUP BY srecommend
+	UNION ALL
+	SELECT srecommend,
+		IsNull(sum(case when custid=srecommend then winlost-actual_stake else swinlost+scomm-acomm end),0)
+		+ IsNull(sum(case when custid=mrecommend then winlost-actual_stake else mwinlost+acomm-comm end),0)
+		+ IsNull(sum(case when custid=recommend  then winlost-actual_stake else awinlost+comm-playercomm end),0)
+		+ IsNull(sum(case when custid <> recommend and custid <> mrecommend and custid <> srecommend then winlost-actual_stake+playercomm else 0 end),0) Bal,
+		IsNull(sum(case when custid=srecommend then (winlost-actual_stake)*actualrate else (swinlost+scomm-acomm)*actualrate end),0)
+		+ IsNull(sum(case when custid=mrecommend then (winlost-actual_stake)*actualrate else (mwinlost+acomm-comm)*actualrate end),0)
+		+ IsNull(sum(case when custid=recommend  then (winlost-actual_stake)*actualrate else (awinlost+comm-playercomm)*actualrate end),0)
+		+ IsNull(sum(case when custid <> recommend and custid <> mrecommend and custid <> srecommend then (winlost-actual_stake+playercomm)*actualrate else 0 end),0) Bal_base
+	FROM [Transfer] (nolock)
+	WHERE bettype NOT IN (21008, 21009)
+		AND CASE WHEN winlostdate > @MoveBetsDay AND bettype = 19999
+				THEN 0 ELSE 1 END = 1
+	GROUP BY srecommend
 
 	SELECT 
 		ca.custid
@@ -222,42 +290,20 @@ BEGIN
 		,SUM(IsNull(bal_base,0)) balance_base
 		,ca.installmentdate 
 		,SUM(ca.installmentamount) installmentamount
-	FROM	@tmpCust ca 
+	FROM	#tmpCust ca 
 			LEFT OUTER JOIN (
-				SELECT srecommend,
-					IsNull(sum(case when custid=srecommend then winlost-actual_stake else swinlost+scomm-acomm end),0)
-					+ IsNull(sum(case when custid=mrecommend then winlost-actual_stake else mwinlost+acomm-comm end),0)
-					+ IsNull(sum(case when custid=recommend  then winlost-actual_stake else awinlost+comm-playercomm end),0)
-					+ IsNull(sum(case when custid <> recommend and custid <> mrecommend and custid <> srecommend and ruben=1 then winlost-actual_stake+playercomm else 0 end),0) Bal,
-					IsNull(sum(case when custid=srecommend then (winlost-actual_stake)*actualrate else (swinlost+scomm-acomm)*actualrate end),0)
-					+ IsNull(sum(case when custid=mrecommend then (winlost-actual_stake)*actualrate else (mwinlost+acomm-comm)*actualrate end),0)
-					+ IsNull(sum(case when custid=recommend  then (winlost-actual_stake)*actualrate else (awinlost+comm-playercomm)*actualrate end),0)
-					+ IsNull(sum(case when custid <> recommend and custid <> mrecommend and custid <> srecommend and ruben=1 then (winlost-actual_stake+playercomm)*actualrate else 0 end),0) Bal_base
-				FROM bettrans (nolock)
-				WHERE bettype < 19999
-					AND CASE WHEN winlostdate = @MoveBetsDay 
-							THEN 0 ELSE 1 END = 1
-				GROUP BY srecommend
-				UNION ALL
-				SELECT srecommend,
-					IsNull(sum(case when custid=srecommend then winlost-actual_stake else swinlost+scomm-acomm end),0)
-					+ IsNull(sum(case when custid=mrecommend then winlost-actual_stake else mwinlost+acomm-comm end),0)
-					+ IsNull(sum(case when custid=recommend  then winlost-actual_stake else awinlost+comm-playercomm end),0)
-					+ IsNull(sum(case when custid <> recommend and custid <> mrecommend and custid <> srecommend then winlost-actual_stake+playercomm else 0 end),0) Bal,
-					IsNull(sum(case when custid=srecommend then (winlost-actual_stake)*actualrate else (swinlost+scomm-acomm)*actualrate end),0)
-					+ IsNull(sum(case when custid=mrecommend then (winlost-actual_stake)*actualrate else (mwinlost+acomm-comm)*actualrate end),0)
-					+ IsNull(sum(case when custid=recommend  then (winlost-actual_stake)*actualrate else (awinlost+comm-playercomm)*actualrate end),0)
-					+ IsNull(sum(case when custid <> recommend and custid <> mrecommend and custid <> srecommend then (winlost-actual_stake+playercomm)*actualrate else 0 end),0) Bal_base
-				FROM [Transfer] (nolock)
-				WHERE bettype NOT IN (21008, 21009)
-					AND CASE WHEN winlostdate > @MoveBetsDay AND bettype = 19999
-							THEN 0 ELSE 1 END = 1
-				GROUP BY srecommend
-			) bal ON ca.custid = bal.srecommend
+				SELECT custid,
+					SUM(bal) bal,
+					SUM(bal_base) bal_base
+				FROM #tmpData
+				GROUP BY custid
+			) bal ON ca.custid = bal.custid
 	GROUP BY ca.custid
 		,ca.username
 		,ca.curr
 		,ca.installmentdate 
 	order by CASE when (ca.custid < 100 or ca.custid in (21278849, 21278858))then 0 ELSE 1 END, ca.username
 END
+	DROP TABLE #tmpCust
+	DROP TABLE #tmpData
 GO
