@@ -1,5 +1,8 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 
+USE bodb02
+GO
+
 ALTER PROCEDURE dbo.Acc_Rpt_AbnormalBetAutoMail_Daily_For_Headline
 	@RptDate      DATETIME 
    , @GroupName    VARCHAR(50)
@@ -14,29 +17,102 @@ AS
 		- 20200312@Robert: NAP Report - Daily Abnormal Bet Report for Headline - [130183]
 		- 20211013@Jaden: Change datatype for ipv6 (#162587)
 		- 20211105@Cherry: Support void mix parlay (#164192)
+        - 20220308@Ned.Le: Automail - Enhance performance of sp on DB061 (#169615)
 
-	Param's Explanation:	 
+	Param's Explanation:
+        EXEC bodb02.dbo.Acc_Rpt_AbnormalBetAutoMail_Daily_For_Headline @RptDate   = '20220306',
+                                                                       @GroupName = 'ACCTHAI',
+                                                                       @IsTest    = 0
 */
 
     BEGIN
 	   SET NOCOUNT ON;
 
-	   CREATE TABLE #TmpMember(
-		   CustId      INT
-		 , MemberId    INT
-		 , Super       VARCHAR(30)
-		 , Master      VARCHAR(30)
-		 , Agent       VARCHAR(30));
+       -- #TmpCustGroup
+	   CREATE TABLE #TmpCustGroup(
+		   SuperID           INT
+         , MasterID          INT
+         , AgentID           INT
+		 , CustID            INT);
 
+	   INSERT INTO #TmpCustGroup(SuperID, MasterID, AgentID, CustID)
+	   SELECT g.CustID     SuperID,
+              c.mrecommend MasterID,
+              c.recommend  AgentID,
+              c.custid     CustID
+	   FROM dbo.Acc_CustGroup AS g WITH (NOLOCK)
+            LEFT JOIN dbo.Customer AS c WITH (NOLOCK) ON g.CustID = c.srecommend
+       WHERE g.GroupName = @GroupName
+             AND g.CustID <> c.custid
+        
+       CREATE CLUSTERED INDEX CIX_TmpCustGroup ON #TmpCustGroup(CustID)
+
+       -- #TmpVoidedTransaction
 	   CREATE TABLE #TmpVoidedTransaction(
 		   TransId           BIGINT
 		 , SubIssueTypeId    TINYINT
 		 , CustId            INT);
+       
+	   DECLARE @RptDate_From    DATETIME = @RptDate
+		    , @RptDate_To      DATETIME;
 
+	   SELECT @RptDate_From = CONVERT(VARCHAR(10), @RptDate_From, 101)
+		   , @RptDate_To = DATEADD(d, 1, @RptDate_From);
+
+	   INSERT INTO #TmpVoidedTransaction(TransId
+								, SubIssueTypeId
+								, CustId)
+			SELECT b.TransId
+				, b.SubIssueTypeId
+				, b.CustID
+			FROM bodb02.dbo.TicketVoiding_VoidedTransaction AS b WITH(NOLOCK)
+			WHERE EXISTS (SELECT TOP 1 1
+                          FROM #TmpCustGroup g
+                          WHERE g.CustID = b.CustID)
+				 AND b.CreatedDate >= @RptDate_From
+				 AND b.CreatedDate < @RptDate_To
+				 AND b.IssueTypeID = 11;
+
+	   CREATE CLUSTERED INDEX CIX_TmpVoidedTransaction ON #TmpVoidedTransaction(TransId);
+
+       -- #TmpCustInfo
+       CREATE TABLE #TmpCustInfo(
+           CustID            INT
+         , Super             VARCHAR(100)
+         , Master            VARCHAR(100)
+         , Agent             VARCHAR(100));
+
+       ;WITH CTE_CustID AS (
+            SELECT DISTINCT CustID
+            FROM #TmpVoidedTransaction
+       )
+       INSERT INTO #TmpCustInfo (CustID, Super, Master, Agent)
+       SELECT cte.CustID CustID,
+              s.username Super,
+              m.username Master,
+              a.username Agent
+       FROM CTE_CustID cte
+            INNER JOIN #TmpCustGroup g ON cte.CustID = g.CustID
+		    INNER JOIN dbo.Customer AS s WITH (NOLOCK) ON s.custid = g.SuperID AND s.roleid = 4
+		    INNER JOIN dbo.Customer AS m WITH (NOLOCK) ON m.custid = g.MasterID AND m.roleid = 3
+		    INNER JOIN dbo.Customer AS a WITH (NOLOCK) ON a.custid = g.AgentID AND a.roleid = 2
+
+       CREATE CLUSTERED INDEX CIX_TmpCustInfo ON #TmpCustInfo(CustID)
+
+       -- #TmpBettype
 	   CREATE TABLE #TmpBettype(
 		   bettype                INT
 		 , SupportMultipleOdds    BIT);
 
+	   INSERT INTO #TmpBettype(bettype
+						, SupportMultipleOdds)
+			SELECT typeid
+				, SupportMultipleOdds
+			FROM DBWH.bodb_Account.dbo.Bettype WITH(NOLOCK);
+
+	   CREATE CLUSTERED INDEX CIX_TmpBettype ON #TmpBettype(bettype);
+
+       -- #Data
 	   CREATE TABLE #Data(
 		   TransId           BIGINT
 		 , sporttype         TINYINT
@@ -62,45 +138,9 @@ AS
 		 , oddstype          SMALLINT
 		 , ip                VARCHAR(45)
 		 , CustId            INT
-		 , Super             VARCHAR(30)
-		 , Master            VARCHAR(30)
-		 , Agent             VARCHAR(30));
-
-	   DECLARE @RptDate_From    DATETIME = @RptDate
-		    , @RptDate_To      DATETIME;
-
-	   SELECT @RptDate_From = CONVERT(VARCHAR(10), @RptDate_From, 101)
-		   , @RptDate_To = DATEADD(d, 1, @RptDate_From);
-
-	   INSERT INTO #TmpMember(CustId
-					    , MemberId
-					    , Super
-					    , Master
-					    , Agent)
-	   EXEC dbo.Acc_Rpt_AbnormalBetAutoMail_Daily_SelectMember_By_Headline 
-		   @GroupName = @GroupName;
-
-	   INSERT INTO #TmpVoidedTransaction(TransId
-								, SubIssueTypeId
-								, CustId)
-			SELECT b.TransId
-				, b.SubIssueTypeId
-				, b.CustID
-			FROM bodb02.dbo.TicketVoiding_VoidedTransaction AS b WITH(NOLOCK)
-			WHERE b.CustID > 0
-				 AND b.CreatedDate >= @RptDate_From
-				 AND b.CreatedDate < @RptDate_To
-				 AND b.IssueTypeID = 11;
-
-	   INSERT INTO #TmpBettype(bettype
-						, SupportMultipleOdds)
-			SELECT typeid
-				, SupportMultipleOdds
-			FROM DBWH.bodb_Account.dbo.Bettype WITH(NOLOCK);
-
-	   CREATE CLUSTERED INDEX IX_TmpMember_MemberId ON #TmpMember(MemberId);
-	   CREATE CLUSTERED INDEX IX_TmpVoidedTransaction_TransId_CustId ON #TmpVoidedTransaction(TransId ASC, CustId);
-	   CREATE CLUSTERED INDEX IX_TmpBettype_Bettype ON #TmpBettype(bettype ASC);
+		 , Super             VARCHAR(100)
+		 , Master            VARCHAR(100)
+		 , Agent             VARCHAR(100));
 
 	   INSERT INTO #Data(TransId
 				    , sporttype
@@ -158,7 +198,7 @@ AS
 				, mem.Agent
 			FROM bodb02.dbo.bettrans AS b WITH(NOLOCK)
 			    INNER JOIN #TmpVoidedTransaction AS tmp ON b.transid = tmp.TransId
-			    INNER JOIN #TmpMember AS mem ON mem.MemberId = tmp.CustId
+			    INNER JOIN #TmpCustInfo AS mem ON mem.CustID = tmp.CustId
 			    LEFT JOIN bodb02.dbo.match AS m WITH(NOLOCK) ON b.matchid = m.matchid
 			    LEFT JOIN bodb02.dbo.league AS l WITH(NOLOCK) ON m.leagueid = l.leagueid
 			    LEFT JOIN bodb02.dbo.Customer AS c WITH(NOLOCK) ON b.srecommend = c.custid
@@ -260,7 +300,8 @@ AS
 	   FROM #Data AS d
 		  INNER JOIN dbo.Customer AS c WITH(NOLOCK) ON d.CustId = c.custid;
 
-	   DROP TABLE #TmpMember;
+	   DROP TABLE #TmpCustGroup;
+       DROP TABLE #TmpCustInfo;
 	   DROP TABLE #TmpVoidedTransaction;
 	   DROP TABLE #Data;
 	   DROP TABLE #TmpBettype;
