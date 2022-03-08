@@ -1,5 +1,3 @@
-/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
-
 ALTER PROCEDURE dbo.Acc_Rpt_AbnormalBetAutoMail_Daily_SelectMember_By_Headline 
 	@GroupName    VARCHAR(50) = 'INDOWIN'
 AS
