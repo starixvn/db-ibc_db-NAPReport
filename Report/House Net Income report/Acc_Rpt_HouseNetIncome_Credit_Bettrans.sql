@@ -15,12 +15,16 @@ AS
 	DB: DBACC.bodb02
     
 	Revisions:  
-		20210331@Ned.Le: Email/Letstalk Reports - Change Data Source to retrieve yesterday data from DW into Bettrans table (#151993)
+        20210331@Ned.Le: Email/Letstalk Reports - Change Data Source to retrieve yesterday data from DW into Bettrans table (#151993)
+        20220310@Ned.Le: Email/Letstalk Reports - Include 8RM/BARM into Bet Count, member turnover, member win loss, Margin except House Income (#169768)
 	
 	Param's Explanation:
+        @winlostdate: The date to get data
+        @bettypeList: List of bettypes be used to filter data
 
 	Executes SP:
-		EXEC bodb02.dbo.Acc_Rpt_HouseNetIncome_Credit_Bettrans '2021-03-18'
+		EXEC bodb02.dbo.Acc_Rpt_HouseNetIncome_Credit_Bettrans @winlostdate = '2021-03-18',
+                                                               @bettypeList = '1,3,7,8'
 */
 
 BEGIN
@@ -84,6 +88,17 @@ BEGIN
 	DELETE b
 	FROM #tmpDWBettypeSource b
 	WHERE b.typeid NOT IN (SELECT Bettype FROM #tmpBettypeList)
+
+    -- #tmpHalfWonLoseBettype
+    CREATE TABLE #tmpHalfWonLoseBettype (Bettype INT)
+
+    INSERT INTO #tmpHalfWonLoseBettype (Bettype)
+    SELECT DISTINCT BetType
+    FROM bodb02.dbo.SportBettypeMatrix (NOLOCK)
+    WHERE ProductID = 1
+          AND BetType NOT IN (29, 38, 901, 902 ,903, 904, 999, 18999)
+    
+    CREATE CLUSTERED INDEX CIX_tmpHalfWonLoseBettype ON #tmpHalfWonLoseBettype(Bettype)
 
 	-- #tmpbettrans
 	CREATE TABLE #tmpbettrans (
@@ -152,31 +167,11 @@ BEGIN
 		,b.scomm
 		,CASE WHEN b.bettype IN (31,32,33,41,42,43) THEN 1 - ISNULL(oddsspread, 0) ELSE b.tpositiontaking END AS tpositiontaking
 		,CASE WHEN b.bettype=1003 THEN b.betdaqid ELSE b.matchID END AS matchid		
-		,CASE WHEN (
-						(
-							(
-								b.winlostdate < '2019-10-01'
-								AND b.bettype IN (1, 3, 7, 8, 17, 18, 124, 125, 482, 483, 484, 485)
-							)
-							OR
-							(
-								b.winlostdate >= '2019-10-01'
-								AND (b.bettype < 999 OR b.bettype BETWEEN 1301 AND 1399 OR b.bettype BETWEEN 9001 AND 9399) 
-								AND b.bettype NOT IN (29,38,911,912,913,914 )  -- Parlay, betbuilder, Cashout	
-								AND b.bettype NOT BETWEEN 81 AND 120 --Number Game
-							)
-						)
-						AND ABS(b.modds) = 0.25
-						AND b.[statusID] IN (112,113)
-					)
-					OR
-					(
-						b.bettype IN (33, 43)
-						AND b.[statusID] <> 103
-						AND b.liveawayscore = 0
-					) THEN CONVERT(NVARCHAR(15),'HALF ' + b.STATUS)
-				ELSE CONVERT(NVARCHAR(15),b.STATUS)
-			END AS [status]
+		,CASE WHEN h.Bettype IS NOT NULL
+                   AND ABS(b.modds) = 0.25
+                   AND b.statusID IN (112,113) THEN CONVERT(NVARCHAR(15),'HALF ' + b.[status])
+              ELSE CONVERT(NVARCHAR(15), b.[status])
+         END AS [status]
 		,b.actualrate
 		,b.currency
 		,b.recommend
@@ -186,6 +181,7 @@ BEGIN
 		,b.epositiontaking
         ,ISNULL(b.oddsspread,0) NetStake
 	FROM bodb02.dbo.bettrans b (NOLOCK)
+         LEFT JOIN #tmpHalfWonLoseBettype h ON b.bettype = h.Bettype
 	WHERE b.winlostdate = CAST(@winlostdate AS SMALLDATETIME)
 		  AND b.bettype IN (SELECT typeid FROM #tmpDWBettypeSource where SourceTable='bettrans')
 		  AND b.statusID IN (111, 112, 113)
