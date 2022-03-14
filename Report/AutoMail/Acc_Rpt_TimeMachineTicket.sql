@@ -18,6 +18,7 @@ AS
      - 20210506@Jaden: new bug fixes (#145519)
      - 20210603@Jaden: Include 8RM data (#145586)
      - 20220124@Jaden: Separate TM corners bet type (#145519)
+	 - 20220314@Roy: extend data type of extrainfo
 	 */
 BEGIN 
     Create table #tmp_data
@@ -56,7 +57,7 @@ BEGIN
         matchid int,
         mission nvarchar (100),
         [minute] nvarchar (10),
-        extrainfo nvarchar (100)
+        extrainfo nvarchar (max)
     ) 
     
     --bettrans data-------------------------------------------------------------------------------------------------------------------------------------------------
