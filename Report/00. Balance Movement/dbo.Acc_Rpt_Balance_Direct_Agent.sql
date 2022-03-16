@@ -20,6 +20,7 @@ AS
 	- 20200930@Roy: NAP Report - Enhance the way we get Direct Balance report (#144094)
 	- 20201030@Ned.Le: NAP Report - BBin - Remove BBIN Transfer off Balance reports (#144071)
 	- 20210507@Jaden.Tang: Adjust code to prevent reading dupplicated in bettrans & bettrans14 during move bet process (#154649)
+	- 20211111@Cherry: Split transfer table (#164378)
 */
 BEGIN
 	SET NOCOUNT ON
@@ -32,13 +33,14 @@ BEGIN
 		custid INT
 		,username VARCHAR(50)
 		,currency INT
-		,mrecommend INT)
+		,mrecommend INT		
+		)
 	---get directAgent---
 	INSERT INTO #directAgent
 	SELECT DISTINCT ci.custid
 		,ci.username
 		,ci.currency
-		,ci.mrecommend
+		,ci.mrecommend		
 	FROM dbo.custinfo ci WITH (NOLOCK)
 		INNER JOIN dbo.CustDirectAccount d WITH (NOLOCK) ON ci.roleid = 2 AND ci.custid = d.custid
 	WHERE ci.username LIKE '%' + @username + '%'
@@ -51,7 +53,7 @@ BEGIN
 	SELECT DISTINCT ci.custid
 		,ci.username
 		,ci.currency
-		,ci.mrecommend
+		,ci.mrecommend		
 	FROM dbo.CustAgent AS ca WITH (NOLOCK)
 		INNER JOIN dbo.custinfo ci WITH (NOLOCK) ON ci.roleid = 2 AND ca.custid = ci.custid
 	WHERE ca.IsInternal = 1
@@ -61,39 +63,69 @@ BEGIN
 		AND NOT EXISTS ( SELECT 1 FROM #directAgent d WHERE ca.custid = d.custid )
 	OPTION (RECOMPILE)
 
-	CREATE CLUSTERED INDEX [CIX_Direct] ON #directAgent( mrecommend, custid )
+	CREATE CLUSTERED INDEX [CIX_Direct] ON #directAgent( mrecommend, custid )		
+	
+	CREATE TABLE #Data 
+	(
+		Custid INT,
+		Balance MONEY,
+		BaseBalance MONEY
+	)
+	
+	INSERT INTO #Data (Custid, Balance, BaseBalance)
+	SELECT	--see Balance_Direct_Master report
+			case when b.winlostdate <= @MoveBetsDay then NULL
+				 else b.recommend
+			end recommend,
+			isnull(sum(case when custid=recommend then winlost-actual_stake else awinlost+comm-playercomm end),0)
+			+ isnull(sum(case when custid <> recommend and custid <> mrecommend then winlost-actual_stake+playercomm else 0 end),0) AS bal,
+		
+			isnull(sum((case when custid=recommend then winlost-actual_stake else awinlost+comm-playercomm end)* actualrate),0)
+			+ isnull(sum((case when custid <> recommend and custid <> mrecommend then winlost-actual_stake+playercomm else 0 end)* actualrate),0) AS Basebal
+	FROM	bettrans b WITH (NOLOCK)
+	WHERE	ruben = 1 AND 
+		--status NOT IN ('VOID','REJECT','REFUND')
+		statusID NOT IN (101,102,103)
+		AND b.bettype < 19999
+		AND EXISTS ( SELECT 1 FROM #directAgent d WITH (NOLOCK) WHERE b.mrecommend = d.mrecommend )
+	GROUP BY case when b.winlostdate <= @MoveBetsDay then NULL
+				 else b.recommend
+			end
+			
+	OPTION(RECOMPILE)
+			
+	INSERT INTO #Data (Custid, Balance, BaseBalance)
+	SELECT	--see Balance_Direct_Master report
+			case when b.winlostdate > @MoveBetsDay and bettype = 19999 then NULL
+				 else b.recommend
+			end recommend,
+			isnull(sum(case when custid=recommend then winlost-actual_stake else awinlost+comm-playercomm end),0)
+			+ isnull(sum(case when custid <> recommend and custid <> mrecommend then winlost-actual_stake+playercomm else 0 end),0) AS bal,
+		
+			isnull(sum((case when custid=recommend then winlost-actual_stake else awinlost+comm-playercomm end)* actualrate),0)
+			+ isnull(sum((case when custid <> recommend and custid <> mrecommend then winlost-actual_stake+playercomm else 0 end)* actualrate),0) AS Basebal
+	FROM	[Transfer] b WITH (NOLOCK)
+	WHERE	b.bettype NOT IN (21008, 21009)
+		AND EXISTS ( SELECT 1 FROM #directAgent d WITH (NOLOCK) WHERE b.mrecommend = d.mrecommend )		
+	GROUP BY case when b.winlostdate > @MoveBetsDay and bettype = 19999 then NULL
+				 else b.recommend
+			end
+			
+	OPTION (RECOMPILE)
 	
 	---Return data---
 	SELECT	a.custid,
 			a.username, 
 			a.currency, 
-			IsNull(bal.bal,0) AS Balance, 
-			IsNull(bal.Basebal,0) AS BaseBalance
+			SUM(IsNull(bal.Balance,0)) AS Balance, 
+			SUM(IsNull(bal.BaseBalance,0)) AS BaseBalance
 	FROM	#directAgent a WITH (NOLOCK)
-			LEFT JOIN (
-				SELECT	--see Balance_Direct_Master report
-						case when b.winlostdate > @MoveBetsDay and bettype = 19999 then NULL
-							 when b.winlostdate <= @MoveBetsDay and bettype < 19999 then NULL
-							 else b.recommend
-						end recommend,
-						isnull(sum(case when custid=recommend then winlost-actual_stake else awinlost+comm-playercomm end),0)
-						+ isnull(sum(case when custid <> recommend and custid <> mrecommend then winlost-actual_stake+playercomm else 0 end),0) AS bal,
-					
-						isnull(sum((case when custid=recommend then winlost-actual_stake else awinlost+comm-playercomm end)* actualrate),0)
-						+ isnull(sum((case when custid <> recommend and custid <> mrecommend then winlost-actual_stake+playercomm else 0 end)* actualrate),0) AS Basebal
-				FROM	bettrans b WITH (NOLOCK)
-				WHERE	ruben = 1 AND 
-				--status NOT IN ('VOID','REJECT','REFUND')
-				statusID NOT IN (101,102,103)
-				AND b.bettype NOT IN (21008, 21009)
-				AND EXISTS ( SELECT 1 FROM #directAgent d WITH (NOLOCK) WHERE b.mrecommend = d.mrecommend )
-				GROUP BY case when b.winlostdate > @MoveBetsDay and bettype = 19999 then NULL
-							 when b.winlostdate <= @MoveBetsDay and bettype < 19999 then NULL
-							 else b.recommend
-						end
-			)as Bal ON a.custid = Bal.recommend
+			LEFT JOIN #Data Bal ON a.custid = Bal.custid
+	GROUP BY a.custid,
+			a.username, 
+			a.currency
 	ORDER BY a.username
-	OPTION (RECOMPILE)
-
+	
+	DROP TABLE #Data
 	DROP TABLE #directAgent
 END

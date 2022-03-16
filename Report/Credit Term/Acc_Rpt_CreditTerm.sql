@@ -21,6 +21,7 @@ AS
 		- 20130810@Thien: fix to show TOTAL BALANCE for Agent level, instead of Cash balance
 		- 20201027@Ned.Le: NAP Report - BBin - Remove BBIN Transfer off Balance reports (#144071)
 		- 20210507@Jaden.Tang: Adjust code to prevent reading dupplicated in bettrans & bettrans14 during move bet process (#154649)
+		- 20211118@Cherry: Split Transfer table (#164378)
 	Param's Explanation:
 
 */
@@ -46,6 +47,13 @@ BEGIN
 		actualrate float,
 		checkerid int,
 		checkername nvarchar(50)
+	)
+	
+	create table #Data
+	(
+		custid int,
+		groupID smallint, 
+		Balance money
 	)
 
 	create table #Balance 
@@ -87,15 +95,29 @@ BEGIN
 			IsNull(SUM(case when b.custid<>b.recommend AND b.custid <> b.mrecommend AND b.custid <> b.srecommend AND b.ruben=1 then winlost-actual_stake+playercomm else 0 end) ,0) Balance
 		FROM dbo.bettrans b with(nolock)
 		WHERE b.srecommend in (select custid from #super)
+			  AND b.bettype < 19999
+			  AND CASE WHEN b.winlostdate <= @MoveBetsDay
+				THEN 0 ELSE 1 END = 1
+		GROUP BY b.srecommend
+		
+		UNION ALL
+		SELECT b.srecommend, 
+			IsNull(SUM(case when b.custid=b.srecommend then winlost-actual_stake else swinlost+scomm-acomm end) ,0) +
+			IsNull(SUM(case when b.custid=b.mrecommend then winlost-actual_stake else mwinlost+acomm- comm end) ,0) + 
+			IsNull(SUM(case when b.custid=b.recommend  then winlost-actual_stake else awinlost+comm-playercomm end) ,0)  +
+			IsNull(SUM(case when b.custid<>b.recommend AND b.custid <> b.mrecommend AND b.custid <> b.srecommend then winlost-actual_stake+playercomm else 0 end) ,0) Balance
+		FROM dbo.[Transfer] b with(nolock)
+		WHERE b.srecommend in (select custid from #super)
 			  AND b.bettype NOT IN (21008, 21009)
-			  AND CASE WHEN (b.winlostdate > @MoveBetsDay AND bettype = 19999) OR (b.winlostdate <= @MoveBetsDay and bettype < 19999)
+			  AND CASE WHEN b.winlostdate > @MoveBetsDay AND bettype = 19999
 				THEN 0 ELSE 1 END = 1
 		GROUP BY b.srecommend
 	)	
-	INSERT INTO #Balance(custid, groupID, Balance)
-	SELECT b.srecommend, a.groupid, Balance
+	INSERT INTO #Data(custid, groupID, Balance)
+	SELECT b.srecommend, a.groupid, SUM(Balance)
 	FROM s_data b
 		INNER JOIN #super a on b.srecommend = a.custid	
+	GROUP BY b.srecommend, a.groupid
 		
 	drop table #super
 	
@@ -106,7 +128,7 @@ BEGIN
 			inner join custAccount a with(nolock) on m.custid = a.custid
 		WHERE m.roleid = 3 and (PreAgreeAmount > 0 OR groupID > 0)
 	)
-	INSERT INTO #Balance(custid, groupID, Balance)	
+	INSERT INTO #Data(custid, groupID, Balance)	
 	SELECT a.custid, a.groupid, --master
 		IsNull(SUM(case when b.custid=b.mrecommend then winlost-actual_stake else mwinlost+acomm-comm end) ,0) + 
 		IsNull(SUM(case when b.custid=b.recommend then winlost-actual_stake else awinlost+comm-playercomm end) ,0) +  
@@ -114,8 +136,20 @@ BEGIN
 	FROM sMaster a
 		INNER JOIN dbo.bettrans b with(nolock) on a.custid = b.mrecommend
 	WHERE  b.srecommend = a.uplineid
+		   AND b.bettype < 19999
+		   AND CASE WHEN b.winlostdate <= @MoveBetsDay 
+				THEN 0 ELSE 1 END = 1
+	GROUP BY a.custid, a.groupid
+	UNION ALL
+	SELECT a.custid, a.groupid, --master
+		IsNull(SUM(case when b.custid=b.mrecommend then winlost-actual_stake else mwinlost+acomm-comm end) ,0) + 
+		IsNull(SUM(case when b.custid=b.recommend then winlost-actual_stake else awinlost+comm-playercomm end) ,0) +  
+		IsNull(SUM(case when b.custid<>b.recommend AND b.custid <> b.mrecommend then winlost-actual_stake+playercomm else 0 end) ,0) 
+	FROM sMaster a
+		INNER JOIN dbo.[Transfer] b with(nolock) on a.custid = b.mrecommend
+	WHERE  b.srecommend = a.uplineid
 		   AND b.bettype NOT IN (21008, 21009)
-		   AND CASE WHEN (b.winlostdate > @MoveBetsDay AND bettype = 19999) OR (b.winlostdate <= @MoveBetsDay and bettype < 19999)
+		   AND CASE WHEN b.winlostdate > @MoveBetsDay AND bettype = 19999
 				THEN 0 ELSE 1 END = 1
 	GROUP BY a.custid, a.groupid
 	
@@ -128,8 +162,21 @@ BEGIN
 		INNER JOIN custInfo c with(nolock) on c.custid = b.recommend
 			INNER JOIN custAccount a with(nolock) on c.custid = a.custid
 	WHERE roleid = 2 AND (PreAgreeAmount > 0 OR groupID > 0)
+		  AND b.bettype < 19999
+		  AND CASE WHEN b.winlostdate <= @MoveBetsDay
+			THEN 0 ELSE 1 END = 1
+	GROUP BY b.recommend, a.groupid	
+	UNION ALL
+	SELECT b.recommend, a.groupID,
+		ISNULL(SUM(CASE WHEN b.recommend = b.custid THEN b.winlost-b.actual_stake ELSE b.awinlost+b.comm-b.playercomm END),0)
+		+ IsNull(SUM(case when b.custid<>b.recommend then winlost-actual_stake+playercomm else 0 end) ,0)
+	FROM [Transfer] b with(nolock)
+		INNER JOIN custInfo c with(nolock) on c.custid = b.recommend
+			INNER JOIN custAccount a with(nolock) on c.custid = a.custid
+	WHERE roleid = 2 AND (PreAgreeAmount > 0 OR groupID > 0)
 		  AND b.bettype NOT IN (21008, 21009)
-		  AND CASE WHEN (b.winlostdate > @MoveBetsDay AND bettype = 19999) OR (b.winlostdate <= @MoveBetsDay and bettype < 19999)
+		  AND b.srecommend = c.srecommend
+		  AND CASE WHEN b.winlostdate > @MoveBetsDay AND bettype = 19999
 			THEN 0 ELSE 1 END = 1
 	GROUP BY b.recommend, a.groupid	
 	
@@ -143,10 +190,31 @@ BEGIN
 	WHERE b.statusID NOT IN (0,1)	
 		AND c.roleid = 1	
 		AND (PreAgreeAmount > 0 OR groupID > 0)
-		AND b.bettype NOT IN (21008, 21009)
-		AND CASE WHEN (b.winlostdate > @MoveBetsDay AND bettype = 19999) OR (b.winlostdate <= @MoveBetsDay and bettype < 19999)
+		AND b.bettype < 19999
+		AND CASE WHEN b.winlostdate <= @MoveBetsDay 
 			THEN 0 ELSE 1 END = 1
 	GROUP BY a.custid, a.groupid	
+	UNION ALL
+	SELECT a.custid, a.groupid, --member
+		IsNull(SUM(winlost-actual_stake+playercomm) ,0) balance
+	FROM dbo.[Transfer] b WITH(NOLOCK)
+		INNER JOIN custAccount a on b.custid = a.custid
+		INNER JOIN custInfo c on a.custid = c.custid
+	WHERE b.statusID NOT IN (0,1)	
+		AND c.roleid = 1	
+		AND b.srecommend = c.srecommend
+		AND (PreAgreeAmount > 0 OR groupID > 0)
+		AND b.bettype NOT IN (21008, 21009)
+		AND CASE WHEN b.winlostdate > @MoveBetsDay AND bettype = 19999
+			THEN 0 ELSE 1 END = 1
+	GROUP BY a.custid, a.groupid	
+	
+	OPTION (RECOMPILE)
+	
+	INSERT INTO #Balance (custid, groupID, Balance)
+	SELECT custid, groupID, SUM(Balance)
+	FROM #Data
+	GROUP BY custid, groupID
 
 	UPDATE #Balance
 	SET

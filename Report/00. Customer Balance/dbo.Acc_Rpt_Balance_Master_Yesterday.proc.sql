@@ -27,6 +27,7 @@ Revisions:
 		- 20190919@Bobby: Enhance SMA Balance report [redmine: #119990]
 		- 20201027@Ned.Le: NAP Report - BBin - Remove BBIN Transfer off Balance reports (#144071)
 		- 20210507@Jaden.Tang: Adjust code to prevent reading dupplicated in bettrans & bettrans14 during move bet process (#154649)
+		- 20211111@Cherry: Split transfer table (#164378)
 */
 BEGIN
 	SET NOCOUNT ON
@@ -52,6 +53,13 @@ BEGIN
 		, srecommend		INT
 		, username			NVARCHAR(50)
 		, currency			INT
+	)
+	
+	CREATE TABLE #Data 
+	(
+		Custid INT,
+		Balance MONEY,
+		BaseBalance MONEY
 	)
 
 	IF @superid = 0 
@@ -107,18 +115,44 @@ BEGIN
 		DELETE FROM #MasterInfo WHERE currency <> @currency 
 	END  
 
-	;
-	WITH CTE_MasterBalance AS (
-		SELECT b.mrecommend AS custid
-			,SUM(bal.totalBalance) AS Balance
-			,SUM(bal.totalBalance * b.actualrate) AS BaseBalance
-		FROM #SuperKey sk
-		INNER JOIN dbo.bettrans b WITH (NOLOCK) 
-		ON b.srecommend = sk.srecommend 
+	INSERT INTO #Data (Custid, Balance, BaseBalance)
+	SELECT b.mrecommend AS custid
+		,SUM(bal.totalBalance) AS Balance
+		,SUM(bal.totalBalance * b.actualrate) AS BaseBalance
+	FROM #SuperKey sk
+		INNER JOIN dbo.bettrans b WITH (NOLOCK) ON b.srecommend = sk.srecommend 
 		CROSS APPLY (
 			SELECT 
 				--skip volatile rows during move bet process (see Balance_Direct_Master report)
-				CASE WHEN (b.winlostdate > @MoveBetsDay AND bettype = 19999) OR (b.winlostdate <= @MoveBetsDay and bettype < 19999)
+				CASE WHEN b.winlostdate <= @MoveBetsDay 
+					THEN 0 ELSE 1 END
+				*
+				CASE 
+				WHEN b.winlostdate <= @yesterday THEN
+					(CASE WHEN b.custid=b.mrecommend THEN winlost-actual_stake ELSE mwinlost+acomm-comm END) -- master level
+					+ (CASE WHEN b.custid=b.recommend THEN winlost-actual_stake ELSE awinlost+comm-playercomm END) -- agent level
+					+ (CASE WHEN b.custid <> b.recommend and b.custid <> b.mrecommend THEN winlost-actual_stake+playercomm ELSE 0 END) -- member level
+				ELSE 0
+				END
+			AS totalBalance
+			) AS bal
+	WHERE EXISTS (SELECT TOP 1 1 FROM #MasterInfo mt WHERE b.mrecommend = mt.custid)
+		AND b.winlostdate <= @currentDate
+		AND b.ruben = 1
+		AND b.statusID NOT IN (101,102,103)
+		AND b.bettype < 19999
+	GROUP BY b.mrecommend
+	
+	INSERT INTO #Data (Custid, Balance, BaseBalance)
+	SELECT b.mrecommend AS custid
+		,SUM(bal.totalBalance) AS Balance
+		,SUM(bal.totalBalance * b.actualrate) AS BaseBalance
+	FROM #SuperKey sk
+		INNER JOIN dbo.[Transfer] b WITH (NOLOCK) ON b.srecommend = sk.srecommend 
+		CROSS APPLY (
+			SELECT 
+				--skip volatile rows during move bet process (see Balance_Direct_Master report)
+				CASE WHEN b.winlostdate > @MoveBetsDay AND bettype = 19999 
 					THEN 0 ELSE 1 END
 				*
 				CASE 
@@ -129,20 +163,21 @@ BEGIN
 				ELSE 0
 				END
 			AS totalBalance
-		) AS bal
-		WHERE EXISTS (SELECT TOP 1 1 FROM #MasterInfo mt WHERE b.mrecommend = mt.custid)
-			AND b.winlostdate <= @currentDate
-			AND b.ruben = 1
-			AND b.statusID NOT IN (101,102,103)
-			AND b.bettype NOT IN (21008, 21009)
-		GROUP BY b.mrecommend
-	)
+			) AS bal
+	WHERE EXISTS (SELECT TOP 1 1 FROM #MasterInfo mt WHERE b.mrecommend = mt.custid)
+		AND b.winlostdate <= @currentDate		
+		AND b.bettype NOT IN (21008, 21009)
+	GROUP BY b.mrecommend
+
 	SELECT mi.custid, mi.username, mi.currency 
-		, ISNULL(bal.Balance,0) AS Balance
-		, ISNULL(bal.BaseBalance,0) AS BaseBalance
+		, ISNULL(SUM(bal.Balance),0) AS Balance
+		, ISNULL(SUM(bal.BaseBalance),0) AS BaseBalance
 	FROM #MasterInfo mi
-		LEFT JOIN CTE_MasterBalance bal ON bal.custid = mi.custid
+		LEFT JOIN #Data bal ON bal.custid = mi.custid
+	GROUP BY mi.custid, mi.username, mi.currency 
 	ORDER BY mi.username 
 
 	DROP TABLE #MasterInfo
+	DROP TABLE #Data
+	
 END
