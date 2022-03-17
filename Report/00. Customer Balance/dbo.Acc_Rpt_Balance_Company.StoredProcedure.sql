@@ -20,6 +20,8 @@ Revisions:
 	- 20151221@Sophia: Company Yesterday Balance [Redmine: #49458]
 	- 20201027@Ned.Le: NAP Report - BBin - Remove BBIN Transfer off Balance reports (#144071)
 	- 20210505@Sol: NAP - Alpha - Allow more time for transfer - [Redmine: #149927]
+	- 20211124@Danny: Split transfer tickets out of bettrans [Redmine: #164196]
+
 */
 BEGIN
 	SET NOCOUNT ON
@@ -92,6 +94,7 @@ BEGIN
 
 	IF @IsYesterdayBalance = 0
 	BEGIN 	
+		-- bettrans
 		INSERT INTO #TblBalance (
 			Currency
 			,CurrencyName
@@ -101,23 +104,35 @@ BEGIN
 		SELECT bt.currency AS Currency
 			,bt.CurrencyName
 			,sum((bt.winlost - bt.actual_stake + bt.awinlost + bt.mwinlost + bt.swinlost + bt.scomm)) TotalamtLocal
-			,sum(CASE 
-					WHEN bt.bettype < 19999 THEN ((bt.winlost - bt.actual_stake + bt.awinlost + bt.mwinlost + bt.swinlost + bt.scomm) * bt.actualrate)
-					ELSE ((bt.winlost - bt.actual_stake + bt.awinlost + bt.mwinlost + bt.swinlost + bt.scomm) * bt.actualrate)
-					END) TotalAmt
+			,sum(CASE WHEN bt.bettype < 19999 THEN ((bt.winlost - bt.actual_stake + bt.awinlost + bt.mwinlost + bt.swinlost + bt.scomm) * bt.actualrate) END) TotalAmt
 		FROM dbo.bettrans bt WITH (NOLOCK)
 		WHERE ruben = 1
-			  AND bt.bettype NOT IN (21008, 21009)
-			  AND 1 = CASE 
-						WHEN bettype = 19999 and winlostdate > @moveBetsDay THEN 0 --> get data from ticket detail
-						WHEN bettype < 19999 and winlostdate <= @moveBetsDay THEN 0 --> get data from sum record
-					ELSE 1 END
+			  AND bettype < 19999
+			  AND winlostdate > @moveBetsDay
+		GROUP BY currency
+			,currencyname
+
+		-- transfer
+		INSERT INTO #TblBalance (
+			Currency
+			,CurrencyName
+			,TotalamtLocal
+			,Totalamt
+			)
+		SELECT bt.currency AS Currency
+			,bt.CurrencyName
+			,sum((bt.winlost - bt.actual_stake + bt.awinlost + bt.mwinlost + bt.swinlost + bt.scomm)) TotalamtLocal
+			,sum(((bt.winlost - bt.actual_stake + bt.awinlost + bt.mwinlost + bt.swinlost + bt.scomm) * bt.actualrate)) TotalAmt
+		FROM dbo.transfer bt WITH (NOLOCK)
+		WHERE bt.bettype NOT IN (21008, 21009)
+			 AND ((bettype = 19999 AND winlostdate <= @moveBetsDay) OR bettype > 19999)
 		GROUP BY currency
 			,currencyname
 
 	END 
 	ELSE 
 	BEGIN 		
+		-- bettrans
 		INSERT INTO #TblBalance (
 			Currency
 			,CurrencyName
@@ -134,24 +149,40 @@ BEGIN
 		FROM dbo.bettrans bt WITH (NOLOCK)
 		WHERE ruben = 1
 			  AND winlostdate <= @Today
-			  AND bt.bettype NOT IN (21008, 21009)
-			  AND 1 = CASE 
-						WHEN bettype = 19999 and winlostdate > @moveBetsDay THEN 0 --> get data from ticket detail
-						WHEN bettype < 19999 and winlostdate <= @moveBetsDay THEN 0 --> get data from sum record
-					ELSE 1 END
+			  AND bettype < 19999
+			  AND winlostdate > @moveBetsDay
+		GROUP BY currency
+			,currencyname
+
+		-- transfer
+		INSERT INTO #TblBalance (
+			Currency
+			,CurrencyName
+			,TotalamtLocal
+			,Totalamt
+			)
+		SELECT bt.currency AS Currency
+			,bt.CurrencyName
+			,sum((bt.winlost - bt.actual_stake + bt.awinlost + bt.mwinlost + bt.swinlost + bt.scomm)) TotalamtLocal
+			,sum(((bt.winlost - bt.actual_stake + bt.awinlost + bt.mwinlost + bt.swinlost + bt.scomm) * bt.actualrate)) TotalAmt
+		FROM dbo.transfer bt WITH (NOLOCK)
+		WHERE winlostdate <= @Today
+				AND bt.bettype NOT IN (21008, 21009)
+			 AND ((bettype = 19999 AND winlostdate <= @moveBetsDay) OR bettype > 19999)
 		GROUP BY currency
 			,currencyname
 	END 
 
 
 	SELECT CurrencyName
-		,TotalamtLocal
-		,TotalAmt
+		,SUM(TotalamtLocal) TotalamtLocal
+		,SUM(TotalAmt) TotalAmt
 		,Today
 		,Yesterday
 	FROM #TblBalance bt WITH (NOLOCK)
 		LEFT JOIN #TblCurrency tmp
 		ON bt.currency = tmp.ExchangeId
+	GROUP BY CurrencyName, Today, Yesterday
 	ORDER BY CurrencyName
 
  	
