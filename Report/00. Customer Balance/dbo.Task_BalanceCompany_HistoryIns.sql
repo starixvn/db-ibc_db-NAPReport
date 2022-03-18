@@ -22,6 +22,10 @@ BEGIN
 
 	DECLARE @BalanceUpDay SMALLDATETIME
 	SET @BalanceUpDay = DATEADD(DAY,-7,CONVERT(VARCHAR(10), CURRENT_TIMESTAMP, 120))
+	
+	DECLARE @MoveBetsDay DATE
+	SELECT @MoveBetsDay = MoveBetsDay
+	FROM OPENQUERY(DBACC,'exec bodb02.dbo.Age_SelBalanceUpDay')
 
 	IF (DATEPART(weekday,@BalanceUpDay)<> 6)
 	BEGIN
@@ -34,7 +38,8 @@ BEGIN
 	
 	INSERT INTO #tmpDiff (diff)
 	SELECT
-		SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm)*(b.actualrate - e.actualrate)) diff
+		SUM(CASE WHEN b.winlostdate <= @MoveBetsDay THEN 0 ELSE 1 END 
+			* (winlost - actual_stake + awinlost + mwinlost + swinlost + scomm)*(b.actualrate - e.actualrate)) diff
 	FROM bodb02.dbo.bettrans b WITH (NOLOCK)		
 		INNER JOIN bodb02.dbo.exchange e WITH (NOLOCK) ON b.currency = e.exchangeid
 	WHERE
@@ -42,7 +47,8 @@ BEGIN
 	
 	INSERT INTO #tmpDiff (diff)	
 	SELECT
-		SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm)*(b.actualrate - e.actualrate)) diff
+		SUM(CASE WHEN b.winlostdate > @MoveBetsDay AND bettype = 19999 THEN 0 ELSE 1 END
+			* (winlost - actual_stake + awinlost + mwinlost + swinlost + scomm)*(b.actualrate - e.actualrate)) diff
 	FROM bodb02.dbo.[Transfer] b WITH (NOLOCK)
 		INNER JOIN bodb02.dbo.exchange e WITH (NOLOCK) ON b.currency = e.exchangeid
 	WHERE
@@ -73,8 +79,10 @@ BEGIN
 	INSERT INTO #tmpData(Currency, CompBalBefore, CompBalAfter)
 	SELECT    		
 		exchangeid AS currency,
-		SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm)* b.actualrate) CompBalBefore,
-		SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm)* e.actualrate) CompBalAfter
+		SUM(CASE WHEN b.winlostdate <= @MoveBetsDay THEN 0 ELSE 1 END
+			* (winlost - actual_stake + awinlost + mwinlost + swinlost + scomm) * b.actualrate) CompBalBefore,
+		SUM(CASE WHEN b.winlostdate <= @MoveBetsDay THEN 0 ELSE 1 END
+			* (winlost - actual_stake + awinlost + mwinlost + swinlost + scomm) * e.actualrate) CompBalAfter
 	FROM bodb02.dbo.bettrans b WITH (NOLOCK)
 		INNER JOIN bodb02.dbo.exchange e WITH (NOLOCK) ON b.currency = e.exchangeid
 	WHERE
@@ -84,8 +92,10 @@ BEGIN
 	INSERT INTO #tmpData(Currency, CompBalBefore, CompBalAfter)
 	SELECT    		
 		exchangeid AS currency,
-		SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm)* b.actualrate) CompBalBefore,
-		SUM((winlost - actual_stake + awinlost + mwinlost + swinlost + scomm)* e.actualrate) CompBalAfter
+		SUM(CASE WHEN b.winlostdate > @MoveBetsDay AND bettype = 19999 THEN 0 ELSE 1 END
+			* (winlost - actual_stake + awinlost + mwinlost + swinlost + scomm) * b.actualrate) CompBalBefore,
+		SUM(CASE WHEN b.winlostdate > @MoveBetsDay AND bettype = 19999 THEN 0 ELSE 1 END
+			* (winlost - actual_stake + awinlost + mwinlost + swinlost + scomm) * e.actualrate) CompBalAfter
 	FROM bodb02.dbo.[Transfer] b WITH (NOLOCK)
 		INNER JOIN bodb02.dbo.exchange e WITH (NOLOCK) ON b.currency = e.exchangeid
 	WHERE
