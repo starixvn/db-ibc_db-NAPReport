@@ -29,6 +29,7 @@ Revisions:
 - 20212203@Jaden: Support SABA789 (#151326)
 - 20220210@Ned.Le: NAP Report - Incorporate SABA Basketball PinGoal (#168364)
 - 20220211@Ned.Le: Extend range for column BettypeName
+- 20220318@Ned.Le: Bettype Name of cricket have character more than VARCHAR(50) (#170167)
 
 Parameters:
 @IsLive: 2 - ALL. 0 - Non-Live. 1 - Live
@@ -122,8 +123,8 @@ EXEC [Acc_Rpt_CompanyWinLoss_OtherSports_BetType] @EndDate='2020-01-01',@StartDa
                      );
         CREATE TABLE #Data
                      (GroupId         INT, 
-                      GroupName       NVARCHAR(50), 
-                      RowName         NVARCHAR(50), 
+                      GroupName       NVARCHAR(200), 
+                      RowName         NVARCHAR(200), 
                       MemberWinLoss   MONEY, 
                       SMAWinLoss      MONEY, 
                       ExtraPT         MONEY, 
