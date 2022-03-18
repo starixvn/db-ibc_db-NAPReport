@@ -30,6 +30,7 @@ Revisions:
 - 20210520@Kean: SABA Soccer PinGoal - NAP Report (#155447)
 - 20220125@Ned.Le: NAP Report - Separate Time Machine Corner with TW (#167882)
 - 20220211@Ned.Le: Extend range for column BettypeName
+- 20220318@Ned.Le: Bettype Name of cricket have character more than VARCHAR(50) (#170167)
 
 Parameters:
 @IsLive: 2 - ALL. 0 - Non-Live. 1 - Live
@@ -174,9 +175,9 @@ EXEC [Acc_Rpt_CompanyWinLoss_Soccer_BetType] @EndDate='2020-01-01',@StartDate='2
                      );
         CREATE TABLE #Data
                      (GroupId         INT, 
-                      GroupName       NVARCHAR(50), 
+                      GroupName       NVARCHAR(200), 
                       DisplayOrder    INT, 
-                      RowName         NVARCHAR(50), 
+                      RowName         NVARCHAR(200), 
                       MemberWinLoss   MONEY, 
                       SMAWinLoss      MONEY, 
                       ExtraPT         MONEY, 
