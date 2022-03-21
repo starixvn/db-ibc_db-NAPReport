@@ -27,8 +27,11 @@ AS
         20210815@Ned.Le: Email/Letstalk Reports - Change Data Source to retrieve yesterday data from DW into Bettrans table (#151993)
 		20220110@Kean.Nguyen: Email/Letstalk Reports - Integrate Spadegaming Jackpot (#166684)
 		20220210@Kean.Nguyen: Email/Letstalk Reports - Incorporate Saba Basketball Soccer PinGoal (#168373)
+        20220310@Ned.Le: Email/Letstalk Reports - Include 8RM/BARM into Bet Count, member turnover, member win loss, Margin except House Income (#169768)
 
 	Param's Explanation:
+        @FromDate   : Begin date to get data for report
+        @ToDate     : End date to get data fore report
 		@ProductList: 'ALL' - Get data of all product
 					  'SB'  - Get data of Sportsbook
 		              Other - References to column ProductPrefix of table HNISettings
@@ -643,22 +646,24 @@ BEGIN
 			   b.BetType,
 			   b.LeagueID,
 			   -- *** MEASURE *** --
-			   SUM((b.WinlossIBC + b.CommissionS) * ISNULL(es.Rate, 0))	HouseWL,
-			   SUM((b.WinlossIBC + b.CommissionS) * ISNULL(eo.Rate, 0))	HouseWLOANDA,
+			   SUM((CASE WHEN b.SiteID IN (-2, -4) THEN 0 ELSE (b.WinlossIBC + b.CommissionS) END) * ISNULL(es.Rate, 0)) HouseWL,
+			   SUM((CASE WHEN b.SiteID IN (-2, -4) THEN 0 ELSE (b.WinlossIBC + b.CommissionS) END) * ISNULL(eo.Rate, 0)) HouseWLOANDA,
 			   SUM((CASE WHEN b.TurnoverIBC = 0 THEN 0 ELSE b.TurnoverIBC - b.ExtraTO END) *
 				   (CASE WHEN b.VarianceVR > 0 THEN (b.VarianceVR + 1) ELSE 1 END) *
 				   (CASE WHEN b.TicketStatus IN (12, 13) THEN 0.5 ELSE 1 END) *
 				   (CASE WHEN b.TicketStatus = 3 THEN 0 ELSE 1 END) *
 				   ISNULL(es.Rate, 0)) HouseTO,
-			   SUM((b.ExtraWL + b.ExtraComm) * ISNULL(es.Rate, 0)) ExtraPT,
-			   SUM((b.ExtraWL + b.ExtraComm) * ISNULL(eo.Rate, 0)) ExtraPTOANDA,
+			   SUM((CASE WHEN b.SiteID IN (-2, -4) THEN 0 ELSE (b.ExtraWL + b.ExtraComm) END) * ISNULL(es.Rate, 0)) ExtraPT,
+			   SUM((CASE WHEN b.SiteID IN (-2, -4) THEN 0 ELSE (b.ExtraWL + b.ExtraComm) END) * ISNULL(eo.Rate, 0)) ExtraPTOANDA,
 			   SUM(b.WinlossP * ISNULL(es.Rate, 0)) MemberWL,
 			   SUM(b.WinlossP * ISNULL(eo.Rate, 0)) MemberWLOANDA,
 			   SUM(b.CommissionS * ISNULL(eo.Rate, 0)) ScommOANDA,
 			   SUM((b.WinlossIBC - b.WinlossS - b.WinlossM - b.WinlossA) * ISNULL(es.Rate, 0)) Contribution,
                SUM(b.NetStake * ISNULL(eo.Rate, 0)) NetStakeOANDA
 		FROM #tmpSourceData b (NOLOCK)
-			 INNER JOIN bodb_Account.dbo.tbl_Site s (NOLOCK) ON s.isDeposit = 0 AND b.SiteID = s.siteid
+			 INNER JOIN bodb_Account.dbo.tbl_Site s (NOLOCK) ON s.isDeposit = 0 AND CASE WHEN b.SiteID = -2 THEN 10
+                                                                                         WHEN b.SiteID = -4 THEN 3
+                                                                                         ELSE b.SiteID END = s.siteid
 			 LEFT JOIN #tmpProductBettype pb (NOLOCK) ON b.Bettype = pb.Bettype
 			 LEFT JOIN #tmpExchangeSystem es ON b.rptdate = es.ExchangeDate AND b.CurrencyID = es.ExchangeID
 			 LEFT JOIN #tmpExchangeOANDA eo ON b.CurrencyID = eo.ExchangeID
