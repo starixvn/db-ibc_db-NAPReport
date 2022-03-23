@@ -12,6 +12,7 @@ AS
     Revisions: 
 		- 20181003@Helen: Get Code from PRO + HOTFIX alias should be DBPOL instead of DBONUSER  [Redmine:102596]
 		- 20190405@Patrick: Support archive date range [Redmine: #111476]
+		- 20220323@Kean: Improve performance [Redmine: #170386]
     
     Param's Explanation:
 		 @Username:  member's username
@@ -54,8 +55,14 @@ BEGIN
 		END
 
 	-- Admin Group
-	SELECT * 
-	INTO #AdminGroup
+	IF OBJECT_ID('tempdb..#AdminGroup') IS NOT NULL
+	BEGIN
+		DROP TABLE #AdminGroup
+	END
+
+	CREATE TABLE #AdminGroup(custid INT, username VARCHAR(30))
+	INSERT INTO #AdminGroup (custid, username)
+	SELECT custid, username
 	FROM bodb02.dbo.customer (NOLOCK)
 	WHERE roleid > 4
 
