@@ -29,6 +29,8 @@ AS
 		- 20210917@Danny: Split Basketball betbuilder (#160737)
 		- 20211102@Danny: SG integrate JP, Contribution (#166684)
 		- 20220401@Danny: Get Royalty credit site fee by site (#170842)
+		- 20220325@Danny: Incorporate FGG (#170522)
+
 */
 BEGIN
     SET NOCOUNT ON
@@ -122,6 +124,7 @@ BEGIN
 			FROM @ExchangeOANDA t
 			INNER JOIN @LA_f_ExchangeDailySel u ON t.ExchangeId = u.ExchangeId
 		END
+
 	END
 
 	-- Get Licensees
@@ -193,7 +196,7 @@ BEGIN
 						FROM OPENQUERY (DBLIC, ''
 							SELECT DISTINCT ci.LicenseeId, ci.IsDeposit, ci.ProductId AS Product3rdId, ci.FromDate, ci.ToDate, ci.ChargeType
 								,CASE WHEN ci.ProductId = 0 THEN -1 ELSE ISNULL(sbr.Bettype, ci.Bettype) END AS Bettype
-								,CASE WHEN ci.IsDeposit = 0 AND ci.ProductId IN (32, 65) THEN 0 ELSE ci.DI_Rate END AS Rate
+								,CASE WHEN ci.IsDeposit = 0 AND ci.ProductId IN (32, 65, 70) THEN 0 ELSE ci.DI_Rate END AS Rate
 							FROM bodb_licensee.dbo.LA_f_ChargeInfo (''''' + @PartyIds + ''''', ''''' + @f_date + ''''', ''''' + @t_date + ''''', ''''' + @ProductCodes + ''''', ''''OA'''', 1) ci
 								LEFT JOIN bodb_licensee.dbo.Sport_Bettype_Reference sbr WITH (NOLOCK) ON sbr.BettypeRef = ci.Bettype
 							WHERE ci.DI_Rate > 0
@@ -210,7 +213,7 @@ BEGIN
 		SELECT @SQL = '	SELECT PartyId, ProductId, ChargeId, ChargeType, FromDate, ToDate, Rate
 						FROM OPENQUERY (DBLIC, ''SELECT DISTINCT PartyId, ProductId, ChargeId, ChargeType, FromDate, ToDate, DI_Rate AS Rate FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd (''''' + @f_date + ''''', ''''' + @t_date + ''''', ''''' + @ProductCodes + ''''', ''''OA'''')
 												 WHERE (
-														(ProductID IN (11, 21, 39) AND ChargeType IN (9, 10, 11)) -- GD, AB, SAG
+														(ProductID IN (11, 21, 39, 70) AND ChargeType IN (9, 10, 11)) -- GD, AB, SAG, FGGL
 														OR (ProductID NOT IN (11, 21, 39) AND ChargeType = 1)
 													)'')'
 		INSERT INTO #__Party3rdInfo (PartyId, Product3rdId, ChargeId, ChargeType, FromDate, ToDate, Rate)
@@ -339,12 +342,15 @@ BEGIN
 			DELETE #__PlayCurrencySettings WHERE ToDate < @FromDate OR FromDate > @ToDate
 		END
 
-		IF @DepositType IN (0, 2) AND (',' + @ProductCodes + ',' LIKE '%,AB,%' OR ',' + @ProductCodes + ',' LIKE '%,SAG,%')
+		IF (@DepositType IN (0, 2) AND (',' + @ProductCodes + ',' LIKE '%,AB,%' OR ',' + @ProductCodes + ',' LIKE '%,SAG,%')) OR (',' + @ProductCodes + ',' LIKE '%,FGGL,%')
 		BEGIN
 			INSERT INTO #__ValidBetRate (IsDeposit, Product3rdId, FromDate, ToDate, CommRate)
 			SELECT DISTINCT IsDeposit, Product3rdId, FromDate, ToDate, Rate
 			FROM #__PartyCharge3rdInfo
-			WHERE ChargeType = 11 AND IsDeposit = 0
+			WHERE ChargeType = 11 AND ( 
+										(IsDeposit = 0 AND Product3rdId IN (21, 39) )
+										OR Product3rdId NOT IN (21,39)
+									  )
 		END
 
 		CREATE TABLE #__tempData (rptDate DATE, SiteId INT, BetTypeId INT, CurrencyId INT, Winloss MONEY, ValidBetAmount MONEY, ProgressiveContribution MONEY)
