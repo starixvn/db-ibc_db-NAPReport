@@ -36,6 +36,7 @@ AS
 		- 20211102@Danny: Treat Sports Lottery as Sportsbook data in licensee billing (#163175)
 		- 20211102@Danny: SG integrate JP, Contribution (#166684)
 		- 20220211@Danny: Email/Letstalk Reports - Incorporate Saba Basketball Soccer PinGoal (#168373)
+		- 20220330@Danny: support Licensee Sponsorship column (#170729)
 */
 BEGIN
 	SET NOCOUNT ON
@@ -996,7 +997,7 @@ BEGIN
 								  END
 			,s.LicenseeFee		= CASE
 									WHEN m.PartyId IS NULL OR m.ProductId NOT IN (0,37) THEN s.HouseIncome
-									ELSE CASE WHEN m.IsChargedByGroupMinFee = 0 AND m.IsChargedByMinFee = 0 THEN CASE WHEN m.ProductId = 37 THEN -m.LicensingFee ELSE m.LicensingFee + m.ExtraAmount END ELSE 0 END
+									ELSE CASE WHEN m.IsChargedByGroupMinFee = 0 AND m.IsChargedByMinFee = 0 THEN CASE WHEN m.ProductId = 37 THEN - (m.LicensingFee+ m.ExtraAmount)  ELSE m.LicensingFee + m.ExtraAmount END ELSE 0 END
 								  END
 			,s.Rebate			= ISNULL(m.Rebate, 0)
 			,s.Discount			= ISNULL(m.Discount, 0)
