@@ -19,6 +19,7 @@ AS
 		- 20190710@Robert: 	NAP Report - Implement new report to match with CN88's need [#116083]
 		- 20191212@Ned.Le:  Support to get Extra PT from Extra PT column [#125286]
 		- 20200706@Ned.Le:  NAP Report - Enhance the report CN88 Win Loss by Product [#137068]
+        - 20220413@Ned.Le:  Bettype name exceed the number of declared character in CN88 Win Loss by products report [HotFix #171404]
 	Explanation's Param:	
 */
 
@@ -42,7 +43,7 @@ BEGIN
 	   DECLARE @BetType TABLE(
 		   BetType         INT
 		   PRIMARY KEY
-		 , BetTypeName     NVARCHAR(50)
+		 , BetTypeName     NVARCHAR(200)
 		 , DisplayOrder    INT IDENTITY(1, 1));
 	   INSERT INTO @BetType(BetType)
 	   VALUES
@@ -130,7 +131,7 @@ BEGIN
 
 	   CREATE TABLE #Data(
 		   GroupId            INT
-		 , GroupName          NVARCHAR(50)
+		 , GroupName          NVARCHAR(200)
 		 , DisplayOrder       INT
 		 , MemberWinLoss      MONEY
 		 , SMAWinLoss         MONEY
