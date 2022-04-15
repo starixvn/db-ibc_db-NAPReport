@@ -8,6 +8,7 @@ ALTER PROCEDURE dbo.Acc_Rpt_CompanyWinLoss_BetBuilder_Site @StartDate SMALLDATET
                                                            @SportType   INT,
                                                            @BetType     INT           = 38, 
                                                            @IsHedge     INT           = 2, -- Dummy Parameter
+                                                           @IsCorners INT             = 2, -- Dummy Parameter
                                                            @IsLive      INT           = 2, -- Dummy Parameter
 														   @IsSabaSport BIT           = 0, -- Dummy Parameter
 														   @IsNoDraw    BIT           = 0, -- Dummy Parameter
@@ -27,6 +28,7 @@ Revisions:
 - 20200722@Roy: Incorporate New Basketball Sport for BetBuilder Product - NAP Report (#138082)
 - 20210223@Ned.Le: Nap Reports - House Winloss By Product - HotFix (#150511)
 - 20212203@Jaden: Support SABA789 (#151326)
+- 20220415@Ned.Le: Missing parameter @isCorners in House WL by product report (HotFix #171542)
 
 Parameters:
 

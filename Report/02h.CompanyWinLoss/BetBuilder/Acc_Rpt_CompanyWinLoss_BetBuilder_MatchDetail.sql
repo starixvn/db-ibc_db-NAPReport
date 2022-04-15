@@ -8,6 +8,7 @@ ALTER PROCEDURE [dbo].[Acc_Rpt_CompanyWinLoss_BetBuilder_MatchDetail] @StartDate
                                                                       @SportType INT,
                                                                       @BetType   INT           = 38, 
                                                                       @IsHedge   INT           = 2, -- Dummy Parameter
+                                                                      @IsCorners INT           = 2, -- Dummy Parameter
                                                                       @IsLive    INT           = 2,-- Dummy Parameter
 																	  @IsSabaSport BIT = 0,-- Dummy Parameter
 																	  @IsNoDraw BIT = 0 -- Dummy Parameter
@@ -25,6 +26,7 @@ Revisions:
 - 20191212@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
 - 20200722@Roy: Incorporate New Basketball Sport for BetBuilder Product - NAP Report (#138082)
 - 20201222@Kean: Support to filter NoDraw and separate the SABA sports - NAP Report (#147451)
+- 20220415@Ned.Le: Missing parameter @isCorners in House WL by product report (HotFix #171542)
 Example:
 EXEC [Acc_Rpt_CompanyWinLoss_BetBuilder_MatchDetail] @EndDate='2020-01-01',@StartDate='2016-01-01', @SportType =2, @BetType = 38
 
