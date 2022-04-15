@@ -58,6 +58,7 @@ Revisions:
 - 20210428@Ned.Le: NAP Report - Implement VGaming (#154072)
 - 20210520@Kean: SABA Soccer PinGoal - NAP Report (#155447)
 - 20210811@Jaden: Integrate Bitcoin (#159046)
+- 20220321@Ned.Le: NAP Report - Integrate FGG & new bettypes Cricket (#170213)
 
 Explanation's Param:
 
@@ -1455,7 +1456,8 @@ Explanation's Param:
 			(28, 49, NULL),
 			(29, 63, NULL),
 			(30, 66, NULL),
-			(31, 69, NULL);
+			(31, 69, NULL),
+            (32, 70, NULL);
 			
 	   UPDATE p
 	   SET p.ProductName = s.ProductName
