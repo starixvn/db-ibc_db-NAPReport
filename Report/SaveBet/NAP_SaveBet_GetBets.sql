@@ -163,7 +163,6 @@ BEGIN
 				 			ELSE LEFT(b.transdesc, ISNULL(CHARINDEX(',', b.transdesc) - 1, 0))
 				 		END
 					ELSE NULL END = tm.teamid
-				AND b.bettype BETWEEN 9440 AND 9697
 		WHERE b.matchid = @matchid 
 			AND b.bettype = @bettype
 			AND b.liveindicator = @liveindicator
@@ -236,7 +235,6 @@ BEGIN
 				 			ELSE LEFT(b.transdesc, ISNULL(CHARINDEX(',', b.transdesc) - 1, 0))
 				 		END
 					ELSE NULL END = tm.teamid
-				AND b.bettype BETWEEN 9440 AND 9697
 		WHERE b.winlostdate = @EventDate
 			AND b.matchid = @matchid 
 			AND b.bettype = @bettype
