@@ -10,6 +10,7 @@ AS
 	 Revisions: 
 		- 20210413@Danny: Initialize SP [RedmineID: #151993]
 		- 20211102@Danny: SG integrate JP, Contribution (#166684)
+		- 20220325@Danny: Incorporate FGG (#170522)
 
 	 Param's Explanation:
 
@@ -101,6 +102,7 @@ BEGIN
 			OR  b.gameID BETWEEN 3401 AND 3499 -- WM
 			OR  b.gameID BETWEEN 3701 AND 3799 -- PPL
 			OR  b.gameID BETWEEN 5701 AND 5704 -- GDG
+			OR  b.gameID BETWEEN 8201 AND 8299 -- FGG
 			) 
 	GROUP BY CAST(b.winlostdate AS DATE), 
 			CASE WHEN b.gameID BETWEEN 5701 AND 5704 THEN CAST(b.winlostdate AS DATE) ELSE CAST(b.Transdate3rd AS DATE) END, 
