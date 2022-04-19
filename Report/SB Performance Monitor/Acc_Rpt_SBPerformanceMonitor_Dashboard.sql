@@ -26,6 +26,7 @@ AS
 		- 20200930@Ned.Le: NAP Reports - Licensee Odds Spread (#141750)
 		- 20210504@Kean.Nguyen: NAP Reports - Allow more time for transfer - Movebet&BalanceUp (#154116)
 		- 20210705@Jaden.Tang: Enhance SB Performance, add more options (#157997)
+		- 20220419@Kean.Nguyen: Fix the way to determine HALF-WON|HALF_LOSE ticket (#171706)
 
 	Param's Explanation:
 		- @fromDate: Range date to get data for report
@@ -194,7 +195,7 @@ BEGIN
 						 * CASE WHEN sd.virtualrate > sd.actualrate THEN sd.virtualrate ELSE sd.actualrate END
 			   END * 
 			   CASE WHEN @excludeDrawTickets = 1 
-                 THEN CASE WHEN (sd.bettype < 999 OR sd.bettype BETWEEN 1301 AND 1399 OR sd.bettype BETWEEN 9001 AND 9399)
+                 THEN CASE WHEN (sd.bettype < 999 OR sd.bettype BETWEEN 1301 AND 1399 OR sd.bettype BETWEEN 9001 AND 9399 OR sd.bettype BETWEEN 9400 AND 9998)
                                  AND sd.bettype NOT IN (29, 38, 911, 912, 913, 914)
                                  AND sd.bettype NOT BETWEEN 81 AND 120
                                  AND sd.statusID IN (112, 113)
