@@ -167,7 +167,7 @@ BEGIN
 				AND CASE WHEN b.bettype IN (901,902,903,904,911) THEN b.RefNo ELSE 0 END = CASE WHEN t.bettype IN (901,902,903,904,911) THEN t.RefNo ELSE 0 END
 				AND t.WalletType = ISNULL(CAST(b.WalletType AS SMALLINT),-1)
 				AND b.betteam = t.betteam
-                AND ISNULL(b.oddsid,0) = ISNULL(t.oddsid,0)
+                AND b.oddsid = t.oddsid
 			INNER JOIN bodb02.dbo.bettype bt with(nolock) on bt.typeid = b.bettype
 		WHERE b.custid IN (SELECT custid FROM #TempCust)
 			AND b.statusID NOT IN (101,102,103)
