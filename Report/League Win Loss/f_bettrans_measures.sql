@@ -13,6 +13,7 @@ RETURNS TABLE
     Revisions:
 		- 20201016@Jaden.Tang: creation
         - 20201210@Jaden.Tang: format code
+		- 20220419@Kean.Nguyen: Fix the way to determine HALF-WON|HALF_LOSE ticket (#171706)
 
     Param's Explanation:
 		- @IsNoDraw: To include the draw tickets in Turnovers or not
@@ -114,7 +115,7 @@ RETURN (
             CASE WHEN virtualrate < actualrate THEN virtualrate / actualrate ELSE 1 END                 AS VarianceVR,
 
             CASE WHEN @IsNoDraw = 1 
-                 THEN CASE WHEN (bettype < 999 OR bettype BETWEEN 1301 AND 1399 OR bettype BETWEEN 9001 AND 9399) --SportBooks
+                 THEN CASE WHEN (bettype < 999 OR bettype BETWEEN 1301 AND 1399 OR bettype BETWEEN 9001 AND 9399 OR bettype BETWEEN 9400 AND 9998) --SportBooks
                                  AND bettype NOT IN (29, 38, 911, 912, 913, 914) --exclude parlay, bet builder, cashout
                                  AND bettype NOT BETWEEN 81 AND 120 --exclude number game
                                  AND statusID IN (112, 113) --WON, LOSE
