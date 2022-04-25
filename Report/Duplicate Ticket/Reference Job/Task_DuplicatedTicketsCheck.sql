@@ -37,8 +37,7 @@ AS
 		 - 20200515@Dominic: Check betteam
 		 - 20200518@Ned.Le: Exclude tickets that have betfrom='v'
 		 - 20210416@Ned.Le: NAP Report - Duplicate Tickets - Exclude refund tickets (#153616)
-	Param's Explanation:
-
+         - 20220321@Ned.Le: NAP Report - Integrate FGG & new bettypes Cricket (#170213)
 */
 
 BEGIN
@@ -73,7 +72,8 @@ BEGIN
 			b.ip,
 			CASE WHEN b.Bettype IN (901,902,903,904,911) THEN b.RefNo ELSE 0 END as RefNo,
 			ISNULL(CAST(b.WalletType AS SMALLINT),-1) WalletType,
-			b.betteam
+			b.betteam,
+            b.oddsid
 	FROM	bodb02.dbo.bettrans b WITH(NOLOCK , Index = PK_bettrans)
 		INNER JOIN @bettype s ON s.bettype = b.bettype
 	WHERE	b.TransID BETWEEN @TransId - 5000 AND @MaxTransId
@@ -98,7 +98,8 @@ BEGIN
 			b.ip,
 			b.RefNo,		
 			b.WalletType,
-			b.betteam
+			b.betteam,
+            b.oddsid
 	INTO	#TempData
 	FROM	AllTicket b							
 	GROUP BY	b.custid, 
@@ -111,7 +112,8 @@ BEGIN
 				b.ip,
 				b.RefNo,
 				b.WalletType,
-				b.betteam
+				b.betteam,
+                b.oddsid
 	HAVING COUNT(*) > 1
 	 
 
@@ -131,6 +133,7 @@ BEGIN
 			AND CASE WHEN b.bettype IN (901,902,903,904,911) THEN b.RefNo ELSE 0 END = CASE WHEN t.bettype IN (901,902,903,904,911) THEN t.RefNo ELSE 0 END  
 			AND t.WalletType = ISNULL(CAST(b.WalletType AS SMALLINT),-1)
 			AND b.betteam = t.betteam
+            AND b.oddsid = t.oddsid
 	WHERE NOT EXISTS (SELECT 1 FROM dbo.DuplicatedTicket d WITH (NOLOCK) WHERE d.TransID = b.TransId)	
 	DROP TABLE #TempData
 	

@@ -48,6 +48,7 @@ Revisions:
 	- 20211013@Jaden: Change datatype for ipv6 (#162587)
     - 20211209@Ned.Le: NAP Report - Duplicate ticket report cannot be loaded (#165870)
     - 20220110@Ned.Le: NAP Report - Enhance the rule for dectect dup (#167195)
+    - 20220321@Ned.Le: NAP Report - Integrate FGG & new bettypes Cricket (#170213)
 	                   
 Param's Explanation:
 	- @CheckTime : The time we consider how long the job fails (Compared the last run with the current time).
@@ -90,10 +91,11 @@ BEGIN
 			ip VARCHAR(45),
 			RefNo BIGINT,
 			WalletType SMALLINT,
-			betteam NVARCHAR(10)
+			betteam NVARCHAR(10),
+            oddsid INT
 		)
 
-		INSERT INTO #TempData (custid,odds,stake,balance,bettype,winlostdate,matchid,ip,RefNo,WalletType,betteam)
+		INSERT INTO #TempData (custid,odds,stake,balance,bettype,winlostdate,matchid,ip,RefNo,WalletType,betteam,oddsid)
 		SELECT  b.custid, 
 				b.odds, 
 				b.stake, 
@@ -106,7 +108,8 @@ BEGIN
 				b.ip,
 				CASE WHEN b.Bettype IN (901,902,903,904,911) THEN b.RefNo ELSE 0 END as RefNo,
 				ISNULL(CAST(b.WalletType AS SMALLINT),-1)	WalletType,
-				b.betteam
+				b.betteam,
+                b.oddsid
 		FROM bodb02.dbo.bettrans b WITH(NOLOCK)
 			 INNER JOIN #TempBettype s ON s.bettype = b.bettype
 		WHERE b.bettype < 19000							
@@ -133,7 +136,8 @@ BEGIN
 				b.ip,
 				CASE WHEN b.Bettype IN (901,902,903,904,911) THEN b.RefNo ELSE 0 END,	
 				ISNULL(CAST(b.WalletType AS SMALLINT),-1),
-				b.betteam
+				b.betteam,
+                b.oddsid
 		HAVING COUNT(*) > 1
 		option (maxdop 4)
 
@@ -163,6 +167,7 @@ BEGIN
 				AND CASE WHEN b.bettype IN (901,902,903,904,911) THEN b.RefNo ELSE 0 END = CASE WHEN t.bettype IN (901,902,903,904,911) THEN t.RefNo ELSE 0 END
 				AND t.WalletType = ISNULL(CAST(b.WalletType AS SMALLINT),-1)
 				AND b.betteam = t.betteam
+                AND b.oddsid = t.oddsid
 			INNER JOIN bodb02.dbo.bettype bt with(nolock) on bt.typeid = b.bettype
 		WHERE b.custid IN (SELECT custid FROM #TempCust)
 			AND b.statusID NOT IN (101,102,103)
