@@ -1,4 +1,7 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+USE bodb02;
+GO
+
 ALTER PROCEDURE [dbo].[NAP_SaveBet_GetBets] 
 	@matchid int,
 	@bettype smallint,
@@ -25,6 +28,7 @@ AS
 		- 20210329@Jaden: Savebet - Support to forecast the result with Real figures & Add some new information (#152290)
 		- 20210423@Roy: NAP Report - Move Save bet db & service (#153147)
 		- 202109001@Jaden: Add 2 more Dangerous types (#159779)
+		- 20220321@Jaden: Cricket phase 2 - Save Bet (#170213)
 */
 BEGIN
 	SET NOCOUNT ON
@@ -142,6 +146,7 @@ BEGIN
 			,CASE
 			WHEN b.bettype IN (1, 3) and agent.site = '76666B' THEN b.oddsspread
 			ELSE NULL END as '%'
+			,tm.teamname
 		FROM
 			bodb02.dbo.bettrans b with (nolock)	
 			INNER JOIN bodb02.dbo.customer cr with (nolock) ON b.creator = cr.custid
@@ -151,6 +156,13 @@ BEGIN
 			LEFT JOIN #abnormalOrRobotUsers ar ON b.custid = ar.custid
 			INNER JOIN bodb02.dbo.custInfo ci ON b.custid = ci.custid
 			LEFT JOIN bodb02.dbo.BettransInfo bi ON b.transid = bi.transid
+			LEFT JOIN bodb02.dbo.team tm WITH (NOLOCK) 
+				ON CASE WHEN ISNUMERIC(REPLACE(b.transdesc, ' ', '')) = 1 /*ISNUMERIC('123,456') => 1*/
+					THEN
+						CASE WHEN CHARINDEX(',', b.transdesc) = 0 THEN b.transdesc
+				 			ELSE LEFT(b.transdesc, ISNULL(CHARINDEX(',', b.transdesc) - 1, 0))
+				 		END
+					ELSE NULL END = tm.teamid
 		WHERE b.matchid = @matchid 
 			AND b.bettype = @bettype
 			AND b.liveindicator = @liveindicator
@@ -206,6 +218,7 @@ BEGIN
 			,CASE
 			WHEN b.bettype IN (1, 3) and agent.site = '76666B' THEN b.oddsspread
 			ELSE NULL END as '%'
+			,tm.teamname
 		FROM
 			bodb02.dbo.bettrans14 b with (nolock)	
 			INNER JOIN bodb02.dbo.customer cr with (nolock) ON b.creator = cr.custid
@@ -215,6 +228,13 @@ BEGIN
 			LEFT JOIN #abnormalOrRobotUsers ar ON b.custid = ar.custid
 			INNER JOIN bodb02.dbo.custInfo ci ON b.custid = ci.custid
 			LEFT JOIN bodb02.dbo.BettransInfo14 bi ON b.transid = bi.transid
+			LEFT JOIN bodb02.dbo.team tm WITH (NOLOCK) 
+				ON CASE WHEN ISNUMERIC(REPLACE(b.transdesc, ' ', '')) = 1 /*ISNUMERIC('123,456') => 1*/
+					THEN
+						CASE WHEN CHARINDEX(',', b.transdesc) = 0 THEN b.transdesc
+				 			ELSE LEFT(b.transdesc, ISNULL(CHARINDEX(',', b.transdesc) - 1, 0))
+				 		END
+					ELSE NULL END = tm.teamid
 		WHERE b.winlostdate = @EventDate
 			AND b.matchid = @matchid 
 			AND b.bettype = @bettype
