@@ -10,7 +10,7 @@ AS
 /*
 	Creator: Cherry
 	Date: 2022-04-28
-	DB: DBACC.bodb02
+	DB: DBOIC.bodb_OIC
 	Task: Get recipient list for Abnormal Bet
 	Revisions:		
 		- 20220428@Cherry: Get recipient list for Abnormal Bet (#171985)
@@ -28,8 +28,6 @@ AS
 
 	   SELECT t.RegisteredLicenseeName 
 			,(SELECT c.ContactEmail  
-					,c.ContactName  
-					,c.IsMain  
 				FROM dbo.CategoryContact cc WITH(NOLOCK)  
 					INNER JOIN dbo.Contact c WITH(NOLOCK)   
 						ON c.ContactID = cc.ContactID   
@@ -39,8 +37,6 @@ AS
 				FOR XML RAW('row'), ROOT('root')  
 			) ToList  
 		   ,(SELECT c.ContactEmail  
-					,c.ContactName  
-					,c.IsMain  
 				FROM dbo.CategoryContact cc WITH(NOLOCK)  
 					INNER JOIN dbo.Contact c WITH(NOLOCK)   
 						ON c.ContactID = cc.ContactID   
