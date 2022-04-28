@@ -7,6 +7,7 @@ ALTER PROCEDURE dbo.Acc_Rpt_EmailNotification_Sel
 	@LicenseeName     NVARCHAR(MAX) = 'ALL'
    , @CategoryId     INT = 7
 AS
+
 /*
 	Creator: Cherry
 	Date: 2022-04-28
@@ -53,6 +54,6 @@ AS
 				OR RegisteredLicenseeName IN (SELECT LicenseeName FROM #tmpLicensee)
 				)
 
-		DROP TABLE #tmpLicensee;
+		DROP TABLE #tmpLicensee
 
     END
