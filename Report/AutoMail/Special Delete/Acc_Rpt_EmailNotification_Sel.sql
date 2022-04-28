@@ -55,4 +55,4 @@ AS
 
 		DROP TABLE #tmpLicensee;
 
-    END;
+    END
