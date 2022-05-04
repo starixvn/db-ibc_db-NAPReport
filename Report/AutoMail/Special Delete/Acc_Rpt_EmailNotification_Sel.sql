@@ -46,8 +46,8 @@ AS
 						   AND c.LicenseeID = t.LicenseeId  
 				FOR XML RAW('row'), ROOT('root')  
 			) CcList  
-		FROM dbo.Licensee t
-		INNER JOIN dbo.LicenseeCategoryAssigned lc    
+		FROM dbo.Licensee t WITH(NOLOCK)
+			INNER JOIN dbo.LicenseeCategoryAssigned lc WITH(NOLOCK)    
 					ON t.LicenseeId = lc.LicenseeId  
 		WHERE lc.CategoryId = @CategoryId
 			AND (@LicenseeName = 'ALL'
