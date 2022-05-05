@@ -45,21 +45,21 @@ AS
 
 	   CREATE CLUSTERED INDEX IX_TransId ON #TmpVoidedTransaction(TransId ASC);
 
-	   IF @IsTest = 0
-	   BEGIN
-		    INSERT INTO #tmpLicensee (LicenseeName)
-			SELECT DISTINCT s.site LicenseeName			
-			FROM bodb02.dbo.bettrans AS b WITH(NOLOCK)
-			    INNER JOIN #TmpVoidedTransaction AS tmp ON b.transid = tmp.TransId
-			    LEFT JOIN bodb02.dbo.Customer AS c WITH(NOLOCK) ON b.srecommend = c.custid
-			    LEFT JOIN bodb02.dbo.Site AS s WITH(NOLOCK) ON c.site = s.site
-			WHERE s.isDeposit = 1
-				 AND b.Currency <> 20						 
-	   END
-	   ELSE -- @IsTest = 1
-			INSERT INTO #tmpLicensee (LicenseeName) VALUES ('spondemo'),('Athena000')
+		INSERT INTO #tmpLicensee (LicenseeName)
+		SELECT DISTINCT s.site LicenseeName			
+		FROM bodb02.dbo.bettrans AS b WITH(NOLOCK)
+			INNER JOIN #TmpVoidedTransaction AS tmp ON b.transid = tmp.TransId
+			LEFT JOIN bodb02.dbo.Customer AS c WITH(NOLOCK) ON b.srecommend = c.custid
+			LEFT JOIN bodb02.dbo.Site AS s WITH(NOLOCK) ON c.site = s.site
+		WHERE s.isDeposit = 1
+				AND 1 = CASE WHEN @IsTest = 0 AND b.Currency <> 20 THEN 1
+							WHEN @IsTest = 1 AND b.Currency = 20 THEN 1
+						ELSE 0	END						 
 
-	   SELECT LicenseeName FROM #tmpLicensee
+	   IF @IsTest = 1
+			SELECT LicenseeName FROM #tmpLicensee WHERE LicenseeName IN ('spondemo','Athena000')
+	   ELSE
+			SELECT LicenseeName FROM #tmpLicensee
 
 	   DROP TABLE #TmpVoidedTransaction
 	   DROP TABLE #tmpLicensee
