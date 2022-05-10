@@ -51,6 +51,7 @@ AS
         - 20210428@Ned.Le: NAP Report - Implement VGaming (#154072)
         - 20210811@Jaden: Integrate Bitcoin (#159046)
         - 20211203@Ned.Le: NAP Report - Tune report "Total Credit Accounts" (#165615)
+        - 20210224@Cherry: Incorporate ONE RNG DCS (#168917)
 
     Param's Explanation:
         + @ListCurrency: The specified date used as one of the filter criterias, if its value is 'all' then no need to be filtered by currency
@@ -100,8 +101,7 @@ BEGIN
 
     INSERT INTO #FiltedCreditSuper(CustID, SuperStatus)
     SELECT ci.custid,
-           CASE WHEN @sportType = 161 THEN ci.DisableNumber
-                WHEN @sportType = 251 THEN(~ci.SyncCasino|(ci.DisableCasino))
+           CASE WHEN @sportType = 161 THEN ci.DisableNumber               
                 WHEN @sportType = 202 THEN CASE WHEN EXISTS(SELECT TOP 1 1
                                                             FROM bodb02.dbo.CustGameType gt WITH (NOLOCK, INDEX = PK_CustGameType)
                                                             WHERE gt.CustID = ci.CustID AND gt.IsDisabled = 0) THEN 0 ELSE 1 END
@@ -191,43 +191,7 @@ BEGIN
              INNER JOIN #FiltedCreditSuper sup ON ci.srecommend = sup.CustID
         WHERE ci.Enabled = 1
               AND ci.roleid = 1
-    END
-    -- + [251] Casino
-    ELSE IF (@sportType IN (251))
-    BEGIN
-        -- -> Master
-        INSERT INTO #FiltedDownlineAcc (SuperID, CustID, RoleID, IsDisable)
-        SELECT sup.CustID,
-               ci.custid,
-               ci.roleid,
-               (~ci.SyncCasino|(ci.DisableCasino))
-        FROM bodb02.dbo.custInfo ci WITH (NOLOCK)
-             INNER JOIN bodb02.dbo.CustMaster cm WITH (NOLOCK) ON ci.custid = cm.custid AND cm.IsInternal = 0
-             INNER JOIN #FiltedCreditSuper sup ON ci.srecommend = sup.CustID
-        WHERE ci.Enabled = 1
-              AND ci.roleid = 3
-        -- -> Agent
-        INSERT INTO #FiltedDownlineAcc (SuperID, CustID, RoleID, IsDisable)
-        SELECT sup.CustID,
-               ci.custid,
-               ci.roleid,
-               (~ci.SyncCasino|(ci.DisableCasino))
-        FROM bodb02.dbo.custInfo ci WITH (NOLOCK)
-             INNER JOIN bodb02.dbo.CustAgent ca WITH (NOLOCK) ON ci.custid = ca.custid AND ca.IsInternal = 0
-             INNER JOIN #FiltedCreditSuper sup ON ci.srecommend = sup.CustID
-        WHERE ci.Enabled = 1
-              AND ci.roleid = 2
-        -- -> Member
-        INSERT INTO #FiltedDownlineAcc (SuperID, CustID, RoleID, IsDisable)
-        SELECT sup.CustID,
-               ci.custid,
-               ci.roleid,
-               (~ci.SyncCasino|(ci.DisableCasino))
-        FROM bodb02.dbo.custInfo ci WITH (NOLOCK)
-             INNER JOIN #FiltedCreditSuper sup ON ci.srecommend = sup.CustID
-        WHERE ci.Enabled = 1
-              AND ci.roleid = 1
-    END
+    END    
     -- + [202] RNG Keno
     ELSE IF (@sportType IN (202))
     BEGIN

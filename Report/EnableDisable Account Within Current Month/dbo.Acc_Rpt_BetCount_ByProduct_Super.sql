@@ -73,6 +73,7 @@ AS
         - 20210517@Ned.Le: NAP Reports - Integrate AdvantPlay Mini (#155174)
         - 20210811@Jaden: Integrate Bitcoin (#159046)
         - 20211203@Ned.Le: NAP Report - Tune report "Total Credit Accounts" (#165615)
+        - 20210224@Cherry: Incorporate ONE RNG DCS (#168917)
 
     Param's Explanation:
         + @MoveBetsDay:  The day of moving bets to battrans14
@@ -143,11 +144,11 @@ BEGIN
     INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (161, 'Number Game',    164)
     INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (161, 'Number Game',    168)
 
-    -- RNG Casino group
-    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (251, 'RNG Casino',     208)
-    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (251, 'RNG Casino',     209)
-    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (251, 'RNG Casino',     210)
-    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (251, 'RNG Casino',     251)
+    -- Saba Casino group
+    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (208, 'Saba Casino',     208)
+    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (208, 'Saba Casino',     209)
+    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (208, 'Saba Casino',     210)
+    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (208, 'Saba Casino',     251)
 
     -- Virtual Sports group
     INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (180, 'Virtual Sports', 180)
@@ -401,18 +402,7 @@ BEGIN
                av.BetCount
         FROM bodb02.dbo.custInfo ci WITH (NOLOCK)
              INNER JOIN #AvailableMember av ON av.CustID = ci.custid
-    END
-    -- + [251] Casino
-    ELSE IF (@sportType IN (251))
-    BEGIN
-        INSERT INTO #FiltedDownlineAcc (CustID, IsDisable, BetStatus, BetCount)
-        SELECT ci.custid,
-               (~ci.SyncCasino |(ci.DisableCasino)),
-               av.BetStatus,
-               av.BetCount
-        FROM bodb02.dbo.custInfo ci WITH(NOLOCK)
-             INNER JOIN #AvailableMember av ON av.CustID = ci.custid
-    END
+    END   
     -- + [202] RNG Keno
     ELSE IF (@sportType IN (202))
     BEGIN
