@@ -13,8 +13,8 @@ AS
 		20220511@Roy: Letstalk Reports - Top 3 Winning and Loosing Leagues (#172608)
 
 	Param's Explanation:
-		@KOStartTime4GMT: The start time
-		@KOEndTime4GMT: The end time
+		@KOStartTime4GMT: The start KO time (GMT-4)
+		@KOEndTime4GMT: The end KO time (GMT-4)
 	
 	Example:
 		EXEC bodb02.dbo.Acc_Rpt_Letstalk_SoccerPerfByKOHour
@@ -73,10 +73,13 @@ BEGIN
 	FROM bodb02.dbo.match AS m WITH (NOLOCK)
 	INNER JOIN bodb02.dbo.league AS l WITH (NOLOCK) ON m.leagueid = l.leagueid
 	WHERE l.sporttype = 1
-		AND l.LeagueGroupID NOT IN (
-			SELECT CONVERT(SMALLINT, val) AS LeagueGroupID
-			FROM bodb02.dbo.strSplit(@SabaLeagueGroupID, ',')
-			) --Real Soccer only
+		AND (l.LeagueGroupID IS NULL
+			OR
+			l.LeagueGroupID NOT IN (
+				SELECT CONVERT(SMALLINT, val) AS LeagueGroupID
+				FROM bodb02.dbo.strSplit(@SabaLeagueGroupID, ',')
+				)
+			)--Real Soccer only
 		AND m.GlobalShowTime >= @KOStartTime4GMT
 		AND m.GlobalShowTime < @KOEndTime4GMT
 	OPTION (RECOMPILE)
