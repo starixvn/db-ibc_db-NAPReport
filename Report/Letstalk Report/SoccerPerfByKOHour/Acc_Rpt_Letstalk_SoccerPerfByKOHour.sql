@@ -1,7 +1,7 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE Acc_Rpt_Letstalk_SoccerPerfByKOHour
-	@StartTimeGMT8 SMALLDATETIME
-	,@EndTimeGMT8 SMALLDATETIME
+	@KOStartTimeGMT8 SMALLDATETIME
+	,@KOEndTimeGMT8 SMALLDATETIME
 	,@TopLeagueWL TINYINT = 3
 AS
 /*
@@ -13,13 +13,13 @@ AS
 		20220511@Roy: Letstalk Reports - Top 3 Winning and Loosing Leagues (#172608)
 
 	Param's Explanation:
-		@StartTimeGMT8: The start time
-		@EndTimeGMT8: The end time
+		@KOStartTimeGMT8: The start time
+		@KOEndTimeGMT8: The end time
 	
 	Example:
 		EXEC bodb02.dbo.Acc_Rpt_Letstalk_SoccerPerfByKOHour
-			@StartTimeGMT8 = '2022-05-11 12:00:00'
-			,@EndTimeGMT8 = '2022-05-11 13:59:59'
+			@KOStartTimeGMT8 = '2022-05-11 12:00:00'
+			,@KOEndTimeGMT8 = '2022-05-11 13:59:59'
 */
 
 BEGIN
@@ -63,8 +63,8 @@ BEGIN
 	FROM DBWH.bodb_account.dbo.SystemSettings WITH (NOLOCK)
 	WHERE VID = 5
 
-	SELECT @StartTime4GMT = DATEADD(HOUR, - 12, @StartTimeGMT8)
-		,@EndTime4GMT = DATEADD(HOUR, - 12, @EndTimeGMT8)
+	SELECT @StartTime4GMT = DATEADD(HOUR, - 12, @KOStartTimeGMT8)
+		,@EndTime4GMT = DATEADD(HOUR, - 12, @KOEndTimeGMT8)
 	
 	--Get match by GlobalShowTime
 	INSERT INTO #tmpMatch (
