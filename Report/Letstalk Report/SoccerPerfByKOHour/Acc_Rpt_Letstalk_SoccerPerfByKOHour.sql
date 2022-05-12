@@ -6,7 +6,7 @@ ALTER PROCEDURE Acc_Rpt_Letstalk_SoccerPerfByKOHour
 AS
 /*
 	Created: Roy@20220511
-	Task: Get top winlost league
+	Task: Get top winlost league By KO Time
 	DB: DBACC.bodb02
 
 	Revisions:
@@ -18,8 +18,8 @@ AS
 	
 	Example:
 		EXEC bodb02.dbo.Acc_Rpt_Letstalk_SoccerPerfByKOHour
-			@StartTimeGMT8='2022-05-11 00:00:00'
-			,@EndTimeGMT8='2022-05-11 01:59:59'
+			@StartTimeGMT8 = '2022-05-11 12:00:00'
+			,@EndTimeGMT8 = '2022-05-11 13:59:59'
 */
 
 BEGIN
@@ -152,19 +152,6 @@ BEGIN
 	
 	CREATE CLUSTERED INDEX tmpRawData ON #tmpRawData(LeagueID, IsHalf, Is8RM)
 	
-	--TOTAL
-	INSERT INTO #tmpData (
-		GroupName
-		,Winloss
-		,Turnover
-	)
-	SELECT 'TOTAL' AS GroupName
-		,SUM(CASE WHEN Is8RM = 1 THEN 0 ELSE -(WinlossIBC - ExtraWL + CommissionS - ExtraComm) END) AS WinlossIBC
-		,SUM((CASE WHEN TurnoverIBC = 0 THEN 0 ELSE TurnoverIBC - ExtraTO END)
-			* (CASE WHEN VarianceVR > 0 THEN VarianceVR + 1 ELSE 1 END)
-			* (CASE WHEN IsHalf = 1 THEN 0.5 ELSE 1 END)) AS TurnoverIBC
-	FROM #tmpRawData WITH (NOLOCK)
-	
 	--Top Win/lose
 	;WITH CTE_League AS (
 		SELECT LeagueID
@@ -174,6 +161,14 @@ BEGIN
 				* (CASE WHEN IsHalf = 1 THEN 0.5 ELSE 1 END)) AS TurnoverIBC
 		FROM #tmpRawData WITH (NOLOCK)
 		GROUP BY LeagueID
+	)
+	--TOTAL
+	,CTE_Total AS (
+		SELECT 'TOTAL' AS GroupName
+			,NULL LeagueID
+			,SUM(WinlossIBC) AS WinlossIBC
+			,SUM(TurnoverIBC) AS TurnoverIBC
+		FROM CTE_League
 	)
 	--Top Winning Leagues
 	,CTE_Win AS (
@@ -201,6 +196,14 @@ BEGIN
 		,Winloss
 		,Turnover
 	)
+	SELECT GroupName
+		,LeagueID
+		,WinlossIBC
+		,TurnoverIBC
+	FROM CTE_Total
+
+	UNION ALL
+	
 	SELECT GroupName
 		,LeagueID
 		,WinlossIBC
