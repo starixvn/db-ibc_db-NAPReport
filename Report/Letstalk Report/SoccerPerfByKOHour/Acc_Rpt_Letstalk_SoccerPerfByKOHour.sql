@@ -80,7 +80,7 @@ BEGIN
 			FROM bodb02.dbo.strSplit(@SabaLeagueGroupID, ',')
 			) --Real Soccer only
 		AND m.GlobalShowTime >= @KOStartTime4GMT
-		AND m.GlobalShowTime < AND @KOEndTime4GMT
+		AND m.GlobalShowTime < @KOEndTime4GMT
 	OPTION (RECOMPILE)
 	
 	CREATE CLUSTERED INDEX tmpMatch ON #tmpMatch (MatchID, LeagueID)
