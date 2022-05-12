@@ -18,8 +18,8 @@ AS
 	
 	Example:
 		EXEC bodb02.dbo.Acc_Rpt_Letstalk_SoccerPerfByKOHour
-			@KOStartTime4GMT = '2022-05-11 12:00:00'
-			,@KOEndTime4GMT = '2022-05-11 14:00:00'
+			@KOStartTime4GMT = '2022-05-11 00:00:00'
+			,@KOEndTime4GMT = '2022-05-11 02:00:00'
 */
 
 BEGIN
@@ -27,8 +27,6 @@ BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @SabaLeagueGroupID VARCHAR(100)
-		,@StartTime4GMT SMALLDATETIME
-		,@EndTime4GMT SMALLDATETIME
 		,@FWLDate SMALLDATETIME
 		,@TWLDate SMALLDATETIME
 		,@MoveBetsDay SMALLDATETIME
@@ -140,6 +138,7 @@ BEGIN
 		AND b.statusID IN (112, 113) --Won, Lose
 		AND b.currency <> 20
 		AND b.bettype NOT IN (29, 38, 10) --exclude parlay, Bet Builder, outright
+		AND b.ruben = 1
 		GROUP BY m.LeagueID
 			,(CASE WHEN ABS(b.modds) = 0.25 THEN 1 ELSE 0 END)
 			,(CASE WHEN b.recommend = 52466 THEN 1 ELSE 0 END)
