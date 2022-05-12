@@ -1,7 +1,7 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE Acc_Rpt_Letstalk_SoccerPerfByKOHour
-	@KOStartTimeGMT8 SMALLDATETIME
-	,@KOEndTimeGMT8 SMALLDATETIME
+	@KOStartTime4GMT SMALLDATETIME
+	,@KOEndTime4GMT SMALLDATETIME
 	,@TopLeagueWL TINYINT = 3
 AS
 /*
@@ -13,13 +13,13 @@ AS
 		20220511@Roy: Letstalk Reports - Top 3 Winning and Loosing Leagues (#172608)
 
 	Param's Explanation:
-		@KOStartTimeGMT8: The start time
-		@KOEndTimeGMT8: The end time
+		@KOStartTime4GMT: The start time
+		@KOEndTime4GMT: The end time
 	
 	Example:
 		EXEC bodb02.dbo.Acc_Rpt_Letstalk_SoccerPerfByKOHour
-			@KOStartTimeGMT8 = '2022-05-11 12:00:00'
-			,@KOEndTimeGMT8 = '2022-05-11 13:59:59'
+			@KOStartTime4GMT = '2022-05-11 12:00:00'
+			,@KOEndTime4GMT = '2022-05-11 14:00:00'
 */
 
 BEGIN
@@ -62,9 +62,6 @@ BEGIN
 	SELECT @SabaLeagueGroupID = VValue
 	FROM DBWH.bodb_account.dbo.SystemSettings WITH (NOLOCK)
 	WHERE VID = 5
-
-	SELECT @StartTime4GMT = DATEADD(HOUR, - 12, @KOStartTimeGMT8)
-		,@EndTime4GMT = DATEADD(HOUR, - 12, @KOEndTimeGMT8)
 	
 	--Get match by GlobalShowTime
 	INSERT INTO #tmpMatch (
@@ -82,7 +79,8 @@ BEGIN
 			SELECT CONVERT(SMALLINT, val) AS LeagueGroupID
 			FROM bodb02.dbo.strSplit(@SabaLeagueGroupID, ',')
 			) --Real Soccer only
-		AND m.GlobalShowTime BETWEEN @StartTime4GMT AND @EndTime4GMT
+		AND m.GlobalShowTime >= @KOStartTime4GMT
+		AND m.GlobalShowTime < AND @KOEndTime4GMT
 	OPTION (RECOMPILE)
 	
 	CREATE CLUSTERED INDEX tmpMatch ON #tmpMatch (MatchID, LeagueID)
