@@ -79,7 +79,7 @@ BEGIN
 	INNER JOIN bodb02.dbo.league AS l WITH (NOLOCK) ON m.leagueid = l.leagueid
 	WHERE l.sporttype = 1
 		AND l.LeagueGroupID NOT IN (
-			SELECT CONVERT(INT, val) AS LeagueGroupID
+			SELECT CONVERT(SMALLINT, val) AS LeagueGroupID
 			FROM bodb02.dbo.strSplit(@SabaLeagueGroupID, ',')
 			) --Real Soccer only
 		AND m.GlobalShowTime BETWEEN @StartTime4GMT AND @EndTime4GMT
