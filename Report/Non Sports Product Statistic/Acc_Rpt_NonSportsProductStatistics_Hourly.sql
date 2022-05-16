@@ -61,6 +61,7 @@ AS
 		20210506@Cherry: Integrate VGaming Jackpot (#154250)
 		20210928@Cherry: Modify Hourly Report to count tickets on old day to 00:00 of new day (#162272)
 		20220304@Cherry: Enhance username search for Non-sport games statistics report (#144260)
+		20220512@Cherry: Hot fix (#172607)
 
 	Param's Explanation:
 			 - @username:  + Search by keyword, member only
@@ -198,7 +199,7 @@ SET NOCOUNT ON
         Sporttype INT
     )
 	CREATE TABLE #tmpSiteSuper (
-        Srecommend INT
+        recommend INT
     )
 	CREATE TABLE #tmpSite (
         Site VARCHAR(50)
@@ -412,11 +413,11 @@ SET NOCOUNT ON
 		INSERT INTO #tmpSite (Site)
 		SELECT RTRIM(LTRIM(val)) FROM [dbo].strSplit(@Site, ',')
 		
-		INSERT INTO #tmpSiteSuper (Srecommend)
-		SELECT c.srecommend
+		INSERT INTO #tmpSiteSuper (recommend)
+		SELECT c.recommend
 		FROM #tmpSite s
 			INNER JOIN dbo.Customer c WITH (NOLOCK) ON s.Site = c.site
-		WHERE c.roleid = 4				
+		WHERE c.roleid = 2				
 	END	 
 	
 	CREATE TABLE #ExtraComm (ProductID INT, SuperID INT, ExtraComm DECIMAL(9, 8))
@@ -490,7 +491,7 @@ SET NOCOUNT ON
 			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
 			AND (EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom) OR @Device = '')
 			AND ( @Site = 'ALL'
-				  OR EXISTS(SELECT 1 From #tmpSiteSuper s WHERE s.srecommend = b.srecommend)
+				  OR EXISTS(SELECT 1 From #tmpSiteSuper s WHERE s.recommend = b.recommend)
 				)
 			AND (
 				@HousePTType = 0
@@ -560,7 +561,7 @@ SET NOCOUNT ON
 				AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
 				AND (EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom) OR @Device = '')
 				AND ( @Site = 'ALL'
-					  OR EXISTS(SELECT 1 From #tmpSiteSuper s WHERE s.srecommend = b.srecommend)
+					  OR EXISTS(SELECT 1 From #tmpSiteSuper s WHERE s.recommend = b.recommend)
 					)
 				AND (
 					@HousePTType = 0
@@ -623,7 +624,7 @@ SET NOCOUNT ON
 				AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
 				AND (EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom) OR @Device = '')
 				AND ( @Site = 'ALL'
-					  OR EXISTS(SELECT 1 From #tmpSiteSuper s WHERE s.srecommend = b.srecommend)
+					  OR EXISTS(SELECT 1 From #tmpSiteSuper s WHERE s.recommend = b.recommend)
 					)
 				AND (
 					@HousePTType = 0
@@ -689,7 +690,7 @@ SET NOCOUNT ON
 				AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
 				AND (EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom) OR @Device = '')
 				AND ( @Site = 'ALL'
-					  OR EXISTS(SELECT 1 From #tmpSiteSuper s WHERE s.srecommend = b.srecommend)
+					  OR EXISTS(SELECT 1 From #tmpSiteSuper s WHERE s.recommend = b.recommend)
 					)
 				AND (
 					@HousePTType = 0
@@ -756,7 +757,7 @@ SET NOCOUNT ON
 			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
 			AND (EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom) OR @Device = '')
 			AND ( @Site = 'ALL'
-				  OR EXISTS(SELECT 1 From #tmpSiteSuper s WHERE s.srecommend = b.srecommend)
+				  OR EXISTS(SELECT 1 From #tmpSiteSuper s WHERE s.recommend = b.recommend)
 				)
 			AND (
 				@HousePTType = 0
@@ -820,7 +821,7 @@ SET NOCOUNT ON
 			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
 			AND (EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom) OR @Device = '')
 			AND ( @Site = 'ALL'
-				  OR EXISTS(SELECT 1 From #tmpSiteSuper s WHERE s.srecommend = b.srecommend)
+				  OR EXISTS(SELECT 1 From #tmpSiteSuper s WHERE s.recommend = b.recommend)
 				)
 			AND (
 				@HousePTType = 0
@@ -885,7 +886,7 @@ SET NOCOUNT ON
 			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
 			AND (EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom) OR @Device = '')
 			AND ( @Site = 'ALL'
-				  OR EXISTS(SELECT 1 From #tmpSiteSuper s WHERE s.srecommend = b.srecommend)
+				  OR EXISTS(SELECT 1 From #tmpSiteSuper s WHERE s.recommend = b.recommend)
 				)
 			AND (
 				@HousePTType = 0
@@ -948,7 +949,7 @@ SET NOCOUNT ON
 			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
 			AND (EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom) OR @Device = '')
 			AND ( @Site = 'ALL'
-				  OR EXISTS(SELECT 1 From #tmpSiteSuper s WHERE s.srecommend = b.srecommend)
+				  OR EXISTS(SELECT 1 From #tmpSiteSuper s WHERE s.recommend = b.recommend)
 				)
 			AND (
 				@HousePTType = 0
@@ -1012,7 +1013,7 @@ SET NOCOUNT ON
 			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
 			AND (EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom) OR @Device = '')
 			AND ( @Site = 'ALL'
-				  OR EXISTS(SELECT 1 From #tmpSiteSuper s WHERE s.srecommend = b.srecommend)
+				  OR EXISTS(SELECT 1 From #tmpSiteSuper s WHERE s.recommend = b.recommend)
 				)
 			AND (
 				@HousePTType = 0
@@ -1075,7 +1076,7 @@ SET NOCOUNT ON
 			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
 			AND (EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom) OR @Device = '')
 			AND ( @Site = 'ALL'
-				 OR EXISTS(SELECT 1 From #tmpSiteSuper s WHERE s.srecommend = b.srecommend)
+				 OR EXISTS(SELECT 1 From #tmpSiteSuper s WHERE s.recommend = b.recommend)
 				)
 			AND (
 				@HousePTType = 0
@@ -1141,7 +1142,7 @@ SET NOCOUNT ON
 			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
 			AND (EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom) OR @Device = '')
 			AND ( @Site = 'ALL'
-				  OR EXISTS(SELECT 1 From #tmpSiteSuper s WHERE s.srecommend = b.srecommend)
+				  OR EXISTS(SELECT 1 From #tmpSiteSuper s WHERE s.recommend = b.recommend)
 				)
 			AND (
 				@HousePTType = 0
@@ -1208,7 +1209,7 @@ SET NOCOUNT ON
 			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
 			AND (EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom) OR @Device = '')
 			AND ( @Site = 'ALL'
-				  OR EXISTS(SELECT 1 From #tmpSiteSuper s WHERE s.srecommend = b.srecommend)
+				  OR EXISTS(SELECT 1 From #tmpSiteSuper s WHERE s.recommend = b.recommend)
 				)
 			AND (
 				@HousePTType = 0

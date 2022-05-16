@@ -58,6 +58,7 @@ AS
 		20210120@Cherry: Integrate Saba Jackpot (#148293)
 		20210506@Cherry: Integrate VGaming Jackpot (#154250)
 		20220304@Cherry: Enhance username search for Non-sport games statistics report (#144260)
+		20220512@Cherry: Hot fix (#172607)
 
 	Param's Explanation:
 		- @username:  + Search by keyword, member only
@@ -351,19 +352,19 @@ BEGIN
 	-- End Product Group
 	
 	-- Get Site	
-	CREATE TABLE #tmp_Company (SiteName VARCHAR(50), Srecommend INT, isDeposit BIT)
+	CREATE TABLE #tmp_Company (SiteName VARCHAR(50), recommend INT, isDeposit BIT)
 
 	IF @Site <> 'ALL'
 	BEGIN
 		INSERT INTO #tmp_Site (Site)
 		SELECT RTRIM(LTRIM(val)) FROM dbo.strSplit(@Site, ',')
 
-		INSERT INTO #tmp_Company (SiteName, Srecommend, isDeposit)
-		SELECT s.Site, c.srecommend, ss.isDeposit
+		INSERT INTO #tmp_Company (SiteName, recommend, isDeposit)
+		SELECT s.Site, c.recommend, ss.isDeposit
 		FROM #tmp_Site s
 			INNER JOIN dbo.Site ss WITH (NOLOCK) ON s.Site = ss.site
 			INNER JOIN dbo.Customer c WITH (NOLOCK) ON ss.Site = c.site
-		WHERE c.roleid = 4
+		WHERE c.roleid = 2
 	END
 	-- Don't need to handle 'ALL' site, because with this case we will get all ticket
                         
@@ -382,7 +383,7 @@ BEGIN
                         SuperId                 
 	-- End ExtraPT
 
-	CREATE NONCLUSTERED INDEX Idx_SrecommendID ON #tmp_Company (Srecommend)
+	CREATE NONCLUSTERED INDEX Idx_SrecommendID ON #tmp_Company (recommend)
 	-- End Site				
 	
 	INSERT INTO #tmpContributionBettype (Bettype)
@@ -489,7 +490,7 @@ BEGIN
 			AND (@Username = '' OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
 			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
-					  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.srecommend = b.srecommend))
+					  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
 			)
 			AND (
 				@HousePTType = 0
@@ -571,7 +572,7 @@ BEGIN
 				AND (@Username = '' OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
 				AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 				AND ( @Site = 'ALL'
-						  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.srecommend = b.srecommend))
+						  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
 				)
 				AND (
 					@HousePTType = 0
@@ -647,7 +648,7 @@ BEGIN
 				AND (@Username = '' OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
 				AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 				AND ( @Site = 'ALL'
-						  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.srecommend = b.srecommend))
+						  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
 				)
 				AND (
 					@HousePTType = 0
@@ -730,7 +731,7 @@ BEGIN
 				AND (@Username = '' OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
 				AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 				AND ( @Site = 'ALL'
-						  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.srecommend = b.srecommend))
+						  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
 				)
 				AND (
 					@HousePTType = 0
@@ -813,7 +814,7 @@ BEGIN
 			AND (@Username = '' OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
 			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
-					  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.srecommend = b.srecommend))
+					  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
 			)
 			AND (
 				@HousePTType = 0
@@ -887,7 +888,7 @@ BEGIN
 			AND (@Username = '' OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
 			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
-					  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.srecommend = b.srecommend))
+					  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
 			)
 			AND (
 				@HousePTType = 0
@@ -967,7 +968,7 @@ BEGIN
 			AND (@Username = '' OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
 			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
-					  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.srecommend = b.srecommend))
+					  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
 			)
 			AND (
 				@HousePTType = 0
@@ -1044,7 +1045,7 @@ BEGIN
 			AND (@Username = '' OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
 			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
-					  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.srecommend = b.srecommend))
+					  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
 			)
 			AND (
 				@HousePTType = 0
@@ -1123,7 +1124,7 @@ BEGIN
 			AND (@Username = '' OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
 			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
-					  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.srecommend = b.srecommend))
+					  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
 			)
 			AND (
 				@HousePTType = 0
@@ -1200,7 +1201,7 @@ BEGIN
 			AND (@Username = '' OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
 			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
-					  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.srecommend = b.srecommend))
+					  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
 			)
 			AND (
 				@HousePTType = 0
@@ -1285,7 +1286,7 @@ BEGIN
 			AND (@Username = '' OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
 			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
-					  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.srecommend = b.srecommend))
+					  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
 			)
 			AND (
 				@HousePTType = 0
@@ -1359,7 +1360,7 @@ BEGIN
 			AND (@Username = '' OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
 			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
-					  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.srecommend = b.srecommend))
+					  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
 			)
 			AND (
 				@HousePTType = 0

@@ -64,6 +64,7 @@ AS
 		20210506@Cherry: Integrate VGaming Jackpot (#154250)
 		20211025@Cherry: Hot fix (#163601)
 		20220304@Cherry: Enhance username search for Non-sport games statistics report (#144260)
+		20220512@Cherry: Hot fix (#172607)
 
 	Param's Explanation:
 		- @username: search keyword
@@ -297,7 +298,7 @@ BEGIN
 
 	-- Get Site	
 	CREATE TABLE #tmp_Site (Site VARCHAR(50))
-	CREATE TABLE #tmp_Company (SiteName VARCHAR(50), srecommend INT)
+	CREATE TABLE #tmp_Company (SiteName VARCHAR(50), recommend INT)
 	CREATE TABLE #tmp_MemIDs (CustID INT PRIMARY KEY, roleID TINYINT)
 
 	DECLARE @CID INT, @IsFilterCust BIT
@@ -351,12 +352,12 @@ BEGIN
 		INSERT INTO #tmp_Site (Site)
 		SELECT RTRIM(LTRIM(val)) FROM dbo.strSplit(@Site, ',')
 
-		INSERT INTO #tmp_Company (SiteName, Srecommend)
-		SELECT s.Site, c.srecommend
+		INSERT INTO #tmp_Company (SiteName, recommend)
+		SELECT s.Site, c.recommend
 		FROM #tmp_Site s
 			INNER JOIN dbo.Site ss WITH (NOLOCK) ON s.Site = ss.site
 			INNER JOIN dbo.Customer c WITH (NOLOCK) ON ss.Site = c.site
-		WHERE c.roleid = 4
+		WHERE c.roleid = 2
 
 		IF @Username <> ''
 		BEGIN
@@ -370,7 +371,7 @@ BEGIN
 						dbo.Customer c WITH (NOLOCK)
 						INNER JOIN #CustUser cu ON c.custid = cu.CustID
 					WHERE c.roleid = 1
-						AND EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.srecommend = tc.srecommend)
+						AND EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.recommend = tc.recommend)
 						AND NOT EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE c.custId = m.CustID)
 				END
 				IF @RoleID = 2
@@ -381,7 +382,7 @@ BEGIN
 						dbo.Customer c WITH (NOLOCK)
 						INNER JOIN #CustUser cu ON c.recommend = cu.CustID
 					WHERE c.roleid = 1
-						AND EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.srecommend = tc.srecommend)
+						AND EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.recommend = tc.recommend)
 						AND NOT EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE c.custId = m.CustID)
 				END
 				
@@ -393,7 +394,7 @@ BEGIN
 						dbo.Customer c WITH (NOLOCK)
 						INNER JOIN #CustUser cu ON c.mrecommend = cu.CustID
 					WHERE c.roleid = 1
-						AND EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.srecommend = tc.srecommend)
+						AND EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.recommend = tc.recommend)
 						AND NOT EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE c.custId = m.CustID)
 				END
 				
@@ -405,7 +406,7 @@ BEGIN
 						dbo.Customer c WITH (NOLOCK)
 						INNER JOIN #CustUser cu ON c.srecommend = cu.CustID
 					WHERE c.roleid = 1
-						AND EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.srecommend = tc.srecommend)
+						AND EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.recommend = tc.recommend)
 						AND NOT EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE c.custId = m.CustID)
 				END
 			END
@@ -418,7 +419,7 @@ BEGIN
 					FROM
 						dbo.Customer c WITH (NOLOCK)
 					WHERE c.custid = @CID AND roleid = 1
-						AND EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.srecommend = tc.srecommend)
+						AND EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.recommend = tc.recommend)
 				END
 				ELSE IF @RoleID = 2
 				BEGIN
@@ -427,7 +428,7 @@ BEGIN
 					FROM
 						dbo.Customer c WITH (NOLOCK)
 					WHERE c.recommend = @CID AND roleid = 1
-						AND EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.srecommend = tc.srecommend)
+						AND EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.recommend = tc.recommend)
 				END
 				ELSE IF @RoleID = 3
 				BEGIN
@@ -436,7 +437,7 @@ BEGIN
 					FROM
 						dbo.Customer c WITH (NOLOCK)
 					WHERE c.mrecommend = @CID AND roleid = 1
-						AND EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.srecommend = tc.srecommend)
+						AND EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.recommend = tc.recommend)
 				END
 				ELSE IF @RoleID = 4
 				BEGIN
@@ -445,7 +446,7 @@ BEGIN
 					FROM
 						dbo.Customer c WITH (NOLOCK)
 					WHERE c.srecommend = @CID AND roleid = 1
-						AND EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.srecommend = tc.srecommend)
+						AND EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.recommend = tc.recommend)
 				END
 			END
 		END
@@ -456,7 +457,7 @@ BEGIN
 			FROM
 				dbo.Customer c WITH (NOLOCK)
 			WHERE c.roleid = 1
-				AND EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.srecommend = tc.srecommend)
+				AND EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.recommend = tc.recommend)
 		END
 	END
 	ELSE
