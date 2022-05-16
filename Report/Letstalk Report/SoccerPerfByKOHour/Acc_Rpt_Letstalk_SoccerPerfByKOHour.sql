@@ -173,7 +173,6 @@ BEGIN
 		AND b.statusID IN (112, 113) --Won, Lose
 		AND b.currency <> 20
 		AND b.bettype NOT IN (29, 38, 10) --exclude parlay, Bet Builder, outright
-		AND b.ruben = 1
 		GROUP BY m.LeagueID
 			,(CASE WHEN ABS(b.modds) = 0.25 THEN 1 ELSE 0 END)
 			,(CASE WHEN b.recommend = 52466 THEN 1 ELSE 0 END)
