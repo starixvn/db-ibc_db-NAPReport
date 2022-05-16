@@ -30,6 +30,9 @@ BEGIN
 		,@FWLDate SMALLDATETIME
 		,@TWLDate SMALLDATETIME
 		,@MoveBetsDay SMALLDATETIME
+		,@KOTimeAsText VARCHAR(100)
+		,@KOStartTimeGMT8 SMALLDATETIME
+		,@KOEndTimeGMT8 SMALLDATETIME
 	
 	CREATE TABLE #tmpRawData (
 		LeagueID INT
@@ -56,7 +59,36 @@ BEGIN
 		,MatchID INT
 		,LeagueID INT
 	)
+	
+	--Build KO Time as Text
+	SELECT @KOStartTimeGMT8 = DATEADD(HOUR, 12, @KOStartTime4GMT)
+		,@KOEndTimeGMT8 = DATEADD(MINUTE, -1, DATEADD(HOUR, 12, @KOEndTime4GMT))
 
+		
+	IF CONVERT(DATE, @KOStartTimeGMT8) = CONVERT(DATE, @KOEndTimeGMT8)
+	BEGIN
+		--20220511 - 22:00-23:59 (GMT +8)
+		SELECT @KOTimeAsText = CONVERT(VARCHAR, @KOStartTimeGMT8, 112)
+				+ ' - '
+				+ CONVERT(VARCHAR(5), @KOStartTimeGMT8, 108)
+				+ '-'
+				+ CONVERT(VARCHAR(5), @KOEndTimeGMT8, 108)
+				+ ' (GMT +8)'
+	END
+	ELSE
+	BEGIN
+		--20220511-22:00 - 20220511-23:59 (GMT +8)
+		SELECT @KOTimeAsText = CONVERT(VARCHAR, @KOStartTimeGMT8, 112)
+				+ '-'
+				+ CONVERT(VARCHAR(5), @KOStartTimeGMT8, 108)
+				+ ' - '
+				+ CONVERT(VARCHAR, @KOEndTimeGMT8, 112)
+				+ '-'
+				+ CONVERT(VARCHAR(5), @KOEndTimeGMT8, 108)
+				+ ' (GMT +8)'
+	END
+	
+	--Get Data by KO Time
 	SELECT @SabaLeagueGroupID = VValue
 	FROM DBWH.bodb_account.dbo.SystemSettings WITH (NOLOCK)
 	WHERE VID = 5
@@ -218,13 +250,16 @@ BEGIN
 		,TurnoverIBC
 	FROM CTE_Lose
 	
-	--return data
+	--Return data
 	SELECT GroupName
 		,LeagueName
 		,Winloss
 		,Turnover
 	FROM #tmpData AS d
 		LEFT JOIN bodb02.dbo.league AS l WITH (NOLOCK) ON d.LeagueID = l.leagueid
+	
+	--Return KO Time As Text
+	SELECT @KOTimeAsText AS KOTimeAsText
 	
 	DROP TABLE #tmpData
 	DROP TABLE #tmpRawData
