@@ -19,6 +19,7 @@ AS
      - 20210603@Jaden: Include 8RM data (#145586)
      - 20220124@Jaden: Separate TM corners bet type (#145519)
 	 - 20220314@Roy: extend data type of extrainfo
+     - 20220517@Jaden: add leaguename (#145519)
 	 */
 BEGIN 
     Create table #tmp_data
@@ -148,6 +149,7 @@ BEGIN
         Bettime,        
         cast(b.transid as varchar(100)) 'transid',
         s.SportName,
+        l.leaguename,
         ISNULL(
             t1.teamname + ' - vs - ' + t2.teamname,
             'Combine Parlay Match'
@@ -201,6 +203,7 @@ BEGIN
         LEFT JOIN team t1 WITH (nolock) on b.homeid = t1.teamid
         LEFT JOIN team t2 WITH(nolock) on b.awayid = t2.teamid 
         LEFT JOIN match m (NOLOCK) ON b.matchid = m.matchid
+        LEFT JOIN league l (NOLOCK) ON l.leagueid=b.leagueid
 	order by cast(b.rptdate as date),
         transdate
 
