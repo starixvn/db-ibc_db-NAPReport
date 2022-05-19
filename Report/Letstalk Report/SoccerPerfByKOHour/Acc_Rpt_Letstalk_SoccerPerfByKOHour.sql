@@ -112,6 +112,7 @@ BEGIN
 				FROM bodb02.dbo.strSplit(@SabaLeagueGroupID, ',')
 				)
 			)--Real Soccer only
+		AND l.isTest = 0
 		AND m.GlobalShowTime >= @KOStartTime4GMT
 		AND m.GlobalShowTime < @KOEndTime4GMT
 	OPTION (RECOMPILE)
