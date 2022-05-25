@@ -261,44 +261,6 @@ BEGIN
 	--Return KO Time As Text
 	SELECT @KOTimeAsText AS KOTimeAsText
 	
-	--Write log for Monitor
-	DECLARE @Exec_Time DATETIME = GETDATE()
-		,@InParam VARCHAR(1000) = 'KOStartTime4GMT=' + CONVERT(VARCHAR, @KOStartTime4GMT) + '|KOEndTime4GMT=' + CONVERT(VARCHAR, @KOEndTime4GMT) + '|TopLeagueWL=' + CONVERT(VARCHAR, @TopLeagueWL)
-	IF EXISTS (SELECT 1 FROM #tmpMatch)
-	BEGIN
-		INSERT INTO DBDW2.bodb_Adhoc.dbo.Monitor_Letstalk_SoccerPerfByKOHour (
-			Exec_Time
-			,InParam
-			,LeagueID
-			,MatchID
-			,EventDate
-			,GlobalShowTime
-		)
-		SELECT @Exec_Time AS Exec_Time
-			,@InParam AS InParam
-			,m.LeagueID
-			,m.MatchID
-			,m.EventDate
-			,m1.GlobalShowTime
-		FROM #tmpMatch AS m
-			LEFT JOIN bodb02.dbo.match AS m1 WITH(NOLOCK) ON m.MatchID = m1.MatchID
-		ORDER BY m.LeagueID
-			,m.MatchID
-			,m.EventDate
-			,m1.GlobalShowTime
-	END
-	ELSE
-	BEGIN
-		INSERT INTO DBDW2.bodb_Adhoc.dbo.Monitor_Letstalk_SoccerPerfByKOHour (
-			Exec_Time
-			,InParam
-			,Info
-		)
-		SELECT @Exec_Time AS Exec_Time
-			,@InParam AS InParam
-			,'have no match' AS Info
-	END
-	
 	DROP TABLE #tmpData
 	DROP TABLE #tmpRawData
 	DROP TABLE #tmpMatch
