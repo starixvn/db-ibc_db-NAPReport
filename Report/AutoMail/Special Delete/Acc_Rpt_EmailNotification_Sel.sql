@@ -15,6 +15,7 @@ AS
 	Task: Get recipient list for Abnormal Bet
 	Revisions:		
 		- 20220428@Cherry: Get recipient list for Abnormal Bet (#171985)
+		- 20220601@Cherry: Change the recipients (#173405)
 
 	Param's Explanation:	 
 */
@@ -26,6 +27,14 @@ AS
 	   INSERT INTO #tmpLicensee (LicenseeName)
 	   SELECT val
 	   FROM dbo.strSplit (@LicenseeName, ',')
+
+	   CREATE TABLE #BCC (LicGroup VARCHAR(50),	ContactEmail VARCHAR(50))
+
+	   INSERT INTO #BCC (LicGroup, ContactEmail) VALUES
+		('Boping','lmd@bopingholdings.com'),
+		('Zelianta','lmd@zelianta.com'),
+		('Oneworks','lmd@enpine.com'),
+		('All','automail@enpine.com')
 
 	   SELECT t.RegisteredLicenseeName 
 			,(SELECT c.ContactEmail  
@@ -46,6 +55,12 @@ AS
 						   AND c.LicenseeID = t.LicenseeId  
 				FOR XML RAW('row'), ROOT('root')  
 			) CcList  
+			,(SELECT b.ContactEmail
+			  FROM dbo.LicenseeTypes lt WITH(NOLOCK)
+				INNER JOIN #BCC b ON (lt.TypeName = b.LicGroup OR b.LicGroup = 'All')
+									AND lt.TypeId = t.TypeId
+				FOR XML RAW('row'), ROOT('root')  
+			) BccList
 		FROM dbo.Licensee t WITH(NOLOCK)
 			INNER JOIN dbo.LicenseeCategoryAssigned lc WITH(NOLOCK)    
 					ON t.LicenseeId = lc.LicenseeId  
@@ -55,5 +70,6 @@ AS
 				)
 
 		DROP TABLE #tmpLicensee
+		DROP TABLE #BCC
 
     END
