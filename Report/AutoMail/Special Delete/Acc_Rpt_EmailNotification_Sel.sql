@@ -56,9 +56,10 @@ AS
 				FOR XML RAW('row'), ROOT('root')  
 			) CcList  
 			,(SELECT b.ContactEmail
-			  FROM dbo.LicenseeTypes lt WITH(NOLOCK)
+			  FROM dbo.Licensee t1 WITH(NOLOCK) 
+				LEFT JOIN dbo.LicenseeTypes lt WITH(NOLOCK) ON lt.TypeId = t1.TypeId
 				INNER JOIN #BCC b ON (lt.TypeName = b.LicGroup OR b.LicGroup = 'All')
-									AND lt.TypeId = t.TypeId
+			  WHERE t1.LicenseeId = t.LicenseeId
 				FOR XML RAW('row'), ROOT('root')  
 			) BccList
 		FROM dbo.Licensee t WITH(NOLOCK)
