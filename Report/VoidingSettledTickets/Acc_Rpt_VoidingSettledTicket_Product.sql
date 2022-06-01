@@ -134,7 +134,7 @@ BEGIN
 		INNER JOIN bodb02.dbo.bettrans b (NOLOCK) ON z.custid = b.custid AND z.transid = b.transid 
 	WHERE b.Bettype in (SELECT Bettype FROM #Bettype)
 		  AND z.status in ('WON','LOSE','DRAW')
-          AND z.comstatus <> 'CO'
+          AND (z.comstatus <> 'CO' OR z.comstatus IS NULL)
 		  AND b.winlostdate = @WinlostDate
 		  AND (@VoidTime = '' OR z.transdate >= @VoidTime)
 		  AND b.currency <> 20
