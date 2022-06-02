@@ -6,6 +6,7 @@ GO
 ALTER PROCEDURE dbo.Acc_Rpt_EmailNotification_Sel
 	@LicenseeName     NVARCHAR(MAX) = 'ALL'
    , @CategoryId     INT = 7
+   , @IsTest     BIT         = 0 
 AS
 
 /*
@@ -34,7 +35,8 @@ AS
 		('Boping','lmd@bopingholdings.com'),
 		('Zelianta','lmd@zelianta.com'),
 		('Oneworks','lmd@enpine.com'),
-		('All','automail@enpine.com')
+		('All','automail@enpine.com'),
+		('QC','qa@starixvn.com')
 
 	   SELECT t.RegisteredLicenseeName 
 			,(SELECT c.ContactEmail  
@@ -58,7 +60,8 @@ AS
 			,(SELECT b.ContactEmail
 			  FROM dbo.Licensee t1 WITH(NOLOCK) 
 				LEFT JOIN dbo.LicenseeTypes lt WITH(NOLOCK) ON lt.TypeId = t1.TypeId
-				INNER JOIN #BCC b ON (lt.TypeName = b.LicGroup OR b.LicGroup = 'All')
+				INNER JOIN #BCC b ON ((lt.TypeName = b.LicGroup OR b.LicGroup = 'All') AND @IsTest = 0)
+										OR (b.LicGroup = 'QC' AND @IsTest = 1)
 			  WHERE t1.LicenseeId = t.LicenseeId
 				FOR XML RAW('row'), ROOT('root')  
 			) BccList
