@@ -29,14 +29,17 @@ AS
 	   SELECT val
 	   FROM dbo.strSplit (@LicenseeName, ',')
 
-	   CREATE TABLE #BCC (LicGroup VARCHAR(50),	ContactEmail VARCHAR(50))
+	   CREATE TABLE #BCC (LicGroup VARCHAR(50),	ContactEmail VARCHAR(50), IsTest BIT)
 
-	   INSERT INTO #BCC (LicGroup, ContactEmail) VALUES
-		('Boping','lmd@bopingholdings.com'),
-		('Zelianta','lmd@zelianta.com'),
-		('Oneworks','lmd@enpine.com'),
-		('All','automail@enpine.com'),
-		('QC','qa@starixvn.com')
+	   INSERT INTO #BCC (LicGroup, ContactEmail, IsTest) VALUES
+		('Boping','lmd@bopingholdings.com',0),
+		('Zelianta','lmd@zelianta.com',0),
+		('Oneworks','lmd@enpine.com',0),
+		('All','automail@enpine.com',0),
+		('QC','qa@starixvn.com',1),
+		('Boping','kaka.huynh@starixvn.com',1),
+		('Zelianta','megan.dinh@starixvn.com',1),
+		('Oneworks','megan.dinh@nexcel.com',1)
 
 	   SELECT t.RegisteredLicenseeName 
 			,(SELECT c.ContactEmail  
@@ -60,8 +63,10 @@ AS
 			,(SELECT b.ContactEmail
 			  FROM dbo.Licensee t1 WITH(NOLOCK) 
 				LEFT JOIN dbo.LicenseeTypes lt WITH(NOLOCK) ON lt.TypeId = t1.TypeId
-				INNER JOIN #BCC b ON ((lt.TypeName = b.LicGroup OR b.LicGroup = 'All') AND @IsTest = 0)
-										OR (b.LicGroup = 'QC' AND @IsTest = 1)
+				INNER JOIN #BCC b ON (lt.TypeName = b.LicGroup 
+										OR b.LicGroup = 'All'
+										OR b.LicGroup = 'QC'
+									) AND b.IsTest = @IsTest
 			  WHERE t1.LicenseeId = t.LicenseeId
 				FOR XML RAW('row'), ROOT('root')  
 			) BccList
