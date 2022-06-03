@@ -6,6 +6,7 @@ GO
 ALTER PROCEDURE dbo.Acc_Rpt_EmailNotification_Sel
 	@LicenseeName     NVARCHAR(MAX) = 'ALL'
    , @CategoryId     INT = 7
+   , @IsTest     BIT         = 0 
 AS
 
 /*
@@ -15,6 +16,7 @@ AS
 	Task: Get recipient list for Abnormal Bet
 	Revisions:		
 		- 20220428@Cherry: Get recipient list for Abnormal Bet (#171985)
+		- 20220601@Cherry: Change the recipients (#173405)
 
 	Param's Explanation:	 
 */
@@ -26,6 +28,18 @@ AS
 	   INSERT INTO #tmpLicensee (LicenseeName)
 	   SELECT val
 	   FROM dbo.strSplit (@LicenseeName, ',')
+
+	   CREATE TABLE #BCC (LicGroup VARCHAR(50),	ContactEmail VARCHAR(50), IsTest BIT)
+
+	   INSERT INTO #BCC (LicGroup, ContactEmail, IsTest) VALUES
+		('Boping','lmd@bopingholdings.com',0),
+		('Zelianta','lmd@zelianta.com',0),
+		('Oneworks','lmd@enpine.com',0),
+		('All','automail@enpine.com',0),
+		('QC','qa@starixvn.com',1),
+		('Boping','kaka.huynh@starixvn.com',1),
+		('Zelianta','megan.dinh@starixvn.com',1),
+		('Oneworks','megan.dinh@nexcel.com',1)
 
 	   SELECT t.RegisteredLicenseeName 
 			,(SELECT c.ContactEmail  
@@ -46,6 +60,16 @@ AS
 						   AND c.LicenseeID = t.LicenseeId  
 				FOR XML RAW('row'), ROOT('root')  
 			) CcList  
+			,(SELECT b.ContactEmail
+			  FROM dbo.Licensee t1 WITH(NOLOCK) 
+				LEFT JOIN dbo.LicenseeTypes lt WITH(NOLOCK) ON lt.TypeId = t1.TypeId
+				INNER JOIN #BCC b ON (lt.TypeName = b.LicGroup 
+										OR b.LicGroup = 'All'
+										OR b.LicGroup = 'QC'
+									) AND b.IsTest = @IsTest
+			  WHERE t1.LicenseeId = t.LicenseeId
+				FOR XML RAW('row'), ROOT('root')  
+			) BccList
 		FROM dbo.Licensee t WITH(NOLOCK)
 			INNER JOIN dbo.LicenseeCategoryAssigned lc WITH(NOLOCK)    
 					ON t.LicenseeId = lc.LicenseeId  
@@ -55,5 +79,6 @@ AS
 				)
 
 		DROP TABLE #tmpLicensee
+		DROP TABLE #BCC
 
     END
