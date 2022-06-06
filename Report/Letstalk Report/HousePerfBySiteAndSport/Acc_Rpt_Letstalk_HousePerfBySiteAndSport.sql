@@ -1,0 +1,1045 @@
+/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+ALTER PROCEDURE Acc_Rpt_Letstalk_HousePerfBySiteAndSport
+	@ExecTime4GMT SMALLDATETIME
+AS
+/*
+	Created: Roy@20220531
+	Task: Get House WL At Exec Time
+	DB: DBACC.bodb02
+
+	Revisions:
+		20220531@Roy: Letstalk Report - House Performance by Site & Sport (#173219)
+
+	Param's Explanation:
+		@ExecTime4GMT: The exec time (GMT-4)
+	
+	Example:
+		EXEC bodb02.dbo.Acc_Rpt_Letstalk_HousePerfBySiteAndSport
+			@ExecTime4GMT = '2022-06-03 03:00:00'
+*/
+BEGIN
+
+	SET NOCOUNT ON
+	
+	DECLARE @DayOffset INT
+		,@WLDate SMALLDATETIME
+		,@Title VARCHAR(20)
+	
+	SET @DayOffset = (CASE WHEN DATEPART(HOUR, @ExecTime4GMT) >= 2
+								THEN 0
+							ELSE - 1
+							END)
+	SET @WLDate = DATEADD(dd, DATEDIFF(dd, 0, @ExecTime4GMT), @DayOffset)
+	
+	--Build Exec Time as Text
+	IF (@DayOffset = 0)
+	BEGIN
+		SET @Title = CONVERT(VARCHAR(5), @WLDate, 1)
+		SET @Title = @Title + ' ' + TRIM(RIGHT(CONVERT(VARCHAR, @ExecTime4GMT, 100), 7)) + ' GMT-4'
+	END
+	ELSE
+	BEGIN
+		SET @Title = CONVERT(VARCHAR, @WLDate, 101)
+	END
+	
+	--Make sure WLDate only in range [bettrans]
+	IF EXISTS (
+		SELECT 1
+		FROM OPENQUERY(DBACC, 'EXEC bodb02.dbo.[Age_SelBalanceUpDay]')
+		WHERE @WLDate <= MoveBetsDay
+	)
+	BEGIN
+		SELECT @Title AS Title
+		RETURN
+	END
+	
+	--CREATE temp tables--
+	CREATE TABLE #tmpDWSite (
+		[Site] VARCHAR(20)
+		,IsDeposit BIT
+	)
+	
+	CREATE TABLE #tmpMatch (
+		MatchID INT
+	)
+	
+	CREATE TABLE #tmpRecommend (
+		Recommend INT
+	)
+	
+	CREATE TABLE #tmpCustomer (
+		CustID INT
+		,Site VARCHAR(20)
+		,IsDeposit BIT
+	)
+	
+	CREATE TABLE #tmpProductBettype (
+		ProductID INT
+		,Bettype INT
+		,RefTable TINYINT
+	)
+	
+	CREATE TABLE #tmpDWBettypeSource (
+		Bettype INT
+		,SourceTable VARCHAR(50)
+	)
+	
+	CREATE TABLE #tmpBettypeGroup (
+		Bettype INT
+		,BettypeGroupID SMALLINT
+	)
+	
+	CREATE TABLE #tmpRawData (
+		Site VARCHAR(20)
+		,IsDeposit BIT
+		,LeagueID INT
+		,Bettype INT
+		,IsHalf BIT
+		,LiveStatus TINYINT
+		,VarianceVR DECIMAL(9,6)
+		,WinlossIBC DECIMAL(19,4)
+		,ExtraWL DECIMAL(19,6)
+		,CommissionS DECIMAL(19,4)
+		,ExtraComm DECIMAL(19,8)
+		,TurnoverIBC DECIMAL(19,4)
+		,ExtraTO DECIMAL(19,6)
+	)
+	
+	CREATE TABLE #tmpSportBettypeGroup (
+		Sporttype INT
+		,Bettype INT
+	)
+	
+	CREATE TABLE #tmpOrderByGroupName (
+		GroupID TINYINT
+		,GroupName VARCHAR(50)
+		,OrderNo TINYINT
+	)
+	
+	CREATE TABLE #tmpResult (
+		GroupName VARCHAR(50)
+		,WinlossIBC DECIMAL(19,4)
+		,TurnoverIBC DECIMAL(19,4)
+	)	
+	
+	INSERT INTO #tmpDWBettypeSource (
+		Bettype
+		,SourceTable
+	)
+	SELECT typeid AS Bettype
+		,SourceTable
+	FROM DBWH.bodb_Account.dbo.Bettype WITH (NOLOCK)
+	
+	--Make sure SourceTable the same with DW
+	INSERT INTO #tmpProductBettype (
+		ProductID
+		,Bettype
+		,RefTable
+	)
+	SELECT DISTINCT pb.ProductID
+		,pb.Bettype
+		,CASE WHEN bs.SourceTable = 'bettransRNG' THEN 1
+			WHEN bs.SourceTable = 'bettransLC' THEN 2
+			ELSE 3
+		END AS RefTable
+	FROM dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '', 0) AS pb
+		LEFT JOIN #tmpDWBettypeSource AS bs ON pb.Bettype = bs.Bettype
+	
+	CREATE CLUSTERED INDEX CIX_tmpProductBettype ON #tmpProductBettype ( Bettype, RefTable, ProductID )
+	
+	INSERT INTO #tmpBettypeGroup (
+		Bettype
+		,BettypeGroupID
+	)
+	SELECT Bettype
+		,BettypeGroupID
+	FROM DBWH.bodb_Account.dbo.BettypeGroup WITH (NOLOCK)
+	WHERE BettypeGroupID in ( 6, 10 ) --Prize Tickets & Contribution Tickets
+	GROUP BY Bettype
+		,BettypeGroupID
+	
+	CREATE CLUSTERED INDEX CIX_tmpBettypeGroup ON #tmpBettypeGroup ( Bettype, BettypeGroupID )
+	
+	INSERT INTO #tmpDWSite (
+		Site
+		,IsDeposit
+		)
+	SELECT Site
+		,IsDeposit
+	FROM DBWH.bodb_Account.dbo.tbl_Site WITH (NOLOCK)
+	GROUP BY Site
+		,IsDeposit
+
+	--------------------------------Get Raw data------------------------------
+	DECLARE @Parl_LeagueID INT --dummy Parlay LeagueID
+		,@NS_LeagueID INT --dummy Non-Sports LeagueID
+	
+	--make sure dummy LeagueID NOT exists IN [League] table
+	SELECT @Parl_LeagueID = (MIN(LeagueID) - 1)
+		,@NS_LeagueID = (MIN(LeagueID) - 2)
+	FROM bodb02.dbo.League WITH (NOLOCK)
+	
+	--------------------------------bettrans----------------------------------
+	INSERT INTO #tmpMatch ( MatchID )
+	SELECT MatchID
+	FROM bodb02.dbo.bettrans AS b WITH (NOLOCK)
+	WHERE winlostdate = @WLDate
+	GROUP BY MatchID
+	CREATE UNIQUE CLUSTERED INDEX CIX_tmpMatch ON #tmpMatch ( MatchID )
+	
+	INSERT INTO #tmpRecommend ( Recommend )
+	SELECT Recommend
+	FROM bodb02.dbo.bettrans AS b WITH (NOLOCK)
+	WHERE winlostdate = @WLDate
+	GROUP BY Recommend
+
+	INSERT INTO #tmpCustomer (
+		CustID
+		,Site
+		,IsDeposit
+	)
+	SELECT DISTINCT c.CustID
+		,(CASE WHEN c.CustID = 52466 THEN '8RM'
+		ELSE c.Site
+		END) AS Site
+		,s.IsDeposit
+	FROM dbo.vw_Customer AS c WITH (NOLOCK)
+		INNER JOIN #tmpDWSite AS s WITH (NOLOCK) ON c.Site = s.Site
+	WHERE c.CustID IN (
+			SELECT Recommend
+			FROM #tmprecommend
+			)
+	OPTION (RECOMPILE)
+	CREATE UNIQUE CLUSTERED INDEX CIX_tmpCustomer ON #tmpCustomer ( CustID )
+	
+	INSERT INTO #tmpRawData (
+		Site
+		,IsDeposit
+		,LeagueID
+		,Bettype
+		,IsHalf
+		,LiveStatus
+		,VarianceVR
+		,WinlossIBC
+		,ExtraWL
+		,CommissionS
+		,ExtraComm
+		,TurnoverIBC
+		,ExtraTO
+	)
+	SELECT c.Site
+		,c.IsDeposit
+		,CASE WHEN b.bettype = 29 THEN @Parl_LeagueID
+			WHEN pb.ProductID <> 1 THEN @NS_LeagueID
+			WHEN m.matchid IS NOT NULL THEN m.leagueid
+			WHEN o.orid IS NOT NULL THEN o.leagueid
+			ELSE @NS_LeagueID
+		END AS LeagueID
+		,b.Bettype
+		,(CASE WHEN (
+				(
+					b.bettype < 999
+					OR b.bettype BETWEEN 1301 AND 1399
+					OR b.bettype BETWEEN 9001 AND 9399
+					OR b.bettype BETWEEN 9400 AND 9998
+					)
+				AND b.bettype NOT IN (
+					29
+					,38
+					,911
+					,912
+					,913
+					,914
+					) -- Parlay, betbuilder, Cashout
+				AND b.bettype NOT BETWEEN 81 AND 120 --Number Game
+				AND ABS(b.modds) = 0.25
+				)
+			THEN 1
+		ELSE 0
+		END) AS IsHalf
+		,(CASE WHEN b.bettype = 29 THEN b.livehomescore
+		ELSE CAST(b.liveindicator AS TINYINT)
+		END) AS LiveStatus --0: Nonlive | 1:Live | 2: Mixed
+		,CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9,6)) AS VarianceVR
+		--------------------------------------------------------------------------
+		,SUM((CASE WHEN bg.BettypeGroupID = 6 THEN 0 --Prize Tickets
+			  WHEN bg.BettypeGroupID = 10 THEN b.swinlost + b.mwinlost + b.awinlost --Contribution Tickets
+			  ELSE (b.winlost - b.actual_stake) + b.swinlost + b.mwinlost + b.awinlost
+			END)  * b.actualrate) AS WinlossIBC
+		,SUM(CASE WHEN b.tpositiontaking = 1 THEN 0
+				ELSE (b.winlost - b.actual_stake) * CAST(b.epositiontaking AS DECIMAL(10, 8)) * b.actualrate
+			END) AS ExtraWL 
+		,SUM(b.scomm * b.actualrate) AS CommissionS
+		,CAST(SUM((CASE WHEN b.tpositiontaking = 1 THEN 0
+				ELSE b.scomm * CAST(b.epositiontaking AS DECIMAL(10, 8)) / (1 - b.tpositiontaking)
+			END) * b.actualrate) AS DECIMAL(19, 8))AS ExtraComm
+		--------------------------------------------------------------------------
+		,SUM( (CASE WHEN pb.ProductID = 1 THEN ABS(b.stake) ELSE b.stake END)
+			* (1-b.tpositiontaking)
+			* b.actualrate ) AS TurnoverIBC
+		,SUM((CASE WHEN b.tpositiontaking = 1 THEN 0 
+				ELSE (CASE WHEN pb.ProductID = 1 THEN ABS(stake) ELSE stake END) * CAST(b.epositiontaking AS DECIMAL(10, 8))
+			END) * b.actualrate) AS ExtraTO
+	FROM bodb02.dbo.bettrans AS b WITH (NOLOCK)
+		LEFT JOIN #tmpCustomer AS c WITH (NOLOCK) ON b.Recommend = c.CustID
+		LEFT JOIN match AS m WITH (NOLOCK) ON b.matchid = m.matchid AND b.bettype NOT IN ( 10, 29)
+		LEFT JOIN outright AS o WITH (NOLOCK) ON b.matchid = o.orid AND b.bettype = 10
+		LEFT JOIN #tmpProductBettype AS pb WITH (NOLOCK) ON b.Bettype = pb.Bettype
+		LEFT JOIN #tmpBettypeGroup AS bg WITH (NOLOCK) ON b.Bettype = bg.Bettype
+	WHERE b.winlostdate = @WLDate
+		AND b.matchid IN (SELECT MatchID FROM #tmpMatch WITH (NOLOCK))
+		AND b.statusID IN (112, 113) --Won, Lose
+		AND b.currency <> 20
+		AND pb.RefTable = 3
+	GROUP BY c.Site
+		,c.IsDeposit
+		,CASE WHEN b.bettype = 29 THEN @Parl_LeagueID
+			WHEN pb.ProductID <> 1 THEN @NS_LeagueID
+			WHEN m.matchid IS NOT NULL THEN m.leagueid
+			WHEN o.orid IS NOT NULL THEN o.leagueid
+			ELSE @NS_LeagueID
+		END
+		,b.Bettype
+		,(CASE WHEN (
+				(
+					b.bettype < 999
+					OR b.bettype BETWEEN 1301 AND 1399
+					OR b.bettype BETWEEN 9001 AND 9399
+					OR b.bettype BETWEEN 9400 AND 9998
+					)
+				AND b.bettype NOT IN (
+					29
+					,38
+					,911
+					,912
+					,913
+					,914
+					) -- Parlay, betbuilder, Cashout
+				AND b.bettype NOT BETWEEN 81 AND 120 --Number Game
+				AND ABS(b.modds) = 0.25
+				)
+			THEN 1
+		ELSE 0
+		END)
+		,(CASE WHEN b.bettype = 29 THEN b.livehomescore
+		ELSE CAST(b.liveindicator AS TINYINT)
+		END)
+		,CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9,6))
+	
+	--------------------------------bettransLC--------------------------------
+	TRUNCATE TABLE #tmpRecommend
+	INSERT INTO #tmpRecommend ( Recommend )
+	SELECT Recommend
+	FROM bodb02.dbo.bettransLC AS b WITH (NOLOCK)
+	WHERE winlostdate = @WLDate
+	GROUP BY Recommend
+	UPDATE STATISTICS #tmpRecommend
+
+	TRUNCATE TABLE #tmpCustomer
+	INSERT INTO #tmpCustomer (
+		CustID
+		,Site
+		,IsDeposit
+	)
+	SELECT DISTINCT c.CustID
+		,(CASE WHEN c.CustID = 52466 THEN '8RM'
+		ELSE c.Site
+		END) AS Site
+		,s.IsDeposit
+	FROM dbo.vw_Customer AS c WITH (NOLOCK)
+		INNER JOIN #tmpDWSite AS s WITH (NOLOCK) ON c.Site = s.Site
+	WHERE c.CustID IN (
+			SELECT Recommend
+			FROM #tmprecommend
+			)
+	OPTION (RECOMPILE)
+	
+	UPDATE STATISTICS #tmpCustomer
+	
+	INSERT INTO #tmpRawData (
+		Site
+		,IsDeposit
+		,LeagueID
+		,Bettype
+		,IsHalf
+		,LiveStatus
+		,VarianceVR
+		,WinlossIBC
+		,ExtraWL
+		,CommissionS
+		,ExtraComm
+		,TurnoverIBC
+		,ExtraTO
+	)
+	SELECT c.Site
+		,c.IsDeposit
+		,@NS_LeagueID AS LeagueID
+		,b.gameID
+		,0 AS IsHalf
+		,0 AS LiveStatus
+		,CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9,6)) AS VarianceVR
+		------------------------------------------------------------------------
+		,SUM((CASE WHEN bg.BettypeGroupID = 6 THEN 0 --Prize Tickets
+			  WHEN bg.BettypeGroupID = 10 THEN b.swinlost + b.mwinlost + b.awinlost --Contribution Tickets
+			  ELSE (b.winlost - b.actual_stake) + b.swinlost + b.mwinlost + b.awinlost
+			END) * b.actualrate) AS WinlossIBC
+		,SUM(CASE WHEN b.tpositiontaking = 1 THEN 0
+				ELSE (b.winlost - b.actual_stake) * CAST(b.epositiontaking AS DECIMAL(10, 8)) * b.actualrate
+			END) AS ExtraWL 
+		,SUM(b.scomm * b.actualrate) AS CommissionS
+		,CAST(SUM((CASE WHEN b.tpositiontaking = 1 THEN 0
+				ELSE b.scomm * CAST(b.epositiontaking AS DECIMAL(10, 8)) / (1 - b.tpositiontaking)
+			END) * b.actualrate) AS DECIMAL(19, 8))AS ExtraComm
+		----------------------------------------------------------------------
+		,SUM( (CASE WHEN pb.ProductID = 1 THEN ABS(b.stake) ELSE b.stake END)
+			* (1-b.tpositiontaking)
+			* b.actualrate ) AS TurnoverIBC
+		,SUM((CASE WHEN b.tpositiontaking = 1 THEN 0 
+				ELSE (CASE WHEN pb.ProductID = 1 THEN ABS(stake) ELSE stake END) * CAST(b.epositiontaking AS DECIMAL(10, 8))
+			END) * b.actualrate) AS ExtraTO
+	FROM bodb02.dbo.bettransLC AS b WITH (NOLOCK)
+		LEFT JOIN #tmpCustomer AS c WITH (NOLOCK) ON b.Recommend = c.CustID
+		LEFT JOIN #tmpProductBettype AS pb WITH (NOLOCK) ON b.gameID = pb.Bettype
+		LEFT JOIN #tmpBettypeGroup AS bg WITH (NOLOCK) ON b.gameID = bg.Bettype
+	WHERE b.winlostdate = @WLDate
+		AND b.statusID IN (112, 113) --Won, Lose
+		AND b.currency <> 20
+		AND pb.RefTable = 2
+	GROUP BY c.Site
+		,c.IsDeposit
+		,b.gameID
+		,CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9,6))
+	
+	--------------------------------bettransRNG-------------------------------
+	TRUNCATE TABLE #tmpRecommend
+	INSERT INTO #tmpRecommend ( Recommend )
+	SELECT Recommend
+	FROM bodb02.dbo.bettransRNG AS b WITH (NOLOCK)
+	WHERE winlostdate = @WLDate
+	GROUP BY Recommend
+	UPDATE STATISTICS #tmpRecommend
+
+	TRUNCATE TABLE #tmpCustomer
+	INSERT INTO #tmpCustomer (
+		CustID
+		,Site
+		,IsDeposit
+	)
+	SELECT DISTINCT c.CustID
+		,(CASE WHEN c.CustID = 52466 THEN '8RM'
+		ELSE c.Site
+		END) AS Site
+		,s.IsDeposit
+	FROM dbo.vw_Customer AS c WITH (NOLOCK)
+		INNER JOIN #tmpDWSite AS s WITH (NOLOCK) ON c.Site = s.Site
+	WHERE c.CustID IN (
+			SELECT Recommend
+			FROM #tmprecommend
+			)
+	OPTION (RECOMPILE)
+	
+	UPDATE STATISTICS #tmpCustomer
+	
+	INSERT INTO #tmpRawData (
+		Site
+		,IsDeposit
+		,LeagueID
+		,Bettype
+		,IsHalf
+		,LiveStatus
+		,VarianceVR
+		,WinlossIBC
+		,ExtraWL
+		,CommissionS
+		,ExtraComm
+		,TurnoverIBC
+		,ExtraTO
+	)
+	SELECT c.Site
+		,c.IsDeposit
+		,@NS_LeagueID AS LeagueID
+		,b.gameID
+		,0 AS IsHalf
+		,0 AS LiveStatus --0: Nonlive | 1:Live | 2: Mixed
+		,CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9,6)) AS VarianceVR
+		----------------------------------------------------------------------
+		,SUM((CASE WHEN bg.BettypeGroupID = 6 THEN 0 --Prize Tickets
+			  WHEN bg.BettypeGroupID = 10 THEN b.ContributionStake3rd + b.swinlost + b.mwinlost + b.awinlost --Contribution Tickets
+			  ELSE (b.winlost - b.actual_stake) + b.swinlost + b.mwinlost + b.awinlost
+			END) * b.actualrate) AS WinlossIBC
+		,SUM(CASE WHEN b.tpositiontaking = 1 THEN 0
+				ELSE (b.winlost - b.actual_stake) * CAST(b.epositiontaking AS DECIMAL(10, 8)) * b.actualrate
+			END) AS ExtraWL 
+		,SUM(b.scomm * b.actualrate) AS CommissionS
+		,CAST(SUM((CASE WHEN b.tpositiontaking = 1 THEN 0
+				ELSE b.scomm * CAST(b.epositiontaking AS DECIMAL(10, 8)) / (1 - b.tpositiontaking)
+			END) * b.actualrate) AS DECIMAL(19, 8))AS ExtraComm
+		----------------------------------------------------------------------
+		,SUM( (CASE WHEN pb.ProductID = 1 THEN ABS(b.stake) ELSE b.stake END)
+			* (1-b.tpositiontaking)
+			* b.actualrate ) AS TurnoverIBC
+		,SUM((CASE WHEN b.tpositiontaking = 1 THEN 0 
+				ELSE (CASE WHEN pb.ProductID = 1 THEN ABS(stake) ELSE stake END) * CAST(b.epositiontaking AS DECIMAL(10, 8))
+			END) * b.actualrate) AS ExtraTO
+	FROM bodb02.dbo.bettransRNG AS b WITH (NOLOCK)
+		LEFT JOIN #tmpCustomer AS c WITH (NOLOCK) ON b.Recommend = c.CustID
+		LEFT JOIN #tmpProductBettype AS pb WITH (NOLOCK) ON b.gameID = pb.Bettype
+		LEFT JOIN #tmpBettypeGroup AS bg WITH (NOLOCK) ON b.gameID = bg.Bettype
+	WHERE b.winlostdate = @WLDate
+		AND b.statusID IN (112, 113) --Won, Lose
+		AND b.currency <> 20
+		AND pb.RefTable = 1
+	GROUP BY c.Site
+		,c.IsDeposit
+		,b.gameID
+		,CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9,6))
+	
+	CREATE CLUSTERED INDEX CIX_tmpRawData ON #tmpRawData ( Bettype, LeagueID, Site )
+	
+	------------------------Group Data follow spec------------------------
+	--hard code the order of group--
+	INSERT INTO #tmpOrderByGroupName (
+		GroupID, GroupName, OrderNo
+	)
+	VALUES 
+		(1,'XYZ & BO', 1)
+		,(1,'611 (Chi)', 2)
+		,(1,'733 (Mala)', 3)
+		,(1,'755 (Thai)', 4)
+		,(1,'Indo', 5)
+		,(1,'IbcIndo', 6)
+		,(1,'Others_Site', 7)
+		,(1,'Y SB', 8)
+		,(1,'Y NS', 9)
+		,(1,'C SB', 10)
+		,(1,'C NS', 11)
+		,(1,'CV SB', 12)
+		,(1,'CV NS', 13)
+		,(1,'T SB', 14)
+		,(1,'T NS', 15)
+		,(1,'TOTAL', 16)
+		
+		,(2,'Real.Soc', 17)
+		,(2,'Real.Soc(L)', 18)
+		,(2,'Real.Soc(NL)', 19)
+		,(2,'Saba.Soc', 20)
+		,(2,'Soccer PG', 21)
+		,(2,'Basket PG', 22)
+		,(2,'Real.Bas', 23)
+		,(2,'Saba.Bas', 24)
+		,(2,'Tenn', 25)
+		,(2,'E-Spo', 26)
+		,(2,'Cricket', 27)
+		,(2,'Others_SB', 28)
+		,(2,'Parl', 29)
+		,(2,'TOTAL SB', 30)
+		,(2,'8RM', 31)
+		
+		,(3,'PHAIO', 32)
+		,(3,'TimeM_HDP', 33)
+		,(3,'TimeM_OU', 34)
+	
+	--------------------------------GroupBySite---------------------------
+	;WITH CTE_CreditSite AS (
+		SELECT CASE WHEN d.Site IN ('BEST-ODDS', 'XYZBET', '8RM') THEN 'XYZ & BO'
+				WHEN d.Site IN ('611111') THEN '611 (Chi)'
+				WHEN d.Site IN ('733333') THEN '733 (Mala)'
+				WHEN d.Site IN ('755555') THEN '755 (Thai)'
+				WHEN d.Site IN ('INDO') THEN 'Indo'
+				WHEN d.Site IN ('IBCIndo') THEN 'IbcIndo'
+				WHEN d.IsDeposit = 0 OR Site IN ('Saba789') THEN 'Others_Site'
+			END AS SiteName
+			,SUM(-(WinlossIBC - ExtraWL + CommissionS - ExtraComm)) AS WinlossIBC
+			,SUM((CASE WHEN TurnoverIBC = 0 THEN 0 ELSE TurnoverIBC - ExtraTO END)
+				* (CASE WHEN VarianceVR > 0 THEN VarianceVR + 1 ELSE 1 END)
+				* (CASE WHEN IsHalf = 1 THEN 0.5 ELSE 1 END)) AS TurnoverIBC
+		FROM #tmpRawData AS d WITH (NOLOCK)
+			LEFT JOIN #tmpProductBettype AS pb WITH (NOLOCK) ON d.Bettype = pb.Bettype
+		WHERE pb.ProductID NOT IN ( 25, 31, 37 ) --Old Cash Out, Exchange, Saba Promotion
+		GROUP BY CASE WHEN d.Site IN ('BEST-ODDS', 'XYZBET', '8RM') THEN 'XYZ & BO'
+				WHEN d.Site IN ('611111') THEN '611 (Chi)'
+				WHEN d.Site IN ('733333') THEN '733 (Mala)'
+				WHEN d.Site IN ('755555') THEN '755 (Thai)'
+				WHEN d.Site IN ('INDO') THEN 'Indo'
+				WHEN d.Site IN ('IBCIndo') THEN 'IbcIndo'
+				WHEN d.IsDeposit = 0 OR Site IN ('Saba789') THEN 'Others_Site'
+			END
+	)
+	,CTE_ProductSite AS (
+		SELECT CASE WHEN pb.ProductID = 1 AND d.Site IN ('789y', 'y987') THEN 'Y SB'
+				WHEN pb.ProductID <> 1 AND d.Site IN ('789y', 'y987') THEN 'Y NS'
+				WHEN pb.ProductID = 1 AND d.Site LIKE '%CV' THEN 'CV SB'
+				WHEN pb.ProductID <> 1 AND d.Site LIKE '%CV' THEN 'CV NS'
+			END AS SiteName
+			,SUM(-(WinlossIBC - ExtraWL + CommissionS - ExtraComm)) AS WinlossIBC
+			,SUM((CASE WHEN TurnoverIBC = 0 THEN 0 ELSE TurnoverIBC - ExtraTO END)
+				* (CASE WHEN VarianceVR > 0 THEN VarianceVR + 1 ELSE 1 END)
+				* (CASE WHEN IsHalf = 1 THEN 0.5 ELSE 1 END)) AS TurnoverIBC
+		FROM #tmpRawData AS d WITH (NOLOCK)
+			LEFT JOIN #tmpProductBettype AS pb WITH (NOLOCK) ON d.Bettype = pb.Bettype
+		WHERE pb.ProductID NOT IN ( 25, 31, 37 ) --Old Cash Out, Exchange, Saba Promotion
+		GROUP BY CASE WHEN pb.ProductID = 1 AND d.Site IN ('789y', 'y987') THEN 'Y SB'
+				WHEN pb.ProductID <> 1 AND d.Site IN ('789y', 'y987') THEN 'Y NS'
+				WHEN pb.ProductID = 1 AND d.Site LIKE '%CV' THEN 'CV SB'
+				WHEN pb.ProductID <> 1 AND d.Site LIKE '%CV' THEN 'CV NS'
+			END
+	)
+	,CTE_DepositSite AS (
+		SELECT CASE WHEN d.IsDeposit = 1 AND pb.ProductID = 1 THEN 'C SB'
+				WHEN d.IsDeposit = 1 AND pb.ProductID <> 1 THEN 'C NS'
+			END AS SiteName
+			,SUM(-(WinlossIBC - ExtraWL + CommissionS - ExtraComm)) AS WinlossIBC
+			,SUM((CASE WHEN TurnoverIBC = 0 THEN 0 ELSE TurnoverIBC - ExtraTO END)
+				* (CASE WHEN VarianceVR > 0 THEN VarianceVR + 1 ELSE 1 END)
+				* (CASE WHEN IsHalf = 1 THEN 0.5 ELSE 1 END)) AS TurnoverIBC
+		FROM #tmpRawData AS d WITH (NOLOCK)
+			LEFT JOIN #tmpProductBettype AS pb WITH (NOLOCK) ON d.Bettype = pb.Bettype
+		WHERE pb.ProductID NOT IN ( 25, 31, 37 ) --Old Cash Out, Exchange, Saba Promotion
+		GROUP BY CASE WHEN d.IsDeposit = 1 AND pb.ProductID = 1 THEN 'C SB'
+				WHEN d.IsDeposit = 1 AND pb.ProductID <> 1 THEN 'C NS'
+			END
+	)
+	,CTE_SubTotalSite AS (
+		SELECT CASE WHEN pb.ProductID = 1 THEN 'T SB'
+				WHEN pb.ProductID <> 1 AND pb.ProductID <> 1 THEN 'T NS'
+			END AS SiteName
+			,SUM(-(WinlossIBC - ExtraWL + CommissionS - ExtraComm)) AS WinlossIBC
+			,SUM((CASE WHEN TurnoverIBC = 0 THEN 0 ELSE TurnoverIBC - ExtraTO END)
+				* (CASE WHEN VarianceVR > 0 THEN VarianceVR + 1 ELSE 1 END)
+				* (CASE WHEN IsHalf = 1 THEN 0.5 ELSE 1 END)) AS TurnoverIBC
+		FROM #tmpRawData AS d WITH (NOLOCK)
+			LEFT JOIN #tmpProductBettype AS pb WITH (NOLOCK) ON d.Bettype = pb.Bettype
+		WHERE pb.ProductID NOT IN ( 25, 31, 37 ) --Old Cash Out, Exchange, Saba Promotion
+		GROUP BY CASE WHEN pb.ProductID = 1 THEN 'T SB'
+				WHEN pb.ProductID <> 1 AND pb.ProductID <> 1 THEN 'T NS'
+			END
+	)
+	,CTE_TotalSite AS (
+		SELECT 'TOTAL' AS SiteName
+			,SUM(WinlossIBC) AS WinlossIBC
+			,SUM(TurnoverIBC) AS TurnoverIBC
+		FROM CTE_SubTotalSite
+	)
+	INSERT INTO #tmpResult (
+		GroupName
+		,WinlossIBC
+		,TurnoverIBC
+	)
+	SELECT SiteName
+		,WinlossIBC
+		,TurnoverIBC
+	FROM (
+		SELECT SiteName
+			,WinlossIBC
+			,TurnoverIBC
+		FROM CTE_CreditSite
+	
+		UNION ALL
+	
+		SELECT SiteName
+			,WinlossIBC
+			,TurnoverIBC
+		FROM CTE_ProductSite
+	
+		UNION ALL
+	
+		SELECT SiteName
+			,WinlossIBC
+			,TurnoverIBC
+		FROM CTE_DepositSite
+	
+		UNION ALL
+	
+		SELECT SiteName
+			,WinlossIBC
+			,TurnoverIBC
+		FROM CTE_SubTotalSite
+	
+		UNION ALL
+	
+		SELECT SiteName
+			,WinlossIBC
+			,TurnoverIBC
+		FROM CTE_TotalSite
+	) AS GroupBySite
+	WHERE SiteName IS NOT NULL
+	
+	------------------------------GroupBySB-------------------------------
+	DECLARE @SabaLeagueGroupID VARCHAR(50)
+	SELECT @SabaLeagueGroupID = VValue
+	FROM DBWH.bodb_account.dbo.SystemSettings WITH (NOLOCK)
+	WHERE VID = 5
+	
+	;WITH CTE_SabaLG AS (
+		SELECT CONVERT(SMALLINT, val) AS LeagueGroupID
+		FROM bodb02.dbo.strSplit(@SabaLeagueGroupID, ',')
+	)
+	,CTE_Sport AS (
+		SELECT CASE WHEN l.SportType = 1 AND sl.LeagueGroupID IS NULL AND d.LiveStatus = 1 THEN 'Real.Soc(L)'
+				WHEN l.SportType = 1 AND sl.LeagueGroupID IS NULL AND d.LiveStatus = 0 THEN 'Real.Soc(NL)'
+				WHEN l.SportType = 1 AND l.LeagueGroupId = 113 THEN 'Soccer PG'
+				WHEN l.SportType = 1 AND sl.LeagueGroupID IS NOT NULL THEN 'Saba.Soc'
+				
+				WHEN l.SportType = 2 AND sl.LeagueGroupID IS NULL THEN 'Real.Bas'
+				WHEN l.SportType = 2 AND l.LeagueGroupId = 122 THEN 'Basket PG'
+				WHEN l.SportType = 2 AND sl.LeagueGroupID IS NOT NULL THEN 'Saba.Bas'
+				
+				WHEN l.SportType = 5 THEN 'Tenn'
+				WHEN l.SportType = 43 THEN 'E-Spo'
+				WHEN l.SportType = 50 THEN 'Cricket'
+				WHEN d.LeagueID = @Parl_LeagueID THEN 'Parl'
+				ELSE 'Others_SB'
+			END AS SportName
+			,SUM(-(WinlossIBC - ExtraWL + CommissionS - ExtraComm)) AS WinlossIBC
+			,SUM((CASE WHEN TurnoverIBC = 0 THEN 0 ELSE TurnoverIBC - ExtraTO END)
+				* (CASE WHEN VarianceVR > 0 THEN VarianceVR + 1 ELSE 1 END)
+				* (CASE WHEN IsHalf = 1 THEN 0.5 ELSE 1 END)) AS TurnoverIBC
+		FROM #tmpRawData AS d WITH (NOLOCK)
+			LEFT JOIN bodb02.dbo.League AS l WITH (NOLOCK) ON d.LeagueID = l.LeagueID
+			LEFT JOIN CTE_SabaLG AS sl ON l.LeagueGroupID = sl.LeagueGroupID
+		WHERE ( d.LeagueID <> @NS_LeagueID OR d.Site = '8RM')
+			AND l.isTest = 0
+		GROUP BY CASE WHEN l.SportType = 1 AND sl.LeagueGroupID IS NULL AND d.LiveStatus = 1 THEN 'Real.Soc(L)'
+				WHEN l.SportType = 1 AND sl.LeagueGroupID IS NULL AND d.LiveStatus = 0 THEN 'Real.Soc(NL)'
+				WHEN l.SportType = 1 AND l.LeagueGroupId = 113 THEN 'Soccer PG'
+				WHEN l.SportType = 1 AND sl.LeagueGroupID IS NOT NULL THEN 'Saba.Soc'
+				
+				WHEN l.SportType = 2 AND sl.LeagueGroupID IS NULL THEN 'Real.Bas'
+				WHEN l.SportType = 2 AND l.LeagueGroupId = 122 THEN 'Basket PG'
+				WHEN l.SportType = 2 AND sl.LeagueGroupID IS NOT NULL THEN 'Saba.Bas'
+				
+				WHEN l.SportType = 5 THEN 'Tenn'
+				WHEN l.SportType = 43 THEN 'E-Spo'
+				WHEN l.SportType = 50 THEN 'Cricket'
+				WHEN d.LeagueID = @Parl_LeagueID THEN 'Parl'
+				ELSE 'Others_SB'
+			END
+	)
+	,CTE_RealSoc AS (
+		SELECT 'Real.Soc' AS SportName
+			,SUM(WinlossIBC) AS WinlossIBC
+			,SUM(TurnoverIBC) AS TurnoverIBC
+		FROM CTE_Sport
+		WHERE SportName IN ('Real.Soc(L)', 'Real.Soc(NL)')
+	)
+	,CTE_Total AS (
+		SELECT 'TOTAL SB' AS SportName
+			,SUM(WinlossIBC) AS WinlossIBC
+			,SUM(TurnoverIBC) AS TurnoverIBC
+		FROM CTE_Sport
+	)
+	,CTE_8RM AS (
+		SELECT '8RM' AS SportName
+			,SUM((WinlossIBC - ExtraWL + CommissionS - ExtraComm)) AS WinlossMem --Member view - opposite of above WinlossIBC
+			,SUM((CASE WHEN TurnoverIBC = 0 THEN 0 ELSE TurnoverIBC - ExtraTO END)
+				* (CASE WHEN VarianceVR > 0 THEN VarianceVR + 1 ELSE 1 END)
+				* (CASE WHEN IsHalf = 1 THEN 0.5 ELSE 1 END)) AS TurnoverIBC
+		FROM #tmpRawData AS d WITH (NOLOCK)
+			LEFT JOIN bodb02.dbo.League AS l WITH (NOLOCK) ON d.LeagueID = l.LeagueID
+		WHERE d.Site = '8RM'
+			AND l.isTest = 0
+	)
+	INSERT INTO #tmpResult (
+		GroupName
+		,WinlossIBC
+		,TurnoverIBC
+	)
+	SELECT SportName
+		,WinlossIBC
+		,TurnoverIBC
+	FROM CTE_Sport
+	
+	UNION ALL
+	
+	SELECT SportName
+		,WinlossIBC
+		,TurnoverIBC
+	FROM CTE_RealSoc
+	
+	UNION ALL
+	
+	SELECT SportName
+		,WinlossIBC
+		,TurnoverIBC
+	FROM CTE_Total
+	
+	UNION ALL
+	
+	SELECT SportName
+		,WinlossMem
+		,TurnoverIBC
+	FROM CTE_8RM
+	
+	--------------------------Group By Pool House-------------------------
+	INSERT INTO #tmpSportBettypeGroup (
+		SportType
+		,BetType
+	)
+	-- SELECT SportType
+		-- ,BetType
+	-- FROM DBWH.bodb_Adhoc.dbo.SportBettypeGroup WITH (NOLOCK)
+	-- WHERE GroupID = 1 --PHAIO
+	
+VALUES 
+(1, 2)
+,(1, 4)
+,(1, 5)
+,(1, 6)
+,(1, 9)
+,(1, 10)
+,(1, 12)
+,(1, 13)
+,(1, 14)
+,(1, 15)
+,(1, 16)
+,(1, 17)
+,(1, 18)
+,(1, 22)
+,(1, 24)
+,(1, 25)
+,(1, 26)
+,(1, 27)
+,(1, 28)
+,(1, 29)
+,(1, 30)
+,(1, 38)
+,(1, 121)
+,(1, 122)
+,(1, 123)
+,(1, 124)
+,(1, 125)
+,(1, 126)
+,(1, 127)
+,(1, 128)
+,(1, 129)
+,(1, 130)
+,(1, 131)
+,(1, 132)
+,(1, 136)
+,(1, 137)
+,(1, 138)
+,(1, 139)
+,(1, 143)
+,(1, 144)
+,(1, 221)
+,(1, 222)
+,(1, 223)
+,(1, 224)
+,(1, 225)
+,(1, 226)
+,(1, 227)
+,(1, 228)
+,(1, 229)
+,(1, 376)
+,(1, 381)
+,(1, 382)
+,(1, 383)
+,(1, 384)
+,(1, 385)
+,(1, 386)
+,(1, 387)
+,(1, 388)
+,(1, 389)
+,(1, 390)
+,(1, 391)
+,(1, 392)
+,(1, 393)
+,(1, 394)
+,(1, 395)
+,(1, 396)
+,(1, 397)
+,(1, 398)
+,(1, 399)
+,(1, 400)
+,(1, 401)
+,(1, 402)
+,(1, 403)
+,(1, 404)
+,(1, 405)
+,(1, 406)
+,(1, 407)
+,(1, 408)
+,(1, 409)
+,(1, 410)
+,(1, 411)
+,(1, 412)
+,(1, 413)
+,(1, 414)
+,(1, 415)
+,(1, 416)
+,(1, 417)
+,(1, 418)
+,(1, 419)
+,(1, 420)
+,(1, 421)
+,(1, 422)
+,(1, 423)
+,(1, 424)
+,(1, 425)
+,(1, 426)
+,(1, 427)
+,(1, 428)
+,(1, 429)
+,(1, 430)
+,(1, 431)
+,(1, 432)
+,(1, 433)
+,(1, 434)
+,(1, 435)
+,(1, 436)
+,(1, 437)
+,(1, 438)
+,(1, 439)
+,(1, 440)
+,(1, 441)
+,(1, 442)
+,(1, 443)
+,(1, 444)
+,(1, 445)
+,(1, 446)
+,(1, 447)
+,(1, 448)
+,(1, 449)
+,(1, 450)
+,(1, 451)
+,(1, 452)
+,(1, 453)
+,(1, 454)
+,(1, 455)
+,(1, 456)
+,(1, 457)
+,(1, 458)
+,(1, 459)
+,(1, 460)
+,(1, 461)
+,(1, 462)
+,(1, 463)
+,(1, 464)
+,(1, 465)
+,(1, 466)
+,(1, 467)
+,(1, 468)
+,(1, 469)
+,(1, 470)
+,(1, 471)
+,(1, 472)
+,(1, 473)
+,(1, 474)
+,(1, 475)
+,(1, 476)
+,(1, 477)
+,(1, 478)
+,(1, 479)
+,(1, 481)
+,(1, 482)
+,(1, 483)
+,(1, 484)
+,(1, 485)
+,(1, 486)
+,(1, 487)
+,(1, 488)
+,(1, 489)
+,(1, 490)
+,(1, 491)
+,(1, 492)
+,(1, 493)
+,(1, 494)
+,(1, 495)
+,(1, 496)
+,(1, 497)
+,(2, 9)
+,(2, 29)
+,(2, 38)
+,(2, 401)
+,(2, 402)
+,(2, 403)
+,(2, 404)
+,(2, 601)
+,(2, 602)
+,(2, 603)
+,(2, 604)
+,(2, 605)
+,(2, 606)
+,(2, 607)
+,(2, 608)
+,(2, 613)
+,(2, 614)
+,(2, 615)
+,(2, 616)
+,(2, 617)
+,(2, 618)
+,(2, 619)
+,(2, 620)
+,(2, 621)
+,(2, 622)
+,(2, 623)
+,(2, 624)
+,(2, 625)
+,(2, 626)
+,(2, 627)
+,(2, 628)
+,(2, 629)
+,(2, 630)
+,(2, 631)
+,(2, 632)
+,(2, 633)
+,(2, 634)
+,(2, 635)
+,(2, 636)
+,(2, 637)
+,(2, 638)
+,(2, 639)
+,(2, 640)
+,(2, 641)
+,(2, 642)
+,(2, 643)
+,(2, 644)
+,(2, 645)
+,(2, 646)
+	CREATE CLUSTERED INDEX CIX_tmpSportBettypeGroup ON #tmpSportBettypeGroup (BetType, SportType)
+	
+	INSERT INTO #tmpResult (
+		GroupName
+		,WinlossIBC
+		,TurnoverIBC
+	)
+	SELECT CASE WHEN sbg.BetType = 228 THEN 'TimeM_HDP'
+		WHEN sbg.BetType = 229 THEN 'TimeM_OU'
+		ELSE 'PHAIO'
+		END AS Market
+		,SUM(-(WinlossIBC - ExtraWL + CommissionS - ExtraComm)) AS WinlossIBC
+		,SUM((CASE WHEN TurnoverIBC = 0 THEN 0 ELSE TurnoverIBC - ExtraTO END)
+			* (CASE WHEN VarianceVR > 0 THEN VarianceVR + 1 ELSE 1 END)
+			* (CASE WHEN IsHalf = 1 THEN 0.5 ELSE 1 END)) AS TurnoverIBC
+	FROM #tmpRawData AS d WITH (NOLOCK)
+		INNER JOIN bodb02.dbo.League AS l WITH (NOLOCK) ON d.LeagueID = l.LeagueID
+		INNER JOIN #tmpSportBettypeGroup AS sbg WITH (NOLOCK) ON l.SportType = sbg.SportType AND d.BetType = sbg.BetType
+	WHERE sbg.BetType NOT IN (29) -- add for clearly, excluded while join [League]
+	GROUP BY CASE WHEN sbg.BetType = 228 THEN 'TimeM_HDP'
+		WHEN sbg.BetType = 229 THEN 'TimeM_OU'
+		ELSE 'PHAIO'
+		END
+	
+	--Return Result Set--
+	SELECT (CASE WHEN r.GroupName LIKE 'Others%' THEN 'Others' ELSE r.GroupName END) AS GroupName
+		,TurnoverIBC
+		,(CASE WHEN TurnoverIBC = 0 THEN 0 ELSE WinlossIBC/TurnoverIBC END ) AS Margin
+	FROM #tmpResult AS r
+	LEFT JOIN #tmpOrderByGroupName AS o ON r.GroupName = o.GroupName
+	ORDER BY o.GroupID
+		,o.OrderNo
+	
+	SELECT @Title AS Title
+	
+	DROP TABLE #tmpDWSite
+	DROP TABLE #tmpMatch
+	DROP TABLE #tmpRecommend
+	DROP TABLE #tmpCustomer
+	DROP TABLE #tmpProductBettype
+	DROP TABLE #tmpDWBettypeSource
+	DROP TABLE #tmpBettypeGroup
+	DROP TABLE #tmpRawData
+	DROP TABLE #tmpResult
+	DROP TABLE #tmpSportBettypeGroup
+	DROP TABLE #tmpOrderByGroupName
+END
