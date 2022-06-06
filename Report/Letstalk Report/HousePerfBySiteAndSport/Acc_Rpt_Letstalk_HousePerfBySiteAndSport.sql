@@ -616,8 +616,8 @@ BEGIN
 	)
 	,CTE_TotalSite AS (
 		SELECT 'TOTAL' AS SiteName
-			,SUM(WinlossIBC) AS WinlossIBC
-			,SUM(TurnoverIBC) AS TurnoverIBC
+			,SUM(ISNULL(WinlossIBC,0)) AS WinlossIBC 
+			,SUM(ISNULL(TurnoverIBC,0)) AS TurnoverIBC
 		FROM CTE_SubTotalSite
 	)
 	INSERT INTO #tmpResult (
@@ -628,41 +628,35 @@ BEGIN
 	SELECT SiteName
 		,WinlossIBC
 		,TurnoverIBC
-	FROM (
-		SELECT SiteName
-			,WinlossIBC
-			,TurnoverIBC
-		FROM CTE_CreditSite
-	
-		UNION ALL
-	
-		SELECT SiteName
-			,WinlossIBC
-			,TurnoverIBC
-		FROM CTE_ProductSite
-	
-		UNION ALL
-	
-		SELECT SiteName
-			,WinlossIBC
-			,TurnoverIBC
-		FROM CTE_DepositSite
-	
-		UNION ALL
-	
-		SELECT SiteName
-			,WinlossIBC
-			,TurnoverIBC
-		FROM CTE_SubTotalSite
-	
-		UNION ALL
-	
-		SELECT SiteName
-			,WinlossIBC
-			,TurnoverIBC
-		FROM CTE_TotalSite
-	) AS GroupBySite
-	WHERE SiteName IS NOT NULL
+	FROM CTE_CreditSite
+
+	UNION ALL
+
+	SELECT SiteName
+		,WinlossIBC
+		,TurnoverIBC
+	FROM CTE_ProductSite
+
+	UNION ALL
+
+	SELECT SiteName
+		,WinlossIBC
+		,TurnoverIBC
+	FROM CTE_DepositSite
+
+	UNION ALL
+
+	SELECT SiteName
+		,WinlossIBC
+		,TurnoverIBC
+	FROM CTE_SubTotalSite
+
+	UNION ALL
+
+	SELECT SiteName
+		,WinlossIBC
+		,TurnoverIBC
+	FROM CTE_TotalSite
 	
 	------------------------------GroupBySB-------------------------------
 	DECLARE @SabaLeagueGroupID VARCHAR(50)
@@ -717,15 +711,15 @@ BEGIN
 	)
 	,CTE_RealSoc AS (
 		SELECT 'Real.Soc' AS SportName
-			,SUM(WinlossIBC) AS WinlossIBC
-			,SUM(TurnoverIBC) AS TurnoverIBC
+			,SUM(ISNULL(WinlossIBC,0)) AS WinlossIBC
+			,SUM(ISNULL(TurnoverIBC,0)) AS TurnoverIBC
 		FROM CTE_Sport
 		WHERE SportName IN ('Real.Soc(L)', 'Real.Soc(NL)')
 	)
 	,CTE_Total AS (
 		SELECT 'TOTAL SB' AS SportName
-			,SUM(WinlossIBC) AS WinlossIBC
-			,SUM(TurnoverIBC) AS TurnoverIBC
+			,SUM(ISNULL(WinlossIBC,0)) AS WinlossIBC
+			,SUM(ISNULL(TurnoverIBC,0)) AS TurnoverIBC
 		FROM CTE_Sport
 	)
 	,CTE_8RM AS (
@@ -775,227 +769,10 @@ BEGIN
 		SportType
 		,BetType
 	)
-	-- SELECT SportType
-		-- ,BetType
-	-- FROM DBWH.bodb_Adhoc.dbo.SportBettypeGroup WITH (NOLOCK)
-	-- WHERE GroupID = 1 --PHAIO
-	
-VALUES 
-(1, 2)
-,(1, 4)
-,(1, 5)
-,(1, 6)
-,(1, 9)
-,(1, 10)
-,(1, 12)
-,(1, 13)
-,(1, 14)
-,(1, 15)
-,(1, 16)
-,(1, 17)
-,(1, 18)
-,(1, 22)
-,(1, 24)
-,(1, 25)
-,(1, 26)
-,(1, 27)
-,(1, 28)
-,(1, 29)
-,(1, 30)
-,(1, 38)
-,(1, 121)
-,(1, 122)
-,(1, 123)
-,(1, 124)
-,(1, 125)
-,(1, 126)
-,(1, 127)
-,(1, 128)
-,(1, 129)
-,(1, 130)
-,(1, 131)
-,(1, 132)
-,(1, 136)
-,(1, 137)
-,(1, 138)
-,(1, 139)
-,(1, 143)
-,(1, 144)
-,(1, 221)
-,(1, 222)
-,(1, 223)
-,(1, 224)
-,(1, 225)
-,(1, 226)
-,(1, 227)
-,(1, 228)
-,(1, 229)
-,(1, 376)
-,(1, 381)
-,(1, 382)
-,(1, 383)
-,(1, 384)
-,(1, 385)
-,(1, 386)
-,(1, 387)
-,(1, 388)
-,(1, 389)
-,(1, 390)
-,(1, 391)
-,(1, 392)
-,(1, 393)
-,(1, 394)
-,(1, 395)
-,(1, 396)
-,(1, 397)
-,(1, 398)
-,(1, 399)
-,(1, 400)
-,(1, 401)
-,(1, 402)
-,(1, 403)
-,(1, 404)
-,(1, 405)
-,(1, 406)
-,(1, 407)
-,(1, 408)
-,(1, 409)
-,(1, 410)
-,(1, 411)
-,(1, 412)
-,(1, 413)
-,(1, 414)
-,(1, 415)
-,(1, 416)
-,(1, 417)
-,(1, 418)
-,(1, 419)
-,(1, 420)
-,(1, 421)
-,(1, 422)
-,(1, 423)
-,(1, 424)
-,(1, 425)
-,(1, 426)
-,(1, 427)
-,(1, 428)
-,(1, 429)
-,(1, 430)
-,(1, 431)
-,(1, 432)
-,(1, 433)
-,(1, 434)
-,(1, 435)
-,(1, 436)
-,(1, 437)
-,(1, 438)
-,(1, 439)
-,(1, 440)
-,(1, 441)
-,(1, 442)
-,(1, 443)
-,(1, 444)
-,(1, 445)
-,(1, 446)
-,(1, 447)
-,(1, 448)
-,(1, 449)
-,(1, 450)
-,(1, 451)
-,(1, 452)
-,(1, 453)
-,(1, 454)
-,(1, 455)
-,(1, 456)
-,(1, 457)
-,(1, 458)
-,(1, 459)
-,(1, 460)
-,(1, 461)
-,(1, 462)
-,(1, 463)
-,(1, 464)
-,(1, 465)
-,(1, 466)
-,(1, 467)
-,(1, 468)
-,(1, 469)
-,(1, 470)
-,(1, 471)
-,(1, 472)
-,(1, 473)
-,(1, 474)
-,(1, 475)
-,(1, 476)
-,(1, 477)
-,(1, 478)
-,(1, 479)
-,(1, 481)
-,(1, 482)
-,(1, 483)
-,(1, 484)
-,(1, 485)
-,(1, 486)
-,(1, 487)
-,(1, 488)
-,(1, 489)
-,(1, 490)
-,(1, 491)
-,(1, 492)
-,(1, 493)
-,(1, 494)
-,(1, 495)
-,(1, 496)
-,(1, 497)
-,(2, 9)
-,(2, 29)
-,(2, 38)
-,(2, 401)
-,(2, 402)
-,(2, 403)
-,(2, 404)
-,(2, 601)
-,(2, 602)
-,(2, 603)
-,(2, 604)
-,(2, 605)
-,(2, 606)
-,(2, 607)
-,(2, 608)
-,(2, 613)
-,(2, 614)
-,(2, 615)
-,(2, 616)
-,(2, 617)
-,(2, 618)
-,(2, 619)
-,(2, 620)
-,(2, 621)
-,(2, 622)
-,(2, 623)
-,(2, 624)
-,(2, 625)
-,(2, 626)
-,(2, 627)
-,(2, 628)
-,(2, 629)
-,(2, 630)
-,(2, 631)
-,(2, 632)
-,(2, 633)
-,(2, 634)
-,(2, 635)
-,(2, 636)
-,(2, 637)
-,(2, 638)
-,(2, 639)
-,(2, 640)
-,(2, 641)
-,(2, 642)
-,(2, 643)
-,(2, 644)
-,(2, 645)
-,(2, 646)
+	SELECT SportType
+		,BetType
+	FROM DBWH.bodb_account.dbo.SportBettypeGroup WITH (NOLOCK)
+	WHERE GroupID = 1 --PHAIO
 	CREATE CLUSTERED INDEX CIX_tmpSportBettypeGroup ON #tmpSportBettypeGroup (BetType, SportType)
 	
 	INSERT INTO #tmpResult (
@@ -1019,6 +796,11 @@ VALUES
 		WHEN sbg.BetType = 229 THEN 'TimeM_OU'
 		ELSE 'PHAIO'
 		END
+	
+	--Remove redundant data--
+	DELETE #tmpResult
+	WHERE GroupName IS NULL
+		OR (WinlossIBC IS NULL AND TurnoverIBC IS NULL)
 	
 	--Return Result Set--
 	SELECT (CASE WHEN r.GroupName LIKE 'Others%' THEN 'Others' ELSE r.GroupName END) AS GroupName
