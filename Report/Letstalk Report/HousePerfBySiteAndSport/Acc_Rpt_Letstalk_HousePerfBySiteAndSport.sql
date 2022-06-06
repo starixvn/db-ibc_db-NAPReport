@@ -63,6 +63,10 @@ BEGIN
 		MatchID INT
 	)
 	
+	CREATE TABLE #tmpTestLeague (
+		LeagueID INT
+	)
+	
 	CREATE TABLE #tmpRecommend (
 		Recommend INT
 	)
@@ -122,6 +126,50 @@ BEGIN
 		,TurnoverIBC DECIMAL(19,4)
 	)	
 	
+	---------Insert Dimension tables----
+	--hard code the order of group--
+	INSERT INTO #tmpOrderByGroupName (
+		GroupID, GroupName, OrderNo
+	)
+	VALUES 
+		(1,'XYZ & BO', 1)
+		,(1,'611 (Chi)', 2)
+		,(1,'733 (Mala)', 3)
+		,(1,'755 (Thai)', 4)
+		,(1,'Indo', 5)
+		,(1,'IbcIndo', 6)
+		,(1,'Others_Site', 7)--will convert to 'Others' when return data
+		,(1,'Y SB', 8)
+		,(1,'Y NS', 9)
+		,(1,'C SB', 10)
+		,(1,'C NS', 11)
+		,(1,'CV SB', 12)
+		,(1,'CV NS', 13)
+		,(1,'T SB', 14)
+		,(1,'T NS', 15)
+		,(1,'TOTAL', 16)
+		
+		,(2,'Real.Soc', 17)
+		,(2,'Real.Soc(L)', 18)
+		,(2,'Real.Soc(NL)', 19)
+		,(2,'Saba.Soc', 20)
+		,(2,'Soccer PG', 21)
+		,(2,'Basket PG', 22)
+		,(2,'Real.Bas', 23)
+		,(2,'Saba.Bas', 24)
+		,(2,'Tenn', 25)
+		,(2,'E-Spo', 26)
+		,(2,'Cricket', 27)
+		,(2,'Others_SB', 28)--will convert to 'Others' when return data
+		,(2,'Parl', 29)
+		,(2,'TOTAL SB', 30)
+		,(2,'8RM', 31)
+		
+		,(3,'PHAIO', 32)
+		,(3,'TimeM_HDP', 33)
+		,(3,'TimeM_OU', 34)
+	
+	
 	INSERT INTO #tmpDWBettypeSource (
 		Bettype
 		,SourceTable
@@ -169,7 +217,12 @@ BEGIN
 	FROM DBWH.bodb_Account.dbo.tbl_Site WITH (NOLOCK)
 	GROUP BY Site
 		,IsDeposit
-
+	
+	INSERT INTO #tmpTestLeague ( LeagueID )
+	SELECT DISTINCT LeagueID
+	FROM dbo.league WITH (NOLOCK)
+	WHERE isTest = 1
+	CREATE CLUSTERED INDEX CIX_tmpTestLeague ON #tmpTestLeague ( LeagueID )
 	--------------------------------Get Raw data------------------------------
 	DECLARE @Parl_LeagueID INT --dummy Parlay LeagueID
 		,@NS_LeagueID INT --dummy Non-Sports LeagueID
@@ -177,19 +230,27 @@ BEGIN
 	--make sure dummy LeagueID NOT exists IN [League] table
 	SELECT @Parl_LeagueID = (MIN(LeagueID) - 1)
 		,@NS_LeagueID = (MIN(LeagueID) - 2)
-	FROM bodb02.dbo.League WITH (NOLOCK)
+	FROM dbo.League WITH (NOLOCK)
 	
 	--------------------------------bettrans----------------------------------
 	INSERT INTO #tmpMatch ( MatchID )
 	SELECT MatchID
-	FROM bodb02.dbo.bettrans AS b WITH (NOLOCK)
+	FROM dbo.bettrans AS b WITH (NOLOCK)
 	WHERE winlostdate = @WLDate
 	GROUP BY MatchID
+	
+	--remove match of test league--
+	DELETE m
+	FROM #tmpMatch AS m
+		INNER JOIN dbo.match AS m1 WITH (NOLOCK) ON m.MatchID = m1.MatchID
+		LEFT JOIN #tmpTestLeague AS l WITH (NOLOCK) ON m1.LeagueID = m1.LeagueID
+	WHERE l.LeagueID IS NULL
+	
 	CREATE UNIQUE CLUSTERED INDEX CIX_tmpMatch ON #tmpMatch ( MatchID )
 	
 	INSERT INTO #tmpRecommend ( Recommend )
 	SELECT Recommend
-	FROM bodb02.dbo.bettrans AS b WITH (NOLOCK)
+	FROM dbo.bettrans AS b WITH (NOLOCK)
 	WHERE winlostdate = @WLDate
 	GROUP BY Recommend
 
@@ -280,7 +341,7 @@ BEGIN
 		,SUM((CASE WHEN b.tpositiontaking = 1 THEN 0 
 				ELSE (CASE WHEN pb.ProductID = 1 THEN ABS(stake) ELSE stake END) * CAST(b.epositiontaking AS DECIMAL(10, 8))
 			END) * b.actualrate) AS ExtraTO
-	FROM bodb02.dbo.bettrans AS b WITH (NOLOCK)
+	FROM dbo.bettrans AS b WITH (NOLOCK)
 		LEFT JOIN #tmpCustomer AS c WITH (NOLOCK) ON b.Recommend = c.CustID
 		LEFT JOIN match AS m WITH (NOLOCK) ON b.matchid = m.matchid AND b.bettype NOT IN ( 10, 29)
 		LEFT JOIN outright AS o WITH (NOLOCK) ON b.matchid = o.orid AND b.bettype = 10
@@ -330,9 +391,10 @@ BEGIN
 	TRUNCATE TABLE #tmpRecommend
 	INSERT INTO #tmpRecommend ( Recommend )
 	SELECT Recommend
-	FROM bodb02.dbo.bettransLC AS b WITH (NOLOCK)
+	FROM dbo.bettransLC AS b WITH (NOLOCK)
 	WHERE winlostdate = @WLDate
 	GROUP BY Recommend
+	
 	UPDATE STATISTICS #tmpRecommend
 
 	TRUNCATE TABLE #tmpCustomer
@@ -397,7 +459,7 @@ BEGIN
 		,SUM((CASE WHEN b.tpositiontaking = 1 THEN 0 
 				ELSE (CASE WHEN pb.ProductID = 1 THEN ABS(stake) ELSE stake END) * CAST(b.epositiontaking AS DECIMAL(10, 8))
 			END) * b.actualrate) AS ExtraTO
-	FROM bodb02.dbo.bettransLC AS b WITH (NOLOCK)
+	FROM dbo.bettransLC AS b WITH (NOLOCK)
 		LEFT JOIN #tmpCustomer AS c WITH (NOLOCK) ON b.Recommend = c.CustID
 		LEFT JOIN #tmpProductBettype AS pb WITH (NOLOCK) ON b.gameID = pb.Bettype
 		LEFT JOIN #tmpBettypeGroup AS bg WITH (NOLOCK) ON b.gameID = bg.Bettype
@@ -414,9 +476,10 @@ BEGIN
 	TRUNCATE TABLE #tmpRecommend
 	INSERT INTO #tmpRecommend ( Recommend )
 	SELECT Recommend
-	FROM bodb02.dbo.bettransRNG AS b WITH (NOLOCK)
+	FROM dbo.bettransRNG AS b WITH (NOLOCK)
 	WHERE winlostdate = @WLDate
 	GROUP BY Recommend
+	
 	UPDATE STATISTICS #tmpRecommend
 
 	TRUNCATE TABLE #tmpCustomer
@@ -481,7 +544,7 @@ BEGIN
 		,SUM((CASE WHEN b.tpositiontaking = 1 THEN 0 
 				ELSE (CASE WHEN pb.ProductID = 1 THEN ABS(stake) ELSE stake END) * CAST(b.epositiontaking AS DECIMAL(10, 8))
 			END) * b.actualrate) AS ExtraTO
-	FROM bodb02.dbo.bettransRNG AS b WITH (NOLOCK)
+	FROM dbo.bettransRNG AS b WITH (NOLOCK)
 		LEFT JOIN #tmpCustomer AS c WITH (NOLOCK) ON b.Recommend = c.CustID
 		LEFT JOIN #tmpProductBettype AS pb WITH (NOLOCK) ON b.gameID = pb.Bettype
 		LEFT JOIN #tmpBettypeGroup AS bg WITH (NOLOCK) ON b.gameID = bg.Bettype
@@ -497,48 +560,6 @@ BEGIN
 	CREATE CLUSTERED INDEX CIX_tmpRawData ON #tmpRawData ( Bettype, LeagueID, Site )
 	
 	------------------------Group Data follow spec------------------------
-	--hard code the order of group--
-	INSERT INTO #tmpOrderByGroupName (
-		GroupID, GroupName, OrderNo
-	)
-	VALUES 
-		(1,'XYZ & BO', 1)
-		,(1,'611 (Chi)', 2)
-		,(1,'733 (Mala)', 3)
-		,(1,'755 (Thai)', 4)
-		,(1,'Indo', 5)
-		,(1,'IbcIndo', 6)
-		,(1,'Others_Site', 7)
-		,(1,'Y SB', 8)
-		,(1,'Y NS', 9)
-		,(1,'C SB', 10)
-		,(1,'C NS', 11)
-		,(1,'CV SB', 12)
-		,(1,'CV NS', 13)
-		,(1,'T SB', 14)
-		,(1,'T NS', 15)
-		,(1,'TOTAL', 16)
-		
-		,(2,'Real.Soc', 17)
-		,(2,'Real.Soc(L)', 18)
-		,(2,'Real.Soc(NL)', 19)
-		,(2,'Saba.Soc', 20)
-		,(2,'Soccer PG', 21)
-		,(2,'Basket PG', 22)
-		,(2,'Real.Bas', 23)
-		,(2,'Saba.Bas', 24)
-		,(2,'Tenn', 25)
-		,(2,'E-Spo', 26)
-		,(2,'Cricket', 27)
-		,(2,'Others_SB', 28)
-		,(2,'Parl', 29)
-		,(2,'TOTAL SB', 30)
-		,(2,'8RM', 31)
-		
-		,(3,'PHAIO', 32)
-		,(3,'TimeM_HDP', 33)
-		,(3,'TimeM_OU', 34)
-	
 	--------------------------------GroupBySite---------------------------
 	;WITH CTE_CreditSite AS (
 		SELECT CASE WHEN d.Site IN ('BEST-ODDS', 'XYZBET', '8RM') THEN 'XYZ & BO'
@@ -666,7 +687,7 @@ BEGIN
 	
 	;WITH CTE_SabaLG AS (
 		SELECT CONVERT(SMALLINT, val) AS LeagueGroupID
-		FROM bodb02.dbo.strSplit(@SabaLeagueGroupID, ',')
+		FROM dbo.strSplit(@SabaLeagueGroupID, ',')
 	)
 	,CTE_Sport AS (
 		SELECT CASE WHEN l.SportType = 1 AND sl.LeagueGroupID IS NULL AND d.LiveStatus = 1 THEN 'Real.Soc(L)'
@@ -689,10 +710,9 @@ BEGIN
 				* (CASE WHEN VarianceVR > 0 THEN VarianceVR + 1 ELSE 1 END)
 				* (CASE WHEN IsHalf = 1 THEN 0.5 ELSE 1 END)) AS TurnoverIBC
 		FROM #tmpRawData AS d WITH (NOLOCK)
-			LEFT JOIN bodb02.dbo.League AS l WITH (NOLOCK) ON d.LeagueID = l.LeagueID
+			LEFT JOIN dbo.League AS l WITH (NOLOCK) ON d.LeagueID = l.LeagueID
 			LEFT JOIN CTE_SabaLG AS sl ON l.LeagueGroupID = sl.LeagueGroupID
 		WHERE ( d.LeagueID <> @NS_LeagueID OR d.Site = '8RM')
-			AND l.isTest = 0
 		GROUP BY CASE WHEN l.SportType = 1 AND sl.LeagueGroupID IS NULL AND d.LiveStatus = 1 THEN 'Real.Soc(L)'
 				WHEN l.SportType = 1 AND sl.LeagueGroupID IS NULL AND d.LiveStatus = 0 THEN 'Real.Soc(NL)'
 				WHEN l.SportType = 1 AND l.LeagueGroupId = 113 THEN 'Soccer PG'
@@ -729,9 +749,8 @@ BEGIN
 				* (CASE WHEN VarianceVR > 0 THEN VarianceVR + 1 ELSE 1 END)
 				* (CASE WHEN IsHalf = 1 THEN 0.5 ELSE 1 END)) AS TurnoverIBC
 		FROM #tmpRawData AS d WITH (NOLOCK)
-			LEFT JOIN bodb02.dbo.League AS l WITH (NOLOCK) ON d.LeagueID = l.LeagueID
+			LEFT JOIN dbo.League AS l WITH (NOLOCK) ON d.LeagueID = l.LeagueID
 		WHERE d.Site = '8RM'
-			AND l.isTest = 0
 	)
 	INSERT INTO #tmpResult (
 		GroupName
@@ -773,6 +792,8 @@ BEGIN
 		,BetType
 	FROM DBWH.bodb_account.dbo.SportBettypeGroup WITH (NOLOCK)
 	WHERE GroupID = 1 --PHAIO
+	GROUP BY SportType
+		,BetType
 	CREATE CLUSTERED INDEX CIX_tmpSportBettypeGroup ON #tmpSportBettypeGroup (BetType, SportType)
 	
 	INSERT INTO #tmpResult (
@@ -789,7 +810,7 @@ BEGIN
 			* (CASE WHEN VarianceVR > 0 THEN VarianceVR + 1 ELSE 1 END)
 			* (CASE WHEN IsHalf = 1 THEN 0.5 ELSE 1 END)) AS TurnoverIBC
 	FROM #tmpRawData AS d WITH (NOLOCK)
-		INNER JOIN bodb02.dbo.League AS l WITH (NOLOCK) ON d.LeagueID = l.LeagueID
+		INNER JOIN dbo.League AS l WITH (NOLOCK) ON d.LeagueID = l.LeagueID
 		INNER JOIN #tmpSportBettypeGroup AS sbg WITH (NOLOCK) ON l.SportType = sbg.SportType AND d.BetType = sbg.BetType
 	WHERE sbg.BetType NOT IN (29) -- add for clearly, excluded while join [League]
 	GROUP BY CASE WHEN sbg.BetType = 228 THEN 'TimeM_HDP'
@@ -800,14 +821,14 @@ BEGIN
 	--Remove redundant data--
 	DELETE #tmpResult
 	WHERE GroupName IS NULL
-		OR (WinlossIBC IS NULL AND TurnoverIBC IS NULL)
+		OR (ISNULL(TurnoverIBC,0) = 0 AND ISNULL(WinlossIBC,0) = 0)
 	
 	--Return Result Set--
 	SELECT (CASE WHEN r.GroupName LIKE 'Others%' THEN 'Others' ELSE r.GroupName END) AS GroupName
 		,TurnoverIBC
-		,(CASE WHEN TurnoverIBC = 0 THEN 0 ELSE WinlossIBC/TurnoverIBC END ) AS Margin
+		,(CASE WHEN ISNULL(TurnoverIBC,0) = 0 THEN 0 ELSE ISNULL(WinlossIBC,0)/TurnoverIBC END ) AS Margin
 	FROM #tmpResult AS r
-	LEFT JOIN #tmpOrderByGroupName AS o ON r.GroupName = o.GroupName
+		LEFT JOIN #tmpOrderByGroupName AS o ON r.GroupName = o.GroupName
 	ORDER BY o.GroupID
 		,o.OrderNo
 	
@@ -815,6 +836,7 @@ BEGIN
 	
 	DROP TABLE #tmpDWSite
 	DROP TABLE #tmpMatch
+	DROP TABLE #tmpTestLeague
 	DROP TABLE #tmpRecommend
 	DROP TABLE #tmpCustomer
 	DROP TABLE #tmpProductBettype
