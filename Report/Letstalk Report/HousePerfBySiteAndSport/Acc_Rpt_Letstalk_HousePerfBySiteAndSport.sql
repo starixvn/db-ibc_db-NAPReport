@@ -116,8 +116,9 @@ BEGIN
 	
 	CREATE TABLE #tmpOrderByGroupName (
 		GroupID TINYINT
+		,OrderNo TINYINT IDENTITY(1,1)
+		,IsTitle BIT
 		,GroupName VARCHAR(50)
-		,OrderNo TINYINT
 	)
 	
 	CREATE TABLE #tmpResult (
@@ -126,49 +127,57 @@ BEGIN
 		,TurnoverIBC DECIMAL(19,4)
 	)	
 	
-	---------Insert Dimension tables----
+	---------Insert Dimension tables---
 	--hard code the order of group--
 	INSERT INTO #tmpOrderByGroupName (
-		GroupID, GroupName, OrderNo
+		GroupID, IsTitle, GroupName
 	)
 	VALUES 
-		(1,'XYZ & BO', 1)
-		,(1,'611 (Chi)', 2)
-		,(1,'733 (Mala)', 3)
-		,(1,'755 (Thai)', 4)
-		,(1,'Indo', 5)
-		,(1,'IbcIndo', 6)
-		,(1,'Others_Site', 7)--will convert to 'Others' when return data
-		,(1,'Y SB', 8)
-		,(1,'Y NS', 9)
-		,(1,'C SB', 10)
-		,(1,'C NS', 11)
-		,(1,'CV SB', 12)
-		,(1,'CV NS', 13)
-		,(1,'T SB', 14)
-		,(1,'T NS', 15)
-		,(1,'TOTAL', 16)
+		(1, 1, 'SB & Non-Sport WL & M')
+		,(1, 0, 'XYZ & BO')
+		,(1, 0, '611 (Chi)')
+		,(1, 0, '733 (Mala)')
+		,(1, 0, '755 (Thai)')
+		,(1, 0, 'Indo')
+		,(1, 0, 'IbcIndo')
+		,(1, 0, 'Myanmar')
+		,(1, 0, 'Y SB')
+		,(1, 0, 'Y NS')
+		,(1, 0, 'Others_Site')---will convert to 'Others' when return data
+		,(1, 0, 'C SB')
+		,(1, 0, 'C NS')
+		,(1, 0, 'CV SB')
+		,(1, 0, 'CV NS')
 		
-		,(2,'Real.Soc', 17)
-		,(2,'Real.Soc(L)', 18)
-		,(2,'Real.Soc(NL)', 19)
-		,(2,'Saba.Soc', 20)
-		,(2,'Soccer PG', 21)
-		,(2,'Basket PG', 22)
-		,(2,'Real.Bas', 23)
-		,(2,'Saba.Bas', 24)
-		,(2,'Tenn', 25)
-		,(2,'E-Spo', 26)
-		,(2,'Cricket', 27)
-		,(2,'Others_SB', 28)--will convert to 'Others' when return data
-		,(2,'Parl', 29)
-		,(2,'TOTAL SB', 30)
-		,(2,'8RM', 31)
+		,(2, 0, 'T SB')
+		,(2, 0, 'T NS')
 		
-		,(3,'PHAIO', 32)
-		,(3,'TimeM_HDP', 33)
-		,(3,'TimeM_OU', 34)
-	
+		,(3, 0, 'TOTAL')
+		
+		,(4, 1, 'SB TO & M')
+		,(4, 0, 'Real.Soc')
+		,(4, 0, 'Real.Soc(L)')
+		,(4, 0, 'Real.Soc(NL)')
+		,(4, 0, 'Saba.Soc')
+		,(4, 0, 'Soccer PG')
+		,(4, 0, 'Basket PG')
+		,(4, 0, 'Real.Bas')
+		,(4, 0, 'Saba.Bas')
+		,(4, 0, 'Tenn')
+		,(4, 0, 'E-Spo')
+		,(4, 0, 'Cricket')
+		,(4, 0, 'Others_SB')---will convert to 'Others' when return data
+		,(4, 0, 'Parl')
+		
+		,(5, 0, 'TOTAL SB')
+		,(5, 0, '8RM')
+		
+		,(6, 1, 'PH TO & M')
+		,(6, 0, 'PHAIO')
+		
+		,(7, 1, 'TimeM TO & M')
+		,(7, 0, 'TimeM_HDP')
+		,(7, 0, 'TimeM_OU')
 	
 	INSERT INTO #tmpDWBettypeSource (
 		Bettype
@@ -243,8 +252,7 @@ BEGIN
 	DELETE m
 	FROM #tmpMatch AS m
 		INNER JOIN dbo.match AS m1 WITH (NOLOCK) ON m.MatchID = m1.MatchID
-		LEFT JOIN #tmpTestLeague AS l WITH (NOLOCK) ON m1.LeagueID = m1.LeagueID
-	WHERE l.LeagueID IS NULL
+		INNER JOIN #tmpTestLeague AS l WITH (NOLOCK) ON m1.LeagueID = l.LeagueID
 	
 	CREATE UNIQUE CLUSTERED INDEX CIX_tmpMatch ON #tmpMatch ( MatchID )
 	
@@ -341,7 +349,7 @@ BEGIN
 		,SUM((CASE WHEN b.tpositiontaking = 1 THEN 0 
 				ELSE (CASE WHEN pb.ProductID = 1 THEN ABS(stake) ELSE stake END) * CAST(b.epositiontaking AS DECIMAL(10, 8))
 			END) * b.actualrate) AS ExtraTO
-	FROM dbo.bettrans AS b WITH (NOLOCK)
+	FROM dbo.bettrans AS b WITH (NOLOCK)--, INDEX = CIX_matchid_bettype) -- faster but dirty read
 		LEFT JOIN #tmpCustomer AS c WITH (NOLOCK) ON b.Recommend = c.CustID
 		LEFT JOIN match AS m WITH (NOLOCK) ON b.matchid = m.matchid AND b.bettype NOT IN ( 10, 29)
 		LEFT JOIN outright AS o WITH (NOLOCK) ON b.matchid = o.orid AND b.bettype = 10
@@ -561,14 +569,21 @@ BEGIN
 	
 	------------------------Group Data follow spec------------------------
 	--------------------------------GroupBySite---------------------------
-	;WITH CTE_CreditSite AS (
+	;WITH CTE_ProductSite AS (
 		SELECT CASE WHEN d.Site IN ('BEST-ODDS', 'XYZBET', '8RM') THEN 'XYZ & BO'
 				WHEN d.Site IN ('611111') THEN '611 (Chi)'
 				WHEN d.Site IN ('733333') THEN '733 (Mala)'
 				WHEN d.Site IN ('755555') THEN '755 (Thai)'
 				WHEN d.Site IN ('INDO') THEN 'Indo'
 				WHEN d.Site IN ('IBCIndo') THEN 'IbcIndo'
-				WHEN d.IsDeposit = 0 OR Site IN ('Saba789') THEN 'Others_Site'
+				WHEN d.Site IN ('76666B') THEN 'Myanmar'
+				WHEN pb.ProductID = 1 AND d.Site IN ('789y', 'y987') THEN 'Y SB'
+				WHEN pb.ProductID <> 1 AND d.Site IN ('789y', 'y987') THEN 'Y NS'
+				WHEN (d.IsDeposit = 0 OR d.Site IN ('Saba789')) THEN 'Others_Site'
+				WHEN d.IsDeposit = 1 AND d.Site LIKE '%CV' AND pb.ProductID = 1 THEN 'CV SB'
+				WHEN d.IsDeposit = 1 AND d.Site LIKE '%CV' AND pb.ProductID <> 1 THEN 'CV NS'
+				WHEN d.IsDeposit = 1 AND pb.ProductID = 1 THEN 'C SB'
+				WHEN d.IsDeposit = 1 AND pb.ProductID <> 1 THEN 'C NS'
 			END AS SiteName
 			,SUM(-(WinlossIBC - ExtraWL + CommissionS - ExtraComm)) AS WinlossIBC
 			,SUM((CASE WHEN TurnoverIBC = 0 THEN 0 ELSE TurnoverIBC - ExtraTO END)
@@ -583,46 +598,19 @@ BEGIN
 				WHEN d.Site IN ('755555') THEN '755 (Thai)'
 				WHEN d.Site IN ('INDO') THEN 'Indo'
 				WHEN d.Site IN ('IBCIndo') THEN 'IbcIndo'
-				WHEN d.IsDeposit = 0 OR Site IN ('Saba789') THEN 'Others_Site'
-			END
-	)
-	,CTE_ProductSite AS (
-		SELECT CASE WHEN pb.ProductID = 1 AND d.Site IN ('789y', 'y987') THEN 'Y SB'
+				WHEN d.Site IN ('76666B') THEN 'Myanmar'
+				WHEN pb.ProductID = 1 AND d.Site IN ('789y', 'y987') THEN 'Y SB'
 				WHEN pb.ProductID <> 1 AND d.Site IN ('789y', 'y987') THEN 'Y NS'
-				WHEN pb.ProductID = 1 AND d.Site LIKE '%CV' THEN 'CV SB'
-				WHEN pb.ProductID <> 1 AND d.Site LIKE '%CV' THEN 'CV NS'
-			END AS SiteName
-			,SUM(-(WinlossIBC - ExtraWL + CommissionS - ExtraComm)) AS WinlossIBC
-			,SUM((CASE WHEN TurnoverIBC = 0 THEN 0 ELSE TurnoverIBC - ExtraTO END)
-				* (CASE WHEN VarianceVR > 0 THEN VarianceVR + 1 ELSE 1 END)
-				* (CASE WHEN IsHalf = 1 THEN 0.5 ELSE 1 END)) AS TurnoverIBC
-		FROM #tmpRawData AS d WITH (NOLOCK)
-			LEFT JOIN #tmpProductBettype AS pb WITH (NOLOCK) ON d.Bettype = pb.Bettype
-		WHERE pb.ProductID NOT IN ( 25, 31, 37 ) --Old Cash Out, Exchange, Saba Promotion
-		GROUP BY CASE WHEN pb.ProductID = 1 AND d.Site IN ('789y', 'y987') THEN 'Y SB'
-				WHEN pb.ProductID <> 1 AND d.Site IN ('789y', 'y987') THEN 'Y NS'
-				WHEN pb.ProductID = 1 AND d.Site LIKE '%CV' THEN 'CV SB'
-				WHEN pb.ProductID <> 1 AND d.Site LIKE '%CV' THEN 'CV NS'
-			END
-	)
-	,CTE_DepositSite AS (
-		SELECT CASE WHEN d.IsDeposit = 1 AND pb.ProductID = 1 THEN 'C SB'
-				WHEN d.IsDeposit = 1 AND pb.ProductID <> 1 THEN 'C NS'
-			END AS SiteName
-			,SUM(-(WinlossIBC - ExtraWL + CommissionS - ExtraComm)) AS WinlossIBC
-			,SUM((CASE WHEN TurnoverIBC = 0 THEN 0 ELSE TurnoverIBC - ExtraTO END)
-				* (CASE WHEN VarianceVR > 0 THEN VarianceVR + 1 ELSE 1 END)
-				* (CASE WHEN IsHalf = 1 THEN 0.5 ELSE 1 END)) AS TurnoverIBC
-		FROM #tmpRawData AS d WITH (NOLOCK)
-			LEFT JOIN #tmpProductBettype AS pb WITH (NOLOCK) ON d.Bettype = pb.Bettype
-		WHERE pb.ProductID NOT IN ( 25, 31, 37 ) --Old Cash Out, Exchange, Saba Promotion
-		GROUP BY CASE WHEN d.IsDeposit = 1 AND pb.ProductID = 1 THEN 'C SB'
+				WHEN (d.IsDeposit = 0 OR d.Site IN ('Saba789')) THEN 'Others_Site'
+				WHEN d.IsDeposit = 1 AND d.Site LIKE '%CV' AND pb.ProductID = 1 THEN 'CV SB'
+				WHEN d.IsDeposit = 1 AND d.Site LIKE '%CV' AND pb.ProductID <> 1 THEN 'CV NS'
+				WHEN d.IsDeposit = 1 AND pb.ProductID = 1 THEN 'C SB'
 				WHEN d.IsDeposit = 1 AND pb.ProductID <> 1 THEN 'C NS'
 			END
 	)
 	,CTE_SubTotalSite AS (
 		SELECT CASE WHEN pb.ProductID = 1 THEN 'T SB'
-				WHEN pb.ProductID <> 1 AND pb.ProductID <> 1 THEN 'T NS'
+				WHEN pb.ProductID <> 1 THEN 'T NS'
 			END AS SiteName
 			,SUM(-(WinlossIBC - ExtraWL + CommissionS - ExtraComm)) AS WinlossIBC
 			,SUM((CASE WHEN TurnoverIBC = 0 THEN 0 ELSE TurnoverIBC - ExtraTO END)
@@ -632,7 +620,7 @@ BEGIN
 			LEFT JOIN #tmpProductBettype AS pb WITH (NOLOCK) ON d.Bettype = pb.Bettype
 		WHERE pb.ProductID NOT IN ( 25, 31, 37 ) --Old Cash Out, Exchange, Saba Promotion
 		GROUP BY CASE WHEN pb.ProductID = 1 THEN 'T SB'
-				WHEN pb.ProductID <> 1 AND pb.ProductID <> 1 THEN 'T NS'
+				WHEN pb.ProductID <> 1 THEN 'T NS'
 			END
 	)
 	,CTE_TotalSite AS (
@@ -649,24 +637,10 @@ BEGIN
 	SELECT SiteName
 		,WinlossIBC
 		,TurnoverIBC
-	FROM CTE_CreditSite
-
-	UNION ALL
-
-	SELECT SiteName
-		,WinlossIBC
-		,TurnoverIBC
 	FROM CTE_ProductSite
-
+	
 	UNION ALL
-
-	SELECT SiteName
-		,WinlossIBC
-		,TurnoverIBC
-	FROM CTE_DepositSite
-
-	UNION ALL
-
+	
 	SELECT SiteName
 		,WinlossIBC
 		,TurnoverIBC
@@ -713,6 +687,11 @@ BEGIN
 			LEFT JOIN dbo.League AS l WITH (NOLOCK) ON d.LeagueID = l.LeagueID
 			LEFT JOIN CTE_SabaLG AS sl ON l.LeagueGroupID = sl.LeagueGroupID
 		WHERE ( d.LeagueID <> @NS_LeagueID OR d.Site = '8RM')
+			AND d.Bettype NOT IN (
+				SELECT DISTINCT Bettype
+				FROM dbo.SportBettypeMatrix WITH (NOLOCK)
+				WHERE SubProduct IN ('MG-SuperLive', 'BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss', 'Bet Builder')
+			)
 		GROUP BY CASE WHEN l.SportType = 1 AND sl.LeagueGroupID IS NULL AND d.LiveStatus = 1 THEN 'Real.Soc(L)'
 				WHEN l.SportType = 1 AND sl.LeagueGroupID IS NULL AND d.LiveStatus = 0 THEN 'Real.Soc(NL)'
 				WHEN l.SportType = 1 AND l.LeagueGroupId = 113 THEN 'Soccer PG'
@@ -751,6 +730,11 @@ BEGIN
 		FROM #tmpRawData AS d WITH (NOLOCK)
 			LEFT JOIN dbo.League AS l WITH (NOLOCK) ON d.LeagueID = l.LeagueID
 		WHERE d.Site = '8RM'
+			AND d.Bettype NOT IN (
+				SELECT DISTINCT Bettype
+				FROM dbo.SportBettypeMatrix WITH (NOLOCK)
+				WHERE SubProduct IN ('MG-SuperLive', 'BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss', 'Bet Builder')
+			)
 	)
 	INSERT INTO #tmpResult (
 		GroupName
@@ -792,6 +776,12 @@ BEGIN
 		,BetType
 	FROM DBWH.bodb_account.dbo.SportBettypeGroup WITH (NOLOCK)
 	WHERE GroupID = 1 --PHAIO
+		AND BetType NOT IN (9, 29)
+		AND BetType NOT IN (
+			SELECT DISTINCT Bettype
+			FROM dbo.SportBettypeMatrix WITH (NOLOCK)
+			WHERE SubProduct IN ('Bet Builder')
+		)
 	GROUP BY SportType
 		,BetType
 	CREATE CLUSTERED INDEX CIX_tmpSportBettypeGroup ON #tmpSportBettypeGroup (BetType, SportType)
@@ -801,8 +791,8 @@ BEGIN
 		,WinlossIBC
 		,TurnoverIBC
 	)
-	SELECT CASE WHEN sbg.BetType = 228 THEN 'TimeM_HDP'
-		WHEN sbg.BetType = 229 THEN 'TimeM_OU'
+	SELECT CASE WHEN sbg.BetType = 229 THEN 'TimeM_HDP'
+		WHEN sbg.BetType = 228 THEN 'TimeM_OU'
 		ELSE 'PHAIO'
 		END AS Market
 		,SUM(-(WinlossIBC - ExtraWL + CommissionS - ExtraComm)) AS WinlossIBC
@@ -812,9 +802,8 @@ BEGIN
 	FROM #tmpRawData AS d WITH (NOLOCK)
 		INNER JOIN dbo.League AS l WITH (NOLOCK) ON d.LeagueID = l.LeagueID
 		INNER JOIN #tmpSportBettypeGroup AS sbg WITH (NOLOCK) ON l.SportType = sbg.SportType AND d.BetType = sbg.BetType
-	WHERE sbg.BetType NOT IN (29) -- add for clearly, excluded while join [League]
-	GROUP BY CASE WHEN sbg.BetType = 228 THEN 'TimeM_HDP'
-		WHEN sbg.BetType = 229 THEN 'TimeM_OU'
+	GROUP BY CASE WHEN sbg.BetType = 229 THEN 'TimeM_HDP'
+		WHEN sbg.BetType = 228 THEN 'TimeM_OU'
 		ELSE 'PHAIO'
 		END
 	
@@ -823,16 +812,52 @@ BEGIN
 	WHERE GroupName IS NULL
 		OR (ISNULL(TurnoverIBC,0) = 0 AND ISNULL(WinlossIBC,0) = 0)
 	
+	DELETE o
+	FROM #tmpOrderByGroupName AS o
+		LEFT JOIN #tmpResult AS r ON r.GroupName = o.GroupName
+	WHERE o.IsTitle <> 1
+		AND r.GroupName IS NULL
+	
 	--Return Result Set--
-	SELECT (CASE WHEN r.GroupName LIKE 'Others%' THEN 'Others' ELSE r.GroupName END) AS GroupName
-		,TurnoverIBC
-		,(CASE WHEN ISNULL(TurnoverIBC,0) = 0 THEN 0 ELSE ISNULL(WinlossIBC,0)/TurnoverIBC END ) AS Margin
-	FROM #tmpResult AS r
-		LEFT JOIN #tmpOrderByGroupName AS o ON r.GroupName = o.GroupName
+	SELECT o.GroupID
+		,(CASE WHEN o.GroupName LIKE 'Others%' THEN 'Others' ELSE o.GroupName END) AS GroupName
+		,(CASE WHEN o.GroupID IN (1, 2, 3) THEN WinlossIBC ELSE TurnoverIBC END)AS HWL_TO
+		,(CASE WHEN o.IsTitle = 1 THEN NULL
+			WHEN ISNULL(TurnoverIBC,0) = 0 THEN 0
+		ELSE ISNULL(WinlossIBC,0)/TurnoverIBC
+		END) AS Margin
+	FROM #tmpOrderByGroupName AS o
+		LEFT JOIN #tmpResult AS r ON r.GroupName = o.GroupName
 	ORDER BY o.GroupID
 		,o.OrderNo
 	
 	SELECT @Title AS Title
+	
+	--write log for test---
+	INSERT INTO DBDW2.bodb_Adhoc.dbo.Monitor_Letstalk (
+		Exec_Time
+		,InParam
+		,GroupID
+		,OrderNo
+		,IsTitle
+		,GroupName
+		,WinlossIBC
+		,TurnoverIBC
+		,Info
+	)
+	SELECT GETDATE() AS Exec_Time
+		,CONVERT(VARCHAR, @ExecTime4GMT, 20) AS InParam
+		,o.GroupID
+		,o.OrderNo
+		,o.IsTitle
+		,o.GroupName
+		,r.WinlossIBC
+		,r.TurnoverIBC
+		,@Title AS Info
+	FROM #tmpOrderByGroupName AS o
+		LEFT JOIN #tmpResult AS r ON r.GroupName = o.GroupName
+	ORDER BY o.GroupID
+		,o.OrderNo
 	
 	DROP TABLE #tmpDWSite
 	DROP TABLE #tmpMatch
