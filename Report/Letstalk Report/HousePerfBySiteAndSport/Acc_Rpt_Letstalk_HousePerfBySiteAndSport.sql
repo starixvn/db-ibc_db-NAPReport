@@ -35,7 +35,7 @@ BEGIN
 	IF (@DayOffset = 0)
 	BEGIN
 		SET @Title = CONVERT(VARCHAR(5), @WLDate, 1)
-		SET @Title = @Title + ' ' + TRIM(RIGHT(CONVERT(VARCHAR, @ExecTime4GMT, 100), 7)) + ' GMT-4'
+		SET @Title = @Title + ' ' + LTRIM(RTRIM((RIGHT(CONVERT(VARCHAR, @ExecTime4GMT, 100), 7)))) + ' GMT-4'
 	END
 	ELSE
 	BEGIN
@@ -152,7 +152,7 @@ BEGIN
 		,(2, 0, 'T SB')
 		,(2, 0, 'T NS')
 		
-		,(3, 0, 'TOTAL')
+		,(3, 0, 'GRAND TOTAL')
 		
 		,(4, 1, 'SB TO & M')
 		,(4, 0, 'Real.Soc')
@@ -624,7 +624,7 @@ BEGIN
 			END
 	)
 	,CTE_TotalSite AS (
-		SELECT 'TOTAL' AS SiteName
+		SELECT 'GRAND TOTAL' AS SiteName
 			,SUM(ISNULL(WinlossIBC,0)) AS WinlossIBC 
 			,SUM(ISNULL(TurnoverIBC,0)) AS TurnoverIBC
 		FROM CTE_SubTotalSite
@@ -654,7 +654,7 @@ BEGIN
 	FROM CTE_TotalSite
 	
 	------------------------------GroupBySB-------------------------------
-	DECLARE @SabaLeagueGroupID VARCHAR(50)
+	DECLARE @SabaLeagueGroupID VARCHAR(500)
 	SELECT @SabaLeagueGroupID = VValue
 	FROM DBWH.bodb_account.dbo.SystemSettings WITH (NOLOCK)
 	WHERE VID = 5
