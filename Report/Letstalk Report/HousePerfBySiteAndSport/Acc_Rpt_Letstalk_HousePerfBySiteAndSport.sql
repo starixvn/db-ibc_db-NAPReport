@@ -133,8 +133,7 @@ BEGIN
 		GroupID, IsTitle, GroupName
 	)
 	VALUES 
-		(1, 1, 'SB & Non-Sport WL & M')
-		,(1, 0, 'XYZ & BO')
+		(1, 0, 'XYZ & BO')
 		,(1, 0, '611 (Chi)')
 		,(1, 0, '733 (Mala)')
 		,(1, 0, '755 (Thai)')
@@ -143,7 +142,7 @@ BEGIN
 		,(1, 0, 'Myanmar')
 		,(1, 0, 'Y SB')
 		,(1, 0, 'Y NS')
-		,(1, 0, 'Others_Site')---will convert to 'Others' when return data
+		,(1, 0, 'Other Credit')
 		,(1, 0, 'C SB')
 		,(1, 0, 'C NS')
 		,(1, 0, 'CV SB')
@@ -166,7 +165,7 @@ BEGIN
 		,(4, 0, 'Tenn')
 		,(4, 0, 'E-Spo')
 		,(4, 0, 'Cricket')
-		,(4, 0, 'Others_SB')---will convert to 'Others' when return data
+		,(4, 0, 'Others')
 		,(4, 0, 'Parl')
 		
 		,(5, 0, 'TOTAL SB')
@@ -579,7 +578,7 @@ BEGIN
 				WHEN d.Site IN ('76666B') THEN 'Myanmar'
 				WHEN pb.ProductID = 1 AND d.Site IN ('789y', 'y987') THEN 'Y SB'
 				WHEN pb.ProductID <> 1 AND d.Site IN ('789y', 'y987') THEN 'Y NS'
-				WHEN (d.IsDeposit = 0 OR d.Site IN ('Saba789')) THEN 'Others_Site'
+				WHEN (d.IsDeposit = 0 OR d.Site IN ('Saba789')) THEN 'Other Credit'
 				WHEN d.IsDeposit = 1 AND d.Site LIKE '%CV' AND pb.ProductID = 1 THEN 'CV SB'
 				WHEN d.IsDeposit = 1 AND d.Site LIKE '%CV' AND pb.ProductID <> 1 THEN 'CV NS'
 				WHEN d.IsDeposit = 1 AND pb.ProductID = 1 THEN 'C SB'
@@ -601,7 +600,7 @@ BEGIN
 				WHEN d.Site IN ('76666B') THEN 'Myanmar'
 				WHEN pb.ProductID = 1 AND d.Site IN ('789y', 'y987') THEN 'Y SB'
 				WHEN pb.ProductID <> 1 AND d.Site IN ('789y', 'y987') THEN 'Y NS'
-				WHEN (d.IsDeposit = 0 OR d.Site IN ('Saba789')) THEN 'Others_Site'
+				WHEN (d.IsDeposit = 0 OR d.Site IN ('Saba789')) THEN 'Other Credit'
 				WHEN d.IsDeposit = 1 AND d.Site LIKE '%CV' AND pb.ProductID = 1 THEN 'CV SB'
 				WHEN d.IsDeposit = 1 AND d.Site LIKE '%CV' AND pb.ProductID <> 1 THEN 'CV NS'
 				WHEN d.IsDeposit = 1 AND pb.ProductID = 1 THEN 'C SB'
@@ -677,7 +676,7 @@ BEGIN
 				WHEN l.SportType = 43 THEN 'E-Spo'
 				WHEN l.SportType = 50 THEN 'Cricket'
 				WHEN d.LeagueID = @Parl_LeagueID THEN 'Parl'
-				ELSE 'Others_SB'
+				ELSE 'Others'
 			END AS SportName
 			,SUM(-(WinlossIBC - ExtraWL + CommissionS - ExtraComm)) AS WinlossIBC
 			,SUM((CASE WHEN TurnoverIBC = 0 THEN 0 ELSE TurnoverIBC - ExtraTO END)
@@ -705,7 +704,7 @@ BEGIN
 				WHEN l.SportType = 43 THEN 'E-Spo'
 				WHEN l.SportType = 50 THEN 'Cricket'
 				WHEN d.LeagueID = @Parl_LeagueID THEN 'Parl'
-				ELSE 'Others_SB'
+				ELSE 'Others'
 			END
 	)
 	,CTE_RealSoc AS (
@@ -820,7 +819,7 @@ BEGIN
 	
 	--Return Result Set--
 	SELECT o.GroupID
-		,(CASE WHEN o.GroupName LIKE 'Others%' THEN 'Others' ELSE o.GroupName END) AS GroupName
+		,o.GroupName
 		,(CASE WHEN o.GroupID IN (1, 2, 3) THEN WinlossIBC ELSE TurnoverIBC END)AS HWL_TO
 		,(CASE WHEN o.IsTitle = 1 THEN NULL
 			WHEN ISNULL(TurnoverIBC,0) = 0 THEN 0
