@@ -832,32 +832,6 @@ BEGIN
 	
 	SELECT @Title AS Title
 	
-	--write log for test---
-	INSERT INTO DBDW2.bodb_Adhoc.dbo.Monitor_Letstalk (
-		Exec_Time
-		,InParam
-		,GroupID
-		,OrderNo
-		,IsTitle
-		,GroupName
-		,WinlossIBC
-		,TurnoverIBC
-		,Info
-	)
-	SELECT GETDATE() AS Exec_Time
-		,CONVERT(VARCHAR, @ExecTime4GMT, 20) AS InParam
-		,o.GroupID
-		,o.OrderNo
-		,o.IsTitle
-		,o.GroupName
-		,r.WinlossIBC
-		,r.TurnoverIBC
-		,@Title AS Info
-	FROM #tmpOrderByGroupName AS o
-		LEFT JOIN #tmpResult AS r ON r.GroupName = o.GroupName
-	ORDER BY o.GroupID
-		,o.OrderNo
-	
 	DROP TABLE #tmpDWSite
 	DROP TABLE #tmpMatch
 	DROP TABLE #tmpTestLeague
