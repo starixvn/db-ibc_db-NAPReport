@@ -775,36 +775,75 @@ BEGIN
 		,BetType
 	FROM DBWH.bodb_account.dbo.SportBettypeGroup WITH (NOLOCK)
 	WHERE GroupID = 1 --PHAIO
-		AND BetType NOT IN (9, 29)
-		AND BetType NOT IN (
-			SELECT DISTINCT Bettype
-			FROM dbo.SportBettypeMatrix WITH (NOLOCK)
-			WHERE SubProduct IN ('Bet Builder')
-		)
 	GROUP BY SportType
 		,BetType
 	CREATE CLUSTERED INDEX CIX_tmpSportBettypeGroup ON #tmpSportBettypeGroup (BetType, SportType)
 	
+	;WITH CTE_PH_Normal AS (
+		SELECT 'PHAIO' AS Market
+			,SUM(-(WinlossIBC - ExtraWL + CommissionS - ExtraComm)) AS WinlossIBC
+			,SUM((CASE WHEN TurnoverIBC = 0 THEN 0 ELSE TurnoverIBC - ExtraTO END)
+				* (CASE WHEN VarianceVR > 0 THEN VarianceVR + 1 ELSE 1 END)
+				* (CASE WHEN IsHalf = 1 THEN 0.5 ELSE 1 END)) AS TurnoverIBC
+		FROM #tmpRawData AS d WITH (NOLOCK)
+			INNER JOIN dbo.League AS l WITH (NOLOCK) ON d.LeagueID = l.LeagueID
+			INNER JOIN #tmpSportBettypeGroup AS sbg WITH (NOLOCK) ON l.SportType = sbg.SportType AND d.BetType = sbg.BetType
+		WHERE d.BetType NOT IN (9, 29)
+	)
+	,CTE_PH_Parlay AS (
+		SELECT 'PHAIO' AS Market
+			,SUM(-(WinlossIBC - ExtraWL + CommissionS - ExtraComm)) AS WinlossIBC
+			,SUM((CASE WHEN TurnoverIBC = 0 THEN 0 ELSE TurnoverIBC - ExtraTO END)
+				* (CASE WHEN VarianceVR > 0 THEN VarianceVR + 1 ELSE 1 END)
+				* (CASE WHEN IsHalf = 1 THEN 0.5 ELSE 1 END)) AS TurnoverIBC
+		FROM #tmpRawData AS d WITH (NOLOCK)
+		WHERE d.BetType IN (SELECT DISTINCT BetType FROM #tmpSportBettypeGroup WITH (NOLOCK) WHERE BetType IN (9, 29))
+	)
+	,CTE_TimeM AS (
+		SELECT CASE WHEN sbg.BetType = 229 THEN 'TimeM_HDP'
+			ELSE 'TimeM_OU'
+			END AS Market
+			,SUM(-(WinlossIBC - ExtraWL + CommissionS - ExtraComm)) AS WinlossIBC
+			,SUM((CASE WHEN TurnoverIBC = 0 THEN 0 ELSE TurnoverIBC - ExtraTO END)
+				* (CASE WHEN VarianceVR > 0 THEN VarianceVR + 1 ELSE 1 END)
+				* (CASE WHEN IsHalf = 1 THEN 0.5 ELSE 1 END)) AS TurnoverIBC
+		FROM #tmpRawData AS d WITH (NOLOCK)
+			INNER JOIN dbo.League AS l WITH (NOLOCK) ON d.LeagueID = l.LeagueID
+			INNER JOIN #tmpSportBettypeGroup AS sbg WITH (NOLOCK) ON l.SportType = sbg.SportType AND d.BetType = sbg.BetType
+		WHERE d.BetType IN (228, 229)
+		GROUP BY CASE WHEN sbg.BetType = 229 THEN 'TimeM_HDP'
+			ELSE 'TimeM_OU'
+			END
+	)
 	INSERT INTO #tmpResult (
 		GroupName
 		,WinlossIBC
 		,TurnoverIBC
 	)
-	SELECT CASE WHEN sbg.BetType = 229 THEN 'TimeM_HDP'
-		WHEN sbg.BetType = 228 THEN 'TimeM_OU'
-		ELSE 'PHAIO'
-		END AS Market
-		,SUM(-(WinlossIBC - ExtraWL + CommissionS - ExtraComm)) AS WinlossIBC
-		,SUM((CASE WHEN TurnoverIBC = 0 THEN 0 ELSE TurnoverIBC - ExtraTO END)
-			* (CASE WHEN VarianceVR > 0 THEN VarianceVR + 1 ELSE 1 END)
-			* (CASE WHEN IsHalf = 1 THEN 0.5 ELSE 1 END)) AS TurnoverIBC
-	FROM #tmpRawData AS d WITH (NOLOCK)
-		INNER JOIN dbo.League AS l WITH (NOLOCK) ON d.LeagueID = l.LeagueID
-		INNER JOIN #tmpSportBettypeGroup AS sbg WITH (NOLOCK) ON l.SportType = sbg.SportType AND d.BetType = sbg.BetType
-	GROUP BY CASE WHEN sbg.BetType = 229 THEN 'TimeM_HDP'
-		WHEN sbg.BetType = 228 THEN 'TimeM_OU'
-		ELSE 'PHAIO'
-		END
+	SELECT Market
+		,SUM(WinlossIBC) AS WinlossIBC
+		,SUM(TurnoverIBC) AS TurnoverIBC
+	FROM (
+		SELECT Market
+			,WinlossIBC
+			,TurnoverIBC
+		FROM CTE_PH_Normal
+		
+		UNION ALL
+		
+		SELECT Market
+			,WinlossIBC
+			,TurnoverIBC
+		FROM CTE_PH_Parlay
+		
+		UNION ALL
+		
+		SELECT Market
+			,WinlossIBC
+			,TurnoverIBC
+		FROM CTE_TimeM
+	) AS ph
+	GROUP BY Market
 	
 	--Remove redundant data--
 	DELETE #tmpResult
