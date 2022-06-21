@@ -15,6 +15,7 @@ AS
 	Revision:		
 		20201118@Cherry: Initial (convert from script adhoc #129840 to SP)
 		20201218@Cherry: Modify SP
+		20220621@Harry: hardcode list users
 
 	Param's Explanation:
 */ 
@@ -25,9 +26,48 @@ BEGIN
 
 	INSERT INTO #tmp
 	SELECT custid  
-	FROM DBCUST.NAP_UserControl.dbo.NAP_Users acc WITH(nolock)
-		INNER JOIN vw_Customer ci WITH(nolock) on ci.custid= acc.UserId
-	WHERE  username like 'CMTD%'
+	FROM custinfo WITH(nolock)
+	WHERE   Username in (	'CMTDFOO',
+							'CMTDFOO1',
+							'CMTDFOO2',
+							'CMTDKEE',
+							'CMTDKEE1',
+							'CMTDBRIAN',
+							'CMTDBRIAN1',
+							'CMTDLSOON',
+							'CMTDLSOON1',
+							'CMTDLSOON2',
+							'CMTDLIN',
+							'CMTDLIN1',
+							'CMTDKUAN',
+							'CMTDKUAN1',
+							'CMTDRICHIE',
+							'CMTDRICHIE1',
+							'CMTDPIAU',
+							'CMTDPIAU2',
+							'CMTDYAKUSHI',
+							'CMTDBAO',
+							'CMTDFEIBEE',
+							'CMTDWEI',
+							'CMTDDANIEL',
+							'CMTDPATRICK',
+							'CMTDRoland',
+							'CMTDEdmund',
+							'SMTDLKEVIN',
+							'SMTDLGLORIA',
+							'SMTDLTERRANCE',
+							'SMTDLLUKA',
+							'ADRIAN',
+							'ADRIAN2',
+							'CSMSAM',
+							'CSMSAM1',
+							'sam  kwang',
+							'KUETHAN',
+							'kwok han',
+							'kwok han1',
+							'SMTDALAN',
+							'SMTDLKENSON1',
+							'CSMFAN')	
 	
 	CREATE TABLE #statistics(creator INT, cnt INT)
 	
