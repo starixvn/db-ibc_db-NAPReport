@@ -16,16 +16,29 @@ AS
 		- 20200325@Ned.Le: NAP Report - Incorporate two new sports of Betradar VS (#131117)
 		- 20210423@Roy: NAP Report - Move Save bet db & service (#153147)
 		- 20211216@Jaden: Add IsDeleted column check (#164376)
+		- 20220624@Roy: Keep MatchList only 6mth data (#174508)
 */
 
 BEGIN
 	SET NOCOUNT ON
 	DECLARE @MoveBetsDay DATETIME,
-			@CurentDate  DATETIME
+			@CurentDate  DATETIME,
+			@iRowCount INT = 20000
+			
 	SELECT @CurentDate = CONVERT( VARCHAR(10), GETDATE(), 120)
 	
 	SELECT @MoveBetsDay = MoveBetsDay
 	FROM OPENQUERY(DBACC, 'exec bodb02.dbo.[Age_SelBalanceUpDay]')
+	
+	--keep data in 6 month
+	WHILE (1 = 1)
+	BEGIN
+		DELETE TOP (@iRowCount) dbo.MatchList
+		WHERE EventDate < DATEADD(mm,-6,@CurentDate)
+
+		IF @@ROWCOUNT < @iRowCount
+			BREAK
+	END
 
 	INSERT INTO dbo.MatchList
 		   ( MatchID,
