@@ -2,8 +2,8 @@
 ALTER PROCEDURE Acc_Rpt_Letstalk_HousePerfByNonSport @ExecTime4GMT SMALLDATETIME
 AS
 /*
-	Created: Roy@20220531
-	Task: Get House WL At Exec Time
+	Created: Roy@20220629
+	Task: Get House Performance By Non-Sport At Exec Time
 	DB: DBACC.bodb02
 
 	Revisions:
