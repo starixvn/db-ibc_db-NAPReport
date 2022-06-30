@@ -7,7 +7,7 @@ AS
 	DB: DBACC.bodb02
 
 	Revisions:
-		20220531@Roy: Letstalk Report - House Performance by Site & Sport (#173219)
+		20220629@Roy: Letstalk Reports - Implement Non-Sports TO & Margin and Licensee Turnover Margin (#174679)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
