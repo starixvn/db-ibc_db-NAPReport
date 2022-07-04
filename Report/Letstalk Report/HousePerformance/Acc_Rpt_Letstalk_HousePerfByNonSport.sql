@@ -1,5 +1,6 @@
 /*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
-ALTER PROCEDURE Acc_Rpt_Letstalk_HousePerfByNonSport @ExecTime4GMT SMALLDATETIME
+ALTER PROCEDURE Acc_Rpt_Letstalk_HousePerfByNonSport
+	@ExecTime4GMT SMALLDATETIME
 AS
 /*
 	Created: Roy@20220629
@@ -14,15 +15,15 @@ AS
 	
 	Example:
 		EXEC bodb02.dbo.Acc_Rpt_Letstalk_HousePerfByNonSport
-			@ExecTime4GMT = '2022-06-03 03:00:00'
+			@ExecTime4GMT = '2022-06-29 03:00:00'
 */
 BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @DayOffset INT
 		,@WLDate SMALLDATETIME
-		,@Title VARCHAR(20)
-		,@msg2 VARCHAR(MAX) = ''
+		,@Title VARCHAR(50)
+		,@MsgInfo VARCHAR(MAX) = ''
 
 	SET @DayOffset = (
 			CASE 
@@ -43,6 +44,7 @@ BEGIN
 	BEGIN
 		SET @Title = CONVERT(VARCHAR, @WLDate, 101)
 	END
+	SET @Title = @Title + ' (ID #34)'
 
 	--Make sure WLDate only in range [bettrans]
 	IF EXISTS (
@@ -52,6 +54,7 @@ BEGIN
 			)
 	BEGIN
 		SELECT @Title AS Title
+			,@MsgInfo AS MsgInfo
 
 		RETURN
 	END
@@ -274,10 +277,10 @@ BEGIN
 			END
 	
 	---------------------Build msg---------------------
-	SELECT @msg2 = @msg2 + '<br>[NS TO & M]'
+	SELECT @MsgInfo = @MsgInfo + '[NS TO & M]'
 
 	-- generate string for TO & Margin
-	SELECT @msg2 = @msg2 + '<br>' + ProductCode + ': ' + CASE 
+	SELECT @MsgInfo = @MsgInfo + '<br>' + ProductCode + ': ' + CASE 
 			WHEN ABS(ISNULL(TurnOver, 0)) BETWEEN 0 AND 999999
 				THEN (CONVERT(VARCHAR(10), (CAST(ROUND(ISNULL(TurnOver, 0) / 1000.0, 0) AS NUMERIC(4, 0))))) + 'k'
 			WHEN ABS(ISNULL(TurnOver, 0)) >= 1000000
@@ -289,7 +292,7 @@ BEGIN
 		AND ProductCode = 'ALL'
 	ORDER BY TurnOver DESC
 
-	SELECT @msg2 = @msg2 + '<br>-----<br>*LC: ' + CASE 
+	SELECT @MsgInfo = @MsgInfo + '<br>-----<br>*LC: ' + CASE 
 			WHEN ABS(ISNULL(SUM(TurnOver), 0)) BETWEEN 0 AND 999999
 				THEN (CONVERT(VARCHAR(10), (CAST(ROUND(ISNULL(SUM(TurnOver), 0) / 1000.0, 0) AS NUMERIC(4, 0))))) + 'k'
 			WHEN ABS(ISNULL(SUM(TurnOver), 0)) >= 1000000
@@ -300,7 +303,7 @@ BEGIN
 	WHERE TurnOver > 0
 		AND ProductGroup = 'LC'
 
-	SELECT @msg2 = @msg2 + '<br>' + ProductCode + ': ' + CASE 
+	SELECT @MsgInfo = @MsgInfo + '<br>' + ProductCode + ': ' + CASE 
 			WHEN ABS(ISNULL(TurnOver, 0)) BETWEEN 0 AND 999999
 				THEN (CONVERT(VARCHAR(10), (CAST(ROUND(ISNULL(TurnOver, 0) / 1000.0, 0) AS NUMERIC(4, 0))))) + 'k'
 			WHEN ABS(ISNULL(TurnOver, 0)) >= 1000000
@@ -312,7 +315,7 @@ BEGIN
 		AND ProductGroup = 'LC'
 	ORDER BY TurnOver DESC
 
-	SELECT @msg2 = @msg2 + '<br>-----<br>*RNG: ' + CASE 
+	SELECT @MsgInfo = @MsgInfo + '<br>-----<br>*RNG: ' + CASE 
 			WHEN ABS(ISNULL(SUM(TurnOver), 0)) BETWEEN 0 AND 999999
 				THEN (CONVERT(VARCHAR(10), (CAST(ROUND(ISNULL(SUM(TurnOver), 0) / 1000.0, 0) AS NUMERIC(4, 0))))) + 'k'
 			WHEN ABS(ISNULL(SUM(TurnOver), 0)) >= 1000000
@@ -323,7 +326,7 @@ BEGIN
 	WHERE TurnOver > 0
 		AND ProductGroup = 'RNG'
 
-	SELECT @msg2 = @msg2 + '<br>' + ProductCode + ': ' + CASE 
+	SELECT @MsgInfo = @MsgInfo + '<br>' + ProductCode + ': ' + CASE 
 			WHEN ABS(ISNULL(TurnOver, 0)) BETWEEN 0 AND 999999
 				THEN (CONVERT(VARCHAR(10), (CAST(ROUND(ISNULL(TurnOver, 0) / 1000.0, 0) AS NUMERIC(4, 0))))) + 'k'
 			WHEN ABS(ISNULL(TurnOver, 0)) >= 1000000
@@ -335,7 +338,7 @@ BEGIN
 		AND ProductGroup = 'RNG'
 	ORDER BY TurnOver DESC
 
-	SELECT @msg2 = @msg2 + '<br>-----<br>*Lott/Ken: ' + CASE 
+	SELECT @MsgInfo = @MsgInfo + '<br>-----<br>*Lott/Ken: ' + CASE 
 			WHEN ABS(ISNULL(SUM(TurnOver), 0)) BETWEEN 0 AND 999999
 				THEN (CONVERT(VARCHAR(10), (CAST(ROUND(ISNULL(SUM(TurnOver), 0) / 1000.0, 0) AS NUMERIC(4, 0))))) + 'k'
 			WHEN ABS(ISNULL(SUM(TurnOver), 0)) >= 1000000
@@ -346,7 +349,7 @@ BEGIN
 	WHERE TurnOver > 0
 		AND ProductGroup = 'LOTTERY'
 
-	SELECT @msg2 = @msg2 + '<br>' + ProductCode + ': ' + CASE 
+	SELECT @MsgInfo = @MsgInfo + '<br>' + ProductCode + ': ' + CASE 
 			WHEN ABS(ISNULL(TurnOver, 0)) BETWEEN 0 AND 999999
 				THEN (CONVERT(VARCHAR(10), (CAST(ROUND(ISNULL(TurnOver, 0) / 1000.0, 0) AS NUMERIC(4, 0))))) + 'k'
 			WHEN ABS(ISNULL(TurnOver, 0)) >= 1000000
@@ -358,7 +361,7 @@ BEGIN
 		AND ProductGroup = 'LOTTERY'
 	ORDER BY TurnOver DESC
 
-	SELECT @msg2 = @msg2 + '<br>-----<br>*OTHERS: ' + CASE 
+	SELECT @MsgInfo = @MsgInfo + '<br>-----<br>*OTHERS: ' + CASE 
 			WHEN ABS(ISNULL(SUM(TurnOver), 0)) BETWEEN 0 AND 999999
 				THEN (CONVERT(VARCHAR(10), (CAST(ROUND(ISNULL(SUM(TurnOver), 0) / 1000.0, 0) AS NUMERIC(4, 0))))) + 'k'
 			WHEN ABS(ISNULL(SUM(TurnOver), 0)) >= 1000000
@@ -369,7 +372,7 @@ BEGIN
 	WHERE TurnOver > 0
 		AND ProductGroup = 'OTHERS'
 
-	SELECT @msg2 = @msg2 + '<br>' + ProductCode + ': ' + CASE 
+	SELECT @MsgInfo = @MsgInfo + '<br>' + ProductCode + ': ' + CASE 
 			WHEN ABS(ISNULL(TurnOver, 0)) BETWEEN 0 AND 999999
 				THEN (CONVERT(VARCHAR(10), (CAST(ROUND(ISNULL(TurnOver, 0) / 1000.0, 0) AS NUMERIC(4, 0))))) + 'k'
 			WHEN ABS(ISNULL(TurnOver, 0)) >= 1000000
@@ -382,7 +385,7 @@ BEGIN
 	ORDER BY TurnOver DESC
 	
 	SELECT @Title AS Title
-		,REPLACE(@msg2, '<br>', CHAR(13)+CHAR(10)) AS msg2
+		,REPLACE(@MsgInfo, '<br>', CHAR(13)+CHAR(10)) AS MsgInfo
 	
 	DROP TABLE #tmpMarginNonSport
 END
