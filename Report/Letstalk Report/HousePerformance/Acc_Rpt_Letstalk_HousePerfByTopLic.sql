@@ -119,7 +119,7 @@ BEGIN
 			WHEN ABS(ISNULL(TurnoverAllSport, 0)) BETWEEN 0 AND 999999
 				THEN (CONVERT(VARCHAR(10), (CAST(ROUND(ISNULL(TurnoverAllSport, 0) / 1000.0, 0) AS NUMERIC(4, 0))))) + 'k'
 			WHEN ABS(ISNULL(TurnoverAllSport, 0)) >= 1000000
-				THEN (CONVERT(VARCHAR(10), (CAST(ROUND(ISNULL(TurnoverAllSport, 0) / 1000000.0, 2) AS NUMERIC(6, 2))))) + 'm'
+				THEN (CONVERT(VARCHAR(10), (CAST(ROUND(ISNULL(TurnoverAllSport, 0) / 1000000.0, 2) AS NUMERIC(9, 2))))) + 'm'
 			ELSE CONVERT(VARCHAR(10), ISNULL(TurnoverAllSport, 0))
 			END + ' ' + CAST(CONVERT(DECIMAL(10, 2), ISNULL(MarginAllSport, 0) * 100) AS VARCHAR(10)) + '%'
 	FROM #Temp_Top30Final 
