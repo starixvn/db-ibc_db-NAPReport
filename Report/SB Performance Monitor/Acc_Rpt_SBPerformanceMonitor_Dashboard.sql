@@ -27,6 +27,7 @@ AS
 		- 20210504@Kean.Nguyen: NAP Reports - Allow more time for transfer - Movebet&BalanceUp (#154116)
 		- 20210705@Jaden.Tang: Enhance SB Performance, add more options (#157997)
 		- 20220419@Kean.Nguyen: Fix the way to determine HALF-WON|HALF_LOSE ticket (#171706)
+    	- 20220711@Jaden.Tang: Dynamic half win/lose check
 
 	Param's Explanation:
 		- @fromDate: Range date to get data for report
@@ -84,10 +85,11 @@ BEGIN
 	WHERE BettypeGroupID = 12
 	
 	-- #tmpSportBettypeMatrix
-	CREATE TABLE #tmpSportBettypeMatrix (BetType SMALLINT)
+	CREATE TABLE #tmpSportBettypeMatrix (BetType SMALLINT, IsHalfWonLoseAble BIT)
 
-	INSERT INTO #tmpSportBettypeMatrix (BetType)
-	SELECT DISTINCT sbm.BetType
+	INSERT INTO #tmpSportBettypeMatrix (BetType, IsHalfWonLoseAble)
+	SELECT DISTINCT sbm.BetType,
+		CASE WHEN sbm.BetType NOT IN (29, 38, 901, 902 ,903, 904, 18999) THEN 1 ELSE 0 END
 	FROM bodb02.dbo.SportBettypeMatrix sbm (NOLOCK)
 	WHERE sbm.ProductID = 1
 		  AND sbm.SubProduct NOT LIKE 'BT%'
@@ -195,9 +197,7 @@ BEGIN
 						 * CASE WHEN sd.virtualrate > sd.actualrate THEN sd.virtualrate ELSE sd.actualrate END
 			   END * 
 			   CASE WHEN @excludeDrawTickets = 1 
-                 THEN CASE WHEN (sd.bettype < 999 OR sd.bettype BETWEEN 1301 AND 1399 OR sd.bettype BETWEEN 9001 AND 9399 OR sd.bettype BETWEEN 9400 AND 9998)
-                                 AND sd.bettype NOT IN (29, 38, 911, 912, 913, 914)
-                                 AND sd.bettype NOT BETWEEN 81 AND 120
+                 THEN CASE WHEN sbm.IsHalfWonLoseAble = 1
                                  AND sd.statusID IN (112, 113)
                                  AND ABS(sd.modds) = 0.25
                            THEN 0.5
@@ -220,12 +220,11 @@ BEGIN
 								  AND CASE WHEN sd.bettype = 10 THEN 1 ELSE 0 END = m.matchtype
 		 LEFT JOIN bodb02.dbo.TradeCust AS td WITH (NOLOCK) ON sd.custid = td.custid
 		 LEFT JOIN #tmpBettypeGroup bg ON sd.bettype = bg.Bettype
+		 LEFT JOIN #tmpSportBettypeMatrix sbm ON sd.bettype = sbm.BetType
 	WHERE sd.ruben = 1
 		  AND sd.statusID IN (111, 112, 113)
 		  AND sd.currency NOT IN (20, 27, 28)
-		  AND EXISTS (SELECT TOP 1 1
-					  FROM #tmpSportBettypeMatrix sbm
-					  WHERE sd.BetType = sbm.BetType)
+		  AND sbm.BetType IS NOT NULL
           AND (@excludeDrawTickets = 0 OR (@excludeDrawTickets = 1 AND statusID NOT IN (111))) -- exclude draw tickets if flag is turned on
 	GROUP BY CASE WHEN @isShowSite = 0 THEN NULL ELSE a.SiteID END,
 		     CASE WHEN @isShowSport = 0 THEN NULL 
