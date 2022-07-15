@@ -27,7 +27,7 @@ AS
 		- 20210504@Kean.Nguyen: NAP Reports - Allow more time for transfer - Movebet&BalanceUp (#154116)
 		- 20210705@Jaden.Tang: Enhance SB Performance, add more options (#157997)
 		- 20220419@Kean.Nguyen: Fix the way to determine HALF-WON|HALF_LOSE ticket (#171706)
-    	- 20220711@Jaden.Tang: Dynamic half win/lose check
+    	- 20220711@Jaden.Tang: Dynamic half win/lose check (#175205)
 
 	Param's Explanation:
 		- @fromDate: Range date to get data for report
