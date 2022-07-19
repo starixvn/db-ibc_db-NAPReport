@@ -197,9 +197,10 @@ BEGIN
 						 * CASE WHEN sd.virtualrate > sd.actualrate THEN sd.virtualrate ELSE sd.actualrate END
 			   END * 
 			   CASE WHEN @excludeDrawTickets = 1 
-                 THEN CASE WHEN sbm.IsHalfWonLoseAble = 1
-                                 AND sd.statusID IN (112, 113)
-                                 AND ABS(sd.modds) = 0.25
+                 THEN CASE WHEN ((sd.winlostdate < '2019-10-01' AND sd.bettype IN (1, 3, 7, 8, 17, 18, 124, 125, 482, 483, 484, 485))
+									OR (sd.winlostdate >= '2019-10-01' AND sbm.IsHalfWonLoseAble = 1))
+								AND sd.statusID IN (112, 113)
+								AND ABS(sd.modds) = 0.25
                            THEN 0.5
                       ELSE 1 END
                  ELSE 1 END)
