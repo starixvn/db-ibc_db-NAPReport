@@ -85,34 +85,36 @@ BEGIN
                                 MatchID INT, 
                                 MatchType SMALLINT, -- normal or outright
                                 ChildMatchType INT, -- determine Extra Time or Penalty matches
+                                IsHedge BIT,
                                 HomeID INT, 
                                 AwayID INT)
 
         ;WITH CTE_Match AS (
-            SELECT MatchID AS MatchID, LeagueID, 0 AS MatchType, ChildMatchType, HomeID, AwayID
+            SELECT MatchID AS MatchID, LeagueID, 0 AS MatchType, ChildMatchType, matchcode, HomeID, AwayID
               FROM bodb02.dbo.match WITH (NOLOCK)
              WHERE eventdate >= @fromDate AND eventdate <= @toDate
                    UNION ALL
-            SELECT orid AS MatchID, LeagueID, 1 AS MatchType, 0 AS ChildMatchType, TeamID, -1
+            SELECT orid AS MatchID, LeagueID, 1 AS MatchType, 0 AS ChildMatchType, matchcode, TeamID, -1
               FROM bodb02.dbo.outright WITH (NOLOCK)
              WHERE eventdate >= @fromDate AND eventdate <= @toDate
                    UNION
-            SELECT MatchID AS MatchID, LeagueID, 0 AS MatchType, ChildMatchType, HomeID, AwayID
+            SELECT MatchID AS MatchID, LeagueID, 0 AS MatchType, ChildMatchType, matchcode, HomeID, AwayID
               FROM bodb02.dbo.match14 WITH (NOLOCK)
              WHERE @fromDate <= @MoveBetsDay
                AND eventdate >= @fromDate AND eventdate <= @MoveBetsDay
                    UNION ALL
-            SELECT orid AS MatchID, LeagueID, 1 AS MatchType, 0 AS ChildMatchType, TeamID, -1
+            SELECT orid AS MatchID, LeagueID, 1 AS MatchType, 0 AS ChildMatchType, matchcode, TeamID, -1
               FROM bodb02.dbo.outright14 (NOLOCK)
              WHERE @fromDate <= @MoveBetsDay
                AND eventdate >= @fromDate AND eventdate <= @MoveBetsDay
         )
-        INSERT INTO #tmpMatch (SportType, LeagueID, MatchID, MatchType, ChildMatchType, HomeID, AwayID)
+        INSERT INTO #tmpMatch (SportType, LeagueID, MatchID, MatchType, ChildMatchType, IsHedge, HomeID, AwayID)
         SELECT s.SportType,
             l.LeagueID,
             m.MatchID,
             m.MatchType,
             m.ChildMatchType,
+            CASE WHEN m.matchcode LIKE '%hedge%' THEN 1 ELSE 0 END Ishedge,
             m.HomeID,
             m.AwayID
         FROM CTE_Match m
@@ -122,9 +124,9 @@ BEGIN
           AND l.LeagueID = ISNULL(@leagueID, l.LeagueID)
           AND m.MatchID = ISNULL(@matchID, m.MatchID)
               UNION ALL
-        SELECT -2, -2, 9, 0, NULL, -1, -1 WHERE @parlayFlag = 1
+        SELECT -2, -2, 9, 0, NULL, NULL, -1, -1 WHERE @parlayFlag = 1
               UNION ALL
-        SELECT -2, -2, 29, 0, NULL, -1, -1 WHERE @parlayFlag = 1
+        SELECT -2, -2, 29, 0, NULL, NULL, -1, -1 WHERE @parlayFlag = 1
         OPTION (RECOMPILE)
         
         CREATE UNIQUE CLUSTERED INDEX PK_tmpMatch ON #tmpMatch(MatchID, MatchType)
@@ -227,7 +229,7 @@ BEGIN
                home.teamname 
                + CASE WHEN away.teamname IS NOT NULL THEN ' -vs- ' + away.teamname ELSE '' END MatchName,
                s.MatchID,
-               CASE WHEN m.ChildMatchType IN (201, 202, 203) THEN NULL ELSE s.MatchID END [MatchID_ForCnt], -- don't COUNT extra time, penalty matches
+               CASE WHEN m.ChildMatchType IN (201, 202, 203) OR m.IsHedge = 1 THEN NULL ELSE s.MatchID END [MatchID_ForCnt], -- don't COUNT hedge, extra time, penalty matches
                s.BetType, 
                -- since we're showing one customer, this is most likely always 1
                CASE WHEN bg.Bettype IS NOT NULL OR td.[VendorID] = 14 THEN 0 ELSE BetCount END AS BetCount, 
@@ -246,8 +248,9 @@ BEGIN
                LEFT JOIN bodb02.dbo.league l WITH (NOLOCK) ON s.LeagueID = l.LeagueID -- for displaying league names, 2nd level
                                                           AND @sportID IS NOT NULL
                                                                                     -- 3rd level: live indicator
-               LEFT JOIN #tmpMatch m ON s.MatchID = m.matchid -- for displaying home & away teams, 4th level
-                                    AND @liveIndicator IS NOT NULL AND @showBy = 'Match'
+               LEFT JOIN #tmpMatch m ON s.MatchID = m.matchid
+                                    AND ((@liveIndicator IS NULL AND @leagueID IS NOT NULL) -- for getting ChildMatchType and IsHedge columns, 3rd level
+                                      OR (@liveIndicator IS NOT NULL AND @showBy = 'Match')) -- for displaying home & away teams, 4th level
                     LEFT JOIN bodb02.dbo.Team home WITH (NOLOCK) ON m.homeid = home.teamid
                     LEFT JOIN bodb02.dbo.Team away WITH (NOLOCK) ON m.awayid = away.teamid
 
