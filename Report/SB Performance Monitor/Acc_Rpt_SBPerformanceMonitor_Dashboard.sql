@@ -207,12 +207,12 @@ BEGIN
 			   AS RealTurnover
 	FROM (
 		 SELECT custid, recommend, winlost, actual_stake, awinlost, mwinlost, swinlost, scomm, tpositiontaking, epositiontaking, stake
-		 	, virtualrate, actualrate, bettype, statusID, modds, matchid, currency, ruben
+		 	, virtualrate, actualrate, bettype, statusID, modds, matchid, currency, ruben, winlostdate
 		 	FROM bodb02.dbo.bettrans (NOLOCK) /*TODO: use with f_bettrans_measures */
 		 	WHERE winlostdate >= @fromDate AND winlostdate <= @toDate
 		 UNION ALL
 		 SELECT custid, recommend, winlost, actual_stake, awinlost, mwinlost, swinlost, scomm, tpositiontaking, epositiontaking, stake
-		 	, virtualrate, actualrate, bettype, statusID, modds, matchid, currency, ruben
+		 	, virtualrate, actualrate, bettype, statusID, modds, matchid, currency, ruben, winlostdate
 		 	FROM bodb02.dbo.bettrans14 (NOLOCK) 
 		 	WHERE @fromDate <= @MoveBetsDay AND winlostdate > @fromDate AND winlostdate <= @MoveBetsDay
 		) sd
