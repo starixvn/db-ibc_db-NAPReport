@@ -227,7 +227,8 @@ BEGIN
                LiveIndicator,
                CASE LiveIndicator WHEN 1 THEN 'Live' ELSE 'Non-Live' END AS [LiveIndicatorDisplay], 
                home.teamname 
-               + CASE WHEN away.teamname IS NOT NULL THEN ' -vs- ' + away.teamname ELSE '' END MatchName,
+               + CASE WHEN away.teamname IS NOT NULL THEN ' -vs- ' + away.teamname ELSE '' END
+			         + CASE WHEN m.IsHedge = 1 THEN ' (hedge)' ELSE '' END MatchName,
                s.MatchID,
                CASE WHEN m.ChildMatchType IN (201, 202, 203) OR m.IsHedge = 1 THEN NULL ELSE s.MatchID END [MatchID_ForCnt], -- don't COUNT hedge, extra time, penalty matches
                s.BetType, 
