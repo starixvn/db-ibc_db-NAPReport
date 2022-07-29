@@ -1,11 +1,7 @@
 /*<info serverAlias="DBRPT-bodb_report" executers="" viewers="vnteam" isFunction="0"></info>*/
-
-USE [bodb_report]
-GO
-
-ALTER PROCEDURE [dbo].[Task_DuplicatedTicketsCheck]	
+ALTER PROCEDURE [dbo].[Task_DuplicatedTicketsCheck]
+	@_Second SMALLINT = 3
 AS
-
 /*
 	Created: 20150211@Sophia
 	Task : Job run to check duplicate tickets on bettrans table and insert the result into DuplicateTicket table to view report later
@@ -38,16 +34,64 @@ AS
 		 - 20200518@Ned.Le: Exclude tickets that have betfrom='v'
 		 - 20210416@Ned.Le: NAP Report - Duplicate Tickets - Exclude refund tickets (#153616)
          - 20220321@Ned.Le: NAP Report - Integrate FGG & new bettypes Cricket (#170213)
+         - 20220726@Roy: NAP Report - Scale out & new transid (#175707)
 */
 
 BEGIN
-	SET NOCOUNT ON	
+	SET NOCOUNT ON
 
-	DECLARE @TransId BIGINT, @MaxTransId BIGINT
-
-	SELECT @TransId = CONVERT(BIGINT,VValue) FROM bodb02.dbo.SystemSettings WITH (NOLOCK) WHERE VName = 'DuplTicketLastID'
-	SELECT @MaxTransId = MAX(TransId) FROM bodb02.dbo.Bettrans WITH (NOLOCK)
+	DECLARE @LastSequenceID BIGINT
+		,@MaxSequenceID BIGINT
+		,@Min_Transid BIGINT
+		,@Max_Transid BIGINT
+		,@SiteDBGroupID SMALLINT
 	
+	CREATE TABLE #tmpSiteDBTrans (
+		SiteDBGroupID SMALLINT
+		,Min_Transid BIGINT
+		,Max_Transid BIGINT
+		,Max_SequenceID BIGINT
+	)
+	
+	CREATE TABLE #tmpData (
+		custid INT
+		,odds SMALLMONEY
+		,stake MONEY
+		,balance MONEY
+		,bettype SMALLINT
+		,winlostdate SMALLDATETIME
+		,matchid INT
+		,ip VARCHAR(45)
+		,RefNo BIGINT
+		,WalletType SMALLINT
+		,betteam NVARCHAR(10)
+		,oddsid INT
+	)
+	
+	SELECT @LastSequenceID = CONVERT(BIGINT,VValue) FROM bodb02.dbo.SystemSettings WITH (NOLOCK) WHERE VName = 'DuplTicketLastID'
+	SELECT @LastSequenceID = ISNULL(@LastSequenceID,-1)
+	
+	INSERT INTO #tmpSiteDBTrans (
+		SiteDBGroupID
+		,Min_Transid
+		,Max_Transid
+		,Max_SequenceID
+	)
+	SELECT ISNULL(SiteDBGroupID,0) AS SiteDBGroupID
+		,MIN(Transid) AS Min_Transid
+		,MAX(Transid) AS Max_Transid
+		,MAX(SequenceID) AS SequenceID
+	FROM bodb02.dbo.bettrans WITH (NOLOCK)
+	WHERE SequenceID > @LastSequenceID
+	GROUP BY ISNULL(SiteDBGroupID,0)
+	
+	SELECT @MaxSequenceID = ISNULL(MAX(Max_SequenceID),@LastSequenceID)
+	FROM #tmpSiteDBTrans
+	
+	--Upd max/min transid by second--
+	UPDATE #tmpSiteDBTrans
+	SET Min_Transid = Min_Transid - (CAST(@_Second AS BIGINT) * 4294967296) --TransID - (Second * 2^32)
+		,Max_Transid = Max_Transid + (CAST(@_Second AS BIGINT) * 4294967296)
 	
 	------Get Sport Bettype Matrix------
 	-- Check SP Version	 
@@ -58,70 +102,101 @@ BEGIN
 	INSERT INTO @bettype (bettype)
 	SELECT bettype
 	FROM bodb02.dbo.f_SportBettypeMatrix_Sel (0, 0, 0, 2, '', '', @isTest)
-	WHERE ProductID IN (1, 3, 5, 25, 26, 27) AND BetType NOT IN (500, 912, 913, 914) 	
+	WHERE ProductID IN (1, 3, 5, 25, 26, 27)
+		AND BetType NOT IN (500, 912, 913, 914)
+	GROUP BY BetType
 	--- End Sport Bettype Matrix------
-
- 	; WITH AllTicket AS(	 
-	SELECT  b.custid, 
-			b.odds, 
-			b.stake, 
-			b.balance, 
-			b.bettype,
-			b.winlostdate, 
-			b.matchid,
-			b.ip,
-			CASE WHEN b.Bettype IN (901,902,903,904,911) THEN b.RefNo ELSE 0 END as RefNo,
-			ISNULL(CAST(b.WalletType AS SMALLINT),-1) WalletType,
-			b.betteam,
-            b.oddsid
-	FROM	bodb02.dbo.bettrans b WITH(NOLOCK , Index = PK_bettrans)
-		INNER JOIN @bettype s ON s.bettype = b.bettype
-	WHERE	b.TransID BETWEEN @TransId - 5000 AND @MaxTransId
-			----AND b.bettype < 19000			
-			AND b.matchid > 0
-			AND b.custid NOT IN (50057, 879241, 103873, 851668, 878902) --betdaq
-			AND b.custid NOT IN (1077687) -- Betfair
-			AND b.recommend NOT IN (11196380) -- foobet	
-			AND b.betfrom <> 'v'
-			AND b.recommend NOT IN (5707545, 52466) -- exclude members under BARM,8RM
-			AND b.currency NOT IN (20, 27, 28)
-			AND b.statusID NOT IN (101, 102, 103) 
-			AND NOT EXISTS (SELECT TOP 1 1 FROM bodb02.dbo.TradeCust t WITH (NOLOCK) WHERE b.custid = t.custid AND t.VendorID = 14)
-	)
-	SELECT  b.custid, 
-			b.odds, 
-			b.stake, 
-			b.balance, 
-			b.bettype,
-			b.winlostdate, 
-			b.matchid,
-			b.ip,
-			b.RefNo,		
-			b.WalletType,
-			b.betteam,
-            b.oddsid
-	INTO	#TempData
-	FROM	AllTicket b							
-	GROUP BY	b.custid, 
-				b.odds, 
-				b.stake, 
-				b.balance, 
-				b.bettype,
-				b.winlostdate, 
-				b.matchid,
-				b.ip,
-				b.RefNo,
-				b.WalletType,
-				b.betteam,
-                b.oddsid
-	HAVING COUNT(*) > 1
-	 
-
+	
+	WHILE (@MaxSequenceID > @LastSequenceID)
+	BEGIN
+		SELECT @SiteDBGroupID = MIN(SiteDBGroupID)
+		FROM #tmpSiteDBTrans
+		WHERE SiteDBGroupID > ISNULL(@SiteDBGroupID, -1)
+		
+		IF ISNULL(@SiteDBGroupID, -1) = -1
+			BREAK
+		
+		---Set variable
+		SELECT @Min_Transid = Min_Transid
+			,@Max_Transid = Max_Transid
+		FROM #tmpSiteDBTrans
+		WHERE SiteDBGroupID = @SiteDBGroupID
+		
+		;WITH AllTicket AS (
+			SELECT  b.custid, 
+					b.odds, 
+					b.stake, 
+					b.balance, 
+					b.bettype,
+					b.winlostdate, 
+					b.matchid,
+					b.ip,
+					CASE WHEN b.Bettype IN (901,902,903,904,911) THEN b.RefNo ELSE 0 END as RefNo,
+					ISNULL(CAST(b.WalletType AS SMALLINT),-1) WalletType,
+					b.betteam,
+					b.oddsid
+			FROM bodb02.dbo.bettrans b WITH (NOLOCK , Index = PK_bettrans)
+				INNER JOIN @bettype s ON s.bettype = b.bettype
+			WHERE	b.TransID BETWEEN @Min_Transid AND @Max_Transid
+				AND b.SiteDBGroupID = @SiteDBGroupID
+				----AND b.bettype < 19000
+				AND b.matchid > 0
+				AND b.custid NOT IN (50057, 879241, 103873, 851668, 878902) --betdaq
+				AND b.custid NOT IN (1077687) -- Betfair
+				AND b.recommend NOT IN (11196380) -- foobet
+				AND b.betfrom <> 'v'
+				AND b.recommend NOT IN (5707545, 52466) -- exclude members under BARM,8RM
+				AND b.currency NOT IN (20, 27, 28)
+				AND b.statusID NOT IN (101, 102, 103) 
+				AND NOT EXISTS (SELECT TOP 1 1 FROM bodb02.dbo.TradeCust t WITH (NOLOCK) WHERE b.custid = t.custid AND t.VendorID = 14)
+		)
+		INSERT INTO #tmpData (
+			custid
+			,odds
+			,stake
+			,balance
+			,bettype
+			,winlostdate
+			,matchid
+			,ip
+			,RefNo
+			,WalletType
+			,betteam
+			,oddsid
+		)
+		SELECT b.custid
+			,b.odds
+			,b.stake
+			,b.balance
+			,b.bettype
+			,b.winlostdate
+			,b.matchid
+			,b.ip
+			,b.RefNo
+			,b.WalletType
+			,b.betteam
+			,b.oddsid
+		FROM AllTicket b
+		GROUP BY b.custid
+			,b.odds
+			,b.stake
+			,b.balance
+			,b.bettype
+			,b.winlostdate
+			,b.matchid
+			,b.ip
+			,b.RefNo
+			,b.WalletType
+			,b.betteam
+			,b.oddsid
+		HAVING COUNT(*) > 1
+	END
+	
 	--------------------------------------------------------
 	INSERT INTO dbo.DuplicatedTicket (transid, transdate, winlostdate)
-	SELECT  b.transid, b.transdate, b.winlostdate
+	SELECT DISTINCT b.transid, b.transdate, b.winlostdate
 	FROM	bodb02.dbo.bettrans b WITH(NOLOCK)
-		INNER JOIN #TempData t 
+		INNER JOIN #tmpData t 
 			ON	b.custid = t.custid 
 			AND b.odds = t.odds
 			AND b.stake = t.stake
@@ -134,19 +209,19 @@ BEGIN
 			AND t.WalletType = ISNULL(CAST(b.WalletType AS SMALLINT),-1)
 			AND b.betteam = t.betteam
             AND b.oddsid = t.oddsid
-	WHERE NOT EXISTS (SELECT 1 FROM dbo.DuplicatedTicket d WITH (NOLOCK) WHERE d.TransID = b.TransId)	
-	DROP TABLE #TempData
-	
+	WHERE NOT EXISTS (SELECT 1 FROM dbo.DuplicatedTicket d WITH (NOLOCK) WHERE d.TransID = b.TransId)
 	
 	UPDATE bodb02.dbo.SystemSettings WITH (UPDLOCK, ROWLOCK) 
-	SET	   VValue = @MaxTransId
+	SET	   VValue = @MaxSequenceID
 	WHERE  VName = 'DuplTicketLastID'
-
+		AND ISNULL(@MaxSequenceID,-1) > -1
 	
-	UPDATE bodb02.dbo.SystemSettings WITH (UPDLOCK, ROWLOCK) 
-	SET	   VValue = CURRENT_TIMESTAMP
-	WHERE  VName = 'DuplTicketLastDate' 
-		
+	-- NOT use - removed code for it in Acc_Rpt_DuplicatedTicketsSel
+	-- UPDATE bodb02.dbo.SystemSettings WITH (UPDLOCK, ROWLOCK)
+	-- SET	   VValue = CURRENT_TIMESTAMP
+	-- WHERE  VName = 'DuplTicketLastDate'
+
+	DROP TABLE #tmpData
+	DROP TABLE #tmpSiteDBTrans
+	
 END
-
-
