@@ -17,6 +17,7 @@ AS
 		- 20210423@Roy: NAP Report - Move Save bet db & service (#153147)
 		- 20211216@Jaden: Add IsDeleted column check (#164376)
 		- 20220624@Roy: Keep MatchList only 6mth data (#174508)
+		- 20220801@Kean: Use DISTINCT before insert into MatchList table (#176041)
 */
 
 BEGIN
@@ -52,7 +53,7 @@ BEGIN
 			 HomeID,
 			 AwayID
 		   )
-		   SELECT MatchID,
+		   SELECT DISTINCT MatchID,
 				  EventDate,
 				  EventStatus,
 				  0,
