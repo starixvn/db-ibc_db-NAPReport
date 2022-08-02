@@ -69,6 +69,12 @@ BEGIN
 		,oddsid INT
 	)
 	
+	CREATE TABLE #tmpDup (
+		TransID BIGINT
+		,TransDate DATETIME
+		,WinlostDate SMALLDATETIME
+	)
+	
 	SELECT @LastSequenceID = CONVERT(BIGINT,VValue) FROM bodb02.dbo.SystemSettings WITH (NOLOCK) WHERE VName = 'DuplTicketLastID'
 	SELECT @LastSequenceID = ISNULL(@LastSequenceID,-1)
 	
@@ -198,7 +204,7 @@ BEGIN
 		END
 		
 		--------------------------------------------------------
-		INSERT INTO dbo.DuplicatedTicket (transid, transdate, winlostdate)
+		INSERT INTO #tmpDup (transid, transdate, winlostdate)
 		SELECT b.transid, b.transdate, b.winlostdate
 		FROM	bodb02.dbo.bettrans b WITH(NOLOCK)
 			INNER JOIN #tmpData t 
@@ -215,6 +221,20 @@ BEGIN
 				AND t.WalletType = ISNULL(CAST(b.WalletType AS SMALLINT),-1)
 				AND b.betteam = t.betteam
 				AND b.oddsid = t.oddsid
+		-- WHERE NOT EXISTS (SELECT 1 FROM dbo.DuplicatedTicket d WITH (NOLOCK) WHERE d.TransID = b.TransId)
+		
+		--delete if dirty read make data have the same transid
+		;WITH CTE_DR AS (
+			SELECT ROW_NUMBER() OVER ( PARTITION BY transid ORDER BY TransDate ) AS rn
+				,transid
+			FROM #tmpDup
+		)
+		DELETE FROM CTE_DR
+		WHERE rn > 1
+		
+		INSERT INTO dbo.DuplicatedTicket (transid, transdate, winlostdate)
+		SELECT transid, transdate, winlostdate
+		FROM #tmpData AS b
 		WHERE NOT EXISTS (SELECT 1 FROM dbo.DuplicatedTicket d WITH (NOLOCK) WHERE d.TransID = b.TransId)
 		
 		UPDATE bodb02.dbo.SystemSettings WITH (UPDLOCK, ROWLOCK) 
