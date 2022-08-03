@@ -218,7 +218,7 @@ BEGIN
 			HAVING COUNT(*) > 1
 		END-- END WHILE
 		
-		CREATE CLUSTERED INDEX tmpData ON #tmpDupValue (SiteDBGroupID, matchid, custid, bettype)
+		CREATE CLUSTERED INDEX tmpDupValue ON #tmpDupValue (SiteDBGroupID, matchid, custid, bettype)
 		--------------------------------------------------------
 		INSERT INTO #tmpDupTransID (DupValueID, SiteDBGroupID, TransID, TransDate, WinlostDate)
 		SELECT t.DupValueID, b.SiteDBGroupID, b.TransID, b.TransDate, b.WinlostDate
@@ -248,7 +248,7 @@ BEGIN
 		DELETE FROM CTE_DR
 		WHERE rn > 1
 		
-		CREATE CLUSTERED INDEX tmpDup ON #tmpDupTransID (DupValueID, SiteDBGroupID, TransID)
+		CREATE CLUSTERED INDEX tmpDupTransID ON #tmpDupTransID (DupValueID, SiteDBGroupID, TransID)
 		
 		--re-check to get transids which TransDate diff lower @TransDiffMillisec
 		;WITH CTE_Diff AS (
