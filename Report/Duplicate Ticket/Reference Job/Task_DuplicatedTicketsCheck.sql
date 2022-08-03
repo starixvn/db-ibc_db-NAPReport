@@ -234,7 +234,7 @@ BEGIN
 		
 		INSERT INTO dbo.DuplicatedTicket (transid, transdate, winlostdate)
 		SELECT transid, transdate, winlostdate
-		FROM #tmpData AS b
+		FROM #tmpDup AS b
 		WHERE NOT EXISTS (SELECT 1 FROM dbo.DuplicatedTicket d WITH (NOLOCK) WHERE d.TransID = b.TransId)
 		
 		UPDATE bodb02.dbo.SystemSettings WITH (UPDLOCK, ROWLOCK) 
@@ -248,5 +248,6 @@ BEGIN
 
 	DROP TABLE #tmpData
 	DROP TABLE #tmpSiteDBTrans
+	DROP TABLE #tmpDup
 	
 END
