@@ -9,6 +9,7 @@ AS
 
 	Revisions:
 		20220531@Roy: Letstalk Report - House Performance by Site & Sport (#173219)
+		20220714@Roy: Fix the way to determine HALF-WON|HALF_LOSE ticket (#175382)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -81,6 +82,7 @@ BEGIN
 		ProductID INT
 		,Bettype INT
 		,RefTable TINYINT
+		,HalfBettype BIT
 	)
 	
 	CREATE TABLE #tmpDWBettypeSource (
@@ -191,6 +193,7 @@ BEGIN
 		ProductID
 		,Bettype
 		,RefTable
+		,HalfBettype
 	)
 	SELECT DISTINCT pb.ProductID
 		,pb.Bettype
@@ -198,6 +201,9 @@ BEGIN
 			WHEN bs.SourceTable = 'bettransLC' THEN 2
 			ELSE 3
 		END AS RefTable
+		,CASE WHEN pb.ProductID = 1 AND pb.Bettype NOT IN (29, 38, 901, 902 ,903, 904, 999, 18999) THEN 1
+			ELSE 0
+		END AS HalfBettype
 	FROM dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '', 0) AS pb
 		LEFT JOIN #tmpDWBettypeSource AS bs ON pb.Bettype = bs.Bettype
 	
@@ -304,27 +310,7 @@ BEGIN
 			ELSE @NS_LeagueID
 		END AS LeagueID
 		,b.Bettype
-		,(CASE WHEN (
-				(
-					b.bettype < 999
-					OR b.bettype BETWEEN 1301 AND 1399
-					OR b.bettype BETWEEN 9001 AND 9399
-					OR b.bettype BETWEEN 9400 AND 9998
-					)
-				AND b.bettype NOT IN (
-					29
-					,38
-					,911
-					,912
-					,913
-					,914
-					) -- Parlay, betbuilder, Cashout
-				AND b.bettype NOT BETWEEN 81 AND 120 --Number Game
-				AND ABS(b.modds) = 0.25
-				)
-			THEN 1
-		ELSE 0
-		END) AS IsHalf
+		,(CASE WHEN ( ABS(b.modds) = 0.25 AND pb.HalfBettype = 1 ) THEN 1 ELSE 0 END) AS IsHalf
 		,(CASE WHEN b.bettype = 29 THEN b.livehomescore
 		ELSE CAST(b.liveindicator AS TINYINT)
 		END) AS LiveStatus --0: Nonlive | 1:Live | 2: Mixed
@@ -368,27 +354,7 @@ BEGIN
 			ELSE @NS_LeagueID
 		END
 		,b.Bettype
-		,(CASE WHEN (
-				(
-					b.bettype < 999
-					OR b.bettype BETWEEN 1301 AND 1399
-					OR b.bettype BETWEEN 9001 AND 9399
-					OR b.bettype BETWEEN 9400 AND 9998
-					)
-				AND b.bettype NOT IN (
-					29
-					,38
-					,911
-					,912
-					,913
-					,914
-					) -- Parlay, betbuilder, Cashout
-				AND b.bettype NOT BETWEEN 81 AND 120 --Number Game
-				AND ABS(b.modds) = 0.25
-				)
-			THEN 1
-		ELSE 0
-		END)
+		,(CASE WHEN ( ABS(b.modds) = 0.25 AND pb.HalfBettype = 1 ) THEN 1 ELSE 0 END)
 		,(CASE WHEN b.bettype = 29 THEN b.livehomescore
 		ELSE CAST(b.liveindicator AS TINYINT)
 		END)
