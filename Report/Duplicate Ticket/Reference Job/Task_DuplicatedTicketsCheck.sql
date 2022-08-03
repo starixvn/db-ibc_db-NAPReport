@@ -58,8 +58,8 @@ BEGIN
 		,Max_SequenceID BIGINT
 	)
 	
-	CREATE TABLE #tmpData (
-		DupGroup INT IDENTITY(1,1)
+	CREATE TABLE #tmpDupValue (
+		DupValueID INT IDENTITY(1,1)
 		,SiteDBGroupID SMALLINT NOT NULL
 		,custid INT NOT NULL
 		,odds SMALLMONEY
@@ -75,15 +75,15 @@ BEGIN
 		,oddsid INT NOT NULL
 	)
 	
-	CREATE TABLE #tmpDup (
-		DupGroup INT
+	CREATE TABLE #tmpDupTransID (
+		DupValueID INT
 		,SiteDBGroupID SMALLINT
 		,TransID BIGINT		
 		,TransDate DATETIME
 		,WinlostDate SMALLDATETIME
 	)
 	
-	CREATE TABLE #tmpDupDiff (
+	CREATE TABLE #tmpTransDateDiff (
 		TransID BIGINT
 		,TransIDDiff BIGINT
 		,DiffInMillisec INT
@@ -173,8 +173,8 @@ BEGIN
 					AND b.statusID NOT IN (101, 102, 103) 
 					AND NOT EXISTS (SELECT TOP 1 1 FROM bodb02.dbo.TradeCust t WITH (NOLOCK) WHERE b.custid = t.custid AND t.VendorID = 14)
 			)
-			INSERT INTO #tmpData (
-				-- DupGroup IDENTITY(1,1)
+			INSERT INTO #tmpDupValue (
+				-- DupValueID IDENTITY(1,1)
 				SiteDBGroupID
 				,custid
 				,odds
@@ -218,12 +218,12 @@ BEGIN
 			HAVING COUNT(*) > 1
 		END-- END WHILE
 		
-		CREATE CLUSTERED INDEX tmpData ON #tmpData (SiteDBGroupID, matchid, custid, bettype)
+		CREATE CLUSTERED INDEX tmpData ON #tmpDupValue (SiteDBGroupID, matchid, custid, bettype)
 		--------------------------------------------------------
-		INSERT INTO #tmpDup (DupGroup, SiteDBGroupID, TransID, TransDate, WinlostDate)
-		SELECT t.DupGroup, b.SiteDBGroupID, b.TransID, b.TransDate, b.WinlostDate
+		INSERT INTO #tmpDupTransID (DupValueID, SiteDBGroupID, TransID, TransDate, WinlostDate)
+		SELECT t.DupValueID, b.SiteDBGroupID, b.TransID, b.TransDate, b.WinlostDate
 		FROM	bodb02.dbo.bettrans b WITH(NOLOCK)
-			INNER JOIN #tmpData t 
+			INNER JOIN #tmpDupValue t 
 				ON	b.SiteDBGroupID = t.SiteDBGroupID
 				AND b.custid = t.custid 
 				AND b.odds = t.odds
@@ -243,25 +243,25 @@ BEGIN
 		;WITH CTE_DR AS (
 			SELECT ROW_NUMBER() OVER ( PARTITION BY transid ORDER BY TransDate ) AS rn
 				,transid
-			FROM #tmpDup
+			FROM #tmpDupTransID
 		)
 		DELETE FROM CTE_DR
 		WHERE rn > 1
 		
-		CREATE CLUSTERED INDEX tmpDup ON #tmpDup (DupGroup, SiteDBGroupID, TransID)
+		CREATE CLUSTERED INDEX tmpDup ON #tmpDupTransID (DupValueID, SiteDBGroupID, TransID)
 		
 		--re-check to get transids which TransDate diff lower @TransDiffMillisec
 		;WITH CTE_Diff AS (
 			SELECT dp1.TransID
 				,dp2.TransID AS TransIDDiff
 				,ABS(DATEDIFF(MILLISECOND, dp2.TransDate, dp1.TransDate)) AS DiffInMillisec
-			FROM #tmpDup AS dp1 WITH (NOLOCK)
-				INNER JOIN #tmpDup AS dp2 WITH (NOLOCK)
+			FROM #tmpDupTransID AS dp1 WITH (NOLOCK)
+				INNER JOIN #tmpDupTransID AS dp2 WITH (NOLOCK)
 					ON dp2.SiteDBGroupID = dp1.SiteDBGroupID
-					AND dp2.DupGroup = dp1.DupGroup
+					AND dp2.DupValueID = dp1.DupValueID
 					AND dp2.TransID <> dp1.TransID
 		)
-		INSERT INTO #tmpDupDiff ( TransID )
+		INSERT INTO #tmpTransDateDiff ( TransID )
 		SELECT di.TransID
 		FROM CTE_Diff AS di
 		WHERE di.DiffInMillisec <= @TransDiffMillisec
@@ -270,9 +270,9 @@ BEGIN
 		--insert final result--
 		INSERT INTO dbo.DuplicatedTicket (transid, transdate, winlostdate)
 		SELECT DISTINCT b.transid, b.transdate, b.winlostdate
-		FROM #tmpDup AS b WITH (NOLOCK)
+		FROM #tmpDupTransID AS b WITH (NOLOCK)
 		WHERE NOT EXISTS (SELECT 1 FROM dbo.DuplicatedTicket d WITH (NOLOCK) WHERE d.TransID = b.TransId)
-			AND b.transid IN (SELECT TransID FROM #tmpDupDiff)
+			AND b.transid IN (SELECT TransID FROM #tmpTransDateDiff)
 		
 		--update LastSequenceID
 		UPDATE bodb02.dbo.SystemSettings WITH (UPDLOCK, ROWLOCK) 
@@ -284,8 +284,8 @@ BEGIN
 	-- SET	   VValue = CURRENT_TIMESTAMP
 	-- WHERE  VName = 'DuplTicketLastDate'
 
-	DROP TABLE #tmpData
+	DROP TABLE #tmpDupValue
 	DROP TABLE #tmpSiteDBTrans
-	DROP TABLE #tmpDup
-	DROP TABLE #tmpDupDiff
+	DROP TABLE #tmpDupTransID
+	DROP TABLE #tmpTransDateDiff
 END
