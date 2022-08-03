@@ -1,13 +1,18 @@
 /*<info serverAlias="DBRPT-bodb_report" executers="" viewers="vnteam" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Task_DuplicatedTicketsCheck]
-	@_Second SMALLINT = 3
+	@TransRangeSec SMALLINT = 3
+	,@TransDiffMillisec INT = 1000
 AS
 /*
 	Created: 20150211@Sophia
 	Task : Job run to check duplicate tickets on bettrans table and insert the result into DuplicateTicket table to view report later
 	DB: DBRPT/bodb_report
 	Original: Acc_CheckDuplicateTickets
-
+	
+	Param's Explanation:
+		@TransRangeSec: TransID range in second
+		@TransDiffMillisec: TransDate diff in milliseconds
+	
 	Revisions:
 		- 20151009@Sophia: group by IP [#45176]
 		- 20151021@Sophia: Modify the SPs to only cover the tickets of the following products [#45898] 
@@ -54,25 +59,34 @@ BEGIN
 	)
 	
 	CREATE TABLE #tmpData (
-		SiteDBGroupID SMALLINT
-		,custid INT
+		DupGroup INT IDENTITY(1,1)
+		,SiteDBGroupID SMALLINT NOT NULL
+		,custid INT NOT NULL
 		,odds SMALLMONEY
-		,stake MONEY
+		,stake MONEY NOT NULL
 		,balance MONEY
 		,bettype SMALLINT
 		,winlostdate SMALLDATETIME
 		,matchid INT
 		,ip VARCHAR(45)
-		,RefNo BIGINT
+		,RefNo BIGINT NOT NULL
 		,WalletType SMALLINT
 		,betteam NVARCHAR(10)
-		,oddsid INT
+		,oddsid INT NOT NULL
 	)
 	
 	CREATE TABLE #tmpDup (
-		TransID BIGINT
+		DupGroup INT
+		,SiteDBGroupID SMALLINT
+		,TransID BIGINT		
 		,TransDate DATETIME
 		,WinlostDate SMALLDATETIME
+	)
+	
+	CREATE TABLE #tmpDupDiff (
+		TransID BIGINT
+		,TransIDDiff BIGINT
+		,DiffInMillisec INT
 	)
 	
 	SELECT @LastSequenceID = CONVERT(BIGINT,VValue) FROM bodb02.dbo.SystemSettings WITH (NOLOCK) WHERE VName = 'DuplTicketLastID'
@@ -97,8 +111,8 @@ BEGIN
 	
 	--Upd max/min transid by second--
 	UPDATE #tmpSiteDBTrans
-	SET Min_Transid = Min_Transid - (CAST(@_Second AS BIGINT) * 4294967296) --TransID - (Second * 2^32)
-		,Max_Transid = Max_Transid + (CAST(@_Second AS BIGINT) * 4294967296)
+	SET Min_Transid = Min_Transid - (CAST(@TransRangeSec AS BIGINT) * 4294967296) --TransID - (Second * 2^32)
+		,Max_Transid = Max_Transid + (CAST(@TransRangeSec AS BIGINT) * 4294967296)
 	
 	------Get Sport Bettype Matrix------
 	-- Check SP Version	 
@@ -160,6 +174,7 @@ BEGIN
 					AND NOT EXISTS (SELECT TOP 1 1 FROM bodb02.dbo.TradeCust t WITH (NOLOCK) WHERE b.custid = t.custid AND t.VendorID = 14)
 			)
 			INSERT INTO #tmpData (
+				-- DupGroup IDENTITY(1,1)
 				SiteDBGroupID
 				,custid
 				,odds
@@ -201,11 +216,12 @@ BEGIN
 				,b.betteam
 				,b.oddsid
 			HAVING COUNT(*) > 1
-		END
+		END-- END WHILE
 		
+		CREATE CLUSTERED INDEX tmpData ON #tmpData (SiteDBGroupID, matchid, custid, bettype)
 		--------------------------------------------------------
-		INSERT INTO #tmpDup (transid, transdate, winlostdate)
-		SELECT b.transid, b.transdate, b.winlostdate
+		INSERT INTO #tmpDup (DupGroup, SiteDBGroupID, TransID, TransDate, WinlostDate)
+		SELECT t.DupGroup, b.SiteDBGroupID, b.TransID, b.TransDate, b.WinlostDate
 		FROM	bodb02.dbo.bettrans b WITH(NOLOCK)
 			INNER JOIN #tmpData t 
 				ON	b.SiteDBGroupID = t.SiteDBGroupID
@@ -223,7 +239,7 @@ BEGIN
 				AND b.oddsid = t.oddsid
 		-- WHERE NOT EXISTS (SELECT 1 FROM dbo.DuplicatedTicket d WITH (NOLOCK) WHERE d.TransID = b.TransId)
 		
-		--delete if dirty read make data have the same transid
+		--delete if dirty read (page split) make data have the same transid
 		;WITH CTE_DR AS (
 			SELECT ROW_NUMBER() OVER ( PARTITION BY transid ORDER BY TransDate ) AS rn
 				,transid
@@ -232,11 +248,33 @@ BEGIN
 		DELETE FROM CTE_DR
 		WHERE rn > 1
 		
-		INSERT INTO dbo.DuplicatedTicket (transid, transdate, winlostdate)
-		SELECT transid, transdate, winlostdate
-		FROM #tmpDup AS b
-		WHERE NOT EXISTS (SELECT 1 FROM dbo.DuplicatedTicket d WITH (NOLOCK) WHERE d.TransID = b.TransId)
+		CREATE CLUSTERED INDEX tmpDup ON #tmpDup (DupGroup, SiteDBGroupID, TransID)
 		
+		--re-check to get transids which TransDate diff lower @TransDiffMillisec
+		;WITH CTE_Diff AS (
+			SELECT dp1.TransID
+				,dp2.TransID AS TransIDDiff
+				,ABS(DATEDIFF(MILLISECOND, dp2.TransDate, dp1.TransDate)) AS DiffInMillisec
+			FROM #tmpDup AS dp1 WITH (NOLOCK)
+				INNER JOIN #tmpDup AS dp2 WITH (NOLOCK)
+					ON dp2.SiteDBGroupID = dp1.SiteDBGroupID
+					AND dp2.DupGroup = dp1.DupGroup
+					AND dp2.TransID <> dp1.TransID
+		)
+		INSERT INTO #tmpDupDiff ( TransID )
+		SELECT di.TransID
+		FROM CTE_Diff AS di
+		WHERE di.DiffInMillisec <= @TransDiffMillisec
+		GROUP BY di.TransID
+		
+		--insert final result--
+		INSERT INTO dbo.DuplicatedTicket (transid, transdate, winlostdate)
+		SELECT DISTINCT b.transid, b.transdate, b.winlostdate
+		FROM #tmpDup AS b WITH (NOLOCK)
+		WHERE NOT EXISTS (SELECT 1 FROM dbo.DuplicatedTicket d WITH (NOLOCK) WHERE d.TransID = b.TransId)
+			AND b.transid IN (SELECT TransID FROM #tmpDupDiff)
+		
+		--update LastSequenceID
 		UPDATE bodb02.dbo.SystemSettings WITH (UPDLOCK, ROWLOCK) 
 		SET	   VValue = @MaxSequenceID
 		WHERE  VName = 'DuplTicketLastID'
@@ -249,5 +287,5 @@ BEGIN
 	DROP TABLE #tmpData
 	DROP TABLE #tmpSiteDBTrans
 	DROP TABLE #tmpDup
-	
+	DROP TABLE #tmpDupDiff
 END
