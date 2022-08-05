@@ -1,6 +1,4 @@
 /*<info serverAlias="DBWH-bodb_Account" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
-use bodb_Account
-GO
 ALTER PROCEDURE [dbo].[NAP_Task_SaveBet_GetCompletedMatch]
 AS
 
@@ -18,6 +16,7 @@ AS
 		- 20211216@Jaden: Add IsDeleted column check (#164376)
 		- 20220624@Roy: Keep MatchList only 6mth data (#174508)
 		- 20220801@Kean: Use DISTINCT before insert into MatchList table (#176041)
+		- 20220805@Roy: Fix duplicate MatchID when insert into MatchList table (#176340)
 */
 
 BEGIN
@@ -25,7 +24,20 @@ BEGIN
 	DECLARE @MoveBetsDay DATETIME,
 			@CurentDate  DATETIME,
 			@iRowCount INT = 20000
-			
+	
+	CREATE TABLE #tmpMatchList (
+		MatchID INT NOT NULL
+		,EventDate DATETIME NOT NULL
+		,EventStatus VARCHAR(50) NOT NULL
+		,JobFinished BIT NOT NULL
+		,JobGenerated BIT NOT NULL
+		,SportType INT NOT NULL
+		,LeagueID INT NOT NULL
+		,MatchCode NVARCHAR(100) NOT NULL
+		,HomeID INT NOT NULL
+		,AwayID INT NOT NULL
+	)
+
 	SELECT @CurentDate = CONVERT( VARCHAR(10), GETDATE(), 120)
 	
 	SELECT @MoveBetsDay = MoveBetsDay
@@ -41,42 +53,82 @@ BEGIN
 			BREAK
 	END
 
-	INSERT INTO dbo.MatchList
-		   ( MatchID,
-			 EventDate,
-			 EventStatus,
-			 JobFinished,
-			 JobGenerated,
-			 SportType,
-			 LeagueID,
-			 MatchCode,
-			 HomeID,
-			 AwayID
-		   )
-		   SELECT DISTINCT MatchID,
-				  EventDate,
-				  EventStatus,
-				  0,
-				  0,
-				  sporttype,
-				  leagueid,
-				  MatchCode,
-				  HomeID,
-				  AwayID
-		   FROM bodb02.dbo.match WITH ( NOLOCK )
-		   WHERE matchid NOT IN( 
-								 SELECT MatchList.MatchID
-								 FROM MatchList
-								 WHERE match.eventdate > @MoveBetsDay
-									AND match.eventdate <= GETDATE())
-			 AND eventdate BETWEEN DATEADD(DD, -1, @CurentDate) AND @CurentDate
-			 AND eventstatus = 'completed'
-			 AND ( sporttype < 99
-				OR sporttype IN (SELECT DISTINCT sbm.SportType
-								 FROM bodb02.dbo.SportBettypeMatrix sbm (NOLOCK)
-								 WHERE sbm.ProductID IN (5,27)
-									   AND sbm.EventType = 1)
-				)
-			 AND IsDeleted = 0
-			OPTION (RECOMPILE)
+	INSERT INTO #tmpMatchList (
+		MatchID
+		,EventDate
+		,EventStatus
+		,JobFinished
+		,JobGenerated
+		,SportType
+		,LeagueID
+		,MatchCode
+		,HomeID
+		,AwayID
+	)
+	SELECT DISTINCT MatchID,
+		EventDate,
+		EventStatus,
+		0,
+		0,
+		sporttype,
+		leagueid,
+		MatchCode,
+		HomeID,
+		AwayID
+	FROM bodb02.dbo.match WITH ( NOLOCK )
+	WHERE matchid NOT IN( 
+				SELECT MatchList.MatchID
+				FROM MatchList
+				WHERE match.eventdate > @MoveBetsDay
+					AND match.eventdate <= GETDATE())
+		AND eventdate BETWEEN DATEADD(DD, -1, @CurentDate) AND @CurentDate
+		AND eventstatus = 'completed'
+		AND ( sporttype < 99
+		OR sporttype IN (SELECT DISTINCT sbm.SportType
+				 FROM bodb02.dbo.SportBettypeMatrix sbm (NOLOCK)
+				 WHERE sbm.ProductID IN (5,27)
+					   AND sbm.EventType = 1)
+		)
+		AND IsDeleted = 0
+	OPTION (RECOMPILE)
+	
+	--remove duplication MatchID
+	;WITH CTE_Dup AS (
+		SELECT ROW_NUMBER() OVER ( PARTITION BY MatchID ORDER BY MatchID ) AS rn
+			,MatchID
+		FROM #tmpMatchList WITH (NOLOCK)
+	)
+	DELETE
+	FROM #tmpMatchList
+	WHERE MatchID IN (
+			SELECT MatchID
+			FROM CTE_Dup
+			WHERE rn > 1
+			)
+	
+	INSERT INTO dbo.MatchList (
+		MatchID
+		,EventDate
+		,EventStatus
+		,JobFinished
+		,JobGenerated
+		,SportType
+		,LeagueID
+		,MatchCode
+		,HomeID
+		,AwayID
+	)
+	SELECT MatchID
+		,EventDate
+		,EventStatus
+		,JobFinished
+		,JobGenerated
+		,SportType
+		,LeagueID
+		,MatchCode
+		,HomeID
+		,AwayID
+	FROM #tmpMatchList
+	
+	DROP TABLE #tmpMatchList
 END
