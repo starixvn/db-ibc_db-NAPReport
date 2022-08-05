@@ -25,7 +25,8 @@ AS
 
     Revisions:
         - 20210715@Jaden.Tang: First Commit (#158683)
-		- 20220419@Kean.Nguyen: Fix the way to determine HALF-WON|HALF_LOSE ticket (#171706)
+		    - 20220419@Kean.Nguyen: Fix the way to determine HALF-WON|HALF_LOSE ticket (#171706)
+    	  - 20220711@Jaden.Tang: Dynamic half win/lose check (#175205)
 
     Param's Explanation:
         - @fromDate: Range date to get data for report
@@ -61,10 +62,11 @@ BEGIN
     
     -- #tmpSportBettypeMatrix, filter by bet type
     BEGIN
-        CREATE TABLE #tmpSportBettypeMatrix (BetType SMALLINT)
+        CREATE TABLE #tmpSportBettypeMatrix (BetType SMALLINT, IsHalfWonLoseAble BIT)
 
-        INSERT INTO #tmpSportBettypeMatrix (BetType)
-        SELECT DISTINCT sbm.BetType
+        INSERT INTO #tmpSportBettypeMatrix (BetType, IsHalfWonLoseAble)
+        SELECT DISTINCT sbm.BetType,
+               CASE WHEN sbm.BetType NOT IN (38, 901, 902 ,903, 904, 18999) THEN 1 ELSE 0 END
           FROM bodb02.dbo.SportBettypeMatrix sbm (NOLOCK)
          WHERE sbm.ProductID = 1
            AND sbm.SubProduct NOT LIKE 'BT%'
@@ -81,34 +83,36 @@ BEGIN
                                 MatchID INT, 
                                 MatchType SMALLINT, -- normal or outright
                                 ChildMatchType INT, -- determine Extra Time or Penalty matches
+                                IsHedge BIT,
                                 HomeID INT, 
                                 AwayID INT)
 
         ;WITH CTE_Match AS (
-            SELECT MatchID AS MatchID, LeagueID, 0 AS MatchType, ChildMatchType, HomeID, AwayID
+            SELECT MatchID AS MatchID, LeagueID, 0 AS MatchType, ChildMatchType, matchcode, HomeID, AwayID
               FROM bodb02.dbo.match WITH (NOLOCK)
              WHERE eventdate >= @fromDate AND eventdate <= @toDate
                    UNION ALL
-            SELECT orid AS MatchID, LeagueID, 1 AS MatchType, 0 AS ChildMatchType, TeamID, -1
+            SELECT orid AS MatchID, LeagueID, 1 AS MatchType, 0 AS ChildMatchType, matchcode, TeamID, -1
               FROM bodb02.dbo.outright WITH (NOLOCK)
              WHERE eventdate >= @fromDate AND eventdate <= @toDate
                    UNION
-            SELECT MatchID AS MatchID, LeagueID, 0 AS MatchType, ChildMatchType, HomeID, AwayID
+            SELECT MatchID AS MatchID, LeagueID, 0 AS MatchType, ChildMatchType, matchcode, HomeID, AwayID
               FROM bodb02.dbo.match14 WITH (NOLOCK)
              WHERE @fromDate <= @MoveBetsDay
                AND eventdate >= @fromDate AND eventdate <= @MoveBetsDay
                    UNION ALL
-            SELECT orid AS MatchID, LeagueID, 1 AS MatchType, 0 AS ChildMatchType, TeamID, -1
+            SELECT orid AS MatchID, LeagueID, 1 AS MatchType, 0 AS ChildMatchType, matchcode, TeamID, -1
               FROM bodb02.dbo.outright14 (NOLOCK)
              WHERE @fromDate <= @MoveBetsDay
                AND eventdate >= @fromDate AND eventdate <= @MoveBetsDay
         )
-        INSERT INTO #tmpMatch (SportType, LeagueID, MatchID, MatchType, ChildMatchType, HomeID, AwayID)
+        INSERT INTO #tmpMatch (SportType, LeagueID, MatchID, MatchType, ChildMatchType, IsHedge, HomeID, AwayID)
         SELECT s.SportType,
             l.LeagueID,
             m.MatchID,
             m.MatchType,
             m.ChildMatchType,
+            CASE WHEN m.matchcode LIKE '%hedge%' THEN 1 ELSE 0 END Ishedge,
             m.HomeID,
             m.AwayID
         FROM CTE_Match m
@@ -178,9 +182,8 @@ BEGIN
                 END 
                 * 
                 CASE WHEN @excludeDrawTickets = 1 
-                         THEN CASE WHEN (sd.bettype < 999 OR sd.bettype BETWEEN 1301 AND 1399 OR sd.bettype BETWEEN 9001 AND 9399 OR sd.bettype BETWEEN 9400 AND 9998)
-                                    AND sd.bettype NOT IN (29, 38, 911, 912, 913, 914)
-                                    AND sd.bettype NOT BETWEEN 81 AND 120
+                         THEN CASE WHEN ((sd.winlostdate < '2019-10-01' AND sd.bettype IN (1, 3, 7, 8, 17, 18, 124, 125, 482, 483, 484, 485))
+                                        OR (sd.winlostdate >= '2019-10-01' AND sbm.IsHalfWonLoseAble = 1))
                                     AND sd.statusID IN (112, 113)
                                     AND ABS(sd.modds) = 0.25
                                    THEN 0.5
@@ -189,22 +192,23 @@ BEGIN
                 END) AS RealTurnover
           FROM (
             SELECT custid, recommend, winlost, actual_stake, awinlost, mwinlost, swinlost, scomm, tpositiontaking, epositiontaking, stake
-                 , virtualrate, actualrate, bettype, statusID, modds, MatchID, currency, ruben, liveindicator
+                 , virtualrate, actualrate, bettype, statusID, modds, MatchID, currency, ruben, liveindicator, winlostdate
               FROM bodb02.dbo.bettrans WITH (NOLOCK)
              WHERE winlostdate >= @fromDate AND winlostdate <= @toDate
             UNION ALL
             SELECT custid, recommend, winlost, actual_stake, awinlost, mwinlost, swinlost, scomm, tpositiontaking, epositiontaking, stake
-                 , virtualrate, actualrate, bettype, statusID, modds, MatchID, currency, ruben, liveindicator
+                 , virtualrate, actualrate, bettype, statusID, modds, MatchID, currency, ruben, liveindicator, winlostdate
               FROM bodb02.dbo.bettrans14 WITH (NOLOCK) 
              WHERE @fromDate <= @MoveBetsDay AND winlostdate > @fromDate AND winlostdate <= @MoveBetsDay
           ) sd
             INNER JOIN #tmpMatch m ON sd.MatchID = m.MatchID
                                   AND CASE WHEN sd.bettype = 10 THEN 1 ELSE 0 END = m.MatchType
             INNER JOIN #tmpAgent a ON sd.recommend = a.CustID
+            LEFT JOIN #tmpSportBettypeMatrix sbm ON sd.bettype = sbm.BetType
          WHERE sd.ruben = 1
            AND sd.statusID IN (111, 112, 113)
            AND sd.currency NOT IN (20, 27, 28)
-           AND EXISTS (SELECT 1 FROM #tmpSportBettypeMatrix sbm WHERE sd.BetType = sbm.BetType)
+           AND sbm.BetType IS NOT NULL
            AND (@excludeDrawTickets = 0 OR (@excludeDrawTickets = 1 AND statusID NOT IN (111)))
            AND sd.liveindicator = ISNULL(@liveindicator, sd.liveindicator)
            AND sd.bettype = ISNULL(@bettype, sd.bettype)
@@ -236,9 +240,10 @@ BEGIN
                LiveIndicator,
                CASE LiveIndicator WHEN 1 THEN 'Live' ELSE 'Non-Live' END AS [LiveIndicatorDisplay], 
                home.teamname 
-               + CASE WHEN away.teamname IS NOT NULL THEN ' -vs- ' + away.teamname ELSE '' END MatchName,
+               + CASE WHEN away.teamname IS NOT NULL THEN ' -vs- ' + away.teamname ELSE '' END
+			   + CASE WHEN m.IsHedge = 1 THEN ' (hedge)' ELSE '' END MatchName,
                s.MatchID,
-               CASE WHEN m.ChildMatchType IN (201, 202, 203) THEN NULL ELSE s.MatchID END [MatchID_ForCnt], -- don't COUNT extra time, penalty matches
+               CASE WHEN m.ChildMatchType IN (201, 202, 203) OR m.IsHedge = 1 THEN NULL ELSE s.MatchID END [MatchID_ForCnt], -- don't COUNT hedge, extra time, penalty matches
                s.CustID, 
                s.BetType, 
                -- exclude dummy Cashout accounts when counting Active Members and Bet Count
@@ -256,10 +261,12 @@ BEGIN
                LEFT JOIN bodb02.dbo.Site st WITH (NOLOCK) ON s.SiteID = st.siteid -- for displaying site names, 1st level
                                                          AND @siteID IS NULL
 
-               LEFT JOIN #tmpMatch m ON s.MatchID = m.matchid -- for displaying match names, 2nd or 3rd level
-                                    AND @siteID IS NOT NULL
+               LEFT JOIN #tmpMatch m ON s.MatchID = m.matchid
                                     AND @matchID IS NULL 
-                                    AND (@liveIndicator IS NOT NULL OR @showBy = 'Match')
+                                    AND (@showBy = 'Match' -- 4th level
+                                       OR (@liveIndicator IS NOT NULL AND @bettype IS NULL)
+                                       OR (@liveIndicator IS NULL AND @siteID IS NOT NULL) --3rd level
+                                       OR @siteID IS NULL) -- 2nd level: to get ChildMatchTypes and IsHedge column
                     LEFT JOIN bodb02.dbo.Team home WITH (NOLOCK) ON m.homeid = home.teamid
                     LEFT JOIN bodb02.dbo.Team away WITH (NOLOCK) ON m.awayid = away.teamid
 
