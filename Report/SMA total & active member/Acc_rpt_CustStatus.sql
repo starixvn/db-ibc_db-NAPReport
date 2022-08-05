@@ -16,6 +16,7 @@ AS
 	
 	Revisions:
 		20210615@Ned.Le: NAP Report - Change the way to get close/suspend (#156803)
+		20220805@Jaden.Tang: Remove SELECT INTO #tmp pattern (#176082)
 	
 	Param's Explanation:
 		@fromdate: begin date to get data for report
@@ -186,6 +187,15 @@ BEGIN
 	ELSE IF DATEPART(DAY,@maxArcDate) = 30
 		SET @bitMask = @bitMask & CAST(9223372034707292159 AS BIGINT)
 
+	CREATE TABLE #result (
+		roleid INT,
+		sitename VARCHAR(30),
+		ActiveCnt BIT,
+		SuspendedCnt BIT,
+		ClosedCnt BIT
+	)
+
+	INSERT INTO #result
 	SELECT	roleid, sitename
 			,SUM(CASE WHEN enabled & @dateMask <> 0 AND closed & @dateMask = 0 AND reject & @dateMask = 0 THEN 1 ELSE 0 END) ActiveCnt
 			,SUM(CASE WHEN 
@@ -208,7 +218,6 @@ BEGIN
 						  ) BETWEEN @f AND @t
 						) THEN 1 ELSE 0 
 				 END ) ClosedCnt
-			INTO #result
 	FROM #customer
 	GROUP BY roleid, sitename
 

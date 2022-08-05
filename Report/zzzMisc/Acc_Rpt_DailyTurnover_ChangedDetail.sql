@@ -20,6 +20,7 @@ Revisions:
 	- 20160607@Jim:Add More Actions of Settlement to Daily Turnover Report (#57781)
 	- 20160819@Robert: Add Bet Trade Winloss bettype=904 (#62630)
 	- 20170815@Tom: Add some bettype missing (#81287)
+	- 20220805@Jaden.Tang: Remove SELECT INTO #tmp pattern (#176082)
 Param's Explanation:
 
 */
@@ -205,10 +206,15 @@ BEGIN
 		IBC_Virtual =IBC_Virtual  * -1
 	WHERE actionid  IN (-1,-2,103,109,110,111,112,126,135,149,150,153,154,166,167,190,191)
 	
+	CREATE TABLE #tmpCust (
+		CustID INT,
+		Username VARCHAR(30)
+	)
+	
+	INSERT INTO #tmpCust
 	SELECT DISTINCT
 			c.CustID	
 			,c.UserName
-	INTO #tmpCust	
 	FROM  #temp  t
 		INNER JOIN bodb02.dbo.Customer c WITH (NOLOCK) ON t.UserID = c.CustID
 	INSERT INTO #tmpCust(CustID,UserName)

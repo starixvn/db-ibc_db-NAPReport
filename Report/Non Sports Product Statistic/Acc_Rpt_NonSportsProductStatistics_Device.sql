@@ -57,6 +57,7 @@ AS
 		20210506@Cherry: Integrate VGaming Jackpot (#154250)	
 		20220304@Cherry: Enhance username search for Non-sport games statistics report (#144260)
 		20220512@Cherry: Hot fix (#172607)
+		20220805@Jaden.Tang: Remove SELECT INTO #tmp pattern (#176082)
 
 	Param's Explanation:
 		- @username:  + Search by keyword, member only
@@ -1588,8 +1589,14 @@ BEGIN
 	
 	------------------------------------------V. Return Total Row ------------------------------------------------------
 	-- Handle data for ReportByID	
+
+	CREATE TABLE #tmp (
+		Betfrom NVARCHAR(5),
+		DeviceGroup VARCHAR(50)
+	)
+
+	INSERT INTO #tmp
 	SELECT DISTINCT Betfrom, DeviceGroup
-	INTO #tmp
 	FROM #Result
 
 	INSERT INTO #tmp_DeviceGroup (DeviceGroup, Betfrom)
