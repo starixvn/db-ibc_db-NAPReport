@@ -182,7 +182,25 @@ BEGIN
 		DECLARE @DateFrom DATETIME
 		SELECT @DateFrom = DATEADD(dd, 0, DATEDIFF(dd, 0, @Date) ) -- get begin of the day (just in case param input time also)
 		
-		SELECT	b.custid, b.odds, b.stake, b.balance, b.status, b.statusID, b.bettype, b.winlostdate, b.username, b.transid as refno,b.refno as refnoGroup, b.transdate as bettime, bt.typenamee as typename ,b.transdesc, b.matchid
+		SELECT b.custid
+			,b.odds
+			,b.stake
+			,b.balance
+			,b.STATUS
+			,b.statusID
+			,b.bettype
+			,b.winlostdate
+			,b.username
+			,b.transid AS refno
+			,b.refno AS refnoGroup
+			,b.transdate AS bettime
+			,bt.typenamee AS typename
+			,b.transdesc
+			,b.matchid
+			,b.ip
+			,ISNULL(CAST(b.WalletType AS SMALLINT),-1) AS WalletType
+			,b.betteam
+			,b.oddsid
 		FROM	dbo.DuplicatedTicket t WITH (NOLOCK)	
 			INNER JOIN bodb02.dbo.Bettrans b WITH (NOLOCK)	
 					ON b.TransID = t.TransID
