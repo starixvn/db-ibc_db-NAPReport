@@ -23,6 +23,7 @@ AS
 		20191010@Cherry: Apply new table for Trader (#120746)
 		20191121@Ned.Le: Integrate BM AIO (#124017)
 		20191212@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
+        20220812@Ned.Le: Nap Report - TraderPerformanceSoccer report is error (#176597)
 		
 	Param's Explanation:
 		@IsSoccer:
@@ -124,13 +125,15 @@ BEGIN
 			   ,t.UpdatedTime
 		FROM bodb02.dbo.Dot_Admin_Assignment_Trader t (NOLOCK)
 			 INNER JOIN bodb02.dbo.match m (NOLOCK) ON t.matchid = m.matchid 
+             LEFT JOIN bodb02.dbo.League l (NOLOCK) ON m.leagueid = l.leagueid
 		WHERE m.eventdate BETWEEN @FromDate AND @ToDate
 			AND m.eventstatus = 'completed'									
 			AND m.matchcode NOT LIKE '%hedge%'
 			AND t.liveindicator = 1
 			AND ((@IsSoccer = 1 AND t.bettype IN (1, 3, 7, 8, 5, 15))				
 				OR (@IsSoccer = 0 AND t.bettype IN (1, 3, 7, 8, 5, 15, 2, 12, 701, 702))
-				);
+				)
+            AND ISNULL(l.LeagueGroupID, -1) <> 113;
 
 		-- Insert data to #tmpTraderAssignment 
 		WITH
@@ -176,13 +179,14 @@ BEGIN
 				ELSE 0 END AS OUtype
 		FROM #tmpTraderAssignment a 
 			INNER JOIN dbo.match m WITH (NOLOCK) ON a.matchid = m.matchid
+            LEFT JOIN bodb02.dbo.League l (NOLOCK) ON m.leagueid = l.leagueid
 			LEFT JOIN dbo.team t WITH (NOLOCK) ON m.homeid = t.teamid
 			INNER JOIN dbo.customer c WITH (NOLOCK) ON a.TraderID = c.custid
-			INNER JOIN dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid
 		WHERE m.eventdate BETWEEN @FromDate AND @ToDate
 			AND m.eventstatus = 'completed'
 			AND m.sporttype = 1
 			AND m.matchcode NOT LIKE '%hedge%'
+            AND ISNULL(l.LeagueGroupID, -1) <> 113
 
 		INSERT INTO #tmpData
 		SELECT
@@ -220,6 +224,7 @@ BEGIN
 			AND m.sporttype = 1
 			AND m.matchcode NOT LIKE '%hedge%'
 			AND a.matchid IS NULL
+            AND ISNULL(l.LeagueGroupID, -1) <> 113
 	END
 	ELSE
 	BEGIN
@@ -248,6 +253,7 @@ BEGIN
 			AND m.eventstatus = 'completed'
 			AND m.sporttype NOT IN (1, 161) -- exclude number game  
 			AND m.matchcode NOT LIKE '%hedge%'
+            AND ISNULL(l.LeagueGroupID, -1) <> 113
 
 		INSERT INTO #tmpData
 		SELECT
@@ -274,6 +280,7 @@ BEGIN
 			AND m.sporttype NOT IN (1, 161)
 			AND m.matchcode NOT LIKE '%hedge%'
 			AND a.matchid IS NULL
+            AND ISNULL(l.LeagueGroupID, -1) <> 113
 	END
 	
 	INSERT INTO #tmpData (custid, username, leagueid, matchid, homeid, awayid, eventdate, hthomescore, htawayscore, fthomescore, ftawayscore, bettype, IsNeutral, OUtype)
@@ -332,9 +339,19 @@ BEGIN
 		statusID NOT IN (101, 102, 103, 121, 111)
 		AND ruben = 1
 		AND ((@IsSoccer = 1 AND bettype IN (1, 3, 7, 8, 5, 15, 124, 125)
-				AND EXISTS(SELECT 1 FROM dbo.match m WHERE m.matchid = b.matchid AND m.sporttype = 1))
+				AND EXISTS(SELECT 1
+                           FROM dbo.match m (NOLOCK)
+                                LEFT JOIN bodb02.dbo.League l (NOLOCK) ON m.leagueid = l.leagueid
+                           WHERE m.matchid = b.matchid
+                                 AND m.sporttype = 1
+                                 AND ISNULL(l.LeagueGroupID, -1) <> 113))
 			OR (@IsSoccer = 0 AND bettype IN (1, 3, 7, 8, 5, 15, 2, 12, 124, 125, 701, 702)
-				AND EXISTS(SELECT 1 FROM dbo.match m WHERE m.matchid = b.matchid AND m.sporttype NOT IN (1, 161)))
+				AND EXISTS(SELECT 1
+                           FROM dbo.match m (NOLOCK)
+                                LEFT JOIN bodb02.dbo.League l (NOLOCK) ON m.leagueid = l.leagueid
+                           WHERE m.matchid = b.matchid
+                                 AND m.sporttype NOT IN (1, 161)
+                                 AND ISNULL(l.LeagueGroupID, -1) <> 113))
 			)
 		AND winlostdate BETWEEN @FromDate AND @ToDate
 		AND liveindicator = 1
@@ -367,6 +384,7 @@ BEGIN
 				OR (@IsSoccer = 0 AND m.sporttype NOT IN (1, 161)))
 			AND m.matchcode NOT LIKE '%hedge%'
 			AND d.bettype IS NULL
+            AND ISNULL(l.LeagueGroupID, -1) <> 113
 
 	-- Return Data
 	SELECT
