@@ -52,7 +52,7 @@ BEGIN
 		,@SiteDBGroupID SMALLINT
 	
 	CREATE TABLE #tmpSiteDBTrans (
-		SiteDBGroupID SMALLINT
+		SiteDBGroupID SMALLINT NOT NULL
 		,Min_Transid BIGINT
 		,Max_Transid BIGINT
 		,Max_SequenceID BIGINT
@@ -136,7 +136,7 @@ BEGIN
 			FROM #tmpSiteDBTrans
 			WHERE SiteDBGroupID > ISNULL(@SiteDBGroupID, -1)
 			
-			IF ISNULL(@SiteDBGroupID, -1) = -1
+			IF @SiteDBGroupID IS NULL
 				BREAK
 			
 			---Set variable
@@ -161,7 +161,7 @@ BEGIN
 				FROM bodb02.dbo.bettrans b WITH (NOLOCK , Index = PK_bettrans)
 					INNER JOIN @bettype s ON s.bettype = b.bettype
 				WHERE	b.TransID BETWEEN @Min_Transid AND @Max_Transid
-					AND b.SiteDBGroupID = @SiteDBGroupID
+					AND ISNULL(b.SiteDBGroupID,0) = @SiteDBGroupID
 					----AND b.bettype < 19000
 					AND b.matchid > 0
 					AND b.custid NOT IN (50057, 879241, 103873, 851668, 878902) --betdaq
@@ -221,10 +221,10 @@ BEGIN
 		CREATE CLUSTERED INDEX tmpDupValue ON #tmpDupValue (SiteDBGroupID, matchid, custid, bettype)
 		--------------------------------------------------------
 		INSERT INTO #tmpDupTransID (DupValueID, SiteDBGroupID, TransID, TransDate, WinlostDate)
-		SELECT t.DupValueID, b.SiteDBGroupID, b.TransID, b.TransDate, b.WinlostDate
+		SELECT t.DupValueID, ISNULL(b.SiteDBGroupID,0) AS SiteDBGroupID, b.TransID, b.TransDate, b.WinlostDate
 		FROM	bodb02.dbo.bettrans b WITH(NOLOCK)
 			INNER JOIN #tmpDupValue t 
-				ON	b.SiteDBGroupID = t.SiteDBGroupID
+				ON	ISNULL(b.SiteDBGroupID,0) = t.SiteDBGroupID
 				AND b.custid = t.custid 
 				AND b.odds = t.odds
 				AND b.stake = t.stake
