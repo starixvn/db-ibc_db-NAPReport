@@ -1,4 +1,6 @@
-﻿USE [bodb02]
+﻿/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+
+USE [bodb02]
 GO
 ALTER PROCEDURE [dbo].[Acc_Rpt_DailyTurnover_ChangedDetail]
 	@fromdate datetime
