@@ -36,6 +36,12 @@ BEGIN
     FROM bodb02.dbo.SportBettypeMatrix (NOLOCK)
     WHERE ProductID = 1 AND BetType NOT IN (29, 38, 901, 902 ,903, 904, 999, 18999)
 
+    CREATE TABLE #parameter (BetType INT)
+    
+    INSERT INTO #parameter
+    SELECT CAST(val AS INT) AS betType
+    FROM bodb02.dbo.strSplit(@BetType, ',')
+
     DECLARE @ExcludeDraw BIT = 1
    
     ;WITH CTE_measures AS (
@@ -80,12 +86,13 @@ BEGIN
         AND sd.ruben = 1
         AND sd.statusID IN (111, 112, 113)
         AND sd.currency NOT IN (20, 27, 28)
-        AND sd.bettype IN (SELECT CAST(val AS INT) AS betType FROM bodb02.dbo.strSplit(@BetType, ','))
+        AND sd.bettype IN (SELECT BetType FROM #parameter)
     GROUP BY sd.bettype
     HAVING -SUM(sd.RealHouseIncome) <= @WLThreshold
        AND (-SUM(sd.RealHouseIncome) / SUM(sd.RealHouseTurnover)) * 100 <= @MarginThreshold
     OPTION (RECOMPILE)
 
     DROP TABLE #tmpHalfWonLoseBettype
+    DROP TABLE #parameter
 END
 GO
