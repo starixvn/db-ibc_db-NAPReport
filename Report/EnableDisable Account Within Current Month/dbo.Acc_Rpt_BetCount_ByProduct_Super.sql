@@ -74,6 +74,7 @@ AS
         - 20210811@Jaden: Integrate Bitcoin (#159046)
         - 20211203@Ned.Le: NAP Report - Tune report "Total Credit Accounts" (#165615)
         - 20210224@Cherry: Incorporate ONE RNG DCS (#168917)
+		- 20220826@Cherry: Integrate SEAL Entertainment (#176391)
 
     Param's Explanation:
         + @MoveBetsDay:  The day of moving bets to battrans14
@@ -180,6 +181,7 @@ BEGIN
     INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (212, 'Macau Games',    238)
     INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (212, 'Macau Games',    247)
     INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (212, 'Macau Games',    248)
+	INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (212, 'Macau Games',    156)
 
     ---------------
     -- #SportFilter
