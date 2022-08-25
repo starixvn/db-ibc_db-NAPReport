@@ -105,6 +105,7 @@ BEGIN
 	FROM bodb02.dbo.bettrans WITH (NOLOCK)
 	WHERE ISNULL(SequenceID,-1) > @LastSequenceID
 	GROUP BY ISNULL(SiteDBGroupID,0)
+	OPTION (RECOMPILE)
 	
 	SELECT @MaxSequenceID = ISNULL(MAX(Max_SequenceID),@LastSequenceID)
 	FROM #tmpSiteDBTrans
