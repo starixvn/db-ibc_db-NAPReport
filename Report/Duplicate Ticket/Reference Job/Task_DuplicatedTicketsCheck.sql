@@ -103,7 +103,7 @@ BEGIN
 		,MAX(Transid) AS Max_Transid
 		,MAX(SequenceID) AS SequenceID
 	FROM bodb02.dbo.bettrans WITH (NOLOCK)
-	WHERE SequenceID > @LastSequenceID
+	WHERE ISNULL(SequenceID,-1) > @LastSequenceID
 	GROUP BY ISNULL(SiteDBGroupID,0)
 	
 	SELECT @MaxSequenceID = ISNULL(MAX(Max_SequenceID),@LastSequenceID)
