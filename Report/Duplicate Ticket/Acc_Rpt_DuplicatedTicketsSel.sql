@@ -46,6 +46,7 @@ Revisions:
     - 20220110@Ned.Le: NAP Report - Enhance the rule for dectect dup (#167195)
     - 20220321@Ned.Le: NAP Report - Integrate FGG & new bettypes Cricket (#170213)
 	- 20220726@Roy: NAP Report - Scale out & new transid (#175707)
+	- 20220829@Roy: NAP Report - Enhancement for duplicated ticket (#177204)
 	                   
 Param's Explanation:
 	- @CheckTime : The time we consider how long the job fails (Compared the last run with the current time).
