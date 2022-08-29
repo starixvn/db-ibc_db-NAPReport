@@ -1,8 +1,4 @@
 /*<info serverAlias="DBRPT-bodb_report" executers="bodbAdminNet" viewers="vnteam" isFunction="0"></info>*/
-
-USE [bodb_report] 
-GO
-
 ALTER PROCEDURE [dbo].[Acc_Rpt_DuplicatedTicketsSel]
 	@Date DATETIME,
 	@CheckTime SMALLINT = 2
@@ -49,6 +45,7 @@ Revisions:
     - 20211209@Ned.Le: NAP Report - Duplicate ticket report cannot be loaded (#165870)
     - 20220110@Ned.Le: NAP Report - Enhance the rule for dectect dup (#167195)
     - 20220321@Ned.Le: NAP Report - Integrate FGG & new bettypes Cricket (#170213)
+	- 20220726@Roy: NAP Report - Scale out & new transid (#175707)
 	                   
 Param's Explanation:
 	- @CheckTime : The time we consider how long the job fails (Compared the last run with the current time).
@@ -59,7 +56,7 @@ Param's Explanation:
 BEGIN
 	SET NOCOUNT ON
 
-	---- ** 1. Check the transdate of LastTransID and current time  ** ----
+	/*---- ** 1. Check the transdate of LastTransID and current time  ** ----
 	DECLARE @LastTransDate DATETIME	
 	SELECT @LastTransDate = CONVERT(DATETIME, VValue) FROM bodb02.dbo.SystemSettings WITH (NOLOCK) WHERE VName = 'DuplTicketLastDate'
 	
@@ -179,14 +176,31 @@ BEGIN
 		DROP TABLE #TempCust
 
 	END
-	ELSE  ----> Get report from new table
-	BEGIN 	
+	ELSE  ----> Get report from new table*/
+	-- BEGIN 	
 
 		DECLARE @DateFrom DATETIME
 		SELECT @DateFrom = DATEADD(dd, 0, DATEDIFF(dd, 0, @Date) ) -- get begin of the day (just in case param input time also)
-		 
-
-		SELECT	b.custid, b.odds, b.stake, b.balance, b.status, b.statusID, b.bettype, b.winlostdate, b.username, b.transid as refno,b.refno as refnoGroup, b.transdate as bettime, bt.typenamee as typename ,b.transdesc, b.matchid
+		
+		SELECT b.custid
+			,b.odds
+			,b.stake
+			,b.balance
+			,b.STATUS
+			,b.statusID
+			,b.bettype
+			,b.winlostdate
+			,b.username
+			,b.transid AS refno
+			,b.refno AS refnoGroup
+			,b.transdate AS bettime
+			,bt.typenamee AS typename
+			,b.transdesc
+			,b.matchid
+			,b.ip
+			,ISNULL(CAST(b.WalletType AS SMALLINT),-1) AS WalletType
+			,b.betteam
+			,b.oddsid
 		FROM	dbo.DuplicatedTicket t WITH (NOLOCK)	
 			INNER JOIN bodb02.dbo.Bettrans b WITH (NOLOCK)	
 					ON b.TransID = t.TransID
@@ -196,10 +210,8 @@ BEGIN
 			AND t.Transdate < DATEADD(dd, 1, DATEDIFF(dd, 0, @DateFrom))
 			AND b.statusID NOT IN (101,102,103)
 			AND b.bettype NOT IN (500) -- exclude 500 - charged commission
-		ORDER BY b.custid, b.odds, b.stake, b.balance, b.bettype, b.winlostdate, b.Username,b.refno, b.transid, b.transdate, b.status, b.statusID 
-        OPTION (RECOMPILE)
+		ORDER BY b.custid, b.odds, b.stake, b.balance, b.bettype, b.winlostdate, b.Username,b.refno, b.transid, b.transdate, b.status, b.statusID
+		OPTION (RECOMPILE)
 
-	END
-		
+	-- END
 END
-
