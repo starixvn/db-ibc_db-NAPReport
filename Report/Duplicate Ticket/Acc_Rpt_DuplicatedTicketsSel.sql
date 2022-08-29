@@ -192,7 +192,7 @@ BEGIN
 			,b.winlostdate
 			,b.username
 			,b.transid AS refno
-			,b.refno AS refnoGroup
+			,CONVERT(BIGINT,(CASE WHEN b.Bettype IN (901,902,903,904,911) THEN b.RefNo WHEN b.Bettype = 29 THEN b.hdp1 ELSE 0 END)) AS refnoGroup
 			,b.transdate AS bettime
 			,bt.typenamee AS typename
 			,b.transdesc

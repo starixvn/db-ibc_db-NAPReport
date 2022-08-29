@@ -40,6 +40,7 @@ AS
 		 - 20210416@Ned.Le: NAP Report - Duplicate Tickets - Exclude refund tickets (#153616)
          - 20220321@Ned.Le: NAP Report - Integrate FGG & new bettypes Cricket (#170213)
          - 20220726@Roy: NAP Report - Scale out & new transid (#175707)
+         - 20220829@Roy: NAP Report - Enhancement for duplicated ticket (#177204)
 */
 
 BEGIN
@@ -69,7 +70,7 @@ BEGIN
 		,winlostdate SMALLDATETIME
 		,matchid INT
 		,ip VARCHAR(45)
-		,RefNo BIGINT NOT NULL
+		,SpecialCol BIGINT
 		,WalletType SMALLINT
 		,betteam NVARCHAR(10)
 		,oddsid INT NOT NULL
@@ -155,7 +156,7 @@ BEGIN
 						b.winlostdate, 
 						b.matchid,
 						b.ip,
-						CASE WHEN b.Bettype IN (901,902,903,904,911) THEN b.RefNo ELSE 0 END as RefNo,
+						CASE WHEN b.Bettype IN (901,902,903,904,911) THEN b.RefNo WHEN b.Bettype = 29 THEN b.hdp1 ELSE 0 END AS SpecialCol, --only check RefNo for Bettrade and Old Cashout Model; --only check hdp1 for Parlay
 						ISNULL(CAST(b.WalletType AS SMALLINT),-1) WalletType,
 						b.betteam,
 						b.oddsid
@@ -185,7 +186,7 @@ BEGIN
 				,winlostdate
 				,matchid
 				,ip
-				,RefNo
+				,SpecialCol
 				,WalletType
 				,betteam
 				,oddsid
@@ -199,7 +200,7 @@ BEGIN
 				,b.winlostdate
 				,b.matchid
 				,b.ip
-				,b.RefNo
+				,b.SpecialCol
 				,b.WalletType
 				,b.betteam
 				,b.oddsid
@@ -212,7 +213,7 @@ BEGIN
 				,b.winlostdate
 				,b.matchid
 				,b.ip
-				,b.RefNo
+				,b.SpecialCol
 				,b.WalletType
 				,b.betteam
 				,b.oddsid
@@ -234,7 +235,7 @@ BEGIN
 				AND b.winlostdate = t.winlostdate
 				AND b.matchid = t.matchid
 				AND b.ip = t.ip
-				AND CASE WHEN b.bettype IN (901,902,903,904,911) THEN b.RefNo ELSE 0 END = CASE WHEN t.bettype IN (901,902,903,904,911) THEN t.RefNo ELSE 0 END  
+				AND (CASE WHEN b.Bettype IN (901,902,903,904,911) THEN b.RefNo WHEN b.Bettype = 29 THEN b.hdp1 ELSE 0 END) = t.SpecialCol
 				AND t.WalletType = ISNULL(CAST(b.WalletType AS SMALLINT),-1)
 				AND b.betteam = t.betteam
 				AND b.oddsid = t.oddsid
