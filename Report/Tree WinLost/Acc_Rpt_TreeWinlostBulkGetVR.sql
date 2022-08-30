@@ -13,20 +13,25 @@ AS
 	Revision: 
 		- 20190702@Dominic: Not show E-Sports [RedmineID:#114830]
 		- 20200608@Cherry: Not show Basketball (#134978)
+		- 20220805@Jaden.Tang: Remove SELECT INTO #tmp pattern (#176082)
 */
 BEGIN
 	DECLARE @XML XML  = NULL
 	SET @XML = N'<root><r>' + REPLACE(@CustIDs, ',', '</r><r>') + '</r></root>'
 
+	CREATE TABLE #TblCustID (CustID INT)
+
+	INSERT INTO #TblCustID
 	SELECT CAST(r.value('.', 'INT') AS INT) CustID
-	INTO #TblCustID
 	FROM @xml.nodes('//root/r') AS RECORDS(r)
 	WHERE LEN(ISNULL(r.value('.', 'INT'), '')) > 0
 
 	CREATE UNIQUE CLUSTERED INDEX  IX_CustID ON #TblCustID(CustID)
 
+	CREATE TABLE #tmpCustinfo (Username VARCHAR(50), CustID INT)
+
+	INSERT INTO #tmpCustinfo
 	SELECT ci.username,ci.custid
-	INTO #tmpCustinfo
 	FROM		custinfo				AS ci  WITH(NOLOCK) 
 	WHERE	ci.custid IN (SELECT CustID FROM #TblCustID)
 			AND ci.virtualMultiplier = 1

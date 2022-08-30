@@ -17,6 +17,7 @@ AS
 		20210507@Cherry: Edit SP follow adhoc script (#151160)
 		20210517@Cherry: Change DBTP to DBTXN
 		20210504@Jaden: Prevent ticket dupplications in bettrans & bettrans14 by defining range balanceup & movebets (#154116)
+		20220805@Jaden.Tang: Remove SELECT INTO #tmp pattern (#176082)
 
 
 	Param's Explanation:
@@ -101,13 +102,26 @@ BEGIN
 
 	-- Bettrans_BK data-------------------------------------------------------------------------------------------------------------------------------------------------
 
+	CREATE TABLE #tmpmatch (
+		matchid INT,
+		leagueid INT,
+		homeid INT,
+		awayid INT,
+		sporttype INT
+	)
+
+	INSERT INTO #tmpmatch (matchid, leagueid, homeid, awayid, sporttype)
 	SELECT matchid,leagueid,homeid,awayid,sporttype 
-	INTO #tmpmatch 
 	FROM bodb_archive.dbo.match_bk WITH(NOLOCK)
 	WHERE eventdate >= @Fromdate AND sporttype > 1
 	
+	CREATE TABLE #TicketVoiding_VoidedTransaction (
+		transid BIGINT,
+		reasonid INT
+	)
+
+	INSERT INTO #TicketVoiding_VoidedTransaction (transid, reasonid)
 	SELECT transid,reasonid
-	INTO #TicketVoiding_VoidedTransaction
 	FROM bodb_archive.dbo.TicketVoiding_VoidedTransaction_bk WITH(NOLOCK)
 	WHERE createddate >= @Fromdate 
 
@@ -148,15 +162,26 @@ BEGIN
 	END 
 
 	--Select data------------------------------------------------------------------------------------------------------------------------------
+	
+	CREATE TABLE #TicketVoiding_Reason (
+		reasonid INT,
+		ReasonEnglish NVARCHAR(150)
+	)
+	
+	INSERT INTO #TicketVoiding_Reason
 	SELECT reasonid, replace(ReasonEnglish,char(10),' ') as ReasonEnglish 
-	INTO #TicketVoiding_Reason
 	FROM bodb_archive.dbo.TicketVoiding_Reason_bk WITH (NOLOCK)
 	UNION
 	SELECT reasonid, replace(ReasonEnglish,char(10),' ') as ReasonEnglish  
 	FROM DBTXN.bodb02.dbo.TicketVoiding_Reason WITH (NOLOCK)
 
+	CREATE TABLE #TicketVoiding_Reason_final (
+		reasonid INT,
+		ReasonEnglish NVARCHAR(150)
+	)
+
+	INSERT INTO #TicketVoiding_Reason_final
 	SELECT DISTINCT *
-	INTO #TicketVoiding_Reason_final
 	FROM #TicketVoiding_Reason
 
 
