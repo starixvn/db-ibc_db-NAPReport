@@ -76,15 +76,15 @@ BEGIN
 		HomeID,
 		AwayID
 	FROM bodb02.dbo.match WITH ( NOLOCK )
-	WHERE matchid NOT IN( 
-				SELECT MatchList.MatchID
-				FROM MatchList
-				WHERE match.eventdate > @MoveBetsDay
-					AND match.eventdate <= GETDATE())
+	WHERE matchid NOT IN ( 
+			SELECT MatchID
+			FROM MatchList
+			WHERE eventdate > DATEADD(DD, -15, @MoveBetsDay)
+		)
 		AND eventdate BETWEEN DATEADD(DD, -1, @CurentDate) AND @CurentDate
 		AND eventstatus = 'completed'
 		AND ( sporttype < 99
-		OR sporttype IN (SELECT DISTINCT sbm.SportType
+			OR sporttype IN (SELECT DISTINCT sbm.SportType
 				 FROM bodb02.dbo.SportBettypeMatrix sbm (NOLOCK)
 				 WHERE sbm.ProductID IN (5,27)
 					   AND sbm.EventType = 1)
