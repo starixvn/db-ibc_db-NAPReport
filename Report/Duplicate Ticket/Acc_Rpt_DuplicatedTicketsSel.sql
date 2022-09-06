@@ -46,6 +46,7 @@ Revisions:
     - 20220110@Ned.Le: NAP Report - Enhance the rule for dectect dup (#167195)
     - 20220321@Ned.Le: NAP Report - Integrate FGG & new bettypes Cricket (#170213)
 	- 20220726@Roy: NAP Report - Scale out & new transid (#175707)
+	- 20220829@Roy: NAP Report - Enhancement for duplicated ticket (#177204)
 	                   
 Param's Explanation:
 	- @CheckTime : The time we consider how long the job fails (Compared the last run with the current time).
@@ -192,7 +193,7 @@ BEGIN
 			,b.winlostdate
 			,b.username
 			,b.transid AS refno
-			,b.refno AS refnoGroup
+			,CONVERT(BIGINT,(CASE WHEN b.Bettype IN (901,902,903,904,911) THEN b.RefNo WHEN b.Bettype = 29 THEN b.hdp1 ELSE 0 END)) AS refnoGroup
 			,b.transdate AS bettime
 			,bt.typenamee AS typename
 			,b.transdesc
