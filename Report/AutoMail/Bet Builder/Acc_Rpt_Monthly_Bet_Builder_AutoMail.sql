@@ -15,6 +15,7 @@ AS
 		- 20200723@Jaden: Bet Builder - Remove hardcoding (soccer), add basketball [#138082]
 		- 20210504@Jaden: Use SP to get balanceup & movebets (#154116)
 		- 20220110@Roy: Automail Report - Tune sp performance of Bet Builder repo (#167198)
+		- 20220907@Jaden: Change betfrom datatype (#177202)
 
 	Param's Explanation:	 
 */
@@ -33,7 +34,7 @@ BEGIN
 	  , MarketId          VARCHAR(20)
 	  , DateTimePlaced    DATETIME
 	  , NoOfLegsPerBet    SMALLMONEY
-	  , Betfrom           VARCHAR(1)
+	  , Betfrom           NVARCHAR(5)
 	  , Odds              SMALLMONEY
 	  , Currency          INT
 	  , Stake             MONEY
@@ -52,7 +53,7 @@ BEGIN
 	  , Commission      MONEY
 	  , GrossRevenue    MONEY
 	  , Transdate       DATETIME
-	  , Betfrom         VARCHAR(1)
+	  , Betfrom         NVARCHAR(5)
 	  , Betcheck        VARCHAR(50)
 	  , hdp2            SMALLMONEY
 	  , Odds            SMALLMONEY
@@ -70,7 +71,7 @@ BEGIN
 	  , MarketId              VARCHAR(20)
 	  , DateTimePlaced        DATETIME
 	  , NoOfLegsPerBet        SMALLMONEY
-	  , Betfrom               VARCHAR(1)
+	  , Betfrom               NVARCHAR(5)
 	  , Odds                  SMALLMONEY
 	  , Currency              INT
 	  , StakeBefore           MONEY
@@ -97,7 +98,7 @@ BEGIN
 		, @WinlostDate      SMALLDATETIME;
 
     DECLARE @BetFrom TABLE(
-	    Betfrom        VARCHAR(1)
+	    Betfrom        NVARCHAR(5)
 	  , DeviceGroup    VARCHAR(20));
 
 
