@@ -61,6 +61,7 @@ AS
 		20210506@Cherry: Integrate VGaming Jackpot (#154250)
 		20220304@Cherry: Enhance username search for Non-sport games statistics report (#144260)
 		20220512@Cherry: Hot fix (#172607)
+		20220916@Cherry: Extend data type of Betfrom (#177655)
 
 	Param's Explanation:
 			 - @username:  + Search by keyword, member only
@@ -181,7 +182,7 @@ SET NOCOUNT ON
 	CREATE TABLE #tmpCurrency (CurrencyId INT)
 	CREATE TABLE #tmp_Site (Site VARCHAR(50))	
 	CREATE TABLE #tmp_Company (SiteName VARCHAR(50), recommend INT)
-	CREATE TABLE #tmpDevice (Betfrom NVARCHAR(2))
+	CREATE TABLE #tmpDevice (Betfrom NVARCHAR(3))
 	CREATE TABLE #ExtraComm (ProductID INT, SuperID INT, ExtraComm DECIMAL(9, 8))		
 	CREATE TABLE #tmpContributionBettype (Bettype INT)
 	CREATE TABLE #tmpSportBetType (Sporttype INT, Bettype INT)
@@ -257,7 +258,7 @@ SET NOCOUNT ON
 		SELECT val FROM [dbo].strSplit(@Sporttype, ',')
 	END
 
-	CREATE TABLE #Device (Betfrom NVARCHAR(2))
+	CREATE TABLE #Device (Betfrom NVARCHAR(3))
 	IF @Device <> ''
     BEGIN
 		INSERT INTO #tmpDevice (Betfrom)

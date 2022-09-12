@@ -62,6 +62,7 @@ AS
 		20210928@Cherry: Modify Hourly Report to count tickets on old day to 00:00 of new day (#162272)
 		20220304@Cherry: Enhance username search for Non-sport games statistics report (#144260)
 		20220512@Cherry: Hot fix (#172607)
+		20220916@Cherry: Extend data type of Betfrom (#177655)
 
 	Param's Explanation:
 			 - @username:  + Search by keyword, member only
@@ -205,7 +206,7 @@ SET NOCOUNT ON
         Site VARCHAR(50)
     )
 	CREATE TABLE #tmpDevice (
-        Betfrom NVARCHAR(2)
+        Betfrom NVARCHAR(3)
     )
 	CREATE TABLE #NonSportSetting(
 		ProductID INT,
@@ -281,7 +282,7 @@ SET NOCOUNT ON
 		SELECT val FROM [dbo].strSplit(@Sporttype, ',')
 	END
 
-	CREATE TABLE #Device (Betfrom NVARCHAR(2))
+	CREATE TABLE #Device (Betfrom NVARCHAR(3))
 	IF @Device <> ''
     BEGIN
 		INSERT INTO #tmpDevice (Betfrom)

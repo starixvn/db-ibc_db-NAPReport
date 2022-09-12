@@ -56,6 +56,7 @@ AS
 		20210120@Cherry: Integrate Saba Jackpot (#148293)
 		20210506@Cherry: Integrate VGaming Jackpot (#154250)
 		20220304@Cherry: Enhance username search for Non-sport games statistics report (#144260)
+		20220916@Cherry: Extend data type of Betfrom (#177655)
 
 	Param's Explanation:
 		- @Username:  + Search by keyword, member only
@@ -179,7 +180,7 @@ BEGIN
 	CREATE TABLE #tmp_LeagueID		(LeagueID INT, Bettype INT)
 	CREATE TABLE #tmp_SportType		(Sporttype INT)
 	CREATE TABLE #tmpCurrency		(CurrencyId INT)
-	CREATE TABLE #tmp_Device		(Betfrom NVARCHAR(2))
+	CREATE TABLE #tmp_Device		(Betfrom NVARCHAR(3))
 	CREATE TABLE #tmp_Site			(Site VARCHAR(50))
 	CREATE TABLE #tmp_MemIDs		(CustID INT)
 	CREATE TABLE #ExtraComm (ProductID INT, SuperID INT, ExtraComm DECIMAL(9, 8))
@@ -258,7 +259,7 @@ BEGIN
 		SELECT val FROM [dbo].strSplit(@Currency, ',')
 	END
 
-	CREATE TABLE #Device (Betfrom NVARCHAR(2))
+	CREATE TABLE #Device (Betfrom NVARCHAR(3))
 	IF @Device <> ''
 	BEGIN
 		INSERT INTO #tmp_Device (Betfrom)
