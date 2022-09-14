@@ -60,7 +60,7 @@ BEGIN
 	    ExchangeDate    DATE
 	  , ExchangeID      INT
 	  , Rate            FLOAT
-	  , Code            VARCHAR(5));
+	  , Code            VARCHAR(12));
 
     INSERT INTO @BetFrom(Betfrom
 				   , DeviceGroup)

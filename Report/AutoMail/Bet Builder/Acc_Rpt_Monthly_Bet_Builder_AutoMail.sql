@@ -106,7 +106,7 @@ BEGIN
 	    ExchangeDate    DATE
 	  , ExchangeID      INT
 	  , Rate            FLOAT
-	  , Code            VARCHAR(5));
+	  , Code            VARCHAR(12));
 
     SELECT @RptDate = ISNULL(@RptDate, CONVERT(VARCHAR(10), GETDATE(), 110))
 	    , @DateEnd = DATEADD(DD, -DAY(@RptDate), @RptDate)
