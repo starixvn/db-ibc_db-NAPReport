@@ -9,6 +9,7 @@ AS
 
 	Revisions:
 		20220629@Roy: Letstalk Reports - Implement Non-Sports TO & Margin and Licensee Turnover Margin (#174679)
+		20220916@Roy: Letstalk report ID #32, #34 - Add 8RM info & enhance the UI (#177825)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
