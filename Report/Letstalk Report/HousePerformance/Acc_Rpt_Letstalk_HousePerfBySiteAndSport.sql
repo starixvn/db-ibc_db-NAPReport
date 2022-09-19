@@ -539,7 +539,7 @@ BEGIN
 	CREATE CLUSTERED INDEX CIX_tmpRawData ON #tmpRawData ( Bettype, LeagueID, Site )
 	
 	------------------------Group Data follow spec------------------------
-	--Hardcode to move BetBuild from SB to Non-Sport
+	--Hardcode to move [Bet Builder] from SB to Non-Sport
 	UPDATE pb
 	SET ProductID = -1
 	FROM #tmpProductBettype AS pb
@@ -722,8 +722,9 @@ BEGIN
 		FROM CTE_Sport
 		WHERE SportName IN ('Real.Soc(L)', 'Real.Soc(NL)')
 	)
-	,CTE_SubTotalSport AS (
-		SELECT SUM(ISNULL(WinlossIBC,0)) AS WinlossIBC
+	,CTE_Total AS (
+		SELECT 'TOTAL SB' AS SportName
+			,SUM(ISNULL(WinlossIBC,0)) AS WinlossIBC
 			,SUM(ISNULL(TurnoverIBC,0)) AS TurnoverIBC
 		FROM CTE_Sport
 	)
@@ -740,22 +741,6 @@ BEGIN
 				FROM dbo.SportBettypeMatrix WITH (NOLOCK)
 				WHERE SubProduct IN ('MG-SuperLive', 'BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss', 'Bet Builder')
 			)
-	)
-	,CTE_Total AS (
-		SELECT 'TOTAL SB' AS SportName
-			,SUM(ISNULL(WinlossIBC,0)) AS WinlossIBC
-			,SUM(ISNULL(TurnoverIBC,0)) AS TurnoverIBC
-		FROM (
-			SELECT WinlossIBC
-				,TurnoverIBC
-			FROM CTE_SubTotalSport
-			
-			UNION ALL
-			
-			SELECT WinlossMem AS WinlossIBC
-				,TurnoverIBC
-			FROM CTE_8RM
-		) AS t
 	)
 	INSERT INTO #tmpResult (
 		GroupName
