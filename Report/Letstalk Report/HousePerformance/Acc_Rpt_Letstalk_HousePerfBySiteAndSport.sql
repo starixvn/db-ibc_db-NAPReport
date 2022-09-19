@@ -10,6 +10,7 @@ AS
 	Revisions:
 		20220531@Roy: Letstalk Report - House Performance by Site & Sport (#173219)
 		20220714@Roy: Fix the way to determine HALF-WON|HALF_LOSE ticket (#175382)
+		20220916@Roy: Letstalk report ID #32, #34 - Add 8RM info & enhance the UI (#177825)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -538,6 +539,15 @@ BEGIN
 	CREATE CLUSTERED INDEX CIX_tmpRawData ON #tmpRawData ( Bettype, LeagueID, Site )
 	
 	------------------------Group Data follow spec------------------------
+	--Hardcode to move BetBuild from SB to Non-Sport
+	UPDATE pb
+	SET ProductID = -1
+	FROM #tmpProductBettype AS pb
+		INNER JOIN (
+				SELECT DISTINCT Bettype
+				FROM dbo.SportBettypeMatrix WITH (NOLOCK)
+				WHERE SubProduct IN ('Bet Builder')
+			) AS bb ON pb.Bettype = bb.Bettype
 	--------------------------------GroupBySite---------------------------
 	;WITH CTE_ProductSite AS (
 		SELECT CASE WHEN d.Site IN ('BEST-ODDS', 'XYZBET', '8RM') THEN 'XYZ & BO'
@@ -579,8 +589,8 @@ BEGIN
 			END
 	)
 	,CTE_SubTotalSite AS (
-		SELECT CASE WHEN (pb.ProductID = 1 AND bb.Bettype IS NULL ) THEN 'T SB'
-				WHEN (pb.ProductID <> 1 OR bb.Bettype IS NOT NULL ) THEN 'T NS'
+		SELECT CASE WHEN pb.ProductID = 1 THEN 'T SB'
+				WHEN pb.ProductID <> 1 THEN 'T NS'
 			END AS SiteName
 			,SUM(-(WinlossIBC - ExtraWL + CommissionS - ExtraComm)) AS WinlossIBC
 			,SUM((CASE WHEN TurnoverIBC = 0 THEN 0 ELSE TurnoverIBC - ExtraTO END)
@@ -588,14 +598,9 @@ BEGIN
 				* (CASE WHEN IsHalf = 1 THEN 0.5 ELSE 1 END)) AS TurnoverIBC
 		FROM #tmpRawData AS d WITH (NOLOCK)
 			INNER JOIN #tmpProductBettype AS pb WITH (NOLOCK) ON d.Bettype = pb.Bettype
-			LEFT JOIN (
-				SELECT DISTINCT Bettype
-				FROM dbo.SportBettypeMatrix WITH (NOLOCK)
-				WHERE SubProduct IN ('Bet Builder')
-			) AS bb ON d.Bettype = bb.Bettype
 		-- WHERE pb.ProductID NOT IN ( 25, 31, 37 ) --Old Cash Out, Exchange, Saba Promotion
-		GROUP BY CASE WHEN (pb.ProductID = 1 AND bb.Bettype IS NULL ) THEN 'T SB'
-				WHEN (pb.ProductID <> 1 OR bb.Bettype IS NOT NULL ) THEN 'T NS'
+		GROUP BY CASE WHEN pb.ProductID = 1 THEN 'T SB'
+				WHEN pb.ProductID <> 1 THEN 'T NS'
 			END
 	)
 	,CTE_8RM AS (
