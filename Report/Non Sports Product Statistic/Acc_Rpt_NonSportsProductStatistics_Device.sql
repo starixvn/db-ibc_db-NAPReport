@@ -58,6 +58,7 @@ AS
 		20220304@Cherry: Enhance username search for Non-sport games statistics report (#144260)
 		20220512@Cherry: Hot fix (#172607)
 		20220805@Jaden.Tang: Remove SELECT INTO #tmp pattern (#176082)
+		20220916@Cherry: Extend data type of Betfrom (#177655)
 
 	Param's Explanation:
 		- @username:  + Search by keyword, member only
@@ -174,7 +175,7 @@ BEGIN
 	CREATE TABLE #tmp_LeagueID		(LeagueID INT, Bettype INT)
 	CREATE TABLE #tmp_SportType		(Sporttype INT)
 	CREATE TABLE #tmpCurrency		(CurrencyId INT)
-	CREATE TABLE #tmp_Device		(Betfrom NVARCHAR(2))
+	CREATE TABLE #tmp_Device		(Betfrom NVARCHAR(3))
 	CREATE TABLE #tmp_DeviceGroup	(Betfrom NVARCHAR(100), DeviceGroup VARCHAR(50))
 	CREATE TABLE #tmp_Site			(Site VARCHAR(50))
 	CREATE TABLE #tmp_MemIDs		(CustID INT)
@@ -254,7 +255,7 @@ BEGIN
 		SELECT val FROM dbo.strSplit(@Sporttype, ',')
 	END
 
-	CREATE TABLE #Device (Betfrom NVARCHAR(2))
+	CREATE TABLE #Device (Betfrom NVARCHAR(3))
 	DECLARE @AllDevice INT = 0
 	IF @Device <> ''
 	BEGIN

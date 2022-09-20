@@ -44,6 +44,7 @@ AS
 		20210120@Cherry: Integrate Saba Jackpot (#148293)	
 		20210324@Cherry: Consider Saba789 as Credit site (#152124)
 		20210506@Cherry: Integrate VGaming Jackpot (#154250)
+		20220916@Cherry: Extend data type of Betfrom (#177655)
 
 	Param's Explanation:
 		- @ProductID: string filter by Product 
@@ -67,7 +68,7 @@ BEGIN
 	CREATE TABLE #tmp_LeagueID		(LeagueID INT, Bettype INT)
 	CREATE TABLE #tmp_SportType		(Sporttype SMALLINT)
 	CREATE TABLE #tmp_GameTableID	(GameTableID INT)
-	CREATE TABLE #tmp_Devide		(Betfrom NVARCHAR(2))
+	CREATE TABLE #tmp_Devide		(Betfrom NVARCHAR(3))
 	CREATE TABLE #tmpContributionBettype (Bettype INT)
 	CREATE TABLE #tmpSportBetType (Sporttype INT, Bettype INT)
 	CREATE TABLE #tmpHouseProduct (ProductID INT)
