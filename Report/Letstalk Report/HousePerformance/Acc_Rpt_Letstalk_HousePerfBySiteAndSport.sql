@@ -4,12 +4,13 @@ ALTER PROCEDURE Acc_Rpt_Letstalk_HousePerfBySiteAndSport
 AS
 /*
 	Created: Roy@20220531
-	Task: Get House WL At Exec Time
+	Task: Get House WL At Exec Time  (ID #32)
 	DB: DBACC.bodb02
 
 	Revisions:
 		20220531@Roy: Letstalk Report - House Performance by Site & Sport (#173219)
 		20220714@Roy: Fix the way to determine HALF-WON|HALF_LOSE ticket (#175382)
+		20220916@Roy: Letstalk report ID #32, #34 - Add 8RM info & enhance the UI (#177825)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -120,7 +121,7 @@ BEGIN
 		GroupID TINYINT
 		,OrderNo TINYINT IDENTITY(1,1)
 		,IsTitle BIT
-		,GroupName VARCHAR(50)
+		,GroupName VARCHAR(50) UNIQUE
 	)
 	
 	CREATE TABLE #tmpResult (
@@ -130,7 +131,11 @@ BEGIN
 	)	
 	
 	---------Insert Dimension tables---
-	--hard code the order of group--
+	/*
+		hard code the order of group
+		GroupID IN (1,2,3) => return WL
+			Otherwise => return TO
+	*/
 	INSERT INTO #tmpOrderByGroupName (
 		GroupID, IsTitle, GroupName
 	)
@@ -152,6 +157,7 @@ BEGIN
 		
 		,(2, 0, 'T SB')
 		,(2, 0, 'T NS')
+		,(2, 0, 'BySite_8RM')
 		
 		,(3, 0, 'GRAND TOTAL')
 		
@@ -171,7 +177,7 @@ BEGIN
 		,(4, 0, 'Parl')
 		
 		,(5, 0, 'TOTAL SB')
-		,(5, 0, '8RM')
+		,(5, 0, 'BySport_8RM')
 		
 		,(6, 1, 'PH TO & M')
 		,(6, 0, 'PHAIO')
@@ -533,6 +539,15 @@ BEGIN
 	CREATE CLUSTERED INDEX CIX_tmpRawData ON #tmpRawData ( Bettype, LeagueID, Site )
 	
 	------------------------Group Data follow spec------------------------
+	--Hardcode to move [Bet Builder] from SB to Non-Sport
+	UPDATE pb
+	SET ProductID = -1
+	FROM #tmpProductBettype AS pb
+		INNER JOIN (
+				SELECT DISTINCT Bettype
+				FROM dbo.SportBettypeMatrix WITH (NOLOCK)
+				WHERE SubProduct IN ('Bet Builder')
+			) AS bb ON pb.Bettype = bb.Bettype
 	--------------------------------GroupBySite---------------------------
 	;WITH CTE_ProductSite AS (
 		SELECT CASE WHEN d.Site IN ('BEST-ODDS', 'XYZBET', '8RM') THEN 'XYZ & BO'
@@ -555,8 +570,8 @@ BEGIN
 				* (CASE WHEN VarianceVR > 0 THEN VarianceVR + 1 ELSE 1 END)
 				* (CASE WHEN IsHalf = 1 THEN 0.5 ELSE 1 END)) AS TurnoverIBC
 		FROM #tmpRawData AS d WITH (NOLOCK)
-			LEFT JOIN #tmpProductBettype AS pb WITH (NOLOCK) ON d.Bettype = pb.Bettype
-		WHERE pb.ProductID NOT IN ( 25, 31, 37 ) --Old Cash Out, Exchange, Saba Promotion
+			INNER JOIN #tmpProductBettype AS pb WITH (NOLOCK) ON d.Bettype = pb.Bettype
+		-- WHERE pb.ProductID NOT IN ( 25, 31, 37 ) --Old Cash Out, Exchange, Saba Promotion
 		GROUP BY CASE WHEN d.Site IN ('BEST-ODDS', 'XYZBET', '8RM') THEN 'XYZ & BO'
 				WHEN d.Site IN ('611111') THEN '611 (Chi)'
 				WHEN d.Site IN ('733333') THEN '733 (Mala)'
@@ -582,17 +597,37 @@ BEGIN
 				* (CASE WHEN VarianceVR > 0 THEN VarianceVR + 1 ELSE 1 END)
 				* (CASE WHEN IsHalf = 1 THEN 0.5 ELSE 1 END)) AS TurnoverIBC
 		FROM #tmpRawData AS d WITH (NOLOCK)
-			LEFT JOIN #tmpProductBettype AS pb WITH (NOLOCK) ON d.Bettype = pb.Bettype
-		WHERE pb.ProductID NOT IN ( 25, 31, 37 ) --Old Cash Out, Exchange, Saba Promotion
+			INNER JOIN #tmpProductBettype AS pb WITH (NOLOCK) ON d.Bettype = pb.Bettype
+		-- WHERE pb.ProductID NOT IN ( 25, 31, 37 ) --Old Cash Out, Exchange, Saba Promotion
 		GROUP BY CASE WHEN pb.ProductID = 1 THEN 'T SB'
 				WHEN pb.ProductID <> 1 THEN 'T NS'
 			END
+	)
+	,CTE_8RM AS (
+		SELECT 'BySite_8RM' AS SiteName
+			,SUM((WinlossIBC - ExtraWL + CommissionS - ExtraComm)) AS WinlossMem --Member view - opposite of above WinlossIBC
+			,SUM((CASE WHEN TurnoverIBC = 0 THEN 0 ELSE TurnoverIBC - ExtraTO END)
+				* (CASE WHEN VarianceVR > 0 THEN VarianceVR + 1 ELSE 1 END)
+				* (CASE WHEN IsHalf = 1 THEN 0.5 ELSE 1 END)) AS TurnoverIBC
+		FROM #tmpRawData AS d WITH (NOLOCK)
+		WHERE d.Site = '8RM'
+		GROUP BY d.Site
 	)
 	,CTE_TotalSite AS (
 		SELECT 'GRAND TOTAL' AS SiteName
 			,SUM(ISNULL(WinlossIBC,0)) AS WinlossIBC 
 			,SUM(ISNULL(TurnoverIBC,0)) AS TurnoverIBC
-		FROM CTE_SubTotalSite
+		FROM (
+			SELECT WinlossIBC
+				,TurnoverIBC
+			FROM CTE_SubTotalSite
+			
+			UNION ALL
+			
+			SELECT WinlossMem AS WinlossIBC
+				,TurnoverIBC
+			FROM CTE_8RM
+		) AS t
 	)
 	INSERT INTO #tmpResult (
 		GroupName
@@ -617,6 +652,13 @@ BEGIN
 		,WinlossIBC
 		,TurnoverIBC
 	FROM CTE_TotalSite
+	
+	UNION ALL
+
+	SELECT SiteName
+		,WinlossMem
+		,TurnoverIBC
+	FROM CTE_8RM
 	
 	------------------------------GroupBySB-------------------------------
 	DECLARE @SabaLeagueGroupID VARCHAR(500)
@@ -687,13 +729,12 @@ BEGIN
 		FROM CTE_Sport
 	)
 	,CTE_8RM AS (
-		SELECT '8RM' AS SportName
+		SELECT 'BySport_8RM' AS SportName
 			,SUM((WinlossIBC - ExtraWL + CommissionS - ExtraComm)) AS WinlossMem --Member view - opposite of above WinlossIBC
 			,SUM((CASE WHEN TurnoverIBC = 0 THEN 0 ELSE TurnoverIBC - ExtraTO END)
 				* (CASE WHEN VarianceVR > 0 THEN VarianceVR + 1 ELSE 1 END)
 				* (CASE WHEN IsHalf = 1 THEN 0.5 ELSE 1 END)) AS TurnoverIBC
 		FROM #tmpRawData AS d WITH (NOLOCK)
-			LEFT JOIN dbo.League AS l WITH (NOLOCK) ON d.LeagueID = l.LeagueID
 		WHERE d.Site = '8RM'
 			AND d.Bettype NOT IN (
 				SELECT DISTINCT Bettype
@@ -824,8 +865,8 @@ BEGIN
 	
 	--Return Result Set--
 	SELECT o.GroupID
-		,o.GroupName
-		,(CASE WHEN o.GroupID IN (1, 2, 3) THEN WinlossIBC ELSE TurnoverIBC END)AS HWL_TO
+		,(CASE WHEN o.GroupName IN ('BySite_8RM','BySport_8RM') THEN '8RM' ELSE o.GroupName END) AS GroupName
+		,(CASE WHEN o.GroupID IN (1, 2, 3) THEN WinlossIBC ELSE TurnoverIBC END) AS HWL_TO
 		,(CASE WHEN o.IsTitle = 1 THEN NULL
 			WHEN ISNULL(TurnoverIBC,0) = 0 THEN 0
 		ELSE ISNULL(WinlossIBC,0)/TurnoverIBC

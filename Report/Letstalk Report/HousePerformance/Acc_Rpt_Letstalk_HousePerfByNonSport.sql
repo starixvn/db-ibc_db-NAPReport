@@ -4,11 +4,12 @@ ALTER PROCEDURE Acc_Rpt_Letstalk_HousePerfByNonSport
 AS
 /*
 	Created: Roy@20220629
-	Task: Get House Performance By Non-Sport At Exec Time
+	Task: Get House Performance By Non-Sport At Exec Time (ID #34)
 	DB: DBACC.bodb02
 
 	Revisions:
 		20220629@Roy: Letstalk Reports - Implement Non-Sports TO & Margin and Licensee Turnover Margin (#174679)
+		20220916@Roy: Letstalk report ID #32, #34 - Add 8RM info & enhance the UI (#177825)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -58,7 +59,32 @@ BEGIN
 
 		RETURN
 	END
-
+	
+	DECLARE @isTest BIT = 0
+		,@SQLStr VARCHAR(MAX)
+	
+	SELECT @isTest = dbo.f_CheckSPVersion(@@PROCID)
+	
+	SET @SQLStr = 
+		'
+			SELECT DISTINCT ProductName
+				,(CASE WHEN h.ProductGroup = ''Live Casino'' THEN ''LC''
+					WHEN h.ProductGroup = ''RNG Casino'' THEN ''RNG''
+					WHEN h.ProductGroup = ''Lottery/Keno'' THEN ''Lott/Ken''
+					ELSE ''OTHERS''
+					END) AS ProductGroup
+				,ProductShortName
+			FROM bodb_account.dbo.HNISettings AS h WITH (NOLOCK)
+			WHERE ProductCategory = ''NonSport''
+				AND isTest IN (0,' + CONVERT(VARCHAR,@isTest) +')
+		'
+	
+	CREATE TABLE #tmpHNISettings (
+		ProductName VARCHAR(50)
+		,ProductShortName VARCHAR(50)
+		,ProductGroup VARCHAR(10)
+	)
+	
 	CREATE TABLE #tmpMarginNonSport (
 		ProductName VARCHAR(50)
 		,TurnOver MONEY
@@ -75,6 +101,13 @@ BEGIN
 		,HouseWinlost
 		)
 	EXEC Acc_ResetWinning_MarginByNonSport @Winlostdate = @WLDate
+	
+	INSERT INTO #tmpHNISettings (
+		ProductName
+		,ProductGroup
+		,ProductShortName
+	)
+	EXEC (@SQLStr) AT DBWH
 	
 	-- merge vgaming into sc
 	;WITH _s AS (
@@ -101,181 +134,18 @@ BEGIN
 	DELETE #tmpMarginNonSport
 	WHERE ProductName = 'Saba Promotion'
 
-	UPDATE #tmpMarginNonSport
-	SET ProductCode = CASE 
-			WHEN ProductName = 'All Non Sports'
-				THEN 'ALL'
-			WHEN ProductName = 'Bet Builder'
-				THEN 'BetB'
-			WHEN ProductName = 'Metric Gaming - Super Live'
-				THEN 'MetricG'
-			WHEN ProductName = 'Number Game'
-				THEN 'NumG'
-			WHEN ProductName = 'Virtual Sports'
-				THEN 'VirtSpo'
-			WHEN ProductName = 'RNG Casino'
-				THEN '1RNG'
-			WHEN ProductName = 'RNG Keno'
-				THEN 'MKeno'
-			WHEN ProductName = 'Colossus Bets'
-				THEN 'CB'
-			WHEN ProductName = 'Allbet'
-				THEN 'AllB'
-			WHEN ProductName = 'Macau Games'
-				THEN 'MacauG'
-			WHEN ProductName = 'Fishing World'
-				THEN 'FishW'
-			WHEN ProductName = 'Cash Out'
-				THEN 'CashO'
-			WHEN ProductName = 'Virtual Sports 2'
-				THEN 'VirtSpo2'
-			WHEN ProductName = 'Lottery'
-				THEN 'MLotte'
-					--WHEN ProductName = 'Card Club' THEN 'CardC'
-			WHEN ProductName = 'Arcadia Gaming'
-				THEN 'ArcaGam'
-			WHEN ProductName = 'PG Soft'
-				THEN 'PGSoft'
-			WHEN ProductName = 'Virtual Games'
-				THEN 'VirtG'
-			WHEN ProductName = 'Table Game'
-				THEN 'TableG'
-			WHEN ProductName = 'Saba.games'
-				THEN 'SabaG'
-			WHEN ProductName = 'Togel 4D'
-				THEN 'Togel4D'
-			WHEN ProductName = 'PP'
-				THEN 'PragP'
-			WHEN ProductName = 'SG'
-				THEN 'SpadeG'
-			WHEN ProductName = 'IBCBet Live Casino'
-				THEN 'IBCLC'
-			WHEN ProductName = 'SA Gaming'
-				THEN 'SAG'
-			WHEN ProductName = 'RNG War'
-				THEN 'RNGWar'
-			WHEN ProductName = 'Gold Deluxe'
-				THEN 'GoldD'
-			WHEN ProductName = 'AG Casino'
-				THEN 'AG'
-			WHEN ProductName = 'Sports Lottery'
-				THEN 'SportsLott'
-			WHEN ProductName = 'PP Live Casino'
-				THEN 'PP LC'
-			WHEN ProductName = 'AE Sexy'
-				THEN 'AESexy'
-			WHEN ProductName = 'Habanero'
-				THEN 'Haban'
-			WHEN ProductName = 'AdvantPlay'
-				THEN 'AdPlay'
-			WHEN ProductName = 'AdvantPlay Mini'
-				THEN 'AdPlayMini'
-			WHEN ProductName = 'Virtual Sports 3'
-				THEN 'VirtSpo3'
-			WHEN ProductName = 'Funky Games'
-				THEN 'FunkyG'
-			WHEN ProductName = 'Saba Casino'
-				THEN 'SabaCas'
-			ELSE ProductName
+	UPDATE m
+	SET m.ProductCode = CASE 
+			WHEN m.ProductName = 'All Non Sports' THEN 'ALL'
+			WHEN m.ProductName = 'Bet Builder' THEN 'BetB'
+			ELSE ISNULL(p.ProductShortName,m.ProductName)
 			END
-		,ProductGroup = CASE 
-			WHEN ProductName = 'All Non Sports'
-				THEN '-'
-			WHEN ProductName = 'Allbet'
-				THEN 'LC'
-			WHEN ProductName = 'AE Sexy'
-				THEN 'LC'
-			WHEN ProductName = 'IBCBet Live Casino'
-				THEN 'LC'
-			WHEN ProductName = 'SA Gaming'
-				THEN 'LC'
-			WHEN ProductName = 'BBIN'
-				THEN 'LC'
-			WHEN ProductName = 'ION'
-				THEN 'LC'
-			WHEN ProductName = 'Gold Deluxe'
-				THEN 'LC'
-			WHEN ProductName = 'AG Casino'
-				THEN 'LC'
-			WHEN ProductName = 'WM'
-				THEN 'LC'
-			WHEN ProductName = 'GDG'
-				THEN 'LC'
-			WHEN ProductName = 'BG'
-				THEN 'LC'
-			WHEN ProductName = 'PP Live Casino'
-				THEN 'LC'
-			WHEN ProductName = 'Macau Games'
-				THEN 'RNG'
-			WHEN ProductName = 'Fishing World'
-				THEN 'RNG'
-			WHEN ProductName = 'Arcadia Gaming'
-				THEN 'RNG'
-			WHEN ProductName = 'PG Soft'
-				THEN 'RNG'
-			WHEN ProductName = 'Virtual Games'
-				THEN 'RNG'
-			WHEN ProductName = 'Table Game'
-				THEN 'RNG'
-			WHEN ProductName = 'Saba.games'
-				THEN 'RNG'
-			WHEN ProductName = 'PP'
-				THEN 'RNG'
-			WHEN ProductName = 'SG'
-				THEN 'RNG'
-			WHEN ProductName = 'Joker'
-				THEN 'RNG'
-			WHEN ProductName = 'RNG War'
-				THEN 'RNG'
-			WHEN ProductName = 'RNG Casino'
-				THEN 'RNG'
-			WHEN ProductName = 'MaxGame'
-				THEN 'RNG'
-			WHEN ProductName = 'Habanero'
-				THEN 'RNG'
-			WHEN ProductName = 'Vgaming'
-				THEN 'RNG'
-			WHEN ProductName = 'AdvantPlay'
-				THEN 'RNG'
-			WHEN ProductName = 'AdvantPlay Mini'
-				THEN 'RNG'
-			WHEN ProductName = 'CG'
-				THEN 'RNG'
-			WHEN ProductName = 'Saba Casino'
-				THEN 'RNG'
-			WHEN ProductName = 'Lottery'
-				THEN 'LOTTERY'
-			WHEN ProductName = 'Togel 4D'
-				THEN 'LOTTERY'
-			WHEN ProductName = 'RNG Keno'
-				THEN 'LOTTERY'
-			WHEN ProductName = 'Number Game'
-				THEN 'LOTTERY'
-			WHEN ProductName = 'NG2'
-				THEN 'LOTTERY'
-			WHEN ProductName = 'Sports Lottery'
-				THEN 'LOTTERY'
-			WHEN ProductName = 'Metric Gaming - Super Live'
-				THEN 'OTHERS'
-			WHEN ProductName = 'Bet Builder'
-				THEN 'OTHERS'
-			WHEN ProductName = 'Virtual Sports'
-				THEN 'OTHERS'
-			WHEN ProductName = 'Colossus Bets'
-				THEN 'OTHERS'
-			WHEN ProductName = 'Cash Out'
-				THEN 'OTHERS'
-			WHEN ProductName = 'Virtual Sports 2'
-				THEN 'OTHERS'
-			WHEN ProductName = 'Virtual Sports 3'
-				THEN 'OTHERS'
-			WHEN ProductName = 'Funky Games'
-				THEN 'OTHERS'
-			WHEN ProductName = 'Bitcoin'
-				THEN 'OTHERS'
-			ELSE 'OTHERS'
+	,m.ProductGroup = CASE 
+			WHEN m.ProductName = 'All Non Sports' THEN '-'
+			ELSE ISNULL(p.ProductGroup,'OTHERS')
 			END
-	
+	FROM #tmpMarginNonSport AS m
+		LEFT JOIN #tmpHNISettings AS p ON m.ProductName = p.ProductName
 	---------------------Build msg---------------------
 	SELECT @MsgInfo = @MsgInfo + '[NS TO & M]'
 
@@ -347,7 +217,7 @@ BEGIN
 			END + ' ' + CAST(ISNULL(CONVERT(DECIMAL(10, 2), - SUM(HouseWinlost) * 100 / NULLIF(SUM(TurnOver), 0)), 0) AS VARCHAR(10)) + '%'
 	FROM #tmpMarginNonSport
 	WHERE TurnOver > 0
-		AND ProductGroup = 'LOTTERY'
+		AND ProductGroup = 'Lott/Ken'
 
 	SELECT @MsgInfo = @MsgInfo + '<br>' + ProductCode + ': ' + CASE 
 			WHEN ABS(ISNULL(TurnOver, 0)) BETWEEN 0 AND 999999
@@ -358,7 +228,7 @@ BEGIN
 			END + ' ' + CAST(ISNULL(CONVERT(DECIMAL(10, 2), - HouseWinlost * 100 / NULLIF(TurnOver, 0)), 0) AS VARCHAR(10)) + '%'
 	FROM #tmpMarginNonSport
 	WHERE TurnOver > 0
-		AND ProductGroup = 'LOTTERY'
+		AND ProductGroup = 'Lott/Ken'
 	ORDER BY TurnOver DESC
 
 	SELECT @MsgInfo = @MsgInfo + '<br>-----<br>*OTHERS: ' + CASE 
@@ -388,4 +258,5 @@ BEGIN
 		,REPLACE(@MsgInfo, '<br>', CHAR(13)+CHAR(10)) AS MsgInfo
 	
 	DROP TABLE #tmpMarginNonSport
+	DROP TABLE #tmpHNISettings
 END
