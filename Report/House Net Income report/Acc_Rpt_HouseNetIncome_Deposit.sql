@@ -37,6 +37,7 @@ AS
 		- 20211102@Danny: SG integrate JP, Contribution (#166684)
 		- 20220211@Danny: Email/Letstalk Reports - Incorporate Saba Basketball Soccer PinGoal (#168373)
 		- 20220330@Danny: support Licensee Sponsorship column (#170729)
+		- 20220805@Danny: Modify SPs to retrieve yesterday data in Data warehouse in case in-house replicator got problem (#176077)
 */
 BEGIN
 	SET NOCOUNT ON
@@ -63,6 +64,14 @@ BEGIN
 	DECLARE @BobbetId INT = 0, @TianboId INT = 0
 	DECLARE @Discount_PartyIds VARCHAR(MAX), @Discount_ProductCodes VARCHAR(MAX)
 	DECLARE @ProductIds VARCHAR(MAX), @Product3rdIds VARCHAR(MAX), @ProductCodes VARCHAR(MAX), @SubProducts VARCHAR(MAX), @PartyIds VARCHAR(MAX)
+
+	DECLARE @InHouseReplicationWorkingStatus INT
+    SELECT  @InHouseReplicationWorkingStatus = CAST(VValue AS INT)
+    FROM	bodb_account.dbo.SystemSettings (NOLOCK)
+    WHERE	VID = 16
+
+	IF @InHouseReplicationWorkingStatus = 0
+		SELECT @isGetDataFromBettrans = 0
 
 	-- Get list of product
 	BEGIN

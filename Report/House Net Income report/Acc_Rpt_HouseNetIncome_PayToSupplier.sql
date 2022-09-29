@@ -30,6 +30,7 @@ AS
 		- 20211102@Danny: SG integrate JP, Contribution (#166684)
 		- 20220401@Danny: Get Royalty credit site fee by site (#170842)
 		- 20220325@Danny: Incorporate FGG (#170522)
+		- 20220805@Danny: Modify SPs to retrieve yesterday data in Data warehouse in case in-house replicator got problem (#176077)
 
 */
 BEGIN
@@ -59,6 +60,14 @@ BEGIN
 	
 	SELECT @Site789y_dwh = siteid FROM bodb_Account.dbo.tbl_Site s WITH (NOLOCK) where site = '789Y'
 	SELECT @Site789y_lic = siteid FROM DBLIC.bodb_licensee.dbo.view_site_list  WITH(NOLOCK) where SiteName = '789y'
+
+	DECLARE @InHouseReplicationWorkingStatus INT
+    SELECT  @InHouseReplicationWorkingStatus = CAST(VValue AS INT)
+    FROM	bodb_account.dbo.SystemSettings (NOLOCK)
+    WHERE	VID = 16
+
+	IF @InHouseReplicationWorkingStatus = 0
+		SELECT @isGetDataFromBettrans = 0
 
 	-- Get list of product
 	BEGIN

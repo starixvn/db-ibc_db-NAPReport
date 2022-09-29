@@ -11,6 +11,7 @@ AS
 	
 	Revisions:
 		- 20210129@Percy: Initiliaze SP [RedmineID: #148805]
+		- 20220928@Danny: Change data source to get House PT [RedmineID: #176077]
 */
 
 BEGIN
@@ -80,10 +81,18 @@ BEGIN
 	) t
 	WHERE RN = 1
 
-	SELECT m.PartyId, m.CurrencyId, CONVERT(FLOAT, 1-apositiontaking) AS HousePT
-	FROM dbo.Dep_CustSetting dcs WITH (NOLOCK)
-		INNER JOIN #__member m ON m.CustId = dcs.CustId
-	WHERE dcs.bettype = 1 AND dcs.sporttype = 1 AND dcs.islive = 0
+	SELECT m.PartyId, m.CurrencyId, CONVERT(FLOAT, 1-AgentPT*1.00/100) AS HousePT
+    FROM dbo.Dep_CustPTSetting_Member dcs WITH (NOLOCK)
+    INNER JOIN #__member m ON m.CustId = dcs.CustId
+    INNER JOIN Dep_CustSettingMode d WITH (NOLOCK) ON dcs.CustID = d.CustId AND d.IsGroupedPT = 0
+    WHERE dcs.bettype = 1 AND dcs.sporttype = 1 AND dcs.islive = 0
+	UNION ALL
+	SELECT m.PartyId, m.CurrencyId, CONVERT(FLOAT, 1-AgentPT*1.00/100) AS HousePT
+    FROM #__member m 
+    INNER JOIN custInfo ci WITH(NOLOCK) ON ci.custid = m.CustId
+    INNER JOIN Dep_CustSettingMode d WITH (NOLOCK) ON m.CustID = d.CustId AND d.IsGroupedPT = 1
+    INNER JOIN dbo.Dep_CustPTGroupSetting_Member dcs WITH (NOLOCK) ON ci.recommend = dcs.AgentID
+    WHERE dcs.bettype = 1 AND dcs.sporttype = 1 AND dcs.islive = 0
 
 	DROP TABLE #__member
 	DROP TABLE #__Site

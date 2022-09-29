@@ -28,6 +28,7 @@ AS
 		20220110@Kean.Nguyen: Email/Letstalk Reports - Integrate Spadegaming Jackpot (#166684)
 		20220210@Kean.Nguyen: Email/Letstalk Reports - Incorporate Saba Basketball Soccer PinGoal (#168373)
         20220310@Ned.Le: Email/Letstalk Reports - Include 8RM/BARM into Bet Count, member turnover, member win loss, Margin except House Income (#169768)
+        20220801@Ned.Le: Email/Letstalk Reports - Scale out DB - Modify SPs to retrieve yesterday data in Data warehouse in case in-house replicator got problem (#176077)
 
 	Param's Explanation:
         @FromDate   : Begin date to get data for report
@@ -91,41 +92,22 @@ BEGIN
 	-- 1. Declare variables --
 	--------------------------
 
+    -- General variables
 	DECLARE @isTest BIT = 0
     SET @isTest = bodb_dwrs.dbo.f_CheckSPVersion(@@PROCID)
 
 	DECLARE @sqlQuery VARCHAR(MAX)
 	DECLARE @bettypeList VARCHAR(MAX)
 	
+    DECLARE @yesterday DATE = DATEADD(DAY, -1, CAST(GETDATE() AS DATE))
 	DECLARE @OANDA_ExchangeDate DATE
 	DECLARE @OANDA_LastMonthDate DATE
 	DECLARE @finalDataDate DATE
 
-	DECLARE @checkDate DATE
-	SET @checkDate = DATEADD(DAY, -2, CAST(GETDATE() AS DATE))
-	--SELECT @checkDate = CAST(MoveBetsDay AS DATE)
-	--FROM OPENQUERY(DBACC, 'EXEC bodb02.dbo.Age_SelBalanceUpDay')
-	
-	DECLARE @FromDate_DW DATE
-	DECLARE @ToDate_DW DATE
-	DECLARE @FromDate_OLTP DATE
-	DECLARE @ToDate_OLTP DATE
-	DECLARE @isGetDataFromBettrans BIT
-	
-	IF (@ToDate <= @checkDate)
-	BEGIN
-		SET @isGetDataFromBettrans = 0
-		SET @FromDate_DW = @FromDate
-		SET @ToDate_DW = @ToDate
-	END
-	ELSE
-	BEGIN
-		SET @isGetDataFromBettrans = 1
-		SET @FromDate_DW = @FromDate
-		SET @ToDate_DW = @checkDate
-		SET @FromDate_OLTP = DATEADD(DAY, 1, @checkDate)
-		SET @ToDate_OLTP = @ToDate
-	END
+	DECLARE @InHouseReplicationWorkingStatus INT
+    SELECT  @InHouseReplicationWorkingStatus = CAST(VValue AS INT)
+    FROM bodb_account.dbo.SystemSettings (NOLOCK)
+    WHERE VID = 16
 
 	DECLARE @loop_FromDate DATE
 	DECLARE @loop_ToDate DATE
@@ -134,6 +116,28 @@ BEGIN
 	DECLARE @SABALeagueGroupStr VARCHAR(500)
 	SELECT @SABALeagueGroupStr = VValue FROM bodb_Account.dbo.SystemSettings (NOLOCK) WHERE VID = 5
 
+    -- Special variables
+	DECLARE @FromDate_DW DATE
+	DECLARE @ToDate_DW DATE
+	DECLARE @FromDate_OLTP DATE
+	DECLARE @ToDate_OLTP DATE
+	DECLARE @isGetDataFromBettrans BIT
+
+	IF ((@ToDate < @yesterday) OR (@InHouseReplicationWorkingStatus = 0))
+	BEGIN
+		SET @isGetDataFromBettrans = 0
+		SET @FromDate_DW = @FromDate
+		SET @ToDate_DW = @ToDate
+	END
+
+    IF ((@ToDate = @yesterday) AND (@InHouseReplicationWorkingStatus = 1))
+	BEGIN
+		SET @isGetDataFromBettrans = 1
+		SET @FromDate_DW = @FromDate
+		SET @ToDate_DW = DATEADD(DAY, -1, @ToDate)
+		SET @FromDate_OLTP = @ToDate
+		SET @ToDate_OLTP = @ToDate
+	END
 
 	------------------------
 	-- 2. Product Bettype --
