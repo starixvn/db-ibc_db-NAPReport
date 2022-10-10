@@ -165,7 +165,7 @@ BEGIN
 			@HTHomeScore = HTHomeScore,
 			@HTAwayScore = HTAwayScore
 		FROM
-			bodb02.dbo.match14
+			bodb02.dbo.match14 WITH (NOLOCK)
 		WHERE
 			matchid = @matchid
 

@@ -154,8 +154,8 @@ BEGIN
 			INNER JOIN bodb02.dbo.customer agent with (nolock) ON b.recommend = agent.custid
 			LEFT JOIN bodb02..Dep_CustSuper AS dep WITH(NOLOCK) ON cr.srecommend = dep.CustId
 			LEFT JOIN #abnormalOrRobotUsers ar ON b.custid = ar.custid
-			INNER JOIN bodb02.dbo.custInfo ci ON b.custid = ci.custid
-			LEFT JOIN bodb02.dbo.BettransInfo bi ON b.transid = bi.transid
+			INNER JOIN bodb02.dbo.custInfo ci WITH (NOLOCK) ON b.custid = ci.custid
+			LEFT JOIN bodb02.dbo.BettransInfo bi WITH (NOLOCK) ON b.transid = bi.transid
 			LEFT JOIN bodb02.dbo.team tm WITH (NOLOCK) 
 				ON CASE WHEN ISNUMERIC(REPLACE(b.transdesc, ' ', '')) = 1 /*ISNUMERIC('123,456') => 1*/
 					THEN
@@ -226,8 +226,8 @@ BEGIN
 			INNER JOIN bodb02.dbo.customer agent with (nolock) ON b.recommend = agent.custid
 			LEFT JOIN bodb02..Dep_CustSuper AS dep WITH(NOLOCK) ON cr.srecommend = dep.CustId
 			LEFT JOIN #abnormalOrRobotUsers ar ON b.custid = ar.custid
-			INNER JOIN bodb02.dbo.custInfo ci ON b.custid = ci.custid
-			LEFT JOIN bodb02.dbo.BettransInfo14 bi ON b.transid = bi.transid
+			INNER JOIN bodb02.dbo.custInfo ci WITH (NOLOCK) ON b.custid = ci.custid
+			LEFT JOIN bodb02.dbo.BettransInfo14 bi WITH (NOLOCK) ON b.transid = bi.transid
 			LEFT JOIN bodb02.dbo.team tm WITH (NOLOCK) 
 				ON CASE WHEN ISNUMERIC(REPLACE(b.transdesc, ' ', '')) = 1 /*ISNUMERIC('123,456') => 1*/
 					THEN
