@@ -20,7 +20,7 @@ ALTER PROCEDURE [dbo].[Acc_Rpt_NonSportsProductStatistics_Hourly]
 	@Sporttype		VARCHAR(MAX) = '',
 	@SportBetType	VARCHAR(MAX) = '',
 	@Currency		VARCHAR(MAX) = '',	
-	@Device			VARCHAR(200) = '',
+	@Device			VARCHAR(MAX) = '',
 	@ExcludeTest	BIT = 1, 
 	@TotalBetType	SMALLINT = 0,
 	@TotalBetValue  MONEY = NULL,
@@ -63,6 +63,7 @@ AS
 		20220304@Cherry: Enhance username search for Non-sport games statistics report (#144260)
 		20220512@Cherry: Hot fix (#172607)
 		20220916@Cherry: Extend data type of Betfrom (#177655)
+		20220926@Cherry: Change param @Device from Betfrom to Betfromid (#164955)
 
 	Param's Explanation:
 			 - @username:  + Search by keyword, member only
@@ -206,7 +207,7 @@ SET NOCOUNT ON
         Site VARCHAR(50)
     )
 	CREATE TABLE #tmpDevice (
-        Betfrom NVARCHAR(3)
+        Betfrom NVARCHAR(5)
     )
 	CREATE TABLE #NonSportSetting(
 		ProductID INT,
@@ -282,15 +283,17 @@ SET NOCOUNT ON
 		SELECT val FROM [dbo].strSplit(@Sporttype, ',')
 	END
 
-	CREATE TABLE #Device (Betfrom NVARCHAR(3))
+	CREATE TABLE #Device (BetfromID INT, Betfrom NVARCHAR(5))
 	IF @Device <> ''
     BEGIN
+		INSERT INTO #Device (BetfromID, Betfrom)
+		SELECT BetfromID, Betfrom
+		FROM DBWH.bodb_Account.dbo.tbl_Betfrom WITH(NOLOCK)
+
 		INSERT INTO #tmpDevice (Betfrom)
-		SELECT val FROM [dbo].strSplit(@Device, ',')
-		
-		INSERT INTO #Device (Betfrom)
-		SELECT Betfrom
-		FROM DBWH.bodb_Account.dbo.tbl_Betfrom
+		SELECT d.Betfrom 
+		FROM dbo.strSplit(@Device, ',') tmp
+			INNER JOIN #Device d ON tmp.val = d.BetfromID
 		
 		IF NOT EXISTS(SELECT 1 FROM #Device d LEFT JOIN #tmpDevice t ON t.Betfrom = d.Betfrom WHERE t.Betfrom IS NULL) 
 			SET @Device = ''

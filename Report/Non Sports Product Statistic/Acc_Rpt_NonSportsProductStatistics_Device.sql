@@ -13,7 +13,7 @@ ALTER PROCEDURE [dbo].[Acc_Rpt_NonSportsProductStatistics_Device]
 	@Sporttype		VARCHAR(MAX) = '',
 	@SportBetType	VARCHAR(MAX) = '',
 	@Currency		VARCHAR(MAX) = '',	
-	@Device			VARCHAR(200) = '',
+	@Device			VARCHAR(MAX) = '',
 	@ExcludeTest	BIT = 1, 
 	@TotalBetType	SMALLINT = 0,
 	@TotalBetValue  MONEY = NULL,
@@ -59,6 +59,7 @@ AS
 		20220512@Cherry: Hot fix (#172607)
 		20220805@Jaden.Tang: Remove SELECT INTO #tmp pattern (#176082)
 		20220916@Cherry: Extend data type of Betfrom (#177655)
+		20220926@Cherry: Change param @Device from Betfrom to Betfromid (#164955)
 
 	Param's Explanation:
 		- @username:  + Search by keyword, member only
@@ -156,7 +157,7 @@ BEGIN
 						 CompanyComm DECIMAL(19,4), CompanyCommBase DECIMAL(19,4),
 						 ExtraPT DECIMAL(19,8), ExtraPTBase DECIMAL(19,8)
 						)
-	CREATE TABLE #Result (  Betfrom NVARCHAR(5), Device NVARCHAR(50), DeviceGroup VARCHAR(50), NoOfPlayers INT,
+	CREATE TABLE #Result (  BetfromID INT, Device NVARCHAR(50), DeviceGroup VARCHAR(50), NoOfPlayers INT,
 							BetCount INT, CurrencyID INT, Currency NVARCHAR(50)	,
 							TotalBets DECIMAL(19,4), TotalBetsBase DECIMAL(19,4),
 							TotalWins DECIMAL(19,4), TotalWinsBase DECIMAL(19,4),
@@ -175,7 +176,7 @@ BEGIN
 	CREATE TABLE #tmp_LeagueID		(LeagueID INT, Bettype INT)
 	CREATE TABLE #tmp_SportType		(Sporttype INT)
 	CREATE TABLE #tmpCurrency		(CurrencyId INT)
-	CREATE TABLE #tmp_Device		(Betfrom NVARCHAR(3))
+	CREATE TABLE #tmp_Device		(Betfrom NVARCHAR(5))
 	CREATE TABLE #tmp_DeviceGroup	(Betfrom NVARCHAR(100), DeviceGroup VARCHAR(50))
 	CREATE TABLE #tmp_Site			(Site VARCHAR(50))
 	CREATE TABLE #tmp_MemIDs		(CustID INT)
@@ -255,16 +256,18 @@ BEGIN
 		SELECT val FROM dbo.strSplit(@Sporttype, ',')
 	END
 
-	CREATE TABLE #Device (Betfrom NVARCHAR(3))
+	CREATE TABLE #Device (BetfromID INT, Betfrom NVARCHAR(5))
 	DECLARE @AllDevice INT = 0
 	IF @Device <> ''
 	BEGIN
+		INSERT INTO #Device (BetfromID, Betfrom)
+		SELECT BetfromID, Betfrom
+		FROM DBWH.bodb_Account.dbo.tbl_Betfrom WITH(NOLOCK)
+
 		INSERT INTO #tmp_Device (Betfrom)
-		SELECT val FROM dbo.strSplit(@Device, ',')
-		
-		INSERT INTO #Device (Betfrom)
-		SELECT Betfrom
-		FROM DBWH.bodb_Account.dbo.tbl_Betfrom
+		SELECT d.Betfrom 
+		FROM dbo.strSplit(@Device, ',') tmp
+			INNER JOIN #Device d ON tmp.val = d.BetfromID
 
 		IF NOT EXISTS(SELECT 1 FROM #Device d LEFT JOIN #tmp_Device t ON t.Betfrom = d.Betfrom WHERE t.Betfrom IS NULL) 
 			SET @AllDevice = 1
@@ -1401,7 +1404,7 @@ BEGIN
 	IF @Currency = '-1' -- BaseRM
 	BEGIN		
 		INSERT INTO #Result
-			(	Betfrom ,
+			(	BetfromID ,
 				Device ,
 				DeviceGroup,
 				NoOfPlayers ,
@@ -1425,7 +1428,7 @@ BEGIN
 				ExtraPT,
 				ExtraPTBase
 				)
-		SELECT b.Betfrom,
+		SELECT d.BetfromID,
 			b.Device,
 			DeviceGroup,
 			COUNT(DISTINCT b.CustID) AS NoOfPlayers,
@@ -1449,7 +1452,8 @@ BEGIN
 			SUM(b.ExtraPTBase) ExtraPT,
 			SUM(b.ExtraPTBase) ExtraPTBase
 		FROM #Data b
-		GROUP BY b.Betfrom, b.Device, b.DeviceGroup
+			INNER JOIN #Device d ON b.Betfrom = d.Betfrom
+		GROUP BY d.BetfromID, b.Device, b.DeviceGroup
 		HAVING (@TotalBetType = 0
 			OR (@TotalBetType = 1 AND SUM(b.TotalBetsBase) >= @TotalBetValue) 
 			OR (@TotalBetType = -1 AND SUM(b.TotalBetsBase) <= @TotalBetValue)
@@ -1462,7 +1466,7 @@ BEGIN
 	ELSE -- @Currency <> -1 => Original Currency
 	BEGIN
 		INSERT INTO #Result
-			(	Betfrom ,
+			(	BetfromID ,
 				Device ,
 				DeviceGroup,
 				NoOfPlayers ,
@@ -1486,7 +1490,7 @@ BEGIN
 				ExtraPT,
 				ExtraPTBase
 				)
-		SELECT b.Betfrom,
+		SELECT d.BetfromID,
 				b.Device,
 				b.DeviceGroup,
 				COUNT(DISTINCT b.custid) NoOfPlayers,
@@ -1510,7 +1514,8 @@ BEGIN
 				SUM(b.ExtraPT) ExtraPT,
 				SUM(b.ExtraPTBase) ExtraPTBase
 			FROM #Data b
-			GROUP BY b.Betfrom, b.Device, b.DeviceGroup, b.CurrencyID, b.Currency
+				INNER JOIN #Device d ON b.Betfrom = d.Betfrom
+			GROUP BY d.BetfromID, b.Device, b.DeviceGroup, b.CurrencyID, b.Currency
 			HAVING (@TotalBetType = 0
 				OR (@TotalBetType = 1 AND SUM(b.TotalBets) >= @TotalBetValue) 
 				OR (@TotalBetType = -1 AND SUM(b.TotalBets) <= @TotalBetValue)
@@ -1592,12 +1597,12 @@ BEGIN
 	-- Handle data for ReportByID	
 
 	CREATE TABLE #tmp (
-		Betfrom NVARCHAR(5),
+		Betfrom VARCHAR(50),
 		DeviceGroup VARCHAR(50)
 	)
 
 	INSERT INTO #tmp
-	SELECT DISTINCT Betfrom, DeviceGroup
+	SELECT DISTINCT BetfromID, DeviceGroup
 	FROM #Result
 
 	INSERT INTO #tmp_DeviceGroup (DeviceGroup, Betfrom)
@@ -1696,6 +1701,7 @@ BEGIN
 	DROP TABLE #tmpNetStakeBettype	
 	DROP TABLE #tmpNoBetCountBettype
 	DROP TABLE #tmpBettypeRNG
+	DROP TABLE #ExtraComm
 	
 END
 

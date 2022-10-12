@@ -12,7 +12,7 @@ ALTER PROCEDURE [dbo].[Acc_Rpt_NonSportsProductStatistics_Customer_HousePT]
 	@Sporttype		VARCHAR(MAX) = '',
 	@SportBetType	VARCHAR(MAX) = '',
 	@Currency		VARCHAR(MAX) = '',
-	@Device			VARCHAR(200) = '',
+	@Device			VARCHAR(MAX) = '',
 	@TotalBetType	SMALLINT = 0,
 	@TotalBetValue  MONEY = NULL,
 	@GameIncomeType	SMALLINT = 0,
@@ -45,6 +45,7 @@ AS
 		20210324@Cherry: Consider Saba789 as Credit site (#152124)
 		20210506@Cherry: Integrate VGaming Jackpot (#154250)
 		20220916@Cherry: Extend data type of Betfrom (#177655)
+		20220926@Cherry: Change param @Device from Betfrom to Betfromid (#164955)
 
 	Param's Explanation:
 		- @ProductID: string filter by Product 
@@ -68,7 +69,7 @@ BEGIN
 	CREATE TABLE #tmp_LeagueID		(LeagueID INT, Bettype INT)
 	CREATE TABLE #tmp_SportType		(Sporttype SMALLINT)
 	CREATE TABLE #tmp_GameTableID	(GameTableID INT)
-	CREATE TABLE #tmp_Devide		(Betfrom NVARCHAR(3))
+	CREATE TABLE #tmp_Devide		(Betfrom NVARCHAR(5))
 	CREATE TABLE #tmpContributionBettype (Bettype INT)
 	CREATE TABLE #tmpSportBetType (Sporttype INT, Bettype INT)
 	CREATE TABLE #tmpHouseProduct (ProductID INT)
@@ -138,10 +139,17 @@ BEGIN
 		SELECT val FROM dbo.strSplit(@Sporttype, ',')
 	END
 
+	CREATE TABLE #tmpBetfrom (BetfromID INT, Betfrom NVARCHAR(5))
+	INSERT INTO #tmpBetfrom (BetfromID, Betfrom)
+	SELECT BetfromID, Betfrom
+	FROM DBWH.bodb_Account.dbo.tbl_Betfrom WITH(NOLOCK)
+
 	IF @Device <> ''
 	BEGIN
 		INSERT INTO #tmp_Devide (Betfrom)
-		SELECT val FROM dbo.strSplit(@Device, ',')
+		SELECT b.Betfrom 
+		FROM dbo.strSplit(@Device, ',') tmp
+			INNER JOIN #tmpBetfrom b ON tmp.val = b.BetfromID
 	END
 	-- End Info from Pars list
 
@@ -818,5 +826,7 @@ BEGIN
 	DROP TABLE #tmpHouseProduct
 	DROP TABLE #tmp_ProductID
 	DROP TABLE #tmp_BetType
+	DROP TABLE #tmp_GameTableID
+	DROP TABLE #tmpBetfrom
 	
 END
