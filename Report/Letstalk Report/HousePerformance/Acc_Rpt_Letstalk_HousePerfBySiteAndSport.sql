@@ -11,6 +11,7 @@ AS
 		20220531@Roy: Letstalk Report - House Performance by Site & Sport (#173219)
 		20220714@Roy: Fix the way to determine HALF-WON|HALF_LOSE ticket (#175382)
 		20220916@Roy: Letstalk report ID #32, #34 - Add 8RM info & enhance the UI (#177825)
+		20221010@Roy: Letstalk reports - Enhance UI/UX for smartwatch devices (#178950)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
