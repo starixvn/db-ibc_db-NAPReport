@@ -59,7 +59,7 @@ BEGIN
 	END
 	
 	DECLARE @MaxBettype SMALLINT
-		,@isTest BIT = 0		
+		,@isTest BIT = 0
 		,@SQLStr VARCHAR(MAX) = ''
 		,@MinTransID_RNG BIGINT
 		,@MinTransID_LC BIGINT
@@ -166,8 +166,19 @@ BEGIN
 	WHERE sb.SubProduct IN ('MG-SuperLive', 'Bet Builder')
 		AND sb.isTest IN (0,@isTest)
 	
-	DELETE #tmpHNISetting
-	WHERE ProductID NOT IN (SELECT DISTINCT ProductID FROM #tmpProductBettype)
+	--make sure no dup ProductID--
+	;WITH CTE_Dup AS (
+		SELECT ProductID
+			,ROW_NUMBER() OVER (PARTITION BY ProductID ORDER BY ProductID) AS rn
+		FROM #tmpHNISetting
+	)
+	DELETE
+	FROM CTE_Dup
+	WHERE rn > 1
+		OR ProductID NOT IN (
+			SELECT DISTINCT ProductID
+			FROM #tmpProductBettype
+		)
 	
 	/*insert Dim for Special rule*/
 	--Include Bet Builder into [OTHERS] group; show 'BetB' => handle at [Special non-sport product]
@@ -187,7 +198,7 @@ BEGIN
 		INNER JOIN CTE_Saba AS sabag ON vg.ProductName = sabag.ProductName
 	WHERE vg.ProductName = 'Vgaming'
 	
-	CREATE CLUSTERED INDEX CIX_tmpProductBettype ON #tmpProductBettype ( Bettype )	
+	CREATE CLUSTERED INDEX CIX_tmpProductBettype ON #tmpProductBettype ( Bettype )
 	CREATE CLUSTERED INDEX CIX_tmpHNISettings ON #tmpHNISetting ( ProductID )
 	
 	INSERT INTO #tmpBettypeGroup (
