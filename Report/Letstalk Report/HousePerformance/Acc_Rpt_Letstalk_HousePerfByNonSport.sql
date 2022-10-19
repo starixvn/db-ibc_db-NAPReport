@@ -1,4 +1,4 @@
-/*<info serverAlias="DBWH-bodb_dwrs" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE Acc_Rpt_Letstalk_HousePerfByNonSport
 	@ExecTime4GMT SMALLDATETIME
 AS
@@ -58,6 +58,14 @@ BEGIN
 		RETURN
 	END
 	
+	DECLARE @MaxBettype SMALLINT
+		,@isTest BIT = 0		
+		,@SQLStr VARCHAR(MAX) = ''
+		,@MinTransID_RNG BIGINT
+		,@MinTransID_LC BIGINT
+		,@MaxTransID_RNG BIGINT
+		,@MaxTransID_LC BIGINT
+	
 	CREATE TABLE #tmpHNISetting (
 		ProductID INT
 		,ProductName VARCHAR(50)
@@ -67,7 +75,8 @@ BEGIN
 	
 	CREATE TABLE #tmpProductBettype (
 		ProductID INT
-		,Bettype INT
+		,Bettype SMALLINT
+		,RefTable TINYINT
 	)
 	
 	CREATE TABLE #tmpMarginNonSport (
@@ -76,20 +85,58 @@ BEGIN
 		,TurnoverIBC DECIMAL(19,4)
 	)
 	
+	CREATE TABLE #tmpBettypeGroup (
+		Bettype INT
+		,BettypeGroupID SMALLINT
+	)
+	
+	SELECT @isTest = dbo.f_CheckSPVersion(@@PROCID)
+	
 	/*
 		insert Dim for non-sport product
 			#tmpProductBettype
 			#tmpHNISetting
 	*/
+	;WITH CTE_Product_Bettype AS (
+		SELECT DISTINCT pb.ProductID
+			,pb.Bettype
+		FROM DBWH.bodb_account.dbo.Product_Bettype AS pb WITH (NOLOCK)
+	)
+	,CTE_Bettype AS (
+		SELECT DISTINCT typeid AS Bettype
+			,CASE WHEN SourceTable = 'bettransRNG' THEN 1
+				WHEN SourceTable = 'bettransLC' THEN 2
+				ELSE 3
+				END AS RefTable
+		FROM DBWH.bodb_account.dbo.Bettype WITH (NOLOCK)
+	)
 	INSERT INTO #tmpProductBettype (
 		ProductID
 		,Bettype
+		,RefTable
 	)
-	SELECT DISTINCT ProductID
-		,Bettype
-	FROM bodb_account.dbo.Product_Bettype WITH (NOLOCK)
-	WHERE ProductID NOT IN (1,37) --exclude Sportsbook and Saba Promotion
+	SELECT DISTINCT pb.ProductID
+		,pb.Bettype
+		,b.RefTable
+	FROM CTE_Product_Bettype AS pb
+		INNER JOIN CTE_Bettype AS b ON pb.Bettype = b.Bettype
+	WHERE pb.ProductID NOT IN (1,37) --exclude Sportsbook and Saba Promotion
+		AND pb.Bettype IN (SELECT DISTINCT Bettype FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK) WHERE isTest IN (0,@isTest))
 	
+	;WITH CTE_HNISettings AS (
+		SELECT DISTINCT h.ProductID
+			,h.ProductName
+			,(CASE WHEN h.ProductGroup = 'Live Casino' THEN 'LC'
+				WHEN h.ProductGroup = 'RNG Casino' THEN 'RNG'
+				WHEN h.ProductGroup = 'Lottery/Keno' THEN 'LOT/KENO'
+				ELSE 'OTHERS'
+				END
+			) AS ProductGroup
+			,h.ProductShortName
+		FROM DBWH.bodb_account.dbo.HNISettings AS h WITH (NOLOCK)
+		WHERE h.ProductCategory = 'NonSport'
+			AND isTest IN (0,@isTest)
+	)
 	INSERT INTO #tmpHNISetting (
 		ProductID
 		,ProductName
@@ -98,20 +145,18 @@ BEGIN
 	)
 	SELECT DISTINCT h.ProductID
 		,h.ProductName
-		,(CASE WHEN h.ProductGroup = 'Live Casino' THEN 'LC'
-			WHEN h.ProductGroup = 'RNG Casino' THEN 'RNG'
-			WHEN h.ProductGroup = 'Lottery/Keno' THEN 'LOT/KENO'
-			ELSE 'OTHERS'
-			END
-		) AS ProductGroup
+		,h.ProductGroup
 		,h.ProductShortName
-	FROM bodb_account.dbo.HNISettings AS h WITH (NOLOCK)
+	FROM CTE_HNISettings AS h
 		INNER JOIN bodb02.dbo.Products AS p WITH (NOLOCK) ON h.ProductID = p.ProductID AND h.ProductName = p.ProductName
-	WHERE h.ProductCategory = 'NonSport'
-		AND h.ProductID IN (SELECT DISTINCT ProductID FROM #tmpProductBettype)
 	
-	UNION ALL /*insert Dim for Special non-sport product*/
-	
+	/*insert Dim for Special non-sport product*/
+	INSERT INTO #tmpHNISetting (
+		ProductID
+		,ProductName
+		,ProductGroup
+		,ProductShortName
+	)
 	SELECT DISTINCT pb.ProductID
 		,(CASE WHEN sb.SubProduct = 'MG-SuperLive' THEN 'Metric Gaming - Super Live' ELSE sb.SubProduct END) AS ProductName
 		,'OTHERS' AS ProductGroup
@@ -119,6 +164,10 @@ BEGIN
 	FROM #tmpProductBettype AS pb WITH (NOLOCK)
 		INNER JOIN bodb02.dbo.SportBettypeMatrix AS sb WITH (NOLOCK) ON pb.Bettype = sb.Bettype
 	WHERE sb.SubProduct IN ('MG-SuperLive', 'Bet Builder')
+		AND sb.isTest IN (0,@isTest)
+	
+	DELETE #tmpHNISetting
+	WHERE ProductID NOT IN (SELECT DISTINCT ProductID FROM #tmpProductBettype)
 	
 	/*insert Dim for Special rule*/
 	--Include Bet Builder into [OTHERS] group; show 'BetB' => handle at [Special non-sport product]
@@ -138,43 +187,137 @@ BEGIN
 		INNER JOIN CTE_Saba AS sabag ON vg.ProductName = sabag.ProductName
 	WHERE vg.ProductName = 'Vgaming'
 	
-	CREATE CLUSTERED INDEX CIX_tmpProductBettype ON #tmpProductBettype ( Bettype, ProductID)	
+	CREATE CLUSTERED INDEX CIX_tmpProductBettype ON #tmpProductBettype ( Bettype )	
 	CREATE CLUSTERED INDEX CIX_tmpHNISettings ON #tmpHNISetting ( ProductID )
 	
+	INSERT INTO #tmpBettypeGroup (
+		Bettype
+		,BettypeGroupID
+	)
+	SELECT Bettype
+		,BettypeGroupID
+	FROM DBWH.bodb_Account.dbo.BettypeGroup WITH (NOLOCK)
+	WHERE BettypeGroupID in ( 6, 10 ) --Prize Tickets & Contribution Tickets
+	GROUP BY Bettype
+		,BettypeGroupID
+	
+	CREATE CLUSTERED INDEX CIX_tmpBettypeGroup ON #tmpBettypeGroup ( Bettype, BettypeGroupID )
+	
 	/*===================================================*/
+	SELECT @MaxBettype = MAX(Bettype)
+	FROM #tmpProductBettype
+	
+	SELECT @MinTransID_RNG = MIN(TransID)
+		,@MaxTransID_RNG = MAX(TransID)
+	FROM bodb02.dbo.BettransRNG WITH (NOLOCK)
+	WHERE winlostdate = @WLDate
+
+	SELECT @MinTransID_LC = MIN(TransID)
+		,@MaxTransID_LC = MAX(TransID)
+	FROM bodb02.dbo.BettransLC WITH (NOLOCK)
+	WHERE winlostdate = @WLDate
+	
 	;WITH CTE_HWL AS (
-		SELECT --***DIMENSION***--
-			pb.ProductID
-			,CAST((mc.virtualrate / mc.actualrate - 1) AS DECIMAL(9, 6)) AS VarianceVR
-			--***MEASURE***--
-			,SUM((CASE WHEN bg.BettypeGroupID = 6 THEN 0
-				WHEN bg.BettypeGroupID = 10 THEN mc.ContributionStake3rd + mc.swinlost + mc.mwinlost + mc.awinlost
-				ELSE (mc.winlost - mc.actual_stake) + mc.swinlost + mc.mwinlost + mc.awinlost END
-				) * mc.actualrate) AS WinlossIBC
-			,SUM(mc.scomm * mc.actualrate) AS CommissionS
-			,SUM((CASE WHEN mc.tpositiontaking = 1 THEN 0
-					WHEN bg.BettypeGroupID = 6 THEN 0
-					WHEN bg.BettypeGroupID = 10 THEN mc.ContributionStake3rd * CAST(mc.epositiontaking AS DECIMAL(10, 8))
-					ELSE (mc.winlost - mc.actual_stake) * CAST(mc.epositiontaking AS DECIMAL(10, 8)) END
-				) * mc.actualrate) AS ExtraWL
-			,CAST(SUM((CASE WHEN mc.tpositiontaking = 1 THEN 0
-					ELSE mc.scomm * CAST(mc.epositiontaking AS DECIMAL(10, 8)) / (1 - mc.tpositiontaking)
-					END) * mc.actualrate) AS DECIMAL(19, 8)) ExtraComm
-			,SUM(CASE WHEN pb.ProductID = 1 THEN ABS(mc.stake) ELSE mc.stake END
-					* (1 - mc.tpositiontaking)
-					* mc.actualrate
-				) AS TurnoverIBC
-			,SUM((CASE WHEN mc.tpositiontaking = 1 THEN 0 
-					ELSE (CASE WHEN pb.ProductID = 1 THEN ABS(stake) ELSE stake END) * CAST(mc.epositiontaking AS DECIMAL(10, 8))
-				END) * mc.actualrate) AS ExtraTO
-		FROM bodb_ODS.dbo.ODS_bettrans AS mc WITH (NOLOCK)
-			INNER JOIN #tmpProductBettype AS pb (NOLOCK) ON mc.bettype = pb.Bettype
-			LEFT JOIN bodb_account.dbo.BettypeGroup AS bg WITH (NOLOCK) ON mc.bettype = bg.Bettype AND bg.BettypeGroupID IN (6 ,10)
-		WHERE mc.winlostdate = @WLDate
-			AND mc.Status IN ('WON', 'LOSE', 'HALF WON', 'HALF LOSE')
-			AND mc.currency <> 20
+		SELECT pb.ProductID
+			,CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9,6)) AS VarianceVR
+			--------------------------------------------------------------------------
+			,SUM((CASE WHEN bg.BettypeGroupID = 6 THEN 0 --Prize Tickets
+				  WHEN bg.BettypeGroupID = 10 THEN b.swinlost + b.mwinlost + b.awinlost --Contribution Tickets
+				  ELSE (b.winlost - b.actual_stake) + b.swinlost + b.mwinlost + b.awinlost
+				END)  * b.actualrate) AS WinlossIBC
+			,SUM(CASE WHEN b.tpositiontaking = 1 THEN 0
+					ELSE (b.winlost - b.actual_stake) * CAST(b.epositiontaking AS DECIMAL(10, 8)) * b.actualrate
+				END) AS ExtraWL 
+			,SUM(b.scomm * b.actualrate) AS CommissionS
+			,CAST(SUM((CASE WHEN b.tpositiontaking = 1 THEN 0
+					ELSE b.scomm * CAST(b.epositiontaking AS DECIMAL(10, 8)) / (1 - b.tpositiontaking)
+				END) * b.actualrate) AS DECIMAL(19, 8))AS ExtraComm
+			--------------------------------------------------------------------------
+			,SUM( (CASE WHEN pb.ProductID = 1 THEN ABS(b.stake) ELSE b.stake END)
+				* (1-b.tpositiontaking)
+				* b.actualrate ) AS TurnoverIBC
+		,SUM((CASE WHEN b.tpositiontaking = 1 THEN 0 
+				ELSE (CASE WHEN pb.ProductID = 1 THEN ABS(stake) ELSE stake END) * CAST(b.epositiontaking AS DECIMAL(10, 8))
+			END) * b.actualrate) AS ExtraTO
+		FROM bodb02.dbo.bettrans AS b WITH (NOLOCK)
+			LEFT JOIN #tmpProductBettype AS pb (NOLOCK) ON b.bettype = pb.Bettype
+			LEFT JOIN #tmpBettypeGroup AS bg WITH (NOLOCK) ON b.Bettype = bg.Bettype
+		WHERE b.winlostdate = @WLDate
+			AND b.statusID IN (112, 113) --Won, Lose
+			AND b.currency <> 20
+			AND pb.RefTable = 3
+			AND b.bettype <= @MaxBettype
+			AND b.MatchID >= 0
 		GROUP BY pb.ProductID
-			,CAST((mc.virtualrate / mc.actualrate - 1) AS DECIMAL(9, 6))
+			,CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9, 6))
+			
+		UNION ALL
+		
+		SELECT pb.ProductID
+			,CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9,6)) AS VarianceVR
+			------------------------------------------------------------------------
+			,SUM((CASE WHEN bg.BettypeGroupID = 6 THEN 0 --Prize Tickets
+				  WHEN bg.BettypeGroupID = 10 THEN b.swinlost + b.mwinlost + b.awinlost --Contribution Tickets
+				  ELSE (b.winlost - b.actual_stake) + b.swinlost + b.mwinlost + b.awinlost
+				END) * b.actualrate) AS WinlossIBC
+			,SUM(CASE WHEN b.tpositiontaking = 1 THEN 0
+					ELSE (b.winlost - b.actual_stake) * CAST(b.epositiontaking AS DECIMAL(10, 8)) * b.actualrate
+				END) AS ExtraWL 
+			,SUM(b.scomm * b.actualrate) AS CommissionS
+			,CAST(SUM((CASE WHEN b.tpositiontaking = 1 THEN 0
+					ELSE b.scomm * CAST(b.epositiontaking AS DECIMAL(10, 8)) / (1 - b.tpositiontaking)
+				END) * b.actualrate) AS DECIMAL(19, 8))AS ExtraComm
+			----------------------------------------------------------------------
+			,SUM( (CASE WHEN pb.ProductID = 1 THEN ABS(b.stake) ELSE b.stake END)
+				* (1-b.tpositiontaking)
+				* b.actualrate ) AS TurnoverIBC
+			,SUM((CASE WHEN b.tpositiontaking = 1 THEN 0 
+					ELSE (CASE WHEN pb.ProductID = 1 THEN ABS(stake) ELSE stake END) * CAST(b.epositiontaking AS DECIMAL(10, 8))
+				END) * b.actualrate) AS ExtraTO
+		FROM bodb02.dbo.bettransLC AS b WITH (NOLOCK)
+			LEFT JOIN #tmpProductBettype AS pb WITH (NOLOCK) ON b.gameID = pb.Bettype
+			LEFT JOIN #tmpBettypeGroup AS bg WITH (NOLOCK) ON b.gameID = bg.Bettype
+		WHERE b.winlostdate = @WLDate
+			AND b.statusID IN (112, 113) --Won, Lose
+			AND b.currency <> 20
+			AND pb.RefTable = 2
+			AND b.transID BETWEEN @MinTransID_LC AND @MaxTransID_LC
+		GROUP BY pb.ProductID
+			,CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9,6))
+			
+		UNION ALL
+		
+		SELECT pb.ProductID
+			,CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9,6)) AS VarianceVR
+			----------------------------------------------------------------------
+			,SUM((CASE WHEN bg.BettypeGroupID = 6 THEN 0 --Prize Tickets
+				  WHEN bg.BettypeGroupID = 10 THEN b.ContributionStake3rd + b.swinlost + b.mwinlost + b.awinlost --Contribution Tickets
+				  ELSE (b.winlost - b.actual_stake) + b.swinlost + b.mwinlost + b.awinlost
+				END) * b.actualrate) AS WinlossIBC
+			,SUM(CASE WHEN b.tpositiontaking = 1 THEN 0
+					ELSE (b.winlost - b.actual_stake) * CAST(b.epositiontaking AS DECIMAL(10, 8)) * b.actualrate
+				END) AS ExtraWL 
+			,SUM(b.scomm * b.actualrate) AS CommissionS
+			,CAST(SUM((CASE WHEN b.tpositiontaking = 1 THEN 0
+					ELSE b.scomm * CAST(b.epositiontaking AS DECIMAL(10, 8)) / (1 - b.tpositiontaking)
+				END) * b.actualrate) AS DECIMAL(19, 8))AS ExtraComm
+			----------------------------------------------------------------------
+			,SUM( (CASE WHEN pb.ProductID = 1 THEN ABS(b.stake) ELSE b.stake END)
+				* (1-b.tpositiontaking)
+				* b.actualrate ) AS TurnoverIBC
+			,SUM((CASE WHEN b.tpositiontaking = 1 THEN 0 
+					ELSE (CASE WHEN pb.ProductID = 1 THEN ABS(stake) ELSE stake END) * CAST(b.epositiontaking AS DECIMAL(10, 8))
+				END) * b.actualrate) AS ExtraTO
+		FROM bodb02.dbo.bettransRNG AS b WITH (NOLOCK)
+			LEFT JOIN #tmpProductBettype AS pb WITH (NOLOCK) ON b.gameID = pb.Bettype
+			LEFT JOIN #tmpBettypeGroup AS bg WITH (NOLOCK) ON b.gameID = bg.Bettype
+		WHERE b.winlostdate = @WLDate
+			AND b.statusID IN (112, 113) --Won, Lose
+			AND b.currency <> 20
+			AND pb.RefTable = 1
+			AND b.transID BETWEEN @MinTransID_RNG AND @MaxTransID_RNG
+		GROUP BY pb.ProductID
+			,CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9,6))
 	)
 	INSERT INTO #tmpMarginNonSport (
 		ProductID
@@ -184,10 +327,10 @@ BEGIN
 	SELECT ProductID
 		,SUM(-(WinlossIBC - ExtraWL + CommissionS - ExtraComm)) AS WinlossIBC
 		,SUM((CASE WHEN TurnoverIBC = 0 THEN 0 ELSE TurnoverIBC - ExtraTO END)
-			* (CASE WHEN VarianceVR > 0 THEN VarianceVR + 1 ELSE 1 END) ) AS TurnoverIBC
+			* (CASE WHEN VarianceVR > 0 THEN VarianceVR + 1 ELSE 1 END)
+			) AS TurnoverIBC
 	FROM CTE_HWL AS h
 	GROUP BY ProductID
-	OPTION (RECOMPILE)
 	
 	CREATE CLUSTERED INDEX CIX_tmpMarginNonSport ON #tmpMarginNonSport ( ProductID )
 
@@ -330,4 +473,5 @@ BEGIN
 	DROP TABLE #tmpHNISetting
 	DROP TABLE #tmpProductBettype
 	DROP TABLE #tmpMarginNonSport
+	DROP TABLE #tmpBettypeGroup
 END
