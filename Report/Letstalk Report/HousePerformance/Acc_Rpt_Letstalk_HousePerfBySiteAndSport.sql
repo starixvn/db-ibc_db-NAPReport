@@ -11,6 +11,7 @@ AS
 		20220531@Roy: Letstalk Report - House Performance by Site & Sport (#173219)
 		20220714@Roy: Fix the way to determine HALF-WON|HALF_LOSE ticket (#175382)
 		20220916@Roy: Letstalk report ID #32, #34 - Add 8RM info & enhance the UI (#177825)
+		20221010@Roy: Letstalk reports - Enhance UI/UX for smartwatch devices (#178950)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -26,6 +27,7 @@ BEGIN
 	DECLARE @DayOffset INT
 		,@WLDate SMALLDATETIME
 		,@Title VARCHAR(20)
+		,@Footer VARCHAR(20) = 'Report ID #32'
 	
 	SET @DayOffset = (CASE WHEN DATEPART(HOUR, @ExecTime4GMT) >= 2
 								THEN 0
@@ -36,12 +38,11 @@ BEGIN
 	--Build Exec Time as Text
 	IF (@DayOffset = 0)
 	BEGIN
-		SET @Title = CONVERT(VARCHAR(5), @WLDate, 1)
-		SET @Title = @Title + ' ' + LTRIM(RTRIM((RIGHT(CONVERT(VARCHAR, @ExecTime4GMT, 100), 7)))) + ' GMT-4'
+		SET @Title = LTRIM(RTRIM((RIGHT(CONVERT(VARCHAR, @ExecTime4GMT, 100), 7))))
 	END
 	ELSE
 	BEGIN
-		SET @Title = CONVERT(VARCHAR, @WLDate, 101)
+		SET @Title = CONVERT(VARCHAR(5), @WLDate, 1)
 	END
 	
 	--Make sure WLDate only in range [bettrans]
@@ -133,58 +134,58 @@ BEGIN
 	---------Insert Dimension tables---
 	/*
 		hard code the order of group
-		GroupID IN (1,2,3) => return WL
+		GroupID IN (1,2) => return WL
 			Otherwise => return TO
 	*/
 	INSERT INTO #tmpOrderByGroupName (
 		GroupID, IsTitle, GroupName
 	)
 	VALUES 
-		(1, 0, 'XYZ & BO')
-		,(1, 0, '611 (Chi)')
-		,(1, 0, '733 (Mala)')
-		,(1, 0, '755 (Thai)')
-		,(1, 0, 'Indo')
-		,(1, 0, 'IbcIndo')
-		,(1, 0, 'Myanmar')
-		,(1, 0, 'Y SB')
-		,(1, 0, 'Y NS')
-		,(1, 0, 'Other Credit')
-		,(1, 0, 'C SB')
-		,(1, 0, 'C NS')
-		,(1, 0, 'CV SB')
-		,(1, 0, 'CV NS')
+		(1, 0, 'GRAND TOTAL')
+		,(1, 0, 'T SB')
+		,(1, 0, 'T NS')
+		,(1, 0, 'BySite_8RM')
 		
-		,(2, 0, 'T SB')
-		,(2, 0, 'T NS')
-		,(2, 0, 'BySite_8RM')
+		,(2, 1, 'WL & M')
+		,(2, 0, 'XYZ & BO')
+		,(2, 0, '611 (Chi)')
+		,(2, 0, '733 (Mala)')
+		,(2, 0, '755 (Thai)')
+		,(2, 0, 'Indo')
+		,(2, 0, 'IbcIndo')
+		,(2, 0, 'Myanmar')
+		,(2, 0, 'Y SB')
+		,(2, 0, 'Y NS')
+		,(2, 0, 'Other Credit')
+		,(2, 0, 'C SB')
+		,(2, 0, 'C NS')
+		,(2, 0, 'CV SB')
+		,(2, 0, 'CV NS')
 		
-		,(3, 0, 'GRAND TOTAL')
+		,(3, 1, 'SB TO & M')
+		,(3, 0, 'Real.Soc')
+		,(3, 0, 'Real.Soc(L)')
+		,(3, 0, 'Real.Soc(NL)')
+		,(3, 0, 'Saba.Soc')
+		,(3, 0, 'Soccer PG')
+		,(3, 0, 'Basket PG')
+		,(3, 0, 'Real.Bas')
+		,(3, 0, 'Saba.Bas')
+		,(3, 0, 'Tenn')
+		,(3, 0, 'E-Spo')
+		,(3, 0, 'Cricket')
+		,(3, 0, 'Others')
+		,(3, 0, 'Parl')
 		
-		,(4, 1, 'SB TO & M')
-		,(4, 0, 'Real.Soc')
-		,(4, 0, 'Real.Soc(L)')
-		,(4, 0, 'Real.Soc(NL)')
-		,(4, 0, 'Saba.Soc')
-		,(4, 0, 'Soccer PG')
-		,(4, 0, 'Basket PG')
-		,(4, 0, 'Real.Bas')
-		,(4, 0, 'Saba.Bas')
-		,(4, 0, 'Tenn')
-		,(4, 0, 'E-Spo')
-		,(4, 0, 'Cricket')
-		,(4, 0, 'Others')
-		,(4, 0, 'Parl')
+		,(4, 0, 'TOTAL SB')
+		,(4, 0, 'BySport_8RM')
 		
-		,(5, 0, 'TOTAL SB')
-		,(5, 0, 'BySport_8RM')
+		,(5, 1, 'PH TO & M')
+		,(5, 0, 'PHAIO')
 		
-		,(6, 1, 'PH TO & M')
-		,(6, 0, 'PHAIO')
-		
-		,(7, 1, 'TimeM TO & M')
-		,(7, 0, 'TimeM_HDP')
-		,(7, 0, 'TimeM_OU')
+		,(6, 1, 'TimeM TO & M')
+		,(6, 0, 'TimeM_HDP')
+		,(6, 0, 'TimeM_OU')
 	
 	INSERT INTO #tmpDWBettypeSource (
 		Bettype
@@ -866,7 +867,7 @@ BEGIN
 	--Return Result Set--
 	SELECT o.GroupID
 		,(CASE WHEN o.GroupName IN ('BySite_8RM','BySport_8RM') THEN '8RM' ELSE o.GroupName END) AS GroupName
-		,(CASE WHEN o.GroupID IN (1, 2, 3) THEN WinlossIBC ELSE TurnoverIBC END) AS HWL_TO
+		,(CASE WHEN o.GroupID IN (1, 2) THEN WinlossIBC ELSE TurnoverIBC END) AS HWL_TO --GroupID IN (1,2) => return WL
 		,(CASE WHEN o.IsTitle = 1 THEN NULL
 			WHEN ISNULL(TurnoverIBC,0) = 0 THEN 0
 		ELSE ISNULL(WinlossIBC,0)/TurnoverIBC
@@ -877,6 +878,7 @@ BEGIN
 		,o.OrderNo
 	
 	SELECT @Title AS Title
+		,@Footer AS Footer
 	
 	DROP TABLE #tmpDWSite
 	DROP TABLE #tmpMatch
