@@ -74,7 +74,8 @@ AS
         - 20210811@Jaden: Integrate Bitcoin (#159046)
         - 20211203@Ned.Le: NAP Report - Tune report "Total Credit Accounts" (#165615)
         - 20210224@Cherry: Incorporate ONE RNG DCS (#168917)
-		- 20220826@Cherry: Integrate SEAL Entertainment (#176391)
+        - 20220826@Cherry: Integrate SEAL Entertainment (#176391)
+        - 20220927@Cherry: Integrate MG-RNG product (#177504)
 
     Param's Explanation:
         + @MoveBetsDay:  The day of moving bets to battrans14
@@ -121,10 +122,8 @@ BEGIN
     -----------------------
     -- #SpecialBettypeGroup
 
-    -- Create temp table
     CREATE TABLE #SpecialBettypeGroup (BettypeGroupID SMALLINT, Bettype INT)
 
-    -- Get data of BettypeGroupID=12 [No BetCount]
     INSERT INTO #SpecialBettypeGroup (BettypeGroupID, Bettype)
     SELECT BettypeGroupID, Bettype
     FROM DBWH.bodb_Account.dbo.BettypeGroup WITH (NOLOCK)
@@ -140,67 +139,51 @@ BEGIN
         SportType      INT
     )
 
-    -- Number Game group
-    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (161, 'Number Game',    161)
-    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (161, 'Number Game',    164)
-    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (161, 'Number Game',    168)
+    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType)
+    SELECT DISTINCT
+           161 SportGroupID,
+           'Number Game' SportGroupName,
+           SportType
+    FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)
+    WHERE ProductID IN (3)
 
-    -- Saba Casino group
-    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (208, 'Saba Casino',     208)
-    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (208, 'Saba Casino',     209)
-    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (208, 'Saba Casino',     210)
-    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (208, 'Saba Casino',     251)
+    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType)
+    SELECT DISTINCT
+           208 SportGroupID,
+           'Saba Casino' SportGroupName,
+           SportType
+    FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)
+    WHERE ProductID IN (6)
 
-    -- Virtual Sports group
-    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (180, 'Virtual Sports', 180)
-    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (180, 'Virtual Sports', 181)
-    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (180, 'Virtual Sports', 182)
-    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (180, 'Virtual Sports', 183)
-    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (180, 'Virtual Sports', 184)
-    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (180, 'Virtual Sports', 185)
-    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (180, 'Virtual Sports', 186)
-    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (180, 'Virtual Sports', 190)
-    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (180, 'Virtual Sports', 191)
-    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (180, 'Virtual Sports', 192)
-    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (180, 'Virtual Sports', 193)
-    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (180, 'Virtual Sports', 194)
-    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (180, 'Virtual Sports', 195)
-    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (180, 'Virtual Sports', 196)
-    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (180, 'Virtual Sports', 197)
-    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (180, 'Virtual Sports', 231)
+    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType)
+    SELECT DISTINCT
+           180 SportGroupID,
+           'Virtual Sports' SportGroupName,
+           SportType
+    FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)
+    WHERE ProductID IN (5, 27, 49)
 
-    -- Macau Games group
-    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (212, 'Macau Games',    165)
-    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (212, 'Macau Games',    167)
-    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (212, 'Macau Games',    172)
-    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (212, 'Macau Games',    174)
-    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (212, 'Macau Games',    212)
-    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (212, 'Macau Games',    232)
-    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (212, 'Macau Games',    234)
-    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (212, 'Macau Games',    237)
-    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (212, 'Macau Games',    238)
-    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (212, 'Macau Games',    247)
-    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (212, 'Macau Games',    248)
-	INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType) VALUES (212, 'Macau Games',    156)
+    INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType)
+    SELECT DISTINCT
+           212 SportGroupID,
+           'Macau Games' SportGroupName,
+           SportType
+    FROM bodb02.dbo.ProductSettingDetail WITH (NOLOCK)
+    WHERE ProductID IN (22) AND Parent_ProductSettingID IS NULL
 
     ---------------
     -- #SportFilter
 
-    -- Create temp table
     CREATE TABLE #SportFilter (SportGroupID INT, SportType INT)
 
-    -- Gen data to temp table
-    IF EXISTS (SELECT TOP 1 1 FROM #SportGroupSettings WHERE SportGroupID = @SportType)
-    BEGIN
-        INSERT INTO #SportFilter (SportGroupID, SportType)
-        SELECT SportGroupID, SportType
-        FROM #SportGroupSettings
-        WHERE SportGroupID = @SportType
-    END
-    ELSE
-    BEGIN
-        INSERT INTO #SportFilter (SportGroupID, SportType) VALUES (@SportType, @SportType)
-    END
+    ;WITH CTE_SportFilter AS (
+        SELECT SportGroupID, SportType FROM #SportGroupSettings WHERE SportGroupID = @SportType
+        UNION ALL
+        SELECT @SportType SportGroupID, @SportType SportType
+    )
+    INSERT INTO #SportFilter (SportGroupID, SportType)
+    SELECT DISTINCT SportGroupID, SportType
+    FROM CTE_SportFilter
 
     ----------------
     -- #SportBettype
@@ -218,7 +201,7 @@ BEGIN
     BEGIN
         INSERT INTO #SportBettype (SportGroupID, SportType, Bettype, RefTable)
         SELECT DISTINCT
-              -1         SportGroupID,
+               -1        SportGroupID,
                SportType SportType,
                BetType   Bettype,
                RefTable  RefTable
@@ -228,17 +211,14 @@ BEGIN
     ELSE
     BEGIN
         INSERT INTO #SportBettype (SportGroupID, SportType, Bettype, RefTable)
-        SELECT DISTINCT sf.SportGroupID, sbm.SportType, sbm.BetType, sbm.RefTable
+        SELECT DISTINCT
+               sf.SportGroupID SportGroupID,
+               sbm.SportType   SportType,
+               sbm.BetType     Bettype,
+               sbm.RefTable    RefTable
         FROM bodb02.dbo.SportBettypeMatrix sbm WITH (NOLOCK)
              INNER JOIN #SportFilter sf ON sbm.SportType = sf.SportType
     END
-
-    -- Update data for column RefTable
-    UPDATE sb
-    SET sb.RefTable = 3
-    FROM #SportBettype sb
-    WHERE sb.SportGroupID IN (202, 204, 220, 255, -1, 245, 222, 180, 161, 169)
-          OR sb.SportType IN (202, 204, 220, 255, -1, 245, 222, 180, 161, 169)
 
 
     ---------------
@@ -378,8 +358,11 @@ BEGIN
         GROUP BY b.CustID
         '
 
-        INSERT INTO #AvailableMember (CustID, BetStatus, BetCount)
-        EXEC (@SQLQuery) AT DBWH
+        IF (@SQLQuery IS NOT NULL)
+        BEGIN
+            INSERT INTO #AvailableMember (CustID, BetStatus, BetCount)
+            EXEC (@SQLQuery) AT DBWH
+        END
     END
 
     ---------------------
