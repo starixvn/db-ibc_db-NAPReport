@@ -66,10 +66,9 @@ BEGIN
 		,@MaxTransID_RNG BIGINT
 		,@MaxTransID_LC BIGINT
 	
-	CREATE TABLE #tmpHNISetting (
+	CREATE TABLE #tmpProductSetting (
 		ProductID INT
-		,ProductName VARCHAR(50)
-		,ProductGroup VARCHAR(10)
+		,ProductGroup VARCHAR(20)
 		,ProductShortName VARCHAR(50)
 	)
 	
@@ -95,7 +94,7 @@ BEGIN
 	/*
 		insert Dim for non-sport product
 			#tmpProductBettype
-			#tmpHNISetting
+			#tmpProductSetting
 	*/
 	;WITH CTE_Product_Bettype AS (
 		SELECT DISTINCT pb.ProductID
@@ -123,54 +122,91 @@ BEGIN
 	WHERE pb.ProductID NOT IN (1,37) --exclude Sportsbook and Saba Promotion
 		AND pb.Bettype IN (SELECT DISTINCT Bettype FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK) WHERE isTest IN (0,@isTest))
 	
-	;WITH CTE_HNISettings AS (
-		SELECT DISTINCT h.ProductID
-			,h.ProductName
-			,(CASE WHEN h.ProductGroup = 'Live Casino' THEN 'LC'
-				WHEN h.ProductGroup = 'RNG Casino' THEN 'RNG'
-				WHEN h.ProductGroup = 'Lottery/Keno' THEN 'LOT/KENO'
-				ELSE 'OTHERS'
-				END
-			) AS ProductGroup
-			,h.ProductShortName
-		FROM DBWH.bodb_account.dbo.HNISettings AS h WITH (NOLOCK)
-		WHERE h.ProductCategory = 'NonSport'
-			AND isTest IN (0,@isTest)
+	/*Special non-sport product*/
+	;WITH CTE_Special AS (
+		SELECT DISTINCT pb.ProductID
+			,CONVERT(VARCHAR(20),'OTHERS') AS ProductGroup
+			,(CASE WHEN sb.SubProduct = 'Bet Builder' THEN 'BetB' ELSE sb.SubProduct END) AS ProductShortName ---Include Bet Builder into [OTHERS] group; show 'BetB'
+		FROM #tmpProductBettype AS pb WITH (NOLOCK)
+			INNER JOIN bodb02.dbo.SportBettypeMatrix AS sb WITH (NOLOCK) ON pb.Bettype = sb.Bettype
+		WHERE sb.SubProduct IN ('MG-SuperLive', 'Bet Builder')
+			AND sb.isTest IN (0,@isTest)
 	)
-	INSERT INTO #tmpHNISetting (
-		ProductID
-		,ProductName
-		,ProductGroup
-		,ProductShortName
+	,CTE_Hardcode AS (
+		SELECT ProductID
+			,ProductGroup
+			,ProductShortName
+		FROM ( VALUES
+			----------LC----------
+			(21,'LC','AB') --Allbet
+			,(45,'LC','AE') --AE Sexy
+			,(12,'LC','GoldD') --Gold Deluxe
+			,(39,'LC','SA') --SA Gaming
+			,(52,'LC','ION') --ION
+			,(46,'LC','IBC') --IBCBet Live Casino
+			,(47,'LC','BBIN') --BBIN
+			,(11,'LC','AG') --AG Casino
+			,(51,'LC','WM') --WM
+			,(59,'LC','GDG') --GDG
+			,(57,'LC','BG') --BG
+			,(65,'LC','PP LC') --PP Live Casino
+			,(70,'LC','FGG') --FGG
+			----------RNG----------
+			,(42,'RNG','SABAG') --SABA.games
+			,(6,'RNG','SabaC') --Saba Casino
+			,(34,'RNG','ArcaG') --Arcadia Gaming
+			,(32,'RNG','PP RNG') --PP
+			,(40,'RNG','TableG') --Table Game
+			,(38,'RNG','VirtG') --Virtual Games
+			,(22,'RNG','MacauG') --Macau Games
+			,(36,'RNG','SpadeG') --SG
+			,(50,'RNG','FunkyG') --Funky Games
+			,(24,'RNG','FW') --Fishing World
+			,(55,'RNG','PGSoft') --PG Soft
+			,(56,'RNG','Joker') --Joker
+			,(60,'RNG','MaxG') --MaxGame
+			,(61,'RNG','Haba') --Habanero
+			,(62,'RNG','CreG') --CG
+			,(66,'RNG','SABAG')--Vgaming - Combine in SABA.games
+			,(67,'RNG','AP') --AdvantPlay
+			,(68,'RNG','APMini') --AdvantPlay Mini
+			,(72,'RNG','SealEn') --Seal Entertainment
+			,(73,'RNG','MG-RNG') --MG-RNG
+			----------LOT/KENO----------
+			,(8,'LOT/KENO','Mkeno') --RNG Keno
+			,(3,'LOT/KENO','NG') --Number Game -Combine NumG, Happy 5, Happy 5 LG into Number Game
+			,(28,'LOT/KENO','MLotte') --Lottery
+			,(23,'LOT/KENO','NG2') --NG2
+			,(43,'LOT/KENO','Togel4D') --Togel 4D
+			,(63,'LOT/KENO','SLotte') --Sports Lottery
+			----------OTHERS----------
+			,(27,'OTHERS','VS2') --Virtual Sports 2
+			,(5,'OTHERS','VS') --Virtual Sports
+			,(15,'OTHERS','CB') --Colossus Bets
+			,(25,'OTHERS','EX') --Exchange
+			,(49,'OTHERS','VS3') --Virtual Sports 3
+			,(69,'OTHERS','BTC') --Bitcoin
+			-- ,('Bet Builder','OTHERS','BetB')
+		) h (ProductID, ProductGroup, ProductShortName)
 	)
-	SELECT DISTINCT h.ProductID
-		,h.ProductName
-		,h.ProductGroup
-		,h.ProductShortName
-	FROM CTE_HNISettings AS h
-		INNER JOIN bodb02.dbo.Products AS p WITH (NOLOCK) ON h.ProductID = p.ProductID AND h.ProductName = p.ProductName
-	
-	/*insert Dim for Special non-sport product*/
-	INSERT INTO #tmpHNISetting (
+	INSERT INTO #tmpProductSetting (
 		ProductID
-		,ProductName
 		,ProductGroup
 		,ProductShortName
 	)
 	SELECT DISTINCT pb.ProductID
-		,(CASE WHEN sb.SubProduct = 'MG-SuperLive' THEN 'Metric Gaming - Super Live' ELSE sb.SubProduct END) AS ProductName
-		,'OTHERS' AS ProductGroup
-		,(CASE WHEN sb.SubProduct = 'Bet Builder' THEN 'BetB' ELSE sb.SubProduct END) AS ProductShortName
+		,ISNULL(s.ProductGroup,ISNULL(h.ProductGroup,'OTHERS')) AS ProductGroup
+		,ISNULL(s.ProductShortName,ISNULL(h.ProductShortName,ISNULL(p.ProductPrefix,'Others'))) AS ProductShortName
 	FROM #tmpProductBettype AS pb WITH (NOLOCK)
-		INNER JOIN bodb02.dbo.SportBettypeMatrix AS sb WITH (NOLOCK) ON pb.Bettype = sb.Bettype
-	WHERE sb.SubProduct IN ('MG-SuperLive', 'Bet Builder')
-		AND sb.isTest IN (0,@isTest)
+		LEFT JOIN CTE_Special AS s ON pb.ProductID = s.ProductID
+		LEFT JOIN CTE_Hardcode AS h ON pb.ProductID = h.ProductID
+		LEFT JOIN bodb02.dbo.Products AS p WITH (NOLOCK) ON pb.ProductID = p.ProductID
 	
 	--make sure no dup ProductID--
 	;WITH CTE_Dup AS (
 		SELECT ProductID
 			,ROW_NUMBER() OVER (PARTITION BY ProductID ORDER BY ProductID) AS rn
-		FROM #tmpHNISetting
+		FROM #tmpProductSetting
 	)
 	DELETE
 	FROM CTE_Dup
@@ -180,26 +216,8 @@ BEGIN
 			FROM #tmpProductBettype
 		)
 	
-	/*insert Dim for Special rule*/
-	--Include Bet Builder into [OTHERS] group; show 'BetB' => handle at [Special non-sport product]
-	--Combine NumG, Happy 5, Happy 5 LG into Number Game => HNISettings INNER JOIN bodb02.dbo.Products
-	--Combine Vgaming into SABA.games
-	;WITH CTE_Saba AS (
-		SELECT 'Vgaming' AS ProductName
-			,ProductGroup
-			,ProductShortName
-		FROM #tmpHNISetting WITH (NOLOCK)
-		WHERE ProductName = 'SABA.games'
-	)
-	UPDATE vg
-	SET vg.ProductGroup = sabag.ProductGroup
-		,vg.ProductShortName = sabag.ProductShortName
-	FROM #tmpHNISetting AS vg WITH (NOLOCK)
-		INNER JOIN CTE_Saba AS sabag ON vg.ProductName = sabag.ProductName
-	WHERE vg.ProductName = 'Vgaming'
-	
 	CREATE CLUSTERED INDEX CIX_tmpProductBettype ON #tmpProductBettype ( Bettype )
-	CREATE CLUSTERED INDEX CIX_tmpHNISettings ON #tmpHNISetting ( ProductID )
+	CREATE CLUSTERED INDEX CIX_tmpProductSettings ON #tmpProductSetting ( ProductID )
 	
 	INSERT INTO #tmpBettypeGroup (
 		Bettype
@@ -217,6 +235,7 @@ BEGIN
 	/*===================================================*/
 	SELECT @MaxBettype = MAX(Bettype)
 	FROM #tmpProductBettype
+	WHERE RefTable = 3
 	
 	SELECT @MinTransID_RNG = MIN(TransID)
 		,@MaxTransID_RNG = MAX(TransID)
@@ -346,7 +365,7 @@ BEGIN
 	CREATE CLUSTERED INDEX CIX_tmpMarginNonSport ON #tmpMarginNonSport ( ProductID )
 
 	/*
-		Group by ProductGroup, Order and Return result
+		Group by [ProductGroup], Order and Return result
 		=================Order=====================
 		GroupID GroupName
 		-----------------
@@ -389,8 +408,12 @@ BEGIN
 				ELSE SUM(ISNULL(WinlossIBC,0)) / SUM(ISNULL(TurnoverIBC,0))
 			END) AS Margin
 		FROM #tmpMarginNonSport AS m WITH (NOLOCK)
-			LEFT JOIN #tmpHNISetting AS h WITH (NOLOCK) ON m.ProductID = h.ProductID
-		GROUP BY h.ProductGroup
+			LEFT JOIN #tmpProductSetting AS h WITH (NOLOCK) ON m.ProductID = h.ProductID
+		GROUP BY CASE WHEN h.ProductGroup = 'LC' THEN 2
+				WHEN h.ProductGroup = 'RNG' THEN 3
+				WHEN h.ProductGroup = 'LOT/KENO' THEN 4
+				ELSE 5
+				END
 			,ISNULL(h.ProductGroup,'OTHERS')
 	)
 	,CTE_Total AS (
@@ -409,15 +432,19 @@ BEGIN
 				ELSE 14
 				END
 			) AS GroupID
-			,ISNULL(h.ProductShortName,ISNULL(h.ProductName,'Others')) AS GroupName
+			,ISNULL(h.ProductShortName,'Others') AS GroupName
 			,SUM(TurnoverIBC) AS TurnoverIBC
 			,(CASE WHEN SUM(ISNULL(TurnoverIBC,0)) = 0 THEN 0
 				ELSE SUM(ISNULL(WinlossIBC,0)) / SUM(ISNULL(TurnoverIBC,0))
 			END) AS Margin
 		FROM #tmpMarginNonSport AS m WITH (NOLOCK)
-			LEFT JOIN #tmpHNISetting AS h WITH (NOLOCK) ON m.ProductID = h.ProductID
-		GROUP BY h.ProductGroup
-			,ISNULL(h.ProductShortName,ISNULL(h.ProductName,'Others'))
+			LEFT JOIN #tmpProductSetting AS h WITH (NOLOCK) ON m.ProductID = h.ProductID
+		GROUP BY CASE WHEN h.ProductGroup = 'LC' THEN 8
+				WHEN h.ProductGroup = 'RNG' THEN 10
+				WHEN h.ProductGroup = 'LOT/KENO' THEN 12
+				ELSE 14
+				END
+			,ISNULL(h.ProductShortName,'Others')
 	)
 	----return title----
 	SELECT 6 AS GroupID
@@ -481,7 +508,7 @@ BEGIN
 	SELECT @Title AS Title
 		,@Footer AS Footer
 	
-	DROP TABLE #tmpHNISetting
+	DROP TABLE #tmpProductSetting
 	DROP TABLE #tmpProductBettype
 	DROP TABLE #tmpMarginNonSport
 	DROP TABLE #tmpBettypeGroup
