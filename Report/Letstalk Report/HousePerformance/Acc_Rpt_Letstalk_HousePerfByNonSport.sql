@@ -25,7 +25,7 @@ BEGIN
 	DECLARE @DayOffset INT
 		,@WLDate SMALLDATETIME
 		,@Title VARCHAR(50)
-		,@Footer VARCHAR(20) = 'Report ID #34'
+		,@Footer VARCHAR(20) = 'ID #34'
 
 	SET @DayOffset = (
 			CASE 
