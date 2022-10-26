@@ -120,16 +120,23 @@ BEGIN
 	FROM CTE_Product_Bettype AS pb
 		INNER JOIN CTE_Bettype AS b ON pb.Bettype = b.Bettype
 	WHERE pb.ProductID NOT IN (1,37) --exclude Sportsbook and Saba Promotion
-		AND pb.Bettype IN (SELECT DISTINCT Bettype FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK) WHERE isTest IN (0,@isTest))
+		AND pb.Bettype IN (
+			SELECT DISTINCT Bettype
+			FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)
+			WHERE isTest IN (0,@isTest)
+				AND (ProductID NOT IN (1,37) --exclude Sportsbook and Saba Promotion
+					OR SubProduct IN ('Bet Builder')
+				)
+		)
 	
 	/*Special non-sport product*/
 	;WITH CTE_Special AS (
 		SELECT DISTINCT pb.ProductID
 			,CONVERT(VARCHAR(20),'OTHERS') AS ProductGroup
-			,(CASE WHEN sb.SubProduct = 'Bet Builder' THEN 'BetB' ELSE sb.SubProduct END) AS ProductShortName ---Include Bet Builder into [OTHERS] group; show 'BetB'
+			,CONVERT(VARCHAR(20),'BetB') AS ProductShortName --Include Bet Builder into [OTHERS] group; show 'BetB'
 		FROM #tmpProductBettype AS pb WITH (NOLOCK)
 			INNER JOIN bodb02.dbo.SportBettypeMatrix AS sb WITH (NOLOCK) ON pb.Bettype = sb.Bettype
-		WHERE sb.SubProduct IN ('MG-SuperLive', 'Bet Builder')
+		WHERE sb.SubProduct IN ('Bet Builder')
 			AND sb.isTest IN (0,@isTest)
 	)
 	,CTE_Hardcode AS (
@@ -149,41 +156,41 @@ BEGIN
 			,(51,'LC','WM') --WM
 			,(59,'LC','GDG') --GDG
 			,(57,'LC','BG') --BG
-			,(65,'LC','PP LC') --PP Live Casino
+			,(65,'LC','PPLC') --PP Live Casino
 			,(70,'LC','FGG') --FGG
 			----------RNG----------
 			,(42,'RNG','SABAG') --SABA.games
 			,(6,'RNG','SabaC') --Saba Casino
-			,(34,'RNG','ArcaG') --Arcadia Gaming
-			,(32,'RNG','PP RNG') --PP
-			,(40,'RNG','TableG') --Table Game
+			,(34,'RNG','Arca') --Arcadia Gaming
+			,(32,'RNG','PP') --PP
+			,(40,'RNG','TabG') --Table Game
 			,(38,'RNG','VirtG') --Virtual Games
-			,(22,'RNG','MacauG') --Macau Games
-			,(36,'RNG','SpadeG') --SG
+			,(22,'RNG','Macau') --Macau Games
+			,(36,'RNG','SG') --SG
 			,(50,'RNG','FunkyG') --Funky Games
 			,(24,'RNG','FW') --Fishing World
 			,(55,'RNG','PGSoft') --PG Soft
 			,(56,'RNG','Joker') --Joker
 			,(60,'RNG','MaxG') --MaxGame
-			,(61,'RNG','Haba') --Habanero
-			,(62,'RNG','CreG') --CG
+			,(61,'RNG','HB') --Habanero
+			,(62,'RNG','CG') --CG
 			,(66,'RNG','SABAG')--Vgaming - Combine in SABA.games
 			,(67,'RNG','AP') --AdvantPlay
 			,(68,'RNG','APMini') --AdvantPlay Mini
-			,(72,'RNG','SealEn') --Seal Entertainment
-			,(73,'RNG','MG-RNG') --MG-RNG
+			,(72,'RNG','SEAL') --Seal Entertainment
+			,(73,'RNG','MG') --MG-RNG
 			----------LOT/KENO----------
 			,(8,'LOT/KENO','Mkeno') --RNG Keno
 			,(3,'LOT/KENO','NG') --Number Game -Combine NumG, Happy 5, Happy 5 LG into Number Game
-			,(28,'LOT/KENO','MLotte') --Lottery
+			,(28,'LOT/KENO','MLot') --Lottery
 			,(23,'LOT/KENO','NG2') --NG2
-			,(43,'LOT/KENO','Togel4D') --Togel 4D
-			,(63,'LOT/KENO','SLotte') --Sports Lottery
+			,(43,'LOT/KENO','To4D') --Togel 4D
+			,(63,'LOT/KENO','SLot') --Sports Lottery
 			----------OTHERS----------
 			,(27,'OTHERS','VS2') --Virtual Sports 2
 			,(5,'OTHERS','VS') --Virtual Sports
 			,(15,'OTHERS','CB') --Colossus Bets
-			,(25,'OTHERS','EX') --Exchange
+			,(31,'OTHERS','EX') --Exchange
 			,(49,'OTHERS','VS3') --Virtual Sports 3
 			,(69,'OTHERS','BTC') --Bitcoin
 			-- ,('Bet Builder','OTHERS','BetB')
