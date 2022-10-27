@@ -119,8 +119,7 @@ BEGIN
 		,b.RefTable
 	FROM CTE_Product_Bettype AS pb
 		INNER JOIN CTE_Bettype AS b ON pb.Bettype = b.Bettype
-	WHERE pb.ProductID NOT IN (1,37) --exclude Sportsbook and Saba Promotion
-		AND pb.Bettype IN (
+	WHERE pb.Bettype IN (
 			SELECT DISTINCT Bettype
 			FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)
 			WHERE isTest IN (0,@isTest)
