@@ -381,7 +381,7 @@ BEGIN
 		4		T LOT/KENO
 		5		T OTHERS
 		
-		6		NS TO & M 			--title
+		6		NS TO & M 			--removed
 		
 		7		LC 					--title
 		8		LC Products
@@ -453,12 +453,12 @@ BEGIN
 			,ISNULL(h.ProductShortName,'Others')
 	)
 	----return title----
-	SELECT 6 AS GroupID
-		,'NS TO & M' AS GroupName
-		,NULL AS TurnoverIBC
-		,NULL AS Margin
+	-- SELECT 6 AS GroupID
+		-- ,'NS TO & M' AS GroupName
+		-- ,NULL AS TurnoverIBC
+		-- ,NULL AS Margin
 	
-	UNION ALL
+	-- UNION ALL
 	
 	SELECT 7 AS GroupID
 		,'LC' AS GroupName
