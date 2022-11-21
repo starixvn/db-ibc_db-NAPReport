@@ -39,6 +39,7 @@ AS
 		- 20220330@Danny: support Licensee Sponsorship column (#170729)
 		- 20220805@Danny: Modify SPs to retrieve yesterday data in Data warehouse in case in-house replicator got problem (#176077)
 		- 20221003@Danny: Integrate MGRNG product and restructure code (#177505)
+		- 20221121@Danny: Integrate Player Tips Product (#180653)
 */
 BEGIN
 	SET NOCOUNT ON
@@ -864,7 +865,7 @@ BEGIN
 										END * e.Rate)
 			,HouseIncomeDaily	= SUM(CASE
 										WHEN t.Product3rdId = 15 THEN t.MemberWL
-										WHEN t.Product3rdId IN (25, 37) THEN -t.HouseWL
+										WHEN t.Product3rdId IN (25, 37, 74) THEN -t.HouseWL
 										WHEN p.PartyId IS NULL THEN -t.HouseWL
 										WHEN t.SportTypeGroup IN (150, 173) THEN -t.MemberWL
 										ELSE
@@ -873,7 +874,7 @@ BEGIN
 										END * e.Rate)
 			,HouseIncomeMonth	= SUM(CASE
 										WHEN t.Product3rdId = 15 THEN t.MemberWL
-										WHEN t.Product3rdId = 37 THEN -t.HouseWL
+										WHEN t.Product3rdId IN (37, 74) THEN -t.HouseWL
 										WHEN p.PartyId IS NULL THEN 0
 										WHEN t.Product3rdId IN (25) THEN -t.HouseWL
 										WHEN t.SportTypeGroup IN (150, 173) THEN -t.MemberWL
@@ -1056,12 +1057,12 @@ BEGIN
 		UPDATE r
 		SET r.HouseIncome = CASE WHEN r.HouseIncome > 0 THEN r.HouseIncome ELSE 0 END
 			,r.LicenseeFee = CASE
-						WHEN r.Product3rdId IN (3,25,31,37) OR r.Product3rdId IN (SELECT x.ProductID FROM @ProductSupportJPContrib x) THEN LicenseeFee
+						WHEN r.Product3rdId IN (3,25,31,37,74) OR r.Product3rdId IN (SELECT x.ProductID FROM @ProductSupportJPContrib x) THEN LicenseeFee
 						WHEN r.LicenseeFee > 0 THEN r.LicenseeFee ELSE 0 END
 		FROM #tmpResult r
 		WHERE r.Product3rdId <> 2
 			AND (
-				r.Product3rdId IN (3,25,31,37) -- BA, Cashout 
+				r.Product3rdId IN (3,25,31,37,74) -- BA, Cashout 
 				OR r.Product3rdId IN (SELECT x.ProductID FROM @ProductSupportJPContrib x)
 				OR r.PartyId NOT IN (SELECT p.PartyId FROM @9wLicenseeList p)
 			)
