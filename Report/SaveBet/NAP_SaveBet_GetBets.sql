@@ -29,6 +29,7 @@ AS
 		- 20210423@Roy: NAP Report - Move Save bet db & service (#153147)
 		- 202109001@Jaden: Add 2 more Dangerous types (#159779)
 		- 20220321@Jaden: Cricket phase 2 - Save Bet (#170213)
+		- 20221125@Roy: Defer Gen File After Match Complete (#180910)
 */
 BEGIN
 	SET NOCOUNT ON
@@ -167,6 +168,7 @@ BEGIN
 			AND b.bettype = @bettype
 			AND b.liveindicator = @liveindicator
 		ORDER BY b.betteam, b.transid
+		OPTION(RECOMPILE, USE HINT('DISALLOW_BATCH_MODE'))
 	END
 	ELSE ---Get data from bettrans14---
 	BEGIN
@@ -240,5 +242,6 @@ BEGIN
 			AND b.bettype = @bettype
 			AND b.liveindicator = @liveindicator
 		ORDER BY b.betteam, b.transid
+		OPTION(RECOMPILE, USE HINT('DISALLOW_BATCH_MODE'))
 	END
 END

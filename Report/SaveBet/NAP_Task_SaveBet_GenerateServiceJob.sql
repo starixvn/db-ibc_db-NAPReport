@@ -15,6 +15,7 @@ AS
 		- 20170612@Percy: check bettype of Cash Out [RedmineID: #78160]
 		- 20190308@Robert: #109822 - NAP Report - Integrate Bet Builder
 		- 20210423@Roy: NAP Report - Move Save bet db & service (#153147)
+		- 20221125@Roy: Defer Gen File After Match Complete (#180910)
 */
 
 BEGIN
@@ -41,8 +42,9 @@ BEGIN
 	
 	CREATE TABLE #Match (ID INT IDENTITY(1,1), MatchID INT)
 	INSERT INTO #Match(MatchID)
-	SELECT MatchID FROM MatchList WITH (NOLOCK) 
+	SELECT MatchID FROM dbo.MatchList WITH (NOLOCK) 
 	WHERE JobGenerated = 0
+		AND (GenerateTime IS NULL OR GenerateTime < DATEADD(MI,-45,GETDATE())) --Defer 45mins
 
 	--update top (10) MatchList set JobGenerated = 0
 	IF @@ROWCOUNT =0 RETURN;
