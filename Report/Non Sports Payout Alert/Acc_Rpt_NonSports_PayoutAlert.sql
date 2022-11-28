@@ -27,7 +27,7 @@ BEGIN
 	SET NOCOUNT ON
 	
 	--Set Bitcoin payout limit to 115%
-	DECLARE @BitCoin_TLV DECIMAL(19,4) = 115 --115%
+	DECLARE @BitCoin_TLV DECIMAL(19,4) = 80 --115%
 	/*
 		Exclude Products
 		4	- SLI Live Casino
