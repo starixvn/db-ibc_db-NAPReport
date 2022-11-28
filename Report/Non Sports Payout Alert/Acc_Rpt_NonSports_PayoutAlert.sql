@@ -11,6 +11,7 @@ AS
 	DB:		DBACC@bodb02
 	Revisions:
 		20210519@Roy: CWL - New Request to monitor game payout levels (#154598)
+		20221128@Roy: Payout Limit Notification - Set Bitcoin payout limit to 115% (#180940)
 
 	Param's Explanation:
 		@FromGMT8Time: start of time range in GMT+8 with format 2021-05-20 19:00:00
@@ -24,6 +25,9 @@ AS
 
 BEGIN
 	SET NOCOUNT ON
+	
+	--Set Bitcoin payout limit to 115%
+	DECLARE @BitCoin_TLV DECIMAL(19,4) = 115 --115%
 	/*
 		Exclude Products
 		4	- SLI Live Casino
@@ -284,7 +288,7 @@ BEGIN
 		,po.GamePayout
 	FROM CTE_Payout AS po
 		LEFT JOIN #tmpProductBetType AS pb ON po.BetType = pb.BetType
-	WHERE GamePayout >= (@TLV / 100)
+	WHERE GamePayout >= (CASE WHEN pb.ProductID = 69 THEN (@BitCoin_TLV / 100) ELSE (@TLV / 100) END)
 		AND po.TotalWinsRM >= @MWinLV
 	OPTION (RECOMPILE)
 	
