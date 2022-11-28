@@ -17,6 +17,7 @@ AS
 		- 20220624@Roy: Keep MatchList only 6mth data (#174508)
 		- 20220801@Kean: Use DISTINCT before insert into MatchList table (#176041)
 		- 20220805@Roy: Fix duplicate MatchID when insert into MatchList table (#176340)
+		- 20221125@Roy: Defer Gen File After Match Complete (#180910)
 */
 
 BEGIN
@@ -117,6 +118,7 @@ BEGIN
 		,MatchCode
 		,HomeID
 		,AwayID
+		,GenerateTime
 	)
 	SELECT MatchID
 		,EventDate
@@ -128,6 +130,7 @@ BEGIN
 		,MatchCode
 		,HomeID
 		,AwayID
+		,GETDATE()
 	FROM #tmpMatchList
 	
 	DROP TABLE #tmpMatchList
