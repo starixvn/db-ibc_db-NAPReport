@@ -5,7 +5,9 @@ GO
 ALTER PROCEDURE [dbo].[NAP_SaveBet_GetBets] 
 	@matchid int,
 	@bettype smallint,
-	@liveindicator bit
+	@liveindicator bit,
+	@IsDeposit tinyint,
+	@Is1H tinyint
 AS
 
 /*
@@ -30,9 +32,38 @@ AS
 		- 202109001@Jaden: Add 2 more Dangerous types (#159779)
 		- 20220321@Jaden: Cricket phase 2 - Save Bet (#170213)
 		- 20221125@Roy: Defer Gen File After Match Complete (#180910)
+		- 20221129@Roy: NAP Report - Save Bet Report out of memory (#180701)
+	
+	Param's Explanation:
+		@IsDeposit: seperate IsDeposit only for soccer. If NOT IN (0,1) => not soccer
+		@Is1H: seperate Half only for soccer. If NOT IN (0,1) => not soccer
 */
 BEGIN
 	SET NOCOUNT ON
+	
+	DECLARE @1HTime DATETIME
+	
+	IF @IsDeposit IN (0,1) AND @Is1H IN (0,1)
+	BEGIN
+		SELECT @1HTime = DATEADD(MI, 45, MAX(ISNULL(kickofftime,GlobalShowTime)))
+		FROM (
+			SELECT kickofftime, GlobalShowTime
+			FROM bodb02.dbo.match WITH(NOLOCK)
+			WHERE matchid = @matchid
+			
+			UNION ALL
+			
+			SELECT kickofftime, GlobalShowTime
+			FROM bodb02.dbo.match14 WITH(NOLOCK)
+			WHERE matchid = @matchid
+		) m
+	END
+	ELSE
+	BEGIN
+		SET @IsDeposit = 2
+		SET @Is1H = 2
+	END
+	
 	-- original is Dot_Admin_cteamlist
 	DECLARE @isTest BIT= 0
 	SELECT @isTest = dbo.f_CheckSPVersion(@@PROCID)
@@ -164,9 +195,12 @@ BEGIN
 				 			ELSE LEFT(b.transdesc, ISNULL(CHARINDEX(',', b.transdesc) - 1, 0))
 				 		END
 					ELSE NULL END = tm.teamid
+			LEFT JOIN bodb02.dbo.Dep_CustSuper AS d WITH (NOLOCK) ON b.srecommend = d.custid
 		WHERE b.matchid = @matchid 
 			AND b.bettype = @bettype
 			AND b.liveindicator = @liveindicator
+			AND (@IsDeposit NOT IN (0,1) OR @IsDeposit = (CASE WHEN d.custid IS NULL THEN 0 ELSE 1 END))
+			AND (@Is1H NOT IN (0,1) OR @Is1H = (CASE WHEN b.transdate <= @1HTime THEN 1 ELSE 0 END))
 		ORDER BY b.betteam, b.transid
 		OPTION(RECOMPILE, USE HINT('DISALLOW_BATCH_MODE'))
 	END
@@ -237,11 +271,15 @@ BEGIN
 				 			ELSE LEFT(b.transdesc, ISNULL(CHARINDEX(',', b.transdesc) - 1, 0))
 				 		END
 					ELSE NULL END = tm.teamid
+			LEFT JOIN bodb02.dbo.Dep_CustSuper AS d WITH (NOLOCK) ON b.srecommend = d.custid
 		WHERE b.winlostdate = @EventDate
 			AND b.matchid = @matchid 
 			AND b.bettype = @bettype
 			AND b.liveindicator = @liveindicator
+			AND (@IsDeposit NOT IN (0,1) OR @IsDeposit = (CASE WHEN d.custid IS NULL THEN 0 ELSE 1 END))
+			AND (@Is1H NOT IN (0,1) OR @Is1H = (CASE WHEN b.transdate <= @1HTime THEN 1 ELSE 0 END))
 		ORDER BY b.betteam, b.transid
 		OPTION(RECOMPILE, USE HINT('DISALLOW_BATCH_MODE'))
 	END
+	DROP TABLE #abnormalOrRobotUsers
 END

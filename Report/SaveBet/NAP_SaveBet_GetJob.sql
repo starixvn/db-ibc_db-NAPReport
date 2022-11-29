@@ -17,6 +17,7 @@ AS
 		  2: 3rd Sports
 	   20180719@Tom:Enhance_the_flow_get_Virtual_Sport(98520)
 	   20210423@Roy: NAP Report - Move Save bet db & service (#153147)
+	   20221129@Roy: NAP Report - Save Bet Report out of memory (#180701)
 		
 */
 
@@ -24,7 +25,8 @@ BEGIN
     SET NOCOUNT ON;
 	SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
 
-	DECLARE @imsGenerateTime INT=1000*60*60; --60 minutes
+	DECLARE @imsGenerateTime INT=1000*60*60 --60 minutes
+		,@SportType INT
 
 	IF @matchid =0
 		BEGIN
@@ -44,11 +46,46 @@ BEGIN
 			SET GenerateTime=GETDATE()
 				,@MatchID = MatchID;
 		END;
-
-	SELECT JobID,s.LiveIndicator,s.Bettype,s.TypeName,ml.MatchID,s.JobType,ml.EventDate 
-	FROM bodb_Account.dbo.ServiceJob s WITH(NOLOCK)
-		INNER JOIN (
-			SELECT TOP 1 * FROM bodb_Account.dbo.MatchList ml WITH(NOLOCK) WHERE ml.MatchID = @MatchID
-		) ml ON ml.MatchID = s.MatchID;
+	
+	SELECT @SportType = l.SportType
+	FROM bodb_Account.dbo.match AS m WITH (NOLOCK)
+		INNER JOIN bodb02.dbo.league AS l WITH (NOLOCK) ON m.leagueid = l.leagueid
+	WHERE m.MatchID = @MatchID
+	
+	--seperate IsDeposit/Half only for soccer
+	IF @SportType = 1
+	BEGIN
+		;WITH CTE_Dep AS (
+			SELECT 1 IsDeposit
+			
+			UNION ALL
+			
+			SELECT 0 IsDeposit
+		)
+		,CTE_Half AS (
+			SELECT 1 Is1H
+			
+			UNION ALL
+			
+			SELECT 0 Is1H
+		)
+		SELECT JobID,d.IsDeposit,h.Is1H,s.LiveIndicator,s.Bettype,s.TypeName,ml.MatchID,s.JobType,ml.EventDate 
+		FROM bodb_Account.dbo.ServiceJob s WITH(NOLOCK)
+			INNER JOIN (
+				SELECT TOP 1 * FROM bodb_Account.dbo.MatchList ml WITH(NOLOCK) WHERE ml.MatchID = @MatchID
+			) ml ON ml.MatchID = s.MatchID
+			,CTE_Dep AS d
+			,CTE_Half AS h
+		ORDER BY JobID,d.IsDeposit,h.Is1H,s.LiveIndicator
+	END
+	ELSE
+	BEGIN
+		SELECT JobID,2 IsDeposit, 2 Is1H,s.LiveIndicator,s.Bettype,s.TypeName,ml.MatchID,s.JobType,ml.EventDate 
+		FROM bodb_Account.dbo.ServiceJob s WITH(NOLOCK)
+			INNER JOIN (
+				SELECT TOP 1 * FROM bodb_Account.dbo.MatchList ml WITH(NOLOCK) WHERE ml.MatchID = @MatchID
+			) ml ON ml.MatchID = s.MatchID
+		ORDER BY JobID
+	END
 
 END
