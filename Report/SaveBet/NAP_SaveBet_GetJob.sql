@@ -63,25 +63,25 @@ BEGIN
 			SELECT 0 IsDeposit
 		)
 		,CTE_Half AS (
-			SELECT 1 Is1H
+			SELECT 1 Half
 			
 			UNION ALL
 			
-			SELECT 0 Is1H
+			SELECT 2 Half
 		)
-		SELECT JobID,d.IsDeposit,h.Is1H,s.LiveIndicator,s.Bettype,s.TypeName,ml.MatchID,s.JobType,ml.EventDate 
+		SELECT JobID,d.IsDeposit,CASE WHEN s.LiveIndicator = 0 THEN 0 ELSE h.Half END AS Half,s.LiveIndicator,s.Bettype,s.TypeName,ml.MatchID,s.JobType,ml.EventDate 
 		FROM bodb_Account.dbo.ServiceJob s WITH(NOLOCK)
 			INNER JOIN (
 				SELECT TOP 1 * FROM bodb_Account.dbo.MatchList ml WITH(NOLOCK) WHERE ml.MatchID = @MatchID
 			) ml ON ml.MatchID = s.MatchID
 			,CTE_Dep AS d
 			,CTE_Half AS h
-		WHERE NOT (s.LiveIndicator = 0 AND h.Is1H = 0) --ignore 2nd half for non-live tickets
-		ORDER BY JobID,d.IsDeposit,h.Is1H,s.LiveIndicator
+		WHERE NOT (s.LiveIndicator = 0 AND h.Half = 2) --ignore 2nd half for non-live tickets
+		ORDER BY JobID,d.IsDeposit,h.Half,s.LiveIndicator
 	END
 	ELSE
 	BEGIN
-		SELECT JobID,2 IsDeposit, 2 Is1H,s.LiveIndicator,s.Bettype,s.TypeName,ml.MatchID,s.JobType,ml.EventDate 
+		SELECT JobID,2 IsDeposit, 0 Half,s.LiveIndicator,s.Bettype,s.TypeName,ml.MatchID,s.JobType,ml.EventDate 
 		FROM bodb_Account.dbo.ServiceJob s WITH(NOLOCK)
 			INNER JOIN (
 				SELECT TOP 1 * FROM bodb_Account.dbo.MatchList ml WITH(NOLOCK) WHERE ml.MatchID = @MatchID

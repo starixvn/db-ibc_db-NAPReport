@@ -7,7 +7,7 @@ ALTER PROCEDURE [dbo].[NAP_SaveBet_GetBets]
 	@bettype smallint,
 	@liveindicator bit,
 	@IsDeposit tinyint,
-	@Is1H tinyint
+	@Half tinyint
 AS
 
 /*
@@ -36,7 +36,7 @@ AS
 	
 	Param's Explanation:
 		@IsDeposit: seperate IsDeposit only for soccer. 1:Deposit; 0:Credit; 2: All match
-		@Is1H: seperate Half only for soccer. 1:1st half; 0:2nd half; 2: All match
+		@Half: seperate Half only for soccer. 1:1st half; 2:2nd half; 0: All match
 */
 BEGIN
 	SET NOCOUNT ON
@@ -44,9 +44,9 @@ BEGIN
 	DECLARE @1HTime DATETIME
 	IF @liveindicator = 0 AND @IsDeposit IN (0,1)--for Non-Live/Credit(Deposit)
 	BEGIN
-		SET @Is1H = 2 --ignore half -> get all deadball tickets
+		SET @Half = 0 --ignore half -> get all deadball tickets
 	END
-	ELSE IF @IsDeposit IN (0,1) AND @Is1H IN (0,1)
+	ELSE IF @IsDeposit IN (0,1) AND @Half IN (1,2)
 	BEGIN
 		SELECT @1HTime = DATEADD(MI, 45, MAX(ISNULL(kickofftime,GlobalShowTime)))
 		FROM (
@@ -64,7 +64,7 @@ BEGIN
 	ELSE
 	BEGIN
 		SET @IsDeposit = 2
-		SET @Is1H = 2
+		SET @Half = 0
 	END
 	
 	-- original is Dot_Admin_cteamlist
@@ -203,7 +203,7 @@ BEGIN
 			AND b.bettype = @bettype
 			AND b.liveindicator = @liveindicator
 			AND (@IsDeposit NOT IN (0,1) OR @IsDeposit = (CASE WHEN d.custid IS NULL THEN 0 ELSE 1 END))
-			AND (@Is1H NOT IN (0,1) OR @Is1H = (CASE WHEN b.transdate <= @1HTime THEN 1 ELSE 0 END))
+			AND (@Half NOT IN (1,2) OR @Half = (CASE WHEN b.transdate <= @1HTime THEN 1 ELSE 2 END))
 		ORDER BY b.betteam, b.transid
 		OPTION(RECOMPILE, USE HINT('DISALLOW_BATCH_MODE'))
 	END
@@ -280,7 +280,7 @@ BEGIN
 			AND b.bettype = @bettype
 			AND b.liveindicator = @liveindicator
 			AND (@IsDeposit NOT IN (0,1) OR @IsDeposit = (CASE WHEN d.custid IS NULL THEN 0 ELSE 1 END))
-			AND (@Is1H NOT IN (0,1) OR @Is1H = (CASE WHEN b.transdate <= @1HTime THEN 1 ELSE 0 END))
+			AND (@Half NOT IN (1,2) OR @Half = (CASE WHEN b.transdate <= @1HTime THEN 1 ELSE 2 END))
 		ORDER BY b.betteam, b.transid
 		OPTION(RECOMPILE, USE HINT('DISALLOW_BATCH_MODE'))
 	END

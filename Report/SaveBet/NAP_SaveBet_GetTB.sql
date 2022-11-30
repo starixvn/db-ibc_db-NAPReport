@@ -4,7 +4,7 @@ ALTER PROCEDURE [dbo].[NAP_SaveBet_GetTB]
 	@bettype smallint,
 	@liveindicator bit,
 	@IsDeposit tinyint,
-	@Is1H tinyint
+	@Half tinyint
 AS
 
 /*
@@ -23,19 +23,18 @@ AS
 	
 	Param's Explanation:
 		@IsDeposit: seperate IsDeposit only for soccer. 1:Deposit; 0:Credit; 2: All match
-		@Is1H: seperate Half only for soccer. 1:1st half; 0:2nd half; 2: All match
+		@Half: seperate Half only for soccer. 1:1st half; 2:2nd half; 0: All match
 */
 
 BEGIN
 	SET NOCOUNT ON
 	
 	DECLARE @1HTime DATETIME
-	
 	IF @liveindicator = 0 AND @IsDeposit IN (0,1)--for Non-Live/Credit(Deposit)
 	BEGIN
-		SET @Is1H = 2 --ignore half -> get all deadball tickets
+		SET @Half = 0 --ignore half -> get all deadball tickets
 	END
-	ELSE IF @IsDeposit IN (0,1) AND @Is1H IN (0,1)
+	ELSE IF @IsDeposit IN (0,1) AND @Half IN (1,2)
 	BEGIN
 		SELECT @1HTime = DATEADD(MI, 45, MAX(ISNULL(kickofftime,GlobalShowTime)))
 		FROM (
@@ -53,7 +52,7 @@ BEGIN
 	ELSE
 	BEGIN
 		SET @IsDeposit = 2
-		SET @Is1H = 2
+		SET @Half = 0
 	END
 	
 	Declare @vScore smallmoney
@@ -153,7 +152,7 @@ BEGIN
 				where bettype=@bettype AND liveindicator = @liveindicator
 					and matchid = @matchid and b.custid >0 and status NOT IN ('VOID', 'REJECT')
 					AND (@IsDeposit NOT IN (0,1) OR @IsDeposit = (CASE WHEN d.custid IS NULL THEN 0 ELSE 1 END))
-					AND (@Is1H NOT IN (0,1) OR @Is1H = (CASE WHEN b.transdate <= @1HTime THEN 1 ELSE 0 END))
+					AND (@Half NOT IN (1,2) OR @Half = (CASE WHEN b.transdate <= @1HTime THEN 1 ELSE 2 END))
 				group by status, b.currency, hdp1 - hdp2, livehomescore, liveawayscore, liveindicator, b.virtualrate, b.actualrate
 				)x
 		GROUP BY x.status, x.hdp, x.livehomescore, x.liveawayscore, x.liveindicator
@@ -191,7 +190,7 @@ BEGIN
 				where bettype=@bettype AND liveindicator = @liveindicator
 					and matchid = @matchid and b.custid > 0 and status NOT IN ('VOID', 'REJECT')--102,101
 					AND (@IsDeposit NOT IN (0,1) OR @IsDeposit = (CASE WHEN d.custid IS NULL THEN 0 ELSE 1 END))
-					AND (@Is1H NOT IN (0,1) OR @Is1H = (CASE WHEN b.transdate <= @1HTime THEN 1 ELSE 0 END))
+					AND (@Half NOT IN (1,2) OR @Half = (CASE WHEN b.transdate <= @1HTime THEN 1 ELSE 2 END))
 				group by liveindicator, status, b.currency, hdp1, livehomescore, liveawayscore, b.virtualrate, b.actualrate
 				)x
 			group by x.status, liveindicator, x.hdp, x.livehomescore, x.liveawayscore
@@ -244,7 +243,7 @@ BEGIN
 				where bettype=@bettype AND liveindicator = @liveindicator
 					and matchid = @matchid and b.custid >0 and status NOT IN ('VOID', 'REJECT')
 					AND (@IsDeposit NOT IN (0,1) OR @IsDeposit = (CASE WHEN d.custid IS NULL THEN 0 ELSE 1 END))
-					AND (@Is1H NOT IN (0,1) OR @Is1H = (CASE WHEN b.transdate <= @1HTime THEN 1 ELSE 0 END))
+					AND (@Half NOT IN (1,2) OR @Half = (CASE WHEN b.transdate <= @1HTime THEN 1 ELSE 2 END))
 				group by status, b.currency, hdp1 - hdp2, livehomescore, liveawayscore, liveindicator, b.virtualrate, b.actualrate
 				)x
 		GROUP BY x.status, x.hdp, x.livehomescore, x.liveawayscore, x.liveindicator
@@ -282,7 +281,7 @@ BEGIN
 				where bettype=@bettype AND liveindicator = @liveindicator
 					and matchid = @matchid and b.custid > 0 and status NOT IN ('VOID', 'REJECT')
 					AND (@IsDeposit NOT IN (0,1) OR @IsDeposit = (CASE WHEN d.custid IS NULL THEN 0 ELSE 1 END))
-					AND (@Is1H NOT IN (0,1) OR @Is1H = (CASE WHEN b.transdate <= @1HTime THEN 1 ELSE 0 END))
+					AND (@Half NOT IN (1,2) OR @Half = (CASE WHEN b.transdate <= @1HTime THEN 1 ELSE 2 END))
 				group by liveindicator, status, b.currency, hdp1, livehomescore, liveawayscore, b.virtualrate, b.actualrate
 				)x
 			group by x.status, liveindicator, x.hdp, x.livehomescore, x.liveawayscore
