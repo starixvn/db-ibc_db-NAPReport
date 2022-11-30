@@ -22,8 +22,8 @@ AS
 		- 20221129@Roy: NAP Report - Save Bet Report out of memory (#180701)
 	
 	Param's Explanation:
-		@IsDeposit: seperate IsDeposit only for soccer. If NOT IN (0,1) => not soccer
-		@Is1H: seperate Half only for soccer. If NOT IN (0,1) => not soccer
+		@IsDeposit: seperate IsDeposit only for soccer. 1:Deposit; 0:Credit; 2: All match
+		@Is1H: seperate Half only for soccer. 1:1st half; 0:2nd half; 2: All match
 */
 
 BEGIN
@@ -31,7 +31,11 @@ BEGIN
 	
 	DECLARE @1HTime DATETIME
 	
-	IF @IsDeposit IN (0,1) AND @Is1H IN (0,1)
+	IF @liveindicator = 0 AND @IsDeposit IN (0,1)--for Non-Live/Credit(Deposit)
+	BEGIN
+		SET @Is1H = 2 --ignore half -> get all deadball tickets
+	END
+	ELSE IF @IsDeposit IN (0,1) AND @Is1H IN (0,1)
 	BEGIN
 		SELECT @1HTime = DATEADD(MI, 45, MAX(ISNULL(kickofftime,GlobalShowTime)))
 		FROM (

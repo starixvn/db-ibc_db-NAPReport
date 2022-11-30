@@ -76,6 +76,7 @@ BEGIN
 			) ml ON ml.MatchID = s.MatchID
 			,CTE_Dep AS d
 			,CTE_Half AS h
+		WHERE NOT (s.LiveIndicator = 0 AND h.Is1H = 0) --ignore 2nd half for non-live tickets
 		ORDER BY JobID,d.IsDeposit,h.Is1H,s.LiveIndicator
 	END
 	ELSE
