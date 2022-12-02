@@ -1,4 +1,8 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+
+USE bodb02
+GO
+
 ALTER PROCEDURE Acc_Rpt_Letstalk_HousePerfByNonSport
 	@ExecTime4GMT SMALLDATETIME
 AS
@@ -11,6 +15,7 @@ AS
 		20220629@Roy: Letstalk Reports - Implement Non-Sports TO & Margin and Licensee Turnover Margin (#174679)
 		20220916@Roy: Letstalk report ID #32, #34 - Add 8RM info & enhance the UI (#177825)
 		20221010@Roy: Letstalk reports - Enhance UI/UX for smartwatch devices (#178950)
+		20221010@Ned.Le: Email/Letstalk reports - Incorporate Player Tips product (#180653)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -123,7 +128,7 @@ BEGIN
 			SELECT DISTINCT Bettype
 			FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)
 			WHERE isTest IN (0,@isTest)
-				AND (ProductID NOT IN (1,37) --exclude Sportsbook and Saba Promotion
+				AND (ProductID NOT IN (1,37,74) --exclude Sportsbook and Saba Promotion and Player Tips
 					OR SubProduct IN ('Bet Builder')
 				)
 		)
