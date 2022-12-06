@@ -365,7 +365,7 @@ BEGIN
     INSERT INTO #tmpLeague (LeagueGroupType, LeagueGroupID, LeagueID)
     SELECT CASE WHEN LeagueGroupID = 113 THEN 2
                 WHEN LeagueGroupID = 122 THEN 3
-                WHEN LeagueGroupID = 157 THEN 4
+                WHEN LeagueGroupID = 151 THEN 4
                 ELSE 1 END LeagueGroupType,
            LeagueGroupID,
            leagueid LeagueID
