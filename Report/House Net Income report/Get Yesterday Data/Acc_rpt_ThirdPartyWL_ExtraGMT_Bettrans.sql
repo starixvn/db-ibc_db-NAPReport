@@ -62,6 +62,7 @@ BEGIN
 			OR b.gameID BETWEEN 4301 AND 4600 -- SG
 			OR b.gameID BETWEEN 6401 AND 6700 -- JK
 			OR  b.gameID BETWEEN 7301 AND 7600 -- CG
+			OR  b.gameID BETWEEN  8400 AND 8699 --MG-RNG
 		)
 	GROUP BY CAST(b.winlostdate AS DATE), 
 			CAST(b.Transdate3rd AS DATE), 
