@@ -2,7 +2,9 @@
 ALTER PROCEDURE [dbo].[NAP_SaveBet_GetTB]
 	@matchid int,
 	@bettype smallint,
-	@liveindicator bit
+	@liveindicator bit,
+	@IsDeposit tinyint,
+	@Half tinyint
 AS
 
 /*
@@ -17,10 +19,42 @@ AS
 		- 20170612@Percy: check bettype of Cash Out [RedmineID: #78160]
 		- 20210329@Jaden: add forecast the result with Real figures (#152290)
 		- 20210423@Roy: NAP Report - Move Save bet db & service (#153147)
+		- 20221129@Roy: NAP Report - Save Bet Report out of memory (#180701)
+	
+	Param's Explanation:
+		@IsDeposit: seperate IsDeposit only for soccer. 1:Deposit; 0:Credit; 2: All match
+		@Half: seperate Half only for soccer. 1:1st half; 2:2nd half; 0: All match
 */
 
 BEGIN
 	SET NOCOUNT ON
+	
+	DECLARE @1HTime DATETIME
+	IF @liveindicator = 0 AND @IsDeposit IN (0,1)--for Non-Live/Credit(Deposit)
+	BEGIN
+		SET @Half = 0 --ignore half -> get all deadball tickets
+	END
+	ELSE IF @IsDeposit IN (0,1) AND @Half IN (1,2)
+	BEGIN
+		SELECT @1HTime = DATEADD(MI, 45, MAX(ISNULL(kickofftime,GlobalShowTime)))
+		FROM (
+			SELECT kickofftime, GlobalShowTime
+			FROM bodb02.dbo.match WITH(NOLOCK)
+			WHERE matchid = @matchid
+			
+			UNION ALL
+			
+			SELECT kickofftime, GlobalShowTime
+			FROM bodb02.dbo.match14 WITH(NOLOCK)
+			WHERE matchid = @matchid
+		) m
+	END
+	ELSE
+	BEGIN
+		SET @IsDeposit = 2
+		SET @Half = 0
+	END
+	
 	Declare @vScore smallmoney
 	SET @vScore = NULL
 
@@ -114,11 +148,15 @@ BEGIN
 					sum(scomm) comm,
 					count(*) c, b.virtualrate, b.actualrate
 				from bodb02.dbo.bettrans b with(nolock)
+					LEFT JOIN bodb02.dbo.Dep_CustSuper AS d WITH (NOLOCK) ON b.srecommend = d.custid
 				where bettype=@bettype AND liveindicator = @liveindicator
 					and matchid = @matchid and b.custid >0 and status NOT IN ('VOID', 'REJECT')
+					AND (@IsDeposit NOT IN (0,1) OR @IsDeposit = (CASE WHEN d.custid IS NULL THEN 0 ELSE 1 END))
+					AND (@Half NOT IN (1,2) OR @Half = (CASE WHEN b.transdate <= @1HTime THEN 1 ELSE 2 END))
 				group by status, b.currency, hdp1 - hdp2, livehomescore, liveawayscore, liveindicator, b.virtualrate, b.actualrate
 				)x
 		GROUP BY x.status, x.hdp, x.livehomescore, x.liveawayscore, x.liveindicator
+		OPTION(RECOMPILE, USE HINT('DISALLOW_BATCH_MODE'))
 
 		ELSE IF @bettype IN (3, 8)
 			INSERT INTO @FC (liveindicator, status, hdp, livehomescore, liveawayscore, 
@@ -147,12 +185,16 @@ BEGIN
 					sum(case when betteam='a' then (case when odds < 0 then abs(odds) else 1 end)  * stake * (1-b.tpositiontaking) else 0 end) awaylose,
 					sum(scomm) comm,
 					count(*) c, b.virtualrate, b.actualrate
-				from bodb02.dbo.bettrans b with(nolock) 
+				from bodb02.dbo.bettrans b with(nolock)
+					LEFT JOIN bodb02.dbo.Dep_CustSuper AS d WITH (NOLOCK) ON b.srecommend = d.custid
 				where bettype=@bettype AND liveindicator = @liveindicator
-					and matchid = @matchid and custid > 0 and status NOT IN ('VOID', 'REJECT')
+					and matchid = @matchid and b.custid > 0 and status NOT IN ('VOID', 'REJECT')--102,101
+					AND (@IsDeposit NOT IN (0,1) OR @IsDeposit = (CASE WHEN d.custid IS NULL THEN 0 ELSE 1 END))
+					AND (@Half NOT IN (1,2) OR @Half = (CASE WHEN b.transdate <= @1HTime THEN 1 ELSE 2 END))
 				group by liveindicator, status, b.currency, hdp1, livehomescore, liveawayscore, b.virtualrate, b.actualrate
 				)x
 			group by x.status, liveindicator, x.hdp, x.livehomescore, x.liveawayscore
+			OPTION(RECOMPILE, USE HINT('DISALLOW_BATCH_MODE'))
 		
 
 	END
@@ -197,11 +239,15 @@ BEGIN
 					sum(scomm) comm,
 					count(*) c, b.virtualrate, b.actualrate
 				from bodb02.dbo.bettrans14 b with(nolock)
+					LEFT JOIN bodb02.dbo.Dep_CustSuper AS d WITH (NOLOCK) ON b.srecommend = d.custid
 				where bettype=@bettype AND liveindicator = @liveindicator
 					and matchid = @matchid and b.custid >0 and status NOT IN ('VOID', 'REJECT')
+					AND (@IsDeposit NOT IN (0,1) OR @IsDeposit = (CASE WHEN d.custid IS NULL THEN 0 ELSE 1 END))
+					AND (@Half NOT IN (1,2) OR @Half = (CASE WHEN b.transdate <= @1HTime THEN 1 ELSE 2 END))
 				group by status, b.currency, hdp1 - hdp2, livehomescore, liveawayscore, liveindicator, b.virtualrate, b.actualrate
 				)x
 		GROUP BY x.status, x.hdp, x.livehomescore, x.liveawayscore, x.liveindicator
+		OPTION(RECOMPILE, USE HINT('DISALLOW_BATCH_MODE'))
 
 		ELSE IF @bettype IN (3, 8)
 			INSERT INTO @FC (liveindicator, status, hdp, livehomescore, liveawayscore, 
@@ -230,12 +276,16 @@ BEGIN
 					sum(case when betteam='a' then (case when odds < 0 then abs(odds) else 1 end)  * stake * (1-b.tpositiontaking) else 0 end) awaylose,
 					sum(scomm) comm,
 					count(*) c, b.virtualrate, b.actualrate
-				from bodb02.dbo.bettrans14 b with(nolock) 
+				from bodb02.dbo.bettrans14 b with(nolock)
+					LEFT JOIN bodb02.dbo.Dep_CustSuper AS d WITH (NOLOCK) ON b.srecommend = d.custid
 				where bettype=@bettype AND liveindicator = @liveindicator
-					and matchid = @matchid and custid > 0 and status NOT IN ('VOID', 'REJECT')
+					and matchid = @matchid and b.custid > 0 and status NOT IN ('VOID', 'REJECT')
+					AND (@IsDeposit NOT IN (0,1) OR @IsDeposit = (CASE WHEN d.custid IS NULL THEN 0 ELSE 1 END))
+					AND (@Half NOT IN (1,2) OR @Half = (CASE WHEN b.transdate <= @1HTime THEN 1 ELSE 2 END))
 				group by liveindicator, status, b.currency, hdp1, livehomescore, liveawayscore, b.virtualrate, b.actualrate
 				)x
 			group by x.status, liveindicator, x.hdp, x.livehomescore, x.liveawayscore
+			OPTION(RECOMPILE, USE HINT('DISALLOW_BATCH_MODE'))
 
 	END
 
