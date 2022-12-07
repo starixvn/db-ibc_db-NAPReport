@@ -83,7 +83,7 @@ BEGIN
 		,Margin
 		,HouseWinlost
 	)
-	EXEC Acc_ResetWinning_MarginBySport_Lic
+	EXEC Acc_Rpt_Letstalk_MarginBySport_Lic
 		@Winlostdate = @wldate
 		,@BaseCurrency = 'CNY' --base currency RMB
 
