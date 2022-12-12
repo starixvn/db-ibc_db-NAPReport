@@ -3,8 +3,8 @@
 USE bodb_dwrs
 GO
 
-ALTER PROCEDURE dbo.Acc_Rpt_HouseNetIncome_Credit @FromDate DATE,
-                                                  @ToDate DATE,
+ALTER PROCEDURE dbo.Acc_Rpt_HouseNetIncome_Credit @FromDate    DATE,
+                                                  @ToDate      DATE,
                                                   @ProductList VARCHAR(MAX) = 'ALL'
 AS
 
@@ -64,7 +64,6 @@ BEGIN
     -- 3. Other Metadata tables                                --
     --    -> #tmpExchangeSystem                                --
     --    -> #tmpExchangeOANDA                                 --
-    --    -> #tmpSABALeagueGroup                               --
     --    -> #tmpLeague                                        --
     --    -> #tmpPTSProducts                                   --
     --    -> #tmpPTSVendorGlobalSetting                        --
@@ -97,31 +96,33 @@ BEGIN
     DECLARE @isTest BIT = 0
     SELECT  @isTest = bodb_dwrs.dbo.f_CheckSPVersion(@@PROCID)
 
-    DECLARE @sqlQuery VARCHAR(MAX)
+    DECLARE @sqlQuery    VARCHAR(MAX)
     DECLARE @bettypeList VARCHAR(MAX)
 
-    DECLARE @yesterday DATE = DATEADD(DAY, -1, CAST(GETDATE() AS DATE))
-    DECLARE @OANDA_ExchangeDate DATE
+    DECLARE @yesterday           DATE = DATEADD(DAY, -1, CAST(GETDATE() AS DATE))
+    DECLARE @OANDA_ExchangeDate  DATE
     DECLARE @OANDA_LastMonthDate DATE
-    DECLARE @finalDataDate DATE
+    DECLARE @finalDataDate       DATE
 
     DECLARE @InHouseReplicationWorkingStatus INT
-    SELECT  @InHouseReplicationWorkingStatus = CAST(VValue AS INT)
-    FROM bodb_account.dbo.SystemSettings (NOLOCK)
-    WHERE VID = 16
+    SELECT  @InHouseReplicationWorkingStatus = CAST(VValue AS INT) FROM bodb_account.dbo.SystemSettings (NOLOCK) WHERE VID = 16
 
     DECLARE @loop_FromDate DATE
     DECLARE @loop_ToDate DATE
     DECLARE @loop_Interval INT = 6
 
-    DECLARE @SABALeagueGroupStr VARCHAR(500)
-    SELECT @SABALeagueGroupStr = VValue FROM bodb_Account.dbo.SystemSettings (NOLOCK) WHERE VID = 5
+    DECLARE @SabaLeagueGroupAll     VARCHAR(500)
+    DECLARE @SabaLeagueGroupNormal  VARCHAR(500)
+    DECLARE @SabaLeagueGroupPinGoal VARCHAR(500)
+    SELECT  @SabaLeagueGroupAll     = VValue FROM bodb_Account.dbo.SystemSettings (NOLOCK) WHERE VID = 5
+    SELECT  @SabaLeagueGroupNormal  = VValue FROM bodb_Account.dbo.SystemSettings (NOLOCK) WHERE VID = 11
+    SELECT  @SabaLeagueGroupPinGoal = REPLACE(@SabaLeagueGroupAll, @SabaLeagueGroupNormal + ',', '')
 
     -- Special variables
-    DECLARE @FromDate_DW DATE
-    DECLARE @ToDate_DW DATE
-    DECLARE @FromDate_OLTP DATE
-    DECLARE @ToDate_OLTP DATE
+    DECLARE @FromDate_DW           DATE
+    DECLARE @ToDate_DW             DATE
+    DECLARE @FromDate_OLTP         DATE
+    DECLARE @ToDate_OLTP           DATE
     DECLARE @isGetDataFromBettrans BIT
 
     IF ((@ToDate < @yesterday) OR (@InHouseReplicationWorkingStatus = 0))
@@ -147,9 +148,9 @@ BEGIN
     -- #tmpBettypeGroup
     CREATE TABLE #tmpBettypeGroup (
         BettypeGroupID SMALLINT,
-        Bettype INT,
-        BettypeName VARCHAR(500),
-        ProductID INT
+        Bettype        INT,
+        BettypeName    VARCHAR(500),
+        ProductID      INT
     )
 
     INSERT INTO #tmpBettypeGroup (BettypeGroupID, Bettype, BettypeName, ProductID)
@@ -173,21 +174,21 @@ BEGIN
 
     -- #tmpHNISettings
     CREATE TABLE #tmpHNISettings (
-        isDeposit BIT,
-        OrderByProduct INT,
-        OrderByFigure INT,
-        ProductID INT,
-        AliasProductID INT,    
-        ProductPrefix VARCHAR(50),
-        ProductCategory VARCHAR(50),
-        ProductGroup VARCHAR(50),
-        ProductName VARCHAR(50),
+        isDeposit        BIT,
+        OrderByProduct   INT,
+        OrderByFigure    INT,
+        ProductID        INT,
+        AliasProductID   INT,    
+        ProductPrefix    VARCHAR(50),
+        ProductCategory  VARCHAR(50),
+        ProductGroup     VARCHAR(50),
+        ProductName      VARCHAR(50),
         ProductShortName VARCHAR(50),
-        Figure VARCHAR(200),
-        SubFigure VARCHAR(200),
-        isEnable BIT,
+        Figure           VARCHAR(200),
+        SubFigure        VARCHAR(200),
+        isEnable         BIT,
         EndOfSupportDate DATE,
-        LogicCode SMALLINT
+        LogicCode        SMALLINT
     )
 
     IF EXISTS (SELECT TOP 1 1 FROM #tmpProductList WHERE ProductPrefix = 'ALL')
@@ -220,7 +221,7 @@ BEGIN
     -- #tmpProductBettype
     CREATE TABLE #tmpProductBettype (
         ProductID INT,
-        Bettype INT
+        Bettype   INT
     )
 
     IF EXISTS (SELECT TOP 1 1 FROM #tmpProductList WHERE ProductPrefix = 'ALL')
@@ -321,8 +322,8 @@ BEGIN
     -- #tmpExchangeSystem
     CREATE TABLE #tmpExchangeSystem (
         ExchangeDate DATE,
-        ExchangeID INT,
-        Rate FLOAT
+        ExchangeID   INT,
+        Rate         FLOAT
     )
 
     INSERT INTO #tmpExchangeSystem (ExchangeDate, ExchangeID, Rate)
@@ -335,7 +336,7 @@ BEGIN
     -- #tmpExchangeOANDA
     CREATE TABLE #tmpExchangeOANDA (
         ExchangeID INT,
-        Rate FLOAT
+        Rate       FLOAT
     )
 
     SELECT @OANDA_ExchangeDate = MAX(ExchangeDate) FROM bodb02.dbo.ExchangeDailyOanda (NOLOCK)
@@ -349,37 +350,44 @@ BEGIN
 
     CREATE CLUSTERED INDEX CIX_tmpExchangeOANDA ON #tmpExchangeOANDA(ExchangeID)
 
-    -- #tmpSABALeagueGroup
-    CREATE TABLE #tmpSABALeagueGroup (LeagueGroupID INT)
-    INSERT INTO #tmpSABALeagueGroup (LeagueGroupID)
-    SELECT val LeagueGroupID
-    FROM bodb02.dbo.strSplit(@SABALeagueGroupStr, ',')
-
     -- #tmpLeague
     CREATE TABLE #tmpLeague (
         LeagueGroupType INT,
-        LeagueGroupID INT,
-        LeagueID INT
+        LeagueGroupID   INT,
+        LeagueID        INT
     )
 
+    ;WITH
+    CTE_All AS (
+        SELECT val LeagueGroupID
+        FROM bodb02.dbo.strSplit(@SabaLeagueGroupAll, ',')
+    ),
+    CTE_PinGoal AS (
+        SELECT val LeagueGroupID
+        FROM bodb02.dbo.strSplit(@SabaLeagueGroupPinGoal, ',')
+    ),
+    CTE_Final AS (
+        SELECT a.LeagueGroupID,
+               CASE WHEN p.LeagueGroupID IS NOT NULL THEN 1 ELSE 0 END isPinGoal
+        FROM CTE_All a
+             LEFT JOIN CTE_PinGoal p ON a.LeagueGroupID = p.LeagueGroupID
+    )
     INSERT INTO #tmpLeague (LeagueGroupType, LeagueGroupID, LeagueID)
-    SELECT CASE WHEN LeagueGroupID = 113 THEN 2
-                WHEN LeagueGroupID = 122 THEN 3
-                WHEN LeagueGroupID = 151 THEN 4
-                ELSE 1 END LeagueGroupType,
-           LeagueGroupID,
-           leagueid LeagueID
-    FROM bodb02.dbo.League (NOLOCK)
-    WHERE LeagueGroupID IN (SELECT LeagueGroupID FROM #tmpSABALeagueGroup)
+    SELECT CASE WHEN f.isPinGoal = 1 THEN 2 ELSE 1 END LeagueGroupType,
+           l.LeagueGroupID,
+           l.leagueid LeagueID
+    FROM bodb02.dbo.League l (NOLOCK)
+         LEFT JOIN CTE_Final f ON l.LeagueGroupID = f.LeagueGroupID
+    WHERE f.LeagueGroupID IS NOT NULL
 
     CREATE CLUSTERED INDEX CIX_tmpLeague ON #tmpLeague(LeagueID)
 
     -- #tmpPTSProducts
     CREATE TABLE #tmpPTSProducts (
-        ProductID INT,
+        ProductID     INT,
         ProductPrefix VARCHAR(100),
-        VendorID INT,
-        Sporttype INT
+        VendorID      INT,
+        Sporttype     INT
     )
 
     INSERT INTO #tmpPTSProducts (ProductID, ProductPrefix, VendorID, Sporttype)
@@ -598,21 +606,21 @@ BEGIN
     ---------------------------------------------------------------------------------------------
 
     CREATE TABLE #tmpRawData (
-        RptDate DATE,
-        Site VARCHAR(200),
-        ProductID INT,
-        Sporttype INT,
-        Bettype INT,
-        LeagueID INT,
-        HouseWL DECIMAL(19, 4),
-        HouseWLOANDA DECIMAL(19, 4),
-        HouseTO DECIMAL(19, 4),
-        ExtraPT DECIMAL(19, 4),
-        ExtraPTOANDA DECIMAL(19, 4),
-        MemberWL DECIMAL(19, 4),
+        RptDate       DATE,
+        Site          VARCHAR(200),
+        ProductID     INT,
+        Sporttype     INT,
+        Bettype       INT,
+        LeagueID      INT,
+        HouseWL       DECIMAL(19, 4),
+        HouseWLOANDA  DECIMAL(19, 4),
+        HouseTO       DECIMAL(19, 4),
+        ExtraPT       DECIMAL(19, 4),
+        ExtraPTOANDA  DECIMAL(19, 4),
+        MemberWL      DECIMAL(19, 4),
         MemberWLOANDA DECIMAL(19, 4),
-        ScommOANDA DECIMAL(19, 4),
-        Contribution DECIMAL(19, 4),
+        ScommOANDA    DECIMAL(19, 4),
+        Contribution  DECIMAL(19, 4),
         NetStakeOANDA DECIMAL(19, 4)
     )
 
@@ -637,8 +645,8 @@ BEGIN
                     WHEN b.SportType = 1  AND l.LeagueGroupType = 1 THEN -3  --Saba Soc
                     WHEN b.SportType = 1  AND l.LeagueGroupType = 2 THEN -14 --Saba Soc PGoal
                     WHEN b.SportType = 2  AND l.LeagueGroupType = 1 THEN -5  --Saba Bas
-                    WHEN b.SportType = 2  AND l.LeagueGroupType = 3 THEN -15 --Saba Bas PGoal
-                    WHEN b.Sporttype = 43 AND l.LeagueGroupType = 4 THEN -16 --Saba E-S PGoal
+                    WHEN b.SportType = 2  AND l.LeagueGroupType = 2 THEN -15 --Saba Bas PGoal
+                    WHEN b.Sporttype = 43 AND l.LeagueGroupType = 2 THEN -16 --Saba E-S PGoal
                     WHEN b.SportType = 50 AND l.LeagueGroupType = 1 THEN -8  --Saba Cric
                     WHEN b.SportType = 1                            THEN -2  --Real Soc
                     WHEN b.SportType = 2                            THEN -4  --Real Bas
@@ -685,8 +693,8 @@ BEGIN
                       WHEN b.SportType = 1  AND l.LeagueGroupType = 1 THEN -3  --Saba Soc
                       WHEN b.SportType = 1  AND l.LeagueGroupType = 2 THEN -14 --Saba Soc PGoal
                       WHEN b.SportType = 2  AND l.LeagueGroupType = 1 THEN -5  --Saba Bas
-                      WHEN b.SportType = 2  AND l.LeagueGroupType = 3 THEN -15 --Saba Bas PGoal
-                      WHEN b.Sporttype = 43 AND l.LeagueGroupType = 4 THEN -16 --Saba E-S PGoal
+                      WHEN b.SportType = 2  AND l.LeagueGroupType = 2 THEN -15 --Saba Bas PGoal
+                      WHEN b.Sporttype = 43 AND l.LeagueGroupType = 2 THEN -16 --Saba E-S PGoal
                       WHEN b.SportType = 50 AND l.LeagueGroupType = 1 THEN -8  --Saba Cric
                       WHEN b.SportType = 1                            THEN -2  --Real Soc
                       WHEN b.SportType = 2                            THEN -4  --Real Bas
@@ -983,7 +991,6 @@ BEGIN
 
     DROP TABLE #tmpExchangeSystem
     DROP TABLE #tmpExchangeOANDA
-    DROP TABLE #tmpSABALeagueGroup
     DROP TABLE #tmpLeague
     DROP TABLE #tmpPTSProducts
     DROP TABLE #tmpPTSVendorGlobalSetting
