@@ -12,6 +12,7 @@ AS
 		20220714@Roy: Fix the way to determine HALF-WON|HALF_LOSE ticket (#175382)
 		20220916@Roy: Letstalk report ID #32, #34 - Add 8RM info & enhance the UI (#177825)
 		20221010@Roy: Letstalk reports - Enhance UI/UX for smartwatch devices (#178950)
+		20221206@Roy: Email/Letstalk Reports - Incorporate Saba E-Sports PinGoal (#181261)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -173,6 +174,7 @@ BEGIN
 		,(3, 0, 'Saba.Bas')
 		,(3, 0, 'Tenn')
 		,(3, 0, 'E-Spo')
+		,(3, 0, 'S.E-SPG')
 		,(3, 0, 'Cricket')
 		,(3, 0, 'Others')
 		,(3, 0, 'Parl')
@@ -681,8 +683,10 @@ BEGIN
 				WHEN l.SportType = 2 AND l.LeagueGroupId = 122 THEN 'Basket PG'
 				WHEN l.SportType = 2 AND sl.LeagueGroupID IS NOT NULL THEN 'Saba.Bas'
 				
-				WHEN l.SportType = 5 THEN 'Tenn'
+				WHEN l.SportType = 43 AND sl.LeagueGroupID = 151 THEN 'S.E-SPG'
 				WHEN l.SportType = 43 THEN 'E-Spo'
+				
+				WHEN l.SportType = 5 THEN 'Tenn'
 				WHEN l.SportType = 50 THEN 'Cricket'
 				WHEN d.LeagueID = @Parl_LeagueID THEN 'Parl'
 				ELSE 'Others'
@@ -709,8 +713,10 @@ BEGIN
 				WHEN l.SportType = 2 AND l.LeagueGroupId = 122 THEN 'Basket PG'
 				WHEN l.SportType = 2 AND sl.LeagueGroupID IS NOT NULL THEN 'Saba.Bas'
 				
-				WHEN l.SportType = 5 THEN 'Tenn'
+				WHEN l.SportType = 43 AND sl.LeagueGroupID = 151 THEN 'S.E-SPG'
 				WHEN l.SportType = 43 THEN 'E-Spo'
+				
+				WHEN l.SportType = 5 THEN 'Tenn'
 				WHEN l.SportType = 50 THEN 'Cricket'
 				WHEN d.LeagueID = @Parl_LeagueID THEN 'Parl'
 				ELSE 'Others'
