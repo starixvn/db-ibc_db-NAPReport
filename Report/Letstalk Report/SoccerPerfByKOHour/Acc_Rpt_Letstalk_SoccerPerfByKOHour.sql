@@ -3,6 +3,7 @@ ALTER PROCEDURE Acc_Rpt_Letstalk_SoccerPerfByKOHour
 	@KOStartTime4GMT SMALLDATETIME
 	,@KOEndTime4GMT SMALLDATETIME
 	,@TopLeagueWL TINYINT = 3
+	,@LiveStatus TINYINT = 2
 AS
 /*
 	Created: Roy@20220511
@@ -11,10 +12,12 @@ AS
 
 	Revisions:
 		20220511@Roy: Letstalk Reports - Top 3 Winning and Loosing Leagues (#172608)
+		20230110@Roy: Letstalk Reports - Implement Live Soccer Performance (#182668)
 
 	Param's Explanation:
 		@KOStartTime4GMT: The start KO time (GMT-4)
 		@KOEndTime4GMT: The end KO time (GMT-4)
+		@LiveStatus: 0: Nonlive | 1:Live | 2: All
 	
 	Example:
 		EXEC bodb02.dbo.Acc_Rpt_Letstalk_SoccerPerfByKOHour
@@ -33,6 +36,7 @@ BEGIN
 		,@KOTimeAsText VARCHAR(100)
 		,@KOStartTimeGMT8 SMALLDATETIME
 		,@KOEndTimeGMT8 SMALLDATETIME
+		,@IsLive BIT
 	
 	CREATE TABLE #tmpRawData (
 		LeagueID INT
@@ -92,6 +96,9 @@ BEGIN
 	SELECT @SabaLeagueGroupID = VValue
 	FROM DBWH.bodb_account.dbo.SystemSettings WITH (NOLOCK)
 	WHERE VID = 5
+	
+	IF @LiveStatus IN (0,1)
+		SET @IsLive = @LiveStatus
 	
 	--Get match by GlobalShowTime
 	INSERT INTO #tmpMatch (
@@ -174,6 +181,7 @@ BEGIN
 		AND b.statusID IN (112, 113) --Won, Lose
 		AND b.currency <> 20
 		AND b.bettype NOT IN (29, 38, 10) --exclude parlay, Bet Builder, outright
+		AND (@IsLive IS NULL OR b.liveindicator = @IsLive )
 		GROUP BY m.LeagueID
 			,(CASE WHEN ABS(b.modds) = 0.25 THEN 1 ELSE 0 END)
 			,(CASE WHEN b.recommend = 52466 THEN 1 ELSE 0 END)
