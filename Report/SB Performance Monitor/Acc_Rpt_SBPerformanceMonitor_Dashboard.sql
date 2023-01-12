@@ -28,6 +28,7 @@ AS
 		- 20210705@Jaden.Tang: Enhance SB Performance, add more options (#157997)
 		- 20220419@Kean.Nguyen: Fix the way to determine HALF-WON|HALF_LOSE ticket (#171706)
     	- 20220711@Jaden.Tang: Dynamic half win/lose check (#175205)
+		- 20230111@Jaden: Split 789Y Site (#182497)
 
 	Param's Explanation:
 		- @fromDate: Range date to get data for report
@@ -156,7 +157,13 @@ BEGIN
 	
 	INSERT INTO #tmpAgent (CustID, SiteID)
 	SELECT c.CustId CustID, 
-		   s.siteid SiteID
+		    -- Use pseudo number 3 to represent site group 789Y, we groups all child sites of 789Y (y789, y889...) into 789Y
+			-- In drilldown reports, we hard-code checking @siteID = 3 to find all child sites
+ 			-- Site 789Y in oltp also has ID = 3 (matches the pseudo number we assigned easier), so later during #tmpFinal insertion,
+			-- the join to bodb02..site would produce correct sitename that is 789Y
+			-- Note that the record of site 789Y is no longer active, but it can still be used for reference
+		   CASE WHEN s.SiteLabel = '789Y' THEN 3
+		   		ELSE s.siteid END SiteID
 	FROM bodb02.dbo.Customer c (NOLOCK)
 		 LEFT JOIN bodb02.dbo.Site s (NOLOCK) ON c.site = s.site
 	WHERE c.RoleID = 2

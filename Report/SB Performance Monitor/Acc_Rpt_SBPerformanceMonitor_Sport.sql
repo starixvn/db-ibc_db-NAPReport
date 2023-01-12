@@ -27,6 +27,7 @@ AS
         - 20210715@Jaden.Tang: First Commit (#158683)
 		    - 20220419@Kean.Nguyen: Fix the way to determine HALF-WON|HALF_LOSE ticket (#171706)
     	  - 20220711@Jaden.Tang: Dynamic half win/lose check (#175205)
+		    - 20230111@Jaden: Split 789Y Site (#182497)
 
     Param's Explanation:
         - @fromDate: Range date to get data for report
@@ -130,11 +131,13 @@ BEGIN
         
         INSERT INTO #tmpAgent (CustID, SiteID)
         SELECT c.CustId CustID, 
-               s.siteid SiteID
+               CASE WHEN @SiteID = 3 THEN @SiteID ELSE s.siteid END SiteID
           FROM bodb02.dbo.Customer c (NOLOCK)
                LEFT JOIN bodb02.dbo.Site s (NOLOCK) ON c.site = s.site
          WHERE c.RoleID = 2
-           AND s.SiteID = ISNULL(@siteID, s.SiteID)
+           AND (s.SiteID = ISNULL(@siteID, s.SiteID)
+                OR
+                s.SiteLabel = CASE WHEN @SiteID = 3 THEN '789Y' END)  --see _Dashboard report for SiteID = 3 special case
         OPTION (RECOMPILE)
 
         CREATE UNIQUE CLUSTERED INDEX PK_tmpAgent ON #tmpAgent(CustID)
