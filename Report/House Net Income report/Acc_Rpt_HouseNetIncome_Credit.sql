@@ -30,6 +30,7 @@ AS
         20220310@Ned.Le: Email/Letstalk Reports - Include 8RM/BARM into Bet Count, member turnover, member win loss, Margin except House Income (#169768)
         20220801@Ned.Le: Email/Letstalk Reports - Scale out DB - Modify SPs to retrieve yesterday data in Data warehouse in case in-house replicator got problem (#176077)
         20220612@Ned.Le: Email/Letstalk Reports - Incorporate Saba E-Sports PinGoal (#181261)
+        20230111@Ned.Le: Email/Letstalk Reports - Split 789Y site into smaller sites (#182388)
 
     Param's Explanation:
         @FromDate   : Begin date to get data for report
@@ -640,7 +641,7 @@ BEGIN
                                  NetStakeOANDA)
         SELECT -- *** DIMENSION *** --
                b.RptDate,
-               s.site Site,
+               CASE WHEN s.SiteLabel = '789y' THEN s.SiteLabel ELSE s.site END Site,
                CASE WHEN b.Bettype IN (9, 29)                       THEN -10 --Parlay
                     WHEN b.SportType = 1  AND l.LeagueGroupType = 1 THEN -3  --Saba Soc
                     WHEN b.SportType = 1  AND l.LeagueGroupType = 2 THEN -14 --Saba Soc PGoal
@@ -688,7 +689,7 @@ BEGIN
               AND b.CurrencyID <> 20
               AND b.BetType IN (SELECT Bettype FROM #tmpProductBettype)
         GROUP BY b.RptDate,
-                 s.site,
+                 CASE WHEN s.SiteLabel = '789y' THEN s.SiteLabel ELSE s.site END,
                  CASE WHEN b.Bettype IN (9, 29)                       THEN -10 --Parlay
                       WHEN b.SportType = 1  AND l.LeagueGroupType = 1 THEN -3  --Saba Soc
                       WHEN b.SportType = 1  AND l.LeagueGroupType = 2 THEN -14 --Saba Soc PGoal
@@ -797,7 +798,7 @@ BEGIN
            OrderByProduct,
            OrderByFigure,
            CASE WHEN Site = 'CN88' THEN 'CN88'
-                WHEN Site = '789Y' THEN '789Y'
+                WHEN Site = '789y' THEN '789Y'
                 ELSE 'MBC' END SiteGroup,
            ProductCategory,
            ProductGroup,
@@ -812,7 +813,7 @@ BEGIN
              OrderByProduct,
              OrderByFigure,
              CASE WHEN Site = 'CN88' THEN 'CN88'
-                       WHEN Site = '789Y' THEN '789Y'
+                       WHEN Site = '789y' THEN '789Y'
                        ELSE 'MBC' END,
              ProductCategory,
              ProductGroup,
