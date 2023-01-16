@@ -77,6 +77,7 @@ AS
         - 20220826@Cherry: Integrate SEAL Entertainment (#176391)
         - 20220927@Cherry: Integrate MG-RNG product (#177504)
         - 20230206@Roy: NAP Report - Change the sport type of Macau (#183404)
+        - 20230116@Roy: NAP Report - Unify Lottery & Virtual Sports (#182921)
 
     Param's Explanation:
         + @MoveBetsDay:  The day of moving bets to battrans14
@@ -158,7 +159,7 @@ BEGIN
 
     INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType)
     SELECT DISTINCT
-           180 SportGroupID,
+           9908 SportGroupID,
            'Virtual Sports' SportGroupName,
            SportType
     FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)
