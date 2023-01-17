@@ -13,6 +13,7 @@ AS
 		20220916@Roy: Letstalk report ID #32, #34 - Add 8RM info & enhance the UI (#177825)
 		20221010@Roy: Letstalk reports - Enhance UI/UX for smartwatch devices (#178950)
 		20221206@Roy: Email/Letstalk Reports - Incorporate Saba E-Sports PinGoal (#181261)
+		20230117@Roy: Email/Letstalk Reports - Split 789Y site into smaller sites (#182388)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -61,6 +62,7 @@ BEGIN
 	CREATE TABLE #tmpDWSite (
 		[Site] VARCHAR(20)
 		,IsDeposit BIT
+		,SiteLabel VARCHAR(50)
 	)
 	
 	CREATE TABLE #tmpMatch (
@@ -234,12 +236,12 @@ BEGIN
 	INSERT INTO #tmpDWSite (
 		Site
 		,IsDeposit
+		,SiteLabel
 		)
-	SELECT Site
+	SELECT DISTINCT Site
 		,IsDeposit
+		,CASE WHEN SiteLabel = '789y' THEN SiteLabel ELSE Site END AS SiteLabel --only for 789y (divided 789y site into YUT, Y789, Y889, YOther)
 	FROM DBWH.bodb_Account.dbo.tbl_Site WITH (NOLOCK)
-	GROUP BY Site
-		,IsDeposit
 	
 	INSERT INTO #tmpTestLeague ( LeagueID )
 	SELECT DISTINCT LeagueID
@@ -283,7 +285,7 @@ BEGIN
 	)
 	SELECT DISTINCT c.CustID
 		,(CASE WHEN c.CustID = 52466 THEN '8RM'
-		ELSE c.Site
+		ELSE s.SiteLabel
 		END) AS Site
 		,s.IsDeposit
 	FROM dbo.vw_Customer AS c WITH (NOLOCK)
@@ -387,7 +389,7 @@ BEGIN
 	)
 	SELECT DISTINCT c.CustID
 		,(CASE WHEN c.CustID = 52466 THEN '8RM'
-		ELSE c.Site
+		ELSE s.SiteLabel
 		END) AS Site
 		,s.IsDeposit
 	FROM dbo.vw_Customer AS c WITH (NOLOCK)
@@ -472,7 +474,7 @@ BEGIN
 	)
 	SELECT DISTINCT c.CustID
 		,(CASE WHEN c.CustID = 52466 THEN '8RM'
-		ELSE c.Site
+		ELSE s.SiteLabel
 		END) AS Site
 		,s.IsDeposit
 	FROM dbo.vw_Customer AS c WITH (NOLOCK)
