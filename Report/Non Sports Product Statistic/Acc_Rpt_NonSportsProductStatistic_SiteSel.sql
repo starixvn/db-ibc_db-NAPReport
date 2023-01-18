@@ -67,7 +67,7 @@ BEGIN
 	(-3, 'Terminated Licensees', 0)
 
 	INSERT INTO #tmpGroup(GroupId, GroupName, ParentId)
-	SELECT RANK() OVER(ORDER BY SiteLabel) RowID,SiteLabel, -1
+	SELECT RANK() OVER(ORDER BY SiteLabel) * (-1000) RowID,SiteLabel, -1
 	FROM (
 		SELECT DISTINCT SiteLabel
 		FROM bodb02.dbo.Site WITH(NOLOCK)
