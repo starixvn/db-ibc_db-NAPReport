@@ -16,6 +16,7 @@ AS
 		- 20200601@Cherry: Add Credit Site (#135009)
 		- 20210324@Cherry: Consider Saba789 as Credit site (#152124)
 		- 20210428@Cherry: Add LicenseeGroup (#153736)
+		- 20220118@Cherry: Split 789y (#182387)
 */
 
 BEGIN
@@ -64,6 +65,13 @@ BEGIN
 	(-1, 'Credit Group', 0),
 	(-2, 'Others', 0),
 	(-3, 'Terminated Licensees', 0)
+
+	INSERT INTO #tmpGroup(GroupId, GroupName, ParentId)
+	SELECT RANK() OVER(ORDER BY SiteLabel) RowID,SiteLabel, -1
+	FROM (
+		SELECT DISTINCT SiteLabel
+		FROM bodb02.dbo.Site WITH(NOLOCK)
+		WHERE SiteLabel IS NOT NULL) a
 	
 	-- Get terminated licensee
 	INSERT INTO #tmpLicensee (LicenseeId, LicenseeName, GroupId)
@@ -102,9 +110,11 @@ BEGIN
 	FROM #tmpGroup 
 	
 	-- Get Site
-	SELECT DISTINCT -1 LicenseeID, c.site LicenseeName, -1 AS GroupId
+	SELECT DISTINCT s.siteid LicenseeID, c.site LicenseeName, g.GroupId AS GroupId
 	FROM bodb02.dbo.Customer c WITH(NOLOCK)
 		LEFT JOIN #tmpDep_CustSuper d ON c.srecommend = d.custid
+		LEFT JOIN bodb02.dbo.Site s WITH(NOLOCK) ON s.site = c.site
+		LEFT JOIN #tmpGroup g ON s.SiteLabel = g.GroupName
 	WHERE c.roleid = 2 AND d.custid IS NULL AND c.site IS NOT NULL
 	UNION
 	SELECT DISTINCT l.LicenseeId, l.LicenseeName, l.GroupId 			
