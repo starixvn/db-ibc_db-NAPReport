@@ -33,6 +33,7 @@ AS
 		- 20220805@Danny: Modify SPs to retrieve yesterday data in Data warehouse in case in-house replicator got problem (#176077)
 		- 20221003@Danny: Integrate MGRNG product and restructure code (#177505)
 		- 20231027@Danny: Change LicenseeID detection formulary of deposit licensee [#183209]
+		- 20230111@Danny: Email/Letstalk Reports - Split 789Y site into smaller sites (#182388)
 */
 BEGIN
     SET NOCOUNT ON
@@ -53,7 +54,6 @@ BEGIN
 			,@FromDateByBatch DATE
 			,@ToDateByBatch DATE
 			,@Site789y_dwh INT
-			,@Site789y_lic INT
 			,@InHouseReplicationWorkingStatus INT
 			,@SQLExchangeDailySel VARCHAR(MAX)
 			,@FDateGetData	DATE 
@@ -72,6 +72,7 @@ BEGIN
 	DECLARE @tmpSite TABLE (SiteId_DW INT, LicenseeId INT, SiteName VARCHAR(20))
 	DECLARE @AB_CurrencyPlay_Month TABLE (CurrencyPlay_Month MONEY, SiteGroup VARCHAR(20))
 	DECLARE @ProductSupportBonus TABLE (ProductID INT)
+	DECLARE	@Site789y_lic TABLE (SiteID INT)
 
 	CREATE TABLE #AllParties (PartyId INT, ParentId INT, LicenseeId INT, IsDeposit BIT)
 	CREATE TABLE #Party (PartyId INT, ParentId INT, LicenseeId INT, IsDeposit BIT)
@@ -103,8 +104,8 @@ BEGIN
 			,@f_date = CONVERT(VARCHAR(10), @FromDate, 120)
 			,@t_date = CONVERT(VARCHAR(10), @ToDate, 120)
 
-	SELECT @Site789y_dwh = siteid FROM bodb_Account.dbo.tbl_Site s WITH (NOLOCK) where site = '789Y'
-	SELECT @Site789y_lic = siteid FROM DBLIC.bodb_licensee.dbo.view_site_list  WITH(NOLOCK) where SiteName = '789y'
+	INSERT INTO @Site789y_lic(siteid)
+	SELECT siteid FROM DBLIC.bodb_licensee.dbo.view_site_list  WITH(NOLOCK) where SiteName IN (SELECT x.Site FROM bodb02.dbo.Site x WITH(NOLOCK) WHERE x.SiteLabel = '789y')
 
     SELECT  @InHouseReplicationWorkingStatus = CAST(VValue AS INT)
     FROM	bodb_account.dbo.SystemSettings (NOLOCK)
@@ -444,17 +445,18 @@ BEGIN
 								THEN CASE WHEN -d.Winloss * p.Rate * e.Rate > m.MaxAmount THEN -(m.MaxAmount - m.MinAmount) ELSE -(-d.Winloss * p.Rate * e.Rate - m.MinAmount) END * m.Rate 
 						ELSE 0 END)
 				,CASE	WHEN  (d.SiteId <= 1000 OR d.SiteID >= 50000) THEN 'Licensee'
-						WHEN  (d.SiteId > 1000 OR d.SiteId < 50000) THEN CASE WHEN d.SiteID = @Site789y_lic THEN '789Y'  ELSE 'MBC' END 
+						WHEN  (d.SiteId > 1000 OR d.SiteId < 50000) THEN CASE WHEN x.SiteID IS NOT NULL THEN '789Y'  ELSE 'MBC' END 
 						END SiteGroup
 			FROM #__tempData d
 				INNER JOIN #AllParties a ON d.SiteId = a.LicenseeId
 				INNER JOIN @ExchangeOANDA e ON d.CurrencyId = e.ExchangeId
 				LEFT JOIN #__PartyChargeInfo p ON p.LicenseeId = d.SiteId AND p.Product3rdId = 0 AND d.rptDate BETWEEN p.FromDate AND p.ToDate AND d.BetTypeId = -1
 				LEFT JOIN #MetricChargeInfo m ON d.rptDate BETWEEN m.FromDate AND m.ToDate AND d.BetTypeId = -1
+				LEFT JOIN @Site789y_lic x ON x.SiteID = d.SiteID
 			GROUP BY d.rptDate, a.IsDeposit, d.BetTypeId, d.CurrencyId, 
 					CASE	WHEN  (d.SiteId <= 1000 OR d.SiteID >= 50000) THEN 'Licensee'
-							WHEN (d.SiteId > 1000 OR d.SiteId < 50000) THEN CASE WHEN d.SiteID = @Site789y_lic THEN '789Y'  ELSE 'MBC' END 
-							END
+							WHEN (d.SiteId > 1000 OR d.SiteId < 50000) THEN CASE WHEN x.SiteID IS NOT NULL THEN '789Y'  ELSE 'MBC' END 
+						END
 
 			UPDATE r
 			SET r.PayMonthRate = r.PayDailyRate
@@ -530,7 +532,7 @@ BEGIN
 				,SUM(CASE WHEN bt.SubProduct NOT IN ('Prize','Lucky Draw','Bonus','Promotion') THEN CASE WHEN d.BetTypeId IN (4297, 4599) THEN d.ProgressiveContribution ELSE d.Winloss END * e.Rate * CASE WHEN p.LicenseeId IS NULL THEN 0.0 ELSE 1.0 END ELSE 0 END) AS MemberWLMonthRate
 				,SUM(CASE WHEN  bt.SubProduct IN ('Prize','Lucky Draw','Bonus','Promotion') THEN d.Winloss * e.Rate ELSE 0 END) AS BonusRate
 				,CASE	WHEN  (d.SiteId <= 1000 OR d.SiteId >= 50000) THEN 'Licensee'
-						WHEN  (d.SiteId > 1000 OR d.SiteId < 50000) THEN CASE WHEN d.SiteID = @Site789y_lic THEN '789Y'  ELSE 'MBC' END 
+						WHEN  (d.SiteId > 1000 OR d.SiteId < 50000) THEN CASE WHEN x.SiteID IS NOT NULL THEN '789Y'  ELSE 'MBC' END 
 						END 
 			FROM #__tempData d
 				INNER JOIN #__Bettype bt ON d.BetTypeId = bt.BetType
@@ -541,9 +543,10 @@ BEGIN
 				LEFT JOIN #__tmpVendorGlobalSetting vs ON vs.IsDeposit = tp.IsDeposit AND vs.Product3rdId = bt.Product3rdId
 				LEFT JOIN #__PlayCurrencySettings pc ON d.SiteId = pc.SiteId AND d.CurrencyId = pc.MemberCurrency AND d.rptDate BETWEEN pc.FromDate AND pc.ToDate
 				LEFT JOIN #__ValidBetRate v ON tp.IsDeposit = v.IsDeposit AND bt.Product3rdId = v.Product3rdId AND d.rptDate BETWEEN v.FromDate AND v.ToDate
+				LEFT JOIN @Site789y_lic x ON x.SiteID = d.SiteId
 			GROUP BY d.rptDate, tp.ParentId, tp.IsDeposit, bt.Product3rdId, CASE WHEN d.BetTypeId = 3007 THEN 3007 ELSE 0 END, d.CurrencyId, ISNULL(pc.PlayCurrency, d.CurrencyId), 
 				CASE	WHEN  (d.SiteId <= 1000 OR d.SiteId >= 50000) THEN 'Licensee'
-						WHEN  (d.SiteId > 1000 OR d.SiteId < 50000) THEN CASE WHEN d.SiteID = @Site789y_lic THEN '789Y'  ELSE 'MBC' END 
+						WHEN  (d.SiteId > 1000 OR d.SiteId < 50000) THEN CASE WHEN x.SiteID IS NOT NULL THEN '789Y'  ELSE 'MBC' END 
 						END 
 		END
 	END
