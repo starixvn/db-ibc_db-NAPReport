@@ -71,7 +71,7 @@ BEGIN
 	FROM (
 		SELECT DISTINCT SiteLabel
 		FROM bodb02.dbo.Site WITH(NOLOCK)
-		WHERE SiteLabel IS NOT NULL) a
+		WHERE isLicensee = 0) a
 	
 	-- Get terminated licensee
 	INSERT INTO #tmpLicensee (LicenseeId, LicenseeName, GroupId)
@@ -113,8 +113,8 @@ BEGIN
 	SELECT DISTINCT s.siteid LicenseeID, c.site LicenseeName, g.GroupId AS GroupId
 	FROM bodb02.dbo.Customer c WITH(NOLOCK)
 		LEFT JOIN #tmpDep_CustSuper d ON c.srecommend = d.custid
-		LEFT JOIN bodb02.dbo.Site s WITH(NOLOCK) ON s.site = c.site
-		LEFT JOIN #tmpGroup g ON s.SiteLabel = g.GroupName
+		INNER JOIN bodb02.dbo.Site s WITH(NOLOCK) ON s.site = c.site
+		INNER JOIN #tmpGroup g ON s.SiteLabel = g.GroupName
 	WHERE c.roleid = 2 AND d.custid IS NULL AND c.site IS NOT NULL
 	UNION
 	SELECT DISTINCT l.LicenseeId, l.LicenseeName, l.GroupId 			
