@@ -13,6 +13,7 @@ AS
 		- 20191205@Robert: NAP Report - Automate daily abnormal bets report for CSD [122800]
 		- 20191226@Robert: NAP Report - Automate daily abnormal bets report for CSD [122800] - change request
 		- 20211105@Cherry: Support void mix parlay (#164192)
+		- 20230111@Jaden: Split 789Y Site (#182497)
 
 	Param's Explanation:	 
 */
@@ -136,16 +137,12 @@ AS
 				, m.finalhomescore
 				, m.finalawayscore
 				, CASE
-					 WHEN s.isDeposit = 1
-						 OR s.site IN('CN88', '789Y')
-					 THEN s.site
+					 WHEN s.isDeposit = 1 OR s.site = 'CN88' OR s.SiteLabel = '789Y' THEN s.site
 					 ELSE 'Nova88'
 				  END AS Site
 				, CASE
-					 WHEN s.isDeposit = 1
-					 THEN 'Licensee'
-					 WHEN s.site IN('CN88', '789Y')
-					 THEN s.site
+					 WHEN s.isDeposit = 1 THEN 'Licensee'
+					 WHEN s.site = 'CN88' OR s.SiteLabel = '789Y' THEN s.site
 					 ELSE 'Nova88'
 				  END AS AffectedSite
 				, c2.username
