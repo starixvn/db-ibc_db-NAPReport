@@ -25,16 +25,12 @@ BEGIN
 	CREATE TABLE #tmpProductID (
 			ProductID int
 		)
-	CREATE TABLE #tmpDep_CustSuper (CustID INT)
 	CREATE TABLE #tmpSite (LicenseeID INT, LicenseeName VARCHAR(50))
 	CREATE TABLE #tmpGroup (GroupId INT, GroupName VARCHAR(50), ParentId INT)
 	CREATE TABLE #tmpLicensee (LicenseeId INT, LicenseeName VARCHAR(50), GroupId INT)
 	CREATE TABLE #LA_CombinedGroup (GroupId INT, GroupName VARCHAR(50), PathCode VARCHAR(50))
 	CREATE TABLE #LA_CombinedGroupAssignment (GroupId INT, PartyId INT, GroupType INT)
-	
-	INSERT INTO #tmpDep_CustSuper (CustID)
-	SELECT custid
-	FROM DBWH.bodb_Account.dbo.vw_Dep_CustSuper WITH(NOLOCK)
+	CREATE TABLE #tmpCreditGroup (GroupId INT, GroupName VARCHAR(50), ParentId INT)
 	
 	INSERT INTO #tmpSite (LicenseeID, LicenseeName)
 	SELECT LicenseeID, LicenseeName
@@ -66,12 +62,14 @@ BEGIN
 	(-2, 'Others', 0),
 	(-3, 'Terminated Licensees', 0)
 
-	INSERT INTO #tmpGroup(GroupId, GroupName, ParentId)
-	SELECT RANK() OVER(ORDER BY SiteLabel) * (-1000) RowID,SiteLabel, -1
+	INSERT INTO #tmpCreditGroup(GroupId, GroupName, ParentId)
+	SELECT RANK() OVER(ORDER BY SiteLabel) * 1000000 RowID,SiteLabel, -1 ParentId
 	FROM (
 		SELECT DISTINCT SiteLabel
 		FROM bodb02.dbo.Site WITH(NOLOCK)
-		WHERE isLicensee = 0) a
+		WHERE isLicensee = 0
+		UNION
+		SELECT 'Saba789') a
 	
 	-- Get terminated licensee
 	INSERT INTO #tmpLicensee (LicenseeId, LicenseeName, GroupId)
@@ -110,12 +108,13 @@ BEGIN
 	FROM #tmpGroup 
 	
 	-- Get Site
-	SELECT DISTINCT s.siteid LicenseeID, c.site LicenseeName, g.GroupId AS GroupId
-	FROM bodb02.dbo.Customer c WITH(NOLOCK)
-		LEFT JOIN #tmpDep_CustSuper d ON c.srecommend = d.custid
-		INNER JOIN bodb02.dbo.Site s WITH(NOLOCK) ON s.site = c.site
+	SELECT GroupId LicenseeID, GroupName LicenseeName, ParentId GroupId
+	FROM #tmpCreditGroup
+	UNION
+	SELECT DISTINCT s.siteid LicenseeID, s.site LicenseeName, g.GroupId AS GroupId
+	FROM bodb02.dbo.Site s WITH(NOLOCK) 
 		INNER JOIN #tmpGroup g ON s.SiteLabel = g.GroupName
-	WHERE c.roleid = 2 AND d.custid IS NULL AND c.site IS NOT NULL
+	WHERE s.isLicensee = 0
 	UNION
 	SELECT DISTINCT l.LicenseeId, l.LicenseeName, l.GroupId 			
 	FROM
@@ -128,7 +127,7 @@ BEGIN
 	WHERE s.systemId = 3 
 
 	DROP TABLE #tmpProductID
-	DROP TABLE #tmpDep_CustSuper
+	DROP TABLE #tmpCreditGroup
 	DROP TABLE #tmpLicensee
 	DROP TABLE #tmpSite
 	DROP TABLE #LA_CombinedGroup
