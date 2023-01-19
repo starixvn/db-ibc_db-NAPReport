@@ -113,7 +113,7 @@ BEGIN
 	UNION
 	SELECT DISTINCT s.siteid LicenseeID, s.site LicenseeName, g.GroupId AS GroupId
 	FROM bodb02.dbo.Site s WITH(NOLOCK) 
-		INNER JOIN #tmpGroup g ON s.SiteLabel = g.GroupName
+		INNER JOIN #tmpCreditGroup g ON s.SiteLabel = g.GroupName
 	WHERE s.isLicensee = 0
 	UNION
 	SELECT DISTINCT l.LicenseeId, l.LicenseeName, l.GroupId 			
