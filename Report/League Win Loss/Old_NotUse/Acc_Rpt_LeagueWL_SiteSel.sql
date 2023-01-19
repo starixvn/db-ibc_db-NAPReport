@@ -12,6 +12,7 @@ AS
 
 	Revisions:
 		- 20200923@Jaden: Initial commit
+		- 20220119@Jaden.Tang: use Acc_Rpt_SiteList instead (#182497)
 */
 
 BEGIN
