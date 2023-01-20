@@ -1,4 +1,4 @@
-﻿/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 USE bodb02
 GO
 
@@ -22,12 +22,15 @@ AS
 	- 20201030@Ned.Le: NAP Report - BBin - Remove BBIN Transfer off Balance reports (#144071)
 	- 20210507@Jaden.Tang: Adjust code to prevent reading dupplicated in bettrans & bettrans14 during move bet process (#154649)
 	- 20211111@Cherry: Split transfer table (#164378)
+	- 20230119@Roy: NAP Report - BU 247 (#175206)
 */
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @MoveBetsDay DATE
+	DECLARE @MoveBetsDay SMALLDATETIME
+		,@BalanceUpDay SMALLDATETIME
 	SELECT @MoveBetsDay = MoveBetsDay
+		,@BalanceUpDay = BalanceUpDay
 	FROM OPENQUERY(DBACC,'exec bodb02.dbo.Age_SelBalanceUpDay')
 
 	CREATE TABLE #directMaster (custid INT,username VARCHAR(50), currency INT, srecommend INT)
@@ -101,7 +104,9 @@ BEGIN
 					--prevent accessing the summary records BEFORE movebetday is updated
 					--those are in the process of being inserted and in volatile state
 					then NULL
-				 else b.mrecommend
+				when b.winlostdate > @BalanceUpDay AND bettype = 20000 then NULL --> new bal
+				when b.winlostdate < @BalanceUpDay then NULL --> old bal
+				else b.mrecommend
 			end mrecommend,
 			isnull(sum(case when custid=mrecommend then winlost-actual_stake else mwinlost+acomm-comm end),0)
 			+ isnull(sum(case when custid=recommend then winlost-actual_stake else awinlost+comm-playercomm end),0)
@@ -110,11 +115,14 @@ BEGIN
 			isnull(sum((case when custid=mrecommend then winlost-actual_stake else mwinlost+acomm-comm end)* actualrate),0)
 			+ isnull(sum((case when custid=recommend then winlost-actual_stake else awinlost+comm-playercomm end)* actualrate),0)
 			+ isnull(sum((case when custid <> recommend and custid <> mrecommend then winlost-actual_stake+playercomm else 0 end)* actualrate),0) AS Basebal
-	FROM	[Transfer] b WITH (NOLOCK)
+	FROM	dbo.[Transfer] b WITH (NOLOCK)
 	WHERE	b.bettype NOT IN (21008, 21009)
 		AND EXISTS ( SELECT 1 FROM #directMaster d WITH (NOLOCK) WHERE b.srecommend = d.srecommend )
 	GROUP BY case when b.winlostdate > @MoveBetsDay and bettype = 19999 then NULL
-				else b.mrecommend end
+				when b.winlostdate > @BalanceUpDay AND bettype = 20000 then NULL --> new bal
+				when b.winlostdate < @BalanceUpDay then NULL --> old bal
+				else b.mrecommend
+			end
 				
 	OPTION (RECOMPILE)
 	

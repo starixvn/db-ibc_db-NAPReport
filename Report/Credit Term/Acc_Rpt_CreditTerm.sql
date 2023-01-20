@@ -22,6 +22,7 @@ AS
 		- 20201027@Ned.Le: NAP Report - BBin - Remove BBIN Transfer off Balance reports (#144071)
 		- 20210507@Jaden.Tang: Adjust code to prevent reading dupplicated in bettrans & bettrans14 during move bet process (#154649)
 		- 20211118@Cherry: Split Transfer table (#164378)
+		- 20230119@Roy: NAP Report - BU 247 (#175206)
 	Param's Explanation:
 
 */
@@ -29,8 +30,10 @@ AS
 SET NOCOUNT ON
 BEGIN
 
-	DECLARE @MoveBetsDay DATE
+	DECLARE @MoveBetsDay SMALLDATETIME
+		,@BalanceUpDay SMALLDATETIME
 	SELECT @MoveBetsDay = MoveBetsDay
+		,@BalanceUpDay = BalanceUpDay
 	FROM OPENQUERY(DBACC,'exec bodb02.dbo.Age_SelBalanceUpDay')
 
 	create table #groupHeadLine
@@ -109,8 +112,10 @@ BEGIN
 		FROM dbo.[Transfer] b with(nolock)
 		WHERE b.srecommend in (select custid from #super)
 			  AND b.bettype NOT IN (21008, 21009)
-			  AND CASE WHEN b.winlostdate > @MoveBetsDay AND bettype = 19999
-				THEN 0 ELSE 1 END = 1
+			  AND (CASE WHEN b.winlostdate > @MoveBetsDay AND b.bettype = 19999 THEN 0
+						WHEN b.winlostdate > @BalanceUpDay AND b.bettype = 20000 THEN 0 --> new bal
+						WHEN b.winlostdate < @BalanceUpDay THEN 0 --> old bal
+					ELSE 1 END) = 1
 		GROUP BY b.srecommend
 	)	
 	INSERT INTO #Data(custid, groupID, Balance)
@@ -137,7 +142,7 @@ BEGIN
 		INNER JOIN dbo.bettrans b with(nolock) on a.custid = b.mrecommend
 	WHERE  b.srecommend = a.uplineid
 		   AND b.bettype < 19999
-		   AND CASE WHEN b.winlostdate <= @MoveBetsDay 
+		   AND CASE WHEN b.winlostdate <= @MoveBetsDay
 				THEN 0 ELSE 1 END = 1
 	GROUP BY a.custid, a.groupid
 	UNION ALL
@@ -149,8 +154,10 @@ BEGIN
 		INNER JOIN dbo.[Transfer] b with(nolock) on a.custid = b.mrecommend
 	WHERE  b.srecommend = a.uplineid
 		   AND b.bettype NOT IN (21008, 21009)
-		   AND CASE WHEN b.winlostdate > @MoveBetsDay AND bettype = 19999
-				THEN 0 ELSE 1 END = 1
+		   AND (CASE WHEN b.winlostdate > @MoveBetsDay AND bettype = 19999 THEN 0
+					WHEN b.winlostdate > @BalanceUpDay AND b.bettype = 20000 THEN 0 --> new bal
+					WHEN b.winlostdate < @BalanceUpDay THEN 0 --> old bal
+				ELSE 1 END) = 1
 	GROUP BY a.custid, a.groupid
 	
 	UNION ALL --agent
@@ -158,7 +165,7 @@ BEGIN
 	SELECT b.recommend, a.groupID,
 		ISNULL(SUM(CASE WHEN b.recommend = b.custid THEN b.winlost-b.actual_stake ELSE b.awinlost+b.comm-b.playercomm END),0)
 		+ IsNull(SUM(case when b.custid<>b.recommend AND b.ruben=1 then winlost-actual_stake+playercomm else 0 end) ,0)
-	FROM bettrans b with(nolock, index=IX_recommend)
+	FROM dbo.bettrans b with(nolock, index=IX_recommend)
 		INNER JOIN custInfo c with(nolock) on c.custid = b.recommend
 			INNER JOIN custAccount a with(nolock) on c.custid = a.custid
 	WHERE roleid = 2 AND (PreAgreeAmount > 0 OR groupID > 0)
@@ -170,14 +177,16 @@ BEGIN
 	SELECT b.recommend, a.groupID,
 		ISNULL(SUM(CASE WHEN b.recommend = b.custid THEN b.winlost-b.actual_stake ELSE b.awinlost+b.comm-b.playercomm END),0)
 		+ IsNull(SUM(case when b.custid<>b.recommend then winlost-actual_stake+playercomm else 0 end) ,0)
-	FROM [Transfer] b with(nolock)
+	FROM dbo.[Transfer] b with(nolock)
 		INNER JOIN custInfo c with(nolock) on c.custid = b.recommend
 			INNER JOIN custAccount a with(nolock) on c.custid = a.custid
 	WHERE roleid = 2 AND (PreAgreeAmount > 0 OR groupID > 0)
 		  AND b.bettype NOT IN (21008, 21009)
 		  AND b.srecommend = c.srecommend
-		  AND CASE WHEN b.winlostdate > @MoveBetsDay AND bettype = 19999
-			THEN 0 ELSE 1 END = 1
+		  AND (CASE WHEN b.winlostdate > @MoveBetsDay AND bettype = 19999 THEN 0
+					WHEN b.winlostdate > @BalanceUpDay AND b.bettype = 20000 THEN 0 --> new bal
+					WHEN b.winlostdate < @BalanceUpDay THEN 0 --> old bal
+				ELSE 1 END) = 1
 	GROUP BY b.recommend, a.groupid	
 	
 	UNION ALL
@@ -191,7 +200,7 @@ BEGIN
 		AND c.roleid = 1	
 		AND (PreAgreeAmount > 0 OR groupID > 0)
 		AND b.bettype < 19999
-		AND CASE WHEN b.winlostdate <= @MoveBetsDay 
+		AND CASE WHEN b.winlostdate <= @MoveBetsDay
 			THEN 0 ELSE 1 END = 1
 	GROUP BY a.custid, a.groupid	
 	UNION ALL
@@ -205,8 +214,10 @@ BEGIN
 		AND b.srecommend = c.srecommend
 		AND (PreAgreeAmount > 0 OR groupID > 0)
 		AND b.bettype NOT IN (21008, 21009)
-		AND CASE WHEN b.winlostdate > @MoveBetsDay AND bettype = 19999
-			THEN 0 ELSE 1 END = 1
+		AND (CASE WHEN b.winlostdate > @MoveBetsDay AND bettype = 19999 THEN 0
+					WHEN b.winlostdate > @BalanceUpDay AND b.bettype = 20000 THEN 0 --> new bal
+					WHEN b.winlostdate < @BalanceUpDay THEN 0 --> old bal
+			ELSE 1 END) = 1
 	GROUP BY a.custid, a.groupid	
 	
 	OPTION (RECOMPILE)

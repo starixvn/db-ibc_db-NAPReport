@@ -19,12 +19,15 @@ Revisions:
 	- 20201027@Ned.Le: NAP Report - BBin - Remove BBIN Transfer off Balance reports (#144071)
 	- 20210507@Jaden.Tang: Adjust code to prevent reading dupplicated in bettrans & bettrans14 during move bet process (#154649)
 	- 20211111@Cherry: Split transfer table (#164378)
+	- 20230119@Roy: NAP Report - BU 247 (#175206)
 */
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @MoveBetsDay DATE
+	DECLARE @MoveBetsDay SMALLDATETIME
+		,@BalanceUpDay SMALLDATETIME
 	SELECT @MoveBetsDay = MoveBetsDay
+		,@BalanceUpDay = BalanceUpDay
 	FROM OPENQUERY(DBACC,'exec bodb02.dbo.Age_SelBalanceUpDay')
 
 	DECLARE @currentDate		SMALLDATETIME
@@ -66,8 +69,10 @@ BEGIN
 	INSERT INTO #Data (Custid, Balance, BaseBalance)
 	SELECT	--skip volatile rows during move bet process, see Balance_Direct_Master report
 					case when b.winlostdate > @MoveBetsDay and bettype = 19999 then NULL
-						 else b.custid
-					end custid,
+				when b.winlostdate > @BalanceUpDay and b.bettype = 20000 then NULL --> new bal
+				when b.winlostdate < @BalanceUpDay then NULL --> old bal
+				else b.custid
+			end custid,
 					SUM(b.winlost - b.actual_stake + b.playercomm) AS Balance,
 					SUM((b.winlost - b.actual_stake + b.playercomm)* b.actualrate) AS BaseBalance
 	FROM	dbo.[Transfer] b with (nolock)
@@ -76,6 +81,8 @@ BEGIN
 		AND b.winlostdate <= @currentDate				
 		AND b.bettype NOT IN (21008, 21009)
 	GROUP BY case when b.winlostdate > @MoveBetsDay and bettype = 19999 then NULL
+				when b.winlostdate > @BalanceUpDay and b.bettype = 20000 then NULL --> new bal
+				when b.winlostdate < @BalanceUpDay then NULL --> old bal
 				else b.custid
 			end
 			
