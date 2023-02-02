@@ -141,7 +141,8 @@ BEGIN
         
         INSERT INTO #tmpAgent (CustID, SiteID)
         SELECT c.CustId CustID, 
-               CASE WHEN @SiteID = 3 THEN @SiteID ELSE s.siteid END SiteID
+               CASE WHEN s.SiteLabel = '789Y' THEN 3
+                    ELSE s.siteid END SiteID
           FROM bodb02.dbo.Customer c (NOLOCK)
                LEFT JOIN bodb02.dbo.Site s (NOLOCK) ON c.site = s.site
          WHERE c.RoleID = 2
