@@ -126,20 +126,23 @@ BEGIN
         CREATE UNIQUE CLUSTERED INDEX PK_tmpMatch ON #tmpMatch(MatchID, MatchType)
     END
 
+    DECLARE @O789yID INT --ID of original 789Y
+    SELECT @O789yID = MIN(SiteID) FROM bodb02.dbo.Site WITH (NOLOCK) WHERE SiteLabel = '789Y'
+
     -- #tmpAgent, start filter by site
     BEGIN
         CREATE TABLE #tmpAgent (CustID INT, SiteID INT)
         
         INSERT INTO #tmpAgent (CustID, SiteID)
         SELECT c.CustId CustID, 
-               CASE WHEN s.SiteLabel = '789Y' THEN 3
+               CASE WHEN s.SiteLabel = '789Y' THEN @O789yID
                     ELSE s.siteid END SiteID
           FROM bodb02.dbo.Customer c (NOLOCK)
                LEFT JOIN bodb02.dbo.Site s (NOLOCK) ON c.site = s.site
          WHERE c.RoleID = 2
            AND (s.SiteID = ISNULL(@siteID, s.SiteID)
                 OR
-                s.SiteLabel = CASE WHEN @SiteID = 3 THEN '789Y' END)  --see _Dashboard report for SiteID = 3 special case
+                s.SiteLabel = CASE WHEN @SiteID = @O789yID THEN '789Y' END)  --see _Dashboard report for SiteID = @O789yID special case
         OPTION (RECOMPILE)
 
         CREATE UNIQUE CLUSTERED INDEX PK_tmpAgent ON #tmpAgent(CustID)
@@ -256,7 +259,7 @@ BEGIN
                RealIncome, 
                RealTurnover,
                c.username CustName,
-               st.site SiteName,
+               CASE WHEN s.SiteID = @O789yID THEN st.SiteLabel ELSE st.site END SiteName,
                bt.typenamee BetTypeName
           FROM #staging s
                LEFT JOIN #tmpBettypeGroup bg ON s.BetType = bg.Bettype
