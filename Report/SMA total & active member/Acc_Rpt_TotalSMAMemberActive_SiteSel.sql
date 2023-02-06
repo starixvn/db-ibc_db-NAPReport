@@ -1,6 +1,6 @@
 /*<info serverAlias="DBRPT-bodb_Report" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 
-USE [bodb_dwrs]
+USE [bodb_Report]
 GO
 
 ALTER PROC [dbo].[Acc_Rpt_TotalSMAMemberActive_SiteSel]
