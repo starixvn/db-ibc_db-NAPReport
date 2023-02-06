@@ -46,29 +46,29 @@ BEGIN
 	
 	/*
 		Hard code Payout Limit by product
-		- ThresholdLimit: threshold limit value, the notification will send email to NSD if Game Payout reaches it
-		- WinLimit: total wins must be equal or greater this value
+		- ThresholdPCT: threshold percent, the notification will send email to NSD if Game Payout reaches it
+		- MinWin: total wins must be equal or greater this value
 	*/
 	CREATE TABLE #tmpProductLimit (
 		ProductID INT
 		,ProductName VARCHAR(50)
-		,ThresholdLimit DECIMAL(19,4)
-		,WinLimit DECIMAL(19,4)
+		,ThresholdPCT DECIMAL(19,4)
+		,MinWin DECIMAL(19,4)
 	)
 	INSERT INTO #tmpProductLimit (
 		ProductID
 		,ProductName
-		,ThresholdLimit
-		,WinLimit
+		,ThresholdPCT
+		,MinWin
 	)
 	SELECT ProductID
 		,ProductName
-		,ThresholdLimit
-		,WinLimit
+		,ThresholdPCT
+		,MinWin
 	FROM (
 		VALUES
 			-------------Live Casino-------------
-			(45, 'AE Sexy', 111, 5000) --ProductID, ProductName, ThresholdLimit, WinLimit
+			(45, 'AE Sexy', 111, 5000) --ProductID, ProductName, ThresholdPCT, MinWin
 			,(21, 'Allbet', 111, 5000)
 			,(57, 'BG', 111, 5000)
 			,(46, 'IBCBet Live Casino', 111, 5000)
@@ -78,7 +78,7 @@ BEGIN
 			,(51, 'WM	', 111, 5000)
 			
 			-------------RNG Game-------------
-			,(34, 'Arcadia Gaming', 120, 5000) --ProductID, ProductName, ThresholdLimit, WinLimit
+			,(34, 'Arcadia Gaming', 120, 5000) --ProductID, ProductName, ThresholdPCT, MinWin
 			,(70, 'FGG', 120, 5000)
 			,(50, 'Funky Games', 120, 5000)
 			,(28, 'Lottery', 120, 5000)
@@ -111,7 +111,7 @@ BEGIN
 			,(72, 'SEAL Entertainment', 300, 5000)
 			,(36, 'SG', 300, 5000)
 			,(75, 'Jili', 300, 5000)
-		) AS tmp (ProductID, ProductName, ThresholdLimit, WinLimit)
+		) AS tmp (ProductID, ProductName, ThresholdPCT, MinWin)
 
 	DECLARE @isTest BIT = 0
 		,@From4GMTTime DATETIME
@@ -356,13 +356,13 @@ BEGIN
 	FROM CTE_Payout AS po
 		LEFT JOIN #tmpProductBetType AS pb ON po.BetType = pb.BetType
 		LEFT JOIN #tmpProductLimit AS pl ON pl.ProductID = pb.ProductID
-	WHERE po.GamePayout >= (ISNULL(pl.ThresholdLimit,200) / 100) --default 200%
-		AND po.TotalWinsRM >= ISNULL(pl.WinLimit,5000) --default 5k
+	WHERE po.GamePayout >= (ISNULL(pl.ThresholdPCT,200) / 100) --default 200%
+		AND po.TotalWinsRM >= ISNULL(pl.MinWin,5000) --default 5k
 	OPTION (RECOMPILE)
 	
 	---Return Result---
 	SELECT p.ProductName AS Product
-		,b.typenamee AS GameType	
+		,b.typenamee AS GameType
 		,r.BetCount
 		,r.TotalBetsRM
 		,r.TotalWinsRM
