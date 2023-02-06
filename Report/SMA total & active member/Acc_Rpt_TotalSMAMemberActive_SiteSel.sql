@@ -1,7 +1,9 @@
+/*<info serverAlias="DBRPT-bodb_Report" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+
 USE [bodb_dwrs]
 GO
 
-ALTER PROC [dbo].[Acc_SiteSel_Credit]
+ALTER PROC [dbo].[Acc_Rpt_TotalSMAMemberActive_SiteSel]
 	@Mode INT = 0
 AS
 /*
