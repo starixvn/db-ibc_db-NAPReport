@@ -32,6 +32,7 @@ AS
 		- 20220325@Danny: Incorporate FGG (#170522)
 		- 20220805@Danny: Modify SPs to retrieve yesterday data in Data warehouse in case in-house replicator got problem (#176077)
 		- 20221003@Danny: Integrate MGRNG product and restructure code (#177505)
+		- 20231027@Danny: Change LicenseeID detection formulary of deposit licensee [#183209]
 */
 BEGIN
     SET NOCOUNT ON
@@ -422,8 +423,8 @@ BEGIN
 				AND SportType = 44
 				AND (
 					@DepositType = 2
-					OR (@DepositType = 0 AND (SiteId > 1000 OR SiteID = 509))
-					OR (@DepositType = 1 AND (SiteId < 1000 AND SiteID <> 509))
+					OR (@DepositType = 0 AND ((SiteId > 1000 OR SiteID < 50000) OR SiteID = 509))
+					OR (@DepositType = 1 AND ((SiteId <= 1000 OR SiteID >= 50000) AND SiteID <> 509))
 				)
 			GROUP BY rptDate, SiteId, CurrencyId
 
@@ -442,8 +443,8 @@ BEGIN
 						WHEN (-d.Winloss * p.Rate * e.Rate < 0 AND m.MinAmount = 0) OR -d.Winloss * p.Rate * e.Rate >= m.MinAmount
 								THEN CASE WHEN -d.Winloss * p.Rate * e.Rate > m.MaxAmount THEN -(m.MaxAmount - m.MinAmount) ELSE -(-d.Winloss * p.Rate * e.Rate - m.MinAmount) END * m.Rate 
 						ELSE 0 END)
-				,CASE	WHEN  d.SiteId < 1000 THEN 'Licensee'
-						WHEN  d.SiteId >= 1000 THEN CASE WHEN d.SiteID = @Site789y_lic THEN '789Y'  ELSE 'MBC' END 
+				,CASE	WHEN  (d.SiteId <= 1000 OR d.SiteID >= 50000) THEN 'Licensee'
+						WHEN  (d.SiteId > 1000 OR d.SiteId < 50000) THEN CASE WHEN d.SiteID = @Site789y_lic THEN '789Y'  ELSE 'MBC' END 
 						END SiteGroup
 			FROM #__tempData d
 				INNER JOIN #AllParties a ON d.SiteId = a.LicenseeId
@@ -451,8 +452,8 @@ BEGIN
 				LEFT JOIN #__PartyChargeInfo p ON p.LicenseeId = d.SiteId AND p.Product3rdId = 0 AND d.rptDate BETWEEN p.FromDate AND p.ToDate AND d.BetTypeId = -1
 				LEFT JOIN #MetricChargeInfo m ON d.rptDate BETWEEN m.FromDate AND m.ToDate AND d.BetTypeId = -1
 			GROUP BY d.rptDate, a.IsDeposit, d.BetTypeId, d.CurrencyId, 
-					CASE	WHEN  d.SiteId < 1000 THEN 'Licensee'
-							WHEN  d.SiteId >= 1000 THEN CASE WHEN d.SiteID = @Site789y_lic THEN '789Y'  ELSE 'MBC' END 
+					CASE	WHEN  (d.SiteId <= 1000 OR d.SiteID >= 50000) THEN 'Licensee'
+							WHEN (d.SiteId > 1000 OR d.SiteId < 50000) THEN CASE WHEN d.SiteID = @Site789y_lic THEN '789Y'  ELSE 'MBC' END 
 							END
 
 			UPDATE r
@@ -494,8 +495,8 @@ BEGIN
 				AND StatusId NOT IN(-1, 101, 102, 103) -- Exclude Reject , Void, Refund
 				AND (
 					@DepositType = 2
-					OR (@DepositType = 0 AND (SiteId > 1000 OR SiteID = 509))
-					OR (@DepositType = 1 AND (SiteId < 1000 AND SiteID <> 509))
+					OR (@DepositType = 0 AND ((SiteId > 1000 OR SiteID < 50000) OR SiteID = 509))
+					OR (@DepositType = 1 AND ((SiteId <= 1000 OR SiteId >= 50000) AND SiteID <> 509))
 				)
 			GROUP BY RptDate, SiteId, BetType, CurrencyId
 
@@ -508,8 +509,8 @@ BEGIN
 				AND StatusId NOT IN(-1, 101, 102, 103) -- Exclude Reject , Void, Refund
 				AND (
 					@DepositType = 2
-					OR (@DepositType = 0 AND (SiteId > 1000 OR SiteID = 509))
-					OR (@DepositType = 1 AND (SiteId < 1000 AND SiteID <> 509))
+					OR (@DepositType = 0 AND ((SiteId > 1000 OR SiteID < 50000) OR SiteID = 509))
+					OR (@DepositType = 1 AND ((SiteId <= 1000 OR SiteId >= 50000) AND SiteID <> 509))
 				)
 			GROUP BY RptDate3rd, SiteId, BetTypeId, CurrencyId
 
@@ -528,8 +529,8 @@ BEGIN
 				,SUM(CASE WHEN bt.SubProduct NOT IN ('Prize','Lucky Draw','Bonus','Promotion') THEN CASE WHEN d.BetTypeId IN (4297, 4599) THEN d.ProgressiveContribution ELSE d.Winloss END * e.Rate ELSE 0 END) AS MemberWLDailyRate
 				,SUM(CASE WHEN bt.SubProduct NOT IN ('Prize','Lucky Draw','Bonus','Promotion') THEN CASE WHEN d.BetTypeId IN (4297, 4599) THEN d.ProgressiveContribution ELSE d.Winloss END * e.Rate * CASE WHEN p.LicenseeId IS NULL THEN 0.0 ELSE 1.0 END ELSE 0 END) AS MemberWLMonthRate
 				,SUM(CASE WHEN  bt.SubProduct IN ('Prize','Lucky Draw','Bonus','Promotion') THEN d.Winloss * e.Rate ELSE 0 END) AS BonusRate
-				,CASE	WHEN  d.SiteId < 1000 THEN 'Licensee'
-						WHEN  d.SiteId >= 1000 THEN CASE WHEN d.SiteID = @Site789y_lic THEN '789Y'  ELSE 'MBC' END 
+				,CASE	WHEN  (d.SiteId <= 1000 OR d.SiteId >= 50000) THEN 'Licensee'
+						WHEN  (d.SiteId > 1000 OR d.SiteId < 50000) THEN CASE WHEN d.SiteID = @Site789y_lic THEN '789Y'  ELSE 'MBC' END 
 						END 
 			FROM #__tempData d
 				INNER JOIN #__Bettype bt ON d.BetTypeId = bt.BetType
@@ -541,8 +542,8 @@ BEGIN
 				LEFT JOIN #__PlayCurrencySettings pc ON d.SiteId = pc.SiteId AND d.CurrencyId = pc.MemberCurrency AND d.rptDate BETWEEN pc.FromDate AND pc.ToDate
 				LEFT JOIN #__ValidBetRate v ON tp.IsDeposit = v.IsDeposit AND bt.Product3rdId = v.Product3rdId AND d.rptDate BETWEEN v.FromDate AND v.ToDate
 			GROUP BY d.rptDate, tp.ParentId, tp.IsDeposit, bt.Product3rdId, CASE WHEN d.BetTypeId = 3007 THEN 3007 ELSE 0 END, d.CurrencyId, ISNULL(pc.PlayCurrency, d.CurrencyId), 
-				CASE	WHEN  d.SiteId < 1000 THEN 'Licensee'
-						WHEN  d.SiteId >= 1000 THEN CASE WHEN d.SiteID = @Site789y_lic THEN '789Y'  ELSE 'MBC' END 
+				CASE	WHEN  (d.SiteId <= 1000 OR d.SiteId >= 50000) THEN 'Licensee'
+						WHEN  (d.SiteId > 1000 OR d.SiteId < 50000) THEN CASE WHEN d.SiteID = @Site789y_lic THEN '789Y'  ELSE 'MBC' END 
 						END 
 		END
 	END
