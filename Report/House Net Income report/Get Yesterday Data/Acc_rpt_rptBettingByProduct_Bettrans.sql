@@ -10,6 +10,7 @@ AS
 	Revisions:
 		- 20210413@Danny: Initialize SP [RedmineID: #151993]
 		- 20210914@Danny: Edit CB Winloss (#159045)
+		- 20231027@Danny: Change LicenseeID detection formulary of deposit licensee [#183209]
 
 	Exec [Acc_Rpt_rptBettingByProduct_Bettrans] '2021-05-12'
 
@@ -242,7 +243,7 @@ BEGIN
 		AND CurrencyId <> 20
 		AND CustomerCategory NOT IN (27, 28)
 		AND StatusId NOT IN (-1, 101, 102, 103)
-		AND SiteId < 1000 -- Deposit only
+		AND (SiteId <= 1000 OR SiteID >= 50000) -- Deposit only
 	GROUP BY rptDate, SiteId, CurrencyId, ProductId, CASE WHEN bettype = 1706 THEN 1706 ELSE -1 END
 
 	DROP TABLE #tmpData
