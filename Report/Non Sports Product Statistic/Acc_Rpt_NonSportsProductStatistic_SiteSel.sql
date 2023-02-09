@@ -62,7 +62,7 @@ BEGIN
 	(-3, 'Terminated Licensees', 0)
 
 	INSERT INTO #tmpCreditGroup(GroupId, GroupName, ParentId)
-	SELECT RANK() OVER(ORDER BY SiteLabel) * 1000000 RowID,SiteLabel, -1 ParentId
+	SELECT RANK() OVER(ORDER BY SiteLabel) * 1000000 RowID,SiteLabel, 0 ParentId
 	FROM (
 		SELECT DISTINCT SiteLabel
 		FROM bodb02.dbo.Site WITH(NOLOCK)
