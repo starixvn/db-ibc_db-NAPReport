@@ -58,7 +58,6 @@ BEGIN
 		OR p.GroupId IS NOT NULL	-- any child has valid parent id
 		
 	INSERT INTO #tmpGroup (GroupId, GroupName, ParentId) VALUES
-	(-1, 'Credit Group', 0),
 	(-2, 'Others', 0),
 	(-3, 'Terminated Licensees', 0)
 
@@ -106,11 +105,11 @@ BEGIN
 	-- Get Group
 	SELECT GroupId, GroupName, ParentId
 	FROM #tmpGroup 
+	UNION
+	SELECT GroupId, GroupName, ParentId 
+	FROM #tmpCreditGroup
 	
 	-- Get Site
-	SELECT GroupId LicenseeID, GroupName LicenseeName, ParentId GroupId
-	FROM #tmpCreditGroup
-	UNION
 	SELECT DISTINCT s.siteid LicenseeID, s.site LicenseeName, g.GroupId AS GroupId
 	FROM bodb02.dbo.Site s WITH(NOLOCK) 
 		INNER JOIN #tmpCreditGroup g ON s.SiteLabel = g.GroupName
