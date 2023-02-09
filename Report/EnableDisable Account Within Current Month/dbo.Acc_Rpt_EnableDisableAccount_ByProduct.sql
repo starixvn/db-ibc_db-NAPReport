@@ -52,6 +52,7 @@ AS
         - 20210811@Jaden: Integrate Bitcoin (#159046)
         - 20211203@Ned.Le: NAP Report - Tune report "Total Credit Accounts" (#165615)
         - 20210224@Cherry: Incorporate ONE RNG DCS (#168917)
+		- 20230206@Roy: NAP Report - Change the sport type of Macau (#183404)
 
     Param's Explanation:
         + @ListCurrency: The specified date used as one of the filter criterias, if its value is 'all' then no need to be filtered by currency
@@ -119,6 +120,7 @@ BEGIN
            END
     FROM bodb02.dbo.custInfo ci WITH (NOLOCK)
          INNER JOIN bodb02.dbo.CustSuper cs WITH (NOLOCK) ON ci.custid = cs.custid AND cs.IsInternal = 0
+		 INNER JOIN bodb02.dbo.vw_Customer c WITH (NOLOCK) ON ci.custid = c.custid
     WHERE ci.roleid = 4
           AND ci.Enabled = 1
           AND(@ListCurrency = 'all' OR ci.currency IN (SELECT val FROM dbo.strSplit(@ListCurrency, ',')))
@@ -128,15 +130,16 @@ BEGIN
           AND ci.username NOT LIKE '3rdSuper%'
           AND ci.username NOT LIKE 'STEST%'
           AND ci.username NOT LIKE '%ACCSuper%'
+		  AND c.site NOT IN ('CN88') --exclude site
 
     IF (@ShowEnabled = 1 AND @ShowDisabled = 0)
     BEGIN
-        DELETE FROM #FiltedCreditSuper WHERE SuperStatus = 1
+        DELETE FROM #FiltedCreditSuper WHERE ISNULL(SuperStatus,0) = 1
     END
 
     IF (@ShowEnabled = 0 AND @ShowDisabled = 1)
     BEGIN
-        DELETE FROM #FiltedCreditSuper WHERE SuperStatus = 0
+        DELETE FROM #FiltedCreditSuper WHERE ISNULL(SuperStatus,0) = 0
     END
 
     IF (@ShowEnabled = 0 AND @ShowDisabled = 0)
@@ -371,7 +374,7 @@ BEGIN
 
     SELECT cust.custid                  custid,
            cust.username                username,
-           sp.SuperStatus               IsDisable,
+           ISNULL(sp.SuperStatus,0)     IsDisable,
            e.currency                   currency,
            ISNULL(rs.MasterEnabled,  0) MasterEnabled,
            ISNULL(rs.MasterDisabled, 0) MasterDisabled,
