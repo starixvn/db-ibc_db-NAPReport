@@ -76,6 +76,7 @@ AS
         - 20210224@Cherry: Incorporate ONE RNG DCS (#168917)
         - 20220826@Cherry: Integrate SEAL Entertainment (#176391)
         - 20220927@Cherry: Integrate MG-RNG product (#177504)
+        - 20230206@Roy: NAP Report - Change the sport type of Macau (#183404)
 
     Param's Explanation:
         + @MoveBetsDay:  The day of moving bets to battrans14
@@ -165,11 +166,11 @@ BEGIN
 
     INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType)
     SELECT DISTINCT
-           212 SportGroupID,
-           'Macau Games' SportGroupName,
+           9906 SportGroupID,
+           'RNG Slot' SportGroupName,
            SportType
     FROM bodb02.dbo.ProductSettingDetail WITH (NOLOCK)
-    WHERE ProductID IN (22) AND Parent_ProductSettingID IS NULL
+    WHERE ProductID IN (18) AND Parent_ProductSettingID IS NULL
 
     ---------------
     -- #SportFilter
