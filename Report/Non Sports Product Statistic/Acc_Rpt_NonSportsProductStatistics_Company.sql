@@ -390,7 +390,7 @@ BEGIN
 				LEFT JOIN #tmpDep_CustSuper d ON c.srecommend = d.custid
 			WHERE c.roleid = 2 AND d.custid IS NULL
 	END
-	ELSE IF @Site = '789y'
+	ELSE IF @Site = '789y' AND @IsDrillDown = 1
 	BEGIN
 		INSERT INTO #recommend (SiteName, recommend, isDeposit)
 			SELECT c.site, c.custid, 0
