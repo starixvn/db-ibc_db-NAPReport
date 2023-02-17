@@ -1755,7 +1755,7 @@ BEGIN
 				CASE WHEN s.SiteLabel = '789y' THEN '789y' ELSE SiteName END,
 				CurrencyID,
 				Currency
-			ORDER BY IsDeposit, SiteName, Currency
+			ORDER BY IsDeposit, CASE WHEN s.SiteLabel = '789y' THEN '789y' ELSE SiteName END, Currency
 		END
 		ELSE
 		BEGIN
