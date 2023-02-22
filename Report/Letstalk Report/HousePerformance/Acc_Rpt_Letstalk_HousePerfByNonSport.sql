@@ -16,6 +16,7 @@ AS
 		20220916@Roy: Letstalk report ID #32, #34 - Add 8RM info & enhance the UI (#177825)
 		20221010@Roy: Letstalk reports - Enhance UI/UX for smartwatch devices (#178950)
 		20221010@Ned.Le: Email/Letstalk reports - Incorporate Player Tips product (#180653)
+		20230222@Roy: Email/Letstalk Reports - Move Table Games from RNG section to LOT/KENO area (#184192)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -167,7 +168,6 @@ BEGIN
 			,(6,'RNG','SabaC') --Saba Casino
 			,(34,'RNG','Arca') --Arcadia Gaming
 			,(32,'RNG','PP') --PP
-			,(40,'RNG','TabG') --Table Game
 			,(38,'RNG','VirtG') --Virtual Games
 			,(22,'RNG','Macau') --Macau Games
 			,(36,'RNG','SG') --SG
@@ -184,6 +184,7 @@ BEGIN
 			,(72,'RNG','SEAL') --Seal Entertainment
 			,(73,'RNG','MG') --MG-RNG
 			----------LOT/KENO----------
+			,(40,'LOT/KENO','TabG') --Table Game
 			,(8,'LOT/KENO','Mkeno') --RNG Keno
 			,(3,'LOT/KENO','NG') --Number Game -Combine NumG, Happy 5, Happy 5 LG into Number Game
 			,(28,'LOT/KENO','MLot') --Lottery
