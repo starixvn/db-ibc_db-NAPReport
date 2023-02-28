@@ -2,22 +2,19 @@
 ALTER PROCEDURE [dbo].[Acc_Rpt_NonSports_PayoutAlert]
 	@FromGMT8Time DATETIME
 	,@TimeInterval TINYINT = 1 --hour
-	,@TLV DECIMAL(19,4) = 400 --400%
-	,@MWinLV DECIMAL(19,4) = 10000
 AS
 /*
 	Created: 20210519@Roy
-	Task :	Detect the payout of 3rd products which reaches limit (400%)
+	Task :	Detect the payout of 3rd products which reaches limit
 	DB:		DBACC@bodb02
 	Revisions:
 		20210519@Roy: CWL - New Request to monitor game payout levels (#154598)
 		20221128@Roy: Payout Limit Notification - Set Bitcoin payout limit to 115% (#180940)
+		20230203@Roy: Game Payout Notification Letstalk - Support different notification level setting for specific group of products (#182931)
 
 	Param's Explanation:
 		@FromGMT8Time: start of time range in GMT+8 with format 2021-05-20 19:00:00
 		@TimeInterval: time interval in hour
-		@TLV: threshold limit value, the notification will send email to NSD if Game Payout reaches @TLV
-		@MWinLV: member win limit value
 			
 	Script:
 		EXEC Acc_Rpt_NonSports_PayoutAlert @FromGMT8Time = '2021-05-20 19:00:00'
@@ -26,8 +23,6 @@ AS
 BEGIN
 	SET NOCOUNT ON
 	
-	--Set Bitcoin payout limit to 115%
-	DECLARE @BitCoin_TLV DECIMAL(19,4) = 115 --115%
 	/*
 		Exclude Products
 		4	- SLI Live Casino
@@ -43,8 +38,78 @@ BEGIN
 		15	- Colossus Bet
 		23	- NG2
 		47	- BBIN
+		43	- Togel 4D
 	*/
-	DECLARE @ExcludeProduct VARCHAR(MAX) = '4,12,11,13,17,14,24,26,30,33,15,23,47'
+	DECLARE @ExcludeProduct VARCHAR(MAX) = '4,12,11,13,17,14,24,26,30,33,15,23,47,43'
+	
+	/*
+		Hard code Payout Limit by product
+		- ThresholdPCT: threshold percent, the notification will send email to NSD if Game Payout reaches it
+		- MinWin: total wins must be equal or greater this value
+	*/
+	CREATE TABLE #tmpProductLimit (
+		ProductID INT
+		,ProductName VARCHAR(50)
+		,ThresholdPCT DECIMAL(19,4)
+		,MinWin DECIMAL(19,4)
+	)
+	INSERT INTO #tmpProductLimit (
+		ProductID
+		,ProductName
+		,ThresholdPCT
+		,MinWin
+	)
+	SELECT ProductID
+		,ProductName
+		,ThresholdPCT
+		,MinWin
+	FROM (
+		VALUES
+			-------------Live Casino-------------
+			(45, 'AE Sexy', 111, 5000) --ProductID, ProductName, ThresholdPCT, MinWin
+			,(21, 'Allbet', 111, 5000)
+			,(57, 'BG', 111, 5000)
+			,(46, 'IBCBet Live Casino', 111, 5000)
+			,(52, 'ION', 111, 5000)
+			,(65, 'PP Live Casino', 111, 5000)
+			,(39, 'SA Gaming', 111, 5000)
+			,(51, 'WM	', 111, 5000)
+			
+			-------------RNG Game-------------
+			,(34, 'Arcadia Gaming', 120, 5000) --ProductID, ProductName, ThresholdPCT, MinWin
+			,(70, 'FGG', 120, 5000)
+			,(50, 'Funky Games', 120, 5000)
+			,(28, 'Lottery', 120, 5000)
+			,(60, 'MaxGame', 120, 5000)
+			,(3, 'Number Game', 120, 5000)
+			,(8, 'RNG Keno', 120, 5000)
+			,(42, 'SABA.games', 120, 5000)
+			,(63, 'Sports Lottery', 120, 5000)
+			,(40, 'Table Game', 120, 5000)
+			,(66, 'Vgaming', 120, 5000)
+			,(38, 'Virtual Games', 120, 5000)
+			
+			-------------Sport-------------
+			,(5, 'Virtual Sports', 108, 5000)
+			,(27, 'Virtual Sports 2', 108, 5000)
+			,(49, 'Virtual Sports 3', 108, 5000)
+			,(69, 'Bitcoin', 108, 5000)
+			
+			-------------Slot-------------
+			,(67, 'AdvantPlay', 300, 5000)
+			,(68, 'AdvantPlay Mini', 300, 5000)
+			,(62, 'CG', 300, 5000)
+			,(61, 'Habanero', 300, 5000)
+			,(56, 'Joker', 300, 5000)
+			,(22, 'Macau Games', 300, 5000)
+			,(6, 'Saba Casino', 300, 5000)
+			,(73, 'MG-RNG', 300, 5000)
+			,(55, 'PG Soft', 300, 5000)
+			,(32, 'PP', 300, 5000)
+			,(72, 'SEAL Entertainment', 300, 5000)
+			,(36, 'SG', 300, 5000)
+			,(75, 'Jili', 300, 5000)
+		) AS tmp (ProductID, ProductName, ThresholdPCT, MinWin)
 
 	DECLARE @isTest BIT = 0
 		,@From4GMTTime DATETIME
@@ -288,13 +353,14 @@ BEGIN
 		,po.GamePayout
 	FROM CTE_Payout AS po
 		LEFT JOIN #tmpProductBetType AS pb ON po.BetType = pb.BetType
-	WHERE GamePayout >= (CASE WHEN pb.ProductID = 69 THEN (@BitCoin_TLV / 100) ELSE (@TLV / 100) END)
-		AND po.TotalWinsRM >= @MWinLV
+		LEFT JOIN #tmpProductLimit AS pl ON pl.ProductID = pb.ProductID
+	WHERE po.GamePayout >= (ISNULL(pl.ThresholdPCT,200) / 100) --default 200%
+		AND po.TotalWinsRM >= ISNULL(pl.MinWin,5000) --default 5k
 	OPTION (RECOMPILE)
 	
 	---Return Result---
 	SELECT p.ProductName AS Product
-		,b.typenamee AS GameType	
+		,b.typenamee AS GameType
 		,r.BetCount
 		,r.TotalBetsRM
 		,r.TotalWinsRM
@@ -311,4 +377,5 @@ BEGIN
 	DROP TABLE #tmpNonSportSetting
 	DROP TABLE #tmpSpecialBetType
 	DROP TABLE #tmpMatch
+	DROP TABLE #tmpProductLimit
 END
