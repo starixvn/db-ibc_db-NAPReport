@@ -11,6 +11,7 @@ AS
 		- 20210413@Danny: Initialize SP [RedmineID: #151993]
 		- 20211102@Danny: SG integrate JP, Contribution (#166684)
 		- 20220325@Danny: Incorporate FGG (#170522)
+		- 20231027@Danny: Change LicenseeID detection formulary of deposit licensee [#183209]
 
 	 Param's Explanation:
 
@@ -37,6 +38,15 @@ BEGIN
 				[ValidBetAmount] [money] NULL
 				)
 	
+	DECLARE @RnGBettypeList TABLE(Bettype INT)
+	INSERT INTO @RnGBettypeList(Bettype)
+	SELECT bettype FROM OPENQUERY (DBLIC, 'SELECT	DISTINCT bettype FROM	bodb_licensee.dbo.LA_f_BettypeProductMapping(0,''FW,PP,CC,SG,JK,CG,MGRNG,JIG'') la')
+
+	DECLARE @LCBettypeList TABLE(Bettype INT)
+	INSERT INTO @LCBettypeList(Bettype)
+	SELECT bettype FROM OPENQUERY (DBLIC, 'SELECT	DISTINCT bettype FROM	bodb_licensee.dbo.LA_f_BettypeProductMapping(0,''AB,SXG,SAG,WM,PPL,FGGL'') la')
+
+
 	INSERT INTO #rpt_ThirdPartyWL_ExtraGMT(	RptDate,RptDate3rd ,SiteId,BetTypeId,CurrencyId,StatusId,Winloss,ProgressiveContribution,ValidBetAmount)
 	SELECT CAST(b.winlostdate AS DATE)	AS Rptdate,
 			CAST(b.Transdate3rd AS DATE)	AS RptDate3rd
@@ -55,15 +65,7 @@ BEGIN
 	WHERE b.winlostdate  BETWEEN @FDate AND  @TDate
 		AND b.Transdate3rd >= @Winlostdate AND b.Transdate3rd < @TDate
 		AND b.statusID NOT IN (0, 1, 101, 102, 121)
-		AND (b.gameID BETWEEN 1011 AND 1020 -- FW
-			OR b.gameID BETWEEN 4101 AND 4300 -- PP
-			OR b.gameID BETWEEN 6701 AND 7000 -- PP
-			OR b.gameID BETWEEN 1901 AND 1999 -- CC
-			OR b.gameID BETWEEN 4301 AND 4600 -- SG
-			OR b.gameID BETWEEN 6401 AND 6700 -- JK
-			OR  b.gameID BETWEEN 7301 AND 7600 -- CG
-			OR  b.gameID BETWEEN  8400 AND 8699 --MG-RNG
-		)
+		AND b.gameID IN (SELECT x.Bettype FROM @RnGBettypeList x)
 	GROUP BY CAST(b.winlostdate AS DATE), 
 			CAST(b.Transdate3rd AS DATE), 
 			ISNULL(site.SiteID, -1), 
@@ -96,15 +98,7 @@ BEGIN
 			)
 		)
 		AND b.statusID NOT IN (0, 1, 101, 102, 121)
-		AND (
-				b.gameID BETWEEN 2401 AND 2499 -- AllBet
-			OR  b.gameID BETWEEN 3101 AND 3150 -- SXG
-			OR  b.gameID BETWEEN 3001 AND 3099 -- SAG
-			OR  b.gameID BETWEEN 3401 AND 3499 -- WM
-			OR  b.gameID BETWEEN 3701 AND 3799 -- PPL
-			OR  b.gameID BETWEEN 5701 AND 5704 -- GDG
-			OR  b.gameID BETWEEN 8201 AND 8299 -- FGG
-			) 
+		AND b.gameID IN (SELECT x.Bettype FROM @LCBettypeList x)
 	GROUP BY CAST(b.winlostdate AS DATE), 
 			CASE WHEN b.gameID BETWEEN 5701 AND 5704 THEN CAST(b.winlostdate AS DATE) ELSE CAST(b.Transdate3rd AS DATE) END, 
 			ISNULL(site.SiteID, -1), CASE WHEN b.gameID BETWEEN 5701 AND 5704 THEN -59 ELSE b.gameID END
@@ -117,8 +111,8 @@ BEGIN
 		AND StatusId NOT IN(-1, 101, 102, 103) -- Exclude Reject , Void, Refund
 		AND (
 			@DepositType = 2
-			OR (@DepositType = 0 AND (SiteId > 1000 OR SiteID = 509))
-			OR (@DepositType = 1 AND (SiteId < 1000 AND SiteID <> 509))
+			OR (@DepositType = 0 AND ((SiteId > 1000 OR SiteId < 50000) OR SiteID = 509))
+			OR (@DepositType = 1 AND ((SiteId <= 1000 OR SiteId >= 50000) AND SiteID <> 509))
 		)
 	GROUP BY RptDate3rd, SiteId, BetTypeId, CurrencyId
 		
