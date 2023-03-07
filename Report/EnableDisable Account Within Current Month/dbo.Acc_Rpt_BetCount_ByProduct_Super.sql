@@ -77,6 +77,8 @@ AS
         - 20220826@Cherry: Integrate SEAL Entertainment (#176391)
         - 20220927@Cherry: Integrate MG-RNG product (#177504)
         - 20230206@Roy: NAP Report - Change the sport type of Macau (#183404)
+        - 20230116@Roy: NAP Report - Unify Lottery & Virtual Sports (#182921)
+        - 20230307@Roy: Customer Setting - Remove unused columns from Custinfo table (#179014)
 
     Param's Explanation:
         + @MoveBetsDay:  The day of moving bets to battrans14
@@ -158,7 +160,7 @@ BEGIN
 
     INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType)
     SELECT DISTINCT
-           180 SportGroupID,
+           9908 SportGroupID,
            'Virtual Sports' SportGroupName,
            SportType
     FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)
@@ -421,8 +423,9 @@ BEGIN
         INSERT INTO #FiltedDownlineAcc (CustID, IsDisable, BetStatus, BetCount)
         SELECT ci.custid,
                CASE WHEN @sportType = -1  THEN ci.DisableSuperLive
-                    WHEN @sportType = 255 THEN ci.DisableGoldDeluxe
-                    WHEN @sportType = 204 THEN ci.DisableColossusBet END,
+                    -- WHEN @sportType = 255 THEN ci.DisableGoldDeluxe
+                    -- WHEN @sportType = 204 THEN ci.DisableColossusBet
+				END,
                av.BetStatus,
                av.BetCount
         FROM bodb02.dbo.custInfo ci WITH (NOLOCK)

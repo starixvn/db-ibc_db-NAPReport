@@ -53,6 +53,7 @@ AS
         - 20211203@Ned.Le: NAP Report - Tune report "Total Credit Accounts" (#165615)
         - 20210224@Cherry: Incorporate ONE RNG DCS (#168917)
 		- 20230206@Roy: NAP Report - Change the sport type of Macau (#183404)
+		- 20230307@Roy: Customer Setting - Remove unused columns from Custinfo table (#179014)
 
     Param's Explanation:
         + @ListCurrency: The specified date used as one of the filter criterias, if its value is 'all' then no need to be filtered by currency
@@ -107,8 +108,8 @@ BEGIN
                                                             FROM bodb02.dbo.CustGameType gt WITH (NOLOCK, INDEX = PK_CustGameType)
                                                             WHERE gt.CustID = ci.CustID AND gt.IsDisabled = 0) THEN 0 ELSE 1 END
                 WHEN @sportType = -1  THEN ci.DisableSuperLive
-                WHEN @sportType = 255 THEN ci.DisableGoldDeluxe
-                WHEN @sportType = 204 THEN ci.DisableColossusBet
+                -- WHEN @sportType = 255 THEN ci.DisableGoldDeluxe
+                -- WHEN @sportType = 204 THEN ci.DisableColossusBet
                 WHEN @SportType = 211 THEN (SELECT CASE MIN(CONVERT(INT, f.value)) WHEN 0 THEN 0 ELSE 1 END
                                             FROM bodb02.dbo.CustProductStatus cps WITH (NOLOCK)
                                                  CROSS APPLY #BitmapOrder b
@@ -246,8 +247,9 @@ BEGIN
                ci.custid,
                ci.roleid,
                CASE WHEN @sportType = -1  THEN ci.DisableSuperLive
-                    WHEN @sportType = 255 THEN ci.DisableGoldDeluxe
-                    WHEN @sportType = 204 THEN ci.DisableColossusBet END
+                    -- WHEN @sportType = 255 THEN ci.DisableGoldDeluxe
+                    -- WHEN @sportType = 204 THEN ci.DisableColossusBet
+				END
         FROM bodb02.dbo.custInfo ci WITH (NOLOCK)
              INNER JOIN bodb02.dbo.CustMaster cm WITH (NOLOCK) ON ci.custid = cm.custid AND cm.IsInternal = 0
              INNER JOIN #FiltedCreditSuper sup ON ci.srecommend = sup.CustID
@@ -259,8 +261,9 @@ BEGIN
                ci.custid,
                ci.roleid,
                CASE WHEN @sportType = -1  THEN ci.DisableSuperLive
-                    WHEN @sportType = 255 THEN ci.DisableGoldDeluxe
-                    WHEN @sportType = 204 THEN ci.DisableColossusBet END
+                    -- WHEN @sportType = 255 THEN ci.DisableGoldDeluxe
+                    -- WHEN @sportType = 204 THEN ci.DisableColossusBet
+				END
         FROM bodb02.dbo.custInfo ci WITH (NOLOCK)
              INNER JOIN dbo.CustAgent ca WITH (NOLOCK) ON ci.custid = ca.custid AND ca.IsInternal = 0
              INNER JOIN #FiltedCreditSuper AS sup ON ci.srecommend = sup.CustID
@@ -272,8 +275,9 @@ BEGIN
                ci.custid,
                ci.roleid,
                CASE WHEN @sportType = -1  THEN ci.DisableSuperLive
-                    WHEN @sportType = 255 THEN ci.DisableGoldDeluxe
-                    WHEN @sportType = 204 THEN ci.DisableColossusBet END
+                    -- WHEN @sportType = 255 THEN ci.DisableGoldDeluxe
+                    -- WHEN @sportType = 204 THEN ci.DisableColossusBet
+				END
         FROM bodb02.dbo.custInfo ci WITH (NOLOCK)
              INNER JOIN #FiltedCreditSuper sup ON ci.srecommend = sup.CustID
         WHERE ci.Enabled = 1
