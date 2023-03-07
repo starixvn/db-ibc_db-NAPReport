@@ -424,7 +424,8 @@ BEGIN
         SELECT ci.custid,
                CASE WHEN @sportType = -1  THEN ci.DisableSuperLive
                     -- WHEN @sportType = 255 THEN ci.DisableGoldDeluxe
-                    WHEN @sportType = 204 THEN ci.DisableColossusBet END,
+                    -- WHEN @sportType = 204 THEN ci.DisableColossusBet
+				END,
                av.BetStatus,
                av.BetCount
         FROM bodb02.dbo.custInfo ci WITH (NOLOCK)
