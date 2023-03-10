@@ -62,11 +62,15 @@ BEGIN
 	(-3, 'Terminated Licensees', 0)
 
 	INSERT INTO #tmpCreditGroup(GroupId, GroupName, ParentId)
-	SELECT RANK() OVER(ORDER BY SiteLabel) * (-1000) RowID,SiteLabel, 0 ParentId
+	SELECT RANK() OVER(ORDER BY SiteLabel DESC) * (-10000) RowID,SiteLabel, 0 ParentId
 	FROM (
 		SELECT DISTINCT SiteLabel
 		FROM bodb02.dbo.Site WITH(NOLOCK)
-		WHERE isLicensee = 0) a
+		WHERE isLicensee = 0
+			AND SiteLabel IS NOT NULL) a
+
+	INSERT INTO #tmpCreditGroup(GroupId, GroupName, ParentId) VALUES
+	(-1000, 'Others', 0)
 	
 	-- Get terminated licensee
 	INSERT INTO #tmpLicensee (LicenseeId, LicenseeName, GroupId)
@@ -113,9 +117,10 @@ BEGIN
 		INNER JOIN #tmpCreditGroup g ON s.SiteLabel = g.GroupName
 	WHERE s.isLicensee = 0
 	UNION
-	SELECT -1 LicenseeID, s.site LicenseeName, 0 AS GroupId
+	SELECT -1 LicenseeID, s.site LicenseeName, -1000 AS GroupId
 	FROM bodb02.dbo.Site s WITH(NOLOCK) 
-	WHERE s.site = 'Saba789'
+	WHERE s.site = 'Saba789' 
+		OR (s.isLicensee = 0 AND s.SiteLabel IS NULL)
 	UNION
 	SELECT DISTINCT l.LicenseeId, l.LicenseeName, l.GroupId 			
 	FROM
