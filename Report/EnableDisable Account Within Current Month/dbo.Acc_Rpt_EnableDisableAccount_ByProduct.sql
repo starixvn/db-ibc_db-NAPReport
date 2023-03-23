@@ -54,6 +54,7 @@ AS
         - 20210224@Cherry: Incorporate ONE RNG DCS (#168917)
 		- 20230206@Roy: NAP Report - Change the sport type of Macau (#183404)
 		- 20230307@Roy: Customer Setting - Remove unused columns from Custinfo table (#179014)
+		- 20230323@Roy: NAP Report - Apply DCS Setting for Number Game & RNG Keno (#183627)
 
     Param's Explanation:
         + @ListCurrency: The specified date used as one of the filter criterias, if its value is 'all' then no need to be filtered by currency
@@ -103,10 +104,10 @@ BEGIN
 
     INSERT INTO #FiltedCreditSuper(CustID, SuperStatus)
     SELECT ci.custid,
-           CASE WHEN @sportType = 161 THEN ci.DisableNumber               
+           CASE /*WHEN @sportType = 161 THEN ci.DisableNumber               
                 WHEN @sportType = 202 THEN CASE WHEN EXISTS(SELECT TOP 1 1
                                                             FROM bodb02.dbo.CustGameType gt WITH (NOLOCK, INDEX = PK_CustGameType)
-                                                            WHERE gt.CustID = ci.CustID AND gt.IsDisabled = 0) THEN 0 ELSE 1 END
+                                                            WHERE gt.CustID = ci.CustID AND gt.IsDisabled = 0) THEN 0 ELSE 1 END */ --move Sporttype 202,161 to DCS (ProductStatusProfile)
                 WHEN @sportType = -1  THEN ci.DisableSuperLive
                 -- WHEN @sportType = 255 THEN ci.DisableGoldDeluxe
                 -- WHEN @sportType = 204 THEN ci.DisableColossusBet
@@ -161,7 +162,7 @@ BEGIN
 
     -- Gen data to temp table
     -- + [161] Number Game
-    IF (@sportType IN (161))
+    /*IF (@sportType IN (161))
     BEGIN
         -- -> Master
         INSERT INTO #FiltedDownlineAcc (SuperID, CustID, RoleID, IsDisable)
@@ -240,6 +241,9 @@ BEGIN
     END
     -- + [-1] Metric Gamming | [255] Gold Deluxe | [204] Colossus
     ELSE IF (@sportType IN (-1, 255, 204))
+	
+	*/ --move Sporttype 202,161 to DCS (ProductStatusProfile)
+	IF (@sportType IN (-1))
     BEGIN
         -- -> Master
         INSERT INTO #FiltedDownlineAcc (SuperID, CustID, RoleID, IsDisable)
