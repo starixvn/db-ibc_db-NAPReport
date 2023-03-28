@@ -59,6 +59,7 @@ AS
 		20220304@Cherry: Enhance username search for Non-sport games statistics report (#144260)
 		20220916@Cherry: Extend data type of Betfrom (#177655)
 		20220926@Cherry: Change param @Device from Betfrom to Betfromid (#164955)
+		20220118@Cherry: Split 789y (#182387)
 
 	Param's Explanation:
 		- @username:  + Search by keyword, member only
@@ -388,6 +389,16 @@ BEGIN
 			FROM dbo.Customer c WITH(NOLOCK)
 				LEFT JOIN #tmpDep_CustSuper d ON c.srecommend = d.custid
 			WHERE c.roleid = 2 AND d.custid IS NULL
+	END
+	ELSE IF @Site = '789y' AND @IsDrillDown = 1
+	BEGIN
+		INSERT INTO #recommend (SiteName, recommend, isDeposit)
+			SELECT c.site, c.custid, 0
+			FROM dbo.Customer c WITH(NOLOCK)
+				LEFT JOIN #tmpDep_CustSuper d ON c.srecommend = d.custid
+				LEFT JOIN bodb02.dbo.Site s WITH(NOLOCK) ON c.site = s.site 
+			WHERE c.roleid = 2 AND d.custid IS NULL
+				AND s.SiteLabel = '789y'
 	END
 	ELSE
 	BEGIN
@@ -1724,22 +1735,27 @@ BEGIN
 	BEGIN
 		IF @IsDrillDown = 0
 		BEGIN
-			SELECT IsDeposit,
-					SiteName AS ReportBy,
-					NoOfPlayers,
-					BetCount,
+			SELECT d.IsDeposit,
+					CASE WHEN s.SiteLabel = '789y' THEN '789y' ELSE SiteName END AS ReportBy,
+					SUM(NoOfPlayers) NoOfPlayers,
+					SUM(BetCount) BetCount,
 					CurrencyID,
 					Currency,
-					TotalBets,
-					TotalWins,
-					TotalRefund,
-					CompanyTurnOver AS HouseTurnOver,
-					RealTurnOver,
-					CompanyGrossIncome AS HouseGrossIncome,
-					CompanyComm AS HouseComm,
-					ExtraPT
-			FROM #Result
-			ORDER BY IsDeposit, SiteName, Currency
+					SUM(TotalBets) TotalBets,
+					SUM(TotalWins) TotalWins,
+					SUM(TotalRefund) TotalRefund,
+					SUM(CompanyTurnOver) HouseTurnOver,
+					SUM(RealTurnOver) RealTurnOver,
+					SUM(CompanyGrossIncome) HouseGrossIncome,
+					SUM(CompanyComm) HouseComm,
+					SUM(ExtraPT) ExtraPT
+			FROM #Result d
+				LEFT JOIN bodb02.dbo.Site s WITH(NOLOCK) ON d.SiteName = s.site
+			GROUP BY d.IsDeposit,
+				CASE WHEN s.SiteLabel = '789y' THEN '789y' ELSE SiteName END,
+				CurrencyID,
+				Currency
+			ORDER BY IsDeposit, CASE WHEN s.SiteLabel = '789y' THEN '789y' ELSE SiteName END, Currency
 		END
 		ELSE
 		BEGIN

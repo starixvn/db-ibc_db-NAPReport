@@ -16,6 +16,7 @@ AS
 		- 20200601@Cherry: Add Credit Site (#135009)
 		- 20210324@Cherry: Consider Saba789 as Credit site (#152124)
 		- 20210428@Cherry: Add LicenseeGroup (#153736)
+		- 20220118@Cherry: Split 789y (#182387)
 */
 
 BEGIN
@@ -24,16 +25,12 @@ BEGIN
 	CREATE TABLE #tmpProductID (
 			ProductID int
 		)
-	CREATE TABLE #tmpDep_CustSuper (CustID INT)
 	CREATE TABLE #tmpSite (LicenseeID INT, LicenseeName VARCHAR(50))
 	CREATE TABLE #tmpGroup (GroupId INT, GroupName VARCHAR(50), ParentId INT)
 	CREATE TABLE #tmpLicensee (LicenseeId INT, LicenseeName VARCHAR(50), GroupId INT)
 	CREATE TABLE #LA_CombinedGroup (GroupId INT, GroupName VARCHAR(50), PathCode VARCHAR(50))
 	CREATE TABLE #LA_CombinedGroupAssignment (GroupId INT, PartyId INT, GroupType INT)
-	
-	INSERT INTO #tmpDep_CustSuper (CustID)
-	SELECT custid
-	FROM DBWH.bodb_Account.dbo.vw_Dep_CustSuper WITH(NOLOCK)
+	CREATE TABLE #tmpCreditGroup (GroupId INT, GroupName VARCHAR(50), ParentId INT)
 	
 	INSERT INTO #tmpSite (LicenseeID, LicenseeName)
 	SELECT LicenseeID, LicenseeName
@@ -61,9 +58,19 @@ BEGIN
 		OR p.GroupId IS NOT NULL	-- any child has valid parent id
 		
 	INSERT INTO #tmpGroup (GroupId, GroupName, ParentId) VALUES
-	(-1, 'Credit Group', 0),
 	(-2, 'Others', 0),
 	(-3, 'Terminated Licensees', 0)
+
+	INSERT INTO #tmpCreditGroup(GroupId, GroupName, ParentId)
+	SELECT RANK() OVER(ORDER BY SiteLabel DESC) * (-10000) RowID,SiteLabel, 0 ParentId
+	FROM (
+		SELECT DISTINCT SiteLabel
+		FROM bodb02.dbo.Site WITH(NOLOCK)
+		WHERE isLicensee = 0
+			AND SiteLabel IS NOT NULL) a
+
+	INSERT INTO #tmpCreditGroup(GroupId, GroupName, ParentId) VALUES
+	(-1000, 'Others', 0)
 	
 	-- Get terminated licensee
 	INSERT INTO #tmpLicensee (LicenseeId, LicenseeName, GroupId)
@@ -100,12 +107,20 @@ BEGIN
 	-- Get Group
 	SELECT GroupId, GroupName, ParentId
 	FROM #tmpGroup 
+	UNION
+	SELECT GroupId, GroupName, ParentId 
+	FROM #tmpCreditGroup
 	
 	-- Get Site
-	SELECT DISTINCT -1 LicenseeID, c.site LicenseeName, -1 AS GroupId
-	FROM bodb02.dbo.Customer c WITH(NOLOCK)
-		LEFT JOIN #tmpDep_CustSuper d ON c.srecommend = d.custid
-	WHERE c.roleid = 2 AND d.custid IS NULL AND c.site IS NOT NULL
+	SELECT DISTINCT -1 LicenseeID, s.site LicenseeName, g.GroupId AS GroupId
+	FROM bodb02.dbo.Site s WITH(NOLOCK) 
+		INNER JOIN #tmpCreditGroup g ON s.SiteLabel = g.GroupName
+	WHERE s.isLicensee = 0
+	UNION
+	SELECT -1 LicenseeID, s.site LicenseeName, -1000 AS GroupId
+	FROM bodb02.dbo.Site s WITH(NOLOCK) 
+	WHERE s.site = 'Saba789' 
+		OR (s.isLicensee = 0 AND s.SiteLabel IS NULL)
 	UNION
 	SELECT DISTINCT l.LicenseeId, l.LicenseeName, l.GroupId 			
 	FROM
@@ -118,7 +133,7 @@ BEGIN
 	WHERE s.systemId = 3 
 
 	DROP TABLE #tmpProductID
-	DROP TABLE #tmpDep_CustSuper
+	DROP TABLE #tmpCreditGroup
 	DROP TABLE #tmpLicensee
 	DROP TABLE #tmpSite
 	DROP TABLE #LA_CombinedGroup
