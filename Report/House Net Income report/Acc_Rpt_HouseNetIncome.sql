@@ -21,6 +21,7 @@ AS
         20210616@Danny:  Support Licensee Performance view mode (#156727)
         20210803@Danny:  Change Data Source to retrieve yesterday data from Bettrans table (#151993)
         20230201@Ned.Le: Email/Letstalk reports- Change layout for the report id #1 & #2 (#183142)
+        20230315@Ned.Le: Email/Letstalk Report ID #01 - Implement new chart report for comparing monthly.Year To Date Winloss/Margin (#185000)
 
     Param's Explanation:
         @FromDate:         Begin date of data report
@@ -30,9 +31,11 @@ AS
         @DepositType:      0 - Credit Only
                            1 - Deposit Only
                            2 - All
-        @DataMode:         1 - Get data from ORI            table HNIResultDataset
-                           2 - Get data from UAT            table HNIResultDatasetUAT
-                           3 - Get data from MONTHLY BACKUP table HNIResultDataset_BK_Month
+        @DataMode:         1 - Get data from ORI                    | HNIResultDataset          | For using on daily processing
+                           2 - Get data from UAT                    | HNIResultDatasetUAT       | For using on UAT testing
+                           3 - Get data from MONTHLY BACKUP         | HNIResultDataset_BK_Month | For using on margin chart report
+                           4 - Get data from DAILY & MONTHLY BACKUP | HNIResultDataset_BK_Date  | For using on new chart report
+                                                                    | HNIResultDataset_BK_Month
 
     Example:
         EXEC bodb_dwrs.dbo.Acc_Rpt_HouseNetIncome '20210801', '20210818', 0, 'MYR', 2, 1
@@ -214,28 +217,172 @@ BEGIN
                         'FROM #tmpHNIResultDataset f'
 
         EXEC (@sqlQuery)
+    END
 
+    -- Get DAILY & MONTHLY BACKUP data for temp table
+    IF (@DataMode = 4)
+    BEGIN
+        -- + Prepare data
+        DECLARE @thisyear_end   DATE = @FromDate
+        DECLARE @thisyear_begin DATE = DATEADD(YY, DATEDIFF(YY, 0, @thisyear_end), 0)
+        DECLARE @lastyear_end   DATE = DATEADD(YY, -1, @thisyear_end)
+        DECLARE @lastyear_begin DATE = DATEADD(YY, DATEDIFF(YY, 0, @lastyear_end), 0)
+
+        CREATE TABLE #tmpCalendar (MonthOfYear VARCHAR(20), FirstDate DATE, LastDate DATE, isProcess BIT DEFAULT 0)
+        INSERT INTO  #tmpCalendar (MonthOfYear, FirstDate, LastDate)
+        SELECT DISTINCT
+               LEFT(CONVERT(VARCHAR(50), d.Month, 120), 7) MonthOfYear,
+               CAST(d.Month AS DATE) FirstDate,
+               CAST(DATEADD(MM, DATEDIFF(MM, -1, d.Month), -1) AS DATE) LastDate
+        FROM bodb_account.dbo.DimDate d WITH (NOLOCK)
+        WHERE (d.PK_Date >= @thisyear_begin AND d.PK_Date <= @thisyear_end) OR
+              (d.PK_Date >= @lastyear_begin AND d.PK_Date <= @lastyear_end)
+        ORDER BY MonthOfYear
+
+        -- + Process data
+        DECLARE @counttable INT = 0
+        DECLARE @firstdate  DATE
+        DECLARE @lastdate   DATE
+
+        WHILE (1=1)
+        BEGIN
+            -- + --> Check to break the loop
+            SELECT @counttable = COUNT(1) FROM #tmpCalendar WHERE isProcess = 0
+            IF (@counttable = 0) BREAK
+
+            -- + --> Gen data to variables
+            SELECT TOP 1 @firstdate = FirstDate,
+                         @lastdate  = LastDate
+            FROM #tmpCalendar
+            WHERE isProcess = 0
+            ORDER BY MonthOfYear
+            
+            -- + --> Get data from MONTHLY BACKUP table
+            IF (@firstdate <> @FromDate)
+            BEGIN
+                ;WITH CTE_Data AS (
+                    SELECT [FromDate],
+                           [ToDate],
+                           [isLicPerf],
+                           [BaseCurrencyName],
+                           [isDeposit], [OrderByProduct], [OrderByFigure], [SiteGroup], [ProductCategory], [ProductGroup], [ProductName], [ProductShortName], [Figure], [SubFigure],
+                           [Monthly], [MTD],
+                           [01], [02], [03], [04], [05], [06], [07], [08], [09], [10], [11], [12], [13], [14], [15], [16], [17], [18], [19], [20], [21], [22], [23], [24], [25], [26], [27], [28], [29], [30], [31],
+                           [CreateDate],
+                           DENSE_RANK() OVER(ORDER BY CreateDate DESC) CrateDate_Rank
+                    FROM bodb_account.dbo.HNIResultDataset_BK_Month (NOLOCK)
+                    WHERE [FromDate] = @firstdate
+                          AND [ToDate] = @lastdate
+                          AND [isLicPerf] = @IsLicPerf
+                          AND [BaseCurrencyName] = @BaseCurrencyName
+                          AND ((@DepositType = 2) OR ([isDeposit] = @DepositType))
+                )
+                INSERT INTO #tmpHNIResultDataset (
+                    [FromDate],
+                    [ToDate],
+                    [isLicPerf],
+                    [BaseCurrencyName],
+                    [isDeposit], [OrderByProduct], [OrderByFigure], [SiteGroup], [ProductCategory], [ProductGroup], [ProductName], [ProductShortName], [Figure], [SubFigure],
+                    [Monthly], [MTD],
+                    [01], [02], [03], [04], [05], [06], [07], [08], [09], [10], [11], [12], [13], [14], [15], [16], [17], [18], [19], [20], [21], [22], [23], [24], [25], [26], [27], [28], [29], [30], [31]
+                )
+                SELECT [FromDate],
+                       [ToDate],
+                       [isLicPerf],
+                       [BaseCurrencyName],
+                       [isDeposit], [OrderByProduct], [OrderByFigure], [SiteGroup], [ProductCategory], [ProductGroup], [ProductName], [ProductShortName], [Figure], [SubFigure],
+                       [Monthly], [MTD],
+                       [01], [02], [03], [04], [05], [06], [07], [08], [09], [10], [11], [12], [13], [14], [15], [16], [17], [18], [19], [20], [21], [22], [23], [24], [25], [26], [27], [28], [29], [30], [31]
+                FROM CTE_Data
+                WHERE CrateDate_Rank = 1
+            END
+
+            -- + --> Get data from DAILY BACKUP table
+            IF (@firstdate = @FromDate)
+            BEGIN
+                ;WITH CTE_Data AS (
+                    SELECT [FromDate],
+                           [ToDate],
+                           [isLicPerf],
+                           [BaseCurrencyName],
+                           [isDeposit], [OrderByProduct], [OrderByFigure], [SiteGroup], [ProductCategory], [ProductGroup], [ProductName], [ProductShortName], [Figure], [SubFigure],
+                           [Monthly], [MTD],
+                           [01], [02], [03], [04], [05], [06], [07], [08], [09], [10], [11], [12], [13], [14], [15], [16], [17], [18], [19], [20], [21], [22], [23], [24], [25], [26], [27], [28], [29], [30], [31],
+                           [CreateDate],
+                           DENSE_RANK() OVER(ORDER BY CreateDate DESC) CrateDate_Rank
+                    FROM bodb_account.dbo.HNIResultDataset_BK_Date (NOLOCK)
+                    WHERE [FromDate] = @firstdate
+                          AND [ToDate] = @lastdate
+                          AND [isLicPerf] = @IsLicPerf
+                          AND [BaseCurrencyName] = @BaseCurrencyName
+                          AND ((@DepositType = 2) OR ([isDeposit] = @DepositType))
+                )
+                INSERT INTO #tmpHNIResultDataset (
+                    [FromDate],
+                    [ToDate],
+                    [isLicPerf],
+                    [BaseCurrencyName],
+                    [isDeposit], [OrderByProduct], [OrderByFigure], [SiteGroup], [ProductCategory], [ProductGroup], [ProductName], [ProductShortName], [Figure], [SubFigure],
+                    [Monthly], [MTD],
+                    [01], [02], [03], [04], [05], [06], [07], [08], [09], [10], [11], [12], [13], [14], [15], [16], [17], [18], [19], [20], [21], [22], [23], [24], [25], [26], [27], [28], [29], [30], [31]
+                )
+                SELECT [FromDate],
+                       [ToDate],
+                       [isLicPerf],
+                       [BaseCurrencyName],
+                       [isDeposit], [OrderByProduct], [OrderByFigure], [SiteGroup], [ProductCategory], [ProductGroup], [ProductName], [ProductShortName], [Figure], [SubFigure],
+                       [Monthly], [MTD],
+                       [01], [02], [03], [04], [05], [06], [07], [08], [09], [10], [11], [12], [13], [14], [15], [16], [17], [18], [19], [20], [21], [22], [23], [24], [25], [26], [27], [28], [29], [30], [31]
+                FROM CTE_Data
+                WHERE CrateDate_Rank = 1
+            END
+
+            -- + --> Update data to continue the loop
+            UPDATE c
+            SET c.isProcess = 1
+            FROM #tmpCalendar c
+            WHERE c.FirstDate = @firstdate
+                  AND c.LastDate = @lastdate
+        END
+
+        -- + Drop data
+        DROP TABLE #tmpCalendar
     END
 
 
     ----------------------------
     -- SELECT data for report --
 
-    SET @sqlSupport = NULL
+    -- @DateMode=1|2|3
+    IF (@DataMode IN (1, 2, 3))
+    BEGIN
+        SET @sqlSupport = NULL
 
-    ;WITH CTE_RptDate AS (
-        SELECT ('f.[' + LEFT(CONVERT(VARCHAR(5), PK_DATE, 106), 2) + ']') RptDate
-        FROM bodb_Account.dbo.DimDate
-        WHERE PK_Date >= @FromDate AND PK_Date <= @ToDate
-    )
-    SELECT @sqlSupport = COALESCE(@sqlSupport + ', ' + RptDate, RptDate)
-    FROM CTE_RptDate
+        ;WITH CTE_RptDate AS (
+            SELECT ('f.[' + LEFT(CONVERT(VARCHAR(5), PK_DATE, 106), 2) + ']') RptDate
+            FROM bodb_Account.dbo.DimDate
+            WHERE PK_Date >= @FromDate AND PK_Date <= @ToDate
+        )
+        SELECT @sqlSupport = COALESCE(@sqlSupport + ', ' + RptDate, RptDate)
+        FROM CTE_RptDate
 
-    SET @sqlQuery = 'SELECT f.[isDeposit], f.[OrderByProduct], f.[OrderByFigure], f.[SiteGroup], f.[ProductCategory], f.[ProductGroup], f.[ProductName], f.[ProductShortName], f.[Figure], f.[SubFigure], f.[Monthly], f.[MTD], ' + @sqlSupport + CHAR(13) +
-                    'FROM #tmpHNIResultDataset f' + CHAR(13) +
-                    'ORDER BY f.[isDeposit], f.[SiteGroup], f.[OrderByProduct], f.[OrderByFigure]'
+        SET @sqlQuery = 'SELECT f.[isDeposit], f.[OrderByProduct], f.[OrderByFigure], f.[SiteGroup], f.[ProductCategory], f.[ProductGroup], f.[ProductName], f.[ProductShortName], f.[Figure], f.[SubFigure], f.[Monthly], f.[MTD], ' + @sqlSupport + CHAR(13) +
+                        'FROM #tmpHNIResultDataset f' + CHAR(13) +
+                        'ORDER BY f.[isDeposit], f.[SiteGroup], f.[OrderByProduct], f.[OrderByFigure]'
 
-    EXEC (@sqlQuery)
+        EXEC (@sqlQuery)
+    END
+
+    -- @DataMode=4
+    IF (@DataMode IN (4))
+    BEGIN
+        SELECT LEFT(CONVERT(VARCHAR(50), FromDate, 120), 7) [MonthOfYear],
+               [isDeposit], [OrderByProduct], [OrderByFigure], [SiteGroup], [ProductCategory], [ProductGroup], [ProductName], [ProductShortName], [Figure], [SubFigure],
+               [Monthly], [MTD],
+               [01], [02], [03], [04], [05], [06], [07], [08], [09], [10], [11], [12], [13], [14], [15], [16], [17], [18], [19], [20], [21], [22], [23], [24], [25], [26], [27], [28], [29], [30], [31]
+        FROM #tmpHNIResultDataset
+        ORDER BY [MonthOfYear], [isDeposit], [SiteGroup], [OrderByProduct], [OrderByFigure]
+    END
 
 
     ----------------------
