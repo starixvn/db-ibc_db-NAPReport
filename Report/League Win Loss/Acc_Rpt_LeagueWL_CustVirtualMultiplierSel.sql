@@ -14,6 +14,7 @@ AS
 	Revisions:
 		20200724@Roy  : NAP Report - SMA Win Loss Summary Report (#136629)
 		20200818@Jaden: NAP Report - New drilldown level for League Win Loss (#138955)
+		20230313@Jaden: Include Basketball VR (#184708)
 
 	Used by:
 		- [DBACC + DBDW] League WL report (by Super)
@@ -32,7 +33,7 @@ BEGIN
 		INNER JOIN bodb02.dbo.ProfileVirtualSetting AS pvs WITH (NOLOCK) 
 			ON cvs.seqNo = pvs.seqNo
 		WHERE cvs.custid = @CustID
-			AND pvs.sporttype NOT IN (43, 2) 
+			AND pvs.sporttype NOT IN (43) 
 			AND pvs.isActive = 1
 			AND pvs.bettype in (1,3) --only get Handicap, Over/Under
 	)

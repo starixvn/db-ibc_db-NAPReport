@@ -14,6 +14,7 @@ AS
 		- 20190702@Dominic: Not show E-Sports [RedmineID:#114830]
 		- 20200608@Cherry: Not show Basketball (#134978)
 		- 20220805@Jaden.Tang: Remove SELECT INTO #tmp pattern (#176082)
+		- 20230313@Jaden: Include Basketball VR (#184708)
 */
 BEGIN
 	DECLARE @XML XML  = NULL
@@ -49,7 +50,7 @@ BEGIN
 			ON	ci.custid = cvs.custid
 	INNER JOIN	ProfileVirtualSetting	AS pvs WITH(NOLOCK)
 			ON	cvs.seqNo = pvs.seqNo
-	WHERE pvs.isActive = 1 AND pvs.sporttype NOT IN (43, 2)
+	WHERE pvs.isActive = 1 AND pvs.sporttype NOT IN (43)
 	ORDER BY username, sporttype, islive DESC, bettype
 END
 
