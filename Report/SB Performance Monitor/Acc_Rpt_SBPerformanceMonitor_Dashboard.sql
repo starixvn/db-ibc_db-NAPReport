@@ -28,6 +28,7 @@ AS
 		- 20210705@Jaden.Tang: Enhance SB Performance, add more options (#157997)
 		- 20220419@Kean.Nguyen: Fix the way to determine HALF-WON|HALF_LOSE ticket (#171706)
     	- 20220711@Jaden.Tang: Dynamic half win/lose check (#175205)
+		- 20230111@Jaden: Split 789Y Site (#182497)
 
 	Param's Explanation:
 		- @fromDate: Range date to get data for report
@@ -150,13 +151,20 @@ BEGIN
 	
 	CREATE UNIQUE CLUSTERED INDEX PK_tmpMatch ON #tmpMatch(matchid, matchtype)
 
+    DECLARE @O789yID INT --ID of original 789Y
+    SELECT @O789yID = MIN(SiteID) FROM bodb02.dbo.Site WITH (NOLOCK) WHERE SiteLabel = '789Y'
+
 	-- #tmpAgent
 	CREATE TABLE #tmpAgent (CustID INT,
 							SiteID INT)
 	
 	INSERT INTO #tmpAgent (CustID, SiteID)
 	SELECT c.CustId CustID, 
-		   s.siteid SiteID
+		    -- Use @O789yID (usually 3) to represent site group 789Y, we groups all child sites of 789Y (y789, y889...) into 789Y
+			-- In drilldown reports, we hard-code checking @siteID = @O789yID to find all child sites
+			-- Note that the record of site 789Y is no longer active, but it can still be used for reference
+		   CASE WHEN s.SiteLabel = '789Y' THEN @O789yID
+		   		ELSE s.siteid END SiteID
 	FROM bodb02.dbo.Customer c (NOLOCK)
 		 LEFT JOIN bodb02.dbo.Site s (NOLOCK) ON c.site = s.site
 	WHERE c.RoleID = 2
@@ -277,7 +285,7 @@ BEGIN
 	)
 	INSERT INTO #tmpFinal (SiteID, SiteName, SportID, SportName, LeagueID, LeagueName, CustID, CustName, BetCount, RealIncome, RealTurnover, RealMargin)
 	SELECT cte.SiteID,
-		   si.site SiteName,
+		   CASE WHEN cte.SiteID = @O789yID THEN si.SiteLabel ELSE si.site END SiteName,
 		   cte.SportID,
 		   CASE WHEN cte.SportID = -9 THEN 'Parlay' ELSE sp.SportName END SportName,
 		   cte.LeagueID,

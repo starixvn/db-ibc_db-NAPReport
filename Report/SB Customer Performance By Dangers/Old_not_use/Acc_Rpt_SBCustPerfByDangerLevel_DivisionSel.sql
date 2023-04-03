@@ -8,6 +8,7 @@ AS
 
 	Revisions:
 		20210105@Roy: NAP Report - Implement Top Punter report (#145833)
+		20220119@Jaden.Tang: use Acc_Rpt_SiteList instead (#182497)
 		
 	Param's Explanation:
 	

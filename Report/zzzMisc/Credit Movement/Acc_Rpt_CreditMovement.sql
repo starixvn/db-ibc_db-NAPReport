@@ -12,6 +12,7 @@ AS
     Revisions: 
 		- 20150602@Sophia: remove unused code
 		- 20190405@Patrick: Support archive date range [Redmine: #111476]
+		- 20230111@Jaden: Split 789Y Site (#182497) - @SiteList as list of names
 
 	Param's Explanation:
 
@@ -25,20 +26,18 @@ AS
 BEGIN 
 	SET NOCOUNT ON 
 
-	DECLARE @CreditMovement AS TABLE (TransDate DATETIME, ExchangeId INT, Currency VARCHAR(100), Site VARCHAR(10), RoleId TINYINT,
+	DECLARE @CreditMovement AS TABLE (TransDate DATETIME, ExchangeId INT, Currency VARCHAR(100), Site NVARCHAR(50), RoleId TINYINT,
 									  srecommend INT, mrecommend INT, recommend INT, CustId INT,
 									  SuperName VARCHAR(30), MasterName VARCHAR(30), AgentName VARCHAR(30), CustomerName VARCHAR(30),
 									  Amount MONEY, BaseAmount MONEY )
 
-	CREATE TABLE #site (SiteID int, Sitename VARCHAR(30))
+	CREATE TABLE #site (Sitename NVARCHAR(50))
 	
 	IF @SiteList <> 'ALL'
 	BEGIN 
-		INSERT INTO #site(SiteID, Sitename)
-		SELECT	s.siteid, s.site
-		FROM	bodb02.dbo.site s WITH(NOLOCK)
-		INNER JOIN bodb02.dbo.strSplit(@sitelist,',') t 
-				ON s.siteid = CONVERT(INT,t.val)
+		INSERT INTO #site(Sitename)
+		SELECT	t.val
+		FROM bodb02.dbo.strSplit(@sitelist,',') t
 	END
 	
 	DECLARE @__archiveDate DATETIME
