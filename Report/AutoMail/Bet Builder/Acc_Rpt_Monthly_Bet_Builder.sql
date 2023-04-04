@@ -15,7 +15,6 @@ AS
 		20200210@Cherry: Initial (#128002)
 		20210504@Jaden: Use SP to get balanceup & movebets (#154116)
 		20220110@Roy: Automail Report - Tune sp performance of Bet Builder repo (#167198)
-		20220907@Jaden: Change betfrom datatype (#177202)
 
 	Param's Explanation:	 
 */
@@ -34,7 +33,7 @@ AS
 		 , DateTimePlaced    DATETIME
 		 , WinLostDate       SMALLDATETIME
 		 , NoOfLegsPerBet    SMALLMONEY
-		 , Betfrom           NVARCHAR(5)
+		 , Betfrom           VARCHAR(1)
 		 , Odds              SMALLMONEY
 		 , Currency          INT
 		 , Stake             MONEY
@@ -53,14 +52,14 @@ AS
 		    , @balanceupdate    SMALLDATETIME
 
 	   DECLARE @BetFrom TABLE(
-		   Betfrom        NVARCHAR(5)
+		   Betfrom        VARCHAR(1)
 		 , DeviceGroup    VARCHAR(20));
 
 	   DECLARE @ExchangeOANDA TABLE(
 		   ExchangeDate    DATE
 		 , ExchangeID      INT
 		 , Rate            FLOAT
-		 , Code            VARCHAR(12));
+		 , Code            VARCHAR(5));
 
 	   INSERT INTO @BetFrom(Betfrom
 					  , DeviceGroup)
