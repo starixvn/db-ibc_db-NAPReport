@@ -53,7 +53,7 @@ BEGIN
 		, @balanceupdate    DATETIME
 
     DECLARE @BetFrom TABLE(
-	    Betfrom        VARCHAR(1)
+	    Betfrom        NVARCHAR(5)
 	  , DeviceGroup    VARCHAR(20));
 
     DECLARE @ExchangeOANDA TABLE(
