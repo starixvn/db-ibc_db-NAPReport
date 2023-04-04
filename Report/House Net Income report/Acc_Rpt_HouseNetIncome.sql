@@ -22,6 +22,7 @@ AS
         20210803@Danny:  Change Data Source to retrieve yesterday data from Bettrans table (#151993)
         20230201@Ned.Le: Email/Letstalk reports- Change layout for the report id #1 & #2 (#183142)
         20230315@Ned.Le: Email/Letstalk Report ID #01 - Implement new chart report for comparing monthly.Year To Date Winloss/Margin (#185000)
+        20230403@Ned.Le: House Net Income Email/Letstalk Reports - Enhance the solution when regenerating new Data into our Data Source (#186350)
 
     Param's Explanation:
         @FromDate:         Begin date of data report
@@ -31,11 +32,13 @@ AS
         @DepositType:      0 - Credit Only
                            1 - Deposit Only
                            2 - All
-        @DataMode:         1 - Get data from ORI                    | HNIResultDataset          | For using on daily processing
+        @DataMode:         1 - Get data from ORI                    | HNIResultDataset          | For using on default daily and monthly data processing
                            2 - Get data from UAT                    | HNIResultDatasetUAT       | For using on UAT testing
-                           3 - Get data from MONTHLY BACKUP         | HNIResultDataset_BK_Month | For using on margin chart report
-                           4 - Get data from DAILY & MONTHLY BACKUP | HNIResultDataset_BK_Date  | For using on new chart report
+                           3 - Get data from MONTHLY BACKUP         | HNIResultDataset_BK_Month | For using on daily margin MTD chart report
+                           4 - Get data from DAILY & MONTHLY BACKUP | HNIResultDataset_BK_Date  | For using on new monthly YTD chart report
                                                                     | HNIResultDataset_BK_Month
+                           5 - Get full data from DAILY BACKUP      | HNIResultDataset_BK_Date  | For using when need to get old DAILY BACKUP snapshot data
+                           6 - Get full data from MONTHLY BACKUP    | HNIResultDataset_BK_Month | For using when need to get old MONTHLY BACKUP snapshot data
 
     Example:
         EXEC bodb_dwrs.dbo.Acc_Rpt_HouseNetIncome '20210801', '20210818', 0, 'MYR', 2, 1
@@ -107,7 +110,7 @@ BEGIN
         [31]               DECIMAL(19,4)
     )
 
-    -- Get PRO data for temp table
+    -- [@DataMode = 1] For using on default daily and monthly data processing
     IF (@DataMode = 1)
     BEGIN
         INSERT INTO #tmpHNIResultDataset (
@@ -134,7 +137,7 @@ BEGIN
               AND ((@DepositType = 2) OR ([isDeposit] = @DepositType))
     END
 
-    -- Get UAT data for temp table
+    -- [@DataMode = 2] For using on UAT testing
     IF (@DataMode = 2)
     BEGIN
         INSERT INTO #tmpHNIResultDataset (
@@ -161,7 +164,7 @@ BEGIN
               AND ((@DepositType = 2) OR ([isDeposit] = @DepositType))
     END
 
-    -- Get MONTHLY BACKUP data for temp table
+    -- [@DataMode = 3] For using on daily margin MTD chart report
     IF (@DataMode = 3)
     BEGIN
         -- + Gen data to temp table
@@ -219,7 +222,7 @@ BEGIN
         EXEC (@sqlQuery)
     END
 
-    -- Get DAILY & MONTHLY BACKUP data for temp table
+    -- [@DataMode = 4] For using on new monthly YTD chart report
     IF (@DataMode = 4)
     BEGIN
         -- + Prepare data
@@ -349,12 +352,92 @@ BEGIN
         DROP TABLE #tmpCalendar
     END
 
+    -- [@DataMode = 5] For using when need to get old DAILY BACKUP snapshot data
+    IF (@DataMode = 5)
+    BEGIN
+        ;WITH CTE_Data AS (
+            SELECT [FromDate],
+                   [ToDate],
+                   [isLicPerf],
+                   [BaseCurrencyName],
+                   [isDeposit], [OrderByProduct], [OrderByFigure], [SiteGroup], [ProductCategory], [ProductGroup], [ProductName], [ProductShortName], [Figure], [SubFigure],
+                   [Monthly], [MTD],
+                   [01], [02], [03], [04], [05], [06], [07], [08], [09], [10], [11], [12], [13], [14], [15], [16], [17], [18], [19], [20], [21], [22], [23], [24], [25], [26], [27], [28], [29], [30], [31],
+                   [CreateDate],
+                   DENSE_RANK() OVER(ORDER BY CreateDate DESC) CrateDate_Rank
+            FROM bodb_account.dbo.HNIResultDataset_BK_Date (NOLOCK)
+            WHERE [FromDate] = @FromDate
+                  AND [ToDate] = @ToDate
+                  AND [isLicPerf] = @IsLicPerf
+                  AND [BaseCurrencyName] = @BaseCurrencyName
+                  AND ((@DepositType = 2) OR ([isDeposit] = @DepositType))
+        )
+        INSERT INTO #tmpHNIResultDataset (
+            [FromDate],
+            [ToDate],
+            [isLicPerf],
+            [BaseCurrencyName],
+            [isDeposit], [OrderByProduct], [OrderByFigure], [SiteGroup], [ProductCategory], [ProductGroup], [ProductName], [ProductShortName], [Figure], [SubFigure],
+            [Monthly], [MTD],
+            [01], [02], [03], [04], [05], [06], [07], [08], [09], [10], [11], [12], [13], [14], [15], [16], [17], [18], [19], [20], [21], [22], [23], [24], [25], [26], [27], [28], [29], [30], [31]
+        )
+        SELECT [FromDate],
+               [ToDate],
+               [isLicPerf],
+               [BaseCurrencyName],
+               [isDeposit], [OrderByProduct], [OrderByFigure], [SiteGroup], [ProductCategory], [ProductGroup], [ProductName], [ProductShortName], [Figure], [SubFigure],
+               [Monthly], [MTD],
+               [01], [02], [03], [04], [05], [06], [07], [08], [09], [10], [11], [12], [13], [14], [15], [16], [17], [18], [19], [20], [21], [22], [23], [24], [25], [26], [27], [28], [29], [30], [31]
+        FROM CTE_Data
+        WHERE CrateDate_Rank = 1
+    END
+
+    -- [@DataMode = 6] For using when need to get old MONTHLY BACKUP snapshot data
+    IF (@DataMode = 6)
+    BEGIN
+        ;WITH CTE_Data AS (
+            SELECT [FromDate],
+                   [ToDate],
+                   [isLicPerf],
+                   [BaseCurrencyName],
+                   [isDeposit], [OrderByProduct], [OrderByFigure], [SiteGroup], [ProductCategory], [ProductGroup], [ProductName], [ProductShortName], [Figure], [SubFigure],
+                   [Monthly], [MTD],
+                   [01], [02], [03], [04], [05], [06], [07], [08], [09], [10], [11], [12], [13], [14], [15], [16], [17], [18], [19], [20], [21], [22], [23], [24], [25], [26], [27], [28], [29], [30], [31],
+                   [CreateDate],
+                   DENSE_RANK() OVER(ORDER BY CreateDate DESC) CrateDate_Rank
+            FROM bodb_account.dbo.HNIResultDataset_BK_Month (NOLOCK)
+            WHERE [FromDate] = @FromDate
+                  AND [ToDate] = @ToDate
+                  AND [isLicPerf] = @IsLicPerf
+                  AND [BaseCurrencyName] = @BaseCurrencyName
+                  AND ((@DepositType = 2) OR ([isDeposit] = @DepositType))
+        )
+        INSERT INTO #tmpHNIResultDataset (
+            [FromDate],
+            [ToDate],
+            [isLicPerf],
+            [BaseCurrencyName],
+            [isDeposit], [OrderByProduct], [OrderByFigure], [SiteGroup], [ProductCategory], [ProductGroup], [ProductName], [ProductShortName], [Figure], [SubFigure],
+            [Monthly], [MTD],
+            [01], [02], [03], [04], [05], [06], [07], [08], [09], [10], [11], [12], [13], [14], [15], [16], [17], [18], [19], [20], [21], [22], [23], [24], [25], [26], [27], [28], [29], [30], [31]
+        )
+        SELECT [FromDate],
+               [ToDate],
+               [isLicPerf],
+               [BaseCurrencyName],
+               [isDeposit], [OrderByProduct], [OrderByFigure], [SiteGroup], [ProductCategory], [ProductGroup], [ProductName], [ProductShortName], [Figure], [SubFigure],
+               [Monthly], [MTD],
+               [01], [02], [03], [04], [05], [06], [07], [08], [09], [10], [11], [12], [13], [14], [15], [16], [17], [18], [19], [20], [21], [22], [23], [24], [25], [26], [27], [28], [29], [30], [31]
+        FROM CTE_Data
+        WHERE CrateDate_Rank = 1
+    END
+
 
     ----------------------------
     -- SELECT data for report --
 
-    -- @DateMode=1|2|3
-    IF (@DataMode IN (1, 2, 3))
+    -- @DateMode=1|2|3|5|6
+    IF (@DataMode IN (1, 2, 3, 5, 6))
     BEGIN
         SET @sqlSupport = NULL
 
