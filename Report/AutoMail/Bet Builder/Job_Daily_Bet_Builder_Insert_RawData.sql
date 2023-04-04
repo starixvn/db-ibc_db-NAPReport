@@ -13,7 +13,6 @@ AS
 	Revisions:		
 		- 20190527@Robert: Bet Builder - Daily Automail report to 3rd [#114248]
 		- 20210504@Jaden: Use SP to get balanceup & movebets (#154116)
-		- 20220907@Jaden: Change betfrom datatype (#177202)
 
 	Param's Explanation:	   
 				    - @IsCaptureData:
@@ -35,7 +34,7 @@ BEGIN
 	  , MarketId          VARCHAR(20)
 	  , DateTimePlaced    DATETIME
 	  , NoOfLegsPerBet    SMALLMONEY
-	  , Betfrom           NVARCHAR(5)
+	  , Betfrom           VARCHAR(1)
 	  , Odds              SMALLMONEY
 	  , Currency          INT
 	  , Stake             MONEY
