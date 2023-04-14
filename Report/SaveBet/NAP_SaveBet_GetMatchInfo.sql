@@ -39,7 +39,7 @@ BEGIN
 			LEFT JOIN bodb02.dbo.team a with (nolock) ON m.awayid = a.teamid
 		WHERE
 			matchid = @matchid
-	ELSE EXISTS (SELECT matchid FROM bodb02.dbo.match14 WITH(NOLOCK) WHERE matchid = @matchid)
+	ELSE IF EXISTS (SELECT matchid FROM bodb02.dbo.match14 WITH(NOLOCK) WHERE matchid = @matchid)
 		SELECT
 			s.sportname,
 			s.SportType,
