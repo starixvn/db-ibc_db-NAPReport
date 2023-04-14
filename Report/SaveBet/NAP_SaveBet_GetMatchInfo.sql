@@ -11,6 +11,7 @@ AS
 	
 	Revisions:
 		20210423@Roy: NAP Report - Move Save bet db & service (#153147)
+		20230414@Roy: Support - Generate Automail Report (#186908)
 */
 
 BEGIN
@@ -38,7 +39,7 @@ BEGIN
 			LEFT JOIN bodb02.dbo.team a with (nolock) ON m.awayid = a.teamid
 		WHERE
 			matchid = @matchid
-	ELSE ---Get data from bettrans14---
+	ELSE EXISTS (SELECT matchid FROM bodb02.dbo.match14 WITH(NOLOCK) WHERE matchid = @matchid)
 		SELECT
 			s.sportname,
 			s.SportType,
@@ -53,6 +54,27 @@ BEGIN
 			IsNull(betstatus, '') betstatus
 		FROM
 			bodb02.dbo.match14 m with (nolock)
+			INNER JOIN bodb02.dbo.league l with (nolock) ON m.leagueid = l.leagueid
+			INNER JOIN bodb02.dbo.sports s with (nolock) ON l.sporttype = s.sporttype
+			INNER JOIN bodb02.dbo.team h with (nolock) ON m.homeid = h.teamid
+			INNER JOIN bodb02.dbo.team a with (nolock) ON m.awayid = a.teamid
+		WHERE
+			matchid = @matchid
+	ELSE
+		SELECT
+			s.sportname,
+			s.SportType,
+			m.eventdate, m.matchid,
+			m.matchcode, l.leaguename,
+			h.teamname Home, a.teamname Away,
+			'FT:' + CAST(finalhomescore as varchar(10)) + '-' + CAST(finalawayscore as varchar(10)) FT,
+			'HT:' + CAST(hthomescore as varchar(10)) + '-' + CAST(htawayscore as varchar(10)) HT,
+			IsNull(GoalRecord, '') Goal,
+			CASE LEFT (IsNull(GoalRecord, ''), 1) WHEN 'H' THEN 'FG:Home' WHEN 'A' THEN 'FG:Away' ELSE 'No Goal' END FG,
+			CASE RIGHT(IsNull(GoalRecord, ''), 1) WHEN 'H' THEN 'LG:Home' WHEN 'A' THEN 'LG:Away' ELSE '' END LG,
+			IsNull(betstatus, '') betstatus
+		FROM
+			bodb_archive.dbo.match_bk m with (nolock)
 			INNER JOIN bodb02.dbo.league l with (nolock) ON m.leagueid = l.leagueid
 			INNER JOIN bodb02.dbo.sports s with (nolock) ON l.sporttype = s.sporttype
 			INNER JOIN bodb02.dbo.team h with (nolock) ON m.homeid = h.teamid

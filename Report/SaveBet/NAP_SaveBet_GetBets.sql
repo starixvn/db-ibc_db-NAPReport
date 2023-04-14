@@ -33,6 +33,7 @@ AS
 		- 20220321@Jaden: Cricket phase 2 - Save Bet (#170213)
 		- 20221125@Roy: Defer Gen File After Match Complete (#180910)
 		- 20221129@Roy: NAP Report - Save Bet Report out of memory (#180701)
+		- 20230414@Roy: Support - Generate Automail Report (#186908)
 	
 	Param's Explanation:
 		@IsDeposit: seperate IsDeposit only for soccer. 1:Deposit; 0:Credit; 2: All match
@@ -54,10 +55,16 @@ BEGIN
 			FROM bodb02.dbo.match WITH(NOLOCK)
 			WHERE matchid = @matchid
 			
-			UNION ALL
+			UNION
 			
 			SELECT kickofftime, GlobalShowTime
 			FROM bodb02.dbo.match14 WITH(NOLOCK)
+			WHERE matchid = @matchid
+			
+			UNION
+			
+			SELECT kickofftime, GlobalShowTime
+			FROM bodb_archive.dbo.match_bk WITH (NOLOCK)
 			WHERE matchid = @matchid
 		) m
 	END
@@ -91,11 +98,13 @@ BEGIN
 
 	DECLARE @homeid INT
 	,@awayid INT
-	,@EventDate DATETIME
-	,@MoveBetsDay DATETIME
+	,@EventDate SMALLDATETIME
+	,@MoveBetsDay SMALLDATETIME
+	,@BalanceUpDay SMALLDATETIME
 
 	---Get MoveBetsDay---
 	SELECT @MoveBetsDay = MoveBetsDay
+		,@BalanceUpDay = BalanceUpDay
 	FROM OPENQUERY(DBACC, 'EXEC bodb02.dbo.Age_SelBalanceUpDay')
 	
 	---Get match info---
@@ -113,6 +122,14 @@ BEGIN
 			,homeid
 			,awayid
 		FROM bodb02.dbo.match14 WITH (NOLOCK)
+		WHERE matchid = @matchid
+		
+		UNION
+		
+		SELECT eventdate
+			,homeid
+			,awayid
+		FROM bodb_archive.dbo.match_bk WITH (NOLOCK)
 		WHERE matchid = @matchid
 	)
 	SELECT @homeid = MAX(homeid)
@@ -199,7 +216,8 @@ BEGIN
 				 		END
 					ELSE NULL END = tm.teamid
 			LEFT JOIN bodb02.dbo.Dep_CustSuper AS d WITH (NOLOCK) ON b.srecommend = d.custid
-		WHERE b.matchid = @matchid 
+		WHERE b.winlostdate = @EventDate
+			AND b.matchid = @matchid 
 			AND b.bettype = @bettype
 			AND b.liveindicator = @liveindicator
 			AND (@IsDeposit NOT IN (0,1) OR @IsDeposit = (CASE WHEN d.custid IS NULL THEN 0 ELSE 1 END))
@@ -207,7 +225,7 @@ BEGIN
 		ORDER BY b.betteam, b.transid
 		OPTION(RECOMPILE, USE HINT('DISALLOW_BATCH_MODE'))
 	END
-	ELSE ---Get data from bettrans14---
+	ELSE IF @EventDate BETWEEN @MoveBetsDay AND @BalanceUpDay
 	BEGIN
 		SELECT
 			0 positiontaking, 
@@ -275,6 +293,84 @@ BEGIN
 				 		END
 					ELSE NULL END = tm.teamid
 			LEFT JOIN bodb02.dbo.Dep_CustSuper AS d WITH (NOLOCK) ON b.srecommend = d.custid
+		WHERE b.winlostdate = @EventDate
+			AND b.matchid = @matchid 
+			AND b.bettype = @bettype
+			AND b.liveindicator = @liveindicator
+			AND (@IsDeposit NOT IN (0,1) OR @IsDeposit = (CASE WHEN d.custid IS NULL THEN 0 ELSE 1 END))
+			AND (@Half NOT IN (1,2) OR @Half = (CASE WHEN b.transdate <= @1HTime THEN 1 ELSE 2 END))
+		ORDER BY b.betteam, b.transid
+		OPTION(RECOMPILE, USE HINT('DISALLOW_BATCH_MODE'))
+	END
+	ELSE
+	BEGIN
+		SELECT
+			0 positiontaking, 
+			0 comm,
+			0 awinlost,
+			b.livehomescore, 
+			b.liveawayscore,
+			CASE
+				WHEN b.status = 'reject' THEN '(reject) ' + cr.username
+				WHEN b.status = 'void' THEN '(void) ' + cr.username
+				WHEN b.custid <> b.creator THEN cr.username
+				ELSE '' END creator, 
+			cr.username,
+			b.odds, 
+			e.Currency, 
+			b.stake,
+			b.hdp1,
+			b.hdp2, 
+			b.transdate, 
+			b.transid, 
+			betcheck, 
+			CASE WHEN ISNULL(t.bettype,0)<> 0 THEN b.transdesc ELSE  b.betteam  END betteam ,
+			b.betfrom
+			,b.stake * (1- b.tpositiontaking) cpstake
+			,CAST(b.actualrate as DECIMAL(9,6)) actualrate
+			,CAST(b.virtualrate as DECIMAL(9,6)) virtualrate
+			,b.oddsspread
+			,@homeid homeid
+			,@awayid awayid
+			,b.betid
+			,b.betcheck
+
+			,CASE WHEN dep.CustID IS NULL THEN 'C' ELSE 'L' END as [site] --credit / lisencee
+			,ar.type as [bot]
+			,REPLACE(LTRIM(RTRIM(
+				CASE WHEN ci.danger > 0 THEN 'Ori@' + cast(ci.danger as varchar(3)) ELSE '' END
+				+ CASE WHEN ci.danger2 > 0 THEN ' ABI@' + cast(ci.danger2 as varchar(3)) ELSE '' END
+				+ CASE WHEN ci.danger4 > 0 THEN ' Basket@' + cast(ci.danger4 as varchar(3)) ELSE '' END 
+				+ CASE WHEN ci.danger5 > 0 THEN ' E-Sport@' + cast(ci.danger5 as varchar(3)) ELSE '' END 
+				+ CASE WHEN ci.danger3 > 0 THEN ' O.Sport@' + cast(ci.danger3 as varchar(3)) ELSE '' END 
+			)), ' ', ', ') [dgr]
+			,ci.CustomerClass as [CC]
+			,bi.OriginalOdds as [ori.odds]
+			,CASE 
+			WHEN ISNULL(b.actualrate, 0) = 0 THEN 0 
+			ELSE Round(((b.virtualrate - b.actualrate) / b.actualrate) * 100, 0) END as [var]
+			,CASE
+			WHEN b.bettype IN (1, 3) and agent.site = '76666B' THEN b.oddsspread
+			ELSE NULL END as '%'
+			,tm.teamname
+		FROM
+			bodb_archive.dbo.bettrans_bk b with (nolock)	
+			INNER JOIN bodb02.dbo.customer cr with (nolock) ON b.creator = cr.custid
+			LEFT JOIN @MetricBettype t ON b.bettype = t.bettype	
+			INNER JOIN bodb02.dbo.customer agent with (nolock) ON b.recommend = agent.custid
+			LEFT JOIN bodb02..Dep_CustSuper AS dep WITH(NOLOCK) ON cr.srecommend = dep.CustId
+			LEFT JOIN #abnormalOrRobotUsers ar ON b.custid = ar.custid
+			INNER JOIN bodb02.dbo.custInfo ci WITH (NOLOCK) ON b.custid = ci.custid
+			LEFT JOIN bodb02.dbo.BettransInfo14 bi WITH (NOLOCK) ON b.transid = bi.transid
+			LEFT JOIN bodb02.dbo.team tm WITH (NOLOCK) 
+				ON CASE WHEN ISNUMERIC(REPLACE(b.transdesc, ' ', '')) = 1 /*ISNUMERIC('123,456') => 1*/
+					THEN
+						CASE WHEN CHARINDEX(',', b.transdesc) = 0 THEN b.transdesc
+				 			ELSE LEFT(b.transdesc, ISNULL(CHARINDEX(',', b.transdesc) - 1, 0))
+				 		END
+					ELSE NULL END = tm.teamid
+			LEFT JOIN bodb02.dbo.Dep_CustSuper AS d WITH (NOLOCK) ON b.srecommend = d.custid
+			LEFT JOIN bodb02.dbo.exchange AS e WITH(NOLOCK) ON b.currency = e.exchangeid
 		WHERE b.winlostdate = @EventDate
 			AND b.matchid = @matchid 
 			AND b.bettype = @bettype
