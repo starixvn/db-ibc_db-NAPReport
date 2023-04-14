@@ -11,7 +11,7 @@ AS
 	
 	Revisions:
 		20210423@Roy: NAP Report - Move Save bet db & service (#153147)
-		20230414@Roy: Support - Generate Automail Report (#186908)
+		20230414@Roy: Support - Generate history data of Save Bet report (#186908)
 */
 
 BEGIN

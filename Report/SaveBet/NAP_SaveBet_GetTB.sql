@@ -20,7 +20,7 @@ AS
 		- 20210329@Jaden: add forecast the result with Real figures (#152290)
 		- 20210423@Roy: NAP Report - Move Save bet db & service (#153147)
 		- 20221129@Roy: NAP Report - Save Bet Report out of memory (#180701)
-		- 20230414@Roy: Support - Generate Automail Report (#186908)
+		- 20230414@Roy: Support - Generate history data of Save Bet report (#186908)
 	
 	Param's Explanation:
 		@IsDeposit: seperate IsDeposit only for soccer. 1:Deposit; 0:Credit; 2: All match

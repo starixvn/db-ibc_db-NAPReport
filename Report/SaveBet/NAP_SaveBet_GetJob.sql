@@ -1,6 +1,6 @@
 /*<info serverAlias="DBWH-bodb_dwrs" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[NAP_SaveBet_GetJob]
-	@MatchID INT,
+	@MatchID INT = 0,
 	@GroupSports INT = 0
 AS
 
@@ -18,7 +18,7 @@ AS
 	   20180719@Tom:Enhance_the_flow_get_Virtual_Sport(98520)
 	   20210423@Roy: NAP Report - Move Save bet db & service (#153147)
 	   20221129@Roy: NAP Report - Save Bet Report out of memory (#180701)
-	   20230414@Roy: Support - Generate Automail Report (#186908)
+	   20230414@Roy: Support - Generate history data of Save Bet report (#186908)
 		
 */
 
@@ -29,6 +29,25 @@ BEGIN
 	DECLARE @imsGenerateTime INT=1000*60*60 --60 minutes
 		,@SportType INT
 		,@Eventdate DATE
+	
+	IF @MatchID = 0
+	BEGIN
+		;WITH CTE_MatchList
+		AS (
+		SELECT TOP 1  MatchID,GenerateTime
+		FROM bodb_Account.dbo.MatchList ml WITH(ROWLOCK) 				  
+		WHERE JobGenerated = 1 AND JobFinished = 0 AND (GenerateTime IS NULL OR DATEDIFF(ms,GenerateTime,GETDATE())>@imsGenerateTime)
+					AND (
+						(@GroupSports = 0 AND (ml.sporttype = 1))
+						OR (@GroupSports = 1 AND ml.sporttype > 1 AND ml.SportType <100)
+						OR (@GroupSports = 2 AND ml.sporttype > 99)
+						) 
+		ORDER BY ml.EventDate ASC
+		)
+		UPDATE CTE_MatchList WITH(ROWLOCK,UPDLOCK)
+		SET GenerateTime=GETDATE()
+			,@MatchID = MatchID;
+	END;
 	
 	;WITH CTE AS (
 		SELECT l.SportType
@@ -58,7 +77,7 @@ BEGIN
 		,JobType VARCHAR(10)
 	)
 	
-	IF EXISTS (SELECT MatchID FROM bodb_Account.dbo.ServiceJob s WITH(NOLOCK) WHERE MatchID = @MatchID)
+	IF EXISTS (SELECT MatchID FROM bodb_Account.dbo.ServiceJob WITH(NOLOCK) WHERE MatchID = @MatchID)
 	BEGIN
 		INSERT INTO #tmpServiceJob (
 			JobID
@@ -172,6 +191,7 @@ BEGIN
 		DROP TABLE IF EXISTS #tmpSJob
 		DROP TABLE IF EXISTS #MatchBettype
 	END
+	
 	--seperate IsDeposit/Half only for soccer
 	IF @SportType = 1
 	BEGIN

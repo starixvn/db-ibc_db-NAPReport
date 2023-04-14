@@ -15,7 +15,7 @@ AS
 		- 20170612@Percy: check bettype of Cash Out [RedmineID: #78160]
 		- 20190308@Robert: #109822 - NAP Report - Integrate Bet Builder
 		- 20210423@Roy: NAP Report - Move Save bet db & service (#153147)
-		- 20230414@Roy: Support - Generate Automail Report (#186908)
+		- 20230414@Roy: Support - Generate history data of Save Bet report (#186908)
 */
 
 BEGIN
