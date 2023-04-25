@@ -11,6 +11,7 @@ AS
 		- 20210413@Danny: Initialize SP [RedmineID: #151993]
 		- 20210914@Danny: Edit CB Winloss (#159045)
 		- 20231027@Danny: Change LicenseeID detection formulary of deposit licensee [#183209]
+		- 20230414@Danny: New Commercial Terms for 12B (#186505)
 
 	Exec [Acc_Rpt_rptBettingByProduct_Bettrans] '2021-05-12'
 
@@ -238,6 +239,7 @@ BEGIN
 			,Comm			= SUM(CASE WHEN ProductId = 31 THEN CommissionP + CommissionA ELSE 0 END)
 			,LicenseeWL		= -SUM(MemberWL)
 			,LicenseeTO		= SUM(Turnover)
+			,ExchangePlayerComm	= SUM(CASE WHEN ProductId = 31 THEN CommissionP ELSE 0 END)
 	FROM #rpt_BettingByProduct WITH (NOLOCK)
 	WHERE ProductId IN (10, 11, 15, 31)
 		AND CurrencyId <> 20

@@ -41,6 +41,7 @@ AS
 		- 20221003@Danny: Integrate MGRNG product and restructure code (#177505)
 		- 20221121@Danny: Integrate Player Tips Product (#180653)
 		- 20221206@Danny: Incorporate Saba E-Sports PinGoal (#181261)
+		- 20230414@Danny: New Commercial Terms for 12B (#186505)
 */
 BEGIN
 	SET NOCOUNT ON
@@ -80,7 +81,8 @@ BEGIN
 			@CC_PayToSupplier	MONEY, 
 			@CC_Bonus			MONEY,
 			@SQL_licperf			VARCHAR(MAX) = '',
-			@SB_HouseIncome_total	MONEY
+			@SB_HouseIncome_total	MONEY,
+			@ExchaneFomularCutoff DATE	= '2023-05-01'
 
 	DECLARE @Product3rd TABLE (Product3rdId INT, ProductPrefix VARCHAR(10))
 	DECLARE @Products TABLE (ProductId INT, Product3rdId INT, AliasProductId INT, ProductCode VARCHAR(50), SubProductCode VARCHAR(50), IsPayToSupplier BIT DEFAULT (0), isOnlyTO BIT DEFAULT (0))
@@ -132,8 +134,9 @@ BEGIN
 		,FullContribution	MONEY DEFAULT(0) -- FullContribution
 		,LicenseeTO			MONEY DEFAULT(0) 
 		,LicenseeWL			MONEY DEFAULT(0) -- General formula -(winlost - actual_stake)
+		,ExchangePlayerComm MONEY DEFAULT(0)
 	)
-	CREATE TABLE #__BettingByProduct (rptDate DATE, LicenseeId INT, CurrencyId INT, Product3rdId INT, BetTypeGroup INT, ValidBetAmount MONEY, MemberWL MONEY, Comm MONEY, LicenseeWL MONEY, LicenseeTO MONEY)
+	CREATE TABLE #__BettingByProduct (rptDate DATE, LicenseeId INT, CurrencyId INT, Product3rdId INT, BetTypeGroup INT, ValidBetAmount MONEY, MemberWL MONEY, Comm MONEY, LicenseeWL MONEY, LicenseeTO MONEY, ExchangePlayerComm MONEY)
 	CREATE TABLE #__tempResult
 	(
 		rptDate				DATETIME
@@ -593,7 +596,7 @@ BEGIN
 		IF EXISTS (SELECT 1 FROM @Products WHERE Product3rdId IN (10, 11, 15, 31))
 		BEGIN
 			SELECT @Exec_rpt_BettingByProduct = '
-			SELECT rptDate, SiteId, CurrencyId, ProductId, BetTypeGroup, ValidBetAmount, MemberWL, Comm, LicenseeWL, LicensesTO
+			SELECT rptDate, SiteId, CurrencyId, ProductId, BetTypeGroup, ValidBetAmount, MemberWL, Comm, LicenseeWL, LicensesTO, ExchangePlayerComm
 			FROM OPENQUERY (DBLIC,''	
 								SELECT  rptDate, SiteId, CurrencyId, ProductId
 										,BetTypeGroup	= CASE WHEN bettype = 1706 THEN 1706 ELSE -1 END
@@ -602,6 +605,7 @@ BEGIN
 										,Comm			= SUM(CASE WHEN ProductId = 31 THEN CommissionP + CommissionA ELSE 0 END)
 										,LicenseeWL		= -SUM(MemberWL)
 										,LicensesTO		= SUM(Turnover)
+										,ExchangePlayerComm = SUM(CASE WHEN ProductId = 31 THEN CommissionP ELSE 0 END)
 									FROM bodb_LicenseeReport.dbo.rpt_BettingByProduct WITH (NOLOCK)
 									WHERE rptDate BETWEEN ''''' + CONVERT(VARCHAR(10),@FDateGetData,120) +''''' AND ''''' + CONVERT(VARCHAR(10),@TDateGetData,120) +'''''
 										AND ProductId IN (10, 11, 15, 31)
@@ -611,17 +615,17 @@ BEGIN
 									GROUP BY rptDate, SiteId, CurrencyId, ProductId, CASE WHEN bettype = 1706 THEN 1706 ELSE -1 END
 								'')
 			'
-			INSERT INTO #__BettingByProduct (rptDate, LicenseeId, CurrencyId, Product3rdId, BetTypeGroup, ValidBetAmount, MemberWL, Comm, LicenseeWL, LicenseeTO)
+			INSERT INTO #__BettingByProduct (rptDate, LicenseeId, CurrencyId, Product3rdId, BetTypeGroup, ValidBetAmount, MemberWL, Comm, LicenseeWL, LicenseeTO, ExchangePlayerComm)
 			EXEC (@Exec_rpt_BettingByProduct)
 
 			IF @isGetDataFromBettrans = 1 AND @ToDate = @yesterday
 			BEGIN
-				INSERT INTO #__BettingByProduct (rptDate, LicenseeId, CurrencyId, Product3rdId, BetTypeGroup, ValidBetAmount, MemberWL, Comm, LicenseeWL, LicenseeTO)
+				INSERT INTO #__BettingByProduct (rptDate, LicenseeId, CurrencyId, Product3rdId, BetTypeGroup, ValidBetAmount, MemberWL, Comm, LicenseeWL, LicenseeTO, ExchangePlayerComm)
 				EXEC DBEXT.bodb02.dbo.Acc_rpt_rptBettingByProduct_Bettrans @winlostdate = @yesterday
 			END
 
-			INSERT INTO #__tempData (rptDate, SiteId_DW, CurrencyId, Product3rdId, AliasProductId, BetTypeGroup, ValidBetAmount, MemberWL, Comm, LicenseeWL, LicenseeTO)
-			SELECT b.rptDate, s.SiteId_DW, b.CurrencyId, b.Product3rdId, p.AliasProductId, b.BetTypeGroup, b.ValidBetAmount, b.MemberWL, b.Comm, b.LicenseeWL, b.LicenseeTO
+			INSERT INTO #__tempData (rptDate, SiteId_DW, CurrencyId, Product3rdId, AliasProductId, BetTypeGroup, ValidBetAmount, MemberWL, Comm, LicenseeWL, LicenseeTO, ExchangePlayerComm)
+			SELECT b.rptDate, s.SiteId_DW, b.CurrencyId, b.Product3rdId, p.AliasProductId, b.BetTypeGroup, b.ValidBetAmount, b.MemberWL, b.Comm, b.LicenseeWL, b.LicenseeTO, b.ExchangePlayerComm
 			FROM #__BettingByProduct b
 				INNER JOIN @Products p ON b.Product3rdId = p.Product3rdId AND p.Product3rdId IN (10, 11, 15, 31)
 				INNER JOIN #tmpSite s ON b.LicenseeId = s.LicenseeId
@@ -851,7 +855,7 @@ BEGIN
 											WHEN t.Product3rdId = 27 THEN 0.065 -- VS2
 											WHEN t.Product3rdId = 34 AND t.BetTypeGroup NOT IN (-1,-4) THEN ISNULL(v.ChargeRate3rd, 0)
 											ELSE ISNULL(ISNULL(rd.Rate, v.ChargeRate3rd), 0) END
-									+ CASE WHEN t.Product3rdId = 31 THEN t.Comm ELSE 0 END) * e.Rate)
+									+ CASE WHEN t.Product3rdId = 31 THEN CASE WHEN @FDate >= @ExchaneFomularCutoff THEN  t.ExchangePlayerComm *  ISNULL(ISNULL(rd.Rate, v.ChargeRate3rd), 0) ELSE  t.Comm END ELSE 0 END) * e.Rate)
 			,PayToSupplierMonth	= SUM((t.MemberWL *
 										CASE
 											WHEN p.PartyId IS NULL AND (t.Product3rdId NOT IN (8, 22) OR rd.PartyId IS NULL) THEN 0
@@ -863,7 +867,7 @@ BEGIN
 											WHEN t.Product3rdId = 27 THEN 0.065 -- VS2
 											WHEN t.Product3rdId = 34 AND t.BetTypeGroup NOT IN (-1,-4) THEN ISNULL(v.ChargeRate3rd, 0)
 											ELSE ISNULL(rd.Rate, 0) END
-									+ CASE WHEN t.Product3rdId = 31 THEN t.Comm ELSE 0 END) * e.Rate)
+									+ CASE WHEN t.Product3rdId = 31 THEN CASE WHEN @FDate >= @ExchaneFomularCutoff THEN  t.ExchangePlayerComm *  ISNULL(ISNULL(rd.Rate, v.ChargeRate3rd), 0) ELSE  t.Comm END ELSE 0 END) * e.Rate)
 			,FullContribution	= SUM(CASE WHEN t.BetTypeGroup = -3 THEN t.FullContribution ELSE 0 END * e.Rate)
 			,JackpotPrize		= SUM(CASE WHEN t.BetTypeGroup = -3 THEN -t.MemberWL ELSE 0 END * e.Rate)
 			,HouseTurnover		= SUM(CASE 
