@@ -47,6 +47,7 @@ Revisions:
     - 20220321@Ned.Le: NAP Report - Integrate FGG & new bettypes Cricket (#170213)
 	- 20220726@Roy: NAP Report - Scale out & new transid (#175707)
 	- 20220829@Roy: NAP Report - Enhancement for duplicated ticket (#177204)
+	- 20230420@Roy: NAP Report - Enhancements on Duplicate Tickets Report (#186675)
 	                   
 Param's Explanation:
 	- @CheckTime : The time we consider how long the job fails (Compared the last run with the current time).
@@ -179,40 +180,56 @@ BEGIN
 	END
 	ELSE  ----> Get report from new table*/
 	-- BEGIN 	
+	CREATE TABLE #tmpBetfrom (
+		betfrom VARCHAR(5)
+		,fullname VARCHAR(50)
+	)
+	INSERT INTO #tmpBetfrom (
+		betfrom
+		,fullname
+	)
+	SELECT betfrom
+		,fullname
+	FROM OPENQUERY(DBWH, 'SELECT DISTINCT betfrom, fullname FROM bodb_account.dbo.tbl_Betfrom WITH (NOLOCK)')
 
-		DECLARE @DateFrom DATETIME
-		SELECT @DateFrom = DATEADD(dd, 0, DATEDIFF(dd, 0, @Date) ) -- get begin of the day (just in case param input time also)
+	DECLARE @DateFrom DATETIME
+	SELECT @DateFrom = DATEADD(dd, 0, DATEDIFF(dd, 0, @Date) ) -- get begin of the day (just in case param input time also)
+	
+	SELECT b.custid
+		,b.odds
+		,b.stake
+		,b.balance
+		,b.STATUS
+		,b.statusID
+		,b.bettype
+		,b.winlostdate
+		,b.username
+		,b.transid AS refno
+		,CONVERT(BIGINT,(CASE WHEN b.Bettype IN (901,902,903,904,911) THEN b.RefNo WHEN b.Bettype = 29 THEN b.hdp1 ELSE 0 END)) AS refnoGroup
+		,b.transdate AS bettime
+		,bt.typenamee AS typename
+		,b.transdesc
+		,b.matchid
+		,b.ip
+		,ISNULL(CAST(b.WalletType AS SMALLINT),-1) AS WalletType
+		,b.betteam
+		,b.oddsid
+		,bf.fullname AS betfrom
+		,c.site AS sitename
+	FROM	dbo.DuplicatedTicket t WITH (NOLOCK)	
+		INNER JOIN bodb02.dbo.Bettrans b WITH (NOLOCK)	
+				ON b.TransID = t.TransID
+		INNER JOIN bodb02.dbo.bettype bt WITH (NOLOCK) 
+				ON bt.typeid = b.bettype
+		LEFT JOIN #tmpBetfrom AS bf ON b.betfrom = bf.betfrom
+		LEFT JOIN bodb02.dbo.vw_Customer AS c ON b.custid = c.custid
+	WHERE	t.Transdate >= @DateFrom 
+		AND t.Transdate < DATEADD(dd, 1, DATEDIFF(dd, 0, @DateFrom))
+		AND b.statusID NOT IN (101,102,103)
+		AND b.bettype NOT IN (500) -- exclude 500 - charged commission
+	ORDER BY b.custid, b.odds, b.stake, b.balance, b.bettype, b.winlostdate, b.Username,b.refno, b.transid, b.transdate, b.status, b.statusID
+	OPTION (RECOMPILE)
 		
-		SELECT b.custid
-			,b.odds
-			,b.stake
-			,b.balance
-			,b.STATUS
-			,b.statusID
-			,b.bettype
-			,b.winlostdate
-			,b.username
-			,b.transid AS refno
-			,CONVERT(BIGINT,(CASE WHEN b.Bettype IN (901,902,903,904,911) THEN b.RefNo WHEN b.Bettype = 29 THEN b.hdp1 ELSE 0 END)) AS refnoGroup
-			,b.transdate AS bettime
-			,bt.typenamee AS typename
-			,b.transdesc
-			,b.matchid
-			,b.ip
-			,ISNULL(CAST(b.WalletType AS SMALLINT),-1) AS WalletType
-			,b.betteam
-			,b.oddsid
-		FROM	dbo.DuplicatedTicket t WITH (NOLOCK)	
-			INNER JOIN bodb02.dbo.Bettrans b WITH (NOLOCK)	
-					ON b.TransID = t.TransID
-			INNER JOIN bodb02.dbo.bettype bt WITH (NOLOCK) 
-					ON bt.typeid = b.bettype
-		WHERE	t.Transdate >= @DateFrom 
-			AND t.Transdate < DATEADD(dd, 1, DATEDIFF(dd, 0, @DateFrom))
-			AND b.statusID NOT IN (101,102,103)
-			AND b.bettype NOT IN (500) -- exclude 500 - charged commission
-		ORDER BY b.custid, b.odds, b.stake, b.balance, b.bettype, b.winlostdate, b.Username,b.refno, b.transid, b.transdate, b.status, b.statusID
-		OPTION (RECOMPILE)
-
+	DROP TABLE #tmpBetfrom
 	-- END
 END
