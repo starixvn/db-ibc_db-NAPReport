@@ -17,6 +17,7 @@ AS
 	Revisions:
 		20210615@Ned.Le: NAP Report - Change the way to get close/suspend (#156803)
 		20220805@Jaden.Tang: Remove SELECT INTO #tmp pattern (#176082)
+        20220509@Ned.Le: Nap Report - Total SMA and Member Active: Datatype is Wrong (HotFix #187919)
 	
 	Param's Explanation:
 		@fromdate: begin date to get data for report
@@ -189,10 +190,10 @@ BEGIN
 
 	CREATE TABLE #result (
 		roleid INT,
-		sitename VARCHAR(30),
-		ActiveCnt BIT,
-		SuspendedCnt BIT,
-		ClosedCnt BIT
+		sitename VARCHAR(50),
+		ActiveCnt INT,
+		SuspendedCnt INT,
+		ClosedCnt INT
 	)
 
 	INSERT INTO #result
