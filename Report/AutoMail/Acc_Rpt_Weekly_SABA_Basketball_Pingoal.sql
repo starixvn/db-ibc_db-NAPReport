@@ -14,6 +14,7 @@ AS
 	 
 	 Revisions:
 	 - 20230411@Jaden: Init
+   - 20230510@Jaden: Add draw, non-live
 	 */
 BEGIN
 
@@ -31,7 +32,7 @@ BEGIN
     SELECT leagueid
          , leaguename
       FROM bodb02..league WITH (nolock)
-     WHERE leaguename LIKE '%Saba Basketball PinGoal%' AND isTest <> 1
+     WHERE LeagueGroupid =122 AND isTest <> 1
 
     CREATE TABLE #data_basketball
     (
@@ -91,10 +92,9 @@ BEGIN
         ON mc.matchid = m.matchid AND m.sporttype = 2
      WHERE winlostdate > @MovebetsDay
        AND winlostdate <= @Todate
-       AND mc.statusid IN (112, 113)
+       AND mc.statusid IN (111,112,113)
        AND mc.currency <> 20
        AND m.leagueid IN (SELECT leagueid FROM #league)
-       AND liveindicator = 1
     OPTION (RECOMPILE)
 
     --Bettrans14 data-------------------------------------------------------------------------------------------------------------------------------------------------
@@ -130,17 +130,20 @@ BEGIN
         ON mc.matchid = m.matchid AND m.sporttype = 2
      WHERE winlostdate >= @Fromdate
        AND winlostdate <= @MovebetsDay
-       AND mc.statusid IN (112, 113)
+       AND mc.statusid IN (111,112,113)
        AND mc.currency <> 20
        AND m.leagueid IN (SELECT leagueid FROM #league)
-       AND liveindicator = 1
     OPTION (RECOMPILE)
 
 
     --Select data------------------------------------------------------------------------------------------------------------------------------
 
     SELECT cast(rptDate AS DATE)                                                                    'Winlossdate'
-         , 'Live'                                                                                   [Live Status]
+         , CASE
+			     	WHEN liveindicator=1 THEN 'Live'
+			     	WHEN liveindicator=0 THEN 'Non-Live'
+			     	ELSE 'Live&Non-live' 
+			     END [Live Status]
          , l.leaguename
          , ISNULL(t1.teamname + ' vs ' + t2.teamname, 'Combine Parlay Match')                       [Match]
          , bt.typenamee                                                                             'Bettype'
@@ -159,7 +162,7 @@ BEGIN
                 WHEN b.oddstype = 4 THEN 'MY'
                 WHEN b.oddstype = 5 THEN 'US'
            END                                                                                      [Odd Type]
-         , CASE WHEN statusid = 112 THEN 'Won' WHEN statusid = 113 THEN 'Lose' END                  [status]
+         , CASE WHEN statusid = 112 THEN 'Won' WHEN statusid = 113 THEN 'Lose' ELSE 'Draw' END                  [status]  
          , COUNT(transid)                                                                           [Betcount]
          , SUM(b.memberTO)                                                                          memberTO
          , SUM(b.memberWL)                                                                          memberWL
@@ -197,7 +200,12 @@ BEGIN
                    WHEN b.oddstype = 4 THEN 'MY'
                    WHEN b.oddstype = 5 THEN 'US'
               END
-            , CASE WHEN statusid = 112 THEN 'Won' WHEN statusid = 113 THEN 'Lose' END
+            , CASE WHEN statusid = 112 THEN 'Won' WHEN statusid = 113 THEN 'Lose' ELSE 'Draw' END 
+			      , CASE
+			        	WHEN liveindicator=1 THEN 'Live'
+			        	WHEN liveindicator=0 THEN 'Non-Live'
+			        	ELSE 'Live&Non-live' 
+			        END
      ORDER BY Winlossdate
 
 
