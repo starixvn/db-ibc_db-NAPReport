@@ -79,6 +79,7 @@ AS
         - 20230206@Roy: NAP Report - Change the sport type of Macau (#183404)
         - 20230116@Roy: NAP Report - Unify Lottery & Virtual Sports (#182921)
         - 20230307@Roy: Customer Setting - Remove unused columns from Custinfo table (#179014)
+		- 20230323@Roy: NAP Report - Apply DCS Setting for Number Game & RNG Keno (#183627)
 
     Param's Explanation:
         + @MoveBetsDay:  The day of moving bets to battrans14
@@ -381,7 +382,7 @@ BEGIN
 
     -- Gen data to temp table
     -- + [161] Number Game
-    IF (@sportType IN (161))
+    /*IF (@sportType IN (161))
     BEGIN
         INSERT INTO #FiltedDownlineAcc (CustID, IsDisable, BetStatus, BetCount)
         SELECT ci.custid,
@@ -419,6 +420,9 @@ BEGIN
     END
     -- + [-1] Metric Gamming | [255] Gold Deluxe | [204] Colossus
     ELSE IF (@sportType IN (-1, 255, 204))
+	
+	*/ --move Sporttype 202,161 to DCS (ProductStatusProfile)
+	IF (@sportType IN (-1))
     BEGIN
         INSERT INTO #FiltedDownlineAcc (CustID, IsDisable, BetStatus, BetCount)
         SELECT ci.custid,
