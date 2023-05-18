@@ -17,6 +17,8 @@ AS
 		20221010@Roy: Letstalk reports - Enhance UI/UX for smartwatch devices (#178950)
 		20221010@Ned.Le: Email/Letstalk reports - Incorporate Player Tips product (#180653)
 		20230222@Roy: Email/Letstalk Reports - Move Table Games from RNG section to LOT/KENO area (#184192)
+		20230518@Roy: Email/Letstalk - Jili - Incorporate new product (#182863)
+		20230518@Roy: Letstalk/Email - YeeBet - Incorporate new product (#186481)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -163,6 +165,7 @@ BEGIN
 			,(57,'LC','BG') --BG
 			,(65,'LC','PPLC') --PP Live Casino
 			,(70,'LC','FGG') --FGG
+			,(76,'LC','YeeBet')
 			----------RNG----------
 			,(42,'RNG','SABAG') --SABA.games
 			,(6,'RNG','SabaC') --Saba Casino
@@ -183,6 +186,7 @@ BEGIN
 			,(68,'RNG','APMini') --AdvantPlay Mini
 			,(72,'RNG','SEAL') --Seal Entertainment
 			,(73,'RNG','MG') --MG-RNG
+			,(75,'RNG','Jili')
 			----------LOT/KENO----------
 			,(40,'LOT/KENO','TabG') --Table Game
 			,(8,'LOT/KENO','Mkeno') --RNG Keno
@@ -207,7 +211,7 @@ BEGIN
 		,ProductShortName
 	)
 	SELECT DISTINCT pb.ProductID
-		,ISNULL(s.ProductGroup,ISNULL(h.ProductGroup,'OTHERS')) AS ProductGroup
+		,ISNULL(s.ProductGroup,ISNULL(h.ProductGroup,(CASE WHEN p.CasinoType = 1 THEN 'RNG' WHEN p.CasinoType = 2 THEN 'LC' ELSE 'OTHERS' END))) AS ProductGroup
 		,ISNULL(s.ProductShortName,ISNULL(h.ProductShortName,ISNULL(p.ProductPrefix,'Others'))) AS ProductShortName
 	FROM #tmpProductBettype AS pb WITH (NOLOCK)
 		LEFT JOIN CTE_Special AS s ON pb.ProductID = s.ProductID
