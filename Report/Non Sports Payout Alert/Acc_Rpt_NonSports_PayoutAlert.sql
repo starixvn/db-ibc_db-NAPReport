@@ -11,6 +11,7 @@ AS
 		20210519@Roy: CWL - New Request to monitor game payout levels (#154598)
 		20221128@Roy: Payout Limit Notification - Set Bitcoin payout limit to 115% (#180940)
 		20230203@Roy: Game Payout Notification Letstalk - Support different notification level setting for specific group of products (#182931)
+		20230424@Roy: Game Payout Letstalk - Support to remove in-active products and un-used reports (#187325)
 
 	Param's Explanation:
 		@FromGMT8Time: start of time range in GMT+8 with format 2021-05-20 19:00:00
@@ -39,8 +40,10 @@ BEGIN
 		23	- NG2
 		47	- BBIN
 		43	- Togel 4D
+		59	- GDG
+		69	- Bitcoin
 	*/
-	DECLARE @ExcludeProduct VARCHAR(MAX) = '4,12,11,13,17,14,24,26,30,33,15,23,47,43'
+	DECLARE @ExcludeProduct VARCHAR(MAX) = '4,12,11,13,17,14,24,26,30,33,15,23,47,43,59,69'
 	
 	/*
 		Hard code Payout Limit by product
