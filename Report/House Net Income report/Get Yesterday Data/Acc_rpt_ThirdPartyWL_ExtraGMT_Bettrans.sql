@@ -12,6 +12,7 @@ AS
 		- 20211102@Danny: SG integrate JP, Contribution (#166684)
 		- 20220325@Danny: Incorporate FGG (#170522)
 		- 20231027@Danny: Change LicenseeID detection formulary of deposit licensee [#183209]
+		- 20230522@Danny: Incorporate YeeBet (#186481)
 
 	 Param's Explanation:
 
@@ -44,7 +45,7 @@ BEGIN
 
 	DECLARE @LCBettypeList TABLE(Bettype INT)
 	INSERT INTO @LCBettypeList(Bettype)
-	SELECT bettype FROM OPENQUERY (DBLIC, 'SELECT	DISTINCT bettype FROM	bodb_licensee.dbo.LA_f_BettypeProductMapping(0,''AB,SXG,SAG,WM,PPL,FGGL'') la')
+	SELECT bettype FROM OPENQUERY (DBLIC, 'SELECT	DISTINCT bettype FROM	bodb_licensee.dbo.LA_f_BettypeProductMapping(0,''AB,SXG,SAG,WM,PPL,FGGL,YB'') la')
 
 
 	INSERT INTO #rpt_ThirdPartyWL_ExtraGMT(	RptDate,RptDate3rd ,SiteId,BetTypeId,CurrencyId,StatusId,Winloss,ProgressiveContribution,ValidBetAmount)
