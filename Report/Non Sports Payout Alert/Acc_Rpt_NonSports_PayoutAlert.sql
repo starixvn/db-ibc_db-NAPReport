@@ -12,6 +12,7 @@ AS
 		20221128@Roy: Payout Limit Notification - Set Bitcoin payout limit to 115% (#180940)
 		20230203@Roy: Game Payout Notification Letstalk - Support different notification level setting for specific group of products (#182931)
 		20230424@Roy: Game Payout Letstalk - Support to remove in-active products and un-used reports (#187325)
+		20230522@Roy: Risk and Control - YeeBet - Integrate new Live Casino product (#186474)
 
 	Param's Explanation:
 		@FromGMT8Time: start of time range in GMT+8 with format 2021-05-20 19:00:00
@@ -76,7 +77,8 @@ BEGIN
 			,(52, 'ION', 111, 5000)
 			,(65, 'PP Live Casino', 111, 5000)
 			,(39, 'SA Gaming', 111, 5000)
-			,(51, 'WM	', 111, 5000)
+			,(51, 'WM', 111, 5000)
+			,(76, 'YeeBet', 111, 5000)
 			
 			-------------RNG Game-------------
 			,(34, 'Arcadia Gaming', 120, 5000) --ProductID, ProductName, ThresholdPCT, MinWin
