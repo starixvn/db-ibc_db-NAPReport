@@ -17,6 +17,7 @@ AS
 		- 20200827@Percy: Initialize SP [RedmineID: #138339]
 		- 20210923@Percy: Change data source [RedmineID: #162087]
 		- 20230512@Sally: get data WL OW from N88's DB, Support Currency BDT [RedmineID: #188141]
+		- 20230523@Sally: Sort Net Turnover in descending [RedmineID: #188141]
 */
 
 BEGIN
@@ -126,6 +127,7 @@ BEGIN
 		) r
 			INNER JOIN dbo.TpGameType g WITH (NOLOCK) ON r.GameType = g.Type
 			INNER JOIN dbo.ServerInfo s WITH (NOLOCK) ON r.SiteId = s.SiteId
+		ORDER BY ValidBet DESC
 	END
 
 	DROP TABLE #Exchange
