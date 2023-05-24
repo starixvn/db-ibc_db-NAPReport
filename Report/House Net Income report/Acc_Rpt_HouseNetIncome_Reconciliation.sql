@@ -16,6 +16,7 @@ AS
 		- 20210830@Danny: Integrate Bitcoin Product (#159045)
 		- 20211125@Danny: Add BA information (#165135)
 		- 20210917@Danny: Prorated minfee for the group min fee (#160737)
+		- 20230425@Danny: SP LA_AmountToCompanyByProduct return Discount Rate ExtraInfo (#169160)
 */
 BEGIN
 	SET NOCOUNT ON
@@ -286,12 +287,12 @@ BEGIN
 		DECLARE @LicenseeFeeAndRebateDiscount TABLE
 		(
 			PartyId INT, ProductId INT, LicensingFeeTypeId TINYINT, GrossLicensingFee MONEY, LicensingFee MONEY, ExtraAmount MONEY, IsChargedByGroupMinFee BIT, IsChargedByMinFee BIT
-			,Discount MONEY, DiscountRate MONEY, DiscountRemark NVARCHAR(4000), Rebate MONEY, RebateRate MONEY, RebateRemark NVARCHAR(4000)
+			,Discount MONEY, DiscountRate MONEY, DiscountRemark NVARCHAR(4000), Rebate MONEY, RebateRate MONEY, RebateRemark NVARCHAR(4000), ExtraInfo NVARCHAR(4000)
 		)
 		INSERT INTO @LicenseeFeeAndRebateDiscount
 		(
 				PartyId, ProductId, LicensingFeeTypeId, GrossLicensingFee, LicensingFee, ExtraAmount, IsChargedByGroupMinFee, IsChargedByMinFee
-				,Discount, DiscountRate, DiscountRemark, Rebate, RebateRate, RebateRemark
+				,Discount, DiscountRate, DiscountRemark, Rebate, RebateRate, RebateRemark, ExtraInfo
 		)
 		EXEC DBLIC.bodb_licensee.dbo.LA_AmountToCompanyByProduct
 			@PartyIds				= @PartyIds

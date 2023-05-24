@@ -42,6 +42,7 @@ AS
 		- 20221121@Danny: Integrate Player Tips Product (#180653)
 		- 20221206@Danny: Incorporate Saba E-Sports PinGoal (#181261)
 		- 20230414@Danny: New Commercial Terms for 12B (#186505)
+		- 20230425@Danny: SP LA_AmountToCompanyByProduct return Discount Rate ExtraInfo (#169160)
 */
 BEGIN
 	SET NOCOUNT ON
@@ -96,7 +97,7 @@ BEGIN
 	DECLARE @LicenseeFeeAndRebateDiscount TABLE
 	(
 		PartyId INT, ProductId INT, LicensingFeeTypeId TINYINT, GrossLicensingFee MONEY, LicensingFee MONEY, ExtraAmount MONEY, IsChargedByGroupMinFee BIT, IsChargedByMinFee BIT
-		,Discount MONEY, DiscountRate MONEY, DiscountRemark NVARCHAR(4000), Rebate MONEY, RebateRate MONEY, RebateRemark NVARCHAR(4000)
+		,Discount MONEY, DiscountRate MONEY, DiscountRemark NVARCHAR(4000), Rebate MONEY, RebateRate MONEY, RebateRemark NVARCHAR(4000), ExtraInfo NVARCHAR(4000)
 	)
 	DECLARE @tmpResult_licperf TABLE(PartyId INT ,Product3rdId	INT ,AliasProductId	INT)
 	DECLARE @SBGrossHouseIncome TABLE (Product3rdId	INT, AliasProductId INT, HouseIncome MONEY DEFAULT(0))
@@ -974,7 +975,7 @@ BEGIN
 		INSERT INTO @LicenseeFeeAndRebateDiscount
 		(
 				PartyId, ProductId, LicensingFeeTypeId, GrossLicensingFee, LicensingFee, ExtraAmount, IsChargedByGroupMinFee, IsChargedByMinFee
-				,Discount, DiscountRate, DiscountRemark, Rebate, RebateRate, RebateRemark
+				,Discount, DiscountRate, DiscountRemark, Rebate, RebateRate, RebateRemark, ExtraInfo
 		)
 		EXEC DBLIC.bodb_licensee.dbo.LA_AmountToCompanyByProduct
 			@PartyIds				= @PartyIds
