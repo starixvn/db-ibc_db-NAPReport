@@ -64,6 +64,7 @@ AS
 		20220512@Cherry: Hot fix (#172607)
 		20220916@Cherry: Extend data type of Betfrom (#177655)
 		20220926@Cherry: Change param @Device from Betfrom to Betfromid (#164955)
+		20230609@Cherry: Not include dummy accounts in BetCount, NoOfPlayers (#188994)
 
 	Param's Explanation:
 			 - @username:  + Search by keyword, member only
@@ -218,6 +219,16 @@ SET NOCOUNT ON
 	CREATE TABLE #tmpContributionBettype (Bettype INT)	
 	CREATE TABLE #tmpSportBetType (Sporttype INT, Bettype INT)	
 	CREATE TABLE #tmpHouseProduct (ProductID INT)
+	CREATE TABLE #tmpDummyCust (CustID INT)
+
+	INSERT INTO #tmpDummyCust (CustID)
+	SELECT c.custid
+	FROM bodb02.dbo.customer c WITH(NOLOCK)
+		INNER JOIN bodb02.dbo.Dep_CustSuper d WITH(NOLOCK) ON c.srecommend = d.custid 
+		INNER JOIN bodb02.dbo.customer m WITH(NOLOCK) ON c.mrecommend = m.custid
+	WHERE c.roleid = 1
+		AND c.username LIKE '%Dummy3rd%' 
+		AND m.username LIKE '%ACC%'	
 
 	IF @ProductID <> ''
     BEGIN
@@ -460,9 +471,11 @@ SET NOCOUNT ON
 		SELECT  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) <> 0 THEN 0
 					ELSE  DATEPART(HOUR, b.transdate) END AS [Hour], srecommend, b.bettype,					
 				
-				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
+				CASE WHEN d.CustID IS NOT NULL THEN NULL 
+					WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
 
-				COUNT(CASE WHEN b.StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount, 
+				COUNT(CASE WHEN d.CustID IS NOT NULL THEN NULL 
+						WHEN b.StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount, 
 
 				SUM((CASE WHEN b.statusID IN (103) THEN 0 ELSE actual_stake END) * actualrate)  AS TotalBetsRM,
 
@@ -486,6 +499,7 @@ SET NOCOUNT ON
 							ELSE scomm / (1 - tpositiontaking) END) * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8)) * actualrate) ExtraPT							
 				
 		FROM  dbo.Bettrans b WITH (NOLOCK)
+			LEFT JOIN #tmpDummyCust d ON b.custid = d.custid
 		WHERE b.WinlostDate = @WLDate
 			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE RefTable IN (0,3) AND ProductID NOT IN (3,4,5,27,26))
 			AND b.ruben = 1
@@ -504,7 +518,9 @@ SET NOCOUNT ON
 			)
 		GROUP BY  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) <> 0 THEN 0
 					ELSE  DATEPART(HOUR, b.transdate) END, 
-				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.bettype
+				CASE WHEN d.CustID IS NOT NULL THEN NULL 
+					WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, 
+					srecommend, b.bettype
 				
 		OPTION(RECOMPILE)
 		
@@ -1325,6 +1341,8 @@ SET NOCOUNT ON
 	DROP TABLE #tmpNetStakeBettype	
 	DROP TABLE #tmpNoBetCountBettype
 	DROP TABLE #tmpBettypeRNG
+	DROP TABLE #tmpDummyCust
+	DROP TABLE #NonSportSetting
 
 END 
 

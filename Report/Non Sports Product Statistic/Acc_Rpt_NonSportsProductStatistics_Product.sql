@@ -61,6 +61,7 @@ AS
 		20220512@Cherry: Hot fix (#172607)
 		20220916@Cherry: Extend data type of Betfrom (#177655)
 		20220926@Cherry: Change param @Device from Betfrom to Betfromid (#164955)
+		20230609@Cherry: Not include dummy accounts in BetCount, NoOfPlayers (#188994)
 
 	Param's Explanation:
 		- @username:  + Search by keyword, member only
@@ -176,6 +177,16 @@ BEGIN
 	CREATE TABLE #tmpContributionBettype (Bettype INT)	
 	CREATE TABLE #tmpSportBetType (Sporttype INT, Bettype INT) 
 	CREATE TABLE #tmpHouseProduct (ProductID INT)
+	CREATE TABLE #tmpDummyCust (CustID INT)
+
+	INSERT INTO #tmpDummyCust (CustID)
+	SELECT c.custid
+	FROM bodb02.dbo.customer c WITH(NOLOCK)
+		INNER JOIN bodb02.dbo.Dep_CustSuper d WITH(NOLOCK) ON c.srecommend = d.custid 
+		INNER JOIN bodb02.dbo.customer m WITH(NOLOCK) ON c.mrecommend = m.custid
+	WHERE c.roleid = 1
+		AND c.username LIKE '%Dummy3rd%' 
+		AND m.username LIKE '%ACC%'	
 
 	-- Get Info from Pars list
 	IF @ProductId <> ''
@@ -445,9 +456,11 @@ BEGIN
 				  ExtraPT,
 				  ExtraPTBase
 				)	
-		SELECT CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END AS custid, 
+		SELECT CASE WHEN d.CustID IS NOT NULL THEN NULL 
+					WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END AS custid, 
 				b.srecommend, b.bettype,
-				COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS BetCount, 
+				COUNT(CASE WHEN d.CustID IS NOT NULL THEN NULL 
+						WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS BetCount, 
 				b.currency,
 
 				SUM(CASE WHEN b.statusID IN (103) THEN 0 ELSE actual_stake END) AS TotalBets,
@@ -485,6 +498,7 @@ BEGIN
 							ELSE scomm / (1 - tpositiontaking) END) * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8)) * actualrate) ExtraPTBase							
 
 		FROM  dbo.bettrans b WITH (NOLOCK)
+			LEFT JOIN #tmpDummyCust d ON b.custid = d.custid
 		WHERE b.winlostdate = @WLDate
 			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE RefTable IN (0, 3) AND ProductID NOT IN (3, 4, 5, 27, 33))
 			AND b.ruben = 1
@@ -501,7 +515,9 @@ BEGIN
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) 
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue)
 			)
-		GROUP BY b.srecommend, b.bettype, CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END, b.currency
+		GROUP BY b.srecommend, b.bettype, 
+			CASE WHEN d.CustID IS NOT NULL THEN NULL 
+				WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END, b.currency
 	
 		OPTION(RECOMPILE)
 		
@@ -1721,6 +1737,7 @@ BEGIN
 	DROP TABLE #tmpNetStakeBettype	
 	DROP TABLE #tmpNoBetCountBettype
 	DROP TABLE #tmpBettypeRNG
+	DROP TABLE #tmpDummyCust
 	
 END
 
