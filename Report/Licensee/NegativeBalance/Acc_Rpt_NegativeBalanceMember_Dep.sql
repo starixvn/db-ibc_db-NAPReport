@@ -18,6 +18,7 @@ AS
 		- 20121116@Henry: change DB from DB06 to DB052 + remove dummy members
 		- 20210507@Jaden.Tang: Adjust code to prevent reading dupplicated in bettrans & bettrans14 during move bet process (#154649)
 		- 20211118@Cherry: Split transfer table (#164378)
+		- 20230119@Roy: NAP Report - BU 247 (#175206)
 	Param's Explanation:
 	• @Site: All - get all
 			 12Bet: particular site
@@ -25,11 +26,11 @@ AS
 BEGIN	
 SET NOCOUNT ON	
 
-	DECLARE @MoveBetsDay DATE
-	CREATE TABLE #MBUDate (BalanceUpDay DATE, MoveBetsDay DATE)
-	INSERT INTO #MBUDate (BalanceUpDay, MoveBetsDay)
-	  EXEC bodb02.dbo.Age_SelBalanceUpDay
-	SELECT @MoveBetsDay = MoveBetsDay FROM #MBUDate
+	DECLARE @MoveBetsDay SMALLDATETIME
+		,@BalanceUpDay SMALLDATETIME
+	SELECT @MoveBetsDay = MoveBetsDay
+		,@BalanceUpDay = BalanceUpDay
+	FROM OPENQUERY(DBACC,'exec bodb02.dbo.Age_SelBalanceUpDay')
 
 	DECLARE @Super AS TABLE (custid int primary key, currency int,site varchar(50),currencyName nvarchar(50))
 	
@@ -58,7 +59,7 @@ SET NOCOUNT ON
 					ELSE winlost - actual_stake + playercomm END 
 				) AS Balance
 	FROM 
-			bettrans b WITH(NOLOCK,INDEX=IX_srecommend)
+			dbo.bettrans b WITH(NOLOCK,INDEX=IX_srecommend)
 			INNER JOIN @Super s ON b.srecommend = s.custid
 			INNER JOIN bodb_licensee.dbo.LicenseeCust lc WITH (NOLOCK) ON b.recommend = lc.custid
 	WHERE	
@@ -70,12 +71,13 @@ SET NOCOUNT ON
 			b.custid, 
 			s.currencyName, 
 			SUM(
-				CASE WHEN (b.winlostdate > @MoveBetsDay AND bettype = 19999) 						
-					THEN 0 --skip volatile rows during move bet process
-					ELSE winlost - actual_stake + playercomm END 
+				CASE WHEN (b.winlostdate > @MoveBetsDay AND b.bettype = 19999) THEN 0 --skip volatile rows during move bet process
+					WHEN b.winlostdate > @BalanceUpDay AND b.bettype = 20000 THEN 0 --> new bal
+					WHEN b.winlostdate < @BalanceUpDay THEN 0 --> old bal
+					ELSE winlost - actual_stake + playercomm END
 				) AS Balance
 	FROM 
-			[Transfer] b WITH(NOLOCK)
+			dbo.[Transfer] b WITH(NOLOCK)
 			INNER JOIN @Super s ON b.srecommend = s.custid
 			INNER JOIN bodb_licensee.dbo.LicenseeCust lc WITH (NOLOCK) ON b.recommend = lc.custid
 	WHERE	
@@ -102,7 +104,6 @@ SET NOCOUNT ON
 	ORDER BY site,username
 	
 	DROP TABLE #Data
-	DROP TABLE #MBUDate
 	DROP TABLE #Result
 		
 END

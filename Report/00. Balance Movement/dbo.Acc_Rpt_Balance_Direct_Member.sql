@@ -1,4 +1,4 @@
-﻿/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 USE bodb02
 GO
 
@@ -21,12 +21,15 @@ AS
 	- 20201030@Ned.Le: NAP Report - BBin - Remove BBIN Transfer off Balance reports (#144071)
 	- 20210507@Jaden.Tang: Adjust code to prevent reading dupplicated in bettrans & bettrans14 during move bet process (#154649)
 	- 20211111@Cherry: Split transfer table (#164378)
+	- 20230119@Roy: NAP Report - BU 247 (#175206)
 */
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @MoveBetsDay DATE
+	DECLARE @MoveBetsDay SMALLDATETIME
+		,@BalanceUpDay SMALLDATETIME
 	SELECT @MoveBetsDay = MoveBetsDay
+		,@BalanceUpDay = BalanceUpDay
 	FROM OPENQUERY(DBACC,'exec bodb02.dbo.Age_SelBalanceUpDay')
 
 	CREATE TABLE #directMember (
@@ -94,15 +97,19 @@ BEGIN
 	INSERT INTO #Data (Custid, Balance, BaseBalance)
 	SELECT	--see Balance_Direct_Master report
 		case when b.winlostdate > @MoveBetsDay and bettype = 19999 then NULL
-			 else b.custid
+			when b.winlostdate > @BalanceUpDay AND bettype = 20000 then NULL --> new bal
+			when b.winlostdate < @BalanceUpDay then NULL --> old bal
+			else b.custid
 		end custid,
 		isnull(SUM(winlost - actual_stake + playercomm),0) bal,
 		isnull(SUM((winlost - actual_stake + playercomm)* actualrate),0) as Basebal
-	FROM	[Transfer] b WITH (NOLOCK)
+	FROM	dbo.[Transfer] b WITH (NOLOCK)
 	WHERE	b.bettype NOT IN (21008, 21009)
 		AND EXISTS ( SELECT 1 FROM #directMember d WITH (NOLOCK) WHERE b.recommend = d.recommend )		
 	GROUP BY case when b.winlostdate > @MoveBetsDay and bettype = 19999 then NULL
-				 else b.custid
+				when b.winlostdate > @BalanceUpDay AND bettype = 20000 then NULL --> new bal
+				when b.winlostdate < @BalanceUpDay then NULL --> old bal
+				else b.custid
 			end
 			
 	OPTION (RECOMPILE)

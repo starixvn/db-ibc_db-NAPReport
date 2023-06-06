@@ -21,12 +21,15 @@ AS
 		- 20201027@Ned.Le: NAP Report - BBin - Remove BBIN Transfer off Balance reports (#144071)
 		- 20210507@Jaden.Tang: Adjust code to prevent reading dupplicated in bettrans & bettrans14 during move bet process (#154649)
 		- 20211118@Cherry: Split Transfer table (#164378)
+		- 20230119@Roy: NAP Report - BU 247 (#175206)
 */	
 
 SET NOCOUNT ON
 
-	DECLARE @MoveBetsDay DATE
+	DECLARE @MoveBetsDay SMALLDATETIME
+		,@BalanceUpDay SMALLDATETIME
 	SELECT @MoveBetsDay = MoveBetsDay
+		,@BalanceUpDay = BalanceUpDay
 	FROM OPENQUERY(DBACC,'exec bodb02.dbo.Age_SelBalanceUpDay')
 
 	CREATE TABLE #tmpCust (
@@ -79,10 +82,12 @@ BEGIN
 	SELECT	custID,
 			SUM(winlost-actual_stake+playercomm) as balance,
 			SUM((winlost-actual_stake+playercomm)*actualrate) as balance_base
-	FROM	[Transfer] WITH (NOLOCK)
+	FROM	dbo.[Transfer] WITH (NOLOCK)
 	WHERE	bettype NOT IN (21008, 21009)
-			AND CASE WHEN winlostdate > @MoveBetsDay AND bettype = 19999
-					THEN 0 ELSE 1 END = 1
+			AND (CASE WHEN winlostdate > @MoveBetsDay AND bettype = 19999 THEN 0
+					WHEN winlostdate > @BalanceUpDay AND bettype = 20000 THEN 0 --> new bal
+					WHEN winlostdate < @BalanceUpDay THEN 0 --> old bal
+				ELSE 1 END) = 1
 	GROUP BY custID
 	
 	SELECT	
@@ -145,10 +150,12 @@ BEGIN
 		sum(case when custid <> recommend then winlost-actual_stake+playercomm else 0 end) Bal,
 		sum(case when custid=recommend then (winlost-actual_stake)*actualrate else (awinlost+comm-playercomm)*actualrate end)+ 
 		sum(case when custid <> recommend then (winlost-actual_stake+playercomm)*actualrate else 0 end) bal_base				
-	FROM [Transfer] (nolock)
+	FROM dbo.[Transfer] (nolock)
 	WHERE bettype NOT IN (21008, 21009)
-		AND CASE WHEN winlostdate > @MoveBetsDay AND bettype = 19999
-				THEN 0 ELSE 1 END = 1
+		AND (CASE WHEN winlostdate > @MoveBetsDay AND bettype = 19999 THEN 0
+				WHEN winlostdate > @BalanceUpDay AND bettype = 20000 THEN 0 --> new bal
+				WHEN winlostdate < @BalanceUpDay THEN 0 --> old bal
+			ELSE 1 END) = 1
 	GROUP BY recommend
 
 	SELECT 
@@ -199,10 +206,12 @@ BEGIN
 		sum(case when custid=mrecommend then (winlost-actual_stake)*actualrate else (mwinlost+acomm-comm)*actualrate end)+
 		sum(case when custid=recommend then (winlost-actual_stake)*actualrate else (awinlost+comm-playercomm)*actualrate end)+ 
 		sum(case when custid <> recommend and custid <> mrecommend then (winlost-actual_stake+playercomm)*actualrate else 0 end) Bal_base
-	FROM [Transfer] (nolock)
+	FROM dbo.[Transfer] (nolock)
 	WHERE bettype NOT IN (21008, 21009)
-		AND CASE WHEN winlostdate > @MoveBetsDay AND bettype = 19999
-				THEN 0 ELSE 1 END = 1				
+		AND (CASE WHEN winlostdate > @MoveBetsDay AND bettype = 19999 THEN 0
+				WHEN winlostdate > @BalanceUpDay AND bettype = 20000 THEN 0 --> new bal
+				WHEN winlostdate < @BalanceUpDay THEN 0 --> old bal
+			ELSE 1 END) = 1				
 	GROUP BY mrecommend
 	
 	SELECT
@@ -276,10 +285,12 @@ BEGIN
 		+ IsNull(sum(case when custid=mrecommend then (winlost-actual_stake)*actualrate else (mwinlost+acomm-comm)*actualrate end),0)
 		+ IsNull(sum(case when custid=recommend  then (winlost-actual_stake)*actualrate else (awinlost+comm-playercomm)*actualrate end),0)
 		+ IsNull(sum(case when custid <> recommend and custid <> mrecommend and custid <> srecommend then (winlost-actual_stake+playercomm)*actualrate else 0 end),0) Bal_base
-	FROM [Transfer] (nolock)
+	FROM dbo.[Transfer] (nolock)
 	WHERE bettype NOT IN (21008, 21009)
-		AND CASE WHEN winlostdate > @MoveBetsDay AND bettype = 19999
-				THEN 0 ELSE 1 END = 1
+		AND (CASE WHEN winlostdate > @MoveBetsDay AND bettype = 19999 THEN 0
+				WHEN winlostdate > @BalanceUpDay AND bettype = 20000 THEN 0 --> new bal
+				WHEN winlostdate < @BalanceUpDay THEN 0 --> old bal
+			ELSE 1 END) = 1
 	GROUP BY srecommend
 
 	SELECT 
