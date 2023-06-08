@@ -21,6 +21,8 @@ Revisions:
 	- 20201027@Ned.Le: NAP Report - BBin - Remove BBIN Transfer off Balance reports (#144071)
 	- 20210505@Sol: NAP - Alpha - Allow more time for transfer - [Redmine: #149927]
 	- 20211124@Danny: Split transfer tickets out of bettrans [Redmine: #164196]
+	- 20230227@Evan: Balance-Up support transfer 247 [Redmine: #173554]
+
 
 */
 BEGIN
@@ -104,10 +106,9 @@ BEGIN
 		SELECT bt.currency AS Currency
 			,bt.CurrencyName
 			,sum((bt.winlost - bt.actual_stake + bt.awinlost + bt.mwinlost + bt.swinlost + bt.scomm)) TotalamtLocal
-			,sum(CASE WHEN bt.bettype < 19999 THEN ((bt.winlost - bt.actual_stake + bt.awinlost + bt.mwinlost + bt.swinlost + bt.scomm) * bt.actualrate) END) TotalAmt
+			,sum((bt.winlost - bt.actual_stake + bt.awinlost + bt.mwinlost + bt.swinlost + bt.scomm) * bt.actualrate) TotalAmt
 		FROM dbo.bettrans bt WITH (NOLOCK)
 		WHERE ruben = 1
-			  AND bettype < 19999
 			  AND winlostdate > @moveBetsDay
 		GROUP BY currency
 			,currencyname
@@ -122,10 +123,13 @@ BEGIN
 		SELECT bt.currency AS Currency
 			,bt.CurrencyName
 			,sum((bt.winlost - bt.actual_stake + bt.awinlost + bt.mwinlost + bt.swinlost + bt.scomm)) TotalamtLocal
-			,sum(((bt.winlost - bt.actual_stake + bt.awinlost + bt.mwinlost + bt.swinlost + bt.scomm) * bt.actualrate)) TotalAmt
+			,sum((bt.winlost - bt.actual_stake + bt.awinlost + bt.mwinlost + bt.swinlost + bt.scomm) * bt.actualrate) TotalAmt
 		FROM dbo.transfer bt WITH (NOLOCK)
 		WHERE bt.bettype NOT IN (21008, 21009)
-			 AND ((bettype = 19999 AND winlostdate <= @moveBetsDay) OR bettype > 19999)
+			 AND 1 = CASE WHEN bettype = 19999 AND winlostdate > @moveBetsDay THEN 0 --> new sum
+						WHEN bettype = 20000 AND winlostdate > @balanceUpDay THEN 0 --> new bal
+						WHEN winlostdate < @balanceUpDay THEN 0 --> old data
+					ELSE 1 END
 		GROUP BY currency
 			,currencyname
 
@@ -142,14 +146,10 @@ BEGIN
 		SELECT bt.currency AS Currency
 			,bt.CurrencyName
 			,sum((bt.winlost - bt.actual_stake + bt.awinlost + bt.mwinlost + bt.swinlost + bt.scomm)) TotalamtLocal
-			,sum(CASE 
-					WHEN bt.bettype < 19999 THEN ((bt.winlost - bt.actual_stake + bt.awinlost + bt.mwinlost + bt.swinlost + bt.scomm) * bt.actualrate)
-					ELSE ((bt.winlost - bt.actual_stake + bt.awinlost + bt.mwinlost + bt.swinlost + bt.scomm) * bt.actualrate)
-					END) TotalAmt
+			,sum((bt.winlost - bt.actual_stake + bt.awinlost + bt.mwinlost + bt.swinlost + bt.scomm) * bt.actualrate) TotalAmt
 		FROM dbo.bettrans bt WITH (NOLOCK)
 		WHERE ruben = 1
 			  AND winlostdate <= @Today
-			  AND bettype < 19999
 			  AND winlostdate > @moveBetsDay
 		GROUP BY currency
 			,currencyname
@@ -164,11 +164,14 @@ BEGIN
 		SELECT bt.currency AS Currency
 			,bt.CurrencyName
 			,sum((bt.winlost - bt.actual_stake + bt.awinlost + bt.mwinlost + bt.swinlost + bt.scomm)) TotalamtLocal
-			,sum(((bt.winlost - bt.actual_stake + bt.awinlost + bt.mwinlost + bt.swinlost + bt.scomm) * bt.actualrate)) TotalAmt
+			,sum((bt.winlost - bt.actual_stake + bt.awinlost + bt.mwinlost + bt.swinlost + bt.scomm) * bt.actualrate) TotalAmt
 		FROM dbo.transfer bt WITH (NOLOCK)
 		WHERE winlostdate <= @Today
 				AND bt.bettype NOT IN (21008, 21009)
-			 AND ((bettype = 19999 AND winlostdate <= @moveBetsDay) OR bettype > 19999)
+			 AND 1 = CASE WHEN bettype = 19999 AND winlostdate > @moveBetsDay THEN 0 --> new sum
+						WHEN bettype = 20000 AND winlostdate > @balanceUpDay THEN 0 --> new bal
+						WHEN winlostdate < @balanceUpDay THEN 0 --> old data
+					ELSE 1 END
 		GROUP BY currency
 			,currencyname
 	END 
