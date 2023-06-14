@@ -34,6 +34,7 @@ AS
 		- 20221003@Danny: Integrate MGRNG product and restructure code (#177505)
 		- 20231027@Danny: Change LicenseeID detection formulary of deposit licensee [#183209]
 		- 20230111@Danny: Email/Letstalk Reports - Split 789Y site into smaller sites (#182388)
+		- 20230522@Danny: Incorporate YeeBet (#186481)
 */
 BEGIN
     SET NOCOUNT ON
@@ -241,7 +242,7 @@ BEGIN
 						FROM OPENQUERY (DBLIC, ''
 							SELECT DISTINCT ci.LicenseeId, ci.IsDeposit, ci.ProductId AS Product3rdId, ci.FromDate, ci.ToDate, ci.ChargeType
 								,CASE WHEN ci.ProductId = 0 THEN -1 ELSE ISNULL(sbr.Bettype, ci.Bettype) END AS Bettype
-								,CASE WHEN ci.IsDeposit = 0 AND ci.ProductId IN (32, 65, 70) THEN 0 ELSE ci.DI_Rate END AS Rate
+								,CASE WHEN ci.IsDeposit = 0 AND ci.ProductId IN (32, 65, 70, 76) THEN 0 ELSE ci.DI_Rate END AS Rate
 							FROM bodb_licensee.dbo.LA_f_ChargeInfo (''''' + @PartyIds + ''''', ''''' + @f_date + ''''', ''''' + @t_date + ''''', ''''' + @ProductCodes + ''''', ''''OA'''', 1) ci
 								LEFT JOIN bodb_licensee.dbo.Sport_Bettype_Reference sbr WITH (NOLOCK) ON sbr.BettypeRef = ci.Bettype
 							WHERE ci.DI_Rate > 0
@@ -257,7 +258,7 @@ BEGIN
 		SELECT @SQL = '	SELECT PartyId, ProductId, ChargeId, ChargeType, FromDate, ToDate, Rate
 						FROM OPENQUERY (DBLIC, ''SELECT DISTINCT PartyId, ProductId, ChargeId, ChargeType, FromDate, ToDate, DI_Rate AS Rate FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd (''''' + @f_date + ''''', ''''' + @t_date + ''''', ''''' + @ProductCodes + ''''', ''''OA'''')
 												 WHERE (
-														(ProductID IN (11, 21, 39, 70) AND ChargeType IN (9, 10, 11)) -- GD, AB, SAG, FGGL
+														(ProductID IN (11, 21, 39, 70, 76) AND ChargeType IN (9, 10, 11)) -- GD, AB, SAG, FGGL, YB
 														OR (ProductID NOT IN (11, 21, 39) AND ChargeType = 1)
 													)'')'
 		INSERT INTO #__Party3rdInfo (PartyId, Product3rdId, ChargeId, ChargeType, FromDate, ToDate, Rate)
@@ -367,7 +368,7 @@ BEGIN
 			DELETE #__PlayCurrencySettings WHERE ToDate < @FromDate OR FromDate > @ToDate
 		END
 
-		IF (@DepositType IN (0, 2) AND (',' + @ProductCodes + ',' LIKE '%,AB,%' OR ',' + @ProductCodes + ',' LIKE '%,SAG,%')) OR (',' + @ProductCodes + ',' LIKE '%,FGGL,%')
+		IF (@DepositType IN (0, 2) AND (',' + @ProductCodes + ',' LIKE '%,AB,%' OR ',' + @ProductCodes + ',' LIKE '%,SAG,%')) OR (',' + @ProductCodes + ',' LIKE '%,FGGL,%') OR (',' + @ProductCodes + ',' LIKE '%,YB,%')
 		BEGIN
 			INSERT INTO #__ValidBetRate (IsDeposit, Product3rdId, FromDate, ToDate, CommRate)
 			SELECT DISTINCT IsDeposit, Product3rdId, FromDate, ToDate, Rate
