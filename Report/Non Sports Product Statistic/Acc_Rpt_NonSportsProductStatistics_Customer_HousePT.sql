@@ -46,6 +46,7 @@ AS
 		20210506@Cherry: Integrate VGaming Jackpot (#154250)
 		20220916@Cherry: Extend data type of Betfrom (#177655)
 		20220926@Cherry: Change param @Device from Betfrom to Betfromid (#164955)
+		20230609@Cherry: Not include dummy accounts in BetCount, NoOfPlayers (#188994)
 
 	Param's Explanation:
 		- @ProductID: string filter by Product 
@@ -178,7 +179,7 @@ BEGIN
 		dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '', @isTest) s
 		INNER JOIN #tmp_ProductID p ON s.ProductID = p.ProductID
 	WHERE (p.ProductID IN (3, 5, 27) -- Number Game, Virtual Sports, Virtual Sports 2
-		OR p.ProductID IN (SELECT ProductID FROM #tmp_ProductID))
+		OR p.ProductID IN (SELECT ProductID FROM #tmpHouseProduct))
 	
 	INSERT INTO #SportBettype (ProductID, Bettype, EvenType, RefTable)
 	SELECT s.ProductID, s.BetType, s.EventType, s.RefTable
@@ -188,6 +189,11 @@ BEGIN
 	WHERE p.ProductID = 23 --NG2
 		AND (s.IsTest = 0 OR s.IsTest = @isTest)
 		
+	DELETE s
+	FROM #SportBettype s
+	WHERE s.ProductID IN (SELECT ProductID FROM #tmpHouseProduct)
+		AND NOT EXISTS (SELECT b.Bettype FROM #tmpSportBetType b WHERE b.Bettype = s.Bettype)
+
 	DELETE t
 	FROM #tmpSportBetType t LEFT JOIN #SportBettype s ON t.Bettype = s.Bettype
 	WHERE s.Bettype IS NULL
@@ -360,7 +366,7 @@ BEGIN
 					INNER JOIN #SportBettype s ON s.Bettype = b.gameID
 					LEFT JOIN #tmpContributionBettype bt ON bt.Bettype = b.gameID
 				WHERE b.winlostdate = @WLDate
-					AND (s.ProductID NOT IN (SELECT ProductID FROM #tmp_ProductID)
+					AND (s.ProductID NOT IN (SELECT ProductID FROM #tmpHouseProduct)
 						OR EXISTS(SELECT 1 FROM #tmpSportBetType sb where b.productid = sb.Sporttype and b.gameid = sb.Bettype)
 					)
 					AND b.custid = @CID
@@ -524,7 +530,7 @@ BEGIN
 					INNER JOIN #tmp_MemIDs m ON b.custid = m.CustID
 					LEFT JOIN #tmpContributionBettype bt ON bt.Bettype = b.gameID
 				WHERE b.winlostdate = @WLDate
-					AND s.ProductID <> 42
+					AND s.ProductID NOT IN (SELECT ProductID FROM #tmpHouseProduct)
 					AND b.statusID IN (111, 112, 113) -- won/lose/draw tickets
 					AND s.RefTable = 1
 					AND ((b.currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
@@ -558,7 +564,7 @@ BEGIN
 					INNER JOIN #tmp_MemIDs m ON b.custid = m.CustID
 					LEFT JOIN #tmpContributionBettype bt ON bt.Bettype = b.gameID
 				WHERE b.winlostdate = @WLDate
-					AND s.ProductID = 42
+					AND s.ProductID IN (SELECT ProductID FROM #tmpHouseProduct)
 					AND EXISTS(SELECT 1 FROM #tmpSportBetType s where b.productid = s.Sporttype and b.gameid = s.Bettype)
 					AND b.statusID IN (111, 112, 113) -- won/lose/draw tickets
 					AND s.RefTable = 1
