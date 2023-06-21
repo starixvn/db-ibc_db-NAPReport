@@ -66,6 +66,7 @@ AS
 		20220512@Cherry: Hot fix (#172607)
 		20220916@Cherry: Extend data type of Betfrom (#177655)
 		20220926@Cherry: Change param @Device from Betfrom to Betfromid (#164955)
+		20230609@Cherry: Not include dummy accounts in BetCount, NoOfPlayers (#188994)
 
 	Param's Explanation:
 		- @username: search keyword
@@ -158,6 +159,16 @@ BEGIN
 	CREATE TABLE #tmpContributionBettype (Bettype INT)
 	CREATE TABLE #tmpSportBetType (Sporttype INT, Bettype INT)
 	CREATE TABLE #tmpHouseProduct (ProductID INT)
+	CREATE TABLE #tmpDummyCust (CustID INT)
+
+	INSERT INTO #tmpDummyCust (CustID)
+	SELECT c.custid
+	FROM bodb02.dbo.customer c WITH(NOLOCK)
+		INNER JOIN bodb02.dbo.Dep_CustSuper d WITH(NOLOCK) ON c.srecommend = d.custid 
+		INNER JOIN bodb02.dbo.customer m WITH(NOLOCK) ON c.mrecommend = m.custid
+	WHERE c.roleid = 1
+		AND c.username LIKE '%Dummy3rd%' 
+		AND m.username LIKE '%ACC%'		
 
 	-- Get Info from Pars list
 	IF @ProductId <> ''
@@ -1680,10 +1691,9 @@ BEGIN
 		- SUM(b.ExtraPTBase),
 		SUM(RowNum)
 	FROM #tmp_bettrans b
-		INNER JOIN dbo.customer a WITH(NOLOCK) ON b.recommend = a.custid
 		INNER JOIN (SELECT DISTINCT Bettype, ProductID
 					FROM bodb02.dbo.SportBettypeMatrix (NOLOCK)) s ON b.Bettype = s.Bettype
-	WHERE a.username not like '%acc%'
+	WHERE b.custid NOT IN (SELECT CustID FROM #tmpDummyCust)
 	GROUP BY s.ProductID, b.custid, b.CurrencyID, b.srecommend, b.mrecommend, b.recommend	
 	
 	CREATE TABLE #tmp_Result
@@ -2347,5 +2357,6 @@ BEGIN
 	DROP TABLE #tmpNetStakeBettype	
 	DROP TABLE #tmpNoBetCountBettype
 	DROP TABLE #tmpBettypeRNG
+	DROP TABLE #tmpDummyCust
 
 END
