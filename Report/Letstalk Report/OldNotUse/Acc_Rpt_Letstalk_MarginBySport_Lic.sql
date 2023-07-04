@@ -1,4 +1,3 @@
-/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE Acc_Rpt_Letstalk_MarginBySport_Lic
 	@Winlostdate SMALLDATETIME,
 	@BaseCurrency VARCHAR(10) = 'CNY'
