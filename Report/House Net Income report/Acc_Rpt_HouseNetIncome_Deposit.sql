@@ -43,6 +43,7 @@ AS
 		- 20221206@Danny: Incorporate Saba E-Sports PinGoal (#181261)
 		- 20230414@Danny: New Commercial Terms for 12B (#186505)
 		- 20230425@Danny: SP LA_AmountToCompanyByProduct return Discount Rate ExtraInfo (#169160)
+		- 20230614@Danny: Incorporate PG promotion (#189313)
 */
 BEGIN
 	SET NOCOUNT ON
@@ -1165,6 +1166,10 @@ BEGIN
 	FROM #__tempResult
 	GROUP BY CONVERT(VARCHAR(2), rptDate, 106), Product3rdId, AliasProductId
 
+	UPDATE #Result
+	SET PayToSupplier = PayToSupplier - Bonus
+	WHERE  Product3rdId = 34
+
 	-- MTD (month-to-date)
 	INSERT INTO #Result (rptDate, Product3rdId, AliasProductId, BAComm, PayToSupplier, FullContribution, JackpotPrize, HouseTurnover, HouseIncome, LicenseeTO_licperf, LicenseeWL_licperf, Bonus)
 	SELECT 'MTD', Product3rdId, AliasProductId, SUM(BAComm), SUM(PayToSupplier), SUM(FullContribution), SUM(JackpotPrize), SUM(HouseTurnover), SUM(HouseIncome), SUM(LicenseeTO_licperf), SUM(LicenseeWL_licperf), SUM(Bonus)
@@ -1261,7 +1266,8 @@ BEGIN
 
 	-- 1.5 Bonus
 	UPDATE r
-	SET r.HouseIncome = r.HouseIncome + ISNULL(r.Bonus,0) 
+	SET r.HouseIncome = r.HouseIncome + ISNULL(r.Bonus,0) ,
+		r.PayToSupplier = r.PayToSupplier - CASE WHEN r.Product3rdId = 34 THEN 0 ELSE  ISNULL(r.Bonus,0)  END
 	FROM #Result r
 	WHERE r.Product3rdId IN (SELECT x.ProductID FROM @ProductSupportBonus x)
 
