@@ -44,6 +44,8 @@ AS
 		- 20230414@Danny: New Commercial Terms for 12B (#186505)
 		- 20230425@Danny: SP LA_AmountToCompanyByProduct return Discount Rate ExtraInfo (#169160)
 		- 20230614@Danny: Incorporate PG promotion (#189313)
+		- 20230614@Danny: Incorporate Saba Tennis (#190458)
+        
 */
 BEGIN
 	SET NOCOUNT ON
@@ -515,7 +517,7 @@ BEGIN
 		IF EXISTS (SELECT 1 FROM @Products WHERE Product3rdId IN (0, 3))
 		BEGIN
 			INSERT INTO #__SabaLeague (LeagueId, LeagueGroupId)
-			SELECT LeagueId, LeagueGroupId FROM bodb02.dbo.League WITH (NOLOCK) WHERE sporttype IN (1, 2, 50, 43) AND LeagueGroupId IN (42, 74, 108, 113, 122, 151)
+			SELECT LeagueId, LeagueGroupId FROM bodb02.dbo.League WITH (NOLOCK) WHERE sporttype IN (1, 2, 5, 50, 43) AND LeagueGroupId IN (42, 74, 108, 113, 122, 151)
 
 			-- retrieve data yesterday if flag is turned on
 			IF @isGetDataFromBettrans = 1 AND @ToDate = @yesterday
@@ -563,6 +565,7 @@ BEGIN
 					WHEN l.LeagueGroupId IN (42) AND t.SportType = 2 THEN -5 -- Saba Basketball
 					WHEN l.LeagueGroupId IN (42) AND t.SportType = 50 THEN -8 -- Saba Cricket
 					WHEN l.LeagueGroupId IN (151) AND t.SportType = 43 THEN -16 -- Saba E-S PGoal
+					WHEN l.LeagueGroupId IN (42) AND t.SportType = 5 THEN -17 -- Saba Tennis
 					WHEN t.Sporttype = 1 THEN -2 -- Soccer
 					WHEN t.Sporttype = 2 THEN -4 -- Basketball
 					WHEN t.Sporttype = 5 THEN -6 -- Tennis
@@ -585,6 +588,7 @@ BEGIN
 					WHEN l.LeagueGroupId IN (42) AND t.SportType = 2 THEN -5 -- Saba Basketball
 					WHEN l.LeagueGroupId IN (42) AND t.SportType = 50 THEN -8 -- Saba Cricket
 					WHEN l.LeagueGroupId IN (151) AND t.SportType = 43 THEN -16 -- Saba E-S PGoal
+					WHEN l.LeagueGroupId IN (42) AND t.SportType = 5 THEN -17 -- Saba Tennis
 					WHEN t.Sporttype = 1 THEN -2 -- Soccer
 					WHEN t.Sporttype = 2 THEN -4 -- Basketball
 					WHEN t.Sporttype = 5 THEN -6 -- Tennis
@@ -657,6 +661,7 @@ BEGIN
 						WHEN s.LeagueGroupId IN (42) AND b.SportType = 2 THEN -5 -- Saba Basketball
 						WHEN s.LeagueGroupId IN (42) AND b.SportType = 50 THEN -8 -- Saba Cricket
 						WHEN s.LeagueGroupId IN (151) AND b.SportType = 43 THEN -16 --Saba E-S PGoal
+						WHEN s.LeagueGroupId IN (42) AND b.SportType = 5 THEN -17 --Saba Tennis
 						WHEN b.Sporttype = 1 THEN -2 -- Soccer
 						WHEN b.Sporttype = 2 THEN -4 -- Basketball
 						WHEN b.Sporttype = 5 THEN -6 -- Tennis
@@ -703,6 +708,7 @@ BEGIN
 						WHEN s.LeagueGroupId IN (42) AND b.SportType = 2 THEN -5 -- Saba Basketball
 						WHEN s.LeagueGroupId IN (42) AND b.SportType = 50 THEN -8 -- Saba Cricket
 						WHEN s.LeagueGroupId IN (151) AND b.SportType = 43 THEN -16 --Saba E-S PGoal
+						WHEN s.LeagueGroupId IN (42) AND b.SportType = 5 THEN -17 --Saba Tennis
 						WHEN b.Sporttype = 1 THEN -2 -- Soccer
 						WHEN b.Sporttype = 2 THEN -4 -- Basketball
 						WHEN b.Sporttype = 5 THEN -6 -- Tennis
@@ -733,6 +739,7 @@ BEGIN
 						WHEN s.LeagueGroupId IN (42) AND b.SportType = 2 THEN -5 -- Saba Basketball
 						WHEN s.LeagueGroupId IN (42) AND b.SportType = 50 THEN -8 -- Saba Cricket
 						WHEN s.LeagueGroupId IN (151) AND b.SportType = 43 THEN -16 --Saba E-S PGoal
+						WHEN s.LeagueGroupId IN (42) AND b.SportType = 5 THEN -17 --Saba Tennis
 						WHEN b.Sporttype = 1 THEN -2 -- Soccer
 						WHEN b.Sporttype = 2 THEN -4 -- Basketball
 						WHEN b.Sporttype = 5 THEN -6 -- Tennis
@@ -776,6 +783,7 @@ BEGIN
 						WHEN s.LeagueGroupId IN (42) AND b.SportType = 2 THEN -5 -- Saba Basketball
 						WHEN s.LeagueGroupId IN (42) AND b.SportType = 50 THEN -8 -- Saba Cricket
 						WHEN s.LeagueGroupId IN (151) AND b.SportType = 43 THEN -16 --Saba E-S PGoal
+						WHEN s.LeagueGroupId IN (42) AND b.SportType = 5 THEN -17 --Saba Tennis
 						WHEN b.Sporttype = 1 THEN -2 -- Soccer
 						WHEN b.Sporttype = 2 THEN -4 -- Basketball
 						WHEN b.Sporttype = 5 THEN -6 -- Tennis
