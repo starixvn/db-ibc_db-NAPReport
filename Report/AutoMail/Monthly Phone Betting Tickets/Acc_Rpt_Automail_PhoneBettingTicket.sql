@@ -16,6 +16,7 @@ AS
 		20201118@Cherry: Initial (convert from script adhoc #129840 to SP)
 		20201218@Cherry: Modify SP
 		20220621@Harry: hardcode list users
+		20230705@Harry: change to hardcode custid
 
 	Param's Explanation:
 */ 
@@ -27,47 +28,7 @@ BEGIN
 	INSERT INTO #tmp
 	SELECT custid  
 	FROM custinfo WITH(nolock)
-	WHERE   Username in (	'CMTDFOO',
-							'CMTDFOO1',
-							'CMTDFOO2',
-							'CMTDKEE',
-							'CMTDKEE1',
-							'CMTDBRIAN',
-							'CMTDBRIAN1',
-							'CMTDLSOON',
-							'CMTDLSOON1',
-							'CMTDLSOON2',
-							'CMTDLIN',
-							'CMTDLIN1',
-							'CMTDKUAN',
-							'CMTDKUAN1',
-							'CMTDRICHIE',
-							'CMTDRICHIE1',
-							'CMTDPIAU',
-							'CMTDPIAU2',
-							'CMTDYAKUSHI',
-							'CMTDBAO',
-							'CMTDFEIBEE',
-							'CMTDWEI',
-							'CMTDDANIEL',
-							'CMTDPATRICK',
-							'CMTDRoland',
-							'CMTDEdmund',
-							'SMTDLKEVIN',
-							'SMTDLGLORIA',
-							'SMTDLTERRANCE',
-							'SMTDLLUKA',
-							'ADRIAN',
-							'ADRIAN2',
-							'CSMSAM',
-							'CSMSAM1',
-							'sam  kwang',
-							'KUETHAN',
-							'kwok han',
-							'kwok han1',
-							'SMTDALAN',
-							'SMTDLKENSON1',
-							'CSMFAN')	
+	WHERE custid in (726200,31417,17013688,2437,12663,26136721,47228188,2445,17013911,381638,464627,17062,20025,2454,12677,549062,570598,23147627,249789,1005105,16990409,859085,859093,47228190,2339,12684,772216,17013695,2049419,15184677,15184690,11974134,45036399,2962,17019237,14116130,4133165,8363809)     	
 	
 	CREATE TABLE #statistics(creator INT, cnt INT)
 	
@@ -107,7 +68,7 @@ BEGIN
 	SELECT c.username as Username ,
 		sum(cnt) as TicketNumber
 	FROM #statistics s
-		INNER join custinfo c WITH(nolock) ON s.creator = c.custid
+		INNER JOIN custinfo c WITH(nolock) ON s.creator = c.custid
 	GROUP BY c.username
 	ORDER BY username
 	
