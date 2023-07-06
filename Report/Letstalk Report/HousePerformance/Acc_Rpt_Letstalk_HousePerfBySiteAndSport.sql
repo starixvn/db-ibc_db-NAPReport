@@ -14,6 +14,7 @@ AS
 		20221010@Roy: Letstalk reports - Enhance UI/UX for smartwatch devices (#178950)
 		20221206@Roy: Email/Letstalk Reports - Incorporate Saba E-Sports PinGoal (#181261)
 		20230117@Roy: Email/Letstalk Reports - Split 789Y site into smaller sites (#182388)
+		20230705@Roy: Email/Letstalk Reports - Incorporate Saba Tennis (#190458)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -174,7 +175,8 @@ BEGIN
 		,(3, 0, 'Basket PG')
 		,(3, 0, 'Real.Bas')
 		,(3, 0, 'Saba.Bas')
-		,(3, 0, 'Tenn')
+		,(3, 0, 'Real.Tenn')
+		,(3, 0, 'Saba.Tenn')
 		,(3, 0, 'E-Spo')
 		,(3, 0, 'S.E-SPG')
 		,(3, 0, 'Cricket')
@@ -688,7 +690,9 @@ BEGIN
 				WHEN l.SportType = 43 AND sl.LeagueGroupID = 151 THEN 'S.E-SPG'
 				WHEN l.SportType = 43 THEN 'E-Spo'
 				
-				WHEN l.SportType = 5 THEN 'Tenn'
+				WHEN l.SportType = 5 AND sl.LeagueGroupID IS NULL THEN 'Real.Tenn'
+				WHEN l.SportType = 5 THEN 'Saba.Tenn'
+				
 				WHEN l.SportType = 50 THEN 'Cricket'
 				WHEN d.LeagueID = @Parl_LeagueID THEN 'Parl'
 				ELSE 'Others'
@@ -718,7 +722,9 @@ BEGIN
 				WHEN l.SportType = 43 AND sl.LeagueGroupID = 151 THEN 'S.E-SPG'
 				WHEN l.SportType = 43 THEN 'E-Spo'
 				
-				WHEN l.SportType = 5 THEN 'Tenn'
+				WHEN l.SportType = 5 AND sl.LeagueGroupID IS NULL THEN 'Real.Tenn'
+				WHEN l.SportType = 5 THEN 'Saba.Tenn'
+				
 				WHEN l.SportType = 50 THEN 'Cricket'
 				WHEN d.LeagueID = @Parl_LeagueID THEN 'Parl'
 				ELSE 'Others'
