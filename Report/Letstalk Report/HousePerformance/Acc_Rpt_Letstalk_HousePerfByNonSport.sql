@@ -19,6 +19,7 @@ AS
 		20230222@Roy: Email/Letstalk Reports - Move Table Games from RNG section to LOT/KENO area (#184192)
 		20230518@Roy: Email/Letstalk - Jili - Incorporate new product (#182863)
 		20230518@Roy: Letstalk/Email - YeeBet - Incorporate new product (#186481)
+		20230719@Roy: Email/Letstalk - LG Virtual Sports - Incorporate new product (#189204)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -203,6 +204,7 @@ BEGIN
 			,(49,'OTHERS','VS3') --Virtual Sports 3
 			,(69,'OTHERS','BTC') --Bitcoin
 			-- ,('Bet Builder','OTHERS','BetB')
+			,(77,'OTHERS','VS3') --Virtual Sports
 		) h (ProductID, ProductGroup, ProductShortName)
 	)
 	INSERT INTO #tmpProductSetting (
