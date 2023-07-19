@@ -4,7 +4,7 @@ ALTER PROCEDURE Acc_Rpt_Letstalk_HousePerfBySiteAndSport
 AS
 /*
 	Created: Roy@20220531
-	Task: Get House WL At Exec Time  (ID #32)
+	Task: Get House WL At Exec Time  (Letstalk #32)
 	DB: DBACC.bodb02
 
 	Revisions:
@@ -175,8 +175,8 @@ BEGIN
 		,(3, 0, 'Basket PG')
 		,(3, 0, 'Real.Bas')
 		,(3, 0, 'Saba.Bas')
-		,(3, 0, 'Real.Tenn')
-		,(3, 0, 'Saba.Tenn')
+		,(3, 0, 'Real.Ten')
+		,(3, 0, 'Saba.Ten')
 		,(3, 0, 'E-Spo')
 		,(3, 0, 'S.E-SPG')
 		,(3, 0, 'Cricket')
@@ -690,8 +690,8 @@ BEGIN
 				WHEN l.SportType = 43 AND sl.LeagueGroupID = 151 THEN 'S.E-SPG'
 				WHEN l.SportType = 43 THEN 'E-Spo'
 				
-				WHEN l.SportType = 5 AND sl.LeagueGroupID IS NULL THEN 'Real.Tenn'
-				WHEN l.SportType = 5 THEN 'Saba.Tenn'
+				WHEN l.SportType = 5 AND sl.LeagueGroupID IS NULL THEN 'Real.Ten'
+				WHEN l.SportType = 5 THEN 'Saba.Ten'
 				
 				WHEN l.SportType = 50 THEN 'Cricket'
 				WHEN d.LeagueID = @Parl_LeagueID THEN 'Parl'
@@ -722,8 +722,8 @@ BEGIN
 				WHEN l.SportType = 43 AND sl.LeagueGroupID = 151 THEN 'S.E-SPG'
 				WHEN l.SportType = 43 THEN 'E-Spo'
 				
-				WHEN l.SportType = 5 AND sl.LeagueGroupID IS NULL THEN 'Real.Tenn'
-				WHEN l.SportType = 5 THEN 'Saba.Tenn'
+				WHEN l.SportType = 5 AND sl.LeagueGroupID IS NULL THEN 'Real.Ten'
+				WHEN l.SportType = 5 THEN 'Saba.Ten'
 				
 				WHEN l.SportType = 50 THEN 'Cricket'
 				WHEN d.LeagueID = @Parl_LeagueID THEN 'Parl'
