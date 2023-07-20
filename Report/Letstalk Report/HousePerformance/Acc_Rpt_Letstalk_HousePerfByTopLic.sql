@@ -70,12 +70,12 @@ BEGIN
 		,Winloss
 	)
 	SELECT b.SiteID
-		,SUM(CASE WHEN b.TicketStatusID = 3 THEN 0
+		,SUM((CASE WHEN b.TicketStatusID = 3 THEN 0
 				WHEN b.TicketStatusID IN (12, 13) THEN (ABS(Stake) / 2)
 				ELSE ABS(Stake)
-				END
+				END) * b.actualrate
 		) AS TurnOver
-		,- SUM(ISNULL(winlost, 0) - ISNULL(actual_stake, 0)) AS Winloss
+		,- SUM((ISNULL(b.winlost, 0) - ISNULL(b.actual_stake, 0)) * b.actualrate) AS Winloss
 	FROM bodb_ODS.dbo.ODS_bettrans AS b WITH (NOLOCK)
 		INNER JOIN bodb02.dbo.Dep_CustSuper AS s WITH (NOLOCK) ON s.CustID = b.srecommend
 		LEFT JOIN #tmpBATrans AS ba ON b.TransID = ba.TransID
