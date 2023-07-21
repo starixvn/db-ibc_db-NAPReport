@@ -201,7 +201,7 @@ BEGIN
 			,(5,'OTHERS','VS') --Virtual Sports
 			,(15,'OTHERS','CB') --Colossus Bets
 			,(31,'OTHERS','EX') --Exchange
-			,(49,'OTHERS','VS3') --Virtual Sports 3
+			,(49,'OTHERS','VS3(Old)') --Virtual Sports 3
 			,(69,'OTHERS','BTC') --Bitcoin
 			-- ,('Bet Builder','OTHERS','BetB')
 			,(77,'OTHERS','VS3') --Virtual Sports
