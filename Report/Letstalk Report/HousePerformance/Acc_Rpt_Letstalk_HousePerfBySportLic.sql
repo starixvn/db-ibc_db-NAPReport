@@ -4,14 +4,14 @@ ALTER PROCEDURE Acc_Rpt_Letstalk_HousePerfBySportLic
 AS
 /*
 	Created: Roy@20220629
-	Task: Get House Performance By Sport Lic At Exec Time
+	Task: Get House Performance By Sport Lic At Exec Time (Letstalk #36)
 	DB: DBACC.bodb02
 
 	Revisions:
 		20220629@Roy: Letstalk Reports - Implement Non-Sports TO & Margin and Licensee Turnover Margin (#174679)
 		20221206@Roy: Email/Letstalk Reports - Incorporate Saba E-Sports PinGoal (#181261)
 		20221219@Roy: Letstalk Report ID #36 - Refactor sp code (#181303)
-		
+		20230705@Roy: Email/Letstalk Reports - Incorporate Saba Tennis (#190458)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -132,7 +132,7 @@ BEGIN
 		,GroupName VARCHAR(50)
 		,HouseTO MONEY
 		,HouseWL MONEY
-		,OrdNo INT
+		,OrdNo FLOAT
 	)
 	
 	/*
@@ -428,7 +428,8 @@ BEGIN
 				WHEN d.SportGroup = 2 AND d.SabaType = 2 THEN 7 --'Basket PG'
 				WHEN d.SportGroup = 2 AND d.SabaType = 0 THEN 8 --'Real.Bas'
 				WHEN d.SportGroup = 2 AND d.SabaType = 1 THEN 9 --'Saba.Bas'
-				WHEN d.SportGroup = 5 THEN 10 --'Tenn'
+				WHEN d.SportGroup = 5 AND d.SabaType = 0 THEN 10 --'Real.Ten'
+				WHEN d.SportGroup = 5 THEN 10.1 --'Saba.Ten'
 				WHEN d.SportGroup = 43 THEN 11 --'E-Spo'
 				WHEN d.SportGroup = 50 THEN 12 --'Cricket'
 				WHEN d.SportGroup = -29 THEN 14 --'Parl'
@@ -447,7 +448,8 @@ BEGIN
 				WHEN d.SportGroup = 2 AND d.SabaType = 2 THEN 7 --'Basket PG'
 				WHEN d.SportGroup = 2 AND d.SabaType = 0 THEN 8 --'Real.Bas'
 				WHEN d.SportGroup = 2 AND d.SabaType = 1 THEN 9 --'Saba.Bas'
-				WHEN d.SportGroup = 5 THEN 10 --'Tenn'
+				WHEN d.SportGroup = 5 AND d.SabaType = 0 THEN 10 --'Real.Ten'
+				WHEN d.SportGroup = 5 THEN 10.1 --'Saba.Ten'
 				WHEN d.SportGroup = 43 THEN 11 --'E-Spo'
 				WHEN d.SportGroup = 50 THEN 12 --'Cricket'
 				WHEN d.SportGroup = -29 THEN 14 --'Parl'
@@ -499,7 +501,8 @@ BEGIN
 				WHEN OrdNo = 7 THEN 'Basket PG'
 				WHEN OrdNo = 8 THEN 'Real.Bas'
 				WHEN OrdNo = 9 THEN 'Saba.Bas'
-				WHEN OrdNo = 10 THEN 'Tenn'
+				WHEN OrdNo = 10 THEN 'Real.Ten'
+				WHEN OrdNo = 10.1 THEN 'Saba.Ten'
 				WHEN OrdNo = 11 THEN 'E-Spo'
 				WHEN OrdNo = 12 THEN 'Cricket'
 				WHEN OrdNo = 14 THEN 'Parl'
