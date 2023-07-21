@@ -15,6 +15,7 @@ AS
 		20221206@Roy: Email/Letstalk Reports - Incorporate Saba E-Sports PinGoal (#181261)
 		20230117@Roy: Email/Letstalk Reports - Split 789Y site into smaller sites (#182388)
 		20230705@Roy: Email/Letstalk Reports - Incorporate Saba Tennis (#190458)
+		20230720@Roy: Email/Letstalk Reports - Apply Bot API and change HTML UI (#191481)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -30,7 +31,6 @@ BEGIN
 	DECLARE @DayOffset INT
 		,@WLDate SMALLDATETIME
 		,@Title VARCHAR(20)
-		,@Footer VARCHAR(20) = 'Report ID #32'
 	
 	SET @DayOffset = (CASE WHEN DATEPART(HOUR, @ExecTime4GMT) >= 2
 								THEN 0
@@ -41,12 +41,14 @@ BEGIN
 	--Build Exec Time as Text
 	IF (@DayOffset = 0)
 	BEGIN
-		SET @Title = LTRIM(RTRIM((RIGHT(CONVERT(VARCHAR, @ExecTime4GMT, 100), 7))))
+		SET @Title = CONVERT(VARCHAR(5), @WLDate, 1)
+		SET @Title = @Title + ' ' + LTRIM(RTRIM((RIGHT(CONVERT(VARCHAR, @ExecTime4GMT, 100), 7)))) + ' GMT-4'
 	END
 	ELSE
 	BEGIN
-		SET @Title = CONVERT(VARCHAR(5), @WLDate, 1)
+		SET @Title = CONVERT(VARCHAR, @WLDate, 101)
 	END
+	SET @Title = @Title + ' (ID #32)'
 	
 	--Make sure WLDate only in range [bettrans]
 	IF EXISTS (
@@ -892,7 +894,6 @@ BEGIN
 		,o.OrderNo
 	
 	SELECT @Title AS Title
-		,@Footer AS Footer
 	
 	DROP TABLE #tmpDWSite
 	DROP TABLE #tmpMatch

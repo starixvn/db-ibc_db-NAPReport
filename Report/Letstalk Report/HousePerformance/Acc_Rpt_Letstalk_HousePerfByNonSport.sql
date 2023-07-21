@@ -19,6 +19,7 @@ AS
 		20230222@Roy: Email/Letstalk Reports - Move Table Games from RNG section to LOT/KENO area (#184192)
 		20230518@Roy: Email/Letstalk - Jili - Incorporate new product (#182863)
 		20230518@Roy: Letstalk/Email - YeeBet - Incorporate new product (#186481)
+		20230720@Roy: Email/Letstalk Reports - Apply Bot API and change HTML UI (#191481)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -33,7 +34,6 @@ BEGIN
 	DECLARE @DayOffset INT
 		,@WLDate SMALLDATETIME
 		,@Title VARCHAR(50)
-		,@Footer VARCHAR(20) = 'ID #34'
 
 	SET @DayOffset = (
 			CASE 
@@ -47,12 +47,14 @@ BEGIN
 	--Build Exec Time as Text
 	IF (@DayOffset = 0)
 	BEGIN
-		SET @Title = LTRIM(RTRIM((RIGHT(CONVERT(VARCHAR, @ExecTime4GMT, 100), 7))))
+		SET @Title = CONVERT(VARCHAR(5), @WLDate, 1)
+		SET @Title = @Title + ' ' + LTRIM(RTRIM((RIGHT(CONVERT(VARCHAR, @ExecTime4GMT, 100), 7)))) + ' GMT-4'
 	END
 	ELSE
 	BEGIN
-		SET @Title = CONVERT(VARCHAR(5), @WLDate, 1)
+		SET @Title = CONVERT(VARCHAR, @WLDate, 101)
 	END
+	SET @Title = @Title + ' (ID #34)'
 
 	--Make sure WLDate only in range [bettrans]
 	IF EXISTS (
@@ -62,7 +64,6 @@ BEGIN
 			)
 	BEGIN
 		SELECT @Title AS Title
-			,@Footer AS Footer
 		RETURN
 	END
 	
@@ -522,7 +523,6 @@ BEGIN
 		,TurnoverIBC DESC
 	
 	SELECT @Title AS Title
-		,@Footer AS Footer
 	
 	DROP TABLE #tmpProductSetting
 	DROP TABLE #tmpProductBettype
