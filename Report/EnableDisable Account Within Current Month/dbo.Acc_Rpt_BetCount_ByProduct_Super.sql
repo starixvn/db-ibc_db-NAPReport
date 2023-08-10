@@ -80,6 +80,7 @@ AS
         - 20230116@Roy: NAP Report - Unify Lottery & Virtual Sports (#182921)
         - 20230307@Roy: Customer Setting - Remove unused columns from Custinfo table (#179014)
 		- 20230323@Roy: NAP Report - Apply DCS Setting for Number Game & RNG Keno (#183627)
+		- 20230719@Roy: NAP Report - Integrate product Leap Gaming VS (VS3) (#189510)
 
     Param's Explanation:
         + @MoveBetsDay:  The day of moving bets to battrans14
@@ -165,7 +166,7 @@ BEGIN
            'Virtual Sports' SportGroupName,
            SportType
     FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)
-    WHERE ProductID IN (5, 27, 49)
+    WHERE ProductID IN (5, 27, 49, 77)--5(VS), 27(VS2), 49 (VS3 - Old), 77 (VS3 - new)
 
     INSERT INTO #SportGroupSettings (SportGroupID, SportGroupName, SportType)
     SELECT DISTINCT

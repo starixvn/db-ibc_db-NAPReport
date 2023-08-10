@@ -18,6 +18,7 @@ AS
 		- 20220801@Kean: Use DISTINCT before insert into MatchList table (#176041)
 		- 20220805@Roy: Fix duplicate MatchID when insert into MatchList table (#176340)
 		- 20221125@Roy: Defer Gen File After Match Complete (#180910)
+		- 20230719@Roy: NAP Report - Integrate product Leap Gaming VS (VS3) (#189510)
 */
 
 BEGIN
@@ -87,7 +88,7 @@ BEGIN
 		AND ( sporttype < 99
 			OR sporttype IN (SELECT DISTINCT sbm.SportType
 				 FROM bodb02.dbo.SportBettypeMatrix sbm (NOLOCK)
-				 WHERE sbm.ProductID IN (5,27)
+				 WHERE sbm.ProductID IN (5,27,77)--5(VS), 27(VS2), 77 (VS3 - new)
 					   AND sbm.EventType = 1)
 		)
 		AND IsDeleted = 0
@@ -130,7 +131,7 @@ BEGIN
 		,MatchCode
 		,HomeID
 		,AwayID
-		,GETDATE()
+		,GETDATE()--Defer Gen File, add value for GenerateTime => NAP_SaveBet_GetJob will wait after 60mins
 	FROM #tmpMatchList
 	
 	DROP TABLE #tmpMatchList

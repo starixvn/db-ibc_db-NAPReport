@@ -41,6 +41,7 @@ AS
          - 20220321@Ned.Le: NAP Report - Integrate FGG & new bettypes Cricket (#170213)
          - 20220726@Roy: NAP Report - Scale out & new transid (#175707)
          - 20220829@Roy: NAP Report - Enhancement for duplicated ticket (#177204)
+		 - 20230719@Roy: NAP Report - Integrate product Leap Gaming VS (VS3) (#189510)
 */
 
 BEGIN
@@ -125,7 +126,7 @@ BEGIN
 	INSERT INTO @bettype (bettype)
 	SELECT bettype
 	FROM bodb02.dbo.f_SportBettypeMatrix_Sel (0, 0, 0, 2, '', '', @isTest)
-	WHERE ProductID IN (1, 3, 5, 25, 26, 27)
+	WHERE ProductID IN (1, 3, 5, 25, 26, 27, 77) --5(VS), 27(VS2), 77 (VS3 - new)
 		AND BetType NOT IN (500, 912, 913, 914)
 	GROUP BY BetType
 	--- End Sport Bettype Matrix------
