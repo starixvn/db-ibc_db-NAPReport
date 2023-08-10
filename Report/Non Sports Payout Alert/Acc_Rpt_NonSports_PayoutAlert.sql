@@ -13,6 +13,7 @@ AS
 		20230203@Roy: Game Payout Notification Letstalk - Support different notification level setting for specific group of products (#182931)
 		20230424@Roy: Game Payout Letstalk - Support to remove in-active products and un-used reports (#187325)
 		20230522@Roy: Risk and Control - YeeBet - Integrate new Live Casino product (#186474)
+		20230720@Roy: Risk and Control - LG Virtual Sports - Incorporate new product (#189202)
 
 	Param's Explanation:
 		@FromGMT8Time: start of time range in GMT+8 with format 2021-05-20 19:00:00
@@ -97,7 +98,8 @@ BEGIN
 			-------------Sport-------------
 			,(5, 'Virtual Sports', 108, 5000)
 			,(27, 'Virtual Sports 2', 108, 5000)
-			,(49, 'Virtual Sports 3', 108, 5000)
+			,(49, 'Virtual Sports 3 (Old)', 108, 5000)
+			,(77, 'Virtual Sports 3', 108, 5000)
 			,(69, 'Bitcoin', 108, 5000)
 			
 			-------------Slot-------------
