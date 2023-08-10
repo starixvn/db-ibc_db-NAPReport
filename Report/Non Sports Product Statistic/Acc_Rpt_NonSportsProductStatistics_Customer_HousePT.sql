@@ -47,6 +47,7 @@ AS
 		20220916@Cherry: Extend data type of Betfrom (#177655)
 		20220926@Cherry: Change param @Device from Betfrom to Betfromid (#164955)
 		20230609@Cherry: Not include dummy accounts in BetCount, NoOfPlayers (#188994)
+		20230801@Cherry: Integrate Virtual Sports 3 (#189202)
 
 	Param's Explanation:
 		- @ProductID: string filter by Product 
@@ -178,7 +179,7 @@ BEGIN
 	FROM
 		dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '', @isTest) s
 		INNER JOIN #tmp_ProductID p ON s.ProductID = p.ProductID
-	WHERE (p.ProductID IN (3, 5, 27) -- Number Game, Virtual Sports, Virtual Sports 2
+	WHERE (p.ProductID IN (3, 5, 27, 77) -- Number Game, Virtual Sports, Virtual Sports 2, Virtual Sports 3
 		OR p.ProductID IN (SELECT ProductID FROM #tmpHouseProduct))
 	
 	INSERT INTO #SportBettype (ProductID, Bettype, EvenType, RefTable)
@@ -622,7 +623,7 @@ BEGIN
 		---------------
 	
 		--- Check condition 
-		IF EXISTS (SELECT TOP 1 1 FROM #SportBettype WHERE ProductID NOT IN (3, 4, 5, 27, 33)) -- NG, SLI-Live Casino, Virtual Sports, Virtual Sports 2, Poker Games
+		IF EXISTS (SELECT TOP 1 1 FROM #SportBettype WHERE ProductID NOT IN (3, 4, 5, 27, 33, 77)) -- NG, SLI-Live Casino, Virtual Sports, Virtual Sports 2, Poker Games
 		BEGIN		
 			INSERT INTO #Data
 			(
@@ -643,7 +644,7 @@ BEGIN
 				SUM(HousePT) AS HousePT,
 				SUM(RowNum) AS RowNum
 			FROM  #tmp_bettrans
-			WHERE ProductID NOT IN (3, 4, 5, 27, 33)
+			WHERE ProductID NOT IN (3, 4, 5, 27, 33, 77)
 			GROUP BY ProductID
 		END
 		
@@ -673,7 +674,7 @@ BEGIN
 			GROUP BY b.ProductID
 		END
 
-		IF EXISTS (SELECT TOP 1 1 FROM #SportBettype WHERE ProductID IN (3, 4, 5)) -- NG, SLI-Live Casino, Virtual Sports
+		IF EXISTS (SELECT TOP 1 1 FROM #SportBettype WHERE ProductID IN (3, 4, 5, 77)) -- NG, SLI-Live Casino, Virtual Sports, Virtual Sports 3
 		BEGIN		
 			INSERT INTO #Data
 			(
@@ -693,11 +694,11 @@ BEGIN
 				SUM(HousePT) AS HousePT
 			FROM  #tmp_bettrans b
 				INNER JOIN dbo.match m WITH (NOLOCK) ON m.matchid = b.matchid
-			WHERE ProductID IN (3, 4, 5) AND b.EvenType = 1
+			WHERE ProductID IN (3, 4, 5, 77) AND b.EvenType = 1
 				AND (
 					(b.ProductID = 3 AND (@LeagueId = '' OR EXISTS (SELECT 1 FROM #tmp_LeagueID l WHERE l.LeagueID = m.leagueid AND l.Bettype = b.Bettype)
 											OR EXISTS (SELECT 1 FROM #tmp_LeagueID l WHERE l.LeagueID = 168 AND l.Bettype = b.bettype))) OR
-					(b.ProductID = 5 AND (@Sporttype = '' OR (EXISTS (SELECT 1 FROM #tmp_SportType st WHERE st.Sporttype = m.sporttype))))
+					(b.ProductID IN (5, 77) AND (@Sporttype = '' OR (EXISTS (SELECT 1 FROM #tmp_SportType st WHERE st.Sporttype = m.sporttype))))
 				)
 			GROUP BY ProductID
 
