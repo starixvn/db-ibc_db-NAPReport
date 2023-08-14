@@ -16,6 +16,7 @@ AS
 		- 20200806@Jaden.Tang: NAP Report - Enhancement for League Win Loss (#138995)
 		- 20200930@Jaden.Tang: Odds Spread Adjustment (#141750)
 		- 20210420@Jaden.Tang: Move E-Sports out of 'Others' (#153352)
+		- 20230809@Jaden: Parlay boost bonus (#191900)
 
 	Param's Explanation:
 
@@ -63,7 +64,7 @@ BEGIN
 		WHERE sbm.ProductID = 1
 			  AND sbm.SportType <> 27
 			  AND sbm.SubProduct NOT LIKE 'BT%'
-			  AND sbm.BetType NOT IN (9, 29, 999)
+			  AND sbm.BetType NOT IN (9, 29, 999, 998)
 		UNION ALL
 		-- Parlay
 		SELECT DISTINCT
