@@ -17,6 +17,7 @@ AS
 	Revisions:  
         20210331@Ned.Le: Email/Letstalk Reports - Change Data Source to retrieve yesterday data from DW into Bettrans table (#151993)
         20220310@Ned.Le: Email/Letstalk Reports - Include 8RM/BARM into Bet Count, member turnover, member win loss, Margin except House Income (#169768)
+        20230817@Ned.Le: Remove currency test
 	
 	Param's Explanation:
         @winlostdate: The date to get data
@@ -185,6 +186,7 @@ BEGIN
 	WHERE b.winlostdate = CAST(@winlostdate AS SMALLDATETIME)
 		  AND b.bettype IN (SELECT typeid FROM #tmpDWBettypeSource where SourceTable='bettrans')
 		  AND b.statusID IN (111, 112, 113)
+          AND b.currency <> 20
 	OPTION (RECOMPILE)
 
 	INSERT INTO #tmpbettrans (
@@ -240,6 +242,7 @@ BEGIN
 	WHERE b.winlostdate = CAST(@winlostdate AS SMALLDATETIME)
 		  AND b.gameID IN (SELECT typeid FROM #tmpDWBettypeSource where SourceTable='bettransLC')
 	      AND b.StatusID IN (111, 112, 113)
+          AND b.currency <> 20
 	OPTION (RECOMPILE)
 
 	INSERT INTO #tmpbettrans (
@@ -295,6 +298,7 @@ BEGIN
 	WHERE b.winlostdate = CAST(@winlostdate AS SMALLDATETIME)
 		  AND b.gameID IN (SELECT typeid FROM #tmpDWBettypeSource where SourceTable='bettransRNG')
 	      AND b.StatusID IN (111, 112, 113)
+          AND b.currency <> 20
 	OPTION (RECOMPILE)
 
 	CREATE CLUSTERED INDEX CIX_tmpbettrans ON #tmpbettrans(bettype, matchid)

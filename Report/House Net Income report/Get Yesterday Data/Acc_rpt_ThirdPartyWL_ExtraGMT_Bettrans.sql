@@ -13,6 +13,7 @@ AS
 		- 20220325@Danny: Incorporate FGG (#170522)
 		- 20231027@Danny: Change LicenseeID detection formulary of deposit licensee [#183209]
 		- 20230522@Danny: Incorporate YeeBet (#186481)
+        - 20230817@Ned.Le: Remove currency test
 
 	 Param's Explanation:
 
@@ -67,6 +68,7 @@ BEGIN
 		AND b.Transdate3rd >= @Winlostdate AND b.Transdate3rd < @TDate
 		AND b.statusID NOT IN (0, 1, 101, 102, 121)
 		AND b.gameID IN (SELECT x.Bettype FROM @RnGBettypeList x)
+        AND b.currency <> 20
 	GROUP BY CAST(b.winlostdate AS DATE), 
 			CAST(b.Transdate3rd AS DATE), 
 			ISNULL(site.SiteID, -1), 
@@ -100,6 +102,7 @@ BEGIN
 		)
 		AND b.statusID NOT IN (0, 1, 101, 102, 121)
 		AND b.gameID IN (SELECT x.Bettype FROM @LCBettypeList x)
+        AND b.currency <> 20
 	GROUP BY CAST(b.winlostdate AS DATE), 
 			CASE WHEN b.gameID BETWEEN 5701 AND 5704 THEN CAST(b.winlostdate AS DATE) ELSE CAST(b.Transdate3rd AS DATE) END, 
 			ISNULL(site.SiteID, -1), CASE WHEN b.gameID BETWEEN 5701 AND 5704 THEN -59 ELSE b.gameID END
