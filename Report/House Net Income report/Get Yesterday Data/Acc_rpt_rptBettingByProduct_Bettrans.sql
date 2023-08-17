@@ -12,6 +12,7 @@ AS
 		- 20210914@Danny: Edit CB Winloss (#159045)
 		- 20231027@Danny: Change LicenseeID detection formulary of deposit licensee [#183209]
 		- 20230414@Danny: New Commercial Terms for 12B (#186505)
+        - 20230817@Ned.Le: Remove currency test
 
 	Exec [Acc_Rpt_rptBettingByProduct_Bettrans] '2021-05-12'
 
@@ -98,6 +99,7 @@ BEGIN
 		AND b.custid > 0
 		AND b.recommend > 0
 		AND b.statusid NOT IN (0, 101, 102, 121) -- exclude waiting, reject, void ticket (statusID = 1)
+        AND b.currency <> 20
 	GROUP BY b.winlostdate, ISNULL(s.SiteID, -1)
 		,b.bettype
 		,b.currency
