@@ -20,6 +20,7 @@ AS
 		- 20210329@Jaden: add forecast the result with Real figures (#152290)
 		- 20210423@Roy: NAP Report - Move Save bet db & service (#153147)
 		- 20221129@Roy: NAP Report - Save Bet Report out of memory (#180701)
+		- 20230817@Roy: Exclude TestCurr due to invalid [virtualrate] (#192873)
 	
 	Param's Explanation:
 		@IsDeposit: seperate IsDeposit only for soccer. 1:Deposit; 0:Credit; 2: All match
@@ -153,6 +154,7 @@ BEGIN
 					and matchid = @matchid and b.custid >0 and status NOT IN ('VOID', 'REJECT')
 					AND (@IsDeposit NOT IN (0,1) OR @IsDeposit = (CASE WHEN d.custid IS NULL THEN 0 ELSE 1 END))
 					AND (@Half NOT IN (1,2) OR @Half = (CASE WHEN b.transdate <= @1HTime THEN 1 ELSE 2 END))
+					AND b.currency <> 20
 				group by status, b.currency, hdp1 - hdp2, livehomescore, liveawayscore, liveindicator, b.virtualrate, b.actualrate
 				)x
 		GROUP BY x.status, x.hdp, x.livehomescore, x.liveawayscore, x.liveindicator
@@ -191,6 +193,7 @@ BEGIN
 					and matchid = @matchid and b.custid > 0 and status NOT IN ('VOID', 'REJECT')--102,101
 					AND (@IsDeposit NOT IN (0,1) OR @IsDeposit = (CASE WHEN d.custid IS NULL THEN 0 ELSE 1 END))
 					AND (@Half NOT IN (1,2) OR @Half = (CASE WHEN b.transdate <= @1HTime THEN 1 ELSE 2 END))
+					AND b.currency <> 20
 				group by liveindicator, status, b.currency, hdp1, livehomescore, liveawayscore, b.virtualrate, b.actualrate
 				)x
 			group by x.status, liveindicator, x.hdp, x.livehomescore, x.liveawayscore
@@ -244,6 +247,7 @@ BEGIN
 					and matchid = @matchid and b.custid >0 and status NOT IN ('VOID', 'REJECT')
 					AND (@IsDeposit NOT IN (0,1) OR @IsDeposit = (CASE WHEN d.custid IS NULL THEN 0 ELSE 1 END))
 					AND (@Half NOT IN (1,2) OR @Half = (CASE WHEN b.transdate <= @1HTime THEN 1 ELSE 2 END))
+					AND b.currency <> 20
 				group by status, b.currency, hdp1 - hdp2, livehomescore, liveawayscore, liveindicator, b.virtualrate, b.actualrate
 				)x
 		GROUP BY x.status, x.hdp, x.livehomescore, x.liveawayscore, x.liveindicator
@@ -282,6 +286,7 @@ BEGIN
 					and matchid = @matchid and b.custid > 0 and status NOT IN ('VOID', 'REJECT')
 					AND (@IsDeposit NOT IN (0,1) OR @IsDeposit = (CASE WHEN d.custid IS NULL THEN 0 ELSE 1 END))
 					AND (@Half NOT IN (1,2) OR @Half = (CASE WHEN b.transdate <= @1HTime THEN 1 ELSE 2 END))
+					AND b.currency <> 20
 				group by liveindicator, status, b.currency, hdp1, livehomescore, liveawayscore, b.virtualrate, b.actualrate
 				)x
 			group by x.status, liveindicator, x.hdp, x.livehomescore, x.liveawayscore

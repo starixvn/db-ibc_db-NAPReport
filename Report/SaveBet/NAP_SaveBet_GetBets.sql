@@ -33,6 +33,7 @@ AS
 		- 20220321@Jaden: Cricket phase 2 - Save Bet (#170213)
 		- 20221125@Roy: Defer Gen File After Match Complete (#180910)
 		- 20221129@Roy: NAP Report - Save Bet Report out of memory (#180701)
+		- 20230817@Roy: Exclude TestCurr due to invalid [virtualrate] (#192873)
 	
 	Param's Explanation:
 		@IsDeposit: seperate IsDeposit only for soccer. 1:Deposit; 0:Credit; 2: All match
@@ -204,6 +205,7 @@ BEGIN
 			AND b.liveindicator = @liveindicator
 			AND (@IsDeposit NOT IN (0,1) OR @IsDeposit = (CASE WHEN d.custid IS NULL THEN 0 ELSE 1 END))
 			AND (@Half NOT IN (1,2) OR @Half = (CASE WHEN b.transdate <= @1HTime THEN 1 ELSE 2 END))
+			AND b.currency <> 20
 		ORDER BY b.betteam, b.transid
 		OPTION(RECOMPILE, USE HINT('DISALLOW_BATCH_MODE'))
 	END
@@ -281,6 +283,7 @@ BEGIN
 			AND b.liveindicator = @liveindicator
 			AND (@IsDeposit NOT IN (0,1) OR @IsDeposit = (CASE WHEN d.custid IS NULL THEN 0 ELSE 1 END))
 			AND (@Half NOT IN (1,2) OR @Half = (CASE WHEN b.transdate <= @1HTime THEN 1 ELSE 2 END))
+			AND b.currency <> 20
 		ORDER BY b.betteam, b.transid
 		OPTION(RECOMPILE, USE HINT('DISALLOW_BATCH_MODE'))
 	END

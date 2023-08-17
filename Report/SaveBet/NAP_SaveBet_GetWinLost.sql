@@ -17,6 +17,7 @@ AS
 		- 20170612@Percy: check bettype of Cash Out [RedmineID: #78160]
 		- 20190308@Robert: #109822 - NAP Report - Integrate Bet Builder
 		- 20210423@Roy: NAP Report - Move Save bet db & service (#153147)
+		- 20230817@Roy: Exclude TestCurr due to invalid [virtualrate] (#192873)
 */
 
 BEGIN
@@ -81,6 +82,7 @@ BEGIN
 				AND bettype NOT IN(SELECT bettype FROM bodb02.dbo.f_VSHorseRacingByBettype())
 				AND bettype NOT IN (901,902,903,904)
 				AND bettype NOT IN (911,912,913,914, 38)
+				AND currency <> 20
 			GROUP BY
 				bettype, liveindicator
 		) b
@@ -115,6 +117,7 @@ BEGIN
 				AND b.bettype NOT IN(SELECT bettype FROM bodb02.dbo.f_VSHorseRacingByBettype())
 				AND b.bettype NOT IN (901,902,903,904)
 				AND b.bettype NOT IN (911,912,913,914, 38)
+				AND b.currency <> 20
 			GROUP BY
 				bettype, liveindicator
 		) t ON b.bettype = t.bettype AND b.liveindicator = t.liveindicator
@@ -156,6 +159,7 @@ BEGIN
 				AND bettype NOT IN(SELECT bettype FROM bodb02.dbo.f_VSHorseRacingByBettype())
 				AND bettype NOT IN (901,902,903,904)
 				AND bettype NOT IN (911,912,913,914, 38)
+				AND currency <> 20
 			GROUP BY
 				bettype, liveindicator
 		) b
@@ -190,6 +194,7 @@ BEGIN
 				AND bettype NOT IN(SELECT bettype FROM bodb02.dbo.f_VSHorseRacingByBettype())
 				AND bettype NOT IN (901,902,903,904)
 				AND bettype NOT IN (911,912,913,914, 38)
+				AND b.currency <> 20
 			GROUP BY
 				bettype, liveindicator
 		) t ON b.bettype = t.bettype AND b.liveindicator = t.liveindicator
