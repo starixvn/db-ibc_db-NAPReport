@@ -13,6 +13,7 @@ AS
 	Revisions:
 		20220511@Roy: Letstalk Reports - Top 3 Winning and Loosing Leagues (#172608)
 		20230110@Roy: Letstalk Reports - Implement Live Soccer Performance (#182668)
+		20230818@Roy: Auto Mail/Letstalk Reports - integrate Parlay Boost Bonus (#192856)
 
 	Param's Explanation:
 		@KOStartTime4GMT: The start KO time (GMT-4)
@@ -180,7 +181,7 @@ BEGIN
 		WHERE b.winlostdate = @FWLDate
 		AND b.statusID IN (112, 113) --Won, Lose
 		AND b.currency <> 20
-		AND b.bettype NOT IN (29, 38, 10) --exclude parlay, Bet Builder, outright
+		AND b.bettype NOT IN (29, 998, 38, 10) --exclude parlay (+Parlay Boost), Bet Builder, outright
 		AND (@IsLive IS NULL OR b.liveindicator = @IsLive )
 		GROUP BY m.LeagueID
 			,(CASE WHEN ABS(b.modds) = 0.25 THEN 1 ELSE 0 END)

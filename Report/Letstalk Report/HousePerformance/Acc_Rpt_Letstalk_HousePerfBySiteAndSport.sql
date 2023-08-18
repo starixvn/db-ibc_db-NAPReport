@@ -15,6 +15,7 @@ AS
 		20221206@Roy: Email/Letstalk Reports - Incorporate Saba E-Sports PinGoal (#181261)
 		20230117@Roy: Email/Letstalk Reports - Split 789Y site into smaller sites (#182388)
 		20230705@Roy: Email/Letstalk Reports - Incorporate Saba Tennis (#190458)
+		20230818@Roy: Auto Mail/Letstalk Reports - integrate Parlay Boost Bonus (#192856)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -214,7 +215,7 @@ BEGIN
 			WHEN bs.SourceTable = 'bettransLC' THEN 2
 			ELSE 3
 		END AS RefTable
-		,CASE WHEN pb.ProductID = 1 AND pb.Bettype NOT IN (29, 38, 901, 902 ,903, 904, 999, 18999) THEN 1
+		,CASE WHEN pb.ProductID = 1 AND pb.Bettype NOT IN (29, 998, 38, 901, 902 ,903, 904, 999, 18999) THEN 1
 			ELSE 0
 		END AS HalfBettype
 	FROM dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '', 0) AS pb
@@ -316,15 +317,15 @@ BEGIN
 	)
 	SELECT c.Site
 		,c.IsDeposit
-		,CASE WHEN b.bettype = 29 THEN @Parl_LeagueID
+		,CASE WHEN b.bettype IN (29,998) THEN @Parl_LeagueID
 			WHEN pb.ProductID <> 1 THEN @NS_LeagueID
 			WHEN m.matchid IS NOT NULL THEN m.leagueid
 			WHEN o.orid IS NOT NULL THEN o.leagueid
 			ELSE @NS_LeagueID
 		END AS LeagueID
-		,b.Bettype
+		,CASE WHEN b.bettype IN (29,998) THEN 29 ELSE b.bettype END AS Bettype --transform and consider 998 as 29
 		,(CASE WHEN ( ABS(b.modds) = 0.25 AND pb.HalfBettype = 1 ) THEN 1 ELSE 0 END) AS IsHalf
-		,(CASE WHEN b.bettype = 29 THEN b.livehomescore
+		,(CASE WHEN b.bettype IN (29,998) THEN ISNULL(b.livehomescore,2)
 		ELSE CAST(b.liveindicator AS TINYINT)
 		END) AS LiveStatus --0: Nonlive | 1:Live | 2: Mixed
 		,CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9,6)) AS VarianceVR
@@ -349,7 +350,7 @@ BEGIN
 			END) * b.actualrate) AS ExtraTO
 	FROM dbo.bettrans AS b WITH (NOLOCK)--, INDEX = CIX_matchid_bettype) -- faster but dirty read
 		LEFT JOIN #tmpCustomer AS c WITH (NOLOCK) ON b.Recommend = c.CustID
-		LEFT JOIN match AS m WITH (NOLOCK) ON b.matchid = m.matchid AND b.bettype NOT IN ( 10, 29)
+		LEFT JOIN match AS m WITH (NOLOCK) ON b.matchid = m.matchid AND b.bettype NOT IN (10, 29, 998)
 		LEFT JOIN outright AS o WITH (NOLOCK) ON b.matchid = o.orid AND b.bettype = 10
 		LEFT JOIN #tmpProductBettype AS pb WITH (NOLOCK) ON b.Bettype = pb.Bettype
 		LEFT JOIN #tmpBettypeGroup AS bg WITH (NOLOCK) ON b.Bettype = bg.Bettype
@@ -360,15 +361,15 @@ BEGIN
 		AND pb.RefTable = 3
 	GROUP BY c.Site
 		,c.IsDeposit
-		,CASE WHEN b.bettype = 29 THEN @Parl_LeagueID
+		,CASE WHEN b.bettype IN (29,998) THEN @Parl_LeagueID
 			WHEN pb.ProductID <> 1 THEN @NS_LeagueID
 			WHEN m.matchid IS NOT NULL THEN m.leagueid
 			WHEN o.orid IS NOT NULL THEN o.leagueid
 			ELSE @NS_LeagueID
 		END
-		,b.Bettype
+		,CASE WHEN b.bettype IN (29,998) THEN 29 ELSE b.bettype END
 		,(CASE WHEN ( ABS(b.modds) = 0.25 AND pb.HalfBettype = 1 ) THEN 1 ELSE 0 END)
-		,(CASE WHEN b.bettype = 29 THEN b.livehomescore
+		,(CASE WHEN b.bettype IN (29,998) THEN ISNULL(b.livehomescore,2)
 		ELSE CAST(b.liveindicator AS TINYINT)
 		END)
 		,CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9,6))
@@ -810,7 +811,7 @@ BEGIN
 		FROM #tmpRawData AS d WITH (NOLOCK)
 			INNER JOIN dbo.League AS l WITH (NOLOCK) ON d.LeagueID = l.LeagueID
 			INNER JOIN #tmpSportBettypeGroup AS sbg WITH (NOLOCK) ON l.SportType = sbg.SportType AND d.BetType = sbg.BetType
-		WHERE d.BetType NOT IN (9, 29)
+		WHERE d.BetType NOT IN (9, 29) --transformed 998 to 29 #tmpRawData
 	)
 	,CTE_PH_Parlay AS (
 		SELECT 'PHAIO' AS Market
@@ -819,7 +820,7 @@ BEGIN
 				* (CASE WHEN VarianceVR > 0 THEN VarianceVR + 1 ELSE 1 END)
 				* (CASE WHEN IsHalf = 1 THEN 0.5 ELSE 1 END)) AS TurnoverIBC
 		FROM #tmpRawData AS d WITH (NOLOCK)
-		WHERE d.BetType IN (SELECT DISTINCT BetType FROM #tmpSportBettypeGroup WITH (NOLOCK) WHERE BetType IN (9, 29))
+		WHERE d.BetType IN (SELECT DISTINCT BetType FROM #tmpSportBettypeGroup WITH (NOLOCK) WHERE BetType IN (9, 29)) --transformed 998 to 29 #tmpRawData
 	)
 	,CTE_TimeM AS (
 		SELECT CASE WHEN sbg.BetType = 229 THEN 'TimeM_HDP'
