@@ -45,6 +45,7 @@ AS
 		- 20230425@Danny: SP LA_AmountToCompanyByProduct return Discount Rate ExtraInfo (#169160)
 		- 20230614@Danny: Incorporate PG promotion (#189313)
 		- 20230614@Danny: Incorporate Saba Tennis (#190458)
+		- 20230821@Danny: Integrate Parlay Boost Bonus (#192894)
         
 */
 BEGIN
@@ -139,6 +140,8 @@ BEGIN
 		,LicenseeTO			MONEY DEFAULT(0) 
 		,LicenseeWL			MONEY DEFAULT(0) -- General formula -(winlost - actual_stake)
 		,ExchangePlayerComm MONEY DEFAULT(0)
+		,FullParlayBoostBonus	MONEY DEFAULT(0)
+		,AgentParlayBoostBonusSharing MONEY DEFAULT(0)
 	)
 	CREATE TABLE #__BettingByProduct (rptDate DATE, LicenseeId INT, CurrencyId INT, Product3rdId INT, BetTypeGroup INT, ValidBetAmount MONEY, MemberWL MONEY, Comm MONEY, LicenseeWL MONEY, LicenseeTO MONEY, ExchangePlayerComm MONEY)
 	CREATE TABLE #__tempResult
@@ -522,7 +525,7 @@ BEGIN
 			-- retrieve data yesterday if flag is turned on
 			IF @isGetDataFromBettrans = 1 AND @ToDate = @yesterday
 			BEGIN
-				INSERT INTO #__tempData (rptDate, SiteId_DW, CurrencyId, Product3rdId, AliasProductId, MemberWL, OddsSpreadAdj, Comm, LicenseeWL, LicenseeTO)
+				INSERT INTO #__tempData (rptDate, SiteId_DW, CurrencyId, Product3rdId, AliasProductId, MemberWL, OddsSpreadAdj, Comm, LicenseeWL, LicenseeTO, FullParlayBoostBonus, AgentParlayBoostBonusSharing)
 				EXEC DBACC.bodb02.dbo.Acc_rpt_FactLADailyWinloss_Bettrans @Winlostdate = @yesterday
 
 				DELETE t
@@ -542,6 +545,8 @@ BEGIN
 					,SUM(CASE WHEN ProductId = 10004 THEN AgentComm ELSE 0 END) AS AgentComm
 					,-SUM(CASE WHEN ProductID = 10004 THEN 0 ELSE MemberWinloss END)  AS LicenseeWL
 					,SUM(MemberTurnover  *  CASE WHEN TicketStatus = 3 OR ProductID = 10004 THEN 0 WHEN TicketStatus IN (12, 13) THEN 0.5 ELSE 1.0 END) AS LicenseeTO
+					,SUM(ISNULL(MemberBonus,0)) AS FullParlayBoostBonus
+					,SUM(ISNULL(AgentBonusShare,0)) AS AgentParlayBoostBonusSharing
 				FROM bodb_Account.dbo.FactLADailyWinloss WITH (NOLOCK)
 				WHERE rptDate BETWEEN @FDateGetData AND @TDateGetData
 					AND SiteId IN (SELECT SiteId_DW FROM #tmpSite)
@@ -556,7 +561,7 @@ BEGIN
 						ELSE 99 -- Other Sports
 						END
 			)
-			INSERT INTO #__tempData (rptDate, SiteId_DW, CurrencyId, Product3rdId, AliasProductId, MemberWL, OddsSpreadAdj, Comm, LicenseeWL, LicenseeTO)
+			INSERT INTO #__tempData (rptDate, SiteId_DW, CurrencyId, Product3rdId, AliasProductId, MemberWL, OddsSpreadAdj, Comm, LicenseeWL, LicenseeTO, FullParlayBoostBonus, AgentParlayBoostBonusSharing)
 			SELECT t.rptDate, t.SiteId, t.CurrencyId, CASE WHEN t.ProductId = 10001 THEN 0 ELSE 3 END AS ProductId
 				,CASE
 					WHEN l.LeagueGroupId IN (42, 74, 108) AND t.SportType = 1 THEN -3 -- Saba Soccer
@@ -578,6 +583,8 @@ BEGIN
 				,SUM(t.AgentComm) AS Comm -- BA Commission
 				,SUM(t.LicenseeWL)
 				,SUM(t.LicenseeTO)
+				,SUM(FullParlayBoostBonus)
+				,SUM(AgentParlayBoostBonusSharing)
 			FROM CTE_SB t
 				LEFT JOIN #__SabaLeague l ON t.LeagueId = l.LeagueId
 			GROUP BY t.rptDate, t.SiteId, t.CurrencyId, CASE WHEN t.ProductId = 10001 THEN 0 ELSE 3 END
@@ -890,8 +897,8 @@ BEGIN
 										WHEN p.PartyId IS NULL THEN -t.HouseWL
 										WHEN t.SportTypeGroup IN (150, 173) THEN -t.MemberWL
 										ELSE
-											(- t.MemberWL - (t.FullContribution - t.HouseContribution)) * ISNULL(lc.Rate, p.Rate)
-											- t.HouseContribution - t.OddsSpreadAdj - CASE WHEN t.Product3rdId = 31 THEN t.Comm ELSE 0 END
+											(- t.MemberWL - (t.FullContribution - t.HouseContribution) + t.FullParlayBoostBonus) * ISNULL(lc.Rate, p.Rate)
+											- t.HouseContribution - t.OddsSpreadAdj - (t.FullParlayBoostBonus - t.AgentParlayBoostBonusSharing) - CASE WHEN t.Product3rdId = 31 THEN t.Comm ELSE 0 END
 										END * e.Rate)
 			,HouseIncomeMonth	= SUM(CASE
 										WHEN t.Product3rdId = 15 THEN t.MemberWL
@@ -900,8 +907,8 @@ BEGIN
 										WHEN t.Product3rdId IN (25) THEN -t.HouseWL
 										WHEN t.SportTypeGroup IN (150, 173) THEN -t.MemberWL
 										ELSE
-											(- t.MemberWL - (t.FullContribution - t.HouseContribution)) * ISNULL(lc.Rate, p.Rate)
-											- t.HouseContribution - t.OddsSpreadAdj - CASE WHEN t.Product3rdId = 31 THEN t.Comm ELSE 0 END
+											(- t.MemberWL - (t.FullContribution - t.HouseContribution) + t.FullParlayBoostBonus) * ISNULL(lc.Rate, p.Rate)
+											- t.HouseContribution - t.OddsSpreadAdj - (t.FullParlayBoostBonus - t.AgentParlayBoostBonusSharing) - CASE WHEN t.Product3rdId = 31 THEN t.Comm ELSE 0 END
 										END * e.Rate)
 			 ---- Licensee performance
 			 ,LicenseeTODaily = SUM(t.LicenseeTO * e.Rate)
@@ -993,7 +1000,7 @@ BEGIN
 			,@FromDate				= @FDate
 			,@ToDate				= @TDate
 			,@IsConvertExRate		= 1
-			,@LicensingFeeTypeIds	= '0'
+			,@LicensingFeeTypeIds	= '0,12' -- 12: Parlay Boost Bonus
 			,@BaseCurrencyName		= @BaseCurrencyName
 
 		;WITH ReCalHouseIncome42_32_66_36 AS
@@ -1034,7 +1041,7 @@ BEGIN
 				,AComm = ISNULL(t.AComm, 0)
 
 			FROM CTE_tempResult t
-				FULL OUTER JOIN @LicenseeFeeAndRebateDiscount m ON t.PartyId = m.PartyId AND t.Product3rdId = m.ProductId		
+				FULL OUTER JOIN @LicenseeFeeAndRebateDiscount m ON t.PartyId = m.PartyId AND t.Product3rdId = m.ProductId	AND m.LicensingFeeTypeId = 0	
 				LEFT JOIN	FinalHouseIncome42_32_66_36 f ON t.PartyId = f.PartyId AND t.Product3rdId = f.Product3rdId AND t.AliasProductId = f.AliasProductId
 		)
 		INSERT INTO #tmpResult (PartyId, Product3rdId, AliasProductId, HouseTurnover, LicenseeWL, HouseIncome, AComm)
@@ -1049,16 +1056,17 @@ BEGIN
 		 
 		UPDATE s
 		SET s.LicenseeMinFee	= CASE WHEN m.PartyId IS NULL OR m.ProductId <> 0 THEN 0 
-									   ELSE CASE WHEN m.IsChargedByGroupMinFee = 1 OR m.IsChargedByMinFee = 1 THEN m.LicensingFee + m.ExtraAmount ELSE 0 END 
+									   ELSE CASE WHEN m.IsChargedByGroupMinFee = 1 OR m.IsChargedByMinFee = 1 THEN m.LicensingFee + m.ExtraAmount - (ISNULL(m12.LicensingFee,0) - ISNULL(m12.ExtraAmount,0)) ELSE 0 END 
 								  END
 			,s.LicenseeFee		= CASE
 									WHEN m.PartyId IS NULL OR m.ProductId NOT IN (0,37) THEN s.HouseIncome
-									ELSE CASE WHEN m.IsChargedByGroupMinFee = 0 AND m.IsChargedByMinFee = 0 THEN CASE WHEN m.ProductId = 37 THEN - (m.LicensingFee+ m.ExtraAmount)  ELSE m.LicensingFee + m.ExtraAmount END ELSE 0 END
+									ELSE CASE WHEN m.IsChargedByGroupMinFee = 0 AND m.IsChargedByMinFee = 0 THEN CASE WHEN m.ProductId = 37 THEN - (m.LicensingFee+ m.ExtraAmount)  ELSE m.LicensingFee + m.ExtraAmount - (ISNULL(m12.LicensingFee,0) - ISNULL(m12.ExtraAmount,0)) END ELSE 0 END
 								  END
 			,s.Rebate			= ISNULL(m.Rebate, 0)
 			,s.Discount			= ISNULL(m.Discount, 0)
 		FROM #tmpResult s
-			LEFT JOIN @LicenseeFeeAndRebateDiscount m ON m.PartyId = s.PartyId AND m.ProductId = s.Product3rdId
+			LEFT JOIN @LicenseeFeeAndRebateDiscount m ON m.PartyId = s.PartyId AND m.ProductId = s.Product3rdId AND m.LicensingFeeTypeId = 0
+			LEFT JOIN @LicenseeFeeAndRebateDiscount m12 ON m12.PartyId = s.PartyId AND m12.ProductId = s.Product3rdId AND m12.LicensingFeeTypeId = 12
 
 		/*
 			GET 9w licensee list
