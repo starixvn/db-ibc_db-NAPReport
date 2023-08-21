@@ -31,6 +31,7 @@ AS
         20220801@Ned.Le: Email/Letstalk Reports - Scale out DB - Modify SPs to retrieve yesterday data in Data warehouse in case in-house replicator got problem (#176077)
         20220612@Ned.Le: Email/Letstalk Reports - Incorporate Saba E-Sports PinGoal (#181261)
         20230111@Ned.Le: Email/Letstalk Reports - Split 789Y site into smaller sites (#182388)
+        20230705@Ned.Le: Email/Letstalk Reports - Incorporate Saba Tennis (#190458)
 
     Param's Explanation:
         @FromDate   : Begin date to get data for report
@@ -647,6 +648,7 @@ BEGIN
                     WHEN b.SportType = 1  AND l.LeagueGroupType = 2 THEN -14 --Saba Soc PGoal
                     WHEN b.SportType = 2  AND l.LeagueGroupType = 1 THEN -5  --Saba Bas
                     WHEN b.SportType = 2  AND l.LeagueGroupType = 2 THEN -15 --Saba Bas PGoal
+                    WHEN b.SportType = 5  AND l.LeagueGroupType = 1 THEN -17 --Saba Ten
                     WHEN b.Sporttype = 43 AND l.LeagueGroupType = 2 THEN -16 --Saba E-S PGoal
                     WHEN b.SportType = 50 AND l.LeagueGroupType = 1 THEN -8  --Saba Cric
                     WHEN b.SportType = 1                            THEN -2  --Real Soc
@@ -695,6 +697,7 @@ BEGIN
                       WHEN b.SportType = 1  AND l.LeagueGroupType = 2 THEN -14 --Saba Soc PGoal
                       WHEN b.SportType = 2  AND l.LeagueGroupType = 1 THEN -5  --Saba Bas
                       WHEN b.SportType = 2  AND l.LeagueGroupType = 2 THEN -15 --Saba Bas PGoal
+                      WHEN b.SportType = 5  AND l.LeagueGroupType = 1 THEN -17 --Saba Ten
                       WHEN b.Sporttype = 43 AND l.LeagueGroupType = 2 THEN -16 --Saba E-S PGoal
                       WHEN b.SportType = 50 AND l.LeagueGroupType = 1 THEN -8  --Saba Cric
                       WHEN b.SportType = 1                            THEN -2  --Real Soc
