@@ -437,7 +437,7 @@ BEGIN
 		,@EX3rdName VARCHAR(50)
 	
 	SELECT @EX3rdID = rd.Product3rdID
-		,@EX3rdName = ProductName
+		,@EX3rdName = rd.ProductName
 	FROM #tmpProduct3rd AS rd WITH (NOLOCK)
 		INNER JOIN bodb02.dbo.Products AS p WITH (NOLOCK) ON p.ProductPrefix = rd.ProductPrefix
 	WHERE p.ProductID = 31
@@ -468,8 +468,9 @@ BEGIN
 		BEGIN
 			SET @ExtraInfo = 'N/A'
 			
-			INSERT INTO #tmpRawData (Product3rdID)
-			SELECT @EX3rdID AS ProductID --insert dummy Exchange
+			INSERT INTO #tmpRawData (Product3rdID, IsSB)
+			SELECT @EX3rdID AS Product3rdID --insert dummy Exchange
+				,0 AS IsSB
 		END
 		ELSE
 		BEGIN
@@ -486,8 +487,9 @@ BEGIN
 	BEGIN
 		SET @ExtraInfo = 'N/A'
 			
-		INSERT INTO #tmpRawData (Product3rdID)
-		SELECT @EX3rdID AS ProductID --insert dummy Exchange
+		INSERT INTO #tmpRawData (Product3rdID, IsSB)
+		SELECT @EX3rdID AS Product3rdID --insert dummy Exchange
+				,0 AS IsSB
 	END
 	
 	--Get SB by Sport - [GroupID = 2] - fixed order--
@@ -621,16 +623,16 @@ BEGIN
 				WHEN rd.ProductName = 'Funky Games' THEN 'FunkyG'
 				WHEN rd.ProductName = 'Saba Casino' THEN 'SabaCas'
 				ELSE rd.ProductName END AS GroupName
-			,SUM((CASE WHEN d.Product3rdID = @EX3rdID AND @DayOffset = 0 THEN 0 ELSE ISNULL(d.TurnOver,0) END) * ISNULL(lc.Rate, p.Rate) * e.BaseCurrencyRate) AS HouseTO --exclude Yesterday Exchange of Hour Mode
-			,SUM(CASE WHEN d.Product3rdID = @EX3rdID AND @DayOffset = 0 THEN 0 ELSE ((-d.MemberWL - (d.FullContribution - d.HouseContribution)) * ISNULL(lc.Rate, p.Rate) --exclude Yesterday Exchange of Hour Mode
+			,SUM(ISNULL(d.TurnOver,0) * ISNULL(lc.Rate, p.Rate) * e.BaseCurrencyRate) AS HouseTO
+			,SUM(((-d.MemberWL - (d.FullContribution - d.HouseContribution)) * ISNULL(lc.Rate, p.Rate)
 					- d.HouseContribution
 					- d.FreeBet
 					- (CASE WHEN d.Product3rdID IN (3) THEN d.BAComm -- BA Comm of bet builder
 						WHEN d.Product3rdID IN (@EX3rdID) THEN d.BAComm * ISNULL(lc.Rate, p.Rate) --- exchange product
 						ELSE 0
 						END
-						) -- exchange product & BAComm
-					) END * e.BaseCurrencyRate) AS HouseWL
+					) -- exchange product & BAComm
+				) * e.BaseCurrencyRate) AS HouseWL
 		FROM #tmpRawData AS d
 			LEFT JOIN #tmpProduct3rd AS rd WITH (NOLOCK) ON rd.Product3rdID = d.Product3rdID
 			LEFT JOIN #tmpChargeInfo p ON p.PartyID = d.PartyID
@@ -682,8 +684,8 @@ BEGIN
 	)
 	,CTE_NS AS (
 		SELECT 'ALL' AS GroupName
-			,SUM(HouseTO) AS HouseTO
-			,SUM(HouseWL) AS HouseWL
+			,SUM(CASE WHEN GroupName = @EX3rdName AND @DayOffset = 0 THEN 0 ELSE HouseTO END) AS HouseTO --exclude Yesterday Exchange of Hour Mode
+			,SUM(CASE WHEN GroupName = @EX3rdName AND @DayOffset = 0 THEN 0 ELSE HouseWL END) AS HouseWL --exclude Yesterday Exchange of Hour Mode
 		FROM CTE_NS_ByProd
 		
 		UNION ALL
@@ -727,13 +729,14 @@ BEGIN
 	,CTE_Grp AS (
 		SELECT GroupID
 			,GroupName
-			,ISNULL(HouseTO,0) AS Amt
+			,HouseTO AS Amt
 			,(CASE WHEN ISNULL(HouseTO,0) = 0 THEN 0
 				ELSE ISNULL(HouseWL,0) / HouseTO
 			END) AS Margin
 			,OrdNo
 		FROM #tmpFinal
 		WHERE HouseTO IS NOT NULL
+			OR GroupName = @EX3rdName --dummy Exchange IS NULL
 
 		UNION ALL
 
@@ -748,7 +751,7 @@ BEGIN
 		,GroupName
 		,Amt
 		,Margin
-		,CASE WHEN GroupName =@EX3rdName THEN @ExtraInfo ELSE '' END AS ExtraInfo
+		,CASE WHEN GroupName = @EX3rdName THEN @ExtraInfo ELSE '' END AS ExtraInfo
 	FROM CTE_Grp
 	ORDER BY GroupID
 		,OrdNo
