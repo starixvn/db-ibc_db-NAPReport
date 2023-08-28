@@ -20,6 +20,7 @@ AS
 		20230518@Roy: Email/Letstalk - Jili - Incorporate new product (#182863)
 		20230518@Roy: Letstalk/Email - YeeBet - Incorporate new product (#186481)
 		20230719@Roy: Email/Letstalk - LG Virtual Sports - Incorporate new product (#189204)
+		20230824@Roy: Letstalk Report ID 34 - Change the rule to show Exchange product (#193132)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -88,7 +89,8 @@ BEGIN
 	)
 	
 	CREATE TABLE #tmpMarginNonSport (
-		ProductID INT
+		WLDate DATE
+		,ProductID INT
 		,WinlossIBC DECIMAL(19,4)
 		,TurnoverIBC DECIMAL(19,4)
 	)
@@ -266,7 +268,8 @@ BEGIN
 	WHERE winlostdate = @WLDate
 	
 	;WITH CTE_HWL AS (
-		SELECT pb.ProductID
+		SELECT b.winlostdate
+			,pb.ProductID
 			,CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9,6)) AS VarianceVR
 			--------------------------------------------------------------------------
 			,SUM((CASE WHEN bg.BettypeGroupID = 6 THEN 0 --Prize Tickets
@@ -290,18 +293,20 @@ BEGIN
 		FROM bodb02.dbo.bettrans AS b WITH (NOLOCK)
 			LEFT JOIN #tmpProductBettype AS pb (NOLOCK) ON b.bettype = pb.Bettype
 			LEFT JOIN #tmpBettypeGroup AS bg WITH (NOLOCK) ON b.Bettype = bg.Bettype
-		WHERE b.winlostdate = @WLDate
+		WHERE (b.winlostdate = @WLDate OR (pb.ProductID = 31 AND @DayOffset = 0 AND b.winlostdate = DATEADD(DD,-1,@WLDate))) --get more data for Exchange in ToDay Mode
 			AND b.statusID IN (112, 113) --Won, Lose
 			AND b.currency <> 20
 			AND pb.RefTable = 3
 			AND b.bettype <= @MaxBettype
 			AND b.MatchID >= 0
-		GROUP BY pb.ProductID
+		GROUP BY b.winlostdate
+			,pb.ProductID
 			,CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9, 6))
 			
 		UNION ALL
 		
-		SELECT pb.ProductID
+		SELECT b.winlostdate
+			,pb.ProductID
 			,CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9,6)) AS VarianceVR
 			------------------------------------------------------------------------
 			,SUM((CASE WHEN bg.BettypeGroupID = 6 THEN 0 --Prize Tickets
@@ -330,12 +335,14 @@ BEGIN
 			AND b.currency <> 20
 			AND pb.RefTable = 2
 			AND b.transID BETWEEN @MinTransID_LC AND @MaxTransID_LC
-		GROUP BY pb.ProductID
+		GROUP BY b.winlostdate
+			,pb.ProductID
 			,CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9,6))
 			
 		UNION ALL
 		
-		SELECT pb.ProductID
+		SELECT b.winlostdate
+			,pb.ProductID
 			,CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9,6)) AS VarianceVR
 			----------------------------------------------------------------------
 			,SUM((CASE WHEN bg.BettypeGroupID = 6 THEN 0 --Prize Tickets
@@ -364,24 +371,84 @@ BEGIN
 			AND b.currency <> 20
 			AND pb.RefTable = 1
 			AND b.transID BETWEEN @MinTransID_RNG AND @MaxTransID_RNG
-		GROUP BY pb.ProductID
+		GROUP BY b.winlostdate
+			,pb.ProductID
 			,CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9,6))
 	)
 	INSERT INTO #tmpMarginNonSport (
-		ProductID
+		WLDate
+		,ProductID
 		,WinlossIBC
 		,TurnoverIBC
 	)
-	SELECT ProductID
+	SELECT winlostdate
+		,ProductID
 		,SUM(-(WinlossIBC - ExtraWL + CommissionS - ExtraComm)) AS WinlossIBC
 		,SUM((CASE WHEN TurnoverIBC = 0 THEN 0 ELSE TurnoverIBC - ExtraTO END)
 			* (CASE WHEN VarianceVR > 0 THEN VarianceVR + 1 ELSE 1 END)
 			) AS TurnoverIBC
 	FROM CTE_HWL AS h
-	GROUP BY ProductID
+	GROUP BY winlostdate
+		,ProductID
 	
 	CREATE CLUSTERED INDEX CIX_tmpMarginNonSport ON #tmpMarginNonSport ( ProductID )
-
+	
+	/*
+		Special handle for Exchange product
+			1.For Hour Mode
+				- If NOT exists Exchange, Insert dummy + return N/A
+				- If EXISTS Exchange, return [Date]
+			2.For Yesterday Mode
+				- If NOT exists Exchange, Insert dummy + return N/A
+	*/
+	DECLARE @ExtraInfo VARCHAR(50) = ''
+	--Remove unuse Exchange (in fact, not exists 2 rows of ProductID = 31 because has no Exchange in today)
+	;WITH CTE_Grp AS (
+		SELECT WLDate
+			,ProductID
+		FROM #tmpMarginNonSport
+		WHERE ProductID = 31
+		GROUP BY WLDate
+			,ProductID
+	)
+	,CTE_Select AS (
+		SELECT WLDate
+			,ProductID
+			,ROW_NUMBER() OVER (ORDER BY WLDate DESC) AS OrdNo
+		FROM CTE_Grp
+	)
+	DELETE m
+	FROM #tmpMarginNonSport AS m
+		INNER JOIN CTE_Select AS d ON m.ProductID = d.ProductID AND m.WLDate = d.WLDate
+	WHERE d.OrdNo > 1
+	
+	IF (@DayOffset = 0) --Hour Mode
+	BEGIN
+		IF NOT EXISTS (SELECT 1 FROM #tmpMarginNonSport WHERE ProductID = 31)
+		BEGIN
+			SET @ExtraInfo = 'N/A'
+			
+			INSERT INTO #tmpMarginNonSport (ProductID)
+			SELECT 31 AS ProductID --insert dummy Exchange
+		END
+		ELSE
+		BEGIN
+			;WITH CTE_Date AS (
+				SELECT TOP 1 WLDate
+				FROM #tmpMarginNonSport
+				WHERE ProductID = 31
+			)
+			SELECT @ExtraInfo = '[' + FORMAT(WLDate, 'dd-MMM') + ']'
+			FROM CTE_Date
+		END
+	END
+	ELSE IF NOT EXISTS (SELECT 1 FROM #tmpMarginNonSport WHERE ProductID = 31) --Yesterday Mode
+	BEGIN
+		SET @ExtraInfo = 'N/A'
+			
+		INSERT INTO #tmpMarginNonSport (ProductID)
+		SELECT 31 AS ProductID --insert dummy Exchange
+	END
 	/*
 		Group by [ProductGroup], Order and Return result
 		=================Order=====================
@@ -412,7 +479,7 @@ BEGIN
 		..		...
 		
 	*/
-	;WITH CTE_SubTotal AS (
+	;WITH CTE_PreGroup AS (
 		SELECT (CASE WHEN h.ProductGroup = 'LC' THEN 2
 				WHEN h.ProductGroup = 'RNG' THEN 3
 				WHEN h.ProductGroup = 'LOT/KENO' THEN 4
@@ -420,11 +487,8 @@ BEGIN
 				END
 			) AS GroupID
 			,'T ' + ISNULL(h.ProductGroup,'OTHERS') AS GroupName
-			,SUM(TurnoverIBC) AS TurnoverIBC
-			,SUM(WinlossIBC) AS WinlossIBC
-			,(CASE WHEN SUM(ISNULL(TurnoverIBC,0)) = 0 THEN 0
-				ELSE SUM(ISNULL(WinlossIBC,0)) / SUM(ISNULL(TurnoverIBC,0))
-			END) AS Margin
+			,SUM(CASE WHEN m.ProductID = 31 AND @DayOffset = 0 THEN 0 ELSE TurnoverIBC END) AS TurnoverIBC --exclude Yesterday Exchange of Hour Mode
+			,SUM(CASE WHEN m.ProductID = 31 AND @DayOffset = 0 THEN 0 ELSE WinlossIBC END) AS WinlossIBC --exclude Yesterday Exchange of Hour Mode
 		FROM #tmpMarginNonSport AS m WITH (NOLOCK)
 			LEFT JOIN #tmpProductSetting AS h WITH (NOLOCK) ON m.ProductID = h.ProductID
 		GROUP BY CASE WHEN h.ProductGroup = 'LC' THEN 2
@@ -433,6 +497,14 @@ BEGIN
 				ELSE 5
 				END
 			,ISNULL(h.ProductGroup,'OTHERS')
+	)
+	,CTE_SubTotal AS (
+		SELECT GroupID
+			,GroupName
+			,TurnoverIBC
+			,WinlossIBC
+			,(CASE WHEN TurnoverIBC = 0 THEN 0 ELSE (WinlossIBC / TurnoverIBC) END) AS Margin
+		FROM CTE_PreGroup
 	)
 	,CTE_Total AS (
 		SELECT 1 AS GroupID
@@ -476,6 +548,7 @@ BEGIN
 		,'LC' AS GroupName
 		,NULL AS TurnoverIBC
 		,NULL AS Margin
+		,'' AS ExtraInfo
 	
 	UNION ALL
 	
@@ -483,6 +556,7 @@ BEGIN
 		,'RNG' AS GroupName
 		,NULL AS TurnoverIBC
 		,NULL AS Margin
+		,'' AS ExtraInfo
 		
 	UNION ALL
 	
@@ -490,6 +564,7 @@ BEGIN
 		,'LOT/KENO' AS GroupName
 		,NULL AS TurnoverIBC
 		,NULL AS Margin
+		,'' AS ExtraInfo
 		
 	UNION ALL
 	
@@ -497,12 +572,14 @@ BEGIN
 		,'OTHERS' AS GroupName
 		,NULL AS TurnoverIBC
 		,NULL AS Margin
+		,'' AS ExtraInfo
 	----return total----
 	UNION ALL
 	SELECT GroupID
 		,GroupName
 		,TurnoverIBC
 		,Margin
+		,'' AS ExtraInfo
 	FROM CTE_Total
 	
 	UNION ALL
@@ -511,6 +588,7 @@ BEGIN
 		,GroupName
 		,TurnoverIBC
 		,Margin
+		,'' AS ExtraInfo
 	FROM CTE_SubTotal
 	----return products----
 	UNION ALL
@@ -519,6 +597,7 @@ BEGIN
 		,GroupName
 		,TurnoverIBC
 		,Margin
+		,CASE WHEN GroupName ='EX' THEN @ExtraInfo ELSE '' END AS ExtraInfo
 	FROM CTE_Product
 	ORDER BY GroupID
 		,TurnoverIBC DESC
