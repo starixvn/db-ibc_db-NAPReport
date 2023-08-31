@@ -48,7 +48,6 @@ BEGIN
 		,CustID INT
 		,CurrencyID INT
 		,BetType SMALLINT
-		,LicenseeID INT
 		,Stake MONEY
 		,Actual_Stake MONEY
 		,Winlost MONEY
@@ -135,7 +134,6 @@ BEGIN
 		,CustID
 		,CurrencyID
 		,BetType
-		,LicenseeID
 		,Stake
 		,Actual_stake
 		,Winlost
@@ -146,24 +144,20 @@ BEGIN
 		,b.CustID
 		,b.Currency
 		,@DummyBetType AS BetType
-		,l.LicenseeID
 		,SUM(b.stakeTotal / b.ExVirtualRate) AS Stake
 		,SUM(b.stakeTotal / b.ExVirtualRate) AS Actual_stake
 		,SUM((b.marketTotal + b.stakeTotal) / b.ExVirtualRate) AS Winlost
 		,SUM(b.commission / b.ExVirtualRate) AS PlayerComm
 		,SUM((b.agentCommission + b.commission) / b.ExVirtualRate) AS Comm
-	FROM bodb_3rdProduct.dbo.Sum_winloss_Exchange AS b WITH (NOLOCK)
-		INNER JOIN bodb02.dbo.CustInfo AS c WITH (NOLOCK) ON c.CustID = b.CustID AND c.roleid = 1
-		INNER JOIN #tmpLicByProduct AS l ON c.Recommend = l.Recommend AND b.currency = l.CurrencyID
+	FROM bodb_3rdProduct.dbo.Sum_winloss_Exchange AS b WITH (NOLOCK, FORCESEEK)
 	WHERE b.SettledDate >= @WLDate
 		AND b.SettledDate < DATEADD(DD,1,@WLDate)
 		AND b.currency <> 20
 	GROUP BY CONVERT(DATE, b.SettledDate)
 		,b.CustID
 		,b.Currency
-		,l.LicenseeID
 	
-	CREATE CLUSTERED INDEX tmpRawData ON #tmpRawData (WinlostDate, LicenseeID, CustID, CurrencyID)
+	CREATE CLUSTERED INDEX tmpRawData ON #tmpRawData (CustID, CurrencyID)
 	
 	/*
 		reutrn ResultSet based on @DataMode
@@ -171,20 +165,21 @@ BEGIN
 	IF @DataMode = 'Letstalk34'
 	BEGIN
 		;WITH CTE AS (
-			SELECT WinlostDate
-				,CurrencyID
-				,BetType
-				,LicenseeID
-				,SUM(Stake) AS Stake
-				,SUM(Actual_stake) AS Actual_stake
-				,SUM(Winlost) AS Winlost
-				,SUM(Comm) AS SComm
+			SELECT d.WinlostDate
+				,d.CurrencyID
+				,d.BetType
+				,l.LicenseeID
+				,SUM(d.Stake) AS Stake
+				,SUM(d.Actual_stake) AS Actual_stake
+				,SUM(d.Winlost) AS Winlost
+				,SUM(d.Comm) AS SComm
 			FROM #tmpRawData AS d
-				INNER JOIN bodb02.dbo.vw_Customer AS c WITH (NOLOCK) ON d.CustID = c.CustID AND c.roleid = 1 --filter
-			GROUP BY WinlostDate
-				,CurrencyID
-				,BetType
-				,LicenseeID
+				INNER JOIN bodb02.dbo.vw_Customer AS c WITH (NOLOCK) ON d.CustID = c.CustID AND c.roleid = 1
+				INNER JOIN #tmpLicByProduct AS l ON c.Recommend = l.Recommend AND d.CurrencyID = l.CurrencyID
+			GROUP BY d.WinlostDate
+				,d.CurrencyID
+				,d.BetType
+				,l.LicenseeID
 		)
 		SELECT d.WinlostDate
 			,ISNULL(@DummyMatchID, 0) AS MatchID
@@ -217,19 +212,20 @@ BEGIN
 				,d.CurrencyID
 				,c.Srecommend
 				,d.BetType
-				,d.LicenseeID
+				,l.LicenseeID
 				,SUM(d.Stake) AS Stake
 				,SUM(d.Actual_stake) AS Actual_stake
 				,SUM(d.Winlost) AS Winlost
 				,SUM(d.Comm) AS Comm
 				,SUM(d.PlayerComm) AS PlayerComm
 			FROM #tmpRawData AS d
-				INNER JOIN bodb02.dbo.vw_Customer AS c WITH (NOLOCK) ON d.CustID = c.CustID AND c.roleid = 1 --filter
+				INNER JOIN bodb02.dbo.vw_Customer AS c WITH (NOLOCK) ON d.CustID = c.CustID AND c.roleid = 1
+				INNER JOIN #tmpLicByProduct AS l ON c.Recommend = l.Recommend AND d.CurrencyID = l.CurrencyID
 			GROUP BY d.WinlostDate
 				,d.CurrencyID
 				,c.Srecommend
 				,d.BetType
-				,d.LicenseeID
+				,l.LicenseeID
 		)
 		SELECT d.WinlostDate
 			,ISNULL(@DummyMatchID, 0) AS MatchID
@@ -285,7 +281,8 @@ BEGIN
 		FROM #tmpRawData AS d
 			INNER JOIN bodb02.dbo.ExchangeDailyOanda AS ex WITH (NOLOCK) ON ex.ExchangeDate = d.WinlostDate AND ex.ExchangeId = d.CurrencyID
 			INNER JOIN bodb02.dbo.vw_Customer AS c WITH (NOLOCK) ON d.CustID = c.CustID AND c.roleid = 1
-			INNER JOIN #tmpChargeRate AS r ON d.LicenseeID = r.LicenseeID
+			INNER JOIN #tmpLicByProduct AS l ON c.Recommend = l.Recommend AND d.CurrencyID = l.CurrencyID
+			INNER JOIN #tmpChargeRate AS r ON l.LicenseeID = r.LicenseeID
 			LEFT JOIN #tmpChargeRateByCurr AS rc ON r.ChargeID = rc.ChargeID AND d.CurrencyID = rc.CurrencyID
 	END
 	
