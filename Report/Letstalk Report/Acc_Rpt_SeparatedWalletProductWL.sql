@@ -168,7 +168,48 @@ BEGIN
 	/*
 		reutrn ResultSet based on @DataMode
 	*/
-	IF @DataMode = 'Letstalk34'
+	IF @DataMode = 'Letstalk32'
+	BEGIN
+		;WITH CTE AS (
+			SELECT d.WinlostDate
+				,d.BetType
+				,l.LicenseeID
+				,l.LicenseeName
+				,d.CurrencyID
+				,SUM(d.Stake) AS Stake
+				,SUM(d.Actual_stake) AS Actual_stake
+				,SUM(d.Winlost) AS Winlost
+				,SUM(d.Comm) AS SComm
+			FROM #tmpRawData AS d
+				INNER JOIN bodb02.dbo.vw_Customer AS c WITH (NOLOCK) ON d.CustID = c.CustID AND c.roleid = 1
+				INNER JOIN #tmpLicByProduct AS l ON c.Recommend = l.Recommend AND d.CurrencyID = l.CurrencyID
+			GROUP BY d.WinlostDate
+				,d.BetType
+				,l.LicenseeID
+				,l.LicenseeName
+				,d.CurrencyID
+		)
+		SELECT d.WinlostDate
+			,CONVERT(BIT,0) AS LiveIndicator
+			,d.BetType
+			,d.LicenseeName AS Site
+			,ex.ActualRate
+			,ex.ActualRate AS Virtualrate
+			,CONVERT(SMALLMONEY,0) AS EPos
+			,1 - ISNULL(rc.Rate, r.Rate) AS TPos
+			,d.Stake
+			,d.Actual_Stake
+			,d.Winlost
+			,- (d.Winlost - d.Actual_stake) * (1 - ISNULL(rc.Rate, r.Rate)) AS AWinlost
+			,CONVERT(MONEY,0) AS MWinlost
+			,CONVERT(MONEY,0) AS SWinlost
+			,d.SComm
+		FROM CTE AS d
+			INNER JOIN bodb02.dbo.ExchangeDailyOanda AS ex WITH (NOLOCK) ON ex.ExchangeDate = CONVERT(SMALLDATETIME,d.WinlostDate) AND ex.ExchangeId = d.CurrencyID
+			INNER JOIN #tmpChargeRate AS r ON d.LicenseeID = r.LicenseeID
+			LEFT JOIN #tmpChargeRateByCurr AS rc ON r.ChargeID = rc.ChargeID AND d.CurrencyID = rc.CurrencyID
+	END
+	ELSE IF @DataMode = 'Letstalk34'
 	BEGIN
 		;WITH CTE AS (
 			SELECT d.WinlostDate
