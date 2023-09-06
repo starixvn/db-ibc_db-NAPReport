@@ -189,11 +189,6 @@ BEGIN
 		)
 		SELECT d.WinlostDate
 			,d.BetType
-			,CASE WHEN Winlost - Actual_stake > 0 THEN 112
-				WHEN Winlost - Actual_stake < 0 THEN 113
-				ELSE 111
-				END AS StatusID
-			,d.CurrencyID
 			,ex.ActualRate
 			,ex.ActualRate AS Virtualrate
 			,CONVERT(SMALLMONEY,0) AS EPos
