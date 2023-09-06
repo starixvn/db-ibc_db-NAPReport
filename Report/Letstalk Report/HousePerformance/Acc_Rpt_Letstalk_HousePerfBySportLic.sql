@@ -112,8 +112,7 @@ BEGIN
 		,SabaType TINYINT
 	)
 	CREATE TABLE #tmpRawData (
-		WLDate DATE
-		,IsSB BIT
+		IsSB BIT
 		,PartyID INT
 		,Currency INT
 		,Product3rdID INT
@@ -347,8 +346,7 @@ BEGIN
 			2-Saba PinGoal
 	*/
 	INSERT INTO #tmpRawData WITH (TABLOCK)(
-		WLDate
-		,IsSB
+		IsSB
 		,PartyID
 		,Currency
 		,Product3rdID
@@ -364,8 +362,7 @@ BEGIN
 		,HouseContribution
 		,FreeBet
 	)
-	SELECT b.Winlostdate
-		,bt.IsSB
+	SELECT bt.IsSB
 		,s.PartyID
 		,b.Currency
 		,CASE WHEN b.ProductID = 1 THEN (CASE WHEN b.IsBA = 1 THEN 3 ELSE 0 END)
@@ -403,11 +400,10 @@ BEGIN
 		LEFT JOIN bodb02.dbo.Products AS p WITH (NOLOCK) ON b.ProductID = p.ProductID
 		LEFT JOIN #tmpProduct3rd AS prd WITH (NOLOCK) ON p.ProductPrefix = prd.ProductPrefix
 		LEFT JOIN bodb_Account.dbo.BetTypeGroup AS tg WITH (NOLOCK) ON b.BetType = tg.BetType AND tg.BetTypeGroupID IN (6,10) --Prize & Contribution
-	WHERE (b.Winlostdate = @WLDate OR (b.ProductID = 31 AND @DayOffset = 0 AND b.winlostdate = DATEADD(DD,-1,@WLDate))) --get more data for Exchange in ToDay Mode
+	WHERE b.Winlostdate = @WLDate
 		AND b.TicketStatusID IN (3,4,8,12,13) --LOSE, WON, HALF LOSE, HALF WON
 		AND b.Recommend NOT IN (52466,5707545)  -- Exclude 8RM, BARM
-	GROUP BY b.Winlostdate
-		,bt.IsSB
+	GROUP BY bt.IsSB
 		,s.PartyID
 		,b.Currency
 		,CASE WHEN b.ProductID = 1 THEN (CASE WHEN b.IsBA = 1 THEN 3 ELSE 0 END)
@@ -423,74 +419,6 @@ BEGIN
 		,ISNULL(slg.SabaType,0)
 
 	CREATE CLUSTERED INDEX tmpRawData ON #tmpRawData (IsSB, PartyID, Product3rdID, Currency)
-	
-	/*
-		Special handle for Exchange product
-			1.For Hour Mode
-				- If NOT exists Exchange, Insert dummy + return N/A
-				- If EXISTS Exchange, return [Date]
-			2.For Yesterday Mode
-				- If NOT exists Exchange, Insert dummy + return N/A
-	*/
-	DECLARE @ExtraInfo VARCHAR(50) = ''
-		,@EX3rdID INT
-		,@EX3rdName VARCHAR(50)
-	
-	SELECT @EX3rdID = rd.Product3rdID
-		,@EX3rdName = rd.ProductName
-	FROM #tmpProduct3rd AS rd WITH (NOLOCK)
-		INNER JOIN bodb02.dbo.Products AS p WITH (NOLOCK) ON p.ProductPrefix = rd.ProductPrefix
-	WHERE p.ProductID = 31
-	
-	--Remove unuse Exchange (in fact, not exists 2 rows of ProductID = 31 because has no Exchange in today)
-	;WITH CTE_Grp AS (
-		SELECT t.WLDate
-			,t.Product3rdID
-		FROM #tmpRawData AS t
-		WHERE t.Product3rdID = @EX3rdID
-		GROUP BY t.WLDate
-			,t.Product3rdID
-	)
-	,CTE_Select AS (
-		SELECT WLDate
-			,Product3rdID
-			,ROW_NUMBER() OVER (ORDER BY WLDate DESC) AS OrdNo
-		FROM CTE_Grp
-	)
-	DELETE t
-	FROM #tmpRawData AS t
-		INNER JOIN CTE_Select AS d ON t.Product3rdID = d.Product3rdID AND t.WLDate = d.WLDate
-	WHERE d.OrdNo > 1
-	
-	IF (@DayOffset = 0) --Hour Mode
-	BEGIN
-		IF NOT EXISTS (SELECT 1 FROM #tmpRawData WHERE Product3rdID = @EX3rdID)
-		BEGIN
-			SET @ExtraInfo = 'N/A'
-			
-			INSERT INTO #tmpRawData (Product3rdID, IsSB)
-			SELECT @EX3rdID AS Product3rdID --insert dummy Exchange
-				,0 AS IsSB
-		END
-		ELSE
-		BEGIN
-			;WITH CTE_Date AS (
-				SELECT TOP 1 WLDate
-				FROM #tmpRawData
-				WHERE Product3rdID = @EX3rdID
-			)
-			SELECT @ExtraInfo = '[' + FORMAT(WLDate, 'dd-MMM') + ']'
-			FROM CTE_Date
-		END
-	END
-	ELSE IF NOT EXISTS (SELECT 1 FROM #tmpRawData WHERE Product3rdID = @EX3rdID) --Yesterday Mode
-	BEGIN
-		SET @ExtraInfo = 'N/A'
-			
-		INSERT INTO #tmpRawData (Product3rdID, IsSB)
-		SELECT @EX3rdID AS Product3rdID --insert dummy Exchange
-				,0 AS IsSB
-	END
 	
 	--Get SB by Sport - [GroupID = 2] - fixed order--
 	;WITH CTE_SB_BySport AS (
@@ -628,7 +556,7 @@ BEGIN
 					- d.HouseContribution
 					- d.FreeBet
 					- (CASE WHEN d.Product3rdID IN (3) THEN d.BAComm -- BA Comm of bet builder
-						WHEN d.Product3rdID IN (@EX3rdID) THEN d.BAComm * ISNULL(lc.Rate, p.Rate) --- exchange product
+						WHEN d.Product3rdID IN (31) THEN d.BAComm * ISNULL(lc.Rate, p.Rate) --- exchange product
 						ELSE 0
 						END
 					) -- exchange product & BAComm
@@ -684,8 +612,8 @@ BEGIN
 	)
 	,CTE_NS AS (
 		SELECT 'ALL' AS GroupName
-			,SUM(CASE WHEN GroupName = @EX3rdName AND @DayOffset = 0 THEN 0 ELSE HouseTO END) AS HouseTO --exclude Yesterday Exchange of Hour Mode
-			,SUM(CASE WHEN GroupName = @EX3rdName AND @DayOffset = 0 THEN 0 ELSE HouseWL END) AS HouseWL --exclude Yesterday Exchange of Hour Mode
+			,SUM(HouseTO) AS HouseTO
+			,SUM(HouseWL) AS HouseWL
 		FROM CTE_NS_ByProd
 		
 		UNION ALL
@@ -729,14 +657,13 @@ BEGIN
 	,CTE_Grp AS (
 		SELECT GroupID
 			,GroupName
-			,HouseTO AS Amt
+			,ISNULL(HouseTO,0) AS Amt
 			,(CASE WHEN ISNULL(HouseTO,0) = 0 THEN 0
 				ELSE ISNULL(HouseWL,0) / HouseTO
 			END) AS Margin
 			,OrdNo
 		FROM #tmpFinal
 		WHERE HouseTO IS NOT NULL
-			OR GroupName = @EX3rdName --dummy Exchange IS NULL
 
 		UNION ALL
 
@@ -751,7 +678,6 @@ BEGIN
 		,GroupName
 		,Amt
 		,Margin
-		,CASE WHEN GroupName = @EX3rdName THEN @ExtraInfo ELSE '' END AS ExtraInfo
 	FROM CTE_Grp
 	ORDER BY GroupID
 		,OrdNo
