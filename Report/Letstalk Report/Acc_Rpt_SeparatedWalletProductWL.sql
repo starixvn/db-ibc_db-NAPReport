@@ -18,7 +18,10 @@ AS
 					- Letstalk34
 					- Letstalk36
 	Example:
-		EXEC bodb02.dbo.Acc_Rpt_SeparatedWalletProductWL @WinlostDate = '2022-06-29'
+		EXEC bodb02.dbo.Acc_Rpt_SeparatedWalletProductWL
+			@WinlostDate = '2022-06-29'
+			,@ProductID = 31
+			,@DataMode = 'Letstalk34'
 */
 BEGIN
 	SET NOCOUNT ON
@@ -39,12 +42,13 @@ BEGIN
 	
 	CREATE TABLE #tmpLicByProduct (
 		LicenseeID INT
+		,LicenseeName VARCHAR(50)
 		,CurrencyID INT
 		,Recommend INT
 	)
 
 	CREATE TABLE #tmpRawData (
-		WinlostDate SMALLDATETIME
+		WinlostDate DATE
 		,CustID INT
 		,CurrencyID INT
 		,BetType SMALLINT
@@ -69,10 +73,12 @@ BEGIN
 	--------------------------------------------------
 	INSERT INTO #tmpLicByProduct (
 		LicenseeID
+		,LicenseeName
 		,CurrencyID
 		,Recommend
 	)
 	SELECT DISTINCT l.LicenseeID
+		,l.LicenseeName
 		,c.Currency
 		,c.CustID
 	FROM bodb02.dbo.Products AS p WITH (NOLOCK)
@@ -147,8 +153,8 @@ BEGIN
 		,SUM(b.stakeTotal / b.ExVirtualRate) AS Stake
 		,SUM(b.stakeTotal / b.ExVirtualRate) AS Actual_stake
 		,SUM((b.marketTotal + b.stakeTotal) / b.ExVirtualRate) AS Winlost
-		,SUM(b.commission / b.ExVirtualRate) AS PlayerComm
-		,SUM((b.agentCommission + b.commission) / b.ExVirtualRate) AS Comm
+		,SUM(b.Commission / b.ExVirtualRate) AS PlayerComm
+		,SUM((b.agentCommission + b.Commission) / b.ExVirtualRate) AS Comm
 	FROM bodb_3rdProduct.dbo.Sum_winloss_Exchange AS b WITH (NOLOCK, FORCESEEK)
 	WHERE b.SettledDate >= @WLDate
 		AND b.SettledDate < DATEADD(DD,1,@WLDate)
@@ -182,7 +188,6 @@ BEGIN
 				,l.LicenseeID
 		)
 		SELECT d.WinlostDate
-			,ISNULL(@DummyMatchID, 0) AS MatchID
 			,d.BetType
 			,CASE WHEN Winlost - Actual_stake > 0 THEN 112
 				WHEN Winlost - Actual_stake < 0 THEN 113
@@ -191,17 +196,17 @@ BEGIN
 			,d.CurrencyID
 			,ex.ActualRate
 			,ex.ActualRate AS Virtualrate
-			,1 - ISNULL(rc.Rate, r.Rate) AS tpositiontaking
-			,CONVERT(SMALLMONEY,0) AS epositiontaking
+			,CONVERT(SMALLMONEY,0) AS EPos
+			,1 - ISNULL(rc.Rate, r.Rate) AS TPos
 			,d.Stake
 			,d.Actual_Stake
 			,d.Winlost
-			,- (d.Winlost - d.Actual_stake) * (1 - ISNULL(rc.Rate, r.Rate)) AS Awinlost
-			,CONVERT(MONEY,0) AS Mwinlost
-			,CONVERT(MONEY,0) AS Swinlost
-			,d.Scomm
+			,- (d.Winlost - d.Actual_stake) * (1 - ISNULL(rc.Rate, r.Rate)) AS AWinlost
+			,CONVERT(MONEY,0) AS MWinlost
+			,CONVERT(MONEY,0) AS SWinlost
+			,d.SComm
 		FROM CTE AS d
-			INNER JOIN bodb02.dbo.ExchangeDailyOanda AS ex WITH (NOLOCK) ON ex.ExchangeDate = d.WinlostDate AND ex.ExchangeId = d.CurrencyID
+			INNER JOIN bodb02.dbo.ExchangeDailyOanda AS ex WITH (NOLOCK) ON ex.ExchangeDate = CONVERT(SMALLDATETIME,d.WinlostDate) AND ex.ExchangeId = d.CurrencyID
 			INNER JOIN #tmpChargeRate AS r ON d.LicenseeID = r.LicenseeID
 			LEFT JOIN #tmpChargeRateByCurr AS rc ON r.ChargeID = rc.ChargeID AND d.CurrencyID = rc.CurrencyID
 	END
@@ -210,7 +215,7 @@ BEGIN
 		;WITH CTE AS (
 			SELECT d.WinlostDate
 				,d.CurrencyID
-				,c.Srecommend
+				,c.SRecommend
 				,d.BetType
 				,l.LicenseeID
 				,SUM(d.Stake) AS Stake
@@ -223,66 +228,95 @@ BEGIN
 				INNER JOIN #tmpLicByProduct AS l ON c.Recommend = l.Recommend AND d.CurrencyID = l.CurrencyID
 			GROUP BY d.WinlostDate
 				,d.CurrencyID
-				,c.Srecommend
+				,c.SRecommend
 				,d.BetType
 				,l.LicenseeID
 		)
 		SELECT d.WinlostDate
-			,ISNULL(@DummyMatchID, 0) AS MatchID
 			,CONVERT(BIT,0) AS LiveIndicator
+			,CONVERT(BIT,0) AS IsBA
+			,@ProductID AS ProductID
+			,@DummyMatchID AS SportType
 			,d.BetType
-			,CASE WHEN Winlost - Actual_stake > 0 THEN 112
-				WHEN Winlost - Actual_stake < 0 THEN 113
-				ELSE 111
-				END AS StatusID
-			,d.Srecommend
+			,CASE WHEN Winlost - Actual_stake > 0 THEN 'WON'
+				WHEN Winlost - Actual_stake < 0 THEN 'LOSE'
+				ELSE 'DRAW'
+				END AS Status
+			,d.SRecommend
 			,d.CurrencyID
 			,d.Stake
 			,d.Actual_Stake
 			,d.Winlost
-			,- (d.Winlost - d.Actual_stake) * (1 - ISNULL(rc.Rate, r.Rate)) AS Awinlost
-			,CONVERT(MONEY,0) AS Mwinlost
-			,CONVERT(MONEY,0) AS Swinlost
-			,d.Comm
+			,- (d.Winlost - d.Actual_stake) * (1 - ISNULL(rc.Rate, r.Rate)) AS AWinlost
+			,CONVERT(MONEY,0) AS MWinlost
+			,CONVERT(MONEY,0) AS SWinlost
 			,d.PlayerComm
-			,d.Comm AS Scomm
+			,d.Comm
 		FROM CTE AS d
 			INNER JOIN #tmpChargeRate AS r ON d.LicenseeID = r.LicenseeID
 			LEFT JOIN #tmpChargeRateByCurr AS rc ON r.ChargeID = rc.ChargeID AND d.CurrencyID = rc.CurrencyID
 	END
 	ELSE --default
 	BEGIN
+		;WITH CTE AS (
+			SELECT d.WinlostDate
+				,d.BetType
+				,l.LicenseeID
+				,l.LicenseeName
+				,c.Recommend
+				,c.SRecommend
+				,d.CurrencyID
+				,SUM(d.Stake) AS Stake
+				,SUM(d.Actual_stake) AS Actual_stake
+				,SUM(d.Winlost) AS Winlost
+				,SUM(d.Comm) AS Comm
+				,SUM(d.PlayerComm) AS PlayerComm
+			FROM #tmpRawData AS d
+				INNER JOIN bodb02.dbo.vw_Customer AS c WITH (NOLOCK) ON d.CustID = c.CustID AND c.roleid = 1
+				INNER JOIN #tmpLicByProduct AS l ON c.Recommend = l.Recommend AND d.CurrencyID = l.CurrencyID
+			GROUP BY d.WinlostDate
+				,c.SRecommend
+				,d.BetType
+				,l.LicenseeID
+				,l.LicenseeName
+				,c.Recommend
+				,c.SRecommend
+				,d.CurrencyID
+		)
 		SELECT d.WinlostDate
 			,ISNULL(@DummyMatchID, 0) AS MatchID
 			,CONVERT(BIT,0) AS LiveIndicator
+			,CONVERT(BIT,0) AS IsBA
 			,d.BetType
 			,CASE WHEN Winlost - Actual_stake > 0 THEN 112
 				WHEN Winlost - Actual_stake < 0 THEN 113
 				ELSE 111
 				END AS StatusID
-			,d.CustID
-			,c.Recommend
-			,c.Srecommend
+			,CASE WHEN Winlost - Actual_stake > 0 THEN 'WON'
+				WHEN Winlost - Actual_stake < 0 THEN 'LOSE'
+				ELSE 'DRAW'
+				END AS Status
+			,d.LicenseeName AS Site
+			,d.Recommend
+			,d.SRecommend
 			,d.CurrencyID
 			,ex.ActualRate
 			,ex.ActualRate AS Virtualrate
-			,1 - ISNULL(rc.Rate, r.Rate) AS apositiontaking
-			,CONVERT(SMALLMONEY,0) AS epositiontaking
-			,1 - ISNULL(rc.Rate, r.Rate) AS tpositiontaking
+			,1 - ISNULL(rc.Rate, r.Rate) AS APos
+			,CONVERT(SMALLMONEY,0) AS EPos
+			,1 - ISNULL(rc.Rate, r.Rate) AS TPos
 			,d.Stake
 			,d.Actual_Stake
 			,d.Winlost
-			,- (d.Winlost - d.Actual_stake) * (1 - ISNULL(rc.Rate, r.Rate)) AS Awinlost
-			,CONVERT(MONEY,0) AS Mwinlost
-			,CONVERT(MONEY,0) AS Swinlost
-			,d.Comm
+			,- (d.Winlost - d.Actual_stake) * (1 - ISNULL(rc.Rate, r.Rate)) AS AWinlost
+			,CONVERT(MONEY,0) AS MWinlost
+			,CONVERT(MONEY,0) AS SWinlost
 			,d.PlayerComm
-			,d.Comm AS Scomm
-		FROM #tmpRawData AS d
-			INNER JOIN bodb02.dbo.ExchangeDailyOanda AS ex WITH (NOLOCK) ON ex.ExchangeDate = d.WinlostDate AND ex.ExchangeId = d.CurrencyID
-			INNER JOIN bodb02.dbo.vw_Customer AS c WITH (NOLOCK) ON d.CustID = c.CustID AND c.roleid = 1
-			INNER JOIN #tmpLicByProduct AS l ON c.Recommend = l.Recommend AND d.CurrencyID = l.CurrencyID
-			INNER JOIN #tmpChargeRate AS r ON l.LicenseeID = r.LicenseeID
+			,d.Comm
+			,d.Comm AS SComm
+		FROM CTE AS d
+			INNER JOIN bodb02.dbo.ExchangeDailyOanda AS ex WITH (NOLOCK) ON ex.ExchangeDate = CONVERT(SMALLDATETIME,d.WinlostDate) AND ex.ExchangeId = d.CurrencyID
+			INNER JOIN #tmpChargeRate AS r ON d.LicenseeID = r.LicenseeID
 			LEFT JOIN #tmpChargeRateByCurr AS rc ON r.ChargeID = rc.ChargeID AND d.CurrencyID = rc.CurrencyID
 	END
 	
