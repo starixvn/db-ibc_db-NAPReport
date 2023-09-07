@@ -13,6 +13,7 @@ AS
 		20221219@Roy: Letstalk Report ID #36 - Refactor sp code (#181303)
 		20230705@Roy: Email/Letstalk Reports - Incorporate Saba Tennis (#190458)
 		20230824@Roy: Letstalk Report ID 34 - Change the rule to show Exchange product (#193132)
+		20230829@Roy: Letstalk Reports - Support to show Exchange Product statistics every 2 hours for today (#181348)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -135,7 +136,25 @@ BEGIN
 		,HouseWL MONEY
 		,OrdNo FLOAT
 	)
-	
+	CREATE TABLE #tmpEXBettrans (
+		WLDate SMALLDATETIME
+		,LiveIndicator BIT
+		,IsBA BIT
+		,ProductID INT
+		,SportType INT
+		,BetType INT
+		,Status NVARCHAR(10)
+		,SRecommend INT
+		,CurrencyID INT
+		,Stake MONEY
+		,Actual_Stake MONEY
+		,Winlost MONEY
+		,AWinlost MONEY
+		,MWinlost MONEY
+		,SWinlost MONEY
+		,PlayerComm MONEY
+		,Comm MONEY
+	)
 	/*
 		Get Dim data
 	*/
@@ -328,6 +347,84 @@ BEGIN
 		LEFT JOIN CTE_Saba AS s on a.LeagueGroupID = s.LeagueGroupID
 	
 	/*
+		Get Exchange Data
+			- Exchange in bettrans (Betting & Adjustment) only for Yesterday => exclude
+			- Manual calculation Exchange by Acc_Rpt_SeparatedWalletProductWL
+	*/
+	INSERT INTO #tmpEXBettrans (
+		WLDate
+		,LiveIndicator
+		,IsBA
+		,ProductID
+		,SportType
+		,BetType
+		,Status
+		,SRecommend
+		,CurrencyID
+		,Stake
+		,Actual_Stake
+		,Winlost
+		,AWinlost
+		,MWinlost
+		,SWinlost
+		,PlayerComm
+		,Comm
+	)
+	EXEC DBLIC.bodb_3rdProduct.dbo.Acc_Rpt_SeparatedWalletProductWL
+		@WinlostDate = @WLDate
+		,@ProductID = 31
+		,@DataMode = 'Letstalk36'
+	
+	INSERT INTO #tmpRawData WITH (TABLOCK)(
+		IsSB
+		,PartyID
+		,Currency
+		,Product3rdID
+		,SportGroup
+		,ProductGroup
+		,LiveIndicator
+		,SabaType
+		,TurnOver
+		,MemberWL
+		,OddsSpreadAdj
+		,BAComm
+		,FullContribution
+		,HouseContribution
+		,FreeBet
+	)
+	SELECT bt.IsSB
+		,s.PartyID
+		,b.CurrencyID
+		,ISNULL(prd.Product3rdID,0) AS Product3rdID
+		,ISNULL(sp.SportGroup,0) AS SportGroup
+		,0 AS ProductGroup
+		,b.LiveIndicator
+		,0 AS SabaType
+		--MEASURE--
+		,SUM(CASE WHEN b.Status = 'DRAW' THEN 0 ELSE ABS(Stake) END) AS TurnOver
+		,SUM(ISNULL(winlost, 0) - ISNULL(actual_stake, 0)) AS MemberWL
+		,0 AS OddsSpreadAdj
+		,SUM(b.playercomm + b.comm) AS BAComm --Charge comm of Exchange product
+		--Contribution,FreeBet--
+		,0 AS FullContribution
+		,0 AS HouseContribution
+		,0 AS FreeBet
+	FROM #tmpEXBettrans AS b
+		INNER JOIN #tmpDepSuper s ON s.CustID = b.srecommend
+		INNER JOIN #tmpBetType bt ON b.BetType = bt.BetType
+		LEFT JOIN #tmpSBSports AS sp ON b.Sporttype = sp.SportGroup
+		LEFT JOIN bodb02.dbo.Products AS p WITH (NOLOCK) ON b.ProductID = p.ProductID
+		LEFT JOIN #tmpProduct3rd AS prd WITH (NOLOCK) ON p.ProductPrefix = prd.ProductPrefix
+	GROUP BY bt.IsSB
+		,s.PartyID
+		,b.CurrencyID
+		,ISNULL(prd.Product3rdID,0) AS Product3rdID
+		,ISNULL(sp.SportGroup,0) AS SportGroup
+		-- ,0 AS ProductGroup
+		,b.LiveIndicator
+		-- ,0 AS SabaType
+	
+	/*
 		SportGroup: for SB; follow #tmpSBSports
 			1,2,5,43,50-SportType
 			-29-Parlay
@@ -403,6 +500,7 @@ BEGIN
 	WHERE b.Winlostdate = @WLDate
 		AND b.TicketStatusID IN (3,4,8,12,13) --LOSE, WON, HALF LOSE, HALF WON
 		AND b.Recommend NOT IN (52466,5707545)  -- Exclude 8RM, BARM
+		AND b.ProductID <> 31 --handle Exchange above
 	GROUP BY bt.IsSB
 		,s.PartyID
 		,b.Currency

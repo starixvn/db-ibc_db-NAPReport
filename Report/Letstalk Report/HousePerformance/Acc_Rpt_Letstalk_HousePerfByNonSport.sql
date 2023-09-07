@@ -1,8 +1,4 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
-
-USE bodb02
-GO
-
 ALTER PROCEDURE Acc_Rpt_Letstalk_HousePerfByNonSport
 	@ExecTime4GMT SMALLDATETIME
 AS
@@ -21,6 +17,7 @@ AS
 		20230518@Roy: Letstalk/Email - YeeBet - Incorporate new product (#186481)
 		20230719@Roy: Email/Letstalk - LG Virtual Sports - Incorporate new product (#189204)
 		20230824@Roy: Letstalk Report ID 34 - Change the rule to show Exchange product (#193132)
+		20230829@Roy: Letstalk Reports - Support to show Exchange Product statistics every 2 hours for today (#181348)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -97,6 +94,22 @@ BEGIN
 	CREATE TABLE #tmpBettypeGroup (
 		Bettype INT
 		,BettypeGroupID SMALLINT
+	)
+	
+	CREATE TABLE #tmpEXBettrans (
+		WLDate SMALLDATETIME
+		,BetType INT
+		,ActualRate FLOAT
+		,VirtualRate FLOAT
+		,EPos SMALLMONEY
+		,TPos SMALLMONEY
+		,Stake MONEY
+		,Actual_Stake MONEY
+		,Winlost MONEY
+		,AWinlost MONEY
+		,MWinlost MONEY DEFAULT 0
+		,SWinlost MONEY DEFAULT 0
+		,SComm MONEY
 	)
 	
 	SELECT @isTest = dbo.f_CheckSPVersion(@@PROCID)
@@ -266,6 +279,67 @@ BEGIN
 	FROM bodb02.dbo.BettransLC WITH (NOLOCK)
 	WHERE winlostdate = @WLDate
 	
+	/*
+		Get Exchange Data
+			- Exchange in bettrans (Betting & Adjustment) only for Yesterday => exclude
+			- Manual calculation Exchange by Acc_Rpt_SeparatedWalletProductWL
+	*/
+	INSERT INTO #tmpEXBettrans (
+		WLDate
+		,BetType
+		,ActualRate
+		,VirtualRate
+		,EPos
+		,TPos
+		,Stake
+		,Actual_Stake
+		,Winlost
+		,AWinlost
+		,MWinlost
+		,SWinlost
+		,SComm
+	)
+	EXEC DBLIC.bodb_3rdProduct.dbo.Acc_Rpt_SeparatedWalletProductWL
+		@WinlostDate = @WLDate
+		,@ProductID = 31
+		,@DataMode = 'Letstalk34'
+	
+	;WITH CTE_EX AS (
+		SELECT pb.ProductID
+			,CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9,6)) AS VarianceVR
+			--------------------------------------------------------------------------
+			,SUM((CASE WHEN bg.BettypeGroupID = 6 THEN 0 --Prize Tickets
+				  WHEN bg.BettypeGroupID = 10 THEN b.swinlost + b.mwinlost + b.awinlost --Contribution Tickets
+				  ELSE (b.winlost - b.actual_stake) + b.swinlost + b.mwinlost + b.awinlost
+				END)  * b.actualrate) AS WinlossIBC
+			,0 AS ExtraWL --epos = 0
+			,SUM(b.scomm * b.actualrate) AS CommissionS
+			,0 AS DECIMAL(19, 8))AS ExtraComm --epos = 0
+			--------------------------------------------------------------------------
+			,SUM( b.stake * (1-b.TPos) * b.actualrate ) AS TurnoverIBC
+			,0 AS ExtraTO --epos = 0
+		FROM #tmpEXBettrans AS b
+			LEFT JOIN #tmpProductBettype AS pb ON b.bettype = pb.Bettype
+			LEFT JOIN #tmpBettypeGroup AS bg ON b.Bettype = bg.Bettype
+		GROUP BY pb.ProductID
+			,CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9, 6))
+	)
+	INSERT INTO #tmpMarginNonSport (
+		ProductID
+		,WinlossIBC
+		,TurnoverIBC
+	)
+	SELECT ProductID
+		,SUM(-(WinlossIBC - ExtraWL + CommissionS - ExtraComm)) AS WinlossIBC
+		,SUM((CASE WHEN TurnoverIBC = 0 THEN 0 ELSE TurnoverIBC - ExtraTO END)
+			* (CASE WHEN VarianceVR > 0 THEN VarianceVR + 1 ELSE 1 END)
+			) AS TurnoverIBC
+	FROM CTE_EX AS h
+	GROUP BY ProductID
+	
+	/*
+		Get raw data as normal
+	*/
 	;WITH CTE_HWL AS (
 		SELECT pb.ProductID
 			,CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9,6)) AS VarianceVR
@@ -297,6 +371,7 @@ BEGIN
 			AND pb.RefTable = 3
 			AND b.bettype <= @MaxBettype
 			AND b.MatchID >= 0
+			AND pb.ProductID <> 31 --handle Exchange above
 		GROUP BY pb.ProductID
 			,CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9, 6))
 			
