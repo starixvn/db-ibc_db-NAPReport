@@ -19,6 +19,7 @@ AS
 		- 20220805@Roy: Fix duplicate MatchID when insert into MatchList table (#176340)
 		- 20221125@Roy: Defer Gen File After Match Complete (#180910)
 		- 20230719@Roy: NAP Report - Integrate product Leap Gaming VS (VS3) (#189510)
+		- 20230907@Roy: Exclude test match (#193705)
 */
 
 BEGIN
@@ -81,7 +82,7 @@ BEGIN
 	WHERE matchid NOT IN ( 
 			SELECT MatchID
 			FROM MatchList
-			WHERE eventdate > DATEADD(DD, -15, @MoveBetsDay)
+			WHERE eventdate > DATEADD(DD, -90, @MoveBetsDay)
 		)
 		AND eventdate BETWEEN DATEADD(DD, -1, @CurentDate) AND @CurentDate
 		AND eventstatus = 'completed'
@@ -92,6 +93,7 @@ BEGIN
 					   AND sbm.EventType = 1)
 		)
 		AND IsDeleted = 0
+		AND isTestMatch = 0 --Exclude test match
 	OPTION (RECOMPILE)
 	
 	--remove duplication MatchID
