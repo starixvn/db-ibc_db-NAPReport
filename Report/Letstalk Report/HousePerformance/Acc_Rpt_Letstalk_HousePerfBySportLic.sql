@@ -330,12 +330,12 @@ BEGIN
 		2-Saba PinGoal
 	*/
 	;WITH CTE_All_Saba AS (
-		SELECT CONVERT(INT,val) AS LeagueGroupID
-		FROM bodb_dwrs.dbo.strSplit_str((SELECT VValue FROM bodb_account.dbo.SystemSettings WITH (NOLOCK) WHERE VID = 5), ',')
+		SELECT CONVERT(INT,value) AS LeagueGroupID
+		FROM STRING_SPLIT((SELECT VValue FROM bodb_account.dbo.SystemSettings WITH (NOLOCK) WHERE VID = 5), ',')
 	)
 	,CTE_Saba AS (
-		SELECT CONVERT(INT,val) AS LeagueGroupID
-		FROM bodb_dwrs.dbo.strSplit_str((SELECT VValue FROM bodb_account.dbo.SystemSettings WITH (NOLOCK) WHERE VID = 11), ',')
+		SELECT CONVERT(INT,value) AS LeagueGroupID
+		FROM STRING_SPLIT((SELECT VValue FROM bodb_account.dbo.SystemSettings WITH (NOLOCK) WHERE VID = 11), ',')
 	)
 	INSERT INTO #tmpSabaLG (
 		LeagueGroupID
@@ -418,8 +418,8 @@ BEGIN
 	GROUP BY bt.IsSB
 		,s.PartyID
 		,b.CurrencyID
-		,ISNULL(prd.Product3rdID,0) AS Product3rdID
-		,ISNULL(sp.SportGroup,0) AS SportGroup
+		,ISNULL(prd.Product3rdID,0)
+		,ISNULL(sp.SportGroup,0)
 		-- ,0 AS ProductGroup
 		,b.LiveIndicator
 		-- ,0 AS SabaType
@@ -793,4 +793,5 @@ BEGIN
 	DROP TABLE #tmpSabaLG
 	DROP TABLE #tmpProduct3rd
 	DROP TABLE #tmpFinal
+	DROP TABLE #tmpEXBettrans
 END

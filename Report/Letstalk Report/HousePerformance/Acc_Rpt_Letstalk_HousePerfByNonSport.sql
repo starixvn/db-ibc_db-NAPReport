@@ -314,7 +314,7 @@ BEGIN
 				END)  * b.actualrate) AS WinlossIBC
 			,0 AS ExtraWL --epos = 0
 			,SUM(b.scomm * b.actualrate) AS CommissionS
-			,0 AS DECIMAL(19, 8))AS ExtraComm --epos = 0
+			,CONVERT(DECIMAL,0) AS ExtraComm --epos = 0
 			--------------------------------------------------------------------------
 			,SUM( b.stake * (1-b.TPos) * b.actualrate ) AS TurnoverIBC
 			,0 AS ExtraTO --epos = 0
@@ -606,4 +606,5 @@ BEGIN
 	DROP TABLE #tmpProductBettype
 	DROP TABLE #tmpMarginNonSport
 	DROP TABLE #tmpBettypeGroup
+	DROP TABLE #tmpEXBettrans
 END
