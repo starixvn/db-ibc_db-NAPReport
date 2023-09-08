@@ -552,6 +552,7 @@ BEGIN
 		,'LC' AS GroupName
 		,NULL AS TurnoverIBC
 		,NULL AS Margin
+		,'' AS ExtraInfo
 	
 	UNION ALL
 	
@@ -559,6 +560,7 @@ BEGIN
 		,'RNG' AS GroupName
 		,NULL AS TurnoverIBC
 		,NULL AS Margin
+		,'' AS ExtraInfo
 		
 	UNION ALL
 	
@@ -566,6 +568,7 @@ BEGIN
 		,'LOT/KENO' AS GroupName
 		,NULL AS TurnoverIBC
 		,NULL AS Margin
+		,'' AS ExtraInfo
 		
 	UNION ALL
 	
@@ -573,12 +576,14 @@ BEGIN
 		,'OTHERS' AS GroupName
 		,NULL AS TurnoverIBC
 		,NULL AS Margin
+		,'' AS ExtraInfo
 	----return total----
 	UNION ALL
 	SELECT GroupID
 		,GroupName
 		,TurnoverIBC
 		,Margin
+		,'' AS ExtraInfo
 	FROM CTE_Total
 	
 	UNION ALL
@@ -587,6 +592,7 @@ BEGIN
 		,GroupName
 		,TurnoverIBC
 		,Margin
+		,'' AS ExtraInfo
 	FROM CTE_SubTotal
 	----return products----
 	UNION ALL
@@ -595,6 +601,7 @@ BEGIN
 		,GroupName
 		,TurnoverIBC
 		,Margin
+		,CASE WHEN GroupName ='EX' AND @DayOffset = 0 THEN '[1h delay]' ELSE '' END AS ExtraInfo
 	FROM CTE_Product
 	ORDER BY GroupID
 		,TurnoverIBC DESC

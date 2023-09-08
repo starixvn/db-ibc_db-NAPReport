@@ -28,6 +28,7 @@ BEGIN
 	DECLARE @DayOffset INT
 		,@WLDate DATE
 		,@Title VARCHAR(50)
+		,@EX3rdName VARCHAR(50)
 
 	SET @DayOffset = (
 			CASE 
@@ -174,6 +175,11 @@ BEGIN
 	)
 	EXEC (@SQLStr) AT DBEXT
 	CREATE CLUSTERED INDEX tmpProduct3rd ON #tmpProduct3rd (Product3rdID)
+	
+	SELECT @EX3rdName = rd.ProductName
+	FROM #tmpProduct3rd AS rd WITH (NOLOCK)
+		INNER JOIN bodb02.dbo.Products AS p WITH (NOLOCK) ON p.ProductPrefix = rd.ProductPrefix
+	WHERE p.ProductID = 31
 	
 	--OANDA Rate--
 	SELECT @SQLStr = '
@@ -776,6 +782,7 @@ BEGIN
 		,GroupName
 		,Amt
 		,Margin
+		,CASE WHEN GroupName = @EX3rdName AND @DayOffset = 0 THEN '[1h delay]' ELSE '' END AS ExtraInfo
 	FROM CTE_Grp
 	ORDER BY GroupID
 		,OrdNo
