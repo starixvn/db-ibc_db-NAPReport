@@ -15,7 +15,6 @@ AS
 		20221206@Roy: Email/Letstalk Reports - Incorporate Saba E-Sports PinGoal (#181261)
 		20230117@Roy: Email/Letstalk Reports - Split 789Y site into smaller sites (#182388)
 		20230705@Roy: Email/Letstalk Reports - Incorporate Saba Tennis (#190458)
-		20230829@Roy: Letstalk Reports - Support to show Exchange Product statistics every 2 hours for today (#181348)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -260,109 +259,6 @@ BEGIN
 		,@NS_LeagueID = (MIN(LeagueID) - 2)
 	FROM dbo.League WITH (NOLOCK)
 	
-	/*
-		Get Exchange Data
-			- Exchange in bettrans (Betting & Adjustment) only for Yesterday => exclude
-			- Manual calculation Exchange by Acc_Rpt_SeparatedWalletProductWL
-	*/
-	INSERT INTO #tmpEXBettrans (
-		WLDate
-		,LiveIndicator
-		,IsBA
-		,ProductID
-		,SportType
-		,BetType
-		,Status
-		,SRecommend
-		,CurrencyID
-		,Stake
-		,Actual_Stake
-		,Winlost
-		,AWinlost
-		,MWinlost
-		,SWinlost
-		,PlayerComm
-		,Comm
-	)
-	EXEC DBLIC.bodb_3rdProduct.dbo.Acc_Rpt_SeparatedWalletProductWL
-		@WinlostDate = @WLDate
-		,@ProductID = 31
-		,@DataMode = 'Letstalk32'
-	
-	INSERT INTO #tmpRawData WITH (TABLOCK)(
-		Site
-		,IsDeposit
-		,LeagueID
-		,Bettype
-		,IsHalf
-		,LiveStatus
-		,VarianceVR
-		,WinlossIBC
-		,ExtraWL
-		,CommissionS
-		,ExtraComm
-		,TurnoverIBC
-		,ExtraTO
-	)
-	SELECT c.Site
-		,c.IsDeposit
-		,CASE WHEN b.bettype = 29 THEN @Parl_LeagueID
-			WHEN pb.ProductID <> 1 THEN @NS_LeagueID
-			WHEN m.matchid IS NOT NULL THEN m.leagueid
-			WHEN o.orid IS NOT NULL THEN o.leagueid
-			ELSE @NS_LeagueID
-		END AS LeagueID
-		,b.Bettype
-		,(CASE WHEN ( ABS(b.modds) = 0.25 AND pb.HalfBettype = 1 ) THEN 1 ELSE 0 END) AS IsHalf
-		,(CASE WHEN b.bettype = 29 THEN b.livehomescore
-		ELSE CAST(b.liveindicator AS TINYINT)
-		END) AS LiveStatus --0: Nonlive | 1:Live | 2: Mixed
-		,CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9,6)) AS VarianceVR
-		--------------------------------------------------------------------------
-		,SUM((CASE WHEN bg.BettypeGroupID = 6 THEN 0 --Prize Tickets
-			  WHEN bg.BettypeGroupID = 10 THEN b.swinlost + b.mwinlost + b.awinlost --Contribution Tickets
-			  ELSE (b.winlost - b.actual_stake) + b.swinlost + b.mwinlost + b.awinlost
-			END)  * b.actualrate) AS WinlossIBC
-		,SUM(CASE WHEN b.tpositiontaking = 1 THEN 0
-				ELSE (b.winlost - b.actual_stake) * CAST(b.epositiontaking AS DECIMAL(10, 8)) * b.actualrate
-			END) AS ExtraWL 
-		,SUM(b.scomm * b.actualrate) AS CommissionS
-		,CAST(SUM((CASE WHEN b.tpositiontaking = 1 THEN 0
-				ELSE b.scomm * CAST(b.epositiontaking AS DECIMAL(10, 8)) / (1 - b.tpositiontaking)
-			END) * b.actualrate) AS DECIMAL(19, 8))AS ExtraComm
-		--------------------------------------------------------------------------
-		,SUM( (CASE WHEN pb.ProductID = 1 THEN ABS(b.stake) ELSE b.stake END)
-			* (1-b.tpositiontaking)
-			* b.actualrate ) AS TurnoverIBC
-		,SUM((CASE WHEN b.tpositiontaking = 1 THEN 0 
-				ELSE (CASE WHEN pb.ProductID = 1 THEN ABS(stake) ELSE stake END) * CAST(b.epositiontaking AS DECIMAL(10, 8))
-			END) * b.actualrate) AS ExtraTO
-	FROM dbo.bettrans AS b WITH (NOLOCK)--, INDEX = CIX_matchid_bettype) -- faster but dirty read
-		LEFT JOIN #tmpCustomer AS c WITH (NOLOCK) ON b.Recommend = c.CustID
-		LEFT JOIN match AS m WITH (NOLOCK) ON b.matchid = m.matchid AND b.bettype NOT IN ( 10, 29)
-		LEFT JOIN outright AS o WITH (NOLOCK) ON b.matchid = o.orid AND b.bettype = 10
-		LEFT JOIN #tmpProductBettype AS pb WITH (NOLOCK) ON b.Bettype = pb.Bettype
-		LEFT JOIN #tmpBettypeGroup AS bg WITH (NOLOCK) ON b.Bettype = bg.Bettype
-	WHERE b.winlostdate = @WLDate
-		AND b.matchid IN (SELECT MatchID FROM #tmpMatch WITH (NOLOCK))
-		AND b.statusID IN (112, 113) --Won, Lose
-		AND b.currency <> 20
-		AND pb.RefTable = 3
-	GROUP BY c.Site
-		,c.IsDeposit
-		,CASE WHEN b.bettype = 29 THEN @Parl_LeagueID
-			WHEN pb.ProductID <> 1 THEN @NS_LeagueID
-			WHEN m.matchid IS NOT NULL THEN m.leagueid
-			WHEN o.orid IS NOT NULL THEN o.leagueid
-			ELSE @NS_LeagueID
-		END
-		,b.Bettype
-		,(CASE WHEN ( ABS(b.modds) = 0.25 AND pb.HalfBettype = 1 ) THEN 1 ELSE 0 END)
-		,(CASE WHEN b.bettype = 29 THEN b.livehomescore
-		ELSE CAST(b.liveindicator AS TINYINT)
-		END)
-		,CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9,6))
-	
 	--------------------------------bettrans----------------------------------
 	INSERT INTO #tmpMatch ( MatchID )
 	SELECT MatchID
@@ -403,7 +299,7 @@ BEGIN
 	OPTION (RECOMPILE)
 	CREATE UNIQUE CLUSTERED INDEX CIX_tmpCustomer ON #tmpCustomer ( CustID )
 	
-	INSERT INTO #tmpRawData WITH (TABLOCK)(
+	INSERT INTO #tmpRawData (
 		Site
 		,IsDeposit
 		,LeagueID
@@ -462,7 +358,6 @@ BEGIN
 		AND b.statusID IN (112, 113) --Won, Lose
 		AND b.currency <> 20
 		AND pb.RefTable = 3
-		AND pb.ProductID <> 31 --handle Exchange above
 	GROUP BY c.Site
 		,c.IsDeposit
 		,CASE WHEN b.bettype = 29 THEN @Parl_LeagueID
@@ -509,7 +404,7 @@ BEGIN
 	
 	UPDATE STATISTICS #tmpCustomer
 	
-	INSERT INTO #tmpRawData WITH (TABLOCK)(
+	INSERT INTO #tmpRawData (
 		Site
 		,IsDeposit
 		,LeagueID
@@ -594,7 +489,7 @@ BEGIN
 	
 	UPDATE STATISTICS #tmpCustomer
 	
-	INSERT INTO #tmpRawData WITH (TABLOCK)(
+	INSERT INTO #tmpRawData (
 		Site
 		,IsDeposit
 		,LeagueID
