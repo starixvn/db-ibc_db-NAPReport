@@ -20,7 +20,6 @@ AS
         - 20201211@Jaden.Tang: Use less-than-or-equal check for @MarginThreshold instead of less-than
 		- 20220805@Jaden.Tang: Remove SELECT INTO #tmp pattern (#176082)
                                Remove table function f_bettrans_measure
-		- 20230818@Roy: Auto Mail/Letstalk Reports - integrate Parlay Boost Bonus (#192856)
 
     Example:
         exec bodb02.dbo.Acc_Rpt_Letstalk_HouseMarginMonitor '20200101', '20201230', '228,229'
@@ -35,35 +34,19 @@ BEGIN
     INSERT INTO #tmpHalfWonLoseBettype (Bettype)
     SELECT DISTINCT BetType
     FROM bodb02.dbo.SportBettypeMatrix (NOLOCK)
-    WHERE ProductID = 1 AND BetType NOT IN (29, 998, 38, 901, 902 ,903, 904, 999, 18999)
+    WHERE ProductID = 1 AND BetType NOT IN (29, 38, 901, 902 ,903, 904, 999, 18999)
 
     CREATE TABLE #parameter (BetType INT)
     
     INSERT INTO #parameter
     SELECT CAST(val AS INT) AS betType
     FROM bodb02.dbo.strSplit(@BetType, ',')
-	
-	/*
-		Bettype 998 must follow 29
-	*/
-	DELETE FROM #parameter
-	WHERE BetType = 998
-	
-	IF EXISTS (
-		SELECT 1
-		FROM #parameter
-		WHERE BetType = 29
-	)
-	BEGIN
-		INSERT INTO #parameter
-		SELECT 998
-	END
 
     DECLARE @ExcludeDraw BIT = 1
    
     ;WITH CTE_measures AS (
         SELECT  winlostdate,
-                (CASE WHEN sd.bettype = 998 THEN 29 ELSE sd.bettype END) AS BetType, --transform and consider 998 as 29
+                sd.bettype                  AS BetType,
                 ruben,
                 statusID,
                 currency,
