@@ -103,13 +103,13 @@ BEGIN
 		,VirtualRate FLOAT
 		,EPos SMALLMONEY
 		,TPos SMALLMONEY
-		,Stake MONEY
-		,Actual_Stake MONEY
-		,Winlost MONEY
-		,AWinlost MONEY
-		,MWinlost MONEY DEFAULT 0
-		,SWinlost MONEY DEFAULT 0
-		,SComm MONEY
+		,Stake DECIMAL(19,4)
+		,Actual_Stake DECIMAL(19,4)
+		,Winlost DECIMAL(19,4)
+		,AWinlost DECIMAL(19,4)
+		,MWinlost DECIMAL(19,4) DEFAULT 0
+		,SWinlost DECIMAL(19,4) DEFAULT 0
+		,SComm DECIMAL(19,4)
 	)
 	
 	SELECT @isTest = dbo.f_CheckSPVersion(@@PROCID)
@@ -498,9 +498,9 @@ BEGIN
 			,'T ' + ISNULL(h.ProductGroup,'OTHERS') AS GroupName
 			,SUM(TurnoverIBC) AS TurnoverIBC
 			,SUM(WinlossIBC) AS WinlossIBC
-			,(CASE WHEN SUM(ISNULL(TurnoverIBC,0)) = 0 THEN 0
+			,CONVERT(DECIMAL(10,6),(CASE WHEN SUM(ISNULL(TurnoverIBC,0)) = 0 THEN 0
 				ELSE SUM(ISNULL(WinlossIBC,0)) / SUM(ISNULL(TurnoverIBC,0))
-			END) AS Margin
+			END)) AS Margin
 		FROM #tmpMarginNonSport AS m WITH (NOLOCK)
 			LEFT JOIN #tmpProductSetting AS h WITH (NOLOCK) ON m.ProductID = h.ProductID
 		GROUP BY CASE WHEN h.ProductGroup = 'LC' THEN 2
@@ -514,9 +514,9 @@ BEGIN
 		SELECT 1 AS GroupID
 			,'GRAND TOTAL' AS GroupName
 			,SUM(TurnoverIBC) AS TurnoverIBC
-			,(CASE WHEN SUM(ISNULL(TurnoverIBC,0)) = 0 THEN 0
+			,CONVERT(DECIMAL(10,6),(CASE WHEN SUM(ISNULL(TurnoverIBC,0)) = 0 THEN 0
 				ELSE SUM(ISNULL(WinlossIBC,0)) / SUM(ISNULL(TurnoverIBC,0))
-			END) AS Margin
+			END)) AS Margin
 		FROM CTE_SubTotal
 	)
 	,CTE_Product AS (
@@ -528,9 +528,9 @@ BEGIN
 			) AS GroupID
 			,ISNULL(h.ProductShortName,'Others') AS GroupName
 			,SUM(TurnoverIBC) AS TurnoverIBC
-			,(CASE WHEN SUM(ISNULL(TurnoverIBC,0)) = 0 THEN 0
+			,CONVERT(DECIMAL(10,6),(CASE WHEN SUM(ISNULL(TurnoverIBC,0)) = 0 THEN 0
 				ELSE SUM(ISNULL(WinlossIBC,0)) / SUM(ISNULL(TurnoverIBC,0))
-			END) AS Margin
+			END)) AS Margin
 		FROM #tmpMarginNonSport AS m WITH (NOLOCK)
 			LEFT JOIN #tmpProductSetting AS h WITH (NOLOCK) ON m.ProductID = h.ProductID
 		GROUP BY CASE WHEN h.ProductGroup = 'LC' THEN 8

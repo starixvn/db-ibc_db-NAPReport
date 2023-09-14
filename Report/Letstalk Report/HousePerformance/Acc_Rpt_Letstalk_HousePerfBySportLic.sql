@@ -122,19 +122,19 @@ BEGIN
 		,ProductGroup TINYINT
 		,LiveIndicator BIT
 		,SabaType TINYINT
-		,TurnOver MONEY
-		,MemberWL MONEY
-		,OddsSpreadAdj MONEY
-		,BAComm MONEY
-		,FullContribution MONEY
-		,HouseContribution MONEY
-		,FreeBet MONEY
+		,TurnOver DECIMAL(19,4)
+		,MemberWL DECIMAL(19,4)
+		,OddsSpreadAdj DECIMAL(19,4)
+		,BAComm DECIMAL(19,4)
+		,FullContribution DECIMAL(19,4)
+		,HouseContribution DECIMAL(19,4)
+		,FreeBet DECIMAL(19,4)
 	)
 	CREATE TABLE #tmpFinal (
 		GroupID INT
 		,GroupName VARCHAR(50)
-		,HouseTO MONEY
-		,HouseWL MONEY
+		,HouseTO DECIMAL(19,4)
+		,HouseWL DECIMAL(19,4)
 		,OrdNo FLOAT
 	)
 	CREATE TABLE #tmpEXBettrans (
@@ -147,14 +147,14 @@ BEGIN
 		,Status NVARCHAR(10)
 		,SRecommend INT
 		,CurrencyID INT
-		,Stake MONEY
-		,Actual_Stake MONEY
-		,Winlost MONEY
-		,AWinlost MONEY
-		,MWinlost MONEY
-		,SWinlost MONEY
-		,PlayerComm MONEY
-		,Comm MONEY
+		,Stake DECIMAL(19,4)
+		,Actual_Stake DECIMAL(19,4)
+		,Winlost DECIMAL(19,4)
+		,AWinlost DECIMAL(19,4)
+		,MWinlost DECIMAL(19,4)
+		,SWinlost DECIMAL(19,4)
+		,PlayerComm DECIMAL(19,4)
+		,Comm DECIMAL(19,4)
 	)
 	/*
 		Get Dim data
@@ -410,7 +410,8 @@ BEGIN
 		,SUM(CASE WHEN b.Status = 'DRAW' THEN 0 ELSE ABS(Stake) END) AS TurnOver
 		,SUM(ISNULL(winlost, 0) - ISNULL(actual_stake, 0)) AS MemberWL
 		,0 AS OddsSpreadAdj
-		,SUM(b.playercomm + b.comm) AS BAComm --Charge comm of Exchange product
+		-- ,SUM(b.playercomm + b.comm) AS BAComm --Old Commercial Term (Exchange)
+		,SUM(b.playercomm) AS BAComm --New Commercial Term (from 2023-05-01)
 		--Contribution,FreeBet--
 		,0 AS FullContribution
 		,0 AS HouseContribution
@@ -487,9 +488,7 @@ BEGIN
 		,SUM(CASE WHEN tg.BetTypeGroupID IS NOT NULL OR b.SportType IN (150,173) THEN 0 --Prize,Contribution,FreeBet(Saba.Cub & VGaming) => 0
 			ELSE ISNULL(winlost, 0) - ISNULL(actual_stake, 0) END) AS MemberWL
 		,SUM(CASE WHEN b.BetType = 999 THEN awinlost ELSE 0 END) AS OddsSpreadAdj
-		,SUM(CASE WHEN b.ProductID = 1 THEN (CASE WHEN b.IsBA = 1 THEN b.Comm ELSE 0 END) --BA Commision
-				WHEN b.ProductID = 31 THEN b.playercomm + b.comm --Charge comm of Exchange product
-				ELSE 0 END) AS BAComm
+		,SUM(CASE WHEN b.ProductID = 1 AND b.IsBA = 1 THEN b.Comm ELSE 0 END) AS BAComm --BA Commision
 		--Contribution,FreeBet--
 		,SUM(CASE WHEN tg.BetTypeGroupID = 10 THEN b.ContributionStake3rd ELSE 0 END) AS FullContribution
 		,SUM(CASE WHEN tg.BetTypeGroupID = 10 THEN b.ContributionStake3rd + b.swinlost + b.mwinlost + b.awinlost ELSE 0 END) AS HouseContribution
@@ -781,7 +780,7 @@ BEGIN
 	SELECT GroupID
 		,GroupName
 		,Amt
-		,Margin
+		,CONVERT(DECIMAL(10,6),Margin) AS Margin
 		,CASE WHEN GroupName = @EX3rdName AND @DayOffset = 0 THEN '[1h delay]' ELSE '' END AS ExtraInfo
 	FROM CTE_Grp
 	ORDER BY GroupID
