@@ -17,9 +17,12 @@ AS
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
-	
+		For Exchange (https://nexdev.net/projects/owa/wiki/Exchange_Impact_On_LA)
+			- Formular based on billing term (Letstalk #36): Licensing Fee = (Licensee WL - Member Charge Comm) * 12.5%
+			- Real formula (Acc_Rpt_HouseNetIncome_Deposit): Licensing Fee = (Licensee WL * 12.5%) - (Licensee Charge Comm + Member Charge Comm)
+				+ With Licensee Charge Comm = - Member Charge Comm * (1-12.5%)
 	Example:
-		EXEC bodb02.dbo.Acc_Rpt_Letstalk_HousePerfBySportLic
+		EXEC bodb_dwrs.dbo.Acc_Rpt_Letstalk_HousePerfBySportLic
 			@ExecTime4GMT = '2022-06-29 03:00:00'
 */
 BEGIN
@@ -410,8 +413,7 @@ BEGIN
 		,SUM(CASE WHEN b.Status = 'DRAW' THEN 0 ELSE ABS(Stake) END) AS TurnOver
 		,SUM(ISNULL(winlost, 0) - ISNULL(actual_stake, 0)) AS MemberWL
 		,0 AS OddsSpreadAdj
-		-- ,SUM(b.playercomm + b.comm) AS BAComm --Old Commercial Term (Exchange)
-		,SUM(b.playercomm) AS BAComm --New Commercial Term (from 2023-05-01)
+		,SUM(b.playercomm) AS BAComm --Exchange BAComm = [Member Charge Comm]
 		--Contribution,FreeBet--
 		,0 AS FullContribution
 		,0 AS HouseContribution
@@ -659,7 +661,7 @@ BEGIN
 					- d.HouseContribution
 					- d.FreeBet
 					- (CASE WHEN d.Product3rdID IN (3) THEN d.BAComm -- BA Comm of bet builder
-						WHEN d.Product3rdID IN (31) THEN d.BAComm * ISNULL(lc.Rate, p.Rate) --- exchange product
+						WHEN d.Product3rdID IN (31) THEN d.BAComm * ISNULL(lc.Rate, p.Rate) --- exchange use [Formular based on billing term] (Licensee WL - Member Charge Comm) * 12.5%
 						ELSE 0
 						END
 					) -- exchange product & BAComm

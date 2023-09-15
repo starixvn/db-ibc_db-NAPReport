@@ -17,6 +17,17 @@ AS
 		@DataMode: reutrn ResultSet based on this value, default BLANK
 					- Letstalk34
 					- Letstalk36
+					- Letstalk32
+		
+		For Exchange (https://nexdev.net/projects/owa/wiki/Exchange_Impact_On_LA)
+			- Formular based on billing term (Letstalk #36): Licensing Fee = (Licensee WL - Member Charge Comm) * 12.5%
+			- Real formula (Acc_Rpt_HouseNetIncome_Deposit): Licensing Fee = (Licensee WL * 12.5%) - (Licensee Charge Comm + Member Charge Comm)
+				+ With Licensee Charge Comm = - Member Charge Comm * (1-12.5%)
+		
+		=> we have 2 way to calculate Comm
+			1.Formular based on billing term: PlayerComm * ChargeRate
+			1.Real formula: (AgentCommission + Commission) <=> Comm
+		
 	Example:
 		EXEC bodb02.dbo.Acc_Rpt_SeparatedWalletProductWL
 			@WinlostDate = '2022-06-29'
@@ -240,7 +251,7 @@ BEGIN
 			,- (d.Winlost - d.Actual_stake) * (1 - ISNULL(rc.Rate, r.Rate)) AS AWinlost
 			,CONVERT(MONEY,0) AS MWinlost
 			,CONVERT(MONEY,0) AS SWinlost
-			,d.SComm
+			,d.SComm --this is (Licensee Charge Comm + Member Charge Comm)
 		FROM CTE AS d
 			INNER JOIN bodb02.dbo.ExchangeDailyOanda AS ex WITH (NOLOCK) ON ex.ExchangeDate = CONVERT(SMALLDATETIME,d.WinlostDate) AND ex.ExchangeId = d.CurrencyID
 			INNER JOIN #tmpChargeRate AS r ON d.LicenseeID = r.LicenseeID
@@ -287,7 +298,7 @@ BEGIN
 			,CONVERT(MONEY,0) AS MWinlost
 			,CONVERT(MONEY,0) AS SWinlost
 			,d.PlayerComm
-			,d.Comm
+			,d.Comm --this is (Licensee Charge Comm + Member Charge Comm)
 		FROM CTE AS d
 			INNER JOIN #tmpChargeRate AS r ON d.LicenseeID = r.LicenseeID
 			LEFT JOIN #tmpChargeRateByCurr AS rc ON r.ChargeID = rc.ChargeID AND d.CurrencyID = rc.CurrencyID
@@ -348,7 +359,7 @@ BEGIN
 			,CONVERT(MONEY,0) AS MWinlost
 			,CONVERT(MONEY,0) AS SWinlost
 			,d.PlayerComm
-			,d.Comm
+			,d.Comm --this is (Licensee Charge Comm + Member Charge Comm)
 			,d.Comm AS SComm
 		FROM CTE AS d
 			INNER JOIN bodb02.dbo.ExchangeDailyOanda AS ex WITH (NOLOCK) ON ex.ExchangeDate = CONVERT(SMALLDATETIME,d.WinlostDate) AND ex.ExchangeId = d.CurrencyID
