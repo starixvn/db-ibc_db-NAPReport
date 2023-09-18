@@ -13,12 +13,16 @@ AS
 		20221219@Roy: Letstalk Report ID #36 - Refactor sp code (#181303)
 		20230705@Roy: Email/Letstalk Reports - Incorporate Saba Tennis (#190458)
 		20230824@Roy: Letstalk Report ID 34 - Change the rule to show Exchange product (#193132)
+		20230829@Roy: Letstalk Reports - Support to show Exchange Product statistics every 2 hours for today (#181348)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
-	
+		For Exchange (https://nexdev.net/projects/owa/wiki/Exchange_Impact_On_LA)
+			- Formular based on billing term (Letstalk #36): Licensing Fee = (Licensee WL - Member Charge Comm) * 12.5%
+			- Real formula (Acc_Rpt_HouseNetIncome_Deposit): Licensing Fee = (Licensee WL * 12.5%) - (Licensee Charge Comm + Member Charge Comm)
+				+ With Licensee Charge Comm = - Member Charge Comm * (1-12.5%)
 	Example:
-		EXEC bodb02.dbo.Acc_Rpt_Letstalk_HousePerfBySportLic
+		EXEC bodb_dwrs.dbo.Acc_Rpt_Letstalk_HousePerfBySportLic
 			@ExecTime4GMT = '2022-06-29 03:00:00'
 */
 BEGIN
@@ -27,6 +31,7 @@ BEGIN
 	DECLARE @DayOffset INT
 		,@WLDate DATE
 		,@Title VARCHAR(50)
+		,@EX3rdName VARCHAR(50)
 
 	SET @DayOffset = (
 			CASE 
@@ -112,8 +117,7 @@ BEGIN
 		,SabaType TINYINT
 	)
 	CREATE TABLE #tmpRawData (
-		WLDate DATE
-		,IsSB BIT
+		IsSB BIT
 		,PartyID INT
 		,Currency INT
 		,Product3rdID INT
@@ -121,22 +125,40 @@ BEGIN
 		,ProductGroup TINYINT
 		,LiveIndicator BIT
 		,SabaType TINYINT
-		,TurnOver MONEY
-		,MemberWL MONEY
-		,OddsSpreadAdj MONEY
-		,BAComm MONEY
-		,FullContribution MONEY
-		,HouseContribution MONEY
-		,FreeBet MONEY
+		,TurnOver DECIMAL(19,4)
+		,MemberWL DECIMAL(19,4)
+		,OddsSpreadAdj DECIMAL(19,4)
+		,BAComm DECIMAL(19,4)
+		,FullContribution DECIMAL(19,4)
+		,HouseContribution DECIMAL(19,4)
+		,FreeBet DECIMAL(19,4)
 	)
 	CREATE TABLE #tmpFinal (
 		GroupID INT
 		,GroupName VARCHAR(50)
-		,HouseTO MONEY
-		,HouseWL MONEY
+		,HouseTO DECIMAL(19,4)
+		,HouseWL DECIMAL(19,4)
 		,OrdNo FLOAT
 	)
-	
+	CREATE TABLE #tmpEXBettrans (
+		WLDate SMALLDATETIME
+		,LiveIndicator BIT
+		,IsBA BIT
+		,ProductID INT
+		,SportType INT
+		,BetType INT
+		,Status NVARCHAR(10)
+		,SRecommend INT
+		,CurrencyID INT
+		,Stake DECIMAL(19,4)
+		,Actual_Stake DECIMAL(19,4)
+		,Winlost DECIMAL(19,4)
+		,AWinlost DECIMAL(19,4)
+		,MWinlost DECIMAL(19,4)
+		,SWinlost DECIMAL(19,4)
+		,PlayerComm DECIMAL(19,4)
+		,Comm DECIMAL(19,4)
+	)
 	/*
 		Get Dim data
 	*/
@@ -156,6 +178,11 @@ BEGIN
 	)
 	EXEC (@SQLStr) AT DBEXT
 	CREATE CLUSTERED INDEX tmpProduct3rd ON #tmpProduct3rd (Product3rdID)
+	
+	SELECT @EX3rdName = rd.ProductName
+	FROM #tmpProduct3rd AS rd WITH (NOLOCK)
+		INNER JOIN bodb02.dbo.Products AS p WITH (NOLOCK) ON p.ProductPrefix = rd.ProductPrefix
+	WHERE p.ProductID = 31
 	
 	--OANDA Rate--
 	SELECT @SQLStr = '
@@ -312,12 +339,12 @@ BEGIN
 		2-Saba PinGoal
 	*/
 	;WITH CTE_All_Saba AS (
-		SELECT CONVERT(INT,val) AS LeagueGroupID
-		FROM bodb_dwrs.dbo.strSplit_str((SELECT VValue FROM bodb_account.dbo.SystemSettings WITH (NOLOCK) WHERE VID = 5), ',')
+		SELECT CONVERT(INT,value) AS LeagueGroupID
+		FROM STRING_SPLIT((SELECT VValue FROM bodb_account.dbo.SystemSettings WITH (NOLOCK) WHERE VID = 5), ',')
 	)
 	,CTE_Saba AS (
-		SELECT CONVERT(INT,val) AS LeagueGroupID
-		FROM bodb_dwrs.dbo.strSplit_str((SELECT VValue FROM bodb_account.dbo.SystemSettings WITH (NOLOCK) WHERE VID = 11), ',')
+		SELECT CONVERT(INT,value) AS LeagueGroupID
+		FROM STRING_SPLIT((SELECT VValue FROM bodb_account.dbo.SystemSettings WITH (NOLOCK) WHERE VID = 11), ',')
 	)
 	INSERT INTO #tmpSabaLG (
 		LeagueGroupID
@@ -327,6 +354,84 @@ BEGIN
 		,CASE WHEN s.LeagueGroupID IS NOT NULL THEN 1 ELSE 2 END AS SabaType
 	FROM CTE_All_Saba AS a
 		LEFT JOIN CTE_Saba AS s on a.LeagueGroupID = s.LeagueGroupID
+	
+	/*
+		Get Exchange Data
+			- Exchange in bettrans (Betting & Adjustment) only for Yesterday => exclude
+			- Manual calculation Exchange by Acc_Rpt_SeparatedWalletProductWL
+	*/
+	INSERT INTO #tmpEXBettrans (
+		WLDate
+		,LiveIndicator
+		,IsBA
+		,ProductID
+		,SportType
+		,BetType
+		,Status
+		,SRecommend
+		,CurrencyID
+		,Stake
+		,Actual_Stake
+		,Winlost
+		,AWinlost
+		,MWinlost
+		,SWinlost
+		,PlayerComm
+		,Comm
+	)
+	EXEC DBLIC.bodb_3rdProduct.dbo.Acc_Rpt_SeparatedWalletProductWL
+		@WinlostDate = @WLDate
+		,@ProductID = 31
+		,@DataMode = 'Letstalk36'
+	
+	INSERT INTO #tmpRawData WITH (TABLOCK)(
+		IsSB
+		,PartyID
+		,Currency
+		,Product3rdID
+		,SportGroup
+		,ProductGroup
+		,LiveIndicator
+		,SabaType
+		,TurnOver
+		,MemberWL
+		,OddsSpreadAdj
+		,BAComm
+		,FullContribution
+		,HouseContribution
+		,FreeBet
+	)
+	SELECT bt.IsSB
+		,s.PartyID
+		,b.CurrencyID
+		,ISNULL(prd.Product3rdID,0) AS Product3rdID
+		,ISNULL(sp.SportGroup,0) AS SportGroup
+		,0 AS ProductGroup
+		,b.LiveIndicator
+		,0 AS SabaType
+		--MEASURE--
+		,SUM(CASE WHEN b.Status = 'DRAW' THEN 0 ELSE ABS(Stake) END) AS TurnOver
+		,SUM(ISNULL(winlost, 0) - ISNULL(actual_stake, 0)) AS MemberWL
+		,0 AS OddsSpreadAdj
+		,SUM(b.playercomm) AS BAComm --Exchange BAComm = [Member Charge Comm]
+		--Contribution,FreeBet--
+		,0 AS FullContribution
+		,0 AS HouseContribution
+		,0 AS FreeBet
+	FROM #tmpEXBettrans AS b
+		INNER JOIN #tmpDepSuper s ON s.CustID = b.srecommend
+		INNER JOIN #tmpBetType bt ON b.BetType = bt.BetType
+		LEFT JOIN #tmpSBSports AS sp ON b.Sporttype = sp.SportGroup
+		LEFT JOIN bodb02.dbo.Products AS p WITH (NOLOCK) ON b.ProductID = p.ProductID
+		LEFT JOIN #tmpProduct3rd AS prd WITH (NOLOCK) ON p.ProductPrefix = prd.ProductPrefix
+	GROUP BY bt.IsSB
+		,s.PartyID
+		,b.CurrencyID
+		,ISNULL(prd.Product3rdID,0)
+		,ISNULL(sp.SportGroup,0)
+		-- ,0 AS ProductGroup
+		,b.LiveIndicator
+		-- ,0 AS SabaType
 	
 	/*
 		SportGroup: for SB; follow #tmpSBSports
@@ -347,8 +452,7 @@ BEGIN
 			2-Saba PinGoal
 	*/
 	INSERT INTO #tmpRawData WITH (TABLOCK)(
-		WLDate
-		,IsSB
+		IsSB
 		,PartyID
 		,Currency
 		,Product3rdID
@@ -364,8 +468,7 @@ BEGIN
 		,HouseContribution
 		,FreeBet
 	)
-	SELECT b.Winlostdate
-		,bt.IsSB
+	SELECT bt.IsSB
 		,s.PartyID
 		,b.Currency
 		,CASE WHEN b.ProductID = 1 THEN (CASE WHEN b.IsBA = 1 THEN 3 ELSE 0 END)
@@ -387,9 +490,7 @@ BEGIN
 		,SUM(CASE WHEN tg.BetTypeGroupID IS NOT NULL OR b.SportType IN (150,173) THEN 0 --Prize,Contribution,FreeBet(Saba.Cub & VGaming) => 0
 			ELSE ISNULL(winlost, 0) - ISNULL(actual_stake, 0) END) AS MemberWL
 		,SUM(CASE WHEN b.BetType = 999 THEN awinlost ELSE 0 END) AS OddsSpreadAdj
-		,SUM(CASE WHEN b.ProductID = 1 THEN (CASE WHEN b.IsBA = 1 THEN b.Comm ELSE 0 END) --BA Commision
-				WHEN b.ProductID = 31 THEN b.playercomm + b.comm --Charge comm of Exchange product
-				ELSE 0 END) AS BAComm
+		,SUM(CASE WHEN b.ProductID = 1 AND b.IsBA = 1 THEN b.Comm ELSE 0 END) AS BAComm --BA Commision
 		--Contribution,FreeBet--
 		,SUM(CASE WHEN tg.BetTypeGroupID = 10 THEN b.ContributionStake3rd ELSE 0 END) AS FullContribution
 		,SUM(CASE WHEN tg.BetTypeGroupID = 10 THEN b.ContributionStake3rd + b.swinlost + b.mwinlost + b.awinlost ELSE 0 END) AS HouseContribution
@@ -403,11 +504,11 @@ BEGIN
 		LEFT JOIN bodb02.dbo.Products AS p WITH (NOLOCK) ON b.ProductID = p.ProductID
 		LEFT JOIN #tmpProduct3rd AS prd WITH (NOLOCK) ON p.ProductPrefix = prd.ProductPrefix
 		LEFT JOIN bodb_Account.dbo.BetTypeGroup AS tg WITH (NOLOCK) ON b.BetType = tg.BetType AND tg.BetTypeGroupID IN (6,10) --Prize & Contribution
-	WHERE (b.Winlostdate = @WLDate OR (b.ProductID = 31 AND @DayOffset = 0 AND b.winlostdate = DATEADD(DD,-1,@WLDate))) --get more data for Exchange in ToDay Mode
+	WHERE b.Winlostdate = @WLDate
 		AND b.TicketStatusID IN (3,4,8,12,13) --LOSE, WON, HALF LOSE, HALF WON
 		AND b.Recommend NOT IN (52466,5707545)  -- Exclude 8RM, BARM
-	GROUP BY b.Winlostdate
-		,bt.IsSB
+		AND b.ProductID <> 31 --handle Exchange above
+	GROUP BY bt.IsSB
 		,s.PartyID
 		,b.Currency
 		,CASE WHEN b.ProductID = 1 THEN (CASE WHEN b.IsBA = 1 THEN 3 ELSE 0 END)
@@ -423,74 +524,6 @@ BEGIN
 		,ISNULL(slg.SabaType,0)
 
 	CREATE CLUSTERED INDEX tmpRawData ON #tmpRawData (IsSB, PartyID, Product3rdID, Currency)
-	
-	/*
-		Special handle for Exchange product
-			1.For Hour Mode
-				- If NOT exists Exchange, Insert dummy + return N/A
-				- If EXISTS Exchange, return [Date]
-			2.For Yesterday Mode
-				- If NOT exists Exchange, Insert dummy + return N/A
-	*/
-	DECLARE @ExtraInfo VARCHAR(50) = ''
-		,@EX3rdID INT
-		,@EX3rdName VARCHAR(50)
-	
-	SELECT @EX3rdID = rd.Product3rdID
-		,@EX3rdName = rd.ProductName
-	FROM #tmpProduct3rd AS rd WITH (NOLOCK)
-		INNER JOIN bodb02.dbo.Products AS p WITH (NOLOCK) ON p.ProductPrefix = rd.ProductPrefix
-	WHERE p.ProductID = 31
-	
-	--Remove unuse Exchange (in fact, not exists 2 rows of ProductID = 31 because has no Exchange in today)
-	;WITH CTE_Grp AS (
-		SELECT t.WLDate
-			,t.Product3rdID
-		FROM #tmpRawData AS t
-		WHERE t.Product3rdID = @EX3rdID
-		GROUP BY t.WLDate
-			,t.Product3rdID
-	)
-	,CTE_Select AS (
-		SELECT WLDate
-			,Product3rdID
-			,ROW_NUMBER() OVER (ORDER BY WLDate DESC) AS OrdNo
-		FROM CTE_Grp
-	)
-	DELETE t
-	FROM #tmpRawData AS t
-		INNER JOIN CTE_Select AS d ON t.Product3rdID = d.Product3rdID AND t.WLDate = d.WLDate
-	WHERE d.OrdNo > 1
-	
-	IF (@DayOffset = 0) --Hour Mode
-	BEGIN
-		IF NOT EXISTS (SELECT 1 FROM #tmpRawData WHERE Product3rdID = @EX3rdID)
-		BEGIN
-			SET @ExtraInfo = 'N/A'
-			
-			INSERT INTO #tmpRawData (Product3rdID, IsSB)
-			SELECT @EX3rdID AS Product3rdID --insert dummy Exchange
-				,0 AS IsSB
-		END
-		ELSE
-		BEGIN
-			;WITH CTE_Date AS (
-				SELECT TOP 1 WLDate
-				FROM #tmpRawData
-				WHERE Product3rdID = @EX3rdID
-			)
-			SELECT @ExtraInfo = '[' + FORMAT(WLDate, 'dd-MMM') + ']'
-			FROM CTE_Date
-		END
-	END
-	ELSE IF NOT EXISTS (SELECT 1 FROM #tmpRawData WHERE Product3rdID = @EX3rdID) --Yesterday Mode
-	BEGIN
-		SET @ExtraInfo = 'N/A'
-			
-		INSERT INTO #tmpRawData (Product3rdID, IsSB)
-		SELECT @EX3rdID AS Product3rdID --insert dummy Exchange
-				,0 AS IsSB
-	END
 	
 	--Get SB by Sport - [GroupID = 2] - fixed order--
 	;WITH CTE_SB_BySport AS (
@@ -628,7 +661,7 @@ BEGIN
 					- d.HouseContribution
 					- d.FreeBet
 					- (CASE WHEN d.Product3rdID IN (3) THEN d.BAComm -- BA Comm of bet builder
-						WHEN d.Product3rdID IN (@EX3rdID) THEN d.BAComm * ISNULL(lc.Rate, p.Rate) --- exchange product
+						WHEN d.Product3rdID IN (31) THEN d.BAComm * ISNULL(lc.Rate, p.Rate) --- exchange use [Formular based on billing term] (Licensee WL - Member Charge Comm) * 12.5%
 						ELSE 0
 						END
 					) -- exchange product & BAComm
@@ -684,8 +717,8 @@ BEGIN
 	)
 	,CTE_NS AS (
 		SELECT 'ALL' AS GroupName
-			,SUM(CASE WHEN GroupName = @EX3rdName AND @DayOffset = 0 THEN 0 ELSE HouseTO END) AS HouseTO --exclude Yesterday Exchange of Hour Mode
-			,SUM(CASE WHEN GroupName = @EX3rdName AND @DayOffset = 0 THEN 0 ELSE HouseWL END) AS HouseWL --exclude Yesterday Exchange of Hour Mode
+			,SUM(HouseTO) AS HouseTO
+			,SUM(HouseWL) AS HouseWL
 		FROM CTE_NS_ByProd
 		
 		UNION ALL
@@ -729,14 +762,13 @@ BEGIN
 	,CTE_Grp AS (
 		SELECT GroupID
 			,GroupName
-			,HouseTO AS Amt
+			,ISNULL(HouseTO,0) AS Amt
 			,(CASE WHEN ISNULL(HouseTO,0) = 0 THEN 0
 				ELSE ISNULL(HouseWL,0) / HouseTO
 			END) AS Margin
 			,OrdNo
 		FROM #tmpFinal
 		WHERE HouseTO IS NOT NULL
-			OR GroupName = @EX3rdName --dummy Exchange IS NULL
 
 		UNION ALL
 
@@ -750,8 +782,8 @@ BEGIN
 	SELECT GroupID
 		,GroupName
 		,Amt
-		,Margin
-		,CASE WHEN GroupName = @EX3rdName THEN @ExtraInfo ELSE '' END AS ExtraInfo
+		,CONVERT(DECIMAL(10,6),Margin) AS Margin
+		,CASE WHEN GroupName = @EX3rdName AND @DayOffset = 0 THEN '[1h delay]' ELSE '' END AS ExtraInfo
 	FROM CTE_Grp
 	ORDER BY GroupID
 		,OrdNo
@@ -769,4 +801,5 @@ BEGIN
 	DROP TABLE #tmpSabaLG
 	DROP TABLE #tmpProduct3rd
 	DROP TABLE #tmpFinal
+	DROP TABLE #tmpEXBettrans
 END
