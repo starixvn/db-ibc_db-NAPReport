@@ -23,6 +23,7 @@ AS
 		20210413@Kean: Add More DangerLevel Filter (#153264)
 		20210818@Roy: NAP Report - SB Customer Performance By Dangers Report - Support filter multiple days (#160348)
 		202109001@Jaden: Add 2 more Dangerous types (#159779)
+		20230914@Jaden: Add column Given Credit (#193974)
 		
 	Param's Explanation:
 		@Divisions: List of site names
@@ -101,6 +102,7 @@ BEGIN
 		,MasterID INT
 		,SuperID INT
 		,Currency NVARCHAR(50)
+		,GivenCredit MONEY
 		,BetCount INT
 		,MemberTO DECIMAL(19, 2)
 		,MemberWL DECIMAL(19, 2)
@@ -385,6 +387,7 @@ BEGIN
 		,MasterID
 		,SuperID
 		,Currency
+		,GivenCredit
 		,BetCount
 		,MemberTO
 		,MemberWL
@@ -402,6 +405,7 @@ BEGIN
 		,MasterID
 		,SuperID
 		,Currency
+		,GivenCredit
 		,BetCount
 		,MemberTO
 		,MemberWL
@@ -419,6 +423,7 @@ BEGIN
 			,d.MasterID
 			,d.SuperID
 			,e.Currency
+			,MAX(c.credit) AS GivenCredit
 			,SUM(d.BetCount) BetCount
 			,SUM(d.MemberTO) MemberTO
 			,SUM(d.MemberWL) MemberWL
@@ -508,6 +513,7 @@ BEGIN
 		,s.UserName SuperName
 		,a2.SiteName Division
 		,d.Currency
+		,MAX(d.GivenCredit) GivenCredit
 		,[DangerLevel]
 		,SUM(d.BetCount) BetCount
 		,SUM(d.MemberTO) MemberTO
