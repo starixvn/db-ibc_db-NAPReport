@@ -72,7 +72,8 @@ SET NOCOUNT ON
 		INNER JOIN dbo.Bettype b WITH (NOLOCK) ON s.Bettype = b.TypeId 
 		LEFT JOIN #tmpBettype t ON s.Bettype = t.Bettype 
 	WHERE t.Bettype IS NULL
-		AND (b.typenamee NOT LIKE 'Upcoming%' OR b.typenamee NOT LIKE 'Up coming%')
+		AND b.typenamee NOT LIKE 'Upcoming%' 
+		AND b.typenamee NOT LIKE 'Up coming%'
 		   
 	INSERT INTO #SportBettype (ProductID, TypeId, TypeName, GameType)
 	SELECT	DISTINCT s.ProductID ProductID, s.Bettype as TypeId, b.typenamee AS TypeName, s.SportType AS GameType
@@ -82,7 +83,8 @@ SET NOCOUNT ON
 		LEFT JOIN #tmpBettype t ON s.Bettype = t.Bettype 
 	WHERE  t.Bettype IS NULL
 		   AND (IsTest = 0 OR s.IsTest = @isTest)
-		   AND (b.typenamee NOT LIKE 'Upcoming%' OR b.typenamee NOT LIKE 'Up coming%')
+		   AND b.typenamee NOT LIKE 'Upcoming%' 
+		   AND b.typenamee NOT LIKE 'Up coming%'
 		   	
 	--- ProductID = 3 - Number Game get LeagueId
 	INSERT INTO #SportBettype (ProductId, TypeId, TypeName, IsTest, GameType)
