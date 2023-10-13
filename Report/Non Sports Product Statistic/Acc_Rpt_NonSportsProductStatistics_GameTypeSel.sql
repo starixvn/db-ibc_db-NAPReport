@@ -51,9 +51,9 @@ SET NOCOUNT ON
 							FROM DBWH.bodb_Account.dbo.BettypeGroup WITH (NOLOCK)
 							WHERE BettypeGroupID = 16)
 							
-	CREATE TABLE #tmpHouseProduct (ProductID INT)
-	INSERT INTO #tmpHouseProduct (ProductID)
-	SELECT DISTINCT ProductID 
+	CREATE TABLE #tmpHouseProduct (ProductID INT, Bettype INT)
+	INSERT INTO #tmpHouseProduct (ProductID, Bettype)
+	SELECT DISTINCT ProductID, Bettype 
 	FROM DBWH.bodb_Account.dbo.Product_Bettype WITH (NOLOCK)
 	WHERE EventType = 255
 	
@@ -72,15 +72,17 @@ SET NOCOUNT ON
 		INNER JOIN dbo.Bettype b WITH (NOLOCK) ON s.Bettype = b.TypeId 
 		LEFT JOIN #tmpBettype t ON s.Bettype = t.Bettype 
 	WHERE t.Bettype IS NULL
+		AND (b.typenamee NOT LIKE 'Upcoming%' OR b.typenamee NOT LIKE 'Up coming%')
 		   
 	INSERT INTO #SportBettype (ProductID, TypeId, TypeName, GameType)
 	SELECT	DISTINCT s.ProductID ProductID, s.Bettype as TypeId, b.typenamee AS TypeName, s.SportType AS GameType
 	FROM dbo.SportBettypeMatrix s WITH (NOLOCK)
+		INNER JOIN #tmpHouseProduct p ON s.ProductID = p.ProductID AND s.BetType = p.Bettype
 		INNER JOIN dbo.Bettype b WITH (NOLOCK) ON s.Bettype = b.TypeId 
 		LEFT JOIN #tmpBettype t ON s.Bettype = t.Bettype 
-	WHERE  s.ProductID IN (SELECT ProductID FROM #tmpHouseProduct)
+	WHERE  t.Bettype IS NULL
 		   AND (IsTest = 0 OR s.IsTest = @isTest)
-		   AND t.Bettype IS NULL
+		   AND (b.typenamee NOT LIKE 'Upcoming%' OR b.typenamee NOT LIKE 'Up coming%')
 		   	
 	--- ProductID = 3 - Number Game get LeagueId
 	INSERT INTO #SportBettype (ProductId, TypeId, TypeName, IsTest, GameType)
