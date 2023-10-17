@@ -62,7 +62,7 @@ SET NOCOUNT ON
 	CREATE TABLE #tmpProductBettype (ProductID INT, Bettype INT)
 	INSERT INTO #tmpProductBettype (ProductID, Bettype)
 	SELECT DISTINCT ProductID, Bettype
-	FROM DBWH.bodb_Account.dbo.NonSportSetting_UAT WITH (NOLOCK)
+	FROM DBWH.bodb_Account.dbo.NonSportSetting WITH (NOLOCK)
 	WHERE ProductID NOT IN (5, 27, 23, 31, 77) --Virtual Sports, Virtual Sports 2, NG2, Exchange, Virtual Sports 3 
 		AND ProductID NOT IN (SELECT ProductID FROM #tmpHouseProduct) -- Saba.club, VGaming	
 	
