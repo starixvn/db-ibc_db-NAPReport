@@ -134,7 +134,15 @@ BEGIN
 		GroupName VARCHAR(50)
 		,WinlossIBC DECIMAL(19,4)
 		,TurnoverIBC DECIMAL(19,4)
-	)	
+	)
+	
+	CREATE TABLE #tmpParlBoost (
+		transid BIGINT
+		,matchid INT
+		,apos SMALLMONEY
+		,bba DECIMAL(19, 6)
+		,lbbs DECIMAL(19, 6)
+	)
 	
 	---------Insert Dimension tables---
 	/*
@@ -301,21 +309,30 @@ BEGIN
 	OPTION (RECOMPILE)
 	CREATE UNIQUE CLUSTERED INDEX CIX_tmpCustomer ON #tmpCustomer ( CustID )
 	
-	;WITH CTE_ParlBoost AS (
-		SELECT matchid
-			,transid
-			,apositiontaking AS apos
-			,TRY_CAST(TRY_CAST(ExtraInfo AS XML).value('(/p1/@bba)[1]', 'VARCHAR(50)') AS DECIMAL(19, 6)) bba
-			,TRY_CAST(TRY_CAST(ExtraInfo AS XML).value('(/p1/@lbbs)[1]', 'VARCHAR(50)') AS DECIMAL(19, 6)) lbbs
-        FROM dbo.bettrans WITH (NOLOCK)
-        WHERE winlostdate = @WLDate
-              AND bettype = 29
-			  AND matchid = 29
-			  AND betteam = 1
-              AND oddsspread = 2
-              AND statusID IN (112) --WON
-			  AND currency <> 20
+	INSERT INTO #tmpParlBoost WITH (TABLOCK) (
+		transid
+		,matchid
+		,apos
+		,bba
+		,lbbs
 	)
+	SELECT matchid
+		,transid
+		,apositiontaking AS apos
+		,TRY_CAST(TRY_CAST(ExtraInfo AS XML).value('(/p1/@bba)[1]', 'VARCHAR(50)') AS DECIMAL(19, 6)) bba
+		,TRY_CAST(TRY_CAST(ExtraInfo AS XML).value('(/p1/@lbbs)[1]', 'VARCHAR(50)') AS DECIMAL(19, 6)) lbbs
+	FROM dbo.bettrans WITH (NOLOCK)
+	WHERE winlostdate = @WLDate
+		AND bettype = 29
+		AND matchid = 29
+		AND betteam = N'1'
+		AND oddsspread = 2
+		AND statusID IN (112) --WON
+		AND currency <> 20
+		AND srecommend IN (SELECT custid FROM bodb02.dbo.Dep_CustSuper WITH (NOLOCK) WHERE site NOT IN ('Saba789', 'SEAL888'))
+	
+	CREATE UNIQUE CLUSTERED INDEX CIX_tmpParlBoost ON #tmpParlBoost (transid, matchid)
+	
 	INSERT INTO #tmpRawData WITH (TABLOCK) (
 		Site
 		,IsDeposit
@@ -365,7 +382,7 @@ BEGIN
 				ELSE (CASE WHEN pb.ProductID = 1 THEN ABS(stake) ELSE stake END) * CAST(b.epositiontaking AS DECIMAL(10, 8))
 			END) * b.actualrate) AS ExtraTO
 	FROM dbo.bettrans AS b WITH (NOLOCK)--, INDEX = CIX_matchid_bettype) -- faster but dirty read
-		LEFT JOIN CTE_ParlBoost AS plb ON b.matchid = plb.matchid AND b.transid = plb.transid
+		LEFT JOIN #tmpParlBoost AS plb ON b.matchid = plb.matchid AND b.transid = plb.transid
 		LEFT JOIN #tmpCustomer AS c WITH (NOLOCK) ON b.Recommend = c.CustID
 		LEFT JOIN match AS m WITH (NOLOCK) ON b.matchid = m.matchid AND b.bettype NOT IN ( 10, 29)
 		LEFT JOIN outright AS o WITH (NOLOCK) ON b.matchid = o.orid AND b.bettype = 10
@@ -924,4 +941,5 @@ BEGIN
 	DROP TABLE #tmpResult
 	DROP TABLE #tmpSportBettypeGroup
 	DROP TABLE #tmpOrderByGroupName
+	DROP TABLE #tmpParlBoost
 END
