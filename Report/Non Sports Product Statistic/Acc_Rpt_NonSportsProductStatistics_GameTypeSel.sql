@@ -27,7 +27,7 @@ AS
 		20210120@Cherry: Integrate Saba Jackpot (#148293)
 		20210506@Cherry: Integrate VGaming Jackpot (#154250)
 		20230801@Cherry: Integrate Virtual Sports 3 (#189202)
-		20231010@Cherry: Integrate Saba Promotion (#194567)
+		20231010@Cherry: Integrate Saba Promotion (#194567) 
 */
  
 BEGIN
@@ -50,6 +50,8 @@ SET NOCOUNT ON
 		AND Bettype NOT IN (SELECT Bettype
 							FROM DBWH.bodb_Account.dbo.BettypeGroup WITH (NOLOCK)
 							WHERE BettypeGroupID = 16)
+
+	INSERT INTO #tmpBettype (Bettype) VALUES (3007) -- SA Gaming Tips
 							
 	CREATE TABLE #tmpHouseProduct (ProductID INT, Bettype INT)
 	INSERT INTO #tmpHouseProduct (ProductID, Bettype)
