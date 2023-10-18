@@ -8,6 +8,7 @@ AS
 
 	Revisions:
 		20210105@Roy: NAP Report - Implement Top Punter report (#145833)
+		20230809@Jaden: Parlay boost bonus (#191900)
 		
 	Param's Explanation:
 	
@@ -57,7 +58,7 @@ BEGIN
 		WHERE sbm.ProductID = 1
 			AND sbm.SportType <> 27 --Cricket (use 50)
 			AND sbm.SubProduct NOT IN ('MG-SuperLive', 'BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss', 'Bet Builder')
-			AND sbm.BetType NOT IN (9, 29, 999) --Parlay & Odds Spread Adjustment
+			AND sbm.BetType NOT IN (9, 29, 999, 998) --Parlay & Odds Spread Adjustment & Parlay boost bonus
 		)
 	SELECT SportGroupType
 		,SportGroupName

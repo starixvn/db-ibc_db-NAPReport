@@ -23,6 +23,7 @@ AS
 		20210413@Kean: Add More DangerLevel Filter (#153264)
 		20210818@Roy: NAP Report - SB Customer Performance By Dangers Report - Support filter multiple days (#160348)
 		202109001@Jaden: Add 2 more Dangerous types (#159779)
+		20230809@Jaden: Parlay boost bonus (#191900)
 		20230914@Jaden: Add column Given Credit (#193974)
 		
 	Param's Explanation:
@@ -214,7 +215,7 @@ BEGIN
 	WHERE sbm.ProductID = 1
 		AND sbm.SportType <> 27 --Cricket (use 50)
 		AND sbm.SubProduct NOT IN ('MG-SuperLive', 'BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss', 'Bet Builder')
-		AND sbm.BetType NOT IN (9, 29, 999) --Parlay & Odds Spread Adjustment
+		AND sbm.BetType NOT IN (9, 29, 999, 998) --Parlay & Odds Spread Adjustment & Parlay boost bonus
 		AND (
 			@SportBettypes = 'ALL'
 			OR EXISTS (
