@@ -15,6 +15,7 @@ AS
 		20221206@Roy: Email/Letstalk Reports - Incorporate Saba E-Sports PinGoal (#181261)
 		20230117@Roy: Email/Letstalk Reports - Split 789Y site into smaller sites (#182388)
 		20230705@Roy: Email/Letstalk Reports - Incorporate Saba Tennis (#190458)
+		20230818@Roy: Auto Mail/Letstalk Reports - integrate Parlay Boost Bonus (#192856)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -133,7 +134,15 @@ BEGIN
 		GroupName VARCHAR(50)
 		,WinlossIBC DECIMAL(19,4)
 		,TurnoverIBC DECIMAL(19,4)
-	)	
+	)
+	
+	CREATE TABLE #tmpParlBoost (
+		transid BIGINT
+		,matchid INT
+		,apos SMALLMONEY
+		,bba DECIMAL(19, 6)
+		,lbbs DECIMAL(19, 6)
+	)
 	
 	---------Insert Dimension tables---
 	/*
@@ -219,6 +228,7 @@ BEGIN
 		END AS HalfBettype
 	FROM dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '', 0) AS pb
 		LEFT JOIN #tmpDWBettypeSource AS bs ON pb.Bettype = bs.Bettype
+	WHERE pb.Bettype NOT IN (998) --Exclude Parlay Boost, Recalculate AWinlost to get real House WL
 	
 	CREATE CLUSTERED INDEX CIX_tmpProductBettype ON #tmpProductBettype ( Bettype, RefTable, ProductID )
 	
@@ -299,7 +309,31 @@ BEGIN
 	OPTION (RECOMPILE)
 	CREATE UNIQUE CLUSTERED INDEX CIX_tmpCustomer ON #tmpCustomer ( CustID )
 	
-	INSERT INTO #tmpRawData (
+	INSERT INTO #tmpParlBoost WITH (TABLOCK) (
+		transid
+		,matchid
+		,apos
+		,bba
+		,lbbs
+	)
+	SELECT matchid
+		,transid
+		,apositiontaking AS apos
+		,TRY_CAST(TRY_CAST(ExtraInfo AS XML).value('(/p1/@bba)[1]', 'VARCHAR(50)') AS DECIMAL(19, 6)) bba
+		,TRY_CAST(TRY_CAST(ExtraInfo AS XML).value('(/p1/@lbbs)[1]', 'VARCHAR(50)') AS DECIMAL(19, 6)) lbbs
+	FROM dbo.bettrans WITH (NOLOCK)
+	WHERE winlostdate = @WLDate
+		AND bettype = 29
+		AND matchid = 29
+		AND betteam = N'1'
+		AND oddsspread = 2
+		AND statusID IN (112) --WON
+		AND currency <> 20
+		AND srecommend IN (SELECT custid FROM bodb02.dbo.Dep_CustSuper WITH (NOLOCK) WHERE site NOT IN ('Saba789', 'SEAL888'))
+	
+	CREATE UNIQUE CLUSTERED INDEX CIX_tmpParlBoost ON #tmpParlBoost (transid, matchid)
+	
+	INSERT INTO #tmpRawData WITH (TABLOCK) (
 		Site
 		,IsDeposit
 		,LeagueID
@@ -330,8 +364,8 @@ BEGIN
 		,CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9,6)) AS VarianceVR
 		--------------------------------------------------------------------------
 		,SUM((CASE WHEN bg.BettypeGroupID = 6 THEN 0 --Prize Tickets
-			  WHEN bg.BettypeGroupID = 10 THEN b.swinlost + b.mwinlost + b.awinlost --Contribution Tickets
-			  ELSE (b.winlost - b.actual_stake) + b.swinlost + b.mwinlost + b.awinlost
+			  WHEN bg.BettypeGroupID = 10 THEN b.swinlost + b.mwinlost + b.awinlost --Contribution Tickets, NoNeed Recalculate AWinlost (Parlay Boost)
+			  ELSE (b.winlost - b.actual_stake) + b.swinlost + b.mwinlost + + (b.awinlost + ISNULL((plb.bba * (plb.apos - plb.lbbs)), 0)) --Parlay Boost - Recalculate AWinlost to get real House WL
 			END)  * b.actualrate) AS WinlossIBC
 		,SUM(CASE WHEN b.tpositiontaking = 1 THEN 0
 				ELSE (b.winlost - b.actual_stake) * CAST(b.epositiontaking AS DECIMAL(10, 8)) * b.actualrate
@@ -348,6 +382,7 @@ BEGIN
 				ELSE (CASE WHEN pb.ProductID = 1 THEN ABS(stake) ELSE stake END) * CAST(b.epositiontaking AS DECIMAL(10, 8))
 			END) * b.actualrate) AS ExtraTO
 	FROM dbo.bettrans AS b WITH (NOLOCK)--, INDEX = CIX_matchid_bettype) -- faster but dirty read
+		LEFT JOIN #tmpParlBoost AS plb ON b.matchid = plb.matchid AND b.transid = plb.transid
 		LEFT JOIN #tmpCustomer AS c WITH (NOLOCK) ON b.Recommend = c.CustID
 		LEFT JOIN match AS m WITH (NOLOCK) ON b.matchid = m.matchid AND b.bettype NOT IN ( 10, 29)
 		LEFT JOIN outright AS o WITH (NOLOCK) ON b.matchid = o.orid AND b.bettype = 10
@@ -906,4 +941,5 @@ BEGIN
 	DROP TABLE #tmpResult
 	DROP TABLE #tmpSportBettypeGroup
 	DROP TABLE #tmpOrderByGroupName
+	DROP TABLE #tmpParlBoost
 END
