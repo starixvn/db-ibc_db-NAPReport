@@ -25,7 +25,8 @@ AS
 		202109001@Jaden: Add 2 more Dangerous types (#159779)
 		20230809@Jaden: Parlay boost bonus (#191900)
 		20230914@Jaden: Add column Given Credit (#193974)
-		
+		20231024@Jaden: Add bettrans14 support (#195876)
+
 	Param's Explanation:
 		@Divisions: List of site names
 		@DangerLevels: List of DangerType and DangerLevel with format: DangerType_DangerLevel (ex: 1_0,2_30,3_20)
@@ -340,11 +341,21 @@ BEGIN
 						* (CASE WHEN b.virtualrate > b.actualrate THEN b.virtualrate
 							ELSE b.actualrate END)
 			END) AS RealTurnover
-	FROM dbo.bettrans AS b WITH (NOLOCK)
+	FROM (
+		 SELECT custid, recommend, winlost, actual_stake, awinlost, mwinlost, swinlost, scomm, tpositiontaking, epositiontaking, stake
+		 	, virtualrate, actualrate, bettype, statusID, modds, matchid, currency, ruben, winlostdate, Liveindicator, mrecommend, srecommend
+		 	FROM bodb02.dbo.bettrans (NOLOCK)
+		 	WHERE winlostdate >= @StartDate AND winlostdate < @EndDate
+		 UNION ALL
+		 SELECT custid, recommend, winlost, actual_stake, awinlost, mwinlost, swinlost, scomm, tpositiontaking, epositiontaking, stake
+		 	, virtualrate, actualrate, bettype, statusID, modds, matchid, currency, ruben, winlostdate, Liveindicator, mrecommend, srecommend
+		 	FROM bodb02.dbo.bettrans14 (NOLOCK) 
+		 	WHERE winlostdate >= @fromDate AND winlostdate < @StartDate
+				AND winlostdate < @EndDate
+		) b
 		INNER JOIN #tmpMatch AS m ON (b.Matchid = m.Matchid AND (CASE WHEN b.Bettype = 10 THEN 1 ELSE 0 END) = m.MatchType)
 		LEFT JOIN dbo.TradeCust AS co WITH (NOLOCK) ON b.CustID = co.CustID
-	WHERE b.Winlostdate >= @StartDate AND b.Winlostdate < @EndDate
-		AND b.Ruben = 1
+	WHERE b.Ruben = 1
 		AND b.StatusID IN (111, 112, 113)
 		AND b.Currency NOT IN (20, 27, 28)
 		AND b.Bettype IN ( SELECT DISTINCT BetType FROM #tmpSportBettypes )
