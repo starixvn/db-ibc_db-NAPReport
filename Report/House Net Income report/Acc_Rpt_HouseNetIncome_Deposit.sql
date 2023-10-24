@@ -46,6 +46,7 @@ AS
 		- 20230614@Danny: Incorporate PG promotion (#189313)
 		- 20230614@Danny: Incorporate Saba Tennis (#190458)
 		- 20230821@Danny: Integrate Parlay Boost Bonus (#192894)
+		- 20231024@Danny: Change AGC 3rd billing term (#195608)
         
 */
 BEGIN
@@ -966,8 +967,8 @@ BEGIN
 		;WITH CTE_Sum AS
 		(
 			SELECT ParentId, Product3rdId
-				,CASE WHEN LicenseeWLDaily <= CASE WHEN ParentId = 1 THEN 15000000 ELSE 2500000 END THEN 0.08 ELSE 0.07 END AS RateDaily
-				,CASE WHEN LicenseeWLMonth <= CASE WHEN ParentId = 1 THEN 15000000 ELSE 2500000 END THEN 0.08 ELSE 0.07 END AS RateMonth
+				,CASE WHEN @FromDate >= '2023-10-01' THEN 0.07 ELSE CASE WHEN LicenseeWLDaily <= CASE WHEN ParentId = 1 THEN 15000000 ELSE 2500000 END THEN 0.08 ELSE 0.07 END END AS RateDaily
+				,CASE WHEN @FromDate >= '2023-10-01' THEN 0.07 ELSE CASE WHEN LicenseeWLMonth <= CASE WHEN ParentId = 1 THEN 15000000 ELSE 2500000 END THEN 0.08 ELSE 0.07 END END AS RateMonth
 			FROM
 			(
 				SELECT r.ParentId, r.Product3rdId

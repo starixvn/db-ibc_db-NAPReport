@@ -198,13 +198,6 @@ BEGIN
 		INSERT INTO #AllParties (PartyId, ParentId, LicenseeId, IsDeposit)
 		EXEC (@SQL)
 
-		-- Handle 'Saba789' follow credit term
-		UPDATE t
-		SET t.PartyId = 30,
-			t.ParentId = 999,
-			t.IsDeposit = 0
-		FROM #AllParties t 
-		WHERE LicenseeId = 509
 		-------------------------------------
 
 		-- Licensees have setting
@@ -222,15 +215,6 @@ BEGIN
 														AND (pd.IsDeposit = 0 OR ci.ToParty IN (1, 9, 11, 98))'')'
 		INSERT INTO #Party (PartyId, ParentId, LicenseeId, IsDeposit)
 		EXEC (@SQL)
-
-		-- Handle 'Saba789' follow credit term
-		UPDATE t
-		SET t.PartyId = 30,
-			t.ParentId = 999,
-			t.IsDeposit = 0
-		FROM #Party t 
-		WHERE LicenseeId = 509
-		-------------------------------------
 
 		SELECT @PartyIds = COALESCE(@PartyIds + ',', '') + CONVERT(VARCHAR(10), PartyId) FROM #Party
 
