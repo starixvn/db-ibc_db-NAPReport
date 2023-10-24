@@ -17,6 +17,7 @@ AS
 		- 20211125@Danny: Add BA information (#165135)
 		- 20210917@Danny: Prorated minfee for the group min fee (#160737)
 		- 20230425@Danny: SP LA_AmountToCompanyByProduct return Discount Rate ExtraInfo (#169160)
+		- 20230821@Danny: Integrate Parlay Boost Bonus (#192894)
 */
 BEGIN
 	SET NOCOUNT ON
@@ -301,7 +302,7 @@ BEGIN
 			,@FromDate				= @FDate
 			,@ToDate				= @TDate
 			,@IsConvertExRate		= 1
-			,@LicensingFeeTypeIds	= '0'
+			,@LicensingFeeTypeIds	= '0,12' -- 12: Parlay Boost Bonus
 			,@BaseCurrencyName		= 'MYR'
 
 		DELETE @LicenseeFeeAndRebateDiscount
@@ -367,13 +368,15 @@ BEGIN
 				,RebateRate			= m.RebateRate
 				,Discount			= m.Discount
 				,DiscountRate		= m.DiscountRate
-				,LicenseeMinFee_e	= CASE WHEN m.IsChargedByGroupMinFee = 1 OR m.IsChargedByMinFee = 1 THEN m.LicensingFee + m.ExtraAmount ELSE 0 END 					
-				,LicenseeFee_e		= CASE WHEN m.IsChargedByGroupMinFee = 0 AND m.IsChargedByMinFee = 0 THEN m.LicensingFee + m.ExtraAmount ELSE 0 END
+				,LicenseeMinFee_e	= CASE WHEN m.IsChargedByGroupMinFee = 1 OR m.IsChargedByMinFee = 1 THEN m.LicensingFee + m.ExtraAmount - (ISNULL(m12.LicensingFee,0) - ISNULL(m12.ExtraAmount,0)) ELSE 0 END 					
+				,LicenseeFee_e		= CASE WHEN m.IsChargedByGroupMinFee = 0 AND m.IsChargedByMinFee = 0 THEN m.LicensingFee + m.ExtraAmount - (ISNULL(m12.LicensingFee,0) - ISNULL(m12.ExtraAmount,0))ELSE 0 END
 								
-				,LicenseeMinFee_oa	= CASE WHEN m.IsChargedByGroupMinFee = 1 OR m.IsChargedByMinFee = 1 THEN m.LicensingFee + m.ExtraAmount ELSE 0 END
-				,LicenseeFee_oa		= CASE WHEN m.IsChargedByGroupMinFee = 0 AND m.IsChargedByMinFee = 0 THEN m.LicensingFee + m.ExtraAmount ELSE 0 END
+				,LicenseeMinFee_oa	= CASE WHEN m.IsChargedByGroupMinFee = 1 OR m.IsChargedByMinFee = 1 THEN m.LicensingFee + m.ExtraAmount - (ISNULL(m12.LicensingFee,0) - ISNULL(m12.ExtraAmount,0))ELSE 0 END
+				,LicenseeFee_oa		= CASE WHEN m.IsChargedByGroupMinFee = 0 AND m.IsChargedByMinFee = 0 THEN m.LicensingFee + m.ExtraAmount - (ISNULL(m12.LicensingFee,0) - ISNULL(m12.ExtraAmount,0))ELSE 0 END
 			FROM @LicenseeFeeAndRebateDiscount m 
 				LEFT JOIN CTE_tempResult t ON t.PartyId = m.PartyId
+				LEFT JOIN @LicenseeFeeAndRebateDiscount m12 ON m.PartyId = m12.PartyId AND m12.LicensingFeeTypeId = 12
+			WHERE m.LicensingFeeTypeId = 0
 		)
 		INSERT INTO @tmpResult (PartyId, LicenseeWL_e, HouseWL_e, HouseIncome_e, LicenseeWL_oa, HouseWL_oa, HouseIncome_oa, Rebate, RebateRate, Discount, DiscountRate, LicenseeMinFee_e, LicenseeFee_e, LicenseeMinFee_oa, LicenseeFee_oa)
 		SELECT r.PartyId, r.LicenseeWL_e, r.HouseWL_e, r.HouseIncome_e, r.LicenseeWL_oa, r.HouseWL_oa, r.HouseIncome_oa, r.Rebate, r.RebateRate, r.Discount, r.DiscountRate, r.LicenseeMinFee_e, r.LicenseeFee_e, r.LicenseeMinFee_oa, r.LicenseeFee_oa
