@@ -268,8 +268,17 @@ BEGIN
 			,0 MatchType
 			,LeagueID
 		FROM dbo.match WITH (NOLOCK)
-		WHERE eventdate >= @StartDate
-			AND eventdate < @EndDate
+		WHERE eventdate >= @FromDate
+			AND eventdate <= @ToDate
+		
+		UNION
+
+		SELECT MatchID
+			,0 MatchType
+			,LeagueID
+		FROM dbo.match14 WITH (NOLOCK)
+		WHERE eventdate >= @FromDate
+			AND eventdate <= @ToDate
 		
 		UNION ALL
 		
@@ -277,8 +286,17 @@ BEGIN
 			,1 MatchType
 			,LeagueID
 		FROM dbo.outright WITH (NOLOCK)
-		WHERE eventdate >= @StartDate
-			AND eventdate < @EndDate
+		WHERE eventdate >= @FromDate
+			AND eventdate <= @ToDate
+
+		UNION
+
+		SELECT orid MatchID
+			,1 MatchType
+			,LeagueID
+		FROM dbo.outright14 WITH (NOLOCK)
+		WHERE eventdate >= @FromDate
+			AND eventdate <= @ToDate
 	)
 	INSERT INTO #tmpMatch (
 		MatchID
