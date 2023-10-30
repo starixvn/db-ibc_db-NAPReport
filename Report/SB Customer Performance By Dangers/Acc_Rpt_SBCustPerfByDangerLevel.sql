@@ -432,10 +432,10 @@ BEGIN
 		,SUM(d.RealIncome) 	HouseIncome		
 		,SUM(ISNULL(assoc.NoAssoc, 0)) AS NumberOfAssociatedAccount 
 	FROM CTE_Filtered AS d
-        LEFT JOIN bodb_Account.dbo.vw_Customer AS c WITH (NOLOCK) ON (c.roleid = 1 AND d.CustID = c.custid)
-		LEFT JOIN bodb_Account.dbo.vw_Customer AS s WITH (NOLOCK) ON ( s.roleid = 4 AND d.SuperID = s.CustID )
-		LEFT JOIN bodb_Account.dbo.vw_Customer AS m WITH (NOLOCK) ON ( m.roleid = 3 AND d.MasterID = m.CustID )
-		LEFT JOIN bodb_Account.dbo.vw_Customer AS a WITH (NOLOCK) ON ( a.roleid = 2 AND d.AgentID = a.CustID )
+        LEFT JOIN bodb_Account.dbo.Customer AS c WITH (NOLOCK) ON (c.roleid = 1 AND d.CustID = c.custid)
+		LEFT JOIN bodb_Account.dbo.Customer AS s WITH (NOLOCK) ON ( s.roleid = 4 AND d.SuperID = s.CustID )
+		LEFT JOIN bodb_Account.dbo.Customer AS m WITH (NOLOCK) ON ( m.roleid = 3 AND d.MasterID = m.CustID )
+		LEFT JOIN bodb_Account.dbo.Customer AS a WITH (NOLOCK) ON ( a.roleid = 2 AND d.AgentID = a.CustID )
 		LEFT JOIN bodb_Account.dbo.tbl_Site AS [st] WITH (NOLOCK) ON d.SiteID = st.siteid
         LEFT JOIN #tmpNoAssocByCust AS assoc ON d.CustID = assoc.CustID
 	GROUP BY d.CustID
