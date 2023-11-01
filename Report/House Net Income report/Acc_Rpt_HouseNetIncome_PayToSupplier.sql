@@ -35,6 +35,7 @@ AS
 		- 20231027@Danny: Change LicenseeID detection formulary of deposit licensee [#183209]
 		- 20230111@Danny: Email/Letstalk Reports - Split 789Y site into smaller sites (#182388)
 		- 20230522@Danny: Incorporate YeeBet (#186481)
+		- 20231024@Danny: Remove redundant hardcode (#195608)
 */
 BEGIN
     SET NOCOUNT ON
