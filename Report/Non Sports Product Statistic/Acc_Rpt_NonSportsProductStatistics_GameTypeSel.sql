@@ -76,6 +76,7 @@ SET NOCOUNT ON
 	WHERE t.Bettype IS NULL
 		AND b.typenamee NOT LIKE 'Upcoming%' 
 		AND b.typenamee NOT LIKE 'Up coming%'
+		AND b.typenamee NOT LIKE 'Upcomming%' 
 		   
 	INSERT INTO #SportBettype (ProductID, TypeId, TypeName, GameType)
 	SELECT	DISTINCT s.ProductID ProductID, s.Bettype as TypeId, b.typenamee AS TypeName, s.SportType AS GameType
@@ -87,6 +88,7 @@ SET NOCOUNT ON
 		   AND (IsTest = 0 OR s.IsTest = @isTest)
 		   AND b.typenamee NOT LIKE 'Upcoming%' 
 		   AND b.typenamee NOT LIKE 'Up coming%'
+		   AND b.typenamee NOT LIKE 'Upcomming%' 
 		   	
 	--- ProductID = 3 - Number Game get LeagueId
 	INSERT INTO #SportBettype (ProductId, TypeId, TypeName, IsTest, GameType)
