@@ -18,6 +18,7 @@ AS
 		20230719@Roy: Email/Letstalk - LG Virtual Sports - Incorporate new product (#189204)
 		20230824@Roy: Letstalk Report ID 34 - Change the rule to show Exchange product (#193132)
 		20230829@Roy: Letstalk Reports - Support to show Exchange Product statistics every 2 hours for today (#181348)
+		20231116@Roy: Email/Letstalk - WE Live Casino - Integrate new product (#195889)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -181,6 +182,7 @@ BEGIN
 			,(65,'LC','PPLC') --PP Live Casino
 			,(70,'LC','FGG') --FGG
 			,(76,'LC','YeeBet')
+			,(80,'LC','WE LC')
 			----------RNG----------
 			,(42,'RNG','SABAG') --SABA.games
 			,(6,'RNG','SabaC') --Saba Casino
