@@ -46,6 +46,8 @@ AS
 		- 20230614@Danny: Incorporate PG promotion (#189313)
 		- 20230614@Danny: Incorporate Saba Tennis (#190458)
 		- 20230821@Danny: Integrate Parlay Boost Bonus (#192894)
+		- 20231024@Danny: Change AGC 3rd billing term (#195608)
+		- 20231101@Danny: Change charge rate and tier rebate for Alek group from Oct 2023 (#194561)
         
 */
 BEGIN
@@ -533,76 +535,88 @@ BEGIN
 				WHERE t.SiteId_DW  NOT IN (SELECT SiteId_DW FROM #tmpSite)
 			END
 
-			;WITH CTE_SB AS (
-				SELECT rptDate, SiteId, CurrencyId, ProductId, LeagueId
+			SELECT @FromDateByBatch = @FDateGetData
+
+			WHILE @FromDateByBatch <= @TDateGetData
+			BEGIN
+				SELECT @ToDateByBatch = DATEADD(DAY, 7, @FromDateByBatch)
+
+				IF @ToDateByBatch > @TDateGetData
+					SET @ToDateByBatch = @TDateGetData
+
+				;WITH CTE_SB AS (
+					SELECT rptDate, SiteId, CurrencyId, ProductId, LeagueId
+						,CASE
+							WHEN BetType IN (9, 29) THEN -2 -- Parlay
+							WHEN SportType IN (1, 2, 5, 43, 50) THEN SportType -- Soccer, Basketball, Tennis, E-Sports, Cricket
+							ELSE 99 -- Other Sports
+							END AS Sporttype
+						,SUM(MemberWinloss) AS MemberWinloss
+						,SUM(CASE WHEN bettype = 999 THEN AgentWinloss ELSE 0 END) AS AgentWinloss
+						,SUM(CASE WHEN ProductId = 10004 THEN AgentComm ELSE 0 END) AS AgentComm
+						,-SUM(CASE WHEN ProductID = 10004 THEN 0 ELSE MemberWinloss END)  AS LicenseeWL
+						,SUM(MemberTurnover  *  CASE WHEN TicketStatus = 3 OR ProductID = 10004 THEN 0 WHEN TicketStatus IN (12, 13) THEN 0.5 ELSE 1.0 END) AS LicenseeTO
+						,SUM(ISNULL(MemberBonus,0)) AS FullParlayBoostBonus
+						,SUM(ISNULL(AgentBonusShare,0)) AS AgentParlayBoostBonusSharing
+					FROM bodb_Account.dbo.FactLADailyWinloss WITH (NOLOCK)
+					WHERE rptDate BETWEEN @FromDateByBatch AND @ToDateByBatch
+						AND SiteId IN (SELECT SiteId_DW FROM #tmpSite)
+						AND ProductId IN (10001, 10004)
+						AND Bettype NOT IN (901, 902, 903, 904)
+						AND CurrencyId <> 20
+						AND TicketStatus NOT IN (-1, 18, 9, 10, 14)
+					GROUP BY rptDate, SiteId, CurrencyId, ProductId, LeagueId
+						,CASE
+							WHEN BetType IN (9, 29) THEN -2 -- Parlay
+							WHEN SportType IN (1, 2, 5, 43, 50) THEN SportType -- Soccer, Basketball, Tennis, E-Sports, Cricket
+							ELSE 99 -- Other Sports
+							END
+				)
+				INSERT INTO #__tempData (rptDate, SiteId_DW, CurrencyId, Product3rdId, AliasProductId, MemberWL, OddsSpreadAdj, Comm, LicenseeWL, LicenseeTO, FullParlayBoostBonus, AgentParlayBoostBonusSharing)
+				SELECT t.rptDate, t.SiteId, t.CurrencyId, CASE WHEN t.ProductId = 10001 THEN 0 ELSE 3 END AS ProductId
 					,CASE
-						WHEN BetType IN (9, 29) THEN -2 -- Parlay
-						WHEN SportType IN (1, 2, 5, 43, 50) THEN SportType -- Soccer, Basketball, Tennis, E-Sports, Cricket
-						ELSE 99 -- Other Sports
-						END AS Sporttype
-					,SUM(MemberWinloss) AS MemberWinloss
-					,SUM(CASE WHEN bettype = 999 THEN AgentWinloss ELSE 0 END) AS AgentWinloss
-					,SUM(CASE WHEN ProductId = 10004 THEN AgentComm ELSE 0 END) AS AgentComm
-					,-SUM(CASE WHEN ProductID = 10004 THEN 0 ELSE MemberWinloss END)  AS LicenseeWL
-					,SUM(MemberTurnover  *  CASE WHEN TicketStatus = 3 OR ProductID = 10004 THEN 0 WHEN TicketStatus IN (12, 13) THEN 0.5 ELSE 1.0 END) AS LicenseeTO
-					,SUM(ISNULL(MemberBonus,0)) AS FullParlayBoostBonus
-					,SUM(ISNULL(AgentBonusShare,0)) AS AgentParlayBoostBonusSharing
-				FROM bodb_Account.dbo.FactLADailyWinloss WITH (NOLOCK)
-				WHERE rptDate BETWEEN @FDateGetData AND @TDateGetData
-					AND SiteId IN (SELECT SiteId_DW FROM #tmpSite)
-					AND ProductId IN (10001, 10004)
-					AND Bettype NOT IN (901, 902, 903, 904)
-					AND CurrencyId <> 20
-					AND TicketStatus NOT IN (-1, 18, 9, 10, 14)
-				GROUP BY rptDate, SiteId, CurrencyId, ProductId, LeagueId
+						WHEN l.LeagueGroupId IN (42, 74, 108) AND t.SportType = 1 THEN -3 -- Saba Soccer
+						WHEN l.LeagueGroupId = 113 AND t.SportType = 1 THEN -14 --Saba Soc PGoal
+						WHEN l.LeagueGroupId = 122 AND t.SportType = 2 THEN -15 --Saba Bas PGoal
+						WHEN l.LeagueGroupId IN (42) AND t.SportType = 2 THEN -5 -- Saba Basketball
+						WHEN l.LeagueGroupId IN (42) AND t.SportType = 50 THEN -8 -- Saba Cricket
+						WHEN l.LeagueGroupId IN (151) AND t.SportType = 43 THEN -16 -- Saba E-S PGoal
+						WHEN l.LeagueGroupId IN (42) AND t.SportType = 5 THEN -17 -- Saba Tennis
+						WHEN t.Sporttype = 1 THEN -2 -- Soccer
+						WHEN t.Sporttype = 2 THEN -4 -- Basketball
+						WHEN t.Sporttype = 5 THEN -6 -- Tennis
+						WHEN t.Sporttype = 43 THEN -7 -- E-Sports
+						WHEN t.Sporttype = -2 THEN -10 -- Parlay
+						ELSE -9 -- OS
+						END AS AliasProductId
+					,SUM(t.MemberWinloss) AS MemberWL
+					,SUM(t.AgentWinloss) AS OddsSpreadAdj -- Odds Spread Adjustment
+					,SUM(t.AgentComm) AS Comm -- BA Commission
+					,SUM(t.LicenseeWL)
+					,SUM(t.LicenseeTO)
+					,SUM(FullParlayBoostBonus)
+					,SUM(AgentParlayBoostBonusSharing)
+				FROM CTE_SB t
+					LEFT JOIN #__SabaLeague l ON t.LeagueId = l.LeagueId
+				GROUP BY t.rptDate, t.SiteId, t.CurrencyId, CASE WHEN t.ProductId = 10001 THEN 0 ELSE 3 END
 					,CASE
-						WHEN BetType IN (9, 29) THEN -2 -- Parlay
-						WHEN SportType IN (1, 2, 5, 43, 50) THEN SportType -- Soccer, Basketball, Tennis, E-Sports, Cricket
-						ELSE 99 -- Other Sports
+						WHEN l.LeagueGroupId IN (42, 74, 108) AND t.SportType = 1 THEN -3 -- Saba Soccer
+						WHEN l.LeagueGroupId = 113 AND t.SportType = 1 THEN -14 --Saba Soc PGoal
+						WHEN l.LeagueGroupId = 122 AND t.SportType = 2 THEN -15 --Saba Bas PGoal
+						WHEN l.LeagueGroupId IN (42) AND t.SportType = 2 THEN -5 -- Saba Basketball
+						WHEN l.LeagueGroupId IN (42) AND t.SportType = 50 THEN -8 -- Saba Cricket
+						WHEN l.LeagueGroupId IN (151) AND t.SportType = 43 THEN -16 -- Saba E-S PGoal
+						WHEN l.LeagueGroupId IN (42) AND t.SportType = 5 THEN -17 -- Saba Tennis
+						WHEN t.Sporttype = 1 THEN -2 -- Soccer
+						WHEN t.Sporttype = 2 THEN -4 -- Basketball
+						WHEN t.Sporttype = 5 THEN -6 -- Tennis
+						WHEN t.Sporttype = 43 THEN -7 -- E-Sports
+						WHEN t.Sporttype = -2 THEN -10 -- Parlay
+						ELSE -9 -- OS
 						END
-			)
-			INSERT INTO #__tempData (rptDate, SiteId_DW, CurrencyId, Product3rdId, AliasProductId, MemberWL, OddsSpreadAdj, Comm, LicenseeWL, LicenseeTO, FullParlayBoostBonus, AgentParlayBoostBonusSharing)
-			SELECT t.rptDate, t.SiteId, t.CurrencyId, CASE WHEN t.ProductId = 10001 THEN 0 ELSE 3 END AS ProductId
-				,CASE
-					WHEN l.LeagueGroupId IN (42, 74, 108) AND t.SportType = 1 THEN -3 -- Saba Soccer
-					WHEN l.LeagueGroupId = 113 AND t.SportType = 1 THEN -14 --Saba Soc PGoal
-					WHEN l.LeagueGroupId = 122 AND t.SportType = 2 THEN -15 --Saba Bas PGoal
-					WHEN l.LeagueGroupId IN (42) AND t.SportType = 2 THEN -5 -- Saba Basketball
-					WHEN l.LeagueGroupId IN (42) AND t.SportType = 50 THEN -8 -- Saba Cricket
-					WHEN l.LeagueGroupId IN (151) AND t.SportType = 43 THEN -16 -- Saba E-S PGoal
-					WHEN l.LeagueGroupId IN (42) AND t.SportType = 5 THEN -17 -- Saba Tennis
-					WHEN t.Sporttype = 1 THEN -2 -- Soccer
-					WHEN t.Sporttype = 2 THEN -4 -- Basketball
-					WHEN t.Sporttype = 5 THEN -6 -- Tennis
-					WHEN t.Sporttype = 43 THEN -7 -- E-Sports
-					WHEN t.Sporttype = -2 THEN -10 -- Parlay
-					ELSE -9 -- OS
-					END AS AliasProductId
-				,SUM(t.MemberWinloss) AS MemberWL
-				,SUM(t.AgentWinloss) AS OddsSpreadAdj -- Odds Spread Adjustment
-				,SUM(t.AgentComm) AS Comm -- BA Commission
-				,SUM(t.LicenseeWL)
-				,SUM(t.LicenseeTO)
-				,SUM(FullParlayBoostBonus)
-				,SUM(AgentParlayBoostBonusSharing)
-			FROM CTE_SB t
-				LEFT JOIN #__SabaLeague l ON t.LeagueId = l.LeagueId
-			GROUP BY t.rptDate, t.SiteId, t.CurrencyId, CASE WHEN t.ProductId = 10001 THEN 0 ELSE 3 END
-				,CASE
-					WHEN l.LeagueGroupId IN (42, 74, 108) AND t.SportType = 1 THEN -3 -- Saba Soccer
-					WHEN l.LeagueGroupId = 113 AND t.SportType = 1 THEN -14 --Saba Soc PGoal
-					WHEN l.LeagueGroupId = 122 AND t.SportType = 2 THEN -15 --Saba Bas PGoal
-					WHEN l.LeagueGroupId IN (42) AND t.SportType = 2 THEN -5 -- Saba Basketball
-					WHEN l.LeagueGroupId IN (42) AND t.SportType = 50 THEN -8 -- Saba Cricket
-					WHEN l.LeagueGroupId IN (151) AND t.SportType = 43 THEN -16 -- Saba E-S PGoal
-					WHEN l.LeagueGroupId IN (42) AND t.SportType = 5 THEN -17 -- Saba Tennis
-					WHEN t.Sporttype = 1 THEN -2 -- Soccer
-					WHEN t.Sporttype = 2 THEN -4 -- Basketball
-					WHEN t.Sporttype = 5 THEN -6 -- Tennis
-					WHEN t.Sporttype = 43 THEN -7 -- E-Sports
-					WHEN t.Sporttype = -2 THEN -10 -- Parlay
-					ELSE -9 -- OS
-					END
+
+				SELECT @FromDateByBatch = DATEADD(DAY, 1, @ToDateByBatch)
+			END
 		END
 
 		-- CB, AG, GD, EX
@@ -966,8 +980,8 @@ BEGIN
 		;WITH CTE_Sum AS
 		(
 			SELECT ParentId, Product3rdId
-				,CASE WHEN LicenseeWLDaily <= CASE WHEN ParentId = 1 THEN 15000000 ELSE 2500000 END THEN 0.08 ELSE 0.07 END AS RateDaily
-				,CASE WHEN LicenseeWLMonth <= CASE WHEN ParentId = 1 THEN 15000000 ELSE 2500000 END THEN 0.08 ELSE 0.07 END AS RateMonth
+				,CASE WHEN @FromDate >= '2023-10-01' THEN 0.07 ELSE CASE WHEN LicenseeWLDaily <= CASE WHEN ParentId = 1 THEN 15000000 ELSE 2500000 END THEN 0.08 ELSE 0.07 END END AS RateDaily
+				,CASE WHEN @FromDate >= '2023-10-01' THEN 0.07 ELSE CASE WHEN LicenseeWLMonth <= CASE WHEN ParentId = 1 THEN 15000000 ELSE 2500000 END THEN 0.08 ELSE 0.07 END END AS RateMonth
 			FROM
 			(
 				SELECT r.ParentId, r.Product3rdId
@@ -986,8 +1000,23 @@ BEGIN
 		WHERE r.Product3rdId = 10
 	END
 
-		-- Licensee Min Fee
+	-- Licensee Min Fee
 	BEGIN
+		DECLARE @PartyIds_AlekGroup VARCHAR(200), @isRecalRebate BIT = 0, @RecalRebateEffectiveFrom DATETIME , @RecalRebateEffectiveTo DATETIME
+
+		SELECT @PartyIds_AlekGroup = STRING_AGG(CONVERT(VARCHAR(50), op.PartyID), ',')
+		FROM DBLIC.bodb_licensee.dbo.OAS_Party op WITH(NOLOCK)
+		INNER JOIN (
+			SELECT CAST(value AS INT ) AS PartyID FROM STRING_SPLIT(@PartyIds, ',')
+		) x ON op.PartyID = x.PartyID
+		WHERE op.PartyName IN ('BigGaming','HuangMa','BGCV','VNS888')
+
+		IF @PartyIds_AlekGroup IS NOT NULL
+			SELECT @isRecalRebate = 1
+
+		IF @isRecalRebate = 1
+			SELECT @RecalRebateEffectiveFrom = '2023-08-01', @RecalRebateEffectiveTo = '2024-08-01'
+		
 		INSERT INTO @LicenseeFeeAndRebateDiscount
 		(
 				PartyId, ProductId, LicensingFeeTypeId, GrossLicensingFee, LicensingFee, ExtraAmount, IsChargedByGroupMinFee, IsChargedByMinFee
@@ -1002,6 +1031,39 @@ BEGIN
 			,@IsConvertExRate		= 1
 			,@LicensingFeeTypeIds	= '0,12' -- 12: Parlay Boost Bonus
 			,@BaseCurrencyName		= @BaseCurrencyName
+
+		IF @isRecalRebate =1 AND @FromDate BETWEEN @RecalRebateEffectiveFrom AND @RecalRebateEffectiveTo AND EXISTS (SELECT TOP 1 1 FROM STRING_SPLIT(@SupportedProductList,',') WHERE value = 'SB')
+		BEGIN
+			DECLARE @Result_OldSetting TABLE
+			(
+				PartyId INT, ProductId INT, LicensingFeeTypeId SMALLINT, GrossLicensingFee MONEY, LicensingFee MONEY, ExtraAmount MONEY, IsChargedByGroupMinFee BIT, IsChargedByMinFee BIT
+				,Rebate MONEY, RebateRate MONEY, RebateRemark NVARCHAR(4000), Discount MONEY, DiscountRate MONEY, DiscountRemark NVARCHAR(4000)
+				,BetCount INT, Turnover MONEY, MemberWL MONEY, BACommission MONEY, IsPrevious BIT, ExtraInfo NVARCHAR(4000)
+			)
+			INSERT INTO @Result_OldSetting
+			(
+				PartyId, ProductId, LicensingFeeTypeId, GrossLicensingFee, LicensingFee, ExtraAmount, IsChargedByGroupMinFee, IsChargedByMinFee
+				,Discount, DiscountRate, DiscountRemark, Rebate, RebateRate, RebateRemark, ExtraInfo
+			)
+			EXEC DBLIC.bodb_Licensee.dbo.LA_AmountToCompanyByProduct
+				@PartyIds = @PartyIds_AlekGroup
+				,@ProductCodes = 'SB'
+				,@FromDate = @FDate
+				,@ToDate = @TDate
+				,@BaseCurrencyName = @BaseCurrencyName
+				,@IsUsePreviousSetting = 1
+
+			IF EXISTS (SELECT TOP 1 1 FROM @Result_OldSetting) 
+			BEGIN
+				UPDATE r
+				SET r.Rebate = ri.Rebate
+				FROM @LicenseeFeeAndRebateDiscount r
+				INNER JOIN @Result_OldSetting ri ON r.PartyId = ri.PartyId AND r.ProductId = ri.ProductId AND ri.LicensingFeeTypeId = 0
+				WHERE r.LicensingFeeTypeId = 0 AND r.PartyId IN (SELECT CAST(value AS INT) FROM STRING_SPLIT(@PartyIds_AlekGroup,','))
+				 
+				DELETE FROM @Result_OldSetting
+			END
+		END
 
 		;WITH ReCalHouseIncome42_32_66_36 AS
 		(
