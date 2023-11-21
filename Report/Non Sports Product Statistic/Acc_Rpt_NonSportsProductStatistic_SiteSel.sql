@@ -17,6 +17,7 @@ AS
 		- 20210324@Cherry: Consider Saba789 as Credit site (#152124)
 		- 20210428@Cherry: Add LicenseeGroup (#153736)
 		- 20220118@Cherry: Split 789y (#182387)
+		- 20231114@Roy: NAP Reports - Move SEAL8888 into Credit Group (#195730)
 */
 
 BEGIN
@@ -119,7 +120,7 @@ BEGIN
 	UNION
 	SELECT -1 LicenseeID, s.site LicenseeName, -1000 AS GroupId
 	FROM bodb02.dbo.Site s WITH(NOLOCK) 
-	WHERE s.site = 'Saba789' 
+	WHERE s.site IN ('Saba789','SEAL888')
 		OR (s.isLicensee = 0 AND s.SiteLabel IS NULL)
 	UNION
 	SELECT DISTINCT l.LicenseeId, l.LicenseeName, l.GroupId 			
