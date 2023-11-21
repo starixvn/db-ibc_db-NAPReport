@@ -14,6 +14,7 @@ AS
 		20230705@Roy: Email/Letstalk Reports - Incorporate Saba Tennis (#190458)
 		20230824@Roy: Letstalk Report ID 34 - Change the rule to show Exchange product (#193132)
 		20230829@Roy: Letstalk Reports - Support to show Exchange Product statistics every 2 hours for today (#181348)
+		20231114@Roy: NAP Reports - Move SEAL8888 into Credit Group (#195730)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -242,10 +243,9 @@ BEGIN
 	)
 	SELECT c.CustID
 		,ISNULL(p.PartyID, 0) AS PartyID
-	FROM bodb02.dbo.Dep_CustSuper c WITH (NOLOCK)
+	FROM bodb_account.dbo.vw_Dep_CustSuper c WITH (NOLOCK) --use view to exclude some special site
 		INNER JOIN #tmpLicParty p WITH (NOLOCK) ON p.LicenseeName = c.site
-	WHERE c.Site NOT IN ('Saba789')
-		AND c.currency <> 20
+	WHERE c.currency <> 20
 	CREATE CLUSTERED INDEX tmpDepSuper ON #tmpDepSuper (CustID)
 	
 	-- Get party list--

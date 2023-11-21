@@ -16,6 +16,7 @@ AS
 		20230117@Roy: Email/Letstalk Reports - Split 789Y site into smaller sites (#182388)
 		20230705@Roy: Email/Letstalk Reports - Incorporate Saba Tennis (#190458)
 		20230818@Roy: Auto Mail/Letstalk Reports - integrate Parlay Boost Bonus (#192856)
+		20231114@Roy: NAP Reports - Move SEAL8888 into Credit Group (#195730)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -329,7 +330,12 @@ BEGIN
 		AND oddsspread = 2
 		AND statusID IN (112) --WON
 		AND currency <> 20
-		AND srecommend IN (SELECT custid FROM bodb02.dbo.Dep_CustSuper WITH (NOLOCK) WHERE site NOT IN ('Saba789', 'SEAL888'))
+		AND srecommend IN (
+			SELECT custid
+			FROM bodb02.dbo.Dep_CustSuper AS dep WITH (NOLOCK)
+				INNER JOIN #tmpDWSite AS s ON dep.site = s.Site
+			WHERE s.IsDeposit = 1
+		) --follow DW tbl_Site
 	
 	CREATE UNIQUE CLUSTERED INDEX CIX_tmpParlBoost ON #tmpParlBoost (transid, matchid)
 	
@@ -601,7 +607,7 @@ BEGIN
 				WHEN d.Site IN ('76666B') THEN 'Myanmar'
 				WHEN pb.ProductID = 1 AND d.Site IN ('789y', 'y987') THEN 'Y SB'
 				WHEN pb.ProductID <> 1 AND d.Site IN ('789y', 'y987') THEN 'Y NS'
-				WHEN (d.IsDeposit = 0 OR d.Site IN ('Saba789')) THEN 'Other Credit'
+				WHEN (d.IsDeposit = 0) THEN 'Other Credit' --follow DW tbl_Site, Saba789 + SEAL888 is Credit
 				WHEN d.IsDeposit = 1 AND d.Site LIKE '%CV' AND pb.ProductID = 1 THEN 'CV SB'
 				WHEN d.IsDeposit = 1 AND d.Site LIKE '%CV' AND pb.ProductID <> 1 THEN 'CV NS'
 				WHEN d.IsDeposit = 1 AND pb.ProductID = 1 THEN 'C SB'
@@ -623,7 +629,7 @@ BEGIN
 				WHEN d.Site IN ('76666B') THEN 'Myanmar'
 				WHEN pb.ProductID = 1 AND d.Site IN ('789y', 'y987') THEN 'Y SB'
 				WHEN pb.ProductID <> 1 AND d.Site IN ('789y', 'y987') THEN 'Y NS'
-				WHEN (d.IsDeposit = 0 OR d.Site IN ('Saba789')) THEN 'Other Credit'
+				WHEN (d.IsDeposit = 0) THEN 'Other Credit' --follow DW tbl_Site, Saba789 + SEAL888 is Credit
 				WHEN d.IsDeposit = 1 AND d.Site LIKE '%CV' AND pb.ProductID = 1 THEN 'CV SB'
 				WHEN d.IsDeposit = 1 AND d.Site LIKE '%CV' AND pb.ProductID <> 1 THEN 'CV NS'
 				WHEN d.IsDeposit = 1 AND pb.ProductID = 1 THEN 'C SB'
