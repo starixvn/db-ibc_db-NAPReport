@@ -32,6 +32,7 @@ AS
         20220612@Ned.Le: Email/Letstalk Reports - Incorporate Saba E-Sports PinGoal (#181261)
         20230111@Ned.Le: Email/Letstalk Reports - Split 789Y site into smaller sites (#182388)
         20230705@Ned.Le: Email/Letstalk Reports - Incorporate Saba Tennis (#190458)
+        20231109@Ned.Le: Email/Letstalk - WE Live Casino - Integrate new product (#195889)
 
     Param's Explanation:
         @FromDate   : Begin date to get data for report
@@ -771,6 +772,7 @@ BEGIN
                                                                                                                                          WHEN b.Site IN ('IBCIndo', '76666b') THEN SUM((-b.HouseWLOANDA + b.ExtraPTOANDA) * (-0.5))
                                                                                                                                          ELSE SUM((-b.HouseWLOANDA + (CASE WHEN b.RptDate >= '2020-11-01' THEN 0 ELSE b.ExtraPTOANDA END)) * (-0.5)) END
                                                                   WHEN hni.ProductShortName IN ('GDG LC') THEN SUM((b.MemberWLOANDA + (b.NetStakeOANDA * 0.01)) * ISNULL( pts.Rate, 0))
+                                                                  WHEN hni.ProductShortName IN ('WE LC') THEN SUM((b.MemberWLOANDA + (b.NetStakeOANDA * 0.004)) * ISNULL( pts.Rate, 0))
                                                                   ELSE SUM(b.MemberWLOANDA * ISNULL( pts.Rate, 0)) END
                     WHEN hni.Figure = 'Pay to Bet Genius' THEN SUM((b.MemberWLOANDA + b.ScommOANDA) * 0.04 * (CASE WHEN b.Bettype = 38 THEN 1 ELSE 0 END))
                     WHEN hni.Figure = 'Contribution Amount' THEN SUM(b.Contribution * (CASE WHEN bg1.BettypeGroupID = 10 AND bg1.BettypeName LIKE '%Jackpot%' THEN 1 ELSE 0 END))
