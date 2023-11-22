@@ -14,6 +14,7 @@ AS
 		20230424@Roy: Game Payout Letstalk - Support to remove in-active products and un-used reports (#187325)
 		20230522@Roy: Risk and Control - YeeBet - Integrate new Live Casino product (#186474)
 		20230720@Roy: Risk and Control - LG Virtual Sports - Incorporate new product (#189202)
+		20231114@Roy: CWL - Risk and Control - WE Live Casino - Integrate new product (#195888)
 
 	Param's Explanation:
 		@FromGMT8Time: start of time range in GMT+8 with format 2021-05-20 19:00:00
@@ -80,6 +81,7 @@ BEGIN
 			,(39, 'SA Gaming', 111, 5000)
 			,(51, 'WM', 111, 5000)
 			,(76, 'YeeBet', 111, 5000)
+			,(80, 'WE Live Casino', 111, 5000)
 			
 			-------------RNG Game-------------
 			,(34, 'Arcadia Gaming', 120, 5000) --ProductID, ProductName, ThresholdPCT, MinWin
