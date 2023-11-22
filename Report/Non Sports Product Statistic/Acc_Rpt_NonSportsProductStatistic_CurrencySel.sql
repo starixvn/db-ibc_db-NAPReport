@@ -15,6 +15,7 @@ AS
 		20201020@Cherry: Get Currency dropdown by Site [Redmine: #140386]
 		20210324@Cherry: Consider Saba789 as Credit site (#152124)
 		20210428@Cherry: Add LicenseeGroup (#153736)
+		20231114@Roy: NAP Reports - Move SEAL8888 into Credit Group (#195730)
 		
 	Param: 
 		@SiteId = -1: Credit, >0: Deposit, 'All': Credit + Deposit
@@ -50,8 +51,14 @@ BEGIN
 		WHERE IsActive = 1
 			AND (@ExcludeTest = 0 OR (@ExcludeTest = 1 AND exchangeid <> 20))
 			AND (@SiteId = 'All'
-				OR (@IsCredit = 1 AND OfferSite IN (0,1)) 
-				)
+				OR (@IsCredit = 1 AND (
+										OfferSite IN (0,1) 
+										OR exchangeid IN (
+											SELECT currency
+											FROM bodb02.dbo.Dep_CustSuper WITH (NOLOCK)
+											WHERE site = 'SEAL888'
+										)) 
+				))
 	END
 	
 	INSERT INTO #tmpLicensees (LicenseeID, LicenseeName)
@@ -82,4 +89,3 @@ BEGIN
 	DROP TABLE #tmpLicensees
 	
 END 
-GO
