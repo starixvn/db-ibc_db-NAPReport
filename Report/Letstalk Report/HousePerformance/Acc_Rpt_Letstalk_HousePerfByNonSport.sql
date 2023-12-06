@@ -19,6 +19,7 @@ AS
 		20230824@Roy: Letstalk Report ID 34 - Change the rule to show Exchange product (#193132)
 		20230829@Roy: Letstalk Reports - Support to show Exchange Product statistics every 2 hours for today (#181348)
 		20231116@Roy: Email/Letstalk - WE Live Casino - Integrate new product (#195889)
+		20231206@Roy: Email/Letstalk Reports - Incorporate Live22 product (#198035)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -204,6 +205,7 @@ BEGIN
 			,(72,'RNG','SEAL') --Seal Entertainment
 			,(73,'RNG','MG') --MG-RNG
 			,(75,'RNG','Jili')
+			,(79,'RNG','Live22')
 			----------LOT/KENO----------
 			,(40,'LOT/KENO','TabG') --Table Game
 			,(8,'LOT/KENO','Mkeno') --RNG Keno
