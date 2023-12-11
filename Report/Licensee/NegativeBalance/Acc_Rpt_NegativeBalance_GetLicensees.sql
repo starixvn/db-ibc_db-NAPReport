@@ -31,7 +31,7 @@ BEGIN
     	AND sl.IsActive = 1
     	AND s.SystemName='Accounting'
 		--exclude some specials lic like SEAL8888 and SABA789
-		AND (l.LicenseeName IN (SELECT [site] FROM DBWH.bodb_Account.dbo.vw_Dep_CustSuper))
+		AND (l.LicenseeName IN (SELECT [site] FROM DBWH.bodb_Account.dbo.vw_Dep_CustSuper WITH (NOLOCK)))
     ORDER BY l.LicenseeName ASC
 END
 GO
