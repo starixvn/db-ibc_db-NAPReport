@@ -19,7 +19,8 @@ BEGIN
 	SET NOCOUNT ON
 
     SELECT   
-    	l.LicenseeID, l.LicenseeName, ISNULL(ba.EnableBA,0) as EnableBA,l.brandname  
+    	l.LicenseeID, l.LicenseeName, ISNULL(ba.EnableBA,0) as EnableBA,
+		CASE WHEN ISNULL(l.Brandname,'')='' THEN  l.LicenseeName ELSE  l.Brandname END Brandname
     FROM 
     	bodb_Licensee.dbo.Licensees l WITH (NOLOCK)  
     	INNER JOIN bodb_Licensee.dbo.SystemLicensee sl (NOLOCK) ON l.LicenseeID=sl.LicenseeID 
