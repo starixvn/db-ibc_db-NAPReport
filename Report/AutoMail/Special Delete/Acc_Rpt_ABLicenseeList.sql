@@ -26,7 +26,7 @@ AS
 		   TransId           BIGINT
 		 , SubIssueTypeId    TINYINT);  
 
-	   CREATE TABLE #tmpLicensee (LicenseeName NVARCHAR(50), IsSpecial BIT)
+	   CREATE TABLE #tmpLicensee (LicenseeName NVARCHAR(50), IsJollySports BIT)
 
 	   DECLARE @RptDate_From    DATETIME = @RptDate
 		    , @RptDate_To      DATETIME;
@@ -46,9 +46,9 @@ AS
 
 	   CREATE CLUSTERED INDEX IX_TransId ON #TmpVoidedTransaction(TransId ASC);
 
-		INSERT INTO #tmpLicensee (LicenseeName, IsSpecial)
+		INSERT INTO #tmpLicensee (LicenseeName, IsJollySports)
 		SELECT DISTINCT s.site LicenseeName,
-			CASE WHEN s.SpecialPlatfrom in (2,3) THEN 1 ELSE 0 END IsSpecial
+			CASE WHEN s.SpecialPlatfrom in (2,3) THEN 1 ELSE 0 END IsJollySports
 		FROM bodb02.dbo.bettrans AS b WITH(NOLOCK)
 			INNER JOIN #TmpVoidedTransaction AS tmp ON b.transid = tmp.TransId
 			LEFT JOIN bodb02.dbo.Customer AS c WITH(NOLOCK) ON b.srecommend = c.custid
@@ -59,9 +59,9 @@ AS
 						ELSE 0	END						 
 
 	   IF @IsTest = 1
-			SELECT LicenseeName, IsSpecial FROM #tmpLicensee WHERE LicenseeName IN ('spondemo','Athena000')
+			SELECT LicenseeName, IsJollySports FROM #tmpLicensee WHERE LicenseeName IN ('spondemo','Athena000')
 	   ELSE
-			SELECT LicenseeName, IsSpecial FROM #tmpLicensee
+			SELECT LicenseeName, IsJollySports FROM #tmpLicensee
 
 	   DROP TABLE #TmpVoidedTransaction
 	   DROP TABLE #tmpLicensee
