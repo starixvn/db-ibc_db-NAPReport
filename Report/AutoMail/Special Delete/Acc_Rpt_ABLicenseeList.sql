@@ -14,6 +14,7 @@ AS
 	Task: Get recipient list for Abnormal Bet
 	Revisions:		
 		- 20220428@Cherry: Get recipient list for Abnormal Bet (#171985)
+		- 20231222@Cherry: Get special recipient list for Jollysports (#198198)
 
 	Param's Explanation:	 
 */
@@ -25,7 +26,7 @@ AS
 		   TransId           BIGINT
 		 , SubIssueTypeId    TINYINT);  
 
-	   CREATE TABLE #tmpLicensee (LicenseeName NVARCHAR(50))
+	   CREATE TABLE #tmpLicensee (LicenseeName NVARCHAR(50), IsSpecial BIT)
 
 	   DECLARE @RptDate_From    DATETIME = @RptDate
 		    , @RptDate_To      DATETIME;
@@ -45,8 +46,9 @@ AS
 
 	   CREATE CLUSTERED INDEX IX_TransId ON #TmpVoidedTransaction(TransId ASC);
 
-		INSERT INTO #tmpLicensee (LicenseeName)
-		SELECT DISTINCT s.site LicenseeName			
+		INSERT INTO #tmpLicensee (LicenseeName, IsSpecial)
+		SELECT DISTINCT s.site LicenseeName,
+			CASE WHEN s.SpecialPlatfrom in (2,3) THEN 1 ELSE 0 END IsSpecial
 		FROM bodb02.dbo.bettrans AS b WITH(NOLOCK)
 			INNER JOIN #TmpVoidedTransaction AS tmp ON b.transid = tmp.TransId
 			LEFT JOIN bodb02.dbo.Customer AS c WITH(NOLOCK) ON b.srecommend = c.custid
@@ -57,9 +59,9 @@ AS
 						ELSE 0	END						 
 
 	   IF @IsTest = 1
-			SELECT LicenseeName FROM #tmpLicensee WHERE LicenseeName IN ('spondemo','Athena000')
+			SELECT LicenseeName, IsSpecial FROM #tmpLicensee WHERE LicenseeName IN ('spondemo','Athena000')
 	   ELSE
-			SELECT LicenseeName FROM #tmpLicensee
+			SELECT LicenseeName, IsSpecial FROM #tmpLicensee
 
 	   DROP TABLE #TmpVoidedTransaction
 	   DROP TABLE #tmpLicensee
