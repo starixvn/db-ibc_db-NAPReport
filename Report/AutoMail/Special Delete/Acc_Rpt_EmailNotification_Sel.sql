@@ -17,6 +17,7 @@ AS
 	Revisions:		
 		- 20220428@Cherry: Get recipient list for Abnormal Bet (#171985)
 		- 20220601@Cherry: Change the recipients (#173405)
+		- 20231228@Cherry: Change mail starixvn to starixsoft (#198198)
 
 	Param's Explanation:	 
 */
@@ -36,9 +37,9 @@ AS
 		('Zelianta','lmd@zelianta.com',0),
 		('Oneworks','lmd@enpine.com',0),
 		('All','automail@enpine.com',0),
-		('QC','qa@starixvn.com',1),
-		('Boping','kaka.huynh@starixvn.com',1),
-		('Zelianta','megan.dinh@starixvn.com',1),
+		('QC','qa@starixsoft.com',1),
+		('Boping','kaka.huynh@starixsoft.com',1),
+		('Zelianta','megan.dinh@starixsoft.com',1),
 		('Oneworks','megan.dinh@nexcel.com',1)
 
 	   SELECT t.RegisteredLicenseeName 
