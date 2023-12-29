@@ -131,7 +131,7 @@ BEGIN
 	/*Special non-sport product*/
 	;WITH CTE_Special AS (
 		SELECT DISTINCT pb.ProductID
-			,CONVERT(VARCHAR(20),'OTHERS') AS ProductGroup
+			,CONVERT(VARCHAR(20),'OTHER NS') AS ProductGroup
 			,CONVERT(VARCHAR(20),'BetB') AS ProductShortName --Include Bet Builder into [OTHERS] group; show 'BetB'
 		FROM #tmpProductBettype AS pb WITH (NOLOCK)
 			INNER JOIN bodb02.dbo.SportBettypeMatrix AS sb WITH (NOLOCK) ON pb.Bettype = sb.Bettype
@@ -190,13 +190,13 @@ BEGIN
 			,(43,'LOT/KENO','To4D') --Togel 4D
 			,(63,'LOT/KENO','SLot') --Sports Lottery
 			----------OTHERS----------
-			,(27,'OTHERS','VS2') --Virtual Sports 2
-			,(5,'OTHERS','VS') --Virtual Sports
-			,(15,'OTHERS','CB') --Colossus Bets
-			,(31,'OTHERS','EX') --Exchange
-			,(49,'OTHERS','VS3(Old)') --Virtual Sports 3
-			,(69,'OTHERS','BTC') --Bitcoin
-			,(77,'OTHERS','VS3') --Virtual Sports
+			,(27,'OTHER NS','VS2') --Virtual Sports 2
+			,(5,'OTHER NS','VS') --Virtual Sports
+			,(15,'OTHER NS','CB') --Colossus Bets
+			,(31,'OTHER NS','EX') --Exchange
+			,(49,'OTHER NS','VS3(Old)') --Virtual Sports 3
+			,(69,'OTHER NS','BTC') --Bitcoin
+			,(77,'OTHER NS','VS3') --Virtual Sports
 		) h (ProductID, ProductGroup, ProductShortName)
 	)
 	INSERT INTO #tmpProductSetting (
@@ -205,8 +205,8 @@ BEGIN
 		,ProductShortName
 	)
 	SELECT DISTINCT pb.ProductID
-		,ISNULL(s.ProductGroup,ISNULL(h.ProductGroup,(CASE WHEN p.CasinoType = 1 THEN 'RNG' WHEN p.CasinoType = 2 THEN 'LC' ELSE 'OTHERS' END))) AS ProductGroup
-		,ISNULL(s.ProductShortName,ISNULL(h.ProductShortName,ISNULL(p.ProductPrefix,'Others'))) AS ProductShortName
+		,ISNULL(s.ProductGroup,ISNULL(h.ProductGroup,(CASE WHEN p.CasinoType = 1 THEN 'RNG' WHEN p.CasinoType = 2 THEN 'LC' ELSE 'OTHER NS' END))) AS ProductGroup
+		,ISNULL(s.ProductShortName,ISNULL(h.ProductShortName,ISNULL(p.ProductPrefix,'Other NS'))) AS ProductShortName
 	FROM #tmpProductBettype AS pb WITH (NOLOCK)
 		LEFT JOIN CTE_Special AS s ON pb.ProductID = s.ProductID
 		LEFT JOIN CTE_Hardcode AS h ON pb.ProductID = h.ProductID
@@ -406,48 +406,124 @@ BEGIN
 			* (CASE WHEN VarianceVR > 0 THEN VarianceVR + 1 ELSE 1 END)
 			) AS TurnoverIBC
 	FROM CTE_HWL AS h
+	GROUP BY ProductID		
+
+	CREATE TABLE #tmpLeague (LeagueID INT, LeagueGroupID INT)
+	INSERT INTO #tmpLeague (LeagueID, LeagueGroupID)
+	SELECT LeagueID, LeagueGroupID
+	FROM bodb02.dbo.league WITH(NOLOCK)
+	WHERE (sporttype = 43 OR
+			(sporttype = 1 AND LeagueGroupID = 113) OR
+			(sporttype = 2 AND LeagueGroupID = 122)
+			)
+
+	CREATE TABLE #tmpMatch(MatchID INT, SportType INT, LeagueGroupID INT)
+	INSERT INTO #tmpMatch(MatchID, SportType, LeagueGroupID)
+	SELECT m.MatchID, m.SportType, l.LeagueGroupID
+	FROM bodb02.dbo.match m WITH(NOLOCK) 
+		INNER JOIN #tmpLeague l WITH(NOLOCK) ON m.leagueid = l.LeagueID
+	WHERE m.sporttype IN (1,2,43)
+		AND m.eventdate = @WLDate
+
+	CREATE TABLE #tmpBettype (Bettype INT)
+	INSERT INTO #tmpBettype(Bettype)
+	SELECT DISTINCT Bettype
+	FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)
+	WHERE isTest IN (0,@isTest)
+		AND sporttype IN (1,2,43)
+
+	;WITH CTE_HWL AS (
+		SELECT CASE WHEN m.SportType = 43 and m.LeagueGroupID <> 151 THEN -1
+					WHEN m.SportType = 43 and m.LeagueGroupID = 151 THEN -2
+					WHEN m.SportType = 1 and m.LeagueGroupID = 113 THEN -3
+					WHEN m.SportType = 2 and m.LeagueGroupID = 122 THEN -4
+				END ProductID
+			,CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9,6)) AS VarianceVR
+			--------------------------------------------------------------------------
+			,SUM((CASE WHEN bg.BettypeGroupID = 6 THEN 0 --Prize Tickets
+				  WHEN bg.BettypeGroupID = 10 THEN b.swinlost + b.mwinlost + b.awinlost --Contribution Tickets
+				  ELSE (b.winlost - b.actual_stake) + b.swinlost + b.mwinlost + b.awinlost
+				END)  * b.actualrate) AS WinlossIBC
+			,SUM(CASE WHEN b.tpositiontaking = 1 THEN 0
+					ELSE (b.winlost - b.actual_stake) * CAST(b.epositiontaking AS DECIMAL(10, 8)) * b.actualrate
+				END) AS ExtraWL 
+			,SUM(b.scomm * b.actualrate) AS CommissionS
+			,CAST(SUM((CASE WHEN b.tpositiontaking = 1 THEN 0
+					ELSE b.scomm * CAST(b.epositiontaking AS DECIMAL(10, 8)) / (1 - b.tpositiontaking)
+				END) * b.actualrate) AS DECIMAL(19, 8))AS ExtraComm
+			--------------------------------------------------------------------------
+			,SUM( (ABS(b.stake))
+				* (1-b.tpositiontaking)
+				* b.actualrate ) AS TurnoverIBC
+		,SUM((CASE WHEN b.tpositiontaking = 1 THEN 0 
+				ELSE ABS(stake) * CAST(b.epositiontaking AS DECIMAL(10, 8))
+			END) * b.actualrate) AS ExtraTO
+		FROM bodb02.dbo.bettrans AS b WITH (NOLOCK)
+			INNER JOIN #tmpMatch m ON b.matchid = m.MatchID
+			LEFT JOIN #tmpBettypeGroup AS bg WITH (NOLOCK) ON b.Bettype = bg.Bettype
+		WHERE b.winlostdate = @WLDate
+			AND b.statusID IN (112, 113) --Won, Lose
+			AND b.currency <> 20
+			AND b.bettype IN (SELECT Bettype FROM #tmpBettype)
+		GROUP BY CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9, 6)),
+				CASE WHEN m.SportType = 43 and m.LeagueGroupID <> 151 THEN -1
+					WHEN m.SportType = 43 and m.LeagueGroupID = 151 THEN -2
+					WHEN m.SportType = 1 and m.LeagueGroupID = 113 THEN -3
+					WHEN m.SportType = 2 and m.LeagueGroupID = 122 THEN -4
+				END
+	)
+	INSERT INTO #tmpMarginNonSport(ProductID, WinlossIBC, TurnoverIBC)
+	SELECT ProductID
+		,SUM(-(WinlossIBC - ExtraWL + CommissionS - ExtraComm)) AS WinlossIBC
+		,SUM((CASE WHEN TurnoverIBC = 0 THEN 0 ELSE TurnoverIBC - ExtraTO END)
+			* (CASE WHEN VarianceVR > 0 THEN VarianceVR + 1 ELSE 1 END)
+			) AS TurnoverIBC
+	FROM CTE_HWL AS h
 	GROUP BY ProductID
-	
-	CREATE CLUSTERED INDEX CIX_tmpMarginNonSport ON #tmpMarginNonSport ( ProductID )
+
+	CREATE CLUSTERED INDEX CIX_tmpMarginNonSport ON #tmpMarginNonSport (ProductID)
 
 	/*
 		Group by [ProductGroup], Order and Return result
 		=================Order=====================
 		GroupID GroupName
 		-----------------
-		1		GRAND TOTAL
-		2		T LC
-		3		T RNG 
-		4		T LOT/KENO
-		5		T OTHERS
+		1		TOTAL w/o OTHER VIR.S
+		2		TOTAL w OTHER VIR.S
+		3		T LC
+		4		T RNG 
+		5		T LOT/KENO
+		6		T OTHER NS
+		7		T OTHER VIR.S
 		
-		6		NS TO & M 			--removed
-		
-		7		LC 					--title
-		8		LC Products
+		8		LC 					--title
+		9		LC Products
 		..		...
 		
-		9		RNG					--title
-		10		RNG Products
+		10		RNG					--title
+		11		RNG Products
 		..		...
 		
-		11		LOT/KENO			--title
-		12		LOT/KENO Products
+		12		LOT/KENO			--title
+		13		LOT/KENO Products
 		..		...
 		
-		13		OTHERS				--title
-		14		the rest Products
+		14		OTHER NS			--title
+		15		OTHER NS Products
 		..		...
+		16		OTHER VIR.S			--title
+		17		OTHER VIR.S Products
+
 		
 	*/
 	;WITH CTE_SubTotal AS (
-		SELECT (CASE WHEN h.ProductGroup = 'LC' THEN 2
-				WHEN h.ProductGroup = 'RNG' THEN 3
-				WHEN h.ProductGroup = 'LOT/KENO' THEN 4
-				ELSE 5
+		SELECT (CASE WHEN h.ProductGroup = 'LC' THEN 3
+				WHEN h.ProductGroup = 'RNG' THEN 4
+				WHEN h.ProductGroup = 'LOT/KENO' THEN 5
+				ELSE 6
 				END
 			) AS GroupID
-			,'T ' + ISNULL(h.ProductGroup,'OTHERS') AS GroupName
+			,'T ' + ISNULL(h.ProductGroup,'OTHER NS') AS GroupName
 			,SUM(TurnoverIBC) AS TurnoverIBC
 			,SUM(WinlossIBC) AS WinlossIBC
 			,CONVERT(DECIMAL(10,6),(CASE WHEN SUM(ISNULL(TurnoverIBC,0)) = 0 THEN 0
@@ -455,79 +531,124 @@ BEGIN
 			END)) AS Margin
 		FROM #tmpMarginNonSport AS m WITH (NOLOCK)
 			LEFT JOIN #tmpProductSetting AS h WITH (NOLOCK) ON m.ProductID = h.ProductID
-		GROUP BY CASE WHEN h.ProductGroup = 'LC' THEN 2
-				WHEN h.ProductGroup = 'RNG' THEN 3
-				WHEN h.ProductGroup = 'LOT/KENO' THEN 4
-				ELSE 5
+		GROUP BY CASE WHEN h.ProductGroup = 'LC' THEN 3
+				WHEN h.ProductGroup = 'RNG' THEN 4
+				WHEN h.ProductGroup = 'LOT/KENO' THEN 5
+				ELSE 6
 				END
-			,ISNULL(h.ProductGroup,'OTHERS')
+			,ISNULL(h.ProductGroup,'OTHER NS')
 	)
-	,CTE_Total AS (
+	,CTE_Total1 AS (
 		SELECT 1 AS GroupID
-			,'GRAND TOTAL' AS GroupName
+			,'GRAND TOTAL w/o OTHER VIR.S' AS GroupName
 			,SUM(TurnoverIBC) AS TurnoverIBC
 			,CONVERT(DECIMAL(10,6),(CASE WHEN SUM(ISNULL(TurnoverIBC,0)) = 0 THEN 0
 				ELSE SUM(ISNULL(WinlossIBC,0)) / SUM(ISNULL(TurnoverIBC,0))
 			END)) AS Margin
-		FROM CTE_SubTotal
+		FROM #tmpMarginNonSport
+		WHERE ProductID > 0
+	)
+	,CTE_Total2 AS (
+		SELECT 2 AS GroupID
+			,'GRAND TOTAL w OTHER VIR.S' AS GroupName
+			,SUM(TurnoverIBC) AS TurnoverIBC
+			,CONVERT(DECIMAL(10,6),(CASE WHEN SUM(ISNULL(TurnoverIBC,0)) = 0 THEN 0
+				ELSE SUM(ISNULL(WinlossIBC,0)) / SUM(ISNULL(TurnoverIBC,0))
+			END)) AS Margin
+		FROM #tmpMarginNonSport
 	)
 	,CTE_Product AS (
-		SELECT (CASE WHEN h.ProductGroup = 'LC' THEN 8
-				WHEN h.ProductGroup = 'RNG' THEN 10
-				WHEN h.ProductGroup = 'LOT/KENO' THEN 12
-				ELSE 14
+		SELECT (CASE WHEN h.ProductGroup = 'LC' THEN 9
+				WHEN h.ProductGroup = 'RNG' THEN 11
+				WHEN h.ProductGroup = 'LOT/KENO' THEN 13
+				ELSE 15
 				END
 			) AS GroupID
-			,ISNULL(h.ProductShortName,'Others') AS GroupName
+			,ISNULL(h.ProductShortName, 'Other NS') GroupName
 			,SUM(TurnoverIBC) AS TurnoverIBC
 			,CONVERT(DECIMAL(10,6),(CASE WHEN SUM(ISNULL(TurnoverIBC,0)) = 0 THEN 0
 				ELSE SUM(ISNULL(WinlossIBC,0)) / SUM(ISNULL(TurnoverIBC,0))
 			END)) AS Margin
 		FROM #tmpMarginNonSport AS m WITH (NOLOCK)
 			LEFT JOIN #tmpProductSetting AS h WITH (NOLOCK) ON m.ProductID = h.ProductID
-		GROUP BY CASE WHEN h.ProductGroup = 'LC' THEN 8
-				WHEN h.ProductGroup = 'RNG' THEN 10
-				WHEN h.ProductGroup = 'LOT/KENO' THEN 12
-				ELSE 14
+		WHERE m.ProductID > 0
+		GROUP BY CASE WHEN h.ProductGroup = 'LC' THEN 9
+				WHEN h.ProductGroup = 'RNG' THEN 11
+				WHEN h.ProductGroup = 'LOT/KENO' THEN 13
+				ELSE 15
 				END
-			,ISNULL(h.ProductShortName,'Others')
+				,ISNULL(h.ProductShortName, 'Other NS')
+	)
+	,CTE_VS AS (
+		SELECT 17 AS GroupID
+			,CASE WHEN m.ProductID = -1 THEN 'R. E-S'
+				WHEN m.ProductID = -2 THEN 'E-S PGoal'
+				WHEN m.ProductID = -3 THEN 'Soc PGoal'
+				WHEN m.ProductID = -4 THEN 'Bas PGoal'
+			END AS GroupName
+			,SUM(TurnoverIBC) AS TurnoverIBC
+			,CONVERT(DECIMAL(10,6),(CASE WHEN SUM(ISNULL(TurnoverIBC,0)) = 0 THEN 0
+				ELSE SUM(ISNULL(WinlossIBC,0)) / SUM(ISNULL(TurnoverIBC,0))
+			END)) AS Margin
+		FROM #tmpMarginNonSport AS m WITH (NOLOCK)
+		WHERE m.ProductID < 0
+		GROUP BY CASE WHEN m.ProductID = -1 THEN 'R. E-S'
+					WHEN m.ProductID = -2 THEN 'E-S PGoal'
+					WHEN m.ProductID = -3 THEN 'Soc PGoal'
+					WHEN m.ProductID = -4 THEN 'Bas PGoal'
+				END
 	)
 	----return title----
 	
 	-- UNION ALL
 	
-	SELECT 7 AS GroupID
+	SELECT 8 AS GroupID
 		,'LC' AS GroupName
 		,NULL AS TurnoverIBC
 		,NULL AS Margin
 	
 	UNION ALL
 	
-	SELECT 9 AS GroupID
+	SELECT 10 AS GroupID
 		,'RNG' AS GroupName
 		,NULL AS TurnoverIBC
 		,NULL AS Margin
 		
 	UNION ALL
 	
-	SELECT 11 AS GroupID
+	SELECT 12 AS GroupID
 		,'LOT/KENO' AS GroupName
 		,NULL AS TurnoverIBC
 		,NULL AS Margin
 		
 	UNION ALL
 	
-	SELECT 13 AS GroupID
-		,'OTHERS' AS GroupName
+	SELECT 14 AS GroupID
+		,'OTHER NS' AS GroupName
 		,NULL AS TurnoverIBC
 		,NULL AS Margin
+
+	UNION ALL
+	
+	SELECT 16 AS GroupID
+		,'OTHER VIR.S' AS GroupName
+		,NULL AS TurnoverIBC
+		,NULL AS Margin
+
 	----return total----
 	UNION ALL
 	SELECT GroupID
 		,GroupName
 		,TurnoverIBC
 		,Margin
-	FROM CTE_Total
+	FROM CTE_Total1
+
+	UNION ALL
+	SELECT GroupID
+		,GroupName
+		,TurnoverIBC
+		,Margin
+	FROM CTE_Total2
 	
 	UNION ALL
 	
@@ -544,6 +665,14 @@ BEGIN
 		,TurnoverIBC
 		,Margin
 	FROM CTE_Product
+
+	UNION ALL
+	
+	SELECT GroupID
+		,GroupName
+		,TurnoverIBC
+		,Margin
+	FROM CTE_VS
 	ORDER BY GroupID
 		,TurnoverIBC DESC
 	
@@ -555,4 +684,7 @@ BEGIN
 	DROP TABLE #tmpMarginNonSport
 	DROP TABLE #tmpBettypeGroup
 	DROP TABLE #tmpEXBettrans
+	DROP TABLE #tmpBettype
+	DROP TABLE #tmpLeague
+	DROP TABLE #tmpMatch
 END
