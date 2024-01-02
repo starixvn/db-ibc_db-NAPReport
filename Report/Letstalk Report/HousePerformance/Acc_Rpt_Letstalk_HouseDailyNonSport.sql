@@ -516,7 +516,7 @@ BEGIN
 
 		
 	*/
-	;WITH CTE_SubTotal AS (
+	;WITH CTE_SubTotal1 AS (
 		SELECT (CASE WHEN h.ProductGroup = 'LC' THEN 3
 				WHEN h.ProductGroup = 'RNG' THEN 4
 				WHEN h.ProductGroup = 'LOT/KENO' THEN 5
@@ -531,12 +531,24 @@ BEGIN
 			END)) AS Margin
 		FROM #tmpMarginNonSport AS m WITH (NOLOCK)
 			LEFT JOIN #tmpProductSetting AS h WITH (NOLOCK) ON m.ProductID = h.ProductID
+		WHERE m.ProductID > 0
 		GROUP BY CASE WHEN h.ProductGroup = 'LC' THEN 3
 				WHEN h.ProductGroup = 'RNG' THEN 4
 				WHEN h.ProductGroup = 'LOT/KENO' THEN 5
 				ELSE 6
 				END
 			,ISNULL(h.ProductGroup,'OTHER NS')
+	)
+	,CTE_SubTotal2 AS (
+		SELECT 7 AS GroupID
+			,'T OTHER VIR.S' AS GroupName
+			,SUM(TurnoverIBC) AS TurnoverIBC
+			,SUM(WinlossIBC) AS WinlossIBC
+			,CONVERT(DECIMAL(10,6),(CASE WHEN SUM(ISNULL(TurnoverIBC,0)) = 0 THEN 0
+				ELSE SUM(ISNULL(WinlossIBC,0)) / SUM(ISNULL(TurnoverIBC,0))
+			END)) AS Margin
+		FROM #tmpMarginNonSport AS m WITH (NOLOCK)
+		WHERE m.ProductID < 0
 	)
 	,CTE_Total1 AS (
 		SELECT 1 AS GroupID
@@ -656,7 +668,16 @@ BEGIN
 		,GroupName
 		,TurnoverIBC
 		,Margin
-	FROM CTE_SubTotal
+	FROM CTE_SubTotal1
+
+	UNION ALL
+	
+	SELECT GroupID
+		,GroupName
+		,TurnoverIBC
+		,Margin
+	FROM CTE_SubTotal2
+
 	----return products----
 	UNION ALL
 	
