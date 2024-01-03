@@ -256,6 +256,31 @@ BEGIN
 		,@MaxTransID_LC = MAX(TransID)
 	FROM bodb02.dbo.BettransLC WITH (NOLOCK)
 	WHERE winlostdate = @WLDate
+
+	/*
+		Get Exchange Data
+			- Exchange in bettrans (Betting & Adjustment) only for Yesterday => exclude
+			- Manual calculation Exchange by Acc_Rpt_SeparatedWalletProductWL
+	*/
+	INSERT INTO #tmpEXBettrans (
+		WLDate
+		,BetType
+		,ActualRate
+		,VirtualRate
+		,EPos
+		,TPos
+		,Stake
+		,Actual_Stake
+		,Winlost
+		,AWinlost
+		,MWinlost
+		,SWinlost
+		,SComm
+	)
+	EXEC DBLIC.bodb_3rdProduct.dbo.Acc_Rpt_SeparatedWalletProductWL
+		@WinlostDate = @WLDate
+		,@ProductID = 31
+		,@DataMode = 'Letstalk34'
 	
 	;WITH CTE_EX AS (
 		SELECT pb.ProductID
@@ -324,6 +349,7 @@ BEGIN
 			AND pb.RefTable = 3
 			AND b.bettype <= @MaxBettype
 			AND b.MatchID >= 0
+			AND pb.ProductID <> 31 --handle Exchange above
 		GROUP BY pb.ProductID
 			,CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9, 6))
 			
