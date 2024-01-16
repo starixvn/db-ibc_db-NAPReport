@@ -68,6 +68,7 @@ AS
 		20220926@Cherry: Change param @Device from Betfrom to Betfromid (#164955)
 		20230609@Cherry: Not include dummy accounts in BetCount, NoOfPlayers (#188994)
 		20230801@Cherry: Integrate Virtual Sports 3 (#189202)
+		20240116@Cherry: Integrate Virtual Sports 4 (#198623)
 
 	Param's Explanation:
 		- @username: search keyword
@@ -283,7 +284,7 @@ BEGIN
 	FROM
 		dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '', @isTest) s
 		INNER JOIN #tmp_ProductID p ON s.ProductID = p.ProductID
-	WHERE (p.ProductID IN (3, 5, 27, 77) -- Number Game, Virtual Sports, Virtual Sports 2, Virtual Sports 3
+	WHERE (p.ProductID IN (3, 5, 27, 77, 83) -- Number Game, Virtual Sports, Virtual Sports 2, Virtual Sports 3
 		OR p.ProductID IN (SELECT ProductID FROM #tmpHouseProduct)) --Saba.club, VGaming
 	
 	INSERT INTO #SportBettype (ProductID, Bettype, EvenType, RefTable)
@@ -699,7 +700,7 @@ BEGIN
 			COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS RowNum			
 		FROM  dbo.bettrans b WITH (NOLOCK)
 		WHERE b.winlostdate = @WLDate				
-			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE RefTable IN (0, 3) AND ProductID NOT IN (3, 4, 5, 27, 33, 77))
+			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE RefTable IN (0, 3) AND ProductID NOT IN (3, 4, 5, 27, 33, 77, 83))
 			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) 
 			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
@@ -1269,7 +1270,7 @@ BEGIN
 		OPTION(RECOMPILE)
 	END
 
-	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID IN (5, 27, 77))
+	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID IN (5, 27, 77, 83))
 	BEGIN
 		INSERT INTO #tmp_bettrans
 		(
@@ -1329,7 +1330,7 @@ BEGIN
 			COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS RowNum			
 		FROM  dbo.bettrans b WITH (NOLOCK)
 		WHERE b.winlostdate = @WLDate				
-			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID IN (5, 27, 77) AND EvenType = 1)
+			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID IN (5, 27, 77, 83) AND EvenType = 1)
 			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) 
 			AND b.matchid IN (SELECT matchid FROM dbo.match WITH (NOLOCK)

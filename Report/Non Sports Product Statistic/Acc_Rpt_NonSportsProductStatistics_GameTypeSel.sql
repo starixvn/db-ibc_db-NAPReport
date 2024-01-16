@@ -28,6 +28,7 @@ AS
 		20210506@Cherry: Integrate VGaming Jackpot (#154250)
 		20230801@Cherry: Integrate Virtual Sports 3 (#189202)
 		20231010@Cherry: Integrate Saba Promotion (#194567) 
+		20240116@Cherry: Integrate Virtual Sports 4 (#198623)
 */
  
 BEGIN
@@ -63,7 +64,7 @@ SET NOCOUNT ON
 	INSERT INTO #tmpProductBettype (ProductID, Bettype)
 	SELECT DISTINCT ProductID, Bettype
 	FROM DBWH.bodb_Account.dbo.NonSportSetting WITH (NOLOCK)
-	WHERE ProductID NOT IN (5, 27, 23, 31, 77) --Virtual Sports, Virtual Sports 2, NG2, Exchange, Virtual Sports 3 
+	WHERE ProductID NOT IN (5, 27, 23, 31, 77, 83) --Virtual Sports, Virtual Sports 2, NG2, Exchange, Virtual Sports 3 
 		AND ProductID NOT IN (SELECT ProductID FROM #tmpHouseProduct) -- Saba.club, VGaming	
 	
     -- Get Bettype
@@ -108,7 +109,7 @@ SET NOCOUNT ON
 	SELECT DISTINCT sb.ProductID, sb.SportType, s.SportName, 1 AS GameType
 	FROM dbo.SportBettypeMatrix sb WITH (NOLOCK)
 		INNER JOIN dbo.Sports s WITH (NOLOCK) ON sb.SportType = s.SportType 
-	WHERE (sb.ProductID IN (5, 27, 23, 77) OR sb.ProductID IN (SELECT ProductID FROM #tmpHouseProduct))
+	WHERE (sb.ProductID IN (5, 27, 23, 77, 83) OR sb.ProductID IN (SELECT ProductID FROM #tmpHouseProduct))
 		AND (sb.IsTest = 0 OR sb.IsTest = @isTest)	
 			
 	SELECT	* 

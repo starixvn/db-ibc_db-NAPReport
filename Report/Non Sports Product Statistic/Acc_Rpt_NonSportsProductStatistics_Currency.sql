@@ -61,6 +61,7 @@ AS
 		20230605@Cherry: Hot fix Betfrom data type (#189291)
 		20230609@Cherry: Not include dummy accounts in BetCount, NoOfPlayers (#188994)
 		20230801@Cherry: Integrate Virtual Sports 3 (#189202)
+		20240116@Cherry: Integrate Virtual Sports 4 (#198623)
 
 	Param's Explanation:
 		- @Username:  + Search by keyword, member only
@@ -340,7 +341,7 @@ BEGIN
 
 	DELETE s
 	FROM #SportBettype s
-	WHERE s.ProductID NOT IN (3, 5, 27, 23, 77) -- NumberGame, Virtual Sports, Virtual Sports 2, NG2, Virtual Sports 3
+	WHERE s.ProductID NOT IN (3, 5, 27, 23, 77, 83) -- NumberGame, Virtual Sports, Virtual Sports 2, NG2, Virtual Sports 3
 		AND s.ProductID NOT IN (SELECT ProductID FROM #tmpHouseProduct) --Saba.club, VGaming
 		AND NOT EXISTS (SELECT b.Bettype FROM #tmp_BetType b WHERE b.Bettype = s.Bettype)
 		
@@ -494,7 +495,7 @@ BEGIN
 		FROM  dbo.Bettrans b WITH (NOLOCK) 
 			LEFT JOIN #tmpDummyCust d ON b.custid = d.custid
 		WHERE b.WinlostDate = @WLDate
-			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE RefTable IN (0, 3) AND ProductID NOT IN (3, 4, 5, 27, 33, 77))
+			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE RefTable IN (0, 3) AND ProductID NOT IN (3, 4, 5, 27, 33, 77, 83))
 			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
 			AND (@ExcludeTest = 0 OR (b.Currency <> 20 AND @ExcludeTest = 1))
@@ -1080,7 +1081,7 @@ BEGIN
 		OPTION(RECOMPILE)
 	END
 
-	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID IN (5, 27, 77))
+	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID IN (5, 27, 77, 83))
 	BEGIN
 		INSERT INTO #Data
 				( recommend ,
@@ -1138,7 +1139,7 @@ BEGIN
 
 		FROM dbo.Bettrans b WITH (NOLOCK) 
 		WHERE b.WinlostDate = @WLDate
-			AND b.bettype in (SELECT Bettype FROM #SportBettype WHERE ProductID IN (5, 27, 77) AND EvenType = 1)
+			AND b.bettype in (SELECT Bettype FROM #SportBettype WHERE ProductID IN (5, 27, 77, 83) AND EvenType = 1)
 			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
 			AND b.matchid IN (SELECT matchid FROM dbo.match WITH (NOLOCK)
