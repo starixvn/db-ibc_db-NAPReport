@@ -1108,7 +1108,7 @@ SET NOCOUNT ON
 	END
 		
 	CREATE TABLE #tmp_bettransm (refno BIGINT)
-	IF EXISTS (SELECT 1 FROM #tmpProductID WHERE ProductID = 27)  -- Virtual Sports 2
+	IF EXISTS (SELECT 1 FROM #tmpProductID WHERE ProductID IN (27,83))  -- Virtual Sports 2
 	BEGIN			
 		INSERT INTO #tmp_bettransm (refno)
 		SELECT DISTINCT bm.refno FROM dbo.bettransm bm WITH(NOLOCK)
@@ -1160,7 +1160,7 @@ SET NOCOUNT ON
 				
 		FROM  dbo.Bettrans b WITH (NOLOCK)
 		WHERE b.WinlostDate = @WLDate
-			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 27 AND EventType = 0)
+			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID IN (27,83) AND EventType = 0)
 			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) 
 			AND b.refno IN (SELECT refno FROM #tmp_bettransm)

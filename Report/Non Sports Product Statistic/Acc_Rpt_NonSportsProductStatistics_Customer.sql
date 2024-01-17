@@ -1432,7 +1432,7 @@ BEGIN
 	
 	-- Virtual Sports 2
 	CREATE TABLE #tmp_bettransm (refno BIGINT)
-	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID = 27)  
+	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID IN (27,83))  
 	BEGIN
 		INSERT INTO #tmp_bettransm (refno)
 		SELECT DISTINCT bm.refno FROM dbo.bettransm bm WITH(NOLOCK)
@@ -1497,7 +1497,7 @@ BEGIN
 			COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS RowNum			
 		FROM  dbo.bettrans b WITH (NOLOCK)
 		WHERE b.winlostdate = @WLDate				
-			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 27 AND EvenType = 0)
+			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID IN (27,83) AND EvenType = 0)
 			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) 
 			AND b.refno IN (SELECT refno FROM #tmp_bettransm)		

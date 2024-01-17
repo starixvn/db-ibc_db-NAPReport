@@ -1247,7 +1247,7 @@ BEGIN
 	END
 	
 	CREATE TABLE #tmp_bettransm (refno BIGINT)
-	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID = 27) -- Virtual Sports 2 
+	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID IN (27,83)) -- Virtual Sports 2 
 	BEGIN						
 		--Mix parlay Virtual Sport 2
 		INSERT INTO #tmp_bettransm (refno)
@@ -1311,7 +1311,7 @@ BEGIN
 				
 		FROM  dbo.Bettrans b WITH (NOLOCK)
 		WHERE b.WinlostDate = @WLDate
-			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 27 AND Eventype = 0)
+			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID IN (27,83) AND Eventype = 0)
 			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
 			AND b.refno IN (SELECT refno FROM #tmp_bettransm)

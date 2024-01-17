@@ -1159,7 +1159,7 @@ SET NOCOUNT ON
 				
 		FROM  dbo.Bettrans b WITH (NOLOCK)			
 		WHERE b.WinlostDate = @WLDate
-			AND b.bettype in (SELECT Bettype FROM #SportBettype WHERE ProductID = 27 AND EventType = 0)
+			AND b.bettype in (SELECT Bettype FROM #SportBettype WHERE ProductID IN (27,83) AND EventType = 0)
 			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
 			AND EXISTS(SELECT 1 FROM #tmp_bettransm bm WHERE bm.refno = b.refno)
