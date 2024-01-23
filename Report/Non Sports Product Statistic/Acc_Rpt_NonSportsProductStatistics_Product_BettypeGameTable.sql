@@ -187,6 +187,17 @@ BEGIN
 	CREATE TABLE #tmpSportBetType (Sporttype INT, Bettype INT)
 	CREATE TABLE #tmpHouseProduct (ProductID INT)
 	CREATE TABLE #tmpDummyCust (CustID INT)
+	CREATE TABLE #tmpVirtualSport (ProductID INT)
+
+	DECLARE @VirtualSportGroupStr VARCHAR(500)
+    SELECT  @VirtualSportGroupStr = VValue
+	FROM DBWH.bodb_account.dbo.SystemSettings (NOLOCK)
+	WHERE VID = 31		
+
+    INSERT INTO #tmpVirtualSport (ProductID)
+    SELECT val ProductID
+    FROM bodb02.dbo.strSplit(@VirtualSportGroupStr, ',')
+	WHERE val <> 49
 
 	INSERT INTO #tmpDummyCust (CustID)
 	SELECT c.custid
@@ -1599,5 +1610,6 @@ BEGIN
 	DROP TABLE #tmpBettypeRNG
 	DROP TABLE #tmp_GameTableID
 	DROP TABLE #tmpDummyCust
+	DROP TABLE #tmpVirtualSport
 	
 END

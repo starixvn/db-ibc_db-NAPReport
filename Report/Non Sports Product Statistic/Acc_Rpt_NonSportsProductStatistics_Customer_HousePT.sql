@@ -76,6 +76,17 @@ BEGIN
 	CREATE TABLE #tmpContributionBettype (Bettype INT)
 	CREATE TABLE #tmpSportBetType (Sporttype INT, Bettype INT)
 	CREATE TABLE #tmpHouseProduct (ProductID INT)
+	CREATE TABLE #tmpVirtualSport (ProductID INT)
+
+	DECLARE @VirtualSportGroupStr VARCHAR(500)
+    SELECT  @VirtualSportGroupStr = VValue
+	FROM DBWH.bodb_account.dbo.SystemSettings (NOLOCK)
+	WHERE VID = 31		
+
+    INSERT INTO #tmpVirtualSport (ProductID)
+    SELECT val ProductID
+    FROM bodb02.dbo.strSplit(@VirtualSportGroupStr, ',')
+	WHERE val <> 49
 
 	-- Get Info from Pars list
 	IF @ProductId <> ''
@@ -834,6 +845,7 @@ BEGIN
 	DROP TABLE #tmp_ProductID
 	DROP TABLE #tmp_BetType
 	DROP TABLE #tmp_GameTableID
+	DROP TABLE #tmpVirtualSport
 	DROP TABLE #tmpBetfrom
 	
 END
