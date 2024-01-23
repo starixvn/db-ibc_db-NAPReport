@@ -67,6 +67,12 @@ BEGIN
 		,WinlossIBC DECIMAL(19,4)
 		,TurnoverIBC DECIMAL(19,4)
 	)
+
+	CREATE TABLE #tmpMarginVirtualSport (
+		ProductID INT
+		,WinlossIBC DECIMAL(19,4)
+		,TurnoverIBC DECIMAL(19,4)
+	)
 	
 	CREATE TABLE #tmpBettypeGroup (
 		Bettype INT
@@ -498,7 +504,7 @@ BEGIN
 					WHEN m.SportType = 2 and m.LeagueGroupID = 122 THEN -4
 				END
 	)
-	INSERT INTO #tmpMarginNonSport(ProductID, WinlossIBC, TurnoverIBC)
+	INSERT INTO #tmpMarginVirtualSport(ProductID, WinlossIBC, TurnoverIBC)
 	SELECT ProductID
 		,SUM(-(WinlossIBC - ExtraWL + CommissionS - ExtraComm)) AS WinlossIBC
 		,SUM((CASE WHEN TurnoverIBC = 0 THEN 0 ELSE TurnoverIBC - ExtraTO END)
@@ -508,6 +514,7 @@ BEGIN
 	GROUP BY ProductID
 
 	CREATE CLUSTERED INDEX CIX_tmpMarginNonSport ON #tmpMarginNonSport (ProductID)
+	CREATE CLUSTERED INDEX CIX_tmpMarginVirtualSport ON #tmpMarginVirtualSport (ProductID)
 
 	/*
 		Group by [ProductGroup], Order and Return result
@@ -557,7 +564,6 @@ BEGIN
 			END)) AS Margin
 		FROM #tmpMarginNonSport AS m WITH (NOLOCK)
 			LEFT JOIN #tmpProductSetting AS h WITH (NOLOCK) ON m.ProductID = h.ProductID
-		WHERE m.ProductID > 0
 		GROUP BY CASE WHEN h.ProductGroup = 'LC' THEN 3
 				WHEN h.ProductGroup = 'RNG' THEN 4
 				WHEN h.ProductGroup = 'LOT/KENO' THEN 5
@@ -573,8 +579,7 @@ BEGIN
 			,CONVERT(DECIMAL(10,6),(CASE WHEN SUM(ISNULL(TurnoverIBC,0)) = 0 THEN 0
 				ELSE SUM(ISNULL(WinlossIBC,0)) / SUM(ISNULL(TurnoverIBC,0))
 			END)) AS Margin
-		FROM #tmpMarginNonSport AS m WITH (NOLOCK)
-		WHERE m.ProductID < 0
+		FROM #tmpMarginVirtualSport AS m WITH (NOLOCK)
 	)
 	,CTE_Total1 AS (
 		SELECT 1 AS GroupID
@@ -584,7 +589,6 @@ BEGIN
 				ELSE SUM(ISNULL(WinlossIBC,0)) / SUM(ISNULL(TurnoverIBC,0))
 			END)) AS Margin
 		FROM #tmpMarginNonSport
-		WHERE ProductID > 0
 	)
 	,CTE_Total2 AS (
 		SELECT 2 AS GroupID
@@ -593,7 +597,16 @@ BEGIN
 			,CONVERT(DECIMAL(10,6),(CASE WHEN SUM(ISNULL(TurnoverIBC,0)) = 0 THEN 0
 				ELSE SUM(ISNULL(WinlossIBC,0)) / SUM(ISNULL(TurnoverIBC,0))
 			END)) AS Margin
-		FROM #tmpMarginNonSport
+		FROM (SELECT 'NonSport' GroupName,
+				SUM(ISNULL(WinlossIBC,0)) WinlossIBC,
+				SUM(ISNULL(TurnoverIBC,0)) TurnoverIBC
+			FROM #tmpMarginNonSport
+			UNION
+			SELECT 'VirtualSport' GroupName,
+				SUM(ISNULL(WinlossIBC,0)) WinlossIBC,
+				SUM(ISNULL(TurnoverIBC,0)) TurnoverIBC
+			FROM #tmpMarginVirtualSport
+			) a
 	)
 	,CTE_Product AS (
 		SELECT (CASE WHEN h.ProductGroup = 'LC' THEN 9
@@ -609,7 +622,6 @@ BEGIN
 			END)) AS Margin
 		FROM #tmpMarginNonSport AS m WITH (NOLOCK)
 			LEFT JOIN #tmpProductSetting AS h WITH (NOLOCK) ON m.ProductID = h.ProductID
-		WHERE m.ProductID > 0
 		GROUP BY CASE WHEN h.ProductGroup = 'LC' THEN 9
 				WHEN h.ProductGroup = 'RNG' THEN 11
 				WHEN h.ProductGroup = 'LOT/KENO' THEN 13
@@ -628,8 +640,7 @@ BEGIN
 			,CONVERT(DECIMAL(10,6),(CASE WHEN SUM(ISNULL(TurnoverIBC,0)) = 0 THEN 0
 				ELSE SUM(ISNULL(WinlossIBC,0)) / SUM(ISNULL(TurnoverIBC,0))
 			END)) AS Margin
-		FROM #tmpMarginNonSport AS m WITH (NOLOCK)
-		WHERE m.ProductID < 0
+		FROM #tmpMarginVirtualSport AS m WITH (NOLOCK)
 		GROUP BY CASE WHEN m.ProductID = -1 THEN 'R. E-S'
 					WHEN m.ProductID = -2 THEN 'E-S PGoal'
 					WHEN m.ProductID = -3 THEN 'Soc PGoal'
