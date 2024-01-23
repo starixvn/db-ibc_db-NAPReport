@@ -339,7 +339,8 @@ BEGIN
 
 	DELETE s
 	FROM #SportBettype s
-	WHERE s.ProductID NOT IN (3, 5, 27, 23, 77, 83) -- NumberGame, Virtual Sports, Virtual Sports 2, NG2
+	WHERE s.ProductID NOT IN (3, 23) 
+		AND s.ProductID NOT IN (SELECT ProductID FROM #tmpVirtualSport)
 		AND s.ProductID NOT IN (SELECT ProductID FROM #tmpHouseProduct) --Saba.club, VGaming
 		AND NOT EXISTS (SELECT b.Bettype FROM #tmp_BetType b WHERE b.Bettype = s.Bettype)
 		
@@ -513,7 +514,8 @@ BEGIN
 		FROM  dbo.bettrans b WITH (NOLOCK)
 			LEFT JOIN #tmpDummyCust d ON b.custid = d.custid
 		WHERE b.winlostdate = @WLDate
-			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE RefTable IN (0, 3) AND ProductID NOT IN (3, 4, 5, 27, 33, 77, 83))
+			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE RefTable IN (0, 3) AND ProductID NOT IN (3, 4, 33)
+									AND ProductID NOT IN (SELECT ProductID FROM #tmpVirtualSport))
 			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) 
 			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
@@ -1089,7 +1091,7 @@ BEGIN
 		OPTION(RECOMPILE)
 	END
 	
-	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID IN (5, 27, 77, 83))
+	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID IN (SELECT ProductID FROM #tmpVirtualSport))
 	BEGIN
 		INSERT INTO #tmp_bettrans
 				( CustID ,
@@ -1146,7 +1148,7 @@ BEGIN
 
 		FROM  dbo.bettrans b WITH (NOLOCK)
 		WHERE b.winlostdate = @WLDate
-			AND b.bettype in (SELECT Bettype FROM #SportBettype WHERE ProductID IN (5, 27, 77, 83) AND EvenType = 1)
+			AND b.bettype in (SELECT Bettype FROM #SportBettype WHERE ProductID IN (SELECT ProductID FROM #tmpVirtualSport) AND EvenType = 1)
 			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) 
 			AND b.matchid IN (SELECT matchid FROM dbo.match WITH (NOLOCK)

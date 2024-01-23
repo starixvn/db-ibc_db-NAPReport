@@ -352,7 +352,8 @@ SET NOCOUNT ON
 
 	DELETE	s
 	FROM	#SportBettype s
-	WHERE	s.ProductID NOT IN (3, 5, 27, 23, 77, 83)   ---- NumberGame , Virtual Sports, Virtual Sports 2, NG2, Virtual Sports 3
+	WHERE	s.ProductID NOT IN (3, 23)   
+			AND s.ProductID NOT IN (SELECT ProductID FROM #tmpVirtualSport)
 			AND s.ProductID NOT IN (SELECT ProductID FROM #tmpHouseProduct) --Saba.club, VGaming
 			AND NOT EXISTS (SELECT Bettype FROM #tmpBetType b WHERE b.Bettype = s.Bettype)
 			
@@ -477,7 +478,8 @@ SET NOCOUNT ON
 		FROM  dbo.Bettrans b WITH (NOLOCK)
 			LEFT JOIN #tmpDummyCust d ON b.custid = d.custid
 		WHERE b.WinlostDate = @WLDate
-			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE RefTable IN (0, 3) AND ProductID NOT IN (3, 4, 5, 27, 33, 77, 83))
+			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE RefTable IN (0, 3) AND ProductID NOT IN (3, 4, 33)
+											AND ProductID NOT IN (SELECT ProductID FROM #tmpVirtualSport))
 			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) 
 			AND (@ExcludeTest = 0 OR (b.Currency <> 20 AND @ExcludeTest = 1))
@@ -977,7 +979,7 @@ SET NOCOUNT ON
 		OPTION(RECOMPILE)
 	END
 
-	IF EXISTS (SELECT 1 FROM #tmpProductID WHERE ProductID IN (5, 27, 77, 83))  -- Virtual Sports
+	IF EXISTS (SELECT 1 FROM #tmpProductID WHERE ProductID IN (SELECT ProductID FROM #tmpVirtualSport))  -- Virtual Sports
 	BEGIN
 		INSERT INTO #Data ( srecommend, bettype, CustID,   
 						BetCount, CurrencyId , 
@@ -1024,7 +1026,7 @@ SET NOCOUNT ON
 			
 		FROM  dbo.Bettrans b WITH (NOLOCK)
 		WHERE b.WinlostDate = @WLDate
-			AND b.bettype in (SELECT Bettype FROM #SportBettype WHERE ProductID IN (5, 27, 77, 83) AND EventType = 1)
+			AND b.bettype in (SELECT Bettype FROM #SportBettype WHERE ProductID IN (SELECT ProductID FROM #tmpVirtualSport) AND EventType = 1)
 			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) 
 			AND b.matchid IN (SELECT matchid FROM dbo.match WITH (NOLOCK)
