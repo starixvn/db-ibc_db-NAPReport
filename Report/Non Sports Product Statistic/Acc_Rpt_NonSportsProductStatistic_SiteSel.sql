@@ -18,6 +18,7 @@ AS
 		- 20210428@Cherry: Add LicenseeGroup (#153736)
 		- 20220118@Cherry: Split 789y (#182387)
 		- 20231114@Roy: NAP Reports - Move SEAL8888 into Credit Group (#195730)
+		- 20240130@Cherry: Merge VS1, VS2, VS3 data into Virtual Sports (#199920)
 */
 
 BEGIN
@@ -130,9 +131,20 @@ BEGIN
 		INNER JOIN bodb_Licensee.dbo.LicenseeProduct3rd lp WITH (NOLOCK) ON lp.productid = p.productid
 		INNER JOIN #tmpLicensee l ON l.licenseeid = lp.licenseeid
 		INNER JOIN bodb_Licensee.dbo.SystemLicensee s WITH (NOLOCK) ON s.licenseeid = l.licenseeid
-		INNER JOIN #tmpProductID m ON b.ProductID=m.ProductID
+		INNER JOIN #tmpProductID m ON b.ProductID = m.ProductID
 	WHERE s.systemId = 3 
-
+	UNION
+	SELECT DISTINCT l.LicenseeId, l.LicenseeName, l.GroupId 			
+	FROM
+		dbo.Products b WITH (NOLOCK) 
+		INNER JOIN bodb_Licensee.dbo.Product3rd p WITH (NOLOCK) ON p.ProductPrefix = b.ProductPrefix
+		INNER JOIN bodb_Licensee.dbo.LicenseeProduct3rd lp WITH (NOLOCK) ON lp.productid = p.productid
+		INNER JOIN #tmpLicensee l ON l.licenseeid = lp.licenseeid
+		INNER JOIN bodb_Licensee.dbo.SystemLicensee s WITH (NOLOCK) ON s.licenseeid = l.licenseeid
+	WHERE s.systemId = 3 AND b.ProductID = 5
+		AND NOT EXISTS(SELECT TOP 1 1 FROM #tmpProductID WHERE ProductID = 5) --VS
+		AND EXISTS(SELECT TOP 1 1 FROM #tmpProductID WHERE ProductID IN (27,77,83)) --VS2,VS3,VS4
+		
 	DROP TABLE #tmpProductID
 	DROP TABLE #tmpCreditGroup
 	DROP TABLE #tmpLicensee
