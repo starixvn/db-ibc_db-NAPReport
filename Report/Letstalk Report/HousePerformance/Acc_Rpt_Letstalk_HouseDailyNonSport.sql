@@ -203,6 +203,7 @@ BEGIN
 			,(49,'OTHER NS','VS3(Old)') --Virtual Sports 3
 			,(69,'OTHER NS','BTC') --Bitcoin
 			,(77,'OTHER NS','VS3') --Virtual Sports
+			,(83,'OTHER NS','VS4')
 		) h (ProductID, ProductGroup, ProductShortName)
 	)
 	INSERT INTO #tmpProductSetting (
