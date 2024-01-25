@@ -18,6 +18,7 @@ AS
 		- 20210428@Cherry: Add LicenseeGroup (#153736)
 		- 20220118@Cherry: Split 789y (#182387)
 		- 20231114@Roy: NAP Reports - Move SEAL8888 into Credit Group (#195730)
+		- 20240130@Cherry: Merge VS1, VS2, VS3 data into Virtual Sports (#199920)
 */
 
 BEGIN
@@ -32,6 +33,7 @@ BEGIN
 	CREATE TABLE #LA_CombinedGroup (GroupId INT, GroupName VARCHAR(50), PathCode VARCHAR(50))
 	CREATE TABLE #LA_CombinedGroupAssignment (GroupId INT, PartyId INT, GroupType INT)
 	CREATE TABLE #tmpCreditGroup (GroupId INT, GroupName VARCHAR(50), ParentId INT)
+	CREATE TABLE #tmpVirtualSport (ProductID INT)	
 	
 	INSERT INTO #tmpSite (LicenseeID, LicenseeName)
 	SELECT LicenseeID, LicenseeName
@@ -45,6 +47,17 @@ BEGIN
 			val
 		FROM [dbo].strSplit(@ProductID, ',')
 	END 		
+
+	DECLARE @VirtualSportGroupStr VARCHAR(500)
+    SELECT  @VirtualSportGroupStr = VValue
+	FROM DBWH.bodb_account.dbo.SystemSettings (NOLOCK)
+	WHERE VID = 31		
+
+    INSERT INTO #tmpVirtualSport (ProductID)
+    SELECT val ProductID
+    FROM bodb02.dbo.strSplit(@VirtualSportGroupStr, ',')
+	WHERE val NOT IN (5,49)
+		AND val IN (SELECT ProductID FROM #tmpProductID)
 	
 	INSERT INTO #LA_CombinedGroup (GroupId, GroupName, PathCode)
 	SELECT GroupId, GroupName, PathCode
@@ -130,15 +143,28 @@ BEGIN
 		INNER JOIN bodb_Licensee.dbo.LicenseeProduct3rd lp WITH (NOLOCK) ON lp.productid = p.productid
 		INNER JOIN #tmpLicensee l ON l.licenseeid = lp.licenseeid
 		INNER JOIN bodb_Licensee.dbo.SystemLicensee s WITH (NOLOCK) ON s.licenseeid = l.licenseeid
-		INNER JOIN #tmpProductID m ON b.ProductID=m.ProductID
+		INNER JOIN #tmpProductID m ON b.ProductID = m.ProductID
 	WHERE s.systemId = 3 
-
+	UNION
+	SELECT DISTINCT l.LicenseeId, l.LicenseeName, l.GroupId 			
+	FROM
+		dbo.Products b WITH (NOLOCK) 
+		INNER JOIN bodb_Licensee.dbo.Product3rd p WITH (NOLOCK) ON p.ProductPrefix = b.ProductPrefix
+		INNER JOIN bodb_Licensee.dbo.LicenseeProduct3rd lp WITH (NOLOCK) ON lp.productid = p.productid
+		INNER JOIN #tmpLicensee l ON l.licenseeid = lp.licenseeid
+		INNER JOIN bodb_Licensee.dbo.SystemLicensee s WITH (NOLOCK) ON s.licenseeid = l.licenseeid
+	WHERE s.systemId = 3 AND b.ProductID = 5
+		AND NOT EXISTS(SELECT TOP 1 1 FROM #tmpProductID WHERE ProductID = 5) --VS
+		AND EXISTS(SELECT TOP 1 1 FROM #tmpVirtualSport) --VS2,VS3,VS4
+		
 	DROP TABLE #tmpProductID
 	DROP TABLE #tmpCreditGroup
 	DROP TABLE #tmpLicensee
 	DROP TABLE #tmpSite
 	DROP TABLE #LA_CombinedGroup
 	DROP TABLE #LA_CombinedGroupAssignment
+	DROP TABLE #tmpGroup
+	DROP TABLE #tmpVirtualSport
 	
 END 
 GO
