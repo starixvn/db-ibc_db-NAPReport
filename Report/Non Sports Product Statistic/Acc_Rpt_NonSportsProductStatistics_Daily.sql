@@ -196,7 +196,7 @@ SET NOCOUNT ON
 
 	DECLARE @VirtualSportGroupStr VARCHAR(500)
     SELECT  @VirtualSportGroupStr = VValue
-	FROM DBWH.bodb_account.dbo.SystemSettings (NOLOCK)
+	FROM DBWH.bodb_account.dbo.SystemSettings WITH(NOLOCK)
 	WHERE VID = 31		
 
     INSERT INTO #tmpVirtualSport (ProductID)
