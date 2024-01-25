@@ -2,7 +2,7 @@
 USE [bodb02]
 GO
  
-ALTER PROCEDURE [dbo].[Acc_Rpt_NonSportsProductStatistic_SiteSel]
+ALTER PROCEDURE [dbo].[Acc_Rpt_NonSportsProductStatistic_SiteSel_xtest]
 	@ProductID VARCHAR(MAX) = ''
 AS
 /*
@@ -50,7 +50,7 @@ BEGIN
 
 	DECLARE @VirtualSportGroupStr VARCHAR(500)
     SELECT  @VirtualSportGroupStr = VValue
-	FROM DBWH.bodb_account.dbo.SystemSettings (NOLOCK)
+	FROM DBWH.bodb_account.dbo.SystemSettings WITH(NOLOCK)
 	WHERE VID = 31		
 
     INSERT INTO #tmpVirtualSport (ProductID)
