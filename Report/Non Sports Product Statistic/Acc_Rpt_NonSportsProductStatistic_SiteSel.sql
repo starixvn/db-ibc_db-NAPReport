@@ -2,7 +2,7 @@
 USE [bodb02]
 GO
  
-ALTER PROCEDURE [dbo].[Acc_Rpt_NonSportsProductStatistic_SiteSel_xtest]
+ALTER PROCEDURE [dbo].[Acc_Rpt_NonSportsProductStatistic_SiteSel]
 	@ProductID VARCHAR(MAX) = ''
 AS
 /*
