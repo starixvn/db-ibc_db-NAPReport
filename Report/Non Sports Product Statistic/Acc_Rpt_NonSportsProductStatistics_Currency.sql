@@ -352,7 +352,8 @@ BEGIN
 
 	DELETE s
 	FROM #SportBettype s
-	WHERE s.ProductID NOT IN (3, 5, 27, 23, 77, 83) -- NumberGame, Virtual Sports, Virtual Sports 2, NG2, Virtual Sports 3
+	WHERE s.ProductID NOT IN (3, 23)
+		AND s.ProductID NOT IN (SELECT ProductID FROM #tmpVirtualSport)
 		AND s.ProductID NOT IN (SELECT ProductID FROM #tmpHouseProduct) --Saba.club, VGaming
 		AND NOT EXISTS (SELECT b.Bettype FROM #tmp_BetType b WHERE b.Bettype = s.Bettype)
 		
@@ -506,7 +507,8 @@ BEGIN
 		FROM  dbo.Bettrans b WITH (NOLOCK) 
 			LEFT JOIN #tmpDummyCust d ON b.custid = d.custid
 		WHERE b.WinlostDate = @WLDate
-			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE RefTable IN (0, 3) AND ProductID NOT IN (3, 4, 5, 27, 33, 77, 83))
+			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE RefTable IN (0, 3) AND ProductID NOT IN (3, 4, 33)
+										AND ProductID NOT IN (SELECT ProductID FROM #tmpVirtualSport))
 			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
 			AND (@ExcludeTest = 0 OR (b.Currency <> 20 AND @ExcludeTest = 1))
@@ -1092,7 +1094,7 @@ BEGIN
 		OPTION(RECOMPILE)
 	END
 
-	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID IN (5, 27, 77, 83))
+	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID IN (SELECT ProductID FROM #tmpVirtualSport))
 	BEGIN
 		INSERT INTO #Data
 				( recommend ,
@@ -1150,7 +1152,7 @@ BEGIN
 
 		FROM dbo.Bettrans b WITH (NOLOCK) 
 		WHERE b.WinlostDate = @WLDate
-			AND b.bettype in (SELECT Bettype FROM #SportBettype WHERE ProductID IN (5, 27, 77, 83) AND EvenType = 1)
+			AND b.bettype in (SELECT Bettype FROM #SportBettype WHERE ProductID IN (SELECT ProductID FROM #tmpVirtualSport) AND EvenType = 1)
 			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
 			AND b.matchid IN (SELECT matchid FROM dbo.match WITH (NOLOCK)
@@ -1257,10 +1259,17 @@ BEGIN
 		OPTION(RECOMPILE)
 	END
 	
+	CREATE TABLE #tmpVSBettype (Bettype INT)
+	INSERT INTO #tmpVSBettype (Bettype)
+	SELECT Bettype
+	FROM DBWH.bodb_Account.dbo.BettypeGroup WITH(NOLOCK)
+	WHERE BettypeGroupID = 18
+		AND Bettype IN (SELECT Bettype FROM #SportBettype)
+
 	CREATE TABLE #tmp_bettransm (refno BIGINT)
-	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID IN (27,83)) -- Virtual Sports 2 
+	IF EXISTS (SELECT 1 FROM #tmpVSBettype) -- Virtual Sports Parlay
 	BEGIN						
-		--Mix parlay Virtual Sport 2
+		--Mix parlay Virtual Sport 
 		INSERT INTO #tmp_bettransm (refno)
 		SELECT DISTINCT bm.refno FROM dbo.bettransm bm WITH(NOLOCK)
 					INNER JOIN dbo.match m WITH(NOLOCK) ON bm.matchid = m.matchid 
@@ -1322,7 +1331,7 @@ BEGIN
 				
 		FROM  dbo.Bettrans b WITH (NOLOCK)
 		WHERE b.WinlostDate = @WLDate
-			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID IN (27,83) AND Eventype = 0)
+			AND b.bettype IN (SELECT Bettype FROM #tmpVSBettype)
 			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
 			AND b.refno IN (SELECT refno FROM #tmp_bettransm)
@@ -1643,6 +1652,7 @@ BEGIN
 	DROP TABLE #tmpBettypeRNG
 	DROP TABLE #tmpDummyCust
 	DROP TABLE #tmpVirtualSport
+	DROP TABLE #tmpVSBettype
 	
 END
 

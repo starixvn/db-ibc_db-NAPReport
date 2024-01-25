@@ -1123,7 +1123,14 @@ SET NOCOUNT ON
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.bettype
 		OPTION(RECOMPILE)
 				
-		--VirtualSports 2
+		--VirtualSports Parlay
+		CREATE TABLE #tmpVSBettype (Bettype INT)
+		INSERT INTO #tmpVSBettype (Bettype)
+		SELECT Bettype
+		FROM DBWH.bodb_Account.dbo.BettypeGroup WITH(NOLOCK)
+		WHERE BettypeGroupID = 18
+		AND Bettype IN (SELECT Bettype FROM #SportBettype)
+
 		CREATE TABLE #tmp_bettransm (refno BIGINT)
 		
 		INSERT INTO #tmp_bettransm (refno)
@@ -1172,7 +1179,7 @@ SET NOCOUNT ON
 				
 		FROM  dbo.Bettrans b WITH (NOLOCK)			
 		WHERE b.WinlostDate = @WLDate
-			AND b.bettype in (SELECT Bettype FROM #SportBettype WHERE ProductID IN (27,83) AND EventType = 0)
+			AND b.bettype in (SELECT Bettype FROM #tmpVSBettype)
 			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
 			AND EXISTS(SELECT 1 FROM #tmp_bettransm bm WHERE bm.refno = b.refno)
@@ -1296,6 +1303,7 @@ SET NOCOUNT ON
 	DROP TABLE #tmpDummyCust
 	DROP TABLE #NonSportSetting
 	DROP TABLE #tmpVirtualSport
+	DROP TABLE #tmpVSBettype
 
 END 
 

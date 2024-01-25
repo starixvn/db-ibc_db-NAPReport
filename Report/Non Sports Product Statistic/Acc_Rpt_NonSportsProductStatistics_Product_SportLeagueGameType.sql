@@ -1311,9 +1311,16 @@ BEGIN
 		OPTION(RECOMPILE)
 	END
 
-	-- Virtual Sports 2 
+	-- Virtual Sports Parlay
+	CREATE TABLE #tmpVSBettype (Bettype INT)
+	INSERT INTO #tmpVSBettype (Bettype)
+	SELECT Bettype
+	FROM DBWH.bodb_Account.dbo.BettypeGroup WITH(NOLOCK)
+	WHERE BettypeGroupID = 18
+		AND Bettype IN (SELECT Bettype FROM #SportBettype)
+
 	CREATE TABLE #tmp_bettransm (refno BIGINT, sporttype INT)
-	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID IN (27,83))
+	IF EXISTS (SELECT 1 FROM #tmpVSBettype)
 	BEGIN		
 		INSERT INTO #tmp_bettransm (refno, sporttype)
 		SELECT DISTINCT bm.refno, m.sporttype FROM dbo.bettransm bm WITH(NOLOCK)
@@ -1376,7 +1383,7 @@ BEGIN
 		FROM dbo.Bettrans b WITH (NOLOCK) 
 			INNER JOIN #tmp_bettransm bm ON b.refno = bm.refno 
 		WHERE b.WinlostDate = @WLDate
-			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID IN (27,83) AND EvenType = 0)
+			AND b.bettype IN (SELECT Bettype FROM #tmpVSBettype)
 			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) 
 			AND (@ExcludeTest = 0 OR (b.Currency <> 20 AND @ExcludeTest = 1))
@@ -1706,6 +1713,7 @@ BEGIN
 	DROP TABLE #tmpBettypeRNG
 	DROP TABLE #tmpDummyCust
 	DROP TABLE #tmpVirtualSport
+	DROP TABLE #tmpVSBettype
 	
 END
 
