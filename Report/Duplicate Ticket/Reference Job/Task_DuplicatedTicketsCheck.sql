@@ -42,6 +42,7 @@ AS
          - 20220726@Roy: NAP Report - Scale out & new transid (#175707)
          - 20220829@Roy: NAP Report - Enhancement for duplicated ticket (#177204)
 		 - 20230719@Roy: NAP Report - Integrate product Leap Gaming VS (VS3) (#189510)
+		 - 20240126@Jaden.Tang: Merge VS1, VS2, VS3 and VS4 (#199896)
 */
 
 BEGIN
@@ -121,12 +122,16 @@ BEGIN
 	-- Check SP Version	 
 	DECLARE @isTest BIT = 0
 	SELECT  @isTest = dbo.f_CheckSPVersion(@@PROCID)
+
+	DECLARE @VSProductIDs VARCHAR(200) 
+	SELECT @VSProductIDs = VValue FROM DBWH.bodb_Account.dbo.SystemSettings WITH (NOLOCK) WHERE VID = 31
  
 	DECLARE @bettype TABLE (bettype INT)
 	INSERT INTO @bettype (bettype)
 	SELECT bettype
 	FROM bodb02.dbo.f_SportBettypeMatrix_Sel (0, 0, 0, 2, '', '', @isTest)
-	WHERE ProductID IN (1, 3, 5, 25, 26, 27, 77) --5(VS), 27(VS2), 77 (VS3 - new)
+	WHERE (ProductID IN (1, 3, 26)
+    		OR ProductID IN (SELECT val FROM bodb02.dbo.strSplit(@VSProductIDs, ',')))
 		AND BetType NOT IN (500, 912, 913, 914)
 	GROUP BY BetType
 	--- End Sport Bettype Matrix------
