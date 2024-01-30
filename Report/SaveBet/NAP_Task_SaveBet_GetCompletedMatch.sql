@@ -20,6 +20,7 @@ AS
 		- 20221125@Roy: Defer Gen File After Match Complete (#180910)
 		- 20230719@Roy: NAP Report - Integrate product Leap Gaming VS (VS3) (#189510)
 		- 20230907@Roy: Exclude test match (#193705)
+	    - 20240126@Jaden.Tang: Merge VS1, VS2, VS3 and VS4 (#199896)
 */
 
 BEGIN
@@ -56,6 +57,9 @@ BEGIN
 			BREAK
 	END
 
+	DECLARE @VSProductIDs VARCHAR(200) 
+	SELECT @VSProductIDs = VValue FROM DBWH.bodb_Account.dbo.SystemSettings WITH (NOLOCK) WHERE VID = 31
+
 	INSERT INTO #tmpMatchList (
 		MatchID
 		,EventDate
@@ -89,7 +93,7 @@ BEGIN
 		AND ( sporttype < 99
 			OR sporttype IN (SELECT DISTINCT sbm.SportType
 				 FROM bodb02.dbo.SportBettypeMatrix sbm (NOLOCK)
-				 WHERE sbm.ProductID IN (5,27,77)--5(VS), 27(VS2), 77 (VS3 - new)
+				 WHERE sbm.ProductID IN (SELECT val FROM bodb_Account.dbo.strSplit(@VSProductIDs, ','))
 					   AND sbm.EventType = 1)
 		)
 		AND IsDeleted = 0
