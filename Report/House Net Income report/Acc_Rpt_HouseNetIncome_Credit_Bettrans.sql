@@ -19,6 +19,7 @@ AS
         20220310@Ned.Le: Email/Letstalk Reports - Include 8RM/BARM into Bet Count, member turnover, member win loss, Margin except House Income (#169768)
         20230817@Ned.Le: Remove currency test
         20240123@Ned.Le: Email/Letstalk - Virtual Sports 4 - Edge Gaming (#198628)
+        20240206@Ned.Le: AG Casino - Email/Letstalk Reports - Add promotion & Jackpot bet type (#200523)
 
     Param's Explanation:
         @winlostdate: The date to get data
@@ -282,7 +283,7 @@ BEGIN
         ,b.recommend
         ,b.refno
         ,b.virtualrate
-        ,NULL ContributionStake3rd
+        ,ISNULL(b.betid, 0)/100000000 ContributionStake3rd
         ,b.epositiontaking
         ,ISNULL(b.oddsspread,0) NetStake
     FROM bodb02.dbo.bettrans b (NOLOCK)

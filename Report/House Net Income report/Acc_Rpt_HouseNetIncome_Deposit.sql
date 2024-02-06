@@ -93,7 +93,7 @@ BEGIN
 			@ExchaneFomularCutoff DATE	= '2023-05-01',
 			@SB_SLT_BTC_MergePerfCutoff DATE= '2021-11-30',
 			@AGCPaytoSuplierCutoff DATE  = '2023-10-01',
-			@VSMergeSettingCutoff DATE  = '2023-02-01'
+			@VSMergeSettingCutoff DATE  = '2024-03-01'
 			
 
 	DECLARE @Product3rd TABLE (Product3rdId INT, ProductPrefix VARCHAR(10))
