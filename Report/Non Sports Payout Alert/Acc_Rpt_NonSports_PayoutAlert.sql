@@ -16,6 +16,7 @@ AS
 		20230720@Roy: Risk and Control - LG Virtual Sports - Incorporate new product (#189202)
 		20231114@Roy: CWL - Risk and Control - WE Live Casino - Integrate new product (#195888)
 		20231206@Roy: CWL - Non Sports Report - Live22 - Integrate New Product (#195092)
+		20240223@Roy: Email/Letstalk - Virtual Sports 4 - Edge Gaming (#198628)
 
 	Param's Explanation:
 		@FromGMT8Time: start of time range in GMT+8 with format 2021-05-20 19:00:00
@@ -103,6 +104,7 @@ BEGIN
 			,(27, 'Virtual Sports 2', 108, 5000)
 			,(49, 'Virtual Sports 3 (Old)', 108, 5000)
 			,(77, 'Virtual Sports 3', 108, 5000)
+			,(83, 'Virtual Sports 4	', 108, 5000)
 			,(69, 'Bitcoin', 108, 5000)
 			
 			-------------Slot-------------
