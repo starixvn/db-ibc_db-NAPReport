@@ -19,7 +19,8 @@ AS
 		20230824@Roy: Letstalk Report ID 34 - Change the rule to show Exchange product (#193132)
 		20230829@Roy: Letstalk Reports - Support to show Exchange Product statistics every 2 hours for today (#181348)
 		20231116@Roy: Email/Letstalk - WE Live Casino - Integrate new product (#195889)
-		20231206@Roy: Email/Letstalk Reports - Incorporate Live22 product (#198035)
+		20240223@Roy: Email/Letstalk Reports - Incorporate Live22 product (#198035)
+		20240223@Roy: Email/Letstalk - Virtual Sports 4 - Edge Gaming (#198628)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -223,6 +224,7 @@ BEGIN
 			,(69,'OTHERS','BTC') --Bitcoin
 			-- ,('Bet Builder','OTHERS','BetB')
 			,(77,'OTHERS','VS3') --Virtual Sports
+			,(83,'OTHERS','VS4') --Virtual Sports 4
 		) h (ProductID, ProductGroup, ProductShortName)
 	)
 	INSERT INTO #tmpProductSetting (

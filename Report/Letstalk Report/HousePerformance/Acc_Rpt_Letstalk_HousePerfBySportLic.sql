@@ -16,6 +16,8 @@ AS
 		20230829@Roy: Letstalk Reports - Support to show Exchange Product statistics every 2 hours for today (#181348)
 		20231114@Roy: NAP Reports - Move SEAL8888 into Credit Group (#195730)
 		20231116@Roy: Email/Letstalk - WE Live Casino - Integrate new product (#195889)
+		20240223@Roy: Email/Letstalk Reports - Incorporate Live22 product (#198035)
+		20240223@Roy: Email/Letstalk - Virtual Sports 4 - Edge Gaming (#198628)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -657,6 +659,8 @@ BEGIN
 				WHEN rd.ProductName = 'Funky Games' THEN 'FunkyG'
 				WHEN rd.ProductName = 'Saba Casino' THEN 'SabaCas'
 				WHEN rd.ProductName = 'WE Live Casino' THEN 'WE LC'
+				-- WHEN rd.ProductName = 'Live22' THEN 'Live22' --the same - no need
+				WHEN rd.ProductName = 'Virtual Sports 4' THEN 'VirtSpo4'
 				ELSE rd.ProductName END AS GroupName
 			,SUM(ISNULL(d.TurnOver,0) * ISNULL(lc.Rate, p.Rate) * e.BaseCurrencyRate) AS HouseTO
 			,SUM(((-d.MemberWL - (d.FullContribution - d.HouseContribution)) * ISNULL(lc.Rate, p.Rate)
