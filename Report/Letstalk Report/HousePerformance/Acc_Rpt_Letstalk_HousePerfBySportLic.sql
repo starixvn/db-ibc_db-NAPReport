@@ -720,6 +720,8 @@ BEGIN
 				WHEN rd.ProductName = 'Funky Games' THEN 'FunkyG'
 				WHEN rd.ProductName = 'Saba Casino' THEN 'SabaCas'
 				WHEN rd.ProductName = 'WE Live Casino' THEN 'WE LC'
+				-- WHEN rd.ProductName = 'Live22' THEN 'Live22' --the same - no need
+				WHEN rd.ProductName = 'Virtual Sports 4' THEN 'VirtSpo4'
 				ELSE rd.ProductName END
 	)
 	,CTE_NS AS (
