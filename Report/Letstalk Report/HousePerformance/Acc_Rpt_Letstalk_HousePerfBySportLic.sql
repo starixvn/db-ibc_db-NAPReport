@@ -18,6 +18,7 @@ AS
 		20231116@Roy: Email/Letstalk - WE Live Casino - Integrate new product (#195889)
 		20240223@Roy: Email/Letstalk Reports - Incorporate Live22 product (#198035)
 		20240223@Roy: Email/Letstalk - Virtual Sports 4 - Edge Gaming (#198628)
+		20240227@Roy: Email/Letstalk Reports - Merge the settings of VS1 VS2 VS3 into Virtual Sports for Deposit (#199544)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -36,6 +37,7 @@ BEGIN
 		,@WLDate DATE
 		,@Title VARCHAR(50)
 		,@EX3rdName VARCHAR(50)
+		,@VSMergeCutOffDate DATE = '2024-02-01'
 
 	SET @DayOffset = (
 			CASE 
@@ -183,6 +185,47 @@ BEGIN
 	EXEC (@SQLStr) AT DBEXT
 	CREATE CLUSTERED INDEX tmpProduct3rd ON #tmpProduct3rd (Product3rdID)
 	
+	-------------------Format ProductName----------------
+	UPDATE #tmpProduct3rd
+	SET ProductName = (
+		CASE WHEN ProductName = 'Number Game' THEN 'NumG'
+			WHEN ProductName = 'Virtual Sports' THEN 'VirtSpo'
+			WHEN ProductName = 'RNG Casino' THEN '1RNG'
+			WHEN ProductName = 'RNG Keno' THEN 'MKeno'
+			-- WHEN ProductName = 'Colossus Bets' THEN 'CB'
+			WHEN ProductName = 'Allbet' THEN 'AllB'
+			WHEN ProductName = 'Macau Games' THEN 'MacauG'
+			-- WHEN ProductName = 'Fishing World' THEN 'FishW'
+			-- WHEN ProductName = 'Cash Out' THEN 'CashO'
+			WHEN ProductName = 'Virtual Sports 2' THEN 'VirtSpo2'
+			WHEN ProductName = 'Lottery' THEN 'MLotte'
+			WHEN ProductName = 'Arcadia Gaming' THEN 'ArcaGam'
+			WHEN ProductName = 'PG Soft' THEN 'PGSoft'
+			WHEN ProductName = 'Virtual Games' THEN 'VirtG'
+			WHEN ProductName = 'Table Game' THEN 'TableG'
+			WHEN ProductName = 'Saba.games' THEN 'SabaG'
+			WHEN ProductName = 'Togel 4D' THEN 'I4D'
+			WHEN ProductName = 'PP' THEN 'PragP'
+			WHEN ProductName = 'SG' THEN 'SpadeG'
+			WHEN ProductName = 'IBCBet Live Casino' THEN 'IBCLC'
+			WHEN ProductName = 'SA Gaming' THEN 'SAG'
+			WHEN ProductName = 'RNG War' THEN 'RNGWar'
+			-- WHEN ProductName = 'Gold Deluxe' THEN 'GoldD'
+			WHEN ProductName = 'AG Casino' THEN 'AG'
+			WHEN ProductName = 'Sports Lottery' THEN 'SportsLott'
+			WHEN ProductName = 'PP Live Casino' THEN 'PP LC'
+			WHEN ProductName = 'AE Sexy' THEN 'AESexy'
+			WHEN ProductName = 'Habanero' THEN 'Haban'
+			WHEN ProductName = 'AdvantPlay' THEN 'AdPlay'
+			WHEN ProductName = 'AdvantPlay Mini' THEN 'AdPlayMini'
+			WHEN ProductName = 'Virtual Sports 3' THEN 'VirtSpo3'
+			WHEN ProductName = 'Funky Games' THEN 'FunkyG'
+			WHEN ProductName = 'Saba Casino' THEN 'SabaCas'
+			WHEN ProductName = 'WE Live Casino' THEN 'WE LC'
+			-- WHEN ProductName = 'Live22' THEN 'Live22' --the same - no need
+			WHEN ProductName = 'Virtual Sports 4' THEN 'VirtSpo4'
+			ELSE ProductName END)
+	
 	SELECT @EX3rdName = rd.ProductName
 	FROM #tmpProduct3rd AS rd WITH (NOLOCK)
 		INNER JOIN bodb02.dbo.Products AS p WITH (NOLOCK) ON p.ProductPrefix = rd.ProductPrefix
@@ -266,6 +309,40 @@ BEGIN
 		INNER JOIN bodb02.dbo.Products AS p WITH (NOLOCK) ON p.ProductID = s.ProductID
 	WHERE bt.IsSB = 0
 	GROUP BY p.ProductPrefix
+	
+	/*
+		Hard code for merge Virtual Sports
+		- Old: Have Rate foreach [Virtual Sports] - 1,2,3,4
+		- New: Only get Rate of [Virtual Sports] - the rest (2,3,4..) will base on 1
+		
+		
+		IF EXISTS any [Virtual Sports]
+			=> Add 'VS' to @ProductCodes to get charge rate
+	*/
+	DECLARE @VS3rd_FromID INT
+		,@VS3rd_FromCode NVARCHAR(50)
+	DECLARE @VS3rd_To TABLE (Product3rdID INT)
+	
+	SELECT @VS3rd_FromID = rd.Product3rdID
+		,@VS3rd_FromCode = p.ProductPrefix
+	FROM #tmpProduct3rd AS rd WITH (NOLOCK)
+		INNER JOIN bodb02.dbo.Products AS p WITH (NOLOCK) ON p.ProductPrefix = rd.ProductPrefix
+	WHERE p.ProductID = 5 --VS
+	
+	INSERT INTO @VS3rd_To (Product3rdID)
+	SELECT DISTINCT rd.Product3rdID
+	FROM #tmpProduct3rd AS rd WITH (NOLOCK)
+		INNER JOIN bodb02.dbo.Products AS p WITH (NOLOCK) ON p.ProductPrefix = rd.ProductPrefix
+	WHERE p.ProductID IN (27, 49, 77, 83)--VS2 (27) / VS3 Old (49) / VS3 (77) / VS4 (83)
+		
+	IF @WLDate > @VSMergeCutOffDate --over Cut Off Date
+		AND EXISTS (
+			SELECT 1
+			FROM @VS3rd_To
+		)
+	BEGIN
+		SELECT @ProductCodes = COALESCE(@ProductCodes + ',', '') + @VS3rd_FromCode
+	END
 
 	-- Get charge rate of 3rd Products--
 	SELECT @SQLStr = '
@@ -320,6 +397,47 @@ BEGIN
 		,Rate
 	)
 	EXEC (@SQLStr) AT DBEXT
+	
+	/*
+		Hard code for merge [Virtual Sports]
+			IF EXISTS [Virtual Sports] rate
+				1.Update charge rate base on ProductID
+				2.Update charge rate base on CurrencyID
+	*/
+	IF @WLDate > @VSMergeCutOffDate --over Cut Off Date
+		AND EXISTS (
+			SELECT 1
+			FROM @VS3rd_To
+		)
+	BEGIN
+		--update charge by ProductID
+		;WITH CTE_VSRate AS (
+			SELECT c.ChargeID
+				,c.Rate AS VS_Rate
+			FROM #tmpChargeInfo AS c WITH (NOLOCK)
+			WHERE Product3rdID = @VS3rd_FromID
+		)
+		UPDATE c
+		SET c.Rate = vsr.VS_Rate
+		FROM #tmpChargeInfo AS c
+			INNER JOIN CTE_VSRate AS vsr ON c.ChargeID = vsr.ChargeID
+			INNER JOIN @VS3rd_To AS rd ON rd.Product3rdID = c.Product3rdID
+		
+		--update charge by CurrencyID
+		;WITH CTE_VSRate AS (
+			SELECT cc.CurrencyID
+				,cc.Rate AS VS_Rate
+			FROM #tmpChargeInfo AS c WITH (NOLOCK)
+				INNER JOIN #tmpChargeByCurr AS cc WITH (NOLOCK) ON c.ChargeID = cc.ChargeID
+			WHERE c.Product3rdID = @VS3rd_FromID
+		)
+		UPDATE cc
+		SET cc.Rate = vsr.VS_Rate
+		FROM #tmpChargeByCurr AS cc
+			INNER JOIN CTE_VSRate AS vsr ON cc.CurrencyID = vsr.CurrencyID
+			INNER JOIN #tmpChargeInfo AS c WITH (NOLOCK) ON cc.ChargeID = c.ChargeID
+			INNER JOIN @VS3rd_To AS rd ON rd.Product3rdID = c.Product3rdID
+	END
 	
 	--specific sport, the rest will be group into [Other Sports]
 	INSERT INTO #tmpSBSports (SportGroup)
@@ -625,42 +743,6 @@ BEGIN
 	;WITH CTE_NS_ByProd AS (
 		SELECT CASE WHEN d.ProductGroup = 1 THEN 'BetB'
 				WHEN d.ProductGroup = 2 THEN 'MetricG'
-				WHEN rd.ProductName = 'Number Game' THEN 'NumG'
-				WHEN rd.ProductName = 'Virtual Sports' THEN 'VirtSpo'
-				WHEN rd.ProductName = 'RNG Casino' THEN '1RNG'
-				WHEN rd.ProductName = 'RNG Keno' THEN 'MKeno'
-				-- WHEN rd.ProductName = 'Colossus Bets' THEN 'CB'
-				WHEN rd.ProductName = 'Allbet' THEN 'AllB'
-				WHEN rd.ProductName = 'Macau Games' THEN 'MacauG'
-				-- WHEN rd.ProductName = 'Fishing World' THEN 'FishW'
-				-- WHEN rd.ProductName = 'Cash Out' THEN 'CashO'
-				WHEN rd.ProductName = 'Virtual Sports 2' THEN 'VirtSpo2'
-				WHEN rd.ProductName = 'Lottery' THEN 'MLotte'
-				WHEN rd.ProductName = 'Arcadia Gaming' THEN 'ArcaGam'
-				WHEN rd.ProductName = 'PG Soft' THEN 'PGSoft'
-				WHEN rd.ProductName = 'Virtual Games' THEN 'VirtG'
-				WHEN rd.ProductName = 'Table Game' THEN 'TableG'
-				WHEN rd.ProductName = 'Saba.games' THEN 'SabaG'
-				WHEN rd.ProductName = 'Togel 4D' THEN 'I4D'
-				WHEN rd.ProductName = 'PP' THEN 'PragP'
-				WHEN rd.ProductName = 'SG' THEN 'SpadeG'
-				WHEN rd.ProductName = 'IBCBet Live Casino' THEN 'IBCLC'
-				WHEN rd.ProductName = 'SA Gaming' THEN 'SAG'
-				WHEN rd.ProductName = 'RNG War' THEN 'RNGWar'
-				-- WHEN rd.ProductName = 'Gold Deluxe' THEN 'GoldD'
-				WHEN rd.ProductName = 'AG Casino' THEN 'AG'
-				WHEN rd.ProductName = 'Sports Lottery' THEN 'SportsLott'
-				WHEN rd.ProductName = 'PP Live Casino' THEN 'PP LC'
-				WHEN rd.ProductName = 'AE Sexy' THEN 'AESexy'
-				WHEN rd.ProductName = 'Habanero' THEN 'Haban'
-				WHEN rd.ProductName = 'AdvantPlay' THEN 'AdPlay'
-				WHEN rd.ProductName = 'AdvantPlay Mini' THEN 'AdPlayMini'
-				WHEN rd.ProductName = 'Virtual Sports 3' THEN 'VirtSpo3'
-				WHEN rd.ProductName = 'Funky Games' THEN 'FunkyG'
-				WHEN rd.ProductName = 'Saba Casino' THEN 'SabaCas'
-				WHEN rd.ProductName = 'WE Live Casino' THEN 'WE LC'
-				-- WHEN rd.ProductName = 'Live22' THEN 'Live22' --the same - no need
-				WHEN rd.ProductName = 'Virtual Sports 4' THEN 'VirtSpo4'
 				ELSE rd.ProductName END AS GroupName
 			,SUM(ISNULL(d.TurnOver,0) * ISNULL(lc.Rate, p.Rate) * e.BaseCurrencyRate) AS HouseTO
 			,SUM(((-d.MemberWL - (d.FullContribution - d.HouseContribution)) * ISNULL(lc.Rate, p.Rate)
@@ -686,42 +768,6 @@ BEGIN
 		WHERE d.IsSB = 0
 		GROUP BY CASE WHEN d.ProductGroup = 1 THEN 'BetB'
 				WHEN d.ProductGroup = 2 THEN 'MetricG'
-				WHEN rd.ProductName = 'Number Game' THEN 'NumG'
-				WHEN rd.ProductName = 'Virtual Sports' THEN 'VirtSpo'
-				WHEN rd.ProductName = 'RNG Casino' THEN '1RNG'
-				WHEN rd.ProductName = 'RNG Keno' THEN 'MKeno'
-				-- WHEN rd.ProductName = 'Colossus Bets' THEN 'CB'
-				WHEN rd.ProductName = 'Allbet' THEN 'AllB'
-				WHEN rd.ProductName = 'Macau Games' THEN 'MacauG'
-				-- WHEN rd.ProductName = 'Fishing World' THEN 'FishW'
-				-- WHEN rd.ProductName = 'Cash Out' THEN 'CashO'
-				WHEN rd.ProductName = 'Virtual Sports 2' THEN 'VirtSpo2'
-				WHEN rd.ProductName = 'Lottery' THEN 'MLotte'
-				WHEN rd.ProductName = 'Arcadia Gaming' THEN 'ArcaGam'
-				WHEN rd.ProductName = 'PG Soft' THEN 'PGSoft'
-				WHEN rd.ProductName = 'Virtual Games' THEN 'VirtG'
-				WHEN rd.ProductName = 'Table Game' THEN 'TableG'
-				WHEN rd.ProductName = 'Saba.games' THEN 'SabaG'
-				WHEN rd.ProductName = 'Togel 4D' THEN 'I4D'
-				WHEN rd.ProductName = 'PP' THEN 'PragP'
-				WHEN rd.ProductName = 'SG' THEN 'SpadeG'
-				WHEN rd.ProductName = 'IBCBet Live Casino' THEN 'IBCLC'
-				WHEN rd.ProductName = 'SA Gaming' THEN 'SAG'
-				WHEN rd.ProductName = 'RNG War' THEN 'RNGWar'
-				-- WHEN rd.ProductName = 'Gold Deluxe' THEN 'GoldD'
-				WHEN rd.ProductName = 'AG Casino' THEN 'AG'
-				WHEN rd.ProductName = 'Sports Lottery' THEN 'SportsLott'
-				WHEN rd.ProductName = 'PP Live Casino' THEN 'PP LC'
-				WHEN rd.ProductName = 'AE Sexy' THEN 'AESexy'
-				WHEN rd.ProductName = 'Habanero' THEN 'Haban'
-				WHEN rd.ProductName = 'AdvantPlay' THEN 'AdPlay'
-				WHEN rd.ProductName = 'AdvantPlay Mini' THEN 'AdPlayMini'
-				WHEN rd.ProductName = 'Virtual Sports 3' THEN 'VirtSpo3'
-				WHEN rd.ProductName = 'Funky Games' THEN 'FunkyG'
-				WHEN rd.ProductName = 'Saba Casino' THEN 'SabaCas'
-				WHEN rd.ProductName = 'WE Live Casino' THEN 'WE LC'
-				-- WHEN rd.ProductName = 'Live22' THEN 'Live22' --the same - no need
-				WHEN rd.ProductName = 'Virtual Sports 4' THEN 'VirtSpo4'
 				ELSE rd.ProductName END
 	)
 	,CTE_NS AS (
