@@ -66,6 +66,7 @@ AS
 		20220926@Cherry: Change param @Device from Betfrom to Betfromid (#164955)
 		20230609@Cherry: Not include dummy accounts in BetCount, NoOfPlayers (#188994)
 		20230801@Cherry: Integrate Virtual Sports 3 (#189202)
+		20240116@Cherry: Integrate Virtual Sports 4 (#198623)
 
 	Param's Explanation:
 			 - @username:  + Search by keyword, member only
@@ -221,6 +222,17 @@ SET NOCOUNT ON
 	CREATE TABLE #tmpSportBetType (Sporttype INT, Bettype INT)	
 	CREATE TABLE #tmpHouseProduct (ProductID INT)
 	CREATE TABLE #tmpDummyCust (CustID INT)
+	CREATE TABLE #tmpVirtualSport (ProductID INT)
+
+	DECLARE @VirtualSportGroupStr VARCHAR(500)
+    SELECT  @VirtualSportGroupStr = VValue
+	FROM DBWH.bodb_account.dbo.SystemSettings WITH(NOLOCK)
+	WHERE VID = 31		
+
+    INSERT INTO #tmpVirtualSport (ProductID)
+    SELECT val ProductID
+    FROM bodb02.dbo.strSplit(@VirtualSportGroupStr, ',')
+	WHERE val <> 49
 
 	INSERT INTO #tmpDummyCust (CustID)
 	SELECT c.custid
@@ -374,7 +386,8 @@ SET NOCOUNT ON
 
 	DELETE	s
 	FROM	#SportBettype s
-	WHERE	s.ProductID NOT IN (3, 5, 27, 77)   ---- NumberGame , Virtual Sports, Virtual Sports 2
+	WHERE	s.ProductID <> 3 
+			AND s.ProductID NOT IN (SELECT ProductID FROM #tmpVirtualSport)
 			AND s.ProductID NOT IN (SELECT ProductID FROM #tmpHouseProduct) --Saba.club, VGaming
 			AND NOT EXISTS (SELECT Bettype FROM #tmpBetType b WHERE b.Bettype = s.Bettype)
 
@@ -502,7 +515,8 @@ SET NOCOUNT ON
 		FROM  dbo.Bettrans b WITH (NOLOCK)
 			LEFT JOIN #tmpDummyCust d ON b.custid = d.custid
 		WHERE b.WinlostDate = @WLDate
-			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE RefTable IN (0,3) AND ProductID NOT IN (3, 4, 5, 27, 26, 77))
+			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE RefTable IN (0,3) AND ProductID NOT IN (3, 4, 26)
+									AND ProductID NOT IN (SELECT ProductID FROM #tmpVirtualSport))
 			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
 			AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
@@ -1025,7 +1039,7 @@ SET NOCOUNT ON
 						
 		FROM  dbo.Bettrans b WITH (NOLOCK)
 		WHERE b.WinlostDate = @WLDate
-			AND b.bettype in (SELECT Bettype FROM #SportBettype WHERE ProductID IN (5, 27, 77) AND Eventtype = 1)
+			AND b.bettype in (SELECT Bettype FROM #SportBettype WHERE ProductID IN (SELECT ProductID FROM #tmpVirtualSport) AND Eventtype = 1)
 			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
 			AND EXISTS (SELECT 1 FROM Match m WITH (NOLOCK) INNER JOIN #tmpSporttype sp ON sp.Sporttype = m.sporttype WHERE m.matchid = b.matchid)			
@@ -1109,7 +1123,14 @@ SET NOCOUNT ON
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.bettype
 		OPTION(RECOMPILE)
 				
-		--VirtualSports 2
+		--VirtualSports Parlay
+		CREATE TABLE #tmpVSBettype (Bettype INT)
+		INSERT INTO #tmpVSBettype (Bettype)
+		SELECT Bettype
+		FROM DBWH.bodb_Account.dbo.BettypeGroup WITH(NOLOCK)
+		WHERE BettypeGroupID = 18
+		AND Bettype IN (SELECT Bettype FROM #SportBettype)
+
 		CREATE TABLE #tmp_bettransm (refno BIGINT)
 		
 		INSERT INTO #tmp_bettransm (refno)
@@ -1158,7 +1179,7 @@ SET NOCOUNT ON
 				
 		FROM  dbo.Bettrans b WITH (NOLOCK)			
 		WHERE b.WinlostDate = @WLDate
-			AND b.bettype in (SELECT Bettype FROM #SportBettype WHERE ProductID = 27 AND EventType = 0)
+			AND b.bettype in (SELECT Bettype FROM #tmpVSBettype)
 			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
 			AND EXISTS(SELECT 1 FROM #tmp_bettransm bm WHERE bm.refno = b.refno)
@@ -1281,6 +1302,8 @@ SET NOCOUNT ON
 	DROP TABLE #tmpBettypeRNG
 	DROP TABLE #tmpDummyCust
 	DROP TABLE #NonSportSetting
+	DROP TABLE #tmpVirtualSport
+	DROP TABLE #tmpVSBettype
 
 END 
 

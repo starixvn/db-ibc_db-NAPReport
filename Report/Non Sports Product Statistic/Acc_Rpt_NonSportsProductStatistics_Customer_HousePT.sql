@@ -48,6 +48,7 @@ AS
 		20220926@Cherry: Change param @Device from Betfrom to Betfromid (#164955)
 		20230609@Cherry: Not include dummy accounts in BetCount, NoOfPlayers (#188994)
 		20230801@Cherry: Integrate Virtual Sports 3 (#189202)
+		20240116@Cherry: Integrate Virtual Sports 4 (#198623)
 
 	Param's Explanation:
 		- @ProductID: string filter by Product 
@@ -75,6 +76,17 @@ BEGIN
 	CREATE TABLE #tmpContributionBettype (Bettype INT)
 	CREATE TABLE #tmpSportBetType (Sporttype INT, Bettype INT)
 	CREATE TABLE #tmpHouseProduct (ProductID INT)
+	CREATE TABLE #tmpVirtualSport (ProductID INT)
+
+	DECLARE @VirtualSportGroupStr VARCHAR(500)
+    SELECT  @VirtualSportGroupStr = VValue
+	FROM DBWH.bodb_account.dbo.SystemSettings WITH(NOLOCK)
+	WHERE VID = 31		
+
+    INSERT INTO #tmpVirtualSport (ProductID)
+    SELECT val ProductID
+    FROM bodb02.dbo.strSplit(@VirtualSportGroupStr, ',')
+	WHERE val <> 49
 
 	-- Get Info from Pars list
 	IF @ProductId <> ''
@@ -179,7 +191,8 @@ BEGIN
 	FROM
 		dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '', @isTest) s
 		INNER JOIN #tmp_ProductID p ON s.ProductID = p.ProductID
-	WHERE (p.ProductID IN (3, 5, 27, 77) -- Number Game, Virtual Sports, Virtual Sports 2, Virtual Sports 3
+	WHERE (p.ProductID = 3 
+		OR p.ProductID IN (SELECT ProductID FROM #tmpVirtualSport)
 		OR p.ProductID IN (SELECT ProductID FROM #tmpHouseProduct))
 	
 	INSERT INTO #SportBettype (ProductID, Bettype, EvenType, RefTable)
@@ -263,6 +276,12 @@ BEGIN
 	FROM DBWH.bodb_Account.dbo.BettypeGroup WITH (NOLOCK)
 	WHERE BettypeGroupID = 12
 
+	CREATE TABLE #tmpVSBettype (Bettype INT)
+	INSERT INTO #tmpVSBettype (Bettype)
+	SELECT Bettype
+	FROM DBWH.bodb_Account.dbo.BettypeGroup WITH (NOLOCK)
+	WHERE BettypeGroupID = 18
+
 	IF @CID <> -1
 	BEGIN
 		IF @RoleID = 1
@@ -301,7 +320,7 @@ BEGIN
 						OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 						OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 					)
-					AND b.bettype <> 2799
+					AND b.bettype NOT IN (SELECT Bettype FROM #tmpVSBettype)
 				GROUP BY s.EvenType, b.matchid, s.ProductID, b.bettype
 				OPTION(RECOMPILE)
 				
@@ -326,7 +345,7 @@ BEGIN
 					INNER JOIN #SportBettype s ON s.Bettype = b.bettype
 				WHERE b.winlostdate = @WLDate
 					AND b.custid = @CID
-					AND b.matchid = 2799
+					AND b.matchid IN (SELECT Bettype FROM #tmpVSBettype)
 					AND b.statusID IN (111, 112, 113) -- won/lose/draw tickets
 					AND s.RefTable IN (0, 3)
 					AND ((b.currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
@@ -336,7 +355,7 @@ BEGIN
 						OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 						OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 					)
-					AND b.bettype = 2799
+					AND b.bettype IN (SELECT Bettype FROM #tmpVSBettype)
 					AND EXISTS (SELECT 1 FROM dbo.bettransm bm WITH (NOLOCK)
 									INNER JOIN dbo.match m WITH (NOLOCK) ON bm.matchid = m.matchid 
 									INNER JOIN #tmp_SportType st ON m.sporttype = st.Sporttype
@@ -464,7 +483,7 @@ BEGIN
 						OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 						OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 					)
-					AND b.bettype <> 2799
+					AND b.bettype NOT IN (SELECT Bettype FROM #tmpVSBettype)
 				GROUP BY s.EvenType, b.matchid, s.ProductID, b.bettype 
 				OPTION(RECOMPILE)
 				
@@ -490,7 +509,6 @@ BEGIN
 					INNER JOIN #tmp_MemIDs m ON b.custid = m.CustID
 				WHERE b.winlostdate = @WLDate
 					AND b.statusID IN (111, 112, 113) -- won/lose/draw tickets
-					AND b.matchid = 2799
 					AND s.RefTable IN (0, 3)
 					AND ((b.currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
 					AND (EXISTS (SELECT 1 FROM #tmp_Devide d WHERE d.Betfrom = b.betfrom) OR @Device = '')
@@ -499,7 +517,7 @@ BEGIN
 						OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 						OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 					)
-					AND b.bettype = 2799
+					AND b.bettype IN (SELECT Bettype FROM #tmpVSBettype)
 					AND EXISTS (SELECT 1 FROM dbo.bettransm bm WITH (NOLOCK)
 									INNER JOIN dbo.match m WITH (NOLOCK) ON bm.matchid = m.matchid 
 									INNER JOIN #tmp_SportType st ON m.sporttype = st.Sporttype
@@ -623,7 +641,8 @@ BEGIN
 		---------------
 	
 		--- Check condition 
-		IF EXISTS (SELECT TOP 1 1 FROM #SportBettype WHERE ProductID NOT IN (3, 4, 5, 27, 33, 77)) -- NG, SLI-Live Casino, Virtual Sports, Virtual Sports 2, Poker Games
+		IF EXISTS (SELECT TOP 1 1 FROM #SportBettype WHERE ProductID NOT IN (3, 33)
+						AND ProductID NOT IN (SELECT ProductID FROM #tmpVirtualSport)) 
 		BEGIN		
 			INSERT INTO #Data
 			(
@@ -644,7 +663,8 @@ BEGIN
 				SUM(HousePT) AS HousePT,
 				SUM(RowNum) AS RowNum
 			FROM  #tmp_bettrans
-			WHERE ProductID NOT IN (3, 4, 5, 27, 33, 77)
+			WHERE ProductID NOT IN (3, 33)
+				AND ProductID NOT IN (SELECT ProductID FROM #tmpVirtualSport)
 			GROUP BY ProductID
 		END
 		
@@ -674,7 +694,7 @@ BEGIN
 			GROUP BY b.ProductID
 		END
 
-		IF EXISTS (SELECT TOP 1 1 FROM #SportBettype WHERE ProductID IN (3, 4, 5, 77)) -- NG, SLI-Live Casino, Virtual Sports, Virtual Sports 3
+		IF EXISTS (SELECT TOP 1 1 FROM #SportBettype WHERE ProductID = 3 OR ProductID IN (SELECT ProductID FROM #tmpVirtualSport)) 
 		BEGIN		
 			INSERT INTO #Data
 			(
@@ -694,11 +714,12 @@ BEGIN
 				SUM(HousePT) AS HousePT
 			FROM  #tmp_bettrans b
 				INNER JOIN dbo.match m WITH (NOLOCK) ON m.matchid = b.matchid
-			WHERE ProductID IN (3, 4, 5, 77) AND b.EvenType = 1
+			WHERE (ProductID = 3 OR ProductID IN (SELECT ProductID FROM #tmpVirtualSport)) 
+				AND b.EvenType = 1
 				AND (
 					(b.ProductID = 3 AND (@LeagueId = '' OR EXISTS (SELECT 1 FROM #tmp_LeagueID l WHERE l.LeagueID = m.leagueid AND l.Bettype = b.Bettype)
 											OR EXISTS (SELECT 1 FROM #tmp_LeagueID l WHERE l.LeagueID = 168 AND l.Bettype = b.bettype))) OR
-					(b.ProductID IN (5, 77) AND (@Sporttype = '' OR (EXISTS (SELECT 1 FROM #tmp_SportType st WHERE st.Sporttype = m.sporttype))))
+					(b.ProductID IN (SELECT ProductID FROM #tmpVirtualSport) AND (@Sporttype = '' OR (EXISTS (SELECT 1 FROM #tmp_SportType st WHERE st.Sporttype = m.sporttype))))
 				)
 			GROUP BY ProductID
 
@@ -726,7 +747,7 @@ BEGIN
 			GROUP BY b.ProductID
 		END
 		
-		IF EXISTS (SELECT TOP 1 1 FROM #SportBettype WHERE ProductID = 27) -- Virtual Sports 2
+		IF EXISTS (SELECT TOP 1 1 FROM #SportBettype WHERE ProductID IN (SELECT ProductID FROM #tmpVirtualSport)) -- Virtual Sports 2
 		BEGIN		
 			INSERT INTO #Data
 			(
@@ -745,12 +766,8 @@ BEGIN
 				ProductID,
 				SUM(HousePT) AS HousePT
 			FROM  #tmp_bettrans b
-			WHERE b.ProductID = 27
-				AND (b.EvenType = 0 OR
-					(EXISTS (SELECT 1 FROM dbo.match m WITH (NOLOCK)
-									INNER JOIN #tmp_SportType st ON m.Sporttype = st.sporttype
-							 WHERE b.Matchid = m.matchid))
-				)
+			WHERE b.ProductID IN (SELECT ProductID FROM #tmpVirtualSport)
+				AND b.EvenType = 0 
 			GROUP BY b.ProductID	
 		END
 		
@@ -834,6 +851,7 @@ BEGIN
 	DROP TABLE #tmp_ProductID
 	DROP TABLE #tmp_BetType
 	DROP TABLE #tmp_GameTableID
+	DROP TABLE #tmpVirtualSport
 	DROP TABLE #tmpBetfrom
 	
 END
