@@ -412,7 +412,7 @@ BEGIN
 	BEGIN
 		--update charge by ProductID
 		;WITH CTE_VSRate AS (
-			SELECT c.ChargeID
+			SELECT c.PartyID
 				,c.Rate AS VS_Rate
 			FROM #tmpChargeInfo AS c WITH (NOLOCK)
 			WHERE Product3rdID = @VS3rd_FromID
@@ -420,12 +420,13 @@ BEGIN
 		UPDATE c
 		SET c.Rate = vsr.VS_Rate
 		FROM #tmpChargeInfo AS c
-			INNER JOIN CTE_VSRate AS vsr ON c.ChargeID = vsr.ChargeID
+			INNER JOIN CTE_VSRate AS vsr ON c.PartyID = vsr.PartyID
 			INNER JOIN @VS3rd_To AS rd ON rd.Product3rdID = c.Product3rdID
 		
 		--update charge by CurrencyID
 		;WITH CTE_VSRate AS (
-			SELECT cc.CurrencyID
+			SELECT c.PartyID
+				,cc.CurrencyID
 				,cc.Rate AS VS_Rate
 			FROM #tmpChargeInfo AS c WITH (NOLOCK)
 				INNER JOIN #tmpChargeByCurr AS cc WITH (NOLOCK) ON c.ChargeID = cc.ChargeID
@@ -434,8 +435,8 @@ BEGIN
 		UPDATE cc
 		SET cc.Rate = vsr.VS_Rate
 		FROM #tmpChargeByCurr AS cc
-			INNER JOIN CTE_VSRate AS vsr ON cc.CurrencyID = vsr.CurrencyID
 			INNER JOIN #tmpChargeInfo AS c WITH (NOLOCK) ON cc.ChargeID = c.ChargeID
+			INNER JOIN CTE_VSRate AS vsr ON cc.CurrencyID = vsr.CurrencyID AND c.PartyID = vsr.PartyID
 			INNER JOIN @VS3rd_To AS rd ON rd.Product3rdID = c.Product3rdID
 	END
 	
