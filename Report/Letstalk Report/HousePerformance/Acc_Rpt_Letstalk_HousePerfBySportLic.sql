@@ -333,9 +333,11 @@ BEGIN
 	SELECT DISTINCT rd.Product3rdID
 	FROM #tmpProduct3rd AS rd WITH (NOLOCK)
 		INNER JOIN bodb02.dbo.Products AS p WITH (NOLOCK) ON p.ProductPrefix = rd.ProductPrefix
+		INNER JOIN bodb02.dbo.SportBetTypeMatrix AS s WITH (NOLOCK) ON p.ProductID = s.ProductID
+		INNER JOIN #tmpBetType AS bt ON bt.BetType = s.BetType AND bt.IsSB = 0
 	WHERE p.ProductID IN (27, 49, 77, 83)--VS2 (27) / VS3 Old (49) / VS3 (77) / VS4 (83)
 		
-	IF @WLDate > @VSMergeCutOffDate --over Cut Off Date
+	IF @WLDate >= @VSMergeCutOffDate --over Cut Off Date
 		AND EXISTS (
 			SELECT 1
 			FROM @VS3rd_To
@@ -400,17 +402,24 @@ BEGIN
 	
 	/*
 		Hard code for merge [Virtual Sports]
-			IF EXISTS [Virtual Sports] rate
-				1.Update charge rate base on ProductID
-				2.Update charge rate base on CurrencyID
+			Case #1: IF EXISTS ChargeInfo of ANY VS2,3,4
+						THEN
+							1. UPDATE #tmpChargeInfo 	- update charge rate by PartyID (from VS to VS 2,3,4)
+							2. UPDATE #tmpChargeByCurr 	- update charge rate by ChargeID (of PartyID) / CurrencyID (from VS to VS 2,3,4)
+			Case #2: IF NOT EXISTS ChargeInfo of ALL VS2,3,4
+						THEN
+							1. CLONE #tmpChargeInfo - charge rate by PartyID (from VS to VS 2,3,4)
+							2. NO action #tmpChargeByCurr - EXISTED of VS
 	*/
-	IF @WLDate > @VSMergeCutOffDate --over Cut Off Date
+	-----------------Case #1 - EXISTS ChargeInfo of VS2,3,4----------------
+	IF @WLDate >= @VSMergeCutOffDate --over Cut Off Date
 		AND EXISTS (
 			SELECT 1
-			FROM @VS3rd_To
+			FROM #tmpChargeInfo AS c
+				INNER JOIN @VS3rd_To AS rd ON rd.Product3rdID = c.Product3rdID
 		)
 	BEGIN
-		--update charge by ProductID
+		--update charge by ProductID / PartyID
 		;WITH CTE_VSRate AS (
 			SELECT c.PartyID
 				,c.Rate AS VS_Rate
@@ -438,6 +447,33 @@ BEGIN
 			INNER JOIN #tmpChargeInfo AS c WITH (NOLOCK) ON cc.ChargeID = c.ChargeID
 			INNER JOIN CTE_VSRate AS vsr ON cc.CurrencyID = vsr.CurrencyID AND c.PartyID = vsr.PartyID
 			INNER JOIN @VS3rd_To AS rd ON rd.Product3rdID = c.Product3rdID
+	END
+	-----------------Case #2 - NOT EXISTS-----------------
+	ELSE IF @WLDate >= @VSMergeCutOffDate --over Cut Off Date
+		AND NOT EXISTS (
+			SELECT 1
+			FROM #tmpChargeInfo AS c
+				INNER JOIN @VS3rd_To AS rd ON rd.Product3rdID = c.Product3rdID
+		)
+	BEGIN
+		--CLONE charge rate by PartyID (from VS to VS 2,3,4)
+		INSERT INTO #tmpChargeInfo (
+			ChargeID
+			,PartyID
+			,Product3rdID
+			,Rate
+			,BetType
+			,ChargeType
+		)
+		SELECT c.ChargeID
+			,c.PartyID
+			,rd.Product3rdID
+			,c.Rate
+			,c.BetType
+			,c.ChargeType
+		FROM #tmpChargeInfo AS c WITH (NOLOCK)
+			,@VS3rd_To AS rd
+		WHERE c.Product3rdID = @VS3rd_FromID
 	END
 	
 	--specific sport, the rest will be group into [Other Sports]

@@ -317,8 +317,8 @@ BEGIN
 		,bba
 		,lbbs
 	)
-	SELECT matchid
-		,transid
+	SELECT transid
+		,matchid
 		,apositiontaking AS apos
 		,TRY_CAST(TRY_CAST(ExtraInfo AS XML).value('(/p1/@bba)[1]', 'VARCHAR(50)') AS DECIMAL(19, 6)) bba
 		,TRY_CAST(TRY_CAST(ExtraInfo AS XML).value('(/p1/@lbbs)[1]', 'VARCHAR(50)') AS DECIMAL(19, 6)) lbbs
