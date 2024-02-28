@@ -37,7 +37,7 @@ BEGIN
 		,@WLDate DATE
 		,@Title VARCHAR(50)
 		,@EX3rdName VARCHAR(50)
-		,@VSMergeCutOffDate DATE = '2024-02-01'
+		,@VSMergeCutOffDate DATE = '2024-03-01'
 
 	SET @DayOffset = (
 			CASE 
