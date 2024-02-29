@@ -49,6 +49,7 @@ AS
 		- 20231024@Danny: Change AGC 3rd billing term (#195608)
 		- 20231101@Danny: Change charge rate and tier rebate for Alek group from Oct 2023 (#194561)
 		- 20240115@Danny: Merge the settings of VS1 VS2 VS3 into Virtual Sports (#199544)
+		- 20240229@Danny: AGC product integrate JP, Contribution, Promotion  (#200523)
         
 */
 BEGIN
@@ -151,7 +152,21 @@ BEGIN
 		,FullParlayBoostBonus	MONEY DEFAULT(0)
 		,AgentParlayBoostBonusSharing MONEY DEFAULT(0)
 	)
-	CREATE TABLE #__BettingByProduct (rptDate DATE, LicenseeId INT, CurrencyId INT, Product3rdId INT, BetTypeGroup INT, ValidBetAmount MONEY, MemberWL MONEY, Comm MONEY, LicenseeWL MONEY, LicenseeTO MONEY, ExchangePlayerComm MONEY)
+	CREATE TABLE #__BettingByProduct (
+		rptDate DATE, 
+		LicenseeId INT, 
+		CurrencyId INT, 
+		Product3rdId INT, 
+		BetTypeGroup INT, 
+		ValidBetAmount MONEY, 
+		MemberWL MONEY, 
+		Comm MONEY, 
+		LicenseeWL MONEY, 
+		LicenseeTO MONEY, 
+		ExchangePlayerComm MONEY,
+		HouseContribution  MONEY,
+		FullContribution	MONEY
+	)
 	CREATE TABLE #__tempResult
 	(
 		rptDate				DATETIME
@@ -491,7 +506,7 @@ BEGIN
 				OR (p.SubProductCode = 'H5' AND s.sporttype = 164)
 				OR (p.SubProductCode = 'H5LG' AND s.sporttype = 168)
 			)
-			AND p.SubProductCode NOT IN ('PP-JP', 'SBC-JP', 'VGA-JP','SG-JP')
+			AND p.SubProductCode NOT IN ('PP-JP', 'SBC-JP', 'VGA-JP','SG-JP','AGC-JP')
 
 		INSERT INTO @ProductSupportBonus(ProductID)
 		SELECT DISTINCT Product3rdId FROM #tmpBetType WHERE BettypeGroup = -4
@@ -514,7 +529,7 @@ BEGIN
 		SELECT DISTINCT p.Product3rdId, p.AliasProductId, gb.Bettype, -3 BettypeGroup, p.IsOnlyTO
 		FROM @Products p
 		INNER JOIN bodb02.dbo.SportBettypeMatrix gb WITH(NOLOCK) oN p.Product3rdId = gb.ProductID AND gb.SubProduct IN ('Jackpot Contribution','Jackpot Prize')
-		WHERE p.SubProductCode IN ('PP-JP', 'VGA-JP', 'SBC-JP', 'SG-JP')
+		WHERE p.SubProductCode IN ('PP-JP', 'VGA-JP', 'SBC-JP', 'SG-JP', 'AGC-JP')
 		--- 
 		IF @isGetDataFromBettrans = 1 AND @ToDate = @yesterday
 		BEGIN
@@ -633,26 +648,36 @@ BEGIN
 		IF EXISTS (SELECT 1 FROM @Products WHERE Product3rdId IN (10, 11, 15, 31))
 		BEGIN
 			SELECT @Exec_rpt_BettingByProduct = '
-			SELECT rptDate, SiteId, CurrencyId, ProductId, BetTypeGroup, ValidBetAmount, MemberWL, Comm, LicenseeWL, LicensesTO, ExchangePlayerComm
+			SELECT rptDate, SiteId, CurrencyId, ProductId, BetTypeGroup, ValidBetAmount, MemberWL, Comm, LicenseeWL, LicensesTO, ExchangePlayerComm, HouseContribution, FullContribution
 			FROM OPENQUERY (DBLIC,''	
-								SELECT  rptDate, SiteId, CurrencyId, ProductId
-										,BetTypeGroup	= CASE WHEN bettype = 1706 THEN 1706 ELSE -1 END
-										,ValidBetAmount	= SUM(CASE WHEN ProductId = 11 AND bettype = -1 THEN ValidBetAmount ELSE 0 END)
-										,MemberWL		= SUM(CASE WHEN ProductId = 15 THEN Turnover * 0.0405 + BuyBackAmount * 0.15 ELSE MemberWL END)
-										,Comm			= SUM(CASE WHEN ProductId = 31 THEN CommissionP + CommissionA ELSE 0 END)
-										,LicenseeWL		= -SUM(MemberWL)
-										,LicensesTO		= SUM(Turnover)
-										,ExchangePlayerComm = SUM(CASE WHEN ProductId = 31 THEN CommissionP ELSE 0 END)
-									FROM bodb_LicenseeReport.dbo.rpt_BettingByProduct WITH (NOLOCK)
-									WHERE rptDate BETWEEN ''''' + CONVERT(VARCHAR(10),@FDateGetData,120) +''''' AND ''''' + CONVERT(VARCHAR(10),@TDateGetData,120) +'''''
-										AND ProductId IN (10, 11, 15, 31)
-										AND CurrencyId <> 20
-										AND CustomerCategory NOT IN (27, 28)
-										AND StatusId NOT IN (-1, 101, 102, 103)
-									GROUP BY rptDate, SiteId, CurrencyId, ProductId, CASE WHEN bettype = 1706 THEN 1706 ELSE -1 END
+								SELECT  t.rptDate, t.SiteId, t.CurrencyId, t.ProductId
+										,BetTypeGroup	= CASE WHEN t.bettype = 1706 THEN 1706 
+															   WHEN u.TypeID IN (4,5,6,8) THEN -4 
+															   WHEN u.TypeID IN (2) THEN -3 
+													      ELSE -1 END
+										,ValidBetAmount	= SUM(CASE WHEN t.ProductId = 11 AND t.bettype = -1 THEN t.ValidBetAmount ELSE 0 END)
+										,MemberWL		= SUM(CASE WHEN t.ProductId = 15 THEN t.Turnover * 0.0405 + t.BuyBackAmount * 0.15 ELSE CASE WHEN u.TypeID IS NOT NULL THEN 0 ELSE t.MemberWL END END)
+										,Comm			= SUM(CASE WHEN t.ProductId = 31 THEN t.CommissionP + t.CommissionA ELSE 0 END)
+										,LicenseeWL		= -SUM(CASE WHEN u.TypeID IS NOT NULL THEN 0 ELSE t.MemberWL END)
+										,LicensesTO		= SUM(CASE WHEN u.TypeID IS NOT NULL THEN 0 ELSE t.Turnover END)
+										,ExchangePlayerComm = SUM(CASE WHEN t.ProductId = 31 THEN t.CommissionP ELSE 0 END)
+										,HouseContribution = 0
+										,FullContribution = SUM(CASE WHEN u.TypeID = 2 THEN t.ExtraAmount ELSE 0 END)
+									FROM bodb_LicenseeReport.dbo.rpt_BettingByProduct t WITH (NOLOCK)
+									LEFT JOIN bodb_Licensee.dbo.LA_f_GroupBettype() u ON t.bettype = u.bettype
+									WHERE t.rptDate BETWEEN ''''' + CONVERT(VARCHAR(10),@FDateGetData,120) +''''' AND ''''' + CONVERT(VARCHAR(10),@TDateGetData,120) +'''''
+										AND t.ProductId IN (10, 11, 15, 31)
+										AND t.CurrencyId <> 20
+										AND t.CustomerCategory NOT IN (27, 28)
+										AND t.StatusId NOT IN (-1, 101, 102, 103)
+									GROUP BY t.rptDate, t.SiteId, t.CurrencyId, t.ProductId, 
+											CASE WHEN t.bettype = 1706 THEN 1706 
+												 WHEN u.TypeID IN (4,5,6,8) THEN -4 
+												 WHEN u.TypeID IN (2) THEN -3 
+												 ELSE -1 END
 								'')
 			'
-			INSERT INTO #__BettingByProduct (rptDate, LicenseeId, CurrencyId, Product3rdId, BetTypeGroup, ValidBetAmount, MemberWL, Comm, LicenseeWL, LicenseeTO, ExchangePlayerComm)
+			INSERT INTO #__BettingByProduct (rptDate, LicenseeId, CurrencyId, Product3rdId, BetTypeGroup, ValidBetAmount, MemberWL, Comm, LicenseeWL, LicenseeTO, ExchangePlayerComm, HouseContribution, FullContribution)
 			EXEC (@Exec_rpt_BettingByProduct)
 
 			IF @isGetDataFromBettrans = 1 AND @ToDate = @yesterday
@@ -1448,7 +1473,7 @@ BEGIN
 
 		SET @SQL_licperf = '
 			(
-				SELECT  isDePosit, OrderByProduct, OrderByFigure +1 AS OrderByFigure, ProductID, CASE WHEN ProductPrefix IN (''PP-JP'',''SBC-JP'',''VGA-JP'',''SG-JP'') THEN -AliasProductID ELSE AliasProductID END AliasProductID, ProductPrefix, ProductCategory, ProductGroup, ProductName, ProductShortName  
+				SELECT  isDePosit, OrderByProduct, OrderByFigure +1 AS OrderByFigure, ProductID, CASE WHEN ProductPrefix IN (''PP-JP'',''SBC-JP'',''VGA-JP'',''SG-JP'',''AGC-JP'') THEN -AliasProductID ELSE AliasProductID END AliasProductID, ProductPrefix, ProductCategory, ProductGroup, ProductName, ProductShortName  
 						,u.Figure, u.SubFigure, u.isTest, u.isEnable, u.EndOfSupportDate, u.LogicCode, u.LogicDescription 
 				FROM 
 				(
@@ -1488,7 +1513,7 @@ BEGIN
 				UNION ALL
 				SELECT	s.isDePosit, s.OrderByProduct, s.OrderByFigure, s.ProductID, -s.AliasProductID, s.ProductPrefix, s.ProductCategory, s.ProductGroup, s.ProductName, s.ProductShortName  
 						,''Licensee House Income'' Figure, ''Licensee House Income'' SubFigure, s.isTest, s.isEnable, s.EndOfSupportDate, s.LogicCode, s.LogicDescription 	  
-				FROM	bodb_Account.dbo.HNISettings s WITH (NOLOCK) WHERE isDeposit = 1 and LogicCode = 2	and ProductPrefix IN (''PP-JP'',''SBC-JP'',''VGA-JP'',''SG-JP'') AND s.Figure = ''Jackpot Prize''
+				FROM	bodb_Account.dbo.HNISettings s WITH (NOLOCK) WHERE isDeposit = 1 and LogicCode = 2	and ProductPrefix IN (''PP-JP'',''SBC-JP'',''VGA-JP'',''SG-JP'',''AGC-JP'') AND s.Figure = ''Jackpot Prize''
 			) s
 		'
 	END
