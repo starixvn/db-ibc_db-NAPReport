@@ -562,7 +562,8 @@ SET NOCOUNT ON
 		SELECT  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) <> 0 THEN 0
 					ELSE  DATEPART(HOUR, b.transdate) END AS [Hour], srecommend, b.bettype,					
 				
-				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
+				CASE WHEN d.CustID IS NOT NULL THEN NULL 
+					WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
 
 				0 AS BetCount, 
 
@@ -588,6 +589,7 @@ SET NOCOUNT ON
 							ELSE scomm / (1 - tpositiontaking) END) * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8)) * actualrate) ExtraPT							
 				
 		FROM  dbo.Bettrans b WITH (NOLOCK)
+			LEFT JOIN #tmpDummyCust d ON b.custid = d.custid
 		WHERE b.WinlostDate = @WLDate
 			AND b.bettype IN (SELECT Bettype FROM #tmpContributionBettype WHERE RefTable IN (0,3))
 			AND b.ruben = 1
@@ -606,7 +608,8 @@ SET NOCOUNT ON
 			)
 		GROUP BY  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) <> 0 THEN 0
 					ELSE  DATEPART(HOUR, b.transdate) END, 
-				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, 
+				CASE WHEN d.CustID IS NOT NULL THEN NULL 
+					WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, 
 					srecommend, b.bettype
 				
 		OPTION(RECOMPILE)

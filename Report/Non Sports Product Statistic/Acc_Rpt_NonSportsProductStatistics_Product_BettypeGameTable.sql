@@ -561,7 +561,10 @@ BEGIN
 				  ExtraPTBase
 				)
 		SELECT b.Bettype, 
-				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID, b.bettype, b.srecommend,
+				CASE WHEN d.CustID IS NOT NULL THEN NULL 
+					WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID, 
+				
+				b.bettype, b.srecommend,
 				0 AS BetCount, b.Currency,
 
 				SUM(CASE WHEN b.statusID IN (103) THEN 0 ELSE actual_stake END) AS TotalBets,
@@ -599,6 +602,7 @@ BEGIN
 							ELSE scomm / (1 - tpositiontaking) END) * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8)) * actualrate) ExtraPTBase
 
 		FROM dbo.Bettrans b WITH (NOLOCK) 
+			LEFT JOIN #tmpDummyCust d ON b.custid = d.custid
 		WHERE b.WinlostDate = @WLDate
 			AND b.bettype IN (SELECT Bettype FROM #tmpContributionBettype WHERE RefTable IN (0,3))
 			AND b.ruben = 1
@@ -616,7 +620,8 @@ BEGIN
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
 				)
 		GROUP BY b.Bettype, 
-			CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, 
+				CASE WHEN d.CustID IS NOT NULL THEN NULL 
+					WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, 
 				b.Currency, b.srecommend
 		
 		OPTION(RECOMPILE)
