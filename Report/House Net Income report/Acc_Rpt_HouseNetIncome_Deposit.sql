@@ -48,6 +48,7 @@ AS
 		- 20230821@Danny: Integrate Parlay Boost Bonus (#192894)
 		- 20231024@Danny: Change AGC 3rd billing term (#195608)
 		- 20231101@Danny: Change charge rate and tier rebate for Alek group from Oct 2023 (#194561)
+		- 20240115@Danny: Merge the settings of VS1 VS2 VS3 into Virtual Sports (#199544)
         
 */
 BEGIN
@@ -89,7 +90,11 @@ BEGIN
 			@CC_Bonus			MONEY,
 			@SQL_licperf			VARCHAR(MAX) = '',
 			@SB_HouseIncome_total	MONEY,
-			@ExchaneFomularCutoff DATE	= '2023-05-01'
+			@ExchaneFomularCutoff DATE	= '2023-05-01',
+			@SB_SLT_BTC_MergePerfCutoff DATE= '2021-11-30',
+			@AGCPaytoSuplierCutoff DATE  = '2023-10-01',
+			@VSMergeSettingCutoff DATE  = '2024-03-01'
+			
 
 	DECLARE @Product3rd TABLE (Product3rdId INT, ProductPrefix VARCHAR(10))
 	DECLARE @Products TABLE (ProductId INT, Product3rdId INT, AliasProductId INT, ProductCode VARCHAR(50), SubProductCode VARCHAR(50), IsPayToSupplier BIT DEFAULT (0), isOnlyTO BIT DEFAULT (0))
@@ -110,6 +115,7 @@ BEGIN
 	DECLARE @ProductSupportBonus TABLE (ProductID INT)
 	DECLARE @ProductSupportJPContrib TABLE (ProductID INT)
 	DECLARE @ContributionBettypeList TABLE (bettype INT)
+	DECLARE @VSProductList TABLE (ProductID INT)
 
 	CREATE TABLE #AllLicensees(LicenseeId INT, PartyId INT, ParentId INT, SiteId_DW INT)
 	CREATE TABLE #Licensees(LicenseeId INT, PartyId INT, ParentId INT)
@@ -497,6 +503,10 @@ BEGIN
 		SELECT DISTINCT bettype
 		FROM bodb02.dbo.SportBettypeMatrix WITH(NOLOCK)
 		WHERE ProductID IN (SELECT x.ProductID FROM @ProductSupportJPContrib x) AND SubProduct = 'Jackpot Contribution'
+
+		INSERT INTO @VSProductList(ProductID)
+		SELECT Product3rdId
+		FROM @Product3rd WHERE ProductPrefix IN ('VS','VS2','VS3','VS4','LG')
 
 		DELETE #tmpBetType WHERE BettypeGroup = -999
 
@@ -940,7 +950,8 @@ BEGIN
 			INNER JOIN #AllLicensees l ON t.SiteId_DW = l.SiteId_DW
 			INNER JOIN @ExchangeOANDA e ON t.CurrencyId = e.ExchangeId
 			LEFT JOIN #PartyChargeInfo p ON p.PartyId = l.PartyId 
-					AND p.Product3rdId =  CASE	 WHEN @FromDate > '2021-11-30' THEN   CASE WHEN t.Product3rdId IN (0,69,63) THEN 0 ELSE t.Product3rdId END
+					AND p.Product3rdId =  CASE	 WHEN @FromDate > @SB_SLT_BTC_MergePerfCutoff THEN  CASE WHEN t.Product3rdId IN (0,69,63) THEN 0 ELSE t.Product3rdId END
+												 WHEN @FromDate > @VSMergeSettingCutoff THEN CASE WHEN t.Product3rdId IN (5,27,49,77,83) THEN 5 ELSE t.Product3rdId END
 										  ELSE   CASE WHEN t.Product3rdId IN (0,69) THEN 0 ELSE t.Product3rdId END  END
 					AND t.rptDate BETWEEN p.FromDate AND p.ToDate
 					AND (p.Bettype = -1 OR p.Bettype = t.BetTypeGroup)
@@ -980,8 +991,8 @@ BEGIN
 		;WITH CTE_Sum AS
 		(
 			SELECT ParentId, Product3rdId
-				,CASE WHEN @FromDate >= '2023-10-01' THEN 0.07 ELSE CASE WHEN LicenseeWLDaily <= CASE WHEN ParentId = 1 THEN 15000000 ELSE 2500000 END THEN 0.08 ELSE 0.07 END END AS RateDaily
-				,CASE WHEN @FromDate >= '2023-10-01' THEN 0.07 ELSE CASE WHEN LicenseeWLMonth <= CASE WHEN ParentId = 1 THEN 15000000 ELSE 2500000 END THEN 0.08 ELSE 0.07 END END AS RateMonth
+				,CASE WHEN @FromDate >= @AGCPaytoSuplierCutoff THEN 0.07 ELSE CASE WHEN LicenseeWLDaily <= CASE WHEN ParentId = 1 THEN 15000000 ELSE 2500000 END THEN 0.08 ELSE 0.07 END END AS RateDaily
+				,CASE WHEN @FromDate >= @AGCPaytoSuplierCutoff THEN 0.07 ELSE CASE WHEN LicenseeWLMonth <= CASE WHEN ParentId = 1 THEN 15000000 ELSE 2500000 END THEN 0.08 ELSE 0.07 END END AS RateMonth
 			FROM
 			(
 				SELECT r.ParentId, r.Product3rdId
@@ -1146,9 +1157,13 @@ BEGIN
 			WHERE t.Product3rdId = 2 AND  t.PartyId NOT IN (SELECT p.PartyId FROM @9wLicenseeList p)
 
 		UPDATE r
-		SET r.HouseIncome = CASE WHEN r.HouseIncome > 0 THEN r.HouseIncome ELSE 0 END
+		SET r.HouseIncome = CASE  WHEN ( r.Product3rdId IN (SELECT z.ProductID FROM @VSProductList z) AND @FromDate >= @VSMergeSettingCutoff) THEN r.HouseIncome
+								WHEN r.HouseIncome > 0 THEN r.HouseIncome ELSE 0 END
 			,r.LicenseeFee = CASE
-						WHEN r.Product3rdId IN (3,25,31,37,74) OR r.Product3rdId IN (SELECT x.ProductID FROM @ProductSupportJPContrib x) THEN LicenseeFee
+						WHEN r.Product3rdId IN (3,25,31,37,74) 
+							OR r.Product3rdId IN (SELECT x.ProductID FROM @ProductSupportJPContrib x) 
+							OR ( r.Product3rdId IN (SELECT z.ProductID FROM @VSProductList z) AND @FromDate >= @VSMergeSettingCutoff)
+							THEN LicenseeFee
 						WHEN r.LicenseeFee > 0 THEN r.LicenseeFee ELSE 0 END
 		FROM #tmpResult r
 		WHERE r.Product3rdId <> 2
@@ -1156,7 +1171,24 @@ BEGIN
 				r.Product3rdId IN (3,25,31,37,74) -- BA, Cashout 
 				OR r.Product3rdId IN (SELECT x.ProductID FROM @ProductSupportJPContrib x)
 				OR r.PartyId NOT IN (SELECT p.PartyId FROM @9wLicenseeList p)
+				OR ( r.Product3rdId IN (SELECT z.ProductID FROM @VSProductList z) AND @FromDate >= @VSMergeSettingCutoff)
 			)
+
+		-- Handle VS product performance after cutoff date
+		IF @FromDate >= @VSMergeSettingCutoff
+		BEGIN
+			;WITH t AS
+			(
+				SELECT PartyId, SUM(LicenseeFee) TotalLicenseeFee FROM #tmpResult tmp
+				INNER JOIN @VSProductList vs ON vs.ProductID = tmp.Product3rdId
+				GROUP BY PartyId
+			)UPDATE r
+			SET r.HouseIncome = 0, r.LicenseeFee = 0
+			FROM #tmpResult r
+			INNER JOIN t ON r.PartyId = t.PartyId
+			WHERE t.TotalLicenseeFee < 0  AND r.Product3rdId IN (SELECT z.ProductID FROM @VSProductList z)
+
+		END
 
 		-- Handle Bitcoin, SLT (Cutoff 2021-11-30)
 		;WITH btc_partyList AS
@@ -1192,7 +1224,7 @@ BEGIN
 		WHERE t.Product3rdId = 0 AND t.AliasProductId = -2
 		
 		-- SLT
-		IF @FromDate > '2021-11-30'
+		IF @FromDate > @SB_SLT_BTC_MergePerfCutoff
 		BEGIN
 			DELETE #tmpResult WHERE Product3rdId = 63
 
@@ -1313,7 +1345,7 @@ BEGIN
 				HAVING SUM(t.MemberWLMonth) < 0
 			) r
 		) t
-	WHERE r.Product3rdId IN (5, 10, 11, 22, 27)
+	WHERE ( r.Product3rdId IN (10, 11, 22)  OR  r.Product3rdId IN (SELECT z.ProductID FROM @VSProductList z))
 		AND rptDate = 'Monthly'
 		
 		-- 1.2 Pay to supplier month
@@ -1325,7 +1357,8 @@ BEGIN
 			FROM #__tempResult t
 			WHERE t.Product3rdId = r.Product3rdId AND t.AliasProductId = r.AliasProductId
 		) t
-	WHERE r.Product3rdId NOT IN (5, 10, 11, 22, 27, 34)
+	WHERE r.Product3rdId NOT IN (10, 11, 22, 34) 
+	    AND r.Product3rdId NOT IN (SELECT z.ProductID FROM @VSProductList z)
 		AND rptDate = 'Monthly'
 
 		-- 1.3 House Income = sum up Total daily

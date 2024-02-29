@@ -12,6 +12,7 @@ AS
 		- 20210413@Danny: Initialize SP [RedmineID: #151993]
 		- 20220310@Danny: get SB bettype dynamically (#169768)
         - 20230817@Ned.Le: Remove currency test
+		- 20240123@Danny: Merge the settings of VS1 VS2 VS3 into Virtual Sports (#199544)
 
 	Exec Acc_Rpt_FactSiteWinloss_Bettrans '2021-05-12' , 0
 
@@ -363,11 +364,12 @@ BEGIN
 			,b.actualrate
 			,b.currency
 			,b.recommend
-			,CASE WHEN b.bettype = 2799 THEN b.refno ELSE 0 END refno
+			,CASE WHEN bg.bettype IS NOT NULL THEN b.refno ELSE 0 END refno
 			,b.virtualrate
 			,NULL ContributionStake3rd
 		FROM bodb02.dbo.bettrans b (NOLOCK)
 		LEFT JOIN  #tmpSBBettype bt ON b.bettype = bt.Bettype
+		LEFT JOIN  #tmpDW_BettypeGroup bg ON b.bettype = bg.Bettype AND bg.BettypeGroupID = 18
 		WHERE b.winlostdate = @winlostdate
 			  AND b.bettype IN (SELECT typeid FROM #tmpDWBettypeSource where SourceTable='bettrans')
 			  AND b.statusID IN (111, 112, 113)
@@ -386,7 +388,7 @@ BEGIN
 				,b.actualrate
 				,b.currency
 				,b.recommend
-				,CASE WHEN b.bettype = 2799 THEN b.refno ELSE 0 END
+				,CASE WHEN bg.bettype IS NOT NULL THEN b.refno ELSE 0 END
 				,b.virtualrate
 		OPTION (RECOMPILE)
 		
@@ -522,8 +524,8 @@ BEGIN
 		FROM bodb02.dbo.bettransm (NOLOCK)
 		WHERE refno IN (SELECT refno
 						FROM bodb02.dbo.bettrans (NOLOCK)
-						WHERE bettype=2799
-							  AND matchid = 2799
+						WHERE bettype IN (SELECT x.bettype FROM #tmpDW_BettypeGroup x WHERE x.BettypeGroupID = 18)
+							  AND matchid IN (SELECT x1.bettype FROM #tmpDW_BettypeGroup x1 WHERE x1.BettypeGroupID = 18)
 							  AND winlostdate = CAST(@winlostdate AS SMALLDATETIME))
 		GROUP BY refno
 
@@ -531,7 +533,7 @@ BEGIN
 		SET b.matchid = sm.matchid
 		FROM #tmpbettrans b
 			 LEFT JOIN #tmpbettransm sm ON b.refno = sm.refno
-		WHERE b.bettype = 2799
+		WHERE b.bettype IN (SELECT x.bettype FROM #tmpDW_BettypeGroup x WHERE x.BettypeGroupID = 18)
 
 		DROP TABLE #tmpbettransm
 
