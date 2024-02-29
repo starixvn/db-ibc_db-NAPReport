@@ -15,6 +15,8 @@ AS
 		20230522@Roy: Risk and Control - YeeBet - Integrate new Live Casino product (#186474)
 		20230720@Roy: Risk and Control - LG Virtual Sports - Incorporate new product (#189202)
 		20231114@Roy: CWL - Risk and Control - WE Live Casino - Integrate new product (#195888)
+		20231206@Roy: CWL - Non Sports Report - Live22 - Integrate New Product (#195092)
+		20240223@Roy: Email/Letstalk - Virtual Sports 4 - Edge Gaming (#198628)
 
 	Param's Explanation:
 		@FromGMT8Time: start of time range in GMT+8 with format 2021-05-20 19:00:00
@@ -102,6 +104,7 @@ BEGIN
 			,(27, 'Virtual Sports 2', 108, 5000)
 			,(49, 'Virtual Sports 3 (Old)', 108, 5000)
 			,(77, 'Virtual Sports 3', 108, 5000)
+			,(83, 'Virtual Sports 4	', 108, 5000)
 			,(69, 'Bitcoin', 108, 5000)
 			
 			-------------Slot-------------
@@ -118,6 +121,7 @@ BEGIN
 			,(72, 'SEAL Entertainment', 300, 5000)
 			,(36, 'SG', 300, 5000)
 			,(75, 'Jili', 300, 5000)
+			,(79, 'Live22', 300, 5000)
 		) AS tmp (ProductID, ProductName, ThresholdPCT, MinWin)
 
 	DECLARE @isTest BIT = 0
