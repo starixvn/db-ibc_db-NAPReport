@@ -62,6 +62,7 @@ AS
 		20230609@Cherry: Not include dummy accounts in BetCount, NoOfPlayers (#188994)
 		20230801@Cherry: Integrate Virtual Sports 3 (#189202)
 		20240116@Cherry: Integrate Virtual Sports 4 (#198623)
+		20240220@Cherry: Integrate AG Casino Jackpot Contribution (#200503)
 
 	Param's Explanation:
 		- @username:  + Search by keyword, member only
@@ -182,7 +183,7 @@ BEGIN
 	CREATE TABLE #tmp_Site			(Site VARCHAR(50))
 	CREATE TABLE #tmp_MemIDs		(CustID INT)
 	CREATE TABLE #ExtraComm (ProductID INT, SuperID INT, ExtraComm DECIMAL(9, 8))
-	CREATE TABLE #tmpContributionBettype (Bettype INT)		 
+	CREATE TABLE #tmpContributionBettype (Bettype INT, RefTable SMALLINT)		 
 	CREATE TABLE #tmpSportBetType (Sporttype INT, Bettype INT)  
 	CREATE TABLE #tmpHouseProduct (ProductID INT)
 	CREATE TABLE #tmpDummyCust (CustID INT)
@@ -410,6 +411,11 @@ BEGIN
 	SELECT Bettype
 	FROM DBWH.bodb_Account.dbo.BettypeGroup WITH (NOLOCK)
 	WHERE BettypeGroupID = 10
+
+	UPDATE b
+	SET b.RefTable = s.RefTable
+	FROM #tmpContributionBettype b
+		INNER JOIN #SportBettype s ON b.Bettype = s.Bettype
 	
 	DELETE #tmpContributionBettype
 	WHERE bettype NOT IN (SELECT bettype FROM #SportBettype) 
@@ -515,6 +521,91 @@ BEGIN
 		GROUP BY b.Bettype, 
 			CASE WHEN d.CustID IS NOT NULL THEN NULL 
 				WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, 
+			b.Currency, b.srecommend
+		
+		OPTION(RECOMPILE)
+
+		INSERT INTO #Data
+				( ReportBy,
+				  bettype,
+				  srecommend,
+				  CustID ,
+				  BetCount ,
+				  CurrencyID ,	         
+				  TotalBets ,
+				  TotalBetsBase ,
+				  TotalWins ,
+				  TotalWinsBase ,
+				  TotalRefund ,
+				  TotalRefundBase ,
+				  CompanyTurnOver ,
+				  CompanyTurnOverBase ,
+				  RealTurnOver ,
+				  RealTurnOverBase ,
+				  CompanyGrossIncome ,
+				  CompanyGrossIncomeBase ,
+				  CompanyComm ,
+				  CompanyCommBase,
+				  ExtraPT,
+				  ExtraPTBase
+				)
+		SELECT b.Bettype ReportBy, b.bettype, b.srecommend,
+				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
+				0 AS BetCount, b.Currency,
+
+				SUM(CASE WHEN b.statusID IN (103) THEN 0 ELSE actual_stake END) AS TotalBets,
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 ELSE actual_stake END) * actualrate)  AS TotalBetsBase,
+
+				SUM(CASE WHEN b.statusID IN (103) THEN 0 ELSE winlost END) AS TotalWins,
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 ELSE winlost END) * actualrate) AS TotalWinsBase,
+
+				SUM(CASE WHEN b.statusID IN (103) THEN actual_stake ELSE 0 END) AS TotalRefund,
+				SUM((CASE WHEN b.statusID IN (103) THEN actual_stake ELSE 0 END)  * actualrate) AS TotalRefundBase,
+
+				SUM(CASE WHEN b.statusID IN (103) THEN 0 
+						WHEN b.tpositiontaking = 1 THEN 0
+						ELSE (1 - b.tpositiontaking - CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) * b.stake END) AS CompanyTurnover,	
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 
+						WHEN b.tpositiontaking = 1 THEN 0
+						ELSE (1 - b.tpositiontaking - CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) * b.stake END) * actualrate) AS CompanyTurnoverBase,	
+						
+				SUM(CASE WHEN b.statusID IN (103) THEN 0 
+						WHEN b.tpositiontaking = 1 THEN 0
+						ELSE (1 - b.tpositiontaking - CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) * b.oddsspread END) AS RealTurnover,	
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 
+						WHEN b.tpositiontaking = 1 THEN 0
+						ELSE (1 - b.tpositiontaking - CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) * b.oddsspread END) * actualrate) AS RealTurnoverBase,		
+								
+				- SUM(ISNULL(b.betid,0)/100000000 + awinlost + mwinlost + swinlost) AS CompanyGrossIncome,
+				- SUM((ISNULL(b.betid,0)/100000000 + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeBase,
+
+				- SUM(scomm) AS CompanyComm,
+				- SUM(scomm * actualrate) AS CompanyCommBase,
+				
+				- SUM((ISNULL(b.betid,0)/100000000 + CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) ExtraPT,
+				- SUM((ISNULL(b.betid,0)/100000000 + CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8)) * actualrate) ExtraPTBase							
+
+		FROM dbo.Bettrans b WITH (NOLOCK) 
+		WHERE b.WinlostDate = @WLDate
+			AND b.bettype IN (SELECT Bettype FROM #tmpContributionBettype WHERE RefTable IN (0,3))
+			AND b.ruben = 1
+			AND b.statusID IN (111, 112, 113, 103) 
+			AND (@ExcludeTest = 0 OR (b.Currency <> 20 AND @ExcludeTest = 1))
+			AND (@currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId)) 
+			AND (@Username = '' OR EXISTS (SELECT 1 From #tmp_MemIDs m WHERE m.CustID = b.custId))
+			AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
+			AND ( @Site = 'ALL'
+				  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
+				)
+			AND (
+				@HousePTType = 0
+				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) 
+				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
+				)
+		GROUP BY b.Bettype, 
+			CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, 
 			b.Currency, b.srecommend
 		
 		OPTION(RECOMPILE)
@@ -677,10 +768,10 @@ BEGIN
 		END
 		
 		DELETE d
-		FROM #Data d INNER JOIN #tmpContributionBettype b ON d.bettype = b.bettype
+		FROM #Data d INNER JOIN #tmpContributionBettype b ON d.bettype = b.bettype AND b.RefTable = 1
 		WHERE d.bettype IN (SELECT Bettype FROM #tmpSportBetType)
 		
-		IF EXISTS(SELECT 1 FROM #tmpContributionBettype) 
+		IF EXISTS(SELECT 1 FROM #tmpContributionBettype WHERE RefTable = 1) 
 		BEGIN
 			INSERT INTO #Data
 					( ReportBy ,
@@ -738,7 +829,7 @@ BEGIN
 			FROM dbo.bettransRnG b WITH (NOLOCK)
 				LEFT JOIN #tmpSportBetType s ON b.gameID = s.Bettype
 			WHERE b.winlostdate = @WLDate
-				AND b.gameID IN (SELECT Bettype FROM #tmpContributionBettype) 
+				AND b.gameID IN (SELECT Bettype FROM #tmpContributionBettype WHERE RefTable = 1) 
 				AND (s.Bettype IS NULL
 					OR b.productid = s.Sporttype and b.gameid = s.Bettype
 					)
