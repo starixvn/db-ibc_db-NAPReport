@@ -224,6 +224,7 @@ BEGIN
 			WHEN ProductName = 'WE Live Casino' THEN 'WE LC'
 			-- WHEN ProductName = 'Live22' THEN 'Live22' --the same - no need
 			WHEN ProductName = 'Virtual Sports 4' THEN 'VirtSpo4'
+			WHEN ProductName = 'SEAL Entertainment' THEN 'SealE'
 			ELSE ProductName END)
 	
 	SELECT @EX3rdName = rd.ProductName
