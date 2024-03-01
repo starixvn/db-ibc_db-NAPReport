@@ -9,6 +9,7 @@ AS
 
 	Revisions:
 		20231228@Cherry: Letstalk Reports - Implement Non-Sports TO & Margin and Licensee Turnover Margin (#198557)
+		20240229@Roy: AG Casino - Email/Letstalk Reports - Add promotion & Jackpot bet type (#200523)
 		
 
 	Param's Explanation:
@@ -330,8 +331,9 @@ BEGIN
 			,CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9,6)) AS VarianceVR
 			--------------------------------------------------------------------------
 			,SUM((CASE WHEN bg.BettypeGroupID = 6 THEN 0 --Prize Tickets
-				  WHEN bg.BettypeGroupID = 10 THEN b.swinlost + b.mwinlost + b.awinlost --Contribution Tickets
-				  ELSE (b.winlost - b.actual_stake) + b.swinlost + b.mwinlost + b.awinlost
+				--Contribution Tickets: normal in [bettransRnG] - except(1802) - special in [bettrans] (ContributionStake3rd = ISNULL(betid, 0)/100000000)
+					WHEN bg.BettypeGroupID = 10 THEN (ISNULL(b.betid, 0)/100000000) + b.swinlost + b.mwinlost + b.awinlost
+					ELSE (b.winlost - b.actual_stake) + b.swinlost + b.mwinlost + b.awinlost
 				END)  * b.actualrate) AS WinlossIBC
 			,SUM(CASE WHEN b.tpositiontaking = 1 THEN 0
 					ELSE (b.winlost - b.actual_stake) * CAST(b.epositiontaking AS DECIMAL(10, 8)) * b.actualrate
