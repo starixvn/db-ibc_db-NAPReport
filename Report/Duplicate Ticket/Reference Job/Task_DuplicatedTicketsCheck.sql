@@ -130,7 +130,7 @@ BEGIN
 	INSERT INTO @bettype (bettype)
 	SELECT bettype
 	FROM bodb02.dbo.f_SportBettypeMatrix_Sel (0, 0, 0, 2, '', '', @isTest)
-	WHERE (ProductID IN (1, 3, 26)
+	WHERE (ProductID IN (1, 3, 25, 26)
     		OR ProductID IN (SELECT val FROM bodb02.dbo.strSplit(@VSProductIDs, ',')))
 		AND BetType NOT IN (500, 912, 913, 914)
 	GROUP BY BetType
