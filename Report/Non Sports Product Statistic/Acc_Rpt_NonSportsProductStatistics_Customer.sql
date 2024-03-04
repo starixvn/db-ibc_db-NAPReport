@@ -789,14 +789,14 @@ BEGIN
 			SUM((CASE WHEN b.statusID IN (103) THEN 0 
 					WHEN b.tpositiontaking = 1 THEN 0
 					ELSE (1 - b.tpositiontaking - CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) * b.oddsspread END) * actualrate) AS RealTurnoverBase,
-			SUM(ISNULL(b.betid,0)/100000000 + awinlost + mwinlost + swinlost) AS CompanyGrossIncome,
-			SUM((ISNULL(b.betid,0)/100000000 + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeBase,
+			SUM(ISNULL(b.betid,0.0)/100000000.0 + awinlost + mwinlost + swinlost) AS CompanyGrossIncome,
+			SUM((ISNULL(b.betid,0.0)/100000000.0 + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeBase,
 			SUM(scomm) AS CompanyComm,
 			SUM(scomm * actualrate) AS CompanyCommBase,
 			SUM(CASE WHEN b.statusID IN (103) THEN 0 ELSE 1 - b.tpositiontaking END) AS HousePT,
-			SUM((ISNULL(b.betid,0)/100000000 + CASE WHEN tpositiontaking = 1 THEN 0
+			SUM((ISNULL(b.betid,0.0)/100000000.0 + CASE WHEN tpositiontaking = 1 THEN 0
 					ELSE scomm / (1 - tpositiontaking) END) * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) ExtraPT,
-			SUM((ISNULL(b.betid,0)/100000000 + CASE WHEN tpositiontaking = 1 THEN 0
+			SUM((ISNULL(b.betid,0.0)/100000000.0 + CASE WHEN tpositiontaking = 1 THEN 0
 					ELSE scomm / (1 - tpositiontaking) END) * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8)) * actualrate) ExtraPTBase,							
 			COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS RowNum			
 		FROM  dbo.bettrans b WITH (NOLOCK)
