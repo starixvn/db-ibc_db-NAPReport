@@ -353,7 +353,7 @@ BEGIN
 			--------------------------------------------------------------------------
 			,SUM((CASE WHEN bg.BettypeGroupID = 6 THEN 0 --Prize Tickets
 				--Contribution Tickets: normal in [bettransRnG] - except(1802) - special in [bettrans] (ContributionStake3rd = ISNULL(betid, 0)/100000000)
-					WHEN bg.BettypeGroupID = 10 THEN (ISNULL(b.betid, 0)/100000000) + b.swinlost + b.mwinlost + b.awinlost
+					WHEN bg.BettypeGroupID = 10 THEN (ISNULL(b.betid, 0)/100000000.0) + b.swinlost + b.mwinlost + b.awinlost
 					ELSE (b.winlost - b.actual_stake) + b.swinlost + b.mwinlost + b.awinlost
 				END) * b.actualrate) AS WinlossIBC
 			,SUM(CASE WHEN b.tpositiontaking = 1 THEN 0
