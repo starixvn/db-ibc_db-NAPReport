@@ -114,7 +114,7 @@ BEGIN
 	DECLARE @tmpResult_licperf TABLE(PartyId INT ,Product3rdId	INT ,AliasProductId	INT)
 	DECLARE @SBGrossHouseIncome TABLE (Product3rdId	INT, AliasProductId INT, HouseIncome MONEY DEFAULT(0))
 	DECLARE @ProductSupportBonus TABLE (ProductID INT)
-	DECLARE @ProductSupportJPContrib TABLE (ProductID INT)
+	DECLARE @ProductSupportJPContrib TABLE (ProductID INT, Product3rdId INT)
 	DECLARE @ContributionBettypeList TABLE (bettype INT)
 	DECLARE @VSProductList TABLE (ProductID INT)
 
@@ -157,7 +157,7 @@ BEGIN
 		LicenseeId INT, 
 		CurrencyId INT, 
 		Product3rdId INT, 
-		BetTypeGroup INT, 
+		BetTypeGroup INT, -- Store bettype
 		ValidBetAmount MONEY, 
 		MemberWL MONEY, 
 		Comm MONEY, 
@@ -166,8 +166,7 @@ BEGIN
 		ExchangePlayerComm MONEY,
 		HouseContribution  MONEY,
 		FullContribution	MONEY
-	)
-	CREATE TABLE #__tempResult
+	)	CREATE TABLE #__tempResult
 	(
 		rptDate				DATETIME
 		,CurrencyId			INT
@@ -317,6 +316,7 @@ BEGIN
 
 		;WITH CTE_Product AS (SELECT DISTINCT SubProductCode FROM @Products)
 		SELECT @SubProducts = COALESCE(@SubProducts + ',', '') + SubProductCode FROM CTE_Product
+
 	END
 
 	-- Get Exchange
@@ -511,8 +511,8 @@ BEGIN
 		INSERT INTO @ProductSupportBonus(ProductID)
 		SELECT DISTINCT Product3rdId FROM #tmpBetType WHERE BettypeGroup = -4
 
-		INSERT INTO @ProductSupportJPContrib(ProductID)
-		SELECT DISTINCT Product3rdId FROM #tmpBetType WHERE BettypeGroup = -999 
+		INSERT INTO @ProductSupportJPContrib(ProductID, Product3rdId)
+		SELECT DISTINCT AliasProductId, Product3rdId  FROM #tmpBetType WHERE BettypeGroup = -999 
 
 		INSERT INTO @ContributionBettypeList(bettype)
 		SELECT DISTINCT bettype
@@ -528,8 +528,9 @@ BEGIN
 		INSERT INTO #tmpBetType (Product3rdId, AliasProductId, BetType, BettypeGroup, IsOnlyTO)
 		SELECT DISTINCT p.Product3rdId, p.AliasProductId, gb.Bettype, -3 BettypeGroup, p.IsOnlyTO
 		FROM @Products p
-		INNER JOIN bodb02.dbo.SportBettypeMatrix gb WITH(NOLOCK) oN p.Product3rdId = gb.ProductID AND gb.SubProduct IN ('Jackpot Contribution','Jackpot Prize')
+		INNER JOIN bodb02.dbo.SportBettypeMatrix gb WITH(NOLOCK) oN p.ProductId = gb.ProductID AND gb.SubProduct IN ('Jackpot Contribution','Jackpot Prize')
 		WHERE p.SubProductCode IN ('PP-JP', 'VGA-JP', 'SBC-JP', 'SG-JP', 'AGC-JP')
+
 		--- 
 		IF @isGetDataFromBettrans = 1 AND @ToDate = @yesterday
 		BEGIN
@@ -651,30 +652,23 @@ BEGIN
 			SELECT rptDate, SiteId, CurrencyId, ProductId, BetTypeGroup, ValidBetAmount, MemberWL, Comm, LicenseeWL, LicensesTO, ExchangePlayerComm, HouseContribution, FullContribution
 			FROM OPENQUERY (DBLIC,''	
 								SELECT  t.rptDate, t.SiteId, t.CurrencyId, t.ProductId
-										,BetTypeGroup	= CASE WHEN t.bettype = 1706 THEN 1706 
-															   WHEN u.TypeID IN (4,5,6,8) THEN -4 
-															   WHEN u.TypeID IN (2) THEN -3 
-													      ELSE -1 END
+										,BetTypeGroup	= t.bettype
 										,ValidBetAmount	= SUM(CASE WHEN t.ProductId = 11 AND t.bettype = -1 THEN t.ValidBetAmount ELSE 0 END)
-										,MemberWL		= SUM(CASE WHEN t.ProductId = 15 THEN t.Turnover * 0.0405 + t.BuyBackAmount * 0.15 ELSE CASE WHEN u.TypeID IS NOT NULL THEN 0 ELSE t.MemberWL END END)
+										,MemberWL		= SUM(CASE WHEN t.ProductId = 15 THEN t.Turnover * 0.0405 + t.BuyBackAmount * 0.15 ELSE t.MemberWL END)
 										,Comm			= SUM(CASE WHEN t.ProductId = 31 THEN t.CommissionP + t.CommissionA ELSE 0 END)
-										,LicenseeWL		= -SUM(CASE WHEN u.TypeID IS NOT NULL THEN 0 ELSE t.MemberWL END)
-										,LicensesTO		= SUM(CASE WHEN u.TypeID IS NOT NULL THEN 0 ELSE t.Turnover END)
+										,LicenseeWL		= -SUM(t.MemberWL)
+										,LicensesTO		= SUM(t.Turnover)
 										,ExchangePlayerComm = SUM(CASE WHEN t.ProductId = 31 THEN t.CommissionP ELSE 0 END)
 										,HouseContribution = 0
-										,FullContribution = SUM(CASE WHEN u.TypeID = 2 THEN t.ExtraAmount ELSE 0 END)
+										,FullContribution = SUM(t.ExtraAmount)
 									FROM bodb_LicenseeReport.dbo.rpt_BettingByProduct t WITH (NOLOCK)
-									LEFT JOIN bodb_Licensee.dbo.LA_f_GroupBettype() u ON t.bettype = u.bettype
+									--LEFT JOIN bodb_Licensee.dbo.LA_f_GroupBettype() u ON t.bettype = u.bettype
 									WHERE t.rptDate BETWEEN ''''' + CONVERT(VARCHAR(10),@FDateGetData,120) +''''' AND ''''' + CONVERT(VARCHAR(10),@TDateGetData,120) +'''''
 										AND t.ProductId IN (10, 11, 15, 31)
 										AND t.CurrencyId <> 20
 										AND t.CustomerCategory NOT IN (27, 28)
 										AND t.StatusId NOT IN (-1, 101, 102, 103)
-									GROUP BY t.rptDate, t.SiteId, t.CurrencyId, t.ProductId, 
-											CASE WHEN t.bettype = 1706 THEN 1706 
-												 WHEN u.TypeID IN (4,5,6,8) THEN -4 
-												 WHEN u.TypeID IN (2) THEN -3 
-												 ELSE -1 END
+									GROUP BY t.rptDate, t.SiteId, t.CurrencyId, t.ProductId, t.bettype
 								'')
 			'
 			INSERT INTO #__BettingByProduct (rptDate, LicenseeId, CurrencyId, Product3rdId, BetTypeGroup, ValidBetAmount, MemberWL, Comm, LicenseeWL, LicenseeTO, ExchangePlayerComm, HouseContribution, FullContribution)
@@ -682,14 +676,28 @@ BEGIN
 
 			IF @isGetDataFromBettrans = 1 AND @ToDate = @yesterday
 			BEGIN
-				INSERT INTO #__BettingByProduct (rptDate, LicenseeId, CurrencyId, Product3rdId, BetTypeGroup, ValidBetAmount, MemberWL, Comm, LicenseeWL, LicenseeTO, ExchangePlayerComm)
+				INSERT INTO #__BettingByProduct (rptDate, LicenseeId, CurrencyId, Product3rdId, BetTypeGroup, ValidBetAmount, MemberWL, Comm, LicenseeWL, LicenseeTO, ExchangePlayerComm, HouseContribution, FullContribution)
 				EXEC DBEXT.bodb02.dbo.Acc_rpt_rptBettingByProduct_Bettrans @winlostdate = @yesterday
 			END
 
-			INSERT INTO #__tempData (rptDate, SiteId_DW, CurrencyId, Product3rdId, AliasProductId, BetTypeGroup, ValidBetAmount, MemberWL, Comm, LicenseeWL, LicenseeTO, ExchangePlayerComm)
-			SELECT b.rptDate, s.SiteId_DW, b.CurrencyId, b.Product3rdId, p.AliasProductId, b.BetTypeGroup, b.ValidBetAmount, b.MemberWL, b.Comm, b.LicenseeWL, b.LicenseeTO, b.ExchangePlayerComm
+			INSERT INTO #__tempData (rptDate, SiteId_DW, CurrencyId, Product3rdId, AliasProductId, BetTypeGroup, ValidBetAmount, MemberWL, Comm, LicenseeWL, LicenseeTO, ExchangePlayerComm, HouseContribution, FullContribution)
+			SELECT	b.rptDate, 
+					s.SiteId_DW, 
+					b.CurrencyId, 
+					b.Product3rdId, 
+					CASE WHEN b.Product3rdId = 10 THEN 11 ELSE  ISNULL(tb.AliasProductId, b.Product3rdId) END AliasProductId, 
+					ISNULL(tb.BetTypeGroup,b.BetTypeGroup) BetTypeGroup, 
+					b.ValidBetAmount, 
+					CASE WHEN cb.bettype IS NOT NULL THEN 0 ELSE b.MemberWL END, 
+					b.Comm, 
+					CASE WHEN cb.bettype IS NOT NULL THEN 0 ELSE b.LicenseeWL END, 
+					CASE WHEN cb.bettype IS NOT NULL THEN 0 ELSE b.LicenseeTO END, 
+					b.ExchangePlayerComm, 
+					b.HouseContribution, 
+					CASE WHEN cb.bettype IS NOT NULL THEN b.FullContribution ELSE 0 END
 			FROM #__BettingByProduct b
-				INNER JOIN @Products p ON b.Product3rdId = p.Product3rdId AND p.Product3rdId IN (10, 11, 15, 31)
+				LEFT JOIN #tmpBetType tb ON b.BetTypeGroup = tb.BetType
+				LEFT JOIN @ContributionBettypeList cb ON cb.BetType = tb.BetType
 				INNER JOIN #tmpSite s ON b.LicenseeId = s.LicenseeId
 
 			DROP TABLE #__BettingByProduct
@@ -735,8 +743,8 @@ BEGIN
 					,SUM(b.TurnoverIBC * CASE WHEN b.VarianceVR > 0 THEN b.VarianceVR + 1.0 ELSE 1.0 END * CASE WHEN b.TicketStatus = 3 THEN 0 WHEN b.TicketStatus IN (12, 13) THEN 0.5 ELSE 1.0 END) AS HouseTO -- VarianceVR = virtualrate/actualrate - 1
 					---- HouseTO change formula, will get MemberTO * ChargeRate
 					,SUM(b.Stake * CASE WHEN b.VarianceVR > 0 THEN b.VarianceVR + 1.0 ELSE 1.0 END * CASE WHEN b.TicketStatus = 3 THEN 0 WHEN b.TicketStatus IN (12, 13) THEN 0.5 ELSE 1.0 END) AS Stake -- VarianceVR = virtualrate/actualrate - 1
-					,SUM(CASE WHEN cb.bettype IS NOT NULL THEN  b.WinlossIBC ELSE 0 END) AS HouseContribution
-					,SUM(CASE WHEN cb.bettype IS NOT NULL THEN b.WinlossIBC-b.WinlossS-b.WinlossM-b.WinlossA ELSE 0 END) AS FullContribution
+					,SUM(CASE WHEN bt.IsOnlyTO <> 1 AND cb.bettype IS NOT NULL THEN  b.WinlossIBC ELSE 0 END) AS HouseContribution
+					,SUM(CASE WHEN bt.IsOnlyTO <> 1 AND cb.bettype IS NOT NULL THEN b.WinlossIBC-b.WinlossS-b.WinlossM-b.WinlossA ELSE 0 END) AS FullContribution
 
 					-- Licensee performance
 					,-SUM(CASE
@@ -813,8 +821,8 @@ BEGIN
 					,SUM(b.TurnoverIBC * CASE WHEN b.VarianceVR > 0 THEN b.VarianceVR + 1.0 ELSE 1.0 END * CASE WHEN b.TicketStatus = 3 THEN 0 WHEN b.TicketStatus IN (12, 13) THEN 0.5 ELSE 1.0 END) AS HouseTO -- VarianceVR = virtualrate/actualrate - 1
 					---- HouseTO change formula, will get MemberTO * ChargeRate
 					,SUM(b.Stake * CASE WHEN b.VarianceVR > 0 THEN b.VarianceVR + 1.0 ELSE 1.0 END * CASE WHEN b.TicketStatus = 3 THEN 0 WHEN b.TicketStatus IN (12, 13) THEN 0.5 ELSE 1.0 END) AS Stake -- VarianceVR = virtualrate/actualrate - 1
-					,SUM(CASE WHEN cb.bettype IS NOT NULL THEN b.WinlossIBC ELSE 0 END) AS HouseContribution
-					,SUM(CASE WHEN cb.bettype IS NOT NULL THEN b.WinlossIBC-b.WinlossS-b.WinlossM-b.WinlossA ELSE 0 END) AS FullContribution
+					,SUM(CASE WHEN bt.IsOnlyTO <> 1 AND cb.bettype IS NOT NULL THEN b.WinlossIBC ELSE 0 END) AS HouseContribution
+					,SUM(CASE WHEN bt.IsOnlyTO <> 1 AND cb.bettype IS NOT NULL THEN b.WinlossIBC-b.WinlossS-b.WinlossM-b.WinlossA ELSE 0 END) AS FullContribution
 					-- Licensee performance
 					,-SUM(CASE
 							WHEN bt.IsOnlyTO = 1 OR cb.bettype IS NOT NULL THEN 0
@@ -905,9 +913,9 @@ BEGIN
 							WHEN t.Product3rdId IN (8, 28) THEN CASE WHEN l.PartyId = 14 THEN 1 ELSE 2 END
 							WHEN t.Product3rdId = 40 THEN CASE WHEN l.PartyId = 14 THEN -1 ELSE l.ParentId END
 							END
-			,OriginalMemberWLDaily	= SUM(t.MemberWL)
+			,OriginalMemberWLDaily	= SUM(CASE WHEN t.Product3rdId = 37 OR p.PartyId IS NOT NULL THEN t.MemberWL ELSE 0 END)
 			,OriginalMemberWLMonth	= SUM(CASE WHEN t.Product3rdId = 37 OR p.PartyId IS NOT NULL THEN t.MemberWL ELSE 0 END)
-			,MemberWLDailyMonth		= SUM(t.MemberWL * e.Rate)
+			,MemberWLDailyMonth		= SUM(CASE WHEN t.Product3rdId = 37 OR p.PartyId IS NOT NULL THEN t.MemberWL ELSE 0 END * e.Rate)
 			,MemberWLMonth			= SUM(CASE WHEN t.Product3rdId = 37 OR p.PartyId IS NOT NULL THEN t.MemberWL ELSE 0 END * e.Rate)
 			,CommDaily				= SUM(t.Comm * e.Rate)
 			,CommMonth				= SUM(CASE WHEN t.Product3rdId = 37 OR p.PartyId IS NOT NULL THEN t.Comm ELSE 0 END * e.Rate)
@@ -919,7 +927,7 @@ BEGIN
 																					ELSE 0.05 END -- KN, LT
 											WHEN t.Product3rdId = 22 THEN CASE WHEN t.BetTypeGroup = 1 THEN 0.045 ELSE 0.035 END -- VB (Macau Games)
 											WHEN t.Product3rdId = 27 THEN 0.065 -- VS2
-											WHEN t.Product3rdId = 34 AND t.BetTypeGroup NOT IN (-1,-4) THEN ISNULL(v.ChargeRate3rd, 0)
+											WHEN t.Product3rdId IN (10, 34) AND t.BetTypeGroup NOT IN (-1,-4) THEN ISNULL(v.ChargeRate3rd, 0)
 											ELSE ISNULL(ISNULL(rd.Rate, v.ChargeRate3rd), 0) END
 									+ CASE WHEN t.Product3rdId = 31 THEN CASE WHEN @FDate >= @ExchaneFomularCutoff THEN  t.ExchangePlayerComm *  ISNULL(ISNULL(rd.Rate, v.ChargeRate3rd), 0) ELSE  t.Comm END ELSE 0 END) * e.Rate)
 			,PayToSupplierMonth	= SUM((t.MemberWL *
@@ -931,7 +939,7 @@ BEGIN
 																					ELSE 0.05 END -- KN, LT
 											WHEN t.Product3rdId = 22 THEN CASE WHEN t.BetTypeGroup = 1 THEN 0.045 ELSE 0.035 END -- VB (Macau Games)
 											WHEN t.Product3rdId = 27 THEN 0.065 -- VS2
-											WHEN t.Product3rdId = 34 AND t.BetTypeGroup NOT IN (-1,-4) THEN ISNULL(v.ChargeRate3rd, 0)
+											WHEN t.Product3rdId IN (10, 34) AND t.BetTypeGroup NOT IN (-1,-4) THEN ISNULL(v.ChargeRate3rd, 0)
 											ELSE ISNULL(rd.Rate, 0) END
 									+ CASE WHEN t.Product3rdId = 31 THEN CASE WHEN @FDate >= @ExchaneFomularCutoff THEN  t.ExchangePlayerComm *  ISNULL(ISNULL(rd.Rate, v.ChargeRate3rd), 0) ELSE  t.Comm END ELSE 0 END) * e.Rate)
 			,FullContribution	= SUM(CASE WHEN t.BetTypeGroup = -3 THEN t.FullContribution ELSE 0 END * e.Rate)
@@ -993,7 +1001,7 @@ BEGIN
 					) AND t.BetTypeGroup NOT IN (-4)
 			LEFT JOIN #tempVendorGlobalSetting v ON v.Product3rdId = t.Product3rdId AND v.Bettype = t.BetTypeGroup
 			LEFT JOIN #PartyChargeByCurrencyInfo lc ON p.ChargeId = lc.ChargeId AND t.CurrencyId = lc.CurrencyId
-			LEFT JOIN @ProductSupportJPContrib pj ON t.Product3rdId = pj.ProductID
+			LEFT JOIN @ProductSupportJPContrib pj ON t.Product3rdId = pj.Product3rdId
 		WHERE t.Product3rdId NOT IN (0, 3) OR (t.Product3rdId IN (0, 3) AND p.PartyId IS NOT NULL)
 		GROUP BY t.rptDate, l.PartyId, t.Product3rdId, t.AliasProductId, t.SportTypeGroup
 			,CASE WHEN t.Product3rdId = 10 THEN t.CurrencyId END
@@ -1030,10 +1038,11 @@ BEGIN
 			) t
 		)
 		UPDATE r
-		SET r.PayToSupplierDaily = r.MemberWLDaily * s.RateDaily, r.PayToSupplierMonth = r.MemberWLMonth * s.RateMonth
+		SET r.PayToSupplierDaily = r.MemberWLDaily * s.RateDaily - r.Bonus, r.PayToSupplierMonth = r.MemberWLMonth * s.RateMonth - r.Bonus
 		FROM #__tempResult r
 			INNER JOIN CTE_Sum s ON r.ParentId = s.ParentId
 		WHERE r.Product3rdId = 10
+
 	END
 
 	-- Licensee Min Fee
@@ -1111,7 +1120,7 @@ BEGIN
 					FullContribution = SUM(FullContribution),
 					HouseContribution = SUM(HouseContribution)
 			FROM #__tempResult t
-			WHERE t.Product3rdId IN (SELECT x.ProductID FROM @ProductSupportJPContrib x)
+			WHERE t.Product3rdId IN (SELECT x.Product3rdId FROM @ProductSupportJPContrib x)
 			GROUP BY t.PartyId, t.Product3rdId, t.AliasProductId
 		),
 		FinalHouseIncome42_32_66_36 AS
@@ -1356,6 +1365,14 @@ BEGIN
 		INNER JOIN #Result m ON m.Product3rdId = r.Product3rdId AND m.AliasProductId = r.AliasProductId AND r.rptDate = 'Monthly' AND m.rptDate = 'MTD'
 	WHERE r.Product3rdId IN (SELECT x.productID FROM @ProductSupportBonus x WHERE x.ProductID <> 34)
 
+	-- Update Monthly AGC Contribution, Jackpot
+	UPDATE r
+	SET r.FullContribution = ISNULL(m.FullContribution, 0),
+	    r.JackpotPrize = ISNULL(m.JackpotPrize, 0)
+	FROM #Result r
+		INNER JOIN #Result m ON m.Product3rdId = r.Product3rdId AND m.AliasProductId = r.AliasProductId AND r.rptDate = 'Monthly' AND m.rptDate = 'MTD'
+	WHERE r.Product3rdId = 10
+
 		-- 1.1 Pay to supplier Base on MemberWL < 0
 	UPDATE r
 	SET r.PayToSupplier = ISNULL(t.PayToSupplier, 0)
@@ -1403,7 +1420,7 @@ BEGIN
 	-- 1.5 Bonus
 	UPDATE r
 	SET r.HouseIncome = r.HouseIncome + ISNULL(r.Bonus,0) ,
-		r.PayToSupplier = r.PayToSupplier - CASE WHEN r.Product3rdId = 34 THEN 0 ELSE  ISNULL(r.Bonus,0)  END
+		r.PayToSupplier = r.PayToSupplier - CASE WHEN r.Product3rdId IN (10, 34) THEN 0 ELSE  ISNULL(r.Bonus,0)  END
 	FROM #Result r
 	WHERE r.Product3rdId IN (SELECT x.ProductID FROM @ProductSupportBonus x)
 
@@ -1581,3 +1598,4 @@ BEGIN
 	DROP TABLE #__SabaLeague
 	DROP TABLE #Result
 END
+

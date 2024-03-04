@@ -13,6 +13,7 @@ AS
 		- 20231027@Danny: Change LicenseeID detection formulary of deposit licensee [#183209]
 		- 20230414@Danny: New Commercial Terms for 12B (#186505)
         - 20230817@Ned.Le: Remove currency test
+		- 20240403@Danny: AGC product integrate JP, Contribution, Promotion  (#200523)
 
 	Exec [Acc_Rpt_rptBettingByProduct_Bettrans] '2021-05-12'
 
@@ -36,6 +37,8 @@ BEGIN
 		[CommissionP] [money],
 		[BuyBackAmount] [money],
 		[ValidBetAmount] [money],
+		HouseContribution  [money],
+		FullContribution   [money]
 	)
 
 	-- Collect data of 3rd party products (API source) -- ProductID 10, 31
@@ -51,7 +54,8 @@ BEGIN
 		AgentComm		MONEY,
 		ValidBetAmount	MONEY,
 		GrossWL			MONEY,
-		Bettype			SMALLINT)
+		Bettype			SMALLINT,
+		JpContribution	MONEY)
 	
 	---- Get data rpt_Betting  -- ProductID 15
 	CREATE TABLE #rpt_Betting(
@@ -179,7 +183,9 @@ BEGIN
 				Winlost,
 				Turnover,
 				BetCount,
-				PlayerComm)
+				PlayerComm,
+				Bettype,
+				JpContribution)
 		EXEC bodb02.dbo.Acc_Rpt_rptDepWinlost_AGCasino_Bettrans @winlostdate = @WinLostDate
 
 
@@ -196,6 +202,8 @@ BEGIN
 			,[CommissionA]
 			,[CommissionP]
 			,[BuyBackAmount]
+			,[HouseContribution]
+			,[FullContribution]
 			)
 		SELECT td.rptDate
 			, ISNULL(site.SiteID,-1) AS SiteId
@@ -213,6 +221,8 @@ BEGIN
 			, SUM(ISNULL(td.AgentComm,0)) AS CommissionA
 			, SUM(ISNULL(td.PlayerComm,0)) AS CommissionP
 			, 0 AS BuyBackAmount
+			, 0 AS [HouseContribution]
+			, SUM(ISNULL(td.JpContribution,0)) AS FullContribution
 		
 		FROM #tmpData td WITH (NOLOCK)
 			LEFT JOIN bodb02.dbo.Customer AS c WITH (NOLOCK) ON c.Custid = td.CustID AND c.roleid = 1
@@ -235,20 +245,22 @@ BEGIN
 			LicenseeId = SiteId, 
 			CurrencyId, 
 			Product3rdId = ProductId
-			,BetTypeGroup	= CASE WHEN bettype = 1706 THEN 1706 ELSE -1 END
+			,BetTypeGroup	= Bettype
 			,ValidBetAmount	= SUM(CASE WHEN ProductId = 11 AND bettype = -1 THEN ValidBetAmount ELSE 0 END)
 			,MemberWL		= SUM(CASE WHEN ProductId = 15 THEN Turnover * 0.0405 + BuyBackAmount * 0.15 ELSE MemberWL END)
 			,Comm			= SUM(CASE WHEN ProductId = 31 THEN CommissionP + CommissionA ELSE 0 END)
 			,LicenseeWL		= -SUM(MemberWL)
 			,LicenseeTO		= SUM(Turnover)
 			,ExchangePlayerComm	= SUM(CASE WHEN ProductId = 31 THEN CommissionP ELSE 0 END)
+			,HouseContribution = 0
+		    ,FullContribution = SUM(FullContribution)
 	FROM #rpt_BettingByProduct WITH (NOLOCK)
 	WHERE ProductId IN (10, 11, 15, 31)
 		AND CurrencyId <> 20
 		AND CustomerCategory NOT IN (27, 28)
 		AND StatusId NOT IN (-1, 101, 102, 103)
 		AND (SiteId <= 1000 OR SiteID >= 50000) -- Deposit only
-	GROUP BY rptDate, SiteId, CurrencyId, ProductId, CASE WHEN bettype = 1706 THEN 1706 ELSE -1 END
+	GROUP BY rptDate, SiteId, CurrencyId, ProductId, Bettype
 
 	DROP TABLE #tmpData
 	DROP TABLE #rpt_BettingByProduct
