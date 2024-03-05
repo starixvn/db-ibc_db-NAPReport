@@ -49,37 +49,37 @@ BEGIN
 
 	--bettrans data-------------------------------------------------------------------------------------------------------------------------------------------------
 	INSERT INTO #tmp_data
-	SELECT 	winlostdate
+	SELECT 	mc.winlostdate
 		,mc.transid
-		,liveindicator
-		,bettype
+		,mc.liveindicator
+		,mc.bettype
 		,betteam
 		,mc.custid
 		,m.sporttype
 		,mc.creator
 		,m.homeid
 		,m.awayid
-		,transdesc
+		,mc.transdesc
 		,1 as [betcount]
-		,abs(stake)* mc.actualrate
-		, ABS(Stake) * (1 - tpositiontaking - ISNULL(mc.epositiontaking,0) ) * mc.virtualrate VirtualTO
-		, ABS(Stake) * (1 - tpositiontaking - ISNULL(mc.epositiontaking,0)) * ABS(virtualrate - actualrate) VarianceTO
-		, ABS(Stake) * (1 - tpositiontaking - ISNULL(mc.epositiontaking,0)) * CASE WHEN mc.virtualrate > actualrate THEN mc.virtualrate ELSE actualrate END RealTO
+		,abs(mc.stake)* mc.actualrate
+		, ABS(mc.Stake) * (1 - tpositiontaking - ISNULL(mc.epositiontaking,0) ) * mc.virtualrate VirtualTO
+		, ABS(mc.Stake) * (1 - tpositiontaking - ISNULL(mc.epositiontaking,0)) * ABS(virtualrate - actualrate) VarianceTO
+		, ABS(mc.Stake) * (1 - tpositiontaking - ISNULL(mc.epositiontaking,0)) * CASE WHEN mc.virtualrate > actualrate THEN mc.virtualrate ELSE actualrate END RealTO
 		,tv.ReasonId
 	FROM bodb02.dbo.bettrans mc WITH (NOLOCK)
 		INNER JOIN bodb02.dbo.match m WITH (NOLOCK) ON mc.matchid=m.matchid and m.sporttype>1
 		INNER JOIN bodb02.dbo.[TicketVoiding_VoidedTransaction] tv WITH (NOLOCK) ON mc.transid = tv.TransId
-	WHERE  winlostdate <= @Todate AND winlostdate > @MoveBetsDay
+	WHERE  mc.winlostdate <= @Todate AND mc.winlostdate > @MoveBetsDay
 		AND mc.statusid = 102--void
 		AND mc.currency <> 20
 
 	--Bettrans14 data-------------------------------------------------------------------------------------------------------------------------------------------------
 
 	INSERT INTO #tmp_data
-	SELECT 	winlostdate
+	SELECT 	mc.winlostdate
 		,mc.transid
 		,liveindicator
-		,bettype
+		,mc.bettype
 		,betteam
 		,mc.custid
 		,m.sporttype
@@ -88,15 +88,15 @@ BEGIN
 		,m.awayid
 		,transdesc
 		,1 as [betcount]
-		,ABS(stake)* mc.actualrate
-		,ABS(Stake) * (1 - tpositiontaking - ISNULL(mc.epositiontaking,0)) * mc.virtualrate VirtualTO
-		,ABS(Stake) * (1 - tpositiontaking - ISNULL(mc.epositiontaking,0)) * ABS(virtualrate - actualrate) VarianceTO
-		,ABS(Stake) * (1 - tpositiontaking - ISNULL(mc.epositiontaking,0)) * CASE WHEN mc.virtualrate > actualrate THEN mc.virtualrate ELSE actualrate END RealTO
+		,ABS(mc.stake)* mc.actualrate
+		,ABS(mc.Stake) * (1 - tpositiontaking - ISNULL(mc.epositiontaking,0)) * mc.virtualrate VirtualTO
+		,ABS(mc.Stake) * (1 - tpositiontaking - ISNULL(mc.epositiontaking,0)) * ABS(virtualrate - actualrate) VarianceTO
+		,ABS(mc.Stake) * (1 - tpositiontaking - ISNULL(mc.epositiontaking,0)) * CASE WHEN mc.virtualrate > actualrate THEN mc.virtualrate ELSE actualrate END RealTO
 		,tv.ReasonId
 	FROM bodb02.dbo.bettrans14 mc WITH (NOLOCK)
 		INNER JOIN bodb02.dbo.match14 m WITH (NOLOCK) ON mc.matchid = m.matchid and m.sporttype > 1
 		INNER JOIN bodb02.dbo.[TicketVoiding_VoidedTransaction] tv WITH (NOLOCK) ON mc.transid = tv.TransId
-	WHERE winlostdate >= @BalanceUpDay AND winlostdate <= @MoveBetsDay
+	WHERE mc.winlostdate >= @BalanceUpDay AND mc.winlostdate <= @MoveBetsDay
 		AND mc.statusid = 102--void
 		AND mc.currency <> 20
 
@@ -132,22 +132,22 @@ BEGIN
 	BEGIN
 
 	INSERT INTO #tmp_data
-	SELECT 	winlostdate
+	SELECT 	mc.winlostdate
 		,mc.transid
-		,liveindicator
-		,bettype
-		,betteam
+		,mc.liveindicator
+		,mc.bettype
+		,mc.betteam
 		,mc.custid
 		,m.sporttype
 		,mc.creator
 		,m.homeid
 		,m.awayid
-		,transdesc
+		,mc.transdesc
 		,1 as [betcount]
-		,ABS(stake)* mc.actualrate
-		,ABS(Stake) * (1 - tpositiontaking - ISNULL(mc.epositiontaking,0) ) * mc.virtualrate VirtualTO
-		,ABS(Stake) * (1 - tpositiontaking - ISNULL(mc.epositiontaking,0)) * ABS(virtualrate - actualrate) VarianceTO
-		,ABS(Stake) * (1 - tpositiontaking - ISNULL(mc.epositiontaking,0)) * CASE WHEN mc.virtualrate > actualrate THEN mc.virtualrate ELSE actualrate END RealTO
+		,ABS(mc.stake)* mc.actualrate
+		,ABS(mc.Stake) * (1 - tpositiontaking - ISNULL(mc.epositiontaking,0) ) * mc.virtualrate VirtualTO
+		,ABS(mc.Stake) * (1 - tpositiontaking - ISNULL(mc.epositiontaking,0)) * ABS(virtualrate - actualrate) VarianceTO
+		,ABS(mc.Stake) * (1 - tpositiontaking - ISNULL(mc.epositiontaking,0)) * CASE WHEN mc.virtualrate > actualrate THEN mc.virtualrate ELSE actualrate END RealTO
 		,tv.ReasonId
 	FROM bodb_archive.dbo.bettrans_bk mc WITH(NOLOCK)
 		INNER JOIN #tmpmatch m ON mc.matchid = m.matchid
