@@ -14,6 +14,7 @@ AS
 		- 20231027@Danny: Change LicenseeID detection formulary of deposit licensee [#183209]
 		- 20230522@Danny: Incorporate YeeBet (#186481)
         - 20230817@Ned.Le: Remove currency test
+		- 20240305@Danny: Incorporate L22 (#198035)
 
 	 Param's Explanation:
 
@@ -42,7 +43,7 @@ BEGIN
 	
 	DECLARE @RnGBettypeList TABLE(Bettype INT)
 	INSERT INTO @RnGBettypeList(Bettype)
-	SELECT bettype FROM OPENQUERY (DBLIC, 'SELECT	DISTINCT bettype FROM	bodb_licensee.dbo.LA_f_BettypeProductMapping(0,''FW,PP,CC,SG,JK,CG,MGRNG,JIG'') la')
+	SELECT bettype FROM OPENQUERY (DBLIC, 'SELECT	DISTINCT bettype FROM	bodb_licensee.dbo.LA_f_BettypeProductMapping(0,''FW,PP,CC,SG,JK,CG,MGRNG,JIG,L22'') la')
 
 	DECLARE @LCBettypeList TABLE(Bettype INT)
 	INSERT INTO @LCBettypeList(Bettype)
