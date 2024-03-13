@@ -1,4 +1,4 @@
-/*<info serverAlias="DBWH-bodb_dwrs" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBWH-bodb_dwrs" executers="wsv_nap" viewers="" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE Acc_Rpt_Letstalk_HousePerfBySportLic
 	@ExecTime4GMT SMALLDATETIME
 AS
@@ -19,6 +19,8 @@ AS
 		20240223@Roy: Email/Letstalk Reports - Incorporate Live22 product (#198035)
 		20240223@Roy: Email/Letstalk - Virtual Sports 4 - Edge Gaming (#198628)
 		20240227@Roy: Email/Letstalk Reports - Merge the settings of VS1 VS2 VS3 into Virtual Sports for Deposit (#199544)
+		20240308@Cherry: Integrate UU Slots (#192594)
+		20240308@Cherry: Integrate Yolo Play (#201590)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -225,6 +227,8 @@ BEGIN
 			-- WHEN ProductName = 'Live22' THEN 'Live22' --the same - no need
 			WHEN ProductName = 'Virtual Sports 4' THEN 'VirtSpo4'
 			WHEN ProductName = 'SEAL Entertainment' THEN 'SealE'
+			WHEN ProductName = 'UU Slots' THEN 'UUS'
+			WHEN ProductName = 'Yolo Play' THEN 'YoloP'
 			ELSE ProductName END)
 	
 	SELECT @EX3rdName = rd.ProductName
