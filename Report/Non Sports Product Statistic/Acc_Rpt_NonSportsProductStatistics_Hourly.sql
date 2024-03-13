@@ -218,7 +218,7 @@ SET NOCOUNT ON
 		WalletType VARCHAR(50)
 	)	
 	CREATE TABLE #tmpCurrency (CurrencyId INT)	
-	CREATE TABLE #tmpContributionBettype (Bettype INT)	
+	CREATE TABLE #tmpContributionBettype (Bettype INT, RefTable SMALLINT)	
 	CREATE TABLE #tmpSportBetType (Sporttype INT, Bettype INT)	
 	CREATE TABLE #tmpHouseProduct (ProductID INT)
 	CREATE TABLE #tmpDummyCust (CustID INT)
@@ -413,6 +413,11 @@ SET NOCOUNT ON
 	SELECT Bettype
 	FROM DBWH.bodb_Account.dbo.BettypeGroup WITH (NOLOCK)
 	WHERE BettypeGroupID = 10
+
+	UPDATE b
+	SET b.RefTable = s.RefTable
+	FROM #tmpContributionBettype b
+		INNER JOIN #SportBettype s ON b.Bettype = s.Bettype
 	
 	DELETE #tmpContributionBettype
 	WHERE bettype NOT IN (SELECT bettype FROM #SportBettype) 
@@ -517,6 +522,76 @@ SET NOCOUNT ON
 		WHERE b.WinlostDate = @WLDate
 			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE RefTable IN (0,3) AND ProductID NOT IN (3, 4, 26)
 									AND ProductID NOT IN (SELECT ProductID FROM #tmpVirtualSport))
+			AND b.ruben = 1
+			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
+			AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
+			AND (EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId) OR @currency = '-1') 			
+			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
+			AND (EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom) OR @Device = '')
+			AND ( @Site = 'ALL'
+				  OR EXISTS(SELECT 1 From #tmpSiteSuper s WHERE s.recommend = b.recommend)
+				)
+			AND (
+				@HousePTType = 0
+				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
+				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
+			)
+		GROUP BY  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) <> 0 THEN 0
+					ELSE  DATEPART(HOUR, b.transdate) END, 
+				CASE WHEN d.CustID IS NOT NULL THEN NULL 
+					WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, 
+					srecommend, b.bettype
+				
+		OPTION(RECOMPILE)
+
+		INSERT INTO #Data ( [Hour] ,  
+						   srecommend, 
+						   bettype,
+						   CustId ,
+						   BetCount ,
+						   TotalBetsRM ,
+						   TotalWinsRM , 
+						   TotalRefundRM ,
+						   CompanyTurnoverRM , 
+						   RealTurnoverRM,
+						   CompanyGrossIncomeRM , 
+						   CompanyCommRM,
+						   ExtraPT		   
+							   )
+	
+		SELECT  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) <> 0 THEN 0
+					ELSE  DATEPART(HOUR, b.transdate) END AS [Hour], srecommend, b.bettype,					
+				
+				CASE WHEN d.CustID IS NOT NULL THEN NULL 
+					WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
+
+				0 AS BetCount, 
+
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 ELSE actual_stake END) * actualrate)  AS TotalBetsRM,
+
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 ELSE winlost END) * actualrate) AS TotalWinsRM,
+
+				SUM((CASE WHEN b.statusID IN (103) THEN actual_stake ELSE 0 END)  * actualrate) AS TotalRefundRM,
+
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 
+						WHEN b.tpositiontaking = 1 THEN 0
+						ELSE (1 - b.tpositiontaking - CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) * b.stake END) * actualrate) AS CompanyTurnoverRM,
+						
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 
+						WHEN b.tpositiontaking = 1 THEN 0
+						ELSE (1 - b.tpositiontaking - CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) * b.oddsspread END) * actualrate) AS RealTurnoverRM,		
+								
+				- SUM((ISNULL(b.betid,0.0)/100000000.0 + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeRM,
+
+				- SUM(scomm * actualrate) AS CompanyCommRM,
+				
+				- SUM((ISNULL(b.betid,0.0)/100000000.0 + CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8)) * actualrate) ExtraPT							
+				
+		FROM  dbo.Bettrans b WITH (NOLOCK)
+			LEFT JOIN #tmpDummyCust d ON b.custid = d.custid
+		WHERE b.WinlostDate = @WLDate
+			AND b.bettype IN (SELECT Bettype FROM #tmpContributionBettype WHERE RefTable IN (0,3))
 			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
 			AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
@@ -674,7 +749,7 @@ SET NOCOUNT ON
 		END
 
 		DELETE d
-		FROM #Data d INNER JOIN #tmpContributionBettype b ON d.bettype = b.bettype
+		FROM #Data d INNER JOIN #tmpContributionBettype b ON d.bettype = b.bettype AND b.RefTable = 1
 		WHERE d.bettype IN (SELECT Bettype FROM #tmpSportBetType)
 		
 		IF EXISTS(SELECT 1 FROM #tmpContributionBettype)
@@ -719,7 +794,7 @@ SET NOCOUNT ON
 			FROM  dbo.BettransRNG b WITH (NOLOCK)
 			WHERE b.WinlostDate = @WLDate
 				AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
-				AND b.gameID IN (SELECT Bettype FROM #tmpContributionBettype)
+				AND b.gameID IN (SELECT Bettype FROM #tmpContributionBettype WHERE RefTable = 1)
 				AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
 				AND (EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId) OR @currency = '-1') 			
 				AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')

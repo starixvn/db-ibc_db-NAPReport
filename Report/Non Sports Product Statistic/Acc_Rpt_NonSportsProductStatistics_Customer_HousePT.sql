@@ -49,6 +49,7 @@ AS
 		20230609@Cherry: Not include dummy accounts in BetCount, NoOfPlayers (#188994)
 		20230801@Cherry: Integrate Virtual Sports 3 (#189202)
 		20240116@Cherry: Integrate Virtual Sports 4 (#198623)
+		20240220@Cherry: Integrate AG Casino Jackpot Contribution (#200503)
 
 	Param's Explanation:
 		- @ProductID: string filter by Product 
@@ -73,7 +74,7 @@ BEGIN
 	CREATE TABLE #tmp_SportType		(Sporttype SMALLINT)
 	CREATE TABLE #tmp_GameTableID	(GameTableID INT)
 	CREATE TABLE #tmp_Devide		(Betfrom NVARCHAR(5))
-	CREATE TABLE #tmpContributionBettype (Bettype INT)
+	CREATE TABLE #tmpContributionBettype (Bettype INT, RefTable SMALLINT)
 	CREATE TABLE #tmpSportBetType (Sporttype INT, Bettype INT)
 	CREATE TABLE #tmpHouseProduct (ProductID INT)
 	CREATE TABLE #tmpVirtualSport (ProductID INT)
@@ -219,6 +220,11 @@ BEGIN
 	FROM DBWH.bodb_Account.dbo.BettypeGroup WITH (NOLOCK)
 	WHERE BettypeGroupID = 10
 
+	UPDATE b
+	SET b.RefTable = s.RefTable
+	FROM #tmpContributionBettype b
+		INNER JOIN #SportBettype s ON b.Bettype = s.Bettype
+
 	-- Get list member
 	DECLARE @srecommend INT, @RoleID TINYINT, @recommend INT, @CustSite VARCHAR(10)
 	SELECT  @srecommend = srecommend, @recommend = recommend, @RoleID = roleid, @CustSite = site FROM dbo.Customer WITH(NOLOCK) WHERE custid = @CID
@@ -304,10 +310,11 @@ BEGIN
 					SUM(winlost) AS TotalWins,
 					SUM(winlost * actualrate) AS TotalWinsBase,
 					s.EvenType, b.matchid, s.ProductID, b.bettype,
-					SUM(1 - b.tpositiontaking) AS HousePT,
+					SUM(CASE WHEN bt.Bettype IS NOT NULL THEN 0 ELSE 1 - b.tpositiontaking END) AS HousePT,
 					COUNT(b.transid) AS RowNum
 				FROM  dbo.bettrans b WITH (NOLOCK)
 					INNER JOIN #SportBettype s ON s.Bettype = b.bettype
+					LEFT JOIN #tmpContributionBettype bt ON bt.Bettype = b.bettype AND bt.RefTable IN (0,3)
 				WHERE b.winlostdate = @WLDate
 					AND b.custid = @CID
 					AND b.matchid >= 0
@@ -384,7 +391,7 @@ BEGIN
 					SUM(CASE WHEN bt.Bettype IS NOT NULL THEN 0 ELSE 1 - b.tpositiontaking END) AS HousePT
 				FROM dbo.bettransRnG b WITH (NOLOCK)
 					INNER JOIN #SportBettype s ON s.Bettype = b.gameID
-					LEFT JOIN #tmpContributionBettype bt ON bt.Bettype = b.gameID
+					LEFT JOIN #tmpContributionBettype bt ON bt.Bettype = b.gameID AND bt.RefTable = 1
 				WHERE b.winlostdate = @WLDate
 					AND (s.ProductID NOT IN (SELECT ProductID FROM #tmpHouseProduct)
 						OR EXISTS(SELECT 1 FROM #tmpSportBetType sb where b.productid = sb.Sporttype and b.gameid = sb.Bettype)
@@ -461,17 +468,19 @@ BEGIN
 				)
 				SELECT
 					CASE WHEN s.ProductID = 33 THEN SUM(b.betid)  -- Poker Games
+						 WHEN bt.Bettype IS NOT NULL THEN 0 
 						 ELSE COUNT(b.transid) END AS BetCount,
 					SUM(actual_stake) AS TotalBets,
 					SUM(actual_stake * actualrate) AS TotalBetsBase,
 					SUM(winlost) AS TotalWins,
 					SUM(winlost * actualrate) AS TotalWinsBase,
 					s.EvenType, b.matchid, s.ProductID, b.bettype,
-					SUM(1 - b.tpositiontaking) AS HousePT,
+					SUM(CASE WHEN bt.Bettype IS NOT NULL THEN 0 ELSE 1 - b.tpositiontaking END) AS HousePT,
 					COUNT(b.transid) AS RowNum
 				FROM  dbo.bettrans b WITH (NOLOCK)
 					INNER JOIN #SportBettype s ON s.Bettype = b.bettype
 					INNER JOIN #tmp_MemIDs m ON b.custid = m.CustID
+					LEFT JOIN #tmpContributionBettype bt ON bt.Bettype = b.bettype AND bt.RefTable IN (0,3)
 				WHERE b.winlostdate = @WLDate
 					AND b.statusID IN (111, 112, 113) -- won/lose/draw tickets
 					AND b.matchid >= 0
@@ -547,7 +556,7 @@ BEGIN
 				FROM dbo.bettransRnG b WITH (NOLOCK)
 					INNER JOIN #SportBettype s ON s.Bettype = b.gameID
 					INNER JOIN #tmp_MemIDs m ON b.custid = m.CustID
-					LEFT JOIN #tmpContributionBettype bt ON bt.Bettype = b.gameID
+					LEFT JOIN #tmpContributionBettype bt ON bt.Bettype = b.gameID AND bt.RefTable = 1
 				WHERE b.winlostdate = @WLDate
 					AND s.ProductID NOT IN (SELECT ProductID FROM #tmpHouseProduct)
 					AND b.statusID IN (111, 112, 113) -- won/lose/draw tickets
@@ -581,7 +590,7 @@ BEGIN
 				FROM dbo.bettransRnG b WITH (NOLOCK)
 					INNER JOIN #SportBettype s ON s.Bettype = b.gameID
 					INNER JOIN #tmp_MemIDs m ON b.custid = m.CustID
-					LEFT JOIN #tmpContributionBettype bt ON bt.Bettype = b.gameID
+					LEFT JOIN #tmpContributionBettype bt ON bt.Bettype = b.gameID AND bt.RefTable = 1
 				WHERE b.winlostdate = @WLDate
 					AND s.ProductID IN (SELECT ProductID FROM #tmpHouseProduct)
 					AND EXISTS(SELECT 1 FROM #tmpSportBetType s where b.productid = s.Sporttype and b.gameid = s.Bettype)
