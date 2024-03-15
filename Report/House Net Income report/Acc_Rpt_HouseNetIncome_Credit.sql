@@ -34,6 +34,7 @@ AS
         20230705@Ned.Le: Email/Letstalk Reports - Incorporate Saba Tennis (#190458)
         20231109@Ned.Le: Email/Letstalk - WE Live Casino - Integrate new product (#195889)
         20231215@Ned.Le: Fix code for the way to calculate Pay To Supplier for Prize Bettype
+        20240315@Ned.Le: NAP Report - Create 2 new sites Hedging & Special (#202231)
 
     Param's Explanation:
         @FromDate   : Begin date to get data for report
@@ -110,6 +111,16 @@ BEGIN
 
     DECLARE @InHouseReplicationWorkingStatus INT
     SELECT  @InHouseReplicationWorkingStatus = CAST(VValue AS INT) FROM bodb_account.dbo.SystemSettings (NOLOCK) WHERE VID = 16
+
+    DECLARE @RMAccountMoveSiteCutoffday DATE
+    SELECT  @RMAccountMoveSiteCutoffday = CAST(VValue AS DATE) FROM bodb_account.dbo.SystemSettings (NOLOCK) WHERE VID = 35
+
+    DECLARE @XYZBET_SiteID   INT
+    DECLARE @BESTODDS_SiteID INT
+    DECLARE @Special_SiteID  INT
+    SELECT  @XYZBET_SiteID   = siteid FROM bodb_account.dbo.tbl_Site WITH (NOLOCK) WHERE site = 'XYZBET'
+    SELECT  @BESTODDS_SiteID = siteid FROM bodb_account.dbo.tbl_Site WITH (NOLOCK) WHERE site = 'BEST-ODDS'
+    SELECT  @Special_SiteID  = siteid FROM bodb_account.dbo.tbl_Site WITH (NOLOCK) WHERE site = 'Special'
 
     DECLARE @loop_FromDate DATE
     DECLARE @loop_ToDate DATE
@@ -681,8 +692,8 @@ BEGIN
                SUM((b.WinlossIBC - b.WinlossS - b.WinlossM - b.WinlossA) * ISNULL(es.Rate, 0)) Contribution,
                SUM(b.NetStake * ISNULL(eo.Rate, 0)) NetStakeOANDA
         FROM #tmpSourceData b (NOLOCK)
-             INNER JOIN bodb_Account.dbo.tbl_Site s (NOLOCK) ON s.isDeposit = 0 AND CASE WHEN b.SiteID = -2 THEN 10
-                                                                                         WHEN b.SiteID = -4 THEN 3
+             INNER JOIN bodb_Account.dbo.tbl_Site s (NOLOCK) ON s.isDeposit = 0 AND CASE WHEN b.SiteID = -2 THEN CASE WHEN b.RptDate < @RMAccountMoveSiteCutoffday THEN @XYZBET_SiteID   ELSE @Special_SiteID END
+                                                                                         WHEN b.SiteID = -4 THEN CASE WHEN b.RptDate < @RMAccountMoveSiteCutoffday THEN @BESTODDS_SiteID ELSE @Special_SiteID END
                                                                                          ELSE b.SiteID END = s.siteid
              LEFT JOIN #tmpProductBettype pb (NOLOCK) ON b.Bettype = pb.Bettype
              LEFT JOIN #tmpExchangeSystem es ON b.rptdate = es.ExchangeDate AND b.CurrencyID = es.ExchangeID
