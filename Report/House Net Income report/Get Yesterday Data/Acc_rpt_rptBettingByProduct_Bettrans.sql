@@ -1,4 +1,4 @@
-/*<info serverAlias="DBEXT-bodb02" isFunction="0" executers="bodbAdminNet" isNested="1"></info>*/
+/*<info serverAlias="DBEXT-bodb02" isFunction="0" executers="wsv_nap" isNested="1"></info>*/
 CREATE PROCEDURE [dbo].[Acc_Rpt_rptBettingByProduct_Bettrans]
 	@WinLostDate SMALLDATETIME
 AS
@@ -14,6 +14,7 @@ AS
 		- 20230414@Danny: New Commercial Terms for 12B (#186505)
         - 20230817@Ned.Le: Remove currency test
 		- 20240403@Danny: AGC product integrate JP, Contribution, Promotion  (#200523)
+		- 20240328@Danny: Incorporate Yolo And remove unsupported products (#201590)
 
 	Exec [Acc_Rpt_rptBettingByProduct_Bettrans] '2021-05-12'
 
@@ -56,108 +57,7 @@ BEGIN
 		GrossWL			MONEY,
 		Bettype			SMALLINT,
 		JpContribution	MONEY)
-	
-	---- Get data rpt_Betting  -- ProductID 15
-	CREATE TABLE #rpt_Betting(
-			[rptDate] [datetime] NOT NULL,
-			[SiteID] [int] NOT NULL,
-			[Bettype] [smallint] NOT NULL,
-			[CurrencyID] [int] NOT NULL,
-			[Status] [smallint] NOT NULL,
-			[Turnover] [money] NULL,
-			[WinLoss] [money] NULL,
-			[CommissionP] [money] NULL,
-			[CommissionA] [money] NULL,
-			[CustomerCategory] [smallint] NULL,
-			[BuyBackAmount] [money] NULL,
-			[oddsspread] [money] NULL
-	)
-	INSERT INTO #rpt_Betting (rptDate,SiteID,Bettype,CurrencyID,Status,Turnover,WinLoss,CommissionP,CommissionA,CustomerCategory,BuyBackAmount,oddsspread)
-	SELECT  b.winlostdate AS  rptDate,
-			ISNULL(s.SiteID, -1) AS siteid,
-			b.bettype AS bettype,
-			b.currency AS CurrencyID,
-			b.statusID  AS statusid,
-			SUM(ABS(b.stake)) AS Turnover,
-			SUM(b.winlost - b.actual_stake) AS winloss,
-			SUM(b.playercomm) AS commissionP,
-			SUM(b.comm) AS commissionA,
-			CASE
-				WHEN b.recommend = 52466 THEN 27 -- 8RM
-				WHEN b.recommend = 5707545 THEN 28 -- BARM
-				ELSE -1
-			END AS customercategory,
-			SUM(ISNULL(bm.CashInAmount,0)) AS BuyBackAmount,
-			SUM(ISNULL(b.oddsspread,0)) AS oddsspread
-	FROM bodb02.dbo.bettrans b (NOLOCK)
-	OUTER APPLY (
-			SELECT SUM(CASE WHEN bm.bettype = 18002 THEN bm.oddsspread ELSE 0 END) AS CashInAmount
-			FROM bodb02.dbo.bettransm bm WITH (NOLOCK)
-			WHERE b.refno = bm.refno
-				AND bm.bettype BETWEEN 18000 AND 18006
-		) bm
-	LEFT JOIN bodb02.dbo.customer ag WITH (NOLOCK) ON b.recommend = ag.custid AND ag.roleid = 2
-	LEFT JOIN bodb_Licensee.dbo.view_site_list s WITH (NOLOCK) ON s.SiteName = ag.site
-	WHERE  b.bettype IN (18000, 1801, 1802, 1803, 1804, 8000, 8001)
-		AND b.winlostdate =  @WinLostDate
-		AND b.custid > 0
-		AND b.recommend > 0
-		AND b.statusid NOT IN (0, 101, 102, 121) -- exclude waiting, reject, void ticket (statusID = 1)
-        AND b.currency <> 20
-	GROUP BY b.winlostdate, ISNULL(s.SiteID, -1)
-		,b.bettype
-		,b.currency
-		,b.statusid
-		,CASE
-				WHEN b.recommend = 52466 THEN 27 -- 8RM
-				WHEN b.recommend = 5707545 THEN 28 -- BARM
-				ELSE -1
-		END
 
-	--- ProductID = 15
-	INSERT INTO #rpt_BettingByProduct
-			([rptDate]
-			,[SiteID]
-			,[ProductID]
-			,[Bettype]
-			,[CurrencyId]
-			,[StatusId]
-			,[CustomerCategory]
-			,[MemberWL]
-			,[Turnover]
-			,[CommissionA]
-			,[CommissionP]
-			,[BuyBackAmount]
-			,[ValidBetAmount]
-
-			)
-		SELECT
-			b.rptDate
-			,b.SiteID
-			,15 AS ProductID
-			,b.Bettype AS Bettype
-			,b.CurrencyID
-			,b.Status AS StatusId
-			,ISNULL([CustomerCategory],-1)
-			,SUM(ISNULL(b.WinLoss, 0)) [MemberWL]
-			,SUM(ISNULL([Turnover], 0)) [Turnover]
-			,SUM(ISNULL([CommissionA], 0)) [CommissionA]
-			,SUM(ISNULL([CommissionP], 0)) [CommissionP]
-			,SUM(ISNULL([BuyBackAmount], 0)) [BuyBackAmount]
-			,SUM(ISNULL([oddsspread], 0)) [ValidBetAmount]
-
-		FROM #rpt_Betting b WITH (NOLOCK)
-		WHERE b.Status IN (111,112,113,114,115,101,102,103)
-			AND b.CurrencyID <> 20
-			AND Bettype = 18000
-		GROUP BY b.rptDate
-			,b.SiteID
-			,b.Bettype
-			,b.CurrencyID
-			,b.Status
-			,ISNULL(b.CustomerCategory,-1)
-
-	
 		---- ProductID = 31
 		INSERT INTO #tmpData (
 				rptDate,
@@ -174,7 +74,7 @@ BEGIN
 		EXEC bodb02.dbo.Acc_Rpt_rptDepWinlost_ThirdParty_Bettrans @winlostdate = @WinLostDate
 		
 
-		---- ProductID = 10	
+		---- ProductID = 11	
 		INSERT INTO #tmpData (
 				rptDate,
 				CustID,
@@ -187,7 +87,6 @@ BEGIN
 				Bettype,
 				JpContribution)
 		EXEC bodb02.dbo.Acc_Rpt_rptDepWinlost_AGCasino_Bettrans @winlostdate = @WinLostDate
-
 
 		INSERT INTO #rpt_BettingByProduct
 			([rptDate]
@@ -255,7 +154,7 @@ BEGIN
 			,HouseContribution = 0
 		    ,FullContribution = SUM(FullContribution)
 	FROM #rpt_BettingByProduct WITH (NOLOCK)
-	WHERE ProductId IN (10, 11, 15, 31)
+	WHERE ProductId IN (10, 31)
 		AND CurrencyId <> 20
 		AND CustomerCategory NOT IN (27, 28)
 		AND StatusId NOT IN (-1, 101, 102, 103)
@@ -264,7 +163,6 @@ BEGIN
 
 	DROP TABLE #tmpData
 	DROP TABLE #rpt_BettingByProduct
-	DROP TABLE #rpt_Betting
 
 END
 

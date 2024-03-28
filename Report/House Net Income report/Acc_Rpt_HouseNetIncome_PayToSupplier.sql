@@ -36,6 +36,8 @@ AS
 		- 20230111@Danny: Email/Letstalk Reports - Split 789Y site into smaller sites (#182388)
 		- 20230522@Danny: Incorporate YeeBet (#186481)
 		- 20231024@Danny: Remove redundant hardcode (#195608)
+		- 20240305@Danny: Incorporate UU Slots (#192594)
+		- 20240328@Danny: Incorporate Yolo And remove unsupported products (#201590)
 */
 BEGIN
     SET NOCOUNT ON
@@ -66,6 +68,8 @@ BEGIN
 			,@Today DATETIME = CONVERT(DATE, GETDATE())
 			,@DateList VARCHAR(2000)
 			,@AmountRM MONEY
+			,@Exec_rpt_ThirdPartyWL_ExtraGMT VARCHAR(MAX)
+			,@Exec_rpt_BettingBySport VARCHAR(MAX)
 
 	DECLARE @Product3rd TABLE (Product3rdId INT, ProductPrefix VARCHAR(10))
 	DECLARE @Products TABLE (ProductId INT, VendorId INT, Product3rdId INT, AliasProductId INT, ProductCode VARCHAR(50), SubProductCode VARCHAR(50))
@@ -193,7 +197,7 @@ BEGIN
 															LEFT JOIN bodb_licensee.dbo.Labels AS lb WITH(NOLOCK) ON p.OldRefID = lb.LicenseeId
 														WHERE p.PartyType = 1
 															AND 1 = CASE WHEN ' + CONVERT(VARCHAR(3), @DepositType) + ' = 2 OR ' + CONVERT(VARCHAR(3), @DepositType) + ' = pd.IsDeposit THEN 1 ELSE 0 END
-															AND (pd.IsDeposit = 0 OR ci.ToParty IN (1, 9, 11, 98))
+															AND (pd.IsDeposit = 0 OR ci.ToParty IN (1, 9, 11, 98, 962))
 													) AS r
 													WHERE r.RowNum = 1'')'
 		INSERT INTO #AllParties (PartyId, ParentId, LicenseeId, IsDeposit)
@@ -213,7 +217,7 @@ BEGIN
 														AND ci.ProductId IN (' + @Product3rdIds + ')
 														AND ci.FromDate <= ''''' + @t_date + ''''' AND ci.ToDate >= ''''' + @f_date + '''''
 														AND 1 = CASE WHEN ' + CONVERT(VARCHAR(3), @DepositType) + ' = 2 OR ' + CONVERT(VARCHAR(3), @DepositType) + ' = pd.IsDeposit THEN 1 ELSE 0 END
-														AND (pd.IsDeposit = 0 OR ci.ToParty IN (1, 9, 11, 98))'')'
+														AND (pd.IsDeposit = 0 OR ci.ToParty IN (1, 9, 11, 98, 962))'')'
 		INSERT INTO #Party (PartyId, ParentId, LicenseeId, IsDeposit)
 		EXEC (@SQL)
 
@@ -231,20 +235,15 @@ BEGIN
 							FROM bodb_licensee.dbo.LA_f_ChargeInfo (''''' + @PartyIds + ''''', ''''' + @f_date + ''''', ''''' + @t_date + ''''', ''''' + @ProductCodes + ''''', ''''OA'''', 1) ci
 								LEFT JOIN bodb_licensee.dbo.Sport_Bettype_Reference sbr WITH (NOLOCK) ON sbr.BettypeRef = ci.Bettype
 							WHERE ci.DI_Rate > 0
-								AND (
-									ci.ChargeType = 1
-									OR ci.ChargeType IN (9, 10, 11, 12) AND ci.ProductId IN (11, 21, 39) -- GD
-									OR ci.ChargeType IN (6, 7) AND ci.ProductId = 15 -- CB
-									OR ci.ChargeType = 5 AND ci.ProductId = 25 -- CO
-								)'')'
+								AND ci.ChargeType = 1'')'
 		INSERT INTO #__PartyChargeInfo (LicenseeId, IsDeposit, Product3rdId, FromDate, ToDate, Rate, Bettype, ChargeType)
 		EXEC (@SQL)
 
 		SELECT @SQL = '	SELECT PartyId, ProductId, ChargeId, ChargeType, FromDate, ToDate, Rate
 						FROM OPENQUERY (DBLIC, ''SELECT DISTINCT PartyId, ProductId, ChargeId, ChargeType, FromDate, ToDate, DI_Rate AS Rate FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd (''''' + @f_date + ''''', ''''' + @t_date + ''''', ''''' + @ProductCodes + ''''', ''''OA'''')
 												 WHERE (
-														(ProductID IN (11, 21, 39, 70, 76) AND ChargeType IN (9, 10, 11)) -- GD, AB, SAG, FGGL, YB
-														OR (ProductID NOT IN (11, 21, 39) AND ChargeType = 1)
+														(ProductID IN (21, 39, 70, 76) AND ChargeType IN (9, 10, 11)) -- AB, SAG, FGGL, YB
+														OR (ProductID NOT IN (21, 39) AND ChargeType = 1)
 													)'')'
 		INSERT INTO #__Party3rdInfo (PartyId, Product3rdId, ChargeId, ChargeType, FromDate, ToDate, Rate)
 		EXEC (@SQL)
@@ -400,20 +399,27 @@ BEGIN
 			END
 
 			-- Muay Thai
+			SELECT @Exec_rpt_BettingBySport ='
+				SELECT rptDate, SiteId, BetTypeId, CurrencyId, Winloss
+				FROM OPENQUERY (DBLIC,''	
+									SELECT rptDate, SiteId, -2 BetTypeId, CurrencyId, SUM(ISNULL(AdjustedCustomerWL * 0.03, 0) - ISNULL(AdjustedCommShare, 0)) Winloss
+									FROM bodb_LicenseeReport.dbo.rpt_BettingBySport t WITH (NOLOCK)
+									WHERE t.RptDate BETWEEN ''''' + CONVERT(VARCHAR(10),@FDateGetData,120) +''''' AND ''''' + CONVERT(VARCHAR(10),@TDateGetData,120) +'''''
+										AND t.CurrencyId <> 20
+										AND StatusId IN (111, 112, 113)
+										AND customercategory NOT IN (27, 28)
+										AND SportType = 44
+										AND (
+											' + CAST( @DepositType AS VARCHAR(10) ) +' = 2
+											OR (' + CAST( @DepositType AS VARCHAR(10) ) +' = 0 AND ((SiteId > 1000 OR SiteID < 50000) OR SiteID = 509))
+											OR (' + CAST( @DepositType AS VARCHAR(10) ) +' = 1 AND ((SiteId <= 1000 OR SiteId >= 50000) AND SiteID <> 509))
+										)
+									GROUP BY rptDate, SiteId, CurrencyId
+								 '')'
+
+
 			INSERT INTO #__tempData (rptDate, SiteId, BetTypeId, CurrencyId, Winloss)
-			SELECT rptDate, SiteId, -2, CurrencyId, SUM(ISNULL(AdjustedCustomerWL * 0.03, 0) - ISNULL(AdjustedCommShare, 0))
-			FROM DBLIC.bodb_LicenseeReport.dbo.rpt_BettingBySport WITH (NOLOCK)
-			WHERE rptDate BETWEEN @FDateGetData AND @TDateGetData
-				AND CurrencyId <> 20
-				AND StatusId IN (111, 112, 113)
-				AND customercategory NOT IN (27, 28)
-				AND SportType = 44
-				AND (
-					@DepositType = 2
-					OR (@DepositType = 0 AND ((SiteId > 1000 OR SiteID < 50000) OR SiteID = 509))
-					OR (@DepositType = 1 AND ((SiteId <= 1000 OR SiteID >= 50000) AND SiteID <> 509))
-				)
-			GROUP BY rptDate, SiteId, CurrencyId
+			EXEC (@Exec_rpt_BettingBySport)
 
 			-- Muay Thai yesterday
 			IF @isGetDataFromBettrans = 1 AND @ToDate = @yesterday
@@ -468,39 +474,26 @@ BEGIN
 			---------
 
 			DELETE #__tempData
-			INSERT INTO #__Bettype (Product3rdId, ProductCode, BetType)
-			SELECT TOP(1) Product3rdId, ProductCode, -59  AS BetType FROM #__Bettype WHERE Product3rdId = 59
 
-			DELETE FROM #__Bettype WHERE Product3rdId = 59 AND BetType <> -59
-
-			-- get data for GDG
+			SELECT @Exec_rpt_ThirdPartyWL_ExtraGMT ='
+				SELECT rptDate, SiteId, BetTypeId, CurrencyId, Winloss, ValidBetAmount, ProgressiveContribution
+				FROM OPENQUERY (DBLIC,''	
+									SELECT RptDate3rd rptDate, SiteId, BetTypeId, CurrencyId, SUM(Winloss) Winloss , SUM(ValidBetAmount) ValidBetAmount, SUM(ProgressiveContribution) ProgressiveContribution
+									FROM bodb_LicenseeReport.dbo.rpt_ThirdPartyWL_ExtraGMT t WITH (NOLOCK)
+									WHERE t.RptDate BETWEEN ''''' + CONVERT(VARCHAR(10),@FDate_GMT_getdata,120) +''''' AND ''''' + CONVERT(VARCHAR(10),@TDate_GMT_getdata,120) +'''''
+										AND t.RptDate3rd BETWEEN ''''' + CONVERT(VARCHAR(10),@FDateGetData,120) +''''' AND ''''' + CONVERT(VARCHAR(10),@TDateGetData,120) +'''''
+										AND t.CurrencyId <> 20
+										AND StatusId NOT IN(-1, 101, 102, 103) -- Exclude Reject , Void, Refund
+										AND (
+											' + CAST( @DepositType AS VARCHAR(10) ) +' = 2
+											OR (' + CAST( @DepositType AS VARCHAR(10) ) +' = 0 AND ((SiteId > 1000 OR SiteID < 50000) OR SiteID = 509))
+											OR (' + CAST( @DepositType AS VARCHAR(10) ) +' = 1 AND ((SiteId <= 1000 OR SiteId >= 50000) AND SiteID <> 509))
+										)
+									GROUP BY RptDate3rd, SiteId, BetTypeId, CurrencyId
+								 '')'
+			
 			INSERT INTO #__tempData (rptDate, SiteId, BetTypeId, CurrencyId, Winloss, ValidBetAmount, ProgressiveContribution)
-			SELECT RptDate, SiteId, -59 AS BetTypeId, CurrencyId, SUM(MemberWL), SUM(ValidBetAmount), 0
-			FROM DBLIC.bodb_LicenseeReport.dbo.rpt_BettingByProduct WITH (NOLOCK)
-			WHERE RptDate BETWEEN @FDateGetData AND @TDateGetData
-				AND ProductID = 59
- 				AND CurrencyID <> 20
-				AND StatusId NOT IN(-1, 101, 102, 103) -- Exclude Reject , Void, Refund
-				AND (
-					@DepositType = 2
-					OR (@DepositType = 0 AND ((SiteId > 1000 OR SiteID < 50000) OR SiteID = 509))
-					OR (@DepositType = 1 AND ((SiteId <= 1000 OR SiteId >= 50000) AND SiteID <> 509))
-				)
-			GROUP BY RptDate, SiteId, BetType, CurrencyId
-
-			INSERT INTO #__tempData (rptDate, SiteId, BetTypeId, CurrencyId, Winloss, ValidBetAmount, ProgressiveContribution)
-			SELECT RptDate3rd, SiteId, BetTypeId, CurrencyId, SUM(Winloss), SUM(ValidBetAmount), SUM(ProgressiveContribution)
-			FROM DBLIC.bodb_LicenseeReport.dbo.rpt_ThirdPartyWL_ExtraGMT WITH (NOLOCK)
-			WHERE RptDate BETWEEN @FDate_GMT_getdata AND @TDate_GMT_getdata
-				AND RptDate3rd BETWEEN @FDateGetData AND @TDateGetData
-				AND CurrencyID <> 20
-				AND StatusId NOT IN(-1, 101, 102, 103) -- Exclude Reject , Void, Refund
-				AND (
-					@DepositType = 2
-					OR (@DepositType = 0 AND ((SiteId > 1000 OR SiteID < 50000) OR SiteID = 509))
-					OR (@DepositType = 1 AND ((SiteId <= 1000 OR SiteId >= 50000) AND SiteID <> 509))
-				)
-			GROUP BY RptDate3rd, SiteId, BetTypeId, CurrencyId
+			EXEC (@Exec_rpt_ThirdPartyWL_ExtraGMT)
 
 			IF @isGetDataFromBettrans = 1 AND @ToDate = @yesterday
 			BEGIN				
@@ -510,10 +503,18 @@ BEGIN
 
 			INSERT INTO #__tempResult (rptDate, ParentId, IsDeposit, Product3rdId, Bettype, CurrencyId, PlayCurrency, PayDaily, PayDailyRate, PayMonth, PayMonthRate, MemberWLDailyRate, MemberWLMonthRate, BonusRate, SiteGroup)
 			SELECT d.rptDate, tp.ParentId, tp.IsDeposit, bt.Product3rdId, CASE WHEN d.BetTypeId = 3007 THEN 3007 ELSE 0 END, d.CurrencyId, ISNULL(pc.PlayCurrency, d.CurrencyId) AS PlayCurrency
-				,SUM(CASE WHEN bt.SubProduct NOT IN ('Prize','Lucky Draw','Bonus','Promotion') THEN (CASE WHEN d.BetTypeId IN (4297, 4599) THEN d.ProgressiveContribution ELSE d.Winloss END + ISNULL(d.ValidBetAmount * v.CommRate, 0)) * ISNULL(ISNULL(p3.Rate, vs.ChargeRate3rd), 0) ELSE 0 END) AS PayDaily
-				,SUM(CASE WHEN bt.SubProduct NOT IN ('Prize','Lucky Draw','Bonus','Promotion') THEN (CASE WHEN d.BetTypeId IN (4297, 4599) THEN d.ProgressiveContribution ELSE d.Winloss END + ISNULL(d.ValidBetAmount * v.CommRate, 0)) * e.Rate * ISNULL(ISNULL(p3.Rate, vs.ChargeRate3rd), 0) ELSE 0 END) AS PayDailyRate
-				,SUM(CASE WHEN bt.SubProduct NOT IN ('Prize','Lucky Draw','Bonus','Promotion') THEN (CASE WHEN d.BetTypeId IN (4297, 4599) THEN d.ProgressiveContribution ELSE d.Winloss END + ISNULL(d.ValidBetAmount * v.CommRate, 0)) * CASE WHEN p.LicenseeId IS NULL OR p3.LicenseeId IS NULL THEN 0 ELSE p3.Rate END ELSE 0 END) AS PayMonth
-				,SUM(CASE WHEN bt.SubProduct NOT IN ('Prize','Lucky Draw','Bonus','Promotion') THEN (CASE WHEN d.BetTypeId IN (4297, 4599) THEN d.ProgressiveContribution ELSE d.Winloss END + ISNULL(d.ValidBetAmount * v.CommRate, 0)) * e.Rate * CASE WHEN p.LicenseeId IS NULL OR p3.LicenseeId IS NULL THEN 0 ELSE p3.Rate END  ELSE 0 END) AS PayMonthRate
+				,SUM(CASE WHEN bt.Product3rdId = 84 THEN d.Winloss * ISNULL(ISNULL(p3.Rate, vs.ChargeRate3rd), 0)  * p.Rate
+						  WHEN bt.SubProduct NOT IN ('Prize','Lucky Draw','Bonus','Promotion') THEN (CASE WHEN d.BetTypeId IN (4297, 4599) THEN d.ProgressiveContribution ELSE d.Winloss END + ISNULL(d.ValidBetAmount * v.CommRate, 0)) * ISNULL(ISNULL(p3.Rate, vs.ChargeRate3rd), 0) 
+						  ELSE 0 END) AS PayDaily
+				,SUM(CASE WHEN bt.Product3rdId = 84 THEN d.Winloss * ISNULL(ISNULL(p3.Rate, vs.ChargeRate3rd), 0)  * p.Rate  * e.Rate
+						  WHEN bt.SubProduct NOT IN ('Prize','Lucky Draw','Bonus','Promotion') THEN (CASE WHEN d.BetTypeId IN (4297, 4599) THEN d.ProgressiveContribution ELSE d.Winloss END + ISNULL(d.ValidBetAmount * v.CommRate, 0)) * e.Rate * ISNULL(ISNULL(p3.Rate, vs.ChargeRate3rd), 0) 
+						  ELSE 0 END) AS PayDailyRate
+				,SUM(CASE WHEN bt.Product3rdId = 84 THEN d.Winloss * CASE WHEN p.LicenseeId IS NULL OR p3.LicenseeId IS NULL THEN 0 ELSE p3.Rate END  * p.Rate
+						  WHEN bt.SubProduct NOT IN ('Prize','Lucky Draw','Bonus','Promotion') THEN (CASE WHEN d.BetTypeId IN (4297, 4599) THEN d.ProgressiveContribution ELSE d.Winloss END + ISNULL(d.ValidBetAmount * v.CommRate, 0)) * CASE WHEN p.LicenseeId IS NULL OR p3.LicenseeId IS NULL THEN 0 ELSE p3.Rate END 
+						  ELSE 0 END) AS PayMonth
+				,SUM(CASE WHEN bt.Product3rdId = 84 THEN d.Winloss * CASE WHEN p.LicenseeId IS NULL OR p3.LicenseeId IS NULL THEN 0 ELSE p3.Rate END  * p.Rate  * e.Rate
+						  WHEN bt.SubProduct NOT IN ('Prize','Lucky Draw','Bonus','Promotion') THEN (CASE WHEN d.BetTypeId IN (4297, 4599) THEN d.ProgressiveContribution ELSE d.Winloss END + ISNULL(d.ValidBetAmount * v.CommRate, 0)) * e.Rate * CASE WHEN p.LicenseeId IS NULL OR p3.LicenseeId IS NULL THEN 0 ELSE p3.Rate END  
+						  ELSE 0 END) AS PayMonthRate
 				,SUM(CASE WHEN bt.SubProduct NOT IN ('Prize','Lucky Draw','Bonus','Promotion') THEN CASE WHEN d.BetTypeId IN (4297, 4599) THEN d.ProgressiveContribution ELSE d.Winloss END * e.Rate ELSE 0 END) AS MemberWLDailyRate
 				,SUM(CASE WHEN bt.SubProduct NOT IN ('Prize','Lucky Draw','Bonus','Promotion') THEN CASE WHEN d.BetTypeId IN (4297, 4599) THEN d.ProgressiveContribution ELSE d.Winloss END * e.Rate * CASE WHEN p.LicenseeId IS NULL THEN 0.0 ELSE 1.0 END ELSE 0 END) AS MemberWLMonthRate
 				,SUM(CASE WHEN  bt.SubProduct IN ('Prize','Lucky Draw','Bonus','Promotion') THEN d.Winloss * e.Rate ELSE 0 END) AS BonusRate
@@ -737,14 +738,6 @@ BEGIN
 		INNER JOIN #__DailyPayToSupplier t ON d.Product3rdId = t.Product3rdId
 		LEFT JOIN @ProductSupportBonus ps ON d.Product3rdId = ps.ProductID
 	GROUP BY t.IsDeposit, d.Product3rdId, d.ProductCode + CASE WHEN Bettype <> 0 THEN CONVERT(VARCHAR(5), Bettype) ELSE '' END, CONVERT(VARCHAR(2), t.rptDate, 106), t.SiteGroup
-
-	UPDATE x
-	SET  x.PayToSupplier = t.PayToSupplier
-	FROM #__FinalResult x 
-	CROSS APPLY (SELECT t.PayToSupplier 
-				 FROM	#__FinalResult t 
-				 WHERE  t.rptDate = 'MTD' AND t.Product3rdId =  x.Product3rdId AND t.IsDeposit = x.IsDeposit AND t.SiteGroup = x.SiteGroup ) t
-	WHERE x.rptDate = 'Monthly' AND x.Product3rdId = 59 
 
 	;WITH CTE_Date AS
 	(
