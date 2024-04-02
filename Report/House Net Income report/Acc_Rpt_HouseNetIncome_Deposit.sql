@@ -1008,10 +1008,13 @@ BEGIN
 		CREATE CLUSTERED INDEX CIX_Product3rdId ON #__tempResult (Product3rdId, PartyId)
 
 		-- For special PayToSupplier
-		-- 1. NG, H5
+		-- 1. NG, YOLO, 
 		UPDATE #__tempResult
-		SET PayToSupplierDaily = -0.5 * HouseIncomeDaily, PayToSupplierMonth = -0.5 * HouseIncomeMonth
-		WHERE Product3rdId = 2 -- NG, H5
+		SET PayToSupplierDaily = CASE WHEN Product3rdId = 2 THEN -0.5 * HouseIncomeDaily
+									WHEN Product3rdId = 84 THEN -0.4 * HouseIncomeDaily END, 
+			PayToSupplierMonth = CASE WHEN Product3rdId = 2 THEN -0.5 * HouseIncomeMonth
+									WHEN Product3rdId = 84 THEN -0.4 * HouseIncomeMonth END
+		WHERE Product3rdId IN ( 2, 84) -- NG, YOLO
 
 		-- 2. AGC
 		;WITH CTE_Sum AS
