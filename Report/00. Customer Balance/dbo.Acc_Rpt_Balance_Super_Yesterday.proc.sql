@@ -32,6 +32,7 @@ Revisions:
 	- 20210507@Jaden.Tang: Adjust code to prevent reading dupplicated in bettrans & bettrans14 during move bet process (#154649)
 	- 20211111@Cherry: Split transfer table (#164378)
 	- 20230119@Roy: NAP Report - BU 247 (#175206)
+	- 20240404@Jaden: performance improvement (#203441) -- force HASH join to use batch mode
 							
 Parameters Explanation:
 	- Search keyword: '%keyword%'
@@ -126,7 +127,7 @@ BEGIN
 			,SUM(bal.totalBalance) AS Balance
 			,SUM(bal.totalBalance*b.actualrate) AS BaseBalance
 	FROM #SuperInfo si
-		INNER JOIN dbo.bettrans b with (READPAST)
+		INNER HASH JOIN dbo.bettrans b with (READPAST)
 			ON b.srecommend = si.custid AND si.roleId = 4
 		CROSS APPLY (
 			SELECT
@@ -155,7 +156,7 @@ BEGIN
 			,SUM(bal.totalBalance) AS Balance
 			,SUM(bal.totalBalance*b.actualrate) AS BaseBalance
 	FROM #SuperInfo si
-		INNER JOIN dbo.[Transfer] b with (READPAST)
+		INNER HASH JOIN dbo.[Transfer] b with (READPAST)
 			ON b.srecommend = si.custid AND si.roleId = 4
 		CROSS APPLY (
 			SELECT
