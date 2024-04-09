@@ -35,6 +35,7 @@ AS
         20231109@Ned.Le: Email/Letstalk - WE Live Casino - Integrate new product (#195889)
         20231215@Ned.Le: Fix code for the way to calculate Pay To Supplier for Prize Bettype
         20240315@Ned.Le: NAP Report - Create 2 new sites Hedging & Special (#202231)
+        20240402@Ned.Le: Email/Letstalk - Integrate Yolo product (#201590)
 
     Param's Explanation:
         @FromDate   : Begin date to get data for report
@@ -785,6 +786,7 @@ BEGIN
                                                                                                                                          ELSE SUM((-b.HouseWLOANDA + (CASE WHEN b.RptDate >= '2020-11-01' THEN 0 ELSE b.ExtraPTOANDA END)) * (-0.5)) END
                                                                   WHEN hni.ProductShortName IN ('GDG LC') THEN SUM((b.MemberWLOANDA + (b.NetStakeOANDA * 0.01)) * ISNULL( pts.Rate, 0))
                                                                   WHEN hni.ProductShortName IN ('WE LC') THEN SUM((b.MemberWLOANDA + (b.NetStakeOANDA * 0.004)) * ISNULL( pts.Rate, 0))
+                                                                  WHEN hni.ProductShortName = 'YoloP' THEN SUM((-b.HouseWLOANDA + b.ExtraPTOANDA) * (-0.4))
                                                                   ELSE SUM(b.MemberWLOANDA * CASE WHEN bg2.Bettype IS NOT NULL THEN 1 ELSE ISNULL( pts.Rate, 0) END) END
                     WHEN hni.Figure = 'Pay to Bet Genius' THEN SUM((b.MemberWLOANDA + b.ScommOANDA) * 0.04 * (CASE WHEN b.Bettype = 38 THEN 1 ELSE 0 END))
                     WHEN hni.Figure = 'Contribution Amount' THEN SUM(b.Contribution * (CASE WHEN bg1.BettypeGroupID = 10 AND bg1.BettypeName LIKE '%Jackpot%' THEN 1 ELSE 0 END))

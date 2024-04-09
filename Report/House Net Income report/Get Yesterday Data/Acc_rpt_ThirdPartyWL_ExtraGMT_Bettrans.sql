@@ -14,7 +14,8 @@ AS
 		- 20231027@Danny: Change LicenseeID detection formulary of deposit licensee [#183209]
 		- 20230522@Danny: Incorporate YeeBet (#186481)
         - 20230817@Ned.Le: Remove currency test
-		- 20240305@Danny: Incorporate L22 (#198035)
+		- 20240305@Danny: Incorporate UU Slots (#192594)
+		- 20240328@Danny: Incorporate Yolo (#201590)
 
 	 Param's Explanation:
 
@@ -43,7 +44,7 @@ BEGIN
 	
 	DECLARE @RnGBettypeList TABLE(Bettype INT)
 	INSERT INTO @RnGBettypeList(Bettype)
-	SELECT bettype FROM OPENQUERY (DBLIC, 'SELECT	DISTINCT bettype FROM	bodb_licensee.dbo.LA_f_BettypeProductMapping(0,''FW,PP,CC,SG,JK,CG,MGRNG,JIG,L22'') la')
+	SELECT bettype FROM OPENQUERY (DBLIC, 'SELECT	DISTINCT bettype FROM	bodb_licensee.dbo.LA_f_BettypeProductMapping(0,''FW,PP,CC,SG,JK,CG,MGRNG,JIG,L22,UUSL'') la')
 
 	DECLARE @LCBettypeList TABLE(Bettype INT)
 	INSERT INTO @LCBettypeList(Bettype)
@@ -80,9 +81,9 @@ BEGIN
 	UNION
 
 	SELECT CAST(b.winlostdate AS DATE)	AS Rptdate,
-		 CASE WHEN b.gameID BETWEEN 5701 AND 5704 THEN CAST(b.winlostdate AS DATE) ELSE CAST(b.Transdate3rd AS DATE) END AS RptDate3rd
+		  CAST(b.Transdate3rd AS DATE) AS RptDate3rd
 		, ISNULL(site.SiteID, -1) AS siteid
-		, CASE WHEN b.gameID BETWEEN 5701 AND 5704 THEN -59 ELSE b.gameID END AS BetTypeId		
+		, b.gameID AS BetTypeId		
 		, b.currency
 		, b.statusID
 		, SUM(winlost - actual_stake) AS Winloss		
@@ -92,22 +93,18 @@ BEGIN
 		LEFT JOIN bodb02.dbo.Customer c WITH (NOLOCK) ON b.recommend = c.custid AND c.roleid = 2
 		LEFT JOIN bodb02.dbo.Site s WITH (NOLOCK) ON c.site = s.site
 		LEFT JOIN bodb_licensee.dbo.view_site_list  [site] (NOLOCK) ON s.siteid = site.IbcSiteID			
-	WHERE (
-			(	b.winlostdate  BETWEEN @FDate AND  @TDate
-				AND b.Transdate3rd >= @Winlostdate AND b.Transdate3rd < @TDate AND  b.gameID NOT BETWEEN 5701 AND 5704
-			)
-			OR
-			(
-				b.winlostdate = @Winlostdate AND  b.gameID BETWEEN 5701 AND 5704 -- GDG
-			)
-		)
+	WHERE 
+		b.winlostdate  BETWEEN @FDate AND  @TDate
+		AND b.Transdate3rd >= @Winlostdate AND b.Transdate3rd < @TDate 
 		AND b.statusID NOT IN (0, 1, 101, 102, 121)
 		AND b.gameID IN (SELECT x.Bettype FROM @LCBettypeList x)
         AND b.currency <> 20
 	GROUP BY CAST(b.winlostdate AS DATE), 
-			CASE WHEN b.gameID BETWEEN 5701 AND 5704 THEN CAST(b.winlostdate AS DATE) ELSE CAST(b.Transdate3rd AS DATE) END, 
-			ISNULL(site.SiteID, -1), CASE WHEN b.gameID BETWEEN 5701 AND 5704 THEN -59 ELSE b.gameID END
-		, b.currency, b.statusID	
+			CAST(b.Transdate3rd AS DATE), 
+			ISNULL(site.SiteID, -1),
+			b.gameID, 
+			b.currency, 
+			b.statusID	
 
 
 	SELECT RptDate3rd, SiteId, BetTypeId, CurrencyId, SUM(Winloss) Winloss, SUM(ValidBetAmount) ValidBetAmount, SUM(ProgressiveContribution) ProgressiveContribution

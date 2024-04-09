@@ -50,6 +50,8 @@ AS
 		- 20231101@Danny: Change charge rate and tier rebate for Alek group from Oct 2023 (#194561)
 		- 20240115@Danny: Merge the settings of VS1 VS2 VS3 into Virtual Sports (#199544)
 		- 20240229@Danny: AGC product integrate JP, Contribution, Promotion  (#200523)
+		- 20240305@Danny: Incorporate UU Slots (#192594)
+		- 20240328@Danny: Incorporate Yolo And remove unsupported products (#201590)
         
 */
 BEGIN
@@ -303,7 +305,7 @@ BEGIN
 			INSERT INTO @Products (ProductId, Product3rdId, AliasProductId, ProductCode, SubProductCode)
 			VALUES (0, 3, 0, 'BA', 'BA')
 
-		UPDATE @Products SET IsOnlyTO = 1 WHERE Product3rdId IN (0, 3, 10, 11, 15, 31)
+		UPDATE @Products SET IsOnlyTO = 1 WHERE Product3rdId IN (0, 3, 10, 31)
 
 		;WITH CTE_Product AS (SELECT DISTINCT Product3rdId FROM @Products)
 		SELECT @Product3rdIds = COALESCE(@Product3rdIds + ',', '') + CONVERT(VARCHAR(3), Product3rdId) FROM CTE_Product
@@ -358,7 +360,7 @@ BEGIN
 										INNER JOIN bodb_licensee.dbo.OAS_PartyDetail pd WITH (NOLOCK) ON p.PartyID = pd.PartyID
 										INNER JOIN bodb_licensee.dbo.OAS_ChargeInfo ci WITH (NOLOCK) ON p.PartyID = ci.FromParty
 										INNER JOIN bodb_licensee.dbo.LA_ChargeInfo_SystemMapping cs WITH(NOLOCK) ON ci.ChargeID = cs.ChargeID AND cs.SystemID = 2
-									WHERE ci.ChargeType = 1 AND p.PartyType = 1 AND pd.IsDeposit = 1 AND ci.ToParty IN (1, 9, 11, 98)
+									WHERE ci.ChargeType = 1 AND p.PartyType = 1 AND pd.IsDeposit = 1 AND ci.ToParty IN (1, 9, 11, 98, 962)
 								) r
 								WHERE RowNum = 1')
 
@@ -370,7 +372,7 @@ BEGIN
 								INNER JOIN bodb_licensee.dbo.OAS_PartyDetail pd WITH (NOLOCK) ON pd.PartyID = p.PartyID
 								INNER JOIN bodb_licensee.dbo.OAS_ChargeInfo ci WITH (NOLOCK) ON p.PartyID = ci.FromParty
 								INNER JOIN bodb_licensee.dbo.LA_ChargeInfo_SystemMapping map ON map.ChargeID = ci.ChargeID AND map.SystemID = 2
-							WHERE p.PartyType = 1 AND pd.IsDeposit = 1 AND ci.ToParty IN (1, 9, 11, 98)
+							WHERE p.PartyType = 1 AND pd.IsDeposit = 1 AND ci.ToParty IN (1, 9, 11, 98, 962)
 								AND ci.ProductId IN (' + @Product3rdIds + ')
 								AND ci.FromDate <= ''''' + @t_date + ''''' AND ci.ToDate >= ''''' + @f_date + ''''''')'
 		INSERT INTO #Licensees (LicenseeId, PartyId, ParentId)
@@ -389,9 +391,6 @@ BEGIN
 							WHERE ci.DI_Rate > 0
 								AND (
 									ci.ChargeType = 1
-									OR ci.ChargeType IN (9, 10, 12) AND ci.ProductId = 11 -- GD
-									OR ci.ChargeType IN (6, 7) AND ci.ProductId = 15 -- CB
-									OR ci.ChargeType = 5 AND ci.ProductId = 25 -- CO
 									OR ci.ChargeType = 12 AND ci.ProductId = 39 -- SAG
 								)'')'
 		INSERT INTO #PartyChargeInfo (ChargeId, PartyId, Product3rdId, FromDate, ToDate, Rate, Bettype, ChargeType)
@@ -409,10 +408,7 @@ BEGIN
 						FROM OPENQUERY (DBLIC, ''SELECT DISTINCT PartyId, ProductId, ChargeType, FromDate, ToDate, CASE WHEN ProductId = 10 THEN 0 ELSE DI_Rate END AS Rate
 												 FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd (''''' + @f_date + ''''', ''''' + @t_date + ''''', ''''' + @ProductCodes + ''''', ''''OA'''')
 												 WHERE DI_Rate > 0
-													AND (
-														ChargeType = 1
-														OR (ChargeType IN (9, 10, 12) AND ProductId = 11) -- GD
-													)'')'
+													AND ChargeType = 1 '')'
 		INSERT INTO @PartyCharge3rd (PartyId, Product3rdId, ChargeType, FromDate, ToDate, Rate)
 		EXEC (@SQL)
 
@@ -645,16 +641,16 @@ BEGIN
 			END
 		END
 
-		-- CB, AG, GD, EX
-		IF EXISTS (SELECT 1 FROM @Products WHERE Product3rdId IN (10, 11, 15, 31))
+		-- AGC, EX
+		IF EXISTS (SELECT 1 FROM @Products WHERE Product3rdId IN (10, 31))
 		BEGIN
 			SELECT @Exec_rpt_BettingByProduct = '
 			SELECT rptDate, SiteId, CurrencyId, ProductId, BetTypeGroup, ValidBetAmount, MemberWL, Comm, LicenseeWL, LicensesTO, ExchangePlayerComm, HouseContribution, FullContribution
 			FROM OPENQUERY (DBLIC,''	
 								SELECT  t.rptDate, t.SiteId, t.CurrencyId, t.ProductId
 										,BetTypeGroup	= t.bettype
-										,ValidBetAmount	= SUM(CASE WHEN t.ProductId = 11 AND t.bettype = -1 THEN t.ValidBetAmount ELSE 0 END)
-										,MemberWL		= SUM(CASE WHEN t.ProductId = 15 THEN t.Turnover * 0.0405 + t.BuyBackAmount * 0.15 ELSE t.MemberWL END)
+										,ValidBetAmount	= SUM(t.ValidBetAmount)
+										,MemberWL		= SUM(t.MemberWL)
 										,Comm			= SUM(CASE WHEN t.ProductId = 31 THEN t.CommissionP + t.CommissionA ELSE 0 END)
 										,LicenseeWL		= -SUM(t.MemberWL)
 										,LicensesTO		= SUM(t.Turnover)
@@ -664,7 +660,7 @@ BEGIN
 									FROM bodb_LicenseeReport.dbo.rpt_BettingByProduct t WITH (NOLOCK)
 									--LEFT JOIN bodb_Licensee.dbo.LA_f_GroupBettype() u ON t.bettype = u.bettype
 									WHERE t.rptDate BETWEEN ''''' + CONVERT(VARCHAR(10),@FDateGetData,120) +''''' AND ''''' + CONVERT(VARCHAR(10),@TDateGetData,120) +'''''
-										AND t.ProductId IN (10, 11, 15, 31)
+										AND t.ProductId IN (10, 31)
 										AND t.CurrencyId <> 20
 										AND t.CustomerCategory NOT IN (27, 28)
 										AND t.StatusId NOT IN (-1, 101, 102, 103)
@@ -949,8 +945,7 @@ BEGIN
 										ELSE (t.Stake * ISNULL(ISNULL(lc.Rate, p.Rate),0)) 
 										END * e.Rate)
 			,HouseIncomeDaily	= SUM(CASE
-										WHEN t.Product3rdId = 15 THEN t.MemberWL
-										WHEN t.Product3rdId IN (25, 37, 74) THEN -t.HouseWL
+										WHEN t.Product3rdId IN (37, 74) THEN -t.HouseWL
 										WHEN p.PartyId IS NULL THEN -t.HouseWL
 										WHEN t.SportTypeGroup IN (150, 173) THEN -t.MemberWL
 										ELSE
@@ -958,10 +953,8 @@ BEGIN
 											- t.HouseContribution - t.OddsSpreadAdj - (t.FullParlayBoostBonus - t.AgentParlayBoostBonusSharing) - CASE WHEN t.Product3rdId = 31 THEN t.Comm ELSE 0 END
 										END * e.Rate)
 			,HouseIncomeMonth	= SUM(CASE
-										WHEN t.Product3rdId = 15 THEN t.MemberWL
 										WHEN t.Product3rdId IN (37, 74) THEN -t.HouseWL
 										WHEN p.PartyId IS NULL THEN 0
-										WHEN t.Product3rdId IN (25) THEN -t.HouseWL
 										WHEN t.SportTypeGroup IN (150, 173) THEN -t.MemberWL
 										ELSE
 											(- t.MemberWL - (t.FullContribution - t.HouseContribution) + t.FullParlayBoostBonus) * ISNULL(lc.Rate, p.Rate)
@@ -1015,10 +1008,13 @@ BEGIN
 		CREATE CLUSTERED INDEX CIX_Product3rdId ON #__tempResult (Product3rdId, PartyId)
 
 		-- For special PayToSupplier
-		-- 1. NG, H5
+		-- 1. NG, YOLO, 
 		UPDATE #__tempResult
-		SET PayToSupplierDaily = -0.5 * HouseIncomeDaily, PayToSupplierMonth = -0.5 * HouseIncomeMonth
-		WHERE Product3rdId = 2 -- NG, H5
+		SET PayToSupplierDaily = CASE WHEN Product3rdId = 2 THEN -0.5 * HouseIncomeDaily
+									WHEN Product3rdId = 84 THEN -0.4 * HouseIncomeDaily END, 
+			PayToSupplierMonth = CASE WHEN Product3rdId = 2 THEN -0.5 * HouseIncomeMonth
+									WHEN Product3rdId = 84 THEN -0.4 * HouseIncomeMonth END
+		WHERE Product3rdId IN ( 2, 84) -- NG, YOLO
 
 		-- 2. AGC
 		;WITH CTE_Sum AS
@@ -1194,7 +1190,7 @@ BEGIN
 		SET r.HouseIncome = CASE  WHEN ( r.Product3rdId IN (SELECT z.ProductID FROM @VSProductList z) AND @FromDate >= @VSMergeSettingCutoff) THEN r.HouseIncome
 								WHEN r.HouseIncome > 0 THEN r.HouseIncome ELSE 0 END
 			,r.LicenseeFee = CASE
-						WHEN r.Product3rdId IN (3,25,31,37,74) 
+						WHEN r.Product3rdId IN (3,31,37,74) 
 							OR r.Product3rdId IN (SELECT x.ProductID FROM @ProductSupportJPContrib x) 
 							OR ( r.Product3rdId IN (SELECT z.ProductID FROM @VSProductList z) AND @FromDate >= @VSMergeSettingCutoff)
 							THEN LicenseeFee
@@ -1202,7 +1198,7 @@ BEGIN
 		FROM #tmpResult r
 		WHERE r.Product3rdId <> 2
 			AND (
-				r.Product3rdId IN (3,25,31,37,74) -- BA, Cashout 
+				r.Product3rdId IN (3,31,37,74) -- BA, Cashout 
 				OR r.Product3rdId IN (SELECT x.ProductID FROM @ProductSupportJPContrib x)
 				OR r.PartyId NOT IN (SELECT p.PartyId FROM @9wLicenseeList p)
 				OR ( r.Product3rdId IN (SELECT z.ProductID FROM @VSProductList z) AND @FromDate >= @VSMergeSettingCutoff)
@@ -1373,7 +1369,7 @@ BEGIN
 		INNER JOIN #Result m ON m.Product3rdId = r.Product3rdId AND m.AliasProductId = r.AliasProductId AND r.rptDate = 'Monthly' AND m.rptDate = 'MTD'
 	WHERE r.Product3rdId = 10
 
-		-- 1.1 Pay to supplier Base on MemberWL < 0
+	-- 1.1 Pay to supplier Base on MemberWL < 0
 	UPDATE r
 	SET r.PayToSupplier = ISNULL(t.PayToSupplier, 0)
 	FROM #Result r
@@ -1387,10 +1383,10 @@ BEGIN
 				HAVING SUM(t.MemberWLMonth) < 0
 			) r
 		) t
-	WHERE ( r.Product3rdId IN (10, 11, 22)  OR  r.Product3rdId IN (SELECT z.ProductID FROM @VSProductList z))
+	WHERE ( r.Product3rdId IN (10, 22)  OR  r.Product3rdId IN (SELECT z.ProductID FROM @VSProductList z))
 		AND rptDate = 'Monthly'
 		
-		-- 1.2 Pay to supplier month
+	-- 1.2 Pay to supplier month
 	UPDATE r
 	SET r.PayToSupplier = ISNULL(t.PayToSupplier, 0)
 	FROM #Result r
@@ -1399,18 +1395,11 @@ BEGIN
 			FROM #__tempResult t
 			WHERE t.Product3rdId = r.Product3rdId AND t.AliasProductId = r.AliasProductId
 		) t
-	WHERE r.Product3rdId NOT IN (10, 11, 22, 34) 
+	WHERE r.Product3rdId NOT IN (10, 22, 34) 
 	    AND r.Product3rdId NOT IN (SELECT z.ProductID FROM @VSProductList z)
 		AND rptDate = 'Monthly'
 
-		-- 1.3 House Income = sum up Total daily
-	UPDATE r
-	SET r.HouseIncome = ISNULL(m.HouseIncome, 0)
-	FROM #Result r
-		INNER JOIN #Result m ON m.Product3rdId = r.Product3rdId AND m.AliasProductId = r.AliasProductId AND r.rptDate = 'Monthly' AND m.rptDate = 'MTD'
-	WHERE r.Product3rdId = 15
-
-		-- 1.4 FullContribution, JackpotPrize
+	-- 1.4 FullContribution, JackpotPrize
 	UPDATE r
 	SET r.FullContribution = ISNULL(m.FullContribution, 0), r.JackpotPrize = ISNULL(m.JackpotPrize, 0)
 	FROM #Result r
