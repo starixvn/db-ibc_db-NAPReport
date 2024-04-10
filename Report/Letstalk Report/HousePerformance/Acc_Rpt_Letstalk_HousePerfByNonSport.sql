@@ -1,4 +1,4 @@
-/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBACC-bodb02" executers="wsv_nap" viewers="" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE Acc_Rpt_Letstalk_HousePerfByNonSport
 	@ExecTime4GMT SMALLDATETIME
 AS
@@ -22,6 +22,8 @@ AS
 		20240223@Roy: Email/Letstalk Reports - Incorporate Live22 product (#198035)
 		20240223@Roy: Email/Letstalk - Virtual Sports 4 - Edge Gaming (#198628)
 		20240229@Roy: AG Casino - Email/Letstalk Reports - Add promotion & Jackpot bet type (#200523)
+		20240308@Cherry: Integrate UU Slots (#192594)
+		20240308@Cherry: Integrate Yolo Play (#201590)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -208,6 +210,8 @@ BEGIN
 			,(73,'RNG','MG') --MG-RNG
 			,(75,'RNG','Jili')
 			,(79,'RNG','Live22')
+			,(78,'RNG','UUS') -- UU Slots
+			,(84,'RNG','YoloP') 
 			----------LOT/KENO----------
 			,(40,'LOT/KENO','TabG') --Table Game
 			,(8,'LOT/KENO','Mkeno') --RNG Keno

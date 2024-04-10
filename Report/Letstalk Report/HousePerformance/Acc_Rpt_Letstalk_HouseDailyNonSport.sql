@@ -1,4 +1,4 @@
-/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBACC-bodb02" executers="wsv_nap" viewers="" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE Acc_Rpt_Letstalk_HouseDailyNonSport
 	@ExecTime4GMT SMALLDATETIME
 AS
@@ -10,7 +10,9 @@ AS
 	Revisions:
 		20231228@Cherry: Letstalk Reports - Implement Non-Sports TO & Margin and Licensee Turnover Margin (#198557)
 		20240229@Roy: AG Casino - Email/Letstalk Reports - Add promotion & Jackpot bet type (#200523)
-		
+		20240308@Cherry: Integrate UU Slots (#192594)	
+		20240308@Cherry: Integrate Yolo Play (#201590)
+		20240308@Cherry: Exclude Real E-sport (#201802)	
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -188,6 +190,8 @@ BEGIN
 			,(73,'RNG','MG') --MG-RNG
 			,(75,'RNG','Jili')
 			,(79,'RNG','Live22')
+			,(78,'RNG','UUS')
+			,(84,'RNG','YoloP')
 			----------LOT/KENO----------
 			,(40,'LOT/KENO','TabG') --Table Game
 			,(8,'LOT/KENO','Mkeno') --RNG Keno
@@ -447,14 +451,14 @@ BEGIN
 	INSERT INTO #tmpLeague (LeagueID, LeagueGroupID)
 	SELECT LeagueID, LeagueGroupID
 	FROM bodb02.dbo.league WITH(NOLOCK)
-	WHERE (sporttype = 43 OR
+	WHERE ((sporttype = 43 AND LeagueGroupID = 151) OR
 			(sporttype = 1 AND LeagueGroupID = 113) OR
 			(sporttype = 2 AND LeagueGroupID = 122)
 			)
 
-	CREATE TABLE #tmpMatch(MatchID INT, SportType INT, LeagueGroupID INT)
-	INSERT INTO #tmpMatch(MatchID, SportType, LeagueGroupID)
-	SELECT m.MatchID, m.SportType, l.LeagueGroupID
+	CREATE TABLE #tmpMatch(MatchID INT, SportType INT)
+	INSERT INTO #tmpMatch(MatchID, SportType)
+	SELECT m.MatchID, m.SportType
 	FROM bodb02.dbo.match m WITH(NOLOCK) 
 		INNER JOIN #tmpLeague l WITH(NOLOCK) ON m.leagueid = l.LeagueID
 	WHERE m.sporttype IN (1,2,43)
@@ -468,10 +472,9 @@ BEGIN
 		AND sporttype IN (1,2,43)
 
 	;WITH CTE_HWL AS (
-		SELECT CASE WHEN m.SportType = 43 and m.LeagueGroupID <> 151 THEN -1
-					WHEN m.SportType = 43 and m.LeagueGroupID = 151 THEN -2
-					WHEN m.SportType = 1 and m.LeagueGroupID = 113 THEN -3
-					WHEN m.SportType = 2 and m.LeagueGroupID = 122 THEN -4
+		SELECT CASE WHEN m.SportType = 43 THEN -1					
+					WHEN m.SportType = 1 THEN -2
+					WHEN m.SportType = 2 THEN -3
 				END ProductID
 			,CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9,6)) AS VarianceVR
 			--------------------------------------------------------------------------
@@ -501,10 +504,9 @@ BEGIN
 			AND b.currency <> 20
 			AND b.bettype IN (SELECT Bettype FROM #tmpBettype)
 		GROUP BY CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9, 6)),
-				CASE WHEN m.SportType = 43 and m.LeagueGroupID <> 151 THEN -1
-					WHEN m.SportType = 43 and m.LeagueGroupID = 151 THEN -2
-					WHEN m.SportType = 1 and m.LeagueGroupID = 113 THEN -3
-					WHEN m.SportType = 2 and m.LeagueGroupID = 122 THEN -4
+				CASE WHEN m.SportType = 43 THEN -1					
+					WHEN m.SportType = 1 THEN -2
+					WHEN m.SportType = 2 THEN -3
 				END
 	)
 	INSERT INTO #tmpMarginVirtualSport(ProductID, WinlossIBC, TurnoverIBC)
@@ -634,20 +636,18 @@ BEGIN
 	)
 	,CTE_VS AS (
 		SELECT 17 AS GroupID
-			,CASE WHEN m.ProductID = -1 THEN 'R. E-S'
-				WHEN m.ProductID = -2 THEN 'E-S PGoal'
-				WHEN m.ProductID = -3 THEN 'Soc PGoal'
-				WHEN m.ProductID = -4 THEN 'Bas PGoal'
+			,CASE WHEN m.ProductID = -1 THEN 'E-S PGoal'
+				WHEN m.ProductID = -2 THEN 'Soc PGoal'
+				WHEN m.ProductID = -3 THEN 'Bas PGoal'
 			END AS GroupName
 			,SUM(TurnoverIBC) AS TurnoverIBC
 			,CONVERT(DECIMAL(10,6),(CASE WHEN SUM(ISNULL(TurnoverIBC,0)) = 0 THEN 0
 				ELSE SUM(ISNULL(WinlossIBC,0)) / SUM(ISNULL(TurnoverIBC,0))
 			END)) AS Margin
 		FROM #tmpMarginVirtualSport AS m WITH (NOLOCK)
-		GROUP BY CASE WHEN m.ProductID = -1 THEN 'R. E-S'
-					WHEN m.ProductID = -2 THEN 'E-S PGoal'
-					WHEN m.ProductID = -3 THEN 'Soc PGoal'
-					WHEN m.ProductID = -4 THEN 'Bas PGoal'
+		GROUP BY CASE WHEN m.ProductID = -1 THEN 'E-S PGoal'
+					WHEN m.ProductID = -2 THEN 'Soc PGoal'
+					WHEN m.ProductID = -3 THEN 'Bas PGoal'
 				END
 	)
 	----return title----
