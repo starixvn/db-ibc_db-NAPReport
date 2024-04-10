@@ -36,6 +36,7 @@ AS
         20231215@Ned.Le: Fix code for the way to calculate Pay To Supplier for Prize Bettype
         20240315@Ned.Le: NAP Report - Create 2 new sites Hedging & Special (#202231)
         20240402@Ned.Le: Email/Letstalk - Integrate Yolo product (#201590)
+        20240410@Ned.Le: Email/Letstalk - Promotion of The Euro Cup (#203368)
 
     Param's Explanation:
         @FromDate   : Begin date to get data for report
@@ -502,6 +503,7 @@ BEGIN
     --                                                                          --
     ------------------------------------------------------------------------------
 
+    -- Create temp table
     CREATE TABLE #tmpSourceData (
         RptDate      DATE,
         SiteID       INT,
@@ -524,6 +526,7 @@ BEGIN
         NetStake     DECIMAL (19, 4)
     )
 
+    -- Get data from OLTP system
     SELECT @bettypeList = COALESCE(@bettypeList + ',', '') + CONVERT(VARCHAR(20), Bettype)
     FROM #tmpProductBettype
     ORDER BY Bettype
@@ -540,6 +543,7 @@ BEGIN
         END
     END
 
+    -- Get data from DataWarehouse system
     SET @loop_FromDate = @FromDate_DW
     SET @loop_ToDate = DATEADD(DAY, @loop_Interval, @loop_FromDate)
     IF (@loop_ToDate > @ToDate_DW) SET @loop_ToDate = @ToDate_DW
@@ -590,6 +594,43 @@ BEGIN
         IF (@loop_ToDate > @ToDate_DW) SET @loop_ToDate = @ToDate_DW
     END
 
+    -- Get data for special case | Correct Score Lucky Draw
+    INSERT INTO #tmpSourceData (RptDate, SiteID, CurrencyID, Sporttype, Bettype, LeagueID, TicketStatus, VarianceVR,
+                                TurnoverIBC, WinlossIBC, WinlossP, WinlossS, WinlossM, WinlossA, CommissionS, ExtraTO, ExtraWL, ExtraComm, NetStake)
+    SELECT ld.SettledDate RptDate,
+           s.siteid       SiteID,
+           ex.ExchangeId  CurrencyID,
+           246            Sporttype,
+           17008          Bettype,
+           -1             LeagueID,
+           8              TicketStatus,
+           0              VarianceVR,
+           0              TurnoverIBC,
+           SUM(ld.Payout) WinlossIBC,
+           SUM(ld.Payout) WinlossP,
+           0              WinlossS,
+           0              WinlossM,
+           0              WinlossA,
+           0              CommissionS,
+           0              ExtraTO,
+           0              ExtraWL,
+           0              ExtraComm,
+           0              NetStake
+    FROM bodb02.dbo.LuckyDrawList            ld WITH (NOLOCK)
+         LEFT JOIN bodb02.dbo.Exchange       ex WITH (NOLOCK) ON ld.Currency = ex.currency
+         LEFT JOIN bodb02.dbo.Customer       c  WITH (NOLOCK) ON c.roleid = 1 AND ld.custid = c.custid
+         LEFT JOIN bodb02.dbo.Customer       a  WITH (NOLOCK) ON a.roleid = 2 AND c.recommend = a.custid
+         LEFT JOIN bodb_Account.dbo.tbl_Site s  WITH (NOLOCK) ON a.site = s.site
+    WHERE ld.SettledDate >= @FromDate AND ld.SettledDate <= @ToDate
+          AND ld.TypeID = 1
+          AND ld.StatusID = 2
+          AND ld.IsTest = 0
+          AND ld.IsLicensee = 0
+    GROUP BY ld.SettledDate,
+             s.siteid,
+             ex.ExchangeId
+    
+    -- Create index for temp table
     CREATE CLUSTERED INDEX CIX_tmpSourceData ON #tmpSourceData(RptDate, SiteID, CurrencyID, Sporttype, Bettype, LeagueID, TicketStatus, VarianceVR)
 
 
