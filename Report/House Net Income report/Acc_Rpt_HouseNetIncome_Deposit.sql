@@ -52,6 +52,7 @@ AS
 		- 20240229@Danny: AGC product integrate JP, Contribution, Promotion  (#200523)
 		- 20240305@Danny: Incorporate UU Slots (#192594)
 		- 20240328@Danny: Incorporate Yolo And remove unsupported products (#201590)
+		- 20240416@Danny: Integrate Saba Coins Wallet (#203365)
         
 */
 BEGIN
@@ -96,7 +97,8 @@ BEGIN
 			@ExchaneFomularCutoff DATE	= '2023-05-01',
 			@SB_SLT_BTC_MergePerfCutoff DATE= '2021-11-30',
 			@AGCPaytoSuplierCutoff DATE  = '2023-10-01',
-			@VSMergeSettingCutoff DATE  = '2024-03-01'
+			@VSMergeSettingCutoff DATE  = '2024-03-01',
+			@DWH_SabaCoins_SiteID INT
 			
 
 	DECLARE @Product3rd TABLE (Product3rdId INT, ProductPrefix VARCHAR(10))
@@ -203,6 +205,7 @@ BEGIN
 		,FreeBet			MONEY
 		,GrossWL			MONEY
 		,HouseContribution  MONEY
+		,ContraAmount		MONEY
 	)
 	CREATE TABLE #FactSiteWinloss(
 		[RptDate] [date],
@@ -256,6 +259,7 @@ BEGIN
 		,LicenseeTO_licperf	MONEY
 		,LicenseeWL_licperf MONEY
 		,Bonus				MONEY
+		,ContraAmount		MONEY
 	)
 	--End Param And temporary table
 
@@ -270,8 +274,12 @@ BEGIN
 		RETURN
 
     SELECT  @InHouseReplicationWorkingStatus = CAST(VValue AS INT)
-    FROM	bodb_account.dbo.SystemSettings (NOLOCK)
+    FROM	bodb_account.dbo.SystemSettings WITH(NOLOCK)
     WHERE	VID = 16
+
+	SELECT @DWH_SabaCoins_SiteID = siteid
+	FROM bodb_Account.dbo.tbl_Site WITH(NOLOCK)
+	WHERE site = 'SabaCoins'
 
 	IF @InHouseReplicationWorkingStatus = 0
 		SELECT @isGetDataFromBettrans = 0
@@ -587,6 +595,7 @@ BEGIN
 						AND Bettype NOT IN (901, 902, 903, 904)
 						AND CurrencyId <> 20
 						AND TicketStatus NOT IN (-1, 18, 9, 10, 14)
+						AND SiteID <> @DWH_SabaCoins_SiteID
 					GROUP BY rptDate, SiteId, CurrencyId, ProductId, LeagueId
 						,CASE
 							WHEN BetType IN (9, 29) THEN -2 -- Parlay
@@ -758,6 +767,7 @@ BEGIN
 				WHERE b.rptDate BETWEEN @FromDateByBatch AND @ToDateByBatch
 					AND b.CurrencyId <> 20
 					AND b.TicketStatus NOT IN (-1, 18, 9, 10, 14)
+					AND b.SiteID <> @DWH_SabaCoins_SiteID
 				GROUP BY b.rptDate, b.SiteId, b.CurrencyId, bt.Product3rdId
 					,CASE
 						WHEN bt.Product3rdId <> 0 THEN bt.AliasProductId
@@ -833,6 +843,7 @@ BEGIN
 					LEFT JOIN @ContributionBettypeList cb ON b.BetType = cb.bettype
 				WHERE b.CurrencyId <> 20
 					AND b.TicketStatus NOT IN (-1, 18, 9, 10, 14)
+					AND b.SiteID <> @DWH_SabaCoins_SiteID
 				GROUP BY b.rptDate, b.SiteId, b.CurrencyId, bt.Product3rdId
 					,CASE
 						WHEN bt.Product3rdId <> 0 THEN bt.AliasProductId
@@ -900,6 +911,7 @@ BEGIN
 			,FreeBet			
 			,GrossWL		
 			,HouseContribution
+			,ContraAmount
 		)
 		SELECT t.rptDate, l.PartyId, t.Product3rdId, t.AliasProductId, t.SportTypeGroup
 			,CurrencyId	= CASE WHEN t.Product3rdId = 10 THEN t.CurrencyId END
@@ -947,7 +959,7 @@ BEGIN
 			,HouseIncomeDaily	= SUM(CASE
 										WHEN t.Product3rdId IN (37, 74) THEN -t.HouseWL
 										WHEN p.PartyId IS NULL THEN -t.HouseWL
-										WHEN t.SportTypeGroup IN (150, 173) THEN -t.MemberWL
+										WHEN t.SportTypeGroup IN (150, 173)  THEN -t.MemberWL
 										ELSE
 											(- t.MemberWL - (t.FullContribution - t.HouseContribution) + t.FullParlayBoostBonus) * ISNULL(lc.Rate, p.Rate)
 											- t.HouseContribution - t.OddsSpreadAdj - (t.FullParlayBoostBonus - t.AgentParlayBoostBonusSharing) - CASE WHEN t.Product3rdId = 31 THEN t.Comm ELSE 0 END
@@ -955,7 +967,7 @@ BEGIN
 			,HouseIncomeMonth	= SUM(CASE
 										WHEN t.Product3rdId IN (37, 74) THEN -t.HouseWL
 										WHEN p.PartyId IS NULL THEN 0
-										WHEN t.SportTypeGroup IN (150, 173) THEN -t.MemberWL
+										WHEN t.SportTypeGroup IN (150, 173)  THEN -t.MemberWL
 										ELSE
 											(- t.MemberWL - (t.FullContribution - t.HouseContribution) + t.FullParlayBoostBonus) * ISNULL(lc.Rate, p.Rate)
 											- t.HouseContribution - t.OddsSpreadAdj - (t.FullParlayBoostBonus - t.AgentParlayBoostBonusSharing) - CASE WHEN t.Product3rdId = 31 THEN t.Comm ELSE 0 END
@@ -971,6 +983,7 @@ BEGIN
 			 ,FreeBet = SUM(CASE WHEN t.SportTypeGroup IN (150,173) AND pj.ProductID IS NOT NULL THEN -t.MemberWL * e.Rate ELSE 0 END)
 			 ,GrossWL = SUM(CASE WHEN t.SportTypeGroup = -1 AND pj.ProductID IS NOT NULL THEN (- t.MemberWL - (t.FullContribution - t.HouseContribution)) * ISNULL(lc.Rate, p.Rate) ELSE 0 END * e.Rate)
 			 ,HouseContribution	= SUM(CASE WHEN t.BetTypeGroup = -3 THEN t.HouseContribution ELSE 0 END * e.Rate)
+			 ,ContraAmount = SUM(CASE WHEN t.Product3rdId = 81  THEN -t.MemberWL ELSE 0 END * e.Rate)
 
 		FROM #__tempData t
 			INNER JOIN #AllLicensees l ON t.SiteId_DW = l.SiteId_DW
@@ -1301,8 +1314,8 @@ BEGIN
 	UPDATE #__tempResult SET Product3rdId = 0 WHERE Product3rdId = 3
 
 	-- Daily
-	INSERT INTO #Result (rptDate, Product3rdId, AliasProductId, BAComm, PayToSupplier, FullContribution, JackpotPrize, HouseTurnover, HouseIncome, LicenseeTO_licperf, LicenseeWL_licperf, Bonus)
-	SELECT CONVERT(VARCHAR(2), rptDate, 106), Product3rdId, AliasProductId, -SUM(CommDaily), SUM(PayToSupplierDaily), SUM(FullContribution), SUM(JackpotPrize), SUM(HouseTurnover), SUM(HouseIncomeDaily), SUM(LicenseeTODaily), SUM(LicenseeWLDaily), SUM(Bonus)
+	INSERT INTO #Result (rptDate, Product3rdId, AliasProductId, BAComm, PayToSupplier, FullContribution, JackpotPrize, HouseTurnover, HouseIncome, LicenseeTO_licperf, LicenseeWL_licperf, Bonus, ContraAmount)
+	SELECT CONVERT(VARCHAR(2), rptDate, 106), Product3rdId, AliasProductId, -SUM(CommDaily), SUM(PayToSupplierDaily), SUM(FullContribution), SUM(JackpotPrize), SUM(HouseTurnover), SUM(HouseIncomeDaily), SUM(LicenseeTODaily), SUM(LicenseeWLDaily), SUM(Bonus), SUM(ContraAmount)
 	FROM #__tempResult
 	GROUP BY CONVERT(VARCHAR(2), rptDate, 106), Product3rdId, AliasProductId
 
@@ -1540,6 +1553,7 @@ BEGIN
 				UNION ALL SELECT PayToSupplier, ''Pay to supplier'', ''Pay to supplier''
 				UNION ALL SELECT -ISNULL(Rebate, 0), ''Rebate & Discount'', ''Rebate''
 				UNION ALL SELECT -ISNULL(Discount, 0), ''Rebate & Discount'', ''Discount''
+				UNION ALL SELECT ISNULL(ContraAmount, 0), ''Contra Amount'', ''Contra Amount''
 				'
 				+ CASE WHEN @IsLicperf = 1 THEN 
 				'
