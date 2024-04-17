@@ -21,6 +21,7 @@ AS
 		20240227@Roy: Email/Letstalk Reports - Merge the settings of VS1 VS2 VS3 into Virtual Sports for Deposit (#199544)
 		20240308@Cherry: Integrate UU Slots (#192594)
 		20240308@Cherry: Integrate Yolo Play (#201590)
+		20240417@Cherry: Integrate Saba xD (#202707)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -229,6 +230,7 @@ BEGIN
 			WHEN ProductName = 'SEAL Entertainment' THEN 'SealE'
 			WHEN ProductName = 'UU Slots' THEN 'UUS'
 			WHEN ProductName = 'Yolo Play' THEN 'YoloP'
+			WHEN ProductName = 'SABA xD' THEN 'SABAxD'
 			ELSE ProductName END)
 	
 	SELECT @EX3rdName = rd.ProductName
