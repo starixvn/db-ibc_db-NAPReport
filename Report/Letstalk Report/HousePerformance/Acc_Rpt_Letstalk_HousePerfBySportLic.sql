@@ -22,6 +22,7 @@ AS
 		20240308@Cherry: Integrate UU Slots (#192594)
 		20240308@Cherry: Integrate Yolo Play (#201590)
 		20240417@Cherry: Integrate Saba xD (#202707)
+		20240417@Cherry: Integrate Saba Coins (#203365)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -271,7 +272,7 @@ BEGIN
 		INNER JOIN bodb02.dbo.Products AS p WITH (NOLOCK) ON p.ProductID = s.ProductID
 		LEFT JOIN #tmpProduct3rd AS d WITH (NOLOCK) ON p.ProductPrefix = d.ProductPrefix
 	WHERE (p.Enabled = 1 OR d.Enabled = 1 )
-		AND (s.ProductID NOT IN (1,12,15,24,25,37,59,74) ---exclude SB(1),Gold Deluxe(12),Colossus Bets(15),Fishing World(24),CO Old Model(25),Saba Promotion(37),GDG(59),Player Tips(74)
+		AND (s.ProductID NOT IN (1,12,15,24,25,37,59,74,81) ---exclude SB(1),Gold Deluxe(12),Colossus Bets(15),Fishing World(24),CO Old Model(25),Saba Promotion(37),GDG(59),Player Tips(74),Saba Coins(81)
 			OR (s.ProductID = 1 AND s.SubProduct IN ('Bet Builder','MG-SuperLive'))
 		)
 	CREATE CLUSTERED INDEX tmpBetType ON #tmpBetType (BetType)
