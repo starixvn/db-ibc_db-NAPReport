@@ -13,6 +13,7 @@ AS
 		20240308@Cherry: Integrate UU Slots (#192594)	
 		20240308@Cherry: Integrate Yolo Play (#201590)
 		20240308@Cherry: Exclude Real E-sport (#201802)	
+		20240417@Cherry: Integrate Saba xD (#202707)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -192,6 +193,7 @@ BEGIN
 			,(79,'RNG','Live22')
 			,(78,'RNG','UUS')
 			,(84,'RNG','YoloP')
+			,(86,'RNG','SABAxD')
 			----------LOT/KENO----------
 			,(40,'LOT/KENO','TabG') --Table Game
 			,(8,'LOT/KENO','Mkeno') --RNG Keno
