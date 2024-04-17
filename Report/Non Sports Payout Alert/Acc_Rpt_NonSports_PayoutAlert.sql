@@ -17,7 +17,7 @@ AS
 		20231114@Roy: CWL - Risk and Control - WE Live Casino - Integrate new product (#195888)
 		20231206@Roy: CWL - Non Sports Report - Live22 - Integrate New Product (#195092)
 		20240223@Roy: Email/Letstalk - Virtual Sports 4 - Edge Gaming (#198628)
-		20240417@Cherry: Integrate Saba xD (#202707)
+		20240417@Cherry: Integrate Saba xD (#202670)
 
 	Param's Explanation:
 		@FromGMT8Time: start of time range in GMT+8 with format 2021-05-20 19:00:00
