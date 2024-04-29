@@ -1,17 +1,17 @@
 
-/*<info serverAlias="DBRPT-bodb_Report" executers="wsv_nap" viewers="" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBACC-bodb02" executers="wsv_nap" viewers="" isFunction="0" isNested="0"></info>*/
 
 USE bodb02
 GO
 
-CREATE PROCEDURE [dbo].[Acc_Rpt_Automail_BalanceBreakdown_Job]
+ALTER PROCEDURE [dbo].[Acc_Rpt_Automail_BalanceBreakdown_Job]
 @IsMonthly BIT           = 0
 , @ToDate  SMALLDATETIME = NULL
 AS
 /*
     Created	: 20240426@Jaden
 	Task	: Balance report of customers, for Finance team to backup (#204276)
-	DB		: DBRPT/bodb_Report
+	DB		: DBRPT/bodb02
 	
 	Revision:		
 		20240426@Jaden: Initial (#204276)

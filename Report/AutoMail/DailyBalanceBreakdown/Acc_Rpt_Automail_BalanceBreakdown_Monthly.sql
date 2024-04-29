@@ -22,7 +22,7 @@ AS
 BEGIN
     SELECT s.username                                          AS [Super]
          , ISNULL(m.username, '-')                             AS [Master]
-         , ISNULL(a.username, '-')                             AS [Agetn]
+         , ISNULL(a.username, '-')                             AS [Agent]
          , CASE WHEN b.custid <> b.recommend
                  AND b.custid <> b.mrecommend
                  AND b.custid <> b.srecommend THEN c.username
