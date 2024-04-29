@@ -1,5 +1,5 @@
 
-/*<info serverAlias="DBACC-bodb02" executers="wsv_nap" viewers="" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBRPT-bodb_Report" executers="wsv_nap" viewers="" isFunction="0" isNested="0"></info>*/
 
 USE bodb02
 GO
@@ -11,7 +11,7 @@ AS
 /*
     Created	: 20240426@Jaden
 	Task	: Balance report of customers, for Finance team to backup (#204276)
-	DB		: DBACC/bodb02
+	DB		: DBRPT/bodb_Report
 	
 	Revision:		
 		20240426@Jaden: Initial (#204276)
@@ -101,7 +101,7 @@ BEGIN
                          )
                     , 0
                      )                                                                                                                           MemberAmtRM
-        FROM bettrans b WITH (nolock)
+        FROM bodb02.dbo.bettrans b WITH (nolock)
         WHERE ruben = 1
           AND statusID NOT IN ( 101, 102, 103 )
           AND b.currency NOT IN ( 20, 27, 28 )
@@ -151,7 +151,7 @@ BEGIN
                      )
                 , 0
                  )                                                                                                                           MemberAmtRM
-    FROM dbo.[Transfer] b WITH (nolock)
+    FROM bodb02.dbo.[Transfer] b WITH (nolock)
     WHERE WinlostDate < @ToDate
     -- AND b.currency NOT IN ( 20, 27, 28 ) -- exclude currency at later step to let engine uses the index IX_recommend (sort merge aggregate)
     GROUP BY b.srecommend

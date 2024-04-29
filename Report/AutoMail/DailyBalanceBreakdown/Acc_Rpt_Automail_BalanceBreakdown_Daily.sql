@@ -1,5 +1,5 @@
 
-/*<info serverAlias="DBACC-bodb_Report" executers="wsv_nap" viewers="" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBRPT-bodb_Report" executers="wsv_nap" viewers="" isFunction="0" isNested="0"></info>*/
 
 USE bodb_Report
 GO
@@ -12,7 +12,7 @@ AS
     Created	: 20240426@Jaden
 	Task	: Balance report of customers, for Finance team to backup (#204276)
               Daily runs
-	DB		: DBACC/bodb02
+	DB		: DBRPT/bodb_Report
 	
 	Revision:		
 		20240426@Jaden: Initial (#204276)
