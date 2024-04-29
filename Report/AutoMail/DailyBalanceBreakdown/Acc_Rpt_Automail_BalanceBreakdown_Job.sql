@@ -1,12 +1,12 @@
 
-/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBACC-bodb02" executers="wsv_nap" viewers="" isFunction="0" isNested="0"></info>*/
 
 USE bodb02
 GO
 
 CREATE PROCEDURE [dbo].[Acc_Rpt_Automail_BalanceBreakdown_Job]
-@ToDate           SMALLDATETIME = '20240424'
-, @IncludeMonthly BIT           = 0
+@IsMonthly BIT           = 0
+, @ToDate  SMALLDATETIME = NULL
 AS
 /*
     Created	: 20240426@Jaden
@@ -17,11 +17,23 @@ AS
 		20240426@Jaden: Initial (#204276)
 
 	Param's Explanation:
+
+    Remarks:
+        This is called twice on 4th of each month, with different @IsMonthly parameter
 */
 BEGIN
-    TRUNCATE TABLE bodb_Report.dbo.AutomailBalanceBreakdown_Daily
-    IF @IncludeMonthly = 1
+    IF @IsMonthly = 0
+        TRUNCATE TABLE bodb_Report.dbo.AutomailBalanceBreakdown_Daily
+    IF @IsMonthly = 1
         TRUNCATE TABLE bodb_Report.dbo.AutomailBalanceBreakdown_Monthly
+
+    IF @ToDate IS NULL
+    BEGIN
+        IF @IsMonthly = 0
+            SET @ToDate = CAST(GETDATE() AS SMALLDATETIME)
+        IF @IsMonthly = 1
+            SET @ToDate = CAST(EOMONTH(GETDATE(), -1) AS SMALLDATETIME) + 1 --set @ToDate to begin of current month
+    END
 
     CREATE TABLE #tmp
     (
@@ -151,41 +163,41 @@ BEGIN
     DELETE FROM #tmp WHERE srecommend IN ( SELECT CustID FROM vw_Customer v (NOLOCK) WHERE v.currency IN ( 20, 27, 28 ))
 
     /*insert data*/
-    INSERT INTO bodb_Report.dbo.AutomailBalanceBreakdown_Daily
-    (
-        srecommend
-      , mrecommend
-      , recommend
-      , custid
-      , SuperAmt
-      , MasterAmt
-      , AgentAmt
-      , MemberAmt
-      , SuperAmtRM
-      , MasterAmtRM
-      , AgentAmtRM
-      , MemberAmtRM
-    )
-    SELECT srecommend
-         , mrecommend
-         , recommend
-         , custid
-         , SUM(SuperAmt)
-         , SUM(MasterAmt)
-         , SUM(AgentAmt)
-         , SUM(MemberAmt)
-         , SUM(SuperAmtRM)
-         , SUM(MasterAmtRM)
-         , SUM(AgentAmtRM)
-         , SUM(MemberAmtRM)
-    FROM #tmp
-    GROUP BY srecommend
-           , mrecommend
-           , recommend
-           , custid
+    IF @IsMonthly = 0
+        INSERT INTO bodb_Report.dbo.AutomailBalanceBreakdown_Daily
+        (
+            srecommend
+          , mrecommend
+          , recommend
+          , custid
+          , SuperAmt
+          , MasterAmt
+          , AgentAmt
+          , MemberAmt
+          , SuperAmtRM
+          , MasterAmtRM
+          , AgentAmtRM
+          , MemberAmtRM
+        )
+        SELECT srecommend
+             , mrecommend
+             , recommend
+             , custid
+             , SUM(SuperAmt)
+             , SUM(MasterAmt)
+             , SUM(AgentAmt)
+             , SUM(MemberAmt)
+             , SUM(SuperAmtRM)
+             , SUM(MasterAmtRM)
+             , SUM(AgentAmtRM)
+             , SUM(MemberAmtRM)
+        FROM #tmp
+        GROUP BY srecommend
+               , mrecommend
+               , recommend
+               , custid
 
-    IF @IncludeMonthly = 1
-    BEGIN
+    IF @IsMonthly = 1
         INSERT INTO bodb_Report.dbo.AutomailBalanceBreakdown_Monthly
         (
             srecommend
@@ -218,7 +230,6 @@ BEGIN
                , mrecommend
                , recommend
                , custid
-    END
 
     DROP TABLE #tmp
 END
