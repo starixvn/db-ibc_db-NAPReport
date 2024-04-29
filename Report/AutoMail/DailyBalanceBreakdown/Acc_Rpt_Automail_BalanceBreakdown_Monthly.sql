@@ -20,10 +20,15 @@ AS
 	Param's Explanation:
 */
 BEGIN
-    SELECT srecommend
-         , mrecommend
-         , recommend
-         , custid
+    SELECT s.username                                          AS [Super]
+         , ISNULL(m.username, '-')                             AS [Master]
+         , ISNULL(a.username, '-')                             AS [Agetn]
+         , CASE WHEN b.custid <> b.recommend
+                 AND b.custid <> b.mrecommend
+                 AND b.custid <> b.srecommend THEN c.username
+               ELSE '-'
+           END                                                 AS [Member]
+         , ISNULL(e.Currency, e1.Currency)                     AS [Currency]
          , SuperAmt
          , MasterAmt
          , AgentAmt
@@ -32,11 +37,19 @@ BEGIN
          , MasterAmtRM
          , AgentAmtRM
          , MemberAmtRM
-    FROM dbo.AutomailBalanceBreakdown_Monthly (NOLOCK)
-    ORDER BY [srecommend]
-           , [mrecommend]
-           , [recommend]
-           , [custid] 
+         , SuperAmt + MasterAmt + AgentAmt + MemberAmt         AS Total
+         , SuperAmtRM + MasterAmtRM + AgentAmtRM + MemberAmtRM AS TotalRM
+    FROM dbo.AutomailBalanceBreakdown_Monthly b WITH (NOLOCK)
+    LEFT JOIN bodb02.dbo.vw_Customer        s WITH (NOLOCK) ON b.srecommend = s.custid
+    LEFT JOIN bodb02.dbo.vw_Customer        m WITH (NOLOCK) ON b.mrecommend = m.custid
+    LEFT JOIN bodb02.dbo.vw_Customer        a WITH (NOLOCK) ON b.recommend = a.custid
+    LEFT JOIN bodb02.dbo.vw_Customer        c WITH (NOLOCK) ON b.custid = c.custid
+    LEFT JOIN bodb02.dbo.Exchange           e WITH (NOLOCK) ON s.currency = e.exchangeid
+    LEFT JOIN bodb02.dbo.Exchange           e1 WITH (NOLOCK) ON c.currency = e1.exchangeid
+    ORDER BY b.[srecommend]
+           , b.[mrecommend]
+           , b.[recommend]
+           , b.[custid] 
     OFFSET @PageIndex * @PageSize ROWS FETCH NEXT @PageSize ROWS ONLY
     OPTION (RECOMPILE)
 END
