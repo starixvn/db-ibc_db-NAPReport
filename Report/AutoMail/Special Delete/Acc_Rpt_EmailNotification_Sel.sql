@@ -18,6 +18,7 @@ AS
 		- 20220428@Cherry: Get recipient list for Abnormal Bet (#171985)
 		- 20220601@Cherry: Change the recipients (#173405)
 		- 20231228@Cherry: Change mail starixvn to starixsoft (#198198)
+		- 20240502@Cherry: Integrate SabaCoins (#203523)
 
 	Param's Explanation:	 
 */
@@ -78,6 +79,11 @@ AS
 			AND (@LicenseeName = 'ALL'
 				OR RegisteredLicenseeName IN (SELECT LicenseeName FROM #tmpLicensee)
 				)
+		UNION
+		SELECT 'SabaCoins' RegisteredLicenseeName,
+			(SELECT 'automail@enpine.com' ContactEmail FOR XML RAW('row'), ROOT('root')) ToList,
+			NULL CcList,
+			NULL BccList
 
 		DROP TABLE #tmpLicensee
 		DROP TABLE #BCC
