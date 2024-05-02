@@ -81,7 +81,11 @@ AS
 				)
 		UNION
 		SELECT 'SabaCoins' RegisteredLicenseeName,
-			(SELECT 'automail@enpine.com' ContactEmail FOR XML RAW('row'), ROOT('root')) ToList,
+			(SELECT ContactEmail 
+			FROM #BCC
+			WHERE LicGroup IN ('All', 'QC')
+				AND IsTest = @IsTest
+			FOR XML RAW('row'), ROOT('root')) ToList,
 			NULL CcList,
 			NULL BccList
 
