@@ -44,7 +44,7 @@ CREATE TABLE AutomailBalanceBreakdown_Daily
 ,   MemberAmtRM MONEY
         CONSTRAINT [PK_AutomailBalanceBreakdown_Daily]
         PRIMARY KEY CLUSTERED ([srecommend] ASC, [mrecommend] ASC, [recommend] ASC, [custid] ASC)
-) ON [PK_AutomailBalanceBreakdown_Daily]
+) ON [AutomailBalanceBreakdown_Daily]
 
 --from begin of bettrans/transfer to end of last month
 CREATE TABLE AutomailBalanceBreakdown_Monthly
@@ -63,4 +63,4 @@ CREATE TABLE AutomailBalanceBreakdown_Monthly
 ,   MemberAmtRM MONEY
         CONSTRAINT [PK_AutomailBalanceBreakdown_Monthly]
         PRIMARY KEY CLUSTERED ([srecommend] ASC, [mrecommend] ASC, [recommend] ASC, [custid] ASC)
-) ON [PK_AutomailBalanceBreakdown_Monthly]
+) ON [AutomailBalanceBreakdown_Monthly]
