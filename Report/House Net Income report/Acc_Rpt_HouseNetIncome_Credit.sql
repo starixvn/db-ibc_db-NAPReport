@@ -595,6 +595,30 @@ BEGIN
     END
 
     -- Get data for special case | Correct Score Lucky Draw
+    CREATE TABLE #tmpSourceData_CorrectScoreLuckyDraw (
+        custid      INT,
+        Payout      DECIMAL(19, 4),
+        Currency    VARCHAR(20),
+        SettledDate DATE
+    )
+
+    INSERT INTO #tmpSourceData_CorrectScoreLuckyDraw (
+        custid,
+        Payout,
+        Currency,
+        SettledDate
+    )
+    SELECT custid,
+           Payout,
+           Currency,
+           SettledDate
+    FROM DBACC.bodb02.dbo.LuckyDrawList ld WITH (NOLOCK)
+    WHERE ld.SettledDate >= @FromDate AND ld.SettledDate <= @ToDate
+          AND ld.TypeID = 1
+          AND ld.StatusID = 2
+          AND ld.IsTest = @isTest
+          AND ld.IsLicensee = 0
+
     INSERT INTO #tmpSourceData (RptDate, SiteID, CurrencyID, Sporttype, Bettype, LeagueID, TicketStatus, VarianceVR,
                                 TurnoverIBC, WinlossIBC, WinlossP, WinlossS, WinlossM, WinlossA, CommissionS, ExtraTO, ExtraWL, ExtraComm, NetStake)
     SELECT ld.SettledDate RptDate,
@@ -616,16 +640,11 @@ BEGIN
            0              ExtraWL,
            0              ExtraComm,
            0              NetStake
-    FROM bodb02.dbo.LuckyDrawList            ld WITH (NOLOCK)
-         LEFT JOIN bodb02.dbo.Exchange       ex WITH (NOLOCK) ON ld.Currency = ex.currency
-         LEFT JOIN bodb02.dbo.Customer       c  WITH (NOLOCK) ON c.roleid = 1 AND ld.custid = c.custid
-         LEFT JOIN bodb02.dbo.Customer       a  WITH (NOLOCK) ON a.roleid = 2 AND c.recommend = a.custid
-         LEFT JOIN bodb_Account.dbo.tbl_Site s  WITH (NOLOCK) ON a.site = s.site
-    WHERE ld.SettledDate >= @FromDate AND ld.SettledDate <= @ToDate
-          AND ld.TypeID = 1
-          AND ld.StatusID = 2
-          AND ld.IsTest = 0
-          AND ld.IsLicensee = 0
+    FROM #tmpSourceData_CorrectScoreLuckyDraw ld WITH (NOLOCK)
+         LEFT JOIN bodb02.dbo.Exchange        ex WITH (NOLOCK) ON ld.Currency = ex.currency
+         LEFT JOIN bodb02.dbo.Customer        c  WITH (NOLOCK) ON c.roleid = 1 AND ld.custid = c.custid
+         LEFT JOIN bodb02.dbo.Customer        a  WITH (NOLOCK) ON a.roleid = 2 AND c.recommend = a.custid
+         LEFT JOIN bodb_Account.dbo.tbl_Site  s  WITH (NOLOCK) ON a.site = s.site
     GROUP BY ld.SettledDate,
              s.siteid,
              ex.ExchangeId
@@ -1057,6 +1076,7 @@ BEGIN
     DROP TABLE #tmpPTSVendorGlobalSetting
     DROP TABLE #tmpPTSMainData
 
+    DROP TABLE #tmpSourceData_CorrectScoreLuckyDraw
     DROP TABLE #tmpSourceData
 
     DROP TABLE #tmpRawData
