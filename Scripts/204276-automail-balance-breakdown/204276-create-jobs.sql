@@ -9,7 +9,13 @@ EXEC msdb.dbo.sp_add_jobstep
 EXEC msdb.dbo.sp_add_jobstep
     @job_name = 'AutomailBalanceBreakdownJob',
     @step_name = 'Generate Data (Monthly)',
-    @command = 'EXEC bodb02.dbo.Acc_Rpt_Automail_BalanceBreakdown_Job @IsMonthly = 1',
+    @command = '
+    DECLARE @CurrentDate DATE = GETDATE();
+    IF (DAY(@CurrentDate) = 3)
+    BEGIN
+        EXEC bodb02.dbo.Acc_Rpt_Automail_BalanceBreakdown_Job @IsMonthly = 1
+    END
+    ',
     @subsystem = 'TSQL';
 
 
