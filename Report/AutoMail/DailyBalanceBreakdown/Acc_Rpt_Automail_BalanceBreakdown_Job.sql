@@ -6,7 +6,7 @@ GO
 
 ALTER PROCEDURE [dbo].[Acc_Rpt_Automail_BalanceBreakdown_Job]
 @IsMonthly BIT           = 0
-, @ToDate  SMALLDATETIME = NULL
+, @ToDate  DATE = NULL
 AS
 /*
     Created	: 20240426@Jaden
@@ -30,9 +30,9 @@ BEGIN
     IF @ToDate IS NULL
     BEGIN
         IF @IsMonthly = 0
-            SET @ToDate = CAST(GETDATE() AS SMALLDATETIME)
+            SET @ToDate = CAST(GETDATE() AS DATE)
         IF @IsMonthly = 1
-            SET @ToDate = CAST(EOMONTH(GETDATE(), -1) AS SMALLDATETIME) + 1 --set @ToDate to begin of current month
+            SET @ToDate = CAST(DATEADD(DAY, 1, EOMONTH(GETDATE(), -1)) AS DATE) --set @ToDate to begin of current month
     END
 
     CREATE TABLE #tmp
