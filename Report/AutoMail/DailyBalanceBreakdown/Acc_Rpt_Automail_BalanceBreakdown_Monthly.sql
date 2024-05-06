@@ -46,10 +46,10 @@ BEGIN
     LEFT JOIN bodb02.dbo.vw_Customer        c WITH (NOLOCK) ON b.custid = c.custid
     LEFT JOIN bodb02.dbo.Exchange           e WITH (NOLOCK) ON s.currency = e.exchangeid
     LEFT JOIN bodb02.dbo.Exchange           e1 WITH (NOLOCK) ON c.currency = e1.exchangeid
-    ORDER BY b.[srecommend]
-           , b.[mrecommend]
-           , b.[recommend]
-           , b.[custid] 
+    ORDER BY s.username
+           , m.username
+           , a.username
+           , c.username 
     OFFSET @PageIndex * @PageSize ROWS FETCH NEXT @PageSize ROWS ONLY
     OPTION (RECOMPILE)
 END
