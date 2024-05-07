@@ -1,4 +1,4 @@
-/*<info serverAlias="DBRPT-bodb_report" executers="bodbAdminNet" viewers="vnteam" isFunction="0"></info>*/
+/*<info serverAlias="DBRPT-bodb_report" executers="wsv_nap" viewers="vnteam" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_Rpt_DuplicatedTicketsSel]
 	@Date DATETIME,
 	@CheckTime SMALLINT = 2
@@ -48,6 +48,7 @@ Revisions:
 	- 20220726@Roy: NAP Report - Scale out & new transid (#175707)
 	- 20220829@Roy: NAP Report - Enhancement for duplicated ticket (#177204)
 	- 20230420@Roy: NAP Report - Enhancements on Duplicate Tickets Report (#186675)
+	- 20240506@Cherry: Extend datatype of Betfrom.fullname (#204677)
 	                   
 Param's Explanation:
 	- @CheckTime : The time we consider how long the job fails (Compared the last run with the current time).
@@ -182,7 +183,7 @@ BEGIN
 	-- BEGIN 	
 	CREATE TABLE #tmpBetfrom (
 		betfrom VARCHAR(5)
-		,fullname VARCHAR(50)
+		,fullname VARCHAR(200)
 	)
 	INSERT INTO #tmpBetfrom (
 		betfrom

@@ -1,4 +1,4 @@
-/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBACC-bodb02" executers="wsv_nap" viewers="" isFunction="0" isNested="0"></info>*/
 
 USE bodb02
 GO
@@ -64,6 +64,7 @@ AS
 		20230801@Cherry: Integrate Virtual Sports 3 (#189202)
 		20240116@Cherry: Integrate Virtual Sports 4 (#198623)
 		20240220@Cherry: Integrate AG Casino Jackpot Contribution (#200503)
+		20240506@Cherry: Extend datatype of Betfrom.fullname (#204677)
 
 	Param's Explanation:
 		- @username:  + Search by keyword, member only
@@ -149,7 +150,7 @@ BEGIN
 	DECLARE @WLDate SMALLDATETIME
 	SELECT @WLDate = CAST (@WinlostDate AS SMALLDATETIME)
 
-	CREATE TABLE #Data ( Betfrom NVARCHAR(5), Device NVARCHAR(50), DeviceGroup VARCHAR(50), 
+	CREATE TABLE #Data ( Betfrom NVARCHAR(5), Device NVARCHAR(200), DeviceGroup VARCHAR(50), 
 						 srecommend INT, bettype INT, CustID INT,
 						 BetCount INT, CurrencyID INT, Currency NVARCHAR(50),
 						 TotalBets DECIMAL(19,4), TotalBetsBase DECIMAL(19,4),
@@ -161,7 +162,7 @@ BEGIN
 						 CompanyComm DECIMAL(19,4), CompanyCommBase DECIMAL(19,4),
 						 ExtraPT DECIMAL(19,8), ExtraPTBase DECIMAL(19,8)
 						)
-	CREATE TABLE #Result (  BetfromID INT, Device NVARCHAR(50), DeviceGroup VARCHAR(50), NoOfPlayers INT,
+	CREATE TABLE #Result (  BetfromID INT, Device NVARCHAR(200), DeviceGroup VARCHAR(50), NoOfPlayers INT,
 							BetCount INT, CurrencyID INT, Currency NVARCHAR(50)	,
 							TotalBets DECIMAL(19,4), TotalBetsBase DECIMAL(19,4),
 							TotalWins DECIMAL(19,4), TotalWinsBase DECIMAL(19,4),
