@@ -20,15 +20,11 @@ AS
 	Param's Explanation:
 */
 BEGIN
-    SELECT s.username                                          AS [Super]
-         , ISNULL(m.username, '-')                             AS [Master]
-         , ISNULL(a.username, '-')                             AS [Agent]
-         , CASE WHEN b.custid <> b.recommend
-                 AND b.custid <> b.mrecommend
-                 AND b.custid <> b.srecommend THEN c.username
-               ELSE '-'
-           END                                                 AS [Member]
-         , ISNULL(e.Currency, e1.Currency)                     AS [Currency]
+    SELECT [Super]
+         , [Master]
+         , [Agent]
+         , [Member]
+         , [Currency]
          , SuperAmt
          , MasterAmt
          , AgentAmt
@@ -40,16 +36,7 @@ BEGIN
          , SuperAmt + MasterAmt + AgentAmt + MemberAmt         AS Total
          , SuperAmtRM + MasterAmtRM + AgentAmtRM + MemberAmtRM AS TotalRM
     FROM dbo.AutomailBalanceBreakdown_Daily b WITH (NOLOCK)
-    LEFT JOIN bodb02.dbo.vw_Customer        s WITH (NOLOCK) ON b.srecommend = s.custid
-    LEFT JOIN bodb02.dbo.vw_Customer        m WITH (NOLOCK) ON b.mrecommend = m.custid
-    LEFT JOIN bodb02.dbo.vw_Customer        a WITH (NOLOCK) ON b.recommend = a.custid
-    LEFT JOIN bodb02.dbo.vw_Customer        c WITH (NOLOCK) ON b.custid = c.custid
-    LEFT JOIN bodb02.dbo.Exchange           e WITH (NOLOCK) ON s.currency = e.exchangeid
-    LEFT JOIN bodb02.dbo.Exchange           e1 WITH (NOLOCK) ON c.currency = e1.exchangeid
-    ORDER BY s.username
-           , m.username
-           , a.username
-           , c.username
+    ORDER BY [RowNumber] 
     OFFSET @PageIndex * @PageSize ROWS FETCH NEXT @PageSize ROWS ONLY
     OPTION (RECOMPILE)
 END

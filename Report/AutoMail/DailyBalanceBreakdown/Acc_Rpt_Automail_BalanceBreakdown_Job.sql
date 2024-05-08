@@ -5,7 +5,7 @@ USE bodb02
 GO
 
 ALTER PROCEDURE [dbo].[Acc_Rpt_Automail_BalanceBreakdown_Job]
-@IsMonthly BIT           = 0
+@IsMonthly BIT  = 0
 , @ToDate  DATE = NULL
 AS
 /*
@@ -52,6 +52,30 @@ BEGIN
     )
 
     CREATE CLUSTERED INDEX tmp_idx1 ON #tmp (srecommend, mrecommend, recommend, custid)
+
+    CREATE TABLE #tmp_agg
+    (
+        srecommend  INT
+      , [Super]     CHAR(30)
+      , mrecommend  INT
+      , [Master]    CHAR(30)
+      , recommend   INT
+      , [Agent]     CHAR(30)
+      , custid      INT
+      , [Member]    CHAR(30)
+            DEFAULT '-'
+      , [Currency]  NCHAR(100)
+      , SuperAmt    MONEY
+      , MasterAmt   MONEY
+      , AgentAmt    MONEY
+      , MemberAmt   MONEY
+      , SuperAmtRM  MONEY
+      , MasterAmtRM MONEY
+      , AgentAmtRM  MONEY
+      , MemberAmtRM MONEY
+    )
+
+    CREATE CLUSTERED INDEX tmp_agg_idx ON #tmp_agg ([Super], [Master], [Agent], [Member])
 
     /*bettrans data*/
     -- use bettran's clustered index, batch by matchid to use index seek and reduce memory consumption
@@ -162,14 +186,77 @@ BEGIN
 
     DELETE FROM #tmp WHERE srecommend IN ( SELECT CustID FROM vw_Customer v (NOLOCK) WHERE v.currency IN ( 20, 27, 28 ))
 
+    /*update usernames separately to prevent too much memory usage*/
+    INSERT INTO #tmp_agg
+    (
+        srecommend
+      , mrecommend
+      , recommend
+      , custid
+      , SuperAmt
+      , MasterAmt
+      , AgentAmt
+      , MemberAmt
+      , SuperAmtRM
+      , MasterAmtRM
+      , AgentAmtRM
+      , MemberAmtRM
+    )
+    SELECT srecommend
+         , mrecommend
+         , recommend
+         , custid
+         , SUM(SuperAmt)
+         , SUM(MasterAmt)
+         , SUM(AgentAmt)
+         , SUM(MemberAmt)
+         , SUM(SuperAmtRM)
+         , SUM(MasterAmtRM)
+         , SUM(AgentAmtRM)
+         , SUM(MemberAmtRM)
+    FROM #tmp
+    GROUP BY srecommend
+           , mrecommend
+           , recommend
+           , custid;
+
+    DROP TABLE #tmp;
+
+    UPDATE #tmp_agg
+    SET [Super] = v.username, [Currency] = e.currency
+    FROM #tmp_agg
+    INNER JOIN vw_Customer v (NOLOCK) ON v.custid = #tmp_agg.srecommend
+    INNER JOIN bodb02.dbo.Exchange e (NOLOCK) ON v.currency = e.exchangeid
+
+    UPDATE #tmp_agg
+    SET [Master] = ISNULL(v.username, '-')
+    FROM #tmp_agg
+    INNER JOIN vw_Customer v (NOLOCK) ON v.custid = #tmp_agg.mrecommend;
+
+    UPDATE #tmp_agg
+    SET [Agent] = ISNULL(v.username, '-')
+    FROM #tmp_agg
+    INNER JOIN vw_Customer v (NOLOCK) ON v.custid = #tmp_agg.recommend;
+
+    UPDATE #tmp_agg
+    SET [Member] = v.username, [Currency] = CASE WHEN #tmp_agg.Currency IS NULL THEN e.currency ELSE #tmp_agg.Currency END
+    FROM #tmp_agg
+    INNER JOIN vw_Customer v (NOLOCK) ON v.custid = #tmp_agg.custid
+    INNER JOIN bodb02.dbo.Exchange e (NOLOCK) ON v.currency = e.exchangeid
+    WHERE #tmp_agg.custid <> #tmp_agg.srecommend
+      AND #tmp_agg.custid <> #tmp_agg.mrecommend
+      AND #tmp_agg.custid <> #tmp_agg.recommend;
+
     /*insert data*/
     IF @IsMonthly = 0
+    BEGIN
         INSERT INTO bodb_Report.dbo.AutomailBalanceBreakdown_Daily
         (
-            srecommend
-          , mrecommend
-          , recommend
-          , custid
+            [Super]
+          , [Master]
+          , [Agent]
+          , [Member]
+          , [Currency]
           , SuperAmt
           , MasterAmt
           , AgentAmt
@@ -178,32 +265,33 @@ BEGIN
           , MasterAmtRM
           , AgentAmtRM
           , MemberAmtRM
+          , [RowNumber]
         )
-        SELECT srecommend
-             , mrecommend
-             , recommend
-             , custid
-             , SUM(SuperAmt)
-             , SUM(MasterAmt)
-             , SUM(AgentAmt)
-             , SUM(MemberAmt)
-             , SUM(SuperAmtRM)
-             , SUM(MasterAmtRM)
-             , SUM(AgentAmtRM)
-             , SUM(MemberAmtRM)
-        FROM #tmp
-        GROUP BY srecommend
-               , mrecommend
-               , recommend
-               , custid
+        SELECT [Super]
+             , [Master]
+             , [Agent]
+             , [Member]
+             , [Currency]
+             , SuperAmt
+             , MasterAmt
+             , AgentAmt
+             , MemberAmt
+             , SuperAmtRM
+             , MasterAmtRM
+             , AgentAmtRM
+             , MemberAmtRM
+             , ROW_NUMBER() OVER (ORDER BY [Super], [Master], [Agent], [Member])
+        FROM #tmp_agg
+    END
 
     IF @IsMonthly = 1
         INSERT INTO bodb_Report.dbo.AutomailBalanceBreakdown_Monthly
         (
-            srecommend
-          , mrecommend
-          , recommend
-          , custid
+            [Super]
+          , [Master]
+          , [Agent]
+          , [Member]
+          , [Currency]
           , SuperAmt
           , MasterAmt
           , AgentAmt
@@ -212,24 +300,23 @@ BEGIN
           , MasterAmtRM
           , AgentAmtRM
           , MemberAmtRM
+          , [RowNumber]
         )
-        SELECT srecommend
-             , mrecommend
-             , recommend
-             , custid
-             , SUM(SuperAmt)
-             , SUM(MasterAmt)
-             , SUM(AgentAmt)
-             , SUM(MemberAmt)
-             , SUM(SuperAmtRM)
-             , SUM(MasterAmtRM)
-             , SUM(AgentAmtRM)
-             , SUM(MemberAmtRM)
-        FROM #tmp
-        GROUP BY srecommend
-               , mrecommend
-               , recommend
-               , custid
+        SELECT [Super]
+             , [Master]
+             , [Agent]
+             , [Member]
+             , [Currency]
+             , SuperAmt
+             , MasterAmt
+             , AgentAmt
+             , MemberAmt
+             , SuperAmtRM
+             , MasterAmtRM
+             , AgentAmtRM
+             , MemberAmtRM
+             , ROW_NUMBER() OVER (ORDER BY [Super], [Master], [Agent], [Member])
+        FROM #tmp_agg
 
-    DROP TABLE #tmp
+    DROP TABLE #tmp_agg
 END

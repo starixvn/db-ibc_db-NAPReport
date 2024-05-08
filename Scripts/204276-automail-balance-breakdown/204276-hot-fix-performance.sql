@@ -10,6 +10,7 @@ CREATE TABLE AutomailBalanceBreakdown_Daily
 ,   [Master] VARCHAR(30)
 ,   [Agent] VARCHAR(30)
 ,   [Member] VARCHAR(30)
+,   [Currency] NVARCHAR(100)
 ,   SuperAmt MONEY
 ,   MasterAmt MONEY
 ,   AgentAmt MONEY
@@ -32,6 +33,7 @@ CREATE TABLE AutomailBalanceBreakdown_Monthly
 ,   [Master] VARCHAR(30)
 ,   [Agent] VARCHAR(30)
 ,   [Member] VARCHAR(30)
+,   [Currency] NVARCHAR(100)
 ,   SuperAmt MONEY
 ,   MasterAmt MONEY
 ,   AgentAmt MONEY
