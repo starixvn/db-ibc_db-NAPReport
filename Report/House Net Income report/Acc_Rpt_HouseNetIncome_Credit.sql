@@ -623,7 +623,9 @@ BEGIN
                                 TurnoverIBC, WinlossIBC, WinlossP, WinlossS, WinlossM, WinlossA, CommissionS, ExtraTO, ExtraWL, ExtraComm, NetStake)
     SELECT ld.SettledDate RptDate,
            s.siteid       SiteID,
-           ex.ExchangeId  CurrencyID,
+           CASE WHEN ld.Currency = 'MYR' THEN 2
+                WHEN ld.Currency = 'US$' THEN 3
+                ELSE -1 END CurrencyID,
            246            Sporttype,
            17008          Bettype,
            -1             LeagueID,
@@ -641,13 +643,14 @@ BEGIN
            0              ExtraComm,
            0              NetStake
     FROM #tmpSourceData_CorrectScoreLuckyDraw ld WITH (NOLOCK)
-         LEFT JOIN bodb02.dbo.Exchange        ex WITH (NOLOCK) ON ld.Currency = ex.currency
          LEFT JOIN bodb02.dbo.Customer        c  WITH (NOLOCK) ON c.roleid = 1 AND ld.custid = c.custid
          LEFT JOIN bodb02.dbo.Customer        a  WITH (NOLOCK) ON a.roleid = 2 AND c.recommend = a.custid
          LEFT JOIN bodb_Account.dbo.tbl_Site  s  WITH (NOLOCK) ON a.site = s.site
     GROUP BY ld.SettledDate,
              s.siteid,
-             ex.ExchangeId
+             CASE WHEN ld.Currency = 'MYR' THEN 2
+                  WHEN ld.Currency = 'US$' THEN 3
+                  ELSE -1 END
     
     -- Create index for temp table
     CREATE CLUSTERED INDEX CIX_tmpSourceData ON #tmpSourceData(RptDate, SiteID, CurrencyID, Sporttype, Bettype, LeagueID, TicketStatus, VarianceVR)
