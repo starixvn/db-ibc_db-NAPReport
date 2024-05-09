@@ -38,5 +38,4 @@ BEGIN
     FROM dbo.AutomailBalanceBreakdown_Monthly b WITH (NOLOCK)
     ORDER BY [RowNumber] 
     OFFSET @PageIndex * @PageSize ROWS FETCH NEXT @PageSize ROWS ONLY
-    OPTION (RECOMPILE)
 END
