@@ -226,22 +226,35 @@ BEGIN
 
     DROP TABLE #tmp;
 
+    CREATE TABLE #cust (custid INT, currency TINYINT, username VARCHAR(30))
+
+    INSERT INTO #cust (custid, currency, username)
+    SELECT custid, currency, username FROM vw_Customer WITH (NOLOCK) WHERE roleid = 4
+
     UPDATE #tmp_agg
     SET [Super] = v.username
       , [Currency] = e.currency
     FROM #tmp_agg
-    INNER JOIN vw_Customer         v (NOLOCK) ON v.custid = #tmp_agg.srecommend
+    INNER JOIN #cust               v (NOLOCK) ON v.custid = #tmp_agg.srecommend
     INNER JOIN bodb02.dbo.Exchange e (NOLOCK) ON v.currency = e.exchangeid
+
+    TRUNCATE TABLE #cust
+    INSERT INTO #cust (custid, currency, username)
+    SELECT custid, currency, username FROM vw_Customer WITH (NOLOCK) WHERE roleid = 3
 
     UPDATE #tmp_agg
     SET [Master] = ISNULL(v.username, '-')
     FROM #tmp_agg
-    INNER JOIN vw_Customer v (NOLOCK) ON v.custid = #tmp_agg.mrecommend;
+    INNER JOIN #cust v (NOLOCK) ON v.custid = #tmp_agg.mrecommend;
+
+    TRUNCATE TABLE #cust
+    INSERT INTO #cust (custid, currency, username)
+    SELECT custid, currency, username FROM vw_Customer WITH (NOLOCK) WHERE roleid = 2
 
     UPDATE #tmp_agg
     SET [Agent] = ISNULL(v.username, '-')
     FROM #tmp_agg
-    INNER JOIN vw_Customer v (NOLOCK) ON v.custid = #tmp_agg.recommend;
+    INNER JOIN #cust v (NOLOCK) ON v.custid = #tmp_agg.recommend;
 
     UPDATE #tmp_agg
     SET [Member] = v.username
@@ -324,5 +337,6 @@ BEGIN
              , ROW_NUMBER() OVER (ORDER BY [Super], [Master], [Agent], [Member])
         FROM #tmp_agg
 
+    DROP TABLE #cust
     DROP TABLE #tmp_agg
 END
