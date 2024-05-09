@@ -79,7 +79,7 @@ BEGIN
       , MemberAmtRM MONEY
     )
 
-    CREATE CLUSTERED INDEX tmp_agg_idx ON #tmp_agg ([Super], [Master], [Agent], [Member]) WITH (FILLFACTOR = 95)
+    CREATE CLUSTERED INDEX tmp_agg_idx ON #tmp_agg ([srecommend], [mrecommend], [recommend], [custid]) WITH (FILLFACTOR = 95)
 
     /*bettrans data*/
     -- use bettran's clustered index, batch by matchid to use index seek and reduce memory consumption
