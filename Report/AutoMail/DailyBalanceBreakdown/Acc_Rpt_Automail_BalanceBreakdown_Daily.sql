@@ -36,6 +36,5 @@ BEGIN
          , SuperAmt + MasterAmt + AgentAmt + MemberAmt         AS Total
          , SuperAmtRM + MasterAmtRM + AgentAmtRM + MemberAmtRM AS TotalRM
     FROM dbo.AutomailBalanceBreakdown_Daily b WITH (NOLOCK)
-    ORDER BY [RowNumber] 
-    OFFSET @PageIndex * @PageSize ROWS FETCH NEXT @PageSize ROWS ONLY
+    WHERE RowNumber BETWEEN @PageIndex * @PageSize + 1 AND (@PageIndex + 1) * @PageSize
 END
