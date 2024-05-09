@@ -64,7 +64,7 @@ BEGIN
       , custid      INT
       , [Member]    CHAR(30)
             DEFAULT '-'
-      , [Currency]  NCHAR(100)
+      , [Currency]  NCHAR(6)
       , SuperAmt    MONEY
       , MasterAmt   MONEY
       , AgentAmt    MONEY
