@@ -56,15 +56,19 @@ BEGIN
     CREATE TABLE #tmp_agg
     (
         srecommend  INT
-      , [Super]     CHAR(30)
+      , [Super]     VARCHAR(30)
+            DEFAULT '   -   '
       , mrecommend  INT
-      , [Master]    CHAR(30)
+      , [Master]    VARCHAR(30)
+            DEFAULT '   -   '
       , recommend   INT
-      , [Agent]     CHAR(30)
+      , [Agent]     VARCHAR(30)
+            DEFAULT '    -    '
       , custid      INT
-      , [Member]    CHAR(30)
-            DEFAULT '-'
-      , [Currency]  NCHAR(6)
+      , [Member]    VARCHAR(30)
+            DEFAULT '        -        '
+      , [Currency]  NVARCHAR(100)
+            DEFAULT '---'
       , SuperAmt    MONEY
       , MasterAmt   MONEY
       , AgentAmt    MONEY
@@ -75,7 +79,7 @@ BEGIN
       , MemberAmtRM MONEY
     )
 
-    CREATE CLUSTERED INDEX tmp_agg_idx ON #tmp_agg ([Super], [Master], [Agent], [Member])
+    CREATE CLUSTERED INDEX tmp_agg_idx ON #tmp_agg ([Super], [Master], [Agent], [Member]) WITH (FILLFACTOR = 95)
 
     /*bettrans data*/
     -- use bettran's clustered index, batch by matchid to use index seek and reduce memory consumption
@@ -223,9 +227,10 @@ BEGIN
     DROP TABLE #tmp;
 
     UPDATE #tmp_agg
-    SET [Super] = v.username, [Currency] = e.currency
+    SET [Super] = v.username
+      , [Currency] = e.currency
     FROM #tmp_agg
-    INNER JOIN vw_Customer v (NOLOCK) ON v.custid = #tmp_agg.srecommend
+    INNER JOIN vw_Customer         v (NOLOCK) ON v.custid = #tmp_agg.srecommend
     INNER JOIN bodb02.dbo.Exchange e (NOLOCK) ON v.currency = e.exchangeid
 
     UPDATE #tmp_agg
@@ -239,9 +244,10 @@ BEGIN
     INNER JOIN vw_Customer v (NOLOCK) ON v.custid = #tmp_agg.recommend;
 
     UPDATE #tmp_agg
-    SET [Member] = v.username, [Currency] = CASE WHEN #tmp_agg.Currency IS NULL THEN e.currency ELSE #tmp_agg.Currency END
+    SET [Member] = v.username
+      , [Currency] = CASE WHEN #tmp_agg.Currency IS NULL THEN e.currency ELSE #tmp_agg.Currency END
     FROM #tmp_agg
-    INNER JOIN vw_Customer v (NOLOCK) ON v.custid = #tmp_agg.custid
+    INNER JOIN vw_Customer         v (NOLOCK) ON v.custid = #tmp_agg.custid
     INNER JOIN bodb02.dbo.Exchange e (NOLOCK) ON v.currency = e.exchangeid
     WHERE #tmp_agg.custid <> #tmp_agg.srecommend
       AND #tmp_agg.custid <> #tmp_agg.mrecommend
