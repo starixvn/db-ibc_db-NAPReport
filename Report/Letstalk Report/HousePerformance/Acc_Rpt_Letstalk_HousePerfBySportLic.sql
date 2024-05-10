@@ -706,7 +706,7 @@ BEGIN
 				WHEN d.SportGroup = 50 THEN 12 --'Cricket'
 				WHEN d.SportGroup = -29 THEN 14 --'Parl'
 				ELSE 13 END AS OrdNo --Others
-			,SUM(d.TurnOver * ISNULL(lc.Rate, p.Rate) * e.BaseCurrencyRate) AS HouseTO
+			,SUM(d.TurnOver * ISNULL(lc.Rate, ISNULL(p.Rate,1)) * e.BaseCurrencyRate) AS HouseTO
 			,SUM((-d.MemberWL * ISNULL(lc.Rate, ISNULL(p.Rate,1)) - d.OddsSpreadAdj - d.BAComm) * e.BaseCurrencyRate) AS HouseWL
 		FROM #tmpRawData AS d
 			LEFT JOIN #tmpChargeInfo p ON p.PartyID = d.PartyID AND p.Product3rdID = d.Product3rdID
