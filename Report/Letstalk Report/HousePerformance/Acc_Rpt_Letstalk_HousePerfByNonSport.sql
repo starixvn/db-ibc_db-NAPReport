@@ -24,6 +24,8 @@ AS
 		20240229@Roy: AG Casino - Email/Letstalk Reports - Add promotion & Jackpot bet type (#200523)
 		20240308@Cherry: Integrate UU Slots (#192594)
 		20240308@Cherry: Integrate Yolo Play (#201590)
+		20240417@Cherry: Integrate Saba xD (#202707)
+		20240417@Cherry: Integrate Saba Coins (#203365)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -152,7 +154,7 @@ BEGIN
 			SELECT DISTINCT Bettype
 			FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)
 			WHERE isTest IN (0,@isTest)
-				AND (ProductID NOT IN (1,37,74) --exclude Sportsbook and Saba Promotion and Player Tips
+				AND (ProductID NOT IN (1,37,74,81) --exclude Sportsbook and Saba Promotion and Player Tips, Saba Coins
 					OR SubProduct IN ('Bet Builder')
 				)
 		)
@@ -212,6 +214,7 @@ BEGIN
 			,(79,'RNG','Live22')
 			,(78,'RNG','UUS') -- UU Slots
 			,(84,'RNG','YoloP') 
+			,(86,'RNG','SABAxD') 
 			----------LOT/KENO----------
 			,(40,'LOT/KENO','TabG') --Table Game
 			,(8,'LOT/KENO','Mkeno') --RNG Keno

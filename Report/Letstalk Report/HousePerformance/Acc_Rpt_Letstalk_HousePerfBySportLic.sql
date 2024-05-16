@@ -21,6 +21,8 @@ AS
 		20240227@Roy: Email/Letstalk Reports - Merge the settings of VS1 VS2 VS3 into Virtual Sports for Deposit (#199544)
 		20240308@Cherry: Integrate UU Slots (#192594)
 		20240308@Cherry: Integrate Yolo Play (#201590)
+		20240417@Cherry: Integrate Saba xD (#202707)
+		20240417@Cherry: Integrate Saba Coins (#203365)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -229,6 +231,7 @@ BEGIN
 			WHEN ProductName = 'SEAL Entertainment' THEN 'SealE'
 			WHEN ProductName = 'UU Slots' THEN 'UUS'
 			WHEN ProductName = 'Yolo Play' THEN 'YoloP'
+			WHEN ProductName = 'SABA xD' THEN 'SABAxD'
 			ELSE ProductName END)
 	
 	SELECT @EX3rdName = rd.ProductName
@@ -269,7 +272,7 @@ BEGIN
 		INNER JOIN bodb02.dbo.Products AS p WITH (NOLOCK) ON p.ProductID = s.ProductID
 		LEFT JOIN #tmpProduct3rd AS d WITH (NOLOCK) ON p.ProductPrefix = d.ProductPrefix
 	WHERE (p.Enabled = 1 OR d.Enabled = 1 )
-		AND (s.ProductID NOT IN (1,12,15,24,25,37,59,74) ---exclude SB(1),Gold Deluxe(12),Colossus Bets(15),Fishing World(24),CO Old Model(25),Saba Promotion(37),GDG(59),Player Tips(74)
+		AND (s.ProductID NOT IN (1,12,15,24,25,37,59,74,81) ---exclude SB(1),Gold Deluxe(12),Colossus Bets(15),Fishing World(24),CO Old Model(25),Saba Promotion(37),GDG(59),Player Tips(74),Saba Coins(81)
 			OR (s.ProductID = 1 AND s.SubProduct IN ('Bet Builder','MG-SuperLive'))
 		)
 	CREATE CLUSTERED INDEX tmpBetType ON #tmpBetType (BetType)
@@ -703,8 +706,8 @@ BEGIN
 				WHEN d.SportGroup = 50 THEN 12 --'Cricket'
 				WHEN d.SportGroup = -29 THEN 14 --'Parl'
 				ELSE 13 END AS OrdNo --Others
-			,SUM(d.TurnOver * ISNULL(lc.Rate, p.Rate) * e.BaseCurrencyRate) AS HouseTO
-			,SUM((-d.MemberWL * ISNULL(lc.Rate, p.Rate) - d.OddsSpreadAdj - d.BAComm) * e.BaseCurrencyRate) AS HouseWL
+			,SUM(d.TurnOver * ISNULL(lc.Rate, ISNULL(p.Rate,1)) * e.BaseCurrencyRate) AS HouseTO
+			,SUM((-d.MemberWL * ISNULL(lc.Rate, ISNULL(p.Rate,1)) - d.OddsSpreadAdj - d.BAComm) * e.BaseCurrencyRate) AS HouseWL
 		FROM #tmpRawData AS d
 			LEFT JOIN #tmpChargeInfo p ON p.PartyID = d.PartyID AND p.Product3rdID = d.Product3rdID
 			LEFT JOIN #tmpChargeByCurr lc ON p.ChargeID = lc.ChargeID AND d.Currency = lc.CurrencyID
