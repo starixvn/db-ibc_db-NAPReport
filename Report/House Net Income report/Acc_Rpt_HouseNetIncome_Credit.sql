@@ -38,6 +38,7 @@ AS
         20240402@Ned.Le: Email/Letstalk - Integrate Yolo product (#201590)
         20240410@Ned.Le: Email/Letstalk - Promotion of The Euro Cup (#203368)
         20240605@Ned.Le: Email/Letstalk - Separate Hedging and Special Sites for report ID #01 (#206144)
+        20240613@Ned.Le: Letstalk reports - Integrate the Saba Kabaddi (#204927)
 
     Param's Explanation:
         @FromDate   : Begin date to get data for report
@@ -726,17 +727,20 @@ BEGIN
                     WHEN b.SportType = 1  AND l.LeagueGroupType = 2 THEN -14 --Saba Soc PGoal
                     WHEN b.SportType = 2  AND l.LeagueGroupType = 1 THEN -5  --Saba Bas
                     WHEN b.SportType = 2  AND l.LeagueGroupType = 2 THEN -15 --Saba Bas PGoal
-                    WHEN b.SportType = 5  AND l.LeagueGroupType = 1 THEN -17 --Saba Ten
                     WHEN b.Sporttype = 43 AND l.LeagueGroupType = 2 THEN -16 --Saba E-S PGoal
-                    WHEN b.SportType = 50 AND l.LeagueGroupType = 1 THEN -8  --Saba Cric
+                    WHEN b.SportType = 50 AND l.LeagueGroupType = 1 THEN -17 --Saba Cri & Kab
+                    WHEN b.SportType = 47 AND l.LeagueGroupType = 1 THEN -17 --Saba Cri & Kab
+                    WHEN pb.ProductID = 1 AND l.LeagueGroupType = 1 THEN -18 --Saba OS
                     WHEN b.SportType = 1                            THEN -2  --Real Soc
                     WHEN b.SportType = 2                            THEN -4  --Real Bas
                     WHEN b.SportType = 5                            THEN -6  --Tennis
                     WHEN b.SportType = 43                           THEN -7  --E-Sports
-                    WHEN pb.ProductID = 1                           THEN -9  --OtherSp
+                    WHEN b.SportType = 50                           THEN -8  --Cri & Kab
+                    WHEN b.SportType = 47                           THEN -8  --Cri & Kab
+                    WHEN pb.ProductID = 1                           THEN -9  --Other Sp
                     WHEN pb.ProductID = 3 AND b.Sporttype = 161     THEN -11 --NumG
-                    WHEN pb.ProductID = 3 AND Sporttype = 164       THEN -12 --Happy5
-                    WHEN pb.ProductID = 3 AND Sporttype = 168       THEN -13 --Happy5 LG
+                    WHEN pb.ProductID = 3 AND b.Sporttype = 164     THEN -12 --Happy5
+                    WHEN pb.ProductID = 3 AND b.Sporttype = 168     THEN -13 --Happy5 LG
                     ELSE ISNULL(pb.ProductID, -1) END ProductID,             --Unknown
                b.SportType,
                b.BetType,
@@ -775,14 +779,17 @@ BEGIN
                       WHEN b.SportType = 1  AND l.LeagueGroupType = 2 THEN -14 --Saba Soc PGoal
                       WHEN b.SportType = 2  AND l.LeagueGroupType = 1 THEN -5  --Saba Bas
                       WHEN b.SportType = 2  AND l.LeagueGroupType = 2 THEN -15 --Saba Bas PGoal
-                      WHEN b.SportType = 5  AND l.LeagueGroupType = 1 THEN -17 --Saba Ten
                       WHEN b.Sporttype = 43 AND l.LeagueGroupType = 2 THEN -16 --Saba E-S PGoal
-                      WHEN b.SportType = 50 AND l.LeagueGroupType = 1 THEN -8  --Saba Cric
+                      WHEN b.SportType = 50 AND l.LeagueGroupType = 1 THEN -17 --Saba Cri & Kab
+                      WHEN b.SportType = 47 AND l.LeagueGroupType = 1 THEN -17 --Saba Cri & Kab
+                      WHEN pb.ProductID = 1 AND l.LeagueGroupType = 1 THEN -18 --Saba OS
                       WHEN b.SportType = 1                            THEN -2  --Real Soc
                       WHEN b.SportType = 2                            THEN -4  --Real Bas
                       WHEN b.SportType = 5                            THEN -6  --Tennis
                       WHEN b.SportType = 43                           THEN -7  --E-Sports
-                      WHEN pb.ProductID = 1                           THEN -9  --OtherSp
+                      WHEN b.SportType = 50                           THEN -8  --Cri & Kab
+                      WHEN b.SportType = 47                           THEN -8  --Cri & Kab
+                      WHEN pb.ProductID = 1                           THEN -9  --Other Sp
                       WHEN pb.ProductID = 3 AND b.Sporttype = 161     THEN -11 --NumG
                       WHEN pb.ProductID = 3 AND Sporttype = 164       THEN -12 --Happy5
                       WHEN pb.ProductID = 3 AND Sporttype = 168       THEN -13 --Happy5 LG
