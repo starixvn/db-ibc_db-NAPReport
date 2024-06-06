@@ -488,7 +488,7 @@ BEGIN
 	INSERT INTO #tmpSBSports (SportGroup)
 	SELECT SportType
 	FROM bodb02.dbo.Sports WITH (NOLOCK)
-	WHERE SportType IN (1,2,5,43,50)
+	WHERE SportType IN (1,2,5,43,47,50)
 	/*
 	UNION ALL
 	
@@ -700,10 +700,8 @@ BEGIN
 				WHEN d.SportGroup = 2 AND d.SabaType = 2 THEN 7 --'Basket PG'
 				WHEN d.SportGroup = 2 AND d.SabaType = 0 THEN 8 --'Real.Bas'
 				WHEN d.SportGroup = 2 AND d.SabaType = 1 THEN 9 --'Saba.Bas'
-				WHEN d.SportGroup = 5 AND d.SabaType = 0 THEN 10 --'Real.Ten'
-				WHEN d.SportGroup = 5 THEN 10.1 --'Saba.Ten'
 				WHEN d.SportGroup = 43 THEN 11 --'E-Spo'
-				WHEN d.SportGroup = 50 THEN 12 --'Cricket'
+				WHEN d.SportGroup IN (47,50) THEN 12 --'Cricket'
 				WHEN d.SportGroup = -29 THEN 14 --'Parl'
 				ELSE 13 END AS OrdNo --Others
 			,SUM(d.TurnOver * ISNULL(lc.Rate, ISNULL(p.Rate,1)) * e.BaseCurrencyRate) AS HouseTO
@@ -721,9 +719,8 @@ BEGIN
 				WHEN d.SportGroup = 2 AND d.SabaType = 0 THEN 8 --'Real.Bas'
 				WHEN d.SportGroup = 2 AND d.SabaType = 1 THEN 9 --'Saba.Bas'
 				WHEN d.SportGroup = 5 AND d.SabaType = 0 THEN 10 --'Real.Ten'
-				WHEN d.SportGroup = 5 THEN 10.1 --'Saba.Ten'
 				WHEN d.SportGroup = 43 THEN 11 --'E-Spo'
-				WHEN d.SportGroup = 50 THEN 12 --'Cricket'
+				WHEN d.SportGroup IN (47,50) THEN 12 --'Cricket'
 				WHEN d.SportGroup = -29 THEN 14 --'Parl'
 				ELSE 13 END
 	)

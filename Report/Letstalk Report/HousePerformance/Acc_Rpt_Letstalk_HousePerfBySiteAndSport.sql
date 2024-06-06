@@ -1,4 +1,4 @@
-/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBACC-bodb02" executers="wsv_nap" viewers="" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE Acc_Rpt_Letstalk_HousePerfBySiteAndSport
 	@ExecTime4GMT SMALLDATETIME
 AS
@@ -18,6 +18,7 @@ AS
 		20230818@Roy: Auto Mail/Letstalk Reports - integrate Parlay Boost Bonus (#192856)
 		20231114@Roy: NAP Reports - Move SEAL8888 into Credit Group (#195730)
 		20240229@Roy: AG Casino - Email/Letstalk Reports - Add promotion & Jackpot bet type (#200523)
+		20240606@Cherry: Integrate Saba Kabaddi (#204927)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -187,10 +188,11 @@ BEGIN
 		,(3, 0, 'Real.Bas')
 		,(3, 0, 'Saba.Bas')
 		,(3, 0, 'Real.Ten')
-		,(3, 0, 'Saba.Ten')
 		,(3, 0, 'E-Spo')
 		,(3, 0, 'S.E-SPG')
-		,(3, 0, 'Cricket')
+		,(3, 0, 'Real.Cri&Kab')
+		,(3, 0, 'Saba.Cri&Kab')
+		,(3, 0, 'Saba.OS')
 		,(3, 0, 'Others')
 		,(3, 0, 'Parl')
 		
@@ -735,9 +737,12 @@ BEGIN
 				WHEN l.SportType = 43 THEN 'E-Spo'
 				
 				WHEN l.SportType = 5 AND sl.LeagueGroupID IS NULL THEN 'Real.Ten'
-				WHEN l.SportType = 5 THEN 'Saba.Ten'
 				
-				WHEN l.SportType = 50 THEN 'Cricket'
+				WHEN l.SportType IN (47,50) AND sl.LeagueGroupID IS NULL THEN 'Real.Cri&Kab'
+				WHEN l.SportType IN (47,50) AND sl.LeagueGroupID IS NOT NULL THEN 'Saba.Cri&Kab'
+
+				WHEN l.SportType NOT IN (1,2,43,47,50) AND sl.LeagueGroupID IS NOT NULL THEN 'Saba.OS'
+
 				WHEN d.LeagueID = @Parl_LeagueID THEN 'Parl'
 				ELSE 'Others'
 			END AS SportName
@@ -767,9 +772,12 @@ BEGIN
 				WHEN l.SportType = 43 THEN 'E-Spo'
 				
 				WHEN l.SportType = 5 AND sl.LeagueGroupID IS NULL THEN 'Real.Ten'
-				WHEN l.SportType = 5 THEN 'Saba.Ten'
 				
-				WHEN l.SportType = 50 THEN 'Cricket'
+				WHEN l.SportType IN (47,50) AND sl.LeagueGroupID IS NULL THEN 'Real.Cri&Kab'
+				WHEN l.SportType IN (47,50) AND sl.LeagueGroupID IS NOT NULL THEN 'Saba.Cri&Kab'
+
+				WHEN l.SportType NOT IN (1,2,43,47,50) AND sl.LeagueGroupID IS NOT NULL THEN 'Saba.OS'
+
 				WHEN d.LeagueID = @Parl_LeagueID THEN 'Parl'
 				ELSE 'Others'
 			END
