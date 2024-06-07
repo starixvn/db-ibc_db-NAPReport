@@ -34,6 +34,7 @@ AS
 		- 20221125@Roy: Defer Gen File After Match Complete (#180910)
 		- 20221129@Roy: NAP Report - Save Bet Report out of memory (#180701)
 		- 20230817@Roy: Exclude TestCurr due to invalid [virtualrate] (#192873)
+		- 20230817@Dominic: Tuning performance
 	
 	Param's Explanation:
 		@IsDeposit: seperate IsDeposit only for soccer. 1:Deposit; 0:Credit; 2: All match
@@ -72,11 +73,13 @@ BEGIN
 	DECLARE @isTest BIT= 0
 	SELECT @isTest = dbo.f_CheckSPVersion(@@PROCID)
 	 
-	DECLARE @MetricBettype AS TABLE (bettype INT)
-	INSERT INTO @MetricBettype (bettype)
+	CREATE TABLE #MetricBettype (bettype INT)
+	INSERT INTO #MetricBettype (bettype)
 	SELECT  DISTINCT Bettype
 	FROM bodb02.dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '',@isTest)
 	where subproduct='MG-SuperLive'
+
+	CREATE UNIQUE CLUSTERED INDEX CX_Bettype ON #MetricBettype (Bettype)
 
 	IF @bettype IN (901,902,903,904)
 	BEGIN 
@@ -127,9 +130,11 @@ BEGIN
 	SELECT ISNULL(b.custid, a.custid) custid, 
 		RTRIM(LTRIM(ISNULL('(' +b.t+ ')', '') + ' ' + ISNULL('(' +a.t+ ')', ''))) [type]
 	FROM (SELECT custid, 'R' t FROM DBONUSER.ON_USER.dbo.robotusers WITH(NOLOCK) WHERE [counter] > 10) a
-		FULL OUTER JOIN (SELECT custid, 'A' t FROM DBONUSER.ON_USER.dbo.AbnormalUsers WITH(NOLOCK) WHERE flags = 4) b
+		FULL OUTER LOOP JOIN (SELECT custid, 'A' t FROM DBONUSER.ON_USER.dbo.AbnormalUsers WITH(NOLOCK) WHERE flags = 4) b
 			ON a.custid = b.custid
 	WHERE a.custid IS NOT NULL OR b.custid IS NOT NULL
+
+	CREATE UNIQUE CLUSTERED INDEX CX_CustID ON #abnormalOrRobotUsers (CustID)
 
 	---Get data from bettrans---
 	IF @EventDate > @MoveBetsDay
@@ -186,10 +191,10 @@ BEGIN
 		FROM
 			bodb02.dbo.bettrans b with (nolock)	
 			INNER JOIN bodb02.dbo.customer cr with (nolock) ON b.creator = cr.custid
-			LEFT JOIN @MetricBettype t ON b.bettype = t.bettype	
+			LEFT JOIN #MetricBettype t ON b.bettype = t.bettype	
 			INNER JOIN bodb02.dbo.customer agent with (nolock) ON b.recommend = agent.custid
 			LEFT JOIN bodb02..Dep_CustSuper AS dep WITH(NOLOCK) ON cr.srecommend = dep.CustId
-			LEFT JOIN #abnormalOrRobotUsers ar ON b.custid = ar.custid
+			LEFT LOOP JOIN #abnormalOrRobotUsers ar ON b.custid = ar.custid
 			INNER JOIN bodb02.dbo.custInfo ci WITH (NOLOCK) ON b.custid = ci.custid
 			LEFT JOIN bodb02.dbo.BettransInfo bi WITH (NOLOCK) ON b.transid = bi.transid
 			LEFT JOIN bodb02.dbo.team tm WITH (NOLOCK) 
@@ -263,10 +268,10 @@ BEGIN
 		FROM
 			bodb02.dbo.bettrans14 b with (nolock)	
 			INNER JOIN bodb02.dbo.customer cr with (nolock) ON b.creator = cr.custid
-			LEFT JOIN @MetricBettype t ON b.bettype = t.bettype	
+			LEFT JOIN #MetricBettype t ON b.bettype = t.bettype	
 			INNER JOIN bodb02.dbo.customer agent with (nolock) ON b.recommend = agent.custid
 			LEFT JOIN bodb02..Dep_CustSuper AS dep WITH(NOLOCK) ON cr.srecommend = dep.CustId
-			LEFT JOIN #abnormalOrRobotUsers ar ON b.custid = ar.custid
+			LEFT LOOP JOIN #abnormalOrRobotUsers ar ON b.custid = ar.custid
 			INNER JOIN bodb02.dbo.custInfo ci WITH (NOLOCK) ON b.custid = ci.custid
 			LEFT JOIN bodb02.dbo.BettransInfo14 bi WITH (NOLOCK) ON b.transid = bi.transid
 			LEFT JOIN bodb02.dbo.team tm WITH (NOLOCK) 
@@ -288,4 +293,6 @@ BEGIN
 		OPTION(RECOMPILE, USE HINT('DISALLOW_BATCH_MODE'))
 	END
 	DROP TABLE #abnormalOrRobotUsers
+	DROP TABLE #MetricBettype
 END
+
