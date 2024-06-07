@@ -700,10 +700,13 @@ BEGIN
 				WHEN d.SportGroup = 2 AND d.SabaType = 2 THEN 7 --'Basket PG'
 				WHEN d.SportGroup = 2 AND d.SabaType = 0 THEN 8 --'Real.Bas'
 				WHEN d.SportGroup = 2 AND d.SabaType = 1 THEN 9 --'Saba.Bas'
+				WHEN d.SportGroup = 5 AND d.SabaType = 0 THEN 10 --'Real.Ten'
 				WHEN d.SportGroup = 43 THEN 11 --'E-Spo'
-				WHEN d.SportGroup IN (47,50) THEN 12 --'Cricket'
-				WHEN d.SportGroup = -29 THEN 14 --'Parl'
-				ELSE 13 END AS OrdNo --Others
+				WHEN d.SportGroup IN (47,50) AND d.SabaType = 0 THEN 12 --'Real.Cri & Kab'
+				WHEN d.SportGroup IN (47,50) AND d.SabaType = 1 THEN 13 --'Saba.Cri & Kab'
+				WHEN d.SportGroup IN (0,5) AND d.SabaType = 1 THEN 14 --'Saba OS'
+				WHEN d.SportGroup = -29 THEN 15 --'Parl'
+				ELSE 16 END AS OrdNo --Others
 			,SUM(d.TurnOver * ISNULL(lc.Rate, ISNULL(p.Rate,1)) * e.BaseCurrencyRate) AS HouseTO
 			,SUM((-d.MemberWL * ISNULL(lc.Rate, ISNULL(p.Rate,1)) - d.OddsSpreadAdj - d.BAComm) * e.BaseCurrencyRate) AS HouseWL
 		FROM #tmpRawData AS d
@@ -720,9 +723,11 @@ BEGIN
 				WHEN d.SportGroup = 2 AND d.SabaType = 1 THEN 9 --'Saba.Bas'
 				WHEN d.SportGroup = 5 AND d.SabaType = 0 THEN 10 --'Real.Ten'
 				WHEN d.SportGroup = 43 THEN 11 --'E-Spo'
-				WHEN d.SportGroup IN (47,50) THEN 12 --'Cricket'
-				WHEN d.SportGroup = -29 THEN 14 --'Parl'
-				ELSE 13 END
+				WHEN d.SportGroup IN (47,50) AND d.SabaType = 0 THEN 12 --'Real.Cri & Kab'
+				WHEN d.SportGroup IN (47,50) AND d.SabaType = 1 THEN 13 --'Saba.Cri & Kab'
+				WHEN d.SportGroup IN (0,5) AND d.SabaType = 1 THEN 14 --'Saba OS'
+				WHEN d.SportGroup = -29 THEN 15 --'Parl'
+				ELSE 16 END
 	)
 	,CTE_SB_RSoc AS (
 		SELECT 2 AS OrdNo --Real.Soc
@@ -771,10 +776,11 @@ BEGIN
 				WHEN OrdNo = 8 THEN 'Real.Bas'
 				WHEN OrdNo = 9 THEN 'Saba.Bas'
 				WHEN OrdNo = 10 THEN 'Real.Ten'
-				WHEN OrdNo = 10.1 THEN 'Saba.Ten'
 				WHEN OrdNo = 11 THEN 'E-Spo'
-				WHEN OrdNo = 12 THEN 'Cricket'
-				WHEN OrdNo = 14 THEN 'Parl'
+				WHEN OrdNo = 12 THEN 'Real.Cri & Kab'
+				WHEN OrdNo = 13 THEN 'Saba.Cri & Kab'
+				WHEN OrdNo = 14 THEN 'Saba.OS'
+				WHEN OrdNo = 15 THEN 'Parl'
 				ELSE 'Others' END AS GroupName
 		,HouseTO
 		,HouseWL
