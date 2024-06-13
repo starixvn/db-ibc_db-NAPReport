@@ -38,6 +38,7 @@ AS
 		- 20231024@Danny: Remove redundant hardcode (#195608)
 		- 20240305@Danny: Incorporate UU Slots (#192594)
 		- 20240328@Danny: Incorporate Yolo And remove unsupported products (#201590)
+		- 20240605@Danny: Separate Hedging and Special Sites (#206144)
 */
 BEGIN
     SET NOCOUNT ON
@@ -70,6 +71,8 @@ BEGIN
 			,@AmountRM MONEY
 			,@Exec_rpt_ThirdPartyWL_ExtraGMT VARCHAR(MAX)
 			,@Exec_rpt_BettingBySport VARCHAR(MAX)
+			,@Special_SiteID	INT
+			,@Hedging_SiteID	INT
 
 	DECLARE @Product3rd TABLE (Product3rdId INT, ProductPrefix VARCHAR(10))
 	DECLARE @Products TABLE (ProductId INT, VendorId INT, Product3rdId INT, AliasProductId INT, ProductCode VARCHAR(50), SubProductCode VARCHAR(50))
@@ -112,6 +115,9 @@ BEGIN
 
 	INSERT INTO @Site789y_lic(siteid)
 	SELECT siteid FROM DBLIC.bodb_licensee.dbo.view_site_list  WITH(NOLOCK) where SiteName IN (SELECT x.Site FROM bodb02.dbo.Site x WITH(NOLOCK) WHERE x.SiteLabel = '789y')
+
+	SELECT @Special_SiteID = SiteID  FROM DBLIC.bodb_licensee.dbo.view_site_list  WITH(NOLOCK) where SiteName = 'Special'
+	SELECT  @Hedging_SiteID =  SiteID FROM DBLIC.bodb_licensee.dbo.view_site_list  WITH(NOLOCK) where SiteName = 'Hedging'
 
     SELECT  @InHouseReplicationWorkingStatus = CAST(VValue AS INT)
     FROM	bodb_account.dbo.SystemSettings (NOLOCK)
@@ -440,7 +446,9 @@ BEGIN
 								THEN CASE WHEN -d.Winloss * p.Rate * e.Rate > m.MaxAmount THEN -(m.MaxAmount - m.MinAmount) ELSE -(-d.Winloss * p.Rate * e.Rate - m.MinAmount) END * m.Rate 
 						ELSE 0 END)
 				,CASE	WHEN  (d.SiteId <= 1000 OR d.SiteID >= 50000) THEN 'Licensee'
-						WHEN  (d.SiteId > 1000 OR d.SiteId < 50000) THEN CASE WHEN x.SiteID IS NOT NULL THEN '789Y'  ELSE 'MBC' END 
+						WHEN  (d.SiteId > 1000 OR d.SiteId < 50000) THEN CASE   WHEN x.SiteID = @Special_SiteID THEN 'Special'
+																				WHEN x.SiteID = @Hedging_SiteID THEN 'Hedging'
+																				WHEN x.SiteID IS NOT NULL THEN '789Y'  ELSE 'MBC' END 
 						END SiteGroup
 			FROM #__tempData d
 				INNER JOIN #AllParties a ON d.SiteId = a.LicenseeId
@@ -450,8 +458,10 @@ BEGIN
 				LEFT JOIN @Site789y_lic x ON x.SiteID = d.SiteID
 			GROUP BY d.rptDate, a.IsDeposit, d.BetTypeId, d.CurrencyId, 
 					CASE	WHEN  (d.SiteId <= 1000 OR d.SiteID >= 50000) THEN 'Licensee'
-							WHEN (d.SiteId > 1000 OR d.SiteId < 50000) THEN CASE WHEN x.SiteID IS NOT NULL THEN '789Y'  ELSE 'MBC' END 
-						END
+							WHEN  (d.SiteId > 1000 OR d.SiteId < 50000) THEN CASE   WHEN x.SiteID = @Special_SiteID THEN 'Special'
+																					WHEN x.SiteID = @Hedging_SiteID THEN 'Hedging'
+																					WHEN x.SiteID IS NOT NULL THEN '789Y'  ELSE 'MBC' END 
+							END
 
 			UPDATE r
 			SET r.PayMonthRate = r.PayDailyRate
@@ -518,7 +528,9 @@ BEGIN
 				,SUM(CASE WHEN bt.SubProduct NOT IN ('Prize','Lucky Draw','Bonus','Promotion') THEN CASE WHEN d.BetTypeId IN (4297, 4599) THEN d.ProgressiveContribution ELSE d.Winloss END * e.Rate * CASE WHEN p.LicenseeId IS NULL THEN 0.0 ELSE 1.0 END ELSE 0 END) AS MemberWLMonthRate
 				,SUM(CASE WHEN  bt.SubProduct IN ('Prize','Lucky Draw','Bonus','Promotion') THEN d.Winloss * e.Rate ELSE 0 END) AS BonusRate
 				,CASE	WHEN  (d.SiteId <= 1000 OR d.SiteId >= 50000) THEN 'Licensee'
-						WHEN  (d.SiteId > 1000 OR d.SiteId < 50000) THEN CASE WHEN x.SiteID IS NOT NULL THEN '789Y'  ELSE 'MBC' END 
+						WHEN  (d.SiteId > 1000 OR d.SiteId < 50000) THEN CASE	WHEN x.SiteID = @Special_SiteID THEN 'Special'
+																				WHEN x.SiteID = @Hedging_SiteID THEN 'Hedging'
+																				WHEN x.SiteID IS NOT NULL THEN '789Y'  ELSE 'MBC' END 
 						END 
 			FROM #__tempData d
 				INNER JOIN #__Bettype bt ON d.BetTypeId = bt.BetType
@@ -532,8 +544,10 @@ BEGIN
 				LEFT JOIN @Site789y_lic x ON x.SiteID = d.SiteId
 			GROUP BY d.rptDate, tp.ParentId, tp.IsDeposit, bt.Product3rdId, CASE WHEN d.BetTypeId = 3007 THEN 3007 ELSE 0 END, d.CurrencyId, ISNULL(pc.PlayCurrency, d.CurrencyId), 
 				CASE	WHEN  (d.SiteId <= 1000 OR d.SiteId >= 50000) THEN 'Licensee'
-						WHEN  (d.SiteId > 1000 OR d.SiteId < 50000) THEN CASE WHEN x.SiteID IS NOT NULL THEN '789Y'  ELSE 'MBC' END 
-						END 
+						WHEN  (d.SiteId > 1000 OR d.SiteId < 50000) THEN CASE	WHEN x.SiteID = @Special_SiteID THEN 'Special'
+																				WHEN x.SiteID = @Hedging_SiteID THEN 'Hedging'
+																				WHEN x.SiteID IS NOT NULL THEN '789Y'  ELSE 'MBC' END 
+						END  
 		END
 	END
 
@@ -779,6 +793,10 @@ BEGIN
 						SELECT ''MBC'' AS SiteGroup , 0 AS IsDeposit
 						UNION ALL
 						SELECT ''789Y'' AS SiteGroup, 0 AS IsDeposit
+						UNION ALL
+						SELECT ''Special'' AS SiteGroup, 0 AS IsDeposit
+						UNION ALL
+						SELECT ''Hedging'' AS SiteGroup, 0 AS IsDeposit
 						UNION ALL
 						SELECT ''Licensee'' AS SiteGroup , 1 AS IsDeposit
 					) x WHERE x.IsDeposit = s.IsDeposit

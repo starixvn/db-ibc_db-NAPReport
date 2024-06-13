@@ -37,6 +37,7 @@ AS
         20240315@Ned.Le: NAP Report - Create 2 new sites Hedging & Special (#202231)
         20240402@Ned.Le: Email/Letstalk - Integrate Yolo product (#201590)
         20240410@Ned.Le: Email/Letstalk - Promotion of The Euro Cup (#203368)
+        20240605@Ned.Le: Email/Letstalk - Separate Hedging and Special Sites for report ID #01 (#206144)
 
     Param's Explanation:
         @FromDate   : Begin date to get data for report
@@ -879,8 +880,10 @@ BEGIN
            isDeposit,
            OrderByProduct,
            OrderByFigure,
-           CASE WHEN Site = 'CN88' THEN 'CN88'
-                WHEN Site = '789y' THEN '789Y'
+           CASE WHEN Site = 'CN88'    THEN 'CN88'
+                WHEN Site = '789y'    THEN '789Y'
+                WHEN Site = 'Special' THEN 'Special'
+                WHEN Site = 'Hedging' THEN 'Hedging'
                 ELSE 'MBC' END SiteGroup,
            ProductCategory,
            ProductGroup,
@@ -894,9 +897,11 @@ BEGIN
              isDeposit,
              OrderByProduct,
              OrderByFigure,
-             CASE WHEN Site = 'CN88' THEN 'CN88'
-                       WHEN Site = '789y' THEN '789Y'
-                       ELSE 'MBC' END,
+             CASE WHEN Site = 'CN88'    THEN 'CN88'
+                  WHEN Site = '789y'    THEN '789Y'
+                  WHEN Site = 'Special' THEN 'Special'
+                  WHEN Site = 'Hedging' THEN 'Hedging'
+                  ELSE 'MBC' END,
              ProductCategory,
              ProductGroup,
              ProductName,
@@ -971,6 +976,16 @@ BEGIN
           AND ((EndOfSupportDate IS NULL) OR (EndOfSupportDate IS NOT NULL AND EndOfSupportDate >= @FromDate))
     UNION ALL
     SELECT isDeposit, OrderByProduct, OrderByFigure, 'MBC' SiteGroup, ProductCategory, ProductGroup, ProductName, ProductShortName, Figure, SubFigure
+    FROM #tmpHNISettings (NOLOCK)
+    WHERE isDeposit = 0 AND isEnable = 1 AND LogicCode = 1
+          AND ((EndOfSupportDate IS NULL) OR (EndOfSupportDate IS NOT NULL AND EndOfSupportDate >= @FromDate))
+    UNION ALL
+    SELECT isDeposit, OrderByProduct, OrderByFigure, 'Special' SiteGroup, ProductCategory, ProductGroup, ProductName, ProductShortName, Figure, SubFigure
+    FROM #tmpHNISettings (NOLOCK)
+    WHERE isDeposit = 0 AND isEnable = 1 AND LogicCode = 1
+          AND ((EndOfSupportDate IS NULL) OR (EndOfSupportDate IS NOT NULL AND EndOfSupportDate >= @FromDate))
+    UNION ALL
+    SELECT isDeposit, OrderByProduct, OrderByFigure, 'Hedging' SiteGroup, ProductCategory, ProductGroup, ProductName, ProductShortName, Figure, SubFigure
     FROM #tmpHNISettings (NOLOCK)
     WHERE isDeposit = 0 AND isEnable = 1 AND LogicCode = 1
           AND ((EndOfSupportDate IS NULL) OR (EndOfSupportDate IS NOT NULL AND EndOfSupportDate >= @FromDate))
