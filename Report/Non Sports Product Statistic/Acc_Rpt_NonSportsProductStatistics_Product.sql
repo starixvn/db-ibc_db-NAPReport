@@ -1,4 +1,4 @@
-/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBACC-bodb02" executers="wsv_nap" viewers="" isFunction="0" isNested="0"></info>*/
 
 USE bodb02
 GO
@@ -65,6 +65,7 @@ AS
 		20230801@Cherry: Integrate Virtual Sports 3 (#189202)
 		20240116@Cherry: Integrate Virtual Sports 4 (#198623)
 		20240220@Cherry: Integrate AG Casino Jackpot Contribution (#200503)
+		20240612@Cherry: Implement Product detail (#205894)
 
 	Param's Explanation:
 		- @username:  + Search by keyword, member only
@@ -363,7 +364,7 @@ BEGIN
 	-- End Sport Bettype Matrix
 
 	-- Handle Product Group		
-	IF @CasinoType <> -1 -- @CasinoType = 0_KN, VS, NG, 1_RNG Casino, 2_Live Casino
+	IF @CasinoType IN (0,1,2) -- @CasinoType = 0_KN, VS, NG, 1_RNG Casino, 2_Live Casino
 	BEGIN
 		DELETE s
 		FROM #SportBettype s
