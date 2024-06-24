@@ -1,4 +1,4 @@
-/*<info serverAlias="DBWH-bodb_Account" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBWH-bodb_Account" executers="wsv_nap" viewers="" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[NAP_Task_SaveBet_GenerateServiceJob]
 AS
 
@@ -39,45 +39,52 @@ BEGIN
 			)
 	OPTION (RECOMPILE)
 	
-	CREATE TABLE #Match (ID INT IDENTITY(1,1), MatchID INT)
-	INSERT INTO #Match(MatchID)
-	SELECT MatchID FROM MatchList WITH (NOLOCK) 
+	CREATE TABLE #Match (ID INT IDENTITY(1,1), EventDate DATE, MatchID INT)
+	
+	INSERT INTO #Match (
+		EventDate
+		,MatchID
+	)
+	SELECT DISTINCT EventDate
+		,MatchID
+	FROM MatchList WITH (NOLOCK) 
 	WHERE JobGenerated = 0
-
-	--update top (10) MatchList set JobGenerated = 0
-	IF @@ROWCOUNT =0 RETURN;
+	
+	CREATE UNIQUE CLUSTERED INDEX CIX_tmpMatch ON #Match(MatchID)
 
 	CREATE TABLE #MatchBettype (
 		MatchID INT
 		,Bettype INT
 		,LiveIndicator BIT
 	)
-	SELECT @StrSQL = '
-		SELECT MatchID
-			,Bettype
-			,LiveIndicator
-		FROM bodb02.dbo.bettrans WITH (NOLOCK)
-		WHERE matchid IN ('
 	
-	SELECT @StrSQL = @StrSQL  + CONVERT(NVARCHAR, MatchID) + ','
+	DECLARE @FEventDate DATE
+		,@TEventDate DATE
+	
+	SELECT @FEventDate = MIN(EventDate)
+		,@TEventDate = MAX(EventDate)
 	FROM #Match
-	SELECT @StrSQL  =  SUBSTRING ( @StrSQL ,1 , LEN(@StrSQL) -1 )  
-	SELECT @StrSQL  =  @StrSQL   + ')'
-	
-	SELECT @StrSQL  =  @StrSQL   +  '
-			AND bettype NOT IN ( SELECT bettype FROM bodb02.dbo.f_VSHorseRacingByBettype() )
-			AND bettype NOT IN (901, 902, 903, 904)
-			AND bettype NOT IN (911, 912, 913, 914, 38)
-		GROUP BY MatchID
-			,Bettype
-			,LiveIndicator'
 	
 	INSERT INTO #MatchBettype (
-			MatchID
-			,Bettype
-			,LiveIndicator
+		MatchID
+		,Bettype
+		,LiveIndicator
+	)
+	SELECT MatchID
+		,Bettype
+		,LiveIndicator
+	FROM bodb_ODS.dbo.ODS_bettrans WITH (NOLOCK)
+	WHERE winlostdate BETWEEN @FEventDate AND @TEventDate
+		AND MatchID IN (SELECT MatchID FROM #Match)
+		AND bettype NOT IN ( 1231, 1232, 1233, 1237, 1238 --SELECT bettype FROM bodb02.dbo.f_VSHorseRacingByBettype()
+			,901, 902, 903, 904
+			,911, 912, 913, 914, 38
 		)
-	EXECUTE DBACC.master.dbo.sp_executesql @StrSQL
+	GROUP BY MatchID
+		,Bettype
+		,LiveIndicator
+	OPTION(RECOMPILE, MAXDOP 4,  MAX_GRANT_PERCENT = 25)
+	
 	CREATE CLUSTERED INDEX [CIX_MatchBettype] ON #MatchBettype( MatchID, BetType, LiveIndicator ) 
 	
 	SELECT @ID = 1
