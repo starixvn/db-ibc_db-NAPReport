@@ -15,6 +15,7 @@ AS
 		- 20170612@Percy: check bettype of Cash Out [RedmineID: #78160]
 		- 20190308@Robert: #109822 - NAP Report - Integrate Bet Builder
 		- 20210423@Roy: NAP Report - Move Save bet db & service (#153147)
+		- 20240624@Roy: NAP - DW - Offload the Save Bet report from DB061 to DBDW (#206979)
 */
 
 BEGIN
