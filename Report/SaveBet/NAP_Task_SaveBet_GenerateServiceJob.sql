@@ -40,14 +40,10 @@ BEGIN
 			)
 	OPTION (RECOMPILE)
 	
-	CREATE TABLE #Match (ID INT IDENTITY(1,1), EventDate DATE, MatchID INT)
+	CREATE TABLE #Match (ID INT IDENTITY(1,1), MatchID INT)
 	
-	INSERT INTO #Match (
-		EventDate
-		,MatchID
-	)
-	SELECT DISTINCT EventDate
-		,MatchID
+	INSERT INTO #Match (MatchID)
+	SELECT DISTINCT MatchID
 	FROM MatchList WITH (NOLOCK) 
 	WHERE JobGenerated = 0
 	
@@ -59,12 +55,11 @@ BEGIN
 		,LiveIndicator BIT
 	)
 	
+	--Hardcode Yesterday and Today
 	DECLARE @FEventDate DATE
-		,@TEventDate DATE
+		,@TEventDate DATE = GETDATE()
 	
-	SELECT @FEventDate = MIN(EventDate)
-		,@TEventDate = MAX(EventDate)
-	FROM #Match
+	SELECT @FEventDate = DATEADD(DD, -1, @TEventDate)
 	
 	INSERT INTO #MatchBettype (
 		MatchID
