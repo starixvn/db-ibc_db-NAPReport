@@ -25,7 +25,6 @@ BEGIN
 		,@MatchID INT
 		,@ID INT
 		,@Total INT
-		,@StrSQL NVARCHAR(MAX)
 	
 	SELECT @MoveBetsDay = MoveBetsDay
 	FROM OPENQUERY(DBACC, 'exec bodb02.dbo.[Age_SelBalanceUpDay]')
@@ -44,8 +43,11 @@ BEGIN
 	
 	INSERT INTO #Match (MatchID)
 	SELECT DISTINCT MatchID
-	FROM MatchList WITH (NOLOCK) 
+	FROM MatchList WITH (NOLOCK)
 	WHERE JobGenerated = 0
+		AND EventDate >= DATEADD(DAY,-3,GETDATE())
+		AND GenerateTime <= DATEADD(MINUTE,-15,GETDATE()) --delay 15mins
+	OPTION(RECOMPILE, MAXDOP 4,  MAX_GRANT_PERCENT = 25)
 	
 	CREATE UNIQUE CLUSTERED INDEX CIX_tmpMatch ON #Match(MatchID)
 
