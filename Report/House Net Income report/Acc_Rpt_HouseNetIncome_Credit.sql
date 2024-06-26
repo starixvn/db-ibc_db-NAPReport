@@ -75,7 +75,6 @@ BEGIN
     --    -> #tmpExchangeOANDA                                 --
     --    -> #tmpLeague                                        --
     --    -> #tmpPTSProducts                                   --
-    --    -> #tmpPTSVendorGlobalSetting                        --
     --    -> #tmpPTSMainData                                   --
     --                                                         --
     -- 4. Getting source data                                  --
@@ -417,28 +416,6 @@ BEGIN
 
     CREATE CLUSTERED INDEX CIX_tmpPTSProducts ON #tmpPTSProducts (VendorID, Sporttype)
 
-    -- #tmpPTSVendorGlobalSetting
-    CREATE TABLE #tmpPTSVendorGlobalSetting (
-        ProductID INT,
-        VName VARCHAR(50),
-        NumberValue DECIMAL(19, 8),
-        Sporttype INT,
-        Bettype INT
-    )
-
-    INSERT INTO #tmpPTSVendorGlobalSetting (ProductID, VName, NumberValue, Sporttype, Bettype)
-    SELECT p.ProductID,
-           v.VName,
-           v.NumberValue,
-           v.sporttype,
-           v.bettype
-    FROM DBCUST.CustDB.dbo.VendorGlobalSetting v WITH (NOLOCK)
-         INNER JOIN #tmpPTSProducts p ON v.[VendorId] = p.VendorID AND v.Sporttype = p.Sporttype
-    WHERE v.VName IN ('3rdCreditWLShareRate',        -- All Product
-                      '3rdCreditWLShareRateION')    -- ION Product
-    
-    CREATE CLUSTERED INDEX CIX_tmpPTSVendorGlobalSetting ON #tmpPTSVendorGlobalSetting(ProductID, Sporttype, Bettype)
-
     -- #tmpPTSMainData
     CREATE TABLE #tmpPTSMainData (
         ProductID INT,
@@ -465,12 +442,6 @@ BEGIN
 
     INSERT INTO #tmpPTSMainData (ProductID, Rate)
     EXECUTE (@sqlQuery)
-
-    INSERT INTO #tmpPTSMainData (ProductID, Rate)
-    SELECT v.ProductID, v.NumberValue
-    FROM #tmpPTSVendorGlobalSetting v
-    WHERE v.ProductID NOT IN (SELECT ProductID FROM #tmpPTSMainData)
-          AND v.VName IN ('3rdCreditWLShareRate', '3rdCreditWLShareRateION')
 
     CREATE CLUSTERED INDEX CIX_tmpPTSMainData ON #tmpPTSMainData(ProductID)
 
@@ -1098,7 +1069,6 @@ BEGIN
     DROP TABLE #tmpExchangeOANDA
     DROP TABLE #tmpLeague
     DROP TABLE #tmpPTSProducts
-    DROP TABLE #tmpPTSVendorGlobalSetting
     DROP TABLE #tmpPTSMainData
 
     DROP TABLE #tmpSourceData_CorrectScoreLuckyDraw
