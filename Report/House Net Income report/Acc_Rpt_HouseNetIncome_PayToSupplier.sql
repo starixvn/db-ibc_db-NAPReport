@@ -39,6 +39,7 @@ AS
 		- 20240305@Danny: Incorporate UU Slots (#192594)
 		- 20240328@Danny: Incorporate Yolo And remove unsupported products (#201590)
 		- 20240605@Danny: Separate Hedging and Special Sites (#206144)
+		- 20240605@Danny: Letstalk reports - Integrate the Saba Kabaddi And Remove Linked server DBCUST (#204927)
 */
 BEGIN
     SET NOCOUNT ON
@@ -89,7 +90,6 @@ BEGIN
 	CREATE TABLE #__Party3rdInfo (PartyId INT, Product3rdId INT, ChargeId INT, ChargeType INT, FromDate DATE, ToDate DATE, Rate MONEY)
 	CREATE TABLE #__PartyCharge3rdInfo (ParentId INT, PartyId INT, LicenseeId INT, IsDeposit BIT, Product3rdId INT, ChargeId INT, ChargeType INT, FromDate DATE, ToDate DATE, Rate MONEY)
 	CREATE TABLE #__PartyCharge3rdInfoByAmount (IsDeposit BIT, Product3rdId INT, CurrencyId INT, Rate MONEY, MinAmount MONEY, MaxAmount MONEY)
-	CREATE TABLE #__tmpVendorGlobalSetting (IsDeposit BIT, VendorId SMALLINT, Product3rdId INT, ChargeRate3rd DECIMAL(19, 8))
 	CREATE TABLE #MetricChargeInfo (FromDate DATE, ToDate DATE, BaseCurrencyId INT, MinAmount MONEY, MaxAmount MONEY, Rate FLOAT)
 	CREATE TABLE #__tempResult (rptDate DATE, ParentId INT, IsDeposit BIT, Product3rdId INT, Bettype INT, CurrencyId INT, PlayCurrency INT, 
 		PayDaily MONEY, PayDailyRate MONEY, PayMonth MONEY, PayMonthRate MONEY, MemberWLDailyRate MONEY, MemberWLMonthRate MONEY, BonusRate MONEY, SiteGroup VARCHAR(20))
@@ -299,22 +299,6 @@ BEGIN
 		FROM #MetricChargeInfo m
 			INNER JOIN @ExchangeOANDA e ON m.BaseCurrencyId = e.ExchangeId
 
-		-- Global Setting (default setting)
-		INSERT INTO #__tmpVendorGlobalSetting (IsDeposit, VendorId, ChargeRate3rd)
-		SELECT CASE WHEN VName = '3rdCashWLShareRate' THEN 1 ELSE 0 END, VendorId, NumberValue
-		FROM DBCUST.CustDB.dbo.VendorGlobalSetting WITH (NOLOCK)
-		WHERE
-			(
-				@DepositType = 2
-				OR (@DepositType = 1 AND VName = '3rdCashWLShareRate')
-				OR (@DepositType = 0 AND VName = '3rdCreditWLShareRate')
-			)
-			AND VName IN ('3rdCashWLShareRate', '3rdCreditWLShareRate')
-
-		UPDATE v
-		SET v.Product3rdId = p.Product3rdId
-		FROM #__tmpVendorGlobalSetting v
-			INNER JOIN @Products p ON v.VendorId = p.VendorId
 	END
 
 	-- Get mapping site
@@ -516,9 +500,9 @@ BEGIN
 
 			INSERT INTO #__tempResult (rptDate, ParentId, IsDeposit, Product3rdId, Bettype, CurrencyId, PlayCurrency, PayDaily, PayDailyRate, PayMonth, PayMonthRate, MemberWLDailyRate, MemberWLMonthRate, BonusRate, SiteGroup)
 			SELECT d.rptDate, tp.ParentId, tp.IsDeposit, bt.Product3rdId, CASE WHEN d.BetTypeId = 3007 THEN 3007 ELSE 0 END, d.CurrencyId, ISNULL(pc.PlayCurrency, d.CurrencyId) AS PlayCurrency
-				,SUM(CASE  WHEN bt.SubProduct NOT IN ('Prize','Lucky Draw','Bonus','Promotion') THEN (CASE WHEN d.BetTypeId IN (4297, 4599) THEN d.ProgressiveContribution ELSE d.Winloss END + ISNULL(d.ValidBetAmount * v.CommRate, 0)) * ISNULL(ISNULL(p3.Rate, vs.ChargeRate3rd), 0) 
+				,SUM(CASE  WHEN bt.SubProduct NOT IN ('Prize','Lucky Draw','Bonus','Promotion') THEN (CASE WHEN d.BetTypeId IN (4297, 4599) THEN d.ProgressiveContribution ELSE d.Winloss END + ISNULL(d.ValidBetAmount * v.CommRate, 0)) * ISNULL(p3.Rate, 0) 
 						  ELSE 0 END) AS PayDaily
-				,SUM(CASE  WHEN bt.SubProduct NOT IN ('Prize','Lucky Draw','Bonus','Promotion') THEN (CASE WHEN d.BetTypeId IN (4297, 4599) THEN d.ProgressiveContribution ELSE d.Winloss END + ISNULL(d.ValidBetAmount * v.CommRate, 0)) * e.Rate * ISNULL(ISNULL(p3.Rate, vs.ChargeRate3rd), 0) 
+				,SUM(CASE  WHEN bt.SubProduct NOT IN ('Prize','Lucky Draw','Bonus','Promotion') THEN (CASE WHEN d.BetTypeId IN (4297, 4599) THEN d.ProgressiveContribution ELSE d.Winloss END + ISNULL(d.ValidBetAmount * v.CommRate, 0)) * e.Rate * ISNULL(p3.Rate, 0) 
 						  ELSE 0 END) AS PayDailyRate
 				,SUM(CASE WHEN bt.SubProduct NOT IN ('Prize','Lucky Draw','Bonus','Promotion') THEN (CASE WHEN d.BetTypeId IN (4297, 4599) THEN d.ProgressiveContribution ELSE d.Winloss END + ISNULL(d.ValidBetAmount * v.CommRate, 0)) * CASE WHEN p.LicenseeId IS NULL OR p3.LicenseeId IS NULL THEN 0 ELSE p3.Rate END 
 						  ELSE 0 END) AS PayMonth
@@ -538,7 +522,6 @@ BEGIN
 				INNER JOIN @ExchangeOANDA e ON d.CurrencyId = e.ExchangeId
 				LEFT JOIN #__PartyChargeInfo p ON tp.LicenseeId = p.LicenseeId AND bt.Product3rdId = p.Product3rdId AND d.rptDate BETWEEN p.FromDate AND p.ToDate AND p.ChargeType <> 11 AND ((d.BetTypeId <> 3007 AND p.ChargeType <> 12) OR (d.BetTypeId = 3007 AND p.ChargeType = 12))
 				LEFT JOIN #__PartyCharge3rdInfo p3 ON tp.LicenseeId = p3.LicenseeId AND bt.Product3rdId = p3.Product3rdId AND d.rptDate BETWEEN p3.FromDate AND p3.ToDate AND p3.ChargeType <> 11 AND ((d.BetTypeId <> 3007 AND p3.ChargeType <> 12) OR (d.BetTypeId = 3007 AND p3.ChargeType = 12))
-				LEFT JOIN #__tmpVendorGlobalSetting vs ON vs.IsDeposit = tp.IsDeposit AND vs.Product3rdId = bt.Product3rdId
 				LEFT JOIN #__PlayCurrencySettings pc ON d.SiteId = pc.SiteId AND d.CurrencyId = pc.MemberCurrency AND d.rptDate BETWEEN pc.FromDate AND pc.ToDate
 				LEFT JOIN #__ValidBetRate v ON tp.IsDeposit = v.IsDeposit AND bt.Product3rdId = v.Product3rdId AND d.rptDate BETWEEN v.FromDate AND v.ToDate
 				LEFT JOIN @Site789y_lic x ON x.SiteID = d.SiteId
@@ -832,7 +815,6 @@ BEGIN
 	DROP TABLE #__PlayCurrencySettings
 	DROP TABLE #__tempData
 	DROP TABLE #__tempResult
-	DROP TABLE #__tmpVendorGlobalSetting
 	DROP TABLE #__ValidBetRate
 	DROP TABLE #AllParties
 	DROP TABLE #MetricChargeInfo

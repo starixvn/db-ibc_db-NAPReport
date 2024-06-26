@@ -53,7 +53,7 @@ AS
 		- 20240305@Danny: Incorporate UU Slots (#192594)
 		- 20240328@Danny: Incorporate Yolo And remove unsupported products (#201590)
 		- 20240416@Danny: Integrate Saba Coins Wallet (#203365)
-		- 20240605@Danny: Letstalk reports - Integrate the Saba Kabaddi (#204927)
+		- 20240605@Danny: Letstalk reports - Integrate the Saba Kabaddi And Remove Linked server DBCUST (#204927)
         
 */
 BEGIN
@@ -127,7 +127,6 @@ BEGIN
 	CREATE TABLE #AllLicensees(LicenseeId INT, PartyId INT, ParentId INT, SiteId_DW INT)
 	CREATE TABLE #Licensees(LicenseeId INT, PartyId INT, ParentId INT)
 	CREATE TABLE #PartyChargeByCurrencyInfo(ChargeId INT, CurrencyId INT, Rate FLOAT)
-	CREATE TABLE #tempVendorGlobalSetting(Product3rdId INT, Bettype INT, ChargeRate3rd FLOAT)
 	CREATE TABLE #PartyChargeInfo (ChargeId INT, PartyId INT, Product3rdId INT, FromDate DATE, ToDate DATE, Rate FLOAT, Bettype INT, ChargeType INT)
 	CREATE TABLE #PartyCharge3rdInfo (ChargeType INT, PartyId INT, Product3rdId INT, FromDate DATE, ToDate DATE, Rate FLOAT)
 	CREATE TABLE #tmpSite (SiteId_DW INT, LicenseeId INT, SiteName VARCHAR(20))
@@ -481,10 +480,6 @@ BEGIN
 			SELECT ChargeType, PartyId, Product3rdId, FromDate, ToDate, Rate FROM @tmp_PartyCharge3rdInfo
 		END
 
-		-- Get default setting 3rd
-		INSERT INTO #tempVendorGlobalSetting (Bettype, ChargeRate3rd)
-		SELECT Bettype, NumberValue
-		FROM   OPENQUERY(DBCUST,'SELECT Bettype, NumberValue FROM CustDB.dbo.VendorGlobalSetting WITH(NOLOCK) WHERE VName LIKE ''3rdCashWLShareRate%''')
 	END
 
 	-- Get mapping site
@@ -897,19 +892,6 @@ BEGIN
 			END
 		END
 
-		UPDATE v
-		SET v.Product3rdId = s.Product3rdId
-		FROM #tempVendorGlobalSetting v
-			CROSS APPLY (SELECT TOP 1 b.Product3rdId FROM #tmpBetType b WHERE v.Bettype = b.BetType) s
-
-		DELETE #tempVendorGlobalSetting WHERE Product3rdId IS NULL
-
-		UPDATE v
-		SET v.Bettype = -1
-		FROM #tempVendorGlobalSetting v
-			LEFT JOIN #tmpBetType b ON v.Bettype = b.BetTypeGroup
-		WHERE b.BetTypeGroup IS NULL
-
 		-- Process data
 		INSERT INTO #__tempResult
 		(
@@ -964,9 +946,9 @@ BEGIN
 																					ELSE 0.05 END -- KN, LT
 											WHEN t.Product3rdId = 22 THEN CASE WHEN t.BetTypeGroup = 1 THEN 0.045 ELSE 0.035 END -- VB (Macau Games)
 											WHEN t.Product3rdId = 27 THEN 0.065 -- VS2
-											WHEN t.Product3rdId IN (10, 34) AND t.BetTypeGroup NOT IN (-1,-4) THEN ISNULL(v.ChargeRate3rd, 0)
-											ELSE ISNULL(ISNULL(rd.Rate, v.ChargeRate3rd), 0) END
-									+ CASE WHEN t.Product3rdId = 31 THEN CASE WHEN @FDate >= @ExchaneFomularCutoff THEN  t.ExchangePlayerComm *  ISNULL(ISNULL(rd.Rate, v.ChargeRate3rd), 0) ELSE  t.Comm END ELSE 0 END) * e.Rate)
+
+											ELSE ISNULL(rd.Rate, 0) END
+									+ CASE WHEN t.Product3rdId = 31 THEN CASE WHEN @FDate >= @ExchaneFomularCutoff THEN  t.ExchangePlayerComm *  ISNULL(rd.Rate,0) ELSE  t.Comm END ELSE 0 END) * e.Rate)
 			,PayToSupplierMonth	= SUM((t.MemberWL *
 										CASE
 											WHEN p.PartyId IS NULL AND (t.Product3rdId NOT IN (8, 22) OR rd.PartyId IS NULL) THEN 0
@@ -976,9 +958,8 @@ BEGIN
 																					ELSE 0.05 END -- KN, LT
 											WHEN t.Product3rdId = 22 THEN CASE WHEN t.BetTypeGroup = 1 THEN 0.045 ELSE 0.035 END -- VB (Macau Games)
 											WHEN t.Product3rdId = 27 THEN 0.065 -- VS2
-											WHEN t.Product3rdId IN (10, 34) AND t.BetTypeGroup NOT IN (-1,-4) THEN ISNULL(v.ChargeRate3rd, 0)
 											ELSE ISNULL(rd.Rate, 0) END
-									+ CASE WHEN t.Product3rdId = 31 THEN CASE WHEN @FDate >= @ExchaneFomularCutoff THEN  t.ExchangePlayerComm *  ISNULL(ISNULL(rd.Rate, v.ChargeRate3rd), 0) ELSE  t.Comm END ELSE 0 END) * e.Rate)
+									+ CASE WHEN t.Product3rdId = 31 THEN CASE WHEN @FDate >= @ExchaneFomularCutoff THEN  t.ExchangePlayerComm *  ISNULL(rd.Rate, 0) ELSE  t.Comm END ELSE 0 END) * e.Rate)
 			,FullContribution	= SUM(CASE WHEN t.BetTypeGroup = -3 THEN t.FullContribution ELSE 0 END * e.Rate)
 			,JackpotPrize		= SUM(CASE WHEN t.BetTypeGroup = -3 THEN -t.MemberWL ELSE 0 END * e.Rate)
 			,HouseTurnover		= SUM(CASE 
@@ -1035,7 +1016,6 @@ BEGIN
 						(t.Product3rdId IN (11, 39) AND t.BetTypeGroup <> -1 AND rd.ChargeType = 12)
 						OR ((t.Product3rdId NOT IN (11, 39) OR t.BetTypeGroup = -1) AND rd.ChargeType <> 12)
 					) AND t.BetTypeGroup NOT IN (-4)
-			LEFT JOIN #tempVendorGlobalSetting v ON v.Product3rdId = t.Product3rdId AND v.Bettype = t.BetTypeGroup
 			LEFT JOIN #PartyChargeByCurrencyInfo lc ON p.ChargeId = lc.ChargeId AND t.CurrencyId = lc.CurrencyId
 			LEFT JOIN @ProductSupportJPContrib pj ON t.Product3rdId = pj.Product3rdId
 		WHERE t.Product3rdId NOT IN (0, 3) OR (t.Product3rdId IN (0, 3) AND p.PartyId IS NOT NULL AND t.SiteId_DW <> @DWH_SabaCoins_SiteID)
@@ -1631,7 +1611,6 @@ BEGIN
 	DROP TABLE #PartyCharge3rdInfo
 	DROP TABLE #PartyChargeByCurrencyInfo
 	DROP TABLE #PartyChargeInfo
-	DROP TABLE #tempVendorGlobalSetting
 	DROP TABLE #__SabaLeague
 	DROP TABLE #Result
 END
