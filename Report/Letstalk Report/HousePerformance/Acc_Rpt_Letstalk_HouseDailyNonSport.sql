@@ -15,6 +15,8 @@ AS
 		20240308@Cherry: Exclude Real E-sport (#201802)	
 		20240417@Cherry: Integrate Saba xD (#202707)
 		20240417@Cherry: Integrate Saba Coins (#203365)
+		20240628@Cherry: Integrate Fast Spin (#206142)
+		20240628@Cherry: Integrate FA CHAI (#206635)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -195,6 +197,8 @@ BEGIN
 			,(78,'RNG','UUS')
 			,(84,'RNG','YoloP')
 			,(86,'RNG','SABAxD')
+			,(87,'RNG','FastSpin')
+			,(89,'RNG','FACHAI')
 			----------LOT/KENO----------
 			,(40,'LOT/KENO','TabG') --Table Game
 			,(8,'LOT/KENO','Mkeno') --RNG Keno
