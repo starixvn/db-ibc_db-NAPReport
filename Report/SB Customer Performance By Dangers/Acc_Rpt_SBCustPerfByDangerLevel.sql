@@ -1,4 +1,4 @@
-/*<info serverAlias="DBWH-bodb_dwrs" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBWH-bodb_dwrs" executers="wsv_nap" viewers="" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE Acc_Rpt_SBCustPerfByDangerLevel
 	@FromDate DATE
 	,@ToDate DATE
@@ -227,7 +227,7 @@ BEGIN
         ,b.SportType
         ,b.Bettype
         ,b.Currency
-    OPTION (RECOMPILE)
+    OPTION (RECOMPILE, MAX_GRANT_PERCENT=25)
 
     INSERT INTO #tmpRawData WITH(TABLOCK)(
         CustID
@@ -264,7 +264,7 @@ BEGIN
     WHERE b.CurrencyID NOT IN (20, 27, 28)
         AND b.TicketStatus IN (8, 4, 3, 12, 13) --(won/lose/draw/half won/half lose)
         AND b.Bettype IN ( SELECT DISTINCT BetType FROM #tmpSportBettypes )
-        AND ISNULL(b.LiveStatus, 0) = COALESCE(@IsLive, b.LiveStatus, 0)
+        AND (@IsLive IS NULL OR (@IsLive IS NOT NULL AND b.LiveStatus = @IsLive))
         AND ('ALL' = @Divisions OR b.SiteID IN (SELECT DwSiteID FROM #tmpSite))
         AND ('ALL' = @LeagueGroupIDs OR b.LeagueID IN (SELECT LeagueID FROM #tmpLeague))
         AND ('All Leagues' = @LeagueName OR b.LeagueID IN (SELECT LeagueID FROM #tmpLeague))
@@ -279,7 +279,7 @@ BEGIN
         ,b.SportType
         ,b.Bettype
         ,b.CurrencyID
-    OPTION (RECOMPILE, OPTIMIZE FOR UNKNOWN)
+    OPTION (RECOMPILE, MAX_GRANT_PERCENT=25)
     
     CREATE CLUSTERED INDEX [CIX_tmpRawData] ON #tmpRawData(
         Bettype
