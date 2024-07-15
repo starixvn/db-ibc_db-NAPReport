@@ -23,6 +23,8 @@ AS
 		20240308@Cherry: Integrate Yolo Play (#201590)
 		20240417@Cherry: Integrate Saba xD (#202707)
 		20240417@Cherry: Integrate Saba Coins (#203365)
+		20240606@Cherry: Integrate Saba Kabaddi (#204927)
+		20240628@Cherry: Integrate FA CHAI (#206635)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -232,6 +234,7 @@ BEGIN
 			WHEN ProductName = 'UU Slots' THEN 'UUS'
 			WHEN ProductName = 'Yolo Play' THEN 'YoloP'
 			WHEN ProductName = 'SABA xD' THEN 'SABAxD'
+			WHEN ProductName = 'FA CHAI' THEN 'FACHAI'
 			ELSE ProductName END)
 	
 	SELECT @EX3rdName = rd.ProductName
@@ -488,7 +491,7 @@ BEGIN
 	INSERT INTO #tmpSBSports (SportGroup)
 	SELECT SportType
 	FROM bodb02.dbo.Sports WITH (NOLOCK)
-	WHERE SportType IN (1,2,5,43,50)
+	WHERE SportType IN (1,2,5,43,47,50)
 	/*
 	UNION ALL
 	
@@ -701,11 +704,12 @@ BEGIN
 				WHEN d.SportGroup = 2 AND d.SabaType = 0 THEN 8 --'Real.Bas'
 				WHEN d.SportGroup = 2 AND d.SabaType = 1 THEN 9 --'Saba.Bas'
 				WHEN d.SportGroup = 5 AND d.SabaType = 0 THEN 10 --'Real.Ten'
-				WHEN d.SportGroup = 5 THEN 10.1 --'Saba.Ten'
 				WHEN d.SportGroup = 43 THEN 11 --'E-Spo'
-				WHEN d.SportGroup = 50 THEN 12 --'Cricket'
-				WHEN d.SportGroup = -29 THEN 14 --'Parl'
-				ELSE 13 END AS OrdNo --Others
+				WHEN d.SportGroup IN (47,50) AND d.SabaType = 0 THEN 12 --'Real.Cri & Kab'
+				WHEN d.SportGroup IN (47,50) AND d.SabaType = 1 THEN 13 --'Saba.Cri & Kab'
+				WHEN d.SportGroup IN (0,5) AND d.SabaType = 1 THEN 14 --'Saba OS'
+				WHEN d.SportGroup = -29 THEN 15 --'Parl'
+				ELSE 16 END AS OrdNo --Others
 			,SUM(d.TurnOver * ISNULL(lc.Rate, ISNULL(p.Rate,1)) * e.BaseCurrencyRate) AS HouseTO
 			,SUM((-d.MemberWL * ISNULL(lc.Rate, ISNULL(p.Rate,1)) - d.OddsSpreadAdj - d.BAComm) * e.BaseCurrencyRate) AS HouseWL
 		FROM #tmpRawData AS d
@@ -721,11 +725,12 @@ BEGIN
 				WHEN d.SportGroup = 2 AND d.SabaType = 0 THEN 8 --'Real.Bas'
 				WHEN d.SportGroup = 2 AND d.SabaType = 1 THEN 9 --'Saba.Bas'
 				WHEN d.SportGroup = 5 AND d.SabaType = 0 THEN 10 --'Real.Ten'
-				WHEN d.SportGroup = 5 THEN 10.1 --'Saba.Ten'
 				WHEN d.SportGroup = 43 THEN 11 --'E-Spo'
-				WHEN d.SportGroup = 50 THEN 12 --'Cricket'
-				WHEN d.SportGroup = -29 THEN 14 --'Parl'
-				ELSE 13 END
+				WHEN d.SportGroup IN (47,50) AND d.SabaType = 0 THEN 12 --'Real.Cri & Kab'
+				WHEN d.SportGroup IN (47,50) AND d.SabaType = 1 THEN 13 --'Saba.Cri & Kab'
+				WHEN d.SportGroup IN (0,5) AND d.SabaType = 1 THEN 14 --'Saba OS'
+				WHEN d.SportGroup = -29 THEN 15 --'Parl'
+				ELSE 16 END
 	)
 	,CTE_SB_RSoc AS (
 		SELECT 2 AS OrdNo --Real.Soc
@@ -774,10 +779,11 @@ BEGIN
 				WHEN OrdNo = 8 THEN 'Real.Bas'
 				WHEN OrdNo = 9 THEN 'Saba.Bas'
 				WHEN OrdNo = 10 THEN 'Real.Ten'
-				WHEN OrdNo = 10.1 THEN 'Saba.Ten'
 				WHEN OrdNo = 11 THEN 'E-Spo'
-				WHEN OrdNo = 12 THEN 'Cricket'
-				WHEN OrdNo = 14 THEN 'Parl'
+				WHEN OrdNo = 12 THEN 'Real.Cri & Kab'
+				WHEN OrdNo = 13 THEN 'Saba.Cri & Kab'
+				WHEN OrdNo = 14 THEN 'Saba.OS'
+				WHEN OrdNo = 15 THEN 'Parl'
 				ELSE 'Others' END AS GroupName
 		,HouseTO
 		,HouseWL
