@@ -53,6 +53,7 @@ AS
 		- 20240305@Danny: Incorporate UU Slots (#192594)
 		- 20240328@Danny: Incorporate Yolo And remove unsupported products (#201590)
 		- 20240416@Danny: Integrate Saba Coins Wallet (#203365)
+		- 20240605@Danny: Letstalk reports - Integrate the Saba Kabaddi And Remove Linked server DBCUST (#204927)
         
 */
 BEGIN
@@ -126,7 +127,6 @@ BEGIN
 	CREATE TABLE #AllLicensees(LicenseeId INT, PartyId INT, ParentId INT, SiteId_DW INT)
 	CREATE TABLE #Licensees(LicenseeId INT, PartyId INT, ParentId INT)
 	CREATE TABLE #PartyChargeByCurrencyInfo(ChargeId INT, CurrencyId INT, Rate FLOAT)
-	CREATE TABLE #tempVendorGlobalSetting(Product3rdId INT, Bettype INT, ChargeRate3rd FLOAT)
 	CREATE TABLE #PartyChargeInfo (ChargeId INT, PartyId INT, Product3rdId INT, FromDate DATE, ToDate DATE, Rate FLOAT, Bettype INT, ChargeType INT)
 	CREATE TABLE #PartyCharge3rdInfo (ChargeType INT, PartyId INT, Product3rdId INT, FromDate DATE, ToDate DATE, Rate FLOAT)
 	CREATE TABLE #tmpSite (SiteId_DW INT, LicenseeId INT, SiteName VARCHAR(20))
@@ -480,10 +480,6 @@ BEGIN
 			SELECT ChargeType, PartyId, Product3rdId, FromDate, ToDate, Rate FROM @tmp_PartyCharge3rdInfo
 		END
 
-		-- Get default setting 3rd
-		INSERT INTO #tempVendorGlobalSetting (Bettype, ChargeRate3rd)
-		SELECT Bettype, NumberValue
-		FROM   OPENQUERY(DBCUST,'SELECT Bettype, NumberValue FROM CustDB.dbo.VendorGlobalSetting WITH(NOLOCK) WHERE VName LIKE ''3rdCashWLShareRate%''')
 	END
 
 	-- Get mapping site
@@ -566,7 +562,7 @@ BEGIN
 		IF EXISTS (SELECT 1 FROM @Products WHERE Product3rdId IN (0, 3))
 		BEGIN
 			INSERT INTO #__SabaLeague (LeagueId, LeagueGroupId)
-			SELECT LeagueId, LeagueGroupId FROM bodb02.dbo.League WITH (NOLOCK) WHERE sporttype IN (1, 2, 5, 50, 43) AND LeagueGroupId IN (42, 74, 108, 113, 122, 151)
+			SELECT LeagueId, LeagueGroupId FROM bodb02.dbo.League WITH (NOLOCK) WHERE sporttype IN (1, 2, 5, 50, 43, 47) AND LeagueGroupId IN (42, 74, 108, 113, 122, 151)
 
 			-- retrieve data yesterday if flag is turned on
 			IF @isGetDataFromBettrans = 1 AND @ToDate = @yesterday
@@ -592,7 +588,7 @@ BEGIN
 					SELECT rptDate, SiteId, CurrencyId, ProductId, LeagueId
 						,CASE
 							WHEN BetType IN (9, 29) THEN -2 -- Parlay
-							WHEN SportType IN (1, 2, 5, 43, 50) THEN SportType -- Soccer, Basketball, Tennis, E-Sports, Cricket
+							WHEN SportType IN (1, 2, 5, 43, 50, 47) THEN SportType -- Soccer, Basketball, Tennis, E-Sports, Cricket
 							ELSE 99 -- Other Sports
 							END AS Sporttype
 						,SUM(MemberWinloss) AS MemberWinloss
@@ -613,7 +609,7 @@ BEGIN
 					GROUP BY rptDate, SiteId, CurrencyId, ProductId, LeagueId
 						,CASE
 							WHEN BetType IN (9, 29) THEN -2 -- Parlay
-							WHEN SportType IN (1, 2, 5, 43, 50) THEN SportType -- Soccer, Basketball, Tennis, E-Sports, Cricket
+							WHEN SportType IN (1, 2, 5, 43, 50, 47) THEN SportType -- Soccer, Basketball, Tennis, E-Sports, Cricket
 							ELSE 99 -- Other Sports
 							END
 				)
@@ -624,13 +620,14 @@ BEGIN
 						WHEN l.LeagueGroupId = 113 AND t.SportType = 1 THEN -14 --Saba Soc PGoal
 						WHEN l.LeagueGroupId = 122 AND t.SportType = 2 THEN -15 --Saba Bas PGoal
 						WHEN l.LeagueGroupId IN (42) AND t.SportType = 2 THEN -5 -- Saba Basketball
-						WHEN l.LeagueGroupId IN (42) AND t.SportType = 50 THEN -8 -- Saba Cricket
 						WHEN l.LeagueGroupId IN (151) AND t.SportType = 43 THEN -16 -- Saba E-S PGoal
-						WHEN l.LeagueGroupId IN (42) AND t.SportType = 5 THEN -17 -- Saba Tennis
+						WHEN l.LeagueGroupId IN (42) AND t.SportType IN (47,50) THEN -17 -- Saba Cri & Kab
+						WHEN t.ProductID = 1 AND l.LeagueGroupId IN (42,74,108,113,122,151) THEN -18 --Saba OS
 						WHEN t.Sporttype = 1 THEN -2 -- Soccer
 						WHEN t.Sporttype = 2 THEN -4 -- Basketball
 						WHEN t.Sporttype = 5 THEN -6 -- Tennis
 						WHEN t.Sporttype = 43 THEN -7 -- E-Sports
+						WHEN t.SportType IN (47,50)  THEN -8  --Cri & Kab
 						WHEN t.Sporttype = -2 THEN -10 -- Parlay
 						ELSE -9 -- OS
 						END AS AliasProductId
@@ -650,13 +647,14 @@ BEGIN
 						WHEN l.LeagueGroupId = 113 AND t.SportType = 1 THEN -14 --Saba Soc PGoal
 						WHEN l.LeagueGroupId = 122 AND t.SportType = 2 THEN -15 --Saba Bas PGoal
 						WHEN l.LeagueGroupId IN (42) AND t.SportType = 2 THEN -5 -- Saba Basketball
-						WHEN l.LeagueGroupId IN (42) AND t.SportType = 50 THEN -8 -- Saba Cricket
 						WHEN l.LeagueGroupId IN (151) AND t.SportType = 43 THEN -16 -- Saba E-S PGoal
-						WHEN l.LeagueGroupId IN (42) AND t.SportType = 5 THEN -17 -- Saba Tennis
+						WHEN l.LeagueGroupId IN (42) AND t.SportType IN (47,50) THEN -17 -- Saba Cri & Kab
+						WHEN t.ProductID = 1 AND l.LeagueGroupId IN (42,74,108,113,122,151) THEN -18 --Saba OS
 						WHEN t.Sporttype = 1 THEN -2 -- Soccer
 						WHEN t.Sporttype = 2 THEN -4 -- Basketball
 						WHEN t.Sporttype = 5 THEN -6 -- Tennis
 						WHEN t.Sporttype = 43 THEN -7 -- E-Sports
+						WHEN t.SportType IN (47,50)  THEN -8  --Cri & Kab
 						WHEN t.Sporttype = -2 THEN -10 -- Parlay
 						ELSE -9 -- OS
 						END
@@ -743,13 +741,14 @@ BEGIN
 						WHEN s.LeagueGroupId = 113 AND b.SportType = 1 THEN -14 --Saba Soc PGoal
 						WHEN s.LeagueGroupId = 122 AND b.SportType = 2 THEN -15 --Saba Bas PGoal
 						WHEN s.LeagueGroupId IN (42) AND b.SportType = 2 THEN -5 -- Saba Basketball
-						WHEN s.LeagueGroupId IN (42) AND b.SportType = 50 THEN -8 -- Saba Cricket
 						WHEN s.LeagueGroupId IN (151) AND b.SportType = 43 THEN -16 --Saba E-S PGoal
-						WHEN s.LeagueGroupId IN (42) AND b.SportType = 5 THEN -17 --Saba Tennis
+						WHEN s.LeagueGroupId IN (42) AND b.SportType IN (47,50) THEN -17 -- Saba Cri & Kab
+						WHEN bt.Product3rdId = 0 AND s.LeagueGroupId IN (42,74,108,113,122,151) THEN -18 --Saba OS
 						WHEN b.Sporttype = 1 THEN -2 -- Soccer
 						WHEN b.Sporttype = 2 THEN -4 -- Basketball
 						WHEN b.Sporttype = 5 THEN -6 -- Tennis
 						WHEN b.Sporttype = 43 THEN -7 -- E-Sports
+						WHEN b.SportType IN (47,50)  THEN -8  --Cri & Kab
 						ELSE -9 -- OS
 						END AS AliasProductId
 					,CASE WHEN b.SportType IN (150,173) THEN b.SportType ELSE -1 END AS SportTypeGroup
@@ -794,15 +793,16 @@ BEGIN
 						WHEN s.LeagueGroupId = 113 AND b.SportType = 1 THEN -14 --Saba Soc PGoal
 						WHEN s.LeagueGroupId = 122 AND b.SportType = 2 THEN -15 --Saba Bas PGoal
 						WHEN s.LeagueGroupId IN (42) AND b.SportType = 2 THEN -5 -- Saba Basketball
-						WHEN s.LeagueGroupId IN (42) AND b.SportType = 50 THEN -8 -- Saba Cricket
 						WHEN s.LeagueGroupId IN (151) AND b.SportType = 43 THEN -16 --Saba E-S PGoal
-						WHEN s.LeagueGroupId IN (42) AND b.SportType = 5 THEN -17 --Saba Tennis
+						WHEN s.LeagueGroupId IN (42) AND b.SportType IN (47,50) THEN -17 -- Saba Cri & Kab
+						WHEN bt.Product3rdId = 0 AND s.LeagueGroupId IN (42,74,108,113,122,151) THEN -18 --Saba OS
 						WHEN b.Sporttype = 1 THEN -2 -- Soccer
 						WHEN b.Sporttype = 2 THEN -4 -- Basketball
 						WHEN b.Sporttype = 5 THEN -6 -- Tennis
 						WHEN b.Sporttype = 43 THEN -7 -- E-Sports
+						WHEN b.SportType IN (47,50)  THEN -8  --Cri & Kab
 						ELSE -9 -- OS
-						END
+					END
 					,CASE WHEN b.SportType IN (150, 173) THEN b.SportType ELSE -1 END
 					,bt.BetTypeGroup
 				OPTION (RECOMPILE)
@@ -825,13 +825,14 @@ BEGIN
 						WHEN s.LeagueGroupId = 113 AND b.SportType = 1 THEN -14 --Saba Soc PGoal
 						WHEN s.LeagueGroupId = 122 AND b.SportType = 2 THEN -15 --Saba Bas PGoal
 						WHEN s.LeagueGroupId IN (42) AND b.SportType = 2 THEN -5 -- Saba Basketball
-						WHEN s.LeagueGroupId IN (42) AND b.SportType = 50 THEN -8 -- Saba Cricket
 						WHEN s.LeagueGroupId IN (151) AND b.SportType = 43 THEN -16 --Saba E-S PGoal
-						WHEN s.LeagueGroupId IN (42) AND b.SportType = 5 THEN -17 --Saba Tennis
+						WHEN s.LeagueGroupId IN (42) AND b.SportType IN (47,50) THEN -17 -- Saba Cri & Kab
+						WHEN bt.Product3rdId = 0 AND s.LeagueGroupId IN (42,74,108,113,122,151) THEN -18 --Saba OS
 						WHEN b.Sporttype = 1 THEN -2 -- Soccer
 						WHEN b.Sporttype = 2 THEN -4 -- Basketball
 						WHEN b.Sporttype = 5 THEN -6 -- Tennis
 						WHEN b.Sporttype = 43 THEN -7 -- E-Sports
+						WHEN b.SportType IN (47,50)  THEN -8  --Cri & Kab
 						ELSE -9 -- OS
 						END AS AliasProductId
 					,CASE WHEN b.SportType IN (150, 173) THEN b.SportType ELSE -1 END AS SportTypeGroup
@@ -873,13 +874,14 @@ BEGIN
 						WHEN s.LeagueGroupId = 113 AND b.SportType = 1 THEN -14 --Saba Soc PGoal
 						WHEN s.LeagueGroupId = 122 AND b.SportType = 2 THEN -15 --Saba Bas PGoal
 						WHEN s.LeagueGroupId IN (42) AND b.SportType = 2 THEN -5 -- Saba Basketball
-						WHEN s.LeagueGroupId IN (42) AND b.SportType = 50 THEN -8 -- Saba Cricket
 						WHEN s.LeagueGroupId IN (151) AND b.SportType = 43 THEN -16 --Saba E-S PGoal
-						WHEN s.LeagueGroupId IN (42) AND b.SportType = 5 THEN -17 --Saba Tennis
+						WHEN s.LeagueGroupId IN (42) AND b.SportType IN (47,50) THEN -17 -- Saba Cri & Kab
+						WHEN bt.Product3rdId = 0 AND s.LeagueGroupId IN (42,74,108,113,122,151) THEN -18 --Saba OS
 						WHEN b.Sporttype = 1 THEN -2 -- Soccer
 						WHEN b.Sporttype = 2 THEN -4 -- Basketball
 						WHEN b.Sporttype = 5 THEN -6 -- Tennis
 						WHEN b.Sporttype = 43 THEN -7 -- E-Sports
+						WHEN b.SportType IN (47,50)  THEN -8  --Cri & Kab
 						ELSE -9 -- OS
 						END
 					,CASE WHEN b.SportType IN (150, 173) THEN b.SportType ELSE -1 END
@@ -889,19 +891,6 @@ BEGIN
 
 			END
 		END
-
-		UPDATE v
-		SET v.Product3rdId = s.Product3rdId
-		FROM #tempVendorGlobalSetting v
-			CROSS APPLY (SELECT TOP 1 b.Product3rdId FROM #tmpBetType b WHERE v.Bettype = b.BetType) s
-
-		DELETE #tempVendorGlobalSetting WHERE Product3rdId IS NULL
-
-		UPDATE v
-		SET v.Bettype = -1
-		FROM #tempVendorGlobalSetting v
-			LEFT JOIN #tmpBetType b ON v.Bettype = b.BetTypeGroup
-		WHERE b.BetTypeGroup IS NULL
 
 		-- Process data
 		INSERT INTO #__tempResult
@@ -957,9 +946,9 @@ BEGIN
 																					ELSE 0.05 END -- KN, LT
 											WHEN t.Product3rdId = 22 THEN CASE WHEN t.BetTypeGroup = 1 THEN 0.045 ELSE 0.035 END -- VB (Macau Games)
 											WHEN t.Product3rdId = 27 THEN 0.065 -- VS2
-											WHEN t.Product3rdId IN (10, 34) AND t.BetTypeGroup NOT IN (-1,-4) THEN ISNULL(v.ChargeRate3rd, 0)
-											ELSE ISNULL(ISNULL(rd.Rate, v.ChargeRate3rd), 0) END
-									+ CASE WHEN t.Product3rdId = 31 THEN CASE WHEN @FDate >= @ExchaneFomularCutoff THEN  t.ExchangePlayerComm *  ISNULL(ISNULL(rd.Rate, v.ChargeRate3rd), 0) ELSE  t.Comm END ELSE 0 END) * e.Rate)
+
+											ELSE ISNULL(rd.Rate, 0) END
+									+ CASE WHEN t.Product3rdId = 31 THEN CASE WHEN @FDate >= @ExchaneFomularCutoff THEN  t.ExchangePlayerComm *  ISNULL(rd.Rate,0) ELSE  t.Comm END ELSE 0 END) * e.Rate)
 			,PayToSupplierMonth	= SUM((t.MemberWL *
 										CASE
 											WHEN p.PartyId IS NULL AND (t.Product3rdId NOT IN (8, 22) OR rd.PartyId IS NULL) THEN 0
@@ -969,9 +958,8 @@ BEGIN
 																					ELSE 0.05 END -- KN, LT
 											WHEN t.Product3rdId = 22 THEN CASE WHEN t.BetTypeGroup = 1 THEN 0.045 ELSE 0.035 END -- VB (Macau Games)
 											WHEN t.Product3rdId = 27 THEN 0.065 -- VS2
-											WHEN t.Product3rdId IN (10, 34) AND t.BetTypeGroup NOT IN (-1,-4) THEN ISNULL(v.ChargeRate3rd, 0)
 											ELSE ISNULL(rd.Rate, 0) END
-									+ CASE WHEN t.Product3rdId = 31 THEN CASE WHEN @FDate >= @ExchaneFomularCutoff THEN  t.ExchangePlayerComm *  ISNULL(ISNULL(rd.Rate, v.ChargeRate3rd), 0) ELSE  t.Comm END ELSE 0 END) * e.Rate)
+									+ CASE WHEN t.Product3rdId = 31 THEN CASE WHEN @FDate >= @ExchaneFomularCutoff THEN  t.ExchangePlayerComm *  ISNULL(rd.Rate, 0) ELSE  t.Comm END ELSE 0 END) * e.Rate)
 			,FullContribution	= SUM(CASE WHEN t.BetTypeGroup = -3 THEN t.FullContribution ELSE 0 END * e.Rate)
 			,JackpotPrize		= SUM(CASE WHEN t.BetTypeGroup = -3 THEN -t.MemberWL ELSE 0 END * e.Rate)
 			,HouseTurnover		= SUM(CASE 
@@ -1028,7 +1016,6 @@ BEGIN
 						(t.Product3rdId IN (11, 39) AND t.BetTypeGroup <> -1 AND rd.ChargeType = 12)
 						OR ((t.Product3rdId NOT IN (11, 39) OR t.BetTypeGroup = -1) AND rd.ChargeType <> 12)
 					) AND t.BetTypeGroup NOT IN (-4)
-			LEFT JOIN #tempVendorGlobalSetting v ON v.Product3rdId = t.Product3rdId AND v.Bettype = t.BetTypeGroup
 			LEFT JOIN #PartyChargeByCurrencyInfo lc ON p.ChargeId = lc.ChargeId AND t.CurrencyId = lc.CurrencyId
 			LEFT JOIN @ProductSupportJPContrib pj ON t.Product3rdId = pj.Product3rdId
 		WHERE t.Product3rdId NOT IN (0, 3) OR (t.Product3rdId IN (0, 3) AND p.PartyId IS NOT NULL AND t.SiteId_DW <> @DWH_SabaCoins_SiteID)
@@ -1624,7 +1611,6 @@ BEGIN
 	DROP TABLE #PartyCharge3rdInfo
 	DROP TABLE #PartyChargeByCurrencyInfo
 	DROP TABLE #PartyChargeInfo
-	DROP TABLE #tempVendorGlobalSetting
 	DROP TABLE #__SabaLeague
 	DROP TABLE #Result
 END

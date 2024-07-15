@@ -1,4 +1,4 @@
-/*<info serverAlias="DBACC-bodb02" isFunction="0" executers="bodbAdminNet" isNested="1"></info>*/
+/*<info serverAlias="DBACC-bodb02" isFunction="0" executers="wsv_nap" isNested="1"></info>*/
 ALTER PROCEDURE [dbo].Acc_rpt_ThirdPartyWL_ExtraGMT_Bettrans
 	@Winlostdate SMALLDATETIME,
 	@DepositType TINYINT = 2
@@ -44,7 +44,7 @@ BEGIN
 	
 	DECLARE @RnGBettypeList TABLE(Bettype INT)
 	INSERT INTO @RnGBettypeList(Bettype)
-	SELECT bettype FROM OPENQUERY (DBLIC, 'SELECT	DISTINCT bettype FROM	bodb_licensee.dbo.LA_f_BettypeProductMapping(0,''FW,PP,CC,SG,JK,CG,MGRNG,JIG,L22,UUSL'') la')
+	SELECT bettype FROM OPENQUERY (DBLIC, 'SELECT	DISTINCT bettype FROM	bodb_licensee.dbo.LA_f_BettypeProductMapping(0,''FW,PP,CC,SG,JK,CG,MGRNG,JIG,L22,UUSL,FS'') la')
 
 	DECLARE @LCBettypeList TABLE(Bettype INT)
 	INSERT INTO @LCBettypeList(Bettype)
