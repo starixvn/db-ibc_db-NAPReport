@@ -4,8 +4,8 @@ GO
  
 ALTER PROCEDURE [dbo].[Acc_Rpt_NonSportsProductStatistic_SiteSel]
 	@ProductID VARCHAR(MAX) = '',
-	@LA_CombinedGroupAssignment VARBINARY(MAX) = '',
-	@LA_CombinedGroup VARBINARY(MAX) = ''
+	@LA_CombinedGroupAssignment VARBINARY(MAX),
+	@LA_CombinedGroup VARBINARY(MAX)
 AS
 /*
 	Created by: 20160908@Sophia.Nguyen
