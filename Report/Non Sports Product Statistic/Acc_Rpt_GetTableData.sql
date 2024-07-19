@@ -15,10 +15,10 @@ AS
 */
 BEGIN
 	SET NOCOUNT ON
-SELECT * --GroupId, PartyId, GroupType
-	FROM DBCUST.bodb_Licensee.dbo.LA_CombinedGroupAssignment WITH(NOLOCK)
 
-SELECT * --GroupId, GroupName, PathCode
-	FROM DBCUST.bodb_Licensee.dbo.LA_CombinedGroup WITH(NOLOCK)
+	DECLARE @StrSQL NVARCHAR(MAX) 
+	SET @StrSQL = 'SELECT * FROM dbo.' + @TableName + ' WITH(NOLOCK)'
+
+	EXECUTE dbo.sp_executesql @StrSQL
 
 END

@@ -3,7 +3,9 @@ USE [bodb02]
 GO
  
 ALTER PROCEDURE [dbo].[Acc_Rpt_NonSportsProductStatistic_SiteSel]
-	@ProductID VARCHAR(MAX) = ''
+	@ProductID VARCHAR(MAX) = '',
+	@LA_CombinedGroupAssignment VARBINARY(MAX) = '',
+	@LA_CombinedGroup VARBINARY(MAX) = ''
 AS
 /*
 	Created by: 20160908@Sophia.Nguyen
@@ -60,9 +62,14 @@ BEGIN
 	WHERE val NOT IN (5,49)
 		AND val IN (SELECT ProductID FROM #tmpProductID)
 	
-	INSERT INTO #LA_CombinedGroup (GroupId, GroupName, PathCode)
+	INSERT INTO #LA_CombinedGroup (GroupId, GroupName, PathCode)	
 	SELECT GroupId, GroupName, PathCode
-	FROM DBCUST.bodb_Licensee.dbo.LA_CombinedGroup WITH(NOLOCK)
+	FROM  OPENJSON (CAST(DECOMPRESS(@LA_CombinedGroup) AS NVARCHAR(MAX)))
+	WITH (
+			GroupId INT, 
+			GroupName VARCHAR(50), 
+			PathCode VARCHAR(50)
+		)
 	
 	-- Get group of licensees
 	INSERT INTO #tmpGroup (GroupId, GroupName, ParentId)
@@ -99,9 +106,14 @@ BEGIN
 		GROUP BY FromParty HAVING MAX(ToDate) < CONVERT(DATE, GETDATE())
 	) AND p.PartyType = 1 AND d.IsDeposit = 1 AND d.StatusId = 1
 	
-	INSERT INTO #LA_CombinedGroupAssignment (GroupId, PartyId, GroupType)
+	INSERT INTO #LA_CombinedGroupAssignment (GroupId, PartyId, GroupType)	
 	SELECT GroupId, PartyId, GroupType
-	FROM DBCUST.bodb_Licensee.dbo.LA_CombinedGroupAssignment WITH(NOLOCK)
+	FROM  OPENJSON (CAST(DECOMPRESS(@LA_CombinedGroupAssignment) AS NVARCHAR(MAX)))
+	WITH (
+			GroupId INT, 
+			PartyId INT, 
+			GroupType INT
+		)
 	
 	-- Get licensee and direct groups
 	INSERT INTO #tmpLicensee (LicenseeId, LicenseeName, GroupId)
