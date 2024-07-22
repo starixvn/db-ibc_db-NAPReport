@@ -18,6 +18,7 @@ AS
 		20231206@Roy: CWL - Non Sports Report - Live22 - Integrate New Product (#195092)
 		20240223@Roy: Email/Letstalk - Virtual Sports 4 - Edge Gaming (#198628)
 		20240417@Cherry: Integrate Saba xD (#202670)
+		20240722@Cherry: Integrate FA CHAI (#206634), FastSpin (#205746), VS5 (#207590), Nextspin (#199987)
 
 	Param's Explanation:
 		@FromGMT8Time: start of time range in GMT+8 with format 2021-05-20 19:00:00
@@ -106,7 +107,8 @@ BEGIN
 			,(27, 'Virtual Sports 2', 108, 5000)
 			,(49, 'Virtual Sports 3 (Old)', 108, 5000)
 			,(77, 'Virtual Sports 3', 108, 5000)
-			,(83, 'Virtual Sports 4	', 108, 5000)
+			,(83, 'Virtual Sports 4', 108, 5000)
+			,(88, 'Virtual Sports 5', 108, 5000)
 			,(69, 'Bitcoin', 108, 5000)
 			
 			-------------Slot-------------
@@ -124,6 +126,9 @@ BEGIN
 			,(36, 'SG', 300, 5000)
 			,(75, 'Jili', 300, 5000)
 			,(79, 'Live22', 300, 5000)
+			,(85, 'Nextspin', 300, 5000)
+			,(87, 'FastSpin', 300, 5000)
+			,(89, 'FA CHAI', 300, 5000)
 		) AS tmp (ProductID, ProductName, ThresholdPCT, MinWin)
 
 	DECLARE @isTest BIT = 0
