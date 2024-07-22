@@ -25,6 +25,7 @@ AS
 		20240417@Cherry: Integrate Saba Coins (#203365)
 		20240606@Cherry: Integrate Saba Kabaddi (#204927)
 		20240628@Cherry: Integrate FA CHAI (#206635)
+		20240722@Cherry: Integrate Virtual Sports 5 (#206922)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -235,6 +236,7 @@ BEGIN
 			WHEN ProductName = 'Yolo Play' THEN 'YoloP'
 			WHEN ProductName = 'SABA xD' THEN 'SABAxD'
 			WHEN ProductName = 'FA CHAI' THEN 'FACHAI'
+			WHEN ProductName = 'Virtual Sports 5' THEN 'VirtSpo5'
 			ELSE ProductName END)
 	
 	SELECT @EX3rdName = rd.ProductName
