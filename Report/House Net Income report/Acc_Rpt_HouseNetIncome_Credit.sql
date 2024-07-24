@@ -39,6 +39,7 @@ AS
         20240410@Ned.Le: Email/Letstalk - Promotion of The Euro Cup (#203368)
         20240605@Ned.Le: Email/Letstalk - Separate Hedging and Special Sites for report ID #01 (#206144)
         20240613@Ned.Le: Letstalk reports - Integrate the Saba Kabaddi (#204927)
+        20240724@Ned.Le: Fix bug relate to @isTest
 
     Param's Explanation:
         @FromDate   : Begin date to get data for report
@@ -589,7 +590,7 @@ BEGIN
     WHERE ld.SettledDate >= @FromDate AND ld.SettledDate <= @ToDate
           AND ld.TypeID = 1
           AND ld.StatusID = 2
-          AND ld.IsTest = @isTest
+          AND (ld.IsTest = 0 OR ld.IsTest = @isTest)
           AND ld.IsLicensee = 0
 
     INSERT INTO #tmpSourceData (RptDate, SiteID, CurrencyID, Sporttype, Bettype, LeagueID, TicketStatus, VarianceVR,
