@@ -4,8 +4,8 @@ GO
  
 ALTER PROCEDURE [dbo].[Acc_Rpt_NonSportsProductStatistic_SiteSel]
 	@ProductID VARCHAR(MAX) = '',
-	@LA_CombinedGroupAssignment VARBINARY(MAX),
-	@LA_CombinedGroup VARBINARY(MAX)
+	@LA_CombinedGroupAssignment NVARCHAR(MAX),
+	@LA_CombinedGroup NVARCHAR(MAX)
 AS
 /*
 	Created by: 20160908@Sophia.Nguyen
@@ -64,7 +64,7 @@ BEGIN
 	
 	INSERT INTO #LA_CombinedGroup (GroupId, GroupName, PathCode)	
 	SELECT GroupId, GroupName, PathCode
-	FROM  OPENJSON (CAST(DECOMPRESS(@LA_CombinedGroup) AS NVARCHAR(MAX)))
+	FROM  OPENJSON (@LA_CombinedGroup) 
 	WITH (
 			GroupId INT, 
 			GroupName VARCHAR(50), 
@@ -108,7 +108,7 @@ BEGIN
 	
 	INSERT INTO #LA_CombinedGroupAssignment (GroupId, PartyId, GroupType)	
 	SELECT GroupId, PartyId, GroupType
-	FROM  OPENJSON (CAST(DECOMPRESS(@LA_CombinedGroupAssignment) AS NVARCHAR(MAX)))
+	FROM  OPENJSON (@LA_CombinedGroupAssignment)
 	WITH (
 			GroupId INT, 
 			PartyId INT, 
