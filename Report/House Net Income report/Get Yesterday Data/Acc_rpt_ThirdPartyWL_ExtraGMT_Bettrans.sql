@@ -16,6 +16,7 @@ AS
         - 20230817@Ned.Le: Remove currency test
 		- 20240305@Danny: Incorporate UU Slots (#192594)
 		- 20240328@Danny: Incorporate Yolo (#201590)
+		- 20240729@Danny: Incorporate Next Spin (#199982)
 
 	 Param's Explanation:
 
@@ -44,7 +45,7 @@ BEGIN
 	
 	DECLARE @RnGBettypeList TABLE(Bettype INT)
 	INSERT INTO @RnGBettypeList(Bettype)
-	SELECT bettype FROM OPENQUERY (DBLIC, 'SELECT	DISTINCT bettype FROM	bodb_licensee.dbo.LA_f_BettypeProductMapping(0,''FW,PP,CC,SG,JK,CG,MGRNG,JIG,L22,UUSL,FS'') la')
+	SELECT bettype FROM OPENQUERY (DBLIC, 'SELECT	DISTINCT bettype FROM	bodb_licensee.dbo.LA_f_BettypeProductMapping(0,''FW,PP,CC,SG,JK,CG,MGRNG,JIG,L22,UUSL,FS,NS'') la')
 
 	DECLARE @LCBettypeList TABLE(Bettype INT)
 	INSERT INTO @LCBettypeList(Bettype)
