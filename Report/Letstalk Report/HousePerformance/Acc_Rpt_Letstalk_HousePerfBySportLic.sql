@@ -348,7 +348,7 @@ BEGIN
 		INNER JOIN bodb02.dbo.Products AS p WITH (NOLOCK) ON p.ProductPrefix = rd.ProductPrefix
 		INNER JOIN bodb02.dbo.SportBetTypeMatrix AS s WITH (NOLOCK) ON p.ProductID = s.ProductID
 		INNER JOIN #tmpBetType AS bt ON bt.BetType = s.BetType AND bt.IsSB = 0
-	WHERE p.ProductID IN (27, 49, 77, 83)--VS2 (27) / VS3 Old (49) / VS3 (77) / VS4 (83)
+	WHERE p.ProductID IN (27, 49, 77, 83, 88)--VS2 (27) / VS3 Old (49) / VS3 (77) / VS4 (83) / VS5 (88)
 		
 	IF @WLDate >= @VSMergeCutOffDate --over Cut Off Date
 		AND EXISTS (
