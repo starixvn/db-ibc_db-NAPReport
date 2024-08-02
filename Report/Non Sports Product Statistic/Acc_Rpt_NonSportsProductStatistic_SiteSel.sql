@@ -1,4 +1,4 @@
-/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBACC-bodb02" executers="wsv_nap" viewers="" isFunction="0" isNested="0"></info>*/
 USE [bodb02]
 GO
  
@@ -19,6 +19,7 @@ AS
 		- 20220118@Cherry: Split 789y (#182387)
 		- 20231114@Roy: NAP Reports - Move SEAL8888 into Credit Group (#195730)
 		- 20240130@Cherry: Merge VS1, VS2, VS3 data into Virtual Sports (#199920)
+		- 20240802@Cherry: Remove linked server DBCUST (#207725)
 */
 
 BEGIN
@@ -61,7 +62,7 @@ BEGIN
 	
 	INSERT INTO #LA_CombinedGroup (GroupId, GroupName, PathCode)
 	SELECT GroupId, GroupName, PathCode
-	FROM DBCUST.bodb_Licensee.dbo.LA_CombinedGroup WITH(NOLOCK)
+	FROM bodb_Licensee.dbo.LA_CombinedGroup WITH(NOLOCK)
 	
 	-- Get group of licensees
 	INSERT INTO #tmpGroup (GroupId, GroupName, ParentId)
@@ -100,7 +101,7 @@ BEGIN
 	
 	INSERT INTO #LA_CombinedGroupAssignment (GroupId, PartyId, GroupType)
 	SELECT GroupId, PartyId, GroupType
-	FROM DBCUST.bodb_Licensee.dbo.LA_CombinedGroupAssignment WITH(NOLOCK)
+	FROM bodb_Licensee.dbo.LA_CombinedGroupAssignment WITH(NOLOCK)
 	
 	-- Get licensee and direct groups
 	INSERT INTO #tmpLicensee (LicenseeId, LicenseeName, GroupId)
