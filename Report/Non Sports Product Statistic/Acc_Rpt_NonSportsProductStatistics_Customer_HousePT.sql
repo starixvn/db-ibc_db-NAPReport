@@ -1,4 +1,4 @@
-/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="vnteam" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBACC-bodb02" executers="wsv_nap" viewers="vnteam" isFunction="0" isNested="0"></info>*/
 
 USE [bodb02]
 GO
@@ -50,6 +50,7 @@ AS
 		20230801@Cherry: Integrate Virtual Sports 3 (#189202)
 		20240116@Cherry: Integrate Virtual Sports 4 (#198623)
 		20240220@Cherry: Integrate AG Casino Jackpot Contribution (#200503)
+		20240806@Cherry: Integrate VS5 (#207590)
 
 	Param's Explanation:
 		- @ProductID: string filter by Product 
@@ -732,6 +733,31 @@ BEGIN
 				)
 			GROUP BY ProductID
 
+			INSERT INTO #Data
+			(
+				BetCount,
+				TotalBets, TotalBetsBase,
+				TotalWins, TotalWinsBase,
+				ProductID,
+				HousePT
+			)
+			SELECT
+				SUM(BetCount) AS BetCount,
+				SUM(TotalBets) AS TotalBets,
+				SUM(TotalBetsBase) AS TotalBetsBase,
+				SUM(TotalWins) AS TotalWins,
+				SUM(TotalWinsBase) AS TotalWinsBase,
+				ProductID,
+				SUM(HousePT) AS HousePT
+			FROM  #tmp_bettrans 				
+			WHERE ProductID IN (SELECT ProductID FROM #tmpVirtualSport) 
+				AND EvenType = 5
+				AND (@Sporttype = '' 
+					OR matchid IN (SELECT Match3rdId FROM dbo.match3rd WITH (NOLOCK)
+								WHERE sporttype IN (SELECT Sporttype FROM #tmp_Sporttype))
+					)
+			GROUP BY ProductID
+			
 			-- HR
 			INSERT INTO #Data
 			(
