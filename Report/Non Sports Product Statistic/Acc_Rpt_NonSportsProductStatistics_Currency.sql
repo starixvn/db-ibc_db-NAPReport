@@ -1437,9 +1437,16 @@ BEGIN
 	BEGIN						
 		--Mix parlay Virtual Sport 
 		INSERT INTO #tmp_bettransm (refno)
-		SELECT DISTINCT bm.refno FROM dbo.bettransm bm WITH(NOLOCK)
-					INNER JOIN dbo.match m WITH(NOLOCK) ON bm.matchid = m.matchid 
-					INNER JOIN #tmp_Sporttype st ON m.sporttype = st.Sporttype
+		SELECT DISTINCT bm.refno 
+		FROM dbo.bettransm bm WITH(NOLOCK)
+			INNER JOIN dbo.match m WITH(NOLOCK) ON bm.matchid = m.matchid 
+			INNER JOIN #tmp_Sporttype st ON m.sporttype = st.Sporttype
+
+		INSERT INTO #tmp_bettransm (refno)
+		SELECT DISTINCT bm.refno 
+		FROM dbo.bettransm bm WITH(NOLOCK)
+			INNER JOIN dbo.Match3rd m WITH(NOLOCK) ON bm.matchid = m.Match3rdId 
+			INNER JOIN #tmp_Sporttype st ON m.sporttype = st.Sporttype
 		
 		INSERT INTO #Data
 				( recommend ,

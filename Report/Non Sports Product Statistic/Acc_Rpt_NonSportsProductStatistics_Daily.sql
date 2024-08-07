@@ -1282,9 +1282,16 @@ SET NOCOUNT ON
 	IF EXISTS (SELECT 1 FROM #tmpVSBettype)  -- Virtual Sports 2
 	BEGIN			
 		INSERT INTO #tmp_bettransm (refno)
-		SELECT DISTINCT bm.refno FROM dbo.bettransm bm WITH(NOLOCK)
-					INNER JOIN dbo.match m WITH(NOLOCK) ON bm.matchid = m.matchid 
-					INNER JOIN #tmpSporttype st ON m.sporttype = st.Sporttype
+		SELECT DISTINCT bm.refno 
+		FROM dbo.bettransm bm WITH(NOLOCK)
+			INNER JOIN dbo.match m WITH(NOLOCK) ON bm.matchid = m.matchid 
+			INNER JOIN #tmpSporttype st ON m.sporttype = st.Sporttype
+
+		INSERT INTO #tmp_bettransm (refno)
+		SELECT DISTINCT bm.refno 
+		FROM dbo.bettransm bm WITH(NOLOCK)
+			INNER JOIN dbo.Match3rd m WITH(NOLOCK) ON bm.matchid = m.Match3rdId 
+			INNER JOIN #tmpSporttype st ON m.sporttype = st.Sporttype
 					
 		INSERT INTO #Data ( srecommend, bettype, CustID,   
 						BetCount, CurrencyId , 

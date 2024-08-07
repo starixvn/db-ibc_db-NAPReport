@@ -1346,7 +1346,8 @@ BEGIN
 				  ExtraPT,
 				  ExtraPTBase
 				)
-		SELECT  m.sporttype ReportBy, b.bettype, b.srecommend,
+		SELECT  CASE WHEN @LeagueId = '0' THEN m.League3rdId ELSE m.sporttype END ReportBy, 
+				b.bettype, b.srecommend,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
 				COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS BetCount, b.Currency,
 
@@ -1396,7 +1397,8 @@ BEGIN
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) 
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
 				)
-		GROUP BY m.sporttype, b.bettype, b.srecommend, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, b.Currency
+		GROUP BY CASE WHEN @LeagueId = '0' THEN m.League3rdId ELSE m.sporttype END, 
+			b.bettype, b.srecommend, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, b.Currency
 
 		OPTION(RECOMPILE)
 	END
@@ -1490,13 +1492,19 @@ BEGIN
 	WHERE BettypeGroupID = 18
 		AND Bettype IN (SELECT Bettype FROM #SportBettype)
 
-	CREATE TABLE #tmp_bettransm (refno BIGINT, sporttype INT)
+	CREATE TABLE #tmp_bettransm (refno BIGINT, sporttype INT, League3rdId INT)
 	IF EXISTS (SELECT 1 FROM #tmpVSBettype)
 	BEGIN		
 		INSERT INTO #tmp_bettransm (refno, sporttype)
 		SELECT DISTINCT bm.refno, m.sporttype FROM dbo.bettransm bm WITH(NOLOCK)
 					INNER JOIN dbo.match m WITH(NOLOCK) ON bm.matchid = m.matchid 
 					INNER JOIN #tmp_Sporttype st ON m.sporttype = st.Sporttype
+
+		INSERT INTO #tmp_bettransm (refno, sporttype, League3rdId)
+		SELECT DISTINCT bm.refno, m.sporttype, m.League3rdId
+		FROM dbo.bettransm bm WITH(NOLOCK)
+			INNER JOIN dbo.Match3rd m WITH(NOLOCK) ON bm.matchid = m.Match3rdId 
+			INNER JOIN #tmp_Sporttype st ON m.sporttype = st.Sporttype
 							
 		INSERT INTO #Data
 				( ReportBy,
@@ -1520,7 +1528,8 @@ BEGIN
 				  ExtraPT,
 				  ExtraPTBase
 				)
-		SELECT  bm.sporttype ReportBy, b.bettype, b.srecommend,
+		SELECT  CASE WHEN @LeagueId = '0' THEN bm.League3rdId ELSE bm.sporttype END ReportBy, 
+				b.bettype, b.srecommend,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
 				COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS BetCount, b.Currency,
 
@@ -1569,7 +1578,8 @@ BEGIN
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) 
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
 				)
-		GROUP BY bm.sporttype, b.bettype, b.srecommend, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, b.Currency
+		GROUP BY CASE WHEN @LeagueId = '0' THEN bm.League3rdId ELSE bm.sporttype END, 
+			b.bettype, b.srecommend, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, b.Currency
 		OPTION(RECOMPILE)
 	END
 	
@@ -1632,10 +1642,20 @@ BEGIN
 	END
 	ELSE IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID IN (SELECT ProductID FROM #tmpVirtualSport) OR ProductID IN (SELECT ProductID FROM #tmpHouseProduct))
 	BEGIN
-		UPDATE d
-		SET d.ReportByName = s.SportName
-		FROM #Data d 
-			INNER JOIN dbo.Sports s WITH (NOLOCK) ON d.ReportBy = s.SportType
+		IF @LeagueId = '0' 
+		BEGIN
+			UPDATE d
+			SET d.ReportByName = l.LeagueName
+			FROM #Data d 
+				INNER JOIN dbo.League3rd l WITH(NOLOCK) ON d.ReportBy = l.League3rdId
+		END
+		ELSE
+		BEGIN
+			UPDATE d
+			SET d.ReportByName = s.SportName
+			FROM #Data d 
+				INNER JOIN dbo.Sports s WITH (NOLOCK) ON d.ReportBy = s.SportType
+		END
 	END
 	ELSE IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID IN (6,23))
 	BEGIN

@@ -528,10 +528,15 @@ BEGIN
 						OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 					)
 					AND b.bettype IN (SELECT Bettype FROM #tmpVSBettype)
-					AND EXISTS (SELECT 1 FROM dbo.bettransm bm WITH (NOLOCK)
+					AND (EXISTS (SELECT 1 FROM dbo.bettransm bm WITH (NOLOCK)
 									INNER JOIN dbo.match m WITH (NOLOCK) ON bm.matchid = m.matchid 
 									INNER JOIN #tmp_SportType st ON m.sporttype = st.Sporttype
-								WHERE bm.refno = b.refno)					
+								WHERE bm.refno = b.refno)		
+						OR EXISTS (SELECT 1 FROM dbo.bettransm bm WITH (NOLOCK)
+									INNER JOIN dbo.Match3rd m WITH (NOLOCK) ON bm.matchid = m.Match3rdId 
+									INNER JOIN #tmp_SportType st ON m.sporttype = st.Sporttype
+								WHERE bm.refno = b.refno)			
+						)
 				GROUP BY s.EvenType, b.matchid, s.ProductID, b.bettype 
 				OPTION(RECOMPILE)
 			END

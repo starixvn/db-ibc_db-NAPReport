@@ -178,6 +178,7 @@ BEGIN
 	CREATE TABLE #tmp_ProductID		(ProductID INT)
 	CREATE TABLE #tmp_BetType		(Bettype INT)
 	CREATE TABLE #tmp_LeagueID		(LeagueID INT, Bettype INT)
+	CREATE TABLE #tmpLeagueVS5		(LeagueID INT)
 	CREATE TABLE #tmp_SportType		(Sporttype INT)
 	CREATE TABLE #tmpCurrency		(CurrencyId INT)
 	CREATE TABLE #tmp_GameTableID	(GameTableID INT)
@@ -237,21 +238,29 @@ BEGIN
 
 	IF @LeagueId <> ''
 	BEGIN
-		IF substring (@LeagueID, len(@LeagueID), 1) <> @splitter1
-			SET @LeagueID = @LeagueID + @splitter1
-		SET @start = 1
-		SET @charindex1 = charindex(@splitter1, @LeagueID, @start)
-		SET @charindex2 = charindex(@splitter2, @LeagueID, @start)
-
-		WHILE (@charindex1 <> 0)
+		IF @ProductId = '88' -- VS5
 		BEGIN
-			SET @leaguebettype = substring(@LeagueID, @start, @charindex1 - @start)       
-			SET @charindex2 = charindex(@splitter2, @leaguebettype, 1)
-			SET @league = substring(@leaguebettype, 1, @charindex2 - 1)
-			SET @bettypeid = substring(@leaguebettype, @charindex2 + 1, LEN(@leaguebettype))
-			INSERT INTO #tmp_LeagueID(LeagueID, Bettype) VALUES (@league, @bettypeid)
-			SET @start = @charindex1 +1
-			SET @charindex1 = charindex(@splitter1, @LeagueID, @start)          
+			INSERT INTO #tmpLeagueVS5 (LeagueID)
+			SELECT value FROM string_split(@LeagueId,',')
+		END
+		ELSE
+		BEGIN
+			IF substring (@LeagueID, len(@LeagueID), 1) <> @splitter1
+				SET @LeagueID = @LeagueID + @splitter1
+			SET @start = 1
+			SET @charindex1 = charindex(@splitter1, @LeagueID, @start)
+			SET @charindex2 = charindex(@splitter2, @LeagueID, @start)
+
+			WHILE (@charindex1 <> 0)
+			BEGIN
+				SET @leaguebettype = substring(@LeagueID, @start, @charindex1 - @start)       
+				SET @charindex2 = charindex(@splitter2, @leaguebettype, 1)
+				SET @league = substring(@leaguebettype, 1, @charindex2 - 1)
+				SET @bettypeid = substring(@leaguebettype, @charindex2 + 1, LEN(@leaguebettype))
+				INSERT INTO #tmp_LeagueID(LeagueID, Bettype) VALUES (@league, @bettypeid)
+				SET @start = @charindex1 +1
+				SET @charindex1 = charindex(@splitter1, @LeagueID, @start)          
+			END
 		END
 	END
 	
@@ -1316,8 +1325,8 @@ BEGIN
 			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID IN (SELECT ProductID FROM #tmpVirtualSport) AND EvenType = 5)
 			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) 
-			AND b.matchid IN (SELECT Match3rdId FROM dbo.Match3rd WITH (NOLOCK)
-								WHERE sporttype IN (SELECT Sporttype FROM #tmp_Sporttype))
+			AND b.matchid IN (SELECT Match3rdId FROM dbo.Match3rd WITH (NOLOCK)											
+								WHERE League3rdId IN (SELECT LeagueID FROM #tmpLeagueVS5))
 			AND (@ExcludeTest = 0 OR (b.Currency <> 20 AND @ExcludeTest = 1))
 			AND (@currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId)) 
 			AND (@Username = '' OR EXISTS (SELECT 1 From #tmp_MemIDs m WHERE m.CustID = b.custId))
@@ -1428,9 +1437,16 @@ BEGIN
 	IF EXISTS (SELECT 1 FROM #tmpVSBettype)
 	BEGIN		
 		INSERT INTO #tmp_bettransm (refno)
-		SELECT DISTINCT bm.refno FROM dbo.bettransm bm WITH(NOLOCK)
-					INNER JOIN dbo.match m WITH(NOLOCK) ON bm.matchid = m.matchid 
-					INNER JOIN #tmp_Sporttype st ON m.sporttype = st.Sporttype
+		SELECT DISTINCT bm.refno 
+		FROM dbo.bettransm bm WITH(NOLOCK)
+			INNER JOIN dbo.match m WITH(NOLOCK) ON bm.matchid = m.matchid 
+			INNER JOIN #tmp_Sporttype st ON m.sporttype = st.Sporttype
+
+		INSERT INTO #tmp_bettransm (refno)
+		SELECT DISTINCT bm.refno 
+		FROM dbo.bettransm bm WITH(NOLOCK)
+			INNER JOIN dbo.Match3rd m WITH(NOLOCK) ON bm.matchid = m.Match3rdId
+		WHERE m.League3rdId IN (SELECT LeagueID FROM #tmpLeagueVS5)
 							
 		INSERT INTO #Data
 				( ReportBy,
@@ -1794,5 +1810,6 @@ BEGIN
 	DROP TABLE #tmpDummyCust
 	DROP TABLE #tmpVirtualSport
 	DROP TABLE #tmpVSBettype
+	DROP TABLE #tmpLeagueVS5
 	
 END
