@@ -55,6 +55,7 @@ AS
 		- 20240416@Danny: Integrate Saba Coins Wallet (#203365)
 		- 20240605@Danny: Letstalk reports - Integrate the Saba Kabaddi And Remove Linked server DBCUST (#204927)
 		- 20240723@Danny: Vgaming offer promotion (#208019)
+		- 20240729@Danny: Incorporate VS5 (#206527)
           
 */
 BEGIN
@@ -536,7 +537,7 @@ BEGIN
 
 		INSERT INTO @VSProductList(ProductID)
 		SELECT Product3rdId
-		FROM @Product3rd WHERE ProductPrefix IN ('VS','VS2','VS3','VS4','LG')
+		FROM @Product3rd WHERE ProductPrefix IN ('VS','VS2','VS3','VS4','VS5','LG')
 
 		DELETE #tmpBetType WHERE BettypeGroup = -999
 
@@ -1001,9 +1002,9 @@ BEGIN
 			INNER JOIN #AllLicensees l ON t.SiteId_DW = l.SiteId_DW
 			INNER JOIN @ExchangeOANDA e ON t.CurrencyId = e.ExchangeId
 			LEFT JOIN #PartyChargeInfo p ON p.PartyId = l.PartyId 
-					AND p.Product3rdId =  CASE	 WHEN @FromDate > @SB_SLT_BTC_MergePerfCutoff THEN  CASE WHEN t.Product3rdId IN (0,69,63) THEN 0 ELSE t.Product3rdId END
-												 WHEN @FromDate > @VSMergeSettingCutoff THEN CASE WHEN t.Product3rdId IN (5,27,49,77,83) THEN 5 ELSE t.Product3rdId END
-										  ELSE   CASE WHEN t.Product3rdId IN (0,69) THEN 0 ELSE t.Product3rdId END  END
+					AND p.Product3rdId =  CASE  WHEN @FromDate > @SB_SLT_BTC_MergePerfCutoff AND t.Product3rdId IN (0,69,63) THEN 0    
+												WHEN @FromDate > @VSMergeSettingCutoff AND t.Product3rdId IN (5,27,49,77,83,88) THEN 5    
+										  ELSE  CASE WHEN t.Product3rdId IN (0,69) THEN 0 ELSE t.Product3rdId END  END 
 					AND t.rptDate BETWEEN p.FromDate AND p.ToDate
 					AND (p.Bettype = -1 OR p.Bettype = t.BetTypeGroup)
 					AND (t.BetTypeGroup NOT IN (-3, -4))
