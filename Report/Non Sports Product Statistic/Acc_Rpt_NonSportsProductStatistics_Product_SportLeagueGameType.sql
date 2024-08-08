@@ -237,7 +237,7 @@ BEGIN
 		@start int, @leaguebettype nvarchar(4000), 
 		@charindex1 int, @charindex2 int
 
-	IF @LeagueId <> ''
+	IF @LeagueId <> '' AND @LeagueId <> '0'
 	BEGIN
 		IF substring (@LeagueID, len(@LeagueID), 1) <> @splitter1
 			SET @LeagueID = @LeagueID + @splitter1
