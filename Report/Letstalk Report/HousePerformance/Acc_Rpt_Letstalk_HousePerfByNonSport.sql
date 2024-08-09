@@ -28,6 +28,7 @@ AS
 		20240417@Cherry: Integrate Saba Coins (#203365)
 		20240628@Cherry: Integrate FA CHAI (#206635)
 		20240628@Cherry: Integrate Fast Spin (#206142)
+		20240722@Cherry: Integrate Virtual Sports 5 (#206922), Nextspin (#199988)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -219,6 +220,7 @@ BEGIN
 			,(86,'RNG','SABAxD') 
 			,(87,'RNG','FastSpin')
 			,(89,'RNG','FACHAI')
+			,(85,'RNG','Nextspin')
 			----------LOT/KENO----------
 			,(40,'LOT/KENO','TabG') --Table Game
 			,(8,'LOT/KENO','Mkeno') --RNG Keno
@@ -237,6 +239,7 @@ BEGIN
 			-- ,('Bet Builder','OTHERS','BetB')
 			,(77,'OTHERS','VS3') --Virtual Sports
 			,(83,'OTHERS','VS4') --Virtual Sports 4
+			,(88,'OTHERS','VS5') --Virtual Sports 5
 		) h (ProductID, ProductGroup, ProductShortName)
 	)
 	INSERT INTO #tmpProductSetting (
