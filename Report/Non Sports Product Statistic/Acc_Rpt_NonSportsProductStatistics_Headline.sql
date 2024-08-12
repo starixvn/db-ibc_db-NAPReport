@@ -23,7 +23,8 @@ ALTER PROCEDURE [dbo].[Acc_Rpt_NonSportsProductStatistics_Headline]
 	@HousePTValue   MONEY = 0,
 	@IsDrillDown	BIT = 0,
 	@IsGrandTotal	BIT = 0,
-	@IsExactly		BIT = 0 
+	@IsExactly		BIT = 0,
+	@IsSMA			BIT = 0
 AS
 /*
 	Created	: 20240808@Cherry
@@ -55,7 +56,9 @@ AS
 			-1 : is <=
 		- @HousePTValue : Value to compare with @HousePTType
 		- @IsDrillDown: If click on Grand Total or on the Grid of column Currency
-
+		- @IsSMA: 
+			0: View by Headline
+			1: View by Super, Master, Agent
 */
 BEGIN
 	SET NOCOUNT ON
@@ -467,7 +470,16 @@ BEGIN
 	CREATE CLUSTERED INDEX IX_SportType ON #tmp_SportType (Sporttype)    
 	CREATE CLUSTERED INDEX IX_LeagueID ON #tmp_LeagueID (LeagueID, Bettype)	
 	CREATE CLUSTERED INDEX IX_SporttypeBettype ON #tmpSportBetType (Sporttype, Bettype)  
-	CREATE CLUSTERED INDEX IX_Bettype ON #tmpContributionBettype (Bettype)                
+	CREATE CLUSTERED INDEX IX_Bettype ON #tmpContributionBettype (Bettype) 
+	
+	-- Get list of Headline
+	CREATE TABLE #tmpHeadline (Headline INT, Member INT)
+	INSERT INTO #tmpHeadline (Headline, Member)
+	SELECT DISTINCT h.Headline, c.custid
+	FROM bodb02.dbo.custAccount c WITH(NOLOCK)
+		INNER JOIN (SELECT custid Headline, groupID
+				FROM bodb02.dbo.custAccount a WITH(NOLOCK)
+				WHERE IsGroupHeadLine = 1) h ON c.groupID = h.groupID
 	
 	------------------------------------------II. Get Real Data For Report ------------------------------------------------------	
 	--- Check condition 
@@ -2015,6 +2027,7 @@ BEGIN
 	DROP TABLE #tmpDummyCust
 	DROP TABLE #tmpVirtualSport
 	DROP TABLE #tmpVSBettype
+	DROP TABLE #tmpHeadline
 
 END
 
