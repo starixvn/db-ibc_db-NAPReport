@@ -1,4 +1,4 @@
-/*<info serverAlias="DBRPT-bodb_Report" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBRPT-bodb_Report" executers="wsv_nap" viewers="" isFunction="0" isNested="0"></info>*/
 USE bodb_Report
 GO
 
@@ -16,6 +16,7 @@ AS
 		20210504@Jaden: Use SP to get balanceup & movebets (#154116)
 		20220110@Roy: Automail Report - Tune sp performance of Bet Builder repo (#167198)
 		20220907@Jaden: Change betfrom datatype (#177202)
+		20240816@Jaden: Add Live Status (#209221)
 
 	Param's Explanation:	 
 */
@@ -34,6 +35,7 @@ AS
 		 , DateTimePlaced    DATETIME
 		 , WinLostDate       SMALLDATETIME
 		 , NoOfLegsPerBet    SMALLMONEY
+		 , LiveStatus        TINYINT
 		 , Betfrom           NVARCHAR(5)
 		 , Odds              SMALLMONEY
 		 , Currency          INT
@@ -183,7 +185,7 @@ AS
 			,s1.MarketId
 			,s2.SelectionName
 		OPTION (RECOMPILE)
-		
+
 		--range bettrans14
 		;WITH CTE_Market AS (
 			SELECT DISTINCT WinLostDate
@@ -232,6 +234,21 @@ AS
 			,s2.SelectionName
 		OPTION (RECOMPILE)
 
+		UPDATE #Data
+		SET LiveStatus = b.liveindicator
+		FROM bodb02.dbo.bettrans b WITH (NOLOCK)
+		WHERE b.TransId = #Data.TransId
+
+		UPDATE #Data
+		SET LiveStatus = b.liveindicator
+		FROM bodb02.dbo.bettrans14 b WITH (NOLOCK)
+		WHERE b.TransId = #Data.TransId
+
+		UPDATE #Data
+		SET LiveStatus = b.liveindicator
+		FROM bodb_Archive.dbo.bettrans_bk b WITH (NOLOCK)
+		WHERE b.TransId = #Data.TransId
+
 		;WITH CTE_BetDesc AS (
 			SELECT WinLostDate
 				,MarketId
@@ -255,6 +272,7 @@ AS
 		   , d.DateTimePlaced
 		   , bd.BetDesc AS BetDescription
 		   , d.NoOfLegsPerBet
+		   , d.LiveStatus
 		   , 'Settled' AS BetStatus
 		   , bf.DeviceGroup
 		   , d.Odds AS BetPrice
@@ -288,6 +306,7 @@ AS
 		   , NULL AS DateTimePlaced
 		   , '' AS BetDescription
 		   , NULL AS NoOfLegsPerBet
+		   , NULL AS LiveStatus
 		   , '' AS BetStatus
 		   , 'Grand Total in EUR' AS DeviceGroup
 		   , NULL AS BetPrice

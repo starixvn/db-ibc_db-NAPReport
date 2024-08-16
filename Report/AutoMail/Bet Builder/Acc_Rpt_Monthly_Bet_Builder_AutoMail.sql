@@ -1,4 +1,4 @@
-/*<info serverAlias="DBRPT-bodb_Report" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBRPT-bodb_Report" executers="wsv_nap" viewers="" isFunction="0" isNested="0"></info>*/
 USE bodb_Report
 GO
 
@@ -16,11 +16,12 @@ AS
 		- 20210504@Jaden: Use SP to get balanceup & movebets (#154116)
 		- 20220110@Roy: Automail Report - Tune sp performance of Bet Builder repo (#167198)
 		- 20220907@Jaden: Change betfrom datatype (#177202)
+		- 20240816@Jaden: Add Live Status (#209221)
 
 	Param's Explanation:	 
 */
 
-BEGIN
+BEGIN	
     SET NOCOUNT ON;
 
     CREATE TABLE #HistoryData(
@@ -47,6 +48,7 @@ BEGIN
 	    TransId         BIGINT
 	  , MatchId         INT
 	  , WinLostDate     SMALLDATETIME
+	  , LiveStatus		TINYINT
 	  , Stake           MONEY
 	  , StatusId        INT
 	  , Payout          MONEY
@@ -64,6 +66,7 @@ BEGIN
 	  , MatchId               INT
 	  , SportType		  	  INT
 	  , WinLostDate           SMALLDATETIME
+	  , LiveStatus            TINYINT
 	  , LeagueId              INT
 	  , HomeId                INT
 	  , AwayId                INT
@@ -189,6 +192,7 @@ BEGIN
 				INSERT INTO #BetTransData(TransId
 								    , MatchId
 								    , WinLostDate
+									, LiveStatus
 								    , Stake
 								    , StatusId
 								    , Payout
@@ -203,6 +207,7 @@ BEGIN
 						 SELECT TransId
 							 , matchid
 							 , WinLostDate
+							 , liveindicator
 							 , Stake
 							 , StatusId
 							 , b.winlost AS Payout
@@ -225,6 +230,7 @@ BEGIN
 				INSERT INTO #BetTransData(TransId
 								    , MatchId
 								    , WinLostDate
+								    , LiveStatus
 								    , Stake
 								    , StatusId
 								    , Payout
@@ -239,6 +245,7 @@ BEGIN
 						 SELECT TransId
 							 , matchid
 							 , WinLostDate
+							 , liveindicator
 							 , Stake
 							 , StatusId
 							 , b.winlost AS Payout
@@ -260,6 +267,7 @@ BEGIN
 				INSERT INTO #BetTransData(TransId
 								    , MatchId
 								    , WinLostDate
+								    , LiveStatus
 								    , Stake
 								    , StatusId
 								    , Payout
@@ -274,6 +282,7 @@ BEGIN
 						 SELECT TransId
 							 , matchid
 							 , WinLostDate
+							 , liveindicator
 							 , Stake
 							 , StatusId
 							 , b.winlost AS Payout
@@ -294,10 +303,11 @@ BEGIN
 	   END;
 
     CREATE CLUSTERED INDEX CIX_BetTransData_TransId_StatusId ON #BetTransData(TransId ASC, StatusId ASC);
--- case 1: same ticket but difference values
+	-- case 1: same ticket but difference values
     INSERT INTO #Result(TransId
 				  , MatchId
 				  , WinLostDate
+				  , LiveStatus
 				  , StakeBefore
 				  , StakeAfter
 				  , StatusIdBefore
@@ -318,6 +328,7 @@ BEGIN
 			SELECT b.TransId
 				, b.MatchId
 				, b.WinLostDate
+				, b.LiveStatus
 				, h.Stake AS StakeBefore
 				, b.Stake AS StakeAfter
 				, h.StatusId AS StatusIdBefore
@@ -341,10 +352,11 @@ BEGIN
 				 OR b.Payout <> h.Payout
 				 OR b.Commission <> h.Commission
 		 );
--- case 2: existing in #BetTransData but not in #HistoryData, just for WON, LOSE, DRAW
+	-- case 2: existing in #BetTransData but not in #HistoryData, just for WON, LOSE, DRAW
     INSERT INTO #Result(TransId
 				  , MatchId
 				  , WinLostDate
+				  , LiveStatus
 				  , StakeBefore
 				  , StakeAfter
 				  , StatusIdBefore
@@ -365,6 +377,7 @@ BEGIN
 			SELECT b.TransId
 				, b.MatchId
 				, b.WinLostDate
+				, b.LiveStatus
 				, h.Stake AS StakeBefore
 				, b.Stake AS StakeAfter
 				, h.StatusId AS StatusIdBefore
@@ -540,6 +553,7 @@ BEGIN
 	    , d.TransId
 	    , bd.BetDesc AS BetDescription
 	    , d.NoOfLegsPerBet
+		, d.LiveStatus
 	    , 'Settled' AS BetStatus
 	    , bf.DeviceGroup
 	    , d.Odds AS BetPrice
