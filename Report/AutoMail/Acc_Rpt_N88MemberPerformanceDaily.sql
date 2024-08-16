@@ -1,4 +1,4 @@
-/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBACC-bodb02" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
 USE bodb02
 GO
 ALTER PROCEDURE [dbo].[Acc_Rpt_N88_SB_Member_Performance_Daily] 
@@ -16,6 +16,7 @@ AS
 	 - 20210520@Jaden: Add column bettype
 	 - 20210602@Jaden: Add more sites, Live indicator, Odds
 	 - 20211222@Jaden: Add parlay
+	 - 20240816@Jaden: Add username2
 	 */
 BEGIN 
 	Create table #tmp_data
@@ -31,6 +32,7 @@ BEGIN
 		homeid int,
 		awayid int,
 		username nvarchar (100),
+		username2 nvarchar (100),
 		Sitename nvarchar (100),
 		betcount int,
 		WinlossP money,
@@ -52,6 +54,7 @@ BEGIN
 		homeid,
 		awayid,
 		mc.username,
+		c.username2,
 		c.site,
 		(case when t.custid is not null then 0 else 1 end) [betcount],
 		sum(winlost - actual_stake),
@@ -61,7 +64,7 @@ BEGIN
 		bettrans mc with (nolock)
 		Inner join match m with (nolock) on mc.matchid = m.matchid
 		and m.sporttype < 100
-		Inner join vw_customer c with (nolock) on c.custid = mc.srecommend
+		Inner join vw_customer c with (nolock) on c.custid = mc.custid
 		left join bodb02.dbo.TradeCust t with (nolock) on t.custid = mc.custid
 	where
 		mc.ruben = 1
@@ -83,6 +86,7 @@ BEGIN
 		homeid,
 		awayid,
 		mc.username,
+		c.username2,
 		c.site,
 		case when t.custid is not null then 0 else 1 end
 	
@@ -102,6 +106,7 @@ BEGIN
 		-11111,
 		-11111,
 		mc.username,
+		c.username2,
 		c.site,
 		(case when t.custid is not null then 0 else 1 end) [betcount],
 		sum(winlost - actual_stake),
@@ -109,7 +114,7 @@ BEGIN
 		sum(abs(winlost - actual_stake))
 	from
 		bettrans mc with (nolock)
-		Inner join vw_customer c with (nolock) on c.custid = mc.srecommend
+		Inner join vw_customer c with (nolock) on c.custid = mc.custid
 		left join bodb02.dbo.TradeCust t with (nolock) on t.custid = mc.custid
 	where
 		mc.ruben = 1
@@ -127,6 +132,7 @@ BEGIN
 			WHEN bettype = 29 AND betteam = 1 THEN 9
 			ELSE 29 end,
 		mc.username,
+		c.username2,
 		c.site,
 		case when t.custid is not null then 0 else 1 end
 		
@@ -135,6 +141,7 @@ BEGIN
 		CAST(winlostdate as date) 'Date',
 		b.sitename,
 		b.username,
+		SUBSTRING(username2, CHARINDEX('_', username2) + 1, LEN(username2) - CHARINDEX('_', username2)) [B2C Custid],
 		ISNULL(s.SportName,'Combine Parlay') [SportName],
 		ISNULL(l.leaguename,'Combine Parlay') [leaguename],
 		ISNULL(
@@ -179,6 +186,7 @@ BEGIN
 		CAST(winlostdate as date),
 		b.sitename,
 		username,
+		SUBSTRING(username2, CHARINDEX('_', username2) + 1, LEN(username2) - CHARINDEX('_', username2)),
 		ISNULL(s.SportName,'Combine Parlay'),
 		ISNULL(l.leaguename,'Combine Parlay'),
 		CurrencyName,
