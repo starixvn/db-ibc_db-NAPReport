@@ -275,7 +275,7 @@ BEGIN
 	    , d.DateTimePlaced
 	    , bd.BetDesc AS BetDescription
 	    , d.NoOfLegsPerBet
-		, d.LiveStatus
+		, CASE d.LiveStatus WHEN 1 THEN 'Live' WHEN 0 THEN 'Non-Live' ELSE 'Mixed' END AS LiveStatus
 	    , 'Settled' AS BetStatus
 	    , bf.DeviceGroup
 	    , d.Odds AS BetPrice
