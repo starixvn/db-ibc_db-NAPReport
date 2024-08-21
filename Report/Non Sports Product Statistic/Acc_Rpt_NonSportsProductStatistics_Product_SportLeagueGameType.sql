@@ -238,31 +238,31 @@ BEGIN
 		@start int, @leaguebettype nvarchar(4000), 
 		@charindex1 int, @charindex2 int
 
-	IF @LeagueId <> '' AND @LeagueId <> '0' AND @IsDrillDown = 0
-	BEGIN
-		IF substring (@LeagueID, len(@LeagueID), 1) <> @splitter1
-			SET @LeagueID = @LeagueID + @splitter1
-		SET @start = 1
-		SET @charindex1 = charindex(@splitter1, @LeagueID, @start)
-		SET @charindex2 = charindex(@splitter2, @LeagueID, @start)
-
-		WHILE (@charindex1 <> 0)
+	IF @LeagueId <> '' AND @LeagueId <> '0' 
+		IF @ProductId = '88' -- VS5
 		BEGIN
-			SET @leaguebettype = substring(@LeagueID, @start, @charindex1 - @start)       
-			SET @charindex2 = charindex(@splitter2, @leaguebettype, 1)
-			SET @league = substring(@leaguebettype, 1, @charindex2 - 1)
-			SET @bettypeid = substring(@leaguebettype, @charindex2 + 1, LEN(@leaguebettype))
-			INSERT INTO #tmp_LeagueID(LeagueID, Bettype) VALUES (@league, @bettypeid)
-			SET @start = @charindex1 +1
-			SET @charindex1 = charindex(@splitter1, @LeagueID, @start)          
+			INSERT INTO #tmpLeagueVS5 (LeagueID)
+			SELECT value FROM string_split (@LeagueID, ',')
 		END
-	END
+		IF @ProductId = '3' -- Number Game
+		BEGIN
+			IF substring (@LeagueID, len(@LeagueID), 1) <> @splitter1
+				SET @LeagueID = @LeagueID + @splitter1
+			SET @start = 1
+			SET @charindex1 = charindex(@splitter1, @LeagueID, @start)
+			SET @charindex2 = charindex(@splitter2, @LeagueID, @start)
 
-	IF @LeagueId <> '' AND @LeagueId <> '0' AND @IsDrillDown = 1
-	BEGIN
-		INSERT INTO #tmpLeagueVS5 (LeagueID)
-		SELECT value FROM string_split (@LeagueID, ',')
-	END
+			WHILE (@charindex1 <> 0)
+			BEGIN
+				SET @leaguebettype = substring(@LeagueID, @start, @charindex1 - @start)       
+				SET @charindex2 = charindex(@splitter2, @leaguebettype, 1)
+				SET @league = substring(@leaguebettype, 1, @charindex2 - 1)
+				SET @bettypeid = substring(@leaguebettype, @charindex2 + 1, LEN(@leaguebettype))
+				INSERT INTO #tmp_LeagueID(LeagueID, Bettype) VALUES (@league, @bettypeid)
+				SET @start = @charindex1 +1
+				SET @charindex1 = charindex(@splitter1, @LeagueID, @start)          
+			END
+		END	
 	
 	IF @SportBetType <> '' 
     BEGIN

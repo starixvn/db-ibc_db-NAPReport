@@ -243,7 +243,7 @@ BEGIN
 			INSERT INTO #tmpLeagueVS5 (LeagueID)
 			SELECT value FROM string_split(@LeagueId,',')
 		END
-		ELSE
+		IF @ProductId = '3' -- Number Game
 		BEGIN
 			IF substring (@LeagueID, len(@LeagueID), 1) <> @splitter1
 				SET @LeagueID = @LeagueID + @splitter1
