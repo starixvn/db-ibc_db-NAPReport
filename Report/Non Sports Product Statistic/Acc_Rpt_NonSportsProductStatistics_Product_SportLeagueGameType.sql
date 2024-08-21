@@ -1653,19 +1653,19 @@ BEGIN
 	END
 	ELSE IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID IN (SELECT ProductID FROM #tmpVirtualSport) OR ProductID IN (SELECT ProductID FROM #tmpHouseProduct))
 	BEGIN
-		IF @LeagueId = '0' 
+		IF @LeagueId = '' 
+		BEGIN
+			UPDATE d
+			SET d.ReportByName = s.SportName
+			FROM #Data d 
+				INNER JOIN dbo.Sports s WITH (NOLOCK) ON d.ReportBy = s.SportType			
+		END
+		ELSE
 		BEGIN
 			UPDATE d
 			SET d.ReportByName = l.LeagueName
 			FROM #Data d 
 				INNER JOIN dbo.League3rd l WITH(NOLOCK) ON d.ReportBy = l.League3rdId
-		END
-		ELSE
-		BEGIN
-			UPDATE d
-			SET d.ReportByName = s.SportName
-			FROM #Data d 
-				INNER JOIN dbo.Sports s WITH (NOLOCK) ON d.ReportBy = s.SportType
 		END
 	END
 	ELSE IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID IN (6,23))
