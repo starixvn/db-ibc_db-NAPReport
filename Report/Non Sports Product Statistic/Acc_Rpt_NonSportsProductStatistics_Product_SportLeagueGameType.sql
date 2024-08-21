@@ -189,6 +189,7 @@ BEGIN
 	CREATE TABLE #tmpHouseProduct (ProductID INT)
 	CREATE TABLE #tmpDummyCust (CustID INT)
 	CREATE TABLE #tmpVirtualSport (ProductID INT)
+	CREATE TABLE #tmpLeagueVS5 (LeagueID INT)
 
 	DECLARE @VirtualSportGroupStr VARCHAR(500)
     SELECT  @VirtualSportGroupStr = VValue
@@ -237,7 +238,7 @@ BEGIN
 		@start int, @leaguebettype nvarchar(4000), 
 		@charindex1 int, @charindex2 int
 
-	IF @LeagueId <> '' AND @LeagueId <> '0'
+	IF @LeagueId <> '' AND @LeagueId <> '0' AND @IsDrillDown = 0
 	BEGIN
 		IF substring (@LeagueID, len(@LeagueID), 1) <> @splitter1
 			SET @LeagueID = @LeagueID + @splitter1
@@ -255,6 +256,12 @@ BEGIN
 			SET @start = @charindex1 +1
 			SET @charindex1 = charindex(@splitter1, @LeagueID, @start)          
 		END
+	END
+
+	IF @LeagueId <> '' AND @LeagueId <> '0' AND @IsDrillDown = 1
+	BEGIN
+		INSERT INTO #tmpLeagueVS5 (LeagueID)
+		SELECT value FROM string_split (@LeagueID, ',')
 	END
 	
 	IF @SportBetType <> '' 
@@ -1346,7 +1353,7 @@ BEGIN
 				  ExtraPT,
 				  ExtraPTBase
 				)
-		SELECT  CASE WHEN @LeagueId = '0' THEN m.League3rdId ELSE m.sporttype END ReportBy, 
+		SELECT  CASE WHEN @LeagueId <> '' THEN m.League3rdId ELSE m.sporttype END ReportBy, 
 				b.bettype, b.srecommend,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
 				COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS BetCount, b.Currency,
@@ -1397,7 +1404,11 @@ BEGIN
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) 
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
 				)
-		GROUP BY CASE WHEN @LeagueId = '0' THEN m.League3rdId ELSE m.sporttype END, 
+			AND (
+				@LeagueId = '' OR @IsDrillDown = 0 OR
+				EXISTS (SELECT TOP 1 1 FROM #tmpLeagueVS5 l WHERE m.League3rdId = l.LeagueID)
+				)
+		GROUP BY CASE WHEN @LeagueId <> '' THEN m.League3rdId ELSE m.sporttype END, 
 			b.bettype, b.srecommend, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, b.Currency
 
 		OPTION(RECOMPILE)
