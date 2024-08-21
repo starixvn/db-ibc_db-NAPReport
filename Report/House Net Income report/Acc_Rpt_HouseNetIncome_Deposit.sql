@@ -57,6 +57,7 @@ AS
 		- 20240723@Danny: Vgaming offer promotion (#208019)
 		- 20240729@Danny: Incorporate VS5 (#206527)
 		- 20240920@Danny: Email/Letstalk - Odds Boost Voucher (#210559)
+		- 20240821@Danny: Integrate Gaming Platform Data (#201752)
           
 */
 BEGIN
@@ -108,7 +109,7 @@ BEGIN
 
 	DECLARE @Product3rd TABLE (Product3rdId INT, ProductPrefix VARCHAR(10))
 	DECLARE @Products TABLE (ProductId INT, Product3rdId INT, AliasProductId INT, ProductCode VARCHAR(50), SubProductCode VARCHAR(50), IsPayToSupplier BIT DEFAULT (0), isOnlyTO BIT DEFAULT (0))
-	DECLARE @ExchangeOANDA TABLE (ExchangeId INT, Rate FLOAT, CNY FLOAT, USD FLOAT)
+	DECLARE @ExchangeOANDA TABLE (ExchangeId INT, Rate FLOAT, CNY FLOAT, USD FLOAT, Code VARCHAR(12))
 	DECLARE @LA_f_ExchangeDailySel TABLE (ExchangeId INT, BaseCurrencyRate FLOAT)
 	DECLARE @PartyCharge3rd TABLE (PartyId INT, Product3rdId INT, ChargeType INT, FromDate DATE, ToDate DATE, Rate FLOAT)
 	DECLARE @tmp_PartyCharge3rdInfo TABLE (ChargeType INT, PartyId INT, Product3rdId INT, FromDate DATE, ToDate DATE, Rate MONEY)
@@ -356,8 +357,8 @@ BEGIN
 		IF @ExDate > @LastDay
 			SELECT @ExDate = @LastDay
 
-		INSERT INTO @ExchangeOANDA (ExchangeId, Rate, CNY, USD)
-		SELECT ExchangeId, MYR, CNY, USD FROM bodb02.dbo.ExchangeDailyOanda WITH (NOLOCK) WHERE ExchangeDate = @ExDate
+		INSERT INTO @ExchangeOANDA (ExchangeId, Rate, CNY, USD, Code)
+		SELECT ExchangeId, MYR, CNY, USD, Code FROM bodb02.dbo.ExchangeDailyOanda WITH (NOLOCK) WHERE ExchangeDate = @ExDate
 
 		SELECT @SQLExchangeDailySel = ' SELECT ExchangeId, BaseCurrencyRate
 						FROM OPENQUERY (DBLIC, ''SELECT ExchangeId, BaseCurrencyRate FROM bodb02.dbo.LA_f_ExchangeDailySel(''''' + CONVERT(VARCHAR(10), @ExDate, 120) + ''''', ''''' +  CONVERT(VARCHAR(10), @ExDate, 120) + ''''', ''''' + @BaseCurrencyName + ''''')'')'
@@ -379,7 +380,7 @@ BEGIN
 	BEGIN
 		-- All Deposit Licensees
 		INSERT INTO #AllLicensees (LicenseeId, PartyId, ParentId)
-		SELECT LicenseeId, PartyId, ParentId
+		SELECT LicenseeId, PartyId, ParentId, LicenseeName
 		FROM OPENQUERY (DBLIC, 'SELECT OldRefId AS LicenseeId, FromParty AS PartyId, ToParty AS ParentId
 								FROM (
 									SELECT p.OldRefId, ci.FromParty, ci.ToParty, ROW_NUMBER() OVER(PARTITION BY ci.FromParty ORDER BY ci.FromDate DESC) AS RowNum
@@ -392,7 +393,7 @@ BEGIN
 								WHERE RowNum = 1
 								UNION ALL -- Sabacoins
 								
-								SELECT LicenseeID, NULL, NULL
+								SELECT LicenseeID, NULL, NULL, ''SabaCoins''
 								FROM bodb_licensee.dbo.Licensees  WITH(NOLOCK) WHERE LicenseeName = ''SabaCoins''
 								'
 								
@@ -1452,6 +1453,36 @@ BEGIN
 		r.PayToSupplier = r.PayToSupplier - CASE WHEN r.Product3rdId IN (10, 34) THEN 0 ELSE  ISNULL(r.Bonus,0)  END
 	FROM #Result r
 	WHERE r.Product3rdId IN (SELECT x.ProductID FROM @ProductSupportBonus x)
+
+	-- Saba plus
+	INSERT INTO #Result  (rptDate, Product3rdId, AliasProductId, HouseIncome, HouseTurnover)
+	SELECT CONVERT(VARCHAR(2), s.rptDate, 106), 0 AS Product3rdId, 0 AS AliasProductId, SUM(s.HouseNetIncome * e.Rate), SUM(s.HouseNetTurnover * e.rate)
+	FROM  DBLIC.bodb_licenseeReport.dbo.SabaPlusPerformance s WITH(NOLOCK) 
+	CROSS APPLY 
+	(	SELECT TOP 1 e.Rate 
+		FROM @ExchangeOANDA e WHERE s.CurrencyCode = e.Code 
+	) e
+	where DataType = 1
+	AND RptDate BETWEEN @FDate AND @TDate AND OWSiteName IS NOT NULL
+	GROUP BY CONVERT(VARCHAR(2), s.rptDate, 106)
+
+	-- MTD (month-to-date)
+	INSERT INTO #Result  (rptDate, Product3rdId, AliasProductId, HouseIncome, HouseTurnover)
+	SELECT 'MTD', Product3rdId, AliasProductId, SUM(HouseIncome), SUM(HouseTurnover)
+	FROM #Result
+	WHERE Product3rdId = 0 AND AliasProductId = 0
+	GROUP BY  Product3rdId, AliasProductId
+
+	-- Monthly
+	INSERT INTO #Result  (rptDate, Product3rdId, AliasProductId, HouseIncome, HouseTurnover)
+	SELECT 'Monthly', 0 AS Product3rdId, 0 AS AliasProductId, SUM(s.HouseNetIncome * e.Rate), SUM(s.HouseNetTurnover * e.rate)
+	FROM  DBLIC.bodb_licenseeReport.dbo.SabaPlusPerformance s WITH(NOLOCK) 
+	CROSS APPLY 
+	(	SELECT TOP 1 e.Rate 
+		FROM @ExchangeOANDA e WHERE s.CurrencyCode = e.Code 
+	) e
+	WHERE DataType = 2
+	AND RptDate BETWEEN @FDate AND @TDate AND OWSiteName IS NOT NULL
 
 	IF @IsLicperf = 1
 	BEGIN
