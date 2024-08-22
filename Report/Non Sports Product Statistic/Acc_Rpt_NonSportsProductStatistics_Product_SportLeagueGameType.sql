@@ -1405,7 +1405,7 @@ BEGIN
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
 				)
 			AND (
-				@LeagueId = '' OR @IsDrillDown = 0 OR
+				@LeagueId = '' OR @LeagueId = '0' OR
 				EXISTS (SELECT TOP 1 1 FROM #tmpLeagueVS5 l WHERE m.League3rdId = l.LeagueID)
 				)
 		GROUP BY CASE WHEN @LeagueId <> '' THEN m.League3rdId ELSE m.sporttype END, 
@@ -1916,6 +1916,6 @@ BEGIN
 	DROP TABLE #tmpDummyCust
 	DROP TABLE #tmpVirtualSport
 	DROP TABLE #tmpVSBettype
-	
+	DROP TABLE #tmpLeagueVS5
 END
 
