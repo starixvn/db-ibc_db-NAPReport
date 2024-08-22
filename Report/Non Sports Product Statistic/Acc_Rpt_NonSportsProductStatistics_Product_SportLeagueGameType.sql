@@ -1539,7 +1539,7 @@ BEGIN
 				  ExtraPT,
 				  ExtraPTBase
 				)
-		SELECT  CASE WHEN @LeagueId = '0' THEN bm.League3rdId ELSE bm.sporttype END ReportBy, 
+		SELECT  CASE WHEN @LeagueId <> '' THEN bm.League3rdId ELSE bm.sporttype END ReportBy, 
 				b.bettype, b.srecommend,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
 				COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS BetCount, b.Currency,
@@ -1589,7 +1589,7 @@ BEGIN
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) 
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
 				)
-		GROUP BY CASE WHEN @LeagueId = '0' THEN bm.League3rdId ELSE bm.sporttype END, 
+		GROUP BY CASE WHEN @LeagueId <> '' THEN bm.League3rdId ELSE bm.sporttype END, 
 			b.bettype, b.srecommend, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, b.Currency
 		OPTION(RECOMPILE)
 	END
