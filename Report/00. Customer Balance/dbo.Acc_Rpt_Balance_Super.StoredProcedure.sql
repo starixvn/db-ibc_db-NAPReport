@@ -33,6 +33,7 @@ Revisions:
 	- 20211111@Cherry: Split transfer table (#164378)
 	- 20230119@Roy: NAP Report - BU 247 (#175206)
 	- 20240404@Jaden: performance improvement (#203441) -- force HASH join to use batch mode
+	- 20240821@Jaden: Add currency name for web (#199583)
 
 Parameters Explanation:
 	- Search keyword: '%keyword%'
@@ -220,11 +221,12 @@ BEGIN
 		
 	IF @IsViewTotalOnly = 0	
 	BEGIN
-			SELECT si.CustID, si.username, si.currency, si.headlineEnabled
+			SELECT si.CustID, si.username, si.currency, MAX(ex.currency) AS currencyname, si.headlineEnabled
 			, SUM(ISNULL(bal.Balance, 0)) AS Balance
 			, SUM(ISNULL(bal.BaseBalance, 0)) AS BaseBalance
 		FROM #SuperInfo si
 			LEFT JOIN #superBalance bal  ON si.custid = bal.custid
+			LEFT JOIN Exchange ex WITH (NOLOCK) ON ex.ExchangeId = si.currency
 		GROUP BY 
 			si.CustID, si.username, si.currency, si.headlineEnabled
 		ORDER BY 

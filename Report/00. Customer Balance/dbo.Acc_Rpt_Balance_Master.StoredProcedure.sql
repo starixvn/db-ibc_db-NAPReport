@@ -1,4 +1,4 @@
-/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBACC-bodb02" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
 
 USE bodb02
 GO
@@ -28,6 +28,7 @@ Revisions:
 		- 20210507@Jaden.Tang: Adjust code to prevent reading dupplicated in bettrans & bettrans14 during move bet process (#154649)
 		- 20211111@Cherry: Split transfer table (#164378)
 		- 20230119@Roy: NAP Report - BU 247 (#175206)
+	    - 20240821@Jaden: Add currency name for web (#199583)
 */
 BEGIN
 	SET NOCOUNT ON
@@ -165,11 +166,12 @@ BEGIN
 		AND b.bettype NOT IN (21008, 21009)
 	GROUP BY b.mrecommend
 	
-	SELECT mi.custid, mi.username, mi.currency 
+	SELECT mi.custid, mi.username, mi.currency, MAX(ex.currency) AS currencyname
 		, ISNULL(SUM(bal.Balance),0) AS Balance
 		, ISNULL(SUM(bal.BaseBalance),0) AS BaseBalance
 	FROM #MasterInfo mi
 		LEFT JOIN #Data bal ON bal.custid = mi.custid
+		LEFT JOIN Exchange ex WITH (NOLOCK) ON ex.ExchangeId = mi.currency
 	GROUP BY mi.custid, mi.username, mi.currency 
 	ORDER BY mi.username   
 
