@@ -48,14 +48,14 @@ BEGIN
 	FROM OPENQUERY(DBACC, 'exec bodb02.dbo.[Age_SelBalanceUpDay]')
 	
 	--keep data in 6 month
-	WHILE (1 = 1)
-	BEGIN
-		DELETE TOP (@iRowCount) dbo.MatchList
-		WHERE EventDate < DATEADD(mm,-6,@CurentDate)
+	-- WHILE (1 = 1)
+	-- BEGIN
+		-- DELETE TOP (@iRowCount) dbo.MatchList
+		-- WHERE EventDate < DATEADD(mm,-6,@CurentDate)
 
-		IF @@ROWCOUNT < @iRowCount
-			BREAK
-	END
+		-- IF @@ROWCOUNT < @iRowCount
+			-- BREAK
+	-- END
 
 	DECLARE @VSProductIDs VARCHAR(200) 
 	SELECT @VSProductIDs = VValue FROM DBWH.bodb_Account.dbo.SystemSettings WITH (NOLOCK) WHERE VID = 31
