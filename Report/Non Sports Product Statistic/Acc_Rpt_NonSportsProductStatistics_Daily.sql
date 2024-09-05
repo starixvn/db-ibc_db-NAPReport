@@ -1,4 +1,4 @@
-/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBACC-bodb02" executers="wsv_nap" viewers="" isFunction="0" isNested="0"></info>*/
 
 Use bodb02
 GO 
@@ -67,6 +67,7 @@ AS
 		20230801@Cherry: Integrate Virtual Sports 3 (#189202)
 		20240116@Cherry: Integrate Virtual Sports 4 (#198623)
 		20240220@Cherry: Integrate AG Casino Jackpot Contribution (#200503)
+		20240806@Cherry: Integrate VS5 (#207590)
 
 	Param's Explanation:
 			 - @username:  + Search by keyword, member only
@@ -1129,6 +1130,72 @@ SET NOCOUNT ON
 		GROUP BY  b.Currency, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.bettype
 
 		OPTION(RECOMPILE)
+
+		INSERT INTO #Data ( srecommend, bettype, CustID,   
+						BetCount, CurrencyId , 
+						TotalBets, TotalBetsBase, 
+						TotalWins, TotalWinsBase, 
+						TotalRefund, TotalRefundBase,
+						CompanyTurnover, CompanyTurnoverBase,  
+						CompanyGrossIncome, CompanyGrossIncomeBase, 
+						CompanyComm, CompanyCommBase,
+						ExtraPT, ExtraPTBase									   
+					   )
+	
+		SELECT  srecommend, b.bettype,
+				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
+
+				COUNT(CASE WHEN StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount, b.Currency, 
+
+				SUM(CASE WHEN b.statusID IN (103) THEN 0 ELSE actual_stake END) AS TotalBets,
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 ELSE actual_stake END) * actualrate)  AS TotalBetsBase,
+
+				SUM(CASE WHEN b.statusID IN (103) THEN 0 ELSE winlost END) AS TotalWins,
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 ELSE winlost END) * actualrate) AS TotalWinsBase,
+
+				SUM(CASE WHEN b.statusID IN (103) THEN actual_stake ELSE 0 END) AS TotalRefund,
+				SUM((CASE WHEN b.statusID IN (103) THEN actual_stake ELSE 0 END)  * actualrate) AS TotalRefundBase,
+
+				SUM(CASE WHEN b.statusID IN (103) THEN 0 
+						WHEN b.tpositiontaking = 1 THEN 0
+						ELSE (1 - b.tpositiontaking - CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) * b.stake END) AS CompanyTurnover,	
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 
+						WHEN b.tpositiontaking = 1 THEN 0
+						ELSE (1 - b.tpositiontaking - CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) * b.stake END) * actualrate) AS CompanyTurnoverBase,		
+								
+				- SUM(winlost - actual_stake + awinlost + mwinlost + swinlost) AS CompanyGrossIncome,
+				- SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeBase,
+
+				- SUM(scomm) AS CompanyComm,
+				- SUM(scomm *actualrate) AS CompanyCommBase,
+				
+				- SUM((winlost - actual_stake + CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) ExtraPT,
+				- SUM((winlost - actual_stake + CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8)) * actualrate) ExtraPTBase
+			
+		FROM  dbo.Bettrans b WITH (NOLOCK)
+		WHERE b.WinlostDate = @WLDate
+			AND b.bettype in (SELECT Bettype FROM #SportBettype WHERE ProductID IN (SELECT ProductID FROM #tmpVirtualSport) AND EventType = 5)
+			AND b.ruben = 1
+			AND b.statusID IN (111, 112, 113, 103) 
+			AND b.matchid IN (SELECT Match3rdId FROM dbo.Match3rd WITH (NOLOCK)
+								WHERE sporttype IN (SELECT Sporttype FROM #tmpSporttype))
+			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
+			AND (@Currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId))	
+			AND (@Username = '' OR EXISTS (SELECT 1 FROM #Temp_MemIDs m WHERE m.CustID = b.custid))
+			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmpDevice d WHERE d.Betfrom = b.betfrom))
+			AND ( @Site = 'ALL'
+				  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
+				)
+			AND (
+				@HousePTType = 0
+				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) 
+				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
+				)
+		GROUP BY  b.Currency, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.bettype
+
+		OPTION(RECOMPILE)
 	END
 		
 	IF EXISTS (SELECT 1 FROM #tmpProductID WHERE ProductID = 5)  -- Virtual Sports
@@ -1215,9 +1282,16 @@ SET NOCOUNT ON
 	IF EXISTS (SELECT 1 FROM #tmpVSBettype)  -- Virtual Sports 2
 	BEGIN			
 		INSERT INTO #tmp_bettransm (refno)
-		SELECT DISTINCT bm.refno FROM dbo.bettransm bm WITH(NOLOCK)
-					INNER JOIN dbo.match m WITH(NOLOCK) ON bm.matchid = m.matchid 
-					INNER JOIN #tmpSporttype st ON m.sporttype = st.Sporttype
+		SELECT DISTINCT bm.refno 
+		FROM dbo.bettransm bm WITH(NOLOCK)
+			INNER JOIN dbo.match m WITH(NOLOCK) ON bm.matchid = m.matchid 
+			INNER JOIN #tmpSporttype st ON m.sporttype = st.Sporttype
+
+		INSERT INTO #tmp_bettransm (refno)
+		SELECT DISTINCT bm.refno 
+		FROM dbo.bettransm bm WITH(NOLOCK)
+			INNER JOIN dbo.Match3rd m WITH(NOLOCK) ON bm.matchid = m.Match3rdId 
+			INNER JOIN #tmpSporttype st ON m.sporttype = st.Sporttype
 					
 		INSERT INTO #Data ( srecommend, bettype, CustID,   
 						BetCount, CurrencyId , 

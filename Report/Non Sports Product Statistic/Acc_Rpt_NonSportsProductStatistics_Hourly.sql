@@ -1,4 +1,4 @@
-/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBACC-bodb02" executers="wsv_nap" viewers="" isFunction="0" isNested="0"></info>*/
 
 USE bodb02
 GO
@@ -67,6 +67,7 @@ AS
 		20230609@Cherry: Not include dummy accounts in BetCount, NoOfPlayers (#188994)
 		20230801@Cherry: Integrate Virtual Sports 3 (#189202)
 		20240116@Cherry: Integrate Virtual Sports 4 (#198623)
+		20240806@Cherry: Integrate VS5 (#207590)
 
 	Param's Explanation:
 			 - @username:  + Search by keyword, member only
@@ -1136,6 +1137,69 @@ SET NOCOUNT ON
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.bettype
 		OPTION(RECOMPILE)
 
+		INSERT INTO #Data (  [Hour] ,  
+						   srecommend, 
+						   bettype,
+						   CustId ,
+						   BetCount ,
+						   TotalBetsRM ,
+						   TotalWinsRM , 
+						   TotalRefundRM ,
+						   CompanyTurnoverRM , 
+						   CompanyGrossIncomeRM , 
+						   CompanyCommRM,
+						   ExtraPT						   
+					   )
+	
+		SELECT  CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) <> 0
+						THEN 0 --bet at 23PM then convert to 0 AM 
+					ELSE  DATEPART(HOUR, b.transdate) 
+				END AS [Hour],	srecommend, b.bettype,
+				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
+
+				COUNT(CASE WHEN StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount, 
+
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 ELSE actual_stake END) * actualrate)  AS TotalBetsRM,
+
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 ELSE winlost END) * actualrate) AS TotalWinsRM,
+
+				SUM((CASE WHEN b.statusID IN (103) THEN actual_stake ELSE 0 END)  * actualrate) AS TotalRefundRM,
+
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 
+						WHEN b.tpositiontaking = 1 THEN 0
+						ELSE (1 - b.tpositiontaking - CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) * b.stake END) * actualrate) AS CompanyTurnoverRM,		
+								
+				- SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeRM,
+
+				- SUM(scomm *actualrate) AS CompanyCommRM,
+				
+				- SUM((winlost - actual_stake + CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8)) * actualrate) ExtraPT
+						
+		FROM  dbo.Bettrans b WITH (NOLOCK)
+		WHERE b.WinlostDate = @WLDate
+			AND b.bettype in (SELECT Bettype FROM #SportBettype WHERE ProductID IN (SELECT ProductID FROM #tmpVirtualSport) AND Eventtype = 5)
+			AND b.ruben = 1
+			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
+			AND EXISTS (SELECT 1 FROM Match3rd m WITH (NOLOCK) INNER JOIN #tmpSporttype sp ON sp.Sporttype = m.sporttype WHERE m.Match3rdId = b.matchid)			
+			AND ((b.Currency <> 20 AND @ExcludeTest = 1) OR @ExcludeTest = 0)
+			AND (EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId) OR @currency = '-1') 			
+			AND (EXISTS (SELECT 1 From #Temp_MemIDs m WHERE m.CustID = b.custId) OR @Username = '')
+			AND (EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom) OR @Device = '')
+			AND ( @Site = 'ALL'
+				  OR EXISTS(SELECT 1 From #tmpSiteSuper s WHERE s.recommend = b.recommend)
+				)
+			AND (
+				@HousePTType = 0
+				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
+				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
+			)
+		GROUP BY CASE WHEN DATEDIFF(dd, b.transdate, b.winlostdate) <> 0
+						THEN 0 --bet at 23PM then convert to 0 AM 
+					ELSE  DATEPART(HOUR, b.transdate) END,
+				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, srecommend, b.bettype
+		OPTION(RECOMPILE)
+
 	----  VirtualSport (HR) 
 		INSERT INTO #Data (  [Hour] ,  
 						   srecommend, 
@@ -1209,9 +1273,16 @@ SET NOCOUNT ON
 		CREATE TABLE #tmp_bettransm (refno BIGINT)
 		
 		INSERT INTO #tmp_bettransm (refno)
-		SELECT DISTINCT bm.refno FROM dbo.bettransm bm WITH(NOLOCK)
-					INNER JOIN dbo.match m WITH(NOLOCK) ON bm.matchid = m.matchid 
-					INNER JOIN #tmpSporttype st ON m.sporttype = st.Sporttype
+		SELECT DISTINCT bm.refno 
+		FROM dbo.bettransm bm WITH(NOLOCK)
+			INNER JOIN dbo.match m WITH(NOLOCK) ON bm.matchid = m.matchid 
+			INNER JOIN #tmpSporttype st ON m.sporttype = st.Sporttype
+
+		INSERT INTO #tmp_bettransm (refno)
+		SELECT DISTINCT bm.refno 
+		FROM dbo.bettransm bm WITH(NOLOCK)
+			INNER JOIN dbo.Match3rd m WITH(NOLOCK) ON bm.matchid = m.Match3rdId 
+			INNER JOIN #tmpSporttype st ON m.sporttype = st.Sporttype
 					
 		INSERT INTO #Data (  [Hour] ,  
 						   srecommend, 

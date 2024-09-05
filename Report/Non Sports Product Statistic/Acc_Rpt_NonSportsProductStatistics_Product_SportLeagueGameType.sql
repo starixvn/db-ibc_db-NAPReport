@@ -1,4 +1,4 @@
-/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBACC-bodb02" executers="wsv_nap" viewers="" isFunction="0" isNested="0"></info>*/
 
 USE bodb02
 GO
@@ -63,6 +63,7 @@ AS
 		20230801@Cherry: Integrate Virtual Sports 3 (#189202)
 		20240116@Cherry: Integrate Virtual Sports 4 (#198623)
 		20240220@Cherry: Integrate AG Casino Jackpot Contribution (#200503)
+		20240806@Cherry: Integrate VS5 (#207590)
 
 	Param's Explanation:
 		- @username:  + Search by keyword, member only
@@ -188,6 +189,7 @@ BEGIN
 	CREATE TABLE #tmpHouseProduct (ProductID INT)
 	CREATE TABLE #tmpDummyCust (CustID INT)
 	CREATE TABLE #tmpVirtualSport (ProductID INT)
+	CREATE TABLE #tmpLeagueVS5 (LeagueID INT)
 
 	DECLARE @VirtualSportGroupStr VARCHAR(500)
     SELECT  @VirtualSportGroupStr = VValue
@@ -236,25 +238,31 @@ BEGIN
 		@start int, @leaguebettype nvarchar(4000), 
 		@charindex1 int, @charindex2 int
 
-	IF @LeagueId <> ''
-	BEGIN
-		IF substring (@LeagueID, len(@LeagueID), 1) <> @splitter1
-			SET @LeagueID = @LeagueID + @splitter1
-		SET @start = 1
-		SET @charindex1 = charindex(@splitter1, @LeagueID, @start)
-		SET @charindex2 = charindex(@splitter2, @LeagueID, @start)
-
-		WHILE (@charindex1 <> 0)
+	IF @LeagueId <> '' AND @LeagueId <> '0' 
+		IF @ProductId = '88' -- VS5
 		BEGIN
-			SET @leaguebettype = substring(@LeagueID, @start, @charindex1 - @start)       
-			SET @charindex2 = charindex(@splitter2, @leaguebettype, 1)
-			SET @league = substring(@leaguebettype, 1, @charindex2 - 1)
-			SET @bettypeid = substring(@leaguebettype, @charindex2 + 1, LEN(@leaguebettype))
-			INSERT INTO #tmp_LeagueID(LeagueID, Bettype) VALUES (@league, @bettypeid)
-			SET @start = @charindex1 +1
-			SET @charindex1 = charindex(@splitter1, @LeagueID, @start)          
+			INSERT INTO #tmpLeagueVS5 (LeagueID)
+			SELECT value FROM string_split (@LeagueID, ',')
 		END
-	END
+		IF @ProductId = '3' -- Number Game
+		BEGIN
+			IF substring (@LeagueID, len(@LeagueID), 1) <> @splitter1
+				SET @LeagueID = @LeagueID + @splitter1
+			SET @start = 1
+			SET @charindex1 = charindex(@splitter1, @LeagueID, @start)
+			SET @charindex2 = charindex(@splitter2, @LeagueID, @start)
+
+			WHILE (@charindex1 <> 0)
+			BEGIN
+				SET @leaguebettype = substring(@LeagueID, @start, @charindex1 - @start)       
+				SET @charindex2 = charindex(@splitter2, @leaguebettype, 1)
+				SET @league = substring(@leaguebettype, 1, @charindex2 - 1)
+				SET @bettypeid = substring(@leaguebettype, @charindex2 + 1, LEN(@leaguebettype))
+				INSERT INTO #tmp_LeagueID(LeagueID, Bettype) VALUES (@league, @bettypeid)
+				SET @start = @charindex1 +1
+				SET @charindex1 = charindex(@splitter1, @LeagueID, @start)          
+			END
+		END	
 	
 	IF @SportBetType <> '' 
     BEGIN
@@ -1322,6 +1330,88 @@ BEGIN
 		GROUP BY m.sporttype, b.bettype, b.srecommend, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, b.Currency
 
 		OPTION(RECOMPILE)
+
+		INSERT INTO #Data
+				( ReportBy,
+				  bettype,
+				  srecommend,
+				  CustID ,
+				  BetCount ,
+				  CurrencyID ,	         
+				  TotalBets ,
+				  TotalBetsBase ,
+				  TotalWins ,
+				  TotalWinsBase ,
+				  TotalRefund ,
+				  TotalRefundBase ,
+				  CompanyTurnOver ,
+				  CompanyTurnOverBase ,
+				  CompanyGrossIncome ,
+				  CompanyGrossIncomeBase ,
+				  CompanyComm ,
+				  CompanyCommBase,
+				  ExtraPT,
+				  ExtraPTBase
+				)
+		SELECT  CASE WHEN @LeagueId <> '' THEN m.League3rdId ELSE m.sporttype END ReportBy, 
+				b.bettype, b.srecommend,
+				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
+				COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS BetCount, b.Currency,
+
+				SUM(CASE WHEN b.statusID IN (103) THEN 0 ELSE actual_stake END) AS TotalBets,
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 ELSE actual_stake END) * actualrate)  AS TotalBetsBase,
+
+				SUM(CASE WHEN b.statusID IN (103) THEN 0 ELSE winlost END) AS TotalWins,
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 ELSE winlost END) * actualrate) AS TotalWinsBase,
+
+				SUM(CASE WHEN b.statusID IN (103) THEN actual_stake ELSE 0 END) AS TotalRefund,
+				SUM((CASE WHEN b.statusID IN (103) THEN actual_stake ELSE 0 END)  * actualrate) AS TotalRefundBase,
+
+				SUM(CASE WHEN b.statusID IN (103) THEN 0 
+						WHEN b.tpositiontaking = 1 THEN 0
+						ELSE (1 - b.tpositiontaking - CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) * b.stake END) AS CompanyTurnover,	
+				SUM((CASE WHEN b.statusID IN (103) THEN 0 
+						WHEN b.tpositiontaking = 1 THEN 0
+						ELSE (1 - b.tpositiontaking - CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) * b.stake END) * actualrate) AS CompanyTurnoverBase,		
+								
+				- SUM(winlost - actual_stake + awinlost + mwinlost + swinlost) AS CompanyGrossIncome,
+				- SUM((winlost - actual_stake + awinlost + mwinlost + swinlost)* actualrate) AS CompanyGrossIncomeBase,
+
+				- SUM(scomm) AS CompanyComm,
+				- SUM(scomm * actualrate) AS CompanyCommBase,
+				
+				- SUM((winlost - actual_stake + CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8))) ExtraPT,
+				- SUM((winlost - actual_stake + CASE WHEN tpositiontaking = 1 THEN 0
+							ELSE scomm / (1 - tpositiontaking) END) * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8)) * actualrate) ExtraPTBase
+	
+		FROM dbo.Bettrans b WITH (NOLOCK) 
+			INNER JOIN dbo.Match3rd m WITH (NOLOCK) ON b.matchid = m.Match3rdId
+		WHERE b.WinlostDate = @WLDate
+			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID IN (SELECT ProductID FROM #tmpVirtualSport) AND EvenType = 5)
+			AND b.ruben = 1
+			AND b.statusID IN (111, 112, 113, 103) 
+			AND m.sporttype IN (SELECT Sporttype FROM #tmp_Sporttype)
+			AND (@ExcludeTest = 0 OR (b.Currency <> 20 AND @ExcludeTest = 1))
+			AND (@currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId)) 
+			AND (@Username = '' OR EXISTS (SELECT 1 From #tmp_MemIDs m WHERE m.CustID = b.custId))
+			AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
+			AND ( @Site = 'ALL'
+				  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
+				)
+			AND (
+				@HousePTType = 0
+				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) 
+				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
+				)
+			AND (
+				@LeagueId = '' OR @LeagueId = '0' OR
+				EXISTS (SELECT TOP 1 1 FROM #tmpLeagueVS5 l WHERE m.League3rdId = l.LeagueID)
+				)
+		GROUP BY CASE WHEN @LeagueId <> '' THEN m.League3rdId ELSE m.sporttype END, 
+			b.bettype, b.srecommend, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, b.Currency
+
+		OPTION(RECOMPILE)
 	END
 	
 	-- Virtual Sport
@@ -1413,13 +1503,19 @@ BEGIN
 	WHERE BettypeGroupID = 18
 		AND Bettype IN (SELECT Bettype FROM #SportBettype)
 
-	CREATE TABLE #tmp_bettransm (refno BIGINT, sporttype INT)
+	CREATE TABLE #tmp_bettransm (refno BIGINT, sporttype INT, League3rdId INT)
 	IF EXISTS (SELECT 1 FROM #tmpVSBettype)
 	BEGIN		
 		INSERT INTO #tmp_bettransm (refno, sporttype)
 		SELECT DISTINCT bm.refno, m.sporttype FROM dbo.bettransm bm WITH(NOLOCK)
 					INNER JOIN dbo.match m WITH(NOLOCK) ON bm.matchid = m.matchid 
 					INNER JOIN #tmp_Sporttype st ON m.sporttype = st.Sporttype
+
+		INSERT INTO #tmp_bettransm (refno, sporttype, League3rdId)
+		SELECT DISTINCT bm.refno, m.sporttype, m.League3rdId
+		FROM dbo.bettransm bm WITH(NOLOCK)
+			INNER JOIN dbo.Match3rd m WITH(NOLOCK) ON bm.matchid = m.Match3rdId 
+			INNER JOIN #tmp_Sporttype st ON m.sporttype = st.Sporttype
 							
 		INSERT INTO #Data
 				( ReportBy,
@@ -1443,7 +1539,8 @@ BEGIN
 				  ExtraPT,
 				  ExtraPTBase
 				)
-		SELECT  bm.sporttype ReportBy, b.bettype, b.srecommend,
+		SELECT  CASE WHEN @LeagueId <> '' THEN bm.League3rdId ELSE bm.sporttype END ReportBy, 
+				b.bettype, b.srecommend,
 				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
 				COUNT(CASE WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS BetCount, b.Currency,
 
@@ -1492,7 +1589,8 @@ BEGIN
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) 
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) 
 				)
-		GROUP BY bm.sporttype, b.bettype, b.srecommend, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, b.Currency
+		GROUP BY CASE WHEN @LeagueId <> '' THEN bm.League3rdId ELSE bm.sporttype END, 
+			b.bettype, b.srecommend, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, b.Currency
 		OPTION(RECOMPILE)
 	END
 	
@@ -1555,10 +1653,20 @@ BEGIN
 	END
 	ELSE IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID IN (SELECT ProductID FROM #tmpVirtualSport) OR ProductID IN (SELECT ProductID FROM #tmpHouseProduct))
 	BEGIN
-		UPDATE d
-		SET d.ReportByName = s.SportName
-		FROM #Data d 
-			INNER JOIN dbo.Sports s WITH (NOLOCK) ON d.ReportBy = s.SportType
+		IF @LeagueId = '' 
+		BEGIN
+			UPDATE d
+			SET d.ReportByName = s.SportName
+			FROM #Data d 
+				INNER JOIN dbo.Sports s WITH (NOLOCK) ON d.ReportBy = s.SportType			
+		END
+		ELSE
+		BEGIN
+			UPDATE d
+			SET d.ReportByName = l.LeagueName
+			FROM #Data d 
+				INNER JOIN dbo.League3rd l WITH(NOLOCK) ON d.ReportBy = l.League3rdId
+		END
 	END
 	ELSE IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID IN (6,23))
 	BEGIN
@@ -1808,6 +1916,6 @@ BEGIN
 	DROP TABLE #tmpDummyCust
 	DROP TABLE #tmpVirtualSport
 	DROP TABLE #tmpVSBettype
-	
+	DROP TABLE #tmpLeagueVS5
 END
 
