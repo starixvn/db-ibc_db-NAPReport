@@ -1,4 +1,4 @@
-/*<info serverAlias="DBWH-bodb_dwrs" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBWH-bodb_dwrs" executers="wsv_nap" viewers="" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[NAP_SaveBet_GetJob]
 	@MatchID INT = 0,
 	@GroupSports INT = 0
@@ -18,6 +18,7 @@ AS
 	   20180719@Tom:Enhance_the_flow_get_Virtual_Sport(98520)
 	   20210423@Roy: NAP Report - Move Save bet db & service (#153147)
 	   20221129@Roy: NAP Report - Save Bet Report out of memory (#180701)
+	   20240905@Roy: Many Pending MatchIDs (#210349)
 		
 */
 
@@ -25,32 +26,116 @@ BEGIN
     SET NOCOUNT ON;
 	SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
 
-	DECLARE @imsGenerateTime INT=1000*60*60 --60 minutes
+	DECLARE @imsGenerateTime INT = 1000*60*60 --60 minutes
 		,@SportType INT
 
-	IF @matchid =0
-		BEGIN
-			;WITH CTE_MatchList
-			AS (
-			SELECT TOP 1  MatchID,GenerateTime
-			FROM bodb_Account.dbo.MatchList ml WITH(ROWLOCK) 				  
-			WHERE JobGenerated = 1 AND JobFinished = 0 AND (GenerateTime IS NULL OR DATEDIFF(ms,GenerateTime,GETDATE())>@imsGenerateTime)
-						AND (
-							(@GroupSports = 0 AND (ml.sporttype = 1))
-							OR (@GroupSports = 1 AND ml.sporttype > 1 AND ml.SportType <100)
-							OR (@GroupSports = 2 AND ml.sporttype > 99)
-							) 
+	/*
+		Get MatchID
+	*/
+	DECLARE @tmpGenMatch TABLE (
+		MatchID INT NOT NULL PRIMARY KEY
+		,EventDate DATETIME
+	)
+	
+	IF ISNULL(@MatchID,0) <> 0
+	BEGIN
+		UPDATE ml
+		SET GenerateTime = GETDATE()
+			,EventStatus = 'generating'
+		OUTPUT INSERTED.MatchID
+			,INSERTED.EventDate
+		INTO @tmpGenMatch (
+			MatchID
+			,EventDate
+		) --Get UPDATED MatchID
+		FROM bodb_Account.dbo.MatchList AS ml WITH (ROWLOCK,UPDLOCK)
+		WHERE MatchID = @MatchID
+		OPTION (RECOMPILE)
+	END
+	ELSE --Get by MatchID GroupSports
+	BEGIN
+		
+		;WITH CTE_UML AS (
+			SELECT TOP 1 MatchID
+				,EventDate
+				,GenerateTime
+				,EventStatus
+			FROM bodb_Account.dbo.MatchList AS ml WITH (ROWLOCK,UPDLOCK)
+			WHERE JobGenerated = 1
+				AND JobFinished = 0
+				AND EventStatus = 'completed'
+				AND ( GenerateTime IS NULL
+					OR DATEDIFF(ms, GenerateTime, GETDATE()) > @imsGenerateTime
+				)
+				AND (
+					( @GroupSports = 0 AND ml.sporttype = 1 )
+					OR ( @GroupSports = 1 AND (ml.sporttype > 1 AND ml.SportType < 100) )
+					OR ( @GroupSports = 2 AND ml.sporttype > 99 )
+				)
 			ORDER BY ml.EventDate ASC
-			)
-			UPDATE CTE_MatchList WITH(ROWLOCK,UPDLOCK)
-			SET GenerateTime=GETDATE()
-				,@MatchID = MatchID;
-		END;
+				,ml.MatchID ASC
+		)
+		UPDATE CTE_UML
+		SET GenerateTime = GETDATE()
+			,EventStatus = 'generating'
+		OUTPUT INSERTED.MatchID
+			,INSERTED.EventDate
+		INTO @tmpGenMatch (
+			MatchID
+			,EventDate
+		) --Get UPDATED MatchID
+		OPTION (RECOMPILE)
+	END
+	
+	/*
+		balance between GroupSports
+		IF EXISTS MatchID By Inputed GroupSports
+			=> handle it
+		ELSE
+			=> SELECT MatchID from Other GroupSports
+	*/
+	IF NOT EXISTS (
+		SELECT 1
+		FROM @tmpGenMatch
+		WHERE MatchID <> 0
+	)
+	BEGIN
+		;WITH CTE_UML AS (
+			SELECT TOP 1 MatchID
+				,EventDate
+				,GenerateTime
+				,EventStatus
+			FROM bodb_Account.dbo.MatchList AS ml WITH (ROWLOCK,UPDLOCK)
+			WHERE JobGenerated = 1
+				AND JobFinished = 0
+				AND EventStatus = 'completed'
+				AND ( GenerateTime IS NULL
+					OR DATEDIFF(ms, GenerateTime, GETDATE()) > @imsGenerateTime
+				)
+				--ignore GroupSports
+			ORDER BY ml.EventDate ASC
+				,ml.MatchID ASC
+		)
+		UPDATE CTE_UML
+		SET GenerateTime = GETDATE()
+			,EventStatus = 'generating'
+		OUTPUT INSERTED.MatchID
+			,INSERTED.EventDate
+		INTO @tmpGenMatch (
+			MatchID
+			,EventDate
+		) --Get UPDATED MatchID
+		OPTION (RECOMPILE)
+	END
 	
 	SELECT @SportType = l.SportType
 	FROM bodb_Account.dbo.match AS m WITH (NOLOCK)
 		INNER JOIN bodb02.dbo.league AS l WITH (NOLOCK) ON m.leagueid = l.leagueid
-	WHERE m.MatchID = @MatchID
+	WHERE m.MatchID IN (
+		SELECT MatchID
+		FROM @tmpGenMatch
+		WHERE MatchID <> 0
+	)
 	
 	--seperate IsDeposit/Half only for soccer
 	IF @SportType = 1
@@ -71,9 +156,7 @@ BEGIN
 		)
 		SELECT JobID,d.IsDeposit,CASE WHEN s.LiveIndicator = 0 THEN 0 ELSE h.Half END AS Half,s.LiveIndicator,s.Bettype,s.TypeName,ml.MatchID,s.JobType,ml.EventDate 
 		FROM bodb_Account.dbo.ServiceJob s WITH(NOLOCK)
-			INNER JOIN (
-				SELECT TOP 1 * FROM bodb_Account.dbo.MatchList ml WITH(NOLOCK) WHERE ml.MatchID = @MatchID
-			) ml ON ml.MatchID = s.MatchID
+			INNER JOIN @tmpGenMatch AS ml ON ml.MatchID = s.MatchID
 			,CTE_Dep AS d
 			,CTE_Half AS h
 		WHERE NOT (s.LiveIndicator = 0 AND h.Half = 2) --ignore 2nd half for non-live tickets
@@ -83,9 +166,7 @@ BEGIN
 	BEGIN
 		SELECT JobID,2 IsDeposit, 0 Half,s.LiveIndicator,s.Bettype,s.TypeName,ml.MatchID,s.JobType,ml.EventDate 
 		FROM bodb_Account.dbo.ServiceJob s WITH(NOLOCK)
-			INNER JOIN (
-				SELECT TOP 1 * FROM bodb_Account.dbo.MatchList ml WITH(NOLOCK) WHERE ml.MatchID = @MatchID
-			) ml ON ml.MatchID = s.MatchID
+			INNER JOIN @tmpGenMatch AS ml ON ml.MatchID = s.MatchID
 		ORDER BY JobID
 	END
 
