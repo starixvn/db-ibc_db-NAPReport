@@ -127,8 +127,7 @@ BEGIN
 	DECLARE @WLDate SMALLDATETIME
 	SELECT @WLDate = CAST(@WinlostDate AS SMALLDATETIME)
 
-	CREATE TABLE #Data ( recommend INT, srecommend INT, mrecommend INT, bettype INT,
-						 CustID INT, IsDeposit BIT, SiteName VARCHAR(50),						 
+	CREATE TABLE #Data ( recommend INT, srecommend INT, mrecommend INT, bettype INT,						 						 
 						 BetCount INT, CurrencyID INT, Currency NVARCHAR(50),
 						 TotalBets DECIMAL(19,4), TotalBetsBase DECIMAL(19,4),
 						 TotalWins DECIMAL(19,4), TotalWinsBase DECIMAL(19,4),
@@ -139,7 +138,7 @@ BEGIN
 						 CompanyComm DECIMAL(19,4), CompanyCommBase DECIMAL(19,4),
 						 ExtraPT DECIMAL(19,4), ExtraPTBase DECIMAL(19,4)
 						)
-	CREATE TABLE #Result (  IsDeposit BIT, SiteName VARCHAR(50), NoOfPlayers INT,
+	CREATE TABLE #Result (  Headline VARCHAR(50), CustID INT,
 							BetCount INT, CurrencyID INT, Currency NVARCHAR(50)	,
 							TotalBets DECIMAL(19,4), TotalBetsBase DECIMAL(19,4),
 							TotalWins DECIMAL(19,4), TotalWinsBase DECIMAL(19,4),
