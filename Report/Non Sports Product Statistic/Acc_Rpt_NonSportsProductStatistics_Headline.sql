@@ -5,8 +5,7 @@ GO
 
 ALTER PROCEDURE [dbo].[Acc_Rpt_NonSportsProductStatistics_Headline]
 	@WinlostDate	DATETIME,
-	@ProductId		VARCHAR(MAX) = '',
-	@Username		VARCHAR(MAX) = NULL,
+	@ProductId		VARCHAR(MAX) = '',	
 	@Site			VARCHAR(MAX) = 'ALL',	
 	@BetType		VARCHAR(MAX) = '',
 	@LeagueId		VARCHAR(MAX) = '',
@@ -23,19 +22,18 @@ ALTER PROCEDURE [dbo].[Acc_Rpt_NonSportsProductStatistics_Headline]
 	@HousePTValue   MONEY = 0,
 	@IsDrillDown	BIT = 0,
 	@IsGrandTotal	BIT = 0,
-	@IsExactly		BIT = 0,
-	@IsSMA			BIT = 0
+	@IsExactly		BIT = 0
+	
 AS
 /*
-	Created	: 20240808@Cherry
+	Created	: 20240916@Cherry
 	Task	: Non Sports Product Statistic - Headline Report
 	DB		: DBACC/bodb02
 	
 	Revision:
-		20240808@Cherry: Initial (#175453)		
+		20240916@Cherry: Initial (#175453)		
 
-	Param's Explanation:
-		- @username:  + Search by keyword, member only
+	Param's Explanation:		
 		- @Site: List of Company filter
 			'ALL': All sites (MBC + Licensees)
 			'MBC': MBC sites only
@@ -56,73 +54,12 @@ AS
 			-1 : is <=
 		- @HousePTValue : Value to compare with @HousePTType
 		- @IsDrillDown: If click on Grand Total or on the Grid of column Currency
-		- @IsSMA: 
-			0: View by Headline
-			1: View by Super, Master, Agent
+
 */
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @CustList VARCHAR(MAX)
-	
-	IF CHARINDEX(',', @Username) <> 0
-	BEGIN
-		EXEC dbo.Acc_Rpt_NonSportsProductStatistics_CustSelByUsername @Username = @Username, @RoleId = 1, @IsExactly = @IsExactly, @CustList = @CustList OUTPUT
-
-		IF @CustList IS NULL -- invalid username
-		BEGIN
-			IF @IsDrillDown = 0
-				SELECT
-					NULL AS IsDeposit,
-					'Licensee Group' AS ReportBy,
-					NULL AS NoOfPlayers,
-					NULL AS BetCount,
-					@Currency AS CurrencyId,
-					'RM' AS Currency,
-					NULL AS TotalBets,
-					NULL AS TotalWins,
-					NULL AS TotalRefund,
-					NULL AS CompanyTurnOver,
-					NULL AS RealTurnOver,
-					NULL AS CompanyGrossIncome,
-					NULL AS CompanyComm,
-					NULL AS ExtraPT
-				UNION ALL
-				SELECT
-					2 AS IsDeposit,
-					'GrandTotalRM' AS ReportBy,
-					NULL AS NoOfPlayers,
-					NULL AS BetCount,
-					-1 AS CurrencyId,
-					'RM' AS Currency,
-					NULL AS TotalBets,
-					NULL AS TotalWins,
-					NULL AS TotalRefund,
-					NULL AS CompanyTurnOver,
-					NULL AS RealTurnOver,
-					NULL AS CompanyGrossIncome,
-					NULL AS CompanyComm,
-					NULL AS ExtraPT
-			ELSE 
-				SELECT
-					2 AS IsDeposit,
-					'GrandTotalRM' AS ReportBy,
-					NULL AS NoOfPlayers,
-					NULL AS BetCount,
-					-1 AS CurrencyId,
-					'RM' AS Currency,
-					NULL AS TotalBets,
-					NULL AS TotalWins,
-					NULL AS TotalRefund,
-					NULL AS CompanyTurnOver,
-					NULL AS RealTurnOver,
-					NULL AS CompanyGrossIncome,
-					NULL AS CompanyComm,
-					NULL AS ExtraPT
-
-			RETURN
-		END
-	END
+	DECLARE @CustList VARCHAR(MAX)		
 	
 	DECLARE @WLDate SMALLDATETIME
 	SELECT @WLDate = CAST(@WinlostDate AS SMALLDATETIME)
@@ -138,6 +75,19 @@ BEGIN
 						 CompanyComm DECIMAL(19,4), CompanyCommBase DECIMAL(19,4),
 						 ExtraPT DECIMAL(19,4), ExtraPTBase DECIMAL(19,4)
 						)
+
+	CREATE TABLE #tmpResult (  Headline VARCHAR(50), CustID INT,
+							BetCount INT, CurrencyID INT, Currency NVARCHAR(50)	,
+							TotalBets DECIMAL(19,4), TotalBetsBase DECIMAL(19,4),
+							TotalWins DECIMAL(19,4), TotalWinsBase DECIMAL(19,4),
+							TotalRefund DECIMAL(19,4), TotalRefundBase DECIMAL(19,4),
+							CompanyTurnOver DECIMAL(19,4), CompanyTurnOverBase DECIMAL(19,4),
+							RealTurnOver DECIMAL(19,4), RealTurnOverBase DECIMAL(19,4),
+							CompanyGrossIncome DECIMAL(19,4), CompanyGrossIncomeBase DECIMAL(19,4),
+							CompanyComm DECIMAL(19,4), CompanyCommBase DECIMAL(19,4),
+							ExtraPT DECIMAL(19,4), ExtraPTBase DECIMAL(19,4)							
+							)
+
 	CREATE TABLE #Result (  Headline VARCHAR(50), CustID INT,
 							BetCount INT, CurrencyID INT, Currency NVARCHAR(50)	,
 							TotalBets DECIMAL(19,4), TotalBetsBase DECIMAL(19,4),
@@ -273,37 +223,6 @@ BEGIN
 			SET @Device = ''
 	END
 	-- End Info from Pars list
-
-	-- Get Cust Info
-	IF @Username <> ''
-	BEGIN
-		IF @CustList IS NOT NULL
-		BEGIN
-			INSERT INTO #tmp_MemIDs (CustID)
-			SELECT val FROM dbo.strSplit(@CustList, ',')
-		END
-		ELSE
-		BEGIN
-			IF @IsExactly = 0
-				INSERT INTO #tmp_MemIDs (CustID)
-				SELECT custid
-				FROM dbo.Customer WITH(NOLOCK)
-				WHERE username LIKE @Username + '%' AND roleid = 1
-			ELSE
-				INSERT INTO #tmp_MemIDs (CustID)
-				SELECT custid
-				FROM dbo.Customer WITH(NOLOCK)
-				WHERE username = @Username AND roleid = 1
-
-			IF @Username NOT LIKE '%[^0-9]%' AND LEN(@Username) < 10
-			BEGIN
-			INSERT INTO #tmp_MemIDs (CustID)
-			SELECT cu.custid FROM dbo.Customer cu WITH(NOLOCK) WHERE cu.custid = @Username AND cu.roleid = 1
-				AND NOT EXISTS (SELECT 1 FROM #tmp_MemIDs c WHERE cu.custid = c.custid)
-			END
-		END
-	END
-	-- End Cust Info
 
 	-- Get Sport Bettype Matrix
 	DECLARE @isTest BIT = 0
@@ -487,9 +406,9 @@ BEGIN
 		-- 1. By bettype for normal product
 		INSERT INTO #Data
 				( recommend,
-				  srecommend, 
-				  bettype,
-				  CustID ,
+				  srecommend,
+				  mrecommend,
+				  bettype,				  
 				  BetCount ,
 				  CurrencyID ,	         
 				  TotalBets ,
@@ -509,10 +428,7 @@ BEGIN
 				  ExtraPT,
 				  ExtraPTBase
 				)
-		SELECT b.recommend, srecommend, b.bettype,
-				CASE WHEN d.CustID IS NOT NULL THEN NULL
-					WHEN b.StatusID IN (111,112,113) THEN b.CustID 
-					ELSE NULL END AS CustID,
+		SELECT b.recommend, b.srecommend, b.mrecommend, b.bettype,					
 
 				COUNT(CASE WHEN d.CustID IS NOT NULL THEN NULL
 						WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS BetCount, b.Currency, 
@@ -559,8 +475,7 @@ BEGIN
 			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
 			AND (@ExcludeTest = 0 OR (b.Currency <> 20 AND @ExcludeTest = 1))
-			AND (@currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId)) 
-			AND (@Username = '' OR EXISTS (SELECT 1 From #tmp_MemIDs m WHERE m.CustID = b.custId))
+			AND (@currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId)) 			
 			AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
@@ -570,9 +485,7 @@ BEGIN
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 				)
-		GROUP BY b.recommend, 
-			CASE WHEN d.CustID IS NOT NULL THEN NULL
-				WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, 
+		GROUP BY b.recommend, b.mrecommend,			 
 			b.Currency, srecommend, b.bettype 
 		
 		OPTION(RECOMPILE)		
@@ -580,8 +493,8 @@ BEGIN
 		INSERT INTO #Data
 					( recommend ,
 					  srecommend, 
-					  bettype ,
-					  CustID ,
+					  mrecommend,
+					  bettype ,					  
 					  BetCount ,
 					  CurrencyID ,	          
 					  TotalBets ,
@@ -599,10 +512,7 @@ BEGIN
 					  ExtraPT,
 					  ExtraPTBase
 					)
-		SELECT	b.recommend, b.srecommend, b.bettype,
-				CASE WHEN d.CustID IS NOT NULL THEN NULL
-					WHEN b.StatusID IN (111,112,113) THEN b.CustID 
-					ELSE NULL END AS CustID,
+		SELECT	b.recommend, b.srecommend, b.mrecommend, b.bettype,				
 				0 AS BetCount, b.currency, 
 
 				SUM(CASE WHEN b.statusID IN (103) THEN 0 ELSE actual_stake END) AS TotalBets,
@@ -639,8 +549,7 @@ BEGIN
 			AND b.bettype IN (SELECT Bettype FROM #tmpContributionBettype WHERE RefTable IN (0,3)) 
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets	
 			AND (@ExcludeTest = 0 OR (b.Currency <> 20 AND @ExcludeTest = 1))
-			AND (@currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId)) 
-			AND (@Username = '' OR EXISTS (SELECT 1 From #tmp_MemIDs m WHERE m.CustID = b.custId))
+			AND (@currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId)) 			
 			AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 					OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
@@ -650,10 +559,7 @@ BEGIN
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 			)
-		GROUP BY b.recommend, 
-				CASE WHEN d.CustID IS NOT NULL THEN NULL
-					WHEN b.StatusID IN (111,112,113) THEN b.CustID 
-					ELSE NULL END,
+		GROUP BY b.recommend, b.mrecommend,				
 				b.currency, b.srecommend, b.bettype
 			
 		OPTION(RECOMPILE)
@@ -671,8 +577,8 @@ BEGIN
 			INSERT INTO #Data
 					( recommend ,
 					  srecommend,
-					  bettype,
-					  CustID ,
+					  mrecommend,
+					  bettype,					  
 					  BetCount ,
 					  CurrencyID ,	          
 					  TotalBets ,
@@ -690,8 +596,8 @@ BEGIN
 					  ExtraPT,
 					  ExtraPTBase
 					)
-			SELECT	b.recommend, b.srecommend, b.gameID,
-					CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END AS custid,
+			SELECT	b.recommend, b.srecommend, b.mrecommend, b.gameID,
+			
 					COUNT(CASE WHEN StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount, b.currency, 
 
 					SUM(CASE WHEN b.statusID IN (103) THEN 0 ELSE actual_stake END) AS TotalBets,
@@ -726,8 +632,7 @@ BEGIN
 				AND b.gameID IN (SELECT Bettype FROM #tmpBettypeRNG)
 				AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets	
 				AND (@ExcludeTest = 0 OR (b.Currency <> 20 AND @ExcludeTest = 1))
-				AND (@currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId)) 
-				AND (@Username = '' OR EXISTS (SELECT 1 From #tmp_MemIDs m WHERE m.CustID = b.custId))
+				AND (@currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId)) 				
 				AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 				AND ( @Site = 'ALL'
 					  OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
@@ -737,7 +642,7 @@ BEGIN
 					OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 					OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 				)
-			GROUP BY b.recommend, CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END, b.currency, b.srecommend, b.gameID
+			GROUP BY b.recommend, b.mrecommend, b.currency, b.srecommend, b.gameID
 			
 			OPTION(RECOMPILE)
 		END
@@ -747,8 +652,8 @@ BEGIN
 			INSERT INTO #Data
 				( recommend ,
 				  srecommend,
-				  bettype,
-				  CustID ,
+				  mrecommend,
+				  bettype,				  
 				  BetCount ,
 				  CurrencyID ,	          
 				  TotalBets ,
@@ -766,8 +671,8 @@ BEGIN
 				  ExtraPT,
 				  ExtraPTBase
 				)
-			SELECT	b.recommend, b.srecommend, b.gameID,
-					CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END AS custid,
+			SELECT	b.recommend, b.srecommend, b.mrecommend, b.gameID,
+					
 					COUNT(CASE WHEN StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount, b.currency, 
 
 					SUM(CASE WHEN b.statusID IN (103) THEN 0 ELSE actual_stake END) AS TotalBets,
@@ -802,8 +707,7 @@ BEGIN
 				AND EXISTS(SELECT 1 FROM #tmpSportBetType s WHERE b.productid = s.Sporttype and b.gameid = s.Bettype)
 				AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets	
 				AND (@ExcludeTest = 0 OR (b.Currency <> 20 AND @ExcludeTest = 1))
-				AND (@currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId)) 
-				AND (@Username = '' OR EXISTS (SELECT 1 From #tmp_MemIDs m WHERE m.CustID = b.custId))
+				AND (@currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId)) 				
 				AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 				AND ( @Site = 'ALL'
 					  OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
@@ -813,7 +717,7 @@ BEGIN
 					OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 					OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 				)
-			GROUP BY b.recommend, CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END, b.currency, b.srecommend, b.gameID
+			GROUP BY b.recommend, b.mrecommend, b.currency, b.srecommend, b.gameID
 			
 			OPTION(RECOMPILE)
 		END
@@ -827,8 +731,8 @@ BEGIN
 			INSERT INTO #Data
 					( recommend ,
 					  srecommend, 
-					  bettype ,
-					  CustID ,
+					  mrecommend,
+					  bettype,					  
 					  BetCount ,
 					  CurrencyID ,	          
 					  TotalBets ,
@@ -846,8 +750,8 @@ BEGIN
 					  ExtraPT,
 					  ExtraPTBase
 					)
-			SELECT	b.recommend, b.srecommend, b.gameID,
-					CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END AS custid,
+			SELECT	b.recommend, b.srecommend, b.mrecommend, b.gameID,
+					
 					0 AS BetCount, b.currency, 
 
 					SUM(CASE WHEN b.statusID IN (103) THEN 0 ELSE actual_stake END) AS TotalBets,
@@ -885,8 +789,7 @@ BEGIN
 					)
 				AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets	
 				AND (@ExcludeTest = 0 OR (b.Currency <> 20 AND @ExcludeTest = 1))
-				AND (@currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId)) 
-				AND (@Username = '' OR EXISTS (SELECT 1 From #tmp_MemIDs m WHERE m.CustID = b.custId))
+				AND (@currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId)) 				
 				AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 				AND ( @Site = 'ALL'
 					  OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
@@ -896,7 +799,7 @@ BEGIN
 					OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 					OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 				)
-			GROUP BY b.recommend, CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END, b.currency, b.srecommend, b.gameID
+			GROUP BY b.recommend, b.mrecommend, b.currency, b.srecommend, b.gameID
 			
 			OPTION(RECOMPILE)
 		END
@@ -905,8 +808,8 @@ BEGIN
 		INSERT INTO #Data
 				( recommend ,
 				  srecommend,
-				  bettype,
-				  CustID ,
+				  mrecommend,
+				  bettype,				 
 				  BetCount ,
 				  CurrencyID ,	          
 				  TotalBets ,
@@ -926,8 +829,8 @@ BEGIN
 				  ExtraPT,
 				  ExtraPTBase
 				)
-		SELECT	b.recommend, b.srecommend, b.gameID,
-				CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END AS custid,
+		SELECT	b.recommend, b.srecommend, b.mrecommend, b.gameID,
+				
 				COUNT(CASE WHEN StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount, b.Currency, 
 
 				SUM(CASE WHEN b.statusID IN (103) THEN 0 ELSE actual_stake END) AS TotalBets,
@@ -969,8 +872,7 @@ BEGIN
 			AND b.gameID IN (SELECT Bettype FROM #SportBettype WHERE RefTable = 2)
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
 			AND (@ExcludeTest = 0 OR (b.Currency <> 20 AND @ExcludeTest = 1))
-			AND (@currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId)) 
-			AND (@Username = '' OR EXISTS (SELECT 1 From #tmp_MemIDs m WHERE m.CustID = b.custId))
+			AND (@currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId)) 			
 			AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
@@ -980,7 +882,7 @@ BEGIN
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 			)
-		GROUP BY b.recommend, CASE WHEN b.statusID IN (111, 112, 113) THEN b.custid ELSE NULL END, b.currency, b.srecommend, b.gameID		
+		GROUP BY b.recommend, b.mrecommend, b.currency, b.srecommend, b.gameID		
 		
 		OPTION(RECOMPILE)
 	END
@@ -990,8 +892,8 @@ BEGIN
 		INSERT INTO #Data
 				( recommend,
 				  srecommend,
+				  mrecommend,
 				  bettype,
-				  CustID ,
 				  BetCount ,
 				  CurrencyID ,	         
 				  TotalBets ,
@@ -1009,8 +911,7 @@ BEGIN
 				  ExtraPT,
 				  ExtraPTBase
 				)
-		SELECT b.recommend, b.srecommend, b.bettype,
-				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
+		SELECT b.recommend, b.srecommend, b.mrecommend, b.bettype,			
 
 				SUM(CASE WHEN b.statusID IN (111, 112, 113) THEN b.betid ELSE 0 END) AS BetCount, b.Currency, 
 
@@ -1043,8 +944,7 @@ BEGIN
 			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
 			AND (@ExcludeTest = 0 OR (b.Currency <> 20 AND @ExcludeTest = 1))
-			AND (@currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId)) 
-			AND (@Username = '' OR EXISTS (SELECT 1 From #tmp_MemIDs m WHERE m.CustID = b.custId))
+			AND (@currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId)) 			
 			AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
@@ -1054,7 +954,7 @@ BEGIN
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 				)
-		GROUP BY b.recommend, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, b.Currency, b.srecommend, b.bettype
+		GROUP BY b.recommend, b.mrecommend, b.Currency, b.srecommend, b.bettype
 		
 		OPTION(RECOMPILE)
 		
@@ -1065,8 +965,8 @@ BEGIN
 		INSERT INTO #Data
 				( recommend ,
 				  srecommend,
-				  bettype,
-				  CustID ,
+				  mrecommend,
+				  bettype,				  
 				  BetCount ,
 				  CurrencyID ,
 				  TotalBets ,
@@ -1083,8 +983,7 @@ BEGIN
 				  CompanyCommBase,
 				  ExtraPT,
 				  ExtraPTBase)
-		SELECT	b.recommend, b.srecommend, b.bettype,
-				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
+		SELECT	b.recommend, b.srecommend, b.mrecommend, b.bettype,				
 
 				COUNT(CASE WHEN StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount, b.Currency, 
 
@@ -1124,8 +1023,7 @@ BEGIN
 				OR EXISTS (SELECT 1 FROM #tmp_LeagueID l WHERE l.LeagueID = 168 AND l.Bettype = b.bettype)
 				)
 			AND (@ExcludeTest = 0 OR (b.Currency <> 20 AND @ExcludeTest = 1))
-			AND (@currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId)) 
-			AND (@Username = '' OR EXISTS (SELECT 1 From #tmp_MemIDs m WHERE m.CustID = b.custId))
+			AND (@currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId)) 			
 			AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
@@ -1135,7 +1033,7 @@ BEGIN
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 				)
-		GROUP BY b.recommend, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, b.Currency, b.srecommend, b.bettype
+		GROUP BY b.recommend, b.mrecommend, b.Currency, b.srecommend, b.bettype
 		
 		OPTION(RECOMPILE)
 		
@@ -1146,8 +1044,8 @@ BEGIN
 		INSERT INTO #Data
 				( recommend ,
 				  srecommend,
-				  bettype,
-				  CustID ,
+				  mrecommend,
+				  bettype,				
 				  BetCount ,
 				  CurrencyID ,
 				  TotalBets ,
@@ -1165,8 +1063,7 @@ BEGIN
 				  ExtraPT,
 				  ExtraPTBase
 				)	
-		SELECT	b.recommend, b.srecommend, b.bettype,
-				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
+		SELECT	b.recommend, b.srecommend, b.mrecommend, b.bettype,				
 
 				COUNT(CASE WHEN StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount, b.Currency, 
 
@@ -1203,8 +1100,7 @@ BEGIN
 			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
 			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
-			AND (@Currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId))	
-			AND (@Username = '' OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
+			AND (@Currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId))				
 			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
@@ -1214,7 +1110,7 @@ BEGIN
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 				)
-		GROUP BY b.recommend, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, b.Currency, b.srecommend, b.bettype
+		GROUP BY b.recommend, b.mrecommend, b.Currency, b.srecommend, b.bettype
 		
 		OPTION(RECOMPILE)
 		
@@ -1225,8 +1121,8 @@ BEGIN
 		INSERT INTO #Data
 				( recommend ,
 				  srecommend,
-				  bettype,
-				  CustID ,
+				  mrecommend,
+				  bettype,				 
 				  BetCount ,
 				  CurrencyID ,
 				  TotalBets ,
@@ -1244,8 +1140,7 @@ BEGIN
 				  ExtraPT,
 				  ExtraPTBase
 				)	
-		SELECT	b.recommend, b.srecommend, b.bettype,
-				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
+		SELECT	b.recommend, b.srecommend, b.mrecommend, b.bettype,				
 
 				COUNT(CASE WHEN StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount, b.Currency, 
 
@@ -1284,8 +1179,7 @@ BEGIN
 			AND b.matchid IN (SELECT matchid FROM dbo.match WITH (NOLOCK)
 								WHERE sporttype IN (SELECT Sporttype FROM #tmp_Sporttype))
 			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
-			AND (@Currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId))	
-			AND (@Username = '' OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
+			AND (@Currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId))				
 			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
@@ -1295,15 +1189,15 @@ BEGIN
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 				)
-		GROUP BY b.recommend, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, b.Currency, b.srecommend, b.bettype
+		GROUP BY b.recommend, b.mrecommend, b.Currency, b.srecommend, b.bettype
 		
 		OPTION(RECOMPILE)		
 
 		INSERT INTO #Data
 				( recommend ,
 				  srecommend,
-				  bettype,
-				  CustID ,
+				  mrecommend,
+				  bettype,				
 				  BetCount ,
 				  CurrencyID ,
 				  TotalBets ,
@@ -1321,8 +1215,7 @@ BEGIN
 				  ExtraPT,
 				  ExtraPTBase
 				)	
-		SELECT	b.recommend, b.srecommend, b.bettype,
-				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
+		SELECT	b.recommend, b.srecommend, b.mrecommend, b.bettype,				
 
 				COUNT(CASE WHEN StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount, b.Currency, 
 
@@ -1361,8 +1254,7 @@ BEGIN
 			AND b.matchid IN (SELECT Match3rdId FROM dbo.Match3rd WITH (NOLOCK)
 								WHERE sporttype IN (SELECT Sporttype FROM #tmp_Sporttype))
 			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
-			AND (@Currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId))	
-			AND (@Username = '' OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
+			AND (@Currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId))				
 			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
@@ -1372,7 +1264,7 @@ BEGIN
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 				)
-		GROUP BY b.recommend, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, b.Currency, b.srecommend, b.bettype
+		GROUP BY b.recommend, b.mrecommend, b.Currency, b.srecommend, b.bettype
 		
 		OPTION(RECOMPILE)		
 	END
@@ -1383,8 +1275,8 @@ BEGIN
 		INSERT INTO #Data
 				( recommend ,
 				  srecommend,
-				  bettype,
-				  CustID ,
+				  mrecommend,
+				  bettype,			
 				  BetCount ,
 				  CurrencyID ,	          
 				  TotalBets ,
@@ -1402,8 +1294,7 @@ BEGIN
 				  ExtraPT,
 				  ExtraPTBase
 				)
-		SELECT	b.recommend, b.srecommend, b.bettype,
-				CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
+		SELECT	b.recommend, b.srecommend, b.mrecommend, b.bettype,				
 
 				COUNT(CASE WHEN StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount, b.Currency, 
 
@@ -1444,8 +1335,7 @@ BEGIN
 								WHERE sporttype IN (SELECT Sporttype FROM #tmp_Sporttype))				
 				)
 			AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
-			AND (@Currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId))	
-			AND (@Username = '' OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
+			AND (@Currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId))				
 			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
@@ -1455,7 +1345,7 @@ BEGIN
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 				)				  
-		GROUP BY b.recommend, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, b.Currency, b.srecommend, b.bettype
+		GROUP BY b.recommend, b.mrecommend, b.Currency, b.srecommend, b.bettype
 		OPTION(RECOMPILE)
 	END
 
@@ -1481,8 +1371,8 @@ BEGIN
 	INSERT INTO #Data
 			( recommend ,
 				srecommend,
-				bettype,
-				CustID ,
+				mrecommend,
+				bettype,				
 				BetCount ,
 				CurrencyID ,
 				TotalBets ,
@@ -1500,8 +1390,7 @@ BEGIN
 				ExtraPT,
 				ExtraPTBase
 			)	
-	SELECT	b.recommend, b.srecommend, b.bettype,
-			CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END AS CustID,
+	SELECT	b.recommend, b.srecommend, b.mrecommend, b.bettype,			
 
 			COUNT(CASE WHEN StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount, b.Currency, 
 
@@ -1539,8 +1428,7 @@ BEGIN
 		AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
 		AND b.refno IN (SELECT refno FROM #tmp_bettransm)
 		AND (@ExcludeTest = 0 OR (b.currency <> 20 AND @ExcludeTest = 1))
-		AND (@Currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId))	
-		AND (@Username = '' OR EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE m.CustID = b.custid))
+		AND (@Currency = '-1' OR EXISTS (SELECT 1 From #tmpCurrency c WHERE b.currency = c.CurrencyId))			
 		AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 		AND ( @Site = 'ALL'
 				OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
@@ -1550,7 +1438,7 @@ BEGIN
 			OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 			OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 			)
-	GROUP BY b.recommend, CASE WHEN b.StatusID IN (111,112,113) THEN b.CustID ELSE NULL END, b.Currency, b.srecommend, b.bettype
+	GROUP BY b.recommend, b.mrecommend, b.Currency, b.srecommend, b.bettype
 	OPTION(RECOMPILE)
 	
 	--Update Real Turnover
@@ -1584,23 +1472,16 @@ BEGIN
 		INNER JOIN dbo.Exchange e ON e.exchangeid = d.CurrencyID
 	-- End Currency Name	
 
-	-- Get Site name
-	UPDATE d
-	SET d.SiteName = c.SiteName,
-		d.IsDeposit = c.isDeposit
-	FROM #Data d
-		INNER JOIN #recommend c ON d.recommend = c.recommend
-	-- End Site name
+
 
 	------------------------------------------III. Drill down data ------------------------------------------------------
 	IF @IsGrandTotal = 0
 	BEGIN
 		IF @Currency = '-1' --BaseRM
 		BEGIN			
-			INSERT INTO #Result
-					( IsDeposit ,
-						SiteName ,
-						NoOfPlayers ,
+			INSERT INTO #tmpResult
+					( Headline,
+						CustID ,
 						BetCount ,
 						CurrencyID ,
 						Currency ,
@@ -1621,9 +1502,8 @@ BEGIN
 						ExtraPT,
 						ExtraPTBase
 					)
-			SELECT b.IsDeposit,
-					b.SiteName,
-					COUNT(DISTINCT custid) AS NoOfPlayers,
+			SELECT c.username,
+					h.CustID,
 					SUM(BetCount) AS BetCount ,
 					-1 as CurrencyId, 
 					'RM' AS Currency,
@@ -1644,7 +1524,10 @@ BEGIN
 					SUM(b.ExtraPTBase) ExtraPT,
 					SUM(b.ExtraPTBase) ExtraPTBase
 			FROM #Data b
-			GROUP BY b.IsDeposit, b.SiteName
+				INNER JOIN bodb02.dbo.custAccount a WITH(NOLOCK) ON b.srecommend = a.custid
+				INNER JOIN bodb02.dbo.CustGroupHeadline h WITH(NOLOCK) ON a.groupID = h.GroupID
+				INNER JOIN bodb02.dbo.Customer c ON h.CustID = c.custid
+			GROUP BY c.username, h.CustID
 			HAVING (@TotalBetType = 0
 					OR (@TotalBetType = 1 AND SUM(b.TotalBetsBase) >= @TotalBetValue) 
 					OR (@TotalBetType = -1 AND SUM(b.TotalBetsBase) <= @TotalBetValue)
@@ -1656,10 +1539,9 @@ BEGIN
 		END		
 		ELSE -- @Currency <> -1
 		BEGIN
-			INSERT INTO #Result
-					( IsDeposit ,
-						SiteName ,
-						NoOfPlayers ,
+			INSERT INTO #tmpResult
+					( Headline ,
+						CustID ,					
 						BetCount ,
 						CurrencyID ,
 						Currency ,
@@ -1681,9 +1563,8 @@ BEGIN
 						ExtraPTBase
 					)
 			SELECT 
-				b.IsDeposit AS IsDeposit,
-				b.SiteName AS SiteName,
-				COUNT(DISTINCT custid) AS NoOfPlayers,
+				c.username,
+				h.CustID,
 				SUM(BetCount) AS BetCount ,
 				b.CurrencyID AS CurrencyId, 
 				b.Currency AS Currency,
@@ -1704,10 +1585,10 @@ BEGIN
 				SUM(b.ExtraPT) ExtraPT,
 				SUM(b.ExtraPTBase) ExtraPTBase
 			FROM #Data b
-			GROUP BY b.IsDeposit,
-				b.SiteName,
-				b.CurrencyID , 
-				b.Currency
+				INNER JOIN bodb02.dbo.custAccount a WITH(NOLOCK) ON b.srecommend = a.custid
+				INNER JOIN bodb02.dbo.CustGroupHeadline h WITH(NOLOCK) ON a.groupID = h.GroupID
+				INNER JOIN bodb02.dbo.Customer c ON h.CustID = c.custid
+			GROUP BY c.username, h.CustID
 			HAVING (@TotalBetType = 0
 					OR (@TotalBetType = 1 AND SUM(b.TotalBets) >= @TotalBetValue) 
 					OR (@TotalBetType = -1 AND SUM(b.TotalBets) <= @TotalBetValue)
@@ -1722,10 +1603,9 @@ BEGIN
 	BEGIN
 		IF @Currency = '-1'
 		BEGIN
-			INSERT INTO #Result
-						( IsDeposit ,
-						  SiteName ,
-						  NoOfPlayers ,
+			INSERT INTO #tmpResult
+						( Headline ,
+						  CustID ,						 
 						  BetCount ,
 						  CurrencyID ,
 						  Currency ,
@@ -1746,9 +1626,8 @@ BEGIN
 						  ExtraPT,
 						  ExtraPTBase
 						)
-		SELECT b.IsDeposit,
-				b.SiteName,
-				COUNT(DISTINCT custid) AS NoOfPlayers,
+		SELECT c.username,
+				h.CustID,
 				SUM(BetCount) AS BetCount ,
 				-1 AS CurrencyId, 
 				'RM' AS Currency,
@@ -1769,7 +1648,10 @@ BEGIN
 				SUM(b.ExtraPTBase) ExtraPT,
 				SUM(b.ExtraPTBase) ExtraPTBase
 		FROM #Data b
-		GROUP BY b.IsDeposit, b.SiteName
+			INNER JOIN bodb02.dbo.custAccount a WITH(NOLOCK) ON b.srecommend = a.custid
+			INNER JOIN bodb02.dbo.CustGroupHeadline h WITH(NOLOCK) ON a.groupID = h.GroupID
+			INNER JOIN bodb02.dbo.Customer c ON h.CustID = c.custid
+		GROUP BY c.username, h.CustID
 		HAVING (@TotalBetType = 0
 				OR (@TotalBetType = 1 AND SUM(TotalBetsBase ) >= @TotalBetValue) 
 				OR (@TotalBetType = -1 AND SUM(TotalBetsBase) <= @TotalBetValue)
@@ -1781,10 +1663,9 @@ BEGIN
 		END
 		ELSE
 		BEGIN
-			INSERT INTO #Result
-						( IsDeposit ,
-						  SiteName ,
-						  NoOfPlayers ,
+			INSERT INTO #tmpResult
+						( Headline ,
+						  CustID ,						  
 						  BetCount ,
 						  CurrencyID ,
 						  Currency ,
@@ -1805,12 +1686,11 @@ BEGIN
 						  ExtraPT,
 						  ExtraPTBase
 						)
-		SELECT b.IsDeposit,
-				b.SiteName,
-				COUNT(DISTINCT custid) AS NoOfPlayers,
+		SELECT c.username,
+				h.CustID,
 				SUM(BetCount) AS BetCount ,
 				b.CurrencyID AS CurrencyId, 
-				Currency AS Currency,
+				b.Currency AS Currency,
 				SUM (b.TotalBets) AS TotalBets, 
 				SUM (b.TotalWins) AS TotalWins,
 				SUM (b.TotalRefund) AS TotalRefund,
@@ -1828,8 +1708,10 @@ BEGIN
 				SUM(b.ExtraPT) ExtraPT,
 				SUM(b.ExtraPTBase) ExtraPTBase
 		FROM #Data b
-		GROUP BY b.IsDeposit, b.SiteName, 
-				b.CurrencyID, Currency
+			INNER JOIN bodb02.dbo.custAccount a WITH(NOLOCK) ON b.srecommend = a.custid
+			INNER JOIN bodb02.dbo.CustGroupHeadline h WITH(NOLOCK) ON a.groupID = h.GroupID
+			INNER JOIN bodb02.dbo.Customer c ON h.CustID = c.custid
+		GROUP BY c.username, h.CustID
 		HAVING (@TotalBetType = 0
 				OR (@TotalBetType = 1 AND SUM(b.TotalBets) >= @TotalBetValue) 
 				OR (@TotalBetType = -1 AND SUM(b.TotalBets) <= @TotalBetValue)
@@ -1847,9 +1729,9 @@ BEGIN
 	BEGIN
 		IF @IsDrillDown = 0
 		BEGIN
-			SELECT d.IsDeposit,
-					CASE WHEN s.SiteLabel = '789y' THEN '789y' ELSE SiteName END AS ReportBy,
-					SUM(NoOfPlayers) NoOfPlayers,
+			SELECT 
+					Headline,
+					CustID,
 					SUM(BetCount) BetCount,
 					CurrencyID,
 					Currency,
@@ -1862,20 +1744,16 @@ BEGIN
 					SUM(CompanyComm) HouseComm,
 					SUM(ExtraPT) ExtraPT
 			FROM #Result d
-				LEFT JOIN bodb02.dbo.Site s WITH(NOLOCK) ON d.SiteName = s.site
-			GROUP BY d.IsDeposit,
-				CASE WHEN s.SiteLabel = '789y' THEN '789y' ELSE SiteName END,
+			GROUP BY Headline,
+				CustID,
 				CurrencyID,
 				Currency
-			ORDER BY IsDeposit, CASE WHEN s.SiteLabel = '789y' THEN '789y' ELSE SiteName END, Currency
+			ORDER BY Headline
 		END
 		ELSE
 		BEGIN
-			SELECT 0 AS IsDeposit,
-				CASE WHEN @isDrillDownLicensee = 0 THEN 'Credit Group'
-					WHEN @isDrillDownLicensee = 1 THEN 'Licensee Group' 
-					ELSE @Site END AS ReportBy,
-				COUNT(DISTINCT b.CustID) AS NoOfPlayers,
+			SELECT b.Headline,
+				b.CustID,
 				SUM(b.BetCount) AS BetCount,
 				b.CurrencyID,
 				b.Currency,
@@ -1887,17 +1765,16 @@ BEGIN
 				CASE WHEN @Currency = '-1' THEN SUM(b.CompanyGrossIncomeBase) ELSE SUM(b.CompanyGrossIncome) END AS HouseGrossIncome,
 				CASE WHEN @Currency = '-1' THEN SUM(b.CompanyCommBase) ELSE SUM(b.CompanyComm) END AS HouseComm,
 				CASE WHEN @Currency = '-1' THEN SUM(b.ExtraPTBase) ELSE SUM(b.ExtraPT) END AS ExtraPT
-		FROM #Data b	
-			INNER JOIN #Result r ON (@Currency = '-1' OR b.CurrencyID = r.CurrencyID) AND b.SiteName = r.SiteName	
-		GROUP BY b.CurrencyID , b.Currency	
+		FROM #tmpResult b	
+			INNER JOIN #Result r ON (@Currency = '-1' OR b.CurrencyID = r.CurrencyID) AND b.CustID = r.CustID	
+		GROUP BY b.Headline, b.CustID, b.CurrencyID , b.Currency	
 		ORDER BY b.Currency
 		END
 	END
 	ELSE
 	BEGIN
-		SELECT b.CurrencyID AS ReportById,
-				b.Currency AS ReportBy,
-				COUNT(DISTINCT b.CustID) AS NoOfPlayers,
+		SELECT b.CurrencyID,
+				b.Currency,				
 				SUM(b.BetCount) AS BetCount,
 				b.CurrencyID,
 				b.Currency,
@@ -1909,96 +1786,26 @@ BEGIN
 				CASE WHEN @Currency = '-1' THEN SUM(b.CompanyGrossIncomeBase) ELSE SUM(b.CompanyGrossIncome) END AS HouseGrossIncome,
 				CASE WHEN @Currency = '-1' THEN SUM(b.CompanyCommBase) ELSE SUM(b.CompanyComm) END AS HouseComm,
 				CASE WHEN @Currency = '-1' THEN SUM(b.ExtraPTBase) ELSE SUM(b.ExtraPT) END AS ExtraPT
-		FROM #Data b	
-			INNER JOIN #Result r ON (@Currency = '-1' OR b.CurrencyID = r.CurrencyID) AND b.SiteName = r.SiteName	
+		FROM #tmpResult b	
+			INNER JOIN #Result r ON (@Currency = '-1' OR b.CurrencyID = r.CurrencyID) AND b.CustID = r.CustID	
 		GROUP BY b.CurrencyID , b.Currency		
 		ORDER BY b.Currency
 	END
 	------------------------------------------V. Return Total Rows ------------------------------------------------------
 	
-	IF @IsDrillDown = 0
-	BEGIN
-		SELECT
-			r.IsDeposit,
-			CASE WHEN r.isDeposit = 0 THEN 'Credit Group' ELSE 'Licensee Group' END ReportBy,
-			COUNT(DISTINCT custid) AS NoOfPlayers,
-			SUM(b.BetCount) BetCount,
-			-1 CurrencyId, 
-			'RM' AS Currency,
-			SUM(b.TotalBetsBase) TotalBets,
-			SUM(b.TotalWinsBase) TotalWins,
-			SUM(b.TotalRefundBase) TotalRefund,
-			SUM(b.CompanyTurnOverBase) HouseTurnOver,
-			SUM(b.RealTurnOverBase) RealTurnOver,
-			SUM(b.CompanyGrossIncomeBase) HouseGrossIncome,
-			SUM(b.CompanyCommBase) HouseComm,
-			SUM(b.ExtraPTBase) ExtraPT
-		FROM #Data b
-			INNER JOIN  #Result r ON (@Currency = '-1' OR r.CurrencyId = b.CurrencyId) AND r.SiteName = b.SiteName 
-		GROUP BY r.isDeposit, 
-			CASE WHEN r.isDeposit = 0 THEN 'Credit Group' ELSE 'Licensee Group' END
-		UNION ALL
-		SELECT
-			2 AS IsDeposit,
-			'GrandTotalRM' AS ReportBy,
-			COUNT(DISTINCT custid) AS NoOfPlayers,
-			SUM(b.BetCount) BetCount,
-			-1 as CurrencyId, 
-			'RM' AS Currency,
-			SUM(b.TotalBetsBase) TotalBets,
-			SUM(b.TotalWinsBase) TotalWins,
-			SUM(b.TotalRefundBase) TotalRefund,
-			SUM(b.CompanyTurnOverBase) HouseTurnOver,
-			SUM(b.RealTurnOverBase) RealTurnOver,
-			SUM(b.CompanyGrossIncomeBase) HouseGrossIncome,
-			SUM(b.CompanyCommBase) HouseComm,
-			SUM(b.ExtraPTBase) ExtraPT
-		FROM #Data b
-			INNER JOIN  #Result r ON (@Currency = '-1' OR r.CurrencyId = b.CurrencyId) AND b.SiteName = r.SiteName
-	END
-	ELSE 
-	BEGIN	
-		IF @IsGrandTotal = 0
-		BEGIN	
-			SELECT
-				2 AS IsDeposit,
-				'GrandTotalRM' AS ReportBy,
-				COUNT(DISTINCT custid) AS NoOfPlayers,
-				SUM(b.BetCount) BetCount,
-				-1 as CurrencyId, 
-				'RM' AS Currency,
-				SUM(b.TotalBetsBase) TotalBets,
-				SUM(b.TotalWinsBase) TotalWins,
-				SUM(b.TotalRefundBase) TotalRefund,
-				SUM(b.CompanyTurnOverBase) HouseTurnOver,
-				SUM(b.RealTurnOverBase) RealTurnOver,
-				SUM(b.CompanyGrossIncomeBase) HouseGrossIncome,
-				SUM(b.CompanyCommBase) HouseComm,
-				SUM(b.ExtraPTBase) ExtraPT
-			FROM #Data b
-				INNER JOIN  #Result r ON (b.SiteName = r.SiteName) AND (@Currency = '-1' OR b.CurrencyID = r.CurrencyID)
-		END
-		ELSE
-		BEGIN
-			SELECT
-				2 AS IsDeposit,
-				'GrandTotalRM' AS ReportBy,
-				COUNT(DISTINCT custid) AS NoOfPlayers,
-				SUM(b.BetCount) BetCount,
-				-1 as CurrencyId, 
-				'RM' AS Currency,
-				SUM(b.TotalBetsBase) TotalBets,
-				SUM(b.TotalWinsBase) TotalWins,
-				SUM(b.TotalRefundBase) TotalRefund,
-				SUM(b.CompanyTurnOverBase) HouseTurnOver,
-				SUM(b.RealTurnOverBase) RealTurnOver,
-				SUM(b.CompanyGrossIncomeBase) HouseGrossIncome,
-				SUM(b.CompanyCommBase) HouseComm,
-				SUM(b.ExtraPTBase) ExtraPT
-			FROM #Data b
-				INNER JOIN  #Result r ON b.SiteName = r.SiteName AND (@Currency = '-1' OR b.CurrencyID = r.CurrencyID)
-		END
-	END
+	SELECT  'GrandTotalRM' AS ReportBy, 
+			SUM(b.BetCount) AS BetCount ,
+			-1 as CurrencyId, 'RM' AS Currency,
+			SUM (b.TotalBetsBase) AS TotalBets, 
+			SUM (b.TotalWinsBase) AS TotalWins,
+			SUM (b.TotalRefundBase) AS TotalRefund,
+			SUM (b.CompanyTurnoverBase) AS HouseTurnover,
+			SUM (b.RealTurnoverBase) AS RealTurnover,
+			SUM (b.CompanyGrossIncomeBase) AS HouseGrossIncome,
+			SUM (b.CompanyCommBase) AS HouseComm,
+			SUM (b.ExtraPTBase) ExtraPT
+	FROM #tmpResult b	
+			INNER JOIN #Result r ON (@Currency = '-1' OR b.CurrencyID = r.CurrencyID) 
 
 	DROP TABLE #Data
 	DROP TABLE #Result
