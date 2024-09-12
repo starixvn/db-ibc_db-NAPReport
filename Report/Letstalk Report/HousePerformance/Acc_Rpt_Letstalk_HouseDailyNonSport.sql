@@ -18,6 +18,7 @@ AS
 		20240628@Cherry: Integrate FA CHAI (#206635)
 		20240628@Cherry: Integrate Fast Spin (#206142)
 		20240722@Cherry: Integrate Virtual Sports 5 (#206922), Nextspin (#199988)
+		20240916@Cherry: Integrate ON Casino (#210031)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -173,6 +174,7 @@ BEGIN
 			,(70,'LC','FGG') --FGG
 			,(76,'LC','YeeBet')
 			,(80,'LC','WE LC')
+			,(96,'LC','ONCasino')
 			----------RNG----------
 			,(42,'RNG','SABAG') --SABA.games
 			,(6,'RNG','SabaC') --Saba Casino
