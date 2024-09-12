@@ -920,4 +920,5 @@ BEGIN
 	DROP TABLE #tmpProduct3rd
 	DROP TABLE #tmpFinal
 	DROP TABLE #tmpEXBettrans
+	DROP TABLE #tmpOddsAdjBettype
 END

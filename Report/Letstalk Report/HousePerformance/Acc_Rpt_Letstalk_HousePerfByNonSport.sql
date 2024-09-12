@@ -638,4 +638,5 @@ BEGIN
 	DROP TABLE #tmpMarginNonSport
 	DROP TABLE #tmpBettypeGroup
 	DROP TABLE #tmpEXBettrans
+
 END

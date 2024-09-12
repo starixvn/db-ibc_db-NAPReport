@@ -760,4 +760,5 @@ BEGIN
 	DROP TABLE #tmpBettype
 	DROP TABLE #tmpLeague
 	DROP TABLE #tmpMatch
+	DROP TABLE #tmpMarginVirtualSport
 END
