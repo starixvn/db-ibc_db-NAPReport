@@ -19,6 +19,7 @@ AS
 		20231114@Roy: NAP Reports - Move SEAL8888 into Credit Group (#195730)
 		20240229@Roy: AG Casino - Email/Letstalk Reports - Add promotion & Jackpot bet type (#200523)
 		20240606@Cherry: Integrate Saba Kabaddi (#204927)
+		20240916@Cherry: Integrate Odds Boost Voucher (#210559)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -64,6 +65,8 @@ BEGIN
 	END
 	
 	--CREATE temp tables--
+	CREATE TABLE #tmpOddsAdjBettype (Bettype INT)
+
 	CREATE TABLE #tmpDWSite (
 		[Site] VARCHAR(20)
 		,IsDeposit BIT
@@ -227,7 +230,7 @@ BEGIN
 			WHEN bs.SourceTable = 'bettransLC' THEN 2
 			ELSE 3
 		END AS RefTable
-		,CASE WHEN pb.ProductID = 1 AND pb.Bettype NOT IN (29, 38, 901, 902 ,903, 904, 999, 18999) THEN 1
+		,CASE WHEN pb.ProductID = 1 AND pb.Bettype NOT IN (29, 38, 901, 902 ,903, 904, 18999) THEN 1
 			ELSE 0
 		END AS HalfBettype
 	FROM dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '', 0) AS pb
