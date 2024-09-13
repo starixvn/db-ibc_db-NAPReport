@@ -1,4 +1,4 @@
-/*<info serverAlias="DBRPT-bodb_Report" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBRPT-bodb_Report" executers="wsv_nap" viewers="" isFunction="0" isNested="0"></info>*/
 USE bodb_Report
 GO
 
@@ -16,6 +16,7 @@ AS
 		- 20210504@Jaden: Use SP to get balanceup & movebets (#154116)
 		- 20220110@Roy: Automail Report - Tune sp performance of Bet Builder repo (#167198)
 		- 20220907@Jaden: Change betfrom datatype (#177202)
+		- 20240816@Jaden: Add Live Status (#209221)
 
 	Param's Explanation:	 
 */
@@ -35,6 +36,7 @@ BEGIN
 	  , DateTimePlaced    DATETIME
 	  , WinLostDate       SMALLDATETIME
 	  , NoOfLegsPerBet    SMALLMONEY
+	  , LiveStatus        TINYINT
 	  , Betfrom           NVARCHAR(5)
 	  , Odds              SMALLMONEY
 	  , Currency          INT
@@ -145,6 +147,11 @@ BEGIN
 				 , d.GlobalShowTime = m.GlobalShowTime
 		  FROM #Data AS d
 			 INNER JOIN bodb02.dbo.match AS m WITH (NOLOCK) ON m.matchid = d.matchid;
+
+		  UPDATE #Data
+		  SET LiveStatus = b.liveindicator
+		  FROM bodb02.dbo.bettrans b WITH (NOLOCK)
+		  WHERE b.TransId = #Data.TransId
 	   END;
 
     IF @WinlostDate BETWEEN @balanceupdate AND @movebetdate
@@ -158,6 +165,11 @@ BEGIN
 				 , d.GlobalShowTime = m.GlobalShowTime
 		  FROM #Data AS d
 			 INNER JOIN bodb02.dbo.match14 AS m WITH (NOLOCK) ON m.matchid = d.matchid;
+
+		  UPDATE #Data
+		  SET LiveStatus = b.liveindicator
+		  FROM bodb02.dbo.bettrans14 b WITH (NOLOCK)
+		  WHERE b.TransId = #Data.TransId
 	   END;
 
     IF @WinlostDate < @balanceupdate
@@ -171,6 +183,11 @@ BEGIN
 				 , d.GlobalShowTime = m.GlobalShowTime
 		  FROM #Data AS d
 			 INNER JOIN bodb_Archive.dbo.match_bk AS m WITH (NOLOCK) ON m.matchid = d.matchid;
+
+		  UPDATE #Data
+		  SET LiveStatus = b.liveindicator
+		  FROM bodb_Archive.dbo.bettrans_bk b WITH (NOLOCK)
+		  WHERE b.TransId = #Data.TransId
 	   END;
 	   
 	--Get BetDescription - replace f_BetBuilder_GetSelectionName by temp table
@@ -258,6 +275,7 @@ BEGIN
 	    , d.DateTimePlaced
 	    , bd.BetDesc AS BetDescription
 	    , d.NoOfLegsPerBet
+		, CASE d.LiveStatus WHEN 1 THEN 'Live' WHEN 0 THEN 'Non-Live' ELSE 'Mixed' END AS LiveStatus
 	    , 'Settled' AS BetStatus
 	    , bf.DeviceGroup
 	    , d.Odds AS BetPrice
@@ -289,6 +307,7 @@ BEGIN
 	    , NULL AS DateTimePlaced
 	    , '' AS BetDescription
 	    , NULL AS NoOfLegsPerBet
+		, NULL AS LiveStatus
 	    , '' AS BetStatus
 	    , 'Grand Total in EUR' AS DeviceGroup
 	    , NULL AS BetPrice
