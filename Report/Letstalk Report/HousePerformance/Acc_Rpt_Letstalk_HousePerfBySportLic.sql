@@ -197,8 +197,8 @@ BEGIN
 
 	INSERT INTO #tmpOddsAdjBettype (Bettype)
 	SELECT BetType
-	FROM bodb_Account.dbo.SportBettypeGroup WITH(NOLOCK) 
-	WHERE GroupID = 2
+	FROM bodb_Account.dbo.BettypeGroup WITH(NOLOCK) 
+	WHERE BettypeGroupID = 19
 	
 	-------------------Format ProductName----------------
 	UPDATE #tmpProduct3rd
