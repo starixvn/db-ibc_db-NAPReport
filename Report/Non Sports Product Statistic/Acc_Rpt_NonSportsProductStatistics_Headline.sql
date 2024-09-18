@@ -1189,7 +1189,7 @@ BEGIN
 		OPTION(RECOMPILE)		
 	END
 		
-	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID = 5)
+	IF EXISTS (SELECT 1 FROM #SportBettype WHERE Eventype = 3)
 	BEGIN			
 		-- Virtual Sport (HR)
 		INSERT INTO #Data
@@ -1247,7 +1247,7 @@ BEGIN
 
 		FROM  dbo.Bettrans b WITH (NOLOCK)
 		WHERE b.WinlostDate = @WLDate
-			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 5 AND Eventype = 3)
+			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE Eventype = 3)
 			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
 			AND (@Sporttype = '' OR
