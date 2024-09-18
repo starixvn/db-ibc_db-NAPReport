@@ -3,7 +3,7 @@
 USE bodb02
 GO
 
-ALTER PROCEDURE [dbo].[Acc_Rpt_NonSportsProductStatistics_Headline]
+ALTER PROCEDURE [dbo].[Acc_Rpt_NonSportsProductStatistics_SMA]
 	@WinlostDate	DATETIME,
 	@ProductId		VARCHAR(MAX) = '',	
 	@Site			VARCHAR(MAX) = 'ALL',	
