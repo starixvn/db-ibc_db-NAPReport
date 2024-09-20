@@ -13,6 +13,7 @@ ALTER PROCEDURE [dbo].[Acc_Rpt_NonSportsProductStatistics_Headline]
 	@SportBetType	VARCHAR(MAX) = '',
 	@Currency		VARCHAR(MAX) = '',	
 	@Device			VARCHAR(MAX) = '',
+	@CustID			INT = 0,
 	@ExcludeTest	BIT = 1, 
 	@TotalBetType	SMALLINT = 0,
 	@TotalBetValue  MONEY = NULL,
@@ -1447,6 +1448,7 @@ BEGIN
 				INNER JOIN bodb02.dbo.custAccount a WITH(NOLOCK) ON b.srecommend = a.custid
 				INNER JOIN bodb02.dbo.CustGroupHeadline h WITH(NOLOCK) ON a.groupID = h.GroupID
 				INNER JOIN bodb02.dbo.Customer c ON h.CustID = c.custid
+			WHERE (@CustID = 0 OR h.CustID = @CustID)
 			GROUP BY c.username, h.CustID
 			HAVING (@TotalBetType = 0
 					OR (@TotalBetType = 1 AND SUM(b.TotalBetsBase) >= @TotalBetValue) 
@@ -1505,6 +1507,7 @@ BEGIN
 				INNER JOIN bodb02.dbo.custAccount a WITH(NOLOCK) ON b.mrecommend = a.custid
 				INNER JOIN bodb02.dbo.CustGroupHeadline h WITH(NOLOCK) ON a.groupID = h.GroupID
 				INNER JOIN bodb02.dbo.Customer c ON h.CustID = c.custid
+			WHERE (@CustID = 0 OR h.CustID = @CustID)
 			GROUP BY c.username, h.CustID
 			HAVING (@TotalBetType = 0
 					OR (@TotalBetType = 1 AND SUM(b.TotalBetsBase) >= @TotalBetValue) 
@@ -1563,6 +1566,7 @@ BEGIN
 				INNER JOIN bodb02.dbo.custAccount a WITH(NOLOCK) ON b.recommend = a.custid
 				INNER JOIN bodb02.dbo.CustGroupHeadline h WITH(NOLOCK) ON a.groupID = h.GroupID
 				INNER JOIN bodb02.dbo.Customer c ON h.CustID = c.custid
+			WHERE (@CustID = 0 OR h.CustID = @CustID)
 			GROUP BY c.username, h.CustID
 			HAVING (@TotalBetType = 0
 					OR (@TotalBetType = 1 AND SUM(b.TotalBetsBase) >= @TotalBetValue) 
@@ -1624,6 +1628,7 @@ BEGIN
 				INNER JOIN bodb02.dbo.custAccount a WITH(NOLOCK) ON b.srecommend = a.custid
 				INNER JOIN bodb02.dbo.CustGroupHeadline h WITH(NOLOCK) ON a.groupID = h.GroupID
 				INNER JOIN bodb02.dbo.Customer c ON h.CustID = c.custid
+			WHERE (@CustID = 0 OR h.CustID = @CustID)
 			GROUP BY c.username, h.CustID
 			HAVING (@TotalBetType = 0
 					OR (@TotalBetType = 1 AND SUM(b.TotalBets) >= @TotalBetValue) 
@@ -1683,6 +1688,7 @@ BEGIN
 				INNER JOIN bodb02.dbo.custAccount a WITH(NOLOCK) ON b.mrecommend = a.custid
 				INNER JOIN bodb02.dbo.CustGroupHeadline h WITH(NOLOCK) ON a.groupID = h.GroupID
 				INNER JOIN bodb02.dbo.Customer c ON h.CustID = c.custid
+			WHERE (@CustID = 0 OR h.CustID = @CustID)
 			GROUP BY c.username, h.CustID
 			HAVING (@TotalBetType = 0
 					OR (@TotalBetType = 1 AND SUM(b.TotalBets) >= @TotalBetValue) 
@@ -1742,6 +1748,7 @@ BEGIN
 				INNER JOIN bodb02.dbo.custAccount a WITH(NOLOCK) ON b.recommend = a.custid
 				INNER JOIN bodb02.dbo.CustGroupHeadline h WITH(NOLOCK) ON a.groupID = h.GroupID
 				INNER JOIN bodb02.dbo.Customer c ON h.CustID = c.custid
+			WHERE (@CustID = 0 OR h.CustID = @CustID)
 			GROUP BY c.username, h.CustID
 			HAVING (@TotalBetType = 0
 					OR (@TotalBetType = 1 AND SUM(b.TotalBets) >= @TotalBetValue) 
@@ -1805,6 +1812,7 @@ BEGIN
 				INNER JOIN bodb02.dbo.custAccount a WITH(NOLOCK) ON b.srecommend = a.custid
 				INNER JOIN bodb02.dbo.CustGroupHeadline h WITH(NOLOCK) ON a.groupID = h.GroupID
 				INNER JOIN bodb02.dbo.Customer c ON h.CustID = c.custid
+			WHERE (@CustID = 0 OR h.CustID = @CustID)
 			GROUP BY c.username, h.CustID
 			HAVING (@TotalBetType = 0
 					OR (@TotalBetType = 1 AND SUM(TotalBetsBase ) >= @TotalBetValue) 
@@ -1863,6 +1871,7 @@ BEGIN
 				INNER JOIN bodb02.dbo.custAccount a WITH(NOLOCK) ON b.mrecommend = a.custid
 				INNER JOIN bodb02.dbo.CustGroupHeadline h WITH(NOLOCK) ON a.groupID = h.GroupID
 				INNER JOIN bodb02.dbo.Customer c ON h.CustID = c.custid
+			WHERE (@CustID = 0 OR h.CustID = @CustID)
 			GROUP BY c.username, h.CustID
 			HAVING (@TotalBetType = 0
 					OR (@TotalBetType = 1 AND SUM(TotalBetsBase ) >= @TotalBetValue) 
@@ -1921,6 +1930,7 @@ BEGIN
 				INNER JOIN bodb02.dbo.custAccount a WITH(NOLOCK) ON b.recommend = a.custid
 				INNER JOIN bodb02.dbo.CustGroupHeadline h WITH(NOLOCK) ON a.groupID = h.GroupID
 				INNER JOIN bodb02.dbo.Customer c ON h.CustID = c.custid
+			WHERE (@CustID = 0 OR h.CustID = @CustID)
 			GROUP BY c.username, h.CustID
 			HAVING (@TotalBetType = 0
 					OR (@TotalBetType = 1 AND SUM(TotalBetsBase ) >= @TotalBetValue) 
@@ -1981,6 +1991,7 @@ BEGIN
 				INNER JOIN bodb02.dbo.custAccount a WITH(NOLOCK) ON b.srecommend = a.custid
 				INNER JOIN bodb02.dbo.CustGroupHeadline h WITH(NOLOCK) ON a.groupID = h.GroupID
 				INNER JOIN bodb02.dbo.Customer c ON h.CustID = c.custid
+			WHERE (@CustID = 0 OR h.CustID = @CustID)
 			GROUP BY c.username, h.CustID
 			HAVING (@TotalBetType = 0
 					OR (@TotalBetType = 1 AND SUM(b.TotalBets) >= @TotalBetValue) 
@@ -2039,6 +2050,7 @@ BEGIN
 				INNER JOIN bodb02.dbo.custAccount a WITH(NOLOCK) ON b.mrecommend = a.custid
 				INNER JOIN bodb02.dbo.CustGroupHeadline h WITH(NOLOCK) ON a.groupID = h.GroupID
 				INNER JOIN bodb02.dbo.Customer c ON h.CustID = c.custid
+			WHERE (@CustID = 0 OR h.CustID = @CustID)
 			GROUP BY c.username, h.CustID
 			HAVING (@TotalBetType = 0
 					OR (@TotalBetType = 1 AND SUM(b.TotalBets) >= @TotalBetValue) 
@@ -2097,6 +2109,7 @@ BEGIN
 				INNER JOIN bodb02.dbo.custAccount a WITH(NOLOCK) ON b.recommend = a.custid
 				INNER JOIN bodb02.dbo.CustGroupHeadline h WITH(NOLOCK) ON a.groupID = h.GroupID
 				INNER JOIN bodb02.dbo.Customer c ON h.CustID = c.custid
+			WHERE (@CustID = 0 OR h.CustID = @CustID)
 			GROUP BY c.username, h.CustID
 			HAVING (@TotalBetType = 0
 					OR (@TotalBetType = 1 AND SUM(b.TotalBets) >= @TotalBetValue) 
