@@ -17,6 +17,7 @@ AS
 		20220110@Roy: Automail Report - Tune sp performance of Bet Builder repo (#167198)
 		20220907@Jaden: Change betfrom datatype (#177202)
 		20240816@Jaden: Add Live Status (#209221)
+		20240920@Jaden: Bet Builder has been offered Basketball, do not hard code Soccer (#211073)
 
 	Param's Explanation:	 
 */
@@ -264,7 +265,7 @@ AS
 			GROUP BY WinLostDate
 				,MarketId
 		)
-		SELECT 'Soccer' AS Sport
+		SELECT s.SportName AS Sport
 		   , l.leaguename
 		   , h.teamname + ' vs ' + a.teamname AS Match
 		   , d.GlobalShowTime
@@ -294,6 +295,7 @@ AS
 		  INNER JOIN @ExchangeOANDA AS e ON d.Currency = e.ExchangeID
 									 AND d.WinLostDate = e.ExchangeDate
 		  LEFT JOIN bodb02.dbo.league AS l WITH(NOLOCK) ON d.LeagueId = l.leagueid
+		  LEFT JOIN bodb02.dbo.Sports AS s WITH(NOLOCK) ON s.SportType = l.sporttype
 		  LEFT JOIN bodb02.dbo.Team AS h WITH(NOLOCK) ON h.teamid = d.HomeId
 		  LEFT JOIN bodb02.dbo.Team AS a WITH(NOLOCK) ON a.teamid = d.AwayId
 		  LEFT JOIN CTE_BetDesc AS bd ON d.WinLostDate = bd.WinLostDate AND d.MarketId = bd.MarketId
