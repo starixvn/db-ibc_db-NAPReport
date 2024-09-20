@@ -1,4 +1,4 @@
-/*<info serverAlias="DBACC-bodb02" isFunction="0" executers="bodbAdminNet" isNested="1"></info>*/
+/*<info serverAlias="DBACC-bodb02" isFunction="0" executers="wsv_nap" isNested="1"></info>*/
 ALTER PROCEDURE dbo.Acc_Rpt_FactSiteWinloss_Bettrans
 	 @winlostdate SMALLDATETIME,
 	 @isUseForPayToSupplier BIT = 0
@@ -13,6 +13,7 @@ AS
 		- 20220310@Danny: get SB bettype dynamically (#169768)
         - 20230817@Ned.Le: Remove currency test
 		- 20240123@Danny: Merge the settings of VS1 VS2 VS3 into Virtual Sports (#199544)
+		- 20240920@Danny: Email/Letstalk - Odds Boost Voucher (#210559)
 
 	Exec Acc_Rpt_FactSiteWinloss_Bettrans '2021-05-12' , 0
 
@@ -29,7 +30,7 @@ BEGIN
     INSERT INTO #tmpSBBettype (Bettype)
     SELECT DISTINCT BetType
     FROM bodb02.dbo.SportBettypeMatrix (NOLOCK)
-    WHERE ProductID = 1 --AND BetType NOT IN (29, 38, 901, 902 ,903, 904, 999, 18999)
+    WHERE ProductID = 1
     
     CREATE CLUSTERED INDEX CIX_tmpHalfWonLoseBettype ON #tmpSBBettype(Bettype)
 
@@ -148,7 +149,16 @@ BEGIN
 		   v.LeagueID					LeagueID,
 		   l.sporttype					SportID
 	FROM bodb02.dbo.VSRaceInfo v WITH (NOLOCK)
-		 LEFT JOIN bodb02.dbo.League l WITH (NOLOCK) ON v.LeagueID = l.leagueid
+		 LEFT JOIN bodb02.dbo.League3rd l WITH (NOLOCK) ON v.LeagueID = l.League3rdId
+
+	INSERT INTO #tmpGameEvent (MatchID, EventType, EventDate, LeagueID, SportID)
+	SELECT m.League3rdId MatchID,
+           5             EventType,
+           m.eventdate   EventDate,
+           m.League3rdId LeagueID,
+           l.SportType   SportID
+    FROM bodb02.dbo.Match3rd m WITH (NOLOCK)
+         LEFT JOIN bodb02.dbo.League3rd l WITH (NOLOCK) ON m.League3rdId = l.League3rdId
 
 	CREATE CLUSTERED INDEX CIX_tmpGameEvent ON #tmpGameEvent(MatchID, EventType)
 
@@ -546,7 +556,7 @@ BEGIN
 					ELSE ISNULL(si_oltp.SiteID_DW, -1) END																											SiteID,
 			   mc.currency																																			CurrencyID,
 			   CASE WHEN mc.bettype IN (9, 29) THEN -5								--Parlay
-					WHEN mc.bettype = 999 THEN -4									--Odds Spread Adjustment
+					WHEN t.BettypeGroupID = 19 THEN -4								--Odds Adjustment
 					WHEN pb.EventType = 255 THEN ISNULL(mc.matchid, -1)				--Saba.club sports
 					WHEN pb.sporttype <> -1 THEN pb.SportType						--3rd products
 					ELSE ISNULL(ev.sportID, -1) END																													Sporttype,
@@ -570,7 +580,7 @@ BEGIN
 		FROM #tmpbettrans mc
 			 LEFT JOIN #tmpDW_ProductBettype pb ON pb.bettype=mc.bettype
 			 LEFT JOIN #tmpDW_tblstatus st ON mc.status = st.status
-			 LEFT JOIN #tmpDW_BettypeGroup t ON mc.bettype = t.Bettype AND t.BettypeGroupID in (6, 10)
+			 LEFT JOIN #tmpDW_BettypeGroup t ON mc.bettype = t.Bettype AND t.BettypeGroupID in (6, 10, 19)
 			 LEFT JOIN #tmpOLTP_Customer si_oltp WITH (NOLOCK) ON mc.recommend = si_oltp.CustID
 			 LEFT JOIN #tmpGameEvent ev ON mc.matchid  =ev.matchid AND pb.EventType = ev.EventType
 		GROUP BY mc.winlostdate,
@@ -579,7 +589,7 @@ BEGIN
 					  ELSE ISNULL(si_oltp.SiteID_DW, -1) END,
 				 mc.currency,
 				 CASE WHEN mc.bettype IN (9, 29) THEN -5							--Parlay
-					  WHEN mc.bettype = 999 THEN -4									--Odds Spread Adjustment
+					  WHEN t.BettypeGroupID = 19 THEN -4							--Odds Spread Adjustment
 					  WHEN pb.EventType = 255 THEN ISNULL(mc.matchid, -1)			--Saba.club sports
 					  WHEN pb.sporttype <> -1 THEN pb.SportType						--3rd products
 					  ELSE ISNULL(ev.sportID, -1) END,
