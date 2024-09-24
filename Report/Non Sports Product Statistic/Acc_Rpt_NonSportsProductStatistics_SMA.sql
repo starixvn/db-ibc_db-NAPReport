@@ -1687,14 +1687,14 @@ BEGIN
 					SUM(BetCount) BetCount,
 					CurrencyID,
 					Currency,
-					CASE WHEN @Currency = '-1' THEN SUM(TotalBets) TotalBets,
-					SUM(TotalWins) TotalWins,
-					SUM(TotalRefund) TotalRefund,
-					SUM(CompanyTurnOver) HouseTurnOver,
-					SUM(RealTurnOver) RealTurnOver,
-					SUM(CompanyGrossIncome) HouseGrossIncome,
-					SUM(CompanyComm) HouseComm,
-					SUM(ExtraPT) ExtraPT
+					CASE WHEN @Currency = '-1' THEN SUM(TotalBetsBase) ELSE SUM(TotalBets) END AS TotalBets,
+					CASE WHEN @Currency = '-1' THEN SUM(TotalWinsBase) ELSE SUM(TotalWins) END AS TotalWins,
+					CASE WHEN @Currency = '-1' THEN SUM(TotalRefundBase) ELSE SUM(TotalRefund) END AS TotalRefund,
+					CASE WHEN @Currency = '-1' THEN SUM(CompanyTurnOverBase) ELSE SUM(CompanyTurnOver) END AS HouseTurnOver,
+					CASE WHEN @Currency = '-1' THEN SUM(RealTurnOverBase) ELSE SUM(RealTurnOver) END AS RealTurnOver,
+					CASE WHEN @Currency = '-1' THEN SUM(CompanyGrossIncomeBase) ELSE SUM(CompanyGrossIncome) END AS HouseGrossIncome,
+					CASE WHEN @Currency = '-1' THEN SUM(CompanyCommBase) ELSE SUM(CompanyComm) END AS HouseComm,
+					CASE WHEN @Currency = '-1' THEN SUM(ExtraPTBase) ELSE SUM(ExtraPT) END AS ExtraPT
 			FROM #Result d
 			GROUP BY RoleName,
 				Username,
