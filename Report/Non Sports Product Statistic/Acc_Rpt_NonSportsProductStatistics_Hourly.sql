@@ -68,6 +68,7 @@ AS
 		20230801@Cherry: Integrate Virtual Sports 3 (#189202)
 		20240116@Cherry: Integrate Virtual Sports 4 (#198623)
 		20240806@Cherry: Integrate VS5 (#207590)
+		20240926@Cherry: Integrate new sports of VS2 (#211232)
 
 	Param's Explanation:
 			 - @username:  + Search by keyword, member only
@@ -1241,7 +1242,7 @@ SET NOCOUNT ON
 							
 		FROM  dbo.Bettrans b WITH (NOLOCK)
 		WHERE b.WinlostDate = @WLDate
-			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 5 AND Eventtype = 3)
+			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE Eventtype = 3)
 			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
 			AND EXISTS (SELECT 1 From VSRaceInfo r WITH (NOLOCK) INNER JOIN #tmpSporttype sp ON sp.Sporttype = r.sporttype WHERE r.EventID = b.matchid)

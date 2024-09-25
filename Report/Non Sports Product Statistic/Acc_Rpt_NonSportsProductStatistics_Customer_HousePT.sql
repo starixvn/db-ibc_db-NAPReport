@@ -51,6 +51,7 @@ AS
 		20240116@Cherry: Integrate Virtual Sports 4 (#198623)
 		20240220@Cherry: Integrate AG Casino Jackpot Contribution (#200503)
 		20240806@Cherry: Integrate VS5 (#207590)
+		20240926@Cherry: Integrate new sports of VS2 (#211232)
 
 	Param's Explanation:
 		- @ProductID: string filter by Product 
@@ -782,7 +783,7 @@ BEGIN
 				SUM(HousePT) AS HousePT
 			FROM  #tmp_bettrans b
 				INNER JOIN dbo.VSRaceInfo r WITH (NOLOCK) ON r.EventID = b.matchid
-			WHERE b.ProductID = 5 AND b.EvenType = 3
+			WHERE b.EvenType = 3
 				AND (@Sporttype = '' OR (EXISTS(SELECT 1 FROM #tmp_SportType st WHERE st.Sporttype = r.SportType)))			  
 			GROUP BY b.ProductID
 		END
