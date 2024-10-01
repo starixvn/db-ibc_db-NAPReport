@@ -56,6 +56,7 @@ AS
 		- 20240605@Danny: Letstalk reports - Integrate the Saba Kabaddi And Remove Linked server DBCUST (#204927)
 		- 20240723@Danny: Vgaming offer promotion (#208019)
 		- 20240729@Danny: Incorporate VS5 (#206527)
+		- 20240920@Danny: Email/Letstalk - Odds Boost Voucher (#210559)
           
 */
 BEGIN
@@ -270,6 +271,15 @@ BEGIN
 		,ContraAmount		MONEY
 		,SabaCoinPerf		MONEY 
 	)
+
+	CREATE TABLE #tmpDW_BettypeGroup (
+    [BettypeGroupID] [smallint] NOT NULL,
+    [Bettype]        [int]      NOT NULL
+    )
+
+    INSERT INTO #tmpDW_BettypeGroup (BettypeGroupID, Bettype)
+    SELECT t.BettypeGroupID, t.Bettype
+    FROM bodb_Account.dbo.BettypeGroup t WITH (NOLOCK) WHERE BettypeGroupID = 19
 	--End Param And temporary table
 
 	SELECT  @IsTest = dbo.f_CheckSPVersion(@@PROCID)
@@ -589,28 +599,29 @@ BEGIN
 				;WITH CTE_SB AS (
 					SELECT rptDate, SiteId, CurrencyId, ProductId, LeagueId
 						,CASE
-							WHEN BetType IN (9, 29) THEN -2 -- Parlay
+							WHEN f.BetType IN (9, 29) THEN -2 -- Parlay
 							WHEN SportType IN (1, 2, 5, 43, 50, 47) THEN SportType -- Soccer, Basketball, Tennis, E-Sports, Cricket
 							ELSE 99 -- Other Sports
 							END AS Sporttype
 						,SUM(MemberWinloss) AS MemberWinloss
-						,SUM(CASE WHEN bettype = 999 THEN AgentWinloss ELSE 0 END) AS AgentWinloss
+						,SUM(CASE WHEN tb.BettypeGroupID = 19 THEN AgentWinloss ELSE 0 END) AS AgentWinloss
 						,SUM(CASE WHEN ProductId = 10004 THEN AgentComm ELSE 0 END) AS AgentComm
 						,-SUM(CASE WHEN ProductID = 10004 THEN 0 ELSE MemberWinloss END)  AS LicenseeWL
 						,SUM(MemberTurnover  *  CASE WHEN TicketStatus = 3 OR ProductID = 10004 THEN 0 WHEN TicketStatus IN (12, 13) THEN 0.5 ELSE 1.0 END) AS LicenseeTO
 						,SUM(ISNULL(MemberBonus,0)) AS FullParlayBoostBonus
 						,SUM(ISNULL(AgentBonusShare,0)) AS AgentParlayBoostBonusSharing
-					FROM bodb_Account.dbo.FactLADailyWinloss WITH (NOLOCK)
+					FROM bodb_Account.dbo.FactLADailyWinloss f WITH (NOLOCK)
+					LEFT JOIN #tmpDW_BettypeGroup tb ON f.bettype = tb.Bettype
 					WHERE rptDate BETWEEN @FromDateByBatch AND @ToDateByBatch
 						AND SiteId IN (SELECT SiteId_DW FROM #tmpSite)
 						AND ProductId IN (10001, 10004)
-						AND Bettype NOT IN (901, 902, 903, 904)
+						AND f.Bettype NOT IN (901, 902, 903, 904)
 						AND CurrencyId <> 20
 						AND TicketStatus NOT IN (-1, 18, 9, 10, 14)
 						--AND SiteID <> @DWH_SabaCoins_SiteID
 					GROUP BY rptDate, SiteId, CurrencyId, ProductId, LeagueId
 						,CASE
-							WHEN BetType IN (9, 29) THEN -2 -- Parlay
+							WHEN f.BetType IN (9, 29) THEN -2 -- Parlay
 							WHEN SportType IN (1, 2, 5, 43, 50, 47) THEN SportType -- Soccer, Basketball, Tennis, E-Sports, Cricket
 							ELSE 99 -- Other Sports
 							END
@@ -1615,5 +1626,6 @@ BEGIN
 	DROP TABLE #PartyChargeInfo
 	DROP TABLE #__SabaLeague
 	DROP TABLE #Result
+	DROP TABLE #tmpDW_BettypeGroup
 END
 
