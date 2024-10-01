@@ -26,6 +26,8 @@ AS
 		20240606@Cherry: Integrate Saba Kabaddi (#204927)
 		20240628@Cherry: Integrate FA CHAI (#206635)
 		20240722@Cherry: Integrate Virtual Sports 5 (#206922)
+		20240916@Cherry: Integrate ON Casino (#210031)
+		20240916@Cherry: Integrate Odds Boost Voucher (#210559)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -112,6 +114,7 @@ BEGIN
 		CustID INT
 		,PartyID INT
 	)
+	CREATE TABLE #tmpOddsAdjBettype (Bettype INT)
 	CREATE TABLE #tmpChargeInfo (
 		ChargeID INT
 		,PartyID INT
@@ -191,6 +194,11 @@ BEGIN
 	)
 	EXEC (@SQLStr) AT DBEXT
 	CREATE CLUSTERED INDEX tmpProduct3rd ON #tmpProduct3rd (Product3rdID)
+
+	INSERT INTO #tmpOddsAdjBettype (Bettype)
+	SELECT BetType
+	FROM bodb_Account.dbo.BettypeGroup WITH(NOLOCK) 
+	WHERE BettypeGroupID = 19
 	
 	-------------------Format ProductName----------------
 	UPDATE #tmpProduct3rd
@@ -237,6 +245,7 @@ BEGIN
 			WHEN ProductName = 'SABA xD' THEN 'SABAxD'
 			WHEN ProductName = 'FA CHAI' THEN 'FACHAI'
 			WHEN ProductName = 'Virtual Sports 5' THEN 'VirtSpo5'
+			WHEN ProductName = 'ON Casino' THEN 'ONCasino'
 			ELSE ProductName END)
 	
 	SELECT @EX3rdName = rd.ProductName
@@ -660,7 +669,7 @@ BEGIN
 				END) AS TurnOver
 		,SUM(CASE WHEN tg.BetTypeGroupID IS NOT NULL OR b.SportType IN (150,173) THEN 0 --Prize,Contribution,FreeBet(Saba.Cub & VGaming) => 0
 			ELSE ISNULL(winlost, 0) - ISNULL(actual_stake, 0) END) AS MemberWL
-		,SUM(CASE WHEN b.BetType = 999 THEN awinlost ELSE 0 END) AS OddsSpreadAdj
+		,SUM(CASE WHEN o.BetType IS NOT NULL THEN awinlost ELSE 0 END) AS OddsSpreadAdj
 		,SUM(CASE WHEN b.ProductID = 1 AND b.IsBA = 1 THEN b.Comm ELSE 0 END) AS BAComm --BA Commision
 		--Contribution,FreeBet--
 		,SUM(CASE WHEN tg.BetTypeGroupID = 10 THEN b.ContributionStake3rd ELSE 0 END) AS FullContribution
@@ -669,6 +678,7 @@ BEGIN
 	FROM bodb_ODS.dbo.ODS_bettrans AS b WITH (NOLOCK)
 		INNER JOIN #tmpDepSuper s ON s.CustID = b.srecommend
 		INNER JOIN #tmpBetType bt ON b.BetType = bt.BetType
+		LEFT JOIN #tmpOddsAdjBettype o ON b.bettype = o.Bettype
 		LEFT JOIN #tmpSBSports AS sp ON b.Sporttype = sp.SportGroup
 		LEFT JOIN bodb02.dbo.League AS l WITH (NOLOCK) ON b.LeagueID = l.LeagueID AND b.BetType NOT IN (9,29)
 		LEFT JOIN #tmpSabaLG AS slg ON l.LeagueGroupID = slg.LeagueGroupID
@@ -910,4 +920,5 @@ BEGIN
 	DROP TABLE #tmpProduct3rd
 	DROP TABLE #tmpFinal
 	DROP TABLE #tmpEXBettrans
+	DROP TABLE #tmpOddsAdjBettype
 END

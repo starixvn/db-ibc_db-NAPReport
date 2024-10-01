@@ -19,6 +19,8 @@ AS
 		20231114@Roy: NAP Reports - Move SEAL8888 into Credit Group (#195730)
 		20240229@Roy: AG Casino - Email/Letstalk Reports - Add promotion & Jackpot bet type (#200523)
 		20240606@Cherry: Integrate Saba Kabaddi (#204927)
+		20240916@Cherry: Integrate Odds Boost Voucher (#210559)
+		20240927@Cherry: Move 8RM from XYZ to Other Credit (#211362)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -64,6 +66,8 @@ BEGIN
 	END
 	
 	--CREATE temp tables--
+	CREATE TABLE #tmpOddsAdjBettype (Bettype INT)
+
 	CREATE TABLE #tmpDWSite (
 		[Site] VARCHAR(20)
 		,IsDeposit BIT
@@ -227,7 +231,7 @@ BEGIN
 			WHEN bs.SourceTable = 'bettransLC' THEN 2
 			ELSE 3
 		END AS RefTable
-		,CASE WHEN pb.ProductID = 1 AND pb.Bettype NOT IN (29, 38, 901, 902 ,903, 904, 999, 18999) THEN 1
+		,CASE WHEN pb.ProductID = 1 AND pb.Bettype NOT IN (29, 38, 901, 902 ,903, 904, 18999) THEN 1
 			ELSE 0
 		END AS HalfBettype
 	FROM dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '', 0) AS pb
@@ -603,7 +607,7 @@ BEGIN
 			) AS bb ON pb.Bettype = bb.Bettype
 	--------------------------------GroupBySite---------------------------
 	;WITH CTE_ProductSite AS (
-		SELECT CASE WHEN d.Site IN ('BEST-ODDS', 'XYZBET', '8RM') THEN 'XYZ & BO'
+		SELECT CASE WHEN d.Site IN ('BEST-ODDS', 'XYZBET') THEN 'XYZ & BO'
 				WHEN d.Site IN ('611111') THEN '611 (Chi)'
 				WHEN d.Site IN ('733333') THEN '733 (Mala)'
 				WHEN d.Site IN ('755555') THEN '755 (Thai)'
@@ -612,7 +616,7 @@ BEGIN
 				WHEN d.Site IN ('76666B') THEN 'Myanmar'
 				WHEN pb.ProductID = 1 AND d.Site IN ('789y', 'y987') THEN 'Y SB'
 				WHEN pb.ProductID <> 1 AND d.Site IN ('789y', 'y987') THEN 'Y NS'
-				WHEN (d.IsDeposit = 0) THEN 'Other Credit' --follow DW tbl_Site, Saba789 + SEAL888 is Credit
+				WHEN d.Site = '8RM' OR d.IsDeposit = 0 THEN 'Other Credit' --follow DW tbl_Site, Saba789 + SEAL888 is Credit
 				WHEN d.IsDeposit = 1 AND d.Site LIKE '%CV' AND pb.ProductID = 1 THEN 'CV SB'
 				WHEN d.IsDeposit = 1 AND d.Site LIKE '%CV' AND pb.ProductID <> 1 THEN 'CV NS'
 				WHEN d.IsDeposit = 1 AND pb.ProductID = 1 THEN 'C SB'
@@ -625,7 +629,7 @@ BEGIN
 		FROM #tmpRawData AS d WITH (NOLOCK)
 			INNER JOIN #tmpProductBettype AS pb WITH (NOLOCK) ON d.Bettype = pb.Bettype
 		-- WHERE pb.ProductID NOT IN ( 25, 31, 37 ) --Old Cash Out, Exchange, Saba Promotion
-		GROUP BY CASE WHEN d.Site IN ('BEST-ODDS', 'XYZBET', '8RM') THEN 'XYZ & BO'
+		GROUP BY CASE WHEN d.Site IN ('BEST-ODDS', 'XYZBET') THEN 'XYZ & BO'
 				WHEN d.Site IN ('611111') THEN '611 (Chi)'
 				WHEN d.Site IN ('733333') THEN '733 (Mala)'
 				WHEN d.Site IN ('755555') THEN '755 (Thai)'
@@ -634,7 +638,7 @@ BEGIN
 				WHEN d.Site IN ('76666B') THEN 'Myanmar'
 				WHEN pb.ProductID = 1 AND d.Site IN ('789y', 'y987') THEN 'Y SB'
 				WHEN pb.ProductID <> 1 AND d.Site IN ('789y', 'y987') THEN 'Y NS'
-				WHEN (d.IsDeposit = 0) THEN 'Other Credit' --follow DW tbl_Site, Saba789 + SEAL888 is Credit
+				WHEN d.Site = '8RM' OR d.IsDeposit = 0 THEN 'Other Credit' --follow DW tbl_Site, Saba789 + SEAL888 is Credit
 				WHEN d.IsDeposit = 1 AND d.Site LIKE '%CV' AND pb.ProductID = 1 THEN 'CV SB'
 				WHEN d.IsDeposit = 1 AND d.Site LIKE '%CV' AND pb.ProductID <> 1 THEN 'CV NS'
 				WHEN d.IsDeposit = 1 AND pb.ProductID = 1 THEN 'C SB'
