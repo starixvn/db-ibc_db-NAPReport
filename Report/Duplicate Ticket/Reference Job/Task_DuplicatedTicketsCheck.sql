@@ -2,6 +2,7 @@
 ALTER PROCEDURE [dbo].[Task_DuplicatedTicketsCheck]
     @TransRangeSec SMALLINT = 3
     ,@TransDiffMillisec INT = 1000
+    ,@SingleWalletSite NVARCHAR(MAX) = NULL
 AS
 /*
     Created: 20150211@Sophia
@@ -44,6 +45,8 @@ AS
          - 20230719@Roy: NAP Report - Integrate product Leap Gaming VS (VS3) (#189510)
          - 20240126@Jaden.Tang: Merge VS1, VS2, VS3 and VS4 (#199896)
          - 20240622@Dominic.Dao: Exclude single wallet
+         - 20241004@Jaden.Tang: Pass @SingleWalletSite from parameter, data from DBCUST.Acc_Site_SiteDBGroupID_Select (#206895)
+                @SingleWalletSite = '[{"Site": NVARCHAR(100), "SiteDBGroupID": SMALLINT, "IsSpecial": BIT}]'
 */
 
 BEGIN
@@ -97,12 +100,13 @@ BEGIN
 
     ;WITH CTE AS
     (
-        SELECT DISTINCT vp.SiteName 
-        FROM DBCUST.SiteConfig.dbo.LicVendorProfile vp WITH(NOLOCK)
-            INNER JOIN DBCUST.SiteConfig.dbo.configMaster cm WITH(NOLOCK) ON vp.SiteId = cm.SiteId
-            INNER JOIN DBCUST.SiteConfig.dbo.configdetail cd WITH(NOLOCK) ON cm.ConfigId = cd.ConfigID
-        WHERE cd.KeyName = 'EnableSingleWallet'
-            AND cd.KeyValue = 'true'
+        SELECT *
+        FROM OPENJSON(@SingleWalletSite)
+        WITH (
+            SiteName NVARCHAR(100) '$.Site',
+            SiteDBGroupID SMALLINT '$.SiteDBGroupID',
+            IsSpecial BIT '$.IsSpecial'
+        )
     )
     INSERT INTO #SingleWalletSite (SiteID)
     SELECT s.siteid
