@@ -305,8 +305,7 @@ BEGIN
 					Bettype, HousePT, RowNum
 				)
 				SELECT
-					CASE WHEN s.ProductID = 33 THEN SUM(b.betid)  -- Poker Games
-						 ELSE COUNT(b.transid) END AS BetCount,
+					COUNT(CASE WHEN bt.Bettype IS NOT NULL THEN NULL ELSE b.transid END) AS BetCount,
 					SUM(actual_stake) AS TotalBets,
 					SUM(actual_stake * actualrate) AS TotalBetsBase,
 					SUM(winlost) AS TotalWins,
