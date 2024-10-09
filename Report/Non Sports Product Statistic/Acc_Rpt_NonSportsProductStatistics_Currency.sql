@@ -64,6 +64,7 @@ AS
 		20240116@Cherry: Integrate Virtual Sports 4 (#198623)
 		20240220@Cherry: Integrate AG Casino Jackpot Contribution (#200503)
 		20240806@Cherry: Integrate VS5 (#207590)
+		20240926@Cherry: Integrate new sports of VS2 (#211232)
 
 	Param's Explanation:
 		- @Username:  + Search by keyword, member only
@@ -1341,9 +1342,9 @@ BEGIN
 		OPTION(RECOMPILE)
 	END
 		
-	IF EXISTS (SELECT 1 FROM #tmp_ProductID WHERE ProductID = 5)
+	IF EXISTS (SELECT 1 FROM #SportBettype WHERE Eventype = 3)
 	BEGIN			
-		-- Virtual Sport (HR)
+		
 		INSERT INTO #Data
 				( recommend ,
 				  srecommend,
@@ -1401,7 +1402,7 @@ BEGIN
 		FROM  dbo.Bettrans b WITH (NOLOCK)
 		
 		WHERE b.WinlostDate = @WLDate
-			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 5 AND Eventype = 3)
+			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE Eventype = 3)
 			AND b.ruben = 1
 			AND b.statusID IN (111, 112, 113, 103) -- won/lose/draw/refund tickets
 			AND (@Sporttype = '' OR
