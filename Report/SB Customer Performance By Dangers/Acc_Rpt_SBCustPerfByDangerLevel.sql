@@ -385,20 +385,19 @@ BEGIN
         CustID INT
         ,NoAssoc INT
     )
+    CREATE TABLE #custAsso (CustID INT, AssoCustID INT)
     
-    ;WITH CTE_Assoc AS (
-        SELECT a.CustID
-            ,a.AssoCustID
-        FROM bodb_Account.dbo.CTS_Association AS a WITH (NOLOCK)
-        WHERE CustID IN (SELECT CustID FROM #tmpFiltered)
-        GROUP BY a.CustID
-            ,a.AssoCustID
-    )
+    INSERT INTO #custAsso (CustID, AssoCustID)
+    select custid, assoCustID
+    FROM bodb_Account.dbo.CTS_Association AS a WITH (NOLOCK)
+    WHERE CustID IN (SELECT CustID FROM #tmpFiltered)
+    OPTION (RECOMPILE, MAX_GRANT_PERCENT=20)
+    
     INSERT INTO #tmpNoAssocByCust ( CustID, NoAssoc )
-    SELECT CustID
-        ,COUNT(1) NoAssoc
-    FROM CTE_Assoc
-    GROUP BY CustID
+    select custid, count(distinct assoCustID) 
+    from #custAsso
+    group by custid
+    OPTION (RECOMPILE, MAX_GRANT_PERCENT=20)
 
     ---Return result---
     ;WITH CTE_Filtered AS (
@@ -456,4 +455,5 @@ BEGIN
     DROP TABLE #tmpRawData
     DROP TABLE #tmpFiltered
     DROP TABLE #tmpNoAssocByCust
+    DROP TABLE #custAsso
 END
