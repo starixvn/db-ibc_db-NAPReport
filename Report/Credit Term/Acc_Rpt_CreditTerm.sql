@@ -1,4 +1,4 @@
-/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBACC-bodb02" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
 
 USE [bodb02]
 GO
@@ -240,7 +240,7 @@ BEGIN
 	--Groups:
 	SELECT
 		a.groupID,
-		b.Username, b.currency, b.Role,
+		b.Username, b.currency, e.currency CurrencyName, b.Role,
 		b.Balance, b.Balance * b.actualrate Balance_Base,
 		a.PreAgreeAmount, a.AccountRemark, 
 		g.phone, g.checkerid, g.checkername,
@@ -252,6 +252,7 @@ BEGIN
 		custAccount a with (nolock)
 		INNER JOIN #Balance b ON a.custid = b.custid
 		INNER JOIN #groupHeadLine g ON a.groupID = g.groupID 
+		INNER JOIN bodb02.dbo.Exchange e ON b.currency = e.exchangeid
 	WHERE
 		a.groupID = 0 
 		and isnull(g.checkername, '') = coalesce(@checkername, isnull(g.checkername, ''))
@@ -261,7 +262,7 @@ BEGIN
 	UNION ALL
 	SELECT
 		g.groupID,
-		g.Username, g.currency, g.Role,
+		g.Username, g.currency, e.currency CurrencyName, g.Role,
 		b.TotalBalance Balance, b.TotalBalance_Base Balance_Base,
 		g.PreAgreeAmount, g.AccountRemark, 
 		g.phone, g.checkerid,g.checkername,
@@ -284,6 +285,7 @@ BEGIN
 			b.groupID, h.actualrate, h.preAgreeAmount
 		) b
 		INNER JOIN #groupHeadLine g ON b.groupID = g.groupID
+		INNER JOIN bodb02.dbo.Exchange e ON g.currency = e.exchangeid
 	WHERE 
 		isnull(g.checkername, '') = coalesce(@checkername, isnull(g.checkername, ''))
 		and isnull(g.preAgreeAmount, 0) >= coalesce(@pre1, isnull(g.preAgreeAmount, 0))
@@ -299,7 +301,7 @@ BEGIN
 	--Groups'detail:
 	SELECT
 		a.groupID,b.custid,
-		b.Username, b.currency, b.Role,
+		b.Username, b.currency, e.currency CurrencyName, b.Role,
 		b.Balance, b.Balance* b.actualrate Balance_Base,
 		(b.Balance*b.actualrate) / g.actualrate Balance_Group,
 		a.AccountRemark, a.AccountRemarkDate,
@@ -309,6 +311,7 @@ BEGIN
 		custAccount a with (nolock)
 		INNER JOIN #Balance b ON a.custid = b.custid
 		INNER JOIN #groupHeadLine g ON a.groupID = g.groupID
+		INNER JOIN bodb02.dbo.Exchange e ON g.currency = e.exchangeid
 	ORDER BY
 		a.groupID,
 		a.IsGroupHeadLine DESC, 
