@@ -24,7 +24,8 @@ ALTER PROCEDURE [dbo].[Acc_Rpt_NonSportsProductStatistics_SMA]
 	@HousePTValue   MONEY = 0,
 	@IsDrillDown	BIT = 0,
 	@IsGrandTotal	BIT = 0,
-	@IsExactly		BIT = 0
+	@IsExactly		BIT = 0,
+	@ExcludeNoData BIT = 0
 	
 AS
 /*
@@ -67,8 +68,8 @@ BEGIN
 	DECLARE @WLDate SMALLDATETIME
 	SELECT @WLDate = CAST(@WinlostDate AS SMALLDATETIME)
 
-	CREATE TABLE #Data ( recommend INT, srecommend INT, mrecommend INT, bettype INT,						 						 
-						 BetCount INT, CurrencyID INT, Currency NVARCHAR(50),
+	CREATE TABLE #Data ( recommend INT, srecommend INT, mrecommend INT, custid INT,						 						 
+						 bettype INT, BetCount INT, CurrencyID INT, Currency NVARCHAR(50),
 						 TotalBets DECIMAL(19,4), TotalBetsBase DECIMAL(19,4),
 						 TotalWins DECIMAL(19,4), TotalWinsBase DECIMAL(19,4),
 						 TotalRefund DECIMAL(19,4), TotalRefundBase DECIMAL(19,4),
@@ -119,6 +120,7 @@ BEGIN
 	CREATE TABLE #tmpHouseProduct (ProductID INT)
 	CREATE TABLE #tmpDummyCust (CustID INT)
 	CREATE TABLE #tmpVirtualSport (ProductID INT)
+	CREATE TABLE #tmpSMA (CustID INT, Username VARCHAR(50), RoleID INT)
 
 	DECLARE @VirtualSportGroupStr VARCHAR(500)
     SELECT  @VirtualSportGroupStr = VValue
@@ -313,7 +315,7 @@ BEGIN
 	WHERE bettype NOT IN (SELECT bettype FROM #SportBettype) 
 
 	DELETE #SportBettype
-	WHERE bettype IN (SELECT bettype FROM #tmpContributionBettype)	
+	WHERE bettype IN (SELECT bettype FROM #tmpContributionBettype)		
 	
 	CREATE NONCLUSTERED INDEX Idx_recommendID ON #recommend (recommend)	
 	CREATE CLUSTERED INDEX IX_SportBettype ON #SportBettype (ProductID, Bettype, EvenType, RefTable)  
@@ -331,6 +333,7 @@ BEGIN
 				( recommend,
 				  srecommend,
 				  mrecommend,
+				  custid,
 				  bettype,				  
 				  BetCount ,
 				  CurrencyID ,	         
@@ -351,7 +354,7 @@ BEGIN
 				  ExtraPT,
 				  ExtraPTBase
 				)
-		SELECT b.recommend, b.srecommend, b.mrecommend, b.bettype,					
+		SELECT b.recommend, b.srecommend, b.mrecommend, b.custid, b.bettype,					
 
 				COUNT(CASE WHEN d.CustID IS NOT NULL THEN NULL
 						WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS BetCount, b.Currency, 
@@ -408,7 +411,7 @@ BEGIN
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 				)
-		GROUP BY b.recommend, b.mrecommend,			 
+		GROUP BY b.recommend, b.mrecommend,	b.custid,		 
 			b.Currency, srecommend, b.bettype 
 		
 		OPTION(RECOMPILE)		
@@ -417,6 +420,7 @@ BEGIN
 					( recommend ,
 					  srecommend, 
 					  mrecommend,
+					  custid,
 					  bettype ,					  
 					  BetCount ,
 					  CurrencyID ,	          
@@ -435,7 +439,7 @@ BEGIN
 					  ExtraPT,
 					  ExtraPTBase
 					)
-		SELECT	b.recommend, b.srecommend, b.mrecommend, b.bettype,				
+		SELECT	b.recommend, b.srecommend, b.mrecommend, b.custid, b.bettype,				
 				0 AS BetCount, b.currency, 
 
 				SUM(CASE WHEN b.statusID IN (103) THEN 0 ELSE actual_stake END) AS TotalBets,
@@ -482,7 +486,7 @@ BEGIN
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 			)
-		GROUP BY b.recommend, b.mrecommend,				
+		GROUP BY b.recommend, b.mrecommend,	b.custid,			
 				b.currency, b.srecommend, b.bettype
 			
 		OPTION(RECOMPILE)
@@ -501,6 +505,7 @@ BEGIN
 					( recommend ,
 					  srecommend,
 					  mrecommend,
+					  custid,
 					  bettype,					  
 					  BetCount ,
 					  CurrencyID ,	          
@@ -519,7 +524,7 @@ BEGIN
 					  ExtraPT,
 					  ExtraPTBase
 					)
-			SELECT	b.recommend, b.srecommend, b.mrecommend, b.gameID,
+			SELECT	b.recommend, b.srecommend, b.mrecommend, b.custid, b.gameID,
 			
 					COUNT(CASE WHEN StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount, b.currency, 
 
@@ -565,7 +570,7 @@ BEGIN
 					OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 					OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 				)
-			GROUP BY b.recommend, b.mrecommend, b.currency, b.srecommend, b.gameID
+			GROUP BY b.recommend, b.mrecommend, b.currency, b.srecommend, b.gameID, b.custid
 			
 			OPTION(RECOMPILE)
 		END
@@ -576,6 +581,7 @@ BEGIN
 				( recommend ,
 				  srecommend,
 				  mrecommend,
+				  custid,
 				  bettype,				  
 				  BetCount ,
 				  CurrencyID ,	          
@@ -594,7 +600,7 @@ BEGIN
 				  ExtraPT,
 				  ExtraPTBase
 				)
-			SELECT	b.recommend, b.srecommend, b.mrecommend, b.gameID,
+			SELECT	b.recommend, b.srecommend, b.mrecommend, b.custid, b.gameID,
 					
 					COUNT(CASE WHEN StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount, b.currency, 
 
@@ -640,7 +646,7 @@ BEGIN
 					OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 					OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 				)
-			GROUP BY b.recommend, b.mrecommend, b.currency, b.srecommend, b.gameID
+			GROUP BY b.recommend, b.mrecommend, b.currency, b.srecommend, b.gameID, b.custid
 			
 			OPTION(RECOMPILE)
 		END
@@ -655,6 +661,7 @@ BEGIN
 					( recommend ,
 					  srecommend, 
 					  mrecommend,
+					  custid,
 					  bettype,					  
 					  BetCount ,
 					  CurrencyID ,	          
@@ -673,7 +680,7 @@ BEGIN
 					  ExtraPT,
 					  ExtraPTBase
 					)
-			SELECT	b.recommend, b.srecommend, b.mrecommend, b.gameID,
+			SELECT	b.recommend, b.srecommend, b.mrecommend, b.custid, b.gameID,
 					
 					0 AS BetCount, b.currency, 
 
@@ -722,7 +729,7 @@ BEGIN
 					OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 					OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 				)
-			GROUP BY b.recommend, b.mrecommend, b.currency, b.srecommend, b.gameID
+			GROUP BY b.recommend, b.mrecommend, b.currency, b.srecommend, b.gameID, b.custid
 			
 			OPTION(RECOMPILE)
 		END
@@ -732,6 +739,7 @@ BEGIN
 				( recommend ,
 				  srecommend,
 				  mrecommend,
+				  custid,
 				  bettype,				 
 				  BetCount ,
 				  CurrencyID ,	          
@@ -752,7 +760,7 @@ BEGIN
 				  ExtraPT,
 				  ExtraPTBase
 				)
-		SELECT	b.recommend, b.srecommend, b.mrecommend, b.gameID,
+		SELECT	b.recommend, b.srecommend, b.mrecommend, b.custid, b.gameID,
 				
 				COUNT(CASE WHEN StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount, b.Currency, 
 
@@ -805,7 +813,7 @@ BEGIN
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 			)
-		GROUP BY b.recommend, b.mrecommend, b.currency, b.srecommend, b.gameID		
+		GROUP BY b.recommend, b.mrecommend, b.currency, b.srecommend, b.gameID, b.custid		
 		
 		OPTION(RECOMPILE)
 	END
@@ -816,6 +824,7 @@ BEGIN
 				( recommend,
 				  srecommend,
 				  mrecommend,
+				  custid,
 				  bettype,
 				  BetCount ,
 				  CurrencyID ,	         
@@ -834,7 +843,7 @@ BEGIN
 				  ExtraPT,
 				  ExtraPTBase
 				)
-		SELECT b.recommend, b.srecommend, b.mrecommend, b.bettype,			
+		SELECT b.recommend, b.srecommend, b.mrecommend, b.custid, b.bettype,			
 
 				SUM(CASE WHEN b.statusID IN (111, 112, 113) THEN b.betid ELSE 0 END) AS BetCount, b.Currency, 
 
@@ -877,7 +886,7 @@ BEGIN
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 				)
-		GROUP BY b.recommend, b.mrecommend, b.Currency, b.srecommend, b.bettype
+		GROUP BY b.recommend, b.mrecommend, b.Currency, b.srecommend, b.bettype, b.custid
 		
 		OPTION(RECOMPILE)
 		
@@ -889,6 +898,7 @@ BEGIN
 				( recommend ,
 				  srecommend,
 				  mrecommend,
+				  custid,
 				  bettype,				  
 				  BetCount ,
 				  CurrencyID ,
@@ -906,7 +916,7 @@ BEGIN
 				  CompanyCommBase,
 				  ExtraPT,
 				  ExtraPTBase)
-		SELECT	b.recommend, b.srecommend, b.mrecommend, b.bettype,				
+		SELECT	b.recommend, b.srecommend, b.mrecommend, b.custid, b.bettype,				
 
 				COUNT(CASE WHEN StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount, b.Currency, 
 
@@ -956,7 +966,7 @@ BEGIN
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 				)
-		GROUP BY b.recommend, b.mrecommend, b.Currency, b.srecommend, b.bettype
+		GROUP BY b.recommend, b.mrecommend, b.Currency, b.srecommend, b.bettype, b.custid
 		
 		OPTION(RECOMPILE)
 		
@@ -968,6 +978,7 @@ BEGIN
 				( recommend ,
 				  srecommend,
 				  mrecommend,
+				  custid,
 				  bettype,				
 				  BetCount ,
 				  CurrencyID ,
@@ -986,7 +997,7 @@ BEGIN
 				  ExtraPT,
 				  ExtraPTBase
 				)	
-		SELECT	b.recommend, b.srecommend, b.mrecommend, b.bettype,				
+		SELECT	b.recommend, b.srecommend, b.mrecommend, b.custid, b.bettype,				
 
 				COUNT(CASE WHEN StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount, b.Currency, 
 
@@ -1033,7 +1044,7 @@ BEGIN
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 				)
-		GROUP BY b.recommend, b.mrecommend, b.Currency, b.srecommend, b.bettype
+		GROUP BY b.recommend, b.mrecommend, b.Currency, b.srecommend, b.bettype, b.custid
 		
 		OPTION(RECOMPILE)
 		
@@ -1045,6 +1056,7 @@ BEGIN
 				( recommend ,
 				  srecommend,
 				  mrecommend,
+				  custid,
 				  bettype,				 
 				  BetCount ,
 				  CurrencyID ,
@@ -1063,7 +1075,7 @@ BEGIN
 				  ExtraPT,
 				  ExtraPTBase
 				)	
-		SELECT	b.recommend, b.srecommend, b.mrecommend, b.bettype,				
+		SELECT	b.recommend, b.srecommend, b.mrecommend, b.custid, b.bettype,				
 
 				COUNT(CASE WHEN StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount, b.Currency, 
 
@@ -1112,7 +1124,7 @@ BEGIN
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 				)
-		GROUP BY b.recommend, b.mrecommend, b.Currency, b.srecommend, b.bettype
+		GROUP BY b.recommend, b.mrecommend, b.Currency, b.srecommend, b.bettype, b.custid
 		
 		OPTION(RECOMPILE)		
 
@@ -1120,6 +1132,7 @@ BEGIN
 				( recommend ,
 				  srecommend,
 				  mrecommend,
+				  custid,
 				  bettype,				
 				  BetCount ,
 				  CurrencyID ,
@@ -1138,7 +1151,7 @@ BEGIN
 				  ExtraPT,
 				  ExtraPTBase
 				)	
-		SELECT	b.recommend, b.srecommend, b.mrecommend, b.bettype,				
+		SELECT	b.recommend, b.srecommend, b.mrecommend, b.custid, b.bettype,				
 
 				COUNT(CASE WHEN StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount, b.Currency, 
 
@@ -1187,7 +1200,7 @@ BEGIN
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 				)
-		GROUP BY b.recommend, b.mrecommend, b.Currency, b.srecommend, b.bettype
+		GROUP BY b.recommend, b.mrecommend, b.Currency, b.srecommend, b.bettype, b.custid
 		
 		OPTION(RECOMPILE)		
 	END
@@ -1199,6 +1212,7 @@ BEGIN
 				( recommend ,
 				  srecommend,
 				  mrecommend,
+				  custid,
 				  bettype,			
 				  BetCount ,
 				  CurrencyID ,	          
@@ -1217,7 +1231,7 @@ BEGIN
 				  ExtraPT,
 				  ExtraPTBase
 				)
-		SELECT	b.recommend, b.srecommend, b.mrecommend, b.bettype,				
+		SELECT	b.recommend, b.srecommend, b.mrecommend, b.custid, b.bettype,				
 
 				COUNT(CASE WHEN StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount, b.Currency, 
 
@@ -1268,7 +1282,7 @@ BEGIN
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 				)				  
-		GROUP BY b.recommend, b.mrecommend, b.Currency, b.srecommend, b.bettype
+		GROUP BY b.recommend, b.mrecommend, b.Currency, b.srecommend, b.bettype, b.custid
 		OPTION(RECOMPILE)
 	END
 
@@ -1295,6 +1309,7 @@ BEGIN
 			( recommend ,
 				srecommend,
 				mrecommend,
+				custid,
 				bettype,				
 				BetCount ,
 				CurrencyID ,
@@ -1313,7 +1328,7 @@ BEGIN
 				ExtraPT,
 				ExtraPTBase
 			)	
-	SELECT	b.recommend, b.srecommend, b.mrecommend, b.bettype,			
+	SELECT	b.recommend, b.srecommend, b.mrecommend, b.custid, b.bettype,			
 
 			COUNT(CASE WHEN StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount, b.Currency, 
 
@@ -1361,7 +1376,7 @@ BEGIN
 			OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 			OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 			)
-	GROUP BY b.recommend, b.mrecommend, b.Currency, b.srecommend, b.bettype
+	GROUP BY b.recommend, b.mrecommend, b.Currency, b.srecommend, b.bettype, b.custid
 	OPTION(RECOMPILE)
 	
 	--Update Real Turnover
@@ -1394,6 +1409,13 @@ BEGIN
 	FROM #Data d
 		INNER JOIN dbo.Exchange e ON e.exchangeid = d.CurrencyID
 	-- End Currency Name	
+
+	INSERT INTO #tmpSMA (CustID, Username, RoleID)
+	SELECT c.custid, c.username, c.roleid
+	FROM bodb02.dbo.custAccount a WITH(NOLOCK) 
+		INNER JOIN bodb02.dbo.CustGroupHeadline h WITH(NOLOCK) ON a.groupID = h.GroupID
+		INNER JOIN bodb02.dbo.Customer c ON a.CustID = c.custid 		
+	WHERE h.custid = @Headline
 		
 	INSERT INTO #tmpResult
 		(	RoleName,
@@ -1443,12 +1465,8 @@ BEGIN
 		SUM(b.ExtraPT) ExtraPT,
 		SUM(b.ExtraPTBase) ExtraPTBase
 	FROM #Data b
-		INNER JOIN bodb02.dbo.custAccount a WITH(NOLOCK) ON b.srecommend = a.custid
-		INNER JOIN bodb02.dbo.CustGroupHeadline h WITH(NOLOCK) ON a.groupID = h.GroupID
-		INNER JOIN bodb02.dbo.Customer c ON h.CustID = c.custid
-		INNER JOIN bodb02.dbo.Customer s ON a.custid = s.custid
-	WHERE c.custid = @Headline
-		AND @RoleID IN (0,4)
+		INNER JOIN #tmpSMA s WITH(NOLOCK) ON b.srecommend = s.custid	
+	WHERE @RoleID IN (0,4)
 	GROUP BY s.username, s.CustID	
 
 	INSERT INTO #tmpResult
@@ -1499,12 +1517,8 @@ BEGIN
 		SUM(b.ExtraPT) ExtraPT,
 		SUM(b.ExtraPTBase) ExtraPTBase
 	FROM #Data b
-		INNER JOIN bodb02.dbo.custAccount a WITH(NOLOCK) ON b.mrecommend = a.custid
-		INNER JOIN bodb02.dbo.CustGroupHeadline h WITH(NOLOCK) ON a.groupID = h.GroupID
-		INNER JOIN bodb02.dbo.Customer c ON h.CustID = c.custid
-		INNER JOIN bodb02.dbo.Customer s ON a.custid = s.custid
-	WHERE c.custid = @Headline
-		AND @RoleID IN (0,3)
+		INNER JOIN #tmpSMA s WITH(NOLOCK) ON b.mrecommend = s.custid	
+	WHERE @RoleID IN (0,3)
 	GROUP BY s.username, s.CustID	
 
 	INSERT INTO #tmpResult
@@ -1555,12 +1569,60 @@ BEGIN
 		SUM(b.ExtraPT) ExtraPT,
 		SUM(b.ExtraPTBase) ExtraPTBase
 	FROM #Data b
-		INNER JOIN bodb02.dbo.custAccount a WITH(NOLOCK) ON b.recommend = a.custid
-		INNER JOIN bodb02.dbo.CustGroupHeadline h WITH(NOLOCK) ON a.groupID = h.GroupID
-		INNER JOIN bodb02.dbo.Customer c ON h.CustID = c.custid
-		INNER JOIN bodb02.dbo.Customer s ON a.custid = s.custid
-	WHERE c.custid = @Headline
-		AND @RoleID IN (0,2)
+		INNER JOIN #tmpSMA s WITH(NOLOCK) ON b.recommend = s.custid	
+	WHERE @RoleID IN (0,2)
+	GROUP BY s.username, s.CustID
+
+	INSERT INTO #tmpResult
+			(	RoleName,
+				Username ,
+				CustID ,					
+				BetCount ,
+				CurrencyID ,
+				Currency ,
+				TotalBets ,
+				TotalWins ,
+				TotalRefund ,
+				CompanyTurnOver ,
+				RealTurnOver,
+				CompanyGrossIncome ,
+				CompanyComm,
+				TotalBetsBase,
+				TotalWinsBase,
+				TotalRefundBase,
+				CompanyTurnOverBase,
+				RealTurnOverBase,
+				CompanyGrossIncomeBase,
+				CompanyCommBase,
+				ExtraPT,
+				ExtraPTBase
+			)
+	SELECT 
+		'Member',
+		s.username,
+		s.CustID,
+		SUM(BetCount) AS BetCount ,
+		b.CurrencyID AS CurrencyId, 
+		b.Currency AS Currency,
+		SUM (b.TotalBets) AS TotalBets, 
+		SUM (b.TotalWins) AS TotalWins,
+		SUM (b.TotalRefund) AS TotalRefund,
+		SUM (b.CompanyTurnOver) AS CompanyTurnover,
+		SUM (b.RealTurnOver) AS RealTurnover,
+		SUM (b.CompanyGrossIncome) AS CompanyGrossIncome,
+		SUM (b.CompanyComm) AS CompanyComm,
+		SUM (b.TotalBetsBase) AS TotalBetsBase, 
+		SUM (b.TotalWinsBase) AS TotalWinsBase,
+		SUM (b.TotalRefundBase) AS TotalRefundBase,
+		SUM (b.CompanyTurnOverBase) AS CompanyTurnoverBase,
+		SUM (b.RealTurnOverBase) AS RealTurnoverBase,
+		SUM (b.CompanyGrossIncomeBase) AS CompanyGrossIncomeBase,
+		SUM (b.CompanyCommBase) AS CompanyCommBase,
+		SUM(b.ExtraPT) ExtraPT,
+		SUM(b.ExtraPTBase) ExtraPTBase
+	FROM #Data b
+		INNER JOIN #tmpSMA s WITH(NOLOCK) ON b.custid = s.custid	
+	WHERE @RoleID IN (0,1)
 	GROUP BY s.username, s.CustID
 	
 	IF @Currency = '-1'
@@ -1679,9 +1741,10 @@ BEGIN
 	------------------------------------------IV. Return Detail ------------------------------------------------------
 	IF @IsGrandTotal = 0
 	BEGIN
-		IF @IsDrillDown = 0
+		IF @IsDrillDown = 0  
 		BEGIN
-			SELECT  RoleName,
+			IF @ExcludeNoData = 1
+				SELECT  RoleName,
 					Username,
 					CustID,
 					SUM(BetCount) BetCount,
@@ -1695,13 +1758,40 @@ BEGIN
 					CASE WHEN @Currency = '-1' THEN SUM(CompanyGrossIncomeBase) ELSE SUM(CompanyGrossIncome) END AS HouseGrossIncome,
 					CASE WHEN @Currency = '-1' THEN SUM(CompanyCommBase) ELSE SUM(CompanyComm) END AS HouseComm,
 					CASE WHEN @Currency = '-1' THEN SUM(ExtraPTBase) ELSE SUM(ExtraPT) END AS ExtraPT
-			FROM #Result d
-			GROUP BY RoleName,
-				Username,
-				CustID,
-				CurrencyID,
-				Currency
-			ORDER BY RoleName, Username
+				FROM #Result d
+				GROUP BY RoleName,
+					Username,
+					CustID,
+					CurrencyID,
+					Currency
+				ORDER BY RoleName, Username
+			ELSE
+				SELECT CASE WHEN s.RoleID = 4 THEN 'Super'
+					WHEN s.RoleID = 3 THEN 'Master'
+					WHEN s.RoleID = 2 THEN 'Agent'
+					WHEN s.RoleID = 1 THEN 'Member'
+					END RoleName,
+					s.Username,
+					s.CustID,
+					SUM(BetCount) BetCount,
+					d.CurrencyID,
+					d.Currency,
+					CASE WHEN @Currency = '-1' THEN SUM(TotalBetsBase) ELSE SUM(TotalBets) END AS TotalBets,
+					CASE WHEN @Currency = '-1' THEN SUM(TotalWinsBase) ELSE SUM(TotalWins) END AS TotalWins,
+					CASE WHEN @Currency = '-1' THEN SUM(TotalRefundBase) ELSE SUM(TotalRefund) END AS TotalRefund,
+					CASE WHEN @Currency = '-1' THEN SUM(CompanyTurnOverBase) ELSE SUM(CompanyTurnOver) END AS HouseTurnOver,
+					CASE WHEN @Currency = '-1' THEN SUM(RealTurnOverBase) ELSE SUM(RealTurnOver) END AS RealTurnOver,
+					CASE WHEN @Currency = '-1' THEN SUM(CompanyGrossIncomeBase) ELSE SUM(CompanyGrossIncome) END AS HouseGrossIncome,
+					CASE WHEN @Currency = '-1' THEN SUM(CompanyCommBase) ELSE SUM(CompanyComm) END AS HouseComm,
+					CASE WHEN @Currency = '-1' THEN SUM(ExtraPTBase) ELSE SUM(ExtraPT) END AS ExtraPT
+				FROM #tmpSMA s
+					LEFT JOIN #Result d ON s.CustID = d.CustID
+				GROUP BY s.RoleID,
+					s.Username,
+					s.CustID,
+					d.CurrencyID,
+					d.Currency
+				ORDER BY s.RoleID DESC, s.Username
 
 			SELECT  RoleName,	
 					NULL Username,
@@ -1801,6 +1891,8 @@ BEGIN
 	DROP TABLE #tmpDummyCust
 	DROP TABLE #tmpVirtualSport
 	DROP TABLE #tmpVSBettype
+	DROP TABLE #tmpResult
+	DROP TABLE #tmpSMA
 
 END
 

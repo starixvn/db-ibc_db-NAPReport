@@ -23,8 +23,8 @@ ALTER PROCEDURE [dbo].[Acc_Rpt_NonSportsProductStatistics_Headline]
 	@HousePTValue   MONEY = 0,
 	@IsDrillDown	BIT = 0,
 	@IsGrandTotal	BIT = 0,
-	@IsExactly		BIT = 0
-	
+	@IsExactly		BIT = 0,
+	@ExcludeNoData BIT = 0
 AS
 /*
 	Created	: 20240916@Cherry
@@ -65,8 +65,8 @@ BEGIN
 	DECLARE @WLDate SMALLDATETIME
 	SELECT @WLDate = CAST(@WinlostDate AS SMALLDATETIME)
 
-	CREATE TABLE #Data ( recommend INT, srecommend INT, mrecommend INT, bettype INT,						 						 
-						 BetCount INT, CurrencyID INT, Currency NVARCHAR(50),
+	CREATE TABLE #Data ( recommend INT, srecommend INT, mrecommend INT, CustID INT, 						 						 
+						 bettype INT, BetCount INT, CurrencyID INT, Currency NVARCHAR(50),
 						 TotalBets DECIMAL(19,4), TotalBetsBase DECIMAL(19,4),
 						 TotalWins DECIMAL(19,4), TotalWinsBase DECIMAL(19,4),
 						 TotalRefund DECIMAL(19,4), TotalRefundBase DECIMAL(19,4),
@@ -117,6 +117,8 @@ BEGIN
 	CREATE TABLE #tmpHouseProduct (ProductID INT)
 	CREATE TABLE #tmpDummyCust (CustID INT)
 	CREATE TABLE #tmpVirtualSport (ProductID INT)
+	CREATE TABLE #tmpHeadline (CustID INT, Username VARCHAR(50), GroupID INT)
+	CREATE TABLE #tmpSMA (SuperID INT, MasterID INT, AgentID INT, CustID INT, Headline INT)
 
 	DECLARE @VirtualSportGroupStr VARCHAR(500)
     SELECT  @VirtualSportGroupStr = VValue
@@ -329,6 +331,7 @@ BEGIN
 				( recommend,
 				  srecommend,
 				  mrecommend,
+				  custid,
 				  bettype,				  
 				  BetCount ,
 				  CurrencyID ,	         
@@ -349,7 +352,7 @@ BEGIN
 				  ExtraPT,
 				  ExtraPTBase
 				)
-		SELECT b.recommend, b.srecommend, b.mrecommend, b.bettype,					
+		SELECT b.recommend, b.srecommend, b.mrecommend, b.custid, b.bettype,					
 
 				COUNT(CASE WHEN d.CustID IS NOT NULL THEN NULL
 						WHEN b.statusID IN (111, 112, 113) THEN b.transid ELSE NULL END) AS BetCount, b.Currency, 
@@ -406,7 +409,7 @@ BEGIN
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 				)
-		GROUP BY b.recommend, b.mrecommend,			 
+		GROUP BY b.recommend, b.mrecommend, b.custid,			 
 			b.Currency, srecommend, b.bettype 
 		
 		OPTION(RECOMPILE)		
@@ -415,6 +418,7 @@ BEGIN
 					( recommend ,
 					  srecommend, 
 					  mrecommend,
+					  custid,
 					  bettype ,					  
 					  BetCount ,
 					  CurrencyID ,	          
@@ -433,8 +437,8 @@ BEGIN
 					  ExtraPT,
 					  ExtraPTBase
 					)
-		SELECT	b.recommend, b.srecommend, b.mrecommend, b.bettype,				
-				0 AS BetCount, b.currency, 
+		SELECT	b.recommend, b.srecommend, b.mrecommend, b.custid, 				
+				b.bettype, 0 AS BetCount, b.currency, 
 
 				SUM(CASE WHEN b.statusID IN (103) THEN 0 ELSE actual_stake END) AS TotalBets,
 				SUM((CASE WHEN b.statusID IN (103) THEN 0 ELSE actual_stake END) * actualrate)  AS TotalBetsBase,
@@ -480,7 +484,7 @@ BEGIN
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 			)
-		GROUP BY b.recommend, b.mrecommend,				
+		GROUP BY b.recommend, b.mrecommend,	b.custid,			
 				b.currency, b.srecommend, b.bettype
 			
 		OPTION(RECOMPILE)
@@ -499,6 +503,7 @@ BEGIN
 					( recommend ,
 					  srecommend,
 					  mrecommend,
+					  custid,
 					  bettype,					  
 					  BetCount ,
 					  CurrencyID ,	          
@@ -517,7 +522,7 @@ BEGIN
 					  ExtraPT,
 					  ExtraPTBase
 					)
-			SELECT	b.recommend, b.srecommend, b.mrecommend, b.gameID,
+			SELECT	b.recommend, b.srecommend, b.mrecommend, b.custid, b.gameID,
 			
 					COUNT(CASE WHEN StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount, b.currency, 
 
@@ -563,7 +568,7 @@ BEGIN
 					OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 					OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 				)
-			GROUP BY b.recommend, b.mrecommend, b.currency, b.srecommend, b.gameID
+			GROUP BY b.recommend, b.mrecommend, b.currency, b.srecommend, b.gameID, b.custid
 			
 			OPTION(RECOMPILE)
 		END
@@ -574,6 +579,7 @@ BEGIN
 				( recommend ,
 				  srecommend,
 				  mrecommend,
+				  custid,
 				  bettype,				  
 				  BetCount ,
 				  CurrencyID ,	          
@@ -592,7 +598,7 @@ BEGIN
 				  ExtraPT,
 				  ExtraPTBase
 				)
-			SELECT	b.recommend, b.srecommend, b.mrecommend, b.gameID,
+			SELECT	b.recommend, b.srecommend, b.mrecommend, b.custid, b.gameID,
 					
 					COUNT(CASE WHEN StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount, b.currency, 
 
@@ -638,7 +644,7 @@ BEGIN
 					OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 					OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 				)
-			GROUP BY b.recommend, b.mrecommend, b.currency, b.srecommend, b.gameID
+			GROUP BY b.recommend, b.mrecommend, b.currency, b.srecommend, b.gameID, b.custid
 			
 			OPTION(RECOMPILE)
 		END
@@ -653,6 +659,7 @@ BEGIN
 					( recommend ,
 					  srecommend, 
 					  mrecommend,
+					  custid,
 					  bettype,					  
 					  BetCount ,
 					  CurrencyID ,	          
@@ -671,7 +678,7 @@ BEGIN
 					  ExtraPT,
 					  ExtraPTBase
 					)
-			SELECT	b.recommend, b.srecommend, b.mrecommend, b.gameID,
+			SELECT	b.recommend, b.srecommend, b.mrecommend, b.custid, b.gameID,
 					
 					0 AS BetCount, b.currency, 
 
@@ -720,7 +727,7 @@ BEGIN
 					OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 					OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 				)
-			GROUP BY b.recommend, b.mrecommend, b.currency, b.srecommend, b.gameID
+			GROUP BY b.recommend, b.mrecommend, b.currency, b.srecommend, b.gameID, b.custid
 			
 			OPTION(RECOMPILE)
 		END
@@ -730,6 +737,7 @@ BEGIN
 				( recommend ,
 				  srecommend,
 				  mrecommend,
+				  custid,
 				  bettype,				 
 				  BetCount ,
 				  CurrencyID ,	          
@@ -750,7 +758,7 @@ BEGIN
 				  ExtraPT,
 				  ExtraPTBase
 				)
-		SELECT	b.recommend, b.srecommend, b.mrecommend, b.gameID,
+		SELECT	b.recommend, b.srecommend, b.mrecommend, b.custid, b.gameID,
 				
 				COUNT(CASE WHEN StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount, b.Currency, 
 
@@ -803,7 +811,7 @@ BEGIN
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 			)
-		GROUP BY b.recommend, b.mrecommend, b.currency, b.srecommend, b.gameID		
+		GROUP BY b.recommend, b.mrecommend, b.currency, b.srecommend, b.gameID, b.custid		
 		
 		OPTION(RECOMPILE)
 	END
@@ -814,6 +822,7 @@ BEGIN
 				( recommend,
 				  srecommend,
 				  mrecommend,
+				  custid, 
 				  bettype,
 				  BetCount ,
 				  CurrencyID ,	         
@@ -832,7 +841,7 @@ BEGIN
 				  ExtraPT,
 				  ExtraPTBase
 				)
-		SELECT b.recommend, b.srecommend, b.mrecommend, b.bettype,			
+		SELECT b.recommend, b.srecommend, b.mrecommend, b.custid, b.bettype,			
 
 				SUM(CASE WHEN b.statusID IN (111, 112, 113) THEN b.betid ELSE 0 END) AS BetCount, b.Currency, 
 
@@ -875,7 +884,7 @@ BEGIN
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 				)
-		GROUP BY b.recommend, b.mrecommend, b.Currency, b.srecommend, b.bettype
+		GROUP BY b.recommend, b.mrecommend, b.Currency, b.srecommend, b.bettype, b.custid
 		
 		OPTION(RECOMPILE)
 		
@@ -887,6 +896,7 @@ BEGIN
 				( recommend ,
 				  srecommend,
 				  mrecommend,
+				  custid, 
 				  bettype,				  
 				  BetCount ,
 				  CurrencyID ,
@@ -904,7 +914,7 @@ BEGIN
 				  CompanyCommBase,
 				  ExtraPT,
 				  ExtraPTBase)
-		SELECT	b.recommend, b.srecommend, b.mrecommend, b.bettype,				
+		SELECT	b.recommend, b.srecommend, b.mrecommend, b.custid, b.bettype,				
 
 				COUNT(CASE WHEN StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount, b.Currency, 
 
@@ -954,7 +964,7 @@ BEGIN
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 				)
-		GROUP BY b.recommend, b.mrecommend, b.Currency, b.srecommend, b.bettype
+		GROUP BY b.recommend, b.mrecommend, b.Currency, b.srecommend, b.bettype, b.custid
 		
 		OPTION(RECOMPILE)
 		
@@ -966,6 +976,7 @@ BEGIN
 				( recommend ,
 				  srecommend,
 				  mrecommend,
+				  custid,
 				  bettype,				
 				  BetCount ,
 				  CurrencyID ,
@@ -984,7 +995,7 @@ BEGIN
 				  ExtraPT,
 				  ExtraPTBase
 				)	
-		SELECT	b.recommend, b.srecommend, b.mrecommend, b.bettype,				
+		SELECT	b.recommend, b.srecommend, b.mrecommend, b.custid, b.bettype,				
 
 				COUNT(CASE WHEN StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount, b.Currency, 
 
@@ -1031,7 +1042,7 @@ BEGIN
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 				)
-		GROUP BY b.recommend, b.mrecommend, b.Currency, b.srecommend, b.bettype
+		GROUP BY b.recommend, b.mrecommend, b.Currency, b.srecommend, b.bettype, b.custid
 		
 		OPTION(RECOMPILE)
 		
@@ -1043,6 +1054,7 @@ BEGIN
 				( recommend ,
 				  srecommend,
 				  mrecommend,
+				  custid,
 				  bettype,				 
 				  BetCount ,
 				  CurrencyID ,
@@ -1061,7 +1073,7 @@ BEGIN
 				  ExtraPT,
 				  ExtraPTBase
 				)	
-		SELECT	b.recommend, b.srecommend, b.mrecommend, b.bettype,				
+		SELECT	b.recommend, b.srecommend, b.mrecommend, b.custid, b.bettype,				
 
 				COUNT(CASE WHEN StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount, b.Currency, 
 
@@ -1110,7 +1122,7 @@ BEGIN
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 				)
-		GROUP BY b.recommend, b.mrecommend, b.Currency, b.srecommend, b.bettype
+		GROUP BY b.recommend, b.mrecommend, b.Currency, b.srecommend, b.bettype, b.custid
 		
 		OPTION(RECOMPILE)		
 
@@ -1118,6 +1130,7 @@ BEGIN
 				( recommend ,
 				  srecommend,
 				  mrecommend,
+				  custid,
 				  bettype,				
 				  BetCount ,
 				  CurrencyID ,
@@ -1136,7 +1149,7 @@ BEGIN
 				  ExtraPT,
 				  ExtraPTBase
 				)	
-		SELECT	b.recommend, b.srecommend, b.mrecommend, b.bettype,				
+		SELECT	b.recommend, b.srecommend, b.mrecommend, b.custid, b.bettype,				
 
 				COUNT(CASE WHEN StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount, b.Currency, 
 
@@ -1185,7 +1198,7 @@ BEGIN
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 				)
-		GROUP BY b.recommend, b.mrecommend, b.Currency, b.srecommend, b.bettype
+		GROUP BY b.recommend, b.mrecommend, b.Currency, b.srecommend, b.bettype, b.custid
 		
 		OPTION(RECOMPILE)		
 	END
@@ -1197,6 +1210,7 @@ BEGIN
 				( recommend ,
 				  srecommend,
 				  mrecommend,
+				  custid,
 				  bettype,			
 				  BetCount ,
 				  CurrencyID ,	          
@@ -1215,7 +1229,7 @@ BEGIN
 				  ExtraPT,
 				  ExtraPTBase
 				)
-		SELECT	b.recommend, b.srecommend, b.mrecommend, b.bettype,				
+		SELECT	b.recommend, b.srecommend, b.mrecommend, b.custid, b.bettype,				
 
 				COUNT(CASE WHEN StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount, b.Currency, 
 
@@ -1266,7 +1280,7 @@ BEGIN
 				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 				)				  
-		GROUP BY b.recommend, b.mrecommend, b.Currency, b.srecommend, b.bettype
+		GROUP BY b.recommend, b.mrecommend, b.Currency, b.srecommend, b.bettype, b.custid
 		OPTION(RECOMPILE)
 	END
 
@@ -1293,6 +1307,7 @@ BEGIN
 			( recommend ,
 				srecommend,
 				mrecommend,
+				custid,
 				bettype,				
 				BetCount ,
 				CurrencyID ,
@@ -1311,7 +1326,7 @@ BEGIN
 				ExtraPT,
 				ExtraPTBase
 			)	
-	SELECT	b.recommend, b.srecommend, b.mrecommend, b.bettype,			
+	SELECT	b.recommend, b.srecommend, b.mrecommend, b.custid, b.bettype,			
 
 			COUNT(CASE WHEN StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount, b.Currency, 
 
@@ -1359,7 +1374,7 @@ BEGIN
 			OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
 			OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
 			)
-	GROUP BY b.recommend, b.mrecommend, b.Currency, b.srecommend, b.bettype
+	GROUP BY b.recommend, b.mrecommend, b.Currency, b.srecommend, b.bettype, b.custid
 	OPTION(RECOMPILE)
 	
 	--Update Real Turnover
@@ -1393,7 +1408,35 @@ BEGIN
 		INNER JOIN dbo.Exchange e ON e.exchangeid = d.CurrencyID
 	-- End Currency Name	
 
+	INSERT INTO #tmpHeadline (CustID, Username, GroupID)
+	SELECT DISTINCT a.custid, c.username, a.groupID
+	FROM bodb02.dbo.custAccount a WITH(NOLOCK)
+		INNER JOIN bodb02.dbo.CustGroupHeadline h WITH(NOLOCK) ON a.custid = h.CustID
+		INNER JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON a.CustID = c.custid
+	WHERE a.groupID <> 0
+		AND a.IsGroupHeadLine = 1
+		AND a.groupID = h.GroupID
 
+	INSERT INTO #tmpSMA (SuperID, MasterID, AgentID, CustID, Headline)
+	SELECT DISTINCT d.Srecommend, d.Mrecommend, d.Recommend, d.CustID, h.CustID
+	FROM #Data d
+		INNER JOIN bodb02.dbo.custAccount a WITH(NOLOCK) ON d.srecommend = a.custid
+		INNER JOIN #tmpHeadline h ON a.groupID = h.GroupID
+	UNION
+	SELECT DISTINCT d.Srecommend, d.Mrecommend, d.Recommend, d.CustID, h.CustID
+	FROM #Data d
+		INNER JOIN bodb02.dbo.custAccount a WITH(NOLOCK) ON d.mrecommend = a.custid
+		INNER JOIN #tmpHeadline h ON a.groupID = h.GroupID
+	UNION
+	SELECT DISTINCT d.Srecommend, d.Mrecommend, d.Recommend, d.CustID, h.CustID
+	FROM #Data d
+		INNER JOIN bodb02.dbo.custAccount a WITH(NOLOCK) ON d.recommend = a.custid
+		INNER JOIN #tmpHeadline h ON a.groupID = h.GroupID
+	UNION
+	SELECT DISTINCT d.Srecommend, d.Mrecommend, d.Recommend, d.CustID, h.CustID
+	FROM #Data d
+		INNER JOIN bodb02.dbo.custAccount a WITH(NOLOCK) ON d.CustID = a.custid
+		INNER JOIN #tmpHeadline h ON a.groupID = h.GroupID
 
 	------------------------------------------III. Drill down data ------------------------------------------------------
 	IF @IsGrandTotal = 0
@@ -1423,7 +1466,7 @@ BEGIN
 						ExtraPT,
 						ExtraPTBase
 					)
-			SELECT c.username,
+			SELECT h.username,
 					h.CustID,
 					SUM(BetCount) AS BetCount ,
 					-1 as CurrencyId, 
@@ -1442,140 +1485,22 @@ BEGIN
 					SUM (RealTurnoverBase) AS RealTurnoverBase,
 					SUM (CompanyGrossIncomeBase) AS CompanyGrossIncomeBase,
 					SUM (CompanyCommBase) AS CompanyCommBase,
-					SUM(b.ExtraPTBase) ExtraPT,
-					SUM(b.ExtraPTBase) ExtraPTBase
-			FROM #Data b
-				INNER JOIN bodb02.dbo.custAccount a WITH(NOLOCK) ON b.srecommend = a.custid
-				INNER JOIN bodb02.dbo.CustGroupHeadline h WITH(NOLOCK) ON a.groupID = h.GroupID
-				INNER JOIN bodb02.dbo.Customer c ON h.CustID = c.custid
+					SUM(ExtraPTBase) ExtraPT,
+					SUM(ExtraPTBase) ExtraPTBase
+			FROM #Data d
+				INNER JOIN #tmpSMA t ON d.Srecommend = t.SuperID AND d.Mrecommend = t.MasterID 
+							AND d.Recommend = t.AgentID AND d.CustID = t.CustID
+				INNER JOIN #tmpHeadline h ON t.Headline = h.CustID
 			WHERE (@CustID = 0 OR h.CustID = @CustID)
-			GROUP BY c.username, h.CustID
+			GROUP BY h.username, h.CustID
 			HAVING (@TotalBetType = 0
-					OR (@TotalBetType = 1 AND SUM(b.TotalBetsBase) >= @TotalBetValue) 
-					OR (@TotalBetType = -1 AND SUM(b.TotalBetsBase) <= @TotalBetValue)
+					OR (@TotalBetType = 1 AND SUM(TotalBetsBase) >= @TotalBetValue) 
+					OR (@TotalBetType = -1 AND SUM(TotalBetsBase) <= @TotalBetValue)
 					)
 				AND (@GameIncomeType = 0
-					OR (@GameIncomeType = 1 AND SUM(b.TotalBetsBase - b.TotalWinsBase) >= @GameIncomeValue) 
-					OR (@GameIncomeType = -1 AND SUM(b.TotalBetsBase - b.TotalWinsBase) <= @GameIncomeValue)
-					)		
-					
-			INSERT INTO #tmpResult
-					( Headline,
-						CustID ,
-						BetCount ,
-						CurrencyID ,
-						Currency ,
-						TotalBets ,
-						TotalWins ,
-						TotalRefund ,
-						CompanyTurnOver ,
-						RealTurnOver,
-						CompanyGrossIncome ,
-						CompanyComm,
-						TotalBetsBase,
-						TotalWinsBase,
-						TotalRefundBase,
-						CompanyTurnOverBase,
-						RealTurnOverBase,
-						CompanyGrossIncomeBase,
-						CompanyCommBase,
-						ExtraPT,
-						ExtraPTBase
-					)
-			SELECT c.username,
-					h.CustID,
-					SUM(BetCount) AS BetCount ,
-					-1 as CurrencyId, 
-					'RM' AS Currency,
-					SUM (TotalBetsBase) AS TotalBets, 
-					SUM (TotalWinsBase) AS TotalWins,
-					SUM (TotalRefundBase) AS TotalRefund,
-					SUM (CompanyTurnoverBase) AS CompanyTurnover,
-					SUM (RealTurnoverBase) AS RealTurnover,
-					SUM (CompanyGrossIncomeBase) AS CompanyGrossIncome,
-					SUM (CompanyCommBase) AS CompanyComm,
-					SUM (TotalBetsBase) AS TotalBetsBase, 
-					SUM (TotalWinsBase) AS TotalWinsBase,
-					SUM (TotalRefundBase) AS TotalRefundBase,
-					SUM (CompanyTurnoverBase) AS CompanyTurnoverBase,
-					SUM (RealTurnoverBase) AS RealTurnoverBase,
-					SUM (CompanyGrossIncomeBase) AS CompanyGrossIncomeBase,
-					SUM (CompanyCommBase) AS CompanyCommBase,
-					SUM(b.ExtraPTBase) ExtraPT,
-					SUM(b.ExtraPTBase) ExtraPTBase
-			FROM #Data b
-				INNER JOIN bodb02.dbo.custAccount a WITH(NOLOCK) ON b.mrecommend = a.custid
-				INNER JOIN bodb02.dbo.CustGroupHeadline h WITH(NOLOCK) ON a.groupID = h.GroupID
-				INNER JOIN bodb02.dbo.Customer c ON h.CustID = c.custid
-			WHERE (@CustID = 0 OR h.CustID = @CustID)
-			GROUP BY c.username, h.CustID
-			HAVING (@TotalBetType = 0
-					OR (@TotalBetType = 1 AND SUM(b.TotalBetsBase) >= @TotalBetValue) 
-					OR (@TotalBetType = -1 AND SUM(b.TotalBetsBase) <= @TotalBetValue)
-					)
-				AND (@GameIncomeType = 0
-					OR (@GameIncomeType = 1 AND SUM(b.TotalBetsBase - b.TotalWinsBase) >= @GameIncomeValue) 
-					OR (@GameIncomeType = -1 AND SUM(b.TotalBetsBase - b.TotalWinsBase) <= @GameIncomeValue)
-					)
-
-			INSERT INTO #tmpResult
-					( Headline,
-						CustID ,
-						BetCount ,
-						CurrencyID ,
-						Currency ,
-						TotalBets ,
-						TotalWins ,
-						TotalRefund ,
-						CompanyTurnOver ,
-						RealTurnOver,
-						CompanyGrossIncome ,
-						CompanyComm,
-						TotalBetsBase,
-						TotalWinsBase,
-						TotalRefundBase,
-						CompanyTurnOverBase,
-						RealTurnOverBase,
-						CompanyGrossIncomeBase,
-						CompanyCommBase,
-						ExtraPT,
-						ExtraPTBase
-					)
-			SELECT c.username,
-					h.CustID,
-					SUM(BetCount) AS BetCount ,
-					-1 as CurrencyId, 
-					'RM' AS Currency,
-					SUM (TotalBetsBase) AS TotalBets, 
-					SUM (TotalWinsBase) AS TotalWins,
-					SUM (TotalRefundBase) AS TotalRefund,
-					SUM (CompanyTurnoverBase) AS CompanyTurnover,
-					SUM (RealTurnoverBase) AS RealTurnover,
-					SUM (CompanyGrossIncomeBase) AS CompanyGrossIncome,
-					SUM (CompanyCommBase) AS CompanyComm,
-					SUM (TotalBetsBase) AS TotalBetsBase, 
-					SUM (TotalWinsBase) AS TotalWinsBase,
-					SUM (TotalRefundBase) AS TotalRefundBase,
-					SUM (CompanyTurnoverBase) AS CompanyTurnoverBase,
-					SUM (RealTurnoverBase) AS RealTurnoverBase,
-					SUM (CompanyGrossIncomeBase) AS CompanyGrossIncomeBase,
-					SUM (CompanyCommBase) AS CompanyCommBase,
-					SUM(b.ExtraPTBase) ExtraPT,
-					SUM(b.ExtraPTBase) ExtraPTBase
-			FROM #Data b
-				INNER JOIN bodb02.dbo.custAccount a WITH(NOLOCK) ON b.recommend = a.custid
-				INNER JOIN bodb02.dbo.CustGroupHeadline h WITH(NOLOCK) ON a.groupID = h.GroupID
-				INNER JOIN bodb02.dbo.Customer c ON h.CustID = c.custid
-			WHERE (@CustID = 0 OR h.CustID = @CustID)
-			GROUP BY c.username, h.CustID
-			HAVING (@TotalBetType = 0
-					OR (@TotalBetType = 1 AND SUM(b.TotalBetsBase) >= @TotalBetValue) 
-					OR (@TotalBetType = -1 AND SUM(b.TotalBetsBase) <= @TotalBetValue)
-					)
-				AND (@GameIncomeType = 0
-					OR (@GameIncomeType = 1 AND SUM(b.TotalBetsBase - b.TotalWinsBase) >= @GameIncomeValue) 
-					OR (@GameIncomeType = -1 AND SUM(b.TotalBetsBase - b.TotalWinsBase) <= @GameIncomeValue)
-					)
+					OR (@GameIncomeType = 1 AND SUM(TotalBetsBase - TotalWinsBase) >= @GameIncomeValue) 
+					OR (@GameIncomeType = -1 AND SUM(TotalBetsBase - TotalWinsBase) <= @GameIncomeValue)
+					)										
 		END		
 		ELSE -- @Currency <> -1
 		BEGIN
@@ -1603,161 +1528,41 @@ BEGIN
 						ExtraPTBase
 					)
 			SELECT 
-				c.username,
+				h.username,
 				h.CustID,
 				SUM(BetCount) AS BetCount ,
-				b.CurrencyID AS CurrencyId, 
-				b.Currency AS Currency,
-				SUM (b.TotalBets) AS TotalBets, 
-				SUM (b.TotalWins) AS TotalWins,
-				SUM (b.TotalRefund) AS TotalRefund,
-				SUM (b.CompanyTurnOver) AS CompanyTurnover,
-				SUM (b.RealTurnOver) AS RealTurnover,
-				SUM (b.CompanyGrossIncome) AS CompanyGrossIncome,
-				SUM (b.CompanyComm) AS CompanyComm,
-				SUM (b.TotalBetsBase) AS TotalBetsBase, 
-				SUM (b.TotalWinsBase) AS TotalWinsBase,
-				SUM (b.TotalRefundBase) AS TotalRefundBase,
-				SUM (b.CompanyTurnOverBase) AS CompanyTurnoverBase,
-				SUM (b.RealTurnOverBase) AS RealTurnoverBase,
-				SUM (b.CompanyGrossIncomeBase) AS CompanyGrossIncomeBase,
-				SUM (b.CompanyCommBase) AS CompanyCommBase,
-				SUM(b.ExtraPT) ExtraPT,
-				SUM(b.ExtraPTBase) ExtraPTBase
-			FROM #Data b
-				INNER JOIN bodb02.dbo.custAccount a WITH(NOLOCK) ON b.srecommend = a.custid
-				INNER JOIN bodb02.dbo.CustGroupHeadline h WITH(NOLOCK) ON a.groupID = h.GroupID
-				INNER JOIN bodb02.dbo.Customer c ON h.CustID = c.custid
+				CurrencyID AS CurrencyId, 
+				Currency AS Currency,
+				SUM (TotalBets) AS TotalBets, 
+				SUM (TotalWins) AS TotalWins,
+				SUM (TotalRefund) AS TotalRefund,
+				SUM (CompanyTurnOver) AS CompanyTurnover,
+				SUM (RealTurnOver) AS RealTurnover,
+				SUM (CompanyGrossIncome) AS CompanyGrossIncome,
+				SUM (CompanyComm) AS CompanyComm,
+				SUM (TotalBetsBase) AS TotalBetsBase, 
+				SUM (TotalWinsBase) AS TotalWinsBase,
+				SUM (TotalRefundBase) AS TotalRefundBase,
+				SUM (CompanyTurnOverBase) AS CompanyTurnoverBase,
+				SUM (RealTurnOverBase) AS RealTurnoverBase,
+				SUM (CompanyGrossIncomeBase) AS CompanyGrossIncomeBase,
+				SUM (CompanyCommBase) AS CompanyCommBase,
+				SUM(ExtraPT) ExtraPT,
+				SUM(ExtraPTBase) ExtraPTBase
+			FROM #Data d
+				INNER JOIN #tmpSMA t ON d.Srecommend = t.SuperID AND d.Mrecommend = t.MasterID 
+							AND d.Recommend = t.AgentID AND d.CustID = t.CustID
+				INNER JOIN #tmpHeadline h ON t.Headline = h.CustID
 			WHERE (@CustID = 0 OR h.CustID = @CustID)
-			GROUP BY c.username, h.CustID
+			GROUP BY h.username, h.CustID
 			HAVING (@TotalBetType = 0
-					OR (@TotalBetType = 1 AND SUM(b.TotalBets) >= @TotalBetValue) 
-					OR (@TotalBetType = -1 AND SUM(b.TotalBets) <= @TotalBetValue)
+					OR (@TotalBetType = 1 AND SUM(TotalBets) >= @TotalBetValue) 
+					OR (@TotalBetType = -1 AND SUM(TotalBets) <= @TotalBetValue)
 					)
 				AND (@GameIncomeType = 0
-					OR (@GameIncomeType = 1 AND SUM(b.TotalBets - b.TotalWins) >= @GameIncomeValue) 
-					OR (@GameIncomeType = -1 AND SUM(b.TotalBets - b.TotalWins) <= @GameIncomeValue)
-					)	
-
-			INSERT INTO #tmpResult
-					( Headline ,
-						CustID ,					
-						BetCount ,
-						CurrencyID ,
-						Currency ,
-						TotalBets ,
-						TotalWins ,
-						TotalRefund ,
-						CompanyTurnOver ,
-						RealTurnOver,
-						CompanyGrossIncome ,
-						CompanyComm,
-						TotalBetsBase,
-						TotalWinsBase,
-						TotalRefundBase,
-						CompanyTurnOverBase,
-						RealTurnOverBase,
-						CompanyGrossIncomeBase,
-						CompanyCommBase,
-						ExtraPT,
-						ExtraPTBase
-					)
-			SELECT 
-				c.username,
-				h.CustID,
-				SUM(BetCount) AS BetCount ,
-				b.CurrencyID AS CurrencyId, 
-				b.Currency AS Currency,
-				SUM (b.TotalBets) AS TotalBets, 
-				SUM (b.TotalWins) AS TotalWins,
-				SUM (b.TotalRefund) AS TotalRefund,
-				SUM (b.CompanyTurnOver) AS CompanyTurnover,
-				SUM (b.RealTurnOver) AS RealTurnover,
-				SUM (b.CompanyGrossIncome) AS CompanyGrossIncome,
-				SUM (b.CompanyComm) AS CompanyComm,
-				SUM (b.TotalBetsBase) AS TotalBetsBase, 
-				SUM (b.TotalWinsBase) AS TotalWinsBase,
-				SUM (b.TotalRefundBase) AS TotalRefundBase,
-				SUM (b.CompanyTurnOverBase) AS CompanyTurnoverBase,
-				SUM (b.RealTurnOverBase) AS RealTurnoverBase,
-				SUM (b.CompanyGrossIncomeBase) AS CompanyGrossIncomeBase,
-				SUM (b.CompanyCommBase) AS CompanyCommBase,
-				SUM(b.ExtraPT) ExtraPT,
-				SUM(b.ExtraPTBase) ExtraPTBase
-			FROM #Data b
-				INNER JOIN bodb02.dbo.custAccount a WITH(NOLOCK) ON b.mrecommend = a.custid
-				INNER JOIN bodb02.dbo.CustGroupHeadline h WITH(NOLOCK) ON a.groupID = h.GroupID
-				INNER JOIN bodb02.dbo.Customer c ON h.CustID = c.custid
-			WHERE (@CustID = 0 OR h.CustID = @CustID)
-			GROUP BY c.username, h.CustID
-			HAVING (@TotalBetType = 0
-					OR (@TotalBetType = 1 AND SUM(b.TotalBets) >= @TotalBetValue) 
-					OR (@TotalBetType = -1 AND SUM(b.TotalBets) <= @TotalBetValue)
-					)
-				AND (@GameIncomeType = 0
-					OR (@GameIncomeType = 1 AND SUM(b.TotalBets - b.TotalWins) >= @GameIncomeValue) 
-					OR (@GameIncomeType = -1 AND SUM(b.TotalBets - b.TotalWins) <= @GameIncomeValue)
-					)	
-
-			INSERT INTO #tmpResult
-					( Headline ,
-						CustID ,					
-						BetCount ,
-						CurrencyID ,
-						Currency ,
-						TotalBets ,
-						TotalWins ,
-						TotalRefund ,
-						CompanyTurnOver ,
-						RealTurnOver,
-						CompanyGrossIncome ,
-						CompanyComm,
-						TotalBetsBase,
-						TotalWinsBase,
-						TotalRefundBase,
-						CompanyTurnOverBase,
-						RealTurnOverBase,
-						CompanyGrossIncomeBase,
-						CompanyCommBase,
-						ExtraPT,
-						ExtraPTBase
-					)
-			SELECT 
-				c.username,
-				h.CustID,
-				SUM(BetCount) AS BetCount ,
-				b.CurrencyID AS CurrencyId, 
-				b.Currency AS Currency,
-				SUM (b.TotalBets) AS TotalBets, 
-				SUM (b.TotalWins) AS TotalWins,
-				SUM (b.TotalRefund) AS TotalRefund,
-				SUM (b.CompanyTurnOver) AS CompanyTurnover,
-				SUM (b.RealTurnOver) AS RealTurnover,
-				SUM (b.CompanyGrossIncome) AS CompanyGrossIncome,
-				SUM (b.CompanyComm) AS CompanyComm,
-				SUM (b.TotalBetsBase) AS TotalBetsBase, 
-				SUM (b.TotalWinsBase) AS TotalWinsBase,
-				SUM (b.TotalRefundBase) AS TotalRefundBase,
-				SUM (b.CompanyTurnOverBase) AS CompanyTurnoverBase,
-				SUM (b.RealTurnOverBase) AS RealTurnoverBase,
-				SUM (b.CompanyGrossIncomeBase) AS CompanyGrossIncomeBase,
-				SUM (b.CompanyCommBase) AS CompanyCommBase,
-				SUM(b.ExtraPT) ExtraPT,
-				SUM(b.ExtraPTBase) ExtraPTBase
-			FROM #Data b
-				INNER JOIN bodb02.dbo.custAccount a WITH(NOLOCK) ON b.recommend = a.custid
-				INNER JOIN bodb02.dbo.CustGroupHeadline h WITH(NOLOCK) ON a.groupID = h.GroupID
-				INNER JOIN bodb02.dbo.Customer c ON h.CustID = c.custid
-			WHERE (@CustID = 0 OR h.CustID = @CustID)
-			GROUP BY c.username, h.CustID
-			HAVING (@TotalBetType = 0
-					OR (@TotalBetType = 1 AND SUM(b.TotalBets) >= @TotalBetValue) 
-					OR (@TotalBetType = -1 AND SUM(b.TotalBets) <= @TotalBetValue)
-					)
-				AND (@GameIncomeType = 0
-					OR (@GameIncomeType = 1 AND SUM(b.TotalBets - b.TotalWins) >= @GameIncomeValue) 
-					OR (@GameIncomeType = -1 AND SUM(b.TotalBets - b.TotalWins) <= @GameIncomeValue)
-					)	
+					OR (@GameIncomeType = 1 AND SUM(TotalBets - TotalWins) >= @GameIncomeValue) 
+					OR (@GameIncomeType = -1 AND SUM(TotalBets - TotalWins) <= @GameIncomeValue)
+					)				
 		END
 	END
 	ELSE -- @IsGrandTotal = 1 (Click TO GrandTotal)
@@ -1787,7 +1592,7 @@ BEGIN
 						  ExtraPT,
 						  ExtraPTBase
 						)
-			SELECT c.username,
+			SELECT h.username,
 				h.CustID,
 				SUM(BetCount) AS BetCount ,
 				-1 AS CurrencyId, 
@@ -1806,140 +1611,22 @@ BEGIN
 				SUM (RealTurnoverBase) AS RealTurnoverBase,
 				SUM (CompanyGrossIncomeBase) AS CompanyGrossIncomeBase,
 				SUM (CompanyCommBase) AS CompanyCommBase,
-				SUM(b.ExtraPTBase) ExtraPT,
-				SUM(b.ExtraPTBase) ExtraPTBase
-			FROM #Data b
-				INNER JOIN bodb02.dbo.custAccount a WITH(NOLOCK) ON b.srecommend = a.custid
-				INNER JOIN bodb02.dbo.CustGroupHeadline h WITH(NOLOCK) ON a.groupID = h.GroupID
-				INNER JOIN bodb02.dbo.Customer c ON h.CustID = c.custid
+				SUM(ExtraPTBase) ExtraPT,
+				SUM(ExtraPTBase) ExtraPTBase
+			FROM #Data d
+				INNER JOIN #tmpSMA t ON d.Srecommend = t.SuperID AND d.Mrecommend = t.MasterID 
+							AND d.Recommend = t.AgentID AND d.CustID = t.CustID
+				INNER JOIN #tmpHeadline h ON t.Headline = h.CustID
 			WHERE (@CustID = 0 OR h.CustID = @CustID)
-			GROUP BY c.username, h.CustID
+			GROUP BY h.username, h.CustID
 			HAVING (@TotalBetType = 0
 					OR (@TotalBetType = 1 AND SUM(TotalBetsBase ) >= @TotalBetValue) 
 					OR (@TotalBetType = -1 AND SUM(TotalBetsBase) <= @TotalBetValue)
 					)
 				AND (@GameIncomeType = 0
 					OR (@GameIncomeType = 1 AND SUM(TotalBetsBase - TotalWinsBase) >= @GameIncomeValue) 
-					OR (@GameIncomeType = -1 AND SUM(TotalBetsBase - b.TotalWinsBase) <= @GameIncomeValue)
-					)
-
-			INSERT INTO #tmpResult
-						( Headline ,
-						  CustID ,						 
-						  BetCount ,
-						  CurrencyID ,
-						  Currency ,
-						  TotalBets ,
-						  TotalWins ,
-						  TotalRefund ,
-						  CompanyTurnOver ,
-						  RealTurnOver,
-						  CompanyGrossIncome ,
-						  CompanyComm,
-						  TotalBetsBase,
-						  TotalWinsBase,
-						  TotalRefundBase,
-						  CompanyTurnOverBase,
-						  RealTurnOverBase,
-						  CompanyGrossIncomeBase,
-						  CompanyCommBase,
-						  ExtraPT,
-						  ExtraPTBase
-						)
-			SELECT c.username,
-				h.CustID,
-				SUM(BetCount) AS BetCount ,
-				-1 AS CurrencyId, 
-				'RM' AS Currency,
-				SUM (TotalBetsBase) AS TotalBets, 
-				SUM (TotalWinsBase) AS TotalWins,
-				SUM (TotalRefundBase) AS TotalRefund,
-				SUM (CompanyTurnoverBase) AS CompanyTurnover,
-				SUM (RealTurnoverBase) AS RealTurnover,
-				SUM (CompanyGrossIncomeBase) AS CompanyGrossIncome,
-				SUM (CompanyCommBase) AS CompanyComm,
-				SUM (TotalBetsBase) AS TotalBetsBase, 
-				SUM (TotalWinsBase) AS TotalWinsBase,
-				SUM (TotalRefundBase) AS TotalRefundBase,
-				SUM (CompanyTurnoverBase) AS CompanyTurnoverBase,
-				SUM (RealTurnoverBase) AS RealTurnoverBase,
-				SUM (CompanyGrossIncomeBase) AS CompanyGrossIncomeBase,
-				SUM (CompanyCommBase) AS CompanyCommBase,
-				SUM(b.ExtraPTBase) ExtraPT,
-				SUM(b.ExtraPTBase) ExtraPTBase
-			FROM #Data b
-				INNER JOIN bodb02.dbo.custAccount a WITH(NOLOCK) ON b.mrecommend = a.custid
-				INNER JOIN bodb02.dbo.CustGroupHeadline h WITH(NOLOCK) ON a.groupID = h.GroupID
-				INNER JOIN bodb02.dbo.Customer c ON h.CustID = c.custid
-			WHERE (@CustID = 0 OR h.CustID = @CustID)
-			GROUP BY c.username, h.CustID
-			HAVING (@TotalBetType = 0
-					OR (@TotalBetType = 1 AND SUM(TotalBetsBase ) >= @TotalBetValue) 
-					OR (@TotalBetType = -1 AND SUM(TotalBetsBase) <= @TotalBetValue)
-					)
-				AND (@GameIncomeType = 0
-					OR (@GameIncomeType = 1 AND SUM(TotalBetsBase - TotalWinsBase) >= @GameIncomeValue) 
-					OR (@GameIncomeType = -1 AND SUM(TotalBetsBase - b.TotalWinsBase) <= @GameIncomeValue)
-					)
-
-			INSERT INTO #tmpResult
-						( Headline ,
-						  CustID ,						 
-						  BetCount ,
-						  CurrencyID ,
-						  Currency ,
-						  TotalBets ,
-						  TotalWins ,
-						  TotalRefund ,
-						  CompanyTurnOver ,
-						  RealTurnOver,
-						  CompanyGrossIncome ,
-						  CompanyComm,
-						  TotalBetsBase,
-						  TotalWinsBase,
-						  TotalRefundBase,
-						  CompanyTurnOverBase,
-						  RealTurnOverBase,
-						  CompanyGrossIncomeBase,
-						  CompanyCommBase,
-						  ExtraPT,
-						  ExtraPTBase
-						)
-			SELECT c.username,
-				h.CustID,
-				SUM(BetCount) AS BetCount ,
-				-1 AS CurrencyId, 
-				'RM' AS Currency,
-				SUM (TotalBetsBase) AS TotalBets, 
-				SUM (TotalWinsBase) AS TotalWins,
-				SUM (TotalRefundBase) AS TotalRefund,
-				SUM (CompanyTurnoverBase) AS CompanyTurnover,
-				SUM (RealTurnoverBase) AS RealTurnover,
-				SUM (CompanyGrossIncomeBase) AS CompanyGrossIncome,
-				SUM (CompanyCommBase) AS CompanyComm,
-				SUM (TotalBetsBase) AS TotalBetsBase, 
-				SUM (TotalWinsBase) AS TotalWinsBase,
-				SUM (TotalRefundBase) AS TotalRefundBase,
-				SUM (CompanyTurnoverBase) AS CompanyTurnoverBase,
-				SUM (RealTurnoverBase) AS RealTurnoverBase,
-				SUM (CompanyGrossIncomeBase) AS CompanyGrossIncomeBase,
-				SUM (CompanyCommBase) AS CompanyCommBase,
-				SUM(b.ExtraPTBase) ExtraPT,
-				SUM(b.ExtraPTBase) ExtraPTBase
-			FROM #Data b
-				INNER JOIN bodb02.dbo.custAccount a WITH(NOLOCK) ON b.recommend = a.custid
-				INNER JOIN bodb02.dbo.CustGroupHeadline h WITH(NOLOCK) ON a.groupID = h.GroupID
-				INNER JOIN bodb02.dbo.Customer c ON h.CustID = c.custid
-			WHERE (@CustID = 0 OR h.CustID = @CustID)
-			GROUP BY c.username, h.CustID
-			HAVING (@TotalBetType = 0
-					OR (@TotalBetType = 1 AND SUM(TotalBetsBase ) >= @TotalBetValue) 
-					OR (@TotalBetType = -1 AND SUM(TotalBetsBase) <= @TotalBetValue)
-					)
-				AND (@GameIncomeType = 0
-					OR (@GameIncomeType = 1 AND SUM(TotalBetsBase - TotalWinsBase) >= @GameIncomeValue) 
-					OR (@GameIncomeType = -1 AND SUM(TotalBetsBase - b.TotalWinsBase) <= @GameIncomeValue)
-					)
+					OR (@GameIncomeType = -1 AND SUM(TotalBetsBase - TotalWinsBase) <= @GameIncomeValue)
+					)			
 		END
 		ELSE
 		BEGIN
@@ -1966,18 +1653,18 @@ BEGIN
 						  ExtraPT,
 						  ExtraPTBase
 						)
-			SELECT c.username,
+			SELECT h.username,
 				h.CustID,
 				SUM(BetCount) AS BetCount ,
-				b.CurrencyID AS CurrencyId, 
-				b.Currency AS Currency,
-				SUM (b.TotalBets) AS TotalBets, 
-				SUM (b.TotalWins) AS TotalWins,
-				SUM (b.TotalRefund) AS TotalRefund,
-				SUM (b.CompanyTurnOver) AS CompanyTurnover,
-				SUM (b.RealTurnOver) AS RealTurnover,
-				SUM (b.CompanyGrossIncome) AS CompanyGrossIncome,
-				SUM (b.CompanyComm) AS CompanyComm,
+				CurrencyID AS CurrencyId, 
+				Currency AS Currency,
+				SUM (TotalBets) AS TotalBets, 
+				SUM (TotalWins) AS TotalWins,
+				SUM (TotalRefund) AS TotalRefund,
+				SUM (CompanyTurnOver) AS CompanyTurnover,
+				SUM (RealTurnOver) AS RealTurnover,
+				SUM (CompanyGrossIncome) AS CompanyGrossIncome,
+				SUM (CompanyComm) AS CompanyComm,
 				SUM (TotalBetsBase) AS TotalBetsBase, 
 				SUM (TotalWinsBase) AS TotalWinsBase,
 				SUM (TotalRefundBase) AS TotalRefundBase,
@@ -1985,140 +1672,22 @@ BEGIN
 				SUM (RealTurnoverBase) AS RealTurnoverBase,
 				SUM (CompanyGrossIncomeBase) AS CompanyGrossIncomeBase,
 				SUM (CompanyCommBase) AS CompanyCommBase,
-				SUM(b.ExtraPT) ExtraPT,
-				SUM(b.ExtraPTBase) ExtraPTBase
-			FROM #Data b
-				INNER JOIN bodb02.dbo.custAccount a WITH(NOLOCK) ON b.srecommend = a.custid
-				INNER JOIN bodb02.dbo.CustGroupHeadline h WITH(NOLOCK) ON a.groupID = h.GroupID
-				INNER JOIN bodb02.dbo.Customer c ON h.CustID = c.custid
+				SUM(ExtraPT) ExtraPT,
+				SUM(ExtraPTBase) ExtraPTBase
+			FROM #Data d
+				INNER JOIN #tmpSMA t ON d.Srecommend = t.SuperID AND d.Mrecommend = t.MasterID 
+							AND d.Recommend = t.AgentID AND d.CustID = t.CustID
+				INNER JOIN #tmpHeadline h ON t.Headline = h.CustID
 			WHERE (@CustID = 0 OR h.CustID = @CustID)
-			GROUP BY c.username, h.CustID
+			GROUP BY h.username, h.CustID
 			HAVING (@TotalBetType = 0
-					OR (@TotalBetType = 1 AND SUM(b.TotalBets) >= @TotalBetValue) 
-					OR (@TotalBetType = -1 AND SUM(b.TotalBets) <= @TotalBetValue)
+					OR (@TotalBetType = 1 AND SUM(TotalBets) >= @TotalBetValue) 
+					OR (@TotalBetType = -1 AND SUM(TotalBets) <= @TotalBetValue)
 					)
 				AND (@GameIncomeType = 0
-					OR (@GameIncomeType = 1 AND SUM(b.TotalBets - b.TotalWins) >= @GameIncomeValue) 
-					OR (@GameIncomeType = -1 AND SUM(b.TotalBets - b.TotalWins) <= @GameIncomeValue)
-					)
-
-			INSERT INTO #tmpResult
-						( Headline ,
-						  CustID ,						  
-						  BetCount ,
-						  CurrencyID ,
-						  Currency ,
-						  TotalBets ,
-						  TotalWins ,
-						  TotalRefund ,
-						  CompanyTurnOver ,
-						  RealTurnOver,
-						  CompanyGrossIncome ,
-						  CompanyComm,
-						  TotalBetsBase,
-						  TotalWinsBase,
-						  TotalRefundBase,
-						  CompanyTurnOverBase,
-						  RealTurnOverBase,
-						  CompanyGrossIncomeBase,
-						  CompanyCommBase,
-						  ExtraPT,
-						  ExtraPTBase
-						)
-			SELECT c.username,
-				h.CustID,
-				SUM(BetCount) AS BetCount ,
-				b.CurrencyID AS CurrencyId, 
-				b.Currency AS Currency,
-				SUM (b.TotalBets) AS TotalBets, 
-				SUM (b.TotalWins) AS TotalWins,
-				SUM (b.TotalRefund) AS TotalRefund,
-				SUM (b.CompanyTurnOver) AS CompanyTurnover,
-				SUM (b.RealTurnOver) AS RealTurnover,
-				SUM (b.CompanyGrossIncome) AS CompanyGrossIncome,
-				SUM (b.CompanyComm) AS CompanyComm,
-				SUM (TotalBetsBase) AS TotalBetsBase, 
-				SUM (TotalWinsBase) AS TotalWinsBase,
-				SUM (TotalRefundBase) AS TotalRefundBase,
-				SUM (CompanyTurnoverBase) AS CompanyTurnoverBase,
-				SUM (RealTurnoverBase) AS RealTurnoverBase,
-				SUM (CompanyGrossIncomeBase) AS CompanyGrossIncomeBase,
-				SUM (CompanyCommBase) AS CompanyCommBase,
-				SUM(b.ExtraPT) ExtraPT,
-				SUM(b.ExtraPTBase) ExtraPTBase
-			FROM #Data b
-				INNER JOIN bodb02.dbo.custAccount a WITH(NOLOCK) ON b.mrecommend = a.custid
-				INNER JOIN bodb02.dbo.CustGroupHeadline h WITH(NOLOCK) ON a.groupID = h.GroupID
-				INNER JOIN bodb02.dbo.Customer c ON h.CustID = c.custid
-			WHERE (@CustID = 0 OR h.CustID = @CustID)
-			GROUP BY c.username, h.CustID
-			HAVING (@TotalBetType = 0
-					OR (@TotalBetType = 1 AND SUM(b.TotalBets) >= @TotalBetValue) 
-					OR (@TotalBetType = -1 AND SUM(b.TotalBets) <= @TotalBetValue)
-					)
-				AND (@GameIncomeType = 0
-					OR (@GameIncomeType = 1 AND SUM(b.TotalBets - b.TotalWins) >= @GameIncomeValue) 
-					OR (@GameIncomeType = -1 AND SUM(b.TotalBets - b.TotalWins) <= @GameIncomeValue)
-					)
-
-			INSERT INTO #tmpResult
-						( Headline ,
-						  CustID ,						  
-						  BetCount ,
-						  CurrencyID ,
-						  Currency ,
-						  TotalBets ,
-						  TotalWins ,
-						  TotalRefund ,
-						  CompanyTurnOver ,
-						  RealTurnOver,
-						  CompanyGrossIncome ,
-						  CompanyComm,
-						  TotalBetsBase,
-						  TotalWinsBase,
-						  TotalRefundBase,
-						  CompanyTurnOverBase,
-						  RealTurnOverBase,
-						  CompanyGrossIncomeBase,
-						  CompanyCommBase,
-						  ExtraPT,
-						  ExtraPTBase
-						)
-			SELECT c.username,
-				h.CustID,
-				SUM(BetCount) AS BetCount ,
-				b.CurrencyID AS CurrencyId, 
-				b.Currency AS Currency,
-				SUM (b.TotalBets) AS TotalBets, 
-				SUM (b.TotalWins) AS TotalWins,
-				SUM (b.TotalRefund) AS TotalRefund,
-				SUM (b.CompanyTurnOver) AS CompanyTurnover,
-				SUM (b.RealTurnOver) AS RealTurnover,
-				SUM (b.CompanyGrossIncome) AS CompanyGrossIncome,
-				SUM (b.CompanyComm) AS CompanyComm,
-				SUM (TotalBetsBase) AS TotalBetsBase, 
-				SUM (TotalWinsBase) AS TotalWinsBase,
-				SUM (TotalRefundBase) AS TotalRefundBase,
-				SUM (CompanyTurnoverBase) AS CompanyTurnoverBase,
-				SUM (RealTurnoverBase) AS RealTurnoverBase,
-				SUM (CompanyGrossIncomeBase) AS CompanyGrossIncomeBase,
-				SUM (CompanyCommBase) AS CompanyCommBase,
-				SUM(b.ExtraPT) ExtraPT,
-				SUM(b.ExtraPTBase) ExtraPTBase
-			FROM #Data b
-				INNER JOIN bodb02.dbo.custAccount a WITH(NOLOCK) ON b.recommend = a.custid
-				INNER JOIN bodb02.dbo.CustGroupHeadline h WITH(NOLOCK) ON a.groupID = h.GroupID
-				INNER JOIN bodb02.dbo.Customer c ON h.CustID = c.custid
-			WHERE (@CustID = 0 OR h.CustID = @CustID)
-			GROUP BY c.username, h.CustID
-			HAVING (@TotalBetType = 0
-					OR (@TotalBetType = 1 AND SUM(b.TotalBets) >= @TotalBetValue) 
-					OR (@TotalBetType = -1 AND SUM(b.TotalBets) <= @TotalBetValue)
-					)
-				AND (@GameIncomeType = 0
-					OR (@GameIncomeType = 1 AND SUM(b.TotalBets - b.TotalWins) >= @GameIncomeValue) 
-					OR (@GameIncomeType = -1 AND SUM(b.TotalBets - b.TotalWins) <= @GameIncomeValue)
-					)
+					OR (@GameIncomeType = 1 AND SUM(TotalBets - TotalWins) >= @GameIncomeValue) 
+					OR (@GameIncomeType = -1 AND SUM(TotalBets - TotalWins) <= @GameIncomeValue)
+					)			
 		END
 		
 	END
@@ -2127,28 +1696,53 @@ BEGIN
 	IF @IsGrandTotal = 0
 	BEGIN
 		IF @IsDrillDown = 0
-		BEGIN
-			SELECT 
-					Headline,
+			IF @ExcludeNoData = 1
+			BEGIN
+				SELECT 
+						Headline,
+						CustID,
+						SUM(BetCount) BetCount,
+						CurrencyID,
+						Currency,
+						SUM(TotalBets) TotalBets,
+						SUM(TotalWins) TotalWins,
+						SUM(TotalRefund) TotalRefund,
+						SUM(CompanyTurnOver) HouseTurnOver,
+						SUM(RealTurnOver) RealTurnOver,
+						SUM(CompanyGrossIncome) HouseGrossIncome,
+						SUM(CompanyComm) HouseComm,
+						SUM(ExtraPT) ExtraPT
+				FROM #Result d
+				GROUP BY Headline,
 					CustID,
-					SUM(BetCount) BetCount,
 					CurrencyID,
-					Currency,
-					SUM(TotalBets) TotalBets,
-					SUM(TotalWins) TotalWins,
-					SUM(TotalRefund) TotalRefund,
-					SUM(CompanyTurnOver) HouseTurnOver,
-					SUM(RealTurnOver) RealTurnOver,
-					SUM(CompanyGrossIncome) HouseGrossIncome,
-					SUM(CompanyComm) HouseComm,
-					SUM(ExtraPT) ExtraPT
-			FROM #Result d
-			GROUP BY Headline,
-				CustID,
-				CurrencyID,
-				Currency
-			ORDER BY Headline
-		END
+					Currency
+				ORDER BY Headline
+			END
+			ELSE
+			BEGIN
+				SELECT 
+						h.Username Headline,
+						h.CustID,
+						SUM(BetCount) BetCount,
+						CurrencyID,
+						Currency,
+						SUM(TotalBets) TotalBets,
+						SUM(TotalWins) TotalWins,
+						SUM(TotalRefund) TotalRefund,
+						SUM(CompanyTurnOver) HouseTurnOver,
+						SUM(RealTurnOver) RealTurnOver,
+						SUM(CompanyGrossIncome) HouseGrossIncome,
+						SUM(CompanyComm) HouseComm,
+						SUM(ExtraPT) ExtraPT
+				FROM #tmpHeadline h
+					LEFT JOIN #Result d ON h.CustID = d.CustId
+				GROUP BY h.Username,
+					h.CustID,
+					CurrencyID,
+					Currency
+				ORDER BY h.Username
+			END
 		ELSE
 		BEGIN
 			SELECT b.Headline,
@@ -2230,6 +1824,9 @@ BEGIN
 	DROP TABLE #tmpDummyCust
 	DROP TABLE #tmpVirtualSport
 	DROP TABLE #tmpVSBettype
+	DROP TABLE #tmpHeadline
+	DROP TABLE #tmpResult
+	DROP TABLE #tmpSMA
 
 END
 
