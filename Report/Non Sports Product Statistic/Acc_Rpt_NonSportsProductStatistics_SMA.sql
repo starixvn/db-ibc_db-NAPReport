@@ -1467,7 +1467,7 @@ BEGIN
 	FROM #Data b
 		INNER JOIN #tmpSMA s WITH(NOLOCK) ON b.srecommend = s.custid	
 	WHERE @RoleID IN (0,4)
-	GROUP BY s.username, s.CustID	
+	GROUP BY s.username, s.CustID, b.CurrencyID, b.Currency	
 
 	INSERT INTO #tmpResult
 			(	RoleName,
@@ -1519,7 +1519,7 @@ BEGIN
 	FROM #Data b
 		INNER JOIN #tmpSMA s WITH(NOLOCK) ON b.mrecommend = s.custid	
 	WHERE @RoleID IN (0,3)
-	GROUP BY s.username, s.CustID	
+	GROUP BY s.username, s.CustID, b.CurrencyID, b.Currency	
 
 	INSERT INTO #tmpResult
 			(	RoleName,
@@ -1571,7 +1571,7 @@ BEGIN
 	FROM #Data b
 		INNER JOIN #tmpSMA s WITH(NOLOCK) ON b.recommend = s.custid	
 	WHERE @RoleID IN (0,2)
-	GROUP BY s.username, s.CustID
+	GROUP BY s.username, s.CustID, b.CurrencyID, b.Currency
 
 	INSERT INTO #tmpResult
 			(	RoleName,
@@ -1623,7 +1623,7 @@ BEGIN
 	FROM #Data b
 		INNER JOIN #tmpSMA s WITH(NOLOCK) ON b.custid = s.custid	
 	WHERE @RoleID IN (0,1)
-	GROUP BY s.username, s.CustID
+	GROUP BY s.username, s.CustID, b.CurrencyID, b.Currency
 	
 	IF @Currency = '-1'
 		INSERT INTO #Result
@@ -1674,12 +1674,12 @@ BEGIN
 					ExtraPTBase
 		FROM #tmpResult
 		WHERE (@TotalBetType = 0
-				OR (@TotalBetType = 1 AND SUM(TotalBetsBase) >= @TotalBetValue) 
-				OR (@TotalBetType = -1 AND SUM(TotalBetsBase) <= @TotalBetValue)
+				OR (@TotalBetType = 1 AND TotalBetsBase >= @TotalBetValue) 
+				OR (@TotalBetType = -1 AND TotalBetsBase <= @TotalBetValue)
 				)
 			AND (@GameIncomeType = 0
-				OR (@GameIncomeType = 1 AND SUM(TotalBetsBase - TotalWinsBase) >= @GameIncomeValue) 
-				OR (@GameIncomeType = -1 AND SUM(TotalBetsBase - TotalWinsBase) <= @GameIncomeValue)
+				OR (@GameIncomeType = 1 AND (TotalBetsBase - TotalWinsBase) >= @GameIncomeValue) 
+				OR (@GameIncomeType = -1 AND (TotalBetsBase - TotalWinsBase) <= @GameIncomeValue)
 				)	
 	ELSE
 		INSERT INTO #Result
@@ -1730,12 +1730,12 @@ BEGIN
 					ExtraPTBase
 		FROM #tmpResult
 		WHERE (@TotalBetType = 0
-				OR (@TotalBetType = 1 AND SUM(TotalBets) >= @TotalBetValue) 
-				OR (@TotalBetType = -1 AND SUM(TotalBets) <= @TotalBetValue)
+				OR (@TotalBetType = 1 AND TotalBets >= @TotalBetValue) 
+				OR (@TotalBetType = -1 AND TotalBets <= @TotalBetValue)
 				)
 			AND (@GameIncomeType = 0
-				OR (@GameIncomeType = 1 AND SUM(TotalBets - TotalWins) >= @GameIncomeValue) 
-				OR (@GameIncomeType = -1 AND SUM(TotalBets - TotalWins) <= @GameIncomeValue)
+				OR (@GameIncomeType = 1 AND (TotalBets - TotalWins) >= @GameIncomeValue) 
+				OR (@GameIncomeType = -1 AND (TotalBets - TotalWins) <= @GameIncomeValue)
 				)	
 
 	------------------------------------------IV. Return Detail ------------------------------------------------------

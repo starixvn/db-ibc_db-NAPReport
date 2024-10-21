@@ -1699,7 +1699,7 @@ BEGIN
 			IF @ExcludeNoData = 1
 			BEGIN
 				SELECT 
-						Headline,
+						Headline Username,
 						CustID,
 						SUM(BetCount) BetCount,
 						CurrencyID,
@@ -1722,7 +1722,7 @@ BEGIN
 			ELSE
 			BEGIN
 				SELECT 
-						h.Username Headline,
+						h.Username,
 						h.CustID,
 						SUM(BetCount) BetCount,
 						CurrencyID,
@@ -1745,7 +1745,7 @@ BEGIN
 			END
 		ELSE
 		BEGIN
-			SELECT b.Headline,
+			SELECT b.Headline Username,
 				b.CustID,
 				SUM(b.BetCount) AS BetCount,
 				b.CurrencyID,
