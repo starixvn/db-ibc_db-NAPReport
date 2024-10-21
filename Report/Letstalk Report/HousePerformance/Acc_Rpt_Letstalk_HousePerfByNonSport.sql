@@ -30,6 +30,7 @@ AS
 		20240628@Cherry: Integrate Fast Spin (#206142)
 		20240722@Cherry: Integrate Virtual Sports 5 (#206922), Nextspin (#199988)
 		20240916@Cherry: Integrate ON Casino (#210031)
+		20241020@Cherry: Integrate GPI (#207012), Playtech(#210555)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -223,6 +224,8 @@ BEGIN
 			,(87,'RNG','FastSpin')
 			,(89,'RNG','FACHAI')
 			,(85,'RNG','Nextspin')
+			,(48,'RNG','GPI')
+			,(100,'RNG','Playtech')
 			----------LOT/KENO----------
 			,(40,'LOT/KENO','TabG') --Table Game
 			,(8,'LOT/KENO','Mkeno') --RNG Keno
