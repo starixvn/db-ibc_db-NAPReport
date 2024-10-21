@@ -21,6 +21,7 @@ Revisions:
 	- 20211111@Cherry: Split transfer table (#164378)
 	- 20230119@Roy: NAP Report - BU 247 (#175206)
 	- 20240821@Jaden: Add currency name for web (#199583)
+	- 20241022@Jaden: Credit Reward Wallet (#212482)
 */
 BEGIN
 	SET NOCOUNT ON
@@ -86,7 +87,23 @@ BEGIN
 				when b.winlostdate < @BalanceUpDay then NULL --> old bal
 				else b.custid
 			end
-			
+
+	--reward wallet
+	--the pendingreward amount cust haven't been paid
+	CREATE TABLE #unpaidReward 
+	(
+		custid INT,
+		amount MONEY,
+		amount_rm MONEY
+	)
+
+	INSERT #unpaidReward (custid, amount, amount_rm)
+	SELECT custid, SUM(amount) amount_original, SUM(amount * actualrate) amount_rm
+	FROM bodb02.dbo.SabaWalletTicket WITH (NOLOCK)
+	WHERE PaymentStatus & 1 = 0 --check 1st bit from right
+	  AND Recommend = @_agentid
+	GROUP BY custid
+
 	SELECT
 			c.custid, 
 			c.username, 
@@ -94,10 +111,13 @@ BEGIN
 			MAX(ex.currency) AS currencyname,
 			IsNull(SUM(b.Balance), 0) Balance,
 			IsNull(SUM(b.BaseBalance),0) AS BaseBalance
+			, SUM(ISNULL(ur.amount, 0)) AS Reward
+			, SUM(ISNULL(ur.amount_rm, 0)) AS RewardRM
 	FROM
 		dbo.custinfo c (nolock)
 		LEFT JOIN #Data b ON c.custid = b.custid
 		LEFT JOIN Exchange ex WITH (NOLOCK) ON ex.ExchangeId = c.currency
+		LEFT JOIN #unpaidReward ur ON ur.custid = c.custid
 	WHERE
 		c.roleid = 1 AND c.recommend = @_agentid
 	GROUP BY c.custid, 

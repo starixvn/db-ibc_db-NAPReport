@@ -21,6 +21,7 @@ Revisions:
 	- 20211111@Cherry: Split transfer table (#164378)
 	- 20230119@Roy: NAP Report - BU 247 (#175206)
 	- 20240821@Jaden: Add currency name for web (#199583)
+	- 20241022@Jaden: Credit Reward Wallet (#212482)
 */
 BEGIN
 	SET NOCOUNT ON 
@@ -108,14 +109,32 @@ BEGIN
 		AND b.bettype NOT IN (21008, 21009)
 		AND b.srecommend = @srecommend
 	GROUP BY b.recommend
-	
+
+	--reward wallet
+	--the pendingreward amount master haven't paid agent
+	CREATE TABLE #unpaidReward 
+	(
+		agentid INT,
+		amount MONEY,
+		amount_rm MONEY
+	)
+
+	INSERT #unpaidReward (agentid, amount, amount_rm)
+	SELECT Recommend, SUM(amount) amount_original, SUM(amount * actualrate) amount_rm
+	FROM bodb02.dbo.SabaWalletTicket WITH (NOLOCK)
+	WHERE PaymentStatus & 2 = 0 --check 2nd bit from right is 0
+	GROUP BY Recommend
+
 	SELECT c.custid, c.username,c.currency
 		,MAX(ex.currency) AS currencyname
 		,ISNULL(SUM(Balance),0) Balance
 		,ISNULL(SUM(BaseBalance),0) BaseBalance  
+		, SUM(ISNULL(ur.amount, 0)) AS Reward
+		, SUM(ISNULL(ur.amount_rm, 0)) AS RewardRM
 	FROM #AgentInfo c
 		LEFT JOIN #Data AS bal ON c.custid = bal.custid
 		LEFT JOIN Exchange ex WITH (NOLOCK) ON ex.ExchangeId = c.currency
+		LEFT JOIN #unpaidReward ur ON ur.agentid = c.custid
 	GROUP BY c.custid, c.username,c.currency
 	ORDER BY c.username
 	
