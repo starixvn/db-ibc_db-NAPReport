@@ -77,18 +77,6 @@ BEGIN
 						 ExtraPT DECIMAL(19,4), ExtraPTBase DECIMAL(19,4)
 						)
 
-	CREATE TABLE #tmpResult (  Headline VARCHAR(50), CustID INT,
-							BetCount INT, CurrencyID INT, Currency NVARCHAR(50)	,
-							TotalBets DECIMAL(19,4), TotalBetsBase DECIMAL(19,4),
-							TotalWins DECIMAL(19,4), TotalWinsBase DECIMAL(19,4),
-							TotalRefund DECIMAL(19,4), TotalRefundBase DECIMAL(19,4),
-							CompanyTurnOver DECIMAL(19,4), CompanyTurnOverBase DECIMAL(19,4),
-							RealTurnOver DECIMAL(19,4), RealTurnOverBase DECIMAL(19,4),
-							CompanyGrossIncome DECIMAL(19,4), CompanyGrossIncomeBase DECIMAL(19,4),
-							CompanyComm DECIMAL(19,4), CompanyCommBase DECIMAL(19,4),
-							ExtraPT DECIMAL(19,4), ExtraPTBase DECIMAL(19,4)							
-							)
-
 	CREATE TABLE #Result (  Headline VARCHAR(50), CustID INT,
 							BetCount INT, CurrencyID INT, Currency NVARCHAR(50)	,
 							TotalBets DECIMAL(19,4), TotalBetsBase DECIMAL(19,4),
@@ -1443,7 +1431,7 @@ BEGIN
 	BEGIN
 		IF @Currency = '-1' --BaseRM
 		BEGIN			
-			INSERT INTO #tmpResult
+			INSERT INTO #Result
 					( Headline,
 						CustID ,
 						BetCount ,
@@ -1504,7 +1492,7 @@ BEGIN
 		END		
 		ELSE -- @Currency <> -1
 		BEGIN
-			INSERT INTO #tmpResult
+			INSERT INTO #Result
 					( Headline ,
 						CustID ,					
 						BetCount ,
@@ -1569,7 +1557,7 @@ BEGIN
 	BEGIN
 		IF @Currency = '-1'
 		BEGIN
-			INSERT INTO #tmpResult
+			INSERT INTO #Result
 						( Headline ,
 						  CustID ,						 
 						  BetCount ,
@@ -1630,7 +1618,7 @@ BEGIN
 		END
 		ELSE
 		BEGIN
-			INSERT INTO #tmpResult
+			INSERT INTO #Result
 						( Headline ,
 						  CustID ,						  
 						  BetCount ,
@@ -1745,7 +1733,7 @@ BEGIN
 			END
 		ELSE
 		BEGIN
-			SELECT b.Headline Username,
+			SELECT r.Headline Username,
 				b.CustID,
 				SUM(b.BetCount) AS BetCount,
 				b.CurrencyID,
@@ -1758,9 +1746,9 @@ BEGIN
 				CASE WHEN @Currency = '-1' THEN SUM(b.CompanyGrossIncomeBase) ELSE SUM(b.CompanyGrossIncome) END AS HouseGrossIncome,
 				CASE WHEN @Currency = '-1' THEN SUM(b.CompanyCommBase) ELSE SUM(b.CompanyComm) END AS HouseComm,
 				CASE WHEN @Currency = '-1' THEN SUM(b.ExtraPTBase) ELSE SUM(b.ExtraPT) END AS ExtraPT
-		FROM #tmpResult b	
+		FROM #Data b	
 			INNER JOIN #Result r ON (@Currency = '-1' OR b.CurrencyID = r.CurrencyID) AND b.CustID = r.CustID	
-		GROUP BY b.Headline, b.CustID, b.CurrencyID , b.Currency	
+		GROUP BY r.Headline, b.CustID, b.CurrencyID , b.Currency	
 		ORDER BY b.Currency
 		END
 	END
@@ -1779,7 +1767,7 @@ BEGIN
 				CASE WHEN @Currency = '-1' THEN SUM(b.CompanyGrossIncomeBase) ELSE SUM(b.CompanyGrossIncome) END AS HouseGrossIncome,
 				CASE WHEN @Currency = '-1' THEN SUM(b.CompanyCommBase) ELSE SUM(b.CompanyComm) END AS HouseComm,
 				CASE WHEN @Currency = '-1' THEN SUM(b.ExtraPTBase) ELSE SUM(b.ExtraPT) END AS ExtraPT
-		FROM #tmpResult b	
+		FROM #Data b	
 			INNER JOIN #Result r ON (@Currency = '-1' OR b.CurrencyID = r.CurrencyID) AND b.CustID = r.CustID	
 		GROUP BY b.CurrencyID , b.Currency		
 		ORDER BY b.Currency
@@ -1797,7 +1785,7 @@ BEGIN
 			SUM (b.CompanyGrossIncomeBase) AS HouseGrossIncome,
 			SUM (b.CompanyCommBase) AS HouseComm,
 			SUM (b.ExtraPTBase) ExtraPT
-	FROM #tmpResult b	
+	FROM #Data b	
 			INNER JOIN #Result r ON (@Currency = '-1' OR b.CurrencyID = r.CurrencyID) 
 
 	DROP TABLE #Data
@@ -1824,8 +1812,7 @@ BEGIN
 	DROP TABLE #tmpDummyCust
 	DROP TABLE #tmpVirtualSport
 	DROP TABLE #tmpVSBettype
-	DROP TABLE #tmpHeadline
-	DROP TABLE #tmpResult
+	DROP TABLE #tmpHeadline	
 	DROP TABLE #tmpSMA
 
 END
