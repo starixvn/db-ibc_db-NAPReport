@@ -1725,8 +1725,8 @@ BEGIN
 						h.Username,
 						h.CustID,
 						SUM(BetCount) BetCount,
-						CASE WHEN @Currency = '-1' THEN '-1' ELSE d.CurrencyId END CurrencyId,
-						CASE WHEN @Currency = '-1' THEN 'RM' ELSE d.Currency END Currency,
+						CASE WHEN @Currency = '-1' AND d.CustID IS NOT NULL THEN '-1' ELSE d.CurrencyId END CurrencyId,
+						CASE WHEN @Currency = '-1' AND d.CustID IS NOT NULL THEN 'RM' ELSE d.Currency END Currency,
 						SUM(TotalBets) TotalBets,
 						SUM(TotalWins) TotalWins,
 						SUM(TotalRefund) TotalRefund,
@@ -1739,8 +1739,8 @@ BEGIN
 					LEFT JOIN #Result d ON h.CustID = d.CustId
 				GROUP BY h.Username,
 					h.CustID,
-					CASE WHEN @Currency = '-1' THEN '-1' ELSE d.CurrencyId END,
-					CASE WHEN @Currency = '-1' THEN 'RM' ELSE d.Currency END 
+					CASE WHEN @Currency = '-1' AND d.CustID IS NOT NULL THEN '-1' ELSE d.CurrencyId END,
+					CASE WHEN @Currency = '-1' AND d.CustID IS NOT NULL THEN 'RM' ELSE d.Currency END 
 				ORDER BY h.Username
 			END
 		ELSE
