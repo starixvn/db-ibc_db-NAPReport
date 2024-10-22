@@ -1702,8 +1702,8 @@ BEGIN
 						Headline Username,
 						CustID,
 						SUM(BetCount) BetCount,
-						CurrencyID,
-						Currency,
+						CASE WHEN @Currency = '-1' THEN '-1' ELSE CurrencyId END CurrencyId,
+						CASE WHEN @Currency = '-1' THEN 'RM' ELSE Currency END Currency,
 						SUM(TotalBets) TotalBets,
 						SUM(TotalWins) TotalWins,
 						SUM(TotalRefund) TotalRefund,
@@ -1715,8 +1715,8 @@ BEGIN
 				FROM #Result d
 				GROUP BY Headline,
 					CustID,
-					CurrencyID,
-					Currency
+					CASE WHEN @Currency = '-1' THEN '-1' ELSE CurrencyId END,
+					CASE WHEN @Currency = '-1' THEN 'RM' ELSE Currency END 
 				ORDER BY Headline
 			END
 			ELSE
@@ -1725,8 +1725,8 @@ BEGIN
 						h.Username,
 						h.CustID,
 						SUM(BetCount) BetCount,
-						CurrencyID,
-						Currency,
+						CASE WHEN @Currency = '-1' THEN '-1' ELSE d.CurrencyId END CurrencyId,
+						CASE WHEN @Currency = '-1' THEN 'RM' ELSE d.Currency END Currency,
 						SUM(TotalBets) TotalBets,
 						SUM(TotalWins) TotalWins,
 						SUM(TotalRefund) TotalRefund,
@@ -1739,8 +1739,8 @@ BEGIN
 					LEFT JOIN #Result d ON h.CustID = d.CustId
 				GROUP BY h.Username,
 					h.CustID,
-					CurrencyID,
-					Currency
+					CASE WHEN @Currency = '-1' THEN '-1' ELSE d.CurrencyId END,
+					CASE WHEN @Currency = '-1' THEN 'RM' ELSE d.Currency END 
 				ORDER BY h.Username
 			END
 		ELSE
