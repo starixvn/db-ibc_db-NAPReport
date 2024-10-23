@@ -18,6 +18,7 @@ AS
 		- 20210917@Danny: Prorated minfee for the group min fee (#160737)
 		- 20230425@Danny: SP LA_AmountToCompanyByProduct return Discount Rate ExtraInfo (#169160)
 		- 20230821@Danny: Integrate Parlay Boost Bonus (#192894)
+		- 20241003@Danny: Move Acc_Licensee_HousePT to DBCUST (#208100)
 */
 BEGIN
 	SET NOCOUNT ON
@@ -427,7 +428,7 @@ BEGIN
 
 	CREATE TABLE #__HousePT (PartyId INT, CurrencyId INT, HousePT FLOAT)
 	INSERT INTO #__HousePT (PartyId, CurrencyId, HousePT)
-	EXEC DBACC.bodb02.dbo.Acc_Licensee_HousePT @Sites = @Sites, @SiteCurrencies = @SiteCurrencies
+	EXEC DBCUST.CustDB.dbo.Acc_Licensee_HousePT @Sites = @Sites, @SiteCurrencies = @SiteCurrencies
 
 
 	-- BA sheet data

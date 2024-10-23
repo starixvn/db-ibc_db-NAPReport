@@ -1,4 +1,4 @@
-/*<info serverAlias="DBACC-bodb02" executers="" isFunction="0" isNested="1"></info>*/
+/*<info serverAlias="DBCUST-CustDB" executers="" isFunction="0" isNested="1"></info>*/
 ALTER PROCEDURE [dbo].[Acc_Licensee_HousePT]
 	@Sites				VARCHAR(MAX)
 	,@SiteCurrencies	VARCHAR(MAX)
@@ -6,12 +6,13 @@ AS
 
 /*
 	Created: 20210129@Percy
-	DB: DBACC-bodb02
+	DB: DBCUST-CustDB
 	Task: Auto mail - Licensee Sportsbook Data - House PT
 	
 	Revisions:
 		- 20210129@Percy: Initiliaze SP [RedmineID: #148805]
 		- 20220928@Danny: Change data source to get House PT [RedmineID: #176077]
+		- 20241003@Danny: Move Acc_Licensee_HousePT to DBCUST (#208100)
 */
 
 BEGIN
