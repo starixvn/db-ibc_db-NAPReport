@@ -1519,8 +1519,8 @@ BEGIN
 				h.username,
 				h.CustID,
 				SUM(BetCount) AS BetCount ,
-				CurrencyID AS CurrencyId, 
-				Currency AS Currency,
+				d.CurrencyID AS CurrencyId, 
+				d.Currency AS Currency,
 				SUM (TotalBets) AS TotalBets, 
 				SUM (TotalWins) AS TotalWins,
 				SUM (TotalRefund) AS TotalRefund,
@@ -1542,7 +1542,7 @@ BEGIN
 							AND d.Recommend = t.AgentID AND d.CustID = t.CustID
 				INNER JOIN #tmpHeadline h ON t.Headline = h.CustID
 			WHERE (@CustID = 0 OR h.CustID = @CustID)
-			GROUP BY h.username, h.CustID
+			GROUP BY h.username, h.CustID, d.CurrencyID, d.Currency
 			HAVING (@TotalBetType = 0
 					OR (@TotalBetType = 1 AND SUM(TotalBets) >= @TotalBetValue) 
 					OR (@TotalBetType = -1 AND SUM(TotalBets) <= @TotalBetValue)
@@ -1644,8 +1644,8 @@ BEGIN
 			SELECT h.username,
 				h.CustID,
 				SUM(BetCount) AS BetCount ,
-				CurrencyID AS CurrencyId, 
-				Currency AS Currency,
+				d.CurrencyID AS CurrencyId, 
+				d.Currency AS Currency,
 				SUM (TotalBets) AS TotalBets, 
 				SUM (TotalWins) AS TotalWins,
 				SUM (TotalRefund) AS TotalRefund,
@@ -1667,7 +1667,7 @@ BEGIN
 							AND d.Recommend = t.AgentID AND d.CustID = t.CustID
 				INNER JOIN #tmpHeadline h ON t.Headline = h.CustID
 			WHERE (@CustID = 0 OR h.CustID = @CustID)
-			GROUP BY h.username, h.CustID
+			GROUP BY h.username, h.CustID, d.CurrencyID, d.Currency
 			HAVING (@TotalBetType = 0
 					OR (@TotalBetType = 1 AND SUM(TotalBets) >= @TotalBetValue) 
 					OR (@TotalBetType = -1 AND SUM(TotalBets) <= @TotalBetValue)
