@@ -1676,8 +1676,8 @@ BEGIN
 	END
 	ELSE
 	BEGIN
-		SELECT b.CurrencyID,
-				b.Currency,				
+		SELECT 
+				b.Currency AS Username,				
 				SUM(b.BetCount) AS BetCount,
 				b.CurrencyID,
 				b.Currency,
