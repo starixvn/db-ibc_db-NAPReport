@@ -1697,16 +1697,16 @@ BEGIN
 	------------------------------------------V. Return Total Rows ------------------------------------------------------
 	
 	SELECT  'GrandTotalRM' AS ReportBy, 
-			SUM(BetCount) AS BetCount ,
+			SUM(b.BetCount) AS BetCount ,
 			-1 as CurrencyId, 'RM' AS Currency,
-			SUM (TotalBetsBase) AS TotalBets, 
-			SUM (TotalWinsBase) AS TotalWins,
-			SUM (TotalRefundBase) AS TotalRefund,
-			SUM (CompanyTurnoverBase) AS HouseTurnover,
-			SUM (RealTurnoverBase) AS RealTurnover,
-			SUM (CompanyGrossIncomeBase) AS HouseGrossIncome,
-			SUM (CompanyCommBase) AS HouseComm,
-			SUM (ExtraPTBase) ExtraPT
+			SUM (b.TotalBetsBase) AS TotalBets, 
+			SUM (b.TotalWinsBase) AS TotalWins,
+			SUM (b.TotalRefundBase) AS TotalRefund,
+			SUM (b.CompanyTurnoverBase) AS HouseTurnover,
+			SUM (b.RealTurnoverBase) AS RealTurnover,
+			SUM (b.CompanyGrossIncomeBase) AS HouseGrossIncome,
+			SUM (b.CompanyCommBase) AS HouseComm,
+			SUM (b.ExtraPTBase) ExtraPT
 	FROM #tmpResult b	
 			INNER JOIN #Result r ON (@Currency = '-1' OR b.CurrencyID = r.CurrencyID) 
 									AND b.CustID = r.CustID 
