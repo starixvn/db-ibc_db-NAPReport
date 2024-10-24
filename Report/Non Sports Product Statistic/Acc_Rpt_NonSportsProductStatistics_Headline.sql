@@ -1775,18 +1775,17 @@ BEGIN
 	------------------------------------------V. Return Total Rows ------------------------------------------------------
 	
 	SELECT  'GrandTotalRM' AS ReportBy, 
-			SUM(b.BetCount) AS BetCount ,
+			SUM(BetCount) AS BetCount ,
 			-1 as CurrencyId, 'RM' AS Currency,
-			SUM (b.TotalBetsBase) AS TotalBets, 
-			SUM (b.TotalWinsBase) AS TotalWins,
-			SUM (b.TotalRefundBase) AS TotalRefund,
-			SUM (b.CompanyTurnoverBase) AS HouseTurnover,
-			SUM (b.RealTurnoverBase) AS RealTurnover,
-			SUM (b.CompanyGrossIncomeBase) AS HouseGrossIncome,
-			SUM (b.CompanyCommBase) AS HouseComm,
-			SUM (b.ExtraPTBase) ExtraPT
-	FROM #Data b	
-			INNER JOIN #Result r ON (@Currency = '-1' OR b.CurrencyID = r.CurrencyID) 
+			SUM (TotalBetsBase) AS TotalBets, 
+			SUM (TotalWinsBase) AS TotalWins,
+			SUM (TotalRefundBase) AS TotalRefund,
+			SUM (CompanyTurnoverBase) AS HouseTurnover,
+			SUM (RealTurnoverBase) AS RealTurnover,
+			SUM (CompanyGrossIncomeBase) AS HouseGrossIncome,
+			SUM (CompanyCommBase) AS HouseComm,
+			SUM (ExtraPTBase) ExtraPT
+	FROM #Result 
 
 	DROP TABLE #Data
 	DROP TABLE #Result
