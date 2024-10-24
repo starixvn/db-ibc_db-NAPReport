@@ -1866,6 +1866,7 @@ BEGIN
 			SUM (b.ExtraPTBase) ExtraPT
 	FROM #tmpResult b	
 			INNER JOIN #Result r ON (@Currency = '-1' OR b.CurrencyID = r.CurrencyID) 
+									AND b.CustID = r.CustID
 
 	DROP TABLE #Data
 	DROP TABLE #Result
