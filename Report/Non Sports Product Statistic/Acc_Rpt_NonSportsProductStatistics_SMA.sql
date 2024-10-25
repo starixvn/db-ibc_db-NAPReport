@@ -19,9 +19,7 @@ ALTER PROCEDURE [dbo].[Acc_Rpt_NonSportsProductStatistics_SMA]
 	@TotalBetType	SMALLINT = 0,
 	@TotalBetValue  MONEY = NULL,
 	@GameIncomeType	SMALLINT = 0,
-	@GameIncomeValue MONEY = NULL,	 
-	@HousePTType	SMALLINT = 0,
-	@HousePTValue   MONEY = 0,
+	@GameIncomeValue MONEY = NULL,	 	
 	@IsDrillDown	BIT = 0,
 	@IsGrandTotal	BIT = 0,
 	@IsExactly		BIT = 0,
@@ -51,19 +49,13 @@ AS
 		- @TotalBetType : 
 			1 : is >=
 			-1 : is <=
-		- @TotalBetValue : Value to compare with @TotalBetType
-		- @HousePTType : 
-			1 : is >=
-			-1 : is <=
-		- @HousePTValue : Value to compare with @HousePTType
+		- @TotalBetValue : Value to compare with @TotalBetType		
 		- @IsDrillDown: If click on Grand Total or on the Grid of column Currency
 		- @RoleID: 
 			0: headline, 4: Super, 3: Master, 2: Agent
 */
 BEGIN
-	SET NOCOUNT ON
-
-	DECLARE @CustList VARCHAR(MAX)		
+	SET NOCOUNT ON		
 	
 	DECLARE @WLDate SMALLDATETIME
 	SELECT @WLDate = CAST(@WinlostDate AS SMALLDATETIME)
@@ -405,12 +397,7 @@ BEGIN
 			AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
-				)
-			AND (
-				@HousePTType = 0
-				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
-				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
-				)
+				)			
 		GROUP BY b.recommend, b.mrecommend,	b.custid,		 
 			b.Currency, srecommend, b.bettype 
 		
@@ -480,12 +467,7 @@ BEGIN
 			AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 					OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
-			)
-			AND (
-				@HousePTType = 0
-				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
-				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
-			)
+			)			
 		GROUP BY b.recommend, b.mrecommend,	b.custid,			
 				b.currency, b.srecommend, b.bettype
 			
@@ -564,12 +546,7 @@ BEGIN
 				AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 				AND ( @Site = 'ALL'
 					  OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
-				)
-				AND (
-					@HousePTType = 0
-					OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
-					OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
-				)
+				)				
 			GROUP BY b.recommend, b.mrecommend, b.currency, b.srecommend, b.gameID, b.custid
 			
 			OPTION(RECOMPILE)
@@ -640,12 +617,7 @@ BEGIN
 				AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 				AND ( @Site = 'ALL'
 					  OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
-				)
-				AND (
-					@HousePTType = 0
-					OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
-					OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
-				)
+				)				
 			GROUP BY b.recommend, b.mrecommend, b.currency, b.srecommend, b.gameID, b.custid
 			
 			OPTION(RECOMPILE)
@@ -723,12 +695,7 @@ BEGIN
 				AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 				AND ( @Site = 'ALL'
 					  OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
-				)
-				AND (
-					@HousePTType = 0
-					OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
-					OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
-				)
+				)				
 			GROUP BY b.recommend, b.mrecommend, b.currency, b.srecommend, b.gameID, b.custid
 			
 			OPTION(RECOMPILE)
@@ -807,12 +774,7 @@ BEGIN
 			AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
-			)
-			AND (
-				@HousePTType = 0
-				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
-				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
-			)
+			)			
 		GROUP BY b.recommend, b.mrecommend, b.currency, b.srecommend, b.gameID, b.custid		
 		
 		OPTION(RECOMPILE)
@@ -880,12 +842,7 @@ BEGIN
 			AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
-				)
-			AND (
-				@HousePTType = 0
-				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
-				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
-				)
+				)			
 		GROUP BY b.recommend, b.mrecommend, b.Currency, b.srecommend, b.bettype, b.custid
 		
 		OPTION(RECOMPILE)
@@ -960,12 +917,7 @@ BEGIN
 			AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
-				)
-			AND (
-				@HousePTType = 0
-				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
-				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
-				)
+				)			
 		GROUP BY b.recommend, b.mrecommend, b.Currency, b.srecommend, b.bettype, b.custid
 		
 		OPTION(RECOMPILE)
@@ -1038,12 +990,7 @@ BEGIN
 			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
-				)
-			AND (
-				@HousePTType = 0
-				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
-				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
-				)
+				)			
 		GROUP BY b.recommend, b.mrecommend, b.Currency, b.srecommend, b.bettype, b.custid
 		
 		OPTION(RECOMPILE)
@@ -1118,12 +1065,7 @@ BEGIN
 			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
-				)
-			AND (
-				@HousePTType = 0
-				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
-				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
-				)
+				)			
 		GROUP BY b.recommend, b.mrecommend, b.Currency, b.srecommend, b.bettype, b.custid
 		
 		OPTION(RECOMPILE)		
@@ -1194,12 +1136,7 @@ BEGIN
 			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
-				)
-			AND (
-				@HousePTType = 0
-				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
-				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
-				)
+				)			
 		GROUP BY b.recommend, b.mrecommend, b.Currency, b.srecommend, b.bettype, b.custid
 		
 		OPTION(RECOMPILE)		
@@ -1276,12 +1213,7 @@ BEGIN
 			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
-				)
-			AND (
-				@HousePTType = 0
-				OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
-				OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
-				)				  
+				)							  
 		GROUP BY b.recommend, b.mrecommend, b.Currency, b.srecommend, b.bettype, b.custid
 		OPTION(RECOMPILE)
 	END
@@ -1370,12 +1302,7 @@ BEGIN
 		AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 		AND ( @Site = 'ALL'
 				OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
-			)
-		AND (
-			@HousePTType = 0
-			OR (@HousePTType = -1 AND b.tpositiontaking >= 1-@HousePTValue) -- 1-tpositiontaking <= @HousePTValue
-			OR (@HousePTType = 1 AND b.tpositiontaking <= 1-@HousePTValue) -- 1-tpositiontaking >= @HousePTValue
-			)
+			)		
 	GROUP BY b.recommend, b.mrecommend, b.Currency, b.srecommend, b.bettype, b.custid
 	OPTION(RECOMPILE)
 	
