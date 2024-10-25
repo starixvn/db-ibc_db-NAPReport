@@ -1655,7 +1655,7 @@ BEGIN
 			END
 		ELSE
 		BEGIN
-			SELECT r.Headline Username,
+			SELECT b.Currency Username,
 				b.CustID,
 				SUM(b.BetCount) AS BetCount,
 				b.CurrencyID,
@@ -1669,7 +1669,7 @@ BEGIN
 				CASE WHEN @Currency = '-1' THEN SUM(b.CompanyCommBase) ELSE SUM(b.CompanyComm) END AS HouseComm,
 				CASE WHEN @Currency = '-1' THEN SUM(b.ExtraPTBase) ELSE SUM(b.ExtraPT) END AS ExtraPT
 		FROM #tmpResult b	
-			INNER JOIN #Result r ON (@Currency = '-1' OR b.CurrencyID = r.CurrencyID) AND b.CustID = r.CustID	
+			INNER JOIN #Result r ON b.CurrencyID = r.CurrencyID AND b.CustID = r.CustID	
 		GROUP BY r.Headline, b.CustID, b.CurrencyID , b.Currency	
 		ORDER BY b.Currency
 		END
@@ -1690,7 +1690,7 @@ BEGIN
 				CASE WHEN @Currency = '-1' THEN SUM(b.CompanyCommBase) ELSE SUM(b.CompanyComm) END AS HouseComm,
 				CASE WHEN @Currency = '-1' THEN SUM(b.ExtraPTBase) ELSE SUM(b.ExtraPT) END AS ExtraPT
 		FROM #tmpResult b	
-			INNER JOIN #Result r ON (@Currency = '-1' OR b.CurrencyID = r.CurrencyID) AND b.CustID = r.CustID	
+			INNER JOIN #Result r ON b.CurrencyID = r.CurrencyID AND b.CustID = r.CustID	
 		GROUP BY b.CurrencyID , b.Currency		
 		ORDER BY b.Currency
 	END
@@ -1708,8 +1708,7 @@ BEGIN
 			SUM (b.CompanyCommBase) AS HouseComm,
 			SUM (b.ExtraPTBase) ExtraPT
 	FROM #tmpResult b	
-			INNER JOIN #Result r ON (@Currency = '-1' OR b.CurrencyID = r.CurrencyID) 
-									AND b.CustID = r.CustID 
+			INNER JOIN #Result r ON b.CurrencyID = r.CurrencyID	AND b.CustID = r.CustID 
 
 	DROP TABLE #Data
 	DROP TABLE #tmpResult
