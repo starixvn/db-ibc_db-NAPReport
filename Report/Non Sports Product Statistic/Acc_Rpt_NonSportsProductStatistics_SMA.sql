@@ -1794,7 +1794,7 @@ BEGIN
 				ORDER BY s.RoleID DESC, s.Username
 
 			SELECT  RoleName,	
-					NULL Username,
+					'Total' Username,
 					NULL CustID,
 					SUM(BetCount) BetCount,		
 					-1 CurrencyID,
@@ -1812,7 +1812,8 @@ BEGIN
 		END
 		ELSE
 		BEGIN
-			SELECT b.Username,
+			SELECT b.RoleName,
+				b.Username,
 				b.CustID,
 				SUM(b.BetCount) AS BetCount,
 				b.CurrencyID,
@@ -1827,13 +1828,12 @@ BEGIN
 				CASE WHEN @Currency = '-1' THEN SUM(b.ExtraPTBase) ELSE SUM(b.ExtraPT) END AS ExtraPT
 		FROM #tmpResult b	
 			INNER JOIN #Result r ON (@Currency = '-1' OR b.CurrencyID = r.CurrencyID) AND b.CustID = r.CustID	
-		GROUP BY b.Username, b.CustID, b.CurrencyID , b.Currency	
-		ORDER BY b.Currency
+		GROUP BY b.RoleName, b.Username, b.CustID, b.CurrencyID , b.Currency			
 		END
 	END
 	ELSE
 	BEGIN
-		SELECT b.CurrencyID,
+		SELECT b.Username,
 				b.Currency,				
 				SUM(b.BetCount) AS BetCount,
 				b.CurrencyID,
@@ -1848,7 +1848,7 @@ BEGIN
 				CASE WHEN @Currency = '-1' THEN SUM(b.ExtraPTBase) ELSE SUM(b.ExtraPT) END AS ExtraPT
 		FROM #tmpResult b	
 			INNER JOIN #Result r ON (@Currency = '-1' OR b.CurrencyID = r.CurrencyID) AND b.CustID = r.CustID	
-		GROUP BY b.CurrencyID , b.Currency		
+		GROUP BY b.Username, b.CurrencyID , b.Currency		
 		ORDER BY b.Currency
 	END
 	------------------------------------------V. Return Total Rows ------------------------------------------------------
