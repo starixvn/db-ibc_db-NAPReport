@@ -1655,7 +1655,7 @@ BEGIN
 			END
 		ELSE
 		BEGIN
-			SELECT b.Currency Username,
+			SELECT b.Headline Username,
 				b.CustID,
 				SUM(b.BetCount) AS BetCount,
 				b.CurrencyID,
@@ -1670,7 +1670,7 @@ BEGIN
 				CASE WHEN @Currency = '-1' THEN SUM(b.ExtraPTBase) ELSE SUM(b.ExtraPT) END AS ExtraPT
 		FROM #tmpResult b	
 			INNER JOIN #Result r ON b.CurrencyID = r.CurrencyID AND b.CustID = r.CustID	
-		GROUP BY r.Headline, b.CustID, b.CurrencyID , b.Currency	
+		GROUP BY b.Headline, b.CustID, b.CurrencyID , b.Currency	
 		ORDER BY b.Currency
 		END
 	END
