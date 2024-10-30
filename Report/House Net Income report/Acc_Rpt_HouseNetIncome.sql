@@ -8,7 +8,8 @@ ALTER PROCEDURE dbo.Acc_Rpt_HouseNetIncome @FromDate         DATE,
                                            @IsLicPerf        BIT         = 0,
                                            @BaseCurrencyName VARCHAR(10) = 'MYR',
                                            @DepositType      TINYINT     = 2,
-                                           @DataMode         TINYINT     = 1
+                                           @DataMode         TINYINT     = 1,
+                                           @ExcluProduct     VARCHAR(MAX) = NULL
 AS
 
 /*
@@ -23,6 +24,7 @@ AS
         20230201@Ned.Le: Email/Letstalk reports- Change layout for the report id #1 & #2 (#183142)
         20230315@Ned.Le: Email/Letstalk Report ID #01 - Implement new chart report for comparing monthly.Year To Date Winloss/Margin (#185000)
         20230403@Ned.Le: House Net Income Email/Letstalk Reports - Enhance the solution when regenerating new Data into our Data Source (#186350)
+        20241030@Roy: Email/Letstalk - Integrate VS6 (#212749)
 
     Param's Explanation:
         @FromDate:         Begin date of data report
@@ -39,7 +41,7 @@ AS
                                                                     | HNIResultDataset_BK_Month
                            5 - Get full data from DAILY BACKUP      | HNIResultDataset_BK_Date  | For using when need to get old DAILY BACKUP snapshot data
                            6 - Get full data from MONTHLY BACKUP    | HNIResultDataset_BK_Month | For using when need to get old MONTHLY BACKUP snapshot data
-
+		@ExcluProduct:	List of HNISettings.ProductPrefix to exclude
     Example:
         EXEC bodb_dwrs.dbo.Acc_Rpt_HouseNetIncome '20210801', '20210818', 0, 'MYR', 2, 1
 */
@@ -58,7 +60,7 @@ BEGIN
 
     -----------------------
     -- CREATE temp table --
-
+	CREATE TABLE #tmpExcluHNIProduct (OrderByProduct INT PRIMARY KEY)
     -- CREATE temp table
     CREATE TABLE #tmpHNIResultDataset (
         [FromDate]         DATE,
@@ -109,7 +111,15 @@ BEGIN
         [30]               DECIMAL(19,4),
         [31]               DECIMAL(19,4)
     )
-
+	
+	/*
+		Parse @ExcluProduct
+	*/
+	INSERT INTO #tmpExcluHNIProduct (OrderByProduct)
+	SELECT DISTINCT s.OrderByProduct
+	FROM bodb_account.dbo.HNISettings AS s WITH (NOLOCK)
+		INNER JOIN STRING_SPLIT(@ExcluProduct, ',') AS p ON TRIM(p.value) = s.ProductPrefix
+	
     -- [@DataMode = 1] For using on default daily and monthly data processing
     IF (@DataMode = 1)
     BEGIN
@@ -126,15 +136,17 @@ BEGIN
                [ToDate],
                [isLicPerf],
                [BaseCurrencyName],
-               [isDeposit], [OrderByProduct], [OrderByFigure], [SiteGroup], [ProductCategory], [ProductGroup], [ProductName], [ProductShortName], [Figure], [SubFigure],
+               [isDeposit], d.OrderByProduct, [OrderByFigure], [SiteGroup], [ProductCategory], [ProductGroup], [ProductName], [ProductShortName], [Figure], [SubFigure],
                [Monthly], [MTD],
                [01], [02], [03], [04], [05], [06], [07], [08], [09], [10], [11], [12], [13], [14], [15], [16], [17], [18], [19], [20], [21], [22], [23], [24], [25], [26], [27], [28], [29], [30], [31]
-        FROM bodb_Account.dbo.HNIResultDataset (NOLOCK)
+        FROM bodb_Account.dbo.HNIResultDataset AS d WITH (NOLOCK)
+			LEFT JOIN #tmpExcluHNIProduct AS e ON d.OrderByProduct = e.OrderByProduct
         WHERE [FromDate] = @FromDate
               AND [ToDate] = @ToDate
               AND [isLicPerf] = @IsLicPerf
               AND [BaseCurrencyName] = @BaseCurrencyName
               AND ((@DepositType = 2) OR ([isDeposit] = @DepositType))
+              AND e.OrderByProduct IS NULL
     END
 
     -- [@DataMode = 2] For using on UAT testing
@@ -153,15 +165,17 @@ BEGIN
                [ToDate],
                [isLicPerf],
                [BaseCurrencyName],
-               [isDeposit], [OrderByProduct], [OrderByFigure], [SiteGroup], [ProductCategory], [ProductGroup], [ProductName], [ProductShortName], [Figure], [SubFigure],
+               [isDeposit], d.OrderByProduct, [OrderByFigure], [SiteGroup], [ProductCategory], [ProductGroup], [ProductName], [ProductShortName], [Figure], [SubFigure],
                [Monthly], [MTD],
                [01], [02], [03], [04], [05], [06], [07], [08], [09], [10], [11], [12], [13], [14], [15], [16], [17], [18], [19], [20], [21], [22], [23], [24], [25], [26], [27], [28], [29], [30], [31]
-        FROM bodb_Account.dbo.HNIResultDatasetUAT (NOLOCK)
+        FROM bodb_Account.dbo.HNIResultDatasetUAT AS d WITH (NOLOCK)
+			LEFT JOIN #tmpExcluHNIProduct AS e ON d.OrderByProduct = e.OrderByProduct
         WHERE [FromDate] = @FromDate
               AND [ToDate] = @ToDate
               AND [isLicPerf] = @IsLicPerf
               AND [BaseCurrencyName] = @BaseCurrencyName
               AND ((@DepositType = 2) OR ([isDeposit] = @DepositType))
+			  AND e.OrderByProduct IS NULL
     END
 
     -- [@DataMode = 3] For using on daily margin MTD chart report
@@ -173,17 +187,19 @@ BEGIN
                    [ToDate],
                    [isLicPerf],
                    [BaseCurrencyName],
-                   [isDeposit], [OrderByProduct], [OrderByFigure], [SiteGroup], [ProductCategory], [ProductGroup], [ProductName], [ProductShortName], [Figure], [SubFigure],
+                   [isDeposit], d.OrderByProduct, [OrderByFigure], [SiteGroup], [ProductCategory], [ProductGroup], [ProductName], [ProductShortName], [Figure], [SubFigure],
                    [Monthly], [MTD],
                    [01], [02], [03], [04], [05], [06], [07], [08], [09], [10], [11], [12], [13], [14], [15], [16], [17], [18], [19], [20], [21], [22], [23], [24], [25], [26], [27], [28], [29], [30], [31],
                    [CreateDate],
                    DENSE_RANK() OVER(ORDER BY CreateDate DESC) CrateDate_Rank
-            FROM bodb_account.dbo.HNIResultDataset_BK_Month (NOLOCK)
+            FROM bodb_account.dbo.HNIResultDataset_BK_Month AS d WITH (NOLOCK)
+				LEFT JOIN #tmpExcluHNIProduct AS e ON d.OrderByProduct = e.OrderByProduct
             WHERE @FromDate >= [FromDate]
                   AND @ToDate <= [ToDate]
                   AND [isLicPerf] = @IsLicPerf
                   AND [BaseCurrencyName] = @BaseCurrencyName
                   AND ((@DepositType = 2) OR ([isDeposit] = @DepositType))
+				  AND e.OrderByProduct IS NULL
         )
         INSERT INTO #tmpHNIResultDataset (
             [FromDate],
@@ -268,17 +284,19 @@ BEGIN
                            [ToDate],
                            [isLicPerf],
                            [BaseCurrencyName],
-                           [isDeposit], [OrderByProduct], [OrderByFigure], [SiteGroup], [ProductCategory], [ProductGroup], [ProductName], [ProductShortName], [Figure], [SubFigure],
+                           [isDeposit], d.OrderByProduct, [OrderByFigure], [SiteGroup], [ProductCategory], [ProductGroup], [ProductName], [ProductShortName], [Figure], [SubFigure],
                            [Monthly], [MTD],
                            [01], [02], [03], [04], [05], [06], [07], [08], [09], [10], [11], [12], [13], [14], [15], [16], [17], [18], [19], [20], [21], [22], [23], [24], [25], [26], [27], [28], [29], [30], [31],
                            [CreateDate],
                            DENSE_RANK() OVER(ORDER BY CreateDate DESC) CrateDate_Rank
-                    FROM bodb_account.dbo.HNIResultDataset_BK_Month (NOLOCK)
+                    FROM bodb_account.dbo.HNIResultDataset_BK_Month AS d WITH (NOLOCK)
+						LEFT JOIN #tmpExcluHNIProduct AS e ON d.OrderByProduct = e.OrderByProduct
                     WHERE [FromDate] = @firstdate
                           AND [ToDate] = @lastdate
                           AND [isLicPerf] = @IsLicPerf
                           AND [BaseCurrencyName] = @BaseCurrencyName
                           AND ((@DepositType = 2) OR ([isDeposit] = @DepositType))
+						  AND e.OrderByProduct IS NULL
                 )
                 INSERT INTO #tmpHNIResultDataset (
                     [FromDate],
@@ -308,17 +326,19 @@ BEGIN
                            [ToDate],
                            [isLicPerf],
                            [BaseCurrencyName],
-                           [isDeposit], [OrderByProduct], [OrderByFigure], [SiteGroup], [ProductCategory], [ProductGroup], [ProductName], [ProductShortName], [Figure], [SubFigure],
+                           [isDeposit], d.OrderByProduct, [OrderByFigure], [SiteGroup], [ProductCategory], [ProductGroup], [ProductName], [ProductShortName], [Figure], [SubFigure],
                            [Monthly], [MTD],
                            [01], [02], [03], [04], [05], [06], [07], [08], [09], [10], [11], [12], [13], [14], [15], [16], [17], [18], [19], [20], [21], [22], [23], [24], [25], [26], [27], [28], [29], [30], [31],
                            [CreateDate],
                            DENSE_RANK() OVER(ORDER BY CreateDate DESC) CrateDate_Rank
-                    FROM bodb_account.dbo.HNIResultDataset_BK_Date (NOLOCK)
+                    FROM bodb_account.dbo.HNIResultDataset_BK_Date AS d WITH (NOLOCK)
+						LEFT JOIN #tmpExcluHNIProduct AS e ON d.OrderByProduct = e.OrderByProduct
                     WHERE [FromDate] = @firstdate
                           AND [ToDate] = @lastdate
                           AND [isLicPerf] = @IsLicPerf
                           AND [BaseCurrencyName] = @BaseCurrencyName
                           AND ((@DepositType = 2) OR ([isDeposit] = @DepositType))
+						  AND e.OrderByProduct IS NULL
                 )
                 INSERT INTO #tmpHNIResultDataset (
                     [FromDate],
@@ -360,17 +380,19 @@ BEGIN
                    [ToDate],
                    [isLicPerf],
                    [BaseCurrencyName],
-                   [isDeposit], [OrderByProduct], [OrderByFigure], [SiteGroup], [ProductCategory], [ProductGroup], [ProductName], [ProductShortName], [Figure], [SubFigure],
+                   [isDeposit], d.OrderByProduct, [OrderByFigure], [SiteGroup], [ProductCategory], [ProductGroup], [ProductName], [ProductShortName], [Figure], [SubFigure],
                    [Monthly], [MTD],
                    [01], [02], [03], [04], [05], [06], [07], [08], [09], [10], [11], [12], [13], [14], [15], [16], [17], [18], [19], [20], [21], [22], [23], [24], [25], [26], [27], [28], [29], [30], [31],
                    [CreateDate],
                    DENSE_RANK() OVER(ORDER BY CreateDate DESC) CrateDate_Rank
-            FROM bodb_account.dbo.HNIResultDataset_BK_Date (NOLOCK)
+            FROM bodb_account.dbo.HNIResultDataset_BK_Date AS d WITH (NOLOCK)
+				LEFT JOIN #tmpExcluHNIProduct AS e ON d.OrderByProduct = e.OrderByProduct
             WHERE [FromDate] = @FromDate
                   AND [ToDate] = @ToDate
                   AND [isLicPerf] = @IsLicPerf
                   AND [BaseCurrencyName] = @BaseCurrencyName
                   AND ((@DepositType = 2) OR ([isDeposit] = @DepositType))
+				  AND e.OrderByProduct IS NULL
         )
         INSERT INTO #tmpHNIResultDataset (
             [FromDate],
@@ -400,17 +422,19 @@ BEGIN
                    [ToDate],
                    [isLicPerf],
                    [BaseCurrencyName],
-                   [isDeposit], [OrderByProduct], [OrderByFigure], [SiteGroup], [ProductCategory], [ProductGroup], [ProductName], [ProductShortName], [Figure], [SubFigure],
+                   [isDeposit], d.OrderByProduct, [OrderByFigure], [SiteGroup], [ProductCategory], [ProductGroup], [ProductName], [ProductShortName], [Figure], [SubFigure],
                    [Monthly], [MTD],
                    [01], [02], [03], [04], [05], [06], [07], [08], [09], [10], [11], [12], [13], [14], [15], [16], [17], [18], [19], [20], [21], [22], [23], [24], [25], [26], [27], [28], [29], [30], [31],
                    [CreateDate],
                    DENSE_RANK() OVER(ORDER BY CreateDate DESC) CrateDate_Rank
-            FROM bodb_account.dbo.HNIResultDataset_BK_Month (NOLOCK)
+            FROM bodb_account.dbo.HNIResultDataset_BK_Month AS d WITH (NOLOCK)
+				LEFT JOIN #tmpExcluHNIProduct AS e ON d.OrderByProduct = e.OrderByProduct
             WHERE [FromDate] = @FromDate
                   AND [ToDate] = @ToDate
                   AND [isLicPerf] = @IsLicPerf
                   AND [BaseCurrencyName] = @BaseCurrencyName
                   AND ((@DepositType = 2) OR ([isDeposit] = @DepositType))
+				  AND e.OrderByProduct IS NULL
         )
         INSERT INTO #tmpHNIResultDataset (
             [FromDate],
@@ -472,6 +496,7 @@ BEGIN
     -- DROP temp tables --
 
     DROP TABLE #tmpHNIResultDataset
+    DROP TABLE #tmpExcluHNIProduct
 
 END
 GO
