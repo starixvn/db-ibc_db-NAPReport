@@ -31,6 +31,7 @@ AS
 		20240722@Cherry: Integrate Virtual Sports 5 (#206922), Nextspin (#199988)
 		20240916@Cherry: Integrate ON Casino (#210031)
 		20241020@Cherry: Integrate GPI (#207012), Playtech(#210555)
+		20241104@Cherry: Exclude VS6 (#212749)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -126,6 +127,11 @@ BEGIN
 	)
 	
 	SELECT @isTest = dbo.f_CheckSPVersion(@@PROCID)
+
+	DECLARE @ExcludeProduct NVARCHAR(500) 
+	SELECT @ExcludeProduct = VValue
+	FROM DBWH.bodb_account.dbo.SystemSettings WITH(NOLOCK)
+	WHERE VID=37
 	
 	/*
 		insert Dim for non-sport product
@@ -136,6 +142,10 @@ BEGIN
 		SELECT DISTINCT pb.ProductID
 			,pb.Bettype
 		FROM DBWH.bodb_account.dbo.Product_Bettype AS pb WITH (NOLOCK)
+	)
+	,CTE_ExcludeProduct AS (
+		SELECT CAST(value AS INT) AS ProductID
+		FROM string_split(@ExcludeProduct, ',')
 	)
 	,CTE_Bettype AS (
 		SELECT DISTINCT typeid AS Bettype
@@ -163,6 +173,7 @@ BEGIN
 					OR SubProduct IN ('Bet Builder')
 				)
 		)
+		AND pb.ProductID NOT IN (SELECT ProductID FROM CTE_ExcludeProduct)
 	
 	/*Special non-sport product*/
 	;WITH CTE_Special AS (
