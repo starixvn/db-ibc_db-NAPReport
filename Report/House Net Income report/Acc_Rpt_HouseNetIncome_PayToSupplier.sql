@@ -40,6 +40,8 @@ AS
 		- 20240328@Danny: Incorporate Yolo And remove unsupported products (#201590)
 		- 20240605@Danny: Separate Hedging and Special Sites (#206144)
 		- 20240605@Danny: Letstalk reports - Integrate the Saba Kabaddi And Remove Linked server DBCUST (#204927)
+		- 20241023@Danny: Incorporate GPI (#207012)
+		- 20241023@Danny: Incorporate Playtech (#210555)
 */
 BEGIN
     SET NOCOUNT ON
@@ -102,6 +104,7 @@ BEGIN
 	-- For Allbet
 	CREATE TABLE #__PlayCurrencySettings (SiteId INT, MemberCurrency INT, PlayCurrency INT, FromDate DATETIME, ToDate DATETIME)
 	CREATE TABLE #__tempData (rptDate DATE, SiteId INT, BetTypeId INT, CurrencyId INT, Winloss MONEY, ValidBetAmount MONEY, ProgressiveContribution MONEY)
+	CREATE TABLE #Party3rdChargeByCurrencyInfo(ChargeId INT, CurrencyId INT, Rate FLOAT)
 	---- Param And temporary table
 
 	SELECT  @IsTest = dbo.f_CheckSPVersion(@@PROCID)
@@ -256,6 +259,17 @@ BEGIN
 													)'')'
 		INSERT INTO #__Party3rdInfo (PartyId, Product3rdId, ChargeId, ChargeType, FromDate, ToDate, Rate)
 		EXEC (@SQL)
+
+
+		SELECT @SQL = '	SELECT ChargeId, CurrencyId, Rate
+					FROM OPENQUERY(DBLIC, ''SELECT pc.ChargeId, pc.CurrencyId, pc.Rate
+											FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd (''''' + @f_date + ''''', ''''' + @t_date + ''''', ''''' + @ProductCodes + ''''', ''''OA'''') ci
+												INNER JOIN bodb_Licensee.dbo.LA_ChargeRateByCurrency pc WITH (NOLOCK) ON ci.ChargeId = pc.ChargeId
+											WHERE ci.ChargeType = 1 AND ci.DI_Rate > 0'')'
+		INSERT INTO #Party3rdChargeByCurrencyInfo (ChargeId, CurrencyId, Rate)
+		EXEC (@SQL)
+
+
 
 		INSERT INTO #__PartyCharge3rdInfo (ParentId, PartyId, LicenseeId, IsDeposit, Product3rdId, ChargeId, ChargeType, FromDate, ToDate, Rate)
 		SELECT p.ParentId, p.PartyId, p.LicenseeId, p.IsDeposit, p3.Product3rdId, p3.ChargeId, p3.ChargeType, p3.FromDate, p3.ToDate, p3.Rate
@@ -500,13 +514,13 @@ BEGIN
 
 			INSERT INTO #__tempResult (rptDate, ParentId, IsDeposit, Product3rdId, Bettype, CurrencyId, PlayCurrency, PayDaily, PayDailyRate, PayMonth, PayMonthRate, MemberWLDailyRate, MemberWLMonthRate, BonusRate, SiteGroup)
 			SELECT d.rptDate, tp.ParentId, tp.IsDeposit, bt.Product3rdId, CASE WHEN d.BetTypeId = 3007 THEN 3007 ELSE 0 END, d.CurrencyId, ISNULL(pc.PlayCurrency, d.CurrencyId) AS PlayCurrency
-				,SUM(CASE  WHEN bt.SubProduct NOT IN ('Prize','Lucky Draw','Bonus','Promotion') THEN (CASE WHEN d.BetTypeId IN (4297, 4599) THEN d.ProgressiveContribution ELSE d.Winloss END + ISNULL(d.ValidBetAmount * v.CommRate, 0)) * ISNULL(p3.Rate, 0) 
+				,SUM(CASE  WHEN bt.SubProduct NOT IN ('Prize','Lucky Draw','Bonus','Promotion') THEN (CASE WHEN d.BetTypeId IN (4297, 4599) THEN d.ProgressiveContribution ELSE d.Winloss END + ISNULL(d.ValidBetAmount * v.CommRate, 0)) * ISNULL(ISNULL(p3rd.Rate,p3.Rate), 0) 
 						  ELSE 0 END) AS PayDaily
-				,SUM(CASE  WHEN bt.SubProduct NOT IN ('Prize','Lucky Draw','Bonus','Promotion') THEN (CASE WHEN d.BetTypeId IN (4297, 4599) THEN d.ProgressiveContribution ELSE d.Winloss END + ISNULL(d.ValidBetAmount * v.CommRate, 0)) * e.Rate * ISNULL(p3.Rate, 0) 
+				,SUM(CASE  WHEN bt.SubProduct NOT IN ('Prize','Lucky Draw','Bonus','Promotion') THEN (CASE WHEN d.BetTypeId IN (4297, 4599) THEN d.ProgressiveContribution ELSE d.Winloss END + ISNULL(d.ValidBetAmount * v.CommRate, 0)) * e.Rate * ISNULL(ISNULL(p3rd.Rate,p3.Rate), 0) 
 						  ELSE 0 END) AS PayDailyRate
-				,SUM(CASE WHEN bt.SubProduct NOT IN ('Prize','Lucky Draw','Bonus','Promotion') THEN (CASE WHEN d.BetTypeId IN (4297, 4599) THEN d.ProgressiveContribution ELSE d.Winloss END + ISNULL(d.ValidBetAmount * v.CommRate, 0)) * CASE WHEN p.LicenseeId IS NULL OR p3.LicenseeId IS NULL THEN 0 ELSE p3.Rate END 
+				,SUM(CASE WHEN bt.SubProduct NOT IN ('Prize','Lucky Draw','Bonus','Promotion') THEN (CASE WHEN d.BetTypeId IN (4297, 4599) THEN d.ProgressiveContribution ELSE d.Winloss END + ISNULL(d.ValidBetAmount * v.CommRate, 0)) * CASE WHEN p.LicenseeId IS NULL OR p3.LicenseeId IS NULL THEN 0 ELSE ISNULL(p3rd.Rate,p3.Rate) END 
 						  ELSE 0 END) AS PayMonth
-				,SUM(CASE  WHEN bt.SubProduct NOT IN ('Prize','Lucky Draw','Bonus','Promotion') THEN (CASE WHEN d.BetTypeId IN (4297, 4599) THEN d.ProgressiveContribution ELSE d.Winloss END + ISNULL(d.ValidBetAmount * v.CommRate, 0)) * e.Rate * CASE WHEN p.LicenseeId IS NULL OR p3.LicenseeId IS NULL THEN 0 ELSE p3.Rate END  
+				,SUM(CASE  WHEN bt.SubProduct NOT IN ('Prize','Lucky Draw','Bonus','Promotion') THEN (CASE WHEN d.BetTypeId IN (4297, 4599) THEN d.ProgressiveContribution ELSE d.Winloss END + ISNULL(d.ValidBetAmount * v.CommRate, 0)) * e.Rate * CASE WHEN p.LicenseeId IS NULL OR p3.LicenseeId IS NULL THEN 0 ELSE ISNULL(p3rd.Rate,p3.Rate) END  
 						  ELSE 0 END) AS PayMonthRate
 				,SUM(CASE WHEN bt.SubProduct NOT IN ('Prize','Lucky Draw','Bonus','Promotion') THEN CASE WHEN d.BetTypeId IN (4297, 4599) THEN d.ProgressiveContribution ELSE d.Winloss END * e.Rate ELSE 0 END) AS MemberWLDailyRate
 				,SUM(CASE WHEN bt.SubProduct NOT IN ('Prize','Lucky Draw','Bonus','Promotion') THEN CASE WHEN d.BetTypeId IN (4297, 4599) THEN d.ProgressiveContribution ELSE d.Winloss END * e.Rate * CASE WHEN p.LicenseeId IS NULL THEN 0.0 ELSE 1.0 END ELSE 0 END) AS MemberWLMonthRate
@@ -522,6 +536,7 @@ BEGIN
 				INNER JOIN @ExchangeOANDA e ON d.CurrencyId = e.ExchangeId
 				LEFT JOIN #__PartyChargeInfo p ON tp.LicenseeId = p.LicenseeId AND bt.Product3rdId = p.Product3rdId AND d.rptDate BETWEEN p.FromDate AND p.ToDate AND p.ChargeType <> 11 AND ((d.BetTypeId <> 3007 AND p.ChargeType <> 12) OR (d.BetTypeId = 3007 AND p.ChargeType = 12))
 				LEFT JOIN #__PartyCharge3rdInfo p3 ON tp.LicenseeId = p3.LicenseeId AND bt.Product3rdId = p3.Product3rdId AND d.rptDate BETWEEN p3.FromDate AND p3.ToDate AND p3.ChargeType <> 11 AND ((d.BetTypeId <> 3007 AND p3.ChargeType <> 12) OR (d.BetTypeId = 3007 AND p3.ChargeType = 12))
+				LEFT JOIN #Party3rdChargeByCurrencyInfo p3rd ON p3.ChargeId = p3rd.ChargeId AND d.CurrencyId = p3rd.CurrencyId
 				LEFT JOIN #__PlayCurrencySettings pc ON d.SiteId = pc.SiteId AND d.CurrencyId = pc.MemberCurrency AND d.rptDate BETWEEN pc.FromDate AND pc.ToDate
 				LEFT JOIN #__ValidBetRate v ON tp.IsDeposit = v.IsDeposit AND bt.Product3rdId = v.Product3rdId AND d.rptDate BETWEEN v.FromDate AND v.ToDate
 				LEFT JOIN @Site789y_lic x ON x.SiteID = d.SiteId
@@ -819,5 +834,6 @@ BEGIN
 	DROP TABLE #AllParties
 	DROP TABLE #MetricChargeInfo
 	DROP TABLE #Party
+	DROP TABLE #Party3rdChargeByCurrencyInfo
 END
 GO
