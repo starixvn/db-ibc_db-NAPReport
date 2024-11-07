@@ -28,6 +28,7 @@ AS
 		20240722@Cherry: Integrate Virtual Sports 5 (#206922)
 		20240916@Cherry: Integrate ON Casino (#210031)
 		20240916@Cherry: Integrate Odds Boost Voucher (#210559)
+		20241106@Cherry: Integrate Virtual Sports 6 (#212749)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -246,6 +247,7 @@ BEGIN
 			WHEN ProductName = 'FA CHAI' THEN 'FACHAI'
 			WHEN ProductName = 'Virtual Sports 5' THEN 'VirtSpo5'
 			WHEN ProductName = 'ON Casino' THEN 'ONCasino'
+			WHEN ProductName = 'Virtual Sports 6' THEN 'VirtSpo6'
 			ELSE ProductName END)
 	
 	SELECT @EX3rdName = rd.ProductName
@@ -357,7 +359,7 @@ BEGIN
 		INNER JOIN bodb02.dbo.Products AS p WITH (NOLOCK) ON p.ProductPrefix = rd.ProductPrefix
 		INNER JOIN bodb02.dbo.SportBetTypeMatrix AS s WITH (NOLOCK) ON p.ProductID = s.ProductID
 		INNER JOIN #tmpBetType AS bt ON bt.BetType = s.BetType AND bt.IsSB = 0
-	WHERE p.ProductID IN (27, 49, 77, 83, 88)--VS2 (27) / VS3 Old (49) / VS3 (77) / VS4 (83) / VS5 (88)
+	WHERE p.ProductID IN (27, 49, 77, 83, 88, 71)--VS2 (27) / VS3 Old (49) / VS3 (77) / VS4 (83) / VS5 (88)
 		
 	IF @WLDate >= @VSMergeCutOffDate --over Cut Off Date
 		AND EXISTS (
