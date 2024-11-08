@@ -473,11 +473,11 @@ BEGIN
 			INNER JOIN @VS3rd_To AS rd ON rd.Product3rdID = c.Product3rdID
 	END
 	-----------------Case #2 - NOT EXISTS-----------------
-	ELSE IF @WLDate >= @VSMergeCutOffDate --over Cut Off Date
-		AND NOT EXISTS (
+	IF @WLDate >= @VSMergeCutOffDate --over Cut Off Date
+		AND EXISTS (
 			SELECT 1
-			FROM #tmpChargeInfo AS c
-				INNER JOIN @VS3rd_To AS rd ON rd.Product3rdID = c.Product3rdID
+			FROM @VS3rd_To 
+			WHERE Product3rdID NOT IN (SELECT Product3rdID FROM #tmpChargeInfo)			
 		)
 	BEGIN
 		--CLONE charge rate by PartyID (from VS to VS 2,3,4)
@@ -498,6 +498,7 @@ BEGIN
 		FROM #tmpChargeInfo AS c WITH (NOLOCK)
 			,@VS3rd_To AS rd
 		WHERE c.Product3rdID = @VS3rd_FromID
+			AND rd.Product3rdID NOT IN (SELECT Product3rdID FROM #tmpChargeInfo)
 	END
 	
 	--specific sport, the rest will be group into [Other Sports]
