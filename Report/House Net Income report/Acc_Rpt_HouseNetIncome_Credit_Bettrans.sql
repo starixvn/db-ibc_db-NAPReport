@@ -1,8 +1,4 @@
 /*<info serverAlias="DBACC-bodb02" executers="dwrs" isFunction="0" isNested="1"></info>*/
-
-USE bodb02
-GO
-
 ALTER PROCEDURE dbo.Acc_Rpt_HouseNetIncome_Credit_Bettrans @winlostdate DATE,
                                                            @bettypeList VARCHAR(MAX)
     
@@ -22,6 +18,7 @@ AS
         20240206@Ned.Le: AG Casino - Email/Letstalk Reports - Add promotion & Jackpot bet type (#200523)
         20240403@Ned.Le: Fix code to calculate ContributionStake3rd from bettrans
         20240913@Ned.Le: Email/Letstalk - Odds Boost Voucher (#210559)
+		20241030@Roy: Email/Letstalk - Integrate VS6 (#212749)
 
     Param's Explanation:
         @winlostdate: The date to get data
@@ -191,23 +188,23 @@ BEGIN
     FROM bodb02.dbo.outright o WITH (NOLOCK)
          LEFT JOIN bodb02.dbo.League l WITH (NOLOCK) ON o.leagueid = l.leagueid
 
-    INSERT INTO #tmpOLTP_GameEvent (MatchID, EventType, EventDate, LeagueID, SportID)
-    SELECT v.EventID                 MatchID,
-           3                         EventType,
-           CAST(v.EventTime AS DATE) EventDate,
-           v.LeagueID                LeagueID,
-           l.SportType               SportID
-    FROM bodb02.dbo.VSRaceInfo v WITH (NOLOCK)
-         LEFT JOIN bodb02.dbo.League3rd l WITH (NOLOCK) ON v.LeagueID = l.League3rdId
+	INSERT INTO #tmpOLTP_GameEvent (MatchID, EventType, EventDate, LeagueID, SportID)
+	SELECT v.EventID AS MatchID
+		,3 AS EventType
+		,CAST(v.EventTime AS DATE) AS EventDate
+		,v.LeagueID + 1000000000 AS LeagueID
+		,l.SportType AS SportID
+	FROM bodb02.dbo.VSRaceInfo v WITH (NOLOCK)
+		LEFT JOIN bodb02.dbo.League3rd l WITH (NOLOCK) ON v.LeagueID = l.League3rdId
 
-    INSERT INTO #tmpOLTP_GameEvent (MatchID, EventType, EventDate, LeagueID, SportID)
-    SELECT m.League3rdId MatchID,
-           5             EventType,
-           m.eventdate   EventDate,
-           m.League3rdId LeagueID,
-           l.SportType   SportID
+	INSERT INTO #tmpOLTP_GameEvent (MatchID, EventType, EventDate, LeagueID, SportID)
+	SELECT m.Match3rdId AS MatchID
+		,5 AS EventType
+		,m.eventdate AS EventDate
+		,m.League3rdId + 1000000000 AS LeagueID
+		,l.SportType AS SportID
     FROM bodb02.dbo.Match3rd m WITH (NOLOCK)
-         LEFT JOIN bodb02.dbo.League3rd l WITH (NOLOCK) ON m.League3rdId = l.League3rdId
+		LEFT JOIN bodb02.dbo.League3rd l WITH (NOLOCK) ON m.League3rdId = l.League3rdId
 
     CREATE CLUSTERED INDEX CIX_tmpOLTP_GameEvent ON #tmpOLTP_GameEvent(MatchID, EventType)
 

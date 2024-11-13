@@ -376,7 +376,7 @@ BEGIN
 		END
 	END
 
-	SELECT  @VS6PaytoSupplierTierThreshold = 10000000 * Rate FROM @ExchangeOANDA WHERE ExchangeId = 6 -- EUR
+	SELECT  @VS6PaytoSupplierTierThreshold = 1000000 * Rate FROM @ExchangeOANDA WHERE ExchangeId = 6 -- EUR
 
 	-- Get Deposit Licensees
 	BEGIN
