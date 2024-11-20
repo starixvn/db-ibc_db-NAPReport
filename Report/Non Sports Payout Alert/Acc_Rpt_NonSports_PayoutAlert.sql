@@ -21,6 +21,7 @@ AS
 		20240722@Cherry: Integrate FA CHAI (#206634), FastSpin (#205746), VS5 (#207590), Nextspin (#199987)
 		20240916@Cherry: Integrate ON Casino (#210027)
 		20241020@Cherry: Integrate Playtech (#210558), GPI (#207172)
+		20241106@Cherry: Integrate VS6 (#213013)
 
 	Param's Explanation:
 		@FromGMT8Time: start of time range in GMT+8 with format 2021-05-20 19:00:00
@@ -53,6 +54,10 @@ BEGIN
 		69	- Bitcoin
 	*/
 	DECLARE @ExcludeProduct VARCHAR(MAX) = '4,12,11,13,17,14,24,26,30,33,15,23,47,43,59,69'
+
+	SELECT @ExcludeProduct = @ExcludeProduct + ',' + VValue
+	FROM DBWH.bodb_account.dbo.SystemSettings WITH(NOLOCK)
+	WHERE VID = 37
 	
 	/*
 		Hard code Payout Limit by product
