@@ -57,6 +57,7 @@ AS
 		- 20240723@Danny: Vgaming offer promotion (#208019)
 		- 20240729@Danny: Incorporate VS5 (#206527)
 		- 20240920@Danny: Email/Letstalk - Odds Boost Voucher (#210559)
+		- 20241107@Danny: Incorporate VS6 (#212749)
           
 */
 BEGIN
@@ -103,8 +104,8 @@ BEGIN
 			@AGCPaytoSuplierCutoff DATE  = '2023-10-01',
 			@VSMergeSettingCutoff DATE  = '2024-03-01',
 			@DWH_SabaCoins_SiteID INT, 
-			@SBCWinloss		MONEY
-			
+			@SBCWinloss		MONEY,
+			@VS6PaytoSupplierTierThreshold MONEY
 
 	DECLARE @Product3rd TABLE (Product3rdId INT, ProductPrefix VARCHAR(10))
 	DECLARE @Products TABLE (ProductId INT, Product3rdId INT, AliasProductId INT, ProductCode VARCHAR(50), SubProductCode VARCHAR(50), IsPayToSupplier BIT DEFAULT (0), isOnlyTO BIT DEFAULT (0))
@@ -375,6 +376,8 @@ BEGIN
 		END
 	END
 
+	SELECT  @VS6PaytoSupplierTierThreshold = 1000000 * Rate FROM @ExchangeOANDA WHERE ExchangeId = 6 -- EUR
+
 	-- Get Deposit Licensees
 	BEGIN
 		-- All Deposit Licensees
@@ -547,7 +550,7 @@ BEGIN
 
 		INSERT INTO @VSProductList(ProductID)
 		SELECT Product3rdId
-		FROM @Product3rd WHERE ProductPrefix IN ('VS','VS2','VS3','VS4','VS5','LG')
+		FROM @Product3rd WHERE ProductPrefix IN ('VS','VS2','VS3','VS4','VS5','LG','VS6')
 
 		DELETE #tmpBetType WHERE BettypeGroup = -999
 
@@ -1014,7 +1017,7 @@ BEGIN
 			INNER JOIN @ExchangeOANDA e ON t.CurrencyId = e.ExchangeId
 			LEFT JOIN #PartyChargeInfo p ON p.PartyId = l.PartyId 
 					AND p.Product3rdId =  CASE  WHEN @FromDate > @SB_SLT_BTC_MergePerfCutoff AND t.Product3rdId IN (0,69,63) THEN 0    
-												WHEN @FromDate > @VSMergeSettingCutoff AND t.Product3rdId IN (5,27,49,77,83,88) THEN 5    
+												WHEN @FromDate > @VSMergeSettingCutoff AND t.Product3rdId IN (5,27,49,77,83,88,71) THEN 5    
 										  ELSE  CASE WHEN t.Product3rdId IN (0,69) THEN 0 ELSE t.Product3rdId END  END 
 					AND t.rptDate BETWEEN p.FromDate AND p.ToDate
 					AND (p.Bettype = -1 OR p.Bettype = t.BetTypeGroup)
@@ -1257,6 +1260,12 @@ BEGIN
 
 		END
 
+		-- VS6 Pay To Supplier Daily
+		UPDATE #__tempResult
+		SET PayToSupplierDaily =  CASE WHEN -MemberWLDaily <= @VS6PaytoSupplierTierThreshold THEN 0.06 *  MemberWLDaily
+									  ELSE @VS6PaytoSupplierTierThreshold * 0.06 + (-MemberWLDaily - @VS6PaytoSupplierTierThreshold) * 0.05 END
+		WHERE Product3rdId = 71
+
 		-- Handle Bitcoin, SLT (Cutoff 2021-11-30)
 		;WITH btc_partyList AS
 		(
@@ -1438,6 +1447,22 @@ BEGIN
 	WHERE r.Product3rdId NOT IN (10, 22, 34) 
 	    AND r.Product3rdId NOT IN (SELECT z.ProductID FROM @VSProductList z)
 		AND rptDate = 'Monthly'
+
+
+	DECLARE @VS6PaytoSupplierMonthly MONEY
+	; WITH t AS 
+	(
+		SELECT  PartyId, CASE WHEN SUM(-MemberWLDaily) <= @VS6PaytoSupplierTierThreshold THEN 0.06 *  SUM(MemberWLDaily)
+					ELSE @VS6PaytoSupplierTierThreshold * 0.06 + (SUM(-MemberWLDaily) - @VS6PaytoSupplierTierThreshold) * 0.05 END AS PaytoSupplier
+		FROM #__tempResult
+		WHERE Product3rdId = 71 
+		GROUP BY PartyId
+	)
+	SELECT @VS6PaytoSupplierMonthly = SUM(PaytoSupplier) FROM t
+
+	UPDATE #Result
+	SET PayToSupplier = @VS6PaytoSupplierMonthly
+	WHERE Product3rdId = 71
 
 	-- 1.4 FullContribution, JackpotPrize
 	UPDATE r
@@ -1628,4 +1653,5 @@ BEGIN
 	DROP TABLE #Result
 	DROP TABLE #tmpDW_BettypeGroup
 END
+
 

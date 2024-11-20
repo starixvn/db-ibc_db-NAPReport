@@ -14,6 +14,7 @@ AS
         - 20230817@Ned.Le: Remove currency test
 		- 20240123@Danny: Merge the settings of VS1 VS2 VS3 into Virtual Sports (#199544)
 		- 20240920@Danny: Email/Letstalk - Odds Boost Voucher (#210559)
+		- 20241107@Danny: Incorporate VS6 (#212749)
 
 	Exec Acc_Rpt_FactSiteWinloss_Bettrans '2021-05-12' , 0
 
@@ -152,7 +153,7 @@ BEGIN
 		 LEFT JOIN bodb02.dbo.League3rd l WITH (NOLOCK) ON v.LeagueID = l.League3rdId
 
 	INSERT INTO #tmpGameEvent (MatchID, EventType, EventDate, LeagueID, SportID)
-	SELECT m.League3rdId MatchID,
+	SELECT m.Match3rdId MatchID,
            5             EventType,
            m.eventdate   EventDate,
            m.League3rdId LeagueID,
