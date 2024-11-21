@@ -186,7 +186,7 @@ BEGIN
 	CREATE TABLE #tmpHouseProduct (ProductID INT)
 	CREATE TABLE #tmpDummyCust (CustID INT)
 	CREATE TABLE #tmpVirtualSport (ProductID INT)
-	CREATE TABLE #tmpProductGroup (GroupID INT, GroupName INT, ProductID INT, ProductName VARCHAR(50))
+	CREATE TABLE #tmpProductGroup (GroupID INT, GroupName VARCHAR(50), ProductID INT, ProductName VARCHAR(50))
 
 	INSERT INTO #tmpProductGroup (GroupID, GroupName, ProductID, ProductName)
 	SELECT DISTINCT s.CategoryOrder, s.ProductCategory, s.ProductID, p.ProductName
