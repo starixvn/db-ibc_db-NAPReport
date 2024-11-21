@@ -1620,7 +1620,8 @@ BEGIN
 	IF @CasinoType = -1 -- Group in Product Group
 	BEGIN
 		UPDATE d
-		SET d.ProductName = p.GroupName
+		SET d.ProductName = p.GroupName,
+			d.ProductID = p.GroupID
 		FROM #Data d
 			INNER JOIN #tmpProductGroup p ON d.ProductID = p.ProductID		
 	END
