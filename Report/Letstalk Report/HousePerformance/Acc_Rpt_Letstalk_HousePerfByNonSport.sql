@@ -32,6 +32,7 @@ AS
 		20240916@Cherry: Integrate ON Casino (#210031)
 		20241020@Cherry: Integrate GPI (#207012), Playtech(#210555)
 		20241104@Cherry: Exclude VS6 (#212749)
+		20241122@Cherry: Categorize products (#213102)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -258,19 +259,24 @@ BEGIN
 			,(88,'OTHERS','VS5') --Virtual Sports 5
 		) h (ProductID, ProductGroup, ProductShortName)
 	)
+	,CTE_ProductGroup AS (
+		SELECT DISTINCT ProductID AS ProductID
+			,ProductCategory AS ProductCategory
+		FROM DBWH.bodb_Account.dbo.vw_NonSportSetting WITH(NOLOCK)
+	)
 	INSERT INTO #tmpProductSetting (
 		ProductID
 		,ProductGroup
 		,ProductShortName
 	)
 	SELECT DISTINCT pb.ProductID
-		,ISNULL(s.ProductGroup,ISNULL(h.ProductGroup,(CASE WHEN p.CasinoType = 1 THEN 'RNG' WHEN p.CasinoType = 2 THEN 'LC' ELSE 'OTHERS' END))) AS ProductGroup
+		,ISNULL(s.ProductGroup,ISNULL(pg.ProductCategory,'OTHERS')) AS ProductGroup
 		,ISNULL(s.ProductShortName,ISNULL(h.ProductShortName,ISNULL(p.ProductPrefix,'Others'))) AS ProductShortName
 	FROM #tmpProductBettype AS pb WITH (NOLOCK)
 		LEFT JOIN CTE_Special AS s ON pb.ProductID = s.ProductID
 		LEFT JOIN CTE_Hardcode AS h ON pb.ProductID = h.ProductID
 		LEFT JOIN bodb02.dbo.Products AS p WITH (NOLOCK) ON pb.ProductID = p.ProductID
-	
+		LEFT JOIN CTE_ProductGroup AS pg ON pb.ProductID = pg.ProductID
 	--make sure no dup ProductID--
 	;WITH CTE_Dup AS (
 		SELECT ProductID
