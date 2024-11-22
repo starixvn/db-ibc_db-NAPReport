@@ -92,7 +92,9 @@ AS
 			-1 : is <=
 		- @HousePTValue : Value to compare with @HousePTType
 		- @IsDrillDown: If click on Grand Total or on the Grid of column Currency
-
+		- @CasinoType = -1: Report by Product
+					  = -2: Report by Product detail
+					  = vw_NonSportSetting.CategoryOrder
 */
 BEGIN
 	SET NOCOUNT ON
@@ -373,7 +375,7 @@ BEGIN
 	-- End Sport Bettype Matrix
 
 	-- Handle Product Group		
-	IF @CasinoType <> -1
+	IF @CasinoType NOT IN (-1, -2)
 	BEGIN
 		DELETE s
 		FROM #SportBettype s
