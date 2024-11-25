@@ -33,6 +33,7 @@ AS
 		20241020@Cherry: Integrate GPI (#207012), Playtech(#210555)
 		20241104@Cherry: Exclude VS6 (#212749)
 		20241122@Cherry: Categorize products (#213102)
+		20241122@Cherry: Remove Exchange and Bet Builder (#212829)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -171,23 +172,12 @@ BEGIN
 			SELECT DISTINCT Bettype
 			FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)
 			WHERE isTest IN (0,@isTest)
-				AND (ProductID NOT IN (1,37,74,81) --exclude Sportsbook and Saba Promotion and Player Tips, Saba Coins
-					OR SubProduct IN ('Bet Builder')
-				)
+				AND ProductID NOT IN (1,37,74,81) --exclude Sportsbook and Saba Promotion and Player Tips, Saba Coins
 		)
 		AND pb.ProductID NOT IN (SELECT ProductID FROM CTE_ExcludeProduct)
 	
 	/*Special non-sport product*/
-	;WITH CTE_Special AS (
-		SELECT DISTINCT pb.ProductID
-			,CONVERT(VARCHAR(20),'OTHERS') AS ProductGroup
-			,CONVERT(VARCHAR(20),'BetB') AS ProductShortName --Include Bet Builder into [OTHERS] group; show 'BetB'
-		FROM #tmpProductBettype AS pb WITH (NOLOCK)
-			INNER JOIN bodb02.dbo.SportBettypeMatrix AS sb WITH (NOLOCK) ON pb.Bettype = sb.Bettype
-		WHERE sb.SubProduct IN ('Bet Builder')
-			AND sb.isTest IN (0,@isTest)
-	)
-	,CTE_Hardcode AS (
+	;WITH CTE_Hardcode AS (
 		SELECT ProductID
 			,ProductGroup
 			,ProductShortName
@@ -263,18 +253,20 @@ BEGIN
 	,CTE_ProductGroup AS (
 		SELECT DISTINCT ProductID AS ProductID
 			,ProductCategory AS ProductCategory
+			,CategoryOrder AS CategoryOrder
 		FROM DBWH.bodb_Account.dbo.vw_NonSportSetting WITH(NOLOCK)
 	)
 	INSERT INTO #tmpProductSetting (
 		ProductID
 		,ProductGroup
+		,GroupOrder
 		,ProductShortName
 	)
 	SELECT DISTINCT pb.ProductID
-		,ISNULL(s.ProductGroup,ISNULL(pg.ProductCategory,'Others')) AS ProductGroup
-		,ISNULL(s.ProductShortName,ISNULL(h.ProductShortName,ISNULL(p.ProductPrefix,'Others'))) AS ProductShortName
+		,ISNULL(pg.ProductCategory,'Others') AS ProductGroup
+		,ISNULL(pg.CategoryOrder,6) AS GroupOrder
+		,ISNULL(h.ProductShortName,ISNULL(p.ProductPrefix,'Others')) AS ProductShortName
 	FROM #tmpProductBettype AS pb WITH (NOLOCK)
-		LEFT JOIN CTE_Special AS s ON pb.ProductID = s.ProductID
 		LEFT JOIN CTE_Hardcode AS h ON pb.ProductID = h.ProductID
 		LEFT JOIN bodb02.dbo.Products AS p WITH (NOLOCK) ON pb.ProductID = p.ProductID
 		LEFT JOIN CTE_ProductGroup AS pg ON pb.ProductID = pg.ProductID
@@ -302,7 +294,7 @@ BEGIN
 	SELECT Bettype
 		,BettypeGroupID
 	FROM DBWH.bodb_Account.dbo.BettypeGroup WITH (NOLOCK)
-	WHERE BettypeGroupID in ( 6, 10 ) --Prize Tickets & Contribution Tickets
+	WHERE BettypeGroupID in (6, 10) --Prize Tickets & Contribution Tickets
 	GROUP BY Bettype
 		,BettypeGroupID
 	
@@ -321,65 +313,7 @@ BEGIN
 	SELECT @MinTransID_LC = MIN(TransID)
 		,@MaxTransID_LC = MAX(TransID)
 	FROM bodb02.dbo.BettransLC WITH (NOLOCK)
-	WHERE winlostdate = @WLDate
-	
-	/*
-		Get Exchange Data
-			- Exchange in bettrans (Betting & Adjustment) only for Yesterday => exclude
-			- Manual calculation Exchange by Acc_Rpt_SeparatedWalletProductWL
-	*/
-	INSERT INTO #tmpEXBettrans (
-		WLDate
-		,BetType
-		,ActualRate
-		,VirtualRate
-		,EPos
-		,TPos
-		,Stake
-		,Actual_Stake
-		,Winlost
-		,AWinlost
-		,MWinlost
-		,SWinlost
-		,SComm
-	)
-	EXEC DBLIC.bodb_3rdProduct.dbo.Acc_Rpt_SeparatedWalletProductWL
-		@WinlostDate = @WLDate
-		,@ProductID = 31
-		,@DataMode = 'Letstalk34'
-	
-	;WITH CTE_EX AS (
-		SELECT pb.ProductID
-			,CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9,6)) AS VarianceVR
-			--------------------------------------------------------------------------
-			,SUM((CASE WHEN bg.BettypeGroupID = 6 THEN 0 --Prize Tickets
-				  WHEN bg.BettypeGroupID = 10 THEN b.swinlost + b.mwinlost + b.awinlost --Contribution Tickets
-				  ELSE (b.winlost - b.actual_stake) + b.swinlost + b.mwinlost + b.awinlost
-				END)  * b.actualrate) AS WinlossIBC
-			,0 AS ExtraWL --epos = 0
-			,SUM(b.scomm * b.actualrate) AS CommissionS
-			,CONVERT(DECIMAL,0) AS ExtraComm --epos = 0
-			--------------------------------------------------------------------------
-			,SUM( b.stake * (1-b.TPos) * b.actualrate ) AS TurnoverIBC
-			,0 AS ExtraTO --epos = 0
-		FROM #tmpEXBettrans AS b
-			LEFT JOIN #tmpProductBettype AS pb ON b.bettype = pb.Bettype
-			LEFT JOIN #tmpBettypeGroup AS bg ON b.Bettype = bg.Bettype
-		GROUP BY pb.ProductID
-			,CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9, 6))
-	)
-	INSERT INTO #tmpMarginNonSport (
-		ProductID
-		,WinlossIBC
-		,TurnoverIBC
-	)
-	SELECT ProductID
-		,SUM(-(WinlossIBC - ExtraWL + CommissionS - ExtraComm)) AS WinlossIBC
-		,SUM((CASE WHEN TurnoverIBC = 0 THEN 0 ELSE TurnoverIBC - ExtraTO END)
-			* (CASE WHEN VarianceVR > 0 THEN VarianceVR + 1 ELSE 1 END)
-			) AS TurnoverIBC
-	FROM CTE_EX AS h
-	GROUP BY ProductID
+	WHERE winlostdate = @WLDate	
 	
 	/*
 		Get raw data as normal
@@ -416,7 +350,7 @@ BEGIN
 			AND pb.RefTable = 3
 			AND b.bettype <= @MaxBettype
 			AND b.MatchID >= 0
-			AND pb.ProductID <> 31 --handle Exchange above
+			AND pb.ProductID <> 31 
 		GROUP BY pb.ProductID
 			,CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9, 6))
 			
@@ -534,13 +468,8 @@ BEGIN
 		
 	*/
 	;WITH CTE_SubTotal AS (
-		SELECT (CASE WHEN h.ProductGroup = 'LC' THEN 2
-				WHEN h.ProductGroup = 'RNG' THEN 3
-				WHEN h.ProductGroup = 'LOT/KENO' THEN 4
-				ELSE 5
-				END
-			) AS GroupID
-			,'T ' + ISNULL(h.ProductGroup,'OTHERS') AS GroupName
+		SELECT ISNULL(h.GroupOrder,6) AS GroupID
+			,'T ' + ISNULL(h.ProductGroup,'Others') AS GroupName
 			,SUM(TurnoverIBC) AS TurnoverIBC
 			,SUM(WinlossIBC) AS WinlossIBC
 			,CONVERT(DECIMAL(10,6),(CASE WHEN SUM(ISNULL(TurnoverIBC,0)) = 0 THEN 0
@@ -548,11 +477,7 @@ BEGIN
 			END)) AS Margin
 		FROM #tmpMarginNonSport AS m WITH (NOLOCK)
 			LEFT JOIN #tmpProductSetting AS h WITH (NOLOCK) ON m.ProductID = h.ProductID
-		GROUP BY CASE WHEN h.ProductGroup = 'LC' THEN 2
-				WHEN h.ProductGroup = 'RNG' THEN 3
-				WHEN h.ProductGroup = 'LOT/KENO' THEN 4
-				ELSE 5
-				END
+		GROUP BY ISNULL(h.GroupOrder,6)
 			,ISNULL(h.ProductGroup,'OTHERS')
 	)
 	,CTE_Total AS (
@@ -565,12 +490,7 @@ BEGIN
 		FROM CTE_SubTotal
 	)
 	,CTE_Product AS (
-		SELECT (CASE WHEN h.ProductGroup = 'LC' THEN 8
-				WHEN h.ProductGroup = 'RNG' THEN 10
-				WHEN h.ProductGroup = 'LOT/KENO' THEN 12
-				ELSE 14
-				END
-			) AS GroupID
+		SELECT ISNULL(h.GroupOrder,6) AS GroupID
 			,ISNULL(h.ProductShortName,'Others') AS GroupName
 			,SUM(TurnoverIBC) AS TurnoverIBC
 			,CONVERT(DECIMAL(10,6),(CASE WHEN SUM(ISNULL(TurnoverIBC,0)) = 0 THEN 0
@@ -578,20 +498,9 @@ BEGIN
 			END)) AS Margin
 		FROM #tmpMarginNonSport AS m WITH (NOLOCK)
 			LEFT JOIN #tmpProductSetting AS h WITH (NOLOCK) ON m.ProductID = h.ProductID
-		GROUP BY CASE WHEN h.ProductGroup = 'LC' THEN 8
-				WHEN h.ProductGroup = 'RNG' THEN 10
-				WHEN h.ProductGroup = 'LOT/KENO' THEN 12
-				ELSE 14
-				END
+		GROUP BY ISNULL(h.GroupOrder,6)
 			,ISNULL(h.ProductShortName,'Others')
 	)
-	----return title----
-	-- SELECT 6 AS GroupID
-		-- ,'NS TO & M' AS GroupName
-		-- ,NULL AS TurnoverIBC
-		-- ,NULL AS Margin
-	
-	-- UNION ALL
 	
 	SELECT 7 AS GroupID
 		,'LC' AS GroupName
