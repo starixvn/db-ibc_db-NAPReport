@@ -188,6 +188,43 @@ BEGIN
            , b.custid
     OPTION (RECOMPILE)
 
+    /*TransferExtra data*/  
+  
+    INSERT INTO #tmp  
+	SELECT b.srecommend  
+         , b.mrecommend  
+         , b.recommend  
+         , b.custid  
+         , ISNULL(SUM(CASE WHEN b.custid = b.srecommend THEN Credit-Debit ELSE 0 END), 0)                  SuperAmt  
+         , ISNULL(SUM(CASE WHEN b.custid = b.mrecommend THEN Credit-Debit ELSE 0 END), 0)                  MasterAmt  
+         , ISNULL(SUM(CASE WHEN b.custid = b.recommend THEN Credit-Debit ELSE 0 END), 0)                   AgentAmt  
+         , ISNULL(SUM(CASE WHEN b.custid <> b.recommend  
+                            AND b.custid <> b.mrecommend  
+                            AND b.custid <> b.srecommend THEN Credit-Debit
+                          ELSE 0  
+                      END  
+                     )  
+                , 0  
+                 )                                                                                          MemberAmt  
+         , ISNULL(SUM(CASE WHEN b.custid = b.srecommend THEN Credit-Debit ELSE 0 END * b.actualrate), 0)    SuperAmtRM  
+         , ISNULL(SUM(CASE WHEN b.custid = b.mrecommend THEN Credit-Debit ELSE 0 END * b.actualrate), 0)    MasterAmtRM  
+         , ISNULL(SUM(CASE WHEN b.custid = b.recommend THEN Credit-Debit ELSE 0 END * b.actualrate), 0)     AgentAmtRM  
+         , ISNULL(SUM(CASE WHEN b.custid <> b.recommend  
+                            AND b.custid <> b.mrecommend  
+                            AND b.custid <> b.srecommend THEN Credit-Debit  
+                          ELSE 0  
+                      END * b.actualrate  
+                     )  
+                , 0  
+                 )                                                                                           MemberAmtRM  
+    FROM bodb02.dbo.[TransferExtra] b WITH (nolock)  
+    WHERE WinlostDate < @ToDate   
+    GROUP BY b.srecommend  
+           , b.mrecommend  
+           , b.recommend  
+           , b.custid  
+    OPTION (RECOMPILE)  
+
     DELETE FROM #tmp WHERE srecommend IN ( SELECT CustID FROM vw_Customer v (NOLOCK) WHERE v.currency IN ( 20, 27, 28 ))
 
     /*update usernames separately to prevent too much memory usage*/
