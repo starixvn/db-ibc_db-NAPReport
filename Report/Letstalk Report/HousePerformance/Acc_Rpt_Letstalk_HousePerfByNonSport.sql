@@ -91,6 +91,7 @@ BEGIN
 	CREATE TABLE #tmpProductSetting (
 		ProductID INT
 		,ProductGroup VARCHAR(20)
+		,GroupOrder INT
 		,ProductShortName VARCHAR(50)
 	)
 	
@@ -270,7 +271,7 @@ BEGIN
 		,ProductShortName
 	)
 	SELECT DISTINCT pb.ProductID
-		,ISNULL(s.ProductGroup,ISNULL(pg.ProductCategory,'OTHERS')) AS ProductGroup
+		,ISNULL(s.ProductGroup,ISNULL(pg.ProductCategory,'Others')) AS ProductGroup
 		,ISNULL(s.ProductShortName,ISNULL(h.ProductShortName,ISNULL(p.ProductPrefix,'Others'))) AS ProductShortName
 	FROM #tmpProductBettype AS pb WITH (NOLOCK)
 		LEFT JOIN CTE_Special AS s ON pb.ProductID = s.ProductID
