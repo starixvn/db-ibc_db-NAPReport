@@ -1,8 +1,4 @@
-/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
-
-USE bodb02
-GO
-
+/*<info serverAlias="DBACC-bodb02" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_Rpt_Balance_Company]
 	@IsYesterdayBalance BIT = 0 
 AS
@@ -22,6 +18,7 @@ Revisions:
 	- 20210505@Sol: NAP - Alpha - Allow more time for transfer - [Redmine: #149927]
 	- 20211124@Danny: Split transfer tickets out of bettrans [Redmine: #164196]
 	- 20230227@Evan: Balance-Up support transfer 247 [Redmine: #173554]
+	- 20240826@Bobby: Reward Payment transfer [Redmine: #209633]
 
 
 */
@@ -31,16 +28,12 @@ BEGIN
 	DECLARE @Today SMALLDATETIME
 		,@Yesterday SMALLDATETIME	
 
-	IF OBJECT_ID('tempdb..#TblCurrency') IS NOT NULL
-	BEGIN
-		DROP TABLE #TblCurrency
-	END
-
+	DROP TABLE IF EXISTS #TblCurrency;
 	CREATE TABLE #TblCurrency (
 		ExchangeId INT
 		,Today FLOAT
 		,Yesterday FLOAT
-		)
+	)
 
 	-- get move bet date
 	DECLARE @balanceUpDay SMALLDATETIME, @moveBetsDay SMALLDATETIME
@@ -51,17 +44,13 @@ BEGIN
 
 	SELECT @balanceUpDay = BalanceUpDay, @moveBetsDay = MoveBetsDay FROM @tblMoveBetBalanceUp
 
-	IF OBJECT_ID('tempdb..#TblBalance') IS NOT NULL
-	BEGIN
-		DROP TABLE #TblBalance
-	END
-
+	DROP TABLE IF EXISTS #TblBalance;
 	CREATE TABLE #TblBalance (
 		Currency INT
 		,CurrencyName NVARCHAR(10)
 		,TotalamtLocal DECIMAL(20,8)
 		,Totalamt DECIMAL(20,8)
-		)
+	)
 		
 
 	SELECT @Today =  CONVERT(DATE, GETDATE())
@@ -133,6 +122,26 @@ BEGIN
 		GROUP BY currency
 			,currencyname
 
+		-- transferExtra
+		INSERT INTO #TblBalance (
+			Currency
+			,CurrencyName
+			,TotalamtLocal
+			,Totalamt
+		)
+		SELECT bt.currencyId AS Currency
+			,ex.Currency AS CurrencyName
+			,sum(bt.credit - bt.debit) TotalamtLocal
+			,sum((bt.credit - bt.debit) * bt.actualrate) TotalAmt
+		FROM dbo.transferExtra bt WITH (NOLOCK)
+		INNER JOIN dbo.Exchange ex WITH(NOLOCK) ON ex.ExchangeId = bt.currencyId
+		WHERE 1 = CASE 
+					WHEN bettype = 30000 AND winlostdate > @balanceUpDay THEN 0 --> new bal
+					WHEN winlostdate < @balanceUpDay THEN 0 --> old data
+					ELSE 1 END
+		GROUP BY bt.currencyId
+			,ex.Currency
+
 	END 
 	ELSE 
 	BEGIN 		
@@ -174,6 +183,27 @@ BEGIN
 					ELSE 1 END
 		GROUP BY currency
 			,currencyname
+
+		-- transferExtra
+		INSERT INTO #TblBalance (
+			Currency
+			,CurrencyName
+			,TotalamtLocal
+			,Totalamt
+		)
+		SELECT bt.currencyId AS Currency
+			,ex.Currency AS CurrencyName
+			,sum(bt.credit - bt.debit) TotalamtLocal
+			,sum((bt.credit - bt.debit) * bt.actualrate) TotalAmt
+		FROM dbo.transferExtra bt WITH (NOLOCK)
+		INNER JOIN dbo.Exchange ex WITH(NOLOCK) ON ex.ExchangeId = bt.currencyId
+		WHERE winlostdate <= @Today
+			AND 1 = CASE 
+					WHEN bettype = 30000 AND winlostdate > @balanceUpDay THEN 0 --> new bal
+					WHEN winlostdate < @balanceUpDay THEN 0 --> old data
+					ELSE 1 END
+		GROUP BY bt.currencyId
+			,ex.Currency
 	END 
 
 
@@ -188,16 +218,5 @@ BEGIN
 	GROUP BY CurrencyName, Today, Yesterday
 	ORDER BY CurrencyName
 
- 	
- 
-	IF OBJECT_ID('tempdb..#TblBalance') IS NOT NULL
-	BEGIN
-		DROP TABLE #TblBalance
-	END
-
-	IF OBJECT_ID('tempdb..#TblCurrency') IS NOT NULL
-	BEGIN
-		DROP TABLE #TblCurrency
-	END
 END
 GO
