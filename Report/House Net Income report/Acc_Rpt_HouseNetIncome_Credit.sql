@@ -692,7 +692,7 @@ BEGIN
 		,SUM(rw.Amount) AS WinlossP
 		----------hardcode include [Saba Promotion]-----------
 		,246 AS Sporttype
-		,17008 AS Bettype
+		,17009 AS Bettype
 		----------hardcode values-----------
 		,-1 AS LeagueID
 		,8 AS TicketStatus
