@@ -20,6 +20,7 @@ AS
 		- 20231114@Roy: NAP Reports - Move SEAL8888 into Credit Group (#195730)
 		- 20240130@Cherry: Merge VS1, VS2, VS3 data into Virtual Sports (#199920)
 		- 20240802@Cherry: Remove linked server DBCUST (#207725)
+		- 20241128@Cherry: Add NovaCasino in Credit Group (#214333)
 */
 
 BEGIN
@@ -134,7 +135,7 @@ BEGIN
 	UNION
 	SELECT -1 LicenseeID, s.site LicenseeName, -1000 AS GroupId
 	FROM bodb02.dbo.Site s WITH(NOLOCK) 
-	WHERE s.site IN ('Saba789','SEAL888')
+	WHERE s.site IN ('Saba789','SEAL888','NovaCasino')
 		OR (s.isLicensee = 0 AND s.SiteLabel IS NULL)
 	UNION
 	SELECT DISTINCT l.LicenseeId, l.LicenseeName, l.GroupId 			
