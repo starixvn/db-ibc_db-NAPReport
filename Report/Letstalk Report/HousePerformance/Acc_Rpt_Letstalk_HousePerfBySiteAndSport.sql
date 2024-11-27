@@ -21,6 +21,7 @@ AS
 		20240606@Cherry: Integrate Saba Kabaddi (#204927)
 		20240916@Cherry: Integrate Odds Boost Voucher (#210559)
 		20240927@Cherry: Move 8RM from XYZ to Other Credit (#211362)
+		20241127@Cherry: Add Exchange and Bet Builder (#212829)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
