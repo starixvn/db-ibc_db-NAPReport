@@ -595,6 +595,48 @@ BEGIN
 		,CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9,6))
 	
 	CREATE CLUSTERED INDEX CIX_tmpRawData ON #tmpRawData ( Bettype, LeagueID, Site )
+
+	-- Get Exchange Data real time
+	CREATE TABLE #tmpEXBettrans (
+		WinlostDate DATE,
+		LiveIndicator BIT,
+		BetType SMALLINT,
+		Site VARCHAR(50),
+		ActualRate FLOAT,
+		Virtualrate FLOAT,
+		EPos SMALLMONEY,
+		TPos MONEY,
+		Stake MONEY,
+		Actual_Stake MONEY,
+		Winlost MONEY,
+		AWinlost MONEY,
+		MWinlost MONEY,
+		SWinlost MONEY,
+		SComm MONEY
+	)
+	
+	INSERT INTO #tmpEXBettrans (
+		WinlostDate,
+		LiveIndicator,
+		BetType,
+		Site,
+		ActualRate,
+		Virtualrate,
+		EPos,
+		TPos,
+		Stake,
+		Actual_Stake,
+		Winlost,
+		AWinlost,
+		MWinlost,
+		SWinlost,
+		SComm 
+		)
+	EXEC DBLIC.bodb_3rdProduct.dbo.Acc_Rpt_SeparatedWalletProductWL
+		@WinlostDate = @WLDate
+		,@ProductID = 31
+		,@DataMode = 'Letstalk32'
+	-- End Exchange
 	
 	------------------------Group Data follow spec------------------------
 	--Hardcode to move [Bet Builder] from SB to Non-Sport
@@ -964,4 +1006,5 @@ BEGIN
 	DROP TABLE #tmpSportBettypeGroup
 	DROP TABLE #tmpOrderByGroupName
 	DROP TABLE #tmpParlBoost
+	DROP TABLE #tmpOddsAdjBettype
 END
