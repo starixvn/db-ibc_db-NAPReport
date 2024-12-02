@@ -32,6 +32,7 @@ AS
 		20240916@Cherry: Integrate ON Casino (#210031)
 		20241020@Cherry: Integrate GPI (#207012), Playtech(#210555)
 		20241104@Cherry: Exclude VS6 (#212749)
+		20241202@Cherry: Integrate GPI Live Casino (#213493)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -207,6 +208,7 @@ BEGIN
 			,(76,'LC','YeeBet')
 			,(80,'LC','WE LC')
 			,(96,'LC','ONCasino')
+			,(90,'LC','GPI LC')
 			----------RNG----------
 			,(42,'RNG','SABAG') --SABA.games
 			,(6,'RNG','SabaC') --Saba Casino
