@@ -22,6 +22,7 @@ AS
 		20240916@Cherry: Integrate ON Casino (#210027)
 		20241020@Cherry: Integrate Playtech (#210558), GPI (#207172)
 		20241106@Cherry: Integrate VS6 (#213013)
+		20241202@Cherry: Integrate GPI Live Casino (#213974)
 
 	Param's Explanation:
 		@FromGMT8Time: start of time range in GMT+8 with format 2021-05-20 19:00:00
@@ -94,6 +95,7 @@ BEGIN
 			,(76, 'YeeBet', 111, 5000)
 			,(80, 'WE Live Casino', 111, 5000)
 			,(96, 'ON Casino', 111, 5000)
+			,(90, 'GPI Live Casino', 111, 5000)
 			
 			-------------RNG Game-------------
 			,(34, 'Arcadia Gaming', 120, 5000) --ProductID, ProductName, ThresholdPCT, MinWin
