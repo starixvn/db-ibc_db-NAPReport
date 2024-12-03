@@ -40,6 +40,7 @@ AS
         20240605@Ned.Le: Email/Letstalk - Separate Hedging and Special Sites for report ID #01 (#206144)
         20240613@Ned.Le: Letstalk reports - Integrate the Saba Kabaddi (#204927)
         20240724@Ned.Le: Fix bug relate to @isTest
+        20241108@Roy: Email/Letstalk - Rebate and Retention for Credit players (#210687)
 
     Param's Explanation:
         @FromDate   : Begin date to get data for report
@@ -369,34 +370,43 @@ BEGIN
 
     CREATE CLUSTERED INDEX CIX_tmpExchangeOANDA ON #tmpExchangeOANDA(ExchangeID)
 
+	CREATE TABLE #tmpSABALeagueG (
+		LeagueGroupID INT
+		,isPinGoal TINYINT
+	)
+	
+	;WITH CTE_All AS (
+		SELECT value AS LeagueGroupID
+		FROM STRING_SPLIT(@SabaLeagueGroupAll, ',')
+	)
+	,CTE_PinGoal AS (
+		SELECT value AS LeagueGroupID
+		FROM STRING_SPLIT(@SabaLeagueGroupPinGoal, ',')
+	)
+	INSERT INTO #tmpSABALeagueG(
+		LeagueGroupID
+		,isPinGoal
+	)
+	SELECT DISTINCT a.LeagueGroupID
+		,(CASE WHEN p.LeagueGroupID IS NOT NULL THEN 1 ELSE 0 END) AS isPinGoal
+	FROM CTE_All AS a
+		LEFT JOIN CTE_PinGoal AS p ON a.LeagueGroupID = p.LeagueGroupID
+	
+	CREATE CLUSTERED INDEX CIX_tmpSABALeagueG ON #tmpSABALeagueG (LeagueGroupID)
+	
     -- #tmpLeague
     CREATE TABLE #tmpLeague (
         LeagueGroupType INT,
         LeagueGroupID   INT,
         LeagueID        INT
     )
-
-    ;WITH
-    CTE_All AS (
-        SELECT val LeagueGroupID
-        FROM bodb02.dbo.strSplit(@SabaLeagueGroupAll, ',')
-    ),
-    CTE_PinGoal AS (
-        SELECT val LeagueGroupID
-        FROM bodb02.dbo.strSplit(@SabaLeagueGroupPinGoal, ',')
-    ),
-    CTE_Final AS (
-        SELECT a.LeagueGroupID,
-               CASE WHEN p.LeagueGroupID IS NOT NULL THEN 1 ELSE 0 END isPinGoal
-        FROM CTE_All a
-             LEFT JOIN CTE_PinGoal p ON a.LeagueGroupID = p.LeagueGroupID
-    )
+	
     INSERT INTO #tmpLeague (LeagueGroupType, LeagueGroupID, LeagueID)
     SELECT CASE WHEN f.isPinGoal = 1 THEN 2 ELSE 1 END LeagueGroupType,
            l.LeagueGroupID,
            l.leagueid LeagueID
     FROM bodb02.dbo.League l (NOLOCK)
-         LEFT JOIN CTE_Final f ON l.LeagueGroupID = f.LeagueGroupID
+         LEFT JOIN #tmpSABALeagueG f ON l.LeagueGroupID = f.LeagueGroupID
     WHERE f.LeagueGroupID IS NOT NULL
 
     CREATE CLUSTERED INDEX CIX_tmpLeague ON #tmpLeague(LeagueID)
@@ -486,6 +496,7 @@ BEGIN
         Bettype      INT,
         LeagueID     INT,
         TicketStatus INT,
+        SelfRate   FLOAT,--For any product get [Currency rate] from itself - NOT from System rate
         VarianceVR   DECIMAL (19, 4),
         TurnoverIBC  DECIMAL (19, 4),
         WinlossIBC   DECIMAL (19, 4),
@@ -626,6 +637,83 @@ BEGIN
                   WHEN ld.Currency = 'US$' THEN 3
                   ELSE -1 END
     
+	-- Get data for special case | Credit Reward
+    CREATE TABLE #tmpSourceData_CreditReward (
+		WLDate DATE
+		,Recommend INT
+		,CurrencyID INT
+		,SelfRate FLOAT
+		,Amount DECIMAL(19, 4)
+	)
+
+    INSERT INTO #tmpSourceData_CreditReward (
+        WLDate
+		,Recommend
+		,CurrencyID
+		,SelfRate
+		,Amount
+    )
+    SELECT WinlostDate AS WLDate
+		,Recommend
+		,CurrencyID
+		,ActualRate AS SelfRate
+		,Amount
+    FROM DBACC.bodb02.dbo.SabaWalletTicket AS rw WITH (NOLOCK)
+    WHERE rw.WinlostDate BETWEEN CONVERT(SMALLDATETIME, @FromDate) AND CONVERT(SMALLDATETIME, @ToDate)
+          AND rw.WalletId = 2
+	
+	INSERT INTO #tmpSourceData (
+		RptDate
+		,SiteID
+		,CurrencyID
+		,SelfRate
+		,WinlossIBC
+		,WinlossP
+		,Sporttype
+		,Bettype
+		,LeagueID
+		,TicketStatus
+		,VarianceVR
+		,TurnoverIBC
+		,WinlossS
+		,WinlossM
+		,WinlossA
+		,CommissionS
+		,ExtraTO
+		,ExtraWL
+		,ExtraComm
+		,NetStake
+	)
+    SELECT rw.WLDate AS RptDate
+		,s.SiteID
+		,rw.CurrencyID
+		,rw.SelfRate
+		,SUM(rw.Amount) AS WinlossIBC
+		,SUM(rw.Amount) AS WinlossP
+		----------hardcode include [Saba Promotion]-----------
+		,246 AS Sporttype
+		,17009 AS Bettype
+		----------hardcode values-----------
+		,-1 AS LeagueID
+		,8 AS TicketStatus
+		,0 AS VarianceVR
+		,0 AS TurnoverIBC
+		,0 AS WinlossS
+		,0 AS WinlossM
+		,0 AS WinlossA
+		,0 AS CommissionS
+		,0 AS ExtraTO
+		,0 AS ExtraWL
+		,0 AS ExtraComm
+		,0 AS NetStake
+	FROM #tmpSourceData_CreditReward AS rw WITH (NOLOCK)
+		LEFT JOIN bodb02.dbo.Customer AS a WITH (NOLOCK) ON rw.recommend = a.custid
+		LEFT JOIN bodb_Account.dbo.tbl_Site AS s WITH (NOLOCK) ON a.site = s.site
+	GROUP BY rw.WLDate
+		,s.SiteID
+		,rw.CurrencyID
+		,rw.SelfRate
+	
     -- Create index for temp table
     CREATE CLUSTERED INDEX CIX_tmpSourceData ON #tmpSourceData(RptDate, SiteID, CurrencyID, Sporttype, Bettype, LeagueID, TicketStatus, VarianceVR)
 
@@ -718,19 +806,19 @@ BEGIN
                b.BetType,
                b.LeagueID,
                -- *** MEASURE *** --
-               SUM((CASE WHEN b.SiteID IN (-2, -4) THEN 0 ELSE (b.WinlossIBC + b.CommissionS) END) * ISNULL(es.Rate, 0)) HouseWL,
+               SUM((CASE WHEN b.SiteID IN (-2, -4) THEN 0 ELSE (b.WinlossIBC + b.CommissionS) END) * COALESCE(b.SelfRate, es.Rate, 0)) HouseWL, --user exchange rate itself if exists
                SUM((CASE WHEN b.SiteID IN (-2, -4) THEN 0 ELSE (b.WinlossIBC + b.CommissionS) END) * ISNULL(eo.Rate, 0)) HouseWLOANDA,
                SUM((CASE WHEN b.TurnoverIBC = 0 THEN 0 ELSE b.TurnoverIBC - b.ExtraTO END) *
                    (CASE WHEN b.VarianceVR > 0 THEN (b.VarianceVR + 1) ELSE 1 END) *
                    (CASE WHEN b.TicketStatus IN (12, 13) THEN 0.5 ELSE 1 END) *
                    (CASE WHEN b.TicketStatus = 3 THEN 0 ELSE 1 END) *
-                   ISNULL(es.Rate, 0)) HouseTO,
-               SUM((CASE WHEN b.SiteID IN (-2, -4) THEN 0 ELSE (b.ExtraWL + b.ExtraComm) END) * ISNULL(es.Rate, 0)) ExtraPT,
+                   COALESCE(b.SelfRate, es.Rate, 0)) HouseTO,
+               SUM((CASE WHEN b.SiteID IN (-2, -4) THEN 0 ELSE (b.ExtraWL + b.ExtraComm) END) * COALESCE(b.SelfRate, es.Rate, 0)) ExtraPT,
                SUM((CASE WHEN b.SiteID IN (-2, -4) THEN 0 ELSE (b.ExtraWL + b.ExtraComm) END) * ISNULL(eo.Rate, 0)) ExtraPTOANDA,
-               SUM(b.WinlossP * ISNULL(es.Rate, 0)) MemberWL,
+               SUM(b.WinlossP * COALESCE(b.SelfRate, es.Rate, 0)) MemberWL,
                SUM(b.WinlossP * ISNULL(eo.Rate, 0)) MemberWLOANDA,
                SUM(b.CommissionS * ISNULL(eo.Rate, 0)) ScommOANDA,
-               SUM((b.WinlossIBC - b.WinlossS - b.WinlossM - b.WinlossA) * ISNULL(es.Rate, 0)) Contribution,
+               SUM((b.WinlossIBC - b.WinlossS - b.WinlossM - b.WinlossA) * COALESCE(b.SelfRate, es.Rate, 0)) Contribution,
                SUM(b.NetStake * ISNULL(eo.Rate, 0)) NetStakeOANDA
         FROM #tmpSourceData b (NOLOCK)
              INNER JOIN bodb_Account.dbo.tbl_Site s (NOLOCK) ON s.isDeposit = 0 AND CASE WHEN b.SiteID = -2 THEN CASE WHEN b.RptDate < @RMAccountMoveSiteCutoffday THEN @XYZBET_SiteID   ELSE @Special_SiteID END
@@ -1069,6 +1157,7 @@ BEGIN
     DROP TABLE #tmpExchangeSystem
     DROP TABLE #tmpExchangeOANDA
     DROP TABLE #tmpLeague
+    DROP TABLE #tmpSABALeagueG
     DROP TABLE #tmpPTSProducts
     DROP TABLE #tmpPTSMainData
 
