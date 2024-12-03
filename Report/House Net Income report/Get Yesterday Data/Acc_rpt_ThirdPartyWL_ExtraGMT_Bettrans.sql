@@ -19,6 +19,7 @@ AS
 		- 20240729@Danny: Incorporate Next Spin (#199982)
 		- 20241023@Danny: Incorporate GPI (#207012)
 		- 20241023@Danny: Incorporate Playtech (#210555)
+		- 20241203@Danny: Incorporate GPILC (#213493)
 
 	 Param's Explanation:
 
@@ -51,7 +52,7 @@ BEGIN
 
 	DECLARE @LCBettypeList TABLE(Bettype INT)
 	INSERT INTO @LCBettypeList(Bettype)
-	SELECT bettype FROM OPENQUERY (DBLIC, 'SELECT	DISTINCT bettype FROM	bodb_licensee.dbo.LA_f_BettypeProductMapping(0,''AB,SXG,SAG,WM,PPL,FGGL,YB'') la')
+	SELECT bettype FROM OPENQUERY (DBLIC, 'SELECT	DISTINCT bettype FROM	bodb_licensee.dbo.LA_f_BettypeProductMapping(0,''AB,SXG,SAG,WM,PPL,FGGL,YB,GPILC'') la')
 
 
 	INSERT INTO #rpt_ThirdPartyWL_ExtraGMT(	RptDate,RptDate3rd ,SiteId,BetTypeId,CurrencyId,StatusId,Winloss,ProgressiveContribution,ValidBetAmount)
