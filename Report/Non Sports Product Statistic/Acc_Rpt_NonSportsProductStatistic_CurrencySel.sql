@@ -1,4 +1,4 @@
-/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBACC-bodb02" executers="wsv_nap" viewers="" isFunction="0" isNested="0"></info>*/
 USE [bodb02]
 GO
  
@@ -16,6 +16,7 @@ AS
 		20210324@Cherry: Consider Saba789 as Credit site (#152124)
 		20210428@Cherry: Add LicenseeGroup (#153736)
 		20231114@Roy: NAP Reports - Move SEAL8888 into Credit Group (#195730)
+		20241128@Cherry: Add NovaCasino in Credit Group (#214333)
 		
 	Param: 
 		@SiteId = -1: Credit, >0: Deposit, 'All': Credit + Deposit
@@ -56,7 +57,7 @@ BEGIN
 										OR exchangeid IN (
 											SELECT currency
 											FROM bodb02.dbo.Dep_CustSuper WITH (NOLOCK)
-											WHERE site = 'SEAL888'
+											WHERE site IN ('Saba789','SEAL888','NovaCasino')
 										)) 
 				))
 	END
