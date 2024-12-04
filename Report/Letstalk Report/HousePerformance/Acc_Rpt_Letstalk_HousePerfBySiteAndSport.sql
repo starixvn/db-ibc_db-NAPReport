@@ -412,7 +412,7 @@ BEGIN
 		,CAST(b.liveindicator AS TINYINT)
 		,CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9,6)) AS VarianceVR
 		--------------------------------------------------------------------------
-		,(b.winlost - b.actual_stake + b.swinlost + b.mwinlost + b.awinlost) * b.actualrate AS WinlossIBC
+		,SUM((b.winlost - b.actual_stake + b.swinlost + b.mwinlost + b.awinlost) * b.actualrate) AS WinlossIBC
 		,SUM(CASE WHEN b.TPos = 1 THEN 0
 				ELSE (b.winlost - b.actual_stake) * CAST(b.EPos AS DECIMAL(10, 8)) * b.actualrate
 			END) AS ExtraWL 
@@ -427,6 +427,11 @@ BEGIN
 			END) AS ExtraTO
 	FROM #tmpEXBettrans b
 		LEFT JOIN #tmpDWSite AS c WITH (NOLOCK) ON b.Site = c.Site
+	GROUP BY c.Site
+		,c.IsDeposit
+		,b.Bettype
+		,CAST(b.liveindicator AS TINYINT)
+		,CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9,6))
 
 	INSERT INTO #tmpRawData WITH (TABLOCK) (
 		Site
