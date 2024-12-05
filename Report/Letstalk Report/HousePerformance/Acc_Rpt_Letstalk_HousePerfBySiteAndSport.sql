@@ -21,7 +21,7 @@ AS
 		20240606@Cherry: Integrate Saba Kabaddi (#204927)
 		20240916@Cherry: Integrate Odds Boost Voucher (#210559)
 		20240927@Cherry: Move 8RM from XYZ to Other Credit (#211362)
-		20241127@Cherry: Add Exchange and Bet Builder (#212829)
+		20241127@Cherry: Add a new section for Exchange and Bet Builder (#212829)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -210,6 +210,10 @@ BEGIN
 		,(6, 1, 'TimeM TO & M')
 		,(6, 0, 'TimeM_HDP')
 		,(6, 0, 'TimeM_OU')
+
+		,(7, 1, 'OTHERS TO & M')
+		,(7, 0, 'EX')
+		,(7, 0, 'BetB')
 	
 	INSERT INTO #tmpDWBettypeSource (
 		Bettype
@@ -776,6 +780,20 @@ BEGIN
 			FROM CTE_8RM
 		) AS t
 	)
+	,CTE_Others AS (
+		SELECT CASE WHEN pb.ProductID = 31 THEN 'EX' 
+				WHEN pb.ProductID = -1 THEN 'BetB'
+			END AS SiteName
+			,SUM((WinlossIBC - ExtraWL + CommissionS - ExtraComm)) AS WinlossMem --Member view - opposite of above WinlossIBC
+			,SUM((CASE WHEN TurnoverIBC = 0 THEN 0 ELSE TurnoverIBC - ExtraTO END)
+				* (CASE WHEN VarianceVR > 0 THEN VarianceVR + 1 ELSE 1 END)
+				* (CASE WHEN IsHalf = 1 THEN 0.5 ELSE 1 END)) AS TurnoverIBC
+		FROM #tmpRawData AS d WITH (NOLOCK)
+			INNER JOIN #tmpProductBettype AS pb WITH (NOLOCK) ON d.Bettype = pb.Bettype
+		WHERE pb.ProductID IN (-1,31)
+		GROUP BY CASE WHEN pb.ProductID = 31 THEN 'EX' 
+				WHEN pb.ProductID = -1 THEN 'BetB' END
+	)
 	INSERT INTO #tmpResult (
 		GroupName
 		,WinlossIBC
@@ -806,6 +824,13 @@ BEGIN
 		,WinlossMem
 		,TurnoverIBC
 	FROM CTE_8RM
+
+	UNION ALL
+
+	SELECT SiteName
+		,WinlossMem
+		,TurnoverIBC
+	FROM CTE_Others
 	
 	------------------------------GroupBySB-------------------------------
 	DECLARE @SabaLeagueGroupID VARCHAR(500)
