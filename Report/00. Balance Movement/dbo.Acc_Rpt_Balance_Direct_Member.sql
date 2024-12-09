@@ -1,4 +1,4 @@
-/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBACC-bodb02" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
 USE bodb02
 GO
 
@@ -22,6 +22,7 @@ AS
 	- 20210507@Jaden.Tang: Adjust code to prevent reading dupplicated in bettrans & bettrans14 during move bet process (#154649)
 	- 20211111@Cherry: Split transfer table (#164378)
 	- 20230119@Roy: NAP Report - BU 247 (#175206)
+	- 20240821@Jaden: Add currency name for web (#199583)
 */
 BEGIN
 	SET NOCOUNT ON
@@ -118,10 +119,12 @@ BEGIN
 	SELECT  mem.custid,
 			mem.username, 
 			mem.currency, 
+			MAX(ex.currency) AS currencyname,
 			SUM(IsNull(bal.Balance,0)) Balance, 
 			SUM(IsNull(bal.BaseBalance,0)) BaseBalance
 	FROM	#directMember mem WITH (NOLOCK)
 			LEFT JOIN #Data bal ON mem.custid = bal.custid
+			LEFT JOIN bodb02.dbo.Exchange ex WITH (NOLOCK) ON ex.exchangeid = mem.currency
 	GROUP BY mem.custid,
 			mem.username, 
 			mem.currency
