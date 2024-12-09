@@ -172,7 +172,8 @@ BEGIN
 			SELECT DISTINCT Bettype
 			FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)
 			WHERE isTest IN (0,@isTest)
-				AND ProductID NOT IN (1,37,74,81) --exclude Sportsbook and Saba Promotion and Player Tips, Saba Coins
+				AND ProductID NOT IN (1,37,74,81,31) --exclude Sportsbook and Saba Promotion and Player Tips, Saba Coins
+				AND SubProduct NOT IN ('Bet Builder')
 		)
 		AND pb.ProductID NOT IN (SELECT ProductID FROM CTE_ExcludeProduct)
 	
@@ -344,7 +345,6 @@ BEGIN
 			AND pb.RefTable = 3
 			AND b.bettype <= @MaxBettype
 			AND b.MatchID >= 0
-			AND pb.ProductID <> 31 
 		GROUP BY pb.ProductID
 			,CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9, 6))
 			
