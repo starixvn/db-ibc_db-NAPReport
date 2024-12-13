@@ -135,6 +135,11 @@ BEGIN
 	  AND WinlostDate <= @yesterday
 	GROUP BY Recommend
 
+	;WITH grouped_data AS (
+		SELECT custid, SUM(Balance) AS Balance, SUM(BaseBalance) AS BaseBalance
+		FROM #Data
+		GROUP BY custid
+	)
 	SELECT c.custid, c.username,c.currency
 		,MAX(ex.currency) AS currencyname
 		,ISNULL(SUM(Balance),0) Balance
@@ -142,7 +147,7 @@ BEGIN
 		, SUM(ISNULL(ur.amount, 0)) AS Reward
 		, SUM(ISNULL(ur.amount_rm, 0)) AS RewardRM
 	FROM #AgentInfo c
-		LEFT JOIN #Data AS bal ON c.custid = bal.custid
+		LEFT JOIN grouped_data AS bal ON c.custid = bal.custid
 		LEFT JOIN Exchange ex WITH (NOLOCK) ON ex.ExchangeId = c.currency
 		LEFT JOIN #unpaidReward ur ON ur.agentid = c.custid
 	GROUP BY c.custid, c.username,c.currency

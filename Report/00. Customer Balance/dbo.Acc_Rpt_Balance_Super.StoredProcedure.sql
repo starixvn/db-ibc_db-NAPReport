@@ -238,13 +238,18 @@ BEGIN
 		
 	IF @IsViewTotalOnly = 0	
 	BEGIN
-			SELECT si.CustID, si.username, si.currency, MAX(ex.currency) AS currencyname, si.headlineEnabled
+		;WITH grouped_data AS (
+			SELECT custid, SUM(Balance) AS Balance, SUM(BaseBalance) AS BaseBalance
+			FROM #superBalance
+			GROUP BY custid
+		)
+		SELECT si.CustID, si.username, si.currency, MAX(ex.currency) AS currencyname, si.headlineEnabled
 			, SUM(ISNULL(bal.Balance, 0)) AS Balance
 			, SUM(ISNULL(bal.BaseBalance, 0)) AS BaseBalance
 			, SUM(ISNULL(ur.amount, 0)) AS Reward
 			, SUM(ISNULL(ur.amount_rm, 0)) AS RewardRM
 		FROM #SuperInfo si
-			LEFT JOIN #superBalance bal  ON si.custid = bal.custid
+			LEFT JOIN grouped_data bal  ON si.custid = bal.custid
 			LEFT JOIN Exchange ex WITH (NOLOCK) ON ex.ExchangeId = si.currency
 			LEFT JOIN #unpaidReward ur ON ur.superid = si.custid
 		GROUP BY 

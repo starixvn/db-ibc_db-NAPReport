@@ -104,25 +104,31 @@ BEGIN
 	  AND Recommend = @_agentid
 	GROUP BY custid
 
+	;WITH grouped_data AS (
+		SELECT custid, SUM(Balance) AS Balance, SUM(BaseBalance) AS BaseBalance
+		FROM #Data
+		GROUP BY custid
+	)
 	SELECT
-			c.custid, 
-			c.username, 
-			c.currency,
-			MAX(ex.currency) AS currencyname,
-			IsNull(SUM(b.Balance), 0) Balance,
-			IsNull(SUM(b.BaseBalance),0) AS BaseBalance
-			, SUM(ISNULL(ur.amount, 0)) AS Reward
-			, SUM(ISNULL(ur.amount_rm, 0)) AS RewardRM
+		c.custid, 
+		c.username, 
+		c.currency,
+		MAX(ex.currency) AS currencyname,
+		IsNull(SUM(b.balance), 0) Balance,
+		IsNull(SUM(baseBalance),0) AS BaseBalance
+		, SUM(ISNULL(ur.amount, 0)) AS Reward
+		, SUM(ISNULL(ur.amount_rm, 0)) AS RewardRM
 	FROM
 		dbo.custinfo c (nolock)
-		LEFT JOIN #Data b ON c.custid = b.custid
+		LEFT JOIN grouped_data b ON c.custid = b.custid
 		LEFT JOIN Exchange ex WITH (NOLOCK) ON ex.ExchangeId = c.currency
 		LEFT JOIN #unpaidReward ur ON ur.custid = c.custid
 	WHERE
-		c.roleid = 1 AND c.recommend = @_agentid
-	GROUP BY c.custid, 
-			c.username, 
-			c.currency
+		c.roleid = 1 AND c.recommend = @_agentid 
+	GROUP BY 
+		c.custid, 
+		c.username, 
+		c.currency
 	ORDER BY c.username
 
 	DROP TABLE #Data

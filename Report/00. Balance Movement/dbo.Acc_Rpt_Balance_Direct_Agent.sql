@@ -138,6 +138,11 @@ BEGIN
 	GROUP BY Recommend
 
 	---Return data---
+	;WITH grouped_data AS (
+		SELECT custid, SUM(Balance) AS Balance, SUM(BaseBalance) AS BaseBalance
+		FROM #Data
+		GROUP BY custid
+	)
 	SELECT	a.custid,
 			a.username, 
 			a.currency, 
@@ -146,8 +151,8 @@ BEGIN
 			SUM(IsNull(bal.BaseBalance,0)) AS BaseBalance
 			, SUM(ISNULL(ur.amount, 0)) AS Reward
 			, SUM(ISNULL(ur.amount_rm, 0)) AS RewardRM
-	FROM	#directAgent a WITH (NOLOCK)
-			LEFT JOIN #Data Bal ON a.custid = Bal.custid
+	FROM	#directAgent a 
+			LEFT JOIN grouped_data Bal ON a.custid = Bal.Custid
 			LEFT JOIN Exchange ex WITH (NOLOCK) ON ex.ExchangeId = a.currency
 			LEFT JOIN #unpaidReward ur ON ur.agentid = a.custid
 	GROUP BY a.custid,

@@ -192,6 +192,11 @@ BEGIN
 		AND SabaWalletTicket.WinlostDate <= @yesterday
 	GROUP BY Mrecommend
 
+	;WITH grouped_data AS (
+		SELECT custid, SUM(Balance) AS Balance, SUM(BaseBalance) AS BaseBalance
+		FROM #Data
+		GROUP BY custid
+	)
 	SELECT mi.custid, mi.username, mi.currency 
 		, MAX(ex.currency) AS currencyname
 		, ISNULL(SUM(bal.Balance),0) AS Balance
@@ -199,11 +204,11 @@ BEGIN
 		, SUM(ISNULL(ur.amount, 0)) AS Reward
 		, SUM(ISNULL(ur.amount_rm, 0)) AS RewardRM
 	FROM #MasterInfo mi
-		LEFT JOIN #Data bal ON bal.custid = mi.custid
+		LEFT JOIN grouped_data bal ON bal.custid = mi.custid
 		LEFT JOIN Exchange ex WITH (NOLOCK) ON ex.ExchangeId = mi.currency
 		LEFT JOIN #unpaidReward ur ON ur.masterid = mi.custid
 	GROUP BY mi.custid, mi.username, mi.currency 
-	ORDER BY mi.username 
+	ORDER BY mi.username   
 
 	DROP TABLE #MasterInfo
 	DROP TABLE #Data

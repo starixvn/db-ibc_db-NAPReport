@@ -122,6 +122,11 @@ BEGIN
 	  AND Recommend = @_agentid
 	GROUP BY custid
 
+	;WITH grouped_data AS (
+		SELECT custid, SUM(Balance) AS Balance, SUM(BaseBalance) AS BaseBalance
+		FROM #Data
+		GROUP BY custid
+	)
 	SELECT
 		c.custid, 
 		c.username, 
@@ -133,7 +138,7 @@ BEGIN
 		, SUM(ISNULL(ur.amount_rm, 0)) AS RewardRM
 	FROM
 		dbo.custinfo c (nolock)
-		LEFT JOIN #Data b ON c.custid = b.custid
+		LEFT JOIN grouped_data b ON c.custid = b.custid
 		LEFT JOIN Exchange ex WITH (NOLOCK) ON ex.ExchangeId = c.currency
 		LEFT JOIN #unpaidReward ur ON ur.custid = c.custid
 	WHERE

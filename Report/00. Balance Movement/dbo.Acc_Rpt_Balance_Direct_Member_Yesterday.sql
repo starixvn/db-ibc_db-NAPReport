@@ -140,6 +140,11 @@ BEGIN
 	GROUP BY custid
 
 	---Return data---
+	;WITH grouped_data AS (
+		SELECT custid, SUM(Balance) AS Balance, SUM(BaseBalance) AS BaseBalance
+		FROM #Data
+		GROUP BY custid
+	)
 	SELECT  mem.custid,
 			mem.username, 
 			mem.currency, 
@@ -149,7 +154,7 @@ BEGIN
 			, SUM(ISNULL(ur.amount, 0)) AS Reward
 			, SUM(ISNULL(ur.amount_rm, 0)) AS RewardRM
 	FROM	#directMember mem WITH (NOLOCK)
-			LEFT JOIN #Data bal ON mem.custid = bal.custid
+			LEFT JOIN grouped_data bal ON mem.custid = bal.custid
 			LEFT JOIN bodb02.dbo.Exchange ex WITH (NOLOCK) ON ex.exchangeid = mem.currency
 			LEFT JOIN #unpaidReward ur ON mem.custid = ur.custid
 	GROUP BY mem.custid,
