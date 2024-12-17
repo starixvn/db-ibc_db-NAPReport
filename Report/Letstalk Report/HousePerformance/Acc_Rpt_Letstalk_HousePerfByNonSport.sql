@@ -32,6 +32,8 @@ AS
 		20240916@Cherry: Integrate ON Casino (#210031)
 		20241020@Cherry: Integrate GPI (#207012), Playtech(#210555)
 		20241104@Cherry: Exclude VS6 (#212749)
+		20241122@Cherry: Categorize products (#213102)
+		20241122@Cherry: Remove Exchange and Bet Builder (#212829)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -90,6 +92,7 @@ BEGIN
 	CREATE TABLE #tmpProductSetting (
 		ProductID INT
 		,ProductGroup VARCHAR(20)
+		,GroupOrder INT
 		,ProductShortName VARCHAR(50)
 	)
 	
@@ -169,108 +172,99 @@ BEGIN
 			SELECT DISTINCT Bettype
 			FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)
 			WHERE isTest IN (0,@isTest)
-				AND (ProductID NOT IN (1,37,74,81) --exclude Sportsbook and Saba Promotion and Player Tips, Saba Coins
-					OR SubProduct IN ('Bet Builder')
-				)
+				AND ProductID NOT IN (1,37,74,81,31) --exclude Sportsbook and Saba Promotion and Player Tips, Saba Coins
+				AND SubProduct NOT IN ('Bet Builder')
 		)
 		AND pb.ProductID NOT IN (SELECT ProductID FROM CTE_ExcludeProduct)
 	
 	/*Special non-sport product*/
-	;WITH CTE_Special AS (
-		SELECT DISTINCT pb.ProductID
-			,CONVERT(VARCHAR(20),'OTHERS') AS ProductGroup
-			,CONVERT(VARCHAR(20),'BetB') AS ProductShortName --Include Bet Builder into [OTHERS] group; show 'BetB'
-		FROM #tmpProductBettype AS pb WITH (NOLOCK)
-			INNER JOIN bodb02.dbo.SportBettypeMatrix AS sb WITH (NOLOCK) ON pb.Bettype = sb.Bettype
-		WHERE sb.SubProduct IN ('Bet Builder')
-			AND sb.isTest IN (0,@isTest)
-	)
-	,CTE_Hardcode AS (
+	;WITH CTE_Hardcode AS (
 		SELECT ProductID
-			,ProductGroup
 			,ProductShortName
 		FROM ( VALUES
-			----------LC----------
-			(21,'LC','AB') --Allbet
-			,(45,'LC','AE') --AE Sexy
-			,(12,'LC','GoldD') --Gold Deluxe
-			,(39,'LC','SA') --SA Gaming
-			,(52,'LC','ION') --ION
-			,(46,'LC','IBC') --IBCBet Live Casino
-			,(47,'LC','BBIN') --BBIN
-			,(11,'LC','AG') --AG Casino
-			,(51,'LC','WM') --WM
-			,(59,'LC','GDG') --GDG
-			,(57,'LC','BG') --BG
-			,(65,'LC','PPLC') --PP Live Casino
-			,(70,'LC','FGG') --FGG
-			,(76,'LC','YeeBet')
-			,(80,'LC','WE LC')
-			,(96,'LC','ONCasino')
-			----------RNG----------
-			,(42,'RNG','SABAG') --SABA.games
-			,(6,'RNG','SabaC') --Saba Casino
-			,(34,'RNG','Arca') --Arcadia Gaming
-			,(32,'RNG','PP') --PP
-			,(38,'RNG','VirtG') --Virtual Games
-			,(22,'RNG','Macau') --Macau Games
-			,(36,'RNG','SG') --SG
-			,(50,'RNG','FunkyG') --Funky Games
-			,(24,'RNG','FW') --Fishing World
-			,(55,'RNG','PGSoft') --PG Soft
-			,(56,'RNG','Joker') --Joker
-			,(60,'RNG','MaxG') --MaxGame
-			,(61,'RNG','HB') --Habanero
-			,(62,'RNG','CG') --CG
-			,(66,'RNG','SABAG')--Vgaming - Combine in SABA.games
-			,(67,'RNG','AP') --AdvantPlay
-			,(68,'RNG','APMini') --AdvantPlay Mini
-			,(72,'RNG','SEAL') --Seal Entertainment
-			,(73,'RNG','MG') --MG-RNG
-			,(75,'RNG','Jili')
-			,(79,'RNG','Live22')
-			,(78,'RNG','UUS') -- UU Slots
-			,(84,'RNG','YoloP') 
-			,(86,'RNG','SABAxD') 
-			,(87,'RNG','FastSpin')
-			,(89,'RNG','FACHAI')
-			,(85,'RNG','Nextspin')
-			,(48,'RNG','GPI')
-			,(100,'RNG','Playtech')
-			----------LOT/KENO----------
-			,(40,'LOT/KENO','TabG') --Table Game
-			,(8,'LOT/KENO','Mkeno') --RNG Keno
-			,(3,'LOT/KENO','NG') --Number Game -Combine NumG, Happy 5, Happy 5 LG into Number Game
-			,(28,'LOT/KENO','MLot') --Lottery
-			,(23,'LOT/KENO','NG2') --NG2
-			,(43,'LOT/KENO','To4D') --Togel 4D
-			,(63,'LOT/KENO','SLot') --Sports Lottery
-			----------OTHERS----------
-			,(27,'OTHERS','VS2') --Virtual Sports 2
-			,(5,'OTHERS','VS') --Virtual Sports
-			,(15,'OTHERS','CB') --Colossus Bets
-			,(31,'OTHERS','EX') --Exchange
-			,(49,'OTHERS','VS3(Old)') --Virtual Sports 3
-			,(69,'OTHERS','BTC') --Bitcoin
-			-- ,('Bet Builder','OTHERS','BetB')
-			,(77,'OTHERS','VS3') --Virtual Sports
-			,(83,'OTHERS','VS4') --Virtual Sports 4
-			,(88,'OTHERS','VS5') --Virtual Sports 5
-		) h (ProductID, ProductGroup, ProductShortName)
+			(21,'AB') --Allbet
+			,(45,'AE') --AE Sexy
+			,(12,'GoldD') --Gold Deluxe
+			,(39,'SA') --SA Gaming
+			,(52,'ION') --ION
+			,(46,'IBC') --IBCBet Live Casino
+			,(47,'BBIN') --BBIN
+			,(11,'AG') --AG Casino
+			,(51,'WM') --WM
+			,(59,'GDG') --GDG
+			,(57,'BG') --BG
+			,(65,'PPLC') --PP Live Casino
+			,(70,'FGG') --FGG
+			,(76,'YeeBet')
+			,(80,'WE LC')
+			,(96,'ONCasino')
+			,(42,'SABAG') --SABA.games
+			,(6,'SabaC') --Saba Casino
+			,(34,'Arca') --Arcadia Gaming
+			,(32,'PP') --PP
+			,(38,'VirtG') --Virtual Games
+			,(22,'Macau') --Macau Games
+			,(36,'SG') --SG
+			,(50,'FunkyG') --Funky Games
+			,(24,'FW') --Fishing World
+			,(55,'PGSoft') --PG Soft
+			,(56,'Joker') --Joker
+			,(60,'MaxG') --MaxGame
+			,(61,'HB') --Habanero
+			,(62,'CG') --CG
+			,(66,'SABAG')--Vgaming - Combine in SABA.games
+			,(67,'AP') --AdvantPlay
+			,(68,'APMini') --AdvantPlay Mini
+			,(72,'SEAL') --Seal Entertainment
+			,(73,'MG') --MG-RNG
+			,(75,'Jili')
+			,(79,'Live22')
+			,(78,'UUS') -- UU Slots
+			,(84,'YoloP') 
+			,(86,'SABAxD') 
+			,(87,'FastSpin')
+			,(89,'FACHAI')
+			,(85,'Nextspin')
+			,(48,'GPI')
+			,(100,'Playtech')
+			,(40,'TabG') --Table Game
+			,(8,'Mkeno') --RNG Keno
+			,(3,'NG') --Number Game -Combine NumG, Happy 5, Happy 5 LG into Number Game
+			,(28,'MLot') --Lottery
+			,(23,'NG2') --NG2
+			,(43,'To4D') --Togel 4D
+			,(63,'SLot') --Sports Lottery
+			,(27,'VS2') --Virtual Sports 2
+			,(5,'VS') --Virtual Sports
+			,(15,'CB') --Colossus Bets
+			,(49,'VS3(Old)') --Virtual Sports 3
+			,(69,'BTC') --Bitcoin
+			,(77,'VS3') --Virtual Sports
+			,(83,'VS4') --Virtual Sports 4
+			,(88,'VS5') --Virtual Sports 5
+		) h (ProductID, ProductShortName)
+	)
+	,CTE_ProductGroup AS (
+		SELECT DISTINCT ProductID AS ProductID
+			,ProductCategory AS ProductCategory
+			,CategoryOrder AS CategoryOrder
+		FROM DBWH.bodb_Account.dbo.vw_NonSportSetting WITH(NOLOCK)
+		WHERE ProductCategory <> 'Closed'
 	)
 	INSERT INTO #tmpProductSetting (
 		ProductID
 		,ProductGroup
+		,GroupOrder
 		,ProductShortName
 	)
 	SELECT DISTINCT pb.ProductID
-		,ISNULL(s.ProductGroup,ISNULL(h.ProductGroup,(CASE WHEN p.CasinoType = 1 THEN 'RNG' WHEN p.CasinoType = 2 THEN 'LC' ELSE 'OTHERS' END))) AS ProductGroup
-		,ISNULL(s.ProductShortName,ISNULL(h.ProductShortName,ISNULL(p.ProductPrefix,'Others'))) AS ProductShortName
+		,ISNULL(pg.ProductCategory,'Others') AS ProductGroup
+		,ISNULL(pg.CategoryOrder,6) AS GroupOrder
+		,ISNULL(h.ProductShortName,ISNULL(p.ProductPrefix,'Others')) AS ProductShortName
 	FROM #tmpProductBettype AS pb WITH (NOLOCK)
-		LEFT JOIN CTE_Special AS s ON pb.ProductID = s.ProductID
 		LEFT JOIN CTE_Hardcode AS h ON pb.ProductID = h.ProductID
 		LEFT JOIN bodb02.dbo.Products AS p WITH (NOLOCK) ON pb.ProductID = p.ProductID
-	
+		LEFT JOIN CTE_ProductGroup AS pg ON pb.ProductID = pg.ProductID
 	--make sure no dup ProductID--
 	;WITH CTE_Dup AS (
 		SELECT ProductID
@@ -295,7 +289,7 @@ BEGIN
 	SELECT Bettype
 		,BettypeGroupID
 	FROM DBWH.bodb_Account.dbo.BettypeGroup WITH (NOLOCK)
-	WHERE BettypeGroupID in ( 6, 10 ) --Prize Tickets & Contribution Tickets
+	WHERE BettypeGroupID in (6, 10) --Prize Tickets & Contribution Tickets
 	GROUP BY Bettype
 		,BettypeGroupID
 	
@@ -314,65 +308,7 @@ BEGIN
 	SELECT @MinTransID_LC = MIN(TransID)
 		,@MaxTransID_LC = MAX(TransID)
 	FROM bodb02.dbo.BettransLC WITH (NOLOCK)
-	WHERE winlostdate = @WLDate
-	
-	/*
-		Get Exchange Data
-			- Exchange in bettrans (Betting & Adjustment) only for Yesterday => exclude
-			- Manual calculation Exchange by Acc_Rpt_SeparatedWalletProductWL
-	*/
-	INSERT INTO #tmpEXBettrans (
-		WLDate
-		,BetType
-		,ActualRate
-		,VirtualRate
-		,EPos
-		,TPos
-		,Stake
-		,Actual_Stake
-		,Winlost
-		,AWinlost
-		,MWinlost
-		,SWinlost
-		,SComm
-	)
-	EXEC DBLIC.bodb_3rdProduct.dbo.Acc_Rpt_SeparatedWalletProductWL
-		@WinlostDate = @WLDate
-		,@ProductID = 31
-		,@DataMode = 'Letstalk34'
-	
-	;WITH CTE_EX AS (
-		SELECT pb.ProductID
-			,CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9,6)) AS VarianceVR
-			--------------------------------------------------------------------------
-			,SUM((CASE WHEN bg.BettypeGroupID = 6 THEN 0 --Prize Tickets
-				  WHEN bg.BettypeGroupID = 10 THEN b.swinlost + b.mwinlost + b.awinlost --Contribution Tickets
-				  ELSE (b.winlost - b.actual_stake) + b.swinlost + b.mwinlost + b.awinlost
-				END)  * b.actualrate) AS WinlossIBC
-			,0 AS ExtraWL --epos = 0
-			,SUM(b.scomm * b.actualrate) AS CommissionS
-			,CONVERT(DECIMAL,0) AS ExtraComm --epos = 0
-			--------------------------------------------------------------------------
-			,SUM( b.stake * (1-b.TPos) * b.actualrate ) AS TurnoverIBC
-			,0 AS ExtraTO --epos = 0
-		FROM #tmpEXBettrans AS b
-			LEFT JOIN #tmpProductBettype AS pb ON b.bettype = pb.Bettype
-			LEFT JOIN #tmpBettypeGroup AS bg ON b.Bettype = bg.Bettype
-		GROUP BY pb.ProductID
-			,CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9, 6))
-	)
-	INSERT INTO #tmpMarginNonSport (
-		ProductID
-		,WinlossIBC
-		,TurnoverIBC
-	)
-	SELECT ProductID
-		,SUM(-(WinlossIBC - ExtraWL + CommissionS - ExtraComm)) AS WinlossIBC
-		,SUM((CASE WHEN TurnoverIBC = 0 THEN 0 ELSE TurnoverIBC - ExtraTO END)
-			* (CASE WHEN VarianceVR > 0 THEN VarianceVR + 1 ELSE 1 END)
-			) AS TurnoverIBC
-	FROM CTE_EX AS h
-	GROUP BY ProductID
+	WHERE winlostdate = @WLDate	
 	
 	/*
 		Get raw data as normal
@@ -409,7 +345,6 @@ BEGIN
 			AND pb.RefTable = 3
 			AND b.bettype <= @MaxBettype
 			AND b.MatchID >= 0
-			AND pb.ProductID <> 31 --handle Exchange above
 		GROUP BY pb.ProductID
 			,CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9, 6))
 			
@@ -527,13 +462,8 @@ BEGIN
 		
 	*/
 	;WITH CTE_SubTotal AS (
-		SELECT (CASE WHEN h.ProductGroup = 'LC' THEN 2
-				WHEN h.ProductGroup = 'RNG' THEN 3
-				WHEN h.ProductGroup = 'LOT/KENO' THEN 4
-				ELSE 5
-				END
-			) AS GroupID
-			,'T ' + ISNULL(h.ProductGroup,'OTHERS') AS GroupName
+		SELECT ISNULL(h.GroupOrder,6) AS GroupID
+			,'T ' + ISNULL(h.ProductGroup,'Others') AS GroupName
 			,SUM(TurnoverIBC) AS TurnoverIBC
 			,SUM(WinlossIBC) AS WinlossIBC
 			,CONVERT(DECIMAL(10,6),(CASE WHEN SUM(ISNULL(TurnoverIBC,0)) = 0 THEN 0
@@ -541,15 +471,11 @@ BEGIN
 			END)) AS Margin
 		FROM #tmpMarginNonSport AS m WITH (NOLOCK)
 			LEFT JOIN #tmpProductSetting AS h WITH (NOLOCK) ON m.ProductID = h.ProductID
-		GROUP BY CASE WHEN h.ProductGroup = 'LC' THEN 2
-				WHEN h.ProductGroup = 'RNG' THEN 3
-				WHEN h.ProductGroup = 'LOT/KENO' THEN 4
-				ELSE 5
-				END
-			,ISNULL(h.ProductGroup,'OTHERS')
+		GROUP BY ISNULL(h.GroupOrder,6)
+			,'T ' + ISNULL(h.ProductGroup,'Others')
 	)
 	,CTE_Total AS (
-		SELECT 1 AS GroupID
+		SELECT 0 AS GroupID
 			,'GRAND TOTAL' AS GroupName
 			,SUM(TurnoverIBC) AS TurnoverIBC
 			,CONVERT(DECIMAL(10,6),(CASE WHEN SUM(ISNULL(TurnoverIBC,0)) = 0 THEN 0
@@ -558,12 +484,7 @@ BEGIN
 		FROM CTE_SubTotal
 	)
 	,CTE_Product AS (
-		SELECT (CASE WHEN h.ProductGroup = 'LC' THEN 8
-				WHEN h.ProductGroup = 'RNG' THEN 10
-				WHEN h.ProductGroup = 'LOT/KENO' THEN 12
-				ELSE 14
-				END
-			) AS GroupID
+		SELECT ISNULL(h.GroupOrder,6)*1000+m.ProductID AS GroupID
 			,ISNULL(h.ProductShortName,'Others') AS GroupName
 			,SUM(TurnoverIBC) AS TurnoverIBC
 			,CONVERT(DECIMAL(10,6),(CASE WHEN SUM(ISNULL(TurnoverIBC,0)) = 0 THEN 0
@@ -571,50 +492,16 @@ BEGIN
 			END)) AS Margin
 		FROM #tmpMarginNonSport AS m WITH (NOLOCK)
 			LEFT JOIN #tmpProductSetting AS h WITH (NOLOCK) ON m.ProductID = h.ProductID
-		GROUP BY CASE WHEN h.ProductGroup = 'LC' THEN 8
-				WHEN h.ProductGroup = 'RNG' THEN 10
-				WHEN h.ProductGroup = 'LOT/KENO' THEN 12
-				ELSE 14
-				END
+		GROUP BY ISNULL(h.GroupOrder,6)*1000+m.ProductID
 			,ISNULL(h.ProductShortName,'Others')
 	)
-	----return title----
-	-- SELECT 6 AS GroupID
-		-- ,'NS TO & M' AS GroupName
-		-- ,NULL AS TurnoverIBC
-		-- ,NULL AS Margin
 	
-	-- UNION ALL
-	
-	SELECT 7 AS GroupID
-		,'LC' AS GroupName
+	SELECT DISTINCT GroupOrder * 1000 AS GroupID
+		,ProductGroup AS GroupName
 		,NULL AS TurnoverIBC
 		,NULL AS Margin
 		,'' AS ExtraInfo
-	
-	UNION ALL
-	
-	SELECT 9 AS GroupID
-		,'RNG' AS GroupName
-		,NULL AS TurnoverIBC
-		,NULL AS Margin
-		,'' AS ExtraInfo
-		
-	UNION ALL
-	
-	SELECT 11 AS GroupID
-		,'LOT/KENO' AS GroupName
-		,NULL AS TurnoverIBC
-		,NULL AS Margin
-		,'' AS ExtraInfo
-		
-	UNION ALL
-	
-	SELECT 13 AS GroupID
-		,'OTHERS' AS GroupName
-		,NULL AS TurnoverIBC
-		,NULL AS Margin
-		,'' AS ExtraInfo
+	FROM #tmpProductSetting		
 	----return total----
 	UNION ALL
 	SELECT GroupID
@@ -639,7 +526,7 @@ BEGIN
 		,GroupName
 		,TurnoverIBC
 		,Margin
-		,CASE WHEN GroupName ='EX' AND @DayOffset = 0 THEN '[1h delay]' ELSE '' END AS ExtraInfo
+		,'' ExtraInfo
 	FROM CTE_Product
 	ORDER BY GroupID
 		,TurnoverIBC DESC
