@@ -34,6 +34,7 @@ AS
 		20241104@Cherry: Exclude VS6 (#212749)
 		20241122@Cherry: Categorize products (#213102)
 		20241122@Cherry: Remove Exchange and Bet Builder (#212829)
+		20241202@Cherry: Integrate GPI Live Casino (#213493)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -242,6 +243,7 @@ BEGIN
 			,(77,'VS3') --Virtual Sports
 			,(83,'VS4') --Virtual Sports 4
 			,(88,'VS5') --Virtual Sports 5
+			,(90,'GPI LC')
 		) h (ProductID, ProductShortName)
 	)
 	,CTE_ProductGroup AS (
