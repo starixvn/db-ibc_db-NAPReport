@@ -21,6 +21,7 @@ AS
 		20240606@Cherry: Integrate Saba Kabaddi (#204927)
 		20240916@Cherry: Integrate Odds Boost Voucher (#210559)
 		20240927@Cherry: Move 8RM from XYZ to Other Credit (#211362)
+		20241127@Cherry: Add a new section for Exchange and Bet Builder (#212829)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -209,6 +210,10 @@ BEGIN
 		,(6, 1, 'TimeM TO & M')
 		,(6, 0, 'TimeM_HDP')
 		,(6, 0, 'TimeM_OU')
+
+		,(7, 1, 'OTHERS TO & M')
+		,(7, 0, 'EX')
+		,(7, 0, 'BetB')
 	
 	INSERT INTO #tmpDWBettypeSource (
 		Bettype
@@ -346,6 +351,92 @@ BEGIN
 	
 	CREATE UNIQUE CLUSTERED INDEX CIX_tmpParlBoost ON #tmpParlBoost (transid, matchid)
 	
+	-- Get Exchange Data real time
+	CREATE TABLE #tmpEXBettrans (
+		WinlostDate DATE,
+		LiveIndicator BIT,
+		BetType SMALLINT,
+		Site VARCHAR(50),
+		ActualRate FLOAT,
+		Virtualrate FLOAT,
+		EPos SMALLMONEY,
+		TPos MONEY,
+		Stake MONEY,
+		Actual_Stake MONEY,
+		Winlost MONEY,
+		AWinlost MONEY,
+		MWinlost MONEY,
+		SWinlost MONEY,
+		SComm MONEY
+	)
+	
+	INSERT INTO #tmpEXBettrans (
+		WinlostDate,
+		LiveIndicator,
+		BetType,
+		Site,
+		ActualRate,
+		Virtualrate,
+		EPos,
+		TPos,
+		Stake,
+		Actual_Stake,
+		Winlost,
+		AWinlost,
+		MWinlost,
+		SWinlost,
+		SComm 
+		)
+	EXEC DBLIC.bodb_3rdProduct.dbo.Acc_Rpt_SeparatedWalletProductWL
+		@WinlostDate = @WLDate
+		,@ProductID = 31
+		,@DataMode = 'Letstalk32'
+	-- End Exchange
+
+	INSERT INTO #tmpRawData WITH (TABLOCK) (
+		Site
+		,IsDeposit
+		,LeagueID
+		,Bettype
+		,IsHalf
+		,LiveStatus
+		,VarianceVR
+		,WinlossIBC
+		,ExtraWL
+		,CommissionS
+		,ExtraComm
+		,TurnoverIBC
+		,ExtraTO
+	)
+	SELECT c.Site
+		,c.IsDeposit
+		,@NS_LeagueID AS LeagueID
+		,b.Bettype
+		,0 AS IsHalf
+		,CAST(b.liveindicator AS TINYINT)
+		,CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9,6)) AS VarianceVR
+		--------------------------------------------------------------------------
+		,SUM((b.winlost - b.actual_stake + b.swinlost + b.mwinlost + b.awinlost) * b.actualrate) AS WinlossIBC
+		,SUM(CASE WHEN b.TPos = 1 THEN 0
+				ELSE (b.winlost - b.actual_stake) * CAST(b.EPos AS DECIMAL(10, 8)) * b.actualrate
+			END) AS ExtraWL 
+		,SUM(b.scomm * b.actualrate) AS CommissionS
+		,CAST(SUM((CASE WHEN b.TPos = 1 THEN 0
+				ELSE b.scomm * CAST(b.EPos AS DECIMAL(10, 8)) / (1 - b.TPos)
+			END) * b.actualrate) AS DECIMAL(19, 8))AS ExtraComm
+		--------------------------------------------------------------------------
+		,SUM(b.stake * (1 - b.TPos)	* b.actualrate) AS TurnoverIBC
+		,SUM(CASE WHEN b.TPos = 1 THEN 0 
+				ELSE stake * CAST(b.EPos AS DECIMAL(10, 8)) * b.actualrate
+			END) AS ExtraTO
+	FROM #tmpEXBettrans b
+		LEFT JOIN #tmpDWSite AS c WITH (NOLOCK) ON b.Site = c.Site
+	GROUP BY c.Site
+		,c.IsDeposit
+		,b.Bettype
+		,CAST(b.liveindicator AS TINYINT)
+		,CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9,6))
+
 	INSERT INTO #tmpRawData WITH (TABLOCK) (
 		Site
 		,IsDeposit
@@ -408,6 +499,7 @@ BEGIN
 		AND b.statusID IN (112, 113) --Won, Lose
 		AND b.currency <> 20
 		AND pb.RefTable = 3
+		AND pb.ProductID <> 31
 	GROUP BY c.Site
 		,c.IsDeposit
 		,CASE WHEN b.bettype = 29 THEN @Parl_LeagueID
@@ -594,6 +686,8 @@ BEGIN
 		,CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9,6))
 	
 	CREATE CLUSTERED INDEX CIX_tmpRawData ON #tmpRawData ( Bettype, LeagueID, Site )
+
+	
 	
 	------------------------Group Data follow spec------------------------
 	--Hardcode to move [Bet Builder] from SB to Non-Sport
@@ -686,6 +780,20 @@ BEGIN
 			FROM CTE_8RM
 		) AS t
 	)
+	,CTE_Others AS (
+		SELECT CASE WHEN pb.ProductID = 31 THEN 'EX' 
+				WHEN pb.ProductID = -1 THEN 'BetB'
+			END AS SiteName
+			,SUM((WinlossIBC - ExtraWL + CommissionS - ExtraComm)) AS WinlossMem --Member view - opposite of above WinlossIBC
+			,SUM((CASE WHEN TurnoverIBC = 0 THEN 0 ELSE TurnoverIBC - ExtraTO END)
+				* (CASE WHEN VarianceVR > 0 THEN VarianceVR + 1 ELSE 1 END)
+				* (CASE WHEN IsHalf = 1 THEN 0.5 ELSE 1 END)) AS TurnoverIBC
+		FROM #tmpRawData AS d WITH (NOLOCK)
+			INNER JOIN #tmpProductBettype AS pb WITH (NOLOCK) ON d.Bettype = pb.Bettype
+		WHERE pb.ProductID IN (-1,31)
+		GROUP BY CASE WHEN pb.ProductID = 31 THEN 'EX' 
+				WHEN pb.ProductID = -1 THEN 'BetB' END
+	)
 	INSERT INTO #tmpResult (
 		GroupName
 		,WinlossIBC
@@ -716,6 +824,13 @@ BEGIN
 		,WinlossMem
 		,TurnoverIBC
 	FROM CTE_8RM
+
+	UNION ALL
+
+	SELECT SiteName
+		,WinlossMem
+		,TurnoverIBC
+	FROM CTE_Others
 	
 	------------------------------GroupBySB-------------------------------
 	DECLARE @SabaLeagueGroupID VARCHAR(500)
@@ -963,4 +1078,6 @@ BEGIN
 	DROP TABLE #tmpSportBettypeGroup
 	DROP TABLE #tmpOrderByGroupName
 	DROP TABLE #tmpParlBoost
+	DROP TABLE #tmpOddsAdjBettype
+	DROP TABLE #tmpEXBettrans
 END
