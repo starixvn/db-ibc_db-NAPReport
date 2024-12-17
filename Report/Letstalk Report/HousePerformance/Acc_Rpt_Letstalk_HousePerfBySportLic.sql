@@ -29,6 +29,7 @@ AS
 		20240916@Cherry: Integrate ON Casino (#210031)
 		20240916@Cherry: Integrate Odds Boost Voucher (#210559)
 		20241106@Cherry: Integrate Virtual Sports 6 (#212749)
+		20241202@Cherry: Integrate GPI Live Casino (#213493)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -248,6 +249,7 @@ BEGIN
 			WHEN ProductName = 'Virtual Sports 5' THEN 'VirtSpo5'
 			WHEN ProductName = 'ON Casino' THEN 'ONCasino'
 			WHEN ProductName = 'Virtual Sports 6' THEN 'VirtSpo6'
+			WHEN ProductName = 'GPI Live Casino' THEN 'GPI LC'
 			ELSE ProductName END)
 	
 	SELECT @EX3rdName = rd.ProductName
