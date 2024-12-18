@@ -35,6 +35,7 @@ AS
 		20241122@Cherry: Categorize products (#213102)
 		20241122@Cherry: Remove Exchange and Bet Builder (#212829)
 		20241202@Cherry: Integrate GPI Live Casino (#213493)
+		20241218@Cherry: Integrate Saba Keno (#214759)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -244,6 +245,7 @@ BEGIN
 			,(83,'VS4') --Virtual Sports 4
 			,(88,'VS5') --Virtual Sports 5
 			,(90,'GPI LC')
+			,(82,'SABAK')
 		) h (ProductID, ProductShortName)
 	)
 	,CTE_ProductGroup AS (
