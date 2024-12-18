@@ -34,6 +34,7 @@ AS
 		20241104@Cherry: Exclude VS6 (#212749)
 		20241122@Cherry: Categorize products (#213102)
 		20241122@Cherry: Remove Exchange and Bet Builder (#212829)
+		20241202@Cherry: Integrate GPI Live Casino (#213493)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -242,6 +243,7 @@ BEGIN
 			,(77,'VS3') --Virtual Sports
 			,(83,'VS4') --Virtual Sports 4
 			,(88,'VS5') --Virtual Sports 5
+			,(90,'GPI LC')
 		) h (ProductID, ProductShortName)
 	)
 	,CTE_ProductGroup AS (
@@ -258,13 +260,13 @@ BEGIN
 		,ProductShortName
 	)
 	SELECT DISTINCT pb.ProductID
-		,ISNULL(pg.ProductCategory,'Others') AS ProductGroup
-		,ISNULL(pg.CategoryOrder,6) AS GroupOrder
-		,ISNULL(h.ProductShortName,ISNULL(p.ProductPrefix,'Others')) AS ProductShortName
+		,pg.ProductCategory AS ProductGroup
+		,pg.CategoryOrder AS GroupOrder
+		,ISNULL(h.ProductShortName,p.ProductPrefix) AS ProductShortName
 	FROM #tmpProductBettype AS pb WITH (NOLOCK)
 		LEFT JOIN CTE_Hardcode AS h ON pb.ProductID = h.ProductID
 		LEFT JOIN bodb02.dbo.Products AS p WITH (NOLOCK) ON pb.ProductID = p.ProductID
-		LEFT JOIN CTE_ProductGroup AS pg ON pb.ProductID = pg.ProductID
+		INNER JOIN CTE_ProductGroup AS pg ON pb.ProductID = pg.ProductID
 	--make sure no dup ProductID--
 	;WITH CTE_Dup AS (
 		SELECT ProductID
@@ -430,49 +432,19 @@ BEGIN
 	GROUP BY ProductID
 	
 	CREATE CLUSTERED INDEX CIX_tmpMarginNonSport ON #tmpMarginNonSport ( ProductID )
-
-	/*
-		Group by [ProductGroup], Order and Return result
-		=================Order=====================
-		GroupID GroupName
-		-----------------
-		1		GRAND TOTAL
-		2		T LC
-		3		T RNG 
-		4		T LOT/KENO
-		5		T OTHERS
-		
-		6		NS TO & M 			--removed
-		
-		7		LC 					--title
-		8		LC Products
-		..		...
-		
-		9		RNG					--title
-		10		RNG Products
-		..		...
-		
-		11		LOT/KENO			--title
-		12		LOT/KENO Products
-		..		...
-		
-		13		OTHERS				--title
-		14		the rest Products
-		..		...
-		
-	*/
+	
 	;WITH CTE_SubTotal AS (
-		SELECT ISNULL(h.GroupOrder,6) AS GroupID
-			,'T ' + ISNULL(h.ProductGroup,'Others') AS GroupName
+		SELECT h.GroupOrder AS GroupID
+			,'T ' + h.ProductGroup AS GroupName
 			,SUM(TurnoverIBC) AS TurnoverIBC
 			,SUM(WinlossIBC) AS WinlossIBC
 			,CONVERT(DECIMAL(10,6),(CASE WHEN SUM(ISNULL(TurnoverIBC,0)) = 0 THEN 0
 				ELSE SUM(ISNULL(WinlossIBC,0)) / SUM(ISNULL(TurnoverIBC,0))
 			END)) AS Margin
 		FROM #tmpMarginNonSport AS m WITH (NOLOCK)
-			LEFT JOIN #tmpProductSetting AS h WITH (NOLOCK) ON m.ProductID = h.ProductID
-		GROUP BY ISNULL(h.GroupOrder,6)
-			,'T ' + ISNULL(h.ProductGroup,'Others')
+			INNER JOIN #tmpProductSetting AS h WITH (NOLOCK) ON m.ProductID = h.ProductID
+		GROUP BY h.GroupOrder,
+			'T ' + h.ProductGroup
 	)
 	,CTE_Total AS (
 		SELECT 0 AS GroupID
@@ -484,16 +456,16 @@ BEGIN
 		FROM CTE_SubTotal
 	)
 	,CTE_Product AS (
-		SELECT ISNULL(h.GroupOrder,6)*1000+m.ProductID AS GroupID
-			,ISNULL(h.ProductShortName,'Others') AS GroupName
+		SELECT h.GroupOrder*1000+m.ProductID AS GroupID
+			,h.ProductShortName AS GroupName
 			,SUM(TurnoverIBC) AS TurnoverIBC
 			,CONVERT(DECIMAL(10,6),(CASE WHEN SUM(ISNULL(TurnoverIBC,0)) = 0 THEN 0
 				ELSE SUM(ISNULL(WinlossIBC,0)) / SUM(ISNULL(TurnoverIBC,0))
 			END)) AS Margin
 		FROM #tmpMarginNonSport AS m WITH (NOLOCK)
-			LEFT JOIN #tmpProductSetting AS h WITH (NOLOCK) ON m.ProductID = h.ProductID
-		GROUP BY ISNULL(h.GroupOrder,6)*1000+m.ProductID
-			,ISNULL(h.ProductShortName,'Others')
+			INNER JOIN #tmpProductSetting AS h WITH (NOLOCK) ON m.ProductID = h.ProductID
+		GROUP BY h.GroupOrder*1000+m.ProductID,
+			h.ProductShortName
 	)
 	
 	SELECT DISTINCT GroupOrder * 1000 AS GroupID
