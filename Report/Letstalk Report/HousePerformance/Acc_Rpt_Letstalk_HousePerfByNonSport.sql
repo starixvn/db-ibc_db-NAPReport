@@ -35,7 +35,8 @@ AS
 		20241122@Cherry: Categorize products (#213102)
 		20241122@Cherry: Remove Exchange and Bet Builder (#212829)
 		20241202@Cherry: Integrate GPI Live Casino (#213493)
-		20241218@Cherry: Integrate Saba Keno (#214759)
+		20241219@Cherry: hotfix (#215548)
+		20241224@Cherry: Integrate Saba Keno (#214759)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -245,7 +246,7 @@ BEGIN
 			,(83,'VS4') --Virtual Sports 4
 			,(88,'VS5') --Virtual Sports 5
 			,(90,'GPI LC')
-			,(82,'SABAK')
+			,(82,'SABAG')
 		) h (ProductID, ProductShortName)
 	)
 	,CTE_ProductGroup AS (
@@ -458,7 +459,7 @@ BEGIN
 		FROM CTE_SubTotal
 	)
 	,CTE_Product AS (
-		SELECT h.GroupOrder*1000+m.ProductID AS GroupID
+		SELECT h.GroupOrder*1000+1 AS GroupID
 			,h.ProductShortName AS GroupName
 			,SUM(TurnoverIBC) AS TurnoverIBC
 			,CONVERT(DECIMAL(10,6),(CASE WHEN SUM(ISNULL(TurnoverIBC,0)) = 0 THEN 0
@@ -466,7 +467,7 @@ BEGIN
 			END)) AS Margin
 		FROM #tmpMarginNonSport AS m WITH (NOLOCK)
 			INNER JOIN #tmpProductSetting AS h WITH (NOLOCK) ON m.ProductID = h.ProductID
-		GROUP BY h.GroupOrder*1000+m.ProductID,
+		GROUP BY h.GroupOrder*1000+1,
 			h.ProductShortName
 	)
 	
