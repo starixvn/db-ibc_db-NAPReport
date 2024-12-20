@@ -264,9 +264,14 @@ BEGIN
 	END
 	ELSE
 	BEGIN
+		;WITH grouped_data AS (
+			SELECT custid, SUM(Balance) AS Balance, SUM(BaseBalance) AS BaseBalance
+			FROM #superBalance
+			GROUP BY custid
+		)
 		SELECT @Total = SUM(ISNULL(bal.BaseBalance, 0)), @TotalReward = SUM(ISNULL(ur.amount_rm, 0))
 		FROM #SuperInfo si
-		LEFT JOIN #superBalance bal  ON si.custid = bal.custid
+		LEFT JOIN grouped_data bal  ON si.custid = bal.custid
 		LEFT JOIN #unpaidReward ur ON ur.superid = si.custid
 	END
 
