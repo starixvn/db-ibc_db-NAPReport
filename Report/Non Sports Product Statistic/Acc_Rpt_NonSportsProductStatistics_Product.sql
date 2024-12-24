@@ -68,6 +68,7 @@ AS
 		20240612@Cherry: Implement Product detail (#205894)
 		20240806@Cherry: Integrate VS5 (#207590)
 		20240926@Cherry: Integrate new sports of VS2 (#211232)
+		20241111@Cherry: Change Product group (#211211)
 
 	Param's Explanation:
 		- @username:  + Search by keyword, member only
@@ -91,7 +92,9 @@ AS
 			-1 : is <=
 		- @HousePTValue : Value to compare with @HousePTType
 		- @IsDrillDown: If click on Grand Total or on the Grid of column Currency
-
+		- @CasinoType = -1: Report by Product
+					  = -2: Report by Product detail
+					  = vw_NonSportSetting.CategoryOrder
 */
 BEGIN
 	SET NOCOUNT ON
@@ -185,6 +188,12 @@ BEGIN
 	CREATE TABLE #tmpHouseProduct (ProductID INT)
 	CREATE TABLE #tmpDummyCust (CustID INT)
 	CREATE TABLE #tmpVirtualSport (ProductID INT)
+	CREATE TABLE #tmpProductGroup (GroupID INT, GroupName VARCHAR(50), ProductID INT, ProductName VARCHAR(50))
+
+	INSERT INTO #tmpProductGroup (GroupID, GroupName, ProductID, ProductName)
+	SELECT DISTINCT s.CategoryOrder, s.ProductCategory, s.ProductID, p.ProductName
+	FROM DBWH.bodb_Account.dbo.vw_NonSportSetting s WITH(NOLOCK)
+		INNER JOIN bodb02.dbo.Products p WITH(NOLOCK) ON s.ProductID = p.ProductID
 
 	DECLARE @VirtualSportGroupStr VARCHAR(500)
     SELECT  @VirtualSportGroupStr = VValue
@@ -366,20 +375,20 @@ BEGIN
 	-- End Sport Bettype Matrix
 
 	-- Handle Product Group		
-	IF @CasinoType IN (0,1,2) -- @CasinoType = 0_KN, VS, NG, 1_RNG Casino, 2_Live Casino
+	IF @CasinoType NOT IN (-1, -2)
 	BEGIN
 		DELETE s
 		FROM #SportBettype s
 		WHERE NOT EXISTS (SELECT 1 
-						FROM dbo.Products p WITH (NOLOCK) 
-						WHERE p.CasinoType = @CasinoType
+						FROM #tmpProductGroup p 
+						WHERE p.GroupID = @CasinoType
 								AND s.ProductID = p.ProductID)	
 								
 		DELETE s
 		FROM #tmpSportBetType s
 		WHERE NOT EXISTS (SELECT 1 
-						FROM dbo.Products p WITH (NOLOCK) 
-						WHERE p.CasinoType = @CasinoType
+						FROM #tmpProductGroup p
+						WHERE p.GroupID = @CasinoType
 								AND p.ProductID IN (SELECT ProductID FROM #tmpHouseProduct)) --Saba.club, VGaming						
 	END		
 	-- End Product Group
@@ -1613,29 +1622,17 @@ BEGIN
 	IF @CasinoType = -1 -- Group in Product Group
 	BEGIN
 		UPDATE d
-		SET d.ProductName = p.ProductName
+		SET d.ProductName = p.GroupName,
+			d.ProductID = p.GroupID
 		FROM #Data d
-			INNER JOIN dbo.Products p ON d.ProductID = p.ProductID
-
-		UPDATE s
-		SET s.ProductID = 1,
-			s.ProductName = 'RNG Casino'		
-		FROM #Data s			
-		WHERE EXISTS (SELECT 1 FROM dbo.Products p WITH (NOLOCK) WHERE p.CasinoType = 1 AND s.ProductID = p.ProductID)
-
-		UPDATE s
-		SET s.ProductID = 2,
-			s.ProductName = 'Live Casino'	
-		FROM #Data s
-		WHERE EXISTS (SELECT 1 FROM dbo.Products p WITH (NOLOCK) WHERE p.CasinoType = 2 AND s.ProductID = p.ProductID)
+			INNER JOIN #tmpProductGroup p ON d.ProductID = p.ProductID		
 	END
 	ELSE -- @CasinoType <> -1
 	BEGIN
 		UPDATE d
 		SET d.ProductName = CASE WHEN d.ProductId = 4 THEN 'SLI' ELSE p.ProductName END
 		FROM #Data d
-			INNER JOIN dbo.Products p ON d.ProductID = p.ProductID
-		WHERE @CasinoType <> -1
+			INNER JOIN #tmpProductGroup p ON d.ProductID = p.ProductID
 	END
 	--End Product Name
 	------------------------------------------III. Drill down data ------------------------------------------------------
@@ -1870,6 +1867,7 @@ BEGIN
 	DROP TABLE #tmpDummyCust
 	DROP TABLE #tmpVirtualSport
 	DROP TABLE #tmpVSBettype
+	DROP TABLE #tmpProductGroup
 	
 END
 
