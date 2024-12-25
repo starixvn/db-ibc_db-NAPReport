@@ -13,14 +13,12 @@ AS
 BEGIN
     SET NOCOUNT ON;
 	
-	SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
-	
 	SELECT CASE WHEN ml.sporttype = 1 THEN 0
 				WHEN ml.sporttype > 1 AND ml.SportType < 100 THEN 1
 				WHEN ml.sporttype > 99 THEN 2
 				ELSE -1 END AS GroupID
 		,COUNT(DISTINCT MatchID) AS [Count]
-	FROM bodb_Account.dbo.MatchList ml WITH(ROWLOCK) 				  
+	FROM bodb_Account.dbo.MatchList ml WITH(NOLOCK) 				  
 	WHERE JobGenerated = 1 AND JobFinished = 0
 	GROUP BY CASE WHEN ml.sporttype = 1 THEN 0
 				WHEN ml.sporttype > 1 AND ml.SportType < 100 THEN 1
