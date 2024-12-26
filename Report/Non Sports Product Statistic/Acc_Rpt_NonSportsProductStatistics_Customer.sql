@@ -72,6 +72,7 @@ AS
 		20240220@Cherry: Integrate AG Casino Jackpot Contribution (#200503)
 		20240806@Cherry: Integrate VS5 (#207590)
 		20240926@Cherry: Integrate new sports of VS2 (#211232)
+		20241226@Cherry: Support direct member (#214708)
 
 	Param's Explanation:
 		- @username: search keyword
@@ -325,6 +326,7 @@ BEGIN
 	-- Get Site	
 	CREATE TABLE #tmp_Site (Site VARCHAR(50))
 	CREATE TABLE #tmp_Company (SiteName VARCHAR(50), recommend INT)
+	CREATE TABLE #tmp_DirectMember (SiteName VARCHAR(50), custid INT)
 	CREATE TABLE #tmp_MemIDs (CustID INT PRIMARY KEY, roleID TINYINT)
 
 	DECLARE @CID INT, @IsFilterCust BIT
@@ -392,6 +394,14 @@ BEGIN
 			INNER JOIN dbo.Customer c WITH (NOLOCK) ON ss.Site = c.site
 		WHERE c.roleid = 2
 
+		INSERT INTO #tmp_DirectMember (SiteName, custid)
+		SELECT s.Site, c.custid
+		FROM #tmp_Site s
+			INNER JOIN dbo.Site ss WITH (NOLOCK) ON s.Site = ss.site
+			INNER JOIN dbo.Customer c WITH (NOLOCK) ON ss.Site = c.site
+		WHERE c.roleid = 1
+			AND (c.srecommend < 0 OR c.mrecommend < 0 OR c.recommend < 0)
+
 		IF @Username <> ''
 		BEGIN
 			IF @IsDrillDown = 0
@@ -404,7 +414,9 @@ BEGIN
 						dbo.Customer c WITH (NOLOCK)
 						INNER JOIN #CustUser cu ON c.custid = cu.CustID
 					WHERE c.roleid = 1
-						AND EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.recommend = tc.recommend)
+						AND (EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.recommend = tc.recommend)
+							OR EXISTS (SELECT 1 FROM #tmp_DirectMember d WHERE c.custid = d.custid)
+							)
 						AND NOT EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE c.custId = m.CustID)
 				END
 				
@@ -416,7 +428,9 @@ BEGIN
 						dbo.Customer c WITH (NOLOCK)
 						INNER JOIN #CustUser cu ON c.recommend = cu.CustID
 					WHERE c.roleid = 1
-						AND EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.recommend = tc.recommend)
+						AND (EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.recommend = tc.recommend)
+							OR EXISTS (SELECT 1 FROM #tmp_DirectMember d WHERE c.custid = d.custid)
+							)
 						AND NOT EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE c.custId = m.CustID)
 				END
 				
@@ -428,7 +442,9 @@ BEGIN
 						dbo.Customer c WITH (NOLOCK)
 						INNER JOIN #CustUser cu ON c.mrecommend = cu.CustID
 					WHERE c.roleid = 1
-						AND EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.recommend = tc.recommend)
+						AND (EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.recommend = tc.recommend)
+							OR EXISTS (SELECT 1 FROM #tmp_DirectMember d WHERE c.custid = d.custid)
+							)
 						AND NOT EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE c.custId = m.CustID)
 				END
 				
@@ -440,7 +456,9 @@ BEGIN
 						dbo.Customer c WITH (NOLOCK)
 						INNER JOIN #CustUser cu ON c.srecommend = cu.CustID
 					WHERE c.roleid = 1
-						AND EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.recommend = tc.recommend)
+						AND (EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.recommend = tc.recommend)
+							OR EXISTS (SELECT 1 FROM #tmp_DirectMember d WHERE c.custid = d.custid)
+							)
 						AND NOT EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE c.custId = m.CustID)
 				END
 			END
@@ -453,7 +471,9 @@ BEGIN
 					FROM
 						dbo.Customer c WITH (NOLOCK)
 					WHERE c.custid = @CID AND roleid = 1
-						AND EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.recommend = tc.recommend)
+						AND (EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.recommend = tc.recommend)
+							OR EXISTS (SELECT 1 FROM #tmp_DirectMember d WHERE c.custid = d.custid)
+							)
 				END
 				ELSE IF @RoleID = 2
 				BEGIN
@@ -462,7 +482,9 @@ BEGIN
 					FROM
 						dbo.Customer c WITH (NOLOCK)
 					WHERE c.recommend = @CID AND roleid = 1
-						AND EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.recommend = tc.recommend)
+						AND (EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.recommend = tc.recommend)
+							OR EXISTS (SELECT 1 FROM #tmp_DirectMember d WHERE c.custid = d.custid)
+							)
 				END
 				ELSE IF @RoleID = 3
 				BEGIN
@@ -471,7 +493,9 @@ BEGIN
 					FROM
 						dbo.Customer c WITH (NOLOCK)
 					WHERE c.mrecommend = @CID AND roleid = 1
-						AND EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.recommend = tc.recommend)
+						AND (EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.recommend = tc.recommend)
+							OR EXISTS (SELECT 1 FROM #tmp_DirectMember d WHERE c.custid = d.custid)
+							)
 				END
 				ELSE IF @RoleID = 4
 				BEGIN
@@ -480,7 +504,9 @@ BEGIN
 					FROM
 						dbo.Customer c WITH (NOLOCK)
 					WHERE c.srecommend = @CID AND roleid = 1
-						AND EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.recommend = tc.recommend)
+						AND (EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.recommend = tc.recommend)
+							OR EXISTS (SELECT 1 FROM #tmp_DirectMember d WHERE c.custid = d.custid)
+							)
 				END
 			END
 		END
@@ -491,7 +517,9 @@ BEGIN
 			FROM
 				dbo.Customer c WITH (NOLOCK)
 			WHERE c.roleid = 1
-				AND EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.recommend = tc.recommend)
+				AND (EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.recommend = tc.recommend)
+					OR EXISTS (SELECT 1 FROM #tmp_DirectMember d WHERE c.custid = d.custid)
+					)
 		END
 	END
 	ELSE
@@ -582,6 +610,7 @@ BEGIN
 
 	DROP TABLE #tmp_Site
 	DROP TABLE #tmp_Company
+	DROP TABLE #tmp_DirectMember
 	-- End Get Site --		
 
 	CREATE TABLE #ExtraComm (ProductID INT, SuperID INT, ExtraComm DECIMAL(9, 8))

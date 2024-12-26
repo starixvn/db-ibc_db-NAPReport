@@ -67,6 +67,7 @@ AS
 		20240220@Cherry: Integrate AG Casino Jackpot Contribution (#200503)
 		20240806@Cherry: Integrate VS5 (#207590)
 		20240926@Cherry: Integrate new sports of VS2 (#211232)
+		20241226@Cherry: Support direct member (#214708)
 
 	Param's Explanation:
 		- @username:  + Search by keyword, member only
@@ -382,6 +383,7 @@ BEGIN
 
 	-- Get Site	
 	CREATE TABLE #recommend (SiteName VARCHAR(50), recommend INT, isDeposit BIT)
+	CREATE TABLE #DirectMember (SiteName VARCHAR(50), CustID INT, isDeposit BIT)
 	DECLARE @isDrillDownLicensee TINYINT = 2 --0:MBC Group, 1:Licensee Group, 2:Special Site
 	CREATE TABLE #tmpDep_CustSuper (CustID INT)
 	
@@ -400,7 +402,15 @@ BEGIN
 		SELECT ss.site, c.recommend, ss.isDeposit
 		FROM dbo.Customer c WITH (NOLOCK)
 			INNER JOIN #tmpSite_DW ss ON ss.Site = c.site
-		WHERE c.roleid = 2
+		WHERE c.roleid = 2			
+
+		INSERT INTO #DirectMember (SiteName, CustID, isDeposit)
+		SELECT ss.site, c.custid, ss.isDeposit
+		FROM dbo.Customer c WITH (NOLOCK)
+			INNER JOIN #tmpSite_DW ss ON ss.Site = c.site
+		WHERE c.roleid = 1
+			AND c.site NOT IN (SELECT SiteName FROM #recommend)
+			AND (c.srecommend < 0 OR c.mrecommend < 0 OR c.recommend < 0)
 	END
 	ELSE IF @Site = 'Licensee Group' -- all deposit drill down
 	BEGIN
@@ -410,24 +420,49 @@ BEGIN
 		FROM #tmpDep_CustSuper d
 			INNER JOIN dbo.Customer c WITH (NOLOCK) ON d.custid = c.srecommend
 		WHERE c.roleid = 2
+
+		INSERT INTO #DirectMember (SiteName, CustID, isDeposit)
+		SELECT c.site, c.custid, ss.isDeposit
+		FROM dbo.Customer c WITH (NOLOCK) 
+			INNER JOIN #tmpSite_DW ss ON ss.Site = c.site 
+		WHERE c.roleid = 1
+			AND ss.isDeposit = 1
+			AND (c.srecommend < 0 OR c.mrecommend < 0 OR c.recommend < 0)
 	END
 	ELSE IF @Site = 'Credit Group'
 	BEGIN
+		SELECT @isDrillDownLicensee = 0
 		INSERT INTO #recommend (SiteName, recommend, isDeposit)
-			SELECT c.site, c.custid, 0
-			FROM dbo.Customer c WITH(NOLOCK)
-				LEFT JOIN #tmpDep_CustSuper d ON c.srecommend = d.custid
-			WHERE c.roleid = 2 AND d.custid IS NULL
+		SELECT c.site, c.custid, 0
+		FROM dbo.Customer c WITH(NOLOCK)
+			LEFT JOIN #tmpDep_CustSuper d ON c.srecommend = d.custid
+		WHERE c.roleid = 2 AND d.custid IS NULL
+
+		INSERT INTO #DirectMember (SiteName, CustID, isDeposit)
+		SELECT c.site, c.custid, ss.isDeposit
+		FROM dbo.Customer c WITH (NOLOCK) 
+			INNER JOIN #tmpSite_DW ss ON ss.Site = c.site 
+		WHERE c.roleid = 1
+			AND ss.isDeposit = 0
+			AND (c.srecommend < 0 OR c.mrecommend < 0 OR c.recommend < 0)
 	END
 	ELSE IF @Site = '789y' AND @IsDrillDown = 1
 	BEGIN
 		INSERT INTO #recommend (SiteName, recommend, isDeposit)
-			SELECT c.site, c.custid, 0
-			FROM dbo.Customer c WITH(NOLOCK)
-				LEFT JOIN #tmpDep_CustSuper d ON c.srecommend = d.custid
-				LEFT JOIN bodb02.dbo.Site s WITH(NOLOCK) ON c.site = s.site 
-			WHERE c.roleid = 2 AND d.custid IS NULL
-				AND s.SiteLabel = '789y'
+		SELECT c.site, c.custid, 0
+		FROM dbo.Customer c WITH(NOLOCK)
+			LEFT JOIN #tmpDep_CustSuper d ON c.srecommend = d.custid
+			LEFT JOIN bodb02.dbo.Site s WITH(NOLOCK) ON c.site = s.site 
+		WHERE c.roleid = 2 AND d.custid IS NULL
+			AND s.SiteLabel = '789y'
+
+		INSERT INTO #DirectMember (SiteName, CustID, isDeposit)
+		SELECT c.site, c.custid, 0
+		FROM dbo.Customer c WITH(NOLOCK)
+			INNER JOIN bodb02.dbo.Site s WITH(NOLOCK) ON c.site = s.site 
+		WHERE c.roleid = 1
+			AND s.SiteLabel = '789y'
+			AND (c.srecommend < 0 OR c.mrecommend < 0 OR c.recommend < 0)
 	END
 	ELSE
 	BEGIN
@@ -443,6 +478,15 @@ BEGIN
 				INNER JOIN dbo.Customer c WITH (NOLOCK) ON d.custid = c.srecommend
 				INNER JOIN #tmp_Site s ON c.site = s.Site
 			WHERE c.roleid = 2
+
+			INSERT INTO #DirectMember (SiteName, CustID, isDeposit)
+			SELECT c.site, c.custid, ss.isDeposit
+			FROM dbo.Customer c WITH (NOLOCK) 
+				INNER JOIN #tmp_Site s ON c.site = s.Site
+				INNER JOIN #tmpSite_DW ss ON ss.Site = c.site 
+			WHERE c.roleid = 1
+				AND ss.isDeposit = 1
+				AND (c.srecommend < 0 OR c.mrecommend < 0 OR c.recommend < 0)
 		END
 		
 		IF EXISTS (SELECT TOP 1 1 FROM #tmp_Site WHERE Site IN ('Credit Group'))
@@ -453,6 +497,15 @@ BEGIN
 				LEFT JOIN #tmpDep_CustSuper d ON c.srecommend = d.custid
 				INNER JOIN #tmp_Site s ON c.site = s.Site
 			WHERE c.roleid = 2 AND d.custid IS NULL
+
+			INSERT INTO #DirectMember (SiteName, CustID, isDeposit)
+			SELECT c.site, c.custid, ss.isDeposit
+			FROM dbo.Customer c WITH (NOLOCK) 
+				INNER JOIN #tmp_Site s ON c.site = s.Site
+				INNER JOIN #tmpSite_DW ss ON ss.Site = c.site 
+			WHERE c.roleid = 1
+				AND ss.isDeposit = 0
+				AND (c.srecommend < 0 OR c.mrecommend < 0 OR c.recommend < 0)
 		END
 
 		IF NOT EXISTS (SELECT TOP 1 1 FROM #tmp_Site WHERE Site IN ('Credit Group', 'Licensee Group'))
@@ -463,6 +516,14 @@ BEGIN
 				INNER JOIN #tmpSite_DW ss ON ss.Site = c.site
 				INNER JOIN #tmp_Site s ON ss.site = s.Site
 			WHERE c.roleid = 2
+
+			INSERT INTO #DirectMember (SiteName, CustID, isDeposit)
+			SELECT c.site, c.custid, ss.isDeposit
+			FROM dbo.Customer c WITH (NOLOCK) 
+				INNER JOIN #tmp_Site s ON c.site = s.Site
+				INNER JOIN #tmpSite_DW ss ON ss.Site = c.site 
+			WHERE c.roleid = 1
+				AND (c.srecommend < 0 OR c.mrecommend < 0 OR c.recommend < 0)
 		END		
 	END	
 	-- End Site		
@@ -588,6 +649,7 @@ BEGIN
 			AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
+				  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.CustID = b.custid))
 				)
 			AND (
 				@HousePTType = 0
@@ -668,6 +730,7 @@ BEGIN
 			AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 					OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
+					OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.CustID = b.custid))
 			)
 			AND (
 				@HousePTType = 0
@@ -755,6 +818,7 @@ BEGIN
 				AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 				AND ( @Site = 'ALL'
 					  OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
+					  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.CustID = b.custid))
 				)
 				AND (
 					@HousePTType = 0
@@ -831,6 +895,7 @@ BEGIN
 				AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 				AND ( @Site = 'ALL'
 					  OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
+					  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.CustID = b.custid))
 				)
 				AND (
 					@HousePTType = 0
@@ -914,6 +979,7 @@ BEGIN
 				AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 				AND ( @Site = 'ALL'
 					  OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
+					  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.CustID = b.custid))
 				)
 				AND (
 					@HousePTType = 0
@@ -998,6 +1064,7 @@ BEGIN
 			AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
+				  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.CustID = b.custid))
 			)
 			AND (
 				@HousePTType = 0
@@ -1072,6 +1139,7 @@ BEGIN
 			AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
+				  OR (EXISTS (SELECT 1 From #DirectMember d WHERE d.CustID = b.custid))
 				)
 			AND (
 				@HousePTType = 0
@@ -1153,6 +1221,7 @@ BEGIN
 			AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
+				  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.CustID = b.custid))
 				)
 			AND (
 				@HousePTType = 0
@@ -1232,6 +1301,7 @@ BEGIN
 			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
+				  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.CustID = b.custid))
 				)
 			AND (
 				@HousePTType = 0
@@ -1313,6 +1383,7 @@ BEGIN
 			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
+				  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.CustID = b.custid))
 				)
 			AND (
 				@HousePTType = 0
@@ -1390,6 +1461,7 @@ BEGIN
 			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
+				  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.CustID = b.custid))
 				)
 			AND (
 				@HousePTType = 0
@@ -1473,6 +1545,7 @@ BEGIN
 			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
+				  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.CustID = b.custid))
 				)
 			AND (
 				@HousePTType = 0
@@ -1570,6 +1643,7 @@ BEGIN
 		AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 		AND ( @Site = 'ALL'
 				OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
+				OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.CustID = b.custid))
 			)
 		AND (
 			@HousePTType = 0
@@ -1616,6 +1690,13 @@ BEGIN
 		d.IsDeposit = c.isDeposit
 	FROM #Data d
 		INNER JOIN #recommend c ON d.recommend = c.recommend
+
+	UPDATE d
+	SET d.SiteName = c.SiteName,
+		d.IsDeposit = c.isDeposit
+	FROM #Data d
+		INNER JOIN #DirectMember c ON d.CustID = c.CustID
+	WHERE d.SiteName IS NULL
 	-- End Site name
 
 	------------------------------------------III. Drill down data ------------------------------------------------------
@@ -2052,6 +2133,7 @@ BEGIN
 	DROP TABLE #tmpDummyCust
 	DROP TABLE #tmpVirtualSport
 	DROP TABLE #tmpVSBettype
+	DROP TABLE #DirectMember
 
 END
 
