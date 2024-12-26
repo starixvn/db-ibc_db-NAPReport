@@ -1,4 +1,4 @@
-/*<info serverAlias="DBWH-bodb_dwrs" executers="wsv_nap" viewers="" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBWH-bodb_dwrs" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[NAP_SaveBet_UpdateJobCompleted]
 	@MatchID INT
 AS
@@ -11,13 +11,8 @@ AS
 	
 	Revisions:
 		20210423@Roy: NAP Report - Move Save bet db & service (#153147)
-		20240905@Roy: Many Pending MatchIDs (#210349)
 */
 BEGIN
 	SET NOCOUNT ON
-	UPDATE bodb_Account.dbo.MatchList WITH(ROWLOCK,UPDLOCK)
-	SET JobFinished = 1
-		,EventStatus = 'completed'
-	WHERE MatchID = @MatchID
-	OPTION (RECOMPILE)
+	UPDATE bodb_Account.dbo.MatchList WITH(ROWLOCK,UPDLOCK) SET JobFinished = 1 WHERE MatchID = @MatchID
 END
