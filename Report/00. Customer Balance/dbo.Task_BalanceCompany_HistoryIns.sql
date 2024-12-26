@@ -1,4 +1,4 @@
-﻿/*<info serverAlias="DBSUM-bodb_Summary" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+﻿/*<info serverAlias="DBSUM-bodb_Summary" executers="wsv_nap" viewers="" isFunction="0" isNested="0"></info>*/
 
 USE [bodb_Summary]
 GO
@@ -14,6 +14,7 @@ AS
 	Revisions:
 		20200914@Ned.Le: Migrate Log DBs from DB052 to DB054 (Phase 1) (#140783)
 		20211118@Cherry: Split Transfer table (#164378)
+		20241022@Jaden: Credit Reward Wallet (#212482)
 */
 
 BEGIN
@@ -47,6 +48,14 @@ BEGIN
 		INNER JOIN bodb02.dbo.exchange e WITH (NOLOCK) ON b.currency = e.exchangeid
 	WHERE
 		winlostdate <= @BalanceUpDay		
+
+	INSERT INTO #tmpDiff (diff)	
+	SELECT
+		SUM(b.actualrate - e.actualrate) diff
+	FROM bodb02.dbo.[TransferExtra] b WITH (NOLOCK)
+		INNER JOIN bodb02.dbo.exchange e WITH (NOLOCK) ON b.CurrencyID = e.exchangeid
+	WHERE
+		winlostdate <= @BalanceUpDay	
 
 	IF NOT EXISTS(
 		SELECT 1
@@ -91,6 +100,17 @@ BEGIN
 	WHERE
 		winlostdate <= @BalanceUpday
 	GROUP BY  exchangeid
+
+	INSERT INTO #tmpData(Currency, CompBalBefore, CompBalAfter)
+	SELECT    		
+		exchangeid AS currency,
+		SUM((Credit - Debit) * b.actualrate) CompBalBefore,
+		SUM((Credit - Debit) * e.actualrate) CompBalAfter
+	FROM bodb02.dbo.[TransferExtra] b WITH (NOLOCK)
+		INNER JOIN bodb02.dbo.exchange e WITH (NOLOCK) ON b.CurrencyID = e.exchangeid
+	WHERE
+		winlostdate <= @BalanceUpday
+	GROUP BY ExchangeId
 
 	INSERT INTO CompanyBalance_History(BalanceUpDay, Currency, CompBalBefore, CompBalAfter)
 	SELECT    
