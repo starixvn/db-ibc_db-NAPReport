@@ -9,6 +9,7 @@ ALTER PROCEDURE [dbo].[Acc_Rpt_Balance_Super]
 	, @Currency			INT = NULL
 	, @IsViewTotalOnly	BIT = 0
 	, @Total			MONEY = 0 OUTPUT
+	, @TotalReward		MONEY = 0 OUTPUT
 AS
 
 /*
@@ -34,6 +35,7 @@ Revisions:
 	- 20230119@Roy: NAP Report - BU 247 (#175206)
 	- 20240404@Jaden: performance improvement (#203441) -- force HASH join to use batch mode
 	- 20240821@Jaden: Add currency name for web (#199583)
+	- 20241022@Jaden: Credit Reward Wallet (#212482)
 
 Parameters Explanation:
 	- Search keyword: '%keyword%'
@@ -218,15 +220,38 @@ BEGIN
 			  AND b.bettype NOT IN (21008, 21009)
 		GROUP BY si.custid
 	END
+
+	--reward wallet
+	--the pendingreward amount house haven't paid supers
+	CREATE TABLE #unpaidReward 
+	(
+		superid INT,
+		amount MONEY,
+		amount_rm MONEY
+	)
+
+	INSERT #unpaidReward (superid, amount, amount_rm)
+	SELECT Srecommend, SUM(amount) amount_original, SUM(amount * actualrate) amount_rm
+	FROM bodb02.dbo.SabaWalletTicket WITH (NOLOCK)
+	WHERE PaymentStatus & 8 = 0 --check 4th bit from right is 0
+	GROUP BY Srecommend
 		
 	IF @IsViewTotalOnly = 0	
 	BEGIN
-			SELECT si.CustID, si.username, si.currency, MAX(ex.currency) AS currencyname, si.headlineEnabled
+		;WITH grouped_data AS (
+			SELECT custid, SUM(Balance) AS Balance, SUM(BaseBalance) AS BaseBalance
+			FROM #superBalance
+			GROUP BY custid
+		)
+		SELECT si.CustID, si.username, si.currency, MAX(ex.currency) AS currencyname, si.headlineEnabled
 			, SUM(ISNULL(bal.Balance, 0)) AS Balance
 			, SUM(ISNULL(bal.BaseBalance, 0)) AS BaseBalance
+			, SUM(ISNULL(ur.amount, 0)) AS Reward
+			, SUM(ISNULL(ur.amount_rm, 0)) AS RewardRM
 		FROM #SuperInfo si
-			LEFT JOIN #superBalance bal  ON si.custid = bal.custid
+			LEFT JOIN grouped_data bal  ON si.custid = bal.custid
 			LEFT JOIN Exchange ex WITH (NOLOCK) ON ex.ExchangeId = si.currency
+			LEFT JOIN #unpaidReward ur ON ur.superid = si.custid
 		GROUP BY 
 			si.CustID, si.username, si.currency, si.headlineEnabled
 		ORDER BY 
@@ -239,12 +264,19 @@ BEGIN
 	END
 	ELSE
 	BEGIN
-		SELECT @Total = SUM(ISNULL(bal.BaseBalance, 0))
+		;WITH grouped_data AS (
+			SELECT custid, SUM(Balance) AS Balance, SUM(BaseBalance) AS BaseBalance
+			FROM #superBalance
+			GROUP BY custid
+		)
+		SELECT @Total = SUM(ISNULL(bal.BaseBalance, 0)), @TotalReward = SUM(ISNULL(ur.amount_rm, 0))
 		FROM #SuperInfo si
-		LEFT JOIN #superBalance bal  ON si.custid = bal.custid
+		LEFT JOIN grouped_data bal  ON si.custid = bal.custid
+		LEFT JOIN #unpaidReward ur ON ur.superid = si.custid
 	END
 
 	DROP TABLE #SuperInfo
 	DROP TABLE #superBalance
+	DROP TABLE #unpaidReward
 END
 GO
