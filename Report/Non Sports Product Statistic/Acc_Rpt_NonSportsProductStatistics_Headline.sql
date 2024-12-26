@@ -31,6 +31,7 @@ AS
 	
 	Revision:
 		20240916@Cherry: Initial (#175453)		
+		20241226@Cherry: Support direct member (#214708)
 
 	Param's Explanation:		
 		- @Site: List of Company filter
@@ -263,6 +264,7 @@ BEGIN
 
 	-- Get Site	
 	CREATE TABLE #recommend (SiteName VARCHAR(50), recommend INT)
+	CREATE TABLE #DirectMember (SiteName VARCHAR(50), custid INT)
 
 	IF @Site <> 'ALL'
 	BEGIN
@@ -274,6 +276,13 @@ BEGIN
 		FROM #tmp_Site s
 			INNER JOIN dbo.Customer c WITH (NOLOCK) ON s.Site = c.site
 		WHERE c.roleid = 2
+
+		INSERT INTO #DirectMember (SiteName, custid)
+		SELECT s.Site, c.custid
+		FROM #tmp_Site s
+			INNER JOIN dbo.Customer c WITH (NOLOCK) ON s.Site = c.site
+		WHERE c.roleid = 1
+			AND (c.srecommend < 0 OR c.mrecommend < 0 OR c.recommend < 0)
 	END	
 	-- End Site		
                         
@@ -395,6 +404,7 @@ BEGIN
 			AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
+				  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.custid = b.custid))
 				)			
 		GROUP BY b.recommend, b.mrecommend, b.custid,			 
 			b.Currency, srecommend, b.bettype 
@@ -465,6 +475,7 @@ BEGIN
 			AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 					OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
+					OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.custid = b.custid))
 			)			
 		GROUP BY b.recommend, b.mrecommend,	b.custid,			
 				b.currency, b.srecommend, b.bettype
@@ -544,6 +555,7 @@ BEGIN
 				AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 				AND ( @Site = 'ALL'
 					  OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
+					  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.custid = b.custid))
 				)				
 			GROUP BY b.recommend, b.mrecommend, b.currency, b.srecommend, b.gameID, b.custid
 			
@@ -615,6 +627,7 @@ BEGIN
 				AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 				AND ( @Site = 'ALL'
 					  OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
+					  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.custid = b.custid))
 				)				
 			GROUP BY b.recommend, b.mrecommend, b.currency, b.srecommend, b.gameID, b.custid
 			
@@ -693,6 +706,7 @@ BEGIN
 				AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 				AND ( @Site = 'ALL'
 					  OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
+					  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.custid = b.custid))
 				)				
 			GROUP BY b.recommend, b.mrecommend, b.currency, b.srecommend, b.gameID, b.custid
 			
@@ -772,6 +786,7 @@ BEGIN
 			AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
+				  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.custid = b.custid))
 			)			
 		GROUP BY b.recommend, b.mrecommend, b.currency, b.srecommend, b.gameID, b.custid		
 		
@@ -840,6 +855,7 @@ BEGIN
 			AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
+				  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.custid = b.custid))
 				)			
 		GROUP BY b.recommend, b.mrecommend, b.Currency, b.srecommend, b.bettype, b.custid
 		
@@ -915,6 +931,7 @@ BEGIN
 			AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
+				  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.custid = b.custid))
 				)			
 		GROUP BY b.recommend, b.mrecommend, b.Currency, b.srecommend, b.bettype, b.custid
 		
@@ -988,6 +1005,7 @@ BEGIN
 			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
+				  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.custid = b.custid))
 				)			
 		GROUP BY b.recommend, b.mrecommend, b.Currency, b.srecommend, b.bettype, b.custid
 		
@@ -1063,6 +1081,7 @@ BEGIN
 			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
+				  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.custid = b.custid))
 				)			
 		GROUP BY b.recommend, b.mrecommend, b.Currency, b.srecommend, b.bettype, b.custid
 		
@@ -1134,6 +1153,7 @@ BEGIN
 			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
+				  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.custid = b.custid))
 				)			
 		GROUP BY b.recommend, b.mrecommend, b.Currency, b.srecommend, b.bettype, b.custid
 		
@@ -1211,6 +1231,7 @@ BEGIN
 			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
+				  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.custid = b.custid))
 				)							  
 		GROUP BY b.recommend, b.mrecommend, b.Currency, b.srecommend, b.bettype, b.custid
 		OPTION(RECOMPILE)
@@ -1300,6 +1321,7 @@ BEGIN
 		AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmp_Device d WHERE d.Betfrom = b.betfrom))
 		AND ( @Site = 'ALL'
 				OR (EXISTS (SELECT 1 From #recommend s WHERE s.recommend = b.recommend))
+				OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.custid = b.custid))
 			)		
 	GROUP BY b.recommend, b.mrecommend, b.Currency, b.srecommend, b.bettype, b.custid
 	OPTION(RECOMPILE)
@@ -1643,6 +1665,7 @@ BEGIN
 	DROP TABLE #SportBettype
 	DROP TABLE #tmp_BetType
 	DROP TABLE #recommend
+	DROP TABLE #DirectMember
 	DROP TABLE #tmp_Device
 	DROP TABLE #tmp_LeagueID
 	DROP TABLE #tmp_MemIDs

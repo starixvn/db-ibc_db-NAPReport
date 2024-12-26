@@ -69,6 +69,7 @@ AS
 		20240220@Cherry: Integrate AG Casino Jackpot Contribution (#200503)
 		20240806@Cherry: Integrate VS5 (#207590)
 		20240926@Cherry: Integrate new sports of VS2 (#211232)
+		20241226@Cherry: Support direct member (#214708)
 
 	Param's Explanation:
 			 - @username:  + Search by keyword, member only
@@ -189,6 +190,7 @@ SET NOCOUNT ON
 	CREATE TABLE #tmpCurrency (CurrencyId INT)
 	CREATE TABLE #tmp_Site (Site VARCHAR(50))	
 	CREATE TABLE #tmp_Company (SiteName VARCHAR(50), recommend INT)
+	CREATE TABLE #DirectMember (SiteName VARCHAR(50), custid INT)
 	CREATE TABLE #tmpDevice (Betfrom NVARCHAR(5))
 	CREATE TABLE #ExtraComm (ProductID INT, SuperID INT, ExtraComm DECIMAL(9, 8))		
 	CREATE TABLE #tmpContributionBettype (Bettype INT, RefTable SMALLINT)
@@ -388,6 +390,13 @@ SET NOCOUNT ON
 		FROM #tmp_Site s
 			INNER JOIN dbo.Customer c WITH (NOLOCK) ON s.Site = c.site
 		WHERE c.roleid = 2
+
+		INSERT INTO #DirectMember (SiteName, custid)
+		SELECT s.Site, c.custid
+		FROM #tmp_Site s
+			INNER JOIN dbo.Customer c WITH (NOLOCK) ON s.Site = c.site
+		WHERE c.roleid = 1
+			AND (c.srecommend < 0 OR c.mrecommend < 0 OR c.recommend < 0)
 	END	 
                         
 	INSERT INTO #ExtraComm
@@ -496,6 +505,7 @@ SET NOCOUNT ON
 			AND (@Device = '' OR EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
+				  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.custid = b.custid))
 				)
 			AND (
 				@HousePTType = 0
@@ -573,6 +583,7 @@ SET NOCOUNT ON
 			AND (@Device = '' OR EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
+				  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.custid = b.custid))
 				)
 			AND (
 				@HousePTType = 0
@@ -649,6 +660,7 @@ SET NOCOUNT ON
 				AND (@Device = '' OR EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom))
 				AND ( @Site = 'ALL'
 					  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
+					  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.custid = b.custid))
 					)
 				AND (
 					@HousePTType = 0
@@ -714,6 +726,7 @@ SET NOCOUNT ON
 				AND (@Device = '' OR EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom))
 				AND ( @Site = 'ALL'
 					  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
+					  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.custid = b.custid))
 					)
 				AND (
 					@HousePTType = 0
@@ -786,6 +799,7 @@ SET NOCOUNT ON
 				AND (@Device = '' OR EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom))
 				AND ( @Site = 'ALL'
 					  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
+					  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.custid = b.custid))
 					)
 				AND (
 					@HousePTType = 0
@@ -858,6 +872,7 @@ SET NOCOUNT ON
 			AND (@Device = '' OR EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
+				  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.custid = b.custid))
 				)
 			AND (
 				@HousePTType = 0
@@ -919,6 +934,7 @@ SET NOCOUNT ON
 			AND (@Device = '' OR EXISTS (SELECT 1 From #tmpDevice f WHERE f.betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
+				  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.custid = b.custid))
 				)
 			AND (
 				@HousePTType = 0
@@ -988,6 +1004,7 @@ SET NOCOUNT ON
 			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmpDevice d WHERE d.Betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
+				  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.custid = b.custid))
 				)
 			AND (
 				@HousePTType = 0
@@ -1054,6 +1071,7 @@ SET NOCOUNT ON
 			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmpDevice d WHERE d.Betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
+				  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.custid = b.custid))
 				)
 			AND (
 				@HousePTType = 0
@@ -1122,6 +1140,7 @@ SET NOCOUNT ON
 			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmpDevice d WHERE d.Betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
+				  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.custid = b.custid))
 				)
 			AND (
 				@HousePTType = 0
@@ -1188,6 +1207,7 @@ SET NOCOUNT ON
 			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmpDevice d WHERE d.Betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
+				  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.custid = b.custid))
 				)
 			AND (
 				@HousePTType = 0
@@ -1261,6 +1281,7 @@ SET NOCOUNT ON
 			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmpDevice d WHERE d.Betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
+				  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.custid = b.custid))
 				)
 			AND (
 				@HousePTType = 0
@@ -1349,6 +1370,7 @@ SET NOCOUNT ON
 			AND (@Device = '' OR EXISTS (SELECT 1 FROM #tmpDevice d WHERE d.Betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
+				  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.custid = b.custid))
 				)
 			AND (
 				@HousePTType = 0
@@ -1564,6 +1586,7 @@ SET NOCOUNT ON
 	DROP TABLE #tmpHouseProduct
 	DROP TABLE #tmp_Site
 	DROP TABLE #tmp_Company
+	DROP TABLE #DirectMember
 	DROP TABLE #tmpSporttype
 	DROP TABLE #tmp_bettransm   
 	DROP TABLE #Device

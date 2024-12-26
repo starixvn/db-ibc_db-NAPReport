@@ -65,6 +65,7 @@ AS
 		20240220@Cherry: Integrate AG Casino Jackpot Contribution (#200503)
 		20240806@Cherry: Integrate VS5 (#207590)
 		20240926@Cherry: Integrate new sports of VS2 (#211232)
+		20241226@Cherry: Support direct member (#214708)
 
 	Param's Explanation:
 		- @username:  + Search by keyword, member only
@@ -383,6 +384,7 @@ BEGIN
 
 	-- Get Site	
 	CREATE TABLE #tmp_Company (SiteName VARCHAR(50), recommend INT, isDeposit BIT)
+	CREATE TABLE #DirectMember (SiteName VARCHAR(50), custid INT, isDeposit BIT)
 
 	IF @Site <> 'ALL'
 	BEGIN
@@ -395,6 +397,14 @@ BEGIN
 			INNER JOIN dbo.Site ss WITH (NOLOCK) ON s.Site = ss.site
 			INNER JOIN dbo.Customer c WITH (NOLOCK) ON ss.Site = c.site
 		WHERE c.roleid = 2
+
+		INSERT INTO #DirectMember (SiteName, custid, isDeposit)
+		SELECT s.Site, c.custid, ss.isDeposit
+		FROM #tmp_Site s
+			INNER JOIN dbo.Site ss WITH (NOLOCK) ON s.Site = ss.site
+			INNER JOIN dbo.Customer c WITH (NOLOCK) ON ss.Site = c.site
+		WHERE c.roleid = 1
+			AND (c.srecommend < 0 OR c.mrecommend < 0 OR c.recommend < 0)
 	END
 	-- Don't need to handle 'ALL' site, because with this case we will get all ticket
                         
@@ -521,6 +531,7 @@ BEGIN
 			AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
+				  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.custid = b.custid))
 				)
 			AND (
 				@HousePTType = 0
@@ -609,6 +620,7 @@ BEGIN
 			AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
+				  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.custid = b.custid))
 				)
 			AND (
 				@HousePTType = 0
@@ -694,6 +706,7 @@ BEGIN
 				AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 				AND ( @Site = 'ALL'
 					  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
+					  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.custid = b.custid))
 				)
 				AND (
 					@HousePTType = 0
@@ -769,6 +782,7 @@ BEGIN
 				AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 				AND ( @Site = 'ALL'
 					  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
+					  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.custid = b.custid))
 				)
 				AND (
 					@HousePTType = 0
@@ -852,6 +866,7 @@ BEGIN
 				AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 				AND ( @Site = 'ALL'
 					  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
+					  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.custid = b.custid))
 				)
 				AND (
 					@HousePTType = 0
@@ -936,6 +951,7 @@ BEGIN
 			AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
+				  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.custid = b.custid))
 			)
 			AND (
 				@HousePTType = 0
@@ -1008,6 +1024,7 @@ BEGIN
 			AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
+				  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.custid = b.custid))
 				)
 			AND (
 				@HousePTType = 0
@@ -1089,6 +1106,7 @@ BEGIN
 				AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 				AND ( @Site = 'ALL'
 					  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
+					  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.custid = b.custid))
 					)
 				AND (
 					@HousePTType = 0
@@ -1166,6 +1184,7 @@ BEGIN
 				AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 				AND ( @Site = 'ALL'
 					  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
+					  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.custid = b.custid))
 					)
 				AND (
 					@HousePTType = 0
@@ -1244,6 +1263,7 @@ BEGIN
 			AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
+				  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.custid = b.custid))
 				)
 			AND (
 				@HousePTType = 0
@@ -1322,6 +1342,7 @@ BEGIN
 			AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
+				  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.custid = b.custid))
 				)
 			AND (
 				@HousePTType = 0
@@ -1399,6 +1420,7 @@ BEGIN
 			AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
+				  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.custid = b.custid))
 				)
 			AND (
 				@HousePTType = 0
@@ -1486,6 +1508,7 @@ BEGIN
 			AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
+				  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.custid = b.custid))
 				)
 			AND (
 				@HousePTType = 0
@@ -1584,6 +1607,7 @@ BEGIN
 			AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
+				  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.custid = b.custid))
 				)
 			AND (
 				@HousePTType = 0
@@ -1898,6 +1922,7 @@ BEGIN
 	DROP TABLE #SportBettype
 	DROP TABLE #tmp_BetType
 	DROP TABLE #tmp_Company
+	DROP TABLE #DirectMember
 	DROP TABLE #tmp_Device
 	DROP TABLE #tmp_LeagueID
 	DROP TABLE #tmp_MemIDs
