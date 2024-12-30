@@ -41,6 +41,7 @@ AS
         20240613@Ned.Le: Letstalk reports - Integrate the Saba Kabaddi (#204927)
         20240724@Ned.Le: Fix bug relate to @isTest
         20241108@Roy: Email/Letstalk - Rebate and Retention for Credit players (#210687)
+		20241226@Roy: Email/Letstalk - Offer Direct Member for Super and Master (#215045)
 
     Param's Explanation:
         @FromDate   : Begin date to get data for report
@@ -186,10 +187,10 @@ BEGIN
     CREATE TABLE #tmpProductList (ProductPrefix VARCHAR(20))
 
     INSERT INTO #tmpProductList (ProductPrefix)
-    SELECT val ProductPrefix
-    FROM bodb_dwrs.dbo.strSplit(@ProductList, ',')
-    WHERE LEN(val) > 0
-
+	SELECT DISTINCT value AS ProductPrefix
+	FROM STRING_SPLIT(@ProductList, ',')
+	WHERE ISNULL(LEN(TRIM(value)),0) > 0
+	
     CREATE CLUSTERED INDEX CIX_tmpProductList ON #tmpProductList(ProductPrefix)
 
     -- #tmpHNISettings
@@ -629,8 +630,7 @@ BEGIN
            0              NetStake
     FROM #tmpSourceData_CorrectScoreLuckyDraw ld WITH (NOLOCK)
          LEFT JOIN bodb02.dbo.Customer        c  WITH (NOLOCK) ON c.roleid = 1 AND ld.custid = c.custid
-         LEFT JOIN bodb02.dbo.Customer        a  WITH (NOLOCK) ON a.roleid = 2 AND c.recommend = a.custid
-         LEFT JOIN bodb_Account.dbo.tbl_Site  s  WITH (NOLOCK) ON a.site = s.site
+         LEFT JOIN bodb_Account.dbo.tbl_Site  s  WITH (NOLOCK) ON c.site = s.site --use cust site
     GROUP BY ld.SettledDate,
              s.siteid,
              CASE WHEN ld.Currency = 'MYR' THEN 2
@@ -640,7 +640,7 @@ BEGIN
 	-- Get data for special case | Credit Reward
     CREATE TABLE #tmpSourceData_CreditReward (
 		WLDate DATE
-		,Recommend INT
+		,CustID INT
 		,CurrencyID INT
 		,SelfRate FLOAT
 		,Amount DECIMAL(19, 4)
@@ -648,13 +648,13 @@ BEGIN
 
     INSERT INTO #tmpSourceData_CreditReward (
         WLDate
-		,Recommend
+		,CustID
 		,CurrencyID
 		,SelfRate
 		,Amount
     )
     SELECT WinlostDate AS WLDate
-		,Recommend
+		,CustID
 		,CurrencyID
 		,ActualRate AS SelfRate
 		,Amount
@@ -707,8 +707,8 @@ BEGIN
 		,0 AS ExtraComm
 		,0 AS NetStake
 	FROM #tmpSourceData_CreditReward AS rw WITH (NOLOCK)
-		LEFT JOIN bodb02.dbo.Customer AS a WITH (NOLOCK) ON rw.recommend = a.custid
-		LEFT JOIN bodb_Account.dbo.tbl_Site AS s WITH (NOLOCK) ON a.site = s.site
+		LEFT JOIN bodb02.dbo.Customer AS c WITH (NOLOCK) ON rw.CustID = c.custid
+		LEFT JOIN bodb_Account.dbo.tbl_Site AS s WITH (NOLOCK) ON c.site = s.site
 	GROUP BY rw.WLDate
 		,s.SiteID
 		,rw.CurrencyID

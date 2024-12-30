@@ -19,6 +19,7 @@ AS
         20240403@Ned.Le: Fix code to calculate ContributionStake3rd from bettrans
         20240913@Ned.Le: Email/Letstalk - Odds Boost Voucher (#210559)
 		20241030@Roy: Email/Letstalk - Integrate VS6 (#212749)
+		20241226@Roy: Email/Letstalk - Offer Direct Member for Super and Master (#215045)
 
     Param's Explanation:
         @winlostdate: The date to get data
@@ -58,13 +59,12 @@ BEGIN
     --------------------------
 
     -- #tmpBettypeList
-    CREATE TABLE #tmpBettypeList (Bettype INT)
+	CREATE TABLE #tmpBettypeList (Bettype INT)
 
-    INSERT INTO #tmpBettypeList (Bettype)
-    SELECT CAST(val AS INT) ProductPrefix
-    FROM bodb02.dbo.strSplit(@bettypeList, ',')
-    WHERE LEN(val) > 0
-
+	INSERT INTO #tmpBettypeList (Bettype)
+	SELECT TRY_CONVERT(INT, value) AS Bettype
+	FROM STRING_SPLIT(@bettypeList, ',')
+	WHERE TRY_CONVERT(INT, value) IS NOT NULL
     CREATE CLUSTERED INDEX CIX_tmpBettypeList ON #tmpBettypeList(Bettype)
 
     -- #tmpHalfWonLoseBettype
@@ -79,7 +79,7 @@ BEGIN
     CREATE CLUSTERED INDEX CIX_tmpHalfWonLoseBettype ON #tmpHalfWonLoseBettype(Bettype)
 
     -- #tmpDW_BettypeSource
-    CREATE TABLE #tmpDW_BettypeSource (typeid INT, SourceTable VARCHAR(50))
+    CREATE TABLE #tmpDW_BettypeSource (typeid SMALLINT, SourceTable VARCHAR(50))
 
     INSERT INTO #tmpDW_BettypeSource (typeid, SourceTable)
     SELECT typeid, SourceTable FROM DBWH.bodb_Account.dbo.Bettype WITH(NOLOCK)
@@ -97,8 +97,8 @@ BEGIN
     -- #tmpDW_ProductBettype
     CREATE TABLE #tmpDW_ProductBettype (
         [ProductID] [int]      NOT NULL,
-        [Bettype]   [smallint] NOT NULL,
-        [EventType] [tinyint]  NULL,
+        [Bettype]   [int]      NOT NULL,
+        [EventType] [tinyint]  NOT NULL,
         [sporttype] [smallint] NULL,
     )
 
@@ -106,7 +106,7 @@ BEGIN
     SELECT pb.ProductID, pb.Bettype, pb.EventType, pb.sporttype
     FROM DBWH.bodb_Account.dbo.Product_Bettype pb WITH (NOLOCK)
 
-    CREATE CLUSTERED INDEX CIX_tmpDW_ProductBettype ON #tmpDW_ProductBettype(ProductID, Bettype)
+    CREATE UNIQUE CLUSTERED INDEX CIX_tmpDW_ProductBettype ON #tmpDW_ProductBettype(ProductID, Bettype, EventType)
 
     -- #tmpDW_tblstatus
     CREATE TABLE #tmpDW_tblstatus (
@@ -145,21 +145,40 @@ BEGIN
 
     CREATE CLUSTERED INDEX CIX_tmpDW_tblsite ON #tmpDW_tblsite(site)
 
-    -- #tmpOLTP_Customer
-    CREATE TABLE #tmpOLTP_Customer (
-        CustID    INT          NOT NULL,
-        RoleID    INT          NOT NULL,
-        Site      VARCHAR(200) NOT NULL,
-        SiteID_DW INT          NULL
-    )
+    -- #tmpOLTP_UplineSite
+    CREATE TABLE #tmpOLTP_UplineSite (
+		CustUplineID INT NOT NULL
+		,Site VARCHAR(200) NOT NULL
+		,SiteID_DW INT NULL
+	)
 
-    INSERT INTO #tmpOLTP_Customer (CustID, RoleID, Site, SiteID_DW)
-    SELECT c.custid CustID, c.roleid RoleID, c.site Site, s.siteid SiteID_DW
-    FROM bodb02.dbo.Customer c WITH (NOLOCK)
-         LEFT JOIN #tmpDW_tblsite s ON c.site = s.site
-    WHERE c.roleid = 2
-
-    CREATE CLUSTERED INDEX CIX_tmpOLTP_Customer ON #tmpOLTP_Customer(CustID)
+    INSERT INTO #tmpOLTP_UplineSite WITH (TABLOCK)(
+		CustUplineID
+		,Site
+		,SiteID_DW
+	)
+	SELECT c.CustID
+		,c.Site
+		,s.siteid AS SiteID_DW
+	FROM bodb02.dbo.Customer AS c WITH (NOLOCK)
+		LEFT JOIN #tmpDW_tblsite AS s ON c.site = s.site
+	WHERE c.roleid = 2
+	
+	--Cust Site the same as upline site
+    INSERT INTO #tmpOLTP_UplineSite WITH (TABLOCK)(
+		CustUplineID
+		,Site
+		,SiteID_DW
+	)
+	SELECT DISTINCT (CASE WHEN c.recommend = -3 THEN c.mrecommend ELSE c.srecommend END) AS CustUplineID
+		,c.Site
+		,s.siteid AS SiteID_DW
+	FROM bodb02.dbo.Customer AS c WITH (NOLOCK)
+		LEFT JOIN #tmpDW_tblsite AS s ON c.site = s.site
+	WHERE c.roleid = 1
+		AND c.recommend IN (-3, -4)
+	
+    CREATE UNIQUE CLUSTERED INDEX CIX_tmpOLTP_UplineSite ON #tmpOLTP_UplineSite(CustUplineID)
 
     -- #tmpOLTP_GameEvent
     CREATE TABLE #tmpOLTP_GameEvent(
@@ -192,21 +211,21 @@ BEGIN
 	SELECT v.EventID AS MatchID
 		,3 AS EventType
 		,CAST(v.EventTime AS DATE) AS EventDate
-		,v.LeagueID + 1000000000 AS LeagueID
-		,l.SportType AS SportID
+		,(CASE WHEN l3.League3rdId < 1000000000 THEN l3.League3rdId + 1000000000 ELSE l3.League3rdId END) AS LeagueID
+		,l3.SportType AS SportID
 	FROM bodb02.dbo.VSRaceInfo v WITH (NOLOCK)
-		LEFT JOIN bodb02.dbo.League3rd l WITH (NOLOCK) ON v.LeagueID = l.League3rdId
+		LEFT JOIN bodb02.dbo.League3rd AS l3 WITH (NOLOCK) ON v.LeagueID = l3.League3rdId
 
 	INSERT INTO #tmpOLTP_GameEvent (MatchID, EventType, EventDate, LeagueID, SportID)
 	SELECT m.Match3rdId AS MatchID
 		,5 AS EventType
 		,m.eventdate AS EventDate
-		,m.League3rdId + 1000000000 AS LeagueID
-		,l.SportType AS SportID
+		,(CASE WHEN l3.League3rdId < 1000000000 THEN l3.League3rdId + 1000000000 ELSE l3.League3rdId END) AS LeagueID
+		,l3.SportType AS SportID
     FROM bodb02.dbo.Match3rd m WITH (NOLOCK)
-		LEFT JOIN bodb02.dbo.League3rd l WITH (NOLOCK) ON m.League3rdId = l.League3rdId
+		LEFT JOIN bodb02.dbo.League3rd AS l3 WITH (NOLOCK) ON m.League3rdId = l3.League3rdId
 
-    CREATE CLUSTERED INDEX CIX_tmpOLTP_GameEvent ON #tmpOLTP_GameEvent(MatchID, EventType)
+    CREATE UNIQUE CLUSTERED INDEX CIX_tmpOLTP_GameEvent ON #tmpOLTP_GameEvent(MatchID, EventType)
 
 
     ---------------------------------------------------------
@@ -216,7 +235,6 @@ BEGIN
     -- Create temp table
     CREATE TABLE #tmpbettrans (
         [transid]              [bigint]         NOT NULL,
-        [custid]               [int]            NOT NULL,
         [stake]                [money]          NOT NULL,
         [status]               [nvarchar](15)   NULL,
         [winlost]              [money]          NULL,
@@ -227,7 +245,7 @@ BEGIN
         [winlostdate]          [smalldatetime]  NULL,
         [actualrate]           [float]          NULL,
         [matchid]              [int]            NULL,
-        [recommend]            [int]            NOT NULL,
+        [CustUplineID]         [int]            NOT NULL, --can be A (normal cust) + SM (direct cust)
         [actual_stake]         [money]          NULL,
         [currency]             [tinyint]        NULL,
         [scomm]                [money]          NULL,
@@ -241,11 +259,10 @@ BEGIN
     )
 
     -- Get data from bettrans
-    INSERT INTO #tmpbettrans (
+    INSERT INTO #tmpbettrans WITH (TABLOCK)(
         transid
         ,winlostdate
         ,bettype
-        ,custid
         ,betteam
         ,stake
         ,actual_stake
@@ -259,7 +276,7 @@ BEGIN
         ,status
         ,actualrate
         ,currency
-        ,recommend
+        ,CustUplineID
         ,refno
         ,virtualrate
         ,ContributionStake3rd
@@ -270,7 +287,6 @@ BEGIN
         b.transid
         ,b.winlostdate
         ,b.bettype
-        ,b.custid
         ,CASE WHEN b.bettype = 18000 THEN CONVERT(NVARCHAR(10),b.currency2) ELSE b.betteam END AS betteam
         ,b.stake
         ,b.actual_stake
@@ -288,7 +304,7 @@ BEGIN
          END AS [status]
         ,b.actualrate
         ,b.currency
-        ,b.recommend
+        ,(CASE WHEN b.recommend >= 0 THEN b.recommend WHEN b.recommend = -3 THEN b.mrecommend WHEN b.recommend = -4 THEN b.srecommend END) AS CustUplineID
         ,b.refno
         ,b.virtualrate
         ,ISNULL(b.betid, 0)/100000000.0 ContributionStake3rd
@@ -299,15 +315,15 @@ BEGIN
     WHERE b.winlostdate = CAST(@winlostdate AS SMALLDATETIME)
           AND b.bettype IN (SELECT typeid FROM #tmpDW_BettypeSource where SourceTable='bettrans')
           AND b.statusID IN (111, 112, 113)
+          AND b.ruben = 1 --try to use IX_Report
           AND b.currency <> 20
     OPTION (RECOMPILE)
 
     -- Get data from bettransLC
-    INSERT INTO #tmpbettrans (
+    INSERT INTO #tmpbettrans WITH (TABLOCK)(
         transid
         ,winlostdate
         ,bettype
-        ,custid
         ,betteam
         ,stake
         ,actual_stake
@@ -321,7 +337,7 @@ BEGIN
         ,status
         ,actualrate
         ,currency
-        ,recommend
+        ,CustUplineID
         ,refno
         ,virtualrate
         ,ContributionStake3rd
@@ -332,7 +348,6 @@ BEGIN
         b.transid
         ,b.winlostdate
         ,b.GameID bettype
-        ,b.custid
         ,NULL betteam
         ,b.stake
         ,b.actual_stake
@@ -346,7 +361,7 @@ BEGIN
         ,CONVERT(NVARCHAR(15),b.STATUS) status
         ,b.actualrate
         ,b.currency
-        ,b.recommend
+        ,(CASE WHEN b.recommend >= 0 THEN b.recommend WHEN b.recommend = -3 THEN b.mrecommend WHEN b.recommend = -4 THEN b.srecommend END) AS CustUplineID
         ,b.refno
         ,b.virtualrate
         ,NULL ContributionStake3rd
@@ -355,16 +370,15 @@ BEGIN
     FROM bodb02.dbo.bettransLC b (NOLOCK)
     WHERE b.winlostdate = CAST(@winlostdate AS SMALLDATETIME)
           AND b.gameID IN (SELECT typeid FROM #tmpDW_BettypeSource where SourceTable='bettransLC')
-          AND b.StatusID IN (111, 112, 113)
+          AND b.StatusID IN (111, 112, 113) --try to use IX_WinLostDate_StatusId
           AND b.currency <> 20
     OPTION (RECOMPILE)
 
     -- Get data from bettransRNG
-    INSERT INTO #tmpbettrans (
+    INSERT INTO #tmpbettrans WITH (TABLOCK)(
         transid
         ,winlostdate
         ,bettype
-        ,custid
         ,betteam
         ,stake
         ,actual_stake
@@ -378,7 +392,7 @@ BEGIN
         ,status
         ,actualrate
         ,currency
-        ,recommend
+        ,CustUplineID
         ,refno
         ,virtualrate
         ,ContributionStake3rd
@@ -389,7 +403,6 @@ BEGIN
         b.transid
         ,b.winlostdate
         ,b.GameID bettype
-        ,b.custid
         ,NULL betteam
         ,b.stake
         ,b.actual_stake
@@ -403,7 +416,7 @@ BEGIN
         ,CONVERT(NVARCHAR(15),b.STATUS) status
         ,b.actualrate
         ,b.currency
-        ,b.recommend
+        ,(CASE WHEN b.recommend >= 0 THEN b.recommend WHEN b.recommend = -3 THEN b.mrecommend WHEN b.recommend = -4 THEN b.srecommend END) AS CustUplineID
         ,b.refno
         ,b.virtualrate
         ,b.ContributionStake3rd
@@ -412,7 +425,7 @@ BEGIN
     FROM bodb02.dbo.bettransRNG b (NOLOCK)
     WHERE b.winlostdate = CAST(@winlostdate AS SMALLDATETIME)
           AND b.gameID IN (SELECT typeid FROM #tmpDW_BettypeSource where SourceTable='bettransRNG')
-          AND b.StatusID IN (111, 112, 113)
+          AND b.StatusID IN (111, 112, 113) --try to use IX_WinLostDate_StatusId
           AND b.currency <> 20
     OPTION (RECOMPILE)
 
@@ -490,13 +503,13 @@ BEGIN
         NetStake     DECIMAL (19, 4)
     )
 
-    INSERT INTO #tmpFactSiteWinloss (RptDate, SiteID, CurrencyID, Sporttype, Bettype, LeagueID, TicketStatus, VarianceVR,
+    INSERT INTO #tmpFactSiteWinloss WITH (TABLOCK)(RptDate, SiteID, CurrencyID, Sporttype, Bettype, LeagueID, TicketStatus, VarianceVR,
                                      TurnoverIBC, WinlossIBC, WinlossP, WinlossS, WinlossM, WinlossA, CommissionS, ExtraTO, ExtraWL, ExtraComm, NetStake)
     SELECT -- *** DIMENSION *** --
            mc.winlostdate RptDate,
-           CASE WHEN mc.recommend = 52466 THEN -2   --8RM
-                WHEN mc.recommend = 5707545 THEN -4 --BARM
-                ELSE ISNULL(si_oltp.SiteID_DW, -1) END SiteID,
+           CASE WHEN mc.CustUplineID = 52466 THEN -2   --8RM
+                WHEN mc.CustUplineID = 5707545 THEN -4 --BARM
+                ELSE ISNULL(us.SiteID_DW, -1) END SiteID,
            mc.currency CurrencyID,
            CASE WHEN mc.bettype IN (9, 29) THEN -5                  --Parlay
                 WHEN t.BettypeGroupID = 19 THEN -4                  --Odds Adjustment
@@ -531,15 +544,15 @@ BEGIN
                     WHEN pb.ProductID = 1 THEN ABS(mc.stake)
                     ELSE mc.stake END) NetStake
     FROM #tmpbettrans mc
-         LEFT JOIN #tmpDW_ProductBettype pb ON pb.bettype=mc.bettype
+         LEFT JOIN #tmpDW_ProductBettype pb ON pb.bettype = mc.bettype
          LEFT JOIN #tmpDW_tblstatus st ON mc.status = st.status
          LEFT JOIN #tmpDW_BettypeGroup t ON mc.bettype = t.Bettype AND t.BettypeGroupID in (6, 10, 13, 19)
-         LEFT JOIN #tmpOLTP_Customer si_oltp WITH (NOLOCK) ON mc.recommend = si_oltp.CustID
-         LEFT JOIN #tmpOLTP_GameEvent ev ON mc.matchid  =ev.matchid AND pb.EventType = ev.EventType
+         LEFT JOIN #tmpOLTP_UplineSite AS us ON mc.CustUplineID = us.CustUplineID
+         LEFT JOIN #tmpOLTP_GameEvent AS ev ON mc.matchid = ev.matchid AND pb.EventType = ev.EventType
     GROUP BY mc.winlostdate,
-             CASE WHEN mc.recommend = 52466 THEN -2   --8RM
-                  WHEN mc.recommend = 5707545 THEN -4 --BARM
-                  ELSE ISNULL(si_oltp.SiteID_DW, -1) END,
+             CASE WHEN mc.CustUplineID = 52466 THEN -2   --8RM
+                  WHEN mc.CustUplineID = 5707545 THEN -4 --BARM
+                  ELSE ISNULL(us.SiteID_DW, -1) END,
              mc.currency,
              CASE WHEN mc.bettype IN (9, 29) THEN -5                  --Parlay
                   WHEN t.BettypeGroupID = 19 THEN -4                  --Odds Adjustment
@@ -553,8 +566,6 @@ BEGIN
              ISNULL(st.statusid, -1),
              CAST((mc.virtualrate / mc.actualrate - 1) AS DECIMAL(9, 6))
     OPTION (RECOMPILE)
-
-
     --------------------------
     -- 5. Return final data --
     --------------------------
@@ -592,11 +603,10 @@ BEGIN
     DROP TABLE #tmpDW_tblstatus
     DROP TABLE #tmpDW_BettypeGroup
     DROP TABLE #tmpDW_tblsite
-    DROP TABLE #tmpOLTP_Customer
+    DROP TABLE #tmpOLTP_UplineSite
     DROP TABLE #tmpOLTP_GameEvent
 
     DROP TABLE #tmpbettrans
     DROP TABLE #tmpFactSiteWinloss
 
 END
-GO
