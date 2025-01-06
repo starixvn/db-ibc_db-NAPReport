@@ -23,6 +23,8 @@ AS
 		20230809@Jaden: Parlay boost bonus (#191900)
 		20230914@Jaden: Add column Given Credit (#193974)
 		20231024@Jaden: NAP Report - SB Customer Performance By Dangers - Support to query the data to 1 week (#195876)
+        20240620@Jaden.Tang: ADD MAX_GRANT_PERCENT
+        20241224@Jaden: Enhancement, support view recently voided tickets in bettrans14 range (#214618)
 
 	Param's Explanation:
 		@Divisions: List of site names
@@ -58,7 +60,7 @@ BEGIN
     ELSE IF @LiveStatus = 'Non-Live'
         SET @IsLive = 0 
 
-    DECLARE @FactRangeMax DATE = DATEADD(DAY, -2, CAST(GETDATE() AS DATE))
+    DECLARE @FactRangeMax DATE = DATEADD(DAY, -7, CAST(GETDATE() AS DATE))
 
     ---Create temp tables---
     CREATE TABLE #tmpSportBettypes (
