@@ -23,6 +23,7 @@ Revisions:
 	- 20230119@Roy: NAP Report - BU 247 (#175206)
 	- 20240821@Jaden: Add currency name for web (#199583)
 	- 20241022@Jaden: Credit Reward Wallet (#212482)
+	- 20241230@Jaden: Add support to view super/master's direct member (#213629)
 */
 BEGIN
 	SET NOCOUNT ON 
@@ -35,29 +36,16 @@ BEGIN
 
 	DECLARE @currentDate	SMALLDATETIME
 		, @yesterday		SMALLDATETIME
-		, @_masterid		INT
-		, @srecommend		INT
+		, @superid			INT
 
 	SELECT @currentDate		= CAST(CURRENT_TIMESTAMP AS DATE)
 		,@yesterday			= @currentDate -1
-		,@_masterid			= ISNULL(@masterid,0)
-	
-	CREATE TABLE #AgentInfo (
-		custid				INT PRIMARY KEY
-		, username			NVARCHAR(50)
-		, currency			INT
-	)
+		,@masterid			= ISNULL(@masterid,0)
 
-	INSERT INTO #AgentInfo (custid, username, currency)
-	SELECT c.custid, c.username, c.currency
-	FROM dbo.custinfo c (nolock)
-	WHERE c.mrecommend = @_masterid
-		AND c.roleid = 2
-		
-	SELECT @srecommend = srecommend
+	SELECT @superid = srecommend
 	FROM dbo.custinfo  (nolock)
-	WHERE mrecommend = @_masterid
-		AND roleid = 2
+	WHERE custid = @masterid
+		AND roleid = 3
 
 	CREATE TABLE #Data 
 	(
@@ -67,11 +55,10 @@ BEGIN
 	)
 	
 	INSERT INTO #Data (Custid, Balance, BaseBalance)
-	SELECT	b.recommend AS custid
+	SELECT	CASE WHEN b.recommend > 0 THEN b.recommend ELSE b.custid END AS custid
 		,SUM(bet.Balance) AS Balance
 		,SUM(bet.Balance * b.actualrate) AS BaseBalance
-	FROM #AgentInfo ai
-		INNER JOIN dbo.bettrans b WITH (NOLOCK)	ON b.recommend = ai.custid
+	FROM dbo.bettrans b WITH (NOLOCK)
 		CROSS APPLY (
 			SELECT 
 				--skip volatile rows during move bet process (see Balance_Direct_Master report)
@@ -86,18 +73,19 @@ BEGIN
 				END 
 				AS Balance
 			) AS bet
-	WHERE b.winlostdate <= @currentDate
+	WHERE b.srecommend = @superid
+		AND b.mrecommend = @masterid
+		AND b.winlostdate <= @currentDate
 		AND b.ruben = 1
 		AND b.statusID NOT IN (101,102,103)
 		AND b.bettype < 19999
-	GROUP BY b.recommend
+	GROUP BY CASE WHEN b.recommend > 0 THEN b.recommend ELSE b.custid END
 	
 	INSERT INTO #Data (Custid, Balance, BaseBalance)
-	SELECT	b.recommend AS custid
+	SELECT	CASE WHEN b.recommend > 0 THEN b.recommend ELSE b.custid END AS custid
 		,SUM(bet.Balance) AS Balance
 		,SUM(bet.Balance * b.actualrate) AS BaseBalance
-	FROM #AgentInfo ai
-		INNER JOIN dbo.[Transfer] b WITH (NOLOCK) ON b.recommend = ai.custid
+	FROM dbo.[Transfer] b WITH (NOLOCK)
 		CROSS APPLY (
 			SELECT 
 				--skip volatile rows during move bet process (see Balance_Direct_Master report)
@@ -116,45 +104,54 @@ BEGIN
 			) AS bet
 	WHERE b.winlostdate <= @currentDate		
 		AND b.bettype NOT IN (21008, 21009)
-		AND b.srecommend = @srecommend
-	GROUP BY b.recommend
+		AND b.srecommend = @superid
+		AND b.mrecommend = @masterid
+	GROUP BY CASE WHEN b.recommend > 0 THEN b.recommend ELSE b.custid END
 
 	--reward wallet
 	--the pendingreward amount master haven't paid agent
 	CREATE TABLE #unpaidReward 
 	(
-		agentid INT,
+		custid INT,
 		amount MONEY,
 		amount_rm MONEY
 	)
 
-	INSERT #unpaidReward (agentid, amount, amount_rm)
+	INSERT #unpaidReward (custid, amount, amount_rm)
 	SELECT Recommend, SUM(amount) amount_original, SUM(amount * actualrate) amount_rm
 	FROM bodb02.dbo.SabaWalletTicket WITH (NOLOCK)
 	WHERE PaymentStatus & 2 = 0 --check 2nd bit from right is 0
 	  AND WinlostDate <= @yesterday
+	  AND Mrecommend = @masterid
 	GROUP BY Recommend
+
+	INSERT #unpaidReward (custid, amount, amount_rm)
+	SELECT CustID, SUM(amount) amount_original, SUM(amount * actualrate) amount_rm
+	FROM bodb02.dbo.SabaWalletTicket WITH (NOLOCK)
+	WHERE PaymentStatus & 1 = 0 --check 1st bit from right is 0
+	  AND WinlostDate <= @yesterday
+	  AND Mrecommend = @masterid
+	GROUP BY CustID
 
 	;WITH grouped_data AS (
 		SELECT custid, SUM(Balance) AS Balance, SUM(BaseBalance) AS BaseBalance
 		FROM #Data
 		GROUP BY custid
 	)
-	SELECT c.custid, c.username,c.currency
-		,MAX(ex.currency) AS currencyname
-		,ISNULL(SUM(Balance),0) Balance
-		,ISNULL(SUM(BaseBalance),0) BaseBalance  
+	SELECT bal.custid, c.roleid, c.username, c.currency 
+		, MAX(ex.currency) AS currencyname
+		, ISNULL(SUM(bal.Balance),0) AS Balance
+		, ISNULL(SUM(bal.BaseBalance),0) AS BaseBalance
 		, SUM(ISNULL(ur.amount, 0)) AS Reward
 		, SUM(ISNULL(ur.amount_rm, 0)) AS RewardRM
-	FROM #AgentInfo c
-		LEFT JOIN grouped_data AS bal ON c.custid = bal.custid
+	FROM grouped_data bal
+		LEFT JOIN vw_Customer c ON bal.Custid = c.custid
 		LEFT JOIN Exchange ex WITH (NOLOCK) ON ex.ExchangeId = c.currency
-		LEFT JOIN #unpaidReward ur ON ur.agentid = c.custid
-	GROUP BY c.custid, c.username,c.currency
+		LEFT JOIN #unpaidReward ur ON ur.custid = bal.custid
+	GROUP BY bal.custid, c.roleid, c.username, c.currency 
 	ORDER BY c.username
 	
 	DROP TABLE #Data
-	DROP TABLE #AgentInfo
 	
 END
 GO
