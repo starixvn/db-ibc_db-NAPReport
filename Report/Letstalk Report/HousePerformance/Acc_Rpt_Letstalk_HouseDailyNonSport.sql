@@ -22,6 +22,7 @@ AS
 		20241020@Cherry: Integrate GPI (#207012), Playtech(#210555)
 		20241104@Cherry: Exclude VS6 (#212749)
 		20241202@Cherry: Integrate GPI Live Casino (#213493)
+		20241218@Cherry: Integrate Saba Keno (#214759)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -219,6 +220,7 @@ BEGIN
 			,(85,'RNG','Nextspin')
 			,(48,'RNG','GPI')
 			,(100,'RNG','Playtech')
+			,(102,'RNG','SABAK')
 			----------LOT/KENO----------
 			,(40,'LOT/KENO','TabG') --Table Game
 			,(8,'LOT/KENO','Mkeno') --RNG Keno
