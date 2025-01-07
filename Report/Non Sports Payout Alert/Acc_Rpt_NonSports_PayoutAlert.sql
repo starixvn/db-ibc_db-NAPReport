@@ -24,6 +24,7 @@ AS
 		20241106@Cherry: Integrate VS6 (#213013)
 		20241202@Cherry: Integrate GPI Live Casino (#213974)
 		20241218@Cherry: Integrate Saba Keno (#214760)
+		20240102@Cherry: Integrate PLAYSTAR (#208024)
 
 	Param's Explanation:
 		@FromGMT8Time: start of time range in GMT+8 with format 2021-05-20 19:00:00
@@ -143,6 +144,7 @@ BEGIN
 			,(89, 'FA CHAI', 300, 5000)
 			,(48, 'GPI RNG Casino', 300, 5000)
 			,(100, 'Playtech', 300, 5000)
+			,(91, 'PLAYSTAR', 300, 5000)
 		) AS tmp (ProductID, ProductName, ThresholdPCT, MinWin)
 
 	DECLARE @isTest BIT = 0
