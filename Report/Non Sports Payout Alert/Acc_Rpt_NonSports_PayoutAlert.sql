@@ -112,7 +112,7 @@ BEGIN
 			,(66, 'Vgaming', 120, 5000)
 			,(38, 'Virtual Games', 120, 5000)
 			,(86, 'SABA xD', 120, 5000)
-			,(82, 'SABA Keno', 120, 5000)
+			,(102, 'SABA Keno', 120, 5000)
 			
 			-------------Sport-------------
 			,(5, 'Virtual Sports', 108, 5000)
