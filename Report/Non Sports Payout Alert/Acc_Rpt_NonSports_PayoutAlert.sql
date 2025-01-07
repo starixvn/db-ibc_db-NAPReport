@@ -23,6 +23,7 @@ AS
 		20241020@Cherry: Integrate Playtech (#210558), GPI (#207172)
 		20241106@Cherry: Integrate VS6 (#213013)
 		20241202@Cherry: Integrate GPI Live Casino (#213974)
+		20241218@Cherry: Integrate Saba Keno (#214760)
 
 	Param's Explanation:
 		@FromGMT8Time: start of time range in GMT+8 with format 2021-05-20 19:00:00
@@ -111,6 +112,7 @@ BEGIN
 			,(66, 'Vgaming', 120, 5000)
 			,(38, 'Virtual Games', 120, 5000)
 			,(86, 'SABA xD', 120, 5000)
+			,(102, 'SABA Keno', 120, 5000)
 			
 			-------------Sport-------------
 			,(5, 'Virtual Sports', 108, 5000)
