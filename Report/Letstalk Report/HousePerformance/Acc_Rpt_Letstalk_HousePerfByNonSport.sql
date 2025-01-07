@@ -246,7 +246,7 @@ BEGIN
 			,(83,'VS4') --Virtual Sports 4
 			,(88,'VS5') --Virtual Sports 5
 			,(90,'GPI LC')
-			,(82,'SABAG')
+			,(102,'SABAG') -- Saba Keno
 		) h (ProductID, ProductShortName)
 	)
 	,CTE_ProductGroup AS (

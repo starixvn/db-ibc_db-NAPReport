@@ -220,7 +220,7 @@ BEGIN
 			,(85,'RNG','Nextspin')
 			,(48,'RNG','GPI')
 			,(100,'RNG','Playtech')
-			,(82,'RNG','SABAK')
+			,(102,'RNG','SABAK')
 			----------LOT/KENO----------
 			,(40,'LOT/KENO','TabG') --Table Game
 			,(8,'LOT/KENO','Mkeno') --RNG Keno
