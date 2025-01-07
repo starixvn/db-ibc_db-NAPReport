@@ -69,6 +69,7 @@ AS
 		20240220@Cherry: Integrate AG Casino Jackpot Contribution (#200503)
 		20240806@Cherry: Integrate VS5 (#207590)
 		20240926@Cherry: Integrate new sports of VS2 (#211232)
+		20250107@Cherry: Delete table Acc_GroupExtraCommRateSetting (#216484)
 
 	Param's Explanation:
 			 - @username:  + Search by keyword, member only
@@ -189,8 +190,7 @@ SET NOCOUNT ON
 	CREATE TABLE #tmpCurrency (CurrencyId INT)
 	CREATE TABLE #tmp_Site (Site VARCHAR(50))	
 	CREATE TABLE #tmp_Company (SiteName VARCHAR(50), recommend INT)
-	CREATE TABLE #tmpDevice (Betfrom NVARCHAR(5))
-	CREATE TABLE #ExtraComm (ProductID INT, SuperID INT, ExtraComm DECIMAL(9, 8))		
+	CREATE TABLE #tmpDevice (Betfrom NVARCHAR(5))	
 	CREATE TABLE #tmpContributionBettype (Bettype INT, RefTable SMALLINT)
 	CREATE TABLE #tmpSportBetType (Sporttype INT, Bettype INT)
 	CREATE TABLE #tmpHouseProduct (ProductID INT)
@@ -388,22 +388,7 @@ SET NOCOUNT ON
 		FROM #tmp_Site s
 			INNER JOIN dbo.Customer c WITH (NOLOCK) ON s.Site = c.site
 		WHERE c.roleid = 2
-	END	 
-                        
-	INSERT INTO #ExtraComm
-               ( ProductID,
-                 SuperID,
-                 ExtraComm
-               )
-               SELECT ProductID,
-                      SuperId,
-                      SUM(ExtraCommRate) AS ExtraComm
-               FROM bodb02.dbo.Acc_GroupExtraCommRateSetting a WITH ( NOLOCK )
-               WHERE @WLDate BETWEEN FromDate AND Todate
-					AND a.ProductId IN (SELECT ProductID FROM #tmpProductID)
-               GROUP BY ProductID,
-                        SuperId      
-    -- End ExtraPT         		
+	END	                         	        		
 	
 	INSERT INTO #tmpContributionBettype (Bettype)
 	SELECT Bettype
@@ -904,11 +889,11 @@ SET NOCOUNT ON
 				- SUM(scomm) AS CompanyComm,
 				- SUM(scomm *actualrate) AS CompanyCommBase,
 				
-				- SUM(ISNULL(b.transid2, 0) * 1.0 / 10000 * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8)) - b.oddsspread * ISNULL(c.ExtraComm,0)) ExtraPT,
-				- SUM((ISNULL(b.transid2, 0) * 1.0 / 10000 * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8)) - b.oddsspread * ISNULL(c.ExtraComm,0)) * actualrate) ExtraPTBase
+				- SUM(ISNULL(b.transid2, 0) * 1.0 / 10000 * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8)) - b.oddsspread) ExtraPT,
+				- SUM((ISNULL(b.transid2, 0) * 1.0 / 10000 * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8)) - b.oddsspread) * actualrate) ExtraPTBase
 
 		FROM  dbo.Bettrans b WITH (NOLOCK)
-			LEFT JOIN #ExtraComm c ON b.srecommend = c.SuperID AND c.ProductID = 33 
+			
 		WHERE b.WinlostDate = @WLDate
 			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 33  AND RefTable = 0)
 			AND b.ruben = 1
@@ -1566,8 +1551,7 @@ SET NOCOUNT ON
 	DROP TABLE #tmp_Company
 	DROP TABLE #tmpSporttype
 	DROP TABLE #tmp_bettransm   
-	DROP TABLE #Device
-	DROP TABLE #ExtraComm
+	DROP TABLE #Device	
 	DROP TABLE #tmpCurrency
 	DROP TABLE #tmpContributionBettype	
 	DROP TABLE #tmpSportBetType

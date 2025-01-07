@@ -69,6 +69,7 @@ AS
 		20240116@Cherry: Integrate Virtual Sports 4 (#198623)
 		20240806@Cherry: Integrate VS5 (#207590)
 		20240926@Cherry: Integrate new sports of VS2 (#211232)
+		20250107@Cherry: Delete table Acc_GroupExtraCommRateSetting (#216484)
 
 	Param's Explanation:
 			 - @username:  + Search by keyword, member only
@@ -455,23 +456,7 @@ SET NOCOUNT ON
 			INNER JOIN dbo.Customer c WITH (NOLOCK) ON s.Site = c.site
 		WHERE c.roleid = 2				
 	END	 
-	
-	CREATE TABLE #ExtraComm (ProductID INT, SuperID INT, ExtraComm DECIMAL(9, 8))
-                        
-	INSERT INTO #ExtraComm
-               ( ProductID,
-                 SuperID,
-                 ExtraComm
-               )
-               SELECT ProductID,
-                      SuperId,
-                      SUM(ExtraCommRate) AS ExtraComm
-               FROM bodb02.dbo.Acc_GroupExtraCommRateSetting a WITH ( NOLOCK )
-               WHERE @WLDate BETWEEN FromDate AND Todate
-					AND a.ProductId IN (SELECT ProductID FROM #tmpProductID)
-               GROUP BY ProductID,
-                        SuperId                    
- 
+		
 	---------------------------------------------- 
 	---1. By bettype for normal Product
 		INSERT INTO #Data ( [Hour] ,  
@@ -1439,8 +1424,7 @@ SET NOCOUNT ON
 	DROP TABLE #tmpSiteSuper
 	DROP TABLE #tmpSporttype
 	DROP TABLE #tmp_bettransm
-	DROP TABLE #Device
-	DROP TABLE #ExtraComm
+	DROP TABLE #Device	
 	DROP TABLE #tmpCurrency
 	DROP TABLE #tmpContributionBettype
 	DROP TABLE #tmpSportBetType
