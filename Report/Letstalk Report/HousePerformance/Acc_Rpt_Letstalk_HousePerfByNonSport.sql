@@ -37,6 +37,7 @@ AS
 		20241202@Cherry: Integrate GPI Live Casino (#213493)
 		20241219@Cherry: hotfix (#215548)
 		20241224@Cherry: Integrate Saba Keno (#214759)
+		20240102@Cherry: Integrate PLAYSTAR (#208029)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -246,7 +247,8 @@ BEGIN
 			,(83,'VS4') --Virtual Sports 4
 			,(88,'VS5') --Virtual Sports 5
 			,(90,'GPI LC')
-			,(102,'SABAG') -- Saba Keno
+			,(102,'SABAG')
+			,(91,'PLAYS')
 		) h (ProductID, ProductShortName)
 	)
 	,CTE_ProductGroup AS (

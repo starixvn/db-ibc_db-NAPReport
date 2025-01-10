@@ -31,6 +31,7 @@ AS
 		20241106@Cherry: Integrate Virtual Sports 6 (#212749)
 		20241202@Cherry: Integrate GPI Live Casino (#213493)
 		20241218@Cherry: Integrate Saba Keno (#214759)
+		20240102@Cherry: Integrate PLAYSTAR (#208029)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -252,6 +253,7 @@ BEGIN
 			WHEN ProductName = 'Virtual Sports 6' THEN 'VirtSpo6'
 			WHEN ProductName = 'GPI Live Casino' THEN 'GPI LC'
 			WHEN ProductName = 'SABA Keno' THEN 'SABAK'
+			WHEN ProductName = 'PLAYSTAR' THEN 'PLAYS'
 			ELSE ProductName END)
 	
 	SELECT @EX3rdName = rd.ProductName
