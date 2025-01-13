@@ -187,8 +187,8 @@ BEGIN
         EventDate SMALLDATETIME,
         LeagueID  INT,
         SportID   SMALLINT
-    )    
-    
+    )
+	
     INSERT INTO #tmpOLTP_GameEvent (MatchID, EventType, EventDate, LeagueID, SportID)
     SELECT m.matchid   MatchID,
            1           EventType,
@@ -207,11 +207,17 @@ BEGIN
     FROM bodb02.dbo.outright o WITH (NOLOCK)
          LEFT JOIN bodb02.dbo.League l WITH (NOLOCK) ON o.leagueid = l.leagueid
 
+	/*
+		For League3rdId + 1000000000,
+		the parent [Acc_Rpt_HouseNetIncome_Credit] use LeagueID to identify [saba sport]
+		=> no need exactly League3rdId
+	*/
 	INSERT INTO #tmpOLTP_GameEvent (MatchID, EventType, EventDate, LeagueID, SportID)
 	SELECT v.EventID AS MatchID
 		,3 AS EventType
 		,CAST(v.EventTime AS DATE) AS EventDate
-		,(CASE WHEN l3.League3rdId < 1000000000 THEN l3.League3rdId + 1000000000 ELSE l3.League3rdId END) AS LeagueID
+		-- ,(CASE WHEN l3.League3rdId < 1000000000 THEN l3.League3rdId + 1000000000 ELSE l3.League3rdId + 65 END) AS LeagueID
+		,-1 AS LeagueID 
 		,l3.SportType AS SportID
 	FROM bodb02.dbo.VSRaceInfo v WITH (NOLOCK)
 		LEFT JOIN bodb02.dbo.League3rd AS l3 WITH (NOLOCK) ON v.LeagueID = l3.League3rdId
@@ -220,7 +226,8 @@ BEGIN
 	SELECT m.Match3rdId AS MatchID
 		,5 AS EventType
 		,m.eventdate AS EventDate
-		,(CASE WHEN l3.League3rdId < 1000000000 THEN l3.League3rdId + 1000000000 ELSE l3.League3rdId END) AS LeagueID
+		-- ,(CASE WHEN l3.League3rdId < 1000000000 THEN l3.League3rdId + 1000000000 ELSE l3.League3rdId + 65 END) AS LeagueID
+		,-1 AS LeagueID
 		,l3.SportType AS SportID
     FROM bodb02.dbo.Match3rd m WITH (NOLOCK)
 		LEFT JOIN bodb02.dbo.League3rd AS l3 WITH (NOLOCK) ON m.League3rdId = l3.League3rdId
