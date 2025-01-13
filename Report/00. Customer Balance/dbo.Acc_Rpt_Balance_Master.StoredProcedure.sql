@@ -97,6 +97,7 @@ BEGIN
 				 ) AS totalBalance
 			) AS bal
 	WHERE b.srecommend = @superid
+		AND b.CustId <> @superid
 		AND b.winlostdate <= @currentDate		
 		AND b.bettype NOT IN (21008, 21009)
 	GROUP BY CASE WHEN b.mrecommend > 0 THEN b.mrecommend ELSE b.custid END
@@ -120,6 +121,7 @@ BEGIN
 	FROM bodb02.dbo.SabaWalletTicket WITH (NOLOCK)
 	WHERE PaymentStatus & 4 = 0 --check 3rd bit from right is 0
 	  AND Srecommend = @superid
+	  AND Mrecommend > 0
 	GROUP BY Mrecommend
 
 	INSERT #unpaidReward (custid, amount, amount_rm)
@@ -127,6 +129,7 @@ BEGIN
 	FROM bodb02.dbo.SabaWalletTicket WITH (NOLOCK)
 	WHERE PaymentStatus & 1 = 0 --check 1st bit from right is 0
 	  AND Srecommend = @superid
+	  AND Mrecommend < 0
 	GROUP BY CustID
 
 	;WITH grouped_data AS (
@@ -134,17 +137,20 @@ BEGIN
 		FROM #Data
 		GROUP BY custid
 	)
-	SELECT bal.custid, c.roleid, c.username, c.currency 
+	SELECT ISNULL(bal.custid, ur.custid) AS custid
+		, case c.roleid when 4 then 'Super' when 3 then 'Master' when 2 then 'Agent' else 'Member' end role
+		, c.username, c.currency 
 		, MAX(ex.currency) AS currencyname
 		, ISNULL(SUM(bal.Balance),0) AS Balance
 		, ISNULL(SUM(bal.BaseBalance),0) AS BaseBalance
 		, SUM(ISNULL(ur.amount, 0)) AS Reward
 		, SUM(ISNULL(ur.amount_rm, 0)) AS RewardRM
-	FROM grouped_data bal
-		LEFT JOIN vw_Customer c ON bal.Custid = c.custid
+	FROM vw_Customer c 
+		LEFT JOIN grouped_data bal ON bal.Custid = c.custid
 		LEFT JOIN Exchange ex WITH (NOLOCK) ON ex.ExchangeId = c.currency
-		LEFT JOIN #unpaidReward ur ON ur.custid = bal.custid
-	GROUP BY bal.custid, c.roleid, c.username, c.currency 
+		LEFT JOIN #unpaidReward ur ON ur.custid = c.custid
+	WHERE bal.Custid IS NOT NULL OR ur.custid IS NOT NULL
+	GROUP BY ISNULL(bal.custid, ur.custid), c.roleid, c.username, c.currency 
 	ORDER BY c.username
 
 	DROP TABLE #Data

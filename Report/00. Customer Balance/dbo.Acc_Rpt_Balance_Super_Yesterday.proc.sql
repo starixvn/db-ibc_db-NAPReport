@@ -36,6 +36,7 @@ Revisions:
 	- 20240404@Jaden: performance improvement (#203441) -- force HASH join to use batch mode
 	- 20240821@Jaden: Add currency name for web (#199583)
 	- 20241022@Jaden: Credit Reward Wallet (#212482)
+	- 20241230@Jaden: Add support to view super/master's direct member (#213629)
 							
 Parameters Explanation:
 	- Search keyword: '%keyword%'
@@ -247,7 +248,7 @@ BEGIN
 	IF @IsViewTotalOnly = 0	
 	BEGIN
 		;WITH grouped_data AS (
-			SELECT custid, SUM(Balance) AS Balance, SUM(BaseBalance) AS BaseBalance
+			SELECT custid, 'Super' as role, SUM(Balance) AS Balance, SUM(BaseBalance) AS BaseBalance
 			FROM #superBalance
 			GROUP BY custid
 		)
