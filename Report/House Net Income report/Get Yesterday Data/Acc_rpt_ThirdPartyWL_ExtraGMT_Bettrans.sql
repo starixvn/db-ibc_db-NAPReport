@@ -20,6 +20,7 @@ AS
 		- 20241023@Danny: Incorporate GPI (#207012)
 		- 20241023@Danny: Incorporate Playtech (#210555)
 		- 20250103@Danny: Incorporate PLAYSTAR (#208029)
+		- 20240114@Danny: Email/Letstalk - Offer Direct Member for Super and Master (#215045)
 
 	 Param's Explanation:
 
@@ -67,7 +68,7 @@ BEGIN
 		, 0 AS ValidBetAmount
 	FROM bodb02.dbo.bettransRnG b WITH (NOLOCK)
 		LEFT JOIN DBTXN.bodb02.dbo.PayoutTrans p ON b.transid = p.RefNo
-		LEFT JOIN bodb02.dbo.Customer c WITH (NOLOCK) ON b.recommend = c.custid AND c.roleid = 2
+		LEFT JOIN bodb02.dbo.Customer c WITH (NOLOCK) ON b.custid = c.custid AND c.roleid = 1
 		LEFT JOIN bodb02.dbo.Site s WITH (NOLOCK) ON c.site = s.site
 		LEFT JOIN bodb_licensee.dbo.view_site_list [site] (NOLOCK) ON s.siteid = site.IbcSiteID			
 	WHERE b.winlostdate  BETWEEN @FDate AND  @TDate
@@ -94,7 +95,7 @@ BEGIN
 		, 0 AS ProgressiveContribution
 		, SUM(ISNULL(b.NetStake, 0)) AS ValidBetAmount
 	FROM bodb02.dbo.bettransLC b WITH (NOLOCK)
-		LEFT JOIN bodb02.dbo.Customer c WITH (NOLOCK) ON b.recommend = c.custid AND c.roleid = 2
+		LEFT JOIN bodb02.dbo.Customer c WITH (NOLOCK) ON b.custid = c.custid AND c.roleid = 1
 		LEFT JOIN bodb02.dbo.Site s WITH (NOLOCK) ON c.site = s.site
 		LEFT JOIN bodb_licensee.dbo.view_site_list  [site] (NOLOCK) ON s.siteid = site.IbcSiteID			
 	WHERE 

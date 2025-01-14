@@ -15,6 +15,7 @@ AS
 		- 20240123@Danny: Merge the settings of VS1 VS2 VS3 into Virtual Sports (#199544)
 		- 20240920@Danny: Email/Letstalk - Odds Boost Voucher (#210559)
 		- 20241107@Danny: Incorporate VS6 (#212749)
+		- 20240114@Danny: Email/Letstalk - Offer Direct Member for Super and Master (#215045)
 
 	Exec Acc_Rpt_FactSiteWinloss_Bettrans '2021-05-12' , 0
 
@@ -112,7 +113,7 @@ BEGIN
 	SELECT c.custid CustID, c.roleid RoleID, c.site Site, s.siteid SiteID_DW
 	FROM bodb02.dbo.Customer c WITH (NOLOCK)
 		 LEFT JOIN #tmpDW_tblsite s ON c.site = s.site
-	WHERE c.roleid = 2
+	WHERE c.roleid = 1
 
 	CREATE CLUSTERED INDEX CIX_tmpOLTP_Customer ON #tmpOLTP_Customer(CustID)
 
@@ -177,6 +178,7 @@ BEGIN
 		[winlostdate] [smalldatetime] NULL,
 		[actualrate] [float] NULL,
 		[matchid] [int] NULL,
+		[custid] [int] NOT NULL,
 		[recommend] [int] NOT NULL,
 		[actual_stake] [money] NULL,
 		[currency] [tinyint] NULL,
@@ -227,6 +229,7 @@ BEGIN
 					,scomm
 					,status
 					,currency
+					,custid
 					,recommend
 					,SportType
 				)
@@ -249,6 +252,7 @@ BEGIN
 							ELSE CONVERT(NVARCHAR(15),b.STATUS)
 						END AS [status]
 					,b.currency
+					,b.custid
 					,b.recommend
 					,gv.SportID 
 				FROM bodb02.dbo.bettrans b (NOLOCK)
@@ -267,7 +271,7 @@ BEGIN
 								) THEN CONVERT(NVARCHAR(15),'HALF ' + b.STATUS)
 							ELSE CONVERT(NVARCHAR(15),b.STATUS)
 						END ,b.currency
-					,b.recommend, gv.SportID 
+					,b.custid, b.recommend ,gv.SportID 
 				OPTION (RECOMPILE)
 
 		INSERT INTO #FactSiteWinloss(RptDate, SiteID, CurrencyID, Bettype, TicketStatus, WinlossP, WinlossS, WinlossM, WinlossA, CommissionS, SportType)
@@ -287,7 +291,7 @@ BEGIN
 			   mc.SportType
 		FROM #tmpbettrans mc
 		LEFT JOIN #tmpDW_tblstatus st ON mc.status = st.status
-		LEFT JOIN #tmpOLTP_Customer si_oltp WITH (NOLOCK) ON mc.recommend = si_oltp.CustID
+		LEFT JOIN #tmpOLTP_Customer si_oltp WITH (NOLOCK) ON mc.custid = si_oltp.CustID
 		GROUP BY mc.winlostdate,
 				 CASE WHEN mc.recommend = 52466 THEN -2 --8RM
 					  WHEN mc.recommend = 5707545 THEN -4 --BARM
@@ -347,6 +351,7 @@ BEGIN
 			,status
 			,actualrate
 			,currency
+			,custid
 			,recommend
 			,refno
 			,virtualrate
@@ -374,6 +379,7 @@ BEGIN
 						END  AS [status]
 			,b.actualrate
 			,b.currency
+			,b.custid
 			,b.recommend
 			,CASE WHEN bg.bettype IS NOT NULL THEN b.refno ELSE 0 END refno
 			,b.virtualrate
@@ -398,6 +404,7 @@ BEGIN
 						END 
 				,b.actualrate
 				,b.currency
+				,b.custid
 				,b.recommend
 				,CASE WHEN bg.bettype IS NOT NULL THEN b.refno ELSE 0 END
 				,b.virtualrate
@@ -420,6 +427,7 @@ BEGIN
 			,status
 			,actualrate
 			,currency
+			,custid
 			,recommend
 			,refno
 			,virtualrate
@@ -442,6 +450,7 @@ BEGIN
 			,CONVERT(NVARCHAR(15),b.STATUS) status
 			,b.actualrate
 			,b.currency
+			,b.custid
 			,b.recommend
 			,0 AS refno
 			,b.virtualrate
@@ -451,7 +460,7 @@ BEGIN
 			  AND b.gameID IN (SELECT typeid FROM #tmpDWBettypeSource where SourceTable='bettransLC')
 			  AND b.StatusID IN (111, 112, 113)
               AND b.currency <> 20
-		GROUP BY b.winlostdate,b.GameID,b.tpositiontaking,b.ProductID, CONVERT(NVARCHAR(15),b.STATUS), b.actualrate, b.currency, b.recommend,b.virtualrate
+		GROUP BY b.winlostdate,b.GameID,b.tpositiontaking,b.ProductID, CONVERT(NVARCHAR(15),b.STATUS), b.actualrate, b.currency,b.custid, b.recommend,b.virtualrate
 		OPTION (RECOMPILE)
 
 		INSERT INTO #tmpbettrans (
@@ -470,6 +479,7 @@ BEGIN
 			,status
 			,actualrate
 			,currency
+			,custid
 			,recommend
 			,refno
 			,virtualrate
@@ -491,6 +501,7 @@ BEGIN
 			,CONVERT(NVARCHAR(15),b.STATUS) status
 			,b.actualrate
 			,b.currency
+			,b.custid
 			,b.recommend
 			,0 AS refno
 			,b.virtualrate
@@ -500,7 +511,7 @@ BEGIN
 			  AND b.gameID IN (SELECT typeid FROM #tmpDWBettypeSource where SourceTable='bettransRNG')
 			  AND b.StatusID IN (111, 112, 113)
               AND b.currency <> 20
-		GROUP BY b.winlostdate, b.GameID, b.tpositiontaking, b.ProductID, CONVERT(NVARCHAR(15),b.STATUS), b.actualrate, b.currency, b.recommend, b.virtualrate
+		GROUP BY b.winlostdate, b.GameID, b.tpositiontaking, b.ProductID, CONVERT(NVARCHAR(15),b.STATUS), b.actualrate, b.currency, b.custid, b.recommend, b.virtualrate
 		OPTION (RECOMPILE)
 
 		CREATE CLUSTERED INDEX CIX_tmpbettrans ON #tmpbettrans(bettype, matchid)
@@ -582,7 +593,7 @@ BEGIN
 			 LEFT JOIN #tmpDW_ProductBettype pb ON pb.bettype=mc.bettype
 			 LEFT JOIN #tmpDW_tblstatus st ON mc.status = st.status
 			 LEFT JOIN #tmpDW_BettypeGroup t ON mc.bettype = t.Bettype AND t.BettypeGroupID in (6, 10, 19)
-			 LEFT JOIN #tmpOLTP_Customer si_oltp WITH (NOLOCK) ON mc.recommend = si_oltp.CustID
+			 LEFT JOIN #tmpOLTP_Customer si_oltp WITH (NOLOCK) ON mc.custid = si_oltp.CustID
 			 LEFT JOIN #tmpGameEvent ev ON mc.matchid  =ev.matchid AND pb.EventType = ev.EventType
 		GROUP BY mc.winlostdate,
 				 CASE WHEN mc.recommend = 52466 THEN -2 --8RM
