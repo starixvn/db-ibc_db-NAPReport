@@ -21,6 +21,7 @@ AS
 		- 20230119@Roy: NAP Report - BU 247 (#175206)
 		- 20240821@Jaden: Add currency name for web (#199583)
 		- 20241022@Jaden: Credit Reward Wallet (#212482)
+		- 20241230@Jaden: Add support to view super/master's direct member (#213629)
 */
 BEGIN
 	SET NOCOUNT ON 
@@ -146,6 +147,7 @@ BEGIN
 		GROUP BY custid
 	)
 	SELECT  mem.custid,
+			'Member' as role,
 			mem.username, 
 			mem.currency, 
 			MAX(ex.currency) AS currencyname,

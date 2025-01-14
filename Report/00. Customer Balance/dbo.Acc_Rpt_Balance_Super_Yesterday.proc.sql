@@ -248,11 +248,11 @@ BEGIN
 	IF @IsViewTotalOnly = 0	
 	BEGIN
 		;WITH grouped_data AS (
-			SELECT custid, 'Super' as role, SUM(Balance) AS Balance, SUM(BaseBalance) AS BaseBalance
+			SELECT custid, SUM(Balance) AS Balance, SUM(BaseBalance) AS BaseBalance
 			FROM #superBalance
 			GROUP BY custid
 		)
-		SELECT si.CustID, si.username, si.currency, MAX(ex.currency) AS currencyname, si.headlineEnabled
+		SELECT si.CustID, 'Super' as role, si.username, si.currency, MAX(ex.currency) AS currencyname, si.headlineEnabled
 			, SUM(ISNULL(bal.Balance, 0)) AS Balance
 			, SUM(ISNULL(bal.BaseBalance, 0)) AS BaseBalance
 			, SUM(ISNULL(ur.amount, 0)) AS Reward
