@@ -409,7 +409,6 @@ BEGIN
 		FROM dbo.Customer c WITH (NOLOCK)
 			INNER JOIN #tmpSite_DW ss ON ss.Site = c.site
 		WHERE c.roleid = 1
-			AND c.site NOT IN (SELECT SiteName FROM #recommend)
 			AND (c.srecommend < 0 OR c.mrecommend < 0 OR c.recommend < 0)
 	END
 	ELSE IF @Site = 'Licensee Group' -- all deposit drill down
