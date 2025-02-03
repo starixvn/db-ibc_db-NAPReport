@@ -2,7 +2,7 @@
 ALTER PROCEDURE [dbo].[Task_DuplicatedTicketsCheck]
     @TransRangeSec SMALLINT = 3
     ,@TransDiffMillisec INT = 1000
-    ,@SingleWalletSite NVARCHAR(MAX) = NULL
+    ,@Site NVARCHAR(MAX) = NULL
 AS
 /*
     Created: 20150211@Sophia
@@ -45,8 +45,9 @@ AS
          - 20230719@Roy: NAP Report - Integrate product Leap Gaming VS (VS3) (#189510)
          - 20240126@Jaden.Tang: Merge VS1, VS2, VS3 and VS4 (#199896)
          - 20240622@Dominic.Dao: Exclude single wallet
-         - 20241004@Jaden.Tang: Pass @SingleWalletSite from parameter, data from DBCUST.Acc_Site_SiteDBGroupID_Select (#206895)
-                @SingleWalletSite = '[{"Site": NVARCHAR(100), "SiteDBGroupID": SMALLINT, "IsSpecial": BIT}]'
+         - 20241004@Jaden.Tang: Pass @Site from parameter, data from DBCUST.Acc_Site_SiteDBGroupID_Select (#206895)
+                @Site = '[{"Site": NVARCHAR(100), "SiteDBGroupID": SMALLINT, "IsSpecial": BIT}]'
+                This already excluded Single Wallet sites
 */
 
 BEGIN
@@ -96,25 +97,25 @@ BEGIN
         ,DiffInMillisec INT
     )
     
-    CREATE TABLE #SingleWalletSite(SiteID INT)
+    CREATE TABLE #Site(SiteID INT)
 
     ;WITH CTE AS
     (
         SELECT *
-        FROM OPENJSON(@SingleWalletSite)
+        FROM OPENJSON(@Site)
         WITH (
             SiteName NVARCHAR(100) '$.Site',
             SiteDBGroupID SMALLINT '$.SiteDBGroupID',
             IsSpecial BIT '$.IsSpecial'
         )
     )
-    INSERT INTO #SingleWalletSite (SiteID)
+    INSERT INTO #Site (SiteID)
     SELECT s.siteid
     FROM bodb02.dbo.[Site] S WITH (NOLOCK)
     INNER JOIN cte vp on s.site = vp.SiteName
         WHERE S.isLicensee = 1
 
-    CREATE UNIQUE CLUSTERED INDEX CX_SiteID ON #SingleWalletSite(SiteID)
+    CREATE UNIQUE CLUSTERED INDEX CX_SiteID ON #Site(SiteID)
     
     SELECT @LastSequenceID = CONVERT(BIGINT,VValue) FROM bodb02.dbo.SystemSettings WITH (NOLOCK) WHERE VName = 'DuplTicketLastID'
     SELECT @LastSequenceID = ISNULL(@LastSequenceID,-1)
@@ -256,7 +257,7 @@ BEGIN
         FROM #tmpDupValue b
         INNER JOIN bodb02.dbo.customer c (NOLOCK) ON b.custid = c.custid
         INNER JOIN bodb02.dbo.site s (NOLOCK) ON s.site = c.site
-        WHERE s.siteid IN (SELECT SiteID FROM #SingleWalletSite) --exclude single wallet
+        WHERE s.siteid NOT IN (SELECT SiteID FROM #Site) --exclude single wallet
         --------------------------------------------------------
         INSERT INTO #tmpDupTransID (DupValueID, SiteDBGroupID, TransID, TransDate, WinlostDate)
         SELECT t.DupValueID, ISNULL(b.SiteDBGroupID,0) AS SiteDBGroupID, b.TransID, b.TransDate, b.WinlostDate
@@ -326,5 +327,5 @@ BEGIN
     DROP TABLE #tmpSiteDBTrans
     DROP TABLE #tmpDupTransID
     DROP TABLE #tmpTransDateDiff
-    DROP TABLE #SingleWalletSite
+    DROP TABLE #Site
 END
