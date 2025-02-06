@@ -175,26 +175,26 @@ BEGIN
 		For League3rdId + 1000000000,
 		the parent [Acc_Rpt_HouseNetIncome_Credit] use LeagueID to identify [saba sport]
 		=> no need exactly League3rdId
+		
+		(CASE WHEN l3.League3rdId < 1000000000 THEN l3.League3rdId + 1000000000 ELSE l3.League3rdId + 65 END) AS LeagueID
 	*/
 	INSERT INTO #tmpOLTP_GameEvent (MatchID, EventType, EventDate, LeagueID, SportID)
 	SELECT v.EventID AS MatchID
 		,3 AS EventType
 		,CAST(v.EventTime AS DATE) AS EventDate
-		-- ,(CASE WHEN l3.League3rdId < 1000000000 THEN l3.League3rdId + 1000000000 ELSE l3.League3rdId + 65 END) AS LeagueID
-		,-1 AS LeagueID 
-		,l3.SportType AS SportID
+		,v.LeagueID + 1000000000 AS LeagueID
+		,l.SportType AS SportID
 	FROM bodb02.dbo.VSRaceInfo v WITH (NOLOCK)
-		LEFT JOIN bodb02.dbo.League3rd AS l3 WITH (NOLOCK) ON v.LeagueID = l3.League3rdId
+		LEFT JOIN bodb02.dbo.League3rd l WITH (NOLOCK) ON v.LeagueID = l.League3rdId
 
 	INSERT INTO #tmpOLTP_GameEvent (MatchID, EventType, EventDate, LeagueID, SportID)
 	SELECT m.Match3rdId AS MatchID
 		,5 AS EventType
 		,m.eventdate AS EventDate
-		-- ,(CASE WHEN l3.League3rdId < 1000000000 THEN l3.League3rdId + 1000000000 ELSE l3.League3rdId + 65 END) AS LeagueID
-		,-1 AS LeagueID
-		,l3.SportType AS SportID
+		,m.League3rdId + 1000000000 AS LeagueID
+		,l.SportType AS SportID
     FROM bodb02.dbo.Match3rd m WITH (NOLOCK)
-		LEFT JOIN bodb02.dbo.League3rd AS l3 WITH (NOLOCK) ON m.League3rdId = l3.League3rdId
+		LEFT JOIN bodb02.dbo.League3rd l WITH (NOLOCK) ON m.League3rdId = l.League3rdId
 
     CREATE UNIQUE CLUSTERED INDEX CIX_tmpOLTP_GameEvent ON #tmpOLTP_GameEvent(MatchID, EventType)
 
