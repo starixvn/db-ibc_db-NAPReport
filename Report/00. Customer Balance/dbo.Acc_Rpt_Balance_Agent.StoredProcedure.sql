@@ -142,7 +142,8 @@ BEGIN
 		LEFT JOIN grouped_data bal ON bal.Custid = c.custid
 		LEFT JOIN Exchange ex WITH (NOLOCK) ON ex.ExchangeId = c.currency
 		LEFT JOIN #unpaidReward ur ON ur.custid = c.custid
-	WHERE bal.Custid IS NOT NULL OR ur.custid IS NOT NULL
+	WHERE c.custid IN (select custid from #data)
+    	OR c.custid IN (select custid from #unpaidReward)
 	GROUP BY ISNULL(bal.custid, ur.custid), c.roleid, c.username, c.currency 
 	ORDER BY c.username
 	
