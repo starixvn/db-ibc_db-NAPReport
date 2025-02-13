@@ -15,6 +15,7 @@ AS
         - 20230817@Ned.Le: Remove currency test
 		- 20240403@Danny: AGC product integrate JP, Contribution, Promotion  (#200523)
 		- 20240328@Danny: Incorporate Yolo And remove unsupported products (#201590)
+		- 20240114@Danny: Email/Letstalk - Offer Direct Member for Super and Master (#215045)
 
 	Exec [Acc_Rpt_rptBettingByProduct_Bettrans] '2021-05-12'
 
@@ -125,8 +126,7 @@ BEGIN
 		
 		FROM #tmpData td WITH (NOLOCK)
 			LEFT JOIN bodb02.dbo.Customer AS c WITH (NOLOCK) ON c.Custid = td.CustID AND c.roleid = 1
-			LEFT JOIN bodb02.dbo.customer AS ag WITH (NOLOCK) ON c.recommend = ag.custid AND ag.roleid = 2
-			LEFT JOIN bodb02.dbo.Site AS ibcsite WITH (NOLOCK) ON ag.site = ibcsite.site
+			LEFT JOIN bodb02.dbo.Site AS ibcsite WITH (NOLOCK) ON c.site = ibcsite.site
 			LEFT JOIN bodb_Licensee.dbo.view_site_list AS [site] WITH (NOLOCK) ON ibcsite.SiteID = site.IbcSiteID
 		GROUP BY rptDate
 			, ISNULL(site.SiteID,-1)
