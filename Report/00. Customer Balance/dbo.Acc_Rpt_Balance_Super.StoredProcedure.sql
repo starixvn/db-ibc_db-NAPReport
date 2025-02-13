@@ -36,6 +36,7 @@ Revisions:
 	- 20240404@Jaden: performance improvement (#203441) -- force HASH join to use batch mode
 	- 20240821@Jaden: Add currency name for web (#199583)
 	- 20241022@Jaden: Credit Reward Wallet (#212482)
+	- 20241230@Jaden: Add support to view super/master's direct member (#213629)
 
 Parameters Explanation:
 	- Search keyword: '%keyword%'
@@ -243,7 +244,7 @@ BEGIN
 			FROM #superBalance
 			GROUP BY custid
 		)
-		SELECT si.CustID, si.username, si.currency, MAX(ex.currency) AS currencyname, si.headlineEnabled
+		SELECT si.CustID, 'Super' AS role, si.username, si.currency, MAX(ex.currency) AS currencyname, si.headlineEnabled
 			, SUM(ISNULL(bal.Balance, 0)) AS Balance
 			, SUM(ISNULL(bal.BaseBalance, 0)) AS BaseBalance
 			, SUM(ISNULL(ur.amount, 0)) AS Reward

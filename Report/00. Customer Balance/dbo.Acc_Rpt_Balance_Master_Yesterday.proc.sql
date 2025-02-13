@@ -5,8 +5,6 @@ GO
 
 ALTER PROCEDURE [dbo].[Acc_Rpt_Balance_Master_Yesterday] 
 	@superid		INT = 0
-	, @Keyword		NVARCHAR(50) = ''
-	, @FirstChar	NVARCHAR(6) = ''
 	, @Currency		INT = NULL
 AS
 
@@ -31,6 +29,8 @@ Revisions:
 		- 20230119@Roy: NAP Report - BU 247 (#175206)
 	    - 20240821@Jaden: Add currency name for web (#199583)
 		- 20241022@Jaden: Credit Reward Wallet (#212482)
+		- 20241230@Jaden: Add support to view super/master's direct member (#213629)
+						  Removed unnecessary parameters
 */
 BEGIN
 	SET NOCOUNT ON
@@ -43,22 +43,10 @@ BEGIN
 
 	DECLARE @currentDate	SMALLDATETIME
 		, @yesterday		SMALLDATETIME
-		, @srecommend		INT
 
 	SELECT @currentDate		= CAST(CURRENT_TIMESTAMP AS DATE)
 		,@yesterday			= @currentDate -1
 		,@superid			= ISNULL(@superid,0)
-	
-	CREATE TABLE #SuperKey (
-		srecommend			INT PRIMARY KEY
-	)
-
-	CREATE TABLE #MasterInfo (
-		custid				INT PRIMARY KEY
-		, srecommend		INT
-		, username			NVARCHAR(50)
-		, currency			INT
-	)
 	
 	CREATE TABLE #Data 
 	(
@@ -67,65 +55,11 @@ BEGIN
 		BaseBalance MONEY
 	)
 
-	IF @superid = 0 
-	BEGIN
-		-- Direct level
-		IF @keyword <> '' 
-			OR @FirstChar <> ''
-		BEGIN
-			INSERT INTO #MasterInfo (custid,username,srecommend, currency)
-			SELECT custid, username,srecommend, currency
-			FROM dbo.customer c WITH (NOLOCK)
-			WHERE c.roleid = 3
-			AND (
-				srecommend < 100
-				OR srecommend IN (21278849, 21278858)
-				)
-			AND c.username LIKE '%' + @Keyword + '%'
-			AND c.username LIKE @FirstChar + '%'
-
-		
-		END
-		ELSE 
-		BEGIN 
-			INSERT INTO #MasterInfo (custid,username,srecommend, currency)
-			SELECT custid, username,srecommend, currency
-			FROM dbo.customer c with (nolock)
-			WHERE c.roleid = 3
-			AND (
-				srecommend < 100
-				OR srecommend IN (21278849, 21278858)
-				)
-		END 
-	END 
-	ELSE 
-	BEGIN
-		-- Drill down level
-		INSERT INTO #MasterInfo (custid,username,srecommend, currency)
-		SELECT custid, username,srecommend, currency
-		FROM dbo.customer c with (nolock)
-		WHERE c.roleid = 3 AND srecommend = @superid 
-	 
-	END
-
-	INSERT INTO #SuperKey
-	SELECT DISTINCT srecommend
-	FROM #MasterInfo
-
-	----EMPTY first
-	--IF(@@ROWCOUNT = 0) RETURN
-
-	IF @Currency IS NOT NULL
-	BEGIN 
-		DELETE FROM #MasterInfo WHERE currency <> @currency 
-	END  
-
 	INSERT INTO #Data (Custid, Balance, BaseBalance)
-	SELECT b.mrecommend AS custid
+	SELECT CASE WHEN b.mrecommend > 0 THEN b.mrecommend ELSE b.custid END AS custid
 		,SUM(bal.totalBalance) AS Balance
 		,SUM(bal.totalBalance * b.actualrate) AS BaseBalance
-	FROM #SuperKey sk
-		INNER JOIN dbo.bettrans b WITH (NOLOCK) ON b.srecommend = sk.srecommend 
+	FROM dbo.bettrans b WITH (NOLOCK)
 		CROSS APPLY (
 			SELECT 
 				--skip volatile rows during move bet process (see Balance_Direct_Master report)
@@ -141,19 +75,18 @@ BEGIN
 				END
 			AS totalBalance
 			) AS bal
-	WHERE EXISTS (SELECT TOP 1 1 FROM #MasterInfo mt WHERE b.mrecommend = mt.custid)
+	WHERE b.srecommend = @superid
 		AND b.winlostdate <= @currentDate
 		AND b.ruben = 1
 		AND b.statusID NOT IN (101,102,103)
 		AND b.bettype < 19999
-	GROUP BY b.mrecommend
+	GROUP BY CASE WHEN b.mrecommend > 0 THEN b.mrecommend ELSE b.custid END
 	
 	INSERT INTO #Data (Custid, Balance, BaseBalance)
-	SELECT b.mrecommend AS custid
+	SELECT CASE WHEN b.mrecommend > 0 THEN b.mrecommend ELSE b.custid END AS custid
 		,SUM(bal.totalBalance) AS Balance
 		,SUM(bal.totalBalance * b.actualrate) AS BaseBalance
-	FROM #SuperKey sk
-		INNER JOIN dbo.[Transfer] b WITH (NOLOCK) ON b.srecommend = sk.srecommend 
+	FROM dbo.[Transfer] b WITH (NOLOCK)
 		CROSS APPLY (
 			SELECT 
 				--skip volatile rows during move bet process (see Balance_Direct_Master report)
@@ -171,46 +104,66 @@ BEGIN
 				END
 			AS totalBalance
 			) AS bal
-	WHERE EXISTS (SELECT TOP 1 1 FROM #MasterInfo mt WHERE b.mrecommend = mt.custid)
+	WHERE b.srecommend = @superid
+		AND b.CustId <> @superid
 		AND b.winlostdate <= @currentDate		
 		AND b.bettype NOT IN (21008, 21009)
-	GROUP BY b.mrecommend
+	GROUP BY CASE WHEN b.mrecommend > 0 THEN b.mrecommend ELSE b.custid END
+
+	IF @Currency IS NOT NULL
+	BEGIN 
+		DELETE FROM #Data WHERE Custid IN (SELECT custid FROM dbo.vw_Customer WHERE currency <> @currency)
+	END  
 
 	--reward wallet
-	--the pendingreward amount super haven't paid master
+	--the pendingreward amount super haven't paid master or direct member
 	CREATE TABLE #unpaidReward 
 	(
-		masterid INT,
+		custid INT,
 		amount MONEY,
 		amount_rm MONEY
 	)
 
-	INSERT #unpaidReward (masterid, amount, amount_rm)
+	INSERT #unpaidReward (custid, amount, amount_rm)
 	SELECT Mrecommend, SUM(amount) amount_original, SUM(amount * actualrate) amount_rm
 	FROM bodb02.dbo.SabaWalletTicket WITH (NOLOCK)
 	WHERE PaymentStatus & 4 = 0 --check 3rd bit from right is 0
 		AND SabaWalletTicket.WinlostDate <= @yesterday
+	    AND Srecommend = @superid
+	  	AND Mrecommend > 0
 	GROUP BY Mrecommend
+
+	INSERT #unpaidReward (custid, amount, amount_rm)
+	SELECT CustID, SUM(amount) amount_original, SUM(amount * actualrate) amount_rm
+	FROM bodb02.dbo.SabaWalletTicket WITH (NOLOCK)
+	WHERE PaymentStatus & 1 = 0 --check 1st bit from right is 0
+	  AND SabaWalletTicket.WinlostDate <= @yesterday
+	  AND Srecommend = @superid
+	  AND Mrecommend < 0
+	GROUP BY CustID
 
 	;WITH grouped_data AS (
 		SELECT custid, SUM(Balance) AS Balance, SUM(BaseBalance) AS BaseBalance
 		FROM #Data
 		GROUP BY custid
 	)
-	SELECT mi.custid, mi.username, mi.currency 
+	SELECT ISNULL(bal.custid, ur.custid) AS custid
+		, case c.roleid when 4 then 'Super' when 3 then 'Master' when 2 then 'Agent' else 'Member' end role
+		, c.username, c.currency 
 		, MAX(ex.currency) AS currencyname
 		, ISNULL(SUM(bal.Balance),0) AS Balance
 		, ISNULL(SUM(bal.BaseBalance),0) AS BaseBalance
 		, SUM(ISNULL(ur.amount, 0)) AS Reward
 		, SUM(ISNULL(ur.amount_rm, 0)) AS RewardRM
-	FROM #MasterInfo mi
-		LEFT JOIN grouped_data bal ON bal.custid = mi.custid
-		LEFT JOIN Exchange ex WITH (NOLOCK) ON ex.ExchangeId = mi.currency
-		LEFT JOIN #unpaidReward ur ON ur.masterid = mi.custid
-	GROUP BY mi.custid, mi.username, mi.currency 
-	ORDER BY mi.username   
+	FROM vw_Customer c 
+		LEFT JOIN grouped_data bal ON bal.Custid = c.custid
+		LEFT JOIN Exchange ex WITH (NOLOCK) ON ex.ExchangeId = c.currency
+		LEFT JOIN #unpaidReward ur ON ur.custid = c.custid
+	WHERE c.custid IN (select custid from #data)
+    	OR c.custid IN (select custid from #unpaidReward)
+	GROUP BY ISNULL(bal.custid, ur.custid), c.roleid, c.username, c.currency 
+	ORDER BY c.username
 
-	DROP TABLE #MasterInfo
 	DROP TABLE #Data
 	
 END
