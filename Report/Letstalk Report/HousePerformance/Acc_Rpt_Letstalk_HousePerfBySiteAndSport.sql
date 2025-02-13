@@ -22,6 +22,7 @@ AS
 		20240916@Cherry: Integrate Odds Boost Voucher (#210559)
 		20240927@Cherry: Move 8RM from XYZ to Other Credit (#211362)
 		20241127@Cherry: Add a new section for Exchange and Bet Builder (#212829)
+		20250207@Cherry: Support direct member (#215045)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -88,6 +89,14 @@ BEGIN
 	)
 	
 	CREATE TABLE #tmpCustomer (
+		CustID INT
+		,Site VARCHAR(20)
+		,IsDeposit BIT
+	)
+
+	CREATE TABLE #tmpDirectCust (custid INT)
+
+	CREATE TABLE #tmpDirectMember (
 		CustID INT
 		,Site VARCHAR(20)
 		,IsDeposit BIT
@@ -301,6 +310,7 @@ BEGIN
 	SELECT Recommend
 	FROM dbo.bettrans AS b WITH (NOLOCK)
 	WHERE winlostdate = @WLDate
+		AND recommend > 0
 	GROUP BY Recommend
 
 	INSERT INTO #tmpCustomer (
@@ -321,6 +331,30 @@ BEGIN
 			)
 	OPTION (RECOMPILE)
 	CREATE UNIQUE CLUSTERED INDEX CIX_tmpCustomer ON #tmpCustomer ( CustID )
+
+	INSERT INTO #tmpDirectCust (custid)
+	SELECT custid
+	FROM dbo.bettrans AS b WITH (NOLOCK)
+	WHERE winlostdate = @WLDate
+		AND recommend < 0
+	GROUP BY custid
+
+	INSERT INTO #tmpDirectMember(
+		CustID
+		,Site
+		,IsDeposit
+	)
+	SELECT DISTINCT c.CustID
+		,s.SiteLabel AS Site
+		,s.IsDeposit
+	FROM dbo.vw_Customer AS c WITH (NOLOCK)
+		INNER JOIN #tmpDWSite AS s WITH (NOLOCK) ON c.Site = s.Site
+	WHERE c.CustID IN (
+			SELECT custid
+			FROM #tmpDirectCust
+			)
+	OPTION (RECOMPILE)
+	CREATE UNIQUE CLUSTERED INDEX CIX_tmpDirectMember ON #tmpDirectMember (CustID)
 	
 	INSERT INTO #tmpParlBoost WITH (TABLOCK) (
 		transid
@@ -342,12 +376,12 @@ BEGIN
 		AND oddsspread = 2
 		AND statusID IN (112) --WON
 		AND currency <> 20
-		AND srecommend IN (
+		AND custid IN (
 			SELECT custid
-			FROM bodb02.dbo.Dep_CustSuper AS dep WITH (NOLOCK)
-				INNER JOIN #tmpDWSite AS s ON dep.site = s.Site
+			FROM bodb02.dbo.Customer AS c WITH (NOLOCK)
+				INNER JOIN #tmpDWSite AS s ON c.site = s.Site
 			WHERE s.IsDeposit = 1
-		) --follow DW tbl_Site
+		) 
 	
 	CREATE UNIQUE CLUSTERED INDEX CIX_tmpParlBoost ON #tmpParlBoost (transid, matchid)
 	
@@ -452,8 +486,8 @@ BEGIN
 		,TurnoverIBC
 		,ExtraTO
 	)
-	SELECT c.Site
-		,c.IsDeposit
+	SELECT CASE WHEN b.recommend > 0 THEN c.Site ELSE d.Site END
+		,CASE WHEN b.recommend > 0 THEN c.IsDeposit ELSE d.IsDeposit END
 		,CASE WHEN b.bettype = 29 THEN @Parl_LeagueID
 			WHEN pb.ProductID <> 1 THEN @NS_LeagueID
 			WHEN m.matchid IS NOT NULL THEN m.leagueid
@@ -489,7 +523,8 @@ BEGIN
 			END) * b.actualrate) AS ExtraTO
 	FROM dbo.bettrans AS b WITH (NOLOCK)--, INDEX = CIX_matchid_bettype) -- faster but dirty read
 		LEFT JOIN #tmpParlBoost AS plb ON b.matchid = plb.matchid AND b.transid = plb.transid
-		LEFT JOIN #tmpCustomer AS c WITH (NOLOCK) ON b.Recommend = c.CustID
+		LEFT JOIN #tmpCustomer AS c WITH (NOLOCK) ON b.Recommend = c.CustID AND b.recommend > 0
+		LEFT JOIN #tmpDirectMember d ON b.custid = d.CustID AND b.recommend < 0
 		LEFT JOIN match AS m WITH (NOLOCK) ON b.matchid = m.matchid AND b.bettype NOT IN ( 10, 29)
 		LEFT JOIN outright AS o WITH (NOLOCK) ON b.matchid = o.orid AND b.bettype = 10
 		LEFT JOIN #tmpProductBettype AS pb WITH (NOLOCK) ON b.Bettype = pb.Bettype
@@ -500,8 +535,8 @@ BEGIN
 		AND b.currency <> 20
 		AND pb.RefTable = 3
 		AND pb.ProductID <> 31
-	GROUP BY c.Site
-		,c.IsDeposit
+	GROUP BY CASE WHEN b.recommend > 0 THEN c.Site ELSE d.Site END
+		,CASE WHEN b.recommend > 0 THEN c.IsDeposit ELSE d.IsDeposit END
 		,CASE WHEN b.bettype = 29 THEN @Parl_LeagueID
 			WHEN pb.ProductID <> 1 THEN @NS_LeagueID
 			WHEN m.matchid IS NOT NULL THEN m.leagueid
@@ -521,6 +556,7 @@ BEGIN
 	SELECT Recommend
 	FROM dbo.bettransLC AS b WITH (NOLOCK)
 	WHERE winlostdate = @WLDate
+		AND Recommend > 0
 	GROUP BY Recommend
 	
 	UPDATE STATISTICS #tmpRecommend
@@ -545,7 +581,36 @@ BEGIN
 	OPTION (RECOMPILE)
 	
 	UPDATE STATISTICS #tmpCustomer
-	
+
+	TRUNCATE TABLE #tmpDirectCust
+	INSERT INTO #tmpDirectCust (custid)
+	SELECT custid
+	FROM dbo.bettransLC AS b WITH (NOLOCK)
+	WHERE winlostdate = @WLDate
+		AND recommend < 0
+	GROUP BY custid
+
+	UPDATE STATISTICS #tmpDirectCust
+
+	TRUNCATE TABLE #tmpDirectMember
+	INSERT INTO #tmpDirectMember(
+		CustID
+		,Site
+		,IsDeposit
+	)
+	SELECT DISTINCT c.CustID
+		,s.SiteLabel AS Site
+		,s.IsDeposit
+	FROM dbo.vw_Customer AS c WITH (NOLOCK)
+		INNER JOIN #tmpDWSite AS s WITH (NOLOCK) ON c.Site = s.Site
+	WHERE c.CustID IN (
+			SELECT custid
+			FROM #tmpDirectCust
+			)
+	OPTION (RECOMPILE)
+
+	UPDATE STATISTICS #tmpDirectMember
+		
 	INSERT INTO #tmpRawData (
 		Site
 		,IsDeposit
@@ -561,8 +626,8 @@ BEGIN
 		,TurnoverIBC
 		,ExtraTO
 	)
-	SELECT c.Site
-		,c.IsDeposit
+	SELECT CASE WHEN b.recommend > 0 THEN c.Site ELSE d.Site END
+		,CASE WHEN b.recommend > 0 THEN c.IsDeposit ELSE d.IsDeposit END
 		,@NS_LeagueID AS LeagueID
 		,b.gameID
 		,0 AS IsHalf
@@ -588,15 +653,16 @@ BEGIN
 				ELSE (CASE WHEN pb.ProductID = 1 THEN ABS(stake) ELSE stake END) * CAST(b.epositiontaking AS DECIMAL(10, 8))
 			END) * b.actualrate) AS ExtraTO
 	FROM dbo.bettransLC AS b WITH (NOLOCK)
-		LEFT JOIN #tmpCustomer AS c WITH (NOLOCK) ON b.Recommend = c.CustID
+		LEFT JOIN #tmpCustomer AS c WITH (NOLOCK) ON b.Recommend = c.CustID AND b.recommend > 0
+		LEFT JOIN #tmpDirectMember AS d WITH (NOLOCK) ON b.custid = d.CustID AND b.recommend < 0
 		LEFT JOIN #tmpProductBettype AS pb WITH (NOLOCK) ON b.gameID = pb.Bettype
 		LEFT JOIN #tmpBettypeGroup AS bg WITH (NOLOCK) ON b.gameID = bg.Bettype
 	WHERE b.winlostdate = @WLDate
 		AND b.statusID IN (112, 113) --Won, Lose
 		AND b.currency <> 20
 		AND pb.RefTable = 2
-	GROUP BY c.Site
-		,c.IsDeposit
+	GROUP BY CASE WHEN b.recommend > 0 THEN c.Site ELSE d.Site END
+		,CASE WHEN b.recommend > 0 THEN c.IsDeposit ELSE d.IsDeposit END
 		,b.gameID
 		,CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9,6))
 	
@@ -606,6 +672,7 @@ BEGIN
 	SELECT Recommend
 	FROM dbo.bettransRNG AS b WITH (NOLOCK)
 	WHERE winlostdate = @WLDate
+		AND Recommend > 0
 	GROUP BY Recommend
 	
 	UPDATE STATISTICS #tmpRecommend
@@ -630,6 +697,35 @@ BEGIN
 	OPTION (RECOMPILE)
 	
 	UPDATE STATISTICS #tmpCustomer
+
+	TRUNCATE TABLE #tmpDirectCust
+	INSERT INTO #tmpDirectCust (custid)
+	SELECT custid
+	FROM dbo.bettransLC AS b WITH (NOLOCK)
+	WHERE winlostdate = @WLDate
+		AND recommend < 0
+	GROUP BY custid
+
+	UPDATE STATISTICS #tmpDirectCust
+
+	TRUNCATE TABLE #tmpDirectMember
+	INSERT INTO #tmpDirectMember(
+		CustID
+		,Site
+		,IsDeposit
+	)
+	SELECT DISTINCT c.CustID
+		,s.SiteLabel AS Site
+		,s.IsDeposit
+	FROM dbo.vw_Customer AS c WITH (NOLOCK)
+		INNER JOIN #tmpDWSite AS s WITH (NOLOCK) ON c.Site = s.Site
+	WHERE c.CustID IN (
+			SELECT custid
+			FROM #tmpDirectCust
+			)
+	OPTION (RECOMPILE)
+
+	UPDATE STATISTICS #tmpDirectMember
 	
 	INSERT INTO #tmpRawData (
 		Site
@@ -646,8 +742,8 @@ BEGIN
 		,TurnoverIBC
 		,ExtraTO
 	)
-	SELECT c.Site
-		,c.IsDeposit
+	SELECT CASE WHEN b.recommend > 0 THEN c.Site ELSE d.Site END
+		,CASE WHEN b.recommend > 0 THEN c.IsDeposit ELSE d.IsDeposit END
 		,@NS_LeagueID AS LeagueID
 		,b.gameID
 		,0 AS IsHalf
@@ -673,22 +769,21 @@ BEGIN
 				ELSE (CASE WHEN pb.ProductID = 1 THEN ABS(stake) ELSE stake END) * CAST(b.epositiontaking AS DECIMAL(10, 8))
 			END) * b.actualrate) AS ExtraTO
 	FROM dbo.bettransRNG AS b WITH (NOLOCK)
-		LEFT JOIN #tmpCustomer AS c WITH (NOLOCK) ON b.Recommend = c.CustID
+		LEFT JOIN #tmpCustomer AS c WITH (NOLOCK) ON b.Recommend = c.CustID AND b.recommend > 0
+		LEFT JOIN #tmpDirectMember AS d WITH (NOLOCK) ON b.custid = d.CustID AND b.recommend < 0
 		LEFT JOIN #tmpProductBettype AS pb WITH (NOLOCK) ON b.gameID = pb.Bettype
 		LEFT JOIN #tmpBettypeGroup AS bg WITH (NOLOCK) ON b.gameID = bg.Bettype
 	WHERE b.winlostdate = @WLDate
 		AND b.statusID IN (112, 113) --Won, Lose
 		AND b.currency <> 20
 		AND pb.RefTable = 1
-	GROUP BY c.Site
-		,c.IsDeposit
+	GROUP BY CASE WHEN b.recommend > 0 THEN c.Site ELSE d.Site END
+		,CASE WHEN b.recommend > 0 THEN c.IsDeposit ELSE d.IsDeposit END
 		,b.gameID
 		,CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9,6))
 	
 	CREATE CLUSTERED INDEX CIX_tmpRawData ON #tmpRawData ( Bettype, LeagueID, Site )
-
-	
-	
+		
 	------------------------Group Data follow spec------------------------
 	--Hardcode to move [Bet Builder] from SB to Non-Sport
 	UPDATE pb
@@ -1070,6 +1165,8 @@ BEGIN
 	DROP TABLE #tmpTestLeague
 	DROP TABLE #tmpRecommend
 	DROP TABLE #tmpCustomer
+	DROP TABLE #tmpDirectCust
+	DROP TABLE #tmpDirectMember
 	DROP TABLE #tmpProductBettype
 	DROP TABLE #tmpDWBettypeSource
 	DROP TABLE #tmpBettypeGroup
