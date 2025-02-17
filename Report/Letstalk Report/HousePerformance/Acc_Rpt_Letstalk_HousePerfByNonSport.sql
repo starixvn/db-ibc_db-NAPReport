@@ -38,6 +38,7 @@ AS
 		20241219@Cherry: hotfix (#215548)
 		20241224@Cherry: Integrate Saba Keno (#214759)
 		20240102@Cherry: Integrate PLAYSTAR (#208029)
+		20240206@Cherry: Add VS6 (#217593)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -134,11 +135,6 @@ BEGIN
 	)
 	
 	SELECT @isTest = dbo.f_CheckSPVersion(@@PROCID)
-
-	DECLARE @ExcludeProduct NVARCHAR(500) 
-	SELECT @ExcludeProduct = VValue
-	FROM DBWH.bodb_account.dbo.SystemSettings WITH(NOLOCK)
-	WHERE VID=37
 	
 	/*
 		insert Dim for non-sport product
@@ -149,10 +145,6 @@ BEGIN
 		SELECT DISTINCT pb.ProductID
 			,pb.Bettype
 		FROM DBWH.bodb_account.dbo.Product_Bettype AS pb WITH (NOLOCK)
-	)
-	,CTE_ExcludeProduct AS (
-		SELECT CAST(value AS INT) AS ProductID
-		FROM string_split(@ExcludeProduct, ',')
 	)
 	,CTE_Bettype AS (
 		SELECT DISTINCT typeid AS Bettype
@@ -179,7 +171,6 @@ BEGIN
 				AND ProductID NOT IN (1,37,74,81,31) --exclude Sportsbook and Saba Promotion and Player Tips, Saba Coins
 				AND SubProduct NOT IN ('Bet Builder')
 		)
-		AND pb.ProductID NOT IN (SELECT ProductID FROM CTE_ExcludeProduct)
 	
 	/*Special non-sport product*/
 	;WITH CTE_Hardcode AS (
@@ -246,6 +237,7 @@ BEGIN
 			,(77,'VS3') --Virtual Sports
 			,(83,'VS4') --Virtual Sports 4
 			,(88,'VS5') --Virtual Sports 5
+			,(71,'VS6') --Virtual Sports 6
 			,(90,'GPI LC')
 			,(102,'SABAG')
 			,(91,'PLAYS')
