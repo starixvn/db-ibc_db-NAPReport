@@ -104,16 +104,8 @@ BEGIN
 	-- #tmpOLTP_Customer
 	CREATE TABLE #tmpOLTP_Customer (
 		CustID INT NOT NULL,
-		RoleID INT NOT NULL,
-		Site VARCHAR(200) NOT NULL,
 		SiteID_DW INT NULL
 	)
-
-	INSERT INTO #tmpOLTP_Customer (CustID, RoleID, Site, SiteID_DW)
-	SELECT c.custid CustID, c.roleid RoleID, c.site Site, s.siteid SiteID_DW
-	FROM bodb02.dbo.Customer c WITH (NOLOCK)
-		 LEFT JOIN #tmpDW_tblsite s ON c.site = s.site
-	WHERE c.roleid = 1
 
 	CREATE CLUSTERED INDEX CIX_tmpOLTP_Customer ON #tmpOLTP_Customer(CustID)
 
@@ -273,6 +265,17 @@ BEGIN
 						END ,b.currency
 					,b.custid, b.recommend ,gv.SportID 
 				OPTION (RECOMPILE)
+
+		
+		INSERT INTO #tmpOLTP_Customer (CustID)
+		SELECT CustID FROM #tmpbettrans GROUP BY CustID
+
+		UPDATE cs
+		SET cs.SiteID_DW = s.siteid
+		FROM #tmpOLTP_Customer AS cs
+			INNER JOIN bodb02.dbo.Customer AS c WITH (NOLOCK) ON cs.CustID = c.CustID
+			LEFT JOIN #tmpDW_tblsite AS s ON c.site = s.site
+
 
 		INSERT INTO #FactSiteWinloss(RptDate, SiteID, CurrencyID, Bettype, TicketStatus, WinlossP, WinlossS, WinlossM, WinlossA, CommissionS, SportType)
 		SELECT
@@ -558,6 +561,16 @@ BEGIN
 		WHERE b.bettype IN (SELECT x.bettype FROM #tmpDW_BettypeGroup x WHERE x.BettypeGroupID = 18)
 
 		DROP TABLE #tmpbettransm
+
+
+		INSERT INTO #tmpOLTP_Customer (CustID)
+		SELECT CustID FROM #tmpbettrans GROUP BY CustID
+
+		UPDATE cs
+		SET cs.SiteID_DW = s.siteid
+		FROM #tmpOLTP_Customer AS cs
+			INNER JOIN bodb02.dbo.Customer AS c WITH (NOLOCK) ON cs.CustID = c.CustID
+			LEFT JOIN #tmpDW_tblsite AS s ON c.site = s.site
 
 
 		INSERT INTO #FactSiteWinloss(RptDate, SiteID, CurrencyID, Sporttype, Bettype, LeagueID, TicketStatus, VarianceVR, TurnoverIBC, WinlossIBC, WinlossP, WinlossS, WinlossM, WinlossA, CommissionS, Stake)
