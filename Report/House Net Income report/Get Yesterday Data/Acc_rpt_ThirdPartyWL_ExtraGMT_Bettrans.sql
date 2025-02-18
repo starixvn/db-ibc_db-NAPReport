@@ -21,6 +21,7 @@ AS
 		- 20241023@Danny: Incorporate Playtech (#210555)
 		- 20250103@Danny: Incorporate PLAYSTAR (#208029)
 		- 20240114@Danny: Email/Letstalk - Offer Direct Member for Super and Master (#215045)
+		- 20250218@Danny: Integrate Askmeslot product (#216979)
 
 	 Param's Explanation:
 
@@ -49,7 +50,7 @@ BEGIN
 	
 	DECLARE @RnGBettypeList TABLE(Bettype INT)
 	INSERT INTO @RnGBettypeList(Bettype)
-	SELECT bettype FROM OPENQUERY (DBLIC, 'SELECT	DISTINCT bettype FROM	bodb_licensee.dbo.LA_f_BettypeProductMapping(0,''FW,PP,CC,SG,JK,CG,MGRNG,JIG,L22,UUSL,FS,NS,GPIRNG,PTRNG,PS'') la')
+	SELECT bettype FROM OPENQUERY (DBLIC, 'SELECT	DISTINCT bettype FROM	bodb_licensee.dbo.LA_f_BettypeProductMapping(0,''FW,PP,CC,SG,JK,CG,MGRNG,JIG,L22,UUSL,FS,NS,GPIRNG,PTRNG,PS,ASK'') la')
 
 	DECLARE @LCBettypeList TABLE(Bettype INT)
 	INSERT INTO @LCBettypeList(Bettype)
