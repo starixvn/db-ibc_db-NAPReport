@@ -39,6 +39,7 @@ AS
 		20241224@Cherry: Integrate Saba Keno (#214759)
 		20240102@Cherry: Integrate PLAYSTAR (#208029)
 		20240206@Cherry: Add VS6 (#217593)
+		20250218@Cherry: Integrate ASKMESLOT (#216979)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -241,6 +242,7 @@ BEGIN
 			,(90,'GPI LC')
 			,(102,'SABAG')
 			,(91,'PLAYS')
+			,(103,'ASKME')
 		) h (ProductID, ProductShortName)
 	)
 	,CTE_ProductGroup AS (

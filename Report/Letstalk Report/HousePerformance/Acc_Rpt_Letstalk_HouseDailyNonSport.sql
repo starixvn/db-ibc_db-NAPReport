@@ -24,6 +24,7 @@ AS
 		20241202@Cherry: Integrate GPI Live Casino (#213493)
 		20241218@Cherry: Integrate Saba Keno (#214759)
 		20240102@Cherry: Integrate PLAYSTAR (#208029)
+		20250218@Cherry: Integrate ASKMESLOT (#216979)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -223,6 +224,7 @@ BEGIN
 			,(100,'RNG','Playtech')
 			,(102,'RNG','SABAK')
 			,(91,'RNG','PLAYS')
+			,(103,'RNG','ASKME')
 			----------LOT/KENO----------
 			,(40,'LOT/KENO','TabG') --Table Game
 			,(8,'LOT/KENO','Mkeno') --RNG Keno
