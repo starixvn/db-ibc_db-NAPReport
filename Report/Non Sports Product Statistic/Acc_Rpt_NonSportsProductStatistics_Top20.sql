@@ -412,9 +412,10 @@ BEGIN
 					FROM
 						dbo.Customer c WITH (NOLOCK)
 						INNER JOIN #CustUser cu ON c.custid = cu.CustID
+						LEFT JOIN #tmp_MemIDs m ON c.custId = m.CustID
 					WHERE c.roleid = 1
 						AND EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.recommend = tc.recommend)
-						AND NOT EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE c.custId = m.CustID)
+						AND m.CustID IS NULL
 				END
 				IF @RoleID = 2
 				BEGIN
@@ -423,9 +424,10 @@ BEGIN
 					FROM
 						dbo.Customer c WITH (NOLOCK)
 						INNER JOIN #CustUser cu ON c.recommend = cu.CustID
+						LEFT JOIN #tmp_MemIDs m ON c.custId = m.CustID
 					WHERE c.roleid = 1
 						AND EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.recommend = tc.recommend)
-						AND NOT EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE c.custId = m.CustID)
+						AND m.CustID IS NULL
 				END
 				
 				IF @RoleID = 3
@@ -435,11 +437,20 @@ BEGIN
 					FROM
 						dbo.Customer c WITH (NOLOCK)
 						INNER JOIN #CustUser cu ON c.mrecommend = cu.CustID
+						LEFT JOIN #tmp_MemIDs m ON c.custId = m.CustID
 					WHERE c.roleid = 1
-						AND (EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.recommend = tc.recommend)
-							OR EXISTS(SELECT 1 FROM #DirectMember d WHERE c.custid = d.custid)
-							)
-						AND NOT EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE c.custId = m.CustID)
+						AND EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.recommend = tc.recommend)
+						AND m.CustID IS NULL
+
+					INSERT INTO #tmp_MemIDs (CustID, roleID)
+					SELECT c.custid, 1
+					FROM
+						dbo.Customer c WITH (NOLOCK)
+						INNER JOIN #CustUser cu ON c.mrecommend = cu.CustID
+						LEFT JOIN #tmp_MemIDs m ON c.custId = m.CustID
+					WHERE c.roleid = 1
+						AND EXISTS(SELECT 1 FROM #DirectMember d WHERE c.custid = d.custid)							
+						AND m.CustID IS NULL
 				END
 				
 				IF @RoleID = 4
@@ -449,11 +460,20 @@ BEGIN
 					FROM
 						dbo.Customer c WITH (NOLOCK)
 						INNER JOIN #CustUser cu ON c.srecommend = cu.CustID
+						LEFT JOIN #tmp_MemIDs m ON c.custId = m.CustID
 					WHERE c.roleid = 1
-						AND (EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.recommend = tc.recommend)
-							OR EXISTS(SELECT 1 FROM #DirectMember d WHERE c.custid = d.custid)
-							)
-						AND NOT EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE c.custId = m.CustID)
+						AND EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.recommend = tc.recommend)
+						AND m.CustID IS NULL
+
+					INSERT INTO #tmp_MemIDs (CustID, roleID)
+					SELECT c.custid, 1
+					FROM
+						dbo.Customer c WITH (NOLOCK)
+						INNER JOIN #CustUser cu ON c.srecommend = cu.CustID
+						LEFT JOIN #tmp_MemIDs m ON c.custId = m.CustID
+					WHERE c.roleid = 1
+						AND EXISTS(SELECT 1 FROM #DirectMember d WHERE c.custid = d.custid)
+						AND m.CustID IS NULL
 				END
 			END
 			ELSE -- @IsDrillDown = 1 and @TopType = 0
@@ -483,9 +503,14 @@ BEGIN
 					FROM
 						dbo.Customer c WITH (NOLOCK)
 					WHERE c.mrecommend = @CID AND roleid = 1
-						AND (EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.recommend = tc.recommend)
-							OR EXISTS(SELECT 1 FROM #DirectMember d WHERE c.custid = d.custid)
-							)
+						AND EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.recommend = tc.recommend)
+
+					INSERT INTO #tmp_MemIDs (CustID, roleID)
+					SELECT custid, 1
+					FROM
+						dbo.Customer c WITH (NOLOCK)
+					WHERE c.mrecommend = @CID AND roleid = 1
+						AND EXISTS(SELECT 1 FROM #DirectMember d WHERE c.custid = d.custid)
 				END
 				ELSE IF @RoleID = 4
 				BEGIN
@@ -494,9 +519,14 @@ BEGIN
 					FROM
 						dbo.Customer c WITH (NOLOCK)
 					WHERE c.srecommend = @CID AND roleid = 1
-						AND (EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.recommend = tc.recommend)
-							OR EXISTS(SELECT 1 FROM #DirectMember d WHERE c.custid = d.custid)
-							)
+						AND EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.recommend = tc.recommend)
+
+					INSERT INTO #tmp_MemIDs (CustID, roleID)
+					SELECT custid, 1
+					FROM
+						dbo.Customer c WITH (NOLOCK)
+					WHERE c.srecommend = @CID AND roleid = 1
+						AND EXISTS(SELECT 1 FROM #DirectMember d WHERE c.custid = d.custid)
 				END
 			END
 		END
@@ -507,9 +537,14 @@ BEGIN
 			FROM
 				dbo.Customer c WITH (NOLOCK)
 			WHERE c.roleid = 1
-				AND (EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.recommend = tc.recommend)
-					OR EXISTS(SELECT 1 FROM #DirectMember d WHERE c.custid = d.custid)
-					)
+				AND EXISTS (SELECT 1 FROM #tmp_Company tc WHERE c.recommend = tc.recommend)
+
+			INSERT INTO #tmp_MemIDs (CustID, roleID)
+			SELECT custid, 1
+			FROM
+				dbo.Customer c WITH (NOLOCK)
+			WHERE c.roleid = 1
+				AND EXISTS(SELECT 1 FROM #DirectMember d WHERE c.custid = d.custid)
 		END
 	END
 	ELSE
@@ -527,8 +562,9 @@ BEGIN
 					FROM
 						dbo.Customer c WITH (NOLOCK)
 						INNER JOIN #CustUser cu ON c.custid = cu.CustID
+						LEFT JOIN #tmp_MemIDs m ON c.custId = m.CustID
 					WHERE c.roleid = 1
-						AND NOT EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE c.custId = m.CustID)
+						AND m.CustID IS NULL
 				END
 				
 				IF @RoleID = 2
@@ -538,8 +574,9 @@ BEGIN
 					FROM
 						dbo.Customer c WITH (NOLOCK)
 						INNER JOIN #CustUser cu ON c.recommend = cu.CustID
+						LEFT JOIN #tmp_MemIDs m ON c.custId = m.CustID
 					WHERE c.roleid = 1
-						AND NOT EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE c.custId = m.CustID)
+						AND m.CustID IS NULL
 				END
 				
 				IF @RoleID = 3
@@ -549,8 +586,9 @@ BEGIN
 					FROM
 						dbo.Customer c WITH (NOLOCK)
 						INNER JOIN #CustUser cu ON c.mrecommend = cu.CustID
+						LEFT JOIN #tmp_MemIDs m ON c.custId = m.CustID
 					WHERE c.roleid = 1
-						AND NOT EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE c.custId = m.CustID)
+						AND m.CustID IS NULL
 				END
 				
 				IF @RoleID = 4
@@ -560,8 +598,9 @@ BEGIN
 					FROM
 						dbo.Customer c WITH (NOLOCK)
 						INNER JOIN #CustUser cu ON c.srecommend = cu.CustID
+						LEFT JOIN #tmp_MemIDs m ON c.custId = m.CustID
 					WHERE c.roleid = 1
-						AND NOT EXISTS (SELECT 1 FROM #tmp_MemIDs m WHERE c.custId = m.CustID)
+						AND m.CustID IS NULL
 				END
 			END
 			ELSE -- @IsDrillDown = 1
