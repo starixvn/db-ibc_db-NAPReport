@@ -65,6 +65,8 @@ AS
 		20240220@Cherry: Integrate AG Casino Jackpot Contribution (#200503)
 		20240806@Cherry: Integrate VS5 (#207590)
 		20240926@Cherry: Integrate new sports of VS2 (#211232)
+		20250107@Cherry: Delete table Acc_GroupExtraCommRateSetting (#216484)
+		20250214@Cherry: Support direct member (#214708)
 
 	Param's Explanation:
 		- @username:  + Search by keyword, member only
@@ -185,8 +187,7 @@ BEGIN
 	CREATE TABLE #tmp_GameTableID	(GameTableID INT)
 	CREATE TABLE #tmp_Device		(Betfrom NVARCHAR(5))
 	CREATE TABLE #tmp_Site			(Site VARCHAR(50))
-	CREATE TABLE #tmp_MemIDs		(CustID INT)
-	CREATE TABLE #ExtraComm (ProductID INT, SuperID INT, ExtraComm DECIMAL(9, 8))	
+	CREATE TABLE #tmp_MemIDs		(CustID INT)	
 	CREATE TABLE #tmpContributionBettype (Bettype INT, RefTable SMALLINT)	
 	CREATE TABLE #tmpSportBetType (Sporttype INT, Bettype INT)
 	CREATE TABLE #tmpHouseProduct (ProductID INT)
@@ -399,6 +400,7 @@ BEGIN
 
 	-- Get Site	
 	CREATE TABLE #tmp_Company (SiteName VARCHAR(50), recommend INT, isDeposit BIT)
+	CREATE TABLE #DirectMember (SiteName VARCHAR(50), custid INT, isDeposit BIT)
 
 	IF @Site <> 'ALL'
 	BEGIN
@@ -411,23 +413,16 @@ BEGIN
 			INNER JOIN dbo.Site ss WITH (NOLOCK) ON s.Site = ss.site
 			INNER JOIN dbo.Customer c WITH (NOLOCK) ON ss.Site = c.site
 		WHERE c.roleid = 2
+
+		INSERT INTO #DirectMember (SiteName, custid, isDeposit)
+		SELECT s.Site, c.custid, ss.isDeposit
+		FROM #tmp_Site s
+			INNER JOIN dbo.Site ss WITH (NOLOCK) ON s.Site = ss.site
+			INNER JOIN dbo.Customer c WITH (NOLOCK) ON ss.Site = c.site
+		WHERE c.roleid = 1
+			AND (c.srecommend < 0 OR c.mrecommend < 0 OR c.recommend < 0)
 	END
-	-- Don't need to handle 'ALL' site, because with this case we will get all ticket
-                        
-	INSERT INTO #ExtraComm
-               ( ProductID,
-                 SuperID,
-                 ExtraComm
-               )
-               SELECT ProductID,
-                      SuperId,
-                      SUM(ExtraCommRate) AS ExtraComm
-               FROM bodb02.dbo.Acc_GroupExtraCommRateSetting a WITH ( NOLOCK )
-               WHERE @WLDate BETWEEN FromDate AND Todate
-					AND a.ProductId IN (SELECT ProductID FROM #tmp_ProductID)
-               GROUP BY ProductID,
-                        SuperId   
-	-- End ExtraPT		
+	-- Don't need to handle 'ALL' site, because with this case we will get all ticket                        	
 	
 	INSERT INTO #tmpContributionBettype (Bettype)
 	SELECT Bettype
@@ -534,6 +529,7 @@ BEGIN
 			AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
+				  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.custid = b.custid))
 				)
 			AND (
 				@HousePTType = 0
@@ -624,6 +620,7 @@ BEGIN
 			AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
+				  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.custid = b.custid))
 				)
 			AND (
 				@HousePTType = 0
@@ -709,6 +706,7 @@ BEGIN
 				AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 				AND ( @Site = 'ALL'
 					  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
+					  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.custid = b.custid))
 				)
 				AND (
 					@HousePTType = 0
@@ -784,6 +782,7 @@ BEGIN
 				AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 				AND ( @Site = 'ALL'
 					  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
+					  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.custid = b.custid))
 				)
 				AND (
 					@HousePTType = 0
@@ -866,6 +865,7 @@ BEGIN
 				AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 				AND ( @Site = 'ALL'
 					  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
+					  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.custid = b.custid))
 				)
 				AND (
 					@HousePTType = 0
@@ -949,6 +949,7 @@ BEGIN
 			AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
+				  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.custid = b.custid))
 			)
 			AND (
 				@HousePTType = 0
@@ -1007,11 +1008,10 @@ BEGIN
 				- SUM(scomm) AS CompanyComm,
 				- SUM(scomm * actualrate) AS CompanyCommBase,
 				
-				- SUM(ISNULL(b.transid2, 0) * 1.0 / 10000 * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8)) - b.oddsspread * ISNULL(c.ExtraComm,0)) ExtraPT,
-				- SUM((ISNULL(b.transid2, 0) * 1.0 / 10000 * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8)) - b.oddsspread * ISNULL(c.ExtraComm,0)) * actualrate) ExtraPTBase
+				- SUM(ISNULL(b.transid2, 0) * 1.0 / 10000 * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8)) - b.oddsspread) ExtraPT,
+				- SUM((ISNULL(b.transid2, 0) * 1.0 / 10000 * CAST(ISNULL(b.epositiontaking, 0) AS DECIMAL(9,8)) - b.oddsspread) * actualrate) ExtraPTBase
 
-		FROM dbo.Bettrans b WITH (NOLOCK) 
-			LEFT JOIN #ExtraComm c ON b.srecommend = c.SuperID AND c.ProductID = 33 
+		FROM dbo.Bettrans b WITH (NOLOCK) 			
 		WHERE b.WinlostDate = @WLDate
 			AND b.bettype IN (SELECT Bettype FROM #SportBettype WHERE ProductID = 33 AND RefTable = 0)
 			AND b.ruben = 1
@@ -1022,6 +1022,7 @@ BEGIN
 			AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
+				  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.custid = b.custid))
 				)
 			AND (
 				@HousePTType = 0
@@ -1102,6 +1103,7 @@ BEGIN
 			AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
+				  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.custid = b.custid))
 				)
 			AND (
 				@HousePTType = 0
@@ -1180,6 +1182,7 @@ BEGIN
 			AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
+				  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.custid = b.custid))
 				)
 			AND (
 				@HousePTType = 0
@@ -1258,6 +1261,7 @@ BEGIN
 			AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
+				  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.custid = b.custid))
 				)
 			AND (
 				@HousePTType = 0
@@ -1334,6 +1338,7 @@ BEGIN
 			AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
+				  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.custid = b.custid))
 				)
 			AND (
 				@HousePTType = 0
@@ -1416,6 +1421,7 @@ BEGIN
 			AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
+				  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.custid = b.custid))
 				)
 			AND (
 				@HousePTType = 0
@@ -1514,6 +1520,7 @@ BEGIN
 			AND (@Device = '' OR EXISTS (SELECT 1 From #tmp_Device f WHERE f.betfrom = b.betfrom))
 			AND ( @Site = 'ALL'
 				  OR (EXISTS (SELECT 1 From #tmp_Company s WHERE s.recommend = b.recommend))
+				  OR (EXISTS (SELECT 1 From #DirectMember c WHERE c.custid = b.custid))
 				)
 			AND (
 				@HousePTType = 0
@@ -1791,6 +1798,7 @@ BEGIN
 	DROP TABLE #SportBettype
 	DROP TABLE #tmp_BetType
 	DROP TABLE #tmp_Company
+	DROP TABLE #DirectMember
 	DROP TABLE #tmp_Device
 	DROP TABLE #tmp_LeagueID
 	DROP TABLE #tmp_MemIDs
@@ -1799,8 +1807,7 @@ BEGIN
 	DROP TABLE #tmp_Site
 	DROP TABLE #tmp_SportType
 	DROP TABLE #tmp_bettransm
-	DROP TABLE #Device
-	DROP TABLE #ExtraComm
+	DROP TABLE #Device	
 	DROP TABLE #tmpCurrency
 	DROP TABLE #tmpContributionBettype	
 	DROP TABLE #tmpSportBetType
