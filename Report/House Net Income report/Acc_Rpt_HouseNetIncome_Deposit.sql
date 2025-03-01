@@ -1111,7 +1111,7 @@ BEGIN
 			,@FromDate				= @FDate
 			,@ToDate				= @TDate
 			,@IsConvertExRate		= 1
-			,@LicensingFeeTypeIds	= '0,12' -- 12: Parlay Boost Bonus
+			,@LicensingFeeTypeIds	= '0,14' -- 14: Odds Boost Adj
 			,@BaseCurrencyName		= @BaseCurrencyName
 
 		IF @isRecalRebate =1 AND @FromDate BETWEEN @RecalRebateEffectiveFrom AND @RecalRebateEffectiveTo AND EXISTS (SELECT TOP 1 1 FROM STRING_SPLIT(@SupportedProductList,',') WHERE value = 'SB')
@@ -1185,8 +1185,9 @@ BEGIN
 				,AComm = ISNULL(t.AComm, 0)
 
 			FROM CTE_tempResult t
-				FULL OUTER JOIN @LicenseeFeeAndRebateDiscount m ON t.PartyId = m.PartyId AND t.Product3rdId = m.ProductId	AND m.LicensingFeeTypeId = 0	
+				FULL OUTER JOIN @LicenseeFeeAndRebateDiscount m ON t.PartyId = m.PartyId AND t.Product3rdId = m.ProductId
 				LEFT JOIN	FinalHouseIncome42_32_66_36 f ON t.PartyId = f.PartyId AND t.Product3rdId = f.Product3rdId AND t.AliasProductId = f.AliasProductId
+				WHERE m.LicensingFeeTypeId = 0	
 		)
 		INSERT INTO #tmpResult (PartyId, Product3rdId, AliasProductId, HouseTurnover, LicenseeWL, HouseIncome, AComm)
 		SELECT r.PartyId, r.Product3rdId, r.AliasProductId, r.HouseTurnover, r.LicenseeWL, r.HouseIncome, r.AComm
@@ -1196,21 +1197,23 @@ BEGIN
 		SELECT r.PartyId, r.Product3rdId, r.AliasProductId, r.HouseTurnover, r.LicenseeWL, r.HouseIncome, r.AComm
 		FROM CTE_Result r
 		WHERE  (r.Product3rdId = 0 AND r.PartyId  NOT IN (SELECT p.PartyId FROM #PartyChargeInfo p WHERE p.Product3rdId = 0)  )
-				OR r.Product3rdId = 37
+				OR r.Product3rdId = 37 OR r.Product3rdId = 74
 		 
 		UPDATE s
 		SET s.LicenseeMinFee	= CASE WHEN m.PartyId IS NULL OR m.ProductId <> 0 THEN 0 
-									   ELSE CASE WHEN m.IsChargedByGroupMinFee = 1 OR m.IsChargedByMinFee = 1 THEN m.LicensingFee + m.ExtraAmount - (ISNULL(m12.LicensingFee,0) - ISNULL(m12.ExtraAmount,0)) ELSE 0 END 
+									   ELSE CASE WHEN m.IsChargedByGroupMinFee = 1 OR m.IsChargedByMinFee = 1 THEN m.LicensingFee + m.ExtraAmount  - ISNULL(m14.ExtraAmount,0) ELSE 0 END 
 								  END
 			,s.LicenseeFee		= CASE
-									WHEN m.PartyId IS NULL OR m.ProductId NOT IN (0,37) THEN s.HouseIncome
-									ELSE CASE WHEN m.IsChargedByGroupMinFee = 0 AND m.IsChargedByMinFee = 0 THEN CASE WHEN m.ProductId = 37 THEN - (m.LicensingFee+ m.ExtraAmount)  ELSE m.LicensingFee + m.ExtraAmount - (ISNULL(m12.LicensingFee,0) - ISNULL(m12.ExtraAmount,0)) END ELSE 0 END
+									WHEN m.PartyId IS NULL OR m.ProductId NOT IN (0,37,74) THEN s.HouseIncome
+									ELSE CASE WHEN m.IsChargedByGroupMinFee = 0 AND m.IsChargedByMinFee = 0 THEN CASE WHEN m.ProductId = 37 THEN - (m.LicensingFee+ m.ExtraAmount)  
+																													   WHEN m.ProductId = 74 THEN  m.ExtraAmount
+																												ELSE m.LicensingFee + m.ExtraAmount - ISNULL(m14.ExtraAmount,0) END ELSE 0 END
 								  END
 			,s.Rebate			= ISNULL(m.Rebate, 0)
 			,s.Discount			= ISNULL(m.Discount, 0)
 		FROM #tmpResult s
 			LEFT JOIN @LicenseeFeeAndRebateDiscount m ON m.PartyId = s.PartyId AND m.ProductId = s.Product3rdId AND m.LicensingFeeTypeId = 0
-			LEFT JOIN @LicenseeFeeAndRebateDiscount m12 ON m12.PartyId = s.PartyId AND m12.ProductId = s.Product3rdId AND m12.LicensingFeeTypeId = 12
+			LEFT JOIN @LicenseeFeeAndRebateDiscount m14 ON m14.PartyId = s.PartyId AND m14.ProductId = s.Product3rdId AND m14.LicensingFeeTypeId = 14
 
 		/*
 			GET 9w licensee list
@@ -1463,7 +1466,7 @@ BEGIN
 
 	UPDATE #Result
 	SET PayToSupplier = @VS6PaytoSupplierMonthly
-	WHERE Product3rdId = 71
+	WHERE Product3rdId = 71 AND rptDate IN ('Monthly','MTD')
 
 	-- 1.4 FullContribution, JackpotPrize
 	UPDATE r
