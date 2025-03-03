@@ -58,6 +58,7 @@ AS
 		- 20240729@Danny: Incorporate VS5 (#206527)
 		- 20240920@Danny: Email/Letstalk - Odds Boost Voucher (#210559)
 		- 20241107@Danny: Incorporate VS6 (#212749)
+		- 20250228@Sophia: Fix DoubleS [Redmine: #218875] 
           
 */
 BEGIN
@@ -390,7 +391,7 @@ BEGIN
 										INNER JOIN bodb_licensee.dbo.OAS_PartyDetail pd WITH (NOLOCK) ON p.PartyID = pd.PartyID
 										INNER JOIN bodb_licensee.dbo.OAS_ChargeInfo ci WITH (NOLOCK) ON p.PartyID = ci.FromParty
 										INNER JOIN bodb_licensee.dbo.LA_ChargeInfo_SystemMapping cs WITH(NOLOCK) ON ci.ChargeID = cs.ChargeID AND cs.SystemID = 2
-									WHERE ci.ChargeType = 1 AND p.PartyType = 1 AND pd.IsDeposit = 1 AND ci.ToParty IN (1, 9, 11, 98, 962)
+									WHERE ci.ChargeType = 1 AND p.PartyType = 1 AND pd.IsDeposit = 1 AND ci.ToParty IN (1, 9, 11, 98, 962, 1235)
 								) r
 								WHERE RowNum = 1
 								UNION ALL -- Sabacoins
@@ -409,7 +410,7 @@ BEGIN
 								INNER JOIN bodb_licensee.dbo.OAS_PartyDetail pd WITH (NOLOCK) ON pd.PartyID = p.PartyID
 								INNER JOIN bodb_licensee.dbo.OAS_ChargeInfo ci WITH (NOLOCK) ON p.PartyID = ci.FromParty
 								INNER JOIN bodb_licensee.dbo.LA_ChargeInfo_SystemMapping map ON map.ChargeID = ci.ChargeID AND map.SystemID = 2
-							WHERE p.PartyType = 1 AND pd.IsDeposit = 1 AND ci.ToParty IN (1, 9, 11, 98, 962)
+							WHERE p.PartyType = 1 AND pd.IsDeposit = 1 AND ci.ToParty IN (1, 9, 11, 98, 962, 1235)
 								AND ci.ProductId IN (' + @Product3rdIds + ')
 								AND ci.FromDate <= ''''' + @t_date + ''''' AND ci.ToDate >= ''''' + @f_date + ''''''')'
 		INSERT INTO #Licensees (LicenseeId, PartyId, ParentId)

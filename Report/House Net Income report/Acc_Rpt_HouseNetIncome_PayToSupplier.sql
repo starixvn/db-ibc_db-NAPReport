@@ -42,6 +42,7 @@ AS
 		- 20240605@Danny: Letstalk reports - Integrate the Saba Kabaddi And Remove Linked server DBCUST (#204927)
 		- 20241023@Danny: Incorporate GPI (#207012)
 		- 20241023@Danny: Incorporate Playtech (#210555)
+		- 20250228@Sophia: Fix DoubleS [Redmine: #218875] 
 */
 BEGIN
     SET NOCOUNT ON
@@ -206,7 +207,7 @@ BEGIN
 															LEFT JOIN bodb_licensee.dbo.Labels AS lb WITH(NOLOCK) ON p.OldRefID = lb.LicenseeId
 														WHERE p.PartyType = 1
 															AND 1 = CASE WHEN ' + CONVERT(VARCHAR(3), @DepositType) + ' = 2 OR ' + CONVERT(VARCHAR(3), @DepositType) + ' = pd.IsDeposit THEN 1 ELSE 0 END
-															AND (pd.IsDeposit = 0 OR ci.ToParty IN (1, 9, 11, 98, 962))
+															AND (pd.IsDeposit = 0 OR ci.ToParty IN (1, 9, 11, 98, 962, 1235))
 													) AS r
 													WHERE r.RowNum = 1'')'
 		INSERT INTO #AllParties (PartyId, ParentId, LicenseeId, IsDeposit)
@@ -226,7 +227,7 @@ BEGIN
 														AND ci.ProductId IN (' + @Product3rdIds + ')
 														AND ci.FromDate <= ''''' + @t_date + ''''' AND ci.ToDate >= ''''' + @f_date + '''''
 														AND 1 = CASE WHEN ' + CONVERT(VARCHAR(3), @DepositType) + ' = 2 OR ' + CONVERT(VARCHAR(3), @DepositType) + ' = pd.IsDeposit THEN 1 ELSE 0 END
-														AND (pd.IsDeposit = 0 OR ci.ToParty IN (1, 9, 11, 98, 962))'')'
+														AND (pd.IsDeposit = 0 OR ci.ToParty IN (1, 9, 11, 98, 962, 1235))'')'
 		INSERT INTO #Party (PartyId, ParentId, LicenseeId, IsDeposit)
 		EXEC (@SQL)
 
