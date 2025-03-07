@@ -1,4 +1,4 @@
-/*<info serverAlias="DBRPT-bodb_report" executers="" viewers="vnteam" isFunction="0"></info>*/
+/*<info serverAlias="DBRPT-bodb_report"></info>*/
 
 
 use msdb
