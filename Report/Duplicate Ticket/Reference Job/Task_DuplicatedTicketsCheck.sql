@@ -1,4 +1,4 @@
-/*<info serverAlias="DBRPT-bodb_report" executers="" viewers="vnteam" isFunction="0"></info>*/
+/*<info serverAlias="DBRPT-bodb_report" executers="wsv_nap" viewers="vnteam" isFunction="0"></info>*/
 use bodb_report
 GO
 ALTER PROCEDURE [dbo].[Task_DuplicatedTicketsCheck]
