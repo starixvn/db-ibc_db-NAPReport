@@ -1,4 +1,6 @@
 /*<info serverAlias="DBRPT-bodb_report" executers="" viewers="vnteam" isFunction="0"></info>*/
+use bodb_report
+GO
 ALTER PROCEDURE [dbo].[Task_DuplicatedTicketsCheck]
     @TransRangeSec SMALLINT = 3
     ,@TransDiffMillisec INT = 1000
@@ -47,7 +49,8 @@ AS
          - 20240622@Dominic.Dao: Exclude single wallet
          - 20241004@Jaden.Tang: Pass @Site from parameter, data from DBCUST.Acc_Site_SiteDBGroupID_Select (#206895)
                 @Site = '[{"Site": NVARCHAR(100), "SiteDBGroupID": SMALLINT, "IsSpecial": BIT}]'
-                This already excluded Single Wallet sites
+                This only contain licensee sites, and excluded Single Wallet sites
+        - 20250306@Jaden.Tang: Hotfix, missed data of Credit sites (#219382)
 */
 
 BEGIN
@@ -97,7 +100,7 @@ BEGIN
         ,DiffInMillisec INT
     )
     
-    CREATE TABLE #Site(SiteID INT)
+    CREATE TABLE #tmpLicenseeSite(SiteID INT)
 
     ;WITH CTE AS
     (
@@ -109,13 +112,12 @@ BEGIN
             IsSpecial BIT '$.IsSpecial'
         )
     )
-    INSERT INTO #Site (SiteID)
+    INSERT INTO #tmpLicenseeSite (SiteID)
     SELECT s.siteid
     FROM bodb02.dbo.[Site] S WITH (NOLOCK)
-    INNER JOIN cte vp on s.site = vp.SiteName
-        WHERE S.isLicensee = 1
+    INNER JOIN cte vp on s.site = vp.SiteName;
 
-    CREATE UNIQUE CLUSTERED INDEX CX_SiteID ON #Site(SiteID)
+    CREATE UNIQUE CLUSTERED INDEX CX_SiteID ON #tmpLicenseeSite(SiteID)
     
     SELECT @LastSequenceID = CONVERT(BIGINT,VValue) FROM bodb02.dbo.SystemSettings WITH (NOLOCK) WHERE VName = 'DuplTicketLastID'
     SELECT @LastSequenceID = ISNULL(@LastSequenceID,-1)
@@ -256,8 +258,8 @@ BEGIN
         DELETE b
         FROM #tmpDupValue b
         INNER JOIN bodb02.dbo.customer c (NOLOCK) ON b.custid = c.custid
-        INNER JOIN bodb02.dbo.site s (NOLOCK) ON s.site = c.site
-        WHERE s.siteid NOT IN (SELECT SiteID FROM #Site) --exclude single wallet
+        INNER JOIN bodb02.dbo.site s (NOLOCK) ON s.site = c.site AND s.isLicensee = 1
+        WHERE s.siteid NOT IN (SELECT SiteID FROM #tmpLicenseeSite) --exclude single wallet
         --------------------------------------------------------
         INSERT INTO #tmpDupTransID (DupValueID, SiteDBGroupID, TransID, TransDate, WinlostDate)
         SELECT t.DupValueID, ISNULL(b.SiteDBGroupID,0) AS SiteDBGroupID, b.TransID, b.TransDate, b.WinlostDate
@@ -327,5 +329,5 @@ BEGIN
     DROP TABLE #tmpSiteDBTrans
     DROP TABLE #tmpDupTransID
     DROP TABLE #tmpTransDateDiff
-    DROP TABLE #Site
+    DROP TABLE #tmpLicenseeSite
 END
