@@ -100,7 +100,7 @@ BEGIN
         ,DiffInMillisec INT
     )
     
-    CREATE TABLE #LicenseeSite(SiteID INT)
+    CREATE TABLE #tmpLicenseeSite(SiteID INT)
 
     ;WITH CTE AS
     (
@@ -112,12 +112,12 @@ BEGIN
             IsSpecial BIT '$.IsSpecial'
         )
     )
-    INSERT INTO #LicenseeSite (SiteID)
+    INSERT INTO #tmpLicenseeSite (SiteID)
     SELECT s.siteid
     FROM bodb02.dbo.[Site] S WITH (NOLOCK)
     INNER JOIN cte vp on s.site = vp.SiteName;
 
-    CREATE UNIQUE CLUSTERED INDEX CX_SiteID ON #LicenseeSite(SiteID)
+    CREATE UNIQUE CLUSTERED INDEX CX_SiteID ON #tmpLicenseeSite(SiteID)
     
     SELECT @LastSequenceID = CONVERT(BIGINT,VValue) FROM bodb02.dbo.SystemSettings WITH (NOLOCK) WHERE VName = 'DuplTicketLastID'
     SELECT @LastSequenceID = ISNULL(@LastSequenceID,-1)
@@ -259,7 +259,7 @@ BEGIN
         FROM #tmpDupValue b
         INNER JOIN bodb02.dbo.customer c (NOLOCK) ON b.custid = c.custid
         INNER JOIN bodb02.dbo.site s (NOLOCK) ON s.site = c.site AND s.isLicensee = 1
-        WHERE s.siteid NOT IN (SELECT SiteID FROM #LicenseeSite) --exclude single wallet
+        WHERE s.siteid NOT IN (SELECT SiteID FROM #tmpLicenseeSite) --exclude single wallet
         --------------------------------------------------------
         INSERT INTO #tmpDupTransID (DupValueID, SiteDBGroupID, TransID, TransDate, WinlostDate)
         SELECT t.DupValueID, ISNULL(b.SiteDBGroupID,0) AS SiteDBGroupID, b.TransID, b.TransDate, b.WinlostDate
@@ -329,5 +329,5 @@ BEGIN
     DROP TABLE #tmpSiteDBTrans
     DROP TABLE #tmpDupTransID
     DROP TABLE #tmpTransDateDiff
-    DROP TABLE #LicenseeSite
+    DROP TABLE #tmpLicenseeSite
 END
