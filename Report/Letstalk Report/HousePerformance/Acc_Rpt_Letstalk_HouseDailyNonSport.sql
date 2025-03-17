@@ -25,6 +25,7 @@ AS
 		20241218@Cherry: Integrate Saba Keno (#214759)
 		20240102@Cherry: Integrate PLAYSTAR (#208029)
 		20250218@Cherry: Integrate ASKMESLOT (#216979)
+		20250318@Cherry: Integrate Funky Games (#220052) 
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -200,7 +201,7 @@ BEGIN
 			,(38,'RNG','VirtG') --Virtual Games
 			,(22,'RNG','Macau') --Macau Games
 			,(36,'RNG','SG') --SG
-			,(50,'RNG','FunkyG') --Funky Games
+			,(50,'RNG','FunkyG(Old)') --Funky Games
 			,(24,'RNG','FW') --Fishing World
 			,(55,'RNG','PGSoft') --PG Soft
 			,(56,'RNG','Joker') --Joker
@@ -225,6 +226,7 @@ BEGIN
 			,(102,'RNG','SABAK')
 			,(91,'RNG','PLAYS')
 			,(103,'RNG','ASKME')
+			,(104,'RNG','FunkyG') --Funky Games
 			----------LOT/KENO----------
 			,(40,'LOT/KENO','TabG') --Table Game
 			,(8,'LOT/KENO','Mkeno') --RNG Keno
