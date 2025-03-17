@@ -26,6 +26,7 @@ AS
 		20241218@Cherry: Integrate Saba Keno (#214760)
 		20240102@Cherry: Integrate PLAYSTAR (#208024)
 		20250218@Cherry: Integrate ASKMESLOT (#216978)
+		20250317@Cherry: Integrate Funky Games (#218182)
 
 	Param's Explanation:
 		@FromGMT8Time: start of time range in GMT+8 with format 2021-05-20 19:00:00
@@ -103,7 +104,7 @@ BEGIN
 			-------------RNG Game-------------
 			,(34, 'Arcadia Gaming', 120, 5000) --ProductID, ProductName, ThresholdPCT, MinWin
 			,(70, 'FGG', 120, 5000)
-			,(50, 'Funky Games', 120, 5000)
+			,(50, 'Funky Games (Old)', 120, 5000)
 			,(28, 'Lottery', 120, 5000)
 			,(60, 'MaxGame', 120, 5000)
 			,(3, 'Number Game', 120, 5000)
@@ -115,6 +116,7 @@ BEGIN
 			,(38, 'Virtual Games', 120, 5000)
 			,(86, 'SABA xD', 120, 5000)
 			,(102, 'SABA Keno', 120, 5000)
+			,(104, 'Funky Games', 120, 5000)
 			
 			-------------Sport-------------
 			,(5, 'Virtual Sports', 108, 5000)
