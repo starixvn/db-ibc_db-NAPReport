@@ -202,7 +202,7 @@ BEGIN
 			,(38,'VirtG') --Virtual Games
 			,(22,'Macau') --Macau Games
 			,(36,'SG') --SG
-			,(50,'FunkyG(Old)') --Funky Games
+			,(50,'FunkyG') --Funky Games
 			,(24,'FW') --Fishing World
 			,(55,'PGSoft') --PG Soft
 			,(56,'Joker') --Joker

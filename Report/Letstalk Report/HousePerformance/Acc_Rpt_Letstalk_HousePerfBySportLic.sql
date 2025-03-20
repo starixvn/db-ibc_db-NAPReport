@@ -240,7 +240,7 @@ BEGIN
 			WHEN ProductName = 'AdvantPlay' THEN 'AdPlay'
 			WHEN ProductName = 'AdvantPlay Mini' THEN 'AdPlayMini'
 			WHEN ProductName = 'Virtual Sports 3' THEN 'VirtSpo3'
-			WHEN ProductName = 'Funky Games (Old)' THEN 'FunkyG(Old)'
+			WHEN ProductName = 'Funky Games (Old)' THEN 'FunkyG'
 			WHEN ProductName = 'Funky Games' THEN 'FunkyG'
 			WHEN ProductName = 'Saba Casino' THEN 'SabaCas'
 			WHEN ProductName = 'WE Live Casino' THEN 'WE LC'
