@@ -702,6 +702,7 @@ BEGIN
 		AND b.TicketStatusID IN (3,4,8,12,13) --LOSE, WON, HALF LOSE, HALF WON
 		AND b.Recommend NOT IN (52466,5707545)  -- Exclude 8RM, BARM
 		AND b.ProductID <> 31 --handle Exchange above
+		AND b.currency <> 20
 	GROUP BY bt.IsSB
 		,s.PartyID
 		,b.Currency
