@@ -33,6 +33,7 @@ AS
 		20241218@Cherry: Integrate Saba Keno (#214759)
 		20240102@Cherry: Integrate PLAYSTAR (#208029)
 		20250218@Cherry: Integrate ASKMESLOT (#216979)
+		20250318@Cherry: Integrate Funky Games (#220052) 
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -239,6 +240,7 @@ BEGIN
 			WHEN ProductName = 'AdvantPlay' THEN 'AdPlay'
 			WHEN ProductName = 'AdvantPlay Mini' THEN 'AdPlayMini'
 			WHEN ProductName = 'Virtual Sports 3' THEN 'VirtSpo3'
+			WHEN ProductName = 'Funky Games (Old)' THEN 'FunkyG'
 			WHEN ProductName = 'Funky Games' THEN 'FunkyG'
 			WHEN ProductName = 'Saba Casino' THEN 'SabaCas'
 			WHEN ProductName = 'WE Live Casino' THEN 'WE LC'
@@ -700,6 +702,7 @@ BEGIN
 		AND b.TicketStatusID IN (3,4,8,12,13) --LOSE, WON, HALF LOSE, HALF WON
 		AND b.Recommend NOT IN (52466,5707545)  -- Exclude 8RM, BARM
 		AND b.ProductID <> 31 --handle Exchange above
+		AND b.currency <> 20
 	GROUP BY bt.IsSB
 		,s.PartyID
 		,b.Currency

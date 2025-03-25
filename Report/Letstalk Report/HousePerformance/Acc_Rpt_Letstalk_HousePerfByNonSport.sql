@@ -40,6 +40,7 @@ AS
 		20240102@Cherry: Integrate PLAYSTAR (#208029)
 		20240206@Cherry: Add VS6 (#217593)
 		20250218@Cherry: Integrate ASKMESLOT (#216979)
+		20250318@Cherry: Integrate Funky Games (#220052) 
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -243,6 +244,7 @@ BEGIN
 			,(102,'SABAG')
 			,(91,'PLAYS')
 			,(103,'ASKME')
+			,(104,'FunkyG') --Funky Games
 		) h (ProductID, ProductShortName)
 	)
 	,CTE_ProductGroup AS (
