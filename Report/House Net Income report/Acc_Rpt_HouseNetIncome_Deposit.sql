@@ -1174,7 +1174,14 @@ BEGIN
 		
 			FROM #__tempResult
 			GROUP BY PartyId, Product3rdId, CASE WHEN Product3rdId IN (0,69) THEN -2 ELSE AliasProductId END
-		), CTE_Result AS (
+		),  LicenseeFeeAndRebateDiscount AS
+		(
+			SELECT 	PartyId , ProductId , LicensingFeeTypeId , GrossLicensingFee , LicensingFee , ExtraAmount , IsChargedByGroupMinFee , IsChargedByMinFee 
+				,Discount , DiscountRate , DiscountRemark, Rebate , RebateRate , RebateRemark, ExtraInfo
+			FROM @LicenseeFeeAndRebateDiscount m WHERE m.LicensingFeeTypeId = 0	
+		)
+		,
+		CTE_Result AS (
 			SELECT
 				PartyId = ISNULL(t.PartyId, m.PartyId)
 				,Product3rdId = ISNULL(t.Product3rdId, m.ProductId)
@@ -1185,14 +1192,14 @@ BEGIN
 				,AComm = ISNULL(t.AComm, 0)
 
 			FROM CTE_tempResult t
-				FULL OUTER JOIN @LicenseeFeeAndRebateDiscount m ON t.PartyId = m.PartyId AND t.Product3rdId = m.ProductId
+				FULL OUTER JOIN LicenseeFeeAndRebateDiscount m ON t.PartyId = m.PartyId AND t.Product3rdId = m.ProductId 	AND m.LicensingFeeTypeId = 0	
 				LEFT JOIN	FinalHouseIncome42_32_66_36 f ON t.PartyId = f.PartyId AND t.Product3rdId = f.Product3rdId AND t.AliasProductId = f.AliasProductId
-				WHERE m.LicensingFeeTypeId = 0	
+			
 		)
 		INSERT INTO #tmpResult (PartyId, Product3rdId, AliasProductId, HouseTurnover, LicenseeWL, HouseIncome, AComm)
 		SELECT r.PartyId, r.Product3rdId, r.AliasProductId, r.HouseTurnover, r.LicenseeWL, r.HouseIncome, r.AComm
 		FROM CTE_Result r
-			INNER JOIN (SELECT DISTINCT PartyId, Product3rdId FROM #PartyChargeInfo) p ON p.PartyId = r.PartyId AND p.Product3rdId = r.Product3rdId
+			INNER JOIN (SELECT DISTINCT PartyId, Product3rdId FROM #PartyChargeInfo) p ON p.PartyId = r.PartyId AND p.Product3rdId = CASE WHEN r.Product3rdId IN (SELECT vs.ProductID FROM @VSProductList vs) THEN 5 ELSE r.Product3rdId END
 		UNION 
 		SELECT r.PartyId, r.Product3rdId, r.AliasProductId, r.HouseTurnover, r.LicenseeWL, r.HouseIncome, r.AComm
 		FROM CTE_Result r
