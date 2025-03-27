@@ -27,6 +27,7 @@ AS
 		20240102@Cherry: Integrate PLAYSTAR (#208024)
 		20250218@Cherry: Integrate ASKMESLOT (#216978)
 		20250317@Cherry: Integrate Funky Games (#218182)
+		20250327@Cherry: Integrate HOTDOG (#220074)
 
 	Param's Explanation:
 		@FromGMT8Time: start of time range in GMT+8 with format 2021-05-20 19:00:00
@@ -149,6 +150,7 @@ BEGIN
 			,(100, 'Playtech', 300, 5000)
 			,(91, 'PLAYSTAR', 300, 5000)
 			,(103, 'ASKMESLOT', 300, 5000)
+			,(95, 'HOTDOG', 300, 5000)
 		) AS tmp (ProductID, ProductName, ThresholdPCT, MinWin)
 
 	DECLARE @isTest BIT = 0
