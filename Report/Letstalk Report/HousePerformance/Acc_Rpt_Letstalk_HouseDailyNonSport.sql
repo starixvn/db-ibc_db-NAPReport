@@ -26,6 +26,7 @@ AS
 		20240102@Cherry: Integrate PLAYSTAR (#208029)
 		20250218@Cherry: Integrate ASKMESLOT (#216979)
 		20250318@Cherry: Integrate Funky Games (#220052) 
+		20250327@Cherry: Integrate HOTDOG (#219713)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -227,6 +228,7 @@ BEGIN
 			,(91,'RNG','PLAYS')
 			,(103,'RNG','ASKME')
 			,(104,'RNG','FunkyG') --Funky Games
+			,(95,'RNG','HOTDOG')
 			----------LOT/KENO----------
 			,(40,'LOT/KENO','TabG') --Table Game
 			,(8,'LOT/KENO','Mkeno') --RNG Keno
