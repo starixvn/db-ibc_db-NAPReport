@@ -29,18 +29,10 @@ AS
 		   TimeSetting VARCHAR(10)
 						 );
 	   DECLARE 
-		   @WLDateStart DATE
-		 , @WLDateEnd   DATE;
-	   SELECT 
-			@WLDateStart = CAST(@StartDate AS DATE), 
-			@WLDateEnd = CAST(@EndDate AS DATE);
-
-	   CREATE TABLE #tblProductBetting
-				 (
-		   ProductId INT, 
-		   Transdate DATETIME
-				 );
-	   CREATE INDEX IX_tblProductBetting_Transdate ON #tblProductBetting(Transdate);
+		   @tblProductBetting TABLE
+							   (
+		   ProductId INT
+							   );
 
 	   INSERT INTO @tblProduct
 		 (
@@ -75,51 +67,38 @@ AS
 			ORDER BY 
 				    p.CasinoType DESC;
 
-	   INSERT INTO #tblProductBetting
+	   INSERT INTO @tblProductBetting
 		 (
-			ProductId, 
-			Transdate
+			ProductId
 		 )
 			SELECT DISTINCT 
-				  sb.ProductID, 
-				  b.transdate
+				  sb.ProductID
 			FROM SportBettypeMatrix sb WITH(NOLOCK)
 				INNER JOIN bettrans b WITH(NOLOCK) ON sb.BetType = b.bettype
 				INNER JOIN @tblProduct p ON p.ProductId = sb.ProductID
-			WHERE b.winlostdate BETWEEN @WLDateStart AND @WLDateEnd
+			WHERE b.transdate BETWEEN @StartDate AND @EndDate
 			UNION ALL
 			SELECT DISTINCT 
-				  sb.ProductID, 
-				  b.transdate
+				  sb.ProductID
 			FROM SportBettypeMatrix sb WITH(NOLOCK)
 				INNER JOIN bettransLC b WITH(NOLOCK) ON sb.BetType = b.gameID
 				INNER JOIN @tblProduct p ON p.ProductId = sb.ProductID
-			WHERE b.winlostdate BETWEEN @WLDateStart AND @WLDateEnd
+			WHERE b.transdate BETWEEN @StartDate AND @EndDate
 			UNION ALL
 			SELECT DISTINCT 
-				  sb.ProductID, 
-				  b.transdate
+				  sb.ProductID
 			FROM SportBettypeMatrix sb WITH(NOLOCK)
 				INNER JOIN bettransRNG b WITH(NOLOCK) ON sb.BetType = b.gameID
 				INNER JOIN @tblProduct p ON p.ProductId = sb.ProductID
-			WHERE b.winlostdate BETWEEN @WLDateStart AND @WLDateEnd;
-
-
+			WHERE b.transdate BETWEEN @StartDate AND @EndDate;
 
 	   SELECT DISTINCT 
 			p1.ProductName, 
 			p1.TimeSetting
 	   FROM @tblProduct p1
-		   LEFT JOIN(
-		   SELECT 
-				b.ProductId
-		   FROM #tblProductBetting b WITH(NOLOCK)
-		   WHERE b.Transdate BETWEEN @StartDate AND @EndDate
-		   GROUP BY 
-				  b.ProductId) p2 ON p1.ProductId = p2.ProductId
+		   LEFT JOIN @tblProductBetting p2 ON p1.ProductId = p2.ProductId
 	   WHERE ISNULL(p2.ProductId, 0) = 0
 	   ORDER BY 
 			  p1.TimeSetting;
-
-	   DROP TABLE #tblProductBetting;
     END;
+GO
