@@ -27,6 +27,7 @@ AS
 		20250218@Cherry: Integrate ASKMESLOT (#216979)
 		20250318@Cherry: Integrate Funky Games (#220052) 
 		20250327@Cherry: Integrate HOTDOG (#219713)
+		20250404@Cherry: Integrate Microgaming Live (#222626)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -194,6 +195,7 @@ BEGIN
 			,(80,'LC','WE LC')
 			,(96,'LC','ONCasino')
 			,(90,'LC','GPI LC')
+			,(107,'LC','MG LC')
 			----------RNG----------
 			,(42,'RNG','SABAG') --SABA.games
 			,(6,'RNG','SabaC') --Saba Casino
