@@ -57,9 +57,27 @@ AS
 BEGIN
     SET NOCOUNT ON
 
-    DECLARE @LastSequenceID BIGINT
-    SELECT @LastSequenceID = CONVERT(BIGINT, VValue) 
+    DECLARE @SequenceID BIGINT
+    SELECT @SequenceID = CONVERT(BIGINT, VValue) 
     FROM bodb02.dbo.SystemSettings WITH (NOLOCK) WHERE VName = 'DuplTicketLastID'
+
+    DECLARE @TransID BIGINT
+    SELECT @TransID = MAX(transid)
+    FROM bodb02.dbo.bettrans WITH (NOLOCK)
+    WHERE sequenceid = @SequenceID
+
+    -- Go back few seconds and start seek from there
+    -- To avoid the case that the last ticket scanned from last cutoff is a duplicate
+    -- TransID number itself has timestamp information
+    DECLARE @BackwardSeconds INT = 3
+    DECLARE @BackwardTransID BIGINT
+    SELECT @BackwardTransID = @TransID - (CAST(@BackwardSeconds AS BIGINT) * 4294967296)
+
+    -- Get the sequence id back
+    DECLARE @BackwardSequenceID BIGINT
+    SELECT @BackwardSequenceID = sequenceid
+    FROM bodb02.dbo.bettrans WITH (NOLOCK)
+    WHERE transid = @BackwardTransID
 
     -- Licensee sites (WITHOUT single wallet)
     CREATE TABLE #tmpLicenseeSite(SiteID INT)
@@ -108,8 +126,8 @@ BEGIN
     DECLARE @NewLastSequenceID BIGINT;
     SELECT @NewLastSequenceID = MAX(b.sequenceid)
     FROM bodb02.dbo.bettrans b WITH (NOLOCK)
-    WHERE b.sequenceid > @LastSequenceID;
-    SET @NewLastSequenceID = ISNULL(@NewLastSequenceID, @LastSequenceID); -- Handle no new rows case
+    WHERE b.sequenceid > @SequenceID;
+    SET @NewLastSequenceID = ISNULL(@NewLastSequenceID, @BackwardSequenceID); -- Handle no new rows case
 
     -- SET STATISTICS TIME ON
     -- SET STATISTICS IO ON
@@ -142,7 +160,7 @@ BEGIN
             AND b.recommend NOT IN (5707545, 52466)
             AND b.bettype IN (SELECT bettype FROM @bettype)
             AND b.currency NOT IN (20, 27, 28)
-            AND b.sequenceid > @LastSequenceID
+            AND b.sequenceid BETWEEN @BackwardSequenceID AND @NewLastSequenceID
     )
     , LagLeadCalculations AS (
         SELECT
@@ -198,7 +216,7 @@ BEGIN
     FROM #tmpDupGroup;
 
     -- Update the watermark if new data was processed
-    IF @NewLastSequenceID > @LastSequenceID
+    IF @NewLastSequenceID > @BackwardSequenceID
     BEGIN
         UPDATE bodb02.dbo.SystemSettings WITH (ROWLOCK)
         SET VValue = @NewLastSequenceID
