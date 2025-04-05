@@ -38,8 +38,8 @@ SET Code=e1.Code,
 	RepUpdateTime= dbo.f_GetDateTime2(),
 	BRL=e1.BRL,
 	PKR=e1.PKR
-FROM CustDB.dbo.ExchangeDailyOanda AS e
-	INNER JOIN #tmpExchangeDailyOanda AS e1 ON e.ExchangeDate = '2025-04-06' AND e.[ExchangeId] = e1.[ExchangeId] AND e.[Code] = e1.[Code]
+FROM CustDB.dbo.ExchangeDailyOanda AS e WITH (ROWLOCK,UPDLOCK)
+	INNER JOIN #tmpExchangeDailyOanda AS e1 ON e.ExchangeDate = '2025-04-06' AND e.[ExchangeId] = e1.[ExchangeId]
 
 INSERT INTO CustDB.dbo.ExchangeDailyOanda (
 	[ExchangeDate]
@@ -102,7 +102,7 @@ SELECT '2025-04-06' AS [ExchangeDate]
   ,e1.[BRL]
   ,e1.[PKR]
 FROM #tmpExchangeDailyOanda AS e1
-	LEFT JOIN CustDB.dbo.ExchangeDailyOanda AS e ON e.ExchangeDate = '2025-04-06' AND e.[ExchangeId] = e1.[ExchangeId] AND e.[Code] = e1.[Code]
+	LEFT JOIN CustDB.dbo.ExchangeDailyOanda AS e WITH (NOLOCK) ON e.ExchangeDate = '2025-04-06' AND e.[ExchangeId] = e1.[ExchangeId]
 WHERE e.[ExchangeId] IS NULL
 
 -----------------Insert 2025-04-07-----------------------------
