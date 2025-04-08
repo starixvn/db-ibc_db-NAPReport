@@ -1,4 +1,11 @@
 /*<info serverAlias="DBCUST-CustDB"></info>*/
+
+/*
+	Created by Roy.Du@20250405
+	Run at DBCUST@CustDB
+	Task: Missing OANDA exchange rates - Manual insert data for [April 6–8] from [April 5] (#223200)
+*/
+
 USE CustDB
 GO
 
