@@ -23,6 +23,7 @@ AS
 		- 20210507@Jaden.Tang: Adjust code to prevent reading dupplicated in bettrans & bettrans14 during move bet process (#154649)
 		- 20211118@Cherry: Split Transfer table (#164378)
 		- 20230119@Roy: NAP Report - BU 247 (#175206)
+		- 20250409@Jaden: Update Currency from tinyint to smallint (#222187)
 	Param's Explanation:
 
 */
@@ -46,7 +47,7 @@ BEGIN
 		username nvarchar(50),
 		phone nvarchar(50), 
 		Role nvarchar(10),
-		currency tinyint, 
+		currency smallint, 
 		actualrate float,
 		checkerid int,
 		checkername nvarchar(50)
@@ -66,7 +67,7 @@ BEGIN
 		Balance money, 
 		username nvarchar(50), 
 		Role nvarchar(10), 
-		currency tinyint, 
+		currency smallint, 
 		actualrate float
 	)
 	

@@ -15,6 +15,7 @@ AS
 	
 	Revision:		
 		20240426@Jaden: Initial (#204276)
+		20250409@Jaden: Update Currency from tinyint to smallint (#222187)
 
 	Param's Explanation:
 
@@ -263,7 +264,7 @@ BEGIN
 
     DROP TABLE #tmp;
 
-    CREATE TABLE #cust (custid INT, currency TINYINT, username VARCHAR(30))
+    CREATE TABLE #cust (custid INT, currency SMALLINT, username VARCHAR(30))
 
     INSERT INTO #cust (custid, currency, username)
     SELECT custid, currency, username FROM vw_Customer WITH (NOLOCK) WHERE roleid = 4
