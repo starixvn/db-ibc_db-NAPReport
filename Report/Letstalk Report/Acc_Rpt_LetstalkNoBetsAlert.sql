@@ -67,6 +67,11 @@ AS
 			ORDER BY 
 				    p.CasinoType DESC;
 
+	   DELETE p
+	   FROM @tblProduct p
+	   WHERE 
+		    p.ProductId = 64;
+
 	   INSERT INTO @tblProductBetting
 		 (
 			ProductId
@@ -77,6 +82,7 @@ AS
 				INNER JOIN bettrans b WITH(NOLOCK) ON sb.BetType = b.bettype
 				INNER JOIN @tblProduct p ON p.ProductId = sb.ProductID
 			WHERE b.transdate BETWEEN @StartDate AND @EndDate
+				 AND b.currency <> 20
 			UNION ALL
 			SELECT DISTINCT 
 				  sb.ProductID
@@ -84,13 +90,15 @@ AS
 				INNER JOIN bettransLC b WITH(NOLOCK) ON sb.BetType = b.gameID
 				INNER JOIN @tblProduct p ON p.ProductId = sb.ProductID
 			WHERE b.transdate BETWEEN @StartDate AND @EndDate
+				 AND b.currency <> 20
 			UNION ALL
 			SELECT DISTINCT 
 				  sb.ProductID
 			FROM SportBettypeMatrix sb WITH(NOLOCK)
 				INNER JOIN bettransRNG b WITH(NOLOCK) ON sb.BetType = b.gameID
 				INNER JOIN @tblProduct p ON p.ProductId = sb.ProductID
-			WHERE b.transdate BETWEEN @StartDate AND @EndDate;
+			WHERE b.transdate BETWEEN @StartDate AND @EndDate
+				 AND b.currency <> 20;
 
 	   SELECT DISTINCT 
 			p1.ProductName, 
