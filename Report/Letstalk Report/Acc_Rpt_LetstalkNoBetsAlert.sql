@@ -23,9 +23,7 @@ AS
 	   DECLARE 
 		   @tblProduct TABLE
 						 (
-		   CasinoType  INT, 
 		   ProductId   INT, 
-		   ProductName VARCHAR(50), 
 		   TimeSetting VARCHAR(10)
 						 );
 	   DECLARE 
@@ -36,41 +34,218 @@ AS
 
 	   INSERT INTO @tblProduct
 		 (
-			CasinoType, 
 			ProductId, 
-			ProductName, 
 			TimeSetting
 		 )
 			SELECT 
-				  p.CasinoType, 
-				  p.ProductID, 
-				  p.ProductName, 
+				  5 ProductID, 
 				  '10 Mins' TimeSetting
-			FROM Products p WITH(NOLOCK)
-			WHERE p.ProductName IN('AE Sexy', 'Allbet', 'Lottery', 'MaxGame', 'ON Casino', 'PG Soft', 'PP', 'PP Live Casino', 'RNG Keno', 'SA Gaming', 'SABA.games', 'Table Game', 'Vgaming', 'Virtual Sports', 'Virtual Sports 2', 'WE Live Casino')
 			UNION ALL
 			SELECT 
-				  p.CasinoType, 
-				  p.ProductID, 
-				  p.ProductName, 
+				  8 ProductID, 
+				  '10 Mins' TimeSetting
+			UNION ALL
+			SELECT 
+				  21 ProductID, 
+				  '10 Mins' TimeSetting
+			UNION ALL
+			SELECT 
+				  27 ProductID, 
+				  '10 Mins' TimeSetting
+			UNION ALL
+			SELECT 
+				  28 ProductID, 
+				  '10 Mins' TimeSetting
+			UNION ALL
+			SELECT 
+				  32 ProductID, 
+				  '10 Mins' TimeSetting
+			UNION ALL
+			SELECT 
+				  39 ProductID, 
+				  '10 Mins' TimeSetting
+			UNION ALL
+			SELECT 
+				  40 ProductID, 
+				  '10 Mins' TimeSetting
+			UNION ALL
+			SELECT 
+				  42 ProductID, 
+				  '10 Mins' TimeSetting
+			UNION ALL
+			SELECT 
+				  45 ProductID, 
+				  '10 Mins' TimeSetting
+			UNION ALL
+			SELECT 
+				  55 ProductID, 
+				  '10 Mins' TimeSetting
+			UNION ALL
+			SELECT 
+				  60 ProductID, 
+				  '10 Mins' TimeSetting
+			UNION ALL
+			SELECT 
+				  65 ProductID, 
+				  '10 Mins' TimeSetting
+			UNION ALL
+			SELECT 
+				  66 ProductID, 
+				  '10 Mins' TimeSetting
+			UNION ALL
+			SELECT 
+				  80 ProductID, 
+				  '10 Mins' TimeSetting
+			UNION ALL
+			SELECT 
+				  96 ProductID, 
+				  '10 Mins' TimeSetting
+			UNION ALL
+			SELECT 
+				  6 ProductID, 
 				  '30 Mins' TimeSetting
-			FROM Products p WITH(NOLOCK)
-			WHERE p.ProductName IN('Arcadia Gaming', 'ASKMESLOT', 'BG', 'FA CHAI', 'FastSpin', 'GPI', 'GPI Live Casino', 'Habanero', 'IBCBet Live Casino', 'Jili', 'Macau Games', 'MG-RNG', 'Nextspin', 'PLAYSTAR', 'Playtech', 'Saba Casino', 'SG', 'YeeBet')
 			UNION ALL
 			SELECT 
-				  p.CasinoType, 
-				  p.ProductID, 
-				  p.ProductName, 
+				  22 ProductID, 
+				  '30 Mins' TimeSetting
+			UNION ALL
+			SELECT 
+				  34 ProductID, 
+				  '30 Mins' TimeSetting
+			UNION ALL
+			SELECT 
+				  36 ProductID, 
+				  '30 Mins' TimeSetting
+			UNION ALL
+			SELECT 
+				  46 ProductID, 
+				  '30 Mins' TimeSetting
+			UNION ALL
+			SELECT 
+				  48 ProductID, 
+				  '30 Mins' TimeSetting
+			UNION ALL
+			SELECT 
+				  57 ProductID, 
+				  '30 Mins' TimeSetting
+			UNION ALL
+			SELECT 
+				  61 ProductID, 
+				  '30 Mins' TimeSetting
+			UNION ALL
+			SELECT 
+				  73 ProductID, 
+				  '30 Mins' TimeSetting
+			UNION ALL
+			SELECT 
+				  75 ProductID, 
+				  '30 Mins' TimeSetting
+			UNION ALL
+			SELECT 
+				  76 ProductID, 
+				  '30 Mins' TimeSetting
+			UNION ALL
+			SELECT 
+				  85 ProductID, 
+				  '30 Mins' TimeSetting
+			UNION ALL
+			SELECT 
+				  87 ProductID, 
+				  '30 Mins' TimeSetting
+			UNION ALL
+			SELECT 
+				  89 ProductID, 
+				  '30 Mins' TimeSetting
+			UNION ALL
+			SELECT 
+				  90 ProductID, 
+				  '30 Mins' TimeSetting
+			UNION ALL
+			SELECT 
+				  91 ProductID, 
+				  '30 Mins' TimeSetting
+			UNION ALL
+			SELECT 
+				  100 ProductID, 
+				  '30 Mins' TimeSetting
+			UNION ALL
+			SELECT 
+				  103 ProductID, 
+				  '30 Mins' TimeSetting
+			UNION ALL
+			SELECT 
+				  3 ProductID, 
 				  '60 Mins' TimeSetting
-			FROM Products p WITH(NOLOCK)
-			WHERE p.ProductName IN('BBIN', 'AdvantPlay', 'CG', 'FGG', 'Funky Games', 'ION', 'Joker', 'Number Game', 'Live22', 'SABA xD', 'SEAL Entertainment', 'Sports Lottery', 'UU SLOTS', 'Virtual Games', 'Virtual Sports 3', 'Virtual Sports 4', 'Virtual Sports 5', 'WM')
-			ORDER BY 
-				    p.CasinoType DESC;
+			UNION ALL
+			SELECT 
+				  38 ProductID, 
+				  '60 Mins' TimeSetting
+			UNION ALL
+			SELECT 
+				  47 ProductID, 
+				  '60 Mins' TimeSetting
+			UNION ALL
+			SELECT 
+				  51 ProductID, 
+				  '60 Mins' TimeSetting
+			UNION ALL
+			SELECT 
+				  52 ProductID, 
+				  '60 Mins' TimeSetting
+			UNION ALL
+			SELECT 
+				  56 ProductID, 
+				  '60 Mins' TimeSetting
+			UNION ALL
+			SELECT 
+				  62 ProductID, 
+				  '60 Mins' TimeSetting
+			UNION ALL
+			SELECT 
+				  63 ProductID, 
+				  '60 Mins' TimeSetting
+			UNION ALL
+			SELECT 
+				  67 ProductID, 
+				  '60 Mins' TimeSetting
+			UNION ALL
+			SELECT 
+				  70 ProductID, 
+				  '60 Mins' TimeSetting
+			UNION ALL
+			SELECT 
+				  72 ProductID, 
+				  '60 Mins' TimeSetting
+			UNION ALL
+			SELECT 
+				  77 ProductID, 
+				  '60 Mins' TimeSetting
+			UNION ALL
+			SELECT 
+				  78 ProductID, 
+				  '60 Mins' TimeSetting
+			UNION ALL
+			SELECT 
+				  79 ProductID, 
+				  '60 Mins' TimeSetting
+			UNION ALL
+			SELECT 
+				  83 ProductID, 
+				  '60 Mins' TimeSetting
+			UNION ALL
+			SELECT 
+				  86 ProductID, 
+				  '60 Mins' TimeSetting
+			UNION ALL
+			SELECT 
+				  88 ProductID, 
+				  '60 Mins' TimeSetting
+			UNION ALL
+			SELECT 
+				  104 ProductID, 
+				  '60 Mins' TimeSetting;
 
-	   DELETE p
-	   FROM @tblProduct p
-	   WHERE 
-		    p.ProductId = 64;
+
 
 	   INSERT INTO @tblProductBetting
 		 (
@@ -101,9 +276,10 @@ AS
 				 AND b.currency <> 20;
 
 	   SELECT DISTINCT 
-			p1.ProductName, 
+			p.ProductName, 
 			p1.TimeSetting
 	   FROM @tblProduct p1
+		   INNER JOIN Products p ON p1.ProductId = p.ProductID
 		   LEFT JOIN @tblProductBetting p2 ON p1.ProductId = p2.ProductId
 	   WHERE ISNULL(p2.ProductId, 0) = 0
 	   ORDER BY 
