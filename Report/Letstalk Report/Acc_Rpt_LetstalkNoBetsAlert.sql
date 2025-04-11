@@ -7,7 +7,7 @@
 	Database:	DBACC.bodb02 
 	
 	Revisions:
-		- 20250402@Robert: #222345 - Letstalk - No Bets Alert [ReportID 48]
+		- 20250402@Robert: #222345 - Letstalk - No Bets Alert [ReportID 48]		
 		
 	Parameter's Explaination:
 		- @Example:			
@@ -279,7 +279,7 @@ AS
 			p.ProductName, 
 			p1.TimeSetting
 	   FROM @tblProduct p1
-		   INNER JOIN Products p ON p1.ProductId = p.ProductID
+		   INNER JOIN Products p WITH(NOLOCK) ON p1.ProductId = p.ProductID
 		   LEFT JOIN @tblProductBetting p2 ON p1.ProductId = p2.ProductId
 	   WHERE ISNULL(p2.ProductId, 0) = 0
 	   ORDER BY 
