@@ -34,6 +34,7 @@ AS
 		20240102@Cherry: Integrate PLAYSTAR (#208029)
 		20250218@Cherry: Integrate ASKMESLOT (#216979)
 		20250318@Cherry: Integrate Funky Games (#220052) 
+		20250404@Cherry: Integrate Microgaming Live (#222626)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -258,6 +259,7 @@ BEGIN
 			WHEN ProductName = 'SABA Keno' THEN 'SABAK'
 			WHEN ProductName = 'PLAYSTAR' THEN 'PLAYS'
 			WHEN ProductName = 'ASKMESLOT' THEN 'ASKME'
+			WHEN ProductName = 'Microgaming Live' THEN 'MG LC'
 			ELSE ProductName END)
 	
 	SELECT @EX3rdName = rd.ProductName
