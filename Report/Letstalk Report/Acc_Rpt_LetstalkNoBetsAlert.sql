@@ -20,6 +20,12 @@ CREATE PROC [dbo].[Acc_Rpt_LetstalkNoBetsAlert]
 	@EndDate   DATETIME
 AS
     BEGIN
+
+	   DECLARE 
+		   @WLDate DATE;
+	   SELECT 
+			@WLDate = CAST(@StartDate AS DATE);
+
 	   DECLARE 
 		   @tblProduct TABLE
 						 (
@@ -257,6 +263,7 @@ AS
 				INNER JOIN bettrans b WITH(NOLOCK) ON sb.BetType = b.bettype
 				INNER JOIN @tblProduct p ON p.ProductId = sb.ProductID
 			WHERE b.transdate BETWEEN @StartDate AND @EndDate
+				 AND b.winlostdate = @WLDate
 				 AND b.currency <> 20
 			UNION ALL
 			SELECT DISTINCT 
@@ -265,6 +272,7 @@ AS
 				INNER JOIN bettransLC b WITH(NOLOCK) ON sb.BetType = b.gameID
 				INNER JOIN @tblProduct p ON p.ProductId = sb.ProductID
 			WHERE b.transdate BETWEEN @StartDate AND @EndDate
+				 AND b.winlostdate = @WLDate
 				 AND b.currency <> 20
 			UNION ALL
 			SELECT DISTINCT 
@@ -273,6 +281,7 @@ AS
 				INNER JOIN bettransRNG b WITH(NOLOCK) ON sb.BetType = b.gameID
 				INNER JOIN @tblProduct p ON p.ProductId = sb.ProductID
 			WHERE b.transdate BETWEEN @StartDate AND @EndDate
+				 AND b.winlostdate = @WLDate
 				 AND b.currency <> 20;
 
 	   SELECT DISTINCT 
