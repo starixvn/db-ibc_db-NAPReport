@@ -264,7 +264,6 @@ AS
 				INNER JOIN @tblProduct p ON p.ProductId = sb.ProductID
 			WHERE b.transdate BETWEEN @StartDate AND @EndDate
 				 AND b.winlostdate = @WLDate
-				 AND b.currency <> 20
 			UNION ALL
 			SELECT DISTINCT 
 				  sb.ProductID
@@ -273,7 +272,6 @@ AS
 				INNER JOIN @tblProduct p ON p.ProductId = sb.ProductID
 			WHERE b.transdate BETWEEN @StartDate AND @EndDate
 				 AND b.winlostdate = @WLDate
-				 AND b.currency <> 20
 			UNION ALL
 			SELECT DISTINCT 
 				  sb.ProductID
@@ -281,8 +279,7 @@ AS
 				INNER JOIN bettransRNG b WITH(NOLOCK) ON sb.BetType = b.gameID
 				INNER JOIN @tblProduct p ON p.ProductId = sb.ProductID
 			WHERE b.transdate BETWEEN @StartDate AND @EndDate
-				 AND b.winlostdate = @WLDate
-				 AND b.currency <> 20;
+				 AND b.winlostdate = @WLDate;
 
 	   SELECT DISTINCT 
 			p.ProductName, 
