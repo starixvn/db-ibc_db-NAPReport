@@ -29,6 +29,7 @@ AS
 		20250317@Cherry: Integrate Funky Games (#218182)
 		20250327@Cherry: Integrate HOTDOG (#220074)
 		20250404@Cherry: Integrate Microgaming Live (#222626)
+		20250411@Cherry: Integrate VS7 (#218951)
 
 	Param's Explanation:
 		@FromGMT8Time: start of time range in GMT+8 with format 2021-05-20 19:00:00
@@ -128,6 +129,7 @@ BEGIN
 			,(77, 'Virtual Sports 3', 108, 5000)
 			,(83, 'Virtual Sports 4', 108, 5000)
 			,(88, 'Virtual Sports 5', 108, 5000)
+			,(106, 'Virtual Sports 7', 108, 5000)
 			,(69, 'Bitcoin', 108, 5000)
 			
 			-------------Slot-------------
