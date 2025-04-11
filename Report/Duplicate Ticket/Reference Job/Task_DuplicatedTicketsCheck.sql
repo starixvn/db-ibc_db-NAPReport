@@ -3,7 +3,7 @@ use bodb_report
 GO
 
 ALTER PROCEDURE [dbo].[Task_DuplicatedTicketsCheck]
-    @TransDiffMillisec INT = 1000
+    @TransDiffInSeconds INT = 1
     ,@Site NVARCHAR(MAX) = NULL
 AS
 /*
@@ -189,8 +189,8 @@ BEGIN
     FROM LagLeadCalculations llc
     WHERE llc.GroupCount > 1 -- Must belong to a group with more than one member
       AND (
-            (llc.PrevTransDate IS NOT NULL AND DATEDIFF(MILLISECOND, llc.PrevTransDate, llc.transdate) <= @TransDiffMillisec)
-         OR (llc.NextTransDate IS NOT NULL AND DATEDIFF(MILLISECOND, llc.transdate, llc.NextTransDate) <= @TransDiffMillisec)
+            (llc.PrevTransDate IS NOT NULL AND DATEDIFF(SECOND, llc.PrevTransDate, llc.transdate) <= @TransDiffInSeconds)
+         OR (llc.NextTransDate IS NOT NULL AND DATEDIFF(SECOND, llc.transdate, llc.NextTransDate) <= @TransDiffInSeconds)
       )
       AND NOT EXISTS (SELECT 1 FROM dbo.DuplicatedTicket d WITH (NOLOCK) WHERE d.TransID = llc.transid)
     OPTION (RECOMPILE); -- add recompile reduces memory grant
