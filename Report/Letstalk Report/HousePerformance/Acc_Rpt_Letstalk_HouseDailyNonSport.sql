@@ -28,6 +28,7 @@ AS
 		20250318@Cherry: Integrate Funky Games (#220052) 
 		20250327@Cherry: Integrate HOTDOG (#219713)
 		20250404@Cherry: Integrate Microgaming Live (#222626)
+		20250411@Cherry: Integrate VS7 (#219279)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -249,6 +250,7 @@ BEGIN
 			,(77,'OTHER NS','VS3') --Virtual Sports
 			,(83,'OTHER NS','VS4')
 			,(88,'OTHER NS','VS5')
+			,(106,'OTHER NS','VS7')
 		) h (ProductID, ProductGroup, ProductShortName)
 	)
 	INSERT INTO #tmpProductSetting (
