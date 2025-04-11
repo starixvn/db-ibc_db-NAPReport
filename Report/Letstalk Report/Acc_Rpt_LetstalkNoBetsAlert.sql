@@ -22,11 +22,6 @@ AS
     BEGIN
 
 	   DECLARE 
-		   @WLDate DATE;
-	   SELECT 
-			@WLDate = CAST(@StartDate AS DATE);
-
-	   DECLARE 
 		   @tblProduct TABLE
 						 (
 		   ProductId   INT, 
@@ -263,7 +258,6 @@ AS
 				INNER JOIN bettrans b WITH(NOLOCK) ON sb.BetType = b.bettype
 				INNER JOIN @tblProduct p ON p.ProductId = sb.ProductID
 			WHERE b.transdate BETWEEN @StartDate AND @EndDate
-				 AND b.winlostdate = @WLDate
 			UNION ALL
 			SELECT DISTINCT 
 				  sb.ProductID
@@ -271,15 +265,13 @@ AS
 				INNER JOIN bettransLC b WITH(NOLOCK) ON sb.BetType = b.gameID
 				INNER JOIN @tblProduct p ON p.ProductId = sb.ProductID
 			WHERE b.transdate BETWEEN @StartDate AND @EndDate
-				 AND b.winlostdate = @WLDate
 			UNION ALL
 			SELECT DISTINCT 
 				  sb.ProductID
 			FROM SportBettypeMatrix sb WITH(NOLOCK)
 				INNER JOIN bettransRNG b WITH(NOLOCK) ON sb.BetType = b.gameID
 				INNER JOIN @tblProduct p ON p.ProductId = sb.ProductID
-			WHERE b.transdate BETWEEN @StartDate AND @EndDate
-				 AND b.winlostdate = @WLDate;
+			WHERE b.transdate BETWEEN @StartDate AND @EndDate;
 
 	   SELECT DISTINCT 
 			p.ProductName, 
