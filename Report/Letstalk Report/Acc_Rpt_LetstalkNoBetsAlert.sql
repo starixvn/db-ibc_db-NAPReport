@@ -7,7 +7,7 @@
 	Database:	DBACC.bodb02 
 	
 	Revisions:
-		- 20250402@Robert: #222345 - Letstalk - No Bets Alert [ReportID 48]
+		- 20250402@Robert: #222345 - Letstalk - No Bets Alert [ReportID 48]		
 		
 	Parameter's Explaination:
 		- @Example:			
@@ -20,6 +20,7 @@ CREATE PROC [dbo].[Acc_Rpt_LetstalkNoBetsAlert]
 	@EndDate   DATETIME
 AS
     BEGIN
+
 	   DECLARE 
 		   @tblProduct TABLE
 						 (
@@ -257,7 +258,6 @@ AS
 				INNER JOIN bettrans b WITH(NOLOCK) ON sb.BetType = b.bettype
 				INNER JOIN @tblProduct p ON p.ProductId = sb.ProductID
 			WHERE b.transdate BETWEEN @StartDate AND @EndDate
-				 AND b.currency <> 20
 			UNION ALL
 			SELECT DISTINCT 
 				  sb.ProductID
@@ -265,21 +265,19 @@ AS
 				INNER JOIN bettransLC b WITH(NOLOCK) ON sb.BetType = b.gameID
 				INNER JOIN @tblProduct p ON p.ProductId = sb.ProductID
 			WHERE b.transdate BETWEEN @StartDate AND @EndDate
-				 AND b.currency <> 20
 			UNION ALL
 			SELECT DISTINCT 
 				  sb.ProductID
 			FROM SportBettypeMatrix sb WITH(NOLOCK)
 				INNER JOIN bettransRNG b WITH(NOLOCK) ON sb.BetType = b.gameID
 				INNER JOIN @tblProduct p ON p.ProductId = sb.ProductID
-			WHERE b.transdate BETWEEN @StartDate AND @EndDate
-				 AND b.currency <> 20;
+			WHERE b.transdate BETWEEN @StartDate AND @EndDate;
 
 	   SELECT DISTINCT 
 			p.ProductName, 
 			p1.TimeSetting
 	   FROM @tblProduct p1
-		   INNER JOIN Products p ON p1.ProductId = p.ProductID
+		   INNER JOIN Products p WITH(NOLOCK) ON p1.ProductId = p.ProductID
 		   LEFT JOIN @tblProductBetting p2 ON p1.ProductId = p2.ProductId
 	   WHERE ISNULL(p2.ProductId, 0) = 0
 	   ORDER BY 
