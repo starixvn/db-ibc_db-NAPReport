@@ -64,7 +64,7 @@ BEGIN
     DECLARE @TransID BIGINT
     SELECT @TransID = MAX(transid)
     FROM bodb02.dbo.bettrans WITH (NOLOCK)
-    WHERE sequenceid = @SequenceID
+    WHERE sequenceid <= @SequenceID
 
     -- Go back few seconds and start seek from there
     -- To avoid the case that the last ticket scanned from last cutoff is a duplicate
