@@ -212,18 +212,17 @@ BEGIN
     WHERE s.isLicensee = 1
       AND s.siteid NOT IN (SELECT SiteID FROM #tmpLicenseeSite);
 
-    -- comment out for testing
-    -- INSERT INTO dbo.DuplicatedTicket (transid, transdate, winlostdate)
-    -- SELECT transid, transdate, winlostdate
-    -- FROM #tmpDupGroup;
+    INSERT INTO dbo.DuplicatedTicket (transid, transdate, winlostdate)
+    SELECT transid, transdate, winlostdate
+    FROM #tmpDupGroup;
 
     -- Update the watermark if new data was processed
-    -- IF @NewLastSequenceID > @BackwardSequenceID
-    -- BEGIN
-    --     UPDATE bodb02.dbo.SystemSettings WITH (ROWLOCK)
-    --     SET VValue = @NewLastSequenceID
-    --     WHERE VName = 'DuplTicketLastID';
-    -- END
+    IF @NewLastSequenceID > @BackwardSequenceID
+    BEGIN
+        UPDATE bodb02.dbo.SystemSettings WITH (ROWLOCK)
+        SET VValue = @NewLastSequenceID
+        WHERE VName = 'DuplTicketLastID';
+    END
 
     DROP TABLE #tmpLicenseeSite
     DROP TABLE #tmpDupGroup
