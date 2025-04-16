@@ -69,13 +69,16 @@ BEGIN
     -- Go back few seconds and start seek from there
     -- To avoid the case that the last ticket scanned from last cutoff is a duplicate
     -- TransID number itself has timestamp information
-    DECLARE @BackwardSeconds INT = 3
-
-    -- Get the sequence id back
-    DECLARE @BackwardSequenceID BIGINT
-    SELECT @BackwardSequenceID = MIN(sequenceid)
+    DECLARE @BackwardSeconds BIGINT = 3
+    DECLARE @BackwardTransID BIGINT    
+    SELECT @BackwardTransID = MIN(TransID)
     FROM bodb02.dbo.bettrans WITH (NOLOCK)
-    WHERE transid >= @TransID - (CAST(@BackwardSeconds AS BIGINT) * 4294967296)
+    WHERE transid >= @TransID - (@BackwardSeconds * 4294967296)
+    
+    DECLARE @BackwardSequenceID BIGINT
+    SELECT @BackwardSequenceID = SequenceID
+    FROM bodb02.dbo.bettrans WITH (NOLOCK)
+    WHERE transid = @BackwardTransID
 
     -- Licensee sites (WITHOUT single wallet)
     CREATE TABLE #tmpLicenseeSite(SiteID INT)
