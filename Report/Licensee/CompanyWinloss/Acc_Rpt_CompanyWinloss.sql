@@ -1,4 +1,4 @@
-/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet,bodbLicenseeNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBEXT-bodb02" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
 
 USE [bodb02]
 GO
@@ -7,7 +7,7 @@ ALTER PROCEDURE dbo.Acc_Rpt_CompanyWinloss
 	  @FromDate SMALLDATETIME
 	, @ToDate SMALLDATETIME
 	, @LicenseeId INT
-	, @CurrencyId TINYINT = 0
+	, @CurrencyId SMALLINT = 0
 	, @ProductPrefix VARCHAR(10) = ''
 	, @MoveBetsDay SMALLDATETIME
 	
@@ -32,6 +32,7 @@ AS
 		- 20161022@Jim:move table to bodb_licenseereport [RedmineID :#60449]
 		- 20161129@Robert: NAP Reports - Integrate Fishing World Product [RedmindID: #67757]
 		- 20160323@Percy: Refactor code aplly new products [RedmineID: #73328]
+		- 20250409@Jaden: Update Currency from tinyint to smallint (#222187)
 */
 
 BEGIN
@@ -49,7 +50,7 @@ BEGIN
 	SELECT  @ProductId = ProductId FROM dbo.Products WITH(NOLOCK) WHERE ProductPrefix = @ProductPrefix
 	
 	DECLARE @SAgWinLoss TABLE (CustId INT, CompanyWL MONEY) 
-	DECLARE @Super AS TABLE (custid INT, currency TINYINT)
+	DECLARE @Super AS TABLE (custid INT, currency SMALLINT)
 	DECLARE @BetTypeList TABLE(BetType SMALLINT)
 	DECLARE @SportTypeList TABLE(SportType SMALLINT, IsBA BIT DEFAULT (0))
 
