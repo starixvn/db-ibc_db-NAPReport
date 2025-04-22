@@ -35,6 +35,7 @@ AS
 		20250218@Cherry: Integrate ASKMESLOT (#216979)
 		20250318@Cherry: Integrate Funky Games (#220052) 
 		20250404@Cherry: Integrate Microgaming Live (#222626)
+		20250411@Cherry: Integrate VS7 (#219279)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -255,6 +256,7 @@ BEGIN
 			WHEN ProductName = 'Virtual Sports 5' THEN 'VirtSpo5'
 			WHEN ProductName = 'ON Casino' THEN 'ONCasino'
 			WHEN ProductName = 'Virtual Sports 6' THEN 'VirtSpo6'
+			WHEN ProductName = 'Virtual Sports 7' THEN 'VirtSpo7'
 			WHEN ProductName = 'GPI Live Casino' THEN 'GPI LC'
 			WHEN ProductName = 'SABA Keno' THEN 'SABAK'
 			WHEN ProductName = 'PLAYSTAR' THEN 'PLAYS'
