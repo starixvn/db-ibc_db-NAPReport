@@ -59,6 +59,7 @@ AS
 		- 20240920@Danny: Email/Letstalk - Odds Boost Voucher (#210559)
 		- 20241107@Danny: Incorporate VS6 (#212749)
 		- 20250228@Sophia: Fix DoubleS [Redmine: #218875] 
+		- 20250411@Max: Incorporate VS7 (#219279)
           
 */
 BEGIN
@@ -551,7 +552,7 @@ BEGIN
 
 		INSERT INTO @VSProductList(ProductID)
 		SELECT Product3rdId
-		FROM @Product3rd WHERE ProductPrefix IN ('VS','VS2','VS3','VS4','VS5','LG','VS6')
+		FROM @Product3rd WHERE ProductPrefix IN ('VS','VS2','VS3','VS4','VS5','LG','VS6', 'VS7')
 
 		DELETE #tmpBetType WHERE BettypeGroup = -999
 
@@ -1018,7 +1019,7 @@ BEGIN
 			INNER JOIN @ExchangeOANDA e ON t.CurrencyId = e.ExchangeId
 			LEFT JOIN #PartyChargeInfo p ON p.PartyId = l.PartyId 
 					AND p.Product3rdId =  CASE  WHEN @FromDate > @SB_SLT_BTC_MergePerfCutoff AND t.Product3rdId IN (0,69,63) THEN 0    
-												WHEN @FromDate > @VSMergeSettingCutoff AND t.Product3rdId IN (5,27,49,77,83,88,71) THEN 5    
+												WHEN @FromDate > @VSMergeSettingCutoff AND t.Product3rdId IN (5,27,49,77,83,88,71,106) THEN 5    
 										  ELSE  CASE WHEN t.Product3rdId IN (0,69) THEN 0 ELSE t.Product3rdId END  END 
 					AND t.rptDate BETWEEN p.FromDate AND p.ToDate
 					AND (p.Bettype = -1 OR p.Bettype = t.BetTypeGroup)
