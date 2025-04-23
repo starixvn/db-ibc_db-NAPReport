@@ -662,7 +662,7 @@ BEGIN
 			) a
 	)
 	,CTE_Product AS (
-		SELECT h.GroupOrder*100+1 GroupID
+		SELECT h.GroupOrder*10+1 GroupID
 			,h.ProductShortName GroupName
 			,SUM(TurnoverIBC) AS TurnoverIBC
 			,CONVERT(DECIMAL(10,6),(CASE WHEN SUM(ISNULL(TurnoverIBC,0)) = 0 THEN 0
@@ -670,11 +670,11 @@ BEGIN
 			END)) AS Margin
 		FROM #tmpMarginNonSport AS m WITH (NOLOCK)
 			LEFT JOIN #tmpProductSetting AS h WITH (NOLOCK) ON m.ProductID = h.ProductID
-		GROUP BY h.GroupOrder*100+1,
+		GROUP BY h.GroupOrder*10+1,
 				h.ProductShortName
 	)
 	,CTE_VS AS (
-		SELECT 1000 AS GroupID
+		SELECT 101 AS GroupID
 			,CASE WHEN m.ProductID = -1 THEN 'EX'
 				WHEN m.ProductID = -2 THEN 'BetB'
 				WHEN m.ProductID = -3 THEN 'E-S PGoal'
