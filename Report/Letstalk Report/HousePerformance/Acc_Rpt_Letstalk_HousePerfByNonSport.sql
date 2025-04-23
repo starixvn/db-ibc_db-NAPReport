@@ -44,6 +44,8 @@ AS
 		20250327@Cherry: Integrate HOTDOG (#219713)
 		20250404@Cherry: Integrate Microgaming Live (#222626)
 		20250411@Cherry: Integrate VS7 (#219279)
+		20250424@Cherry: Integrate Playtech Live (#224580)
+		20250424@Cherry: Integrate RichGaming (#224308)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -251,6 +253,8 @@ BEGIN
 			,(104,'FunkyG') --Funky Games
 			,(95,'HOTDOG')
 			,(107,'MG LC')
+			,(101,'PlayT LC')
+			,(108,'RichG')
 		) h (ProductID, ProductShortName)
 	)
 	,CTE_ProductGroup AS (

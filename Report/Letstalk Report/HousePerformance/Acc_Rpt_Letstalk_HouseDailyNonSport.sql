@@ -29,6 +29,8 @@ AS
 		20250327@Cherry: Integrate HOTDOG (#219713)
 		20250404@Cherry: Integrate Microgaming Live (#222626)
 		20250411@Cherry: Integrate VS7 (#219279)
+		20250424@Cherry: Integrate Playtech Live (#224580)
+		20250424@Cherry: Integrate RichGaming (#224308)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -197,6 +199,7 @@ BEGIN
 			,(96,'LC','ONCasino')
 			,(90,'LC','GPI LC')
 			,(107,'LC','MG LC')
+			,(101,'LC','PlayT LC')
 			----------RNG----------
 			,(42,'RNG','SABAG') --SABA.games
 			,(6,'RNG','SabaC') --Saba Casino
@@ -232,6 +235,7 @@ BEGIN
 			,(103,'RNG','ASKME')
 			,(104,'RNG','FunkyG') --Funky Games
 			,(95,'RNG','HOTDOG')
+			,(108,'RNG','RichG')
 			----------LOT/KENO----------
 			,(40,'LOT/KENO','TabG') --Table Game
 			,(8,'LOT/KENO','Mkeno') --RNG Keno

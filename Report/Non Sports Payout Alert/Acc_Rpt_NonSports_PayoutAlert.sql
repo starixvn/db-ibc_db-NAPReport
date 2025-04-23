@@ -30,6 +30,8 @@ AS
 		20250327@Cherry: Integrate HOTDOG (#220074)
 		20250404@Cherry: Integrate Microgaming Live (#222626)
 		20250411@Cherry: Integrate VS7 (#218951)
+		20250424@Cherry: Integrate Playtech Live (#224582)
+		20250424@Cherry: Integrate RichGaming (#224307)
 
 	Param's Explanation:
 		@FromGMT8Time: start of time range in GMT+8 with format 2021-05-20 19:00:00
@@ -104,6 +106,7 @@ BEGIN
 			,(96, 'ON Casino', 111, 5000)
 			,(90, 'GPI Live Casino', 111, 5000)
 			,(107, 'Microgaming Live', 111, 5000)
+			,(101, 'Playtech Live', 111, 5000)
 			
 			-------------RNG Game-------------
 			,(34, 'Arcadia Gaming', 120, 5000) --ProductID, ProductName, ThresholdPCT, MinWin
@@ -155,6 +158,7 @@ BEGIN
 			,(91, 'PLAYSTAR', 300, 5000)
 			,(103, 'ASKMESLOT', 300, 5000)
 			,(95, 'HOTDOG', 300, 5000)
+			,(108, 'RichGaming', 300, 5000)
 		) AS tmp (ProductID, ProductName, ThresholdPCT, MinWin)
 
 	DECLARE @isTest BIT = 0
