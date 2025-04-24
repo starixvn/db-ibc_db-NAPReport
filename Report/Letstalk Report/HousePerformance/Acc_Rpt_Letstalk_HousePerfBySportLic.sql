@@ -279,7 +279,8 @@ BEGIN
 		ExchangeID
 		,BaseCurrencyRate
 	)
-	EXEC (@SQLStr) AT DBEXT
+	--EXEC (@SQLStr) AT DBEXT
+
 	
 	--Get BetTypes of SB + NS--
 	INSERT INTO #tmpBetType (
