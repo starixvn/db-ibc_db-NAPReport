@@ -177,83 +177,78 @@ BEGIN
 	)
 	,CTE_Hardcode AS (
 		SELECT ProductID
-			,ProductGroup
 			,ProductShortName
 		FROM ( VALUES
-			----------LC----------
-			(21,'LC','AB') --Allbet
-			,(45,'LC','AE') --AE Sexy
-			,(12,'LC','GoldD') --Gold Deluxe
-			,(39,'LC','SA') --SA Gaming
-			,(52,'LC','ION') --ION
-			,(46,'LC','IBC') --IBCBet Live Casino
-			,(47,'LC','BBIN') --BBIN
-			,(11,'LC','AG') --AG Casino
-			,(51,'LC','WM') --WM
-			,(59,'LC','GDG') --GDG
-			,(57,'LC','BG') --BG
-			,(65,'LC','PPLC') --PP Live Casino
-			,(70,'LC','FGG') --FGG
-			,(76,'LC','YeeBet')
-			,(80,'LC','WE LC')
-			,(96,'LC','ONCasino')
-			,(90,'LC','GPI LC')
-			,(107,'LC','MG LC')
-			----------RNG----------
-			,(42,'RNG','SABAG') --SABA.games
-			,(6,'RNG','SabaC') --Saba Casino
-			,(34,'RNG','Arca') --Arcadia Gaming
-			,(32,'RNG','PP') --PP
-			,(38,'RNG','VirtG') --Virtual Games
-			,(22,'RNG','Macau') --Macau Games
-			,(36,'RNG','SG') --SG
-			,(50,'RNG','FunkyG') --Funky Games
-			,(24,'RNG','FW') --Fishing World
-			,(55,'RNG','PGSoft') --PG Soft
-			,(56,'RNG','Joker') --Joker
-			,(60,'RNG','MaxG') --MaxGame
-			,(61,'RNG','HB') --Habanero
-			,(62,'RNG','CG') --CG
-			,(66,'RNG','SABAG')--Vgaming - Combine in SABA.games
-			,(67,'RNG','AP') --AdvantPlay
-			,(68,'RNG','APMini') --AdvantPlay Mini
-			,(72,'RNG','SEAL') --Seal Entertainment
-			,(73,'RNG','MG') --MG-RNG
-			,(75,'RNG','Jili')
-			,(79,'RNG','Live22')
-			,(78,'RNG','UUS')
-			,(84,'RNG','YoloP')
-			,(86,'RNG','SABAxD')
-			,(87,'RNG','FastSpin')
-			,(89,'RNG','FACHAI')
-			,(85,'RNG','Nextspin')
-			,(48,'RNG','GPI')
-			,(100,'RNG','Playtech')
-			,(102,'RNG','SABAK')
-			,(91,'RNG','PLAYS')
-			,(103,'RNG','ASKME')
-			,(104,'RNG','FunkyG') --Funky Games
-			,(95,'RNG','HOTDOG')
-			----------LOT/KENO----------
-			,(40,'LOT/KENO','TabG') --Table Game
-			,(8,'LOT/KENO','Mkeno') --RNG Keno
-			,(3,'LOT/KENO','NG') --Number Game -Combine NumG, Happy 5, Happy 5 LG into Number Game
-			,(28,'LOT/KENO','MLot') --Lottery
-			,(23,'LOT/KENO','NG2') --NG2
-			,(43,'LOT/KENO','To4D') --Togel 4D
-			,(63,'LOT/KENO','SLot') --Sports Lottery
-			----------OTHERS----------
-			,(27,'OTHER NS','VS2') --Virtual Sports 2
-			,(5,'OTHER NS','VS') --Virtual Sports
-			,(15,'OTHER NS','CB') --Colossus Bets
-			,(31,'OTHER NS','EX') --Exchange
-			,(49,'OTHER NS','VS3(Old)') --Virtual Sports 3
-			,(69,'OTHER NS','BTC') --Bitcoin
-			,(77,'OTHER NS','VS3') --Virtual Sports
-			,(83,'OTHER NS','VS4')
-			,(88,'OTHER NS','VS5')
-			,(106,'OTHER NS','VS7')
-		) h (ProductID, ProductGroup, ProductShortName)
+			(21,'AB') --Allbet
+			,(45,'AE') --AE Sexy
+			,(12,'GoldD') --Gold Deluxe
+			,(39,'SA') --SA Gaming
+			,(52,'ION') --ION
+			,(46,'IBC') --IBCBet Live Casino
+			,(47,'BBIN') --BBIN
+			,(11,'AG') --AG Casino
+			,(51,'WM') --WM
+			,(59,'GDG') --GDG
+			,(57,'BG') --BG
+			,(65,'PPLC') --PP Live Casino
+			,(70,'FGG') --FGG
+			,(76,'YeeBet')
+			,(80,'WE LC')
+			,(96,'ONCasino')
+			,(90,'GPI LC')
+			,(107,'MG LC')
+			,(42,'SABAG') --SABA.games
+			,(6,'SabaC') --Saba Casino
+			,(34,'Arca') --Arcadia Gaming
+			,(32,'PP') --PP
+			,(38,'VirtG') --Virtual Games
+			,(22,'Macau') --Macau Games
+			,(36,'SG') --SG
+			,(50,'FunkyG') --Funky Games
+			,(24,'FW') --Fishing World
+			,(55,'PGSoft') --PG Soft
+			,(56,'Joker') --Joker
+			,(60,'MaxG') --MaxGame
+			,(61,'HB') --Habanero
+			,(62,'CG') --CG
+			,(66,'SABAG')--Vgaming - Combine in SABA.games
+			,(67,'AP') --AdvantPlay
+			,(68,'APMini') --AdvantPlay Mini
+			,(72,'SEAL') --Seal Entertainment
+			,(73,'MG') --MG-RNG
+			,(75,'Jili')
+			,(79,'Live22')
+			,(78,'UUS')
+			,(84,'YoloP')
+			,(86,'SABAxD')
+			,(87,'FastSpin')
+			,(89,'FACHAI')
+			,(85,'Nextspin')
+			,(48,'GPI')
+			,(100,'Playtech')
+			,(102,'SABAK')
+			,(91,'PLAYS')
+			,(103,'ASKME')
+			,(104,'FunkyG') --Funky Games
+			,(95,'HOTDOG')
+			,(40,'TabG') --Table Game
+			,(8,'Mkeno') --RNG Keno
+			,(3,'NG') --Number Game -Combine NumG, Happy 5, Happy 5 LG into Number Game
+			,(28,'MLot') --Lottery
+			,(23,'NG2') --NG2
+			,(43,'To4D') --Togel 4D
+			,(63,'SLot') --Sports Lottery
+			,(27,'VS2') --Virtual Sports 2
+			,(5,'VS') --Virtual Sports
+			,(15,'CB') --Colossus Bets
+			,(31,'EX') --Exchange
+			,(49,'VS3(Old)') --Virtual Sports 3
+			,(69,'BTC') --Bitcoin
+			,(77,'VS3') --Virtual Sports
+			,(83,'VS4')
+			,(88,'VS5')
+			,(106,'VS7')
+		) h (ProductID, ProductShortName)
 	)
 	,CTE_ProductGroup AS (
 		SELECT DISTINCT ProductID AS ProductID
