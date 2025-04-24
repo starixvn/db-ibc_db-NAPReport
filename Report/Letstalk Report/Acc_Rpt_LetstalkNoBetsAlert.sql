@@ -13,274 +13,121 @@
 		- @Example:			
 		
 	Developer's Notes:		
+	   106	VSRaceInfo	                eventid,sporttype
+	   27	Match or VSRaceInfo		  	 matchid,sporttype OR eventid, sporttype
+	   5	  	match		                matchid,sporttype
+	   88	match3rd	 	                match3rdid,sporttype
+	   77	match		                matchid,sporttype
+	   83	match		                matchid,sporttype
 */
 
 CREATE PROC [dbo].[Acc_Rpt_LetstalkNoBetsAlert] 
-	@StartDate DATETIME, 
-	@EndDate   DATETIME
+	@StartDate   DATETIME, 
+	@EndDate     DATETIME, 
+	@TimeSetting VARCHAR(10)
 AS
     BEGIN
+	   DECLARE 
+		   @Istest BIT;
+
+	   SELECT 
+			@Istest = CASE
+					    WHEN(OBJECT_NAME(@@PROCID) LIKE '%[_]xtest%'
+						    OR OBJECT_NAME(@@PROCID) LIKE '%[_]xpre%'
+						    OR OBJECT_NAME(@@PROCID) LIKE '%[_]uat[1-9]%')
+					    THEN 1
+					    ELSE 0
+					END;
 
 	   DECLARE 
-		   @tblProduct TABLE
-						 (
-		   ProductId   INT, 
+		   @tblSports TABLE
+						(
+		   ProductId   TINYINT, 
+		   SportType   SMALLINT, 
 		   TimeSetting VARCHAR(10)
-						 );
-	   DECLARE 
-		   @tblProductBetting TABLE
-							   (
-		   ProductId INT
-							   );
-
-	   INSERT INTO @tblProduct
+						);
+	   CREATE TABLE #match
+				 (
+		   matchid INT
+				 );
+	   INSERT INTO @tblSports
 		 (
 			ProductId, 
+			SportType, 
 			TimeSetting
 		 )
 			SELECT 
-				  5 ProductID, 
-				  '10 Mins' TimeSetting
-			UNION ALL
-			SELECT 
-				  8 ProductID, 
-				  '10 Mins' TimeSetting
-			UNION ALL
-			SELECT 
-				  21 ProductID, 
-				  '10 Mins' TimeSetting
-			UNION ALL
-			SELECT 
-				  27 ProductID, 
-				  '10 Mins' TimeSetting
-			UNION ALL
-			SELECT 
-				  28 ProductID, 
-				  '10 Mins' TimeSetting
-			UNION ALL
-			SELECT 
-				  32 ProductID, 
-				  '10 Mins' TimeSetting
-			UNION ALL
-			SELECT 
-				  39 ProductID, 
-				  '10 Mins' TimeSetting
-			UNION ALL
-			SELECT 
-				  40 ProductID, 
-				  '10 Mins' TimeSetting
-			UNION ALL
-			SELECT 
-				  42 ProductID, 
-				  '10 Mins' TimeSetting
-			UNION ALL
-			SELECT 
-				  45 ProductID, 
-				  '10 Mins' TimeSetting
-			UNION ALL
-			SELECT 
-				  55 ProductID, 
-				  '10 Mins' TimeSetting
-			UNION ALL
-			SELECT 
-				  60 ProductID, 
-				  '10 Mins' TimeSetting
-			UNION ALL
-			SELECT 
-				  65 ProductID, 
-				  '10 Mins' TimeSetting
-			UNION ALL
-			SELECT 
-				  66 ProductID, 
-				  '10 Mins' TimeSetting
-			UNION ALL
-			SELECT 
-				  80 ProductID, 
-				  '10 Mins' TimeSetting
-			UNION ALL
-			SELECT 
-				  96 ProductID, 
-				  '10 Mins' TimeSetting
-			UNION ALL
-			SELECT 
-				  6 ProductID, 
-				  '30 Mins' TimeSetting
-			UNION ALL
-			SELECT 
-				  22 ProductID, 
-				  '30 Mins' TimeSetting
-			UNION ALL
-			SELECT 
-				  34 ProductID, 
-				  '30 Mins' TimeSetting
-			UNION ALL
-			SELECT 
-				  36 ProductID, 
-				  '30 Mins' TimeSetting
-			UNION ALL
-			SELECT 
-				  46 ProductID, 
-				  '30 Mins' TimeSetting
-			UNION ALL
-			SELECT 
-				  48 ProductID, 
-				  '30 Mins' TimeSetting
-			UNION ALL
-			SELECT 
-				  57 ProductID, 
-				  '30 Mins' TimeSetting
-			UNION ALL
-			SELECT 
-				  61 ProductID, 
-				  '30 Mins' TimeSetting
-			UNION ALL
-			SELECT 
-				  73 ProductID, 
-				  '30 Mins' TimeSetting
-			UNION ALL
-			SELECT 
-				  75 ProductID, 
-				  '30 Mins' TimeSetting
-			UNION ALL
-			SELECT 
-				  76 ProductID, 
-				  '30 Mins' TimeSetting
-			UNION ALL
-			SELECT 
-				  85 ProductID, 
-				  '30 Mins' TimeSetting
-			UNION ALL
-			SELECT 
-				  87 ProductID, 
-				  '30 Mins' TimeSetting
-			UNION ALL
-			SELECT 
-				  89 ProductID, 
-				  '30 Mins' TimeSetting
-			UNION ALL
-			SELECT 
-				  90 ProductID, 
-				  '30 Mins' TimeSetting
-			UNION ALL
-			SELECT 
-				  91 ProductID, 
-				  '30 Mins' TimeSetting
-			UNION ALL
-			SELECT 
-				  100 ProductID, 
-				  '30 Mins' TimeSetting
-			UNION ALL
-			SELECT 
-				  103 ProductID, 
-				  '30 Mins' TimeSetting
-			UNION ALL
-			SELECT 
-				  3 ProductID, 
-				  '60 Mins' TimeSetting
-			UNION ALL
-			SELECT 
-				  38 ProductID, 
-				  '60 Mins' TimeSetting
-			UNION ALL
-			SELECT 
-				  47 ProductID, 
-				  '60 Mins' TimeSetting
-			UNION ALL
-			SELECT 
-				  51 ProductID, 
-				  '60 Mins' TimeSetting
-			UNION ALL
-			SELECT 
-				  52 ProductID, 
-				  '60 Mins' TimeSetting
-			UNION ALL
-			SELECT 
-				  56 ProductID, 
-				  '60 Mins' TimeSetting
-			UNION ALL
-			SELECT 
-				  62 ProductID, 
-				  '60 Mins' TimeSetting
-			UNION ALL
-			SELECT 
-				  63 ProductID, 
-				  '60 Mins' TimeSetting
-			UNION ALL
-			SELECT 
-				  67 ProductID, 
-				  '60 Mins' TimeSetting
-			UNION ALL
-			SELECT 
-				  70 ProductID, 
-				  '60 Mins' TimeSetting
-			UNION ALL
-			SELECT 
-				  72 ProductID, 
-				  '60 Mins' TimeSetting
-			UNION ALL
-			SELECT 
-				  77 ProductID, 
-				  '60 Mins' TimeSetting
-			UNION ALL
-			SELECT 
-				  78 ProductID, 
-				  '60 Mins' TimeSetting
-			UNION ALL
-			SELECT 
-				  79 ProductID, 
-				  '60 Mins' TimeSetting
-			UNION ALL
-			SELECT 
-				  83 ProductID, 
-				  '60 Mins' TimeSetting
-			UNION ALL
-			SELECT 
-				  86 ProductID, 
-				  '60 Mins' TimeSetting
-			UNION ALL
-			SELECT 
-				  88 ProductID, 
-				  '60 Mins' TimeSetting
-			UNION ALL
-			SELECT 
-				  104 ProductID, 
-				  '60 Mins' TimeSetting;
+				  s.ProductId, 
+				  s.SportType, 
+				  s.TimeSetting
+			FROM f_GetLetstalkAlertSports() s
+			WHERE s.IsTest = CASE
+							 WHEN @IsTest = 0
+							 THEN 0
+							 ELSE s.IsTest
+						  END
+				 AND s.TimeSetting = @TimeSetting;
 
-
-
-	   INSERT INTO @tblProductBetting
+	   INSERT INTO #match
 		 (
-			ProductId
+			matchid
 		 )
-			SELECT DISTINCT 
-				  sb.ProductID
-			FROM SportBettypeMatrix sb WITH(NOLOCK)
-				INNER JOIN bettrans b WITH(NOLOCK) ON sb.BetType = b.bettype
-				INNER JOIN @tblProduct p ON p.ProductId = sb.ProductID
+			SELECT 
+				  b.matchid
+			FROM bettrans b WITH(NOLOCK)
+				LEFT JOIN match m WITH(NOLOCK) ON b.matchid = m.matchid
+										    AND m.sporttype < 99 -- exclude sportsbook
 			WHERE b.transdate BETWEEN @StartDate AND @EndDate
-			UNION ALL
-			SELECT DISTINCT 
-				  sb.ProductID
-			FROM SportBettypeMatrix sb WITH(NOLOCK)
-				INNER JOIN bettransLC b WITH(NOLOCK) ON sb.BetType = b.gameID
-				INNER JOIN @tblProduct p ON p.ProductId = sb.ProductID
-			WHERE b.transdate BETWEEN @StartDate AND @EndDate
-			UNION ALL
-			SELECT DISTINCT 
-				  sb.ProductID
-			FROM SportBettypeMatrix sb WITH(NOLOCK)
-				INNER JOIN bettransRNG b WITH(NOLOCK) ON sb.BetType = b.gameID
-				INNER JOIN @tblProduct p ON p.ProductId = sb.ProductID
-			WHERE b.transdate BETWEEN @StartDate AND @EndDate;
+				 AND m.matchid IS NULL
+			GROUP BY 
+				    b.matchid;
 
-	   SELECT DISTINCT 
-			p.ProductName, 
-			p1.TimeSetting
-	   FROM @tblProduct p1
-		   INNER JOIN Products p WITH(NOLOCK) ON p1.ProductId = p.ProductID
-		   LEFT JOIN @tblProductBetting p2 ON p1.ProductId = p2.ProductId
-	   WHERE ISNULL(p2.ProductId, 0) = 0
-	   ORDER BY 
-			  p1.TimeSetting;
+	   WITH cte
+		   AS (SELECT DISTINCT 
+				    s.ProductId
+			  FROM #match m
+				  INNER JOIN @tblSports s ON s.SportType = m.matchid
+			  UNION ALL
+			  SELECT DISTINCT 
+				    s.ProductID
+			  FROM bettransLC b WITH(NOLOCK)
+				  INNER JOIN @tblSports s ON s.SportType = b.ProductID
+			  WHERE b.transdate BETWEEN @StartDate AND @EndDate
+			  UNION ALL
+			  SELECT DISTINCT 
+				    s.ProductID
+			  FROM bettransRNG b WITH(NOLOCK)
+				  INNER JOIN @tblSports s ON s.SportType = b.ProductID
+			  WHERE b.transdate BETWEEN @StartDate AND @EndDate
+			  --- for products that matchid in bettrans is real match, not sporttype
+			  UNION ALL
+			  SELECT DISTINCT 
+				    s.ProductId
+			  FROM #match b WITH(NOLOCK)
+				  INNER JOIN match m WITH(NOLOCK) ON b.matchid = m.matchid
+				  INNER JOIN @tblSports s ON m.sporttype = s.SportType
+			  UNION ALL
+			  SELECT DISTINCT 
+				    s.ProductId
+			  FROM #match b WITH(NOLOCK)
+				  INNER JOIN match3rd m WITH(NOLOCK) ON b.matchid = m.Match3rdId
+				  INNER JOIN @tblSports s ON m.sporttype = s.SportType
+			  UNION ALL
+			  SELECT DISTINCT 
+				    s.ProductId
+			  FROM #match b WITH(NOLOCK)
+				  INNER JOIN VSRaceInfo m WITH(NOLOCK) ON b.matchid = m.EventID
+				  INNER JOIN @tblSports s ON m.sporttype = s.SportType)
+		   SELECT DISTINCT 
+				p.ProductName, 
+				s.TimeSetting
+		   FROM @tblSports s
+			   INNER JOIN Products p WITH(NOLOCK) ON s.ProductId = p.ProductID
+			   LEFT JOIN cte p2 ON s.ProductId = p2.ProductId
+		   WHERE ISNULL(p2.ProductId, 0) = 0
+		   ORDER BY 
+				  s.TimeSetting;
+
+	   DROP TABLE #match;
     END;
 GO
