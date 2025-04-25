@@ -30,6 +30,8 @@ AS
 		20250404@Cherry: Integrate Microgaming Live (#222626)
 		20250411@Cherry: Integrate VS7 (#219279)
 		20250418@Cherry: Categorize product group (#224454)
+		20250424@Cherry: Integrate Playtech Live (#224580)
+		20250424@Cherry: Integrate RichGaming (#224308)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -248,6 +250,9 @@ BEGIN
 			,(83,'VS4')
 			,(88,'VS5')
 			,(106,'VS7')
+			,(101,'PlayT LC')
+			,(108,'RichG')
+
 		) h (ProductID, ProductShortName)
 	)
 	,CTE_ProductGroup AS (
