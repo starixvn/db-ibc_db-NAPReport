@@ -36,6 +36,7 @@ AS
 		20250318@Cherry: Integrate Funky Games (#220052) 
 		20250404@Cherry: Integrate Microgaming Live (#222626)
 		20250411@Cherry: Integrate VS7 (#219279)
+		20250425@Cherry: Report Should Use Oanda Rate by Report Date, Not Max Date (#225430)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -279,7 +280,10 @@ BEGIN
 		ExchangeID
 		,BaseCurrencyRate
 	)
-	EXEC (@SQLStr) AT DBEXT
+	--EXEC (@SQLStr) AT DBEXT
+	SELECT ExchangeID, CNY
+	FROM bodb02.dbo.ExchangeDailyOanda WITH(NOLOCK)
+	WHERE ExchangeDate = @WLDate 
 	
 	--Get BetTypes of SB + NS--
 	INSERT INTO #tmpBetType (
