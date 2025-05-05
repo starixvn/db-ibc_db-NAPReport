@@ -23,6 +23,7 @@ AS
 		20240927@Cherry: Move 8RM from XYZ to Other Credit (#211362)
 		20241127@Cherry: Add a new section for Exchange and Bet Builder (#212829)
 		20250207@Cherry: Support direct member (#215045)
+		20250505@Cherry: Change to House View for Exchange and Bet Builder (#226033)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -879,7 +880,7 @@ BEGIN
 		SELECT CASE WHEN pb.ProductID = 31 THEN 'EX' 
 				WHEN pb.ProductID = -1 THEN 'BetB'
 			END AS SiteName
-			,SUM((WinlossIBC - ExtraWL + CommissionS - ExtraComm)) AS WinlossMem --Member view - opposite of above WinlossIBC
+			,SUM(-(WinlossIBC - ExtraWL + CommissionS - ExtraComm)) AS WinlossIBC
 			,SUM((CASE WHEN TurnoverIBC = 0 THEN 0 ELSE TurnoverIBC - ExtraTO END)
 				* (CASE WHEN VarianceVR > 0 THEN VarianceVR + 1 ELSE 1 END)
 				* (CASE WHEN IsHalf = 1 THEN 0.5 ELSE 1 END)) AS TurnoverIBC
@@ -923,7 +924,7 @@ BEGIN
 	UNION ALL
 
 	SELECT SiteName
-		,WinlossMem
+		,WinlossIBC
 		,TurnoverIBC
 	FROM CTE_Others
 	
