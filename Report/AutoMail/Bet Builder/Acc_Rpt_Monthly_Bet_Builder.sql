@@ -18,6 +18,7 @@ AS
 		20220907@Jaden: Change betfrom datatype (#177202)
 		20240816@Jaden: Add Live Status (#209221)
 		20240920@Jaden: Bet Builder has been offered Basketball, do not hard code Soccer (#211073)
+		20250505@Jaden: Add GrossRevenue_EUR column (#226017)
 
 	Param's Explanation:	 
 */
@@ -290,6 +291,7 @@ AS
 		   , d.Payout
 		   , d.Commission
 		   , d.GrossRevenue
+		   , d.GrossRevenue * e.Rate AS GrossRevenue_EUR
 		FROM #Data AS d
 		  INNER JOIN @BetFrom AS bf ON d.Betfrom = bf.betfrom
 		  INNER JOIN @ExchangeOANDA AS e ON d.Currency = e.ExchangeID
@@ -318,6 +320,7 @@ AS
 		   , SUM(d.Payout * e.Rate) AS Payout
 		   , SUM(d.Commission * e.Rate) AS Commission
 		   , SUM(d.GrossRevenue * e.Rate) AS GrossRevenue
+		   , SUM(d.GrossRevenue * e.Rate) AS GrossRevenue_EUR
 		FROM #Data AS d
 		  INNER JOIN @ExchangeOANDA AS e ON d.Currency = e.ExchangeID
 									 AND d.WinLostDate = e.ExchangeDate

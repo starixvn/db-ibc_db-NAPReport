@@ -17,6 +17,7 @@ AS
 		- 20220110@Roy: Automail Report - Tune sp performance of Bet Builder repo (#167198)
 		- 20220907@Jaden: Change betfrom datatype (#177202)
 		- 20240816@Jaden: Add Live Status (#209221)
+		- 20250505@Jaden: Add GrossRevenue_EUR column (#226017)
 
 	Param's Explanation:	 
 */
@@ -292,6 +293,7 @@ BEGIN
 	    , d.Payout
 	    , d.Commission
 	    , d.GrossRevenue
+		, d.GrossRevenue * e.Rate AS GrossRevenue_EUR
     FROM #Data AS d
 	   INNER JOIN @BetFrom AS bf ON d.Betfrom = bf.betfrom
 	   INNER JOIN @ExchangeOANDA AS e ON d.Currency = e.ExchangeID
@@ -317,6 +319,7 @@ BEGIN
 	    , SUM(d.Payout * e.Rate) AS Payout
 	    , SUM(d.Commission * e.Rate) AS Commission
 	    , SUM(d.GrossRevenue * e.Rate) AS GrossRevenue
+	    , SUM(d.GrossRevenue * e.Rate) AS GrossRevenue_EUR
     FROM #Data AS d
 	   INNER JOIN @ExchangeOANDA AS e ON d.Currency = e.ExchangeID;
 
