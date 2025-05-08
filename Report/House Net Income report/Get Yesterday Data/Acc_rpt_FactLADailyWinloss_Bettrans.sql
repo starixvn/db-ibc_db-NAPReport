@@ -17,6 +17,7 @@ AS
 		- 20240605@Danny: Letstalk reports - Integrate the Saba Kabaddi (#204927)
 		- 20240920@Danny: Email/Letstalk - Odds Boost Voucher (#210559)
 		- 20241126@Danny: exclude NovaCasino site (#213501)
+		- 20250508@Aries: HNI - Saba Soccer Pingoal Marble Product [Redmine:#225685]
 
 	Exec Acc_Rpt_FactLADailyWinloss_Bettrans '2021-05-19'
 
@@ -101,12 +102,12 @@ BEGIN
 			CASE
 				WHEN b.bettype = 29 THEN -10 --Parlay
 				WHEN tmp.LeagueGroupId IN (42, 74, 108) AND tmp.SportType = 1 THEN -3 -- Saba Soccer
-				WHEN tmp.LeagueGroupId IN (113) AND tmp.SportType = 1 THEN -14 -- Saba Soccer PinGoal
+				WHEN tmp.LeagueGroupId IN (113,252) AND tmp.SportType = 1 THEN -14 -- Saba Soccer PinGoal
 				WHEN tmp.LeagueGroupId = 122 AND tmp.SportType = 2 THEN -15 --Saba Bas PGoal
 				WHEN tmp.LeagueGroupId IN (42) AND tmp.SportType = 2 THEN -5 -- Saba Basketball
 				WHEN tmp.LeagueGroupId IN (151) AND tmp.SportType = 43 THEN -16 --Saba E-S PGoal
 				WHEN tmp.LeagueGroupId IN (42) AND tmp.SportType IN (47,50) THEN -17 -- Saba Cri & Kab
-				WHEN tmp.LeagueGroupId IN (42,74,108,113,122,151) THEN -18 --Saba OS
+				WHEN tmp.LeagueGroupId IN (42,74,108,113,122,151,252) THEN -18 --Saba OS
 				WHEN tmp.Sporttype = 1 THEN -2 -- Soccer
 				WHEN tmp.Sporttype = 2 THEN -4 -- Basketball
 				WHEN tmp.Sporttype = 5 THEN -6 -- Tennis
@@ -120,7 +121,7 @@ BEGIN
 			-SUM(CASE WHEN BA.transid IS NULL AND si_oltp.siteid <> @DWH_SabaCoins_SiteID THEN b.winlost-b.actual_stake ELSE 0 END) LicenseeWL,
 			SUM(CASE WHEN BA.transid IS NULL  AND si_oltp.siteid <> @DWH_SabaCoins_SiteID THEN
 				 CASE WHEN b.statusID = 111 THEN 0 
-					 ELSE b.stake * CASE WHEN b.modds IN (-0.25, 0.25)  AND b.statusID IN (112, 113)  THEN 0.5 ELSE 1 END
+					 ELSE b.stake * CASE WHEN b.modds IN (-0.25, 0.25)  AND b.statusID IN (112, 113,252)  THEN 0.5 ELSE 1 END
 					
 				 END ELSE 0 END) AS LicenseeTO,
 			SUM(CASE WHEN b.bettype = 29 AND b.statusID = 112 AND b.oddsspread =2 THEN TRY_CAST(TRY_CAST(ExtraInfo AS XML).value('(/p1/@bba)[1]',  'VARCHAR(50)') AS DECIMAL(19, 6)) ELSE 0 END) FullParlayBoostBonus,
@@ -134,7 +135,7 @@ BEGIN
 	LEFT JOIN	#tmpDW_tblsite si_oltp WITH (NOLOCK) ON d.site = si_oltp.site
 	LEFT JOIN	#tmpDW_BettypeGroup tb ON b.bettype = tb.Bettype
 	WHERE b.winlostdate = @winlostdate
-		  AND b.statusID IN (111, 112, 113)
+		  AND b.statusID IN (111, 112, 113,252)
 		  AND d.[site] NOT IN ('Saba789','Seal888','NovaCasino') -- Remove Saba789
 		  AND b.Currency <> 20
 	GROUP BY	b.winlostdate, 
@@ -144,12 +145,12 @@ BEGIN
 				CASE
 					WHEN b.bettype = 29 THEN -10 --Parlay
 					WHEN tmp.LeagueGroupId IN (42, 74, 108) AND tmp.SportType = 1 THEN -3 -- Saba Soccer
-					WHEN tmp.LeagueGroupId IN (113) AND tmp.SportType = 1 THEN -14 -- Saba Soccer PinGoal
+					WHEN tmp.LeagueGroupId IN (113,252) AND tmp.SportType = 1 THEN -14 -- Saba Soccer PinGoal
 					WHEN tmp.LeagueGroupId = 122 AND tmp.SportType = 2 THEN -15 --Saba Bas PGoal
 					WHEN tmp.LeagueGroupId IN (42) AND tmp.SportType = 2 THEN -5 -- Saba Basketball
 					WHEN tmp.LeagueGroupId IN (151) AND tmp.SportType = 43 THEN -16 --Saba E-S PGoal
 					WHEN tmp.LeagueGroupId IN (42) AND tmp.SportType IN (47,50) THEN -17 -- Saba Cri & Kab
-					WHEN tmp.LeagueGroupId IN (42,74,108,113,122,151) THEN -18 --Saba OS
+					WHEN tmp.LeagueGroupId IN (42,74,108,113,122,151,252) THEN -18 --Saba OS
 					WHEN tmp.Sporttype = 1 THEN -2 -- Soccer
 					WHEN tmp.Sporttype = 2 THEN -4 -- Basketball
 					WHEN tmp.Sporttype = 5 THEN -6 -- Tennis
