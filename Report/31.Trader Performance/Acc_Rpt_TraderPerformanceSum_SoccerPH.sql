@@ -20,6 +20,7 @@ AS
 		20191010@Cherry: Apply new table for Trader (#120746)
 		20191212@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
 		20220811@Kean: Exclude Saba PinGoal (#176597)
+		20250509@Hughie: NAP Report - Saba Soccer Pingoal Marble Product [Redmine: #224161]
 
 	Param's Explanation:
 
@@ -136,7 +137,7 @@ BEGIN
 		FROM bodb02.dbo.Dot_Admin_Assignment_Trader t (NOLOCK)
 			INNER JOIN #BettypeMapping bm ON t.bettype = bm.Bettype
 			INNER JOIN bodb02.dbo.match m (NOLOCK) ON t.matchid = m.matchid
-			INNER JOIN bodb02.dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid AND ISNULL(l.LeagueGroupID,-1) <> 113 
+			INNER JOIN bodb02.dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid AND ISNULL(l.LeagueGroupID,-1) NOT IN (113,252) 
 		WHERE m.eventdate BETWEEN @FromDate AND @ToDate
 			AND m.eventstatus = 'completed'									
 			AND m.matchcode NOT LIKE '%hedge%'
@@ -164,7 +165,7 @@ BEGIN
 		INNER JOIN dbo.customer c WITH (NOLOCK) ON a.TraderID = c.custid
 		INNER JOIN dbo.match m WITH (NOLOCK) ON a.matchid = m.matchid
 		LEFT JOIN dbo.team t WITH (NOLOCK) ON m.homeid = t.teamid
-		INNER JOIN dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid AND ISNULL(l.LeagueGroupID,-1) <> 113
+		INNER JOIN dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid AND ISNULL(l.LeagueGroupID,-1) NOT IN (113,252)
 	WHERE  
 		m.eventdate BETWEEN @FromDate AND @ToDate
 		AND m.eventstatus = 'completed'
@@ -177,7 +178,7 @@ BEGIN
 	FROM #tmpTraderAssignment a
 		RIGHT JOIN dbo.match m WITH (NOLOCK) ON a.matchid = m.matchid  
 		LEFT JOIN dbo.team t WITH (NOLOCK) ON m.homeid = t.teamid   
-		INNER JOIN dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid AND ISNULL(l.LeagueGroupID,-1) <> 113
+		INNER JOIN dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid AND ISNULL(l.LeagueGroupID,-1) NOT IN (113,252)
 	WHERE  
 		m.eventdate BETWEEN @FromDate AND @ToDate
 		AND m.eventstatus = 'completed'
@@ -206,7 +207,7 @@ BEGIN
 				   ELSE 1 END) AS bet
 	FROM dbo.bettrans b WITH (NOLOCK)
 		INNER JOIN dbo.match m WITH (NOLOCK) ON b.matchid = m.matchid 
-		INNER JOIN dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid AND ISNULL(l.LeagueGroupID,-1) <> 113
+		INNER JOIN dbo.league l WITH (NOLOCK) ON m.leagueid = l.leagueid AND ISNULL(l.LeagueGroupID,-1) NOT IN (113,252)
 		INNER JOIN #BettypeMapping bm ON b.bettype = bm.Bettype
 		LEFT JOIN dbo.TradeCust AS td WITH (NOLOCK) ON b.custid = td.custid
 	WHERE
