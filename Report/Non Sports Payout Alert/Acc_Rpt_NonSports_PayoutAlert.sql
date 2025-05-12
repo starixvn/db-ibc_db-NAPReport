@@ -32,6 +32,7 @@ AS
 		20250411@Cherry: Integrate VS7 (#218951)
 		20250424@Cherry: Integrate Playtech Live (#224582)
 		20250424@Cherry: Integrate RichGaming (#224307)
+		20250512@Cherry: Integrate W Casino (#225846)
 
 	Param's Explanation:
 		@FromGMT8Time: start of time range in GMT+8 with format 2021-05-20 19:00:00
@@ -107,6 +108,7 @@ BEGIN
 			,(90, 'GPI Live Casino', 111, 5000)
 			,(107, 'Microgaming Live', 111, 5000)
 			,(101, 'Playtech Live', 111, 5000)
+			,(98, 'W Casino', 111, 5000)
 			
 			-------------RNG Game-------------
 			,(34, 'Arcadia Gaming', 120, 5000) --ProductID, ProductName, ThresholdPCT, MinWin
