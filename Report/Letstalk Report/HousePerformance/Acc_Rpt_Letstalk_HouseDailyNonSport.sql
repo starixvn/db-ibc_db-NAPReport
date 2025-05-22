@@ -32,6 +32,7 @@ AS
 		20250418@Cherry: Categorize product group (#224454)
 		20250424@Cherry: Integrate Playtech Live (#224580)
 		20250424@Cherry: Integrate RichGaming (#224308)
+		20250512@Cherry: Integrate W Casino (#225846)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -252,7 +253,7 @@ BEGIN
 			,(106,'VS7')
 			,(101,'PlayT LC')
 			,(108,'RichG')
-
+			,(98,'W LC')
 		) h (ProductID, ProductShortName)
 	)
 	,CTE_ProductGroup AS (

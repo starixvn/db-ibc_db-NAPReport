@@ -39,6 +39,7 @@ AS
 		20250425@Cherry: Report Should Use Oanda Rate by Report Date, Not Max Date (#225430)
 		20250428@Cherry: Integrate Playtech Live (#224580)
 		20250428@Cherry: Integrate RichGaming (#224308)
+		20250512@Cherry: Integrate W Casino (#225846)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -267,6 +268,7 @@ BEGIN
 			WHEN ProductName = 'Microgaming Live' THEN 'MG LC'
 			WHEN ProductName = 'Playtech Live' THEN 'PlayT LC'
 			WHEN ProductName = 'RichGaming' THEN 'RichG'
+			WHEN ProductName = 'W Casino' THEN 'W LC'
 			ELSE ProductName END)
 	
 	SELECT @EX3rdName = rd.ProductName
