@@ -1,4 +1,4 @@
-/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBACC-bodb02" executers="wsv_nap" viewers="" isFunction="0" isNested="0"></info>*/
 
 USE [bodb02]
 GO
@@ -24,6 +24,7 @@ AS
 		20191121@Ned.Le: Integrate BM AIO (#124017)
 		20191212@Ned.Le: Support to get Extra PT from Extra PT column (#125286)
         20220812@Ned.Le: Nap Report - TraderPerformanceSoccer report is error (#176597)
+		20250509@Hughie: NAP Report - Saba Soccer Pingoal Marble Product [Redmine: #224161]
 		
 	Param's Explanation:
 		@IsSoccer:
@@ -133,7 +134,7 @@ BEGIN
 			AND ((@IsSoccer = 1 AND t.bettype IN (1, 3, 7, 8, 5, 15))				
 				OR (@IsSoccer = 0 AND t.bettype IN (1, 3, 7, 8, 5, 15, 2, 12, 701, 702))
 				)
-            AND ISNULL(l.LeagueGroupID, -1) <> 113;
+            AND ISNULL(l.LeagueGroupID, -1) NOT IN (113,252);
 
 		-- Insert data to #tmpTraderAssignment 
 		WITH
@@ -186,7 +187,7 @@ BEGIN
 			AND m.eventstatus = 'completed'
 			AND m.sporttype = 1
 			AND m.matchcode NOT LIKE '%hedge%'
-            AND ISNULL(l.LeagueGroupID, -1) <> 113
+            AND ISNULL(l.LeagueGroupID, -1) NOT IN (113,252)
 
 		INSERT INTO #tmpData
 		SELECT
@@ -224,7 +225,7 @@ BEGIN
 			AND m.sporttype = 1
 			AND m.matchcode NOT LIKE '%hedge%'
 			AND a.matchid IS NULL
-            AND ISNULL(l.LeagueGroupID, -1) <> 113
+            AND ISNULL(l.LeagueGroupID, -1) NOT IN (113,252)
 	END
 	ELSE
 	BEGIN
@@ -253,7 +254,7 @@ BEGIN
 			AND m.eventstatus = 'completed'
 			AND m.sporttype NOT IN (1, 161) -- exclude number game  
 			AND m.matchcode NOT LIKE '%hedge%'
-            AND ISNULL(l.LeagueGroupID, -1) <> 113
+            AND ISNULL(l.LeagueGroupID, -1) NOT IN (113,252)
 
 		INSERT INTO #tmpData
 		SELECT
@@ -280,7 +281,7 @@ BEGIN
 			AND m.sporttype NOT IN (1, 161)
 			AND m.matchcode NOT LIKE '%hedge%'
 			AND a.matchid IS NULL
-            AND ISNULL(l.LeagueGroupID, -1) <> 113
+            AND ISNULL(l.LeagueGroupID, -1) NOT IN (113,252)
 	END
 	
 	INSERT INTO #tmpData (custid, username, leagueid, matchid, homeid, awayid, eventdate, hthomescore, htawayscore, fthomescore, ftawayscore, bettype, IsNeutral, OUtype)
@@ -344,14 +345,14 @@ BEGIN
                                 LEFT JOIN bodb02.dbo.League l (NOLOCK) ON m.leagueid = l.leagueid
                            WHERE m.matchid = b.matchid
                                  AND m.sporttype = 1
-                                 AND ISNULL(l.LeagueGroupID, -1) <> 113))
+                                 AND ISNULL(l.LeagueGroupID, -1) NOT IN (113,252)))
 			OR (@IsSoccer = 0 AND bettype IN (1, 3, 7, 8, 5, 15, 2, 12, 124, 125, 701, 702)
 				AND EXISTS(SELECT 1
                            FROM dbo.match m (NOLOCK)
                                 LEFT JOIN bodb02.dbo.League l (NOLOCK) ON m.leagueid = l.leagueid
                            WHERE m.matchid = b.matchid
                                  AND m.sporttype NOT IN (1, 161)
-                                 AND ISNULL(l.LeagueGroupID, -1) <> 113))
+                                 AND ISNULL(l.LeagueGroupID, -1) NOT IN (113,252)))
 			)
 		AND winlostdate BETWEEN @FromDate AND @ToDate
 		AND liveindicator = 1
@@ -384,7 +385,7 @@ BEGIN
 				OR (@IsSoccer = 0 AND m.sporttype NOT IN (1, 161)))
 			AND m.matchcode NOT LIKE '%hedge%'
 			AND d.bettype IS NULL
-            AND ISNULL(l.LeagueGroupID, -1) <> 113
+            AND ISNULL(l.LeagueGroupID, -1) NOT IN (113,252)
 
 	-- Return Data
 	SELECT
