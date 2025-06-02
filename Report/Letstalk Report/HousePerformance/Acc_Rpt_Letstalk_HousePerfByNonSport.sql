@@ -47,6 +47,8 @@ AS
 		20250424@Cherry: Integrate Playtech Live (#224580)
 		20250424@Cherry: Integrate RichGaming (#224308)
 		20250512@Cherry: Integrate W Casino (#225846)
+		20250602@Cherry: Integrate AI Gaming (#229205)
+		20250602@Cherry: Integrate ClotPlay (#229206)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -257,6 +259,8 @@ BEGIN
 			,(101,'PlayT LC')
 			,(108,'RichG')
 			,(98,'W LC')
+			,(109,'ClotP')
+			,(110,'AIG')
 		) h (ProductID, ProductShortName)
 	)
 	,CTE_ProductGroup AS (

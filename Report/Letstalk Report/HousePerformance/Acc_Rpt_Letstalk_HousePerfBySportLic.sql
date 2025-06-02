@@ -40,6 +40,8 @@ AS
 		20250428@Cherry: Integrate Playtech Live (#224580)
 		20250428@Cherry: Integrate RichGaming (#224308)
 		20250512@Cherry: Integrate W Casino (#225846)
+		20250602@Cherry: Integrate AI Gaming (#229205)
+		20250602@Cherry: Integrate ClotPlay (#229206)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -269,6 +271,8 @@ BEGIN
 			WHEN ProductName = 'Playtech Live' THEN 'PlayT LC'
 			WHEN ProductName = 'RichGaming' THEN 'RichG'
 			WHEN ProductName = 'W Casino' THEN 'W LC'
+			WHEN ProductName = 'ClotPlay' THEN 'ClotP'
+			WHEN ProductName = 'AI Gaming' THEN 'AIG'
 			ELSE ProductName END)
 	
 	SELECT @EX3rdName = rd.ProductName
