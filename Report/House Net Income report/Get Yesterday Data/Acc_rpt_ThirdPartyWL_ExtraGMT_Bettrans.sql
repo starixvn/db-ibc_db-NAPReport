@@ -24,6 +24,7 @@ AS
 		- 20250218@Danny: Integrate Askmeslot product (#216979)
 		- 20250515@Hughie: Integrate W Casino Product (#225846)
 		- 20250604@Cherry: Integrate AI Gaming (#229205)
+		- 20250604@Cherry: Integrate ClotPlay (#229206)
 
 	 Param's Explanation:
 
@@ -52,7 +53,7 @@ BEGIN
 	
 	DECLARE @RnGBettypeList TABLE(Bettype INT)
 	INSERT INTO @RnGBettypeList(Bettype)
-	SELECT bettype FROM OPENQUERY (DBLIC, 'SELECT	DISTINCT bettype FROM	bodb_licensee.dbo.LA_f_BettypeProductMapping(0,''FW,PP,CC,SG,JK,CG,MGRNG,JIG,L22,UUSL,FS,NS,GPIRNG,PTRNG,PS,ASK,HOT,RGRNG,AIG'') la')
+	SELECT bettype FROM OPENQUERY (DBLIC, 'SELECT	DISTINCT bettype FROM	bodb_licensee.dbo.LA_f_BettypeProductMapping(0,''FW,PP,CC,SG,JK,CG,MGRNG,JIG,L22,UUSL,FS,NS,GPIRNG,PTRNG,PS,ASK,HOT,RGRNG,AIG,CPRNG'') la')
 
 	DECLARE @LCBettypeList TABLE(Bettype INT)
 	INSERT INTO @LCBettypeList(Bettype)
