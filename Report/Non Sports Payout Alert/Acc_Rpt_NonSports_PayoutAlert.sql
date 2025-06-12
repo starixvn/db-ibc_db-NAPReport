@@ -33,6 +33,8 @@ AS
 		20250424@Cherry: Integrate Playtech Live (#224582)
 		20250424@Cherry: Integrate RichGaming (#224307)
 		20250512@Cherry: Integrate W Casino (#225846)
+		20250602@Cherry: Integrate AI Gaming (#229205)
+		20250602@Cherry: Integrate ClotPlay (#229206)
 
 	Param's Explanation:
 		@FromGMT8Time: start of time range in GMT+8 with format 2021-05-20 19:00:00
@@ -161,6 +163,8 @@ BEGIN
 			,(103, 'ASKMESLOT', 300, 5000)
 			,(95, 'HOTDOG', 300, 5000)
 			,(108, 'RichGaming', 300, 5000)
+			,(109, 'ClotPlay', 300, 5000)
+			,(110, 'AI Gaming', 300, 5000)
 		) AS tmp (ProductID, ProductName, ThresholdPCT, MinWin)
 
 	DECLARE @isTest BIT = 0
