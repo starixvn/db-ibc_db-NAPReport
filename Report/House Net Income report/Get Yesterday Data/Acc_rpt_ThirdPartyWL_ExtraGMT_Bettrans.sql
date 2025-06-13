@@ -25,6 +25,7 @@ AS
 		- 20250515@Hughie: Integrate W Casino Product (#225846)
 		- 20250604@Cherry: Integrate AI Gaming (#229205)
 		- 20250604@Cherry: Integrate ClotPlay (#229206)
+		- 20250616@Cherry: Integrate Jackpot for bettransLC (#225847)
 
 	 Param's Explanation:
 
@@ -96,7 +97,7 @@ BEGIN
 		, b.currency
 		, b.statusID
 		, SUM(winlost - actual_stake) AS Winloss		
-		, 0 AS ProgressiveContribution
+		, SUM(CASE WHEN b.gameID IN (15798) THEN ContributionStake3rd ELSE 0 END) AS ProgressiveContribution
 		, SUM(ISNULL(b.NetStake, 0)) AS ValidBetAmount
 	FROM bodb02.dbo.bettransLC b WITH (NOLOCK)
 		LEFT JOIN bodb02.dbo.Customer c WITH (NOLOCK) ON b.custid = c.custid AND c.roleid = 1

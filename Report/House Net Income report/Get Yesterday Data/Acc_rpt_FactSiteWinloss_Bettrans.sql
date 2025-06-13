@@ -16,6 +16,7 @@ AS
 		- 20240920@Danny: Email/Letstalk - Odds Boost Voucher (#210559)
 		- 20241107@Danny: Incorporate VS6 (#212749)
 		- 20240114@Danny: Email/Letstalk - Offer Direct Member for Super and Master (#215045)
+		- 20250616@Cherry: Offer Jackpot Contribution for bettransLC (#225847)
 
 	Exec Acc_Rpt_FactSiteWinloss_Bettrans '2021-05-12' , 0
 
@@ -457,7 +458,7 @@ BEGIN
 			,b.recommend
 			,0 AS refno
 			,b.virtualrate
-			,NULL ContributionStake3rd
+			,SUM(b.ContributionStake3rd)
 		FROM bodb02.dbo.bettransLC b (NOLOCK)
 		WHERE b.winlostdate = @winlostdate
 			  AND b.gameID IN (SELECT typeid FROM #tmpDWBettypeSource where SourceTable='bettransLC')
