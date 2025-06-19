@@ -40,8 +40,16 @@ SET NOCOUNT ON
 	DECLARE @isTest BIT = 0
 	SELECT  @isTest = dbo.f_CheckSPVersion(@@PROCID)
  
-	CREATE TABLE #SportBettype (ProductId INT, TypeId INT, TypeName NVARCHAR(1000), IsTest BIT DEFAULT(0), GameType TINYINT) --GameType: SportType=1, Bettype=2, League=3
+	CREATE TABLE #SportBettype 
+		(ProductId INT, 
+		TypeId INT, 
+		TypeName NVARCHAR(1000), 
+		IsTest BIT DEFAULT(0), 
+		GameType TINYINT, --GameType: SportType=1, Bettype=2, League=3
+		IsPrize BIT DEFAULT(0)
+		) 
 	CREATE TABLE #tmpBettype (Bettype INT)
+	CREATE TABLE #tmpPrizeBettype (Bettype INT)
 	CREATE TABLE #tmpVirtualSport (ProductID INT)
 
 	DECLARE @VirtualSportGroupStr VARCHAR(500)
@@ -54,14 +62,18 @@ SET NOCOUNT ON
     FROM bodb02.dbo.strSplit(@VirtualSportGroupStr, ',')
 	WHERE val <> 49
  
+	INSERT INTO #tmpPrizeBettype (Bettype)
+	SELECT Bettype
+	FROM DBWH.bodb_Account.dbo.BettypeGroup WITH (NOLOCK)
+	WHERE BettypeGroupID = 16
+
 	-- Get Exclude Bettype
 	INSERT INTO #tmpBettype (Bettype)
 	SELECT Bettype
 	FROM DBWH.bodb_Account.dbo.BettypeGroup WITH (NOLOCK)
 	WHERE BettypeGroupID = 6
 		AND Bettype NOT IN (SELECT Bettype
-							FROM DBWH.bodb_Account.dbo.BettypeGroup WITH (NOLOCK)
-							WHERE BettypeGroupID = 16)
+							FROM #tmpPrizeBettype)
 
 	INSERT INTO #tmpBettype (Bettype) VALUES (3007) -- SA Gaming Tips
 							
@@ -80,12 +92,14 @@ SET NOCOUNT ON
 		AND ProductID NOT IN (SELECT ProductID FROM #tmpVirtualSport)
 	
     -- Get Bettype
-	INSERT INTO #SportBettype (ProductID, TypeId, TypeName, GameType)
-	SELECT	DISTINCT s.ProductID, s.Bettype as TypeId, b.typenamee AS TypeName, 2 AS GameType
+	INSERT INTO #SportBettype (ProductID, TypeId, TypeName, GameType, IsPrize)
+	SELECT	DISTINCT s.ProductID, s.Bettype as TypeId, b.typenamee AS TypeName, 2 AS GameType,
+		CASE WHEN bt.Bettype IS NOT NULL THEN 1 ELSE 0 END
 	FROM	dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '', @isTest) s
 		INNER JOIN #tmpProductBettype p ON s.ProductID = p.ProductID AND s.BetType = p.Bettype
 		INNER JOIN dbo.Bettype b WITH (NOLOCK) ON s.Bettype = b.TypeId 
 		LEFT JOIN #tmpBettype t ON s.Bettype = t.Bettype 
+		LEFT JOIN #tmpPrizeBettype bt ON s.Bettype = bt.Bettype 
 	WHERE t.Bettype IS NULL
 		AND b.typenamee NOT LIKE 'Upcoming%' 
 		AND b.typenamee NOT LIKE 'Up coming%'
