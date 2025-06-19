@@ -149,6 +149,7 @@ SET NOCOUNT ON
 	DROP TABLE #tmpProductBettype
 	DROP TABLE #tmpHouseProduct
 	DROP TABLE #tmpVirtualSport
+	DROP TABLE #tmpPrizeBettype
 
 END
 
