@@ -1,4 +1,4 @@
-/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBACC-bodb02" executers="wsv_nap" viewers="" isFunction="0" isNested="0"></info>*/
 USE bodb02
 GO 
  
@@ -29,6 +29,7 @@ AS
 		20230801@Cherry: Integrate Virtual Sports 3 (#189202)
 		20231010@Cherry: Integrate Saba Promotion (#194567) 
 		20240116@Cherry: Integrate Virtual Sports 4 (#198623)
+		20250618@Cherry: Add column to check bettype Prize (#228133)
 */
  
 BEGIN
