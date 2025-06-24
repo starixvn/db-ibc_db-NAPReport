@@ -95,7 +95,9 @@ SET NOCOUNT ON
     -- Get Bettype
 	INSERT INTO #SportBettype (ProductID, TypeId, TypeName, GameType, IsPrize)
 	SELECT	DISTINCT s.ProductID, s.Bettype as TypeId, b.typenamee AS TypeName, 2 AS GameType,
-		CASE WHEN bt.Bettype IS NOT NULL THEN 1 ELSE 0 END
+		CASE WHEN bt.Bettype IS NOT NULL THEN 1 
+			 WHEN s.ProductID = 37 THEN 1
+			 ELSE 0 END
 	FROM	dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '', @isTest) s
 		INNER JOIN #tmpProductBettype p ON s.ProductID = p.ProductID AND s.BetType = p.Bettype
 		INNER JOIN dbo.Bettype b WITH (NOLOCK) ON s.Bettype = b.TypeId 
@@ -106,12 +108,14 @@ SET NOCOUNT ON
 		AND b.typenamee NOT LIKE 'Up coming%'
 		AND b.typenamee NOT LIKE 'Upcomming%' 
 		   
-	INSERT INTO #SportBettype (ProductID, TypeId, TypeName, GameType)
-	SELECT	DISTINCT s.ProductID ProductID, s.Bettype as TypeId, b.typenamee AS TypeName, s.SportType AS GameType
+	INSERT INTO #SportBettype (ProductID, TypeId, TypeName, GameType, IsPrize)
+	SELECT	DISTINCT s.ProductID ProductID, s.Bettype as TypeId, b.typenamee AS TypeName, s.SportType AS GameType,
+		CASE WHEN bt.Bettype IS NOT NULL OR s.Bettype = 3897 THEN 1 ELSE 0 END
 	FROM dbo.SportBettypeMatrix s WITH (NOLOCK)
 		INNER JOIN #tmpHouseProduct p ON s.ProductID = p.ProductID AND s.BetType = p.Bettype
 		INNER JOIN dbo.Bettype b WITH (NOLOCK) ON s.Bettype = b.TypeId 
 		LEFT JOIN #tmpBettype t ON s.Bettype = t.Bettype 
+		LEFT JOIN #tmpPrizeBettype bt ON s.Bettype = bt.Bettype 
 	WHERE  t.Bettype IS NULL
 		   AND (IsTest = 0 OR s.IsTest = @isTest)
 		   AND b.typenamee NOT LIKE 'Upcoming%' 
