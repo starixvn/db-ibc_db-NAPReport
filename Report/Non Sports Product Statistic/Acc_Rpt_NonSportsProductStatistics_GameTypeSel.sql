@@ -1,4 +1,4 @@
-/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBACC-bodb02" executers="wsv_nap" viewers="" isFunction="0" isNested="0"></info>*/
 USE bodb02
 GO 
  
@@ -29,6 +29,7 @@ AS
 		20230801@Cherry: Integrate Virtual Sports 3 (#189202)
 		20231010@Cherry: Integrate Saba Promotion (#194567) 
 		20240116@Cherry: Integrate Virtual Sports 4 (#198623)
+		20250618@Cherry: Add column to check bettype Prize (#228133)
 */
  
 BEGIN
@@ -40,8 +41,16 @@ SET NOCOUNT ON
 	DECLARE @isTest BIT = 0
 	SELECT  @isTest = dbo.f_CheckSPVersion(@@PROCID)
  
-	CREATE TABLE #SportBettype (ProductId INT, TypeId INT, TypeName NVARCHAR(1000), IsTest BIT DEFAULT(0), GameType TINYINT) --GameType: SportType=1, Bettype=2, League=3
+	CREATE TABLE #SportBettype 
+		(ProductId INT, 
+		TypeId INT, 
+		TypeName NVARCHAR(1000), 
+		IsTest BIT DEFAULT(0), 
+		GameType TINYINT, --GameType: SportType=1, Bettype=2, League=3
+		IsPrize BIT DEFAULT(0)
+		) 
 	CREATE TABLE #tmpBettype (Bettype INT)
+	CREATE TABLE #tmpPrizeBettype (Bettype INT)
 	CREATE TABLE #tmpVirtualSport (ProductID INT)
 
 	DECLARE @VirtualSportGroupStr VARCHAR(500)
@@ -54,14 +63,18 @@ SET NOCOUNT ON
     FROM bodb02.dbo.strSplit(@VirtualSportGroupStr, ',')
 	WHERE val <> 49
  
+	INSERT INTO #tmpPrizeBettype (Bettype)
+	SELECT Bettype
+	FROM DBWH.bodb_Account.dbo.BettypeGroup WITH (NOLOCK)
+	WHERE BettypeGroupID = 16
+
 	-- Get Exclude Bettype
 	INSERT INTO #tmpBettype (Bettype)
 	SELECT Bettype
 	FROM DBWH.bodb_Account.dbo.BettypeGroup WITH (NOLOCK)
 	WHERE BettypeGroupID = 6
 		AND Bettype NOT IN (SELECT Bettype
-							FROM DBWH.bodb_Account.dbo.BettypeGroup WITH (NOLOCK)
-							WHERE BettypeGroupID = 16)
+							FROM #tmpPrizeBettype)
 
 	INSERT INTO #tmpBettype (Bettype) VALUES (3007) -- SA Gaming Tips
 							
@@ -80,23 +93,29 @@ SET NOCOUNT ON
 		AND ProductID NOT IN (SELECT ProductID FROM #tmpVirtualSport)
 	
     -- Get Bettype
-	INSERT INTO #SportBettype (ProductID, TypeId, TypeName, GameType)
-	SELECT	DISTINCT s.ProductID, s.Bettype as TypeId, b.typenamee AS TypeName, 2 AS GameType
+	INSERT INTO #SportBettype (ProductID, TypeId, TypeName, GameType, IsPrize)
+	SELECT	DISTINCT s.ProductID, s.Bettype as TypeId, b.typenamee AS TypeName, 2 AS GameType,
+		CASE WHEN bt.Bettype IS NOT NULL THEN 1 
+			 WHEN s.ProductID = 37 THEN 1
+			 ELSE 0 END
 	FROM	dbo.f_SportBettypeMatrix_Sel(0, 0, 0, 2, '', '', @isTest) s
 		INNER JOIN #tmpProductBettype p ON s.ProductID = p.ProductID AND s.BetType = p.Bettype
 		INNER JOIN dbo.Bettype b WITH (NOLOCK) ON s.Bettype = b.TypeId 
 		LEFT JOIN #tmpBettype t ON s.Bettype = t.Bettype 
+		LEFT JOIN #tmpPrizeBettype bt ON s.Bettype = bt.Bettype 
 	WHERE t.Bettype IS NULL
 		AND b.typenamee NOT LIKE 'Upcoming%' 
 		AND b.typenamee NOT LIKE 'Up coming%'
 		AND b.typenamee NOT LIKE 'Upcomming%' 
 		   
-	INSERT INTO #SportBettype (ProductID, TypeId, TypeName, GameType)
-	SELECT	DISTINCT s.ProductID ProductID, s.Bettype as TypeId, b.typenamee AS TypeName, s.SportType AS GameType
+	INSERT INTO #SportBettype (ProductID, TypeId, TypeName, GameType, IsPrize)
+	SELECT	DISTINCT s.ProductID ProductID, s.Bettype as TypeId, b.typenamee AS TypeName, s.SportType AS GameType,
+		CASE WHEN bt.Bettype IS NOT NULL OR s.Bettype = 3897 THEN 1 ELSE 0 END
 	FROM dbo.SportBettypeMatrix s WITH (NOLOCK)
 		INNER JOIN #tmpHouseProduct p ON s.ProductID = p.ProductID AND s.BetType = p.Bettype
 		INNER JOIN dbo.Bettype b WITH (NOLOCK) ON s.Bettype = b.TypeId 
 		LEFT JOIN #tmpBettype t ON s.Bettype = t.Bettype 
+		LEFT JOIN #tmpPrizeBettype bt ON s.Bettype = bt.Bettype 
 	WHERE  t.Bettype IS NULL
 		   AND (IsTest = 0 OR s.IsTest = @isTest)
 		   AND b.typenamee NOT LIKE 'Upcoming%' 
@@ -134,6 +153,7 @@ SET NOCOUNT ON
 	DROP TABLE #tmpProductBettype
 	DROP TABLE #tmpHouseProduct
 	DROP TABLE #tmpVirtualSport
+	DROP TABLE #tmpPrizeBettype
 
 END
 
