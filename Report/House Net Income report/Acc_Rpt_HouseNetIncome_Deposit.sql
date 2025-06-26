@@ -988,7 +988,7 @@ BEGIN
 										END * e.Rate)
 			,HouseIncomeDaily	= SUM(CASE
 										WHEN t.Product3rdId IN (37, 74) THEN -t.HouseWL
-										WHEN p.PartyId IS NULL THEN -t.HouseWL
+										WHEN p.PartyId IS NULL AND t.BetTypeGroup <> -3 THEN -t.HouseWL - t.HouseContribution 
 										WHEN t.SportTypeGroup IN (150, 173)  THEN -t.MemberWL
 										ELSE
 											(- t.MemberWL - (t.FullContribution - t.HouseContribution) + t.FullParlayBoostBonus) * ISNULL(lc.Rate, p.Rate)
