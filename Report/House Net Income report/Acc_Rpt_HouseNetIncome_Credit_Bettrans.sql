@@ -20,6 +20,7 @@ AS
         20240913@Ned.Le: Email/Letstalk - Odds Boost Voucher (#210559)
 		20241030@Roy: Email/Letstalk - Integrate VS6 (#212749)
 		20241226@Roy: Email/Letstalk - Offer Direct Member for Super and Master (#215045)
+		20250616@Cherry: Integrate Playtech Live Jackpot (#225847)
 
     Param's Explanation:
         @winlostdate: The date to get data
@@ -339,7 +340,7 @@ BEGIN
         ,b.recommend
         ,b.refno
         ,b.virtualrate
-        ,NULL ContributionStake3rd
+        ,b.ContributionStake3rd
         ,b.epositiontaking
         ,ISNULL(b.NetStake,0) NetStake
     FROM bodb02.dbo.bettransLC b (NOLOCK)

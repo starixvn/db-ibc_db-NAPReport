@@ -24,6 +24,7 @@ AS
 		20241127@Cherry: Add a new section for Exchange and Bet Builder (#212829)
 		20250207@Cherry: Support direct member (#215045)
 		20250505@Cherry: Change to House View for Exchange and Bet Builder (#226033)
+		20250616@Cherry: Offer Jackpot contribution for bettransLC (#225847)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -636,7 +637,7 @@ BEGIN
 		,CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9,6)) AS VarianceVR
 		------------------------------------------------------------------------
 		,SUM((CASE WHEN bg.BettypeGroupID = 6 THEN 0 --Prize Tickets
-			  WHEN bg.BettypeGroupID = 10 THEN b.swinlost + b.mwinlost + b.awinlost --Contribution Tickets
+			  WHEN bg.BettypeGroupID = 10 THEN b.ContributionStake3rd + b.swinlost + b.mwinlost + b.awinlost --Contribution Tickets
 			  ELSE (b.winlost - b.actual_stake) + b.swinlost + b.mwinlost + b.awinlost
 			END) * b.actualrate) AS WinlossIBC
 		,SUM(CASE WHEN b.tpositiontaking = 1 THEN 0

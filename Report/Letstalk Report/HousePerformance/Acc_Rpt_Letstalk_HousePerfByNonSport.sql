@@ -49,6 +49,7 @@ AS
 		20250512@Cherry: Integrate W Casino (#225846)
 		20250602@Cherry: Integrate AI Gaming (#229205)
 		20250602@Cherry: Integrate ClotPlay (#229206)
+		20250616@Cherry: Offer Jackpot contribution for bettransLC (#225847)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -373,7 +374,7 @@ BEGIN
 			,CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9,6)) AS VarianceVR
 			------------------------------------------------------------------------
 			,SUM((CASE WHEN bg.BettypeGroupID = 6 THEN 0 --Prize Tickets
-				  WHEN bg.BettypeGroupID = 10 THEN b.swinlost + b.mwinlost + b.awinlost --Contribution Tickets
+				  WHEN bg.BettypeGroupID = 10 THEN b.ContributionStake3rd + b.swinlost + b.mwinlost + b.awinlost --Contribution Tickets
 				  ELSE (b.winlost - b.actual_stake) + b.swinlost + b.mwinlost + b.awinlost
 				END) * b.actualrate) AS WinlossIBC
 			,SUM(CASE WHEN b.tpositiontaking = 1 THEN 0
