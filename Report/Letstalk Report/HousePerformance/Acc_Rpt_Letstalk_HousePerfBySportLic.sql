@@ -42,6 +42,7 @@ AS
 		20250512@Cherry: Integrate W Casino (#225846)
 		20250602@Cherry: Integrate AI Gaming (#229205)
 		20250602@Cherry: Integrate ClotPlay (#229206)
+		20250701@Cherry: Integrate GPI Lottery (#231786)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -273,6 +274,7 @@ BEGIN
 			WHEN ProductName = 'W Casino' THEN 'W LC'
 			WHEN ProductName = 'ClotPlay' THEN 'ClotP'
 			WHEN ProductName = 'AI Gaming' THEN 'AIG'
+			WHEN ProductName = 'GPI Lottery' THEN 'GPILotte'
 			ELSE ProductName END)
 	
 	SELECT @EX3rdName = rd.ProductName
