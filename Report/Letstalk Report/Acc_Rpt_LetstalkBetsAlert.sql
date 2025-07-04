@@ -8,6 +8,7 @@
 	
 	Revisions:
 		- 20250402@Robert: #222345 - Letstalk - Bets Alert [ReportID 48]		
+		- 20250704@Robert: #231786 - Notify when product has a bet ticket.
 		
 	Parameter's Explaination:
 		- @Example:			
