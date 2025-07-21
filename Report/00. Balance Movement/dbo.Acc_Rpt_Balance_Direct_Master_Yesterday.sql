@@ -20,6 +20,7 @@ AS
 		20240821@Jaden: Add currency name for web (#199583)
 		20241022@Jaden: Credit Reward Wallet (#212482)
 		20241230@Jaden: Add support to view super/master's direct member (#213629)
+		20250721@Jaden: Exclude agency cash in today's balance for Direct Yesterday reports (#233327)
 */
 BEGIN
 	SET NOCOUNT ON
@@ -104,14 +105,27 @@ BEGIN
 				when b.winlostdate < @BalanceUpDay then NULL --> old bal
 				else b.mrecommend
 			end mrecommend,
-			isnull(sum(case when custid=mrecommend then winlost-actual_stake else mwinlost+acomm-comm end),0)
-			+ isnull(sum(case when custid=recommend then winlost-actual_stake else awinlost+comm-playercomm end),0)
-			+ isnull(sum(case when custid <> recommend and custid <> mrecommend then winlost-actual_stake+playercomm else 0 end),0) 
+			-- note: for agency cash service transfers (31001-31006), mwinlost, acomm, comm, playercomm are 0
+			isnull(sum(case when custid=mrecommend then 
+				case when (bettype between 31001 and 31006 and winlostdate >= @currentDate) then 0 else winlost-actual_stake end
+				else mwinlost+acomm-comm end),0)
+			+ isnull(sum(case when custid=recommend then 
+				case when (bettype between 31001 and 31006 and winlostdate >= @currentDate) then 0 else winlost-actual_stake end
+				else awinlost+comm-playercomm end),0)
+			+ isnull(sum(case when custid <> recommend and custid <> mrecommend then 
+				case when (bettype between 31001 and 31006 and winlostdate >= @currentDate) then 0 else winlost-actual_stake+playercomm end
+				else 0 end),0) 
 			- isnull(sum(case when bettype < 19001 and winlostdate >= @currentDate then mwinlost+acomm + awinlost + winlost-actual_stake else 0 end ),0) AS bal, 	
 			
-			isnull(sum((case when custid=mrecommend then winlost-actual_stake else mwinlost+acomm-comm end)* actualrate),0)
-			+ isnull(sum((case when custid=recommend then winlost-actual_stake else awinlost+comm-playercomm end)* actualrate),0)
-			+ isnull(sum((case when custid <> recommend and custid <> mrecommend then winlost-actual_stake+playercomm else 0 end)* actualrate),0) 
+			isnull(sum((case when custid=mrecommend then 
+				case when (bettype between 31001 and 31006 and winlostdate >= @currentDate) then 0 else winlost-actual_stake end
+				else mwinlost+acomm-comm end)* actualrate),0)
+			+ isnull(sum((case when custid=recommend then 
+				case when (bettype between 31001 and 31006 and winlostdate >= @currentDate) then 0 else winlost-actual_stake end
+				else awinlost+comm-playercomm end)* actualrate),0)
+			+ isnull(sum((case when custid <> recommend and custid <> mrecommend then 
+				case when (bettype between 31001 and 31006 and winlostdate >= @currentDate) then 0 else winlost-actual_stake+playercomm end
+				else 0 end)* actualrate),0) 
 			- isnull(sum((case when bettype < 19001 and winlostdate >= @currentDate then mwinlost+acomm + awinlost + winlost-actual_stake else 0 end )*actualrate),0) AS Basebal								
 	FROM	dbo.[Transfer] b WITH (NOLOCK)	
 	WHERE	b.bettype NOT IN (21008, 21009)
