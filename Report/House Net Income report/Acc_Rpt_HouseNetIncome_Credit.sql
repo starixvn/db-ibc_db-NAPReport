@@ -782,6 +782,9 @@ BEGIN
 		,0 AS ExtraComm
 		,0 AS NetStake
 	FROM #tmpSourceData_AgencyCash
+	GROUP BY RptDate,
+		SiteID,
+		CurrencyID
 	
     -- Create index for temp table
     CREATE CLUSTERED INDEX CIX_tmpSourceData ON #tmpSourceData(RptDate, SiteID, CurrencyID, Sporttype, Bettype, LeagueID, TicketStatus, VarianceVR)
