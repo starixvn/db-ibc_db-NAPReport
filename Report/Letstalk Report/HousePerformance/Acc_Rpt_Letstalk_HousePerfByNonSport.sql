@@ -50,6 +50,7 @@ AS
 		20250602@Cherry: Integrate AI Gaming (#229205)
 		20250602@Cherry: Integrate ClotPlay (#229206)
 		20250616@Cherry: Offer Jackpot contribution for bettransLC (#225847)
+		20250701@Cherry: Integrate GPI Lottery (#231786)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -262,6 +263,7 @@ BEGIN
 			,(98,'W LC')
 			,(109,'ClotP')
 			,(110,'AIG')
+			,(84,'GPILotte')
 		) h (ProductID, ProductShortName)
 	)
 	,CTE_ProductGroup AS (

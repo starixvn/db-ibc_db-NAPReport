@@ -35,6 +35,7 @@ AS
 		20250512@Cherry: Integrate W Casino (#225846)
 		20250602@Cherry: Integrate AI Gaming (#229205)
 		20250602@Cherry: Integrate ClotPlay (#229206)
+		20250704@Cherry: Integrate GPI Lottery (#231786)
 
 	Param's Explanation:
 		@FromGMT8Time: start of time range in GMT+8 with format 2021-05-20 19:00:00
@@ -128,6 +129,7 @@ BEGIN
 			,(86, 'SABA xD', 120, 5000)
 			,(102, 'SABA Keno', 120, 5000)
 			,(104, 'Funky Games', 120, 5000)
+			,(84, 'GPI Lottery', 120, 5000)
 			
 			-------------Sport-------------
 			,(5, 'Virtual Sports', 108, 5000)

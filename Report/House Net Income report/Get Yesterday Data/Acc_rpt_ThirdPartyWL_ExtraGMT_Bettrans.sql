@@ -26,6 +26,7 @@ AS
 		- 20250604@Cherry: Integrate AI Gaming (#229205)
 		- 20250604@Cherry: Integrate ClotPlay (#229206)
 		- 20250616@Cherry: Integrate Jackpot for bettransLC (#225847)
+		- 20250701@Cherry: Integrate GPI Lottery (#231786)
 
 	 Param's Explanation:
 
@@ -54,7 +55,7 @@ BEGIN
 	
 	DECLARE @RnGBettypeList TABLE(Bettype INT)
 	INSERT INTO @RnGBettypeList(Bettype)
-	SELECT bettype FROM OPENQUERY (DBLIC, 'SELECT	DISTINCT bettype FROM	bodb_licensee.dbo.LA_f_BettypeProductMapping(0,''FW,PP,CC,SG,JK,CG,MGRNG,JIG,L22,UUSL,FS,NS,GPIRNG,PTRNG,PS,ASK,HOT,RGRNG,AIG,CPRNG'') la')
+	SELECT bettype FROM OPENQUERY (DBLIC, 'SELECT	DISTINCT bettype FROM	bodb_licensee.dbo.LA_f_BettypeProductMapping(0,''FW,PP,CC,SG,JK,CG,MGRNG,JIG,L22,UUSL,FS,NS,GPIRNG,PTRNG,PS,ASK,HOT,RGRNG,AIG,CPRNG,GPILT'') la')
 
 	DECLARE @LCBettypeList TABLE(Bettype INT)
 	INSERT INTO @LCBettypeList(Bettype)
