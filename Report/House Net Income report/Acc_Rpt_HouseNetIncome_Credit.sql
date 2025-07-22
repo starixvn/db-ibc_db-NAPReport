@@ -1233,6 +1233,8 @@ BEGIN
     DROP TABLE #tmpPTSMainData
 
     DROP TABLE #tmpSourceData_CorrectScoreLuckyDraw
+	DROP TABLE #tmpSourceData_AgencyCash
+	DROP TABLE #tmpSourceData_CreditReward
     DROP TABLE #tmpSourceData
 
     DROP TABLE #tmpRawData
