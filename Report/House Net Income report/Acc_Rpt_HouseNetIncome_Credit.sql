@@ -735,6 +735,7 @@ BEGIN
 		SUM(HouseWL)
 	FROM bodb_account.dbo.FactPerfSpecialProduct WITH (NOLOCK)
 	WHERE RptDate BETWEEN @FromDate AND @ToDate
+		AND ProductID = 111
 	GROUP BY RptDate,
 		SiteID,
 		CurrencyID
@@ -873,7 +874,7 @@ BEGIN
                     WHEN pb.ProductID = 3 AND b.Sporttype = 161     THEN -11 --NumG
                     WHEN pb.ProductID = 3 AND b.Sporttype = 164     THEN -12 --Happy5
                     WHEN pb.ProductID = 3 AND b.Sporttype = 168     THEN -13 --Happy5 LG
-					WHEN b.SportType = 0 AND b.Bettype = 31003		THEN -19 -- Agency Cash
+					WHEN b.SportType = 0 AND b.Bettype = 31003		THEN 111 -- Agency Cash
                     ELSE ISNULL(pb.ProductID, -1) END ProductID,             --Unknown
                b.SportType,
                b.BetType,
@@ -926,7 +927,7 @@ BEGIN
                       WHEN pb.ProductID = 3 AND b.Sporttype = 161     THEN -11 --NumG
                       WHEN pb.ProductID = 3 AND Sporttype = 164       THEN -12 --Happy5
                       WHEN pb.ProductID = 3 AND Sporttype = 168       THEN -13 --Happy5 LG
-					  WHEN b.SportType = 0 AND b.Bettype = 31003	  THEN -19 -- Agency Cash
+					  WHEN b.SportType = 0 AND b.Bettype = 31003	  THEN 111 -- Agency Cash
                       ELSE ISNULL(pb.ProductID, -1) END,                       --Unknown
                  b.SportType,
                  b.BetType,
