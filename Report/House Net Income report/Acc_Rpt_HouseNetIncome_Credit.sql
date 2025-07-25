@@ -252,7 +252,7 @@ BEGIN
         SELECT DISTINCT ProductID, BetType
         FROM bodb02.dbo.SportBettypeMatrix (NOLOCK)
         WHERE ProductID IN (SELECT DISTINCT ProductID FROM #tmpHNISettings (NOLOCK) WHERE isDeposit = 0 AND isEnable = 1)
-              AND ISNULL(SubProduct,'') NOT IN ('BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss')
+              AND SubProduct NOT IN ('BT-Sold', 'BT-Bought', 'BT-Comm', 'BT-Winloss')
     END
 
     IF EXISTS (SELECT TOP 1 1 FROM #tmpProductList WHERE ProductPrefix = 'SB')
