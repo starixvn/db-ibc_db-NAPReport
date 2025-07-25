@@ -24,6 +24,7 @@ Revisions:
 	- 20240821@Jaden: Add currency name for web (#199583)
 	- 20241022@Jaden: Credit Reward Wallet (#212482)
 	- 20241230@Jaden: Add support to view super/master's direct member (#213629)
+	- 20250721@Jaden: Exclude agency cash in today's balance for Direct Yesterday reports (#233327)
 */
 BEGIN
 	SET NOCOUNT ON
@@ -83,8 +84,8 @@ BEGIN
 	INSERT INTO #Data (Custid, Balance, BaseBalance)
 	SELECT
 			custid,
-			SUM(bet.winlost) AS balance,
-			SUM(bet.winlost * b.actualrate) AS baseBalance
+			SUM(CASE WHEN b.bettype between 31001 and 31006 and b.winlostdate >= @currentDate THEN 0 ELSE bet.winlost END) AS balance,
+			SUM(CASE WHEN b.bettype between 31001 and 31006 and b.winlostdate >= @currentDate THEN 0 ELSE bet.winlost END*b.actualrate) AS baseBalance
 	FROM dbo.[Transfer] b with (nolock)
 		CROSS APPLY (
 			SELECT 
