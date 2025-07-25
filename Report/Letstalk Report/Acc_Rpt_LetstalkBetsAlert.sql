@@ -64,6 +64,7 @@ AS
 				LEFT JOIN match m WITH(NOLOCK) ON b.matchid = m.matchid
 										    AND m.sporttype < 99 -- exclude sportsbook
 			WHERE b.transdate BETWEEN @StartDate AND @EndDate
+				 AND b.currency <> 20
 				 AND m.matchid IS NULL
 			GROUP BY 
 				    b.matchid;
@@ -79,12 +80,14 @@ AS
 			  FROM bettransLC b WITH(NOLOCK)
 				  INNER JOIN @tblSports s ON s.SportType = b.ProductID
 			  WHERE b.transdate BETWEEN @StartDate AND @EndDate
+				   AND b.currency <> 20
 			  UNION ALL
 			  SELECT DISTINCT 
 				    s.ProductID
 			  FROM bettransRNG b WITH(NOLOCK)
 				  INNER JOIN @tblSports s ON s.SportType = b.ProductID
 			  WHERE b.transdate BETWEEN @StartDate AND @EndDate
+				   AND b.currency <> 20
 			  --- for products that matchid in bettrans is real match, not sporttype
 			  UNION ALL
 			  SELECT DISTINCT 
