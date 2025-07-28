@@ -36,6 +36,7 @@ AS
 		20250602@Cherry: Integrate AI Gaming (#229205)
 		20250602@Cherry: Integrate ClotPlay (#229206)
 		20250704@Cherry: Integrate GPI Lottery (#231786)
+		20250722@Cherry: Integrate ODINGAMING (#219228)
 
 	Param's Explanation:
 		@FromGMT8Time: start of time range in GMT+8 with format 2021-05-20 19:00:00
@@ -167,6 +168,7 @@ BEGIN
 			,(108, 'RichGaming', 300, 5000)
 			,(109, 'ClotPlay', 300, 5000)
 			,(110, 'AI Gaming', 300, 5000)
+			,(105, 'ODIN GAMING', 300, 5000)
 		) AS tmp (ProductID, ProductName, ThresholdPCT, MinWin)
 
 	DECLARE @isTest BIT = 0
