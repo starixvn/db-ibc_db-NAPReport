@@ -62,7 +62,7 @@ AS
 		- 20250411@Max: Incorporate VS7 (#219279)
 		- 20250508@Aries: HNI - Saba Soccer Pingoal Marble Product [Redmine:#225685]
 		- 20250618@Cherry: Integrate Playtech Live Jackpot (#225847)
-		- Cherry@20250730: Letstalk/HNI - Playtech Jackpot (#233667)
+		- 20250730@Cherry: Letstalk/HNI - Playtech Jackpot (#233667)
           
 */
 BEGIN
