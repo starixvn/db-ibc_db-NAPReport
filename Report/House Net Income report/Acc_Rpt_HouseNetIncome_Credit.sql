@@ -42,6 +42,7 @@ AS
         20240724@Ned.Le: Fix bug relate to @isTest
         20241108@Roy: Email/Letstalk - Rebate and Retention for Credit players (#210687)
 		20241226@Roy: Email/Letstalk - Offer Direct Member for Super and Master (#215045)
+		20250718@Cherry: Agency Cash Service (#227210)
 
     Param's Explanation:
         @FromDate   : Begin date to get data for report
@@ -660,8 +661,8 @@ BEGIN
 		,Amount
     FROM DBACC.bodb02.dbo.SabaWalletTicket AS rw WITH (NOLOCK)
     WHERE rw.WinlostDate BETWEEN CONVERT(SMALLDATETIME, @FromDate) AND CONVERT(SMALLDATETIME, @ToDate)
-          AND rw.WalletId = 2
-	
+          AND rw.WalletId = 2	
+
 	INSERT INTO #tmpSourceData (
 		RptDate
 		,SiteID
@@ -713,6 +714,78 @@ BEGIN
 		,s.SiteID
 		,rw.CurrencyID
 		,rw.SelfRate
+
+	-- Agency Cash Service
+	CREATE TABLE #tmpSourceData_AgencyCash (
+		RptDate DATE,
+		SiteID INT,
+		CurrencyID INT,
+		Amount DECIMAL(19, 4)
+	)
+
+    INSERT INTO #tmpSourceData_AgencyCash (
+        RptDate,
+		SiteID,
+		CurrencyID,
+		Amount
+    )
+	SELECT RptDate,
+		SiteID,
+		CurrencyID,
+		SUM(HouseWL)
+	FROM bodb_account.dbo.FactPerfSpecialProduct WITH (NOLOCK)
+	WHERE RptDate BETWEEN @FromDate AND @ToDate
+		AND ProductID = 111
+	GROUP BY RptDate,
+		SiteID,
+		CurrencyID
+
+	INSERT INTO #tmpSourceData (
+		RptDate
+		,SiteID
+		,CurrencyID
+		,SelfRate
+		,WinlossIBC
+		,WinlossP
+		,Sporttype
+		,Bettype
+		,LeagueID
+		,TicketStatus
+		,VarianceVR
+		,TurnoverIBC
+		,WinlossS
+		,WinlossM
+		,WinlossA
+		,CommissionS
+		,ExtraTO
+		,ExtraWL
+		,ExtraComm
+		,NetStake
+	)
+    SELECT RptDate
+		,SiteID
+		,CurrencyID
+		,NULL
+		,SUM(Amount) AS WinlossIBC
+		,SUM(Amount) AS WinlossP
+		,0 AS Sporttype
+		,31003 AS Bettype
+		,-1 AS LeagueID
+		,8 AS TicketStatus
+		,0 AS VarianceVR
+		,0 AS TurnoverIBC
+		,0 AS WinlossS
+		,0 AS WinlossM
+		,0 AS WinlossA
+		,0 AS CommissionS
+		,0 AS ExtraTO
+		,0 AS ExtraWL
+		,0 AS ExtraComm
+		,0 AS NetStake
+	FROM #tmpSourceData_AgencyCash
+	GROUP BY RptDate,
+		SiteID,
+		CurrencyID
 	
     -- Create index for temp table
     CREATE CLUSTERED INDEX CIX_tmpSourceData ON #tmpSourceData(RptDate, SiteID, CurrencyID, Sporttype, Bettype, LeagueID, TicketStatus, VarianceVR)
@@ -801,6 +874,7 @@ BEGIN
                     WHEN pb.ProductID = 3 AND b.Sporttype = 161     THEN -11 --NumG
                     WHEN pb.ProductID = 3 AND b.Sporttype = 164     THEN -12 --Happy5
                     WHEN pb.ProductID = 3 AND b.Sporttype = 168     THEN -13 --Happy5 LG
+					WHEN b.SportType = 0 AND b.Bettype = 31003		THEN 111 -- Agency Cash
                     ELSE ISNULL(pb.ProductID, -1) END ProductID,             --Unknown
                b.SportType,
                b.BetType,
@@ -853,6 +927,7 @@ BEGIN
                       WHEN pb.ProductID = 3 AND b.Sporttype = 161     THEN -11 --NumG
                       WHEN pb.ProductID = 3 AND Sporttype = 164       THEN -12 --Happy5
                       WHEN pb.ProductID = 3 AND Sporttype = 168       THEN -13 --Happy5 LG
+					  WHEN b.SportType = 0 AND b.Bettype = 31003	  THEN 111 -- Agency Cash
                       ELSE ISNULL(pb.ProductID, -1) END,                       --Unknown
                  b.SportType,
                  b.BetType,
@@ -1162,6 +1237,8 @@ BEGIN
     DROP TABLE #tmpPTSMainData
 
     DROP TABLE #tmpSourceData_CorrectScoreLuckyDraw
+	DROP TABLE #tmpSourceData_AgencyCash
+	DROP TABLE #tmpSourceData_CreditReward
     DROP TABLE #tmpSourceData
 
     DROP TABLE #tmpRawData
