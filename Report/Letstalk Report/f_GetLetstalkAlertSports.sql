@@ -5,7 +5,8 @@
 	Database:	DBACC.bodb02 
 	
 	Revisions:
-		- 20250402@Robert: #222345 - Letstalk - No Bets Alert [ReportID 48]		
+		- 20250402@Robert: #222345 - Letstalk - No Bets Alert [ReportID 48]	
+		- 20250729@Robert: #234497 - Letstalk - No Bets Alert (ID 48) - Remove IBCBet Live Casino Product
 		
 	Parameter's Explaination:
 		- @Example:			
@@ -63,8 +64,7 @@ BEGIN
 	   (57, 239, '60 Mins', 0),
 	   (89, 146, '60 Mins', 0),
 	   (87, 230, '60 Mins', 0),
-	   (61, 238, '60 Mins', 0),
-	   (46, 242, '60 Mins', 0),
+	   (61, 238, '60 Mins', 0),	   
 	   (75, 158, '60 Mins', 0),
 	   (22, 212, '60 Mins', 0),
 	   (73, 155, '60 Mins', 0),
@@ -110,8 +110,8 @@ BEGIN
 	   (101, 129, '90 Mins', 0),
 	   (109, 122, '90 Mins', 0),
 	   (110, 121, '90 Mins', 0),
-	   (84, 132, '90 Mins', 1),
-	   (105, 128, '90 Mins', 1);
+	   (84, 132, '90 Mins', 0),
+	   (105, 128, '90 Mins', 0);
     RETURN;
 END
 GO
