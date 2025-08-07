@@ -62,6 +62,7 @@ AS
 		- 20250411@Max: Incorporate VS7 (#219279)
 		- 20250508@Aries: HNI - Saba Soccer Pingoal Marble Product [Redmine:#225685]
 		- 20250618@Cherry: Integrate Playtech Live Jackpot (#225847)
+		- 20250730@Cherry: Letstalk/HNI - Playtech Jackpot (#233667)
           
 */
 BEGIN
@@ -539,7 +540,7 @@ BEGIN
 				OR (p.SubProductCode = 'H5' AND s.sporttype = 164)
 				OR (p.SubProductCode = 'H5LG' AND s.sporttype = 168)
 			)
-			AND p.SubProductCode NOT IN ('PP-JP', 'SBC-JP', 'VGA-JP','SG-JP','AGC-JP','PTLC-JP')
+			AND p.SubProductCode NOT IN ('PP-JP', 'SBC-JP', 'VGA-JP','SG-JP','AGC-JP','PTLC-JP','PTRNG-JP')
 
 		INSERT INTO @ProductSupportBonus(ProductID)
 		SELECT DISTINCT Product3rdId FROM #tmpBetType WHERE BettypeGroup = -4
@@ -562,7 +563,7 @@ BEGIN
 		SELECT DISTINCT p.Product3rdId, p.AliasProductId, gb.Bettype, -3 BettypeGroup, p.IsOnlyTO
 		FROM @Products p
 		INNER JOIN bodb02.dbo.SportBettypeMatrix gb WITH(NOLOCK) oN p.ProductId = gb.ProductID AND gb.SubProduct IN ('Jackpot Contribution','Jackpot Prize')
-		WHERE p.SubProductCode IN ('PP-JP', 'VGA-JP', 'SBC-JP', 'SG-JP', 'AGC-JP','PTLC-JP')
+		WHERE p.SubProductCode IN ('PP-JP', 'VGA-JP', 'SBC-JP', 'SG-JP', 'AGC-JP','PTLC-JP','PTRNG-JP')
 
 		--- 
 		IF @isGetDataFromBettrans = 1 AND @ToDate = @yesterday
@@ -1558,7 +1559,7 @@ BEGIN
 
 		SET @SQL_licperf = '
 			(
-				SELECT  isDePosit, OrderByProduct, OrderByFigure +1 AS OrderByFigure, ProductID, CASE WHEN ProductPrefix IN (''PP-JP'',''SBC-JP'',''VGA-JP'',''SG-JP'',''AGC-JP'',''PTLC-JP'') THEN -AliasProductID ELSE AliasProductID END AliasProductID, ProductPrefix, ProductCategory, ProductGroup, ProductName, ProductShortName  
+				SELECT  isDePosit, OrderByProduct, OrderByFigure +1 AS OrderByFigure, ProductID, CASE WHEN ProductPrefix IN (''PP-JP'',''SBC-JP'',''VGA-JP'',''SG-JP'',''AGC-JP'',''PTLC-JP'',''PTRNG-JP'') THEN -AliasProductID ELSE AliasProductID END AliasProductID, ProductPrefix, ProductCategory, ProductGroup, ProductName, ProductShortName  
 						,u.Figure, u.SubFigure, u.isTest, u.isEnable, u.EndOfSupportDate, u.LogicCode, u.LogicDescription 
 				FROM 
 				(
@@ -1598,7 +1599,7 @@ BEGIN
 				UNION ALL
 				SELECT	s.isDePosit, s.OrderByProduct, s.OrderByFigure, s.ProductID, -s.AliasProductID, s.ProductPrefix, s.ProductCategory, s.ProductGroup, s.ProductName, s.ProductShortName  
 						,''Licensee House Income'' Figure, ''Licensee House Income'' SubFigure, s.isTest, s.isEnable, s.EndOfSupportDate, s.LogicCode, s.LogicDescription 	  
-				FROM	bodb_Account.dbo.HNISettings s WITH (NOLOCK) WHERE isDeposit = 1 and LogicCode = 2	and ProductPrefix IN (''PP-JP'',''SBC-JP'',''VGA-JP'',''SG-JP'',''AGC-JP'',''PTLC-JP'') AND s.Figure = ''Jackpot Prize''
+				FROM	bodb_Account.dbo.HNISettings s WITH (NOLOCK) WHERE isDeposit = 1 and LogicCode = 2	and ProductPrefix IN (''PP-JP'',''SBC-JP'',''VGA-JP'',''SG-JP'',''AGC-JP'',''PTLC-JP'',''PTRNG-JP'') AND s.Figure = ''Jackpot Prize''
 			) s
 		'
 	END
