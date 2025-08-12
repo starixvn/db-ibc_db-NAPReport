@@ -43,6 +43,7 @@ AS
 		- 20241023@Danny: Incorporate GPI (#207012)
 		- 20241023@Danny: Incorporate Playtech (#210555)
 		- 20250228@Sophia: Fix DoubleS [Redmine: #218875] 
+		- 20250812@Cherry: New Pay to supplier of YeeBet (#233940)
 */
 BEGIN
     SET NOCOUNT ON
@@ -241,7 +242,7 @@ BEGIN
 						FROM OPENQUERY (DBLIC, ''
 							SELECT DISTINCT ci.LicenseeId, ci.IsDeposit, ci.ProductId AS Product3rdId, ci.FromDate, ci.ToDate, ci.ChargeType
 								,CASE WHEN ci.ProductId = 0 THEN -1 ELSE ISNULL(sbr.Bettype, ci.Bettype) END AS Bettype
-								,CASE WHEN ci.IsDeposit = 0 AND ci.ProductId IN (32, 65, 70, 76) THEN 0 ELSE ci.DI_Rate END AS Rate
+								,CASE WHEN ci.IsDeposit = 0 AND ci.ProductId IN (32, 65, 70) THEN 0 ELSE ci.DI_Rate END AS Rate
 							FROM bodb_licensee.dbo.LA_f_ChargeInfo (''''' + @PartyIds + ''''', ''''' + @f_date + ''''', ''''' + @t_date + ''''', ''''' + @ProductCodes + ''''', ''''OA'''', 1) ci
 								LEFT JOIN bodb_licensee.dbo.Sport_Bettype_Reference sbr WITH (NOLOCK) ON sbr.BettypeRef = ci.Bettype
 						WHERE ci.DI_Rate > 0
@@ -255,7 +256,7 @@ BEGIN
 		SELECT @SQL = '	SELECT PartyId, ProductId, ChargeId, ChargeType, FromDate, ToDate, Rate
 						FROM OPENQUERY (DBLIC, ''SELECT DISTINCT PartyId, ProductId, ChargeId, ChargeType, FromDate, ToDate, DI_Rate AS Rate FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd (''''' + @f_date + ''''', ''''' + @t_date + ''''', ''''' + @ProductCodes + ''''', ''''OA'''')
 												 WHERE (
-														(ProductID IN (21, 39, 70, 76) AND ChargeType IN (9, 10, 11)) -- AB, SAG, FGGL, YB
+														(ProductID IN (21, 39, 70) AND ChargeType IN (9, 10, 11)) -- AB, SAG, FGGL
 														OR (ProductID NOT IN (21, 39) AND ChargeType = 1)
 													)'')'
 		INSERT INTO #__Party3rdInfo (PartyId, Product3rdId, ChargeId, ChargeType, FromDate, ToDate, Rate)
