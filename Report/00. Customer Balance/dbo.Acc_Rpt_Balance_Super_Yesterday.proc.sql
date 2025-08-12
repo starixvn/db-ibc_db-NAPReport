@@ -37,6 +37,7 @@ Revisions:
 	- 20240821@Jaden: Add currency name for web (#199583)
 	- 20241022@Jaden: Credit Reward Wallet (#212482)
 	- 20241230@Jaden: Add support to view super/master's direct member (#213629)
+	- 20250721@Jaden: Exclude agency cash in today's balance for Direct Yesterday reports (#233327)
 							
 Parameters Explanation:
 	- Search keyword: '%keyword%'
@@ -157,8 +158,8 @@ BEGIN
 	INSERT #superBalance (CustID, Balance, BaseBalance)
 	SELECT 
 			si.custid
-			,SUM(bal.totalBalance) AS Balance
-			,SUM(bal.totalBalance*b.actualrate) AS BaseBalance
+			,SUM(CASE WHEN b.bettype between 31001 and 31006 and b.winlostdate >= @currentDate THEN 0 ELSE bal.totalBalance END) AS Balance
+			,SUM(CASE WHEN b.bettype between 31001 and 31006 and b.winlostdate >= @currentDate THEN 0 ELSE bal.totalBalance END*b.actualrate) AS BaseBalance
 	FROM #SuperInfo si
 		INNER HASH JOIN dbo.[Transfer] b with (READPAST)
 			ON b.srecommend = si.custid AND si.roleId = 4
@@ -209,8 +210,8 @@ BEGIN
 		INSERT #superBalance (CustID, Balance, BaseBalance)
 		SELECT 
 				si.custid
-				,SUM(bal.winlost) AS Balance
-				,SUM(bal.winlost*b.actualrate) AS BaseBalance
+				,SUM(CASE WHEN b.bettype between 31001 and 31006 and b.winlostdate >= @currentDate THEN 0 ELSE bal.winlost END) AS Balance
+				,SUM(CASE WHEN b.bettype between 31001 and 31006 and b.winlostdate >= @currentDate THEN 0 ELSE bal.winlost END*b.actualrate) AS BaseBalance
 		FROM #SuperInfo si
 			INNER JOIN dbo.[Transfer] b with (READPAST) 
 				ON b.custid = si.custid AND si.roleId = 0
