@@ -60,7 +60,7 @@ AS
 				  s.ProductId, 
 				  s.SportType, 
 				  s.TimeSetting
-			FROM f_GetLetstalkAlertSports() s
+			FROM LetstalkAlertSports s WITH (NOLOCK)
 			WHERE s.IsTest = CASE
 							 WHEN @IsTest = 0
 							 THEN 0
