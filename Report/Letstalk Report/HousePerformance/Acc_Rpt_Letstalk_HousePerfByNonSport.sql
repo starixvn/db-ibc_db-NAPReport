@@ -52,6 +52,7 @@ AS
 		20250616@Cherry: Offer Jackpot contribution for bettransLC (#225847)
 		20250701@Cherry: Integrate GPI Lottery (#231786)
 		20250722@Cherry: Integrate ODINGAMING (#219228)
+		20250814@Cherry: Integrate Smartsoft (#236071)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -266,6 +267,7 @@ BEGIN
 			,(110,'AIG')
 			,(84,'GPILotte')
 			,(105,'ODIN')
+			,(99,'SmartS')
 		) h (ProductID, ProductShortName)
 	)
 	,CTE_ProductGroup AS (
