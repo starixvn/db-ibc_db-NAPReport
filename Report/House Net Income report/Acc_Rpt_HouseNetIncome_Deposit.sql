@@ -63,6 +63,7 @@ AS
 		- 20250508@Aries: HNI - Saba Soccer Pingoal Marble Product [Redmine:#225685]
 		- 20250618@Cherry: Integrate Playtech Live Jackpot (#225847)
 		- 20250730@Cherry: Letstalk/HNI - Playtech Jackpot (#233667)
+		- 20250808@Cherry: Integrate VS Tournament (#234856)
           
 */
 BEGIN
@@ -966,7 +967,7 @@ BEGIN
 																					WHEN l.PartyId = 14 OR @FDate >= '2018-08-01' THEN 0.03
 																					ELSE 0.05 END -- KN, LT
 											WHEN t.Product3rdId = 22 THEN CASE WHEN t.BetTypeGroup = 1 THEN 0.045 ELSE 0.035 END -- VB (Macau Games)
-											WHEN t.Product3rdId = 27 THEN 0.065 -- VS2
+											WHEN t.Product3rdId = 27 AND t.BetTypeGroup <> -4 THEN 0.065 -- VS2
 
 											ELSE ISNULL(rd.Rate, 0) END
 									+ CASE WHEN t.Product3rdId = 31 THEN CASE WHEN @FDate >= @ExchaneFomularCutoff THEN  t.ExchangePlayerComm *  ISNULL(rd.Rate,0) ELSE  t.Comm END ELSE 0 END) * e.Rate)
@@ -978,7 +979,7 @@ BEGIN
 																					WHEN l.PartyId = 14 OR @FDate >= '2018-08-01' THEN 0.03
 																					ELSE 0.05 END -- KN, LT
 											WHEN t.Product3rdId = 22 THEN CASE WHEN t.BetTypeGroup = 1 THEN 0.045 ELSE 0.035 END -- VB (Macau Games)
-											WHEN t.Product3rdId = 27 THEN 0.065 -- VS2
+											WHEN t.Product3rdId = 27 AND t.BetTypeGroup <> -4 THEN 0.065 -- VS2
 											ELSE ISNULL(rd.Rate, 0) END
 									+ CASE WHEN t.Product3rdId = 31 THEN CASE WHEN @FDate >= @ExchaneFomularCutoff THEN  t.ExchangePlayerComm *  ISNULL(rd.Rate, 0) ELSE  t.Comm END ELSE 0 END) * e.Rate)
 			,FullContribution	= SUM(CASE WHEN t.BetTypeGroup = -3 THEN t.FullContribution ELSE 0 END * e.Rate)
@@ -1667,6 +1668,7 @@ BEGIN
 	DROP TABLE #__SabaLeague
 	DROP TABLE #Result
 	DROP TABLE #tmpDW_BettypeGroup
+
 END
 
 
