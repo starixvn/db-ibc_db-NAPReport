@@ -43,7 +43,7 @@ AS
 		- 20241023@Danny: Incorporate GPI (#207012)
 		- 20241023@Danny: Incorporate Playtech (#210555)
 		- 20250228@Sophia: Fix DoubleS [Redmine: #218875] 
-		- 20250812@Cherry: New Pay to supplier of YeeBet (#233940)
+		- 20250812@Cherry: New Pay to supplier of YeeBet, PP Live Casino (#233940)
 */
 BEGIN
     SET NOCOUNT ON
@@ -282,7 +282,7 @@ BEGIN
 		SELECT DISTINCT p.IsDeposit, p.Product3rdId, c.BaseCurrencyId, p.Rate, c.MinAmount, c.MaxAmount
 		FROM #__PartyCharge3rdInfo p
 			INNER JOIN DBLIC.bodb_licensee.dbo.OAS_ChargeInfo c WITH (NOLOCK) ON p.ChargeId = c.ChargeId
-		WHERE p.ChargeType = 1 AND p.IsDeposit = 0 AND p.Product3rdId IN (32, 65) -- PP, PP Live Casino
+		WHERE p.ChargeType = 1 AND p.IsDeposit = 0 AND p.Product3rdId = 32
 			AND @ToDate BETWEEN c.FromDate AND c.ToDate
 		
 		UPDATE p
@@ -551,9 +551,8 @@ BEGIN
 		END
 	END
 
-	-- PP & PP Live Casino for Credit
 	IF @DepositType IN (0, 2)
-		AND EXISTS (SELECT 1 FROM #__tempResult WHERE Product3rdId IN (32, 65) AND IsDeposit = 0)
+		AND EXISTS (SELECT 1 FROM #__tempResult WHERE Product3rdId IN (32) AND IsDeposit = 0)
 	BEGIN
 		INSERT INTO #__DailyPayToSupplier (IsDeposit, Product3rdId, rptDate, PayToSupplier, Bonus, SiteGroup)
 		SELECT wl.IsDeposit, wl.Product3rdId, wl.rptDate
@@ -571,7 +570,7 @@ BEGIN
 		(
 			SELECT rptDate, Product3rdId, IsDeposit, SUM(MemberWLDailyRate) AS MemberWLRate, SUM(BonusRate) AS BonusRate, SiteGroup
 			FROM #__tempResult
-			WHERE Product3rdId IN (32, 65) AND IsDeposit = 0
+			WHERE Product3rdId IN (32) AND IsDeposit = 0
 			GROUP BY rptDate, Product3rdId, IsDeposit, SiteGroup
 		) wl
 			INNER JOIN #__PartyCharge3rdInfoByAmount ci ON wl.Product3rdId = ci.Product3rdId AND wl.IsDeposit = ci.IsDeposit
@@ -594,7 +593,7 @@ BEGIN
 		(
 			SELECT Product3rdId, IsDeposit, SUM(MemberWLMonthRate) AS MemberWLRate, SUM(BonusRate) AS BonusRate, SiteGroup
 			FROM #__tempResult
-			WHERE Product3rdId IN (32, 65) AND IsDeposit = 0
+			WHERE Product3rdId IN (32) AND IsDeposit = 0
 			GROUP BY Product3rdId, IsDeposit, SiteGroup
 		) wl
 			INNER JOIN #__PartyCharge3rdInfoByAmount ci ON wl.Product3rdId = ci.Product3rdId AND wl.IsDeposit = ci.IsDeposit
@@ -664,7 +663,7 @@ BEGIN
 		SELECT IsDeposit, Product3rdId, CASE WHEN Product3rdId = 0 THEN Bettype ELSE 0 END, rptDate, SUM(PayDailyRate), SUM(BonusRate), SiteGroup
 		FROM #__tempResult
 		WHERE
-			(IsDeposit = 0 AND Product3rdId NOT IN (32, 65))
+			(IsDeposit = 0 AND Product3rdId NOT IN (32))
 			OR (IsDeposit = 1 AND Product3rdId <> 39)
 		GROUP BY IsDeposit, Product3rdId, CASE WHEN Product3rdId = 0 THEN Bettype ELSE 0 END, rptDate, SiteGroup
 
@@ -673,7 +672,7 @@ BEGIN
 		FROM #__tempResult
 		WHERE Product3rdId NOT IN (10, 24)
 			AND (Product3rdId <> 0 OR Bettype NOT IN (-1, -3, -4))
-			AND (IsDeposit = 1 OR Product3rdId NOT IN (32, 65))
+			AND (IsDeposit = 1 OR Product3rdId NOT IN (32))
 			AND (IsDeposit = 0 OR Product3rdId <> 39)
 		GROUP BY IsDeposit, Product3rdId, CASE WHEN Product3rdId = 0 THEN Bettype ELSE 0 END, SiteGroup
 	END
