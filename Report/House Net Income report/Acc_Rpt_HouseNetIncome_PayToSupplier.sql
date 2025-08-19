@@ -673,7 +673,7 @@ BEGIN
 		SELECT IsDeposit, Product3rdId, CASE WHEN Product3rdId = 0 THEN Bettype ELSE 0 END, rptDate, SUM(PayDailyRate), SUM(BonusRate), SiteGroup
 		FROM #__tempResult
 		WHERE
-			(IsDeposit = 0 AND Product3rdId NOT IN (32, 65))
+			(IsDeposit = 0 AND Product3rdId <> 32)
 			OR (IsDeposit = 1 AND Product3rdId <> 39)
 		GROUP BY IsDeposit, Product3rdId, CASE WHEN Product3rdId = 0 THEN Bettype ELSE 0 END, rptDate, SiteGroup
 
@@ -682,7 +682,7 @@ BEGIN
 		FROM #__tempResult
 		WHERE Product3rdId NOT IN (10, 24)
 			AND (Product3rdId <> 0 OR Bettype NOT IN (-1, -3, -4))
-			AND (IsDeposit = 1 OR Product3rdId NOT IN (32, 65))
+			AND (IsDeposit = 1 OR Product3rdId <> 32)
 			AND (IsDeposit = 0 OR Product3rdId <> 39)
 		GROUP BY IsDeposit, Product3rdId, CASE WHEN Product3rdId = 0 THEN Bettype ELSE 0 END, SiteGroup
 	END
