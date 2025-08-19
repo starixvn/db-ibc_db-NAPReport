@@ -256,7 +256,7 @@ BEGIN
 		SELECT @SQL = '	SELECT PartyId, ProductId, ChargeId, ChargeType, FromDate, ToDate, Rate
 						FROM OPENQUERY (DBLIC, ''SELECT DISTINCT PartyId, ProductId, ChargeId, ChargeType, FromDate, ToDate, DI_Rate AS Rate FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd (''''' + @f_date + ''''', ''''' + @t_date + ''''', ''''' + @ProductCodes + ''''', ''''OA'''')
 												 WHERE (
-														(ProductID IN (21, 39, 70, 76) AND ChargeType IN (9, 10, 11)) -- AB, SAG, FGGL, YB
+														(ProductID IN (21, 39, 70, 76, 65) AND ChargeType IN (9, 10, 11)) -- AB, SAG, FGGL, YB
 														OR (ProductID NOT IN (21, 39) AND ChargeType = 1)
 													)'')'
 		INSERT INTO #__Party3rdInfo (PartyId, Product3rdId, ChargeId, ChargeType, FromDate, ToDate, Rate)
@@ -282,8 +282,15 @@ BEGIN
 		SELECT DISTINCT p.IsDeposit, p.Product3rdId, c.BaseCurrencyId, p.Rate, c.MinAmount, c.MaxAmount
 		FROM #__PartyCharge3rdInfo p
 			INNER JOIN DBLIC.bodb_licensee.dbo.OAS_ChargeInfo c WITH (NOLOCK) ON p.ChargeId = c.ChargeId
-		WHERE p.ChargeType = 1 AND p.IsDeposit = 0 AND p.Product3rdId IN (32, 65) -- PP, PP Live Casino
+		WHERE p.ChargeType = 1 AND p.IsDeposit = 0 AND p.Product3rdId = 32 -- PP
 			AND @ToDate BETWEEN c.FromDate AND c.ToDate
+
+		INSERT INTO #__PartyCharge3rdInfoByAmount (IsDeposit, Product3rdId, CurrencyId, Rate, MinAmount, MaxAmount)
+		SELECT DISTINCT p.IsDeposit, p.Product3rdId, c.BaseCurrencyId, p.Rate, c.MinAmount, c.MaxAmount
+		FROM #__PartyCharge3rdInfo p
+			INNER JOIN DBLIC.bodb_licensee.dbo.OAS_ChargeInfo c WITH (NOLOCK) ON p.ChargeId = c.ChargeId
+		WHERE p.ChargeType = 1 AND p.IsDeposit = 0 AND p.Product3rdId = 65 -- PP Live Casino
+			AND c.ToDate < '20241201'
 		
 		UPDATE p
 		SET p.Rate = 0
