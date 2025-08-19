@@ -43,7 +43,7 @@ AS
 		- 20241023@Danny: Incorporate GPI (#207012)
 		- 20241023@Danny: Incorporate Playtech (#210555)
 		- 20250228@Sophia: Fix DoubleS [Redmine: #218875] 
-		- 20250812@Cherry: New Pay to supplier of YeeBet, PP Live Casino (#233940)
+		- 20250812@Cherry: New Pay to supplier of PP Live Casino (#233940)
 */
 BEGIN
     SET NOCOUNT ON
@@ -242,7 +242,7 @@ BEGIN
 						FROM OPENQUERY (DBLIC, ''
 							SELECT DISTINCT ci.LicenseeId, ci.IsDeposit, ci.ProductId AS Product3rdId, ci.FromDate, ci.ToDate, ci.ChargeType
 								,CASE WHEN ci.ProductId = 0 THEN -1 ELSE ISNULL(sbr.Bettype, ci.Bettype) END AS Bettype
-								,CASE WHEN ci.IsDeposit = 0 AND ci.ProductId IN (32, 65, 70) THEN 0 ELSE ci.DI_Rate END AS Rate
+								,CASE WHEN ci.IsDeposit = 0 AND ci.ProductId IN (32, 65, 70, 76) THEN 0 ELSE ci.DI_Rate END AS Rate
 							FROM bodb_licensee.dbo.LA_f_ChargeInfo (''''' + @PartyIds + ''''', ''''' + @f_date + ''''', ''''' + @t_date + ''''', ''''' + @ProductCodes + ''''', ''''OA'''', 1) ci
 								LEFT JOIN bodb_licensee.dbo.Sport_Bettype_Reference sbr WITH (NOLOCK) ON sbr.BettypeRef = ci.Bettype
 						WHERE ci.DI_Rate > 0
@@ -256,7 +256,7 @@ BEGIN
 		SELECT @SQL = '	SELECT PartyId, ProductId, ChargeId, ChargeType, FromDate, ToDate, Rate
 						FROM OPENQUERY (DBLIC, ''SELECT DISTINCT PartyId, ProductId, ChargeId, ChargeType, FromDate, ToDate, DI_Rate AS Rate FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd (''''' + @f_date + ''''', ''''' + @t_date + ''''', ''''' + @ProductCodes + ''''', ''''OA'''')
 												 WHERE (
-														(ProductID IN (21, 39, 70) AND ChargeType IN (9, 10, 11)) -- AB, SAG, FGGL
+														(ProductID IN (21, 39, 70, 76) AND ChargeType IN (9, 10, 11)) -- AB, SAG, FGGL, YB
 														OR (ProductID NOT IN (21, 39) AND ChargeType = 1)
 													)'')'
 		INSERT INTO #__Party3rdInfo (PartyId, Product3rdId, ChargeId, ChargeType, FromDate, ToDate, Rate)
@@ -282,7 +282,7 @@ BEGIN
 		SELECT DISTINCT p.IsDeposit, p.Product3rdId, c.BaseCurrencyId, p.Rate, c.MinAmount, c.MaxAmount
 		FROM #__PartyCharge3rdInfo p
 			INNER JOIN DBLIC.bodb_licensee.dbo.OAS_ChargeInfo c WITH (NOLOCK) ON p.ChargeId = c.ChargeId
-		WHERE p.ChargeType = 1 AND p.IsDeposit = 0 AND p.Product3rdId = 32
+		WHERE p.ChargeType = 1 AND p.IsDeposit = 0 AND p.Product3rdId IN (32, 65) -- PP, PP Live Casino
 			AND @ToDate BETWEEN c.FromDate AND c.ToDate
 		
 		UPDATE p
@@ -361,7 +361,7 @@ BEGIN
 			DELETE #__PlayCurrencySettings WHERE ToDate < @FromDate OR FromDate > @ToDate
 		END
 
-		IF (@DepositType IN (0, 2) AND (',' + @ProductCodes + ',' LIKE '%,AB,%' OR ',' + @ProductCodes + ',' LIKE '%,SAG,%')) OR (',' + @ProductCodes + ',' LIKE '%,FGGL,%') OR (',' + @ProductCodes + ',' LIKE '%,YB,%')
+		IF (@DepositType IN (0, 2) AND (',' + @ProductCodes + ',' LIKE '%,AB,%' OR ',' + @ProductCodes + ',' LIKE '%,SAG,%')) OR (',' + @ProductCodes + ',' LIKE '%,FGGL,%') OR (',' + @ProductCodes + ',' LIKE '%,YB,%') OR (',' + @ProductCodes + ',' LIKE '%,PPL,%')
 		BEGIN
 			INSERT INTO #__ValidBetRate (IsDeposit, Product3rdId, FromDate, ToDate, CommRate)
 			SELECT DISTINCT IsDeposit, Product3rdId, FromDate, ToDate, Rate
@@ -551,8 +551,9 @@ BEGIN
 		END
 	END
 
+	-- PP & PP Live Casino for Credit
 	IF @DepositType IN (0, 2)
-		AND EXISTS (SELECT 1 FROM #__tempResult WHERE Product3rdId IN (32) AND IsDeposit = 0)
+		AND EXISTS (SELECT 1 FROM #__tempResult WHERE Product3rdId IN (32, 65) AND IsDeposit = 0)
 	BEGIN
 		INSERT INTO #__DailyPayToSupplier (IsDeposit, Product3rdId, rptDate, PayToSupplier, Bonus, SiteGroup)
 		SELECT wl.IsDeposit, wl.Product3rdId, wl.rptDate
@@ -570,7 +571,8 @@ BEGIN
 		(
 			SELECT rptDate, Product3rdId, IsDeposit, SUM(MemberWLDailyRate) AS MemberWLRate, SUM(BonusRate) AS BonusRate, SiteGroup
 			FROM #__tempResult
-			WHERE Product3rdId IN (32) AND IsDeposit = 0
+			WHERE IsDeposit = 0
+				AND (Product3rdId = 32 OR (Product3rdId = 65 AND rptDate < '20241201'))
 			GROUP BY rptDate, Product3rdId, IsDeposit, SiteGroup
 		) wl
 			INNER JOIN #__PartyCharge3rdInfoByAmount ci ON wl.Product3rdId = ci.Product3rdId AND wl.IsDeposit = ci.IsDeposit
@@ -593,7 +595,8 @@ BEGIN
 		(
 			SELECT Product3rdId, IsDeposit, SUM(MemberWLMonthRate) AS MemberWLRate, SUM(BonusRate) AS BonusRate, SiteGroup
 			FROM #__tempResult
-			WHERE Product3rdId IN (32) AND IsDeposit = 0
+			WHERE IsDeposit = 0
+				AND (Product3rdId = 32 OR (Product3rdId = 65 AND rptDate < '20241201'))
 			GROUP BY Product3rdId, IsDeposit, SiteGroup
 		) wl
 			INNER JOIN #__PartyCharge3rdInfoByAmount ci ON wl.Product3rdId = ci.Product3rdId AND wl.IsDeposit = ci.IsDeposit
@@ -663,7 +666,7 @@ BEGIN
 		SELECT IsDeposit, Product3rdId, CASE WHEN Product3rdId = 0 THEN Bettype ELSE 0 END, rptDate, SUM(PayDailyRate), SUM(BonusRate), SiteGroup
 		FROM #__tempResult
 		WHERE
-			(IsDeposit = 0 AND Product3rdId NOT IN (32))
+			(IsDeposit = 0 AND Product3rdId NOT IN (32, 65))
 			OR (IsDeposit = 1 AND Product3rdId <> 39)
 		GROUP BY IsDeposit, Product3rdId, CASE WHEN Product3rdId = 0 THEN Bettype ELSE 0 END, rptDate, SiteGroup
 
@@ -672,7 +675,7 @@ BEGIN
 		FROM #__tempResult
 		WHERE Product3rdId NOT IN (10, 24)
 			AND (Product3rdId <> 0 OR Bettype NOT IN (-1, -3, -4))
-			AND (IsDeposit = 1 OR Product3rdId NOT IN (32))
+			AND (IsDeposit = 1 OR Product3rdId NOT IN (32, 65))
 			AND (IsDeposit = 0 OR Product3rdId <> 39)
 		GROUP BY IsDeposit, Product3rdId, CASE WHEN Product3rdId = 0 THEN Bettype ELSE 0 END, SiteGroup
 	END
