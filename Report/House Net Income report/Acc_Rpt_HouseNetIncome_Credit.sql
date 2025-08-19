@@ -43,6 +43,7 @@ AS
         20241108@Roy: Email/Letstalk - Rebate and Retention for Credit players (#210687)
 		20241226@Roy: Email/Letstalk - Offer Direct Member for Super and Master (#215045)
 		20250718@Cherry: Agency Cash Service (#227210)
+		20250812@Cherry: New Pay to supplier of PG Soft (#233940)
 
     Param's Explanation:
         @FromDate   : Begin date to get data for report

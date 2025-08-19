@@ -64,6 +64,7 @@ AS
 		- 20250618@Cherry: Integrate Playtech Live Jackpot (#225847)
 		- 20250730@Cherry: Letstalk/HNI - Playtech Jackpot (#233667)
 		- 20250808@Cherry: Integrate VS Tournament (#234856)
+		- 20250812@Cherry: New Pay to supplier of PG Soft (#233940)
           
 */
 BEGIN
