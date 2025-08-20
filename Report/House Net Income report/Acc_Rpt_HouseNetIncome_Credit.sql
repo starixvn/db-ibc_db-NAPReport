@@ -449,7 +449,8 @@ BEGIN
 	INSERT INTO #Party3rdChargeByCurrencyInfo (PartyId, ChargeId, CurrencyId, Rate)
 		EXEC (@SQL)
 
-	CREATE TABLE #AllParties (PartyId INT, ParentId INT, LicenseeId INT)		
+	CREATE TABLE #AllParties (PartyId INT, ParentId INT, LicenseeId INT, SiteId INT)	
+	
 	SELECT @SQL = '	SELECT PartyId, ParentId, LicenseeId
 					FROM OPENQUERY (DBLIC, ''	SELECT PartyId, ParentId, LicenseeId
 												FROM (
@@ -466,6 +467,24 @@ BEGIN
 												WHERE r.RowNum = 1'')'
 	INSERT INTO #AllParties (PartyId, ParentId, LicenseeId)
 	EXEC (@SQL)		
+
+	-- Get mapping site
+	CREATE TABLE #tmpSite (SiteId INT, LicenseeId INT, SiteName VARCHAR(20))
+	BEGIN
+		INSERT INTO #tmpSite (LicenseeId, SiteName)
+		SELECT LicenseeId, SiteName FROM OPENQUERY(DBLIC,'	SELECT LicenseeId, RTRIM(LTRIM(LicenseeName)) SiteName 
+															FROM bodb_licensee.dbo.Licensees WITH(NOLOCK) 
+															WHERE IsDeposit = 1')
+		UPDATE s
+		SET s.SiteId = t.SiteId
+		FROM #tmpSite s
+			INNER JOIN bodb_Account.dbo.tbl_Site t WITH (NOLOCK) ON s.SiteName = RTRIM(LTRIM(t.Site))
+
+		UPDATE l
+		SET l.SiteId = s.SiteId
+		FROM #AllParties l
+			INNER JOIN #tmpSite s ON l.LicenseeId = s.LicenseeId
+	END
 
     -- #tmpPTSMainData
     CREATE TABLE #tmpPTSMainData (
@@ -1040,7 +1059,7 @@ BEGIN
                     WHEN hni.Figure = 'Jackpot Prize'  THEN -SUM(b.MemberWL * (CASE WHEN bg1.BettypeGroupID = 6 AND bg1.BettypeName LIKE '%Jackpot%' THEN 1 ELSE 0 END))
                     ELSE NULL END DataValue
         FROM #tmpRawData b (NOLOCK)
-			 INNER JOIN #AllParties tp ON tp.LicenseeId = b.SiteId			 
+			 INNER JOIN #AllParties tp ON tp.SiteId = b.SiteId			 
 			 INNER JOIN bodb_Account.dbo.tbl_Site s (NOLOCK) ON s.isDeposit = 0 
 				AND CASE WHEN b.SiteID = -2 THEN CASE WHEN b.RptDate < @RMAccountMoveSiteCutoffday THEN @XYZBET_SiteID   ELSE @Special_SiteID END
                         WHEN b.SiteID = -4 THEN CASE WHEN b.RptDate < @RMAccountMoveSiteCutoffday THEN @BESTODDS_SiteID ELSE @Special_SiteID END
@@ -1277,6 +1296,7 @@ BEGIN
     DROP TABLE #tmpProductBettype
 	DROP TABLE #AllParties
 	DROP TABLE #Party3rdChargeByCurrencyInfo
+	DROP TABLE #tmpSite
 
     DROP TABLE #tmpExchangeSystem
     DROP TABLE #tmpExchangeOANDA
