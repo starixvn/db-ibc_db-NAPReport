@@ -428,7 +428,36 @@ BEGIN
          INNER JOIN bodb02.dbo.SportBettypeMatrix sbm (NOLOCK) ON p.ProductID = sbm.ProductID
     WHERE p.ProductID IN (SELECT DISTINCT ProductID FROM #tmpHNISettings (NOLOCK) WHERE isDeposit = 0 AND isEnable = 1 AND LogicCode = 1 AND Figure = 'Pay to Supplier')
 
-    CREATE CLUSTERED INDEX CIX_tmpPTSProducts ON #tmpPTSProducts (VendorID, Sporttype)
+    CREATE CLUSTERED INDEX CIX_tmpPTSProducts ON #tmpPTSProducts (VendorID, Sporttype)	
+
+    -- #tmpPTSMainData
+    CREATE TABLE #tmpPTSMainData (
+        ProductID INT,
+        Rate MONEY
+    )
+
+    DECLARE @productPrefix VARCHAR(MAX);
+    SELECT @productPrefix = COALESCE(@productPrefix + ',' + b.ProductPrefix, b.ProductPrefix) 
+    FROM (SELECT DISTINCT ProductPrefix FROM #tmpPTSProducts) b
+
+    SET @sqlQuery = N'SELECT ProductID, DI_Rate ' 
+                      + N'FROM OPENQUERY(DBLIC, '
+                      + N'''SELECT DISTINCT ci.ProductID, ci.DI_Rate, ci.Fromdate, ci.Todate, c.MinAmount, c.MaxAmount, c.BaseCurrencyId '
+                      + N'FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd('''''
+                      + CAST(@FromDate AS NVARCHAR(50)) + ''''''
+                      + N','''''
+                      + CAST(@ToDate AS NVARCHAR(50)) + ''''''
+                      + N','''''+ @productPrefix + ''''''
+                      + N',''''OA'''''    
+                      + N') ci '
+                      + N'INNER JOIN bodb_licensee.dbo.OAS_ChargeInfo c WITH (NOLOCK) ON ci.ChargeID = c.ChargeID '
+                      + N'WHERE ci.ChargeType = 1 AND ci.IsDeposit = 0'
+                      + N''')'
+
+    INSERT INTO #tmpPTSMainData (ProductID, Rate)
+    EXECUTE (@sqlQuery)
+
+    CREATE CLUSTERED INDEX CIX_tmpPTSMainData ON #tmpPTSMainData(ProductID)
 
 	DECLARE @f_date VARCHAR(10),
 			@t_date VARCHAR(10),
@@ -441,7 +470,7 @@ BEGIN
 
 	SELECT @SQL = '	SELECT PartyId, ChargeId, CurrencyId, Rate
 					FROM OPENQUERY(DBLIC, ''SELECT ci.PartyId, pc.ChargeId, pc.CurrencyId, pc.Rate
-											FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd (''''' + @f_date + ''''', ''''' + @t_date + ''''', ''''' + @ProductList + ''''', ''''OA'''') ci
+											FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd (''''' + @f_date + ''''', ''''' + @t_date + ''''', ''''' + @productPrefix + ''''', ''''OA'''') ci
 												INNER JOIN bodb_Licensee.dbo.LA_ChargeRateByCurrency pc WITH (NOLOCK) ON ci.ChargeId = pc.ChargeId
 											WHERE ci.ProductID = 55 -- PG Soft
 												AND ci.ChargeType = 1 AND ci.DI_Rate > 0'')'
@@ -485,36 +514,6 @@ BEGIN
 		FROM #AllParties l
 			INNER JOIN #tmpSite s ON l.LicenseeId = s.LicenseeId
 	END
-
-    -- #tmpPTSMainData
-    CREATE TABLE #tmpPTSMainData (
-        ProductID INT,
-        Rate MONEY
-    )
-
-    DECLARE @productPrefix VARCHAR(MAX);
-    SELECT @productPrefix = COALESCE(@productPrefix + ',' + b.ProductPrefix, b.ProductPrefix) 
-    FROM (SELECT DISTINCT ProductPrefix FROM #tmpPTSProducts) b
-
-    SET @sqlQuery = N'SELECT ProductID, DI_Rate ' 
-                      + N'FROM OPENQUERY(DBLIC, '
-                      + N'''SELECT DISTINCT ci.ProductID, ci.DI_Rate, ci.Fromdate, ci.Todate, c.MinAmount, c.MaxAmount, c.BaseCurrencyId '
-                      + N'FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd('''''
-                      + CAST(@FromDate AS NVARCHAR(50)) + ''''''
-                      + N','''''
-                      + CAST(@ToDate AS NVARCHAR(50)) + ''''''
-                      + N','''''+ @productPrefix + ''''''
-                      + N',''''OA'''''    
-                      + N') ci '
-                      + N'INNER JOIN bodb_licensee.dbo.OAS_ChargeInfo c WITH (NOLOCK) ON ci.ChargeID = c.ChargeID '
-                      + N'WHERE ci.ChargeType = 1 AND ci.IsDeposit = 0'
-                      + N''')'
-
-    INSERT INTO #tmpPTSMainData (ProductID, Rate)
-    EXECUTE (@sqlQuery)
-
-    CREATE CLUSTERED INDEX CIX_tmpPTSMainData ON #tmpPTSMainData(ProductID)
-
 
     ------------------------------------------------------------------------------
     -- 4. Getting source data                                                   --
