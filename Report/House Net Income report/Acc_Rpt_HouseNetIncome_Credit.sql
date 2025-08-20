@@ -1032,7 +1032,7 @@ BEGIN
                                 WHEN hni.ProductShortName IN ('GDG LC') THEN SUM((b.MemberWLOANDA + (b.NetStakeOANDA * 0.01)) * ISNULL(pts.Rate, 0))
                                 WHEN hni.ProductShortName IN ('WE LC') THEN SUM((b.MemberWLOANDA + (b.NetStakeOANDA * 0.004)) * ISNULL(pts.Rate, 0))
                                 WHEN hni.ProductShortName = 'YoloP' THEN SUM((-b.HouseWLOANDA + b.ExtraPTOANDA) * (-0.4))
-								WHEN hni.ProductShortName = 'PGSoft' THEN SUM(b.MemberWLOANDA * ISNULL(ISNULL(p3rd.Rate,pts.Rate), 0))
+								WHEN hni.ProductShortName = 'PGSoft' AND b.RptDate > '20241201' THEN SUM(b.MemberWLOANDA * ISNULL(ISNULL(p3rd.Rate,pts.Rate), 0))
                                 ELSE SUM(b.MemberWLOANDA * CASE WHEN bg2.Bettype IS NOT NULL THEN 1 ELSE ISNULL( pts.Rate, 0) END) END
                     WHEN hni.Figure = 'Pay to Bet Genius' THEN SUM((b.MemberWLOANDA + b.ScommOANDA) * 0.04 * (CASE WHEN b.Bettype = 38 THEN 1 ELSE 0 END))
                     WHEN hni.Figure = 'Contribution Amount' THEN SUM(b.Contribution * (CASE WHEN bg1.BettypeGroupID = 10 AND bg1.BettypeName LIKE '%Jackpot%' THEN 1 ELSE 0 END))
