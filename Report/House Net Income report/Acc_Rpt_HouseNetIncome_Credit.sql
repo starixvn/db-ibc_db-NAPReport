@@ -472,9 +472,9 @@ BEGIN
 	CREATE TABLE #tmpSite (SiteId INT, LicenseeId INT, SiteName VARCHAR(20))
 	BEGIN
 		INSERT INTO #tmpSite (LicenseeId, SiteName)
-		SELECT LicenseeId, SiteName FROM OPENQUERY(DBLIC,'	SELECT LicenseeId, RTRIM(LTRIM(LicenseeName)) SiteName 
-															FROM bodb_licensee.dbo.Licensees WITH(NOLOCK) 
-															WHERE IsDeposit = 1')
+		SELECT SiteId, SiteName FROM OPENQUERY(DBLIC,'	SELECT SiteId, RTRIM(LTRIM(SiteName)) SiteName 
+															FROM bodb_licensee.dbo.view_site_list WITH(NOLOCK) ')
+															
 		UPDATE s
 		SET s.SiteId = t.SiteId
 		FROM #tmpSite s
