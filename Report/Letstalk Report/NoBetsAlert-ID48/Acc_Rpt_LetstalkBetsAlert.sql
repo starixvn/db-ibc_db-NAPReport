@@ -50,7 +50,7 @@ AS
 				  s.ProductId, 
 				  s.SportType, 
 				  s.TimeSetting
-			FROM f_GetLetstalkAlertSports() s
+			FROM LetstalkAlertSports s WITH(NOLOCK)
 			WHERE s.IsTest = 1
 				 AND s.TimeSetting = @TimeSetting;
 
@@ -108,6 +108,7 @@ AS
 				  INNER JOIN VSRaceInfo m WITH(NOLOCK) ON b.matchid = m.EventID
 				  INNER JOIN @tblSports s ON m.sporttype = s.SportType)
 		   SELECT DISTINCT 
+				p.ProductID,
 				p.ProductName, 
 				s.TimeSetting
 		   FROM @tblSports s
