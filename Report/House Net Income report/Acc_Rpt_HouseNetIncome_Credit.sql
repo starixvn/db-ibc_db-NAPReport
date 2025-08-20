@@ -441,7 +441,7 @@ BEGIN
 
 	SELECT @SQL = '	SELECT PartyId, ChargeId, CurrencyId, Rate
 					FROM OPENQUERY(DBLIC, ''SELECT ci.PartyId, pc.ChargeId, pc.CurrencyId, pc.Rate
-											FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd (''''' + @f_date + ''''', ''''' + @t_date + ''''', ''''' + @ProductCodes + ''''', ''''OA'''') ci
+											FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd (''''' + @f_date + ''''', ''''' + @t_date + ''''', ''''' + @ProductList + ''''', ''''OA'''') ci
 												INNER JOIN bodb_Licensee.dbo.LA_ChargeRateByCurrency pc WITH (NOLOCK) ON ci.ChargeId = pc.ChargeId
 											WHERE ci.ProductID = 55 -- PG Soft
 												AND ci.ChargeType = 1 AND ci.DI_Rate > 0'')'
@@ -1274,6 +1274,8 @@ BEGIN
     DROP TABLE #tmpProductList
     DROP TABLE #tmpHNISettings
     DROP TABLE #tmpProductBettype
+	DROP TABLE #AllParties
+	DROP TABLE #Party3rdChargeByCurrencyInfo
 
     DROP TABLE #tmpExchangeSystem
     DROP TABLE #tmpExchangeOANDA
