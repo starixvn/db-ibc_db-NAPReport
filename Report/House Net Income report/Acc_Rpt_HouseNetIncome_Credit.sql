@@ -1055,6 +1055,7 @@ BEGIN
                  hni.OrderByProduct,
                  hni.OrderByFigure,
                  CASE WHEN s.SiteLabel = '789y' THEN s.SiteLabel ELSE s.site END,
+				 s.Site,
                  hni.ProductCategory,
                  hni.ProductGroup,
                  hni.ProductName,
