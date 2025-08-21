@@ -515,6 +515,23 @@ BEGIN
 			INNER JOIN #tmpSite s ON l.LicenseeId = s.LicenseeId
 	END
 
+	DECLARE @PartyIds VARCHAR(MAX)
+	CREATE TABLE #PartyChargeInfo (ChargeId INT, PartyId INT, Product3rdId INT, FromDate DATE, ToDate DATE, Rate FLOAT, Bettype INT, ChargeType INT)
+    SELECT @PartyIds = COALESCE(@PartyIds + ',', '') + CONVERT(VARCHAR(10), PartyId) FROM #AllParties
+
+	SELECT @SQL = '	SELECT ChargeId, PartyId, Product3rdId, FromDate, ToDate, Rate, Bettype, ChargeType
+					FROM OPENQUERY (DBLIC, ''
+						SELECT DISTINCT ci.ChargeId, ci.PartyId, ci.ProductId AS Product3rdId, ci.FromDate, ci.ToDate, ci.DI_Rate AS Rate, ISNULL(sbr.Bettype, ci.Bettype) AS Bettype, ci.ChargeType
+						FROM bodb_licensee.dbo.LA_f_ChargeInfo (''''' + @PartyIds + ''''', ''''' + @f_date + ''''', ''''' + @t_date + ''''', ''''' + @productPrefix + ''''', ''''OA'''', 1) ci
+							LEFT JOIN bodb_licensee.dbo.Sport_Bettype_Reference sbr WITH (NOLOCK) ON sbr.BettypeRef = ci.Bettype
+						WHERE ci.DI_Rate > 0
+							AND (
+								ci.ChargeType = 1
+								OR ci.ChargeType = 12 AND ci.ProductId = 39 -- SAG
+							)'')'
+	INSERT INTO #PartyChargeInfo (ChargeId, PartyId, Product3rdId, FromDate, ToDate, Rate, Bettype, ChargeType)
+	EXEC (@SQL)
+
     ------------------------------------------------------------------------------
     -- 4. Getting source data                                                   --
     ------------------------------------------------------------------------------
@@ -1050,7 +1067,7 @@ BEGIN
                                 WHEN hni.ProductShortName IN ('GDG LC') THEN SUM((b.MemberWLOANDA + (b.NetStakeOANDA * 0.01)) * ISNULL(pts.Rate, 0))
                                 WHEN hni.ProductShortName IN ('WE LC') THEN SUM((b.MemberWLOANDA + (b.NetStakeOANDA * 0.004)) * ISNULL(pts.Rate, 0))
                                 WHEN hni.ProductShortName = 'YoloP' THEN SUM((-b.HouseWLOANDA + b.ExtraPTOANDA) * (-0.4))
-								WHEN hni.ProductShortName = 'PGSoft' AND b.RptDate > '20241201' THEN SUM(b.MemberWLOANDA * ISNULL(ISNULL(p3rd.Rate,pts.Rate), 0))
+								WHEN hni.ProductShortName = 'PGSoft' AND b.RptDate > '20241201' THEN SUM(b.MemberWLOANDA * CASE WHEN bg2.Bettype IS NOT NULL THEN 1 ELSE ISNULL(ISNULL(p3rd.Rate,pts.Rate), 0) END) 
                                 ELSE SUM(b.MemberWLOANDA * CASE WHEN bg2.Bettype IS NOT NULL THEN 1 ELSE ISNULL( pts.Rate, 0) END) END
                     WHEN hni.Figure = 'Pay to Bet Genius' THEN SUM((b.MemberWLOANDA + b.ScommOANDA) * 0.04 * (CASE WHEN b.Bettype = 38 THEN 1 ELSE 0 END))
                     WHEN hni.Figure = 'Contribution Amount' THEN SUM(b.Contribution * (CASE WHEN bg1.BettypeGroupID = 10 AND bg1.BettypeName LIKE '%Jackpot%' THEN 1 ELSE 0 END))
@@ -1065,7 +1082,8 @@ BEGIN
                         ELSE b.SiteID END = s.siteid
              INNER JOIN #tmpHNISettings hni (NOLOCK) ON hni.isDeposit = 0 AND hni.isEnable = 1 AND hni.LogicCode = 1 AND b.ProductID = hni.AliasProductID
              LEFT JOIN #tmpPTSMainData pts  ON b.ProductID = pts.ProductID
-			 LEFT JOIN #Party3rdChargeByCurrencyInfo p3rd ON tp.ParentId = p3rd.PartyId AND b.CurrencyId = p3rd.CurrencyId
+			 LEFT JOIN #PartyChargeInfo p ON p.PartyId = tp.PartyId
+			 LEFT JOIN #Party3rdChargeByCurrencyInfo p3rd ON p.ChargeId = p3rd.ChargeId AND b.CurrencyId = p3rd.CurrencyId
              LEFT JOIN #tmpBettypeGroup bg1 ON bg1.BettypeGroupID IN (6, 10, 11, 15) AND b.Bettype = bg1.Bettype
              LEFT JOIN #tmpBettypeGroup bg2 ON bg2.BettypeGroupID IN (14) AND b.Bettype = bg2.Bettype
         GROUP BY b.RptDate,
@@ -1296,6 +1314,7 @@ BEGIN
 	DROP TABLE #AllParties
 	DROP TABLE #Party3rdChargeByCurrencyInfo
 	DROP TABLE #tmpSite
+	DROP TABLE #PartyChargeInfo
 
     DROP TABLE #tmpExchangeSystem
     DROP TABLE #tmpExchangeOANDA
