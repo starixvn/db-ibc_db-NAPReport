@@ -527,7 +527,7 @@ BEGIN
 						WHERE ci.DI_Rate > 0
 							AND (
 								ci.ChargeType = 1
-								OR ci.ChargeType = 12 AND ci.ProductId = 39 -- SAG
+								AND ci.ProductId = 55 -- PG Soft
 							)'')'
 	INSERT INTO #PartyChargeInfo (ChargeId, PartyId, Product3rdId, FromDate, ToDate, Rate, Bettype, ChargeType)
 	EXEC (@SQL)
@@ -1082,7 +1082,7 @@ BEGIN
                         ELSE b.SiteID END = s.siteid
              INNER JOIN #tmpHNISettings hni (NOLOCK) ON hni.isDeposit = 0 AND hni.isEnable = 1 AND hni.LogicCode = 1 AND b.ProductID = hni.AliasProductID
              LEFT JOIN #tmpPTSMainData pts  ON b.ProductID = pts.ProductID
-			 LEFT JOIN #PartyChargeInfo p ON p.PartyId = tp.PartyId
+			 LEFT JOIN #PartyChargeInfo p ON p.PartyId = tp.PartyId AND b.ProductID = p.Product3rdId
 			 LEFT JOIN #Party3rdChargeByCurrencyInfo p3rd ON p.ChargeId = p3rd.ChargeId AND b.CurrencyId = p3rd.CurrencyId
              LEFT JOIN #tmpBettypeGroup bg1 ON bg1.BettypeGroupID IN (6, 10, 11, 15) AND b.Bettype = bg1.Bettype
              LEFT JOIN #tmpBettypeGroup bg2 ON bg2.BettypeGroupID IN (14) AND b.Bettype = bg2.Bettype
