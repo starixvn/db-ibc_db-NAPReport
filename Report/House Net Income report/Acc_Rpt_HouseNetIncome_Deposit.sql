@@ -435,7 +435,7 @@ BEGIN
 							WHERE ci.DI_Rate > 0
 								AND (
 									ci.ChargeType = 1
-									OR ci.ChargeType = 12 AND ci.ProductId = 39 -- SAG
+									OR ci.ChargeType = 12 AND ci.ProductId IN (39, 55) -- SAG, PG Soft
 								)'')'
 		INSERT INTO #PartyChargeInfo (ChargeId, PartyId, Product3rdId, FromDate, ToDate, Rate, Bettype, ChargeType)
 		EXEC (@SQL)
