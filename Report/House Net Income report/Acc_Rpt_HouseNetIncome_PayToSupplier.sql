@@ -427,8 +427,8 @@ BEGIN
 										AND SportType = 44
 										AND (
 											' + CAST( @DepositType AS VARCHAR(10) ) +' = 2
-											OR (' + CAST( @DepositType AS VARCHAR(10) ) +' = 0 AND ((SiteId > 1000 OR SiteID < 50000) OR SiteID = 509))
-											OR (' + CAST( @DepositType AS VARCHAR(10) ) +' = 1 AND ((SiteId <= 1000 OR SiteId >= 50000) AND SiteID <> 509))
+											OR (' + CAST( @DepositType AS VARCHAR(10) ) +' = 0 AND ((SiteId > 1000 OR SiteID < 50000) OR SiteID IN (509,825,50550))) 
+											OR (' + CAST( @DepositType AS VARCHAR(10) ) +' = 1 AND ((SiteId <= 1000 OR SiteId >= 50000) AND SiteID NOT IN (509,825,50550)))
 										)
 									GROUP BY rptDate, SiteId, CurrencyId
 								 '')'
@@ -446,7 +446,7 @@ BEGIN
 
 			INSERT INTO #__tempResult (rptDate, ParentId, IsDeposit, Product3rdId, Bettype, CurrencyId, PlayCurrency, PayDailyRate, SiteGroup)
 			SELECT d.rptDate, 0, 
-				CASE WHEN (d.SiteId <= 1000 OR d.SiteID >= 50000) THEN 1 ELSE 0 END IsDeposit, 
+				CASE WHEN (d.SiteId <= 1000 OR d.SiteID >= 50000) AND d.SiteId NOT IN (509,825,50550) THEN 1 ELSE 0 END IsDeposit, -- Saba789,SEAL888,NovaCasino 
 				0, d.BetTypeId, d.CurrencyId, d.CurrencyId
 				,SUM(CASE 
 						WHEN d.BetTypeId = -2 THEN Winloss * e.Rate
@@ -454,8 +454,8 @@ BEGIN
 						WHEN (-d.Winloss * p.Rate * e.Rate < 0 AND m.MinAmount = 0) OR -d.Winloss * p.Rate * e.Rate >= m.MinAmount
 								THEN CASE WHEN -d.Winloss * p.Rate * e.Rate > m.MaxAmount THEN -(m.MaxAmount - m.MinAmount) ELSE -(-d.Winloss * p.Rate * e.Rate - m.MinAmount) END * m.Rate 
 						ELSE 0 END)
-				,CASE	WHEN  (d.SiteId <= 1000 OR d.SiteID >= 50000) THEN 'Licensee'
-						WHEN  (d.SiteId > 1000 OR d.SiteId < 50000) THEN CASE   WHEN x.SiteID = @Special_SiteID THEN 'Special'
+				,CASE	WHEN  (d.SiteId <= 1000 OR d.SiteID >= 50000) AND d.SiteId NOT IN (509,825,50550) THEN 'Licensee'
+						WHEN  (d.SiteId > 1000 OR d.SiteId < 50000 OR d.SiteId IN (509,825,50550)) THEN CASE   WHEN x.SiteID = @Special_SiteID THEN 'Special'
 																				WHEN x.SiteID = @Hedging_SiteID THEN 'Hedging'
 																				WHEN x.SiteID IS NOT NULL THEN '789Y'  ELSE 'MBC' END 
 						END SiteGroup
@@ -465,12 +465,13 @@ BEGIN
 				LEFT JOIN #__PartyChargeInfo p ON p.LicenseeId = d.SiteId AND p.Product3rdId = 0 AND d.rptDate BETWEEN p.FromDate AND p.ToDate AND d.BetTypeId = -1
 				LEFT JOIN #MetricChargeInfo m ON d.rptDate BETWEEN m.FromDate AND m.ToDate AND d.BetTypeId = -1
 				LEFT JOIN @Site789y_lic x ON x.SiteID = d.SiteID
-			GROUP BY d.rptDate, CASE WHEN (d.SiteId <= 1000 OR d.SiteID >= 50000) THEN 1 ELSE 0 END, 
+			GROUP BY d.rptDate, CASE WHEN (d.SiteId <= 1000 OR d.SiteID >= 50000) AND d.SiteId NOT IN (509,825,50550) THEN 1 ELSE 0 END, 
 					d.BetTypeId, d.CurrencyId, 
-					CASE	WHEN  (d.SiteId <= 1000 OR d.SiteID >= 50000) THEN 'Licensee'
-							WHEN  (d.SiteId > 1000 OR d.SiteId < 50000) THEN CASE   WHEN x.SiteID = @Special_SiteID THEN 'Special'
-																					WHEN x.SiteID = @Hedging_SiteID THEN 'Hedging'
-																					WHEN x.SiteID IS NOT NULL THEN '789Y'  ELSE 'MBC' END 
+					CASE	WHEN  (d.SiteId <= 1000 OR d.SiteID >= 50000) AND d.SiteId NOT IN (509,825,50550) THEN 'Licensee'
+							WHEN  (d.SiteId > 1000 OR d.SiteId < 50000 OR d.SiteId IN (509,825,50550)) 
+								THEN CASE   WHEN x.SiteID = @Special_SiteID THEN 'Special'
+											WHEN x.SiteID = @Hedging_SiteID THEN 'Hedging'
+											WHEN x.SiteID IS NOT NULL THEN '789Y'  ELSE 'MBC' END 
 							END
 
 			UPDATE r
@@ -509,8 +510,8 @@ BEGIN
 										AND StatusId NOT IN(-1, 101, 102, 103) -- Exclude Reject , Void, Refund
 										AND (
 											' + CAST( @DepositType AS VARCHAR(10) ) +' = 2
-											OR (' + CAST( @DepositType AS VARCHAR(10) ) +' = 0 AND ((SiteId > 1000 OR SiteID < 50000) OR SiteID = 509))
-											OR (' + CAST( @DepositType AS VARCHAR(10) ) +' = 1 AND ((SiteId <= 1000 OR SiteId >= 50000) AND SiteID <> 509))
+											OR (' + CAST( @DepositType AS VARCHAR(10) ) +' = 0 AND ((SiteId > 1000 OR SiteID < 50000 OR SiteID IN (509,825,50550)))
+											OR (' + CAST( @DepositType AS VARCHAR(10) ) +' = 1 AND ((SiteId <= 1000 OR SiteId >= 50000) AND SiteID NOT IN (509,825,50550)))
 										)
 									GROUP BY RptDate3rd, SiteId, BetTypeId, CurrencyId
 								 '')'
@@ -526,7 +527,7 @@ BEGIN
 
 			INSERT INTO #__tempResult (rptDate, ParentId, IsDeposit, Product3rdId, Bettype, CurrencyId, PlayCurrency, PayDaily, PayDailyRate, PayMonth, PayMonthRate, MemberWLDailyRate, MemberWLMonthRate, BonusRate, SiteGroup)
 			SELECT d.rptDate, tp.ParentId, 
-				CASE WHEN (d.SiteId <= 1000 OR d.SiteID >= 50000) THEN 1 ELSE 0 END IsDeposit, 
+				CASE WHEN (d.SiteId <= 1000 OR d.SiteID >= 50000) AND d.SiteID NOT IN (509,825,50550) THEN 1 ELSE 0 END IsDeposit, 
 				bt.Product3rdId, CASE WHEN d.BetTypeId = 3007 THEN 3007 ELSE 0 END, d.CurrencyId, ISNULL(pc.PlayCurrency, d.CurrencyId) AS PlayCurrency
 				,SUM(CASE  WHEN bt.SubProduct NOT IN ('Prize','Lucky Draw','Bonus','Promotion') THEN (CASE WHEN d.BetTypeId IN (4297, 4599) THEN d.ProgressiveContribution ELSE d.Winloss END + ISNULL(d.ValidBetAmount * v.CommRate, 0)) * ISNULL(ISNULL(p3rd.Rate,p3.Rate), 0) 
 						  ELSE 0 END) AS PayDaily
@@ -539,10 +540,11 @@ BEGIN
 				,SUM(CASE WHEN bt.SubProduct NOT IN ('Prize','Lucky Draw','Bonus','Promotion') THEN CASE WHEN d.BetTypeId IN (4297, 4599) THEN d.ProgressiveContribution ELSE d.Winloss END * e.Rate ELSE 0 END) AS MemberWLDailyRate
 				,SUM(CASE WHEN bt.SubProduct NOT IN ('Prize','Lucky Draw','Bonus','Promotion') THEN CASE WHEN d.BetTypeId IN (4297, 4599) THEN d.ProgressiveContribution ELSE d.Winloss END * e.Rate * CASE WHEN p.LicenseeId IS NULL THEN 0.0 ELSE 1.0 END ELSE 0 END) AS MemberWLMonthRate
 				,SUM(CASE WHEN  bt.SubProduct IN ('Prize','Lucky Draw','Bonus','Promotion') THEN d.Winloss * e.Rate ELSE 0 END) AS BonusRate
-				,CASE	WHEN  (d.SiteId <= 1000 OR d.SiteId >= 50000) THEN 'Licensee'
-						WHEN  (d.SiteId > 1000 OR d.SiteId < 50000) THEN CASE	WHEN x.SiteID = @Special_SiteID THEN 'Special'
-																				WHEN x.SiteID = @Hedging_SiteID THEN 'Hedging'
-																				WHEN x.SiteID IS NOT NULL THEN '789Y'  ELSE 'MBC' END 
+				,CASE	WHEN  (d.SiteId <= 1000 OR d.SiteId >= 50000) AND d.SiteID NOT IN (509,825,50550) THEN 'Licensee'
+						WHEN  (d.SiteId > 1000 OR d.SiteId < 50000 OR d.SiteID IN (509,825,50550)) 
+							THEN CASE WHEN x.SiteID = @Special_SiteID THEN 'Special'
+									WHEN x.SiteID = @Hedging_SiteID THEN 'Hedging'
+									WHEN x.SiteID IS NOT NULL THEN '789Y'  ELSE 'MBC' END 
 						END 
 			FROM #__tempData d
 				INNER JOIN #__Bettype bt ON d.BetTypeId = bt.BetType
@@ -554,12 +556,13 @@ BEGIN
 				LEFT JOIN #__PlayCurrencySettings pc ON d.SiteId = pc.SiteId AND d.CurrencyId = pc.MemberCurrency AND d.rptDate BETWEEN pc.FromDate AND pc.ToDate
 				LEFT JOIN #__ValidBetRate v ON tp.IsDeposit = v.IsDeposit AND bt.Product3rdId = v.Product3rdId AND d.rptDate BETWEEN v.FromDate AND v.ToDate
 				LEFT JOIN @Site789y_lic x ON x.SiteID = d.SiteId
-			GROUP BY d.rptDate, tp.ParentId, CASE WHEN (d.SiteId <= 1000 OR d.SiteID >= 50000) THEN 1 ELSE 0 END, 
+			GROUP BY d.rptDate, tp.ParentId, CASE WHEN (d.SiteId <= 1000 OR d.SiteID >= 50000) AND d.SiteID NOT IN (509,825,50550) THEN 1 ELSE 0 END, 
 				bt.Product3rdId, CASE WHEN d.BetTypeId = 3007 THEN 3007 ELSE 0 END, d.CurrencyId, ISNULL(pc.PlayCurrency, d.CurrencyId), 
-				CASE	WHEN  (d.SiteId <= 1000 OR d.SiteId >= 50000) THEN 'Licensee'
-						WHEN  (d.SiteId > 1000 OR d.SiteId < 50000) THEN CASE	WHEN x.SiteID = @Special_SiteID THEN 'Special'
-																				WHEN x.SiteID = @Hedging_SiteID THEN 'Hedging'
-																				WHEN x.SiteID IS NOT NULL THEN '789Y'  ELSE 'MBC' END 
+				CASE	WHEN  (d.SiteId <= 1000 OR d.SiteId >= 50000) AND d.SiteID NOT IN (509,825,50550) THEN 'Licensee'
+						WHEN  (d.SiteId > 1000 OR d.SiteId < 50000 OR d.SiteID IN (509,825,50550)) 
+							THEN CASE	WHEN x.SiteID = @Special_SiteID THEN 'Special'
+										WHEN x.SiteID = @Hedging_SiteID THEN 'Hedging'
+										WHEN x.SiteID IS NOT NULL THEN '789Y'  ELSE 'MBC' END 
 						END  
 		END
 	END
