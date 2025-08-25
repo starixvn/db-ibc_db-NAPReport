@@ -445,7 +445,9 @@ BEGIN
 			END
 
 			INSERT INTO #__tempResult (rptDate, ParentId, IsDeposit, Product3rdId, Bettype, CurrencyId, PlayCurrency, PayDailyRate, SiteGroup)
-			SELECT d.rptDate, 0, a.IsDeposit, 0, d.BetTypeId, d.CurrencyId, d.CurrencyId
+			SELECT d.rptDate, 0, 
+				CASE WHEN (d.SiteId <= 1000 OR d.SiteID >= 50000) THEN 1 ELSE 0 END IsDeposit, 
+				0, d.BetTypeId, d.CurrencyId, d.CurrencyId
 				,SUM(CASE 
 						WHEN d.BetTypeId = -2 THEN Winloss * e.Rate
 						WHEN d.BetTypeId IN (-3, -4) THEN Winloss * e.Rate * 0.04
@@ -463,7 +465,8 @@ BEGIN
 				LEFT JOIN #__PartyChargeInfo p ON p.LicenseeId = d.SiteId AND p.Product3rdId = 0 AND d.rptDate BETWEEN p.FromDate AND p.ToDate AND d.BetTypeId = -1
 				LEFT JOIN #MetricChargeInfo m ON d.rptDate BETWEEN m.FromDate AND m.ToDate AND d.BetTypeId = -1
 				LEFT JOIN @Site789y_lic x ON x.SiteID = d.SiteID
-			GROUP BY d.rptDate, a.IsDeposit, d.BetTypeId, d.CurrencyId, 
+			GROUP BY d.rptDate, CASE WHEN (d.SiteId <= 1000 OR d.SiteID >= 50000) THEN 1 ELSE 0 END, 
+					d.BetTypeId, d.CurrencyId, 
 					CASE	WHEN  (d.SiteId <= 1000 OR d.SiteID >= 50000) THEN 'Licensee'
 							WHEN  (d.SiteId > 1000 OR d.SiteId < 50000) THEN CASE   WHEN x.SiteID = @Special_SiteID THEN 'Special'
 																					WHEN x.SiteID = @Hedging_SiteID THEN 'Hedging'
@@ -522,7 +525,9 @@ BEGIN
 			END
 
 			INSERT INTO #__tempResult (rptDate, ParentId, IsDeposit, Product3rdId, Bettype, CurrencyId, PlayCurrency, PayDaily, PayDailyRate, PayMonth, PayMonthRate, MemberWLDailyRate, MemberWLMonthRate, BonusRate, SiteGroup)
-			SELECT d.rptDate, tp.ParentId, tp.IsDeposit, bt.Product3rdId, CASE WHEN d.BetTypeId = 3007 THEN 3007 ELSE 0 END, d.CurrencyId, ISNULL(pc.PlayCurrency, d.CurrencyId) AS PlayCurrency
+			SELECT d.rptDate, tp.ParentId, 
+				CASE WHEN (d.SiteId <= 1000 OR d.SiteID >= 50000) THEN 1 ELSE 0 END IsDeposit, 
+				bt.Product3rdId, CASE WHEN d.BetTypeId = 3007 THEN 3007 ELSE 0 END, d.CurrencyId, ISNULL(pc.PlayCurrency, d.CurrencyId) AS PlayCurrency
 				,SUM(CASE  WHEN bt.SubProduct NOT IN ('Prize','Lucky Draw','Bonus','Promotion') THEN (CASE WHEN d.BetTypeId IN (4297, 4599) THEN d.ProgressiveContribution ELSE d.Winloss END + ISNULL(d.ValidBetAmount * v.CommRate, 0)) * ISNULL(ISNULL(p3rd.Rate,p3.Rate), 0) 
 						  ELSE 0 END) AS PayDaily
 				,SUM(CASE  WHEN bt.SubProduct NOT IN ('Prize','Lucky Draw','Bonus','Promotion') THEN (CASE WHEN d.BetTypeId IN (4297, 4599) THEN d.ProgressiveContribution ELSE d.Winloss END + ISNULL(d.ValidBetAmount * v.CommRate, 0)) * e.Rate * ISNULL(ISNULL(p3rd.Rate,p3.Rate), 0) 
@@ -549,7 +554,8 @@ BEGIN
 				LEFT JOIN #__PlayCurrencySettings pc ON d.SiteId = pc.SiteId AND d.CurrencyId = pc.MemberCurrency AND d.rptDate BETWEEN pc.FromDate AND pc.ToDate
 				LEFT JOIN #__ValidBetRate v ON tp.IsDeposit = v.IsDeposit AND bt.Product3rdId = v.Product3rdId AND d.rptDate BETWEEN v.FromDate AND v.ToDate
 				LEFT JOIN @Site789y_lic x ON x.SiteID = d.SiteId
-			GROUP BY d.rptDate, tp.ParentId, tp.IsDeposit, bt.Product3rdId, CASE WHEN d.BetTypeId = 3007 THEN 3007 ELSE 0 END, d.CurrencyId, ISNULL(pc.PlayCurrency, d.CurrencyId), 
+			GROUP BY d.rptDate, tp.ParentId, CASE WHEN (d.SiteId <= 1000 OR d.SiteID >= 50000) THEN 1 ELSE 0 END, 
+				bt.Product3rdId, CASE WHEN d.BetTypeId = 3007 THEN 3007 ELSE 0 END, d.CurrencyId, ISNULL(pc.PlayCurrency, d.CurrencyId), 
 				CASE	WHEN  (d.SiteId <= 1000 OR d.SiteId >= 50000) THEN 'Licensee'
 						WHEN  (d.SiteId > 1000 OR d.SiteId < 50000) THEN CASE	WHEN x.SiteID = @Special_SiteID THEN 'Special'
 																				WHEN x.SiteID = @Hedging_SiteID THEN 'Hedging'
