@@ -29,6 +29,7 @@ AS
 		- 20250701@Cherry: Integrate GPI Lottery (#231786)
 		- 20250722@Cherry: Integrate ODINGAMING (#219228)
 		- 20250814@Cherry: Integrate Smartsoft (#236071)
+		- 20250825@Cherry: Integrate OFA Live (#236741)
 
 	 Param's Explanation:
 
@@ -61,7 +62,7 @@ BEGIN
 
 	DECLARE @LCBettypeList TABLE(Bettype INT)
 	INSERT INTO @LCBettypeList(Bettype)
-	SELECT bettype FROM OPENQUERY (DBLIC, 'SELECT	DISTINCT bettype FROM	bodb_licensee.dbo.LA_f_BettypeProductMapping(0,''AB,SXG,SAG,WM,PPL,FGGL,YB,WLC,PTLC,ON,GPILC'') la')
+	SELECT bettype FROM OPENQUERY (DBLIC, 'SELECT	DISTINCT bettype FROM	bodb_licensee.dbo.LA_f_BettypeProductMapping(0,''AB,SXG,SAG,WM,PPL,FGGL,YB,WLC,PTLC,ON,GPILC,OFA'') la')
 
 
 	INSERT INTO #rpt_ThirdPartyWL_ExtraGMT(	RptDate,RptDate3rd ,SiteId,BetTypeId,CurrencyId,StatusId,Winloss,ProgressiveContribution,ValidBetAmount)
