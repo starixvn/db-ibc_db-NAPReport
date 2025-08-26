@@ -510,7 +510,7 @@ BEGIN
 										AND StatusId NOT IN(-1, 101, 102, 103) -- Exclude Reject , Void, Refund
 										AND (
 											' + CAST( @DepositType AS VARCHAR(10) ) +' = 2
-											OR (' + CAST( @DepositType AS VARCHAR(10) ) +' = 0 AND ((SiteId > 1000 OR SiteID < 50000 OR SiteID IN (509,825,50550)))
+											OR (' + CAST( @DepositType AS VARCHAR(10) ) +' = 0 AND ((SiteId > 1000 OR SiteID < 50000) OR SiteID IN (509,825,50550)))
 											OR (' + CAST( @DepositType AS VARCHAR(10) ) +' = 1 AND ((SiteId <= 1000 OR SiteId >= 50000) AND SiteID NOT IN (509,825,50550)))
 										)
 									GROUP BY RptDate3rd, SiteId, BetTypeId, CurrencyId
