@@ -521,7 +521,7 @@ BEGIN
 		INSERT INTO #tmpSite (LicenseeId, SiteName)
 		SELECT LicenseeId, SiteName FROM OPENQUERY(DBLIC,'	SELECT LicenseeId, RTRIM(LTRIM(LicenseeName)) SiteName 
 															FROM bodb_licensee.dbo.Licensees WITH(NOLOCK) 
-															WHERE IsDeposit = 1')
+															WHERE IsDeposit = 1 AND LicenseeId NOT IN (509,825,50550)')
 		UPDATE s
 		SET s.SiteId_DW = t.SiteId
 		FROM #tmpSite s
@@ -820,6 +820,7 @@ BEGIN
 							(b.SiteID <> @DWH_SabaCoins_SiteID AND bt.Product3rdId =0 )
 							OR bt.Product3rdId  <> 0
 						)
+					AND SiteId IN (SELECT SiteId_DW FROM #tmpSite)
 				GROUP BY b.rptDate, b.SiteId, b.CurrencyId, bt.Product3rdId
 					,CASE
 						WHEN bt.Product3rdId <> 0 THEN bt.AliasProductId
@@ -901,6 +902,7 @@ BEGIN
 							(b.SiteID <> @DWH_SabaCoins_SiteID AND bt.Product3rdId =0 )
 							OR bt.Product3rdId  <> 0
 						)
+					AND SiteId IN (SELECT SiteId_DW FROM #tmpSite)
 				GROUP BY b.rptDate, b.SiteId, b.CurrencyId, bt.Product3rdId
 					,CASE
 						WHEN bt.Product3rdId <> 0 THEN bt.AliasProductId
@@ -982,6 +984,9 @@ BEGIN
 											WHEN t.Product3rdId = 22 THEN CASE WHEN t.BetTypeGroup = 1 THEN 0.045 ELSE 0.035 END -- VB (Macau Games)
 											WHEN t.Product3rdId = 27 AND t.BetTypeGroup <> -4 THEN 0.065 -- VS2
 											WHEN t.Product3rdId = 55 AND t.rptDate > '20241201' THEN ISNULL(ISNULL(pc.Rate, rd.Rate),0)
+											WHEN t.Product3rdId = 34 THEN CASE WHEN t.BetTypeGroup = -4 THEN 1
+																				WHEN t.BetTypeGroup = -1 THEN 0.025
+																				ELSE 0.035 END
 											ELSE ISNULL(rd.Rate, 0) END
 									+ CASE WHEN t.Product3rdId = 31 THEN CASE WHEN @FDate >= @ExchaneFomularCutoff THEN  t.ExchangePlayerComm *  ISNULL(rd.Rate,0) ELSE  t.Comm END ELSE 0 END) * e.Rate)
 			,PayToSupplierMonth	= SUM((t.MemberWL *
@@ -994,6 +999,9 @@ BEGIN
 											WHEN t.Product3rdId = 22 THEN CASE WHEN t.BetTypeGroup = 1 THEN 0.045 ELSE 0.035 END -- VB (Macau Games)
 											WHEN t.Product3rdId = 27 AND t.BetTypeGroup <> -4 THEN 0.065 -- VS2
 											WHEN t.Product3rdId = 55 AND t.rptDate > '20241201' THEN ISNULL(ISNULL(pc.Rate, rd.Rate),0)
+											WHEN t.Product3rdId = 34 THEN CASE WHEN t.BetTypeGroup = -4 THEN 1
+																				WHEN t.BetTypeGroup = -1 THEN 0.025
+																				ELSE 0.035 END
 											ELSE ISNULL(rd.Rate, 0) END
 									+ CASE WHEN t.Product3rdId = 31 THEN CASE WHEN @FDate >= @ExchaneFomularCutoff THEN  t.ExchangePlayerComm *  ISNULL(rd.Rate, 0) ELSE  t.Comm END ELSE 0 END) * e.Rate)
 			,FullContribution	= SUM(CASE WHEN t.BetTypeGroup = -3 THEN t.FullContribution ELSE 0 END * e.Rate)
