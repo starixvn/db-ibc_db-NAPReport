@@ -982,7 +982,9 @@ BEGIN
 																					WHEN l.PartyId = 14 OR @FDate >= '2018-08-01' THEN 0.03
 																					ELSE 0.05 END -- KN, LT
 											WHEN t.Product3rdId = 22 THEN CASE WHEN t.BetTypeGroup = 1 THEN 0.045 ELSE 0.035 END -- VB (Macau Games)
-											WHEN t.Product3rdId = 27 AND t.BetTypeGroup <> -4 THEN 0.065 -- VS2
+											WHEN t.Product3rdId IN (27,106) AND t.BetTypeGroup <> -4 THEN 0.065 -- VS2,VS7
+                                            WHEN t.Product3rdId IN (77,83,71) AND t.BetTypeGroup <> -4 THEN 0.05 -- VS3,VS4,VS6
+                                            WHEN t.Product3rdId = 88 AND t.BetTypeGroup <> -4 THEN 0.04 -- VS5
 											WHEN t.Product3rdId = 55 AND t.rptDate > '20241201' THEN ISNULL(ISNULL(pc.Rate, rd.Rate),0)
 											WHEN t.Product3rdId = 34 THEN CASE WHEN t.BetTypeGroup = -4 THEN 1
 																				WHEN t.BetTypeGroup = -1 THEN 0.025
@@ -997,7 +999,9 @@ BEGIN
 																					WHEN l.PartyId = 14 OR @FDate >= '2018-08-01' THEN 0.03
 																					ELSE 0.05 END -- KN, LT
 											WHEN t.Product3rdId = 22 THEN CASE WHEN t.BetTypeGroup = 1 THEN 0.045 ELSE 0.035 END -- VB (Macau Games)
-											WHEN t.Product3rdId = 27 AND t.BetTypeGroup <> -4 THEN 0.065 -- VS2
+											WHEN t.Product3rdId IN (27,106) AND t.BetTypeGroup <> -4 THEN 0.065 -- VS2,VS7
+                                            WHEN t.Product3rdId IN (77,83,71) AND t.BetTypeGroup <> -4 THEN 0.05 -- VS3,VS4,VS6
+                                            WHEN t.Product3rdId = 88 AND t.BetTypeGroup <> -4 THEN 0.04 -- VS5
 											WHEN t.Product3rdId = 55 AND t.rptDate > '20241201' THEN ISNULL(ISNULL(pc.Rate, rd.Rate),0)
 											WHEN t.Product3rdId = 34 THEN CASE WHEN t.BetTypeGroup = -4 THEN 1
 																				WHEN t.BetTypeGroup = -1 THEN 0.025
