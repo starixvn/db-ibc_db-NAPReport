@@ -342,6 +342,11 @@ BEGIN
 
 		UPDATE @Products SET IsOnlyTO = 1 WHERE Product3rdId IN (0, 3, 10, 31)
 
+		IF EXISTS (SELECT 1 FROM @Products WHERE ProductId IN (27,71,77,83,88,106))
+			AND NOT EXISTS (SELECT 1 FROM @Products WHERE ProductId = 5)
+			INSERT INTO @Products (ProductId, Product3rdId, AliasProductId, ProductCode, SubProductCode)
+				VALUES (5, 5, 5, 'VS', 'VS')
+
 		;WITH CTE_Product AS (SELECT DISTINCT Product3rdId FROM @Products)
 		SELECT @Product3rdIds = COALESCE(@Product3rdIds + ',', '') + CONVERT(VARCHAR(3), Product3rdId) FROM CTE_Product
 
@@ -579,7 +584,6 @@ BEGIN
 		INNER JOIN bodb02.dbo.SportBettypeMatrix gb WITH(NOLOCK) oN p.ProductId = gb.ProductID AND gb.SubProduct IN ('Jackpot Contribution','Jackpot Prize')
 		WHERE p.SubProductCode IN ('PP-JP', 'VGA-JP', 'SBC-JP', 'SG-JP', 'AGC-JP','PTLC-JP','PTRNG-JP')
 
-		--- 
 		IF @isGetDataFromBettrans = 1 AND @ToDate = @yesterday
 		BEGIN
 			SELECT @FDateGetData = @FromDate,
