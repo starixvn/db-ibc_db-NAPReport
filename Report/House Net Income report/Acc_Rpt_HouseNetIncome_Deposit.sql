@@ -229,7 +229,7 @@ BEGIN
 		[BetType] [int],
 		[LeagueID] [int] ,
 		[SportType] [int] ,
-		[TicketStatus] [tinyint],
+		[TicketStatus] [int],
 		[VarianceVR] [decimal](9, 6),
 		[Stake] [decimal](19, 4),
 		[WinlossIBC] [decimal](19, 4),
