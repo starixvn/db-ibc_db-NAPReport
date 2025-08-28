@@ -17,6 +17,7 @@ AS
 		- 20241107@Danny: Incorporate VS6 (#212749)
 		- 20240114@Danny: Email/Letstalk - Offer Direct Member for Super and Master (#215045)
 		- 20250616@Cherry: Offer Jackpot Contribution for bettransLC (#225847)
+		- 20250828@Cherry: Extend datatype of currency (#233940)
 
 	Exec Acc_Rpt_FactSiteWinloss_Bettrans '2021-05-12' , 0
 
@@ -174,7 +175,7 @@ BEGIN
 		[custid] [int] NOT NULL,
 		[recommend] [int] NOT NULL,
 		[actual_stake] [money] NULL,
-		[currency] [tinyint] NULL,
+		[currency] [int] NULL,
 		[scomm] [money] NULL,
 		[swinlost] [money] NULL,
 		[refno] [bigint] NULL,
