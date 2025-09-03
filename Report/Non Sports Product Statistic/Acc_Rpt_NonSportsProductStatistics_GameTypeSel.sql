@@ -30,6 +30,7 @@ AS
 		20231010@Cherry: Integrate Saba Promotion (#194567) 
 		20240116@Cherry: Integrate Virtual Sports 4 (#198623)
 		20250618@Cherry: Add column to check bettype Prize (#228133)
+		20250903@Cherry: Integrate VS Tournament (#237516)
 */
  
 BEGIN
@@ -82,14 +83,14 @@ SET NOCOUNT ON
 	INSERT INTO #tmpHouseProduct (ProductID, Bettype)
 	SELECT DISTINCT ProductID, Bettype 
 	FROM DBWH.bodb_Account.dbo.Product_Bettype WITH (NOLOCK)
-	WHERE EventType = 255
+	WHERE ProductID IN (42,66) --SABA.games,VGaming
 	
 	CREATE TABLE #tmpProductBettype (ProductID INT, Bettype INT)
 	INSERT INTO #tmpProductBettype (ProductID, Bettype)
 	SELECT DISTINCT ProductID, Bettype
 	FROM DBWH.bodb_Account.dbo.NonSportSetting WITH (NOLOCK)
 	WHERE ProductID NOT IN (23, 31) --Virtual Sports, Virtual Sports 2, NG2, Exchange, Virtual Sports 3 
-		AND ProductID NOT IN (SELECT ProductID FROM #tmpHouseProduct) -- Saba.club, VGaming	
+		AND ProductID NOT IN (SELECT ProductID FROM #tmpHouseProduct) -- Saba.games, VGaming	
 		AND ProductID NOT IN (SELECT ProductID FROM #tmpVirtualSport)
 	
     -- Get Bettype
@@ -143,6 +144,15 @@ SET NOCOUNT ON
 	WHERE (sb.ProductID = 23 OR sb.ProductID IN (SELECT ProductID FROM #tmpHouseProduct)
 			OR sb.ProductID IN (SELECT ProductID FROM #tmpVirtualSport))
 		AND (sb.IsTest = 0 OR sb.IsTest = @isTest)	
+
+	UPDATE s	
+	SET s.IsPrize = 1
+	FROM #SportBettype s
+	WHERE EXISTS(SELECT TOP 1 1 FROM dbo.SportBettypeMatrix sb WITH (NOLOCK)
+						LEFT JOIN #tmpPrizeBettype bt ON sb.Bettype = bt.Bettype 
+				WHERE s.TypeId = sb.SportType 
+					AND s.GameType = 1
+					AND bt.Bettype IS NOT NULL)
 			
 	SELECT	* 
 	FROM	#SportBettype
