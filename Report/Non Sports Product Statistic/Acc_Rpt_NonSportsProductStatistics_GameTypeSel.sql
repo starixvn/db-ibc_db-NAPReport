@@ -137,15 +137,22 @@ SET NOCOUNT ON
 	VALUES (3, 168, 'Happy 5 Linked Games', 0, 3)
 		 
 	--- ProductID = 5, 27, 23, 42 - Virtual Sports, Virtual Sports 2, Virtual Sports 3, NG2, Saba.club get Sporttype
-	INSERT INTO #SportBettype (ProductId, TypeId, TypeName, GameType, IsPrize)
-	SELECT DISTINCT sb.ProductID, sb.SportType, s.SportName, 1 AS GameType,
-		CASE WHEN bt.Bettype IS NOT NULL THEN 1 ELSE 0 END IsPrize
+	INSERT INTO #SportBettype (ProductId, TypeId, TypeName, GameType)
+	SELECT DISTINCT sb.ProductID, sb.SportType, s.SportName, 1 AS GameType
 	FROM dbo.SportBettypeMatrix sb WITH (NOLOCK)
 		INNER JOIN dbo.Sports s WITH (NOLOCK) ON sb.SportType = s.SportType 
-		LEFT JOIN #tmpPrizeBettype bt ON sb.Bettype = bt.Bettype 
 	WHERE (sb.ProductID = 23 OR sb.ProductID IN (SELECT ProductID FROM #tmpHouseProduct)
 			OR sb.ProductID IN (SELECT ProductID FROM #tmpVirtualSport))
 		AND (sb.IsTest = 0 OR sb.IsTest = @isTest)	
+
+	UPDATE s	
+	SET s.IsPrize = 1
+	FROM #SportBettype s
+	WHERE EXISTS(SELECT TOP 1 1 FROM dbo.SportBettypeMatrix sb WITH (NOLOCK)
+						LEFT JOIN #tmpPrizeBettype bt ON sb.Bettype = bt.Bettype 
+				WHERE s.TypeId = sb.SportType 
+					AND s.GameType = 1
+					AND bt.Bettype IS NOT NULL)
 			
 	SELECT	* 
 	FROM	#SportBettype
