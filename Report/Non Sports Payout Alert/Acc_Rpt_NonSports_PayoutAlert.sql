@@ -39,6 +39,7 @@ AS
 		20250722@Cherry: Integrate ODINGAMING (#219228)
 		20250814@Cherry: Integrate Smartsoft (#236071)
 		20250825@Cherry: Integrate OFA Live (#236741)
+		20250905@Cherry: Integrate Bgaming (#237204)
 
 	Param's Explanation:
 		@FromGMT8Time: start of time range in GMT+8 with format 2021-05-20 19:00:00
@@ -173,6 +174,7 @@ BEGIN
 			,(110, 'AI Gaming', 300, 5000)
 			,(105, 'ODIN GAMING', 300, 5000)
 			,(99, 'Smartsoft', 300, 5000)
+			,(114, 'BGaming', 300, 5000)
 		) AS tmp (ProductID, ProductName, ThresholdPCT, MinWin)
 
 	DECLARE @isTest BIT = 0

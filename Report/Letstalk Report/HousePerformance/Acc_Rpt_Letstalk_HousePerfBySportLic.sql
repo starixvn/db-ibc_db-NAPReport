@@ -46,6 +46,7 @@ AS
 		20250722@Cherry: Integrate ODINGAMING (#219228)
 		20250814@Cherry: Integrate Smartsoft (#236071)
 		20250825@Cherry: Integrate OFA Live (#236741)
+		20250905@Cherry: Integrate Bgaming (#237204)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -281,6 +282,7 @@ BEGIN
 			WHEN ProductName = 'ODIN GAMING' THEN 'ODIN'
 			WHEN ProductName = 'Smartsoft' THEN 'SmartS'
 			WHEN ProductName = 'OFA Live' THEN 'OFA LC'
+			WHEN ProductName = 'BGaming' THEN 'BGame'
 			ELSE ProductName END)
 	
 	SELECT @EX3rdName = rd.ProductName

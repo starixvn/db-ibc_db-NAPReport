@@ -40,6 +40,7 @@ AS
 		20250722@Cherry: Integrate ODINGAMING (#219228)
 		20250814@Cherry: Integrate Smartsoft (#236071)
 		20250825@Cherry: Integrate OFA Live (#236741)
+		20250905@Cherry: Integrate Bgaming (#237204)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -267,6 +268,7 @@ BEGIN
 			,(105,'ODIN')
 			,(99,'SmartS')
 			,(113,'OFA LC')
+			,(114,'BGame')
 		) h (ProductID, ProductShortName)
 	)
 	,CTE_ProductGroup AS (
