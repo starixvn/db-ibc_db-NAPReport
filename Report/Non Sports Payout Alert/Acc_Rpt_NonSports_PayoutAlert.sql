@@ -38,6 +38,7 @@ AS
 		20250704@Cherry: Integrate GPI Lottery (#231786)
 		20250722@Cherry: Integrate ODINGAMING (#219228)
 		20250814@Cherry: Integrate Smartsoft (#236071)
+		20250825@Cherry: Integrate OFA Live (#236741)
 
 	Param's Explanation:
 		@FromGMT8Time: start of time range in GMT+8 with format 2021-05-20 19:00:00
@@ -114,6 +115,7 @@ BEGIN
 			,(107, 'Microgaming Live', 111, 5000)
 			,(101, 'Playtech Live', 111, 5000)
 			,(98, 'W Casino', 111, 5000)
+			,(113, 'OFA Live', 111, 5000)
 			
 			-------------RNG Game-------------
 			,(34, 'Arcadia Gaming', 120, 5000) --ProductID, ProductName, ThresholdPCT, MinWin

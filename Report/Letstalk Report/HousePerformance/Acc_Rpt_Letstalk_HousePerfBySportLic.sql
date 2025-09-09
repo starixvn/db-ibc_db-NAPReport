@@ -45,6 +45,7 @@ AS
 		20250701@Cherry: Integrate GPI Lottery (#231786)
 		20250722@Cherry: Integrate ODINGAMING (#219228)
 		20250814@Cherry: Integrate Smartsoft (#236071)
+		20250825@Cherry: Integrate OFA Live (#236741)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -279,6 +280,7 @@ BEGIN
 			WHEN ProductName = 'GPI Lottery' THEN 'GPILotte'
 			WHEN ProductName = 'ODIN GAMING' THEN 'ODIN'
 			WHEN ProductName = 'Smartsoft' THEN 'SmartS'
+			WHEN ProductName = 'OFA Live' THEN 'OFA LC'
 			ELSE ProductName END)
 	
 	SELECT @EX3rdName = rd.ProductName
