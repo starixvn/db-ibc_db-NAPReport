@@ -127,7 +127,7 @@ BEGIN
 			winlostdate, betfrom
 	  FROM  bodb_archive.dbo.BettransLC_bk WITH (NOLOCK)  
 	  WHERE  WinlostDate = @fromdate
-			AND AND WinlostDate <= @ToDate
+			AND WinlostDate <= @ToDate
 			AND statusID IN (111, 112, 113)   
 			AND currency <> 20
 	  GROUP BY  Currency, CustID, srecommend, gameID, productID,
