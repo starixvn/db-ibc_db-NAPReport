@@ -43,6 +43,7 @@ AS
         20241108@Roy: Email/Letstalk - Rebate and Retention for Credit players (#210687)
 		20241226@Roy: Email/Letstalk - Offer Direct Member for Super and Master (#215045)
 		20250718@Cherry: Agency Cash Service (#227210)
+		20250812@Cherry: New Pay to supplier of PG Soft (#233940)
 
     Param's Explanation:
         @FromDate   : Begin date to get data for report
@@ -427,7 +428,7 @@ BEGIN
          INNER JOIN bodb02.dbo.SportBettypeMatrix sbm (NOLOCK) ON p.ProductID = sbm.ProductID
     WHERE p.ProductID IN (SELECT DISTINCT ProductID FROM #tmpHNISettings (NOLOCK) WHERE isDeposit = 0 AND isEnable = 1 AND LogicCode = 1 AND Figure = 'Pay to Supplier')
 
-    CREATE CLUSTERED INDEX CIX_tmpPTSProducts ON #tmpPTSProducts (VendorID, Sporttype)
+    CREATE CLUSTERED INDEX CIX_tmpPTSProducts ON #tmpPTSProducts (VendorID, Sporttype)	
 
     -- #tmpPTSMainData
     CREATE TABLE #tmpPTSMainData (
@@ -458,6 +459,78 @@ BEGIN
 
     CREATE CLUSTERED INDEX CIX_tmpPTSMainData ON #tmpPTSMainData(ProductID)
 
+	DECLARE @f_date VARCHAR(10),
+			@t_date VARCHAR(10),
+			@SQL VARCHAR(MAX)
+
+	SELECT @f_date = CONVERT(VARCHAR(10), @FromDate, 120),
+			@t_date = CONVERT(VARCHAR(10), @ToDate, 120)
+
+	CREATE TABLE #Party3rdChargeByCurrencyInfo(PartyId INT, ChargeId INT, CurrencyId INT, Rate FLOAT)
+
+	SELECT @SQL = '	SELECT PartyId, ChargeId, CurrencyId, Rate
+					FROM OPENQUERY(DBLIC, ''SELECT ci.PartyId, pc.ChargeId, pc.CurrencyId, pc.Rate
+											FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd (''''' + @f_date + ''''', ''''' + @t_date + ''''', ''''' + @productPrefix + ''''', ''''OA'''') ci
+												INNER JOIN bodb_Licensee.dbo.LA_ChargeRateByCurrency pc WITH (NOLOCK) ON ci.ChargeId = pc.ChargeId
+											WHERE ci.ProductID = 55 -- PG Soft
+												AND ci.ChargeType = 1 AND ci.DI_Rate > 0'')'
+
+	INSERT INTO #Party3rdChargeByCurrencyInfo (PartyId, ChargeId, CurrencyId, Rate)
+		EXEC (@SQL)
+
+	CREATE TABLE #AllParties (PartyId INT, ParentId INT, LicenseeId INT, SiteId INT)	
+	
+	SELECT @SQL = '	SELECT PartyId, ParentId, LicenseeId
+					FROM OPENQUERY (DBLIC, ''	SELECT PartyId, ParentId, LicenseeId
+												FROM (
+													SELECT ci.FromParty AS PartyId, CASE WHEN pd.IsDeposit = 0 THEN 999 ELSE ci.ToParty END AS ParentId, CASE WHEN pd.IsDeposit = 1 THEN p.OldRefId ELSE lb.LabelId END AS LicenseeId,
+														ROW_NUMBER() OVER(PARTITION BY ci.FromParty, CASE WHEN pd.IsDeposit = 1 THEN p.OldRefId ELSE lb.LabelId END ORDER BY ci.FromDate DESC) AS RowNum
+													FROM bodb_licensee.dbo.OAS_Party p WITH (NOLOCK)
+														INNER JOIN bodb_licensee.dbo.OAS_PartyDetail pd WITH (NOLOCK) ON pd.PartyId = p.PartyId
+														INNER JOIN bodb_licensee.dbo.OAS_ChargeInfo ci WITH (NOLOCK) ON p.PartyId = ci.FromParty
+														INNER JOIN bodb_licensee.dbo.LA_ChargeInfo_SystemMapping map ON map.ChargeId = ci.ChargeId AND map.SystemID = 2
+														LEFT JOIN bodb_licensee.dbo.Labels AS lb WITH(NOLOCK) ON p.OldRefID = lb.LicenseeId
+													WHERE p.PartyType = 1
+														AND pd.IsDeposit = 0 
+												) AS r
+												WHERE r.RowNum = 1'')'
+	INSERT INTO #AllParties (PartyId, ParentId, LicenseeId)
+	EXEC (@SQL)		
+
+	-- Get mapping site
+	CREATE TABLE #tmpSite (SiteId INT, LicenseeId INT, SiteName VARCHAR(20))
+	BEGIN
+		INSERT INTO #tmpSite (LicenseeId, SiteName)
+		SELECT SiteId, SiteName FROM OPENQUERY(DBLIC,'	SELECT SiteId, RTRIM(LTRIM(SiteName)) SiteName 
+															FROM bodb_licensee.dbo.view_site_list WITH(NOLOCK) ')
+															
+		UPDATE s
+		SET s.SiteId = t.SiteId
+		FROM #tmpSite s
+			INNER JOIN bodb_Account.dbo.tbl_Site t WITH (NOLOCK) ON s.SiteName = RTRIM(LTRIM(t.Site))
+
+		UPDATE l
+		SET l.SiteId = s.SiteId
+		FROM #AllParties l
+			INNER JOIN #tmpSite s ON l.LicenseeId = s.LicenseeId
+	END
+
+	DECLARE @PartyIds VARCHAR(MAX)
+	CREATE TABLE #PartyChargeInfo (ChargeId INT, PartyId INT, Product3rdId INT, FromDate DATE, ToDate DATE, Rate FLOAT, Bettype INT, ChargeType INT)
+    SELECT @PartyIds = COALESCE(@PartyIds + ',', '') + CONVERT(VARCHAR(10), PartyId) FROM #AllParties
+
+	SELECT @SQL = '	SELECT ChargeId, PartyId, Product3rdId, FromDate, ToDate, Rate, Bettype, ChargeType
+					FROM OPENQUERY (DBLIC, ''
+						SELECT DISTINCT ci.ChargeId, ci.PartyId, ci.ProductId AS Product3rdId, ci.FromDate, ci.ToDate, ci.DI_Rate AS Rate, ISNULL(sbr.Bettype, ci.Bettype) AS Bettype, ci.ChargeType
+						FROM bodb_licensee.dbo.LA_f_ChargeInfo (''''' + @PartyIds + ''''', ''''' + @f_date + ''''', ''''' + @t_date + ''''', ''''' + @productPrefix + ''''', ''''OA'''', 1) ci
+							LEFT JOIN bodb_licensee.dbo.Sport_Bettype_Reference sbr WITH (NOLOCK) ON sbr.BettypeRef = ci.Bettype
+						WHERE ci.DI_Rate > 0
+							AND (
+								ci.ChargeType = 1
+								AND ci.ProductId = 55 -- PG Soft
+							)'')'
+	INSERT INTO #PartyChargeInfo (ChargeId, PartyId, Product3rdId, FromDate, ToDate, Rate, Bettype, ChargeType)
+	EXEC (@SQL)
 
     ------------------------------------------------------------------------------
     -- 4. Getting source data                                                   --
@@ -821,7 +894,8 @@ BEGIN
 
     CREATE TABLE #tmpRawData (
         RptDate       DATE,
-        Site          VARCHAR(200),
+        SiteID        INT,
+		CurrencyId	  INT,
         ProductID     INT,
         Sporttype     INT,
         Bettype       INT,
@@ -844,7 +918,7 @@ BEGIN
 
     WHILE @loop_ToDate <= @ToDate
     BEGIN
-        INSERT INTO #tmpRawData (RptDate, Site, ProductID, Sporttype, Bettype, LeagueID,
+        INSERT INTO #tmpRawData (RptDate, SiteID, CurrencyId, ProductID, Sporttype, Bettype, LeagueID,
                                  HouseWL, HouseWLOANDA,
                                  HouseTO,
                                  ExtraPT, ExtraPTOANDA,
@@ -853,8 +927,9 @@ BEGIN
                                  Contribution,
                                  NetStakeOANDA)
         SELECT -- *** DIMENSION *** --
-               b.RptDate,
-               CASE WHEN s.SiteLabel = '789y' THEN s.SiteLabel ELSE s.site END Site,
+               b.RptDate,               
+			   b.SiteID,
+			   b.CurrencyID,
                CASE WHEN b.Bettype IN (9, 29)                       THEN -10 --Parlay
                     WHEN b.SportType = 1  AND l.LeagueGroupType = 1 THEN -3  --Saba Soc
                     WHEN b.SportType = 1  AND l.LeagueGroupType = 2 THEN -14 --Saba Soc PGoal
@@ -895,9 +970,6 @@ BEGIN
                SUM((b.WinlossIBC - b.WinlossS - b.WinlossM - b.WinlossA) * COALESCE(b.SelfRate, es.Rate, 0)) Contribution,
                SUM(b.NetStake * ISNULL(eo.Rate, 0)) NetStakeOANDA
         FROM #tmpSourceData b (NOLOCK)
-             INNER JOIN bodb_Account.dbo.tbl_Site s (NOLOCK) ON s.isDeposit = 0 AND CASE WHEN b.SiteID = -2 THEN CASE WHEN b.RptDate < @RMAccountMoveSiteCutoffday THEN @XYZBET_SiteID   ELSE @Special_SiteID END
-                                                                                         WHEN b.SiteID = -4 THEN CASE WHEN b.RptDate < @RMAccountMoveSiteCutoffday THEN @BESTODDS_SiteID ELSE @Special_SiteID END
-                                                                                         ELSE b.SiteID END = s.siteid
              LEFT JOIN #tmpProductBettype pb (NOLOCK) ON b.Bettype = pb.Bettype
              LEFT JOIN #tmpExchangeSystem es ON b.rptdate = es.ExchangeDate AND b.CurrencyID = es.ExchangeID
              LEFT JOIN #tmpExchangeOANDA eo ON b.CurrencyID = eo.ExchangeID
@@ -907,7 +979,8 @@ BEGIN
               AND b.CurrencyID <> 20
               AND b.BetType IN (SELECT Bettype FROM #tmpProductBettype)
         GROUP BY b.RptDate,
-                 CASE WHEN s.SiteLabel = '789y' THEN s.SiteLabel ELSE s.site END,
+                 b.SiteID,
+				 b.CurrencyID,
                  CASE WHEN b.Bettype IN (9, 29)                       THEN -10 --Parlay
                       WHEN b.SportType = 1  AND l.LeagueGroupType = 1 THEN -3  --Saba Soc
                       WHEN b.SportType = 1  AND l.LeagueGroupType = 2 THEN -14 --Saba Soc PGoal
@@ -941,7 +1014,7 @@ BEGIN
         IF (@loop_ToDate > @ToDate) SET @loop_ToDate = @ToDate
     END
 
-    CREATE CLUSTERED INDEX CIX_tmpRawData ON #tmpRawData(RptDate, Site, ProductID, Sporttype, Bettype, LeagueID)
+    CREATE CLUSTERED INDEX CIX_tmpRawData ON #tmpRawData(RptDate, SiteID, CurrencyID, ProductID, Sporttype, Bettype, LeagueID)
 
 
     ----------------------------
@@ -968,7 +1041,7 @@ BEGIN
                hni.isDeposit,
                hni.OrderByProduct,
                hni.OrderByFigure,
-               b.Site,
+               CASE WHEN s.SiteLabel = '789y' THEN s.SiteLabel ELSE s.site END Site,
                hni.ProductCategory,
                hni.ProductGroup,
                hni.ProductName,
@@ -979,36 +1052,46 @@ BEGIN
                                                                           ELSE -(b.HouseWL) END)
                     WHEN hni.Figure = 'House Turnover' THEN SUM(b.HouseTO)
                     WHEN hni.Figure = 'Extra PT' THEN SUM(b.ExtraPT)
-                    WHEN hni.Figure = 'Pay to Supplier' THEN CASE WHEN hni.ProductShortName = 'Arcadia' THEN SUM(b.MemberWLOANDA * (CASE WHEN bg2.BettypeGroupID = 14 THEN 1
-                                                                                                                                         WHEN bg1.BettypeGroupID = 15 THEN 0.025
-                                                                                                                                         ELSE 0.035 END))
-                                                                  WHEN hni.ProductShortName = 'MacauG' THEN SUM(b.MemberWLOANDA * (CASE WHEN bg1.BettypeGroupID = 11 THEN 0.03 ELSE 0.02 END))
-                                                                  WHEN hni.ProductShortName = 'NG2' THEN SUM((-b.HouseWLOANDA + (CASE WHEN b.RptDate >= '2020-11-01' THEN 0 ELSE b.ExtraPTOANDA END)) * (-0.5))
-                                                                  WHEN hni.ProductShortName = 'TableG' THEN SUM(b.MemberWLOANDA * (CASE WHEN b.RptDate >= '2020-07-01' THEN 0.036 ELSE 0.03 END))
-                                                                  WHEN hni.ProductShortName IN ('MKeno', 'MLotte') THEN SUM(b.MemberWLOANDA * (CASE WHEN b.Site = 'CN88' THEN 0.015 ELSE (CASE WHEN b.RptDate >= '2020-07-01' THEN 0.036 ELSE 0.03 END) END))
-                                                                  WHEN hni.ProductShortName IN ('VirtSpo2', 'VirtSpo') THEN SUM(b.MemberWLOANDA * 0.01)
-                                                                  WHEN hni.ProductShortName IN ('NumG', 'Happy5', 'Happy5 LG') THEN CASE WHEN b.Site = 'CN88' THEN SUM(b.MemberWLOANDA * 0.015)
-                                                                                                                                         WHEN b.Site IN ('IBCIndo', '76666b') THEN SUM((-b.HouseWLOANDA + b.ExtraPTOANDA) * (-0.5))
-                                                                                                                                         ELSE SUM((-b.HouseWLOANDA + (CASE WHEN b.RptDate >= '2020-11-01' THEN 0 ELSE b.ExtraPTOANDA END)) * (-0.5)) END
-                                                                  WHEN hni.ProductShortName IN ('GDG LC') THEN SUM((b.MemberWLOANDA + (b.NetStakeOANDA * 0.01)) * ISNULL( pts.Rate, 0))
-                                                                  WHEN hni.ProductShortName IN ('WE LC') THEN SUM((b.MemberWLOANDA + (b.NetStakeOANDA * 0.004)) * ISNULL( pts.Rate, 0))
-                                                                  WHEN hni.ProductShortName = 'YoloP' THEN SUM((-b.HouseWLOANDA + b.ExtraPTOANDA) * (-0.4))
-                                                                  ELSE SUM(b.MemberWLOANDA * CASE WHEN bg2.Bettype IS NOT NULL THEN 1 ELSE ISNULL( pts.Rate, 0) END) END
+                    WHEN hni.Figure = 'Pay to Supplier' THEN 
+							CASE WHEN hni.ProductShortName = 'Arcadia' THEN SUM(b.MemberWLOANDA * (CASE WHEN bg2.BettypeGroupID = 14 THEN 1
+                                                                                                    WHEN bg1.BettypeGroupID = 15 THEN 0.025
+                                                                                                    ELSE 0.035 END))
+                                WHEN hni.ProductShortName = 'MacauG' THEN SUM(b.MemberWLOANDA * (CASE WHEN bg1.BettypeGroupID = 11 THEN 0.03 ELSE 0.02 END))
+                                WHEN hni.ProductShortName = 'NG2' THEN SUM((-b.HouseWLOANDA + (CASE WHEN b.RptDate >= '2020-11-01' THEN 0 ELSE b.ExtraPTOANDA END)) * (-0.5))
+                                WHEN hni.ProductShortName = 'TableG' THEN SUM(b.MemberWLOANDA * (CASE WHEN b.RptDate >= '2020-07-01' THEN 0.036 ELSE 0.03 END))
+                                WHEN hni.ProductShortName IN ('MKeno', 'MLotte') THEN SUM(b.MemberWLOANDA * (CASE WHEN s.Site = 'CN88' THEN 0.015 ELSE (CASE WHEN b.RptDate >= '2020-07-01' THEN 0.036 ELSE 0.03 END) END))
+                                WHEN hni.ProductShortName IN ('VirtSpo2', 'VirtSpo') THEN SUM(b.MemberWLOANDA * 0.01)
+                                WHEN hni.ProductShortName IN ('NumG', 'Happy5', 'Happy5 LG') THEN CASE WHEN s.Site = 'CN88' THEN SUM(b.MemberWLOANDA * 0.015)
+                                                                                                        WHEN s.Site IN ('IBCIndo', '76666b') THEN SUM((-b.HouseWLOANDA + b.ExtraPTOANDA) * (-0.5))
+                                                                                                        ELSE SUM((-b.HouseWLOANDA + (CASE WHEN b.RptDate >= '2020-11-01' THEN 0 ELSE b.ExtraPTOANDA END)) * (-0.5)) END
+                                WHEN hni.ProductShortName IN ('GDG LC') THEN SUM((b.MemberWLOANDA + (b.NetStakeOANDA * 0.01)) * ISNULL(pts.Rate, 0))
+                                WHEN hni.ProductShortName IN ('WE LC') THEN SUM((b.MemberWLOANDA + (b.NetStakeOANDA * 0.004)) * ISNULL(pts.Rate, 0))
+                                WHEN hni.ProductShortName = 'YoloP' THEN SUM((-b.HouseWLOANDA + b.ExtraPTOANDA) * (-0.4))
+								WHEN hni.ProductShortName = 'PGSoft' AND b.RptDate > '20241201' THEN SUM(b.MemberWLOANDA * CASE WHEN bg2.Bettype IS NOT NULL THEN 1 ELSE ISNULL(ISNULL(p3rd.Rate,pts.Rate), 0) END) 
+                                ELSE SUM(b.MemberWLOANDA * CASE WHEN bg2.Bettype IS NOT NULL THEN 1 ELSE ISNULL( pts.Rate, 0) END) END
                     WHEN hni.Figure = 'Pay to Bet Genius' THEN SUM((b.MemberWLOANDA + b.ScommOANDA) * 0.04 * (CASE WHEN b.Bettype = 38 THEN 1 ELSE 0 END))
                     WHEN hni.Figure = 'Contribution Amount' THEN SUM(b.Contribution * (CASE WHEN bg1.BettypeGroupID = 10 AND bg1.BettypeName LIKE '%Jackpot%' THEN 1 ELSE 0 END))
                     WHEN hni.Figure = 'Mega Prize'  THEN -SUM(b.MemberWL * (CASE WHEN bg1.BettypeGroupID = 6 AND bg1.BettypeName LIKE '%Jackpot%' THEN 1 ELSE 0 END))
                     WHEN hni.Figure = 'Jackpot Prize'  THEN -SUM(b.MemberWL * (CASE WHEN bg1.BettypeGroupID = 6 AND bg1.BettypeName LIKE '%Jackpot%' THEN 1 ELSE 0 END))
                     ELSE NULL END DataValue
         FROM #tmpRawData b (NOLOCK)
+			 INNER JOIN #AllParties tp ON tp.SiteId = b.SiteId			 
+			 INNER JOIN bodb_Account.dbo.tbl_Site s (NOLOCK) ON s.isDeposit = 0 
+				AND CASE WHEN b.SiteID = -2 THEN CASE WHEN b.RptDate < @RMAccountMoveSiteCutoffday THEN @XYZBET_SiteID   ELSE @Special_SiteID END
+                        WHEN b.SiteID = -4 THEN CASE WHEN b.RptDate < @RMAccountMoveSiteCutoffday THEN @BESTODDS_SiteID ELSE @Special_SiteID END
+                        ELSE b.SiteID END = s.siteid
              INNER JOIN #tmpHNISettings hni (NOLOCK) ON hni.isDeposit = 0 AND hni.isEnable = 1 AND hni.LogicCode = 1 AND b.ProductID = hni.AliasProductID
              LEFT JOIN #tmpPTSMainData pts  ON b.ProductID = pts.ProductID
+			 LEFT JOIN #PartyChargeInfo p ON p.PartyId = tp.PartyId AND b.ProductID = p.Product3rdId
+			 LEFT JOIN #Party3rdChargeByCurrencyInfo p3rd ON p.ChargeId = p3rd.ChargeId AND b.CurrencyId = p3rd.CurrencyId
              LEFT JOIN #tmpBettypeGroup bg1 ON bg1.BettypeGroupID IN (6, 10, 11, 15) AND b.Bettype = bg1.Bettype
              LEFT JOIN #tmpBettypeGroup bg2 ON bg2.BettypeGroupID IN (14) AND b.Bettype = bg2.Bettype
         GROUP BY b.RptDate,
                  hni.isDeposit,
                  hni.OrderByProduct,
                  hni.OrderByFigure,
-                 b.Site,
+                 CASE WHEN s.SiteLabel = '789y' THEN s.SiteLabel ELSE s.site END,
+				 s.Site,
                  hni.ProductCategory,
                  hni.ProductGroup,
                  hni.ProductName,
@@ -1228,6 +1311,10 @@ BEGIN
     DROP TABLE #tmpProductList
     DROP TABLE #tmpHNISettings
     DROP TABLE #tmpProductBettype
+	DROP TABLE #AllParties
+	DROP TABLE #Party3rdChargeByCurrencyInfo
+	DROP TABLE #tmpSite
+	DROP TABLE #PartyChargeInfo
 
     DROP TABLE #tmpExchangeSystem
     DROP TABLE #tmpExchangeOANDA

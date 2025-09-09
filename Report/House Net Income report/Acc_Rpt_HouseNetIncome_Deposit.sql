@@ -64,6 +64,7 @@ AS
 		- 20250618@Cherry: Integrate Playtech Live Jackpot (#225847)
 		- 20250730@Cherry: Letstalk/HNI - Playtech Jackpot (#233667)
 		- 20250808@Cherry: Integrate VS Tournament (#234856)
+		- 20250812@Cherry: New Pay to supplier of PG Soft (#233940)
           
 */
 BEGIN
@@ -228,7 +229,7 @@ BEGIN
 		[BetType] [int],
 		[LeagueID] [int] ,
 		[SportType] [int] ,
-		[TicketStatus] [tinyint],
+		[TicketStatus] [int],
 		[VarianceVR] [decimal](9, 6),
 		[Stake] [decimal](19, 4),
 		[WinlossIBC] [decimal](19, 4),
@@ -341,6 +342,11 @@ BEGIN
 
 		UPDATE @Products SET IsOnlyTO = 1 WHERE Product3rdId IN (0, 3, 10, 31)
 
+		IF EXISTS (SELECT 1 FROM @Products WHERE ProductId IN (27,71,77,83,88,106))
+			AND NOT EXISTS (SELECT 1 FROM @Products WHERE ProductId = 5)
+			INSERT INTO @Products (ProductId, Product3rdId, AliasProductId, ProductCode, SubProductCode)
+				VALUES (5, 5, 5, 'VS', 'VS')
+
 		;WITH CTE_Product AS (SELECT DISTINCT Product3rdId FROM @Products)
 		SELECT @Product3rdIds = COALESCE(@Product3rdIds + ',', '') + CONVERT(VARCHAR(3), Product3rdId) FROM CTE_Product
 
@@ -434,7 +440,7 @@ BEGIN
 							WHERE ci.DI_Rate > 0
 								AND (
 									ci.ChargeType = 1
-									OR ci.ChargeType = 12 AND ci.ProductId = 39 -- SAG
+									OR ci.ChargeType = 12 AND ci.ProductId IN (39, 55) -- SAG, PG Soft
 								)'')'
 		INSERT INTO #PartyChargeInfo (ChargeId, PartyId, Product3rdId, FromDate, ToDate, Rate, Bettype, ChargeType)
 		EXEC (@SQL)
@@ -474,6 +480,18 @@ BEGIN
 								FROM bodb_Licensee.dbo.OAS_Party WITH (NOLOCK) WHERE PartyName IN (''Bobbet'', ''Tianbo'')'
 					    )   
 
+		CREATE TABLE #Party3rdChargeByCurrencyInfo(ChargeId INT, CurrencyId INT, Rate FLOAT)
+
+		SELECT @SQL = '	SELECT ChargeId, CurrencyId, Rate
+						FROM OPENQUERY(DBLIC, ''SELECT pc.ChargeId, pc.CurrencyId, pc.Rate
+												FROM bodb_licensee.dbo.LA_f_ChargeInfo3rd (''''' + @f_date + ''''', ''''' + @t_date + ''''', ''''' + @ProductCodes + ''''', ''''OA'''') ci
+													INNER JOIN bodb_Licensee.dbo.LA_ChargeRateByCurrency pc WITH (NOLOCK) ON ci.ChargeId = pc.ChargeId
+												WHERE ci.ProductID = 55 -- PG Soft
+													AND ci.ChargeType = 1 AND ci.DI_Rate > 0'')'
+
+		INSERT INTO #Party3rdChargeByCurrencyInfo (ChargeId, CurrencyId, Rate)
+			EXEC (@SQL)
+
 		-- Update charge rate for Keno, Lottery, Table Game
 		IF EXISTS (SELECT 1 FROM #PartyCharge3rdInfo WHERE Product3rdId IN (8, 28, 40) AND ToDate >= '2020-07-01')
 		BEGIN
@@ -508,7 +526,7 @@ BEGIN
 		INSERT INTO #tmpSite (LicenseeId, SiteName)
 		SELECT LicenseeId, SiteName FROM OPENQUERY(DBLIC,'	SELECT LicenseeId, RTRIM(LTRIM(LicenseeName)) SiteName 
 															FROM bodb_licensee.dbo.Licensees WITH(NOLOCK) 
-															WHERE IsDeposit = 1')
+															WHERE IsDeposit = 1 AND LicenseeId NOT IN (509,825,50550)')
 		UPDATE s
 		SET s.SiteId_DW = t.SiteId
 		FROM #tmpSite s
@@ -566,7 +584,6 @@ BEGIN
 		INNER JOIN bodb02.dbo.SportBettypeMatrix gb WITH(NOLOCK) oN p.ProductId = gb.ProductID AND gb.SubProduct IN ('Jackpot Contribution','Jackpot Prize')
 		WHERE p.SubProductCode IN ('PP-JP', 'VGA-JP', 'SBC-JP', 'SG-JP', 'AGC-JP','PTLC-JP','PTRNG-JP')
 
-		--- 
 		IF @isGetDataFromBettrans = 1 AND @ToDate = @yesterday
 		BEGIN
 			SELECT @FDateGetData = @FromDate,
@@ -807,6 +824,7 @@ BEGIN
 							(b.SiteID <> @DWH_SabaCoins_SiteID AND bt.Product3rdId =0 )
 							OR bt.Product3rdId  <> 0
 						)
+					AND SiteId IN (SELECT SiteId_DW FROM #tmpSite)
 				GROUP BY b.rptDate, b.SiteId, b.CurrencyId, bt.Product3rdId
 					,CASE
 						WHEN bt.Product3rdId <> 0 THEN bt.AliasProductId
@@ -888,6 +906,7 @@ BEGIN
 							(b.SiteID <> @DWH_SabaCoins_SiteID AND bt.Product3rdId =0 )
 							OR bt.Product3rdId  <> 0
 						)
+					AND SiteId IN (SELECT SiteId_DW FROM #tmpSite)
 				GROUP BY b.rptDate, b.SiteId, b.CurrencyId, bt.Product3rdId
 					,CASE
 						WHEN bt.Product3rdId <> 0 THEN bt.AliasProductId
@@ -967,8 +986,13 @@ BEGIN
 																					WHEN l.PartyId = 14 OR @FDate >= '2018-08-01' THEN 0.03
 																					ELSE 0.05 END -- KN, LT
 											WHEN t.Product3rdId = 22 THEN CASE WHEN t.BetTypeGroup = 1 THEN 0.045 ELSE 0.035 END -- VB (Macau Games)
-											WHEN t.Product3rdId = 27 AND t.BetTypeGroup <> -4 THEN 0.065 -- VS2
-
+											WHEN t.Product3rdId IN (27,106) AND t.BetTypeGroup <> -4 THEN 0.065 -- VS2,VS7
+                                            WHEN t.Product3rdId IN (77,83,71) AND t.BetTypeGroup <> -4 THEN 0.05 -- VS3,VS4,VS6
+                                            WHEN t.Product3rdId = 88 AND t.BetTypeGroup <> -4 THEN 0.04 -- VS5
+											WHEN t.Product3rdId = 55 AND t.rptDate > '20241201' THEN ISNULL(ISNULL(pc.Rate, rd.Rate),0)
+											WHEN t.Product3rdId = 34 THEN CASE WHEN t.BetTypeGroup = -4 THEN 1
+																				WHEN t.BetTypeGroup = -1 THEN 0.025
+																				ELSE 0.035 END
 											ELSE ISNULL(rd.Rate, 0) END
 									+ CASE WHEN t.Product3rdId = 31 THEN CASE WHEN @FDate >= @ExchaneFomularCutoff THEN  t.ExchangePlayerComm *  ISNULL(rd.Rate,0) ELSE  t.Comm END ELSE 0 END) * e.Rate)
 			,PayToSupplierMonth	= SUM((t.MemberWL *
@@ -979,7 +1003,13 @@ BEGIN
 																					WHEN l.PartyId = 14 OR @FDate >= '2018-08-01' THEN 0.03
 																					ELSE 0.05 END -- KN, LT
 											WHEN t.Product3rdId = 22 THEN CASE WHEN t.BetTypeGroup = 1 THEN 0.045 ELSE 0.035 END -- VB (Macau Games)
-											WHEN t.Product3rdId = 27 AND t.BetTypeGroup <> -4 THEN 0.065 -- VS2
+											WHEN t.Product3rdId IN (27,106) AND t.BetTypeGroup <> -4 THEN 0.065 -- VS2,VS7
+                                            WHEN t.Product3rdId IN (77,83,71) AND t.BetTypeGroup <> -4 THEN 0.05 -- VS3,VS4,VS6
+                                            WHEN t.Product3rdId = 88 AND t.BetTypeGroup <> -4 THEN 0.04 -- VS5
+											WHEN t.Product3rdId = 55 AND t.rptDate > '20241201' THEN ISNULL(ISNULL(pc.Rate, rd.Rate),0)
+											WHEN t.Product3rdId = 34 THEN CASE WHEN t.BetTypeGroup = -4 THEN 1
+																				WHEN t.BetTypeGroup = -1 THEN 0.025
+																				ELSE 0.035 END
 											ELSE ISNULL(rd.Rate, 0) END
 									+ CASE WHEN t.Product3rdId = 31 THEN CASE WHEN @FDate >= @ExchaneFomularCutoff THEN  t.ExchangePlayerComm *  ISNULL(rd.Rate, 0) ELSE  t.Comm END ELSE 0 END) * e.Rate)
 			,FullContribution	= SUM(CASE WHEN t.BetTypeGroup = -3 THEN t.FullContribution ELSE 0 END * e.Rate)
@@ -1039,6 +1069,7 @@ BEGIN
 						OR ((t.Product3rdId NOT IN (11, 39) OR t.BetTypeGroup = -1) AND rd.ChargeType <> 12)
 					) AND t.BetTypeGroup NOT IN (-4)
 			LEFT JOIN #PartyChargeByCurrencyInfo lc ON p.ChargeId = lc.ChargeId AND t.CurrencyId = lc.CurrencyId
+			LEFT JOIN #Party3rdChargeByCurrencyInfo pc ON p.ChargeId = pc.ChargeId AND t.CurrencyId = pc.CurrencyId
 			LEFT JOIN @ProductSupportJPContrib pj ON t.Product3rdId = pj.Product3rdId
 		WHERE t.Product3rdId NOT IN (0, 3) OR (t.Product3rdId IN (0, 3) AND p.PartyId IS NOT NULL AND t.SiteId_DW <> @DWH_SabaCoins_SiteID)
 			OR (t.Product3rdId = 0 AND p.PartyId IS  NULL AND t.SiteId_DW = @DWH_SabaCoins_SiteID)
@@ -1668,6 +1699,7 @@ BEGIN
 	DROP TABLE #__SabaLeague
 	DROP TABLE #Result
 	DROP TABLE #tmpDW_BettypeGroup
+	DROP TABLE #Party3rdChargeByCurrencyInfo
 
 END
 
