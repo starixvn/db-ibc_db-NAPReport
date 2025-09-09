@@ -56,8 +56,8 @@ BEGIN
 		(244, N'SA Gaming', N'TableCode')
 
 	INSERT INTO #Data (srecommend, productID, bettype, CustId, BetCount, CurrencyId, TableCode, winlostdate, betfrom)    
-	SELECT  srecommend, productID, b.gameID, b.CustID AS CustID,  
-			COUNT(CASE WHEN StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount, b.Currency,
+	SELECT  srecommend, productID, gameID, CustID AS CustID,  
+			COUNT(CASE WHEN StatusID IN (111,112,113) THEN TransId ELSE NULL END) AS BetCount, Currency,
 			CASE WHEN transdesc like '%tableCode%' THEN
 				CASE WHEN CHARINDEX('*', transdesc + '*', CHARINDEX('tableCode=', transdesc)) = 0
 					THEN RIGHT(transdesc, LEN(transdesc) - CHARINDEX('tableCode=', transdesc) - 9)
@@ -67,11 +67,12 @@ BEGIN
 				END
 			 ELSE '' END AS TableCode,
 		 winlostdate, betfrom
-	FROM  dbo.BettransLC b WITH (NOLOCK)  
-	WHERE b.WinlostDate > @MovebetsDay AND  b.WinlostDate <= @todate
-		AND b.currency <> 20
-	    AND b.statusID IN (111, 112, 113)   
-	GROUP BY  b.Currency, b.CustID, srecommend, b.gameID, productID,
+	FROM  dbo.BettransLC WITH (NOLOCK)  
+	WHERE WinlostDate > @MovebetsDay AND  WinlostDate <= @todate
+		AND WinlostDate >= @FromDate
+		AND currency <> 20
+	    AND statusID IN (111, 112, 113)   
+	GROUP BY  Currency, CustID, srecommend, gameID, productID,
 		 CASE WHEN transdesc like '%tableCode%' THEN
 			CASE WHEN CHARINDEX('*', transdesc + '*', CHARINDEX('tableCode=', transdesc)) = 0
 				THEN RIGHT(transdesc, LEN(transdesc) - CHARINDEX('tableCode=', transdesc) - 9)
@@ -83,9 +84,8 @@ BEGIN
 		 winlostdate, betfrom
 	
 	INSERT INTO #Data (srecommend, productID, bettype, CustId, BetCount, CurrencyId, TableCode, winlostdate, betfrom)  
-	SELECT srecommend, productID, b.gameID, b.CustID,  
-		COUNT(CASE WHEN StatusID IN (111,112,113) THEN b.TransId ELSE NULL END) AS BetCount,
-		b.Currency,
+	SELECT srecommend, productID, gameID, CustID,  
+		COUNT(CASE WHEN StatusID IN (111,112,113) THEN TransId ELSE NULL END) AS BetCount, Currency,
 	    CASE WHEN transdesc like '%tableCode%' THEN
 			CASE WHEN CHARINDEX('*', transdesc + '*', CHARINDEX('tableCode=', transdesc)) = 0
 				THEN RIGHT(transdesc, LEN(transdesc) - CHARINDEX('tableCode=', transdesc) - 9)
@@ -95,11 +95,12 @@ BEGIN
 			END
 		ELSE '' END AS tableCode,
 		winlostdate, betfrom
-	FROM  dbo.BettransLC14 b WITH (NOLOCK)  
+	FROM  dbo.BettransLC14 WITH (NOLOCK)  
 	WHERE winlostdate BETWEEN @BalanceUpDay AND @ToDate   
-	   AND b.statusID IN (111, 112, 113)   
-	   AND b.currency <> 20
-	GROUP BY  b.Currency, b.CustID, srecommend, b.gameID, b.productID,
+		AND winlostdate BETWEEN @FromDate AND @ToDate
+	    AND statusID IN (111, 112, 113)   
+	    AND currency <> 20
+	GROUP BY  Currency, CustID, srecommend, gameID, productID,
 		 CASE WHEN transdesc like '%tableCode%' THEN
 			CASE WHEN CHARINDEX('*', transdesc + '*', CHARINDEX('tableCode=', transdesc)) = 0
 				THEN RIGHT(transdesc, LEN(transdesc) - CHARINDEX('tableCode=', transdesc) - 9)
@@ -126,6 +127,7 @@ BEGIN
 			winlostdate, betfrom
 	  FROM  bodb_archive.dbo.BettransLC_bk WITH (NOLOCK)  
 	  WHERE  WinlostDate = @fromdate
+			AND AND WinlostDate <= @ToDate
 			AND statusID IN (111, 112, 113)   
 			AND currency <> 20
 	  GROUP BY  Currency, CustID, srecommend, gameID, productID,
