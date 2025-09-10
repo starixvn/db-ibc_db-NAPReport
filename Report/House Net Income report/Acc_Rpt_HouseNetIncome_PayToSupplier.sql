@@ -855,5 +855,6 @@ BEGIN
 	DROP TABLE #MetricChargeInfo
 	DROP TABLE #Party
 	DROP TABLE #Party3rdChargeByCurrencyInfo
+
 END
 GO

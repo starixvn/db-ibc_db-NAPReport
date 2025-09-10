@@ -6,6 +6,7 @@ ALTER PROCEDURE [dbo].[Acc_Rpt_HouseNetIncome_Deposit]
 	,@IsLicPerf			BIT = 0
 	,@BaseCurrencyName  VARCHAR(10) = 'MYR'
 	,@isGetDataFromBettrans BIT = 0
+
 AS
 
 /*

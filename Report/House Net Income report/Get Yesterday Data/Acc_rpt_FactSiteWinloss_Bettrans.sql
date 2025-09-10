@@ -632,10 +632,6 @@ BEGIN
 		FROM #FactSiteWinloss
 	END
 
-	-------------------------
-	-- 5. Drop temp tables --
-	-------------------------
-
 	DROP TABLE #FactSiteWinloss
 	DROP TABLE #tmpDWBettypeSource
 	DROP TABLE #tmpbettrans
