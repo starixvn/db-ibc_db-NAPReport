@@ -1074,14 +1074,14 @@ BEGIN
                     WHEN hni.Figure = 'Mega Prize'  THEN -SUM(b.MemberWL * (CASE WHEN bg1.BettypeGroupID = 6 AND bg1.BettypeName LIKE '%Jackpot%' THEN 1 ELSE 0 END))
                     WHEN hni.Figure = 'Jackpot Prize'  THEN -SUM(b.MemberWL * (CASE WHEN bg1.BettypeGroupID = 6 AND bg1.BettypeName LIKE '%Jackpot%' THEN 1 ELSE 0 END))
                     ELSE NULL END DataValue
-        FROM #tmpRawData b (NOLOCK)
-			 INNER JOIN #AllParties tp ON tp.SiteId = b.SiteId			 
+        FROM #tmpRawData b (NOLOCK)			 		 
 			 INNER JOIN bodb_Account.dbo.tbl_Site s (NOLOCK) ON s.isDeposit = 0 
 				AND CASE WHEN b.SiteID = -2 THEN CASE WHEN b.RptDate < @RMAccountMoveSiteCutoffday THEN @XYZBET_SiteID   ELSE @Special_SiteID END
                         WHEN b.SiteID = -4 THEN CASE WHEN b.RptDate < @RMAccountMoveSiteCutoffday THEN @BESTODDS_SiteID ELSE @Special_SiteID END
                         ELSE b.SiteID END = s.siteid
              INNER JOIN #tmpHNISettings hni (NOLOCK) ON hni.isDeposit = 0 AND hni.isEnable = 1 AND hni.LogicCode = 1 AND b.ProductID = hni.AliasProductID
              LEFT JOIN #tmpPTSMainData pts  ON b.ProductID = pts.ProductID
+			 LEFT JOIN #AllParties tp ON tp.SiteId = b.SiteId	
 			 LEFT JOIN #PartyChargeInfo p ON p.PartyId = tp.PartyId AND b.ProductID = p.Product3rdId
 			 LEFT JOIN #Party3rdChargeByCurrencyInfo p3rd ON p.ChargeId = p3rd.ChargeId AND b.CurrencyId = p3rd.CurrencyId
              LEFT JOIN #tmpBettypeGroup bg1 ON bg1.BettypeGroupID IN (6, 10, 11, 15) AND b.Bettype = bg1.Bettype
