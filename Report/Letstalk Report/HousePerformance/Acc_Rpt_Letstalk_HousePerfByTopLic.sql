@@ -1,4 +1,4 @@
-/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" viewers="" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBEXT-bodb02" executers="wsv_nap" viewers="" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE Acc_Rpt_Letstalk_HousePerfByTopLic
 	@ExecTime4GMT SMALLDATETIME
 AS
@@ -9,6 +9,7 @@ AS
 
 	Revisions:
 		20220629@Roy: Letstalk Reports - Implement Non-Sports TO & Margin and Licensee Turnover Margin (#174679)
+		20250826@Cherry: Apply Thousand-Scale Display (#236856)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -117,9 +118,11 @@ BEGIN
 
 	SELECT @MsgInfo = @MsgInfo + '<br>' + Licensee + ' ' + CASE 
 			WHEN ABS(ISNULL(TurnoverAllSport, 0)) BETWEEN 0 AND 999999
-				THEN (CONVERT(VARCHAR(10), (CAST(ROUND(ISNULL(TurnoverAllSport, 0) / 1000.0, 0) AS NUMERIC(4, 0))))) + 'k'
-			WHEN ABS(ISNULL(TurnoverAllSport, 0)) >= 1000000
-				THEN (CONVERT(VARCHAR(10), (CAST(ROUND(ISNULL(TurnoverAllSport, 0) / 1000000.0, 2) AS NUMERIC(9, 2))))) + 'm'
+				THEN (CONVERT(VARCHAR(10), (CAST(ROUND(ISNULL(TurnoverAllSport, 0) / 1000.0, 0) AS NUMERIC(6, 2)))))
+			WHEN ABS(ISNULL(TurnoverAllSport, 0)) BETWEEN 1000000 AND 999999999
+				THEN (CONVERT(VARCHAR(10), (CAST(ROUND(ISNULL(TurnoverAllSport, 0) / 1000000.0, 2) AS NUMERIC(9, 2))))) + 'k'
+			WHEN ABS(ISNULL(TurnoverAllSport, 0)) >= 1000000000
+				THEN (CONVERT(VARCHAR(10), (CAST(ROUND(ISNULL(TurnoverAllSport, 0) / 1000000000.0, 2) AS NUMERIC(12, 2))))) + 'm'
 			ELSE CONVERT(VARCHAR(10), ISNULL(TurnoverAllSport, 0))
 			END + ' ' + CAST(CONVERT(DECIMAL(10, 2), ISNULL(MarginAllSport, 0) * 100) AS VARCHAR(10)) + '%'
 	FROM #Temp_Top30Final 
