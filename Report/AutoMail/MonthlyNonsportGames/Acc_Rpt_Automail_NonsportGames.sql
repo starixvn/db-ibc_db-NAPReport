@@ -3,7 +3,7 @@
 USE bodb_dwrs
 GO
 
-CREATE PROCEDURE [dbo].[Acc_Rpt_Automail_NonsportGames]
+ALTER PROCEDURE [dbo].[Acc_Rpt_Automail_NonsportGames]
 	@FromDate    DATE,
 	@ToDate      DATE
 AS
@@ -28,7 +28,9 @@ BEGIN
 		Betcount INT
 	)
 
-	DECLARE @rptdate DATE
+	DECLARE @rptdate DATE, @StartDate DATE, @EndDate DATE
+	SELECT @StartDate = @FromDate,
+			@EndDate = @ToDate
 
 	WHILE @fromdate <= @todate
 	BEGIN
@@ -110,7 +112,63 @@ BEGIN
 		bf.fullname, 
 		b.sitegroup 
 
+	-- Live Casino
+	CREATE TABLE #LiveCasino
+	(	[Year] INT,
+		[Month] INT,
+		[Product Name] NVARCHAR(100),
+		[Game Type] NVARCHAR(200),
+		[Table] NVARCHAR(50),
+		[Device Type] VARCHAR(50),
+		[Device Name] VARCHAR(200),
+		[Site Group] VARCHAR(20),
+		[BetCount] INT
+	)
+
+	INSERT INTO #LiveCasino
+	(	[Year],
+		[Month],
+		[Product Name],
+		[Game Type],
+		[Table],
+		[Device Type],
+		[Device Name],
+		[Site Group],
+		[BetCount] 
+	)
+	EXEC DBACC.bodb02.dbo.Acc_Rpt_Automail_MonthlyLiveCasino
+		@FromDate = @StartDate,
+		@ToDate = @EndDate
+
+	SELECT [Year],
+		[Month],
+		[Product Name],
+		[Game Type],
+		[Table],
+		[Device Type],
+		[Device Name],
+		[Site Group],
+		SUM(BetCount) [BetCount]
+	FROM #LiveCasino
+	GROUP BY  [Year],
+		[Month],
+		[Product Name],
+		[Game Type],
+		[Table],
+		[Device Type],
+		[Device Name],
+		[Site Group]
+	ORDER BY [Year],
+		[Month],
+		[Product Name],
+		[Game Type],
+		[Table],
+		[Device Type],
+		[Device Name],
+		[Site Group]
+
 	DROP TABLE  #Data
+	DROP TABLE  #LiveCasino
 
 END
 
