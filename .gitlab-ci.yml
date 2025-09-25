@@ -1,0 +1,8 @@
+include:
+  - project: ci/core-cicd
+    ref: main
+    file: nexcel.gitlab-ci.yml
+
+variables:
+  PROJECT_NAME: 'db-NAPReport'
+  ENABLE_SONAR_SQL: 'true'
