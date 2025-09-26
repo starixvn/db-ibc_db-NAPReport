@@ -85,7 +85,7 @@ BEGIN
 	WHERE b.winlostdate  BETWEEN @FDate AND  @TDate
 		AND b.Transdate3rd >= @Winlostdate AND b.Transdate3rd < @TDate
 		AND b.statusID NOT IN (0, 1, 101, 102, 121)
-		AND b.gameID IN (SELECT x.Bettype FROM @RnGBettypeList x)
+		AND EXISTS (SELECT 1 FROM @RnGBettypeList x WHERE x.Bettype = b.gameID)
         AND b.currency <> 20
 	GROUP BY CAST(b.winlostdate AS DATE), 
 			CAST(b.Transdate3rd AS DATE), 
@@ -113,7 +113,7 @@ BEGIN
 		b.winlostdate  BETWEEN @FDate AND  @TDate
 		AND b.Transdate3rd >= @Winlostdate AND b.Transdate3rd < @TDate 
 		AND b.statusID NOT IN (0, 1, 101, 102, 121)
-		AND b.gameID IN (SELECT x.Bettype FROM @LCBettypeList x)
+		AND EXISTS (SELECT 1 FROM @LCBettypeList x WHERE x.Bettype = b.gameID)
         AND b.currency <> 20
 	GROUP BY CAST(b.winlostdate AS DATE), 
 			CAST(b.Transdate3rd AS DATE), 
