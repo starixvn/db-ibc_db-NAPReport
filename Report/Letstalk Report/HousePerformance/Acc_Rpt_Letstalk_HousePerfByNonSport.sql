@@ -126,22 +126,6 @@ BEGIN
 		TurnoverIBC DECIMAL(19,4)
 	)		
 	
-	CREATE TABLE #tmpEXBettrans (
-		WLDate SMALLDATETIME,
-		BetType INT,
-		ActualRate FLOAT,
-		VirtualRate FLOAT,
-		EPos SMALLMONEY,
-		TPos SMALLMONEY,
-		Stake DECIMAL(19,4),
-		Actual_Stake DECIMAL(19,4),
-		Winlost DECIMAL(19,4),
-		AWinlost DECIMAL(19,4),
-		MWinlost DECIMAL(19,4) DEFAULT 0,
-		SWinlost DECIMAL(19,4) DEFAULT 0,
-		SComm DECIMAL(19,4)
-	)
-
 	DECLARE @MaxBettype SMALLINT
 	DECLARE	@isTest BIT = 0
 	DECLARE	@SQLStr VARCHAR(MAX) = ''
@@ -311,21 +295,7 @@ BEGIN
 	
 	CREATE CLUSTERED INDEX CIX_tmpProductBettype ON #tmpProductBettype ( Bettype )
 	CREATE CLUSTERED INDEX CIX_tmpProductSettings ON #tmpProductSetting ( ProductID )
-	
-	INSERT INTO #tmpBettypeGroup (
-		Bettype
-		,BettypeGroupID
-	)
-	SELECT Bettype
-		,BettypeGroupID
-	FROM DBWH.bodb_Account.dbo.BettypeGroup WITH (NOLOCK)
-	WHERE BettypeGroupID in (6, 10) --Prize Tickets & Contribution Tickets
-	GROUP BY Bettype
-		,BettypeGroupID
-	
-	CREATE CLUSTERED INDEX CIX_tmpBettypeGroup ON #tmpBettypeGroup ( Bettype, BettypeGroupID )
-	
-	/*===================================================*/
+
 	SELECT @MaxBettype = MAX(Bettype)
 	FROM #tmpProductBettype
 	WHERE RefTable = 3
@@ -340,9 +310,19 @@ BEGIN
 	FROM bodb02.dbo.BettransLC WITH (NOLOCK)
 	WHERE winlostdate = @WLDate	
 	
-	/*
-		Get raw data as normal
-	*/
+	INSERT INTO #tmpBettypeGroup (
+		Bettype
+		,BettypeGroupID
+	)
+	SELECT Bettype
+		,BettypeGroupID
+	FROM DBWH.bodb_Account.dbo.BettypeGroup WITH (NOLOCK)
+	WHERE BettypeGroupID in (6, 10) --Prize Tickets & Contribution Tickets
+	GROUP BY Bettype
+		,BettypeGroupID
+	
+	CREATE CLUSTERED INDEX CIX_tmpBettypeGroup ON #tmpBettypeGroup ( Bettype, BettypeGroupID )			
+	
 	;WITH CTE_HWL AS (
 		SELECT pb.ProductID,
 			CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9,6)) AS VarianceVR,
@@ -441,13 +421,13 @@ BEGIN
 			,CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9,6))
 	)
 	INSERT INTO #tmpMarginNonSport (
-		ProductID
-		,WinlossIBC
-		,TurnoverIBC
+		ProductID,
+		WinlossIBC,
+		TurnoverIBC
 	)
-	SELECT ProductID
-		,SUM(-(WinlossIBC - ExtraWL + CommissionS - ExtraComm)) AS WinlossIBC
-		,SUM((CASE WHEN TurnoverIBC = 0 THEN 0 ELSE TurnoverIBC - ExtraTO END)
+	SELECT ProductID,
+		SUM(-(WinlossIBC - ExtraWL + CommissionS - ExtraComm)) AS WinlossIBC,
+		SUM((CASE WHEN TurnoverIBC = 0 THEN 0 ELSE TurnoverIBC - ExtraTO END)
 			* (CASE WHEN VarianceVR > 0 THEN VarianceVR + 1 ELSE 1 END)
 			) AS TurnoverIBC
 	FROM CTE_HWL AS h
@@ -456,11 +436,11 @@ BEGIN
 	CREATE CLUSTERED INDEX CIX_tmpMarginNonSport ON #tmpMarginNonSport ( ProductID )
 	
 	;WITH CTE_SubTotal AS (
-		SELECT h.GroupOrder AS GroupID
-			,'T ' + h.ProductGroup AS GroupName
-			,SUM(TurnoverIBC) AS TurnoverIBC
-			,SUM(WinlossIBC) AS WinlossIBC
-			,CONVERT(DECIMAL(10,6),(CASE WHEN SUM(ISNULL(TurnoverIBC,0)) = 0 THEN 0
+		SELECT h.GroupOrder AS GroupID,
+			'T ' + h.ProductGroup AS GroupName,
+			SUM(TurnoverIBC) AS TurnoverIBC,
+			SUM(WinlossIBC) AS WinlossIBC,
+			CONVERT(DECIMAL(10,6),(CASE WHEN SUM(ISNULL(TurnoverIBC,0)) = 0 THEN 0
 				ELSE SUM(ISNULL(WinlossIBC,0)) / SUM(ISNULL(TurnoverIBC,0))
 			END)) AS Margin
 		FROM #tmpMarginNonSport AS m WITH (NOLOCK)
@@ -469,10 +449,10 @@ BEGIN
 			'T ' + h.ProductGroup
 	)
 	,CTE_Total AS (
-		SELECT 0 AS GroupID
-			,'GRAND TOTAL' AS GroupName
-			,SUM(TurnoverIBC) AS TurnoverIBC
-			,CONVERT(DECIMAL(10,6),(CASE WHEN SUM(ISNULL(TurnoverIBC,0)) = 0 THEN 0
+		SELECT 0 AS GroupID,
+			'GRAND TOTAL' AS GroupName,
+			SUM(TurnoverIBC) AS TurnoverIBC,
+			CONVERT(DECIMAL(10,6),(CASE WHEN SUM(ISNULL(TurnoverIBC,0)) = 0 THEN 0
 				ELSE SUM(ISNULL(WinlossIBC,0)) / SUM(ISNULL(TurnoverIBC,0))
 			END)) AS Margin
 		FROM CTE_SubTotal
@@ -532,6 +512,5 @@ BEGIN
 	DROP TABLE #tmpProductBettype
 	DROP TABLE #tmpBettypeGroup
 	DROP TABLE #tmpMarginNonSport
-	DROP TABLE #tmpEXBettrans
 
 END
