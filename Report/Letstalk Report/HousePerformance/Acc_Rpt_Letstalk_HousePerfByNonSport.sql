@@ -66,19 +66,19 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @DayOffset INT
-		,@WLDate SMALLDATETIME
-		,@Title VARCHAR(50)
+	DECLARE @Title VARCHAR(50)
 		,@Footer VARCHAR(20) = 'ID #34'
+		,@DayOffset INT
+		,@WLDate SMALLDATETIME		
 
+	SET @WLDate = DATEADD(dd, DATEDIFF(dd, 0, @ExecTime4GMT), @DayOffset)
 	SET @DayOffset = (
 			CASE 
 				WHEN DATEPART(HOUR, @ExecTime4GMT) >= 2
 					THEN 0
 				ELSE - 1
 				END
-			)
-	SET @WLDate = DATEADD(dd, DATEDIFF(dd, 0, @ExecTime4GMT), @DayOffset)
+			)	
 
 	--Build Exec Time as Text
 	IF (@DayOffset = 0)
@@ -100,15 +100,7 @@ BEGIN
 		SELECT @Title AS Title
 			,@Footer AS Footer
 		RETURN
-	END
-	
-	DECLARE @MaxBettype SMALLINT
-		,@isTest BIT = 0
-		,@SQLStr VARCHAR(MAX) = ''
-		,@MinTransID_RNG BIGINT
-		,@MinTransID_LC BIGINT
-		,@MaxTransID_RNG BIGINT
-		,@MaxTransID_LC BIGINT
+	END		
 	
 	CREATE TABLE #tmpProductSetting (
 		ProductID INT
@@ -149,6 +141,14 @@ BEGIN
 		,SWinlost DECIMAL(19,4) DEFAULT 0
 		,SComm DECIMAL(19,4)
 	)
+
+	DECLARE @MaxBettype SMALLINT
+		,@isTest BIT = 0
+		,@SQLStr VARCHAR(MAX) = ''
+		,@MinTransID_RNG BIGINT
+		,@MinTransID_LC BIGINT
+		,@MaxTransID_RNG BIGINT
+		,@MaxTransID_LC BIGINT
 	
 	SELECT @isTest = dbo.f_CheckSPVersion(@@PROCID)
 	
