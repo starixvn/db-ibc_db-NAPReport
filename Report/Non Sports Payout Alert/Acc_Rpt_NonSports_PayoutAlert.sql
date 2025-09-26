@@ -300,8 +300,9 @@ BEGIN
 	CREATE CLUSTERED INDEX CIX_tmpSpecialBetType ON #tmpSpecialBetType (GroupID, BetType)
 		
 	--Exclude Prize BetTypes--
-	DELETE #tmpProductBetType
-	WHERE BetType IN ( SELECT BetType FROM #tmpSpecialBetType WHERE GroupID = 6 )
+	DELETE b
+	FROM #tmpProductBetType b
+	WHERE EXISTS (SELECT 1 FROM #tmpSpecialBetType s WHERE s.GroupID = 6 AND s.BetType = b.BetType)
 	
 	----------------------------------------------
 	/*

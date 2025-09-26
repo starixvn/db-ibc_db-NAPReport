@@ -518,6 +518,11 @@ BEGIN
 		)
 	BEGIN
 		--CLONE charge rate by PartyID (from VS to VS 2,3,4)
+		;WITH CTE_VS AS (
+			SELECT v.Product3rdID
+			FROM @VS3rd_To v
+			WHERE NOT EXISTS (SELECT 1 FROM #tmpChargeInfo c WHERE v.Product3rdID = c.Product3rdID) 
+		)
 		INSERT INTO #tmpChargeInfo (
 			ChargeID
 			,PartyID
@@ -533,9 +538,9 @@ BEGIN
 			,c.BetType
 			,c.ChargeType
 		FROM #tmpChargeInfo AS c WITH (NOLOCK)
-			,@VS3rd_To AS rd
+			CROSS JOIN CTE_VS AS rd 
 		WHERE c.Product3rdID = @VS3rd_FromID
-			AND NOT EXISTS (SELECT 1 FROM #tmpChargeInfo c WHERE c.Product3rdID = rd.Product3rdID)
+
 	END
 	
 	--specific sport, the rest will be group into [Other Sports]
