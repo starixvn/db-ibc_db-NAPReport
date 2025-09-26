@@ -300,7 +300,6 @@ BEGIN
 		ExchangeID
 		,BaseCurrencyRate
 	)
-	--EXEC (@SQLStr) AT DBEXT
 	SELECT ExchangeID, CNY
 	FROM bodb02.dbo.ExchangeDailyOanda WITH(NOLOCK)
 	WHERE ExchangeDate = @WLDate 
@@ -342,7 +341,7 @@ BEGIN
 		LicenseeName
 		,PartyID
 		)
-	EXEC (@SQLStr) AT DBEXT
+	EXECUTE (@SQLStr) AT DBEXT
 	
 	--Deposit super--
 	INSERT INTO #tmpDepSuper (

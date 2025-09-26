@@ -166,15 +166,12 @@ BEGIN
 		,b.RefTable
 	FROM CTE_Product_Bettype AS pb
 		INNER JOIN CTE_Bettype AS b ON pb.Bettype = b.Bettype
-	WHERE pb.Bettype IN (
-			SELECT DISTINCT Bettype
+	WHERE EXISTS (SELECT 1 FROM (SELECT DISTINCT Bettype
 			FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)
 			WHERE isTest IN (0,@isTest)
 				AND (ProductID NOT IN (1,37,74,81) --exclude Sportsbook and Saba Promotion and Player Tips, Saba Coins
-					OR SubProduct IN ('Bet Builder')
-				)
-		)
-		AND pb.ProductID NOT IN (SELECT ProductID FROM CTE_ExcludeProduct)
+					OR SubProduct IN ('Bet Builder'))) sb WHERE pb.Bettype = sb.BetType)
+		AND NOT EXISTS (SELECT 1 FROM CTE_ExcludeProduct p WHERE p.ProductID = pb.ProductID)
 	
 	/*Special non-sport product*/
 	;WITH CTE_Special AS (
@@ -579,7 +576,7 @@ BEGIN
 		WHERE b.winlostdate = @WLDate
 			AND b.statusID IN (112, 113) --Won, Lose
 			AND b.currency <> 20
-			AND b.bettype IN (SELECT Bettype FROM #tmpBettype)
+			AND EXISTS (SELECT 1 FROM #tmpBettype bt WHERE bt.Bettype = b.bettype)
 		GROUP BY CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9, 6)),
 				CASE WHEN m.SportType = 43 THEN -3					
 					WHEN m.SportType = 1 THEN -4
@@ -752,7 +749,7 @@ BEGIN
 		,TurnoverIBC
 		,Margin
 	FROM CTE_VS
-	ORDER BY GroupID
+	ORDER BY GroupID ASC
 		,TurnoverIBC DESC
 	
 	SELECT @Title AS Title

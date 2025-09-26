@@ -502,7 +502,7 @@ BEGIN
 		Margin,
 		'' ExtraInfo
 	FROM CTE_Product
-	ORDER BY GroupID,
+	ORDER BY GroupID ASC,
 		TurnoverIBC DESC
 	
 	SELECT @Title AS Title,
