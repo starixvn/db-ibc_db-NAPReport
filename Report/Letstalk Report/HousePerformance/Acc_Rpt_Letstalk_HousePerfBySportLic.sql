@@ -540,7 +540,6 @@ BEGIN
 		FROM #tmpChargeInfo AS c WITH (NOLOCK)
 			CROSS JOIN CTE_VS AS rd 
 		WHERE c.Product3rdID = @VS3rd_FromID
-
 	END
 	
 	--specific sport, the rest will be group into [Other Sports]
