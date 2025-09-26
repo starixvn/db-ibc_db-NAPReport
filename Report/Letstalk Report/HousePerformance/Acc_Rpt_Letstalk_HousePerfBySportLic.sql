@@ -212,7 +212,7 @@ BEGIN
 		,Enabled
 	)
 	EXECUTE sp_executesql @SQLStr
-	CREATE CLUSTERED INDEX tmpProduct3rd ON #tmpProduct3rd (Product3rdID)
+	CREATE CLUSTERED INDEX IX_tmpProduct3rd ON #tmpProduct3rd (Product3rdID)
 
 	INSERT INTO #tmpOddsAdjBettype (Bettype)
 	SELECT BetType
@@ -415,7 +415,7 @@ BEGIN
 			,ci.DI_Rate AS Rate
 			,ci.BetType
 			,ci.ChargeType
-		FROM bodb_licensee.dbo.LA_f_ChargeInfo(''' + @PartyIDs + ''', ''' + CONVERT(VARCHAR, @WLDate, 23) + ''', ''' + CONVERT(VARCHAR, @WLDate, 23) + ''', ''' + @ProductCodes + ''', ''OA'', 1) AS ci
+		FROM DBEXT.bodb_licensee.dbo.LA_f_ChargeInfo(''' + @PartyIDs + ''', ''' + CONVERT(VARCHAR, @WLDate, 23) + ''', ''' + CONVERT(VARCHAR, @WLDate, 23) + ''', ''' + @ProductCodes + ''', ''OA'', 1) AS ci
 		WHERE ci.DI_Rate > 0
 			AND (ci.ChargeType = 1
 				OR (ci.ChargeType = 12 AND ci.ProductID = 39)
@@ -429,7 +429,7 @@ BEGIN
 		,BetType
 		,ChargeType
 		)
-	EXEC (@SQLStr) AT DBEXT
+	EXECUTE sp_executesql @SQLStr
 	
 	-- Get charge rate by Currency--
 	;WITH CTE_Charge AS (
@@ -745,7 +745,7 @@ BEGIN
 		,b.LiveIndicator
 		,ISNULL(slg.SabaType,0)
 
-	CREATE CLUSTERED INDEX tmpRawData ON #tmpRawData (IsSB, PartyID, Product3rdID, Currency)
+	CREATE CLUSTERED INDEX IX_tmpRawData ON #tmpRawData (IsSB, PartyID, Product3rdID, Currency)
 	
 	--Get SB by Sport - [GroupID = 2] - fixed order--
 	;WITH CTE_SB_BySport AS (
