@@ -285,13 +285,11 @@ BEGIN
 			,ROW_NUMBER() OVER (PARTITION BY ProductID ORDER BY ProductID) AS rn
 		FROM #tmpProductSetting
 	)
-	DELETE
-	FROM CTE_Dup
+	DELETE d
+	FROM CTE_Dup d
 	WHERE rn > 1
-		OR ProductID NOT IN (
-			SELECT DISTINCT ProductID
-			FROM #tmpProductBettype
-		)
+		OR NOT EXISTS (SELECT 1 FROM #tmpProductBettype p
+					WHERE d.ProductID = p.ProductID)
 	
 	CREATE CLUSTERED INDEX CIX_tmpProductBettype ON #tmpProductBettype ( Bettype )
 	CREATE CLUSTERED INDEX CIX_tmpProductSettings ON #tmpProductSetting ( ProductID )

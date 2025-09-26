@@ -198,7 +198,7 @@ BEGIN
 		Get Dim data
 	*/
 	--3rd Product--
-	SELECT @SQLStr = '
+	SELECT @SQLStr = N'
 		SELECT ProductID
 			,ProductName
 			,ProductPrefix
@@ -328,7 +328,7 @@ BEGIN
 		AND (s.ProductID NOT IN (1,12,15,24,25,37,59,74,81) ---exclude SB(1),Gold Deluxe(12),Colossus Bets(15),Fishing World(24),CO Old Model(25),Saba Promotion(37),GDG(59),Player Tips(74),Saba Coins(81)
 			OR (s.ProductID = 1 AND s.SubProduct IN ('Bet Builder','MG-SuperLive'))
 		)
-	CREATE CLUSTERED INDEX tmpBetType ON #tmpBetType (BetType)
+	CREATE CLUSTERED INDEX IX_tmpBetType ON #tmpBetType (BetType)
 	
 	--LicParty--
 	SELECT @SQLStr = N'
@@ -353,7 +353,7 @@ BEGIN
 	FROM bodb_account.dbo.vw_Dep_CustSuper c WITH (NOLOCK) --use view to exclude some special site
 		INNER JOIN #tmpLicParty p WITH (NOLOCK) ON p.LicenseeName = c.site
 	WHERE c.currency <> 20
-	CREATE CLUSTERED INDEX tmpDepSuper ON #tmpDepSuper (CustID)
+	CREATE CLUSTERED INDEX IX_tmpDepSuper ON #tmpDepSuper (CustID)
 	
 	-- Get party list--
 	SELECT @PartyIDs = COALESCE(@PartyIDs + ',', '') + CONVERT(VARCHAR, PartyID)
@@ -446,11 +446,11 @@ BEGIN
 						), 1, 2, '')
 				) AS ChargeIDs
 		)
-	SELECT @SQLStr = '
+	SELECT @SQLStr = N'
 		SELECT DISTINCT pc.ChargeID
 			,pc.CurrencyID
 			,pc.Rate
-		FROM bodb_Licensee.dbo.LA_ChargeRateByCurrency pc WITH (NOLOCK)
+		FROM DBEXT.bodb_Licensee.dbo.LA_ChargeRateByCurrency pc WITH (NOLOCK)
 		WHERE ChargeID IN (' + ChargeIDs + ')'
 	FROM CTE_IDs
 
@@ -459,7 +459,7 @@ BEGIN
 		,CurrencyID
 		,Rate
 	)
-	EXEC (@SQLStr) AT DBEXT
+	EXECUTE sp_executesql @SQLStr
 	
 	/*
 		Hard code for merge [Virtual Sports]
