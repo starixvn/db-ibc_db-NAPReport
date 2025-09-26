@@ -513,8 +513,8 @@ BEGIN
 	IF @WLDate >= @VSMergeCutOffDate --over Cut Off Date
 		AND EXISTS (
 			SELECT 1
-			FROM @VS3rd_To 
-			WHERE Product3rdID NOT IN (SELECT Product3rdID FROM #tmpChargeInfo)			
+			FROM @VS3rd_To v
+			WHERE NOT EXISTS (SELECT 1 FROM #tmpChargeInfo c WHERE v.Product3rdID = c.Product3rdID) 
 		)
 	BEGIN
 		--CLONE charge rate by PartyID (from VS to VS 2,3,4)
@@ -535,7 +535,7 @@ BEGIN
 		FROM #tmpChargeInfo AS c WITH (NOLOCK)
 			,@VS3rd_To AS rd
 		WHERE c.Product3rdID = @VS3rd_FromID
-			AND rd.Product3rdID NOT IN (SELECT Product3rdID FROM #tmpChargeInfo)
+			AND NOT EXISTS (SELECT 1 FROM #tmpChargeInfo c WHERE c.Product3rdID = rd.Product3rdID)
 	END
 	
 	--specific sport, the rest will be group into [Other Sports]
@@ -944,8 +944,8 @@ BEGIN
 		,CONVERT(DECIMAL(10,6),Margin) AS Margin
 		,CASE WHEN GroupName = @EX3rdName AND @DayOffset = 0 THEN '[1h delay]' ELSE '' END AS ExtraInfo
 	FROM CTE_Grp
-	ORDER BY GroupID
-		,OrdNo
+	ORDER BY GroupID ASC
+		,OrdNo ASC
 	
 	SELECT @Title AS Title
 	
