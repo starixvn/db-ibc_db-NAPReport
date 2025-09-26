@@ -180,7 +180,7 @@ BEGIN
 			,CONVERT(VARCHAR(20),'BetB') AS ProductShortName --Include Bet Builder into [OTHERS] group; show 'BetB'
 		FROM #tmpProductBettype AS pb WITH (NOLOCK)
 			INNER JOIN bodb02.dbo.SportBettypeMatrix AS sb WITH (NOLOCK) ON pb.Bettype = sb.Bettype
-		WHERE sb.SubProduct IN ('Bet Builder')
+		WHERE sb.SubProduct = 'Bet Builder'
 			AND sb.isTest IN (0,@isTest)
 	)
 	,CTE_Hardcode AS (
@@ -296,13 +296,11 @@ BEGIN
 			,ROW_NUMBER() OVER (PARTITION BY ProductID ORDER BY ProductID) AS rn
 		FROM #tmpProductSetting
 	)
-	DELETE
-	FROM CTE_Dup
+	DELETE d
+	FROM CTE_Dup d
 	WHERE rn > 1
-		OR ProductID NOT IN (
-			SELECT DISTINCT ProductID
-			FROM #tmpProductBettype
-		)
+		OR NOT EXISTS (SELECT 1 FROM #tmpProductBettype b
+					WHERE d.ProductID = b.ProductID)
 	
 	CREATE CLUSTERED INDEX CIX_tmpProductBettype ON #tmpProductBettype ( Bettype )
 	CREATE CLUSTERED INDEX CIX_tmpProductSettings ON #tmpProductSetting ( ProductID )

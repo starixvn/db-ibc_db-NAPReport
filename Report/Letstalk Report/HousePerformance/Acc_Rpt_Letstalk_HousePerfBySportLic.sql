@@ -203,7 +203,7 @@ BEGIN
 			,ProductName
 			,ProductPrefix
 			,Enabled
-		FROM bodb_Licensee.dbo.Product3rd WITH (NOLOCK)
+		FROM DBEXT.bodb_Licensee.dbo.Product3rd WITH (NOLOCK)
 	'
 	INSERT INTO #tmpProduct3rd (
 		Product3rdID
@@ -211,7 +211,7 @@ BEGIN
 		,ProductPrefix
 		,Enabled
 	)
-	EXEC (@SQLStr) AT DBEXT
+	EXECUTE sp_executesql @SQLStr
 	CREATE CLUSTERED INDEX tmpProduct3rd ON #tmpProduct3rd (Product3rdID)
 
 	INSERT INTO #tmpOddsAdjBettype (Bettype)
@@ -331,17 +331,17 @@ BEGIN
 	CREATE CLUSTERED INDEX tmpBetType ON #tmpBetType (BetType)
 	
 	--LicParty--
-	SELECT @SQLStr = '
+	SELECT @SQLStr = N'
 		SELECT l.LicenseeName
 			,ISNULL(p.PartyID,0) AS PartyID
-		FROM bodb_Licensee.dbo.Licensees AS l WITH (NOLOCK)
+		FROM DBEXT.bodb_Licensee.dbo.Licensees AS l WITH (NOLOCK)
 			LEFT JOIN bodb_licensee.dbo.OAS_Party p WITH (NOLOCK) ON p.OldRefID = l.LicenseeID AND p.PartyType = 1
 	'
 	INSERT INTO #tmpLicParty (
 		LicenseeName
 		,PartyID
 		)
-	EXECUTE (@SQLStr) AT DBEXT
+	EXECUTE sp_executesql @SQLStr
 	
 	--Deposit super--
 	INSERT INTO #tmpDepSuper (
