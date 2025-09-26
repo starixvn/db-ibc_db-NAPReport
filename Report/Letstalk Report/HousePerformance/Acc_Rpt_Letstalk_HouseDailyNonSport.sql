@@ -156,6 +156,14 @@ BEGIN
 				END AS RefTable
 		FROM DBWH.bodb_account.dbo.Bettype WITH (NOLOCK)
 	)
+	,CTE_Bettype2 AS (
+		SELECT DISTINCT Bettype
+			FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)
+			WHERE isTest IN (0,@isTest)
+				AND (ProductID NOT IN (1,37,74,81) --exclude Sportsbook and Saba Promotion and Player Tips, Saba Coins
+					OR SubProduct IN ('Bet Builder')
+				)
+	)
 	INSERT INTO #tmpProductBettype (
 		ProductID
 		,Bettype
@@ -166,11 +174,7 @@ BEGIN
 		,b.RefTable
 	FROM CTE_Product_Bettype AS pb
 		INNER JOIN CTE_Bettype AS b ON pb.Bettype = b.Bettype
-	WHERE EXISTS (SELECT 1 FROM (SELECT DISTINCT Bettype
-			FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)
-			WHERE isTest IN (0,@isTest)
-				AND (ProductID NOT IN (1,37,74,81) --exclude Sportsbook and Saba Promotion and Player Tips, Saba Coins
-					OR SubProduct IN ('Bet Builder'))) sb WHERE pb.Bettype = sb.BetType)
+	WHERE EXISTS(SELECT 1 FROM CTE_Bettype2 bt WHERE bt.BetType = pb.Bettype)
 		AND NOT EXISTS (SELECT 1 FROM CTE_ExcludeProduct p WHERE p.ProductID = pb.ProductID)
 	
 	/*Special non-sport product*/
@@ -293,7 +297,7 @@ BEGIN
 	--make sure no dup ProductID--
 	;WITH CTE_Dup AS (
 		SELECT ProductID
-			,ROW_NUMBER() OVER (PARTITION BY ProductID ORDER BY ProductID) AS rn
+			,ROW_NUMBER() OVER (PARTITION BY ProductID ORDER BY ProductID ASC) AS rn
 		FROM #tmpProductSetting
 	)
 	DELETE d
