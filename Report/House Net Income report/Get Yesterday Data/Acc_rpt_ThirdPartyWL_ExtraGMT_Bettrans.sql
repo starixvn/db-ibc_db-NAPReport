@@ -66,7 +66,6 @@ BEGIN
 	INSERT INTO @LCBettypeList(Bettype)
 	SELECT bettype FROM OPENQUERY (DBLIC, 'SELECT	DISTINCT bettype FROM	bodb_licensee.dbo.LA_f_BettypeProductMapping(0,''AB,SXG,SAG,WM,PPL,FGGL,YB,PTLC,ON,GPILC,OFA'') la')
 
-
 	INSERT INTO #rpt_ThirdPartyWL_ExtraGMT(	RptDate,RptDate3rd ,SiteId,BetTypeId,CurrencyId,StatusId,Winloss,ProgressiveContribution,ValidBetAmount)
 	SELECT CAST(b.winlostdate AS DATE)	AS Rptdate,
 			CAST(b.Transdate3rd AS DATE)	AS RptDate3rd
@@ -121,7 +120,6 @@ BEGIN
 			b.gameID, 
 			b.currency, 
 			b.statusID	
-
 
 	SELECT RptDate3rd, SiteId, BetTypeId, CurrencyId, SUM(Winloss) Winloss, SUM(ValidBetAmount) ValidBetAmount, SUM(ProgressiveContribution) ProgressiveContribution
 	FROM #rpt_ThirdPartyWL_ExtraGMT WITH (NOLOCK)
