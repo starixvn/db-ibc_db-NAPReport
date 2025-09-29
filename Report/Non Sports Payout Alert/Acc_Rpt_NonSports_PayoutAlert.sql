@@ -295,7 +295,7 @@ BEGIN
 	SELECT BetTypeGroupID
 		,BetType
 	FROM DBWH.bodb_Account.dbo.BetTypeGroup WITH (NOLOCK)
-	WHERE BetTypeGroupID in (6, 12) --Prize, No BetCount
+	--WHERE BetTypeGroupID in (6, 12) --Prize, No BetCount
 	
 	CREATE CLUSTERED INDEX CIX_tmpSpecialBetType ON #tmpSpecialBetType (GroupID, BetType)
 		
@@ -314,7 +314,7 @@ BEGIN
 	WHERE WinlostDate >= @FromWLDate
 		AND b.WinlostDate < @ToWLDate
 		AND EXISTS (SELECT 1 FROM #tmpProductBetType p WHERE p.RefTable IN (0,3) AND p.BetType = b.bettype)
-		AND b.StatusID IN (111, 112, 113) -- won/lose/draw tickets
+		--AND b.StatusID IN (111, 112, 113) -- won/lose/draw tickets
 		AND b.Currency <> 20
 		AND b.MatchID IS NOT NULL
 	GROUP BY b.MatchID
@@ -338,7 +338,7 @@ BEGIN
 		AND b.transdate >= @From4GMTTime
 		AND b.transdate < @To4GMTTime
 		AND EXISTS (SELECT 1 FROM #tmpProductBetType p WHERE p.RefTable IN (0,3) AND p.BetType = b.bettype)
-		AND b.statusID IN (111, 112, 113) -- won/lose/draw tickets
+		--AND b.statusID IN (111, 112, 113) -- won/lose/draw tickets
 		AND b.Currency <> 20
 		AND EXISTS (SELECT 1 FROM #tmpMatch m WHERE m.MatchID = b.MatchID)
 	GROUP BY b.BetType
@@ -361,7 +361,7 @@ BEGIN
 		AND b.transdate >= @From4GMTTime
 		AND b.transdate < @To4GMTTime
 		AND EXISTS (SELECT 1 FROM #tmpProductBetType p WHERE p.RefTable = 1 AND p.BetType = b.GameID)
-		AND b.statusID IN (111, 112, 113) -- won/lose/draw tickets
+		--AND b.statusID IN (111, 112, 113) -- won/lose/draw tickets
 		AND b.Currency <> 20
 	GROUP BY b.GameID
 	OPTION (RECOMPILE)
@@ -383,7 +383,7 @@ BEGIN
 		AND b.transdate >= @From4GMTTime
 		AND b.transdate < @To4GMTTime
 		AND EXISTS (SELECT 1 FROM #tmpProductBetType p WHERE p.RefTable = 2 AND p.BetType = b.GameID)
-		AND b.statusID IN (111, 112, 113) -- won/lose/draw tickets
+		--AND b.statusID IN (111, 112, 113) -- won/lose/draw tickets
 		AND b.Currency <> 20
 	GROUP BY b.GameID
 	OPTION (RECOMPILE)
