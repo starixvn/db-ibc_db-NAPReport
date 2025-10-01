@@ -40,6 +40,7 @@ AS
 		20250722@Cherry: Integrate ODINGAMING (#219228)
 		20250814@Cherry: Integrate Smartsoft (#236071)
 		20250825@Cherry: Integrate OFA Live (#236741)
+		20250905@Cherry: Integrate Bgaming (#237204)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -155,6 +156,14 @@ BEGIN
 				END AS RefTable
 		FROM DBWH.bodb_account.dbo.Bettype WITH (NOLOCK)
 	)
+	,CTE_Bettype2 AS (
+		SELECT DISTINCT Bettype
+			FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)
+			WHERE isTest IN (0,@isTest)
+				AND (ProductID NOT IN (1,37,74,81) --exclude Sportsbook and Saba Promotion and Player Tips, Saba Coins
+					OR SubProduct IN ('Bet Builder')
+				)
+	)
 	INSERT INTO #tmpProductBettype (
 		ProductID
 		,Bettype
@@ -165,15 +174,8 @@ BEGIN
 		,b.RefTable
 	FROM CTE_Product_Bettype AS pb
 		INNER JOIN CTE_Bettype AS b ON pb.Bettype = b.Bettype
-	WHERE pb.Bettype IN (
-			SELECT DISTINCT Bettype
-			FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)
-			WHERE isTest IN (0,@isTest)
-				AND (ProductID NOT IN (1,37,74,81) --exclude Sportsbook and Saba Promotion and Player Tips, Saba Coins
-					OR SubProduct IN ('Bet Builder')
-				)
-		)
-		AND pb.ProductID NOT IN (SELECT ProductID FROM CTE_ExcludeProduct)
+	WHERE EXISTS(SELECT 1 FROM CTE_Bettype2 bt WHERE bt.BetType = pb.Bettype)
+		AND NOT EXISTS (SELECT 1 FROM CTE_ExcludeProduct p WHERE p.ProductID = pb.ProductID)
 	
 	/*Special non-sport product*/
 	;WITH CTE_Special AS (
@@ -182,7 +184,7 @@ BEGIN
 			,CONVERT(VARCHAR(20),'BetB') AS ProductShortName --Include Bet Builder into [OTHERS] group; show 'BetB'
 		FROM #tmpProductBettype AS pb WITH (NOLOCK)
 			INNER JOIN bodb02.dbo.SportBettypeMatrix AS sb WITH (NOLOCK) ON pb.Bettype = sb.Bettype
-		WHERE sb.SubProduct IN ('Bet Builder')
+		WHERE sb.SubProduct = 'Bet Builder'
 			AND sb.isTest IN (0,@isTest)
 	)
 	,CTE_Hardcode AS (
@@ -267,6 +269,7 @@ BEGIN
 			,(105,'ODIN')
 			,(99,'SmartS')
 			,(113,'OFA LC')
+			,(114,'BGame')
 		) h (ProductID, ProductShortName)
 	)
 	,CTE_ProductGroup AS (
@@ -294,16 +297,14 @@ BEGIN
 	--make sure no dup ProductID--
 	;WITH CTE_Dup AS (
 		SELECT ProductID
-			,ROW_NUMBER() OVER (PARTITION BY ProductID ORDER BY ProductID) AS rn
+			,ROW_NUMBER() OVER (PARTITION BY ProductID ORDER BY ProductID ASC) AS rn
 		FROM #tmpProductSetting
 	)
-	DELETE
-	FROM CTE_Dup
+	DELETE d
+	FROM CTE_Dup d
 	WHERE rn > 1
-		OR ProductID NOT IN (
-			SELECT DISTINCT ProductID
-			FROM #tmpProductBettype
-		)
+		OR NOT EXISTS (SELECT 1 FROM #tmpProductBettype b
+					WHERE d.ProductID = b.ProductID)
 	
 	CREATE CLUSTERED INDEX CIX_tmpProductBettype ON #tmpProductBettype ( Bettype )
 	CREATE CLUSTERED INDEX CIX_tmpProductSettings ON #tmpProductSetting ( ProductID )
@@ -577,7 +578,7 @@ BEGIN
 		WHERE b.winlostdate = @WLDate
 			AND b.statusID IN (112, 113) --Won, Lose
 			AND b.currency <> 20
-			AND b.bettype IN (SELECT Bettype FROM #tmpBettype)
+			AND EXISTS (SELECT 1 FROM #tmpBettype bt WHERE bt.Bettype = b.bettype)
 		GROUP BY CAST((b.virtualrate / b.actualrate - 1) AS DECIMAL(9, 6)),
 				CASE WHEN m.SportType = 43 THEN -3					
 					WHEN m.SportType = 1 THEN -4
@@ -750,7 +751,7 @@ BEGIN
 		,TurnoverIBC
 		,Margin
 	FROM CTE_VS
-	ORDER BY GroupID
+	ORDER BY GroupID ASC
 		,TurnoverIBC DESC
 	
 	SELECT @Title AS Title

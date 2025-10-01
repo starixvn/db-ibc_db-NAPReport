@@ -39,6 +39,7 @@ AS
 		20250722@Cherry: Integrate ODINGAMING (#219228)
 		20250814@Cherry: Integrate Smartsoft (#236071)
 		20250825@Cherry: Integrate OFA Live (#236741)
+		20250905@Cherry: Integrate Bgaming (#237204)
 
 	Param's Explanation:
 		@FromGMT8Time: start of time range in GMT+8 with format 2021-05-20 19:00:00
@@ -173,6 +174,7 @@ BEGIN
 			,(110, 'AI Gaming', 300, 5000)
 			,(105, 'ODIN GAMING', 300, 5000)
 			,(99, 'Smartsoft', 300, 5000)
+			,(114, 'BGaming', 300, 5000)
 		) AS tmp (ProductID, ProductName, ThresholdPCT, MinWin)
 
 	DECLARE @isTest BIT = 0
@@ -269,7 +271,7 @@ BEGIN
 		,MAX(s.RefTable) RefTable
 	FROM dbo.f_SportBetTypeMatrix_Sel(0, 0, 0, 2, '', '', @isTest) AS s
 		INNER JOIN #tmpNonSportSetting AS ns WITH (NOLOCK) ON s.ProductID = ns.ProductID AND s.BetType = ns.BetType
-	WHERE s.ProductID NOT IN ( SELECT ProductID FROM CTE_ExcludeProduct )
+	WHERE NOT EXISTS (SELECT 1 FROM CTE_ExcludeProduct p WHERE p.ProductID = s.ProductID)
 	GROUP BY s.ProductID
 		,s.BetType
 	
@@ -298,23 +300,24 @@ BEGIN
 	CREATE CLUSTERED INDEX CIX_tmpSpecialBetType ON #tmpSpecialBetType (GroupID, BetType)
 		
 	--Exclude Prize BetTypes--
-	DELETE #tmpProductBetType
-	WHERE BetType IN ( SELECT BetType FROM #tmpSpecialBetType WHERE GroupID = 6 )
+	DELETE b
+	FROM #tmpProductBetType b
+	WHERE EXISTS (SELECT 1 FROM #tmpSpecialBetType s WHERE s.GroupID = 6 AND s.BetType = b.BetType)
 	
 	----------------------------------------------
 	/*
 		Get MatchID to reduce memory usage when select data from Bettrans
 	*/
 	INSERT INTO #tmpMatch ( MatchID )
-	SELECT MatchID
-	FROM dbo.Bettrans WITH (NOLOCK)
+	SELECT b.MatchID
+	FROM dbo.Bettrans b WITH (NOLOCK)
 	WHERE WinlostDate >= @FromWLDate
-		AND WinlostDate < @ToWLDate
-		AND BetType IN (SELECT BetType FROM #tmpProductBetType WHERE RefTable IN (0,3) GROUP BY BetType)
-		AND StatusID IN (111, 112, 113) -- won/lose/draw tickets
-		AND Currency <> 20
-		AND MatchID IS NOT NULL
-	GROUP BY MatchID
+		AND b.WinlostDate < @ToWLDate
+		AND EXISTS (SELECT 1 FROM #tmpProductBetType p WHERE p.RefTable IN (0,3) AND p.BetType = b.bettype)
+		AND b.StatusID IN (111, 112, 113) -- won/lose/draw tickets
+		AND b.Currency <> 20
+		AND b.MatchID IS NOT NULL
+	GROUP BY b.MatchID
 	/*
 		Get all data of Non-Sports
 	*/
@@ -334,11 +337,10 @@ BEGIN
 		AND b.WinlostDate < @ToWLDate
 		AND b.transdate >= @From4GMTTime
 		AND b.transdate < @To4GMTTime
-		AND b.BetType IN (SELECT BetType FROM #tmpProductBetType WHERE RefTable IN (0,3) GROUP BY BetType)
-		-- AND b.ruben = 1
+		AND EXISTS (SELECT 1 FROM #tmpProductBetType p WHERE p.RefTable IN (0,3) AND p.BetType = b.bettype)
 		AND b.statusID IN (111, 112, 113) -- won/lose/draw tickets
 		AND b.Currency <> 20
-		AND b.MatchID IN (SELECT MatchID FROM #tmpMatch)
+		AND EXISTS (SELECT 1 FROM #tmpMatch m WHERE m.MatchID = b.MatchID)
 	GROUP BY b.BetType
 	OPTION (RECOMPILE)
 
@@ -358,7 +360,7 @@ BEGIN
 		AND b.WinlostDate < @ToWLDate
 		AND b.transdate >= @From4GMTTime
 		AND b.transdate < @To4GMTTime
-		AND b.GameID IN (SELECT BetType FROM #tmpProductBetType WHERE RefTable = 1 GROUP BY BetType)
+		AND EXISTS (SELECT 1 FROM #tmpProductBetType p WHERE p.RefTable = 1 AND p.BetType = b.GameID)
 		AND b.statusID IN (111, 112, 113) -- won/lose/draw tickets
 		AND b.Currency <> 20
 	GROUP BY b.GameID
@@ -380,7 +382,7 @@ BEGIN
 		AND b.WinlostDate < @ToWLDate
 		AND b.transdate >= @From4GMTTime
 		AND b.transdate < @To4GMTTime
-		AND b.GameID IN (SELECT BetType FROM #tmpProductBetType WHERE RefTable = 2 GROUP BY BetType)
+		AND EXISTS (SELECT 1 FROM #tmpProductBetType p WHERE p.RefTable = 2 AND p.BetType = b.GameID)
 		AND b.statusID IN (111, 112, 113) -- won/lose/draw tickets
 		AND b.Currency <> 20
 	GROUP BY b.GameID
@@ -433,7 +435,7 @@ BEGIN
 		LEFT JOIN dbo.Products AS p ON r.ProductID = p.ProductID
 		LEFT JOIN dbo.BetType AS b ON r.BetType = b.TypeID
 	ORDER BY GamePayout DESC
-		,b.typenamee
+		,b.typenamee ASC
 	
 	DROP TABLE #tmpDrawData
 	DROP TABLE #tmpResult
@@ -442,4 +444,5 @@ BEGIN
 	DROP TABLE #tmpSpecialBetType
 	DROP TABLE #tmpMatch
 	DROP TABLE #tmpProductLimit
+
 END

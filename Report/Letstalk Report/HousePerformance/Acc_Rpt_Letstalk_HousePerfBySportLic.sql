@@ -46,6 +46,7 @@ AS
 		20250722@Cherry: Integrate ODINGAMING (#219228)
 		20250814@Cherry: Integrate Smartsoft (#236071)
 		20250825@Cherry: Integrate OFA Live (#236741)
+		20250905@Cherry: Integrate Bgaming (#237204)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -197,12 +198,12 @@ BEGIN
 		Get Dim data
 	*/
 	--3rd Product--
-	SELECT @SQLStr = '
+	SELECT @SQLStr = N'
 		SELECT ProductID
 			,ProductName
 			,ProductPrefix
 			,Enabled
-		FROM bodb_Licensee.dbo.Product3rd WITH (NOLOCK)
+		FROM DBEXT.bodb_Licensee.dbo.Product3rd WITH (NOLOCK)
 	'
 	INSERT INTO #tmpProduct3rd (
 		Product3rdID
@@ -210,8 +211,8 @@ BEGIN
 		,ProductPrefix
 		,Enabled
 	)
-	EXEC (@SQLStr) AT DBEXT
-	CREATE CLUSTERED INDEX tmpProduct3rd ON #tmpProduct3rd (Product3rdID)
+	EXECUTE sp_executesql @SQLStr
+	CREATE CLUSTERED INDEX IX_tmpProduct3rd ON #tmpProduct3rd (Product3rdID)
 
 	INSERT INTO #tmpOddsAdjBettype (Bettype)
 	SELECT BetType
@@ -281,6 +282,7 @@ BEGIN
 			WHEN ProductName = 'ODIN GAMING' THEN 'ODIN'
 			WHEN ProductName = 'Smartsoft' THEN 'SmartS'
 			WHEN ProductName = 'OFA Live' THEN 'OFA LC'
+			WHEN ProductName = 'BGaming' THEN 'BGame'
 			ELSE ProductName END)
 	
 	SELECT @EX3rdName = rd.ProductName
@@ -298,7 +300,6 @@ BEGIN
 		ExchangeID
 		,BaseCurrencyRate
 	)
-	--EXEC (@SQLStr) AT DBEXT
 	SELECT ExchangeID, CNY
 	FROM bodb02.dbo.ExchangeDailyOanda WITH(NOLOCK)
 	WHERE ExchangeDate = @WLDate 
@@ -327,20 +328,20 @@ BEGIN
 		AND (s.ProductID NOT IN (1,12,15,24,25,37,59,74,81) ---exclude SB(1),Gold Deluxe(12),Colossus Bets(15),Fishing World(24),CO Old Model(25),Saba Promotion(37),GDG(59),Player Tips(74),Saba Coins(81)
 			OR (s.ProductID = 1 AND s.SubProduct IN ('Bet Builder','MG-SuperLive'))
 		)
-	CREATE CLUSTERED INDEX tmpBetType ON #tmpBetType (BetType)
+	CREATE CLUSTERED INDEX IX_tmpBetType ON #tmpBetType (BetType)
 	
 	--LicParty--
-	SELECT @SQLStr = '
+	SELECT @SQLStr = N'
 		SELECT l.LicenseeName
 			,ISNULL(p.PartyID,0) AS PartyID
-		FROM bodb_Licensee.dbo.Licensees AS l WITH (NOLOCK)
+		FROM DBEXT.bodb_Licensee.dbo.Licensees AS l WITH (NOLOCK)
 			LEFT JOIN bodb_licensee.dbo.OAS_Party p WITH (NOLOCK) ON p.OldRefID = l.LicenseeID AND p.PartyType = 1
 	'
 	INSERT INTO #tmpLicParty (
 		LicenseeName
 		,PartyID
 		)
-	EXEC (@SQLStr) AT DBEXT
+	EXECUTE sp_executesql @SQLStr
 	
 	--Deposit super--
 	INSERT INTO #tmpDepSuper (
@@ -352,7 +353,7 @@ BEGIN
 	FROM bodb_account.dbo.vw_Dep_CustSuper c WITH (NOLOCK) --use view to exclude some special site
 		INNER JOIN #tmpLicParty p WITH (NOLOCK) ON p.LicenseeName = c.site
 	WHERE c.currency <> 20
-	CREATE CLUSTERED INDEX tmpDepSuper ON #tmpDepSuper (CustID)
+	CREATE CLUSTERED INDEX IX_tmpDepSuper ON #tmpDepSuper (CustID)
 	
 	-- Get party list--
 	SELECT @PartyIDs = COALESCE(@PartyIDs + ',', '') + CONVERT(VARCHAR, PartyID)
@@ -414,7 +415,7 @@ BEGIN
 			,ci.DI_Rate AS Rate
 			,ci.BetType
 			,ci.ChargeType
-		FROM bodb_licensee.dbo.LA_f_ChargeInfo(''' + @PartyIDs + ''', ''' + CONVERT(VARCHAR, @WLDate, 23) + ''', ''' + CONVERT(VARCHAR, @WLDate, 23) + ''', ''' + @ProductCodes + ''', ''OA'', 1) AS ci
+		FROM DBEXT.bodb_licensee.dbo.LA_f_ChargeInfo(''' + @PartyIDs + ''', ''' + CONVERT(VARCHAR, @WLDate, 23) + ''', ''' + CONVERT(VARCHAR, @WLDate, 23) + ''', ''' + @ProductCodes + ''', ''OA'', 1) AS ci
 		WHERE ci.DI_Rate > 0
 			AND (ci.ChargeType = 1
 				OR (ci.ChargeType = 12 AND ci.ProductID = 39)
@@ -428,7 +429,7 @@ BEGIN
 		,BetType
 		,ChargeType
 		)
-	EXEC (@SQLStr) AT DBEXT
+	EXECUTE sp_executesql @SQLStr
 	
 	-- Get charge rate by Currency--
 	;WITH CTE_Charge AS (
@@ -445,11 +446,11 @@ BEGIN
 						), 1, 2, '')
 				) AS ChargeIDs
 		)
-	SELECT @SQLStr = '
+	SELECT @SQLStr = N'
 		SELECT DISTINCT pc.ChargeID
 			,pc.CurrencyID
 			,pc.Rate
-		FROM bodb_Licensee.dbo.LA_ChargeRateByCurrency pc WITH (NOLOCK)
+		FROM DBEXT.bodb_Licensee.dbo.LA_ChargeRateByCurrency pc WITH (NOLOCK)
 		WHERE ChargeID IN (' + ChargeIDs + ')'
 	FROM CTE_IDs
 
@@ -458,7 +459,7 @@ BEGIN
 		,CurrencyID
 		,Rate
 	)
-	EXEC (@SQLStr) AT DBEXT
+	EXECUTE sp_executesql @SQLStr
 	
 	/*
 		Hard code for merge [Virtual Sports]
@@ -512,11 +513,16 @@ BEGIN
 	IF @WLDate >= @VSMergeCutOffDate --over Cut Off Date
 		AND EXISTS (
 			SELECT 1
-			FROM @VS3rd_To 
-			WHERE Product3rdID NOT IN (SELECT Product3rdID FROM #tmpChargeInfo)			
+			FROM @VS3rd_To v
+			WHERE NOT EXISTS (SELECT 1 FROM #tmpChargeInfo c WHERE v.Product3rdID = c.Product3rdID) 
 		)
 	BEGIN
 		--CLONE charge rate by PartyID (from VS to VS 2,3,4)
+		;WITH CTE_VS AS (
+			SELECT v.Product3rdID
+			FROM @VS3rd_To v
+			WHERE NOT EXISTS (SELECT 1 FROM #tmpChargeInfo c WHERE v.Product3rdID = c.Product3rdID) 
+		)
 		INSERT INTO #tmpChargeInfo (
 			ChargeID
 			,PartyID
@@ -532,9 +538,8 @@ BEGIN
 			,c.BetType
 			,c.ChargeType
 		FROM #tmpChargeInfo AS c WITH (NOLOCK)
-			,@VS3rd_To AS rd
+			CROSS JOIN CTE_VS AS rd 
 		WHERE c.Product3rdID = @VS3rd_FromID
-			AND rd.Product3rdID NOT IN (SELECT Product3rdID FROM #tmpChargeInfo)
 	END
 	
 	--specific sport, the rest will be group into [Other Sports]
@@ -744,7 +749,7 @@ BEGIN
 		,b.LiveIndicator
 		,ISNULL(slg.SabaType,0)
 
-	CREATE CLUSTERED INDEX tmpRawData ON #tmpRawData (IsSB, PartyID, Product3rdID, Currency)
+	CREATE CLUSTERED INDEX IX_tmpRawData ON #tmpRawData (IsSB, PartyID, Product3rdID, Currency)
 	
 	--Get SB by Sport - [GroupID = 2] - fixed order--
 	;WITH CTE_SB_BySport AS (
@@ -943,8 +948,8 @@ BEGIN
 		,CONVERT(DECIMAL(10,6),Margin) AS Margin
 		,CASE WHEN GroupName = @EX3rdName AND @DayOffset = 0 THEN '[1h delay]' ELSE '' END AS ExtraInfo
 	FROM CTE_Grp
-	ORDER BY GroupID
-		,OrdNo
+	ORDER BY GroupID ASC
+		,OrdNo ASC
 	
 	SELECT @Title AS Title
 	
