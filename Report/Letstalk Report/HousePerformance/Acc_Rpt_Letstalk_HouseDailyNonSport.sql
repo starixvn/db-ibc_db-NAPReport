@@ -192,18 +192,20 @@ BEGIN
 		SELECT ProductID
 			,ProductShortName
 		FROM ( VALUES
-			(46,'IBC') --IBCBet Live Casino
-			,(69,'BTC') 
-			,(3,'NG') 
+			(3,'NG') 
+			,(5,'VS') 
+			,(6,'SabaC') --Saba Casino
+			,(11,'AG') --AG Casino
 			,(12,'GoldD') --Gold Deluxe
+			,(46,'IBC') --IBCBet Live Casino
+			,(69,'BTC') 						
 			,(52,'ION') --ION
 			,(72,'SEAL') --Seal Entertainment
 			,(66,'SABAG')--Vgaming - Combine in SABA.games
 			,(32,'PP') --PP
 			,(50,'FunkyG') --Funky Games
 			,(106,'VS7') 
-			,(63,'SLot')
-			,(6,'SabaC') --Saba Casino
+			,(63,'SLot')			
 			,(67,'AP') --AdvantPlay
 			,(21,'AB') --Allbet
 			,(27,'VS2')
@@ -217,8 +219,7 @@ BEGIN
 			,(73,'MG') --MG-RNG
 			,(36,'SG') --SG
 			,(62,'CG') --CG
-			,(42,'SABAG') --SABA.games
-			,(5,'VS') 
+			,(42,'SABAG') --SABA.games			
 			,(15,'CB') 
 			,(22,'Macau') --Macau Games
 			,(24,'FW') --Fishing World
@@ -231,8 +232,7 @@ BEGIN
 			,(60,'MaxG') --MaxGame
 			,(83,'VS4') 
 			,(34,'Arca') --Arcadia Gaming
-			,(40,'TabG') 
-			,(11,'AG') --AG Casino
+			,(40,'TabG') 			
 			,(68,'APMini') --AdvantPlay Mini
 			,(28,'MLot') 
 			,(57,'BG') --BG
