@@ -41,6 +41,7 @@ AS
 		20250814@Cherry: Integrate Smartsoft (#236071)
 		20250825@Cherry: Integrate OFA Live (#236741)
 		20250905@Cherry: Integrate Bgaming (#237204)
+		20251010@Cherry: Integrate GEMINI (#240439)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -191,87 +192,59 @@ BEGIN
 		SELECT ProductID
 			,ProductShortName
 		FROM ( VALUES
-			(21,'AB') --Allbet
-			,(45,'AE') --AE Sexy
+			(46,'IBC') --IBCBet Live Casino
+			,(69,'BTC') 
+			,(3,'NG') 
 			,(12,'GoldD') --Gold Deluxe
-			,(39,'SA') --SA Gaming
 			,(52,'ION') --ION
-			,(46,'IBC') --IBCBet Live Casino
-			,(47,'BBIN') --BBIN
-			,(11,'AG') --AG Casino
-			,(51,'WM') --WM
-			,(59,'GDG') --GDG
-			,(57,'BG') --BG
-			,(65,'PPLC') --PP Live Casino
-			,(70,'FGG') --FGG
-			,(76,'YeeBet')
-			,(80,'WE LC')
-			,(96,'ONCasino')
-			,(90,'GPI LC')
-			,(107,'MG LC')
-			,(42,'SABAG') --SABA.games
-			,(6,'SabaC') --Saba Casino
-			,(34,'Arca') --Arcadia Gaming
-			,(32,'PP') --PP
-			,(38,'VirtG') --Virtual Games
-			,(22,'Macau') --Macau Games
-			,(36,'SG') --SG
-			,(50,'FunkyG') --Funky Games
-			,(24,'FW') --Fishing World
-			,(55,'PGSoft') --PG Soft
-			,(56,'Joker') --Joker
-			,(60,'MaxG') --MaxGame
-			,(61,'HB') --Habanero
-			,(62,'CG') --CG
-			,(66,'SABAG')--Vgaming - Combine in SABA.games
-			,(67,'AP') --AdvantPlay
-			,(68,'APMini') --AdvantPlay Mini
 			,(72,'SEAL') --Seal Entertainment
-			,(73,'MG') --MG-RNG
-			,(75,'Jili')
-			,(79,'Live22')
-			,(78,'UUS')
-			,(84,'YoloP')
-			,(86,'SABAxD')
-			,(87,'FastSpin')
-			,(89,'FACHAI')
-			,(85,'Nextspin')
-			,(48,'GPI')
-			,(100,'Playtech')
-			,(102,'SABAK')
-			,(91,'PLAYS')
-			,(103,'ASKME')
-			,(104,'FunkyG') --Funky Games
-			,(95,'HOTDOG')
-			,(40,'TabG') --Table Game
-			,(8,'Mkeno') --RNG Keno
-			,(3,'NG') --Number Game -Combine NumG, Happy 5, Happy 5 LG into Number Game
-			,(28,'MLot') --Lottery
-			,(23,'NG2') --NG2
+			,(66,'SABAG')--Vgaming - Combine in SABA.games
+			,(32,'PP') --PP
+			,(50,'FunkyG') --Funky Games
+			,(106,'VS7') 
+			,(63,'SLot')
+			,(6,'SabaC') --Saba Casino
+			,(67,'AP') --AdvantPlay
+			,(21,'AB') --Allbet
+			,(27,'VS2')
 			,(43,'To4D') --Togel 4D
-			,(63,'SLot') --Sports Lottery
-			,(27,'VS2') --Virtual Sports 2
-			,(5,'VS') --Virtual Sports
-			,(15,'CB') --Colossus Bets
-			,(31,'EX') --Exchange
 			,(49,'VS3(Old)') --Virtual Sports 3
-			,(69,'BTC') --Bitcoin
-			,(77,'VS3') --Virtual Sports
-			,(83,'VS4')
-			,(88,'VS5')
-			,(106,'VS7')
+			,(38,'VirtG') --Virtual Games
 			,(101,'PlayT LC')
-			,(108,'RichG')
-			,(98,'W LC')
-			,(109,'ClotP')
-			,(110,'AIG')
-			,(84,'GPILotte')
-			,(105,'ODIN')
-			,(99,'SmartS')
-			,(113,'OFA LC')
-			,(114,'BGame')
+			,(47,'BBIN') --BBIN
+			,(61,'HB') --Habanero
+			,(65,'PPLC') --PP Live Casino
+			,(73,'MG') --MG-RNG
+			,(36,'SG') --SG
+			,(62,'CG') --CG
+			,(42,'SABAG') --SABA.games
+			,(5,'VS') 
+			,(15,'CB') 
+			,(22,'Macau') --Macau Games
+			,(24,'FW') --Fishing World
+			,(39,'SA') --SA Gaming
+			,(88,'VS5') 
+			,(102,'SABAG')
+			,(45,'AE') --AE Sexy
+			,(71,'VS6') 
+			,(77,'VS3') 
+			,(60,'MaxG') --MaxGame
+			,(83,'VS4') 
+			,(34,'Arca') --Arcadia Gaming
+			,(40,'TabG') 
+			,(11,'AG') --AG Casino
+			,(68,'APMini') --AdvantPlay Mini
+			,(28,'MLot') 
+			,(57,'BG') --BG
+			,(51,'WM') --WM
 		) h (ProductID, ProductShortName)
 	)
+	,CTE_ShortName AS(
+		SELECT DISTINCT h.ProductID, h.ProductPrefix, h.ProductShortName
+		FROM DBWH.bodb_Account.dbo.HNISettings h WITH(NOLOCK)
+		WHERE h.productid > 1 AND h.isEnable = 1
+			AND EXISTS (SELECT 1 FROM bodb02.dbo.Products AS p WITH (NOLOCK) WHERE h.ProductPrefix = p.ProductPrefix)
+	) 
 	,CTE_ProductGroup AS (
 		SELECT DISTINCT ProductID AS ProductID
 			,ProductCategory AS ProductCategory
@@ -288,12 +261,13 @@ BEGIN
 	SELECT DISTINCT pb.ProductID
 		,ISNULL(s.ProductGroup,pg.ProductCategory) AS ProductGroup
 		,CASE WHEN s.ProductID IS NULL THEN pg.CategoryOrder ELSE 10 END AS GroupOrder
-		,ISNULL(s.ProductShortName,ISNULL(h.ProductShortName,ISNULL(p.ProductPrefix,'Other NS'))) AS ProductShortName
+		,ISNULL(s.ProductShortName,ISNULL(h.ProductShortName,ISNULL(sh.ProductShortName,ISNULL(p.ProductPrefix,'Other NS')))) AS ProductShortName
 	FROM #tmpProductBettype AS pb WITH (NOLOCK)
 		LEFT JOIN CTE_Special AS s ON pb.ProductID = s.ProductID
 		LEFT JOIN CTE_Hardcode AS h ON pb.ProductID = h.ProductID
 		LEFT JOIN bodb02.dbo.Products AS p WITH (NOLOCK) ON pb.ProductID = p.ProductID
 		LEFT JOIN CTE_ProductGroup AS pg ON pb.ProductID = pg.ProductID
+		LEFT JOIN CTE_ShortName sh ON pb.ProductID = sh.ProductID
 	--make sure no dup ProductID--
 	;WITH CTE_Dup AS (
 		SELECT ProductID

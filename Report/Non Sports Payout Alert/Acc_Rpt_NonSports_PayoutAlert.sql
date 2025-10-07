@@ -40,6 +40,7 @@ AS
 		20250814@Cherry: Integrate Smartsoft (#236071)
 		20250825@Cherry: Integrate OFA Live (#236741)
 		20250905@Cherry: Integrate Bgaming (#237204)
+		20251010@Cherry: Integrate GEMINI (#240439)
 
 	Param's Explanation:
 		@FromGMT8Time: start of time range in GMT+8 with format 2021-05-20 19:00:00
@@ -135,6 +136,7 @@ BEGIN
 			,(102, 'SABA Keno', 120, 5000)
 			,(104, 'Funky Games', 120, 5000)
 			,(84, 'GPI Lottery', 120, 5000)
+			,(115, 'GEMINI', 120, 5000)
 			
 			-------------Sport-------------
 			,(5, 'Virtual Sports', 108, 5000)
