@@ -194,49 +194,49 @@ BEGIN
 		FROM ( VALUES
 			(3,'NG') 
 			,(5,'VS') 
-			,(6,'SabaC') --Saba Casino
-			,(11,'AG') --AG Casino
-			,(12,'GoldD') --Gold Deluxe
-			,(46,'IBC') --IBCBet Live Casino
-			,(69,'BTC') 						
-			,(52,'ION') --ION
-			,(72,'SEAL') --Seal Entertainment
-			,(66,'SABAG')--Vgaming - Combine in SABA.games
-			,(32,'PP') --PP
-			,(50,'FunkyG') --Funky Games
-			,(106,'VS7') 
-			,(63,'SLot')			
-			,(67,'AP') --AdvantPlay
-			,(21,'AB') --Allbet
-			,(27,'VS2')
-			,(43,'To4D') --Togel 4D
-			,(49,'VS3(Old)') --Virtual Sports 3
-			,(38,'VirtG') --Virtual Games
-			,(101,'PlayT LC')
-			,(47,'BBIN') --BBIN
-			,(61,'HB') --Habanero
-			,(65,'PPLC') --PP Live Casino
-			,(73,'MG') --MG-RNG
-			,(36,'SG') --SG
-			,(62,'CG') --CG
-			,(42,'SABAG') --SABA.games			
+			,(6,'SabaC') 
+			,(11,'AG') 
+			,(12,'GoldD') 
 			,(15,'CB') 
-			,(22,'Macau') --Macau Games
-			,(24,'FW') --Fishing World
-			,(39,'SA') --SA Gaming
-			,(88,'VS5') 
-			,(102,'SABAG')
-			,(45,'AE') --AE Sexy
+			,(21,'AB') 
+			,(27,'VS2')
+			,(28,'MLot') 
+			,(32,'PP') 
+			,(36,'SG') 
+			,(46,'IBC')		
+			,(47,'BBIN')
+			,(50,'FunkyG') 
+			,(51,'WM') 
+			,(52,'ION') 
+			,(57,'BG') 			
+			,(66,'SABAG')
+			,(69,'BTC') 
+			,(72,'SEAL') 												
+			,(63,'SLot')			
+			,(67,'AP') 			
+			,(43,'To4D') 
+			,(49,'VS3(Old)') 
+			,(38,'VirtG') 						 
+			,(61,'HB') 
+			,(65,'PPLC') 
+			,(73,'MG') 			
+			,(62,'CG') 
+			,(42,'SABAG') 				
+			,(22,'Macau') 
+			,(24,'FW') 
+			,(39,'SA') 
+			,(88,'VS5') 			
+			,(45,'AE') 
 			,(71,'VS6') 
 			,(77,'VS3') 
-			,(60,'MaxG') --MaxGame
+			,(60,'MaxG') 
 			,(83,'VS4') 
-			,(34,'Arca') --Arcadia Gaming
+			,(34,'Arca') 
 			,(40,'TabG') 			
-			,(68,'APMini') --AdvantPlay Mini
-			,(28,'MLot') 
-			,(57,'BG') --BG
-			,(51,'WM') --WM
+			,(68,'APMini') 			
+			,(101,'PlayT LC')
+			,(102,'SABAG')
+			,(106,'VS7') 
 		) h (ProductID, ProductShortName)
 	)
 	,CTE_ShortName AS(
