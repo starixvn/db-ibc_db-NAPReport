@@ -246,7 +246,7 @@ BEGIN
 			ELSE t.ProductShortName
 		END	)
 	FROM #tmpProduct3rd p
-		INNER JOIN #tmpProduct t ON p.ProductPrefix = t.ProductPrefix
+		LEFT JOIN #tmpProduct t ON p.ProductPrefix = t.ProductPrefix
 	
 	SELECT @EX3rdName = rd.ProductName
 	FROM #tmpProduct3rd AS rd WITH (NOLOCK)
