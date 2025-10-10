@@ -376,16 +376,22 @@ BEGIN
 	-- Get charge rate of 3rd Products--
 	SELECT @SQLStr = '
 		SELECT DISTINCT ci.ChargeID
-			,ci.PartyID
-			,ci.ProductID AS Product3rdID
-			,ci.DI_Rate AS Rate
-			,ci.BetType
-			,ci.ChargeType
-		FROM bodb_licensee.dbo.LA_f_ChargeInfo(''' + @PartyIDs + ''', ''' + CONVERT(VARCHAR, @WLDate, 23) + ''', ''' + CONVERT(VARCHAR, @WLDate, 23) + ''', ''' + @ProductCodes + ''', ''OA'', 1) AS ci
-		WHERE ci.DI_Rate > 0
-			AND (ci.ChargeType = 1
-				OR (ci.ChargeType = 12 AND ci.ProductID = 39)
-			)
+        ,ci.PartyID
+        ,ci.ProductID AS Product3rdID
+        ,ci.DI_Rate AS Rate
+        ,ci.BetType
+        ,ci.ChargeType
+    FROM OPENQUERY(DBEXT, ''' + 
+	'SELECT * FROM bodb_licensee.dbo.LA_f_ChargeInfo(''''' + 
+    REPLACE(@PartyIDs, '''', '''''') + ''''', ''''' + 
+    CONVERT(VARCHAR, @WLDate, 23) + ''''', ''''' + 
+    CONVERT(VARCHAR, @WLDate, 23) + ''''', ''''' + 
+    REPLACE(@ProductCodes, '''', '''''') + ''''', ''''OA'''', 1)' 
+	+ ''') AS ci
+    WHERE ci.DI_Rate > 0
+        AND (ci.ChargeType = 1
+            OR (ci.ChargeType = 12 AND ci.ProductID = 39)
+        ) 
 	'
 	INSERT INTO #tmpChargeInfo (
 		ChargeID
@@ -395,7 +401,7 @@ BEGIN
 		,BetType
 		,ChargeType
 		)
-	EXECUTE (@SQLStr) AT DBEXT
+	EXECUTE sp_executesql @SQLStr
 	
 	-- Get charge rate by Currency--
 	;WITH CTE_Charge AS (
