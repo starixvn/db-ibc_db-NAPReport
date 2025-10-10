@@ -307,7 +307,7 @@ BEGIN
 		LicenseeName
 		,PartyID
 		)
-	EXECUTE sp_executesql @SQLStr
+	EXECUTE sp_executesql @SQLStr 
 	
 	--Deposit super--
 	INSERT INTO #tmpDepSuper (
@@ -381,7 +381,7 @@ BEGIN
 			,ci.DI_Rate AS Rate
 			,ci.BetType
 			,ci.ChargeType
-		FROM DBEXT.bodb_licensee.dbo.LA_f_ChargeInfo(''' + @PartyIDs + ''', ''' + CONVERT(VARCHAR, @WLDate, 23) + ''', ''' + CONVERT(VARCHAR, @WLDate, 23) + ''', ''' + @ProductCodes + ''', ''OA'', 1) AS ci
+		FROM bodb_licensee.dbo.LA_f_ChargeInfo(''' + @PartyIDs + ''', ''' + CONVERT(VARCHAR, @WLDate, 23) + ''', ''' + CONVERT(VARCHAR, @WLDate, 23) + ''', ''' + @ProductCodes + ''', ''OA'', 1) AS ci
 		WHERE ci.DI_Rate > 0
 			AND (ci.ChargeType = 1
 				OR (ci.ChargeType = 12 AND ci.ProductID = 39)
@@ -395,7 +395,7 @@ BEGIN
 		,BetType
 		,ChargeType
 		)
-	EXECUTE sp_executesql @SQLStr
+	EXECUTE (@SQLStr) AT DBEXT
 	
 	-- Get charge rate by Currency--
 	;WITH CTE_Charge AS (
