@@ -21,6 +21,7 @@ AS
 		20241030@Roy: Email/Letstalk - Integrate VS6 (#212749)
 		20241226@Roy: Email/Letstalk - Offer Direct Member for Super and Master (#215045)
 		20250616@Cherry: Integrate Playtech Live Jackpot (#225847)
+        20251010@Jaden: Fix exchange type (#222187)
 
     Param's Explanation:
         @winlostdate: The date to get data
@@ -220,7 +221,7 @@ BEGIN
         [matchid]              [int]            NULL,
         [recommend]            [int]            NOT NULL,
         [actual_stake]         [money]          NULL,
-        [currency]             [tinyint]        NULL,
+        [currency]             [int]            NULL,
         [scomm]                [money]          NULL,
         [swinlost]             [money]          NULL,
         [refno]                [bigint]         NULL,
