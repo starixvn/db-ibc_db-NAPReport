@@ -301,7 +301,7 @@ BEGIN
 		SELECT l.LicenseeName
 			,ISNULL(p.PartyID,0) AS PartyID
 		FROM DBEXT.bodb_Licensee.dbo.Licensees AS l WITH (NOLOCK)
-			LEFT JOIN bodb_licensee.dbo.OAS_Party p WITH (NOLOCK) ON p.OldRefID = l.LicenseeID AND p.PartyType = 1
+			LEFT JOIN DBEXT.bodb_licensee.dbo.OAS_Party p WITH (NOLOCK) ON p.OldRefID = l.LicenseeID AND p.PartyType = 1
 	'
 	INSERT INTO #tmpLicParty (
 		LicenseeName
