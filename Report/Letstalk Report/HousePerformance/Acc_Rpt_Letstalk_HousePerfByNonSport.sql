@@ -71,8 +71,7 @@ BEGIN
 		@Footer VARCHAR(20) = 'ID #34',
 		@DayOffset INT,
 		@WLDate SMALLDATETIME		
-
-	SET @WLDate = DATEADD(dd, DATEDIFF(dd, 0, @ExecTime4GMT), @DayOffset)
+	
 	SET @DayOffset = (
 			CASE 
 				WHEN DATEPART(HOUR, @ExecTime4GMT) >= 2
@@ -80,6 +79,8 @@ BEGIN
 				ELSE - 1
 				END
 			)	
+
+	SET @WLDate = DATEADD(dd, DATEDIFF(dd, 0, @ExecTime4GMT), @DayOffset)
 
 	--Build Exec Time as Text
 	IF (@DayOffset = 0)
