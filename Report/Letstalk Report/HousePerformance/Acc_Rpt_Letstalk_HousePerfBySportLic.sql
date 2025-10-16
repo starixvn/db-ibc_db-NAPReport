@@ -47,6 +47,7 @@ AS
 		20250814@Cherry: Integrate Smartsoft (#236071)
 		20250825@Cherry: Integrate OFA Live (#236741)
 		20250905@Cherry: Integrate Bgaming (#237204)
+		20251010@Cherry: Integrate GEMINI (#240439)
 
 	Param's Explanation:
 		@ExecTime4GMT: The exec time (GMT-4)
@@ -218,72 +219,37 @@ BEGIN
 	SELECT BetType
 	FROM bodb_Account.dbo.BettypeGroup WITH(NOLOCK) 
 	WHERE BettypeGroupID = 19
+
+	CREATE TABLE #tmpProduct (ProductID INT, ProductPrefix VARCHAR(50),ProductShortName VARCHAR(50),ProductName VARCHAR(50))
+	INSERT INTO #tmpProduct (ProductID, ProductPrefix, ProductShortName, ProductName)
+	SELECT DISTINCT h.ProductID, h.ProductPrefix, h.ProductShortName, h.ProductName 
+	FROM bodb_account.dbo.HNISettings h WITH(NOLOCK) 
+		INNER JOIN bodb02.dbo.Products p WITH(NOLOCK)  ON h.ProductPrefix = p.ProductPrefix
+	WHERE h.productid > 1 AND h.isEnable = 1							
 	
 	-------------------Format ProductName----------------
-	UPDATE #tmpProduct3rd
-	SET ProductName = (
-		CASE WHEN ProductName = 'Number Game' THEN 'NumG'
-			WHEN ProductName = 'Virtual Sports' THEN 'VirtSpo'
-			WHEN ProductName = 'RNG Casino' THEN '1RNG'
-			WHEN ProductName = 'RNG Keno' THEN 'MKeno'
-			-- WHEN ProductName = 'Colossus Bets' THEN 'CB'
-			WHEN ProductName = 'Allbet' THEN 'AllB'
-			WHEN ProductName = 'Macau Games' THEN 'MacauG'
-			-- WHEN ProductName = 'Fishing World' THEN 'FishW'
-			-- WHEN ProductName = 'Cash Out' THEN 'CashO'
-			WHEN ProductName = 'Virtual Sports 2' THEN 'VirtSpo2'
-			WHEN ProductName = 'Lottery' THEN 'MLotte'
-			WHEN ProductName = 'Arcadia Gaming' THEN 'ArcaGam'
-			WHEN ProductName = 'PG Soft' THEN 'PGSoft'
-			WHEN ProductName = 'Virtual Games' THEN 'VirtG'
-			WHEN ProductName = 'Table Game' THEN 'TableG'
-			WHEN ProductName = 'Saba.games' THEN 'SabaG'
-			WHEN ProductName = 'Togel 4D' THEN 'I4D'
-			WHEN ProductName = 'PP' THEN 'PragP'
-			WHEN ProductName = 'SG' THEN 'SpadeG'
-			WHEN ProductName = 'IBCBet Live Casino' THEN 'IBCLC'
-			WHEN ProductName = 'SA Gaming' THEN 'SAG'
-			WHEN ProductName = 'RNG War' THEN 'RNGWar'
-			-- WHEN ProductName = 'Gold Deluxe' THEN 'GoldD'
-			WHEN ProductName = 'AG Casino' THEN 'AG'
-			WHEN ProductName = 'Sports Lottery' THEN 'SportsLott'
-			WHEN ProductName = 'PP Live Casino' THEN 'PP LC'
-			WHEN ProductName = 'AE Sexy' THEN 'AESexy'
-			WHEN ProductName = 'Habanero' THEN 'Haban'
-			WHEN ProductName = 'AdvantPlay' THEN 'AdPlay'
-			WHEN ProductName = 'AdvantPlay Mini' THEN 'AdPlayMini'
-			WHEN ProductName = 'Virtual Sports 3' THEN 'VirtSpo3'
-			WHEN ProductName = 'Funky Games (Old)' THEN 'FunkyG'
-			WHEN ProductName = 'Funky Games' THEN 'FunkyG'
-			WHEN ProductName = 'Saba Casino' THEN 'SabaCas'
-			WHEN ProductName = 'WE Live Casino' THEN 'WE LC'
-			-- WHEN ProductName = 'Live22' THEN 'Live22' --the same - no need
-			WHEN ProductName = 'Virtual Sports 4' THEN 'VirtSpo4'
-			WHEN ProductName = 'SEAL Entertainment' THEN 'SealE'
-			WHEN ProductName = 'UU Slots' THEN 'UUS'
-			WHEN ProductName = 'Yolo Play' THEN 'YoloP'
-			WHEN ProductName = 'SABA xD' THEN 'SABAxD'
-			WHEN ProductName = 'FA CHAI' THEN 'FACHAI'
-			WHEN ProductName = 'Virtual Sports 5' THEN 'VirtSpo5'
-			WHEN ProductName = 'ON Casino' THEN 'ONCasino'
-			WHEN ProductName = 'Virtual Sports 6' THEN 'VirtSpo6'
-			WHEN ProductName = 'Virtual Sports 7' THEN 'VirtSpo7'
-			WHEN ProductName = 'GPI Live Casino' THEN 'GPI LC'
-			WHEN ProductName = 'SABA Keno' THEN 'SABAK'
-			WHEN ProductName = 'PLAYSTAR' THEN 'PLAYS'
-			WHEN ProductName = 'ASKMESLOT' THEN 'ASKME'
-			WHEN ProductName = 'Microgaming Live' THEN 'MG LC'
-			WHEN ProductName = 'Playtech Live' THEN 'PlayT LC'
-			WHEN ProductName = 'RichGaming' THEN 'RichG'
-			WHEN ProductName = 'W Casino' THEN 'W LC'
-			WHEN ProductName = 'ClotPlay' THEN 'ClotP'
-			WHEN ProductName = 'AI Gaming' THEN 'AIG'
-			WHEN ProductName = 'GPI Lottery' THEN 'GPILotte'
-			WHEN ProductName = 'ODIN GAMING' THEN 'ODIN'
-			WHEN ProductName = 'Smartsoft' THEN 'SmartS'
-			WHEN ProductName = 'OFA Live' THEN 'OFA LC'
-			WHEN ProductName = 'BGaming' THEN 'BGame'
-			ELSE ProductName END)
+	UPDATE p
+	SET p.ProductName = (
+		CASE WHEN t.ProductID = 6 THEN 'SabaCas'
+			WHEN t.ProductID = 11 THEN 'AG'
+			WHEN t.ProductID = 21 THEN 'AllB'
+			WHEN t.ProductID = 34 THEN 'ArcaGam'
+			WHEN t.ProductID = 38 THEN 'VirtG'
+			WHEN t.ProductID = 39 THEN 'SAG'
+			WHEN t.ProductID = 42 THEN 'SabaG'
+			WHEN t.ProductID = 43 THEN 'I4D'
+			WHEN t.ProductID = 45 THEN 'AESexy'
+			WHEN t.ProductID = 46 THEN 'IBCLC'
+			WHEN t.ProductID = 50 THEN 'FunkyG'
+			WHEN t.ProductID = 61 THEN 'Haban'
+			WHEN t.ProductID = 63 THEN 'SportsLott'
+			WHEN t.ProductID = 68 THEN 'AdPlayMini'
+			WHEN t.ProductID = 72 THEN 'SealE'
+			WHEN t.ProductID IN (37,47,51,52,57,62,74,81) THEN t.ProductName
+			ELSE t.ProductShortName
+		END	)
+	FROM #tmpProduct3rd p
+		INNER JOIN #tmpProduct t ON p.ProductPrefix = t.ProductPrefix
 	
 	SELECT @EX3rdName = rd.ProductName
 	FROM #tmpProduct3rd AS rd WITH (NOLOCK)
@@ -335,13 +301,13 @@ BEGIN
 		SELECT l.LicenseeName
 			,ISNULL(p.PartyID,0) AS PartyID
 		FROM DBEXT.bodb_Licensee.dbo.Licensees AS l WITH (NOLOCK)
-			LEFT JOIN bodb_licensee.dbo.OAS_Party p WITH (NOLOCK) ON p.OldRefID = l.LicenseeID AND p.PartyType = 1
+			LEFT JOIN DBEXT.bodb_licensee.dbo.OAS_Party p WITH (NOLOCK) ON p.OldRefID = l.LicenseeID AND p.PartyType = 1
 	'
 	INSERT INTO #tmpLicParty (
 		LicenseeName
 		,PartyID
 		)
-	EXECUTE sp_executesql @SQLStr
+	EXECUTE sp_executesql @SQLStr 
 	
 	--Deposit super--
 	INSERT INTO #tmpDepSuper (
@@ -410,16 +376,22 @@ BEGIN
 	-- Get charge rate of 3rd Products--
 	SELECT @SQLStr = '
 		SELECT DISTINCT ci.ChargeID
-			,ci.PartyID
-			,ci.ProductID AS Product3rdID
-			,ci.DI_Rate AS Rate
-			,ci.BetType
-			,ci.ChargeType
-		FROM DBEXT.bodb_licensee.dbo.LA_f_ChargeInfo(''' + @PartyIDs + ''', ''' + CONVERT(VARCHAR, @WLDate, 23) + ''', ''' + CONVERT(VARCHAR, @WLDate, 23) + ''', ''' + @ProductCodes + ''', ''OA'', 1) AS ci
-		WHERE ci.DI_Rate > 0
-			AND (ci.ChargeType = 1
-				OR (ci.ChargeType = 12 AND ci.ProductID = 39)
-			)
+        ,ci.PartyID
+        ,ci.ProductID AS Product3rdID
+        ,ci.DI_Rate AS Rate
+        ,ci.BetType
+        ,ci.ChargeType
+    FROM OPENQUERY(DBEXT, ''' + 
+	'SELECT * FROM bodb_licensee.dbo.LA_f_ChargeInfo(''''' + 
+    REPLACE(@PartyIDs, '''', '''''') + ''''', ''''' + 
+    CONVERT(VARCHAR, @WLDate, 23) + ''''', ''''' + 
+    CONVERT(VARCHAR, @WLDate, 23) + ''''', ''''' + 
+    REPLACE(@ProductCodes, '''', '''''') + ''''', ''''OA'''', 1)' 
+	+ ''') AS ci
+    WHERE ci.DI_Rate > 0
+        AND (ci.ChargeType = 1
+            OR (ci.ChargeType = 12 AND ci.ProductID = 39)
+        ) 
 	'
 	INSERT INTO #tmpChargeInfo (
 		ChargeID
