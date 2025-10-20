@@ -8,11 +8,12 @@
 	Database:	DBACC.bodb02
 	Revisions:
 		- 20250804@Robert - Insert product.	
+		- 20251020@Robert - change column SportType data type from tinyint to smallint
 */
 
 CREATE PROC [dbo].[LetstalkAlertSportsInsertProduct] 
 	@ProductId   TINYINT, 
-	@SportType   TINYINT, 
+	@SportType   SMALLINT, 
 	@TimeSetting VARCHAR(10), 
 	@IsTest      BIT
 AS
