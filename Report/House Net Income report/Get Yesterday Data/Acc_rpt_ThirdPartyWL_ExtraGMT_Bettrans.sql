@@ -33,6 +33,7 @@ AS
 		- 20250910@Cherry: Change W Casino, Jili to GMT-4 (#233940)
 		- 20250916@Cherry: Integrate BGaming (#237204)
 		- 20251010@Cherry: Integrate GEMINI (#240439)
+		- 20251020@Cherry: Integrate Vertex (#241506)
 
 	 Param's Explanation:
 
@@ -61,7 +62,7 @@ BEGIN
 	
 	DECLARE @RnGBettypeList TABLE(Bettype INT)
 	INSERT INTO @RnGBettypeList(Bettype)
-	SELECT bettype FROM OPENQUERY (DBLIC, 'SELECT DISTINCT bettype FROM	bodb_licensee.dbo.LA_f_BettypeProductMapping(0,''FW,PP,CC,SG,JK,CG,MGRNG,L22,UUSL,FS,NS,GPIRNG,PTRNG,PS,ASK,HOT,RGRNG,AIG,CPRNG,GPILT,ODG,SS,BGRNG,GEM'') la')
+	SELECT bettype FROM OPENQUERY (DBLIC, 'SELECT DISTINCT bettype FROM	bodb_licensee.dbo.LA_f_BettypeProductMapping(0,''FW,PP,CC,SG,JK,CG,MGRNG,L22,UUSL,FS,NS,GPIRNG,PTRNG,PS,ASK,HOT,RGRNG,AIG,CPRNG,GPILT,ODG,SS,BGRNG,GEM,VP'') la')
 
 	DECLARE @LCBettypeList TABLE(Bettype INT)
 	INSERT INTO @LCBettypeList(Bettype)
