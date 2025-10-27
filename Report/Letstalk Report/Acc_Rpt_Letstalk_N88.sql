@@ -1,4 +1,4 @@
-/*<info serverAlias="DBN88-bodb_N88" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBN88-bodb_N88" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
 USE bodb_N88
 GO
 
@@ -18,6 +18,7 @@ AS
 		- 20210923@Percy: Change data source [RedmineID: #162087]
 		- 20230512@Sally: get data WL OW from N88's DB, Support Currency BDT [RedmineID: #188141]
 		- 20230523@Sally: Sort Net Turnover in descending [RedmineID: #188141]
+		- 20251027@Robert: Letstalk - Daily Novacash Win Loss (ID 13) - Convert Report Figures from RM to USD (Requestor: YY)
 */
 
 BEGIN
@@ -103,7 +104,7 @@ BEGIN
 		CREATE TABLE #Exchange (FromDate DATE, ToDate DATE, ExchangeId INT, Rate FLOAT)
 		INSERT INTO #Exchange (FromDate, ToDate, ExchangeId, Rate)
 		SELECT FromDate, ToDate, ISNULL(TX.TpExchangeID, e.ExchangeId), Rate 
-		FROM bodb02.dbo.Lrf_f_GetExchangeRate(@FromDate, @ToDate, 'MYR', '') e
+		FROM bodb02.dbo.Lrf_f_GetExchangeRate(@FromDate, @ToDate, 'USD', '') e
           LEFT JOIN dbo.TpExchange tx WITH (NOLOCK) ON E.ExchangeId = tx.ExchangeId 
           INNER JOIN #ListCurrency lc ON  e.ExchangeId = lc.ExchangeId 
                                    AND lc.TpExchangeID = ISNULL(tx.TpExchangeId, e.ExchangeId)
