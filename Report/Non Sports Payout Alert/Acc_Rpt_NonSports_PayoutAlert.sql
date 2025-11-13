@@ -42,6 +42,7 @@ AS
 		20250905@Cherry: Integrate Bgaming (#237204)
 		20251010@Cherry: Integrate GEMINI (#240439)
 		20251020@Cherry: Integrate Vertex (#241506)
+		20251104@Cherry: Integrate WOW Gaming (#243227)
 
 	Param's Explanation:
 		@FromGMT8Time: start of time range in GMT+8 with format 2021-05-20 19:00:00
@@ -179,6 +180,7 @@ BEGIN
 			,(99, 'Smartsoft', 300, 5000)
 			,(114, 'BGaming', 300, 5000)
 			,(116, 'Vertex Play', 300, 5000)
+			,(117, 'WOW Gaming', 300, 5000)
 		) AS tmp (ProductID, ProductName, ThresholdPCT, MinWin)
 
 	DECLARE @isTest BIT = 0
