@@ -14,6 +14,7 @@ AS
 		20220511@Roy: Letstalk Reports - Top 3 Winning and Loosing Leagues (#172608)
 		20230110@Roy: Letstalk Reports - Implement Live Soccer Performance (#182668)
 		20230818@Roy: Auto Mail/Letstalk Reports - integrate Parlay Boost Bonus (#192856)
+		20251201@Cherry: Exclude hedge match (#245253)
 
 	Param's Explanation:
 		@KOStartTime4GMT: The start KO time (GMT-4)
@@ -111,7 +112,7 @@ BEGIN
 		,m.MatchID
 		,m.LeagueID 
 	FROM bodb02.dbo.match AS m WITH (NOLOCK)
-	INNER JOIN bodb02.dbo.league AS l WITH (NOLOCK) ON m.leagueid = l.leagueid
+		INNER JOIN bodb02.dbo.league AS l WITH (NOLOCK) ON m.leagueid = l.leagueid
 	WHERE l.sporttype = 1
 		AND (l.LeagueGroupID IS NULL
 			OR
@@ -123,6 +124,7 @@ BEGIN
 		AND l.isTest = 0
 		AND m.GlobalShowTime >= @KOStartTime4GMT
 		AND m.GlobalShowTime < @KOEndTime4GMT
+		AND m.matchcode NOT LIKE '%hedge%'
 	OPTION (RECOMPILE)
 	
 	CREATE CLUSTERED INDEX tmpMatch ON #tmpMatch (MatchID, LeagueID)
