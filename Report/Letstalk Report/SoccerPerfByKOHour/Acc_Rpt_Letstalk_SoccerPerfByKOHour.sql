@@ -127,7 +127,7 @@ BEGIN
 		AND m.matchcode NOT LIKE '%hedge%'
 	OPTION (RECOMPILE)
 	
-	CREATE CLUSTERED INDEX tmpMatch ON #tmpMatch (MatchID, LeagueID)
+	CREATE CLUSTERED INDEX IX_tmpMatch ON #tmpMatch (MatchID, LeagueID)
 	
 	SELECT @MoveBetsDay = MoveBetsDay
 	FROM OPENQUERY(DBACC, 'exec bodb02.dbo.[Age_SelBalanceUpDay]')
@@ -193,7 +193,7 @@ BEGIN
 		SELECT @FWLDate = DATEADD(DAY, 1, @FWLDate)
 	END
 	
-	CREATE CLUSTERED INDEX tmpRawData ON #tmpRawData(LeagueID, IsHalf, Is8RM)
+	CREATE CLUSTERED INDEX IX_tmpRawData ON #tmpRawData(LeagueID, IsHalf, Is8RM)
 	
 	--Top Win/lose
 	;WITH CTE_League AS (
